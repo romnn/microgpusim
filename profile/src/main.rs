@@ -1,16 +1,13 @@
 use profile;
-use std::path::PathBuf;
-// use clap::Parser;
-
-// #[derive(Parser, Debug, Clone)]
-// struct Options {
-//     executable: PathBuf,
-// }
 
 fn main() {
-    //     let options = Options::parse();
     let args: Vec<_> = std::env::args().collect();
-    let exec: &String = args.get(1).expect("missing executable");
+    let exec: &String = args.get(1).expect("usage ./profile <executable> [args]");
     let exec_args = args.iter().skip(2);
-    profile::detailed(exec, exec_args).unwrap();
+    let metrics = profile::nvprof(exec, exec_args).unwrap();
+
+    // todo: nice table view of the most important things
+    // todo: dump the raw output
+    // todo: dump the parsed output as json
+    println!("{:#?}", &metrics);
 }

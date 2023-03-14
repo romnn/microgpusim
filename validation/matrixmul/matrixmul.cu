@@ -1,13 +1,12 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
 #include <time.h>
-#include <assert.h>
 
 #include <cuda_runtime.h>
-//#include <helper_cuda.h>
 
-// the number of thread
+// the number of threads per block
 #define BLOCK_SIZE 32
 
 double my_timer() {
@@ -211,7 +210,16 @@ int main(int argc, char *argv[]) {
   float *A_dev, *B_dev, *C_dev;
   double start_timer, end_timer;
 
+  if (argc < 2) {
+    fprintf(stderr, "usage: matrixmul <mrow>\n");
+    return 1;
+  }
   int MROW = atoi(argv[1]);
+  if (MROW < 32) {
+    fprintf(stderr, "ERROR: matrices with less than 32 rows are not supported\n");
+    return 1;
+  }
+
   int MSIZE = MROW * MROW;
 
   A = (float *)malloc(sizeof(float) * MSIZE);
@@ -248,7 +256,8 @@ int main(int argc, char *argv[]) {
   assert(grid.y > 0);
   assert(grid.z > 0);
 
-  /* printf("block:%d, thread:%d\n", (MROW / BLOCK_SIZE) * (MROW / BLOCK_SIZE), */
+  /* printf("block:%d, thread:%d\n", (MROW / BLOCK_SIZE) * (MROW / BLOCK_SIZE),
+   */
   /*        BLOCK_SIZE * BLOCK_SIZE); */
   start_timer = my_timer();
   mult_gpu<<<grid, threads, 0>>>(A_dev, B_dev, C_dev, MROW, MROW);
@@ -259,15 +268,13 @@ int main(int argc, char *argv[]) {
   // transfer data back to host
   cudaMemcpy(C, C_dev, MSIZE * sizeof(int), cudaMemcpyDeviceToHost);
   cudaDeviceSynchronize();
-#if 1
+
   start_timer = my_timer();
   mult(A, B, D, MROW);
   end_timer = my_timer();
   printf("The CPU Elapsed Time:%lf Sec.\n", end_timer - start_timer);
 
   // Verification
-  /* FILE *fcpu = fopen("cpu_result.txt", "w"); */
-  /* FILE *fgpu = fopen("gpu_result.txt", "w"); */
   printf("Verifying\n");
   bool correct = true;
   for (i = 0; i < MSIZE; i++) {
@@ -276,15 +283,10 @@ int main(int argc, char *argv[]) {
       correct = false;
       break;
     }
-    /* fprintf(fcpu, "%f\n", D[i]); */
-    /* fprintf(fgpu, "%f\n", C[i]); */
   }
-  /* fclose(fcpu); */
-  /* fclose(fgpu); */
   if (correct) {
     printf("PASS\n");
   }
-#endif
 
   free(A);
   cudaFree(A_dev);

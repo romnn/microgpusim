@@ -1,6 +1,7 @@
 [workspace]
 members = [
-  "profile"
+  "profile",
+  "accelsim"
 ]
 
 [profile.dev]
