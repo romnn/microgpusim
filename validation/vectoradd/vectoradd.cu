@@ -102,6 +102,18 @@ int vectoradd(int n) {
 int main(int argc, char *argv[]) {
     // Size of vectors
     int n = 100; // used to be 100 000
-    if (argc > 1) n = atoi(argv[1]);
-    vectoradd<float>(n);
+    bool use_double = false;
+    if (argc > 2) {
+      n = atoi(argv[1]);
+      if (atoi(argv[2]) == 64) use_double = true;
+    } else {
+      fprintf(stderr, "usage: vectoradd <n> <datatype>\n");
+      return 1;
+    }
+
+    if (use_double) {
+      return vectoradd<double>(n);
+    } else {
+      return vectoradd<float>(n);
+    }
 }

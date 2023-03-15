@@ -28,22 +28,17 @@ impl MemoryAccesses<super::MemAccessTraceEntry> {
     pub fn draw(&mut self, path: impl AsRef<Path>) -> Result<()> {
         use plotters::prelude::*;
 
-        let size = (2000, 1000);
-        let size = (1000, 500);
-        let size = (600, 400);
-        let backend = SVGBackend::new(path.as_ref(), size);
-        // let backend = BitMapBackend::new(path.as_ref(), size);
+        // let size = (600, 400);
+        // let path = path.as_ref().with_extension("svg");
+        // let backend = SVGBackend::new(&path, size);
+
+        let size = (2000, 1500);
+        let path = path.as_ref().with_extension("png");
+        let backend = BitMapBackend::new(&path, size);
+
         let root_area = backend.into_drawing_area();
         root_area.fill(&WHITE)?;
 
-        let min_addr = self
-            .data
-            .values()
-            .flat_map(|accesses| accesses)
-            .flat_map(|access| access.addrs)
-            .filter(|addr| *addr > 0)
-            .min()
-            .unwrap_or(0);
         let max_addr = self
             .data
             .values()
@@ -51,6 +46,17 @@ impl MemoryAccesses<super::MemAccessTraceEntry> {
             .flat_map(|access| access.addrs)
             .max()
             .unwrap_or(u64::MIN);
+        let max_addr = max_addr.checked_add(32).unwrap_or(max_addr);
+
+        let min_addr = self
+            .data
+            .values()
+            .flat_map(|accesses| accesses)
+            .flat_map(|access| access.addrs)
+            .filter(|addr| *addr > 100)
+            .min()
+            .unwrap_or(0);
+        let min_addr = min_addr.checked_sub(32).unwrap_or(min_addr);
         let max_time = self
             .data
             .values()
@@ -63,12 +69,14 @@ impl MemoryAccesses<super::MemAccessTraceEntry> {
         let font = ("monospace", font_size).into_font();
         let text_style = TextStyle::from(font).color(&BLACK);
         let x_range = 0..max_time;
-        let y_range = min_addr - 32..max_addr + 32;
+        let y_range = min_addr..max_addr;
+
         dbg!(&x_range);
         dbg!(&y_range);
+
         let mut chart_ctx = ChartBuilder::on(&root_area)
             .set_label_area_size(LabelAreaPosition::Left, 100)
-            .set_label_area_size(LabelAreaPosition::Bottom, 2*font_size)
+            .set_label_area_size(LabelAreaPosition::Bottom, 2 * font_size)
             .caption("Memory accesses", text_style)
             .build_cartesian_2d(x_range, y_range)?;
 
@@ -83,6 +91,8 @@ impl MemoryAccesses<super::MemAccessTraceEntry> {
         // time = [e[1] for e in entries]
 
         for ((is_store, label), mut accesses) in self.data.iter_mut() {
+            println!("drawing ({is_store}, {label:?})");
+
             accesses.sort_by(|a, b| a.warp_id.cmp(&b.warp_id));
             // dbg!(&accesses);
 
@@ -110,6 +120,7 @@ impl MemoryAccesses<super::MemAccessTraceEntry> {
             .background_style(&WHITE.mix(0.8))
             .draw()?;
 
+        println!("finished drawing");
         Ok(())
     }
 }

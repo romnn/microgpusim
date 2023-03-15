@@ -433,6 +433,8 @@ pub extern "C" fn nvbit_at_ctx_init(ctx: nvbit_rs::Context<'static>) {
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn nvbit_at_ctx_term(ctx: nvbit_rs::Context<'static>) {
+    use std::io::Write;
+
     println!("nvbit_at_ctx_term");
     let lock = CONTEXTS.read().unwrap();
     let Some(instrumentor) = lock.get(&ctx.handle()) else {
@@ -472,62 +474,24 @@ pub extern "C" fn nvbit_at_ctx_term(ctx: nvbit_rs::Context<'static>) {
             .unwrap(),
     );
     let mut reader = serde_json::Deserializer::from_reader(&mut file);
-    // .into_iter::<MemAccessTraceEntry>();
-    // serde_json::Deserializer::from_reader(&mut file).into_iter::<Vec<MemAccessTraceEntry>>();
-
     let mut access_plot = plot::MemoryAccesses::default();
 
     use serde::Deserializer;
-    let visitor = Decoder::new(|access| {
-        // println!("{:#?}", access);
+    let decoder = nvbit_rs::Decoder::new(|access| {
         access_plot.add(access, None);
     });
-    reader.deserialize_seq(visitor);
+    reader.deserialize_seq(decoder);
 
     let trace_plot_path = trace_file_path.with_extension("svg");
-    // let trace_plot_path = trace_file_path.with_extension("png");
-    access_plot.draw(&trace_plot_path).ok();
+    access_plot.draw(&trace_plot_path).unwrap();
+    // if let Err(err) = access_plot.draw(&trace_plot_path) {
+    //     eprintln!("plotting failed: {:?}", &err);
+    // }
 
+    std::io::stdout().flush();
+    std::io::stderr().flush();
     println!(
         "done after {:?}",
         Instant::now().duration_since(instrumentor.start)
     );
-}
-
-struct Decoder<T, CB> {
-    callback: CB,
-    phantom: std::marker::PhantomData<T>,
-}
-
-impl<T, CB> Decoder<T, CB> {
-    pub fn new(callback: CB) -> Self {
-        Self {
-            callback,
-            phantom: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<'de, T, CB> serde::de::Visitor<'de> for Decoder<T, CB>
-where
-    T: serde::Deserialize<'de>,
-    CB: FnMut(T) -> (),
-{
-    type Value = ();
-
-    fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.write_str("array of packets")
-    }
-
-    fn visit_seq<A>(mut self, mut seq: A) -> Result<Self::Value, A::Error>
-    where
-        A: serde::de::SeqAccess<'de>,
-    {
-        // Ok(seq)
-        while let Some(item) = seq.next_element::<T>()? {
-            (self.callback)(item);
-            // let _ = writeln!(self.out, "{:?}", packet);
-        }
-        Ok(())
-    }
 }

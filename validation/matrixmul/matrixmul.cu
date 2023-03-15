@@ -17,9 +17,9 @@ double my_timer() {
   return _ret_val_0;
 }
 
-void mult(float *A, float *B, float *C, int size) {
+template <typename T> void mult(T *A, T *B, T *C, int size) {
   int i, j, k;
-  float sum = 0.0;
+  T sum = 0.0;
 
   for (i = 0; i < size; i++) {
     for (j = 0; j < size; j++) {
@@ -33,7 +33,8 @@ void mult(float *A, float *B, float *C, int size) {
   }
 }
 
-__global__ void mult_gpu(float *A, float *B, float *C, int wA, int wB) {
+template <typename T>
+__global__ void mult_gpu(T *A, T *B, T *C, int wA, int wB) {
   // Block index
   int bx = blockIdx.x;
   int by = blockIdx.y;
@@ -62,7 +63,7 @@ __global__ void mult_gpu(float *A, float *B, float *C, int wA, int wB) {
   // float Csub[8] = {0, 0, 0, 0, 0, 0, 0, 0};
   // float Csub[4] = {0, 0, 0, 0};
   // float Csub[2] = {0, 0};
-  float Csub = 0;
+  T Csub = 0;
 
   // Loop over all the sub-matrices of A and B
   // required to compute the block sub-matrix
@@ -71,11 +72,11 @@ __global__ void mult_gpu(float *A, float *B, float *C, int wA, int wB) {
 
     // Declaration of the shared memory array As used to
     // store the sub-matrix of A
-    __shared__ float As[BLOCK_SIZE][BLOCK_SIZE];
+    __shared__ T As[BLOCK_SIZE][BLOCK_SIZE];
 
     // Declaration of the shared memory array Bs used to
     // store the sub-matrix of B
-    __shared__ float Bs[BLOCK_SIZE][BLOCK_SIZE];
+    __shared__ T Bs[BLOCK_SIZE][BLOCK_SIZE];
 
     // Load the matrices from device memory
     // to shared memory; each thread loads
@@ -204,51 +205,42 @@ __global__ void mult_gpu(float *A, float *B, float *C, int wA, int wB) {
   */
 }
 
-int main(int argc, char *argv[]) {
+template <typename T> int matrixmul(int MROW) {
   int i;
-  float *A, *B, *C, *D;
-  float *A_dev, *B_dev, *C_dev;
+  T *A, *B, *C, *D;
+  T *A_dev, *B_dev, *C_dev;
   double start_timer, end_timer;
-
-  if (argc < 2) {
-    fprintf(stderr, "usage: matrixmul <mrow>\n");
-    return 1;
-  }
-  int MROW = atoi(argv[1]);
-  if (MROW < 32) {
-    fprintf(stderr, "ERROR: matrices with less than 32 rows are not supported\n");
-    return 1;
-  }
 
   int MSIZE = MROW * MROW;
 
-  A = (float *)malloc(sizeof(float) * MSIZE);
-  cudaMalloc(&A_dev, MSIZE * sizeof(float));
-  B = (float *)malloc(sizeof(float) * MSIZE);
-  cudaMalloc(&B_dev, MSIZE * sizeof(float));
-  C = (float *)malloc(sizeof(float) * MSIZE);
-  cudaMalloc(&C_dev, MSIZE * sizeof(float));
-  D = (float *)malloc(sizeof(float) * MSIZE);
+  A = (T *)malloc(sizeof(T) * MSIZE);
+  cudaMalloc(&A_dev, MSIZE * sizeof(T));
+  B = (T *)malloc(sizeof(T) * MSIZE);
+  cudaMalloc(&B_dev, MSIZE * sizeof(T));
+  C = (T *)malloc(sizeof(T) * MSIZE);
+  cudaMalloc(&C_dev, MSIZE * sizeof(T));
+  D = (T *)malloc(sizeof(T) * MSIZE);
 
   srand(time(NULL));
   // Init matrix
   for (i = 0; i < MSIZE; i++) {
     // A[i] = (i%MROW)+1;
-    A[i] = ((double)rand() / (RAND_MAX)) + 1;
+    A[i] = ((T)rand() / (RAND_MAX)) + 1;
     // B[i] = (i%MCOL)+1;
-    B[i] = ((double)rand() / (RAND_MAX)) + 1;
+    B[i] = ((T)rand() / (RAND_MAX)) + 1;
     C[i] = 0;
     D[i] = 0;
   }
 
   // transfer data to device
-  cudaMemcpy(A_dev, A, MSIZE * sizeof(float), cudaMemcpyHostToDevice);
-  cudaMemcpy(B_dev, B, MSIZE * sizeof(float), cudaMemcpyHostToDevice);
+  cudaMemcpy(A_dev, A, MSIZE * sizeof(T), cudaMemcpyHostToDevice);
+  cudaMemcpy(B_dev, B, MSIZE * sizeof(T), cudaMemcpyHostToDevice);
 
   cudaDeviceSynchronize();
 
   dim3 threads(BLOCK_SIZE, BLOCK_SIZE / 1);
-  dim3 grid(MROW / BLOCK_SIZE, MROW / BLOCK_SIZE);
+  int grid_size = (MROW + (BLOCK_SIZE - 1)) / BLOCK_SIZE;
+  dim3 grid(grid_size, grid_size);
   printf("grid: (%d,%d,%d)\n", grid.x, grid.y, grid.z);
   printf("threads: (%d,%d,%d)\n", threads.x, threads.y, threads.z);
 
@@ -260,7 +252,7 @@ int main(int argc, char *argv[]) {
    */
   /*        BLOCK_SIZE * BLOCK_SIZE); */
   start_timer = my_timer();
-  mult_gpu<<<grid, threads, 0>>>(A_dev, B_dev, C_dev, MROW, MROW);
+  mult_gpu<T><<<grid, threads, 0>>>(A_dev, B_dev, C_dev, MROW, MROW);
   cudaDeviceSynchronize();
   end_timer = my_timer();
   printf("The GPU Elapsed Time:%lf Sec.\n", end_timer - start_timer);
@@ -270,7 +262,7 @@ int main(int argc, char *argv[]) {
   cudaDeviceSynchronize();
 
   start_timer = my_timer();
-  mult(A, B, D, MROW);
+  mult<T>(A, B, D, MROW);
   end_timer = my_timer();
   printf("The CPU Elapsed Time:%lf Sec.\n", end_timer - start_timer);
 
@@ -296,4 +288,23 @@ int main(int argc, char *argv[]) {
   cudaFree(C_dev);
   free(D);
   return 0;
+}
+
+int main(int argc, char *argv[]) {
+  if (argc < 3) {
+    fprintf(stderr, "usage: matrixmul <mrow> <datatype>\n");
+    return 1;
+  }
+  int MROW = atoi(argv[1]);
+  if (MROW < 32) {
+    fprintf(stderr,
+            "ERROR: matrices with less than 32 rows are not supported\n");
+    return 1;
+  }
+  bool use_double = (atoi(argv[2]) == 64);
+  if (use_double) {
+    return matrixmul<double>(MROW);
+  } else {
+    return matrixmul<float>(MROW);
+  }
 }

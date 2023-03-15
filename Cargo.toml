@@ -2,7 +2,8 @@
 members = [
   "profile",
   "accelsim",
-  "trace"
+  "trace",
+  "trace/invoke"
 ]
 
 [profile.dev]
@@ -23,4 +24,5 @@ thiserror = "1"
 clap = { version = "4", features = ["derive"] }
 profile = { path = "./profile" }
 accelsim = { path = "./accelsim" }
-trace = { path = "./trace" }
+invoke_trace = { path = "./trace/invoke" }
+serde_json = "1"
