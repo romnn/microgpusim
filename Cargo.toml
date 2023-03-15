@@ -1,7 +1,8 @@
 [workspace]
 members = [
   "profile",
-  "accelsim"
+  "accelsim",
+  "trace"
 ]
 
 [profile.dev]
@@ -18,3 +19,8 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
+thiserror = "1"
+clap = { version = "4", features = ["derive"] }
+profile = { path = "./profile" }
+accelsim = { path = "./accelsim" }
+trace = { path = "./trace" }

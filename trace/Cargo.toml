@@ -1,0 +1,37 @@
+[package]
+name = "trace"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["dylib"]
+
+[features]
+default  = [
+  "plot",
+]
+
+plot = ["dep:plotters"]
+
+[package.metadata.cargo-feature-combinations]
+denylist = ["default"]
+
+[dependencies]
+thiserror = "1"
+anyhow = "1"
+nvbit-rs = "0"
+nvbit-sys = "0"
+lazy_static = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+plotters = { version = "0.3", optional = true }
+
+# tempfile = "3"
+# csv = "1"
+# regex = "1"
+# clap = { version = "4", features = ["derive"] }
+
+[build-dependencies]
+nvbit-build = "0"
+bindgen = "0"
