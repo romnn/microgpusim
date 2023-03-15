@@ -425,7 +425,7 @@ where
     let mut log_reader = std::io::BufReader::new(log_file);
     log_reader.read_to_string(&mut original_log)?;
     log_reader.rewind()?;
-    // println!("{original_log}");
+    println!("{original_log}");
 
     // seek to valid start of csv data
     let mut lines = log_reader.by_ref().lines();

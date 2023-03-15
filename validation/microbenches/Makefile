@@ -3,9 +3,9 @@ CC		= g++
 CU_FLAGS	= -O3 -g --ptxas-options=-v -gencode arch=compute_52,code=sm_52
 CC_FLAGS	= -O3 -m64 -Wall
 
-FINAL		= tryAtomics
+FINAL		= memTransactions
 
-CU_SOURCES	= tryAtomics.cu
+CU_SOURCES	= memTransactions.cu
 CC_SOURCES	= timer.cc
 
 CU_OBJECTS	= $(CU_SOURCES:%.cu=%.o)

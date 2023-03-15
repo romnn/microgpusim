@@ -15,6 +15,7 @@ __global__ void sequentialAddresses(float4 *values) {
 __global__ void separateCacheLines(float4 *values) {
   store(values, threadIdx.x, threadIdx.x * 128 / sizeof(float4));
 }
+
 int main() {
   // Allocate enough for worst case example: all 32 threads in the warp access a
   // different 128-byte cache line.
@@ -22,11 +23,18 @@ int main() {
   cudaMalloc((void **)&values, 32 * 128);
 
   // Launch example kernels with one warp.
-  sameAddress<<<1, 32>>>(values); // All threads access same element
-  sequentialAddresses<<<1, 32>>>(
-      values); // Threads access sequential elements ("ideal")
-  separateCacheLines<<<1, 32>>>(
-      values); // Each thread accesses a different 128-byte sector
+
+  cudaDeviceSynchronize();
+  // All threads access same element
+  sameAddress<<<1, 32>>>(values);
+
+  cudaDeviceSynchronize();
+  // Threads access sequential elements ("ideal")
+  sequentialAddresses<<<1, 32>>>(values);
+
+  cudaDeviceSynchronize();
+  // Each thread accesses a different 128-byte sector
+  separateCacheLines<<<1, 32>>>(values);
 
   cudaDeviceSynchronize();
   return 0;
