@@ -12,11 +12,11 @@
     "unit": null
   },
   "Kernel": {
-    "value": "_Z6vecAddIfEvPT_S1_S1_i",
+    "value": "_Z8mult_gpuIfEvPKT_S2_PS0_mmm",
     "unit": null
   },
   "Correlation_ID": {
-    "value": 112,
+    "value": 111,
     "unit": null
   },
   "shared_load_transactions_per_request": {
@@ -36,11 +36,11 @@
     "unit": null
   },
   "gld_transactions_per_request": {
-    "value": 13.25,
+    "value": 8.04,
     "unit": null
   },
   "gst_transactions_per_request": {
-    "value": 3.25,
+    "value": 1.6,
     "unit": null
   },
   "shared_store_transactions": {
@@ -60,11 +60,11 @@
     "unit": null
   },
   "gld_transactions": {
-    "value": 106,
+    "value": 402,
     "unit": null
   },
   "gst_transactions": {
-    "value": 13,
+    "value": 8,
     "unit": null
   },
   "sysmem_read_transactions": {
@@ -76,11 +76,11 @@
     "unit": null
   },
   "l2_read_transactions": {
-    "value": 42,
+    "value": 105,
     "unit": null
   },
   "l2_write_transactions": {
-    "value": 26,
+    "value": 21,
     "unit": null
   },
   "atomic_transactions": {
@@ -92,7 +92,7 @@
     "unit": null
   },
   "l2_global_load_bytes": {
-    "value": 832,
+    "value": 2080,
     "unit": null
   },
   "l2_local_load_bytes": {
@@ -104,7 +104,7 @@
     "unit": null
   },
   "l2_local_global_store_bytes": {
-    "value": 416,
+    "value": 256,
     "unit": null
   },
   "l2_global_reduction_bytes": {
@@ -128,7 +128,7 @@
     "unit": null
   },
   "global_load_requests": {
-    "value": 26,
+    "value": 100,
     "unit": null
   },
   "local_load_requests": {
@@ -140,7 +140,7 @@
     "unit": null
   },
   "global_store_requests": {
-    "value": 13,
+    "value": 10,
     "unit": null
   },
   "local_store_requests": {
@@ -168,27 +168,27 @@
     "unit": null
   },
   "dram_read_transactions": {
-    "value": 0,
+    "value": 304,
     "unit": null
   },
   "dram_write_transactions": {
-    "value": 4,
+    "value": 0,
     "unit": null
   },
   "dram_read_throughput": {
-    "value": 0.0,
+    "value": 4.097651,
     "unit": null
   },
   "dram_write_throughput": {
-    "value": 69.635086,
+    "value": 0.0,
     "unit": null
   },
   "dram_write_bytes": {
-    "value": 128,
+    "value": 0,
     "unit": null
   },
   "dram_read_bytes": {
-    "value": 0,
+    "value": 9728,
     "unit": null
   }
 }

@@ -74,7 +74,7 @@ fn main() -> Result<()> {
     // dbg!(&options);
 
     let args: Vec<_> = std::env::args().collect();
-    let exec = PathBuf::from(args.get(1).expect("usage ./profile <executable> [args]"));
+    let exec = PathBuf::from(args.get(1).expect("usage ./casimu <executable> [args]"));
     let exec_args = args.iter().skip(2).collect::<Vec<_>>();
 
     let exec_dir = exec.parent().expect("executable has no parent dir");

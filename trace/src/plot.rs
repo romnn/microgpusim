@@ -1,27 +1,39 @@
 use anyhow::Result;
+use rangemap::RangeMap;
 use std::collections::HashMap;
 use std::path::Path;
 
-// type Point = (i32, i32);
-
 #[derive(Clone, Debug)]
-pub struct MemoryAccesses<T> {
-    data: HashMap<(bool, Option<String>), Vec<T>>,
+pub struct MemoryAccesses<T, A>
+where
+    A: Clone + Eq,
+{
+    accesses: HashMap<(bool, Option<String>), Vec<T>>,
+    allocations: RangeMap<u64, A>,
 }
 
-impl<T> Default for MemoryAccesses<T> {
+impl<T, A> Default for MemoryAccesses<T, A>
+where
+    A: Clone + Eq,
+{
     fn default() -> Self {
         Self {
-            data: HashMap::new(),
+            accesses: HashMap::new(),
+            allocations: RangeMap::new(),
         }
     }
 }
 
-impl MemoryAccesses<super::MemAccessTraceEntry> {
-    // pub fn access(&mut self, address: u64, store: bool, label: Option<String>) {
+impl MemoryAccesses<super::MemAccessTraceEntry, super::MemAllocation> {
+    pub fn register_allocation(&mut self, alloc: super::MemAllocation) {
+        let start = alloc.dev_ptr;
+        let end = alloc.dev_ptr + alloc.bytes as u64;
+        self.allocations.insert(start..end, alloc)
+    }
+
     pub fn add(&mut self, access: super::MemAccessTraceEntry, label: Option<String>) {
         let key = (access.instr_is_store, label);
-        let accesses = self.data.entry(key).or_insert(vec![]);
+        let accesses = self.accesses.entry(key).or_insert(vec![]);
         accesses.push(access);
     }
 
@@ -40,7 +52,7 @@ impl MemoryAccesses<super::MemAccessTraceEntry> {
         root_area.fill(&WHITE)?;
 
         let max_addr = self
-            .data
+            .accesses
             .values()
             .flat_map(|accesses| accesses)
             .flat_map(|access| access.addrs)
@@ -49,7 +61,7 @@ impl MemoryAccesses<super::MemAccessTraceEntry> {
         let max_addr = max_addr.checked_add(32).unwrap_or(max_addr);
 
         let min_addr = self
-            .data
+            .accesses
             .values()
             .flat_map(|accesses| accesses)
             .flat_map(|access| access.addrs)
@@ -58,7 +70,7 @@ impl MemoryAccesses<super::MemAccessTraceEntry> {
             .unwrap_or(0);
         let min_addr = min_addr.checked_sub(32).unwrap_or(min_addr);
         let max_time = self
-            .data
+            .accesses
             .values()
             .flat_map(|accesses| accesses)
             .map(|access| 32 * (access.warp_id + 1))
@@ -90,7 +102,7 @@ impl MemoryAccesses<super::MemAccessTraceEntry> {
         // addresses = [e[2] for e in entries]
         // time = [e[1] for e in entries]
 
-        for ((is_store, label), mut accesses) in self.data.iter_mut() {
+        for ((is_store, label), mut accesses) in self.accesses.iter_mut() {
             println!("drawing ({is_store}, {label:?})");
 
             accesses.sort_by(|a, b| a.warp_id.cmp(&b.warp_id));

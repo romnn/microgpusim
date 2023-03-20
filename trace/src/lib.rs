@@ -6,9 +6,10 @@ pub mod plot;
 
 use lazy_static::lazy_static;
 use nvbit_rs::{DeviceChannel, HostChannel};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::ffi;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Instant;
 
@@ -44,15 +45,10 @@ fn traces_dir() -> PathBuf {
         .parent()
         .unwrap()
         .to_path_buf();
-    let traces_dir =
-        std::env::var("TRACES_DIR").map_or_else(|_| example_dir.join("traces"), PathBuf::from);
-    // panic!("{:?}", &args);
-    // make sure trace dir exists
-    std::fs::create_dir_all(&traces_dir).ok();
-    traces_dir
+    std::env::var("TRACES_DIR").map_or_else(|_| example_dir.join("traces"), PathBuf::from)
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct MemAccessTraceEntry {
     pub cuda_ctx: u64,
     pub grid_launch_id: u64,
@@ -114,6 +110,12 @@ impl Args {
 // 1 MiB = 2**20
 const CHANNEL_SIZE: u32 = 1 << 20;
 
+#[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
+struct MemAllocation {
+    dev_ptr: u64,
+    bytes: u32,
+}
+
 struct Instrumentor<'c> {
     ctx: Mutex<nvbit_rs::Context<'c>>,
     already_instrumented: Mutex<HashSet<nvbit_rs::FunctionHandle<'c>>>,
@@ -127,12 +129,17 @@ struct Instrumentor<'c> {
     instr_begin_interval: usize,
     instr_end_interval: usize,
     skip_flag: Mutex<bool>,
+    traces_dir: PathBuf,
+    allocations: Mutex<Vec<MemAllocation>>,
 }
 
 impl Instrumentor<'static> {
     fn new(ctx: nvbit_rs::Context<'static>) -> Arc<Self> {
         let mut dev_channel = nvbit_rs::DeviceChannel::new();
-        let host_channel = HostChannel::new(42, CHANNEL_SIZE, &mut dev_channel).unwrap();
+        let host_channel = HostChannel::new(0, CHANNEL_SIZE, &mut dev_channel).unwrap();
+
+        let traces_dir = traces_dir().join(format!("{}-trace", &app_prefix()));
+        std::fs::create_dir_all(&traces_dir).ok();
 
         let instrumentor = Arc::new(Self {
             ctx: Mutex::new(ctx),
@@ -147,6 +154,8 @@ impl Instrumentor<'static> {
             instr_begin_interval: 0,
             instr_end_interval: usize::MAX,
             skip_flag: Mutex::new(false), // skip re-entry into intrumention logic
+            traces_dir,
+            allocations: Mutex::new(Vec::new()),
         });
 
         // start receiving from the channel
@@ -161,18 +170,46 @@ impl Instrumentor<'static> {
     fn read_channel(self: Arc<Self>) {
         let rx = self.host_channel.lock().unwrap().read();
 
-        let trace_file_path = traces_dir().join(format!("{}-trace", &app_prefix()));
-        let mut file = std::io::BufWriter::new(
-            std::fs::OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .open(&trace_file_path)
-                .unwrap(),
+        let json_trace_file_path = self.traces_dir.join("trace.json");
+        let mut json_file = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&json_trace_file_path)
+            .unwrap();
+        // makes the file world readable,
+        // which is useful if this script is invoked by sudo
+        json_file
+            .metadata()
+            .unwrap()
+            .permissions()
+            .set_readonly(false);
+
+        let mut writer = std::io::BufWriter::new(json_file);
+        let mut json_serializer = serde_json::Serializer::with_formatter(
+            writer,
+            serde_json::ser::PrettyFormatter::with_indent(b"    "),
         );
-        let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
-        let mut serializer = serde_json::Serializer::with_formatter(&mut file, formatter);
-        let mut encoder = nvbit_rs::Encoder::new(&mut serializer).unwrap();
+        let mut json_encoder = nvbit_rs::Encoder::new(&mut json_serializer).unwrap();
+
+        let rmp_trace_file_path = self.traces_dir.join("trace.msgpack");
+        let mut rmp_file = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&rmp_trace_file_path)
+            .unwrap();
+        // makes the file world readable,
+        // which is useful if this script is invoked by sudo
+        rmp_file
+            .metadata()
+            .unwrap()
+            .permissions()
+            .set_readonly(false);
+
+        let mut writer = std::io::BufWriter::new(rmp_file);
+        let mut rmp_serializer = rmp_serde::Serializer::new(writer);
+        let mut rmp_encoder = nvbit_rs::Encoder::new(&mut rmp_serializer).unwrap();
 
         // start the thread here
         let mut packet_count = 0;
@@ -224,14 +261,17 @@ impl Instrumentor<'static> {
                 instr_is_extended: packet.instr_is_extended,
                 addrs: packet.addrs,
             };
-            encoder.encode::<MemAccessTraceEntry>(entry).unwrap();
+            json_encoder.encode::<MemAccessTraceEntry>(&entry).unwrap();
+            rmp_encoder.encode::<MemAccessTraceEntry>(&entry).unwrap();
         }
 
-        encoder.finalize().unwrap();
+        json_encoder.finalize().unwrap();
+        rmp_encoder.finalize().unwrap();
         println!(
-            "wrote {} packets to {}",
+            "wrote {} packets to {} and {}",
             &packet_count,
-            &trace_file_path.display()
+            &json_trace_file_path.display(),
+            &rmp_trace_file_path.display(),
         );
     }
 }
@@ -304,7 +344,10 @@ impl<'c> Instrumentor<'c> {
             Some(EventParams::MemCopyHostToDevice {
                 src_host, bytes, ..
             }) => {
-                // todo: save the transfers to the trace
+                self.allocations.lock().unwrap().push(MemAllocation {
+                    dev_ptr: src_host as u64,
+                    bytes,
+                });
             }
             _ => {}
         }
@@ -465,24 +508,49 @@ pub extern "C" fn nvbit_at_ctx_term(ctx: nvbit_rs::Context<'static>) {
         recv_thread.join().expect("join receiver thread");
     }
 
+    // write out allocations
+    let allocations_file_path = instrumentor.traces_dir.join("allocations.json");
+    let mut allocations_file = std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&allocations_file_path)
+        .unwrap();
+    allocations_file
+        .metadata()
+        .unwrap()
+        .permissions()
+        .set_readonly(false);
+
+    let mut writer = std::io::BufWriter::new(allocations_file);
+    let mut serializer = serde_json::Serializer::with_formatter(
+        writer,
+        serde_json::ser::PrettyFormatter::with_indent(b"    "),
+    );
+    instrumentor
+        .allocations
+        .lock()
+        .unwrap()
+        .serialize(&mut serializer)
+        .unwrap();
+
     // plot memory accesses
-    let trace_file_path = traces_dir().join(format!("{}-trace", &app_prefix()));
-    let mut file = std::io::BufReader::new(
+    let rmp_trace_file_path = instrumentor.traces_dir.join("trace.msgpack");
+    let mut reader = std::io::BufReader::new(
         std::fs::OpenOptions::new()
             .read(true)
-            .open(&trace_file_path)
+            .open(&rmp_trace_file_path)
             .unwrap(),
     );
-    let mut reader = serde_json::Deserializer::from_reader(&mut file);
+    let mut reader = rmp_serde::Deserializer::new(reader);
     let mut access_plot = plot::MemoryAccesses::default();
 
-    use serde::Deserializer;
     let decoder = nvbit_rs::Decoder::new(|access| {
         access_plot.add(access, None);
     });
     reader.deserialize_seq(decoder);
 
-    let trace_plot_path = trace_file_path.with_extension("svg");
+    let trace_plot_path = instrumentor.traces_dir.join("trace.svg");
     access_plot.draw(&trace_plot_path).unwrap();
     // if let Err(err) = access_plot.draw(&trace_plot_path) {
     //     eprintln!("plotting failed: {:?}", &err);
@@ -490,6 +558,7 @@ pub extern "C" fn nvbit_at_ctx_term(ctx: nvbit_rs::Context<'static>) {
 
     std::io::stdout().flush();
     std::io::stderr().flush();
+
     println!(
         "done after {:?}",
         Instant::now().duration_since(instrumentor.start)
