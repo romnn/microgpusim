@@ -39,12 +39,12 @@ fn app_prefix() -> String {
 }
 
 fn traces_dir() -> PathBuf {
-    let example_dir = PathBuf::from(file!())
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .to_path_buf();
+    let example_dir = PathBuf::from(file!()).join("../../");
+    // .parent()
+    // .unwrap()
+    // .parent()
+    // .unwrap()
+    // .to_path_buf();
     std::env::var("TRACES_DIR").map_or_else(|_| example_dir.join("traces"), PathBuf::from)
 }
 
@@ -112,8 +112,8 @@ const CHANNEL_SIZE: u32 = 1 << 20;
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 struct MemAllocation {
-    dev_ptr: u64,
-    bytes: u32,
+    device_ptr: u64,
+    bytes: usize,
 }
 
 struct Instrumentor<'c> {
@@ -295,12 +295,8 @@ impl<'c> Instrumentor<'c> {
         if *self.skip_flag.lock().unwrap() {
             return;
         }
-        if is_exit {
-            return;
-        }
 
         let params = EventParams::new(cbid, params);
-
         match params {
             Some(EventParams::KernelLaunch {
                 mut func,
@@ -310,6 +306,9 @@ impl<'c> Instrumentor<'c> {
                 h_stream,
                 ..
             }) => {
+                if is_exit {
+                    return;
+                }
                 // make sure GPU is idle
                 unsafe { nvbit_sys::cuCtxSynchronize() };
 
@@ -341,20 +340,25 @@ impl<'c> Instrumentor<'c> {
                 // enable instrumented code to run
                 func.enable_instrumented(ctx, true, true);
             }
-            Some(EventParams::MemCopyHostToDevice {
-                src_host, bytes, ..
+            Some(EventParams::MemAlloc {
+                device_ptr, bytes, ..
             }) => {
-                self.allocations.lock().unwrap().push(MemAllocation {
-                    dev_ptr: src_host as u64,
-                    bytes,
-                });
+                if !is_exit {
+                    // addresses are only valid on exit
+                    return;
+                }
+                // device_ptr is often aligned (e.g. to 512, power of 2?)
+                self.allocations
+                    .lock()
+                    .unwrap()
+                    .push(MemAllocation { device_ptr, bytes });
             }
             _ => {}
         }
     }
 
     fn instrument_instruction(&self, instr: &mut nvbit_rs::Instruction<'_>) {
-        instr.print_decoded();
+        // instr.print_decoded();
 
         let opcode = instr.opcode().expect("has opcode");
 
@@ -527,12 +531,8 @@ pub extern "C" fn nvbit_at_ctx_term(ctx: nvbit_rs::Context<'static>) {
         writer,
         serde_json::ser::PrettyFormatter::with_indent(b"    "),
     );
-    instrumentor
-        .allocations
-        .lock()
-        .unwrap()
-        .serialize(&mut serializer)
-        .unwrap();
+    let allocations = instrumentor.allocations.lock().unwrap();
+    allocations.serialize(&mut serializer).unwrap();
 
     // plot memory accesses
     let rmp_trace_file_path = instrumentor.traces_dir.join("trace.msgpack");
@@ -545,10 +545,14 @@ pub extern "C" fn nvbit_at_ctx_term(ctx: nvbit_rs::Context<'static>) {
     let mut reader = rmp_serde::Deserializer::new(reader);
     let mut access_plot = plot::MemoryAccesses::default();
 
-    let decoder = nvbit_rs::Decoder::new(|access| {
+    for allocation in allocations.iter().cloned() {
+        access_plot.register_allocation(allocation);
+    }
+
+    let decoder = nvbit_rs::Decoder::new(|access: MemAccessTraceEntry | {
         access_plot.add(access, None);
     });
-    reader.deserialize_seq(decoder);
+    reader.deserialize_seq(decoder).unwrap();
 
     let trace_plot_path = instrumentor.traces_dir.join("trace.svg");
     access_plot.draw(&trace_plot_path).unwrap();

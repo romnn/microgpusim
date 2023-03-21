@@ -1,6 +1,6 @@
 use anyhow::Result;
 use rangemap::RangeMap;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 #[derive(Clone, Debug)]
@@ -10,6 +10,7 @@ where
 {
     accesses: HashMap<(bool, Option<String>), Vec<T>>,
     allocations: RangeMap<u64, A>,
+    bands: Vec<std::ops::Range<u64>>,
 }
 
 impl<T, A> Default for MemoryAccesses<T, A>
@@ -20,15 +21,17 @@ where
         Self {
             accesses: HashMap::new(),
             allocations: RangeMap::new(),
+            bands: Vec::new(),
         }
     }
 }
 
 impl MemoryAccesses<super::MemAccessTraceEntry, super::MemAllocation> {
     pub fn register_allocation(&mut self, alloc: super::MemAllocation) {
-        let start = alloc.dev_ptr;
-        let end = alloc.dev_ptr + alloc.bytes as u64;
-        self.allocations.insert(start..end, alloc)
+        let start = alloc.device_ptr;
+        let end = alloc.device_ptr + alloc.bytes as u64;
+        self.allocations.insert(start..end, alloc);
+        self.bands.push(start..end);
     }
 
     pub fn add(&mut self, access: super::MemAccessTraceEntry, label: Option<String>) {
@@ -90,12 +93,27 @@ impl MemoryAccesses<super::MemAccessTraceEntry, super::MemAllocation> {
             .set_label_area_size(LabelAreaPosition::Left, 100)
             .set_label_area_size(LabelAreaPosition::Bottom, 2 * font_size)
             .caption("Memory accesses", text_style)
-            .build_cartesian_2d(x_range, y_range)?;
+            .build_cartesian_2d(x_range.clone(), y_range.clone())?;
 
         chart_ctx
             .configure_mesh()
             .y_label_formatter(&|y| format!("{y:#16x}"))
             .draw()?;
+
+        for band in &self.bands {
+            // The left upper and right lower corner of the rectangle
+            let left_upper = (0, band.end);
+            let right_lower = (x_range.end, band.start);
+            let rect = Rectangle::new(
+                [left_upper, right_lower],
+                ShapeStyle {
+                    color: BLUE.mix(0.5),
+                    filled: true,
+                    stroke_width: 3,
+                },
+            );
+            chart_ctx.plotting_area().draw(&rect)?;
+        }
 
         // [(t["warp_id"], 32*t["warp_id"]+tid, a) for tid, a in enumerate(t["addrs"]) if a > 0]
         // entries = sorted(entries, key=lambda x: x[0])
