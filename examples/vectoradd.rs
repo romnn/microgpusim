@@ -82,6 +82,8 @@ where
         "Final sum = {total_sum}; sum/n = {} (should be ~1)\n",
         total_sum / T::from(n).unwrap()
     );
+
+    dbg!(&sim.stats.lock().unwrap());
     Ok(())
 }
 
@@ -93,11 +95,10 @@ fn main() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use serde::Deserializer;
     use std::path::PathBuf;
 
     #[test]
-    pub fn test_trace_based() -> Result<()> {
+    pub fn test_read_trace() -> Result<()> {
         let traces_dir = PathBuf::from(file!())
             .parent()
             .unwrap()
@@ -106,21 +107,10 @@ mod tests {
         let rmp_trace_file_path = traces_dir.join("trace.msgpack");
         dbg!(&rmp_trace_file_path);
 
-        let reader = std::io::BufReader::new(
-            std::fs::OpenOptions::new()
-                .read(true)
-                .open(&rmp_trace_file_path)
-                .unwrap(),
-        );
-        let mut reader = rmp_serde::Deserializer::new(reader);
-
         let sim = casimu::Simulation::new();
+        sim.read_trace(rmp_trace_file_path)?;
 
-        let decoder = nvbit_io::Decoder::new(|access: trace_model::MemAccessTraceEntry| {
-            // create a new warp here
-            println!("{:#?}", &access);
-        });
-        reader.deserialize_seq(decoder)?;
+        dbg!(&sim.stats.lock().unwrap());
 
         assert!(false);
         Ok(())

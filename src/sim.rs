@@ -1,9 +1,13 @@
+#![allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
+
 use itertools::Itertools;
 use num_traits::{AsPrimitive, Float, NumCast, Zero};
 use nvbit_model as model;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 
-const DEV_GLOBAL_HEAP_START: u64 = 0xC0000000;
+const DEV_GLOBAL_HEAP_START: u64 = 0xC000_0000;
+const WARP_SIZE: usize = 32;
 
 #[derive(Debug)]
 pub struct DevicePtr<'s, 'a, T> {
@@ -72,22 +76,40 @@ pub trait Kernel {
     fn run(&mut self, idx: &ThreadIndex) -> Result<(), Self::Error>;
 }
 
+/// Simulation statistics
+#[derive(Debug, Default)]
+pub struct Stats {
+    global_loads: usize,
+    global_stores: usize,
+}
+
 /// Simulation
 #[derive(Debug)]
 pub struct Simulation {
     in_flight_loads: Mutex<Vec<(u64, u64)>>,
     in_flight_stores: Mutex<Vec<(u64, u64)>>,
     offset: Mutex<u64>,
+    pub stats: Mutex<Stats>,
 }
 
 impl Default for Simulation {
     fn default() -> Self {
         Self {
-            offset: Mutex::new(DEV_GLOBAL_HEAP_START),
             in_flight_loads: Mutex::new(Vec::new()),
             in_flight_stores: Mutex::new(Vec::new()),
+            offset: Mutex::new(DEV_GLOBAL_HEAP_START),
+            stats: Mutex::new(Stats::default()),
         }
     }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum TraceError {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+
+    #[error(transparent)]
+    Csv(#[from] rmp_serde::decode::Error),
 }
 
 impl Simulation {
@@ -100,12 +122,49 @@ impl Simulation {
         Self::default()
     }
 
+    pub fn flush(&self) {
+        // todo
+    }
+
+    pub fn warp_store(&self, stores: impl Iterator<Item = (u64, u64)>) {
+        let stores = stores.collect::<Vec<_>>();
+        self.in_flight_stores.lock().unwrap().extend(&stores);
+        let Stats {
+            ref mut global_stores,
+            ..
+        } = &mut *self.stats.lock().unwrap();
+        *global_stores += stores.len();
+
+        // todo: coalesce here?
+    }
+
+    pub fn warp_load(&self, loads: impl Iterator<Item = (u64, u64)>) {
+        let loads = loads.collect::<Vec<_>>();
+        self.in_flight_loads.lock().unwrap().extend(&loads);
+        // todo: coalesce here?
+        let Stats {
+            ref mut global_loads,
+            ..
+        } = &mut *self.stats.lock().unwrap();
+        *global_loads += loads.len();
+    }
+
     pub fn load(&self, addr: u64, size: u64) {
         self.in_flight_loads.lock().unwrap().push((addr, size));
+        let Stats {
+            ref mut global_loads,
+            ..
+        } = &mut *self.stats.lock().unwrap();
+        *global_loads += 1;
     }
 
     pub fn store(&self, addr: u64, size: u64) {
         self.in_flight_stores.lock().unwrap().push((addr, size));
+        let Stats {
+            ref mut global_stores,
+            ..
+        } = &mut *self.stats.lock().unwrap();
+        *global_stores += 1;
     }
 
     /// Allocate a variable.
@@ -115,9 +174,51 @@ impl Simulation {
         *offset_lock += size;
         DevicePtr {
             inner: var,
-            sim: &self,
+            sim: self,
             offset,
         }
+    }
+
+    /// Read a trace.
+    ///
+    /// # Errors
+    /// When trace cannot be read.
+    pub fn read_trace<P>(&self, path: P) -> Result<(), TraceError>
+    where
+        P: AsRef<Path>,
+    {
+        use serde::Deserializer;
+        let file = std::fs::OpenOptions::new().read(true).open(path.as_ref())?;
+        let reader = std::io::BufReader::new(file);
+        let mut reader = rmp_serde::Deserializer::new(reader);
+        let decoder = nvbit_io::Decoder::new(|access: trace_model::MemAccessTraceEntry| {
+            // println!("{:#?}", &access);
+
+            // create a new warp here
+            if access.instr_is_load {
+                // todo: we should somehow get the size of each load
+                let loads = access
+                    .addrs
+                    .into_iter()
+                    .filter(|addr| *addr > 0)
+                    .map(|addr| (addr, 4));
+                self.warp_load(loads);
+            } else {
+                // todo: we should somehow get the size of each store
+                let stores = access
+                    .addrs
+                    .into_iter()
+                    .filter(|addr| *addr > 0)
+                    .map(|addr| (addr, 4));
+                self.warp_store(stores);
+            }
+            // todo: flush a thread here? is this the wrong granularity?
+            // edit: i dont think so, this is one warp instruction so we can do that here
+            // do not forget to call ...
+            self.flush();
+        });
+        reader.deserialize_seq(decoder)?;
+        Ok(())
     }
 
     /// Launches a kernel.
@@ -151,8 +252,7 @@ impl Simulation {
             // loop over the block size (must run on same sms)
             // and form warps
             let mut threads = block_size.into_iter();
-            for (warp_num, warp) in threads.chunks(32).into_iter().enumerate() {
-
+            for (warp_num, warp) in threads.chunks(WARP_SIZE).into_iter().enumerate() {
                 for warp_thread_idx in warp {
                     thread_idx.thread_idx = warp_thread_idx;
                     // println!("calling thread {thread_idx:?}");

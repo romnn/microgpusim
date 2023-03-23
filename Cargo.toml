@@ -31,6 +31,7 @@ denylist = ["default"]
 anyhow = "1"
 thiserror = "1"
 nvbit-model = "0"
+nvbit-io = "0"
 num-traits = "0"
 itertools = "0"
 clap = { version = "4", features = ["derive"] }
@@ -43,4 +44,3 @@ pyo3 = { version = "0", features = ["extension-module"], optional = true }
 trace-model = { path = "./trace/model" }
 
 [dev-dependencies]
-nvbit-io = "0"
