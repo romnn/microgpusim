@@ -10,7 +10,7 @@ pub struct MainMemory {
 }
 
 impl MainMemory {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             store_from_cache: None,
             load_to_cache: None,

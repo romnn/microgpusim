@@ -34,7 +34,7 @@ where
 impl Default for Config<LRU> {
     fn default() -> Self {
         Self {
-            name: "".to_string(),
+            name: String::new(),
             sets: 20480,
             ways: 16,
             line_size: 64,

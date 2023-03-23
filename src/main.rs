@@ -1,5 +1,5 @@
-use invoke_trace;
-use profile;
+
+
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -50,7 +50,7 @@ fn open_writable(path: &Path) -> Result<BufWriter<fs::File>, std::io::Error> {
         .create(true)
         .write(true)
         .truncate(true)
-        .open(&path)?;
+        .open(path)?;
     Ok(BufWriter::new(file))
 }
 
@@ -80,7 +80,7 @@ async fn open_ssh_tunnel(
     ),
     ssh_jumper::model::Error,
 > {
-    use ssh_jumper::{model::*, SshJumper};
+    use ssh_jumper::{model::{HostAddress, HostSocketParams, JumpHostAuthParams, SshTunnelParams}, SshJumper};
     use std::borrow::Cow;
 
     // Similar to running:
@@ -127,7 +127,7 @@ async fn main() -> Result<()> {
         let ssh_username = std::env::var("ssh_user_name")?;
         let ssh_password = std::env::var("ssh_password")?;
 
-        let (local_socket_addr, ssh_forwarder_end_rx) =
+        let (_local_socket_addr, _ssh_forwarder_end_rx) =
             open_ssh_tunnel(ssh_username, ssh_password, None).await?;
     }
 

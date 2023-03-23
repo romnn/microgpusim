@@ -74,7 +74,7 @@ impl Simulation {
     //     Self {}
     // }
 
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {}
     }
 
@@ -82,7 +82,7 @@ impl Simulation {
     pub fn allocate<'s, 'a, T>(&'s self, var: &'a mut T) -> DevicePtr<'s, 'a, T> {
         DevicePtr {
             inner: var,
-            sim: &self,
+            sim: self,
         }
     }
 
@@ -107,8 +107,8 @@ impl Simulation {
         for block_idx in grid {
             let mut thread_idx = ThreadIndex {
                 block_idx,
-                block_dim: block_size.clone(),
-                thread_idx: block_size.clone(),
+                block_dim: block_size,
+                thread_idx: block_size,
             };
 
             // loop over the block size (must run on same sms)
