@@ -1,5 +1,8 @@
 #### TODO
-- organize trace files in subfolders instead of flat structure
+- improve the plots
+    - vertical lines after each warp
+    - different colors for allocations
+    - two model: serialize trace (current) vs. actual (order of the trace)
 - simple matrix mul makes sense, now check the more complex example
 - allow expressing patterns as
   - matrices
@@ -8,6 +11,7 @@
 - add full python frontend (pycachesim api)
 
 #### Done
+- organize trace files in subfolders instead of flat structure
 - compile the full accelsim simulator from remote or local source so we can make changes
 - implement a simple scheduler and register kernels
   - so they receive the block and grid coordinates etc.

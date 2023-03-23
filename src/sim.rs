@@ -30,7 +30,8 @@ where
     fn index(&self, idx: I) -> &Self::Output {
         let elem_size = std::mem::size_of::<O>();
         let flat_idx = idx.flatten();
-        let addr = elem_size * flat_idx;
+        let addr = elem_size * flat_idx as u64;
+        self.sim.load(addr, elem_size);
         // println!("{:?}[{:?}] => {}", &self, &idx, &addr);
         &self.inner[idx]
     }
@@ -42,9 +43,10 @@ where
     I: ToFlatIndex + std::fmt::Debug,
 {
     fn index_mut(&mut self, idx: I) -> &mut Self::Output {
-        let elem_size = std::mem::size_of::<O>();
+        let elem_size = std::mem::size_of::<O>() as u64;
         let flat_idx = idx.flatten();
-        let addr = elem_size * flat_idx;
+        let addr = elem_size * flat_idx as u64;
+        self.sim.store(addr, elem_size);
         // println!("{:?}[{:?}] => {}", &self, &idx, &addr);
         &mut self.inner[idx]
     }
@@ -83,6 +85,10 @@ impl Simulation {
     pub fn new() -> Self {
         Self::default()
     }
+
+    pub fn load(&self, addr: u64, size: u64) {}
+
+    pub fn store(&self, addr: u64, size: u64) {}
 
     /// Allocate a variable.
     pub fn allocate<'s, 'a, T>(&'s self, var: &'a mut T) -> DevicePtr<'s, 'a, T> {

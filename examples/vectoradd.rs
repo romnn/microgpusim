@@ -72,7 +72,8 @@ where
     };
     sim.launch_kernel(grid_size, BLOCK_SIZE, kernel)?;
 
-    // sum up vector c and print result divided by n, this should equal 1 within
+    // sum up vector c and print result divided by n.
+    // this should equal 1 within
     let total_sum: T = c.into_iter().sum();
     println!(
         "Final sum = {total_sum}; sum/n = {} (should be ~1)\n",
@@ -97,7 +98,7 @@ mod tests {
         let traces_dir = PathBuf::from(file!())
             .parent()
             .unwrap()
-            .join("../validation/vectoradd/traces/vectoradd-100-32-trace");
+            .join("../test-apps/vectoradd/traces/vectoradd-100-32-trace");
         dbg!(&traces_dir);
         let rmp_trace_file_path = traces_dir.join("trace.msgpack");
         dbg!(&rmp_trace_file_path);
@@ -110,7 +111,10 @@ mod tests {
         );
         let mut reader = rmp_serde::Deserializer::new(reader);
 
+        let sim = casimu::Simulation::new();
+
         let decoder = nvbit_io::Decoder::new(|access: trace_model::MemAccessTraceEntry| {
+            // create a new warp here
             println!("{:#?}", &access);
         });
         reader.deserialize_seq(decoder)?;
