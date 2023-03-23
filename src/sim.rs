@@ -69,7 +69,10 @@ pub trait Kernel {
 
 /// Simulation
 #[derive(Debug, Default)]
-pub struct Simulation {}
+pub struct Simulation {
+    in_flight_loads: Vec<(u64, u64)>,
+    in_flight_writes: Vec<(u64, u64)>,
+}
 
 impl Simulation {
     // pub fn new(first_level: Arc<dyn CacheLevel>, main_mem: MainMemory) -> Self {
@@ -78,7 +81,7 @@ impl Simulation {
 
     #[must_use]
     pub fn new() -> Self {
-        Self {}
+        Self::default()
     }
 
     /// Allocate a variable.
@@ -126,6 +129,9 @@ impl Simulation {
                     // println!("calling thread {thread_idx:?}");
                     kernel.run(&thread_idx)?;
                 }
+                // collect all accesses by threads in a warp
+                let accesses = self.accesses.drain();
+                dbg!(&accesses);
             }
         }
         Ok(())
