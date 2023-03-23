@@ -7,7 +7,7 @@ jobs:
     uses: ./.github/workflows/feature-matrix.yml
 
   build-accelsim:
-    name: build accelsim (USE_REMOTE_ACCELSIM=${{ matrix.use_remote }})
+    name: build accelsim (remote=${{ matrix.use_remote }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -19,6 +19,13 @@ jobs:
         with:
           toolchain: stable
           override: true
+
+      - name: Install CUDA
+        uses: Jimver/cuda-toolkit@v0.2.8
+        id: cuda-toolkit
+        with:
+          cuda: '11.7.0'
+          linux-local-args: '["--driver", "--toolkit"]'
 
       - name: Build
         env:
