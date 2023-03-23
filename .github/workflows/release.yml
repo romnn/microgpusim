@@ -1,0 +1,30 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  publish-crate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install CUDA
+        uses: Jimver/cuda-toolkit@v0.2.8
+        id: cuda-toolkit
+        with:
+          cuda: '11.7.0'
+          linux-local-args: '["--driver", "--toolkit"]'
+
+      - name: Publish crates
+        uses: romnn/publish-crates@main
+        with:
+          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          resolve-versions: true
+          publish-delay: 30s
