@@ -1,4 +1,4 @@
-use accelsim;
+// use accelsim;
 
 fn main() {
     // let args: Vec<_> = std::env::args().collect();

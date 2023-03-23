@@ -1,3 +1,4 @@
 bin/
 build/
-gpgpu-sim/
+# we want to keep our gpgpu-sim version
+# gpgpu-sim/

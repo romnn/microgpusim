@@ -1,5 +1,4 @@
 #### TODO
-- compile the full accelsim simulator from remote or local source so we can make changes
 - organize trace files in subfolders instead of flat structure
 - simple matrix mul makes sense, now check the more complex example
 - allow expressing patterns as
@@ -9,6 +8,7 @@
 - add full python frontend (pycachesim api)
 
 #### Done
+- compile the full accelsim simulator from remote or local source so we can make changes
 - implement a simple scheduler and register kernels
   - so they receive the block and grid coordinates etc.
 - convert the trace of vectoradd into the pycachesim style api
