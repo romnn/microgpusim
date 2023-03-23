@@ -1,7 +1,9 @@
 #![allow(warnings)]
 
 pub mod cache;
-pub use cache::{Cache, Config as CacheConfig, MainMemory, Simulation};
+pub mod dram;
+pub mod sim;
 
-#[cfg(test)]
-mod tests {}
+pub use cache::{Cache, Config as CacheConfig};
+pub use dram::MainMemory;
+pub use sim::{DevicePtr, Kernel, Simulation, ThreadIndex};

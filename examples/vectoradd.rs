@@ -1,118 +1,85 @@
-fn cuda_malloc<T>(host_ptr: &mut T) -> DevicePtr<'_, T> {
-    DevicePtr { inner: host_ptr }
-}
+use anyhow::Result;
+use num_traits::{Float, NumCast, Zero};
 
 #[derive(Debug)]
-struct DevicePtr<'a, T> {
-    inner: &'a mut T,
-}
-
-pub trait ToFlatIndex {
-    fn flatten(&self) -> usize;
-}
-
-impl ToFlatIndex for usize {
-    fn flatten(&self) -> usize {
-        *self
-    }
-}
-
-impl<T, O, I> std::ops::Index<I> for DevicePtr<'_, T>
-where
-    T: std::ops::Index<I, Output = O> + std::fmt::Debug,
-    I: ToFlatIndex + std::fmt::Debug,
-{
-    type Output = O;
-
-    fn index(&self, idx: I) -> &Self::Output {
-        let elem_size = std::mem::size_of::<O>();
-        let flat_idx = idx.flatten();
-        let addr = elem_size * flat_idx;
-        println!("{:?}[{:?}] => {}", &self, &idx, &addr);
-        &self.inner[idx]
-    }
-}
-
-impl<T, O, I> std::ops::IndexMut<I> for DevicePtr<'_, T>
-where
-    T: std::ops::IndexMut<I, Output = O> + std::fmt::Debug,
-    I: ToFlatIndex + std::fmt::Debug,
-{
-    fn index_mut(&mut self, idx: I) -> &mut Self::Output {
-        let elem_size = std::mem::size_of::<O>();
-        let flat_idx = idx.flatten();
-        let addr = elem_size * flat_idx;
-        println!("{:?}[{:?}] => {}", &self, &idx, &addr);
-        &mut self.inner[idx]
-    }
-}
-
-fn vec_add_gpu(
-    d_a: &mut DevicePtr<Vec<f32>>,
-    d_b: &mut DevicePtr<Vec<f32>>,
-    d_c: &mut DevicePtr<Vec<f32>>,
+struct VecAdd<'s, 'a, T> {
+    d_a: &'a mut casimu::DevicePtr<'s, 'a, Vec<T>>,
+    d_b: &'a mut casimu::DevicePtr<'s, 'a, Vec<T>>,
+    d_c: &'a mut casimu::DevicePtr<'s, 'a, Vec<T>>,
     n: usize,
-) {
-    // Get our global thread ID
-    // int id = blockIdx.x * blockDim.x + threadIdx.x;
+}
 
-    // Make sure we do not go out of bounds
-    // if (id < n) c[id] = a[id] + b[id];
-    for id in 0..n {
-        d_c[id] = d_a[id] + d_b[id];
+impl<'s, 'a, T> casimu::Kernel for VecAdd<'s, 'a, T>
+where
+    T: num_traits::Float + std::fmt::Debug,
+{
+    type Error = std::convert::Infallible;
+
+    fn run(&mut self, idx: &casimu::ThreadIndex) -> Result<(), Self::Error> {
+        // Get our global thread ID
+        // int id = blockIdx.x * blockDim.x + threadIdx.x;
+        let id: usize = (idx.block_idx.x * idx.block_dim.x + idx.thread_idx.x) as usize;
+
+        // Make sure we do not go out of bounds
+        // if (id < n) c[id] = a[id] + b[id];
+        // let test2: &(dyn std::ops::IndexMut<usize, Output = T>) = self.d_a;
+        if id < self.n {
+            self.d_c[id] = self.d_a[id] + self.d_b[id];
+        }
+        Ok(())
     }
 }
 
-struct Simualation {}
+// Number of threads in each thread block
+const BLOCK_SIZE: u32 = 1024;
 
-fn vectoradd(n: usize) {
+fn vectoradd<T>(n: usize) -> Result<()>
+where
+    T: Float + Zero + NumCast + std::iter::Sum + std::fmt::Display + std::fmt::Debug,
+{
     // create host vectors
-    let mut a: Vec<f32> = vec![0.0; n];
-    let mut b: Vec<f32> = vec![0.0; n];
-    let mut c: Vec<f32> = vec![0.0; n];
+    let mut a: Vec<T> = vec![T::zero(); n];
+    let mut b: Vec<T> = vec![T::zero(); n];
+    let mut c: Vec<T> = vec![T::zero(); n];
 
+    // initialize vectors
     for i in 0..n {
-        let angle = i as f32;
+        let angle = T::from(i).unwrap();
         a[i] = angle.sin() * angle.sin();
         b[i] = angle.cos() * angle.cos();
-        c[i] = 0.0;
+        c[i] = T::zero();
     }
 
-    // allocate memory for each vector on GPU
-    let mut d_a = cuda_malloc(&mut a);
-    let mut d_b = cuda_malloc(&mut b);
-    let mut d_c = cuda_malloc(&mut c);
+    let sim = casimu::Simulation::new();
 
-    // let d_a = cuda_malloc(a);
-    dbg!(&d_a);
-    // cudaMalloc(&d_a, bytes);
+    // allocate memory for each vector on simulated GPU device
+    let mut d_a = sim.allocate(&mut a);
+    let mut d_b = sim.allocate(&mut b);
+    let mut d_c = sim.allocate(&mut c);
 
-    // int blockSize, gridSize;
+    // number of thread blocks in grid
+    let grid_size = (n as f64 / BLOCK_SIZE as f64).ceil() as u32;
 
-    // // Number of threads in each thread block
-    // blockSize = 1024;
+    let kernel: VecAdd<T> = VecAdd {
+        d_a: &mut d_a,
+        d_b: &mut d_b,
+        d_c: &mut d_c,
+        n,
+    };
+    sim.launch_kernel(grid_size, BLOCK_SIZE, kernel)?;
 
-    // // Number of thread blocks in grid
-    // gridSize = (int)ceil((float)n / blockSize);
-
-    vec_add_gpu(&mut d_a, &mut d_b, &mut d_c, n);
-    // // Execute the kernel
-    // CUDA_SAFECALL((vecAdd<T><<<gridSize, blockSize>>>(d_a, d_b, d_c, n)));
-
-    // // Copy array back to host
-    // cudaMemcpy(h_c, d_c, bytes, cudaMemcpyDeviceToHost);
-
-    // Sum up vector c and print result divided by n, this should equal 1 within
-    let sum: f32 = c.iter().sum();
+    // sum up vector c and print result divided by n, this should equal 1 within
+    let sum: T = c.into_iter().sum();
     println!(
         "Final sum = {sum}; sum/n = {} (should be ~1)\n",
-        sum / n as f32
+        sum / T::from(n).unwrap()
     );
+    Ok(())
 }
 
-fn main() {
-    // todo: add num traits
-    vectoradd(10);
+fn main() -> Result<()> {
+    vectoradd::<f32>(100)?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -131,7 +98,7 @@ mod tests {
         let rmp_trace_file_path = traces_dir.join("trace.msgpack");
         dbg!(&rmp_trace_file_path);
 
-        let mut reader = std::io::BufReader::new(
+        let reader = std::io::BufReader::new(
             std::fs::OpenOptions::new()
                 .read(true)
                 .open(&rmp_trace_file_path)
@@ -139,27 +106,8 @@ mod tests {
         );
         let mut reader = rmp_serde::Deserializer::new(reader);
 
-        // todo: factor this out of trace crate
-        // #[derive(Debug, Clone, serde::Deserialize)]
-        // struct MemAccessTraceEntry {
-        //     pub cuda_ctx: u64,
-        //     pub grid_launch_id: u64,
-        //     pub cta_id: nvbit_rs::Dim,
-        //     pub warp_id: u32,
-        //     pub instr_opcode: String,
-        //     pub instr_offset: u32,
-        //     pub instr_idx: u32,
-        //     pub instr_predicate: nvbit_rs::Predicate,
-        //     pub instr_mem_space: nvbit_rs::MemorySpace,
-        //     pub instr_is_load: bool,
-        //     pub instr_is_store: bool,
-        //     pub instr_is_extended: bool,
-        //     /// Accessed address per thread of a warp
-        //     pub addrs: [u64; 32],
-        // }
-
-        let decoder = nvbit_rs::Decoder::new(|access: String| {
-            println!("{:?}", &access);
+        let decoder = nvbit_io::Decoder::new(|access: trace_model::MemAccessTraceEntry| {
+            println!("{:#?}", &access);
         });
         reader.deserialize_seq(decoder)?;
 

@@ -4,6 +4,7 @@
 - move the main stuff to a validator or so
 - make many functions that wrap commands async
 - move types used by the tracer to either main / or `trace_model`
+- add github actions
 
 - check the trace for simpler matrix multiply, does it make sense?
   - if so, check the more complex example

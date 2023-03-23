@@ -1,8 +1,15 @@
+use super::cache;
 use std::sync::Arc;
 
 pub trait ReplacementPolicy {}
+
 pub struct LRU {}
+
 impl ReplacementPolicy for LRU {}
+
+pub trait CacheLevel {}
+
+impl<P> CacheLevel for Cache<P> where P: ReplacementPolicy {}
 
 pub struct Config<P>
 where
@@ -48,10 +55,6 @@ impl Default for Config<LRU> {
 //            store_to=None, load_from=None, victims_to=None,
 //            swap_on_load=False
 
-pub trait CacheLevel {}
-
-impl<P> CacheLevel for Cache<P> where P: ReplacementPolicy {}
-
 pub struct Cache<P>
 where
     P: ReplacementPolicy,
@@ -65,37 +68,5 @@ where
 {
     pub fn new(config: Config<P>) -> Self {
         Self { config }
-    }
-}
-
-pub struct MainMemory {
-    /// Store parent cache (which is closer to main memory)
-    store_from_cache: Option<Arc<dyn CacheLevel>>,
-    /// Load parent cache (which is closer to main memory)
-    load_to_cache: Option<Arc<dyn CacheLevel>>,
-}
-
-impl MainMemory {
-    pub fn set_load_to(&mut self, cache: Arc<dyn CacheLevel>) {
-        self.load_to_cache = Some(cache);
-    }
-
-    pub fn set_store_from(&mut self, cache: Arc<dyn CacheLevel>) {
-        self.store_from_cache = Some(cache);
-    }
-
-    pub fn new() -> Self {
-        Self {
-            store_from_cache: None,
-            load_to_cache: None,
-        }
-    }
-}
-
-pub struct Simulation {}
-
-impl Simulation {
-    pub fn new(first_level: Arc<dyn CacheLevel>, main_mem: MainMemory) -> Self {
-        Self {}
     }
 }

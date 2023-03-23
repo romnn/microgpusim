@@ -5,7 +5,7 @@
 pub mod plot;
 
 use lazy_static::lazy_static;
-use nvbit_rs::{DeviceChannel, HostChannel};
+use nvbit_rs::{model, DeviceChannel, HostChannel};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::ffi;
@@ -26,44 +26,9 @@ mod common {
 
 use common::mem_access_t;
 
-fn app_prefix() -> String {
-    let mut args: Vec<_> = std::env::args().collect();
-    if let Some(executable) = args.get_mut(0) {
-        *executable = PathBuf::from(&*executable)
-            .file_name()
-            .and_then(ffi::OsStr::to_str)
-            .unwrap()
-            .to_string();
-    }
-    args.join("-")
-}
-
 fn traces_dir() -> PathBuf {
     let example_dir = PathBuf::from(file!()).join("../../");
-    // .parent()
-    // .unwrap()
-    // .parent()
-    // .unwrap()
-    // .to_path_buf();
     std::env::var("TRACES_DIR").map_or_else(|_| example_dir.join("traces"), PathBuf::from)
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct MemAccessTraceEntry {
-    pub cuda_ctx: u64,
-    pub grid_launch_id: u64,
-    pub cta_id: nvbit_rs::Dim,
-    pub warp_id: u32,
-    pub instr_opcode: String,
-    pub instr_offset: u32,
-    pub instr_idx: u32,
-    pub instr_predicate: nvbit_rs::Predicate,
-    pub instr_mem_space: nvbit_rs::MemorySpace,
-    pub instr_is_load: bool,
-    pub instr_is_store: bool,
-    pub instr_is_extended: bool,
-    /// Accessed address per thread of a warp
-    pub addrs: [u64; 32],
 }
 
 #[allow(non_snake_case)]
@@ -110,12 +75,6 @@ impl Args {
 // 1 MiB = 2**20
 const CHANNEL_SIZE: u32 = 1 << 20;
 
-#[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
-struct MemAllocation {
-    device_ptr: u64,
-    bytes: usize,
-}
-
 struct Instrumentor<'c> {
     ctx: Mutex<nvbit_rs::Context<'c>>,
     already_instrumented: Mutex<HashSet<nvbit_rs::FunctionHandle<'c>>>,
@@ -130,7 +89,7 @@ struct Instrumentor<'c> {
     instr_end_interval: usize,
     skip_flag: Mutex<bool>,
     traces_dir: PathBuf,
-    allocations: Mutex<Vec<MemAllocation>>,
+    allocations: Mutex<Vec<trace_model::MemAllocation>>,
 }
 
 impl Instrumentor<'static> {
@@ -138,7 +97,7 @@ impl Instrumentor<'static> {
         let mut dev_channel = nvbit_rs::DeviceChannel::new();
         let host_channel = HostChannel::new(0, CHANNEL_SIZE, &mut dev_channel).unwrap();
 
-        let traces_dir = traces_dir().join(format!("{}-trace", &app_prefix()));
+        let traces_dir = traces_dir().join(format!("{}-trace", &trace_model::app_prefix()));
         std::fs::create_dir_all(&traces_dir).ok();
 
         let instrumentor = Arc::new(Self {
@@ -190,7 +149,7 @@ impl Instrumentor<'static> {
             writer,
             serde_json::ser::PrettyFormatter::with_indent(b"    "),
         );
-        let mut json_encoder = nvbit_rs::Encoder::new(&mut json_serializer).unwrap();
+        let mut json_encoder = nvbit_io::Encoder::new(&mut json_serializer).unwrap();
 
         let rmp_trace_file_path = self.traces_dir.join("trace.msgpack");
         let mut rmp_file = std::fs::OpenOptions::new()
@@ -209,7 +168,7 @@ impl Instrumentor<'static> {
 
         let mut writer = std::io::BufWriter::new(rmp_file);
         let mut rmp_serializer = rmp_serde::Serializer::new(writer);
-        let mut rmp_encoder = nvbit_rs::Encoder::new(&mut rmp_serializer).unwrap();
+        let mut rmp_encoder = nvbit_io::Encoder::new(&mut rmp_serializer).unwrap();
 
         // start the thread here
         let mut packet_count = 0;
@@ -231,22 +190,22 @@ impl Instrumentor<'static> {
             let lock = self.id_to_opcode_map.read().unwrap();
             let opcode = &lock[&(packet.instr_opcode_id as usize)];
 
-            let cta_id = nvbit_rs::Dim {
+            let cta_id = model::Dim {
                 x: packet.cta_id_x.unsigned_abs(),
                 y: packet.cta_id_y.unsigned_abs(),
                 z: packet.cta_id_z.unsigned_abs(),
             };
-            let instr_predicate = nvbit_rs::Predicate {
+            let instr_predicate = model::Predicate {
                 num: packet.instr_predicate_num,
                 is_neg: packet.instr_predicate_is_neg,
                 is_uniform: packet.instr_predicate_is_uniform,
             };
-            let instr_mem_space: nvbit_rs::MemorySpace = unsafe {
+            let instr_mem_space: model::MemorySpace = unsafe {
                 let variant = u8::try_from(packet.instr_mem_space).unwrap();
                 std::mem::transmute(variant)
             };
 
-            let entry = MemAccessTraceEntry {
+            let entry = trace_model::MemAccessTraceEntry {
                 cuda_ctx,
                 grid_launch_id: packet.grid_launch_id,
                 cta_id,
@@ -261,8 +220,12 @@ impl Instrumentor<'static> {
                 instr_is_extended: packet.instr_is_extended,
                 addrs: packet.addrs,
             };
-            json_encoder.encode::<MemAccessTraceEntry>(&entry).unwrap();
-            rmp_encoder.encode::<MemAccessTraceEntry>(&entry).unwrap();
+            json_encoder
+                .encode::<trace_model::MemAccessTraceEntry>(&entry)
+                .unwrap();
+            rmp_encoder
+                .encode::<trace_model::MemAccessTraceEntry>(&entry)
+                .unwrap();
         }
 
         json_encoder.finalize().unwrap();
@@ -351,7 +314,7 @@ impl<'c> Instrumentor<'c> {
                 self.allocations
                     .lock()
                     .unwrap()
-                    .push(MemAllocation { device_ptr, bytes });
+                    .push(trace_model::MemAllocation { device_ptr, bytes });
             }
             _ => {}
         }
@@ -380,10 +343,10 @@ impl<'c> Instrumentor<'c> {
         // iterate on the operands
         for operand in instr.operands().collect::<Vec<_>>() {
             // println!("operand kind: {:?}", &operand.kind());
-            if let nvbit_rs::OperandKind::MemRef { .. } = operand.kind() {
-                instr.insert_call("instrument_inst", nvbit_rs::InsertionPoint::Before);
+            if let model::OperandKind::MemRef { .. } = operand.kind() {
+                instr.insert_call("instrument_inst", model::InsertionPoint::Before);
                 let mut pchannel_dev_lock = self.dev_channel.lock().unwrap();
-                let predicate = instr.predicate().unwrap_or(nvbit_rs::Predicate {
+                let predicate = instr.predicate().unwrap_or(model::Predicate {
                     num: 0,
                     is_neg: false,
                     is_uniform: false,
@@ -428,7 +391,7 @@ impl<'c> Instrumentor<'c> {
                 if cnt < self.instr_begin_interval || cnt >= self.instr_end_interval {
                     continue;
                 }
-                if let nvbit_rs::MemorySpace::None | nvbit_rs::MemorySpace::Constant =
+                if let model::MemorySpace::None | model::MemorySpace::Constant =
                     instr.memory_space()
                 {
                     continue;
@@ -549,7 +512,7 @@ pub extern "C" fn nvbit_at_ctx_term(ctx: nvbit_rs::Context<'static>) {
         access_plot.register_allocation(allocation);
     }
 
-    let decoder = nvbit_rs::Decoder::new(|access: MemAccessTraceEntry | {
+    let decoder = nvbit_io::Decoder::new(|access: trace_model::MemAccessTraceEntry| {
         access_plot.add(access, None);
     });
     reader.deserialize_seq(decoder).unwrap();

@@ -2,6 +2,7 @@ use anyhow::Result;
 use rangemap::RangeMap;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
+use trace_model as model;
 
 #[derive(Clone, Debug)]
 pub struct MemoryAccesses<T, A>
@@ -26,15 +27,15 @@ where
     }
 }
 
-impl MemoryAccesses<super::MemAccessTraceEntry, super::MemAllocation> {
-    pub fn register_allocation(&mut self, alloc: super::MemAllocation) {
+impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
+    pub fn register_allocation(&mut self, alloc: model::MemAllocation) {
         let start = alloc.device_ptr;
         let end = alloc.device_ptr + alloc.bytes as u64;
         self.allocations.insert(start..end, alloc);
         self.bands.push(start..end);
     }
 
-    pub fn add(&mut self, access: super::MemAccessTraceEntry, label: Option<String>) {
+    pub fn add(&mut self, access: model::MemAccessTraceEntry, label: Option<String>) {
         let key = (access.instr_is_store, label);
         let accesses = self.accesses.entry(key).or_insert(vec![]);
         accesses.push(access);

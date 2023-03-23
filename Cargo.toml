@@ -28,14 +28,20 @@ thiserror = "1"
 clap = { version = "4", features = ["derive"] }
 profile = { path = "./profile" }
 accelsim = { path = "./accelsim" }
-invoke_trace = { path = "./trace/invoke" }
-trace = { path = "./trace" }
+invoke-trace = { path = "./trace/invoke" }
+trace-model = { path = "./trace/model" }
+nvbit-model = "0"
+nvbit-io = "0"
 dotenv = "0"
 serde_json = "1"
 serde = { version = "1", features = ["derive"] }
 nvbit-rs = "0"
 rmp-serde = "1"
+num-traits = "0"
+itertools = "0"
 tokio = { version = "1", features = ["full"] }
 
 ssh_jumper = { version = "0", optional = true }
+
+# trace = { path = "./trace" }
 # tokio = { version = "1", features = ["full"], optional = true }
