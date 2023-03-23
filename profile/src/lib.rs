@@ -1,11 +1,11 @@
 #![allow(warnings)]
 
+use async_process::{Command, Output};
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::HashMap;
 use std::io::{BufRead, Read, Seek};
 use std::path::Path;
-use std::process::{Command, Output};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -390,7 +390,7 @@ pub struct NvprofAllColumns {
 /// When profiling fails.
 /// When application fails.
 #[allow(clippy::too_many_lines)]
-pub fn nvprof<P, A>(executable: P, args: A) -> Result<ProfilingResult, Error>
+pub async fn nvprof<P, A>(executable: P, args: A) -> Result<ProfilingResult, Error>
 where
     P: AsRef<Path>,
     A: IntoIterator,
@@ -421,7 +421,7 @@ where
     .args(args.into_iter());
     // dbg!(&cmd);
 
-    let result = cmd.output()?;
+    let result = cmd.output().await?;
     if !result.status.success() {
         return Err(Error::Command(result));
     }

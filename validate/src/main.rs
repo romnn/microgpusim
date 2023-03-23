@@ -15,8 +15,8 @@ fn open_writable(path: &Path) -> Result<BufWriter<fs::File>, std::io::Error> {
     Ok(BufWriter::new(file))
 }
 
-fn profile_exec(exec: &Path, exec_args: &Vec<&String>, traces_dir: &Path) -> Result<()> {
-    let profiling_results = profile::nvprof(exec, exec_args)?;
+async fn profile_exec(exec: &Path, exec_args: &Vec<&String>, traces_dir: &Path) -> Result<()> {
+    let profiling_results = profile::nvprof(exec, exec_args).await?;
     let writer = open_writable(&traces_dir.join("nvprof.json"))?;
     serde_json::to_writer_pretty(writer, &profiling_results.metrics)?;
     let mut writer = open_writable(&traces_dir.join("nvprof.log"))?;
@@ -24,8 +24,8 @@ fn profile_exec(exec: &Path, exec_args: &Vec<&String>, traces_dir: &Path) -> Res
     Ok(())
 }
 
-fn trace_exec(exec: &Path, exec_args: &Vec<&String>, traces_dir: &Path) -> Result<()> {
-    invoke_trace::trace(exec, exec_args, traces_dir)?;
+async fn trace_exec(exec: &Path, exec_args: &Vec<&String>, traces_dir: &Path) -> Result<()> {
+    invoke_trace::trace(exec, exec_args, traces_dir).await?;
     Ok(())
 }
 
@@ -51,8 +51,8 @@ async fn main() -> Result<()> {
         .mode(0o777)
         .create(&traces_dir)?;
 
-    profile_exec(&exec, &exec_args, &traces_dir)?;
-    trace_exec(&exec, &exec_args, &traces_dir)?;
+    profile_exec(&exec, &exec_args, &traces_dir).await?;
+    trace_exec(&exec, &exec_args, &traces_dir).await?;
 
     Ok(())
 }

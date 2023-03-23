@@ -39,6 +39,10 @@ async fn open_ssh_tunnel(
     Ok(tunnel)
 }
 
+/// Connect to remote host.
+///
+/// # Errors
+/// If connection fails.
 pub async fn connect() -> Result<()> {
     let ssh_username = std::env::var("ssh_user_name")?;
     let ssh_password = std::env::var("ssh_password")?;

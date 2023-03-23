@@ -12,6 +12,6 @@ async fn main() -> Result<()> {
     let traces_dir = exec_dir.join("traces");
     std::fs::create_dir_all(&traces_dir).ok();
 
-    invoke_trace::trace(exec, exec_args, traces_dir)?;
+    invoke_trace::trace(exec, exec_args, traces_dir).await?;
     Ok(())
 }
