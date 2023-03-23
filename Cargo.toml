@@ -1,9 +1,11 @@
 [workspace]
 members = [
+  "validate",
   "profile",
   "accelsim",
   "trace",
-  "trace/invoke"
+  "trace/invoke",
+  "trace/model"
 ]
 
 [profile.dev]
@@ -19,29 +21,31 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["remote"]
-remote = ["dep:ssh_jumper"]
+default = []
+
+[package.metadata.cargo-feature-combinations]
+denylist = ["default"]
 
 [dependencies]
 anyhow = "1"
 thiserror = "1"
 clap = { version = "4", features = ["derive"] }
-profile = { path = "./profile" }
-accelsim = { path = "./accelsim" }
-invoke-trace = { path = "./trace/invoke" }
 trace-model = { path = "./trace/model" }
 nvbit-model = "0"
 nvbit-io = "0"
-dotenv = "0"
-serde_json = "1"
-serde = { version = "1", features = ["derive"] }
 nvbit-rs = "0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 rmp-serde = "1"
 num-traits = "0"
 itertools = "0"
-tokio = { version = "1", features = ["full"] }
 
-ssh_jumper = { version = "0", optional = true }
-
+# default = ["remote"]
+# remote = ["dep:ssh_jumper"]
+# profile = { path = "./profile" }
+# accelsim = { path = "./accelsim" }
+# dotenv = "0"
+# tokio = { version = "1", features = ["full"] }
+# ssh_jumper = { version = "0", optional = true }
 # trace = { path = "./trace" }
 # tokio = { version = "1", features = ["full"], optional = true }

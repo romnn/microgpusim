@@ -7,8 +7,8 @@ pub fn app_prefix() -> String {
         *executable = PathBuf::from(&*executable)
             .file_name()
             .and_then(std::ffi::OsStr::to_str)
-            .unwrap()
-            .to_string();
+            .map(String::from)
+            .unwrap_or(String::new());
     }
     args.join("-")
 }

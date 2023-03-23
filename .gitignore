@@ -1,5 +1,5 @@
 /target
 /Cargo.lock
 
-# until we use messagepack
-/validation/matrixmul/traces
+# json traces can get too big
+/test-apps/*/traces/*/*.json

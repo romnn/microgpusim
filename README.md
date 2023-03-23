@@ -1,7 +1,7 @@
 
 #### TODO
-- organize trace files in subfolders instead of flat structure
 - move the main stuff to a validator or so
+- organize trace files in subfolders instead of flat structure
 - make many functions that wrap commands async
 - move types used by the tracer to either main / or `trace_model`
 - add github actions

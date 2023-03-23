@@ -381,6 +381,15 @@ pub struct NvprofAllColumns {
     dram_read_bytes: Option<usize>,
 }
 
+/// Profile test application using nvbprof profiler.
+///
+/// Note: The nvbprof compiler is not recommended for newer devices.
+///
+/// # Errors
+/// When creating temp dir fails.
+/// When profiling fails.
+/// When application fails.
+#[allow(clippy::too_many_lines)]
 pub fn nvprof<P, A>(executable: P, args: A) -> Result<ProfilingResult, Error>
 where
     P: AsRef<Path>,

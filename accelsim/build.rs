@@ -1,5 +1,9 @@
+#![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
+
 use std::path::PathBuf;
 
+#[inline]
+#[must_use]
 pub fn output() -> PathBuf {
     PathBuf::from(std::env::var("OUT_DIR").unwrap())
         .canonicalize()
@@ -13,7 +17,7 @@ pub struct GitRepository {
 }
 
 impl GitRepository {
-    pub fn clone(&self) -> Result<(), std::io::Error> {
+    pub fn shallow_clone(&self) -> Result<(), std::io::Error> {
         use std::io::{Error, ErrorKind};
         use std::process::Command;
 
@@ -34,7 +38,7 @@ impl GitRepository {
         if cmd.status()?.success() {
             Ok(())
         } else {
-            Err(Error::new(ErrorKind::Other, "fetch failed").into())
+            Err(Error::new(ErrorKind::Other, "fetch failed"))
         }
     }
 }
@@ -45,5 +49,5 @@ pub fn main() {
         path: output().join("accelsim"),
         branch: Some("release".to_string()),
     };
-    repo.clone().unwrap();
+    repo.shallow_clone().unwrap();
 }

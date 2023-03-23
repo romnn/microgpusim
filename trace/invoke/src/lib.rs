@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Command, Output};
 
 // #[derive(PartialEq, Clone, Debug)]
@@ -41,11 +41,14 @@ pub enum Error {
 
     #[error("command failed {0:?}")]
     Command(Output),
-
     // #[error(transparent)]
     // Command(#[from] CommandError),
 }
 
+/// Trace a test application.
+///
+/// # Errors
+/// When test app cannot be traced.
 pub fn trace<P, A, D>(executable: P, args: A, trace_dir: D) -> Result<(), Error>
 where
     P: AsRef<Path>,
@@ -53,7 +56,7 @@ where
     <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
     D: AsRef<Path>,
 {
-    let current_exe = PathBuf::from(std::env::current_exe()?);
+    let current_exe = std::env::current_exe()?;
     let target_dir = current_exe.parent().ok_or(Error::MissingSharedLib)?;
     let tracer_so = target_dir.join("libtrace.so");
     if !tracer_so.is_file() {
@@ -80,7 +83,7 @@ where
 
     let result = cmd.output()?;
     if !result.status.success() {
-        return Err(Error::Command(result).into());
+        return Err(Error::Command(result));
     }
     println!("{}", String::from_utf8_lossy(&result.stdout));
     println!("{}", String::from_utf8_lossy(&result.stderr));

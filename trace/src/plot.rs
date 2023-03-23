@@ -1,3 +1,5 @@
+#![allow(clippy::cast_possible_truncation)]
+
 use anyhow::Result;
 use rangemap::RangeMap;
 use std::collections::{HashMap, HashSet};
@@ -41,6 +43,10 @@ impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
         accesses.push(access);
     }
 
+    /// Draw memory accesses to path
+    ///
+    /// # Errors
+    /// When drawing or saving the result fails.
     pub fn draw(&mut self, path: impl AsRef<Path>) -> Result<()> {
         use plotters::prelude::*;
 
@@ -58,7 +64,8 @@ impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
         let max_addr = self
             .accesses
             .values()
-            .flat_map(|accesses| accesses)
+            .flatten()
+            // .flat_map(|accesses| accesses)
             .flat_map(|access| access.addrs)
             .max()
             .unwrap_or(u64::MIN);
@@ -67,7 +74,8 @@ impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
         let min_addr = self
             .accesses
             .values()
-            .flat_map(|accesses| accesses)
+            .flatten()
+            // .flat_map(|accesses| accesses)
             .flat_map(|access| access.addrs)
             .filter(|addr| *addr > 100)
             .min()
@@ -76,7 +84,8 @@ impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
         let max_time = self
             .accesses
             .values()
-            .flat_map(|accesses| accesses)
+            // .flat_map(|accesses| accesses)
+            .flatten()
             .map(|access| 32 * (access.warp_id + 1))
             .max()
             .unwrap_or_default();
@@ -94,7 +103,7 @@ impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
             .set_label_area_size(LabelAreaPosition::Left, 100)
             .set_label_area_size(LabelAreaPosition::Bottom, 2 * font_size)
             .caption("Memory accesses", text_style)
-            .build_cartesian_2d(x_range.clone(), y_range.clone())?;
+            .build_cartesian_2d(x_range.clone(), y_range)?;
 
         chart_ctx
             .configure_mesh()
@@ -121,21 +130,21 @@ impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
         // addresses = [e[2] for e in entries]
         // time = [e[1] for e in entries]
 
-        for ((is_store, label), mut accesses) in self.accesses.iter_mut() {
+        for ((is_store, label), mut accesses) in &mut self.accesses {
             println!("drawing ({is_store}, {label:?})");
 
             accesses.sort_by(|a, b| a.warp_id.cmp(&b.warp_id));
             // dbg!(&accesses);
 
             let color = if *is_store { &RED } else { &BLUE };
-            let series = accesses.into_iter().flat_map(|access| {
+            let series = accesses.iter_mut().flat_map(|access| {
                 access
                     .addrs
                     .into_iter()
                     .enumerate()
                     .filter(|(_, addr)| *addr > 0)
                     .map(|(tid, addr)| {
-                        let time = 32 * access.warp_id as u32 + tid as u32;
+                        let time = 32 * access.warp_id + tid as u32;
                         Circle::new((time, addr), 5, color)
                     })
             });
@@ -147,8 +156,8 @@ impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
         }
         chart_ctx
             .configure_series_labels()
-            .border_style(&BLACK)
-            .background_style(&WHITE.mix(0.8))
+            .border_style(BLACK)
+            .background_style(WHITE.mix(0.8))
             .draw()?;
 
         println!("finished drawing");

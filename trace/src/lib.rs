@@ -31,7 +31,7 @@ fn traces_dir() -> PathBuf {
     std::env::var("TRACES_DIR").map_or_else(|_| example_dir.join("traces"), PathBuf::from)
 }
 
-#[allow(non_snake_case)]
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Default, Clone)]
 struct Args {
     instr_opcode_id: std::ffi::c_int,
@@ -210,7 +210,7 @@ impl Instrumentor<'static> {
                 grid_launch_id: packet.grid_launch_id,
                 cta_id,
                 warp_id: packet.warp_id.unsigned_abs(),
-                instr_opcode: opcode.to_owned(),
+                instr_opcode: opcode.clone(),
                 instr_offset: packet.instr_offset,
                 instr_idx: packet.instr_idx,
                 instr_predicate,
