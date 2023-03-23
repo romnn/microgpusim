@@ -3,6 +3,14 @@ name = "invoke-trace"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default  = []
+
+[package.metadata.cargo-feature-combinations]
+denylist = ["default"]
+
 [dependencies]
+anyhow = "1"
 thiserror = "1"
+tokio = { version = "1", features = ["full"] }
 trace = { path = "../" }

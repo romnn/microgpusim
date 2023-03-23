@@ -2,7 +2,8 @@ use anyhow::Result;
 use invoke_trace;
 use std::path::PathBuf;
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let args: Vec<_> = std::env::args().collect();
     let exec = PathBuf::from(args.get(1).expect("usage ./trace <executable> [args]"));
     let exec_args = args.iter().skip(2);

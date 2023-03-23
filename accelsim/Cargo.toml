@@ -6,6 +6,12 @@ edition = "2021"
 [lib]
 crate-type = ["rlib"]
 
+[features]
+default  = []
+
+[package.metadata.cargo-feature-combinations]
+denylist = ["default"]
+
 [dependencies]
 thiserror = "1"
 

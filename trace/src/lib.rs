@@ -1,7 +1,6 @@
-#![allow(warnings)]
-#![allow(clippy::missing_panics_doc)]
-#![allow(clippy::missing_safety_doc)]
+#![allow(warnings, clippy::missing_panics_doc, clippy::missing_safety_doc)]
 
+#[cfg(feature = "plot")]
 pub mod plot;
 
 use lazy_static::lazy_static;
@@ -497,34 +496,31 @@ pub extern "C" fn nvbit_at_ctx_term(ctx: nvbit_rs::Context<'static>) {
     let allocations = instrumentor.allocations.lock().unwrap();
     allocations.serialize(&mut serializer).unwrap();
 
-    // plot memory accesses
-    let rmp_trace_file_path = instrumentor.traces_dir.join("trace.msgpack");
-    let mut reader = std::io::BufReader::new(
-        std::fs::OpenOptions::new()
-            .read(true)
-            .open(&rmp_trace_file_path)
-            .unwrap(),
-    );
-    let mut reader = rmp_serde::Deserializer::new(reader);
-    let mut access_plot = plot::MemoryAccesses::default();
+    #[cfg(feature = "plot")]
+    {
+        // plot memory accesses
+        let rmp_trace_file_path = instrumentor.traces_dir.join("trace.msgpack");
+        let mut reader = std::io::BufReader::new(
+            std::fs::OpenOptions::new()
+                .read(true)
+                .open(&rmp_trace_file_path)
+                .unwrap(),
+        );
+        let mut reader = rmp_serde::Deserializer::new(reader);
+        let mut access_plot = plot::MemoryAccesses::default();
 
-    for allocation in allocations.iter().cloned() {
-        access_plot.register_allocation(allocation);
+        for allocation in allocations.iter().cloned() {
+            access_plot.register_allocation(allocation);
+        }
+
+        let decoder = nvbit_io::Decoder::new(|access: trace_model::MemAccessTraceEntry| {
+            access_plot.add(access, None);
+        });
+        reader.deserialize_seq(decoder).unwrap();
+
+        let trace_plot_path = instrumentor.traces_dir.join("trace.svg");
+        access_plot.draw(&trace_plot_path).unwrap();
     }
-
-    let decoder = nvbit_io::Decoder::new(|access: trace_model::MemAccessTraceEntry| {
-        access_plot.add(access, None);
-    });
-    reader.deserialize_seq(decoder).unwrap();
-
-    let trace_plot_path = instrumentor.traces_dir.join("trace.svg");
-    access_plot.draw(&trace_plot_path).unwrap();
-    // if let Err(err) = access_plot.draw(&trace_plot_path) {
-    //     eprintln!("plotting failed: {:?}", &err);
-    // }
-
-    std::io::stdout().flush();
-    std::io::stderr().flush();
 
     println!(
         "done after {:?}",

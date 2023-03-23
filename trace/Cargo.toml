@@ -31,12 +31,6 @@ trace-model = { path = "./model" }
 
 plotters = { version = "0.3", optional = true }
 
-# casimu = { path = "../" }
-# tempfile = "3"
-# csv = "1"
-# regex = "1"
-# clap = { version = "4", features = ["derive"] }
-
 [build-dependencies]
 nvbit-build = "0"
 bindgen = "0"
