@@ -62,11 +62,13 @@ pub struct ThreadIndex {
 pub trait Kernel {
     type Error: std::error::Error;
 
+    /// Run an instance of the kernel on a thread identified by its index
+    #[allow(clippy::missing_errors_doc)]
     fn run(&mut self, idx: &ThreadIndex) -> Result<(), Self::Error>;
 }
 
 /// Simulation
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Simulation {}
 
 impl Simulation {
@@ -74,7 +76,8 @@ impl Simulation {
     //     Self {}
     // }
 
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {}
     }
 
@@ -87,6 +90,9 @@ impl Simulation {
     }
 
     /// Launches a kernel.
+    ///
+    /// # Errors
+    /// When the kernel fails.
     pub fn launch_kernel<G, B, K>(
         &self,
         grid: G,

@@ -1,5 +1,9 @@
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::cast_sign_loss)]
+
 use anyhow::Result;
-use num_traits::{Float, NumCast, Zero};
+use num_traits::{Float, Zero};
 
 #[derive(Debug)]
 struct VecAdd<'s, 'a, T> {
@@ -35,7 +39,7 @@ const BLOCK_SIZE: u32 = 1024;
 
 fn vectoradd<T>(n: usize) -> Result<()>
 where
-    T: Float + Zero + NumCast + std::iter::Sum + std::fmt::Display + std::fmt::Debug,
+    T: Float + Zero + num_traits::NumCast + std::iter::Sum + std::fmt::Display + std::fmt::Debug,
 {
     // create host vectors
     let mut a: Vec<T> = vec![T::zero(); n];
@@ -58,7 +62,7 @@ where
     let mut d_c = sim.allocate(&mut c);
 
     // number of thread blocks in grid
-    let grid_size = (n as f64 / BLOCK_SIZE as f64).ceil() as u32;
+    let grid_size = (n as f64 / f64::from(BLOCK_SIZE)).ceil() as u32;
 
     let kernel: VecAdd<T> = VecAdd {
         d_a: &mut d_a,
@@ -69,10 +73,10 @@ where
     sim.launch_kernel(grid_size, BLOCK_SIZE, kernel)?;
 
     // sum up vector c and print result divided by n, this should equal 1 within
-    let sum: T = c.into_iter().sum();
+    let total_sum: T = c.into_iter().sum();
     println!(
-        "Final sum = {sum}; sum/n = {} (should be ~1)\n",
-        sum / T::from(n).unwrap()
+        "Final sum = {total_sum}; sum/n = {} (should be ~1)\n",
+        total_sum / T::from(n).unwrap()
     );
     Ok(())
 }

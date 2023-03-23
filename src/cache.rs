@@ -7,9 +7,9 @@ pub struct LRU {}
 
 impl ReplacementPolicy for LRU {}
 
-pub trait CacheLevel {}
+pub trait Level {}
 
-impl<P> CacheLevel for Cache<P> where P: ReplacementPolicy {}
+impl<P> Level for Cache<P> where P: ReplacementPolicy {}
 
 pub struct Config<P>
 where
@@ -22,9 +22,9 @@ where
     pub replacement_policy: P,
     pub write_back: bool,
     pub write_allocate: bool,
-    pub store_to: Option<Arc<dyn CacheLevel>>,
-    pub load_from: Option<Arc<dyn CacheLevel>>,
-    pub victims_to: Option<Arc<dyn CacheLevel>>,
+    pub store_to: Option<Arc<dyn Level>>,
+    pub load_from: Option<Arc<dyn Level>>,
+    pub victims_to: Option<Arc<dyn Level>>,
     // pub store_to: Option<&'a Cache>,
     // pub load_from: Option<&'a Cache>,
     // pub victims_to: Option<&'a Cache>,

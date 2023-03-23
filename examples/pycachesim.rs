@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 const CACHELINE_SIZE: usize = 64;
 
-fn main() -> Result<()> {
+fn main() {
     let mut mem = MainMemory::new();
     let l3 = Arc::new(Cache::new(CacheConfig {
         name: "L3".to_string(),
@@ -33,7 +33,7 @@ fn main() -> Result<()> {
         write_back: true,
         write_allocate: true,
         store_to: Some(l3.clone()),
-        load_from: Some(l3.clone()),
+        load_from: Some(l3),
         victims_to: None,
         swap_on_load: false,
     }));
@@ -46,15 +46,13 @@ fn main() -> Result<()> {
         write_back: true,
         write_allocate: true,
         store_to: Some(l2.clone()),
-        load_from: Some(l2.clone()),
+        load_from: Some(l2),
         victims_to: None,
         swap_on_load: false, // incl/excl does not matter in first level
     }));
 
-    let mut sim = Simulation::new(l1.clone(), mem);
+    // let mut sim = Simulation::new(l1.clone(), mem);
     // sim.load(23)
     // cv = CacheVisualizer(cs, [10, 16])
     // sim.dump_state()
-
-    Ok(())
 }
