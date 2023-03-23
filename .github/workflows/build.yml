@@ -20,6 +20,9 @@ jobs:
           toolchain: stable
           override: true
 
+      - name: Install dependencies
+        run: sudo apt-get install build-essential xutils-dev bison zlib1g-dev flex libglu1-mesa-dev
+
       - name: Install CUDA
         uses: Jimver/cuda-toolkit@v0.2.8
         id: cuda-toolkit
