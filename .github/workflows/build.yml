@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        use_remote: ["", "yes"]
+        use_remote: ["no", "yes"]
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1

@@ -37,11 +37,13 @@ async fn main() -> Result<()> {
     dotenv::dotenv().ok();
 
     let args: Vec<_> = std::env::args().collect();
-    let exec = PathBuf::from(args.get(1).expect("usage ./casimu <executable> [args]"));
+    let exec = PathBuf::from(args.get(1).expect("usage: ./validate <executable> [args]"));
     let exec_args = args.iter().skip(2).collect::<Vec<_>>();
 
     let exec_dir = exec.parent().expect("executable has no parent dir");
-    let traces_dir = exec_dir.join("traces");
+    let traces_dir = exec_dir
+        .join("traces")
+        .join(format!("{}-trace", &trace_model::app_prefix()));
 
     #[cfg(feature = "remote")]
     remote::connect().await?;

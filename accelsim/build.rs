@@ -83,7 +83,9 @@ impl GitRepository {
 }
 
 fn main() {
-    let use_remote = std::env::var("USE_REMOTE_ACCELSIM").is_ok();
+    let use_remote = std::env::var("USE_REMOTE_ACCELSIM")
+        .map(|use_remote| use_remote.to_lowercase() == "yes")
+        .unwrap_or(false);
     let mut accelsim_path = manifest_path().join("accel-sim-framework-dev");
 
     if use_remote {
@@ -91,7 +93,7 @@ fn main() {
         let repo = GitRepository {
             url: "https://github.com/accel-sim/accel-sim-framework.git".to_string(),
             path: accelsim_path.clone(),
-            branch: Some("dev".to_string()),
+            branch: Some("release".to_string()),
         };
         repo.shallow_clone().unwrap();
     }
