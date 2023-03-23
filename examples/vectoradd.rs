@@ -57,9 +57,12 @@ where
     let sim = casimu::Simulation::new();
 
     // allocate memory for each vector on simulated GPU device
-    let mut d_a = sim.allocate(&mut a);
-    let mut d_b = sim.allocate(&mut b);
-    let mut d_c = sim.allocate(&mut c);
+    let a_size = a.len() * std::mem::size_of::<T>();
+    let b_size = b.len() * std::mem::size_of::<T>();
+    let c_size = c.len() * std::mem::size_of::<T>();
+    let mut d_a = sim.allocate(&mut a, a_size as u64);
+    let mut d_b = sim.allocate(&mut b, b_size as u64);
+    let mut d_c = sim.allocate(&mut c, c_size as u64);
 
     // number of thread blocks in grid
     let grid_size = (n as f64 / f64::from(BLOCK_SIZE)).ceil() as u32;

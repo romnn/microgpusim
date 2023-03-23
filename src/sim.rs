@@ -1,12 +1,15 @@
 use itertools::Itertools;
 use num_traits::{AsPrimitive, Float, NumCast, Zero};
 use nvbit_model as model;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+
+const DEV_GLOBAL_HEAP_START: u64 = 0xC0000000;
 
 #[derive(Debug)]
 pub struct DevicePtr<'s, 'a, T> {
     inner: &'a mut T,
     sim: &'s Simulation,
+    offset: u64,
 }
 
 /// Convert multi-dimensional index into flat linear index.
@@ -28,9 +31,9 @@ where
     type Output = O;
 
     fn index(&self, idx: I) -> &Self::Output {
-        let elem_size = std::mem::size_of::<O>();
+        let elem_size = std::mem::size_of::<O>() as u64;
         let flat_idx = idx.flatten();
-        let addr = elem_size * flat_idx as u64;
+        let addr = self.offset + elem_size * flat_idx as u64;
         self.sim.load(addr, elem_size);
         // println!("{:?}[{:?}] => {}", &self, &idx, &addr);
         &self.inner[idx]
@@ -45,7 +48,7 @@ where
     fn index_mut(&mut self, idx: I) -> &mut Self::Output {
         let elem_size = std::mem::size_of::<O>() as u64;
         let flat_idx = idx.flatten();
-        let addr = elem_size * flat_idx as u64;
+        let addr = self.offset + elem_size * flat_idx as u64;
         self.sim.store(addr, elem_size);
         // println!("{:?}[{:?}] => {}", &self, &idx, &addr);
         &mut self.inner[idx]
@@ -70,10 +73,21 @@ pub trait Kernel {
 }
 
 /// Simulation
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Simulation {
-    in_flight_loads: Vec<(u64, u64)>,
-    in_flight_writes: Vec<(u64, u64)>,
+    in_flight_loads: Mutex<Vec<(u64, u64)>>,
+    in_flight_stores: Mutex<Vec<(u64, u64)>>,
+    offset: Mutex<u64>,
+}
+
+impl Default for Simulation {
+    fn default() -> Self {
+        Self {
+            offset: Mutex::new(DEV_GLOBAL_HEAP_START),
+            in_flight_loads: Mutex::new(Vec::new()),
+            in_flight_stores: Mutex::new(Vec::new()),
+        }
+    }
 }
 
 impl Simulation {
@@ -86,15 +100,23 @@ impl Simulation {
         Self::default()
     }
 
-    pub fn load(&self, addr: u64, size: u64) {}
+    pub fn load(&self, addr: u64, size: u64) {
+        self.in_flight_loads.lock().unwrap().push((addr, size));
+    }
 
-    pub fn store(&self, addr: u64, size: u64) {}
+    pub fn store(&self, addr: u64, size: u64) {
+        self.in_flight_stores.lock().unwrap().push((addr, size));
+    }
 
     /// Allocate a variable.
-    pub fn allocate<'s, 'a, T>(&'s self, var: &'a mut T) -> DevicePtr<'s, 'a, T> {
+    pub fn allocate<'s, 'a, T>(&'s self, var: &'a mut T, size: u64) -> DevicePtr<'s, 'a, T> {
+        let mut offset_lock = self.offset.lock().unwrap();
+        let offset = *offset_lock;
+        *offset_lock += size;
         DevicePtr {
             inner: var,
-            sim: self,
+            sim: &self,
+            offset,
         }
     }
 
@@ -129,15 +151,34 @@ impl Simulation {
             // loop over the block size (must run on same sms)
             // and form warps
             let mut threads = block_size.into_iter();
-            for warp in &threads.chunks(32) {
+            for (warp_num, warp) in threads.chunks(32).into_iter().enumerate() {
+
                 for warp_thread_idx in warp {
                     thread_idx.thread_idx = warp_thread_idx;
                     // println!("calling thread {thread_idx:?}");
                     kernel.run(&thread_idx)?;
                 }
+
+                println!("END WARP #{} ({:?})", &warp_num, &thread_idx);
+
                 // collect all accesses by threads in a warp
-                let accesses = self.accesses.drain();
-                dbg!(&accesses);
+                let mut warp_loads = self.in_flight_loads.lock().unwrap();
+                let warp_loads = warp_loads.drain(..);
+                let mut warp_stores = self.in_flight_stores.lock().unwrap();
+                let warp_stores = warp_stores.drain(..);
+
+                if warp_loads.len() > 0 {
+                    println!("{} loads total", warp_loads.len());
+                    println!("loads: {:?}", &warp_loads.map(|l| l.0).collect::<Vec<_>>());
+                }
+
+                if warp_stores.len() > 0 {
+                    println!("{} stores total", warp_stores.len());
+                    println!(
+                        "stores: {:?}",
+                        &warp_stores.map(|s| s.0).collect::<Vec<_>>()
+                    );
+                }
             }
         }
         Ok(())
