@@ -2,7 +2,14 @@
 - improve the plots
     - vertical lines after each warp
     - different colors for allocations
-    - two model: serialize trace (current) vs. actual (order of the trace)
+    - two modes: serialize trace (current) vs. actual (order of the trace)
+- factor out plotting to separate crate and tool
+- building on github actions
+- linking accelsim
+- generate accelsim traces
+- implement newest changes of the accelsim tracer
+- build a validation data set systematically
+
 - simple matrix mul makes sense, now check the more complex example
 - allow expressing patterns as
   - matrices
