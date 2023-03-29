@@ -1,0 +1,17 @@
+[package]
+name = "plot"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default  = []
+
+[package.metadata.cargo-feature-combinations]
+denylist = ["default"]
+
+[dependencies]
+thiserror = "1"
+anyhow = "1"
+rangemap = "1"
+plotters = { version = "0.3" }
+trace-model = { path = "../trace/model" }

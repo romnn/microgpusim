@@ -3,6 +3,7 @@
     - vertical lines after each warp
     - different colors for allocations
     - two modes: serialize trace (current) vs. actual (order of the trace)
+
 - factor out plotting to separate crate and tool
 - building on github actions
 - linking accelsim
@@ -52,4 +53,9 @@
 - and the accelsim tracer?
 
 
+accelsim build is failing because of those nested comments in this file
+using gcc-11.3.0
+using bison-3.8.2
+using flex-2.6.4
 
+accel-sim-framework-dev/gpu-simulator/gpgpu-sim/build/gcc-/cuda-11080/release/cuda-sim/ptx_parser_decode.def

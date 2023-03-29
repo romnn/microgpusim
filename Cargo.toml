@@ -3,6 +3,7 @@ members = [
   "validate",
   "profile",
   "accelsim",
+  "plot",
   "trace",
   "trace/invoke",
   "trace/model"

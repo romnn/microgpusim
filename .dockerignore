@@ -1,0 +1,17 @@
+/target
+/Cargo.lock
+/test-apps
+
+/accelsim/accel-sim-framework-dev/gpu-simulator/env-setup/
+/accelsim/accel-sim-framework-dev/gpu-simulator/gpu-app-collection/
+/accelsim/accel-sim-framework-dev/gpu-simulator/hw_run/
+/accelsim/accel-sim-framework-dev/gpu-simulator/sim_run_*
+/accelsim/accel-sim-framework-dev/gpu-simulator/*.DS_Store*
+/accelsim/accel-sim-framework-dev/gpu-simulator/*.csv
+/accelsim/accel-sim-framework-dev/gpu-simulator/*.csv#
+/accelsim/accel-sim-framework-dev/gpu-simulator/4.2/
+/accelsim/accel-sim-framework-dev/gpu-simulator/gpucomputingsdk_4.2.9_linux.run
+/accelsim/accel-sim-framework-dev/gpu-simulator/util/job_launching/*.txt
+
+/accelsim/accel-sim-framework-dev/gpu-simulator/gpgpu-sim/build
+/accelsim/accel-sim-framework-dev/gpu-simulator/gpgpu-sim/bin

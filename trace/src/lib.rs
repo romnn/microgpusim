@@ -1,8 +1,5 @@
 #![allow(warnings, clippy::missing_panics_doc, clippy::missing_safety_doc)]
 
-#[cfg(feature = "plot")]
-pub mod plot;
-
 use lazy_static::lazy_static;
 use nvbit_rs::{model, DeviceChannel, HostChannel};
 use serde::{Deserialize, Deserializer, Serialize};
