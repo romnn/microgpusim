@@ -5,6 +5,7 @@ use nvbit_rs::{model, DeviceChannel, HostChannel};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::ffi;
+use std::os::unix::fs::DirBuilderExt;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Instant;
@@ -94,8 +95,16 @@ impl Instrumentor<'static> {
         let host_channel = HostChannel::new(0, CHANNEL_SIZE, &mut dev_channel).unwrap();
 
         let traces_dir = traces_dir().join(format!("{}-trace", &trace_model::app_prefix()));
-        std::fs::create_dir_all(&traces_dir).ok();
 
+        std::fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o777)
+            .create(&traces_dir)
+            .ok();
+
+        utils::rchown(&traces_dir, utils::UID_NOBODY, utils::GID_NOBODY, false).ok();
+
+        /// Actually perform the change of owner on a path
         let instrumentor = Arc::new(Self {
             ctx: Mutex::new(ctx),
             already_instrumented: Mutex::new(HashSet::default()),
@@ -523,4 +532,13 @@ pub extern "C" fn nvbit_at_ctx_term(ctx: nvbit_rs::Context<'static>) {
         "done after {:?}",
         Instant::now().duration_since(instrumentor.start)
     );
+
+    // this is often run as sudo, but we dont want to create files as sudo
+    utils::rchown(
+        &instrumentor.traces_dir,
+        utils::UID_NOBODY,
+        utils::GID_NOBODY,
+        false,
+    )
+    .ok();
 }

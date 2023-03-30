@@ -1,3 +1,4 @@
+use std::os::unix::fs::DirBuilderExt;
 use anyhow::Result;
 use invoke_trace;
 use std::path::PathBuf;
@@ -10,7 +11,11 @@ async fn main() -> Result<()> {
 
     let exec_dir = exec.parent().expect("executable has no parent dir");
     let traces_dir = exec_dir.join("traces");
-    std::fs::create_dir_all(&traces_dir).ok();
+    std::fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o777)
+        .create(&traces_dir)
+        .ok();
 
     invoke_trace::trace(exec, exec_args, traces_dir).await?;
     Ok(())

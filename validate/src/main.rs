@@ -4,6 +4,7 @@ pub mod remote;
 use anyhow::Result;
 use std::fs::{self, OpenOptions};
 use std::io::{BufWriter, Write};
+use std::os::unix::fs::DirBuilderExt;
 use std::path::{Path, PathBuf};
 
 fn open_writable(path: &Path) -> Result<BufWriter<fs::File>, std::io::Error> {
@@ -31,8 +32,6 @@ async fn trace_exec(exec: &Path, exec_args: &Vec<&String>, traces_dir: &Path) ->
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    use std::os::unix::fs::DirBuilderExt;
-
     // load env variables from .env files
     dotenv::dotenv().ok();
 

@@ -76,7 +76,6 @@ impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
             .accesses
             .values()
             .flatten()
-            // .flat_map(|accesses| accesses)
             .flat_map(|access| access.addrs)
             .filter(|addr| *addr > 100)
             .min()
@@ -85,7 +84,6 @@ impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
         let max_time = self
             .accesses
             .values()
-            // .flat_map(|accesses| accesses)
             .flatten()
             .map(|access| 32 * (access.warp_id + 1))
             .max()
@@ -104,7 +102,7 @@ impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
             .set_label_area_size(LabelAreaPosition::Left, 100)
             .set_label_area_size(LabelAreaPosition::Bottom, 2 * font_size)
             .caption("Memory accesses", text_style)
-            .build_cartesian_2d(x_range.clone(), y_range)?;
+            .build_cartesian_2d(x_range.clone(), y_range.clone())?;
 
         chart_ctx
             .configure_mesh()
@@ -115,15 +113,14 @@ impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
             // The left upper and right lower corner of the rectangle
             let left_upper = (0, band.end);
             let right_lower = (x_range.end, band.start);
-            let rect = Rectangle::new(
+            chart_ctx.plotting_area().draw(&Rectangle::new(
                 [left_upper, right_lower],
                 ShapeStyle {
                     color: BLUE.mix(0.5),
                     filled: true,
                     stroke_width: 3,
                 },
-            );
-            chart_ctx.plotting_area().draw(&rect)?;
+            ))?;
         }
 
         // [(t["warp_id"], 32*t["warp_id"]+tid, a) for tid, a in enumerate(t["addrs"]) if a > 0]
@@ -138,6 +135,19 @@ impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
             // dbg!(&accesses);
 
             let color = if *is_store { &RED } else { &BLUE };
+
+            for warp_id in accesses.iter().map(|a| a.warp_id).collect::<HashSet<_>>() {
+                // draw vertical line separating warps
+                let x: u32 = (warp_id + 1) * 32;
+                chart_ctx.plotting_area().draw(&PathElement::new(
+                    [(x, y_range.start), (x, y_range.end)],
+                    ShapeStyle {
+                        color: RED.mix(0.5),
+                        filled: false,
+                        stroke_width: 2,
+                    },
+                ));
+            }
             let series = accesses.iter_mut().flat_map(|access| {
                 access
                     .addrs
@@ -152,7 +162,6 @@ impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
             chart_ctx
                 .draw_series(series)?
                 .label(if *is_store { "Store" } else { "Read" }.to_string())
-                // .label(label.as_ref().cloned().unwrap_or("".to_string()))
                 .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], *color));
         }
         chart_ctx
@@ -161,7 +170,7 @@ impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
             .background_style(WHITE.mix(0.8))
             .draw()?;
 
-        println!("finished drawing");
+        println!("finished drawing to {}", path.display());
         Ok(())
     }
 }
