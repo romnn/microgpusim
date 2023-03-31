@@ -1,4 +1,5 @@
 #![allow(warnings)]
+#![allow(clippy::all, clippy::pedantic)]
 
 use anyhow::Result;
 
@@ -53,9 +54,7 @@ impl SetIndexFunction for FermiSetIndexFunction {
         line_size_log2: u64,
         num_sets_log2: u64,
     ) -> Result<usize> {
-        if num_sets != 32 && num_sets != 64 {
-            panic!("cache config error: number of sets should be 32 or 64");
-        }
+        assert!(!(num_sets != 32 && num_sets != 64), "cache config error: number of sets should be 32 or 64");
         let set_index = 0;
         let lower_xor = 0;
         let upper_xor = 0;
@@ -105,7 +104,7 @@ pub struct TagArray<B> {
 }
 
 impl<B> TagArray<B> {
-    pub fn new(
+    #[must_use] pub fn new(
         core_id: usize,
         type_id: usize,
     ) -> Self {
@@ -164,7 +163,7 @@ pub struct L1DCacheConfig {}
 pub struct L2CacheConfig {}
 
 impl L2CacheConfig {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {}
     }
 
@@ -181,7 +180,7 @@ impl L2CacheConfig {
 }
 
 impl L1DCacheConfig {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {}
     }
 

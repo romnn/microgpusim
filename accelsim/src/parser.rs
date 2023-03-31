@@ -1,15 +1,14 @@
 use super::read::BufReadLine;
 use anyhow::Result;
 use clap::Parser;
-use indicatif::HumanBytes;
+
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::{
     collections::{HashMap, HashSet},
     fs,
     io::{self, Seek},
-    path::{Path, PathBuf},
-    time::Instant,
+    path::{PathBuf},
 };
 
 // -R -K -k -B rodinia_2.0-ft -C QV100-PTX
@@ -78,7 +77,7 @@ fn get_version(mut f: impl BufReadLine + io::Seek) -> Option<String> {
                 Regex::new(r".*Accel-Sim.*\[build\s+(.*)\].*").unwrap();
         }
         if let Some(build) = GPGPUSIM_BUILD_REGEX
-            .captures(&line)
+            .captures(line)
             .and_then(|c| c.get(1))
             .map(|m| m.as_str().trim().to_string())
         {
@@ -86,7 +85,7 @@ fn get_version(mut f: impl BufReadLine + io::Seek) -> Option<String> {
         }
 
         if let Some(build) = ACCELSIM_BUILD_REGEX
-            .captures(&line)
+            .captures(line)
             .and_then(|c| c.get(1))
             .map(|m| m.as_str().trim().to_string())
         {
@@ -116,7 +115,7 @@ fn check_finished(mut f: impl BufReadLine + io::Seek) -> bool {
             pub static ref EXIT_REGEX: Regex =
                 Regex::new(r"GPGPU-Sim: \*\*\* exit detected \*\*\*").unwrap();
         }
-        if EXIT_REGEX.captures(&line).is_some() {
+        if EXIT_REGEX.captures(line).is_some() {
             return true;
         }
 
@@ -307,7 +306,7 @@ pub fn parse(options: Options) -> Result<Stats> {
     let file = fs::OpenOptions::new().read(true).open(&options.input)?;
 
     if let Some(parent) = &options.output.parent() {
-        std::fs::create_dir_all(&parent).ok();
+        std::fs::create_dir_all(parent).ok();
     }
     let output_file = fs::OpenOptions::new()
         .write(true)
@@ -321,8 +320,8 @@ pub fn parse(options: Options) -> Result<Stats> {
     let mut stat_map: Stats = HashMap::new();
 
     if options.per_kernel {
-        let mut current_kernel = "".to_string();
-        let mut last_kernel = ("".to_string(), 0);
+        let mut current_kernel = String::new();
+        let mut last_kernel = (String::new(), 0);
         let mut raw_last: HashMap<String, f64> = HashMap::new();
         let mut running_kcount = HashMap::new();
 
@@ -338,7 +337,7 @@ pub fn parse(options: Options) -> Result<Stats> {
                 pub static ref LAST_KERNEL_BREAK_REGEX: Regex =
                 Regex::new(r"GPGPU-Sim: \*\* break due to reaching the maximum cycles \(or instructions\) \*\*").unwrap();
             }
-            if LAST_KERNEL_BREAK_REGEX.captures(&line).is_some() {
+            if LAST_KERNEL_BREAK_REGEX.captures(line).is_some() {
                 eprintln!(
                     "{}: found max instructions - ignoring last kernel",
                     options.input.display()
@@ -358,7 +357,7 @@ pub fn parse(options: Options) -> Result<Stats> {
                     Regex::new(r"kernel_name\s+=\s+(.*)").unwrap();
             }
             if let Some(kernel_name) = KERNEL_NAME_REGEX
-                .captures(&line)
+                .captures(line)
                 .and_then(|c| c.get(1))
                 .map(|m| m.as_str().trim().to_string())
             {
@@ -392,7 +391,7 @@ pub fn parse(options: Options) -> Result<Stats> {
 
             for (stat_name, (stat_kind, stat_regex)) in &stats {
                 if let Some(value) = stat_regex
-                    .captures(&line)
+                    .captures(line)
                     .and_then(|c| c.get(1))
                     .and_then(|m| m.as_str().trim().parse::<f64>().ok())
                 {
@@ -405,7 +404,7 @@ pub fn parse(options: Options) -> Result<Stats> {
                     if stat_kind != &StatKind::Aggregate {
                         stat_map.insert(key.clone(), value);
                     } else if stat_map.contains_key(&key) {
-                        let stat_last_kernel = raw_last.get(stat_name).cloned().unwrap_or(0.0);
+                        let stat_last_kernel = raw_last.get(stat_name).copied().unwrap_or(0.0);
                         raw_last.insert(stat_name.clone(), value);
                         stat_map
                             .get_mut(&key)
@@ -413,7 +412,7 @@ pub fn parse(options: Options) -> Result<Stats> {
                     } else {
                         let last_kernel_key = (
                             last_kernel.0.clone(),
-                            last_kernel.1.clone(),
+                            last_kernel.1,
                             stat_name.to_string(),
                         );
                         let stat_last_kernel = if stat_map.contains_key(&last_kernel_key) {
@@ -442,7 +441,7 @@ pub fn parse(options: Options) -> Result<Stats> {
                     continue;
                 }
                 if let Some(value) = stat_regex
-                    .captures(&line)
+                    .captures(line)
                     .and_then(|c| c.get(1))
                     .and_then(|m| m.as_str().trim().parse::<f64>().ok())
                 {
@@ -463,14 +462,14 @@ pub fn parse(options: Options) -> Result<Stats> {
         bytes_parsed += file_len - current;
     }
 
-    csv_writer.write_record(&["kernel", "kernel_id", "stat", "value"])?;
+    csv_writer.write_record(["kernel", "kernel_id", "stat", "value"])?;
 
     // sort stats before writing to csv
     let mut sorted_stats: Vec<_> = stat_map.iter().collect();
-    sorted_stats.sort_by(|a, b| a.0.cmp(&b.0));
+    sorted_stats.sort_by(|a, b| a.0.cmp(b.0));
 
     for ((kernel, kcount, stat), value) in &sorted_stats {
-        csv_writer.write_record(&[kernel, &kcount.to_string(), stat, &value.to_string()])?;
+        csv_writer.write_record([kernel, &kcount.to_string(), stat, &value.to_string()])?;
     }
 
     Ok(stat_map)

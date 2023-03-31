@@ -92,7 +92,7 @@ async fn sim_trace(
     dbg!(&cmd);
 
     let result = match timeout {
-        Some(timeout) => tokio::time::timeout(timeout.into(), cmd.output()).await,
+        Some(timeout) => tokio::time::timeout(timeout, cmd.output()).await,
         None => Ok(cmd.output().await),
     };
     let result = result??;
