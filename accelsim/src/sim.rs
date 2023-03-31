@@ -1,5 +1,6 @@
 #![allow(warnings)]
 
+use accelsim::parser::{parse, Options as ParseOptions};
 use anyhow::Result;
 use async_process::Command;
 use clap::Parser;
@@ -13,7 +14,7 @@ async fn sim_trace(
     traces_dir: impl AsRef<Path>,
     config: SimConfig,
     timeout: Option<Duration>,
-) -> Result<()> {
+) -> Result<std::process::Output> {
     let accelsim_path = accelsim::locate()?;
     let sim_root = accelsim_path.join("gpu-simulator/");
     let accelsim_bin = sim_root.join("bin/release/accel-sim.out");
@@ -95,14 +96,12 @@ async fn sim_trace(
         None => Ok(cmd.output().await),
     };
     let result = result??;
-    println!("{}", String::from_utf8_lossy(&result.stdout));
-    println!("{}", String::from_utf8_lossy(&result.stderr));
 
     std::fs::remove_file(&tmp_sim_sh_path);
     if !result.status.success() {
         anyhow::bail!("cmd failed with code {:?}", result.status.code());
     }
-    Ok(())
+    Ok(result)
 }
 
 fn parse_duration_string(duration: &str) -> Result<Duration> {
@@ -117,6 +116,9 @@ struct Options {
 
     #[clap(flatten)]
     sim_config: SimConfig,
+
+    log_file: Option<PathBuf>,
+    stats_file: Option<PathBuf>,
 
     #[clap(
         help = "timeout",
@@ -139,7 +141,41 @@ async fn main() -> Result<()> {
     dbg!(&options.traces_dir);
 
     let start = Instant::now();
-    sim_trace(&options.traces_dir, options.sim_config, options.timeout).await?;
+    let output = sim_trace(&options.traces_dir, options.sim_config, options.timeout).await?;
     println!("simulating took {:?}", start.elapsed());
+
+    // write log
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    // dbg!(&stdout);
+    // dbg!(&stderr);
+
+    let log_file_path = options
+        .log_file
+        .unwrap_or(options.traces_dir.join("accelsim_log.txt"));
+    {
+        let mut log_file = std::fs::OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .create(true)
+            .open(&log_file_path)?;
+        log_file.write_all(stdout.as_bytes())?;
+    }
+
+    // parse stats
+    let stats_file_path = options
+        .stats_file
+        .unwrap_or(log_file_path.with_extension("csv"));
+    let stats = parse(ParseOptions::new(log_file_path, stats_file_path))?;
+
+    let mut preview: Vec<_> = stats
+        .iter()
+        .map(|(idx, val)| (format!("{} / {} / {}", idx.0, idx.1, idx.2), val))
+        .collect();
+    preview.sort_by(|a, b| a.0.cmp(&b.0));
+
+    for (key, val) in preview {
+        println!(" => {key}: {val}");
+    }
     Ok(())
 }

@@ -1,6 +1,8 @@
 #![allow(warnings)]
 
 pub mod cache;
+pub mod parser;
+pub mod read;
 
 use anyhow::Result;
 use std::path::PathBuf;

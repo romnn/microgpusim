@@ -15,6 +15,10 @@ path = "src/trace.rs"
 name = "accelsim-sim"
 path = "src/sim.rs"
 
+[[bin]]
+name = "accelsim-parse"
+path = "src/parse.rs"
+
 [features]
 default  = []
 
@@ -23,7 +27,12 @@ denylist = ["default"]
 
 [dependencies]
 thiserror = "1"
-anyhow = "1"
+anyhow = { version = "1", features = ["backtrace"] }
+indicatif = "0"
+csv = "1"
+lazy_static = "1"
+regex = "1"
+rev_buf_reader = "0"
 duration-string = "0"
 async-process = "1"
 clap = { version = "4", features = [ "derive" ] }
