@@ -1,5 +1,11 @@
 ## box
 
+#### Accelsim trace generation
+```bash
+./accelsim/accel-sim-framework-dev/util/tracer_nvbit/install_nvbit.sh
+make -C ./accelsim/accel-sim-framework-dev/util/tracer_nvbit/
+```
+
 #### Profiler
 
 ```bash

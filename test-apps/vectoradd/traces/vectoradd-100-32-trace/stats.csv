@@ -1,0 +1,2 @@
+kernel id, kernel mangled name, grid_dimX, grid_dimY, grid_dimZ, #blocks, block_dimX, block_dimY, block_dimZ, #threads, total_insts, total_reported_insts
+kernel-1.trace, _Z6vecAddIfEvPT_S1_S1_i, 1, 1, 1, 1, 1024, 1, 1, 1024, 344,344

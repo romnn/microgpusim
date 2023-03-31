@@ -1,8 +1,20 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-pub fn app_prefix() -> String {
-    let mut args: Vec<_> = std::env::args().collect();
+pub fn app_prefix(bin_name: Option<&str>) -> String {
+    let mut args: Vec<_> = std::env::args()
+        .into_iter()
+        .skip_while(|arg| {
+            let arg = PathBuf::from(arg);
+            let Some(arg_name) = arg.file_name().and_then(std::ffi::OsStr::to_str) else {
+                return false;
+            };
+            match bin_name {
+                Some(b) => b == arg_name,
+                None => false,
+            }
+        })
+        .collect();
     if let Some(executable) = args.get_mut(0) {
         *executable = PathBuf::from(&*executable)
             .file_name()

@@ -2,9 +2,18 @@
 name = "accelsim"
 version = "0.1.0"
 edition = "2021"
+default-run = "accelsim-trace"
 
 [lib]
 crate-type = ["rlib"]
+
+[[bin]]
+name = "accelsim-trace"
+path = "src/trace.rs"
+
+[[bin]]
+name = "accelsim-sim"
+path = "src/sim.rs"
 
 [features]
 default  = []
@@ -14,6 +23,21 @@ denylist = ["default"]
 
 [dependencies]
 thiserror = "1"
+anyhow = "1"
+duration-string = "0"
+async-process = "1"
+clap = { version = "4", features = [ "derive" ] }
+tokio = { version = "1", features = ["full"] }
+trace-model = { path = "../trace/model" }
+utils = { path = "../utils" }
 
 [build-dependencies]
-glob = "0"
+# pkg-config = "0.3"
+# cxx-build = "1"
+# bindgen = "0.61"
+# cc = { version = "1", features = ['parallel'] }
+anyhow = "1"
+reqwest = { version = "0", features = ["blocking"] }
+bzip2 = "0.4"
+tar = "0.4"
+utils = { path = "../utils" }

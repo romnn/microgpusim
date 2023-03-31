@@ -94,7 +94,10 @@ impl Instrumentor<'static> {
         let mut dev_channel = nvbit_rs::DeviceChannel::new();
         let host_channel = HostChannel::new(0, CHANNEL_SIZE, &mut dev_channel).unwrap();
 
-        let traces_dir = traces_dir().join(format!("{}-trace", &trace_model::app_prefix()));
+        let traces_dir = traces_dir().join(format!(
+            "{}-trace",
+            &trace_model::app_prefix(std::option_env!("CARGO_BIN_NAME"))
+        ));
 
         std::fs::DirBuilder::new()
             .recursive(true)

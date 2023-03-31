@@ -1,10 +1,14 @@
 #![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
+use anyhow::Result;
+use std::fs::File;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
-#[inline]
+static NVBIT_RELEASES: &str = "https://github.com/NVlabs/NVBit/releases/download";
+static NVBIT_VERSION: &str = "1.5.5";
+
 #[must_use]
 pub fn output_path() -> PathBuf {
     PathBuf::from(std::env::var("OUT_DIR").unwrap())
@@ -12,7 +16,6 @@ pub fn output_path() -> PathBuf {
         .unwrap()
 }
 
-#[inline]
 #[must_use]
 pub fn manifest_path() -> PathBuf {
     PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap())
@@ -20,34 +23,43 @@ pub fn manifest_path() -> PathBuf {
         .unwrap()
 }
 
-#[inline]
-fn find_cuda() -> Vec<PathBuf> {
-    let mut candidates = vec![
-        std::env::var("CUDA_LIBRARY_PATH").ok().map(PathBuf::from),
-        Some(PathBuf::from("/opt/cuda")),
-        Some(PathBuf::from("/usr/local/cuda")),
-    ];
-    candidates.extend(
-        glob::glob("/usr/local/cuda-*")
-            .expect("glob cuda")
-            .map(Result::ok),
-    );
+fn decompress_tar_bz2(src: impl AsRef<Path>, dest: impl AsRef<Path>) -> Result<()> {
+    let compressed = File::open(src)?;
+    let stream = bzip2::read::BzDecoder::new(compressed);
+    let mut archive = tar::Archive::new(stream);
+    archive.unpack(&dest)?;
+    Ok(())
+}
 
-    let mut valid_paths = vec![];
-    for base in candidates.iter().flatten() {
-        if base.is_dir() {
-            valid_paths.push(base.clone());
-        }
-        let lib = base.join("lib64");
-        if lib.is_dir() {
-            valid_paths.extend([lib.clone(), lib.join("stubs")]);
-        }
-        let base = base.join("targets/x86_64-linux");
-        if base.join("include/cuda.h").is_file() {
-            valid_paths.extend([base.join("lib"), base.join("lib/stubs")]);
-        }
-    }
-    valid_paths
+fn download_nvbit(
+    version: impl AsRef<str>,
+    arch: impl AsRef<str>,
+    dest: impl AsRef<Path>,
+) -> Result<()> {
+    let nvbit_release_name = format!("nvbit-Linux-{}-{}", arch.as_ref(), version.as_ref());
+    let nvbit_release_archive_name = format!("{nvbit_release_name}.tar.bz2");
+    let nvbit_release_archive_url = reqwest::Url::parse(&format!(
+        "{}/{}/{}",
+        NVBIT_RELEASES,
+        version.as_ref(),
+        nvbit_release_archive_name,
+    ))?;
+
+    let archive_path = output_path().join(nvbit_release_archive_name);
+    // let nvbit_path = output_path().join(nvbit_release_name);
+
+    // check if the archive already exists
+    // let force = false;
+    // if force || !nvbit_path.is_dir() {
+    std::fs::remove_file(&archive_path).ok();
+    let mut nvbit_release_archive_file = File::create(&archive_path)?;
+    reqwest::blocking::get(nvbit_release_archive_url)?.copy_to(&mut nvbit_release_archive_file)?;
+
+    // unarchive
+    std::fs::remove_file(&dest).ok();
+    decompress_tar_bz2(&archive_path, &dest)?;
+    // }
+    Ok(())
 }
 
 pub struct GitRepository {
@@ -82,6 +94,92 @@ impl GitRepository {
     }
 }
 
+fn build_accelsim(
+    accelsim_path: impl AsRef<Path>,
+    cuda_path: impl AsRef<Path>,
+    force: bool,
+) -> Result<()> {
+    let artifact = accelsim_path
+        .as_ref()
+        .join("gpu-simulator/bin/release/accel-sim.out");
+    if !force && artifact.is_file() {
+        return Ok(());
+    }
+
+    let tmp_build_sh_path = output_path().join("build.tmp.sh");
+    let tmp_build_sh = format!(
+        "set -e
+source {}
+make -j -C {}",
+        &accelsim_path
+            .as_ref()
+            .join("gpu-simulator/setup_environment.sh")
+            .canonicalize()?
+            .to_string_lossy(),
+        &accelsim_path
+            .as_ref()
+            .join("gpu-simulator/")
+            .canonicalize()?
+            .to_string_lossy(),
+    );
+    dbg!(&tmp_build_sh);
+
+    let mut tmp_build_sh_file = std::fs::OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .create(true)
+        .open(&tmp_build_sh_path)?;
+    tmp_build_sh_file.write_all(tmp_build_sh.as_bytes())?;
+
+    let mut cmd = Command::new("bash");
+    cmd.arg(&*tmp_build_sh_path.canonicalize()?.to_string_lossy());
+    cmd.env("CUDA_INSTALL_PATH", &*cuda_path.as_ref().to_string_lossy());
+    dbg!(&cmd);
+
+    let result = cmd.output()?;
+    println!("{}", String::from_utf8_lossy(&result.stdout));
+    println!("{}", String::from_utf8_lossy(&result.stderr));
+
+    if !result.status.success() {
+        anyhow::bail!("cmd failed with code {:?}", result.status.code());
+    }
+    Ok(())
+}
+
+fn build_accelsim_tracer_tool(
+    accelsim_path: impl AsRef<Path>,
+    cuda_path: impl AsRef<Path>,
+    force: bool,
+) -> Result<()> {
+    let nvbit_version =
+        std::env::var("NVBIT_VERSION").unwrap_or_else(|_| NVBIT_VERSION.to_string());
+    let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH")?;
+
+    let tracer_nvbit_tool_path = accelsim_path.as_ref().join("util/tracer_nvbit");
+
+    let nvbit_path = tracer_nvbit_tool_path.join("nvbit_release");
+    if force || !nvbit_path.is_dir() {
+        download_nvbit(nvbit_version, target_arch, &nvbit_path)?;
+    }
+
+    if force || !tracer_nvbit_tool_path.join("tracer_tool").is_file() {
+        let mut cmd = Command::new("make");
+        cmd.arg("-j");
+        cmd.current_dir(tracer_nvbit_tool_path);
+        cmd.env("CUDA_INSTALL_PATH", &*cuda_path.as_ref().to_string_lossy());
+        dbg!(&cmd);
+
+        let result = cmd.output()?;
+        println!("{}", String::from_utf8_lossy(&result.stdout));
+        println!("{}", String::from_utf8_lossy(&result.stderr));
+
+        if !result.status.success() {
+            anyhow::bail!("cmd failed with code {:?}", result.status.code());
+        }
+    }
+    Ok(())
+}
+
 fn main() {
     let use_remote = std::env::var("USE_REMOTE_ACCELSIM")
         .map(|use_remote| use_remote.to_lowercase() == "yes")
@@ -97,46 +195,16 @@ fn main() {
         };
         repo.shallow_clone().unwrap();
     }
-
-    let tmp_run_sh_path = output_path().join("run.tmp.sh");
-    let tmp_run_sh = format!(
-        "set -e
-source {}
-make -j -C {}",
-        &accelsim_path
-            .join("gpu-simulator/setup_environment.sh")
-            .canonicalize()
-            .unwrap()
-            .to_string_lossy(),
-        &accelsim_path
-            .join("gpu-simulator/")
-            .canonicalize()
-            .unwrap()
-            .to_string_lossy(),
-    );
-    dbg!(&tmp_run_sh);
-
-    let mut tmp_run_sh_file = std::fs::OpenOptions::new()
-        .write(true)
-        .truncate(true)
-        .create(true)
-        .open(&tmp_run_sh_path)
-        .unwrap();
-    tmp_run_sh_file.write_all(tmp_run_sh.as_bytes()).unwrap();
-
-    let mut cmd = Command::new("bash");
-    cmd.arg(&*tmp_run_sh_path.canonicalize().unwrap().to_string_lossy());
-    let cuda_paths = find_cuda();
+    let cuda_paths = utils::find_cuda();
     dbg!(&cuda_paths);
-    cmd.env(
-        "CUDA_INSTALL_PATH",
-        cuda_paths.first().expect("CUDA install path not found"),
-    );
-    dbg!(&cmd);
+    let cuda_path = cuda_paths.first().expect("CUDA install path not found");
 
-    let result = cmd.output().unwrap();
-    println!("{}", String::from_utf8_lossy(&result.stdout));
-    println!("{}", String::from_utf8_lossy(&result.stderr));
+    // build tracer tool only
+    let force = false;
+    build_accelsim_tracer_tool(&accelsim_path, cuda_path, force).unwrap();
 
-    assert!(result.status.success(), "{:?}", result.status.code());
+    // try to build accelsim as well
+    if let Err(err) = build_accelsim(&accelsim_path, cuda_path, force) {
+        println!("cargo:warning=building accelsim failed: {}", &err,);
+    }
 }

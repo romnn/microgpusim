@@ -1,5 +1,42 @@
 #![allow(warnings)]
 
+pub mod cache;
+
+use anyhow::Result;
+use std::path::PathBuf;
+
+pub fn locate() -> Result<PathBuf> {
+    let use_remote = std::option_env!("USE_REMOTE_ACCELSIM")
+        .map(|use_remote| use_remote.to_lowercase() == "yes")
+        .unwrap_or(false);
+    let accelsim_path = if use_remote {
+        PathBuf::from(std::env!("OUT_DIR"))
+            .canonicalize()?
+            .join("accelsim")
+    } else {
+        PathBuf::from(std::env!("CARGO_MANIFEST_DIR"))
+            .canonicalize()?
+            .join("accel-sim-framework-dev")
+    };
+    Ok(accelsim_path)
+}
+
+pub fn locate_nvbit_tracer() -> Result<PathBuf> {
+    let accelsim_path = locate()?;
+    let default_tracer_root = accelsim_path.join("util/tracer_nvbit/");
+    let tracer_root = if let Ok(path) = std::env::var("NVBIT_TRACER_ROOT") {
+        PathBuf::from(path)
+    } else {
+        println!(
+            "NVBIT_TRACER_ROOT environment variable is not set, trying {}",
+            default_tracer_root.display()
+        );
+        default_tracer_root
+    };
+    Ok(tracer_root)
+}
+
+
 // use lazy_static::lazy_static;
 // use regex::Regex;
 // use std::io::{BufRead, Read, Seek};

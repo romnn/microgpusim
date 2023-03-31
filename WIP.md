@@ -1,4 +1,7 @@
 #### TODO
+- get a trace from vectoradd using accelsim
+- get a trace from vectoradd using accelsim
+
 - improve the plots
     - vertical lines after each warp
     - different colors for allocations
