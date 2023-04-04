@@ -48,6 +48,7 @@
 //#include "../cuda-sim/ptx.tab.h"
 
 #include "../abstract_hardware_model.h"
+#include "./singleton.h"
 #include "delayqueue.h"
 #include "dram.h"
 #include "gpu-cache.h"
@@ -834,6 +835,7 @@ class opndcoll_rfu_t {  // operand collector based register file unit
     std::list<op_t> allocate_reads();
 
     void add_read_requests(collector_unit_t *cu) {
+      Singleton::mem_printf("arbiter_t::add_read_requests()\n");
       const op_t *src = cu->get_operands();
       for (unsigned i = 0; i < MAX_REG_OPERANDS * 2; i++) {
         const op_t &op = src[i];

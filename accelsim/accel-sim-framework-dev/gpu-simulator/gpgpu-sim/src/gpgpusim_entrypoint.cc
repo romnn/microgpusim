@@ -76,6 +76,7 @@ void *gpgpu_sim_thread_concurrent(void *ctx_ptr) {
   gpgpu_context *ctx = (gpgpu_context *)ctx_ptr;
   atexit(termination_callback);
   // concurrent kernel execution simulation thread
+  // todo: breakpoint here?
   do {
     if (g_debug_execution >= 3) {
       printf(

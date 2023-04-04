@@ -34,6 +34,7 @@
 #include "gpu-sim.h"
 #include "hashing.h"
 #include "stat-tool.h"
+#include "./singleton.h"
 
 // used to allocate memory that is large enough to adapt the changes in cache
 // size across kernels
@@ -64,6 +65,7 @@ const char *cache_fail_status_str(enum cache_reservation_fail_reason status) {
 }
 
 unsigned l1d_cache_config::set_bank(new_addr_type addr) const {
+  Singleton::mem_printf("l1d_cache_config::set_bank(%llu)\n", addr);
   // For sector cache, we select one sector per bank (sector interleaving)
   // This is what was found in Volta (one sector per bank, sector interleaving)
   // otherwise, line interleaving
@@ -73,6 +75,7 @@ unsigned l1d_cache_config::set_bank(new_addr_type addr) const {
 }
 
 unsigned cache_config::set_index(new_addr_type addr) const {
+  Singleton::mem_printf("cache_config::set_index(%llu)\n", addr);
   return cache_config::hash_function(addr, m_nset, m_line_sz_log2, m_nset_log2,
                                      m_set_index_function);
 }
@@ -81,6 +84,7 @@ unsigned cache_config::hash_function(new_addr_type addr, unsigned m_nset,
                                      unsigned m_line_sz_log2,
                                      unsigned m_nset_log2,
                                      unsigned m_index_function) const {
+  Singleton::mem_printf("cache_config::hash_function(%llu)\n", addr);
   unsigned set_index = 0;
 
   switch (m_index_function) {
@@ -158,6 +162,7 @@ void l2_cache_config::init(linear_to_raw_address_translation *address_mapping) {
 }
 
 unsigned l2_cache_config::set_index(new_addr_type addr) const {
+  Singleton::mem_printf("l2_cache_config::set_index(%llu)\n", addr);
   new_addr_type part_addr = addr;
 
   if (m_address_mapping) {
@@ -218,6 +223,7 @@ void tag_array::init(int core_id, int type_id) {
 }
 
 void tag_array::add_pending_line(mem_fetch *mf) {
+  Singleton::mem_printf("tag_array::add_pending_line(%llu)\n", mf->get_addr());
   assert(mf);
   new_addr_type addr = m_config.block_addr(mf->get_addr());
   line_table::const_iterator i = pending_lines.find(addr);
@@ -227,6 +233,7 @@ void tag_array::add_pending_line(mem_fetch *mf) {
 }
 
 void tag_array::remove_pending_line(mem_fetch *mf) {
+  Singleton::mem_printf("tag_array::remove_pending_line(%llu)\n", mf->get_addr());
   assert(mf);
   new_addr_type addr = m_config.block_addr(mf->get_addr());
   line_table::const_iterator i = pending_lines.find(addr);
@@ -246,6 +253,7 @@ enum cache_request_status tag_array::probe(new_addr_type addr, unsigned &idx,
                                            mem_access_sector_mask_t mask,
                                            bool is_write, bool probe_mode,
                                            mem_fetch *mf) const {
+  Singleton::mem_printf("tag_array::probe(%llu)\n", addr);
   // assert( m_config.m_write_policy == READ_ONLY );
   unsigned set_index = m_config.set_index(addr);
   new_addr_type tag = m_config.tag(addr);
@@ -343,6 +351,7 @@ enum cache_request_status tag_array::access(new_addr_type addr, unsigned time,
                                             unsigned &idx, bool &wb,
                                             evicted_block_info &evicted,
                                             mem_fetch *mf) {
+  Singleton::mem_printf("tag_array::access(%llu)\n", addr);
   m_access++;
   is_used = true;
   shader_cache_access_log(m_core_id, m_type_id, 0);  // log accesses to cache
@@ -406,6 +415,7 @@ void tag_array::fill(new_addr_type addr, unsigned time, mem_fetch *mf,
 void tag_array::fill(new_addr_type addr, unsigned time,
                      mem_access_sector_mask_t mask,
                      mem_access_byte_mask_t byte_mask, bool is_write) {
+  Singleton::mem_printf("tag_array::fill(%llu)\n", addr);
   // assert( m_config.m_alloc_policy == ON_FILL );
   unsigned idx;
   enum cache_request_status status = probe(addr, idx, mask, is_write);
@@ -430,6 +440,7 @@ void tag_array::fill(new_addr_type addr, unsigned time,
 }
 
 void tag_array::fill(unsigned index, unsigned time, mem_fetch *mf) {
+  Singleton::mem_printf("tag_array::fill(%llu, %llu)\n", index, mf->get_addr());
   assert(m_config.m_alloc_policy == ON_MISS);
   bool before = m_lines[index]->is_modified_line();
   m_lines[index]->fill(time, mf->get_access_sector_mask(), mf->get_access_byte_mask());
@@ -440,6 +451,7 @@ void tag_array::fill(unsigned index, unsigned time, mem_fetch *mf) {
 
 // TODO: we need write back the flushed data to the upper level
 void tag_array::flush() {
+  Singleton::mem_printf("tag_array::flush()\n");
   if (!is_used) return;
 
   for (unsigned i = 0; i < m_config.get_num_lines(); i++)
@@ -454,6 +466,7 @@ void tag_array::flush() {
 }
 
 void tag_array::invalidate() {
+  Singleton::mem_printf("tag_array::invalidate()\n");
   if (!is_used) return;
 
   for (unsigned i = 0; i < m_config.get_num_lines(); i++)
@@ -1194,6 +1207,7 @@ void baseline_cache::send_read_request(new_addr_type addr,
 void data_cache::send_write_request(mem_fetch *mf, cache_event request,
                                     unsigned time,
                                     std::list<cache_event> &events) {
+  Singleton::mem_printf("data_cache::send_write_request(...)\n");
   events.push_back(request);
   m_miss_queue.push_back(mf);
   mf->set_status(m_miss_queue_status, time);

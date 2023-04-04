@@ -6,9 +6,8 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use std::{
     collections::{HashMap, HashSet},
-    fs,
-    io::{self, Seek},
-    path::{PathBuf},
+    fs, io,
+    path::PathBuf,
 };
 
 // -R -K -k -B rodinia_2.0-ft -C QV100-PTX
@@ -126,8 +125,6 @@ fn check_finished(mut f: impl BufReadLine + io::Seek) -> bool {
 
 /// Parses accelsim log and extracts statistics.
 pub fn parse(options: Options) -> Result<Stats> {
-    let mut bytes_parsed = 0;
-
     let finished = {
         let file = fs::OpenOptions::new().read(true).open(&options.input)?;
         let mut reader = rev_buf_reader::RevBufReader::new(file);
@@ -410,11 +407,8 @@ pub fn parse(options: Options) -> Result<Stats> {
                             .get_mut(&key)
                             .map(|v| *v += value - stat_last_kernel);
                     } else {
-                        let last_kernel_key = (
-                            last_kernel.0.clone(),
-                            last_kernel.1,
-                            stat_name.to_string(),
-                        );
+                        let last_kernel_key =
+                            (last_kernel.0.clone(), last_kernel.1, stat_name.to_string());
                         let stat_last_kernel = if stat_map.contains_key(&last_kernel_key) {
                             raw_last[stat_name]
                         } else {
@@ -426,8 +420,6 @@ pub fn parse(options: Options) -> Result<Stats> {
                 }
             }
         }
-
-        bytes_parsed += reader.stream_position().unwrap_or(0);
     } else {
         // not per kernel
         all_named_kernels.insert(("final_kernel".to_string(), 0));
@@ -457,9 +449,6 @@ pub fn parse(options: Options) -> Result<Stats> {
                 }
             }
         }
-        let current = reader.stream_position().unwrap_or(0);
-        let file_len = reader.seek(io::SeekFrom::End(0)).unwrap_or(0);
-        bytes_parsed += file_len - current;
     }
 
     csv_writer.write_record(["kernel", "kernel_id", "stat", "value"])?;

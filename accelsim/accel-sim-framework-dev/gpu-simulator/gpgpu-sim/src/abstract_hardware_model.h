@@ -546,6 +546,7 @@ class gpgpu_functional_sim_config {
 
   int get_ptx_inst_debug_to_file() const { return g_ptx_inst_debug_to_file; }
   const char *get_ptx_inst_debug_file() const { return g_ptx_inst_debug_file; }
+  // const char *get_mem_debug_file() const { return g_mem_debug_file; }
   int get_ptx_inst_debug_thread_uid() const {
     return g_ptx_inst_debug_thread_uid;
   }
@@ -575,6 +576,7 @@ class gpgpu_functional_sim_config {
   int checkpoint_insn_Y;
   int g_ptx_inst_debug_to_file;
   char *g_ptx_inst_debug_file;
+  // char *g_mem_debug_file;
   int g_ptx_inst_debug_thread_uid;
 
   unsigned m_texcache_linesize;
@@ -658,6 +660,7 @@ class gpgpu_t {
     return m_function_model_config;
   }
   FILE *get_ptx_inst_debug_file() { return ptx_inst_debug_file; }
+  // FILE *get_mem_debug_file() { return mem_debug_file; }
 
   //  These maps return the current texture mappings for the GPU at any given
   //  time.
@@ -673,6 +676,7 @@ class gpgpu_t {
  protected:
   const gpgpu_functional_sim_config &m_function_model_config;
   FILE *ptx_inst_debug_file;
+  // FILE *mem_debug_file;
 
   class memory_space *m_global_mem;
   class memory_space *m_tex_mem;

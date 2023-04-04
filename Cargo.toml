@@ -2,6 +2,7 @@
 members = [
   "validate",
   "profile",
+  "playground",
   "accelsim",
   "utils",
   "plot",

@@ -1,5 +1,6 @@
 #![allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
 
+use super::ported::*;
 use itertools::Itertools;
 use num_traits::{AsPrimitive, Float, NumCast, Zero};
 use nvbit_model as model;
@@ -187,6 +188,7 @@ impl Simulation {
     where
         P: AsRef<Path>,
     {
+        // gpu-simulator/main.cc
         use serde::Deserializer;
         let file = std::fs::OpenOptions::new().read(true).open(path.as_ref())?;
         let reader = std::io::BufReader::new(file);

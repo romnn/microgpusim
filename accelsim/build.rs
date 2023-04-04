@@ -97,14 +97,11 @@ impl GitRepository {
 fn build_accelsim(
     accelsim_path: impl AsRef<Path>,
     cuda_path: impl AsRef<Path>,
-    force: bool,
+    _force: bool,
 ) -> Result<()> {
     let artifact = accelsim_path
         .as_ref()
         .join("gpu-simulator/bin/release/accel-sim.out");
-    if !force && artifact.is_file() {
-        return Ok(());
-    }
 
     let tmp_build_sh_path = output_path().join("build.tmp.sh");
     let tmp_build_sh = format!(
@@ -143,6 +140,8 @@ make -j -C {}",
     if !result.status.success() {
         anyhow::bail!("cmd failed with code {:?}", result.status.code());
     }
+
+    println!("cargo:warning=built {}", &artifact.display());
     Ok(())
 }
 
@@ -162,21 +161,21 @@ fn build_accelsim_tracer_tool(
         download_nvbit(nvbit_version, target_arch, &nvbit_path)?;
     }
 
-    if force || !tracer_nvbit_tool_path.join("tracer_tool").is_file() {
-        let mut cmd = Command::new("make");
-        cmd.arg("-j");
-        cmd.current_dir(tracer_nvbit_tool_path);
-        cmd.env("CUDA_INSTALL_PATH", &*cuda_path.as_ref().to_string_lossy());
-        dbg!(&cmd);
+    let artifact = tracer_nvbit_tool_path.join("tracer_tool");
+    let mut cmd = Command::new("make");
+    cmd.arg("-j");
+    cmd.current_dir(tracer_nvbit_tool_path);
+    cmd.env("CUDA_INSTALL_PATH", &*cuda_path.as_ref().to_string_lossy());
+    dbg!(&cmd);
 
-        let result = cmd.output()?;
-        println!("{}", String::from_utf8_lossy(&result.stdout));
-        println!("{}", String::from_utf8_lossy(&result.stderr));
+    let result = cmd.output()?;
+    println!("{}", String::from_utf8_lossy(&result.stdout));
+    println!("{}", String::from_utf8_lossy(&result.stderr));
 
-        if !result.status.success() {
-            anyhow::bail!("cmd failed with code {:?}", result.status.code());
-        }
+    if !result.status.success() {
+        anyhow::bail!("cmd failed with code {:?}", result.status.code());
     }
+    println!("cargo:warning=built {}", &artifact.display());
     Ok(())
 }
 
@@ -194,6 +193,8 @@ fn main() {
             branch: Some("release".to_string()),
         };
         repo.shallow_clone().unwrap();
+    } else {
+        println!("cargo:rerun-if-changed=accel-sim-framework-dev/");
     }
     let cuda_paths = utils::find_cuda();
     dbg!(&cuda_paths);

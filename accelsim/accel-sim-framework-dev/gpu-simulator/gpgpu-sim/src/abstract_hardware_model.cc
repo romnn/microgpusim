@@ -169,6 +169,12 @@ void gpgpu_functional_sim_config::reg_options(class OptionParser *opp) {
                          &g_ptx_inst_debug_thread_uid,
                          "Thread UID for executed instructions' debug output",
                          "1");
+
+  /* custom
+  option_parser_register(
+      opp, "-gpgpu_mem_debug_file", OPT_CSTR, &g_mem_debug_file,
+      "Custom memory debug output file", "mem_debug.txt");
+  */
 }
 
 void gpgpu_functional_sim_config::ptx_set_tex_cache_linesize(
@@ -203,6 +209,8 @@ gpgpu_t::gpgpu_t(const gpgpu_functional_sim_config &config, gpgpu_context *ctx)
   if (m_function_model_config.get_ptx_inst_debug_to_file() != 0)
     ptx_inst_debug_file =
         fopen(m_function_model_config.get_ptx_inst_debug_file(), "w");
+  
+  // mem_debug_file = fopen(m_function_model_config.get_mem_debug_file(), "w");
 
   gpu_sim_cycle = 0;
   gpu_tot_sim_cycle = 0;

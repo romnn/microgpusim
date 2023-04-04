@@ -27,10 +27,19 @@ async fn sim_trace(
         anyhow::bail!("missing {}", setup_env.display());
     }
 
-    // utils.chmod_x(setup_env)
     let mut tmp_sim_sh = vec!["set -e".to_string()];
+
+    // change current working dir
+    tmp_sim_sh.push(format!(
+        "cd {}",
+        config.config_dir.canonicalize()?.display()
+    ));
+
+
+    // source simulator setup
     tmp_sim_sh.push(format!("source {}", setup_env.canonicalize()?.display()));
 
+    // run accelsim binary
     let gpgpusim_config = config
         .config
         .unwrap_or(config.config_dir.join("gpgpusim.config"));
@@ -50,7 +59,6 @@ async fn sim_trace(
             .to_string(),
     ];
 
-    // if let Some(inter_config) = gpgpusim_trace_config {
     let gpgpusim_trace_config = config
         .trace_config
         .unwrap_or(config.config_dir.join("gpgpusim.trace.config"));
@@ -97,10 +105,17 @@ async fn sim_trace(
     };
     let result = result??;
 
-    std::fs::remove_file(&tmp_sim_sh_path);
     if !result.status.success() {
+        println!("{}", String::from_utf8_lossy(&result.stdout).to_string());
+        println!("{}", String::from_utf8_lossy(&result.stderr).to_string());
+
+        // if we want to debug, we leave the file in place
+        // gdb --args bash test-apps/vectoradd/traces/vectoradd-100-32-trace/sim.tmp.sh
         anyhow::bail!("cmd failed with code {:?}", result.status.code());
     }
+
+    // for now, we want to keep the file
+    // std::fs::remove_file(&tmp_sim_sh_path);
     Ok(result)
 }
 

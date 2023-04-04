@@ -1,4 +1,5 @@
 env-setup/
+.vscode/
 gpu-app-collection/
 hw_run/
 sim_run_*

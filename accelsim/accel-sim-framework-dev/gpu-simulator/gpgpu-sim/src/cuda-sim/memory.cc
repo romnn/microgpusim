@@ -30,6 +30,7 @@
 #include <stdlib.h>
 #include "../../libcuda/gpgpu_context.h"
 #include "../debug.h"
+#include "../gpgpu-sim/singleton.h"
 
 template <unsigned BSIZE>
 memory_space_impl<BSIZE>::memory_space_impl(std::string name,
@@ -50,6 +51,7 @@ memory_space_impl<BSIZE>::memory_space_impl(std::string name,
 template <unsigned BSIZE>
 void memory_space_impl<BSIZE>::write_only(mem_addr_t offset, mem_addr_t index,
                                           size_t length, const void *data) {
+  Singleton::mem_printf("memory_space_impl<BSIZE>::write_only(%llu)\n", offset);
   m_data[index].write(offset, length, (const unsigned char *)data);
 }
 
@@ -58,6 +60,11 @@ void memory_space_impl<BSIZE>::write(mem_addr_t addr, size_t length,
                                      const void *data,
                                      class ptx_thread_info *thd,
                                      const ptx_instruction *pI) {
+  Singleton::mem_printf("memory_space_impl<BSIZE>::write(%llu)\n", addr);
+  // fflush(Singleton->Instance()->get_mem_debug_file());
+  // fprintf(m_gpu->get_mem_debug_file(), "memory_space_impl<BSIZE>::write");
+  // fflush(m_gpu->get_mem_debug_file());
+  
   mem_addr_t index = addr >> m_log2_block_size;
 
   if ((addr + length) <= (index + 1) * BSIZE) {
@@ -106,6 +113,7 @@ template <unsigned BSIZE>
 void memory_space_impl<BSIZE>::read_single_block(mem_addr_t blk_idx,
                                                  mem_addr_t addr, size_t length,
                                                  void *data) const {
+  Singleton::mem_printf("memory_space_impl<BSIZE>::read_single_block(%llu)\n", addr);
   if ((addr + length) > (blk_idx + 1) * BSIZE) {
     printf(
         "GPGPU-Sim PTX: ERROR * access to memory \'%s\' is unaligned : "
@@ -133,6 +141,7 @@ void memory_space_impl<BSIZE>::read_single_block(mem_addr_t blk_idx,
 template <unsigned BSIZE>
 void memory_space_impl<BSIZE>::read(mem_addr_t addr, size_t length,
                                     void *data) const {
+  Singleton::mem_printf("memory_space_impl<BSIZE>::read(%llu)\n", addr);
   mem_addr_t index = addr >> m_log2_block_size;
   if ((addr + length) <= (index + 1) * BSIZE) {
     // fast route for intra-block access

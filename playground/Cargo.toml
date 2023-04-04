@@ -1,0 +1,14 @@
+[package]
+name = "playground"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[dependencies]
+
+[dev-dependencies]
+pretty_assertions = "1"
+
+[build-dependencies]
+bindgen = "0"
+cc = { version = "1", features = ['parallel'] }

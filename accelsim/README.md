@@ -10,3 +10,7 @@ cargo run -p accelsim --bin accelsim-trace -- ./test-apps/vectoradd/vectoradd 10
 cargo run -p accelsim --bin accelsim-sim -- ./test-apps/vectoradd/traces/vectoradd-100-32-trace/ ./accelsim/gtx1080/
 ```
 
+#### Debug
+```bash
+gdb --args bash test-apps/vectoradd/traces/vectoradd-100-32-trace/sim.tmp.sh
+```
