@@ -315,19 +315,6 @@ impl<'c> Instrumentor<'c> {
                     .unwrap()
                     .push(trace_model::Command::KernelLaunch(kernel_info));
 
-                // println!("MEMTRACE: CTX {:#06x} - LAUNCH", ctx.as_ptr() as u64);
-                // println!("\tKernel pc: {pc:#06x}");
-                // println!("\tKernel name: {func_name}");
-                // println!("\tGrid launch id: {grid_launch_id}");
-                // println!("\tGrid size: {grid}");
-                // println!("\tBlock size: {block}");
-                // println!("\tNum registers: {nregs}");
-                // println!(
-                //     "\tShared memory bytes: {}",
-                //     shmem_static_nbytes + shared_mem_bytes as usize
-                // );
-                // println!("\tCUDA stream id: {}", h_stream.as_ptr() as u64);
-
                 *grid_launch_id += 1;
 
                 // enable instrumented code to run

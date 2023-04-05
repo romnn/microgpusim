@@ -42,14 +42,16 @@ pub struct MemAccessTraceEntry {
     pub addrs: [u64; 32],
 }
 
+/// A memory allocation.
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub struct MemAllocation {
     pub device_ptr: u64,
     pub num_bytes: usize,
 }
 
+/// Information about a kernel launch.
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
-pub struct KernelInfo {
+pub struct KernelLaunch {
     pub name: String,
     pub id: u64,
     pub grid: nvbit_model::Dim,
@@ -71,11 +73,27 @@ pub struct KernelInfo {
 //         //     "{size} ({} set, {}-way, {} byte line)",
 //         //     self.num_sets, self.associativity, self.line_size
 //         // )
+//// println!("MEMTRACE: CTX {:#06x} - LAUNCH", ctx.as_ptr() as u64);
+// println!("\tKernel pc: {pc:#06x}");
+// println!("\tKernel name: {func_name}");
+// println!("\tGrid launch id: {grid_launch_id}");
+// println!("\tGrid size: {grid}");
+// println!("\tBlock size: {block}");
+// println!("\tNum registers: {nregs}");
+// println!(
+//     "\tShared memory bytes: {}",
+//     shmem_static_nbytes + shared_mem_bytes as usize
+// );
+// println!("\tCUDA stream id: {}", h_stream.as_ptr() as u64);
+
 //     }
 // }
 //
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub enum Command {
-    MemcpyHtoD { dest_device_addr: u64, num_bytes: u32 },
-    KernelLaunch(KernelInfo),
+    MemcpyHtoD {
+        dest_device_addr: u64,
+        num_bytes: u32,
+    },
+    KernelLaunch(KernelLaunch),
 }

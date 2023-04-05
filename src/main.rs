@@ -1,3 +1,6 @@
+#![allow(warnings)]
+
+use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
@@ -19,14 +22,16 @@ enum Command {
 #[command(author, version, about, long_about = None)]
 struct Options {
     /// Input to operate on
-    #[arg(short, long, value_name = "FILE")]
-    path: PathBuf,
+    #[arg(short = 'p', long = "path", value_name = "TRACE_DIR")]
+    trace_dir: PathBuf,
     /// Turn debugging information on
     #[arg(short, long, action = clap::ArgAction::Count)]
     debug: u8,
-
-    #[command(subcommand)]
-    command: Option<Command>,
+    // #[command(subcommand)]
+    // command: Option<Command>,
 }
 
-fn main() {}
+fn main() -> Result<()> {
+    let options = Options::parse();
+    casimu::ported::accelmain(&options.trace_dir)
+}

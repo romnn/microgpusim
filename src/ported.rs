@@ -1,5 +1,7 @@
 use super::config::GPUConfig;
 use anyhow::Result;
+use std::collections::VecDeque;
+use std::path::{Path, PathBuf};
 
 /// Shader config
 
@@ -32,35 +34,52 @@ impl Context {
 }
 
 /// KernelInfo
+///
+/// TODO: rename to just kernel if this handles all the state.
 #[derive(Debug)]
-pub struct KernelInfo {}
+pub struct KernelInfo {
+    launched: bool,
+}
 
 impl KernelInfo {
     // gpgpu_ptx_sim_init_perf
     // GPGPUSim_Init
     // start_sim_thread
+
+    pub fn was_launched(&self) -> bool {
+        false
+    }
 }
 
-// while (!fs.eof()) {
-//     getline(fs, line);
-//     if (line.empty())
-//       continue;
-//     else if (line.substr(0, 10) == "MemcpyHtoD") {
-//       trace_command command;
-//       command.command_string = line;
-//       command.m_type = command_type::cpu_gpu_mem_copy;
-//       commandlist.push_back(command);
-//     } else if (line.substr(0, 6) == "kernel") {
-//       trace_command command;
-//       command.m_type = command_type::kernel_launch;
-//       filepath = directory + "/" + line;
-//       command.command_string = filepath;
-//       commandlist.push_back(command);
-//     }
-//     // ignore gpu_to_cpu_memory_cpy
-// }
+impl std::fmt::Display for KernelInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Kernel")
+    }
+}
 
-fn accelmain() -> Result<()> {
+fn parse_commands(path: impl AsRef<Path>) -> Result<Vec<trace_model::Command>> {
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .open(&path.as_ref())?;
+    let reader = std::io::BufReader::new(file);
+    let commands = serde_json::from_reader(reader)?;
+    Ok(commands)
+}
+
+#[derive(Debug)]
+pub struct MockSimulator {}
+
+impl MockSimulator {
+    pub fn can_start_kernel(&self) -> bool {
+        true
+    }
+    pub fn launch(&self, kernel: &KernelInfo) {
+        kernel.launched = true;
+    }
+}
+
+pub fn accelmain(trace_dir: impl AsRef<Path>) -> Result<()> {
+    let trace_dir = trace_dir.as_ref();
     // reg_options registers the options from the option parser
     // init parses some more complex string options and data structures
 
@@ -90,9 +109,18 @@ fn accelmain() -> Result<()> {
     };
     assert!(window_size > 0);
 
+    // todo
+
+    let traces_dir = PathBuf::from(
+        std::env::var("TRACES_DIR").unwrap_or(env!("CARGO_MANIFEST_DIR").to_string()),
+    );
+    // map_or_else(|_| example_dir.join("traces"), PathBuf::from)
+    let command_traces_path = traces_dir.join("commands.json");
+    let mut commands: Vec<trace_model::Command> = parse_commands(&command_traces_path)?;
+
     // std::vector<trace_command> commandlist = tracer.parse_commandlist_file();
-    let mut busy_streams: Vec<usize> = Vec::new();
-    let mut kernels: Vec<KernelInfo> = Vec::new();
+    let mut busy_streams: VecDeque<usize> = VecDeque::new();
+    let mut kernels: VecDeque<KernelInfo> = VecDeque::new();
     kernels.reserve_exact(window_size);
 
     // kernel_trace_t* kernel_trace_info = tracer.parse_kernel_info(commandlist[i].command_string);
@@ -100,7 +128,60 @@ fn accelmain() -> Result<()> {
     // kernels_info.push_back(kernel_info);
     // std::cout << "Header info loaded for kernel command : " << commandlist[i].command_string << std::endl;
 
-    // unsigned i = 0;
-    // while i < commandlist.size() || !kernels_info.empty()) {
+    let mut i = 0;
+    while i < commands.len() || !kernels.is_empty() {
+        // take as many commands as possible until we have
+        // collected as many kernels to fill the window_size
+        // or processed every command.
+        while kernels.len() < window_size && i < commands.len() {
+            match &commands[i] {
+                cmd @ trace_model::Command::MemcpyHtoD { .. } => {
+                    println!("memcpy command {:#?}", cmd);
+                    //  m_gpgpu_sim->perf_memcpy_to_gpu(addre, Bcount);
+                }
+                cmd @ trace_model::Command::KernelLaunch(_) => {
+                    let kernel_info = KernelInfo { launched: false };
+                    kernels.push_back(kernel_info);
+                    println!("launch kernel command {:#?}", cmd);
+                }
+            }
+            i += 1;
+        }
+
+        let s = MockSimulator {};
+
+        // Launch all kernels within window that are on a stream
+        // that isn't already running
+        for kernel in &kernels {
+            let mut stream_busy = false;
+            for stream in &busy_streams {
+                if stream == kernel.stream {
+                    stream_busy = true;
+                }
+                if !stream_busy && s.can_start_kernel() && !kernel.was_launched() {
+                    println!("launching kernel {}", kernel);
+                    s.launch(kernel);
+                    busy_streams.push_back(kernel.stream);
+                }
+            }
+        }
+    }
     Ok(())
 }
+
+//  kernel_info = create_kernel_info(kernel_trace_info, m_gpgpu_context, &tconfig, &tracer);
+//
+
+// gpgpu_ptx_sim_info info;
+//   info.smem = kernel_trace_info->shmem;
+//   info.regs = kernel_trace_info->nregs;
+//   dim3 gridDim(kernel_trace_info->grid_dim_x, kernel_trace_info->grid_dim_y, kernel_trace_info->grid_dim_z);
+//   dim3 blockDim(kernel_trace_info->tb_dim_x, kernel_trace_info->tb_dim_y, kernel_trace_info->tb_dim_z);
+//   trace_function_info *function_info =
+//       new trace_function_info(info, m_gpgpu_context);
+//   function_info->set_name(kernel_trace_info->kernel_name.c_str());
+//   trace_kernel_info_t *kernel_info =
+//       new trace_kernel_info_t(gridDim, blockDim, function_info,
+//     		  parser, config, kernel_trace_info);
+
+//   return kernel_info;
