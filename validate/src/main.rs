@@ -40,9 +40,10 @@ async fn main() -> Result<()> {
     let exec_args = args.iter().skip(2).collect::<Vec<_>>();
 
     let exec_dir = exec.parent().expect("executable has no parent dir");
-    let traces_dir = exec_dir
-        .join("traces")
-        .join(format!("{}-trace", &trace_model::app_prefix()));
+    let traces_dir = exec_dir.join("traces").join(format!(
+        "{}-trace",
+        &trace_model::app_prefix(option_env!("CARGO_BIN_NAME"))
+    ));
 
     #[cfg(feature = "remote")]
     remote::connect().await?;

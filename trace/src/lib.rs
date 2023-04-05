@@ -87,6 +87,7 @@ struct Instrumentor<'c> {
     skip_flag: Mutex<bool>,
     traces_dir: PathBuf,
     allocations: Mutex<Vec<trace_model::MemAllocation>>,
+    commands: Mutex<Vec<trace_model::Command>>,
 }
 
 impl Instrumentor<'static> {
@@ -96,7 +97,7 @@ impl Instrumentor<'static> {
 
         let traces_dir = traces_dir().join(format!(
             "{}-trace",
-            &trace_model::app_prefix(std::option_env!("CARGO_BIN_NAME"))
+            &trace_model::app_prefix(option_env!("CARGO_BIN_NAME"))
         ));
 
         std::fs::DirBuilder::new()
@@ -120,9 +121,11 @@ impl Instrumentor<'static> {
             start: Instant::now(),
             instr_begin_interval: 0,
             instr_end_interval: usize::MAX,
-            skip_flag: Mutex::new(false), // skip re-entry into intrumention logic
+            // skip re-entry into intrumention logic
+            skip_flag: Mutex::new(false),
             traces_dir,
             allocations: Mutex::new(Vec::new()),
+            commands: Mutex::new(Vec::new()),
         });
 
         // start receiving from the channel
@@ -288,23 +291,42 @@ impl<'c> Instrumentor<'c> {
                 let ctx = &mut self.ctx.lock().unwrap();
                 let mut grid_launch_id = self.grid_launch_id.lock().unwrap();
 
-                let nregs = func.num_registers().unwrap();
-                let shmem_static_nbytes = func.shared_memory_bytes().unwrap();
+                let shmem_static_nbytes = func.shared_memory_bytes().unwrap() as u32;
                 let func_name = func.name(ctx);
                 let pc = func.addr();
 
-                println!("MEMTRACE: CTX {:#06x} - LAUNCH", ctx.as_ptr() as u64);
-                println!("\tKernel pc: {pc:#06x}");
-                println!("\tKernel name: {func_name}");
-                println!("\tGrid launch id: {grid_launch_id}");
-                println!("\tGrid size: {grid}");
-                println!("\tBlock size: {block}");
-                println!("\tNum registers: {nregs}");
-                println!(
-                    "\tShared memory bytes: {}",
-                    shmem_static_nbytes + shared_mem_bytes as usize
-                );
-                println!("\tCUDA stream id: {}", h_stream.as_ptr() as u64);
+                let kernel_info = trace_model::KernelInfo {
+                    name: func_name.to_string(),
+                    id: *grid_launch_id,
+                    grid,
+                    block,
+                    shared_mem_bytes: shmem_static_nbytes + shared_mem_bytes,
+                    num_registers: func.num_registers().unwrap().unsigned_abs(),
+                    binary_version: func.binary_version().unwrap(),
+                    stream_id: h_stream.as_ptr() as u64,
+                    shared_mem_base_addr: nvbit_rs::shmem_base_addr(ctx),
+                    local_mem_base_addr: nvbit_rs::local_mem_base_addr(ctx),
+                    nvbit_version: nvbit_rs::version().to_string(),
+                    // lineinfo: nvbit_rs::version().to_string(),
+                };
+                println!("KERNEL LAUNCH: {:#?}", &kernel_info);
+                self.commands
+                    .lock()
+                    .unwrap()
+                    .push(trace_model::Command::KernelLaunch(kernel_info));
+
+                // println!("MEMTRACE: CTX {:#06x} - LAUNCH", ctx.as_ptr() as u64);
+                // println!("\tKernel pc: {pc:#06x}");
+                // println!("\tKernel name: {func_name}");
+                // println!("\tGrid launch id: {grid_launch_id}");
+                // println!("\tGrid size: {grid}");
+                // println!("\tBlock size: {block}");
+                // println!("\tNum registers: {nregs}");
+                // println!(
+                //     "\tShared memory bytes: {}",
+                //     shmem_static_nbytes + shared_mem_bytes as usize
+                // );
+                // println!("\tCUDA stream id: {}", h_stream.as_ptr() as u64);
 
                 *grid_launch_id += 1;
 
@@ -312,7 +334,9 @@ impl<'c> Instrumentor<'c> {
                 func.enable_instrumented(ctx, true, true);
             }
             Some(EventParams::MemAlloc {
-                device_ptr, bytes, ..
+                device_ptr,
+                bytes,
+                ..
             }) => {
                 if !is_exit {
                     // addresses are only valid on exit
@@ -322,7 +346,17 @@ impl<'c> Instrumentor<'c> {
                 self.allocations
                     .lock()
                     .unwrap()
-                    .push(trace_model::MemAllocation { device_ptr, bytes });
+                    .push(trace_model::MemAllocation {
+                        device_ptr,
+                        num_bytes: bytes,
+                    });
+                self.commands
+                    .lock()
+                    .unwrap()
+                    .push(trace_model::Command::MemcpyHtoD {
+                        device_ptr,
+                        num_bytes: bytes,
+                    });
             }
             _ => {}
         }
@@ -330,6 +364,8 @@ impl<'c> Instrumentor<'c> {
 
     fn instrument_instruction(&self, instr: &mut nvbit_rs::Instruction<'_>) {
         // instr.print_decoded();
+
+        let _line_info = instr.line_info(&mut self.ctx.lock().unwrap());
 
         let opcode = instr.opcode().expect("has opcode");
 
@@ -380,6 +416,7 @@ impl<'c> Instrumentor<'c> {
     }
 
     fn instrument_function_if_needed<'f: 'c>(&self, func: &mut nvbit_rs::Function<'f>) {
+        // todo: lock once?
         let mut related_functions = func.related_functions(&mut self.ctx.lock().unwrap());
         for f in related_functions.iter_mut().chain([func]) {
             let func_name = f.name(&mut self.ctx.lock().unwrap());
@@ -408,6 +445,79 @@ impl<'c> Instrumentor<'c> {
                 self.instrument_instruction(instr);
             }
         }
+    }
+
+    fn save_command_trace(&self) {
+        let command_trace_file_path = self.traces_dir.join("commands.json");
+        let mut command_trace_file = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&command_trace_file_path)
+            .unwrap();
+        command_trace_file
+            .metadata()
+            .unwrap()
+            .permissions()
+            .set_readonly(false);
+
+        let mut writer = std::io::BufWriter::new(command_trace_file);
+        let mut serializer = serde_json::Serializer::with_formatter(
+            writer,
+            serde_json::ser::PrettyFormatter::with_indent(b"    "),
+        );
+        let commands = self.commands.lock().unwrap();
+        commands.serialize(&mut serializer).unwrap();
+    }
+
+    fn save_allocations(&self) {
+        let allocations_file_path = self.traces_dir.join("allocations.json");
+        let mut allocations_file = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&allocations_file_path)
+            .unwrap();
+        allocations_file
+            .metadata()
+            .unwrap()
+            .permissions()
+            .set_readonly(false);
+
+        let mut writer = std::io::BufWriter::new(allocations_file);
+        let mut serializer = serde_json::Serializer::with_formatter(
+            writer,
+            serde_json::ser::PrettyFormatter::with_indent(b"    "),
+        );
+        let allocations = self.allocations.lock().unwrap();
+        allocations.serialize(&mut serializer).unwrap();
+    }
+
+    #[cfg(feature = "plot")]
+    fn plot_memory_accesses(&self) {
+        // plot memory accesses
+        let rmp_trace_file_path = self.traces_dir.join("trace.msgpack");
+        let mut reader = std::io::BufReader::new(
+            std::fs::OpenOptions::new()
+                .read(true)
+                .open(&rmp_trace_file_path)
+                .unwrap(),
+        );
+        let mut reader = rmp_serde::Deserializer::new(reader);
+        let mut access_plot = plot::MemoryAccesses::default();
+
+        let allocations = self.allocations.lock().unwrap();
+        for allocation in allocations.iter().cloned() {
+            access_plot.register_allocation(allocation);
+        }
+
+        let decoder = nvbit_io::Decoder::new(|access: trace_model::MemAccessTraceEntry| {
+            access_plot.add(access, None);
+        });
+        reader.deserialize_seq(decoder).unwrap();
+
+        let trace_plot_path = self.traces_dir.join("trace.svg");
+        access_plot.draw(&trace_plot_path).unwrap();
     }
 }
 
@@ -483,53 +593,11 @@ pub extern "C" fn nvbit_at_ctx_term(ctx: nvbit_rs::Context<'static>) {
         recv_thread.join().expect("join receiver thread");
     }
 
-    // write out allocations
-    let allocations_file_path = instrumentor.traces_dir.join("allocations.json");
-    let mut allocations_file = std::fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(&allocations_file_path)
-        .unwrap();
-    allocations_file
-        .metadata()
-        .unwrap()
-        .permissions()
-        .set_readonly(false);
-
-    let mut writer = std::io::BufWriter::new(allocations_file);
-    let mut serializer = serde_json::Serializer::with_formatter(
-        writer,
-        serde_json::ser::PrettyFormatter::with_indent(b"    "),
-    );
-    let allocations = instrumentor.allocations.lock().unwrap();
-    allocations.serialize(&mut serializer).unwrap();
+    instrumentor.save_allocations();
+    instrumentor.save_command_trace();
 
     #[cfg(feature = "plot")]
-    {
-        // plot memory accesses
-        let rmp_trace_file_path = instrumentor.traces_dir.join("trace.msgpack");
-        let mut reader = std::io::BufReader::new(
-            std::fs::OpenOptions::new()
-                .read(true)
-                .open(&rmp_trace_file_path)
-                .unwrap(),
-        );
-        let mut reader = rmp_serde::Deserializer::new(reader);
-        let mut access_plot = plot::MemoryAccesses::default();
-
-        for allocation in allocations.iter().cloned() {
-            access_plot.register_allocation(allocation);
-        }
-
-        let decoder = nvbit_io::Decoder::new(|access: trace_model::MemAccessTraceEntry| {
-            access_plot.add(access, None);
-        });
-        reader.deserialize_seq(decoder).unwrap();
-
-        let trace_plot_path = instrumentor.traces_dir.join("trace.svg");
-        access_plot.draw(&trace_plot_path).unwrap();
-    }
+    instrumentor.plot_memory_accesses();
 
     println!(
         "done after {:?}",

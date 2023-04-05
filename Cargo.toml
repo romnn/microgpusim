@@ -32,6 +32,7 @@ denylist = ["default"]
 
 [dependencies]
 anyhow = "1"
+human_bytes = "0"
 thiserror = "1"
 nvbit-model = "0"
 nvbit-io = "0"

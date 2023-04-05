@@ -28,7 +28,28 @@ pub struct CacheConfig {
     pub data_port_width: Option<usize>,
 }
 
+impl std::fmt::Display for CacheConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let size = human_bytes::human_bytes(self.size() as f64);
+        write!(
+            f,
+            "{size} ({} set, {}-way, {} byte line)",
+            self.num_sets, self.associativity, self.line_size
+        )
+    }
+}
+
+/// TODO: use a builder here so we can fill in the remaining values
+/// and do the validation as found below:
 impl CacheConfig {
+    pub fn size(&self) -> usize {
+        self.line_size * self.num_sets * self.associativity
+    }
+
+    pub fn num_lines(&self) -> usize {
+        self.num_sets * self.associativity
+    }
+
     // m_line_sz_log2 = LOGB2(m_line_sz);
     // m_nset_log2 = LOGB2(m_nset);
     // m_valid = true;
@@ -72,52 +93,6 @@ impl CacheConfig {
     // assert(m_line_sz % m_data_port_width == 0);
 }
 
-pub enum CacheSetIndexingFunction {
-    FERMI_HASH_SET_FUNCTION, // H
-    HASH_IPOLY_FUNCTION,     // P
-    // CUSTOM_SET_FUNCTION, // C
-    LINEAR_SET_FUNCTION,     // L
-    BITWISE_XORING_FUNCTION, // X
-}
-
-pub enum MshrKind {
-    TEX_FIFO,        // F
-    SECTOR_TEX_FIFO, // T
-    ASSOC,           // A
-    SECTOR_ASSOC,    // S
-}
-
-pub enum CacheKind {
-    Normal, // N
-    Sector, // S
-}
-
-pub enum CacheReplacementPolicy {
-    LRU,  // L
-    FIFO, // F
-}
-
-pub enum CacheWriteAllocatePolicy {
-    NO_WRITE_ALLOCATE,  // N
-    WRITE_ALLOCATE,     // W
-    FETCH_ON_WRITE,     // F
-    LAZY_FETCH_ON_READ, // L
-}
-
-pub enum CacheWritePolicy {
-    READ_ONLY,          // R
-    WRITE_BACK,         // B
-    WRITE_THROUGH,      // T
-    WRITE_EVICT,        // E
-    LOCAL_WB_GLOBAL_WT, // L
-}
-
-pub enum CacheAllocatePolicy {
-    ON_MISS,   // M
-    ON_FILL,   // F
-    STREAMING, // S
-}
-
 pub struct GPUConfig {
     /// The SM number to pass to ptxas when getting register usage for
     /// computing GPU occupancy.
@@ -155,130 +130,130 @@ pub struct GPUConfig {
     // -gpgpu_cache:dl1PrefShared                 none # per-shader L1 data cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq> | none}
     /// Number of registers per shader core.
     /// Limits number of concurrent CTAs. (default 8192)
-    shader_registers: usize, // 65536
+    pub shader_registers: usize, // 65536
     /// Maximum number of registers per CTA. (default 8192)
-    registers_per_block: usize, //  8192
-    ignore_resources_limitation: bool, // 0
+    pub registers_per_block: usize, //  8192
+    pub ignore_resources_limitation: bool, // 0
     /// Maximum number of concurrent CTAs in shader (default 32)
-    shader_max_concurrent_cta: usize, // 32
+    pub shader_max_concurrent_cta: usize, // 32
     /// Maximum number of named barriers per CTA (default 16)
-    num_cta_barriers: usize, // 16
+    pub num_cta_barriers: usize, // 16
     /// number of processing clusters
-    num_simt_clusters: usize, //  20
+    pub num_simt_clusters: usize, //  20
     /// number of simd cores per cluster
-    num_cores_per_simt_cluster: usize, // 1
+    pub num_cores_per_simt_cluster: usize, // 1
     /// number of packets in ejection buffer
-    num_cluster_ejection_buffer_size: usize, // 8
+    pub num_cluster_ejection_buffer_size: usize, // 8
     /// number of response packets in ld/st unit ejection buffer
-    num_ldst_response_buffer_size: usize, //  2
+    pub num_ldst_response_buffer_size: usize, //  2
     /// Size of shared memory per thread block or CTA (default 48kB)
-    shared_memory_per_block: usize, // 49152
+    pub shared_memory_per_block: usize, // 49152
     /// Size of shared memory per shader core (default 16kB)
-    shared_memory_size: usize, // 98304
+    pub shared_memory_size: usize, // 98304
     /// Option list of shared memory sizes
-    shared_memory_option: bool, // 0
+    pub shared_memory_option: bool, // 0
     /// Size of unified data cache(L1D + shared memory) in KB
-    unified_l1_data_cache_size: bool, //0
+    pub unified_l1_data_cache_size: bool, //0
     /// adaptive_cache_config
-    adaptive_cache_config: bool, // 0
+    pub adaptive_cache_config: bool, // 0
     // Size of shared memory per shader core (default 16kB)
     // shared_memory_size_default: usize, // 16384
     /// Size of shared memory per shader core (default 16kB)
-    shared_memory_size_pref_l1: usize, // 16384
+    pub shared_memory_size_pref_l1: usize, // 16384
     /// Size of shared memory per shader core (default 16kB)
-    shared_memory_size_pref_shared: usize, // 16384
+    pub shared_memory_size_pref_shared: usize, // 16384
     /// Number of banks in the shared memory in each shader core (default 16)
-    shared_memory_num_banks: usize, // 32
+    pub shared_memory_num_banks: usize, // 32
     /// Limit shared memory to do one broadcast per cycle (default on)
-    shared_memory_limited_broadcast: bool, // 0
+    pub shared_memory_limited_broadcast: bool, // 0
     /// Number of portions a warp is divided into for shared memory bank conflict check
-    shared_memory_warp_parts: usize, // 1
+    pub shared_memory_warp_parts: usize, // 1
     /// The number of memory transactions allowed per core cycle
-    mem_unit_ports: usize, // 1
+    pub mem_unit_ports: usize, // 1
     /// Specify which shader core to collect the warp size distribution from
-    warp_distro_shader_core: i32, // -1
+    pub warp_distro_shader_core: i32, // -1
     /// Specify which shader core to collect the warp issue distribution from
-    warp_issue_shader_core: i32, // 0
+    pub warp_issue_shader_core: i32, // 0
     /// Mapping from local memory space address to simulated GPU physical address space
-    local_mem_map: bool, // 1
+    pub local_mem_map: bool, // 1
     /// Number of register banks (default = 8)
-    num_reg_banks: usize, // 32
+    pub num_reg_banks: usize, // 32
     /// Use warp ID in mapping registers to banks (default = off)
-    reg_bank_use_warp_id: bool, // 0
+    pub reg_bank_use_warp_id: bool, // 0
     /// Sub Core Volta/Pascal model (default = off)
-    sub_core_model: bool, // 0
+    pub sub_core_model: bool, // 0
     /// Coalescing arch (GT200 = 13, Fermi = 20)
-    coalescing_arch: Architecture, // 13
+    pub coalescing_arch: Architecture, // 13
     /// Number of warp schedulers per core
-    num_schedulers_per_core: usize, // 2
+    pub num_schedulers_per_core: usize, // 2
     /// Max number of instructions that can be issued per warp in one cycle by scheduler (either 1 or 2)
-    max_instruction_issue_per_warp: usize, // 2
+    pub max_instruction_issue_per_warp: usize, // 2
     /// should dual issue use two different execution unit resources
-    dual_issue_diff_exec_units: bool, // 1
+    pub dual_issue_diff_exec_units: bool, // 1
     /// Select the simulation order of cores in a cluster
-    simt_core_sim_order: SchedulingOrder, // 1
+    pub simt_core_sim_order: SchedulingOrder, // 1
     /// Number if ldst units (default=1) WARNING: not hooked up to anything
-    num_mem_units: usize, // 1
+    pub num_mem_units: usize, // 1
     /// Scheduler configuration: < lrr | gto | two_level_active > If two_level_active:<num_active_warps>:<inner_prioritization>:<outer_prioritization>For complete list of prioritization values see shader.h enum scheduler_prioritization_typeDefault: gto
-    scheduler: CoreSchedulerKind, // gto
+    pub scheduler: CoreSchedulerKind, // gto
     /// Support concurrent kernels on a SM (default = disabled)
-    concurrent_kernel_sm: bool, // 0
+    pub concurrent_kernel_sm: bool, // 0
     /// perfect inst and const cache mode, so all inst and const hits in the cache(default = disabled)
-    perfect_inst_const_cache: bool, // 0
+    pub perfect_inst_const_cache: bool, // 0
     /// the number of fetched intruction per warp each cycle
-    inst_fetch_throughput: usize, // 1
+    pub inst_fetch_throughput: usize, // 1
     /// the number ports of the register file
-    reg_file_port_throughput: usize, // 1
+    pub reg_file_port_throughput: usize, // 1
     /// Fill the L2 cache on memcpy
-    fill_l2_on_memcopy: bool, // true
+    pub fill_l2_on_memcopy: bool, // true
     /// simple_dram_model with fixed latency and BW
-    simple_dram_model: bool, // 0
+    pub simple_dram_model: bool, // 0
     /// DRAM scheduler kind. 0 = fifo, 1 = FR-FCFS (default)
-    dram_scheduler: DRAMSchedulerKind, // 1
+    pub dram_scheduler: DRAMSchedulerKind, // 1
     /// DRAM partition queue i2$:$2d:d2$:$2i
-    dram_partition_queues: usize, // 8:8:8:8
+    pub dram_partition_queues: usize, // 8:8:8:8
     /// use a ideal L2 cache that always hit
-    ideal_l2: bool, // 0
+    pub ideal_l2: bool, // 0
     /// L2 cache used for texture only
-    data_cache_l2_texture_only: bool, // 0
+    pub data_cache_l2_texture_only: bool, // 0
     /// number of memory modules (e.g. memory controllers) in gpu
-    num_memory_controllers: usize, // 8
+    pub num_memory_controllers: usize, // 8
     /// number of memory subpartition in each memory module
-    num_sub_partition_per_memory_channel: usize, // 2
+    pub num_sub_partition_per_memory_channel: usize, // 2
     /// number of memory chips per memory controller
-    num_memory_chips_per_controller: usize, // 1
+    pub num_memory_chips_per_controller: usize, // 1
     /// track and display latency statistics 0x2 enables MC, 0x4 enables queue logs
     // memory_latency_stat: usize, // 14
     /// DRAM scheduler queue size 0 = unlimited (default); # entries per chip
-    frfcfs_dram_sched_queue_size: usize, // 64
+    pub frfcfs_dram_sched_queue_size: usize, // 64
     /// 0 = unlimited (default); # entries per chip
-    dram_return_queue_size: usize, // 116
+    pub dram_return_queue_size: usize, // 116
     /// default = 4 bytes (8 bytes per cycle at DDR)
-    dram_buswidth: usize, // 4
+    pub dram_buswidth: usize, // 4
     /// Burst length of each DRAM request (default = 4 data bus cycle)
-    dram_burst_length: usize, // 8
+    pub dram_burst_length: usize, // 8
     /// Frequency ratio between DRAM data bus and command bus (default = 2 times, i.e. DDR)
-    dram_data_command_freq_ratio: usize, // 4
+    pub dram_data_command_freq_ratio: usize, // 4
     /// DRAM timing parameters =
     /// {nbk:tCCD:tRRD:tRCD:tRAS:tRP:tRC:CL:WL:tCDLR:tWR:nbkgrp:tCCDL:tRTPL}
     /// dram_timing_opt
     /// nbk=16:CCD=2:RRD=6:RCD=12:RAS=28:RP=12:RC=40: CL=12:WL=4:CDLR=5:WR=12:nbkgrp=1:CCDL=0:RTPL=0
     /// ROP queue latency (default 85)
-    l2_rop_latency: usize, // 120
+    pub l2_rop_latency: usize, // 120
     /// DRAM latency (default 30)
-    dram_latency: usize, // 100
+    pub dram_latency: usize, // 100
     /// dual_bus_interface (default = 0)
-    dram_dual_bus_interface: bool, // 0
+    pub dram_dual_bus_interface: bool, // 0
     /// dram_bnk_indexing_policy
-    dram_bank_indexing_policy: DRAMBankIndexPolicy, // 0
+    pub dram_bank_indexing_policy: DRAMBankIndexPolicy, // 0
     /// dram_bnkgrp_indexing_policy
-    dram_bank_group_indexing_policy: DRAMBankGroupIndexPolicy, // 0
+    pub dram_bank_group_indexing_policy: DRAMBankGroupIndexPolicy, // 0
     /// Seperate_Write_Queue_Enable
-    dram_seperate_write_queue_enable: bool, // 0
+    pub dram_seperate_write_queue_enable: bool, // 0
     /// write_Queue_Size
     // dram_write_queue_size: usize, // 32:28:16
     /// elimnate_rw_turnaround i.e set tWTR and tRTW = 0
-    dram_elimnate_rw_turnaround: bool, // 0
+    pub dram_elimnate_rw_turnaround: bool, // 0
     /// mapping memory address to dram model
     /// {dramid@<start bit>;<memory address map>}
     // memory_addr_mapping: String, // dramid@8;00000000.00000000.00000000.00000000.0000RRRR.RRRRRRRR.RBBBCCCC.BCCSSSSS
@@ -286,20 +261,85 @@ pub struct GPUConfig {
     // memory_addr_test: bool, // 0
     /// 0 = old addressing mask, 1 = new addressing mask, 2 = new add. mask + flipped bank sel and chip sel bits
     // memory_address_mask: usize, // 1
-    memory_partition_indexing: MemoryPartitionIndexingScheme, // 0
+    pub memory_partition_indexing: MemoryPartitionIndexingScheme, // 0
     /// Major compute capability version number
-    compute_capability_major: usize, // 7
+    pub compute_capability_major: usize, // 7
     /// Minor compute capability version number
-    compute_capability_minor: usize, // 0
+    pub compute_capability_minor: usize, // 0
     /// Flush L1 cache at the end of each kernel call
-    flush_l1_cache: bool, // 0
+    pub flush_l1_cache: bool, // 0
     /// Flush L2 cache at the end of each kernel call
-    flush_l2_cache: bool, // 0
+    pub flush_l2_cache: bool, // 0
     /// maximum kernels that can run concurrently on GPU.
     ///
     /// Set this value according to max resident grids for your
     /// compute capability.
-    max_concurrent_kernels: usize, // 32
+    pub max_concurrent_kernels: usize, // 32
+}
+
+/// Cache set indexing function kind.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum CacheSetIndexingFunction {
+    FERMI_HASH_SET_FUNCTION, // H
+    HASH_IPOLY_FUNCTION,     // P
+    // CUSTOM_SET_FUNCTION, // C
+    LINEAR_SET_FUNCTION,     // L
+    BITWISE_XORING_FUNCTION, // X
+}
+
+/// Miss status handlign register kind.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum MshrKind {
+    TEX_FIFO,        // F
+    SECTOR_TEX_FIFO, // T
+    ASSOC,           // A
+    SECTOR_ASSOC,    // S
+}
+
+/// Cache kind.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum CacheKind {
+    Normal, // N
+    Sector, // S
+}
+
+/// A cache replacement policy.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum CacheReplacementPolicy {
+    LRU,  // L
+    FIFO, // F
+}
+
+/// Cache write-allocate policy.
+///
+/// For more details about difference between FETCH_ON_WRITE and WRITE
+/// VALIDAE policies Read: Jouppi, Norman P. "Cache write policies and
+/// performance". ISCA 93. WRITE_ALLOCATE is the old write policy in
+/// GPGPU-sim 3.x, that send WRITE and READ for every write request
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum CacheWriteAllocatePolicy {
+    NO_WRITE_ALLOCATE,  // N
+    WRITE_ALLOCATE,     // W
+    FETCH_ON_WRITE,     // F
+    LAZY_FETCH_ON_READ, // L
+}
+
+/// A cache write policy.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum CacheWritePolicy {
+    READ_ONLY,          // R
+    WRITE_BACK,         // B
+    WRITE_THROUGH,      // T
+    WRITE_EVICT,        // E
+    LOCAL_WB_GLOBAL_WT, // L
+}
+
+/// A cache allocate policy.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum CacheAllocatePolicy {
+    ON_MISS,   // M
+    ON_FILL,   // F
+    STREAMING, // S
 }
 
 /// Memory partition indexing scheme.

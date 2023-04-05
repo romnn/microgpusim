@@ -45,5 +45,37 @@ pub struct MemAccessTraceEntry {
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub struct MemAllocation {
     pub device_ptr: u64,
-    pub bytes: usize,
+    pub num_bytes: usize,
+}
+
+#[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
+pub struct KernelInfo {
+    pub name: String,
+    pub id: u64,
+    pub grid: nvbit_model::Dim,
+    pub block: nvbit_model::Dim,
+    pub shared_mem_bytes: u32,
+    pub num_registers: u32,
+    pub binary_version: i32,
+    pub stream_id: u64,
+    pub shared_mem_base_addr: u64,
+    pub local_mem_base_addr: u64,
+    pub nvbit_version: String,
+}
+
+// impl std::fmt::Display for KernelInfo {
+//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+//         // let size = human_bytes::human_bytes(self.size() as f64);
+//         // write!(
+//         //     f,
+//         //     "{size} ({} set, {}-way, {} byte line)",
+//         //     self.num_sets, self.associativity, self.line_size
+//         // )
+//     }
+// }
+//
+#[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
+pub enum Command {
+    MemcpyHtoD { device_ptr: u64, num_bytes: usize },
+    KernelLaunch(KernelInfo),
 }
