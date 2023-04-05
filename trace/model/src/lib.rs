@@ -76,6 +76,6 @@ pub struct KernelInfo {
 //
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub enum Command {
-    MemcpyHtoD { device_ptr: u64, num_bytes: usize },
+    MemcpyHtoD { dest_device_addr: u64, num_bytes: u32 },
     KernelLaunch(KernelInfo),
 }

@@ -333,10 +333,26 @@ impl<'c> Instrumentor<'c> {
                 // enable instrumented code to run
                 func.enable_instrumented(ctx, true, true);
             }
+            Some(EventParams::MemCopyHostToDevice {
+                dest_device, bytes, ..
+            }) => {
+                if !is_exit {
+                    self.commands
+                        .lock()
+                        .unwrap()
+                        .push(trace_model::Command::MemcpyHtoD {
+                            dest_device_addr: dest_device.as_ptr() as u64,
+                            num_bytes: bytes,
+                        });
+                }
+            }
+            // Some(EventParams::MemCopyDeviceToHost {
+            //     // dest_device, bytes, ..
+            // }) => {
+            //         // ignored
+            // },
             Some(EventParams::MemAlloc {
-                device_ptr,
-                bytes,
-                ..
+                device_ptr, bytes, ..
             }) => {
                 if !is_exit {
                     // addresses are only valid on exit
@@ -347,13 +363,6 @@ impl<'c> Instrumentor<'c> {
                     .lock()
                     .unwrap()
                     .push(trace_model::MemAllocation {
-                        device_ptr,
-                        num_bytes: bytes,
-                    });
-                self.commands
-                    .lock()
-                    .unwrap()
-                    .push(trace_model::Command::MemcpyHtoD {
                         device_ptr,
                         num_bytes: bytes,
                     });
