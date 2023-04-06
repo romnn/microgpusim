@@ -2,6 +2,7 @@ use super::config::GPUConfig;
 use anyhow::Result;
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 use trace_model::KernelLaunch;
 
 /// Shader config
@@ -159,10 +160,21 @@ impl MockSimulator {
     pub fn launch(&mut self, kernel: &mut KernelInfo) {
         kernel.launched = true;
     }
+    pub fn cycle() {}
+    pub fn cache_cycle() {
+        // if (m_memory_sub_partition[i]->full(SECTOR_CHUNCK_SIZE)) {
+        // gpu_stall_dramfull++;
+        // } else {
+        // mem_fetch *mf = (mem_fetch *)icnt_pop(m_shader_config->mem2device(i));
+        // m_memory_sub_partition[i]->push(mf, gpu_sim_cycle + gpu_tot_sim_cycle);
+        // if (mf) partiton_reqs_in_parallel_per_cycle++;
+        // }
+        // m_memory_sub_partition[i]->cache_cycle(gpu_sim_cycle + gpu_tot_sim_cycle);
+    }
 }
 
-pub fn accelmain(trace_dir: impl AsRef<Path>) -> Result<()> {
-    let trace_dir = trace_dir.as_ref();
+pub fn accelmain(traces_dir: impl AsRef<Path>) -> Result<()> {
+    let traces_dir = traces_dir.as_ref();
     // reg_options registers the options from the option parser
     // init parses some more complex string options and data structures
 
@@ -175,9 +187,7 @@ pub fn accelmain(trace_dir: impl AsRef<Path>) -> Result<()> {
     //   new stream_manager((m_gpgpu_context->the_gpgpusim->g_the_gpu),
     //                      m_gpgpu_context->func_sim->g_cuda_launch_blocking);
     //
-    // m_gpgpu_context->the_gpgpusim->g_simulation_starttime = time((time_t *)NULL);
-    //
-    // return m_gpgpu_context->the_gpgpusim->g_the_gpu;
+    let start_time = Instant::now();
 
     // shader config init
     let config = GPUConfig::default();
@@ -192,16 +202,10 @@ pub fn accelmain(trace_dir: impl AsRef<Path>) -> Result<()> {
     };
     assert!(window_size > 0);
 
-    // todo
-
-    let traces_dir = PathBuf::from(
-        std::env::var("TRACES_DIR").unwrap_or(env!("CARGO_MANIFEST_DIR").to_string()),
-    );
-    // map_or_else(|_| example_dir.join("traces"), PathBuf::from)
+    // std::vector<trace_command> commandlist = tracer.parse_commandlist_file();
     let command_traces_path = traces_dir.join("commands.json");
     let mut commands: Vec<trace_model::Command> = parse_commands(&command_traces_path)?;
 
-    // std::vector<trace_command> commandlist = tracer.parse_commandlist_file();
     let mut busy_streams: VecDeque<u64> = VecDeque::new();
     let mut kernels: VecDeque<KernelInfo> = VecDeque::new();
     kernels.reserve_exact(window_size);
@@ -209,7 +213,6 @@ pub fn accelmain(trace_dir: impl AsRef<Path>) -> Result<()> {
     // kernel_trace_t* kernel_trace_info = tracer.parse_kernel_info(commandlist[i].command_string);
     // kernel_info = create_kernel_info(kernel_trace_info, m_gpgpu_context, &tconfig, &tracer);
     // kernels_info.push_back(kernel_info);
-    // std::cout << "Header info loaded for kernel command : " << commandlist[i].command_string << std::endl;
 
     let mut i = 0;
     while i < commands.len() || !kernels.is_empty() {
@@ -239,7 +242,7 @@ pub fn accelmain(trace_dir: impl AsRef<Path>) -> Result<()> {
         for kernel in &mut kernels {
             let stream_busy = busy_streams.iter().any(|s| *s == kernel.config.stream_id);
             if !stream_busy && s.can_start_kernel() && !kernel.was_launched() {
-                println!("launching kernel {}", kernel);
+                println!("launching kernel {}", kernel.config.name);
                 s.launch(kernel);
                 busy_streams.push_back(kernel.config.stream_id);
             }
@@ -271,6 +274,7 @@ pub fn accelmain(trace_dir: impl AsRef<Path>) -> Result<()> {
         //   active = m_gpgpu_sim->active();
         //   finished_kernel_uid = m_gpgpu_sim->finished_kernel();
         // } while (active && !finished_kernel_uid);
+        break;
     }
     Ok(())
 }
