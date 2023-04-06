@@ -1,6 +1,6 @@
 #![allow(warnings)]
 
-pub mod gpgpusim;
+// pub mod gpgpusim;
 pub mod cache;
 pub mod dram;
 pub mod config;

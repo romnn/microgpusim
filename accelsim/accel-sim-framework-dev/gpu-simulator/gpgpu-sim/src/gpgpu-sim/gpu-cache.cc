@@ -1765,10 +1765,16 @@ enum cache_request_status data_cache::process_tag_probe(
 enum cache_request_status data_cache::access(new_addr_type addr, mem_fetch *mf,
                                              unsigned time,
                                              std::list<cache_event> &events) {
+
   assert(mf->get_data_size() <= m_config.get_atom_sz());
   bool wr = mf->get_is_write();
   new_addr_type block_addr = m_config.block_addr(addr);
   unsigned cache_index = (unsigned)-1;
+
+  Singleton::mem_printf(
+    "data_cache::access(%llu, write = %d, size = %u, block = %llu)\n",
+    addr, wr, mf->get_data_size(), block_addr
+  );
   enum cache_request_status probe_status =
       m_tag_array->probe(block_addr, cache_index, mf, mf->is_write(), true);
   enum cache_request_status access_status =

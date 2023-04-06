@@ -1,7 +1,7 @@
 #![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
 use anyhow::Result;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -107,21 +107,23 @@ fn build_accelsim(
     let tmp_build_sh = format!(
         "set -e
 source {}
-make -j -C {}",
+make -C {src} clean
+make -j -C {src}",
         &accelsim_path
             .as_ref()
             .join("gpu-simulator/setup_environment.sh")
             .canonicalize()?
             .to_string_lossy(),
-        &accelsim_path
+        src = accelsim_path
             .as_ref()
             .join("gpu-simulator/")
             .canonicalize()?
-            .to_string_lossy(),
+            .to_string_lossy()
+            .to_string(),
     );
     dbg!(&tmp_build_sh);
 
-    let mut tmp_build_sh_file = std::fs::OpenOptions::new()
+    let mut tmp_build_sh_file = OpenOptions::new()
         .write(true)
         .truncate(true)
         .create(true)
@@ -134,8 +136,20 @@ make -j -C {}",
     dbg!(&cmd);
 
     let result = cmd.output()?;
-    println!("{}", String::from_utf8_lossy(&result.stdout));
-    println!("{}", String::from_utf8_lossy(&result.stderr));
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    println!("{}", &stdout);
+    eprintln!("{}", &stderr);
+
+    // write build logs
+    for (log_name, content) in &[("build.log.stdout", stdout), ("build.log.stderr", stderr)] {
+        let mut log_file = OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .create(true)
+            .open(manifest_path().join(log_name))?;
+        log_file.write_all(content.as_bytes())?;
+    }
 
     if !result.status.success() {
         anyhow::bail!("cmd failed with code {:?}", result.status.code());
@@ -170,12 +184,12 @@ fn build_accelsim_tracer_tool(
 
     let result = cmd.output()?;
     println!("{}", String::from_utf8_lossy(&result.stdout));
-    println!("{}", String::from_utf8_lossy(&result.stderr));
+    eprintln!("{}", String::from_utf8_lossy(&result.stderr));
 
     if !result.status.success() {
         anyhow::bail!("cmd failed with code {:?}", result.status.code());
     }
-    println!("cargo:warning=built {}", &artifact.display());
+    println!("cargo:warning=successfully built {}", &artifact.display());
     Ok(())
 }
 
@@ -204,8 +218,6 @@ fn main() {
     let force = false;
     build_accelsim_tracer_tool(&accelsim_path, cuda_path, force).unwrap();
 
-    // try to build accelsim as well
-    if let Err(err) = build_accelsim(&accelsim_path, cuda_path, force) {
-        println!("cargo:warning=building accelsim failed: {}", &err,);
-    }
+    // build accelsim
+    build_accelsim(&accelsim_path, cuda_path, force).unwrap()
 }

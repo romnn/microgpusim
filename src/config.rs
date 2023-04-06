@@ -7,6 +7,7 @@
 /// &m_nset, &m_line_sz, &m_assoc, &rp, &wp, &ap, &wap, &sif,
 /// &mshr_type, &m_mshr_entries, &m_mshr_max_merge,
 /// &m_miss_queue_size, &m_result_fifo_entries, &m_data_port_width);
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct CacheConfig {
     pub kind: CacheKind,
     pub num_sets: usize,
@@ -93,6 +94,7 @@ impl CacheConfig {
     // assert(m_line_sz % m_data_port_width == 0);
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct GPUConfig {
     /// The SM number to pass to ptxas when getting register usage for
     /// computing GPU occupancy.
@@ -210,8 +212,11 @@ pub struct GPUConfig {
     pub simple_dram_model: bool, // 0
     /// DRAM scheduler kind. 0 = fifo, 1 = FR-FCFS (default)
     pub dram_scheduler: DRAMSchedulerKind, // 1
-    /// DRAM partition queue i2$:$2d:d2$:$2i
-    pub dram_partition_queues: usize, // 8:8:8:8
+    /// DRAM partition queue
+    pub dram_partition_queue_interconn_to_l2: usize, // 8
+    pub dram_partition_queue_l2_to_dram: usize,      // 8
+    pub dram_partition_queue_dram_to_l2: usize,      // 8
+    pub dram_partition_queue_l2_to_interconn: usize, // 8
     /// use a ideal L2 cache that always hit
     pub ideal_l2: bool, // 0
     /// L2 cache used for texture only
@@ -552,8 +557,10 @@ impl Default for GPUConfig {
             fill_l2_on_memcopy: true,
             simple_dram_model: false,
             dram_scheduler: DRAMSchedulerKind::FrFcfs,
-            /// DRAM partition queue i2$:$2d:d2$:$2i
-            dram_partition_queues: 0, // 8:8:8:8
+            dram_partition_queue_interconn_to_l2: 8,
+            dram_partition_queue_l2_to_dram: 8,
+            dram_partition_queue_dram_to_l2: 8,
+            dram_partition_queue_l2_to_interconn: 8,
             ideal_l2: false,
             data_cache_l2_texture_only: false,
             num_memory_controllers: 8,

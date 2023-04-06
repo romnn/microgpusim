@@ -1,9 +1,24 @@
+#![allow(warnings)]
+
+pub mod mem_fetch;
+pub mod mem_sub_partition;
+pub mod set_index_function;
+pub mod tag_array;
+
+use mem_fetch::*;
+use mem_sub_partition::*;
+use set_index_function::*;
+use tag_array::*;
+
 use super::config::GPUConfig;
 use anyhow::Result;
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 use trace_model::KernelLaunch;
+
+
+pub type address = u64;
 
 /// Shader config
 
@@ -150,8 +165,10 @@ fn parse_commands(path: impl AsRef<Path>) -> Result<Vec<trace_model::Command>> {
     Ok(commands)
 }
 
-#[derive(Debug)]
-pub struct MockSimulator {}
+#[derive(Debug, Default)]
+pub struct MockSimulator {
+    memory_sub_partition: Vec<MemorySubPartition>,
+}
 
 impl MockSimulator {
     pub fn can_start_kernel(&self) -> bool {
@@ -235,7 +252,7 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> Result<()> {
             i += 1;
         }
 
-        let mut s = MockSimulator {};
+        let mut s = MockSimulator::default();
 
         // Launch all kernels within window that are on a stream
         // that isn't already running
