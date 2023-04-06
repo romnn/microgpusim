@@ -1,11 +1,15 @@
 use serde::{Deserialize, Serialize};
+use std::ffi::OsStr;
 use std::path::PathBuf;
 
-pub fn app_prefix(bin_name: Option<&str>) -> String {
-    let mut args: Vec<_> = std::env::args()
+/// Extract app arguments.
+///
+/// This skips the binary (`argv[0]`) itself.
+pub fn app_args(bin_name: Option<&str>) -> Vec<String> {
+    std::env::args()
         .skip_while(|arg| {
             let arg = PathBuf::from(arg);
-            let Some(arg_name) = arg.file_name().and_then(std::ffi::OsStr::to_str) else {
+            let Some(arg_name) = arg.file_name().and_then(OsStr::to_str) else {
                 return false;
             };
             match bin_name {
@@ -13,11 +17,19 @@ pub fn app_prefix(bin_name: Option<&str>) -> String {
                 None => false,
             }
         })
-        .collect();
+        .collect()
+}
+
+/// Buidld unique app prefix.
+///
+/// Used for storing traces related to a specific invocation
+/// of an application with arguments.
+pub fn app_prefix(bin_name: Option<&str>) -> String {
+    let mut args: Vec<_> = app_args(bin_name);
     if let Some(executable) = args.get_mut(0) {
         *executable = PathBuf::from(&*executable)
             .file_name()
-            .and_then(std::ffi::OsStr::to_str)
+            .and_then(OsStr::to_str)
             .map(String::from)
             .unwrap_or(String::new());
     }

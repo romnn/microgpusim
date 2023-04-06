@@ -2,6 +2,7 @@ use super::config::GPUConfig;
 use anyhow::Result;
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
+use trace_model::KernelLaunch;
 
 /// Shader config
 
@@ -33,21 +34,103 @@ impl Context {
     // start_sim_thread
 }
 
-/// KernelInfo
+#[derive(Debug)]
+struct FunctionInfo {
+    // gpgpu_ctx = ctx;
+    // m_uid = (gpgpu_ctx->function_info_sm_next_uid)++;
+    // m_entry_point = (entry_point == 1) ? true : false;
+    // m_extern = (entry_point == 2) ? true : false;
+    // num_reconvergence_pairs = 0;
+    // m_symtab = NULL;
+    // m_assembled = false;
+    // m_return_var_sym = NULL;
+    // m_kernel_info.cmem = 0;
+    // m_kernel_info.lmem = 0;
+    // m_kernel_info.regs = 0;
+    // m_kernel_info.smem = 0;
+    // m_local_mem_framesize = 0;
+    // m_args_aligned_size = -1;
+    // pdom_done = false;  // initialize it to false
+}
+
+/// KernelInfo represents a kernel.
+///
+/// This includes its launch configuration,
+/// as well as its state of execution.
 ///
 /// TODO: rename to just kernel if this handles all the state.
 #[derive(Debug)]
 pub struct KernelInfo {
+    config: KernelLaunch,
+    // function_info: FunctionInfo,
+    // shared_mem: bool,
     launched: bool,
+    function_info: FunctionInfo,
+    // m_kernel_entry = entry;
+    // m_grid_dim = gridDim;
+    // m_block_dim = blockDim;
+    // m_next_cta.x = 0;
+    // m_next_cta.y = 0;
+    // m_next_cta.z = 0;
+    // m_next_tid = m_next_cta;
+    // m_num_cores_running = 0;
+    // m_uid = (entry->gpgpu_ctx->kernel_info_m_next_uid)++;
+    // m_param_mem = new memory_space_impl<8192>("param", 64 * 1024);
+    //
+    // // Jin: parent and child kernel management for CDP
+    // m_parent_kernel = NULL;
+    //
+    // // Jin: launch latency management
+    // m_launch_latency = entry->gpgpu_ctx->device_runtime->g_kernel_launch_latency;
+    //
+    // m_kernel_TB_latency =
+    //     entry->gpgpu_ctx->device_runtime->g_kernel_launch_latency +
+    //     num_blocks() * entry->gpgpu_ctx->device_runtime->g_TB_launch_latency;
+    //
+    // cache_config_set = false;
+    //
+    // FOR TRACE DRIVEN
+    //
+    // m_parser = parser;
+    // m_tconfig = config;
+    // m_kernel_trace_info = kernel_trace_info;
+    // m_was_launched = false;
+    //
+    // // resolve the binary version
+    // if (kernel_trace_info->binary_verion == AMPERE_RTX_BINART_VERSION ||
+    //     kernel_trace_info->binary_verion == AMPERE_A100_BINART_VERSION)
+    //   OpcodeMap = &Ampere_OpcodeMap;
+    // else if (kernel_trace_info->binary_verion == VOLTA_BINART_VERSION)
+    //   OpcodeMap = &Volta_OpcodeMap;
+    // else if (kernel_trace_info->binary_verion == PASCAL_TITANX_BINART_VERSION ||
+    //          kernel_trace_info->binary_verion == PASCAL_P100_BINART_VERSION)
+    //   OpcodeMap = &Pascal_OpcodeMap;
+    // else if (kernel_trace_info->binary_verion == KEPLER_BINART_VERSION)
+    //   OpcodeMap = &Kepler_OpcodeMap;
+    // else if (kernel_trace_info->binary_verion == TURING_BINART_VERSION)
+    //   OpcodeMap = &Turing_OpcodeMap;
+    // else {
+    //   printf("unsupported binary version: %d\n",
+    //          kernel_trace_info->binary_verion);
+    //   fflush(stdout);
+    //   exit(0);
+    // }
 }
 
 impl KernelInfo {
     // gpgpu_ptx_sim_init_perf
     // GPGPUSim_Init
     // start_sim_thread
+    pub fn new(config: KernelLaunch) -> Self {
+        Self {
+            config,
+            launched: false,
+            function_info: FunctionInfo {},
+        }
+    }
 
     pub fn was_launched(&self) -> bool {
-        false
+        self.launched
     }
 }
 
@@ -73,7 +156,7 @@ impl MockSimulator {
     pub fn can_start_kernel(&self) -> bool {
         true
     }
-    pub fn launch(&self, kernel: &KernelInfo) {
+    pub fn launch(&mut self, kernel: &mut KernelInfo) {
         kernel.launched = true;
     }
 }
@@ -119,7 +202,7 @@ pub fn accelmain(trace_dir: impl AsRef<Path>) -> Result<()> {
     let mut commands: Vec<trace_model::Command> = parse_commands(&command_traces_path)?;
 
     // std::vector<trace_command> commandlist = tracer.parse_commandlist_file();
-    let mut busy_streams: VecDeque<usize> = VecDeque::new();
+    let mut busy_streams: VecDeque<u64> = VecDeque::new();
     let mut kernels: VecDeque<KernelInfo> = VecDeque::new();
     kernels.reserve_exact(window_size);
 
@@ -134,54 +217,60 @@ pub fn accelmain(trace_dir: impl AsRef<Path>) -> Result<()> {
         // collected as many kernels to fill the window_size
         // or processed every command.
         while kernels.len() < window_size && i < commands.len() {
-            match &commands[i] {
-                cmd @ trace_model::Command::MemcpyHtoD { .. } => {
-                    println!("memcpy command {:#?}", cmd);
+            let cmd = &commands[i];
+            println!("command {:#?}", cmd);
+            match cmd {
+                trace_model::Command::MemcpyHtoD { .. } => {
                     //  m_gpgpu_sim->perf_memcpy_to_gpu(addre, Bcount);
                 }
-                cmd @ trace_model::Command::KernelLaunch(_) => {
-                    let kernel_info = KernelInfo { launched: false };
-                    kernels.push_back(kernel_info);
+                trace_model::Command::KernelLaunch(config) => {
+                    let kernel = KernelInfo::new(config.clone());
+                    kernels.push_back(kernel);
                     println!("launch kernel command {:#?}", cmd);
                 }
             }
             i += 1;
         }
 
-        let s = MockSimulator {};
+        let mut s = MockSimulator {};
 
         // Launch all kernels within window that are on a stream
         // that isn't already running
-        for kernel in &kernels {
-            let mut stream_busy = false;
-            for stream in &busy_streams {
-                if stream == kernel.stream {
-                    stream_busy = true;
-                }
-                if !stream_busy && s.can_start_kernel() && !kernel.was_launched() {
-                    println!("launching kernel {}", kernel);
-                    s.launch(kernel);
-                    busy_streams.push_back(kernel.stream);
-                }
+        for kernel in &mut kernels {
+            let stream_busy = busy_streams.iter().any(|s| *s == kernel.config.stream_id);
+            if !stream_busy && s.can_start_kernel() && !kernel.was_launched() {
+                println!("launching kernel {}", kernel);
+                s.launch(kernel);
+                busy_streams.push_back(kernel.config.stream_id);
             }
         }
+
+        // drive kernels to completion
+        //
+        // bool active = false;
+        // bool sim_cycles = false;
+        // unsigned finished_kernel_uid = 0;
+        //
+        // do {
+        //   if (!m_gpgpu_sim->active())
+        //     break;
+        //
+        //   // performance simulation
+        //   if (m_gpgpu_sim->active()) {
+        //     m_gpgpu_sim->cycle();
+        //     sim_cycles = true;
+        //     m_gpgpu_sim->deadlock_check();
+        //   } else {
+        //     if (m_gpgpu_sim->cycle_insn_cta_max_hit()) {
+        //       m_gpgpu_context->the_gpgpusim->g_stream_manager
+        //           ->stop_all_running_kernels();
+        //       break;
+        //     }
+        //   }
+        //
+        //   active = m_gpgpu_sim->active();
+        //   finished_kernel_uid = m_gpgpu_sim->finished_kernel();
+        // } while (active && !finished_kernel_uid);
     }
     Ok(())
 }
-
-//  kernel_info = create_kernel_info(kernel_trace_info, m_gpgpu_context, &tconfig, &tracer);
-//
-
-// gpgpu_ptx_sim_info info;
-//   info.smem = kernel_trace_info->shmem;
-//   info.regs = kernel_trace_info->nregs;
-//   dim3 gridDim(kernel_trace_info->grid_dim_x, kernel_trace_info->grid_dim_y, kernel_trace_info->grid_dim_z);
-//   dim3 blockDim(kernel_trace_info->tb_dim_x, kernel_trace_info->tb_dim_y, kernel_trace_info->tb_dim_z);
-//   trace_function_info *function_info =
-//       new trace_function_info(info, m_gpgpu_context);
-//   function_info->set_name(kernel_trace_info->kernel_name.c_str());
-//   trace_kernel_info_t *kernel_info =
-//       new trace_kernel_info_t(gridDim, blockDim, function_info,
-//     		  parser, config, kernel_trace_info);
-
-//   return kernel_info;

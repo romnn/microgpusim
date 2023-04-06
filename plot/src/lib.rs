@@ -129,8 +129,6 @@ impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
         // time = [e[1] for e in entries]
 
         for ((is_store, label), mut accesses) in &mut self.accesses {
-            println!("drawing ({is_store}, {label:?})");
-
             accesses.sort_by(|a, b| a.warp_id.cmp(&b.warp_id));
             // dbg!(&accesses);
 
@@ -169,8 +167,6 @@ impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
             .border_style(BLACK)
             .background_style(WHITE.mix(0.8))
             .draw()?;
-
-        println!("finished drawing to {}", path.display());
         Ok(())
     }
 }

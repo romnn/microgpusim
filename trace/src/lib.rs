@@ -9,6 +9,7 @@ use std::os::unix::fs::DirBuilderExt;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Instant;
+use std::{fs::OpenOptions, io::BufReader};
 
 #[allow(
     warnings,
@@ -22,11 +23,6 @@ mod common {
 }
 
 use common::mem_access_t;
-
-fn traces_dir() -> PathBuf {
-    let example_dir = PathBuf::from(file!()).join("../../");
-    std::env::var("TRACES_DIR").map_or_else(|_| example_dir.join("traces"), PathBuf::from)
-}
 
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Default, Clone)]
@@ -95,11 +91,23 @@ impl Instrumentor<'static> {
         let mut dev_channel = nvbit_rs::DeviceChannel::new();
         let host_channel = HostChannel::new(0, CHANNEL_SIZE, &mut dev_channel).unwrap();
 
-        let traces_dir = traces_dir().join(format!(
-            "{}-trace",
-            &trace_model::app_prefix(option_env!("CARGO_BIN_NAME"))
-        ));
+        let own_bin_name = option_env!("CARGO_BIN_NAME");
+        let target_app_dir = trace_model::app_args(own_bin_name)
+            .get(0)
+            .map(PathBuf::from)
+            .and_then(|app| app.parent().map(Path::to_path_buf))
+            .expect("missig target app");
 
+        let traces_dir = std::env::var("TRACES_DIR").map_or_else(
+            |_| {
+                target_app_dir
+                    .join("traces")
+                    .join(format!("{}-trace", &trace_model::app_prefix(own_bin_name),))
+            },
+            PathBuf::from,
+        );
+
+        println!("creating traces dir {}", traces_dir.display());
         std::fs::DirBuilder::new()
             .recursive(true)
             .mode(0o777)
@@ -141,7 +149,8 @@ impl Instrumentor<'static> {
         let rx = self.host_channel.lock().unwrap().read();
 
         let json_trace_file_path = self.traces_dir.join("trace.json");
-        let mut json_file = std::fs::OpenOptions::new()
+        println!("writing trace to {}", json_trace_file_path.display());
+        let mut json_file = OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
@@ -163,7 +172,7 @@ impl Instrumentor<'static> {
         let mut json_encoder = nvbit_io::Encoder::new(&mut json_serializer).unwrap();
 
         let rmp_trace_file_path = self.traces_dir.join("trace.msgpack");
-        let mut rmp_file = std::fs::OpenOptions::new()
+        let mut rmp_file = OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
@@ -241,12 +250,13 @@ impl Instrumentor<'static> {
 
         json_encoder.finalize().unwrap();
         rmp_encoder.finalize().unwrap();
-        println!(
-            "wrote {} packets to {} and {}",
-            &packet_count,
-            &json_trace_file_path.display(),
-            &rmp_trace_file_path.display(),
-        );
+        for trace_file_path in [&json_trace_file_path, &rmp_trace_file_path] {
+            println!(
+                "wrote {} packets to {}",
+                &packet_count,
+                &trace_file_path.display(),
+            );
+        }
     }
 }
 
@@ -295,7 +305,7 @@ impl<'c> Instrumentor<'c> {
                 let func_name = func.name(ctx);
                 let pc = func.addr();
 
-                let kernel_info = trace_model::KernelInfo {
+                let kernel_info = trace_model::KernelLaunch {
                     name: func_name.to_string(),
                     id: *grid_launch_id,
                     grid,
@@ -445,7 +455,7 @@ impl<'c> Instrumentor<'c> {
 
     fn save_command_trace(&self) {
         let command_trace_file_path = self.traces_dir.join("commands.json");
-        let mut command_trace_file = std::fs::OpenOptions::new()
+        let mut command_trace_file = OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
@@ -464,11 +474,12 @@ impl<'c> Instrumentor<'c> {
         );
         let commands = self.commands.lock().unwrap();
         commands.serialize(&mut serializer).unwrap();
+        println!("wrote commands to {}", command_trace_file_path.display());
     }
 
     fn save_allocations(&self) {
         let allocations_file_path = self.traces_dir.join("allocations.json");
-        let mut allocations_file = std::fs::OpenOptions::new()
+        let mut allocations_file = OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
@@ -487,14 +498,16 @@ impl<'c> Instrumentor<'c> {
         );
         let allocations = self.allocations.lock().unwrap();
         allocations.serialize(&mut serializer).unwrap();
+
+        println!("wrote allocations to {}", allocations_file_path.display());
     }
 
     #[cfg(feature = "plot")]
     fn plot_memory_accesses(&self) {
         // plot memory accesses
         let rmp_trace_file_path = self.traces_dir.join("trace.msgpack");
-        let mut reader = std::io::BufReader::new(
-            std::fs::OpenOptions::new()
+        let mut reader = BufReader::new(
+            OpenOptions::new()
                 .read(true)
                 .open(&rmp_trace_file_path)
                 .unwrap(),
@@ -514,6 +527,7 @@ impl<'c> Instrumentor<'c> {
 
         let trace_plot_path = self.traces_dir.join("trace.svg");
         access_plot.draw(&trace_plot_path).unwrap();
+        println!("finished drawing to {}", trace_plot_path.display());
     }
 }
 

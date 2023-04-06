@@ -1,17 +1,29 @@
 ## box
 
-#### Accelsim trace generation
+
+#### Building
 ```bash
-./accelsim/accel-sim-framework-dev/util/tracer_nvbit/install_nvbit.sh
-make -C ./accelsim/accel-sim-framework-dev/util/tracer_nvbit/
+cargo build --release --all-targets
+cargo build -p trace --release # single package
 ```
 
-#### Profiler
-
+#### Trace an application
 ```bash
-cargo build -p trace --release
-cargo build -p profile --release
-cargo build -p validate --release
+LD_PRELOAD=./target/release/libtrace.so <executable> [args]
+
+# example
+LD_PRELOAD=./target/release/libtrace.so ./test-apps/vectoradd/vectoradd 100 32
+```
+
+```
+cargo build --release -p trace
+LD_PRELOAD=./target/release/build/libtrace.so ./test-apps/vectoradd/vectoradd 100 32
+```
+
+See the [accelsim instructions](accelsim/README.md).
+
+#### Profile an application
+```bash
 sudo ./target/release/profile <executable> [args]
 sudo ./target/release/validate ./test-apps/simple_matrixmul/matrixmul 5 5 5 32
 ```
