@@ -1,3 +1,5 @@
+use super::ported::address;
+
 /// CacheConfig
 ///
 /// gpu-simulator/gpgpu-sim/src/gpgpu-sim/gpu-cache.h#565
@@ -31,7 +33,7 @@ pub struct CacheConfig {
 
 impl std::fmt::Display for CacheConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let size = human_bytes::human_bytes(self.size() as f64);
+        let size = human_bytes::human_bytes(self.total_bytes() as f64);
         write!(
             f,
             "{size} ({} set, {}-way, {} byte line)",
@@ -43,12 +45,38 @@ impl std::fmt::Display for CacheConfig {
 /// TODO: use a builder here so we can fill in the remaining values
 /// and do the validation as found below:
 impl CacheConfig {
-    pub fn size(&self) -> usize {
+    /// The total size of the cache in bytes.
+    pub fn total_bytes(&self) -> usize {
         self.line_size * self.num_sets * self.associativity
     }
 
-    pub fn num_lines(&self) -> usize {
+    /// Number of lines in total.
+    pub fn total_lines(&self) -> usize {
         self.num_sets * self.associativity
+    }
+
+    // do not use enabled but options
+    pub fn set_index(&self, idx: address) {}
+
+    pub fn tag(&self, addr: address) -> address {
+        // For generality, the tag includes both index and tag. This allows for more
+        // complex set index calculations that can result in different indexes
+        // mapping to the same set, thus the full tag + index is required to check
+        // for hit/miss. Tag is now identical to the block address.
+
+        // return addr >> (m_line_sz_log2+m_nset_log2);
+        // return addr & ~(new_addr_type)(m_line_sz - 1);
+        addr & !address::try_from(self.line_size - 1).unwrap()
+    }
+
+    /// Block address
+    pub fn block_addr(&self, addr: address) -> address {
+        addr & !address::try_from(self.line_size - 1).unwrap()
+    }
+
+    /// Mshr address
+    pub fn mshr_addr(&self, addr: address) -> address {
+        addr & !address::try_from(self.line_size - 1).unwrap()
     }
 
     // m_line_sz_log2 = LOGB2(m_line_sz);

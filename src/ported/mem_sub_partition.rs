@@ -1,4 +1,4 @@
-use crate::config::CacheConfig;
+use crate::config;
 
 use super::MemFetch;
 use std::collections::{HashSet, VecDeque};
@@ -32,17 +32,12 @@ impl<T> Queue<T> for FifoQueue<T> {
 }
 
 // todo: what do we need precisely
-#[derive(Clone, Debug)]
-pub struct MemorySubPartitionConfig {
-    config: super::GPUConfig,
-    enabled: bool,
-    num_mem_sub_partition: usize,
-}
-
-#[derive(Clone, Debug)]
-pub struct L2Cache {
-    name: String,
-}
+// #[derive(Clone, Debug)]
+// pub struct MemorySubPartitionConfig {
+//     config: super::GPUConfig,
+//     enabled: bool,
+//     num_mem_sub_partition: usize,
+// }
 
 #[derive(Debug)]
 pub struct CacheRequestStatus {}
@@ -52,14 +47,22 @@ pub enum CacheEvent {}
 
 // TODO: make Cache a trait that can be implemented differently for L1 and L2 cache structs ...
 
+#[derive(Clone, Debug)]
+pub struct L2Cache {
+    name: String,
+    // config: MemorySubPartitionConfig,
+    config: config::CacheConfig,
+}
 
 /// Models second level shared cache with global write-back
 /// and write-allocate policies
 impl L2Cache {
     pub fn new(
         name: impl Into<String>,
-        // config: CacheConfig,
-        config: MemorySubPartitionConfig,
+        // todo: what config is needed here
+        config: config::CacheConfig,
+        // config: MemorySubPartitionConfig,
+        // config: MemorySubPartitionConfig,
         core_id: i32,
         kind: i32,
         // memport: mem_fetch_interface,
@@ -67,19 +70,22 @@ impl L2Cache {
         status: MemFetchStatus,
         // gpu: Sim,
     ) -> Self {
-        Self { name: name.into() }
+        Self {
+            name: name.into(),
+            config,
+        }
     }
 
     pub fn access(
         &self,
         addr: super::address,
-        mf: MemFetch,
+        mem_fetch: MemFetch,
         time: usize,
         events: Vec<CacheEvent>,
     ) -> CacheRequestStatus {
-        // assert(mf->get_data_size() <= m_config.get_atom_sz());
-        // bool wr = mf->get_is_write();
-        // new_addr_type block_addr = m_config.block_addr(addr);
+        // assert!(mf->get_data_size() <= config.get_atom_sz());
+        // let is_write = mem_fetch.is_write;
+        let block_addr = self.config.block_addr(addr);
         // unsigned cache_index = (unsigned)-1;
         // enum cache_request_status probe_status =
         //       m_tag_array->probe(block_addr, cache_index, mf, mf->is_write(), true);
@@ -103,7 +109,8 @@ pub struct MemorySubPartition<Q = FifoQueue<MemFetch>> {
     /// global sub partition ID
     pub id: usize,
     /// memory configuration
-    pub config: MemorySubPartitionConfig,
+    // pub config: MemorySubPartitionConfig,
+    pub config: config::GPUConfig,
     /// queues
     interconn_to_l2_queue: Q,
     l2_to_dram_queue: Q,
@@ -164,47 +171,36 @@ impl<Q> MemorySubPartition<Q>
 where
     Q: Queue<MemFetch>,
 {
-    pub fn new(id: usize, config: MemorySubPartitionConfig) -> Self {
-        assert!(id < config.num_mem_sub_partition);
+    // pub fn new(id: usize, config: MemorySubPartitionConfig) -> Self {
+    pub fn new(id: usize, config: config::GPUConfig) -> Self {
+        // need to migrate memory config for this
+        // assert!(id < config.num_mem_sub_partition);
+        // assert!(id < config.numjjjkk);
 
         // m_L2interface = new L2interface(this);
         // m_mf_allocator = new partition_mf_allocator(config);
         //
-        let l2_cache = if config.enabled {
-            Some(L2Cache::new(
+        // let l2_cache = if config.data_cache_l2 {
+        let l2_cache = match &config.data_cache_l2 {
+            Some(l2_config) => Some(L2Cache::new(
                 format!("L2_bank_{:03}", id),
-                config.clone(),
+                l2_config.clone(),
                 -1,
                 -1,
                 // l2interface,
                 // mf_allocator,
                 MemFetchStatus::IN_PARTITION_L2_MISS_QUEUE,
                 // gpu
-            ))
-        } else {
-            None
+            )),
+            None => None,
         };
 
-        let interconn_to_l2_queue = Q::new(
-            "icnt-to-L2",
-            0,
-            config.config.dram_partition_queue_interconn_to_l2,
-        );
-        let l2_to_dram_queue = Q::new(
-            "L2-to-dram",
-            0,
-            config.config.dram_partition_queue_l2_to_dram,
-        );
-        let dram_to_l2_queue = Q::new(
-            "dram-to-L2",
-            0,
-            config.config.dram_partition_queue_dram_to_l2,
-        );
-        let l2_to_interconn_queue = Q::new(
-            "L2-to-icnt",
-            0,
-            config.config.dram_partition_queue_l2_to_interconn,
-        );
+        let interconn_to_l2_queue =
+            Q::new("icnt-to-L2", 0, config.dram_partition_queue_interconn_to_l2);
+        let l2_to_dram_queue = Q::new("L2-to-dram", 0, config.dram_partition_queue_l2_to_dram);
+        let dram_to_l2_queue = Q::new("dram-to-L2", 0, config.dram_partition_queue_dram_to_l2);
+        let l2_to_interconn_queue =
+            Q::new("L2-to-icnt", 0, config.dram_partition_queue_l2_to_interconn);
 
         Self {
             id,
