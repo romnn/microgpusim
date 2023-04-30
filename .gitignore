@@ -3,3 +3,4 @@
 
 # json traces can get too big
 /test-apps/*/traces/*/*.json
+!/test-apps/*/traces/*/commands.json

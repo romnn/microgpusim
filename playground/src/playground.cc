@@ -10,3 +10,17 @@ extern "C" void parse_cache_config(char *config, cache_config *dest) {
          &dest->m_data_port_width);
   printf("test");
 }
+
+extern "C" new_addr_type addrdec_packbits(new_addr_type mask, new_addr_type val,
+                                          unsigned char high,
+                                          unsigned char low) {
+  unsigned pos = 0;
+  new_addr_type result = 0;
+  for (unsigned i = low; i < high; i++) {
+    if ((mask & ((unsigned long long int)1 << i)) != 0) {
+      result |= ((val & ((unsigned long long int)1 << i)) >> i) << pos;
+      pos++;
+    }
+  }
+  return result;
+}

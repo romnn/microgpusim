@@ -54,15 +54,19 @@ trace_kernel_info_t *create_kernel_info( kernel_trace_t* kernel_trace_info,
 
 int main(int argc, const char **argv) {
   std::cout << "Accel-Sim [build " << g_accelsim_version << "]";
+  // setup the gpu
   gpgpu_context *m_gpgpu_context = new gpgpu_context();
   trace_config tconfig;
 
+  // init trace based performance model
   gpgpu_sim *m_gpgpu_sim =
       gpgpu_trace_sim_init_perf_model(argc, argv, m_gpgpu_context, &tconfig);
   m_gpgpu_sim->init();
 
+  // init trace parser
   trace_parser tracer(tconfig.get_traces_filename());
 
+  // parse trace config
   tconfig.parse_config();
 
   // for each kernel
@@ -71,9 +75,13 @@ int main(int argc, const char **argv) {
   // launch
   // while loop till the end of the end kernel execution
   // prints stats
+  
+  // setup a rolling window with size of the max concurrent kernel executions
   bool concurrent_kernel_sm =  m_gpgpu_sim->getShaderCoreConfig()->gpgpu_concurrent_kernel_sm;
   unsigned window_size = concurrent_kernel_sm ? m_gpgpu_sim->get_config().get_max_concurrent_kernel() : 1;
   assert(window_size > 0);
+
+  // parse the list of commands issued to the GPU
   std::vector<trace_command> commandlist = tracer.parse_commandlist_file();
   std::vector<unsigned long> busy_streams;
   std::vector<trace_kernel_info_t*> kernels_info;
@@ -87,9 +95,11 @@ int main(int argc, const char **argv) {
     while (kernels_info.size() < window_size && i < commandlist.size()) {
       trace_kernel_info_t *kernel_info = NULL;
       if (commandlist[i].m_type == command_type::cpu_gpu_mem_copy) {
+        // parse memcopy command
         size_t addre, Bcount;
         tracer.parse_memcpy_info(commandlist[i].command_string, addre, Bcount);
         std::cout << "launching memcpy command : " << commandlist[i].command_string << std::endl;
+        // todo
         m_gpgpu_sim->perf_memcpy_to_gpu(addre, Bcount);
         i++;
       } else if (commandlist[i].m_type == command_type::kernel_launch) {
@@ -108,6 +118,7 @@ int main(int argc, const char **argv) {
 
     // Launch all kernels within window that are on a stream that isn't already running
     for (auto k : kernels_info) {
+      // check if stream of kernel is busy
       bool stream_busy = false;
       for (auto s: busy_streams) {
         if (s == k->get_cuda_stream_id())
@@ -217,11 +228,12 @@ trace_kernel_info_t *create_kernel_info( kernel_trace_t* kernel_trace_info,
 gpgpu_sim *gpgpu_trace_sim_init_perf_model(int argc, const char *argv[],
                                            gpgpu_context *m_gpgpu_context,
                                            trace_config *m_config) {
+  // seed random
   srand(1);
   print_splash();
 
+  // register cli options
   option_parser_t opp = option_parser_create();
-
   m_gpgpu_context->ptx_reg_options(opp);
   m_gpgpu_context->func_sim->ptx_opcocde_latency_options(opp);
 
@@ -240,11 +252,14 @@ gpgpu_sim *gpgpu_trace_sim_init_perf_model(int argc, const char *argv[],
   // "dot" not a "comma" so it does the parsing correctly independent of the
   // system environment variables
   assert(setlocale(LC_NUMERIC, "C"));
+
+  // initialize config (parse gpu config from cli values)
   m_gpgpu_context->the_gpgpusim->g_the_gpu_config->init();
 
   m_gpgpu_context->the_gpgpusim->g_the_gpu = new trace_gpgpu_sim(
       *(m_gpgpu_context->the_gpgpusim->g_the_gpu_config), m_gpgpu_context);
 
+  // todo: skipped stream manager for now
   m_gpgpu_context->the_gpgpusim->g_stream_manager =
       new stream_manager((m_gpgpu_context->the_gpgpusim->g_the_gpu),
                          m_gpgpu_context->func_sim->g_cuda_launch_blocking);

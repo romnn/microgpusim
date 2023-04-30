@@ -1,5 +1,6 @@
 #![allow(warnings)]
 
+pub mod addrdec;
 pub mod mem_fetch;
 pub mod mem_sub_partition;
 pub mod set_index_function;
@@ -12,11 +13,11 @@ use tag_array::*;
 
 use super::config::GPUConfig;
 use anyhow::Result;
+use log::{info, trace, warn};
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 use trace_model::KernelLaunch;
-
 
 pub type address = u64;
 
@@ -77,6 +78,16 @@ struct FunctionInfo {
 /// TODO: rename to just kernel if this handles all the state.
 #[derive(Debug)]
 pub struct KernelInfo {
+    // dim3 gridDim, dim3 blockDim,
+    // trace_function_info *m_function_info,
+    // trace_parser *parser, class trace_config *config,
+    // kernel_trace_t *kernel_trace_info
+    //
+    // trace_config *m_tconfig;
+    // const std::unordered_map<std::string, OpcodeChar> *OpcodeMap;
+    // trace_parser *m_parser;
+    // kernel_trace_t *m_kernel_trace_info;
+    // bool m_was_launched;
     config: KernelLaunch,
     // function_info: FunctionInfo,
     // shared_mem: bool,
@@ -167,17 +178,185 @@ fn parse_commands(path: impl AsRef<Path>) -> Result<Vec<trace_model::Command>> {
 
 #[derive(Debug, Default)]
 pub struct MockSimulator {
-    memory_sub_partition: Vec<MemorySubPartition>,
+    config: GPUConfig,
+    memory_partition_units: Vec<MemoryPartitionUnit>,
+    memory_sub_partitions: Vec<MemorySubPartition>,
 }
 
 impl MockSimulator {
+    // see new trace_gpgpu_sim(
+    //      *(m_gpgpu_context->the_gpgpusim->g_the_gpu_config),
+    //      m_gpgpu_context);
+    pub fn new(config: GPUConfig) -> Self {
+        //         gpgpu_ctx = ctx;
+        //   m_shader_config = &m_config.m_shader_config;
+        //   m_memory_config = &m_config.m_memory_config;
+        //   ctx->ptx_parser->set_ptx_warp_size(m_shader_config);
+        //   ptx_file_line_stats_create_exposed_latency_tracker(m_config.num_shader());
+        //
+        // #ifdef GPGPUSIM_POWER_MODEL
+        //   m_gpgpusim_wrapper = new gpgpu_sim_wrapper(config.g_power_simulation_enabled,
+        //                                              config.g_power_config_name, config.g_power_simulation_mode, config.g_dvfs_enabled);
+        // #endif
+        //
+        //   m_shader_stats = new shader_core_stats(m_shader_config);
+        //   m_memory_stats = new memory_stats_t(m_config.num_shader(), m_shader_config,
+        //                                       m_memory_config, this);
+        //   average_pipeline_duty_cycle = (float *)malloc(sizeof(float));
+        //   active_sms = (float *)malloc(sizeof(float));
+        //   m_power_stats =
+        //       new power_stat_t(m_shader_config, average_pipeline_duty_cycle, active_sms,
+        //                        m_shader_stats, m_memory_config, m_memory_stats);
+        //
+        //   gpu_sim_insn = 0;
+        //   gpu_tot_sim_insn = 0;
+        //   gpu_tot_issued_cta = 0;
+        //   gpu_completed_cta = 0;
+        //   m_total_cta_launched = 0;
+        //   gpu_deadlock = false;
+        //
+        //   gpu_stall_dramfull = 0;
+        //   gpu_stall_icnt2sh = 0;
+        //   partiton_reqs_in_parallel = 0;
+        //   partiton_reqs_in_parallel_total = 0;
+        //   partiton_reqs_in_parallel_util = 0;
+        //   partiton_reqs_in_parallel_util_total = 0;
+        //   gpu_sim_cycle_parition_util = 0;
+        //   gpu_tot_sim_cycle_parition_util = 0;
+        //   partiton_replys_in_parallel = 0;
+        //   partiton_replys_in_parallel_total = 0;
+        //
+        //   m_memory_partition_unit =
+        //       new memory_partition_unit *[m_memory_config->m_n_mem];
+        //   m_memory_sub_partition =
+        //       new memory_sub_partition *[m_memory_config->m_n_mem_sub_partition];
+        //   for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
+        //     m_memory_partition_unit[i] =
+        //         new memory_partition_unit(i, m_memory_config, m_memory_stats, this);
+        //     for (unsigned p = 0;
+        //          p < m_memory_config->m_n_sub_partition_per_memory_channel; p++) {
+        //       unsigned submpid =
+        //           i * m_memory_config->m_n_sub_partition_per_memory_channel + p;
+        //       m_memory_sub_partition[submpid] =
+        //           m_memory_partition_unit[i]->get_sub_partition(p);
+        //     }
+        //   }
+        //
+        //   icnt_wrapper_init();
+        //   icnt_create(m_shader_config->n_simt_clusters,
+        //               m_memory_config->m_n_mem_sub_partition);
+        //
+        //   time_vector_create(NUM_MEM_REQ_STAT);
+        //   fprintf(stdout,
+        //           "GPGPU-Sim uArch: performance model initialization complete.\n");
+        //
+        //   m_running_kernels.resize(config.max_concurrent_kernel, NULL);
+        //   m_last_issued_kernel = 0;
+        //   m_last_cluster_issue = m_shader_config->n_simt_clusters -
+        //                          1;  // this causes first launch to use simt cluster 0
+        //   *average_pipeline_duty_cycle = 0;
+        //   *active_sms = 0;
+        //
+        //   last_liveness_message_time = 0;
+        //
+        //   // Jin: functional simulation for CDP
+        //   m_functional_sim = false;
+        //   m_functional_sim_kernel = NULL;
+        let num_mem_units = config.num_mem_units;
+        let num_sub_partitions = config.num_sub_partition_per_memory_channel;
+
+        let memory_partition_units: Vec<_> = (0..num_mem_units)
+            .map(|i| MemoryPartitionUnit::new(i, config))
+            .collect();
+
+        let memory_sub_partitions = Vec::new();
+        // memory_sub_partitions.reserve_exact(additional)
+        // for (i, mem_unit) in memory_partition_units.iter().enumerate() {
+        //     for sub_mem_id in 0..num_sub_partitions {
+        //         memory_sub_partitions[sub_mem_id] = mem_unit.get_sub_partition(i);
+        //     }
+        // }
+        //
+        // let memory_sub_partition: Vec<_> = (0..config.num_sub_partition_per_memory_channel)
+        //     .map(|i| MemorySubPartition::new(i, config))
+        //     .collect();
+
+        // for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
+        //   m_memory_partition_unit[i] =
+        //       new memory_partition_unit(i, m_memory_config, m_memory_stats, this);
+        //   for (unsigned p = 0;
+        //        p < m_memory_config->m_n_sub_partition_per_memory_channel; p++) {
+        //     unsigned submpid =
+        //         i * m_memory_config->m_n_sub_partition_per_memory_channel + p;
+        //     m_memory_sub_partition[submpid] =
+        //         m_memory_partition_unit[i]->get_sub_partition(p);
+        //   }
+        // }
+
+        Self {
+            config,
+            memory_partition_units,
+            memory_sub_partitions,
+        }
+    }
+
     pub fn can_start_kernel(&self) -> bool {
         true
     }
+
     pub fn launch(&mut self, kernel: &mut KernelInfo) {
         kernel.launched = true;
     }
-    pub fn cycle() {}
+
+    pub fn cycle() {
+        // if (clock_mask & DRAM) {
+        // for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
+        // for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
+        //   if (m_memory_config->simple_dram_model) {
+        //     m_memory_partition_unit[i]->simple_dram_model_cycle();
+        // } else {
+        //     // Issue the dram command (scheduler + delay model)
+        //     m_memory_partition_unit[i]->dram_cycle();
+        //     }
+        // }
+    }
+
+    pub fn memcopy_to_gpu(&mut self, addr: address, num_bytes: u32) {
+        if self.config.fill_l2_on_memcopy {
+            let mut transfered = 0;
+            while transfered < num_bytes {
+                let write_addr = addr + transfered as u64;
+                let mask: mem_access_sector_mask = 0;
+                // mask.set(wr_addr % 128 / 32);
+                let raw_addr = addrdec::addrdec_tlx(write_addr);
+                let partition_id =
+                    raw_addr.sub_partition / self.config.num_sub_partition_per_memory_channel;
+                let partition = &self.memory_partition_units[partition_id];
+                partition.handle_memcpy_to_gpu(write_addr, raw_addr.sub_partition, mask);
+                transfered += 32;
+            }
+        }
+        //   if (m_memory_config->m_perf_sim_memcpy) {
+        //   // if(!m_config.trace_driven_mode)    //in trace-driven mode, CUDA runtime
+        //   // can start nre data structure at any position 	assert (dst_start_addr %
+        //   // 32
+        //   //== 0);
+        //
+        //   for (unsigned counter = 0; counter < count; counter += 32) {
+        //     const unsigned wr_addr = dst_start_addr + counter;
+        //     addrdec_t raw_addr;
+        //     mem_access_sector_mask_t mask;
+        //     mask.set(wr_addr % 128 / 32);
+        //     m_memory_config->m_address_mapping.addrdec_tlx(wr_addr, &raw_addr);
+        //     const unsigned partition_id =
+        //         raw_addr.sub_partition /
+        //         m_memory_config->m_n_sub_partition_per_memory_channel;
+        //     m_memory_partition_unit[partition_id]->handle_memcpy_to_gpu(
+        //         wr_addr, raw_addr.sub_partition, mask);
+        //   }
+        // }
+    }
+
     pub fn cache_cycle() {
         // if (m_memory_sub_partition[i]->full(SECTOR_CHUNCK_SIZE)) {
         // gpu_stall_dramfull++;
@@ -191,6 +370,8 @@ impl MockSimulator {
 }
 
 pub fn accelmain(traces_dir: impl AsRef<Path>) -> Result<()> {
+    info!("box version {}", 0);
+    // log = "0.4"
     let traces_dir = traces_dir.as_ref();
     // reg_options registers the options from the option parser
     // init parses some more complex string options and data structures
@@ -223,6 +404,7 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> Result<()> {
     let command_traces_path = traces_dir.join("commands.json");
     let mut commands: Vec<trace_model::Command> = parse_commands(&command_traces_path)?;
 
+    // todo: make this a hashset?
     let mut busy_streams: VecDeque<u64> = VecDeque::new();
     let mut kernels: VecDeque<KernelInfo> = VecDeque::new();
     kernels.reserve_exact(window_size);
@@ -231,18 +413,22 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> Result<()> {
     // kernel_info = create_kernel_info(kernel_trace_info, m_gpgpu_context, &tconfig, &tracer);
     // kernels_info.push_back(kernel_info);
 
+    let mut s = MockSimulator::new(config);
+
     let mut i = 0;
     while i < commands.len() || !kernels.is_empty() {
         // take as many commands as possible until we have
         // collected as many kernels to fill the window_size
         // or processed every command.
+
         while kernels.len() < window_size && i < commands.len() {
             let cmd = &commands[i];
             println!("command {:#?}", cmd);
             match cmd {
-                trace_model::Command::MemcpyHtoD { .. } => {
-                    //  m_gpgpu_sim->perf_memcpy_to_gpu(addre, Bcount);
-                }
+                trace_model::Command::MemcpyHtoD {
+                    dest_device_addr,
+                    num_bytes,
+                } => s.memcopy_to_gpu(*dest_device_addr, *num_bytes),
                 trace_model::Command::KernelLaunch(config) => {
                     let kernel = KernelInfo::new(config.clone());
                     kernels.push_back(kernel);
@@ -251,8 +437,6 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> Result<()> {
             }
             i += 1;
         }
-
-        let mut s = MockSimulator::default();
 
         // Launch all kernels within window that are on a stream
         // that isn't already running

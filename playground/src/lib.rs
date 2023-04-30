@@ -20,6 +20,14 @@ mod tests {
     use std::mem::MaybeUninit;
 
     #[test]
+    fn test_addrdec_packbits() {
+        let decoded = unsafe {
+            bindings::addrdec_packbits(0, 0, 0, 64)
+        };
+        assert_eq!(decoded, 0)
+    }
+
+    #[test]
     fn test_scanf_cache_config() {
         let config = "N:16:128:24,L:R:m:N:L,F:128:4,128:2";
         let config = ffi::CString::new(config).unwrap();

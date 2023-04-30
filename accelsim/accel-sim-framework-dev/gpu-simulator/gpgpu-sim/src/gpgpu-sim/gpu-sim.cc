@@ -1864,6 +1864,7 @@ unsigned long long g_single_step =
     0;  // set this in gdb to single step the pipeline
 
 void gpgpu_sim::cycle() {
+  // guess: clock mask is which clock domains are active in this cycle (core, icnt)
   int clock_mask = next_clock_domain();
 
   if (clock_mask & CORE) {

@@ -104,36 +104,6 @@ impl L2Cache {
     pub fn invalidate(&self) {}
 }
 
-#[derive(Debug)]
-pub struct MemorySubPartition<Q = FifoQueue<MemFetch>> {
-    /// global sub partition ID
-    pub id: usize,
-    /// memory configuration
-    // pub config: MemorySubPartitionConfig,
-    pub config: config::GPUConfig,
-    /// queues
-    interconn_to_l2_queue: Q,
-    l2_to_dram_queue: Q,
-    dram_to_l2_queue: Q,
-    /// L2 cache hit response queue
-    l2_to_interconn_queue: Q,
-
-    // class mem_fetch *L2dramout;
-    wb_addr: Option<u64>,
-
-    // class memory_stats_t *m_stats;
-    request_tracker: HashSet<MemFetch>,
-
-    // This is a cycle offset that has to be applied to the l2 accesses to account
-    // for the cudamemcpy read/writes. We want GPGPU-Sim to only count cycles for
-    // kernel execution but we want cudamemcpy to go through the L2. Everytime an
-    // access is made from cudamemcpy this counter is incremented, and when the l2
-    // is accessed (in both cudamemcpyies and otherwise) this value is added to
-    // the gpgpu-sim cycle counters.
-    memcpy_cycle_offset: usize,
-    l2_cache: Option<L2Cache>,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[allow(incorrect_ident_case)]
 pub enum MemFetchStatus {
@@ -165,6 +135,36 @@ pub enum MemFetchStatus {
     IN_SHADER_L1T_ROB,
     MEM_FETCH_DELETED,
     NUM_MEM_REQ_STAT,
+}
+
+#[derive(Debug)]
+pub struct MemorySubPartition<Q = FifoQueue<MemFetch>> {
+    /// global sub partition ID
+    pub id: usize,
+    /// memory configuration
+    // pub config: MemorySubPartitionConfig,
+    pub config: config::GPUConfig,
+    /// queues
+    interconn_to_l2_queue: Q,
+    l2_to_dram_queue: Q,
+    dram_to_l2_queue: Q,
+    /// L2 cache hit response queue
+    l2_to_interconn_queue: Q,
+
+    // class mem_fetch *L2dramout;
+    wb_addr: Option<u64>,
+
+    // class memory_stats_t *m_stats;
+    request_tracker: HashSet<MemFetch>,
+
+    // This is a cycle offset that has to be applied to the l2 accesses to account
+    // for the cudamemcpy read/writes. We want GPGPU-Sim to only count cycles for
+    // kernel execution but we want cudamemcpy to go through the L2. Everytime an
+    // access is made from cudamemcpy this counter is incremented, and when the l2
+    // is accessed (in both cudamemcpyies and otherwise) this value is added to
+    // the gpgpu-sim cycle counters.
+    memcpy_cycle_offset: usize,
+    l2_cache: Option<L2Cache>,
 }
 
 impl<Q> MemorySubPartition<Q>
@@ -241,6 +241,37 @@ where
     // pub fn has_available_size(&self, size: usize) -> bool {
     //     self.interconn_to_l2_queue.has_available_size(size)
     // }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct MemoryPartitionUnit {
+    id: usize,
+}
+
+pub type mem_access_sector_mask = u64;
+
+impl MemoryPartitionUnit {
+    pub fn new(id: usize, config: config::GPUConfig) -> Self {
+        Self { id }
+    }
+
+    pub fn handle_memcpy_to_gpu(
+        &self,
+        addr: super::address,
+        global_subpart_id: usize,
+        mask: mem_access_sector_mask,
+    ) {
+        //   unsigned p = global_sub_partition_id_to_local_id(global_subpart_id);
+        //   std::string mystring = mask.to_string<char, std::string::traits_type,
+        //                                         std::string::allocator_type>();
+        //   MEMPART_DPRINTF(
+        //       "Copy Engine Request Received For Address=%zx, local_subpart=%u, "
+        //       "global_subpart=%u, sector_mask=%s \n",
+        //       addr, p, global_subpart_id, mystring.c_str());
+        //   m_sub_partition[p]->force_l2_tag_update(
+        //       addr, m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle, mask);
+        // }
+    }
 }
 
 // class memory_sub_partition {

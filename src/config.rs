@@ -4,12 +4,14 @@ use super::ported::address;
 ///
 /// gpu-simulator/gpgpu-sim/src/gpgpu-sim/gpu-cache.h#565
 ///
+/// // todo: remove the copy stuff, very expensive otherwise
+///
 /// TODO: Find out what those values are.
 /// sscanf(config, "%c:%u:%u:%u,%c:%c:%c:%c:%c,%c:%u:%u,%u:%u,%u", &ct,
 /// &m_nset, &m_line_sz, &m_assoc, &rp, &wp, &ap, &wap, &sif,
 /// &mshr_type, &m_mshr_entries, &m_mshr_max_merge,
 /// &m_miss_queue_size, &m_result_fifo_entries, &m_data_port_width);
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct CacheConfig {
     pub kind: CacheKind,
     pub num_sets: usize,
@@ -41,6 +43,22 @@ impl std::fmt::Display for CacheConfig {
         )
     }
 }
+
+// impl GPUConfig {
+//     pub fn new() -> Self {
+//         Self {}
+//         // gpu_stat_sample_freq = 10000;
+//         // gpu_runtime_stat_flag = 0;
+//         // sscanf(gpgpu_runtime_stat, "%d:%x", &gpu_stat_sample_freq,
+//         //        &gpu_runtime_stat_flag);
+//         // m_shader_config.init();
+//         // ptx_set_tex_cache_linesize(m_shader_config.m_L1T_config.get_line_sz());
+//         // m_memory_config.init();
+//         // init_clock_domains();
+//         // power_config::init();
+//         // Trace::init();
+//     }
+// }
 
 /// TODO: use a builder here so we can fill in the remaining values
 /// and do the validation as found below:
@@ -122,7 +140,8 @@ impl CacheConfig {
     // assert(m_line_sz % m_data_port_width == 0);
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+/// todo: remove the copy stuff, very expensive otherwise
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct GPUConfig {
     /// The SM number to pass to ptxas when getting register usage for
     /// computing GPU occupancy.
