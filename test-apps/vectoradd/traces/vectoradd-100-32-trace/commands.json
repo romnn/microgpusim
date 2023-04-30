@@ -1,0 +1,43 @@
+[
+    {
+        "MemcpyHtoD": {
+            "dest_device_addr": 1364197376,
+            "num_bytes": 400
+        }
+    },
+    {
+        "MemcpyHtoD": {
+            "dest_device_addr": 1364197888,
+            "num_bytes": 400
+        }
+    },
+    {
+        "MemcpyHtoD": {
+            "dest_device_addr": 1364198400,
+            "num_bytes": 400
+        }
+    },
+    {
+        "KernelLaunch": {
+            "name": "void vecAdd<float>(float*, float*, float*, int)",
+            "id": 0,
+            "grid": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "block": {
+                "x": 1024,
+                "y": 1,
+                "z": 1
+            },
+            "shared_mem_bytes": 0,
+            "num_registers": 8,
+            "binary_version": 61,
+            "stream_id": 0,
+            "shared_mem_base_addr": 140494789148672,
+            "local_mem_base_addr": 140494755594240,
+            "nvbit_version": "1.5.5\u0000"
+        }
+    }
+]

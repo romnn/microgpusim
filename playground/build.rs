@@ -43,6 +43,4 @@ fn main() {
     bindings
         .write_to_file("./bindings.rs")
         .expect("writing bindings failed");
-
-    // println!("cargo:rustc-link-lib=static=playgroundcpp");
 }

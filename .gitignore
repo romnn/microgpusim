@@ -1,6 +1,12 @@
+.DS_Store
+
 /target
 /Cargo.lock
 
 # json traces can get too big
-/test-apps/*/traces/*/*.json
-!/test-apps/*/traces/*/commands.json
+/test-apps/*/traces/*/trace*.json
+
+# bindings for debugging
+/playground/bindings.rs
+
+/accelsim/build.log*
