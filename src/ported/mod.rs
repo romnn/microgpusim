@@ -177,6 +177,10 @@ impl KernelInfo {
         self.next_block = self.next_block_iter.next()
     }
 
+    pub fn next_block_id(&self) -> usize {
+        self.next_block_iter.id()
+    }
+
     pub fn done(&self) -> bool {
         self.no_more_blocks_to_run() && !self.running()
     }

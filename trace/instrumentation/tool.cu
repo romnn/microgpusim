@@ -9,7 +9,7 @@ __global__ __noinline__ void flush_channel_kernel(ChannelDev *ch_dev) {
   /* set a CTA id = -1 to indicate communication thread that this is the
    * termination flag */
   mem_access_t ma;
-  ma.cta_id_x = -1;
+  ma.block_id_x = -1;
   ch_dev->push(&ma, sizeof(mem_access_t));
   ch_dev->flush();
 }

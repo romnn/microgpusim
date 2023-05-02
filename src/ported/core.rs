@@ -1,6 +1,8 @@
 use super::{KernelInfo, MockSimulator};
 use crate::config::GPUConfig;
 use anyhow::Result;
+use bitvec::{bits, boxed::BitBox};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 // Volta max shmem size is 96kB
@@ -19,7 +21,13 @@ pub const MAX_WARP_PER_SM: usize = 1 << 6;
 pub const MAX_CTA_PER_SHADER: usize = 32;
 pub const MAX_BARRIERS_PER_CTA: usize = 16;
 
-pub type OccupiedHwThreadIds = bitvec::boxed::BitBox;
+pub const WARP_PER_CTA_MAX: usize = 64;
+
+#[derive(Debug)]
+pub struct ThreadState {
+    pub block_id: usize,
+    pub active: bool,
+}
 
 #[derive(Debug)]
 pub struct SIMTCore {
@@ -30,12 +38,15 @@ pub struct SIMTCore {
     pub num_occupied_threads: usize,
     pub max_blocks_per_shader: usize,
     pub thread_block_size: usize,
-    pub occupied_hw_thread_ids: OccupiedHwThreadIds,
+    pub occupied_hw_thread_ids: BitBox,
+    pub occupied_block_to_hw_thread_id: HashMap<usize, usize>,
     pub block_status: [usize; MAX_CTA_PER_SHADER],
+    pub thread_state: Vec<Option<ThreadState>>,
 }
 
 impl SIMTCore {
     pub fn new(id: usize, config: Arc<GPUConfig>) -> Self {
+        let thread_state: Vec<_> = (0..config.max_threads_per_shader).map(|_| None).collect();
         Self {
             id,
             config,
@@ -44,10 +55,10 @@ impl SIMTCore {
             num_occupied_threads: 0,
             max_blocks_per_shader: 0,
             thread_block_size: 0,
-            occupied_hw_thread_ids: bitvec::boxed::BitBox::from_bitslice(
-                bitvec::bits![0; MAX_THREAD_PER_SM],
-            ),
+            occupied_hw_thread_ids: BitBox::from_bitslice(bits![0; MAX_THREAD_PER_SM]),
+            occupied_block_to_hw_thread_id: HashMap::new(),
             block_status: [0; MAX_CTA_PER_SHADER],
+            thread_state,
         }
     }
 
@@ -118,6 +129,7 @@ impl SIMTCore {
         {
             return false;
         }
+        todo!();
         return true;
     }
     //     bool shader_core_ctx::occupy_shader_resource_1block(kernel_info_t &k,
@@ -193,6 +205,42 @@ impl SIMTCore {
         Ok(())
     }
 
+    pub fn init_warps(
+        &self,
+        block_hw_id: usize,
+        start_thread: usize,
+        end_thread: usize,
+        block_id: usize,
+        thread_block_size: usize,
+        kernel: &KernelInfo,
+    ) {
+        // todo: call base class
+        // shader_core_ctx::init_warp
+
+        //   unsigned start_warp = start_thread / m_config->warp_size;
+        // unsigned end_warp = end_thread / m_config->warp_size +
+        //                     ((end_thread % m_config->warp_size) ? 1 : 0);
+        //
+        // init_traces(start_warp, end_warp, kernel);
+        // kernel.get_next_threadblock_traces(threadblock_traces);
+        // std::vector<std::vector<inst_trace_t> *> threadblock_traces;
+        // for (unsigned i = start_warp; i < end_warp; ++i) {
+        //   trace_shd_warp_t *m_trace_warp = static_cast<trace_shd_warp_t *>(m_warp[i]);
+        //   m_trace_warp->clear();
+        //   threadblock_traces.push_back(&(m_trace_warp->warp_traces));
+        // }
+        // trace_kernel_info_t &trace_kernel =
+        //     static_cast<trace_kernel_info_t &>(kernel);
+        // trace_kernel.get_next_threadblock_traces(threadblock_traces);
+        //
+        // // set the pc from the traces and ignore the functional model
+        // for (unsigned i = start_warp; i < end_warp; ++i) {
+        //   trace_shd_warp_t *m_trace_warp = static_cast<trace_shd_warp_t *>(m_warp[i]);
+        //   m_trace_warp->set_next_pc(m_trace_warp->get_start_trace_pc());
+        //   m_trace_warp->set_kernel(&trace_kernel);
+        // }
+    }
+
     pub fn issue_block(&mut self, kernel: &KernelInfo) -> () {
         if !self.config.concurrent_kernel_sm {
             self.set_max_blocks(kernel);
@@ -211,65 +259,127 @@ impl SIMTCore {
         };
         let free_block_hw_id = (0..max_blocks_per_core)
             .filter(|i| self.block_status[*i] == 0)
-            .next();
-        assert!(free_block_hw_id.is_some());
+            .next()
+            .unwrap();
+
+        // determine hardware threads and warps that will be used for this block
+        let thread_block_size = kernel.threads_per_block();
+        let padded_thread_block_size = self.config.threads_per_block_padded(kernel);
+
+        // hw warp id = hw thread id mod warp size, so we need to find a range
+        // of hardware thread ids corresponding to an integral number of hardware
+        // thread ids
+        let (start_thread, end_thread) = if !self.config.concurrent_kernel_sm {
+            let start_thread = free_block_hw_id * padded_thread_block_size;
+            let end_thread = start_thread + thread_block_size;
+            (start_thread, end_thread)
+        } else {
+            let start_thread = self
+                .find_available_hw_thread_id(padded_thread_block_size, true)
+                .unwrap();
+            let end_thread = start_thread + thread_block_size;
+
+            assert!(!self
+                .occupied_block_to_hw_thread_id
+                .contains_key(&free_block_hw_id));
+            self.occupied_block_to_hw_thread_id
+                .insert(free_block_hw_id, start_thread);
+            (start_thread, end_thread)
+        };
+
+        // reset state of the selected hardware thread and warp contexts
+        // reinit(start_thread, end_thread, false);
+
+        // initalize scalar threads and determine which hardware warps they are
+        // allocated to bind functional simulation state of threads to hardware
+        // resources (simulation)
+        let mut warps = BitBox::from_bitslice(bits![0; WARP_PER_CTA_MAX]);
+        let block_id = kernel.next_block_id();
+        let mut num_threads_in_block = 0;
+        for i in start_thread..end_thread {
+            self.thread_state[i] = Some(ThreadState {
+                block_id: free_block_hw_id,
+                active: true,
+            });
+            let warp_id = i / self.config.warp_size;
+            // num_threads_in_block += sim_init_thread(
+            //     kernel, &m_thread[i], m_sid, i, cta_size - (i - start_thread),
+            //     m_config->n_thread_per_shader, this, free_cta_hw_id, warp_id,
+            //     m_cluster->get_gpu());
+            warps.set(warp_id, true);
+        }
+
+        // initialize the SIMT stacks and fetch hardware
+        self.init_warps(
+            free_block_hw_id,
+            start_thread,
+            end_thread,
+            block_id,
+            kernel.threads_per_block(),
+            kernel,
+        );
+        self.num_active_blocks += 1;
+
+        //
+        //   warp_set_t warps;
+        //   unsigned nthreads_in_block = 0;
+        //   function_info *kernel_func_info = kernel.entry();
+        //   symbol_table *symtab = kernel_func_info->get_symtab();
+        //   unsigned ctaid = kernel.get_next_cta_id_single();
+        //   checkpoint *g_checkpoint = new checkpoint();
+        //   for (unsigned i = start_thread; i < end_thread; i++) {
+        //     m_threadState[i].m_cta_id = free_cta_hw_id;
+        //     unsigned warp_id = i / m_config->warp_size;
+        //     nthreads_in_block += sim_init_thread(
+        //         kernel, &m_thread[i], m_sid, i, cta_size - (i - start_thread),
+        //         m_config->n_thread_per_shader, this, free_cta_hw_id, warp_id,
+        //         m_cluster->get_gpu());
+        //     m_threadState[i].m_active = true;
+        //     // load thread local memory and register file
+        //     if (m_gpu->resume_option == 1 && kernel.get_uid() == m_gpu->resume_kernel &&
+        //         ctaid >= m_gpu->resume_CTA && ctaid < m_gpu->checkpoint_CTA_t) {
+        //       char fname[2048];
+        //       snprintf(fname, 2048, "checkpoint_files/thread_%d_%d_reg.txt",
+        //                i % cta_size, ctaid);
+        //       m_thread[i]->resume_reg_thread(fname, symtab);
+        //       char f1name[2048];
+        //       snprintf(f1name, 2048, "checkpoint_files/local_mem_thread_%d_%d_reg.txt",
+        //                i % cta_size, ctaid);
+        //       g_checkpoint->load_global_mem(m_thread[i]->m_local_mem, f1name);
+        //     }
+        //     //
+        //     warps.set(warp_id);
+        //   }
+        //   assert(nthreads_in_block > 0 &&
+        //          nthreads_in_block <=
+        //              m_config->n_thread_per_shader);  // should be at least one, but
+        //                                               // less than max
+        //   m_cta_status[free_cta_hw_id] = nthreads_in_block;
+        //
+        //   if (m_gpu->resume_option == 1 && kernel.get_uid() == m_gpu->resume_kernel &&
+        //       ctaid >= m_gpu->resume_CTA && ctaid < m_gpu->checkpoint_CTA_t) {
+        //     char f1name[2048];
+        //     snprintf(f1name, 2048, "checkpoint_files/shared_mem_%d.txt", ctaid);
+        //
+        //     g_checkpoint->load_global_mem(m_thread[start_thread]->m_shared_mem, f1name);
+        //   }
+        //   // now that we know which warps are used in this CTA, we can allocate
+        //   // resources for use in CTA-wide barrier operations
+        //   m_barriers.allocate_barrier(free_cta_hw_id, warps);
+        //
+        //   // initialize the SIMT stacks and fetch hardware
+        //   init_warps(free_cta_hw_id, start_thread, end_thread, ctaid, cta_size, kernel);
+        //   m_n_active_cta++;
+        //
+        //   shader_CTA_count_log(m_sid, 1);
+        //   SHADER_DPRINTF(LIVENESS,
+        //                  "GPGPU-Sim uArch: cta:%2u, start_tid:%4u, end_tid:%4u, "
+        //                  "initialized @(%lld,%lld), kernel_uid:%u, kernel_name:%s\n",
+        //                  free_cta_hw_id, start_thread, end_thread, m_gpu->gpu_sim_cycle,
+        //                  m_gpu->gpu_tot_sim_cycle, kernel.get_uid(), kernel.get_name().c_str());
+        // }
     }
-    // void shader_core_ctx::issue_block2core(kernel_info_t &kernel) {
-    //   if (!m_config->gpgpu_concurrent_kernel_sm)
-    //     set_max_cta(kernel);
-    //   else
-    //     assert(occupy_shader_resource_1block(kernel, true));
     //
-    //   kernel.inc_running();
-    //
-    //   // find a free CTA context
-    //   unsigned free_cta_hw_id = (unsigned)-1;
-    //
-    //   unsigned max_cta_per_core;
-    //   if (!m_config->gpgpu_concurrent_kernel_sm)
-    //     max_cta_per_core = kernel_max_cta_per_shader;
-    //   else
-    //     max_cta_per_core = m_config->max_cta_per_core;
-    //   for (unsigned i = 0; i < max_cta_per_core; i++) {
-    //     if (m_cta_status[i] == 0) {
-    //       free_cta_hw_id = i;
-    //       break;
-    //     }
-    //   }
-    //   assert(free_cta_hw_id != (unsigned)-1);
-    //
-    //   // determine hardware threads and warps that will be used for this CTA
-    //   int cta_size = kernel.threads_per_cta();
-    //
-    //   // hw warp id = hw thread id mod warp size, so we need to find a range
-    //   // of hardware thread ids corresponding to an integral number of hardware
-    //   // thread ids
-    //   int padded_cta_size = cta_size;
-    //   if (cta_size % m_config->warp_size)
-    //     padded_cta_size =
-    //         ((cta_size / m_config->warp_size) + 1) * (m_config->warp_size);
-    //
-    //   unsigned int start_thread, end_thread;
-    //
-    //   if (!m_config->gpgpu_concurrent_kernel_sm) {
-    //     start_thread = free_cta_hw_id * padded_cta_size;
-    //     end_thread = start_thread + cta_size;
-    //   } else {
-    //     start_thread = find_available_hwtid(padded_cta_size, true);
-    //     assert((int)start_thread != -1);
-    //     end_thread = start_thread + cta_size;
-    //     assert(m_occupied_cta_to_hwtid.find(free_cta_hw_id) ==
-    //            m_occupied_cta_to_hwtid.end());
-    //     m_occupied_cta_to_hwtid[free_cta_hw_id] = start_thread;
-    //   }
-    //
-    //   // reset the microarchitecture state of the selected hardware thread and warp
-    //   // contexts
-    //   reinit(start_thread, end_thread, false);
-    //
-    //   // initalize scalar threads and determine which hardware warps they are
-    //   // allocated to bind functional simulation state of threads to hardware
-    //   // resources (simulation)
     //   warp_set_t warps;
     //   unsigned nthreads_in_block = 0;
     //   function_info *kernel_func_info = kernel.entry();

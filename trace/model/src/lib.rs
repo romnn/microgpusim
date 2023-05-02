@@ -39,8 +39,8 @@ pub fn app_prefix(bin_name: Option<&str>) -> String {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemAccessTraceEntry {
     pub cuda_ctx: u64,
-    pub grid_launch_id: u64,
-    pub cta_id: nvbit_model::Dim,
+    pub kernel_id: u64,
+    pub block_id: nvbit_model::Dim,
     pub warp_id: u32,
     pub instr_opcode: String,
     pub instr_offset: u32,
@@ -65,6 +65,7 @@ pub struct MemAllocation {
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub struct KernelLaunch {
     pub name: String,
+    pub trace_file: PathBuf,
     pub id: u64,
     pub grid: nvbit_model::Dim,
     pub block: nvbit_model::Dim,

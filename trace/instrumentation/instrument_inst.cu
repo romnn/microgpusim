@@ -17,7 +17,7 @@ instrument_inst(int pred, int instr_opcode_id, uint32_t instr_offset,
                 bool instr_predicate_is_neg, bool instr_predicate_is_uniform,
                 uint32_t instr_mem_space, bool instr_is_load,
                 bool instr_is_store, bool instr_is_extended, uint64_t addr,
-                uint64_t grid_launch_id, uint64_t pchannel_dev) {
+                uint64_t kernel_id, uint64_t pchannel_dev) {
 
   /* if thread is predicated off, return */
   if (!pred) {
@@ -35,11 +35,11 @@ instrument_inst(int pred, int instr_opcode_id, uint32_t instr_offset,
     ma.addrs[i] = __shfl_sync(active_mask, addr, i);
   }
 
-  int4 cta = get_ctaid();
-  ma.grid_launch_id = grid_launch_id;
-  ma.cta_id_x = cta.x;
-  ma.cta_id_y = cta.y;
-  ma.cta_id_z = cta.z;
+  int4 block = get_ctaid();
+  ma.kernel_id = kernel_id;
+  ma.block_id_x = block.x;
+  ma.block_id_y = block.y;
+  ma.block_id_z = block.z;
   ma.warp_id = get_warpid();
   ma.instr_opcode_id = instr_opcode_id;
   ma.instr_offset = instr_offset;
