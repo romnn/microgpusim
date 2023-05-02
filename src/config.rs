@@ -1,4 +1,6 @@
-use super::ported::address;
+use super::ported::{address, utils, KernelInfo};
+use anyhow::Result;
+use std::sync::Arc;
 
 /// CacheConfig
 ///
@@ -44,7 +46,258 @@ impl std::fmt::Display for CacheConfig {
     }
 }
 
-// impl GPUConfig {
+impl GPUConfig {
+    pub fn total_cores(&self) -> usize {
+        self.num_simt_clusters * self.num_cores_per_simt_cluster
+    }
+
+    pub fn sid_to_cluster(&self, sid: usize) -> usize {
+        sid / self.num_cores_per_simt_cluster
+    }
+
+    pub fn sid_to_cid(&self, sid: usize) -> usize {
+        sid % self.num_cores_per_simt_cluster
+    }
+
+    pub fn cid_to_sid(&self, cid: usize, cluster_id: usize) -> usize {
+        cluster_id * self.num_cores_per_simt_cluster + cid
+    }
+
+    pub fn threads_per_block_padded(&self, kernel: &KernelInfo) -> usize {
+        let threads_per_block = kernel.threads_per_block();
+        utils::pad_to_multiple(threads_per_block as usize, self.warp_size)
+    }
+
+    pub fn max_blocks(&self, kernel: &KernelInfo) -> Result<usize> {
+        let threads_per_block = kernel.threads_per_block();
+        let threads_per_block = utils::pad_to_multiple(threads_per_block as usize, self.warp_size);
+        // limit by n_threads/shader
+        let by_thread_limit = self.max_threads_per_shader / threads_per_block as usize;
+
+        // limit by shmem/shader
+        let by_shared_mem_limit = if kernel.config.shared_mem_bytes > 0 {
+            Some(self.shared_memory_size as usize / kernel.config.shared_mem_bytes as usize)
+        } else {
+            None
+        };
+
+        // limit by register count, rounded up to multiple of 4.
+        let by_register_limit = if kernel.config.num_registers > 0 {
+            Some(
+                self.shader_registers
+                    / (threads_per_block * ((kernel.config.num_registers + 3) & !3) as usize),
+            )
+        } else {
+            None
+        };
+
+        // limit by CTA
+        let by_block_limit = self.max_concurrent_blocks_per_core;
+
+        // find the minimum
+        let mut limit = [
+            Some(by_thread_limit),
+            by_shared_mem_limit,
+            by_register_limit,
+        ]
+        .into_iter()
+        .filter_map(|limit| limit)
+        .min()
+        .unwrap_or(usize::MAX);
+        // result = gs_min2(result, result_shmem);
+        // result = gs_min2(result, result_regs);
+        // result = gs_min2(result, result_cta);
+
+        // max blocks per shader is limited by number of blocks
+        // if not enough to keep all cores busy
+        if kernel.num_blocks() < (limit * self.total_cores()) {
+            limit = kernel.num_blocks() / self.total_cores();
+            if kernel.num_blocks() % self.total_cores() != 0 {
+                limit += 1;
+            }
+        }
+        if limit < 1 {
+            return Err(anyhow::anyhow!(
+                "kernel requires more resources than shader has"
+            ));
+        }
+
+        if self.adaptive_cache_config && !kernel.cache_config_set {
+            // more info about adaptive cache, see
+            // https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#shared-memory-7-x
+            let total_shared_mem = kernel.config.shared_mem_bytes as usize * limit;
+            assert!(
+                total_shared_mem >= 0
+                    && self
+                        .shared_memory_sizes
+                        .last()
+                        .map(|size| total_shared_mem <= (*size as usize))
+                        .unwrap_or(true)
+            );
+        }
+
+        Ok(limit)
+
+        // if (adaptive_cache_config && !k.cache_config_set) {
+        //   // For more info about adaptive cache, see
+        //   // https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#shared-memory-7-x
+        //   unsigned total_shmem = kernel_info->smem * result;
+        //   assert(total_shmem >= 0 && total_shmem <= shmem_opt_list.back());
+        //
+        //   // Unified cache config is in KB. Converting to B
+        //   unsigned total_unified = m_L1D_config.m_unified_cache_size * 1024;
+        //
+        //   bool l1d_configured = false;
+        //   unsigned max_assoc = m_L1D_config.get_max_assoc();
+        //
+        //   for (std::vector<unsigned>::const_iterator it = shmem_opt_list.begin();
+        //        it < shmem_opt_list.end(); it++) {
+        //     if (total_shmem <= *it) {
+        //       float l1_ratio = 1 - ((float)*(it) / total_unified);
+        //       // make sure the ratio is between 0 and 1
+        //       assert(0 <= l1_ratio && l1_ratio <= 1);
+        //       // round to nearest instead of round down
+        //       m_L1D_config.set_assoc(max_assoc * l1_ratio + 0.5f);
+        //       l1d_configured = true;
+        //       break;
+        //     }
+        //   }
+        //
+        //   assert(l1d_configured && "no shared memory option found");
+        //
+        //   if (m_L1D_config.is_streaming()) {
+        //     // for streaming cache, if the whole memory is allocated
+        //     // to the L1 cache, then make the allocation to be on_MISS
+        //     // otherwise, make it ON_FILL to eliminate line allocation fails
+        //     // i.e. MSHR throughput is the same, independent on the L1 cache
+        //     // size/associativity
+        //     if (total_shmem == 0) {
+        //       m_L1D_config.set_allocation_policy(ON_MISS);
+        //       printf("GPGPU-Sim: Reconfigure L1 allocation to ON_MISS\n");
+        //     } else {
+        //       m_L1D_config.set_allocation_policy(ON_FILL);
+        //       printf("GPGPU-Sim: Reconfigure L1 allocation to ON_FILL\n");
+        //     }
+        //   }
+        //   printf("GPGPU-Sim: Reconfigure L1 cache to %uKB\n",
+        //          m_L1D_config.get_total_size_inKB());
+        //
+        //   k.cache_config_set = true;
+        // }
+
+        // unsigned threads_per_cta = k.threads_per_cta();
+        // const class function_info *kernel = k.entry();
+        // unsigned int padded_cta_size = threads_per_cta;
+        // if (padded_cta_size % warp_size)
+        //   padded_cta_size = ((padded_cta_size / warp_size) + 1) * (warp_size);
+        //
+        // // Limit by n_threads/shader
+        // unsigned int result_thread = n_thread_per_shader / padded_cta_size;
+        //
+        // const struct gpgpu_ptx_sim_info *kernel_info = ptx_sim_kernel_info(kernel);
+        //
+        // // Limit by shmem/shader
+        // unsigned int result_shmem = (unsigned)-1;
+        // if (kernel_info->smem > 0)
+        //   result_shmem = gpgpu_shmem_size / kernel_info->smem;
+        //
+        // // Limit by register count, rounded up to multiple of 4.
+        // unsigned int result_regs = (unsigned)-1;
+        // if (kernel_info->regs > 0)
+        //   result_regs = gpgpu_shader_registers /
+        //                 (padded_cta_size * ((kernel_info->regs + 3) & ~3));
+        //
+        // // Limit by CTA
+        // unsigned int result_cta = max_cta_per_core;
+        //
+        // unsigned result = result_thread;
+        // result = gs_min2(result, result_shmem);
+        // result = gs_min2(result, result_regs);
+        // result = gs_min2(result, result_cta);
+        //
+        // static const struct gpgpu_ptx_sim_info *last_kinfo = NULL;
+        // if (last_kinfo !=
+        //     kernel_info) {  // Only print out stats if kernel_info struct changes
+        //   last_kinfo = kernel_info;
+        //   printf("GPGPU-Sim uArch: CTA/core = %u, limited by:", result);
+        //   if (result == result_thread) printf(" threads");
+        //   if (result == result_shmem) printf(" shmem");
+        //   if (result == result_regs) printf(" regs");
+        //   if (result == result_cta) printf(" cta_limit");
+        //   printf("\n");
+        // }
+        //
+        // // gpu_max_cta_per_shader is limited by number of CTAs if not enough to keep
+        // // all cores busy
+        // if (k.num_blocks() < result * num_shader()) {
+        //   result = k.num_blocks() / num_shader();
+        //   if (k.num_blocks() % num_shader()) result++;
+        // }
+        //
+        // assert(result <= MAX_CTA_PER_SHADER);
+        // if (result < 1) {
+        //   printf(
+        //       "GPGPU-Sim uArch: ERROR ** Kernel requires more resources than shader "
+        //       "has.\n");
+        //   if (gpgpu_ignore_resources_limitation) {
+        //     printf(
+        //         "GPGPU-Sim uArch: gpgpu_ignore_resources_limitation is set, ignore "
+        //         "the ERROR!\n");
+        //     return 1;
+        //   }
+        //   abort();
+        // }
+        //
+        // if (adaptive_cache_config && !k.cache_config_set) {
+        //   // For more info about adaptive cache, see
+        //   // https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#shared-memory-7-x
+        //   unsigned total_shmem = kernel_info->smem * result;
+        //   assert(total_shmem >= 0 && total_shmem <= shmem_opt_list.back());
+        //
+        //   // Unified cache config is in KB. Converting to B
+        //   unsigned total_unified = m_L1D_config.m_unified_cache_size * 1024;
+        //
+        //   bool l1d_configured = false;
+        //   unsigned max_assoc = m_L1D_config.get_max_assoc();
+        //
+        //   for (std::vector<unsigned>::const_iterator it = shmem_opt_list.begin();
+        //        it < shmem_opt_list.end(); it++) {
+        //     if (total_shmem <= *it) {
+        //       float l1_ratio = 1 - ((float)*(it) / total_unified);
+        //       // make sure the ratio is between 0 and 1
+        //       assert(0 <= l1_ratio && l1_ratio <= 1);
+        //       // round to nearest instead of round down
+        //       m_L1D_config.set_assoc(max_assoc * l1_ratio + 0.5f);
+        //       l1d_configured = true;
+        //       break;
+        //     }
+        //   }
+        //
+        //   assert(l1d_configured && "no shared memory option found");
+        //
+        //   if (m_L1D_config.is_streaming()) {
+        //     // for streaming cache, if the whole memory is allocated
+        //     // to the L1 cache, then make the allocation to be on_MISS
+        //     // otherwise, make it ON_FILL to eliminate line allocation fails
+        //     // i.e. MSHR throughput is the same, independent on the L1 cache
+        //     // size/associativity
+        //     if (total_shmem == 0) {
+        //       m_L1D_config.set_allocation_policy(ON_MISS);
+        //       printf("GPGPU-Sim: Reconfigure L1 allocation to ON_MISS\n");
+        //     } else {
+        //       m_L1D_config.set_allocation_policy(ON_FILL);
+        //       printf("GPGPU-Sim: Reconfigure L1 allocation to ON_FILL\n");
+        //     }
+        //   }
+        //   printf("GPGPU-Sim: Reconfigure L1 cache to %uKB\n",
+        //          m_L1D_config.get_total_size_inKB());
+        //
+        //   k.cache_config_set = true;
+        // }
+        //
+        // return result;
+    }
+}
 //     pub fn new() -> Self {
 //         Self {}
 //         // gpu_stat_sample_freq = 10000;
@@ -141,7 +394,7 @@ impl CacheConfig {
 }
 
 /// todo: remove the copy stuff, very expensive otherwise
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct GPUConfig {
     /// The SM number to pass to ptxas when getting register usage for
     /// computing GPU occupancy.
@@ -151,15 +404,15 @@ pub struct GPUConfig {
     /// shader core pipeline warp size
     pub warp_size: usize,
     /// per-shader read-only L1 texture cache config
-    pub tex_cache_l1: Option<CacheConfig>,
+    pub tex_cache_l1: Option<Arc<CacheConfig>>,
     /// per-shader read-only L1 constant memory cache config
-    pub const_cache_l1: Option<CacheConfig>,
+    pub const_cache_l1: Option<Arc<CacheConfig>>,
     /// shader L1 instruction cache config
-    pub inst_cache_l1: Option<CacheConfig>,
+    pub inst_cache_l1: Option<Arc<CacheConfig>>,
     /// per-shader L1 data cache config
-    pub data_cache_l1: Option<CacheConfig>,
+    pub data_cache_l1: Option<Arc<CacheConfig>>,
     /// unified banked L2 data cache config
-    pub data_cache_l2: Option<CacheConfig>,
+    pub data_cache_l2: Option<Arc<CacheConfig>>,
 
     /// L1D write ratio
     pub l1_cache_write_ratio: usize,
@@ -184,7 +437,7 @@ pub struct GPUConfig {
     pub registers_per_block: usize, //  8192
     pub ignore_resources_limitation: bool, // 0
     /// Maximum number of concurrent CTAs in shader (default 32)
-    pub shader_max_concurrent_cta: usize, // 32
+    pub max_concurrent_blocks_per_core: usize, // 32
     /// Maximum number of named barriers per CTA (default 16)
     pub num_cta_barriers: usize, // 16
     /// number of processing clusters
@@ -198,13 +451,15 @@ pub struct GPUConfig {
     /// Size of shared memory per thread block or CTA (default 48kB)
     pub shared_memory_per_block: usize, // 49152
     /// Size of shared memory per shader core (default 16kB)
-    pub shared_memory_size: usize, // 98304
+    pub shared_memory_size: u32, // 98304
     /// Option list of shared memory sizes
     pub shared_memory_option: bool, // 0
     /// Size of unified data cache(L1D + shared memory) in KB
     pub unified_l1_data_cache_size: bool, //0
     /// adaptive_cache_config
     pub adaptive_cache_config: bool, // 0
+    /// Option list of shared memory sizes
+    pub shared_memory_sizes: Vec<u32>, // 0
     // Size of shared memory per shader core (default 16kB)
     // shared_memory_size_default: usize, // 16384
     /// Size of shared memory per shader core (default 16kB)
@@ -456,6 +711,25 @@ pub enum SchedulingOrder {
     RoundRobin = 1,
 }
 
+impl GPUConfig {
+    pub fn parse() -> Result<Self> {
+        let adaptive_cache_config = false;
+        let shared_memory_sizes_string = "0";
+        let shared_memory_sizes: Vec<u32> = if adaptive_cache_config {
+            let sizes: Result<Vec<u32>, _> = shared_memory_sizes_string
+                .split(",")
+                .map(str::parse)
+                .collect();
+            let mut sizes: Vec<_> = sizes?.into_iter().map(|size| size * 1024).collect();
+            sizes.sort();
+            sizes
+        } else {
+            vec![]
+        };
+        Ok(Self::default())
+    }
+}
+
 impl Default for GPUConfig {
     fn default() -> Self {
         Self {
@@ -464,7 +738,7 @@ impl Default for GPUConfig {
             warp_size: 32,
             // N:16:128:24,L:R:m:N:L,F:128:4,128:2
             // {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>:<rf>}
-            tex_cache_l1: Some(CacheConfig {
+            tex_cache_l1: Some(Arc::new(CacheConfig {
                 kind: CacheKind::Normal,
                 num_sets: 16,
                 line_size: 128,
@@ -480,10 +754,10 @@ impl Default for GPUConfig {
                 miss_queue_size: 128,
                 result_fifo_entries: Some(2),
                 data_port_width: None,
-            }),
+            })),
             // N:128:64:2,L:R:f:N:L,A:2:64,4
             // {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>}
-            const_cache_l1: Some(CacheConfig {
+            const_cache_l1: Some(Arc::new(CacheConfig {
                 kind: CacheKind::Normal,
                 num_sets: 128,
                 line_size: 64,
@@ -499,10 +773,10 @@ impl Default for GPUConfig {
                 miss_queue_size: 4,
                 result_fifo_entries: None,
                 data_port_width: None,
-            }),
+            })),
             // N:8:128:4,L:R:f:N:L,A:2:48,4
             // {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>}
-            inst_cache_l1: Some(CacheConfig {
+            inst_cache_l1: Some(Arc::new(CacheConfig {
                 kind: CacheKind::Normal,
                 num_sets: 8,
                 line_size: 128,
@@ -518,10 +792,10 @@ impl Default for GPUConfig {
                 miss_queue_size: 4,
                 result_fifo_entries: None,
                 data_port_width: None,
-            }),
+            })),
             // N:64:128:6,L:L:m:N:H,A:128:8,8
             // {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq> | none}
-            data_cache_l1: Some(CacheConfig {
+            data_cache_l1: Some(Arc::new(CacheConfig {
                 kind: CacheKind::Normal,
                 num_sets: 64,
                 line_size: 128,
@@ -537,10 +811,10 @@ impl Default for GPUConfig {
                 miss_queue_size: 4,
                 result_fifo_entries: None,
                 data_port_width: None,
-            }),
+            })),
             // N:64:128:16,L:B:m:W:L,A:1024:1024,4:0,32
             // {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>}
-            data_cache_l2: Some(CacheConfig {
+            data_cache_l2: Some(Arc::new(CacheConfig {
                 kind: CacheKind::Normal,
                 num_sets: 64,
                 line_size: 128,
@@ -556,7 +830,7 @@ impl Default for GPUConfig {
                 miss_queue_size: 32,
                 result_fifo_entries: None,
                 data_port_width: None,
-            }),
+            })),
             l1_cache_write_ratio: 0,
             l1_banks: 1,
             l1_banks_byte_interleaving: 32,
@@ -567,7 +841,7 @@ impl Default for GPUConfig {
             shader_registers: 65536,
             registers_per_block: 8192,
             ignore_resources_limitation: false,
-            shader_max_concurrent_cta: 32,
+            max_concurrent_blocks_per_core: 32,
             num_cta_barriers: 16,
             num_simt_clusters: 20,
             num_cores_per_simt_cluster: 1,
@@ -578,6 +852,7 @@ impl Default for GPUConfig {
             shared_memory_option: false,
             unified_l1_data_cache_size: false,
             adaptive_cache_config: false,
+            shared_memory_sizes: vec![],
             shared_memory_size_pref_l1: 16384,
             shared_memory_size_pref_shared: 16384,
             shared_memory_num_banks: 32,

@@ -1,7 +1,8 @@
-use crate::config;
-
+use crate::config::{CacheConfig, GPUConfig};
 use super::MemFetch;
+
 use std::collections::{HashSet, VecDeque};
+use std::sync::Arc;
 
 pub trait Queue<T> {
     fn new<S: ToString>(name: S, n: usize, queue: usize) -> Self;
@@ -51,7 +52,7 @@ pub enum CacheEvent {}
 pub struct L2Cache {
     name: String,
     // config: MemorySubPartitionConfig,
-    config: config::CacheConfig,
+    config: Arc<CacheConfig>,
 }
 
 /// Models second level shared cache with global write-back
@@ -60,9 +61,7 @@ impl L2Cache {
     pub fn new(
         name: impl Into<String>,
         // todo: what config is needed here
-        config: config::CacheConfig,
-        // config: MemorySubPartitionConfig,
-        // config: MemorySubPartitionConfig,
+        config: Arc<CacheConfig>,
         core_id: i32,
         kind: i32,
         // memport: mem_fetch_interface,
@@ -143,7 +142,7 @@ pub struct MemorySubPartition<Q = FifoQueue<MemFetch>> {
     pub id: usize,
     /// memory configuration
     // pub config: MemorySubPartitionConfig,
-    pub config: config::GPUConfig,
+    pub config: Arc<GPUConfig>,
     /// queues
     interconn_to_l2_queue: Q,
     l2_to_dram_queue: Q,
@@ -172,7 +171,7 @@ where
     Q: Queue<MemFetch>,
 {
     // pub fn new(id: usize, config: MemorySubPartitionConfig) -> Self {
-    pub fn new(id: usize, config: config::GPUConfig) -> Self {
+    pub fn new(id: usize, config: Arc<GPUConfig>) -> Self {
         // need to migrate memory config for this
         // assert!(id < config.num_mem_sub_partition);
         // assert!(id < config.numjjjkk);
@@ -234,6 +233,49 @@ where
         }
     }
 
+    pub fn pop(&mut self) -> Option<MemFetch> {
+        match self.l2_to_dram_queue.dequeue() {
+            Some(fetch) => match fetch.access_kind() {
+                super::AccessKind::L2_WRBK_ACC | super::AccessKind::L1_WRBK_ACC => None,
+                _ => Some(fetch),
+            },
+            None => None,
+        }
+        // if (mf && (mf->get_access_type() == L2_WRBK_ACC ||
+        //              mf->get_access_type() == L1_WRBK_ACC)) {
+        //     delete mf;
+        //     mf = NULL;
+        //   }
+        // f (mf && (mf->get_access_type() == L2_WRBK_ACC ||
+        //              mf->get_access_type() == L1_WRBK_ACC)) {
+        //     delete mf;
+        //     mf = NULL;
+        //   }
+    }
+    // mem_fetch *memory_sub_partition::pop() {
+    //   mem_fetch *mf = m_L2_icnt_queue->pop();
+    //   m_request_tracker.erase(mf);
+    //   if (mf && mf->isatomic()) mf->do_atomic();
+    //   if (mf && (mf->get_access_type() == L2_WRBK_ACC ||
+    //              mf->get_access_type() == L1_WRBK_ACC)) {
+    //     delete mf;
+    //     mf = NULL;
+    //   }
+    //   return mf;
+    // }
+    //
+    // mem_fetch *memory_sub_partition::top() {
+    //   mem_fetch *mf = m_L2_icnt_queue->top();
+    //   if (mf && (mf->get_access_type() == L2_WRBK_ACC ||
+    //              mf->get_access_type() == L1_WRBK_ACC)) {
+    //     m_L2_icnt_queue->pop();
+    //     m_request_tracker.erase(mf);
+    //     delete mf;
+    //     mf = NULL;
+    //   }
+    //   return mf;
+    // }
+
     // pub fn full(&self) -> bool {
     //     self.interconn_to_l2_queue.full()
     // }
@@ -246,13 +288,14 @@ where
 #[derive(Clone, Debug, Default)]
 pub struct MemoryPartitionUnit {
     id: usize,
+    config: Arc<GPUConfig>,
 }
 
 pub type mem_access_sector_mask = u64;
 
 impl MemoryPartitionUnit {
-    pub fn new(id: usize, config: config::GPUConfig) -> Self {
-        Self { id }
+    pub fn new(id: usize, config: Arc<GPUConfig>) -> Self {
+        Self { id, config }
     }
 
     pub fn handle_memcpy_to_gpu(

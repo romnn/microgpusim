@@ -1,16 +1,16 @@
 #[derive(Debug, Clone, Copy)]
 struct DecodedAddress {
-  chip: usize,
-  bk: usize,
-  row: usize,
-  col: usize,
-  burst: usize,
-  sub_partition: usize,
+    chip: usize,
+    bk: usize,
+    row: usize,
+    col: usize,
+    burst: usize,
+    sub_partition: usize,
 }
 
 pub trait MemFetchInterface {
-  fn full(&self, size: usize, write: bool) -> bool;
-  fn push(&self, mf: MemFetch);
+    fn full(&self, size: usize, write: bool) -> bool;
+    fn push(&self, mf: MemFetch);
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -20,13 +20,52 @@ pub enum MemFetchKind {
     Tex,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum AccessKind {
+    GLOBAL_ACC_R,
+    LOCAL_ACC_R,
+    CONST_ACC_R,
+    TEXTURE_ACC_R,
+    GLOBAL_ACC_W,
+    LOCAL_ACC_W,
+    L1_WRBK_ACC,
+    L2_WRBK_ACC,
+    INST_ACC_R,
+    L1_WR_ALLOC_R,
+    L2_WR_ALLOC_R,
+    NUM_MEM_ACCESS_TYPE,
+}
+
+#[derive(Debug)]
+pub struct MemAccess {
+    uid: usize,
+    /// request address
+    pub addr: super::address,
+    /// if access is write
+    pub is_write: bool,
+    /// request size in bytes
+    pub req_size: usize,
+    /// access type
+    pub kind: AccessKind,
+    // active_mask_t m_warp_mask;
+    // mem_access_byte_mask_t m_byte_mask;
+    // mem_access_sector_mask_t m_sector_mask;
+}
+
 #[derive(Debug)]
 pub struct MemFetch {
+    access: MemAccess,
     tlx_addr: DecodedAddress,
     chip: usize,
     sub_partition: usize,
     data_size: usize,
     kind: MemFetchKind,
+}
+
+impl MemFetch {
+    pub fn access_kind(&self) -> AccessKind {
+        self.access.kind
+    }
 }
 
 // class mem_fetch {

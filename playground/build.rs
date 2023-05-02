@@ -7,6 +7,9 @@ fn output_path() -> PathBuf {
 }
 
 fn main() {
+    // temp fix
+    return;
+
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=src/playground.h");
     println!("cargo:rerun-if-changed=src/playground.cc");

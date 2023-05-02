@@ -1,45 +1,34 @@
 #![allow(warnings)]
 
 pub mod addrdec;
+pub mod core;
 pub mod mem_fetch;
 pub mod mem_sub_partition;
 pub mod set_index_function;
 pub mod tag_array;
+pub mod utils;
 
+use self::core::*;
+use addrdec::*;
 use mem_fetch::*;
 use mem_sub_partition::*;
 use set_index_function::*;
 use tag_array::*;
+use utils::*;
 
 use super::config::GPUConfig;
 use anyhow::Result;
-use log::{info, trace, warn};
-use std::collections::VecDeque;
+use log::{error, info, trace, warn};
+use nvbit_model::dim::{self, Dim};
+use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use trace_model::KernelLaunch;
 
 pub type address = u64;
 
 /// Shader config
-
-// void trace_gpgpu_sim::createSIMTCluster() {
-//   m_cluster = new simt_core_cluster *[m_shader_config->n_simt_clusters];
-//   for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++)
-//     m_cluster[i] =
-//         new trace_simt_core_cluster(this, i, m_shader_config, m_memory_config,
-//                                     m_shader_stats, m_memory_stats);
-// }
-
-// void trace_simt_core_cluster::create_shader_core_ctx() {
-//   m_core = new shader_core_ctx *[m_config->n_simt_cores_per_cluster];
-//   for (unsigned i = 0; i < m_config->n_simt_cores_per_cluster; i++) {
-//     unsigned sid = m_config->cid_to_sid(i, m_cluster_id);
-//     m_core[i] = new trace_shader_core_ctx(m_gpu, this, sid, m_cluster_id,
-//                                           m_config, m_mem_config, m_stats);
-//     m_core_sim_order.push_back(i);
-//   }
-// }
 
 /// Context
 #[derive(Debug)]
@@ -88,20 +77,23 @@ pub struct KernelInfo {
     // trace_parser *m_parser;
     // kernel_trace_t *m_kernel_trace_info;
     // bool m_was_launched;
-    config: KernelLaunch,
+    pub config: KernelLaunch,
+    pub uid: usize,
     // function_info: FunctionInfo,
     // shared_mem: bool,
-    launched: bool,
+    launched: Mutex<bool>,
     function_info: FunctionInfo,
+    num_cores_running: usize,
     // m_kernel_entry = entry;
     // m_grid_dim = gridDim;
     // m_block_dim = blockDim;
+    next_block: Option<Dim>,
+    next_block_iter: dim::Iter,
     // m_next_cta.x = 0;
     // m_next_cta.y = 0;
     // m_next_cta.z = 0;
     // m_next_tid = m_next_cta;
     // m_num_cores_running = 0;
-    // m_uid = (entry->gpgpu_ctx->kernel_info_m_next_uid)++;
     // m_param_mem = new memory_space_impl<8192>("param", 64 * 1024);
     //
     // // Jin: parent and child kernel management for CDP
@@ -114,7 +106,7 @@ pub struct KernelInfo {
     //     entry->gpgpu_ctx->device_runtime->g_kernel_launch_latency +
     //     num_blocks() * entry->gpgpu_ctx->device_runtime->g_TB_launch_latency;
     //
-    // cache_config_set = false;
+    pub cache_config_set: bool,
     //
     // FOR TRACE DRIVEN
     //
@@ -149,15 +141,65 @@ impl KernelInfo {
     // GPGPUSim_Init
     // start_sim_thread
     pub fn new(config: KernelLaunch) -> Self {
+        let mut next_block_iter = config.grid.into_iter();
+        let next_block = next_block_iter.next();
+        // let uid = next_kernel_uid;
+        let uid = 0; // todo
         Self {
             config,
-            launched: false,
+            uid,
+            launched: Mutex::new(false),
+            num_cores_running: 0,
             function_info: FunctionInfo {},
+            cache_config_set: false,
+            next_block_iter,
+            next_block,
         }
     }
 
+    pub fn inc_running(&mut self) {
+        self.num_cores_running += 1;
+    }
+
+    pub fn name(&self) -> &str {
+        &self.config.name
+    }
+
     pub fn was_launched(&self) -> bool {
-        self.launched
+        *self.launched.lock().unwrap()
+    }
+
+    pub fn running(&self) -> bool {
+        self.num_cores_running > 0
+    }
+
+    pub fn increment_block(&mut self) {
+        self.next_block = self.next_block_iter.next()
+    }
+
+    pub fn done(&self) -> bool {
+        self.no_more_blocks_to_run() && !self.running()
+    }
+
+    pub fn num_blocks(&self) -> usize {
+        let grid = self.config.grid;
+        grid.x as usize * grid.y as usize * grid.z as usize
+    }
+
+    // pub fn padded_threads_per_block(&self) -> usize {
+    //     pad_to_multiple(self.threads_per_block(), self.config.warp_size)
+    // }
+
+    pub fn threads_per_block(&self) -> usize {
+        let block = self.config.block;
+        block.x as usize * block.y as usize * block.z as usize
+    }
+
+    pub fn no_more_blocks_to_run(&self) -> bool {
+        self.next_block.is_none()
+        //     let next_block = self.next_block;
+        // let grid = self.config.grid;
+        // next_block.x >= grid.x || next_block.y >= grid.y || next_block.z >= grid.z
     }
 }
 
@@ -178,16 +220,21 @@ fn parse_commands(path: impl AsRef<Path>) -> Result<Vec<trace_model::Command>> {
 
 #[derive(Debug, Default)]
 pub struct MockSimulator {
-    config: GPUConfig,
+    config: Arc<GPUConfig>,
     memory_partition_units: Vec<MemoryPartitionUnit>,
     memory_sub_partitions: Vec<MemorySubPartition>,
+    running_kernels: Vec<Option<Arc<KernelInfo>>>,
+    executed_kernels: Mutex<HashMap<usize, String>>,
+    clusters: Vec<SIMTCoreCluster>,
+    last_cluster_issue: usize,
+    last_issued_kernel: usize,
 }
 
 impl MockSimulator {
     // see new trace_gpgpu_sim(
     //      *(m_gpgpu_context->the_gpgpusim->g_the_gpu_config),
     //      m_gpgpu_context);
-    pub fn new(config: GPUConfig) -> Self {
+    pub fn new(config: Arc<GPUConfig>) -> Self {
         //         gpgpu_ctx = ctx;
         //   m_shader_config = &m_config.m_shader_config;
         //   m_memory_config = &m_config.m_memory_config;
@@ -266,7 +313,7 @@ impl MockSimulator {
         let num_sub_partitions = config.num_sub_partition_per_memory_channel;
 
         let memory_partition_units: Vec<_> = (0..num_mem_units)
-            .map(|i| MemoryPartitionUnit::new(i, config))
+            .map(|i| MemoryPartitionUnit::new(i, config.clone()))
             .collect();
 
         let memory_sub_partitions = Vec::new();
@@ -293,19 +340,143 @@ impl MockSimulator {
         //   }
         // }
 
+        let max_concurrent_kernels = config.max_concurrent_kernels;
+        let running_kernels = (0..max_concurrent_kernels).map(|_| None).collect();
+
+        // new trace_simt_core_cluster(
+        // this, i, m_shader_config, m_memory_config,
+        // m_shader_stats, m_memory_stats);
+
+        let clusters: Vec<_> = (0..config.num_simt_clusters)
+            .map(|i| SIMTCoreCluster::new(i, config.clone()))
+            .collect();
+
+        let executed_kernels = Mutex::new(HashMap::new());
+
         Self {
             config,
             memory_partition_units,
             memory_sub_partitions,
+            running_kernels,
+            executed_kernels,
+            clusters,
+            last_cluster_issue: 0,
+            last_issued_kernel: 0,
         }
     }
 
-    pub fn can_start_kernel(&self) -> bool {
-        true
+    /// Select the next kernel to run
+    ///
+    /// Todo: used hack to allow selecting the kernel from the shader core,
+    /// but we could maybe refactor
+    pub fn select_kernel(&self) -> Option<Arc<KernelInfo>> {
+        let mut executed_kernels = self.executed_kernels.lock().unwrap();
+        if let Some(k) = &self.running_kernels[self.last_issued_kernel] {
+            if !k.no_more_blocks_to_run()
+            // &&!kernel.kernel_TB_latency)
+            {
+                let launch_uid = k.uid;
+                if !executed_kernels.contains_key(&launch_uid) {
+                    executed_kernels.insert(launch_uid, k.name().to_string());
+                }
+                return Some(k.clone());
+            }
+        }
+        let num_kernels = self.running_kernels.len();
+        let max_concurrent = self.config.max_concurrent_kernels;
+        for n in 0..num_kernels {
+            let idx = (n + self.last_issued_kernel + 1) % max_concurrent;
+            if let Some(k) = &self.running_kernels[idx] {
+                if !k.no_more_blocks_to_run()
+                // &&!kernel.kernel_TB_latency)
+                {
+                    let launch_uid = k.uid;
+                    assert!(!executed_kernels.contains_key(&launch_uid));
+                    executed_kernels.insert(launch_uid, k.name().to_string());
+                    return Some(k.clone());
+                }
+            }
+        }
+        None
     }
 
-    pub fn launch(&mut self, kernel: &mut KernelInfo) {
-        kernel.launched = true;
+    pub fn can_start_kernel(&self) -> bool {
+        self.running_kernels.iter().any(|kernel| match kernel {
+            Some(kernel) => kernel.done(),
+            None => true,
+        })
+    }
+
+    pub fn launch(&mut self, kernel: Arc<KernelInfo>) -> Result<()> {
+        *kernel.launched.lock().unwrap() = true;
+        let threads_per_block = kernel.threads_per_block();
+        let max_threads_per_block = self.config.max_threads_per_shader;
+        if threads_per_block > max_threads_per_block {
+            error!("kernel block size is too large");
+            error!(
+                "CTA size (x*y*z) = {threads_per_block}, max supported = {max_threads_per_block}"
+            );
+            return Err(anyhow::anyhow!("kernel block size is too large"));
+        }
+        for running in &mut self.running_kernels {
+            if running.is_none() || running.as_ref().map_or(false, |k| k.done()) {
+                running.insert(kernel);
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    // fn issue_block_to_core_inner(&self, cluster: &mut SIMTCoreCluster) -> usize {
+    //     let mut num_blocks_issued = 0;
+    //
+    //     let num_cores = cluster.cores.len();
+    //     for (i, core) in cluster.cores.iter().enumerate() {
+    //         let core_id = (i + cluster.block_issue_next_core + 1) % num_cores;
+    //         let mut kernel = None;
+    //         if self.config.concurrent_kernel_sm {
+    //             // always select latest issued kernel
+    //             kernel = self.select_kernel()
+    //         } else {
+    //             if let Some(current) = &core.current_kernel {
+    //                 if !current.no_more_blocks_to_run() {
+    //                     // wait until current kernel finishes
+    //                     if core.active_warps() == 0 {
+    //                         kernel = self.select_kernel();
+    //                         core.current_kernel = kernel;
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //         if let Some(kernel) = kernel {
+    //             if kernel.no_more_blocks_to_run() && core.can_issue_block(kernel) {
+    //                 core.issue_block(kernel);
+    //                 num_blocks_issued += 1;
+    //                 cluster.block_issue_next_core = i;
+    //                 break;
+    //             }
+    //         }
+    //     }
+    //     num_blocks_issued
+    // }
+
+    fn issue_block_to_core(&mut self) {
+        let last_issued = self.last_cluster_issue;
+        let num_clusters = self.config.num_simt_clusters;
+        for cluster in &self.clusters {
+            let idx = (cluster.id + last_issued + 1) % num_clusters;
+            let num = cluster.issue_block_to_core(self);
+        }
+
+        // unsigned last_issued = m_last_cluster_issue;
+        // for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
+        //   unsigned idx = (i + last_issued + 1) % m_shader_config->n_simt_clusters;
+        //   unsigned num = m_cluster[idx]->issue_block2core();
+        //   if (num) {
+        //     m_last_cluster_issue = idx;
+        //     m_total_cta_launched += num;
+        //   }
+        // }
     }
 
     pub fn cycle() {
@@ -369,6 +540,26 @@ impl MockSimulator {
     }
 }
 
+// void trace_shader_core_ctx::init_traces(unsigned start_warp, unsigned end_warp,
+//                                         kernel_info_t &kernel) {
+//   std::vector<std::vector<inst_trace_t> *> threadblock_traces;
+//   for (unsigned i = start_warp; i < end_warp; ++i) {
+//     trace_shd_warp_t *m_trace_warp = static_cast<trace_shd_warp_t *>(m_warp[i]);
+//     m_trace_warp->clear();
+//     threadblock_traces.push_back(&(m_trace_warp->warp_traces));
+//   }
+//   trace_kernel_info_t &trace_kernel =
+//       static_cast<trace_kernel_info_t &>(kernel);
+//   trace_kernel.get_next_threadblock_traces(threadblock_traces);
+//
+//   // set the pc from the traces and ignore the functional model
+//   for (unsigned i = start_warp; i < end_warp; ++i) {
+//     trace_shd_warp_t *m_trace_warp = static_cast<trace_shd_warp_t *>(m_warp[i]);
+//     m_trace_warp->set_next_pc(m_trace_warp->get_start_trace_pc());
+//     m_trace_warp->set_kernel(&trace_kernel);
+//   }
+// }
+
 pub fn accelmain(traces_dir: impl AsRef<Path>) -> Result<()> {
     info!("box version {}", 0);
     // log = "0.4"
@@ -388,7 +579,7 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> Result<()> {
     let start_time = Instant::now();
 
     // shader config init
-    let config = GPUConfig::default();
+    let config = Arc::new(GPUConfig::default());
 
     assert!(config.max_threads_per_shader.rem_euclid(config.warp_size) == 0);
     let max_warps_per_shader = config.max_threads_per_shader / config.warp_size;
@@ -406,7 +597,7 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> Result<()> {
 
     // todo: make this a hashset?
     let mut busy_streams: VecDeque<u64> = VecDeque::new();
-    let mut kernels: VecDeque<KernelInfo> = VecDeque::new();
+    let mut kernels: VecDeque<Arc<KernelInfo>> = VecDeque::new();
     kernels.reserve_exact(window_size);
 
     // kernel_trace_t* kernel_trace_info = tracer.parse_kernel_info(commandlist[i].command_string);
@@ -431,7 +622,7 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> Result<()> {
                 } => s.memcopy_to_gpu(*dest_device_addr, *num_bytes),
                 trace_model::Command::KernelLaunch(config) => {
                     let kernel = KernelInfo::new(config.clone());
-                    kernels.push_back(kernel);
+                    kernels.push_back(Arc::new(kernel));
                     println!("launch kernel command {:#?}", cmd);
                 }
             }
@@ -444,8 +635,8 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> Result<()> {
             let stream_busy = busy_streams.iter().any(|s| *s == kernel.config.stream_id);
             if !stream_busy && s.can_start_kernel() && !kernel.was_launched() {
                 println!("launching kernel {}", kernel.config.name);
-                s.launch(kernel);
                 busy_streams.push_back(kernel.config.stream_id);
+                s.launch(kernel.clone());
             }
         }
 

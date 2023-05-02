@@ -194,6 +194,9 @@ fn build_accelsim_tracer_tool(
 }
 
 fn main() {
+    // temp fix
+    return;
+
     let use_remote = std::env::var("USE_REMOTE_ACCELSIM")
         .map(|use_remote| use_remote.to_lowercase() == "yes")
         .unwrap_or(false);
