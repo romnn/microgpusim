@@ -8,7 +8,6 @@ fn generate_bindings() {
         ])
         .generate_comments(false)
         .rustified_enum(".*")
-        .rustfmt_bindings(true)
         .header("instrumentation/common.h");
 
     let bindings = builder.generate().expect("generating bindings");

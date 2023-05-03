@@ -7,8 +7,10 @@ pub mod mem_sub_partition;
 pub mod set_index_function;
 pub mod tag_array;
 pub mod utils;
+pub mod ldst_unit;
 
 use self::core::*;
+use ldst_unit::*;
 use addrdec::*;
 use mem_fetch::*;
 use mem_sub_partition::*;
@@ -18,13 +20,14 @@ use utils::*;
 
 use super::config::GPUConfig;
 use anyhow::Result;
+use itertools::Itertools;
 use log::{error, info, trace, warn};
 use nvbit_model::dim::{self, Dim};
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use trace_model::KernelLaunch;
+use trace_model::{KernelLaunch, MemAccessTraceEntry};
 
 pub type address = u64;
 
@@ -81,6 +84,8 @@ pub struct KernelInfo {
     pub uid: usize,
     // function_info: FunctionInfo,
     // shared_mem: bool,
+    trace: Vec<trace_model::MemAccessTraceEntry>,
+    trace_iter: std::vec::IntoIter<MemAccessTraceEntry>,
     launched: Mutex<bool>,
     function_info: FunctionInfo,
     num_cores_running: usize,
@@ -89,6 +94,9 @@ pub struct KernelInfo {
     // m_block_dim = blockDim;
     next_block: Option<Dim>,
     next_block_iter: dim::Iter,
+    next_thread_id: Option<Dim>,
+    // next_thread_id_iter: dim::Iter,
+
     // m_next_cta.x = 0;
     // m_next_cta.y = 0;
     // m_next_cta.z = 0;
@@ -136,25 +144,55 @@ pub struct KernelInfo {
     // }
 }
 
+pub fn read_trace(path: &Path) -> Result<Vec<trace_model::MemAccessTraceEntry>> {
+    use serde::Deserializer;
+    let file = std::fs::OpenOptions::new().read(true).open(path)?;
+    let reader = std::io::BufReader::new(file);
+    let mut reader = rmp_serde::Deserializer::new(reader);
+    let mut trace = vec![];
+    let decoder = nvbit_io::Decoder::new(|access: trace_model::MemAccessTraceEntry| {
+        trace.push(access);
+    });
+    reader.deserialize_seq(decoder)?;
+    Ok(trace)
+}
+
 impl KernelInfo {
     // gpgpu_ptx_sim_init_perf
     // GPGPUSim_Init
     // start_sim_thread
     pub fn new(config: KernelLaunch) -> Self {
+        let trace_path = config.trace_file.with_extension("msgpack");
+        dbg!(&trace_path);
+        let mut trace = read_trace(&trace_path).unwrap();
+        trace.sort_unstable_by(|a, b| (a.block_id, a.warp_id).cmp(&(b.block_id, b.warp_id)));
+        let mut trace_iter = trace.clone().into_iter();
+
         let mut next_block_iter = config.grid.into_iter();
         let next_block = next_block_iter.next();
+        let next_thread_id = next_block;
+        dbg!(&next_block);
         // let uid = next_kernel_uid;
         let uid = 0; // todo
         Self {
             config,
             uid,
+            trace,
+            trace_iter,
             launched: Mutex::new(false),
             num_cores_running: 0,
             function_info: FunctionInfo {},
             cache_config_set: false,
             next_block_iter,
             next_block,
+            next_thread_id,
         }
+    }
+
+    pub fn get_next_threadblock_traces(&mut self) -> Vec<MemAccessTraceEntry> {
+        self.trace_iter
+            .take_while_ref(|entry| Some(entry.block_id) == self.next_block)
+            .collect()
     }
 
     pub fn inc_running(&mut self) {
@@ -177,8 +215,12 @@ impl KernelInfo {
         self.next_block = self.next_block_iter.next()
     }
 
+    pub fn increment_thread_id(&mut self) {
+        // self.next_thread_id = self.next_thread_id_iter.next()
+    }
+
     pub fn next_block_id(&self) -> usize {
-        self.next_block_iter.id()
+        self.next_block_iter.id() as usize
     }
 
     pub fn done(&self) -> bool {
@@ -205,11 +247,16 @@ impl KernelInfo {
         // let grid = self.config.grid;
         // next_block.x >= grid.x || next_block.y >= grid.y || next_block.z >= grid.z
     }
+    pub fn more_threads_in_block(&self) -> bool {
+        self.next_thread_id.is_some()
+        // return m_next_tid.z < m_block_dim.z && m_next_tid.y < m_block_dim.y &&
+        //        m_next_tid.x < m_block_dim.x;
+    }
 }
 
 impl std::fmt::Display for KernelInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "Kernel")
+        write!(f, "KernelInfo({})", self.name())
     }
 }
 
@@ -483,7 +530,21 @@ impl MockSimulator {
         // }
     }
 
-    pub fn cycle() {
+    pub fn cycle(&mut self) {
+        self.issue_block_to_core();
+
+        let mut active_sms = 0;
+        // if (clock_mask & CORE) {
+        for cluster in &mut self.clusters {
+            if cluster.not_completed() {
+                cluster.cycle();
+                active_sms += cluster.num_active_sms();
+            }
+            // if (m_cluster[i]->get_not_completed() || get_more_cta_left()) {
+            //     m_cluster[i]->core_cycle();
+            // }
+        }
+
         // if (clock_mask & DRAM) {
         // for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
         // for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
@@ -494,9 +555,42 @@ impl MockSimulator {
         //     m_memory_partition_unit[i]->dram_cycle();
         //     }
         // }
+
+        let mut parallel_mem_partition_reqs_per_cycle = 0;
+        let mut stall_dram_full = 0;
+        for mem_sub in &mut self.memory_sub_partitions {
+            if mem_sub.full(SECTOR_CHUNCK_SIZE) {
+                stall_dram_full + -1;
+            } else {
+                // mem_fetch *mf = (mem_fetch *)icnt_pop(m_shader_config->mem2device(i));
+                if let Some(fetch) = None {
+                    mem_sub.push(fetch);
+                    parallel_mem_partition_reqs_per_cycle += 1;
+                }
+            }
+        }
+        // if (clock_mask & L2) {
+        // m_power_stats->pwr_mem_stat->l2_cache_stats[CURRENT_STAT_IDX].clear();
+        // for (unsigned i = 0; i < m_memory_config->m_n_mem_sub_partition; i++) {
+        //   // move memory request from interconnect into memory partition (if not
+        //   // backed up) Note:This needs to be called in DRAM clock domain if there
+        //   // is no L2 cache in the system In the worst case, we may need to push
+        //   // SECTOR_CHUNCK_SIZE requests, so ensure you have enough buffer for them
+        //   if (m_memory_sub_partition[i]->full(SECTOR_CHUNCK_SIZE)) {
+        //     gpu_stall_dramfull++;
+        //   } else {
+        //     mem_fetch *mf = (mem_fetch *)icnt_pop(m_shader_config->mem2device(i));
+        //     m_memory_sub_partition[i]->push(mf, gpu_sim_cycle + gpu_tot_sim_cycle);
+        //     if (mf) partiton_reqs_in_parallel_per_cycle++;
+        //   }
+        //   m_memory_sub_partition[i]->cache_cycle(gpu_sim_cycle + gpu_tot_sim_cycle);
+        //   m_memory_sub_partition[i]->accumulate_L2cache_stats(
+        //       m_power_stats->pwr_mem_stat->l2_cache_stats[CURRENT_STAT_IDX]);
+        // }
     }
 
-    pub fn memcopy_to_gpu(&mut self, addr: address, num_bytes: u32) {
+    pub fn memcopy_to_gpu(&mut self, addr: address, num_bytes: u64) {
+        println!("memcopy: {num_bytes} bytes to {addr:?}");
         if self.config.fill_l2_on_memcopy {
             let mut transfered = 0;
             while transfered < num_bytes {
@@ -564,6 +658,16 @@ impl MockSimulator {
 //   }
 // }
 
+// unsigned start_warp = start_thread / m_config->warp_size;
+//   unsigned end_warp = end_thread / m_config->warp_size +
+//                       ((end_thread % m_config->warp_size) ? 1 : 0);
+//   // set the pc from the traces and ignore the functional model
+// for (unsigned i = start_warp; i < end_warp; ++i) {
+//   trace_shd_warp_t *m_trace_warp = static_cast<trace_shd_warp_t *>(m_warp[i]);
+//   m_trace_warp->set_next_pc(m_trace_warp->get_start_trace_pc());
+//   m_trace_warp->set_kernel(&trace_kernel);
+// }
+
 pub fn accelmain(traces_dir: impl AsRef<Path>) -> Result<()> {
     info!("box version {}", 0);
     // log = "0.4"
@@ -618,7 +722,6 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> Result<()> {
 
         while kernels.len() < window_size && i < commands.len() {
             let cmd = &commands[i];
-            println!("command {:#?}", cmd);
             match cmd {
                 trace_model::Command::MemcpyHtoD {
                     dest_device_addr,
@@ -627,7 +730,6 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> Result<()> {
                 trace_model::Command::KernelLaunch(config) => {
                     let kernel = KernelInfo::new(config.clone());
                     kernels.push_back(Arc::new(kernel));
-                    println!("launch kernel command {:#?}", cmd);
                 }
             }
             i += 1;
@@ -638,7 +740,7 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> Result<()> {
         for kernel in &mut kernels {
             let stream_busy = busy_streams.iter().any(|s| *s == kernel.config.stream_id);
             if !stream_busy && s.can_start_kernel() && !kernel.was_launched() {
-                println!("launching kernel {}", kernel.config.name);
+                println!("launching kernel {:#?}", kernel.name());
                 busy_streams.push_back(kernel.config.stream_id);
                 s.launch(kernel.clone());
             }

@@ -1,8 +1,14 @@
-use crate::config::{CacheConfig, GPUConfig};
 use super::MemFetch;
+use crate::config::{CacheConfig, GPUConfig};
 
 use std::collections::{HashSet, VecDeque};
 use std::sync::Arc;
+
+pub const MAX_MEMORY_ACCESS_SIZE: usize = 128;
+// pub const std::bitset<MAX_MEMORY_ACCESS_SIZE> mem_access_byte_mask_t;
+pub const SECTOR_CHUNCK_SIZE: usize = 4; // four sectors
+pub const SECTOR_SIZE: usize = 32; // sector is 32 bytes width
+                                   // typedef std::bitset<SECTOR_CHUNCK_SIZE> mem_access_sector_mask_t;
 
 pub trait Queue<T> {
     fn new<S: ToString>(name: S, n: usize, queue: usize) -> Self;
@@ -213,6 +219,12 @@ where
             request_tracker: HashSet::new(),
             l2_cache,
         }
+    }
+
+    pub fn push(&self, fetch: MemFetch) {}
+
+    pub fn full(&self, size: usize) -> bool {
+        false
     }
 
     pub fn flush_l2(&self) -> usize {

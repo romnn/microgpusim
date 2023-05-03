@@ -58,7 +58,7 @@ pub struct MemAccessTraceEntry {
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub struct MemAllocation {
     pub device_ptr: u64,
-    pub num_bytes: usize,
+    pub num_bytes: u64,
 }
 
 /// Information about a kernel launch.
@@ -106,7 +106,7 @@ pub struct KernelLaunch {
 pub enum Command {
     MemcpyHtoD {
         dest_device_addr: u64,
-        num_bytes: u32,
+        num_bytes: u64,
     },
     KernelLaunch(KernelLaunch),
 }

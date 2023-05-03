@@ -1,11 +1,12 @@
 #![allow(warnings, clippy::missing_panics_doc, clippy::missing_safety_doc)]
 
 use lazy_static::lazy_static;
-use nvbit_io::Encoder;
+use nvbit_io::{Decoder, Encoder};
 use nvbit_rs::{model, DeviceChannel, HostChannel};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::{hash_map::Entry, HashMap, HashSet};
 use std::ffi;
+use std::io::Seek;
 use std::os::unix::fs::DirBuilderExt;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
@@ -61,7 +62,39 @@ struct Args {
 //     }
 // }
 
-// type MemAccessTraceEncoder = Box<dyn Encoder<trace_model::MemAccessTraceEntry>>;
+// type MemAccessTraceEncoder = Box<dyn Encoder<MemAccessTraceEntry>>;
+
+fn open_trace_file(path: &Path) -> std::fs::File {
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(path)
+        .unwrap();
+    // makes the file world readable,
+    // which is useful if this script is invoked by sudo
+    file.metadata().unwrap().permissions().set_readonly(false);
+    file
+}
+
+fn rmp_serializer(path: &Path) -> rmp_serde::Serializer<std::io::BufWriter<std::fs::File>> {
+    let trace_file = open_trace_file(path);
+    let mut writer = std::io::BufWriter::new(trace_file);
+    let mut rmp_serializer = rmp_serde::Serializer::new(writer);
+    rmp_serializer
+}
+
+fn json_serializer(
+    path: &Path,
+) -> serde_json::Serializer<std::io::BufWriter<std::fs::File>, serde_json::ser::PrettyFormatter> {
+    let trace_file = open_trace_file(path);
+    let mut writer = std::io::BufWriter::new(trace_file);
+    let mut json_serializer = serde_json::Serializer::with_formatter(
+        writer,
+        serde_json::ser::PrettyFormatter::with_indent(b"    "),
+    );
+    json_serializer
+}
 
 impl Args {
     pub fn instrument(&self, instr: &mut nvbit_rs::Instruction<'_>) {
@@ -122,9 +155,10 @@ impl Instrumentor<'static> {
 
         let traces_dir = std::env::var("TRACES_DIR").map_or_else(
             |_| {
+                let prefix = trace_model::app_prefix(own_bin_name);
                 target_app_dir
                     .join("traces")
-                    .join(format!("{}-trace", &trace_model::app_prefix(own_bin_name),))
+                    .join(format!("{}-trace", &prefix))
             },
             PathBuf::from,
         );
@@ -166,45 +200,24 @@ impl Instrumentor<'static> {
         instr
     }
 
-    fn open_trace_file(&self, path: &Path) -> std::fs::File {
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(path)
-            .unwrap();
-        // makes the file world readable,
-        // which is useful if this script is invoked by sudo
-        file.metadata().unwrap().permissions().set_readonly(false);
-        file
-    }
-
-    fn rmp_serializer(
-        &self,
-        path: &Path,
-    ) -> rmp_serde::Serializer<std::io::BufWriter<std::fs::File>> {
-        let trace_file = self.open_trace_file(path);
-        let mut writer = std::io::BufWriter::new(trace_file);
-        let mut rmp_serializer = rmp_serde::Serializer::new(writer);
-        rmp_serializer
-    }
-
     fn read_channel(self: Arc<Self>) {
         let rx = self.host_channel.lock().unwrap().read();
 
         let json_trace_file_path = self.traces_dir.join("trace.json");
-        let json_file = self.open_trace_file(&json_trace_file_path);
-        let mut writer = std::io::BufWriter::new(json_file);
-        let mut json_serializer = serde_json::Serializer::with_formatter(
-            writer,
-            serde_json::ser::PrettyFormatter::with_indent(b"    "),
-        );
+        // let json_file = open_trace_file(&json_trace_file_path);
+        // let mut writer = std::io::BufWriter::new(json_file);
+        let mut json_serializer = json_serializer(&json_trace_file_path);
+        // let mut json_serializer = serde_json::Serializer::with_formatter(
+        //     writer,
+        //     serde_json::ser::PrettyFormatter::with_indent(b"    "),
+        // );
         let mut json_encoder = Encoder::new(&mut json_serializer).unwrap();
 
         let rmp_trace_file_path = self.traces_dir.join("trace.msgpack");
-        let rmp_file = self.open_trace_file(&rmp_trace_file_path);
-        let mut writer = std::io::BufWriter::new(rmp_file);
-        let mut rmp_serializer = rmp_serde::Serializer::new(writer);
+        // let rmp_file = open_trace_file(&rmp_trace_file_path);
+        // let mut writer = std::io::BufWriter::new(rmp_file);
+        let mut rmp_serializer = rmp_serializer(&rmp_trace_file_path);
+        // rmp_serde::Serializer::new(writer);
         let mut rmp_encoder = Encoder::new(&mut rmp_serializer).unwrap();
         //
         // let msgpack_trace_encoders: HashMap<u64, nvbit_io::Encoder<String>> = HashMap::new();
@@ -392,7 +405,9 @@ impl<'c> Instrumentor<'c> {
                 func.enable_instrumented(ctx, true, true);
             }
             Some(EventParams::MemCopyHostToDevice {
-                dest_device, bytes, ..
+                dest_device,
+                num_bytes,
+                ..
             }) => {
                 if !is_exit {
                     self.commands
@@ -400,7 +415,7 @@ impl<'c> Instrumentor<'c> {
                         .unwrap()
                         .push(trace_model::Command::MemcpyHtoD {
                             dest_device_addr: dest_device.as_ptr() as u64,
-                            num_bytes: bytes,
+                            num_bytes,
                         });
                 }
             }
@@ -410,7 +425,9 @@ impl<'c> Instrumentor<'c> {
             //         // ignored
             // },
             Some(EventParams::MemAlloc {
-                device_ptr, bytes, ..
+                device_ptr,
+                num_bytes,
+                ..
             }) => {
                 if !is_exit {
                     // addresses are only valid on exit
@@ -422,7 +439,7 @@ impl<'c> Instrumentor<'c> {
                     .unwrap()
                     .push(trace_model::MemAllocation {
                         device_ptr,
-                        num_bytes: bytes,
+                        num_bytes,
                     });
             }
             _ => {}
@@ -515,7 +532,52 @@ impl<'c> Instrumentor<'c> {
     }
 
     fn trace_path(&self, id: u64) -> PathBuf {
-        self.traces_dir.join(format!("kernel-{}", id))
+        self.traces_dir.join(format!("kernel-{id}-trace"))
+    }
+
+    fn generate_per_kernel_traces(&self) {
+        let rmp_trace_file_path = self.traces_dir.join("trace.msgpack");
+        let mut reader = BufReader::new(
+            OpenOptions::new()
+                .read(true)
+                .open(&rmp_trace_file_path)
+                .unwrap(),
+        );
+
+        // get all traced kernel ids
+        let mut kernel_ids = HashSet::new();
+        let decoder = Decoder::new(|access: trace_model::MemAccessTraceEntry| {
+            kernel_ids.insert(access.kernel_id);
+        });
+        rmp_serde::Deserializer::new(&mut reader)
+            .deserialize_seq(decoder)
+            .unwrap();
+        dbg!(&kernel_ids);
+
+        // encode to different files
+        let mut rmp_serializers: HashMap<u64, _> = kernel_ids
+            .iter()
+            .map(|id| {
+                let kernel_trace_path = self.trace_path(*id).with_extension("msgpack");
+                (*id, rmp_serializer(&kernel_trace_path))
+            })
+            .collect();
+        let mut rmp_encoders: HashMap<u64, _> = rmp_serializers
+            .iter_mut()
+            .map(|(id, mut ser)| (*id, Encoder::new(ser).unwrap()))
+            .collect();
+        let decoder = Decoder::new(|access: trace_model::MemAccessTraceEntry| {
+            let encoder = rmp_encoders.get_mut(&access.kernel_id).unwrap();
+            encoder.encode::<trace_model::MemAccessTraceEntry>(access);
+        });
+        reader.rewind();
+        rmp_serde::Deserializer::new(&mut reader)
+            .deserialize_seq(decoder)
+            .unwrap();
+
+        for (_, encoder) in rmp_encoders.into_iter() {
+            encoder.finalize();
+        }
     }
 
     fn save_command_trace(&self) {
@@ -585,7 +647,7 @@ impl<'c> Instrumentor<'c> {
             access_plot.register_allocation(allocation);
         }
 
-        let decoder = nvbit_io::Decoder::new(|access: trace_model::MemAccessTraceEntry| {
+        let decoder = Decoder::new(|access: trace_model::MemAccessTraceEntry| {
             access_plot.add(access, None);
         });
         reader.deserialize_seq(decoder).unwrap();
@@ -640,23 +702,23 @@ pub extern "C" fn nvbit_at_ctx_term(ctx: nvbit_rs::Context<'static>) {
 
     println!("nvbit_at_ctx_term");
     let lock = CONTEXTS.read().unwrap();
-    let Some(instrumentor) = lock.get(&ctx.handle()) else {
+    let Some(instr) = lock.get(&ctx.handle()) else {
         return;
     };
 
-    *instrumentor.skip_flag.lock().unwrap() = true;
+    *instr.skip_flag.lock().unwrap() = true;
     unsafe {
         // flush channel
-        let mut dev_channel = instrumentor.dev_channel.lock().unwrap();
+        let mut dev_channel = instr.dev_channel.lock().unwrap();
         common::flush_channel(dev_channel.as_mut_ptr().cast());
 
         // make sure flush of channel is complete
         nvbit_sys::cuCtxSynchronize();
     };
-    *instrumentor.skip_flag.lock().unwrap() = false;
+    *instr.skip_flag.lock().unwrap() = false;
 
     // stop the host channel
-    instrumentor
+    instr
         .host_channel
         .lock()
         .unwrap()
@@ -664,24 +726,25 @@ pub extern "C" fn nvbit_at_ctx_term(ctx: nvbit_rs::Context<'static>) {
         .expect("stop host channel");
 
     // finish receiving packets
-    if let Some(recv_thread) = instrumentor.recv_thread.lock().unwrap().take() {
+    if let Some(recv_thread) = instr.recv_thread.lock().unwrap().take() {
         recv_thread.join().expect("join receiver thread");
     }
 
-    instrumentor.save_allocations();
-    instrumentor.save_command_trace();
+    instr.save_allocations();
+    instr.save_command_trace();
+    instr.generate_per_kernel_traces();
 
     #[cfg(feature = "plot")]
-    instrumentor.plot_memory_accesses();
+    instr.plot_memory_accesses();
 
     println!(
         "done after {:?}",
-        Instant::now().duration_since(instrumentor.start)
+        Instant::now().duration_since(instr.start)
     );
 
     // this is often run as sudo, but we dont want to create files as sudo
     utils::rchown(
-        &instrumentor.traces_dir,
+        &instr.traces_dir,
         utils::UID_NOBODY,
         utils::GID_NOBODY,
         false,

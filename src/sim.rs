@@ -188,7 +188,6 @@ impl Simulation {
     where
         P: AsRef<Path>,
     {
-        // gpu-simulator/main.cc
         use serde::Deserializer;
         let file = std::fs::OpenOptions::new().read(true).open(path.as_ref())?;
         let reader = std::io::BufReader::new(file);

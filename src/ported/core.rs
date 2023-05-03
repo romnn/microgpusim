@@ -62,6 +62,16 @@ impl SIMTCore {
         }
     }
 
+    pub fn cycle(&mut self) {
+        if !self.is_active() && self.not_completed() == 0 {
+            return;
+        }
+    }
+
+    pub fn not_completed(&self) -> usize {
+        0
+    }
+
     pub fn is_active(&self) -> bool {
         self.num_active_blocks > 0
     }
@@ -216,8 +226,17 @@ impl SIMTCore {
     ) {
         // todo: call base class
         // shader_core_ctx::init_warp
+        let start_warp = start_thread / self.config.warp_size;
+        let end_warp = (end_thread / self.config.warp_size)
+            + if end_thread % self.config.warp_size != 0 {
+                1
+            } else {
+                0
+            };
 
-        //   unsigned start_warp = start_thread / m_config->warp_size;
+        // todo: how to store the warps here
+
+        // unsigned start_warp = start_thread / m_config->warp_size;
         // unsigned end_warp = end_thread / m_config->warp_size +
         //                     ((end_thread % m_config->warp_size) ? 1 : 0);
         //
@@ -302,6 +321,20 @@ impl SIMTCore {
                 active: true,
             });
             let warp_id = i / self.config.warp_size;
+            let has_threads_in_block = if kernel.no_more_blocks_to_run() {
+                false // finished kernel
+            } else {
+                if kernel.more_threads_in_block() {
+                    // kernel.increment_thread_id();
+                }
+
+                // we just incremented the thread id so this is not the same
+                if !kernel.more_threads_in_block() {
+                    // kernel.increment_thread_id();
+                }
+                true
+            };
+
             // num_threads_in_block += sim_init_thread(
             //     kernel, &m_thread[i], m_sid, i, cta_size - (i - start_thread),
             //     m_config->n_thread_per_shader, this, free_cta_hw_id, warp_id,
@@ -470,6 +503,21 @@ impl SIMTCoreCluster {
             cores: Mutex::new(cores),
             core_sim_order,
             block_issue_next_core,
+        }
+    }
+
+    pub fn num_active_sms(&self) -> usize {
+        0
+    }
+
+    pub fn not_completed(&self) -> bool {
+        true
+    }
+
+    pub fn cycle(&mut self) {
+        let mut cores = self.cores.lock().unwrap();
+        for core in cores.iter_mut() {
+            core.cycle()
         }
     }
 
