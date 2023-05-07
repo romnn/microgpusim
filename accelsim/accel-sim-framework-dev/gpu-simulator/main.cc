@@ -146,6 +146,7 @@ int main(int argc, const char **argv) {
         sim_cycles = true;
         m_gpgpu_sim->deadlock_check();
       } else {
+        // stop all kernels if we reached max instructions limit 
         if (m_gpgpu_sim->cycle_insn_cta_max_hit()) {
           m_gpgpu_context->the_gpgpusim->g_stream_manager
               ->stop_all_running_kernels();

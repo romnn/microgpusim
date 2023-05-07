@@ -2,16 +2,17 @@
 
 pub mod addrdec;
 pub mod core;
+pub mod instruction;
+pub mod ldst_unit;
 pub mod mem_fetch;
 pub mod mem_sub_partition;
 pub mod set_index_function;
 pub mod tag_array;
 pub mod utils;
-pub mod ldst_unit;
 
 use self::core::*;
-use ldst_unit::*;
 use addrdec::*;
+use ldst_unit::*;
 use mem_fetch::*;
 use mem_sub_partition::*;
 use set_index_function::*;
@@ -24,6 +25,7 @@ use itertools::Itertools;
 use log::{error, info, trace, warn};
 use nvbit_model::dim::{self, Dim};
 use std::collections::{HashMap, VecDeque};
+use std::fmt::Binary;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -157,6 +159,26 @@ pub fn read_trace(path: &Path) -> Result<Vec<trace_model::MemAccessTraceEntry>> 
     Ok(trace)
 }
 
+#[derive(strum::FromRepr, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(i32)]
+enum BinaryVersion {
+    AMPERE_RTX = 86,
+    AMPERE_A100 = 80,
+    VOLTA = 70,
+    PASCAL_TITANX = 61,
+    PASCAL_P100 = 60,
+    KEPLER = 35,
+    TURING = 75,
+}
+
+fn get_opcode_map(config: &KernelLaunch) -> Option<HashMap<String, String>> {
+    let version = BinaryVersion::from_repr(config.binary_version);
+    match version {
+        Some(BinaryVersion::AMPERE_RTX) => Some(HashMap::new()),
+        _ => None,
+    }
+}
+
 impl KernelInfo {
     // gpgpu_ptx_sim_init_perf
     // GPGPUSim_Init
@@ -174,6 +196,27 @@ impl KernelInfo {
         dbg!(&next_block);
         // let uid = next_kernel_uid;
         let uid = 0; // todo
+        let opcode_map = get_opcode_map(&config);
+        // resolve the binary version
+        // if (kernel_trace_info->binary_verion == AMPERE_RTX_BINART_VERSION ||
+        //     kernel_trace_info->binary_verion == AMPERE_A100_BINART_VERSION)
+        //   OpcodeMap = &Ampere_OpcodeMap;
+        // else if (kernel_trace_info->binary_verion == VOLTA_BINART_VERSION)
+        //   OpcodeMap = &Volta_OpcodeMap;
+        // else if (kernel_trace_info->binary_verion == PASCAL_TITANX_BINART_VERSION ||
+        //          kernel_trace_info->binary_verion == PASCAL_P100_BINART_VERSION)
+        //   OpcodeMap = &Pascal_OpcodeMap;
+        // else if (kernel_trace_info->binary_verion == KEPLER_BINART_VERSION)
+        //   OpcodeMap = &Kepler_OpcodeMap;
+        // else if (kernel_trace_info->binary_verion == TURING_BINART_VERSION)
+        //   OpcodeMap = &Turing_OpcodeMap;
+        // else {
+        //   printf("unsupported binary version: %d\n",
+        //          kernel_trace_info->binary_verion);
+        //   fflush(stdout);
+        //   exit(0);
+        // }
+
         Self {
             config,
             uid,
@@ -540,6 +583,7 @@ impl MockSimulator {
                 cluster.cycle();
                 active_sms += cluster.num_active_sms();
             }
+            cluster.cycle();
             // if (m_cluster[i]->get_not_completed() || get_more_cta_left()) {
             //     m_cluster[i]->core_cycle();
             // }
