@@ -50,6 +50,7 @@ pub struct MemAccessTraceEntry {
     pub instr_is_load: bool,
     pub instr_is_store: bool,
     pub instr_is_extended: bool,
+    pub active_mask: u32,
     /// Accessed address per thread of a warp
     pub addrs: [u64; 32],
 }

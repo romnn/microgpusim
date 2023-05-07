@@ -1,3 +1,5 @@
+use crate::ported::mem_fetch::AccessKind;
+
 use super::address;
 use nvbit_model::MemorySpace;
 use std::collections::VecDeque;
@@ -288,7 +290,7 @@ pub struct LoadStoreUnit {}
 //   return inst.accessq_empty();  // done if empty.
 // }
 
-use bitvec::{bits, boxed::BitBox};
+use bitvec::{bits, boxed::BitBox, field::BitField};
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct PerThreadInfo {
@@ -301,12 +303,74 @@ pub struct WarpInstruction {
     pc: usize,
     op: ArchOp,
     active_mask: BitBox,
+    memory_space: Option<MemorySpace>,
     // threads: Vec<PerThreadInfo>,
     threads: [PerThreadInfo; 32],
     mem_access_queue: VecDeque<()>,
     // std::vector<per_thread_info> m_per_scalar_thread;
     // bool m_mem_accesses_created;
     // std::list<mem_access_t> m_accessq;
+    // m_decoded = false;
+    // pc = (address_type)-1;
+    // reconvergence_pc = (address_type)-1;
+    // op = NO_OP;
+    // bar_type = NOT_BAR;
+    // red_type = NOT_RED;
+    // bar_id = (unsigned)-1;
+    // bar_count = (unsigned)-1;
+    // oprnd_type = UN_OP;
+    // sp_op = OTHER_OP;
+    // op_pipe = UNKOWN_OP;
+    // mem_op = NOT_TEX;
+    // const_cache_operand = 0;
+    // num_operands = 0;
+    // num_regs = 0;
+    // memset(out, 0, sizeof(unsigned));
+    // memset(in, 0, sizeof(unsigned));
+    // is_vectorin = 0;
+    // is_vectorout = 0;
+    // space = memory_space_t();
+    // cache_op = CACHE_UNDEFINED;
+    // latency = 1;
+    // initiation_interval = 1;
+    // for (unsigned i = 0; i < MAX_REG_OPERANDS; i++) {
+    //   arch_reg.src[i] = -1;
+    //   arch_reg.dst[i] = -1;
+    // }
+    // isize = 0;
+}
+
+// new_inst->parse_from_trace_struct(
+impl From<MemAccessTraceEntry> for WarpInstruction {
+    fn from(access: MemAccessTraceEntry) -> Self {
+        // let active_mask = BitBox::from_bitslice(bits![0; 32]);
+        let mut active_mask = BitBox::default();
+        active_mask.store(access.active_mask);
+        // BitBox::from_bitslice(access.active_mask);
+        // fill active mask
+        // active_mask_t active_mask = trace.mask;
+        // set_active(active_mask);
+        let mut threads = [PerThreadInfo::default(); 32];
+
+        // fill addresses
+        for (tid, thread) in threads.iter_mut().enumerate() {
+            if active_mask[tid] {
+                thread.mem_req_addr = Some(access.addrs[tid]);
+            }
+        }
+        Self {
+            active_mask,
+            // pc: access.pc,
+            threads,
+            ..Self::default()
+        }
+    }
+}
+
+impl Default for WarpInstruction {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl WarpInstruction {
@@ -320,6 +384,7 @@ impl WarpInstruction {
             pc: 0,
             op: ArchOp::LOAD_OP,
             threads,
+            memory_space: Some(MemorySpace::Global),
             mem_access_queue: VecDeque::new(),
             active_mask: BitBox::from_bitslice(bits![0; 32]),
         }
@@ -528,12 +593,25 @@ impl WarpInstruction {
         }
         let initial_queue_size = self.mem_access_queue.len();
         assert!(self.is_store() || self.is_load());
-        
-    // if((space.get_type() != tex_space) && (space.get_type() != const_space))
-    //   assert(m_per_scalar_thread_valid);  // need address information per thread
-    //
-    let is_write = self.is_store();
 
+        let Some(memory_space) = self.memory_space else {
+            return;
+        };
+        // if memory_space != MemorySpace::Texture && memory_space != MemorySpace::Constant {
+        //     // need address information per thread
+        //     // assert!(
+        // }
+        let is_write = self.is_store();
+        let access_type = match memory_space {
+            MemorySpace::Constant => None,
+            MemorySpace::Texture => None,
+            // MemorySpace::Texture => None,
+            MemorySpace::Global if is_write => Some(AccessKind::GLOBAL_ACC_W),
+            MemorySpace::Global if !is_write => Some(AccessKind::GLOBAL_ACC_R),
+            MemorySpace::Local if is_write => Some(AccessKind::LOCAL_ACC_W),
+            MemorySpace::Local if !is_write => Some(AccessKind::LOCAL_ACC_R),
+            _ => None,
+        };
     }
 }
 //

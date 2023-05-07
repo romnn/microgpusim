@@ -273,6 +273,7 @@ impl Instrumentor<'static> {
                 instr_is_load: packet.instr_is_load,
                 instr_is_store: packet.instr_is_store,
                 instr_is_extended: packet.instr_is_extended,
+                active_mask: packet.active_mask & packet.predicate_mask,
                 addrs: packet.addrs,
             };
             // let encoder: &nvbit_io::Encoder<rmp_serde::encode::MaybeUnknownLengthCompound<std::io::BufWriter<std::fs::File>, rmp_serde::config::DefaultConfig>>
@@ -467,6 +468,9 @@ impl<'c> Instrumentor<'c> {
         };
 
         let mut mref_idx = 0;
+        // use bitvec::{bits, boxed::BitBox, field::BitField};
+        // let test = bits![0; 32];
+        // let num: u32 = test.load();
 
         // iterate on the operands
         for operand in instr.operands().collect::<Vec<_>>() {

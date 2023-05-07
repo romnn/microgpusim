@@ -20,6 +20,7 @@ typedef struct {
   bool instr_is_load;
   bool instr_is_store;
   bool instr_is_extended;
-  // addr per thread of a warp?
+  uint32_t active_mask;
+  uint32_t predicate_mask;
   uint64_t addrs[32];
 } mem_access_t;

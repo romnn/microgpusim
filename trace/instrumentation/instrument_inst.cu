@@ -20,11 +20,12 @@ instrument_inst(int pred, int instr_opcode_id, uint32_t instr_offset,
                 uint64_t kernel_id, uint64_t pchannel_dev) {
 
   /* if thread is predicated off, return */
-  if (!pred) {
-    return;
-  }
+  // if (!pred) {
+  //   return;
+  // }
 
-  int active_mask = __ballot_sync(__activemask(), 1);
+  const int active_mask = __ballot_sync(__activemask(), 1);
+  const int predicate_mask = __ballot_sync(__activemask(), pred);
   const int laneid = get_laneid();
   const int first_laneid = __ffs(active_mask) - 1;
 
@@ -51,6 +52,8 @@ instrument_inst(int pred, int instr_opcode_id, uint32_t instr_offset,
   ma.instr_is_load = instr_is_load;
   ma.instr_is_store = instr_is_store;
   ma.instr_is_extended = instr_is_extended;
+  ma.active_mask = active_mask;
+  ma.predicate_mask = predicate_mask;
 
   /* first active lane pushes information on the channel */
   if (first_laneid == laneid) {

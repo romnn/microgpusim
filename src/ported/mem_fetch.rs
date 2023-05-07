@@ -21,6 +21,24 @@ pub enum MemFetchKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MemorySpace {
+    Undefined,
+    Reg,
+    Local,
+    Shared,
+    Sstarr,
+    ParamUnclassified,
+    ParamKernel, // global to all threads in a kernel : read-only
+    ParamLocal,  // local to a thread : read-writable
+    Const,
+    Tex,
+    Surf,
+    Global,
+    Generic,
+    Instruction,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AccessKind {
     GLOBAL_ACC_R,
     LOCAL_ACC_R,
