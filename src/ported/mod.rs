@@ -6,6 +6,7 @@ pub mod instruction;
 pub mod ldst_unit;
 pub mod mem_fetch;
 pub mod mem_sub_partition;
+pub mod opcodes;
 pub mod set_index_function;
 pub mod tag_array;
 pub mod utils;
@@ -29,7 +30,7 @@ use std::fmt::Binary;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use trace_model::{KernelLaunch, MemAccessTraceEntry};
+use trace_model::{Command, KernelLaunch, MemAccessTraceEntry};
 
 pub type address = u64;
 
@@ -70,7 +71,6 @@ struct FunctionInfo {
 /// as well as its state of execution.
 ///
 /// TODO: rename to just kernel if this handles all the state.
-#[derive(Debug)]
 pub struct KernelInfo {
     // dim3 gridDim, dim3 blockDim,
     // trace_function_info *m_function_info,
@@ -86,7 +86,7 @@ pub struct KernelInfo {
     pub uid: usize,
     // function_info: FunctionInfo,
     // shared_mem: bool,
-    trace: Vec<trace_model::MemAccessTraceEntry>,
+    trace: Vec<MemAccessTraceEntry>,
     trace_iter: std::vec::IntoIter<MemAccessTraceEntry>,
     launched: Mutex<bool>,
     function_info: FunctionInfo,
@@ -117,66 +117,45 @@ pub struct KernelInfo {
     //     num_blocks() * entry->gpgpu_ctx->device_runtime->g_TB_launch_latency;
     //
     pub cache_config_set: bool,
-    //
-    // FOR TRACE DRIVEN
-    //
-    // m_parser = parser;
-    // m_tconfig = config;
-    // m_kernel_trace_info = kernel_trace_info;
-    // m_was_launched = false;
-    //
-    // // resolve the binary version
-    // if (kernel_trace_info->binary_verion == AMPERE_RTX_BINART_VERSION ||
-    //     kernel_trace_info->binary_verion == AMPERE_A100_BINART_VERSION)
-    //   OpcodeMap = &Ampere_OpcodeMap;
-    // else if (kernel_trace_info->binary_verion == VOLTA_BINART_VERSION)
-    //   OpcodeMap = &Volta_OpcodeMap;
-    // else if (kernel_trace_info->binary_verion == PASCAL_TITANX_BINART_VERSION ||
-    //          kernel_trace_info->binary_verion == PASCAL_P100_BINART_VERSION)
-    //   OpcodeMap = &Pascal_OpcodeMap;
-    // else if (kernel_trace_info->binary_verion == KEPLER_BINART_VERSION)
-    //   OpcodeMap = &Kepler_OpcodeMap;
-    // else if (kernel_trace_info->binary_verion == TURING_BINART_VERSION)
-    //   OpcodeMap = &Turing_OpcodeMap;
-    // else {
-    //   printf("unsupported binary version: %d\n",
-    //          kernel_trace_info->binary_verion);
-    //   fflush(stdout);
-    //   exit(0);
-    // }
 }
 
-pub fn read_trace(path: &Path) -> Result<Vec<trace_model::MemAccessTraceEntry>> {
+impl std::fmt::Debug for KernelInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("KernelInfo")
+            .field("name", &self.name())
+            .field("id", &self.uid)
+            .field("instructions", &self.trace.len())
+            .field("launched", &self.launched)
+            .field("grid", &self.config.grid)
+            .field("block", &self.config.block)
+            .field("stream", &self.config.stream_id)
+            .field("shared_mem", &self.config.shared_mem_bytes)
+            .field("registers", &self.config.num_registers)
+            .field("next_block", &self.next_block)
+            .finish()
+    }
+}
+
+impl std::fmt::Display for KernelInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("KernelInfo")
+            .field("name", &self.name())
+            .field("id", &self.uid)
+            .finish()
+    }
+}
+
+pub fn read_trace(path: &Path) -> Result<Vec<MemAccessTraceEntry>> {
     use serde::Deserializer;
     let file = std::fs::OpenOptions::new().read(true).open(path)?;
     let reader = std::io::BufReader::new(file);
     let mut reader = rmp_serde::Deserializer::new(reader);
     let mut trace = vec![];
-    let decoder = nvbit_io::Decoder::new(|access: trace_model::MemAccessTraceEntry| {
+    let decoder = nvbit_io::Decoder::new(|access: MemAccessTraceEntry| {
         trace.push(access);
     });
     reader.deserialize_seq(decoder)?;
     Ok(trace)
-}
-
-#[derive(strum::FromRepr, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[repr(i32)]
-enum BinaryVersion {
-    AMPERE_RTX = 86,
-    AMPERE_A100 = 80,
-    VOLTA = 70,
-    PASCAL_TITANX = 61,
-    PASCAL_P100 = 60,
-    KEPLER = 35,
-    TURING = 75,
-}
-
-fn get_opcode_map(config: &KernelLaunch) -> Option<HashMap<String, String>> {
-    let version = BinaryVersion::from_repr(config.binary_version);
-    match version {
-        Some(BinaryVersion::AMPERE_RTX) => Some(HashMap::new()),
-        _ => None,
-    }
 }
 
 impl KernelInfo {
@@ -196,7 +175,7 @@ impl KernelInfo {
         dbg!(&next_block);
         // let uid = next_kernel_uid;
         let uid = 0; // todo
-        let opcode_map = get_opcode_map(&config);
+        let opcode_map = opcodes::get_opcode_map(&config);
         // resolve the binary version
         // if (kernel_trace_info->binary_verion == AMPERE_RTX_BINART_VERSION ||
         //     kernel_trace_info->binary_verion == AMPERE_A100_BINART_VERSION)
@@ -297,13 +276,7 @@ impl KernelInfo {
     }
 }
 
-impl std::fmt::Display for KernelInfo {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "KernelInfo({})", self.name())
-    }
-}
-
-fn parse_commands(path: impl AsRef<Path>) -> Result<Vec<trace_model::Command>> {
+fn parse_commands(path: impl AsRef<Path>) -> Result<Vec<Command>> {
     let file = std::fs::OpenOptions::new()
         .read(true)
         .open(&path.as_ref())?;
@@ -494,6 +467,10 @@ impl MockSimulator {
         None
     }
 
+    pub fn active(&self) -> bool {
+        true
+    }
+
     pub fn can_start_kernel(&self) -> bool {
         self.running_kernels.iter().any(|kernel| match kernel {
             Some(kernel) => kernel.done(),
@@ -555,11 +532,16 @@ impl MockSimulator {
     // }
 
     fn issue_block_to_core(&mut self) {
+        println!("issue block 2 core");
         let last_issued = self.last_cluster_issue;
         let num_clusters = self.config.num_simt_clusters;
         for cluster in &self.clusters {
             let idx = (cluster.id + last_issued + 1) % num_clusters;
-            let num = cluster.issue_block_to_core(self);
+            let num_blocks_issued = cluster.issue_block_to_core(self);
+            if num_blocks_issued > 0 {
+                self.last_cluster_issue = idx;
+                // self.total_blocks_launched += num_blocks_issued;
+            }
         }
 
         // unsigned last_issued = m_last_cluster_issue;
@@ -642,9 +624,9 @@ impl MockSimulator {
                 let mask: mem_access_sector_mask = 0;
                 // mask.set(wr_addr % 128 / 32);
                 let raw_addr = addrdec::addrdec_tlx(write_addr);
-                let partition_id =
-                    raw_addr.sub_partition / self.config.num_sub_partition_per_memory_channel;
-                let partition = &self.memory_partition_units[partition_id];
+                let partition_id = raw_addr.sub_partition
+                    / self.config.num_sub_partition_per_memory_channel as u64;
+                let partition = &self.memory_partition_units[partition_id as usize];
                 partition.handle_memcpy_to_gpu(write_addr, raw_addr.sub_partition, mask);
                 transfered += 32;
             }
@@ -730,8 +712,11 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> Result<()> {
     //
     let start_time = Instant::now();
 
-    // shader config init
-    let config = Arc::new(GPUConfig::default());
+    // debugging config
+    let mut config = GPUConfig::default();
+    config.num_simt_clusters = 1;
+    config.num_cores_per_simt_cluster = 1;
+    let config = Arc::new(config);
 
     assert!(config.max_threads_per_shader.rem_euclid(config.warp_size) == 0);
     let max_warps_per_shader = config.max_threads_per_shader / config.warp_size;
@@ -745,7 +730,7 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> Result<()> {
 
     // std::vector<trace_command> commandlist = tracer.parse_commandlist_file();
     let command_traces_path = traces_dir.join("commands.json");
-    let mut commands: Vec<trace_model::Command> = parse_commands(&command_traces_path)?;
+    let mut commands: Vec<Command> = parse_commands(&command_traces_path)?;
 
     // todo: make this a hashset?
     let mut busy_streams: VecDeque<u64> = VecDeque::new();
@@ -756,7 +741,7 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> Result<()> {
     // kernel_info = create_kernel_info(kernel_trace_info, m_gpgpu_context, &tconfig, &tracer);
     // kernels_info.push_back(kernel_info);
 
-    let mut s = MockSimulator::new(config);
+    let mut sim = MockSimulator::new(config.clone());
 
     let mut i = 0;
     while i < commands.len() || !kernels.is_empty() {
@@ -767,12 +752,12 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> Result<()> {
         while kernels.len() < window_size && i < commands.len() {
             let cmd = &commands[i];
             match cmd {
-                trace_model::Command::MemcpyHtoD {
+                Command::MemcpyHtoD {
                     dest_device_addr,
                     num_bytes,
-                } => s.memcopy_to_gpu(*dest_device_addr, *num_bytes),
-                trace_model::Command::KernelLaunch(config) => {
-                    let kernel = KernelInfo::new(config.clone());
+                } => sim.memcopy_to_gpu(*dest_device_addr, *num_bytes),
+                Command::KernelLaunch(launch) => {
+                    let kernel = KernelInfo::new(launch.clone());
                     kernels.push_back(Arc::new(kernel));
                 }
             }
@@ -782,16 +767,34 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> Result<()> {
         // Launch all kernels within window that are on a stream
         // that isn't already running
         for kernel in &mut kernels {
-            let stream_busy = busy_streams.iter().any(|s| *s == kernel.config.stream_id);
-            if !stream_busy && s.can_start_kernel() && !kernel.was_launched() {
+            let stream_busy = busy_streams
+                .iter()
+                .any(|stream_id| *stream_id == kernel.config.stream_id);
+            if !stream_busy && sim.can_start_kernel() && !kernel.was_launched() {
                 println!("launching kernel {:#?}", kernel.name());
                 busy_streams.push_back(kernel.config.stream_id);
-                s.launch(kernel.clone());
+                sim.launch(kernel.clone());
             }
         }
 
+        dbg!(&config.num_simt_clusters);
+        dbg!(&config.num_cores_per_simt_cluster);
+        dbg!(&config.concurrent_kernel_sm);
+
         // drive kernels to completion
-        //
+        // while sim.active() {
+        for i in 0..1 {
+            println!("cycle {i}");
+            sim.cycle();
+            // if !sim.active() {
+            //     break;
+            // }
+            // if sim.active() {
+            //     // sim_cycles = tru
+            //     // m_gpgpu_sim->deadlock_check();
+            // } else {
+            // }
+        }
         // bool active = false;
         // bool sim_cycles = false;
         // unsigned finished_kernel_uid = 0;

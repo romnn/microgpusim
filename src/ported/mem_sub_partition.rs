@@ -313,7 +313,7 @@ impl MemoryPartitionUnit {
     pub fn handle_memcpy_to_gpu(
         &self,
         addr: super::address,
-        global_subpart_id: usize,
+        global_subpart_id: u64,
         mask: mem_access_sector_mask,
     ) {
         //   unsigned p = global_sub_partition_id_to_local_id(global_subpart_id);

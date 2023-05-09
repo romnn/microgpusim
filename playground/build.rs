@@ -8,22 +8,18 @@ fn output_path() -> PathBuf {
 
 fn main() {
     // temp fix
-    return;
+    // return;
 
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=src/playground.h");
+    println!("cargo:rerun-if-changed=src/playground.hpp");
     println!("cargo:rerun-if-changed=src/playground.cc");
 
     cc::Build::new()
         .cpp(true)
         .file("src/playground.cc")
         .warnings(false)
-        // .shared_flag(true)
-        // .static_flag(false)
         .try_compile("playground")
         .unwrap();
-
-    // -bundle,+whole-archive
 
     let bindings = bindgen::Builder::default()
         .rustified_enum(".*")
@@ -31,7 +27,6 @@ fn main() {
         .prepend_enum_name(false)
         .size_t_is_usize(true)
         .generate_comments(false)
-        .rustfmt_bindings(true)
         .default_enum_style(bindgen::EnumVariation::Rust {
             non_exhaustive: false,
         })

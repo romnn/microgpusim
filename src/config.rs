@@ -1,3 +1,5 @@
+use crate::ported::addrdec::LinearToRawAddressTranslation;
+
 use super::ported::{address, utils, KernelInfo};
 use anyhow::Result;
 use std::sync::Arc;
@@ -51,16 +53,16 @@ impl GPUConfig {
         self.num_simt_clusters * self.num_cores_per_simt_cluster
     }
 
-    pub fn sid_to_cluster(&self, sid: usize) -> usize {
-        sid / self.num_cores_per_simt_cluster
+    pub fn global_core_id_to_cluster_id(&self, core_id: usize) -> usize {
+        core_id / self.num_cores_per_simt_cluster
     }
 
     pub fn sid_to_cid(&self, sid: usize) -> usize {
         sid % self.num_cores_per_simt_cluster
     }
 
-    pub fn cid_to_sid(&self, cid: usize, cluster_id: usize) -> usize {
-        cluster_id * self.num_cores_per_simt_cluster + cid
+    pub fn global_core_id(&self, cluster_id: usize, core_id: usize) -> usize {
+        cluster_id * self.num_cores_per_simt_cluster + core_id
     }
 
     pub fn threads_per_block_padded(&self, kernel: &KernelInfo) -> usize {
@@ -428,6 +430,8 @@ pub struct GPUConfig {
     pub shared_memory_latency: usize,
     /// implements -Xptxas -dlcm=cg, default=no skip
     pub global_mem_skip_l1_data_cache: bool,
+    /// enable perfect memory mode (no cache miss)
+    pub perfect_mem: bool,
     // -gpgpu_cache:dl1PrefL1                 none # per-shader L1 data cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq> | none}
     // -gpgpu_cache:dl1PrefShared                 none # per-shader L1 data cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq> | none}
     /// Number of registers per shader core.
@@ -728,6 +732,13 @@ impl GPUConfig {
         };
         Ok(Self::default())
     }
+
+    pub fn address_mapping(&self) -> LinearToRawAddressTranslation {
+        LinearToRawAddressTranslation::new(
+            self.num_memory_controllers,
+            self.num_sub_partition_per_memory_channel,
+        )
+    }
 }
 
 impl Default for GPUConfig {
@@ -838,6 +849,7 @@ impl Default for GPUConfig {
             l1_latency: 1,
             shared_memory_latency: 3,
             global_mem_skip_l1_data_cache: true,
+            perfect_mem: false,
             shader_registers: 65536,
             registers_per_block: 8192,
             ignore_resources_limitation: false,

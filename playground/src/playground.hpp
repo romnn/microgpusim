@@ -31,3 +31,53 @@ typedef unsigned long long addr_t;
 extern "C" new_addr_type addrdec_packbits(new_addr_type mask, new_addr_type val,
                                           unsigned char high,
                                           unsigned char low);
+
+extern "C" unsigned int LOGB2_32(unsigned int v) {
+  unsigned int shift;
+  unsigned int r;
+
+  r = 0;
+
+  shift = ((v & 0xFFFF0000) != 0) << 4;
+  v >>= shift;
+  r |= shift;
+  shift = ((v & 0xFF00) != 0) << 3;
+  v >>= shift;
+  r |= shift;
+  shift = ((v & 0xF0) != 0) << 2;
+  v >>= shift;
+  r |= shift;
+  shift = ((v & 0xC) != 0) << 1;
+  v >>= shift;
+  r |= shift;
+  shift = ((v & 0x2) != 0) << 0;
+  v >>= shift;
+  r |= shift;
+
+  return r;
+}
+
+extern "C" unsigned next_powerOf2(unsigned n) {
+  // decrement n (to handle the case when n itself
+  // is a power of 2)
+  n = n - 1;
+
+  // do till only one bit is left
+  while (n & n - 1)
+    n = n & (n - 1); // unset rightmost bit
+
+  // n is now a power of two (less than n)
+
+  // return next power of 2
+  return n << 1;
+}
+
+// compute x to the y
+extern "C" long int powli(long int x, long int y) {
+  long int r = 1;
+  int i;
+  for (i = 0; i < y; ++i) {
+    r *= x;
+  }
+  return r;
+}

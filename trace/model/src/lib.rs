@@ -42,6 +42,7 @@ pub struct MemAccessTraceEntry {
     pub kernel_id: u64,
     pub block_id: nvbit_model::Dim,
     pub warp_id: u32,
+    pub line_num: u32,
     pub instr_opcode: String,
     pub instr_offset: u32,
     pub instr_idx: u32,
@@ -79,30 +80,6 @@ pub struct KernelLaunch {
     pub nvbit_version: String,
 }
 
-// impl std::fmt::Display for KernelInfo {
-//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-//         // let size = human_bytes::human_bytes(self.size() as f64);
-//         // write!(
-//         //     f,
-//         //     "{size} ({} set, {}-way, {} byte line)",
-//         //     self.num_sets, self.associativity, self.line_size
-//         // )
-//// println!("MEMTRACE: CTX {:#06x} - LAUNCH", ctx.as_ptr() as u64);
-// println!("\tKernel pc: {pc:#06x}");
-// println!("\tKernel name: {func_name}");
-// println!("\tGrid launch id: {grid_launch_id}");
-// println!("\tGrid size: {grid}");
-// println!("\tBlock size: {block}");
-// println!("\tNum registers: {nregs}");
-// println!(
-//     "\tShared memory bytes: {}",
-//     shmem_static_nbytes + shared_mem_bytes as usize
-// );
-// println!("\tCUDA stream id: {}", h_stream.as_ptr() as u64);
-
-//     }
-// }
-//
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub enum Command {
     MemcpyHtoD {

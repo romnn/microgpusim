@@ -32,6 +32,7 @@ pub struct ThreadState {
 #[derive(Debug)]
 pub struct SIMTCore {
     pub id: usize,
+    pub cluster_id: usize,
     pub config: Arc<GPUConfig>,
     pub current_kernel: Option<Arc<KernelInfo>>,
     pub num_active_blocks: usize,
@@ -42,13 +43,15 @@ pub struct SIMTCore {
     pub occupied_block_to_hw_thread_id: HashMap<usize, usize>,
     pub block_status: [usize; MAX_CTA_PER_SHADER],
     pub thread_state: Vec<Option<ThreadState>>,
+    pub schedulers: Vec<super::SchedulerUnit>,
 }
 
 impl SIMTCore {
-    pub fn new(id: usize, config: Arc<GPUConfig>) -> Self {
+    pub fn new(id: usize, cluster_id: usize, config: Arc<GPUConfig>) -> Self {
         let thread_state: Vec<_> = (0..config.max_threads_per_shader).map(|_| None).collect();
         Self {
             id,
+            cluster_id,
             config,
             current_kernel: None,
             num_active_blocks: 0,
@@ -59,13 +62,28 @@ impl SIMTCore {
             occupied_block_to_hw_thread_id: HashMap::new(),
             block_status: [0; MAX_CTA_PER_SHADER],
             thread_state,
+            schedulers: Vec::new(),
         }
+    }
+
+    pub fn issue(&mut self) {
+        // for each scheduler unit, run cycle()
     }
 
     pub fn cycle(&mut self) {
         if !self.is_active() && self.not_completed() == 0 {
             return;
         }
+        // m_stats->shader_cycles[m_sid]++;
+        //   writeback();
+        //   execute();
+        //   read_operands();
+        //   issue();
+        //   for (int i = 0; i < m_config->inst_fetch_throughput; ++i) {
+        //     decode();
+        //     fetch();
+        //   }
+        self.issue();
     }
 
     pub fn not_completed(&self) -> usize {
@@ -74,6 +92,16 @@ impl SIMTCore {
 
     pub fn is_active(&self) -> bool {
         self.num_active_blocks > 0
+    }
+
+    pub fn set_kernel(&mut self, kernel: Arc<KernelInfo>) {
+        println!(
+            "kernel {} ({}) bind to core {}",
+            kernel.uid,
+            kernel.name(),
+            self.id
+        );
+        self.current_kernel = Some(kernel);
     }
 
     pub fn find_available_hw_thread_id(
@@ -195,8 +223,8 @@ impl SIMTCore {
         }
     }
 
+    /// m_not_completed
     pub fn active_warps(&self) -> usize {
-        todo!();
         0
     }
 
@@ -224,6 +252,10 @@ impl SIMTCore {
         thread_block_size: usize,
         kernel: &KernelInfo,
     ) {
+        println!(
+            "core {}-{}: init warps for block {}",
+            self.cluster_id, self.id, &block_id
+        );
         // todo: call base class
         // shader_core_ctx::init_warp
         let start_warp = start_thread / self.config.warp_size;
@@ -261,6 +293,12 @@ impl SIMTCore {
     }
 
     pub fn issue_block(&mut self, kernel: &KernelInfo) -> () {
+        println!(
+            "core {}: issue one block from kernel {} ({})",
+            self.id,
+            kernel.uid,
+            kernel.name()
+        );
         if !self.config.concurrent_kernel_sm {
             self.set_max_blocks(kernel);
         } else {
@@ -341,6 +379,8 @@ impl SIMTCore {
             //     m_cluster->get_gpu());
             warps.set(warp_id, true);
         }
+
+        dbg!(&warps.count_ones());
 
         // initialize the SIMT stacks and fetch hardware
         self.init_warps(
@@ -482,13 +522,13 @@ pub struct SIMTCoreCluster {
 }
 
 impl SIMTCoreCluster {
-    pub fn new(id: usize, config: Arc<GPUConfig>) -> Self {
+    pub fn new(cluster_id: usize, config: Arc<GPUConfig>) -> Self {
         let mut core_sim_order = Vec::new();
         let cores: Vec<_> = (0..config.num_cores_per_simt_cluster)
             .map(|core_id| {
-                let sid = config.cid_to_sid(core_id, id);
                 core_sim_order.push(core_id);
-                SIMTCore::new(sid, config.clone())
+                let id = config.global_core_id(cluster_id, core_id);
+                SIMTCore::new(id, cluster_id, config.clone())
             })
             .collect();
 
@@ -498,7 +538,7 @@ impl SIMTCoreCluster {
 
         let block_issue_next_core = Mutex::new(cores.len() - 1);
         Self {
-            id,
+            id: cluster_id,
             config,
             cores: Mutex::new(cores),
             core_sim_order,
@@ -522,30 +562,49 @@ impl SIMTCoreCluster {
     }
 
     pub fn issue_block_to_core(&self, sim: &MockSimulator) -> usize {
+        println!("cluster {}: issue block 2 core", self.id);
         let mut num_blocks_issued = 0;
 
         let mut block_issue_next_core = self.block_issue_next_core.lock().unwrap();
         let mut cores = self.cores.lock().unwrap();
         let num_cores = cores.len();
         for (i, core) in cores.iter_mut().enumerate() {
+            // debug_assert_eq!(i, core.id);
             let core_id = (i + *block_issue_next_core + 1) % num_cores;
             let mut kernel = None;
             if self.config.concurrent_kernel_sm {
                 // always select latest issued kernel
                 kernel = sim.select_kernel()
             } else {
-                if let Some(current) = &core.current_kernel {
-                    if !current.no_more_blocks_to_run() {
-                        // wait until current kernel finishes
-                        if core.active_warps() == 0 {
-                            kernel = sim.select_kernel();
-                            core.current_kernel = kernel.clone();
+                if core
+                    .current_kernel
+                    .as_ref()
+                    .map(|current| !current.no_more_blocks_to_run())
+                    .unwrap_or(true)
+                {
+                    // wait until current kernel finishes
+                    if core.active_warps() == 0 {
+                        kernel = sim.select_kernel();
+                        if let Some(ref k) = kernel {
+                            core.set_kernel(k.clone());
                         }
                     }
                 }
             }
+            println!(
+                "core {}-{}: current kernel {}",
+                self.id,
+                core.id,
+                &core.current_kernel.is_some()
+            );
+            println!(
+                "core {}-{}: selected kernel {:#?}",
+                self.id, core.id, kernel
+            );
             if let Some(kernel) = kernel {
-                if kernel.no_more_blocks_to_run() && core.can_issue_block(&*kernel) {
+                dbg!(&kernel.no_more_blocks_to_run());
+                dbg!(&core.can_issue_block(&*kernel));
+                if !kernel.no_more_blocks_to_run() && core.can_issue_block(&*kernel) {
                     core.issue_block(&*kernel);
                     num_blocks_issued += 1;
                     *block_issue_next_core = core_id;

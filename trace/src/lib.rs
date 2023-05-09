@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Instant;
 use std::{fs::OpenOptions, io::BufReader};
+use trace_model as trace;
 
 #[allow(
     warnings,
@@ -30,6 +31,7 @@ use common::mem_access_t;
 #[derive(Debug, Default, Clone)]
 struct Args {
     instr_opcode_id: std::ffi::c_int,
+    /// instruction offset is equivalent to virtual pc
     instr_offset: u32,
     instr_idx: u32,
     instr_predicate_num: std::ffi::c_int,
@@ -41,28 +43,8 @@ struct Args {
     instr_is_extended: bool,
     mref_idx: u64,
     pchannel_dev: u64,
+    line_num: u32,
 }
-
-// trait Encoder<V>
-// where
-//     V: serde::Serialize,
-//     // Seq: serde::ser::SerializeSeq,
-// {
-//     fn encode(&mut self, value: V);
-// }
-//
-// impl<Seq, V> Encoder<V> for nvbit_io::Encoder<Seq>
-// where
-//     V: serde::Serialize,
-//     Seq: serde::ser::SerializeSeq,
-// {
-//     fn encode(&mut self, value: V) {
-//         self.encode::<V>(value);
-//         // nvbit_io::Encoder::<Seq>::encode::<V>(&mut self as nvbit_io::Encoder<Seq>, value)
-//     }
-// }
-
-// type MemAccessTraceEncoder = Box<dyn Encoder<MemAccessTraceEntry>>;
 
 fn open_trace_file(path: &Path) -> std::fs::File {
     let mut file = OpenOptions::new()
@@ -137,8 +119,8 @@ struct Instrumentor<'c> {
     instr_end_interval: usize,
     skip_flag: Mutex<bool>,
     traces_dir: PathBuf,
-    allocations: Mutex<Vec<trace_model::MemAllocation>>,
-    commands: Mutex<Vec<trace_model::Command>>,
+    allocations: Mutex<Vec<trace::MemAllocation>>,
+    commands: Mutex<Vec<trace::Command>>,
 }
 
 impl Instrumentor<'static> {
@@ -147,7 +129,7 @@ impl Instrumentor<'static> {
         let host_channel = HostChannel::new(0, CHANNEL_SIZE, &mut dev_channel).unwrap();
 
         let own_bin_name = option_env!("CARGO_BIN_NAME");
-        let target_app_dir = trace_model::app_args(own_bin_name)
+        let target_app_dir = trace::app_args(own_bin_name)
             .get(0)
             .map(PathBuf::from)
             .and_then(|app| app.parent().map(Path::to_path_buf))
@@ -155,7 +137,7 @@ impl Instrumentor<'static> {
 
         let traces_dir = std::env::var("TRACES_DIR").map_or_else(
             |_| {
-                let prefix = trace_model::app_prefix(own_bin_name);
+                let prefix = trace::app_prefix(own_bin_name);
                 target_app_dir
                     .join("traces")
                     .join(format!("{}-trace", &prefix))
@@ -204,25 +186,12 @@ impl Instrumentor<'static> {
         let rx = self.host_channel.lock().unwrap().read();
 
         let json_trace_file_path = self.traces_dir.join("trace.json");
-        // let json_file = open_trace_file(&json_trace_file_path);
-        // let mut writer = std::io::BufWriter::new(json_file);
         let mut json_serializer = json_serializer(&json_trace_file_path);
-        // let mut json_serializer = serde_json::Serializer::with_formatter(
-        //     writer,
-        //     serde_json::ser::PrettyFormatter::with_indent(b"    "),
-        // );
         let mut json_encoder = Encoder::new(&mut json_serializer).unwrap();
 
         let rmp_trace_file_path = self.traces_dir.join("trace.msgpack");
-        // let rmp_file = open_trace_file(&rmp_trace_file_path);
-        // let mut writer = std::io::BufWriter::new(rmp_file);
         let mut rmp_serializer = rmp_serializer(&rmp_trace_file_path);
-        // rmp_serde::Serializer::new(writer);
         let mut rmp_encoder = Encoder::new(&mut rmp_serializer).unwrap();
-        //
-        // let msgpack_trace_encoders: HashMap<u64, nvbit_io::Encoder<String>> = HashMap::new();
-        // let mut serializers = HashMap::new();
-        // let mut encoders = HashMap::new();
 
         // start the thread here
         let mut packet_count = 0;
@@ -260,12 +229,14 @@ impl Instrumentor<'static> {
             };
 
             let kernel_id = packet.kernel_id;
-            let entry = trace_model::MemAccessTraceEntry {
+            let entry = trace::MemAccessTraceEntry {
                 cuda_ctx,
                 kernel_id,
                 block_id,
                 warp_id: packet.warp_id.unsigned_abs(),
+                line_num: packet.line_num,
                 instr_opcode: opcode.clone(),
+                // instruction offset is equivalent to virtual pc
                 instr_offset: packet.instr_offset,
                 instr_idx: packet.instr_idx,
                 instr_predicate,
@@ -276,48 +247,11 @@ impl Instrumentor<'static> {
                 active_mask: packet.active_mask & packet.predicate_mask,
                 addrs: packet.addrs,
             };
-            // let encoder: &nvbit_io::Encoder<rmp_serde::encode::MaybeUnknownLengthCompound<std::io::BufWriter<std::fs::File>, rmp_serde::config::DefaultConfig>>
-            // let encoder: &mut nvbit_io::Encoder<_> = match encoders.entry(kernel_id) {
-            //     Entry::Occupied(ref mut encoder) => {
-            //         encoder.get_mut()
-            //         // ()
-            //     }
-            //     Entry::Vacant(entry) => {
-            //         // {
-            //         //     let serializer = self
-            //         //         .rmp_serializer(&self.trace_path(kernel_id).with_extension(".msgpack"));
-            //         //     serializers.insert(kernel_id, serializer);
-            //         // }
-            //         // let serializer = &mut serializers[&kernel_id];
-            //         let serializer = unsafe { serializers.entry(kernel_id).or_insert_with(|| {
-            //             let path = self.trace_path(kernel_id).with_extension(".msgpack");
-            //             self.rmp_serializer(&path)
-            //         }) };
-            //         entry.insert(nvbit_io::Encoder::new(serializer).unwrap())
-            //     }
-            // };
-            // .or_insert_with(|| {
-            // let serializer = serializers.entry(kernel_id).or_insert_with(|| {
-            //     let trace_path = self.kernel_trace_path(entry.kernel_id);
-            //     let trace_path = trace_path.with_extension(".msgpack");
-            //     let trace_file = self.open_trace_file(&trace_path);
-            //     let mut writer = std::io::BufWriter::new(trace_file);
-            //     let mut rmp_serializer = rmp_serde::Serializer::new(writer);
-            //     rmp_serializer
-            //     // let mut rmp_encoder = nvbit_io::Encoder::new(rmp_serializer).unwrap();
-            //     // rmp_encoder
-            // });
-            // let mut rmp_encoder = nvbit_io::Encoder::new(serializer).unwrap();
-            // encoder.encode(&entry).unwrap();
-            // encoder
-            //     .encode::<trace_model::MemAccessTraceEntry>(&entry)
-            //     .unwrap();
-
             json_encoder
-                .encode::<trace_model::MemAccessTraceEntry>(&entry)
+                .encode::<trace::MemAccessTraceEntry>(&entry)
                 .unwrap();
             rmp_encoder
-                .encode::<trace_model::MemAccessTraceEntry>(&entry)
+                .encode::<trace::MemAccessTraceEntry>(&entry)
                 .unwrap();
         }
 
@@ -333,10 +267,11 @@ impl Instrumentor<'static> {
     }
 }
 
-type Contexts = RwLock<HashMap<nvbit_rs::ContextHandle<'static>, Arc<Instrumentor<'static>>>>;
+type ContextHandle = nvbit_rs::ContextHandle<'static>;
+type Contexts = HashMap<ContextHandle, Arc<Instrumentor<'static>>>;
 
 lazy_static! {
-    static ref CONTEXTS: Contexts = RwLock::new(HashMap::new());
+    static ref CONTEXTS: RwLock<Contexts> = RwLock::new(HashMap::new());
 }
 
 impl<'c> Instrumentor<'c> {
@@ -380,14 +315,17 @@ impl<'c> Instrumentor<'c> {
 
                 let id = *kernel_id;
                 let trace_file = self.trace_path(id);
-                let kernel_info = trace_model::KernelLaunch {
+
+                let num_registers = func.num_registers().unwrap();
+
+                let kernel_info = trace::KernelLaunch {
                     name: func_name.to_string(),
                     id,
                     trace_file,
                     grid,
                     block,
                     shared_mem_bytes: shmem_static_nbytes + shared_mem_bytes,
-                    num_registers: func.num_registers().unwrap().unsigned_abs(),
+                    num_registers: num_registers.unsigned_abs(),
                     binary_version: func.binary_version().unwrap(),
                     stream_id: h_stream.as_ptr() as u64,
                     shared_mem_base_addr: nvbit_rs::shmem_base_addr(ctx),
@@ -398,7 +336,7 @@ impl<'c> Instrumentor<'c> {
                 self.commands
                     .lock()
                     .unwrap()
-                    .push(trace_model::Command::KernelLaunch(kernel_info));
+                    .push(trace::Command::KernelLaunch(kernel_info));
 
                 *kernel_id += 1;
 
@@ -414,7 +352,7 @@ impl<'c> Instrumentor<'c> {
                     self.commands
                         .lock()
                         .unwrap()
-                        .push(trace_model::Command::MemcpyHtoD {
+                        .push(trace::Command::MemcpyHtoD {
                             dest_device_addr: dest_device.as_ptr() as u64,
                             num_bytes,
                         });
@@ -435,13 +373,10 @@ impl<'c> Instrumentor<'c> {
                     return;
                 }
                 // device_ptr is often aligned (e.g. to 512, power of 2?)
-                self.allocations
-                    .lock()
-                    .unwrap()
-                    .push(trace_model::MemAllocation {
-                        device_ptr,
-                        num_bytes,
-                    });
+                self.allocations.lock().unwrap().push(trace::MemAllocation {
+                    device_ptr,
+                    num_bytes,
+                });
             }
             _ => {}
         }
@@ -450,7 +385,8 @@ impl<'c> Instrumentor<'c> {
     fn instrument_instruction(&self, instr: &mut nvbit_rs::Instruction<'_>) {
         // instr.print_decoded();
 
-        let _line_info = instr.line_info(&mut self.ctx.lock().unwrap());
+        let line_info = instr.line_info(&mut self.ctx.lock().unwrap());
+        let line_num = line_info.map(|info| info.line).unwrap_or(0);
 
         let opcode = instr.opcode().expect("has opcode");
 
@@ -468,9 +404,6 @@ impl<'c> Instrumentor<'c> {
         };
 
         let mut mref_idx = 0;
-        // use bitvec::{bits, boxed::BitBox, field::BitField};
-        // let test = bits![0; 32];
-        // let num: u32 = test.load();
 
         // iterate on the operands
         for operand in instr.operands().collect::<Vec<_>>() {
@@ -496,6 +429,7 @@ impl<'c> Instrumentor<'c> {
                     instr_is_extended: instr.is_extended(),
                     mref_idx,
                     pchannel_dev: pchannel_dev_lock.as_mut_ptr() as u64,
+                    line_num,
                 };
                 inst_args.instrument(instr);
                 mref_idx += 1;
@@ -550,7 +484,7 @@ impl<'c> Instrumentor<'c> {
 
         // get all traced kernel ids
         let mut kernel_ids = HashSet::new();
-        let decoder = Decoder::new(|access: trace_model::MemAccessTraceEntry| {
+        let decoder = Decoder::new(|access: trace::MemAccessTraceEntry| {
             kernel_ids.insert(access.kernel_id);
         });
         rmp_serde::Deserializer::new(&mut reader)
@@ -570,9 +504,9 @@ impl<'c> Instrumentor<'c> {
             .iter_mut()
             .map(|(id, mut ser)| (*id, Encoder::new(ser).unwrap()))
             .collect();
-        let decoder = Decoder::new(|access: trace_model::MemAccessTraceEntry| {
+        let decoder = Decoder::new(|access: trace::MemAccessTraceEntry| {
             let encoder = rmp_encoders.get_mut(&access.kernel_id).unwrap();
-            encoder.encode::<trace_model::MemAccessTraceEntry>(access);
+            encoder.encode::<trace::MemAccessTraceEntry>(access);
         });
         reader.rewind();
         rmp_serde::Deserializer::new(&mut reader)
@@ -651,7 +585,7 @@ impl<'c> Instrumentor<'c> {
             access_plot.register_allocation(allocation);
         }
 
-        let decoder = Decoder::new(|access: trace_model::MemAccessTraceEntry| {
+        let decoder = Decoder::new(|access: trace::MemAccessTraceEntry| {
             access_plot.add(access, None);
         });
         reader.deserialize_seq(decoder).unwrap();

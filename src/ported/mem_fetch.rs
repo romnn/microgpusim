@@ -1,12 +1,7 @@
-#[derive(Debug, Clone, Copy)]
-struct DecodedAddress {
-    chip: usize,
-    bk: usize,
-    row: usize,
-    col: usize,
-    burst: usize,
-    sub_partition: usize,
-}
+use super::addrdec::LinearToRawAddressTranslation;
+use super::instruction::WarpInstruction;
+use crate::config::GPUConfig;
+use crate::ported::{address, DecodedAddress, READ_PACKET_SIZE, WRITE_PACKET_SIZE};
 
 pub trait MemFetchInterface {
     fn full(&self, size: usize, write: bool) -> bool;
@@ -15,9 +10,13 @@ pub trait MemFetchInterface {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MemFetchKind {
-    Atomic,
-    Const,
-    Tex,
+    READ_REQUEST = 0,
+    WRITE_REQUEST,
+    READ_REPLY, // send to shader
+    WRITE_ACK,
+    // Atomic,
+    // Const,
+    // Tex,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -54,7 +53,7 @@ pub enum AccessKind {
     NUM_MEM_ACCESS_TYPE,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct MemAccess {
     uid: usize,
     /// request address
@@ -70,21 +69,135 @@ pub struct MemAccess {
     // mem_access_sector_mask_t m_sector_mask;
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct MemFetch {
-    access: MemAccess,
-    tlx_addr: DecodedAddress,
-    chip: usize,
-    sub_partition: usize,
-    data_size: usize,
-    kind: MemFetchKind,
+    pub access: MemAccess,
+    pub instr: WarpInstruction,
+    pub tlx_addr: DecodedAddress,
+    pub partition_addr: address,
+    pub chip: usize,
+    pub sub_partition: usize,
+    pub data_size: usize,
+    pub control_size: usize,
+    pub kind: MemFetchKind,
 }
 
 impl MemFetch {
+    pub fn is_write(&self) -> bool {
+        self.access.is_write
+    }
+
+    // pub fn cache_op(&self) -> super::instruction::CacheOperator {
+    //     self.instr.cache_op
+    // }
+
     pub fn access_kind(&self) -> AccessKind {
         self.access.kind
     }
+
+    pub fn new(
+        instr: WarpInstruction,
+        access: MemAccess,
+        control_size: usize,
+        config: GPUConfig,
+    ) -> Self {
+        // m_request_uid = sm_next_mf_request_uid++;
+        // let warp_id = instr.warp_id;
+        let data_size = access.req_size;
+        let kind = if access.is_write {
+            MemFetchKind::WRITE_REQUEST
+        } else {
+            MemFetchKind::READ_REQUEST
+        };
+
+        let tlx_addr = config.address_mapping().tlx(access.addr);
+        let partition_addr = config.address_mapping().partition_address(access.addr);
+        Self {
+            access,
+            instr,
+            data_size,
+            control_size,
+            tlx_addr,
+            partition_addr,
+            chip: 0,
+            sub_partition: 0,
+            kind,
+        }
+        // if (inst) {
+        // m_inst = *inst;
+        // assert(wid == m_inst.warp_id());
+        // }
+        // m_data_size = access.get_size();
+        // m_ctrl_size = ctrl_size;
+        // m_sid = sid;
+        // m_tpc = tpc;
+        // m_wid = wid;
+        // config->m_address_mapping.addrdec_tlx(access.get_addr(), &m_raw_addr);
+        // m_partition_addr =
+        //   config->m_address_mapping.partition_address(access.get_addr());
+        // m_type = m_access.is_write() ? WRITE_REQUEST : READ_REQUEST;
+        // m_timestamp = cycle;
+        // m_timestamp2 = 0;
+        // m_status = MEM_FETCH_INITIALIZED;
+        // m_status_change = cycle;
+        // m_mem_config = config;
+        // icnt_flit_size = config->icnt_flit_size;
+        // original_mf = m_original_mf;
+        // original_wr_mf = m_original_wr_mf;
+        // if (m_original_mf) {
+        // m_raw_addr.chip = m_original_mf->get_tlx_addr().chip;
+        // m_raw_addr.sub_partition = m_original_mf->get_tlx_addr().sub_partition;
+        // }
+    }
+
+    pub fn alloc(instr: WarpInstruction, access: MemAccess) -> Self {
+        let size = if access.is_write {
+            WRITE_PACKET_SIZE
+        } else {
+            READ_PACKET_SIZE
+        };
+        Self::new(instr, access, size, GPUConfig::default())
+        // Self {
+        //     instr,
+        //     access,
+        // }
+        // access, &inst_copy,
+        // inst.warp_id(), m_core_id, m_cluster_id, m_memory_config, cycle);
+        // return mf;
+    }
 }
+
+// class shader_core_mem_fetch_allocator : public mem_fetch_allocator {
+//  public:
+//   shader_core_mem_fetch_allocator(unsigned core_id, unsigned cluster_id,
+//                                   const memory_config *config) {
+//     m_core_id = core_id;
+//     m_cluster_id = cluster_id;
+//     m_memory_config = config;
+//   }
+//   mem_fetch *alloc(new_addr_type addr, mem_access_type type, unsigned size,
+//                    bool wr, unsigned long long cycle) const;
+//   mem_fetch *alloc(new_addr_type addr, mem_access_type type,
+//                    const active_mask_t &active_mask,
+//                    const mem_access_byte_mask_t &byte_mask,
+//                    const mem_access_sector_mask_t &sector_mask, unsigned size,
+//                    bool wr, unsigned long long cycle, unsigned wid,
+//                    unsigned sid, unsigned tpc, mem_fetch *original_mf) const;
+//   mem_fetch *alloc(const warp_inst_t &inst, const mem_access_t &access,
+//                    unsigned long long cycle) const {
+//     warp_inst_t inst_copy = inst;
+//     mem_fetch *mf = new mem_fetch(
+//         access, &inst_copy,
+//         access.is_write() ? WRITE_PACKET_SIZE : READ_PACKET_SIZE,
+//         inst.warp_id(), m_core_id, m_cluster_id, m_memory_config, cycle);
+//     return mf;
+//   }
+//
+//  private:
+//   unsigned m_core_id;
+//   unsigned m_cluster_id;
+//   const memory_config *m_memory_config;
+// };
 
 // class mem_fetch {
 //  public:

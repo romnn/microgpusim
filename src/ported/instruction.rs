@@ -1,10 +1,13 @@
+use crate::MainMemory;
+
 use super::address;
-use super::mem_fetch::AccessKind;
+use super::mem_fetch::{AccessKind, MemAccess};
+use super::opcodes::{Op, Opcode, OpcodeMap};
 
 use bitvec::{bits, boxed::BitBox, field::BitField};
 use nvbit_model::MemorySpace;
 use std::collections::VecDeque;
-use trace_model::MemAccessTraceEntry;
+use trace_model as trace;
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum ArchOp {
@@ -33,17 +36,41 @@ pub struct PerThreadInfo {
     pub mem_req_addr: Option<address>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub enum CacheOperator {
+    UNDEFINED,
+    // loads
+    ALL,      // .ca
+    LAST_USE, // .lu
+    VOLATILE, // .cv
+    L1,       // .nc
+    // loads and stores
+    STREAMING, // .cs
+    GLOBAL,    // .cg
+    // stores
+    WRITE_BACK,    // .wb
+    WRITE_THROUGH, // .wt
+}
+
+#[derive(Clone, Debug)]
 pub struct WarpInstruction {
-    id: usize,
-    pc: usize,
-    op: ArchOp,
-    active_mask: BitBox,
-    memory_space: Option<MemorySpace>,
-    // threads: Vec<PerThreadInfo>,
-    threads: [PerThreadInfo; 32],
-    mem_access_queue: VecDeque<()>,
-    // std::vector<per_thread_info> m_per_scalar_thread;
+    pub warp_id: usize,
+    pub pc: u32,
+    pub opcode: Opcode,
+    pub active_mask: BitBox,
+    pub cache_operator: CacheOperator,
+    pub memory_space: MemorySpace,
+    pub threads: [PerThreadInfo; 32],
+    pub mem_access_queue: VecDeque<MemAccess>,
+    pub empty: bool,
+    /// size of the word being operated on
+    pub data_size: u32,
+    pub is_atomic: bool,
+
+    pub outputs: [u32; 8],
+    pub out_count: usize,
+    pub inputs: [u32; 24],
+    pub in_count: usize,
     // bool m_mem_accesses_created;
     // std::list<mem_access_t> m_accessq;
     // m_decoded = false;
@@ -76,19 +103,150 @@ pub struct WarpInstruction {
     // isize = 0;
 }
 
-// new_inst->parse_from_trace_struct(
-impl From<MemAccessTraceEntry> for WarpInstruction {
-    fn from(trace: MemAccessTraceEntry) -> Self {
+#[derive(Debug, Clone, Copy)]
+pub enum MemOp {
+    Load,
+    Store,
+}
+
+const GLOBAL_HEAP_START: u64 = 0xC0000000;
+// Volta max shmem size is 96kB
+const SHARED_MEM_SIZE_MAX: u64 = 96 * (1 << 10);
+// Volta max local mem is 16kB
+const LOCAL_MEM_SIZE_MAX: u64 = 1 << 14;
+
+impl WarpInstruction {
+    // new_inst->parse_from_trace_struct(
+    // impl From<MemAccessTraceEntry> for WarpInstruction {
+
+    fn from_trace(
+        kernel: trace::KernelLaunch,
+        trace: trace::MemAccessTraceEntry,
+        opcodes: &OpcodeMap,
+    ) -> Self {
         // fill active mask
         let mut active_mask = BitBox::default();
         active_mask.store(trace.active_mask);
         let mut threads = [PerThreadInfo::default(); 32];
 
-        let pc = 0;
-        // let pc = trace.m_pc;
-
         // fill registers
-        // trace.
+
+        // handle special cases and fill memory space
+        let opcode_tokens: Vec<_> = trace.instr_opcode.split(".").collect();
+        debug_assert!(!opcode_tokens.is_empty());
+        let opcode1 = opcode_tokens[0];
+
+        let mut memory_op: Option<MemOp> = None;
+        let mut data_size = 0;
+        let mut is_atomic = false;
+        let mut const_cache_operand = false;
+        let mut cache_operator = CacheOperator::UNDEFINED;
+        let mut memory_space = MemorySpace::None;
+
+        let Some(&opcode) = opcodes.get(opcode1) else {
+            panic!("undefined opcode {}", opcode1);
+        };
+
+        match opcode.op {
+            Op::LDC => {
+                memory_op = Some(MemOp::Load);
+                data_size = 4;
+                const_cache_operand = true;
+                memory_space = MemorySpace::Constant;
+                cache_operator = CacheOperator::ALL;
+            }
+            Op::LDG | Op::LDL => {
+                // assert!(data_size > 0);
+                memory_op = Some(MemOp::Load);
+                cache_operator = CacheOperator::ALL;
+                memory_space = if opcode.op == Op::LDL {
+                    MemorySpace::Local
+                } else {
+                    MemorySpace::Global
+                };
+                // check the cache scope, if its strong GPU, then bypass L1
+                // if (trace.check_opcode_contain(opcode_tokens, "STRONG") &&
+                //     trace.check_opcode_contain(opcode_tokens, "GPU")) {
+                //   cache_op = CACHE_GLOBAL;
+                // }
+            }
+            Op::STG | Op::STL => {
+                // assert!(data_size > 0);
+                memory_op = Some(MemOp::Store);
+                cache_operator = CacheOperator::ALL;
+                memory_space = if opcode.op == Op::STL {
+                    MemorySpace::Local
+                } else {
+                    MemorySpace::Global
+                };
+            }
+            Op::ATOM | Op::RED | Op::ATOMG => {
+                // assert!(data_size > 0);
+                memory_op = Some(MemOp::Load);
+                // op = Op::LOAD;
+                memory_space = MemorySpace::Global;
+                is_atomic = true;
+                // all the atomics should be done at L2
+                cache_operator = CacheOperator::GLOBAL;
+            }
+            Op::LDS => {
+                // assert!(data_size > 0);
+                memory_op = Some(MemOp::Load);
+                memory_space = MemorySpace::Shared;
+            }
+            Op::STS => {
+                // assert!(data_size > 0);
+                memory_op = Some(MemOp::Store);
+                memory_space = MemorySpace::Shared;
+            }
+            Op::ATOMS => {
+                // assert!(data_size > 0);
+                is_atomic = true;
+                memory_op = Some(MemOp::Load);
+                memory_space = MemorySpace::Shared;
+            }
+            Op::LDSM => {
+                // assert!(data_size > 0);
+                memory_space = MemorySpace::Shared;
+            }
+            Op::ST | Op::LD => {
+                // assert!(data_size > 0);
+                is_atomic = true;
+                memory_op = Some(if opcode.op == Op::LD {
+                    MemOp::Load
+                } else {
+                    MemOp::Store
+                });
+                // resolve generic loads
+                let trace::KernelLaunch {
+                    shared_mem_base_addr,
+                    local_mem_base_addr,
+                    ..
+                } = kernel;
+                if shared_mem_base_addr == 0 || local_mem_base_addr == 0 {
+                    // shmem and local addresses are not set
+                    // assume all the mem reqs are shared by default
+                    memory_space = MemorySpace::Shared;
+                } else {
+                    // check the first active address
+                    if let Some(tid) = active_mask.first_one() {
+                        let addr = trace.addrs[tid];
+                        if (shared_mem_base_addr..local_mem_base_addr).contains(&addr) {
+                            memory_space = MemorySpace::Shared;
+                        } else if (local_mem_base_addr..(local_mem_base_addr + LOCAL_MEM_SIZE_MAX))
+                            .contains(&addr)
+                        {
+                            memory_space = MemorySpace::Local;
+                            cache_operator = CacheOperator::ALL;
+                        } else {
+                            memory_space = MemorySpace::Global;
+                            cache_operator = CacheOperator::ALL;
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
 
         // fill addresses
         for (tid, thread) in threads.iter_mut().enumerate() {
@@ -97,36 +255,41 @@ impl From<MemAccessTraceEntry> for WarpInstruction {
             }
         }
         Self {
-            active_mask,
-            pc,
+            warp_id: trace.warp_id as usize,
+            opcode,
+            pc: trace.instr_offset,
             threads,
-            ..Self::default()
+            memory_space,
+            is_atomic,
+            active_mask,
+            cache_operator,
+            data_size,
+            empty: true,
+            mem_access_queue: VecDeque::new(),
+            outputs: [0; 8],
+            in_count: 0,
+            inputs: [0; 24],
+            out_count: 0,
         }
-    }
-}
-
-impl Default for WarpInstruction {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
 impl WarpInstruction {
-    pub fn new() -> Self {
-        // [PerThreadInfo; 32]
-        // let threads = (0..32).map(|_| PerThreadInfo::default()).collect();
-        // let threads = vec![PerThreadInfo::default(); 32];
-        let threads = [PerThreadInfo::default(); 32];
-        Self {
-            id: 0,
-            pc: 0,
-            op: ArchOp::LOAD_OP,
-            threads,
-            memory_space: Some(MemorySpace::Global),
-            mem_access_queue: VecDeque::new(),
-            active_mask: BitBox::from_bitslice(bits![0; 32]),
-        }
-    }
+    pub fn clear(&mut self) {}
+    // pub fn new() -> Self {
+    //     let threads = [PerThreadInfo::default(); 32];
+    //     Self {
+    //         id: 0,
+    //         pc: 0,
+    //         op: ArchOp::LOAD_OP,
+    //         cache_operator: CacheOperator::UNDEFINED,
+    //         threads,
+    //         empty: true,
+    //         memory_space: Some(MemorySpace::Global),
+    //         mem_access_queue: VecDeque::new(),
+    //         active_mask: BitBox::from_bitslice(bits![0; 32]),
+    //     }
+    // }
 
     // bool accessq_empty() const { return m_accessq.empty(); }
     // unsigned accessq_count() const { return m_accessq.size(); }
@@ -310,18 +473,31 @@ impl WarpInstruction {
     }
 
     pub fn is_load(&self) -> bool {
-        self.op == ArchOp::LOAD_OP || self.op == ArchOp::TENSOR_CORE_LOAD_OP
+        let op = self.opcode.category;
+        op == ArchOp::LOAD_OP || op == ArchOp::TENSOR_CORE_LOAD_OP
     }
 
     pub fn is_store(&self) -> bool {
-        self.op == ArchOp::STORE_OP || self.op == ArchOp::TENSOR_CORE_STORE_OP
+        let op = self.opcode.category;
+        op == ArchOp::STORE_OP || op == ArchOp::TENSOR_CORE_STORE_OP
+    }
+
+    pub fn is_atomic(&self) -> bool {
+        let op = self.opcode.op;
+        op == Op::ST
+            || op == Op::LD
+            || op == Op::ATOMS
+            || op == Op::ATOM
+            || op == Op::RED
+            || op == Op::ATOMG
     }
 
     pub fn generate_mem_accesses(&self) {
-        if !(self.op == ArchOp::LOAD_OP
-            || self.op == ArchOp::TENSOR_CORE_LOAD_OP
-            || self.op == ArchOp::STORE_OP
-            || self.op == ArchOp::TENSOR_CORE_STORE_OP)
+        let op = self.opcode.category;
+        if !(op == ArchOp::LOAD_OP
+            || op == ArchOp::TENSOR_CORE_LOAD_OP
+            || op == ArchOp::STORE_OP
+            || op == ArchOp::TENSOR_CORE_STORE_OP)
         {
             return;
         }
@@ -332,18 +508,14 @@ impl WarpInstruction {
         let initial_queue_size = self.mem_access_queue.len();
         assert!(self.is_store() || self.is_load());
 
-        let Some(memory_space) = self.memory_space else {
-            return;
-        };
-        // if memory_space != MemorySpace::Texture && memory_space != MemorySpace::Constant {
-        //     // need address information per thread
-        //     // assert!(
-        // }
+        if self.memory_space != MemorySpace::Texture && self.memory_space != MemorySpace::Constant {
+            // need address information per thread
+            todo!();
+        }
         let is_write = self.is_store();
-        let access_type = match memory_space {
+        let access_type = match self.memory_space {
             MemorySpace::Constant => None,
             MemorySpace::Texture => None,
-            // MemorySpace::Texture => None,
             MemorySpace::Global if is_write => Some(AccessKind::GLOBAL_ACC_W),
             MemorySpace::Global if !is_write => Some(AccessKind::GLOBAL_ACC_R),
             MemorySpace::Local if is_write => Some(AccessKind::LOCAL_ACC_W),
