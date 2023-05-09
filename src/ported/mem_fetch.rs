@@ -3,13 +3,13 @@ use super::instruction::WarpInstruction;
 use crate::config::GPUConfig;
 use crate::ported::{address, DecodedAddress, READ_PACKET_SIZE, WRITE_PACKET_SIZE};
 
-pub trait MemFetchInterface {
+pub trait Interconnect {
     fn full(&self, size: usize, write: bool) -> bool;
     fn push(&self, mf: MemFetch);
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum MemFetchKind {
+pub enum Kind {
     READ_REQUEST = 0,
     WRITE_REQUEST,
     READ_REPLY, // send to shader
@@ -17,6 +17,38 @@ pub enum MemFetchKind {
     // Atomic,
     // Const,
     // Tex,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Status {
+    INITIALIZED,
+    IN_L1I_MISS_QUEUE,
+    IN_L1D_MISS_QUEUE,
+    IN_L1T_MISS_QUEUE,
+    IN_L1C_MISS_QUEUE,
+    IN_L1TLB_MISS_QUEUE,
+    IN_VM_MANAGER_QUEUE,
+    IN_ICNT_TO_MEM,
+    IN_PARTITION_ROP_DELAY,
+    IN_PARTITION_ICNT_TO_L2_QUEUE,
+    IN_PARTITION_L2_TO_DRAM_QUEUE,
+    IN_PARTITION_DRAM_LATENCY_QUEUE,
+    IN_PARTITION_L2_MISS_QUEUE,
+    IN_PARTITION_MC_INTERFACE_QUEUE,
+    IN_PARTITION_MC_INPUT_QUEUE,
+    IN_PARTITION_MC_BANK_ARB_QUEUE,
+    IN_PARTITION_DRAM,
+    IN_PARTITION_MC_RETURNQ,
+    IN_PARTITION_DRAM_TO_L2_QUEUE,
+    IN_PARTITION_L2_FILL_QUEUE,
+    IN_PARTITION_L2_TO_ICNT_QUEUE,
+    IN_ICNT_TO_SHADER,
+    IN_CLUSTER_TO_SHADER_QUEUE,
+    IN_SHADER_LDST_RESPONSE_FIFO,
+    IN_SHADER_FETCHED,
+    IN_SHADER_L1T_ROB,
+    DELETED,
+    NUM_MEM_REQ_STAT,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -76,13 +108,21 @@ pub struct MemFetch {
     pub tlx_addr: DecodedAddress,
     pub partition_addr: address,
     pub chip: usize,
-    pub sub_partition: usize,
-    pub data_size: usize,
+    // pub sub_partition_id: usize,
     pub control_size: usize,
-    pub kind: MemFetchKind,
+    pub kind: Kind,
+    pub status: Status,
+    pub data_size: usize,
+    pub warp_id: usize,
+    pub core_id: usize,
+    pub cluster_id: usize,
 }
 
 impl MemFetch {
+    pub fn is_atomic(&self) -> bool {
+        self.instr.is_atomic()
+    }
+
     pub fn is_write(&self) -> bool {
         self.access.is_write
     }
@@ -91,23 +131,30 @@ impl MemFetch {
     //     self.instr.cache_op
     // }
 
-    pub fn access_kind(&self) -> AccessKind {
-        self.access.kind
+    pub fn sub_partition_id(&self) -> u64 {
+        self.tlx_addr.sub_partition
+    }
+
+    pub fn access_kind(&self) -> &AccessKind {
+        &self.access.kind
     }
 
     pub fn new(
         instr: WarpInstruction,
         access: MemAccess,
-        control_size: usize,
         config: GPUConfig,
+        control_size: usize,
+        warp_id: usize,
+        core_id: usize,
+        cluster_id: usize,
     ) -> Self {
         // m_request_uid = sm_next_mf_request_uid++;
         // let warp_id = instr.warp_id;
         let data_size = access.req_size;
         let kind = if access.is_write {
-            MemFetchKind::WRITE_REQUEST
+            Kind::WRITE_REQUEST
         } else {
-            MemFetchKind::READ_REQUEST
+            Kind::READ_REQUEST
         };
 
         let tlx_addr = config.address_mapping().tlx(access.addr);
@@ -115,13 +162,17 @@ impl MemFetch {
         Self {
             access,
             instr,
+            warp_id,
+            core_id,
+            cluster_id,
             data_size,
             control_size,
             tlx_addr,
             partition_addr,
             chip: 0,
-            sub_partition: 0,
+            // sub_partition_id: 0,
             kind,
+            status: Status::INITIALIZED,
         }
         // if (inst) {
         // m_inst = *inst;
@@ -148,22 +199,6 @@ impl MemFetch {
         // m_raw_addr.chip = m_original_mf->get_tlx_addr().chip;
         // m_raw_addr.sub_partition = m_original_mf->get_tlx_addr().sub_partition;
         // }
-    }
-
-    pub fn alloc(instr: WarpInstruction, access: MemAccess) -> Self {
-        let size = if access.is_write {
-            WRITE_PACKET_SIZE
-        } else {
-            READ_PACKET_SIZE
-        };
-        Self::new(instr, access, size, GPUConfig::default())
-        // Self {
-        //     instr,
-        //     access,
-        // }
-        // access, &inst_copy,
-        // inst.warp_id(), m_core_id, m_cluster_id, m_memory_config, cycle);
-        // return mf;
     }
 }
 

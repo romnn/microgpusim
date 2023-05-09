@@ -35,6 +35,87 @@ pub struct CacheConfig {
     pub miss_queue_size: usize,
     pub result_fifo_entries: Option<usize>,
     pub data_port_width: Option<usize>,
+    // pub disabled: bool,
+}
+
+/// TODO: use a builder here so we can fill in the remaining values
+/// and do the validation as found below:
+impl CacheConfig {
+    /// The total size of the cache in bytes.
+    pub fn total_bytes(&self) -> usize {
+        self.line_size * self.num_sets * self.associativity
+    }
+
+    /// Number of lines in total.
+    pub fn total_lines(&self) -> usize {
+        self.num_sets * self.associativity
+    }
+
+    // do not use enabled but options
+    pub fn set_index(&self, idx: address) {}
+
+    pub fn tag(&self, addr: address) -> address {
+        // For generality, the tag includes both index and tag. This allows for more
+        // complex set index calculations that can result in different indexes
+        // mapping to the same set, thus the full tag + index is required to check
+        // for hit/miss. Tag is now identical to the block address.
+
+        // return addr >> (m_line_sz_log2+m_nset_log2);
+        // return addr & ~(new_addr_type)(m_line_sz - 1);
+        addr & !address::try_from(self.line_size - 1).unwrap()
+    }
+
+    /// Block address
+    pub fn block_addr(&self, addr: address) -> address {
+        addr & !address::try_from(self.line_size - 1).unwrap()
+    }
+
+    /// Mshr address
+    pub fn mshr_addr(&self, addr: address) -> address {
+        addr & !address::try_from(self.line_size - 1).unwrap()
+    }
+
+    // m_line_sz_log2 = LOGB2(m_line_sz);
+    // m_nset_log2 = LOGB2(m_nset);
+    // m_valid = true;
+    // m_atom_sz = (m_cache_type == SECTOR) ? SECTOR_SIZE : m_line_sz;
+    // m_sector_sz_log2 = LOGB2(SECTOR_SIZE);
+    // original_m_assoc = m_assoc;
+
+    // // detect invalid configuration
+    // if ((m_alloc_policy == ON_FILL || m_alloc_policy == STREAMING) and
+    //     m_write_policy == WRITE_BACK) {
+    //   // A writeback cache with allocate-on-fill policy will inevitably lead to
+    //   // deadlock: The deadlock happens when an incoming cache-fill evicts a
+    //   // dirty line, generating a writeback request.  If the memory subsystem is
+    //   // congested, the interconnection network may not have sufficient buffer
+    //   // for the writeback request.  This stalls the incoming cache-fill.  The
+    //   // stall may propagate through the memory subsystem back to the output
+    //   // port of the same core, creating a deadlock where the wrtieback request
+    //   // and the incoming cache-fill are stalling each other.
+    //   assert(0 &&
+    //          "Invalid cache configuration: Writeback cache cannot allocate new "
+    //          "line on fill. ");
+    // }
+    //
+    // if ((m_write_alloc_policy == FETCH_ON_WRITE ||
+    //      m_write_alloc_policy == LAZY_FETCH_ON_READ) &&
+    //     m_alloc_policy == ON_FILL) {
+    //   assert(
+    //       0 &&
+    //       "Invalid cache configuration: FETCH_ON_WRITE and LAZY_FETCH_ON_READ "
+    //       "cannot work properly with ON_FILL policy. Cache must be ON_MISS. ");
+    // }
+    // if (m_cache_type == SECTOR) {
+    //   assert(m_line_sz / SECTOR_SIZE == SECTOR_CHUNCK_SIZE &&
+    //          m_line_sz % SECTOR_SIZE == 0);
+    // }
+    //
+    // // default: port to data array width and granularity = line size
+    // if (m_data_port_width == 0) {
+    //   m_data_port_width = m_line_sz;
+    // }
+    // assert(m_line_sz % m_data_port_width == 0);
 }
 
 impl std::fmt::Display for CacheConfig {
@@ -48,6 +129,199 @@ impl std::fmt::Display for CacheConfig {
     }
 }
 
+/// todo: remove the copy stuff, very expensive otherwise
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct GPUConfig {
+    /// The SM number to pass to ptxas when getting register usage for
+    /// computing GPU occupancy.
+    pub occupancy_sm_number: usize,
+    /// num threads per shader core pipeline
+    pub max_threads_per_shader: usize,
+    /// shader core pipeline warp size
+    pub warp_size: usize,
+    /// per-shader read-only L1 texture cache config
+    pub tex_cache_l1: Option<Arc<CacheConfig>>,
+    /// per-shader read-only L1 constant memory cache config
+    pub const_cache_l1: Option<Arc<CacheConfig>>,
+    /// shader L1 instruction cache config
+    pub inst_cache_l1: Option<Arc<CacheConfig>>,
+    /// per-shader L1 data cache config
+    pub data_cache_l1: Option<Arc<CacheConfig>>,
+    /// unified banked L2 data cache config
+    pub data_cache_l2: Option<Arc<CacheConfig>>,
+
+    /// L1D write ratio
+    pub l1_cache_write_ratio: usize,
+    /// The number of L1 cache banks
+    pub l1_banks: usize,
+    /// L1 banks byte interleaving granularity
+    pub l1_banks_byte_interleaving: usize,
+    // L1 banks hashing function
+    pub l1_banks_hashing_function: usize,
+    /// L1 Hit Latency
+    pub l1_latency: usize,
+    /// smem Latency
+    pub shared_memory_latency: usize,
+    /// implements -Xptxas -dlcm=cg, default=no skip
+    pub global_mem_skip_l1_data_cache: bool,
+    /// enable perfect memory mode (no cache miss)
+    pub perfect_mem: bool,
+    // -gpgpu_cache:dl1PrefL1                 none # per-shader L1 data cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq> | none}
+    // -gpgpu_cache:dl1PrefShared                 none # per-shader L1 data cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq> | none}
+    /// Number of registers per shader core.
+    /// Limits number of concurrent CTAs. (default 8192)
+    pub shader_registers: usize, // 65536
+    /// Maximum number of registers per CTA. (default 8192)
+    pub registers_per_block: usize, //  8192
+    pub ignore_resources_limitation: bool, // 0
+    /// Maximum number of concurrent CTAs in shader (default 32)
+    pub max_concurrent_blocks_per_core: usize, // 32
+    /// Maximum number of named barriers per CTA (default 16)
+    pub num_cta_barriers: usize, // 16
+    /// number of processing clusters
+    pub num_simt_clusters: usize, //  20
+    /// number of simd cores per cluster
+    pub num_cores_per_simt_cluster: usize, // 1
+    /// number of packets in ejection buffer
+    pub num_cluster_ejection_buffer_size: usize, // 8
+    /// number of response packets in ld/st unit ejection buffer
+    pub num_ldst_response_buffer_size: usize, //  2
+    /// Size of shared memory per thread block or CTA (default 48kB)
+    pub shared_memory_per_block: usize, // 49152
+    /// Size of shared memory per shader core (default 16kB)
+    pub shared_memory_size: u32, // 98304
+    /// Option list of shared memory sizes
+    pub shared_memory_option: bool, // 0
+    /// Size of unified data cache(L1D + shared memory) in KB
+    pub unified_l1_data_cache_size: bool, //0
+    /// adaptive_cache_config
+    pub adaptive_cache_config: bool, // 0
+    /// Option list of shared memory sizes
+    pub shared_memory_sizes: Vec<u32>, // 0
+    // Size of shared memory per shader core (default 16kB)
+    // shared_memory_size_default: usize, // 16384
+    /// Size of shared memory per shader core (default 16kB)
+    pub shared_memory_size_pref_l1: usize, // 16384
+    /// Size of shared memory per shader core (default 16kB)
+    pub shared_memory_size_pref_shared: usize, // 16384
+    /// Number of banks in the shared memory in each shader core (default 16)
+    pub shared_memory_num_banks: usize, // 32
+    /// Limit shared memory to do one broadcast per cycle (default on)
+    pub shared_memory_limited_broadcast: bool, // 0
+    /// Number of portions a warp is divided into for shared memory bank conflict check
+    pub shared_memory_warp_parts: usize, // 1
+    /// The number of memory transactions allowed per core cycle
+    pub mem_unit_ports: usize, // 1
+    /// Specify which shader core to collect the warp size distribution from
+    pub warp_distro_shader_core: i32, // -1
+    /// Specify which shader core to collect the warp issue distribution from
+    pub warp_issue_shader_core: i32, // 0
+    /// Mapping from local memory space address to simulated GPU physical address space
+    pub local_mem_map: bool, // 1
+    /// Number of register banks (default = 8)
+    pub num_reg_banks: usize, // 32
+    /// Use warp ID in mapping registers to banks (default = off)
+    pub reg_bank_use_warp_id: bool, // 0
+    /// Sub Core Volta/Pascal model (default = off)
+    pub sub_core_model: bool, // 0
+    /// Coalescing arch (GT200 = 13, Fermi = 20)
+    pub coalescing_arch: Architecture, // 13
+    /// Number of warp schedulers per core
+    pub num_schedulers_per_core: usize, // 2
+    /// Max number of instructions that can be issued per warp in one cycle by scheduler (either 1 or 2)
+    pub max_instruction_issue_per_warp: usize, // 2
+    /// should dual issue use two different execution unit resources
+    pub dual_issue_diff_exec_units: bool, // 1
+    /// Select the simulation order of cores in a cluster
+    pub simt_core_sim_order: SchedulingOrder, // 1
+    /// Number if ldst units (default=1) WARNING: not hooked up to anything
+    pub num_mem_units: usize, // 1
+    /// Scheduler configuration: < lrr | gto | two_level_active > If two_level_active:<num_active_warps>:<inner_prioritization>:<outer_prioritization>For complete list of prioritization values see shader.h enum scheduler_prioritization_typeDefault: gto
+    pub scheduler: CoreSchedulerKind, // gto
+    /// Support concurrent kernels on a SM (default = disabled)
+    pub concurrent_kernel_sm: bool, // 0
+    /// perfect inst and const cache mode, so all inst and const hits in the cache(default = disabled)
+    pub perfect_inst_const_cache: bool, // 0
+    /// the number of fetched intruction per warp each cycle
+    pub inst_fetch_throughput: usize, // 1
+    /// the number ports of the register file
+    pub reg_file_port_throughput: usize, // 1
+    /// Fill the L2 cache on memcpy
+    pub fill_l2_on_memcopy: bool, // true
+    /// simple_dram_model with fixed latency and BW
+    pub simple_dram_model: bool, // 0
+    /// DRAM scheduler kind. 0 = fifo, 1 = FR-FCFS (default)
+    pub dram_scheduler: DRAMSchedulerKind, // 1
+    /// DRAM partition queue
+    pub dram_partition_queue_interconn_to_l2: usize, // 8
+    pub dram_partition_queue_l2_to_dram: usize,      // 8
+    pub dram_partition_queue_dram_to_l2: usize,      // 8
+    pub dram_partition_queue_l2_to_interconn: usize, // 8
+    /// use a ideal L2 cache that always hit
+    pub ideal_l2: bool, // 0
+    /// L2 cache used for texture only
+    pub data_cache_l2_texture_only: bool, // 0
+    /// number of memory modules (e.g. memory controllers) in gpu
+    pub num_memory_controllers: usize, // 8
+    /// number of memory subpartition in each memory module
+    pub num_sub_partition_per_memory_channel: usize, // 2
+    /// number of memory chips per memory controller
+    pub num_memory_chips_per_controller: usize, // 1
+    /// track and display latency statistics 0x2 enables MC, 0x4 enables queue logs
+    // memory_latency_stat: usize, // 14
+    /// DRAM scheduler queue size 0 = unlimited (default); # entries per chip
+    pub frfcfs_dram_sched_queue_size: usize, // 64
+    /// 0 = unlimited (default); # entries per chip
+    pub dram_return_queue_size: usize, // 116
+    /// default = 4 bytes (8 bytes per cycle at DDR)
+    pub dram_buswidth: usize, // 4
+    /// Burst length of each DRAM request (default = 4 data bus cycle)
+    pub dram_burst_length: usize, // 8
+    /// Frequency ratio between DRAM data bus and command bus (default = 2 times, i.e. DDR)
+    pub dram_data_command_freq_ratio: usize, // 4
+    /// DRAM timing parameters =
+    /// {nbk:tCCD:tRRD:tRCD:tRAS:tRP:tRC:CL:WL:tCDLR:tWR:nbkgrp:tCCDL:tRTPL}
+    /// dram_timing_opt
+    /// nbk=16:CCD=2:RRD=6:RCD=12:RAS=28:RP=12:RC=40: CL=12:WL=4:CDLR=5:WR=12:nbkgrp=1:CCDL=0:RTPL=0
+    /// ROP queue latency (default 85)
+    pub l2_rop_latency: usize, // 120
+    /// DRAM latency (default 30)
+    pub dram_latency: usize, // 100
+    /// dual_bus_interface (default = 0)
+    pub dram_dual_bus_interface: bool, // 0
+    /// dram_bnk_indexing_policy
+    pub dram_bank_indexing_policy: DRAMBankIndexPolicy, // 0
+    /// dram_bnkgrp_indexing_policy
+    pub dram_bank_group_indexing_policy: DRAMBankGroupIndexPolicy, // 0
+    /// Seperate_Write_Queue_Enable
+    pub dram_seperate_write_queue_enable: bool, // 0
+    /// write_Queue_Size
+    // dram_write_queue_size: usize, // 32:28:16
+    /// elimnate_rw_turnaround i.e set tWTR and tRTW = 0
+    pub dram_elimnate_rw_turnaround: bool, // 0
+    /// mapping memory address to dram model
+    /// {dramid@<start bit>;<memory address map>}
+    // memory_addr_mapping: String, // dramid@8;00000000.00000000.00000000.00000000.0000RRRR.RRRRRRRR.RBBBCCCC.BCCSSSSS
+    /// run sweep test to check address mapping for aliased address
+    // memory_addr_test: bool, // 0
+    /// 0 = old addressing mask, 1 = new addressing mask, 2 = new add. mask + flipped bank sel and chip sel bits
+    // memory_address_mask: usize, // 1
+    pub memory_partition_indexing: MemoryPartitionIndexingScheme, // 0
+    /// Major compute capability version number
+    pub compute_capability_major: usize, // 7
+    /// Minor compute capability version number
+    pub compute_capability_minor: usize, // 0
+    /// Flush L1 cache at the end of each kernel call
+    pub flush_l1_cache: bool, // 0
+    /// Flush L2 cache at the end of each kernel call
+    pub flush_l2_cache: bool, // 0
+    /// maximum kernels that can run concurrently on GPU.
+    ///
+    /// Set this value according to max resident grids for your
+    /// compute capability.
+    pub max_concurrent_kernels: usize, // 32
+}
+
 impl GPUConfig {
     pub fn total_cores(&self) -> usize {
         self.num_simt_clusters * self.num_cores_per_simt_cluster
@@ -57,12 +331,16 @@ impl GPUConfig {
         core_id / self.num_cores_per_simt_cluster
     }
 
-    pub fn sid_to_cid(&self, sid: usize) -> usize {
-        sid % self.num_cores_per_simt_cluster
+    pub fn global_core_id_to_core_id(&self, core_id: usize) -> usize {
+        core_id % self.num_cores_per_simt_cluster
     }
 
     pub fn global_core_id(&self, cluster_id: usize, core_id: usize) -> usize {
         cluster_id * self.num_cores_per_simt_cluster + core_id
+    }
+
+    pub fn mem_id_to_device_id(&self, mem_id: u64) -> u64 {
+        mem_id + self.num_simt_clusters as u64
     }
 
     pub fn threads_per_block_padded(&self, kernel: &KernelInfo) -> usize {
@@ -314,279 +592,6 @@ impl GPUConfig {
 //         // Trace::init();
 //     }
 // }
-
-/// TODO: use a builder here so we can fill in the remaining values
-/// and do the validation as found below:
-impl CacheConfig {
-    /// The total size of the cache in bytes.
-    pub fn total_bytes(&self) -> usize {
-        self.line_size * self.num_sets * self.associativity
-    }
-
-    /// Number of lines in total.
-    pub fn total_lines(&self) -> usize {
-        self.num_sets * self.associativity
-    }
-
-    // do not use enabled but options
-    pub fn set_index(&self, idx: address) {}
-
-    pub fn tag(&self, addr: address) -> address {
-        // For generality, the tag includes both index and tag. This allows for more
-        // complex set index calculations that can result in different indexes
-        // mapping to the same set, thus the full tag + index is required to check
-        // for hit/miss. Tag is now identical to the block address.
-
-        // return addr >> (m_line_sz_log2+m_nset_log2);
-        // return addr & ~(new_addr_type)(m_line_sz - 1);
-        addr & !address::try_from(self.line_size - 1).unwrap()
-    }
-
-    /// Block address
-    pub fn block_addr(&self, addr: address) -> address {
-        addr & !address::try_from(self.line_size - 1).unwrap()
-    }
-
-    /// Mshr address
-    pub fn mshr_addr(&self, addr: address) -> address {
-        addr & !address::try_from(self.line_size - 1).unwrap()
-    }
-
-    // m_line_sz_log2 = LOGB2(m_line_sz);
-    // m_nset_log2 = LOGB2(m_nset);
-    // m_valid = true;
-    // m_atom_sz = (m_cache_type == SECTOR) ? SECTOR_SIZE : m_line_sz;
-    // m_sector_sz_log2 = LOGB2(SECTOR_SIZE);
-    // original_m_assoc = m_assoc;
-
-    // // detect invalid configuration
-    // if ((m_alloc_policy == ON_FILL || m_alloc_policy == STREAMING) and
-    //     m_write_policy == WRITE_BACK) {
-    //   // A writeback cache with allocate-on-fill policy will inevitably lead to
-    //   // deadlock: The deadlock happens when an incoming cache-fill evicts a
-    //   // dirty line, generating a writeback request.  If the memory subsystem is
-    //   // congested, the interconnection network may not have sufficient buffer
-    //   // for the writeback request.  This stalls the incoming cache-fill.  The
-    //   // stall may propagate through the memory subsystem back to the output
-    //   // port of the same core, creating a deadlock where the wrtieback request
-    //   // and the incoming cache-fill are stalling each other.
-    //   assert(0 &&
-    //          "Invalid cache configuration: Writeback cache cannot allocate new "
-    //          "line on fill. ");
-    // }
-    //
-    // if ((m_write_alloc_policy == FETCH_ON_WRITE ||
-    //      m_write_alloc_policy == LAZY_FETCH_ON_READ) &&
-    //     m_alloc_policy == ON_FILL) {
-    //   assert(
-    //       0 &&
-    //       "Invalid cache configuration: FETCH_ON_WRITE and LAZY_FETCH_ON_READ "
-    //       "cannot work properly with ON_FILL policy. Cache must be ON_MISS. ");
-    // }
-    // if (m_cache_type == SECTOR) {
-    //   assert(m_line_sz / SECTOR_SIZE == SECTOR_CHUNCK_SIZE &&
-    //          m_line_sz % SECTOR_SIZE == 0);
-    // }
-    //
-    // // default: port to data array width and granularity = line size
-    // if (m_data_port_width == 0) {
-    //   m_data_port_width = m_line_sz;
-    // }
-    // assert(m_line_sz % m_data_port_width == 0);
-}
-
-/// todo: remove the copy stuff, very expensive otherwise
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct GPUConfig {
-    /// The SM number to pass to ptxas when getting register usage for
-    /// computing GPU occupancy.
-    pub occupancy_sm_number: usize,
-    /// num threads per shader core pipeline
-    pub max_threads_per_shader: usize,
-    /// shader core pipeline warp size
-    pub warp_size: usize,
-    /// per-shader read-only L1 texture cache config
-    pub tex_cache_l1: Option<Arc<CacheConfig>>,
-    /// per-shader read-only L1 constant memory cache config
-    pub const_cache_l1: Option<Arc<CacheConfig>>,
-    /// shader L1 instruction cache config
-    pub inst_cache_l1: Option<Arc<CacheConfig>>,
-    /// per-shader L1 data cache config
-    pub data_cache_l1: Option<Arc<CacheConfig>>,
-    /// unified banked L2 data cache config
-    pub data_cache_l2: Option<Arc<CacheConfig>>,
-
-    /// L1D write ratio
-    pub l1_cache_write_ratio: usize,
-    /// The number of L1 cache banks
-    pub l1_banks: usize,
-    /// L1 banks byte interleaving granularity
-    pub l1_banks_byte_interleaving: usize,
-    // L1 banks hashing function
-    pub l1_banks_hashing_function: usize,
-    /// L1 Hit Latency
-    pub l1_latency: usize,
-    /// smem Latency
-    pub shared_memory_latency: usize,
-    /// implements -Xptxas -dlcm=cg, default=no skip
-    pub global_mem_skip_l1_data_cache: bool,
-    /// enable perfect memory mode (no cache miss)
-    pub perfect_mem: bool,
-    // -gpgpu_cache:dl1PrefL1                 none # per-shader L1 data cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq> | none}
-    // -gpgpu_cache:dl1PrefShared                 none # per-shader L1 data cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq> | none}
-    /// Number of registers per shader core.
-    /// Limits number of concurrent CTAs. (default 8192)
-    pub shader_registers: usize, // 65536
-    /// Maximum number of registers per CTA. (default 8192)
-    pub registers_per_block: usize, //  8192
-    pub ignore_resources_limitation: bool, // 0
-    /// Maximum number of concurrent CTAs in shader (default 32)
-    pub max_concurrent_blocks_per_core: usize, // 32
-    /// Maximum number of named barriers per CTA (default 16)
-    pub num_cta_barriers: usize, // 16
-    /// number of processing clusters
-    pub num_simt_clusters: usize, //  20
-    /// number of simd cores per cluster
-    pub num_cores_per_simt_cluster: usize, // 1
-    /// number of packets in ejection buffer
-    pub num_cluster_ejection_buffer_size: usize, // 8
-    /// number of response packets in ld/st unit ejection buffer
-    pub num_ldst_response_buffer_size: usize, //  2
-    /// Size of shared memory per thread block or CTA (default 48kB)
-    pub shared_memory_per_block: usize, // 49152
-    /// Size of shared memory per shader core (default 16kB)
-    pub shared_memory_size: u32, // 98304
-    /// Option list of shared memory sizes
-    pub shared_memory_option: bool, // 0
-    /// Size of unified data cache(L1D + shared memory) in KB
-    pub unified_l1_data_cache_size: bool, //0
-    /// adaptive_cache_config
-    pub adaptive_cache_config: bool, // 0
-    /// Option list of shared memory sizes
-    pub shared_memory_sizes: Vec<u32>, // 0
-    // Size of shared memory per shader core (default 16kB)
-    // shared_memory_size_default: usize, // 16384
-    /// Size of shared memory per shader core (default 16kB)
-    pub shared_memory_size_pref_l1: usize, // 16384
-    /// Size of shared memory per shader core (default 16kB)
-    pub shared_memory_size_pref_shared: usize, // 16384
-    /// Number of banks in the shared memory in each shader core (default 16)
-    pub shared_memory_num_banks: usize, // 32
-    /// Limit shared memory to do one broadcast per cycle (default on)
-    pub shared_memory_limited_broadcast: bool, // 0
-    /// Number of portions a warp is divided into for shared memory bank conflict check
-    pub shared_memory_warp_parts: usize, // 1
-    /// The number of memory transactions allowed per core cycle
-    pub mem_unit_ports: usize, // 1
-    /// Specify which shader core to collect the warp size distribution from
-    pub warp_distro_shader_core: i32, // -1
-    /// Specify which shader core to collect the warp issue distribution from
-    pub warp_issue_shader_core: i32, // 0
-    /// Mapping from local memory space address to simulated GPU physical address space
-    pub local_mem_map: bool, // 1
-    /// Number of register banks (default = 8)
-    pub num_reg_banks: usize, // 32
-    /// Use warp ID in mapping registers to banks (default = off)
-    pub reg_bank_use_warp_id: bool, // 0
-    /// Sub Core Volta/Pascal model (default = off)
-    pub sub_core_model: bool, // 0
-    /// Coalescing arch (GT200 = 13, Fermi = 20)
-    pub coalescing_arch: Architecture, // 13
-    /// Number of warp schedulers per core
-    pub num_schedulers_per_core: usize, // 2
-    /// Max number of instructions that can be issued per warp in one cycle by scheduler (either 1 or 2)
-    pub max_instruction_issue_per_warp: usize, // 2
-    /// should dual issue use two different execution unit resources
-    pub dual_issue_diff_exec_units: bool, // 1
-    /// Select the simulation order of cores in a cluster
-    pub simt_core_sim_order: SchedulingOrder, // 1
-    /// Number if ldst units (default=1) WARNING: not hooked up to anything
-    pub num_mem_units: usize, // 1
-    /// Scheduler configuration: < lrr | gto | two_level_active > If two_level_active:<num_active_warps>:<inner_prioritization>:<outer_prioritization>For complete list of prioritization values see shader.h enum scheduler_prioritization_typeDefault: gto
-    pub scheduler: CoreSchedulerKind, // gto
-    /// Support concurrent kernels on a SM (default = disabled)
-    pub concurrent_kernel_sm: bool, // 0
-    /// perfect inst and const cache mode, so all inst and const hits in the cache(default = disabled)
-    pub perfect_inst_const_cache: bool, // 0
-    /// the number of fetched intruction per warp each cycle
-    pub inst_fetch_throughput: usize, // 1
-    /// the number ports of the register file
-    pub reg_file_port_throughput: usize, // 1
-    /// Fill the L2 cache on memcpy
-    pub fill_l2_on_memcopy: bool, // true
-    /// simple_dram_model with fixed latency and BW
-    pub simple_dram_model: bool, // 0
-    /// DRAM scheduler kind. 0 = fifo, 1 = FR-FCFS (default)
-    pub dram_scheduler: DRAMSchedulerKind, // 1
-    /// DRAM partition queue
-    pub dram_partition_queue_interconn_to_l2: usize, // 8
-    pub dram_partition_queue_l2_to_dram: usize,      // 8
-    pub dram_partition_queue_dram_to_l2: usize,      // 8
-    pub dram_partition_queue_l2_to_interconn: usize, // 8
-    /// use a ideal L2 cache that always hit
-    pub ideal_l2: bool, // 0
-    /// L2 cache used for texture only
-    pub data_cache_l2_texture_only: bool, // 0
-    /// number of memory modules (e.g. memory controllers) in gpu
-    pub num_memory_controllers: usize, // 8
-    /// number of memory subpartition in each memory module
-    pub num_sub_partition_per_memory_channel: usize, // 2
-    /// number of memory chips per memory controller
-    pub num_memory_chips_per_controller: usize, // 1
-    /// track and display latency statistics 0x2 enables MC, 0x4 enables queue logs
-    // memory_latency_stat: usize, // 14
-    /// DRAM scheduler queue size 0 = unlimited (default); # entries per chip
-    pub frfcfs_dram_sched_queue_size: usize, // 64
-    /// 0 = unlimited (default); # entries per chip
-    pub dram_return_queue_size: usize, // 116
-    /// default = 4 bytes (8 bytes per cycle at DDR)
-    pub dram_buswidth: usize, // 4
-    /// Burst length of each DRAM request (default = 4 data bus cycle)
-    pub dram_burst_length: usize, // 8
-    /// Frequency ratio between DRAM data bus and command bus (default = 2 times, i.e. DDR)
-    pub dram_data_command_freq_ratio: usize, // 4
-    /// DRAM timing parameters =
-    /// {nbk:tCCD:tRRD:tRCD:tRAS:tRP:tRC:CL:WL:tCDLR:tWR:nbkgrp:tCCDL:tRTPL}
-    /// dram_timing_opt
-    /// nbk=16:CCD=2:RRD=6:RCD=12:RAS=28:RP=12:RC=40: CL=12:WL=4:CDLR=5:WR=12:nbkgrp=1:CCDL=0:RTPL=0
-    /// ROP queue latency (default 85)
-    pub l2_rop_latency: usize, // 120
-    /// DRAM latency (default 30)
-    pub dram_latency: usize, // 100
-    /// dual_bus_interface (default = 0)
-    pub dram_dual_bus_interface: bool, // 0
-    /// dram_bnk_indexing_policy
-    pub dram_bank_indexing_policy: DRAMBankIndexPolicy, // 0
-    /// dram_bnkgrp_indexing_policy
-    pub dram_bank_group_indexing_policy: DRAMBankGroupIndexPolicy, // 0
-    /// Seperate_Write_Queue_Enable
-    pub dram_seperate_write_queue_enable: bool, // 0
-    /// write_Queue_Size
-    // dram_write_queue_size: usize, // 32:28:16
-    /// elimnate_rw_turnaround i.e set tWTR and tRTW = 0
-    pub dram_elimnate_rw_turnaround: bool, // 0
-    /// mapping memory address to dram model
-    /// {dramid@<start bit>;<memory address map>}
-    // memory_addr_mapping: String, // dramid@8;00000000.00000000.00000000.00000000.0000RRRR.RRRRRRRR.RBBBCCCC.BCCSSSSS
-    /// run sweep test to check address mapping for aliased address
-    // memory_addr_test: bool, // 0
-    /// 0 = old addressing mask, 1 = new addressing mask, 2 = new add. mask + flipped bank sel and chip sel bits
-    // memory_address_mask: usize, // 1
-    pub memory_partition_indexing: MemoryPartitionIndexingScheme, // 0
-    /// Major compute capability version number
-    pub compute_capability_major: usize, // 7
-    /// Minor compute capability version number
-    pub compute_capability_minor: usize, // 0
-    /// Flush L1 cache at the end of each kernel call
-    pub flush_l1_cache: bool, // 0
-    /// Flush L2 cache at the end of each kernel call
-    pub flush_l2_cache: bool, // 0
-    /// maximum kernels that can run concurrently on GPU.
-    ///
-    /// Set this value according to max resident grids for your
-    /// compute capability.
-    pub max_concurrent_kernels: usize, // 32
-}
 
 /// Cache set indexing function kind.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

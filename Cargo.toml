@@ -36,6 +36,7 @@ trace-model = { path = "./trace/model" }
 anyhow = "1"
 human_bytes = "0"
 thiserror = "1"
+lazy_static = "1"
 nvbit-model = "0"
 nvbit-io = "0"
 num-traits = "0"

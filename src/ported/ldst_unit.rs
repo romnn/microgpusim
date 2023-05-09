@@ -1,5 +1,6 @@
+use super::{cache, interconn as ic, mem_fetch};
 use crate::config::GPUConfig;
-use crate::ported::mem_fetch::AccessKind;
+use std::sync::Arc;
 
 use super::{
     address,
@@ -446,35 +447,6 @@ impl std::fmt::Display for RegisterSet {
 
 // fn move_warp(lhs: &PipelineStage, rhs: &PipelineStage) {}
 
-#[derive(Debug)]
-pub struct L1Cache {}
-
-impl L1Cache {
-    pub fn cycle(&mut self) {}
-
-    pub fn fill(&self, fetch: &MemFetch) {}
-
-    pub fn has_free_fill_port(&self) -> bool {
-        false
-    }
-}
-
-pub trait MemFetchInterconnect {
-    fn full(&self, size: usize, write: bool) -> bool;
-    fn push(&mut self, fetch: MemFetch);
-}
-
-#[derive(Debug)]
-pub struct Interconnect {}
-
-impl Interconnect {
-    pub fn push(&mut self, fetch: MemFetch) {}
-
-    pub fn full(&self, size: usize, write: bool) -> bool {
-        false
-    }
-}
-
 pub static READ_PACKET_SIZE: usize = 8;
 
 // bytes: 6 address, 2 miscelaneous.
@@ -484,27 +456,145 @@ pub static WRITE_MASK_SIZE: usize = 8;
 
 #[derive(Debug)]
 pub struct LoadStoreUnit {
+    core_id: usize,
+    cluster_id: usize,
     pipeline_depth: usize,
     pipeline_reg: Vec<RegisterSet>,
     response_fifo: VecDeque<MemFetch>,
-    texture_l1: L1Cache,
-    const_l1: L1Cache,
-    data_l1: Option<L1Cache>,
-    config: GPUConfig,
+    texture_l1: cache::TextureL1,
+    const_l1: cache::ConstL1,
+    data_l1: Option<cache::DataL1>,
+    config: Arc<GPUConfig>,
     next_global: Option<MemFetch>,
-    dispatch_reg: WarpInstruction,
+    dispatch_reg: Option<WarpInstruction>,
     /// Pending writes warp -> register -> count
     pending_writes: HashMap<usize, HashMap<u32, usize>>,
-    interconn: Interconnect,
+    interconn: ic::Interconnect,
 }
 
 impl LoadStoreUnit {
+    // assert(config->smem_latency > 1);
+    //   init(icnt, mf_allocator, core, operand_collector, scoreboard, config,
+    //        mem_config, stats, sid, tpc);
+    //   if (!m_config->m_L1D_config.disabled()) {
+    //     char L1D_name[STRSIZE];
+    //     snprintf(L1D_name, STRSIZE, "L1D_%03d", m_sid);
+    //     m_L1D = new l1_cache(L1D_name, m_config->m_L1D_config, m_sid,
+    //                          get_shader_normal_cache_id(), m_icnt, m_mf_allocator,
+    //                          IN_L1D_MISS_QUEUE, core->get_gpu());
+    //
+    //     l1_latency_queue.resize(m_config->m_L1D_config.l1_banks);
+    //     assert(m_config->m_L1D_config.l1_latency > 0);
+    //
+    //     for (unsigned j = 0; j < m_config->m_L1D_config.l1_banks; j++)
+    //       l1_latency_queue[j].resize(m_config->m_L1D_config.l1_latency,
+    //                                  (mem_fetch *)NULL);
+    //   }
+    //   m_name = "MEM ";
+
+    pub fn new(
+        core_id: usize,
+        cluster_id: usize,
+        interconn: ic::Interconnect,
+        config: Arc<GPUConfig>,
+    ) -> Self {
+        // if !config.data_cache_l1.disabled {
+        // char L1D_name[STRSIZE];
+        //     snprintf(L1D_name, STRSIZE, "L1D_%03d", m_sid);
+        //     m_L1D = new l1_cache(L1D_name, m_config->m_L1D_config, m_sid,
+        //                          get_shader_normal_cache_id(), m_icnt, m_mf_allocator,
+        //                          IN_L1D_MISS_QUEUE, core->get_gpu());
+        //
+        //     l1_latency_queue.resize(m_config->m_L1D_config.l1_banks);
+        //     assert(m_config->m_L1D_config.l1_latency > 0);
+        //
+        //     for (unsigned j = 0; j < m_config->m_L1D_config.l1_banks; j++)
+        //       l1_latency_queue[j].resize(m_config->m_L1D_config.l1_latency,
+        //                                  (mem_fetch *)NULL);
+        //   }
+        // }
+        //   m_icnt = icnt;
+        //   m_mf_allocator = mf_allocator;
+        //   m_core = core;
+        //   m_operand_collector = operand_collector;
+        //   m_scoreboard = scoreboard;
+        //   m_stats = stats;
+        //   m_sid = sid;
+        //   m_tpc = tpc;
+        // #define STRSIZE 1024
+        //   char L1T_name[STRSIZE];
+        //   char L1C_name[STRSIZE];
+        //   snprintf(L1T_name, STRSIZE, "L1T_%03d", m_sid);
+        //   snprintf(L1C_name, STRSIZE, "L1C_%03d", m_sid);
+        //   m_L1T = new tex_cache(L1T_name, m_config->m_L1T_config, m_sid,
+        //                         get_shader_texture_cache_id(), icnt, IN_L1T_MISS_QUEUE,
+        //                         IN_SHADER_L1T_ROB);
+        //   m_L1C = new read_only_cache(L1C_name, m_config->m_L1C_config, m_sid,
+        //                               get_shader_constant_cache_id(), icnt,
+        //                               IN_L1C_MISS_QUEUE);
+        //   m_L1D = NULL;
+        //   m_mem_rc = NO_RC_FAIL;
+        //   m_num_writeback_clients =
+        //       5;  // = shared memory, global/local (uncached), L1D, L1T, L1C
+        //   m_writeback_arb = 0;
+        //   m_next_global = NULL;
+        //   m_last_inst_gpu_sim_cycle = 0;
+        //   m_last_inst_gpu_tot_sim_cycle = 0;
+        // let const_l1 = cache::TextureL1::new(format!("l1_tex_{:03}", core_id));
+
+        // m_result_port = result_port;
+        //   m_pipeline_depth = max_latency;
+        //   m_pipeline_reg = new warp_inst_t *[m_pipeline_depth];
+        //   for (unsigned i = 0; i < m_pipeline_depth; i++)
+        //     m_pipeline_reg[i] = new warp_inst_t(config);
+        //   m_core = core;
+        //   m_issue_reg_id = issue_reg_id;
+        //   active_insts_in_pipeline = 0;
+
+        //   m_config = config;
+        // m_dispatch_reg = new warp_inst_t(config);
+
+        // NULL, config, config->smem_latency, core, 0
+        let pipeline_depth = config.shared_memory_latency;
+        let pipeline_reg = (0..pipeline_depth)
+            .map(|_| RegisterSet::new(5, "regiserset".into()))
+            .collect();
+        // vec![None; pipeline_depth];
+        let texture_l1 = cache::TextureL1::new(core_id, interconn.clone());
+        let const_l1 = cache::ConstL1::default();
+        Self {
+            core_id,
+            cluster_id,
+            const_l1,
+            texture_l1,
+            data_l1: None,
+            dispatch_reg: None,
+            pipeline_depth,
+            pipeline_reg,
+            next_global: None,
+            pending_writes: HashMap::new(),
+            response_fifo: VecDeque::new(),
+            interconn,
+            config,
+        }
+    }
+
+    pub fn fill(&mut self, mut fetch: MemFetch) {
+        fetch.status = mem_fetch::Status::IN_SHADER_LDST_RESPONSE_FIFO;
+        self.response_fifo.push_back(fetch);
+    }
+
     pub fn writeback(&self) {}
 
     pub fn cycle(&mut self) {
+        println!(
+            "core {}-{}: load store: cycle",
+            self.core_id, self.cluster_id
+        );
         use super::instruction::CacheOperator;
 
         self.writeback();
+        debug_assert!(self.pipeline_depth > 0);
         for stage in 0..(self.pipeline_depth - 1) {
             let current = &self.pipeline_reg[stage];
             let next = &self.pipeline_reg[stage + 1];
@@ -513,16 +603,17 @@ impl LoadStoreUnit {
             }
         }
 
+        dbg!(&self.response_fifo);
         if let Some(fetch) = self.response_fifo.front().cloned() {
             match fetch.access_kind() {
-                AccessKind::TEXTURE_ACC_R => {
+                mem_fetch::AccessKind::TEXTURE_ACC_R => {
                     if self.texture_l1.has_free_fill_port() {
                         self.texture_l1.fill(&fetch);
                         // self.response_fifo.fill(mem_fetch);
                         self.response_fifo.pop_front();
                     }
                 }
-                AccessKind::CONST_ACC_R => {
+                mem_fetch::AccessKind::CONST_ACC_R => {
                     if self.const_l1.has_free_fill_port() {
                         // fetch.set_status(IN_SHADER_FETCHED)
                         self.const_l1.fill(&fetch);
@@ -531,7 +622,7 @@ impl LoadStoreUnit {
                     }
                 }
                 _ => {
-                    if fetch.kind == super::MemFetchKind::WRITE_ACK
+                    if fetch.kind == mem_fetch::Kind::WRITE_ACK
                         || (self.config.perfect_mem && fetch.is_write())
                     {
                         // m_core->store_ack(mf);
@@ -546,8 +637,8 @@ impl LoadStoreUnit {
                             || fetch.instr.cache_operator == CacheOperator::GLOBAL
                         {
                             bypass_l1 = true;
-                        } else if fetch.access_kind() == AccessKind::GLOBAL_ACC_R
-                            || fetch.access_kind() == AccessKind::GLOBAL_ACC_W
+                        } else if fetch.access_kind() == &mem_fetch::AccessKind::GLOBAL_ACC_R
+                            || fetch.access_kind() == &mem_fetch::AccessKind::GLOBAL_ACC_W
                         {
                             // global memory access
                             if self.config.global_mem_skip_l1_data_cache {
@@ -602,8 +693,9 @@ impl LoadStoreUnit {
             return;
         }
 
-        let pipe_reg = &self.dispatch_reg;
-        if !pipe_reg.empty {
+        // let pipe_reg = &self.dispatch_reg;
+        // if !pipe_reg.empty {
+        if let Some(pipe_reg) = &self.dispatch_reg {
             let warp_id = pipe_reg.warp_id;
             if pipe_reg.is_load() {
                 if pipe_reg.memory_space == MemorySpace::Shared {
@@ -611,7 +703,8 @@ impl LoadStoreUnit {
                     if slot.empty() {
                         // new shared memory request
                         // move_warp(&slot, self.dispatch_reg);
-                        self.dispatch_reg.clear();
+                        // self.dispatch_reg.clear();
+                        self.dispatch_reg = None;
                     }
                 } else {
                     let mut pending_requests = false;
@@ -635,16 +728,48 @@ impl LoadStoreUnit {
                         // self.scoreboard.release_registers(self.dispatch_reg);
                     }
                     // core.dec_inst_in_pipeline(warp_id);
-                    self.dispatch_reg.clear();
+                    // self.dispatch_reg.clear();
+                    self.dispatch_reg = None;
                 }
             } else {
                 // stores exit pipeline here
                 // core.dec_inst_in_pipeline(warp_id);
                 // core.warp_inst_complete(self.dispatch_reg);
-                self.dispatch_reg.clear();
+                // self.dispatch_reg.clear();
+                self.dispatch_reg = None;
             }
         }
     }
+
+    // fn new_mem_fetch(
+    //     &self,
+    //     instr: WarpInstruction,
+    //     access: mem_fetch::MemAccess,
+    // ) -> mem_fetch::MemFetch {
+    //     let size = if access.is_write {
+    //         WRITE_PACKET_SIZE
+    //     } else {
+    //         READ_PACKET_SIZE
+    //     };
+    //
+    //     let warp_id = instr.warp_id;
+    //     mem_fetch::MemFetch::new(
+    //         instr,
+    //         access,
+    //         GPUConfig::default(),
+    //         size,
+    //         warp_id,
+    //         self.core_id,
+    //         self.cluster_id,
+    //     )
+    //     // Self {
+    //     //     instr,
+    //     //     access,
+    //     // }
+    //     // access, &inst_copy,
+    //     // inst.warp_id(), m_core_id, m_cluster_id, m_memory_config, cycle);
+    //     // return mf;
+    // }
 
     fn shared_cycle(&mut self) {}
 
@@ -654,11 +779,11 @@ impl LoadStoreUnit {
 
     // fn memory_cycle(&mut self, instr: &WarpInstruction) -> bool {
     fn memory_cycle(&mut self) -> bool {
-        let instr = &mut self.dispatch_reg;
-        if instr.empty
-            || (instr.memory_space != MemorySpace::Global
-                && instr.memory_space != MemorySpace::Local)
-        {
+        // let instr = &mut self.dispatch_reg;
+        let Some(instr) = &mut self.dispatch_reg else {
+            return true;
+        };
+        if instr.memory_space != MemorySpace::Global && instr.memory_space != MemorySpace::Local {
             return true;
         }
         if instr.active_thread_count() == 0 {
@@ -702,7 +827,26 @@ impl LoadStoreUnit {
             {
                 // stall_cond = ICNT_RC_FAIL;
             } else {
-                let fetch = MemFetch::alloc(instr.clone(), access.clone());
+                // let fetch = self.new_mem_fetch(instr.clone(), access.clone());
+                let fetch = {
+                    let size = if access.is_write {
+                        WRITE_PACKET_SIZE
+                    } else {
+                        READ_PACKET_SIZE
+                    };
+
+                    let warp_id = instr.warp_id;
+                    mem_fetch::MemFetch::new(
+                        instr.clone(),
+                        access.clone(),
+                        GPUConfig::default(),
+                        size,
+                        warp_id,
+                        self.core_id,
+                        self.cluster_id,
+                    )
+                };
+
                 self.interconn.push(fetch);
                 instr.mem_access_queue.pop_back();
                 // // inst.clear_active( access.get_warp_mask() );

@@ -1,8 +1,11 @@
 #![allow(warnings)]
 
 pub mod addrdec;
+pub mod cache;
 pub mod core;
+pub mod stats;
 pub mod instruction;
+pub mod interconn;
 pub mod ldst_unit;
 pub mod mem_fetch;
 pub mod mem_sub_partition;
@@ -13,6 +16,9 @@ pub mod utils;
 
 use self::core::*;
 use addrdec::*;
+use cache::*;
+use stats::*;
+use interconn::*;
 use ldst_unit::*;
 use mem_fetch::*;
 use mem_sub_partition::*;
@@ -536,7 +542,7 @@ impl MockSimulator {
         let last_issued = self.last_cluster_issue;
         let num_clusters = self.config.num_simt_clusters;
         for cluster in &self.clusters {
-            let idx = (cluster.id + last_issued + 1) % num_clusters;
+            let idx = (cluster.cluster_id + last_issued + 1) % num_clusters;
             let num_blocks_issued = cluster.issue_block_to_core(self);
             if num_blocks_issued > 0 {
                 self.last_cluster_issue = idx;
@@ -558,6 +564,13 @@ impl MockSimulator {
     pub fn cycle(&mut self) {
         self.issue_block_to_core();
 
+        // if (clock_mask & CORE) {
+        // shader core loading (pop from ICNT into core) follows CORE clock
+        for cluster in &mut self.clusters {
+            cluster.interconn_cycle();
+        }
+        // }
+
         let mut active_sms = 0;
         // if (clock_mask & CORE) {
         for cluster in &mut self.clusters {
@@ -565,7 +578,7 @@ impl MockSimulator {
                 cluster.cycle();
                 active_sms += cluster.num_active_sms();
             }
-            cluster.cycle();
+            // cluster.cycle();
             // if (m_cluster[i]->get_not_completed() || get_more_cta_left()) {
             //     m_cluster[i]->core_cycle();
             // }

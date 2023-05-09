@@ -1,4 +1,4 @@
-use crate::MainMemory;
+use crate::{config::GPUConfig, MainMemory};
 
 use super::address;
 use super::mem_fetch::{AccessKind, MemAccess};
@@ -52,6 +52,18 @@ pub enum CacheOperator {
     WRITE_THROUGH, // .wt
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum MemOp {
+    Load,
+    Store,
+}
+
+const GLOBAL_HEAP_START: u64 = 0xC0000000;
+// Volta max shmem size is 96kB
+const SHARED_MEM_SIZE_MAX: u64 = 96 * (1 << 10);
+// Volta max local mem is 16kB
+const LOCAL_MEM_SIZE_MAX: u64 = 1 << 14;
+
 #[derive(Clone, Debug)]
 pub struct WarpInstruction {
     pub warp_id: usize,
@@ -103,19 +115,30 @@ pub struct WarpInstruction {
     // isize = 0;
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum MemOp {
-    Load,
-    Store,
-}
+// impl Default for WarpInstruction {
+// }
 
-const GLOBAL_HEAP_START: u64 = 0xC0000000;
-// Volta max shmem size is 96kB
-const SHARED_MEM_SIZE_MAX: u64 = 96 * (1 << 10);
-// Volta max local mem is 16kB
-const LOCAL_MEM_SIZE_MAX: u64 = 1 << 14;
+pub static MAX_WARP_SIZE: usize = 32;
 
 impl WarpInstruction {
+    // pub fn new(config: GPUConfig) -> Self {
+    //     debug_assert!(config.warp_size <= MAX_WARP_SIZE);
+    //     Self {
+    //         warp_id: 0,
+    //         pc: 0,
+    //         opcode: Opcode::,
+    // // m_config = config;
+    // // m_empty = true;
+    // // m_isatomic = false;
+    // // m_per_scalar_thread_valid = false;
+    // // m_mem_accesses_created = false;
+    // // m_cache_hit = false;
+    // // m_is_printf = false;
+    // // m_is_cdp = 0;
+    // // should_ do_atomic = true;
+    //     }
+    // }
+ 
     // new_inst->parse_from_trace_struct(
     // impl From<MemAccessTraceEntry> for WarpInstruction {
 
