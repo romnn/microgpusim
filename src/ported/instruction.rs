@@ -4,7 +4,7 @@ use super::address;
 use super::mem_fetch::{AccessKind, MemAccess};
 use super::opcodes::{Op, Opcode, OpcodeMap};
 
-use bitvec::{bits, boxed::BitBox, field::BitField};
+use bitvec::{bits, array::BitArray, field::BitField};
 use nvbit_model::MemorySpace;
 use std::collections::VecDeque;
 use trace_model as trace;
@@ -67,9 +67,9 @@ const LOCAL_MEM_SIZE_MAX: u64 = 1 << 14;
 #[derive(Clone, Debug)]
 pub struct WarpInstruction {
     pub warp_id: usize,
-    pub pc: u32,
+    pub pc: usize,
     pub opcode: Opcode,
-    pub active_mask: BitBox,
+    pub active_mask: bitvec::BitArr!(for 32),
     pub cache_operator: CacheOperator,
     pub memory_space: MemorySpace,
     pub threads: [PerThreadInfo; 32],
@@ -115,6 +115,18 @@ pub struct WarpInstruction {
     // isize = 0;
 }
 
+impl std::fmt::Display for WarpInstruction {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("WarpInstruction")
+            .field("warp_id", &self.warp_id)
+            .field("pc", &self.pc)
+            .field("active_mask", &self.active_mask)
+            .field("memory_space", &self.memory_space)
+            .field("mem_access_queue", &self.mem_access_queue.len())
+            .finish()
+    }
+}
+
 // impl Default for WarpInstruction {
 // }
 
@@ -138,21 +150,22 @@ impl WarpInstruction {
     // // should_ do_atomic = true;
     //     }
     // }
- 
+
     // new_inst->parse_from_trace_struct(
     // impl From<MemAccessTraceEntry> for WarpInstruction {
 
-    fn from_trace(
-        kernel: trace::KernelLaunch,
+    pub fn from_trace(
+        // kernel: trace::KernelLaunch,
+        kernel: &super::KernelInfo,
         trace: trace::MemAccessTraceEntry,
-        opcodes: &OpcodeMap,
+        // opcodes: &OpcodeMap,
     ) -> Self {
         // fill active mask
-        let mut active_mask = BitBox::default();
+        let mut active_mask = BitArray::ZERO;
         active_mask.store(trace.active_mask);
         let mut threads = [PerThreadInfo::default(); 32];
 
-        // fill registers
+        // todo: fill registers
 
         // handle special cases and fill memory space
         let opcode_tokens: Vec<_> = trace.instr_opcode.split(".").collect();
@@ -166,7 +179,7 @@ impl WarpInstruction {
         let mut cache_operator = CacheOperator::UNDEFINED;
         let mut memory_space = MemorySpace::None;
 
-        let Some(&opcode) = opcodes.get(opcode1) else {
+        let Some(&opcode) = kernel.opcodes.get(opcode1) else {
             panic!("undefined opcode {}", opcode1);
         };
 
@@ -245,7 +258,7 @@ impl WarpInstruction {
                     shared_mem_base_addr,
                     local_mem_base_addr,
                     ..
-                } = kernel;
+                } = kernel.config;
                 if shared_mem_base_addr == 0 || local_mem_base_addr == 0 {
                     // shmem and local addresses are not set
                     // assume all the mem reqs are shared by default
@@ -280,7 +293,7 @@ impl WarpInstruction {
         Self {
             warp_id: trace.warp_id as usize,
             opcode,
-            pc: trace.instr_offset,
+            pc: trace.instr_offset as usize,
             threads,
             memory_space,
             is_atomic,

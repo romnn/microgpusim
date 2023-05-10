@@ -1,8 +1,8 @@
 use crate::ported::addrdec::LinearToRawAddressTranslation;
 
 use super::ported::{address, utils, KernelInfo};
-use anyhow::Result;
 use std::sync::Arc;
+use color_eyre::eyre;
 
 /// CacheConfig
 ///
@@ -323,6 +323,10 @@ pub struct GPUConfig {
 }
 
 impl GPUConfig {
+    pub fn max_warps_per_core(&self) -> usize {
+        self.max_threads_per_shader / self.warp_size
+    }
+
     pub fn total_cores(&self) -> usize {
         self.num_simt_clusters * self.num_cores_per_simt_cluster
     }
@@ -348,7 +352,7 @@ impl GPUConfig {
         utils::pad_to_multiple(threads_per_block as usize, self.warp_size)
     }
 
-    pub fn max_blocks(&self, kernel: &KernelInfo) -> Result<usize> {
+    pub fn max_blocks(&self, kernel: &KernelInfo) -> eyre::Result<usize> {
         let threads_per_block = kernel.threads_per_block();
         let threads_per_block = utils::pad_to_multiple(threads_per_block as usize, self.warp_size);
         // limit by n_threads/shader
@@ -397,7 +401,7 @@ impl GPUConfig {
             }
         }
         if limit < 1 {
-            return Err(anyhow::anyhow!(
+            return Err(eyre::eyre!(
                 "kernel requires more resources than shader has"
             ));
         }
@@ -721,7 +725,7 @@ pub enum SchedulingOrder {
 }
 
 impl GPUConfig {
-    pub fn parse() -> Result<Self> {
+    pub fn parse() -> eyre::Result<Self> {
         let adaptive_cache_config = false;
         let shared_memory_sizes_string = "0";
         let shared_memory_sizes: Vec<u32> = if adaptive_cache_config {

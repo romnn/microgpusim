@@ -33,7 +33,8 @@ denylist = ["default"]
 
 [dependencies]
 trace-model = { path = "./trace/model" }
-anyhow = "1"
+# anyhow = "1"
+color-eyre = "0"
 human_bytes = "0"
 thiserror = "1"
 lazy_static = "1"

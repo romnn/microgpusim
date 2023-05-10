@@ -1,4 +1,4 @@
-use anyhow::Result;
+use color_eyre::eyre;
 
 pub enum StaticCacheRequestStatus {
     HIT,
@@ -16,7 +16,7 @@ pub trait SetIndexFunction {
         num_sets: u64,
         line_size_log2: u64,
         num_sets_log2: u64,
-    ) -> Result<usize>;
+    ) -> eyre::Result<usize>;
 }
 
 // see src/gpgpu-sim/gpu-cache.cc
@@ -31,7 +31,7 @@ impl SetIndexFunction for BitwiseXORSetIndexFunction {
         num_sets: u64,
         line_size_log2: u64,
         num_sets_log2: u64,
-    ) -> Result<usize> {
+    ) -> eyre::Result<usize> {
         let higher_bits = addr >> (line_size_log2 + num_sets_log2);
         let index = (addr >> line_size_log2) & (num_sets - 1);
         // let set_index = bitwise_hash_function(higher_bits, index, m_nset);
@@ -49,7 +49,7 @@ impl SetIndexFunction for FermiSetIndexFunction {
         num_sets: u64,
         line_size_log2: u64,
         num_sets_log2: u64,
-    ) -> Result<usize> {
+    ) -> eyre::Result<usize> {
         assert!(!(num_sets != 32 && num_sets != 64), "cache config error: number of sets should be 32 or 64");
         let set_index = 0;
         let lower_xor = 0;

@@ -3,38 +3,42 @@
 pub mod addrdec;
 pub mod cache;
 pub mod core;
-pub mod stats;
 pub mod instruction;
 pub mod interconn;
 pub mod ldst_unit;
 pub mod mem_fetch;
 pub mod mem_sub_partition;
 pub mod opcodes;
+pub mod scheduler;
 pub mod set_index_function;
+pub mod stats;
 pub mod tag_array;
 pub mod utils;
+
+use crate::ported::instruction::WarpInstruction;
 
 use self::core::*;
 use addrdec::*;
 use cache::*;
-use stats::*;
 use interconn::*;
 use ldst_unit::*;
 use mem_fetch::*;
 use mem_sub_partition::*;
+use scheduler::*;
 use set_index_function::*;
+use stats::*;
 use tag_array::*;
 use utils::*;
 
 use super::config::GPUConfig;
-use anyhow::Result;
+use color_eyre::eyre;
 use itertools::Itertools;
 use log::{error, info, trace, warn};
 use nvbit_model::dim::{self, Dim};
 use std::collections::{HashMap, VecDeque};
 use std::fmt::Binary;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::Instant;
 use trace_model::{Command, KernelLaunch, MemAccessTraceEntry};
 
@@ -85,6 +89,7 @@ pub struct KernelInfo {
     //
     // trace_config *m_tconfig;
     // const std::unordered_map<std::string, OpcodeChar> *OpcodeMap;
+    pub opcodes: &'static opcodes::OpcodeMap,
     // trace_parser *m_parser;
     // kernel_trace_t *m_kernel_trace_info;
     // bool m_was_launched;
@@ -93,7 +98,7 @@ pub struct KernelInfo {
     // function_info: FunctionInfo,
     // shared_mem: bool,
     trace: Vec<MemAccessTraceEntry>,
-    trace_iter: std::vec::IntoIter<MemAccessTraceEntry>,
+    trace_iter: RwLock<std::vec::IntoIter<MemAccessTraceEntry>>,
     launched: Mutex<bool>,
     function_info: FunctionInfo,
     num_cores_running: usize,
@@ -151,7 +156,7 @@ impl std::fmt::Display for KernelInfo {
     }
 }
 
-pub fn read_trace(path: &Path) -> Result<Vec<MemAccessTraceEntry>> {
+pub fn read_trace(path: &Path) -> eyre::Result<Vec<MemAccessTraceEntry>> {
     use serde::Deserializer;
     let file = std::fs::OpenOptions::new().read(true).open(path)?;
     let reader = std::io::BufReader::new(file);
@@ -181,32 +186,14 @@ impl KernelInfo {
         dbg!(&next_block);
         // let uid = next_kernel_uid;
         let uid = 0; // todo
-        let opcode_map = opcodes::get_opcode_map(&config);
-        // resolve the binary version
-        // if (kernel_trace_info->binary_verion == AMPERE_RTX_BINART_VERSION ||
-        //     kernel_trace_info->binary_verion == AMPERE_A100_BINART_VERSION)
-        //   OpcodeMap = &Ampere_OpcodeMap;
-        // else if (kernel_trace_info->binary_verion == VOLTA_BINART_VERSION)
-        //   OpcodeMap = &Volta_OpcodeMap;
-        // else if (kernel_trace_info->binary_verion == PASCAL_TITANX_BINART_VERSION ||
-        //          kernel_trace_info->binary_verion == PASCAL_P100_BINART_VERSION)
-        //   OpcodeMap = &Pascal_OpcodeMap;
-        // else if (kernel_trace_info->binary_verion == KEPLER_BINART_VERSION)
-        //   OpcodeMap = &Kepler_OpcodeMap;
-        // else if (kernel_trace_info->binary_verion == TURING_BINART_VERSION)
-        //   OpcodeMap = &Turing_OpcodeMap;
-        // else {
-        //   printf("unsupported binary version: %d\n",
-        //          kernel_trace_info->binary_verion);
-        //   fflush(stdout);
-        //   exit(0);
-        // }
+        let opcodes = opcodes::get_opcode_map(&config).unwrap();
 
         Self {
             config,
             uid,
             trace,
-            trace_iter,
+            trace_iter: RwLock::new(trace_iter),
+            opcodes,
             launched: Mutex::new(false),
             num_cores_running: 0,
             function_info: FunctionInfo {},
@@ -217,11 +204,42 @@ impl KernelInfo {
         }
     }
 
-    pub fn get_next_threadblock_traces(&mut self) -> Vec<MemAccessTraceEntry> {
-        self.trace_iter
-            .take_while_ref(|entry| Some(entry.block_id) == self.next_block)
-            .collect()
+    // pub fn next_threadblock_traces(&self) -> Vec<MemAccessTraceEntry> {
+    // pub fn next_threadblock_traces(&self, warps: &mut [Option<SchedulerWarp>]) {
+    pub fn next_threadblock_traces(&self, kernel: &KernelInfo, warps: &mut [SchedulerWarp]) {
+        debug_assert!(self.next_block.is_some());
+        let Some(next_block) = self.next_block else {
+            return;
+        };
+        dbg!(&next_block);
+        for warp in warps.iter_mut() {
+            warp.clear();
+        }
+        let mut lock = self.trace_iter.write().unwrap();
+        let trace_iter = lock.take_while_ref(|entry| entry.block_id == next_block);
+        for trace in trace_iter {
+            // dbg!(&trace);
+            let warp_id = trace.warp_id as usize;
+            let instr = WarpInstruction::from_trace(&kernel, trace);
+            warps[warp_id].trace_instructions.push_back(instr);
+        }
+
+        // set the pc from the traces and ignore the functional model
+        for warp in warps.iter_mut() {
+            let num_instr = warp.trace_instructions.len();
+            if num_instr > 0 {
+                println!("warp {}: {num_instr} instructions", warp.warp_id);
+            }
+            warp.next_pc = warp.trace_start_pc();
+        }
+        // println!("added {total} instructions");
     }
+
+    // pub fn next_threadblock_traces(&self) -> impl Iterator<Item = MemAccessTraceEntry> + '_ {
+    //     let mut iter = self.trace_iter.write().unwrap();
+    //     iter.take_while_ref(|entry| Some(entry.block_id) == self.next_block).collect()
+    //         // .cloned()
+    // }
 
     pub fn inc_running(&mut self) {
         self.num_cores_running += 1;
@@ -282,7 +300,7 @@ impl KernelInfo {
     }
 }
 
-fn parse_commands(path: impl AsRef<Path>) -> Result<Vec<Command>> {
+fn parse_commands(path: impl AsRef<Path>) -> eyre::Result<Vec<Command>> {
     let file = std::fs::OpenOptions::new()
         .read(true)
         .open(&path.as_ref())?;
@@ -484,7 +502,7 @@ impl MockSimulator {
         })
     }
 
-    pub fn launch(&mut self, kernel: Arc<KernelInfo>) -> Result<()> {
+    pub fn launch(&mut self, kernel: Arc<KernelInfo>) -> eyre::Result<()> {
         *kernel.launched.lock().unwrap() = true;
         let threads_per_block = kernel.threads_per_block();
         let max_threads_per_block = self.config.max_threads_per_shader;
@@ -493,7 +511,7 @@ impl MockSimulator {
             error!(
                 "CTA size (x*y*z) = {threads_per_block}, max supported = {max_threads_per_block}"
             );
-            return Err(anyhow::anyhow!("kernel block size is too large"));
+            return Err(eyre::eyre!("kernel block size is too large"));
         }
         for running in &mut self.running_kernels {
             if running.is_none() || running.as_ref().map_or(false, |k| k.done()) {
@@ -707,8 +725,9 @@ impl MockSimulator {
 //   m_trace_warp->set_kernel(&trace_kernel);
 // }
 
-pub fn accelmain(traces_dir: impl AsRef<Path>) -> Result<()> {
+pub fn accelmain(traces_dir: impl AsRef<Path>) -> eyre::Result<()> {
     info!("box version {}", 0);
+    color_eyre::install()?;
     // log = "0.4"
     let traces_dir = traces_dir.as_ref();
     // reg_options registers the options from the option parser

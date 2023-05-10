@@ -1,4 +1,4 @@
-use super::{cache, interconn as ic, mem_fetch};
+use super::{cache, interconn as ic, scheduler as sched, mem_fetch};
 use crate::config::GPUConfig;
 use std::sync::Arc;
 
@@ -69,159 +69,22 @@ use trace_model::MemAccessTraceEntry;
 //   }
 // }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SchedulerWarp {
-    block_id: usize,
-    dynamic_warp_id: usize,
-    warp_id: usize,
-    done: bool,
-}
-
-impl SchedulerWarp {
-    pub fn ibuffer_empty(&self) -> bool {
-        self.done
-    }
-
-    pub fn done_exit(&self) -> bool {
-        self.done
-    }
-
-    pub fn waiting(&self) -> bool {
-        false
-        //       if (functional_done()) {
-        //   // waiting to be initialized with a kernel
-        //   return true;
-        // } else if (m_shader->warp_waiting_at_barrier(m_warp_id)) {
-        //   // waiting for other warps in CTA to reach barrier
-        //   return true;
-        // } else if (m_shader->warp_waiting_at_mem_barrier(m_warp_id)) {
-        //   // waiting for memory barrier
-        //   return true;
-        // } else if (m_n_atomic > 0) {
-        //   // waiting for atomic operation to complete at memory:
-        //   // this stall is not required for accurate timing model, but rather we
-        //   // stall here since if a call/return instruction occurs in the meantime
-        //   // the functional execution of the atomic when it hits DRAM can cause
-        //   // the wrong register to be read.
-        //   return true;
-        // }
-        // return false;
-    }
-
-    pub fn dynamic_warp_id(&self) -> usize {
-        self.dynamic_warp_id
-    }
-}
-
-pub trait SchedulerPolicy {
-    fn order_warps(&self);
-}
-
-fn sort_warps_by_oldest_dynamic_id(lhs: &SchedulerWarp, rhs: &SchedulerWarp) -> std::cmp::Ordering {
-    if lhs.done_exit() || lhs.waiting() {
-        std::cmp::Ordering::Greater
-    } else if rhs.done_exit() || rhs.waiting() {
-        std::cmp::Ordering::Less
-    } else {
-        lhs.dynamic_warp_id().cmp(&rhs.dynamic_warp_id())
-    }
-}
-
-#[derive(Debug)]
-pub struct GTOScheduler {}
-
-impl GTOScheduler {
-    fn order_warps(
-        &self,
-        out: &mut VecDeque<SchedulerWarp>,
-        warps: &mut Vec<SchedulerWarp>,
-        last_issued_warps: &Vec<SchedulerWarp>,
-        num_warps_to_add: usize,
-    ) {
-        // let mut next_cycle_prioritized_warps = Vec::new();
-        //
-        // let mut supervised_warps = Vec::new(); // input
-        // let mut last_issued_from_input = Vec::new(); // last issued
-        // let num_warps_to_add = supervised_warps.len();
-        debug_assert!(num_warps_to_add <= warps.len());
-
-        // scheduler_unit::sort_warps_by_oldest_dynamic_id
-
-        // ORDERING_GREEDY_THEN_PRIORITY_FUNC
-        out.clear();
-        let greedy_value = last_issued_warps.first();
-        if let Some(greedy_value) = greedy_value {
-            out.push_back(greedy_value.clone());
-        }
-
-        warps.sort_by(sort_warps_by_oldest_dynamic_id);
-        out.extend(
-            warps
-                .iter()
-                .take_while(|w| match greedy_value {
-                    None => true,
-                    Some(val) => *w != val,
-                })
-                .take(num_warps_to_add)
-                .cloned(),
-        );
-
-        //     typename std::vector<T>::iterator iter = temp.begin();
-        //     for (unsigned count = 0; count < num_warps_to_add; ++count, ++iter) {
-        //       if (*iter != greedy_value) {
-        //         result_list.push_back(*iter);
-        //       }
-        //     }
-
-        //   result_list.clear();
-        //   typename std::vector<T> temp = input_list;
-        //
-        //   if (ORDERING_GREEDY_THEN_PRIORITY_FUNC == ordering) {
-        //     T greedy_value = *last_issued_from_input;
-        //     result_list.push_back(greedy_value);
-        //
-        //     std::sort(temp.begin(), temp.end(), priority_func);
-        //     typename std::vector<T>::iterator iter = temp.begin();
-        //     for (unsigned count = 0; count < num_warps_to_add; ++count, ++iter) {
-        //       if (*iter != greedy_value) {
-        //         result_list.push_back(*iter);
-        //       }
-        //     }
-        //   } else if (ORDERED_PRIORITY_FUNC_ONLY == ordering) {
-        //     std::sort(temp.begin(), temp.end(), priority_func);
-        //     typename std::vector<T>::iterator iter = temp.begin();
-        //     for (unsigned count = 0; count < num_warps_to_add; ++count, ++iter) {
-        //       result_list.push_back(*iter);
-        //     }
-        //   } else {
-        //     fprintf(stderr, "Unknown ordering - %d\n", ordering);
-        //     abort();
-        //   }
-
-        // order by priority
-        // (m_next_cycle_prioritized_warps, m_supervised_warps,
-        //                 m_last_supervised_issued, m_supervised_warps.size(),
-        //                 ORDERING_GREEDY_THEN_PRIORITY_FUNC,
-        //                 scheduler_unit::sort_warps_by_oldest_dynamic_id);
-    }
-}
-
 #[derive(Debug)]
 pub struct SchedulerUnit {
     id: usize,
     /// This is the prioritized warp list that is looped over each cycle to
     /// determine which warp gets to issue.
-    next_cycle_prioritized_warps: VecDeque<SchedulerWarp>,
+    next_cycle_prioritized_warps: VecDeque<sched::SchedulerWarp>,
     // The m_supervised_warps list is all the warps this scheduler is
     // supposed to arbitrate between.
     // This is useful in systems where there is more than one warp scheduler.
     // In a single scheduler system, this is simply all the warps
     // assigned to this core.
-    supervised_warps: Vec<SchedulerWarp>,
+    supervised_warps: Vec<sched::SchedulerWarp>,
     /// This is the iterator pointer to the last supervised warp you issued
-    last_supervised_issued: Vec<SchedulerWarp>,
-    scheduler: GTOScheduler,
-    warps: Vec<SchedulerWarp>,
+    last_supervised_issued: Vec<sched::SchedulerWarp>,
+    scheduler: sched::GTOScheduler,
+    warps: Vec<sched::SchedulerWarp>,
     // register_set *m_mem_out;
     // std::vector<register_set *> &m_spec_cores_out;
     num_issued_last_cycle: usize,
@@ -783,6 +646,8 @@ impl LoadStoreUnit {
         let Some(instr) = &mut self.dispatch_reg else {
             return true;
         };
+        println!("memory cycle for instruction: {}", &instr);
+
         if instr.memory_space != MemorySpace::Global && instr.memory_space != MemorySpace::Local {
             return true;
         }

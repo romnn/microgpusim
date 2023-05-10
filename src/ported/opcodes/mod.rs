@@ -1,7 +1,7 @@
 mod ampere;
 
 use super::instruction::ArchOp;
-use anyhow::Result;
+use color_eyre::eyre;
 use std::collections::HashMap;
 use trace_model::KernelLaunch;
 
@@ -45,10 +45,10 @@ pub struct Opcode {
 
 pub type OpcodeMap = phf::Map<&'static str, Opcode>;
 
-pub fn get_opcode_map(config: &KernelLaunch) -> Result<&'static OpcodeMap> {
+pub fn get_opcode_map(config: &KernelLaunch) -> eyre::Result<&'static OpcodeMap> {
     type BV = BinaryVersion;
     let version = BV::from_repr(config.binary_version);
-    let version = version.ok_or(anyhow::anyhow!(
+    let version = version.ok_or(eyre::eyre!(
         "unknown binary version {}",
         config.binary_version
     ))?;

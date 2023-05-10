@@ -1,8 +1,9 @@
 #![allow(warnings)]
 
-use anyhow::Result;
 use clap::{Parser, Subcommand};
+use color_eyre::eyre;
 use std::path::PathBuf;
+use std::time::Instant;
 
 #[derive(Debug, Subcommand)]
 enum Command {
@@ -31,7 +32,11 @@ struct Options {
     // command: Option<Command>,
 }
 
-fn main() -> Result<()> {
+fn main() -> eyre::Result<()> {
+    let start = Instant::now();
     let options = Options::parse();
-    casimu::ported::accelmain(&options.trace_dir)
+    std::env::set_var("RUST_BACKTRACE", "full");
+    let res = casimu::ported::accelmain(&options.trace_dir);
+    println!("completed in {:?}", start.elapsed());
+    res
 }
