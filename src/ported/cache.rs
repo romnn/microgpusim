@@ -441,12 +441,13 @@ mod tests {
         };
         let mut instr = WarpInstruction::from_trace(&kernel, trace_instr);
         dbg!(&instr);
-        let accesses = instr.generate_mem_accesses(&*config);
-        println!(
-            "generated {:?} accesses",
-            accesses.map(|a| a.len()).unwrap_or(0)
-        );
-        let access = mem_fetch::MemAccess::from_instr(&instr).unwrap();
+        let mut accesses = instr
+            .generate_mem_accesses(&*config)
+            .expect("generated acceseses");
+        assert_eq!(accesses.len(), 1);
+
+        let access = accesses.remove(0);
+        // let access = mem_fetch::MemAccess::from_instr(&instr).unwrap();
         let fetch = mem_fetch::MemFetch::new(
             instr,
             access,

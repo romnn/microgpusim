@@ -1,13 +1,9 @@
+use super::address;
 use color_eyre::eyre;
 
-pub enum StaticCacheRequestStatus {
-    HIT,
-    HIT_RESERVED,
-    MISS,
-    RESERVATION_FAIL,
-    SECTOR_MISS,
+pub fn bitwise_hash_function(higher_bits: address, index: usize, bank_set_num: usize) -> u64 {
+    index as u64 ^ (higher_bits & (bank_set_num as u64 - 1))
 }
-
 
 pub trait SetIndexFunction {
     /// compute set index
@@ -50,7 +46,10 @@ impl SetIndexFunction for FermiSetIndexFunction {
         line_size_log2: u64,
         num_sets_log2: u64,
     ) -> eyre::Result<usize> {
-        assert!(!(num_sets != 32 && num_sets != 64), "cache config error: number of sets should be 32 or 64");
+        assert!(
+            !(num_sets != 32 && num_sets != 64),
+            "cache config error: number of sets should be 32 or 64"
+        );
         let set_index = 0;
         let lower_xor = 0;
         let upper_xor = 0;
@@ -72,5 +71,3 @@ impl SetIndexFunction for FermiSetIndexFunction {
         Ok(set_index)
     }
 }
-
-

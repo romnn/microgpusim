@@ -1,6 +1,4 @@
-use crate::ported::addrdec::LinearToRawAddressTranslation;
-
-use super::ported::{address, utils, KernelInfo};
+use super::ported::{addrdec, address, mem_sub_partition, utils, KernelInfo};
 use color_eyre::eyre;
 use std::sync::Arc;
 
@@ -40,7 +38,7 @@ pub struct CacheConfig {
     pub write_policy: CacheWritePolicy,
     pub allocate_policy: CacheAllocatePolicy,
     pub write_allocate_policy: CacheWriteAllocatePolicy,
-    pub set_index_function: CacheSetIndexingFunction,
+    pub set_index_function: CacheSetIndexFunc,
 
     pub mshr_kind: MshrKind,
     pub mshr_entries: usize,
@@ -81,10 +79,92 @@ impl CacheConfig {
         MAX_DEFAULT_CACHE_SIZE_MULTIPLIER
     }
 
+    #[inline]
+    pub fn line_size_log2(&self) -> u32 {
+        addrdec::logb2(self.line_size as u32)
+    }
+
+    #[inline]
+    pub fn num_sets_log2(&self) -> u32 {
+        addrdec::logb2(self.num_sets as u32)
+    }
+
+    #[inline]
+    pub fn sector_size(&self) -> usize {
+        mem_sub_partition::SECTOR_SIZE
+    }
+
+    #[inline]
+    pub fn sector_size_log2(&self) -> u32 {
+        addrdec::logb2(self.sector_size() as u32)
+    }
+
+    #[inline]
+    pub fn atom_size(&self) -> usize {
+        if self.kind == CacheKind::Sector {
+            mem_sub_partition::SECTOR_SIZE
+        } else {
+            self.line_size
+        }
+    }
+
     // do not use enabled but options
     #[inline]
-    pub fn set_index(&self, idx: address) -> usize {
-        todo!();
+    pub fn set_index(&self, addr: address) -> u64 {
+        use super::ported::set_index_function as indexing;
+        println!("cache_config::set_index({})", addr);
+
+        let set_idx: u64 = match self.set_index_function {
+            CacheSetIndexFunc::LINEAR_SET_FUNCTION => {
+                (addr >> self.line_size_log2()) & (self.num_sets as u64 - 1)
+            }
+            CacheSetIndexFunc::HASH_IPOLY_FUNCTION => {
+                todo!("hash ipoly index function");
+            }
+            CacheSetIndexFunc::FERMI_HASH_SET_FUNCTION => {
+                // Set Indexing function from 
+                // "A Detailed GPU Cache Model Based on Reuse
+                // Distance Theory" Cedric Nugteren et al. HPCA 2014
+                
+                // check for incorrect number of sets
+                assert!(
+                    matches!(self.num_sets, 32 | 64),
+                    "bad cache config: number of sets should be 32 or 64 for the hashing set index function",
+                );
+
+      let mut lower_xor = 0;
+      let mut upper_xor = 0;
+
+                // lower xor value is bits 7-11
+        lower_xor = (addr >> self.line_size_log2()) & 0x1F;
+
+        // upper xor value is bits 13, 14, 15, 17, and 19
+        upper_xor = (addr & 0xE000) >> 13;    // Bits 13, 14, 15
+        upper_xor |= (addr & 0x20000) >> 14;  // Bit 17
+        upper_xor |= (addr & 0x80000) >> 15;  // Bit 19
+
+        let mut set_index = lower_xor ^ upper_xor;
+
+        // 48KB cache prepends the set_index with bit 12
+        if self.num_sets == 64 { 
+                set_index |= (addr & 0x1000) >> 7;
+                }
+                set_index
+            }
+            CacheSetIndexFunc::BITWISE_XORING_FUNCTION => {
+                let bits = self.line_size_log2() + self.num_sets_log2();
+                let higher_bits = addr >> bits;
+                let mut index = (addr >> self.line_size_log2()) as usize;
+                index &= self.num_sets - 1;
+                indexing::bitwise_hash_function(higher_bits, index, self.num_sets)
+            }
+        };
+
+        assert!(
+            set_idx < self.num_sets as u64, 
+             "Error: Set index out of bounds. This is caused by an incorrect or unimplemented set index function."
+        );
+        set_idx
     }
 
     #[inline]
@@ -642,7 +722,7 @@ impl GPUConfig {
 
 /// Cache set indexing function kind.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum CacheSetIndexingFunction {
+pub enum CacheSetIndexFunc {
     FERMI_HASH_SET_FUNCTION, // H
     HASH_IPOLY_FUNCTION,     // P
     // CUSTOM_SET_FUNCTION, // C
@@ -771,8 +851,8 @@ impl GPUConfig {
         Ok(Self::default())
     }
 
-    pub fn address_mapping(&self) -> LinearToRawAddressTranslation {
-        LinearToRawAddressTranslation::new(
+    pub fn address_mapping(&self) -> addrdec::LinearToRawAddressTranslation {
+        addrdec::LinearToRawAddressTranslation::new(
             self.num_memory_controllers,
             self.num_sub_partition_per_memory_channel,
         )
@@ -796,7 +876,7 @@ impl Default for GPUConfig {
                 write_policy: CacheWritePolicy::READ_ONLY,
                 allocate_policy: CacheAllocatePolicy::ON_MISS,
                 write_allocate_policy: CacheWriteAllocatePolicy::NO_WRITE_ALLOCATE,
-                set_index_function: CacheSetIndexingFunction::LINEAR_SET_FUNCTION,
+                set_index_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
                 mshr_kind: MshrKind::TEX_FIFO,
                 mshr_entries: 128,
                 mshr_max_merge: 4,
@@ -815,7 +895,7 @@ impl Default for GPUConfig {
                 write_policy: CacheWritePolicy::READ_ONLY,
                 allocate_policy: CacheAllocatePolicy::ON_FILL,
                 write_allocate_policy: CacheWriteAllocatePolicy::NO_WRITE_ALLOCATE,
-                set_index_function: CacheSetIndexingFunction::LINEAR_SET_FUNCTION,
+                set_index_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
                 mshr_kind: MshrKind::ASSOC,
                 mshr_entries: 2,
                 mshr_max_merge: 64,
@@ -834,7 +914,7 @@ impl Default for GPUConfig {
                 write_policy: CacheWritePolicy::READ_ONLY,
                 allocate_policy: CacheAllocatePolicy::ON_FILL,
                 write_allocate_policy: CacheWriteAllocatePolicy::NO_WRITE_ALLOCATE,
-                set_index_function: CacheSetIndexingFunction::LINEAR_SET_FUNCTION,
+                set_index_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
                 mshr_kind: MshrKind::ASSOC,
                 mshr_entries: 2,
                 mshr_max_merge: 48,
@@ -853,7 +933,7 @@ impl Default for GPUConfig {
                 write_policy: CacheWritePolicy::LOCAL_WB_GLOBAL_WT,
                 allocate_policy: CacheAllocatePolicy::ON_MISS,
                 write_allocate_policy: CacheWriteAllocatePolicy::NO_WRITE_ALLOCATE,
-                set_index_function: CacheSetIndexingFunction::FERMI_HASH_SET_FUNCTION,
+                set_index_function: CacheSetIndexFunc::FERMI_HASH_SET_FUNCTION,
                 mshr_kind: MshrKind::ASSOC,
                 mshr_entries: 128,
                 mshr_max_merge: 8,
@@ -872,7 +952,7 @@ impl Default for GPUConfig {
                 write_policy: CacheWritePolicy::WRITE_BACK,
                 allocate_policy: CacheAllocatePolicy::ON_MISS,
                 write_allocate_policy: CacheWriteAllocatePolicy::WRITE_ALLOCATE,
-                set_index_function: CacheSetIndexingFunction::LINEAR_SET_FUNCTION,
+                set_index_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
                 mshr_kind: MshrKind::ASSOC,
                 mshr_entries: 128,
                 mshr_max_merge: 8,

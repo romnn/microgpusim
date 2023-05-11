@@ -3,14 +3,14 @@ use crate::ported::address;
 /// Base 2 logarithm of n.
 ///
 /// Effectively the minium number of bits required to store n.
-fn logb2(n: u32) -> u32 {
+pub fn logb2(n: u32) -> u32 {
     n.max(1).ilog2()
 }
 
 /// Compute power of two greater than or equal to n
 ///
 /// see: https://www.techiedelight.com/round-next-highest-power-2/
-fn next_power2(mut n: u32) -> u32 {
+pub fn next_power2(mut n: u32) -> u32 {
     // avoid subtract with overflow
     if n == 0 {
         return 0;
@@ -29,7 +29,7 @@ fn next_power2(mut n: u32) -> u32 {
     n << 1
 }
 
-fn mask_limit(mask: address) -> (u8, u8) {
+pub fn mask_limit(mask: address) -> (u8, u8) {
     let mut high = 64;
     let mut low = 0;
     let mut low_found = false;

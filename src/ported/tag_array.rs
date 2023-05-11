@@ -248,7 +248,7 @@ impl<B> TagArray<B> {
         fetch: &mem_fetch::MemFetch,
     ) -> (Option<usize>, cache::CacheRequestStatus) {
         println!("tag_array::probe({block_addr})");
-        let set_index = self.config.set_index(block_addr);
+        let set_index = self.config.set_index(block_addr) as usize;
         let tag = self.config.tag(block_addr);
 
         let mut invalid_line = None;
