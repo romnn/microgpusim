@@ -1,4 +1,4 @@
-use super::{cache, interconn as ic, scheduler as sched, mem_fetch};
+use super::{cache, interconn as ic, mem_fetch, scheduler as sched};
 use crate::config::GPUConfig;
 use std::sync::Arc;
 
@@ -310,12 +310,12 @@ impl std::fmt::Display for RegisterSet {
 
 // fn move_warp(lhs: &PipelineStage, rhs: &PipelineStage) {}
 
-pub static READ_PACKET_SIZE: usize = 8;
+pub static READ_PACKET_SIZE: u8 = 8;
 
 // bytes: 6 address, 2 miscelaneous.
-pub static WRITE_PACKET_SIZE: usize = 8;
+pub static WRITE_PACKET_SIZE: u8 = 8;
 
-pub static WRITE_MASK_SIZE: usize = 8;
+pub static WRITE_MASK_SIZE: u8 = 8;
 
 #[derive(Debug)]
 pub struct LoadStoreUnit {
@@ -326,7 +326,8 @@ pub struct LoadStoreUnit {
     response_fifo: VecDeque<MemFetch>,
     texture_l1: cache::TextureL1,
     const_l1: cache::ConstL1,
-    data_l1: Option<cache::DataL1>,
+    // todo: how to use generic interface here
+    data_l1: Option<cache::ConstL1>,
     config: Arc<GPUConfig>,
     next_global: Option<MemFetch>,
     dispatch_reg: Option<WarpInstruction>,
@@ -683,7 +684,7 @@ impl LoadStoreUnit {
             } else {
                 READ_PACKET_SIZE
             };
-            let size = access.req_size + control_size;
+            let size = access.req_size_bytes + control_size as u32;
 
             println!("Interconnect addr: {}, size={}", access.addr, size);
             if self
@@ -698,13 +699,13 @@ impl LoadStoreUnit {
                         WRITE_PACKET_SIZE
                     } else {
                         READ_PACKET_SIZE
-                    };
+                    } as u32;
 
                     let warp_id = instr.warp_id;
                     mem_fetch::MemFetch::new(
                         instr.clone(),
                         access.clone(),
-                        GPUConfig::default(),
+                        &self.config,
                         size,
                         warp_id,
                         self.core_id,

@@ -15,17 +15,14 @@ LD_PRELOAD=./target/release/libtrace.so <executable> [args]
 LD_PRELOAD=./target/release/libtrace.so ./test-apps/vectoradd/vectoradd 100 32
 ```
 
-```
-cargo build --release -p trace
-LD_PRELOAD=./target/release/build/libtrace.so ./test-apps/vectoradd/vectoradd 100 32
-```
-
 See the [accelsim instructions](accelsim/README.md).
 
 #### Profile an application
 ```bash
 sudo ./target/release/profile <executable> [args]
 sudo ./target/release/validate ./test-apps/simple_matrixmul/matrixmul 5 5 5 32
+
+./accelsim/gtx1080/accelsim_mem_debug_trace.txt
 ```
 
 #### Python package

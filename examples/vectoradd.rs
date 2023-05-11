@@ -2,7 +2,7 @@
 #![allow(clippy::cast_possible_truncation)]
 #![allow(clippy::cast_sign_loss)]
 
-use anyhow::Result;
+use color_eyre::eyre;
 use num_traits::{Float, Zero};
 
 #[derive(Debug)]
@@ -37,7 +37,7 @@ where
 // Number of threads in each thread block
 const BLOCK_SIZE: u32 = 1024;
 
-fn vectoradd<T>(n: usize) -> Result<()>
+fn vectoradd<T>(n: usize) -> eyre::Result<()>
 where
     T: Float + Zero + num_traits::NumCast + std::iter::Sum + std::fmt::Display + std::fmt::Debug,
 {
@@ -87,18 +87,18 @@ where
     Ok(())
 }
 
-fn main() -> Result<()> {
+fn main() -> eyre::Result<()> {
     vectoradd::<f32>(100)?;
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use anyhow::Result;
+    use color_eyre::eyre;
     use std::path::PathBuf;
 
     #[test]
-    pub fn test_read_trace() -> Result<()> {
+    pub fn test_read_trace() -> eyre::Result<()> {
         let traces_dir = PathBuf::from(file!())
             .parent()
             .unwrap()

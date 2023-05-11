@@ -30,6 +30,7 @@ use common::mem_access_t;
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Default, Clone)]
 struct Args {
+    instr_data_width: u32,
     instr_opcode_id: std::ffi::c_int,
     /// instruction offset is equivalent to virtual pc
     instr_offset: u32,
@@ -81,6 +82,7 @@ fn json_serializer(
 impl Args {
     pub fn instrument(&self, instr: &mut nvbit_rs::Instruction<'_>) {
         instr.add_call_arg_guard_pred_val();
+        instr.add_call_arg_const_val32(self.instr_data_width.try_into().unwrap_or_default());
         instr.add_call_arg_const_val32(self.instr_opcode_id.try_into().unwrap_or_default());
         instr.add_call_arg_const_val32(self.instr_offset);
         instr.add_call_arg_const_val32(self.instr_idx);
@@ -235,6 +237,7 @@ impl Instrumentor<'static> {
                 block_id,
                 warp_id: packet.warp_id.unsigned_abs(),
                 line_num: packet.line_num,
+                instr_data_width: packet.instr_data_width,
                 instr_opcode: opcode.clone(),
                 // instruction offset is equivalent to virtual pc
                 instr_offset: packet.instr_offset,
@@ -389,6 +392,7 @@ impl<'c> Instrumentor<'c> {
         let line_num = line_info.map(|info| info.line).unwrap_or(0);
 
         let opcode = instr.opcode().expect("has opcode");
+        let data_width = instr.size() as u32;
 
         let opcode_id = {
             let mut opcode_to_id_map = self.opcode_to_id_map.write().unwrap();
@@ -417,6 +421,7 @@ impl<'c> Instrumentor<'c> {
                     is_uniform: false,
                 });
                 let inst_args = Args {
+                    instr_data_width: data_width,
                     instr_opcode_id: opcode_id.try_into().unwrap(),
                     instr_offset: instr.offset(),
                     instr_idx: instr.idx(),

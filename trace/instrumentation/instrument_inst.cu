@@ -12,12 +12,13 @@
 // Please note the use of extern "C" __device__ __noinline__
 // to prevent "dead"-code elimination by the compiler.
 extern "C" __device__ __noinline__ void
-instrument_inst(int pred, int instr_opcode_id, uint32_t instr_offset,
-                uint32_t instr_idx, int instr_predicate_num,
-                bool instr_predicate_is_neg, bool instr_predicate_is_uniform,
-                uint32_t instr_mem_space, bool instr_is_load,
-                bool instr_is_store, bool instr_is_extended, uint64_t addr,
-                uint64_t kernel_id, uint64_t pchannel_dev, uint64_t line_num) {
+instrument_inst(int pred, uint32_t instr_data_width, int instr_opcode_id,
+                uint32_t instr_offset, uint32_t instr_idx,
+                int instr_predicate_num, bool instr_predicate_is_neg,
+                bool instr_predicate_is_uniform, uint32_t instr_mem_space,
+                bool instr_is_load, bool instr_is_store, bool instr_is_extended,
+                uint64_t addr, uint64_t kernel_id, uint64_t pchannel_dev,
+                uint64_t line_num) {
 
   /* if thread is predicated off, return */
   // if (!pred) {
@@ -43,6 +44,7 @@ instrument_inst(int pred, int instr_opcode_id, uint32_t instr_offset,
   ma.block_id_z = block.z;
   ma.warp_id = get_warpid();
   ma.line_num = line_num;
+  ma.instr_data_width = instr_data_width;
   ma.instr_opcode_id = instr_opcode_id;
   ma.instr_offset = instr_offset;
   ma.instr_idx = instr_idx;

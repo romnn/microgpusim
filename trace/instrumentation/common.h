@@ -10,6 +10,7 @@ typedef struct {
   int block_id_z;
   int warp_id;
   uint32_t line_num;
+  uint32_t instr_data_width;
   // opcode_id is purely internal
   uint32_t instr_opcode_id;
   uint32_t instr_offset;

@@ -1,3 +1,13 @@
+#### TODO (new plan)
+- go back to a more simple model
+  - schedule warps deterministically
+  - focus on the interface to l1, l2, dram
+  - detailed port of l1 cache first
+
+- later: go back to core::fetch
+  - add icache and get issueing to l1 to work at least
+  - see how far we are at that point
+
 #### TODO
 - get a trace from vectoradd using accelsim
 - get a trace from vectoradd using accelsim

@@ -174,6 +174,7 @@ impl KernelInfo {
     // GPGPUSim_Init
     // start_sim_thread
     pub fn new(config: KernelLaunch) -> Self {
+        dbg!(&config);
         let trace_path = config.trace_file.with_extension("msgpack");
         dbg!(&trace_path);
         let mut trace = read_trace(&trace_path).unwrap();

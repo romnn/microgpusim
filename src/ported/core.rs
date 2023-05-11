@@ -126,6 +126,111 @@ impl SIMTCore {
         // warp.next_trace_inst()
     }
 
+    fn fetch(&mut self) {
+        //   if (!m_inst_fetch_buffer.m_valid) {
+        //     if (m_L1I->access_ready()) {
+        //       mem_fetch *mf = m_L1I->next_access();
+        //       m_warp[mf->get_wid()]->clear_imiss_pending();
+        //       m_inst_fetch_buffer =
+        //           ifetch_buffer_t(m_warp[mf->get_wid()]->get_pc(),
+        //                           mf->get_access_size(), mf->get_wid());
+        //       assert(m_warp[mf->get_wid()]->get_pc() ==
+        //              (mf->get_addr() -
+        //               PROGRAM_MEM_START));  // Verify that we got the instruction we
+        //                                     // were expecting.
+        //       m_inst_fetch_buffer.m_valid = true;
+        //       m_warp[mf->get_wid()]->set_last_fetch(m_gpu->gpu_sim_cycle);
+        //       delete mf;
+        //     } else {
+        //       // find an active warp with space in instruction buffer that is not
+        //       // already waiting on a cache miss and get next 1-2 instructions from
+        //       // i-cache...
+        //       for (unsigned i = 0; i < m_config->max_warps_per_shader; i++) {
+        //         unsigned warp_id =
+        //             (m_last_warp_fetched + 1 + i) % m_config->max_warps_per_shader;
+        //
+        //         // this code checks if this warp has finished executing and can be
+        //         // reclaimed
+        //         if (m_warp[warp_id]->hardware_done() &&
+        //             !m_scoreboard->pendingWrites(warp_id) &&
+        //             !m_warp[warp_id]->done_exit()) {
+        //           bool did_exit = false;
+        //           for (unsigned t = 0; t < m_config->warp_size; t++) {
+        //             unsigned tid = warp_id * m_config->warp_size + t;
+        //             if (m_threadState[tid].m_active == true) {
+        //               m_threadState[tid].m_active = false;
+        //               unsigned cta_id = m_warp[warp_id]->get_cta_id();
+        //               if (m_thread[tid] == NULL) {
+        //                 register_cta_thread_exit(cta_id, m_warp[warp_id]->get_kernel_info());
+        //               } else {
+        //                 register_cta_thread_exit(cta_id,
+        //                                          &(m_thread[tid]->get_kernel()));
+        //               }
+        //               m_not_completed -= 1;
+        //               m_active_threads.reset(tid);
+        //               did_exit = true;
+        //             }
+        //           }
+        //           if (did_exit) m_warp[warp_id]->set_done_exit();
+        //           --m_active_warps;
+        //           assert(m_active_warps >= 0);
+        //         }
+        //
+        //         // this code fetches instructions from the i-cache or generates memory
+        //         if (!m_warp[warp_id]->functional_done() &&
+        //             !m_warp[warp_id]->imiss_pending() &&
+        //             m_warp[warp_id]->ibuffer_empty()) {
+        //           address_type pc;
+        //           pc = m_warp[warp_id]->get_pc();
+        //           address_type ppc = pc + PROGRAM_MEM_START;
+        //           unsigned nbytes = 16;
+        //           unsigned offset_in_block =
+        //               pc & (m_config->m_L1I_config.get_line_sz() - 1);
+        //           if ((offset_in_block + nbytes) > m_config->m_L1I_config.get_line_sz())
+        //             nbytes = (m_config->m_L1I_config.get_line_sz() - offset_in_block);
+        //
+        //           // TODO: replace with use of allocator
+        //           // mem_fetch *mf = m_mem_fetch_allocator->alloc()
+        //           mem_access_t acc(INST_ACC_R, ppc, nbytes, false, m_gpu->gpgpu_ctx);
+        //           mem_fetch *mf = new mem_fetch(
+        //               acc, NULL /*we don't have an instruction yet*/, READ_PACKET_SIZE,
+        //               warp_id, m_sid, m_tpc, m_memory_config,
+        //               m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle);
+        //           std::list<cache_event> events;
+        //           enum cache_request_status status;
+        //           if (m_config->perfect_inst_const_cache){
+        //             status = HIT;
+        //             shader_cache_access_log(m_sid, INSTRUCTION, 0);
+        //           }
+        //           else
+        //             status = m_L1I->access(
+        //                 (new_addr_type)ppc, mf,
+        //                 m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle, events);
+        //
+        //           if (status == MISS) {
+        //             m_last_warp_fetched = warp_id;
+        //             m_warp[warp_id]->set_imiss_pending();
+        //             m_warp[warp_id]->set_last_fetch(m_gpu->gpu_sim_cycle);
+        //           } else if (status == HIT) {
+        //             m_last_warp_fetched = warp_id;
+        //             m_inst_fetch_buffer = ifetch_buffer_t(pc, nbytes, warp_id);
+        //             m_warp[warp_id]->set_last_fetch(m_gpu->gpu_sim_cycle);
+        //             delete mf;
+        //           } else {
+        //             m_last_warp_fetched = warp_id;
+        //             assert(status == RESERVATION_FAIL);
+        //             delete mf;
+        //           }
+        //           break;
+        //         }
+        //       }
+        //     }
+        //   }
+        //
+        //   m_L1I->cycle();
+        // }
+    }
+
     fn decode(&mut self) {
         struct InstructionFetchBuffer {
             valid: bool,
@@ -192,15 +297,14 @@ impl SIMTCore {
             // return;
         }
         // m_stats->shader_cycles[m_sid]++;
-        //   writeback();
-        //   execute();
-        //   read_operands();
-        //   issue();
-        //   for (int i = 0; i < m_config->inst_fetch_throughput; ++i) {
-        //     decode();
-        //     fetch();
-        //   }
+        // self.writeback();
+        // self.execute();
+        //   self.read_operands();
         self.issue();
+        for i in 0..self.config.inst_fetch_throughput {
+            self.decode();
+            self.fetch();
+        }
     }
 
     pub fn ldst_unit_response_buffer_full(&self) -> bool {
@@ -810,7 +914,7 @@ impl SIMTCoreCluster {
         cluster_id: usize,
         device: u64,
         fetch: mem_fetch::MemFetch,
-        packet_size: usize,
+        packet_size: u32,
     ) {
         println!("cluster {}: push to interconn", self.cluster_id);
     }

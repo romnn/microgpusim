@@ -13,7 +13,7 @@ impl Interconnect {
         println!("interconnect: pushed fetch {:?}", fetch);
     }
 
-    pub fn full(&self, size: usize, write: bool) -> bool {
+    pub fn full(&self, size: u32, write: bool) -> bool {
         false
     }
 }

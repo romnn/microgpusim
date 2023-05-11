@@ -43,6 +43,7 @@ pub struct MemAccessTraceEntry {
     pub block_id: nvbit_model::Dim,
     pub warp_id: u32,
     pub line_num: u32,
+    pub instr_data_width: u32,
     pub instr_opcode: String,
     pub instr_offset: u32,
     pub instr_idx: u32,

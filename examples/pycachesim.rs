@@ -1,6 +1,5 @@
 #![allow(warnings)]
 
-use anyhow::Result;
 use casimu::{cache::LRU, Cache, CacheConfig, MainMemory, Simulation};
 use std::sync::Arc;
 

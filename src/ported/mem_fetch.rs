@@ -1,7 +1,12 @@
 use super::addrdec::LinearToRawAddressTranslation;
 use super::instruction::WarpInstruction;
+use super::scheduler::ThreadActiveMask;
 use crate::config::GPUConfig;
 use crate::ported::{address, DecodedAddress, READ_PACKET_SIZE, WRITE_PACKET_SIZE};
+use bitvec::{array::BitArray, field::BitField, BitArr};
+
+pub type MemAccessByteMask = BitArr!(for super::MAX_MEMORY_ACCESS_SIZE, in u8);
+pub type MemAccessSectorMask = BitArr!(for super::SECTOR_CHUNCK_SIZE, in u8);
 
 pub trait Interconnect {
     fn full(&self, size: usize, write: bool) -> bool;
@@ -87,18 +92,63 @@ pub enum AccessKind {
 
 #[derive(Clone, Debug)]
 pub struct MemAccess {
-    uid: usize,
+    // uid: usize,
     /// request address
     pub addr: super::address,
     /// if access is write
     pub is_write: bool,
     /// request size in bytes
-    pub req_size: usize,
+    pub req_size_bytes: u32,
     /// access type
     pub kind: AccessKind,
     // active_mask_t m_warp_mask;
-    // mem_access_byte_mask_t m_byte_mask;
-    // mem_access_sector_mask_t m_sector_mask;
+    pub warp_mask: ThreadActiveMask,
+    pub byte_mask: MemAccessByteMask,
+    pub sector_mask: MemAccessSectorMask,
+}
+
+impl MemAccess {
+    /// todo: where is this initialized
+    pub fn new(
+        kind: AccessKind,
+        addr: address,
+        req_size_bytes: u32,
+        is_write: bool,
+        warp_mask: ThreadActiveMask,
+        byte_mask: MemAccessByteMask,
+        sector_mask: MemAccessSectorMask,
+    ) -> Self {
+        Self {
+            // uid:
+            warp_mask,
+            byte_mask,
+            sector_mask,
+            req_size_bytes,
+            is_write,
+            kind,
+            addr,
+        }
+    }
+
+    /// use gen memory accesses
+    #[deprecated]
+    pub fn from_instr(instr: &WarpInstruction) -> Option<Self> {
+        let Some(kind) = instr.access_kind() else {
+            return None;
+        };
+        let Some(addr) = instr.addr() else {
+            return None;
+        };
+        Some(Self {
+            warp_mask: instr.active_mask,
+            byte_mask: BitArray::ZERO,
+            sector_mask: BitArray::ZERO,
+            req_size_bytes: instr.data_size,
+            is_write: instr.is_store(),
+            kind,
+            addr,
+        })
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -109,10 +159,10 @@ pub struct MemFetch {
     pub partition_addr: address,
     pub chip: usize,
     // pub sub_partition_id: usize,
-    pub control_size: usize,
+    pub control_size: u32,
     pub kind: Kind,
     pub status: Status,
-    pub data_size: usize,
+    pub data_size: u32,
     pub warp_id: usize,
     pub core_id: usize,
     pub cluster_id: usize,
@@ -127,9 +177,17 @@ impl MemFetch {
         self.access.is_write
     }
 
+    pub fn addr(&self) -> address {
+        self.access.addr
+    }
+
     // pub fn cache_op(&self) -> super::instruction::CacheOperator {
     //     self.instr.cache_op
     // }
+
+    pub fn access_sector_mask(&self) -> MemAccessSectorMask {
+        self.access.sector_mask
+    }
 
     pub fn sub_partition_id(&self) -> u64 {
         self.tlx_addr.sub_partition
@@ -142,15 +200,15 @@ impl MemFetch {
     pub fn new(
         instr: WarpInstruction,
         access: MemAccess,
-        config: GPUConfig,
-        control_size: usize,
+        config: &GPUConfig,
+        control_size: u32,
         warp_id: usize,
         core_id: usize,
         cluster_id: usize,
     ) -> Self {
         // m_request_uid = sm_next_mf_request_uid++;
         // let warp_id = instr.warp_id;
-        let data_size = access.req_size;
+        let data_size = access.req_size_bytes;
         let kind = if access.is_write {
             Kind::WRITE_REQUEST
         } else {

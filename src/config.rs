@@ -1,8 +1,22 @@
 use crate::ported::addrdec::LinearToRawAddressTranslation;
 
 use super::ported::{address, utils, KernelInfo};
-use std::sync::Arc;
 use color_eyre::eyre;
+use std::sync::Arc;
+
+/// Cache kind.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum CacheKind {
+    Normal, // N
+    Sector, // S
+}
+
+/// A cache replacement policy.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum CacheReplacementPolicy {
+    LRU,  // L
+    FIFO, // F
+}
 
 /// CacheConfig
 ///
@@ -38,22 +52,42 @@ pub struct CacheConfig {
     // pub disabled: bool,
 }
 
+pub static MAX_DEFAULT_CACHE_SIZE_MULTIPLIER: u8 = 4;
+
 /// TODO: use a builder here so we can fill in the remaining values
 /// and do the validation as found below:
 impl CacheConfig {
     /// The total size of the cache in bytes.
+    #[inline]
     pub fn total_bytes(&self) -> usize {
         self.line_size * self.num_sets * self.associativity
     }
 
     /// Number of lines in total.
+    #[inline]
     pub fn total_lines(&self) -> usize {
         self.num_sets * self.associativity
     }
 
-    // do not use enabled but options
-    pub fn set_index(&self, idx: address) {}
+    /// Maximum number of lines.
+    #[inline]
+    pub fn max_num_lines(&self) -> usize {
+        self.max_cache_multiplier() as usize * self.num_sets * self.associativity
+    }
 
+    /// this is virtual (possibly different)
+    #[inline]
+    pub fn max_cache_multiplier(&self) -> u8 {
+        MAX_DEFAULT_CACHE_SIZE_MULTIPLIER
+    }
+
+    // do not use enabled but options
+    #[inline]
+    pub fn set_index(&self, idx: address) -> usize {
+        todo!();
+    }
+
+    #[inline]
     pub fn tag(&self, addr: address) -> address {
         // For generality, the tag includes both index and tag. This allows for more
         // complex set index calculations that can result in different indexes
@@ -66,11 +100,13 @@ impl CacheConfig {
     }
 
     /// Block address
+    #[inline]
     pub fn block_addr(&self, addr: address) -> address {
         addr & !address::try_from(self.line_size - 1).unwrap()
     }
 
     /// Mshr address
+    #[inline]
     pub fn mshr_addr(&self, addr: address) -> address {
         addr & !address::try_from(self.line_size - 1).unwrap()
     }
@@ -322,7 +358,14 @@ pub struct GPUConfig {
     pub max_concurrent_kernels: usize, // 32
 }
 
+pub static WORD_SIZE: address = 4;
+
 impl GPUConfig {
+    pub fn shared_mem_bank(&self, addr: address) -> address {
+        let num_banks = self.shared_memory_num_banks as u64;
+        (addr / WORD_SIZE) % num_banks
+    }
+
     pub fn max_warps_per_core(&self) -> usize {
         self.max_threads_per_shader / self.warp_size
     }
@@ -615,21 +658,7 @@ pub enum MshrKind {
     ASSOC,           // A
     SECTOR_ASSOC,    // S
 }
-
-/// Cache kind.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum CacheKind {
-    Normal, // N
-    Sector, // S
-}
-
-/// A cache replacement policy.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum CacheReplacementPolicy {
-    LRU,  // L
-    FIFO, // F
-}
-
+///
 /// Cache write-allocate policy.
 ///
 /// For more details about difference between FETCH_ON_WRITE and WRITE
