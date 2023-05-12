@@ -1,0 +1,24 @@
+#pragma once
+
+enum hw_perf_t {
+  HW_BENCH_NAME = 0,
+  HW_KERNEL_NAME,
+  HW_L1_RH,
+  HW_L1_RM,
+  HW_L1_WH,
+  HW_L1_WM,
+  HW_CC_ACC,
+  HW_SHRD_ACC,
+  HW_DRAM_RD,
+  HW_DRAM_WR,
+  HW_L2_RH,
+  HW_L2_RM,
+  HW_L2_WH,
+  HW_L2_WM,
+  HW_NOC,
+  HW_PIPE_DUTY,
+  HW_NUM_SM_IDLE,
+  HW_CYCLES,
+  HW_VOLTAGE,
+  HW_TOTAL_STATS
+};
