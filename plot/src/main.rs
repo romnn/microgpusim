@@ -1,6 +1,6 @@
 use anyhow::Result;
-use serde::Deserializer;
 use clap::Parser;
+use serde::Deserializer;
 use std::fs::{File, OpenOptions};
 use std::io::BufReader;
 use std::path::{Path, PathBuf};

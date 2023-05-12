@@ -67,7 +67,7 @@ pub const MAX_ACCESSES_PER_INSN_PER_THREAD: usize = 8;
 pub struct PerThreadInfo {
     /// Effective addresses
     ///
-    /// up to 8 different requests to support 32B access in 
+    /// up to 8 different requests to support 32B access in
     /// 8 chunks of 4B each
     pub mem_req_addr: [address; MAX_ACCESSES_PER_INSN_PER_THREAD],
 }

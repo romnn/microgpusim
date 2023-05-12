@@ -1,5 +1,5 @@
-use std::path::Path;
 use async_process::{Command, Output};
+use std::path::Path;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

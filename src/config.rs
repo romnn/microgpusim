@@ -118,39 +118,44 @@ impl CacheConfig {
             CacheSetIndexFunc::LINEAR_SET_FUNCTION => {
                 (addr >> self.line_size_log2()) & (self.num_sets as u64 - 1)
             }
-            CacheSetIndexFunc::HASH_IPOLY_FUNCTION => {
-                todo!("hash ipoly index function");
-            }
             CacheSetIndexFunc::FERMI_HASH_SET_FUNCTION => {
-                // Set Indexing function from 
+                // Set Indexing function from
                 // "A Detailed GPU Cache Model Based on Reuse
                 // Distance Theory" Cedric Nugteren et al. HPCA 2014
-                
+
                 // check for incorrect number of sets
                 assert!(
                     matches!(self.num_sets, 32 | 64),
                     "bad cache config: number of sets should be 32 or 64 for the hashing set index function",
                 );
 
-      let mut lower_xor = 0;
-      let mut upper_xor = 0;
+                let mut lower_xor = 0;
+                let mut upper_xor = 0;
 
                 // lower xor value is bits 7-11
-        lower_xor = (addr >> self.line_size_log2()) & 0x1F;
+                lower_xor = (addr >> self.line_size_log2()) & 0x1F;
 
-        // upper xor value is bits 13, 14, 15, 17, and 19
-        upper_xor = (addr & 0xE000) >> 13;    // Bits 13, 14, 15
-        upper_xor |= (addr & 0x20000) >> 14;  // Bit 17
-        upper_xor |= (addr & 0x80000) >> 15;  // Bit 19
+                // upper xor value is bits 13, 14, 15, 17, and 19
+                upper_xor = (addr & 0xE000) >> 13; // Bits 13, 14, 15
+                upper_xor |= (addr & 0x20000) >> 14; // Bit 17
+                upper_xor |= (addr & 0x80000) >> 15; // Bit 19
 
-        let mut set_index = lower_xor ^ upper_xor;
+                let mut set_index = lower_xor ^ upper_xor;
 
-        // 48KB cache prepends the set_index with bit 12
-        if self.num_sets == 64 { 
-                set_index |= (addr & 0x1000) >> 7;
+                // 48KB cache prepends the set_index with bit 12
+                if self.num_sets == 64 {
+                    set_index |= (addr & 0x1000) >> 7;
                 }
                 set_index
             }
+            CacheSetIndexFunc::HASH_IPOLY_FUNCTION => {
+                let bits = self.line_size_log2() + self.num_sets_log2();
+                let higher_bits = addr >> bits;
+                let mut index = (addr >> self.line_size_log2()) as usize;
+                index &= self.num_sets - 1;
+                indexing::ipoly_hash_function(higher_bits, index, self.num_sets)
+            }
+
             CacheSetIndexFunc::BITWISE_XORING_FUNCTION => {
                 let bits = self.line_size_log2() + self.num_sets_log2();
                 let higher_bits = addr >> bits;
@@ -161,7 +166,7 @@ impl CacheConfig {
         };
 
         assert!(
-            set_idx < self.num_sets as u64, 
+            set_idx < self.num_sets as u64,
              "Error: Set index out of bounds. This is caused by an incorrect or unimplemented set index function."
         );
         set_idx
@@ -169,34 +174,28 @@ impl CacheConfig {
 
     #[inline]
     pub fn tag(&self, addr: address) -> address {
-        // For generality, the tag includes both index and tag. This allows for more
-        // complex set index calculations that can result in different indexes
-        // mapping to the same set, thus the full tag + index is required to check
-        // for hit/miss. Tag is now identical to the block address.
+        // For generality, the tag includes both index and tag.
+        // This allows for more complex set index calculations that
+        // can result in different indexes mapping to the same set,
+        // thus the full tag + index is required to check for hit/miss.
+        // Tag is now identical to the block address.
 
         // return addr >> (m_line_sz_log2+m_nset_log2);
         // return addr & ~(new_addr_type)(m_line_sz - 1);
-        addr & !address::try_from(self.line_size - 1).unwrap()
+        addr & !((self.line_size - 1) as u64)
     }
 
     /// Block address
     #[inline]
     pub fn block_addr(&self, addr: address) -> address {
-        addr & !address::try_from(self.line_size - 1).unwrap()
+        addr & !((self.line_size - 1) as u64)
     }
 
     /// Mshr address
     #[inline]
     pub fn mshr_addr(&self, addr: address) -> address {
-        addr & !address::try_from(self.line_size - 1).unwrap()
+        addr & !((self.line_size - 1) as u64)
     }
-
-    // m_line_sz_log2 = LOGB2(m_line_sz);
-    // m_nset_log2 = LOGB2(m_nset);
-    // m_valid = true;
-    // m_atom_sz = (m_cache_type == SECTOR) ? SECTOR_SIZE : m_line_sz;
-    // m_sector_sz_log2 = LOGB2(SECTOR_SIZE);
-    // original_m_assoc = m_assoc;
 
     // // detect invalid configuration
     // if ((m_alloc_policy == ON_FILL || m_alloc_policy == STREAMING) and

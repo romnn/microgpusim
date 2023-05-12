@@ -1,4 +1,8 @@
 #### TODO (new plan)
+- try to move gpgpusim code into many small files into the playground
+  - see if we can at least compile the tag array and do some test 
+    - good starting point
+
 - go back to a more simple model
   - schedule warps deterministically
   - focus on the interface to l1, l2, dram

@@ -35,7 +35,6 @@ async fn sim_trace(
         config.config_dir.canonicalize()?.display()
     ));
 
-
     // source simulator setup
     tmp_sim_sh.push(format!("source {}", setup_env.canonicalize()?.display()));
 

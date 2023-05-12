@@ -1,4 +1,4 @@
-use super::{address, interconn as ic, mem_fetch, tag_array::TagArray};
+use super::{address, interconn as ic, mem_fetch, stats::STATS, tag_array::TagArray};
 use crate::config;
 use std::sync::Arc;
 
@@ -126,21 +126,45 @@ impl<I> DataL1<I> {
     pub fn access(
         &self,
         addr: address,
-        fetch: mem_fetch::MemFetch,
+        fetch: &mem_fetch::MemFetch,
         events: Vec<CacheEvent>,
     ) -> CacheRequestStatus {
-        // data_cache::access(addr, mf, time, events);
-        // assert(mf->get_data_size() <= m_config.get_atom_sz());
+        debug_assert!(fetch.data_size as usize <= self.config.atom_size());
+
         let is_write = fetch.is_write();
         let block_addr = self.config.block_addr(addr);
 
+        println!(
+            "data_cache::access({addr}, write = {is_write}, size = {}, block = {block_addr})",
+            fetch.data_size,
+        );
+
         let (cache_index, probe_status) = self.tag_array.probe(block_addr, &fetch, is_write, true);
+        dbg!((cache_index, probe_status));
+
         let access_status =
             self.process_tag_probe(is_write, probe_status, addr, cache_index, &fetch, &events);
-        // m_stats.inc_stats(mf->get_access_type(),
-        //                   m_stats.select_stats_status(probe_status, access_status));
-        // m_stats.inc_stats_pw(mf->get_access_type(), m_stats.select_stats_status(
-        //                                                 probe_status, access_status));
+
+        let mut stats = STATS.lock().unwrap();
+        let stat_cache_request_status = match probe_status {
+            CacheRequestStatus::HIT_RESERVED
+                if access_status != CacheRequestStatus::RESERVATION_FAIL =>
+            {
+                probe_status
+            }
+            CacheRequestStatus::SECTOR_MISS if access_status != CacheRequestStatus::MISS => {
+                probe_status
+            }
+            status => access_status,
+        };
+        stats
+            .accesses
+            .entry((*fetch.access_kind(), stat_cache_request_status))
+            .and_modify(|s| *s += 1)
+            .or_insert(1);
+        // m_stats.inc_stats_pw(
+        // mf->get_access_type(),
+        // m_stats.select_stats_status(probe_status, access_status));
         access_status
     }
 
@@ -361,7 +385,7 @@ impl<I> DataL1<I> {
 mod tests {
     use super::DataL1;
     use crate::config::GPUConfig;
-    use crate::ported::{mem_fetch, WarpInstruction};
+    use crate::ported::{stats::STATS, mem_fetch, WarpInstruction};
     use std::sync::{Arc, Mutex};
 
     struct Interconnect {}
@@ -457,7 +481,13 @@ mod tests {
             core_id,
             cluster_id,
         );
-        l1.access(0x00000000, fetch, vec![]);
+        let status = l1.access(0x00000000, &fetch, vec![]);
+        dbg!(&status);
+        let status = l1.access(0x00000000, &fetch, vec![]);
+        dbg!(&status);
+
+        let mut stats = STATS.lock().unwrap();
+        dbg!(&stats);
         assert!(false);
     }
 }

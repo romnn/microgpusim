@@ -1,4 +1,9 @@
+use super::{cache, mem_fetch};
+use std::collections::HashMap;
 use std::sync::Mutex;
+
+pub type CacheRequestStatusCounters =
+    HashMap<(mem_fetch::AccessKind, cache::CacheRequestStatus), usize>;
 
 #[derive(Default, Debug)]
 pub struct Stats {
@@ -14,6 +19,7 @@ pub struct Stats {
     pub num_mem_l2_writeback: usize,
     pub num_mem_l1_write_allocate: usize,
     pub num_mem_l2_write_allocate: usize,
+    pub accesses: CacheRequestStatusCounters,
 }
 
 lazy_static::lazy_static! {

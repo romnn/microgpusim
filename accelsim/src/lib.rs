@@ -39,7 +39,6 @@ pub fn locate_nvbit_tracer() -> Result<PathBuf> {
     Ok(tracer_root)
 }
 
-
 // use lazy_static::lazy_static;
 // use regex::Regex;
 // use std::io::{BufRead, Read, Seek};

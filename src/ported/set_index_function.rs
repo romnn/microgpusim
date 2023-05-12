@@ -5,6 +5,35 @@ pub fn bitwise_hash_function(higher_bits: address, index: usize, bank_set_num: u
     index as u64 ^ (higher_bits & (bank_set_num as u64 - 1))
 }
 
+/// Set Indexing function from "Pseudo-randomly interleaved memory."
+/// Rau, B. R et al.
+/// ISCA 1991
+/// http://citeseerx.ist.psu.edu/viewdoc/download;jsessionid=348DEA37A3E440473B3C075EAABC63B6?doi=10.1.1.12.7149&rep=rep1&type=pdf
+///
+/// equations are corresponding to IPOLY(37) and are adopted from:
+/// "Sacat: streaming-aware conflict-avoiding thrashing-resistant gpgpu
+/// cache management scheme." Khairy et al. IEEE TPDS 2017.
+///
+/// equations for 16 banks are corresponding to IPOLY(5)
+/// equations for 32 banks are corresponding to IPOLY(37)
+/// equations for 64 banks are corresponding to IPOLY(67)
+/// To see all the IPOLY equations for all the degrees, see
+/// http://wireless-systems.ece.gatech.edu/6604/handouts/Peterson's%20Table.pdf
+///
+/// We generate these equations using GF(2) arithmetic:
+/// http://www.ee.unb.ca/cgi-bin/tervo/calc.pl?num=&den=&f=d&e=1&m=1
+///
+/// We go through all the strides 128 (10000000), 256 (100000000),...  and
+/// do modular arithmetic in GF(2) Then, we create the H-matrix and group
+/// each bit together, for more info read the ISCA 1991 paper
+///
+/// IPOLY hashing guarantees conflict-free for all 2^n strides which widely
+/// exit in GPGPU applications and also show good performance for other
+/// strides.
+pub fn ipoly_hash_function(higher_bits: address, index: usize, bank_set_num: usize) -> u64 {
+    todo!("ipoly_hash_function");
+}
+
 pub trait SetIndexFunction {
     /// compute set index
     fn compute_set_index(

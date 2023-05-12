@@ -1,0 +1,9 @@
+#pragma once
+
+enum set_index_function {
+  LINEAR_SET_FUNCTION = 0,
+  BITWISE_XORING_FUNCTION,
+  HASH_IPOLY_FUNCTION,
+  FERMI_HASH_SET_FUNCTION,
+  CUSTOM_SET_FUNCTION
+};

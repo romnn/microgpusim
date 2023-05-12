@@ -250,6 +250,7 @@ impl<B> TagArray<B> {
         println!("tag_array::probe({block_addr})");
         let set_index = self.config.set_index(block_addr) as usize;
         let tag = self.config.tag(block_addr);
+        // dbg(set_index, 
 
         let mut invalid_line = None;
         let mut valid_line = None;

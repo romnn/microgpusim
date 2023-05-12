@@ -10,8 +10,6 @@ pub struct MainMemory {
     load_to_cache: Option<Arc<dyn cache::Level>>,
 }
 
-
-
 impl MainMemory {
     #[must_use]
     pub fn new() -> Self {
