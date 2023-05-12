@@ -5,7 +5,7 @@ use crate::config::GPUConfig;
 use crate::ported::{address, DecodedAddress, READ_PACKET_SIZE, WRITE_PACKET_SIZE};
 use bitvec::{array::BitArray, field::BitField, BitArr};
 
-pub type MemAccessByteMask = BitArr!(for super::MAX_MEMORY_ACCESS_SIZE, in u8);
+pub type MemAccessByteMask = BitArr!(for super::MAX_MEMORY_ACCESS_SIZE);
 pub type MemAccessSectorMask = BitArr!(for super::SECTOR_CHUNCK_SIZE, in u8);
 
 pub trait Interconnect {

@@ -7,7 +7,7 @@ use super::instruction::WarpInstruction;
 use crate::config::GPUConfig;
 use bitvec::{array::BitArray, BitArr};
 
-pub type ThreadActiveMask = BitArr!(for 32);
+pub type ThreadActiveMask = BitArr!(for 32, in u32);
 
 #[derive(Clone, Debug)]
 pub struct SchedulerWarp {

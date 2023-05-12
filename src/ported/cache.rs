@@ -168,6 +168,74 @@ impl<I> DataL1<I> {
         access_status
     }
 
+    fn wr_hit_wb(&self) -> usize {
+        0
+    }
+
+    fn read_hit(
+        &self,
+        addr: address,
+        cache_index: Option<usize>,
+        // cache_index: usize,
+        fetch: &mem_fetch::MemFetch,
+        time: usize,
+        events: &[CacheEvent],
+        probe_status: CacheRequestStatus,
+    ) -> CacheRequestStatus {
+        todo!("handle read hit");
+    }
+
+    fn read_miss(
+        &self,
+        addr: address,
+        cache_index: Option<usize>,
+        // cache_index: usize,
+        fetch: &mem_fetch::MemFetch,
+        time: usize,
+        events: &[CacheEvent],
+        probe_status: CacheRequestStatus,
+    ) -> CacheRequestStatus {
+        todo!("handle read miss");
+    }
+
+    fn write_miss(
+        &self,
+        addr: address,
+        cache_index: Option<usize>,
+        fetch: &mem_fetch::MemFetch,
+        time: usize,
+        events: &[CacheEvent],
+        probe_status: CacheRequestStatus,
+    ) -> CacheRequestStatus {
+        todo!("handle write miss");
+    }
+
+    fn write_hit(
+        &self,
+        addr: address,
+        cache_index: Option<usize>,
+        // cache_index: usize,
+        fetch: &mem_fetch::MemFetch,
+        time: usize,
+        events: &[CacheEvent],
+        probe_status: CacheRequestStatus,
+    ) -> CacheRequestStatus {
+        let func = match self.config.write_policy {
+            // TODO: make read only policy deprecated
+            // READ_ONLY is now a separate cache class, config is deprecated
+            config::CacheWritePolicy::READ_ONLY => unimplemented!("todo: remove the read only cache write policy / writable data cache set as READ_ONLY"),
+            config::CacheWritePolicy::WRITE_BACK => Self::wr_hit_wb,
+            config::CacheWritePolicy::WRITE_THROUGH => Self::wr_hit_wb,
+            // m_wr_hit = &data_cache::wr_hit_wt;
+            config::CacheWritePolicy::WRITE_EVICT => Self::wr_hit_wb,
+            // m_wr_hit = &data_cache::wr_hit_we;
+            config::CacheWritePolicy::LOCAL_WB_GLOBAL_WT => Self::wr_hit_wb,
+            // m_wr_hit = &data_cache::wr_hit_global_we_local_wb;
+        };
+        todo!("handle write hit");
+        CacheRequestStatus::MISS
+    }
+
     // A general function that takes the result of a tag_array probe.
     //
     // It performs the correspding functions based on the
@@ -181,43 +249,48 @@ impl<I> DataL1<I> {
         fetch: &mem_fetch::MemFetch,
         events: &[CacheEvent],
     ) -> CacheRequestStatus {
+        dbg!(cache_index);
         // Each function pointer ( m_[rd/wr]_[hit/miss] ) is set in the
-        // data_cache constructor to reflect the corresponding cache configuration
-        // options. Function pointers were used to avoid many long conditional
+        // data_cache constructor to reflect the corresponding cache
+        // configuration options.
+        //
+        // Function pointers were used to avoid many long conditional
         // branches resulting from many cache configuration options.
-        let access_status = probe_status;
+        let time = 0;
+        let mut access_status = probe_status;
         if is_write {
             if probe_status == CacheRequestStatus::HIT {
-                // access_status = (this->*m_wr_hit)(addr, cache_index, mf, time, events, probe_status);
+                // let cache_index = cache_index.expect("hit has cache idx");
+                access_status =
+                    self.write_hit(addr, cache_index, fetch, time, events, probe_status);
             } else if probe_status != CacheRequestStatus::RESERVATION_FAIL
                 || (probe_status == CacheRequestStatus::RESERVATION_FAIL
                     && self.config.write_allocate_policy
                         == config::CacheWriteAllocatePolicy::NO_WRITE_ALLOCATE)
             {
-                // access_status = (this->*m_wr_miss)(addr, cache_index, mf, time, events, probe_status);
+                access_status =
+                    self.write_miss(addr, cache_index, fetch, time, events, probe_status);
             } else {
-                // the only reason for reservation fail here is LINE_ALLOC_FAIL
-                // (i.e all lines are reserved)
+                // the only reason for reservation fail here is
+                // LINE_ALLOC_FAIL (i.e all lines are reserved)
                 // m_stats.inc_fail_stats(mf->get_access_type(), LINE_ALLOC_FAIL);
             }
         } else {
             if probe_status == CacheRequestStatus::HIT {
-                //     access_status =
-                //         (this->*m_rd_hit)(addr, cache_index, mf, time, events, probe_status);
+                access_status = self.read_hit(addr, cache_index, fetch, time, events, probe_status);
             } else if probe_status != CacheRequestStatus::RESERVATION_FAIL {
-                //     access_status =
-                //         (this->*m_rd_miss)(addr, cache_index, mf, time, events, probe_status);
+                access_status =
+                    self.read_miss(addr, cache_index, fetch, time, events, probe_status);
             } else {
-                //     // the only reason for reservation fail here is LINE_ALLOC_FAIL (i.e all
-                //     // lines are reserved)
-                //     m_stats.inc_fail_stats(mf->get_access_type(), LINE_ALLOC_FAIL);
+                // the only reason for reservation fail here is
+                // LINE_ALLOC_FAIL (i.e all lines are reserved)
+                // m_stats.inc_fail_stats(mf->get_access_type(), LINE_ALLOC_FAIL);
             }
         }
-        //
-        // m_bandwidth_management.use_data_port(mf, access_status, events);
-        // return access_status;
 
-        CacheRequestStatus::MISS
+        // m_bandwidth_management.use_data_port(mf, access_status, events);
+
+        access_status
     }
 
     // data_cache(name, config, core_id, type_id, memport, mfcreator, status,
@@ -385,7 +458,8 @@ impl<I> DataL1<I> {
 mod tests {
     use super::DataL1;
     use crate::config::GPUConfig;
-    use crate::ported::{stats::STATS, mem_fetch, WarpInstruction};
+    use crate::ported::{mem_fetch, stats::STATS, WarpInstruction};
+    use playground::{bindings, bridge};
     use std::sync::{Arc, Mutex};
 
     struct Interconnect {}
@@ -397,6 +471,42 @@ mod tests {
         b: impl IntoIterator<Item = T>,
     ) -> impl Iterator<Item = T> {
         a.into_iter().chain(b.into_iter())
+    }
+
+    #[test]
+    fn test_ref_data_l1() {
+        let control_size = 0;
+        let warp_id = 0;
+        let core_id = 0;
+        let cluster_id = 0;
+        let type_id = bindings::cache_access_logger_types::NORMALS as i32;
+
+        // let l1 = bindings::l1_cache::new(0, interconn, cache_config);
+        // let cache_config = bindings::cache_config::new();
+
+        // let mut cache_config = bridge::cache_config::new_cache_config();
+        // dbg!(&cache_config.pin_mut().is_streaming());
+
+        // let params = bindings::cache_config_params { disabled: false };
+        // let mut cache_config = bridge::cache_config::new_cache_config(params);
+        // dbg!(&cache_config.pin_mut().is_streaming());
+
+        // let tag_array = bindings::tag_array::new(cache_config, core_id, type_id);
+        // let fetch = bindings::mem_fetch_t::new(
+        //     instr,
+        //     access,
+        //     &config,
+        //     control_size,
+        //     warp_id,
+        //     core_id,
+        //     cluster_id,
+        // );
+        // let status = l1.access(0x00000000, &fetch, vec![]);
+        // dbg!(&status);
+        // let status = l1.access(0x00000000, &fetch, vec![]);
+        // dbg!(&status);
+
+        assert!(false);
     }
 
     #[test]

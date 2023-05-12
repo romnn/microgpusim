@@ -110,7 +110,7 @@ pub struct WarpInstruction {
     pub warp_id: usize,
     pub pc: usize,
     pub opcode: Opcode,
-    pub active_mask: bitvec::BitArr!(for 32),
+    pub active_mask: sched::ThreadActiveMask,
     pub cache_operator: CacheOperator,
     pub memory_space: MemorySpace,
     pub threads: [PerThreadInfo; 32],
