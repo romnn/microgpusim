@@ -57,7 +57,7 @@ impl LineCacheBlock {
         Self::default()
     }
 
-    pub fn allocate_sector(&mut self, time: usize, sector_mask: mem_fetch::MemAccessSectorMask) {
+    pub fn allocate_sector(&mut self, time: usize, sector_mask: &mem_fetch::MemAccessSectorMask) {
         unimplemented!()
     }
 
@@ -66,7 +66,7 @@ impl LineCacheBlock {
         tag: address,
         block_addr: address,
         time: usize,
-        sector_mask: mem_fetch::MemAccessSectorMask,
+        sector_mask: &mem_fetch::MemAccessSectorMask,
     ) {
         self.tag = tag;
         self.block_addr = block_addr;
@@ -100,8 +100,8 @@ impl LineCacheBlock {
     pub fn fill(
         &mut self,
         time: usize,
-        sector_mask: mem_fetch::MemAccessSectorMask,
-        byte_mask: mem_fetch::MemAccessByteMask,
+        sector_mask: &mem_fetch::MemAccessSectorMask,
+        byte_mask: &mem_fetch::MemAccessByteMask,
     ) {
         self.status = if self.set_modified_on_fill {
             cache::CacheBlockState::MODIFIED
@@ -113,24 +113,33 @@ impl LineCacheBlock {
             self.is_readable = true;
         }
         if self.set_byte_mask_on_fill {
-            self.set_byte_mask(byte_mask)
+            self.set_byte_mask(&byte_mask)
         }
 
         self.fill_time = time;
     }
 
     #[inline]
-    pub fn set_last_access_time(&mut self, time: usize, _mask: mem_fetch::MemAccessSectorMask) {
+    pub fn set_last_access_time(&mut self, time: usize, _mask: &mem_fetch::MemAccessSectorMask) {
         self.last_access_time = time;
     }
 
     #[inline]
-    pub fn set_byte_mask(&mut self, byte_mask: mem_fetch::MemAccessByteMask) {
-        self.dirty_byte_mask |= byte_mask;
+    pub fn set_byte_mask(&mut self, mask: &mem_fetch::MemAccessByteMask) {
+        self.dirty_byte_mask |= mask;
     }
 
     #[inline]
-    pub fn status(&self, mask: mem_fetch::MemAccessSectorMask) -> cache::CacheBlockState {
+    pub fn set_status(
+        &mut self,
+        status: cache::CacheBlockState,
+        _mask: &mem_fetch::MemAccessSectorMask,
+    ) {
+        self.status = status;
+    }
+
+    #[inline]
+    pub fn status(&self, mask: &mem_fetch::MemAccessSectorMask) -> cache::CacheBlockState {
         self.status
     }
 
@@ -155,7 +164,7 @@ impl LineCacheBlock {
     }
 
     #[inline]
-    pub fn is_readable(&self, _mask: mem_fetch::MemAccessSectorMask) -> bool {
+    pub fn is_readable(&self, _mask: &mem_fetch::MemAccessSectorMask) -> bool {
         self.is_readable
     }
 
@@ -186,7 +195,7 @@ impl LineCacheBlock {
 
 pub type LineTable = HashMap<address, usize>;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default, Hash, PartialEq, Eq)]
 pub struct EvictedBlockInfo {
     block_addr: address,
     modified_size: usize,
@@ -196,10 +205,10 @@ pub struct EvictedBlockInfo {
 
 #[derive(Debug)]
 pub struct TagArrayAccessStatus {
-    index: Option<usize>,
-    writeback: bool,
-    evicted: Option<EvictedBlockInfo>,
-    status: cache::CacheRequestStatus,
+    pub index: Option<usize>,
+    pub writeback: bool,
+    pub evicted: Option<EvictedBlockInfo>,
+    pub status: cache::CacheRequestStatus,
 }
 
 #[derive(Debug)]
@@ -220,7 +229,7 @@ pub struct TagArray<B> {
     num_pending_hit: usize,
     num_reservation_fail: usize,
     num_sector_miss: usize,
-    num_dirty: usize,
+    pub num_dirty: usize,
     config: Arc<config::CacheConfig>,
     pending_lines: LineTable,
 }
@@ -274,8 +283,12 @@ impl<B> TagArray<B> {
         addr: address,
         time: usize,
         fetch: &mem_fetch::MemFetch,
+        // index: &mut usize,
+        // writeback: &mut bool,
+        // evicted: &mut EvictedBlockInfo,
         // ) -> (Option<usize>, cache::CacheRequestStatus) {
     ) -> TagArrayAccessStatus {
+        // ) {
         println!("tag_array::access({})", addr);
         self.num_access += 1;
         self.is_used = true;
@@ -363,14 +376,14 @@ impl<B> TagArray<B> {
         is_probe: bool,
     ) -> (Option<usize>, cache::CacheRequestStatus) {
         let mask = fetch.access_sector_mask();
-        self.probe_masked(block_addr, mask, is_write, is_probe, fetch)
+        self.probe_masked(block_addr, &mask, is_write, is_probe, fetch)
     }
 
     fn probe_masked(
         &self,
         block_addr: address,
         // cache_idx: Option<usize>,
-        mask: mem_fetch::MemAccessSectorMask,
+        mask: &mem_fetch::MemAccessSectorMask,
         is_write: bool,
         is_probe: bool,
         fetch: &mem_fetch::MemFetch,
@@ -391,7 +404,7 @@ impl<B> TagArray<B> {
             let idx = set_index * self.config.associativity + way;
             let line = &self.lines[idx];
             if line.tag == tag {
-                match line.status(mask) {
+                match line.status(&mask) {
                     cache::CacheBlockState::RESERVED => {
                         return (Some(idx), cache::CacheRequestStatus::HIT_RESERVED);
                     }
@@ -467,8 +480,20 @@ impl<B> TagArray<B> {
         (cache_idx, cache::CacheRequestStatus::MISS)
     }
 
+    pub fn flush(&mut self) {
+        todo!("flush tag array");
+    }
+
+    pub fn invalidate(&mut self) {
+        todo!("invalidate tag array");
+    }
+
     pub fn size(&self) -> usize {
         self.config.max_num_lines()
+    }
+
+    pub fn get_block_mut(&mut self, idx: usize) -> &mut LineCacheBlock {
+        &mut self.lines[idx]
     }
 
     pub fn get_block(&self, idx: usize) -> &LineCacheBlock {

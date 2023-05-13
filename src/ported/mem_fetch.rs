@@ -25,6 +25,7 @@ pub enum Kind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[allow(incorrect_ident_case)]
 pub enum Status {
     INITIALIZED,
     IN_L1I_MISS_QUEUE,
@@ -161,11 +162,13 @@ pub struct MemFetch {
     // pub sub_partition_id: usize,
     pub control_size: u32,
     pub kind: Kind,
-    pub status: Status,
     pub data_size: u32,
     pub warp_id: usize,
     pub core_id: usize,
     pub cluster_id: usize,
+
+    pub status: Status,
+    pub last_status_change: Option<usize>,
 }
 
 impl MemFetch {
@@ -185,8 +188,16 @@ impl MemFetch {
     //     self.instr.cache_op
     // }
 
-    pub fn access_sector_mask(&self) -> MemAccessSectorMask {
-        self.access.sector_mask
+    pub fn access_byte_mask(&self) -> &MemAccessByteMask {
+        &self.access.byte_mask
+    }
+
+    pub fn access_warp_mask(&self) -> &ThreadActiveMask {
+        &self.access.warp_mask
+    }
+
+    pub fn access_sector_mask(&self) -> &MemAccessSectorMask {
+        &self.access.sector_mask
     }
 
     pub fn sub_partition_id(&self) -> u64 {
@@ -195,6 +206,15 @@ impl MemFetch {
 
     pub fn access_kind(&self) -> &AccessKind {
         &self.access.kind
+    }
+
+    pub fn set_status(&mut self, status: Status, time: usize) {
+        self.status = status;
+        self.last_status_change = Some(time);
+    }
+
+    pub fn set_addr(&mut self, addr: address) {
+        self.access.addr = addr;
     }
 
     pub fn new(
@@ -231,6 +251,7 @@ impl MemFetch {
             // sub_partition_id: 0,
             kind,
             status: Status::INITIALIZED,
+            last_status_change: None,
         }
         // if (inst) {
         // m_inst = *inst;

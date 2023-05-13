@@ -3,6 +3,7 @@
 pub mod addrdec;
 pub mod cache;
 pub mod core;
+pub mod mshr;
 pub mod instruction;
 pub mod interconn;
 pub mod ldst_unit;

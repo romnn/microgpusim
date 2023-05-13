@@ -1,4 +1,4 @@
-use super::MemFetch;
+use super::mem_fetch;
 use crate::config::{CacheConfig, GPUConfig};
 
 use std::collections::{HashSet, VecDeque};
@@ -72,7 +72,7 @@ impl L2Cache {
         kind: i32,
         // memport: mem_fetch_interface,
         // mfcreator: mem_fetch_allocator,
-        status: MemFetchStatus,
+        status: mem_fetch::Status,
         // gpu: Sim,
     ) -> Self {
         Self {
@@ -84,7 +84,7 @@ impl L2Cache {
     pub fn access(
         &self,
         addr: super::address,
-        mem_fetch: MemFetch,
+        mem_fetch: mem_fetch::MemFetch,
         time: usize,
         events: Vec<CacheEvent>,
     ) -> CacheRequestStatus {
@@ -109,41 +109,8 @@ impl L2Cache {
     pub fn invalidate(&self) {}
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[allow(incorrect_ident_case)]
-pub enum MemFetchStatus {
-    MEM_FETCH_INITIALIZED,
-    IN_L1I_MISS_QUEUE,
-    IN_L1D_MISS_QUEUE,
-    IN_L1T_MISS_QUEUE,
-    IN_L1C_MISS_QUEUE,
-    IN_L1TLB_MISS_QUEUE,
-    IN_VM_MANAGER_QUEUE,
-    IN_ICNT_TO_MEM,
-    IN_PARTITION_ROP_DELAY,
-    IN_PARTITION_ICNT_TO_L2_QUEUE,
-    IN_PARTITION_L2_TO_DRAM_QUEUE,
-    IN_PARTITION_DRAM_LATENCY_QUEUE,
-    IN_PARTITION_L2_MISS_QUEUE,
-    IN_PARTITION_MC_INTERFACE_QUEUE,
-    IN_PARTITION_MC_INPUT_QUEU,
-    IN_PARTITION_MC_BANK_ARB_QUEUE,
-    IN_PARTITION_DRAM,
-    IN_PARTITION_MC_RETURNQ,
-    IN_PARTITION_DRAM_TO_L2_QUEUE,
-    IN_PARTITION_L2_FILL_QUEUE,
-    IN_PARTITION_L2_TO_ICNT_QUEUE,
-    IN_ICNT_TO_SHADER,
-    IN_CLUSTER_TO_SHADER_QUEUE,
-    IN_SHADER_LDST_RESPONSE_FIFO,
-    IN_SHADER_FETCHED,
-    IN_SHADER_L1T_ROB,
-    MEM_FETCH_DELETED,
-    NUM_MEM_REQ_STAT,
-}
-
 #[derive(Debug)]
-pub struct MemorySubPartition<Q = FifoQueue<MemFetch>> {
+pub struct MemorySubPartition<Q = FifoQueue<mem_fetch::MemFetch>> {
     /// global sub partition ID
     pub id: usize,
     /// memory configuration
@@ -160,7 +127,7 @@ pub struct MemorySubPartition<Q = FifoQueue<MemFetch>> {
     wb_addr: Option<u64>,
 
     // class memory_stats_t *m_stats;
-    request_tracker: HashSet<MemFetch>,
+    request_tracker: HashSet<mem_fetch::MemFetch>,
 
     // This is a cycle offset that has to be applied to the l2 accesses to account
     // for the cudamemcpy read/writes. We want GPGPU-Sim to only count cycles for
@@ -174,7 +141,7 @@ pub struct MemorySubPartition<Q = FifoQueue<MemFetch>> {
 
 impl<Q> MemorySubPartition<Q>
 where
-    Q: Queue<MemFetch>,
+    Q: Queue<mem_fetch::MemFetch>,
 {
     // pub fn new(id: usize, config: MemorySubPartitionConfig) -> Self {
     pub fn new(id: usize, config: Arc<GPUConfig>) -> Self {
@@ -194,7 +161,7 @@ where
                 -1,
                 // l2interface,
                 // mf_allocator,
-                MemFetchStatus::IN_PARTITION_L2_MISS_QUEUE,
+                mem_fetch::Status::IN_PARTITION_L2_MISS_QUEUE,
                 // gpu
             )),
             None => None,
@@ -221,7 +188,7 @@ where
         }
     }
 
-    pub fn push(&self, fetch: MemFetch) {}
+    pub fn push(&self, fetch: mem_fetch::MemFetch) {}
 
     pub fn full(&self, size: usize) -> bool {
         false
@@ -245,7 +212,7 @@ where
         }
     }
 
-    pub fn pop(&mut self) -> Option<MemFetch> {
+    pub fn pop(&mut self) -> Option<mem_fetch::MemFetch> {
         match self.l2_to_dram_queue.dequeue() {
             Some(fetch) => match fetch.access_kind() {
                 super::AccessKind::L2_WRBK_ACC | super::AccessKind::L1_WRBK_ACC => None,
