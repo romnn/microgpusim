@@ -1,4 +1,6 @@
 #### TODO (new plan)
+- in the cache test, load the full trace and execute the accesses to l1
+
 - try to move gpgpusim code into many small files into the playground
   - see if we can at least compile the tag array and do some test 
     - good starting point

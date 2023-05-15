@@ -1,8 +1,9 @@
 use super::addrdec::LinearToRawAddressTranslation;
 use super::instruction::WarpInstruction;
 use super::scheduler::ThreadActiveMask;
-use crate::config::GPUConfig;
+use crate::config;
 use crate::ported::{address, DecodedAddress, READ_PACKET_SIZE, WRITE_PACKET_SIZE};
+
 use bitvec::{array::BitArray, field::BitField, BitArr};
 
 pub type MemAccessByteMask = BitArr!(for super::MAX_MEMORY_ACCESS_SIZE);
@@ -108,6 +109,37 @@ pub struct MemAccess {
     pub sector_mask: MemAccessSectorMask,
 }
 
+pub trait BitString {
+    fn bit_string(&self) -> String;
+}
+
+impl<A, O> BitString for BitArray<A, O>
+where
+    A: bitvec::view::BitViewSized,
+    O: bitvec::order::BitOrder,
+{
+    fn bit_string(&self) -> String {
+        self.iter()
+            .map(|b| if *b { "1" } else { "0" })
+            .collect::<Vec<_>>()
+            .join("")
+    }
+}
+
+impl std::fmt::Display for MemAccess {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("MemAccess")
+            .field("addr", &self.addr)
+            .field("kind", &self.kind)
+            .field("req_size_bytes", &self.req_size_bytes)
+            .field("is_write", &self.is_write)
+            .field("active_mask", &self.warp_mask.bit_string())
+            .field("byte_mask", &self.byte_mask.bit_string())
+            .field("sector_mask", &self.sector_mask.bit_string())
+            .finish()
+    }
+}
+
 impl MemAccess {
     /// todo: where is this initialized
     pub fn new(
@@ -158,7 +190,7 @@ pub struct MemFetch {
     pub instr: WarpInstruction,
     pub tlx_addr: DecodedAddress,
     pub partition_addr: address,
-    pub chip: usize,
+    pub chip: u64,
     // pub sub_partition_id: usize,
     pub control_size: u32,
     pub kind: Kind,
@@ -217,10 +249,16 @@ impl MemFetch {
         self.access.addr = addr;
     }
 
+    // pub fn new(access: MemAccess, const warp_inst_t *inst,
+    //     unsigned ctrl_size, unsigned wid, unsigned sid, unsigned tpc,
+    //     const memory_config *config, unsigned long long cycle,
+    //     mem_fetch *original_mf = NULL, mem_fetch *original_wr_mf = NULL);
+
     pub fn new(
         instr: WarpInstruction,
         access: MemAccess,
-        config: &GPUConfig,
+        // config: &config::CacheConfig,
+        config: &config::GPUConfig,
         control_size: u32,
         warp_id: usize,
         core_id: usize,

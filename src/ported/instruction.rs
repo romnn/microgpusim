@@ -706,8 +706,9 @@ impl WarpInstruction {
         mut addr: address,
         segment_size: u64,
     ) -> MemAccess {
-        dbg!(&tx);
-        dbg!(&tx.chunk_mask.to_string());
+        // dbg!(&tx);
+        // dbg!(&tx.chunk_mask.to_string());
+
         debug_assert_eq!(addr & (segment_size - 1), 0);
         debug_assert!(tx.chunk_mask.count_ones() >= 1);
         // halves (used to check if 64 byte segment can be

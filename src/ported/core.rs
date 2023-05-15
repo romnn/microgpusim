@@ -566,7 +566,7 @@ impl SIMTCore {
             // warp.clear();
             // warps.push(warp);
         }
-        kernel.next_threadblock_traces(&*kernel, &mut self.warps);
+        kernel.next_threadblock_traces(&mut self.warps);
 
         // for warp in kernel.next_threadblock_traces() {
         //     dbg!(&warp);

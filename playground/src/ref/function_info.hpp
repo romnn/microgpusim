@@ -12,9 +12,10 @@
 #include "gpu_recon.hpp"
 #include "gpgpu_ptx_sim_info.hpp"
 #include "param.hpp"
-#include "param_info.hpp"
+// #include "param_info.hpp"
 
 class gpgpu_context;
+class param_info;
 
 class function_info {
 public:

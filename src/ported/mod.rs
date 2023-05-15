@@ -3,20 +3,18 @@
 pub mod addrdec;
 pub mod cache;
 pub mod core;
-pub mod mshr;
 pub mod instruction;
 pub mod interconn;
 pub mod ldst_unit;
 pub mod mem_fetch;
 pub mod mem_sub_partition;
+pub mod mshr;
 pub mod opcodes;
 pub mod scheduler;
 pub mod set_index_function;
 pub mod stats;
 pub mod tag_array;
 pub mod utils;
-
-use crate::ported::instruction::WarpInstruction;
 
 use self::core::*;
 use addrdec::*;
@@ -31,7 +29,7 @@ use stats::*;
 use tag_array::*;
 use utils::*;
 
-use super::config::GPUConfig;
+use crate::config;
 use color_eyre::eyre;
 use itertools::Itertools;
 use log::{error, info, trace, warn};
@@ -208,7 +206,8 @@ impl KernelInfo {
 
     // pub fn next_threadblock_traces(&self) -> Vec<MemAccessTraceEntry> {
     // pub fn next_threadblock_traces(&self, warps: &mut [Option<SchedulerWarp>]) {
-    pub fn next_threadblock_traces(&self, kernel: &KernelInfo, warps: &mut [SchedulerWarp]) {
+    // pub fn next_threadblock_traces(&self, kernel: &KernelInfo, warps: &mut [SchedulerWarp]) {
+    pub fn next_threadblock_traces(&self, warps: &mut [SchedulerWarp]) {
         debug_assert!(self.next_block.is_some());
         let Some(next_block) = self.next_block else {
             return;
@@ -222,7 +221,7 @@ impl KernelInfo {
         for trace in trace_iter {
             // dbg!(&trace);
             let warp_id = trace.warp_id as usize;
-            let instr = WarpInstruction::from_trace(&kernel, trace);
+            let instr = instruction::WarpInstruction::from_trace(&self, trace);
             warps[warp_id].trace_instructions.push_back(instr);
         }
 
@@ -302,7 +301,7 @@ impl KernelInfo {
     }
 }
 
-fn parse_commands(path: impl AsRef<Path>) -> eyre::Result<Vec<Command>> {
+pub fn parse_commands(path: impl AsRef<Path>) -> eyre::Result<Vec<Command>> {
     let file = std::fs::OpenOptions::new()
         .read(true)
         .open(&path.as_ref())?;
@@ -313,7 +312,7 @@ fn parse_commands(path: impl AsRef<Path>) -> eyre::Result<Vec<Command>> {
 
 #[derive(Debug, Default)]
 pub struct MockSimulator {
-    config: Arc<GPUConfig>,
+    config: Arc<config::GPUConfig>,
     memory_partition_units: Vec<MemoryPartitionUnit>,
     memory_sub_partitions: Vec<MemorySubPartition>,
     running_kernels: Vec<Option<Arc<KernelInfo>>>,
@@ -327,7 +326,7 @@ impl MockSimulator {
     // see new trace_gpgpu_sim(
     //      *(m_gpgpu_context->the_gpgpusim->g_the_gpu_config),
     //      m_gpgpu_context);
-    pub fn new(config: Arc<GPUConfig>) -> Self {
+    pub fn new(config: Arc<config::GPUConfig>) -> Self {
         //         gpgpu_ctx = ctx;
         //   m_shader_config = &m_config.m_shader_config;
         //   m_memory_config = &m_config.m_memory_config;
@@ -747,7 +746,7 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> eyre::Result<()> {
     let start_time = Instant::now();
 
     // debugging config
-    let mut config = GPUConfig::default();
+    let mut config = config::GPUConfig::default();
     config.num_simt_clusters = 1;
     config.num_cores_per_simt_cluster = 1;
     let config = Arc::new(config);
