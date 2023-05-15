@@ -5,9 +5,9 @@
 
 extern std::unordered_map<new_addr_type, unsigned> address_random_interleaving;
 
-long int powli(long int x, long int y);
-unsigned int LOGB2_32(unsigned int v);
-unsigned next_powerOf2(unsigned n);
+int64_t powli(int64_t x, int64_t y);
+uint32_t LOGB2_32(uint32_t v);
+uint32_t next_powerOf2(uint32_t n);
 
 new_addr_type addrdec_packbits(new_addr_type mask, new_addr_type val,
     unsigned char high, unsigned char low);

@@ -193,6 +193,7 @@ impl<I> DataL1<I> {
             .entry((access_kind, stat_cache_request_status))
             .and_modify(|s| *s += 1)
             .or_insert(1);
+        drop(stats);
         // m_stats.inc_stats_pw(
         // mf->get_access_type(),
         // m_stats.select_stats_status(probe_status, access_status));

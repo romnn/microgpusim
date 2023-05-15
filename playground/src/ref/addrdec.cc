@@ -7,7 +7,8 @@
 
 std::unordered_map<new_addr_type, unsigned> address_random_interleaving;
 
-long int powli(long int x, long int y) // compute x to the y
+// compute x to the y
+int64_t powli(int64_t x, int64_t y) 
 {
   long int r = 1;
   int i;
@@ -17,9 +18,9 @@ long int powli(long int x, long int y) // compute x to the y
   return r;
 }
 
-unsigned int LOGB2_32(unsigned int v) {
-  unsigned int shift;
-  unsigned int r;
+uint32_t LOGB2_32(uint32_t v) {
+  uint32_t shift;
+  uint32_t r;
 
   r = 0;
 
@@ -44,7 +45,7 @@ unsigned int LOGB2_32(unsigned int v) {
 
 // compute power of two greater than or equal to n
 // https://www.techiedelight.com/round-next-highest-power-2/
-unsigned next_powerOf2(unsigned n) {
+uint32_t next_powerOf2(uint32_t n) {
   // decrement n (to handle the case when n itself
   // is a power of 2)
   n = n - 1;

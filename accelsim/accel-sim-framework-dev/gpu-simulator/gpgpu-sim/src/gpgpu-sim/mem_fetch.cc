@@ -101,7 +101,7 @@ void mem_fetch::print(FILE *fp, bool print_inst) const {
     fprintf(fp, "\n");
 }
 
-void mem_fetch::set_status(enum mem_fetch_status status,
+void mem_fetch::set_(enum mem_fetch_status status,
                            unsigned long long cycle) {
   m_status = status;
   m_status_change = cycle;

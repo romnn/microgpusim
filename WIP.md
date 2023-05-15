@@ -5,6 +5,9 @@
   - see if we can at least compile the tag array and do some test 
     - good starting point
 
+- BUG: if cargo runs tests in parallel, we poison the stats lock
+  - need to actually use an arc pointer
+  - every component that requires it should have a stats object
 - go back to a more simple model
   - schedule warps deterministically
   - focus on the interface to l1, l2, dram

@@ -28,8 +28,8 @@ fn build() {
         .file("src/ref/l2_cache.cc")
         .file("src/ref/data_cache.cc")
         // .flag("-std=c++0x")
-        .flag("-std=c++11")
-        // .flag("-std=c++14")
+        // .flag("-std=c++11")
+        .flag("-std=c++14")
         .warnings(false);
 
     enable_diagnostics_color(&mut build);
@@ -38,6 +38,7 @@ fn build() {
 
 fn generate_bindings() {
     let bindings = bindgen::Builder::default()
+        .clang_arg("-std=c++14")
         .rustified_enum(".*")
         .derive_eq(true)
         .prepend_enum_name(false)
@@ -80,8 +81,7 @@ fn generate_bindings() {
 }
 
 fn generate_bridge() {
-    let mut build =
-        cxx_build::bridges(["src/bridge/addrdec.rs", "src/bridge/cache_config.rs"]);
+    let mut build = cxx_build::bridges(["src/bridge/addrdec.rs", "src/bridge/cache_config.rs"]);
     build
         .cpp(true)
         .static_flag(true)
