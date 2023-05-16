@@ -464,6 +464,11 @@ impl<I> DataL1<I> {
         return CacheRequestStatus::RESERVATION_FAIL;
     }
 
+    fn write_miss_no_write_allocate(&mut self) {}
+    fn write_miss_write_allocate_naive(&mut self) {}
+    fn write_miss_write_allocate_fetch_on_write(&mut self) {}
+    fn write_miss_write_allocate_lazy_fetch_on_read(&mut self) {}
+
     fn write_miss(
         &mut self,
         addr: address,
@@ -474,6 +479,22 @@ impl<I> DataL1<I> {
         // events: &[CacheEvent],
         probe_status: CacheRequestStatus,
     ) -> CacheRequestStatus {
+        let func = match self.cache_config.write_allocate_policy {
+            config::CacheWriteAllocatePolicy::NO_WRITE_ALLOCATE => {
+                Self::write_miss_no_write_allocate
+            }
+            config::CacheWriteAllocatePolicy::WRITE_ALLOCATE => {
+                Self::write_miss_write_allocate_naive
+            }
+            config::CacheWriteAllocatePolicy::FETCH_ON_WRITE => {
+                Self::write_miss_write_allocate_fetch_on_write
+            }
+            config::CacheWriteAllocatePolicy::LAZY_FETCH_ON_READ => {
+                Self::write_miss_write_allocate_lazy_fetch_on_read
+            } // default:
+              //   assert(0 && "Error: Must set valid cache write miss policy\n");
+              //   break;  // Need to set a write miss function
+        };
         todo!("handle write miss");
     }
 
