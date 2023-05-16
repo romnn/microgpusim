@@ -1,4 +1,7 @@
 #### TODO (new plan)
+- todo: use testing framework that can execute coverage
+  - check the coverage for all the branch cases in the L1
+
 - in the cache test, load the full trace and execute the accesses to l1
 
 - try to move gpgpusim code into many small files into the playground

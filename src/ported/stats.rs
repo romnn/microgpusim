@@ -22,6 +22,7 @@ pub struct Stats {
     pub accesses: CacheRequestStatusCounters,
 }
 
-lazy_static::lazy_static! {
-    pub static ref STATS: Mutex<Stats> = Mutex::new(Stats::default());
-}
+// avoid issues with running test / and or parallel instances
+// lazy_static::lazy_static! {
+//     pub static ref STATS: Mutex<Stats> = Mutex::new(Stats::default());
+// }

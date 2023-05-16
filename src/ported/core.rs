@@ -1,6 +1,6 @@
 use super::instruction::WarpInstruction;
 use super::scheduler::SchedulerWarp;
-use super::{address, KernelInfo, LoadStoreUnit, MockSimulator};
+use super::{address, stats::Stats, KernelInfo, LoadStoreUnit, MockSimulator};
 use super::{interconn as ic, mem_fetch, scheduler as sched};
 use crate::config::GPUConfig;
 use bitvec::{array::BitArray, BitArr};
@@ -40,6 +40,7 @@ pub struct SIMTCore {
     pub core_id: usize,
     pub cluster_id: usize,
 
+    pub stats: Arc<Mutex<Stats>>,
     pub config: Arc<GPUConfig>,
     pub current_kernel: Option<Arc<KernelInfo>>,
 
@@ -72,13 +73,19 @@ impl SIMTCore {
         // }
     }
 
-    pub fn new(core_id: usize, cluster_id: usize, config: Arc<GPUConfig>) -> Self {
+    pub fn new(
+        core_id: usize,
+        cluster_id: usize,
+        stats: Arc<Mutex<Stats>>,
+        config: Arc<GPUConfig>,
+    ) -> Self {
         let thread_state: Vec<_> = (0..config.max_threads_per_shader).map(|_| None).collect();
         let interconn = ic::Interconnect::default();
         let load_store_unit = LoadStoreUnit::new(core_id, cluster_id, interconn, config.clone());
         let mut core = Self {
             core_id,
             cluster_id,
+            stats,
             config,
             current_kernel: None,
             active_thread_mask: BitArray::ZERO,
@@ -477,7 +484,7 @@ impl SIMTCore {
         block_hw_id: usize,
         start_thread: usize,
         end_thread: usize,
-        block_id: usize,
+        block_id: u64,
         thread_block_size: usize,
         kernel: Arc<KernelInfo>,
     ) {
@@ -687,7 +694,8 @@ impl SIMTCore {
         // allocated to bind functional simulation state of threads to hardware
         // resources (simulation)
         let mut warps: BitArr!(for WARP_PER_CTA_MAX) = BitArray::ZERO;
-        let block_id = kernel.next_block_id();
+        // let block_id = kernel.next_block_id();
+        let block_id = kernel.block_id();
         let mut num_threads_in_block = 0;
         for i in start_thread..end_thread {
             self.thread_state[i] = Some(ThreadState {
@@ -857,8 +865,11 @@ impl SIMTCore {
 #[derive(Debug)]
 pub struct SIMTCoreCluster {
     pub cluster_id: usize,
-    pub config: Arc<GPUConfig>,
     pub cores: Mutex<Vec<SIMTCore>>,
+
+    pub config: Arc<GPUConfig>,
+    pub stats: Arc<Mutex<Stats>>,
+
     pub core_sim_order: Vec<usize>,
     pub block_issue_next_core: Mutex<usize>,
     pub response_fifo: VecDeque<mem_fetch::MemFetch>,
@@ -876,13 +887,13 @@ pub struct SIMTCoreCluster {
 // }
 
 impl SIMTCoreCluster {
-    pub fn new(cluster_id: usize, config: Arc<GPUConfig>) -> Self {
+    pub fn new(cluster_id: usize, stats: Arc<Mutex<Stats>>, config: Arc<GPUConfig>) -> Self {
         let mut core_sim_order = Vec::new();
         let cores: Vec<_> = (0..config.num_cores_per_simt_cluster)
             .map(|core_id| {
                 core_sim_order.push(core_id);
                 let id = config.global_core_id(cluster_id, core_id);
-                SIMTCore::new(id, cluster_id, config.clone())
+                SIMTCore::new(id, cluster_id, stats.clone(), config.clone())
             })
             .collect();
 
@@ -894,6 +905,7 @@ impl SIMTCoreCluster {
         Self {
             cluster_id,
             config,
+            stats,
             cores: Mutex::new(cores),
             core_sim_order,
             block_issue_next_core,
@@ -925,50 +937,53 @@ impl SIMTCoreCluster {
     }
 
     fn interconn_inject_request_packet(&mut self, mut fetch: mem_fetch::MemFetch) {
-        use super::stats::STATS;
+        // use super::stats::STATS;
 
-        let mut stats = STATS.lock().unwrap();
-        if fetch.is_write() {
-            stats.num_mem_write += 1;
-        } else {
-            stats.num_mem_read += 1;
-        }
+        // let mut stats = STATS.lock().unwrap();
+        {
+            let mut stats = self.stats.lock().unwrap();
+            if fetch.is_write() {
+                stats.num_mem_write += 1;
+            } else {
+                stats.num_mem_read += 1;
+            }
 
-        match fetch.access_kind() {
-            mem_fetch::AccessKind::CONST_ACC_R => {
-                stats.num_mem_const += 1;
+            match fetch.access_kind() {
+                mem_fetch::AccessKind::CONST_ACC_R => {
+                    stats.num_mem_const += 1;
+                }
+                mem_fetch::AccessKind::TEXTURE_ACC_R => {
+                    stats.num_mem_texture += 1;
+                }
+                mem_fetch::AccessKind::GLOBAL_ACC_R => {
+                    stats.num_mem_read_global += 1;
+                }
+                mem_fetch::AccessKind::GLOBAL_ACC_W => {
+                    stats.num_mem_write_global += 1;
+                }
+                mem_fetch::AccessKind::LOCAL_ACC_R => {
+                    stats.num_mem_read_local += 1;
+                }
+                mem_fetch::AccessKind::LOCAL_ACC_W => {
+                    stats.num_mem_write_local += 1;
+                }
+                mem_fetch::AccessKind::INST_ACC_R => {
+                    stats.num_mem_read_inst += 1;
+                }
+                mem_fetch::AccessKind::L1_WRBK_ACC => {
+                    stats.num_mem_write_global += 1;
+                }
+                mem_fetch::AccessKind::L2_WRBK_ACC => {
+                    stats.num_mem_l2_writeback += 1;
+                }
+                mem_fetch::AccessKind::L1_WR_ALLOC_R => {
+                    stats.num_mem_l1_write_allocate += 1;
+                }
+                mem_fetch::AccessKind::L2_WR_ALLOC_R => {
+                    stats.num_mem_l2_write_allocate += 1;
+                }
+                _ => {}
             }
-            mem_fetch::AccessKind::TEXTURE_ACC_R => {
-                stats.num_mem_texture += 1;
-            }
-            mem_fetch::AccessKind::GLOBAL_ACC_R => {
-                stats.num_mem_read_global += 1;
-            }
-            mem_fetch::AccessKind::GLOBAL_ACC_W => {
-                stats.num_mem_write_global += 1;
-            }
-            mem_fetch::AccessKind::LOCAL_ACC_R => {
-                stats.num_mem_read_local += 1;
-            }
-            mem_fetch::AccessKind::LOCAL_ACC_W => {
-                stats.num_mem_write_local += 1;
-            }
-            mem_fetch::AccessKind::INST_ACC_R => {
-                stats.num_mem_read_inst += 1;
-            }
-            mem_fetch::AccessKind::L1_WRBK_ACC => {
-                stats.num_mem_write_global += 1;
-            }
-            mem_fetch::AccessKind::L2_WRBK_ACC => {
-                stats.num_mem_l2_writeback += 1;
-            }
-            mem_fetch::AccessKind::L1_WR_ALLOC_R => {
-                stats.num_mem_l1_write_allocate += 1;
-            }
-            mem_fetch::AccessKind::L2_WR_ALLOC_R => {
-                stats.num_mem_l2_write_allocate += 1;
-            }
-            _ => {}
         }
 
         // The packet size varies depending on the type of request:

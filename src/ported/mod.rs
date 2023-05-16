@@ -25,7 +25,7 @@ use mem_fetch::*;
 use mem_sub_partition::*;
 use scheduler::*;
 use set_index_function::*;
-use stats::*;
+use stats::Stats;
 use tag_array::*;
 use utils::*;
 
@@ -104,9 +104,11 @@ pub struct KernelInfo {
     // m_kernel_entry = entry;
     // m_grid_dim = gridDim;
     // m_block_dim = blockDim;
-    next_block: Option<Dim>,
-    next_block_iter: dim::Iter,
-    next_thread_id: Option<Dim>,
+
+    // next_block: Option<Dim>,
+    // next_block_iter: RwLock<std::iter::Peekable<dim::Iter>>,
+    next_block_iter: Mutex<std::iter::Peekable<dim::Iter>>,
+    // next_thread_id: Option<Dim>,
     // next_thread_id_iter: dim::Iter,
 
     // m_next_cta.x = 0;
@@ -141,7 +143,7 @@ impl std::fmt::Debug for KernelInfo {
             .field("stream", &self.config.stream_id)
             .field("shared_mem", &self.config.shared_mem_bytes)
             .field("registers", &self.config.num_registers)
-            .field("next_block", &self.next_block)
+            .field("next_block", &self.next_block_iter.lock().unwrap().peek())
             .finish()
     }
 }
@@ -180,10 +182,10 @@ impl KernelInfo {
         trace.sort_unstable_by(|a, b| (a.block_id, a.warp_id).cmp(&(b.block_id, b.warp_id)));
         let mut trace_iter = trace.clone().into_iter();
 
-        let mut next_block_iter = config.grid.into_iter();
-        let next_block = next_block_iter.next();
-        let next_thread_id = next_block;
-        dbg!(&next_block);
+        let next_block_iter = Mutex::new(config.grid.into_iter().peekable());
+        // let next_block = next_block_iter.next();
+        // let next_thread_id = next_block;
+        // dbg!(&next_block);
         // let uid = next_kernel_uid;
         let uid = 0; // todo
         let opcodes = opcodes::get_opcode_map(&config).unwrap();
@@ -199,8 +201,8 @@ impl KernelInfo {
             function_info: FunctionInfo {},
             cache_config_set: false,
             next_block_iter,
-            next_block,
-            next_thread_id,
+            // next_block,
+            // next_thread_id,
         }
     }
 
@@ -208,10 +210,14 @@ impl KernelInfo {
     // pub fn next_threadblock_traces(&self, warps: &mut [Option<SchedulerWarp>]) {
     // pub fn next_threadblock_traces(&self, kernel: &KernelInfo, warps: &mut [SchedulerWarp]) {
     pub fn next_threadblock_traces(&self, warps: &mut [SchedulerWarp]) {
-        debug_assert!(self.next_block.is_some());
-        let Some(next_block) = self.next_block else {
-            return;
-        };
+        // debug_assert!(self.next_block.is_some());
+        todo!("next_threadblock_traces");
+        // debug_assert!(self.next_block_iter.peek().is_some());
+        // // let Some(next_block) = self.next_block else {
+        // let Some(next_block) = self.next_block_iter.next() else {
+        //     return;
+        // };
+        let next_block = nvbit_model::Dim { x: 0, y: 0, z: 0 };
         dbg!(&next_block);
         for warp in warps.iter_mut() {
             warp.clear();
@@ -258,17 +264,24 @@ impl KernelInfo {
         self.num_cores_running > 0
     }
 
-    pub fn increment_block(&mut self) {
-        self.next_block = self.next_block_iter.next()
-    }
+    // pub fn increment_block(&mut self) {
+    //     self.next_block = self.next_block_iter.next()
+    // }
 
     pub fn increment_thread_id(&mut self) {
         // self.next_thread_id = self.next_thread_id_iter.next()
     }
 
-    pub fn next_block_id(&self) -> usize {
-        self.next_block_iter.id() as usize
+    pub fn block_id(&self) -> u64 {
+        // todo: make this nicer
+        // self.next_block_iter.peek().unwrap().size()
+        todo!("block_id");
+        0
     }
+    // pub fn next_block_id(&self) -> Option<usize> {
+    // pub fn next_block_id(&self) -> Option<usize> {
+    //     self.next_block_iter.peek().id() as usize
+    // }
 
     pub fn done(&self) -> bool {
         self.no_more_blocks_to_run() && !self.running()
@@ -289,13 +302,16 @@ impl KernelInfo {
     }
 
     pub fn no_more_blocks_to_run(&self) -> bool {
-        self.next_block.is_none()
+        todo!("no_more_blocks_to_run");
+        // self.next_block_iter.peek().is_none()
+        // self.next_block.is_none()
         //     let next_block = self.next_block;
         // let grid = self.config.grid;
         // next_block.x >= grid.x || next_block.y >= grid.y || next_block.z >= grid.z
     }
     pub fn more_threads_in_block(&self) -> bool {
-        self.next_thread_id.is_some()
+        todo!("more_threads_in_block");
+        // self.next_thread_id.is_some()
         // return m_next_tid.z < m_block_dim.z && m_next_tid.y < m_block_dim.y &&
         //        m_next_tid.x < m_block_dim.x;
     }
@@ -312,6 +328,7 @@ pub fn parse_commands(path: impl AsRef<Path>) -> eyre::Result<Vec<Command>> {
 
 #[derive(Debug, Default)]
 pub struct MockSimulator {
+    stats: Arc<Mutex<Stats>>,
     config: Arc<config::GPUConfig>,
     memory_partition_units: Vec<MemoryPartitionUnit>,
     memory_sub_partitions: Vec<MemorySubPartition>,
@@ -327,6 +344,7 @@ impl MockSimulator {
     //      *(m_gpgpu_context->the_gpgpusim->g_the_gpu_config),
     //      m_gpgpu_context);
     pub fn new(config: Arc<config::GPUConfig>) -> Self {
+        let stats = Arc::new(Mutex::new(Stats::default()));
         //         gpgpu_ctx = ctx;
         //   m_shader_config = &m_config.m_shader_config;
         //   m_memory_config = &m_config.m_memory_config;
@@ -440,13 +458,14 @@ impl MockSimulator {
         // m_shader_stats, m_memory_stats);
 
         let clusters: Vec<_> = (0..config.num_simt_clusters)
-            .map(|i| SIMTCoreCluster::new(i, config.clone()))
+            .map(|i| SIMTCoreCluster::new(i, stats.clone(), config.clone()))
             .collect();
 
         let executed_kernels = Mutex::new(HashMap::new());
 
         Self {
             config,
+            stats,
             memory_partition_units,
             memory_sub_partitions,
             running_kernels,

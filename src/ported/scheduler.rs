@@ -11,7 +11,7 @@ pub type ThreadActiveMask = BitArr!(for 32, in u32);
 
 #[derive(Clone, Debug)]
 pub struct SchedulerWarp {
-    pub block_id: usize,
+    pub block_id: u64,
     pub dynamic_warp_id: usize,
     pub warp_id: usize,
     pub kernel_id: usize,
@@ -63,7 +63,7 @@ impl SchedulerWarp {
     pub fn init(
         &mut self,
         start_pc: Option<usize>,
-        block_id: usize,
+        block_id: u64,
         warp_id: usize,
         dynamic_warp_id: usize,
         active_mask: ThreadActiveMask,

@@ -139,6 +139,16 @@ impl LineCacheBlock {
     }
 
     #[inline]
+    pub fn set_ignore_on_fill(
+        &mut self,
+        ignore: bool,
+        _mask: &mem_fetch::MemAccessSectorMask,
+    ) {
+        self.ignore_on_fill_status = ignore;
+    }
+
+
+    #[inline]
     pub fn status(&self, mask: &mem_fetch::MemAccessSectorMask) -> cache::CacheBlockState {
         self.status
     }
@@ -203,7 +213,7 @@ pub struct EvictedBlockInfo {
     pub sector_mask: mem_fetch::MemAccessSectorMask,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct TagArrayAccessStatus {
     pub index: Option<usize>,
     pub writeback: bool,
