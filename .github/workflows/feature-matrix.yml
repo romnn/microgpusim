@@ -15,7 +15,6 @@ jobs:
       matrix: ${{ steps.compute-matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v3
-      # - uses: dtolnay/rust-toolchain@stable
       - uses: romnn/cargo-feature-combinations@main
 
       - name: Compute feature matrix

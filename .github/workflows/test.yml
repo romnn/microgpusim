@@ -42,7 +42,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Install CUDA
-        uses: Jimver/cuda-toolkit@latest
+        uses: Jimver/cuda-toolkit@v0.2.10
         id: cuda-toolkit
         with:
           cuda: '11.7.0'
@@ -75,7 +75,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Install CUDA
-        uses: Jimver/cuda-toolkit@latest
+        uses: Jimver/cuda-toolkit@v0.2.10
         id: cuda-toolkit
         with:
           cuda: '11.7.0'
