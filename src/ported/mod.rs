@@ -2,6 +2,8 @@
 
 pub mod addrdec;
 pub mod cache;
+pub mod l1;
+pub mod cache_block;
 pub mod core;
 pub mod instruction;
 pub mod interconn;
@@ -18,7 +20,6 @@ pub mod utils;
 
 use self::core::*;
 use addrdec::*;
-use cache::*;
 use interconn::*;
 use ldst_unit::*;
 use mem_fetch::*;
@@ -108,6 +109,7 @@ pub struct KernelInfo {
     // next_block: Option<Dim>,
     // next_block_iter: RwLock<std::iter::Peekable<dim::Iter>>,
     next_block_iter: Mutex<std::iter::Peekable<dim::Iter>>,
+    next_thread_iter: Mutex<std::iter::Peekable<dim::Iter>>,
     // next_thread_id: Option<Dim>,
     // next_thread_id_iter: dim::Iter,
 
@@ -143,7 +145,9 @@ impl std::fmt::Debug for KernelInfo {
             .field("stream", &self.config.stream_id)
             .field("shared_mem", &self.config.shared_mem_bytes)
             .field("registers", &self.config.num_registers)
-            .field("next_block", &self.next_block_iter.lock().unwrap().peek())
+            .field("block", &self.current_block())
+            // next_block_iter.lock().unwrap().peek())
+            .field("thread", &self.next_block_iter.lock().unwrap().peek())
             .finish()
     }
 }
@@ -174,15 +178,19 @@ impl KernelInfo {
     // gpgpu_ptx_sim_init_perf
     // GPGPUSim_Init
     // start_sim_thread
-    pub fn new(config: KernelLaunch) -> Self {
+    pub fn from_trace(traces_dir: impl AsRef<Path>, config: KernelLaunch) -> Self {
         dbg!(&config);
-        let trace_path = config.trace_file.with_extension("msgpack");
+        let trace_path = traces_dir
+            .as_ref()
+            .join(&config.trace_file)
+            .with_extension("msgpack");
         dbg!(&trace_path);
         let mut trace = read_trace(&trace_path).unwrap();
         trace.sort_unstable_by(|a, b| (a.block_id, a.warp_id).cmp(&(b.block_id, b.warp_id)));
         let mut trace_iter = trace.clone().into_iter();
 
         let next_block_iter = Mutex::new(config.grid.into_iter().peekable());
+        let next_thread_iter = Mutex::new(config.block.into_iter().peekable());
         // let next_block = next_block_iter.next();
         // let next_thread_id = next_block;
         // dbg!(&next_block);
@@ -201,6 +209,7 @@ impl KernelInfo {
             function_info: FunctionInfo {},
             cache_config_set: false,
             next_block_iter,
+            next_thread_iter,
             // next_block,
             // next_thread_id,
         }
@@ -211,7 +220,7 @@ impl KernelInfo {
     // pub fn next_threadblock_traces(&self, kernel: &KernelInfo, warps: &mut [SchedulerWarp]) {
     pub fn next_threadblock_traces(&self, warps: &mut [SchedulerWarp]) {
         // debug_assert!(self.next_block.is_some());
-        todo!("next_threadblock_traces");
+        // todo!("next_threadblock_traces");
         // debug_assert!(self.next_block_iter.peek().is_some());
         // // let Some(next_block) = self.next_block else {
         // let Some(next_block) = self.next_block_iter.next() else {
@@ -268,16 +277,30 @@ impl KernelInfo {
     //     self.next_block = self.next_block_iter.next()
     // }
 
-    pub fn increment_thread_id(&mut self) {
-        // self.next_thread_id = self.next_thread_id_iter.next()
+    // pub fn increment_thread_id(&mut self) {
+    //     // self.next_thread_id = self.next_thread_id_iter.next()
+    // }
+
+    pub fn current_block(&self) -> Option<nvbit_model::Point> {
+        self.next_block_iter.lock().unwrap().peek().copied()
     }
 
-    pub fn block_id(&self) -> u64 {
-        // todo: make this nicer
-        // self.next_block_iter.peek().unwrap().size()
-        todo!("block_id");
-        0
+    pub fn current_thread(&self) -> Option<nvbit_model::Point> {
+        self.next_thread_iter.lock().unwrap().peek().copied()
     }
+
+    // pub fn block_id(&self) -> u64 {
+    //     // todo: make this nicer
+    //     // self.next_block_iter.peek().unwrap().size()
+    //     // todo!("block_id");
+    //
+    //     // self.next_block_iter.peek().id() as usize
+    //     let mut iter = self.next_block_iter.lock().unwrap();
+    //     // iter.by_ref().by_ref().id()
+    //     0
+    //     // .peek()
+    //     // .map(|b| b.size())
+    // }
     // pub fn next_block_id(&self) -> Option<usize> {
     // pub fn next_block_id(&self) -> Option<usize> {
     //     self.next_block_iter.peek().id() as usize
@@ -302,15 +325,19 @@ impl KernelInfo {
     }
 
     pub fn no_more_blocks_to_run(&self) -> bool {
-        todo!("no_more_blocks_to_run");
-        // self.next_block_iter.peek().is_none()
+        // todo!("no_more_blocks_to_run");
+        self.current_block().is_some()
+        // self.next_block_iter.lock().unwrap().peek().is_none()
         // self.next_block.is_none()
         //     let next_block = self.next_block;
         // let grid = self.config.grid;
         // next_block.x >= grid.x || next_block.y >= grid.y || next_block.z >= grid.z
     }
+
     pub fn more_threads_in_block(&self) -> bool {
-        todo!("more_threads_in_block");
+        self.current_thread().is_some()
+        // lock().unwrap().peek().is_some()
+        // todo!("more_threads_in_block");
         // self.next_thread_id.is_some()
         // return m_next_tid.z < m_block_dim.z && m_next_tid.y < m_block_dim.y &&
         //        m_next_tid.x < m_block_dim.x;
@@ -809,7 +836,7 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> eyre::Result<()> {
                     num_bytes,
                 } => sim.memcopy_to_gpu(*dest_device_addr, *num_bytes),
                 Command::KernelLaunch(launch) => {
-                    let kernel = KernelInfo::new(launch.clone());
+                    let kernel = KernelInfo::from_trace(traces_dir, launch.clone());
                     kernels.push_back(Arc::new(kernel));
                 }
             }

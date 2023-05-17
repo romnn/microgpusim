@@ -1,0 +1,208 @@
+use super::{address, mem_fetch};
+use crate::config;
+use bitvec::{array::BitArray, BitArr};
+use std::collections::HashMap;
+use std::sync::Arc;
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub enum State {
+    INVALID = 0,
+    RESERVED,
+    VALID,
+    MODIFIED,
+}
+
+#[derive(Debug)]
+pub struct LineCacheBlock {
+    pub tag: u64,
+    block_addr: address,
+
+    status: State,
+    is_readable: bool,
+
+    alloc_time: usize,
+    fill_time: usize,
+    last_access_time: usize,
+
+    ignore_on_fill_status: bool,
+    set_byte_mask_on_fill: bool,
+    set_modified_on_fill: bool,
+    set_readable_on_fill: bool,
+
+    dirty_byte_mask: mem_fetch::MemAccessByteMask,
+}
+
+impl std::fmt::Display for LineCacheBlock {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("LineCacheBlock")
+            .field("addr", &self.block_addr)
+            .field("status", &self.status)
+            .finish()
+    }
+}
+
+impl Default for LineCacheBlock {
+    fn default() -> Self {
+        Self {
+            tag: 0,
+            block_addr: 0,
+            status: State::INVALID,
+            alloc_time: 0,
+            fill_time: 0,
+            last_access_time: 0,
+            ignore_on_fill_status: false,
+            set_byte_mask_on_fill: false,
+            set_modified_on_fill: false,
+            set_readable_on_fill: false,
+            is_readable: true,
+            dirty_byte_mask: BitArray::ZERO,
+        }
+    }
+}
+
+impl LineCacheBlock {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn allocate_sector(&mut self, time: usize, sector_mask: &mem_fetch::MemAccessSectorMask) {
+        unimplemented!()
+    }
+
+    pub fn allocate(
+        &mut self,
+        tag: address,
+        block_addr: address,
+        time: usize,
+        sector_mask: &mem_fetch::MemAccessSectorMask,
+    ) {
+        self.tag = tag;
+        self.block_addr = block_addr;
+        self.alloc_time = time;
+        self.last_access_time = time;
+        self.fill_time = 0;
+        self.status = State::RESERVED;
+        self.ignore_on_fill_status = false;
+        self.set_modified_on_fill = false;
+        self.set_readable_on_fill = false;
+        self.set_byte_mask_on_fill = false;
+    }
+
+    // pub fn allocate(
+    //     tag: address,
+    //     block_addr: address,
+    //     time: usize,
+    //     sector_mask: mem_fetch::MemAccessSectorMask,
+    // ) -> Self {
+    //     Self {
+    //         tag,
+    //         block_addr,
+    //         alloc_time: time,
+    //         last_access_time: time,
+    //         fill_time: 0,
+    //         status: State::RESERVED,
+    //         ..Self::default()
+    //     }
+    // }
+
+    pub fn fill(
+        &mut self,
+        time: usize,
+        sector_mask: &mem_fetch::MemAccessSectorMask,
+        byte_mask: &mem_fetch::MemAccessByteMask,
+    ) {
+        self.status = if self.set_modified_on_fill {
+            State::MODIFIED
+        } else {
+            State::VALID
+        };
+
+        if self.set_readable_on_fill {
+            self.is_readable = true;
+        }
+        if self.set_byte_mask_on_fill {
+            self.set_byte_mask(&byte_mask)
+        }
+
+        self.fill_time = time;
+    }
+
+    #[inline]
+    pub fn set_last_access_time(&mut self, time: usize, _mask: &mem_fetch::MemAccessSectorMask) {
+        self.last_access_time = time;
+    }
+
+    #[inline]
+    pub fn set_byte_mask(&mut self, mask: &mem_fetch::MemAccessByteMask) {
+        self.dirty_byte_mask |= mask;
+    }
+
+    #[inline]
+    pub fn set_status(&mut self, status: State, _mask: &mem_fetch::MemAccessSectorMask) {
+        self.status = status;
+    }
+
+    #[inline]
+    pub fn set_ignore_on_fill(&mut self, ignore: bool, _mask: &mem_fetch::MemAccessSectorMask) {
+        self.ignore_on_fill_status = ignore;
+    }
+
+    #[inline]
+    pub fn status(&self, mask: &mem_fetch::MemAccessSectorMask) -> State {
+        self.status
+    }
+
+    #[inline]
+    pub fn is_valid(&self) -> bool {
+        self.status == State::VALID
+    }
+
+    #[inline]
+    pub fn is_modified(&self) -> bool {
+        self.status == State::MODIFIED
+    }
+
+    #[inline]
+    pub fn is_invalid(&self) -> bool {
+        self.status == State::INVALID
+    }
+
+    #[inline]
+    pub fn is_reserved(&self) -> bool {
+        self.status == State::RESERVED
+    }
+
+    #[inline]
+    pub fn is_readable(&self, _mask: &mem_fetch::MemAccessSectorMask) -> bool {
+        self.is_readable
+    }
+
+    #[inline]
+    pub fn alloc_time(&self) -> usize {
+        self.alloc_time
+    }
+
+    #[inline]
+    pub fn last_access_time(&self) -> usize {
+        self.last_access_time
+    }
+
+    #[inline]
+    pub fn modified_size(&self) -> usize {
+        super::SECTOR_CHUNCK_SIZE * super::SECTOR_SIZE // cache line size
+    }
+
+    #[inline]
+    pub fn dirty_byte_mask(&self) -> mem_fetch::MemAccessByteMask {
+        self.dirty_byte_mask
+    }
+
+    #[inline]
+    pub fn dirty_sector_mask(&self) -> mem_fetch::MemAccessSectorMask {
+        if self.is_modified() {
+            !BitArray::ZERO
+        } else {
+            BitArray::ZERO
+        }
+    }
+}

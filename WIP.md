@@ -1,16 +1,24 @@
 #### TODO (new plan)
-- todo: use testing framework that can execute coverage
-  - check the coverage for all the branch cases in the L1
+- extend the trace with other (all?) instructions
+- use relative path to trace file in the kernel launch trace command
+
+- tests:
+  - add tests for l1 and tag array against reference
+  - use testing framework that can execute coverage
+  - check the coverage for all the branch cases
+  - make the coverage somehow visible (in ci?)
+
 
 - in the cache test, load the full trace and execute the accesses to l1
+ - todo: where and when is the miss queue emptied? 
+
+- think of interfaces between the components
+  - goal: plug in an analytical model
 
 - try to move gpgpusim code into many small files into the playground
   - see if we can at least compile the tag array and do some test 
     - good starting point
 
-- BUG: if cargo runs tests in parallel, we poison the stats lock
-  - need to actually use an arc pointer
-  - every component that requires it should have a stats object
 - go back to a more simple model
   - schedule warps deterministically
   - focus on the interface to l1, l2, dram
@@ -20,8 +28,12 @@
   - add icache and get issueing to l1 to work at least
   - see how far we are at that point
 
+#### Done
+- BUG: if cargo runs tests in parallel, we poison the stats lock
+  - need to actually use an arc pointer
+  - every component that requires it should have a stats object
+
 #### TODO
-- get a trace from vectoradd using accelsim
 - get a trace from vectoradd using accelsim
 
 - improve the plots

@@ -1,207 +1,8 @@
-use super::{address, cache, mem_fetch};
+use super::{address, cache, cache_block, mem_fetch};
 use crate::config;
 use bitvec::{array::BitArray, BitArr};
 use std::collections::HashMap;
 use std::sync::Arc;
-
-#[derive(Debug)]
-pub struct LineCacheBlock {
-    tag: u64,
-    block_addr: address,
-
-    status: cache::CacheBlockState,
-    is_readable: bool,
-
-    alloc_time: usize,
-    fill_time: usize,
-    last_access_time: usize,
-
-    ignore_on_fill_status: bool,
-    set_byte_mask_on_fill: bool,
-    set_modified_on_fill: bool,
-    set_readable_on_fill: bool,
-
-    dirty_byte_mask: mem_fetch::MemAccessByteMask,
-}
-
-impl std::fmt::Display for LineCacheBlock {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct("LineCacheBlock")
-            .field("addr", &self.block_addr)
-            .field("status", &self.status)
-            .finish()
-    }
-}
-
-impl Default for LineCacheBlock {
-    fn default() -> Self {
-        Self {
-            tag: 0,
-            block_addr: 0,
-            status: cache::CacheBlockState::INVALID,
-            alloc_time: 0,
-            fill_time: 0,
-            last_access_time: 0,
-            ignore_on_fill_status: false,
-            set_byte_mask_on_fill: false,
-            set_modified_on_fill: false,
-            set_readable_on_fill: false,
-            is_readable: true,
-            dirty_byte_mask: BitArray::ZERO,
-        }
-    }
-}
-
-impl LineCacheBlock {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn allocate_sector(&mut self, time: usize, sector_mask: &mem_fetch::MemAccessSectorMask) {
-        unimplemented!()
-    }
-
-    pub fn allocate(
-        &mut self,
-        tag: address,
-        block_addr: address,
-        time: usize,
-        sector_mask: &mem_fetch::MemAccessSectorMask,
-    ) {
-        self.tag = tag;
-        self.block_addr = block_addr;
-        self.alloc_time = time;
-        self.last_access_time = time;
-        self.fill_time = 0;
-        self.status = cache::CacheBlockState::RESERVED;
-        self.ignore_on_fill_status = false;
-        self.set_modified_on_fill = false;
-        self.set_readable_on_fill = false;
-        self.set_byte_mask_on_fill = false;
-    }
-
-    // pub fn allocate(
-    //     tag: address,
-    //     block_addr: address,
-    //     time: usize,
-    //     sector_mask: mem_fetch::MemAccessSectorMask,
-    // ) -> Self {
-    //     Self {
-    //         tag,
-    //         block_addr,
-    //         alloc_time: time,
-    //         last_access_time: time,
-    //         fill_time: 0,
-    //         status: cache::CacheBlockState::RESERVED,
-    //         ..Self::default()
-    //     }
-    // }
-
-    pub fn fill(
-        &mut self,
-        time: usize,
-        sector_mask: &mem_fetch::MemAccessSectorMask,
-        byte_mask: &mem_fetch::MemAccessByteMask,
-    ) {
-        self.status = if self.set_modified_on_fill {
-            cache::CacheBlockState::MODIFIED
-        } else {
-            cache::CacheBlockState::VALID
-        };
-
-        if self.set_readable_on_fill {
-            self.is_readable = true;
-        }
-        if self.set_byte_mask_on_fill {
-            self.set_byte_mask(&byte_mask)
-        }
-
-        self.fill_time = time;
-    }
-
-    #[inline]
-    pub fn set_last_access_time(&mut self, time: usize, _mask: &mem_fetch::MemAccessSectorMask) {
-        self.last_access_time = time;
-    }
-
-    #[inline]
-    pub fn set_byte_mask(&mut self, mask: &mem_fetch::MemAccessByteMask) {
-        self.dirty_byte_mask |= mask;
-    }
-
-    #[inline]
-    pub fn set_status(
-        &mut self,
-        status: cache::CacheBlockState,
-        _mask: &mem_fetch::MemAccessSectorMask,
-    ) {
-        self.status = status;
-    }
-
-    #[inline]
-    pub fn set_ignore_on_fill(
-        &mut self,
-        ignore: bool,
-        _mask: &mem_fetch::MemAccessSectorMask,
-    ) {
-        self.ignore_on_fill_status = ignore;
-    }
-
-
-    #[inline]
-    pub fn status(&self, mask: &mem_fetch::MemAccessSectorMask) -> cache::CacheBlockState {
-        self.status
-    }
-
-    #[inline]
-    pub fn is_valid(&self) -> bool {
-        self.status == cache::CacheBlockState::VALID
-    }
-
-    #[inline]
-    pub fn is_modified(&self) -> bool {
-        self.status == cache::CacheBlockState::MODIFIED
-    }
-
-    #[inline]
-    pub fn is_invalid(&self) -> bool {
-        self.status == cache::CacheBlockState::INVALID
-    }
-
-    #[inline]
-    pub fn is_reserved(&self) -> bool {
-        self.status == cache::CacheBlockState::RESERVED
-    }
-
-    #[inline]
-    pub fn is_readable(&self, _mask: &mem_fetch::MemAccessSectorMask) -> bool {
-        self.is_readable
-    }
-
-    #[inline]
-    pub fn alloc_time(&self) -> usize {
-        self.alloc_time
-    }
-
-    #[inline]
-    pub fn last_access_time(&self) -> usize {
-        self.last_access_time
-    }
-
-    #[inline]
-    pub fn modified_size(&self) -> usize {
-        super::SECTOR_CHUNCK_SIZE * super::SECTOR_SIZE // cache line size
-    }
-
-    #[inline]
-    pub fn dirty_sector_mask(&self) -> mem_fetch::MemAccessSectorMask {
-        if self.is_modified() {
-            !BitArray::ZERO
-        } else {
-            BitArray::ZERO
-        }
-    }
-}
 
 pub type LineTable = HashMap<address, usize>;
 
@@ -218,13 +19,13 @@ pub struct TagArrayAccessStatus {
     pub index: Option<usize>,
     pub writeback: bool,
     pub evicted: Option<EvictedBlockInfo>,
-    pub status: cache::CacheRequestStatus,
+    pub status: cache::RequestStatus,
 }
 
 #[derive(Debug)]
 pub struct TagArray<B> {
     /// nbanks x nset x assoc lines in total
-    pub lines: Vec<LineCacheBlock>,
+    pub lines: Vec<cache_block::LineCacheBlock>,
     phantom: std::marker::PhantomData<B>,
     access: usize,
     miss: usize,
@@ -249,7 +50,7 @@ impl<B> TagArray<B> {
     pub fn new(core_id: usize, type_id: usize, config: Arc<config::CacheConfig>) -> Self {
         let num_cache_lines = config.max_num_lines();
         let lines = (0..num_cache_lines)
-            .map(|_| LineCacheBlock::new())
+            .map(|_| cache_block::LineCacheBlock::new())
             .collect();
         // if (config.m_cache_type == NORMAL) {
         //   for (unsigned i = 0; i < cache_lines_num; ++i)
@@ -296,7 +97,7 @@ impl<B> TagArray<B> {
         // index: &mut usize,
         // writeback: &mut bool,
         // evicted: &mut EvictedBlockInfo,
-        // ) -> (Option<usize>, cache::CacheRequestStatus) {
+        // ) -> (Option<usize>, cache::RequestStatus) {
     ) -> TagArrayAccessStatus {
         // ) {
         println!("tag_array::access({})", addr);
@@ -309,16 +110,16 @@ impl<B> TagArray<B> {
         // shader_cache_access_log(m_core_id, m_type_id, 0);
         let (index, status) = self.probe(addr, fetch, fetch.is_write(), false);
         match status {
-            cache::CacheRequestStatus::HIT_RESERVED => {
+            cache::RequestStatus::HIT_RESERVED => {
                 self.num_pending_hit += 1;
             }
-            cache::CacheRequestStatus::HIT => {
+            cache::RequestStatus::HIT => {
                 // TODO: use an enum like either here
                 let index = index.expect("hit has idx");
                 let line = &mut self.lines[index];
                 line.set_last_access_time(time, fetch.access_sector_mask());
             }
-            cache::CacheRequestStatus::MISS => {
+            cache::RequestStatus::MISS => {
                 self.num_miss += 1;
                 let index = index.expect("hit has idx");
                 let line = &mut self.lines[index];
@@ -329,7 +130,7 @@ impl<B> TagArray<B> {
                         evicted = Some(EvictedBlockInfo {
                             block_addr: addr,
                             modified_size: line.modified_size(),
-                            byte_mask: line.dirty_byte_mask,
+                            byte_mask: line.dirty_byte_mask(),
                             sector_mask: line.dirty_sector_mask(),
                         });
                         self.num_dirty -= 1;
@@ -342,7 +143,7 @@ impl<B> TagArray<B> {
                     );
                 }
             }
-            cache::CacheRequestStatus::SECTOR_MISS => {
+            cache::RequestStatus::SECTOR_MISS => {
                 debug_assert!(self.config.kind == config::CacheKind::Sector);
                 self.num_sector_miss += 1;
                 // shader_cache_access_log(m_core_id, m_type_id, 1);
@@ -357,7 +158,7 @@ impl<B> TagArray<B> {
                     }
                 }
             }
-            cache::CacheRequestStatus::RESERVATION_FAIL => {
+            cache::RequestStatus::RESERVATION_FAIL => {
                 self.num_reservation_fail += 1;
                 // shader_cache_access_log(m_core_id, m_type_id, 1);
             }
@@ -384,7 +185,7 @@ impl<B> TagArray<B> {
         fetch: &mem_fetch::MemFetch,
         is_write: bool,
         is_probe: bool,
-    ) -> (Option<usize>, cache::CacheRequestStatus) {
+    ) -> (Option<usize>, cache::RequestStatus) {
         let mask = fetch.access_sector_mask();
         self.probe_masked(block_addr, &mask, is_write, is_probe, fetch)
     }
@@ -397,7 +198,7 @@ impl<B> TagArray<B> {
         is_write: bool,
         is_probe: bool,
         fetch: &mem_fetch::MemFetch,
-    ) -> (Option<usize>, cache::CacheRequestStatus) {
+    ) -> (Option<usize>, cache::RequestStatus) {
         println!("tag_array::probe({block_addr})");
         let set_index = self.config.set_index(block_addr) as usize;
         let tag = self.config.tag(block_addr);
@@ -415,23 +216,23 @@ impl<B> TagArray<B> {
             let line = &self.lines[idx];
             if line.tag == tag {
                 match line.status(&mask) {
-                    cache::CacheBlockState::RESERVED => {
-                        return (Some(idx), cache::CacheRequestStatus::HIT_RESERVED);
+                    cache_block::State::RESERVED => {
+                        return (Some(idx), cache::RequestStatus::HIT_RESERVED);
                     }
-                    cache::CacheBlockState::VALID => {
-                        return (Some(idx), cache::CacheRequestStatus::HIT);
+                    cache_block::State::VALID => {
+                        return (Some(idx), cache::RequestStatus::HIT);
                     }
-                    cache::CacheBlockState::MODIFIED => {
+                    cache_block::State::MODIFIED => {
                         if (!is_write && line.is_readable(mask)) || is_write {
-                            return (Some(idx), cache::CacheRequestStatus::HIT);
+                            return (Some(idx), cache::RequestStatus::HIT);
                         } else {
-                            return (Some(idx), cache::CacheRequestStatus::SECTOR_MISS);
+                            return (Some(idx), cache::RequestStatus::SECTOR_MISS);
                         }
                     }
-                    cache::CacheBlockState::INVALID if line.is_valid() => {
-                        return (Some(idx), cache::CacheRequestStatus::SECTOR_MISS);
+                    cache_block::State::INVALID if line.is_valid() => {
+                        return (Some(idx), cache::RequestStatus::SECTOR_MISS);
                     }
-                    cache::CacheBlockState::INVALID => {}
+                    cache_block::State::INVALID => {}
                 }
             }
             if !line.is_reserved() {
@@ -474,7 +275,7 @@ impl<B> TagArray<B> {
                 config::CacheAllocatePolicy::ON_MISS
             );
             // miss and not enough space in cache to allocate on miss
-            return (None, cache::CacheRequestStatus::RESERVATION_FAIL);
+            return (None, cache::RequestStatus::RESERVATION_FAIL);
         }
 
         let cache_idx = if invalid_line.is_some() {
@@ -487,7 +288,7 @@ impl<B> TagArray<B> {
             panic!("found neither a valid nor invalid cache line");
         };
 
-        (cache_idx, cache::CacheRequestStatus::MISS)
+        (cache_idx, cache::RequestStatus::MISS)
     }
 
     pub fn flush(&mut self) {
@@ -502,11 +303,11 @@ impl<B> TagArray<B> {
         self.config.max_num_lines()
     }
 
-    pub fn get_block_mut(&mut self, idx: usize) -> &mut LineCacheBlock {
+    pub fn get_block_mut(&mut self, idx: usize) -> &mut cache_block::LineCacheBlock {
         &mut self.lines[idx]
     }
 
-    pub fn get_block(&self, idx: usize) -> &LineCacheBlock {
+    pub fn get_block(&self, idx: usize) -> &cache_block::LineCacheBlock {
         &self.lines[idx]
     }
 

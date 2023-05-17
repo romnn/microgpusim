@@ -1,26 +1,26 @@
 [
     {
         "MemcpyHtoD": {
-            "dest_device_addr": 140712914976768,
+            "dest_device_addr": 140398342176768,
             "num_bytes": 400
         }
     },
     {
         "MemcpyHtoD": {
-            "dest_device_addr": 140712914977280,
+            "dest_device_addr": 140398342177280,
             "num_bytes": 400
         }
     },
     {
         "MemcpyHtoD": {
-            "dest_device_addr": 140712914977792,
+            "dest_device_addr": 140398342177792,
             "num_bytes": 400
         }
     },
     {
         "KernelLaunch": {
             "name": "void vecAdd<float>(float*, float*, float*, int)",
-            "trace_file": "./test-apps/vectoradd/traces/vectoradd-100-32-trace/kernel-0-trace",
+            "trace_file": "kernel-0-trace",
             "id": 0,
             "grid": {
                 "x": 1,
@@ -36,8 +36,8 @@
             "num_registers": 8,
             "binary_version": 61,
             "stream_id": 0,
-            "shared_mem_base_addr": 140713631154176,
-            "local_mem_base_addr": 140713597599744,
+            "shared_mem_base_addr": 140399058354176,
+            "local_mem_base_addr": 140399024799744,
             "nvbit_version": "1.5.5"
         }
     }

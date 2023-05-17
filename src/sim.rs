@@ -63,6 +63,7 @@ where
 /// Thread index.
 #[derive(Debug, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ThreadIndex {
+    // pub block_idx: model::Point,
     pub block_idx: model::Dim,
     pub block_dim: model::Dim,
     pub thread_idx: model::Dim,
@@ -245,7 +246,7 @@ impl Simulation {
         // loop over the grid
         for block_idx in grid {
             let mut thread_idx = ThreadIndex {
-                block_idx,
+                block_idx: block_idx.into(),
                 block_dim: block_size,
                 thread_idx: block_size,
             };
@@ -255,7 +256,7 @@ impl Simulation {
             let mut threads = block_size.into_iter();
             for (warp_num, warp) in threads.chunks(WARP_SIZE).into_iter().enumerate() {
                 for warp_thread_idx in warp {
-                    thread_idx.thread_idx = warp_thread_idx;
+                    thread_idx.thread_idx = warp_thread_idx.into();
                     // println!("calling thread {thread_idx:?}");
                     kernel.run(&thread_idx)?;
                 }

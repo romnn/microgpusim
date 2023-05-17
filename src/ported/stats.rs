@@ -2,8 +2,7 @@ use super::{cache, mem_fetch};
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-pub type CacheRequestStatusCounters =
-    HashMap<(mem_fetch::AccessKind, cache::CacheRequestStatus), usize>;
+pub type CacheRequestStatusCounters = HashMap<(mem_fetch::AccessKind, cache::RequestStatus), usize>;
 
 #[derive(Default, Debug)]
 pub struct Stats {

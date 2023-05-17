@@ -1,5 +1,6 @@
-use super::{cache, interconn as ic, mem_fetch, scheduler as sched};
+use super::{cache, interconn as ic, l1, mem_fetch, scheduler as sched};
 use crate::config::GPUConfig;
+use ic::MemFetchInterconnect;
 use std::sync::Arc;
 
 use super::{
@@ -324,10 +325,10 @@ pub struct LoadStoreUnit {
     pipeline_depth: usize,
     pipeline_reg: Vec<RegisterSet>,
     response_fifo: VecDeque<MemFetch>,
-    texture_l1: cache::TextureL1,
-    const_l1: cache::ConstL1,
+    texture_l1: l1::TextureL1,
+    const_l1: l1::ConstL1,
     // todo: how to use generic interface here
-    data_l1: Option<cache::ConstL1>,
+    data_l1: Option<l1::ConstL1>,
     config: Arc<GPUConfig>,
     next_global: Option<MemFetch>,
     dispatch_reg: Option<WarpInstruction>,
@@ -404,7 +405,7 @@ impl LoadStoreUnit {
         //   m_next_global = NULL;
         //   m_last_inst_gpu_sim_cycle = 0;
         //   m_last_inst_gpu_tot_sim_cycle = 0;
-        // let const_l1 = cache::TextureL1::new(format!("l1_tex_{:03}", core_id));
+        // let const_l1 = l1::TextureL1::new(format!("l1_tex_{:03}", core_id));
 
         // m_result_port = result_port;
         //   m_pipeline_depth = max_latency;
@@ -424,8 +425,8 @@ impl LoadStoreUnit {
             .map(|_| RegisterSet::new(5, "regiserset".into()))
             .collect();
         // vec![None; pipeline_depth];
-        let texture_l1 = cache::TextureL1::new(core_id, interconn.clone());
-        let const_l1 = cache::ConstL1::default();
+        let texture_l1 = l1::TextureL1::new(core_id, interconn.clone());
+        let const_l1 = l1::ConstL1::default();
         Self {
             core_id,
             cluster_id,

@@ -68,7 +68,7 @@ pub struct MemAllocation {
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub struct KernelLaunch {
     pub name: String,
-    pub trace_file: PathBuf,
+    pub trace_file: String,
     pub id: u64,
     pub grid: nvbit_model::Dim,
     pub block: nvbit_model::Dim,

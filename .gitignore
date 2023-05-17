@@ -6,7 +6,5 @@
 # json traces can get too big
 /test-apps/*/traces/*/trace.json
 
-# bindings for debugging
-/playground/bindings.rs
-
-/accelsim/build.log*
+# code coverage files
+**/*.profraw

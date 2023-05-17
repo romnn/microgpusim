@@ -30,6 +30,16 @@ sudo ./target/release/validate ./test-apps/simple_matrixmul/matrixmul 5 5 5 32
 python setup.py develop --force
 ```
 
+#### Testing
+```bash
+# install coverage tooling
+rustup component add llvm-tools-preview
+cargo install grcov
+
+# collect code coverage in tests
+cargo xtasks coverage 
+```
+
 #### Goals
 - step 1: we want to count memory accesses to L1, L2, DRAM
 - step 2: we want to count cache hits and misses

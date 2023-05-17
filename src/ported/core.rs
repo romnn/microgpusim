@@ -695,7 +695,10 @@ impl SIMTCore {
         // resources (simulation)
         let mut warps: BitArr!(for WARP_PER_CTA_MAX) = BitArray::ZERO;
         // let block_id = kernel.next_block_id();
-        let block_id = kernel.block_id();
+        let Some(block) = kernel.current_block() else {
+            panic!("kernel has no block");
+
+        };
         let mut num_threads_in_block = 0;
         for i in start_thread..end_thread {
             self.thread_state[i] = Some(ThreadState {
@@ -732,7 +735,7 @@ impl SIMTCore {
             free_block_hw_id,
             start_thread,
             end_thread,
-            block_id,
+            block.id(),
             kernel.threads_per_block(),
             kernel,
         );

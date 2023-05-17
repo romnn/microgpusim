@@ -317,7 +317,7 @@ impl<'c> Instrumentor<'c> {
                 let pc = func.addr();
 
                 let id = *kernel_id;
-                let trace_file = self.trace_path(id);
+                let trace_file = self.kernel_trace_name(id);
 
                 let num_registers = func.num_registers().unwrap();
 
@@ -392,6 +392,7 @@ impl<'c> Instrumentor<'c> {
         let line_num = line_info.map(|info| info.line).unwrap_or(0);
 
         let opcode = instr.opcode().expect("has opcode");
+        dbg!(&opcode);
         let data_width = instr.size() as u32;
 
         let opcode_id = {
@@ -411,7 +412,7 @@ impl<'c> Instrumentor<'c> {
 
         // iterate on the operands
         for operand in instr.operands().collect::<Vec<_>>() {
-            // println!("operand kind: {:?}", &operand.kind());
+            println!("operand kind: {:?}", &operand.kind());
             if let model::OperandKind::MemRef { .. } = operand.kind() {
                 instr.insert_call("instrument_inst", model::InsertionPoint::Before);
                 let mut pchannel_dev_lock = self.dev_channel.lock().unwrap();
@@ -463,9 +464,13 @@ impl<'c> Instrumentor<'c> {
                 if cnt < self.instr_begin_interval || cnt >= self.instr_end_interval {
                     continue;
                 }
+                // dbg!(&instr.opcode());
+
+                #[cfg(not(feature = "full"))]
                 if let model::MemorySpace::None | model::MemorySpace::Constant =
                     instr.memory_space()
                 {
+                    // skip non-memory instructions
                     continue;
                 }
 
@@ -474,10 +479,24 @@ impl<'c> Instrumentor<'c> {
         }
     }
 
-    fn trace_path(&self, id: u64) -> PathBuf {
-        self.traces_dir.join(format!("kernel-{id}-trace"))
+    fn kernel_trace_name(&self, id: u64) -> String {
+        format!("kernel-{id}-trace")
     }
 
+    fn kernel_trace_path(&self, id: u64) -> PathBuf {
+        self.traces_dir.join(self.kernel_trace_name(id))
+    }
+
+    /// Generate traces on a per kernel basis.
+    ///
+    /// Due to limitations of rusts safety guarantees, we cannot use
+    /// a hashmap of serializers for all kernels we receive traces from
+    /// in `read_channel`, essentially because we have to create them
+    /// on-demand.
+    ///
+    /// At this point, when splitting trace.msgpack into multiple
+    /// per-kernel files, we already know the number of total kernels
+    /// and can pre-allocate serializers for them.
     fn generate_per_kernel_traces(&self) {
         let rmp_trace_file_path = self.traces_dir.join("trace.msgpack");
         let mut reader = BufReader::new(
@@ -501,7 +520,7 @@ impl<'c> Instrumentor<'c> {
         let mut rmp_serializers: HashMap<u64, _> = kernel_ids
             .iter()
             .map(|id| {
-                let kernel_trace_path = self.trace_path(*id).with_extension("msgpack");
+                let kernel_trace_path = self.kernel_trace_path(*id).with_extension("msgpack");
                 (*id, rmp_serializer(&kernel_trace_path))
             })
             .collect();
@@ -544,7 +563,11 @@ impl<'c> Instrumentor<'c> {
         );
         let commands = self.commands.lock().unwrap();
         commands.serialize(&mut serializer).unwrap();
-        println!("wrote commands to {}", command_trace_file_path.display());
+        println!(
+            "wrote {} commands to {}",
+            commands.len(),
+            command_trace_file_path.display()
+        );
     }
 
     fn save_allocations(&self) {
