@@ -1,10 +1,10 @@
 .DS_Store
 
 /target
-/Cargo.lock
 
 # json traces can get too big
 /test-apps/*/traces/*/trace.json
 
 # code coverage files
 **/*.profraw
+/coverage
