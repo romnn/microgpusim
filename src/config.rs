@@ -46,7 +46,7 @@ pub struct CacheConfig {
 
     pub miss_queue_size: usize,
     pub result_fifo_entries: Option<usize>,
-    pub data_port_width: Option<usize>,
+    data_port_width: Option<usize>,
     // pub disabled: bool,
 }
 
@@ -55,6 +55,22 @@ pub static MAX_DEFAULT_CACHE_SIZE_MULTIPLIER: u8 = 4;
 /// TODO: use a builder here so we can fill in the remaining values
 /// and do the validation as found below:
 impl CacheConfig {
+    /// The width if the port to the data array.
+    ///
+    /// todo: this can be replaced with the builder?
+    #[inline]
+    pub fn data_port_width(&self) -> usize {
+        let width = self.data_port_width.unwrap_or(0);
+        let width = if width == 0 {
+            // default granularity is line size
+            self.line_size
+        } else {
+            width
+        };
+        debug_assert!(self.line_size % width == 0);
+        width
+    }
+
     /// The total size of the cache in bytes.
     #[inline]
     pub fn total_bytes(&self) -> usize {

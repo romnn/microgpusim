@@ -38,7 +38,7 @@ pub struct Data<I> {
 
 impl<I> Data<I>
 where
-    I: ic::MemFetchInterconnect,
+    I: ic::MemPort,
 {
     pub fn new(
         core_id: usize,
@@ -110,14 +110,16 @@ where
         self.miss_queue.len() >= self.cache_config.miss_queue_size
     }
 
-    /// Are any (accepted) accesses that had to wait for memory now ready?
+    /// Whether any (accepted) accesses that had to wait for memory are now ready
     ///
-    /// (does not include accesses that "HIT")
+    /// Note: does not include accesses that "HIT"
     pub fn ready_for_access(&self) -> bool {
         self.mshrs.ready_for_access()
     }
 
-    /// Pop next ready access (does not include accesses that "HIT")
+    /// Pop next ready access
+    ///
+    /// Note: does not include accesses that "HIT"
     pub fn next_access(&mut self) -> Option<mem_fetch::MemFetch> {
         self.mshrs.next_access()
     }
@@ -631,7 +633,7 @@ impl<I> cache::Component for Data<I> {}
 
 impl<I> cache::Cache for Data<I>
 where
-    I: ic::MemFetchInterconnect,
+    I: ic::MemPort,
 {
     fn access(
         &mut self,
@@ -756,16 +758,25 @@ impl<I> cache::CacheBandwidth for Data<I> {
 mod tests {
     use super::Data;
     use crate::config;
-    use crate::ported::{instruction, mem_fetch, parse_commands, stats::Stats, KernelInfo};
+    use crate::ported::{
+        cache::Cache, instruction, interconn as ic, mem_fetch, parse_commands, scheduler as sched,
+        stats::Stats, KernelInfo,
+    };
+    use itertools::Itertools;
     use playground::{bindings, bridge};
     use std::collections::VecDeque;
     use std::path::PathBuf;
     use std::sync::{Arc, Mutex};
     use trace_model::{Command, KernelLaunch, MemAccessTraceEntry};
 
-    struct Interconnect {}
-
-    impl Interconnect {}
+    // struct Interconnect {}
+    //
+    // impl mem_fetch::Interconnect for Interconnect {
+    //     fn full(&self, size: u32, write: bool) -> bool {
+    //         false
+    //     }
+    //     fn push(&self, mf: mem_fetch::MemFetch) {}
+    // }
 
     fn concat<T>(
         mut a: impl IntoIterator<Item = T>,
@@ -812,11 +823,23 @@ mod tests {
 
     #[test]
     fn test_data_l1_full_trace() {
+        let control_size = 0;
+        // let warp_id = 0;
+        let core_id = 0;
+        let cluster_id = 0;
+
         let stats = Arc::new(Mutex::new(Stats::default()));
         let config = Arc::new(config::GPUConfig::default());
         let cache_config = config.data_cache_l1.clone().unwrap();
-        let interconn = Interconnect {};
-        let mut l1 = Data::new(0, interconn, stats.clone(), config.clone(), cache_config);
+        let interconn = ic::Interconnect {};
+        let mut l1 = Data::new(
+            core_id,
+            cluster_id,
+            interconn,
+            stats.clone(),
+            config.clone(),
+            cache_config,
+        );
 
         let trace_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("test-apps/vectoradd/traces/vectoradd-100-32-trace/");
@@ -845,14 +868,6 @@ mod tests {
             }
         }
         // dbg!(&kernels);
-
-        let control_size = 0;
-        // let warp_id = 0;
-        let core_id = 0;
-        let cluster_id = 0;
-
-        use crate::ported::scheduler as sched;
-        use itertools::Itertools;
 
         for kernel in &mut kernels {
             let mut block_iter = kernel.next_block_iter.lock().unwrap();
@@ -952,16 +967,23 @@ mod tests {
 
     #[test]
     fn test_data_l1_single_access() {
-        let stats = Arc::new(Mutex::new(Stats::default()));
-        let config = Arc::new(config::GPUConfig::default());
-        let cache_config = config.data_cache_l1.clone().unwrap();
-        let interconn = Interconnect {};
-        let mut l1 = Data::new(0, interconn, stats.clone(), config.clone(), cache_config);
-
         let control_size = 0;
         let warp_id = 0;
         let core_id = 0;
         let cluster_id = 0;
+
+        let stats = Arc::new(Mutex::new(Stats::default()));
+        let config = Arc::new(config::GPUConfig::default());
+        let cache_config = config.data_cache_l1.clone().unwrap();
+        let port = ic::Interconnect {};
+        let mut l1 = Data::new(
+            core_id,
+            cluster_id,
+            port,
+            stats.clone(),
+            config.clone(),
+            cache_config,
+        );
 
         let trace_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("test-apps/vectoradd/traces/vectoradd-100-32-trace/");

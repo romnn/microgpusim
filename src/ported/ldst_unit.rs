@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{config::GPUConfig, ported::operand_collector::OperandCollectorRegisterFileUnit};
 use bitvec::{array::BitArray, BitArr};
-use ic::MemFetchInterconnect;
+use ic::MemPort;
 use std::sync::{Arc, Mutex};
 
 use super::{

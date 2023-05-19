@@ -50,7 +50,7 @@ pub struct Data<I> {
 
 impl<I> Data<I>
 where
-    I: ic::MemFetchInterconnect,
+    I: ic::MemPort,
 {
     pub fn new(
         core_id: usize,
@@ -70,7 +70,7 @@ impl<I> cache::Component for Data<I> {}
 
 impl<I> cache::Cache for Data<I>
 where
-    I: ic::MemFetchInterconnect,
+    I: ic::MemPort,
 {
     // The l2 cache access function calls the base data_cache access
     // implementation.  When the L2 needs to diverge from L1, L2 specific

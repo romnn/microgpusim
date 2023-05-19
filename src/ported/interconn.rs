@@ -1,6 +1,6 @@
 use super::MemFetch;
 
-pub trait MemFetchInterconnect {
+pub trait MemPort {
     fn full(&self, size: u32, write: bool) -> bool;
     fn push(&mut self, fetch: MemFetch);
 }
@@ -8,7 +8,7 @@ pub trait MemFetchInterconnect {
 #[derive(Debug, Clone, Default)]
 pub struct Interconnect {}
 
-impl MemFetchInterconnect for Interconnect {
+impl MemPort for Interconnect {
     fn push(&mut self, fetch: MemFetch) {
         println!("interconnect: pushed fetch {:?}", fetch);
     }

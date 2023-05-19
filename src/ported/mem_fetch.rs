@@ -9,11 +9,6 @@ use bitvec::{array::BitArray, field::BitField, BitArr};
 pub type MemAccessByteMask = BitArr!(for super::MAX_MEMORY_ACCESS_SIZE);
 pub type MemAccessSectorMask = BitArr!(for super::SECTOR_CHUNCK_SIZE, in u8);
 
-pub trait Interconnect {
-    fn full(&self, size: usize, write: bool) -> bool;
-    fn push(&self, mf: MemFetch);
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Kind {
     READ_REQUEST = 0,
