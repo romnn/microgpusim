@@ -1,4 +1,4 @@
-use super::tag_array;
+use super::{address, mem_fetch, tag_array};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum RequestStatus {
@@ -45,5 +45,40 @@ impl Event {
             kind,
             evicted_block: None,
         }
+    }
+}
+
+pub trait Component {
+    fn cycle(&mut self) {
+        todo!("component: cycle");
+    }
+}
+
+pub trait Cache: Component {
+    fn access(
+        &mut self,
+        addr: address,
+        fetch: mem_fetch::MemFetch,
+        events: Option<&mut Vec<Event>>,
+    ) -> RequestStatus {
+        todo!("cache: access");
+        RequestStatus::MISS
+    }
+
+    fn fill(&self, fetch: &mem_fetch::MemFetch) {
+        todo!("cache: fill");
+    }
+}
+
+// not clear if we ever need this
+pub trait CacheBandwidth {
+    fn has_free_data_port(&self) -> bool {
+        todo!("cache: has_free_data_port");
+        false
+    }
+
+    fn has_free_fill_port(&self) -> bool {
+        todo!("cache: has_free_fill_port");
+        false
     }
 }

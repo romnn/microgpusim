@@ -1,13 +1,12 @@
 #### TODO (new plan)
+- test running a trace until caches propagate
 - extend the trace with other (all?) instructions
-- use relative path to trace file in the kernel launch trace command
 
 - tests:
   - add tests for l1 and tag array against reference
   - use testing framework that can execute coverage
   - check the coverage for all the branch cases
   - make the coverage somehow visible (in ci?)
-
 
 - in the cache test, load the full trace and execute the accesses to l1
  - todo: where and when is the miss queue emptied? 
@@ -16,6 +15,8 @@
   - goal: plug in an analytical model
 
 - try to move gpgpusim code into many small files into the playground
+  - check for correctness: register set?
+    - best starting point
   - see if we can at least compile the tag array and do some test 
     - good starting point
 
@@ -29,6 +30,7 @@
   - see how far we are at that point
 
 #### Done
+- use relative path to trace file in the kernel launch trace command
 - BUG: if cargo runs tests in parallel, we poison the stats lock
   - need to actually use an arc pointer
   - every component that requires it should have a stats object

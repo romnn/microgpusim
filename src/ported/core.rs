@@ -1,7 +1,8 @@
 use super::instruction::WarpInstruction;
+use super::ldst_unit::SimdFunctionUnit;
 use super::scheduler::SchedulerWarp;
 use super::{address, stats::Stats, KernelInfo, LoadStoreUnit, MockSimulator};
-use super::{interconn as ic, mem_fetch, scheduler as sched};
+use super::{interconn as ic, l1, mem_fetch, scheduler as sched};
 use crate::config::GPUConfig;
 use bitvec::{array::BitArray, BitArr};
 use color_eyre::eyre;
@@ -35,7 +36,17 @@ pub struct ThreadState {
 
 impl ThreadState {}
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
+pub struct InstrFetchBuffer {
+    valid: bool,
+    pc: address,
+    num_bytes: usize,
+    warp_id: usize,
+}
+
+impl InstrFetchBuffer {}
+
+#[derive()]
 pub struct SIMTCore {
     pub core_id: usize,
     pub cluster_id: usize,
@@ -54,6 +65,9 @@ pub struct SIMTCore {
     pub thread_block_size: usize,
     pub occupied_block_to_hw_thread_id: HashMap<usize, usize>,
     pub block_status: [usize; MAX_CTA_PER_SHADER],
+
+    pub instr_l1_cache: l1::ReadOnly,
+    pub instr_fetch_buffer: InstrFetchBuffer,
     pub warps: Vec<sched::SchedulerWarp>,
     // pub warps: Vec<Option<sched::SchedulerWarp>>,
     pub thread_state: Vec<Option<ThreadState>>,
@@ -61,17 +75,24 @@ pub struct SIMTCore {
     pub schedulers: Vec<LoadStoreUnit>,
 }
 
-impl SIMTCore {
-    fn create_warps(&mut self) {
-        self.warps.reserve_exact(self.config.max_threads_per_shader);
-        self.warps = (0..self.config.max_warps_per_core())
-            // .map(|_| None)
-            .map(|_| SchedulerWarp::new())
-            .collect();
-        // for k in 0..self.config.max_warps_per_core() {
-        //     self.warps[k] = SchedulerWarp::new(self.config);
-        // }
+impl std::fmt::Debug for SIMTCore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SIMTCore")
+            .field("core_id", &self.core_id)
+            .field("cluster_id", &self.cluster_id)
+            .finish()
     }
+}
+
+impl SIMTCore {
+    // fn create_front_pipeline(&mut self) {
+    // }
+
+    // fn create_warps(&mut self) {
+    //             // for k in 0..self.config.max_warps_per_core() {
+    //     //     self.warps[k] = SchedulerWarp::new(self.config);
+    //     // }
+    // }
 
     pub fn new(
         core_id: usize,
@@ -81,7 +102,23 @@ impl SIMTCore {
     ) -> Self {
         let thread_state: Vec<_> = (0..config.max_threads_per_shader).map(|_| None).collect();
         let interconn = ic::Interconnect::default();
-        let load_store_unit = LoadStoreUnit::new(core_id, cluster_id, interconn, config.clone());
+        let load_store_unit = LoadStoreUnit::new(
+            core_id,
+            cluster_id,
+            interconn,
+            config.clone(),
+            stats.clone(),
+        );
+        // self.warps.reserve_exact(self.config.max_threads_per_shader);
+        let warps = (0..config.max_warps_per_core())
+            // .map(|_| None)
+            .map(|_| SchedulerWarp::new())
+            .collect();
+        let instr_l1_cache = l1::ReadOnly::new();
+        // name, m_config->m_L1I_config, m_sid,
+        //                   get_shader_instruction_cache_id(), m_icnt,
+        //                   IN_L1I_MISS_QUEUE);
+
         let mut core = Self {
             core_id,
             cluster_id,
@@ -97,12 +134,14 @@ impl SIMTCore {
             thread_block_size: 0,
             occupied_block_to_hw_thread_id: HashMap::new(),
             block_status: [0; MAX_CTA_PER_SHADER],
-            warps: Vec::new(),
+            instr_l1_cache,
+            instr_fetch_buffer: InstrFetchBuffer::default(),
+            warps,
             thread_state,
             schedulers: vec![load_store_unit],
         };
         // core.create_front_pipeline();
-        core.create_warps();
+        // core.create_warps();
         // core.create_schedulers();
         // core.create_exec_pipeline();
         core
@@ -134,108 +173,108 @@ impl SIMTCore {
     }
 
     fn fetch(&mut self) {
-        //   if (!m_inst_fetch_buffer.m_valid) {
-        //     if (m_L1I->access_ready()) {
-        //       mem_fetch *mf = m_L1I->next_access();
-        //       m_warp[mf->get_wid()]->clear_imiss_pending();
-        //       m_inst_fetch_buffer =
-        //           ifetch_buffer_t(m_warp[mf->get_wid()]->get_pc(),
-        //                           mf->get_access_size(), mf->get_wid());
-        //       assert(m_warp[mf->get_wid()]->get_pc() ==
-        //              (mf->get_addr() -
-        //               PROGRAM_MEM_START));  // Verify that we got the instruction we
-        //                                     // were expecting.
-        //       m_inst_fetch_buffer.m_valid = true;
-        //       m_warp[mf->get_wid()]->set_last_fetch(m_gpu->gpu_sim_cycle);
-        //       delete mf;
-        //     } else {
-        //       // find an active warp with space in instruction buffer that is not
-        //       // already waiting on a cache miss and get next 1-2 instructions from
-        //       // i-cache...
-        //       for (unsigned i = 0; i < m_config->max_warps_per_shader; i++) {
-        //         unsigned warp_id =
-        //             (m_last_warp_fetched + 1 + i) % m_config->max_warps_per_shader;
-        //
-        //         // this code checks if this warp has finished executing and can be
-        //         // reclaimed
-        //         if (m_warp[warp_id]->hardware_done() &&
-        //             !m_scoreboard->pendingWrites(warp_id) &&
-        //             !m_warp[warp_id]->done_exit()) {
-        //           bool did_exit = false;
-        //           for (unsigned t = 0; t < m_config->warp_size; t++) {
-        //             unsigned tid = warp_id * m_config->warp_size + t;
-        //             if (m_threadState[tid].m_active == true) {
-        //               m_threadState[tid].m_active = false;
-        //               unsigned cta_id = m_warp[warp_id]->get_cta_id();
-        //               if (m_thread[tid] == NULL) {
-        //                 register_cta_thread_exit(cta_id, m_warp[warp_id]->get_kernel_info());
-        //               } else {
-        //                 register_cta_thread_exit(cta_id,
-        //                                          &(m_thread[tid]->get_kernel()));
-        //               }
-        //               m_not_completed -= 1;
-        //               m_active_threads.reset(tid);
-        //               did_exit = true;
-        //             }
-        //           }
-        //           if (did_exit) m_warp[warp_id]->set_done_exit();
-        //           --m_active_warps;
-        //           assert(m_active_warps >= 0);
-        //         }
-        //
-        //         // this code fetches instructions from the i-cache or generates memory
-        //         if (!m_warp[warp_id]->functional_done() &&
-        //             !m_warp[warp_id]->imiss_pending() &&
-        //             m_warp[warp_id]->ibuffer_empty()) {
-        //           address_type pc;
-        //           pc = m_warp[warp_id]->get_pc();
-        //           address_type ppc = pc + PROGRAM_MEM_START;
-        //           unsigned nbytes = 16;
-        //           unsigned offset_in_block =
-        //               pc & (m_config->m_L1I_config.get_line_sz() - 1);
-        //           if ((offset_in_block + nbytes) > m_config->m_L1I_config.get_line_sz())
-        //             nbytes = (m_config->m_L1I_config.get_line_sz() - offset_in_block);
-        //
-        //           // TODO: replace with use of allocator
-        //           // mem_fetch *mf = m_mem_fetch_allocator->alloc()
-        //           mem_access_t acc(INST_ACC_R, ppc, nbytes, false, m_gpu->gpgpu_ctx);
-        //           mem_fetch *mf = new mem_fetch(
-        //               acc, NULL /*we don't have an instruction yet*/, READ_PACKET_SIZE,
-        //               warp_id, m_sid, m_tpc, m_memory_config,
-        //               m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle);
-        //           std::list<cache_event> events;
-        //           enum cache_request_status status;
-        //           if (m_config->perfect_inst_const_cache){
-        //             status = HIT;
-        //             shader_cache_access_log(m_sid, INSTRUCTION, 0);
-        //           }
-        //           else
-        //             status = m_L1I->access(
-        //                 (new_addr_type)ppc, mf,
-        //                 m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle, events);
-        //
-        //           if (status == MISS) {
-        //             m_last_warp_fetched = warp_id;
-        //             m_warp[warp_id]->set_imiss_pending();
-        //             m_warp[warp_id]->set_last_fetch(m_gpu->gpu_sim_cycle);
-        //           } else if (status == HIT) {
-        //             m_last_warp_fetched = warp_id;
-        //             m_inst_fetch_buffer = ifetch_buffer_t(pc, nbytes, warp_id);
-        //             m_warp[warp_id]->set_last_fetch(m_gpu->gpu_sim_cycle);
-        //             delete mf;
-        //           } else {
-        //             m_last_warp_fetched = warp_id;
-        //             assert(status == RESERVATION_FAIL);
-        //             delete mf;
-        //           }
-        //           break;
-        //         }
-        //       }
-        //     }
-        //   }
-        //
-        //   m_L1I->cycle();
-        // }
+        println!("core {:?}: fetch", self.id());
+        if !self.instr_fetch_buffer.valid {
+            return;
+        }
+        if self.instr_l1_cache.access_ready() {
+            // mem_fetch *mf = m_L1I->next_access();
+            // m_warp[mf->get_wid()]->clear_imiss_pending();
+            // m_inst_fetch_buffer =
+            //     ifetch_buffer_t(m_warp[mf->get_wid()]->get_pc(),
+            //                     mf->get_access_size(), mf->get_wid());
+            // assert(m_warp[mf->get_wid()]->get_pc() ==
+            //        (mf->get_addr() -
+            //         PROGRAM_MEM_START));  // Verify that we got the instruction we
+            //                               // were expecting.
+            // m_inst_fetch_buffer.m_valid = true;
+            // m_warp[mf->get_wid()]->set_last_fetch(m_gpu->gpu_sim_cycle);
+            // delete mf;
+        } else {
+            // find an active warp with space in instruction buffer that is not
+            // already waiting on a cache miss and get next 1-2 instructions from
+            // i-cache...
+            // for (unsigned i = 0; i < m_config->max_warps_per_shader; i++) {
+            //   unsigned warp_id =
+            //       (m_last_warp_fetched + 1 + i) % m_config->max_warps_per_shader;
+            //
+            //   // this code checks if this warp has finished executing and can be
+            //   // reclaimed
+            //   if (m_warp[warp_id]->hardware_done() &&
+            //       !m_scoreboard->pendingWrites(warp_id) &&
+            //       !m_warp[warp_id]->done_exit()) {
+            //     bool did_exit = false;
+            //     for (unsigned t = 0; t < m_config->warp_size; t++) {
+            //       unsigned tid = warp_id * m_config->warp_size + t;
+            //       if (m_threadState[tid].m_active == true) {
+            //         m_threadState[tid].m_active = false;
+            //         unsigned cta_id = m_warp[warp_id]->get_cta_id();
+            //         if (m_thread[tid] == NULL) {
+            //           register_cta_thread_exit(cta_id, m_warp[warp_id]->get_kernel_info());
+            //         } else {
+            //           register_cta_thread_exit(cta_id,
+            //                                    &(m_thread[tid]->get_kernel()));
+            //         }
+            //         m_not_completed -= 1;
+            //         m_active_threads.reset(tid);
+            //         did_exit = true;
+            //       }
+            //     }
+            //     if (did_exit) m_warp[warp_id]->set_done_exit();
+            //     --m_active_warps;
+            //     assert(m_active_warps >= 0);
+            //   }
+            //
+            //   // this code fetches instructions from the i-cache or generates memory
+            //   if (!m_warp[warp_id]->functional_done() &&
+            //       !m_warp[warp_id]->imiss_pending() &&
+            //       m_warp[warp_id]->ibuffer_empty()) {
+            //     address_type pc;
+            //     pc = m_warp[warp_id]->get_pc();
+            //     address_type ppc = pc + PROGRAM_MEM_START;
+            //     unsigned nbytes = 16;
+            //     unsigned offset_in_block =
+            //         pc & (m_config->m_L1I_config.get_line_sz() - 1);
+            //     if ((offset_in_block + nbytes) > m_config->m_L1I_config.get_line_sz())
+            //       nbytes = (m_config->m_L1I_config.get_line_sz() - offset_in_block);
+            //
+            //     // TODO: replace with use of allocator
+            //     // mem_fetch *mf = m_mem_fetch_allocator->alloc()
+            //     mem_access_t acc(INST_ACC_R, ppc, nbytes, false, m_gpu->gpgpu_ctx);
+            //     mem_fetch *mf = new mem_fetch(
+            //         acc, NULL /*we don't have an instruction yet*/, READ_PACKET_SIZE,
+            //         warp_id, m_sid, m_tpc, m_memory_config,
+            //         m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle);
+            //     std::list<cache_event> events;
+            //     enum cache_request_status status;
+            //     if (m_config->perfect_inst_const_cache){
+            //       status = HIT;
+            //       shader_cache_access_log(m_sid, INSTRUCTION, 0);
+            //     }
+            //     else
+            //       status = m_L1I->access(
+            //           (new_addr_type)ppc, mf,
+            //           m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle, events);
+            //
+            //     if (status == MISS) {
+            //       m_last_warp_fetched = warp_id;
+            //       m_warp[warp_id]->set_imiss_pending();
+            //       m_warp[warp_id]->set_last_fetch(m_gpu->gpu_sim_cycle);
+            //     } else if (status == HIT) {
+            //       m_last_warp_fetched = warp_id;
+            //       m_inst_fetch_buffer = ifetch_buffer_t(pc, nbytes, warp_id);
+            //       m_warp[warp_id]->set_last_fetch(m_gpu->gpu_sim_cycle);
+            //       delete mf;
+            //     } else {
+            //       m_last_warp_fetched = warp_id;
+            //       assert(status == RESERVATION_FAIL);
+            //       delete mf;
+            //     }
+            //     break;
+            //   }
+            // }
+        }
+        // self.instr_l1->cycle();
     }
 
     fn decode(&mut self) {

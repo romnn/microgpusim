@@ -1,45 +1,12 @@
-use super::{
-    address, cache, cache_block, interconn as ic, mem_fetch, mshr, stats::Stats, tag_array,
+use crate::ported::{
+    self, address, cache, cache_block, interconn as ic, mem_fetch, mshr, stats::Stats, tag_array,
 };
+// use super::{
+//     address, cache, cache_block, interconn as ic, mem_fetch, mshr, stats::Stats, tag_array,
+// };
 use crate::config;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
-
-#[derive(Debug)]
-pub struct TextureL1 {
-    id: usize,
-    interconn: ic::Interconnect,
-}
-
-impl TextureL1 {
-    pub fn new(id: usize, interconn: ic::Interconnect) -> Self {
-        Self { id, interconn }
-    }
-
-    // pub fn new(name: String) -> Self {
-    //     Self { name }
-    // }
-    pub fn cycle(&mut self) {}
-
-    pub fn fill(&self, fetch: &mem_fetch::MemFetch) {}
-
-    pub fn has_free_fill_port(&self) -> bool {
-        false
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct ConstL1 {}
-
-impl ConstL1 {
-    pub fn cycle(&mut self) {}
-
-    pub fn fill(&self, fetch: &mem_fetch::MemFetch) {}
-
-    pub fn has_free_fill_port(&self) -> bool {
-        false
-    }
-}
 
 /// First level data cache in Fermi.
 ///
@@ -47,8 +14,9 @@ impl ConstL1 {
 /// at the granularity of individual blocks.
 /// (the policy used in fermi according to the CUDA manual)
 #[derive(Debug)]
-pub struct DataL1<I> {
+pub struct Data<I> {
     core_id: usize,
+    cluster_id: usize,
 
     pub stats: Arc<Mutex<Stats>>,
     config: Arc<config::GPUConfig>,
@@ -68,12 +36,13 @@ pub struct DataL1<I> {
     // m_mshrs(config.m_mshr_entries, config.m_mshr_max_merge)
 }
 
-impl<I> DataL1<I>
+impl<I> Data<I>
 where
     I: ic::MemFetchInterconnect,
 {
     pub fn new(
         core_id: usize,
+        cluster_id: usize,
         fetch_interconn: I,
         stats: Arc<Mutex<Stats>>,
         config: Arc<config::GPUConfig>,
@@ -83,6 +52,7 @@ where
         let mshrs = mshr::MshrTable::new(cache_config.mshr_entries, cache_config.mshr_max_merge);
         Self {
             core_id,
+            cluster_id,
             fetch_interconn,
             config,
             stats,
@@ -94,60 +64,6 @@ where
             write_alloc_type: mem_fetch::AccessKind::L1_WR_ALLOC_R,
             write_back_type: mem_fetch::AccessKind::L1_WRBK_ACC,
         }
-    }
-
-    pub fn access(
-        &mut self,
-        addr: address,
-        fetch: mem_fetch::MemFetch,
-        events: Option<&mut Vec<cache::Event>>,
-    ) -> cache::RequestStatus {
-        // is this always true?
-        debug_assert_eq!(&fetch.access.addr, &addr);
-        debug_assert!(fetch.data_size as usize <= self.cache_config.atom_size());
-
-        let is_write = fetch.is_write();
-        let access_kind = *fetch.access_kind();
-        let block_addr = self.cache_config.block_addr(addr);
-
-        println!(
-            "data_cache::access({addr}, write = {is_write}, size = {}, block = {block_addr})",
-            fetch.data_size,
-        );
-
-        let (cache_index, probe_status) = self.tag_array.probe(block_addr, &fetch, is_write, true);
-        // dbg!((cache_index, probe_status));
-
-        let access_status =
-            self.process_tag_probe(is_write, probe_status, addr, cache_index, fetch, events);
-        // dbg!(&access_status);
-
-        {
-            // let mut stats = STATS.lock().unwrap();
-            let mut stats = self.stats.lock().unwrap();
-            let stat_cache_request_status = match probe_status {
-                cache::RequestStatus::HIT_RESERVED
-                    if access_status != cache::RequestStatus::RESERVATION_FAIL =>
-                {
-                    probe_status
-                }
-                cache::RequestStatus::SECTOR_MISS
-                    if access_status != cache::RequestStatus::MISS =>
-                {
-                    probe_status
-                }
-                status => access_status,
-            };
-            stats
-                .accesses
-                .entry((access_kind, stat_cache_request_status))
-                .and_modify(|s| *s += 1)
-                .or_insert(1);
-        }
-        // m_stats.inc_stats_pw(
-        // mf->get_access_type(),
-        // m_stats.select_stats_status(probe_status, access_status));
-        access_status
     }
 
     fn wr_hit_wb(&self) -> usize {
@@ -204,16 +120,6 @@ where
     /// Pop next ready access (does not include accesses that "HIT")
     pub fn next_access(&mut self) -> Option<mem_fetch::MemFetch> {
         self.mshrs.next_access()
-    }
-
-    // flush all entries in cache
-    pub fn flush(&mut self) {
-        self.tag_array.flush();
-    }
-
-    // invalidate all entries in cache
-    pub fn invalidate(&mut self) {
-        self.tag_array.invalidate();
     }
 
     /// Read miss handler.
@@ -369,9 +275,9 @@ where
                         access,
                         &*self.config,
                         if wr {
-                            super::WRITE_PACKET_SIZE
+                            ported::WRITE_PACKET_SIZE
                         } else {
-                            super::READ_PACKET_SIZE
+                            ported::READ_PACKET_SIZE
                         }
                         .into(),
                         0,
@@ -697,156 +603,8 @@ where
         }
 
         // m_bandwidth_management.use_data_port(mf, access_status, events);
-
         access_status
     }
-
-    // data_cache(name, config, core_id, type_id, memport, mfcreator, status,
-    // , L1_WRBK_ACC, gpu) {}
-
-    /// A general function that takes the result of a tag_array probe
-    ///  and performs the correspding functions based on the cache configuration
-    ///  The access fucntion calls this function
-    // enum cache_request_status process_tag_probe(bool wr,
-    //                                             enum cache_request_status status,
-    //                                             new_addr_type addr,
-    //                                             unsigned cache_index,
-    //                                             mem_fetch *mf, unsigned time,
-    //                                             std::list<cache_event> &events);
-
-    // /// Sends write request to lower level memory (write or writeback)
-    // void send_write_request(mem_fetch *mf, cache_event request, unsigned time,
-    //                         std::list<cache_event> &events);
-    // void update_m_readable(mem_fetch *mf, unsigned cache_index);
-    //
-    // // Member Function pointers - Set by configuration options
-    // // to the functions below each grouping
-    // /******* Write-hit configs *******/
-    // enum cache_request_status (data_cache::*m_wr_hit)(
-    //     new_addr_type addr, unsigned cache_index, mem_fetch *mf, unsigned time,
-    //     std::list<cache_event> &events, enum cache_request_status status);
-    // /// Marks block as MODIFIED and updates block LRU
-    // enum cache_request_status wr_hit_wb(
-    //     new_addr_type addr, unsigned cache_index, mem_fetch *mf, unsigned time,
-    //     std::list<cache_event> &events,
-    //     enum cache_request_status status);  // write-back
-    // enum cache_request_status wr_hit_wt(
-    //     new_addr_type addr, unsigned cache_index, mem_fetch *mf, unsigned time,
-    //     std::list<cache_event> &events,
-    //     enum cache_request_status status);  // write-through
-    //
-    // /// Marks block as INVALID and sends write request to lower level memory
-    // enum cache_request_status wr_hit_we(
-    //     new_addr_type addr, unsigned cache_index, mem_fetch *mf, unsigned time,
-    //     std::list<cache_event> &events,
-    //     enum cache_request_status status);  // write-evict
-    // enum cache_request_status wr_hit_global_we_local_wb(
-    //     new_addr_type addr, unsigned cache_index, mem_fetch *mf, unsigned time,
-    //     std::list<cache_event> &events, enum cache_request_status status);
-    // // global write-evict, local write-back
-    //
-    // /******* Write-miss configs *******/
-    // enum cache_request_status (data_cache::*m_wr_miss)(
-    //     new_addr_type addr, unsigned cache_index, mem_fetch *mf, unsigned time,
-    //     std::list<cache_event> &events, enum cache_request_status status);
-    // /// Sends read request, and possible write-back request,
-    // //  to lower level memory for a write miss with write-allocate
-    // enum cache_request_status wr_miss_wa_naive(
-    //     new_addr_type addr, unsigned cache_index, mem_fetch *mf, unsigned time,
-    //     std::list<cache_event> &events,
-    //     enum cache_request_status
-    //         status);  // write-allocate-send-write-and-read-request
-    // enum cache_request_status wr_miss_wa_fetch_on_write(
-    //     new_addr_type addr, unsigned cache_index, mem_fetch *mf, unsigned time,
-    //     std::list<cache_event> &events,
-    //     enum cache_request_status
-    //         status);  // write-allocate with fetch-on-every-write
-    // enum cache_request_status wr_miss_wa_lazy_fetch_on_read(
-    //     new_addr_type addr, unsigned cache_index, mem_fetch *mf, unsigned time,
-    //     std::list<cache_event> &events,
-    //     enum cache_request_status status);  // write-allocate with read-fetch-only
-    // enum cache_request_status wr_miss_wa_write_validate(
-    //     new_addr_type addr, unsigned cache_index, mem_fetch *mf, unsigned time,
-    //     std::list<cache_event> &events,
-    //     enum cache_request_status
-    //         status);  // write-allocate that writes with no read fetch
-    // enum cache_request_status wr_miss_no_wa(
-    //     new_addr_type addr, unsigned cache_index, mem_fetch *mf, unsigned time,
-    //     std::list<cache_event> &events,
-    //     enum cache_request_status status);  // no write-allocate
-    //
-    // // Currently no separate functions for reads
-    // /******* Read-hit configs *******/
-    // enum cache_request_status (data_cache::*m_rd_hit)(
-    //     new_addr_type addr, unsigned cache_index, mem_fetch *mf, unsigned time,
-    //     std::list<cache_event> &events, enum cache_request_status status);
-    // enum cache_request_status rd_hit_base(new_addr_type addr,
-    //                                       unsigned cache_index, mem_fetch *mf,
-    //                                       unsigned time,
-    //                                       std::list<cache_event> &events,
-    //                                       enum cache_request_status status);
-    //
-    // /******* Read-miss configs *******/
-    // enum cache_request_status (data_cache::*m_rd_miss)(
-    //     new_addr_type addr, unsigned cache_index, mem_fetch *mf, unsigned time,
-    //     std::list<cache_event> &events, enum cache_request_status status);
-    // enum cache_request_status rd_miss_base(new_addr_type addr,
-    //                                        unsigned cache_index, mem_fetch *mf,
-    //                                        unsigned time,
-    //                                        std::list<cache_event> &events,
-    //                                        enum cache_request_status status);
-
-    // virtual void init(mem_fetch_allocator *mfcreator) {
-    //     m_memfetch_creator = mfcreator;
-    //
-    //     // Set read hit function
-    //     m_rd_hit = &data_cache::rd_hit_base;
-    //
-    //     // Set read miss function
-    //     m_rd_miss = &data_cache::rd_miss_base;
-    //
-    //     // Set write hit function
-    //     switch (m_config.m_write_policy) {
-    //       // READ_ONLY is now a separate cache class, config is deprecated
-    //       case READ_ONLY:
-    //         assert(0 && "Error: Writable Data_cache set as READ_ONLY\n");
-    //         break;
-    //       case WRITE_BACK:
-    //         m_wr_hit = &data_cache::wr_hit_wb;
-    //         break;
-    //       case WRITE_THROUGH:
-    //         m_wr_hit = &data_cache::wr_hit_wt;
-    //         break;
-    //       case WRITE_EVICT:
-    //         m_wr_hit = &data_cache::wr_hit_we;
-    //         break;
-    //       case LOCAL_WB_GLOBAL_WT:
-    //         m_wr_hit = &data_cache::wr_hit_global_we_local_wb;
-    //         break;
-    //       default:
-    //         assert(0 && "Error: Must set valid cache write policy\n");
-    //         break;  // Need to set a write hit function
-    //     }
-    //
-    //     // Set write miss function
-    //     switch (m_config.m_write_alloc_policy) {
-    //       case NO_WRITE_ALLOCATE:
-    //         m_wr_miss = &data_cache::wr_miss_no_wa;
-    //         break;
-    //       case WRITE_ALLOCATE:
-    //         m_wr_miss = &data_cache::wr_miss_wa_naive;
-    //         break;
-    //       case FETCH_ON_WRITE:
-    //         m_wr_miss = &data_cache::wr_miss_wa_fetch_on_write;
-    //         break;
-    //       case LAZY_FETCH_ON_READ:
-    //         m_wr_miss = &data_cache::wr_miss_wa_lazy_fetch_on_read;
-    //         break;
-    //       default:
-    //         assert(0 && "Error: Must set valid cache write miss policy\n");
-    //         break;  // Need to set a write miss function
-    //     }
-    //   }
 
     /// Sends next request to lower level of memory
     pub fn cycle(&mut self) {
@@ -854,7 +612,6 @@ where
             "baseline cache cycle: miss queue size {}",
             self.miss_queue.len()
         );
-        // if !self.miss_queue.is_empty() {
         if let Some(fetch) = self.miss_queue.front() {
             dbg!(&fetch);
             if !self.fetch_interconn.full(fetch.data_size, fetch.is_write()) {
@@ -868,22 +625,136 @@ where
         // m_stats.sample_cache_port_utility(data_port_busy, fill_port_busy);
         // m_bandwidth_management.replenish_port_bandwidth();
     }
+}
 
-    pub fn fill(&self, fetch: &mem_fetch::MemFetch) {}
+impl<I> cache::Component for Data<I> {}
 
-    pub fn has_free_fill_port(&self) -> bool {
-        false
+impl<I> cache::Cache for Data<I>
+where
+    I: ic::MemFetchInterconnect,
+{
+    fn access(
+        &mut self,
+        addr: address,
+        fetch: mem_fetch::MemFetch,
+        events: Option<&mut Vec<cache::Event>>,
+    ) -> cache::RequestStatus {
+        // is this always true?
+        debug_assert_eq!(&fetch.access.addr, &addr);
+        debug_assert!(fetch.data_size as usize <= self.cache_config.atom_size());
+
+        let is_write = fetch.is_write();
+        let access_kind = *fetch.access_kind();
+        let block_addr = self.cache_config.block_addr(addr);
+
+        println!(
+            "data_cache::access({addr}, write = {is_write}, size = {}, block = {block_addr})",
+            fetch.data_size,
+        );
+
+        let (cache_index, probe_status) = self.tag_array.probe(block_addr, &fetch, is_write, true);
+        // dbg!((cache_index, probe_status));
+
+        let access_status =
+            self.process_tag_probe(is_write, probe_status, addr, cache_index, fetch, events);
+        // dbg!(&access_status);
+
+        {
+            // let mut stats = STATS.lock().unwrap();
+            let mut stats = self.stats.lock().unwrap();
+            let stat_cache_request_status = match probe_status {
+                cache::RequestStatus::HIT_RESERVED
+                    if access_status != cache::RequestStatus::RESERVATION_FAIL =>
+                {
+                    probe_status
+                }
+                cache::RequestStatus::SECTOR_MISS
+                    if access_status != cache::RequestStatus::MISS =>
+                {
+                    probe_status
+                }
+                status => access_status,
+            };
+            stats
+                .accesses
+                .entry((access_kind, stat_cache_request_status))
+                .and_modify(|s| *s += 1)
+                .or_insert(1);
+        }
+        // m_stats.inc_stats_pw(
+        // mf->get_access_type(),
+        // m_stats.select_stats_status(probe_status, access_status));
+        access_status
     }
 
-    // virtual enum cache_request_status access(
-    //     new_addr_type addr, mem_fetch *mf,
-    //    unsigned time,
-    //    std::list<cache_event> &events);
+    fn fill(&self, fetch: &mem_fetch::MemFetch) {
+        if self.cache_config.mshr_kind == config::MshrKind::SECTOR_ASSOC {
+            // debug_assert!(fetch.get_original_mf());
+            // extra_mf_fields_lookup::iterator e =
+            //     m_extra_mf_fields.find(mf->get_original_mf());
+            // assert(e != m_extra_mf_fields.end());
+            // e->second.pending_read--;
+            //
+            // if (e->second.pending_read > 0) {
+            //   // wait for the other requests to come back
+            //   delete mf;
+            //   return;
+            // } else {
+            //   mem_fetch *temp = mf;
+            //   mf = mf->get_original_mf();
+            //   delete temp;
+            // }
+        }
+        // extra_mf_fields_lookup::iterator e = m_extra_mf_fields.find(mf);
+        //   assert(e != m_extra_mf_fields.end());
+        //   assert(e->second.m_valid);
+        //   mf->set_data_size(e->second.m_data_size);
+        //   mf->set_addr(e->second.m_addr);
+        //   if (m_config.m_alloc_policy == ON_MISS)
+        //     m_tag_array->fill(e->second.m_cache_index, time, mf);
+        //   else if (m_config.m_alloc_policy == ON_FILL) {
+        //     m_tag_array->fill(e->second.m_block_addr, time, mf, mf->is_write());
+        //   } else
+        //     abort();
+        //   bool has_atomic = false;
+        //   m_mshrs.mark_ready(e->second.m_block_addr, has_atomic);
+        //   if (has_atomic) {
+        //     assert(m_config.m_alloc_policy == ON_MISS);
+        //     cache_block_t *block = m_tag_array->get_block(e->second.m_cache_index);
+        //     if (!block->is_modified_line()) {
+        //       m_tag_array->inc_dirty();
+        //     }
+        //     block->set_status(MODIFIED,
+        //                       mf->get_access_sector_mask());  // mark line as dirty for
+        //                                                       // atomic operation
+        //     block->set_byte_mask(mf);
+        //   }
+        //   m_extra_mf_fields.erase(mf);
+        //   m_bandwidth_management.use_fill_port(mf);
+        todo!("l1: fill");
+    }
+
+    // /// Flush all entries in cache
+    // fn flush(&mut self) {
+    //     self.tag_array.flush();
+    // }
+    //
+    // /// Invalidate all entries in cache
+    // fn invalidate(&mut self) {
+    //     self.tag_array.invalidate();
+    // }
+}
+
+impl<I> cache::CacheBandwidth for Data<I> {
+    fn has_free_fill_port(&self) -> bool {
+        todo!("l1: has_free_fill_port");
+        false
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::DataL1;
+    use super::Data;
     use crate::config;
     use crate::ported::{instruction, mem_fetch, parse_commands, stats::Stats, KernelInfo};
     use playground::{bindings, bridge};
@@ -945,7 +816,7 @@ mod tests {
         let config = Arc::new(config::GPUConfig::default());
         let cache_config = config.data_cache_l1.clone().unwrap();
         let interconn = Interconnect {};
-        let mut l1 = DataL1::new(0, interconn, stats.clone(), config.clone(), cache_config);
+        let mut l1 = Data::new(0, interconn, stats.clone(), config.clone(), cache_config);
 
         let trace_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("test-apps/vectoradd/traces/vectoradd-100-32-trace/");
@@ -1085,7 +956,7 @@ mod tests {
         let config = Arc::new(config::GPUConfig::default());
         let cache_config = config.data_cache_l1.clone().unwrap();
         let interconn = Interconnect {};
-        let mut l1 = DataL1::new(0, interconn, stats.clone(), config.clone(), cache_config);
+        let mut l1 = Data::new(0, interconn, stats.clone(), config.clone(), cache_config);
 
         let control_size = 0;
         let warp_id = 0;

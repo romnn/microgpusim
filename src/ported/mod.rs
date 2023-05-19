@@ -2,11 +2,14 @@
 
 pub mod addrdec;
 pub mod cache;
-pub mod l1;
 pub mod cache_block;
+pub mod operand_collector;
+pub mod register_set;
 pub mod core;
 pub mod instruction;
 pub mod interconn;
+pub mod l1;
+pub mod l2;
 pub mod ldst_unit;
 pub mod mem_fetch;
 pub mod mem_sub_partition;

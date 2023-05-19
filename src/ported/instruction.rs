@@ -1,4 +1,4 @@
-use super::mem_fetch::{AccessKind, MemAccess};
+use super::mem_fetch::{AccessKind, BitString, MemAccess};
 use super::opcodes::{Op, Opcode, OpcodeMap};
 use super::{address, mem_fetch, scheduler as sched};
 use crate::config;
@@ -104,10 +104,11 @@ const SHARED_MEM_SIZE_MAX: u64 = 96 * (1 << 10);
 // Volta max local mem is 16kB
 const LOCAL_MEM_SIZE_MAX: u64 = 1 << 14;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct WarpInstruction {
     pub uid: usize,
     pub warp_id: usize,
+    scheduler_id: usize,
     pub pc: usize,
     pub opcode: Opcode,
     pub active_mask: sched::ThreadActiveMask,
@@ -115,7 +116,11 @@ pub struct WarpInstruction {
     pub memory_space: MemorySpace,
     pub threads: [PerThreadInfo; 32],
     pub mem_access_queue: VecDeque<MemAccess>,
-    pub empty: bool,
+    // todo: get rid of the empty and always use options for now
+    empty: bool,
+    /// operation latency
+    pub latency: usize,
+    pub initiation_interval: usize,
     /// size of the word being operated on
     pub data_size: u32,
     pub is_atomic: bool,
@@ -156,49 +161,71 @@ pub struct WarpInstruction {
     // isize = 0;
 }
 
-impl std::fmt::Display for WarpInstruction {
+impl std::fmt::Debug for WarpInstruction {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct("WarpInstruction")
-            .field("warp_id", &self.warp_id)
-            .field("pc", &self.pc)
-            .field("active_mask", &self.active_mask)
-            .field("memory_space", &self.memory_space)
-            .field("mem_access_queue", &self.mem_access_queue.len())
-            .finish()
+        if self.empty() {
+            f.debug_struct("WarpInstruction").finish()
+        } else {
+            f.debug_struct("WarpInstruction")
+                .field("warp_id", &self.warp_id)
+                .field("pc", &self.pc)
+                .field("active_mask", &self.active_mask.bit_string())
+                .field("memory_space", &self.memory_space)
+                .field("mem_access_queue", &self.mem_access_queue)
+                .finish()
+        }
     }
 }
 
-// impl Default for WarpInstruction {
-// }
+impl std::fmt::Display for WarpInstruction {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        if self.empty() {
+            f.debug_struct("WarpInstruction").finish()
+        } else {
+            f.debug_struct("WarpInstruction")
+                .field("warp_id", &self.warp_id)
+                .field("pc", &self.pc)
+                .field("active_mask", &self.active_mask.bit_string())
+                .field("memory_space", &self.memory_space)
+                .field("mem_access_queue", &self.mem_access_queue.len())
+                .finish()
+        }
+    }
+}
+
+impl Default for WarpInstruction {
+    fn default() -> Self {
+        let mut threads = [(); 32].map(|_| PerThreadInfo::default());
+        Self {
+            uid: 0,
+            warp_id: 0,
+            scheduler_id: 0,
+            opcode: Opcode {
+                op: Op::LD,
+                category: ArchOp::NO_OP,
+            },
+            pc: 0,
+            threads,
+            memory_space: MemorySpace::None,
+            is_atomic: false,
+            active_mask: BitArray::ZERO,
+            cache_operator: CacheOperator::UNDEFINED,
+            latency: 0,             // todo
+            initiation_interval: 0, // todo
+            data_size: 0,
+            empty: true,
+            mem_access_queue: VecDeque::new(),
+            outputs: [0; 8],
+            in_count: 0,
+            inputs: [0; 24],
+            out_count: 0,
+        }
+    }
+}
 
 pub static MAX_WARP_SIZE: usize = 32;
 
 impl WarpInstruction {
-    // pub fn new(warp_id: usize, opcode: Opcode) -> Self {
-    //     debug_assert!(config.warp_size <= MAX_WARP_SIZE);
-    //     Self {
-    //         uid: 0,
-    //         warp_id,
-    //         opcode,
-    //         pc: trace.instr_offset as usize,
-    //         threads,
-    //         memory_space,
-    //         is_atomic,
-    //         active_mask,
-    //         cache_operator,
-    //         data_size,
-    //         empty: true,
-    //         mem_access_queue: VecDeque::new(),
-    //         outputs: [0; 8],
-    //         in_count: 0,
-    //         inputs: [0; 24],
-    //         out_count: 0,
-    //     }
-    // }
-
-    // new_inst->parse_from_trace_struct(
-    // impl From<MemAccessTraceEntry> for WarpInstruction {
-
     pub fn from_trace(
         // kernel: trace::KernelLaunch,
         kernel: &super::KernelInfo,
@@ -340,6 +367,7 @@ impl WarpInstruction {
         Self {
             uid: 0,
             warp_id: trace.warp_id as usize,
+            scheduler_id: 0,
             opcode,
             pc: trace.instr_offset as usize,
             threads,
@@ -347,6 +375,8 @@ impl WarpInstruction {
             is_atomic,
             active_mask,
             cache_operator,
+            latency: 1,             // todo
+            initiation_interval: 1, // todo
             data_size,
             empty: true,
             mem_access_queue: VecDeque::new(),
@@ -355,6 +385,14 @@ impl WarpInstruction {
             inputs: [0; 24],
             out_count: 0,
         }
+    }
+
+    pub fn scheduler_id(&self) -> usize {
+        self.scheduler_id
+    }
+
+    pub fn empty(&self) -> bool {
+        self.empty
     }
 
     pub fn clear(&mut self) {
@@ -565,6 +603,26 @@ impl WarpInstruction {
             }
             other => todo!("{other:?} not yet implemented"),
         }
+    }
+
+    pub fn issue(
+        &mut self,
+        mask: sched::ThreadActiveMask,
+        warp_id: usize,
+        cycle: u64,
+        dynamic_warp_id: usize,
+        scheduler_id: usize,
+    ) {
+        self.active_mask = mask;
+        self.active_mask = mask;
+        // self.id = ++(m_config->gpgpu_ctx->warp_inst_sm_next_uid);
+        self.warp_id = warp_id;
+        // self.dynamic_warp_id = dynamic_warp_id;
+        // self.issue_cycle = cycle;
+        // self.cycles = self.initiation_interval;
+        // self.cache_hit = false;
+        self.empty = false;
+        self.scheduler_id = scheduler_id;
     }
 
     fn memory_coalescing_arch(

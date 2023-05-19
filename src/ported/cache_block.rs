@@ -12,6 +12,47 @@ pub enum State {
     MODIFIED,
 }
 
+pub trait CacheBlock {
+    fn allocate(
+        &mut self,
+        tag: address,
+        block_addr: address,
+        time: usize,
+        sector_mask: &mem_fetch::MemAccessSectorMask,
+    );
+
+    fn fill(
+        &mut self,
+        time: usize,
+        sector_mask: &mem_fetch::MemAccessSectorMask,
+        byte_mask: &mem_fetch::MemAccessByteMask,
+    );
+
+    fn is_valid(&self) -> bool;
+    fn is_modified(&self) -> bool;
+    fn is_invalid(&self) -> bool;
+    fn is_reserved(&self) -> bool;
+
+    fn status(&self, mask: &mem_fetch::MemAccessSectorMask) -> State;
+    fn set_status(&mut self, status: State, mask: &mem_fetch::MemAccessSectorMask);
+    fn set_byte_mask(&mut self, mask: &mem_fetch::MemAccessByteMask);
+    fn dirty_byte_mask(&self) -> mem_fetch::MemAccessByteMask;
+    fn dirty_sector_mask(&self) -> mem_fetch::MemAccessSectorMask;
+
+    fn set_last_access_time(&mut self, time: usize, mask: &mem_fetch::MemAccessSectorMask);
+    fn last_access_time(&self) -> usize;
+
+    fn alloc_time(&self) -> usize;
+    fn set_ignore_on_fill(&mut self, ignore: bool, mask: &mem_fetch::MemAccessSectorMask);
+    fn set_modified_on_fill(&mut self, modified: bool, mask: &mem_fetch::MemAccessSectorMask);
+    fn set_readable_on_fill(&mut self, readable: bool, mask: &mem_fetch::MemAccessSectorMask);
+    fn set_bytemask_on_fill(&mut self, modified: bool);
+    fn modified_size(&self) -> usize;
+
+    fn readable(&mut self, mask: &mem_fetch::MemAccessSectorMask);
+    fn set_readable(&mut self, readable: bool, mask: &mem_fetch::MemAccessSectorMask);
+}
+
 #[derive(Debug)]
 pub struct LineCacheBlock {
     pub tag: u64,
