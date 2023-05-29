@@ -85,11 +85,14 @@ impl BandwidthManager {
     }
 }
 
-/// Baseline cache
+/// Base cache
 /// Implements common functions for read_only_cache and data_cache
 /// Each subclass implements its own 'access' function
 #[derive()]
-pub struct Baseline<I> {
+pub struct Base<I>
+// where
+//     I: ic::MemPort,
+{
     pub core_id: usize,
     pub cluster_id: usize,
 
@@ -115,9 +118,9 @@ pub struct Baseline<I> {
     pub bandwidth: BandwidthManager,
 }
 
-impl<I> std::fmt::Debug for Baseline<I> {
+impl<I> std::fmt::Debug for Base<I> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct("Baseline")
+        f.debug_struct("Base")
             .field("core_id", &self.core_id)
             .field("cluster_id", &self.cluster_id)
             .field("miss_queue", &self.miss_queue)
@@ -125,7 +128,7 @@ impl<I> std::fmt::Debug for Baseline<I> {
     }
 }
 
-impl<I> Baseline<I> {
+impl<I> Base<I> {
     pub fn new(
         core_id: usize,
         cluster_id: usize,
@@ -185,7 +188,7 @@ impl<I> Baseline<I> {
     pub fn waiting_for_fill(&self, fetch: &mem_fetch::MemFetch) {
         // extra_mf_fields_lookup::iterator e = m_extra_mf_fields.find(mf);
         // return e != m_extra_mf_fields.end();
-        todo!("baseline cache: waiting for fill");
+        todo!("base cache: waiting for fill");
     }
 
     /// Whether any (accepted) accesses that had to wait for memory are now ready
@@ -240,7 +243,7 @@ impl<I> Baseline<I> {
             if read_only {
                 self.tag_array.access(block_addr, time, &fetch);
             } else {
-                tag_array::TagArrayAccessStatus {
+                tag_array::AccessStatus {
                     writeback,
                     evicted,
                     ..
@@ -254,7 +257,7 @@ impl<I> Baseline<I> {
             if read_only {
                 self.tag_array.access(block_addr, time, &fetch);
             } else {
-                tag_array::TagArrayAccessStatus {
+                tag_array::AccessStatus {
                     writeback,
                     evicted,
                     ..
@@ -303,7 +306,7 @@ impl<I> Baseline<I> {
     //     self.miss_queue.push_back(fetch);
     // }
 
-    // /// Baseline read miss
+    // /// Base read miss
     // ///
     // /// Send read request to lower level memory and perform
     // /// write-back as necessary.
@@ -413,13 +416,13 @@ impl<I> Baseline<I> {
     // }
 }
 
-impl<I> cache::Component for Baseline<I>
+impl<I> cache::Component for Base<I>
 where
     I: ic::MemPort,
 {
     /// Sends next request to lower level of memory
     fn cycle(&mut self) {
-        println!("baseline cache: cycle");
+        println!("base cache: cycle");
         dbg!(&self.miss_queue.len());
         if let Some(fetch) = self.miss_queue.front() {
             dbg!(&fetch);
@@ -436,10 +439,10 @@ where
     }
 }
 
-// stop: we do not want to implement cache for baseline as
+// stop: we do not want to implement cache for base as
 // it should not actually implement an access function
-// impl<I> cache::Cache for Baseline<I>
-impl<I> Baseline<I>
+// impl<I> cache::Cache for Base<I>
+impl<I> Base<I>
 where
     I: ic::MemPort,
 {
@@ -494,7 +497,7 @@ where
     }
 }
 
-// impl<I> cache::CacheBandwidth for Baseline<I> {
+// impl<I> cache::CacheBandwidth for Base<I> {
 //     fn has_free_data_port(&self) -> bool {
 //         self.bandwidth_management.has_free_data_port()
 //     }
@@ -506,7 +509,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::Baseline;
+    use super::Base;
     use crate::config;
     use crate::ported::{interconn as ic, mem_fetch, stats::Stats};
     use std::sync::{Arc, Mutex};
@@ -521,7 +524,7 @@ mod tests {
     // }
 
     #[test]
-    fn baseline_cache_init() {
+    fn base_cache_init() {
         let core_id = 0;
         let cluster_id = 0;
         let stats = Arc::new(Mutex::new(Stats::default()));
@@ -529,7 +532,7 @@ mod tests {
         let cache_config = config.data_cache_l1.clone().unwrap();
         let port = ic::Interconnect {};
 
-        let base = Baseline::new(core_id, cluster_id, port, stats, config, cache_config);
+        let base = Base::new(core_id, cluster_id, port, stats, config, cache_config);
         dbg!(&base);
         assert!(false);
     }

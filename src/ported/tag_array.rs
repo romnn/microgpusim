@@ -15,7 +15,7 @@ pub struct EvictedBlockInfo {
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
-pub struct TagArrayAccessStatus {
+pub struct AccessStatus {
     pub index: Option<usize>,
     pub writeback: bool,
     pub evicted: Option<EvictedBlockInfo>,
@@ -98,7 +98,7 @@ impl<B> TagArray<B> {
         // writeback: &mut bool,
         // evicted: &mut EvictedBlockInfo,
         // ) -> (Option<usize>, cache::RequestStatus) {
-    ) -> TagArrayAccessStatus {
+    ) -> AccessStatus {
         // ) {
         println!("tag_array::access({})", addr);
         self.num_access += 1;
@@ -166,7 +166,7 @@ impl<B> TagArray<B> {
                 panic!("tag_array access: unknown cache request status {status:?}");
             }
         }
-        TagArrayAccessStatus {
+        AccessStatus {
             index,
             writeback,
             evicted,

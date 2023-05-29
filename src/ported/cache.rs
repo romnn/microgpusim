@@ -55,6 +55,10 @@ pub trait Component {
 }
 
 pub trait Cache: Component {
+    fn ready_for_access(&self) -> bool {
+        todo!("cache: ready for access");
+    }
+
     fn access(
         &mut self,
         addr: address,
@@ -62,7 +66,10 @@ pub trait Cache: Component {
         events: Option<&mut Vec<Event>>,
     ) -> RequestStatus {
         todo!("cache: access");
-        RequestStatus::MISS
+    }
+
+    fn next_access(&mut self) -> Option<mem_fetch::MemFetch> {
+        todo!("cache: next access");
     }
 
     fn fill(&self, fetch: &mem_fetch::MemFetch) {

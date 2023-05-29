@@ -9,6 +9,10 @@ use bitvec::{array::BitArray, BitArr};
 
 pub type ThreadActiveMask = BitArr!(for 32, in u32);
 
+// #[derive(Clone, Debug)]
+// pub struct InstrBufferEntry {
+// }
+
 #[derive(Clone, Debug)]
 pub struct SchedulerWarp {
     pub block_id: u64,
@@ -21,6 +25,12 @@ pub struct SchedulerWarp {
     pub next_pc: Option<usize>,
     pub active_mask: ThreadActiveMask,
     pub trace_instructions: VecDeque<WarpInstruction>,
+
+    // state
+    pub num_outstanding_stores: usize,
+    pub has_imiss_pending: bool,
+    pub instr_buffer: Vec<Option<WarpInstruction>>,
+    pub next: usize,
     // pub trace_instructions: Vec<MemAccessTraceEntry>,
     // pub warp_traces: Vec<Mem>,
     // pub instructions: Vec<>,
@@ -37,9 +47,11 @@ impl PartialEq for SchedulerWarp {
     }
 }
 
-impl SchedulerWarp {
-    // pub fn new(kernel: Arc<super::KernelInfo>, config: Arc<GPUConfig>) -> Self {
-    pub fn new() -> Self {
+const IBUFFER_SIZE: usize = 2;
+
+impl Default for SchedulerWarp {
+    fn default() -> Self {
+        let instr_buffer = vec![None; IBUFFER_SIZE];
         Self {
             block_id: 0,
             dynamic_warp_id: 0,
@@ -55,16 +67,24 @@ impl SchedulerWarp {
             // pub warp_traces: Vec<Mem>,
             // pub instructions: Vec<>,
             // kernel: Arc<super::KernelInfo>,
+            num_outstanding_stores: 0,
+            has_imiss_pending: false,
+            instr_buffer,
+            next: 0,
         }
     }
+}
 
-    // todo: just use fields direclty now?
+impl SchedulerWarp {
+    // pub fn new(kernel: Arc<super::KernelInfo>, config: Arc<GPUConfig>) -> Self {
+
     #[deprecated]
-    pub fn init(
+    pub fn new(
         &mut self,
         start_pc: Option<usize>,
         block_id: u64,
         warp_id: usize,
+        // warp_size: usize,
         dynamic_warp_id: usize,
         active_mask: ThreadActiveMask,
     ) {
@@ -77,23 +97,48 @@ impl SchedulerWarp {
         self.active_mask = active_mask;
     }
 
+    // todo: just use fields direclty now?
+    // #[deprecated]
+    // pub fn init(
+    //     &mut self,
+    //     start_pc: Option<usize>,
+    //     block_id: u64,
+    //     warp_id: usize,
+    //     // warp_size: usize,
+    //     dynamic_warp_id: usize,
+    //     active_mask: ThreadActiveMask,
+    // ) {
+    //     self.block_id = block_id;
+    //     self.warp_id = warp_id;
+    //     self.dynamic_warp_id = dynamic_warp_id;
+    //     self.next_pc = start_pc;
+    //     // assert(self.num_completed >= active.count());
+    //     // assert(n_completed <= m_warp_size);
+    //     self.active_mask = active_mask;
+    // }
+
     pub fn num_completed(&self) -> usize {
         self.active_mask.count_zeros()
+    }
+
+    pub fn current_instr(&self) -> Option<&WarpInstruction> {
+        self.trace_instructions.get(self.trace_pc)
     }
 
     // todo: might do the conversion using `from_trace` during initialization
     // so this is not a special case and we support execution driven later on?
     pub fn next_trace_inst(&mut self) -> Option<WarpInstruction> {
-        let Some(trace_instr) = self.trace_instructions.get(self.trace_pc) else {
-            return None;
-        };
+        dbg!(&self.trace_pc);
+        let trace_instr = self.trace_instructions.get(self.trace_pc)?;
+        // let Some(trace_instr) = self.trace_instructions.get(self.trace_pc) else {
+        //     return None;
+        // };
         // let warp_instr = WarpInstruction::from_trace(&*self.kernel, trace_instr.clone());
         // new_inst->parse_from_trace_struct(
         //     warp_traces[trace_pc], m_kernel_info->OpcodeMap,
         //     m_kernel_info->m_tconfig, m_kernel_info->m_kernel_trace_info);
         self.trace_pc += 1;
-        // Some(warp_instr)
-        None
+        Some(trace_instr.clone())
     }
 
     pub fn trace_start_pc(&self) -> Option<usize> {
@@ -101,10 +146,12 @@ impl SchedulerWarp {
         self.trace_instructions.front().map(|instr| instr.pc)
     }
 
-    pub fn pc(&self) -> usize {
-        debug_assert!(!self.trace_instructions.is_empty());
-        debug_assert!(self.trace_pc < self.trace_instructions.len());
-        self.trace_instructions[self.trace_pc].pc
+    pub fn pc(&self) -> Option<usize> {
+        // debug_assert!(!self.trace_instructions.is_empty());
+        debug_assert!(self.trace_pc <= self.trace_instructions.len());
+        self.trace_instructions
+            .get(self.trace_pc)
+            .map(|instr| instr.pc)
     }
 
     pub fn done(&self) -> bool {
@@ -117,22 +164,59 @@ impl SchedulerWarp {
         self.trace_instructions.clear();
     }
 
-    pub fn inc_instr_in_pipeline(&self) {}
+    pub fn inc_instr_in_pipeline(&self) {
+        todo!("sched warp: inc instr in pipeline");
+    }
 
-    pub fn ibuffer_fill(&self, i: usize, instr: WarpInstruction) {}
+    pub fn ibuffer_fill(&mut self, slot: usize, instr: WarpInstruction) {
+        debug_assert!(slot < self.instr_buffer.len());
+        self.instr_buffer[slot] = Some(instr);
+        self.next = 0;
+        // todo!("sched warp: ibuffer fill");
+    }
 
     pub fn ibuffer_empty(&self) -> bool {
+        self.instr_buffer.iter().all(Option::is_none)
+        // todo!("sched warp: ibuffer empty");
         // self.done
-        false
+        // false
     }
 
     pub fn done_exit(&self) -> bool {
+        todo!("sched warp: done exit");
         // self.done
-        false
+        // false
+    }
+
+    pub fn hardware_done(&self) -> bool {
+        self.functional_done() && self.stores_done() && self.instr_in_pipeline() == 0
+        // todo!("sched warp: hardware done");
+    }
+
+    pub fn instr_in_pipeline(&self) -> usize {
+        todo!("sched warp: instructions in pipeline");
+    }
+
+    pub fn stores_done(&self) -> bool {
+        self.num_outstanding_stores > 0
+        // todo!("sched warp: stores done");
+    }
+
+    pub fn functional_done(&self) -> bool {
+        // todo: is that correct?
+        self.active_mask.is_empty()
+        // self.num_completed() == self.warp_size
+        // todo!("sched warp: functional done");
+    }
+
+    pub fn imiss_pending(&self) -> bool {
+        self.has_imiss_pending
+        // todo!("sched warp: imiss pending");
     }
 
     pub fn waiting(&self) -> bool {
-        false
+        todo!("sched warp: waiting");
+        // false
         //       if (functional_done()) {
         //   // waiting to be initialized with a kernel
         //   return true;

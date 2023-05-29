@@ -40,6 +40,36 @@ impl TransactionInfo {
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub enum ArchOpKind {
+    UN_OP,
+    INT_OP,
+    FP_OP,
+}
+
+// pub fn get_operand_kind(op_type op, special_ops sp_op) -> ArchOpKind {
+//   match op {
+//     case SP_OP:
+//     case SFU_OP:
+//     case SPECIALIZED_UNIT_2_OP:
+//     case SPECIALIZED_UNIT_3_OP:
+//     case DP_OP:
+//     case LOAD_OP:
+//     case STORE_OP:
+//       return FP_OP;
+//     case INTP_OP:
+//     case SPECIALIZED_UNIT_4_OP:
+//       return INT_OP;
+//     case ALU_OP:
+//       if ((sp_op == FP__OP) || (sp_op == TEX__OP) || (sp_op == OTHER_OP))
+//         return FP_OP;
+//       else if (sp_op == INT__OP)
+//         return INT_OP;
+//     default: 
+//       return UN_OP;
+//   }
+// }
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum ArchOp {
     NO_OP,
     ALU_OP,

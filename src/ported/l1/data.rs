@@ -110,20 +110,6 @@ where
         self.miss_queue.len() >= self.cache_config.miss_queue_size
     }
 
-    /// Whether any (accepted) accesses that had to wait for memory are now ready
-    ///
-    /// Note: does not include accesses that "HIT"
-    pub fn ready_for_access(&self) -> bool {
-        self.mshrs.ready_for_access()
-    }
-
-    /// Pop next ready access
-    ///
-    /// Note: does not include accesses that "HIT"
-    pub fn next_access(&mut self) -> Option<mem_fetch::MemFetch> {
-        self.mshrs.next_access()
-    }
-
     /// Read miss handler.
     ///
     /// Check MSHR hit or MSHR available
@@ -152,7 +138,7 @@ where
             if read_only {
                 self.tag_array.access(block_addr, time, &fetch);
             } else {
-                tag_array::TagArrayAccessStatus {
+                tag_array::AccessStatus {
                     writeback,
                     evicted,
                     ..
@@ -166,7 +152,7 @@ where
             if read_only {
                 self.tag_array.access(block_addr, time, &fetch);
             } else {
-                tag_array::TagArrayAccessStatus {
+                tag_array::AccessStatus {
                     writeback,
                     evicted,
                     ..
@@ -411,7 +397,7 @@ where
 
             // bool wb = false;
             // evicted_block_info evicted;
-            let tag_array::TagArrayAccessStatus {
+            let tag_array::AccessStatus {
                 status,
                 index,
                 writeback,
@@ -687,6 +673,20 @@ where
         // mf->get_access_type(),
         // m_stats.select_stats_status(probe_status, access_status));
         access_status
+    }
+
+    /// Pop next ready access
+    ///
+    /// Note: does not include accesses that "HIT"
+    fn next_access(&mut self) -> Option<mem_fetch::MemFetch> {
+        self.mshrs.next_access()
+    }
+
+    /// Whether any (accepted) accesses that had to wait for memory are now ready
+    ///
+    /// Note: does not include accesses that "HIT"
+    fn ready_for_access(&self) -> bool {
+        self.mshrs.ready_for_access()
     }
 
     fn fill(&self, fetch: &mem_fetch::MemFetch) {

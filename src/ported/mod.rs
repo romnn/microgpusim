@@ -3,8 +3,6 @@
 pub mod addrdec;
 pub mod cache;
 pub mod cache_block;
-pub mod operand_collector;
-pub mod register_set;
 pub mod core;
 pub mod instruction;
 pub mod interconn;
@@ -15,6 +13,8 @@ pub mod mem_fetch;
 pub mod mem_sub_partition;
 pub mod mshr;
 pub mod opcodes;
+pub mod operand_collector;
+pub mod register_set;
 pub mod scheduler;
 pub mod set_index_function;
 pub mod stats;
@@ -221,35 +221,43 @@ impl KernelInfo {
     // pub fn next_threadblock_traces(&self) -> Vec<MemAccessTraceEntry> {
     // pub fn next_threadblock_traces(&self, warps: &mut [Option<SchedulerWarp>]) {
     // pub fn next_threadblock_traces(&self, kernel: &KernelInfo, warps: &mut [SchedulerWarp]) {
-    pub fn next_threadblock_traces(&self, warps: &mut [SchedulerWarp]) {
+    // pub  fn next_threadblock_traces(&self, warps: &mut [SchedulerWarp]) {
+    pub fn next_threadblock_traces(&self, warps: &mut [Option<SchedulerWarp>]) {
         // debug_assert!(self.next_block.is_some());
         // todo!("next_threadblock_traces");
         // debug_assert!(self.next_block_iter.peek().is_some());
         // // let Some(next_block) = self.next_block else {
-        // let Some(next_block) = self.next_block_iter.next() else {
-        //     return;
-        // };
-        let next_block = nvbit_model::Dim { x: 0, y: 0, z: 0 };
-        dbg!(&next_block);
-        for warp in warps.iter_mut() {
-            warp.clear();
-        }
+        let Some(next_block) = self.next_block_iter.lock().unwrap().next() else {
+
+            println!("blocks done: no more threadblock traces");
+            return;
+        };
+        // let next_block = nvbit_model::Dim { x: 0, y: 0, z: 0 };
+        // dbg!(&next_block);
+        // for warp in warps.iter_mut() {
+        //     // warp.clear();
+        //     *warp = None;
+        // }
         let mut lock = self.trace_iter.write().unwrap();
         let trace_iter = lock.take_while_ref(|entry| entry.block_id == next_block);
         for trace in trace_iter {
-            // dbg!(&trace);
+            dbg!(&trace.warp_id);
             let warp_id = trace.warp_id as usize;
             let instr = instruction::WarpInstruction::from_trace(&self, trace);
-            warps[warp_id].trace_instructions.push_back(instr);
+            // warps[warp_id] = Some(SchedulerWarp::default());
+            let warp = warps.get_mut(warp_id).unwrap().as_mut().unwrap();
+            warp.trace_instructions.push_back(instr);
         }
 
         // set the pc from the traces and ignore the functional model
         for warp in warps.iter_mut() {
-            let num_instr = warp.trace_instructions.len();
-            if num_instr > 0 {
-                println!("warp {}: {num_instr} instructions", warp.warp_id);
+            if let Some(warp) = warp {
+                let num_instr = warp.trace_instructions.len();
+                if num_instr > 0 {
+                    println!("warp {}: {num_instr} instructions", warp.warp_id);
+                }
+                warp.next_pc = warp.trace_start_pc();
             }
-            warp.next_pc = warp.trace_start_pc();
         }
         // println!("added {total} instructions");
     }
@@ -328,8 +336,9 @@ impl KernelInfo {
     }
 
     pub fn no_more_blocks_to_run(&self) -> bool {
-        // todo!("no_more_blocks_to_run");
-        self.current_block().is_some()
+        // dbg!(&self.current_block());
+        // todo!("KernelInfo: no_more_blocks_to_run");
+        self.current_block().is_none()
         // self.next_block_iter.lock().unwrap().peek().is_none()
         // self.next_block.is_none()
         //     let next_block = self.next_block;
@@ -510,9 +519,11 @@ impl MockSimulator {
     ///
     /// Todo: used hack to allow selecting the kernel from the shader core,
     /// but we could maybe refactor
-    pub fn select_kernel(&self) -> Option<Arc<KernelInfo>> {
+    pub fn select_kernel(&self) -> Option<&Arc<KernelInfo>> {
         let mut executed_kernels = self.executed_kernels.lock().unwrap();
+        dbg!(&self.running_kernels.iter().filter(|k| k.is_some()).count());
         if let Some(k) = &self.running_kernels[self.last_issued_kernel] {
+            dbg!(&k);
             if !k.no_more_blocks_to_run()
             // &&!kernel.kernel_TB_latency)
             {
@@ -520,7 +531,7 @@ impl MockSimulator {
                 if !executed_kernels.contains_key(&launch_uid) {
                     executed_kernels.insert(launch_uid, k.name().to_string());
                 }
-                return Some(k.clone());
+                return Some(k);
             }
         }
         let num_kernels = self.running_kernels.len();
@@ -534,7 +545,7 @@ impl MockSimulator {
                     let launch_uid = k.uid;
                     assert!(!executed_kernels.contains_key(&launch_uid));
                     executed_kernels.insert(launch_uid, k.name().to_string());
-                    return Some(k.clone());
+                    return Some(k);
                 }
             }
         }
@@ -866,7 +877,7 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> eyre::Result<()> {
         // drive kernels to completion
         // while sim.active() {
         for i in 0..1 {
-            println!("cycle {i}");
+            println!("======== cycle {i} ========");
             sim.cycle();
             // if !sim.active() {
             //     break;
@@ -877,6 +888,8 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> eyre::Result<()> {
             // } else {
             // }
         }
+
+        dbg!(&sim.stats.lock().unwrap());
         // bool active = false;
         // bool sim_cycles = false;
         // unsigned finished_kernel_uid = 0;

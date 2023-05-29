@@ -613,7 +613,7 @@ impl LoadStoreUnit {
 
                     let warp_id = instr.warp_id;
                     mem_fetch::MemFetch::new(
-                        instr.clone(),
+                        Some(instr.clone()),
                         access.clone(),
                         &self.config,
                         size,
@@ -916,9 +916,10 @@ impl SimdFunctionUnit for LoadStoreUnit {
                         debug_assert!(fetch.is_write());
                         let mut bypass_l1 = false;
 
-                        if self.data_l1.is_none()
-                            || fetch.instr.cache_operator == CacheOperator::GLOBAL
-                        {
+                        // let cache_op = fetch.instr.map(|i| i.cache_operator);
+                        if self.data_l1.is_none() {
+                            // matches!(cache_op, Some(CacheOperator::GLOBAL)) {
+                            // {
                             bypass_l1 = true;
                         } else if fetch.access_kind() == &mem_fetch::AccessKind::GLOBAL_ACC_R
                             || fetch.access_kind() == &mem_fetch::AccessKind::GLOBAL_ACC_W

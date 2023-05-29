@@ -182,7 +182,7 @@ impl MemAccess {
 #[derive(Clone, Debug)]
 pub struct MemFetch {
     pub access: MemAccess,
-    pub instr: WarpInstruction,
+    pub instr: Option<WarpInstruction>,
     pub tlx_addr: DecodedAddress,
     pub partition_addr: address,
     pub chip: u64,
@@ -199,58 +199,13 @@ pub struct MemFetch {
 }
 
 impl MemFetch {
-    pub fn is_atomic(&self) -> bool {
-        self.instr.is_atomic()
-    }
-
-    pub fn is_write(&self) -> bool {
-        self.access.is_write
-    }
-
-    pub fn addr(&self) -> address {
-        self.access.addr
-    }
-
-    // pub fn cache_op(&self) -> super::instruction::CacheOperator {
-    //     self.instr.cache_op
-    // }
-
-    pub fn access_byte_mask(&self) -> &MemAccessByteMask {
-        &self.access.byte_mask
-    }
-
-    pub fn access_warp_mask(&self) -> &ThreadActiveMask {
-        &self.access.warp_mask
-    }
-
-    pub fn access_sector_mask(&self) -> &MemAccessSectorMask {
-        &self.access.sector_mask
-    }
-
-    pub fn sub_partition_id(&self) -> u64 {
-        self.tlx_addr.sub_partition
-    }
-
-    pub fn access_kind(&self) -> &AccessKind {
-        &self.access.kind
-    }
-
-    pub fn set_status(&mut self, status: Status, time: usize) {
-        self.status = status;
-        self.last_status_change = Some(time);
-    }
-
-    pub fn set_addr(&mut self, addr: address) {
-        self.access.addr = addr;
-    }
-
     // pub fn new(access: MemAccess, const warp_inst_t *inst,
     //     unsigned ctrl_size, unsigned wid, unsigned sid, unsigned tpc,
     //     const memory_config *config, unsigned long long cycle,
     //     mem_fetch *original_mf = NULL, mem_fetch *original_wr_mf = NULL);
 
     pub fn new(
-        instr: WarpInstruction,
+        instr: Option<WarpInstruction>,
         access: MemAccess,
         // config: &config::CacheConfig,
         config: &config::GPUConfig,
@@ -311,6 +266,51 @@ impl MemFetch {
         // m_raw_addr.chip = m_original_mf->get_tlx_addr().chip;
         // m_raw_addr.sub_partition = m_original_mf->get_tlx_addr().sub_partition;
         // }
+    }
+
+    pub fn is_atomic(&self) -> bool {
+        self.instr.is_atomic()
+    }
+
+    pub fn is_write(&self) -> bool {
+        self.access.is_write
+    }
+
+    pub fn addr(&self) -> address {
+        self.access.addr
+    }
+
+    // pub fn cache_op(&self) -> super::instruction::CacheOperator {
+    //     self.instr.cache_op
+    // }
+
+    pub fn access_byte_mask(&self) -> &MemAccessByteMask {
+        &self.access.byte_mask
+    }
+
+    pub fn access_warp_mask(&self) -> &ThreadActiveMask {
+        &self.access.warp_mask
+    }
+
+    pub fn access_sector_mask(&self) -> &MemAccessSectorMask {
+        &self.access.sector_mask
+    }
+
+    pub fn sub_partition_id(&self) -> u64 {
+        self.tlx_addr.sub_partition
+    }
+
+    pub fn access_kind(&self) -> &AccessKind {
+        &self.access.kind
+    }
+
+    pub fn set_status(&mut self, status: Status, time: usize) {
+        self.status = status;
+        self.last_status_change = Some(time);
+    }
+
+    pub fn set_addr(&mut self, addr: address) {
+        self.access.addr = addr;
     }
 }
 
