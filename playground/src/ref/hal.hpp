@@ -13,8 +13,6 @@ static_assert(sizeof(unsigned int) == sizeof(uint32_t),
 static_assert(sizeof(unsigned) == sizeof(uint32_t),
               "replaced unsigned with uint32_t");
 
-
-
 typedef uint64_t new_addr_type;
 typedef uint64_t cudaTextureObject_t;
 typedef uint64_t address_type;
@@ -27,6 +25,20 @@ typedef uint64_t addr_t;
 // After expanding the vector input and output operands
 #define MAX_INPUT_VALUES 24
 #define MAX_OUTPUT_VALUES 8
+
+#define NO_OP_FLAG 0xFF
+
+/* READ_PACKET_SIZE:
+   bytes: 6 address (flit can specify chanel so this gives up to ~2GB/channel,
+   so good for now), 2 bytes   [shaderid + mshrid](14 bits) + req_size(0-2 bits
+   if req_size variable) - so up to 2^14 = 16384 mshr total
+ */
+#define READ_PACKET_SIZE 8
+
+// WRITE_PACKET_SIZE: bytes: 6 address, 2 miscelaneous.
+#define WRITE_PACKET_SIZE 8
+
+#define WRITE_MASK_SIZE 8
 
 const uint64_t GLOBAL_HEAP_START = 0xC0000000;
 // Volta max shmem size is 96kB

@@ -6,13 +6,20 @@
 #include "core.hpp"
 #include "gpgpu_sim.hpp"
 #include "hal.hpp"
-#include "memory_config.hpp"
-#include "shader_core_config.hpp"
 #include "shader_core_stats.hpp"
-#include "simt_core_cluster.hpp"
+#include "warp_set.hpp"
+#include "barrier_set.hpp"
+#include "ifetch_buffer.hpp"
+#include "opndcoll_rfu.hpp"
 
-const unsigned WARP_PER_CTA_MAX = 64;
-typedef std::bitset<WARP_PER_CTA_MAX> warp_set_t;
+class register_set;
+class mem_fetch_interface;
+class thread_ctx_t;
+class shader_core_mem_fetch_allocator;
+class read_only_cache;
+class cache_stats;
+class ldst_unit;
+class simd_function_unit;
 
 class shader_core_ctx : public core_t {
 public:

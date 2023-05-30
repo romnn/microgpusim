@@ -93,6 +93,8 @@ fn generate_bridge() {
         .file("src/ref/l2_cache.cc")
         .file("src/ref/cache_config.cc")
         .file("src/ref/data_cache.cc")
+        .file("src/ref/lrr_scheduler.cc")
+        .file("src/ref/scheduler_unit.cc")
         // .flag("-std=c++0x")
         // .flag("-std=c++11")
         .flag("-std=c++14")

@@ -4,6 +4,7 @@
 
 #include "kernel_info.hpp"
 #include "option_parser.hpp"
+#include "cuda_sim.hpp"
 // #include "gpgpu_sim.hpp"
 
 class gpgpu_context {
@@ -24,7 +25,7 @@ public:
         // ptxinfo = new ptxinfo_data(this);
         // ptx_parser = new ptx_recognizer(this);
         // the_gpgpusim = new GPGPUsim_ctx(this);
-        // func_sim = new cuda_sim(this);
+        func_sim = new cuda_sim(this);
         // device_runtime = new cuda_device_runtime(this);
         // stats = new ptx_stats(this);
     }
@@ -48,7 +49,7 @@ public:
     // ptxinfo_data *ptxinfo;
     // ptx_recognizer *ptx_parser;
     // GPGPUsim_ctx *the_gpgpusim;
-    // cuda_sim *func_sim;
+    cuda_sim *func_sim;
     // cuda_device_runtime *device_runtime;
     // ptx_stats *stats;
 
