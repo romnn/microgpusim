@@ -24,6 +24,12 @@ pub enum ReservationFailure {
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub enum AccessStat {
+    ReservationFailure(ReservationFailure),
+    Status(RequestStatus),
+}
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum EventKind {
     WRITE_BACK_REQUEST_SENT,
     READ_REQUEST_SENT,

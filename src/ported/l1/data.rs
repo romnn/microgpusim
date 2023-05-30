@@ -147,6 +147,12 @@ where
 
             self.mshrs.add(mshr_addr, fetch.clone());
             // m_stats.inc_stats(mf->get_access_type(), MSHR_HIT);
+            let mut stats = self.stats.lock().unwrap();
+            stats.inc_access(
+                *fetch.access_kind(),
+                cache::AccessStat::Status(cache::RequestStatus::MSHR_HIT),
+            );
+
             should_miss = true;
         } else if !mshr_hit && !mshr_full && !self.miss_queue_full() {
             if read_only {
@@ -663,11 +669,15 @@ where
                 }
                 status => access_status,
             };
-            stats
-                .accesses
-                .entry((access_kind, stat_cache_request_status))
-                .and_modify(|s| *s += 1)
-                .or_insert(1);
+            stats.inc_access(
+                access_kind,
+                cache::AccessStat::Status(stat_cache_request_status),
+            );
+            // stats
+            //     .accesses
+            //     .entry((access_kind, stat_cache_request_status))
+            //     .and_modify(|s| *s += 1)
+            //     .or_insert(1);
         }
         // m_stats.inc_stats_pw(
         // mf->get_access_type(),

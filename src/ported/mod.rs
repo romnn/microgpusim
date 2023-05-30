@@ -4,6 +4,8 @@ pub mod addrdec;
 pub mod cache;
 pub mod cache_block;
 pub mod core;
+pub mod scoreboard;
+pub mod barrier;
 pub mod instruction;
 pub mod interconn;
 pub mod l1;

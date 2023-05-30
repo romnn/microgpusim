@@ -1,9 +1,12 @@
 use super::instruction::WarpInstruction;
 use super::ldst_unit::SimdFunctionUnit;
 use super::scheduler::SchedulerWarp;
-use super::{address, cache, opcodes, stats::Stats, KernelInfo, LoadStoreUnit, MockSimulator};
+use super::{
+    address, barrier, cache, ldst_unit, opcodes, register_set, scoreboard, stats::Stats,
+    KernelInfo, LoadStoreUnit, MockSimulator,
+};
 use super::{interconn as ic, l1, mem_fetch, scheduler as sched};
-use crate::config::GPUConfig;
+use crate::config::{self, GPUConfig};
 use bitvec::{array::BitArray, BitArr};
 use color_eyre::eyre;
 use std::collections::{HashMap, VecDeque};
@@ -26,6 +29,7 @@ pub const MAX_CTA_PER_SHADER: usize = 32;
 pub const MAX_BARRIERS_PER_CTA: usize = 16;
 
 pub const WARP_PER_CTA_MAX: usize = 64;
+pub type WarpMask = BitArr!(for WARP_PER_CTA_MAX);
 
 /// Start of the program memory space
 ///
@@ -67,15 +71,6 @@ impl InstrFetchBuffer {
     }
 }
 
-#[derive(Debug, Default)]
-pub struct Scoreboard {}
-
-impl Scoreboard {
-    pub fn pending_writes(&self, warp_id: usize) -> bool {
-        todo!("scoreboard: pending writes");
-    }
-}
-
 #[derive()]
 pub struct SIMTCore {
     pub core_id: usize,
@@ -106,9 +101,12 @@ pub struct SIMTCore {
     pub warps: Vec<Option<sched::SchedulerWarp>>,
     pub thread_state: Vec<Option<ThreadState>>,
     pub thread_info: Vec<Option<ThreadInfo>>,
-    pub scoreboard: Scoreboard,
+    pub scoreboard: Arc<scoreboard::Scoreboard>,
+    pub pipeline_reg: Vec<register_set::RegisterSet>,
+    pub barriers: barrier::BarrierSet,
     // pub schedulers: Vec<super::SchedulerUnit>,
-    pub schedulers: Vec<LoadStoreUnit>,
+    // pub schedulers: Vec<LoadStoreUnit>,
+    pub schedulers: VecDeque<Box<dyn sched::SchedulerUnit>>,
 }
 
 impl std::fmt::Debug for SIMTCore {
@@ -120,14 +118,29 @@ impl std::fmt::Debug for SIMTCore {
     }
 }
 
-impl SIMTCore {
-    // fn create_front_pipeline(&mut self) {
-    // }
+#[derive(strum::EnumIter, strum::EnumCount, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[repr(usize)]
+pub enum PipelineStage {
+    ID_OC_SP = 0,
+    ID_OC_DP = 1,
+    ID_OC_INT = 2,
+    ID_OC_SFU = 3,
+    ID_OC_MEM = 4,
+    OC_EX_SP = 5,
+    OC_EX_DP = 6,
+    OC_EX_INT = 7,
+    OC_EX_SFU = 8,
+    OC_EX_MEM = 9,
+    EX_WB = 10,
+    ID_OC_TENSOR_CORE = 11,
+    OC_EX_TENSOR_CORE = 12,
+    // N_PIPELINE_STAGE= S
+}
 
-    // fn create_warps(&mut self) {
-    //             // for k in 0..self.config.max_warps_per_core() {
-    //     //     self.warps[k] = SchedulerWarp::new(self.config);
-    //     // }
+impl SIMTCore {
+    // void core_t::get_pdom_stack_top_info(unsigned warpId, unsigned *pc,
+    //                                      unsigned *rpc) const {
+    //   m_simt_stack[warpId]->get_pdom_stack_top_info(pc, rpc);
     // }
 
     pub fn new(
@@ -147,7 +160,7 @@ impl SIMTCore {
             stats.clone(),
         );
         // self.warps.reserve_exact(self.config.max_threads_per_shader);
-        let warps = (0..config.max_warps_per_core())
+        let warps: Vec<_> = (0..config.max_warps_per_core())
             .map(|_| None)
             // .map(|_| SchedulerWarp::new())
             .collect();
@@ -163,6 +176,212 @@ impl SIMTCore {
         // name, m_config->m_L1I_config, m_sid,
         //                   get_shader_instruction_cache_id(), m_icnt,
         //                   IN_L1I_MISS_QUEUE);
+
+        // todo: are those parameters correct?
+        // m_barriers(this, config->max_warps_per_shader, config->max_cta_per_core, config->max_barriers_per_cta, config->warp_size);
+        let barriers = barrier::BarrierSet::new(
+            config.max_warps_per_core(),
+            config.max_concurrent_blocks_per_core,
+            config.num_cta_barriers,
+            config.warp_size,
+        );
+
+        let scoreboard = Arc::new(scoreboard::Scoreboard::new(
+            core_id,
+            cluster_id,
+            config.max_warps_per_core(),
+        ));
+
+        // pipeline_stages is the sum of normal pipeline stages
+        // and specialized_unit stages * 2 (for ID and EX)
+        use strum::{EnumCount, IntoEnumIterator};
+        let total_pipeline_stages = PipelineStage::COUNT; //  + config.num_specialized_unit.len() * 2;
+                                                          // let pipeline_reg = (0..total_pipeline_stages)
+        let pipeline_reg: Vec<_> = PipelineStage::iter()
+            .map(|stage| register_set::RegisterSet::new(stage, 1))
+            .collect();
+        // let mut pipeline_reg = Vec::new();
+        // pipeline_reg.reserve_exact(total_pipeline_stages);
+        // for (int j = 0; j < N_PIPELINE_STAGES; j++) {
+        //   m_pipeline_reg.push_back(
+        //       register_set(m_config->pipe_widths[j], pipeline_stage_name_decode[j]));
+        // }
+
+        // SKIPPING SPECIALIZED UNITS
+        // for (int j = 0; j < m_config->m_specialized_unit.size(); j++) {
+        //   m_pipeline_reg.push_back(
+        //       register_set(m_config->m_specialized_unit[j].id_oc_spec_reg_width,
+        //                    m_config->m_specialized_unit[j].name));
+        //   m_config->m_specialized_unit[j].ID_OC_SPEC_ID = m_pipeline_reg.size() - 1;
+        //   m_specilized_dispatch_reg.push_back(
+        //       &m_pipeline_reg[m_pipeline_reg.size() - 1]);
+        // }
+        // for (int j = 0; j < m_config->m_specialized_unit.size(); j++) {
+        //   m_pipeline_reg.push_back(
+        //       register_set(m_config->m_specialized_unit[j].oc_ex_spec_reg_width,
+        //                    m_config->m_specialized_unit[j].name));
+        //   m_config->m_specialized_unit[j].OC_EX_SPEC_ID = m_pipeline_reg.size() - 1;
+        // }
+
+        let scheduler_kind = config::SchedulerKind::LRR;
+        // std::string sched_config = m_config->gpgpu_scheduler_string;
+        // const concrete_scheduler scheduler =
+        //     sched_config.find("lrr") != std::string::npos
+        //         ? CONCRETE_SCHEDULER_LRR
+        //         : sched_config.find("two_level_active") != std::string::npos
+        //               ? CONCRETE_SCHEDULER_TWO_LEVEL_ACTIVE
+        //               : sched_config.find("gto") != std::string::npos
+        //                     ? CONCRETE_SCHEDULER_GTO
+        //                     : sched_config.find("rrr") != std::string::npos
+        //                           ? CONCRETE_SCHEDULER_RRR
+        //                     : sched_config.find("old") != std::string::npos
+        //                           ? CONCRETE_SCHEDULER_OLDEST_FIRST
+        //                           : sched_config.find("warp_limiting") !=
+        //                                     std::string::npos
+        //                                 ? CONCRETE_SCHEDULER_WARP_LIMITING
+        //                                 : NUM_CONCRETE_SCHEDULERS;
+        // assert(scheduler != NUM_CONCRETE_SCHEDULERS);
+        //
+        let mut schedulers: VecDeque<Box<dyn sched::SchedulerUnit>> = VecDeque::new();
+        for sched_id in 0..config.num_schedulers_per_core {
+            match scheduler_kind {
+                config::SchedulerKind::LRR => {
+                    let mem_out = pipeline_reg[PipelineStage::ID_OC_MEM as usize].clone();
+                    let lrr = sched::LrrScheduler::new(
+                        &warps,
+                        sched_id,
+                        mem_out,
+                        self,
+                        scoreboard.clone(),
+                        stats.clone(),
+                        config.clone(),
+                        // m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
+                        // &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
+                        // &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
+                        // &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
+                        // &m_pipeline_reg[ID_OC_MEM], i
+                    );
+                    schedulers.push_back(Box::new(lrr));
+                    // schedulers.push_back(Box::new(lrr) as Box<dyn sched::SchedulerUnit>);
+                }
+                other => todo!("scheduler: {:?}", &other),
+                //             SchedulerKind::TwoLevelActive => {
+                // let tla = TwoLevelActiveScheduler::new(
+                //                   m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
+                //                   &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
+                //                   &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
+                //                   &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
+                //                   &m_pipeline_reg[ID_OC_MEM], i, m_config->gpgpu_scheduler_string);
+                //               schedulers.push_back(tla);
+                //         },
+                //             SchedulerKind::GTO => {
+                //                     let gto = GtoScheduler::new(
+                //                   m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
+                //                   &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
+                //                   &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
+                //                   &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
+                //                   &m_pipeline_reg[ID_OC_MEM], i);
+                //               schedulers.push_back(gto);
+                //         },
+                //         SchedulerKind::RRR => {
+                //                     let rrr = RrrScheduler::new(
+                //                   m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
+                //                   &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
+                //                   &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
+                //                   &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
+                //                   &m_pipeline_reg[ID_OC_MEM], i);
+                //               schedulers.push_back(rrr);
+                //         },
+                //             SchedulerKind::OldestFirst => {
+                //                     let oldest = OldestScheduler::new(
+                //                   m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
+                //                   &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
+                //                   &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
+                //                   &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
+                //                   &m_pipeline_reg[ID_OC_MEM], i);
+                //               schedulers.push_back(oldest);
+                //         },
+                //             SchedulerKind::WarpLimiting => {
+                //                     let swl = SwlScheduler::new(
+                //                   m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
+                //                   &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
+                //                   &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
+                //                   &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
+                //                   &m_pipeline_reg[ID_OC_MEM], i, m_config->gpgpu_scheduler_string);
+                //               schedulers.push_back(swl);
+                //         },
+            }
+        }
+
+        for (i, warp) in warps.iter().enumerate() {
+            // for (unsigned i = 0; i < warps.size(); i++) {
+            // distribute i's evenly though schedulers;
+            let scheduler = &mut schedulers[i % config.num_schedulers_per_core];
+            scheduler.add_supervised_warp_id(i);
+        }
+        for scheduler in &schedulers {
+            todo!("call done_adding_supervised_warps");
+            // scheduler.done_adding_supervised_warps();
+        }
+        // for (unsigned i = 0; i < m_config->gpgpu_num_sched_per_core; ++i) {
+        //   schedulers[i]->done_adding_supervised_warps();
+        // }
+
+        if config.sub_core_model {
+            // in subcore model, each scheduler should has its own
+            // issue register, so ensure num scheduler = reg width
+            debug_assert_eq!(
+                config.num_schedulers_per_core,
+                pipeline_reg[PipelineStage::ID_OC_SP as usize].size()
+            );
+            debug_assert_eq!(
+                config.num_schedulers_per_core,
+                pipeline_reg[PipelineStage::ID_OC_SFU as usize].size()
+            );
+            debug_assert_eq!(
+                config.num_schedulers_per_core,
+                pipeline_reg[PipelineStage::ID_OC_MEM as usize].size()
+            );
+            // if (m_config->gpgpu_tensor_core_avail)
+            //   assert(m_config->gpgpu_num_sched_per_core ==
+            //          m_pipeline_reg[ID_OC_TENSOR_CORE].get_size());
+            // if (m_config->gpgpu_num_dp_units > 0)
+            //   assert(m_config->gpgpu_num_sched_per_core ==
+            //          m_pipeline_reg[ID_OC_DP].get_size());
+            // if (m_config->gpgpu_num_int_units > 0)
+            //   assert(m_config->gpgpu_num_sched_per_core ==
+            //          m_pipeline_reg[ID_OC_INT].get_size());
+            // for (int j = 0; j < m_config->m_specialized_unit.size(); j++) {
+            //   if (m_config->m_specialized_unit[j].num_units > 0)
+            //     assert(m_config->gpgpu_num_sched_per_core ==
+            //            m_config->m_specialized_unit[j].id_oc_spec_reg_width);
+            // }
+        }
+
+        // m_threadState = (thread_ctx_t *)calloc(sizeof(thread_ctx_t),
+        //                                        m_config->n_thread_per_shader);
+        //
+        // m_not_completed = 0;
+        // m_active_threads.reset();
+        // m_n_active_cta = 0;
+        // for (unsigned i = 0; i < MAX_CTA_PER_SHADER; i++) m_cta_status[i] = 0;
+        // for (unsigned i = 0; i < m_config->n_thread_per_shader; i++) {
+        //   m_thread[i] = NULL;
+        //   m_threadState[i].m_cta_id = -1;
+        //   m_threadState[i].m_active = false;
+        // }
+        //
+        // // m_icnt = new shader_memory_interface(this,cluster);
+        // if (m_config->gpgpu_perfect_mem) {
+        //   m_icnt = new perfect_memory_interface(this, m_cluster);
+        // } else {
+        //   m_icnt = new shader_memory_interface(this, m_cluster);
+        // }
+        // m_mem_fetch_allocator =
+        //     new shader_core_mem_fetch_allocator(m_sid, m_tpc, m_memory_config);
+        //
+        // // fetch
+        // m_last_warp_fetched = 0;
 
         let mut core = Self {
             core_id,
@@ -185,10 +404,12 @@ impl SIMTCore {
             instr_l1_cache: Box::new(instr_l1_cache),
             instr_fetch_buffer: InstrFetchBuffer::default(),
             warps,
-            scoreboard: Scoreboard::default(),
+            pipeline_reg,
+            scoreboard,
+            barriers,
             thread_state,
             thread_info,
-            schedulers: vec![load_store_unit],
+            schedulers,
         };
         // core.create_front_pipeline();
         // core.create_warps();
@@ -211,9 +432,9 @@ impl SIMTCore {
 
     fn next_inst(&mut self, warp_id: usize, pc: address) -> Option<WarpInstruction> {
         // read the instruction from the traces
-        dbg!(&self.warps.get_mut(warp_id));
-        dbg!(&warp_id);
-        dbg!(&self.warps.len());
+        // dbg!(&self.warps.get_mut(warp_id));
+        // dbg!(&warp_id);
+        // dbg!(&self.warps.len());
         self.warps
             .get_mut(warp_id)
             .map(Option::as_mut)
@@ -225,6 +446,29 @@ impl SIMTCore {
         // }
         // let warp = &mut self.warps[warp_id];
         // warp.next_trace_inst()
+    }
+
+    fn exec_inst(&mut self, instr: &WarpInstruction) {
+        for t in 0..self.config.warp_size {
+            if instr.active_mask[t] {
+                let warp_id = instr.warp_id;
+                let thread_id = self.config.warp_size * warp_id + t;
+
+                // // virtual function
+                //   checkExecutionStatusAndUpdate(inst, t, tid);
+            }
+        }
+
+        // here, we generate memory acessess
+        if instr.is_load() || instr.is_store() {
+            instr.generate_mem_accesses(&*self.config);
+        }
+
+        let warp = self.warps.get_mut(instr.warp_id).unwrap().as_mut().unwrap();
+        if warp.done() && warp.functional_done() {
+            warp.ibuffer_flush();
+            self.barriers.warp_exit(instr.warp_id);
+        }
     }
 
     fn fetch(&mut self) {
@@ -328,43 +572,52 @@ impl SIMTCore {
                                     BitArray::ZERO,
                                     BitArray::ZERO,
                                 );
-                                dbg!(&access);
-                                // let fetch = MemFetch::new(instr, access, config,
+                                // dbg!(&access);
+                                let fetch = mem_fetch::MemFetch::new(
+                                    None,
+                                    access,
+                                    &*self.config,
+                                    ldst_unit::READ_PACKET_SIZE.into(),
+                                    warp_id,
+                                    self.core_id,
+                                    self.cluster_id,
+                                );
+
+                                // dbg!(&fetch);
+                                let status = if self.config.perfect_inst_const_cache {
+                                    // shader_cache_access_log(m_sid, INSTRUCTION, 0);
+                                    cache::RequestStatus::HIT
+                                } else {
+                                    self.instr_l1_cache.access(ppc as address, fetch, None)
+                                };
+                                // dbg!(&status);
+
+                                self.last_warp_fetched = Some(warp_id);
+                                if status == cache::RequestStatus::MISS {
+                                    let warp =
+                                        self.warps.get_mut(warp_id).unwrap().as_mut().unwrap();
+                                    warp.has_imiss_pending = true;
+                                    // warp.set_last_fetch(m_gpu->gpu_sim_cycle);
+                                } else if status == cache::RequestStatus::HIT {
+                                    self.instr_fetch_buffer = InstrFetchBuffer {
+                                        valid: true,
+                                        pc: pc as u64,
+                                        num_bytes,
+                                        warp_id,
+                                    };
+                                    // m_warp[warp_id]->set_last_fetch(m_gpu->gpu_sim_cycle);
+                                    // delete mf;
+                                } else {
+                                    debug_assert_eq!(
+                                        status,
+                                        cache::RequestStatus::RESERVATION_FAIL
+                                    );
+                                    // delete mf;
+                                }
+                                break;
                             }
                         }
                     }
-
-                    //     mem_access_t acc(INST_ACC_R, ppc, nbytes, false, m_gpu->gpgpu_ctx);
-                    //     mem_fetch *mf = new mem_fetch(
-                    //         acc, NULL /*we don't have an instruction yet*/, READ_PACKET_SIZE,
-                    //         warp_id, m_sid, m_tpc, m_memory_config,
-                    //         m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle);
-                    //     std::list<cache_event> events;
-                    //     enum cache_request_status status;
-                    //     if (m_config->perfect_inst_const_cache){
-                    //       status = HIT;
-                    //       shader_cache_access_log(m_sid, INSTRUCTION, 0);
-                    //     }
-                    //     else
-                    //       status = m_L1I->access(
-                    //           (new_addr_type)ppc, mf,
-                    //           m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle, events);
-                    //
-                    //     if (status == MISS) {
-                    //       m_last_warp_fetched = warp_id;
-                    //       m_warp[warp_id]->set_imiss_pending();
-                    //       m_warp[warp_id]->set_last_fetch(m_gpu->gpu_sim_cycle);
-                    //     } else if (status == HIT) {
-                    //       m_last_warp_fetched = warp_id;
-                    //       m_inst_fetch_buffer = ifetch_buffer_t(pc, nbytes, warp_id);
-                    //       m_warp[warp_id]->set_last_fetch(m_gpu->gpu_sim_cycle);
-                    //       delete mf;
-                    //     } else {
-                    //       m_last_warp_fetched = warp_id;
-                    //       assert(status == RESERVATION_FAIL);
-                    //       delete mf;
-                    //     }
-                    // break;
                 }
             }
         }
@@ -396,10 +649,10 @@ impl SIMTCore {
         if let Some(instr1) = self.next_inst(warp_id, pc) {
             let warp = self.warps.get_mut(warp_id).unwrap().as_mut().unwrap();
             warp.ibuffer_fill(0, instr1.clone());
-            warp.inc_instr_in_pipeline();
+            warp.num_instr_in_pipeline += 1;
 
             // self.stats->m_num_decoded_insn[m_sid]++;
-            use super::instruction::ArchOp;
+            // use super::instruction::ArchOp;
             // match instr1.opcode.category {
             //     ArchOp::INT_OP | ArchOp::UN_OP => {
             //         //these counters get added up in mcPat to compute scheduler power
@@ -414,7 +667,7 @@ impl SIMTCore {
             if let Some(instr2) = self.next_inst(warp_id, pc) {
                 let warp = self.warps.get_mut(warp_id).unwrap().as_mut().unwrap();
                 warp.ibuffer_fill(0, instr2.clone());
-                warp.inc_instr_in_pipeline();
+                warp.num_instr_in_pipeline += 1;
                 // m_stats->m_num_decoded_insn[m_sid]++;
                 // if ((pI1->oprnd_type == INT_OP) || (pI1->oprnd_type == UN_OP))  { //these counters get added up in mcPat to compute scheduler power
                 //   m_stats->m_num_INTdecoded_insn[m_sid]++;
@@ -426,8 +679,43 @@ impl SIMTCore {
         self.instr_fetch_buffer.valid = false;
     }
 
+    pub fn issue_warp(
+        pipe_reg_set: &register_set::RegisterSet,
+        next_inst: &WarpInstruction,
+        active_mask: sched::ThreadActiveMask,
+        warp_id: usize,
+        sch_id: usize,
+    ) {
+        // warp_inst_t **pipe_reg =
+        //     pipe_reg_set.get_free(m_config->sub_core_model, sch_id);
+        // assert(pipe_reg);
+        //
+        // m_warp[warp_id]->ibuffer_free();
+        // assert(next_inst->valid());
+        // **pipe_reg = *next_inst;  // static instruction information
+        // (*pipe_reg)->issue(active_mask, warp_id,
+        //                    m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle,
+        //                    m_warp[warp_id]->get_dynamic_warp_id(),
+        //                    sch_id);  // dynamic instruction information
+        // m_stats->shader_cycle_distro[2 + (*pipe_reg)->active_count()]++;
+        // func_exec_inst(**pipe_reg);
+        //
+        // if (next_inst->op == BARRIER_OP) {
+        //   m_warp[warp_id]->store_info_of_last_inst_at_barrier(*pipe_reg);
+        //   m_barriers.warp_reaches_barrier(m_warp[warp_id]->get_cta_id(), warp_id,
+        //                                   const_cast<warp_inst_t *>(next_inst));
+        //
+        // } else if (next_inst->op == MEMORY_BARRIER_OP) {
+        //   m_warp[warp_id]->set_membar();
+        // }
+        //
+        // updateSIMTStack(warp_id, *pipe_reg);
+        //
+        // m_scoreboard->reserveRegisters(*pipe_reg);
+        // m_warp[warp_id]->set_next_pc(next_inst->pc + next_inst->isize);
+    }
+
     fn issue(&mut self) {
-        // for each scheduler unit, run cycle()
         for scheduler in &mut self.schedulers {
             scheduler.cycle();
         }
@@ -665,11 +953,11 @@ impl SIMTCore {
         }
         kernel.next_threadblock_traces(&mut self.warps);
 
-        dbg!(&self.warps);
+        // dbg!(&self.warps);
         for warp in &self.warps {
             if let Some(warp) = warp {
                 // let warp = warp.as_ref().unwrap();
-                dbg!(&warp.trace_instructions.len());
+                // dbg!(&warp.trace_instructions.len());
             }
         }
 
@@ -856,7 +1144,7 @@ impl SIMTCore {
         // initalize scalar threads and determine which hardware warps they are
         // allocated to bind functional simulation state of threads to hardware
         // resources (simulation)
-        let mut warps: BitArr!(for WARP_PER_CTA_MAX) = BitArray::ZERO;
+        let mut warps: WarpMask = BitArray::ZERO;
         // let block_id = kernel.next_block_id();
         let Some(block) = kernel.current_block() else {
             panic!("kernel has no block");
@@ -891,7 +1179,7 @@ impl SIMTCore {
             warps.set(warp_id, true);
         }
 
-        dbg!(&warps.count_ones());
+        // dbg!(&warps.count_ones());
 
         // initialize the SIMT stacks and fetch hardware
         self.init_warps(
@@ -1235,7 +1523,7 @@ impl SIMTCoreCluster {
         let mut block_issue_next_core = self.block_issue_next_core.lock().unwrap();
         let mut cores = self.cores.lock().unwrap();
         let num_cores = cores.len();
-        dbg!(&sim.select_kernel());
+        // dbg!(&sim.select_kernel());
 
         for (i, core) in cores.iter_mut().enumerate() {
             // debug_assert_eq!(i, core.id);
@@ -1271,8 +1559,8 @@ impl SIMTCoreCluster {
                 self.cluster_id, core.core_id, kernel
             );
             if let Some(kernel) = kernel {
-                dbg!(&kernel.no_more_blocks_to_run());
-                dbg!(&core.can_issue_block(&*kernel));
+                // dbg!(&kernel.no_more_blocks_to_run());
+                // dbg!(&core.can_issue_block(&*kernel));
                 if !kernel.no_more_blocks_to_run() && core.can_issue_block(&*kernel) {
                     core.issue_block(kernel);
                     num_blocks_issued += 1;

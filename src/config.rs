@@ -814,6 +814,18 @@ pub enum DRAMBankIndexPolicy {
     Xor = 1,
 }
 
+/// Scheduler kind.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum SchedulerKind {
+    LRR = 0,
+    TwoLevelActive = 1,
+    GTO = 2,
+    RRR = 3,
+    Old = 4,
+    OldestFirst = 5,
+    WarpLimiting = 6,
+}
+
 /// DRAM Scheduler policy.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum DRAMSchedulerKind {
@@ -873,6 +885,12 @@ impl GPUConfig {
         )
     }
 }
+
+// opp, "-gpgpu_pipeline_widths", OPT_CSTR, &pipeline_widths_string,
+//       "Pipeline widths "
+//       "ID_OC_SP,ID_OC_DP,ID_OC_INT,ID_OC_SFU,ID_OC_MEM,OC_EX_SP,OC_EX_DP,OC_EX_"
+//       "INT,OC_EX_SFU,OC_EX_MEM,EX_WB,ID_OC_TENSOR_CORE,OC_EX_TENSOR_CORE",
+//       "1,1,1,1,1,1,1,1,1,1,1,1,1")
 
 impl Default for GPUConfig {
     fn default() -> Self {

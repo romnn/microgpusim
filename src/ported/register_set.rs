@@ -1,16 +1,17 @@
 use super::instruction::WarpInstruction;
 
 /// Register that can hold multiple instructions.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RegisterSet {
-    name: String,
+    // name: String,
+    stage: super::PipelineStage,
     regs: Vec<Option<WarpInstruction>>,
 }
 
 impl RegisterSet {
-    pub fn new(size: usize, name: String) -> Self {
+    pub fn new(stage: super::PipelineStage, size: usize) -> Self {
         let regs = (0..size).map(|_| None).collect();
-        Self { regs, name }
+        Self { regs, stage }
     }
 
     pub fn has_free(&self) -> bool {

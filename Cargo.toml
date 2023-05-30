@@ -13,8 +13,8 @@ members = [
 ]
 
 [profile.dev]
-opt-level = 0
-debug = 1
+opt-level = 0 # no optimizations
+debug = 2 # full debug info
 
 [profile.release]
 lto = true

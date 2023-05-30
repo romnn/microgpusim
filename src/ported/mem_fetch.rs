@@ -269,7 +269,7 @@ impl MemFetch {
     }
 
     pub fn is_atomic(&self) -> bool {
-        self.instr.is_atomic()
+        self.instr.as_ref().map_or(false, WarpInstruction::is_atomic)
     }
 
     pub fn is_write(&self) -> bool {

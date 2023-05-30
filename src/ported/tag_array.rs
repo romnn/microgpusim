@@ -314,8 +314,9 @@ impl<B> TagArray<B> {
     pub fn add_pending_line(&mut self, fetch: &mem_fetch::MemFetch) {
         println!("tag_array::add_pending_line({})", fetch.addr());
         let addr = self.config.block_addr(fetch.addr());
+        let instr = fetch.instr.as_ref().unwrap();
         if self.pending_lines.contains_key(&addr) {
-            self.pending_lines.insert(addr, fetch.instr.uid);
+            self.pending_lines.insert(addr, instr.uid);
         }
     }
 

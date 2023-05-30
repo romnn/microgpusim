@@ -104,17 +104,30 @@ where
                 }
             } else {
                 status = Status::RESERVATION_FAIL;
-                // m_stats.inc_fail_stats(fetch.access_kind, MISS_QUEUE_FULL);
+                let mut stats = self.inner.stats.lock().unwrap();
+                stats.inc_access(
+                    *fetch.access_kind(),
+                    cache::AccessStat::ReservationFailure(
+                        cache::ReservationFailure::MISS_QUEUE_FULL,
+                    ),
+                );
             }
         } else {
-            // m_stats.inc_fail_stats(mf->get_access_type(), LINE_ALLOC_FAIL);
+            let mut stats = self.inner.stats.lock().unwrap();
+            stats.inc_access(
+                *fetch.access_kind(),
+                cache::AccessStat::ReservationFailure(cache::ReservationFailure::LINE_ALLOC_FAIL),
+            );
         }
+        let mut stats = self.inner.stats.lock().unwrap();
+        stats.inc_access(
+            *fetch.access_kind(),
+            cache::AccessStat::Status(Stats::select_status(probe_status, status)),
+        );
 
-        // m_stats.inc_stats(mf->get_access_type(),
-        //                   m_stats.select_stats_status(status, cache_status));
         // m_stats.inc_stats_pw(mf->get_access_type(),
         //                      m_stats.select_stats_status(status, cache_status));
-        todo!("readonly cache: access");
+        // todo!("readonly cache: access");
         status
     }
 
