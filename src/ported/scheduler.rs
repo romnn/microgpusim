@@ -9,6 +9,8 @@ use bitvec::{array::BitArray, BitArr};
 
 pub type ThreadActiveMask = BitArr!(for 32, in u32);
 
+type CoreWarp = Arc<Mutex<SchedulerWarp>>;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum ExecUnitKind {
     NONE = 0,
@@ -21,22 +23,26 @@ enum ExecUnitKind {
     SPECIALIZED = 7,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct SchedulerWarp {
     pub block_id: u64,
     pub dynamic_warp_id: usize,
     pub warp_id: usize,
     pub kernel_id: usize,
-    // pub done: bool,
     // todo: what is next and trace pc??
+    // pub trace_pc: Mutex<usize>,
     pub trace_pc: usize,
+    // pub next_pc: Mutex<Option<usize>>,
     pub next_pc: Option<usize>,
     pub active_mask: ThreadActiveMask,
+    // pub trace_instructions: Mutex<VecDeque<WarpInstruction>>,
     pub trace_instructions: VecDeque<WarpInstruction>,
 
     // state
+    pub done_exit: bool,
     pub num_instr_in_pipeline: usize,
     pub num_outstanding_stores: usize,
+    pub num_outstanding_atomics: usize,
     pub has_imiss_pending: bool,
     pub instr_buffer: Vec<Option<WarpInstruction>>,
     pub next: usize,
@@ -66,7 +72,6 @@ impl Default for SchedulerWarp {
             dynamic_warp_id: 0,
             warp_id: 0,
             kernel_id: 0,
-            // done: false,
             // todo: what is next and trace pc??
             trace_pc: 0,
             next_pc: None,
@@ -76,8 +81,10 @@ impl Default for SchedulerWarp {
             // pub warp_traces: Vec<Mem>,
             // pub instructions: Vec<>,
             // kernel: Arc<super::KernelInfo>,
+            done_exit: false,
             num_instr_in_pipeline: 0,
             num_outstanding_stores: 0,
+            num_outstanding_atomics: 0,
             has_imiss_pending: false,
             instr_buffer,
             next: 0,
@@ -85,14 +92,13 @@ impl Default for SchedulerWarp {
     }
 }
 
+// todo: how to do that when not in exec driven?
 pub fn get_pdom_stack_top_info(warp_id: usize, instr: &WarpInstruction) -> (usize, usize) {
     todo!("get_pdom_stack_top_info");
     (0, 0)
 }
 
 impl SchedulerWarp {
-    // pub fn new(kernel: Arc<super::KernelInfo>, config: Arc<GPUConfig>) -> Self {
-
     #[deprecated]
     pub fn new(
         &mut self,
@@ -114,36 +120,56 @@ impl SchedulerWarp {
 
     // todo: just use fields direclty now?
     // #[deprecated]
-    // pub fn init(
-    //     &mut self,
-    //     start_pc: Option<usize>,
-    //     block_id: u64,
-    //     warp_id: usize,
-    //     // warp_size: usize,
-    //     dynamic_warp_id: usize,
-    //     active_mask: ThreadActiveMask,
-    // ) {
-    //     self.block_id = block_id;
-    //     self.warp_id = warp_id;
-    //     self.dynamic_warp_id = dynamic_warp_id;
-    //     self.next_pc = start_pc;
-    //     // assert(self.num_completed >= active.count());
-    //     // assert(n_completed <= m_warp_size);
-    //     self.active_mask = active_mask;
-    // }
+    pub fn init(
+        &mut self,
+        start_pc: Option<usize>,
+        block_id: u64,
+        warp_id: usize,
+        dynamic_warp_id: usize,
+        active_mask: ThreadActiveMask,
+    ) {
+        self.block_id = block_id;
+        self.warp_id = warp_id;
+        self.dynamic_warp_id = dynamic_warp_id;
+        self.next_pc = start_pc;
+        // assert(self.num_completed >= active.count());
+        // assert(n_completed <= m_warp_size);
+        self.active_mask = active_mask;
+    }
+
+    pub fn set_has_imiss_pending(&self, value: bool) {
+        todo!("scheduler warp: set imiss pending");
+    }
+
+    pub fn inc_instr_in_pipeline(&self) {
+        todo!("scheduler warp: inc_instr_in_pipeline");
+    }
 
     pub fn num_completed(&self) -> usize {
         self.active_mask.count_zeros()
     }
 
     pub fn current_instr(&self) -> Option<&WarpInstruction> {
+        // let trace_pc = *self.trace_pc.lock().unwrap();
+        // let trace_instructions = self.trace_instructions.lock().unwrap();
+        // trace_instructions.get(trace_pc)
         self.trace_instructions.get(self.trace_pc)
+    }
+
+    pub fn push_trace_instruction(&mut self, instr: WarpInstruction) {
+        // todo!("scheduler warp: push trace instr");
+        // self.trace_instructions.lock().unwrap().push_back(instr);
+        self.trace_instructions.push_back(instr);
     }
 
     // todo: might do the conversion using `from_trace` during initialization
     // so this is not a special case and we support execution driven later on?
+    // pub fn next_trace_inst(&mut self) -> Option<WarpInstruction> {
     pub fn next_trace_inst(&mut self) -> Option<WarpInstruction> {
+        // todo!("scheduler warp: next trace instr");
+        // let mut trace_pc = self.trace_pc.lock().unwrap();
         dbg!(&self.trace_pc);
+        // let trace_instructions = self.trace_instructions.lock().unwrap();
         let trace_instr = self.trace_instructions.get(self.trace_pc)?;
         // let Some(trace_instr) = self.trace_instructions.get(self.trace_pc) else {
         //     return None;
@@ -156,26 +182,36 @@ impl SchedulerWarp {
         Some(trace_instr.clone())
     }
 
+    pub fn instruction_count(&self) -> usize {
+        self.trace_instructions.len()
+    }
+
     pub fn trace_start_pc(&self) -> Option<usize> {
         // debug_assert!(!self.trace_instructions.is_empty());
+        // let trace_instructions = self.trace_instructions.lock().unwrap();
         self.trace_instructions.front().map(|instr| instr.pc)
     }
 
     pub fn pc(&self) -> Option<usize> {
         // debug_assert!(!self.trace_instructions.is_empty());
-        debug_assert!(self.trace_pc <= self.trace_instructions.len());
+        // let trace_pc = *self.trace_pc.lock().unwrap();
+        // let trace_instructions = self.trace_instructions.lock().unwrap();
+        debug_assert!(self.trace_pc <= self.instruction_count());
         self.trace_instructions
             .get(self.trace_pc)
             .map(|instr| instr.pc)
     }
 
     pub fn done(&self) -> bool {
-        self.trace_pc == self.trace_instructions.len()
+        // let trace_instructions = self.trace_instructions.lock().unwrap();
+        self.trace_pc == self.instruction_count()
     }
 
     pub fn clear(&mut self) {
         // todo: should we actually clear schedule warps or just swap
+        // *self.trace_pc.lock().unwrap() = 0;
         self.trace_pc = 0;
+        // let mut trace_instructions = self.trace_instructions.lock().unwrap();
         self.trace_instructions.clear();
     }
 
@@ -187,11 +223,12 @@ impl SchedulerWarp {
     //     todo!("sched warp: inc instr in pipeline");
     // }
 
+    // pub fn ibuffer_fill(&mut self, slot: usize, instr: WarpInstruction) {
     pub fn ibuffer_fill(&mut self, slot: usize, instr: WarpInstruction) {
+        // todo!("sched warp: ibuffer fill");
         debug_assert!(slot < self.instr_buffer.len());
         self.instr_buffer[slot] = Some(instr);
         self.next = 0;
-        // todo!("sched warp: ibuffer fill");
     }
 
     pub fn ibuffer_empty(&self) -> bool {
@@ -202,6 +239,7 @@ impl SchedulerWarp {
     }
 
     pub fn ibuffer_flush(&mut self) {
+        // todo!("sched warp: ibuffer_flush");
         for i in self.instr_buffer.iter_mut() {
             if i.is_some() {
                 self.num_instr_in_pipeline -= 1;
@@ -224,12 +262,13 @@ impl SchedulerWarp {
     }
 
     pub fn ibuffer_step(&mut self) {
+        // todo!("sched warp: ibuffer_step");
         self.next = (self.next + 1) % IBUFFER_SIZE;
     }
 
     pub fn done_exit(&self) -> bool {
-        todo!("sched warp: done exit");
-        // self.done
+        // todo!("sched warp: done exit");
+        self.done_exit
         // false
     }
 
@@ -257,6 +296,8 @@ impl SchedulerWarp {
 
     pub fn set_next_pc(&mut self, pc: usize) {
         self.next_pc = Some(pc);
+        // todo!("sched warp: set_next_pc");
+        // *self.next_pc.lock().unwrap() = Some(pc);
     }
 
     pub fn imiss_pending(&self) -> bool {
@@ -265,36 +306,33 @@ impl SchedulerWarp {
     }
 
     pub fn waiting(&self) -> bool {
-        todo!("sched warp: waiting");
-        // false
-        //       if (functional_done()) {
-        //   // waiting to be initialized with a kernel
-        //   return true;
-        // } else if (m_shader->warp_waiting_at_barrier(m_warp_id)) {
-        //   // waiting for other warps in CTA to reach barrier
-        //   return true;
-        // } else if (m_shader->warp_waiting_at_mem_barrier(m_warp_id)) {
-        //   // waiting for memory barrier
-        //   return true;
-        // } else if (m_n_atomic > 0) {
-        //   // waiting for atomic operation to complete at memory:
-        //   // this stall is not required for accurate timing model, but rather we
-        //   // stall here since if a call/return instruction occurs in the meantime
-        //   // the functional execution of the atomic when it hits DRAM can cause
-        //   // the wrong register to be read.
-        //   return true;
-        // }
-        // return false;
+        // todo!("sched warp: waiting");
+        if self.functional_done() {
+            // waiting to be initialized with a kernel
+            true
+        // } else if core.warp_waiting_at_barrier(self.warp_id) {
+        //     // waiting for other warps in block to reach barrier
+        //     true
+        // } else if core.warp_waiting_at_mem_barrier(self.warp_id) {
+        //     // waiting for memory barrier
+        //     true
+        } else if self.num_outstanding_atomics > 0 {
+            // waiting for atomic operation to complete at memory:
+            // this stall is not required for accurate timing model,
+            // but rather we stall here since if a call/return
+            // instruction occurs in the meantime the functional
+            // execution of the atomic when it hits DRAM can cause
+            // the wrong register to be read.
+            true
+        } else {
+            false
+        }
     }
 
     pub fn dynamic_warp_id(&self) -> usize {
         self.dynamic_warp_id
     }
 }
-
-// pub trait SchedulerPolicy {
-//     fn order_warps(&self);
-// }
 
 fn sort_warps_by_oldest_dynamic_id(lhs: &SchedulerWarp, rhs: &SchedulerWarp) -> std::cmp::Ordering {
     if lhs.done_exit() || lhs.waiting() {
@@ -319,45 +357,52 @@ pub enum OrderingType {
 }
 
 #[derive(Debug)]
-// pub struct BaseSchedulerUnit {
-pub struct BaseSchedulerUnit<'a> {
+pub struct BaseSchedulerUnit {
+    // pub struct BaseSchedulerUnit<'a> {
     // <'a> {
     id: usize,
     /// This is the prioritized warp list that is looped over each cycle to
     /// determine which warp gets to issue.
-    next_cycle_prioritized_warps: VecDeque<&'a SchedulerWarp>,
+    // next_cycle_prioritized_warps: VecDeque<&'a CoreWarp>,
+    next_cycle_prioritized_warps: VecDeque<CoreWarp>,
     // The m_supervised_warps list is all the warps this scheduler is
     // supposed to arbitrate between.
     // This is useful in systems where there is more than one warp scheduler.
     // In a single scheduler system, this is simply all the warps
     // assigned to this core.
-    supervised_warps: VecDeque<&'a SchedulerWarp>,
+    // supervised_warps: VecDeque<&'a CoreWarp>,
+    supervised_warps: VecDeque<CoreWarp>,
     /// This is the iterator pointer to the last supervised warp you issued
     // last_supervised_issued: Vec<SchedulerWarp>,
     // last_supervised_issued: std::slice::Iter<'a, SchedulerWarp>,
     last_supervised_issued_idx: usize,
     // scheduler: GTOScheduler,
-    warps: &'a Vec<Option<SchedulerWarp>>,
+
+    // warps: &'a Vec<SchedulerWarp>,
+    warps: Vec<CoreWarp>,
+    // warps: &'a Vec<Option<SchedulerWarp>>,
     // register_set *m_mem_out;
     // std::vector<register_set *> &m_spec_cores_out;
     num_issued_last_cycle: usize,
     current_turn_warp: usize,
 
-    mem_out: register_set::RegisterSet,
+    // mem_out: &'a register_set::RegisterSet,
 
-    core: &'a super::core::SIMTCore,
+    // core: &'a super::core::InnerSIMTCore,
     scoreboard: Arc<scoreboard::Scoreboard>,
     config: Arc<GPUConfig>,
     stats: Arc<Mutex<Stats>>,
 }
 
-impl<'a> BaseSchedulerUnit<'a> {
-    // impl BaseSchedulerUnit {
+// impl<'a> BaseSchedulerUnit<'a> {
+impl BaseSchedulerUnit {
     pub fn new(
-        warps: &'a Vec<Option<SchedulerWarp>>,
         id: usize,
-        mem_out: register_set::RegisterSet,
-        core: &'a super::core::SIMTCore,
+        // warps: &'a Vec<SchedulerWarp>,
+        warps: Vec<CoreWarp>,
+        // warps: &'a Vec<Option<SchedulerWarp>>,
+        // mem_out: &'a register_set::RegisterSet,
+        // core: &'a super::core::InnerSIMTCore,
         scoreboard: Arc<scoreboard::Scoreboard>,
         stats: Arc<Mutex<Stats>>,
         config: Arc<GPUConfig>,
@@ -372,20 +417,23 @@ impl<'a> BaseSchedulerUnit<'a> {
             warps,
             num_issued_last_cycle: 0,
             current_turn_warp: 0,
-            mem_out,
-            core,
+            // mem_out,
+            // core,
             scoreboard,
             config,
             stats,
         }
     }
 
-    pub fn add_supervised_warp_id(&mut self, warp_id: usize) {
-        let warp = self.warps[warp_id].unwrap();
-        self.supervised_warps.push_back(&warp);
-    }
+    // pub fn add_supervised_warp_id(&mut self, warp_id: usize) {
+    //     // let warp = self.warps[warp_id].as_ref().unwrap();
+    //     let warp = &self.warps[warp_id];
+    //     self.supervised_warps.push_back(warp);
+    // }
 
-    fn cycle(&mut self) {
+    fn cycle(&mut self, core: &mut super::core::InnerSIMTCore) {
+        println!("base scheduler: cycle");
+
         // there was one warp with a valid instruction to issue (didn't require flush due to control hazard)
         let mut valid_inst = false;
         // of the valid instructions, there was one not waiting for pending register writes
@@ -393,14 +441,39 @@ impl<'a> BaseSchedulerUnit<'a> {
         // of these we issued one
         let mut issued_inst = false;
 
+        dbg!(&self.next_cycle_prioritized_warps.len());
+        dbg!(&self.supervised_warps.len());
+        dbg!(&self.last_supervised_issued_idx);
+
+        dbg!(&self.warps
+            .iter()
+            .map(|w| w.lock().unwrap().instruction_count())
+            .sum::<usize>());
+        dbg!(&self.supervised_warps
+            .iter()
+            .map(|w| w.lock().unwrap().instruction_count())
+            .sum::<usize>());
+
+        dbg!(&self
+            .next_cycle_prioritized_warps
+            .iter()
+            .map(|w| w.lock().unwrap().instruction_count())
+            .sum::<usize>());
+
+        println!("supervised warps: {:#?}", self.supervised_warps.iter().map(|w| w.lock().unwrap().instruction_count()).collect::<Vec<_>>());
+        println!("next_cycle_prioritized_warps: {:#?}", self.next_cycle_prioritized_warps.iter().map(|w| w.lock().unwrap().instruction_count()).collect::<Vec<_>>());
+
         for next_warp in &self.next_cycle_prioritized_warps {
             // don't consider warps that are not yet valid
+            let next_warp = next_warp.lock().unwrap();
+            let (warp_id, dyn_warp_id) = (next_warp.warp_id, next_warp.dynamic_warp_id);
             if next_warp.done_exit() {
                 continue;
             }
             println!(
-                "scheduler: testing (warp_id {}, dynamic_warp_id {})",
-                next_warp.warp_id, next_warp.dynamic_warp_id,
+                "scheduler: \n\t => testing (warp_id {}, dynamic_warp_id {}, pc {:?}, {} instructions)",
+                warp_id, dyn_warp_id, 
+                next_warp.trace_start_pc(), next_warp.instruction_count(),
             );
             let mut checked = 0;
             let mut issued = 0;
@@ -414,38 +487,47 @@ impl<'a> BaseSchedulerUnit<'a> {
             if next_warp.ibuffer_empty() {
                 println!(
                     "warp (warp_id {}, dynamic_warp_id {}) fails as ibuffer_empty",
-                    next_warp.warp_id, next_warp.dynamic_warp_id
+                    warp_id, dyn_warp_id
                 );
             }
 
             if next_warp.waiting() {
                 println!(
                     "warp (warp_id {}, dynamic_warp_id {}) fails as waiting for barrier",
-                    next_warp.warp_id, next_warp.dynamic_warp_id
+                    warp_id, dyn_warp_id
                 );
             }
 
+            println!("locking warp {}", warp_id);
             let warp = self
                 .warps
-                .get_mut(next_warp.warp_id)
-                .unwrap()
-                .as_mut()
+                // .get_mut(warp_id)
+                .get(warp_id)
                 .unwrap();
+            drop(next_warp);
+            let mut warp = warp.lock().unwrap();
+            println!("locked warp {}", warp_id);
+            // .as_mut()
+            // .as_ref()
+            // .unwrap();
             while !warp.waiting()
                 && !warp.ibuffer_empty()
                 && checked < max_issue
                 && checked <= issued
                 && issued < max_issue
             {
+                dbg!(&checked);
+                dbg!(&issued);
+                dbg!(&max_issue);
                 // let valid = warp.ibuffer_next_valid();
                 let mut warp_inst_issued = false;
 
                 if let Some(instr) = warp.ibuffer_next_inst() {
-                    let (pc, rpc) = get_pdom_stack_top_info(next_warp.warp_id, instr);
+                    let (pc, rpc) = get_pdom_stack_top_info(warp_id, instr);
                     println!(
                         "Warp (warp_id {}, dynamic_warp_id {}) has valid instruction ({})",
-                        next_warp.warp_id,
-                        next_warp.dynamic_warp_id,
+                        warp_id,
+                        dyn_warp_id,
                         // instr
                         // m_shader->m_config->gpgpu_ctx->func_sim->ptx_get_insn_str(pc).c_str()
                         "todo",
@@ -454,20 +536,20 @@ impl<'a> BaseSchedulerUnit<'a> {
                     if pc != instr.pc {
                         println!(
                             "Warp (warp_id {}, dynamic_warp_id {}) control hazard instruction flush",
-                            next_warp.warp_id, next_warp.dynamic_warp_id);
+                            warp_id, dyn_warp_id);
                         // control hazard
                         warp.set_next_pc(pc);
                         warp.ibuffer_flush();
                     } else {
                         valid_inst = true;
-                        if !self.scoreboard.check_collision(next_warp.warp_id, instr) {
+                        if !self.scoreboard.check_collision(warp_id, instr) {
                             println!(
                                 "Warp (warp_id {}, dynamic_warp_id {}) passes scoreboard",
-                                next_warp.warp_id, next_warp.dynamic_warp_id
+                                warp_id, dyn_warp_id
                             );
                             ready_inst = true;
 
-                            let active_mask = self.core.get_active_mask(next_warp.warp_id, instr);
+                            let active_mask = core.active_mask(warp_id, instr);
 
                             debug_assert!(warp.has_instr_in_pipeline());
 
@@ -478,31 +560,31 @@ impl<'a> BaseSchedulerUnit<'a> {
                                 | ArchOp::MEMORY_BARRIER_OP
                                 | ArchOp::TENSOR_CORE_LOAD_OP
                                 | ArchOp::TENSOR_CORE_STORE_OP => {
-                                    if self
-                                        .mem_out
-                                        .has_free_sub_core(self.config.sub_core_model, self.id)
-                                        && (!diff_exec_units
-                                            || prev_issued_exec_unit != ExecUnitKind::MEM)
-                                    {
-                                        self.core.issue_warp(
-                                            self.mem_out,
-                                            instr,
-                                            active_mask,
-                                            next_warp.warp_id,
-                                            self.id,
-                                        );
-                                        issued += 1;
-                                        issued_inst = true;
-                                        warp_inst_issued = true;
-                                        prev_issued_exec_unit = ExecUnitKind::MEM;
-                                    }
+                                    // if self
+                                    //     .mem_out
+                                    //     .has_free_sub_core(self.config.sub_core_model, self.id)
+                                    //     && (!diff_exec_units
+                                    //         || prev_issued_exec_unit != ExecUnitKind::MEM)
+                                    // {
+                                    //     core.issue_warp(
+                                    //         mem_out,
+                                    //         instr,
+                                    //         active_mask,
+                                    //         next_warp.warp_id,
+                                    //         self.id,
+                                    //     );
+                                    //     issued += 1;
+                                    //     issued_inst = true;
+                                    //     warp_inst_issued = true;
+                                    //     prev_issued_exec_unit = ExecUnitKind::MEM;
+                                    // }
                                 }
                                 op => unimplemented!("op {:?} no implemented", op),
                             }
                         } else {
                             println!(
                                 "Warp (warp_id {}, dynamic_warp_id {}) fails scoreboard",
-                                next_warp.warp_id, next_warp.dynamic_warp_id
+                                warp_id, dyn_warp_id
                             );
                         }
                     }
@@ -519,7 +601,7 @@ impl<'a> BaseSchedulerUnit<'a> {
                 if warp_inst_issued {
                     println!(
                         "Warp (warp_id {}, dynamic_warp_id {}) issued {} instructions",
-                        next_warp.warp_id, next_warp.dynamic_warp_id, issued
+                        warp_id, dyn_warp_id, issued
                     );
                     // m_stats->event_warp_issued(m_shader->get_sid(), warp_id, num_issued, warp(warp_id).get_dynamic_warp_id());
                     warp.ibuffer_step();
@@ -535,7 +617,8 @@ impl<'a> BaseSchedulerUnit<'a> {
                 // m_next_cycle_prioritized_warps vector.
                 // For now, just run through until you find the right warp_id
                 for (sup_idx, supervised) in self.supervised_warps.iter().enumerate() {
-                    if next_warp == supervised {
+                    // if *next_warp == *supervised.lock().unwrap().warp_id {
+                    if warp_id == supervised.lock().unwrap().warp_id {
                         self.last_supervised_issued_idx = sup_idx;
                     }
                 }
@@ -547,7 +630,7 @@ impl<'a> BaseSchedulerUnit<'a> {
                 }
                 break;
             } else {
-                panic!("issued should be > 0");
+                println!("WARN: issued should be > 0");
             }
         }
 
@@ -568,13 +651,22 @@ impl<'a> BaseSchedulerUnit<'a> {
 }
 
 pub trait SchedulerUnit {
-    fn cycle(&mut self) {
+    fn cycle(&mut self, core: &mut super::core::InnerSIMTCore) {
+        // fn cycle(&mut self) {
         todo!("scheduler unit: cycle");
     }
 
-    fn add_supervised_warp_id(&mut self, warp_id: usize) {
+    fn done_adding_supervised_warps(&mut self) {
+        todo!("scheduler unit: done_adding_supervised_warps");
+    }
+
+    fn add_supervised_warp(&mut self, warp: CoreWarp) {
         todo!("scheduler unit: add supervised warp id");
     }
+
+    // fn add_supervised_warp_id(&mut self, warp_id: usize) {
+    //     todo!("scheduler unit: add supervised warp id");
+    // }
 
     /// Order warps based on scheduling policy.
     ///
@@ -592,15 +684,15 @@ pub trait SchedulerUnit {
 }
 
 #[derive(Debug)]
-// pub struct LrrScheduler {
-// inner: BaseSchedulerUnit,
-// }
-pub struct LrrScheduler<'a> {
-    inner: BaseSchedulerUnit<'a>,
+pub struct LrrScheduler {
+    inner: BaseSchedulerUnit,
 }
+// pub struct LrrScheduler<'a> {
+//     inner: BaseSchedulerUnit<'a>,
+// }
 
-// impl BaseSchedulerUnit {
-impl<'a> BaseSchedulerUnit<'a> {
+impl BaseSchedulerUnit {
+    // impl<'a> BaseSchedulerUnit<'a> {
     fn order_by_priority(&mut self) {
         todo!("base scheduler unit: order by priority");
     }
@@ -625,12 +717,10 @@ impl<'a> BaseSchedulerUnit<'a> {
 
         out.clear();
 
-        let current_turn_warp = self
-            .warps
-            .get(self.current_turn_warp)
-            .unwrap()
-            .as_ref()
-            .unwrap();
+        let current_turn_warp_ref = self.warps.get(self.current_turn_warp).unwrap();
+        let current_turn_warp = current_turn_warp_ref.lock().unwrap();
+        // .as_ref()
+        // .unwrap();
 
         if self.num_issued_last_cycle > 0
             || current_turn_warp.done_exit()
@@ -646,10 +736,11 @@ impl<'a> BaseSchedulerUnit<'a> {
                 .skip(self.last_supervised_issued_idx + 1)
                 .chain(self.supervised_warps.iter());
 
-            for warp in iter.take(num_warps_to_add) {
+            for w in iter.take(num_warps_to_add) {
+                let warp = w.lock().unwrap();
                 let warp_id = warp.warp_id;
                 if !warp.done_exit() && !warp.waiting() {
-                    out.push_back(warp.clone());
+                    out.push_back(w.clone());
                     self.current_turn_warp = warp_id;
                     break;
                 }
@@ -666,7 +757,7 @@ impl<'a> BaseSchedulerUnit<'a> {
             //   }
             // }
         } else {
-            out.push_back(current_turn_warp);
+            out.push_back(current_turn_warp_ref.clone());
         }
     }
 
@@ -692,11 +783,11 @@ impl<'a> BaseSchedulerUnit<'a> {
         //
         let mut last_iter = self.warps.iter().skip(self.last_supervised_issued_idx);
 
-        let mut iter = last_iter
-            .chain(self.warps.iter())
-            .filter_map(|x| x.as_ref());
+        let mut iter = last_iter.chain(self.warps.iter());
+        // .filter_map(|x| x.as_ref());
+        // .filter_map(|x| x.as_ref());
 
-        out.extend(iter.take(num_warps_to_add));
+        out.extend(iter.take(num_warps_to_add).cloned());
         // for count in 0..num_warps_to_add {
         //     let Some(warp) = iter.next() else {
         //         return;
@@ -710,8 +801,8 @@ impl<'a> BaseSchedulerUnit<'a> {
     }
 }
 
-// impl SchedulerUnit for LrrScheduler {
-impl<'a> SchedulerUnit for LrrScheduler<'a> {
+impl SchedulerUnit for LrrScheduler {
+    // impl<'a> SchedulerUnit for LrrScheduler<'a> {
     fn order_warps(
         &mut self,
         // out: &mut VecDeque<SchedulerWarp>,
@@ -730,27 +821,29 @@ impl<'a> SchedulerUnit for LrrScheduler<'a> {
         // );
     }
 
-    fn add_supervised_warp_id(&mut self, warp_id: usize) {
-        self.inner.add_supervised_warp_id(warp_id);
+    fn add_supervised_warp(&mut self, warp: CoreWarp) {
+        self.inner.supervised_warps.push_back(warp);
+        // self.inner.add_supervised_warp_id(warp_id);
     }
 
-    fn cycle(&mut self) {
-        // let test = &mut self.inner.next_cycle_prioritized_warps;
-        // let test2 = &mut self.inner.supervised_warps;
+    // fn add_supervised_warp_id(&mut self, warp_id: usize) {
+    //     self.inner.add_supervised_warp_id(warp_id);
+    // }
+
+    fn done_adding_supervised_warps(&mut self) {
+        self.inner.last_supervised_issued_idx = self.inner.supervised_warps.len();
+    }
+
+    fn cycle(&mut self, core: &mut super::core::InnerSIMTCore) {
+        println!("lrr scheduler: cycle enter");
         self.order_warps();
-        // self.order_warps(
-        //     ,
-        //     &mut self.inner.,
-        //     &self.inner.last_supervised_issued,
-        //     num_warps_to_add,
-        // );
-        self.inner.cycle();
-        // todo!("lrr scheduler: cycle")
+        self.inner.cycle(core);
+        println!("lrr scheduler: cycle exit");
     }
 }
 
-impl<'a> LrrScheduler<'a> {
-    // impl LrrScheduler {
+// impl<'a> LrrScheduler<'a> {
+impl LrrScheduler {
     // fn order_warps(
     //     &self,
     //     out: &mut VecDeque<SchedulerWarp>,
@@ -762,15 +855,21 @@ impl<'a> LrrScheduler<'a> {
     // }
 
     pub fn new(
-        warps: &'a Vec<Option<SchedulerWarp>>,
         id: usize,
-        mem_out: register_set::RegisterSet,
-        core: &'a super::core::SIMTCore,
+        // warps: &'a Vec<SchedulerWarp>,
+        warps: Vec<CoreWarp>,
+        // warps: &'a Vec<Option<SchedulerWarp>>,
+        // mem_out: &'a register_set::RegisterSet,
+        // core: &'a super::core::InnerSIMTCore,
         scoreboard: Arc<scoreboard::Scoreboard>,
         stats: Arc<Mutex<Stats>>,
         config: Arc<GPUConfig>,
     ) -> Self {
-        let inner = BaseSchedulerUnit::new(warps, id, mem_out, core, scoreboard, stats, config);
+        // todo!("lrr scheduler: new");
+        let inner = BaseSchedulerUnit::new(
+            id, // mem_out, core,
+            warps, scoreboard, stats, config,
+        );
         Self { inner }
     }
     // lrr_scheduler(shader_core_stats *stats, shader_core_ctx *shader,
@@ -785,9 +884,6 @@ impl<'a> LrrScheduler<'a> {
     //                      mem_out, id) {}
 
     // virtual void order_warps();
-    // virtual void done_adding_supervised_warps() {
-    //   m_last_supervised_issued = m_supervised_warps.end();
-    // }
 }
 
 #[derive(Debug)]
@@ -812,22 +908,22 @@ impl GTOScheduler {
 
         // ORDERING_GREEDY_THEN_PRIORITY_FUNC
         out.clear();
-        let greedy_value = last_issued_warps.first();
-        if let Some(greedy_value) = greedy_value {
-            out.push_back(greedy_value.clone());
-        }
-
-        warps.sort_by(sort_warps_by_oldest_dynamic_id);
-        out.extend(
-            warps
-                .iter()
-                .take_while(|w| match greedy_value {
-                    None => true,
-                    Some(val) => *w != val,
-                })
-                .take(num_warps_to_add)
-                .cloned(),
-        );
+        // let greedy_value = last_issued_warps.first();
+        // if let Some(greedy_value) = greedy_value {
+        //     out.push_back(greedy_value.clone());
+        // }
+        //
+        // warps.sort_by(sort_warps_by_oldest_dynamic_id);
+        // out.extend(
+        //     warps
+        //         .iter()
+        //         .take_while(|w| match greedy_value {
+        //             None => true,
+        //             Some(val) => *w != val,
+        //         })
+        //         .take(num_warps_to_add)
+        //         .cloned(),
+        // );
 
         //     typename std::vector<T>::iterator iter = temp.begin();
         //     for (unsigned count = 0; count < num_warps_to_add; ++count, ++iter) {

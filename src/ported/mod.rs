@@ -1,11 +1,10 @@
 #![allow(warnings)]
 
 pub mod addrdec;
+pub mod barrier;
 pub mod cache;
 pub mod cache_block;
 pub mod core;
-pub mod scoreboard;
-pub mod barrier;
 pub mod instruction;
 pub mod interconn;
 pub mod l1;
@@ -18,6 +17,7 @@ pub mod opcodes;
 pub mod operand_collector;
 pub mod register_set;
 pub mod scheduler;
+pub mod scoreboard;
 pub mod set_index_function;
 pub mod stats;
 pub mod tag_array;
@@ -223,8 +223,8 @@ impl KernelInfo {
     // pub fn next_threadblock_traces(&self) -> Vec<MemAccessTraceEntry> {
     // pub fn next_threadblock_traces(&self, warps: &mut [Option<SchedulerWarp>]) {
     // pub fn next_threadblock_traces(&self, kernel: &KernelInfo, warps: &mut [SchedulerWarp]) {
-    // pub  fn next_threadblock_traces(&self, warps: &mut [SchedulerWarp]) {
-    pub fn next_threadblock_traces(&self, warps: &mut [Option<SchedulerWarp>]) {
+    pub fn next_threadblock_traces(&self, warps: &mut [Arc<Mutex<SchedulerWarp>>]) {
+        // pub fn next_threadblock_traces(&self, warps: &mut [Option<SchedulerWarp>]) {
         // debug_assert!(self.next_block.is_some());
         // todo!("next_threadblock_traces");
         // debug_assert!(self.next_block_iter.peek().is_some());
@@ -247,28 +247,30 @@ impl KernelInfo {
             let warp_id = trace.warp_id as usize;
             let instr = instruction::WarpInstruction::from_trace(&self, trace);
             // warps[warp_id] = Some(SchedulerWarp::default());
-            let warp = warps.get_mut(warp_id).unwrap().as_mut().unwrap();
-            warp.trace_instructions.push_back(instr);
+            let warp = warps.get_mut(warp_id).unwrap();
+            let mut warp = warp.lock().unwrap();
+            // .as_mut().unwrap();
+            // warp.trace_instructions.push_back(instr);
+            warp.push_trace_instruction(instr);
         }
 
         // set the pc from the traces and ignore the functional model
         for warp in warps.iter_mut() {
-            if let Some(warp) = warp {
-                let num_instr = warp.trace_instructions.len();
-                if num_instr > 0 {
-                    println!("warp {}: {num_instr} instructions", warp.warp_id);
-                }
-                warp.next_pc = warp.trace_start_pc();
+            // if let Some(warp) = warp {
+            let mut warp = warp.lock().unwrap();
+            let num_instr = warp.instruction_count();
+            if num_instr > 0 {
+                println!("warp {}: {num_instr} instructions", warp.warp_id);
             }
+            // for schedwarps without any instructions, there is no pc
+            // before, we used option<schedwarp> which was in a way cleaner..
+            if let Some(start_pc) = warp.trace_start_pc() {
+                warp.set_next_pc(start_pc);
+            }
+            // }
         }
         // println!("added {total} instructions");
     }
-
-    // pub fn next_threadblock_traces(&self) -> impl Iterator<Item = MemAccessTraceEntry> + '_ {
-    //     let mut iter = self.trace_iter.write().unwrap();
-    //     iter.take_while_ref(|entry| Some(entry.block_id) == self.next_block).collect()
-    //         // .cloned()
-    // }
 
     pub fn inc_running(&mut self) {
         self.num_cores_running += 1;
@@ -368,19 +370,21 @@ pub fn parse_commands(path: impl AsRef<Path>) -> eyre::Result<Vec<Command>> {
 }
 
 #[derive(Debug, Default)]
-pub struct MockSimulator {
+pub struct MockSimulator<'a> {
     stats: Arc<Mutex<Stats>>,
     config: Arc<config::GPUConfig>,
     memory_partition_units: Vec<MemoryPartitionUnit>,
     memory_sub_partitions: Vec<MemorySubPartition>,
     running_kernels: Vec<Option<Arc<KernelInfo>>>,
     executed_kernels: Mutex<HashMap<usize, String>>,
-    clusters: Vec<SIMTCoreCluster>,
+    // clusters: Vec<SIMTCoreCluster>,
+    clusters: Vec<SIMTCoreCluster<'a>>,
     last_cluster_issue: usize,
     last_issued_kernel: usize,
 }
 
-impl MockSimulator {
+// impl MockSimulator {
+impl<'a> MockSimulator<'a> {
     // see new trace_gpgpu_sim(
     //      *(m_gpgpu_context->the_gpgpusim->g_the_gpu_config),
     //      m_gpgpu_context);
@@ -655,7 +659,7 @@ impl MockSimulator {
         let mut active_sms = 0;
         // if (clock_mask & CORE) {
         for cluster in &mut self.clusters {
-            if cluster.not_completed() {
+            if cluster.not_completed() > 0 {
                 cluster.cycle();
                 active_sms += cluster.num_active_sms();
             }
@@ -811,6 +815,7 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> eyre::Result<()> {
     let mut config = config::GPUConfig::default();
     config.num_simt_clusters = 1;
     config.num_cores_per_simt_cluster = 1;
+    config.num_schedulers_per_core = 1;
     let config = Arc::new(config);
 
     assert!(config.max_threads_per_shader.rem_euclid(config.warp_size) == 0);

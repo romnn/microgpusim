@@ -11,6 +11,7 @@ use bitvec::{array::BitArray, BitArr};
 use color_eyre::eyre;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, RwLock};
+use strum::{EnumCount, IntoEnumIterator};
 
 // Volta max shmem size is 96kB
 pub const SHARED_MEM_SIZE_MAX: usize = 96 * (1 << 10);
@@ -72,7 +73,7 @@ impl InstrFetchBuffer {
 }
 
 #[derive()]
-pub struct SIMTCore {
+pub struct InnerSIMTCore {
     pub core_id: usize,
     pub cluster_id: usize,
 
@@ -97,8 +98,10 @@ pub struct SIMTCore {
     // pub instr_l1_cache: l1::ReadOnly<I>,
     pub instr_l1_cache: Box<dyn cache::Cache>,
     pub instr_fetch_buffer: InstrFetchBuffer,
+    // pub warps: Vec<Arc<sched::SchedulerWarp>>,
+    pub warps: Vec<Arc<Mutex<sched::SchedulerWarp>>>,
     // pub warps: Vec<sched::SchedulerWarp>,
-    pub warps: Vec<Option<sched::SchedulerWarp>>,
+    // pub warps: Vec<Option<sched::SchedulerWarp>>,
     pub thread_state: Vec<Option<ThreadState>>,
     pub thread_info: Vec<Option<ThreadInfo>>,
     pub scoreboard: Arc<scoreboard::Scoreboard>,
@@ -106,15 +109,109 @@ pub struct SIMTCore {
     pub barriers: barrier::BarrierSet,
     // pub schedulers: Vec<super::SchedulerUnit>,
     // pub schedulers: Vec<LoadStoreUnit>,
-    pub schedulers: VecDeque<Box<dyn sched::SchedulerUnit>>,
+    // pub schedulers: VecDeque<Box<dyn sched::SchedulerUnit>>,
 }
 
-impl std::fmt::Debug for SIMTCore {
+impl std::fmt::Debug for InnerSIMTCore {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SIMTCore")
+        f.debug_struct("InnerSIMTCore")
             .field("core_id", &self.core_id)
             .field("cluster_id", &self.cluster_id)
             .finish()
+    }
+}
+
+impl InnerSIMTCore {
+    pub fn active_mask(&self, warp_id: usize, instr: &WarpInstruction) -> sched::ThreadActiveMask {
+        // for trace-driven, the active mask already set in traces
+        instr.active_mask
+    }
+
+    pub fn issue_warp(
+        &self,
+        pipe_reg_set: &register_set::RegisterSet,
+        next_inst: &WarpInstruction,
+        active_mask: sched::ThreadActiveMask,
+        warp_id: usize,
+        sch_id: usize,
+    ) {
+        // warp_inst_t **pipe_reg =
+        //     pipe_reg_set.get_free(m_config->sub_core_model, sch_id);
+        // assert(pipe_reg);
+        //
+        // m_warp[warp_id]->ibuffer_free();
+        // assert(next_inst->valid());
+        // **pipe_reg = *next_inst;  // static instruction information
+        // (*pipe_reg)->issue(active_mask, warp_id,
+        //                    m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle,
+        //                    m_warp[warp_id]->get_dynamic_warp_id(),
+        //                    sch_id);  // dynamic instruction information
+        // m_stats->shader_cycle_distro[2 + (*pipe_reg)->active_count()]++;
+        // func_exec_inst(**pipe_reg);
+        //
+        // if (next_inst->op == BARRIER_OP) {
+        //   m_warp[warp_id]->store_info_of_last_inst_at_barrier(*pipe_reg);
+        //   m_barriers.warp_reaches_barrier(m_warp[warp_id]->get_cta_id(), warp_id,
+        //                                   const_cast<warp_inst_t *>(next_inst));
+        //
+        // } else if (next_inst->op == MEMORY_BARRIER_OP) {
+        //   m_warp[warp_id]->set_membar();
+        // }
+        //
+        // updateSIMTStack(warp_id, *pipe_reg);
+        //
+        // m_scoreboard->reserveRegisters(*pipe_reg);
+        // m_warp[warp_id]->set_next_pc(next_inst->pc + next_inst->isize);
+    }
+}
+
+#[derive()]
+pub struct SIMTCore<'a> {
+    // pub core_id: usize,
+    // pub cluster_id: usize,
+    //
+    // pub stats: Arc<Mutex<Stats>>,
+    // pub config: Arc<GPUConfig>,
+    // pub current_kernel: Option<Arc<KernelInfo>>,
+    // pub last_warp_fetched: Option<usize>,
+    //
+    // pub active_thread_mask: BitArr!(for MAX_THREAD_PER_SM),
+    // pub occupied_hw_thread_ids: BitArr!(for MAX_THREAD_PER_SM),
+    // pub dynamic_warp_id: usize,
+    // pub num_active_blocks: usize,
+    // pub num_active_warps: usize,
+    // pub num_active_threads: usize,
+    // pub num_occupied_threads: usize,
+    //
+    // pub max_blocks_per_shader: usize,
+    // pub thread_block_size: usize,
+    // pub occupied_block_to_hw_thread_id: HashMap<usize, usize>,
+    // pub block_status: [usize; MAX_CTA_PER_SHADER],
+    //
+    // // pub instr_l1_cache: l1::ReadOnly<I>,
+    // pub instr_l1_cache: Box<dyn cache::Cache>,
+    // pub instr_fetch_buffer: InstrFetchBuffer,
+    // // pub warps: Vec<sched::SchedulerWarp>,
+    // pub warps: Vec<Option<sched::SchedulerWarp>>,
+    // pub thread_state: Vec<Option<ThreadState>>,
+    // pub thread_info: Vec<Option<ThreadInfo>>,
+    // pub scoreboard: Arc<scoreboard::Scoreboard>,
+    // pub pipeline_reg: Vec<register_set::RegisterSet>,
+    // pub barriers: barrier::BarrierSet,
+    // pub schedulers: Vec<super::SchedulerUnit>,
+    // pub schedulers: Vec<LoadStoreUnit>,
+    pub schedulers: VecDeque<Box<dyn sched::SchedulerUnit + 'a>>,
+    pub inner: InnerSIMTCore,
+}
+
+// impl std::fmt::Debug for SIMTCore {
+impl<'a> std::fmt::Debug for SIMTCore<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(&self.inner, f)
+        // f.debug_struct("SIMTCore")
+        //     .field("core_id", &self.inner.core_id)
+        //     .field("cluster_id", &self.inner.cluster_id)
+        //     .finish()
     }
 }
 
@@ -137,7 +234,8 @@ pub enum PipelineStage {
     // N_PIPELINE_STAGE= S
 }
 
-impl SIMTCore {
+// impl SIMTCore {
+impl<'a> SIMTCore<'a> {
     // void core_t::get_pdom_stack_top_info(unsigned warpId, unsigned *pc,
     //                                      unsigned *rpc) const {
     //   m_simt_stack[warpId]->get_pdom_stack_top_info(pc, rpc);
@@ -161,9 +259,13 @@ impl SIMTCore {
         );
         // self.warps.reserve_exact(self.config.max_threads_per_shader);
         let warps: Vec<_> = (0..config.max_warps_per_core())
-            .map(|_| None)
-            // .map(|_| SchedulerWarp::new())
+            // .map(|_| None)
+            // .map(|_| Arc::new(SchedulerWarp::default()))
+            .map(|_| Arc::new(Mutex::new(SchedulerWarp::default())))
+            // .map(|_| SchedulerWarp::default())
             .collect();
+        // dbg!(&warps);
+
         let port = ic::Interconnect {};
         let instr_l1_cache = l1::ReadOnly::new(
             core_id,
@@ -194,7 +296,6 @@ impl SIMTCore {
 
         // pipeline_stages is the sum of normal pipeline stages
         // and specialized_unit stages * 2 (for ID and EX)
-        use strum::{EnumCount, IntoEnumIterator};
         let total_pipeline_stages = PipelineStage::COUNT; //  + config.num_specialized_unit.len() * 2;
                                                           // let pipeline_reg = (0..total_pipeline_stages)
         let pipeline_reg: Vec<_> = PipelineStage::iter()
@@ -223,46 +324,97 @@ impl SIMTCore {
         //   m_config->m_specialized_unit[j].OC_EX_SPEC_ID = m_pipeline_reg.size() - 1;
         // }
 
-        let scheduler_kind = config::SchedulerKind::LRR;
-        // std::string sched_config = m_config->gpgpu_scheduler_string;
-        // const concrete_scheduler scheduler =
-        //     sched_config.find("lrr") != std::string::npos
-        //         ? CONCRETE_SCHEDULER_LRR
-        //         : sched_config.find("two_level_active") != std::string::npos
-        //               ? CONCRETE_SCHEDULER_TWO_LEVEL_ACTIVE
-        //               : sched_config.find("gto") != std::string::npos
-        //                     ? CONCRETE_SCHEDULER_GTO
-        //                     : sched_config.find("rrr") != std::string::npos
-        //                           ? CONCRETE_SCHEDULER_RRR
-        //                     : sched_config.find("old") != std::string::npos
-        //                           ? CONCRETE_SCHEDULER_OLDEST_FIRST
-        //                           : sched_config.find("warp_limiting") !=
-        //                                     std::string::npos
-        //                                 ? CONCRETE_SCHEDULER_WARP_LIMITING
-        //                                 : NUM_CONCRETE_SCHEDULERS;
-        // assert(scheduler != NUM_CONCRETE_SCHEDULERS);
+        let mut inner = InnerSIMTCore {
+            core_id,
+            cluster_id,
+            stats,
+            config: config.clone(),
+            current_kernel: None,
+            last_warp_fetched: None,
+            active_thread_mask: BitArray::ZERO,
+            occupied_hw_thread_ids: BitArray::ZERO,
+            dynamic_warp_id: 0,
+            num_active_blocks: 0,
+            num_active_warps: 0,
+            num_active_threads: 0,
+            num_occupied_threads: 0,
+            max_blocks_per_shader: 0,
+            thread_block_size: 0,
+            occupied_block_to_hw_thread_id: HashMap::new(),
+            block_status: [0; MAX_CTA_PER_SHADER],
+            instr_l1_cache: Box::new(instr_l1_cache),
+            instr_fetch_buffer: InstrFetchBuffer::default(),
+            warps: warps.clone(),
+            pipeline_reg: pipeline_reg.clone(),
+            scoreboard: scoreboard.clone(),
+            barriers,
+            thread_state,
+            thread_info,
+            // schedulers,
+        };
+        let mut core = Self {
+            inner,
+            schedulers: VecDeque::new(),
+        };
+
+        // m_threadState = (thread_ctx_t *)calloc(sizeof(thread_ctx_t),
+        //                                        m_config->n_thread_per_shader);
         //
-        let mut schedulers: VecDeque<Box<dyn sched::SchedulerUnit>> = VecDeque::new();
-        for sched_id in 0..config.num_schedulers_per_core {
-            match scheduler_kind {
+        // m_not_completed = 0;
+        // m_active_threads.reset();
+        // m_n_active_cta = 0;
+        // for (unsigned i = 0; i < MAX_CTA_PER_SHADER; i++) m_cta_status[i] = 0;
+        // for (unsigned i = 0; i < m_config->n_thread_per_shader; i++) {
+        //   m_thread[i] = NULL;
+        //   m_threadState[i].m_cta_id = -1;
+        //   m_threadState[i].m_active = false;
+        // }
+        //
+        // // m_icnt = new shader_memory_interface(this,cluster);
+        // if (m_config->gpgpu_perfect_mem) {
+        //   m_icnt = new perfect_memory_interface(this, m_cluster);
+        // } else {
+        //   m_icnt = new shader_memory_interface(this, m_cluster);
+        // }
+        // m_mem_fetch_allocator =
+        //     new shader_core_mem_fetch_allocator(m_sid, m_tpc, m_memory_config);
+        //
+        // // fetch
+        // m_last_warp_fetched = 0;
+
+        // core.create_front_pipeline();
+        // core.create_warps();
+        // core.create_schedulers();
+        // core.create_exec_pipeline();
+
+        core.init_schedulers();
+        core
+    }
+
+    pub fn init_schedulers(&mut self) {
+        let scheduler_kind = config::SchedulerKind::LRR;
+        // let mut schedulers: VecDeque<Box<dyn sched::SchedulerUnit>> = VecDeque::new();
+        dbg!(&self.inner.config.num_schedulers_per_core);
+        self.schedulers = (0..self.inner.config.num_schedulers_per_core)
+            .map(|sched_id| match scheduler_kind {
                 config::SchedulerKind::LRR => {
-                    let mem_out = pipeline_reg[PipelineStage::ID_OC_MEM as usize].clone();
-                    let lrr = sched::LrrScheduler::new(
-                        &warps,
+                    let mem_out = &self.inner.pipeline_reg[PipelineStage::ID_OC_MEM as usize];
+                    Box::new(sched::LrrScheduler::new(
+                        // &self.inner.warps,
                         sched_id,
-                        mem_out,
-                        self,
-                        scoreboard.clone(),
-                        stats.clone(),
-                        config.clone(),
+                        self.inner.warps.clone(),
+                        // mem_out,
+                        // &self.inner,
+                        self.inner.scoreboard.clone(),
+                        self.inner.stats.clone(),
+                        self.inner.config.clone(),
                         // m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
                         // &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
                         // &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
                         // &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
                         // &m_pipeline_reg[ID_OC_MEM], i
-                    );
-                    schedulers.push_back(Box::new(lrr));
-                    // schedulers.push_back(Box::new(lrr) as Box<dyn sched::SchedulerUnit>);
+                    )) as Box<dyn sched::SchedulerUnit>
+                    // self.schedulers.push_back(Box::new(lrr));
                 }
                 other => todo!("scheduler: {:?}", &other),
                 //             SchedulerKind::TwoLevelActive => {
@@ -310,37 +462,38 @@ impl SIMTCore {
                 //                   &m_pipeline_reg[ID_OC_MEM], i, m_config->gpgpu_scheduler_string);
                 //               schedulers.push_back(swl);
                 //         },
-            }
-        }
+            })
+            .collect();
+        // }
 
-        for (i, warp) in warps.iter().enumerate() {
-            // for (unsigned i = 0; i < warps.size(); i++) {
+        for (i, warp) in self.inner.warps.iter().enumerate() {
             // distribute i's evenly though schedulers;
-            let scheduler = &mut schedulers[i % config.num_schedulers_per_core];
-            scheduler.add_supervised_warp_id(i);
+            let sched_idx = i % self.inner.config.num_schedulers_per_core;
+            let scheduler = &mut self.schedulers[sched_idx];
+            scheduler.add_supervised_warp(warp.clone());
         }
-        for scheduler in &schedulers {
-            todo!("call done_adding_supervised_warps");
-            // scheduler.done_adding_supervised_warps();
+        for scheduler in self.schedulers.iter_mut() {
+            // todo!("call done_adding_supervised_warps");
+            scheduler.done_adding_supervised_warps();
         }
         // for (unsigned i = 0; i < m_config->gpgpu_num_sched_per_core; ++i) {
         //   schedulers[i]->done_adding_supervised_warps();
         // }
 
-        if config.sub_core_model {
+        if self.inner.config.sub_core_model {
             // in subcore model, each scheduler should has its own
             // issue register, so ensure num scheduler = reg width
             debug_assert_eq!(
-                config.num_schedulers_per_core,
-                pipeline_reg[PipelineStage::ID_OC_SP as usize].size()
+                self.inner.config.num_schedulers_per_core,
+                self.inner.pipeline_reg[PipelineStage::ID_OC_SP as usize].size()
             );
             debug_assert_eq!(
-                config.num_schedulers_per_core,
-                pipeline_reg[PipelineStage::ID_OC_SFU as usize].size()
+                self.inner.config.num_schedulers_per_core,
+                self.inner.pipeline_reg[PipelineStage::ID_OC_SFU as usize].size()
             );
             debug_assert_eq!(
-                config.num_schedulers_per_core,
-                pipeline_reg[PipelineStage::ID_OC_MEM as usize].size()
+                self.inner.config.num_schedulers_per_core,
+                self.inner.pipeline_reg[PipelineStage::ID_OC_MEM as usize].size()
             );
             // if (m_config->gpgpu_tensor_core_avail)
             //   assert(m_config->gpgpu_num_sched_per_core ==
@@ -357,65 +510,10 @@ impl SIMTCore {
             //            m_config->m_specialized_unit[j].id_oc_spec_reg_width);
             // }
         }
+    }
 
-        // m_threadState = (thread_ctx_t *)calloc(sizeof(thread_ctx_t),
-        //                                        m_config->n_thread_per_shader);
-        //
-        // m_not_completed = 0;
-        // m_active_threads.reset();
-        // m_n_active_cta = 0;
-        // for (unsigned i = 0; i < MAX_CTA_PER_SHADER; i++) m_cta_status[i] = 0;
-        // for (unsigned i = 0; i < m_config->n_thread_per_shader; i++) {
-        //   m_thread[i] = NULL;
-        //   m_threadState[i].m_cta_id = -1;
-        //   m_threadState[i].m_active = false;
-        // }
-        //
-        // // m_icnt = new shader_memory_interface(this,cluster);
-        // if (m_config->gpgpu_perfect_mem) {
-        //   m_icnt = new perfect_memory_interface(this, m_cluster);
-        // } else {
-        //   m_icnt = new shader_memory_interface(this, m_cluster);
-        // }
-        // m_mem_fetch_allocator =
-        //     new shader_core_mem_fetch_allocator(m_sid, m_tpc, m_memory_config);
-        //
-        // // fetch
-        // m_last_warp_fetched = 0;
-
-        let mut core = Self {
-            core_id,
-            cluster_id,
-            stats,
-            config,
-            current_kernel: None,
-            last_warp_fetched: None,
-            active_thread_mask: BitArray::ZERO,
-            occupied_hw_thread_ids: BitArray::ZERO,
-            dynamic_warp_id: 0,
-            num_active_blocks: 0,
-            num_active_warps: 0,
-            num_active_threads: 0,
-            num_occupied_threads: 0,
-            max_blocks_per_shader: 0,
-            thread_block_size: 0,
-            occupied_block_to_hw_thread_id: HashMap::new(),
-            block_status: [0; MAX_CTA_PER_SHADER],
-            instr_l1_cache: Box::new(instr_l1_cache),
-            instr_fetch_buffer: InstrFetchBuffer::default(),
-            warps,
-            pipeline_reg,
-            scoreboard,
-            barriers,
-            thread_state,
-            thread_info,
-            schedulers,
-        };
-        // core.create_front_pipeline();
-        // core.create_warps();
-        // core.create_schedulers();
-        // core.create_exec_pipeline();
-        core
+    pub fn active(&self) -> bool {
+        todo!("core: active");
     }
 
     /// return the next pc of a thread
@@ -423,36 +521,38 @@ impl SIMTCore {
         // if (tid == -1) return -1;
         // PC should already be updatd to next PC at this point (was
         // set in shader_decode() last time thread ran)
-        self.thread_state
+        self.inner
+            .thread_state
             .get(thread_id)
             .map(Option::as_ref)
             .flatten()
             .map(|t| t.pc)
     }
 
-    fn next_inst(&mut self, warp_id: usize, pc: address) -> Option<WarpInstruction> {
-        // read the instruction from the traces
-        // dbg!(&self.warps.get_mut(warp_id));
-        // dbg!(&warp_id);
-        // dbg!(&self.warps.len());
-        self.warps
-            .get_mut(warp_id)
-            .map(Option::as_mut)
-            .flatten()
-            .and_then(|warp| warp.next_trace_inst())
-        // match self.warps.get_mut(warp_id) {
-        //     Some(Some(ref mut warp)) => warp.next_trace_inst(),
-        //     _ => None,
-        // }
-        // let warp = &mut self.warps[warp_id];
-        // warp.next_trace_inst()
-    }
+    // fn next_inst(&mut self, warp_id: usize, pc: address) -> Option<WarpInstruction> {
+    //     // read the instruction from the traces
+    //     // dbg!(&self.warps.get_mut(warp_id));
+    //     // dbg!(&warp_id);
+    //     // dbg!(&self.warps.len());
+    //     self.inner
+    //         .warps
+    //         .get_mut(warp_id)
+    //         // .map(Option::as_mut)
+    //         // .flatten()
+    //         .and_then(|warp| warp.lock().unwrap().next_trace_inst())
+    //     // match self.warps.get_mut(warp_id) {
+    //     //     Some(Some(ref mut warp)) => warp.next_trace_inst(),
+    //     //     _ => None,
+    //     // }
+    //     // let warp = &mut self.warps[warp_id];
+    //     // warp.next_trace_inst()
+    // }
 
     fn exec_inst(&mut self, instr: &WarpInstruction) {
-        for t in 0..self.config.warp_size {
+        for t in 0..self.inner.config.warp_size {
             if instr.active_mask[t] {
                 let warp_id = instr.warp_id;
-                let thread_id = self.config.warp_size * warp_id + t;
+                let thread_id = self.inner.config.warp_size * warp_id + t;
 
                 // // virtual function
                 //   checkExecutionStatusAndUpdate(inst, t, tid);
@@ -461,26 +561,32 @@ impl SIMTCore {
 
         // here, we generate memory acessess
         if instr.is_load() || instr.is_store() {
-            instr.generate_mem_accesses(&*self.config);
+            instr.generate_mem_accesses(&*self.inner.config);
         }
 
-        let warp = self.warps.get_mut(instr.warp_id).unwrap().as_mut().unwrap();
+        let warp = self.inner.warps.get_mut(instr.warp_id).unwrap();
+        let mut warp = warp.lock().unwrap();
+        // .as_mut()
+        // .unwrap();
         if warp.done() && warp.functional_done() {
             warp.ibuffer_flush();
-            self.barriers.warp_exit(instr.warp_id);
+            self.inner.barriers.warp_exit(instr.warp_id);
         }
     }
 
     fn fetch(&mut self) {
         println!("core {:?}: fetch", self.id());
-        if !self.instr_fetch_buffer.valid {
-            dbg!(self.instr_l1_cache.ready_for_access());
-            if self.instr_l1_cache.ready_for_access() {
-                let fetch = self.instr_l1_cache.next_access().unwrap();
-                let warp = self.warps.get_mut(fetch.warp_id).unwrap().as_mut().unwrap();
+        if !self.inner.instr_fetch_buffer.valid {
+            dbg!(self.inner.instr_l1_cache.ready_for_access());
+            if self.inner.instr_l1_cache.ready_for_access() {
+                let fetch = self.inner.instr_l1_cache.next_access().unwrap();
+                let warp = self.inner.warps.get_mut(fetch.warp_id).unwrap();
+                let warp = warp.lock().unwrap();
+                // .as_mut()
+                // .unwrap();
                 // warp.clear_imiss_pending();
                 let pc = warp.pc().unwrap() as u64;
-                self.instr_fetch_buffer = InstrFetchBuffer {
+                self.inner.instr_fetch_buffer = InstrFetchBuffer {
                     valid: true,
                     pc,
                     num_bytes: fetch.data_size as usize,
@@ -493,7 +599,7 @@ impl SIMTCore {
                     Some(fetch.addr() as usize - super::PROGRAM_MEM_START)
                 );
 
-                self.instr_fetch_buffer.valid = true;
+                self.inner.instr_fetch_buffer.valid = true;
                 // warp.set_last_fetch(m_gpu->gpu_sim_cycle);
                 drop(fetch);
             } else {
@@ -501,26 +607,29 @@ impl SIMTCore {
                 // instruction buffer that is not
                 // already waiting on a cache miss and get
                 // next 1-2 instructions from instruction cache
-                let max_warps = self.config.max_warps_per_core();
+                let max_warps = self.inner.config.max_warps_per_core();
                 for i in 0..max_warps {
-                    let last = self.last_warp_fetched.unwrap_or(0);
+                    let last = self.inner.last_warp_fetched.unwrap_or(0);
                     let warp_id = (last + 1 + i) % max_warps;
 
                     // this code checks if this warp has finished executing and can be reclaimed
-                    if let Some(warp) = self.warps.get_mut(warp_id).unwrap().as_mut() {
+                    if let Some(warp) = self.inner.warps.get_mut(warp_id) {
+                        // .unwrap().as_mut() {
+                        let warp = warp.lock().unwrap();
                         if warp.hardware_done()
-                            && !self.scoreboard.pending_writes(warp_id)
+                            && !self.inner.scoreboard.pending_writes(warp_id)
                             && !warp.done_exit()
                         {
                             // reclaim warp
                             let mut did_exit = false;
-                            for t in 0..self.config.warp_size {
-                                let tid = warp_id * self.config.warp_size + t;
-                                if let Some(Some(state)) = self.thread_state.get_mut(tid) {
+                            for t in 0..self.inner.config.warp_size {
+                                let tid = warp_id * self.inner.config.warp_size + t;
+                                if let Some(Some(state)) = self.inner.thread_state.get_mut(tid) {
                                     if state.active {
                                         state.active = false;
                                         let cta_id = warp.block_id;
                                         if !self
+                                            .inner
                                             .thread_info
                                             .get(tid)
                                             .map(Option::as_ref)
@@ -532,8 +641,8 @@ impl SIMTCore {
                                             // register_cta_thread_exit(cta_id, &(m_thread[tid]->get_kernel()));
                                         }
                                         // ref: m_not_completed
-                                        self.num_active_threads -= 1;
-                                        self.active_thread_mask.set(tid, false);
+                                        self.inner.num_active_threads -= 1;
+                                        self.inner.active_thread_mask.set(tid, false);
                                         did_exit = true;
                                     }
                                 }
@@ -541,14 +650,14 @@ impl SIMTCore {
                             if did_exit {
                                 // warp.set_done_exit();
                             }
-                            self.num_active_warps -= 1;
-                            debug_assert!(self.num_active_warps >= 0);
+                            self.inner.num_active_warps -= 1;
+                            debug_assert!(self.inner.num_active_warps >= 0);
                         }
 
                         // this code fetches instructions
                         // from the i-cache or generates memory
                         if !warp.trace_instructions.is_empty() {
-                            let icache_config = self.config.inst_cache_l1.as_ref().unwrap();
+                            let icache_config = self.inner.config.inst_cache_l1.as_ref().unwrap();
                             if !warp.functional_done()
                                 && !warp.imiss_pending()
                                 && warp.ibuffer_empty()
@@ -576,30 +685,34 @@ impl SIMTCore {
                                 let fetch = mem_fetch::MemFetch::new(
                                     None,
                                     access,
-                                    &*self.config,
+                                    &*self.inner.config,
                                     ldst_unit::READ_PACKET_SIZE.into(),
                                     warp_id,
-                                    self.core_id,
-                                    self.cluster_id,
+                                    self.inner.core_id,
+                                    self.inner.cluster_id,
                                 );
 
                                 // dbg!(&fetch);
-                                let status = if self.config.perfect_inst_const_cache {
+                                let status = if self.inner.config.perfect_inst_const_cache {
                                     // shader_cache_access_log(m_sid, INSTRUCTION, 0);
                                     cache::RequestStatus::HIT
                                 } else {
-                                    self.instr_l1_cache.access(ppc as address, fetch, None)
+                                    self.inner
+                                        .instr_l1_cache
+                                        .access(ppc as address, fetch, None)
                                 };
                                 // dbg!(&status);
 
-                                self.last_warp_fetched = Some(warp_id);
+                                self.inner.last_warp_fetched = Some(warp_id);
                                 if status == cache::RequestStatus::MISS {
-                                    let warp =
-                                        self.warps.get_mut(warp_id).unwrap().as_mut().unwrap();
-                                    warp.has_imiss_pending = true;
+                                    // let warp = self.inner.warps.get_mut(warp_id).unwrap();
+                                    // let warp = warp.lock().unwrap();
+                                    // .as_mut()
+                                    // .unwrap();
+                                    warp.set_has_imiss_pending(true);
                                     // warp.set_last_fetch(m_gpu->gpu_sim_cycle);
                                 } else if status == cache::RequestStatus::HIT {
-                                    self.instr_fetch_buffer = InstrFetchBuffer {
+                                    self.inner.instr_fetch_buffer = InstrFetchBuffer {
                                         valid: true,
                                         pc: pc as u64,
                                         num_bytes,
@@ -621,24 +734,25 @@ impl SIMTCore {
                 }
             }
         }
-        self.instr_l1_cache.cycle();
+        self.inner.instr_l1_cache.cycle();
     }
 
     fn decode(&mut self) {
         // let fetch = &mut self.instr_fetch_buffer;
         let InstrFetchBuffer {
             valid, pc, warp_id, ..
-        } = self.instr_fetch_buffer;
+        } = self.inner.instr_fetch_buffer;
 
         // testing only
         dbg!(&self
+            .inner
             .warps
             .iter()
-            .map(Option::as_ref)
-            .filter_map(|w| w)
-            .map(|w| w.trace_instructions.len())
+            // .map(Option::as_ref)
+            // .filter_map(|w| w)
+            .map(|w| w.lock().unwrap().instruction_count())
             .sum::<usize>());
-        dbg!(&self.next_inst(warp_id, pc));
+        // dbg!(&self.next_inst(warp_id, pc));
         if !valid {
             return;
         }
@@ -646,10 +760,14 @@ impl SIMTCore {
         // decode 1 or 2 instructions and buffer them
         let pc = pc;
         let warp_id = warp_id;
-        if let Some(instr1) = self.next_inst(warp_id, pc) {
-            let warp = self.warps.get_mut(warp_id).unwrap().as_mut().unwrap();
+        let warp = self.inner.warps.get_mut(warp_id).unwrap();
+        let mut warp = warp.lock().unwrap();
+
+        // if let Some(instr1) = self.next_inst(warp_id, pc) {
+        if let Some(instr1) = warp.next_trace_inst() {
+            // .as_mut().unwrap();
             warp.ibuffer_fill(0, instr1.clone());
-            warp.num_instr_in_pipeline += 1;
+            warp.inc_instr_in_pipeline();
 
             // self.stats->m_num_decoded_insn[m_sid]++;
             // use super::instruction::ArchOp;
@@ -664,10 +782,15 @@ impl SIMTCore {
             //     _ => {}
             // }
 
-            if let Some(instr2) = self.next_inst(warp_id, pc) {
-                let warp = self.warps.get_mut(warp_id).unwrap().as_mut().unwrap();
+            // drop(instr1);
+            // drop(warp);
+            // if let Some(instr2) = self.next_inst(warp_id, pc) {
+            if let Some(instr2) = warp.next_trace_inst() {
+                // let warp = self.inner.warps.get_mut(warp_id).unwrap();
+                // let mut warp = warp.lock().unwrap();
+                // .as_mut().unwrap();
                 warp.ibuffer_fill(0, instr2.clone());
-                warp.num_instr_in_pipeline += 1;
+                warp.inc_instr_in_pipeline();
                 // m_stats->m_num_decoded_insn[m_sid]++;
                 // if ((pI1->oprnd_type == INT_OP) || (pI1->oprnd_type == UN_OP))  { //these counters get added up in mcPat to compute scheduler power
                 //   m_stats->m_num_INTdecoded_insn[m_sid]++;
@@ -676,48 +799,12 @@ impl SIMTCore {
                 // }
             }
         }
-        self.instr_fetch_buffer.valid = false;
-    }
-
-    pub fn issue_warp(
-        pipe_reg_set: &register_set::RegisterSet,
-        next_inst: &WarpInstruction,
-        active_mask: sched::ThreadActiveMask,
-        warp_id: usize,
-        sch_id: usize,
-    ) {
-        // warp_inst_t **pipe_reg =
-        //     pipe_reg_set.get_free(m_config->sub_core_model, sch_id);
-        // assert(pipe_reg);
-        //
-        // m_warp[warp_id]->ibuffer_free();
-        // assert(next_inst->valid());
-        // **pipe_reg = *next_inst;  // static instruction information
-        // (*pipe_reg)->issue(active_mask, warp_id,
-        //                    m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle,
-        //                    m_warp[warp_id]->get_dynamic_warp_id(),
-        //                    sch_id);  // dynamic instruction information
-        // m_stats->shader_cycle_distro[2 + (*pipe_reg)->active_count()]++;
-        // func_exec_inst(**pipe_reg);
-        //
-        // if (next_inst->op == BARRIER_OP) {
-        //   m_warp[warp_id]->store_info_of_last_inst_at_barrier(*pipe_reg);
-        //   m_barriers.warp_reaches_barrier(m_warp[warp_id]->get_cta_id(), warp_id,
-        //                                   const_cast<warp_inst_t *>(next_inst));
-        //
-        // } else if (next_inst->op == MEMORY_BARRIER_OP) {
-        //   m_warp[warp_id]->set_membar();
-        // }
-        //
-        // updateSIMTStack(warp_id, *pipe_reg);
-        //
-        // m_scoreboard->reserveRegisters(*pipe_reg);
-        // m_warp[warp_id]->set_next_pc(next_inst->pc + next_inst->isize);
+        self.inner.instr_fetch_buffer.valid = false;
     }
 
     fn issue(&mut self) {
         for scheduler in &mut self.schedulers {
-            scheduler.cycle();
+            scheduler.cycle(&mut self.inner);
         }
     }
 
@@ -740,7 +827,7 @@ impl SIMTCore {
         // self.execute();
         //   self.read_operands();
         self.issue();
-        for i in 0..self.config.inst_fetch_throughput {
+        for i in 0..self.inner.config.inst_fetch_throughput {
             self.decode();
             self.fetch();
         }
@@ -765,12 +852,12 @@ impl SIMTCore {
     }
 
     pub fn not_completed(&self) -> usize {
-        self.num_active_threads
+        self.inner.num_active_threads
         // todo!("core: not completed");
     }
 
     pub fn is_active(&self) -> bool {
-        self.num_active_blocks > 0
+        self.inner.num_active_blocks > 0
     }
 
     pub fn set_kernel(&mut self, kernel: Arc<KernelInfo>) {
@@ -780,7 +867,7 @@ impl SIMTCore {
             kernel.name(),
             self.id()
         );
-        self.current_kernel = Some(kernel);
+        self.inner.current_kernel = Some(kernel);
     }
 
     pub fn find_available_hw_thread_id(
@@ -789,10 +876,10 @@ impl SIMTCore {
         occupy: bool,
     ) -> Option<usize> {
         let mut step = 0;
-        while step < self.config.max_threads_per_shader {
+        while step < self.inner.config.max_threads_per_shader {
             let mut hw_thread_id = step;
             while hw_thread_id < step + thread_block_size {
-                if self.occupied_hw_thread_ids[hw_thread_id] {
+                if self.inner.occupied_hw_thread_ids[hw_thread_id] {
                     break;
                 }
             }
@@ -802,13 +889,13 @@ impl SIMTCore {
             }
             step += thread_block_size;
         }
-        if step >= self.config.max_threads_per_shader {
+        if step >= self.inner.config.max_threads_per_shader {
             // didn't find
             None
         } else {
             if occupy {
                 for hw_thread_id in step..step + thread_block_size {
-                    self.occupied_hw_thread_ids.set(hw_thread_id, true);
+                    self.inner.occupied_hw_thread_ids.set(hw_thread_id, true);
                 }
             }
             Some(step)
@@ -836,8 +923,10 @@ impl SIMTCore {
     // }
 
     pub fn occupy_resource_for_block(&mut self, kernel: &KernelInfo, occupy: bool) -> bool {
-        let thread_block_size = self.config.threads_per_block_padded(kernel);
-        if self.num_occupied_threads + thread_block_size > self.config.max_threads_per_shader {
+        let thread_block_size = self.inner.config.threads_per_block_padded(kernel);
+        if self.inner.num_occupied_threads + thread_block_size
+            > self.inner.config.max_threads_per_shader
+        {
             return false;
         }
         if self
@@ -891,14 +980,14 @@ impl SIMTCore {
     // }
 
     pub fn can_issue_block(&mut self, kernel: &KernelInfo) -> bool {
-        let max_blocks = self.config.max_blocks(kernel).unwrap();
-        if self.config.concurrent_kernel_sm {
+        let max_blocks = self.inner.config.max_blocks(kernel).unwrap();
+        if self.inner.config.concurrent_kernel_sm {
             if max_blocks < 1 {
                 return false;
             }
             self.occupy_resource_for_block(kernel, false)
         } else {
-            self.num_active_blocks < max_blocks
+            self.inner.num_active_blocks < max_blocks
         }
     }
 
@@ -909,13 +998,13 @@ impl SIMTCore {
 
     fn set_max_blocks(&mut self, kernel: &KernelInfo) -> eyre::Result<()> {
         // calculate the max cta count and cta size for local memory address mapping
-        self.max_blocks_per_shader = self.config.max_blocks(kernel)?;
-        self.thread_block_size = self.config.threads_per_block_padded(kernel);
+        self.inner.max_blocks_per_shader = self.inner.config.max_blocks(kernel)?;
+        self.inner.thread_block_size = self.inner.config.threads_per_block_padded(kernel);
         Ok(())
     }
 
     pub fn id(&self) -> (usize, usize) {
-        (self.cluster_id, self.core_id)
+        (self.inner.cluster_id, self.inner.core_id)
     }
 
     pub fn init_warps_from_traces(
@@ -924,9 +1013,9 @@ impl SIMTCore {
         start_thread: usize,
         end_thread: usize,
     ) {
-        let start_warp = start_thread / self.config.warp_size;
-        let end_warp = (end_thread / self.config.warp_size)
-            + if end_thread % self.config.warp_size != 0 {
+        let start_warp = start_thread / self.inner.config.warp_size;
+        let end_warp = (end_thread / self.inner.config.warp_size)
+            + if end_thread % self.inner.config.warp_size != 0 {
                 1
             } else {
                 0
@@ -944,21 +1033,21 @@ impl SIMTCore {
         // }
 
         // let mut warps: Vec<_> = Vec::new();
-        debug_assert!(!self.warps.is_empty());
+        debug_assert!(!self.inner.warps.is_empty());
         for i in start_warp..end_warp {
             // let warp = &mut self.warps[i];
             // self.warps[i] = None;
             // warp.clear();
             // warps.push(warp);
         }
-        kernel.next_threadblock_traces(&mut self.warps);
+        kernel.next_threadblock_traces(&mut self.inner.warps);
 
         // dbg!(&self.warps);
-        for warp in &self.warps {
-            if let Some(warp) = warp {
-                // let warp = warp.as_ref().unwrap();
-                // dbg!(&warp.trace_instructions.len());
-            }
+        for warp in &self.inner.warps {
+            // if let Some(warp) = warp {
+            //     // let warp = warp.as_ref().unwrap();
+            //     // dbg!(&warp.trace_instructions.len());
+            // }
         }
 
         // for warp in kernel.next_threadblock_traces() {
@@ -1036,10 +1125,10 @@ impl SIMTCore {
         let start_pc = self.next_pc(start_thread);
         let kernel_id = kernel.uid;
         // if self.config.model == POST_DOMINATOR {
-        let start_warp = start_thread / self.config.warp_size;
-        let warp_per_cta = thread_block_size / self.config.warp_size;
-        let end_warp = end_thread / self.config.warp_size
-            + if end_thread % self.config.warp_size == 0 {
+        let start_warp = start_thread / self.inner.config.warp_size;
+        let warp_per_cta = thread_block_size / self.inner.config.warp_size;
+        let end_warp = end_thread / self.inner.config.warp_size
+            + if end_thread % self.inner.config.warp_size == 0 {
                 0
             } else {
                 1
@@ -1048,27 +1137,37 @@ impl SIMTCore {
             let mut num_active = 0;
 
             let mut local_active_thread_mask: sched::ThreadActiveMask = BitArray::ZERO;
-            for warp_thread_id in 0..self.config.warp_size {
-                let hwtid = warp_id * self.config.warp_size + warp_thread_id;
+            for warp_thread_id in 0..self.inner.config.warp_size {
+                let hwtid = warp_id * self.inner.config.warp_size + warp_thread_id;
                 if hwtid < end_thread {
                     num_active += 1;
-                    debug_assert!(!self.active_thread_mask[hwtid]);
-                    self.active_thread_mask.set(hwtid, true);
+                    debug_assert!(!self.inner.active_thread_mask[hwtid]);
+                    self.inner.active_thread_mask.set(hwtid, true);
                     local_active_thread_mask.set(warp_thread_id, true);
                 }
             }
             // self.simt_stack[i].launch(start_pc, self.active_threads);
-            self.warps.insert(
+            // self.inner.warps.insert(
+            //     warp_id,
+            //     // Some(SchedulerWarp {
+            //     // SchedulerWarp {
+            //     Arc::new(Mutex::new(SchedulerWarp {
+            //         next_pc: start_pc,
+            //         warp_id,
+            //         block_id,
+            //         dynamic_warp_id: self.inner.dynamic_warp_id,
+            //         active_mask: local_active_thread_mask,
+            //         ..SchedulerWarp::default()
+            //     })),
+            // );
+            self.inner.warps[warp_id].lock().unwrap().init(
+                start_pc,
+                block_id,
                 warp_id,
-                Some(SchedulerWarp {
-                    next_pc: start_pc,
-                    warp_id,
-                    block_id,
-                    dynamic_warp_id: self.dynamic_warp_id,
-                    active_mask: local_active_thread_mask,
-                    ..SchedulerWarp::default()
-                }),
+                self.inner.dynamic_warp_id,
+                local_active_thread_mask,
             );
+
             // let warp = self.warps.get_mut(warp_id).unwrap().as_mut().unwrap();
             // warp.init(
             //     start_pc,
@@ -1077,12 +1176,12 @@ impl SIMTCore {
             //     self.dynamic_warp_id,
             //     local_active_thread_mask,
             // );
-            self.dynamic_warp_id += 1;
-            self.num_active_warps += 1;
-            self.num_active_threads += num_active;
+            self.inner.dynamic_warp_id += 1;
+            self.inner.num_active_warps += 1;
+            self.inner.num_active_threads += num_active;
         }
 
-        println!("initialized {} warps", &self.warps.len());
+        println!("initialized {} warps", &self.inner.warps.len());
         self.init_warps_from_traces(&kernel, start_thread, end_thread);
     }
 
@@ -1093,7 +1192,7 @@ impl SIMTCore {
             kernel.uid,
             kernel.name()
         );
-        if !self.config.concurrent_kernel_sm {
+        if !self.inner.config.concurrent_kernel_sm {
             self.set_max_blocks(&*kernel);
         } else {
             let num = self.occupy_resource_for_block(&*kernel, true);
@@ -1103,24 +1202,24 @@ impl SIMTCore {
         // kernel.inc_running();
 
         // find a free CTA context
-        let max_blocks_per_core = if self.config.concurrent_kernel_sm {
-            self.max_blocks_per_shader
+        let max_blocks_per_core = if self.inner.config.concurrent_kernel_sm {
+            self.inner.max_blocks_per_shader
         } else {
-            self.config.max_concurrent_blocks_per_core
+            self.inner.config.max_concurrent_blocks_per_core
         };
         let free_block_hw_id = (0..max_blocks_per_core)
-            .filter(|i| self.block_status[*i] == 0)
+            .filter(|i| self.inner.block_status[*i] == 0)
             .next()
             .unwrap();
 
         // determine hardware threads and warps that will be used for this block
         let thread_block_size = kernel.threads_per_block();
-        let padded_thread_block_size = self.config.threads_per_block_padded(&*kernel);
+        let padded_thread_block_size = self.inner.config.threads_per_block_padded(&*kernel);
 
         // hw warp id = hw thread id mod warp size, so we need to find a range
         // of hardware thread ids corresponding to an integral number of hardware
         // thread ids
-        let (start_thread, end_thread) = if !self.config.concurrent_kernel_sm {
+        let (start_thread, end_thread) = if !self.inner.config.concurrent_kernel_sm {
             let start_thread = free_block_hw_id * padded_thread_block_size;
             let end_thread = start_thread + thread_block_size;
             (start_thread, end_thread)
@@ -1131,9 +1230,11 @@ impl SIMTCore {
             let end_thread = start_thread + thread_block_size;
 
             assert!(!self
+                .inner
                 .occupied_block_to_hw_thread_id
                 .contains_key(&free_block_hw_id));
-            self.occupied_block_to_hw_thread_id
+            self.inner
+                .occupied_block_to_hw_thread_id
                 .insert(free_block_hw_id, start_thread);
             (start_thread, end_thread)
         };
@@ -1152,12 +1253,12 @@ impl SIMTCore {
         };
         let mut num_threads_in_block = 0;
         for i in start_thread..end_thread {
-            self.thread_state[i] = Some(ThreadState {
+            self.inner.thread_state[i] = Some(ThreadState {
                 block_id: free_block_hw_id,
                 active: true,
                 pc: 0, // todo
             });
-            let warp_id = i / self.config.warp_size;
+            let warp_id = i / self.inner.config.warp_size;
             let has_threads_in_block = if kernel.no_more_blocks_to_run() {
                 false // finished kernel
             } else {
@@ -1190,7 +1291,7 @@ impl SIMTCore {
             kernel.threads_per_block(),
             kernel,
         );
-        self.num_active_blocks += 1;
+        self.inner.num_active_blocks += 1;
 
         //
         //   warp_set_t warps;
@@ -1317,9 +1418,11 @@ impl SIMTCore {
 // }
 
 #[derive(Debug)]
-pub struct SIMTCoreCluster {
+// pub struct SIMTCoreCluster {
+pub struct SIMTCoreCluster<'a> {
     pub cluster_id: usize,
-    pub cores: Mutex<Vec<SIMTCore>>,
+    // pub cores: Mutex<Vec<SIMTCore>>,
+    pub cores: Mutex<Vec<SIMTCore<'a>>>,
 
     pub config: Arc<GPUConfig>,
     pub stats: Arc<Mutex<Stats>>,
@@ -1340,7 +1443,8 @@ pub struct SIMTCoreCluster {
 //     }
 // }
 
-impl SIMTCoreCluster {
+// impl SIMTCoreCluster {
+impl<'a> SIMTCoreCluster<'a> {
     pub fn new(cluster_id: usize, stats: Arc<Mutex<Stats>>, config: Arc<GPUConfig>) -> Self {
         let mut core_sim_order = Vec::new();
         let cores: Vec<_> = (0..config.num_cores_per_simt_cluster)
@@ -1368,11 +1472,48 @@ impl SIMTCoreCluster {
     }
 
     pub fn num_active_sms(&self) -> usize {
-        0
+        self.cores
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|c| c.active())
+            .count()
     }
 
-    pub fn not_completed(&self) -> bool {
-        true
+    pub fn not_completed(&self) -> usize {
+        self.cores
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|c| c.not_completed())
+            .sum()
+        // not_completed += m_core[i]->get_not_completed();
+        // todo!("cluster: not completed");
+        // true
+    }
+
+    pub fn warp_waiting_at_barrier(&self, warp_id: usize) -> bool {
+        todo!("cluster: warp_waiting_at_barrier");
+        // self.barriers.warp_waiting_at_barrier(warp_id)
+    }
+
+    pub fn warp_waiting_at_mem_barrier(&self, warp_id: usize) -> bool {
+        todo!("cluster: warp_waiting_at_mem_barrier");
+        // if (!m_warp[warp_id]->get_membar()) return false;
+        // if (!m_scoreboard->pendingWrites(warp_id)) {
+        //   m_warp[warp_id]->clear_membar();
+        //   if (m_gpu->get_config().flush_l1()) {
+        //     // Mahmoud fixed this on Nov 2019
+        //     // Invalidate L1 cache
+        //     // Based on Nvidia Doc, at MEM barrier, we have to
+        //     //(1) wait for all pending writes till they are acked
+        //     //(2) invalidate L1 cache to ensure coherence and avoid reading stall data
+        //     cache_invalidate();
+        //     // TO DO: you need to stall the SM for 5k cycles.
+        //   }
+        //   return false;
+        // }
+        // return true;
     }
 
     fn interconn_push(
@@ -1382,18 +1523,20 @@ impl SIMTCoreCluster {
         fetch: mem_fetch::MemFetch,
         packet_size: u32,
     ) {
-        println!("cluster {}: push to interconn", self.cluster_id);
+        todo!("cluster {}: push to interconn", self.cluster_id);
     }
 
     fn interconn_pop(&mut self, cluster_id: usize) -> Option<mem_fetch::MemFetch> {
-        println!("cluster {}: pop from interconn", self.cluster_id);
+        // todo: need one interconnect per cluster?
+        // todo!("cluster {}: pop from interconn", self.cluster_id);
         None
     }
 
     fn interconn_inject_request_packet(&mut self, mut fetch: mem_fetch::MemFetch) {
-        // use super::stats::STATS;
-
-        // let mut stats = STATS.lock().unwrap();
+        todo!(
+            "cluster {}: interconn_inject_request_packet",
+            self.cluster_id
+        );
         {
             let mut stats = self.stats.lock().unwrap();
             if fetch.is_write() {
@@ -1488,12 +1631,13 @@ impl SIMTCoreCluster {
             return;
         }
         let Some(fetch) = &mut self.interconn_pop(self.cluster_id) else {
-                return;
-            };
+            return;
+        };
         debug_assert_eq!(fetch.cluster_id, self.cluster_id);
-        debug_assert!(
-            fetch.kind == mem_fetch::Kind::READ_REPLY || fetch.kind == mem_fetch::Kind::WRITE_ACK
-        );
+        debug_assert!(matches!(
+            fetch.kind,
+            mem_fetch::Kind::READ_REPLY | mem_fetch::Kind::WRITE_ACK
+        ));
 
         // The packet size varies depending on the type of request:
         // - For read request and atomic request, the packet contains the data
@@ -1534,13 +1678,14 @@ impl SIMTCoreCluster {
                 kernel = sim.select_kernel()
             } else {
                 if core
+                    .inner
                     .current_kernel
                     .as_ref()
                     .map(|current| !current.no_more_blocks_to_run())
                     .unwrap_or(true)
                 {
                     // wait until current kernel finishes
-                    if core.num_active_warps == 0 {
+                    if core.inner.num_active_warps == 0 {
                         kernel = sim.select_kernel();
                         if let Some(k) = kernel {
                             core.set_kernel(k.clone());
@@ -1551,12 +1696,12 @@ impl SIMTCoreCluster {
             println!(
                 "core {}-{}: current kernel {}",
                 self.cluster_id,
-                core.core_id,
-                &core.current_kernel.is_some()
+                core.inner.core_id,
+                &core.inner.current_kernel.is_some()
             );
             println!(
                 "core {}-{}: selected kernel {:#?}",
-                self.cluster_id, core.core_id, kernel
+                self.cluster_id, core.inner.core_id, kernel
             );
             if let Some(kernel) = kernel {
                 // dbg!(&kernel.no_more_blocks_to_run());

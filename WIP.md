@@ -1,4 +1,6 @@
 #### TODO (new plan)
+- refactor core into inner core that is shared between components and outer
+
 - test running a trace until caches propagate
 - extend the trace with other (all?) instructions
 
