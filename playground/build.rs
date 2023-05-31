@@ -15,20 +15,14 @@ fn enable_diagnostics_color(build: &mut cc::Build) {
     }
 }
 
-fn build() {
+#[allow(dead_code)]
+fn build(sources: &[&str]) {
     let mut build = cc::Build::new();
     build
         .cpp(true)
         .static_flag(true)
-        .file("src/tests/parse_cache_config.cc")
-        .file("src/ref/addrdec.cc")
-        .file("src/ref/hashing.cc")
-        .file("src/ref/tag_array.cc")
-        .file("src/ref/l1_cache.cc")
-        .file("src/ref/l2_cache.cc")
-        .file("src/ref/data_cache.cc")
-        // .flag("-std=c++0x")
-        // .flag("-std=c++11")
+        .link_lib_modifier("-bundle,+whole-archive")
+        .files(sources)
         .flag("-std=c++14")
         .warnings(false);
 
@@ -80,40 +74,47 @@ fn generate_bindings() {
         .expect("write bindings");
 }
 
-fn generate_bridge() {
-    let mut build = cxx_build::bridges(["src/bridge/addrdec.rs", "src/bridge/cache_config.rs"]);
+fn generate_bridge(bridges: &[&str], sources: &[&str]) {
+    let mut build = cxx_build::bridges(bridges);
     build
         .cpp(true)
         .static_flag(true)
-        .file("src/tests/parse_cache_config.cc")
-        .file("src/ref/addrdec.cc")
-        .file("src/ref/hashing.cc")
-        .file("src/ref/tag_array.cc")
-        .file("src/ref/l1_cache.cc")
-        .file("src/ref/l2_cache.cc")
-        .file("src/ref/cache_config.cc")
-        .file("src/ref/data_cache.cc")
-        .file("src/ref/lrr_scheduler.cc")
-        .file("src/ref/scheduler_unit.cc")
-        // .flag("-std=c++0x")
-        // .flag("-std=c++11")
+        // .link_lib_modifier("-bundle,+whole-archive")
+        .files(sources)
         .flag("-std=c++14")
         .warnings(false);
 
     enable_diagnostics_color(&mut build);
     build
-        .try_compile("playground_bridge")
+        .try_compile("playgroundbridge")
         .expect("compile bridge");
 }
 
 fn main() {
-    // temp fix
-    // return;
-
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=src/");
 
-    // build();
+    let bridges = [
+        "src/bridge/addrdec.rs",
+        "src/bridge/cache_config.rs",
+        "src/bridge/shd_warp.rs",
+        "src/bridge/scheduler_unit.rs",
+    ];
+    let sources = [
+        "src/tests/parse_cache_config.cc",
+        "src/ref/addrdec.cc",
+        "src/ref/hashing.cc",
+        "src/ref/tag_array.cc",
+        "src/ref/l1_cache.cc",
+        "src/ref/l2_cache.cc",
+        "src/ref/cache_config.cc",
+        "src/ref/data_cache.cc",
+        "src/ref/lrr_scheduler.cc",
+        "src/ref/scheduler_unit.cc",
+        "src/ref/shd_warp.cc",
+    ];
+
+    // build(&sources);
     generate_bindings();
-    generate_bridge();
+    generate_bridge(&bridges, &sources);
 }

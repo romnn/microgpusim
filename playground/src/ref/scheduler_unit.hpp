@@ -1,18 +1,19 @@
 #pragma once
 
+#include <memory>
 #include <vector>
 
-#include "scoreboard.hpp"
 #include "register_set.hpp"
+#include "scoreboard.hpp"
 #include "shd_warp.hpp"
 
 class shader_core_stats;
 class simt_stack;
 class shader_core_ctx;
 
-class scheduler_unit {  // this can be copied freely, so can be used in std
-                        // containers.
- public:
+// this can be copied freely, so can be used in std containers.
+class scheduler_unit { 
+public:
   scheduler_unit(shader_core_stats *stats, shader_core_ctx *shader,
                  Scoreboard *scoreboard, simt_stack **simt,
                  std::vector<shd_warp_t *> *warp, register_set *sp_out,
@@ -20,20 +21,12 @@ class scheduler_unit {  // this can be copied freely, so can be used in std
                  register_set *int_out, register_set *tensor_core_out,
                  std::vector<register_set *> &spec_cores_out,
                  register_set *mem_out, int id)
-      : m_supervised_warps(),
-        m_stats(stats),
-        m_shader(shader),
-        m_scoreboard(scoreboard),
-        m_simt_stack(simt),
-        /*m_pipeline_reg(pipe_regs),*/ m_warp(warp),
-        m_sp_out(sp_out),
-        m_dp_out(dp_out),
-        m_sfu_out(sfu_out),
-        m_int_out(int_out),
-        m_tensor_core_out(tensor_core_out),
-        m_spec_cores_out(spec_cores_out),
-        m_mem_out(mem_out),
-        m_id(id) {}
+      : m_supervised_warps(), m_stats(stats), m_shader(shader),
+        m_scoreboard(scoreboard), m_simt_stack(simt),
+        /*m_pipeline_reg(pipe_regs),*/ m_warp(warp), m_sp_out(sp_out),
+        m_dp_out(dp_out), m_sfu_out(sfu_out), m_int_out(int_out),
+        m_tensor_core_out(tensor_core_out), m_spec_cores_out(spec_cores_out),
+        m_mem_out(mem_out), m_id(id) {}
   virtual ~scheduler_unit() {}
   virtual void add_supervised_warp_id(int i) {
     m_supervised_warps.push_back(&warp(i));
@@ -86,13 +79,13 @@ class scheduler_unit {  // this can be copied freely, so can be used in std
 
   int get_schd_id() const { return m_id; }
 
- protected:
+protected:
   virtual void do_on_warp_issued(
       unsigned warp_id, unsigned num_issued,
       const std::vector<shd_warp_t *>::const_iterator &prioritized_iter);
   inline int get_sid() const;
 
- protected:
+protected:
   shd_warp_t &warp(int i);
 
   // This is the prioritized warp list that is looped over each cycle to
@@ -125,3 +118,5 @@ class scheduler_unit {  // this can be copied freely, so can be used in std
 
   int m_id;
 };
+
+std::unique_ptr<scheduler_unit> new_scheduler_unit();

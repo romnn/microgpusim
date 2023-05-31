@@ -8,6 +8,11 @@ exclude = [
   "./bindings.rs"
 ]
 
+[lib]
+# crate-type = ["staticlib"]
+# crate-type = ["cdylib"]
+crate-type = ["rlib"]
+
 [features]
 default = []
 parallel = ["cc/parallel"]

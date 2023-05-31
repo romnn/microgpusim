@@ -1,17 +1,17 @@
+#include <algorithm>
+#include <memory>
+
+#include "barrier_set.hpp"
+#include "exec_unit_type.hpp"
+#include "ifetch_buffer.hpp"
+#include "mem_fetch_interface.hpp"
+#include "opndcoll_rfu.hpp"
 #include "scheduler_unit.hpp"
 #include "shader_core_ctx.hpp"
-#include "exec_unit_type.hpp"
-#include "shd_warp.hpp"
-#include "ifetch_buffer.hpp"
-#include "shader_core_stats.hpp"
-#include "opndcoll_rfu.hpp"
 #include "shader_core_mem_fetch_allocator.hpp"
-#include "barrier_set.hpp"
-#include "mem_fetch_interface.hpp"
+#include "shader_core_stats.hpp"
 #include "shader_trace.hpp"
 #include "shd_warp.hpp"
-
-#include <algorithm>
 
 shd_warp_t &scheduler_unit::warp(int i) { return *((*m_warp)[i]); }
 
@@ -457,4 +457,9 @@ bool scheduler_unit::sort_warps_by_oldest_dynamic_id(shd_warp_t *lhs,
   } else {
     return lhs < rhs;
   }
+}
+
+std::unique_ptr<scheduler_unit> new_scheduler_unit() {
+  abort();
+  // return std::make_unique<scheduler_unit>();
 }

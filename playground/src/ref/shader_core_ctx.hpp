@@ -12,6 +12,8 @@
 #include "ifetch_buffer.hpp"
 #include "opndcoll_rfu.hpp"
 
+class scheduler_unit;
+class Scoreboard;
 class register_set;
 class mem_fetch_interface;
 class thread_ctx_t;

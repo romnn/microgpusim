@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <bitset>
+#include <memory>
 
 #include "hal.hpp"
 #include "warp_instr.hpp"
@@ -110,8 +111,8 @@ public:
       m_ibuffer[i].m_valid = false;
     }
   }
-  const warp_inst_t *ibuffer_next_inst() { return m_ibuffer[m_next].m_inst; }
-  bool ibuffer_next_valid() { return m_ibuffer[m_next].m_valid; }
+  const warp_inst_t *ibuffer_next_inst() const { return m_ibuffer[m_next].m_inst; }
+  bool ibuffer_next_valid() const { return m_ibuffer[m_next].m_valid; }
   void ibuffer_free() {
     m_ibuffer[m_next].m_inst = NULL;
     m_ibuffer[m_next].m_valid = false;
@@ -199,3 +200,6 @@ public:
   unsigned int m_cdp_latency;
   bool m_cdp_dummy;
 };
+
+std::unique_ptr<shd_warp_t> new_shd_warp(class shader_core_ctx *shader,
+                                         unsigned warp_size);
