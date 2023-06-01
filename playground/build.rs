@@ -156,6 +156,7 @@ fn main() {
         "src/ref/frfcfs_scheduler.cc",
         "src/ref/memory_sub_partition.cc",
         "src/ref/stats_wrapper.cc",
+        "src/ref/memory_partition_unit.cc",
         "src/ref/cache.cc",
         "src/ref/dram.cc",
         // "src/ref/gpgpu_sim.cc",

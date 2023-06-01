@@ -8,6 +8,10 @@
 #include "dram.hpp"
 #include "hal.hpp"
 
+#define CREATELOG 111
+#define SAMPLELOG 222
+#define DUMPLOG 333
+
 class mem_fetch;
 class memory_config;
 

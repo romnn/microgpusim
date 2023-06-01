@@ -1,13 +1,22 @@
 ## Accelsim wrappers
 
+#### Build
+```
+cargo build --release --workspace --all-targets
+```
+
 #### Trace an application
 ```bash
 cargo run -p accelsim --bin accelsim-trace -- ./test-apps/vectoradd/vectoradd 100 32
+
+./target/release/accelsim-trace ./test-apps/vectoradd/vectoradd 100 32
 ```
 
 #### Simulate a trace
-```
+```bash
 cargo run -p accelsim --bin accelsim-sim -- ./test-apps/vectoradd/traces/vectoradd-100-32-trace/ ./accelsim/gtx1080/
+
+./target/release/accelsim-sim ./test-apps/vectoradd/traces/vectoradd-100-32-trace/ ./accelsim/gtx1080/
 ```
 
 If successful, view our custom log here:

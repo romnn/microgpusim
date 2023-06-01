@@ -1,8 +1,10 @@
-use anyhow::Result;
+use color_eyre::eyre;
 use clap::Parser;
 use std::time::Instant;
 
-fn main() -> Result<()> {
+fn main() -> eyre::Result<()> {
+    color_eyre::install()?;
+
     let start = Instant::now();
     let options = accelsim::parser::Options::parse();
     println!("options: {:#?}", &options);

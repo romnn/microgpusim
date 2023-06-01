@@ -1,6 +1,6 @@
 use super::read::BufReadLine;
-use anyhow::Result;
 use clap::Parser;
+use color_eyre::eyre;
 
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -124,7 +124,7 @@ fn check_finished(mut f: impl BufReadLine + io::Seek) -> bool {
 }
 
 /// Parses accelsim log and extracts statistics.
-pub fn parse(options: Options) -> Result<Stats> {
+pub fn parse(options: Options) -> eyre::Result<Stats> {
     let finished = {
         let file = fs::OpenOptions::new().read(true).open(&options.input)?;
         let mut reader = rev_buf_reader::RevBufReader::new(file);
@@ -284,10 +284,10 @@ pub fn parse(options: Options) -> Result<Stats> {
 
     if !finished {
         if options.strict {
-            anyhow::bail!(
+            return Err(eyre::eyre!(
                 "{} is invalid: termination message from GPGPU-Sim not found",
                 options.input.display()
-            );
+            ));
         } else {
             eprintln!(
                 "{} is invalid: termination message from GPGPU-Sim not found",

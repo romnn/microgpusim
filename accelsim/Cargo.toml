@@ -27,8 +27,10 @@ denylist = ["default"]
 
 [dependencies]
 thiserror = "1"
-anyhow = { version = "1", features = ["backtrace"] }
+color-eyre = "0"
+dialoguer = "0"
 indicatif = "0"
+console = "0"
 csv = "1"
 lazy_static = "1"
 regex = "1"
@@ -41,11 +43,8 @@ trace-model = { path = "../trace/model" }
 utils = { path = "../utils" }
 
 [build-dependencies]
-# pkg-config = "0.3"
-# cxx-build = "1"
-# bindgen = "0.61"
-# cc = { version = "1", features = ['parallel'] }
-anyhow = "1"
+color-eyre = "0"
+duct = "0"
 reqwest = { version = "0", features = ["blocking"] }
 bzip2 = "0.4"
 tar = "0.4"

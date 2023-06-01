@@ -1,7 +1,8 @@
 #![allow(warnings)]
 
-use anyhow::Result;
+use color_eyre::eyre;
 use async_process::Command;
+use console::style;
 use std::collections::HashMap;
 use std::io::Write;
 use std::os::unix::fs::DirBuilderExt;
@@ -9,9 +10,12 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> eyre::Result<()> {
+    color_eyre::install()?;
+
     let args: Vec<_> = std::env::args().collect();
     let exec = PathBuf::from(args.get(1).expect("usage ./trace <executable> [args]"));
+
     let exec_args: Vec<_> = args.iter().skip(2).cloned().collect();
 
     let exec_dir = exec.parent().expect("executable has no parent dir");
@@ -19,6 +23,24 @@ async fn main() -> Result<()> {
         "{}-trace",
         &trace_model::app_prefix(std::option_env!("CARGO_BIN_NAME"))
     ));
+
+    let mut trace_cmd_string = exec.to_string_lossy().to_string();
+    if !exec_args.is_empty() {
+        trace_cmd_string += "1";
+        trace_cmd_string += &exec_args.join(" ");
+    }
+    if !dialoguer::Confirm::new()
+        .with_prompt(format!(
+            " => tracing command `{}` and saving traces to `{}` ... proceed?",
+            &style(trace_cmd_string).red(),
+            &style(traces_dir.display()).red(),
+        ))
+        .interact()?
+    {
+        println!("exit");
+        return Ok(());
+    }
+
     std::fs::DirBuilder::new()
         .recursive(true)
         .mode(0o777)
@@ -42,7 +64,7 @@ async fn run_trace(
     exec: impl AsRef<Path>,
     exec_args: Vec<String>,
     traces_dir: impl AsRef<Path>,
-) -> Result<()> {
+) -> eyre::Result<()> {
     let nvbit_tracer_root = accelsim::locate_nvbit_tracer()?;
     dbg!(&nvbit_tracer_root);
     assert!(

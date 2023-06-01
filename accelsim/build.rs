@@ -1,29 +1,37 @@
 #![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
-use anyhow::Result;
+use color_eyre::eyre;
+use duct::cmd;
+use std::env;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 static NVBIT_RELEASES: &str = "https://github.com/NVlabs/NVBit/releases/download";
 static NVBIT_VERSION: &str = "1.5.5";
 
+static DEFAULT_TERM: &str = "xterm-256color";
+
 #[must_use]
 pub fn output_path() -> PathBuf {
-    PathBuf::from(std::env::var("OUT_DIR").unwrap())
+    PathBuf::from(env::var("OUT_DIR").unwrap())
         .canonicalize()
         .unwrap()
 }
 
 #[must_use]
 pub fn manifest_path() -> PathBuf {
-    PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap())
+    PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())
         .canonicalize()
         .unwrap()
 }
 
-fn decompress_tar_bz2(src: impl AsRef<Path>, dest: impl AsRef<Path>) -> Result<()> {
+#[must_use]
+pub fn is_debug_build() -> bool {
+    matches!(env::var("PROFILE").ok().as_deref(), Some("DEBUG"))
+}
+
+fn decompress_tar_bz2(src: impl AsRef<Path>, dest: impl AsRef<Path>) -> eyre::Result<()> {
     let compressed = File::open(src)?;
     let stream = bzip2::read::BzDecoder::new(compressed);
     let mut archive = tar::Archive::new(stream);
@@ -35,7 +43,7 @@ fn download_nvbit(
     version: impl AsRef<str>,
     arch: impl AsRef<str>,
     dest: impl AsRef<Path>,
-) -> Result<()> {
+) -> eyre::Result<()> {
     let nvbit_release_name = format!("nvbit-Linux-{}-{}", arch.as_ref(), version.as_ref());
     let nvbit_release_archive_name = format!("{nvbit_release_name}.tar.bz2");
     let nvbit_release_archive_url = reqwest::Url::parse(&format!(
@@ -44,21 +52,16 @@ fn download_nvbit(
         version.as_ref(),
         nvbit_release_archive_name,
     ))?;
+    println!("cargo:warning=downloading {}", nvbit_release_archive_url);
 
     let archive_path = output_path().join(nvbit_release_archive_name);
-    // let nvbit_path = output_path().join(nvbit_release_name);
-
-    // check if the archive already exists
-    // let force = false;
-    // if force || !nvbit_path.is_dir() {
     std::fs::remove_file(&archive_path).ok();
+
     let mut nvbit_release_archive_file = File::create(&archive_path)?;
     reqwest::blocking::get(nvbit_release_archive_url)?.copy_to(&mut nvbit_release_archive_file)?;
 
-    // unarchive
     std::fs::remove_file(&dest).ok();
     decompress_tar_bz2(&archive_path, &dest)?;
-    // }
     Ok(())
 }
 
@@ -69,53 +72,73 @@ pub struct GitRepository {
 }
 
 impl GitRepository {
-    pub fn shallow_clone(&self) -> Result<(), std::io::Error> {
-        use std::io::{Error, ErrorKind};
-
+    pub fn shallow_clone(&self) -> eyre::Result<()> {
         let _ = std::fs::remove_dir_all(&self.path);
-        let mut cmd = Command::new("git");
-        cmd.args(["clone", "--depth=1"]);
+        let mut args = vec!["clone", "--depth=1"];
         if let Some(branch) = &self.branch {
-            cmd.args(["-b", branch]);
+            args.extend(["-b", branch]);
+        }
+        let path = &*self.path.to_string_lossy();
+        args.extend([self.url.as_str(), path]);
+
+        let clone_cmd = cmd("git", &args)
+            .env("TERM", env::var("TERM").as_deref().unwrap_or(DEFAULT_TERM))
+            .unchecked();
+
+        let result = clone_cmd.run()?;
+        println!("{}", String::from_utf8_lossy(&result.stdout));
+        eprintln!("{}", String::from_utf8_lossy(&result.stderr));
+
+        if !result.status.success() {
+            eyre::bail!(
+                "git clone command {:?} exited with code {:?}",
+                [&["git"], args.as_slice()].concat(),
+                result.status.code()
+            );
         }
 
-        cmd.args([&self.url, &self.path.to_string_lossy().to_string()]);
-        println!(
-            "cargo:warning=cloning {} to {}",
-            &self.url,
-            &self.path.display()
-        );
+        Ok(())
 
-        if cmd.status()?.success() {
-            Ok(())
-        } else {
-            Err(Error::new(ErrorKind::Other, "fetch failed"))
-        }
+        // let mut cmd = Command::new("git");
+        // cmd.args(["clone", "--depth=1"]);
+        // if let Some(branch) = &self.branch {
+        //     cmd.args(["-b", branch]);
+        // }
+
+        // cmd.args([&self.url, &self.path.to_string_lossy().to_string()]);
+        // println!(
+        //     "cargo:warning=cloning {} to {}",
+        //     &self.url,
+        //     &self.path.display()
+        // );
+
+        // if cmd.status()?.success() {
+        //     Ok(())
+        // } else {
+        //     Err(Error::new(ErrorKind::Other, "fetch failed").into())
+        // }
     }
 }
 
-fn build_accelsim(
-    accelsim_path: impl AsRef<Path>,
-    cuda_path: impl AsRef<Path>,
-    _force: bool,
-) -> Result<()> {
-    let artifact = accelsim_path
-        .as_ref()
-        .join("gpu-simulator/bin/release/accel-sim.out");
+fn build_accelsim(accel_path: &Path, cuda_path: &Path, _force: bool) -> eyre::Result<()> {
+    let artifact = accel_path.join("gpu-simulator/bin/release/accel-sim.out");
+    // if force || !artifact.is_file() {
+    //     println!("cargo:warning=using existing {}", &artifact.display());
+    //     return Ok(());
+    // }
 
     let tmp_build_sh_path = output_path().join("build.tmp.sh");
     let tmp_build_sh = format!(
         "set -e
-source {}
+source {} {profile}
 make -C {src} clean
 make -j -C {src}",
-        &accelsim_path
-            .as_ref()
+        &accel_path
             .join("gpu-simulator/setup_environment.sh")
             .canonicalize()?
             .to_string_lossy(),
-        src = accelsim_path
-            .as_ref()
+        profile = if is_debug_build() { "debug" } else { "release" },
+        src = accel_path
             .join("gpu-simulator/")
             .canonicalize()?
             .to_string_lossy()
@@ -130,29 +153,47 @@ make -j -C {src}",
         .open(&tmp_build_sh_path)?;
     tmp_build_sh_file.write_all(tmp_build_sh.as_bytes())?;
 
-    let mut cmd = Command::new("bash");
-    cmd.arg(&*tmp_build_sh_path.canonicalize()?.to_string_lossy());
-    cmd.env("CUDA_INSTALL_PATH", &*cuda_path.as_ref().to_string_lossy());
-    dbg!(&cmd);
+    let make_cmd = cmd!(
+        "bash",
+        &*tmp_build_sh_path.canonicalize()?.to_string_lossy()
+    )
+    .env("TERM", env::var("TERM").as_deref().unwrap_or(DEFAULT_TERM))
+    .env("CUDA_INSTALL_PATH", &*cuda_path.to_string_lossy())
+    .stderr_capture()
+    .stdout_capture()
+    .unchecked();
 
-    let result = cmd.output()?;
-    let stdout = String::from_utf8_lossy(&result.stdout);
-    let stderr = String::from_utf8_lossy(&result.stderr);
-    println!("{}", &stdout);
-    eprintln!("{}", &stderr);
+    let result = make_cmd.run()?;
+    // let stdout = result.stdout;
+    // let stderr = result.stderr;
+
+    // let mut cmd = Command::new("bash");
+    // cmd.arg(&*tmp_build_sh_path.canonicalize()?.to_string_lossy());
+    // cmd.env("CUDA_INSTALL_PATH", &*cuda_path.as_ref().to_string_lossy());
+    // dbg!(&cmd);
+    //
+    // let result = cmd.output()?;
+    // let stdout = String::from_utf8_lossy(&result.stdout);
+    // let stderr = String::from_utf8_lossy(&result.stderr);
+    println!("{}", &String::from_utf8_lossy(&result.stdout));
+    eprintln!("{}", &String::from_utf8_lossy(&result.stderr));
 
     // write build logs
-    for (log_name, content) in &[("build.log.stdout", stdout), ("build.log.stderr", stderr)] {
+    for (log_name, content) in &[
+        ("build.log.stdout", result.stdout),
+        ("build.log.stderr", result.stderr),
+    ] {
         let mut log_file = OpenOptions::new()
             .write(true)
             .truncate(true)
             .create(true)
             .open(manifest_path().join(log_name))?;
-        log_file.write_all(content.as_bytes())?;
+        // todo: strip ansi color escape codes here
+        log_file.write_all(content)?;
     }
 
     if !result.status.success() {
-        anyhow::bail!("cmd failed with code {:?}", result.status.code());
+        eyre::bail!("accelsim build exited with code {:?}", result.status.code());
     }
 
     println!("cargo:warning=built {}", &artifact.display());
@@ -160,67 +201,95 @@ make -j -C {src}",
 }
 
 fn build_accelsim_tracer_tool(
-    accelsim_path: impl AsRef<Path>,
-    cuda_path: impl AsRef<Path>,
+    accel_path: &Path,
+    cuda_path: &Path,
     force: bool,
-) -> Result<()> {
-    let nvbit_version =
-        std::env::var("NVBIT_VERSION").unwrap_or_else(|_| NVBIT_VERSION.to_string());
-    let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH")?;
+) -> eyre::Result<()> {
+    let nvbit_version = env::var("NVBIT_VERSION").unwrap_or_else(|_| NVBIT_VERSION.to_string());
+    let target_arch = env::var("CARGO_CFG_TARGET_ARCH")?;
 
-    let tracer_nvbit_tool_path = accelsim_path.as_ref().join("util/tracer_nvbit");
+    let tracer_nvbit_tool_path = accel_path.join("util/tracer_nvbit");
 
     let nvbit_path = tracer_nvbit_tool_path.join("nvbit_release");
     if force || !nvbit_path.is_dir() {
         download_nvbit(nvbit_version, target_arch, &nvbit_path)?;
     }
 
-    let artifact = tracer_nvbit_tool_path.join("tracer_tool");
-    let mut cmd = Command::new("make");
-    cmd.arg("-j");
-    cmd.current_dir(tracer_nvbit_tool_path);
-    cmd.env("CUDA_INSTALL_PATH", &*cuda_path.as_ref().to_string_lossy());
-    dbg!(&cmd);
+    let artifact = tracer_nvbit_tool_path.join("tracer_tool/tracer_tool.so");
+    if force || !artifact.is_file() {
+        let make_cmd = cmd!("make", "-j")
+            .dir(tracer_nvbit_tool_path)
+            .env("TERM", env::var("TERM").as_deref().unwrap_or(DEFAULT_TERM))
+            .env("CUDA_INSTALL_PATH", &*cuda_path.to_string_lossy())
+            .stderr_capture()
+            .stdout_capture()
+            .unchecked();
 
-    let result = cmd.output()?;
-    println!("{}", String::from_utf8_lossy(&result.stdout));
-    eprintln!("{}", String::from_utf8_lossy(&result.stderr));
+        let result = make_cmd.run()?;
+        println!("{}", String::from_utf8_lossy(&result.stdout));
+        eprintln!("{}", String::from_utf8_lossy(&result.stderr));
 
-    if !result.status.success() {
-        anyhow::bail!("cmd failed with code {:?}", result.status.code());
+        if !result.status.success() {
+            eyre::bail!(
+                "tracer tool build exited with code {:?}",
+                result.status.code()
+            );
+        }
+
+        println!("cargo:warning=built {}", &artifact.display());
+    } else {
+        println!("cargo:warning=using existing {}", &artifact.display());
     }
-    println!("cargo:warning=successfully built {}", &artifact.display());
+
+    // let mut cmd = Command::new("make");
+    // cmd.arg("-j");
+    // cmd.current_dir(tracer_nvbit_tool_path);
+    // cmd.env("CUDA_INSTALL_PATH", &*cuda_path.as_ref().to_string_lossy());
+    // dbg!(&cmd);
+    //
+    // let result = cmd.output()?;
+    // println!("{}", String::from_utf8_lossy(&result.stdout));
+    // eprintln!("{}", String::from_utf8_lossy(&result.stderr));
+    //
     Ok(())
 }
 
-fn main() {
-    // temp fix
-    return;
+fn main() -> eyre::Result<()> {
+    color_eyre::install()?;
 
-    let use_remote = std::env::var("USE_REMOTE_ACCELSIM")
+    let use_upstream = env::var("USE_UPSTREAM_ACCELSIM")
         .map(|use_remote| use_remote.to_lowercase() == "yes")
         .unwrap_or(false);
-    let mut accelsim_path = manifest_path().join("accel-sim-framework-dev");
 
-    if use_remote {
-        accelsim_path = output_path().join("accelsim");
+    let accel_path = if use_upstream {
+        let dest = output_path().join("accelsim");
         let repo = GitRepository {
             url: "https://github.com/accel-sim/accel-sim-framework.git".to_string(),
-            path: accelsim_path.clone(),
+            path: dest.clone(),
             branch: Some("release".to_string()),
         };
-        repo.shallow_clone().unwrap();
+        repo.shallow_clone()?;
+        dest
     } else {
         println!("cargo:rerun-if-changed=accel-sim-framework-dev/");
-    }
+        manifest_path().join("accel-sim-framework-dev")
+    };
+
+    println!(
+        "cargo:warning=using accelsim source at {}",
+        &accel_path.display()
+    );
+
     let cuda_paths = utils::find_cuda();
     dbg!(&cuda_paths);
-    let cuda_path = cuda_paths.first().expect("CUDA install path not found");
+    let cuda_path = cuda_paths
+        .first()
+        .ok_or(eyre::eyre!("CUDA install path not found"))?;
+    println!("cargo:warning=using cuda at {}", &cuda_path.display());
 
-    // build tracer tool only
     let force = false;
-    build_accelsim_tracer_tool(&accelsim_path, cuda_path, force).unwrap();
 
-    // build accelsim
-    build_accelsim(&accelsim_path, cuda_path, force).unwrap()
+    build_accelsim_tracer_tool(&accel_path, &cuda_path, force)?;
+    build_accelsim(&accel_path, &cuda_path, force)?;
+    Ok(())
 }

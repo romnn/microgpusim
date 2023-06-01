@@ -1,9 +1,9 @@
 #![allow(warnings)]
 
 use accelsim::parser::{parse, Options as ParseOptions};
-use anyhow::Result;
 use async_process::Command;
 use clap::Parser;
+use color_eyre::eyre;
 use std::collections::HashMap;
 use std::io::Write;
 use std::os::unix::fs::DirBuilderExt;
@@ -14,17 +14,17 @@ async fn sim_trace(
     traces_dir: impl AsRef<Path>,
     config: SimConfig,
     timeout: Option<Duration>,
-) -> Result<std::process::Output> {
+) -> eyre::Result<std::process::Output> {
     let accelsim_path = accelsim::locate()?;
     let sim_root = accelsim_path.join("gpu-simulator/");
     let accelsim_bin = sim_root.join("bin/release/accel-sim.out");
     if !accelsim_bin.is_file() {
-        anyhow::bail!("missing {}", accelsim_bin.display());
+        eyre::eyre!("missing {}", accelsim_bin.display());
     }
 
     let setup_env = sim_root.join("setup_environment.sh");
     if !setup_env.is_file() {
-        anyhow::bail!("missing {}", setup_env.display());
+        eyre::eyre!("missing {}", setup_env.display());
     }
 
     let mut tmp_sim_sh = vec!["set -e".to_string()];
@@ -84,7 +84,7 @@ async fn sim_trace(
     tmp_sim_sh_file.write_all(tmp_sim_sh.as_bytes())?;
 
     if !config.config_dir.is_dir() {
-        anyhow::bail!(
+        eyre::eyre!(
             "config dir {} is not a directory",
             config.config_dir.display()
         );
@@ -110,7 +110,7 @@ async fn sim_trace(
 
         // if we want to debug, we leave the file in place
         // gdb --args bash test-apps/vectoradd/traces/vectoradd-100-32-trace/sim.tmp.sh
-        anyhow::bail!("cmd failed with code {:?}", result.status.code());
+        eyre::eyre!("cmd failed with code {:?}", result.status.code());
     }
 
     // for now, we want to keep the file
@@ -118,23 +118,31 @@ async fn sim_trace(
     Ok(result)
 }
 
-fn parse_duration_string(duration: &str) -> Result<Duration> {
+fn parse_duration_string(duration: &str) -> eyre::Result<Duration> {
     let res = duration_string::DurationString::from_string(duration.into())
-        .map_err(|msg| anyhow::anyhow!("invalid duration string {}", duration))?;
+        .map_err(|msg| eyre::eyre!("invalid duration string {}", duration))?;
     Ok(res.into())
 }
 
 #[derive(Parser, Debug)]
 struct Options {
+    #[clap(
+        // long = "traces-dir",
+        help = "directory containing accelsim traces (kernelslist.g)"
+    )]
     traces_dir: PathBuf,
 
     #[clap(flatten)]
     sim_config: SimConfig,
 
+    #[clap(long = "log-file", help = "write simuation output to log file")]
     log_file: Option<PathBuf>,
+
+    #[clap(long = "stats-file", help = "parse simulation stats into csv file")]
     stats_file: Option<PathBuf>,
 
     #[clap(
+        long = "timeout",
         help = "timeout",
         value_parser = parse_duration_string,
     )]
@@ -143,14 +151,21 @@ struct Options {
 
 #[derive(Parser, Debug)]
 struct SimConfig {
+    // #[clap(long = "config-dir", help = "config directory")]
+    #[clap(help = "config directory")]
     config_dir: PathBuf,
+    #[clap(long = "config", help = "config file")]
     config: Option<PathBuf>,
+    #[clap(long = "trace-config", help = "trace config file")]
     trace_config: Option<PathBuf>,
+    #[clap(long = "inter-config", help = "interconnect config file")]
     inter_config: Option<PathBuf>,
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> eyre::Result<()> {
+    color_eyre::install()?;
+
     let options = Options::parse();
     dbg!(&options.traces_dir);
 
@@ -180,7 +195,8 @@ async fn main() -> Result<()> {
     let stats_file_path = options
         .stats_file
         .unwrap_or(log_file_path.with_extension("csv"));
-    let stats = parse(ParseOptions::new(log_file_path, stats_file_path))?;
+    let parse_options = ParseOptions::new(log_file_path, stats_file_path);
+    let stats = parse(parse_options)?;
 
     let mut preview: Vec<_> = stats
         .iter()

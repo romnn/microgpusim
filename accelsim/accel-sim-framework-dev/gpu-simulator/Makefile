@@ -36,10 +36,11 @@ else
 	export DEBUG=0
 endif
 
+CXXFLAGS = -Wall -fdiagnostics-color=always -fPIC -std=c++11
 ifeq ($(DEBUG),1)
-	CXXFLAGS = -Wall -O0 -g3 -fPIC -std=c++11
+	CXXFLAGS += -O0 -g3
 else
-	CXXFLAGS = -Wall -O3 -g3 -fPIC -std=c++11
+	CXXFLAGS += -O3 -g3
 endif
 
 all: $(BIN_DIR)/accel-sim.out
