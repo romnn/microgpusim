@@ -7,7 +7,9 @@
 #include <vector>
 
 #include "hal.hpp"
+#include "warp_instr.hpp"
 
+class core_config;
 class shader_core_ctx;
 class register_set;
 class warp_inst_t;

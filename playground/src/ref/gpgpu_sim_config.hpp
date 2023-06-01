@@ -3,11 +3,15 @@
 #include <string.h>
 
 #include "gpgpu_context.hpp"
+#include "gpgpu_functional_sim_config.hpp"
 #include "memory_config.hpp"
 #include "option_parser.hpp"
-#include "shader_core_config.hpp"
 #include "power_config.hpp"
+#include "shader_core_config.hpp"
 #include "trace.hpp"
+
+// clock constants
+#define MhZ *1000000
 
 class gpgpu_sim_config : public power_config,
                          public gpgpu_functional_sim_config {

@@ -1,6 +1,7 @@
 #pragma once
 
-#include "mem_fetch.hpp"
+// #include "mem_fetch.hpp"
+class mem_fetch;
 
 class mem_fetch_interface {
 public:

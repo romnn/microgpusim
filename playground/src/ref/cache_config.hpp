@@ -15,6 +15,7 @@
 #include "utils.hpp"
 #include "write_allocate_policy.hpp"
 #include "write_policy.hpp"
+#include "addrdec.hpp"
 
 struct cache_config_params {
   bool valid;

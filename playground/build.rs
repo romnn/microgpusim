@@ -54,6 +54,7 @@ fn generate_bindings() {
         // .allowlist_type("data_cache")
         // .allowlist_type("l1_cache")
         // .allowlist_type("l2_cache")
+        .allowlist_type("accelsim_config")
         .allowlist_type("cache_config_params")
         .allowlist_type("cache_access_logger_types")
         .opaque_type("const_pointer")
@@ -99,7 +100,9 @@ fn main() {
         "src/bridge/cache_config.rs",
         "src/bridge/shd_warp.rs",
         "src/bridge/scheduler_unit.rs",
+        "src/bridge/main.rs",
     ];
+    // todo: use glob here
     let sources = [
         "src/tests/parse_cache_config.cc",
         "src/ref/addrdec.cc",
@@ -112,6 +115,51 @@ fn main() {
         "src/ref/lrr_scheduler.cc",
         "src/ref/scheduler_unit.cc",
         "src/ref/shd_warp.cc",
+        "src/ref/icnt_wrapper.cc",
+        "src/ref/kernel_info.cc",
+        "src/ref/cu_stream.cc",
+        "src/ref/function_info.cc",
+        "src/ref/gpgpu_context.cc",
+        "src/ref/inst_memadd_info.cc",
+        "src/ref/inst_trace.cc",
+        "src/ref/trace.cc",
+        "src/ref/warp_instr.cc",
+        "src/ref/tex_cache.cc",
+        "src/ref/read_only_cache.cc",
+        "src/ref/local_interconnect.cc",
+        "src/ref/mem_fetch.cc",
+        "src/ref/shader_core_mem_fetch_allocator.cc",
+        "src/ref/stream_manager.cc",
+        "src/ref/stream_operation.cc",
+        "src/ref/trace_warp_inst.cc",
+        "src/ref/scoreboard.cc",
+        "src/ref/l2_cache_config.cc",
+        "src/ref/memory_config.cc",
+        "src/ref/trace_config.cc",
+        "src/ref/option_parser.cc",
+        "src/ref/opndcoll_rfu.cc",
+        "src/ref/trace_gpgpu_sim.cc",
+        "src/ref/simt_core_cluster.cc",
+        "src/ref/trace_simt_core_cluster.cc",
+        "src/ref/trace_shader_core_ctx.cc",
+        "src/ref/trace_shd_warp.cc",
+        "src/ref/shader_core_config.cc",
+        "src/ref/symbol_table.cc",
+        "src/ref/simd_function_unit.cc",
+        "src/ref/pipelined_simd_unit.cc",
+        "src/ref/trace_parser.cc",
+        "src/ref/cache_sub_stats.cc",
+        "src/ref/gpgpu_sim_config.cc",
+        "src/ref/gpgpu_functional_sim_config.cc",
+        // "src/ref/cuda_sim.cc",
+        "src/ref/barrier_set.cc",
+        "src/ref/frfcfs_scheduler.cc",
+        "src/ref/memory_sub_partition.cc",
+        "src/ref/stats_wrapper.cc",
+        "src/ref/cache.cc",
+        "src/ref/dram.cc",
+        // "src/ref/gpgpu_sim.cc",
+        "src/ref/main.cc",
     ];
 
     // build(&sources);

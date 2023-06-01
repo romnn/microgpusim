@@ -1,22 +1,18 @@
 #pragma once
 
-// #include "cuda.h"
-#include "dim3.hpp"
+#include <assert.h>
 #include <list>
 #include <map>
 #include <stddef.h>
 #include <string>
 
+#include "dim3.hpp"
+
+class CUstream_t;
+class CUstream_st;
+
 class kernel_info_t {
 public:
-  //   kernel_info_t()
-  //   {
-  //      m_valid=false;
-  //      m_kernel_entry=NULL;
-  //      m_uid=0;
-  //      m_num_cores_running=0;
-  //      m_param_mem=NULL;
-  //   }
   kernel_info_t(dim3 gridDim, dim3 blockDim, class function_info *entry);
   kernel_info_t(
       dim3 gridDim, dim3 blockDim, class function_info *entry,
@@ -129,9 +125,9 @@ public:
   bool is_finished();
   bool children_all_finished();
   void notify_parent_finished();
-  // CUstream_st* create_stream_cta(dim3 ctaid);
-  // CUstream_st* get_default_stream_cta(dim3 ctaid);
-  // bool cta_has_stream(dim3 ctaid, CUstream_st* stream);
+  CUstream_st* create_stream_cta(dim3 ctaid);
+  CUstream_st* get_default_stream_cta(dim3 ctaid);
+  bool cta_has_stream(dim3 ctaid, CUstream_st* stream);
   void destroy_cta_streams();
   void print_parent_info();
   kernel_info_t *get_parent() { return m_parent_kernel; }
@@ -143,7 +139,7 @@ private:
   // child kernel launched
   std::list<kernel_info_t *> m_child_kernels;
   // streams created in each CTA
-  // std::map<dim3, std::list<CUstream_st*>, dim3comp> m_cta_streams;
+  std::map<dim3, std::list<CUstream_st*>, dim3comp> m_cta_streams;
 
   // Jin: kernel timing
 public:

@@ -5,7 +5,6 @@
 #include "gpgpu_sim_config.hpp"
 #include "kernel_info.hpp"
 #include "power_scaling_coefficients.hpp"
-// #include "simt_core_cluster.hpp"
 #include "watchpoint_event.hpp"
 #include "occupancy_stats.hpp"
 

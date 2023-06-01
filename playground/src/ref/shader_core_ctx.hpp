@@ -3,18 +3,19 @@
 #include <bitset>
 #include <map>
 
+#include "barrier_set.hpp"
 #include "core.hpp"
 #include "gpgpu_sim.hpp"
 #include "hal.hpp"
-#include "shader_core_stats.hpp"
-#include "warp_set.hpp"
-#include "barrier_set.hpp"
 #include "ifetch_buffer.hpp"
 #include "opndcoll_rfu.hpp"
+#include "register_set.hpp"
+#include "shader_core_stats.hpp"
+#include "shd_warp.hpp"
+#include "warp_set.hpp"
 
 class scheduler_unit;
 class Scoreboard;
-class register_set;
 class mem_fetch_interface;
 class thread_ctx_t;
 class shader_core_mem_fetch_allocator;

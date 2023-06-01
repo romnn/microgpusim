@@ -7,6 +7,11 @@
 #include "hal.hpp"
 #include "mem_fetch.hpp"
 
+// from gpu-cache.h
+bool was_write_sent(const std::list<cache_event> &events);
+bool was_read_sent(const std::list<cache_event> &events);
+bool was_writeallocate_sent(const std::list<cache_event> &events);
+
 class cache_t {
 public:
   virtual ~cache_t() {}

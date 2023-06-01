@@ -15,10 +15,6 @@ mod default {
         type cache_config;
         fn new_cache_config(config: cache_config_params) -> UniquePtr<cache_config>;
 
-        // fn new_cache_config() -> UniquePtr<cache_config>;
-
-        // fn is_streaming(self: Pin<&mut cache_config>) -> bool;
-
         fn disabled(self: &cache_config) -> bool;
         fn is_streaming(self: &cache_config) -> bool;
     }

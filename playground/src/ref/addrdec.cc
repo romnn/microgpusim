@@ -1,15 +1,40 @@
 #include <unordered_map>
 
-#include "addrdec.hpp"
-#include "hashing.hpp"
 #include <assert.h>
 #include <cstring>
+
+#include "addrdec.hpp"
+#include "hashing.hpp"
+
+unsigned int LOGB2(unsigned int v) {
+  unsigned int shift;
+  unsigned int r;
+
+  r = 0;
+
+  shift = ((v & 0xFFFF0000) != 0) << 4;
+  v >>= shift;
+  r |= shift;
+  shift = ((v & 0xFF00) != 0) << 3;
+  v >>= shift;
+  r |= shift;
+  shift = ((v & 0xF0) != 0) << 2;
+  v >>= shift;
+  r |= shift;
+  shift = ((v & 0xC) != 0) << 1;
+  v >>= shift;
+  r |= shift;
+  shift = ((v & 0x2) != 0) << 0;
+  v >>= shift;
+  r |= shift;
+
+  return r;
+}
 
 std::unordered_map<new_addr_type, unsigned> address_random_interleaving;
 
 // compute x to the y
-int64_t powli(int64_t x, int64_t y) 
-{
+int64_t powli(int64_t x, int64_t y) {
   long int r = 1;
   int i;
   for (i = 0; i < y; ++i) {
@@ -105,27 +130,26 @@ linear_to_raw_address_translation::linear_to_raw_address_translation() {
   addrdec_mask[4] = 0x000000000000000F;
 }
 
-// void linear_to_raw_address_translation::addrdec_setoption(option_parser_t
-// opp) {
-//   option_parser_register(opp, "-gpgpu_mem_addr_mapping", OPT_CSTR,
-//                          &addrdec_option,
-//                          "mapping memory address to dram model {dramid@<start
-//                          " "bit>;<memory address map>}", NULL);
-//   option_parser_register(
-//       opp, "-gpgpu_mem_addr_test", OPT_BOOL, &run_test,
-//       "run sweep test to check address mapping for aliased address", "0");
-//   option_parser_register(opp, "-gpgpu_mem_address_mask", OPT_INT32,
-//                          &gpgpu_mem_address_mask,
-//                          "0 = old addressing mask, 1 = new addressing mask, 2
-//                          "
-//                          "= new add. mask + flipped bank sel and chip sel
-//                          bits", "0");
-//   option_parser_register(
-//       opp, "-gpgpu_memory_partition_indexing", OPT_UINT32,
-//       &memory_partition_indexing,
-//       "0 = no indexing, 1 = bitwise xoring, 2 = IPoly, 3 = custom indexing",
-//       "0");
-// }
+void linear_to_raw_address_translation::addrdec_setoption(option_parser_t opp) {
+  option_parser_register(opp, "-gpgpu_mem_addr_mapping", OPT_CSTR,
+                         &addrdec_option,
+                         "mapping memory address to dram model {dramid@<start "
+                         "bit>;<memory address map>}",
+                         NULL);
+  option_parser_register(
+      opp, "-gpgpu_mem_addr_test", OPT_BOOL, &run_test,
+      "run sweep test to check address mapping for aliased address", "0");
+  option_parser_register(opp, "-gpgpu_mem_address_mask", OPT_INT32,
+                         &gpgpu_mem_address_mask,
+                         "0 = old addressing mask, 1 = new addressing mask, 2 "
+                         "= new add. mask + flipped bank sel and chip sel bits",
+                         "0");
+  option_parser_register(
+      opp, "-gpgpu_memory_partition_indexing", OPT_UINT32,
+      &memory_partition_indexing,
+      "0 = no indexing, 1 = bitwise xoring, 2 = IPoly, 3 = custom indexing",
+      "0");
+}
 
 new_addr_type
 linear_to_raw_address_translation::partition_address(new_addr_type addr) const {
@@ -551,8 +575,8 @@ typedef std::unordered_map<int, int> test_map_t;
 typedef std::unordered_map<addrdec_t, new_addr_type, hash_addrdec_t>
     history_map_t;
 
-// a simple sweep test to ensure that two linear addresses are not mapped to the
-// same raw address
+// a simple sweep test to ensure that two linear addresses are not mapped to
+// the same raw address
 void linear_to_raw_address_translation::sweep_test() const {
   new_addr_type sweep_range = 16 * 1024 * 1024;
 

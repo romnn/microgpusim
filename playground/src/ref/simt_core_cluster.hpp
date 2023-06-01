@@ -5,7 +5,6 @@
 #include "shader_core_config.hpp"
 #include "shader_core_stats.hpp"
 #include "cache_stats.hpp"
-// #include "shader_core_ctx.hpp"
 
 class gpgpu_sim;
 class shader_core_ctx;

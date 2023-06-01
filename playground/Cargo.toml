@@ -13,12 +13,23 @@ exclude = [
 # crate-type = ["cdylib"]
 crate-type = ["rlib"]
 
+[[bin]]
+name = "playground"
+path = "src/main.rs"
+
 [features]
-default = []
+default = ["parallel"]
 parallel = ["cc/parallel"]
 
 [dependencies]
 cxx = "1"
+
+color-eyre = "0"
+thiserror = "1"
+clap = { version = "4", features = [ "derive" ] }
+dialoguer = "0"
+indicatif = "0"
+console = "0"
 
 [dev-dependencies]
 pretty_assertions = "1"

@@ -18,6 +18,14 @@ typedef uint64_t cudaTextureObject_t;
 typedef uint64_t address_type;
 typedef uint64_t addr_t;
 
+typedef address_type mem_addr_t;
+
+#define MEM_BLOCK_SIZE (4 * 1024)
+
+#define WARP_SIZE 32
+#define MAX_DST 1
+#define MAX_SRC 4
+
 // Set a hard limit of 32 CTAs per shader [cuda only has 8]
 #define MAX_CTA_PER_SHADER 32
 #define MAX_BARRIERS_PER_CTA 16

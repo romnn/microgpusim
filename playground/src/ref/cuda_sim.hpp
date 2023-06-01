@@ -7,12 +7,19 @@
 #include "hal.hpp"
 #include "ptx_reg.hpp"
 #include "rec_pts.hpp"
+#include "option_parser.hpp"
 
 class gpgpu_context;
 class function_info;
 class gpgpu_t;
+class kernel_info_t;
 class rec_pts;
 class gpgpu_ptx_sim_arg_list_t;
+
+extern bool g_interactive_debugger_enabled;
+extern int g_debug_execution;
+
+extern void print_splash();
 
 class cuda_sim {
 public:

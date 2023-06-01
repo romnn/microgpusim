@@ -1,3 +1,4 @@
+pub mod main;
 pub mod scheduler_unit;
 pub mod shd_warp;
 pub mod addrdec;

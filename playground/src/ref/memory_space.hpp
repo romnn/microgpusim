@@ -1,5 +1,7 @@
 #pragma once
 
+#include "hal.hpp"
+
 enum _memory_space_t {
     undefined_space = 0,
     reg_space,
@@ -62,4 +64,19 @@ private:
     enum _memory_space_t m_type;
     unsigned m_bank; // n in ".const[n]"; note .const == .const[0] (see PTX 2.1
         // manual, sec. 5.1.3)
+};
+
+class ptx_thread_info;
+class ptx_instruction;
+
+class memory_space {
+ public:
+  virtual ~memory_space() {}
+  virtual void write(mem_addr_t addr, size_t length, const void *data,
+                     ptx_thread_info *thd, const ptx_instruction *pI) = 0;
+  virtual void write_only(mem_addr_t index, mem_addr_t offset, size_t length,
+                          const void *data) = 0;
+  virtual void read(mem_addr_t addr, size_t length, void *data) const = 0;
+  virtual void print(const char *format, FILE *fout) const = 0;
+  virtual void set_watch(addr_t addr, unsigned watchpoint) = 0;
 };

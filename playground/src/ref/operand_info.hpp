@@ -1,11 +1,11 @@
 #pragma once
 
 // #include "gpgpu_context.hpp"
-#include "symbol.hpp"
 #include "hal.hpp"
 #include "memory_space.hpp"
 #include "operand_type.hpp"
 #include "ptx_reg.hpp"
+#include "symbol.hpp"
 
 class symbol;
 class gpgpu_context;

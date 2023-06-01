@@ -4,7 +4,6 @@
 #include <set>
 #include <string>
 
-// #include "gpgpu_context.hpp"
 #include "ptx_instruction.hpp"
 #include "ptx_version.hpp"
 #include "symbol_table.hpp"
@@ -12,10 +11,9 @@
 #include "gpu_recon.hpp"
 #include "gpgpu_ptx_sim_info.hpp"
 #include "param.hpp"
-// #include "param_info.hpp"
+#include "param_info.hpp"
 
 class gpgpu_context;
-class param_info;
 
 class function_info {
 public:
