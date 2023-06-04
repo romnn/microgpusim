@@ -109,7 +109,7 @@ public:
                                        unsigned *pc, unsigned *rpc);
   virtual const active_mask_t &get_active_mask(unsigned warp_id,
                                                const warp_inst_t *pI);
-  virtual void issue_warp(register_set &warp, const warp_inst_t *pI,
+  virtual void issue_warp(register_set &pipe_reg_set, const warp_inst_t *next_inst,
                           const active_mask_t &active_mask, unsigned warp_id,
                           unsigned sch_id);
 
@@ -351,6 +351,7 @@ protected:
   void fetch();
 
   int test_res_bus(int latency);
+  address_type next_pc(int tid) const;
   void register_cta_thread_exit(unsigned cta_num, trace_kernel_info_t *kernel);
 
   // Returns numbers of addresses in translated_addrs

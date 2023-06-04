@@ -10,7 +10,11 @@ use color_eyre::eyre;
 pub use options::{Options, SimConfig};
 use std::path::PathBuf;
 
-pub fn locate() -> eyre::Result<PathBuf> {
+pub fn manifest_path() -> Result<PathBuf, std::io::Error> {
+    PathBuf::from(std::env!("CARGO_MANIFEST_DIR")).canonicalize()
+}
+
+pub fn locate() -> Result<PathBuf, std::io::Error> {
     let use_remote = std::option_env!("USE_REMOTE_ACCELSIM")
         .map(|use_remote| use_remote.to_lowercase() == "yes")
         .unwrap_or(false);
@@ -19,9 +23,7 @@ pub fn locate() -> eyre::Result<PathBuf> {
             .canonicalize()?
             .join("accelsim")
     } else {
-        PathBuf::from(std::env!("CARGO_MANIFEST_DIR"))
-            .canonicalize()?
-            .join("accel-sim-framework-dev")
+        manifest_path()?.join("accel-sim-framework-dev")
     };
     Ok(accelsim_path)
 }

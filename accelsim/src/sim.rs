@@ -3,13 +3,30 @@
 use accelsim::parser::{parse, Options as ParseOptions};
 use accelsim::{Options, SimConfig};
 use async_process::Command;
-// use clap::Parser;
+use clap::Parser;
 use color_eyre::eyre;
 use std::collections::HashMap;
 use std::io::Write;
 use std::os::unix::fs::DirBuilderExt;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
+
+fn locate_accelsim_bin(sim_root: &Path, profile: &str) -> eyre::Result<PathBuf> {
+    let use_box = std::env::var("USE_BOX")
+        .as_deref()
+        .unwrap_or("")
+        .to_lowercase()
+        == "yes";
+    let accelsim_bin = if use_box {
+        accelsim::manifest_path()?
+            .join("../target")
+            .join(profile)
+            .join("playground")
+    } else {
+        sim_root.join("bin").join(profile).join("accel-sim.out")
+    };
+    Ok(accelsim_bin)
+}
 
 async fn sim_trace(
     traces_dir: impl AsRef<Path>,
@@ -24,14 +41,14 @@ async fn sim_trace(
     #[cfg(not(debug_assertions))]
     let profile = "release";
 
-    let accelsim_bin = sim_root.join("bin").join(profile).join("accel-sim.out");
+    let accelsim_bin = locate_accelsim_bin(&sim_root, &profile)?;
     if !accelsim_bin.is_file() {
-        eyre::eyre!("missing {}", accelsim_bin.display());
+        eyre::bail!("missing {}", accelsim_bin.display());
     }
 
     let setup_env = sim_root.join("setup_environment.sh");
     if !setup_env.is_file() {
-        eyre::eyre!("missing {}", setup_env.display());
+        eyre::bail!("missing {}", setup_env.display());
     }
 
     let mut tmp_sim_sh = vec!["set -e".to_string()];
@@ -51,9 +68,6 @@ async fn sim_trace(
 
     // run accelsim binary
     let gpgpusim_config = config.config()?;
-    // let gpgpusim_config = config
-    //     .config
-    //     .unwrap_or(config.config_dir.join("gpgpusim.config"));
     let kernelslist = traces_dir.as_ref().join("kernelslist.g").canonicalize()?;
 
     let mut trace_cmd: Vec<String> = vec![
@@ -65,9 +79,6 @@ async fn sim_trace(
     ];
 
     let gpgpusim_trace_config = config.trace_config()?;
-    // let gpgpusim_trace_config = config
-    //     .trace_config
-    //     .unwrap_or(config.config_dir.join("gpgpusim.trace.config"));
 
     if gpgpusim_trace_config.is_file() {
         trace_cmd.extend([
@@ -88,7 +99,7 @@ async fn sim_trace(
     tmp_sim_sh_file.write_all(tmp_sim_sh.as_bytes())?;
 
     if !config.config_dir.is_dir() {
-        eyre::eyre!(
+        eyre::bail!(
             "config dir {} is not a directory",
             config.config_dir.display()
         );
@@ -114,7 +125,7 @@ async fn sim_trace(
 
         // if we want to debug, we leave the file in place
         // gdb --args bash test-apps/vectoradd/traces/vectoradd-100-32-trace/sim.tmp.sh
-        eyre::eyre!("cmd failed with code {:?}", result.status.code());
+        eyre::bail!("cmd failed with code {:?}", result.status.code());
     }
 
     // for now, we want to keep the file
@@ -127,26 +138,6 @@ async fn main() -> eyre::Result<()> {
     color_eyre::install()?;
 
     let mut options = Options::parse();
-
-    // make paths absolute
-    // options.traces_dir = options.traces_dir.canonicalize()?;
-    // options.sim_config.config_dir = options.sim_config.config_dir.canonicalize()?;
-    //
-    // if let Some(log_file) = options.log_file {
-    //     options.log_file = Some(log_file.canonicalize()?);
-    // }
-    // if let Some(stats_file) = options.stats_file {
-    //     options.stats_file = Some(stats_file.canonicalize()?);
-    // }
-    // if let Some(config) = options.sim_config.config {
-    //     options.sim_config.config = Some(config.canonicalize()?);
-    // }
-    // if let Some(trace_config) = options.sim_config.trace_config {
-    //     options.sim_config.trace_config = Some(trace_config.canonicalize()?);
-    // }
-    // if let Some(inter_config) = options.sim_config.inter_config {
-    //     options.sim_config.inter_config = Some(inter_config.canonicalize()?);
-    // }
 
     // dbg!(&options.traces_dir);
 

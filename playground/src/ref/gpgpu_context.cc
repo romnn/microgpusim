@@ -78,9 +78,8 @@ void *gpgpu_sim_thread_concurrent(void *ctx_ptr) {
         trace_kernel_info_t *kernel =
             ctx->the_gpgpusim->g_the_gpu->get_functional_kernel();
         assert(kernel);
-        // TODO
-        // ctx->the_gpgpusim->gpgpu_ctx->func_sim->gpgpu_cuda_ptx_sim_main_func(
-        //     *kernel);
+        ctx->the_gpgpusim->gpgpu_ctx->func_sim->gpgpu_cuda_ptx_sim_main_func(
+            *kernel);
         ctx->the_gpgpusim->g_the_gpu->finish_functional_sim(kernel);
       }
 

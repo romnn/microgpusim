@@ -1000,10 +1000,10 @@ mod tests {
 
     #[test]
     fn test_shd_warp() {
-        use bridge::shd_warp::new_shd_warp;
+        use bridge::trace_shd_warp::new_trace_shd_warp;
         let core = ptr::null_mut();
         let warp_size = 32;
-        let mut warp = unsafe { new_shd_warp(core, warp_size) };
+        let mut warp = unsafe { new_trace_shd_warp(core, warp_size) };
         warp.pin_mut().reset();
         dbg!(&warp.get_n_completed());
         dbg!(&warp.hardware_done());

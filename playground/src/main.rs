@@ -47,6 +47,8 @@ fn main() -> eyre::Result<()> {
         ]);
     }
 
+    let os_args: Vec<_> = std::env::args().collect();
+    args = os_args.iter().map(String::as_str).collect();
     dbg!(&args);
 
     let ret_code = accelsim(config, &args);

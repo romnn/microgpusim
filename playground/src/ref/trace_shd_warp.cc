@@ -30,7 +30,7 @@ address_type trace_shd_warp_t::get_start_trace_pc() {
   return warp_traces[0].m_pc;
 }
 
-address_type trace_shd_warp_t::get_pc() {
+address_type trace_shd_warp_t::get_pc() const {
   assert(warp_traces.size() > 0);
   assert(trace_pc < warp_traces.size());
   return warp_traces[trace_pc].m_pc;
@@ -63,4 +63,9 @@ bool trace_shd_warp_t::functional_done() const {
 
 bool trace_shd_warp_t::hardware_done() const {
   return functional_done() && stores_done() && !inst_in_pipeline();
+}
+
+std::unique_ptr<trace_shd_warp_t>
+new_trace_shd_warp(class trace_shader_core_ctx *shader, unsigned warp_size) {
+  return std::make_unique<trace_shd_warp_t>(shader, warp_size);
 }

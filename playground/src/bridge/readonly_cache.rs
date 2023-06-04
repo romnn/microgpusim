@@ -13,8 +13,7 @@ mod default {
 
         type read_only_cache;
 
-        // todo: build bridges for those
-        type cache_config;
+        type cache_config = crate::bridge::cache_config::cache_config;
         type mem_fetch;
         type mem_fetch_interface;
 

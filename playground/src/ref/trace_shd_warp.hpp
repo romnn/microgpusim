@@ -1,22 +1,24 @@
 #pragma once
 
-// #include "shd_warp.hpp"
+#include <memory>
+
 #include "inst_trace.hpp"
 #include "trace_kernel_info.hpp"
 #include "warp_instr.hpp"
-// #include "trace_warp_inst.hpp"
 
 class trace_shader_core_ctx;
 
-// class trace_shd_warp_t : public shd_warp_t {
 class trace_shd_warp_t {
 public:
-  trace_shd_warp_t(class trace_shader_core_ctx *shader, unsigned warp_size) {
-    // : shd_warp_t(shader, warp_size) {
+  trace_shd_warp_t(class trace_shader_core_ctx *shader, unsigned warp_size)
+      : m_shader(shader), m_warp_size(warp_size) {
+    m_stores_outstanding = 0;
+    m_inst_in_pipeline = 0;
     reset();
     trace_pc = 0;
     m_kernel_info = NULL;
   }
+
   void reset() {
     assert(m_stores_outstanding == 0);
     assert(m_inst_in_pipeline == 0);
@@ -25,7 +27,7 @@ public:
     m_dynamic_warp_id = (unsigned)-1;
     n_completed = m_warp_size;
     m_n_atomic = 0;
-    // m_membar = false;
+    m_membar = false;
     m_done_exit = true;
     m_last_fetch = 0;
     m_next = 0;
@@ -34,6 +36,7 @@ public:
     m_cdp_latency = 0;
     m_cdp_dummy = false;
   }
+
   void init(address_type start_pc, unsigned cta_id, unsigned wid,
             const std::bitset<MAX_WARP_SIZE> &active,
             unsigned dynamic_warp_id) {
@@ -58,14 +61,12 @@ public:
   bool trace_done();
 
   address_type get_start_trace_pc();
-  virtual address_type get_pc();
-  // virtual kernel_info_t *get_kernel_info() const { return m_kernel_info; }
+  virtual address_type get_pc() const;
   virtual trace_kernel_info_t *get_kernel_info() const { return m_kernel_info; }
   void set_kernel(trace_kernel_info_t *kernel_info) {
     m_kernel_info = kernel_info;
   }
 
-  // from shd_warp.hpp
   bool functional_done() const;
   bool waiting(); // not const due to membar
   bool hardware_done() const;
@@ -74,6 +75,12 @@ public:
   void set_done_exit() { m_done_exit = true; }
 
   void set_next_pc(address_type pc) { m_next_pc = pc; }
+  void store_info_of_last_inst_at_barrier(const warp_inst_t *pI) {
+    m_inst_at_barrier = *pI;
+  }
+  warp_inst_t *restore_info_of_last_inst_at_barrier() {
+    return &m_inst_at_barrier;
+  }
 
   unsigned get_n_completed() const { return n_completed; }
   void set_completed(unsigned lane) {
@@ -156,8 +163,6 @@ private:
   unsigned trace_pc;
   trace_kernel_info_t *m_kernel_info;
 
-  // from "shd_warp_t.hpp"
-  // unsigned m_warp_size;
   static const unsigned IBUFFER_SIZE = 2;
   class trace_shader_core_ctx *m_shader;
   unsigned m_cta_id;
@@ -175,6 +180,8 @@ private:
   };
   ibuffer_entry m_ibuffer[IBUFFER_SIZE];
   unsigned m_next;
+
+  warp_inst_t m_inst_at_barrier;
 
   address_type m_next_pc;
   unsigned n_completed; // number of threads in warp completed
@@ -194,3 +201,6 @@ private:
                                  // acknowledged
   unsigned m_inst_in_pipeline;
 };
+
+std::unique_ptr<trace_shd_warp_t>
+new_trace_shd_warp(class trace_shader_core_ctx *shader, unsigned warp_size);

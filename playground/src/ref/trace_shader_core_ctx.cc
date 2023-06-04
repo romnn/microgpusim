@@ -9,6 +9,7 @@
 #include "lrr_scheduler.hpp"
 #include "oldest_scheduler.hpp"
 #include "perfect_memory_interface.hpp"
+#include "ptx_thread_info.hpp"
 #include "read_only_cache.hpp"
 #include "rrr_scheduler.hpp"
 #include "scoreboard.hpp"
@@ -72,17 +73,71 @@ unsigned trace_shader_core_ctx::sim_init_thread(
   return 1;
 }
 
+// return the next pc of a thread
+address_type trace_shader_core_ctx::next_pc(int tid) const {
+  if (tid == -1)
+    return -1;
+  ptx_thread_info *the_thread = m_thread[tid];
+  if (the_thread == NULL)
+    return -1;
+  return the_thread
+      ->get_pc(); // PC should already be updatd to next PC at this point (was
+                  // set in shader_decode() last time thread ran)
+}
+
 void trace_shader_core_ctx::init_warps(unsigned cta_id, unsigned start_thread,
                                        unsigned end_thread, unsigned ctaid,
                                        int cta_size,
                                        trace_kernel_info_t &kernel) {
-  // TODO: call base class
-  throw std::runtime_error("shader core ctx::init_warps");
-  // shader_core_ctx::init_warps(cta_id, start_thread, end_thread, ctaid,
-  // cta_size,
-  //                             kernel);
+  // from shader_core_ctx.cc
+  address_type start_pc = next_pc(start_thread);
+  unsigned kernel_id = kernel.get_uid();
+  if (m_config->model == POST_DOMINATOR) {
+    unsigned start_warp = start_thread / m_config->warp_size;
+    unsigned warp_per_cta = cta_size / m_config->warp_size;
+    unsigned end_warp = end_thread / m_config->warp_size +
+                        ((end_thread % m_config->warp_size) ? 1 : 0);
+    for (unsigned i = start_warp; i < end_warp; ++i) {
+      unsigned n_active = 0;
+      simt_mask_t active_threads;
+      for (unsigned t = 0; t < m_config->warp_size; t++) {
+        unsigned hwtid = i * m_config->warp_size + t;
+        if (hwtid < end_thread) {
+          n_active++;
+          assert(!m_active_threads.test(hwtid));
+          m_active_threads.set(hwtid);
+          active_threads.set(t);
+        }
+      }
+      m_simt_stack[i]->launch(start_pc, active_threads);
+
+      // REMOVE: resume
+      // if (m_gpu->resume_option == 1 && kernel_id == m_gpu->resume_kernel &&
+      //     ctaid >= m_gpu->resume_CTA && ctaid < m_gpu->checkpoint_CTA_t) {
+      //   char fname[2048];
+      //   snprintf(fname, 2048, "checkpoint_files/warp_%d_%d_simt.txt",
+      //            i % warp_per_cta, ctaid);
+      //   unsigned pc, rpc;
+      //   m_simt_stack[i]->resume(fname);
+      //   m_simt_stack[i]->get_pdom_stack_top_info(&pc, &rpc);
+      //   for (unsigned t = 0; t < m_config->warp_size; t++) {
+      //     if (m_thread != NULL) {
+      //       m_thread[i * m_config->warp_size + t]->set_npc(pc);
+      //       m_thread[i * m_config->warp_size + t]->update_pc();
+      //     }
+      //   }
+      //   start_pc = pc;
+      // }
+
+      m_warp[i]->init(start_pc, cta_id, i, active_threads, m_dynamic_warp_id);
+      ++m_dynamic_warp_id;
+      m_not_completed += n_active;
+      ++m_active_warps;
+    }
+  }
 
   // then init traces
+  // from "trace_shader_core_ctx.hpp"
   unsigned start_warp = start_thread / m_config->warp_size;
   unsigned end_warp = end_thread / m_config->warp_size +
                       ((end_thread % m_config->warp_size) ? 1 : 0);
@@ -171,16 +226,41 @@ void trace_shader_core_ctx::func_exec_inst(warp_inst_t &inst) {
   }
 }
 
-void trace_shader_core_ctx::issue_warp(register_set &warp,
-                                       const warp_inst_t *pI,
+void trace_shader_core_ctx::issue_warp(register_set &pipe_reg_set,
+                                       const warp_inst_t *next_inst,
                                        const active_mask_t &active_mask,
                                        unsigned warp_id, unsigned sch_id) {
-  throw std::runtime_error("call shader_core_ctx::issue_warp");
-  // shader_core_ctx::issue_warp(warp, pI, active_mask, warp_id, sch_id);
+  warp_inst_t **pipe_reg =
+      pipe_reg_set.get_free(m_config->sub_core_model, sch_id);
+  assert(pipe_reg);
+
+  m_warp[warp_id]->ibuffer_free();
+  assert(next_inst->valid());
+  **pipe_reg = *next_inst; // static instruction information
+  (*pipe_reg)->issue(active_mask, warp_id,
+                     m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle,
+                     m_warp[warp_id]->get_dynamic_warp_id(),
+                     sch_id); // dynamic instruction information
+  m_stats->shader_cycle_distro[2 + (*pipe_reg)->active_count()]++;
+  func_exec_inst(**pipe_reg);
+
+  if (next_inst->op == BARRIER_OP) {
+    m_warp[warp_id]->store_info_of_last_inst_at_barrier(*pipe_reg);
+    m_barriers.warp_reaches_barrier(m_warp[warp_id]->get_cta_id(), warp_id,
+                                    const_cast<warp_inst_t *>(next_inst));
+
+  } else if (next_inst->op == MEMORY_BARRIER_OP) {
+    m_warp[warp_id]->set_membar();
+  }
+
+  updateSIMTStack(warp_id, *pipe_reg);
+
+  m_scoreboard->reserveRegisters(*pipe_reg);
+  m_warp[warp_id]->set_next_pc(next_inst->pc + next_inst->isize);
 
   // delete warp_inst_t class here, it is not required anymore by gpgpu-sim
   // after issue
-  delete pI;
+  delete next_inst;
 }
 
 void trace_shader_core_ctx::create_front_pipeline() {
@@ -768,10 +848,8 @@ void trace_shader_core_ctx::fetch() {
                 register_cta_thread_exit(cta_id,
                                          m_warp[warp_id]->get_kernel_info());
               } else {
-                throw std::runtime_error(
-                    "find alternative for ptx thread info");
-                // register_cta_thread_exit(cta_id,
-                //                          &(m_thread[tid]->get_kernel()));
+                register_cta_thread_exit(cta_id,
+                                         &(m_thread[tid]->get_kernel()));
               }
               m_not_completed -= 1;
               m_active_threads.reset(tid);
@@ -1398,6 +1476,19 @@ void trace_shader_core_ctx::initializeSIMTStack(unsigned warp_count,
     m_simt_stack[i] = new simt_stack(i, warp_size, m_gpu);
   m_warp_size = warp_size;
   m_warp_count = warp_count;
+}
+
+void trace_shader_core_ctx::broadcast_barrier_reduction(unsigned cta_id,
+                                                        unsigned bar_id,
+                                                        warp_set_t warps) {
+  for (unsigned i = 0; i < m_config->max_warps_per_shader; i++) {
+    if (warps.test(i)) {
+      const warp_inst_t *inst =
+          m_warp[i]->restore_info_of_last_inst_at_barrier();
+      const_cast<warp_inst_t *>(inst)->broadcast_barrier_reduction(
+          inst->get_active_mask());
+    }
+  }
 }
 
 void trace_shader_core_ctx::incexecstat(warp_inst_t *&inst) {

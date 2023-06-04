@@ -273,7 +273,6 @@ gpgpu_sim *gpgpu_trace_sim_init_perf_model(int argc, const char *argv[],
   m_gpgpu_context->the_gpgpusim->g_the_gpu =
       new trace_gpgpu_sim(*(sim_config), m_gpgpu_context);
 
-  // todo: skipped stream manager for now
   m_gpgpu_context->the_gpgpusim->g_stream_manager =
       new stream_manager((m_gpgpu_context->the_gpgpusim->g_the_gpu),
                          m_gpgpu_context->func_sim->g_cuda_launch_blocking);

@@ -27,14 +27,13 @@ trace_kernel_info_t::trace_kernel_info_t(dim3 gridDim, dim3 blockDim,
   // m_parent_kernel = NULL;
 
   // Jin: launch latency management
-  // TODO: device runtime
-  // m_launch_latency =
-  //     m_function_info->gpgpu_ctx->device_runtime->g_kernel_launch_latency;
-  //
-  // m_kernel_TB_latency =
-  //     m_function_info->gpgpu_ctx->device_runtime->g_kernel_launch_latency +
-  //     num_blocks() *
-  //         m_function_info->gpgpu_ctx->device_runtime->g_TB_launch_latency;
+  m_launch_latency =
+      m_function_info->gpgpu_ctx->device_runtime->g_kernel_launch_latency;
+
+  m_kernel_TB_latency =
+      m_function_info->gpgpu_ctx->device_runtime->g_kernel_launch_latency +
+      num_blocks() *
+          m_function_info->gpgpu_ctx->device_runtime->g_TB_launch_latency;
 
   cache_config_set = false;
 

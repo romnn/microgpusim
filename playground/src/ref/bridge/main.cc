@@ -62,26 +62,26 @@ trace_gpgpu_sim *gpgpu_trace_sim_init_perf_model(
   return m_gpgpu_context->the_gpgpusim->g_the_gpu;
 }
 
-// trace_kernel_info_t *create_kernel_info(kernel_trace_t *kernel_trace_info,
-//                                         gpgpu_context *m_gpgpu_context,
-//                                         class trace_config *config,
-//                                         trace_parser *parser) {
-//
-//   gpgpu_ptx_sim_info info;
-//   info.smem = kernel_trace_info->shmem;
-//   info.regs = kernel_trace_info->nregs;
-//   dim3 gridDim(kernel_trace_info->grid_dim_x, kernel_trace_info->grid_dim_y,
-//                kernel_trace_info->grid_dim_z);
-//   dim3 blockDim(kernel_trace_info->tb_dim_x, kernel_trace_info->tb_dim_y,
-//                 kernel_trace_info->tb_dim_z);
-//   trace_function_info *function_info =
-//       new trace_function_info(info, m_gpgpu_context);
-//   function_info->set_name(kernel_trace_info->kernel_name.c_str());
-//   trace_kernel_info_t *kernel_info = new trace_kernel_info_t(
-//       gridDim, blockDim, function_info, parser, config, kernel_trace_info);
-//
-//   return kernel_info;
-// }
+trace_kernel_info_t *create_kernel_info(kernel_trace_t *kernel_trace_info,
+                                        gpgpu_context *m_gpgpu_context,
+                                        class trace_config *config,
+                                        trace_parser *parser) {
+
+  gpgpu_ptx_sim_info info;
+  info.smem = kernel_trace_info->shmem;
+  info.regs = kernel_trace_info->nregs;
+  dim3 gridDim(kernel_trace_info->grid_dim_x, kernel_trace_info->grid_dim_y,
+               kernel_trace_info->grid_dim_z);
+  dim3 blockDim(kernel_trace_info->tb_dim_x, kernel_trace_info->tb_dim_y,
+                kernel_trace_info->tb_dim_z);
+  trace_function_info *function_info =
+      new trace_function_info(info, m_gpgpu_context);
+  function_info->set_name(kernel_trace_info->kernel_name.c_str());
+  trace_kernel_info_t *kernel_info = new trace_kernel_info_t(
+      gridDim, blockDim, function_info, parser, config, kernel_trace_info);
+
+  return kernel_info;
+}
 
 int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv) {
   std::cout << "Accel-Sim [build <box>]" << std::endl;
@@ -102,7 +102,6 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv) {
   // init trace based performance model
   trace_gpgpu_sim *m_gpgpu_sim = gpgpu_trace_sim_init_perf_model(
       m_gpgpu_context, &tconfig, config, c_argv);
-  return 0;
 
   m_gpgpu_sim->init();
 
@@ -111,6 +110,7 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv) {
 
   // parse trace config
   tconfig.parse_config();
+  printf("initialization complete\n");
 
   // setup a rolling window with size of the max concurrent kernel executions
   bool concurrent_kernel_sm =

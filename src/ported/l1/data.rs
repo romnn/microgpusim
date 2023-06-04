@@ -844,7 +844,7 @@ mod tests {
         let stats = Arc::new(Mutex::new(Stats::default()));
         let config = Arc::new(config::GPUConfig::default());
         let cache_config = config.data_cache_l1.clone().unwrap();
-        let interconn = ic::Interconnect {};
+        let interconn = Arc::new(ic::CoreMemoryInterface {});
         let mut l1 = Data::new(
             core_id,
             cluster_id,
@@ -988,11 +988,11 @@ mod tests {
         let stats = Arc::new(Mutex::new(Stats::default()));
         let config = Arc::new(config::GPUConfig::default());
         let cache_config = config.data_cache_l1.clone().unwrap();
-        let port = ic::Interconnect {};
+        let interconn = Arc::new(ic::CoreMemoryInterface {});
         let mut l1 = Data::new(
             core_id,
             cluster_id,
-            port,
+            interconn,
             stats.clone(),
             config.clone(),
             cache_config,

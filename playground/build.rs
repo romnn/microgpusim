@@ -122,18 +122,19 @@ fn main() -> eyre::Result<()> {
     let bridges = [
         "src/bridge/addrdec.rs",
         "src/bridge/cache_config.rs",
-        "src/bridge/shd_warp.rs",
+        "src/bridge/trace_shd_warp.rs",
         "src/bridge/scheduler_unit.rs",
         "src/bridge/readonly_cache.rs",
         "src/bridge/main.rs",
     ]
     .map(PathBuf::from);
 
-    let extensions = ["cc", "cpp"];
-    let patterns: Vec<_> = extensions
-        .into_iter()
-        .map(|ext| format!("./src/ref/**/*.{}", ext))
-        .collect();
+    let patterns = [
+        "./src/tests/**/*.cc",
+        "./src/ref/**/*.cc",
+        "./src/ref/**/*.cpp",
+    ];
+    // collect all source files, fail on first glob error
     let mut sources = multi_glob(&patterns).collect::<Result<Vec<_>, _>>()?;
 
     // filter sources
@@ -188,7 +189,7 @@ fn main() -> eyre::Result<()> {
         .to_vec();
     }
 
-    // MODIFIED:
+    // MODIFIED (check them again)
     // function_info -> trace_function_info
     // kernel_info -> trace_kernel_info
     // shader_core_ctx -> trace_shader_core_ctx
