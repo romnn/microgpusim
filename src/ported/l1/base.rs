@@ -191,11 +191,11 @@ impl<I> Base<I> {
         todo!("base cache: waiting for fill");
     }
 
-    /// Whether any (accepted) accesses that had to wait for memory are now ready
+    /// Are any (accepted) accesses that had to wait for memory now ready?
     ///
     /// Note: does not include accesses that "HIT"
-    pub fn ready_for_access(&self) -> bool {
-        self.mshrs.ready_for_access()
+    pub fn has_ready_accesses(&self) -> bool {
+        self.mshrs.has_ready_accesses()
     }
 
     /// Pop next ready access
@@ -493,7 +493,7 @@ where
         //   }
         //   m_extra_mf_fields.erase(mf);
         //   m_bandwidth_management.use_fill_port(mf);
-        todo!("l1: fill");
+        todo!("l1 base: fill");
     }
 }
 

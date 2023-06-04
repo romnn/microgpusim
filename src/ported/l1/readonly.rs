@@ -22,10 +22,9 @@ impl<I> ReadOnly<I> {
         Self { inner }
     }
 
-    pub fn access_ready(&self) -> bool {
-        todo!("readonly: access_ready");
-        false
-    }
+    // pub fn access_ready(&self) -> bool {
+    //     todo!("readonly: access_ready");
+    // }
 }
 
 impl<I> cache::Component for ReadOnly<I>
@@ -41,8 +40,8 @@ impl<I> cache::Cache for ReadOnly<I>
 where
     I: ic::MemPort,
 {
-    fn ready_for_access(&self) -> bool {
-        self.inner.ready_for_access()
+    fn has_ready_accesses(&self) -> bool {
+        self.inner.has_ready_accesses()
     }
 
     /// Access read only cache.
@@ -132,31 +131,20 @@ where
     }
 
     fn fill(&self, fetch: &mem_fetch::MemFetch) {
-        todo!("read only: fill");
+        self.inner.fill(fetch);
     }
 }
 
-// impl<I> cache::Cache for Readonly<I> {
-//     //     fn access(
-//         &mut self,
-//         addr: address,
-//         fetch: mem_fetch::MemFetch,
-//         events: Option<&mut Vec<cache::Event>>,
-//     ) -> cache::RequestStatus {
-//         cache::RequestStatus::MISS
-//     }
-//
-//     fn fill(&self, fetch: &mem_fetch::MemFetch) {
-//         todo!("readonly: fill");
-//     }
-//
-//     fn has_free_fill_port(&self) -> bool {
-//         todo!("readonly: has_free_fill_port");
-//         false
-//     }
-// }
+#[cfg(test)]
+mod tests {
+    use super::ReadOnly;
+    use crate::config::GPUConfig;
+    use playground::bridge::readonly_cache as accelsim;
 
-// read_only_cache(const char *name, cache_config &config, int core_id,
-//                   int type_id, mem_fetch_interface *memport,
-//                   enum mem_fetch_status status)
-//       : baseline_cache(name, config, core_id, type_id, memport, status)
+    #[test]
+    fn test_read_only_cache() {
+        // todo: compare accelsim::read_only_cache and readonly
+        let config = GPUConfig::default().data_cache_l1.unwrap();
+        assert!(false);
+    }
+}

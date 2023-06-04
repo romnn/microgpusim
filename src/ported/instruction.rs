@@ -1,5 +1,5 @@
 use super::mem_fetch::{AccessKind, BitString, MemAccess};
-use super::opcodes::{Op, ArchOp, Opcode, OpcodeMap};
+use super::opcodes::{ArchOp, Op, Opcode, OpcodeMap};
 use super::{address, mem_fetch, scheduler as sched};
 use crate::config;
 use crate::ported::mem_sub_partition::MAX_MEMORY_ACCESS_SIZE;
@@ -147,7 +147,7 @@ impl std::fmt::Debug for WarpInstruction {
             f.debug_struct("WarpInstruction")
                 .field("warp_id", &self.warp_id)
                 .field("pc", &self.pc)
-                .field("active_mask", &self.active_mask.bit_string())
+                .field("active_mask", &self.active_mask.to_bit_string())
                 .field("memory_space", &self.memory_space)
                 .field("mem_access_queue", &self.mem_access_queue)
                 .finish()
@@ -163,7 +163,7 @@ impl std::fmt::Display for WarpInstruction {
             f.debug_struct("WarpInstruction")
                 .field("warp_id", &self.warp_id)
                 .field("pc", &self.pc)
-                .field("active_mask", &self.active_mask.bit_string())
+                .field("active_mask", &self.active_mask.to_bit_string())
                 .field("memory_space", &self.memory_space)
                 .field("mem_access_queue", &self.mem_access_queue.len())
                 .finish()

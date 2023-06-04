@@ -1,5 +1,29 @@
-#### TODO (new plan)
-- refactor core into inner core that is shared between components and outer
+#### TODO
+- PLAYGROUND: get rid of (fully): ptx_thread_info
+  - gpgpu_ptx_sim_info seems to be fine and is used directly by trace driven
+
+- how to proceed: cut off trace classes from exec classes (everywhere possible)
+- move all ptx stuff to ptx folder
+
+- check implementations
+  - mem sub partitions
+  - mem units
+
+- FIX (in reverse order): 
+    - icnt cycle -> accept fetch response -> readonly fill -> base fill -> mark ready
+    - note: only `ldst_unit::memory_cycle` is pushing to mem_fetch_interface
+    - note: only `cluster::icnt_cycle` is popping from interconn
+
+- run the accelsim cluster cycle loop for
+  - custom config and trace from playground
+
+- implement the scheduler that is actually used for the 1080
+
+- compile playground
+
+- migrate to use wrappers around command that takes care of proper errors etc. to simplify build and wrapper scripts
+
+- DONE BUT..?? refactor core into inner core that is shared between components and outer
 
 - test running a trace until caches propagate
 - extend the trace with other (all?) instructions

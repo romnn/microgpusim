@@ -4,6 +4,7 @@ use super::{
 };
 use crate::{config::GPUConfig, ported::operand_collector::OperandCollectorRegisterFileUnit};
 use bitvec::{array::BitArray, BitArr};
+use console::style;
 use ic::MemPort;
 use std::sync::{Arc, Mutex};
 
@@ -249,7 +250,7 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
 }
 
 #[derive()]
-pub struct LoadStoreUnit {
+pub struct LoadStoreUnit<I> {
     core_id: usize,
     cluster_id: usize,
     // pipeline_depth: usize,
@@ -267,16 +268,22 @@ pub struct LoadStoreUnit {
     // dispatch_reg: Option<WarpInstruction>,
     /// Pending writes warp -> register -> count
     pending_writes: HashMap<usize, HashMap<u32, usize>>,
-    interconn: ic::Interconnect,
+    // interconn: ic::Interconnect,
+    // interconn: Arc<dyn ic::MemFetchInterface>,
+    interconn: Arc<I>,
     pipelined_simd_unit: PipelinedSimdUnitImpl,
     operand_collector: opcoll::OperandCollectorRegisterFileUnit,
 }
 
-impl LoadStoreUnit {
+impl<I> LoadStoreUnit<I>
+where
+    I: ic::MemFetchInterface,
+{
     pub fn new(
         core_id: usize,
         cluster_id: usize,
-        interconn: ic::Interconnect,
+        interconn: Arc<I>,
+        // interconn: Arc<dyn ic::MemFetchInterface>,
         config: Arc<GPUConfig>,
         stats: Arc<Mutex<Stats>>,
     ) -> Self {
@@ -485,11 +492,16 @@ impl LoadStoreUnit {
 
     fn texture_cycle(&mut self) {}
 
-    // fn memory_cycle(&mut self, instr: &WarpInstruction) -> bool {
     fn memory_cycle(&mut self) -> bool {
         let simd_unit = &mut self.pipelined_simd_unit;
-        println!("memory cycle: {:?}", &simd_unit.dispatch_reg);
-        // let instr = &mut simd_unit.dispatch_reg;
+
+        println!(
+            "core {}-{}: {}",
+            self.core_id,
+            self.cluster_id,
+            style("load store unit: memory cycle").magenta()
+        );
+
         let Some(instr) = &mut simd_unit.dispatch_reg else {
             return true;
         };
@@ -776,26 +788,39 @@ impl LoadStoreUnit {
     //
 }
 
-impl SimdFunctionUnit for LoadStoreUnit {
+impl<I> SimdFunctionUnit for LoadStoreUnit<I>
+where
+    I: ic::MemFetchInterface,
+{
     fn active_lanes_in_pipeline(&self) -> usize {
-        todo!("load store unit: active lanes in pipeline");
+        let active = self.pipelined_simd_unit.active_lanes_in_pipeline();
+        debug_assert!(active <= self.config.warp_size);
+        active
+        // m_core->incfumemactivelanes_stat(active_count);
+        // todo!("load store unit: active lanes in pipeline");
     }
+
     fn issue(&mut self, source_reg: RegisterSet) {
         todo!("load store unit: issue");
     }
+
     fn clock_multiplier(&self) -> usize {
         1
     }
+
     fn can_issue(&self, instr: &WarpInstruction) -> bool {
         todo!("load store unit: can issue");
     }
+
     fn is_issue_partitioned(&self) -> bool {
         // load store unit issue is not partitioned
         false
     }
+
     fn issue_reg_id(&self) -> usize {
         todo!("load store unit: issue reg id");
     }
+
     fn stallable(&self) -> bool {
         todo!("load store unit: stallable");
     }
@@ -804,8 +829,10 @@ impl SimdFunctionUnit for LoadStoreUnit {
         use super::instruction::CacheOperator;
 
         println!(
-            "core {}-{}: load store: cycle",
-            self.core_id, self.cluster_id
+            "core {}-{}: {}",
+            self.core_id,
+            self.cluster_id,
+            style("load store unit: cycle").magenta()
         );
 
         // self.writeback();

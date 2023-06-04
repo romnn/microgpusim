@@ -17,7 +17,13 @@ async fn sim_trace(
 ) -> eyre::Result<std::process::Output> {
     let accelsim_path = accelsim::locate()?;
     let sim_root = accelsim_path.join("gpu-simulator/");
-    let accelsim_bin = sim_root.join("bin/release/accel-sim.out");
+
+    #[cfg(debug_assertions)]
+    let profile = "debug";
+    #[cfg(not(debug_assertions))]
+    let profile = "release";
+
+    let accelsim_bin = sim_root.join("bin").join(profile).join("accel-sim.out");
     if !accelsim_bin.is_file() {
         eyre::eyre!("missing {}", accelsim_bin.display());
     }
@@ -36,7 +42,11 @@ async fn sim_trace(
     ));
 
     // source simulator setup
-    tmp_sim_sh.push(format!("source {}", setup_env.canonicalize()?.display()));
+    tmp_sim_sh.push(format!(
+        "source {} {}",
+        &*setup_env.canonicalize()?.to_string_lossy(),
+        &profile,
+    ));
 
     // run accelsim binary
     let gpgpusim_config = config
@@ -73,7 +83,7 @@ async fn sim_trace(
     }
     tmp_sim_sh.push(trace_cmd.join(" "));
     let tmp_sim_sh = tmp_sim_sh.join("\n");
-    dbg!(&tmp_sim_sh);
+    // dbg!(&tmp_sim_sh);
 
     let tmp_sim_sh_path = traces_dir.as_ref().join("sim.tmp.sh");
     let mut tmp_sim_sh_file = std::fs::OpenOptions::new()
@@ -96,7 +106,7 @@ async fn sim_trace(
     if let Some(cuda_path) = utils::find_cuda().first() {
         cmd.env("CUDA_INSTALL_PATH", &*cuda_path.to_string_lossy());
     }
-    dbg!(&cmd);
+    // dbg!(&cmd);
 
     let result = match timeout {
         Some(timeout) => tokio::time::timeout(timeout, cmd.output()).await,
@@ -166,8 +176,29 @@ struct SimConfig {
 async fn main() -> eyre::Result<()> {
     color_eyre::install()?;
 
-    let options = Options::parse();
-    dbg!(&options.traces_dir);
+    let mut options = Options::parse();
+
+    // make paths absolute
+    // options.traces_dir = options.traces_dir.canonicalize()?;
+    // options.sim_config.config_dir = options.sim_config.config_dir.canonicalize()?;
+    //
+    // if let Some(log_file) = options.log_file {
+    //     options.log_file = Some(log_file.canonicalize()?);
+    // }
+    // if let Some(stats_file) = options.stats_file {
+    //     options.stats_file = Some(stats_file.canonicalize()?);
+    // }
+    // if let Some(config) = options.sim_config.config {
+    //     options.sim_config.config = Some(config.canonicalize()?);
+    // }
+    // if let Some(trace_config) = options.sim_config.trace_config {
+    //     options.sim_config.trace_config = Some(trace_config.canonicalize()?);
+    // }
+    // if let Some(inter_config) = options.sim_config.inter_config {
+    //     options.sim_config.inter_config = Some(inter_config.canonicalize()?);
+    // }
+
+    // dbg!(&options.traces_dir);
 
     let start = Instant::now();
     let output = sim_trace(&options.traces_dir, options.sim_config, options.timeout).await?;
@@ -176,8 +207,11 @@ async fn main() -> eyre::Result<()> {
     // write log
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-    // dbg!(&stdout);
-    // dbg!(&stderr);
+    println!("\n\n STDOUT \n\n");
+    println!("{}", &stdout);
+
+    eprintln!("\n\n STDERR \n\n");
+    eprintln!("{}", &stderr);
 
     let log_file_path = options
         .log_file

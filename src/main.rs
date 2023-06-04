@@ -33,6 +33,8 @@ struct Options {
 }
 
 fn main() -> eyre::Result<()> {
+    color_eyre::install()?;
+
     let start = Instant::now();
     let options = Options::parse();
     std::env::set_var("RUST_BACKTRACE", "full");

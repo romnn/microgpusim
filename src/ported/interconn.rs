@@ -1,9 +1,65 @@
 use super::MemFetch;
+use std::sync::Arc;
 
 pub trait MemPort {
     fn full(&self, size: u32, write: bool) -> bool;
     fn push(&mut self, fetch: MemFetch);
     fn pop(&mut self) -> Option<MemFetch>;
+}
+
+/// Memory interconnect interface between components.
+///
+/// Functions are not mutable because the interface should
+/// implement locking internally
+pub trait MemFetchInterface {
+    fn new() -> Self;
+    fn full(&self, size: u32, write: bool) -> bool;
+    fn push(&self, fetch: MemFetch);
+}
+
+// #[derive(Debug)]
+// pub struct PerfectMemoryInterface { }
+//
+// impl MemFetchInterface for PerfectMemoryInterface {
+//     fn full(&self, size: u32, write: bool) -> bool {
+//         todo!("core memory interface: full");
+//         // self.cluster.interconn_injection_buffer_full(size, write)
+//     }
+//
+//     fn push(&mut self, fetch: MemFetch) {
+//         todo!("core memory interface: push");
+//         // self.core.interconn_simt_to_mem(fetch.get_num_flits(true));
+//         // self.cluster.interconn_inject_request_packet(fetch);
+//     }
+// }
+
+#[derive(Debug)]
+pub struct CoreMemoryInterface {
+    // core: Arc<super::core::SIMTCore>,
+    // cluster: Arc<super::core::SIMTCoreCluster>,
+}
+
+// impl CoreMemoryInterface {
+//     pub fn new() -> Self {
+//         Self {}
+//     }
+// }
+
+impl MemFetchInterface for CoreMemoryInterface {
+    fn new() -> Self {
+        Self {}
+    }
+
+    fn full(&self, size: u32, write: bool) -> bool {
+        todo!("core memory interface: full");
+        // self.cluster.interconn_injection_buffer_full(size, write)
+    }
+
+    fn push(&self, fetch: MemFetch) {
+        todo!("core memory interface: push");
+        // self.core.interconn_simt_to_mem(fetch.get_num_flits(true));
+        // self.cluster.interconn_inject_request_packet(fetch);
+    }
 }
 
 #[derive(Debug, Clone, Default)]

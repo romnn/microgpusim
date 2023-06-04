@@ -231,11 +231,12 @@ impl SchedulerWarp {
         self.next = 0;
     }
 
+    pub fn ibuffer_size(&self) -> usize {
+        self.instr_buffer.iter().filter(|x| x.is_some()).count()
+    }
+
     pub fn ibuffer_empty(&self) -> bool {
         self.instr_buffer.iter().all(Option::is_none)
-        // todo!("sched warp: ibuffer empty");
-        // self.done
-        // false
     }
 
     pub fn ibuffer_flush(&mut self) {
@@ -431,7 +432,8 @@ impl BaseSchedulerUnit {
     //     self.supervised_warps.push_back(warp);
     // }
 
-    fn cycle(&mut self, core: &mut super::core::InnerSIMTCore) {
+    // fn cycle<I>(&mut self, core: &mut super::core::InnerSIMTCore<I>) {
+    fn cycle(&mut self, core: ()) {
         println!("base scheduler: cycle");
 
         // there was one warp with a valid instruction to issue (didn't require flush due to control hazard)
@@ -441,27 +443,43 @@ impl BaseSchedulerUnit {
         // of these we issued one
         let mut issued_inst = false;
 
-        dbg!(&self.next_cycle_prioritized_warps.len());
-        dbg!(&self.supervised_warps.len());
-        dbg!(&self.last_supervised_issued_idx);
+        // dbg!(&self.next_cycle_prioritized_warps.len());
+        // dbg!(&self.supervised_warps.len());
+        // dbg!(&self.last_supervised_issued_idx);
+        //
+        // dbg!(&self
+        //     .warps
+        //     .iter()
+        //     .map(|w| w.lock().unwrap().instruction_count())
+        //     .sum::<usize>());
+        // dbg!(&self
+        //     .supervised_warps
+        //     .iter()
+        //     .map(|w| w.lock().unwrap().instruction_count())
+        //     .sum::<usize>());
+        //
+        // dbg!(&self
+        //     .next_cycle_prioritized_warps
+        //     .iter()
+        //     .map(|w| w.lock().unwrap().instruction_count())
+        //     .sum::<usize>());
 
-        dbg!(&self.warps
-            .iter()
-            .map(|w| w.lock().unwrap().instruction_count())
-            .sum::<usize>());
-        dbg!(&self.supervised_warps
-            .iter()
-            .map(|w| w.lock().unwrap().instruction_count())
-            .sum::<usize>());
-
-        dbg!(&self
-            .next_cycle_prioritized_warps
-            .iter()
-            .map(|w| w.lock().unwrap().instruction_count())
-            .sum::<usize>());
-
-        println!("supervised warps: {:#?}", self.supervised_warps.iter().map(|w| w.lock().unwrap().instruction_count()).collect::<Vec<_>>());
-        println!("next_cycle_prioritized_warps: {:#?}", self.next_cycle_prioritized_warps.iter().map(|w| w.lock().unwrap().instruction_count()).collect::<Vec<_>>());
+        println!(
+            "supervised warps: {:#?}",
+            self.supervised_warps
+                .iter()
+                .map(|w| w.lock().unwrap().instruction_count())
+                .filter(|&c| c > 0)
+                .collect::<Vec<_>>()
+        );
+        println!(
+            "next_cycle_prioritized_warps: {:#?}",
+            self.next_cycle_prioritized_warps
+                .iter()
+                .map(|w| w.lock().unwrap().instruction_count())
+                .filter(|&c| c > 0)
+                .collect::<Vec<_>>()
+        );
 
         for next_warp in &self.next_cycle_prioritized_warps {
             // don't consider warps that are not yet valid
@@ -470,11 +488,15 @@ impl BaseSchedulerUnit {
             if next_warp.done_exit() {
                 continue;
             }
-            println!(
+            let inst_count = next_warp.instruction_count();
+            // dbg!(inst_count);
+            if inst_count > 0 {
+                println!(
                 "scheduler: \n\t => testing (warp_id {}, dynamic_warp_id {}, pc {:?}, {} instructions)",
-                warp_id, dyn_warp_id, 
-                next_warp.trace_start_pc(), next_warp.instruction_count(),
+                warp_id, dyn_warp_id,
+                next_warp.trace_start_pc(), inst_count,
             );
+            }
             let mut checked = 0;
             let mut issued = 0;
 
@@ -484,29 +506,33 @@ impl BaseSchedulerUnit {
             // units (as in Maxwell and Pascal)
             let diff_exec_units = self.config.dual_issue_diff_exec_units;
 
-            if next_warp.ibuffer_empty() {
-                println!(
-                    "warp (warp_id {}, dynamic_warp_id {}) fails as ibuffer_empty",
-                    warp_id, dyn_warp_id
-                );
+            if inst_count > 0 {
+                if next_warp.ibuffer_empty() {
+                    println!(
+                        "warp (warp_id {}, dynamic_warp_id {}) fails as ibuffer_empty",
+                        warp_id, dyn_warp_id
+                    );
+                }
+
+                if next_warp.waiting() {
+                    println!(
+                        "warp (warp_id {}, dynamic_warp_id {}) fails as waiting for barrier",
+                        warp_id, dyn_warp_id
+                    );
+                }
             }
 
-            if next_warp.waiting() {
-                println!(
-                    "warp (warp_id {}, dynamic_warp_id {}) fails as waiting for barrier",
-                    warp_id, dyn_warp_id
-                );
-            }
-
-            println!("locking warp {}", warp_id);
+            // println!("locking warp {}", warp_id);
             let warp = self
                 .warps
                 // .get_mut(warp_id)
                 .get(warp_id)
                 .unwrap();
+
+            // todo: what is the difference? why dont we just use next_warp?
             drop(next_warp);
             let mut warp = warp.lock().unwrap();
-            println!("locked warp {}", warp_id);
+            // println!("locked warp {}", warp_id);
             // .as_mut()
             // .as_ref()
             // .unwrap();
@@ -516,9 +542,9 @@ impl BaseSchedulerUnit {
                 && checked <= issued
                 && issued < max_issue
             {
-                dbg!(&checked);
-                dbg!(&issued);
-                dbg!(&max_issue);
+                // dbg!(&checked);
+                // dbg!(&issued);
+                // dbg!(&max_issue);
                 // let valid = warp.ibuffer_next_valid();
                 let mut warp_inst_issued = false;
 
@@ -549,7 +575,7 @@ impl BaseSchedulerUnit {
                             );
                             ready_inst = true;
 
-                            let active_mask = core.active_mask(warp_id, instr);
+                            // let active_mask = core.active_mask(warp_id, instr);
 
                             debug_assert!(warp.has_instr_in_pipeline());
 
@@ -651,7 +677,8 @@ impl BaseSchedulerUnit {
 }
 
 pub trait SchedulerUnit {
-    fn cycle(&mut self, core: &mut super::core::InnerSIMTCore) {
+    // fn cycle<I>(&mut self, core: &mut super::core::InnerSIMTCore<I>) {
+    fn cycle(&mut self, core: ()) {
         // fn cycle(&mut self) {
         todo!("scheduler unit: cycle");
     }
@@ -834,7 +861,8 @@ impl SchedulerUnit for LrrScheduler {
         self.inner.last_supervised_issued_idx = self.inner.supervised_warps.len();
     }
 
-    fn cycle(&mut self, core: &mut super::core::InnerSIMTCore) {
+    // fn cycle<I>(&mut self, core: &mut super::core::InnerSIMTCore<I>) {
+    fn cycle(&mut self, core: ()) {
         println!("lrr scheduler: cycle enter");
         self.order_warps();
         self.inner.cycle(core);
@@ -962,5 +990,24 @@ impl GTOScheduler {
         //                 m_last_supervised_issued, m_supervised_warps.size(),
         //                 ORDERING_GREEDY_THEN_PRIORITY_FUNC,
         //                 scheduler_unit::sort_warps_by_oldest_dynamic_id);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use playground::{bindings, bridge};
+    use std::ptr;
+
+    #[test]
+    fn test_shd_warp() {
+        use bridge::shd_warp::new_shd_warp;
+        let core = ptr::null_mut();
+        let warp_size = 32;
+        let mut warp = unsafe { new_shd_warp(core, warp_size) };
+        warp.pin_mut().reset();
+        dbg!(&warp.get_n_completed());
+        dbg!(&warp.hardware_done());
+        dbg!(&warp.functional_done());
+        assert!(false);
     }
 }

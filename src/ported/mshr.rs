@@ -94,13 +94,13 @@ impl MshrTable {
     }
 
     /// Returns true if ready accesses exist
-    pub fn ready_for_access(&self) -> bool {
+    pub fn has_ready_accesses(&self) -> bool {
         !self.current_response.is_empty()
     }
 
     /// Returns next ready access
     pub fn next_access(&mut self) -> Option<mem_fetch::MemFetch> {
-        debug_assert!(self.ready_for_access());
+        debug_assert!(self.has_ready_accesses());
         let Some(block_addr) = self.current_response.front() else {
             return None;
         };
@@ -120,65 +120,3 @@ impl MshrTable {
         fetch
     }
 }
-
-// void mshr_table::display(FILE *fp) const {
-//   fprintf(fp, "MSHR contents\n");
-//   for (table::const_iterator e = m_data.begin(); e != m_data.end(); ++e) {
-//     unsigned block_addr = e->first;
-//     fprintf(fp, "MSHR: tag=0x%06x, atomic=%d %zu entries : ", block_addr,
-//             e->second.m_has_atomic, e->second.m_list.size());
-//     if (!e->second.m_list.empty()) {
-//       mem_fetch *mf = e->second.m_list.front();
-//       fprintf(fp, "%p :", mf);
-//       mf->print(fp);
-//     } else {
-//       fprintf(fp, " no memory requests???\n");
-//     }
-//   }
-// }
-
-//   /// Checks if there is a pending request to the lower memory level already
-//   fn probe(new_addr_type block_addr) -> bool;
-//   /// Checks if there is space for tracking a new memory access
-//   bool full(new_addr_type block_addr) const;
-//   /// Add or merge this access
-//   void add(new_addr_type block_addr, mem_fetch *mf);
-//   /// Returns true if cannot accept new fill responses
-//   bool busy() const { return false; }
-//   /// Accept a new cache fill response: mark entry ready for processing
-//   void mark_ready(new_addr_type block_addr, bool &has_atomic);
-//   /// Returns true if ready accesses exist
-//   bool access_ready() const { return !m_current_response.empty(); }
-//   /// Returns next ready access
-//   mem_fetch *next_access();
-//   void display(FILE *fp) const;
-//   // Returns true if there is a pending read after write
-//   bool is_read_after_write_pending(new_addr_type block_addr);
-//
-//   void check_mshr_parameters(unsigned num_entries, unsigned max_merged) {
-//     assert(m_num_entries == num_entries &&
-//            "Change of MSHR parameters between kernels is not allowed");
-//     assert(m_max_merged == max_merged &&
-//            "Change of MSHR parameters between kernels is not allowed");
-//   }
-//
-//  private:
-//   // finite sized, fully associative table, with a finite maximum number of
-//   // merged requests
-//   const unsigned m_num_entries;
-//   const unsigned m_max_merged;
-//
-//   struct mshr_entry {
-//     std::list<mem_fetch *> m_list;
-//     bool m_has_atomic;
-//     mshr_entry() : m_has_atomic(false) {}
-//   };
-//   typedef tr1_hash_map<new_addr_type, mshr_entry> table;
-//   typedef tr1_hash_map<new_addr_type, mshr_entry> line_table;
-//   table m_data;
-//   line_table pending_lines;
-//
-//   // it may take several cycles to process the merged requests
-//   bool m_current_response_ready;
-//   std::list<new_addr_type> m_current_response;
-// };

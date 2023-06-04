@@ -1,8 +1,9 @@
 GPGPU-Sim version 4.2.0 (build gpgpu-sim-modified) configured with AccelWattch.
 setup_environment succeeded
-Accel-Sim [build accelsim-commit-c4741d4_modified_10.0]
+Accel-Sim [build accelsim-commit-694fd52_modified_35.0]
 
-        *** GPGPU-Sim Simulator Version 4.2.0  [build gpgpu-sim_git-commit-c4741d4_modified_10.0] ***
+
+        *** GPGPU-Sim Simulator Version 4.2.0  [build gpgpu-sim_git-commit-694fd52_modified_35.0] ***
 
 
 GPGPU-Sim: Configuration options:
@@ -269,6 +270,10 @@ addr_dec_mask[BURST] = 000000000000001f 	high:5 low:0
 sub_partition_id_mask = 0000000000000080
 GPGPU-Sim uArch: clock freqs: 1607000000.000000:1607000000.000000:1607000000.000000:2500000000.000000
 GPGPU-Sim uArch: clock periods: 0.00000000062227753578:0.00000000062227753578:0.00000000062227753578:0.00000000040000000000
+ROMAN: config.l2_period=0.000000
+ROMAN: config.icnt_period=0.000000
+ROMAN: config.dram_period=0.000000
+ROMAN: config.core_period=0.000000
 *** Initializing Memory Statistics ***
 GPGPU-Sim uArch: interconnect node map (shaderID+MemID to icntID)
 GPGPU-Sim uArch: Memory nodes ID start from index: 20
@@ -291,7 +296,8 @@ GPGPU-Sim uArch:   35  36  37  38  39  40  41
 GPGPU-Sim uArch:   42  43  44  45  46  47  48
 GPGPU-Sim uArch:   49
 GPGPU-Sim uArch: performance model initialization complete.
-launching memcpy command : MemcpyHtoD,0x00007fd165500000,400
+ROMAN: network mode: 1
+launching memcpy command : MemcpyHtoD,0x00007f2b2d500000,400
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: opened accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
@@ -488,7 +494,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
-launching memcpy command : MemcpyHtoD,0x00007fd165500200,400
+launching memcpy command : MemcpyHtoD,0x00007f2b2d500200,400
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -684,7 +690,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
-launching memcpy command : MemcpyHtoD,0x00007fd165500400,400
+launching memcpy command : MemcpyHtoD,0x00007f2b2d500400,400
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -889,8 +895,8 @@ Processing kernel /home/roman/dev/box/test-apps/vectoradd/traces/vectoradd-100-3
 -nregs = 8
 -binary version = 61
 -cuda stream id = 0
--shmem base_addr = 0x00007fd194000000
--local mem base_addr = 0x00007fd192000000
+-shmem base_addr = 0x00007f2b5a000000
+-local mem base_addr = 0x00007f2b58000000
 -nvbit version = 1.5.5
 -accelsim tracer version = 4
 -enable lineinfo = 0
@@ -899,6 +905,7 @@ launching kernel name: _Z6vecAddIfEvPT_S1_S1_i uid: 1
 GPGPU-Sim uArch: Shader 0 bind to kernel 1 '_Z6vecAddIfEvPT_S1_S1_i'
 GPGPU-Sim uArch: CTA/core = 2, limited by: threads
 thread block = 0,0,0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -920,6 +927,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -941,6 +949,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -962,6 +971,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -983,6 +993,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1004,6 +1015,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1025,6 +1037,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1046,6 +1059,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1067,6 +1081,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1088,6 +1103,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1109,6 +1125,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1130,6 +1147,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1151,6 +1169,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1172,6 +1191,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1193,6 +1213,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1214,6 +1235,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1235,6 +1257,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1256,6 +1279,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1277,6 +1301,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1298,6 +1323,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1319,6 +1345,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1340,6 +1367,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1361,6 +1389,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1382,6 +1411,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1403,6 +1433,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1424,6 +1455,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1445,6 +1477,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1466,6 +1499,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1487,6 +1521,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1508,6 +1543,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1529,6 +1565,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1550,6 +1587,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1571,6 +1609,103 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1601,9 +1736,146 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+mshr_table::mark_ready(4026531840, 0)
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1616,183 +1888,217 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+mshr_table::mark_ready(4026531840, 0)
+instruction buffer valid: 0
+instruction buffer valid: 1
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1820,6 +2126,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1847,6 +2154,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1874,6 +2182,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1901,6 +2210,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1928,6 +2238,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1955,6 +2266,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -1982,6 +2294,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2009,6 +2322,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2036,6 +2350,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2063,6 +2378,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2090,6 +2406,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2117,6 +2434,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2144,6 +2462,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2171,6 +2490,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2198,6 +2518,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2225,6 +2546,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2252,6 +2574,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2279,6 +2602,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2306,6 +2630,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2333,6 +2658,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2360,6 +2686,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2387,6 +2714,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2414,6 +2742,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2441,6 +2770,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2468,6 +2798,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2495,6 +2826,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2522,6 +2854,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2549,6 +2882,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2576,6 +2910,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2603,6 +2938,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2630,6 +2966,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2657,6 +2994,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2684,6 +3022,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2711,6 +3050,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2738,6 +3078,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2762,6 +3103,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2786,6 +3128,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2810,6 +3153,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2834,6 +3178,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2858,6 +3203,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2882,6 +3228,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2906,6 +3253,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2930,6 +3278,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2957,6 +3306,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -2984,6 +3334,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3011,6 +3362,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3038,6 +3390,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3065,6 +3418,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3092,6 +3446,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3119,6 +3474,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3146,6 +3502,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3173,6 +3530,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3200,6 +3558,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3227,6 +3586,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3254,6 +3614,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3281,6 +3642,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3308,6 +3670,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3335,6 +3698,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3362,6 +3726,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3389,6 +3754,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3416,6 +3782,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3443,6 +3810,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3470,6 +3838,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3497,6 +3866,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3524,6 +3894,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3551,6 +3922,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3578,6 +3950,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3605,6 +3978,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3632,6 +4006,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3659,6 +4034,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3686,6 +4062,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3713,6 +4090,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3740,6 +4118,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3767,6 +4146,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3794,6 +4174,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3821,6 +4202,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3848,6 +4230,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3875,6 +4258,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3902,6 +4286,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3929,6 +4314,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3956,6 +4342,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -3983,6 +4370,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4010,6 +4398,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4037,6 +4426,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4064,6 +4454,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4091,6 +4482,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4118,6 +4510,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4145,6 +4538,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4172,6 +4566,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4199,6 +4594,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4226,6 +4622,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4253,6 +4650,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4280,6 +4678,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4307,6 +4706,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4334,6 +4734,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4361,6 +4762,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4388,6 +4790,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4415,6 +4818,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4442,6 +4846,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4469,6 +4874,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4496,6 +4902,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4523,6 +4930,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4547,6 +4955,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4574,6 +4983,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4598,6 +5008,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4622,6 +5033,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4646,6 +5058,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4670,6 +5083,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4694,6 +5108,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4718,6 +5133,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4742,6 +5158,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4766,6 +5183,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4790,6 +5208,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4814,6 +5233,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4838,6 +5258,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4862,6 +5283,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4889,6 +5311,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4916,6 +5339,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4943,6 +5367,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4970,6 +5395,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -4997,6 +5423,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5024,6 +5451,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5051,6 +5479,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5078,6 +5507,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5105,6 +5535,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5132,6 +5563,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5156,6 +5588,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5183,6 +5616,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5207,6 +5641,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5231,6 +5666,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5255,6 +5691,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5279,6 +5716,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5303,6 +5741,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5327,6 +5766,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5351,6 +5791,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5372,6 +5813,131 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5402,9 +5968,146 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+mshr_table::mark_ready(4026531968, 0)
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5417,15 +6120,21 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+mshr_table::mark_ready(4026531968, 0)
+instruction buffer valid: 0
+instruction buffer valid: 1
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5453,6 +6162,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5480,6 +6190,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5510,6 +6221,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5537,6 +6249,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5564,6 +6277,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5591,6 +6305,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5612,6 +6327,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5639,6 +6355,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5666,6 +6383,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5693,6 +6411,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5723,6 +6442,7 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5747,12 +6467,136 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5783,6 +6627,8 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5813,6 +6659,8 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5843,6 +6691,8 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5873,6 +6723,8 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5903,6 +6755,8 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5933,6 +6787,8 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5963,6 +6819,8 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -5993,30 +6851,181 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+mshr_table::mark_ready(139823420539136, 0)
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+mshr_table::mark_ready(139823420539008, 0)
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+mshr_table::mark_ready(139823420539264, 0)
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+mshr_table::mark_ready(139823420539520, 0)
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+mshr_table::mark_ready(139823420539648, 0)
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+mshr_table::mark_ready(139823420539392, 0)
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+mshr_table::mark_ready(139823420538880, 0)
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+mshr_table::mark_ready(139823420539776, 0)
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -6041,6 +7050,9 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -6065,6 +7077,11 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -6092,9 +7109,12 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -6122,9 +7142,13 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -6149,6 +7173,12 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -6173,6 +7203,8 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -6200,9 +7232,15 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -6230,9 +7268,125 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 1
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -6266,6 +7420,9 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -6299,6 +7456,18 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -6332,6 +7501,12 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
@@ -6365,12 +7540,138 @@ ROMAN: unlocked accelsim_mem_debug_trace.txt
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+mshr_table::mark_ready(139823420540160, 0)
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
 ROMAN: printing to accelsim_mem_debug_trace.txt
 ROMAN: locked accelsim_mem_debug_trace.txt
 ROMAN: unlocked accelsim_mem_debug_trace.txt
+mshr_table::mark_ready(139823420540288, 0)
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
+instruction buffer valid: 0
 Destroy streams for kernel 1: size 0
 kernel_name = _Z6vecAddIfEvPT_S1_S1_i 
 kernel_launch_uid = 1 
@@ -6646,6 +7947,15 @@ dram[4]:        256       257         0         0         0         0         0 
 dram[5]:        256       255         0         0         0         0         0         0         0         0         0         0         0         0         0         0
 dram[6]:          0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0
 dram[7]:          0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0
+
+Number of Memory Banks Accessed per Memory Operation per Warp (from 0):
+0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	
+Average # of Memory Banks Accessed per Memory Operation per Warp=-nan
+
+position of mrq chosen
+0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	
+
+average position of mrq chosen = -nan
 Memory Partition 0: 
 Cache L2_bank_000:
 MSHR contents
@@ -6929,11 +8239,11 @@ mrqq: max=0 avg=0
 Memory Partition 4: 
 Cache L2_bank_008:
 MSHR contents
-MSHR: tag=0x65500400, atomic=0 1 entries : 0x562a7a6ebca0 :  mf: uid=   204, sid00:w00, part=4, addr=0x7fd165500400, load , size=128, unknown  status = IN_PARTITION_DRAM (1280), 
+MSHR: tag=0x2d500400, atomic=0 1 entries : 0x563e01d43ca0 :  mf: uid=   204, sid00:w00, part=4, addr=0x7f2b2d500400, load , size=128, unknown  status = IN_PARTITION_DRAM (1280), 
 
 Cache L2_bank_009:
 MSHR contents
-MSHR: tag=0x65500480, atomic=0 1 entries : 0x562a7a6ec010 :  mf: uid=   203, sid00:w01, part=4, addr=0x7fd165500480, load , size=128, unknown  status = IN_PARTITION_DRAM (1281), 
+MSHR: tag=0x2d500480, atomic=0 1 entries : 0x563e01d44010 :  mf: uid=   203, sid00:w01, part=4, addr=0x7f2b2d500480, load , size=128, unknown  status = IN_PARTITION_DRAM (1281), 
 
 In Dram Latency Queue (total = 0): 
 DRAM[4]: 16 bks, busW=4 BL=8 CL=12, tRRD=6 tCCD=2, tRCD=12 tRAS=28 tRP=12 tRC=40

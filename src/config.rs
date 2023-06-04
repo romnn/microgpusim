@@ -481,8 +481,8 @@ impl GPUConfig {
         cluster_id * self.num_cores_per_simt_cluster + core_id
     }
 
-    pub fn mem_id_to_device_id(&self, mem_id: u64) -> u64 {
-        mem_id + self.num_simt_clusters as u64
+    pub fn mem_id_to_device_id(&self, mem_id: usize) -> usize {
+        mem_id + self.num_simt_clusters
     }
 
     pub fn threads_per_block_padded(&self, kernel: &KernelInfo) -> usize {

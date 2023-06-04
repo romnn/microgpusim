@@ -598,6 +598,7 @@ bool mshr_table::is_read_after_write_pending(new_addr_type block_addr) {
 
 /// Accept a new cache fill response: mark entry ready for processing
 void mshr_table::mark_ready(new_addr_type block_addr, bool &has_atomic) {
+  printf("mshr_table::mark_ready(%llu, %x)\n", block_addr, has_atomic);
   assert(!busy());
   table::iterator a = m_data.find(block_addr);
   assert(a != m_data.end());

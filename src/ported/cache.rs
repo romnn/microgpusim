@@ -61,8 +61,8 @@ pub trait Component {
 }
 
 pub trait Cache: Component {
-    fn ready_for_access(&self) -> bool {
-        todo!("cache: ready for access");
+    fn has_ready_accesses(&self) -> bool {
+        todo!("cache: has ready accesses");
     }
 
     fn access(

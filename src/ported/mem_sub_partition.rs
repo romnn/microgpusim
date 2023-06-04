@@ -1,5 +1,6 @@
-use super::mem_fetch;
-use crate::config::{CacheConfig, GPUConfig};
+use super::mem_fetch::BitString;
+use super::{address, mem_fetch};
+use crate::config::{self, CacheConfig, GPUConfig};
 
 use std::collections::{HashSet, VecDeque};
 use std::sync::Arc;
@@ -11,48 +12,77 @@ pub const SECTOR_SIZE: usize = 32; // sector is 32 bytes width
                                    // typedef std::bitset<SECTOR_CHUNCK_SIZE> mem_access_sector_mask_t;
 
 pub trait Queue<T> {
-    fn new<S: ToString>(name: S, n: usize, queue: usize) -> Self;
+    fn new<S: ToString>(name: S, min_size: Option<usize>, max_size: Option<usize>) -> Self;
     fn enqueue(&mut self, value: T);
     fn dequeue(&mut self) -> Option<T>;
+    fn first(&self) -> Option<&T>;
+    fn full(&self) -> bool;
+    fn is_empty(&self) -> bool;
+    fn can_fit(&self, n: usize) -> bool;
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FifoQueue<T> {
     inner: VecDeque<T>,
+    min_size: Option<usize>,
+    max_size: Option<usize>,
 }
 
 impl<T> FifoQueue<T> {}
 
 impl<T> Queue<T> for FifoQueue<T> {
-    fn new<S: ToString>(name: S, n: usize, queue: usize) -> Self {
+    fn new<S: ToString>(name: S, min_size: Option<usize>, max_size: Option<usize>) -> Self {
         Self {
             inner: VecDeque::new(),
+            min_size,
+            max_size,
         }
     }
 
     fn enqueue(&mut self, value: T) {
         self.inner.push_back(value);
     }
+
     fn dequeue(&mut self) -> Option<T> {
         self.inner.pop_front()
     }
-}
 
-// todo: what do we need precisely
-// #[derive(Clone, Debug)]
-// pub struct MemorySubPartitionConfig {
-//     config: super::GPUConfig,
-//     enabled: bool,
-//     num_mem_sub_partition: usize,
-// }
+    fn first(&self) -> Option<&T> {
+        self.inner.get(0)
+    }
+
+    fn full(&self) -> bool {
+        match self.max_size {
+            Some(max) => self.inner.len() >= max,
+            None => false,
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
+    fn can_fit(&self, n: usize) -> bool {
+        // m_max_len && m_length + size - 1 >= m_max_len
+        match self.max_size {
+            Some(max) => self.inner.len() + n - 1 < max,
+            None => true,
+        }
+    }
+
+    // bool is_avilable_size(unsigned size) const {
+    //   return (m_max_len && m_length + size - 1 >= m_max_len);
+    // }
+    // unsigned get_n_element() const { return m_n_element; }
+    // unsigned get_length() const { return m_length; }
+    // unsigned get_max_len() const { return m_max_len; }
+}
 
 #[derive(Debug)]
 pub struct CacheRequestStatus {}
 
 #[derive(Debug)]
 pub enum CacheEvent {}
-
-// TODO: make Cache a trait that can be implemented differently for L1 and L2 cache structs ...
 
 #[derive(Clone, Debug)]
 pub struct L2Cache {
@@ -83,7 +113,7 @@ impl L2Cache {
 
     pub fn access(
         &self,
-        addr: super::address,
+        addr: address,
         mem_fetch: mem_fetch::MemFetch,
         time: usize,
         events: Vec<CacheEvent>,
@@ -167,12 +197,26 @@ where
             None => None,
         };
 
-        let interconn_to_l2_queue =
-            Q::new("icnt-to-L2", 0, config.dram_partition_queue_interconn_to_l2);
-        let l2_to_dram_queue = Q::new("L2-to-dram", 0, config.dram_partition_queue_l2_to_dram);
-        let dram_to_l2_queue = Q::new("dram-to-L2", 0, config.dram_partition_queue_dram_to_l2);
-        let l2_to_interconn_queue =
-            Q::new("L2-to-icnt", 0, config.dram_partition_queue_l2_to_interconn);
+        let interconn_to_l2_queue = Q::new(
+            "icnt-to-L2",
+            Some(0),
+            Some(config.dram_partition_queue_interconn_to_l2),
+        );
+        let l2_to_dram_queue = Q::new(
+            "L2-to-dram",
+            Some(0),
+            Some(config.dram_partition_queue_l2_to_dram),
+        );
+        let dram_to_l2_queue = Q::new(
+            "dram-to-L2",
+            Some(0),
+            Some(config.dram_partition_queue_dram_to_l2),
+        );
+        let l2_to_interconn_queue = Q::new(
+            "L2-to-icnt",
+            Some(0),
+            Some(config.dram_partition_queue_l2_to_interconn),
+        );
 
         Self {
             id,
@@ -188,18 +232,20 @@ where
         }
     }
 
-    pub fn push(&self, fetch: mem_fetch::MemFetch) {}
+    pub fn push(&self, fetch: mem_fetch::MemFetch) {
+        todo!("mem sub partition: push");
+    }
 
     pub fn full(&self, size: usize) -> bool {
-        false
+        // todo!("mem sub partition: full");
+        self.l2_to_interconn_queue.full()
     }
 
     pub fn flush_l2(&self) -> usize {
         if let Some(l2) = &self.l2_cache {
             l2.flush();
         }
-        //  TODO: write the flushed data to the main memory
-        0
+        todo!("mem sub partition: flush l2");
     }
 
     pub fn busy(&self) -> bool {
@@ -213,12 +259,12 @@ where
     }
 
     pub fn pop(&mut self) -> Option<mem_fetch::MemFetch> {
-        match self.l2_to_dram_queue.dequeue() {
-            Some(fetch) => match fetch.access_kind() {
-                super::AccessKind::L2_WRBK_ACC | super::AccessKind::L1_WRBK_ACC => None,
-                _ => Some(fetch),
-            },
-            None => None,
+        use super::AccessKind;
+        let fetch = self.l2_to_dram_queue.dequeue()?;
+        // self.request_tracker.remove(fetch);
+        match fetch.access_kind() {
+            AccessKind::L2_WRBK_ACC | AccessKind::L1_WRBK_ACC => None,
+            _ => Some(fetch),
         }
         // if (mf && (mf->get_access_type() == L2_WRBK_ACC ||
         //              mf->get_access_type() == L1_WRBK_ACC)) {
@@ -243,17 +289,27 @@ where
     //   return mf;
     // }
     //
-    // mem_fetch *memory_sub_partition::top() {
-    //   mem_fetch *mf = m_L2_icnt_queue->top();
-    //   if (mf && (mf->get_access_type() == L2_WRBK_ACC ||
-    //              mf->get_access_type() == L1_WRBK_ACC)) {
-    //     m_L2_icnt_queue->pop();
-    //     m_request_tracker.erase(mf);
-    //     delete mf;
-    //     mf = NULL;
-    //   }
-    //   return mf;
-    // }
+
+    pub fn top(&self) -> Option<&mem_fetch::MemFetch> {
+        use super::AccessKind;
+        let fetch = self.l2_to_dram_queue.first()?;
+        match fetch.access_kind() {
+            AccessKind::L2_WRBK_ACC | AccessKind::L1_WRBK_ACC => {
+                // self.l2_to_dram_queue.dequeue();
+                // self.request_tracker.remove(fetch);
+                None
+            }
+            _ => Some(fetch),
+        }
+        // if (mf && (mf->get_access_type() == L2_WRBK_ACC ||
+        //            mf->get_access_type() == L1_WRBK_ACC)) {
+        //   m_L2_icnt_queue->pop();
+        //   m_request_tracker.erase(mf);
+        //   delete mf;
+        //   mf = NULL;
+        // }
+        // return mf;
+    }
 
     // pub fn full(&self) -> bool {
     //     self.interconn_to_l2_queue.full()
@@ -262,6 +318,40 @@ where
     // pub fn has_available_size(&self, size: usize) -> bool {
     //     self.interconn_to_l2_queue.has_available_size(size)
     // }
+
+    pub fn cache_cycle(&mut self, cycle: usize) {
+        use config::CacheWriteAllocatePolicy;
+        use mem_fetch::{AccessKind, Status};
+
+        // L2 fill responses
+        // if let Some(l2_config) = self.config.data_cache_l2 {
+        //     // if !l2_config.disabled {}
+        //     let has_access = self.l2_cache.has_ready_accesses();
+        //     let queue_full = self.l2_to_interconn_queue.full();
+        //     if has_access && !queue_full {
+        //         let fetch = self.l2_cache.next_access();
+        //         // Don't pass write allocate read request back to upper level cache
+        //         if fetch.access_kind() != AccessKind::L2_WR_ALLOC_R {
+        //             fetch.set_reply();
+        //             fetch.set_status(Status::IN_PARTITION_L2_TO_ICNT_QUEUE, 0);
+        //             // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+        //             self.l2_to_interconn_queue.enqueue(fetch);
+        //         } else {
+        //             if l2_config.write_allocate_policy == CacheWriteAllocatePolicy::FETCH_ON_WRITE {
+        //                 // mem_fetch *original_wr_mf = mf->get_original_wr_mf();
+        //                 // assert(original_wr_mf);
+        //                 // original_wr_mf->set_reply();
+        //                 // original_wr_mf->set_status(
+        //                 //     IN_PARTITION_L2_TO_ICNT_QUEUE,
+        //                 //     m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+        //                 // self.l2_to_interconn_queue.push(original_wr_mf);
+        //             }
+        //             self.request_tracker.remove(fetch);
+        //             // delete mf;
+        //         }
+        //     }
+        // }
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -270,118 +360,74 @@ pub struct MemoryPartitionUnit {
     config: Arc<GPUConfig>,
 }
 
-pub type mem_access_sector_mask = u64;
-
 impl MemoryPartitionUnit {
     pub fn new(id: usize, config: Arc<GPUConfig>) -> Self {
         Self { id, config }
     }
 
+    fn global_sub_partition_id_to_local_id(&self, global_sub_partition_id: usize) -> usize {
+        let mut local_id = global_sub_partition_id;
+        local_id -= self.id * self.config.num_sub_partition_per_memory_channel;
+        local_id
+    }
+
     pub fn handle_memcpy_to_gpu(
         &self,
-        addr: super::address,
-        global_subpart_id: u64,
-        mask: mem_access_sector_mask,
+        addr: address,
+        global_subpart_id: usize,
+        mask: mem_fetch::MemAccessSectorMask,
     ) {
-        //   unsigned p = global_sub_partition_id_to_local_id(global_subpart_id);
-        //   std::string mystring = mask.to_string<char, std::string::traits_type,
-        //                                         std::string::allocator_type>();
-        //   MEMPART_DPRINTF(
-        //       "Copy Engine Request Received For Address=%zx, local_subpart=%u, "
-        //       "global_subpart=%u, sector_mask=%s \n",
-        //       addr, p, global_subpart_id, mystring.c_str());
-        //   m_sub_partition[p]->force_l2_tag_update(
-        //       addr, m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle, mask);
+        let p = self.global_sub_partition_id_to_local_id(global_subpart_id);
+        // println!(
+        //       "copy engine request received for address={}, local_subpart={}, global_subpart={}, sector_mask={}",
+        //       addr, p, global_subpart_id, mask.to_bit_string());
+
+        // self.mem_sub_partititon[p].force_l2_tag_update(addr, mask);
+        // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle, mask);
+    }
+
+    pub fn cache_cycle(&mut self, cycle: usize) {
+        todo!("mem sub partition: cache_cycle");
+        // for p < m_config->m_n_sub_partition_per_memory_channel
+        // for mem_sub in self.sub_partitions {
+        //     mem_sub.cache_cycle(cycle);
+        // }
+    }
+
+    pub fn simple_dram_model_cycle(&mut self) {
+        todo!("mem sub partition: simple_dram_model_cycle");
+        // for p < m_config->m_n_sub_partition_per_memory_channel
+    }
+
+    pub fn dram_cycle(&mut self) {
+        use mem_fetch::{AccessKind, Status};
+        todo!("mem sub partition: dram_cycle");
+
+        // pop completed memory request from dram and push it to
+        // dram-to-L2 queue of the original sub partition
+        // if let Some(return_fetch) = self.dram.return_queue_top() {
+        //     let dest_global_spid = return_fetch.sub_partition_id();
+        //     let dest_spid = self.global_sub_partition_id_to_local_id(dest_global_spid);
+        //     let mem_sub = self.sub_partition[dest_spid];
+        //     debug_assert_eq!(mem_sub.id, dest_global_spid);
+        //     if !mem_sub.dram_L2_queue_full() {
+        //         if return_fetch.access_kind() == AccessKind::L1_WRBK_ACC {
+        //             mem_sub.set_done(return_fetch);
+        //             // delete mf_return;
+        //         } else {
+        //             mem_sub.dram_L2_queue_push(return_fetch);
+        //             return_fetch.set_status(Status::IN_PARTITION_DRAM_TO_L2_QUEUE, 0);
+        //             // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+        //             // m_arbitration_metadata.return_credit(dest_spid);
+        //             println!(
+        //                 "mem_fetch request {} return from dram to sub partition {}",
+        //                 return_fetch, dest_spid
+        //             );
+        //         }
+        //         self.dram.return_queue_pop();
+        //     }
+        // } else {
+        //     self.dram.return_queue_pop();
         // }
     }
 }
-
-// class memory_sub_partition {
-//  public:
-//   memory_sub_partition(unsigned sub_partition_id, const memory_config *config,
-//                        class memory_stats_t *stats, class gpgpu_sim *gpu);
-//   ~memory_sub_partition();
-//
-//   unsigned get_id() const { return m_id; }
-//
-//   bool busy() const;
-//
-//   void cache_cycle(unsigned cycle);
-//
-//   bool full() const;
-//   bool full(unsigned size) const;
-//   void push(class mem_fetch *mf, unsigned long long clock_cycle);
-//   class mem_fetch *pop();
-//   class mem_fetch *top();
-//   void set_done(mem_fetch *mf);
-//
-//   unsigned flushL2();
-//   unsigned invalidateL2();
-//
-//   // interface to L2_dram_queue
-//   bool L2_dram_queue_empty() const;
-//   class mem_fetch *L2_dram_queue_top() const;
-//   void L2_dram_queue_pop();
-//
-//   // interface to dram_L2_queue
-//   bool dram_L2_queue_full() const;
-//   void dram_L2_queue_push(class mem_fetch *mf);
-//
-//   void visualizer_print(gzFile visualizer_file);
-//   void print_cache_stat(unsigned &accesses, unsigned &misses) const;
-//   void print(FILE *fp) const;
-//
-//   void accumulate_L2cache_stats(class cache_stats &l2_stats) const;
-//   void get_L2cache_sub_stats(struct cache_sub_stats &css) const;
-//
-//   // Support for getting per-window L2 stats for AerialVision
-//   void get_L2cache_sub_stats_pw(struct cache_sub_stats_pw &css) const;
-//   void clear_L2cache_stats_pw();
-//
-//   void force_l2_tag_update(new_addr_type addr, unsigned time,
-//                            mem_access_sector_mask_t mask) {
-//     m_L2cache->force_tag_access(addr, m_memcpy_cycle_offset + time, mask);
-//     m_memcpy_cycle_offset += 1;
-//   }
-//
-//  private:
-//   // data
-//   unsigned m_id;  //< the global sub partition ID
-//   const memory_config *m_config;
-//   class l2_cache *m_L2cache;
-//   class L2interface *m_L2interface;
-//   class gpgpu_sim *m_gpu;
-//   partition_mf_allocator *m_mf_allocator;
-//
-//   // model delay of ROP units with a fixed latency
-//   struct rop_delay_t {
-//     unsigned long long ready_cycle;
-//     class mem_fetch *req;
-//   };
-//   std::queue<rop_delay_t> m_rop;
-//
-//   // these are various FIFOs between units within a memory partition
-//   fifo_pipeline<mem_fetch> *m_icnt_L2_queue;
-//   fifo_pipeline<mem_fetch> *m_L2_dram_queue;
-//   fifo_pipeline<mem_fetch> *m_dram_L2_queue;
-//   fifo_pipeline<mem_fetch> *m_L2_icnt_queue;  // L2 cache hit response queue
-//
-//   class mem_fetch *L2dramout;
-//   unsigned long long int wb_addr;
-//
-//   class memory_stats_t *m_stats;
-//
-//   std::set<mem_fetch *> m_request_tracker;
-//
-//   friend class L2interface;
-//
-//   std::vector<mem_fetch *> breakdown_request_to_sector_requests(mem_fetch *mf);
-//
-//   // This is a cycle offset that has to be applied to the l2 accesses to account
-//   // for the cudamemcpy read/writes. We want GPGPU-Sim to only count cycles for
-//   // kernel execution but we want cudamemcpy to go through the L2. Everytime an
-//   // access is made from cudamemcpy this counter is incremented, and when the l2
-//   // is accessed (in both cudamemcpyies and otherwise) this value is added to
-//   // the gpgpu-sim cycle counters.
-//   unsigned m_memcpy_cycle_offset;
-// };

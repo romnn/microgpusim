@@ -9,6 +9,7 @@ use super::{interconn as ic, l1, mem_fetch, scheduler as sched};
 use crate::config::{self, GPUConfig};
 use bitvec::{array::BitArray, BitArr};
 use color_eyre::eyre;
+use console::style;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, RwLock};
 use strum::{EnumCount, IntoEnumIterator};
@@ -73,7 +74,7 @@ impl InstrFetchBuffer {
 }
 
 #[derive()]
-pub struct InnerSIMTCore {
+pub struct InnerSIMTCore<I> {
     pub core_id: usize,
     pub cluster_id: usize,
 
@@ -81,6 +82,8 @@ pub struct InnerSIMTCore {
     pub config: Arc<GPUConfig>,
     pub current_kernel: Option<Arc<KernelInfo>>,
     pub last_warp_fetched: Option<usize>,
+    pub interconn: Arc<I>,
+    pub load_store_unit: Arc<Mutex<LoadStoreUnit<I>>>,
 
     pub active_thread_mask: BitArr!(for MAX_THREAD_PER_SM),
     pub occupied_hw_thread_ids: BitArr!(for MAX_THREAD_PER_SM),
@@ -107,12 +110,9 @@ pub struct InnerSIMTCore {
     pub scoreboard: Arc<scoreboard::Scoreboard>,
     pub pipeline_reg: Vec<register_set::RegisterSet>,
     pub barriers: barrier::BarrierSet,
-    // pub schedulers: Vec<super::SchedulerUnit>,
-    // pub schedulers: Vec<LoadStoreUnit>,
-    // pub schedulers: VecDeque<Box<dyn sched::SchedulerUnit>>,
 }
 
-impl std::fmt::Debug for InnerSIMTCore {
+impl<I> std::fmt::Debug for InnerSIMTCore<I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("InnerSIMTCore")
             .field("core_id", &self.core_id)
@@ -121,7 +121,10 @@ impl std::fmt::Debug for InnerSIMTCore {
     }
 }
 
-impl InnerSIMTCore {
+impl<I> InnerSIMTCore<I>
+where
+    I: ic::MemFetchInterface + 'static,
+{
     pub fn active_mask(&self, warp_id: usize, instr: &WarpInstruction) -> sched::ThreadActiveMask {
         // for trace-driven, the active mask already set in traces
         instr.active_mask
@@ -166,7 +169,8 @@ impl InnerSIMTCore {
 }
 
 #[derive()]
-pub struct SIMTCore<'a> {
+// pub struct SIMTCore<'a> {
+pub struct SIMTCore<I> {
     // pub core_id: usize,
     // pub cluster_id: usize,
     //
@@ -200,12 +204,15 @@ pub struct SIMTCore<'a> {
     // pub barriers: barrier::BarrierSet,
     // pub schedulers: Vec<super::SchedulerUnit>,
     // pub schedulers: Vec<LoadStoreUnit>,
-    pub schedulers: VecDeque<Box<dyn sched::SchedulerUnit + 'a>>,
-    pub inner: InnerSIMTCore,
+    // pub functional_units: VecDeque<Box<dyn SimdFunctionUnit>>,
+    pub functional_units: VecDeque<Arc<Mutex<dyn SimdFunctionUnit>>>,
+    pub schedulers: VecDeque<Box<dyn sched::SchedulerUnit>>,
+    pub inner: InnerSIMTCore<I>,
 }
 
 // impl std::fmt::Debug for SIMTCore {
-impl<'a> std::fmt::Debug for SIMTCore<'a> {
+// impl<'a> std::fmt::Debug for SIMTCore<'a> {
+impl<I> std::fmt::Debug for SIMTCore<I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Debug::fmt(&self.inner, f)
         // f.debug_struct("SIMTCore")
@@ -235,7 +242,11 @@ pub enum PipelineStage {
 }
 
 // impl SIMTCore {
-impl<'a> SIMTCore<'a> {
+// impl<'a> SIMTCore<'a> {
+impl<I> SIMTCore<I>
+where
+    I: ic::MemFetchInterface + 'static,
+{
     // void core_t::get_pdom_stack_top_info(unsigned warpId, unsigned *pc,
     //                                      unsigned *rpc) const {
     //   m_simt_stack[warpId]->get_pdom_stack_top_info(pc, rpc);
@@ -249,14 +260,24 @@ impl<'a> SIMTCore<'a> {
     ) -> Self {
         let thread_info: Vec<_> = (0..config.max_threads_per_shader).map(|_| None).collect();
         let thread_state: Vec<_> = (0..config.max_threads_per_shader).map(|_| None).collect();
-        let interconn = ic::Interconnect::default();
-        let load_store_unit = LoadStoreUnit::new(
-            core_id,
-            cluster_id,
-            interconn,
-            config.clone(),
-            stats.clone(),
-        );
+        // let interconn = ic::Interconnect::default();
+        //
+
+        // m_icnt = new shader_memory_interface(this,cluster);
+        // let interconn = if config.perfect_mem {
+        //     ic::PerfectMemoryInterface::new() //  (this, m_cluster)
+        // } else {
+        //     ic::CoreMemoryInterface::new() // (this, m_cluster)
+        // };
+        // let interconn = Arc::new(ic::CoreMemoryInterface::new()); // (this, m_cluster)
+
+        // (this, m_cluster)
+        // let interconn = Arc::new(ic::CoreMemoryInterface::new());
+        let interconn = Arc::new(I::new());
+
+        // m_mem_fetch_allocator =
+        //     new shader_core_mem_fetch_allocator(m_sid, m_tpc, m_memory_config);
+
         // self.warps.reserve_exact(self.config.max_threads_per_shader);
         let warps: Vec<_> = (0..config.max_warps_per_core())
             // .map(|_| None)
@@ -266,6 +287,7 @@ impl<'a> SIMTCore<'a> {
             .collect();
         // dbg!(&warps);
 
+        // todo: use mem fetch interconn as well?
         let port = ic::Interconnect {};
         let instr_l1_cache = l1::ReadOnly::new(
             core_id,
@@ -324,6 +346,14 @@ impl<'a> SIMTCore<'a> {
         //   m_config->m_specialized_unit[j].OC_EX_SPEC_ID = m_pipeline_reg.size() - 1;
         // }
 
+        let load_store_unit = Arc::new(Mutex::new(LoadStoreUnit::new(
+            core_id,
+            cluster_id,
+            interconn.clone(),
+            config.clone(),
+            stats.clone(),
+        )));
+
         let mut inner = InnerSIMTCore {
             core_id,
             cluster_id,
@@ -344,6 +374,8 @@ impl<'a> SIMTCore<'a> {
             block_status: [0; MAX_CTA_PER_SHADER],
             instr_l1_cache: Box::new(instr_l1_cache),
             instr_fetch_buffer: InstrFetchBuffer::default(),
+            interconn,
+            load_store_unit,
             warps: warps.clone(),
             pipeline_reg: pipeline_reg.clone(),
             scoreboard: scoreboard.clone(),
@@ -355,6 +387,7 @@ impl<'a> SIMTCore<'a> {
         let mut core = Self {
             inner,
             schedulers: VecDeque::new(),
+            functional_units: VecDeque::new(),
         };
 
         // m_threadState = (thread_ctx_t *)calloc(sizeof(thread_ctx_t),
@@ -370,14 +403,6 @@ impl<'a> SIMTCore<'a> {
         //   m_threadState[i].m_active = false;
         // }
         //
-        // // m_icnt = new shader_memory_interface(this,cluster);
-        // if (m_config->gpgpu_perfect_mem) {
-        //   m_icnt = new perfect_memory_interface(this, m_cluster);
-        // } else {
-        //   m_icnt = new shader_memory_interface(this, m_cluster);
-        // }
-        // m_mem_fetch_allocator =
-        //     new shader_core_mem_fetch_allocator(m_sid, m_tpc, m_memory_config);
         //
         // // fetch
         // m_last_warp_fetched = 0;
@@ -388,12 +413,19 @@ impl<'a> SIMTCore<'a> {
         // core.create_exec_pipeline();
 
         core.init_schedulers();
+        core.init_functional_units();
         core
+    }
+
+    pub fn init_functional_units(&mut self) {
+        let fu = self.inner.load_store_unit.clone();
+        self.functional_units.push_back(fu);
+        // self.functional_units.push_back(Box::new(load_store_unit));
     }
 
     pub fn init_schedulers(&mut self) {
         let scheduler_kind = config::SchedulerKind::LRR;
-        // let mut schedulers: VecDeque<Box<dyn sched::SchedulerUnit>> = VecDeque::new();
+
         dbg!(&self.inner.config.num_schedulers_per_core);
         self.schedulers = (0..self.inner.config.num_schedulers_per_core)
             .map(|sched_id| match scheduler_kind {
@@ -513,7 +545,7 @@ impl<'a> SIMTCore<'a> {
     }
 
     pub fn active(&self) -> bool {
-        todo!("core: active");
+        self.inner.num_active_blocks > 0
     }
 
     /// return the next pc of a thread
@@ -575,10 +607,11 @@ impl<'a> SIMTCore<'a> {
     }
 
     fn fetch(&mut self) {
-        println!("core {:?}: fetch", self.id());
+        println!("core {:?}: {}", self.id(), style("fetch").green());
+        dbg!(&self.inner.instr_fetch_buffer.valid);
         if !self.inner.instr_fetch_buffer.valid {
-            dbg!(self.inner.instr_l1_cache.ready_for_access());
-            if self.inner.instr_l1_cache.ready_for_access() {
+            dbg!(self.inner.instr_l1_cache.has_ready_accesses());
+            if self.inner.instr_l1_cache.has_ready_accesses() {
                 let fetch = self.inner.instr_l1_cache.next_access().unwrap();
                 let warp = self.inner.warps.get_mut(fetch.warp_id).unwrap();
                 let warp = warp.lock().unwrap();
@@ -603,6 +636,11 @@ impl<'a> SIMTCore<'a> {
                 // warp.set_last_fetch(m_gpu->gpu_sim_cycle);
                 drop(fetch);
             } else {
+                println!(
+                    "{} {}",
+                    style("empty instruction cache").red(),
+                    "instr fetch buffer not valid",
+                );
                 // find an active warp with space in
                 // instruction buffer that is not
                 // already waiting on a cache miss and get
@@ -738,6 +776,8 @@ impl<'a> SIMTCore<'a> {
     }
 
     fn decode(&mut self) {
+        let core_id = self.id();
+        println!("core {:?}: {}", core_id, style("decode").red());
         // let fetch = &mut self.instr_fetch_buffer;
         let InstrFetchBuffer {
             valid, pc, warp_id, ..
@@ -753,6 +793,8 @@ impl<'a> SIMTCore<'a> {
             .map(|w| w.lock().unwrap().instruction_count())
             .sum::<usize>());
         // dbg!(&self.next_inst(warp_id, pc));
+
+        dbg!(&valid);
         if !valid {
             return;
         }
@@ -766,6 +808,7 @@ impl<'a> SIMTCore<'a> {
         // if let Some(instr1) = self.next_inst(warp_id, pc) {
         if let Some(instr1) = warp.next_trace_inst() {
             // .as_mut().unwrap();
+            println!("core {:?}: decoded {}", core_id, instr1);
             warp.ibuffer_fill(0, instr1.clone());
             warp.inc_instr_in_pipeline();
 
@@ -804,7 +847,8 @@ impl<'a> SIMTCore<'a> {
 
     fn issue(&mut self) {
         for scheduler in &mut self.schedulers {
-            scheduler.cycle(&mut self.inner);
+            // scheduler.cycle(&mut self.inner);
+            scheduler.cycle(());
         }
     }
 
@@ -813,24 +857,59 @@ impl<'a> SIMTCore<'a> {
     }
 
     fn execute(&mut self) {
-        todo!("core: execute");
+        for (i, fu) in self.functional_units.iter_mut().enumerate() {
+            let mut fu = fu.lock().unwrap();
+            fu.cycle();
+            fu.active_lanes_in_pipeline();
+            // let issue_port = self.issue_port[n];
+            // let issue_inst = self.pipeline_reg[issue_port];
+            // let mut reg_id;
+            // let partition_issue = self.inner.config.sub_core_model && fu.is_issue_partitioned();
+            // if partition_issue {
+            //     reg_id = fu.get_issue_reg_id();
+            // }
+            // let ready_reg = issue_inst.get_ready(partition_issue, reg_id);
+            // if issue_inst.has_ready(partition_issue, reg_id) && fu.can_issue(ready_reg) {
+            //     let schedule_wb_now = !fu.stallable();
+            //     let resbus = test_res_bus(ready_reg.latency);
+            //     if schedule_wb_now && resbus != -1 {
+            //         debug_assert!(ready_reg.latency < MAX_ALU_LATENCY);
+            //         self.result_bus[resbus].set(ready_reg.latency);
+            //         fu.issue(issue_inst);
+            //     } else if !schedule_wb_now {
+            //         fu.issue(issue_inst);
+            //     } else {
+            //         // stall issue (cannot reserve result bus)
+            //     }
+            // }
+        }
     }
 
     pub fn cycle(&mut self) {
-        println!("core {:?}: cycle", self.id());
-        // self.tr
+        println!("core {:?}: {}", self.id(), style("core cycle").blue());
+
         if !self.is_active() && self.not_completed() == 0 {
             // return;
         }
         // m_stats->shader_cycles[m_sid]++;
         // self.writeback();
-        // self.execute();
-        //   self.read_operands();
+        self.execute();
+        // self.read_operands();
         self.issue();
         for i in 0..self.inner.config.inst_fetch_throughput {
             self.decode();
             self.fetch();
         }
+    }
+
+    pub fn cache_flush(&mut self) {
+        let mut unit = self.inner.load_store_unit.lock().unwrap();
+        unit.flush();
+    }
+
+    pub fn cache_invalidate(&mut self) {
+        let mut unit = self.inner.load_store_unit.lock().unwrap();
+        unit.invalidate();
     }
 
     pub fn ldst_unit_response_buffer_full(&self) -> bool {
@@ -843,8 +922,9 @@ impl<'a> SIMTCore<'a> {
         false
     }
 
-    pub fn accept_fetch_response(&self, fetch: mem_fetch::MemFetch) {
-        todo!("core: accept_fetch_response");
+    pub fn accept_fetch_response(&mut self, mut fetch: mem_fetch::MemFetch) {
+        fetch.status = mem_fetch::Status::IN_SHADER_FETCHED;
+        self.inner.instr_l1_cache.fill(&fetch);
     }
 
     pub fn accept_ldst_unit_response(&self, fetch: mem_fetch::MemFetch) {
@@ -1419,11 +1499,12 @@ impl<'a> SIMTCore<'a> {
 
 #[derive(Debug)]
 // pub struct SIMTCoreCluster {
-pub struct SIMTCoreCluster<'a> {
+pub struct SIMTCoreCluster<I> {
     pub cluster_id: usize,
     // pub cores: Mutex<Vec<SIMTCore>>,
-    pub cores: Mutex<Vec<SIMTCore<'a>>>,
-
+    // pub cores: Mutex<Vec<SIMTCore<'a>>>,
+    pub cores: Mutex<Vec<SIMTCore<I>>>,
+    // pub cores: Mutex<Vec<SIMTCore<ic::CoreMemoryInterface>>>,
     pub config: Arc<GPUConfig>,
     pub stats: Arc<Mutex<Stats>>,
 
@@ -1444,7 +1525,11 @@ pub struct SIMTCoreCluster<'a> {
 // }
 
 // impl SIMTCoreCluster {
-impl<'a> SIMTCoreCluster<'a> {
+// impl<'a> SIMTCoreCluster<'a> {
+impl<I> SIMTCoreCluster<I>
+where
+    I: ic::MemFetchInterface + 'static,
+{
     pub fn new(cluster_id: usize, stats: Arc<Mutex<Stats>>, config: Arc<GPUConfig>) -> Self {
         let mut core_sim_order = Vec::new();
         let cores: Vec<_> = (0..config.num_cores_per_simt_cluster)
@@ -1523,16 +1608,18 @@ impl<'a> SIMTCoreCluster<'a> {
         fetch: mem_fetch::MemFetch,
         packet_size: u32,
     ) {
+        // see icnt_push = intersim2_push;
         todo!("cluster {}: push to interconn", self.cluster_id);
     }
 
     fn interconn_pop(&mut self, cluster_id: usize) -> Option<mem_fetch::MemFetch> {
         // todo: need one interconnect per cluster?
+        // see icnt_pop = intersim2_pop;
         // todo!("cluster {}: pop from interconn", self.cluster_id);
         None
     }
 
-    fn interconn_inject_request_packet(&mut self, mut fetch: mem_fetch::MemFetch) {
+    pub fn interconn_inject_request_packet(&mut self, mut fetch: mem_fetch::MemFetch) {
         todo!(
             "cluster {}: interconn_inject_request_packet",
             self.cluster_id
@@ -1599,38 +1686,53 @@ impl<'a> SIMTCoreCluster<'a> {
         // if !fetch.is_write() && !fetch.is_atomic() {
         self.interconn_push(
             self.cluster_id,
-            self.config.mem_id_to_device_id(dest),
+            self.config.mem_id_to_device_id(dest as usize) as u64,
             fetch,
             packet_size,
         );
     }
 
     pub fn interconn_cycle(&mut self) {
-        println!("cluster {}: interconn cycle", self.cluster_id);
+        use mem_fetch::AccessKind;
+
+        println!(
+            "cluster {}: {}",
+            self.cluster_id,
+            style("interconn cycle").cyan()
+        );
+        dbg!(self.response_fifo.front());
+
         if let Some(fetch) = self.response_fifo.front().cloned() {
             let core_id = self.config.global_core_id_to_core_id(fetch.core_id);
             // debug_assert_eq!(core_id, fetch.cluster_id);
             let mut cores = self.cores.lock().unwrap();
             let core = &mut cores[core_id];
-            if *fetch.access_kind() == mem_fetch::AccessKind::INST_ACC_R {
-                // instruction fetch response
-                if !core.fetch_unit_response_buffer_full() {
-                    self.response_fifo.pop_front();
-                    core.accept_fetch_response(fetch);
+            match *fetch.access_kind() {
+                AccessKind::INST_ACC_R => {
+                    // instruction fetch response
+                    if !core.fetch_unit_response_buffer_full() {
+                        self.response_fifo.pop_front();
+                        core.accept_fetch_response(fetch);
+                    }
                 }
-            } else {
-                // data response
-                if !core.ldst_unit_response_buffer_full() {
-                    self.response_fifo.pop_front();
-                    // m_memory_stats->memlatstat_read_done(mf);
-                    core.accept_ldst_unit_response(fetch);
+                _ => {
+                    // data response
+                    if !core.ldst_unit_response_buffer_full() {
+                        self.response_fifo.pop_front();
+                        // m_memory_stats->memlatstat_read_done(mf);
+                        core.accept_ldst_unit_response(fetch);
+                    }
                 }
             }
         }
-        if self.response_fifo.len() >= self.config.num_cluster_ejection_buffer_size {
+        let eject_buffer_size = self.config.num_cluster_ejection_buffer_size;
+        if self.response_fifo.len() >= eject_buffer_size {
             return;
         }
-        let Some(fetch) = &mut self.interconn_pop(self.cluster_id) else {
+
+        let new_fetch = self.interconn_pop(self.cluster_id);
+        dbg!(&new_fetch);
+        let Some(mut fetch) = new_fetch else {
             return;
         };
         debug_assert_eq!(fetch.cluster_id, self.cluster_id);
@@ -1650,7 +1752,22 @@ impl<'a> SIMTCoreCluster<'a> {
         // m_stats->m_incoming_traffic_stats->record_traffic(mf, packet_size);
         fetch.status = mem_fetch::Status::IN_CLUSTER_TO_SHADER_QUEUE;
         self.response_fifo.push_back(fetch.clone());
+
         // m_stats->n_mem_to_simt[m_cluster_id] += mf->get_num_flits(false);
+    }
+
+    pub fn cache_flush(&mut self) {
+        let mut cores = self.cores.lock().unwrap();
+        for core in cores.iter_mut() {
+            core.cache_flush();
+        }
+    }
+
+    pub fn cache_invalidate(&mut self) {
+        let mut cores = self.cores.lock().unwrap();
+        for core in cores.iter_mut() {
+            core.cache_invalidate();
+        }
     }
 
     pub fn cycle(&mut self) {
@@ -1660,7 +1777,7 @@ impl<'a> SIMTCoreCluster<'a> {
         }
     }
 
-    pub fn issue_block_to_core(&self, sim: &MockSimulator) -> usize {
+    pub fn issue_block_to_core(&self, sim: &MockSimulator<I>) -> usize {
         println!("cluster {}: issue block 2 core", self.cluster_id);
         let mut num_blocks_issued = 0;
 
@@ -1700,8 +1817,10 @@ impl<'a> SIMTCoreCluster<'a> {
                 &core.inner.current_kernel.is_some()
             );
             println!(
-                "core {}-{}: selected kernel {:#?}",
-                self.cluster_id, core.inner.core_id, kernel
+                "core {}-{}: selected kernel {:?}",
+                self.cluster_id,
+                core.inner.core_id,
+                kernel.as_ref().map(|k| k.name())
             );
             if let Some(kernel) = kernel {
                 // dbg!(&kernel.no_more_blocks_to_run());

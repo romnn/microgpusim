@@ -24,7 +24,7 @@ pub struct Data<I> {
 
     tag_array: tag_array::TagArray<usize>,
     mshrs: mshr::MshrTable,
-    fetch_interconn: I,
+    fetch_interconn: Arc<I>,
 
     /// Specifies type of write allocate request (e.g., L1 or L2)
     write_alloc_type: mem_fetch::AccessKind,
@@ -38,12 +38,14 @@ pub struct Data<I> {
 
 impl<I> Data<I>
 where
-    I: ic::MemPort,
+    // I: ic::MemPort,
+    I: ic::MemFetchInterface,
 {
     pub fn new(
         core_id: usize,
         cluster_id: usize,
-        fetch_interconn: I,
+        // fetch_interconn: I,
+        fetch_interconn: Arc<I>,
         stats: Arc<Mutex<Stats>>,
         config: Arc<config::GPUConfig>,
         cache_config: Arc<config::CacheConfig>,
@@ -625,7 +627,8 @@ impl<I> cache::Component for Data<I> {}
 
 impl<I> cache::Cache for Data<I>
 where
-    I: ic::MemPort,
+    I: ic::MemFetchInterface,
+    // I: ic::MemPort,
 {
     fn access(
         &mut self,
@@ -695,8 +698,8 @@ where
     /// Whether any (accepted) accesses that had to wait for memory are now ready
     ///
     /// Note: does not include accesses that "HIT"
-    fn ready_for_access(&self) -> bool {
-        self.mshrs.ready_for_access()
+    fn has_ready_accesses(&self) -> bool {
+        self.mshrs.has_ready_accesses()
     }
 
     fn fill(&self, fetch: &mem_fetch::MemFetch) {
@@ -912,7 +915,7 @@ mod tests {
                     let access = accesses.remove(0);
                     // let access = mem_fetch::MemAccess::from_instr(&instr).unwrap();
                     let fetch = mem_fetch::MemFetch::new(
-                        instr,
+                        Some(instr),
                         access,
                         &config,
                         control_size,
@@ -1061,7 +1064,7 @@ mod tests {
         let access = accesses.remove(0);
         // let access = mem_fetch::MemAccess::from_instr(&instr).unwrap();
         let fetch = mem_fetch::MemFetch::new(
-            instr,
+            Some(instr),
             access,
             &config,
             control_size,

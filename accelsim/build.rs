@@ -98,34 +98,15 @@ impl GitRepository {
         }
 
         Ok(())
-
-        // let mut cmd = Command::new("git");
-        // cmd.args(["clone", "--depth=1"]);
-        // if let Some(branch) = &self.branch {
-        //     cmd.args(["-b", branch]);
-        // }
-
-        // cmd.args([&self.url, &self.path.to_string_lossy().to_string()]);
-        // println!(
-        //     "cargo:warning=cloning {} to {}",
-        //     &self.url,
-        //     &self.path.display()
-        // );
-
-        // if cmd.status()?.success() {
-        //     Ok(())
-        // } else {
-        //     Err(Error::new(ErrorKind::Other, "fetch failed").into())
-        // }
     }
 }
 
 fn build_accelsim(accel_path: &Path, cuda_path: &Path, _force: bool) -> eyre::Result<()> {
     let artifact = accel_path.join("gpu-simulator/bin/release/accel-sim.out");
-    // if force || !artifact.is_file() {
-    //     println!("cargo:warning=using existing {}", &artifact.display());
-    //     return Ok(());
-    // }
+    if _force || !artifact.is_file() {
+        println!("cargo:warning=using existing {}", &artifact.display());
+        return Ok(());
+    }
 
     let tmp_build_sh_path = output_path().join("build.tmp.sh");
     let tmp_build_sh = format!(
@@ -164,17 +145,6 @@ make -j -C {src}",
     .unchecked();
 
     let result = make_cmd.run()?;
-    // let stdout = result.stdout;
-    // let stderr = result.stderr;
-
-    // let mut cmd = Command::new("bash");
-    // cmd.arg(&*tmp_build_sh_path.canonicalize()?.to_string_lossy());
-    // cmd.env("CUDA_INSTALL_PATH", &*cuda_path.as_ref().to_string_lossy());
-    // dbg!(&cmd);
-    //
-    // let result = cmd.output()?;
-    // let stdout = String::from_utf8_lossy(&result.stdout);
-    // let stderr = String::from_utf8_lossy(&result.stderr);
     println!("{}", &String::from_utf8_lossy(&result.stdout));
     eprintln!("{}", &String::from_utf8_lossy(&result.stderr));
 
@@ -241,16 +211,6 @@ fn build_accelsim_tracer_tool(
         println!("cargo:warning=using existing {}", &artifact.display());
     }
 
-    // let mut cmd = Command::new("make");
-    // cmd.arg("-j");
-    // cmd.current_dir(tracer_nvbit_tool_path);
-    // cmd.env("CUDA_INSTALL_PATH", &*cuda_path.as_ref().to_string_lossy());
-    // dbg!(&cmd);
-    //
-    // let result = cmd.output()?;
-    // println!("{}", String::from_utf8_lossy(&result.stdout));
-    // eprintln!("{}", String::from_utf8_lossy(&result.stderr));
-    //
     Ok(())
 }
 
@@ -287,7 +247,16 @@ fn main() -> eyre::Result<()> {
         .ok_or(eyre::eyre!("CUDA install path not found"))?;
     println!("cargo:warning=using cuda at {}", &cuda_path.display());
 
-    let force = false;
+    let force = matches!(
+        env::var("BUILD")
+            .ok()
+            .as_deref()
+            .map(str::to_lowercase)
+            .as_deref(),
+        Some("yes")
+    );
+    println!("cargo:warning=force={}", &force);
+    
 
     build_accelsim_tracer_tool(&accel_path, &cuda_path, force)?;
     build_accelsim(&accel_path, &cuda_path, force)?;

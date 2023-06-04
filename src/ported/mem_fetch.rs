@@ -105,7 +105,7 @@ pub struct MemAccess {
 }
 
 pub trait BitString {
-    fn bit_string(&self) -> String;
+    fn to_bit_string(&self) -> String;
 }
 
 impl<A, O> BitString for BitArray<A, O>
@@ -113,7 +113,7 @@ where
     A: bitvec::view::BitViewSized,
     O: bitvec::order::BitOrder,
 {
-    fn bit_string(&self) -> String {
+    fn to_bit_string(&self) -> String {
         self.iter()
             .map(|b| if *b { "1" } else { "0" })
             .collect::<Vec<_>>()
@@ -128,9 +128,9 @@ impl std::fmt::Display for MemAccess {
             .field("kind", &self.kind)
             .field("req_size_bytes", &self.req_size_bytes)
             .field("is_write", &self.is_write)
-            .field("active_mask", &self.warp_mask.bit_string())
-            .field("byte_mask", &self.byte_mask.bit_string())
-            .field("sector_mask", &self.sector_mask.bit_string())
+            .field("active_mask", &self.warp_mask.to_bit_string())
+            .field("byte_mask", &self.byte_mask.to_bit_string())
+            .field("sector_mask", &self.sector_mask.to_bit_string())
             .finish()
     }
 }
@@ -269,7 +269,9 @@ impl MemFetch {
     }
 
     pub fn is_atomic(&self) -> bool {
-        self.instr.as_ref().map_or(false, WarpInstruction::is_atomic)
+        self.instr
+            .as_ref()
+            .map_or(false, WarpInstruction::is_atomic)
     }
 
     pub fn is_write(&self) -> bool {
