@@ -1,39 +1,52 @@
+#[allow(unused_imports)]
 use accelsim::Options;
+#[allow(unused_imports)]
 use clap::Parser;
 use color_eyre::eyre;
 use playground::bridge::main::{accelsim, accelsim_config};
+use std::path::PathBuf;
 
+#[allow(unused_mut, unused_assignments)]
 fn main() -> eyre::Result<()> {
     color_eyre::install()?;
 
-    let options = Options::parse();
+    // temp
+    let base = PathBuf::from("/home/roman/dev/box/");
+    let mut kernelslist =
+        base.join("test-apps/vectoradd/traces/vectoradd-100-32-trace/kernelslist.g");
+    let mut gpgpusim_config = base.join("accelsim/gtx1080/gpgpusim.config");
+    let mut trace_config = base.join("accelsim/gtx1080/gpgpusim.trace.config");
+    let mut inter_config = Some(base.join("accelsim/gtx1080/config_fermi_islip.icnt"));
 
-    let config = accelsim_config { test: 0 };
-    let gpgpusim_config = options.sim_config.config()?;
-    let trace_config = options.sim_config.trace_config()?;
-    let kernelslist = options.kernelslist()?;
+    // let options = Options::parse();
+    // gpgpusim_config = options.sim_config.config()?;
+    // trace_config = options.sim_config.trace_config()?;
+    // kernelslist = options.kernelslist()?;
+    // inter_config = options.sim_config.inter_config;
 
     assert!(gpgpusim_config.is_file());
     assert!(trace_config.is_file());
     assert!(kernelslist.is_file());
 
+    let config = accelsim_config { test: 0 };
+
     let exe = std::env::current_exe()?;
-    let args = [
+    let mut args = vec![
         exe.as_os_str().to_str().unwrap(),
         "-trace",
-        // "-trace".to_string(),
-        // kernelslist.to_string_lossy().to_string(),
         kernelslist.as_os_str().to_str().unwrap(),
         "-config",
-        // "-config".to_string(),
-        // gpgpusim_config.to_string_lossy().to_string(),
-        // gpgpusim_config.to_string_lossy().to_string(),
         gpgpusim_config.as_os_str().to_str().unwrap(),
         "-config",
-        // "-config".to_string(),
-        // trace_config.to_string_lossy().to_string(),
         trace_config.as_os_str().to_str().unwrap(),
     ];
+    if let Some(inter_config) = inter_config.as_ref() {
+        args.extend([
+            "-inter_config_file",
+            inter_config.as_os_str().to_str().unwrap(),
+        ]);
+    }
+
     dbg!(&args);
 
     let ret_code = accelsim(config, &args);

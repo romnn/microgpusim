@@ -20,9 +20,15 @@ public:
                           const memory_config *mem_config,
                           class shader_core_stats *stats,
                           class memory_stats_t *mstats) {
-    // : simt_core_cluster(gpu, cluster_id, config, mem_config, stats, mstats)
-    // {
-    throw "trace simt core cluster must init simt core cluster";
+    m_config = config;
+    m_cta_issue_next_core = m_config->n_simt_cores_per_cluster -
+                            1; // this causes first launch to use hw cta 0
+    m_cluster_id = cluster_id;
+    m_gpu = gpu;
+    m_stats = stats;
+    m_memory_stats = mstats;
+    m_mem_config = mem_config;
+
     create_shader_core_ctx();
   }
 

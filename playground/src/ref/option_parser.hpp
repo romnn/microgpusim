@@ -45,3 +45,6 @@ void option_parser_delimited_string(option_parser_t opp,
                                     const char *delimiters);
 // print options
 void option_parser_print(option_parser_t opp, FILE *fout);
+
+// print all registered options
+void option_parser_print_registered(option_parser_t opp, FILE *fout);

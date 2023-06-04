@@ -285,6 +285,19 @@ public:
     }
   }
 
+  void PrintRegistered(FILE *fout) {
+    OptionCollection::iterator i_option;
+    for (i_option = m_optionReg.begin(); i_option != m_optionReg.end();
+         ++i_option) {
+      std::stringstream sout;
+      sout << std::setw(20) << std::left << (*i_option)->GetName() << " ";
+      sout << std::setw(20) << std::right << (*i_option)->toString() << " # ";
+      sout << std::left << (*i_option)->GetDesc();
+      sout << std::endl;
+      fprintf(fout, "%s", sout.str().c_str());
+    }
+  }
+
   void Print(FILE *fout) {
     OptionCollection::iterator i_option;
     for (i_option = m_optionReg.begin(); i_option != m_optionReg.end();
@@ -391,4 +404,9 @@ void option_parser_delimited_string(option_parser_t opp,
 void option_parser_print(option_parser_t opp, FILE *fout) {
   OptionParser *p_opr = reinterpret_cast<OptionParser *>(opp);
   p_opr->Print(fout);
+}
+
+void option_parser_print_registered(option_parser_t opp, FILE *fout) {
+  OptionParser *p_opr = reinterpret_cast<OptionParser *>(opp);
+  p_opr->PrintRegistered(fout);
 }

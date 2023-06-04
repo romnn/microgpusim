@@ -90,7 +90,7 @@ bool trace_kernel_info_t::children_all_finished() {
 }
 
 void trace_kernel_info_t::notify_parent_finished() {
-  throw "notify_parent_finished needs device runtime";
+  throw std::runtime_error("notify_parent_finished needs device runtime");
   // if (m_parent_kernel) {
   //   m_kernel_entry->gpgpu_ctx->device_runtime->g_total_param_size -=
   //       ((m_kernel_entry->get_args_aligned_size() + 255) / 256 * 256);

@@ -2,14 +2,12 @@
 
 #include <stddef.h>
 
-// #include "cuda_device_runtime.hpp"
+#include "cuda_device_runtime.hpp"
 #include "cuda_sim.hpp"
 #include "gpgpu_sim_ctx.hpp"
-// #include "kernel_info.hpp"
 #include "option_parser.hpp"
+#include "ptx_stats.hpp"
 #include "trace_kernel_info.hpp"
-
-// class ptx_instruction;
 
 class gpgpu_context {
 public:
@@ -29,8 +27,9 @@ public:
     // ptx_parser = new ptx_recognizer(this);
     the_gpgpusim = new GPGPUsim_ctx(this);
     func_sim = new cuda_sim(this);
-    // device_runtime = new cuda_device_runtime(this);
+    device_runtime = new cuda_device_runtime();
     // stats = new ptx_stats(this);
+    stats = new ptx_stats();
   }
   // global list
   // symbol_table *g_global_allfiles_symbol_table;
@@ -53,8 +52,8 @@ public:
   // ptx_recognizer *ptx_parser;
   GPGPUsim_ctx *the_gpgpusim;
   cuda_sim *func_sim;
-  // cuda_device_runtime *device_runtime;
-  // ptx_stats *stats;
+  cuda_device_runtime *device_runtime;
+  ptx_stats *stats;
 
   // member function list
   void synchronize();
@@ -78,7 +77,7 @@ public:
   class gpgpu_sim *gpgpu_ptx_sim_init_perf();
   void start_sim_thread(int api);
   // struct _cuda_device_id *GPGPUSim_Init();
-  // void ptx_reg_options(option_parser_t opp);
+  void ptx_reg_options(option_parser_t opp);
   // const ptx_instruction *pc_to_instruction(unsigned pc);
   // const warp_inst_t *ptx_fetch_inst(address_type pc);
   // unsigned translate_pc_to_ptxlineno(unsigned pc);

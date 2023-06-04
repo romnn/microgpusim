@@ -1,10 +1,11 @@
 #pragma once
 
-// #include "gpgpu_sim.hpp"
 #include "gpgpu_sim_config.hpp"
 #include "icnt_wrapper.hpp"
 #include "memory_partition_unit.hpp"
+#include "memory_stats.hpp"
 #include "occupancy_stats.hpp"
+#include "shader_core_stats.hpp"
 #include "visualizer.hpp"
 
 // constants for statistics printouts
@@ -35,36 +36,32 @@ class trace_gpgpu_sim {
 public:
   trace_gpgpu_sim(const gpgpu_sim_config &config, gpgpu_context *ctx)
       : m_config(config) {
-    // : gpgpu_sim(config, ctx) {
-    // gpgpu_t(config, ctx), m_config(config) {
-
     gpgpu_ctx = ctx;
-    // m_shader_config = &m_config.m_shader_config;
-    // m_memory_config = &m_config.m_memory_config;
-    //
-    // // REMOVE: ptx
-    // // ctx->ptx_parser->set_ptx_warp_size(m_shader_config);
-    // //
+    m_shader_config = &m_config.m_shader_config;
+    m_memory_config = &m_config.m_memory_config;
+
+    // REMOVE: ptx
+    // ctx->ptx_parser->set_ptx_warp_size(m_shader_config);
     // ptx_file_line_stats_create_exposed_latency_tracker(m_config.num_shader());
-    //
-    // // REMOVE: power
-    // // #ifdef GPGPUSIM_POWER_MODEL
-    // //   m_gpgpusim_wrapper = new gpgpu_sim_wrapper(
-    // //       config.g_power_simulation_enabled, config.g_power_config_name,
-    // //       config.g_power_simulation_mode, config.g_dvfs_enabled);
-    // // #endif
-    //
-    // m_shader_stats = new shader_core_stats(m_shader_config);
-    // m_memory_stats = new memory_stats_t(m_config.num_shader(),
-    // m_shader_config,
-    //                                     m_memory_config, this);
+
+    // REMOVE: power
+    // #ifdef GPGPUSIM_POWER_MODEL
+    //   m_gpgpusim_wrapper = new gpgpu_sim_wrapper(
+    //       config.g_power_simulation_enabled, config.g_power_config_name,
+    //       config.g_power_simulation_mode, config.g_dvfs_enabled);
+    // #endif
+
+    m_shader_stats = new shader_core_stats(m_shader_config);
+    m_memory_stats = new memory_stats_t(m_config.num_shader(), m_shader_config,
+                                        m_memory_config, this);
     average_pipeline_duty_cycle = (float *)malloc(sizeof(float));
     active_sms = (float *)malloc(sizeof(float));
-    // // REMOVE: power
-    // // m_power_stats =
-    // //     new power_stat_t(m_shader_config, average_pipeline_duty_cycle,
-    // //     active_sms, m_shader_stats, m_memory_config, m_memory_stats);
-    //
+
+    // REMOVE: power
+    // m_power_stats =
+    //     new power_stat_t(m_shader_config, average_pipeline_duty_cycle,
+    //     active_sms, m_shader_stats, m_memory_config, m_memory_stats);
+
     gpu_sim_insn = 0;
     gpu_tot_sim_insn = 0;
     gpu_tot_issued_cta = 0;
@@ -125,11 +122,9 @@ public:
 
   virtual void createSIMTCluster();
 
-  // from "gpgpu.hpp"
   unsigned long long gpu_sim_cycle;
   unsigned long long gpu_tot_sim_cycle;
 
-  // from "gpgpu_sim.hpp"
   void init();
   void cycle();
   bool active();
@@ -216,7 +211,6 @@ public:
   class gpgpu_context *gpgpu_ctx;
 
 private:
-  // from "gpgpu_sim.hpp"
   // clocks
   void reinit_clock_domains(void);
   int next_clock_domain(void);
@@ -234,7 +228,6 @@ private:
   trace_kernel_info_t *m_functional_sim_kernel;
 
 public:
-  // from "gpgpu_sim.hpp"
   void functional_launch(trace_kernel_info_t *k) {
     m_functional_sim = true;
     m_functional_sim_kernel = k;
@@ -247,7 +240,6 @@ public:
   }
 
 protected:
-  // from "gpgpu_sim.hpp"
   class trace_simt_core_cluster **m_cluster;
   class memory_partition_unit **m_memory_partition_unit;
   class memory_sub_partition **m_memory_sub_partition;

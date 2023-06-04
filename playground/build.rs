@@ -90,6 +90,8 @@ fn generate_bridge(bridges: &[PathBuf], sources: &[PathBuf]) -> eyre::Result<()>
     build
         .cpp(true)
         .static_flag(true)
+        .opt_level(0)
+        .debug(true)
         .files(sources)
         .object(test[0])
         .object(test[1])
@@ -112,7 +114,10 @@ where
 
 fn main() -> eyre::Result<()> {
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=src/");
+    println!("cargo:rerun-if-changed=src/bridge/");
+    println!("cargo:rerun-if-changed=src/bindings.hpp");
+    println!("cargo:rerun-if-changed=src/bridge.hpp");
+    println!("cargo:rerun-if-changed=src/ref/");
 
     let bridges = [
         "src/bridge/addrdec.rs",

@@ -2,6 +2,7 @@
 
 #include "../gpgpu_context.hpp"
 #include "../icnt_wrapper.hpp"
+#include "../option_parser.hpp"
 #include "../stream_manager.hpp"
 #include "../trace_config.hpp"
 #include "../trace_gpgpu_sim.hpp"
@@ -17,15 +18,12 @@ trace_kernel_info_t *create_kernel_info(kernel_trace_t *kernel_trace_info,
 trace_gpgpu_sim *gpgpu_trace_sim_init_perf_model(
     gpgpu_context *m_gpgpu_context, trace_config *m_config,
     const accelsim_config &config, const std::vector<const char *> &argv) {
-  // rust::Slice<const rust::Str> &argv) {
-  // const std::vector<std::string> &argv) {
-  // const std::vector<const char *> argv) {
   // seed random
   srand(1);
 
   // register cli options
   option_parser_t opp = option_parser_create();
-  // m_gpgpu_context->ptx_reg_options(opp);
+  m_gpgpu_context->ptx_reg_options(opp);
   m_gpgpu_context->func_sim->ptx_opcocde_latency_options(opp);
 
   icnt_reg_options(opp);
@@ -35,6 +33,9 @@ trace_gpgpu_sim *gpgpu_trace_sim_init_perf_model(
   m_gpgpu_context->the_gpgpusim->g_the_gpu_config->reg_options(
       opp); // register GPU microrachitecture options
   m_config->reg_options(opp);
+
+  fprintf(stdout, "GPGPU-Sim: Registered options:\n\n");
+  option_parser_print_registered(opp, stdout);
 
   // parse configuration options
   option_parser_cmdline(opp, argv);
@@ -52,12 +53,9 @@ trace_gpgpu_sim *gpgpu_trace_sim_init_perf_model(
   m_gpgpu_context->the_gpgpusim->g_the_gpu = new trace_gpgpu_sim(
       *(m_gpgpu_context->the_gpgpusim->g_the_gpu_config), m_gpgpu_context);
 
-  // todo: skipped stream manager for now
   m_gpgpu_context->the_gpgpusim->g_stream_manager =
       new stream_manager((m_gpgpu_context->the_gpgpusim->g_the_gpu),
-                         // TODO
-                         false);
-  // m_gpgpu_context->func_sim->g_cuda_launch_blocking);
+                         m_gpgpu_context->func_sim->g_cuda_launch_blocking);
 
   m_gpgpu_context->the_gpgpusim->g_simulation_starttime = time((time_t *)NULL);
 
@@ -85,11 +83,6 @@ trace_gpgpu_sim *gpgpu_trace_sim_init_perf_model(
 //   return kernel_info;
 // }
 
-// int accelsim(int argc, const char *argv[]) {
-// int accelsim(accelsim_config config, const std::vector<const char *> &argv) {
-// int accelsim(accelsim_config config, std::vector<const std::string> &argv) {
-// int accelsim(accelsim_config config, std::vector<const std::string> &argv) {
-// int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv) {
 int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv) {
   std::cout << "Accel-Sim [build <box>]" << std::endl;
 
@@ -97,21 +90,10 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv) {
   for (auto arg : argv)
     valid_argv.push_back(std::string(arg));
 
-  // for (auto arg : valid_argv)
-  //   std::cout << arg << std::endl;
-
   std::vector<const char *> c_argv;
   // THIS stupid &arg here is important !!!!
   for (std::string &arg : valid_argv)
     c_argv.push_back(arg.c_str());
-
-  // std::cout << valid_argv[0].c_str() << std::endl;
-  // for (const char *arg : c_argv)
-  //   std::cout << arg << std::endl;
-  // // printf("test: %s\n", arg);
-  //
-  // for (auto arg : valid_argv)
-  //   std::cout << arg << std::endl;
 
   // setup the gpu
   gpgpu_context *m_gpgpu_context = new gpgpu_context();
@@ -120,6 +102,8 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv) {
   // init trace based performance model
   trace_gpgpu_sim *m_gpgpu_sim = gpgpu_trace_sim_init_perf_model(
       m_gpgpu_context, &tconfig, config, c_argv);
+  return 0;
+
   m_gpgpu_sim->init();
 
   // init trace parser
@@ -127,8 +111,6 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv) {
 
   // parse trace config
   tconfig.parse_config();
-
-  return 0;
 
   // setup a rolling window with size of the max concurrent kernel executions
   bool concurrent_kernel_sm =
@@ -158,7 +140,6 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv) {
         tracer.parse_memcpy_info(commandlist[i].command_string, addre, Bcount);
         std::cout << "launching memcpy command : "
                   << commandlist[i].command_string << std::endl;
-        // todo
         m_gpgpu_sim->perf_memcpy_to_gpu(addre, Bcount);
         i++;
       } else if (commandlist[i].m_type == command_type::kernel_launch) {

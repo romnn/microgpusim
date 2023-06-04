@@ -77,7 +77,7 @@ void trace_shader_core_ctx::init_warps(unsigned cta_id, unsigned start_thread,
                                        int cta_size,
                                        trace_kernel_info_t &kernel) {
   // TODO: call base class
-  throw "shader core ctx::init_warps";
+  throw std::runtime_error("shader core ctx::init_warps");
   // shader_core_ctx::init_warps(cta_id, start_thread, end_thread, ctaid,
   // cta_size,
   //                             kernel);
@@ -175,7 +175,7 @@ void trace_shader_core_ctx::issue_warp(register_set &warp,
                                        const warp_inst_t *pI,
                                        const active_mask_t &active_mask,
                                        unsigned warp_id, unsigned sch_id) {
-  throw "call shader_core_ctx::issue_warp";
+  throw std::runtime_error("call shader_core_ctx::issue_warp");
   // shader_core_ctx::issue_warp(warp, pI, active_mask, warp_id, sch_id);
 
   // delete warp_inst_t class here, it is not required anymore by gpgpu-sim
@@ -768,7 +768,8 @@ void trace_shader_core_ctx::fetch() {
                 register_cta_thread_exit(cta_id,
                                          m_warp[warp_id]->get_kernel_info());
               } else {
-                throw "find alternative for ptx thread info";
+                throw std::runtime_error(
+                    "find alternative for ptx thread info");
                 // register_cta_thread_exit(cta_id,
                 //                          &(m_thread[tid]->get_kernel()));
               }
@@ -1388,6 +1389,15 @@ trace_shader_core_ctx::get_regs_written(const inst_t &fvt) const {
       result.push_back(reg_num);
   }
   return result;
+}
+
+void trace_shader_core_ctx::initializeSIMTStack(unsigned warp_count,
+                                                unsigned warp_size) {
+  m_simt_stack = new simt_stack *[warp_count];
+  for (unsigned i = 0; i < warp_count; ++i)
+    m_simt_stack[i] = new simt_stack(i, warp_size, m_gpu);
+  m_warp_size = warp_size;
+  m_warp_count = warp_count;
 }
 
 void trace_shader_core_ctx::incexecstat(warp_inst_t *&inst) {

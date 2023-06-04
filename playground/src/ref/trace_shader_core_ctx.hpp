@@ -37,52 +37,52 @@ public:
                         shader_core_stats *stats)
       : m_barriers(this, config->max_warps_per_shader, config->max_cta_per_core,
                    config->max_barriers_per_cta, config->warp_size),
-        m_active_warps(0), m_dynamic_warp_id(0), m_gpu(gpu), m_kernel(NULL),
-        m_simt_stack(NULL), m_thread(NULL), m_warp_size(config->warp_size) {
-    // m_warp_count = threads_per_shader / m_warp_size;
-    // // Handle the case where the number of threads is not a
-    // // multiple of the warp size
-    // if (threads_per_shader % m_warp_size != 0) {
-    //   m_warp_count += 1;
-    // }
-    // assert(m_warp_count * m_warp_size > 0);
-    // m_thread = (ptx_thread_info **)calloc(m_warp_count * m_warp_size,
-    //                                       sizeof(ptx_thread_info *));
-    // initilizeSIMTStack(m_warp_count, m_warp_size);
+        m_active_warps(0), m_dynamic_warp_id(0), m_gpu(gpu),
+        // m_kernel(NULL), m_simt_stack(NULL), m_thread(NULL),
+        m_warp_size(config->warp_size) {
+    m_warp_count = config->n_thread_per_shader / m_warp_size;
+    // Handle the case where the number of threads is not a
+    // multiple of the warp size
+    if (config->n_thread_per_shader % m_warp_size != 0) {
+      m_warp_count += 1;
+    }
+    assert(m_warp_count * m_warp_size > 0);
+    m_thread = (ptx_thread_info **)calloc(m_warp_count * m_warp_size,
+                                          sizeof(ptx_thread_info *));
+    initializeSIMTStack(m_warp_count, m_warp_size);
 
-    // for (unsigned i = 0; i < MAX_CTA_PER_SHADER; i++) {
-    //   for (unsigned j = 0; j < MAX_BARRIERS_PER_CTA; j++) {
-    //     reduction_storage[i][j] = 0;
-    //   }
-    // }
+    for (unsigned i = 0; i < MAX_CTA_PER_SHADER; i++) {
+      for (unsigned j = 0; j < MAX_BARRIERS_PER_CTA; j++) {
+        reduction_storage[i][j] = 0;
+      }
+    }
 
     m_cluster = cluster;
     m_config = config;
-    //   m_memory_config = mem_config;
-    //   m_stats = stats;
-    //   unsigned warp_size = config->warp_size;
-    //   Issue_Prio = 0;
-    //
-    //   m_sid = shader_id;
-    //   m_tpc = tpc_id;
-    //
-    // // REMOVE: power
-    //   // if (get_gpu()->get_config().g_power_simulation_enabled) {
-    //   //   scaling_coeffs = get_gpu()->get_scaling_coeffs();
-    //   // }
-    //
-    //   m_last_inst_gpu_sim_cycle = 0;
-    //   m_last_inst_gpu_tot_sim_cycle = 0;
-    //
-    //   // Jin: for concurrent kernels on a SM
-    //   m_occupied_n_threads = 0;
-    //   m_occupied_shmem = 0;
-    //   m_occupied_regs = 0;
-    //   m_occupied_ctas = 0;
-    //   m_occupied_hwtid.reset();
-    //   m_occupied_cta_to_hwtid.clear();
+    m_memory_config = mem_config;
+    m_stats = stats;
+    unsigned warp_size = config->warp_size;
+    Issue_Prio = 0;
 
-    // throw "trace shader core ctx must init shader core ctx";
+    m_sid = shader_id;
+    m_tpc = tpc_id;
+
+    // REMOVE: power
+    // if (get_gpu()->get_config().g_power_simulation_enabled) {
+    //   scaling_coeffs = get_gpu()->get_scaling_coeffs();
+    // }
+
+    m_last_inst_gpu_sim_cycle = 0;
+    m_last_inst_gpu_tot_sim_cycle = 0;
+
+    // Jin: for concurrent kernels on a SM
+    m_occupied_n_threads = 0;
+    m_occupied_shmem = 0;
+    m_occupied_regs = 0;
+    m_occupied_ctas = 0;
+    m_occupied_hwtid.reset();
+    m_occupied_cta_to_hwtid.clear();
+
     create_front_pipeline();
     create_shd_warp();
     create_schedulers();
@@ -122,6 +122,7 @@ public:
               bool reset_not_completed);
   void cache_invalidate();
   void issue_block2core(class trace_kernel_info_t &kernel);
+  void initializeSIMTStack(unsigned warp_count, unsigned warps_size);
 
   int find_available_hwtid(unsigned int cta_size, bool occupy);
   bool can_issue_1block(trace_kernel_info_t &kernel);
@@ -241,12 +242,14 @@ public:
   const shader_core_config *get_config() const { return m_config; }
 
 protected:
-  // from "core.hpp"
-  unsigned m_warp_size;
-  class ptx_thread_info **m_thread;
-  simt_stack **m_simt_stack;
   class trace_gpgpu_sim *m_gpu;
   trace_kernel_info_t *m_kernel;
+  simt_stack **m_simt_stack; // pdom based reconvergence context for each warp
+  class ptx_thread_info **m_thread;
+
+  unsigned m_warp_size;
+  unsigned m_warp_count;
+  unsigned reduction_storage[MAX_CTA_PER_SHADER][MAX_BARRIERS_PER_CTA];
 
   friend class scheduler_unit;
   friend class TwoLevelScheduler;
