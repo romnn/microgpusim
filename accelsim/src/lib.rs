@@ -2,10 +2,12 @@
 // #![allow(warnings)]
 
 pub mod cache;
+pub mod options;
 pub mod parser;
 pub mod read;
 
 use color_eyre::eyre;
+pub use options::{Options, SimConfig};
 use std::path::PathBuf;
 
 pub fn locate() -> eyre::Result<PathBuf> {

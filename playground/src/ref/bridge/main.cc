@@ -1,45 +1,32 @@
 #include <iostream>
 
-#include "gpgpu_context.hpp"
-// #include "gpgpu_sim.hpp" // todo: replace with trace_gpgpu_sim
-#include "icnt_wrapper.hpp"
+#include "../gpgpu_context.hpp"
+#include "../icnt_wrapper.hpp"
+#include "../stream_manager.hpp"
+#include "../trace_config.hpp"
+#include "../trace_gpgpu_sim.hpp"
+#include "../trace_kernel_info.hpp"
+#include "../trace_parser.hpp"
 #include "main.hpp"
-#include "stream_manager.hpp"
-#include "trace_config.hpp"
-#include "trace_gpgpu_sim.hpp"
-#include "trace_kernel_info.hpp"
-#include "trace_parser.hpp"
 
-const char *g_accelsim_version = "accelsim-commit-299f48f_modified_4.0";
-
-void print_splash() {
-  static int splash_printed = 0;
-  if (!splash_printed) {
-    fprintf(stdout, "\n\n        *** %s ***\n\n\n", g_accelsim_version);
-    splash_printed = 1;
-  }
-}
-
-// gpgpu_sim *gpgpu_trace_sim_init_perf_model( // int argc, const char *argv[],
-//     gpgpu_context *m_gpgpu_context, class trace_config *m_config);
-//
 trace_kernel_info_t *create_kernel_info(kernel_trace_t *kernel_trace_info,
                                         gpgpu_context *m_gpgpu_context,
                                         class trace_config *config,
                                         trace_parser *parser);
 
-trace_gpgpu_sim *
-gpgpu_trace_sim_init_perf_model( // int argc, const char *argv[],
-    gpgpu_context *m_gpgpu_context, trace_config *m_config) {
+trace_gpgpu_sim *gpgpu_trace_sim_init_perf_model(
+    gpgpu_context *m_gpgpu_context, trace_config *m_config,
+    const accelsim_config &config, const std::vector<const char *> &argv) {
+  // rust::Slice<const rust::Str> &argv) {
+  // const std::vector<std::string> &argv) {
+  // const std::vector<const char *> argv) {
   // seed random
   srand(1);
-  print_splash();
 
   // register cli options
   option_parser_t opp = option_parser_create();
   // m_gpgpu_context->ptx_reg_options(opp);
-  // TODO
-  // m_gpgpu_context->func_sim->ptx_opcocde_latency_options(opp);
+  m_gpgpu_context->func_sim->ptx_opcocde_latency_options(opp);
 
   icnt_reg_options(opp);
 
@@ -49,9 +36,10 @@ gpgpu_trace_sim_init_perf_model( // int argc, const char *argv[],
       opp); // register GPU microrachitecture options
   m_config->reg_options(opp);
 
-  // option_parser_cmdline(opp, argc, argv); // parse configuration options
-  // fprintf(stdout, "GPGPU-Sim: Configuration options:\n\n");
-  // option_parser_print(opp, stdout);
+  // parse configuration options
+  option_parser_cmdline(opp, argv);
+  fprintf(stdout, "GPGPU-Sim: Configuration options:\n\n");
+  option_parser_print(opp, stdout);
 
   // Set the Numeric locale to a standard locale where a decimal point is a
   // "dot" not a "comma" so it does the parsing correctly independent of the
@@ -76,16 +64,62 @@ gpgpu_trace_sim_init_perf_model( // int argc, const char *argv[],
   return m_gpgpu_context->the_gpgpusim->g_the_gpu;
 }
 
+// trace_kernel_info_t *create_kernel_info(kernel_trace_t *kernel_trace_info,
+//                                         gpgpu_context *m_gpgpu_context,
+//                                         class trace_config *config,
+//                                         trace_parser *parser) {
+//
+//   gpgpu_ptx_sim_info info;
+//   info.smem = kernel_trace_info->shmem;
+//   info.regs = kernel_trace_info->nregs;
+//   dim3 gridDim(kernel_trace_info->grid_dim_x, kernel_trace_info->grid_dim_y,
+//                kernel_trace_info->grid_dim_z);
+//   dim3 blockDim(kernel_trace_info->tb_dim_x, kernel_trace_info->tb_dim_y,
+//                 kernel_trace_info->tb_dim_z);
+//   trace_function_info *function_info =
+//       new trace_function_info(info, m_gpgpu_context);
+//   function_info->set_name(kernel_trace_info->kernel_name.c_str());
+//   trace_kernel_info_t *kernel_info = new trace_kernel_info_t(
+//       gridDim, blockDim, function_info, parser, config, kernel_trace_info);
+//
+//   return kernel_info;
+// }
+
 // int accelsim(int argc, const char *argv[]) {
-int accelsim(accelsim_config config) {
-  std::cout << "Accel-Sim [build " << g_accelsim_version << "]";
+// int accelsim(accelsim_config config, const std::vector<const char *> &argv) {
+// int accelsim(accelsim_config config, std::vector<const std::string> &argv) {
+// int accelsim(accelsim_config config, std::vector<const std::string> &argv) {
+// int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv) {
+int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv) {
+  std::cout << "Accel-Sim [build <box>]" << std::endl;
+
+  std::vector<std::string> valid_argv;
+  for (auto arg : argv)
+    valid_argv.push_back(std::string(arg));
+
+  // for (auto arg : valid_argv)
+  //   std::cout << arg << std::endl;
+
+  std::vector<const char *> c_argv;
+  // THIS stupid &arg here is important !!!!
+  for (std::string &arg : valid_argv)
+    c_argv.push_back(arg.c_str());
+
+  // std::cout << valid_argv[0].c_str() << std::endl;
+  // for (const char *arg : c_argv)
+  //   std::cout << arg << std::endl;
+  // // printf("test: %s\n", arg);
+  //
+  // for (auto arg : valid_argv)
+  //   std::cout << arg << std::endl;
+
   // setup the gpu
   gpgpu_context *m_gpgpu_context = new gpgpu_context();
   trace_config tconfig;
 
   // init trace based performance model
-  trace_gpgpu_sim *m_gpgpu_sim = gpgpu_trace_sim_init_perf_model( // argc, argv,
-      m_gpgpu_context, &tconfig);
+  trace_gpgpu_sim *m_gpgpu_sim = gpgpu_trace_sim_init_perf_model(
+      m_gpgpu_context, &tconfig, config, c_argv);
   m_gpgpu_sim->init();
 
   // init trace parser
@@ -94,12 +128,7 @@ int accelsim(accelsim_config config) {
   // parse trace config
   tconfig.parse_config();
 
-  // for each kernel
-  // load file
-  // parse and create kernel info
-  // launch
-  // while loop till the end of the end kernel execution
-  // prints stats
+  return 0;
 
   // setup a rolling window with size of the max concurrent kernel executions
   bool concurrent_kernel_sm =
@@ -239,25 +268,4 @@ int accelsim(accelsim_config config) {
   fflush(stdout);
 
   return 0;
-}
-
-trace_kernel_info_t *create_kernel_info(kernel_trace_t *kernel_trace_info,
-                                        gpgpu_context *m_gpgpu_context,
-                                        class trace_config *config,
-                                        trace_parser *parser) {
-
-  gpgpu_ptx_sim_info info;
-  info.smem = kernel_trace_info->shmem;
-  info.regs = kernel_trace_info->nregs;
-  dim3 gridDim(kernel_trace_info->grid_dim_x, kernel_trace_info->grid_dim_y,
-               kernel_trace_info->grid_dim_z);
-  dim3 blockDim(kernel_trace_info->tb_dim_x, kernel_trace_info->tb_dim_y,
-                kernel_trace_info->tb_dim_z);
-  trace_function_info *function_info =
-      new trace_function_info(info, m_gpgpu_context);
-  function_info->set_name(kernel_trace_info->kernel_name.c_str());
-  trace_kernel_info_t *kernel_info = new trace_kernel_info_t(
-      gridDim, blockDim, function_info, parser, config, kernel_trace_info);
-
-  return kernel_info;
 }

@@ -1,6 +1,8 @@
 #pragma once
 
 #include <stdio.h>
+#include <string>
+#include <vector>
 
 // pointer to C++ class
 typedef class OptionParser *option_parser_t;
@@ -26,6 +28,10 @@ void option_parser_destroy(option_parser_t opp);
 void option_parser_register(option_parser_t opp, const char *name,
                             enum option_dtype type, void *variable,
                             const char *desc, const char *defaultvalue);
+
+// parse command line
+void option_parser_cmdline(option_parser_t opp,
+                           const std::vector<const char *> &argv);
 
 // parse command line
 void option_parser_cmdline(option_parser_t opp, int argc, const char *argv[]);

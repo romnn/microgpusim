@@ -1,8 +1,9 @@
 #![allow(warnings)]
 
 use accelsim::parser::{parse, Options as ParseOptions};
+use accelsim::{Options, SimConfig};
 use async_process::Command;
-use clap::Parser;
+// use clap::Parser;
 use color_eyre::eyre;
 use std::collections::HashMap;
 use std::io::Write;
@@ -49,36 +50,29 @@ async fn sim_trace(
     ));
 
     // run accelsim binary
-    let gpgpusim_config = config
-        .config
-        .unwrap_or(config.config_dir.join("gpgpusim.config"));
+    let gpgpusim_config = config.config()?;
+    // let gpgpusim_config = config
+    //     .config
+    //     .unwrap_or(config.config_dir.join("gpgpusim.config"));
+    let kernelslist = traces_dir.as_ref().join("kernelslist.g").canonicalize()?;
+
     let mut trace_cmd: Vec<String> = vec![
         accelsim_bin.canonicalize()?.to_string_lossy().to_string(),
         "-trace".to_string(),
-        traces_dir
-            .as_ref()
-            .join("kernelslist.g")
-            .canonicalize()?
-            .to_string_lossy()
-            .to_string(),
+        kernelslist.to_string_lossy().to_string(),
         "-config".to_string(),
-        gpgpusim_config
-            .canonicalize()?
-            .to_string_lossy()
-            .to_string(),
+        gpgpusim_config.to_string_lossy().to_string(),
     ];
 
-    let gpgpusim_trace_config = config
-        .trace_config
-        .unwrap_or(config.config_dir.join("gpgpusim.trace.config"));
+    let gpgpusim_trace_config = config.trace_config()?;
+    // let gpgpusim_trace_config = config
+    //     .trace_config
+    //     .unwrap_or(config.config_dir.join("gpgpusim.trace.config"));
 
     if gpgpusim_trace_config.is_file() {
         trace_cmd.extend([
             "-config".to_string(),
-            gpgpusim_trace_config
-                .canonicalize()?
-                .to_string_lossy()
-                .to_string(),
+            gpgpusim_trace_config.to_string_lossy().to_string(),
         ]);
     }
     tmp_sim_sh.push(trace_cmd.join(" "));
@@ -126,50 +120,6 @@ async fn sim_trace(
     // for now, we want to keep the file
     // std::fs::remove_file(&tmp_sim_sh_path);
     Ok(result)
-}
-
-fn parse_duration_string(duration: &str) -> eyre::Result<Duration> {
-    let res = duration_string::DurationString::from_string(duration.into())
-        .map_err(|msg| eyre::eyre!("invalid duration string {}", duration))?;
-    Ok(res.into())
-}
-
-#[derive(Parser, Debug)]
-struct Options {
-    #[clap(
-        // long = "traces-dir",
-        help = "directory containing accelsim traces (kernelslist.g)"
-    )]
-    traces_dir: PathBuf,
-
-    #[clap(flatten)]
-    sim_config: SimConfig,
-
-    #[clap(long = "log-file", help = "write simuation output to log file")]
-    log_file: Option<PathBuf>,
-
-    #[clap(long = "stats-file", help = "parse simulation stats into csv file")]
-    stats_file: Option<PathBuf>,
-
-    #[clap(
-        long = "timeout",
-        help = "timeout",
-        value_parser = parse_duration_string,
-    )]
-    timeout: Option<Duration>,
-}
-
-#[derive(Parser, Debug)]
-struct SimConfig {
-    // #[clap(long = "config-dir", help = "config directory")]
-    #[clap(help = "config directory")]
-    config_dir: PathBuf,
-    #[clap(long = "config", help = "config file")]
-    config: Option<PathBuf>,
-    #[clap(long = "trace-config", help = "trace config file")]
-    trace_config: Option<PathBuf>,
-    #[clap(long = "inter-config", help = "interconnect config file")]
-    inter_config: Option<PathBuf>,
 }
 
 #[tokio::main]

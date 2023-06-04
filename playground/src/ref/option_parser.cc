@@ -364,6 +364,13 @@ void option_parser_register(option_parser_t opp, const char *name,
   }
 }
 
+void option_parser_cmdline(option_parser_t opp,
+                           const std::vector<const char *> &argv) {
+  int argc = argv.size();
+  const char **c_argv = const_cast<const char **>(&argv[0]);
+  option_parser_cmdline(opp, argc, c_argv);
+}
+
 void option_parser_cmdline(option_parser_t opp, int argc, const char *argv[]) {
   OptionParser *p_opr = reinterpret_cast<OptionParser *>(opp);
   return p_opr->ParseCommandLine(argc, argv);

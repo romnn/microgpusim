@@ -2133,6 +2133,7 @@ dependencies = [
 name = "playground"
 version = "0.1.0"
 dependencies = [
+ "accelsim",
  "bindgen 0.65.1",
  "cc",
  "clap",

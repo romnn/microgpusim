@@ -21,6 +21,7 @@ parallel = ["cc/parallel"]
 
 [dependencies]
 cxx = "1"
+accelsim = { path = "../accelsim" }
 
 color-eyre = "0"
 thiserror = "1"

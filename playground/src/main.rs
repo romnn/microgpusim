@@ -1,35 +1,42 @@
+use accelsim::Options;
 use clap::Parser;
 use color_eyre::eyre;
 use playground::bridge::main::{accelsim, accelsim_config};
 
-#[derive(Parser, Debug)]
-struct Options {
-    // #[clap(
-    //     // long = "traces-dir",
-    //     help = "directory containing accelsim traces (kernelslist.g)"
-    // )]
-    // traces_dir: PathBuf,
-    //
-    // #[clap(flatten)]
-    // sim_config: SimConfig,
-    //
-    // #[clap(long = "log-file", help = "write simuation output to log file")]
-    // log_file: Option<PathBuf>,
-    //
-    // #[clap(long = "stats-file", help = "parse simulation stats into csv file")]
-    // stats_file: Option<PathBuf>,
-    //
-    // #[clap(
-    //     long = "timeout",
-    //     help = "timeout",
-    //     value_parser = parse_duration_string,
-    // )]
-    // timeout: Option<Duration>,
-}
-
 fn main() -> eyre::Result<()> {
+    color_eyre::install()?;
+
+    let options = Options::parse();
+
     let config = accelsim_config { test: 0 };
-    let ret_code = accelsim(config);
+    let gpgpusim_config = options.sim_config.config()?;
+    let trace_config = options.sim_config.trace_config()?;
+    let kernelslist = options.kernelslist()?;
+
+    assert!(gpgpusim_config.is_file());
+    assert!(trace_config.is_file());
+    assert!(kernelslist.is_file());
+
+    let exe = std::env::current_exe()?;
+    let args = [
+        exe.as_os_str().to_str().unwrap(),
+        "-trace",
+        // "-trace".to_string(),
+        // kernelslist.to_string_lossy().to_string(),
+        kernelslist.as_os_str().to_str().unwrap(),
+        "-config",
+        // "-config".to_string(),
+        // gpgpusim_config.to_string_lossy().to_string(),
+        // gpgpusim_config.to_string_lossy().to_string(),
+        gpgpusim_config.as_os_str().to_str().unwrap(),
+        "-config",
+        // "-config".to_string(),
+        // trace_config.to_string_lossy().to_string(),
+        trace_config.as_os_str().to_str().unwrap(),
+    ];
+    dbg!(&args);
+
+    let ret_code = accelsim(config, &args);
     if ret_code == 0 {
         Ok(())
     } else {
