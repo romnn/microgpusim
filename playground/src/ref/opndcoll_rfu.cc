@@ -3,7 +3,7 @@
 #include <cmath>
 
 #include "register_set.hpp"
-#include "shader_core_ctx.hpp"
+#include "trace_shader_core_ctx.hpp"
 
 // modifiers
 std::list<opndcoll_rfu_t::op_t> opndcoll_rfu_t::arbiter_t::allocate_reads() {
@@ -120,7 +120,7 @@ void opndcoll_rfu_t::add_port(port_vector_t &input, port_vector_t &output,
   m_in_ports.push_back(input_port_t(input, output, cu_sets));
 }
 
-void opndcoll_rfu_t::init(unsigned num_banks, shader_core_ctx *shader) {
+void opndcoll_rfu_t::init(unsigned num_banks, trace_shader_core_ctx *shader) {
   m_shader = shader;
   m_arbiter.init(m_cu.size(), num_banks);
   // for( unsigned n=0; n<m_num_ports;n++ )
@@ -332,7 +332,7 @@ bool opndcoll_rfu_t::collector_unit_t::ready() const {
 }
 
 void opndcoll_rfu_t::collector_unit_t::dump(
-    FILE *fp, const shader_core_ctx *shader) const {
+    FILE *fp, const trace_shader_core_ctx *shader) const {
   if (m_free) {
     fprintf(fp, "    <free>\n");
   } else {

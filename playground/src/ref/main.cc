@@ -1,7 +1,7 @@
 #include <iostream>
 
 #include "gpgpu_context.hpp"
-#include "gpgpu_sim.hpp"
+// #include "gpgpu_sim.hpp" // todo: replace with trace_gpgpu_sim
 #include "icnt_wrapper.hpp"
 #include "main.hpp"
 #include "stream_manager.hpp"
@@ -20,13 +20,61 @@ void print_splash() {
   }
 }
 
-gpgpu_sim *gpgpu_trace_sim_init_perf_model( // int argc, const char *argv[],
-    gpgpu_context *m_gpgpu_context, class trace_config *m_config);
-
+// gpgpu_sim *gpgpu_trace_sim_init_perf_model( // int argc, const char *argv[],
+//     gpgpu_context *m_gpgpu_context, class trace_config *m_config);
+//
 trace_kernel_info_t *create_kernel_info(kernel_trace_t *kernel_trace_info,
                                         gpgpu_context *m_gpgpu_context,
                                         class trace_config *config,
                                         trace_parser *parser);
+
+trace_gpgpu_sim *
+gpgpu_trace_sim_init_perf_model( // int argc, const char *argv[],
+    gpgpu_context *m_gpgpu_context, trace_config *m_config) {
+  // seed random
+  srand(1);
+  print_splash();
+
+  // register cli options
+  option_parser_t opp = option_parser_create();
+  // m_gpgpu_context->ptx_reg_options(opp);
+  // TODO
+  // m_gpgpu_context->func_sim->ptx_opcocde_latency_options(opp);
+
+  icnt_reg_options(opp);
+
+  m_gpgpu_context->the_gpgpusim->g_the_gpu_config =
+      new gpgpu_sim_config(m_gpgpu_context);
+  m_gpgpu_context->the_gpgpusim->g_the_gpu_config->reg_options(
+      opp); // register GPU microrachitecture options
+  m_config->reg_options(opp);
+
+  // option_parser_cmdline(opp, argc, argv); // parse configuration options
+  // fprintf(stdout, "GPGPU-Sim: Configuration options:\n\n");
+  // option_parser_print(opp, stdout);
+
+  // Set the Numeric locale to a standard locale where a decimal point is a
+  // "dot" not a "comma" so it does the parsing correctly independent of the
+  // system environment variables
+  assert(setlocale(LC_NUMERIC, "C"));
+
+  // initialize config (parse gpu config from cli values)
+  m_gpgpu_context->the_gpgpusim->g_the_gpu_config->init();
+
+  m_gpgpu_context->the_gpgpusim->g_the_gpu = new trace_gpgpu_sim(
+      *(m_gpgpu_context->the_gpgpusim->g_the_gpu_config), m_gpgpu_context);
+
+  // todo: skipped stream manager for now
+  m_gpgpu_context->the_gpgpusim->g_stream_manager =
+      new stream_manager((m_gpgpu_context->the_gpgpusim->g_the_gpu),
+                         // TODO
+                         false);
+  // m_gpgpu_context->func_sim->g_cuda_launch_blocking);
+
+  m_gpgpu_context->the_gpgpusim->g_simulation_starttime = time((time_t *)NULL);
+
+  return m_gpgpu_context->the_gpgpusim->g_the_gpu;
+}
 
 // int accelsim(int argc, const char *argv[]) {
 int accelsim(accelsim_config config) {
@@ -36,7 +84,7 @@ int accelsim(accelsim_config config) {
   trace_config tconfig;
 
   // init trace based performance model
-  gpgpu_sim *m_gpgpu_sim = gpgpu_trace_sim_init_perf_model( // argc, argv,
+  trace_gpgpu_sim *m_gpgpu_sim = gpgpu_trace_sim_init_perf_model( // argc, argv,
       m_gpgpu_context, &tconfig);
   m_gpgpu_sim->init();
 
@@ -212,48 +260,4 @@ trace_kernel_info_t *create_kernel_info(kernel_trace_t *kernel_trace_info,
       gridDim, blockDim, function_info, parser, config, kernel_trace_info);
 
   return kernel_info;
-}
-
-gpgpu_sim *gpgpu_trace_sim_init_perf_model( // int argc, const char *argv[],
-    gpgpu_context *m_gpgpu_context, trace_config *m_config) {
-  // seed random
-  srand(1);
-  print_splash();
-
-  // register cli options
-  option_parser_t opp = option_parser_create();
-  m_gpgpu_context->ptx_reg_options(opp);
-  m_gpgpu_context->func_sim->ptx_opcocde_latency_options(opp);
-
-  icnt_reg_options(opp);
-
-  m_gpgpu_context->the_gpgpusim->g_the_gpu_config =
-      new gpgpu_sim_config(m_gpgpu_context);
-  m_gpgpu_context->the_gpgpusim->g_the_gpu_config->reg_options(
-      opp); // register GPU microrachitecture options
-  m_config->reg_options(opp);
-
-  // option_parser_cmdline(opp, argc, argv); // parse configuration options
-  // fprintf(stdout, "GPGPU-Sim: Configuration options:\n\n");
-  // option_parser_print(opp, stdout);
-
-  // Set the Numeric locale to a standard locale where a decimal point is a
-  // "dot" not a "comma" so it does the parsing correctly independent of the
-  // system environment variables
-  assert(setlocale(LC_NUMERIC, "C"));
-
-  // initialize config (parse gpu config from cli values)
-  m_gpgpu_context->the_gpgpusim->g_the_gpu_config->init();
-
-  m_gpgpu_context->the_gpgpusim->g_the_gpu = new trace_gpgpu_sim(
-      *(m_gpgpu_context->the_gpgpusim->g_the_gpu_config), m_gpgpu_context);
-
-  // todo: skipped stream manager for now
-  m_gpgpu_context->the_gpgpusim->g_stream_manager =
-      new stream_manager((m_gpgpu_context->the_gpgpusim->g_the_gpu),
-                         m_gpgpu_context->func_sim->g_cuda_launch_blocking);
-
-  m_gpgpu_context->the_gpgpusim->g_simulation_starttime = time((time_t *)NULL);
-
-  return m_gpgpu_context->the_gpgpusim->g_the_gpu;
 }

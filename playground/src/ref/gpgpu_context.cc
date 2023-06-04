@@ -1,6 +1,7 @@
 #include "gpgpu_context.hpp"
-#include "gpgpu_sim.hpp"
+
 #include "stream_manager.hpp"
+#include "trace_gpgpu_sim.hpp"
 
 void *gpgpu_sim_thread_sequential(void *ctx_ptr) {
   gpgpu_context *ctx = (gpgpu_context *)ctx_ptr;
@@ -74,11 +75,12 @@ void *gpgpu_sim_thread_concurrent(void *ctx_ptr) {
 
       // functional simulation
       if (ctx->the_gpgpusim->g_the_gpu->is_functional_sim()) {
-        kernel_info_t *kernel =
+        trace_kernel_info_t *kernel =
             ctx->the_gpgpusim->g_the_gpu->get_functional_kernel();
         assert(kernel);
-        ctx->the_gpgpusim->gpgpu_ctx->func_sim->gpgpu_cuda_ptx_sim_main_func(
-            *kernel);
+        // TODO
+        // ctx->the_gpgpusim->gpgpu_ctx->func_sim->gpgpu_cuda_ptx_sim_main_func(
+        //     *kernel);
         ctx->the_gpgpusim->g_the_gpu->finish_functional_sim(kernel);
       }
 
@@ -231,9 +233,10 @@ void gpgpu_context::print_simulation_time() {
   fflush(stdout);
 }
 
-int gpgpu_context::gpgpu_opencl_ptx_sim_main_perf(kernel_info_t *grid) {
-  the_gpgpusim->g_the_gpu->launch(grid);
-  sem_post(&(the_gpgpusim->g_sim_signal_start));
-  sem_wait(&(the_gpgpusim->g_sim_signal_finish));
-  return 0;
-}
+// int gpgpu_context::gpgpu_opencl_ptx_sim_main_perf(trace_kernel_info_t *grid)
+// {
+//   the_gpgpusim->g_the_gpu->launch(grid);
+//   sem_post(&(the_gpgpusim->g_sim_signal_start));
+//   sem_wait(&(the_gpgpusim->g_sim_signal_finish));
+//   return 0;
+// }

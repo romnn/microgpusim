@@ -29,7 +29,7 @@
 #define _ANYNET_HPP_
 
 #include "network.hpp"
-#include "routefunc.hpp"
+#include "../routefunc.hpp"
 #include <cassert>
 #include <string>
 #include <map>

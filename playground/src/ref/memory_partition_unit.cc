@@ -1,13 +1,13 @@
 #include "memory_partition_unit.hpp"
 
-#include "gpgpu_sim.hpp"
+#include "trace_gpgpu_sim.hpp"
 #include "l2_cache_trace.hpp"
 #include "memory_sub_partition.hpp"
 
 memory_partition_unit::memory_partition_unit(unsigned partition_id,
                                              const memory_config *config,
                                              class memory_stats_t *stats,
-                                             class gpgpu_sim *gpu)
+                                             class trace_gpgpu_sim *gpu)
     : m_id(partition_id), m_config(config), m_stats(stats),
       m_arbitration_metadata(config), m_gpu(gpu) {
   m_dram = new dram_t(m_id, m_config, m_stats, this, gpu);

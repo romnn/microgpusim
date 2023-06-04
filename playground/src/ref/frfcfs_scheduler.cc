@@ -1,10 +1,10 @@
 #include "frfcfs_scheduler.hpp"
 
 #include "dram.hpp"
-#include "gpgpu_sim.hpp"
 #include "mem_fetch.hpp"
 #include "memory_config.hpp"
 #include "memory_stats.hpp"
+#include "trace_gpgpu_sim.hpp"
 
 frfcfs_scheduler::frfcfs_scheduler(const memory_config *config, dram_t *dm,
                                    memory_stats_t *stats) {

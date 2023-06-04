@@ -1,6 +1,6 @@
 #pragma once
 
-#include "function_info.hpp"
+// #include "function_info.hpp"
 #include "symbol.hpp"
 #include "symbol_table.hpp"
 

@@ -1,9 +1,11 @@
 #include "stream_operation.hpp"
 
-#include "cu_stream.hpp"
-#include "gpgpu_sim.hpp"
+#include <signal.h>
 
-bool stream_operation::do_operation(gpgpu_sim *gpu) {
+#include "cu_stream.hpp"
+#include "trace_gpgpu_sim.hpp"
+
+bool stream_operation::do_operation(trace_gpgpu_sim *gpu) {
   if (is_noop())
     return true;
 
@@ -32,15 +34,19 @@ bool stream_operation::do_operation(gpgpu_sim *gpu) {
   case stream_memcpy_to_symbol:
     if (g_debug_execution >= 3)
       printf("memcpy to symbol\n");
-    gpu->gpgpu_ctx->func_sim->gpgpu_ptx_sim_memcpy_symbol(
-        m_symbol, m_host_address_src, m_cnt, m_offset, 1, gpu);
+    fprintf(stderr, "removed ptx function\n");
+    abort();
+    // gpu->gpgpu_ctx->func_sim->gpgpu_ptx_sim_memcpy_symbol(
+    //     m_symbol, m_host_address_src, m_cnt, m_offset, 1, gpu);
     m_stream->record_next_done();
     break;
   case stream_memcpy_from_symbol:
     if (g_debug_execution >= 3)
       printf("memcpy from symbol\n");
-    gpu->gpgpu_ctx->func_sim->gpgpu_ptx_sim_memcpy_symbol(
-        m_symbol, m_host_address_dst, m_cnt, m_offset, 0, gpu);
+    fprintf(stderr, "removed ptx function\n");
+    abort();
+    // gpu->gpgpu_ctx->func_sim->gpgpu_ptx_sim_memcpy_symbol(
+    //     m_symbol, m_host_address_dst, m_cnt, m_offset, 0, gpu);
     m_stream->record_next_done();
     break;
   case stream_kernel_launch:
@@ -103,6 +109,9 @@ void stream_operation::print(FILE *fp) const {
   switch (m_type) {
   case stream_event:
     fprintf(fp, "event");
+    break;
+  case stream_wait_event:
+    fprintf(fp, "stream wait event");
     break;
   case stream_kernel_launch:
     fprintf(fp, "kernel");

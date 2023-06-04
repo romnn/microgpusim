@@ -231,7 +231,6 @@ private:
   std::list<stack_entry> m_callstack;
   unsigned m_local_mem_stack_pointer;
 
-  // typedef tr1_hash_map<const symbol *, ptx_reg_t> reg_map_t;
   typedef std::unordered_map<const symbol *, ptx_reg_t> reg_map_t;
   std::list<reg_map_t> m_regs;
   std::list<reg_map_t> m_debug_trace_regs_modified;

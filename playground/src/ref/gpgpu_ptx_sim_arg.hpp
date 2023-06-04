@@ -15,4 +15,4 @@ struct gpgpu_ptx_sim_arg {
   size_t m_offset;
 };
 
-typedef std::list<gpgpu_ptx_sim_arg> gpgpu_ptx_sim_arg_list_t;
+// typedef std::list<gpgpu_ptx_sim_arg> gpgpu_ptx_sim_arg_list_t;

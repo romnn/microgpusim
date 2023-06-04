@@ -5,14 +5,14 @@
 #include <map>
 #include <pthread.h>
 
-#include "stream_operation.hpp"
 #include "cu_stream.hpp"
+#include "stream_operation.hpp"
 
-class gpgpu_sim;
+class trace_gpgpu_sim;
 
 class stream_manager {
- public:
-  stream_manager(gpgpu_sim *gpu, bool cuda_launch_blocking);
+public:
+  stream_manager(trace_gpgpu_sim *gpu, bool cuda_launch_blocking);
   bool register_finished_kernel(unsigned grid_uid);
   bool check_finished_kernel();
   stream_operation front();
@@ -29,11 +29,11 @@ class stream_manager {
   unsigned size() { return m_streams.size(); };
   bool is_blocking() { return m_cuda_launch_blocking; };
 
- private:
+private:
   void print_impl(FILE *fp);
 
   bool m_cuda_launch_blocking;
-  gpgpu_sim *m_gpu;
+  trace_gpgpu_sim *m_gpu;
   std::list<CUstream_st *> m_streams;
   std::map<unsigned, CUstream_st *> m_grid_id_to_stream;
   CUstream_st m_stream_zero;
@@ -41,4 +41,3 @@ class stream_manager {
   pthread_mutex_t m_lock;
   std::list<struct CUstream_st *>::iterator m_last_stream;
 };
-

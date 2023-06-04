@@ -567,3 +567,25 @@ void warp_inst_t::completed(unsigned long long cycle) const {
   // m_config->gpgpu_ctx->stats->ptx_file_line_stats_add_latency(
   //     pc, latency * active_count());
 }
+
+void warp_inst_t::print(FILE *fout) const {
+  if (empty()) {
+    fprintf(fout, "bubble\n");
+    return;
+  } else
+    fprintf(fout, "0x%04lx ", pc);
+  fprintf(fout, "w%02d[", m_warp_id);
+  for (unsigned j = 0; j < m_config->warp_size; j++)
+    fprintf(fout, "%c", (active(j) ? '1' : '0'));
+  fprintf(fout, "]: ");
+  m_config->gpgpu_ctx->func_sim->ptx_print_insn(pc, fout);
+  fprintf(fout, "\n");
+}
+
+void move_warp(warp_inst_t *&dst, warp_inst_t *&src) {
+  assert(dst->empty());
+  warp_inst_t *temp = dst;
+  dst = src;
+  src = temp;
+  src->clear();
+}

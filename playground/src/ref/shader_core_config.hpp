@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <sstream>
 
-// #include "hal.hpp"
 #include "core_config.hpp"
 #include "divergence_support.hpp"
 #include "gpgpu_context.hpp"
@@ -98,7 +97,7 @@ public:
     }
   }
   void reg_options(class OptionParser *opp);
-  unsigned max_cta(const kernel_info_t &k) const;
+  unsigned max_cta(const trace_kernel_info_t &k) const;
   unsigned num_shader() const {
     return n_simt_clusters * n_simt_cores_per_cluster;
   }

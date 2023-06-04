@@ -2,13 +2,13 @@
 
 #include "simd_function_unit.hpp"
 
-class shader_core_ctx;
+class trace_shader_core_ctx;
 
 class pipelined_simd_unit : public simd_function_unit {
 public:
   pipelined_simd_unit(register_set *result_port,
                       const shader_core_config *config, unsigned max_latency,
-                      shader_core_ctx *core, unsigned issue_reg_id);
+                      trace_shader_core_ctx *core, unsigned issue_reg_id);
 
   // modifiers
   virtual void cycle();
@@ -16,14 +16,7 @@ public:
   virtual unsigned get_active_lanes_in_pipeline();
 
   virtual void active_lanes_in_pipeline() = 0;
-  /*
-      virtual void issue( register_set& source_reg )
-      {
-          //move_warp(m_dispatch_reg,source_reg);
-          //source_reg.move_out_to(m_dispatch_reg);
-          simd_function_unit::issue(source_reg);
-      }
-  */
+
   // accessors
   virtual bool stallable() const { return false; }
   virtual bool can_issue(const warp_inst_t &inst) const {
@@ -45,7 +38,7 @@ protected:
   unsigned m_pipeline_depth;
   warp_inst_t **m_pipeline_reg;
   register_set *m_result_port;
-  class shader_core_ctx *m_core;
+  class trace_shader_core_ctx *m_core;
   unsigned m_issue_reg_id; // if sub_core_model is enabled we can only issue
                            // from a subset of operand collectors
 

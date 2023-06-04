@@ -3,12 +3,14 @@
 #include <string>
 #include <vector>
 
-#include "trace_command.hpp"
-#include "kernel_trace.hpp"
 #include "inst_trace.hpp"
+#include "kernel_trace.hpp"
+#include "trace_command.hpp"
+
+enum address_format { list_all = 0, base_stride = 1, base_delta = 2 };
 
 class trace_parser {
- public:
+public:
   trace_parser(const char *kernellist_filepath);
 
   std::vector<trace_command> parse_commandlist_file();
@@ -24,6 +26,6 @@ class trace_parser {
 
   void kernel_finalizer(kernel_trace_t *trace_info);
 
- private:
+private:
   std::string kernellist_filename;
 };

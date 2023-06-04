@@ -1,16 +1,16 @@
 #include "memory_sub_partition.hpp"
 
 #include "cache_sub_stats.hpp"
-#include "gpgpu_sim.hpp"
 #include "l2_cache_trace.hpp"
 #include "l2_interface.hpp"
 #include "memory_stats.hpp"
 #include "partition_mf_allocator.hpp"
+#include "trace_gpgpu_sim.hpp"
 
 memory_sub_partition::memory_sub_partition(unsigned sub_partition_id,
                                            const memory_config *config,
                                            class memory_stats_t *stats,
-                                           class gpgpu_sim *gpu) {
+                                           class trace_gpgpu_sim *gpu) {
   m_id = sub_partition_id;
   m_config = config;
   m_stats = stats;

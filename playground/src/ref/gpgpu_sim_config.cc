@@ -57,16 +57,19 @@ void gpgpu_sim_config::reg_options(option_parser_t opp) {
   option_parser_register(
       opp, "-gpgpu_deadlock_detect", OPT_BOOL, &gpu_deadlock_detect,
       "Stop the simulation at deadlock (1=on (default), 0=off)", "1");
-  option_parser_register(
-      opp, "-gpgpu_ptx_instruction_classification", OPT_INT32,
-      &(gpgpu_ctx->func_sim->gpgpu_ptx_instruction_classification),
-      "if enabled will classify ptx instruction types per kernel (Max 255 "
-      "kernels now)",
-      "0");
-  option_parser_register(
-      opp, "-gpgpu_ptx_sim_mode", OPT_INT32,
-      &(gpgpu_ctx->func_sim->g_ptx_sim_mode),
-      "Select between Performance (default) or Functional simulation (1)", "0");
+
+  // TODO: func sim?
+  // option_parser_register(
+  //     opp, "-gpgpu_ptx_instruction_classification", OPT_INT32,
+  //     &(gpgpu_ctx->func_sim->gpgpu_ptx_instruction_classification),
+  //     "if enabled will classify ptx instruction types per kernel (Max 255 "
+  //     "kernels now)",
+  //     "0");
+  // option_parser_register(
+  //     opp, "-gpgpu_ptx_sim_mode", OPT_INT32,
+  //     &(gpgpu_ctx->func_sim->g_ptx_sim_mode),
+  //     "Select between Performance (default) or Functional simulation (1)",
+  //     "0");
   option_parser_register(opp, "-gpgpu_clock_domains", OPT_CSTR,
                          &gpgpu_clock_domains,
                          "Clock Domain Frequencies in MhZ {<Core Clock>:<ICNT "
@@ -118,16 +121,17 @@ void gpgpu_sim_config::reg_options(option_parser_t opp) {
   // REMOVE: ptx
   // gpgpu_ctx->stats->ptx_file_line_stats_options(opp);
 
+  // TODO: remove
   // Jin: kernel launch latency
-  option_parser_register(opp, "-gpgpu_kernel_launch_latency", OPT_INT32,
-                         &(gpgpu_ctx->device_runtime->g_kernel_launch_latency),
-                         "Kernel launch latency in cycles. Default: 0", "0");
-  option_parser_register(opp, "-gpgpu_cdp_enabled", OPT_BOOL,
-                         &(gpgpu_ctx->device_runtime->g_cdp_enabled),
-                         "Turn on CDP", "0");
-
-  option_parser_register(opp, "-gpgpu_TB_launch_latency", OPT_INT32,
-                         &(gpgpu_ctx->device_runtime->g_TB_launch_latency),
-                         "thread block launch latency in cycles. Default: 0",
-                         "0");
+  // option_parser_register(opp, "-gpgpu_kernel_launch_latency", OPT_INT32,
+  //                        &(gpgpu_ctx->device_runtime->g_kernel_launch_latency),
+  //                        "Kernel launch latency in cycles. Default: 0", "0");
+  // option_parser_register(opp, "-gpgpu_cdp_enabled", OPT_BOOL,
+  //                        &(gpgpu_ctx->device_runtime->g_cdp_enabled),
+  //                        "Turn on CDP", "0");
+  //
+  // option_parser_register(opp, "-gpgpu_TB_launch_latency", OPT_INT32,
+  //                        &(gpgpu_ctx->device_runtime->g_TB_launch_latency),
+  //                        "thread block launch latency in cycles. Default: 0",
+  //                        "0");
 }

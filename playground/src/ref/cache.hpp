@@ -9,6 +9,8 @@
 
 // from gpu-cache.h
 bool was_write_sent(const std::list<cache_event> &events);
+bool was_writeback_sent(const std::list<cache_event> &events,
+                        cache_event &wb_event);
 bool was_read_sent(const std::list<cache_event> &events);
 bool was_writeallocate_sent(const std::list<cache_event> &events);
 

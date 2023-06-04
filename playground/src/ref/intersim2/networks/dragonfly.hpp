@@ -29,7 +29,7 @@
 #define _DragonFly_HPP_
 
 #include "network.hpp"
-#include "routefunc.hpp"
+#include "../routefunc.hpp"
 
 class DragonFlyNew : public Network {
 

@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <queue>
+#include <set>
 #include <zlib.h>
 
 #include "fifo.hpp"
@@ -14,7 +15,7 @@ class partition_mf_allocator;
 class memory_sub_partition {
 public:
   memory_sub_partition(unsigned sub_partition_id, const memory_config *config,
-                       class memory_stats_t *stats, class gpgpu_sim *gpu);
+                       class memory_stats_t *stats, class trace_gpgpu_sim *gpu);
   ~memory_sub_partition();
 
   unsigned get_id() const { return m_id; }
@@ -65,7 +66,7 @@ private:
   const memory_config *m_config;
   class l2_cache *m_L2cache;
   class L2interface *m_L2interface;
-  class gpgpu_sim *m_gpu;
+  class trace_gpgpu_sim *m_gpu;
   partition_mf_allocator *m_mf_allocator;
 
   // model delay of ROP units with a fixed latency

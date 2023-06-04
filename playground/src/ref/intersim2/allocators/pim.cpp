@@ -25,11 +25,11 @@
  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "booksim.hpp"
+#include "../booksim.hpp"
 #include <iostream>
 
 #include "pim.hpp"
-#include "random_utils.hpp"
+#include "../random_utils.hpp"
 
 //#define DEBUG_PIM
 

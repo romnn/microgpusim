@@ -36,7 +36,7 @@
 
 #include <vector>
 
-#include "module.hpp"
+#include "../module.hpp"
 
 class Arbiter : public Module {
 

@@ -10,7 +10,7 @@
 #include "warp_instr.hpp"
 
 class core_config;
-class shader_core_ctx;
+class trace_shader_core_ctx;
 class register_set;
 class warp_inst_t;
 
@@ -31,7 +31,7 @@ public:
   typedef std::vector<unsigned int> uint_vector_t;
   void add_port(port_vector_t &input, port_vector_t &ouput,
                 uint_vector_t cu_sets);
-  void init(unsigned num_banks, shader_core_ctx *shader);
+  void init(unsigned num_banks, trace_shader_core_ctx *shader);
 
   // modifiers
   bool writeback(warp_inst_t &warp);
@@ -54,7 +54,7 @@ public:
     m_arbiter.dump(fp);
   }
 
-  shader_core_ctx *shader_core() { return m_shader; }
+  trace_shader_core_ctx *shader_core() { return m_shader; }
 
 private:
   void process_banks() { m_arbiter.reset_alloction(); }
@@ -330,7 +330,7 @@ private:
     // accessors
     bool ready() const;
     const op_t *get_operands() const { return m_src_op; }
-    void dump(FILE *fp, const shader_core_ctx *shader) const;
+    void dump(FILE *fp, const trace_shader_core_ctx *shader) const;
 
     unsigned get_warp_id() const { return m_warp_id; }
     unsigned get_active_count() const { return m_warp->active_count(); }
@@ -440,5 +440,5 @@ private:
   // typedef std::map<warp_inst_t**/*port*/,dispatch_unit_t> port_to_du_t;
   // port_to_du_t                     m_dispatch_units;
   // std::map<warp_inst_t**,std::list<collector_unit_t*> > m_free_cu;
-  shader_core_ctx *m_shader;
+  trace_shader_core_ctx *m_shader;
 };

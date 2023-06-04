@@ -1,10 +1,10 @@
 #include "shader_core_config.hpp"
 
-#include "function_info.hpp"
+#include "trace_function_info.hpp"
 
-unsigned int shader_core_config::max_cta(const kernel_info_t &k) const {
+unsigned int shader_core_config::max_cta(const trace_kernel_info_t &k) const {
   unsigned threads_per_cta = k.threads_per_cta();
-  const class function_info *kernel = k.entry();
+  const class trace_function_info *kernel = k.entry();
   unsigned int padded_cta_size = threads_per_cta;
   if (padded_cta_size % warp_size)
     padded_cta_size = ((padded_cta_size / warp_size) + 1) * (warp_size);
@@ -139,17 +139,18 @@ void shader_core_config::set_pipeline_latency() {
    * [4] DIV
    * [5] SHFL
    */
-  sscanf(gpgpu_ctx->func_sim->opcode_latency_int, "%u,%u,%u,%u,%u,%u",
-         &int_latency[0], &int_latency[1], &int_latency[2], &int_latency[3],
-         &int_latency[4], &int_latency[5]);
-  sscanf(gpgpu_ctx->func_sim->opcode_latency_fp, "%u,%u,%u,%u,%u",
-         &fp_latency[0], &fp_latency[1], &fp_latency[2], &fp_latency[3],
-         &fp_latency[4]);
-  sscanf(gpgpu_ctx->func_sim->opcode_latency_dp, "%u,%u,%u,%u,%u",
-         &dp_latency[0], &dp_latency[1], &dp_latency[2], &dp_latency[3],
-         &dp_latency[4]);
-  sscanf(gpgpu_ctx->func_sim->opcode_latency_sfu, "%u", &sfu_latency);
-  sscanf(gpgpu_ctx->func_sim->opcode_latency_tensor, "%u", &tensor_latency);
+  // REMOVE: cuda sim
+  // sscanf(gpgpu_ctx->func_sim->opcode_latency_int, "%u,%u,%u,%u,%u,%u",
+  //        &int_latency[0], &int_latency[1], &int_latency[2], &int_latency[3],
+  //        &int_latency[4], &int_latency[5]);
+  // sscanf(gpgpu_ctx->func_sim->opcode_latency_fp, "%u,%u,%u,%u,%u",
+  //        &fp_latency[0], &fp_latency[1], &fp_latency[2], &fp_latency[3],
+  //        &fp_latency[4]);
+  // sscanf(gpgpu_ctx->func_sim->opcode_latency_dp, "%u,%u,%u,%u,%u",
+  //        &dp_latency[0], &dp_latency[1], &dp_latency[2], &dp_latency[3],
+  //        &dp_latency[4]);
+  // sscanf(gpgpu_ctx->func_sim->opcode_latency_sfu, "%u", &sfu_latency);
+  // sscanf(gpgpu_ctx->func_sim->opcode_latency_tensor, "%u", &tensor_latency);
 
   // all div operation are executed on sfu
   // assume that the max latency are dp div or normal sfu_latency

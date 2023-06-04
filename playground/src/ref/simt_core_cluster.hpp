@@ -36,7 +36,7 @@ public:
 
   void get_pdom_stack_top_info(unsigned sid, unsigned tid, unsigned *pc,
                                unsigned *rpc) const;
-  unsigned max_cta(const kernel_info_t &kernel);
+  unsigned max_cta(const trace_kernel_info_t &kernel);
   unsigned get_not_completed() const;
   void print_not_completed(FILE *fp) const;
   unsigned get_n_active_cta() const;

@@ -2,7 +2,7 @@
 
 #include <cstdio>
 
-#include "ptx_thread_info.hpp"
+// #include "ptx_thread_info.hpp"
 #include "ptx_instruction.hpp"
 
 class watchpoint_event {

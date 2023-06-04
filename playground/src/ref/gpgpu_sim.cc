@@ -1,15 +1,21 @@
 #include "gpgpu_sim.hpp"
 
+#include <signal.h>
+
 #include "cache_sub_stats.hpp"
 #include "icnt_wrapper.hpp"
 #include "memory_partition_unit.hpp"
 #include "memory_stats.hpp"
+#include "memory_sub_partition.hpp"
 #include "shader_core_stats.hpp"
 #include "simt_core_cluster.hpp"
+#include "stats/tool.hpp"
+#include "stats_wrapper.hpp"
+#include "visualizer.hpp"
 
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 
-void gpgpu_sim::launch(kernel_info_t *kinfo) {
+void gpgpu_sim::launch(trace_kernel_info_t *kinfo) {
   unsigned cta_size = kinfo->threads_per_cta();
   if (cta_size > m_shader_config->n_thread_per_shader) {
     printf("Execution error: Shader kernel CTA (block) size is too large for "
@@ -49,7 +55,7 @@ bool gpgpu_sim::hit_max_cta_count() const {
   return false;
 }
 
-bool gpgpu_sim::kernel_more_cta_left(kernel_info_t *kernel) const {
+bool gpgpu_sim::kernel_more_cta_left(trace_kernel_info_t *kernel) const {
   if (hit_max_cta_count())
     return false;
 
@@ -77,7 +83,7 @@ void gpgpu_sim::decrement_kernel_latency() {
   }
 }
 
-kernel_info_t *gpgpu_sim::select_kernel() {
+trace_kernel_info_t *gpgpu_sim::select_kernel() {
   if (m_running_kernels[m_last_issued_kernel] &&
       !m_running_kernels[m_last_issued_kernel]->no_more_ctas_to_run() &&
       !m_running_kernels[m_last_issued_kernel]->m_kernel_TB_latency) {
@@ -123,10 +129,10 @@ unsigned gpgpu_sim::finished_kernel() {
   return result;
 }
 
-void gpgpu_sim::set_kernel_done(kernel_info_t *kernel) {
+void gpgpu_sim::set_kernel_done(trace_kernel_info_t *kernel) {
   unsigned uid = kernel->get_uid();
   m_finished_kernel.push_back(uid);
-  std::vector<kernel_info_t *>::iterator k;
+  std::vector<trace_kernel_info_t *>::iterator k;
   for (k = m_running_kernels.begin(); k != m_running_kernels.end(); k++) {
     if (*k == kernel) {
       kernel->end_cycle = gpu_sim_cycle + gpu_tot_sim_cycle;
@@ -138,7 +144,7 @@ void gpgpu_sim::set_kernel_done(kernel_info_t *kernel) {
 }
 
 void gpgpu_sim::stop_all_running_kernels() {
-  std::vector<kernel_info_t *>::iterator k;
+  std::vector<trace_kernel_info_t *>::iterator k;
   for (k = m_running_kernels.begin(); k != m_running_kernels.end(); ++k) {
     if (*k != NULL) {      // If a kernel is active
       set_kernel_done(*k); // Stop the kernel
@@ -254,7 +260,7 @@ int gpgpu_sim::max_cta_per_core() const {
   return m_shader_config->max_cta_per_core;
 }
 
-int gpgpu_sim::get_max_cta(const kernel_info_t &k) const {
+int gpgpu_sim::get_max_cta(const trace_kernel_info_t &k) const {
   return m_shader_config->max_cta(k);
 }
 
@@ -813,10 +819,11 @@ void gpgpu_sim::issue_block2core() {
 }
 
 unsigned long long g_single_step =
-    0;  // set this in gdb to single step the pipeline
+    0; // set this in gdb to single step the pipeline
 
 void gpgpu_sim::cycle() {
-  // guess: clock mask is which clock domains are active in this cycle (core, icnt)
+  // guess: clock mask is which clock domains are active in this cycle (core,
+  // icnt)
   int clock_mask = next_clock_domain();
 
   if (clock_mask & CORE) {
@@ -856,25 +863,28 @@ void gpgpu_sim::cycle() {
         m_memory_partition_unit[i]->simple_dram_model_cycle();
       else
         m_memory_partition_unit[i]
-            ->dram_cycle();  // Issue the dram command (scheduler + delay model)
+            ->dram_cycle(); // Issue the dram command (scheduler + delay model)
+
+      // REMOVE: power
       // Update performance counters for DRAM
-      m_memory_partition_unit[i]->set_dram_power_stats(
-          m_power_stats->pwr_mem_stat->n_cmd[CURRENT_STAT_IDX][i],
-          m_power_stats->pwr_mem_stat->n_activity[CURRENT_STAT_IDX][i],
-          m_power_stats->pwr_mem_stat->n_nop[CURRENT_STAT_IDX][i],
-          m_power_stats->pwr_mem_stat->n_act[CURRENT_STAT_IDX][i],
-          m_power_stats->pwr_mem_stat->n_pre[CURRENT_STAT_IDX][i],
-          m_power_stats->pwr_mem_stat->n_rd[CURRENT_STAT_IDX][i],
-          m_power_stats->pwr_mem_stat->n_wr[CURRENT_STAT_IDX][i],
-          m_power_stats->pwr_mem_stat->n_wr_WB[CURRENT_STAT_IDX][i],
-          m_power_stats->pwr_mem_stat->n_req[CURRENT_STAT_IDX][i]);
+      // m_memory_partition_unit[i]->set_dram_power_stats(
+      //     m_power_stats->pwr_mem_stat->n_cmd[CURRENT_STAT_IDX][i],
+      //     m_power_stats->pwr_mem_stat->n_activity[CURRENT_STAT_IDX][i],
+      //     m_power_stats->pwr_mem_stat->n_nop[CURRENT_STAT_IDX][i],
+      //     m_power_stats->pwr_mem_stat->n_act[CURRENT_STAT_IDX][i],
+      //     m_power_stats->pwr_mem_stat->n_pre[CURRENT_STAT_IDX][i],
+      //     m_power_stats->pwr_mem_stat->n_rd[CURRENT_STAT_IDX][i],
+      //     m_power_stats->pwr_mem_stat->n_wr[CURRENT_STAT_IDX][i],
+      //     m_power_stats->pwr_mem_stat->n_wr_WB[CURRENT_STAT_IDX][i],
+      //     m_power_stats->pwr_mem_stat->n_req[CURRENT_STAT_IDX][i]);
     }
   }
 
   // L2 operations follow L2 clock domain
   unsigned partiton_reqs_in_parallel_per_cycle = 0;
   if (clock_mask & L2) {
-    m_power_stats->pwr_mem_stat->l2_cache_stats[CURRENT_STAT_IDX].clear();
+    // REMOVE: power
+    // m_power_stats->pwr_mem_stat->l2_cache_stats[CURRENT_STAT_IDX].clear();
     for (unsigned i = 0; i < m_memory_config->m_n_mem_sub_partition; i++) {
       // move memory request from interconnect into memory partition (if not
       // backed up) Note:This needs to be called in DRAM clock domain if there
@@ -885,11 +895,13 @@ void gpgpu_sim::cycle() {
       } else {
         mem_fetch *mf = (mem_fetch *)icnt_pop(m_shader_config->mem2device(i));
         m_memory_sub_partition[i]->push(mf, gpu_sim_cycle + gpu_tot_sim_cycle);
-        if (mf) partiton_reqs_in_parallel_per_cycle++;
+        if (mf)
+          partiton_reqs_in_parallel_per_cycle++;
       }
       m_memory_sub_partition[i]->cache_cycle(gpu_sim_cycle + gpu_tot_sim_cycle);
-      m_memory_sub_partition[i]->accumulate_L2cache_stats(
-          m_power_stats->pwr_mem_stat->l2_cache_stats[CURRENT_STAT_IDX]);
+      // REMOVE: power
+      // m_memory_sub_partition[i]->accumulate_L2cache_stats(
+      //     m_power_stats->pwr_mem_stat->l2_cache_stats[CURRENT_STAT_IDX]);
     }
   }
   partiton_reqs_in_parallel += partiton_reqs_in_parallel_per_cycle;
@@ -904,18 +916,21 @@ void gpgpu_sim::cycle() {
 
   if (clock_mask & CORE) {
     // L1 cache + shader core pipeline stages
-    m_power_stats->pwr_mem_stat->core_cache_stats[CURRENT_STAT_IDX].clear();
+
+    // REMOVE: power
+    // m_power_stats->pwr_mem_stat->core_cache_stats[CURRENT_STAT_IDX].clear();
     for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
       if (m_cluster[i]->get_not_completed() || get_more_cta_left()) {
         m_cluster[i]->core_cycle();
         *active_sms += m_cluster[i]->get_n_active_sms();
       }
+      // REMOVE: power
       // Update core icnt/cache stats for AccelWattch
-      m_cluster[i]->get_icnt_stats(
-          m_power_stats->pwr_mem_stat->n_simt_to_mem[CURRENT_STAT_IDX][i],
-          m_power_stats->pwr_mem_stat->n_mem_to_simt[CURRENT_STAT_IDX][i]);
-      m_cluster[i]->get_cache_stats(
-          m_power_stats->pwr_mem_stat->core_cache_stats[CURRENT_STAT_IDX]);
+      // m_cluster[i]->get_icnt_stats(
+      //     m_power_stats->pwr_mem_stat->n_simt_to_mem[CURRENT_STAT_IDX][i],
+      //     m_power_stats->pwr_mem_stat->n_mem_to_simt[CURRENT_STAT_IDX][i]);
+      // m_cluster[i]->get_cache_stats(
+      //     m_power_stats->pwr_mem_stat->core_cache_stats[CURRENT_STAT_IDX]);
       m_cluster[i]->get_current_occupancy(
           gpu_occupancy.aggregate_warp_slot_filled,
           gpu_occupancy.aggregate_theoretical_warp_slots);
@@ -931,23 +946,25 @@ void gpgpu_sim::cycle() {
 
     if (g_single_step &&
         ((gpu_sim_cycle + gpu_tot_sim_cycle) >= g_single_step)) {
-      raise(SIGTRAP);  // Debug breakpoint
+      raise(SIGTRAP); // Debug breakpoint
     }
     gpu_sim_cycle++;
 
-    if (g_interactive_debugger_enabled) gpgpu_debug();
+    if (g_interactive_debugger_enabled)
+      gpgpu_debug();
 
-      // McPAT main cycle (interface with McPAT)
-#ifdef GPGPUSIM_POWER_MODEL
-    if (m_config.g_power_simulation_enabled) {
-      if(m_config.g_power_simulation_mode == 0){
-      mcpat_cycle(m_config, getShaderCoreConfig(), m_gpgpusim_wrapper,
-                  m_power_stats, m_config.gpu_stat_sample_freq,
-                  gpu_tot_sim_cycle, gpu_sim_cycle, gpu_tot_sim_insn,
-                  gpu_sim_insn, m_config.g_dvfs_enabled);
-      }
-    }
-#endif
+    // REMOVE: power
+    // McPAT main cycle (interface with McPAT)
+    // #ifdef GPGPUSIM_POWER_MODEL
+    //     if (m_config.g_power_simulation_enabled) {
+    //       if (m_config.g_power_simulation_mode == 0) {
+    //         mcpat_cycle(m_config, getShaderCoreConfig(), m_gpgpusim_wrapper,
+    //                     m_power_stats, m_config.gpu_stat_sample_freq,
+    //                     gpu_tot_sim_cycle, gpu_sim_cycle, gpu_tot_sim_insn,
+    //                     gpu_sim_insn, m_config.g_dvfs_enabled);
+    //       }
+    //     }
+    // #endif
 
     issue_block2core();
     decrement_kernel_latency();
@@ -980,7 +997,7 @@ void gpgpu_sim::cycle() {
           int dlc = 0;
           for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
             dlc = m_memory_sub_partition[i]->flushL2();
-            assert(dlc == 0);  // TODO: need to model actual writes to DRAM here
+            assert(dlc == 0); // TODO: need to model actual writes to DRAM here
             printf("Dirty lines flushed from L2 %d is %d\n", i, dlc);
           }
         }
@@ -1090,7 +1107,8 @@ void gpgpu_sim::dump_pipeline(int mask, int s, int m) const {
   */
 
   printf("Dumping pipeline state...\n");
-  if (!mask) mask = 0xFFFFFFFF;
+  if (!mask)
+    mask = 0xFFFFFFFF;
   for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
     if (s != -1) {
       i = s;
@@ -1108,9 +1126,12 @@ void gpgpu_sim::dump_pipeline(int mask, int s, int m) const {
         i = m;
       }
       printf("DRAM / memory controller %u:\n", i);
-      if (mask & 0x100000) m_memory_partition_unit[i]->print_stat(stdout);
-      if (mask & 0x1000000) m_memory_partition_unit[i]->visualize();
-      if (mask & 0x10000000) m_memory_partition_unit[i]->print(stdout);
+      if (mask & 0x100000)
+        m_memory_partition_unit[i]->print_stat(stdout);
+      if (mask & 0x1000000)
+        m_memory_partition_unit[i]->visualize();
+      if (mask & 0x10000000)
+        m_memory_partition_unit[i]->print(stdout);
       if (m != -1) {
         break;
       }

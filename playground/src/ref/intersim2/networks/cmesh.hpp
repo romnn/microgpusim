@@ -42,7 +42,7 @@
 #define _CMESH_HPP_
 
 #include "network.hpp"
-#include "routefunc.hpp"
+#include "../routefunc.hpp"
 
 class CMesh : public Network {
 public:

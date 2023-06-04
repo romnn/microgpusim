@@ -25,12 +25,12 @@
  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "booksim.hpp"
+#include "../booksim.hpp"
 #include <vector>
 #include <sstream>
 
 #include "fly.hpp"
-#include "misc_utils.hpp"
+#include "../misc_utils.hpp"
 
 //#define DEBUG_FLY
 

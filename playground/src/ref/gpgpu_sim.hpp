@@ -3,10 +3,32 @@
 #include "gpgpu.hpp"
 #include "gpgpu_context.hpp"
 #include "gpgpu_sim_config.hpp"
-#include "kernel_info.hpp"
-#include "power_scaling_coefficients.hpp"
-#include "watchpoint_event.hpp"
+// #include "kernel_info.hpp"
 #include "occupancy_stats.hpp"
+#include "trace_kernel_info.hpp"
+// #include "power_scaling_coefficients.hpp"
+#include "watchpoint_event.hpp"
+
+// constants for statistics printouts
+#define GPU_RSTAT_SHD_INFO 0x1
+#define GPU_RSTAT_BW_STAT 0x2
+#define GPU_RSTAT_WARP_DIS 0x4
+#define GPU_RSTAT_DWF_MAP 0x8
+#define GPU_RSTAT_L1MISS 0x10
+#define GPU_RSTAT_PDOM 0x20
+#define GPU_RSTAT_SCHED 0x40
+#define GPU_MEMLATSTAT_MC 0x2
+
+// constants for configuring merging of coalesced scatter-gather requests
+#define TEX_MSHR_MERGE 0x4
+#define CONST_MSHR_MERGE 0x2
+#define GLOBAL_MSHR_MERGE 0x1
+
+// clock domains
+#define CORE 0x01
+#define L2 0x02
+#define DRAM 0x04
+#define ICNT 0x08
 
 class simt_core_cluster;
 
@@ -16,10 +38,11 @@ public:
 
   void set_prop(struct cudaDeviceProp *prop);
 
-  void launch(kernel_info_t *kinfo);
+  // void launch(kernel_info_t *kinfo);
+  void launch(trace_kernel_info_t *kinfo);
   bool can_start_kernel();
   unsigned finished_kernel();
-  void set_kernel_done(kernel_info_t *kernel);
+  void set_kernel_done(trace_kernel_info_t *kernel);
   void stop_all_running_kernels();
 
   void init();
@@ -51,16 +74,18 @@ public:
   int wrp_size() const;
   int shader_clock() const;
   int max_cta_per_core() const;
-  int get_max_cta(const kernel_info_t &k) const;
+  int get_max_cta(const trace_kernel_info_t &k) const;
   const struct cudaDeviceProp *get_prop() const;
   enum divergence_support_t simd_model() const;
 
   unsigned threads_per_core() const;
   bool get_more_cta_left() const;
-  bool kernel_more_cta_left(kernel_info_t *kernel) const;
+  bool kernel_more_cta_left(trace_kernel_info_t *kernel) const;
   bool hit_max_cta_count() const;
-  kernel_info_t *select_kernel();
-  PowerscalingCoefficients *get_scaling_coeffs();
+  trace_kernel_info_t *select_kernel();
+
+  // REMOVE: power
+  // PowerscalingCoefficients *get_scaling_coeffs();
   void decrement_kernel_latency();
 
   const gpgpu_sim_config &get_config() const { return m_config; }
@@ -120,7 +145,7 @@ protected:
   class memory_partition_unit **m_memory_partition_unit;
   class memory_sub_partition **m_memory_sub_partition;
 
-  std::vector<kernel_info_t *> m_running_kernels;
+  std::vector<trace_kernel_info_t *> m_running_kernels;
   unsigned m_last_issued_kernel;
 
   std::list<unsigned> m_finished_kernel;
@@ -152,7 +177,9 @@ protected:
   // stats
   class shader_core_stats *m_shader_stats;
   class memory_stats_t *m_memory_stats;
-  class power_stat_t *m_power_stats;
+
+  // REMOVE: power
+  // class power_stat_t *m_power_stats;
   class gpgpu_sim_wrapper *m_gpgpusim_wrapper;
   unsigned long long last_gpu_sim_insn;
 
@@ -203,16 +230,16 @@ public:
 private:
   // set by stream operation every time a functoinal simulation is done
   bool m_functional_sim;
-  kernel_info_t *m_functional_sim_kernel;
+  trace_kernel_info_t *m_functional_sim_kernel;
 
 public:
   bool is_functional_sim() { return m_functional_sim; }
-  kernel_info_t *get_functional_kernel() { return m_functional_sim_kernel; }
-  void functional_launch(kernel_info_t *k) {
+  trace_kernel_info_t *get_functional_kernel() { return m_functional_sim_kernel; }
+  void functional_launch(trace_kernel_info_t *k) {
     m_functional_sim = true;
     m_functional_sim_kernel = k;
   }
-  void finish_functional_sim(kernel_info_t *k) {
+  void finish_functional_sim(trace_kernel_info_t *k) {
     assert(m_functional_sim);
     assert(m_functional_sim_kernel == k);
     m_functional_sim = false;

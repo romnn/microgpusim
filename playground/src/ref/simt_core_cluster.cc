@@ -36,7 +36,7 @@ void simt_core_cluster::reinit() {
     m_core[i]->reinit(0, m_config->n_thread_per_shader, true);
 }
 
-unsigned simt_core_cluster::max_cta(const kernel_info_t &kernel) {
+unsigned simt_core_cluster::max_cta(const trace_kernel_info_t &kernel) {
   return m_config->n_simt_cores_per_cluster * m_config->max_cta(kernel);
 }
 
@@ -84,11 +84,11 @@ unsigned simt_core_cluster::issue_block2core() {
     unsigned core =
         (i + m_cta_issue_next_core + 1) % m_config->n_simt_cores_per_cluster;
 
-    kernel_info_t *kernel;
+    trace_kernel_info_t *kernel;
     // Jin: fetch kernel according to concurrent kernel setting
     if (m_config->gpgpu_concurrent_kernel_sm) { // concurrent kernel on sm
       // always select latest issued kernel
-      kernel_info_t *k = m_gpu->select_kernel();
+      trace_kernel_info_t *k = m_gpu->select_kernel();
       kernel = k;
     } else {
       // first select core kernel, if no more cta, get a new kernel
@@ -97,7 +97,7 @@ unsigned simt_core_cluster::issue_block2core() {
       if (!m_gpu->kernel_more_cta_left(kernel)) {
         // wait till current kernel finishes
         if (m_core[core]->get_not_completed() == 0) {
-          kernel_info_t *k = m_gpu->select_kernel();
+          trace_kernel_info_t *k = m_gpu->select_kernel();
           if (k)
             m_core[core]->set_kernel(k);
           kernel = k;

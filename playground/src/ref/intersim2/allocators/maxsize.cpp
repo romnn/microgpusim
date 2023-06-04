@@ -29,7 +29,7 @@
   POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "booksim.hpp"
+#include "../booksim.hpp"
 #include <iostream>
 
 #include "maxsize.hpp"

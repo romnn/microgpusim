@@ -39,11 +39,11 @@
 // 
 ////////////////////////////////////////////////////////////////////////
 
-#include "booksim.hpp"
+#include "../booksim.hpp"
 #include <vector>
 #include <sstream>
 #include "qtree.hpp"
-#include "misc_utils.hpp"
+#include "../misc_utils.hpp"
 
 QTree::QTree( const Configuration& config, const string & name )
 : Network ( config, name )

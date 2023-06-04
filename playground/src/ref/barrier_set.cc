@@ -1,10 +1,11 @@
 #include "barrier_set.hpp"
 
 #include "hal.hpp"
+#include "trace_gpgpu_sim.hpp"
+#include "trace_shader_core_ctx.hpp"
 #include "warp_instr.hpp"
-#include "shader_core_ctx.hpp"
 
-barrier_set_t::barrier_set_t(shader_core_ctx *shader,
+barrier_set_t::barrier_set_t(trace_shader_core_ctx *shader,
                              unsigned max_warps_per_core,
                              unsigned max_cta_per_core,
                              unsigned max_barriers_per_cta,

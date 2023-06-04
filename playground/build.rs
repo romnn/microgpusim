@@ -1,11 +1,12 @@
 #![allow(warnings)]
 
-use std::path::PathBuf;
+use color_eyre::eyre;
+use std::path::{Path, PathBuf};
 
 fn output_path() -> PathBuf {
-    PathBuf::from(std::env::var("OUT_DIR").expect("cargo out dir"))
+    PathBuf::from(std::env::var("OUT_DIR").unwrap())
         .canonicalize()
-        .expect("canonicalize")
+        .unwrap()
 }
 
 fn enable_diagnostics_color(build: &mut cc::Build) {
@@ -16,21 +17,21 @@ fn enable_diagnostics_color(build: &mut cc::Build) {
 }
 
 #[allow(dead_code)]
-fn build(sources: &[&str]) {
+fn build(sources: &[PathBuf]) -> eyre::Result<()> {
     let mut build = cc::Build::new();
     build
         .cpp(true)
         .static_flag(true)
-        .link_lib_modifier("-bundle,+whole-archive")
         .files(sources)
         .flag("-std=c++14")
         .warnings(false);
 
     enable_diagnostics_color(&mut build);
-    build.try_compile("playground").expect("compile");
+    build.try_compile("playground")?;
+    Ok(())
 }
 
-fn generate_bindings() {
+fn generate_bindings() -> eyre::Result<()> {
     let bindings = bindgen::Builder::default()
         .clang_arg("-std=c++14")
         .rustified_enum(".*")
@@ -54,44 +55,62 @@ fn generate_bindings() {
         // .allowlist_type("data_cache")
         // .allowlist_type("l1_cache")
         // .allowlist_type("l2_cache")
+        // .allowlist_type("read_only_cache_params")
+        .allowlist_type("mem_fetch_status")
         .allowlist_type("accelsim_config")
         .allowlist_type("cache_config_params")
         .allowlist_type("cache_access_logger_types")
+        .allowlist_type("mem_fetch_status")
+        // .opaque_type("mem_fetch_interface")
         .opaque_type("const_pointer")
         .opaque_type("tag_array")
         .opaque_type("warp_inst_t")
         .opaque_type("kernel_info_t")
         .opaque_type("(::)?std::.*")
         .header("src/bindings.hpp")
-        .generate()
-        .expect("generate bindings");
+        .generate()?;
 
-    bindings
-        .write_to_file(output_path().join("bindings.rs"))
-        .expect("write bindings");
+    bindings.write_to_file(output_path().join("bindings.rs"))?;
 
-    bindings
-        .write_to_file("./bindings.rs")
-        .expect("write bindings");
+    bindings.write_to_file("./bindings.rs")?;
+    Ok(())
 }
 
-fn generate_bridge(bridges: &[&str], sources: &[&str]) {
+fn generate_bridge(bridges: &[PathBuf], sources: &[PathBuf]) -> eyre::Result<()> {
     let mut build = cxx_build::bridges(bridges);
+
+    // run lex
+    // run bison
+    // add files
+    let test = [
+        "../accelsim/accel-sim-framework-dev/gpu-simulator/gpgpu-sim/build/gcc-8.4.0/cuda-10010/debug/intersim2/lex.yy.o",
+        "../accelsim/accel-sim-framework-dev/gpu-simulator/gpgpu-sim/build/gcc-8.4.0/cuda-10010/debug/intersim2/y.tab.o",
+    ];
+
     build
         .cpp(true)
         .static_flag(true)
-        // .link_lib_modifier("-bundle,+whole-archive")
         .files(sources)
+        .object(test[0])
+        .object(test[1])
         .flag("-std=c++14")
         .warnings(false);
 
     enable_diagnostics_color(&mut build);
-    build
-        .try_compile("playgroundbridge")
-        .expect("compile bridge");
+    build.try_compile("playgroundbridge")?;
+    Ok(())
 }
 
-fn main() {
+fn multi_glob<I, S>(patterns: I) -> impl Iterator<Item = Result<PathBuf, glob::GlobError>>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    let globs = patterns.into_iter().map(|p| glob::glob(p.as_ref()));
+    globs.flat_map(|x| x).flat_map(|x| x)
+}
+
+fn main() -> eyre::Result<()> {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=src/");
 
@@ -100,70 +119,87 @@ fn main() {
         "src/bridge/cache_config.rs",
         "src/bridge/shd_warp.rs",
         "src/bridge/scheduler_unit.rs",
+        "src/bridge/readonly_cache.rs",
         "src/bridge/main.rs",
-    ];
-    // todo: use glob here
-    let sources = [
-        "src/tests/parse_cache_config.cc",
-        "src/ref/addrdec.cc",
-        "src/ref/hashing.cc",
-        "src/ref/tag_array.cc",
-        "src/ref/l1_cache.cc",
-        "src/ref/l2_cache.cc",
-        "src/ref/cache_config.cc",
-        "src/ref/data_cache.cc",
-        "src/ref/lrr_scheduler.cc",
-        "src/ref/scheduler_unit.cc",
-        "src/ref/shd_warp.cc",
-        "src/ref/icnt_wrapper.cc",
-        "src/ref/kernel_info.cc",
-        "src/ref/cu_stream.cc",
-        "src/ref/function_info.cc",
-        "src/ref/gpgpu_context.cc",
-        "src/ref/inst_memadd_info.cc",
-        "src/ref/inst_trace.cc",
-        "src/ref/trace.cc",
-        "src/ref/warp_instr.cc",
-        "src/ref/tex_cache.cc",
-        "src/ref/read_only_cache.cc",
-        "src/ref/local_interconnect.cc",
-        "src/ref/mem_fetch.cc",
-        "src/ref/shader_core_mem_fetch_allocator.cc",
-        "src/ref/stream_manager.cc",
-        "src/ref/stream_operation.cc",
-        "src/ref/trace_warp_inst.cc",
-        "src/ref/scoreboard.cc",
-        "src/ref/l2_cache_config.cc",
-        "src/ref/memory_config.cc",
-        "src/ref/trace_config.cc",
-        "src/ref/option_parser.cc",
-        "src/ref/opndcoll_rfu.cc",
-        "src/ref/trace_gpgpu_sim.cc",
-        "src/ref/simt_core_cluster.cc",
-        "src/ref/trace_simt_core_cluster.cc",
-        "src/ref/trace_shader_core_ctx.cc",
-        "src/ref/trace_shd_warp.cc",
-        "src/ref/shader_core_config.cc",
-        "src/ref/symbol_table.cc",
-        "src/ref/simd_function_unit.cc",
-        "src/ref/pipelined_simd_unit.cc",
-        "src/ref/trace_parser.cc",
-        "src/ref/cache_sub_stats.cc",
-        "src/ref/gpgpu_sim_config.cc",
-        "src/ref/gpgpu_functional_sim_config.cc",
-        // "src/ref/cuda_sim.cc",
-        "src/ref/barrier_set.cc",
-        "src/ref/frfcfs_scheduler.cc",
-        "src/ref/memory_sub_partition.cc",
-        "src/ref/stats_wrapper.cc",
-        "src/ref/memory_partition_unit.cc",
-        "src/ref/cache.cc",
-        "src/ref/dram.cc",
-        // "src/ref/gpgpu_sim.cc",
-        "src/ref/main.cc",
-    ];
+    ]
+    .map(PathBuf::from);
 
-    // build(&sources);
-    generate_bindings();
-    generate_bridge(&bridges, &sources);
+    let extensions = ["cc", "cpp"];
+    let patterns: Vec<_> = extensions
+        .into_iter()
+        .map(|ext| format!("./src/ref/**/*.{}", ext))
+        .collect();
+    let mut sources = multi_glob(&patterns).collect::<Result<Vec<_>, _>>()?;
+
+    // filter sources
+    let deprecated_ptx = PathBuf::from("src/ref/ptx/");
+    sources.retain(|src| !src.starts_with(&deprecated_ptx));
+    let exclude = [
+        // "./src/ref/core.cc",
+        // "src/ref/main.cc",
+        // "src/ref/warp_instr.cc", // warp_isntr is fine!
+        "src/ref/gpgpu.cc",
+        "src/ref/gpgpu_sim.cc",
+        "src/ref/shd_warp.cc",
+        "src/ref/kernel_info.cc",
+        "src/ref/function_info.cc",
+        "src/ref/core.cc",
+        "src/ref/shader_core_ctx.cc",
+        "src/ref/simt_core_cluster.cc",
+        // "src/ref/cuda_sim.cc",
+        // temp
+        // "src/ref/trace_shader_core_ctx.cc",
+    ]
+    .map(PathBuf::from);
+    sources.retain(|src| !exclude.contains(src));
+
+    // build out bottom up: trace_shader_core first
+    if false {
+        sources = [
+            "src/ref/dram.cc",
+            "src/ref/cuda_sim.cc",
+            "src/ref/tensor_core.cc",
+            "src/ref/int_unit.cc",
+            "src/ref/dp_unit.cc",
+            "src/ref/sp_unit.cc",
+            "src/ref/ldst_unit.cc",
+            "src/ref/specialized_unit.cc",
+            "src/ref/stream_operation.cc",
+            "src/ref/stream_manager.cc",
+            "src/ref/pipelined_simd_unit.cc",
+            "src/ref/simd_function_unit.cc",
+            "src/ref/memory_partition_unit.cc",
+            "src/ref/memory_sub_partition.cc",
+            "src/ref/main.cc",
+            "src/ref/gpgpu_sim_config.cc",
+            "src/ref/gpgpu_context.cc",
+            "src/ref/trace_simt_core_cluster.cc",
+            "src/ref/trace_kernel_info.cc",
+            "src/ref/trace_shd_warp.cc",
+            "src/ref/trace_shader_core_ctx.cc",
+            "src/ref/trace_gpgpu_sim.cc",
+        ]
+        .map(PathBuf::from)
+        .to_vec();
+    }
+
+    // MODIFIED:
+    // function_info -> trace_function_info
+    // kernel_info -> trace_kernel_info
+    // shader_core_ctx -> trace_shader_core_ctx
+    // simt_core_cluster -> trace_simt_core_cluster
+    // gpgpu_sim -> trace_gpgpu_sim
+
+    // gpgpu_sim_config -> removed device runtime and func_sim
+    // context -> removed func_sim and device runtime
+    sources.sort();
+    // panic!("{:#?}", sources);
+
+    // accelsim uses zlib for compression
+    println!("cargo:rustc-link-lib=z");
+
+    // build(&sources)?;
+    generate_bindings()?;
+    generate_bridge(&bridges, &sources)?;
+    Ok(())
 }

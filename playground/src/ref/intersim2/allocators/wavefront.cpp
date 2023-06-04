@@ -30,7 +30,7 @@
  *The wave front allocator
  *
  */
-#include "booksim.hpp"
+#include "../booksim.hpp"
 
 #include "wavefront.hpp"
 

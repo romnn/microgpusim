@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <vector>
+#include <zlib.h>
 
 #include "shader_core_config.hpp"
 #include "shader_core_stats_pod.hpp"
@@ -176,7 +177,7 @@ public:
   void event_warp_issued(unsigned s_id, unsigned warp_id, unsigned num_issued,
                          unsigned dynamic_warp_id);
 
-  // void visualizer_print(gzFile visualizer_file);
+  void visualizer_print(gzFile visualizer_file);
 
   void print(FILE *fout) const;
 
@@ -201,9 +202,9 @@ private:
   std::vector<unsigned> m_last_shader_warp_slot_issue_distro;
 
   friend class power_stat_t;
-  friend class shader_core_ctx;
+  friend class trace_shader_core_ctx;
   friend class ldst_unit;
-  friend class simt_core_cluster;
+  friend class trace_simt_core_cluster;
   friend class scheduler_unit;
   friend class TwoLevelScheduler;
   friend class LooseRoundRobbinScheduler;

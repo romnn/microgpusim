@@ -25,11 +25,11 @@
  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "booksim.hpp"
+#include "../booksim.hpp"
 #include <iostream>
 
 #include "loa.hpp"
-#include "random_utils.hpp"
+#include "../random_utils.hpp"
 
 LOA::LOA( Module *parent, const string& name,
 	  int inputs, int outputs ) :

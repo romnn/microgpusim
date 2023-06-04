@@ -3,6 +3,13 @@
 #include <cstring>
 
 namespace Trace {
+
+const char *trace_streams_str[] = {
+    "WARP_SCHEDULER",           "SCOREBOARD",   "MEMORY_PARTITION_UNIT",
+    "MEMORY_SUBPARTITION_UNIT", "INTERCONNECT", "LIVENESS",
+    "NUM_TRACE_STREAMS",
+};
+
 bool enabled = false;
 int sampling_core = 0;
 int sampling_memory_partition = -1;

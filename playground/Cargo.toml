@@ -9,8 +9,6 @@ exclude = [
 ]
 
 [lib]
-# crate-type = ["staticlib"]
-# crate-type = ["cdylib"]
 crate-type = ["rlib"]
 
 [[bin]]
@@ -35,6 +33,8 @@ console = "0"
 pretty_assertions = "1"
 
 [build-dependencies]
+color-eyre = "0"
 bindgen = "0"
+glob = "0"
 cc = { version = "1", features = [] }
 cxx-build = "1"

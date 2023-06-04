@@ -1,5 +1,11 @@
 #pragma once
 
+#include <deque>
+#include <map>
+
+#include "cache.hpp"
+#include "cache_event.hpp"
+#include "cache_request_status.hpp"
 #include "mem_stage_access_type.hpp"
 #include "mem_stage_stall_type.hpp"
 #include "pipelined_simd_unit.hpp"
@@ -7,6 +13,7 @@
 class l1_cache;
 class read_only_cache;
 class mem_fetch_interface;
+class trace_shader_core_ctx;
 class mem_fetch;
 class shader_core_mem_fetch_allocator;
 class memory_config;
@@ -19,7 +26,7 @@ class ldst_unit : public pipelined_simd_unit {
 public:
   ldst_unit(mem_fetch_interface *icnt,
             shader_core_mem_fetch_allocator *mf_allocator,
-            shader_core_ctx *core, opndcoll_rfu_t *operand_collector,
+            trace_shader_core_ctx *core, opndcoll_rfu_t *operand_collector,
             Scoreboard *scoreboard, const shader_core_config *config,
             const memory_config *mem_config, class shader_core_stats *stats,
             unsigned sid, unsigned tpc);
@@ -73,13 +80,13 @@ public:
 protected:
   ldst_unit(mem_fetch_interface *icnt,
             shader_core_mem_fetch_allocator *mf_allocator,
-            shader_core_ctx *core, opndcoll_rfu_t *operand_collector,
+            trace_shader_core_ctx *core, opndcoll_rfu_t *operand_collector,
             Scoreboard *scoreboard, const shader_core_config *config,
             const memory_config *mem_config, shader_core_stats *stats,
             unsigned sid, unsigned tpc, l1_cache *new_l1d_cache);
   void init(mem_fetch_interface *icnt,
             shader_core_mem_fetch_allocator *mf_allocator,
-            shader_core_ctx *core, opndcoll_rfu_t *operand_collector,
+            trace_shader_core_ctx *core, opndcoll_rfu_t *operand_collector,
             Scoreboard *scoreboard, const shader_core_config *config,
             const memory_config *mem_config, shader_core_stats *stats,
             unsigned sid, unsigned tpc);
@@ -106,7 +113,7 @@ protected:
   const memory_config *m_memory_config;
   class mem_fetch_interface *m_icnt;
   shader_core_mem_fetch_allocator *m_mf_allocator;
-  class shader_core_ctx *m_core;
+  class trace_shader_core_ctx *m_core;
   unsigned m_sid;
   unsigned m_tpc;
 

@@ -7,7 +7,7 @@
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
 
- Redistributions of source code must retain the above copyright notice, this 
+ Redistributions of source code must retain the above copyright notice, this
  list of conditions and the following disclaimer.
  Redistributions in binary form must reproduce the above copyright notice, this
  list of conditions and the following disclaimer in the documentation and/or
@@ -15,7 +15,7 @@
 
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
@@ -30,66 +30,60 @@
 
 #include "booksim.hpp"
 
-#include<cstdio>
-#include<string>
-#include<map>
-#include<vector>
+#include <cstdio>
+#include <map>
+#include <string>
+#include <vector>
 
+// TODO: ptx replace with config
 extern "C" int yyparse();
 
 class Configuration {
-  static Configuration * theConfig;
-  FILE * _config_file;
+  static Configuration *theConfig;
+  FILE *_config_file;
   string _config_string;
 
 protected:
-  map<string,string> _str_map;
-  map<string,int>    _int_map;
-  map<string,double> _float_map;
-  
+  map<string, string> _str_map;
+  map<string, int> _int_map;
+  map<string, double> _float_map;
+
 public:
   Configuration();
 
-  void AddStrField(string const & field, string const & value);
+  void AddStrField(string const &field, string const &value);
 
-  void Assign(string const & field, string const & value);
-  void Assign(string const & field, int value);
-  void Assign(string const & field, double value);
+  void Assign(string const &field, string const &value);
+  void Assign(string const &field, int value);
+  void Assign(string const &field, double value);
 
-  string GetStr(string const & field) const;
-  int GetInt(string const & field) const;
-  double GetFloat(string const & field) const;
+  string GetStr(string const &field) const;
+  int GetInt(string const &field) const;
+  double GetFloat(string const &field) const;
 
-  vector<string> GetStrArray(const string & field) const;
-  vector<int> GetIntArray(const string & field) const;
-  vector<double> GetFloatArray(const string & field) const;
+  vector<string> GetStrArray(const string &field) const;
+  vector<int> GetIntArray(const string &field) const;
+  vector<double> GetFloatArray(const string &field) const;
 
-  void ParseFile(string const & filename);
-  void ParseString(string const & str);
-  int  Input(char * line, int max_size);
-  void ParseError(string const & msg, unsigned int lineno = 0) const;
-  
-  void WriteFile(string const & filename);
-  void WriteMatlabFile(ostream * o) const;
+  void ParseFile(string const &filename);
+  void ParseString(string const &str);
+  int Input(char *line, int max_size);
+  void ParseError(string const &msg, unsigned int lineno = 0) const;
 
-  inline const map<string, string> & GetStrMap() const {
-    return _str_map;
-  }
-  inline const map<string, int> & GetIntMap() const {
-    return _int_map;
-  }
-  inline const map<string, double> & GetFloatMap() const {
-    return _float_map;
-  }
+  void WriteFile(string const &filename);
+  void WriteMatlabFile(ostream *o) const;
 
-  static Configuration * GetTheConfig();
+  inline const map<string, string> &GetStrMap() const { return _str_map; }
+  inline const map<string, int> &GetIntMap() const { return _int_map; }
+  inline const map<string, double> &GetFloatMap() const { return _float_map; }
 
+  static Configuration *GetTheConfig();
 };
 
-bool ParseArgs(Configuration * cf, int argc, char **argv);
+bool ParseArgs(Configuration *cf, int argc, char **argv);
 
-vector<string> tokenize_str(string const & data);
-vector<int> tokenize_int(string const & data);
-vector<double> tokenize_float(string const & data);
+vector<string> tokenize_str(string const &data);
+vector<int> tokenize_int(string const &data);
+vector<double> tokenize_float(string const &data);
 
 #endif

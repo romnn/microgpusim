@@ -6,7 +6,7 @@
 
 class simt_stack {
 public:
-  simt_stack(unsigned wid, unsigned warpSize, class gpgpu_sim *gpu);
+  simt_stack(unsigned wid, unsigned warpSize, class trace_gpgpu_sim *gpu);
 
   void reset();
   void launch(address_type start_pc, const simt_mask_t &active_mask);
@@ -41,5 +41,5 @@ protected:
 
   std::deque<simt_stack_entry> m_stack;
 
-  class gpgpu_sim *m_gpu;
+  class trace_gpgpu_sim *m_gpu;
 };

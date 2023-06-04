@@ -33,8 +33,8 @@
 
 #include "separable_input_first.hpp"
 
-#include "booksim.hpp"
-#include "arbiter.hpp"
+#include "../booksim.hpp"
+#include "../arbiters/arbiter.hpp"
 
 #include <vector>
 #include <iostream>

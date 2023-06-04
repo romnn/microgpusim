@@ -6,7 +6,8 @@
 #include "warp_instr.hpp"
 
 // Constructor
-Scoreboard::Scoreboard(unsigned sid, unsigned n_warps, class gpgpu_t *gpu)
+Scoreboard::Scoreboard(unsigned sid, unsigned n_warps,
+                       class trace_gpgpu_sim *gpu)
     : longopregs() {
   m_sid = sid;
   // Initialize size of table

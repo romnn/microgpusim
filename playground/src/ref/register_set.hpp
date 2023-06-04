@@ -4,8 +4,6 @@
 
 #include "warp_instr.hpp"
 
-void move_warp(warp_inst_t *&dst, warp_inst_t *&src);
-
 // register that can hold multiple instructions.
 class register_set {
 public:

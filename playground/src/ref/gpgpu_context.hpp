@@ -2,11 +2,14 @@
 
 #include <stddef.h>
 
+// #include "cuda_device_runtime.hpp"
 #include "cuda_sim.hpp"
-#include "kernel_info.hpp"
-#include "option_parser.hpp"
 #include "gpgpu_sim_ctx.hpp"
-#include "cuda_device_runtime.hpp"
+// #include "kernel_info.hpp"
+#include "option_parser.hpp"
+#include "trace_kernel_info.hpp"
+
+// class ptx_instruction;
 
 class gpgpu_context {
 public:
@@ -26,7 +29,7 @@ public:
     // ptx_parser = new ptx_recognizer(this);
     the_gpgpusim = new GPGPUsim_ctx(this);
     func_sim = new cuda_sim(this);
-    device_runtime = new cuda_device_runtime(this);
+    // device_runtime = new cuda_device_runtime(this);
     // stats = new ptx_stats(this);
   }
   // global list
@@ -40,8 +43,8 @@ public:
   unsigned long long g_ptx_cta_info_uid;
   unsigned symbol_sm_next_uid; // uid for symbol
   unsigned function_info_sm_next_uid;
-  // std::vector<ptx_instruction *>
-  //     s_g_pc_to_insn;  // a direct mapping from PC to instruction
+  // a direct mapping from PC to instruction
+  // std::vector<ptx_instruction *> s_g_pc_to_insn;
   bool debug_tensorcore;
 
   // objects pointers for each file
@@ -50,34 +53,35 @@ public:
   // ptx_recognizer *ptx_parser;
   GPGPUsim_ctx *the_gpgpusim;
   cuda_sim *func_sim;
-  cuda_device_runtime *device_runtime;
+  // cuda_device_runtime *device_runtime;
   // ptx_stats *stats;
 
   // member function list
   void synchronize();
   void exit_simulation();
   void print_simulation_time();
-  int gpgpu_opencl_ptx_sim_main_perf(kernel_info_t *grid);
-  void cuobjdumpParseBinary(unsigned int handle);
-  class symbol_table *gpgpu_ptx_sim_load_ptx_from_string(const char *p,
-                                                         unsigned source_num);
-  class symbol_table *
-  gpgpu_ptx_sim_load_ptx_from_filename(const char *filename);
-  void gpgpu_ptx_info_load_from_filename(const char *filename,
-                                         unsigned sm_version);
-  void gpgpu_ptxinfo_load_from_string(const char *p_for_info,
-                                      unsigned source_num,
-                                      unsigned sm_version = 20,
-                                      int no_of_ptx = 0);
-  void print_ptx_file(const char *p, unsigned source_num, const char *filename);
-  class symbol_table *init_parser(const char *);
+  // int gpgpu_opencl_ptx_sim_main_perf(trace_kernel_info_t *grid);
+  // void cuobjdumpParseBinary(unsigned int handle);
+  // class symbol_table *gpgpu_ptx_sim_load_ptx_from_string(const char *p,
+  //                                                        unsigned
+  //                                                        source_num);
+  // class symbol_table *
+  // gpgpu_ptx_sim_load_ptx_from_filename(const char *filename);
+  // void gpgpu_ptx_info_load_from_filename(const char *filename,
+  //                                        unsigned sm_version);
+  // void gpgpu_ptxinfo_load_from_string(const char *p_for_info,
+  //                                     unsigned source_num,
+  //                                     unsigned sm_version = 20,
+  //                                     int no_of_ptx = 0);
+  // void print_ptx_file(const char *p, unsigned source_num, const char
+  // *filename); class symbol_table *init_parser(const char *);
   class gpgpu_sim *gpgpu_ptx_sim_init_perf();
   void start_sim_thread(int api);
-  struct _cuda_device_id *GPGPUSim_Init();
-  void ptx_reg_options(option_parser_t opp);
+  // struct _cuda_device_id *GPGPUSim_Init();
+  // void ptx_reg_options(option_parser_t opp);
   // const ptx_instruction *pc_to_instruction(unsigned pc);
   // const warp_inst_t *ptx_fetch_inst(address_type pc);
-  unsigned translate_pc_to_ptxlineno(unsigned pc);
+  // unsigned translate_pc_to_ptxlineno(unsigned pc);
 };
 
 gpgpu_context *GPGPU_Context();

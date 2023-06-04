@@ -4,12 +4,12 @@
 
 #include "warp_set.hpp"
 
-class shader_core_ctx;
+class trace_shader_core_ctx;
 class warp_inst_t;
 
 class barrier_set_t {
- public:
-  barrier_set_t(shader_core_ctx *shader, unsigned max_warps_per_core,
+public:
+  barrier_set_t(trace_shader_core_ctx *shader, unsigned max_warps_per_core,
                 unsigned max_cta_per_core, unsigned max_barriers_per_cta,
                 unsigned warp_size);
 
@@ -36,7 +36,7 @@ class barrier_set_t {
   // debug
   void dump();
 
- private:
+private:
   unsigned m_max_cta_per_core;
   unsigned m_max_warps_per_core;
   unsigned m_max_barriers_per_cta;
@@ -45,5 +45,5 @@ class barrier_set_t {
   bar_id_to_warp_t m_bar_id_to_warps;
   warp_set_t m_warp_active;
   warp_set_t m_warp_at_barrier;
-  shader_core_ctx *m_shader;
+  trace_shader_core_ctx *m_shader;
 };

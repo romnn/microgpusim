@@ -22,7 +22,7 @@ class memory_config;
 class memory_partition_unit {
 public:
   memory_partition_unit(unsigned partition_id, const memory_config *config,
-                        class memory_stats_t *stats, class gpgpu_sim *gpu);
+                        class memory_stats_t *stats, class trace_gpgpu_sim *gpu);
   ~memory_partition_unit();
 
   bool busy() const;
@@ -54,7 +54,7 @@ public:
 
   unsigned get_mpid() const { return m_id; }
 
-  class gpgpu_sim *get_mgpu() const { return m_gpu; }
+  class trace_gpgpu_sim *get_mgpu() const { return m_gpu; }
 
 private:
   unsigned m_id;
@@ -102,5 +102,5 @@ private:
   };
   std::list<dram_delay_t> m_dram_latency_queue;
 
-  class gpgpu_sim *m_gpu;
+  class trace_gpgpu_sim *m_gpu;
 };

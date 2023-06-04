@@ -1,6 +1,7 @@
 #include "pipelined_simd_unit.hpp"
 
-#include "shader_core_ctx.hpp"
+#include "trace_gpgpu_sim.hpp"
+#include "trace_shader_core_ctx.hpp"
 
 unsigned pipelined_simd_unit::get_active_lanes_in_pipeline() {
   active_mask_t active_lanes;
@@ -17,7 +18,7 @@ unsigned pipelined_simd_unit::get_active_lanes_in_pipeline() {
 pipelined_simd_unit::pipelined_simd_unit(register_set *result_port,
                                          const shader_core_config *config,
                                          unsigned max_latency,
-                                         shader_core_ctx *core,
+                                         trace_shader_core_ctx *core,
                                          unsigned issue_reg_id)
     : simd_function_unit(config) {
   m_result_port = result_port;

@@ -10,8 +10,27 @@
 #include "shader_core_config.hpp"
 #include "trace.hpp"
 
+// constants for statistics printouts
+#define GPU_RSTAT_SHD_INFO 0x1
+#define GPU_RSTAT_BW_STAT 0x2
+#define GPU_RSTAT_WARP_DIS 0x4
+#define GPU_RSTAT_DWF_MAP 0x8
+#define GPU_RSTAT_L1MISS 0x10
+#define GPU_RSTAT_PDOM 0x20
+#define GPU_RSTAT_SCHED 0x40
+#define GPU_MEMLATSTAT_MC 0x2
+
+// constants for configuring merging of coalesced scatter-gather requests
+#define TEX_MSHR_MERGE 0x4
+#define CONST_MSHR_MERGE 0x2
+#define GLOBAL_MSHR_MERGE 0x1
+
 // clock constants
 #define MhZ *1000000
+
+#define CREATELOG 111
+#define SAMPLELOG 222
+#define DUMPLOG 333
 
 class gpgpu_sim_config : public power_config,
                          public gpgpu_functional_sim_config {
@@ -23,6 +42,7 @@ public:
   }
   void reg_options(class OptionParser *opp);
   void init() {
+
     gpu_stat_sample_freq = 10000;
     gpu_runtime_stat_flag = 0;
     sscanf(gpgpu_runtime_stat, "%d:%x", &gpu_stat_sample_freq,
@@ -52,6 +72,7 @@ public:
 
     m_valid = true;
   }
+
   unsigned get_core_freq() const { return core_freq; }
   unsigned num_shader() const { return m_shader_config.num_shader(); }
   unsigned num_cluster() const { return m_shader_config.n_simt_clusters; }
@@ -90,6 +111,7 @@ private:
   unsigned long long gpu_max_insn_opt;
   unsigned gpu_max_cta_opt;
   unsigned gpu_max_completed_cta_opt;
+
   char *gpgpu_runtime_stat;
   bool gpgpu_flush_l1_cache;
   bool gpgpu_flush_l2_cache;
@@ -119,5 +141,5 @@ private:
   unsigned int gpgpu_compute_capability_minor;
   unsigned long long liveness_message_freq;
 
-  friend class gpgpu_sim;
+  friend class trace_gpgpu_sim;
 };

@@ -5,9 +5,9 @@
 
 #include "cu_event.hpp"
 
-class kernel_info_t;
+class trace_kernel_info_t;
 class CUstream_t;
-class gpgpu_sim;
+class trace_gpgpu_sim;
 
 enum stream_operation_type {
   stream_no_op,
@@ -51,7 +51,7 @@ public:
     m_offset = offset;
     m_done = false;
   }
-  stream_operation(kernel_info_t *kernel, bool sim_mode,
+  stream_operation(trace_kernel_info_t *kernel, bool sim_mode,
                    struct CUstream_st *stream) {
     m_type = stream_kernel_launch;
     m_kernel = kernel;
@@ -123,8 +123,8 @@ public:
   }
   bool is_noop() const { return m_type == stream_no_op; }
   bool is_done() const { return m_done; }
-  kernel_info_t *get_kernel() { return m_kernel; }
-  bool do_operation(gpgpu_sim *gpu);
+  trace_kernel_info_t *get_kernel() { return m_kernel; }
+  bool do_operation(trace_gpgpu_sim *gpu);
   void print(FILE *fp) const;
   struct CUstream_st *get_stream() { return m_stream; }
   void set_stream(CUstream_st *stream) { m_stream = stream; }
@@ -145,6 +145,6 @@ private:
   size_t m_offset;
 
   bool m_sim_mode;
-  kernel_info_t *m_kernel;
+  trace_kernel_info_t *m_kernel;
   struct CUevent_st *m_event;
 };

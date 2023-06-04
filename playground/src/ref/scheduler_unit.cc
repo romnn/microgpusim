@@ -1,4 +1,3 @@
-#include <algorithm>
 #include <memory>
 
 #include "barrier_set.hpp"
@@ -7,127 +6,14 @@
 #include "mem_fetch_interface.hpp"
 #include "opndcoll_rfu.hpp"
 #include "scheduler_unit.hpp"
-#include "shader_core_ctx.hpp"
 #include "shader_core_mem_fetch_allocator.hpp"
 #include "shader_core_stats.hpp"
 #include "shader_trace.hpp"
-#include "shd_warp.hpp"
+#include "trace_shader_core_ctx.hpp"
+#include "trace_shd_warp.hpp"
+#include "trace_warp_inst.hpp"
 
-shd_warp_t &scheduler_unit::warp(int i) { return *((*m_warp)[i]); }
-
-/**
- * A general function to order things in a Loose Round Robin way. The simplist
- * use of this function would be to implement a loose RR scheduler between all
- * the warps assigned to this core. A more sophisticated usage would be to order
- * a set of "fetch groups" in a RR fashion. In the first case, the templated
- * class variable would be a simple unsigned int representing the warp_id.  In
- * the 2lvl case, T could be a struct or a list representing a set of warp_ids.
- * @param result_list: The resultant list the caller wants returned.  This list
- * is cleared and then populated in a loose round robin way
- * @param input_list: The list of things that should be put into the
- * result_list. For a simple scheduler this can simply be the m_supervised_warps
- * list.
- * @param last_issued_from_input:  An iterator pointing the last member in the
- * input_list that issued. Since this function orders in a RR fashion, the
- * object pointed to by this iterator will be last in the prioritization list
- * @param num_warps_to_add: The number of warps you want the scheudler to pick
- * between this cycle. Normally, this will be all the warps availible on the
- * core, i.e. m_supervised_warps.size(). However, a more sophisticated scheduler
- * may wish to limit this number. If the number if < m_supervised_warps.size(),
- * then only the warps with highest RR priority will be placed in the
- * result_list.
- */
-template <class T>
-void scheduler_unit::order_lrr(
-    std::vector<T> &result_list, const typename std::vector<T> &input_list,
-    const typename std::vector<T>::const_iterator &last_issued_from_input,
-    unsigned num_warps_to_add) {
-  assert(num_warps_to_add <= input_list.size());
-  result_list.clear();
-  typename std::vector<T>::const_iterator iter =
-      (last_issued_from_input == input_list.end()) ? input_list.begin()
-                                                   : last_issued_from_input + 1;
-
-  for (unsigned count = 0; count < num_warps_to_add; ++iter, ++count) {
-    if (iter == input_list.end()) {
-      iter = input_list.begin();
-    }
-    result_list.push_back(*iter);
-  }
-}
-
-template <class T>
-void scheduler_unit::order_rrr(
-    std::vector<T> &result_list, const typename std::vector<T> &input_list,
-    const typename std::vector<T>::const_iterator &last_issued_from_input,
-    unsigned num_warps_to_add) {
-  result_list.clear();
-
-  if (m_num_issued_last_cycle > 0 || warp(m_current_turn_warp).done_exit() ||
-      warp(m_current_turn_warp).waiting()) {
-    std::vector<shd_warp_t *>::const_iterator iter =
-        (last_issued_from_input == input_list.end())
-            ? input_list.begin()
-            : last_issued_from_input + 1;
-    for (unsigned count = 0; count < num_warps_to_add; ++iter, ++count) {
-      if (iter == input_list.end()) {
-        iter = input_list.begin();
-      }
-      unsigned warp_id = (*iter)->get_warp_id();
-      if (!(*iter)->done_exit() && !(*iter)->waiting()) {
-        result_list.push_back(*iter);
-        m_current_turn_warp = warp_id;
-        break;
-      }
-    }
-  } else {
-    result_list.push_back(&warp(m_current_turn_warp));
-  }
-}
-/**
- * A general function to order things in an priority-based way.
- * The core usage of the function is similar to order_lrr.
- * The explanation of the additional parameters (beyond order_lrr) explains the
- * further extensions.
- * @param ordering: An enum that determines how the age function will be treated
- * in prioritization see the definition of OrderingType.
- * @param priority_function: This function is used to sort the input_list.  It
- * is passed to stl::sort as the sorting fucntion. So, if you wanted to sort a
- * list of integer warp_ids with the oldest warps having the most priority, then
- * the priority_function would compare the age of the two warps.
- */
-template <class T>
-void scheduler_unit::order_by_priority(
-    std::vector<T> &result_list, const typename std::vector<T> &input_list,
-    const typename std::vector<T>::const_iterator &last_issued_from_input,
-    unsigned num_warps_to_add, OrderingType ordering,
-    bool (*priority_func)(T lhs, T rhs)) {
-  assert(num_warps_to_add <= input_list.size());
-  result_list.clear();
-  typename std::vector<T> temp = input_list;
-
-  if (ORDERING_GREEDY_THEN_PRIORITY_FUNC == ordering) {
-    T greedy_value = *last_issued_from_input;
-    result_list.push_back(greedy_value);
-
-    std::sort(temp.begin(), temp.end(), priority_func);
-    typename std::vector<T>::iterator iter = temp.begin();
-    for (unsigned count = 0; count < num_warps_to_add; ++count, ++iter) {
-      if (*iter != greedy_value) {
-        result_list.push_back(*iter);
-      }
-    }
-  } else if (ORDERED_PRIORITY_FUNC_ONLY == ordering) {
-    std::sort(temp.begin(), temp.end(), priority_func);
-    typename std::vector<T>::iterator iter = temp.begin();
-    for (unsigned count = 0; count < num_warps_to_add; ++count, ++iter) {
-      result_list.push_back(*iter);
-    }
-  } else {
-    fprintf(stderr, "Unknown ordering - %d\n", ordering);
-    abort();
-  }
-}
+trace_shd_warp_t &scheduler_unit::warp(int i) { return *((*m_warp)[i]); }
 
 void scheduler_unit::cycle() {
   SCHED_DPRINTF("scheduler_unit::cycle()\n");
@@ -138,7 +24,7 @@ void scheduler_unit::cycle() {
   bool issued_inst = false; // of these we issued one
 
   order_warps();
-  for (std::vector<shd_warp_t *>::const_iterator iter =
+  for (std::vector<trace_shd_warp_t *>::const_iterator iter =
            m_next_cycle_prioritized_warps.begin();
        iter != m_next_cycle_prioritized_warps.end(); iter++) {
     // Don't consider warps that are not yet valid
@@ -187,7 +73,7 @@ void scheduler_unit::cycle() {
       m_shader->get_pdom_stack_top_info(warp_id, pI, &pc, &rpc);
       SCHED_DPRINTF(
           "Warp (warp_id %u, dynamic_warp_id %u) has valid instruction (%s)\n",
-          (*iter)->get_warp_id(), (*iter)->get_dynamic_warp_id(),
+          (*iter)->get_warp_id(), (*iter)->get_dynamic_warp_id(), "todo",
           m_shader->m_config->gpgpu_ctx->func_sim->ptx_get_insn_str(pc)
               .c_str());
       if (pI) {
@@ -407,7 +293,7 @@ void scheduler_unit::cycle() {
       // supervised_is index with each entry in the
       // m_next_cycle_prioritized_warps vector. For now, just run through until
       // you find the right warp_id
-      for (std::vector<shd_warp_t *>::const_iterator supervised_iter =
+      for (std::vector<trace_shd_warp_t *>::const_iterator supervised_iter =
                m_supervised_warps.begin();
            supervised_iter != m_supervised_warps.end(); ++supervised_iter) {
         if (*iter == *supervised_iter) {
@@ -438,14 +324,14 @@ void scheduler_unit::cycle() {
 
 void scheduler_unit::do_on_warp_issued(
     unsigned warp_id, unsigned num_issued,
-    const std::vector<shd_warp_t *>::const_iterator &prioritized_iter) {
+    const std::vector<trace_shd_warp_t *>::const_iterator &prioritized_iter) {
   m_stats->event_warp_issued(m_shader->get_sid(), warp_id, num_issued,
                              warp(warp_id).get_dynamic_warp_id());
   warp(warp_id).ibuffer_step();
 }
 
-bool scheduler_unit::sort_warps_by_oldest_dynamic_id(shd_warp_t *lhs,
-                                                     shd_warp_t *rhs) {
+bool scheduler_unit::sort_warps_by_oldest_dynamic_id(trace_shd_warp_t *lhs,
+                                                     trace_shd_warp_t *rhs) {
   if (rhs && lhs) {
     if (lhs->done_exit() || lhs->waiting()) {
       return false;

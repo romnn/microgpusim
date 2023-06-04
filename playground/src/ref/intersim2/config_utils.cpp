@@ -145,6 +145,7 @@ vector<double> Configuration::GetFloatArray(string const & field) const
   return tokenize_float(param_str);
 }
 
+// REMOVE: no yacc 
 void Configuration::ParseFile(string const & filename)
 {
   if((_config_file = fopen(filename.c_str(), "r")) == 0) {

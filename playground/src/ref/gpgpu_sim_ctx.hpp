@@ -32,7 +32,7 @@ public:
   pthread_t g_simulation_thread;
 
   class gpgpu_sim_config *g_the_gpu_config;
-  class gpgpu_sim *g_the_gpu;
+  class trace_gpgpu_sim *g_the_gpu;
   class stream_manager *g_stream_manager;
 
   struct _cuda_device_id *the_cude_device;

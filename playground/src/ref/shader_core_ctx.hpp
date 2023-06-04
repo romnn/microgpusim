@@ -11,7 +11,7 @@
 #include "opndcoll_rfu.hpp"
 #include "register_set.hpp"
 #include "shader_core_stats.hpp"
-#include "shd_warp.hpp"
+#include "trace_shd_warp.hpp"
 #include "warp_set.hpp"
 
 class scheduler_unit;
@@ -23,6 +23,11 @@ class read_only_cache;
 class cache_stats;
 class ldst_unit;
 class simd_function_unit;
+
+// should be distinct from other memory spaces...
+// check ptx_ir.h to verify this does not overlap
+// other memory spaces
+#define PROGRAM_MEM_START 0xF0000000
 
 class shader_core_ctx : public core_t {
 public:
@@ -37,7 +42,7 @@ public:
   void cycle();
   void reinit(unsigned start_thread, unsigned end_thread,
               bool reset_not_completed);
-  void issue_block2core(class kernel_info_t &kernel);
+  void issue_block2core(class trace_kernel_info_t &kernel);
 
   void cache_flush();
   void cache_invalidate();
@@ -45,14 +50,17 @@ public:
   void accept_ldst_unit_response(class mem_fetch *mf);
   void broadcast_barrier_reduction(unsigned cta_id, unsigned bar_id,
                                    warp_set_t warps);
-  void set_kernel(kernel_info_t *k) {
+  void set_kernel(trace_kernel_info_t *k) {
     assert(k);
     m_kernel = k;
     //        k->inc_running();
     printf("GPGPU-Sim uArch: Shader %d bind to kernel %u \'%s\'\n", m_sid,
            m_kernel->get_uid(), m_kernel->name().c_str());
   }
-  PowerscalingCoefficients *scaling_coeffs;
+
+  // REMOVE: power
+  // PowerscalingCoefficients *scaling_coeffs;
+
   // accessors
   bool fetch_unit_response_buffer_full() const;
   bool ldst_unit_response_buffer_full() const;
@@ -64,7 +72,7 @@ public:
     else
       return 0;
   }
-  kernel_info_t *get_kernel() { return m_kernel; }
+  trace_kernel_info_t *get_kernel() { return m_kernel; }
   unsigned get_sid() const { return m_sid; }
 
   // used by functional simulation:
@@ -87,7 +95,7 @@ public:
   } // also used in writeback()
   void store_ack(class mem_fetch *mf);
   bool warp_waiting_at_mem_barrier(unsigned warp_id);
-  void set_max_cta(const kernel_info_t &kernel);
+  void set_max_cta(const trace_kernel_info_t &kernel);
   void warp_inst_complete(const warp_inst_t &inst);
 
   // accessors
@@ -401,7 +409,7 @@ protected:
   int test_res_bus(int latency);
   address_type next_pc(int tid) const;
   void fetch();
-  void register_cta_thread_exit(unsigned cta_num, kernel_info_t *kernel);
+  void register_cta_thread_exit(unsigned cta_num, trace_kernel_info_t *kernel);
 
   void decode();
 
@@ -421,12 +429,12 @@ protected:
   // (execution-driven vs trace-driven)
   virtual void init_warps(unsigned cta_id, unsigned start_thread,
                           unsigned end_thread, unsigned ctaid, int cta_size,
-                          kernel_info_t &kernel);
+                          trace_kernel_info_t &kernel);
   virtual void checkExecutionStatusAndUpdate(warp_inst_t &inst, unsigned t,
                                              unsigned tid) = 0;
   virtual void func_exec_inst(warp_inst_t &inst) = 0;
 
-  virtual unsigned sim_init_thread(kernel_info_t &kernel,
+  virtual unsigned sim_init_thread(trace_kernel_info_t &kernel,
                                    ptx_thread_info **thread_info, int sid,
                                    unsigned tid, unsigned threads_left,
                                    unsigned num_threads, core_t *core,
@@ -491,7 +499,7 @@ protected:
   int m_last_warp_fetched;
 
   // decode/dispatch
-  std::vector<shd_warp_t *> m_warp; // per warp information array
+  std::vector<trace_shd_warp_t *> m_warp; // per warp information array
   barrier_set_t m_barriers;
   ifetch_buffer_t m_inst_fetch_buffer;
   std::vector<register_set> m_pipeline_reg;
@@ -528,9 +536,10 @@ protected:
 
   // Jin: concurrent kernels on a sm
 public:
-  bool can_issue_1block(kernel_info_t &kernel);
-  bool occupy_shader_resource_1block(kernel_info_t &kernel, bool occupy);
-  void release_shader_resource_1block(unsigned hw_ctaid, kernel_info_t &kernel);
+  bool can_issue_1block(trace_kernel_info_t &kernel);
+  bool occupy_shader_resource_1block(trace_kernel_info_t &kernel, bool occupy);
+  void release_shader_resource_1block(unsigned hw_ctaid,
+                                      trace_kernel_info_t &kernel);
   int find_available_hwtid(unsigned int cta_size, bool occupy);
 
 private:

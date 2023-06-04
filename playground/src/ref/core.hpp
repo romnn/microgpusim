@@ -2,9 +2,15 @@
 
 #include "gpgpu.hpp"
 #include "hal.hpp"
-#include "kernel_info.hpp"
+// #include "kernel_info.hpp"
+#include "trace_kernel_info.hpp"
 #include "simt_stack.hpp"
 #include "warp_instr.hpp"
+
+// from cuda_sim.h
+#define RECONVERGE_RETURN_PC ((address_type)-2)
+#define NO_BRANCH_DIVERGENCE ((address_type)-1)
+address_type get_return_pc(void *thd);
 
 size_t get_kernel_code_size(class function_info *entry);
 
@@ -15,7 +21,7 @@ size_t get_kernel_code_size(class function_info *entry);
  */
 class core_t {
 public:
-  core_t(gpgpu_sim *gpu, kernel_info_t *kernel, unsigned warp_size,
+  core_t(gpgpu_sim *gpu, trace_kernel_info_t *kernel, unsigned warp_size,
          unsigned threads_per_shader)
       : m_gpu(gpu), m_kernel(kernel), m_simt_stack(NULL), m_thread(NULL),
         m_warp_size(warp_size) {
@@ -42,15 +48,19 @@ public:
   virtual void checkExecutionStatusAndUpdate(warp_inst_t &inst, unsigned t,
                                              unsigned tid) = 0;
   class gpgpu_sim *get_gpu() { return m_gpu; }
-  void execute_warp_inst_t(warp_inst_t &inst, unsigned warpId = (unsigned)-1);
-  bool ptx_thread_done(unsigned hw_thread_id) const;
-  virtual void updateSIMTStack(unsigned warpId, warp_inst_t *inst);
+  // REMOVE: ptx
+  // void execute_warp_inst_t(warp_inst_t &inst, unsigned warpId =
+  // (unsigned)-1);
+
+  // bool ptx_thread_done(unsigned hw_thread_id) const;
+
+  // virtual void updateSIMTStack(unsigned warpId, warp_inst_t *inst);
   void initilizeSIMTStack(unsigned warp_count, unsigned warps_size);
   void deleteSIMTStack();
   warp_inst_t getExecuteWarp(unsigned warpId);
   void get_pdom_stack_top_info(unsigned warpId, unsigned *pc,
                                unsigned *rpc) const;
-  kernel_info_t *get_kernel_info() { return m_kernel; }
+  trace_kernel_info_t *get_kernel_info() { return m_kernel; }
   class ptx_thread_info **get_thread_info() { return m_thread; }
   unsigned get_warp_size() const { return m_warp_size; }
   void and_reduction(unsigned ctaid, unsigned barid, bool value) {
@@ -68,7 +78,7 @@ public:
 
 protected:
   class gpgpu_sim *m_gpu;
-  kernel_info_t *m_kernel;
+  trace_kernel_info_t *m_kernel;
   simt_stack **m_simt_stack; // pdom based reconvergence context for each warp
   class ptx_thread_info **m_thread;
   unsigned m_warp_size;

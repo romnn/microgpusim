@@ -111,7 +111,9 @@ public:
       m_ibuffer[i].m_valid = false;
     }
   }
-  const warp_inst_t *ibuffer_next_inst() const { return m_ibuffer[m_next].m_inst; }
+  const warp_inst_t *ibuffer_next_inst() const {
+    return m_ibuffer[m_next].m_inst;
+  }
   bool ibuffer_next_valid() const { return m_ibuffer[m_next].m_valid; }
   void ibuffer_free() {
     m_ibuffer[m_next].m_inst = NULL;

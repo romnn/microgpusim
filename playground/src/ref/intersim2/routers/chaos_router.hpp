@@ -32,14 +32,14 @@
 #include <queue>
 #include <vector>
 
-#include "module.hpp"
+#include "../module.hpp"
 #include "router.hpp"
-#include "allocator.hpp"
-#include "routefunc.hpp"
-#include "outputset.hpp"
-#include "buffer_state.hpp"
-#include "pipefifo.hpp"
-#include "vc.hpp"
+#include "../allocators/allocator.hpp"
+#include "../routefunc.hpp"
+#include "../outputset.hpp"
+#include "../buffer_state.hpp"
+#include "../pipefifo.hpp"
+#include "../vc.hpp"
 
 class ChaosRouter : public Router {
 

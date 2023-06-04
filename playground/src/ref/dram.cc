@@ -2,7 +2,7 @@
 
 #include "addrdec.hpp"
 #include "frfcfs_scheduler.hpp"
-#include "gpgpu_sim.hpp"
+#include "trace_gpgpu_sim.hpp"
 #include "hashing.hpp"
 #include "mem_fetch.hpp"
 #include "memory_partition_unit.hpp"
@@ -11,7 +11,7 @@
 
 dram_req_t::dram_req_t(class mem_fetch *mf, unsigned banks,
                        unsigned dram_bnk_indexing_policy,
-                       class gpgpu_sim *gpu) {
+                       class trace_gpgpu_sim *gpu) {
   txbytes = 0;
   dqbytes = 0;
   data = mf;
@@ -61,7 +61,7 @@ dram_req_t::dram_req_t(class mem_fetch *mf, unsigned banks,
 
 dram_t::dram_t(unsigned int partition_id, const memory_config *config,
                memory_stats_t *stats, memory_partition_unit *mp,
-               gpgpu_sim *gpu) {
+               trace_gpgpu_sim *gpu) {
   id = partition_id;
   m_memory_partition_unit = mp;
   m_stats = stats;
@@ -927,5 +927,14 @@ void dram_t::scheduler_frfcfs() {
         break;
       }
     }
+  }
+}
+
+void dram_t::dram_log(int task) {
+  if (task == SAMPLELOG) {
+    StatAddSample(mrqq_Dist, que_length());
+  } else if (task == DUMPLOG) {
+    printf("Queue Length DRAM[%d] ", id);
+    StatDisp(mrqq_Dist);
   }
 }

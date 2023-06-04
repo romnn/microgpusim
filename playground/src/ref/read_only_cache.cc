@@ -1,5 +1,6 @@
 #include "read_only_cache.hpp"
 #include "cache_reservation_fail_reason.hpp"
+#include <memory>
 
 /// Access cache for read_only_cache: returns RESERVATION_FAIL if
 // request could not be accepted (for any reason)
@@ -40,4 +41,13 @@ read_only_cache::access(new_addr_type addr, mem_fetch *mf, unsigned time,
   m_stats.inc_stats_pw(mf->get_access_type(),
                        m_stats.select_stats_status(status, cache_status));
   return cache_status;
+}
+
+std::unique_ptr<read_only_cache>
+new_read_only_cache(const std::string &name,
+                    std::unique_ptr<cache_config> config, int core_id,
+                    int type_id, mem_fetch_interface *memport,
+                    enum mem_fetch_status fetch_status) {
+  return std::make_unique<read_only_cache>(name.c_str(), *config, core_id,
+                                           type_id, memport, fetch_status);
 }

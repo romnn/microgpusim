@@ -4,9 +4,9 @@
 
 class lrr_scheduler : public scheduler_unit {
 public:
-  lrr_scheduler(shader_core_stats *stats, shader_core_ctx *shader,
+  lrr_scheduler(shader_core_stats *stats, trace_shader_core_ctx *shader,
                 Scoreboard *scoreboard, simt_stack **simt,
-                std::vector<shd_warp_t *> *warp, register_set *sp_out,
+                std::vector<trace_shd_warp_t *> *warp, register_set *sp_out,
                 register_set *dp_out, register_set *sfu_out,
                 register_set *int_out, register_set *tensor_core_out,
                 std::vector<register_set *> &spec_cores_out,

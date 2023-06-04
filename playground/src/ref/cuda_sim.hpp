@@ -1,23 +1,23 @@
 #pragma once
 
-#include <string>
 #include <map>
 #include <set>
+#include <string>
 
 #include "hal.hpp"
+#include "option_parser.hpp"
 #include "ptx_reg.hpp"
 #include "rec_pts.hpp"
-#include "option_parser.hpp"
+
+extern int g_debug_execution;
+extern bool g_interactive_debugger_enabled;
 
 class gpgpu_context;
-class function_info;
+class trace_function_info;
 class gpgpu_t;
-class kernel_info_t;
+class trace_kernel_info_t;
 class rec_pts;
 class gpgpu_ptx_sim_arg_list_t;
-
-extern bool g_interactive_debugger_enabled;
-extern int g_debug_execution;
 
 extern void print_splash();
 
@@ -62,13 +62,13 @@ public:
   int g_ptx_sim_mode; // if non-zero run functional simulation only (i.e., no
                       // notion of a clock cycle)
   unsigned gpgpu_param_num_shaders;
-  class std::map<function_info *, rec_pts> g_rpts;
+  class std::map<trace_function_info *, rec_pts> g_rpts;
   bool g_cuda_launch_blocking;
   void **g_inst_classification_stat;
   void **g_inst_op_classification_stat;
   std::set<std::string> g_globals;
   std::set<std::string> g_constants;
-  std::map<unsigned, function_info *> g_pc_to_finfo;
+  std::map<unsigned, trace_function_info *> g_pc_to_finfo;
   int gpgpu_ptx_instruction_classification;
   unsigned cdp_latency[5];
   unsigned g_assemble_code_next_pc;
@@ -83,26 +83,32 @@ public:
   class gpgpu_context *gpgpu_ctx;
   // global functions
   void ptx_opcocde_latency_options(option_parser_t opp);
-  void gpgpu_cuda_ptx_sim_main_func(kernel_info_t &kernel, bool openCL = false);
-  int gpgpu_opencl_ptx_sim_main_func(kernel_info_t *grid);
+  void gpgpu_cuda_ptx_sim_main_func(trace_kernel_info_t &kernel,
+                                    bool openCL = false);
   void init_inst_classification_stat();
-  kernel_info_t *gpgpu_opencl_ptx_sim_init_grid(class function_info *entry,
-                                                gpgpu_ptx_sim_arg_list_t args,
-                                                struct dim3 gridDim,
-                                                struct dim3 blockDim,
-                                                gpgpu_t *gpu);
-  void gpgpu_ptx_sim_register_global_variable(void *hostVar,
-                                              const char *deviceName,
-                                              size_t size);
-  void gpgpu_ptx_sim_register_const_variable(void *, const char *deviceName,
-                                             size_t size);
+
+  // REMOVE: ptx
+  // int gpgpu_opencl_ptx_sim_main_func(kernel_info_t *grid);
+  // kernel_info_t *gpgpu_opencl_ptx_sim_init_grid(class function_info *entry,
+  //                                               gpgpu_ptx_sim_arg_list_t
+  //                                               args, struct dim3 gridDim,
+  //                                               struct dim3 blockDim,
+  //                                               gpgpu_t *gpu);
+  // void gpgpu_ptx_sim_register_global_variable(void *hostVar,
+  //                                             const char *deviceName,
+  //                                             size_t size);
+  // void gpgpu_ptx_sim_register_const_variable(void *, const char *deviceName,
+  //                                            size_t size);
+  // void gpgpu_ptx_sim_memcpy_symbol(const char *hostVar, const void *src,
+  //                                  size_t count, size_t offset, int to,
+  //                                  gpgpu_t *gpu);
+
   void read_sim_environment_variables();
-  void set_param_gpgpu_num_shaders(int num_shaders);
-  struct rec_pts find_reconvergence_points(function_info *finfo);
+  void set_param_gpgpu_num_shaders(int num_shaders) {
+    gpgpu_param_num_shaders = num_shaders;
+  }
+  struct rec_pts find_reconvergence_points(trace_function_info *finfo);
   address_type get_converge_point(address_type pc);
-  void gpgpu_ptx_sim_memcpy_symbol(const char *hostVar, const void *src,
-                                   size_t count, size_t offset, int to,
-                                   gpgpu_t *gpu);
   void ptx_print_insn(address_type pc, FILE *fp);
   std::string ptx_get_insn_str(address_type pc);
   template <int activate_level>

@@ -29,7 +29,7 @@
 #define _ROUTEFUNC_HPP_
 
 #include "flit.hpp"
-#include "router.hpp"
+#include "./routers/router.hpp"
 #include "outputset.hpp"
 #include "config_utils.hpp"
 

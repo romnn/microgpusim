@@ -1,13 +1,13 @@
 #pragma once
 
 #include "cache.hpp"
-#include "mem_fetch_status.hpp"
 #include "cache_config.hpp"
-#include "mem_fetch_interface.hpp"
-#include "tag_array.hpp"
 #include "cache_event.hpp"
 #include "cache_stats.hpp"
+#include "mem_fetch_interface.hpp"
+#include "mem_fetch_status.hpp"
 #include "mshr_table.hpp"
+#include "tag_array.hpp"
 
 /// Baseline cache
 /// Implements common functions for read_only_cache and data_cache
@@ -98,6 +98,12 @@ public:
     m_tag_array->fill(addr, time, mask, byte_mask, true);
   }
 
+  /// Checks whether this request can be handled on this cycle.
+  /// num_miss equals max # of misses to be handled on this cycle
+  bool miss_queue_full(unsigned num_miss) const {
+    return ((m_miss_queue.size() + num_miss) >= m_config.m_miss_queue_size);
+  }
+
 protected:
   // Constructor that can be used by derived classes with custom tag arrays
   baseline_cache(const char *name, cache_config &config, int core_id,
@@ -148,11 +154,6 @@ protected:
 
   cache_stats m_stats;
 
-  /// Checks whether this request can be handled on this cycle. num_miss equals
-  /// max # of misses to be handled on this cycle
-  bool miss_queue_full(unsigned num_miss) {
-    return ((m_miss_queue.size() + num_miss) >= m_config.m_miss_queue_size);
-  }
   /// Read miss handler without writeback
   void send_read_request(new_addr_type addr, new_addr_type block_addr,
                          unsigned cache_index, mem_fetch *mf, unsigned time,

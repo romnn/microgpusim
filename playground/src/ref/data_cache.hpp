@@ -12,7 +12,7 @@ public:
   data_cache(const char *name, cache_config &config, int core_id, int type_id,
              mem_fetch_interface *memport, mem_fetch_allocator *mfcreator,
              enum mem_fetch_status status, mem_access_type wr_alloc_type,
-             mem_access_type wrbk_type, class gpgpu_sim *gpu)
+             mem_access_type wrbk_type, class trace_gpgpu_sim *gpu)
       : baseline_cache(name, config, core_id, type_id, memport, status) {
     init(mfcreator);
     m_wr_alloc_type = wr_alloc_type;
@@ -83,7 +83,7 @@ protected:
              mem_fetch_interface *memport, mem_fetch_allocator *mfcreator,
              enum mem_fetch_status status, tag_array *new_tag_array,
              mem_access_type wr_alloc_type, mem_access_type wrbk_type,
-             class gpgpu_sim *gpu)
+             class trace_gpgpu_sim *gpu)
       : baseline_cache(name, config, core_id, type_id, memport, status,
                        new_tag_array) {
     init(mfcreator);
@@ -96,7 +96,7 @@ protected:
                                    // (e.g., L1 or L2)
   mem_access_type
       m_wrbk_type; // Specifies type of writeback request (e.g., L1 or L2)
-  class gpgpu_sim *m_gpu;
+  class trace_gpgpu_sim *m_gpu;
 
   //! A general function that takes the result of a tag_array probe
   //  and performs the correspding functions based on the cache configuration
