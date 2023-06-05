@@ -151,9 +151,6 @@ const warp_inst_t *trace_shader_core_ctx::get_next_inst(unsigned warp_id,
   trace_shd_warp_t *m_trace_warp =
       static_cast<trace_shd_warp_t *>(m_warp[warp_id]);
   return m_trace_warp->get_next_trace_inst();
-  // const warp_inst_t *instr =
-  //     static_cast<const warp_inst_t *>(m_trace_warp->get_next_trace_inst());
-  // return instr;
 }
 
 void trace_shader_core_ctx::updateSIMTStack(unsigned warpId,
@@ -220,6 +217,10 @@ void trace_shader_core_ctx::func_exec_inst(warp_inst_t &inst) {
 
   trace_shd_warp_t *m_trace_warp =
       static_cast<trace_shd_warp_t *>(m_warp[inst.warp_id()]);
+  printf("==>> ROMAN: warp %d trace done %d (%d/%lu) functional done %d\n",
+         m_trace_warp->get_warp_id(), m_trace_warp->trace_done(),
+         m_trace_warp->trace_pc, m_trace_warp->warp_traces.size(),
+         m_trace_warp->functional_done());
   if (m_trace_warp->trace_done() && m_trace_warp->functional_done()) {
     m_trace_warp->ibuffer_flush();
     m_barriers.warp_exit(inst.warp_id());
@@ -863,6 +864,17 @@ void trace_shader_core_ctx::fetch() {
         }
 
         // this code fetches instructions from the i-cache or generates memory
+        // printf("==> FETCH: warp %d trace done %d (%d/%lu) functional done %d
+        // "
+        //        "(%d/%d) (%lu active)\n",
+        //        m_warp[warp_id]->get_warp_id(), m_warp[warp_id]->trace_done(),
+        //        m_warp[warp_id]->trace_pc,
+        //        m_warp[warp_id]->warp_traces.size(),
+        //        m_warp[warp_id]->functional_done(),
+        //        m_warp[warp_id]->get_n_completed(),
+        //        m_warp[warp_id]->m_warp_size,
+        //        m_warp[warp_id]->m_active_threads.count());
+
         if (!m_warp[warp_id]->functional_done() &&
             !m_warp[warp_id]->imiss_pending() &&
             m_warp[warp_id]->ibuffer_empty()) {

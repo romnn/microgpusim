@@ -535,6 +535,7 @@ where
             }
         }
 
+        dbg!(&bypass_l1);
         if bypass_l1 {
             // bypass L1 cache
             let control_size = if instr.is_store() {

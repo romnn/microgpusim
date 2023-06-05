@@ -159,15 +159,19 @@ public:
   unsigned int m_cdp_latency;
   bool m_cdp_dummy;
 
-private:
   unsigned trace_pc;
+  unsigned m_warp_size;
+  std::bitset<MAX_WARP_SIZE> m_active_threads;
+
+private:
+  // unsigned trace_pc;
   trace_kernel_info_t *m_kernel_info;
 
   static const unsigned IBUFFER_SIZE = 2;
   class trace_shader_core_ctx *m_shader;
   unsigned m_cta_id;
   unsigned m_warp_id;
-  unsigned m_warp_size;
+  // unsigned m_warp_size;
   unsigned m_dynamic_warp_id;
 
   struct ibuffer_entry {
@@ -185,7 +189,7 @@ private:
 
   address_type m_next_pc;
   unsigned n_completed; // number of threads in warp completed
-  std::bitset<MAX_WARP_SIZE> m_active_threads;
+  // std::bitset<MAX_WARP_SIZE> m_active_threads;
 
   bool m_imiss_pending;
 

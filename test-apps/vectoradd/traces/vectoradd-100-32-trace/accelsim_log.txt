@@ -944,930 +944,664 @@ tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
 mshr_table::mark_ready(4026531840, 0)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
-tag_array::access(4026531840)
-tag_array::probe(4026531840)
-cache_config::set_index(4026531840)
-cache_config::hash_function(4026531840)
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [0 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+====> instruction SHL parsed as OP_SHL (136) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = SHL (OP_SHL, 136)
+====> instruction SHR parsed as OP_SHR (50) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = SHR (OP_SHR, 50)
+====> instruction IADD parsed as OP_IADD (31) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD (OP_IADD, 31)
+====> instruction IADD parsed as OP_IADD (31) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD.X (OP_IADD, 31)
+====> instruction IADD parsed as OP_IADD (31) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD (OP_IADD, 31)
+====> instruction LDG parsed as OP_LDG (72) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = LDG.E.CG (OP_LDG, 72)
+==>> ROMAN: warp 1 trace done 0 (15/23) functional done 0
+==>> ROMAN: warp 1 trace done 0 (15/23) functional done 0
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [0 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+====> instruction SHL parsed as OP_SHL (136) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = SHL (OP_SHL, 136)
+====> instruction SHR parsed as OP_SHR (50) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = SHR (OP_SHR, 50)
+====> instruction IADD parsed as OP_IADD (31) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD (OP_IADD, 31)
+====> instruction IADD parsed as OP_IADD (31) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD.X (OP_IADD, 31)
+====> instruction IADD parsed as OP_IADD (31) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD (OP_IADD, 31)
+====> instruction LDG parsed as OP_LDG (72) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = LDG.E.CG (OP_LDG, 72)
+==>> ROMAN: warp 2 trace done 0 (15/23) functional done 0
+==>> ROMAN: warp 2 trace done 0 (15/23) functional done 0
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [28 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+====> instruction SHL parsed as OP_SHL (136) [4 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = SHL (OP_SHL, 136)
+====> instruction SHR parsed as OP_SHR (50) [4 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = SHR (OP_SHR, 50)
+====> instruction IADD parsed as OP_IADD (31) [4 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD (OP_IADD, 31)
+====> instruction IADD parsed as OP_IADD (31) [4 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD.X (OP_IADD, 31)
+====> instruction IADD parsed as OP_IADD (31) [4 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD (OP_IADD, 31)
+====> instruction LDG parsed as OP_LDG (72) [4 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = LDG.E.CG (OP_LDG, 72)
+==>> ROMAN: warp 3 trace done 0 (15/23) functional done 0
+==>> ROMAN: warp 3 trace done 0 (15/23) functional done 0
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 4 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 5 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 6 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 7 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 8 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 9 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 10 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 11 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 12 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 13 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 14 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 15 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 16 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 17 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 18 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 19 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 20 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 21 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 22 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 23 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 24 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 25 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 26 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 27 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 28 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 29 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 30 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 31 trace done 1 (9/9) functional done 1
+====> instruction MOV parsed as OP_MOV (60) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction S2R parsed as OP_S2R (124) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = S2R (OP_S2R, 124)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.MRG (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD (OP_XMAD, 137)
+====> instruction XMAD parsed as OP_XMAD (137) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = XMAD.PSL.CBCC (OP_XMAD, 137)
+====> instruction ISETP parsed as OP_ISETP (43) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = ISETP.GE.AND (OP_ISETP, 43)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [0 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+====> instruction SHL parsed as OP_SHL (136) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = SHL (OP_SHL, 136)
+====> instruction SHR parsed as OP_SHR (50) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = SHR (OP_SHR, 50)
+====> instruction IADD parsed as OP_IADD (31) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD (OP_IADD, 31)
+====> instruction IADD parsed as OP_IADD (31) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD.X (OP_IADD, 31)
+====> instruction IADD parsed as OP_IADD (31) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD (OP_IADD, 31)
+====> instruction LDG parsed as OP_LDG (72) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = LDG.E.CG (OP_LDG, 72)
 tag_array::probe(4026531968)
 cache_config::set_index(4026531968)
 cache_config::hash_function(4026531968)
@@ -1875,104 +1609,8 @@ tag_array::access(4026531968)
 tag_array::probe(4026531968)
 cache_config::set_index(4026531968)
 cache_config::hash_function(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::access(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::access(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::access(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(251658240)
-cache_config::hash_function(251658240)
-tag_array::access(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(251658240)
-cache_config::hash_function(251658240)
-tag_array::fill(14, 4026531968)
-mshr_table::mark_ready(4026531968, 0)
-tag_array::fill(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-mshr_table::mark_ready(4026531968, 0)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::access(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::access(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::access(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::access(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::access(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::access(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::access(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::access(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::access(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
+==>> ROMAN: warp 0 trace done 0 (15/23) functional done 0
+==>> ROMAN: warp 0 trace done 0 (15/23) functional done 0
 tag_array::probe(4026531968)
 cache_config::set_index(4026531968)
 cache_config::hash_function(4026531968)
@@ -2015,6 +1653,13 @@ tag_array::access(139823420539264)
 tag_array::probe(139823420539264)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
+tag_array::probe(4026531968)
+cache_config::set_index(251658240)
+cache_config::hash_function(251658240)
+tag_array::access(4026531968)
+tag_array::probe(4026531968)
+cache_config::set_index(251658240)
+cache_config::hash_function(251658240)
 tag_array::probe(139823420538880)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
@@ -2022,11 +1667,138 @@ tag_array::access(139823420538880)
 tag_array::probe(139823420538880)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
+tag_array::fill(14, 139823420539008)
+mshr_table::mark_ready(139823420539008, 0)
+tag_array::fill(14, 139823420539136)
+mshr_table::mark_ready(139823420539136, 0)
+tag_array::fill(14, 139823420539264)
+mshr_table::mark_ready(139823420539264, 0)
+tag_array::fill(13, 4026531968)
+mshr_table::mark_ready(4026531968, 0)
+tag_array::fill(13, 139823420538880)
+mshr_table::mark_ready(139823420538880, 0)
+tag_array::fill(4026531968)
+tag_array::probe(4026531968)
+cache_config::set_index(4026531968)
+cache_config::hash_function(4026531968)
+mshr_table::mark_ready(4026531968, 0)
+====> instruction IADD parsed as OP_IADD (31) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD.X (OP_IADD, 31)
+====> instruction LDG parsed as OP_LDG (72) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = LDG.E.CG (OP_LDG, 72)
+====> instruction IADD parsed as OP_IADD (31) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD (OP_IADD, 31)
+====> instruction IADD parsed as OP_IADD (31) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD.X (OP_IADD, 31)
+====> instruction FADD parsed as OP_FADD (1) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = FADD (OP_FADD, 1)
+====> instruction STG parsed as OP_STG (76) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = STG.E (OP_STG, 76)
+==>> ROMAN: warp 1 trace done 0 (21/23) functional done 0
+====> instruction IADD parsed as OP_IADD (31) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD.X (OP_IADD, 31)
+====> instruction LDG parsed as OP_LDG (72) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = LDG.E.CG (OP_LDG, 72)
+====> instruction IADD parsed as OP_IADD (31) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD (OP_IADD, 31)
+====> instruction IADD parsed as OP_IADD (31) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD.X (OP_IADD, 31)
+====> instruction FADD parsed as OP_FADD (1) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = FADD (OP_FADD, 1)
+====> instruction STG parsed as OP_STG (76) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = STG.E (OP_STG, 76)
+==>> ROMAN: warp 1 trace done 0 (21/23) functional done 0
+====> instruction IADD parsed as OP_IADD (31) [4 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD.X (OP_IADD, 31)
+====> instruction LDG parsed as OP_LDG (72) [4 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = LDG.E.CG (OP_LDG, 72)
+====> instruction IADD parsed as OP_IADD (31) [4 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD (OP_IADD, 31)
+====> instruction IADD parsed as OP_IADD (31) [4 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD.X (OP_IADD, 31)
+====> instruction FADD parsed as OP_FADD (1) [4 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = FADD (OP_FADD, 1)
+====> instruction STG parsed as OP_STG (76) [4 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = STG.E (OP_STG, 76)
+==>> ROMAN: warp 2 trace done 0 (21/23) functional done 0
+====> instruction IADD parsed as OP_IADD (31) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD.X (OP_IADD, 31)
+====> instruction LDG parsed as OP_LDG (72) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = LDG.E.CG (OP_LDG, 72)
+====> instruction IADD parsed as OP_IADD (31) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD (OP_IADD, 31)
+====> instruction IADD parsed as OP_IADD (31) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD.X (OP_IADD, 31)
+====> instruction FADD parsed as OP_FADD (1) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = FADD (OP_FADD, 1)
+====> instruction STG parsed as OP_STG (76) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = STG.E (OP_STG, 76)
+tag_array::probe(4026531968)
+cache_config::set_index(4026531968)
+cache_config::hash_function(4026531968)
+tag_array::access(4026531968)
+tag_array::probe(4026531968)
+cache_config::set_index(4026531968)
+cache_config::hash_function(4026531968)
+==>> ROMAN: warp 3 trace done 0 (21/23) functional done 0
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 2 trace done 0 (21/23) functional done 0
+==>> ROMAN: warp 1 trace done 1 (23/23) functional done 1
+tag_array::probe(4026531968)
+cache_config::set_index(4026531968)
+cache_config::hash_function(4026531968)
+tag_array::access(4026531968)
+tag_array::probe(4026531968)
+cache_config::set_index(4026531968)
+cache_config::hash_function(4026531968)
+==>> ROMAN: warp 3 trace done 0 (21/23) functional done 0
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+tag_array::probe(4026531968)
+cache_config::set_index(4026531968)
+cache_config::hash_function(4026531968)
+tag_array::access(4026531968)
+tag_array::probe(4026531968)
+cache_config::set_index(4026531968)
+cache_config::hash_function(4026531968)
+==>> ROMAN: warp 2 trace done 1 (23/23) functional done 1
+====> instruction NOP parsed as OP_NOP (121) [4 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [4 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 3 trace done 1 (23/23) functional done 1
+==>> ROMAN: warp 0 trace done 0 (21/23) functional done 0
+==>> ROMAN: warp 0 trace done 0 (21/23) functional done 0
+tag_array::probe(4026531968)
+cache_config::set_index(4026531968)
+cache_config::hash_function(4026531968)
+tag_array::access(4026531968)
+tag_array::probe(4026531968)
+cache_config::set_index(4026531968)
+cache_config::hash_function(4026531968)
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+==>> ROMAN: warp 0 trace done 1 (23/23) functional done 1
 tag_array::probe(139823420539520)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
 tag_array::access(139823420539520)
 tag_array::probe(139823420539520)
+cache_config::set_index(8738963783680)
+cache_config::hash_function(8738963783680)
+tag_array::probe(139823420540032)
+cache_config::set_index(8738963783680)
+cache_config::hash_function(8738963783680)
+data_cache::send_write_request(...)
+tag_array::access(139823420540032)
+tag_array::probe(139823420540032)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
 tag_array::probe(139823420539648)
@@ -2036,13 +1808,6 @@ tag_array::access(139823420539648)
 tag_array::probe(139823420539648)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
-tag_array::probe(139823420539392)
-cache_config::set_index(8738963783680)
-cache_config::hash_function(8738963783680)
-tag_array::access(139823420539392)
-tag_array::probe(139823420539392)
-cache_config::set_index(8738963783680)
-cache_config::hash_function(8738963783680)
 tag_array::probe(139823420539776)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
@@ -2050,78 +1815,6 @@ tag_array::access(139823420539776)
 tag_array::probe(139823420539776)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
-tag_array::fill(14, 139823420539136)
-mshr_table::mark_ready(139823420539136, 0)
-tag_array::fill(13, 139823420539008)
-mshr_table::mark_ready(139823420539008, 0)
-tag_array::fill(14, 139823420539264)
-mshr_table::mark_ready(139823420539264, 0)
-tag_array::fill(14, 139823420539520)
-mshr_table::mark_ready(139823420539520, 0)
-tag_array::fill(14, 139823420539648)
-mshr_table::mark_ready(139823420539648, 0)
-tag_array::fill(14, 139823420539392)
-mshr_table::mark_ready(139823420539392, 0)
-tag_array::fill(13, 139823420538880)
-mshr_table::mark_ready(139823420538880, 0)
-tag_array::fill(14, 139823420539776)
-mshr_table::mark_ready(139823420539776, 0)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::access(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::access(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::access(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::access(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::access(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::access(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::access(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::access(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
 tag_array::probe(139823420540160)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
@@ -2138,12 +1831,11 @@ tag_array::access(139823420540288)
 tag_array::probe(139823420540288)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
-tag_array::probe(139823420540032)
+tag_array::probe(139823420539392)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
-data_cache::send_write_request(...)
-tag_array::access(139823420540032)
-tag_array::probe(139823420540032)
+tag_array::access(139823420539392)
+tag_array::probe(139823420539392)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
 tag_array::probe(139823420539904)
@@ -2154,37 +1846,49 @@ tag_array::access(139823420539904)
 tag_array::probe(139823420539904)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
+tag_array::fill(14, 139823420539520)
+mshr_table::mark_ready(139823420539520, 0)
+tag_array::fill(14, 139823420539648)
+mshr_table::mark_ready(139823420539648, 0)
+tag_array::fill(14, 139823420539776)
+mshr_table::mark_ready(139823420539776, 0)
+tag_array::fill(14, 139823420540032)
+mshr_table::mark_ready(139823420540032, 0)
+tag_array::fill(14, 139823420539392)
+mshr_table::mark_ready(139823420539392, 0)
 tag_array::fill(14, 139823420540160)
 mshr_table::mark_ready(139823420540160, 0)
 tag_array::fill(14, 139823420540288)
 mshr_table::mark_ready(139823420540288, 0)
+tag_array::fill(14, 139823420539904)
+mshr_table::mark_ready(139823420539904, 0)
 kernel_name = _Z6vecAddIfEvPT_S1_S1_i 
 kernel_launch_uid = 1 
-gpu_sim_cycle = 1282
-gpu_sim_insn = 10516
-gpu_ipc =       8.2028
-gpu_tot_sim_cycle = 1282
-gpu_tot_sim_insn = 10516
-gpu_tot_ipc =       8.2028
+gpu_sim_cycle = 868
+gpu_sim_insn = 1324
+gpu_ipc =       1.5253
+gpu_tot_sim_cycle = 868
+gpu_tot_sim_insn = 1324
+gpu_tot_ipc =       1.5253
 gpu_tot_issued_cta = 1
-gpu_occupancy = 20.6860% 
-gpu_tot_occupancy = 20.6860% 
+gpu_occupancy = 21.3445% 
+gpu_tot_occupancy = 21.3445% 
 max_total_param_size = 0
 gpu_stall_dramfull = 0
 gpu_stall_icnt2sh    = 0
-partiton_level_parallism =       0.0109
-partiton_level_parallism_total  =       0.0109
+partiton_level_parallism =       0.0161
+partiton_level_parallism_total  =       0.0161
 partiton_level_parallism_util =       1.0000
 partiton_level_parallism_util_total  =       1.0000
-L2_BW  =       0.5616 GB/Sec
-L2_BW_total  =       0.5616 GB/Sec
-gpu_total_sim_rate=10516
+L2_BW  =       0.8294 GB/Sec
+L2_BW_total  =       0.8294 GB/Sec
+gpu_total_sim_rate=1324
 
 ========= Core cache stats =========
 L1I_cache:
-	L1I_total_cache_accesses = 188
+	L1I_total_cache_accesses = 40
 	L1I_total_cache_misses = 36
-	L1I_total_cache_miss_rate = 0.1915
+	L1I_total_cache_miss_rate = 0.9000
 	L1I_total_cache_pending_hits = 0
 	L1I_total_cache_reservation_fails = 0
 L1D_cache:
@@ -2274,7 +1978,7 @@ Total_core_cache_stats:
 	Total_core_cache_stats_breakdown[L2_WRBK_ACC][RESERVATION_FAIL] = 0
 	Total_core_cache_stats_breakdown[L2_WRBK_ACC][SECTOR_MISS] = 0
 	Total_core_cache_stats_breakdown[L2_WRBK_ACC][MSHR_HIT] = 0
-	Total_core_cache_stats_breakdown[INST_ACC_R][HIT] = 152
+	Total_core_cache_stats_breakdown[INST_ACC_R][HIT] = 4
 	Total_core_cache_stats_breakdown[INST_ACC_R][HIT_RESERVED] = 0
 	Total_core_cache_stats_breakdown[INST_ACC_R][MISS] = 36
 	Total_core_cache_stats_breakdown[INST_ACC_R][RESERVATION_FAIL] = 0
@@ -2292,17 +1996,17 @@ Total_core_cache_stats:
 	Total_core_cache_stats_breakdown[L2_WR_ALLOC_R][RESERVATION_FAIL] = 0
 	Total_core_cache_stats_breakdown[L2_WR_ALLOC_R][SECTOR_MISS] = 0
 	Total_core_cache_stats_breakdown[L2_WR_ALLOC_R][MSHR_HIT] = 0
-	Total_core_cache_stats_breakdown[INST_ACC_R][TOTAL_ACCESS] = 188
+	Total_core_cache_stats_breakdown[INST_ACC_R][TOTAL_ACCESS] = 40
 
 Total_core_cache_fail_stats:
 ctas_completed 1, Shader 0 warp_id issue ditsribution:
 warp_id:
 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 
 distro:
-26, 26, 26, 26, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 
-gpgpu_n_tot_thrd_icount = 11008
-gpgpu_n_tot_w_icount = 344
-gpgpu_n_stall_shd_mem = 0
+6, 6, 6, 6, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
+gpgpu_n_tot_thrd_icount = 1536
+gpgpu_n_tot_w_icount = 48
+gpgpu_n_stall_shd_mem = 5
 gpgpu_n_mem_read_local = 0
 gpgpu_n_mem_write_local = 0
 gpgpu_n_mem_read_global = 8
@@ -2327,29 +2031,25 @@ gpgpu_stall_shd_mem[gl_mem][coal_stall] = 0
 gpgpu_stall_shd_mem[gl_mem][data_port_stall] = 0
 gpu_reg_bank_conflict_stalls = 0
 Warp Occupancy Distribution:
-Stall:3	W0_Idle:1617	W0_Scoreboard:613	W1:0	W2:0	W3:0	W4:14	W5:0	W6:0	W7:0	W8:0	W9:0	W10:0	W11:0	W12:0	W13:0	W14:0	W15:0	W16:0	W17:0	W18:0	W19:0	W20:0	W21:0	W22:0	W23:0	W24:0	W25:0	W26:0	W27:0	W28:1	W29:0	W30:0	W31:0	W32:326
-single_issue_nums: WS0:160	WS1:160	
-dual_issue_nums: WS0:6	WS1:6	
+Stall:7	W0_Idle:1686	W0_Scoreboard:0	W1:0	W2:0	W3:0	W4:4	W5:0	W6:0	W7:0	W8:0	W9:0	W10:0	W11:0	W12:0	W13:0	W14:0	W15:0	W16:0	W17:0	W18:0	W19:0	W20:0	W21:0	W22:0	W23:0	W24:0	W25:0	W26:0	W27:0	W28:1	W29:0	W30:0	W31:0	W32:40
+single_issue_nums: WS0:20	WS1:20	
+dual_issue_nums: WS0:2	WS1:2	
 traffic_breakdown_coretomem[GLOBAL_ACC_R] = 64 {8:8,}
 traffic_breakdown_coretomem[GLOBAL_ACC_W] = 448 {40:1,136:3,}
 traffic_breakdown_coretomem[INST_ACC_R] = 16 {8:2,}
 traffic_breakdown_memtocore[GLOBAL_ACC_R] = 896 {40:2,136:6,}
 traffic_breakdown_memtocore[GLOBAL_ACC_W] = 32 {8:4,}
 traffic_breakdown_memtocore[INST_ACC_R] = 272 {136:2,}
-maxmflatency = 298 
-max_icnt2mem_latency = 13 
-maxmrqlatency = 9 
-max_icnt2sh_latency = 38 
-averagemflatency = 275 
-avg_icnt2mem_latency = 24 
-avg_mrq_latency = 2 
-avg_icnt2sh_latency = 34 
+maxmflatency = 280 
+max_icnt2mem_latency = 23 
+maxmrqlatency = 10 
+max_icnt2sh_latency = 16 
 mrq_lat_table:14 	0 	1 	3 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
 dq_lat_table:0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
-mf_lat_table:0 	0 	0 	0 	0 	0 	0 	1 	11 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
-icnt2mem_lat_table:0 	0 	0 	14 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
-icnt2sh_lat_table:0 	0 	0 	6 	4 	2 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
-mf_lat_pw_table:0 	0 	0 	0 	0 	0 	0 	0 	1 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
+mf_lat_table:0 	0 	0 	0 	0 	0 	0 	0 	12 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
+icnt2mem_lat_table:0 	0 	0 	10 	4 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
+icnt2sh_lat_table:0 	0 	0 	11 	1 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
+mf_lat_pw_table:0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
 maximum concurrent accesses to same row:
 dram[0]:         1         1         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
 dram[1]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
@@ -2360,12 +2060,12 @@ dram[5]:         0         0         0         0         0         0         0  
 dram[6]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
 dram[7]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
 maximum service time to same row:
-dram[0]:       710       661         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
-dram[1]:       940       942         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
-dram[2]:       949       945         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
-dram[3]:       947       951         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
-dram[4]:      1260      1255         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
-dram[5]:      1239      1242         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[0]:       302       504         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[1]:       506       508         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[2]:       830       810         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[3]:       817       819         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[4]:       837       816         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[5]:       825       828         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
 dram[6]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
 dram[7]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
 average row accesses per activate:
@@ -2415,21 +2115,21 @@ total dram writes = 13
 min_bank_accesses = 0!
 min_chip_accesses = 0!
 average mf latency per bank:
-dram[0]:         36        37    none      none      none      none      none      none      none      none      none      none      none      none      none      none  
-dram[1]:         66        67    none      none      none      none      none      none      none      none      none      none      none      none      none      none  
-dram[2]:         74        68    none      none      none      none      none      none      none      none      none      none      none      none      none      none  
-dram[3]:         69        69    none      none      none      none      none      none      none      none      none      none      none      none      none      none  
-dram[4]:         32        32    none      none      none      none      none      none      none      none      none      none      none      none      none      none  
-dram[5]:         32        51    none      none      none      none      none      none      none      none      none      none      none      none      none      none  
+dram[0]:         34        33    none      none      none      none      none      none      none      none      none      none      none      none      none      none  
+dram[1]:         67        68    none      none      none      none      none      none      none      none      none      none      none      none      none      none  
+dram[2]:         70        66    none      none      none      none      none      none      none      none      none      none      none      none      none      none  
+dram[3]:         68        69    none      none      none      none      none      none      none      none      none      none      none      none      none      none  
+dram[4]:         33        32    none      none      none      none      none      none      none      none      none      none      none      none      none      none  
+dram[5]:         33        52    none      none      none      none      none      none      none      none      none      none      none      none      none      none  
 dram[6]:     none      none      none      none      none      none      none      none      none      none      none      none      none      none      none      none  
 dram[7]:     none      none      none      none      none      none      none      none      none      none      none      none      none      none      none      none  
 maximum mf latency per bank:
-dram[0]:        289       298         0         0         0         0         0         0         0         0         0         0         0         0         0         0
-dram[1]:        267       269         0         0         0         0         0         0         0         0         0         0         0         0         0         0
-dram[2]:        296       272         0         0         0         0         0         0         0         0         0         0         0         0         0         0
-dram[3]:        276       277         0         0         0         0         0         0         0         0         0         0         0         0         0         0
-dram[4]:        256       257         0         0         0         0         0         0         0         0         0         0         0         0         0         0
-dram[5]:        256       255         0         0         0         0         0         0         0         0         0         0         0         0         0         0
+dram[0]:        273       265         0         0         0         0         0         0         0         0         0         0         0         0         0         0
+dram[1]:        270       272         0         0         0         0         0         0         0         0         0         0         0         0         0         0
+dram[2]:        280       266         0         0         0         0         0         0         0         0         0         0         0         0         0         0
+dram[3]:        274       276         0         0         0         0         0         0         0         0         0         0         0         0         0         0
+dram[4]:        269       257         0         0         0         0         0         0         0         0         0         0         0         0         0         0
+dram[5]:        264       264         0         0         0         0         0         0         0         0         0         0         0         0         0         0
 dram[6]:          0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0
 dram[7]:          0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0
 
@@ -2450,9 +2150,9 @@ MSHR contents
 
 In Dram Latency Queue (total = 0): 
 DRAM[0]: 16 bks, busW=4 BL=8 CL=12, tRRD=6 tCCD=2, tRCD=12 tRAS=28 tRP=12 tRC=40
-n_cmd=1993 n_nop=1971 n_act=4 n_pre=2 n_ref_event=0 n_req=4 n_rd=16 n_rd_L2_A=0 n_write=0 n_wr_bk=0 bw_util=0.01606
-n_activity=141 dram_eff=0.227
-bk0: 8a 1945i bk1: 8a 1945i bk2: 0a 1990i bk3: 0a 1993i bk4: 0a 1993i bk5: 0a 1993i bk6: 0a 1993i bk7: 0a 1993i bk8: 0a 1993i bk9: 0a 1993i bk10: 0a 1993i bk11: 0a 1993i bk12: 0a 1993i bk13: 0a 1993i bk14: 0a 1993i bk15: 0a 1994i 
+n_cmd=1349 n_nop=1327 n_act=4 n_pre=2 n_ref_event=0 n_req=4 n_rd=16 n_rd_L2_A=0 n_write=0 n_wr_bk=0 bw_util=0.02372
+n_activity=140 dram_eff=0.2286
+bk0: 8a 1301i bk1: 8a 1301i bk2: 0a 1346i bk3: 0a 1349i bk4: 0a 1349i bk5: 0a 1349i bk6: 0a 1349i bk7: 0a 1349i bk8: 0a 1349i bk9: 0a 1349i bk10: 0a 1349i bk11: 0a 1349i bk12: 0a 1349i bk13: 0a 1349i bk14: 0a 1349i bk15: 0a 1350i 
 
 ------------------------------------------------------------------------
 
@@ -2466,12 +2166,12 @@ write_to_read_ratio_blp_rw_average = 0.000000
 GrpLevelPara = 1.000000 
 
 BW Util details:
-bwutil = 0.016056 
-total_CMD = 1993 
+bwutil = 0.023721 
+total_CMD = 1349 
 util_bw = 32 
 Wasted_Col = 37 
 Wasted_Row = 12 
-Idle = 1912 
+Idle = 1268 
 
 BW Util Bottlenecks: 
 RCDc_limit = 40 
@@ -2485,8 +2185,8 @@ WTRc_limit_alone = 0
 RTWc_limit_alone = 0 
 
 Commands details: 
-total_CMD = 1993 
-n_nop = 1971 
+total_CMD = 1349 
+n_nop = 1327 
 Read = 16 
 Write = 0 
 L2_Alloc = 0 
@@ -2500,9 +2200,9 @@ total_req = 16
 Dual Bus Interface Util: 
 issued_total_row = 6 
 issued_total_col = 16 
-Row_Bus_Util =  0.003011 
-CoL_Bus_Util = 0.008028 
-Either_Row_CoL_Bus_Util = 0.011039 
+Row_Bus_Util =  0.004448 
+CoL_Bus_Util = 0.011861 
+Either_Row_CoL_Bus_Util = 0.016308 
 Issued_on_Two_Bus_Simul_Util = 0.000000 
 issued_two_Eff = 0.000000 
 queue_avg = 0.000000 
@@ -2520,9 +2220,9 @@ MSHR contents
 
 In Dram Latency Queue (total = 0): 
 DRAM[1]: 16 bks, busW=4 BL=8 CL=12, tRRD=6 tCCD=2, tRCD=12 tRAS=28 tRP=12 tRC=40
-n_cmd=1993 n_nop=1983 n_act=2 n_pre=0 n_ref_event=0 n_req=2 n_rd=8 n_rd_L2_A=0 n_write=0 n_wr_bk=0 bw_util=0.008028
+n_cmd=1349 n_nop=1339 n_act=2 n_pre=0 n_ref_event=0 n_req=2 n_rd=8 n_rd_L2_A=0 n_write=0 n_wr_bk=0 bw_util=0.01186
 n_activity=46 dram_eff=0.3478
-bk0: 4a 1975i bk1: 4a 1970i bk2: 0a 1993i bk3: 0a 1993i bk4: 0a 1993i bk5: 0a 1993i bk6: 0a 1993i bk7: 0a 1993i bk8: 0a 1993i bk9: 0a 1993i bk10: 0a 1993i bk11: 0a 1993i bk12: 0a 1993i bk13: 0a 1993i bk14: 0a 1993i bk15: 0a 1993i 
+bk0: 4a 1331i bk1: 4a 1326i bk2: 0a 1349i bk3: 0a 1349i bk4: 0a 1349i bk5: 0a 1349i bk6: 0a 1349i bk7: 0a 1349i bk8: 0a 1349i bk9: 0a 1349i bk10: 0a 1349i bk11: 0a 1349i bk12: 0a 1349i bk13: 0a 1349i bk14: 0a 1349i bk15: 0a 1349i 
 
 ------------------------------------------------------------------------
 
@@ -2536,12 +2236,12 @@ write_to_read_ratio_blp_rw_average = 0.000000
 GrpLevelPara = 1.000000 
 
 BW Util details:
-bwutil = 0.008028 
-total_CMD = 1993 
+bwutil = 0.011861 
+total_CMD = 1349 
 util_bw = 16 
 Wasted_Col = 12 
 Wasted_Row = 0 
-Idle = 1965 
+Idle = 1321 
 
 BW Util Bottlenecks: 
 RCDc_limit = 18 
@@ -2555,8 +2255,8 @@ WTRc_limit_alone = 0
 RTWc_limit_alone = 0 
 
 Commands details: 
-total_CMD = 1993 
-n_nop = 1983 
+total_CMD = 1349 
+n_nop = 1339 
 Read = 8 
 Write = 0 
 L2_Alloc = 0 
@@ -2570,9 +2270,9 @@ total_req = 8
 Dual Bus Interface Util: 
 issued_total_row = 2 
 issued_total_col = 8 
-Row_Bus_Util =  0.001004 
-CoL_Bus_Util = 0.004014 
-Either_Row_CoL_Bus_Util = 0.005018 
+Row_Bus_Util =  0.001483 
+CoL_Bus_Util = 0.005930 
+Either_Row_CoL_Bus_Util = 0.007413 
 Issued_on_Two_Bus_Simul_Util = 0.000000 
 issued_two_Eff = 0.000000 
 queue_avg = 0.000000 
@@ -2590,31 +2290,31 @@ MSHR contents
 
 In Dram Latency Queue (total = 0): 
 DRAM[2]: 16 bks, busW=4 BL=8 CL=12, tRRD=6 tCCD=2, tRCD=12 tRAS=28 tRP=12 tRC=40
-n_cmd=1993 n_nop=1983 n_act=2 n_pre=0 n_ref_event=0 n_req=2 n_rd=8 n_rd_L2_A=0 n_write=0 n_wr_bk=0 bw_util=0.008028
-n_activity=46 dram_eff=0.3478
-bk0: 4a 1973i bk1: 4a 1975i bk2: 0a 1991i bk3: 0a 1993i bk4: 0a 1993i bk5: 0a 1993i bk6: 0a 1993i bk7: 0a 1993i bk8: 0a 1993i bk9: 0a 1993i bk10: 0a 1993i bk11: 0a 1993i bk12: 0a 1993i bk13: 0a 1993i bk14: 0a 1993i bk15: 0a 1994i 
+n_cmd=1349 n_nop=1339 n_act=2 n_pre=0 n_ref_event=0 n_req=2 n_rd=8 n_rd_L2_A=0 n_write=0 n_wr_bk=0 bw_util=0.01186
+n_activity=72 dram_eff=0.2222
+bk0: 4a 1331i bk1: 4a 1330i bk2: 0a 1347i bk3: 0a 1349i bk4: 0a 1349i bk5: 0a 1349i bk6: 0a 1349i bk7: 0a 1349i bk8: 0a 1349i bk9: 0a 1349i bk10: 0a 1349i bk11: 0a 1349i bk12: 0a 1349i bk13: 0a 1349i bk14: 0a 1349i bk15: 0a 1350i 
 
 ------------------------------------------------------------------------
 
 Row_Buffer_Locality = 0.000000
 Row_Buffer_Locality_read = 0.000000
 Row_Buffer_Locality_write = -nan
-Bank_Level_Parallism = 1.481481
-Bank_Level_Parallism_Col = 1.461538
-Bank_Level_Parallism_Ready = 1.125000
+Bank_Level_Parallism = 1.000000
+Bank_Level_Parallism_Col = 1.000000
+Bank_Level_Parallism_Ready = 1.000000
 write_to_read_ratio_blp_rw_average = 0.000000
 GrpLevelPara = 1.000000 
 
 BW Util details:
-bwutil = 0.008028 
-total_CMD = 1993 
+bwutil = 0.011861 
+total_CMD = 1349 
 util_bw = 16 
-Wasted_Col = 12 
+Wasted_Col = 24 
 Wasted_Row = 0 
-Idle = 1965 
+Idle = 1309 
 
 BW Util Bottlenecks: 
-RCDc_limit = 18 
+RCDc_limit = 24 
 RCDWRc_limit = 0 
 WTRc_limit = 0 
 RTWc_limit = 0 
@@ -2625,8 +2325,8 @@ WTRc_limit_alone = 0
 RTWc_limit_alone = 0 
 
 Commands details: 
-total_CMD = 1993 
-n_nop = 1983 
+total_CMD = 1349 
+n_nop = 1339 
 Read = 8 
 Write = 0 
 L2_Alloc = 0 
@@ -2640,9 +2340,9 @@ total_req = 8
 Dual Bus Interface Util: 
 issued_total_row = 2 
 issued_total_col = 8 
-Row_Bus_Util =  0.001004 
-CoL_Bus_Util = 0.004014 
-Either_Row_CoL_Bus_Util = 0.005018 
+Row_Bus_Util =  0.001483 
+CoL_Bus_Util = 0.005930 
+Either_Row_CoL_Bus_Util = 0.007413 
 Issued_on_Two_Bus_Simul_Util = 0.000000 
 issued_two_Eff = 0.000000 
 queue_avg = 0.000000 
@@ -2660,28 +2360,28 @@ MSHR contents
 
 In Dram Latency Queue (total = 0): 
 DRAM[3]: 16 bks, busW=4 BL=8 CL=12, tRRD=6 tCCD=2, tRCD=12 tRAS=28 tRP=12 tRC=40
-n_cmd=1993 n_nop=1983 n_act=2 n_pre=0 n_ref_event=0 n_req=2 n_rd=8 n_rd_L2_A=0 n_write=0 n_wr_bk=0 bw_util=0.008028
+n_cmd=1349 n_nop=1339 n_act=2 n_pre=0 n_ref_event=0 n_req=2 n_rd=8 n_rd_L2_A=0 n_write=0 n_wr_bk=0 bw_util=0.01186
 n_activity=46 dram_eff=0.3478
-bk0: 4a 1975i bk1: 4a 1973i bk2: 0a 1993i bk3: 0a 1993i bk4: 0a 1993i bk5: 0a 1993i bk6: 0a 1993i bk7: 0a 1993i bk8: 0a 1993i bk9: 0a 1993i bk10: 0a 1993i bk11: 0a 1993i bk12: 0a 1993i bk13: 0a 1993i bk14: 0a 1993i bk15: 0a 1993i 
+bk0: 4a 1331i bk1: 4a 1326i bk2: 0a 1349i bk3: 0a 1349i bk4: 0a 1349i bk5: 0a 1349i bk6: 0a 1349i bk7: 0a 1349i bk8: 0a 1349i bk9: 0a 1349i bk10: 0a 1349i bk11: 0a 1349i bk12: 0a 1349i bk13: 0a 1349i bk14: 0a 1349i bk15: 0a 1349i 
 
 ------------------------------------------------------------------------
 
 Row_Buffer_Locality = 0.000000
 Row_Buffer_Locality_read = 0.000000
 Row_Buffer_Locality_write = -nan
-Bank_Level_Parallism = 1.481481
+Bank_Level_Parallism = 1.592593
 Bank_Level_Parallism_Col = 1.461538
 Bank_Level_Parallism_Ready = 1.125000
 write_to_read_ratio_blp_rw_average = 0.000000
 GrpLevelPara = 1.000000 
 
 BW Util details:
-bwutil = 0.008028 
-total_CMD = 1993 
+bwutil = 0.011861 
+total_CMD = 1349 
 util_bw = 16 
 Wasted_Col = 12 
 Wasted_Row = 0 
-Idle = 1965 
+Idle = 1321 
 
 BW Util Bottlenecks: 
 RCDc_limit = 18 
@@ -2695,8 +2395,8 @@ WTRc_limit_alone = 0
 RTWc_limit_alone = 0 
 
 Commands details: 
-total_CMD = 1993 
-n_nop = 1983 
+total_CMD = 1349 
+n_nop = 1339 
 Read = 8 
 Write = 0 
 L2_Alloc = 0 
@@ -2710,9 +2410,9 @@ total_req = 8
 Dual Bus Interface Util: 
 issued_total_row = 2 
 issued_total_col = 8 
-Row_Bus_Util =  0.001004 
-CoL_Bus_Util = 0.004014 
-Either_Row_CoL_Bus_Util = 0.005018 
+Row_Bus_Util =  0.001483 
+CoL_Bus_Util = 0.005930 
+Either_Row_CoL_Bus_Util = 0.007413 
 Issued_on_Two_Bus_Simul_Util = 0.000000 
 issued_two_Eff = 0.000000 
 queue_avg = 0.000000 
@@ -2724,75 +2424,73 @@ mrqq: max=0 avg=0
 Memory Partition 4: 
 Cache L2_bank_008:
 MSHR contents
-MSHR: tag=0x2d500400, atomic=0 1 entries : 0x5643cef20000 :  mf: uid=   204, sid00:w00, part=4, addr=0x139823420539904, load , size=128, unknown  status = IN_PARTITION_DRAM (1280), 
 
 Cache L2_bank_009:
 MSHR contents
-MSHR: tag=0x2d500480, atomic=0 1 entries : 0x5643cef20370 :  mf: uid=   203, sid00:w01, part=4, addr=0x139823420540032, load , size=128, unknown  status = IN_PARTITION_DRAM (1281), 
 
 In Dram Latency Queue (total = 0): 
 DRAM[4]: 16 bks, busW=4 BL=8 CL=12, tRRD=6 tCCD=2, tRCD=12 tRAS=28 tRP=12 tRC=40
-n_cmd=1993 n_nop=1978 n_act=2 n_pre=0 n_ref_event=0 n_req=4 n_rd=0 n_rd_L2_A=5 n_write=8 n_wr_bk=0 bw_util=0.01305
-n_activity=42 dram_eff=0.619
-bk0: 4a 1964i bk1: 1a 1952i bk2: 0a 1991i bk3: 0a 1993i bk4: 0a 1993i bk5: 0a 1993i bk6: 0a 1993i bk7: 0a 1993i bk8: 0a 1993i bk9: 0a 1993i bk10: 0a 1993i bk11: 0a 1993i bk12: 0a 1993i bk13: 0a 1993i bk14: 0a 1993i bk15: 0a 1994i 
+n_cmd=1349 n_nop=1331 n_act=2 n_pre=0 n_ref_event=0 n_req=4 n_rd=0 n_rd_L2_A=8 n_write=8 n_wr_bk=0 bw_util=0.02372
+n_activity=77 dram_eff=0.4156
+bk0: 4a 1318i bk1: 4a 1319i bk2: 0a 1347i bk3: 0a 1348i bk4: 0a 1349i bk5: 0a 1349i bk6: 0a 1349i bk7: 0a 1349i bk8: 0a 1349i bk9: 0a 1349i bk10: 0a 1349i bk11: 0a 1349i bk12: 0a 1349i bk13: 0a 1349i bk14: 0a 1350i bk15: 0a 1350i 
 
 ------------------------------------------------------------------------
 
 Row_Buffer_Locality = 0.500000
 Row_Buffer_Locality_read = 1.000000
 Row_Buffer_Locality_write = 0.000000
-Bank_Level_Parallism = 1.738095
-Bank_Level_Parallism_Col = 1.731707
-Bank_Level_Parallism_Ready = 1.285714
-write_to_read_ratio_blp_rw_average = 0.439024
+Bank_Level_Parallism = 1.000000
+Bank_Level_Parallism_Col = 1.000000
+Bank_Level_Parallism_Ready = 1.000000
+write_to_read_ratio_blp_rw_average = 0.451613
 GrpLevelPara = 1.000000 
 
 BW Util details:
-bwutil = 0.013046 
-total_CMD = 1993 
-util_bw = 25 
-Wasted_Col = 17 
+bwutil = 0.023721 
+total_CMD = 1349 
+util_bw = 32 
+Wasted_Col = 34 
 Wasted_Row = 0 
-Idle = 1951 
+Idle = 1283 
 
 BW Util Bottlenecks: 
 RCDc_limit = 0 
-RCDWRc_limit = 8 
+RCDWRc_limit = 14 
 WTRc_limit = 18 
-RTWc_limit = 0 
+RTWc_limit = 9 
 CCDLc_limit = 0 
 rwq = 0 
 CCDLc_limit_alone = 0 
 WTRc_limit_alone = 18 
-RTWc_limit_alone = 0 
+RTWc_limit_alone = 9 
 
 Commands details: 
-total_CMD = 1993 
-n_nop = 1978 
+total_CMD = 1349 
+n_nop = 1331 
 Read = 0 
 Write = 8 
-L2_Alloc = 5 
+L2_Alloc = 8 
 L2_WB = 0 
 n_act = 2 
 n_pre = 0 
 n_ref = 0 
 n_req = 4 
-total_req = 13 
+total_req = 16 
 
 Dual Bus Interface Util: 
 issued_total_row = 2 
-issued_total_col = 13 
-Row_Bus_Util =  0.001004 
-CoL_Bus_Util = 0.006523 
-Either_Row_CoL_Bus_Util = 0.007526 
+issued_total_col = 16 
+Row_Bus_Util =  0.001483 
+CoL_Bus_Util = 0.011861 
+Either_Row_CoL_Bus_Util = 0.013343 
 Issued_on_Two_Bus_Simul_Util = 0.000000 
 issued_two_Eff = 0.000000 
-queue_avg = 0.013046 
+queue_avg = 0.020756 
 
 
 dram_util_bins: 0 0 0 0 0 0 0 0 0 0
 dram_eff_bins: 0 0 0 0 0 0 0 0 0 0
-mrqq: max=2 avg=0.0130457
+mrqq: max=1 avg=0.0207561
 Memory Partition 5: 
 Cache L2_bank_010:
 MSHR contents
@@ -2802,9 +2500,9 @@ MSHR contents
 
 In Dram Latency Queue (total = 0): 
 DRAM[5]: 16 bks, busW=4 BL=8 CL=12, tRRD=6 tCCD=2, tRCD=12 tRAS=28 tRP=12 tRC=40
-n_cmd=1993 n_nop=1978 n_act=2 n_pre=0 n_ref_event=0 n_req=4 n_rd=0 n_rd_L2_A=8 n_write=5 n_wr_bk=0 bw_util=0.01305
+n_cmd=1349 n_nop=1334 n_act=2 n_pre=0 n_ref_event=0 n_req=4 n_rd=0 n_rd_L2_A=8 n_write=5 n_wr_bk=0 bw_util=0.01927
 n_activity=52 dram_eff=0.5
-bk0: 4a 1962i bk1: 4a 1959i bk2: 0a 1993i bk3: 0a 1993i bk4: 0a 1993i bk5: 0a 1993i bk6: 0a 1993i bk7: 0a 1993i bk8: 0a 1993i bk9: 0a 1993i bk10: 0a 1993i bk11: 0a 1993i bk12: 0a 1993i bk13: 0a 1993i bk14: 0a 1993i bk15: 0a 1993i 
+bk0: 4a 1318i bk1: 4a 1315i bk2: 0a 1349i bk3: 0a 1349i bk4: 0a 1349i bk5: 0a 1349i bk6: 0a 1349i bk7: 0a 1349i bk8: 0a 1349i bk9: 0a 1349i bk10: 0a 1349i bk11: 0a 1349i bk12: 0a 1349i bk13: 0a 1349i bk14: 0a 1349i bk15: 0a 1349i 
 
 ------------------------------------------------------------------------
 
@@ -2818,12 +2516,12 @@ write_to_read_ratio_blp_rw_average = 0.350000
 GrpLevelPara = 1.000000 
 
 BW Util details:
-bwutil = 0.013046 
-total_CMD = 1993 
+bwutil = 0.019274 
+total_CMD = 1349 
 util_bw = 26 
 Wasted_Col = 16 
 Wasted_Row = 0 
-Idle = 1951 
+Idle = 1307 
 
 BW Util Bottlenecks: 
 RCDc_limit = 1 
@@ -2837,8 +2535,8 @@ WTRc_limit_alone = 18
 RTWc_limit_alone = 0 
 
 Commands details: 
-total_CMD = 1993 
-n_nop = 1978 
+total_CMD = 1349 
+n_nop = 1334 
 Read = 0 
 Write = 5 
 L2_Alloc = 8 
@@ -2852,17 +2550,17 @@ total_req = 13
 Dual Bus Interface Util: 
 issued_total_row = 2 
 issued_total_col = 13 
-Row_Bus_Util =  0.001004 
-CoL_Bus_Util = 0.006523 
-Either_Row_CoL_Bus_Util = 0.007526 
+Row_Bus_Util =  0.001483 
+CoL_Bus_Util = 0.009637 
+Either_Row_CoL_Bus_Util = 0.011119 
 Issued_on_Two_Bus_Simul_Util = 0.000000 
 issued_two_Eff = 0.000000 
-queue_avg = 0.010537 
+queue_avg = 0.015567 
 
 
 dram_util_bins: 0 0 0 0 0 0 0 0 0 0
 dram_eff_bins: 0 0 0 0 0 0 0 0 0 0
-mrqq: max=2 avg=0.0105369
+mrqq: max=2 avg=0.0155671
 Memory Partition 6: 
 Cache L2_bank_012:
 MSHR contents
@@ -2872,9 +2570,9 @@ MSHR contents
 
 In Dram Latency Queue (total = 0): 
 DRAM[6]: 16 bks, busW=4 BL=8 CL=12, tRRD=6 tCCD=2, tRCD=12 tRAS=28 tRP=12 tRC=40
-n_cmd=1993 n_nop=1993 n_act=0 n_pre=0 n_ref_event=0 n_req=0 n_rd=0 n_rd_L2_A=0 n_write=0 n_wr_bk=0 bw_util=0
+n_cmd=1349 n_nop=1349 n_act=0 n_pre=0 n_ref_event=0 n_req=0 n_rd=0 n_rd_L2_A=0 n_write=0 n_wr_bk=0 bw_util=0
 n_activity=0 dram_eff=-nan
-bk0: 0a 1993i bk1: 0a 1993i bk2: 0a 1993i bk3: 0a 1993i bk4: 0a 1993i bk5: 0a 1993i bk6: 0a 1993i bk7: 0a 1993i bk8: 0a 1993i bk9: 0a 1993i bk10: 0a 1993i bk11: 0a 1993i bk12: 0a 1993i bk13: 0a 1993i bk14: 0a 1993i bk15: 0a 1993i 
+bk0: 0a 1349i bk1: 0a 1349i bk2: 0a 1349i bk3: 0a 1349i bk4: 0a 1349i bk5: 0a 1349i bk6: 0a 1349i bk7: 0a 1349i bk8: 0a 1349i bk9: 0a 1349i bk10: 0a 1349i bk11: 0a 1349i bk12: 0a 1349i bk13: 0a 1349i bk14: 0a 1349i bk15: 0a 1349i 
 
 ------------------------------------------------------------------------
 
@@ -2889,11 +2587,11 @@ GrpLevelPara = -nan
 
 BW Util details:
 bwutil = 0.000000 
-total_CMD = 1993 
+total_CMD = 1349 
 util_bw = 0 
 Wasted_Col = 0 
 Wasted_Row = 0 
-Idle = 1993 
+Idle = 1349 
 
 BW Util Bottlenecks: 
 RCDc_limit = 0 
@@ -2907,8 +2605,8 @@ WTRc_limit_alone = 0
 RTWc_limit_alone = 0 
 
 Commands details: 
-total_CMD = 1993 
-n_nop = 1993 
+total_CMD = 1349 
+n_nop = 1349 
 Read = 0 
 Write = 0 
 L2_Alloc = 0 
@@ -2942,9 +2640,9 @@ MSHR contents
 
 In Dram Latency Queue (total = 0): 
 DRAM[7]: 16 bks, busW=4 BL=8 CL=12, tRRD=6 tCCD=2, tRCD=12 tRAS=28 tRP=12 tRC=40
-n_cmd=1993 n_nop=1993 n_act=0 n_pre=0 n_ref_event=0 n_req=0 n_rd=0 n_rd_L2_A=0 n_write=0 n_wr_bk=0 bw_util=0
+n_cmd=1349 n_nop=1349 n_act=0 n_pre=0 n_ref_event=0 n_req=0 n_rd=0 n_rd_L2_A=0 n_write=0 n_wr_bk=0 bw_util=0
 n_activity=0 dram_eff=-nan
-bk0: 0a 1993i bk1: 0a 1993i bk2: 0a 1993i bk3: 0a 1993i bk4: 0a 1993i bk5: 0a 1993i bk6: 0a 1993i bk7: 0a 1993i bk8: 0a 1993i bk9: 0a 1993i bk10: 0a 1993i bk11: 0a 1993i bk12: 0a 1993i bk13: 0a 1993i bk14: 0a 1993i bk15: 0a 1993i 
+bk0: 0a 1349i bk1: 0a 1349i bk2: 0a 1349i bk3: 0a 1349i bk4: 0a 1349i bk5: 0a 1349i bk6: 0a 1349i bk7: 0a 1349i bk8: 0a 1349i bk9: 0a 1349i bk10: 0a 1349i bk11: 0a 1349i bk12: 0a 1349i bk13: 0a 1349i bk14: 0a 1349i bk15: 0a 1349i 
 
 ------------------------------------------------------------------------
 
@@ -2959,11 +2657,11 @@ GrpLevelPara = -nan
 
 BW Util details:
 bwutil = 0.000000 
-total_CMD = 1993 
+total_CMD = 1349 
 util_bw = 0 
 Wasted_Col = 0 
 Wasted_Row = 0 
-Idle = 1993 
+Idle = 1349 
 
 BW Util Bottlenecks: 
 RCDc_limit = 0 
@@ -2977,8 +2675,8 @@ WTRc_limit_alone = 0
 RTWc_limit_alone = 0 
 
 Commands details: 
-total_CMD = 1993 
-n_nop = 1993 
+total_CMD = 1349 
+n_nop = 1349 
 Read = 0 
 Write = 0 
 L2_Alloc = 0 
@@ -3098,7 +2796,7 @@ L2_total_cache_breakdown:
 	L2_cache_stats_breakdown[INST_ACC_R][TOTAL_ACCESS] = 2
 L2_total_cache_reservation_fail_breakdown:
 L2_cache_data_port_util = 0.000
-L2_cache_fill_port_util = 0.002
+L2_cache_fill_port_util = 0.004
 
 icnt_total_pkts_mem_to_simt=48
 icnt_total_pkts_simt_to_mem=27
@@ -3106,61 +2804,61 @@ LD_mem_lat_dist  0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
 ST_mem_lat_dist  0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
 ----------------------------Interconnect-DETAILS--------------------------------
 Class 0:
-Packet latency average = 11.6429
+Packet latency average = 10.5
 	minimum = 6
-	maximum = 36
-Network latency average = 11.5714
+	maximum = 21
+Network latency average = 9.35714
 	minimum = 6
-	maximum = 36
-Slowest packet = 17
-Flit latency average = 11.6533
+	maximum = 16
+Slowest packet = 8
+Flit latency average = 7.81333
 	minimum = 6
-	maximum = 32
-Slowest flit = 42
+	maximum = 12
+Slowest flit = 48
 Fragmentation average = 0
 	minimum = 0
 	maximum = 0
-Injected packet rate average = 0.000436817
+Injected packet rate average = 0.000645161
 	minimum = 0 (at node 1)
-	maximum = 0.0109204 (at node 0)
-Accepted packet rate average = 0.000436817
+	maximum = 0.016129 (at node 0)
+Accepted packet rate average = 0.000645161
 	minimum = 0 (at node 1)
-	maximum = 0.0109204 (at node 0)
-Injected flit rate average = 0.00117005
+	maximum = 0.016129 (at node 0)
+Injected flit rate average = 0.00172811
 	minimum = 0 (at node 1)
-	maximum = 0.0210608 (at node 0)
-Accepted flit rate average= 0.00117005
+	maximum = 0.031106 (at node 0)
+Accepted flit rate average= 0.00172811
 	minimum = 0 (at node 1)
-	maximum = 0.0374415 (at node 0)
+	maximum = 0.0552995 (at node 0)
 Injected packet length average = 2.67857
 Accepted packet length average = 2.67857
 Total in-flight flits = 0 (0 measured)
 ====== Overall Traffic Statistics ======
 ====== Traffic class 0 ======
-Packet latency average = 11.6429 (1 samples)
+Packet latency average = 10.5 (1 samples)
 	minimum = 6 (1 samples)
-	maximum = 36 (1 samples)
-Network latency average = 11.5714 (1 samples)
+	maximum = 21 (1 samples)
+Network latency average = 9.35714 (1 samples)
 	minimum = 6 (1 samples)
-	maximum = 36 (1 samples)
-Flit latency average = 11.6533 (1 samples)
+	maximum = 16 (1 samples)
+Flit latency average = 7.81333 (1 samples)
 	minimum = 6 (1 samples)
-	maximum = 32 (1 samples)
+	maximum = 12 (1 samples)
 Fragmentation average = 0 (1 samples)
 	minimum = 0 (1 samples)
 	maximum = 0 (1 samples)
-Injected packet rate average = 0.000436817 (1 samples)
+Injected packet rate average = 0.000645161 (1 samples)
 	minimum = 0 (1 samples)
-	maximum = 0.0109204 (1 samples)
-Accepted packet rate average = 0.000436817 (1 samples)
+	maximum = 0.016129 (1 samples)
+Accepted packet rate average = 0.000645161 (1 samples)
 	minimum = 0 (1 samples)
-	maximum = 0.0109204 (1 samples)
-Injected flit rate average = 0.00117005 (1 samples)
+	maximum = 0.016129 (1 samples)
+Injected flit rate average = 0.00172811 (1 samples)
 	minimum = 0 (1 samples)
-	maximum = 0.0210608 (1 samples)
-Accepted flit rate average = 0.00117005 (1 samples)
+	maximum = 0.031106 (1 samples)
+Accepted flit rate average = 0.00172811 (1 samples)
 	minimum = 0 (1 samples)
-	maximum = 0.0374415 (1 samples)
+	maximum = 0.0552995 (1 samples)
 Injected packet size average = 2.67857 (1 samples)
 Accepted packet size average = 2.67857 (1 samples)
 Hops average = 1 (1 samples)
@@ -3168,8 +2866,8 @@ Hops average = 1 (1 samples)
 
 
 gpgpu_simulation_time = 0 days, 0 hrs, 0 min, 1 sec (1 sec)
-gpgpu_simulation_rate = 10516 (inst/sec)
-gpgpu_simulation_rate = 1282 (cycle/sec)
-gpgpu_silicon_slowdown = 1253510x
+gpgpu_simulation_rate = 1324 (inst/sec)
+gpgpu_simulation_rate = 868 (cycle/sec)
+gpgpu_silicon_slowdown = 1851382x
 GPGPU-Sim: *** simulation thread exiting ***
 GPGPU-Sim: *** exit detected ***

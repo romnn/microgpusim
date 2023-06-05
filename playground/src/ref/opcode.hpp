@@ -4,7 +4,7 @@ extern const char *g_opcode_string[];
 
 // OP, FUNC, STR, DST, CLASSIFICATION
 enum opcode_t {
-  ABS_OP,        // abs_impl,"abs",1,1)
+  ABS_OP = 1,    // abs_impl,"abs",1,1)
   ADD_OP,        // add_impl,"add",1,1)
   ADDP_OP,       // addp_impl,"addp",1,1)
   ADDC_OP,       // addc_impl,"addc",1,1)
@@ -101,4 +101,5 @@ enum opcode_t {
   NOP_OP,        // nop_impl,"nop",0,7)
   BREAK_OP,      // break_impl,"break",0,3)
   BREAKADDR_OP,  // breakaddr_impl,"breakaddr",0,3)
+  NUM_OPCODES
 };

@@ -13,7 +13,7 @@ impl<I> ReadOnly<I> {
         core_id: usize,
         cluster_id: usize,
         // tag_array: tag_array::TagArray<()>,
-        mem_port: I,
+        mem_port: Arc<I>,
         stats: Arc<Mutex<Stats>>,
         config: Arc<config::GPUConfig>,
         cache_config: Arc<config::CacheConfig>,
@@ -29,7 +29,8 @@ impl<I> ReadOnly<I> {
 
 impl<I> cache::Component for ReadOnly<I>
 where
-    I: ic::MemPort,
+    // I: ic::MemPort,
+    I: ic::MemFetchInterface,
 {
     fn cycle(&mut self) {
         self.inner.cycle()
@@ -38,7 +39,8 @@ where
 
 impl<I> cache::Cache for ReadOnly<I>
 where
-    I: ic::MemPort,
+    // I: ic::MemPort,
+    I: ic::MemFetchInterface,
 {
     fn has_ready_accesses(&self) -> bool {
         self.inner.has_ready_accesses()

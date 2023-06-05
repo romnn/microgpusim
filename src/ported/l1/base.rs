@@ -104,7 +104,7 @@ pub struct Base<I>
     pub miss_queue_status: mem_fetch::Status,
     pub mshrs: mshr::MshrTable,
     pub tag_array: tag_array::TagArray<()>,
-    pub mem_port: I,
+    pub mem_port: Arc<I>,
 
     // /// Specifies type of write allocate request
     // ///
@@ -133,7 +133,7 @@ impl<I> Base<I> {
         core_id: usize,
         cluster_id: usize,
         // tag_array: tag_array::TagArray<()>,
-        mem_port: I,
+        mem_port: Arc<I>,
         stats: Arc<Mutex<Stats>>,
         config: Arc<config::GPUConfig>,
         cache_config: Arc<config::CacheConfig>,
@@ -418,7 +418,8 @@ impl<I> Base<I> {
 
 impl<I> cache::Component for Base<I>
 where
-    I: ic::MemPort,
+    // I: ic::MemPort,
+    I: ic::MemFetchInterface,
 {
     /// Sends next request to lower level of memory
     fn cycle(&mut self) {
@@ -444,7 +445,8 @@ where
 // impl<I> cache::Cache for Base<I>
 impl<I> Base<I>
 where
-    I: ic::MemPort,
+    // I: ic::MemPort,
+    I: ic::MemFetchInterface,
 {
     /// Interface for response from lower memory level.
     ///
@@ -530,7 +532,8 @@ mod tests {
         let stats = Arc::new(Mutex::new(Stats::default()));
         let config = Arc::new(config::GPUConfig::default());
         let cache_config = config.data_cache_l1.clone().unwrap();
-        let port = ic::Interconnect {};
+        // let port = ic::Interconnect {};
+        let port = Arc::new(ic::CoreMemoryInterface {});
 
         let base = Base::new(core_id, cluster_id, port, stats, config, cache_config);
         dbg!(&base);

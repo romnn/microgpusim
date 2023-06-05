@@ -26,6 +26,9 @@ public:
       const class trace_config *tconfig,
       const class kernel_trace_t *kernel_trace_info);
 
+  unsigned opcode() { return m_opcode; }
+  const char* opcode_str();
+
 private:
   unsigned m_opcode;
 };

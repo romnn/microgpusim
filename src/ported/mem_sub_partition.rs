@@ -319,6 +319,18 @@ where
     //     self.interconn_to_l2_queue.has_available_size(size)
     // }
 
+    pub fn set_done(&self, fetch: &mem_fetch::MemFetch) {
+        todo!("mem sub partition: set done");
+    }
+
+    pub fn dram_l2_queue_push(&mut self, fetch: &mem_fetch::MemFetch) {
+        todo!("mem sub partition: dram l2 queue push");
+    }
+
+    pub fn dram_l2_queue_full(&self) -> bool {
+        todo!("mem sub partition: dram l2 queue full");
+    }
+
     pub fn cache_cycle(&mut self, cycle: usize) {
         use config::CacheWriteAllocatePolicy;
         use mem_fetch::{AccessKind, Status};
@@ -355,14 +367,35 @@ where
 }
 
 #[derive(Clone, Debug, Default)]
+pub struct TempDRAM {}
+
+impl TempDRAM {
+    pub fn return_queue_pop(&mut self) -> Option<mem_fetch::MemFetch> {
+        // TODO
+        None
+    }
+    pub fn return_queue_top(&self) -> Option<&mem_fetch::MemFetch> {
+        // TODO
+        None
+    }
+}
+
+#[derive(Debug, Default)]
 pub struct MemoryPartitionUnit {
     id: usize,
     config: Arc<GPUConfig>,
+    dram: TempDRAM,
+    sub_partitions: Vec<MemorySubPartition>,
 }
 
 impl MemoryPartitionUnit {
     pub fn new(id: usize, config: Arc<GPUConfig>) -> Self {
-        Self { id, config }
+        Self {
+            id,
+            config,
+            dram: TempDRAM::default(),
+            sub_partitions: Vec::new(),
+        }
     }
 
     fn global_sub_partition_id_to_local_id(&self, global_sub_partition_id: usize) -> usize {
@@ -387,47 +420,49 @@ impl MemoryPartitionUnit {
     }
 
     pub fn cache_cycle(&mut self, cycle: usize) {
-        todo!("mem sub partition: cache_cycle");
+        // todo!("mem partition unit: cache_cycle");
         // for p < m_config->m_n_sub_partition_per_memory_channel
-        // for mem_sub in self.sub_partitions {
-        //     mem_sub.cache_cycle(cycle);
-        // }
+        for mem_sub in self.sub_partitions.iter_mut() {
+            mem_sub.cache_cycle(cycle);
+        }
     }
 
     pub fn simple_dram_model_cycle(&mut self) {
-        todo!("mem sub partition: simple_dram_model_cycle");
+        todo!("mem partition unit: simple_dram_model_cycle");
         // for p < m_config->m_n_sub_partition_per_memory_channel
     }
 
     pub fn dram_cycle(&mut self) {
         use mem_fetch::{AccessKind, Status};
-        todo!("mem sub partition: dram_cycle");
+        // todo!("mem partition unit: dram_cycle");
+        // TODO
+        return;
 
         // pop completed memory request from dram and push it to
         // dram-to-L2 queue of the original sub partition
-        // if let Some(return_fetch) = self.dram.return_queue_top() {
-        //     let dest_global_spid = return_fetch.sub_partition_id();
-        //     let dest_spid = self.global_sub_partition_id_to_local_id(dest_global_spid);
-        //     let mem_sub = self.sub_partition[dest_spid];
-        //     debug_assert_eq!(mem_sub.id, dest_global_spid);
-        //     if !mem_sub.dram_L2_queue_full() {
-        //         if return_fetch.access_kind() == AccessKind::L1_WRBK_ACC {
-        //             mem_sub.set_done(return_fetch);
-        //             // delete mf_return;
-        //         } else {
-        //             mem_sub.dram_L2_queue_push(return_fetch);
-        //             return_fetch.set_status(Status::IN_PARTITION_DRAM_TO_L2_QUEUE, 0);
-        //             // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-        //             // m_arbitration_metadata.return_credit(dest_spid);
-        //             println!(
-        //                 "mem_fetch request {} return from dram to sub partition {}",
-        //                 return_fetch, dest_spid
-        //             );
-        //         }
-        //         self.dram.return_queue_pop();
-        //     }
-        // } else {
-        //     self.dram.return_queue_pop();
-        // }
+        if let Some(return_fetch) = self.dram.return_queue_top() {
+            let dest_global_spid = return_fetch.sub_partition_id() as usize;
+            let dest_spid = self.global_sub_partition_id_to_local_id(dest_global_spid);
+            let mem_sub = &mut self.sub_partitions[dest_spid];
+            debug_assert_eq!(mem_sub.id, dest_global_spid);
+            if !mem_sub.dram_l2_queue_full() {
+                if return_fetch.access_kind() == &AccessKind::L1_WRBK_ACC {
+                    mem_sub.set_done(return_fetch);
+                    // delete mf_return;
+                } else {
+                    mem_sub.dram_l2_queue_push(return_fetch);
+                    return_fetch.set_status(Status::IN_PARTITION_DRAM_TO_L2_QUEUE, 0);
+                    // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+                    // m_arbitration_metadata.return_credit(dest_spid);
+                    println!(
+                        "mem_fetch request {:?} return from dram to sub partition {}",
+                        return_fetch, dest_spid
+                    );
+                }
+                self.dram.return_queue_pop();
+            }
+        } else {
+            self.dram.return_queue_pop();
+        }
     }
 }

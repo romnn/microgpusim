@@ -1,17 +1,22 @@
 #### TODO
-- PLAYGROUND: get rid of (fully): ptx_thread_info
-  - gpgpu_ptx_sim_info seems to be fine and is used directly by trace driven
-
-- how to proceed: cut off trace classes from exec classes (everywhere possible)
-- move all ptx stuff to ptx folder
+- move all ptx and unused stuff to sub folders that are ignored (move away completely eventually)
 
 - check implementations
   - mem sub partitions
   - mem units
 
+- todo: skip all non memory instructions in playground
+- todo: clean up playground
+- todo: add lots of logging
+- todo: add custom trace_kernel_info that subclasses
+  - should read from the rust traces using cxx bridge
+
 - FIX (in reverse order): 
     - icnt cycle -> accept fetch response -> readonly fill -> base fill -> mark ready
-    - note: only `ldst_unit::memory_cycle` is pushing to mem_fetch_interface
+    - pushing to mem_fetch_interface:
+      - `ldst_unit::memory_cycle`
+      - `baseline_cache::cycle`
+      - `gpgpu_sim::cycle()` 
     - note: only `cluster::icnt_cycle` is popping from interconn
 
 - run the accelsim cluster cycle loop for

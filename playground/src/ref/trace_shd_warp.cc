@@ -1,20 +1,51 @@
 #include "trace_shd_warp.hpp"
 
+#include "trace_instr_opcode.hpp"
 #include "trace_kernel_info.hpp"
 #include "trace_shader_core_ctx.hpp"
 #include "trace_warp_inst.hpp"
 
 const warp_inst_t *trace_shd_warp_t::get_next_trace_inst() {
-  if (trace_pc < warp_traces.size()) {
+  while (trace_pc < warp_traces.size()) {
     trace_warp_inst_t *new_inst =
         new trace_warp_inst_t(get_shader()->get_config());
-    new_inst->parse_from_trace_struct(
-        warp_traces[trace_pc], m_kernel_info->OpcodeMap,
-        m_kernel_info->m_tconfig, m_kernel_info->m_kernel_trace_info);
+
+    const inst_trace_t &trace = warp_traces[trace_pc];
+    new_inst->parse_from_trace_struct(trace, m_kernel_info->OpcodeMap,
+                                      m_kernel_info->m_tconfig,
+                                      m_kernel_info->m_kernel_trace_info);
+
+    printf("====> trace_shd_warp_t::get_next_trace_inst(): opcode = %s (%s, "
+           "%d)\n",
+           trace.opcode.c_str(), new_inst->opcode_str(), new_inst->opcode());
+
     trace_pc++;
-    return new_inst;
-  } else
-    return NULL;
+    // also consider constant loads, which are categorized as ALU_OP
+    if (new_inst->op == LOAD_OP || new_inst->op == STORE_OP ||
+        new_inst->op == EXIT_OPS || new_inst->opcode() == OP_LDC) {
+      return new_inst;
+    }
+  }
+  return NULL;
+
+  // original (no skip) implementation
+  // if (trace_pc < warp_traces.size()) {
+  //   trace_warp_inst_t *new_inst =
+  //       new trace_warp_inst_t(get_shader()->get_config());
+  //
+  //   const inst_trace_t &trace = warp_traces[trace_pc];
+  //   new_inst->parse_from_trace_struct(trace, m_kernel_info->OpcodeMap,
+  //                                     m_kernel_info->m_tconfig,
+  //                                     m_kernel_info->m_kernel_trace_info);
+  //
+  //   printf("====> trace_shd_warp_t::get_next_trace_inst(): opcode = %s (%s, "
+  //          "%d)\n",
+  //          trace.opcode.c_str(), new_inst->opcode_str(), new_inst->opcode());
+  //
+  //   trace_pc++;
+  //   return new_inst;
+  // } else
+  //   return NULL;
 }
 
 void trace_shd_warp_t::clear() {

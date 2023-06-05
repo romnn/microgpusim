@@ -1,5 +1,7 @@
 #pragma once
 
+extern const char *g_trace_instr_opcode_str[];
+
 enum TraceInstrOpcode {
   // Volta (includes common insts for others cards as well)
   OP_FADD = 1,
@@ -219,4 +221,5 @@ enum TraceInstrOpcode {
   OP_SUQUERY,
   SASS_NUM_OPCODES /* The total number of opcodes. */
 };
+
 typedef enum TraceInstrOpcode sass_op_type;

@@ -1,5 +1,3 @@
-#![allow(warnings)]
-
 pub mod addrdec;
 pub mod barrier;
 pub mod cache;
@@ -564,7 +562,8 @@ where
     }
 
     fn interconn_transfer(&mut self) {
-        todo!("sim: interconn transfer");
+        // not modeling the flits in the interconnect for now
+        // todo!("sim: interconn transfer");
     }
 
     pub fn cycle(&mut self) {
@@ -589,8 +588,11 @@ where
                 //     // fetch.set_return_timestamp(gpu_sim_cycle + gpu_tot_sim_cycle);
                 //     fetch.set_status(mem_fetch::Status::IN_ICNT_TO_SHADER, 0);
                 //     // , gpu_sim_cycle + gpu_tot_sim_cycle);
-                //     self.interconn
-                //         .push(device, fetch.cluster_id, fetch, response_size);
+                todo!("sim: pushing to interconn yay");
+                // self.interconn_push
+                //     .push(device, fetch.cluster_id, fetch, response_size);
+                // self.interconn
+                //     .push(device, fetch.cluster_id, fetch, response_size);
                 //     // mem_sub.pop();
                 //     partition_replies_in_parallel_per_cycle += 1;
                 // } else {

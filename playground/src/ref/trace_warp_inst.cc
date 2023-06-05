@@ -4,6 +4,7 @@
 
 #include "inst_trace.hpp"
 #include "kernel_trace.hpp"
+#include "opcode.hpp"
 #include "opcode_power_map.hpp"
 #include "trace_config.hpp"
 #include "trace_instr_opcode.hpp"
@@ -29,6 +30,14 @@ types_of_operands get_oprnd_type(op_type op, special_ops sp_op) {
   default:
     return UN_OP;
   }
+}
+
+const char *trace_warp_inst_t::opcode_str() {
+  if (m_opcode > 0 && m_opcode < SASS_NUM_OPCODES) {
+    return g_trace_instr_opcode_str[m_opcode - 1];
+    // return g_opcode_string[m_opcode];
+  }
+  return "<UNKNOWN>";
 }
 
 bool trace_warp_inst_t::parse_from_trace_struct(
@@ -82,6 +91,12 @@ bool trace_warp_inst_t::parse_from_trace_struct(
     if (it2 != OpcPowerMap->end())
       sp_op = (special_ops)(it2->second);
     oprnd_type = get_oprnd_type(op, sp_op);
+
+    assert(m_opcode > 0);
+    printf("====> instruction %s parsed as %s (%u) [%lu active threads]\n",
+           opcode1.c_str(), g_trace_instr_opcode_str[m_opcode - 1], m_opcode,
+           active_mask.count());
+
   } else {
     std::cout << "ERROR:  undefined instruction : " << trace.opcode
               << " Opcode: " << opcode1 << std::endl;

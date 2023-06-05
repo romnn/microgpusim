@@ -99,6 +99,7 @@ pub struct InnerSIMTCore<I> {
     pub block_status: [usize; MAX_CTA_PER_SHADER],
 
     // pub instr_l1_cache: l1::ReadOnly<I>,
+    // pub instr_l1_cache: Box<dyn cache::Cache>,
     pub instr_l1_cache: Box<dyn cache::Cache>,
     pub instr_fetch_buffer: InstrFetchBuffer,
     // pub warps: Vec<Arc<sched::SchedulerWarp>>,
@@ -288,11 +289,11 @@ where
         // dbg!(&warps);
 
         // todo: use mem fetch interconn as well?
-        let port = ic::Interconnect {};
+        // let port = ic::Interconnect {};
         let instr_l1_cache = l1::ReadOnly::new(
             core_id,
             cluster_id,
-            port,
+            interconn.clone(),
             stats.clone(),
             config.clone(),
             config.inst_cache_l1.as_ref().unwrap().clone(),

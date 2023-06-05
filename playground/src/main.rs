@@ -31,24 +31,27 @@ fn main() -> eyre::Result<()> {
     let config = accelsim_config { test: 0 };
 
     let exe = std::env::current_exe()?;
-    let mut args = vec![
-        exe.as_os_str().to_str().unwrap(),
-        "-trace",
-        kernelslist.as_os_str().to_str().unwrap(),
-        "-config",
-        gpgpusim_config.as_os_str().to_str().unwrap(),
-        "-config",
-        trace_config.as_os_str().to_str().unwrap(),
-    ];
-    if let Some(inter_config) = inter_config.as_ref() {
-        args.extend([
-            "-inter_config_file",
-            inter_config.as_os_str().to_str().unwrap(),
-        ]);
-    }
-
     let os_args: Vec<_> = std::env::args().collect();
-    args = os_args.iter().map(String::as_str).collect();
+    let mut args = os_args.iter().map(String::as_str).collect();
+
+    if os_args.len() <= 1 {
+        // fill in defaults
+        args = vec![
+            exe.as_os_str().to_str().unwrap(),
+            "-trace",
+            kernelslist.as_os_str().to_str().unwrap(),
+            "-config",
+            gpgpusim_config.as_os_str().to_str().unwrap(),
+            "-config",
+            trace_config.as_os_str().to_str().unwrap(),
+        ];
+        if let Some(inter_config) = inter_config.as_ref() {
+            args.extend([
+                "-inter_config_file",
+                inter_config.as_os_str().to_str().unwrap(),
+            ]);
+        }
+    }
     dbg!(&args);
 
     let ret_code = accelsim(config, &args);
