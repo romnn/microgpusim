@@ -365,6 +365,8 @@ void trace_shader_core_ctx::create_schedulers() {
       : sched_config.find("warp_limiting") != std::string::npos
           ? CONCRETE_SCHEDULER_WARP_LIMITING
           : NUM_CONCRETE_SCHEDULERS;
+  printf("SCHEDULER: using %s implementation\n",
+         g_concrete_scheduler_str[scheduler]);
   assert(scheduler != NUM_CONCRETE_SCHEDULERS);
 
   for (unsigned i = 0; i < m_config->gpgpu_num_sched_per_core; i++) {
@@ -776,14 +778,20 @@ void trace_shader_core_ctx::issue() {
 
 void trace_shader_core_ctx::decode() {
   // printf("instruction buffer valid: %x\n", m_inst_fetch_buffer.m_valid);
-
+  printf("\ntrace_shader_core_ctx::decode() valid=%d\n",
+         m_inst_fetch_buffer.m_valid);
   if (m_inst_fetch_buffer.m_valid) {
+    fprintf(stderr, "DECODE: inst fetch buffer valid after %llu cycles\n",
+            m_gpu->gpu_sim_cycle);
+    throw std::runtime_error("DECODE: inst fetch buffer valid");
+
     // decode 1 or 2 instructions and place them into ibuffer
     address_type pc = m_inst_fetch_buffer.m_pc;
     const warp_inst_t *pI1 = get_next_inst(m_inst_fetch_buffer.m_warp_id, pc);
     m_warp[m_inst_fetch_buffer.m_warp_id]->ibuffer_fill(0, pI1);
     m_warp[m_inst_fetch_buffer.m_warp_id]->inc_inst_in_pipeline();
     if (pI1) {
+      printf("pI1 = %d\n", pI1->op);
       m_stats->m_num_decoded_insn[m_sid]++;
       if ((pI1->oprnd_type == INT_OP) ||
           (pI1->oprnd_type == UN_OP)) { // these counters get added up in mcPat
@@ -812,6 +820,8 @@ void trace_shader_core_ctx::decode() {
 }
 
 void trace_shader_core_ctx::fetch() {
+  printf("\ntrace_shader_core_ctx::fetch() valid=%d access_ready=%d\n",
+         m_inst_fetch_buffer.m_valid, m_L1I->access_ready());
   if (!m_inst_fetch_buffer.m_valid) {
     if (m_L1I->access_ready()) {
       mem_fetch *mf = m_L1I->next_access();
@@ -833,6 +843,7 @@ void trace_shader_core_ctx::fetch() {
       for (unsigned i = 0; i < m_config->max_warps_per_shader; i++) {
         unsigned warp_id =
             (m_last_warp_fetched + 1 + i) % m_config->max_warps_per_shader;
+        printf("\twarp_id = %u\n", warp_id);
 
         // this code checks if this warp has finished executing and can be
         // reclaimed
@@ -864,8 +875,6 @@ void trace_shader_core_ctx::fetch() {
         }
 
         // this code fetches instructions from the i-cache or generates memory
-        // printf("==> FETCH: warp %d trace done %d (%d/%lu) functional done %d
-        // "
         //        "(%d/%d) (%lu active)\n",
         //        m_warp[warp_id]->get_warp_id(), m_warp[warp_id]->trace_done(),
         //        m_warp[warp_id]->trace_pc,
@@ -896,6 +905,8 @@ void trace_shader_core_ctx::fetch() {
               m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle);
           std::list<cache_event> events;
           enum cache_request_status status;
+
+          printf("m_L1I->access(addr=%lu)\n", ppc);
           if (m_config->perfect_inst_const_cache) {
             status = HIT;
             shader_cache_access_log(m_sid, INSTRUCTION, 0);
@@ -904,6 +915,7 @@ void trace_shader_core_ctx::fetch() {
                 (new_addr_type)ppc, mf,
                 m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle, events);
 
+          printf("m_L1I->access(addr=%lu) -> hit = %d\n", ppc, status == HIT);
           if (status == MISS) {
             m_last_warp_fetched = warp_id;
             m_warp[warp_id]->set_imiss_pending();

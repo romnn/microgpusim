@@ -174,8 +174,142 @@ bool trace_gpgpu_sim::active() {
   return false;
 }
 
-unsigned long long g_single_step =
-    0; // set this in gdb to single step the pipeline
+// set this in gdb to single step the pipeline
+unsigned long long g_single_step = 0;
+
+// simpler version of the main loop, which does not use different clock domains.
+void trace_gpgpu_sim::simple_cycle() {
+  printf("=============== cycle %llu ========== \n\n", gpu_sim_cycle);
+
+  for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++)
+    m_cluster[i]->icnt_cycle();
+
+  unsigned partiton_replys_in_parallel_per_cycle = 0;
+  // pop from memory controller to interconnect
+
+  printf("pop from %d memory sub partitions\n",
+         m_memory_config->m_n_mem_sub_partition);
+  for (unsigned i = 0; i < m_memory_config->m_n_mem_sub_partition; i++) {
+    mem_fetch *mf = m_memory_sub_partition[i]->top();
+    if (mf) {
+      unsigned response_size =
+          mf->get_is_write() ? mf->get_ctrl_size() : mf->size();
+      if (::icnt_has_buffer(m_shader_config->mem2device(i), response_size)) {
+        // if (!mf->get_is_write())
+        mf->set_return_timestamp(gpu_sim_cycle + gpu_tot_sim_cycle);
+        mf->set_status(IN_ICNT_TO_SHADER, gpu_sim_cycle + gpu_tot_sim_cycle);
+        ::icnt_push(m_shader_config->mem2device(i), mf->get_tpc(), mf,
+                    response_size);
+        m_memory_sub_partition[i]->pop();
+        partiton_replys_in_parallel_per_cycle++;
+      } else {
+        gpu_stall_icnt2sh++;
+      }
+    } else {
+      m_memory_sub_partition[i]->pop();
+    }
+  }
+  partiton_replys_in_parallel += partiton_replys_in_parallel_per_cycle;
+
+  printf("cycle for %d drams\n", m_memory_config->m_n_mem);
+  for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
+    if (m_memory_config->simple_dram_model)
+      m_memory_partition_unit[i]->simple_dram_model_cycle();
+    else
+      m_memory_partition_unit[i]
+          ->dram_cycle(); // Issue the dram command (scheduler + delay model)
+  }
+
+  printf("move mem reqs from icnt to %d mem partitions\n",
+         m_memory_config->m_n_mem_sub_partition);
+  unsigned partiton_reqs_in_parallel_per_cycle = 0;
+  for (unsigned i = 0; i < m_memory_config->m_n_mem_sub_partition; i++) {
+    // move memory request from interconnect into memory partition (if not
+    // backed up) Note:This needs to be called in DRAM clock domain if there
+    // is no L2 cache in the system In the worst case, we may need to push
+    // SECTOR_CHUNCK_SIZE requests, so ensure you have enough buffer for them
+    if (m_memory_sub_partition[i]->full(SECTOR_CHUNCK_SIZE)) {
+      gpu_stall_dramfull++;
+    } else {
+      mem_fetch *mf = (mem_fetch *)icnt_pop(m_shader_config->mem2device(i));
+      m_memory_sub_partition[i]->push(mf, gpu_sim_cycle + gpu_tot_sim_cycle);
+      if (mf)
+        partiton_reqs_in_parallel_per_cycle++;
+    }
+    m_memory_sub_partition[i]->cache_cycle(gpu_sim_cycle + gpu_tot_sim_cycle);
+  }
+
+  partiton_reqs_in_parallel += partiton_reqs_in_parallel_per_cycle;
+  if (partiton_reqs_in_parallel_per_cycle > 0) {
+    partiton_reqs_in_parallel_util += partiton_reqs_in_parallel_per_cycle;
+    gpu_sim_cycle_parition_util++;
+  }
+
+  printf("icnt transfer\n");
+  icnt_transfer();
+
+  // L1 cache + shader core pipeline stages
+  printf("core cycle for %d clusters\n", m_shader_config->n_simt_clusters);
+  for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
+    if (m_cluster[i]->get_not_completed() || get_more_cta_left()) {
+      m_cluster[i]->core_cycle();
+      *active_sms += m_cluster[i]->get_n_active_sms();
+    }
+    m_cluster[i]->get_current_occupancy(
+        gpu_occupancy.aggregate_warp_slot_filled,
+        gpu_occupancy.aggregate_theoretical_warp_slots);
+  }
+  float temp = 0;
+  for (unsigned i = 0; i < m_shader_config->num_shader(); i++) {
+    temp += m_shader_stats->m_pipeline_duty_cycle[i];
+  }
+  temp = temp / m_shader_config->num_shader();
+  *average_pipeline_duty_cycle = ((*average_pipeline_duty_cycle) + temp);
+
+  gpu_sim_cycle++;
+
+  printf("issueing block to core\n");
+  issue_block2core();
+  decrement_kernel_latency();
+
+  // Depending on configuration, invalidate the caches once all threads
+  // completed.
+  int all_threads_complete = 1;
+  if (m_config.gpgpu_flush_l1_cache) {
+
+    printf("flushing l1 caches\n");
+    for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
+      if (m_cluster[i]->get_not_completed() == 0)
+        m_cluster[i]->cache_invalidate();
+      else
+        all_threads_complete = 0;
+    }
+  }
+
+  if (m_config.gpgpu_flush_l2_cache) {
+    if (!m_config.gpgpu_flush_l1_cache) {
+      printf("flushing l2 caches\n");
+      for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
+        if (m_cluster[i]->get_not_completed() != 0) {
+          all_threads_complete = 0;
+          break;
+        }
+      }
+    }
+
+    if (all_threads_complete && !m_memory_config->m_L2_config.disabled()) {
+      printf("flushed L2 caches...\n");
+      if (m_memory_config->m_L2_config.get_num_lines()) {
+        int dlc = 0;
+        for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
+          dlc = m_memory_sub_partition[i]->flushL2();
+          assert(dlc == 0); // TODO: need to model actual writes to DRAM here
+          printf("dirty lines flushed from L2 %d is %d\n", i, dlc);
+        }
+      }
+    }
+  }
+}
 
 void trace_gpgpu_sim::cycle() {
   // guess: clock mask is which clock domains are active in this cycle (core,
@@ -199,6 +333,7 @@ void trace_gpgpu_sim::cycle() {
           // if (!mf->get_is_write())
           mf->set_return_timestamp(gpu_sim_cycle + gpu_tot_sim_cycle);
           mf->set_status(IN_ICNT_TO_SHADER, gpu_sim_cycle + gpu_tot_sim_cycle);
+          printf("trace_gpgpu_sim: icnt_push(%lu)\n", mf->get_addr());
           ::icnt_push(m_shader_config->mem2device(i), mf->get_tpc(), mf,
                       response_size);
           m_memory_sub_partition[i]->pop();

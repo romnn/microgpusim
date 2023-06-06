@@ -55,6 +55,8 @@ public:
     m_cdp_dummy = false;
   }
 
+  unsigned long instruction_count() const;
+
   std::vector<inst_trace_t> warp_traces;
   const warp_inst_t *get_next_trace_inst();
   void clear();
@@ -154,7 +156,7 @@ public:
   unsigned get_dynamic_warp_id() const { return m_dynamic_warp_id; }
   unsigned get_warp_id() const { return m_warp_id; }
 
-  class trace_shader_core_ctx *get_shader() { return m_shader; }
+  class trace_shader_core_ctx *get_shader() const { return m_shader; }
 
   unsigned int m_cdp_latency;
   bool m_cdp_dummy;

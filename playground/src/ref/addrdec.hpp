@@ -47,6 +47,12 @@ struct addrdec_t {
 class linear_to_raw_address_translation {
 public:
   linear_to_raw_address_translation();
+  void configure() {
+    addrdec_option = 0;
+    run_test = 0;
+    gpgpu_mem_address_mask = 0;
+    memory_partition_indexing = (partition_index_function)0;
+  };
   void addrdec_setoption(option_parser_t opp);
   void init(unsigned int n_channel, unsigned int n_sub_partition_in_channel);
 

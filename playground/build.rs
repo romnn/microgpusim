@@ -92,11 +92,14 @@ fn generate_bridge(bridges: &[PathBuf], sources: &[PathBuf]) -> eyre::Result<()>
         .static_flag(true)
         .opt_level(0)
         .debug(true)
+        .warnings(false)
+        .flag("-std=c++14")
         .files(sources)
         .object(test[0])
-        .object(test[1])
-        .flag("-std=c++14")
-        .warnings(false);
+        .object(test[1]);
+
+    // our custom build
+    build.define("BOX", "YES");
 
     enable_diagnostics_color(&mut build);
     build.try_compile("playgroundbridge")?;

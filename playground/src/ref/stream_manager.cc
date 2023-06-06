@@ -44,6 +44,8 @@ bool stream_manager::register_finished_kernel(unsigned grid_uid) {
   // called by gpu simulation thread
   if (grid_uid > 0) {
     CUstream_st *stream = m_grid_id_to_stream[grid_uid];
+    // TODO (ROMAN): could check if stream is empty here if we exit before
+    // assigning to streams
     trace_kernel_info_t *kernel = stream->front().get_kernel();
     assert(grid_uid == kernel->get_uid());
 

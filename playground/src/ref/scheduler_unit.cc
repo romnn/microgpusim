@@ -28,12 +28,19 @@ void scheduler_unit::cycle() {
            m_next_cycle_prioritized_warps.begin();
        iter != m_next_cycle_prioritized_warps.end(); iter++) {
     // Don't consider warps that are not yet valid
-    if ((*iter) == NULL || (*iter)->done_exit()) {
+    const trace_shd_warp_t *next_warp = *iter;
+    if (next_warp == NULL || next_warp->done_exit()) {
       continue;
     }
+    if (next_warp->instruction_count() > 0) {
+      printf("Testing (warp_id %u, dynamic_warp_id %u, pc=%lu, %lu "
+             "instructions)\n",
+             next_warp->get_warp_id(), next_warp->get_dynamic_warp_id(),
+             next_warp->get_pc(), next_warp->instruction_count());
+    }
     SCHED_DPRINTF("Testing (warp_id %u, dynamic_warp_id %u)\n",
-                  (*iter)->get_warp_id(), (*iter)->get_dynamic_warp_id());
-    unsigned warp_id = (*iter)->get_warp_id();
+                  next_warp->get_warp_id(), next_warp->get_dynamic_warp_id());
+    unsigned warp_id = next_warp->get_warp_id();
     unsigned checked = 0;
     unsigned issued = 0;
     exec_unit_type_t previous_issued_inst_exec_type = exec_unit_type_t::NONE;
@@ -45,16 +52,29 @@ void scheduler_unit::cycle() {
                                                 // units (as in Maxwell and
                                                 // Pascal)
 
+    if (next_warp->instruction_count() > 0) {
+      if (warp(warp_id).ibuffer_empty())
+        printf("\t => Warp (warp_id %u, dynamic_warp_id %u) fails as "
+               "ibuffer_empty\n",
+               next_warp->get_warp_id(), next_warp->get_dynamic_warp_id());
+
+      if (warp(warp_id).waiting())
+        printf(
+            "\t => Warp (warp_id %u, dynamic_warp_id %u) fails as waiting for "
+            "barrier\n",
+            next_warp->get_warp_id(), next_warp->get_dynamic_warp_id());
+    }
+
     if (warp(warp_id).ibuffer_empty())
       SCHED_DPRINTF(
           "Warp (warp_id %u, dynamic_warp_id %u) fails as ibuffer_empty\n",
-          (*iter)->get_warp_id(), (*iter)->get_dynamic_warp_id());
+          next_warp->get_warp_id(), next_warp->get_dynamic_warp_id());
 
     if (warp(warp_id).waiting())
       SCHED_DPRINTF(
           "Warp (warp_id %u, dynamic_warp_id %u) fails as waiting for "
           "barrier\n",
-          (*iter)->get_warp_id(), (*iter)->get_dynamic_warp_id());
+          next_warp->get_warp_id(), next_warp->get_dynamic_warp_id());
 
     while (!warp(warp_id).waiting() && !warp(warp_id).ibuffer_empty() &&
            (checked < max_issue) && (checked <= issued) &&
@@ -77,17 +97,21 @@ void scheduler_unit::cycle() {
       unsigned pc, rpc;
       if (pI)
         m_shader->get_pdom_stack_top_info(warp_id, pI, &pc, &rpc);
+
       SCHED_DPRINTF(
           "Warp (warp_id %u, dynamic_warp_id %u) has valid instruction (%s)\n",
-          (*iter)->get_warp_id(), (*iter)->get_dynamic_warp_id(), "todo",
+          next_warp->get_warp_id(), next_warp->get_dynamic_warp_id(), "todo",
           m_shader->m_config->gpgpu_ctx->func_sim->ptx_get_insn_str(pc)
               .c_str());
       if (pI) {
         assert(valid);
+        assert(pI->pc == pc &&
+               pc == rpc); // trace driven mode has no control hazards
         if (pc != pI->pc) {
           SCHED_DPRINTF("Warp (warp_id %u, dynamic_warp_id %u) control hazard "
                         "instruction flush\n",
-                        (*iter)->get_warp_id(), (*iter)->get_dynamic_warp_id());
+                        next_warp->get_warp_id(),
+                        next_warp->get_dynamic_warp_id());
           // control hazard
           warp(warp_id).set_next_pc(pc);
           warp(warp_id).ibuffer_flush();
@@ -96,7 +120,7 @@ void scheduler_unit::cycle() {
           if (!m_scoreboard->checkCollision(warp_id, pI)) {
             SCHED_DPRINTF(
                 "Warp (warp_id %u, dynamic_warp_id %u) passes scoreboard\n",
-                (*iter)->get_warp_id(), (*iter)->get_dynamic_warp_id());
+                next_warp->get_warp_id(), next_warp->get_dynamic_warp_id());
             ready_inst = true;
 
             const active_mask_t &active_mask =
@@ -272,7 +296,7 @@ void scheduler_unit::cycle() {
           } else {
             SCHED_DPRINTF(
                 "Warp (warp_id %u, dynamic_warp_id %u) fails scoreboard\n",
-                (*iter)->get_warp_id(), (*iter)->get_dynamic_warp_id());
+                next_warp->get_warp_id(), next_warp->get_dynamic_warp_id());
           }
         }
       } else if (valid) {
@@ -280,14 +304,14 @@ void scheduler_unit::cycle() {
         SCHED_DPRINTF(
             "Warp (warp_id %u, dynamic_warp_id %u) return from diverged warp "
             "flush\n",
-            (*iter)->get_warp_id(), (*iter)->get_dynamic_warp_id());
+            next_warp->get_warp_id(), next_warp->get_dynamic_warp_id());
         warp(warp_id).set_next_pc(pc);
         warp(warp_id).ibuffer_flush();
       }
       if (warp_inst_issued) {
         SCHED_DPRINTF(
             "Warp (warp_id %u, dynamic_warp_id %u) issued %u instructions\n",
-            (*iter)->get_warp_id(), (*iter)->get_dynamic_warp_id(), issued);
+            next_warp->get_warp_id(), next_warp->get_dynamic_warp_id(), issued);
         do_on_warp_issued(warp_id, issued, iter);
       }
       checked++;
@@ -302,7 +326,7 @@ void scheduler_unit::cycle() {
       for (std::vector<trace_shd_warp_t *>::const_iterator supervised_iter =
                m_supervised_warps.begin();
            supervised_iter != m_supervised_warps.end(); ++supervised_iter) {
-        if (*iter == *supervised_iter) {
+        if (next_warp == *supervised_iter) {
           m_last_supervised_issued = supervised_iter;
         }
       }

@@ -271,6 +271,9 @@ bool InterconnectInterface::HasBuffer(unsigned deviceID,
   has_buffer = _traffic_manager->_input_queue[0][icntID][0].size() + n_flits <=
                _input_buffer_capacity;
 
+  printf("InterconnectInterface::HasBuffer(dev=%u, size=%u): "
+         "_input_buffer_capacity = %u\n",
+         deviceID, size, _input_buffer_capacity);
   if ((_subnets > 1) && deviceID >= _n_shader) // deviceID is memory node
     has_buffer =
         _traffic_manager->_input_queue[1][icntID][0].size() + n_flits <=

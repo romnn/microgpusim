@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "bridge/accelsim_config.hpp"
 #include "gpgpu_context.hpp"
 #include "gpgpu_functional_sim_config.hpp"
 #include "memory_config.hpp"
@@ -41,12 +42,64 @@ public:
     gpgpu_ctx = ctx;
   }
   void reg_options(class OptionParser *opp);
+  void configure(const accelsim_config &config) {
+    // gpgpu_functional_sim_config::reg_options(opp);
+    // m_shader_config.reg_options(opp);
+    // m_memory_config.reg_options(opp);
+    // power_config::reg_options(opp);
+    m_shader_config.configure();
+    m_memory_config.configure();
+
+    gpu_max_cycle_opt = 0;
+    gpu_max_insn_opt = 0;
+    gpu_max_cta_opt = 0;
+    gpu_max_completed_cta_opt = 0;
+    gpgpu_runtime_stat = 0;
+    liveness_message_freq = 0;
+    gpgpu_compute_capability_major = 0;
+    gpgpu_compute_capability_minor = 0;
+    gpgpu_flush_l1_cache = 0;
+    gpgpu_flush_l2_cache = 0;
+    gpu_deadlock_detect = 0;
+    gpgpu_ctx->func_sim->gpgpu_ptx_instruction_classification = 0;
+    gpgpu_ctx->func_sim->g_ptx_sim_mode = 0;
+    gpgpu_clock_domains = 0;
+    max_concurrent_kernel = 0;
+    gpgpu_cflog_interval = 0;
+    g_visualizer_enabled = 0;
+    g_visualizer_filename = 0;
+    stack_size_limit = 0;
+    heap_size_limit = 0;
+    runtime_sync_depth_limit = 0;
+    runtime_pending_launch_count_limit = 0;
+    Trace::enabled = 0;
+    Trace::config_str = 0;
+    Trace::sampling_core = 0;
+    Trace::sampling_memory_partition = 0;
+    Trace::sampling_memory_partition = 0;
+
+    // gpgpu_ctx->stats->ptx_file_line_stats_options(opp);
+
+    gpgpu_ctx->device_runtime->g_kernel_launch_latency = 0;
+    gpgpu_ctx->device_runtime->g_cdp_enabled = 0;
+    gpgpu_ctx->device_runtime->g_TB_launch_latency = 0;
+    gpgpu_ctx->device_runtime->g_TB_launch_latency = 0;
+  }
+
   void init() {
 
     gpu_stat_sample_freq = 10000;
     gpu_runtime_stat_flag = 0;
     sscanf(gpgpu_runtime_stat, "%d:%x", &gpu_stat_sample_freq,
            &gpu_runtime_stat_flag);
+
+    // ROMAN TODO: we override config here
+    m_shader_config.n_simt_clusters = 1;
+    m_shader_config.n_simt_cores_per_cluster = 1;
+    m_shader_config.gpgpu_num_sched_per_core = 1;
+    gpu_max_cycle_opt = 2000;
+    // END
+
     m_shader_config.init();
     ptx_set_tex_cache_linesize(m_shader_config.m_L1T_config.get_line_sz());
     m_memory_config.init();
@@ -88,13 +141,15 @@ public:
 
   bool flush_l1() const { return gpgpu_flush_l1_cache; }
 
+  shader_core_config m_shader_config;
+
 private:
   void init_clock_domains(void);
 
   // backward pointer
   class gpgpu_context *gpgpu_ctx;
   bool m_valid;
-  shader_core_config m_shader_config;
+  // shader_core_config m_shader_config;
   memory_config m_memory_config;
   // clock domains - frequency
   double core_freq;

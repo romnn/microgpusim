@@ -37,6 +37,34 @@ public:
   trace_gpgpu_sim(const gpgpu_sim_config &config, gpgpu_context *ctx)
       : m_config(config) {
     gpgpu_ctx = ctx;
+    // m_global_mem = new memory_space_impl<8192>("global", 64 * 1024);
+    // m_tex_mem = new memory_space_impl<8192>("tex", 64 * 1024);
+    // m_surf_mem = new memory_space_impl<8192>("surf", 64 * 1024);
+
+    // m_dev_malloc = GLOBAL_HEAP_START;
+    // checkpoint_option = m_function_model_config.get_checkpoint_option();
+    // checkpoint_kernel = m_function_model_config.get_checkpoint_kernel();
+    // checkpoint_CTA = m_function_model_config.get_checkpoint_CTA();
+    // resume_option = m_function_model_config.get_resume_option();
+    // resume_kernel = m_function_model_config.get_resume_kernel();
+    // resume_CTA = m_function_model_config.get_resume_CTA();
+    // checkpoint_CTA_t = m_function_model_config.get_checkpoint_CTA_t();
+    // checkpoint_insn_Y = m_function_model_config.get_checkpoint_insn_Y();
+
+    // initialize texture mappings to empty
+    // m_NameToTextureInfo.clear();
+    // m_NameToCudaArray.clear();
+    // m_TextureRefToName.clear();
+    // m_NameToAttribute.clear();
+
+    // if (m_function_model_config.get_ptx_inst_debug_to_file() != 0)
+    //   ptx_inst_debug_file =
+    //       fopen(m_function_model_config.get_ptx_inst_debug_file(), "w");
+
+    gpu_sim_cycle = 0;
+    gpu_tot_sim_cycle = 0;
+
+    gpgpu_ctx = ctx;
     m_shader_config = &m_config.m_shader_config;
     m_memory_config = &m_config.m_memory_config;
 
@@ -127,6 +155,7 @@ public:
 
   void init();
   void cycle();
+  void simple_cycle();
   bool active();
   bool cycle_insn_cta_max_hit() {
     return (m_config.gpu_max_cycle_opt && (gpu_tot_sim_cycle + gpu_sim_cycle) >=

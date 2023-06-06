@@ -1,0 +1,10 @@
+#include "concrete_scheduler.hpp"
+
+const char *g_concrete_scheduler_str[] = {
+    "CONCRETE_SCHEDULER_LRR",
+    "CONCRETE_SCHEDULER_GTO",
+    "CONCRETE_SCHEDULER_TWO_LEVEL_ACTIVE",
+    "CONCRETE_SCHEDULER_RRR",
+    "CONCRETE_SCHEDULER_WARP_LIMITING",
+    "CONCRETE_SCHEDULER_OLDEST_FIRST",
+};

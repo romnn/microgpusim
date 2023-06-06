@@ -6,6 +6,7 @@
 #include "trace_warp_inst.hpp"
 
 const warp_inst_t *trace_shd_warp_t::get_next_trace_inst() {
+#ifdef BOX
   while (trace_pc < warp_traces.size()) {
     trace_warp_inst_t *new_inst =
         new trace_warp_inst_t(get_shader()->get_config());
@@ -27,25 +28,48 @@ const warp_inst_t *trace_shd_warp_t::get_next_trace_inst() {
     }
   }
   return NULL;
+#else
+  if (trace_pc < warp_traces.size()) {
+    trace_warp_inst_t *new_inst =
+        new trace_warp_inst_t(get_shader()->get_config());
 
-  // original (no skip) implementation
-  // if (trace_pc < warp_traces.size()) {
-  //   trace_warp_inst_t *new_inst =
-  //       new trace_warp_inst_t(get_shader()->get_config());
-  //
-  //   const inst_trace_t &trace = warp_traces[trace_pc];
-  //   new_inst->parse_from_trace_struct(trace, m_kernel_info->OpcodeMap,
-  //                                     m_kernel_info->m_tconfig,
-  //                                     m_kernel_info->m_kernel_trace_info);
-  //
-  //   printf("====> trace_shd_warp_t::get_next_trace_inst(): opcode = %s (%s, "
-  //          "%d)\n",
-  //          trace.opcode.c_str(), new_inst->opcode_str(), new_inst->opcode());
-  //
-  //   trace_pc++;
-  //   return new_inst;
-  // } else
-  //   return NULL;
+    const inst_trace_t &trace = warp_traces[trace_pc];
+    new_inst->parse_from_trace_struct(trace, m_kernel_info->OpcodeMap,
+                                      m_kernel_info->m_tconfig,
+                                      m_kernel_info->m_kernel_trace_info);
+
+    printf("====> trace_shd_warp_t::get_next_trace_inst(): opcode = %s (%s, "
+           "%d)\n",
+           trace.opcode.c_str(), new_inst->opcode_str(), new_inst->opcode());
+
+    trace_pc++;
+    return new_inst;
+  } else
+    return NULL;
+#endif
+}
+
+unsigned long trace_shd_warp_t::instruction_count() const {
+#ifdef BOX
+  unsigned count = 0;
+  for (const inst_trace_t &trace : warp_traces) {
+    trace_warp_inst_t *new_inst =
+        new trace_warp_inst_t(get_shader()->get_config());
+
+    new_inst->parse_from_trace_struct(trace, m_kernel_info->OpcodeMap,
+                                      m_kernel_info->m_tconfig,
+                                      m_kernel_info->m_kernel_trace_info);
+
+    // note: we do not count exit
+    if (new_inst->op == LOAD_OP || new_inst->op == STORE_OP ||
+        new_inst->opcode() == OP_LDC) {
+      count++;
+    }
+  }
+  return count;
+#else
+  return warp_traces.size();
+#endif
 }
 
 void trace_shd_warp_t::clear() {

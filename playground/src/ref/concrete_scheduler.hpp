@@ -1,5 +1,7 @@
 #pragma once
 
+extern const char *g_concrete_scheduler_str[];
+
 // Each of these corresponds to a string value in the gpgpsim.config file
 // For example - to specify the LRR scheudler the config must contain lrr
 enum concrete_scheduler {

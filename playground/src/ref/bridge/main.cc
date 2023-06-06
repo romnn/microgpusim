@@ -15,12 +15,8 @@ trace_kernel_info_t *create_kernel_info(kernel_trace_t *kernel_trace_info,
                                         class trace_config *config,
                                         trace_parser *parser);
 
-trace_gpgpu_sim *gpgpu_trace_sim_init_perf_model(
-    gpgpu_context *m_gpgpu_context, trace_config *m_config,
-    const accelsim_config &config, const std::vector<const char *> &argv) {
-  // seed random
-  srand(1);
-
+void cli_configure(gpgpu_context *m_gpgpu_context, trace_config &m_config,
+                   const std::vector<const char *> &argv, bool silent) {
   // register cli options
   option_parser_t opp = option_parser_create();
   m_gpgpu_context->ptx_reg_options(opp);
@@ -32,23 +28,49 @@ trace_gpgpu_sim *gpgpu_trace_sim_init_perf_model(
       new gpgpu_sim_config(m_gpgpu_context);
   m_gpgpu_context->the_gpgpusim->g_the_gpu_config->reg_options(
       opp); // register GPU microrachitecture options
-  m_config->reg_options(opp);
+  m_config.reg_options(opp);
 
-  fprintf(stdout, "GPGPU-Sim: Registered options:\n\n");
-  option_parser_print_registered(opp, stdout);
+  if (!silent) {
+    fprintf(stdout, "GPGPU-Sim: Registered options:\n\n");
+    option_parser_print_registered(opp, stdout);
+  }
 
   // parse configuration options
   option_parser_cmdline(opp, argv);
-  fprintf(stdout, "GPGPU-Sim: Configuration options:\n\n");
-  option_parser_print(opp, stdout);
+
+  if (!silent) {
+    fprintf(stdout, "GPGPU-Sim: Configuration options:\n\n");
+    option_parser_print(opp, stdout);
+  }
+
+  // initialize config (parse gpu config from cli values)
+  m_gpgpu_context->the_gpgpusim->g_the_gpu_config->init();
+}
+
+trace_gpgpu_sim *gpgpu_trace_sim_init_perf_model(
+    gpgpu_context *m_gpgpu_context, trace_config &m_config,
+    const accelsim_config &config, const std::vector<const char *> &argv,
+    bool silent) {
+  // seed random
+  srand(1);
 
   // Set the Numeric locale to a standard locale where a decimal point is a
   // "dot" not a "comma" so it does the parsing correctly independent of the
   // system environment variables
   assert(setlocale(LC_NUMERIC, "C"));
 
-  // initialize config (parse gpu config from cli values)
-  m_gpgpu_context->the_gpgpusim->g_the_gpu_config->init();
+  // configure using cli
+  cli_configure(m_gpgpu_context, m_config, argv, silent);
+
+  // TODO: configure using config
+  // m_gpgpu_context->the_gpgpusim->g_the_gpu_config->configure(config);
+
+  assert(m_gpgpu_context->the_gpgpusim->g_the_gpu_config->m_shader_config
+             .n_simt_clusters == 1);
+  assert(m_gpgpu_context->the_gpgpusim->g_the_gpu_config->m_shader_config
+             .n_simt_cores_per_cluster == 1);
+  assert(m_gpgpu_context->the_gpgpusim->g_the_gpu_config->m_shader_config
+             .gpgpu_num_sched_per_core == 1);
 
   m_gpgpu_context->the_gpgpusim->g_the_gpu = new trace_gpgpu_sim(
       *(m_gpgpu_context->the_gpgpusim->g_the_gpu_config), m_gpgpu_context);
@@ -86,6 +108,18 @@ trace_kernel_info_t *create_kernel_info(kernel_trace_t *kernel_trace_info,
 int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv) {
   std::cout << "Accel-Sim [build <box>]" << std::endl;
 
+  bool silent = false;
+#ifdef BOX
+  if (std::getenv("SILENT") && strcmp(std::getenv("SILENT"), "yes") == 0) {
+    silent = true;
+  }
+#endif
+
+  unsigned long long cycle_limit = 3;
+  if (std::getenv("CYCLES") && atoi(std::getenv("CYCLES")) > 0) {
+    cycle_limit = atoi(std::getenv("CYCLES"));
+  }
+
   std::vector<std::string> valid_argv;
   for (auto arg : argv)
     valid_argv.push_back(std::string(arg));
@@ -101,7 +135,7 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv) {
 
   // init trace based performance model
   trace_gpgpu_sim *m_gpgpu_sim = gpgpu_trace_sim_init_perf_model(
-      m_gpgpu_context, &tconfig, config, c_argv);
+      m_gpgpu_context, tconfig, config, c_argv, silent);
 
   m_gpgpu_sim->init();
 
@@ -154,7 +188,7 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv) {
         i++;
       } else {
         // unsupported commands will fail the simulation
-        assert(0 && "Undefined Command");
+        throw std::runtime_error("undefined command");
       }
     }
 
@@ -182,12 +216,29 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv) {
     unsigned finished_kernel_uid = 0;
 
     do {
+      unsigned long long cycle =
+          m_gpgpu_sim->gpu_tot_sim_cycle + m_gpgpu_sim->gpu_sim_cycle;
       if (!m_gpgpu_sim->active())
         break;
 
+#ifdef BOX
+      if (cycle >= cycle_limit) {
+        // dont wait for kernel to complete
+        // m_gpgpu_context->the_gpgpusim->g_stream_manager
+        //     ->stop_all_running_kernels();
+        printf("early exit after %llu cycles\n", cycle);
+        fflush(stdout);
+        return 0;
+      }
+#endif
+
       // performance simulation
       if (m_gpgpu_sim->active()) {
+#ifdef BOX
+        m_gpgpu_sim->simple_cycle();
+#else
         m_gpgpu_sim->cycle();
+#endif
         sim_cycles = true;
         m_gpgpu_sim->deadlock_check();
       } else {
@@ -226,10 +277,11 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv) {
         }
       }
       assert(k);
-      m_gpgpu_sim->print_stats();
+      if (!silent)
+        m_gpgpu_sim->print_stats();
     }
 
-    if (sim_cycles) {
+    if (!silent && sim_cycles) {
       m_gpgpu_sim->update_stats();
       m_gpgpu_context->print_simulation_time();
     }
