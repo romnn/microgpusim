@@ -230,6 +230,11 @@ impl<I> Base<I> {
         read_only: bool,
         write_allocate: bool,
     ) -> (bool, bool, Option<tag_array::EvictedBlockInfo>) {
+        println!(
+            "baseline cache: send read request (addr={}, block={})",
+            &addr, &block_addr
+        );
+
         let mut should_miss = false;
         let mut writeback = false;
         let mut evicted = None;
@@ -420,15 +425,16 @@ impl<I> cache::Component for Base<I>
 where
     // I: ic::MemPort,
     I: ic::MemFetchInterface,
+    // I: ic::Interconnect<crate::ported::core::Packet> + 'static,
 {
     /// Sends next request to lower level of memory
     fn cycle(&mut self) {
         println!("base cache: cycle");
         dbg!(&self.miss_queue.len());
         if let Some(fetch) = self.miss_queue.front() {
-            dbg!(&fetch);
             if !self.mem_port.full(fetch.data_size, fetch.is_write()) {
                 if let Some(fetch) = self.miss_queue.pop_front() {
+                    println!("baseline cache: push({})", fetch.addr());
                     self.mem_port.push(fetch);
                 }
             }
@@ -447,6 +453,7 @@ impl<I> Base<I>
 where
     // I: ic::MemPort,
     I: ic::MemFetchInterface,
+    // I: ic::Interconnect<crate::ported::core::Packet> + 'static,
 {
     /// Interface for response from lower memory level.
     ///
@@ -513,7 +520,7 @@ where
 mod tests {
     use super::Base;
     use crate::config;
-    use crate::ported::{interconn as ic, mem_fetch, stats::Stats};
+    use crate::ported::{interconn as ic, Packet, mem_fetch, stats::Stats};
     use std::sync::{Arc, Mutex};
 
     // struct Interconnect {}
@@ -533,7 +540,12 @@ mod tests {
         let config = Arc::new(config::GPUConfig::default());
         let cache_config = config.data_cache_l1.clone().unwrap();
         // let port = ic::Interconnect {};
-        let port = Arc::new(ic::CoreMemoryInterface {});
+        let interconn: Arc<ic::ToyInterconnect<Packet>> = Arc::new(ic::ToyInterconnect::new(0, 0, None));
+        let port = Arc::new(ic::CoreMemoryInterface {
+            interconn,
+            cluster_id: 0,
+            config: config.clone(),
+        });
 
         let base = Base::new(core_id, cluster_id, port, stats, config, cache_config);
         dbg!(&base);

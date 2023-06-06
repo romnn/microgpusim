@@ -5,7 +5,6 @@ use super::{
 use crate::{config::GPUConfig, ported::operand_collector::OperandCollectorRegisterFileUnit};
 use bitvec::{array::BitArray, BitArr};
 use console::style;
-use ic::MemPort;
 use std::sync::{Arc, Mutex};
 
 use super::{
@@ -269,15 +268,17 @@ pub struct LoadStoreUnit<I> {
     /// Pending writes warp -> register -> count
     pending_writes: HashMap<usize, HashMap<u32, usize>>,
     // interconn: ic::Interconnect,
-    // interconn: Arc<dyn ic::MemFetchInterface>,
-    interconn: Arc<I>,
+    interconn: Arc<dyn ic::MemFetchInterface>,
+    // interconn: Arc<I>,
     pipelined_simd_unit: PipelinedSimdUnitImpl,
     operand_collector: opcoll::OperandCollectorRegisterFileUnit,
+    phantom: std::marker::PhantomData<I>,
 }
 
 impl<I> LoadStoreUnit<I>
 where
-    I: ic::MemFetchInterface,
+    // I: ic::MemFetchInterface,
+    I: ic::Interconnect<super::core::Packet>,
 {
     pub fn new(
         core_id: usize,
@@ -309,6 +310,8 @@ where
         // get_shader_normal_cache_id(), m_icnt, m_mf_allocator,
         // IN_L1D_MISS_QUEUE, core->get_gpu());
 
+        let fetch_interconn = Arc::new(ic::MockCoreMemoryInterface {});
+
         let mut l1_latency_queue: Vec<Vec<Option<mem_fetch::MemFetch>>> = Vec::new();
         let data_l1 = if let Some(l1_config) = &config.data_cache_l1 {
             // initialize latency queue
@@ -321,7 +324,8 @@ where
             Some(l1::Data::new(
                 core_id,
                 cluster_id,
-                interconn.clone(),
+                fetch_interconn.clone(),
+                // interconn.clone(),
                 stats.clone(),
                 config.clone(),
                 l1_config.clone(),
@@ -345,10 +349,12 @@ where
             next_global: None,
             pending_writes: HashMap::new(),
             response_fifo: VecDeque::new(),
-            interconn,
+            // interconn,
+            interconn: fetch_interconn,
             pipelined_simd_unit,
             config,
             operand_collector,
+            phantom: std::marker::PhantomData,
         }
     }
 
@@ -546,9 +552,11 @@ where
             let size = access.req_size_bytes + control_size as u32;
 
             println!("Interconnect addr: {}, size={}", access.addr, size);
-            if self
-                .interconn
-                .full(size, instr.is_store() || instr.is_atomic())
+            todo!("load store unit interconn full");
+            if false
+            // self
+            // .interconn
+            // .full(size, instr.is_store() || instr.is_atomic())
             {
                 // stall_cond = ICNT_RC_FAIL;
             } else {
@@ -572,7 +580,7 @@ where
                     )
                 };
 
-                self.interconn.push(fetch);
+                // self.interconn.push(fetch);
                 instr.mem_access_queue.pop_back();
                 // // inst.clear_active( access.get_warp_mask() );
                 // if (inst.is_load()) {
@@ -791,7 +799,8 @@ where
 
 impl<I> SimdFunctionUnit for LoadStoreUnit<I>
 where
-    I: ic::MemFetchInterface,
+    // I: ic::MemFetchInterface,
+    I: ic::Interconnect<super::core::Packet>,
 {
     fn active_lanes_in_pipeline(&self) -> usize {
         let active = self.pipelined_simd_unit.active_lanes_in_pipeline();

@@ -1,10 +1,7 @@
+use crate::config;
 use crate::ported::{
     self, address, cache, cache_block, interconn as ic, mem_fetch, mshr, stats::Stats, tag_array,
 };
-// use super::{
-//     address, cache, cache_block, interconn as ic, mem_fetch, mshr, stats::Stats, tag_array,
-// };
-use crate::config;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
@@ -13,6 +10,8 @@ use std::sync::{Arc, Mutex};
 /// The cache uses a write-evict (global) or write-back (local) policy
 /// at the granularity of individual blocks.
 /// (the policy used in fermi according to the CUDA manual)
+///
+/// TODO: use base cache here!
 #[derive(Debug)]
 pub struct Data<I> {
     core_id: usize,
@@ -40,6 +39,7 @@ impl<I> Data<I>
 where
     // I: ic::MemPort,
     I: ic::MemFetchInterface,
+    // I: ic::Interconnect<crate::ported::core::Packet>,
 {
     pub fn new(
         core_id: usize,
@@ -627,8 +627,9 @@ impl<I> cache::Component for Data<I> {}
 
 impl<I> cache::Cache for Data<I>
 where
-    I: ic::MemFetchInterface,
     // I: ic::MemPort,
+    I: ic::MemFetchInterface,
+    // I: ic::Interconnect<crate::ported::core::Packet>,
 {
     fn access(
         &mut self,
@@ -782,14 +783,22 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use trace_model::{Command, KernelLaunch, MemAccessTraceEntry};
 
-    // struct Interconnect {}
-    //
+    struct MockFetchInterconn {}
+
     // impl mem_fetch::Interconnect for Interconnect {
     //     fn full(&self, size: u32, write: bool) -> bool {
     //         false
     //     }
     //     fn push(&self, mf: mem_fetch::MemFetch) {}
     // }
+
+    impl ic::MemFetchInterface for MockFetchInterconn {
+        fn full(&self, size: u32, write: bool) -> bool {
+            false
+        }
+
+        fn push(&self, fetch: mem_fetch::MemFetch) {}
+    }
 
     fn concat<T>(
         mut a: impl IntoIterator<Item = T>,
@@ -844,7 +853,7 @@ mod tests {
         let stats = Arc::new(Mutex::new(Stats::default()));
         let config = Arc::new(config::GPUConfig::default());
         let cache_config = config.data_cache_l1.clone().unwrap();
-        let interconn = Arc::new(ic::CoreMemoryInterface {});
+        let interconn = Arc::new(MockFetchInterconn {});
         let mut l1 = Data::new(
             core_id,
             cluster_id,
@@ -988,7 +997,7 @@ mod tests {
         let stats = Arc::new(Mutex::new(Stats::default()));
         let config = Arc::new(config::GPUConfig::default());
         let cache_config = config.data_cache_l1.clone().unwrap();
-        let interconn = Arc::new(ic::CoreMemoryInterface {});
+        let interconn = Arc::new(MockFetchInterconn {});
         let mut l1 = Data::new(
             core_id,
             cluster_id,

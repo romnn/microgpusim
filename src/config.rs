@@ -1111,4 +1111,11 @@ mod tests {
             }
         );
     }
+
+    #[test]
+    fn test_block_addr() {
+        let config = super::GPUConfig::default();
+        let instr_cache_config = config.inst_cache_l1.unwrap();
+        assert_eq!(instr_cache_config.block_addr(4026531848), 4026531840);
+    }
 }

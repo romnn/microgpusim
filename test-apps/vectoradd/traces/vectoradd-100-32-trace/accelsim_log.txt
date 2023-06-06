@@ -507,7 +507,7 @@ GPGPU-Sim uArch: clock freqs: 1607000000.000000:1607000000.000000:1607000000.000
 GPGPU-Sim uArch: clock periods: 0.00000000062227753578:0.00000000062227753578:0.00000000062227753578:0.00000000040000000000
 *** Initializing Memory Statistics ***
 GPGPU-Sim uArch: interconnect node map (shaderID+MemID to icntID)
-GPGPU-Sim uArch: Memory nodes ID start from index: 20
+GPGPU-Sim uArch: Memory nodes ID start from index: 1
 GPGPU-Sim uArch:    0   1   2   3   4   5   6
 GPGPU-Sim uArch:    7   8   9  10  11  12  13
 GPGPU-Sim uArch:   14  15  16  17  18  19  20
@@ -517,7 +517,7 @@ GPGPU-Sim uArch:   35  36  37  38  39  40  41
 GPGPU-Sim uArch:   42  43  44  45  46  47  48
 GPGPU-Sim uArch:   49
 GPGPU-Sim uArch: interconnect node reverse map (icntID to shaderID+MemID)
-GPGPU-Sim uArch: Memory nodes start from ID: 20
+GPGPU-Sim uArch: Memory nodes start from ID: 1
 GPGPU-Sim uArch:    0   1   2   3   4   5   6
 GPGPU-Sim uArch:    7   8   9  10  11  12  13
 GPGPU-Sim uArch:   14  15  16  17  18  19  20
@@ -703,9 +703,13 @@ Processing kernel /home/roman/dev/box/test-apps/vectoradd/traces/vectoradd-100-3
 -enable lineinfo = 0
 Header info loaded for kernel command : /home/roman/dev/box/test-apps/vectoradd/traces/vectoradd-100-32-trace/kernel-1.traceg
 launching kernel name: _Z6vecAddIfEvPT_S1_S1_i uid: 1
+=============== cycle 0 ========== 
+
 GPGPU-Sim uArch: Shader 0 bind to kernel 1 '_Z6vecAddIfEvPT_S1_S1_i'
 GPGPU-Sim uArch: CTA/core = 2, limited by: threads
 thread block = 0,0,0
+=============== cycle 1 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -713,6 +717,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 2 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -720,6 +726,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 3 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -727,6 +735,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 4 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -734,6 +744,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 5 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -741,6 +753,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 6 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -748,6 +762,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 7 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -755,6 +771,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 8 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -762,6 +780,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 9 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -769,6 +789,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 10 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -776,6 +798,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 11 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -783,6 +807,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 12 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -790,6 +816,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 13 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -797,6 +825,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 14 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -804,6 +834,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 15 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -811,6 +843,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 16 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -818,6 +852,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 17 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -825,6 +861,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 18 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -832,6 +870,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 19 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -839,6 +879,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 20 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -846,6 +888,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 21 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -853,6 +897,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 22 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -860,6 +906,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 23 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -867,6 +915,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 24 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -874,6 +924,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 25 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -881,6 +933,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 26 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -888,6 +942,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 27 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -895,6 +951,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 28 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -902,6 +960,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 29 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -909,6 +969,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 30 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -916,6 +978,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 31 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -923,6 +987,8 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 32 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
@@ -930,6 +996,202 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
+=============== cycle 33 ========== 
+
+=============== cycle 34 ========== 
+
+=============== cycle 35 ========== 
+
+=============== cycle 36 ========== 
+
+=============== cycle 37 ========== 
+
+=============== cycle 38 ========== 
+
+=============== cycle 39 ========== 
+
+=============== cycle 40 ========== 
+
+=============== cycle 41 ========== 
+
+=============== cycle 42 ========== 
+
+=============== cycle 43 ========== 
+
+=============== cycle 44 ========== 
+
+=============== cycle 45 ========== 
+
+=============== cycle 46 ========== 
+
+=============== cycle 47 ========== 
+
+=============== cycle 48 ========== 
+
+=============== cycle 49 ========== 
+
+=============== cycle 50 ========== 
+
+=============== cycle 51 ========== 
+
+=============== cycle 52 ========== 
+
+=============== cycle 53 ========== 
+
+=============== cycle 54 ========== 
+
+=============== cycle 55 ========== 
+
+=============== cycle 56 ========== 
+
+=============== cycle 57 ========== 
+
+=============== cycle 58 ========== 
+
+=============== cycle 59 ========== 
+
+=============== cycle 60 ========== 
+
+=============== cycle 61 ========== 
+
+=============== cycle 62 ========== 
+
+=============== cycle 63 ========== 
+
+=============== cycle 64 ========== 
+
+=============== cycle 65 ========== 
+
+=============== cycle 66 ========== 
+
+=============== cycle 67 ========== 
+
+=============== cycle 68 ========== 
+
+=============== cycle 69 ========== 
+
+=============== cycle 70 ========== 
+
+=============== cycle 71 ========== 
+
+=============== cycle 72 ========== 
+
+=============== cycle 73 ========== 
+
+=============== cycle 74 ========== 
+
+=============== cycle 75 ========== 
+
+=============== cycle 76 ========== 
+
+=============== cycle 77 ========== 
+
+=============== cycle 78 ========== 
+
+=============== cycle 79 ========== 
+
+=============== cycle 80 ========== 
+
+=============== cycle 81 ========== 
+
+=============== cycle 82 ========== 
+
+=============== cycle 83 ========== 
+
+=============== cycle 84 ========== 
+
+=============== cycle 85 ========== 
+
+=============== cycle 86 ========== 
+
+=============== cycle 87 ========== 
+
+=============== cycle 88 ========== 
+
+=============== cycle 89 ========== 
+
+=============== cycle 90 ========== 
+
+=============== cycle 91 ========== 
+
+=============== cycle 92 ========== 
+
+=============== cycle 93 ========== 
+
+=============== cycle 94 ========== 
+
+=============== cycle 95 ========== 
+
+=============== cycle 96 ========== 
+
+=============== cycle 97 ========== 
+
+=============== cycle 98 ========== 
+
+=============== cycle 99 ========== 
+
+=============== cycle 100 ========== 
+
+=============== cycle 101 ========== 
+
+=============== cycle 102 ========== 
+
+=============== cycle 103 ========== 
+
+=============== cycle 104 ========== 
+
+=============== cycle 105 ========== 
+
+=============== cycle 106 ========== 
+
+=============== cycle 107 ========== 
+
+=============== cycle 108 ========== 
+
+=============== cycle 109 ========== 
+
+=============== cycle 110 ========== 
+
+=============== cycle 111 ========== 
+
+=============== cycle 112 ========== 
+
+=============== cycle 113 ========== 
+
+=============== cycle 114 ========== 
+
+=============== cycle 115 ========== 
+
+=============== cycle 116 ========== 
+
+=============== cycle 117 ========== 
+
+=============== cycle 118 ========== 
+
+=============== cycle 119 ========== 
+
+=============== cycle 120 ========== 
+
+=============== cycle 121 ========== 
+
+=============== cycle 122 ========== 
+
+=============== cycle 123 ========== 
+
+=============== cycle 124 ========== 
+
+=============== cycle 125 ========== 
+
+=============== cycle 126 ========== 
+
+=============== cycle 127 ========== 
+
+=============== cycle 128 ========== 
+
+=============== cycle 129 ========== 
+
+=============== cycle 130 ========== 
+
 tag_array::probe(4026531840)
 cache_config::set_index(251658240)
 cache_config::hash_function(251658240)
@@ -937,13 +1199,311 @@ tag_array::access(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(251658240)
 cache_config::hash_function(251658240)
+=============== cycle 131 ========== 
+
+=============== cycle 132 ========== 
+
+=============== cycle 133 ========== 
+
+=============== cycle 134 ========== 
+
+=============== cycle 135 ========== 
+
+=============== cycle 136 ========== 
+
+=============== cycle 137 ========== 
+
+=============== cycle 138 ========== 
+
+=============== cycle 139 ========== 
+
+=============== cycle 140 ========== 
+
+=============== cycle 141 ========== 
+
+=============== cycle 142 ========== 
+
+=============== cycle 143 ========== 
+
+=============== cycle 144 ========== 
+
+=============== cycle 145 ========== 
+
+=============== cycle 146 ========== 
+
+=============== cycle 147 ========== 
+
+=============== cycle 148 ========== 
+
+=============== cycle 149 ========== 
+
+=============== cycle 150 ========== 
+
+=============== cycle 151 ========== 
+
+=============== cycle 152 ========== 
+
+=============== cycle 153 ========== 
+
+=============== cycle 154 ========== 
+
+=============== cycle 155 ========== 
+
+=============== cycle 156 ========== 
+
+=============== cycle 157 ========== 
+
+=============== cycle 158 ========== 
+
+=============== cycle 159 ========== 
+
+=============== cycle 160 ========== 
+
+=============== cycle 161 ========== 
+
+=============== cycle 162 ========== 
+
+=============== cycle 163 ========== 
+
+=============== cycle 164 ========== 
+
+=============== cycle 165 ========== 
+
+=============== cycle 166 ========== 
+
+=============== cycle 167 ========== 
+
+=============== cycle 168 ========== 
+
+=============== cycle 169 ========== 
+
+=============== cycle 170 ========== 
+
+=============== cycle 171 ========== 
+
+=============== cycle 172 ========== 
+
+=============== cycle 173 ========== 
+
+=============== cycle 174 ========== 
+
+=============== cycle 175 ========== 
+
+=============== cycle 176 ========== 
+
+=============== cycle 177 ========== 
+
+=============== cycle 178 ========== 
+
+=============== cycle 179 ========== 
+
+=============== cycle 180 ========== 
+
+=============== cycle 181 ========== 
+
+=============== cycle 182 ========== 
+
+=============== cycle 183 ========== 
+
+=============== cycle 184 ========== 
+
+=============== cycle 185 ========== 
+
+=============== cycle 186 ========== 
+
+=============== cycle 187 ========== 
+
+=============== cycle 188 ========== 
+
+=============== cycle 189 ========== 
+
+=============== cycle 190 ========== 
+
+=============== cycle 191 ========== 
+
+=============== cycle 192 ========== 
+
+=============== cycle 193 ========== 
+
+=============== cycle 194 ========== 
+
+=============== cycle 195 ========== 
+
+=============== cycle 196 ========== 
+
+=============== cycle 197 ========== 
+
+=============== cycle 198 ========== 
+
+=============== cycle 199 ========== 
+
+=============== cycle 200 ========== 
+
+=============== cycle 201 ========== 
+
+=============== cycle 202 ========== 
+
+=============== cycle 203 ========== 
+
+=============== cycle 204 ========== 
+
+=============== cycle 205 ========== 
+
+=============== cycle 206 ========== 
+
+=============== cycle 207 ========== 
+
+=============== cycle 208 ========== 
+
+=============== cycle 209 ========== 
+
+=============== cycle 210 ========== 
+
+=============== cycle 211 ========== 
+
+=============== cycle 212 ========== 
+
+=============== cycle 213 ========== 
+
+=============== cycle 214 ========== 
+
+=============== cycle 215 ========== 
+
+=============== cycle 216 ========== 
+
+=============== cycle 217 ========== 
+
+=============== cycle 218 ========== 
+
+=============== cycle 219 ========== 
+
+=============== cycle 220 ========== 
+
+=============== cycle 221 ========== 
+
+=============== cycle 222 ========== 
+
+=============== cycle 223 ========== 
+
+=============== cycle 224 ========== 
+
+=============== cycle 225 ========== 
+
+=============== cycle 226 ========== 
+
+=============== cycle 227 ========== 
+
+=============== cycle 228 ========== 
+
+=============== cycle 229 ========== 
+
+=============== cycle 230 ========== 
+
+=============== cycle 231 ========== 
+
+=============== cycle 232 ========== 
+
+=============== cycle 233 ========== 
+
+=============== cycle 234 ========== 
+
+=============== cycle 235 ========== 
+
+=============== cycle 236 ========== 
+
+=============== cycle 237 ========== 
+
+=============== cycle 238 ========== 
+
+=============== cycle 239 ========== 
+
+=============== cycle 240 ========== 
+
+=============== cycle 241 ========== 
+
+=============== cycle 242 ========== 
+
+=============== cycle 243 ========== 
+
+=============== cycle 244 ========== 
+
+=============== cycle 245 ========== 
+
+=============== cycle 246 ========== 
+
+=============== cycle 247 ========== 
+
+=============== cycle 248 ========== 
+
+=============== cycle 249 ========== 
+
+=============== cycle 250 ========== 
+
+=============== cycle 251 ========== 
+
+=============== cycle 252 ========== 
+
+=============== cycle 253 ========== 
+
+=============== cycle 254 ========== 
+
+=============== cycle 255 ========== 
+
+=============== cycle 256 ========== 
+
+=============== cycle 257 ========== 
+
+=============== cycle 258 ========== 
+
+=============== cycle 259 ========== 
+
+=============== cycle 260 ========== 
+
+=============== cycle 261 ========== 
+
+=============== cycle 262 ========== 
+
+=============== cycle 263 ========== 
+
+=============== cycle 264 ========== 
+
 tag_array::fill(14, 4026531840)
 mshr_table::mark_ready(4026531840, 0)
+=============== cycle 265 ========== 
+
+=============== cycle 266 ========== 
+
+=============== cycle 267 ========== 
+
+=============== cycle 268 ========== 
+
+=============== cycle 269 ========== 
+
+=============== cycle 270 ========== 
+
+=============== cycle 271 ========== 
+
+=============== cycle 272 ========== 
+
+=============== cycle 273 ========== 
+
+=============== cycle 274 ========== 
+
+=============== cycle 275 ========== 
+
+=============== cycle 276 ========== 
+
+=============== cycle 277 ========== 
+
+=============== cycle 278 ========== 
+
 tag_array::fill(4026531840)
 tag_array::probe(4026531840)
 cache_config::set_index(4026531840)
 cache_config::hash_function(4026531840)
 mshr_table::mark_ready(4026531840, 0)
+=============== cycle 279 ========== 
+
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
 ====> instruction S2R parsed as OP_S2R (124) [32 active threads]
@@ -974,6 +1534,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD (OP_IADD, 31)
 ====> instruction LDG parsed as OP_LDG (72) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = LDG.E.CG (OP_LDG, 72)
+=============== cycle 280 ========== 
+
 ==>> ROMAN: warp 1 trace done 0 (15/23) functional done 0
 ==>> ROMAN: warp 1 trace done 0 (15/23) functional done 0
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
@@ -1006,6 +1568,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD (OP_IADD, 31)
 ====> instruction LDG parsed as OP_LDG (72) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = LDG.E.CG (OP_LDG, 72)
+=============== cycle 281 ========== 
+
 ==>> ROMAN: warp 2 trace done 0 (15/23) functional done 0
 ==>> ROMAN: warp 2 trace done 0 (15/23) functional done 0
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
@@ -1038,6 +1602,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD (OP_IADD, 31)
 ====> instruction LDG parsed as OP_LDG (72) [4 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = LDG.E.CG (OP_LDG, 72)
+=============== cycle 282 ========== 
+
 ==>> ROMAN: warp 3 trace done 0 (15/23) functional done 0
 ==>> ROMAN: warp 3 trace done 0 (15/23) functional done 0
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
@@ -1058,6 +1624,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 283 ========== 
+
 ==>> ROMAN: warp 4 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1077,6 +1645,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 284 ========== 
+
 ==>> ROMAN: warp 5 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1096,6 +1666,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 285 ========== 
+
 ==>> ROMAN: warp 6 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1115,6 +1687,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 286 ========== 
+
 ==>> ROMAN: warp 7 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1134,6 +1708,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 287 ========== 
+
 ==>> ROMAN: warp 8 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1153,6 +1729,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 288 ========== 
+
 ==>> ROMAN: warp 9 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1172,6 +1750,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 289 ========== 
+
 ==>> ROMAN: warp 10 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1191,6 +1771,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 290 ========== 
+
 ==>> ROMAN: warp 11 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1210,6 +1792,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 291 ========== 
+
 ==>> ROMAN: warp 12 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1229,6 +1813,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 292 ========== 
+
 ==>> ROMAN: warp 13 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1248,6 +1834,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 293 ========== 
+
 ==>> ROMAN: warp 14 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1267,6 +1855,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 294 ========== 
+
 ==>> ROMAN: warp 15 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1286,6 +1876,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 295 ========== 
+
 ==>> ROMAN: warp 16 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1305,6 +1897,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 296 ========== 
+
 ==>> ROMAN: warp 17 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1324,6 +1918,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 297 ========== 
+
 ==>> ROMAN: warp 18 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1343,6 +1939,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 298 ========== 
+
 ==>> ROMAN: warp 19 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1362,6 +1960,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 299 ========== 
+
 ==>> ROMAN: warp 20 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1381,6 +1981,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 300 ========== 
+
 ==>> ROMAN: warp 21 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1400,6 +2002,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 301 ========== 
+
 ==>> ROMAN: warp 22 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1419,6 +2023,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 302 ========== 
+
 ==>> ROMAN: warp 23 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1438,6 +2044,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 303 ========== 
+
 ==>> ROMAN: warp 24 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1457,6 +2065,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 304 ========== 
+
 ==>> ROMAN: warp 25 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1476,6 +2086,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 305 ========== 
+
 ==>> ROMAN: warp 26 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1495,6 +2107,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 306 ========== 
+
 ==>> ROMAN: warp 27 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1514,6 +2128,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 307 ========== 
+
 ==>> ROMAN: warp 28 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1533,6 +2149,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 308 ========== 
+
 ==>> ROMAN: warp 29 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1552,6 +2170,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 309 ========== 
+
 ==>> ROMAN: warp 30 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1571,6 +2191,8 @@ mshr_table::mark_ready(4026531840, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 310 ========== 
+
 ==>> ROMAN: warp 31 trace done 1 (9/9) functional done 1
 ====> instruction MOV parsed as OP_MOV (60) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = MOV (OP_MOV, 60)
@@ -1609,6 +2231,8 @@ tag_array::access(4026531968)
 tag_array::probe(4026531968)
 cache_config::set_index(4026531968)
 cache_config::hash_function(4026531968)
+=============== cycle 311 ========== 
+
 ==>> ROMAN: warp 0 trace done 0 (15/23) functional done 0
 ==>> ROMAN: warp 0 trace done 0 (15/23) functional done 0
 tag_array::probe(4026531968)
@@ -1618,6 +2242,8 @@ tag_array::access(4026531968)
 tag_array::probe(4026531968)
 cache_config::set_index(4026531968)
 cache_config::hash_function(4026531968)
+=============== cycle 312 ========== 
+
 tag_array::probe(4026531968)
 cache_config::set_index(4026531968)
 cache_config::hash_function(4026531968)
@@ -1625,6 +2251,8 @@ tag_array::access(4026531968)
 tag_array::probe(4026531968)
 cache_config::set_index(4026531968)
 cache_config::hash_function(4026531968)
+=============== cycle 313 ========== 
+
 tag_array::probe(4026531968)
 cache_config::set_index(4026531968)
 cache_config::hash_function(4026531968)
@@ -1632,6 +2260,208 @@ tag_array::access(4026531968)
 tag_array::probe(4026531968)
 cache_config::set_index(4026531968)
 cache_config::hash_function(4026531968)
+=============== cycle 314 ========== 
+
+=============== cycle 315 ========== 
+
+=============== cycle 316 ========== 
+
+=============== cycle 317 ========== 
+
+=============== cycle 318 ========== 
+
+=============== cycle 319 ========== 
+
+=============== cycle 320 ========== 
+
+=============== cycle 321 ========== 
+
+=============== cycle 322 ========== 
+
+=============== cycle 323 ========== 
+
+=============== cycle 324 ========== 
+
+=============== cycle 325 ========== 
+
+=============== cycle 326 ========== 
+
+=============== cycle 327 ========== 
+
+=============== cycle 328 ========== 
+
+=============== cycle 329 ========== 
+
+=============== cycle 330 ========== 
+
+=============== cycle 331 ========== 
+
+=============== cycle 332 ========== 
+
+=============== cycle 333 ========== 
+
+=============== cycle 334 ========== 
+
+=============== cycle 335 ========== 
+
+=============== cycle 336 ========== 
+
+=============== cycle 337 ========== 
+
+=============== cycle 338 ========== 
+
+=============== cycle 339 ========== 
+
+=============== cycle 340 ========== 
+
+=============== cycle 341 ========== 
+
+=============== cycle 342 ========== 
+
+=============== cycle 343 ========== 
+
+=============== cycle 344 ========== 
+
+=============== cycle 345 ========== 
+
+=============== cycle 346 ========== 
+
+=============== cycle 347 ========== 
+
+=============== cycle 348 ========== 
+
+=============== cycle 349 ========== 
+
+=============== cycle 350 ========== 
+
+=============== cycle 351 ========== 
+
+=============== cycle 352 ========== 
+
+=============== cycle 353 ========== 
+
+=============== cycle 354 ========== 
+
+=============== cycle 355 ========== 
+
+=============== cycle 356 ========== 
+
+=============== cycle 357 ========== 
+
+=============== cycle 358 ========== 
+
+=============== cycle 359 ========== 
+
+=============== cycle 360 ========== 
+
+=============== cycle 361 ========== 
+
+=============== cycle 362 ========== 
+
+=============== cycle 363 ========== 
+
+=============== cycle 364 ========== 
+
+=============== cycle 365 ========== 
+
+=============== cycle 366 ========== 
+
+=============== cycle 367 ========== 
+
+=============== cycle 368 ========== 
+
+=============== cycle 369 ========== 
+
+=============== cycle 370 ========== 
+
+=============== cycle 371 ========== 
+
+=============== cycle 372 ========== 
+
+=============== cycle 373 ========== 
+
+=============== cycle 374 ========== 
+
+=============== cycle 375 ========== 
+
+=============== cycle 376 ========== 
+
+=============== cycle 377 ========== 
+
+=============== cycle 378 ========== 
+
+=============== cycle 379 ========== 
+
+=============== cycle 380 ========== 
+
+=============== cycle 381 ========== 
+
+=============== cycle 382 ========== 
+
+=============== cycle 383 ========== 
+
+=============== cycle 384 ========== 
+
+=============== cycle 385 ========== 
+
+=============== cycle 386 ========== 
+
+=============== cycle 387 ========== 
+
+=============== cycle 388 ========== 
+
+=============== cycle 389 ========== 
+
+=============== cycle 390 ========== 
+
+=============== cycle 391 ========== 
+
+=============== cycle 392 ========== 
+
+=============== cycle 393 ========== 
+
+=============== cycle 394 ========== 
+
+=============== cycle 395 ========== 
+
+=============== cycle 396 ========== 
+
+=============== cycle 397 ========== 
+
+=============== cycle 398 ========== 
+
+=============== cycle 399 ========== 
+
+=============== cycle 400 ========== 
+
+=============== cycle 401 ========== 
+
+=============== cycle 402 ========== 
+
+=============== cycle 403 ========== 
+
+=============== cycle 404 ========== 
+
+=============== cycle 405 ========== 
+
+=============== cycle 406 ========== 
+
+=============== cycle 407 ========== 
+
+=============== cycle 408 ========== 
+
+=============== cycle 409 ========== 
+
+=============== cycle 410 ========== 
+
+=============== cycle 411 ========== 
+
+=============== cycle 412 ========== 
+
+=============== cycle 413 ========== 
+
+=============== cycle 414 ========== 
+
 tag_array::probe(139823420539008)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
@@ -1639,6 +2469,10 @@ tag_array::access(139823420539008)
 tag_array::probe(139823420539008)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
+=============== cycle 415 ========== 
+
+=============== cycle 416 ========== 
+
 tag_array::probe(139823420539136)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
@@ -1646,6 +2480,10 @@ tag_array::access(139823420539136)
 tag_array::probe(139823420539136)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
+=============== cycle 417 ========== 
+
+=============== cycle 418 ========== 
+
 tag_array::probe(139823420539264)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
@@ -1653,6 +2491,48 @@ tag_array::access(139823420539264)
 tag_array::probe(139823420539264)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
+=============== cycle 419 ========== 
+
+=============== cycle 420 ========== 
+
+=============== cycle 421 ========== 
+
+=============== cycle 422 ========== 
+
+=============== cycle 423 ========== 
+
+=============== cycle 424 ========== 
+
+=============== cycle 425 ========== 
+
+=============== cycle 426 ========== 
+
+=============== cycle 427 ========== 
+
+=============== cycle 428 ========== 
+
+=============== cycle 429 ========== 
+
+=============== cycle 430 ========== 
+
+=============== cycle 431 ========== 
+
+=============== cycle 432 ========== 
+
+=============== cycle 433 ========== 
+
+=============== cycle 434 ========== 
+
+=============== cycle 435 ========== 
+
+=============== cycle 436 ========== 
+
+=============== cycle 437 ========== 
+
+=============== cycle 438 ========== 
+
+=============== cycle 439 ========== 
+
 tag_array::probe(4026531968)
 cache_config::set_index(251658240)
 cache_config::hash_function(251658240)
@@ -1660,6 +2540,18 @@ tag_array::access(4026531968)
 tag_array::probe(4026531968)
 cache_config::set_index(251658240)
 cache_config::hash_function(251658240)
+=============== cycle 440 ========== 
+
+=============== cycle 441 ========== 
+
+=============== cycle 442 ========== 
+
+=============== cycle 443 ========== 
+
+=============== cycle 444 ========== 
+
+=============== cycle 445 ========== 
+
 tag_array::probe(139823420538880)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
@@ -1667,21 +2559,337 @@ tag_array::access(139823420538880)
 tag_array::probe(139823420538880)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
+=============== cycle 446 ========== 
+
+=============== cycle 447 ========== 
+
+=============== cycle 448 ========== 
+
+=============== cycle 449 ========== 
+
+=============== cycle 450 ========== 
+
+=============== cycle 451 ========== 
+
+=============== cycle 452 ========== 
+
+=============== cycle 453 ========== 
+
+=============== cycle 454 ========== 
+
+=============== cycle 455 ========== 
+
+=============== cycle 456 ========== 
+
+=============== cycle 457 ========== 
+
+=============== cycle 458 ========== 
+
+=============== cycle 459 ========== 
+
+=============== cycle 460 ========== 
+
+=============== cycle 461 ========== 
+
+=============== cycle 462 ========== 
+
+=============== cycle 463 ========== 
+
+=============== cycle 464 ========== 
+
+=============== cycle 465 ========== 
+
+=============== cycle 466 ========== 
+
+=============== cycle 467 ========== 
+
+=============== cycle 468 ========== 
+
+=============== cycle 469 ========== 
+
+=============== cycle 470 ========== 
+
+=============== cycle 471 ========== 
+
+=============== cycle 472 ========== 
+
+=============== cycle 473 ========== 
+
+=============== cycle 474 ========== 
+
+=============== cycle 475 ========== 
+
+=============== cycle 476 ========== 
+
+=============== cycle 477 ========== 
+
+=============== cycle 478 ========== 
+
+=============== cycle 479 ========== 
+
+=============== cycle 480 ========== 
+
+=============== cycle 481 ========== 
+
+=============== cycle 482 ========== 
+
+=============== cycle 483 ========== 
+
+=============== cycle 484 ========== 
+
+=============== cycle 485 ========== 
+
+=============== cycle 486 ========== 
+
+=============== cycle 487 ========== 
+
+=============== cycle 488 ========== 
+
+=============== cycle 489 ========== 
+
+=============== cycle 490 ========== 
+
+=============== cycle 491 ========== 
+
+=============== cycle 492 ========== 
+
+=============== cycle 493 ========== 
+
+=============== cycle 494 ========== 
+
+=============== cycle 495 ========== 
+
+=============== cycle 496 ========== 
+
+=============== cycle 497 ========== 
+
+=============== cycle 498 ========== 
+
+=============== cycle 499 ========== 
+
+=============== cycle 500 ========== 
+
+=============== cycle 501 ========== 
+
+=============== cycle 502 ========== 
+
+=============== cycle 503 ========== 
+
+=============== cycle 504 ========== 
+
+=============== cycle 505 ========== 
+
+=============== cycle 506 ========== 
+
+=============== cycle 507 ========== 
+
+=============== cycle 508 ========== 
+
+=============== cycle 509 ========== 
+
+=============== cycle 510 ========== 
+
+=============== cycle 511 ========== 
+
+=============== cycle 512 ========== 
+
+=============== cycle 513 ========== 
+
+=============== cycle 514 ========== 
+
+=============== cycle 515 ========== 
+
+=============== cycle 516 ========== 
+
+=============== cycle 517 ========== 
+
+=============== cycle 518 ========== 
+
+=============== cycle 519 ========== 
+
+=============== cycle 520 ========== 
+
+=============== cycle 521 ========== 
+
+=============== cycle 522 ========== 
+
+=============== cycle 523 ========== 
+
+=============== cycle 524 ========== 
+
+=============== cycle 525 ========== 
+
+=============== cycle 526 ========== 
+
+=============== cycle 527 ========== 
+
+=============== cycle 528 ========== 
+
+=============== cycle 529 ========== 
+
+=============== cycle 530 ========== 
+
+=============== cycle 531 ========== 
+
+=============== cycle 532 ========== 
+
+=============== cycle 533 ========== 
+
+=============== cycle 534 ========== 
+
+=============== cycle 535 ========== 
+
+=============== cycle 536 ========== 
+
+=============== cycle 537 ========== 
+
+=============== cycle 538 ========== 
+
+=============== cycle 539 ========== 
+
+=============== cycle 540 ========== 
+
+=============== cycle 541 ========== 
+
+=============== cycle 542 ========== 
+
+=============== cycle 543 ========== 
+
+=============== cycle 544 ========== 
+
+=============== cycle 545 ========== 
+
+=============== cycle 546 ========== 
+
+=============== cycle 547 ========== 
+
+=============== cycle 548 ========== 
+
 tag_array::fill(14, 139823420539008)
 mshr_table::mark_ready(139823420539008, 0)
+=============== cycle 549 ========== 
+
+=============== cycle 550 ========== 
+
 tag_array::fill(14, 139823420539136)
 mshr_table::mark_ready(139823420539136, 0)
+=============== cycle 551 ========== 
+
+=============== cycle 552 ========== 
+
+=============== cycle 553 ========== 
+
+=============== cycle 554 ========== 
+
+=============== cycle 555 ========== 
+
+=============== cycle 556 ========== 
+
+=============== cycle 557 ========== 
+
+=============== cycle 558 ========== 
+
 tag_array::fill(14, 139823420539264)
 mshr_table::mark_ready(139823420539264, 0)
+=============== cycle 559 ========== 
+
+=============== cycle 560 ========== 
+
+=============== cycle 561 ========== 
+
+=============== cycle 562 ========== 
+
+=============== cycle 563 ========== 
+
+=============== cycle 564 ========== 
+
+=============== cycle 565 ========== 
+
+=============== cycle 566 ========== 
+
+=============== cycle 567 ========== 
+
+=============== cycle 568 ========== 
+
+=============== cycle 569 ========== 
+
+=============== cycle 570 ========== 
+
+=============== cycle 571 ========== 
+
+=============== cycle 572 ========== 
+
+=============== cycle 573 ========== 
+
+=============== cycle 574 ========== 
+
+=============== cycle 575 ========== 
+
+=============== cycle 576 ========== 
+
+=============== cycle 577 ========== 
+
+=============== cycle 578 ========== 
+
+=============== cycle 579 ========== 
+
+=============== cycle 580 ========== 
+
+=============== cycle 581 ========== 
+
+=============== cycle 582 ========== 
+
+=============== cycle 583 ========== 
+
+=============== cycle 584 ========== 
+
+=============== cycle 585 ========== 
+
+=============== cycle 586 ========== 
+
+=============== cycle 587 ========== 
+
+=============== cycle 588 ========== 
+
 tag_array::fill(13, 4026531968)
 mshr_table::mark_ready(4026531968, 0)
+=============== cycle 589 ========== 
+
+=============== cycle 590 ========== 
+
+=============== cycle 591 ========== 
+
+=============== cycle 592 ========== 
+
+=============== cycle 593 ========== 
+
+=============== cycle 594 ========== 
+
+=============== cycle 595 ========== 
+
+=============== cycle 596 ========== 
+
 tag_array::fill(13, 139823420538880)
 mshr_table::mark_ready(139823420538880, 0)
+=============== cycle 597 ========== 
+
+=============== cycle 598 ========== 
+
+=============== cycle 599 ========== 
+
+=============== cycle 600 ========== 
+
+=============== cycle 601 ========== 
+
+=============== cycle 602 ========== 
+
 tag_array::fill(4026531968)
 tag_array::probe(4026531968)
 cache_config::set_index(4026531968)
 cache_config::hash_function(4026531968)
 mshr_table::mark_ready(4026531968, 0)
+=============== cycle 603 ========== 
+
 ====> instruction IADD parsed as OP_IADD (31) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD.X (OP_IADD, 31)
 ====> instruction LDG parsed as OP_LDG (72) [32 active threads]
@@ -1694,6 +2902,8 @@ mshr_table::mark_ready(4026531968, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = FADD (OP_FADD, 1)
 ====> instruction STG parsed as OP_STG (76) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = STG.E (OP_STG, 76)
+=============== cycle 604 ========== 
+
 ==>> ROMAN: warp 1 trace done 0 (21/23) functional done 0
 ====> instruction IADD parsed as OP_IADD (31) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD.X (OP_IADD, 31)
@@ -1707,6 +2917,8 @@ mshr_table::mark_ready(4026531968, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = FADD (OP_FADD, 1)
 ====> instruction STG parsed as OP_STG (76) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = STG.E (OP_STG, 76)
+=============== cycle 605 ========== 
+
 ==>> ROMAN: warp 1 trace done 0 (21/23) functional done 0
 ====> instruction IADD parsed as OP_IADD (31) [4 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD.X (OP_IADD, 31)
@@ -1720,6 +2932,8 @@ mshr_table::mark_ready(4026531968, 0)
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = FADD (OP_FADD, 1)
 ====> instruction STG parsed as OP_STG (76) [4 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = STG.E (OP_STG, 76)
+=============== cycle 606 ========== 
+
 ==>> ROMAN: warp 2 trace done 0 (21/23) functional done 0
 ====> instruction IADD parsed as OP_IADD (31) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = IADD.X (OP_IADD, 31)
@@ -1740,21 +2954,9 @@ tag_array::access(4026531968)
 tag_array::probe(4026531968)
 cache_config::set_index(4026531968)
 cache_config::hash_function(4026531968)
-==>> ROMAN: warp 3 trace done 0 (21/23) functional done 0
-====> instruction NOP parsed as OP_NOP (121) [32 active threads]
-====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
-====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
-====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 607 ========== 
+
 ==>> ROMAN: warp 2 trace done 0 (21/23) functional done 0
-==>> ROMAN: warp 1 trace done 1 (23/23) functional done 1
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::access(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-==>> ROMAN: warp 3 trace done 0 (21/23) functional done 0
 ====> instruction NOP parsed as OP_NOP (121) [32 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
@@ -1766,26 +2968,302 @@ tag_array::access(4026531968)
 tag_array::probe(4026531968)
 cache_config::set_index(4026531968)
 cache_config::hash_function(4026531968)
+=============== cycle 608 ========== 
+
+==>> ROMAN: warp 0 trace done 0 (21/23) functional done 0
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 609 ========== 
+
+==>> ROMAN: warp 0 trace done 0 (21/23) functional done 0
+tag_array::probe(4026531968)
+cache_config::set_index(4026531968)
+cache_config::hash_function(4026531968)
+tag_array::access(4026531968)
+tag_array::probe(4026531968)
+cache_config::set_index(4026531968)
+cache_config::hash_function(4026531968)
+=============== cycle 610 ========== 
+
+==>> ROMAN: warp 1 trace done 1 (23/23) functional done 1
+====> instruction NOP parsed as OP_NOP (121) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
+====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
+====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 611 ========== 
+
+==>> ROMAN: warp 0 trace done 1 (23/23) functional done 1
+=============== cycle 612 ========== 
+
 ==>> ROMAN: warp 2 trace done 1 (23/23) functional done 1
+=============== cycle 613 ========== 
+
+==>> ROMAN: warp 3 trace done 0 (21/23) functional done 0
+=============== cycle 614 ========== 
+
+==>> ROMAN: warp 3 trace done 0 (21/23) functional done 0
+tag_array::probe(4026531968)
+cache_config::set_index(4026531968)
+cache_config::hash_function(4026531968)
+tag_array::access(4026531968)
+tag_array::probe(4026531968)
+cache_config::set_index(4026531968)
+cache_config::hash_function(4026531968)
+=============== cycle 615 ========== 
+
 ====> instruction NOP parsed as OP_NOP (121) [4 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
 ====> instruction EXIT parsed as OP_EXIT (104) [4 active threads]
 ====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
+=============== cycle 616 ========== 
+
 ==>> ROMAN: warp 3 trace done 1 (23/23) functional done 1
-==>> ROMAN: warp 0 trace done 0 (21/23) functional done 0
-==>> ROMAN: warp 0 trace done 0 (21/23) functional done 0
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-tag_array::access(4026531968)
-tag_array::probe(4026531968)
-cache_config::set_index(4026531968)
-cache_config::hash_function(4026531968)
-====> instruction NOP parsed as OP_NOP (121) [32 active threads]
-====> trace_shd_warp_t::get_next_trace_inst(): opcode = NOP (OP_NOP, 121)
-====> instruction EXIT parsed as OP_EXIT (104) [32 active threads]
-====> trace_shd_warp_t::get_next_trace_inst(): opcode = EXIT (OP_EXIT, 104)
-==>> ROMAN: warp 0 trace done 1 (23/23) functional done 1
+=============== cycle 617 ========== 
+
+=============== cycle 618 ========== 
+
+=============== cycle 619 ========== 
+
+=============== cycle 620 ========== 
+
+=============== cycle 621 ========== 
+
+=============== cycle 622 ========== 
+
+=============== cycle 623 ========== 
+
+=============== cycle 624 ========== 
+
+=============== cycle 625 ========== 
+
+=============== cycle 626 ========== 
+
+=============== cycle 627 ========== 
+
+=============== cycle 628 ========== 
+
+=============== cycle 629 ========== 
+
+=============== cycle 630 ========== 
+
+=============== cycle 631 ========== 
+
+=============== cycle 632 ========== 
+
+=============== cycle 633 ========== 
+
+=============== cycle 634 ========== 
+
+=============== cycle 635 ========== 
+
+=============== cycle 636 ========== 
+
+=============== cycle 637 ========== 
+
+=============== cycle 638 ========== 
+
+=============== cycle 639 ========== 
+
+=============== cycle 640 ========== 
+
+=============== cycle 641 ========== 
+
+=============== cycle 642 ========== 
+
+=============== cycle 643 ========== 
+
+=============== cycle 644 ========== 
+
+=============== cycle 645 ========== 
+
+=============== cycle 646 ========== 
+
+=============== cycle 647 ========== 
+
+=============== cycle 648 ========== 
+
+=============== cycle 649 ========== 
+
+=============== cycle 650 ========== 
+
+=============== cycle 651 ========== 
+
+=============== cycle 652 ========== 
+
+=============== cycle 653 ========== 
+
+=============== cycle 654 ========== 
+
+=============== cycle 655 ========== 
+
+=============== cycle 656 ========== 
+
+=============== cycle 657 ========== 
+
+=============== cycle 658 ========== 
+
+=============== cycle 659 ========== 
+
+=============== cycle 660 ========== 
+
+=============== cycle 661 ========== 
+
+=============== cycle 662 ========== 
+
+=============== cycle 663 ========== 
+
+=============== cycle 664 ========== 
+
+=============== cycle 665 ========== 
+
+=============== cycle 666 ========== 
+
+=============== cycle 667 ========== 
+
+=============== cycle 668 ========== 
+
+=============== cycle 669 ========== 
+
+=============== cycle 670 ========== 
+
+=============== cycle 671 ========== 
+
+=============== cycle 672 ========== 
+
+=============== cycle 673 ========== 
+
+=============== cycle 674 ========== 
+
+=============== cycle 675 ========== 
+
+=============== cycle 676 ========== 
+
+=============== cycle 677 ========== 
+
+=============== cycle 678 ========== 
+
+=============== cycle 679 ========== 
+
+=============== cycle 680 ========== 
+
+=============== cycle 681 ========== 
+
+=============== cycle 682 ========== 
+
+=============== cycle 683 ========== 
+
+=============== cycle 684 ========== 
+
+=============== cycle 685 ========== 
+
+=============== cycle 686 ========== 
+
+=============== cycle 687 ========== 
+
+=============== cycle 688 ========== 
+
+=============== cycle 689 ========== 
+
+=============== cycle 690 ========== 
+
+=============== cycle 691 ========== 
+
+=============== cycle 692 ========== 
+
+=============== cycle 693 ========== 
+
+=============== cycle 694 ========== 
+
+=============== cycle 695 ========== 
+
+=============== cycle 696 ========== 
+
+=============== cycle 697 ========== 
+
+=============== cycle 698 ========== 
+
+=============== cycle 699 ========== 
+
+=============== cycle 700 ========== 
+
+=============== cycle 701 ========== 
+
+=============== cycle 702 ========== 
+
+=============== cycle 703 ========== 
+
+=============== cycle 704 ========== 
+
+=============== cycle 705 ========== 
+
+=============== cycle 706 ========== 
+
+=============== cycle 707 ========== 
+
+=============== cycle 708 ========== 
+
+=============== cycle 709 ========== 
+
+=============== cycle 710 ========== 
+
+=============== cycle 711 ========== 
+
+=============== cycle 712 ========== 
+
+=============== cycle 713 ========== 
+
+=============== cycle 714 ========== 
+
+=============== cycle 715 ========== 
+
+=============== cycle 716 ========== 
+
+=============== cycle 717 ========== 
+
+=============== cycle 718 ========== 
+
+=============== cycle 719 ========== 
+
+=============== cycle 720 ========== 
+
+=============== cycle 721 ========== 
+
+=============== cycle 722 ========== 
+
+=============== cycle 723 ========== 
+
+=============== cycle 724 ========== 
+
+=============== cycle 725 ========== 
+
+=============== cycle 726 ========== 
+
+=============== cycle 727 ========== 
+
+=============== cycle 728 ========== 
+
+=============== cycle 729 ========== 
+
+=============== cycle 730 ========== 
+
+=============== cycle 731 ========== 
+
+=============== cycle 732 ========== 
+
+=============== cycle 733 ========== 
+
+=============== cycle 734 ========== 
+
+=============== cycle 735 ========== 
+
+=============== cycle 736 ========== 
+
+=============== cycle 737 ========== 
+
+=============== cycle 738 ========== 
+
 tag_array::probe(139823420539520)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
@@ -1793,6 +3271,18 @@ tag_array::access(139823420539520)
 tag_array::probe(139823420539520)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
+=============== cycle 739 ========== 
+
+=============== cycle 740 ========== 
+
+=============== cycle 741 ========== 
+
+=============== cycle 742 ========== 
+
+=============== cycle 743 ========== 
+
+=============== cycle 744 ========== 
+
 tag_array::probe(139823420540032)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
@@ -1801,6 +3291,10 @@ tag_array::access(139823420540032)
 tag_array::probe(139823420540032)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
+=============== cycle 745 ========== 
+
+=============== cycle 746 ========== 
+
 tag_array::probe(139823420539648)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
@@ -1808,13 +3302,18 @@ tag_array::access(139823420539648)
 tag_array::probe(139823420539648)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
-tag_array::probe(139823420539776)
-cache_config::set_index(8738963783680)
-cache_config::hash_function(8738963783680)
-tag_array::access(139823420539776)
-tag_array::probe(139823420539776)
-cache_config::set_index(8738963783680)
-cache_config::hash_function(8738963783680)
+=============== cycle 747 ========== 
+
+=============== cycle 748 ========== 
+
+=============== cycle 749 ========== 
+
+=============== cycle 750 ========== 
+
+=============== cycle 751 ========== 
+
+=============== cycle 752 ========== 
+
 tag_array::probe(139823420540160)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
@@ -1823,14 +3322,10 @@ tag_array::access(139823420540160)
 tag_array::probe(139823420540160)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
-tag_array::probe(139823420540288)
-cache_config::set_index(8738963783680)
-cache_config::hash_function(8738963783680)
-data_cache::send_write_request(...)
-tag_array::access(139823420540288)
-tag_array::probe(139823420540288)
-cache_config::set_index(8738963783680)
-cache_config::hash_function(8738963783680)
+=============== cycle 753 ========== 
+
+=============== cycle 754 ========== 
+
 tag_array::probe(139823420539392)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
@@ -1838,6 +3333,18 @@ tag_array::access(139823420539392)
 tag_array::probe(139823420539392)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
+=============== cycle 755 ========== 
+
+=============== cycle 756 ========== 
+
+=============== cycle 757 ========== 
+
+=============== cycle 758 ========== 
+
+=============== cycle 759 ========== 
+
+=============== cycle 760 ========== 
+
 tag_array::probe(139823420539904)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
@@ -1846,42 +3353,353 @@ tag_array::access(139823420539904)
 tag_array::probe(139823420539904)
 cache_config::set_index(8738963783680)
 cache_config::hash_function(8738963783680)
+=============== cycle 761 ========== 
+
+=============== cycle 762 ========== 
+
+tag_array::probe(139823420539776)
+cache_config::set_index(8738963783680)
+cache_config::hash_function(8738963783680)
+tag_array::access(139823420539776)
+tag_array::probe(139823420539776)
+cache_config::set_index(8738963783680)
+cache_config::hash_function(8738963783680)
+=============== cycle 763 ========== 
+
+=============== cycle 764 ========== 
+
+=============== cycle 765 ========== 
+
+tag_array::probe(139823420540288)
+cache_config::set_index(8738963783680)
+cache_config::hash_function(8738963783680)
+data_cache::send_write_request(...)
+tag_array::access(139823420540288)
+tag_array::probe(139823420540288)
+cache_config::set_index(8738963783680)
+cache_config::hash_function(8738963783680)
+=============== cycle 766 ========== 
+
+=============== cycle 767 ========== 
+
+=============== cycle 768 ========== 
+
+=============== cycle 769 ========== 
+
+=============== cycle 770 ========== 
+
+=============== cycle 771 ========== 
+
+=============== cycle 772 ========== 
+
+=============== cycle 773 ========== 
+
+=============== cycle 774 ========== 
+
+=============== cycle 775 ========== 
+
+=============== cycle 776 ========== 
+
+=============== cycle 777 ========== 
+
+=============== cycle 778 ========== 
+
+=============== cycle 779 ========== 
+
+=============== cycle 780 ========== 
+
+=============== cycle 781 ========== 
+
+=============== cycle 782 ========== 
+
+=============== cycle 783 ========== 
+
+=============== cycle 784 ========== 
+
+=============== cycle 785 ========== 
+
+=============== cycle 786 ========== 
+
+=============== cycle 787 ========== 
+
+=============== cycle 788 ========== 
+
+=============== cycle 789 ========== 
+
+=============== cycle 790 ========== 
+
+=============== cycle 791 ========== 
+
+=============== cycle 792 ========== 
+
+=============== cycle 793 ========== 
+
+=============== cycle 794 ========== 
+
+=============== cycle 795 ========== 
+
+=============== cycle 796 ========== 
+
+=============== cycle 797 ========== 
+
+=============== cycle 798 ========== 
+
+=============== cycle 799 ========== 
+
+=============== cycle 800 ========== 
+
+=============== cycle 801 ========== 
+
+=============== cycle 802 ========== 
+
+=============== cycle 803 ========== 
+
+=============== cycle 804 ========== 
+
+=============== cycle 805 ========== 
+
+=============== cycle 806 ========== 
+
+=============== cycle 807 ========== 
+
+=============== cycle 808 ========== 
+
+=============== cycle 809 ========== 
+
+=============== cycle 810 ========== 
+
+=============== cycle 811 ========== 
+
+=============== cycle 812 ========== 
+
+=============== cycle 813 ========== 
+
+=============== cycle 814 ========== 
+
+=============== cycle 815 ========== 
+
+=============== cycle 816 ========== 
+
+=============== cycle 817 ========== 
+
+=============== cycle 818 ========== 
+
+=============== cycle 819 ========== 
+
+=============== cycle 820 ========== 
+
+=============== cycle 821 ========== 
+
+=============== cycle 822 ========== 
+
+=============== cycle 823 ========== 
+
+=============== cycle 824 ========== 
+
+=============== cycle 825 ========== 
+
+=============== cycle 826 ========== 
+
+=============== cycle 827 ========== 
+
+=============== cycle 828 ========== 
+
+=============== cycle 829 ========== 
+
+=============== cycle 830 ========== 
+
+=============== cycle 831 ========== 
+
+=============== cycle 832 ========== 
+
+=============== cycle 833 ========== 
+
+=============== cycle 834 ========== 
+
+=============== cycle 835 ========== 
+
+=============== cycle 836 ========== 
+
+=============== cycle 837 ========== 
+
+=============== cycle 838 ========== 
+
+=============== cycle 839 ========== 
+
+=============== cycle 840 ========== 
+
+=============== cycle 841 ========== 
+
+=============== cycle 842 ========== 
+
+=============== cycle 843 ========== 
+
+=============== cycle 844 ========== 
+
+=============== cycle 845 ========== 
+
+=============== cycle 846 ========== 
+
+=============== cycle 847 ========== 
+
+=============== cycle 848 ========== 
+
+=============== cycle 849 ========== 
+
+=============== cycle 850 ========== 
+
+=============== cycle 851 ========== 
+
+=============== cycle 852 ========== 
+
+=============== cycle 853 ========== 
+
+=============== cycle 854 ========== 
+
+=============== cycle 855 ========== 
+
+=============== cycle 856 ========== 
+
+=============== cycle 857 ========== 
+
+=============== cycle 858 ========== 
+
+=============== cycle 859 ========== 
+
+=============== cycle 860 ========== 
+
+=============== cycle 861 ========== 
+
+=============== cycle 862 ========== 
+
+=============== cycle 863 ========== 
+
+=============== cycle 864 ========== 
+
+=============== cycle 865 ========== 
+
+=============== cycle 866 ========== 
+
+=============== cycle 867 ========== 
+
+=============== cycle 868 ========== 
+
+=============== cycle 869 ========== 
+
+=============== cycle 870 ========== 
+
+=============== cycle 871 ========== 
+
+=============== cycle 872 ========== 
+
+=============== cycle 873 ========== 
+
 tag_array::fill(14, 139823420539520)
 mshr_table::mark_ready(139823420539520, 0)
+=============== cycle 874 ========== 
+
+=============== cycle 875 ========== 
+
+=============== cycle 876 ========== 
+
+=============== cycle 877 ========== 
+
+=============== cycle 878 ========== 
+
+=============== cycle 879 ========== 
+
+=============== cycle 880 ========== 
+
 tag_array::fill(14, 139823420539648)
 mshr_table::mark_ready(139823420539648, 0)
-tag_array::fill(14, 139823420539776)
-mshr_table::mark_ready(139823420539776, 0)
-tag_array::fill(14, 139823420540032)
-mshr_table::mark_ready(139823420540032, 0)
+=============== cycle 881 ========== 
+
+=============== cycle 882 ========== 
+
+=============== cycle 883 ========== 
+
+=============== cycle 884 ========== 
+
+=============== cycle 885 ========== 
+
+=============== cycle 886 ========== 
+
+=============== cycle 887 ========== 
+
+=============== cycle 888 ========== 
+
 tag_array::fill(14, 139823420539392)
 mshr_table::mark_ready(139823420539392, 0)
-tag_array::fill(14, 139823420540160)
-mshr_table::mark_ready(139823420540160, 0)
-tag_array::fill(14, 139823420540288)
-mshr_table::mark_ready(139823420540288, 0)
+=============== cycle 889 ========== 
+
+=============== cycle 890 ========== 
+
+=============== cycle 891 ========== 
+
+=============== cycle 892 ========== 
+
+=============== cycle 893 ========== 
+
+=============== cycle 894 ========== 
+
+=============== cycle 895 ========== 
+
+=============== cycle 896 ========== 
+
+=============== cycle 897 ========== 
+
+tag_array::fill(14, 139823420539776)
+mshr_table::mark_ready(139823420539776, 0)
+=============== cycle 898 ========== 
+
+=============== cycle 899 ========== 
+
+=============== cycle 900 ========== 
+
+=============== cycle 901 ========== 
+
+=============== cycle 902 ========== 
+
+=============== cycle 903 ========== 
+
+=============== cycle 904 ========== 
+
+=============== cycle 905 ========== 
+
+=============== cycle 906 ========== 
+
 tag_array::fill(14, 139823420539904)
 mshr_table::mark_ready(139823420539904, 0)
+tag_array::fill(14, 139823420540160)
+mshr_table::mark_ready(139823420540160, 0)
+=============== cycle 907 ========== 
+
+=============== cycle 908 ========== 
+
+=============== cycle 909 ========== 
+
+=============== cycle 910 ========== 
+
 kernel_name = _Z6vecAddIfEvPT_S1_S1_i 
 kernel_launch_uid = 1 
-gpu_sim_cycle = 868
+gpu_sim_cycle = 911
 gpu_sim_insn = 1324
-gpu_ipc =       1.5253
-gpu_tot_sim_cycle = 868
+gpu_ipc =       1.4533
+gpu_tot_sim_cycle = 911
 gpu_tot_sim_insn = 1324
-gpu_tot_ipc =       1.5253
+gpu_tot_ipc =       1.4533
 gpu_tot_issued_cta = 1
-gpu_occupancy = 21.3445% 
-gpu_tot_occupancy = 21.3445% 
+gpu_occupancy = 21.2115% 
+gpu_tot_occupancy = 21.2115% 
 max_total_param_size = 0
 gpu_stall_dramfull = 0
 gpu_stall_icnt2sh    = 0
-partiton_level_parallism =       0.0161
-partiton_level_parallism_total  =       0.0161
+partiton_level_parallism =       0.0154
+partiton_level_parallism_total  =       0.0154
 partiton_level_parallism_util =       1.0000
 partiton_level_parallism_util_total  =       1.0000
-L2_BW  =       0.8294 GB/Sec
-L2_BW_total  =       0.8294 GB/Sec
+L2_BW  =       0.7903 GB/Sec
+L2_BW_total  =       0.7903 GB/Sec
 gpu_total_sim_rate=1324
 
 ========= Core cache stats =========
@@ -1893,25 +3711,6 @@ L1I_cache:
 	L1I_total_cache_reservation_fails = 0
 L1D_cache:
 	L1D_cache_core[0]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
-	L1D_cache_core[1]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
-	L1D_cache_core[2]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
-	L1D_cache_core[3]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
-	L1D_cache_core[4]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
-	L1D_cache_core[5]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
-	L1D_cache_core[6]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
-	L1D_cache_core[7]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
-	L1D_cache_core[8]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
-	L1D_cache_core[9]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
-	L1D_cache_core[10]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
-	L1D_cache_core[11]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
-	L1D_cache_core[12]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
-	L1D_cache_core[13]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
-	L1D_cache_core[14]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
-	L1D_cache_core[15]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
-	L1D_cache_core[16]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
-	L1D_cache_core[17]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
-	L1D_cache_core[18]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
-	L1D_cache_core[19]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
 	L1D_total_cache_accesses = 0
 	L1D_total_cache_misses = 0
 	L1D_total_cache_pending_hits = 0
@@ -2031,24 +3830,24 @@ gpgpu_stall_shd_mem[gl_mem][coal_stall] = 0
 gpgpu_stall_shd_mem[gl_mem][data_port_stall] = 0
 gpu_reg_bank_conflict_stalls = 0
 Warp Occupancy Distribution:
-Stall:7	W0_Idle:1686	W0_Scoreboard:0	W1:0	W2:0	W3:0	W4:4	W5:0	W6:0	W7:0	W8:0	W9:0	W10:0	W11:0	W12:0	W13:0	W14:0	W15:0	W16:0	W17:0	W18:0	W19:0	W20:0	W21:0	W22:0	W23:0	W24:0	W25:0	W26:0	W27:0	W28:1	W29:0	W30:0	W31:0	W32:40
-single_issue_nums: WS0:20	WS1:20	
-dual_issue_nums: WS0:2	WS1:2	
+Stall:3	W0_Idle:866	W0_Scoreboard:0	W1:0	W2:0	W3:0	W4:4	W5:0	W6:0	W7:0	W8:0	W9:0	W10:0	W11:0	W12:0	W13:0	W14:0	W15:0	W16:0	W17:0	W18:0	W19:0	W20:0	W21:0	W22:0	W23:0	W24:0	W25:0	W26:0	W27:0	W28:1	W29:0	W30:0	W31:0	W32:40
+single_issue_nums: WS0:40	
+dual_issue_nums: WS0:4	
 traffic_breakdown_coretomem[GLOBAL_ACC_R] = 64 {8:8,}
 traffic_breakdown_coretomem[GLOBAL_ACC_W] = 448 {40:1,136:3,}
 traffic_breakdown_coretomem[INST_ACC_R] = 16 {8:2,}
 traffic_breakdown_memtocore[GLOBAL_ACC_R] = 896 {40:2,136:6,}
 traffic_breakdown_memtocore[GLOBAL_ACC_W] = 32 {8:4,}
 traffic_breakdown_memtocore[INST_ACC_R] = 272 {136:2,}
-maxmflatency = 280 
+maxmflatency = 294 
 max_icnt2mem_latency = 23 
-maxmrqlatency = 10 
+maxmrqlatency = 14 
 max_icnt2sh_latency = 16 
-mrq_lat_table:14 	0 	1 	3 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
+mrq_lat_table:14 	0 	0 	4 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
 dq_lat_table:0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
 mf_lat_table:0 	0 	0 	0 	0 	0 	0 	0 	12 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
-icnt2mem_lat_table:0 	0 	0 	10 	4 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
-icnt2sh_lat_table:0 	0 	0 	11 	1 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
+icnt2mem_lat_table:0 	0 	0 	9 	5 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
+icnt2sh_lat_table:0 	0 	0 	10 	2 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
 mf_lat_pw_table:0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
 maximum concurrent accesses to same row:
 dram[0]:         1         1         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
@@ -2060,12 +3859,12 @@ dram[5]:         0         0         0         0         0         0         0  
 dram[6]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
 dram[7]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
 maximum service time to same row:
-dram[0]:       302       504         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
-dram[1]:       506       508         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
-dram[2]:       830       810         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
-dram[3]:       817       819         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
-dram[4]:       837       816         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
-dram[5]:       825       828         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[0]:       315       517         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[1]:       519       521         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[2]:       857       841         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[3]:       849       865         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[4]:       863       847         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[5]:       855       868         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
 dram[6]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
 dram[7]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
 average row accesses per activate:
@@ -2115,21 +3914,21 @@ total dram writes = 13
 min_bank_accesses = 0!
 min_chip_accesses = 0!
 average mf latency per bank:
-dram[0]:         34        33    none      none      none      none      none      none      none      none      none      none      none      none      none      none  
-dram[1]:         67        68    none      none      none      none      none      none      none      none      none      none      none      none      none      none  
-dram[2]:         70        66    none      none      none      none      none      none      none      none      none      none      none      none      none      none  
-dram[3]:         68        69    none      none      none      none      none      none      none      none      none      none      none      none      none      none  
-dram[4]:         33        32    none      none      none      none      none      none      none      none      none      none      none      none      none      none  
-dram[5]:         33        52    none      none      none      none      none      none      none      none      none      none      none      none      none      none  
+dram[0]:         36        34    none      none      none      none      none      none      none      none      none      none      none      none      none      none  
+dram[1]:         70        71    none      none      none      none      none      none      none      none      none      none      none      none      none      none  
+dram[2]:         72        69    none      none      none      none      none      none      none      none      none      none      none      none      none      none  
+dram[3]:         70        72    none      none      none      none      none      none      none      none      none      none      none      none      none      none  
+dram[4]:         34        33    none      none      none      none      none      none      none      none      none      none      none      none      none      none  
+dram[5]:         33        55    none      none      none      none      none      none      none      none      none      none      none      none      none      none  
 dram[6]:     none      none      none      none      none      none      none      none      none      none      none      none      none      none      none      none  
 dram[7]:     none      none      none      none      none      none      none      none      none      none      none      none      none      none      none      none  
 maximum mf latency per bank:
-dram[0]:        273       265         0         0         0         0         0         0         0         0         0         0         0         0         0         0
-dram[1]:        270       272         0         0         0         0         0         0         0         0         0         0         0         0         0         0
-dram[2]:        280       266         0         0         0         0         0         0         0         0         0         0         0         0         0         0
-dram[3]:        274       276         0         0         0         0         0         0         0         0         0         0         0         0         0         0
-dram[4]:        269       257         0         0         0         0         0         0         0         0         0         0         0         0         0         0
-dram[5]:        264       264         0         0         0         0         0         0         0         0         0         0         0         0         0         0
+dram[0]:        294       277         0         0         0         0         0         0         0         0         0         0         0         0         0         0
+dram[1]:        282       284         0         0         0         0         0         0         0         0         0         0         0         0         0         0
+dram[2]:        291       279         0         0         0         0         0         0         0         0         0         0         0         0         0         0
+dram[3]:        283       289         0         0         0         0         0         0         0         0         0         0         0         0         0         0
+dram[4]:        278       264         0         0         0         0         0         0         0         0         0         0         0         0         0         0
+dram[5]:        270       277         0         0         0         0         0         0         0         0         0         0         0         0         0         0
 dram[6]:          0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0
 dram[7]:          0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0
 
@@ -2150,31 +3949,31 @@ MSHR contents
 
 In Dram Latency Queue (total = 0): 
 DRAM[0]: 16 bks, busW=4 BL=8 CL=12, tRRD=6 tCCD=2, tRCD=12 tRAS=28 tRP=12 tRC=40
-n_cmd=1349 n_nop=1327 n_act=4 n_pre=2 n_ref_event=0 n_req=4 n_rd=16 n_rd_L2_A=0 n_write=0 n_wr_bk=0 bw_util=0.02372
-n_activity=140 dram_eff=0.2286
-bk0: 8a 1301i bk1: 8a 1301i bk2: 0a 1346i bk3: 0a 1349i bk4: 0a 1349i bk5: 0a 1349i bk6: 0a 1349i bk7: 0a 1349i bk8: 0a 1349i bk9: 0a 1349i bk10: 0a 1349i bk11: 0a 1349i bk12: 0a 1349i bk13: 0a 1349i bk14: 0a 1349i bk15: 0a 1350i 
+n_cmd=911 n_nop=889 n_act=4 n_pre=2 n_ref_event=0 n_req=4 n_rd=16 n_rd_L2_A=0 n_write=0 n_wr_bk=0 bw_util=0.03513
+n_activity=126 dram_eff=0.254
+bk0: 8a 858i bk1: 8a 860i bk2: 0a 908i bk3: 0a 911i bk4: 0a 911i bk5: 0a 911i bk6: 0a 911i bk7: 0a 911i bk8: 0a 911i bk9: 0a 911i bk10: 0a 911i bk11: 0a 911i bk12: 0a 911i bk13: 0a 911i bk14: 0a 911i bk15: 0a 912i 
 
 ------------------------------------------------------------------------
 
 Row_Buffer_Locality = 0.000000
 Row_Buffer_Locality_read = 0.000000
 Row_Buffer_Locality_write = -nan
-Bank_Level_Parallism = 1.282051
-Bank_Level_Parallism_Col = 1.142857
-Bank_Level_Parallism_Ready = 1.000000
+Bank_Level_Parallism = 1.350000
+Bank_Level_Parallism_Col = 1.193548
+Bank_Level_Parallism_Ready = 1.062500
 write_to_read_ratio_blp_rw_average = 0.000000
 GrpLevelPara = 1.000000 
 
 BW Util details:
-bwutil = 0.023721 
-total_CMD = 1349 
+bwutil = 0.035126 
+total_CMD = 911 
 util_bw = 32 
-Wasted_Col = 37 
-Wasted_Row = 12 
-Idle = 1268 
+Wasted_Col = 36 
+Wasted_Row = 15 
+Idle = 828 
 
 BW Util Bottlenecks: 
-RCDc_limit = 40 
+RCDc_limit = 42 
 RCDWRc_limit = 0 
 WTRc_limit = 0 
 RTWc_limit = 0 
@@ -2185,8 +3984,8 @@ WTRc_limit_alone = 0
 RTWc_limit_alone = 0 
 
 Commands details: 
-total_CMD = 1349 
-n_nop = 1327 
+total_CMD = 911 
+n_nop = 889 
 Read = 16 
 Write = 0 
 L2_Alloc = 0 
@@ -2200,9 +3999,9 @@ total_req = 16
 Dual Bus Interface Util: 
 issued_total_row = 6 
 issued_total_col = 16 
-Row_Bus_Util =  0.004448 
-CoL_Bus_Util = 0.011861 
-Either_Row_CoL_Bus_Util = 0.016308 
+Row_Bus_Util =  0.006586 
+CoL_Bus_Util = 0.017563 
+Either_Row_CoL_Bus_Util = 0.024149 
 Issued_on_Two_Bus_Simul_Util = 0.000000 
 issued_two_Eff = 0.000000 
 queue_avg = 0.000000 
@@ -2220,28 +4019,28 @@ MSHR contents
 
 In Dram Latency Queue (total = 0): 
 DRAM[1]: 16 bks, busW=4 BL=8 CL=12, tRRD=6 tCCD=2, tRCD=12 tRAS=28 tRP=12 tRC=40
-n_cmd=1349 n_nop=1339 n_act=2 n_pre=0 n_ref_event=0 n_req=2 n_rd=8 n_rd_L2_A=0 n_write=0 n_wr_bk=0 bw_util=0.01186
+n_cmd=911 n_nop=901 n_act=2 n_pre=0 n_ref_event=0 n_req=2 n_rd=8 n_rd_L2_A=0 n_write=0 n_wr_bk=0 bw_util=0.01756
 n_activity=46 dram_eff=0.3478
-bk0: 4a 1331i bk1: 4a 1326i bk2: 0a 1349i bk3: 0a 1349i bk4: 0a 1349i bk5: 0a 1349i bk6: 0a 1349i bk7: 0a 1349i bk8: 0a 1349i bk9: 0a 1349i bk10: 0a 1349i bk11: 0a 1349i bk12: 0a 1349i bk13: 0a 1349i bk14: 0a 1349i bk15: 0a 1349i 
+bk0: 4a 893i bk1: 4a 887i bk2: 0a 911i bk3: 0a 911i bk4: 0a 911i bk5: 0a 911i bk6: 0a 911i bk7: 0a 911i bk8: 0a 911i bk9: 0a 911i bk10: 0a 911i bk11: 0a 911i bk12: 0a 911i bk13: 0a 911i bk14: 0a 911i bk15: 0a 911i 
 
 ------------------------------------------------------------------------
 
 Row_Buffer_Locality = 0.000000
 Row_Buffer_Locality_read = 0.000000
 Row_Buffer_Locality_write = -nan
-Bank_Level_Parallism = 1.592593
+Bank_Level_Parallism = 1.629630
 Bank_Level_Parallism_Col = 1.461538
 Bank_Level_Parallism_Ready = 1.125000
 write_to_read_ratio_blp_rw_average = 0.000000
 GrpLevelPara = 1.000000 
 
 BW Util details:
-bwutil = 0.011861 
-total_CMD = 1349 
+bwutil = 0.017563 
+total_CMD = 911 
 util_bw = 16 
 Wasted_Col = 12 
 Wasted_Row = 0 
-Idle = 1321 
+Idle = 883 
 
 BW Util Bottlenecks: 
 RCDc_limit = 18 
@@ -2255,8 +4054,8 @@ WTRc_limit_alone = 0
 RTWc_limit_alone = 0 
 
 Commands details: 
-total_CMD = 1349 
-n_nop = 1339 
+total_CMD = 911 
+n_nop = 901 
 Read = 8 
 Write = 0 
 L2_Alloc = 0 
@@ -2270,9 +4069,9 @@ total_req = 8
 Dual Bus Interface Util: 
 issued_total_row = 2 
 issued_total_col = 8 
-Row_Bus_Util =  0.001483 
-CoL_Bus_Util = 0.005930 
-Either_Row_CoL_Bus_Util = 0.007413 
+Row_Bus_Util =  0.002195 
+CoL_Bus_Util = 0.008782 
+Either_Row_CoL_Bus_Util = 0.010977 
 Issued_on_Two_Bus_Simul_Util = 0.000000 
 issued_two_Eff = 0.000000 
 queue_avg = 0.000000 
@@ -2290,31 +4089,31 @@ MSHR contents
 
 In Dram Latency Queue (total = 0): 
 DRAM[2]: 16 bks, busW=4 BL=8 CL=12, tRRD=6 tCCD=2, tRCD=12 tRAS=28 tRP=12 tRC=40
-n_cmd=1349 n_nop=1339 n_act=2 n_pre=0 n_ref_event=0 n_req=2 n_rd=8 n_rd_L2_A=0 n_write=0 n_wr_bk=0 bw_util=0.01186
-n_activity=72 dram_eff=0.2222
-bk0: 4a 1331i bk1: 4a 1330i bk2: 0a 1347i bk3: 0a 1349i bk4: 0a 1349i bk5: 0a 1349i bk6: 0a 1349i bk7: 0a 1349i bk8: 0a 1349i bk9: 0a 1349i bk10: 0a 1349i bk11: 0a 1349i bk12: 0a 1349i bk13: 0a 1349i bk14: 0a 1349i bk15: 0a 1350i 
+n_cmd=911 n_nop=901 n_act=2 n_pre=0 n_ref_event=0 n_req=2 n_rd=8 n_rd_L2_A=0 n_write=0 n_wr_bk=0 bw_util=0.01756
+n_activity=56 dram_eff=0.2857
+bk0: 4a 893i bk1: 4a 892i bk2: 0a 909i bk3: 0a 911i bk4: 0a 911i bk5: 0a 911i bk6: 0a 911i bk7: 0a 911i bk8: 0a 911i bk9: 0a 911i bk10: 0a 911i bk11: 0a 911i bk12: 0a 911i bk13: 0a 911i bk14: 0a 911i bk15: 0a 912i 
 
 ------------------------------------------------------------------------
 
 Row_Buffer_Locality = 0.000000
 Row_Buffer_Locality_read = 0.000000
 Row_Buffer_Locality_write = -nan
-Bank_Level_Parallism = 1.000000
-Bank_Level_Parallism_Col = 1.000000
+Bank_Level_Parallism = 1.114286
+Bank_Level_Parallism_Col = 1.088235
 Bank_Level_Parallism_Ready = 1.000000
 write_to_read_ratio_blp_rw_average = 0.000000
 GrpLevelPara = 1.000000 
 
 BW Util details:
-bwutil = 0.011861 
-total_CMD = 1349 
+bwutil = 0.017563 
+total_CMD = 911 
 util_bw = 16 
-Wasted_Col = 24 
+Wasted_Col = 20 
 Wasted_Row = 0 
-Idle = 1309 
+Idle = 875 
 
 BW Util Bottlenecks: 
-RCDc_limit = 24 
+RCDc_limit = 20 
 RCDWRc_limit = 0 
 WTRc_limit = 0 
 RTWc_limit = 0 
@@ -2325,8 +4124,8 @@ WTRc_limit_alone = 0
 RTWc_limit_alone = 0 
 
 Commands details: 
-total_CMD = 1349 
-n_nop = 1339 
+total_CMD = 911 
+n_nop = 901 
 Read = 8 
 Write = 0 
 L2_Alloc = 0 
@@ -2340,9 +4139,9 @@ total_req = 8
 Dual Bus Interface Util: 
 issued_total_row = 2 
 issued_total_col = 8 
-Row_Bus_Util =  0.001483 
-CoL_Bus_Util = 0.005930 
-Either_Row_CoL_Bus_Util = 0.007413 
+Row_Bus_Util =  0.002195 
+CoL_Bus_Util = 0.008782 
+Either_Row_CoL_Bus_Util = 0.010977 
 Issued_on_Two_Bus_Simul_Util = 0.000000 
 issued_two_Eff = 0.000000 
 queue_avg = 0.000000 
@@ -2360,31 +4159,31 @@ MSHR contents
 
 In Dram Latency Queue (total = 0): 
 DRAM[3]: 16 bks, busW=4 BL=8 CL=12, tRRD=6 tCCD=2, tRCD=12 tRAS=28 tRP=12 tRC=40
-n_cmd=1349 n_nop=1339 n_act=2 n_pre=0 n_ref_event=0 n_req=2 n_rd=8 n_rd_L2_A=0 n_write=0 n_wr_bk=0 bw_util=0.01186
-n_activity=46 dram_eff=0.3478
-bk0: 4a 1331i bk1: 4a 1326i bk2: 0a 1349i bk3: 0a 1349i bk4: 0a 1349i bk5: 0a 1349i bk6: 0a 1349i bk7: 0a 1349i bk8: 0a 1349i bk9: 0a 1349i bk10: 0a 1349i bk11: 0a 1349i bk12: 0a 1349i bk13: 0a 1349i bk14: 0a 1349i bk15: 0a 1349i 
+n_cmd=911 n_nop=901 n_act=2 n_pre=0 n_ref_event=0 n_req=2 n_rd=8 n_rd_L2_A=0 n_write=0 n_wr_bk=0 bw_util=0.01756
+n_activity=57 dram_eff=0.2807
+bk0: 4a 893i bk1: 4a 892i bk2: 0a 911i bk3: 0a 911i bk4: 0a 911i bk5: 0a 911i bk6: 0a 911i bk7: 0a 911i bk8: 0a 911i bk9: 0a 911i bk10: 0a 911i bk11: 0a 911i bk12: 0a 911i bk13: 0a 911i bk14: 0a 911i bk15: 0a 911i 
 
 ------------------------------------------------------------------------
 
 Row_Buffer_Locality = 0.000000
 Row_Buffer_Locality_read = 0.000000
 Row_Buffer_Locality_write = -nan
-Bank_Level_Parallism = 1.592593
-Bank_Level_Parallism_Col = 1.461538
-Bank_Level_Parallism_Ready = 1.125000
+Bank_Level_Parallism = 1.083333
+Bank_Level_Parallism_Col = 1.028571
+Bank_Level_Parallism_Ready = 1.000000
 write_to_read_ratio_blp_rw_average = 0.000000
 GrpLevelPara = 1.000000 
 
 BW Util details:
-bwutil = 0.011861 
-total_CMD = 1349 
+bwutil = 0.017563 
+total_CMD = 911 
 util_bw = 16 
-Wasted_Col = 12 
+Wasted_Col = 21 
 Wasted_Row = 0 
-Idle = 1321 
+Idle = 874 
 
 BW Util Bottlenecks: 
-RCDc_limit = 18 
+RCDc_limit = 21 
 RCDWRc_limit = 0 
 WTRc_limit = 0 
 RTWc_limit = 0 
@@ -2395,8 +4194,8 @@ WTRc_limit_alone = 0
 RTWc_limit_alone = 0 
 
 Commands details: 
-total_CMD = 1349 
-n_nop = 1339 
+total_CMD = 911 
+n_nop = 901 
 Read = 8 
 Write = 0 
 L2_Alloc = 0 
@@ -2410,9 +4209,9 @@ total_req = 8
 Dual Bus Interface Util: 
 issued_total_row = 2 
 issued_total_col = 8 
-Row_Bus_Util =  0.001483 
-CoL_Bus_Util = 0.005930 
-Either_Row_CoL_Bus_Util = 0.007413 
+Row_Bus_Util =  0.002195 
+CoL_Bus_Util = 0.008782 
+Either_Row_CoL_Bus_Util = 0.010977 
 Issued_on_Two_Bus_Simul_Util = 0.000000 
 issued_two_Eff = 0.000000 
 queue_avg = 0.000000 
@@ -2427,46 +4226,47 @@ MSHR contents
 
 Cache L2_bank_009:
 MSHR contents
+MSHR: tag=0x2d500480, atomic=0 1 entries : 0x56477eb26a10 :  mf: uid=    53, sid00:w01, part=4, addr=0x139823420540032, load , size=128, unknown  status = IN_PARTITION_DRAM (901), 
 
 In Dram Latency Queue (total = 0): 
 DRAM[4]: 16 bks, busW=4 BL=8 CL=12, tRRD=6 tCCD=2, tRCD=12 tRAS=28 tRP=12 tRC=40
-n_cmd=1349 n_nop=1331 n_act=2 n_pre=0 n_ref_event=0 n_req=4 n_rd=0 n_rd_L2_A=8 n_write=8 n_wr_bk=0 bw_util=0.02372
-n_activity=77 dram_eff=0.4156
-bk0: 4a 1318i bk1: 4a 1319i bk2: 0a 1347i bk3: 0a 1348i bk4: 0a 1349i bk5: 0a 1349i bk6: 0a 1349i bk7: 0a 1349i bk8: 0a 1349i bk9: 0a 1349i bk10: 0a 1349i bk11: 0a 1349i bk12: 0a 1349i bk13: 0a 1349i bk14: 0a 1350i bk15: 0a 1350i 
+n_cmd=911 n_nop=893 n_act=2 n_pre=0 n_ref_event=0 n_req=4 n_rd=0 n_rd_L2_A=8 n_write=8 n_wr_bk=0 bw_util=0.03513
+n_activity=64 dram_eff=0.5
+bk0: 4a 882i bk1: 4a 858i bk2: 0a 909i bk3: 0a 910i bk4: 0a 911i bk5: 0a 911i bk6: 0a 911i bk7: 0a 911i bk8: 0a 911i bk9: 0a 911i bk10: 0a 911i bk11: 0a 911i bk12: 0a 911i bk13: 0a 911i bk14: 0a 912i bk15: 0a 912i 
 
 ------------------------------------------------------------------------
 
 Row_Buffer_Locality = 0.500000
 Row_Buffer_Locality_read = 1.000000
 Row_Buffer_Locality_write = 0.000000
-Bank_Level_Parallism = 1.000000
-Bank_Level_Parallism_Col = 1.000000
-Bank_Level_Parallism_Ready = 1.000000
-write_to_read_ratio_blp_rw_average = 0.451613
+Bank_Level_Parallism = 1.563636
+Bank_Level_Parallism_Col = 1.555556
+Bank_Level_Parallism_Ready = 1.250000
+write_to_read_ratio_blp_rw_average = 0.361111
 GrpLevelPara = 1.000000 
 
 BW Util details:
-bwutil = 0.023721 
-total_CMD = 1349 
+bwutil = 0.035126 
+total_CMD = 911 
 util_bw = 32 
-Wasted_Col = 34 
+Wasted_Col = 24 
 Wasted_Row = 0 
-Idle = 1283 
+Idle = 855 
 
 BW Util Bottlenecks: 
 RCDc_limit = 0 
 RCDWRc_limit = 14 
-WTRc_limit = 18 
-RTWc_limit = 9 
+WTRc_limit = 26 
+RTWc_limit = 0 
 CCDLc_limit = 0 
 rwq = 0 
 CCDLc_limit_alone = 0 
-WTRc_limit_alone = 18 
-RTWc_limit_alone = 9 
+WTRc_limit_alone = 26 
+RTWc_limit_alone = 0 
 
 Commands details: 
-total_CMD = 1349 
-n_nop = 1331 
+total_CMD = 911 
+n_nop = 893 
 Read = 0 
 Write = 8 
 L2_Alloc = 8 
@@ -2480,63 +4280,64 @@ total_req = 16
 Dual Bus Interface Util: 
 issued_total_row = 2 
 issued_total_col = 16 
-Row_Bus_Util =  0.001483 
-CoL_Bus_Util = 0.011861 
-Either_Row_CoL_Bus_Util = 0.013343 
+Row_Bus_Util =  0.002195 
+CoL_Bus_Util = 0.017563 
+Either_Row_CoL_Bus_Util = 0.019759 
 Issued_on_Two_Bus_Simul_Util = 0.000000 
 issued_two_Eff = 0.000000 
-queue_avg = 0.020756 
+queue_avg = 0.028540 
 
 
 dram_util_bins: 0 0 0 0 0 0 0 0 0 0
 dram_eff_bins: 0 0 0 0 0 0 0 0 0 0
-mrqq: max=1 avg=0.0207561
+mrqq: max=1 avg=0.0285401
 Memory Partition 5: 
 Cache L2_bank_010:
 MSHR contents
 
 Cache L2_bank_011:
 MSHR contents
+MSHR: tag=0x2d500580, atomic=0 1 entries : 0x56477eb2c550 :  mf: uid=    56, sid00:w03, part=5, addr=0x139823420540288, load , size=128, unknown  status = IN_PARTITION_DRAM (901), 
 
 In Dram Latency Queue (total = 0): 
 DRAM[5]: 16 bks, busW=4 BL=8 CL=12, tRRD=6 tCCD=2, tRCD=12 tRAS=28 tRP=12 tRC=40
-n_cmd=1349 n_nop=1334 n_act=2 n_pre=0 n_ref_event=0 n_req=4 n_rd=0 n_rd_L2_A=8 n_write=5 n_wr_bk=0 bw_util=0.01927
-n_activity=52 dram_eff=0.5
-bk0: 4a 1318i bk1: 4a 1315i bk2: 0a 1349i bk3: 0a 1349i bk4: 0a 1349i bk5: 0a 1349i bk6: 0a 1349i bk7: 0a 1349i bk8: 0a 1349i bk9: 0a 1349i bk10: 0a 1349i bk11: 0a 1349i bk12: 0a 1349i bk13: 0a 1349i bk14: 0a 1349i bk15: 0a 1349i 
+n_cmd=911 n_nop=896 n_act=2 n_pre=0 n_ref_event=0 n_req=4 n_rd=0 n_rd_L2_A=8 n_write=5 n_wr_bk=0 bw_util=0.02854
+n_activity=56 dram_eff=0.4643
+bk0: 4a 874i bk1: 4a 879i bk2: 0a 910i bk3: 0a 911i bk4: 0a 911i bk5: 0a 911i bk6: 0a 911i bk7: 0a 911i bk8: 0a 911i bk9: 0a 911i bk10: 0a 911i bk11: 0a 911i bk12: 0a 911i bk13: 0a 911i bk14: 0a 911i bk15: 0a 911i 
 
 ------------------------------------------------------------------------
 
 Row_Buffer_Locality = 0.500000
 Row_Buffer_Locality_read = 1.000000
 Row_Buffer_Locality_write = 0.000000
-Bank_Level_Parallism = 1.682927
-Bank_Level_Parallism_Col = 1.650000
-Bank_Level_Parallism_Ready = 1.384615
-write_to_read_ratio_blp_rw_average = 0.350000
+Bank_Level_Parallism = 1.553192
+Bank_Level_Parallism_Col = 1.521739
+Bank_Level_Parallism_Ready = 1.307692
+write_to_read_ratio_blp_rw_average = 0.358696
 GrpLevelPara = 1.000000 
 
 BW Util details:
-bwutil = 0.019274 
-total_CMD = 1349 
+bwutil = 0.028540 
+total_CMD = 911 
 util_bw = 26 
-Wasted_Col = 16 
+Wasted_Col = 22 
 Wasted_Row = 0 
-Idle = 1307 
+Idle = 863 
 
 BW Util Bottlenecks: 
-RCDc_limit = 1 
-RCDWRc_limit = 8 
-WTRc_limit = 18 
+RCDc_limit = 3 
+RCDWRc_limit = 13 
+WTRc_limit = 24 
 RTWc_limit = 0 
 CCDLc_limit = 0 
 rwq = 0 
 CCDLc_limit_alone = 0 
-WTRc_limit_alone = 18 
+WTRc_limit_alone = 24 
 RTWc_limit_alone = 0 
 
 Commands details: 
-total_CMD = 1349 
-n_nop = 1334 
+total_CMD = 911 
+n_nop = 896 
 Read = 0 
 Write = 5 
 L2_Alloc = 8 
@@ -2550,17 +4351,17 @@ total_req = 13
 Dual Bus Interface Util: 
 issued_total_row = 2 
 issued_total_col = 13 
-Row_Bus_Util =  0.001483 
-CoL_Bus_Util = 0.009637 
-Either_Row_CoL_Bus_Util = 0.011119 
+Row_Bus_Util =  0.002195 
+CoL_Bus_Util = 0.014270 
+Either_Row_CoL_Bus_Util = 0.016465 
 Issued_on_Two_Bus_Simul_Util = 0.000000 
 issued_two_Eff = 0.000000 
-queue_avg = 0.015567 
+queue_avg = 0.023052 
 
 
 dram_util_bins: 0 0 0 0 0 0 0 0 0 0
 dram_eff_bins: 0 0 0 0 0 0 0 0 0 0
-mrqq: max=2 avg=0.0155671
+mrqq: max=1 avg=0.0230516
 Memory Partition 6: 
 Cache L2_bank_012:
 MSHR contents
@@ -2570,9 +4371,9 @@ MSHR contents
 
 In Dram Latency Queue (total = 0): 
 DRAM[6]: 16 bks, busW=4 BL=8 CL=12, tRRD=6 tCCD=2, tRCD=12 tRAS=28 tRP=12 tRC=40
-n_cmd=1349 n_nop=1349 n_act=0 n_pre=0 n_ref_event=0 n_req=0 n_rd=0 n_rd_L2_A=0 n_write=0 n_wr_bk=0 bw_util=0
+n_cmd=911 n_nop=911 n_act=0 n_pre=0 n_ref_event=0 n_req=0 n_rd=0 n_rd_L2_A=0 n_write=0 n_wr_bk=0 bw_util=0
 n_activity=0 dram_eff=-nan
-bk0: 0a 1349i bk1: 0a 1349i bk2: 0a 1349i bk3: 0a 1349i bk4: 0a 1349i bk5: 0a 1349i bk6: 0a 1349i bk7: 0a 1349i bk8: 0a 1349i bk9: 0a 1349i bk10: 0a 1349i bk11: 0a 1349i bk12: 0a 1349i bk13: 0a 1349i bk14: 0a 1349i bk15: 0a 1349i 
+bk0: 0a 911i bk1: 0a 911i bk2: 0a 911i bk3: 0a 911i bk4: 0a 911i bk5: 0a 911i bk6: 0a 911i bk7: 0a 911i bk8: 0a 911i bk9: 0a 911i bk10: 0a 911i bk11: 0a 911i bk12: 0a 911i bk13: 0a 911i bk14: 0a 911i bk15: 0a 911i 
 
 ------------------------------------------------------------------------
 
@@ -2587,11 +4388,11 @@ GrpLevelPara = -nan
 
 BW Util details:
 bwutil = 0.000000 
-total_CMD = 1349 
+total_CMD = 911 
 util_bw = 0 
 Wasted_Col = 0 
 Wasted_Row = 0 
-Idle = 1349 
+Idle = 911 
 
 BW Util Bottlenecks: 
 RCDc_limit = 0 
@@ -2605,8 +4406,8 @@ WTRc_limit_alone = 0
 RTWc_limit_alone = 0 
 
 Commands details: 
-total_CMD = 1349 
-n_nop = 1349 
+total_CMD = 911 
+n_nop = 911 
 Read = 0 
 Write = 0 
 L2_Alloc = 0 
@@ -2640,9 +4441,9 @@ MSHR contents
 
 In Dram Latency Queue (total = 0): 
 DRAM[7]: 16 bks, busW=4 BL=8 CL=12, tRRD=6 tCCD=2, tRCD=12 tRAS=28 tRP=12 tRC=40
-n_cmd=1349 n_nop=1349 n_act=0 n_pre=0 n_ref_event=0 n_req=0 n_rd=0 n_rd_L2_A=0 n_write=0 n_wr_bk=0 bw_util=0
+n_cmd=911 n_nop=911 n_act=0 n_pre=0 n_ref_event=0 n_req=0 n_rd=0 n_rd_L2_A=0 n_write=0 n_wr_bk=0 bw_util=0
 n_activity=0 dram_eff=-nan
-bk0: 0a 1349i bk1: 0a 1349i bk2: 0a 1349i bk3: 0a 1349i bk4: 0a 1349i bk5: 0a 1349i bk6: 0a 1349i bk7: 0a 1349i bk8: 0a 1349i bk9: 0a 1349i bk10: 0a 1349i bk11: 0a 1349i bk12: 0a 1349i bk13: 0a 1349i bk14: 0a 1349i bk15: 0a 1349i 
+bk0: 0a 911i bk1: 0a 911i bk2: 0a 911i bk3: 0a 911i bk4: 0a 911i bk5: 0a 911i bk6: 0a 911i bk7: 0a 911i bk8: 0a 911i bk9: 0a 911i bk10: 0a 911i bk11: 0a 911i bk12: 0a 911i bk13: 0a 911i bk14: 0a 911i bk15: 0a 911i 
 
 ------------------------------------------------------------------------
 
@@ -2657,11 +4458,11 @@ GrpLevelPara = -nan
 
 BW Util details:
 bwutil = 0.000000 
-total_CMD = 1349 
+total_CMD = 911 
 util_bw = 0 
 Wasted_Col = 0 
 Wasted_Row = 0 
-Idle = 1349 
+Idle = 911 
 
 BW Util Bottlenecks: 
 RCDc_limit = 0 
@@ -2675,8 +4476,8 @@ WTRc_limit_alone = 0
 RTWc_limit_alone = 0 
 
 Commands details: 
-total_CMD = 1349 
-n_nop = 1349 
+total_CMD = 911 
+n_nop = 911 
 Read = 0 
 Write = 0 
 L2_Alloc = 0 
@@ -2796,7 +4597,7 @@ L2_total_cache_breakdown:
 	L2_cache_stats_breakdown[INST_ACC_R][TOTAL_ACCESS] = 2
 L2_total_cache_reservation_fail_breakdown:
 L2_cache_data_port_util = 0.000
-L2_cache_fill_port_util = 0.004
+L2_cache_fill_port_util = 0.003
 
 icnt_total_pkts_mem_to_simt=48
 icnt_total_pkts_simt_to_mem=27
@@ -2804,61 +4605,61 @@ LD_mem_lat_dist  0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
 ST_mem_lat_dist  0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
 ----------------------------Interconnect-DETAILS--------------------------------
 Class 0:
-Packet latency average = 10.5
+Packet latency average = 10.8571
 	minimum = 6
 	maximum = 21
-Network latency average = 9.35714
+Network latency average = 9.60714
 	minimum = 6
-	maximum = 16
+	maximum = 15
 Slowest packet = 8
-Flit latency average = 7.81333
+Flit latency average = 7.68
 	minimum = 6
-	maximum = 12
-Slowest flit = 48
+	maximum = 14
+Slowest flit = 67
 Fragmentation average = 0
 	minimum = 0
 	maximum = 0
-Injected packet rate average = 0.000645161
-	minimum = 0 (at node 1)
-	maximum = 0.016129 (at node 0)
-Accepted packet rate average = 0.000645161
-	minimum = 0 (at node 1)
-	maximum = 0.016129 (at node 0)
-Injected flit rate average = 0.00172811
-	minimum = 0 (at node 1)
-	maximum = 0.031106 (at node 0)
-Accepted flit rate average= 0.00172811
-	minimum = 0 (at node 1)
-	maximum = 0.0552995 (at node 0)
+Injected packet rate average = 0.000614709
+	minimum = 0 (at node 13)
+	maximum = 0.0153677 (at node 0)
+Accepted packet rate average = 0.000614709
+	minimum = 0 (at node 13)
+	maximum = 0.0153677 (at node 0)
+Injected flit rate average = 0.00164654
+	minimum = 0 (at node 13)
+	maximum = 0.0296378 (at node 0)
+Accepted flit rate average= 0.00164654
+	minimum = 0 (at node 13)
+	maximum = 0.0526894 (at node 0)
 Injected packet length average = 2.67857
 Accepted packet length average = 2.67857
 Total in-flight flits = 0 (0 measured)
 ====== Overall Traffic Statistics ======
 ====== Traffic class 0 ======
-Packet latency average = 10.5 (1 samples)
+Packet latency average = 10.8571 (1 samples)
 	minimum = 6 (1 samples)
 	maximum = 21 (1 samples)
-Network latency average = 9.35714 (1 samples)
+Network latency average = 9.60714 (1 samples)
 	minimum = 6 (1 samples)
-	maximum = 16 (1 samples)
-Flit latency average = 7.81333 (1 samples)
+	maximum = 15 (1 samples)
+Flit latency average = 7.68 (1 samples)
 	minimum = 6 (1 samples)
-	maximum = 12 (1 samples)
+	maximum = 14 (1 samples)
 Fragmentation average = 0 (1 samples)
 	minimum = 0 (1 samples)
 	maximum = 0 (1 samples)
-Injected packet rate average = 0.000645161 (1 samples)
+Injected packet rate average = 0.000614709 (1 samples)
 	minimum = 0 (1 samples)
-	maximum = 0.016129 (1 samples)
-Accepted packet rate average = 0.000645161 (1 samples)
+	maximum = 0.0153677 (1 samples)
+Accepted packet rate average = 0.000614709 (1 samples)
 	minimum = 0 (1 samples)
-	maximum = 0.016129 (1 samples)
-Injected flit rate average = 0.00172811 (1 samples)
+	maximum = 0.0153677 (1 samples)
+Injected flit rate average = 0.00164654 (1 samples)
 	minimum = 0 (1 samples)
-	maximum = 0.031106 (1 samples)
-Accepted flit rate average = 0.00172811 (1 samples)
+	maximum = 0.0296378 (1 samples)
+Accepted flit rate average = 0.00164654 (1 samples)
 	minimum = 0 (1 samples)
-	maximum = 0.0552995 (1 samples)
+	maximum = 0.0526894 (1 samples)
 Injected packet size average = 2.67857 (1 samples)
 Accepted packet size average = 2.67857 (1 samples)
 Hops average = 1 (1 samples)
@@ -2867,7 +4668,7 @@ Hops average = 1 (1 samples)
 
 gpgpu_simulation_time = 0 days, 0 hrs, 0 min, 1 sec (1 sec)
 gpgpu_simulation_rate = 1324 (inst/sec)
-gpgpu_simulation_rate = 868 (cycle/sec)
-gpgpu_silicon_slowdown = 1851382x
+gpgpu_simulation_rate = 911 (cycle/sec)
+gpgpu_silicon_slowdown = 1763995x
 GPGPU-Sim: *** simulation thread exiting ***
 GPGPU-Sim: *** exit detected ***

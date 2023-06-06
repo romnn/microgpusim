@@ -393,10 +393,11 @@ pub struct MockSimulator<I> {
 // impl<'a> MockSimulator<'a> {
 impl<I> MockSimulator<I>
 where
-    I: ic::MemFetchInterface + 'static,
+    // I: ic::MemFetchInterface + 'static,
+    I: ic::Interconnect<core::Packet> + 'static,
 {
     // see new trace_gpgpu_sim
-    pub fn new(config: Arc<config::GPUConfig>) -> Self {
+    pub fn new(interconn: Arc<I>, config: Arc<config::GPUConfig>) -> Self {
         let stats = Arc::new(Mutex::new(Stats::default()));
 
         let num_mem_units = config.num_mem_units;
@@ -416,7 +417,7 @@ where
         // m_shader_stats, m_memory_stats);
 
         let clusters: Vec<_> = (0..config.num_simt_clusters)
-            .map(|i| SIMTCoreCluster::new(i, stats.clone(), config.clone()))
+            .map(|i| SIMTCoreCluster::new(i, interconn.clone(), stats.clone(), config.clone()))
             .collect();
 
         let executed_kernels = Mutex::new(HashMap::new());
@@ -809,7 +810,13 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> eyre::Result<()> {
     // kernel_info = create_kernel_info(kernel_trace_info, m_gpgpu_context, &tconfig, &tracer);
     // kernels_info.push_back(kernel_info);
 
-    let mut sim = MockSimulator::<ic::CoreMemoryInterface>::new(config.clone());
+    let interconn = Arc::new(ic::ToyInterconnect::new(
+        config.num_simt_clusters * config.num_cores_per_simt_cluster,
+        config.num_mem_units,
+        Some(9), // found by printf debugging gpgusim
+    ));
+    let mut sim = MockSimulator::new(interconn, config.clone());
+    // let mut sim = MockSimulator::<ic::CoreMemoryInterface>::new(config.clone());
 
     let mut i = 0;
     while i < commands.len() || !kernels.is_empty() {
@@ -851,8 +858,15 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> eyre::Result<()> {
 
         // drive kernels to completion
         // while sim.active() {
-        for i in 0..2 {
-            println!("======== cycle {i} ========");
+        let cycle_limit: usize = std::env::var("CYCLES")
+            .ok()
+            .as_deref()
+            .map(str::parse)
+            .map(Result::ok)
+            .flatten()
+            .unwrap_or(3);
+        for cycle in 0..cycle_limit {
+            println!("======== cycle {cycle} ========");
             sim.cycle();
             // if !sim.active() {
             //     break;
@@ -863,8 +877,9 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> eyre::Result<()> {
             // } else {
             // }
         }
+        println!("exit after {cycle_limit} cycles");
 
-        dbg!(&sim.stats.lock().unwrap());
+        // dbg!(&sim.stats.lock().unwrap());
         // bool active = false;
         // bool sim_cycles = false;
         // unsigned finished_kernel_uid = 0;

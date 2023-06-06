@@ -11,7 +11,7 @@ use bitvec::{array::BitArray, BitArr};
 use color_eyre::eyre;
 use console::style;
 use std::collections::{HashMap, VecDeque};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex, RwLock, Weak};
 use strum::{EnumCount, IntoEnumIterator};
 
 // Volta max shmem size is 96kB
@@ -77,7 +77,8 @@ impl InstrFetchBuffer {
 pub struct InnerSIMTCore<I> {
     pub core_id: usize,
     pub cluster_id: usize,
-
+    // pub cluster: Arc<SIMTCoreCluster<I>>,
+    // pub cluster: Weak<SIMTCoreCluster<I>>,
     pub stats: Arc<Mutex<Stats>>,
     pub config: Arc<GPUConfig>,
     pub current_kernel: Option<Arc<KernelInfo>>,
@@ -122,9 +123,16 @@ impl<I> std::fmt::Debug for InnerSIMTCore<I> {
     }
 }
 
+#[derive(Debug)]
+pub enum Packet {
+    Fetch(mem_fetch::MemFetch),
+}
+
 impl<I> InnerSIMTCore<I>
 where
-    I: ic::MemFetchInterface + 'static,
+    // I: ic::MemFetchInterface + 'static,
+    I: ic::Interconnect<Packet> + 'static,
+    // I: ic::Interconnect<Packet>,
 {
     pub fn active_mask(&self, warp_id: usize, instr: &WarpInstruction) -> sched::ThreadActiveMask {
         // for trace-driven, the active mask already set in traces
@@ -246,16 +254,16 @@ pub enum PipelineStage {
 // impl<'a> SIMTCore<'a> {
 impl<I> SIMTCore<I>
 where
-    I: ic::MemFetchInterface + 'static,
+    // I: ic::MemFetchInterface + 'static,
+    // I: ic::Interconnect<Packet> + 'static,
+    I: ic::Interconnect<Packet> + 'static,
 {
-    // void core_t::get_pdom_stack_top_info(unsigned warpId, unsigned *pc,
-    //                                      unsigned *rpc) const {
-    //   m_simt_stack[warpId]->get_pdom_stack_top_info(pc, rpc);
-    // }
-
     pub fn new(
         core_id: usize,
         cluster_id: usize,
+        // cluster: Weak<SIMTCoreCluster<I>>,
+        // cluster: Arc<SIMTCoreCluster<I>>,
+        interconn: Arc<I>,
         stats: Arc<Mutex<Stats>>,
         config: Arc<GPUConfig>,
     ) -> Self {
@@ -274,7 +282,7 @@ where
 
         // (this, m_cluster)
         // let interconn = Arc::new(ic::CoreMemoryInterface::new());
-        let interconn = Arc::new(I::new());
+        // let interconn = Arc::new(I::new());
 
         // m_mem_fetch_allocator =
         //     new shader_core_mem_fetch_allocator(m_sid, m_tpc, m_memory_config);
@@ -290,10 +298,16 @@ where
 
         // todo: use mem fetch interconn as well?
         // let port = ic::Interconnect {};
+        // let port = Arc::new(ic::MockCoreMemoryInterface {
+        let port = Arc::new(ic::CoreMemoryInterface {
+            cluster_id,
+            config: config.clone(),
+            interconn: interconn.clone(),
+        });
         let instr_l1_cache = l1::ReadOnly::new(
             core_id,
             cluster_id,
-            interconn.clone(),
+            port.clone(),
             stats.clone(),
             config.clone(),
             config.inst_cache_l1.as_ref().unwrap().clone(),
@@ -350,6 +364,7 @@ where
         let load_store_unit = Arc::new(Mutex::new(LoadStoreUnit::new(
             core_id,
             cluster_id,
+            // clister.clone(),
             interconn.clone(),
             config.clone(),
             stats.clone(),
@@ -358,6 +373,7 @@ where
         let mut inner = InnerSIMTCore {
             core_id,
             cluster_id,
+            // cluster,
             stats,
             config: config.clone(),
             current_kernel: None,
@@ -425,7 +441,8 @@ where
     }
 
     pub fn init_schedulers(&mut self) {
-        let scheduler_kind = config::SchedulerKind::LRR;
+        // let scheduler_kind = config::SchedulerKind::LRR;
+        let scheduler_kind = config::SchedulerKind::GTO;
 
         dbg!(&self.inner.config.num_schedulers_per_core);
         self.schedulers = (0..self.inner.config.num_schedulers_per_core)
@@ -449,9 +466,41 @@ where
                     )) as Box<dyn sched::SchedulerUnit>
                     // self.schedulers.push_back(Box::new(lrr));
                 }
-                other => todo!("scheduler: {:?}", &other),
-                //             SchedulerKind::TwoLevelActive => {
-                // let tla = TwoLevelActiveScheduler::new(
+                config::SchedulerKind::GTO => {
+                    Box::new(sched::GTOScheduler::new(
+                        // &self.inner.warps,
+                        sched_id,
+                        self.inner.warps.clone(),
+                        // mem_out,
+                        // &self.inner,
+                        self.inner.scoreboard.clone(),
+                        self.inner.stats.clone(),
+                        self.inner.config.clone(),
+                        // m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
+                        // &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
+                        // &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
+                        // &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
+                        // &m_pipeline_reg[ID_OC_MEM], i
+
+                        // ORIGINAL PARAMS
+                        // m_stats,
+                        // this,
+                        // m_scoreboard,
+                        // m_simt_stack,
+                        // &m_warp,
+                        // &m_pipeline_reg[ID_OC_SP],
+                        // &m_pipeline_reg[ID_OC_DP],
+                        // &m_pipeline_reg[ID_OC_SFU],
+                        // &m_pipeline_reg[ID_OC_INT],
+                        // &m_pipeline_reg[ID_OC_TENSOR_CORE],
+                        // m_specilized_dispatch_reg,
+                        // &m_pipeline_reg[ID_OC_MEM],
+                        // i,
+                    )) as Box<dyn sched::SchedulerUnit>
+                    // schedulers.push_back(gto);
+                }
+                //     SchedulerKind::TwoLevelActive => {
+                // Box::new(sched::TwoLevelActiveScheduler::new(
                 //                   m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
                 //                   &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
                 //                   &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
@@ -459,15 +508,7 @@ where
                 //                   &m_pipeline_reg[ID_OC_MEM], i, m_config->gpgpu_scheduler_string);
                 //               schedulers.push_back(tla);
                 //         },
-                //             SchedulerKind::GTO => {
-                //                     let gto = GtoScheduler::new(
-                //                   m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
-                //                   &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
-                //                   &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
-                //                   &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
-                //                   &m_pipeline_reg[ID_OC_MEM], i);
-                //               schedulers.push_back(gto);
-                //         },
+                other => todo!("scheduler: {:?}", &other),
                 //         SchedulerKind::RRR => {
                 //                     let rrr = RrrScheduler::new(
                 //                   m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
@@ -647,14 +688,18 @@ where
                 // already waiting on a cache miss and get
                 // next 1-2 instructions from instruction cache
                 let max_warps = self.inner.config.max_warps_per_core();
+                dbg!(&max_warps);
                 for i in 0..max_warps {
                     let last = self.inner.last_warp_fetched.unwrap_or(0);
                     let warp_id = (last + 1 + i) % max_warps;
+                    dbg!(&warp_id);
 
                     // this code checks if this warp has finished executing and can be reclaimed
                     if let Some(warp) = self.inner.warps.get_mut(warp_id) {
                         // .unwrap().as_mut() {
-                        let warp = warp.lock().unwrap();
+                        let mut warp = warp.lock().unwrap();
+                        // dbg!(&warp);
+
                         if warp.hardware_done()
                             && !self.inner.scoreboard.pending_writes(warp_id)
                             && !warp.done_exit()
@@ -698,7 +743,7 @@ where
                         if !warp.trace_instructions.is_empty() {
                             let icache_config = self.inner.config.inst_cache_l1.as_ref().unwrap();
                             if !warp.functional_done()
-                                && !warp.imiss_pending()
+                                && !warp.has_imiss_pending
                                 && warp.ibuffer_empty()
                             {
                                 let instr = warp.current_instr().unwrap();
@@ -748,7 +793,7 @@ where
                                     // let warp = warp.lock().unwrap();
                                     // .as_mut()
                                     // .unwrap();
-                                    warp.set_has_imiss_pending(true);
+                                    warp.has_imiss_pending = true;
                                     // warp.set_last_fetch(m_gpu->gpu_sim_cycle);
                                 } else if status == cache::RequestStatus::HIT {
                                     self.inner.instr_fetch_buffer = InstrFetchBuffer {
@@ -776,6 +821,19 @@ where
         self.inner.instr_l1_cache.cycle();
     }
 
+    /// shader core decode pipeline stage
+    ///
+    /// NOTE: inst fetch buffer valid after 279 cycles
+    ///
+    /// investigate:
+    /// - fetch buffer becomes valid when icache has access ready
+    /// - icache has access ready whenm mshrs has next access
+    /// - mshrs has next access when mshrs::current_response queue is not empty
+    /// - mshrs::current_response is pushed into by mshr_table::mark_ready
+    /// - mshr_table::mark_ready is called by baseline_cache::fill
+    /// - only trace_shader_core_ctx::accept_fetch_response calls baseline_cache::fill
+    /// - only void simt_core_cluster::icnt_cycle() calls accept_fetch_response when there is a
+    /// response
     fn decode(&mut self) {
         let core_id = self.id();
         println!("core {:?}: {}", core_id, style("decode").red());
@@ -1509,6 +1567,8 @@ pub struct SIMTCoreCluster<I> {
     pub config: Arc<GPUConfig>,
     pub stats: Arc<Mutex<Stats>>,
 
+    pub interconn: Arc<I>,
+
     pub core_sim_order: Vec<usize>,
     pub block_issue_next_core: Mutex<usize>,
     pub response_fifo: VecDeque<mem_fetch::MemFetch>,
@@ -1529,32 +1589,58 @@ pub struct SIMTCoreCluster<I> {
 // impl<'a> SIMTCoreCluster<'a> {
 impl<I> SIMTCoreCluster<I>
 where
-    I: ic::MemFetchInterface + 'static,
+    // I: ic::MemFetchInterface + 'static,
+    I: ic::Interconnect<Packet> + 'static,
+    // I: ic::Interconnect<Packet>,
 {
-    pub fn new(cluster_id: usize, stats: Arc<Mutex<Stats>>, config: Arc<GPUConfig>) -> Self {
-        let mut core_sim_order = Vec::new();
-        let cores: Vec<_> = (0..config.num_cores_per_simt_cluster)
-            .map(|core_id| {
-                core_sim_order.push(core_id);
-                let id = config.global_core_id(cluster_id, core_id);
-                SIMTCore::new(id, cluster_id, stats.clone(), config.clone())
-            })
-            .collect();
+    pub fn new(
+        cluster_id: usize,
+        interconn: Arc<I>,
+        stats: Arc<Mutex<Stats>>,
+        config: Arc<GPUConfig>,
+    ) -> Self {
+        // let mut core_sim_order = Vec::new();
+        // let cores: Vec<_> = (0..config.num_cores_per_simt_cluster)
+        //     .map(|core_id| {
+        //         core_sim_order.push(core_id);
+        //         let id = config.global_core_id(cluster_id, core_id);
+        //         SIMTCore::new(id, cluster_id, Arc::new(self), stats.clone(), config.clone())
+        //     })
+        //     .collect();
 
         //     unsigned sid = m_config->cid_to_sid(i, m_cluster_id);
         //     m_core[i] = new trace_shader_core_ctx(m_gpu, this, sid, m_cluster_id,
         //                                           m_config, m_mem_config, m_stats);
 
-        let block_issue_next_core = Mutex::new(cores.len() - 1);
-        Self {
+        let num_cores = config.num_cores_per_simt_cluster;
+        let block_issue_next_core = Mutex::new(num_cores - 1);
+        let mut cluster = Self {
             cluster_id,
-            config,
-            stats,
-            cores: Mutex::new(cores),
-            core_sim_order,
+            config: config.clone(),
+            stats: stats.clone(),
+            interconn: interconn.clone(),
+            // cores: Mutex::new(cores),
+            cores: Mutex::new(Vec::new()),
+            core_sim_order: Vec::new(),
             block_issue_next_core,
             response_fifo: VecDeque::new(),
-        }
+        };
+        let cores = (0..num_cores)
+            .map(|core_id| {
+                cluster.core_sim_order.push(core_id);
+                let id = config.global_core_id(cluster_id, core_id);
+                SIMTCore::new(
+                    id,
+                    cluster_id,
+                    // Arc::new(cluster),
+                    interconn.clone(),
+                    stats.clone(),
+                    config.clone(),
+                )
+            })
+            .collect();
+        cluster.cores = Mutex::new(cores);
+        cluster
     }
 
     pub fn num_active_sms(&self) -> usize {
@@ -1602,96 +1688,96 @@ where
         // return true;
     }
 
-    fn interconn_push(
-        &mut self,
-        cluster_id: usize,
-        device: u64,
-        fetch: mem_fetch::MemFetch,
-        packet_size: u32,
-    ) {
-        // see icnt_push = intersim2_push;
-        todo!("cluster {}: push to interconn", self.cluster_id);
-    }
+    // fn interconn_push(
+    //     &mut self,
+    //     cluster_id: usize,
+    //     device: u64,
+    //     fetch: mem_fetch::MemFetch,
+    //     packet_size: u32,
+    // ) {
+    //     // see icnt_push = intersim2_push;
+    //     todo!("cluster {}: push to interconn", self.cluster_id);
+    // }
 
-    fn interconn_pop(&mut self, cluster_id: usize) -> Option<mem_fetch::MemFetch> {
-        // todo: need one interconnect per cluster?
-        // see icnt_pop = intersim2_pop;
-        // todo!("cluster {}: pop from interconn", self.cluster_id);
-        None
-    }
+    // fn interconn_pop(&mut self, cluster_id: usize) -> Option<mem_fetch::MemFetch> {
+    //     // todo: need one interconnect per cluster?
+    //     // see icnt_pop = intersim2_pop;
+    //     // todo!("cluster {}: pop from interconn", self.cluster_id);
+    //     None
+    // }
 
-    pub fn interconn_inject_request_packet(&mut self, mut fetch: mem_fetch::MemFetch) {
-        todo!(
-            "cluster {}: interconn_inject_request_packet",
-            self.cluster_id
-        );
-        {
-            let mut stats = self.stats.lock().unwrap();
-            if fetch.is_write() {
-                stats.num_mem_write += 1;
-            } else {
-                stats.num_mem_read += 1;
-            }
-
-            match fetch.access_kind() {
-                mem_fetch::AccessKind::CONST_ACC_R => {
-                    stats.num_mem_const += 1;
-                }
-                mem_fetch::AccessKind::TEXTURE_ACC_R => {
-                    stats.num_mem_texture += 1;
-                }
-                mem_fetch::AccessKind::GLOBAL_ACC_R => {
-                    stats.num_mem_read_global += 1;
-                }
-                mem_fetch::AccessKind::GLOBAL_ACC_W => {
-                    stats.num_mem_write_global += 1;
-                }
-                mem_fetch::AccessKind::LOCAL_ACC_R => {
-                    stats.num_mem_read_local += 1;
-                }
-                mem_fetch::AccessKind::LOCAL_ACC_W => {
-                    stats.num_mem_write_local += 1;
-                }
-                mem_fetch::AccessKind::INST_ACC_R => {
-                    stats.num_mem_read_inst += 1;
-                }
-                mem_fetch::AccessKind::L1_WRBK_ACC => {
-                    stats.num_mem_write_global += 1;
-                }
-                mem_fetch::AccessKind::L2_WRBK_ACC => {
-                    stats.num_mem_l2_writeback += 1;
-                }
-                mem_fetch::AccessKind::L1_WR_ALLOC_R => {
-                    stats.num_mem_l1_write_allocate += 1;
-                }
-                mem_fetch::AccessKind::L2_WR_ALLOC_R => {
-                    stats.num_mem_l2_write_allocate += 1;
-                }
-                _ => {}
-            }
-        }
-
-        // The packet size varies depending on the type of request:
-        // - For write request and atomic request, the packet contains the data
-        // - For read request (i.e. not write nor atomic), the packet only has control
-        // metadata
-        let packet_size = if fetch.is_write() && fetch.is_atomic() {
-            fetch.control_size
-        } else {
-            fetch.data_size
-        };
-        // m_stats->m_outgoing_traffic_stats->record_traffic(mf, packet_size);
-        let dest = fetch.sub_partition_id();
-        fetch.status = mem_fetch::Status::IN_ICNT_TO_MEM;
-
-        // if !fetch.is_write() && !fetch.is_atomic() {
-        self.interconn_push(
-            self.cluster_id,
-            self.config.mem_id_to_device_id(dest as usize) as u64,
-            fetch,
-            packet_size,
-        );
-    }
+    // pub fn interconn_inject_request_packet(&mut self, mut fetch: mem_fetch::MemFetch) {
+    //     todo!(
+    //         "cluster {}: interconn_inject_request_packet",
+    //         self.cluster_id
+    //     );
+    //     {
+    //         let mut stats = self.stats.lock().unwrap();
+    //         if fetch.is_write() {
+    //             stats.num_mem_write += 1;
+    //         } else {
+    //             stats.num_mem_read += 1;
+    //         }
+    //
+    //         match fetch.access_kind() {
+    //             mem_fetch::AccessKind::CONST_ACC_R => {
+    //                 stats.num_mem_const += 1;
+    //             }
+    //             mem_fetch::AccessKind::TEXTURE_ACC_R => {
+    //                 stats.num_mem_texture += 1;
+    //             }
+    //             mem_fetch::AccessKind::GLOBAL_ACC_R => {
+    //                 stats.num_mem_read_global += 1;
+    //             }
+    //             mem_fetch::AccessKind::GLOBAL_ACC_W => {
+    //                 stats.num_mem_write_global += 1;
+    //             }
+    //             mem_fetch::AccessKind::LOCAL_ACC_R => {
+    //                 stats.num_mem_read_local += 1;
+    //             }
+    //             mem_fetch::AccessKind::LOCAL_ACC_W => {
+    //                 stats.num_mem_write_local += 1;
+    //             }
+    //             mem_fetch::AccessKind::INST_ACC_R => {
+    //                 stats.num_mem_read_inst += 1;
+    //             }
+    //             mem_fetch::AccessKind::L1_WRBK_ACC => {
+    //                 stats.num_mem_write_global += 1;
+    //             }
+    //             mem_fetch::AccessKind::L2_WRBK_ACC => {
+    //                 stats.num_mem_l2_writeback += 1;
+    //             }
+    //             mem_fetch::AccessKind::L1_WR_ALLOC_R => {
+    //                 stats.num_mem_l1_write_allocate += 1;
+    //             }
+    //             mem_fetch::AccessKind::L2_WR_ALLOC_R => {
+    //                 stats.num_mem_l2_write_allocate += 1;
+    //             }
+    //             _ => {}
+    //         }
+    //     }
+    //
+    //     // The packet size varies depending on the type of request:
+    //     // - For write request and atomic request, the packet contains the data
+    //     // - For read request (i.e. not write nor atomic), the packet only has control
+    //     // metadata
+    //     let packet_size = if fetch.is_write() && fetch.is_atomic() {
+    //         fetch.control_size
+    //     } else {
+    //         fetch.data_size
+    //     };
+    //     // m_stats->m_outgoing_traffic_stats->record_traffic(mf, packet_size);
+    //     let dest = fetch.sub_partition_id();
+    //     fetch.status = mem_fetch::Status::IN_ICNT_TO_MEM;
+    //
+    //     // if !fetch.is_write() && !fetch.is_atomic() {
+    //     self.interconn.push(
+    //         self.cluster_id,
+    //         self.config.mem_id_to_device_id(dest as usize),
+    //         fetch,
+    //         packet_size,
+    //     );
+    // }
 
     pub fn interconn_cycle(&mut self) {
         use mem_fetch::AccessKind;
@@ -1731,11 +1817,13 @@ where
             return;
         }
 
-        let new_fetch = self.interconn_pop(self.cluster_id);
-        dbg!(&new_fetch);
-        let Some(mut fetch) = new_fetch else {
+        let fetch = self.interconn.pop(self.cluster_id);
+        dbg!(&fetch.is_some());
+        let Some(Packet::Fetch(mut fetch)) = fetch else {
             return;
         };
+        dbg!(&fetch.access_kind());
+        dbg!(&fetch.addr());
         debug_assert_eq!(fetch.cluster_id, self.cluster_id);
         debug_assert!(matches!(
             fetch.kind,

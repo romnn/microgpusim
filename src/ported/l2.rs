@@ -39,55 +39,59 @@ impl cache::CacheBandwidth for DataCache {
     }
 }
 
-/// Models second level shared cache.
-///
-/// Uses global write-back and write-allocate policies by default.
-#[derive(Debug)]
-pub struct Data<I> {
-    inner: DataCache,
-    interconn: I,
-}
+// TODO (roman) temp disable l2
+// /// Models second level shared cache.
+// ///
+// /// Uses global write-back and write-allocate policies by default.
+// #[derive(Debug)]
+// pub struct Data<I> {
+//     inner: DataCache,
+//     interconn: I,
+// }
+//
+// impl<I> Data<I>
+// where
+//     I: ic::MemPort,
+// {
+//     pub fn new(
+//         core_id: usize,
+//         fetch_interconn: I,
+//         stats: Arc<Mutex<Stats>>,
+//         config: Arc<config::GPUConfig>,
+//         cache_config: Arc<config::CacheConfig>,
+//     ) -> Self {
+//         Self {
+//             inner: DataCache {},
+//             interconn: fetch_interconn,
+//         }
+//     }
+// }
+//
+// impl<I> cache::Component for Data<I> {}
+//
+// impl<I> cache::Cache for Data<I>
+// where
+//     I: ic::MemPort,
+// {
+//     // The l2 cache access function calls the base data_cache access
+//     // implementation.  When the L2 needs to diverge from L1, L2 specific
+//     // changes should be made here.
+//     fn access(
+//         &mut self,
+//         addr: address,
+//         fetch: mem_fetch::MemFetch,
+//         events: Option<&mut Vec<cache::Event>>,
+//     ) -> cache::RequestStatus {
+//         self.inner.access(addr, fetch, events)
+//     }
+//
+//     fn fill(&self, fetch: &mem_fetch::MemFetch) {
+//         todo!("l2: fill");
+//     }
+// }
 
-impl<I> Data<I>
-where
-    I: ic::MemPort,
-{
-    pub fn new(
-        core_id: usize,
-        fetch_interconn: I,
-        stats: Arc<Mutex<Stats>>,
-        config: Arc<config::GPUConfig>,
-        cache_config: Arc<config::CacheConfig>,
-    ) -> Self {
-        Self {
-            inner: DataCache {},
-            interconn: fetch_interconn,
-        }
-    }
-}
 
-impl<I> cache::Component for Data<I> {}
 
-impl<I> cache::Cache for Data<I>
-where
-    I: ic::MemPort,
-{
-    // The l2 cache access function calls the base data_cache access
-    // implementation.  When the L2 needs to diverge from L1, L2 specific
-    // changes should be made here.
-    fn access(
-        &mut self,
-        addr: address,
-        fetch: mem_fetch::MemFetch,
-        events: Option<&mut Vec<cache::Event>>,
-    ) -> cache::RequestStatus {
-        self.inner.access(addr, fetch, events)
-    }
-
-    fn fill(&self, fetch: &mem_fetch::MemFetch) {
-        todo!("l2: fill");
-    }
-}
 
 //     fn has_free_fill_port(&self) -> bool {
 //         todo!("l2: has_free_fill_port");

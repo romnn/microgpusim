@@ -31,6 +31,7 @@ impl<I> cache::Component for ReadOnly<I>
 where
     // I: ic::MemPort,
     I: ic::MemFetchInterface,
+    // I: ic::Interconnect<crate::ported::core::Packet> + 'static,
 {
     fn cycle(&mut self) {
         self.inner.cycle()
@@ -41,6 +42,7 @@ impl<I> cache::Cache for ReadOnly<I>
 where
     // I: ic::MemPort,
     I: ic::MemFetchInterface,
+    // I: ic::Interconnect<crate::ported::core::Packet> + 'static,
 {
     fn has_ready_accesses(&self) -> bool {
         self.inner.has_ready_accesses()
@@ -57,6 +59,7 @@ where
         events: Option<&mut Vec<cache::Event>>,
     ) -> cache::RequestStatus {
         use cache::RequestStatus as Status;
+        println!("readonly cache: access at {}", &addr);
 
         let base::Base {
             ref cache_config,
@@ -75,6 +78,7 @@ where
         let is_probe = false;
         let (cache_index, probe_status) =
             tag_array.probe(block_addr, &fetch, fetch.is_write(), is_probe);
+        dbg!(&probe_status);
         let mut status = Status::RESERVATION_FAIL;
         let time = 0;
 
@@ -84,7 +88,8 @@ where
                 block_addr, time, // cache_index,
                 &fetch,
             );
-        } else if status != Status::RESERVATION_FAIL {
+        } else if probe_status != Status::RESERVATION_FAIL {
+            dbg!(&self.inner.miss_queue_full());
             if !self.inner.miss_queue_full() {
                 // let do_miss = false;
                 let (should_miss, writeback, evicted) = self.inner.send_read_request(
