@@ -783,7 +783,7 @@ void trace_shader_core_ctx::decode() {
   if (m_inst_fetch_buffer.m_valid) {
     fprintf(stderr, "DECODE: inst fetch buffer valid after %llu cycles\n",
             m_gpu->gpu_sim_cycle);
-    throw std::runtime_error("DECODE: inst fetch buffer valid");
+    // throw std::runtime_error("DECODE: inst fetch buffer valid");
 
     // decode 1 or 2 instructions and place them into ibuffer
     address_type pc = m_inst_fetch_buffer.m_pc;
@@ -843,7 +843,7 @@ void trace_shader_core_ctx::fetch() {
       for (unsigned i = 0; i < m_config->max_warps_per_shader; i++) {
         unsigned warp_id =
             (m_last_warp_fetched + 1 + i) % m_config->max_warps_per_shader;
-        printf("\twarp_id = %u\n", warp_id);
+        // printf("\twarp_id = %u\n", warp_id);
 
         // this code checks if this warp has finished executing and can be
         // reclaimed

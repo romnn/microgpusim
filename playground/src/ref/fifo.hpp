@@ -122,7 +122,7 @@ public:
   }
 
   bool full() const { return (m_max_len && m_length >= m_max_len); }
-  bool is_avilable_size(unsigned size) const {
+  bool is_available_size(unsigned size) const {
     return (m_max_len && m_length + size - 1 >= m_max_len);
   }
   bool empty() const { return m_head == NULL; }

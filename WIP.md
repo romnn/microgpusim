@@ -1,13 +1,12 @@
 #### TODO
+- add an intersim alternative to playground and do some tests how this affects cycles and stats
+
 - move all ptx and unused stuff to sub folders that are ignored (move away completely eventually)
 
 - check implementations
   - mem sub partitions
   - mem units
 
-- todo: skip all non memory instructions in playground
-- todo: clean up playground
-- todo: add lots of logging
 - todo: add custom trace_kernel_info that subclasses
   - should read from the rust traces using cxx bridge
 
@@ -23,10 +22,6 @@
   - custom config and trace from playground
 
 - implement the scheduler that is actually used for the 1080
-
-- compile playground
-
-- migrate to use wrappers around command that takes care of proper errors etc. to simplify build and wrapper scripts
 
 - DONE BUT..?? refactor core into inner core that is shared between components and outer
 
@@ -61,6 +56,11 @@
   - see how far we are at that point
 
 #### Done
+- compile playground
+- skip all non memory instructions in playground
+- clean up playground
+- add lots of logging
+- migrate to use wrappers around command that takes care of proper errors etc. to simplify build and wrapper scripts
 - use relative path to trace file in the kernel launch trace command
 - BUG: if cargo runs tests in parallel, we poison the stats lock
   - need to actually use an arc pointer

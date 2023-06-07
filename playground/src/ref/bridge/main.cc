@@ -45,6 +45,9 @@ void cli_configure(gpgpu_context *m_gpgpu_context, trace_config &m_config,
 
   // initialize config (parse gpu config from cli values)
   m_gpgpu_context->the_gpgpusim->g_the_gpu_config->init();
+
+  // override some values
+  g_network_mode = BOX_NET;
 }
 
 trace_gpgpu_sim *gpgpu_trace_sim_init_perf_model(
@@ -115,7 +118,7 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv) {
   }
 #endif
 
-  unsigned long long cycle_limit = 3;
+  unsigned long long cycle_limit = (unsigned long long)-1;
   if (std::getenv("CYCLES") && atoi(std::getenv("CYCLES")) > 0) {
     cycle_limit = atoi(std::getenv("CYCLES"));
   }

@@ -1,9 +1,10 @@
 use super::mem_fetch::BitString;
-use super::{address, mem_fetch};
+use super::{address, cache, cache::Cache, interconn as ic, l2, mem_fetch, stats::Stats, Packet};
 use crate::config::{self, CacheConfig, GPUConfig};
-
+use std::cell::RefCell;
 use std::collections::{HashSet, VecDeque};
-use std::sync::Arc;
+use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 pub const MAX_MEMORY_ACCESS_SIZE: usize = 128;
 // pub const std::bitset<MAX_MEMORY_ACCESS_SIZE> mem_access_byte_mask_t;
@@ -69,89 +70,28 @@ impl<T> Queue<T> for FifoQueue<T> {
             None => true,
         }
     }
-
-    // bool is_avilable_size(unsigned size) const {
-    //   return (m_max_len && m_length + size - 1 >= m_max_len);
-    // }
-    // unsigned get_n_element() const { return m_n_element; }
-    // unsigned get_length() const { return m_length; }
-    // unsigned get_max_len() const { return m_max_len; }
 }
 
-#[derive(Debug)]
-pub struct CacheRequestStatus {}
-
-#[derive(Debug)]
-pub enum CacheEvent {}
-
-#[derive(Clone, Debug)]
-pub struct L2Cache {
-    name: String,
-    // config: MemorySubPartitionConfig,
-    config: Arc<CacheConfig>,
-}
-
-/// Models second level shared cache with global write-back
-/// and write-allocate policies
-impl L2Cache {
-    pub fn new(
-        name: impl Into<String>,
-        // todo: what config is needed here
-        config: Arc<CacheConfig>,
-        core_id: i32,
-        kind: i32,
-        // memport: mem_fetch_interface,
-        // mfcreator: mem_fetch_allocator,
-        status: mem_fetch::Status,
-        // gpu: Sim,
-    ) -> Self {
-        Self {
-            name: name.into(),
-            config,
-        }
-    }
-
-    pub fn access(
-        &self,
-        addr: address,
-        mem_fetch: mem_fetch::MemFetch,
-        time: usize,
-        events: Vec<CacheEvent>,
-    ) -> CacheRequestStatus {
-        // assert!(mf->get_data_size() <= config.get_atom_sz());
-        // let is_write = mem_fetch.is_write;
-        let block_addr = self.config.block_addr(addr);
-        // unsigned cache_index = (unsigned)-1;
-        // enum cache_request_status probe_status =
-        //       m_tag_array->probe(block_addr, cache_index, mf, mf->is_write(), true);
-        // enum cache_request_status access_status =
-        //       process_tag_probe(wr, probe_status, addr, cache_index, mf, time, events);
-        // m_stats.inc_stats(mf->get_access_type(),
-        //                    m_stats.select_stats_status(probe_status, access_status));
-        // m_stats.inc_stats_pw(mf->get_access_type(), m_stats.select_stats_status(
-        //                                                   probe_status, access_status));
-        // return access_status;
-        CacheRequestStatus {}
-    }
-
-    pub fn flush(&self) {}
-
-    pub fn invalidate(&self) {}
-}
-
-#[derive(Debug)]
-pub struct MemorySubPartition<Q = FifoQueue<mem_fetch::MemFetch>> {
-    /// global sub partition ID
+#[derive()]
+pub struct MemorySubPartition<I, Q = FifoQueue<mem_fetch::MemFetch>> {
     pub id: usize,
+    // pub cluster_id: usize,
+    // pub core_id: usize,
     /// memory configuration
-    // pub config: MemorySubPartitionConfig,
     pub config: Arc<GPUConfig>,
+    pub stats: Arc<Mutex<Stats>>,
+
     /// queues
     interconn_to_l2_queue: Q,
     l2_to_dram_queue: Q,
     dram_to_l2_queue: Q,
     /// L2 cache hit response queue
     l2_to_interconn_queue: Q,
+
+    fetch_interconn: Arc<I>,
+    // l2_cache: Option<l2::DataL2<I>>,
+    l2_cache: Option<Box<dyn cache::Cache>>, // l2::DataL2<I>>,
+    // l2_cache: Option<l2::DataL2<ic::ToyInterconnect<Packet>>>,
 
     // class mem_fetch *L2dramout;
     wb_addr: Option<u64>,
@@ -166,34 +106,34 @@ pub struct MemorySubPartition<Q = FifoQueue<mem_fetch::MemFetch>> {
     // is accessed (in both cudamemcpyies and otherwise) this value is added to
     // the gpgpu-sim cycle counters.
     memcpy_cycle_offset: usize,
-    l2_cache: Option<L2Cache>,
 }
 
-impl<Q> MemorySubPartition<Q>
+impl<I, Q> MemorySubPartition<I, Q>
 where
     Q: Queue<mem_fetch::MemFetch>,
+    I: ic::MemFetchInterface + 'static,
 {
-    // pub fn new(id: usize, config: MemorySubPartitionConfig) -> Self {
-    pub fn new(id: usize, config: Arc<GPUConfig>) -> Self {
+    pub fn new(
+        id: usize,
+        // cluster_id: usize,
+        // core_id: usize,
+        fetch_interconn: Arc<I>,
+        config: Arc<GPUConfig>,
+        stats: Arc<Mutex<Stats>>,
+    ) -> Self {
         // need to migrate memory config for this
         // assert!(id < config.num_mem_sub_partition);
         // assert!(id < config.numjjjkk);
 
-        // m_L2interface = new L2interface(this);
-        // m_mf_allocator = new partition_mf_allocator(config);
-        //
-        // let l2_cache = if config.data_cache_l2 {
-        let l2_cache = match &config.data_cache_l2 {
-            Some(l2_config) => Some(L2Cache::new(
-                format!("L2_bank_{:03}", id),
+        let l2_cache: Option<Box<dyn cache::Cache>> = match &config.data_cache_l2 {
+            Some(l2_config) => Some(Box::new(l2::DataL2::new(
+                0, // core_id,
+                0, // cluster_id,
+                fetch_interconn.clone(),
+                stats.clone(),
+                config.clone(),
                 l2_config.clone(),
-                -1,
-                -1,
-                // l2interface,
-                // mf_allocator,
-                mem_fetch::Status::IN_PARTITION_L2_MISS_QUEUE,
-                // gpu
-            )),
+            ))),
             None => None,
         };
 
@@ -220,7 +160,12 @@ where
 
         Self {
             id,
+            // cluster_id,
+            // core_id,
             config,
+            stats,
+            fetch_interconn,
+            l2_cache,
             wb_addr: None,
             memcpy_cycle_offset: 0,
             interconn_to_l2_queue,
@@ -228,7 +173,6 @@ where
             dram_to_l2_queue,
             l2_to_interconn_queue,
             request_tracker: HashSet::new(),
-            l2_cache,
         }
     }
 
@@ -241,19 +185,18 @@ where
         self.l2_to_interconn_queue.full()
     }
 
-    pub fn flush_l2(&self) -> usize {
-        if let Some(l2) = &self.l2_cache {
-            l2.flush();
-        }
-        todo!("mem sub partition: flush l2");
-    }
-
     pub fn busy(&self) -> bool {
         !self.request_tracker.is_empty()
     }
 
-    pub fn invalidate_l2(&self) {
-        if let Some(l2) = &self.l2_cache {
+    pub fn flush_l2(&mut self) {
+        if let Some(l2) = &mut self.l2_cache {
+            l2.flush();
+        }
+    }
+
+    pub fn invalidate_l2(&mut self) {
+        if let Some(l2) = &mut self.l2_cache {
             l2.invalidate();
         }
     }
@@ -337,32 +280,34 @@ where
 
         // L2 fill responses
         // if let Some(l2_config) = self.config.data_cache_l2 {
-        //     // if !l2_config.disabled {}
-        //     let has_access = self.l2_cache.has_ready_accesses();
-        //     let queue_full = self.l2_to_interconn_queue.full();
-        //     if has_access && !queue_full {
-        //         let fetch = self.l2_cache.next_access();
-        //         // Don't pass write allocate read request back to upper level cache
-        //         if fetch.access_kind() != AccessKind::L2_WR_ALLOC_R {
-        //             fetch.set_reply();
-        //             fetch.set_status(Status::IN_PARTITION_L2_TO_ICNT_QUEUE, 0);
-        //             // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-        //             self.l2_to_interconn_queue.enqueue(fetch);
-        //         } else {
-        //             if l2_config.write_allocate_policy == CacheWriteAllocatePolicy::FETCH_ON_WRITE {
-        //                 // mem_fetch *original_wr_mf = mf->get_original_wr_mf();
-        //                 // assert(original_wr_mf);
-        //                 // original_wr_mf->set_reply();
-        //                 // original_wr_mf->set_status(
-        //                 //     IN_PARTITION_L2_TO_ICNT_QUEUE,
-        //                 //     m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-        //                 // self.l2_to_interconn_queue.push(original_wr_mf);
-        //             }
-        //             self.request_tracker.remove(fetch);
-        //             // delete mf;
-        //         }
-        //     }
-        // }
+        if let Some(l2_cache) = &mut self.l2_cache {
+            // todo: move config into l2
+            let l2_config = self.config.data_cache_l2.as_ref().unwrap();
+            // if !l2_config.disabled {}
+            let queue_full = self.l2_to_interconn_queue.full();
+            if l2_cache.has_ready_accesses() && !queue_full {
+                let mut fetch = l2_cache.next_access().unwrap();
+                // Don't pass write allocate read request back to upper level cache
+                if fetch.access_kind() != &AccessKind::L2_WR_ALLOC_R {
+                    // fetch.set_reply();
+                    fetch.set_status(Status::IN_PARTITION_L2_TO_ICNT_QUEUE, 0);
+                    // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+                    self.l2_to_interconn_queue.enqueue(fetch);
+                } else {
+                    if l2_config.write_allocate_policy == CacheWriteAllocatePolicy::FETCH_ON_WRITE {
+                        // mem_fetch *original_wr_mf = mf->get_original_wr_mf();
+                        // assert(original_wr_mf);
+                        // original_wr_mf->set_reply();
+                        // original_wr_mf->set_status(
+                        //     IN_PARTITION_L2_TO_ICNT_QUEUE,
+                        //     m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+                        // self.l2_to_interconn_queue.push(original_wr_mf);
+                    }
+                    // self.request_tracker.remove(fetch);
+                    // delete mf;
+                }
+            }
+        }
     }
 }
 
@@ -380,23 +325,62 @@ impl TempDRAM {
     }
 }
 
-#[derive(Debug, Default)]
-pub struct MemoryPartitionUnit {
+#[derive()]
+pub struct MemoryPartitionUnit<I> {
     id: usize,
-    config: Arc<GPUConfig>,
+    // cluster_id: usize,
+    // core_id: usize,
+    fetch_interconn: Arc<I>,
+    pub sub_partitions: Vec<Rc<RefCell<MemorySubPartition<I>>>>,
     dram: TempDRAM,
-    sub_partitions: Vec<MemorySubPartition>,
+
+    config: Arc<GPUConfig>,
+    stats: Arc<Mutex<Stats>>,
 }
 
-impl MemoryPartitionUnit {
-    pub fn new(id: usize, config: Arc<GPUConfig>) -> Self {
+impl<I> MemoryPartitionUnit<I>
+where
+    I: ic::MemFetchInterface + 'static,
+{
+    pub fn new(
+        id: usize,
+        // cluster_id: usize,
+        // core_id: usize,
+        fetch_interconn: Arc<I>,
+        config: Arc<GPUConfig>,
+        stats: Arc<Mutex<Stats>>,
+    ) -> Self {
+        let num_sub_partitions = config.num_sub_partition_per_memory_channel;
+        let sub_partitions: Vec<_> = (0..num_sub_partitions)
+            .map(|i| {
+                let sub_id = id * num_sub_partitions + i;
+                let sub = MemorySubPartition::new(
+                    sub_id,
+                    // cluster_id,
+                    // core_id,
+                    fetch_interconn.clone(),
+                    config.clone(),
+                    stats.clone(),
+                );
+                Rc::new(RefCell::new(sub))
+            })
+            .collect();
+
         Self {
             id,
+            // cluster_id,
+            // core_id,
+            fetch_interconn,
             config,
+            stats,
             dram: TempDRAM::default(),
-            sub_partitions: Vec::new(),
+            sub_partitions,
         }
     }
+
+    // pub fn sub_partition(&self, p: usize) -> {
+    //     self.sub_partitions[
+    // }
 
     fn global_sub_partition_id_to_local_id(&self, global_sub_partition_id: usize) -> usize {
         let mut local_id = global_sub_partition_id;
@@ -423,7 +407,7 @@ impl MemoryPartitionUnit {
         // todo!("mem partition unit: cache_cycle");
         // for p < m_config->m_n_sub_partition_per_memory_channel
         for mem_sub in self.sub_partitions.iter_mut() {
-            mem_sub.cache_cycle(cycle);
+            mem_sub.borrow_mut().cache_cycle(cycle);
         }
     }
 
@@ -443,7 +427,7 @@ impl MemoryPartitionUnit {
         if let Some(return_fetch) = self.dram.return_queue_top() {
             let dest_global_spid = return_fetch.sub_partition_id() as usize;
             let dest_spid = self.global_sub_partition_id_to_local_id(dest_global_spid);
-            let mem_sub = &mut self.sub_partitions[dest_spid];
+            let mem_sub = self.sub_partitions[dest_spid].borrow();
             debug_assert_eq!(mem_sub.id, dest_global_spid);
             if !mem_sub.dram_l2_queue_full() {
                 if return_fetch.access_kind() == &AccessKind::L1_WRBK_ACC {

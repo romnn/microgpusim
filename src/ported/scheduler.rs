@@ -169,7 +169,7 @@ impl SchedulerWarp {
     pub fn next_trace_inst(&mut self) -> Option<WarpInstruction> {
         // todo!("scheduler warp: next trace instr");
         // let mut trace_pc = self.trace_pc.lock().unwrap();
-        dbg!(&self.trace_pc);
+        // dbg!(&self.trace_pc);
         // let trace_instructions = self.trace_instructions.lock().unwrap();
         let trace_instr = self.trace_instructions.get(self.trace_pc)?;
         // let Some(trace_instr) = self.trace_instructions.get(self.trace_pc) else {
@@ -465,22 +465,22 @@ impl BaseSchedulerUnit {
         //     .map(|w| w.lock().unwrap().instruction_count())
         //     .sum::<usize>());
 
-        println!(
-            "supervised warps: {:#?}",
-            self.supervised_warps
-                .iter()
-                .map(|w| w.lock().unwrap().instruction_count())
-                .filter(|&c| c > 0)
-                .collect::<Vec<_>>()
-        );
-        println!(
-            "next_cycle_prioritized_warps: {:#?}",
-            self.next_cycle_prioritized_warps
-                .iter()
-                .map(|w| w.lock().unwrap().instruction_count())
-                .filter(|&c| c > 0)
-                .collect::<Vec<_>>()
-        );
+        // println!(
+        //     "supervised warps: {:#?}",
+        //     self.supervised_warps
+        //         .iter()
+        //         .map(|w| w.lock().unwrap().instruction_count())
+        //         .filter(|&c| c > 0)
+        //         .collect::<Vec<_>>()
+        // );
+        // println!(
+        //     "next_cycle_prioritized_warps: {:#?}",
+        //     self.next_cycle_prioritized_warps
+        //         .iter()
+        //         .map(|w| w.lock().unwrap().instruction_count())
+        //         .filter(|&c| c > 0)
+        //         .collect::<Vec<_>>()
+        // );
 
         for next_warp in &self.next_cycle_prioritized_warps {
             // don't consider warps that are not yet valid

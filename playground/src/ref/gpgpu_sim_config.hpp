@@ -93,12 +93,27 @@ public:
     sscanf(gpgpu_runtime_stat, "%d:%x", &gpu_stat_sample_freq,
            &gpu_runtime_stat_flag);
 
+#ifdef BOX
     // ROMAN TODO: we override config here
+
+    gpu_max_cycle_opt = 2000;
     m_shader_config.n_simt_clusters = 1;
     m_shader_config.n_simt_cores_per_cluster = 1;
     m_shader_config.gpgpu_num_sched_per_core = 1;
-    gpu_max_cycle_opt = 2000;
-    // END
+
+    // must be called before m_memory_config.init()
+    m_memory_config.m_n_mem = 1;
+    m_memory_config.m_n_mem_sub_partition = 1;
+    m_memory_config.m_n_sub_partition_per_memory_channel = 2;
+
+    // gpgpu_l2_rop_latency was 120
+    m_memory_config.rop_latency = 0;
+    // dram_latency latency was 100
+    m_memory_config.dram_latency = 0;
+    // cannot create the l1 latency queue otherwise (to be removed i guess)
+    m_shader_config.m_L1D_config.l1_latency = 1;
+    m_shader_config.smem_latency = 2; // must be >1 (assert in ldst unit)
+#endif
 
     m_shader_config.init();
     ptx_set_tex_cache_linesize(m_shader_config.m_L1T_config.get_line_sz());

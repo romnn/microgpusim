@@ -52,10 +52,16 @@ memory_sub_partition::~memory_sub_partition() {
 }
 
 void memory_sub_partition::cache_cycle(unsigned cycle) {
+  printf("memory sub partition cache cycle %u (\033[1;31m rop queue size=%lu, "
+         "icnt to l2 "
+         "queue size=%u \033[0m)\n",
+         cycle, m_rop.size(), m_icnt_L2_queue->get_length());
+
   // L2 fill responses
   if (!m_config->m_L2_config.disabled()) {
     if (m_L2cache->access_ready() && !m_L2_icnt_queue->full()) {
       mem_fetch *mf = m_L2cache->next_access();
+      throw std::runtime_error("fetch from l2 cache ready");
       if (mf->get_access_type() !=
           L2_WR_ALLOC_R) { // Don't pass write allocate read request back to
                            // upper level cache
@@ -82,6 +88,7 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
   // DRAM to L2 (texture) and icnt (not texture)
   if (!m_dram_L2_queue->empty()) {
     mem_fetch *mf = m_dram_L2_queue->top();
+    printf("HAVE DRAM TO L2 \n");
     if (!m_config->m_L2_config.disabled() && m_L2cache->waiting_for_fill(mf)) {
       if (m_L2cache->fill_port_free()) {
         mf->set_status(IN_PARTITION_L2_FILL_QUEUE,
@@ -186,27 +193,37 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
   }
 }
 
+// Interconn to L2
 bool memory_sub_partition::full() const { return m_icnt_L2_queue->full(); }
 
+// Interconn to L2
 bool memory_sub_partition::full(unsigned size) const {
-  return m_icnt_L2_queue->is_avilable_size(size);
+  return m_icnt_L2_queue->is_available_size(size);
 }
 
+// L2 to DRAM
 bool memory_sub_partition::L2_dram_queue_empty() const {
   return m_L2_dram_queue->empty();
 }
 
+// L2 to DRAM
 class mem_fetch *memory_sub_partition::L2_dram_queue_top() const {
   return m_L2_dram_queue->top();
 }
 
+// L2 to DRAM
 void memory_sub_partition::L2_dram_queue_pop() { m_L2_dram_queue->pop(); }
 
+// DRAM back to L2
 bool memory_sub_partition::dram_L2_queue_full() const {
   return m_dram_L2_queue->full();
 }
 
+// DRAM back to L2
 void memory_sub_partition::dram_L2_queue_push(class mem_fetch *mf) {
+  if (m_L2_dram_queue->top()) {
+    throw std::runtime_error("dram to l2 push");
+  }
   m_dram_L2_queue->push(mf);
 }
 

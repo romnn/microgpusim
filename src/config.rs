@@ -878,6 +878,10 @@ impl GPUConfig {
         Ok(Self::default())
     }
 
+    pub fn total_sub_partitions(&self) -> usize {
+        self.num_mem_units * self.num_sub_partition_per_memory_channel
+    }
+
     pub fn address_mapping(&self) -> addrdec::LinearToRawAddressTranslation {
         addrdec::LinearToRawAddressTranslation::new(
             self.num_memory_controllers,

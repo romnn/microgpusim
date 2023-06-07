@@ -44,7 +44,6 @@ where
     pub fn new(
         core_id: usize,
         cluster_id: usize,
-        // fetch_interconn: I,
         fetch_interconn: Arc<I>,
         stats: Arc<Mutex<Stats>>,
         config: Arc<config::GPUConfig>,

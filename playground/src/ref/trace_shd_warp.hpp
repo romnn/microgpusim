@@ -60,7 +60,7 @@ public:
   std::vector<inst_trace_t> warp_traces;
   const warp_inst_t *get_next_trace_inst();
   void clear();
-  bool trace_done();
+  bool trace_done() const;
 
   address_type get_start_trace_pc();
   virtual address_type get_pc() const;

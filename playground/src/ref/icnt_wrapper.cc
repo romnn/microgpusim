@@ -1,5 +1,6 @@
 #include <assert.h>
 
+#include "box_interconnect.hpp"
 #include "icnt_wrapper.hpp"
 #include "local_interconnect.hpp"
 #include "option_parser.hpp"
@@ -23,7 +24,6 @@ unsigned g_network_mode;
 char *g_network_config_filename;
 
 struct inct_config g_inct_config;
-LocalInterconnect *g_localicnt_interface;
 
 // Wrapper to intersim2 to accompany old icnt_wrapper
 // TODO: use delegate/boost/c++11<funtion> instead
@@ -65,48 +65,6 @@ static unsigned intersim2_get_flit_size() {
   return g_icnt_interface->GetFlitSize();
 }
 
-//////////////////////////////////////////////////////
-
-static void LocalInterconnect_create(unsigned int n_shader,
-                                     unsigned int n_mem) {
-  g_localicnt_interface->CreateInterconnect(n_shader, n_mem);
-}
-
-static void LocalInterconnect_init() { g_localicnt_interface->Init(); }
-
-static bool LocalInterconnect_has_buffer(unsigned input, unsigned int size) {
-  return g_localicnt_interface->HasBuffer(input, size);
-}
-
-static void LocalInterconnect_push(unsigned input, unsigned output, void *data,
-                                   unsigned int size) {
-  g_localicnt_interface->Push(input, output, data, size);
-}
-
-static void *LocalInterconnect_pop(unsigned output) {
-  return g_localicnt_interface->Pop(output);
-}
-
-static void LocalInterconnect_transfer() { g_localicnt_interface->Advance(); }
-
-static bool LocalInterconnect_busy() { return g_localicnt_interface->Busy(); }
-
-static void LocalInterconnect_display_stats() {
-  g_localicnt_interface->DisplayStats();
-}
-
-static void LocalInterconnect_display_overall_stats() {
-  g_localicnt_interface->DisplayOverallStats();
-}
-
-static void LocalInterconnect_display_state(FILE *fp) {
-  g_localicnt_interface->DisplayState(fp);
-}
-
-static unsigned LocalInterconnect_get_flit_size() {
-  return g_localicnt_interface->GetFlitSize();
-}
-
 ///////////////////////////
 
 void icnt_reg_options(class OptionParser *opp) {
@@ -137,7 +95,8 @@ void icnt_wrapper_init() {
   switch (g_network_mode) {
   case INTERSIM:
     // FIXME: delete the object: may add icnt_done wrapper
-    g_icnt_interface = InterconnectInterface::New(g_network_config_filename);
+    g_icnt_interface = new InterconnectInterface();
+    g_icnt_interface->ParseConfigFile(g_network_config_filename);
     icnt_create = intersim2_create;
     icnt_init = intersim2_init;
     icnt_has_buffer = intersim2_has_buffer;
@@ -164,8 +123,23 @@ void icnt_wrapper_init() {
     icnt_display_state = LocalInterconnect_display_state;
     icnt_get_flit_size = LocalInterconnect_get_flit_size;
     break;
+  case BOX_NET:
+    g_icnt_interface = new BoxInterconnect();
+    g_icnt_interface->ParseConfigFile(g_network_config_filename);
+    icnt_create = BoxInterconnect_create;
+    icnt_init = BoxInterconnect_init;
+    icnt_has_buffer = BoxInterconnect_has_buffer;
+    icnt_push = BoxInterconnect_push;
+    icnt_pop = BoxInterconnect_pop;
+    icnt_transfer = BoxInterconnect_transfer;
+    icnt_busy = BoxInterconnect_busy;
+    icnt_display_stats = BoxInterconnect_display_stats;
+    icnt_display_overall_stats = BoxInterconnect_display_overall_stats;
+    icnt_display_state = BoxInterconnect_display_state;
+    icnt_get_flit_size = BoxInterconnect_get_flit_size;
+    break;
   default:
-    assert(0);
+    throw std::runtime_error("unknown network");
     break;
   }
 }

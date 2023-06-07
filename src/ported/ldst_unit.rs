@@ -131,7 +131,6 @@ impl PipelinedSimdUnitImpl {
         issue_reg_id: usize,
     ) -> Self {
         let pipeline_reg = (0..depth)
-            // .map(|_| RegisterSet::new(5, "regiserset".into()))
             .map(|_| WarpInstruction::default())
             .collect();
         Self {

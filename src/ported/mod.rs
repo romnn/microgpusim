@@ -2,6 +2,7 @@ pub mod addrdec;
 pub mod barrier;
 pub mod cache;
 pub mod cache_block;
+pub mod cluster;
 pub mod core;
 pub mod instruction;
 pub mod interconn;
@@ -21,6 +22,7 @@ pub mod stats;
 pub mod tag_array;
 pub mod utils;
 
+use self::cluster::*;
 use self::core::*;
 use addrdec::*;
 use interconn as ic;
@@ -39,9 +41,11 @@ use color_eyre::eyre;
 use itertools::Itertools;
 use log::{error, info, trace, warn};
 use nvbit_model::dim::{self, Dim};
+use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::fmt::Binary;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Instant;
 use trace_model::{Command, KernelLaunch, MemAccessTraceEntry};
@@ -368,18 +372,21 @@ pub fn parse_commands(path: impl AsRef<Path>) -> eyre::Result<Vec<Command>> {
     Ok(commands)
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 // pub struct MockSimulator<'a> {
 pub struct MockSimulator<I> {
     stats: Arc<Mutex<Stats>>,
     config: Arc<config::GPUConfig>,
-    mem_partition_units: Vec<MemoryPartitionUnit>,
-    mem_sub_partitions: Vec<MemorySubPartition>,
+    // mem_partition_units: Vec<MemoryPartitionUnit<I>>,
+    mem_partition_units: Vec<MemoryPartitionUnit<ic::L2Interface<Packet>>>,
+    mem_sub_partitions: Vec<Rc<RefCell<MemorySubPartition<ic::L2Interface<Packet>>>>>,
+    // mem_sub_partitions: Vec<Rc<RefCell<MemorySubPartition<I>>>>,
     running_kernels: Vec<Option<Arc<KernelInfo>>>,
     executed_kernels: Mutex<HashMap<usize, String>>,
     // clusters: Vec<SIMTCoreCluster>,
     // clusters: Vec<SIMTCoreCluster<'a>>,
     clusters: Vec<SIMTCoreCluster<I>>,
+    interconn: Arc<I>,
 
     last_cluster_issue: usize,
     last_issued_kernel: usize,
@@ -403,18 +410,22 @@ where
         let num_mem_units = config.num_mem_units;
         let num_sub_partitions = config.num_sub_partition_per_memory_channel;
 
+        let l2_port = Arc::new(ic::L2Interface {
+            interconn: interconn.clone(),
+        });
         let mem_partition_units: Vec<_> = (0..num_mem_units)
-            .map(|i| MemoryPartitionUnit::new(i, config.clone()))
+            .map(|i| MemoryPartitionUnit::new(i, l2_port.clone(), config.clone(), stats.clone()))
             .collect();
 
-        let mem_sub_partitions = Vec::new();
+        let mut mem_sub_partitions = Vec::new();
+        for partition in &mem_partition_units {
+            for sub in 0..num_sub_partitions {
+                mem_sub_partitions.push(partition.sub_partitions[sub].clone());
+            }
+        }
 
         let max_concurrent_kernels = config.max_concurrent_kernels;
         let running_kernels = (0..max_concurrent_kernels).map(|_| None).collect();
-
-        // new trace_simt_core_cluster(
-        // this, i, m_shader_config, m_memory_config,
-        // m_shader_stats, m_memory_stats);
 
         let clusters: Vec<_> = (0..config.num_simt_clusters)
             .map(|i| SIMTCoreCluster::new(i, interconn.clone(), stats.clone(), config.clone()))
@@ -427,6 +438,7 @@ where
             stats,
             mem_partition_units,
             mem_sub_partitions,
+            interconn,
             running_kernels,
             executed_kernels,
             clusters,
@@ -576,8 +588,15 @@ where
         }
 
         let mut partition_replies_in_parallel_per_cycle = 0;
+
+        println!(
+            "pop from {} memory sub partitions",
+            self.mem_sub_partitions.len()
+        );
+
         // pop from memory controller to interconnect
-        for (i, mem_sub) in self.mem_sub_partitions.iter_mut().enumerate() {
+        for (i, mem_sub) in self.mem_sub_partitions.iter().enumerate() {
+            let mut mem_sub = mem_sub.borrow_mut();
             if let Some(fetch) = mem_sub.top() {
                 let response_size = if fetch.is_write() {
                     fetch.control_size
@@ -585,20 +604,21 @@ where
                     fetch.data_size
                 };
                 let device = self.config.mem_id_to_device_id(i);
-                // if self.interconn.has_buffer(device, response_size) {
-                //     // fetch.set_return_timestamp(gpu_sim_cycle + gpu_tot_sim_cycle);
-                //     fetch.set_status(mem_fetch::Status::IN_ICNT_TO_SHADER, 0);
-                //     // , gpu_sim_cycle + gpu_tot_sim_cycle);
-                todo!("sim: pushing to interconn yay");
-                // self.interconn_push
-                //     .push(device, fetch.cluster_id, fetch, response_size);
-                // self.interconn
-                //     .push(device, fetch.cluster_id, fetch, response_size);
-                //     // mem_sub.pop();
-                //     partition_replies_in_parallel_per_cycle += 1;
-                // } else {
-                //     self.gpu_stall_icnt2sh += 1;
-                // }
+                if self.interconn.has_buffer(device, response_size) {
+                    let mut fetch = mem_sub.pop().unwrap();
+                    let cluster_id = fetch.cluster_id;
+                    fetch.set_status(mem_fetch::Status::IN_ICNT_TO_SHADER, 0);
+                    let packet = Packet::Fetch(fetch);
+                    // fetch.set_return_timestamp(gpu_sim_cycle + gpu_tot_sim_cycle);
+                    // , gpu_sim_cycle + gpu_tot_sim_cycle);
+                    // todo!("sim: pushing to interconn yay");
+                    // drop(fetch);
+                    self.interconn
+                        .push(device, cluster_id, packet, response_size);
+                    partition_replies_in_parallel_per_cycle += 1;
+                } else {
+                    self.gpu_stall_icnt2sh += 1;
+                }
             } else {
                 mem_sub.pop();
             }
@@ -606,6 +626,7 @@ where
         self.partition_replies_in_parallel += partition_replies_in_parallel_per_cycle;
 
         // dram
+        println!("cycle for {} drams", self.mem_partition_units.len());
         for (i, unit) in self.mem_partition_units.iter_mut().enumerate() {
             if self.config.simple_dram_model {
                 unit.simple_dram_model_cycle();
@@ -616,9 +637,14 @@ where
         }
 
         // L2 operations
+        println!(
+            "move mem reqs from icnt to {} mem partitions",
+            self.mem_sub_partitions.len()
+        );
         let mut parallel_mem_partition_reqs_per_cycle = 0;
         let mut stall_dram_full = 0;
         for (i, mem_sub) in self.mem_sub_partitions.iter_mut().enumerate() {
+            let mut mem_sub = mem_sub.borrow_mut();
             // move memory request from interconnect into memory partition
             // (if not backed up)
             //
@@ -630,10 +656,10 @@ where
                 stall_dram_full += 1;
             } else {
                 let device = self.config.mem_id_to_device_id(i);
-                // if let Some(fetch) = self.interconn.pop(device) {
-                //     mem_sub.push(fetch);
-                //     parallel_mem_partition_reqs_per_cycle += 1;
-                // }
+                if let Some(Packet::Fetch(fetch)) = self.interconn.pop(device) {
+                    mem_sub.push(fetch);
+                    parallel_mem_partition_reqs_per_cycle += 1;
+                }
             }
             mem_sub.cache_cycle(0); // gpu_sim_cycle + gpu_tot_sim_cycle);
                                     // mem_sub.accumulate_L2cache_stats(m_power_stats->pwr_mem_stat->l2_cache_stats[CURRENT_STAT_IDX]);
@@ -689,10 +715,10 @@ where
                     if l2_config.total_lines() > 0 {
                         let mut dlc = 0;
                         for (i, mem_sub) in self.mem_sub_partitions.iter_mut().enumerate() {
-                            let dlc = mem_sub.flush_l2();
-                            // TODO: need to model actual writes to DRAM here
-                            debug_assert_eq!(dlc, 0);
-                            println!("dirty lines flushed from L2 {} is {}", i, dlc);
+                            let mut mem_sub = mem_sub.borrow_mut();
+                            mem_sub.flush_l2();
+                            // debug_assert_eq!(dlc, 0);
+                            // println!("dirty lines flushed from L2 {} is {}", i, dlc);
                         }
                     }
                 }
@@ -811,8 +837,10 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> eyre::Result<()> {
     // kernels_info.push_back(kernel_info);
 
     let interconn = Arc::new(ic::ToyInterconnect::new(
-        config.num_simt_clusters * config.num_cores_per_simt_cluster,
-        config.num_mem_units,
+        config.num_simt_clusters,
+        config.num_mem_units * config.num_sub_partition_per_memory_channel,
+        // config.num_simt_clusters * config.num_cores_per_simt_cluster,
+        // config.num_mem_units,
         Some(9), // found by printf debugging gpgusim
     ));
     let mut sim = MockSimulator::new(interconn, config.clone());
@@ -855,6 +883,10 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> eyre::Result<()> {
         dbg!(&config.num_simt_clusters);
         dbg!(&config.num_cores_per_simt_cluster);
         dbg!(&config.concurrent_kernel_sm);
+        dbg!(&config.num_mem_units);
+        dbg!(&config.num_sub_partition_per_memory_channel);
+        dbg!(&config.num_memory_chips_per_controller);
+        // return Ok(());
 
         // drive kernels to completion
         // while sim.active() {
@@ -866,7 +898,7 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> eyre::Result<()> {
             .flatten()
             .unwrap_or(3);
         for cycle in 0..cycle_limit {
-            println!("======== cycle {cycle} ========");
+            println!("\n======== cycle {cycle} ========\n");
             sim.cycle();
             // if !sim.active() {
             //     break;

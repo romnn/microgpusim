@@ -1,4 +1,4 @@
-use super::{address, cache, interconn as ic, mem_fetch, stats::Stats};
+use super::{address, cache, interconn as ic, l1, mem_fetch, stats::Stats};
 use crate::config;
 use std::sync::{Arc, Mutex};
 
@@ -6,38 +6,89 @@ use std::sync::{Arc, Mutex};
 ///
 /// todo: move this to cache as its generic
 #[derive(Debug)]
-pub struct DataCache {}
+pub struct DataL2<I> {
+    inner: l1::Data<I>,
+}
 
-impl cache::Component for DataCache {}
+impl<I> DataL2<I>
+where
+    I: ic::MemFetchInterface,
+{
+    pub fn new(
+        core_id: usize,
+        cluster_id: usize,
+        fetch_interconn: Arc<I>,
+        stats: Arc<Mutex<Stats>>,
+        config: Arc<config::GPUConfig>,
+        cache_config: Arc<config::CacheConfig>,
+    ) -> Self {
+        let inner = l1::Data::new(
+            core_id,
+            cluster_id,
+            fetch_interconn,
+            stats,
+            config,
+            cache_config,
+        );
+        Self { inner }
+    }
+}
 
-impl cache::Cache for DataCache {
-    /// Both the L1 and L2 currently use the same access function.
+impl<I> cache::Component for DataL2<I> {}
+
+// fn cycle(&mut self) {
+//         self.inner.cycle()
+//     }
+
+impl<I> cache::Cache for DataL2<I>
+where
+    I: ic::MemFetchInterface,
+{
+    fn has_ready_accesses(&self) -> bool {
+        self.inner.has_ready_accesses()
+    }
+
+    /// Access read only cache.
     ///
-    /// Differentiation between the two caches is done through configuration
-    /// of caching policies.
-    /// Both the L1 and L2 override this function to provide a means of
-    /// performing actions specific to each cache when such actions are
-    /// implemnted.
+    /// returns `RequestStatus::RESERVATION_FAIL` if
+    /// request could not be accepted (for any reason)
     fn access(
         &mut self,
         addr: address,
         fetch: mem_fetch::MemFetch,
         events: Option<&mut Vec<cache::Event>>,
     ) -> cache::RequestStatus {
-        cache::RequestStatus::MISS
-    }
-
-    fn fill(&self, fetch: &mem_fetch::MemFetch) {
-        todo!("data cache: fill");
+        self.inner.access(addr, fetch, events)
     }
 }
 
-impl cache::CacheBandwidth for DataCache {
-    fn has_free_fill_port(&self) -> bool {
-        todo!("data cache: has_free_fill_port");
-        false
-    }
-}
+//     /// Both the L1 and L2 currently use the same access function.
+//     ///
+//     /// Differentiation between the two caches is done through configuration
+//     /// of caching policies.
+//     /// Both the L1 and L2 override this function to provide a means of
+//     /// performing actions specific to each cache when such actions are
+//     /// implemnted.
+//     fn access(
+//         &mut self,
+//         addr: address,
+//         fetch: mem_fetch::MemFetch,
+//         events: Option<&mut Vec<cache::Event>>,
+//     ) -> cache::RequestStatus {
+//         cache::RequestStatus::MISS
+//     }
+//
+//     fn fill(&self, fetch: &mem_fetch::MemFetch) {
+//         todo!("data cache: fill");
+//     }
+// }
+//
+// impl cache::CacheBandwidth for DataCache {
+//     fn has_free_fill_port(&self) -> bool {
+//         todo!("data cache: has_free_fill_port");
+//         false
+//     }
+// }
 
 // TODO (roman) temp disable l2
 // /// Models second level shared cache.
@@ -89,9 +140,6 @@ impl cache::CacheBandwidth for DataCache {
 //         todo!("l2: fill");
 //     }
 // }
-
-
-
 
 //     fn has_free_fill_port(&self) -> bool {
 //         todo!("l2: has_free_fill_port");

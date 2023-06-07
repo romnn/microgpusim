@@ -4,6 +4,8 @@
 
 #include <vector>
 
+LocalInterconnect *g_localicnt_interface;
+
 xbar_router::xbar_router(unsigned router_id, enum Interconnect_type m_type,
                          unsigned n_shader, unsigned n_mem,
                          const struct inct_config &m_localinct_config) {

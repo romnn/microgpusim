@@ -32,7 +32,7 @@ void scheduler_unit::cycle() {
     if (next_warp == NULL || next_warp->done_exit()) {
       continue;
     }
-    if (next_warp->instruction_count() > 0) {
+    if (!next_warp->trace_done() && next_warp->instruction_count() > 0) {
       printf("Testing (warp_id %u, dynamic_warp_id %u, pc=%lu, %lu "
              "instructions)\n",
              next_warp->get_warp_id(), next_warp->get_dynamic_warp_id(),
@@ -47,7 +47,7 @@ void scheduler_unit::cycle() {
     unsigned max_issue = m_shader->m_config->gpgpu_max_insn_issue_per_warp;
     bool diff_exec_units =
         m_shader->m_config
-            ->gpgpu_dual_issue_diff_exec_units; // In tis mode, we only allow
+            ->gpgpu_dual_issue_diff_exec_units; // In this mode, we only allow
                                                 // dual issue to diff execution
                                                 // units (as in Maxwell and
                                                 // Pascal)

@@ -531,10 +531,8 @@ enum cache_request_status data_cache::access(new_addr_type addr, mem_fetch *mf,
   new_addr_type block_addr = m_config.block_addr(addr);
   unsigned cache_index = (unsigned)-1;
 
-  // Singleton::mem_printf(
-  //   "data_cache::access(%llu, write = %d, size = %u, block = %llu)\n",
-  //   addr, wr, mf->get_data_size(), block_addr
-  // );
+  printf("data_cache::access(%lu, write = %d, size = %u, block = %lu, %s)\n",
+         addr, wr, mf->get_data_size(), block_addr, mf->get_access_type_str());
   enum cache_request_status probe_status =
       m_tag_array->probe(block_addr, cache_index, mf, mf->is_write(), true);
   enum cache_request_status access_status =

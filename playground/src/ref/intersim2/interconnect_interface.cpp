@@ -47,18 +47,18 @@
 #include "routefunc.hpp"
 #include "trafficmanager.hpp"
 
-InterconnectInterface *
-InterconnectInterface::New(const char *const config_file) {
-  if (!config_file) {
-    cout << "Interconnect Requires a configfile" << endl;
-    exit(-1);
-  }
-  InterconnectInterface *icnt_interface = new InterconnectInterface();
-  icnt_interface->_icnt_config = new IntersimConfig();
-  icnt_interface->_icnt_config->ParseFile(config_file);
-
-  return icnt_interface;
-}
+// InterconnectInterface *
+// InterconnectInterface::New(const char *const config_file) {
+//   if (!config_file) {
+//     cout << "Interconnect Requires a configfile" << endl;
+//     exit(-1);
+//   }
+//   InterconnectInterface *icnt_interface = new InterconnectInterface();
+//   icnt_interface->_icnt_config = new IntersimConfig();
+//   icnt_interface->_icnt_config->ParseFile(config_file);
+//
+//   return icnt_interface;
+// }
 
 InterconnectInterface::InterconnectInterface() {}
 
@@ -75,6 +75,11 @@ InterconnectInterface::~InterconnectInterface() {
   delete _traffic_manager;
   _traffic_manager = NULL;
   delete _icnt_config;
+}
+
+void InterconnectInterface::ParseConfigFile(const char *const config_file) {
+  _icnt_config = new IntersimConfig();
+  _icnt_config->ParseFile(config_file);
 }
 
 void InterconnectInterface::CreateInterconnect(unsigned n_shader,

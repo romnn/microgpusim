@@ -78,7 +78,7 @@ void trace_shd_warp_t::clear() {
 }
 
 // functional_done
-bool trace_shd_warp_t::trace_done() { return trace_pc == (warp_traces.size()); }
+bool trace_shd_warp_t::trace_done() const { return trace_pc >= (warp_traces.size()); }
 
 address_type trace_shd_warp_t::get_start_trace_pc() {
   assert(warp_traces.size() > 0);

@@ -32,7 +32,7 @@ extern icnt_display_state_p icnt_display_state;
 extern icnt_get_flit_size_p icnt_get_flit_size;
 extern unsigned g_network_mode;
 
-enum network_mode { INTERSIM = 1, LOCAL_XBAR = 2, N_NETWORK_MODE };
+enum network_mode { INTERSIM = 1, LOCAL_XBAR = 2, BOX_NET = 3, N_NETWORK_MODE };
 
 void icnt_wrapper_init();
 void icnt_reg_options(class OptionParser* opp);

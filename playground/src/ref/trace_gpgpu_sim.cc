@@ -232,6 +232,10 @@ void trace_gpgpu_sim::simple_cycle() {
       gpu_stall_dramfull++;
     } else {
       mem_fetch *mf = (mem_fetch *)icnt_pop(m_shader_config->mem2device(i));
+      if (mf)
+        printf("got new %s fetch for addr %lu from mem sub partition %d (%d)\n",
+               mf->get_access_type_str(), mf->get_addr(), i,
+               m_shader_config->mem2device(i));
       m_memory_sub_partition[i]->push(mf, gpu_sim_cycle + gpu_tot_sim_cycle);
       if (mf)
         partiton_reqs_in_parallel_per_cycle++;

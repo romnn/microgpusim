@@ -81,6 +81,14 @@ pub trait Cache: Component {
     fn fill(&self, fetch: &mem_fetch::MemFetch) {
         todo!("cache: fill");
     }
+
+    fn flush(&mut self) {
+        todo!("cache: flush");
+    }
+
+    fn invalidate(&mut self) {
+        todo!("cache: invalidate");
+    }
 }
 
 // not clear if we ever need this

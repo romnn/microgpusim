@@ -25,6 +25,7 @@ unsigned trace_simt_core_cluster::get_not_completed() const {
 }
 
 void trace_simt_core_cluster::icnt_cycle() {
+  // printf("icnt_cycle");
   if (!m_response_fifo.empty()) {
     mem_fetch *mf = m_response_fifo.front();
     unsigned cid = m_config->sid_to_cid(mf->get_sid());
@@ -47,6 +48,8 @@ void trace_simt_core_cluster::icnt_cycle() {
     mem_fetch *mf = (mem_fetch *)::icnt_pop(m_cluster_id);
     if (!mf)
       return;
+    printf("cluster::icnt_cycle() got new fetch for addr %lu (%s, %d)\n",
+           mf->get_addr(), mf->get_access_type_str(), mf->get_type());
     assert(mf->get_tpc() == m_cluster_id);
     assert(mf->get_type() == READ_REPLY || mf->get_type() == WRITE_ACK);
 

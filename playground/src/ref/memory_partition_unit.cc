@@ -1,8 +1,8 @@
 #include "memory_partition_unit.hpp"
 
-#include "trace_gpgpu_sim.hpp"
 #include "l2_cache_trace.hpp"
 #include "memory_sub_partition.hpp"
+#include "trace_gpgpu_sim.hpp"
 
 memory_partition_unit::memory_partition_unit(unsigned partition_id,
                                              const memory_config *config,
@@ -237,6 +237,7 @@ void memory_partition_unit::dram_cycle() {
   // of the original sub partition
   mem_fetch *mf_return = m_dram->return_queue_top();
   if (mf_return) {
+    throw std::runtime_error("have completed memory request from DRAM");
     unsigned dest_global_spid = mf_return->get_sub_partition_id();
     int dest_spid = global_sub_partition_id_to_local_id(dest_global_spid);
     assert(m_sub_partition[dest_spid]->get_id() == dest_global_spid);
@@ -278,6 +279,7 @@ void memory_partition_unit::dram_cycle() {
         break;
 
       m_sub_partition[spid]->L2_dram_queue_pop();
+      // throw std::runtime_error("issue mem_fetch from sub partition to dram");
       MEMPART_DPRINTF(
           "Issue mem_fetch request %p from sub partition %d to dram\n", mf,
           spid);
@@ -299,6 +301,7 @@ void memory_partition_unit::dram_cycle() {
       ((m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle) >=
        m_dram_latency_queue.front().ready_cycle) &&
       !m_dram->full(m_dram_latency_queue.front().req->is_write())) {
+    // throw std::runtime_error("issue mem_fetch to dram");
     mem_fetch *mf = m_dram_latency_queue.front().req;
     m_dram_latency_queue.pop_front();
     m_dram->push(mf);
