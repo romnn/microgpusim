@@ -234,9 +234,9 @@ bool memory_sub_partition::dram_L2_queue_full() const {
 
 // DRAM back to L2
 void memory_sub_partition::dram_L2_queue_push(class mem_fetch *mf) {
-  if (m_L2_dram_queue->top()) {
-    throw std::runtime_error("dram to l2 push");
-  }
+  // if (m_L2_dram_queue->top()) {
+  //   throw std::runtime_error("dram to l2 push");
+  // }
   m_dram_L2_queue->push(mf);
 }
 

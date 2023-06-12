@@ -318,6 +318,7 @@ where
         // self.sub_partition_unit
         //     .borrow_mut()
         // todo!("l2 interface push to dram queue");
+        println!("l2 interface push l2_to_dram_queue");
         self.l2_to_dram_queue.lock().unwrap().enqueue(fetch)
     }
 }

@@ -1,13 +1,13 @@
 #### TODO
 - BUGS to be fixed:
-  - mshr_addr probe is not working (keeps re-sending already sent requests to interconn) 
+  - FIXED: mshr_addr probe is not working (keeps re-sending already sent requests to interconn) 
 
 - add an intersim alternative to playground and do some tests how this affects cycles and stats
 
 - move all ptx and unused stuff to sub folders that are ignored (move away completely eventually)
 
 - check implementations
-  - mem sub partitions
+  - mem sub partitions, especially if the right queues are used in all places!!!
   - mem units
 
 - todo: add custom trace_kernel_info that subclasses

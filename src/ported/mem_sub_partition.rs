@@ -399,7 +399,7 @@ where
     }
 
     pub fn full(&self, size: u32) -> bool {
-        self.l2_to_interconn_queue.full()
+        self.interconn_to_l2_queue.full()
     }
 
     pub fn busy(&self) -> bool {
@@ -419,56 +419,37 @@ where
     }
 
     pub fn pop(&mut self) -> Option<mem_fetch::MemFetch> {
-        use super::AccessKind;
-        let fetch = self.l2_to_dram_queue.lock().unwrap().dequeue()?;
+        use mem_fetch::AccessKind;
+
+        let fetch = self.l2_to_interconn_queue.dequeue()?;
         // self.request_tracker.remove(fetch);
+        if fetch.is_atomic() {
+            // fetch.do_atomic();
+            unimplemented!("atomic memory operation");
+        }
+        // panic!(
+        //     "l2 to dram queue fetch: access kind = {:?}",
+        //     fetch.access_kind(),
+        // );
         match fetch.access_kind() {
+            // writeback accesses not counted
             AccessKind::L2_WRBK_ACC | AccessKind::L1_WRBK_ACC => None,
             _ => Some(fetch),
         }
-        // if (mf && (mf->get_access_type() == L2_WRBK_ACC ||
-        //              mf->get_access_type() == L1_WRBK_ACC)) {
-        //     delete mf;
-        //     mf = NULL;
-        //   }
-        // f (mf && (mf->get_access_type() == L2_WRBK_ACC ||
-        //              mf->get_access_type() == L1_WRBK_ACC)) {
-        //     delete mf;
-        //     mf = NULL;
-        //   }
     }
-    // mem_fetch *memory_sub_partition::pop() {
-    //   mem_fetch *mf = m_L2_icnt_queue->pop();
-    //   m_request_tracker.erase(mf);
-    //   if (mf && mf->isatomic()) mf->do_atomic();
-    //   if (mf && (mf->get_access_type() == L2_WRBK_ACC ||
-    //              mf->get_access_type() == L1_WRBK_ACC)) {
-    //     delete mf;
-    //     mf = NULL;
-    //   }
-    //   return mf;
-    // }
-    //
 
-    pub fn top(&self) -> Option<mem_fetch::MemFetch> {
+    pub fn top(&mut self) -> Option<&mem_fetch::MemFetch> {
         use super::AccessKind;
-        let fetch = self.l2_to_dram_queue.lock().unwrap().first().cloned()?;
-        match fetch.access_kind() {
-            AccessKind::L2_WRBK_ACC | AccessKind::L1_WRBK_ACC => {
-                // self.l2_to_dram_queue.dequeue();
+        match self.l2_to_interconn_queue.first().map(|fetch| fetch.access_kind()) {
+            Some(AccessKind::L2_WRBK_ACC | AccessKind::L1_WRBK_ACC) => {
+                self.l2_to_interconn_queue.dequeue();
                 // self.request_tracker.remove(fetch);
-                None
-            }
-            _ => Some(fetch),
+                return None;
+            },
+            _ => {},
         }
-        // if (mf && (mf->get_access_type() == L2_WRBK_ACC ||
-        //            mf->get_access_type() == L1_WRBK_ACC)) {
-        //   m_L2_icnt_queue->pop();
-        //   m_request_tracker.erase(mf);
-        //   delete mf;
-        //   mf = NULL;
-        // }
-        // return mf;
+
+        self.l2_to_interconn_queue.first()
     }
 
     // pub fn full(&self) -> bool {
@@ -496,10 +477,12 @@ where
         use mem_fetch::{AccessKind, Status};
 
         println!(
-            "{}: rop queue size={}, icnt to l2 queue size={}",
-            style("memory sub partition cache cycle").blue(),
+            "{}: rop queue size={}, icnt to l2 queue size={}, l2 to icnt queue size={}, l2 to dram queue size={}",
+            style(" => memory sub partition cache cycle").blue(),
             self.rop_queue.len(),
-            self.interconn_to_l2_queue.len()
+            self.interconn_to_l2_queue.len(),
+            self.l2_to_interconn_queue.len(),
+            self.l2_to_dram_queue.lock().unwrap().len(),
         );
 
         // L2 fill responses
@@ -519,6 +502,7 @@ where
                     self.l2_to_interconn_queue.enqueue(fetch);
                 } else {
                     if l2_config.write_allocate_policy == CacheWriteAllocatePolicy::FETCH_ON_WRITE {
+                        todo!("l2 to icnt queue");
                         // mem_fetch *original_wr_mf = mf->get_original_wr_mf();
                         // assert(original_wr_mf);
                         // original_wr_mf->set_reply();
@@ -563,9 +547,10 @@ where
             l2_cache.cycle();
         }
 
-        // new L2 texture accesses and/or non-texture accesses
         dbg!(self.l2_to_dram_queue.lock().unwrap().len());
-        dbg!(self.interconn_to_l2_queue.first().is_some());
+        dbg!(self.interconn_to_l2_queue.len());
+
+        // new L2 texture accesses and/or non-texture accesses
         if !self.l2_to_dram_queue.lock().unwrap().full() {
             // && !self.interconn_to_l2_queue.empty() {
             if let Some(fetch) = self.interconn_to_l2_queue.first() {
@@ -845,7 +830,7 @@ impl MemoryPartitionUnit
             let mut sub = self.sub_partitions[spid].borrow_mut();
             // if !sub.l2_to_dram_queue.is_empty() && self.can_issue_to_dram(spid) {
             // let sub = self.sub_partitions[inner_sub_partition_id].borrow();
-            let sub_partition_contention = sub.dram_to_l2_queue.full();
+            let sub_partition_contention = sub.l2_to_dram_queue.lock().unwrap().full();
             let has_dram_resource = self.arbitration_metadata.has_credits(spid);
             let can_issue_to_dram = has_dram_resource && !sub_partition_contention;
             println!(
