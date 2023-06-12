@@ -1,5 +1,6 @@
 use super::{config, mem_fetch, Packet};
 use crate::ported::ldst_unit::READ_PACKET_SIZE;
+use console::style;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, Weak};
 
@@ -95,14 +96,16 @@ impl<P> ToyInterconnect<P> {
 
 impl<P> Interconnect<P> for ToyInterconnect<P> {
     fn push(&self, src_device: usize, dest_device: usize, packet: P, size: u32) {
-        println!(
-            "interconn: push from device {} to {}",
-            src_device, dest_device
-        );
         assert!(self.has_buffer(src_device, size));
 
-        let is_memory_node = self.num_subnets > 1 && src_device >= self.num_cores;
+        // let is_memory_node = self.num_subnets > 1 && src_device >= self.num_cores;
+        let is_memory_node = self.num_subnets > 1 && dest_device >= self.num_cores;
         let subnet = if is_memory_node { 1 } else { 0 };
+        println!(
+            "{}: {size} bytes from device {src_device} to {dest_device} (subnet {subnet})",
+            style("INTERCONN PUSH").bold(),
+        );
+
         // let mut queue = self.output_queue[subnet][src_device][0].lock().unwrap();
         let mut queue = self.output_queue[subnet][dest_device][0].lock().unwrap();
         queue.push_back(packet);
@@ -112,7 +115,10 @@ impl<P> Interconnect<P> for ToyInterconnect<P> {
         // let icnt_id = self.node_map[&device];
         let icnt_id = device;
         let subnet = if device >= self.num_cores { 1 } else { 0 };
-        println!("interconn: pop from device {device} (id={icnt_id}, subnet={subnet})");
+        println!(
+            "{}: from device {device} (device={device}, id={icnt_id}, subnet={subnet})",
+            style("INTERCONN POP").bold()
+        );
 
         let mut lock = self.round_robin_turn[subnet][icnt_id].lock().unwrap();
         let mut turn = *lock;
@@ -180,7 +186,7 @@ impl<P> Interconnect<P> for ToyInterconnect<P> {
 ///
 /// Functions are not mutable because the interface should
 /// implement locking internally
-pub trait MemFetchInterface {
+pub trait MemFetchInterface: std::fmt::Debug {
     // fn new() -> Self;
     // fn full(&self, size: u32, write: bool) -> bool;
     // fn push(&self, fetch: MemFetch);
@@ -220,6 +226,12 @@ pub struct CoreMemoryInterface<P> {
     pub config: Arc<config::GPUConfig>,
     pub cluster_id: usize,
     pub interconn: Arc<dyn Interconnect<P>>,
+}
+
+impl<P> std::fmt::Debug for CoreMemoryInterface<P> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("CoreMemoryInterface").finish()
+    }
 }
 
 // impl<P> CoreMemoryInterface<P> {
@@ -264,56 +276,48 @@ impl MemFetchInterface for CoreMemoryInterface<Packet> {
     }
 }
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
 #[derive()]
-pub struct L2Interface<P> {
-    pub interconn: Arc<dyn Interconnect<P>>,
+// pub struct L2Interface<P> {
+// pub struct L2Interface<I, Q> {
+pub struct L2Interface<Q> {
+    pub l2_to_dram_queue: Arc<Mutex<Q>>,
+    // pub sub_partition_unit: Rc<RefCell<super::MemorySubPartition<I, Q>>>,
+    // pub sub_partition_unit: Rc<RefCell<super::MemorySubPartition>>,
+    // pub interconn: Arc<dyn Interconnect<P>>,
 }
 
-impl MemFetchInterface for L2Interface<Packet> {
+impl<Q> std::fmt::Debug for L2Interface<Q> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("L2Interface").finish()
+    }
+}
+
+// impl MemFetchInterface for L2Interface<Packet> {
+// impl<I, Q> MemFetchInterface for L2Interface<I, Q> {
+// impl MemFetchInterface for L2Interface {
+impl<Q> MemFetchInterface for L2Interface<Q>
+where
+    Q: super::Queue<mem_fetch::MemFetch>,
+{
     fn full(&self, size: u32, write: bool) -> bool {
-        todo!("l2 interface: full");
+        use super::Queue;
+        // todo!("l2 interface: full");
         // let request_size = if write { size } else { READ_PACKET_SIZE as u32 };
         // !self.interconn.has_buffer(self.cluster_id, request_size)
+        // self.sub_partition_unit.borrow().l2_to_dram_queue.full()
+        self.l2_to_dram_queue.lock().unwrap().full()
     }
 
     fn push(&self, mut fetch: mem_fetch::MemFetch) {
-        todo!("l2 interface: push");
-        // let packet_size = if fetch.is_write() && fetch.is_atomic() {
-        //     fetch.control_size
-        // } else {
-        //     fetch.data_size
-        // };
-        // // m_stats->m_outgoing_traffic_stats->record_traffic(mf, packet_size);
-        // let dest = fetch.sub_partition_id();
-        // fetch.status = mem_fetch::Status::IN_ICNT_TO_MEM;
-        //
-        // let packet = Packet::Fetch(fetch);
-        //
-        // // if !fetch.is_write() && !fetch.is_atomic() {
-        // self.interconn.push(
-        //     self.cluster_id,
-        //     self.config.mem_id_to_device_id(dest as usize),
-        //     packet,
-        //     packet_size,
-        // );
+        use super::Queue;
+        // todo!("l2 interface: push");
+        fetch.set_status(mem_fetch::Status::IN_PARTITION_L2_TO_DRAM_QUEUE, 0);
+        // self.sub_partition_unit
+        //     .borrow_mut()
+        // todo!("l2 interface push to dram queue");
+        self.l2_to_dram_queue.lock().unwrap().enqueue(fetch)
     }
 }
-
-// #[derive(Debug, Clone, Default)]
-// pub struct Interconnect {}
-//
-// impl MemPort for Interconnect {
-//     fn push(&mut self, fetch: MemFetch) {
-//         todo!("interconnect: push fetch {:?}", fetch);
-//     }
-//
-//     fn pop(&mut self) -> Option<MemFetch> {
-//         // todo!("interconnect: pop");
-//         None
-//     }
-//
-//     fn full(&self, size: u32, write: bool) -> bool {
-//         // todo!("interconnect: full");
-//         false
-//     }
-// }

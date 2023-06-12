@@ -208,6 +208,10 @@ void memory_partition_unit::simple_dram_model_cycle() {
        p++) {
     int spid = (p + last_issued_partition + 1) %
                m_config->m_n_sub_partition_per_memory_channel;
+    printf(
+        "\033[1;31m checking sub partition %d: can issue=%d, l2 to dram queue empty=%d \033[0m \n",
+        spid, can_issue_to_dram(spid), m_sub_partition[spid]->L2_dram_queue_empty());
+
     if (!m_sub_partition[spid]->L2_dram_queue_empty() &&
         can_issue_to_dram(spid)) {
       mem_fetch *mf = m_sub_partition[spid]->L2_dram_queue_top();
@@ -215,6 +219,8 @@ void memory_partition_unit::simple_dram_model_cycle() {
         break;
 
       m_sub_partition[spid]->L2_dram_queue_pop();
+      throw std::runtime_error(
+          "simple dram: issue mem_fetch from sub partition to dram");
       MEMPART_DPRINTF(
           "Issue mem_fetch request %p from sub partition %d to dram\n", mf,
           spid);
@@ -279,7 +285,7 @@ void memory_partition_unit::dram_cycle() {
         break;
 
       m_sub_partition[spid]->L2_dram_queue_pop();
-      // throw std::runtime_error("issue mem_fetch from sub partition to dram");
+      throw std::runtime_error("issue mem_fetch from sub partition to dram");
       MEMPART_DPRINTF(
           "Issue mem_fetch request %p from sub partition %d to dram\n", mf,
           spid);

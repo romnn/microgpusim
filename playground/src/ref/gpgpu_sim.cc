@@ -862,8 +862,8 @@ void gpgpu_sim::cycle() {
       if (m_memory_config->simple_dram_model)
         m_memory_partition_unit[i]->simple_dram_model_cycle();
       else
-        m_memory_partition_unit[i]
-            ->dram_cycle(); // Issue the dram command (scheduler + delay model)
+        // Issue the dram command (scheduler + delay model)
+        m_memory_partition_unit[i] ->dram_cycle(); 
 
       // REMOVE: power
       // Update performance counters for DRAM

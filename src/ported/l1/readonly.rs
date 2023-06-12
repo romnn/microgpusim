@@ -10,6 +10,7 @@ pub struct ReadOnly<I> {
 
 impl<I> ReadOnly<I> {
     pub fn new(
+        name: String,
         core_id: usize,
         cluster_id: usize,
         // tag_array: tag_array::TagArray<()>,
@@ -18,7 +19,15 @@ impl<I> ReadOnly<I> {
         config: Arc<config::GPUConfig>,
         cache_config: Arc<config::CacheConfig>,
     ) -> Self {
-        let inner = base::Base::new(core_id, cluster_id, mem_port, stats, config, cache_config);
+        let inner = base::Base::new(
+            name,
+            core_id,
+            cluster_id,
+            mem_port,
+            stats,
+            config,
+            cache_config,
+        );
         Self { inner }
     }
 
@@ -35,6 +44,19 @@ where
 {
     fn cycle(&mut self) {
         self.inner.cycle()
+    }
+}
+
+impl<I> cache::CacheBandwidth for ReadOnly<I>
+where
+    I: ic::MemFetchInterface,
+{
+    fn has_free_data_port(&self) -> bool {
+        self.inner.has_free_data_port()
+    }
+
+    fn has_free_fill_port(&self) -> bool {
+        self.inner.has_free_data_port()
     }
 }
 
@@ -67,7 +89,7 @@ where
             ref mut tag_array,
             ..
         } = self.inner;
-        debug_assert!(fetch.data_size as usize <= cache_config.atom_size());
+        debug_assert!(fetch.data_size <= cache_config.atom_size());
         debug_assert_eq!(
             cache_config.write_policy,
             config::CacheWritePolicy::READ_ONLY
@@ -95,7 +117,7 @@ where
                 let (should_miss, writeback, evicted) = self.inner.send_read_request(
                     addr,
                     block_addr,
-                    cache_index,
+                    cache_index.unwrap(),
                     fetch.clone(),
                     time,
                     // do_miss,

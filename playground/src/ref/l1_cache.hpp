@@ -1,9 +1,9 @@
 #pragma once
 
+#include "cache_config.hpp"
 #include "data_cache.hpp"
 #include "mem_fetch_allocator.hpp"
 #include "mem_fetch_interface.hpp"
-#include "cache_config.hpp"
 
 /// This is meant to model the first level data cache in Fermi.
 /// It is write-evict (global) or write-back (local) at
@@ -18,6 +18,8 @@ public:
                    L1_WR_ALLOC_R, L1_WRBK_ACC, gpu) {}
 
   virtual ~l1_cache() {}
+
+  std::string name() { return "l1_cache"; }
 
   virtual enum cache_request_status access(new_addr_type addr, mem_fetch *mf,
                                            unsigned time,

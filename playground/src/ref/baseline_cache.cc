@@ -74,13 +74,14 @@ bool baseline_cache::bandwidth_management::fill_port_free() const {
 
 /// Sends next request to lower level of memory
 void baseline_cache::cycle() {
-  printf("baseline_cache::cycle() miss_queue_size = %lu\n",
+  printf("%s::baseline_cache::cycle() miss_queue_size = %lu\n", name().c_str(),
          m_miss_queue.size());
   if (!m_miss_queue.empty()) {
     mem_fetch *mf = m_miss_queue.front();
     if (!m_memport->full(mf->size(), mf->get_is_write())) {
       m_miss_queue.pop_front();
-      printf("baseline_cache: memport::push(%lu)\n", mf->get_addr());
+      printf("%s::baseline_cache::memport::push(%lu)\n", name().c_str(),
+             mf->get_addr());
       m_memport->push(mf);
     }
   }
@@ -93,9 +94,8 @@ void baseline_cache::cycle() {
 /// Interface for response from lower memory level (model bandwidth restictions
 /// in caller)
 void baseline_cache::fill(mem_fetch *mf, unsigned time) {
-  printf("baseline_cache::fill(%lu)\n", mf->get_addr());
-  printf("baseline_cache is sector cache = %d\n",
-         m_config.m_mshr_type == SECTOR_ASSOC);
+  printf("%s::baseline_cache::fill(%lu) (is sector=%d)\n", name().c_str(),
+         mf->get_addr(), m_config.m_mshr_type == SECTOR_ASSOC);
 
   if (m_config.m_mshr_type == SECTOR_ASSOC) {
     assert(mf->get_original_mf());
@@ -182,11 +182,15 @@ void baseline_cache::send_read_request(new_addr_type addr,
                                        evicted_block_info &evicted,
                                        std::list<cache_event> &events,
                                        bool read_only, bool wa) {
-  printf("baseline_cache::send_read_request(addr=%lu, block=%lu)\n", addr,
-         block_addr);
   new_addr_type mshr_addr = m_config.mshr_addr(mf->get_addr());
   bool mshr_hit = m_mshrs.probe(mshr_addr);
   bool mshr_avail = !m_mshrs.full(mshr_addr);
+
+  printf("%s::baseline_cache::send_read_request(addr=%lu, block=%lu, "
+         "mshr_addr=%lu, mshr_hit=%d, mshr_full=%d, miss_queue_full=%d)\n",
+         name().c_str(), addr, block_addr, mshr_addr, mshr_hit, !mshr_avail,
+         m_miss_queue.size() >= m_config.m_miss_queue_size);
+
   if (mshr_hit && mshr_avail) {
     if (read_only)
       m_tag_array->access(block_addr, time, cache_index, mf);

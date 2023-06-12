@@ -216,8 +216,8 @@ void trace_gpgpu_sim::simple_cycle() {
     if (m_memory_config->simple_dram_model)
       m_memory_partition_unit[i]->simple_dram_model_cycle();
     else
-      m_memory_partition_unit[i]
-          ->dram_cycle(); // Issue the dram command (scheduler + delay model)
+      // Issue the dram command (scheduler + delay model)
+      m_memory_partition_unit[i]->dram_cycle(); 
   }
 
   printf("move mem reqs from icnt to %d mem partitions\n",
@@ -233,7 +233,7 @@ void trace_gpgpu_sim::simple_cycle() {
     } else {
       mem_fetch *mf = (mem_fetch *)icnt_pop(m_shader_config->mem2device(i));
       if (mf)
-        printf("got new %s fetch for addr %lu from mem sub partition %d (%d)\n",
+        printf("got new %s fetch for addr %lu from mem sub partition %d (device %d)\n",
                mf->get_access_type_str(), mf->get_addr(), i,
                m_shader_config->mem2device(i));
       m_memory_sub_partition[i]->push(mf, gpu_sim_cycle + gpu_tot_sim_cycle);

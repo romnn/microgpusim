@@ -111,12 +111,21 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
     m_L2cache->cycle();
 
   // new L2 texture accesses and/or non-texture accesses
+  // printf("l2 to dram queue full: %d interconn to l2 queue empty: %d\n",
+  //        m_L2_dram_queue->full(), m_icnt_L2_queue->empty());
   if (!m_L2_dram_queue->full() && !m_icnt_L2_queue->empty()) {
     mem_fetch *mf = m_icnt_L2_queue->top();
+
+    // printf("l2 disabled: %d L2 texture only: %d fetch is texture: %d\n",
+    //        m_config->m_L2_config.disabled(), m_config->m_L2_texure_only,
+    //        mf->istexture());
+    // throw std::runtime_error("new l2 texture access or non tex access");
+
     if (!m_config->m_L2_config.disabled() &&
         ((m_config->m_L2_texure_only && mf->istexture()) ||
          (!m_config->m_L2_texure_only))) {
       // L2 is enabled and access is for L2
+      // throw std::runtime_error("l2 is enabled and have access for L2");
       bool output_full = m_L2_icnt_queue->full();
       bool port_free = m_L2cache->data_port_free();
       if (!output_full && port_free) {
@@ -128,8 +137,8 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
                               events);
         bool write_sent = was_write_sent(events);
         bool read_sent = was_read_sent(events);
-        MEM_SUBPART_DPRINTF("Probing L2 cache Address=%llx, status=%u\n",
-                            mf->get_addr(), status);
+        printf("probing L2 cache address=%ld, status=%s\n", mf->get_addr(),
+               cache_request_status_str(status));
 
         if (status == HIT) {
           if (!write_sent) {
@@ -159,6 +168,7 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
               m_request_tracker.erase(mf);
               delete mf;
             } else {
+              throw std::runtime_error("l2 to interconn queue push");
               mf->set_reply();
               mf->set_status(IN_PARTITION_L2_TO_ICNT_QUEUE,
                              m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
@@ -177,6 +187,8 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
       // L2 is disabled or non-texture access to texture-only L2
       mf->set_status(IN_PARTITION_L2_TO_DRAM_QUEUE,
                      m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+      throw std::runtime_error("pushing from l2 to dram: l2 disabled or nen "
+                               "texture access to texture only l2");
       m_L2_dram_queue->push(mf);
       m_icnt_L2_queue->pop();
     }
@@ -186,6 +198,7 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
   if (!m_rop.empty() && (cycle >= m_rop.front().ready_cycle) &&
       !m_icnt_L2_queue->full()) {
     mem_fetch *mf = m_rop.front().req;
+    printf("\nPOP FROM ROP\n\n");
     m_rop.pop();
     m_icnt_L2_queue->push(mf);
     mf->set_status(IN_PARTITION_ICNT_TO_L2_QUEUE,
@@ -337,6 +350,7 @@ memory_sub_partition::breakdown_request_to_sector_requests(mem_fetch *mf) {
 
 void memory_sub_partition::push(mem_fetch *m_req, unsigned long long cycle) {
   if (m_req) {
+    // throw std::runtime_error("sub partition push");
     m_stats->memlatstat_icnt2mem_pop(m_req);
     std::vector<mem_fetch *> reqs;
     if (m_config->m_L2_config.m_cache_type == SECTOR)
@@ -355,6 +369,7 @@ void memory_sub_partition::push(mem_fetch *m_req, unsigned long long cycle) {
         rop_delay_t r;
         r.req = req;
         r.ready_cycle = cycle + m_config->rop_latency;
+        printf("\nPUSH TO ROP\n\n");
         m_rop.push(r);
         req->set_status(IN_PARTITION_ROP_DELAY,
                         m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);

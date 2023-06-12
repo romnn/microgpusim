@@ -15,6 +15,7 @@ where
     I: ic::MemFetchInterface,
 {
     pub fn new(
+        name: String,
         core_id: usize,
         cluster_id: usize,
         fetch_interconn: Arc<I>,
@@ -23,6 +24,7 @@ where
         cache_config: Arc<config::CacheConfig>,
     ) -> Self {
         let inner = l1::Data::new(
+            name,
             core_id,
             cluster_id,
             fetch_interconn,
@@ -34,16 +36,23 @@ where
     }
 }
 
-impl<I> cache::Component for DataL2<I> {}
-
-// fn cycle(&mut self) {
-//         self.inner.cycle()
-//     }
+impl<I> cache::Component for DataL2<I>
+where
+    I: ic::MemFetchInterface,
+{
+    fn cycle(&mut self) {
+        self.inner.cycle()
+    }
+}
 
 impl<I> cache::Cache for DataL2<I>
 where
     I: ic::MemFetchInterface,
 {
+    fn write_allocate_policy(&self) -> config::CacheWriteAllocatePolicy {
+        self.inner.write_allocate_policy()
+    }
+
     fn has_ready_accesses(&self) -> bool {
         self.inner.has_ready_accesses()
     }
@@ -61,6 +70,21 @@ where
         self.inner.access(addr, fetch, events)
     }
 }
+
+impl<I> cache::CacheBandwidth for DataL2<I>
+where
+    I: ic::MemFetchInterface,
+{
+    fn has_free_data_port(&self) -> bool {
+        self.inner.has_free_data_port()
+    }
+
+    fn has_free_fill_port(&self) -> bool {
+        self.inner.has_free_data_port()
+    }
+}
+
+// impl<I> cache::CacheBandwidth for DataL2<I>
 
 //     /// Both the L1 and L2 currently use the same access function.
 //     ///

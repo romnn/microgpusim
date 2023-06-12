@@ -6,8 +6,8 @@ use crate::ported::{address, DecodedAddress, READ_PACKET_SIZE, WRITE_PACKET_SIZE
 
 use bitvec::{array::BitArray, field::BitField, BitArr};
 
-pub type MemAccessByteMask = BitArr!(for super::MAX_MEMORY_ACCESS_SIZE);
-pub type MemAccessSectorMask = BitArr!(for super::SECTOR_CHUNCK_SIZE, in u8);
+pub type MemAccessByteMask = BitArr!(for super::MAX_MEMORY_ACCESS_SIZE as usize);
+pub type MemAccessSectorMask = BitArr!(for super::SECTOR_CHUNCK_SIZE as usize, in u8);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Kind {
@@ -274,6 +274,13 @@ impl MemFetch {
             .map_or(false, WarpInstruction::is_atomic)
     }
 
+    pub fn is_texture(&self) -> bool {
+        // return m_inst.space.get_type() == tex_space;
+        self.instr.as_ref().map_or(false, |i| {
+            i.memory_space == nvbit_model::MemorySpace::Texture
+        })
+    }
+
     pub fn is_write(&self) -> bool {
         self.access.is_write
     }
@@ -298,8 +305,8 @@ impl MemFetch {
         &self.access.sector_mask
     }
 
-    pub fn sub_partition_id(&self) -> u64 {
-        self.tlx_addr.sub_partition
+    pub fn sub_partition_id(&self) -> usize {
+        self.tlx_addr.sub_partition as usize
     }
 
     pub fn access_kind(&self) -> &AccessKind {
@@ -311,8 +318,21 @@ impl MemFetch {
         self.last_status_change = Some(time);
     }
 
-    pub fn set_addr(&mut self, addr: address) {
-        self.access.addr = addr;
+    // pub fn set_addr(&mut self, addr: address) {
+    //     self.access.addr = addr;
+    // }
+
+    pub fn set_reply(&mut self) {
+        assert!(!matches!(
+            self.access.kind,
+            AccessKind::L1_WRBK_ACC | AccessKind::L2_WRBK_ACC
+        ));
+        assert!(!self.is_write());
+        self.kind = match self.kind {
+            Kind::READ_REQUEST => Kind::READ_REPLY,
+            Kind::WRITE_REQUEST => Kind::WRITE_ACK,
+            _ => panic!("cannot set reply for fetch of kind {:?}", self.kind),
+        }
     }
 }
 

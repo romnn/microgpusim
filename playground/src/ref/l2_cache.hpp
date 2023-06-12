@@ -16,6 +16,8 @@ public:
 
   virtual ~l2_cache() {}
 
+  std::string name() { return "l2 cache"; }
+
   virtual enum cache_request_status access(new_addr_type addr, mem_fetch *mf,
                                            unsigned time,
                                            std::list<cache_event> &events);

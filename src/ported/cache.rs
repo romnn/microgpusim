@@ -1,3 +1,4 @@
+use crate::config;
 use super::{address, mem_fetch, tag_array};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
@@ -60,7 +61,7 @@ pub trait Component {
     }
 }
 
-pub trait Cache: Component {
+pub trait Cache: Component + CacheBandwidth {
     fn has_ready_accesses(&self) -> bool {
         todo!("cache: has ready accesses");
     }
@@ -89,6 +90,23 @@ pub trait Cache: Component {
     fn invalidate(&mut self) {
         todo!("cache: invalidate");
     }
+
+    // fn data_port_free(&self) -> bool {
+    //     todo!("cache: data port free");
+    // }
+
+    // fn fill_port_free(&self) -> bool {
+    //     todo!("cache: fill port free");
+    // }
+
+    fn waiting_for_fill(&self, fetch: &mem_fetch::MemFetch) -> bool {
+        todo!("cache: waiting for fill");
+    }
+
+    fn write_allocate_policy(&self) -> config::CacheWriteAllocatePolicy {
+        todo!("cache: write_allocate_policy");
+    }
+
 }
 
 // not clear if we ever need this

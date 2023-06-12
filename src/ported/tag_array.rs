@@ -9,7 +9,7 @@ pub type LineTable = HashMap<address, usize>;
 #[derive(Debug, Clone, Default, Hash, PartialEq, Eq)]
 pub struct EvictedBlockInfo {
     pub block_addr: address,
-    pub modified_size: usize,
+    pub modified_size: u32,
     pub byte_mask: mem_fetch::MemAccessByteMask,
     pub sector_mask: mem_fetch::MemAccessSectorMask,
 }
@@ -100,7 +100,7 @@ impl<B> TagArray<B> {
         // ) -> (Option<usize>, cache::RequestStatus) {
     ) -> AccessStatus {
         // ) {
-        println!("tag_array::access({})", addr);
+        // println!("tag_array::access({})", addr);
         self.num_access += 1;
         self.is_used = true;
 
@@ -199,10 +199,9 @@ impl<B> TagArray<B> {
         is_probe: bool,
         fetch: &mem_fetch::MemFetch,
     ) -> (Option<usize>, cache::RequestStatus) {
-        println!("tag_array::probe({block_addr})");
+        // println!("tag_array::probe({block_addr})");
         let set_index = self.config.set_index(block_addr) as usize;
         let tag = self.config.tag(block_addr);
-        // dbg(set_index,
 
         let mut invalid_line = None;
         let mut valid_line = None;
@@ -312,7 +311,7 @@ impl<B> TagArray<B> {
     }
 
     pub fn add_pending_line(&mut self, fetch: &mem_fetch::MemFetch) {
-        println!("tag_array::add_pending_line({})", fetch.addr());
+        // println!("tag_array::add_pending_line({})", fetch.addr());
         let addr = self.config.block_addr(fetch.addr());
         let instr = fetch.instr.as_ref().unwrap();
         if self.pending_lines.contains_key(&addr) {
@@ -321,7 +320,7 @@ impl<B> TagArray<B> {
     }
 
     pub fn remove_pending_line(&mut self, fetch: &mem_fetch::MemFetch) {
-        println!("tag_array::remove_pending_line({})", fetch.addr());
+        // println!("tag_array::remove_pending_line({})", fetch.addr());
         let addr = self.config.block_addr(fetch.addr());
         self.pending_lines.remove(&addr);
     }

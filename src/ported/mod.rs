@@ -4,6 +4,7 @@ pub mod cache;
 pub mod cache_block;
 pub mod cluster;
 pub mod core;
+pub mod dram;
 pub mod instruction;
 pub mod interconn;
 pub mod l1;
@@ -246,7 +247,7 @@ impl KernelInfo {
         let mut lock = self.trace_iter.write().unwrap();
         let trace_iter = lock.take_while_ref(|entry| entry.block_id == next_block);
         for trace in trace_iter {
-            dbg!(&trace.warp_id);
+            // dbg!(&trace.warp_id);
             let warp_id = trace.warp_id as usize;
             let instr = instruction::WarpInstruction::from_trace(&self, trace);
             // warps[warp_id] = Some(SchedulerWarp::default());
@@ -378,8 +379,11 @@ pub struct MockSimulator<I> {
     stats: Arc<Mutex<Stats>>,
     config: Arc<config::GPUConfig>,
     // mem_partition_units: Vec<MemoryPartitionUnit<I>>,
-    mem_partition_units: Vec<MemoryPartitionUnit<ic::L2Interface<Packet>>>,
-    mem_sub_partitions: Vec<Rc<RefCell<MemorySubPartition<ic::L2Interface<Packet>>>>>,
+    // mem_partition_units: Vec<MemoryPartitionUnit<ic::L2Interface<Packet>>>,
+    mem_partition_units: Vec<MemoryPartitionUnit>,
+    // Vec<MemoryPartitionUnit<ic::L2Interface<I, FifoQueue<mem_fetch::MemFetch>>>>,
+    // mem_sub_partitions: Vec<Rc<RefCell<MemorySubPartition<ic::L2Interface<Packet>>>>>,
+    mem_sub_partitions: Vec<Rc<RefCell<MemorySubPartition<FifoQueue<mem_fetch::MemFetch>>>>>,
     // mem_sub_partitions: Vec<Rc<RefCell<MemorySubPartition<I>>>>,
     running_kernels: Vec<Option<Arc<KernelInfo>>>,
     executed_kernels: Mutex<HashMap<usize, String>>,
@@ -410,11 +414,15 @@ where
         let num_mem_units = config.num_mem_units;
         let num_sub_partitions = config.num_sub_partition_per_memory_channel;
 
-        let l2_port = Arc::new(ic::L2Interface {
-            interconn: interconn.clone(),
-        });
         let mem_partition_units: Vec<_> = (0..num_mem_units)
-            .map(|i| MemoryPartitionUnit::new(i, l2_port.clone(), config.clone(), stats.clone()))
+            .map(|i| {
+                MemoryPartitionUnit::new(
+                    i,
+                    // l2_port.clone(),
+                    config.clone(),
+                    stats.clone(),
+                )
+            })
             .collect();
 
         let mut mem_sub_partitions = Vec::new();
@@ -574,10 +582,10 @@ where
         // }
     }
 
-    fn interconn_transfer(&mut self) {
-        // not modeling the flits in the interconnect for now
-        // todo!("sim: interconn transfer");
-    }
+    // fn interconn_transfer(&mut self) {
+    //     // not modeling the flits in the interconnect for now
+    //     // todo!("sim: interconn transfer");
+    // }
 
     pub fn cycle(&mut self) {
         // int clock_mask = next_clock_domain();
@@ -598,6 +606,7 @@ where
         for (i, mem_sub) in self.mem_sub_partitions.iter().enumerate() {
             let mut mem_sub = mem_sub.borrow_mut();
             if let Some(fetch) = mem_sub.top() {
+                dbg!(&fetch.addr());
                 let response_size = if fetch.is_write() {
                     fetch.control_size
                 } else {
@@ -619,21 +628,24 @@ where
                 } else {
                     self.gpu_stall_icnt2sh += 1;
                 }
-            } else {
-                mem_sub.pop();
             }
+            // else {
+            //     mem_sub.pop();
+            // }
         }
         self.partition_replies_in_parallel += partition_replies_in_parallel_per_cycle;
 
         // dram
         println!("cycle for {} drams", self.mem_partition_units.len());
         for (i, unit) in self.mem_partition_units.iter_mut().enumerate() {
-            if self.config.simple_dram_model {
-                unit.simple_dram_model_cycle();
-            } else {
-                // Issue the dram command (scheduler + delay model)
-                unit.dram_cycle();
-            }
+            unit.simple_dram_cycle();
+            // if self.config.simple_dram_model {
+            //     unit.simple_dram_cycle();
+            // } else {
+            //     // Issue the dram command (scheduler + delay model)
+            //     // unit.simple_dram_cycle();
+            //     unimplemented!()
+            // }
         }
 
         // L2 operations
@@ -657,10 +669,13 @@ where
             } else {
                 let device = self.config.mem_id_to_device_id(i);
                 if let Some(Packet::Fetch(fetch)) = self.interconn.pop(device) {
+                    dbg!(&fetch.addr());
                     mem_sub.push(fetch);
                     parallel_mem_partition_reqs_per_cycle += 1;
                 }
             }
+            // we borrow all of sub here, which is a problem for the cyclic reference in l2
+            // interface
             mem_sub.cache_cycle(0); // gpu_sim_cycle + gpu_tot_sim_cycle);
                                     // mem_sub.accumulate_L2cache_stats(m_power_stats->pwr_mem_stat->l2_cache_stats[CURRENT_STAT_IDX]);
         }
@@ -671,7 +686,7 @@ where
         //   gpu_sim_cycle_parition_util++;
         // }
 
-        self.interconn_transfer();
+        // self.interconn_transfer();
 
         let mut active_sms = 0;
         for cluster in &mut self.clusters {

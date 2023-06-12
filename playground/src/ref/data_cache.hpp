@@ -74,6 +74,8 @@ public:
     }
   }
 
+  std::string name() { return "data_cache"; }
+
   virtual enum cache_request_status access(new_addr_type addr, mem_fetch *mf,
                                            unsigned time,
                                            std::list<cache_event> &events);

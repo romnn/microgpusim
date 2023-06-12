@@ -229,7 +229,7 @@ impl LineCacheBlock {
     }
 
     #[inline]
-    pub fn modified_size(&self) -> usize {
+    pub fn modified_size(&self) -> u32 {
         super::SECTOR_CHUNCK_SIZE * super::SECTOR_SIZE // cache line size
     }
 

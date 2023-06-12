@@ -25,7 +25,7 @@ public:
 
   void set_status(enum mem_fetch_status status, unsigned long long cycle);
   void set_reply() {
-    throw std::runtime_error("set reply");
+    // throw std::runtime_error("set reply");
     assert(m_access.get_type() != L1_WRBK_ACC &&
            m_access.get_type() != L2_WRBK_ACC);
     if (m_type == READ_REQUEST) {

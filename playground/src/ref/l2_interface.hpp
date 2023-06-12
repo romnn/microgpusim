@@ -13,6 +13,7 @@ public:
   }
   virtual void push(mem_fetch *mf) {
     mf->set_status(IN_PARTITION_L2_TO_DRAM_QUEUE, 0 /*FIXME*/);
+    // throw std::runtime_error("l2 interface push l2 to dram queue");
     m_unit->m_L2_dram_queue->push(mf);
   }
 

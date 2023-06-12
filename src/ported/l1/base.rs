@@ -2,6 +2,7 @@ use crate::config;
 use crate::ported::{
     self, address, cache, interconn as ic, mem_fetch, mshr, stats::Stats, tag_array,
 };
+use console::style;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
@@ -21,8 +22,8 @@ impl std::fmt::Debug for BandwidthManager {
         f.debug_struct("BandwidthManager")
             .field("data_port_occupied_cycles", &self.data_port_occupied_cycles)
             .field("fill_port_occupied_cycles", &self.fill_port_occupied_cycles)
-            .field("data_port_free", &self.data_port_free())
-            .field("fill_port_free", &self.fill_port_free())
+            .field("has_free_data_port", &self.has_free_data_port())
+            .field("has_free_fill_port", &self.has_free_fill_port())
             .finish()
     }
 }
@@ -50,9 +51,8 @@ impl BandwidthManager {
 
     /// Use the fill port
     pub fn use_fill_port(&mut self, fetch: &mem_fetch::MemFetch) {
-        // assume filling the entire line with the
-        // returned request
-        let fill_cycles = self.config.atom_size() / self.config.data_port_width();
+        // assume filling the entire line with the returned request
+        let fill_cycles = self.config.atom_size() as usize / self.config.data_port_width();
         self.fill_port_occupied_cycles += fill_cycles;
         // todo!("bandwidth: use fill port");
     }
@@ -74,12 +74,12 @@ impl BandwidthManager {
     }
 
     /// Query for data port availability
-    pub fn data_port_free(&self) -> bool {
+    pub fn has_free_data_port(&self) -> bool {
         self.data_port_occupied_cycles == 0
         // todo!("bandwidth: data port free");
     }
     /// Query for fill port availability
-    pub fn fill_port_free(&self) -> bool {
+    pub fn has_free_fill_port(&self) -> bool {
         self.fill_port_occupied_cycles == 0
         // todo!("bandwidth: data port free");
     }
@@ -93,6 +93,7 @@ pub struct Base<I>
 // where
 //     I: ic::MemPort,
 {
+    pub name: String,
     pub core_id: usize,
     pub cluster_id: usize,
 
@@ -121,6 +122,7 @@ pub struct Base<I>
 impl<I> std::fmt::Debug for Base<I> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("Base")
+            .field("name", &self.name)
             .field("core_id", &self.core_id)
             .field("cluster_id", &self.cluster_id)
             .field("miss_queue", &self.miss_queue)
@@ -130,6 +132,7 @@ impl<I> std::fmt::Debug for Base<I> {
 
 impl<I> Base<I> {
     pub fn new(
+        name: String,
         core_id: usize,
         cluster_id: usize,
         // tag_array: tag_array::TagArray<()>,
@@ -152,6 +155,7 @@ impl<I> Base<I> {
 
         let bandwidth = BandwidthManager::new(cache_config.clone());
         Self {
+            name,
             core_id,
             cluster_id,
             tag_array,
@@ -222,7 +226,8 @@ impl<I> Base<I> {
         &mut self,
         addr: address,
         block_addr: u64,
-        cache_index: Option<usize>,
+        cache_index: usize,
+        // cache_index: Option<usize>,
         mut fetch: mem_fetch::MemFetch,
         time: usize,
         // events: &mut Option<Vec<cache::Event>>,
@@ -230,11 +235,6 @@ impl<I> Base<I> {
         read_only: bool,
         write_allocate: bool,
     ) -> (bool, bool, Option<tag_array::EvictedBlockInfo>) {
-        println!(
-            "baseline cache: send read request (addr={}, block={})",
-            &addr, &block_addr
-        );
-
         let mut should_miss = false;
         let mut writeback = false;
         let mut evicted = None;
@@ -242,7 +242,12 @@ impl<I> Base<I> {
         let mshr_addr = self.cache_config.mshr_addr(fetch.addr());
         let mshr_hit = self.mshrs.probe(mshr_addr);
         let mshr_full = self.mshrs.full(mshr_addr);
-        let mut cache_index = cache_index.expect("cache index");
+        // let mut cache_index = cache_index.expect("cache index");
+
+        println!(
+            "{}::baseline cache: send read request (addr={}, block={}, mshr_addr={}, mshr_hit={}, mshr_full={}, miss_queue_full={})",
+            &self.name, addr, block_addr, &mshr_addr, mshr_hit, mshr_full, self.miss_queue_full(),
+        );
 
         if mshr_hit && !mshr_full {
             if read_only {
@@ -256,7 +261,12 @@ impl<I> Base<I> {
             }
 
             self.mshrs.add(mshr_addr, fetch.clone());
-            // m_stats.inc_stats(mf->get_access_type(), MSHR_HIT);
+            let mut stats = self.stats.lock().unwrap();
+            stats.inc_access(
+                *fetch.access_kind(),
+                cache::AccessStat::Status(cache::RequestStatus::MSHR_HIT),
+            );
+
             should_miss = true;
         } else if !mshr_hit && !mshr_full && !self.miss_queue_full() {
             if read_only {
@@ -272,7 +282,7 @@ impl<I> Base<I> {
             // m_extra_mf_fields[mf] = extra_mf_fields(
             //     mshr_addr, mf->get_addr(), cache_index, mf->get_data_size(), m_config);
             fetch.data_size = self.cache_config.atom_size() as u32;
-            fetch.set_addr(mshr_addr);
+            fetch.access.addr = mshr_addr;
 
             self.mshrs.add(mshr_addr, fetch.clone());
             self.miss_queue.push_back(fetch.clone());
@@ -286,30 +296,27 @@ impl<I> Base<I> {
 
             should_miss = true;
         } else if mshr_hit && mshr_full {
-            // m_stats.inc_fail_stats(fetch.access_kind(), MSHR_MERGE_ENRTY_FAIL);
+            self.stats.lock().unwrap().inc_access(
+                *fetch.access_kind(),
+                cache::AccessStat::ReservationFailure(
+                    cache::ReservationFailure::MSHR_MERGE_ENRTY_FAIL,
+                ),
+            );
         } else if !mshr_hit && mshr_full {
-            // m_stats.inc_fail_stats(fetch.access_kind(), MSHR_ENRTY_FAIL);
+            self.stats.lock().unwrap().inc_access(
+                *fetch.access_kind(),
+                cache::AccessStat::ReservationFailure(cache::ReservationFailure::MSHR_ENRTY_FAIL),
+            );
         } else {
-            panic!("mshr full?");
+            panic!(
+                "mshr_hit={} mshr_full={} miss_queue_full={}",
+                mshr_hit,
+                mshr_full,
+                self.miss_queue_full()
+            );
         }
         (should_miss, write_allocate, evicted)
     }
-
-    // /// Sends write request to lower level memory (write or writeback)
-    // pub fn send_write_request(
-    //     &mut self,
-    //     mut fetch: mem_fetch::MemFetch,
-    //     request: cache::Event,
-    //     time: usize,
-    //     // events: &Option<&mut Vec<cache::Event>>,
-    // ) {
-    //     println!("data_cache::send_write_request(...)");
-    //     // if let Some(events) = events {
-    //     //     events.push(request);
-    //     // }
-    //     fetch.set_status(self.miss_queue_status, time);
-    //     self.miss_queue.push_back(fetch);
-    // }
 
     // /// Base read miss
     // ///
@@ -429,18 +436,27 @@ where
 {
     /// Sends next request to lower level of memory
     fn cycle(&mut self) {
-        println!("base cache: cycle");
-        dbg!(&self.miss_queue.len());
+        use cache::CacheBandwidth;
+        println!(
+            "{}::baseline cache::cycle (fetch interface {:?}) miss queue size={}",
+            self.name,
+            self.mem_port,
+            style(self.miss_queue.len()).blue(),
+        );
         if let Some(fetch) = self.miss_queue.front() {
             if !self.mem_port.full(fetch.data_size, fetch.is_write()) {
                 if let Some(fetch) = self.miss_queue.pop_front() {
-                    println!("baseline cache: push({})", fetch.addr());
+                    println!(
+                        "{}::baseline cache::memport::push({})",
+                        &self.name,
+                        fetch.addr()
+                    );
                     self.mem_port.push(fetch);
                 }
             }
         }
-        let data_port_busy = !self.bandwidth.data_port_free();
-        let fill_port_busy = !self.bandwidth.fill_port_free();
+        let data_port_busy = !self.has_free_data_port();
+        let fill_port_busy = !self.has_free_fill_port();
         // m_stats.sample_cache_port_utility(data_port_busy, fill_port_busy);
         self.bandwidth.replenish_port_bandwidth();
     }
@@ -506,21 +522,23 @@ where
     }
 }
 
-// impl<I> cache::CacheBandwidth for Base<I> {
-//     fn has_free_data_port(&self) -> bool {
-//         self.bandwidth_management.has_free_data_port()
-//     }
-//
-//     fn has_free_fill_port(&self) -> bool {
-//         self.bandwidth_management.has_free_fill_port()
-//     }
-// }
+impl<I> cache::CacheBandwidth for Base<I> {
+    fn has_free_data_port(&self) -> bool {
+        // todo!("base cache: has_free_data_port");
+        self.bandwidth.has_free_data_port()
+    }
+
+    fn has_free_fill_port(&self) -> bool {
+        // todo!("base cache: has_free_fill_port");
+        self.bandwidth.has_free_fill_port()
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use super::Base;
     use crate::config;
-    use crate::ported::{interconn as ic, Packet, mem_fetch, stats::Stats};
+    use crate::ported::{interconn as ic, mem_fetch, stats::Stats, Packet};
     use std::sync::{Arc, Mutex};
 
     // struct Interconnect {}
@@ -540,14 +558,23 @@ mod tests {
         let config = Arc::new(config::GPUConfig::default());
         let cache_config = config.data_cache_l1.clone().unwrap();
         // let port = ic::Interconnect {};
-        let interconn: Arc<ic::ToyInterconnect<Packet>> = Arc::new(ic::ToyInterconnect::new(0, 0, None));
+        let interconn: Arc<ic::ToyInterconnect<Packet>> =
+            Arc::new(ic::ToyInterconnect::new(0, 0, None));
         let port = Arc::new(ic::CoreMemoryInterface {
             interconn,
             cluster_id: 0,
             config: config.clone(),
         });
 
-        let base = Base::new(core_id, cluster_id, port, stats, config, cache_config);
+        let base = Base::new(
+            "base cache".to_string(),
+            core_id,
+            cluster_id,
+            port,
+            stats,
+            config,
+            cache_config,
+        );
         dbg!(&base);
         assert!(false);
     }

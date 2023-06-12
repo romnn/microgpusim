@@ -31,7 +31,7 @@ pub enum CacheReplacementPolicy {
 pub struct CacheConfig {
     pub kind: CacheKind,
     pub num_sets: usize,
-    pub line_size: usize,
+    pub line_size: u32,
     pub associativity: usize,
 
     pub replacement_policy: CacheReplacementPolicy,
@@ -63,18 +63,18 @@ impl CacheConfig {
         let width = self.data_port_width.unwrap_or(0);
         let width = if width == 0 {
             // default granularity is line size
-            self.line_size
+            self.line_size as usize
         } else {
             width
         };
-        debug_assert!(self.line_size % width == 0);
+        debug_assert!(self.line_size as usize % width == 0);
         width
     }
 
     /// The total size of the cache in bytes.
     #[inline]
     pub fn total_bytes(&self) -> usize {
-        self.line_size * self.num_sets * self.associativity
+        self.line_size as usize * self.num_sets * self.associativity
     }
 
     /// Number of lines in total.
@@ -106,17 +106,17 @@ impl CacheConfig {
     }
 
     #[inline]
-    pub fn sector_size(&self) -> usize {
+    pub fn sector_size(&self) -> u32 {
         mem_sub_partition::SECTOR_SIZE
     }
 
     #[inline]
     pub fn sector_size_log2(&self) -> u32 {
-        addrdec::logb2(self.sector_size() as u32)
+        addrdec::logb2(self.sector_size())
     }
 
     #[inline]
-    pub fn atom_size(&self) -> usize {
+    pub fn atom_size(&self) -> u32 {
         if self.kind == CacheKind::Sector {
             mem_sub_partition::SECTOR_SIZE
         } else {
@@ -401,7 +401,7 @@ pub struct GPUConfig {
     /// track and display latency statistics 0x2 enables MC, 0x4 enables queue logs
     // memory_latency_stat: usize, // 14
     /// DRAM scheduler queue size 0 = unlimited (default); # entries per chip
-    pub frfcfs_dram_sched_queue_size: usize, // 64
+    pub dram_frfcfs_sched_queue_size: usize, // 64
     /// 0 = unlimited (default); # entries per chip
     pub dram_return_queue_size: usize, // 116
     /// default = 4 bytes (8 bytes per cycle at DDR)
@@ -427,7 +427,8 @@ pub struct GPUConfig {
     /// Seperate_Write_Queue_Enable
     pub dram_seperate_write_queue_enable: bool, // 0
     /// write_Queue_Size
-    // dram_write_queue_size: usize, // 32:28:16
+    /// dram_frfcfs_write_queue_size:high_watermark:low_watermark
+    pub dram_frfcfs_write_queue_size: usize, // 32:28:16 
     /// elimnate_rw_turnaround i.e set tWTR and tRTW = 0
     pub dram_elimnate_rw_turnaround: bool, // 0
     /// mapping memory address to dram model
@@ -1055,7 +1056,7 @@ impl Default for GPUConfig {
             num_memory_controllers: 8,
             num_sub_partition_per_memory_channel: 2,
             num_memory_chips_per_controller: 1,
-            frfcfs_dram_sched_queue_size: 64,
+            dram_frfcfs_sched_queue_size: 64,
             dram_return_queue_size: 116,
             dram_buswidth: 4,
             dram_burst_length: 8,
@@ -1066,7 +1067,7 @@ impl Default for GPUConfig {
             dram_bank_indexing_policy: DRAMBankIndexPolicy::Normal,
             dram_bank_group_indexing_policy: DRAMBankGroupIndexPolicy::HigherBits,
             dram_seperate_write_queue_enable: false,
-            // dram_write_queue_size: usize, // 32:28:16
+            dram_frfcfs_write_queue_size: 32, // 32:28:16
             dram_elimnate_rw_turnaround: false,
             memory_partition_indexing: MemoryPartitionIndexingScheme::None,
             compute_capability_major: 7,
@@ -1122,4 +1123,13 @@ mod tests {
         let instr_cache_config = config.inst_cache_l1.unwrap();
         assert_eq!(instr_cache_config.block_addr(4026531848), 4026531840);
     }
+
+    #[test]
+    fn test_mshr_addr() {
+        let config = super::GPUConfig::default();
+        let instr_cache_config = config.inst_cache_l1.unwrap();
+        assert_eq!(instr_cache_config.mshr_addr(4026531848), 4026531840);
+        assert_eq!(instr_cache_config.mshr_addr(4026531992), 4026531968);
+    }
+
 }

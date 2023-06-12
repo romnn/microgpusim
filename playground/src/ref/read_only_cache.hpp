@@ -13,6 +13,8 @@ public:
                   enum mem_fetch_status status)
       : baseline_cache(name, config, core_id, type_id, memport, status) {}
 
+  std::string name() { return "read_only_cache"; }
+
   /// Access cache for read_only_cache: returns RESERVATION_FAIL if request
   /// could not be accepted (for any reason)
   virtual enum cache_request_status access(new_addr_type addr, mem_fetch *mf,

@@ -306,6 +306,12 @@ where
             interconn: interconn.clone(),
         });
         let instr_l1_cache = l1::ReadOnly::new(
+            format!(
+                "core-{}-{}-{}",
+                cluster_id,
+                core_id,
+                style("READONLY-INSTR-CACHE").green()
+            ),
             core_id,
             cluster_id,
             port.clone(),
@@ -752,9 +758,10 @@ where
                                 let pc = warp.pc().unwrap();
                                 let ppc = pc + PROGRAM_MEM_START;
                                 let mut num_bytes = 16;
-                                let offset_in_block = pc & (icache_config.line_size - 1);
-                                if offset_in_block + num_bytes > icache_config.line_size {
-                                    num_bytes = icache_config.line_size - offset_in_block;
+                                let line_size = icache_config.line_size as usize;
+                                let offset_in_block = pc & (line_size - 1);
+                                if offset_in_block + num_bytes > line_size as usize {
+                                    num_bytes = line_size as usize - offset_in_block;
                                 }
                                 let access = mem_fetch::MemAccess::new(
                                     mem_fetch::AccessKind::INST_ACC_R,
@@ -844,20 +851,18 @@ where
         } = self.inner.instr_fetch_buffer;
 
         // testing only
-        dbg!(&self
-            .inner
-            .warps
-            .iter()
-            // .map(Option::as_ref)
-            // .filter_map(|w| w)
-            .map(|w| w.lock().unwrap().instruction_count())
-            .sum::<usize>());
-        // dbg!(&self.next_inst(warp_id, pc));
+        // dbg!(&self
+        //     .inner
+        //     .warps
+        //     .iter()
+        //     .map(|w| w.lock().unwrap().instruction_count())
+        //     .sum::<usize>());
 
         dbg!(&valid);
         if !valid {
             return;
         }
+        panic!("INST BUFFER FINALLY VALID");
 
         // decode 1 or 2 instructions and buffer them
         let pc = pc;

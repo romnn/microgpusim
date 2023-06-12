@@ -105,6 +105,7 @@ public:
     m_memory_config.m_n_mem = 1;
     m_memory_config.m_n_mem_sub_partition = 1;
     m_memory_config.m_n_sub_partition_per_memory_channel = 2;
+    m_memory_config.simple_dram_model = true;
 
     // gpgpu_l2_rop_latency was 120
     m_memory_config.rop_latency = 0;
