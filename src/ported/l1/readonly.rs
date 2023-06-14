@@ -70,6 +70,10 @@ where
         self.inner.has_ready_accesses()
     }
 
+    fn next_access(&mut self) -> Option<mem_fetch::MemFetch> {
+        self.inner.next_access()
+    }
+
     /// Access read only cache.
     ///
     /// returns `RequestStatus::RESERVATION_FAIL` if
@@ -81,7 +85,6 @@ where
         events: Option<&mut Vec<cache::Event>>,
     ) -> cache::RequestStatus {
         use cache::RequestStatus as Status;
-        println!("readonly cache: access at {}", &addr);
 
         let base::Base {
             ref cache_config,
@@ -96,6 +99,14 @@ where
         );
         debug_assert!(!fetch.is_write());
         let block_addr = cache_config.block_addr(addr);
+
+        println!(
+            "{}::readonly_cache::access({addr}, write = {}, size = {}, block = {block_addr})",
+            self.inner.name,
+            fetch.is_write(),
+            fetch.data_size,
+        );
+
         // let cache_index = None;
         let is_probe = false;
         let (cache_index, probe_status) =
@@ -159,7 +170,7 @@ where
         status
     }
 
-    fn fill(&self, fetch: &mem_fetch::MemFetch) {
+    fn fill(&mut self, fetch: &mut mem_fetch::MemFetch) {
         self.inner.fill(fetch);
     }
 }

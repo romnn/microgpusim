@@ -87,5 +87,6 @@
 #include "ref/warp_set.hpp"
 
 #include "ref/bridge/accelsim_config.hpp"
+#include "ref/bridge/accelsim_stats.hpp"
 
 #include "tests/parse_cache_config.hpp"

@@ -1,10 +1,10 @@
 #pragma once
 
 #include "accelsim_config.hpp"
+#include "accelsim_stats.hpp"
 #include "rust/cxx.h"
 
-// extern const char *g_accelsim_version;
+struct AccelsimStats;
 
-// int accelsim(accelsim_config config, const std::vector<std::string> &argv);
-// int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv);
-int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv);
+// std::unique_ptr<accelsim_stats> accelsim(accelsim_config config, rust::Slice<const rust::Str> argv);
+int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv, AccelsimStats &stats);

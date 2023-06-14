@@ -41,7 +41,7 @@ public:
   }
 
   std::string name() {
-    return "baseline_cache";
+    return std::string(m_name);
   }
 
   virtual enum cache_request_status access(new_addr_type addr, mem_fetch *mf,
@@ -152,7 +152,8 @@ protected:
     unsigned pending_read;
   };
 
-  typedef std::map<mem_fetch *, extra_mf_fields> extra_mf_fields_lookup;
+  typedef std::unordered_map<mem_fetch *, extra_mf_fields> extra_mf_fields_lookup;
+  // typedef std::unordered_map<mem_fetch, extra_mf_fields> testing_only;
 
   extra_mf_fields_lookup m_extra_mf_fields;
 

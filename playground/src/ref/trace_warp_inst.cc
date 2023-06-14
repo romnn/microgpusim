@@ -32,10 +32,9 @@ types_of_operands get_oprnd_type(op_type op, special_ops sp_op) {
   }
 }
 
-const char *trace_warp_inst_t::opcode_str() {
+const char *trace_warp_inst_t::opcode_str() const {
   if (m_opcode > 0 && m_opcode < SASS_NUM_OPCODES) {
     return g_trace_instr_opcode_str[m_opcode - 1];
-    // return g_opcode_string[m_opcode];
   }
   return "<UNKNOWN>";
 }

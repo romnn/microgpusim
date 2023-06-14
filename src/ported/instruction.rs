@@ -103,10 +103,10 @@ pub struct WarpInstruction {
     pub data_size: u32,
     pub is_atomic: bool,
 
-    pub outputs: [u32; 8],
-    pub out_count: usize,
-    pub inputs: [u32; 24],
-    pub in_count: usize,
+    outputs: [u32; 8],
+    out_count: usize,
+    inputs: [u32; 24],
+    in_count: usize,
     // bool m_mem_accesses_created;
     // std::list<mem_access_t> m_accessq;
     // m_decoded = false;
@@ -142,9 +142,10 @@ pub struct WarpInstruction {
 impl std::fmt::Debug for WarpInstruction {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         if self.empty() {
-            f.debug_struct("WarpInstruction").finish()
+            f.debug_struct("EmptyWarpInstruction").finish()
         } else {
             f.debug_struct("WarpInstruction")
+                .field("opcode", &self.opcode)
                 .field("warp_id", &self.warp_id)
                 .field("pc", &self.pc)
                 .field("active_mask", &self.active_mask.to_bit_string())
@@ -158,15 +159,9 @@ impl std::fmt::Debug for WarpInstruction {
 impl std::fmt::Display for WarpInstruction {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         if self.empty() {
-            f.debug_struct("WarpInstruction").finish()
+            f.debug_struct("EmptyWarpInstruction").finish()
         } else {
-            f.debug_struct("WarpInstruction")
-                .field("warp_id", &self.warp_id)
-                .field("pc", &self.pc)
-                .field("active_mask", &self.active_mask.to_bit_string())
-                .field("memory_space", &self.memory_space)
-                .field("mem_access_queue", &self.mem_access_queue.len())
-                .finish()
+            write!(f, "{}[pc={}]", self.opcode, self.pc)
         }
     }
 }
@@ -356,13 +351,21 @@ impl WarpInstruction {
             latency: 1,             // todo
             initiation_interval: 1, // todo
             data_size,
-            empty: true,
+            empty: false,
             mem_access_queue: VecDeque::new(),
             outputs: [0; 8],
             in_count: 0,
             inputs: [0; 24],
             out_count: 0,
         }
+    }
+
+    pub fn inputs(&self) -> &[u32] {
+        &self.inputs[0..self.in_count]
+    }
+
+    pub fn outputs(&self) -> &[u32] {
+        &self.outputs[0..self.out_count]
     }
 
     pub fn scheduler_id(&self) -> usize {

@@ -7,6 +7,7 @@
 #include "occupancy_stats.hpp"
 #include "shader_core_stats.hpp"
 #include "visualizer.hpp"
+#include "bridge/accelsim_stats.hpp"
 
 // constants for statistics printouts
 #define GPU_RSTAT_SHD_INFO 0x1
@@ -168,6 +169,7 @@ public:
             (gpu_completed_cta >= m_config.gpu_max_completed_cta_opt));
   }
 
+  std::unique_ptr<accelsim_stats> get_accelsim_stats();
   void gpu_print_stat();
   void print_stats();
   void update_stats();

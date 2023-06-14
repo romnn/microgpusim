@@ -1,9 +1,10 @@
 use crate::config;
+use crate::ported::mem_sub_partition::SECTOR_SIZE;
 use crate::ported::{
-    self, address, cache, interconn as ic, mem_fetch, mshr, stats::Stats, tag_array,
+    self, address, cache, cache_block, interconn as ic, mem_fetch, mshr, stats::Stats, tag_array,
 };
 use console::style;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 
 /// Metadata for port bandwidth management
@@ -85,7 +86,23 @@ impl BandwidthManager {
     }
 }
 
+#[derive(Debug)]
+struct PendingRequest {
+    valid: bool,
+    block_addr: address,
+    addr: address,
+    cache_index: usize,
+    data_size: u32,
+    // this variable is used when a load request generates multiple load
+    // transactions For example, a read request from non-sector L1 request sends
+    // a request to sector L2
+    pending_reads: usize,
+}
+
+impl PendingRequest {}
+
 /// Base cache
+///
 /// Implements common functions for read_only_cache and data_cache
 /// Each subclass implements its own 'access' function
 #[derive()]
@@ -105,7 +122,9 @@ pub struct Base<I>
     pub miss_queue_status: mem_fetch::Status,
     pub mshrs: mshr::MshrTable,
     pub tag_array: tag_array::TagArray<()>,
-    pub mem_port: Arc<I>,
+
+    pending: HashMap<mem_fetch::MemFetch, PendingRequest>,
+    mem_port: Arc<I>,
 
     // /// Specifies type of write allocate request
     // ///
@@ -116,7 +135,7 @@ pub struct Base<I>
     // ///
     // /// (e.g., L1 or L2)
     // write_back_type: mem_fetch::AccessKind,
-    pub bandwidth: BandwidthManager,
+    bandwidth: BandwidthManager,
 }
 
 impl<I> std::fmt::Debug for Base<I> {
@@ -165,6 +184,7 @@ impl<I> Base<I> {
             config,
             cache_config,
             bandwidth,
+            pending: HashMap::new(),
             miss_queue: VecDeque::new(),
             miss_queue_status: mem_fetch::Status::INITIALIZED,
             // write_alloc_type: mem_fetch::AccessKind::L1_WR_ALLOC_R,
@@ -187,12 +207,12 @@ impl<I> Base<I> {
         self.miss_queue.len() >= self.cache_config.miss_queue_size
     }
 
-    /// Checks if fetch is waiting to be filled
-    /// by lower memory level
-    pub fn waiting_for_fill(&self, fetch: &mem_fetch::MemFetch) {
+    /// Checks if fetch is waiting to be filled by lower memory level
+    pub fn waiting_for_fill(&self, fetch: &mem_fetch::MemFetch) -> bool {
+        self.pending.contains_key(&fetch)
         // extra_mf_fields_lookup::iterator e = m_extra_mf_fields.find(mf);
         // return e != m_extra_mf_fields.end();
-        todo!("base cache: waiting for fill");
+        // todo!("base cache: waiting for fill");
     }
 
     /// Are any (accepted) accesses that had to wait for memory now ready?
@@ -245,7 +265,7 @@ impl<I> Base<I> {
         // let mut cache_index = cache_index.expect("cache index");
 
         println!(
-            "{}::baseline cache: send read request (addr={}, block={}, mshr_addr={}, mshr_hit={}, mshr_full={}, miss_queue_full={})",
+            "{}::baseline_cache::send_read_request (addr={}, block={}, mshr_addr={}, mshr_hit={}, mshr_full={}, miss_queue_full={})",
             &self.name, addr, block_addr, &mshr_addr, mshr_hit, mshr_full, self.miss_queue_full(),
         );
 
@@ -279,7 +299,23 @@ impl<I> Base<I> {
                 } = self.tag_array.access(block_addr, time, &fetch);
             }
 
-            // m_extra_mf_fields[mf] = extra_mf_fields(
+            let is_sector_cache = self.cache_config.mshr_kind == config::MshrKind::SECTOR_ASSOC;
+            self.pending.insert(
+                fetch.clone(),
+                PendingRequest {
+                    valid: true,
+                    block_addr: mshr_addr,
+                    addr: fetch.addr(),
+                    cache_index,
+                    data_size: fetch.data_size,
+                    pending_reads: if is_sector_cache {
+                        self.cache_config.line_size / SECTOR_SIZE
+                    } else {
+                        0
+                    } as usize,
+                },
+            );
+            // = extra_mf_fields(m_extra_mf_fields[mf] = extra_mf_fields(
             //     mshr_addr, mf->get_addr(), cache_index, mf->get_data_size(), m_config);
             fetch.data_size = self.cache_config.atom_size() as u32;
             fetch.access.addr = mshr_addr;
@@ -474,51 +510,83 @@ where
     /// Interface for response from lower memory level.
     ///
     /// bandwidth restictions should be modeled in the caller.
-    pub fn fill(&self, fetch: &mem_fetch::MemFetch) {
+    /// TODO: fill could also accept the fetch by value, otherwise we drop the fetch!!
+    pub fn fill(&mut self, fetch: &mut mem_fetch::MemFetch) {
         if self.cache_config.mshr_kind == config::MshrKind::SECTOR_ASSOC {
-            // debug_assert!(fetch.get_original_mf());
-            // extra_mf_fields_lookup::iterator e =
-            //     m_extra_mf_fields.find(mf->get_original_mf());
-            // assert(e != m_extra_mf_fields.end());
-            // e->second.pending_read--;
-            //
-            // if (e->second.pending_read > 0) {
-            //   // wait for the other requests to come back
-            //   delete mf;
-            //   return;
-            // } else {
-            //   mem_fetch *temp = mf;
-            //   mf = mf->get_original_mf();
-            //   delete temp;
-            // }
+            let original_fetch = fetch.original_fetch.as_ref().unwrap();
+            let pending = self.pending.get_mut(original_fetch).unwrap();
+            pending.pending_reads -= 1;
+            if pending.pending_reads > 0 {
+                // wait for the other requests to come back
+                // delete mf;
+                return;
+            } else {
+                // mem_fetch *temp = mf;
+                // todo: consume the fetch here?
+                let original_fetch = fetch.original_fetch.as_ref().unwrap().as_ref().clone();
+                *fetch = original_fetch;
+                // delete temp;
+            }
         }
+        // dbg!(&self.pending);
+        // dbg!(&fetch);
+        let pending = self.pending.get_mut(fetch).unwrap();
+        debug_assert!(pending.valid);
+        fetch.data_size = pending.data_size;
+        fetch.access.addr = pending.addr;
+        match self.cache_config.allocate_policy {
+            config::CacheAllocatePolicy::ON_MISS => {
+                self.tag_array.fill_on_miss(pending.cache_index, fetch);
+            }
+            config::CacheAllocatePolicy::ON_FILL => {
+                self.tag_array.fill_on_fill(pending.block_addr, fetch);
+            }
+            other => unimplemented!("cache allocate policy {:?} is not implemented", other),
+        }
+        let has_atomic = self.mshrs.mark_ready(pending.block_addr).unwrap_or(false);
+        if has_atomic {
+            debug_assert!(
+                self.cache_config.allocate_policy == config::CacheAllocatePolicy::ON_MISS
+            );
+            let block = self.tag_array.get_block_mut(pending.cache_index);
+            // mark line as dirty for atomic operation
+            // let block = self.tag_array.get_block_mut(pending.cache_index);
+            block.set_status(cache_block::Status::MODIFIED, fetch.access_sector_mask());
+            block.set_byte_mask(fetch.access_byte_mask());
+            if !block.is_modified() {
+                self.tag_array.num_dirty += 1;
+            }
+        }
+        self.pending.remove(fetch);
+        self.bandwidth.use_fill_port(fetch);
+
         // extra_mf_fields_lookup::iterator e = m_extra_mf_fields.find(mf);
-        //   assert(e != m_extra_mf_fields.end());
-        //   assert(e->second.m_valid);
-        //   mf->set_data_size(e->second.m_data_size);
-        //   mf->set_addr(e->second.m_addr);
-        //   if (m_config.m_alloc_policy == ON_MISS)
-        //     m_tag_array->fill(e->second.m_cache_index, time, mf);
-        //   else if (m_config.m_alloc_policy == ON_FILL) {
-        //     m_tag_array->fill(e->second.m_block_addr, time, mf, mf->is_write());
-        //   } else
-        //     abort();
-        //   bool has_atomic = false;
-        //   m_mshrs.mark_ready(e->second.m_block_addr, has_atomic);
-        //   if (has_atomic) {
-        //     assert(m_config.m_alloc_policy == ON_MISS);
-        //     cache_block_t *block = m_tag_array->get_block(e->second.m_cache_index);
-        //     if (!block->is_modified_line()) {
-        //       m_tag_array->inc_dirty();
-        //     }
-        //     block->set_status(MODIFIED,
-        //                       mf->get_access_sector_mask());  // mark line as dirty for
-        //                                                       // atomic operation
-        //     block->set_byte_mask(mf);
-        //   }
-        //   m_extra_mf_fields.erase(mf);
-        //   m_bandwidth_management.use_fill_port(mf);
-        todo!("l1 base: fill");
+        // assert(e != m_extra_mf_fields.end());
+        // assert(e->second.m_valid);
+        // mf->set_data_size(e->second.m_data_size);
+        // mf->set_addr(e->second.m_addr);
+        // if (m_config.m_alloc_policy == ON_MISS)
+        //   m_tag_array->fill(e->second.m_cache_index, time, mf);
+        // else if (m_config.m_alloc_policy == ON_FILL) {
+        //   m_tag_array->fill(e->second.m_block_addr, time, mf, mf->is_write());
+        // } else
+        //   abort();
+        // bool has_atomic = false;
+        // m_mshrs.mark_ready(e->second.m_block_addr, has_atomic);
+        // if (has_atomic) {
+        // assert(m_config.m_alloc_policy == ON_MISS);
+        // cache_block_t *block = m_tag_array->get_block(e->second.m_cache_index);
+        // if (!block->is_modified_line()) {
+        //   m_tag_array->inc_dirty();
+        // }
+        // block->set_status(MODIFIED,
+        //                   mf->get_access_sector_mask());  // mark line as dirty for
+        //                                                   // atomic operation
+        // block->set_byte_mask(mf);
+        // }
+        // m_extra_mf_fields.erase(mf);
+        // m_bandwidth_management.use_fill_port(mf);
+        // todo!("baseline_cache: fill");
     }
 }
 

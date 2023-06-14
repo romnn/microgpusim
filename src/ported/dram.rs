@@ -1,15 +1,92 @@
-use super::{cache, mem_fetch};
+use super::{cache, mem_fetch, stats::Stats, FifoQueue, Queue};
 use crate::config;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
-#[derive(Clone, Debug, Default)]
-pub struct DRAM {}
+struct FrfcfsScheduler {
+    num_pending: usize,
+    num_write_pending: usize,
+}
+
+impl FrfcfsScheduler {
+    pub fn new(config: &config::GPUConfig, stats: Arc<Mutex<Stats>>) -> Self {
+        // , , dram_t *dm, memory_stats_t *stats) {
+        // sef.config = config;
+        // m_stats = stats;
+        // m_num_pending = 0;
+        // m_num_write_pending = 0;
+        // m_dram = dm;
+        // m_queue = new std::list<dram_req_t *>[m_config->nbk];
+        // m_bins =
+        //     new std::map<unsigned,
+        //                  std::list<std::list<dram_req_t *>::iterator>>[m_config->nbk];
+        // m_last_row =
+        //     new std::list<std::list<dram_req_t *>::iterator> *[m_config->nbk];
+        // curr_row_service_time = new unsigned[m_config->nbk];
+        // row_service_timestamp = new unsigned[m_config->nbk];
+        // for (unsigned i = 0; i < m_config->nbk; i++) {
+        //   m_queue[i].clear();
+        //   m_bins[i].clear();
+        //   m_last_row[i] = NULL;
+        //   curr_row_service_time[i] = 0;
+        //   row_service_timestamp[i] = 0;
+        // }
+        // if (m_config->seperate_write_queue_enabled) {
+        //   m_write_queue = new std::list<dram_req_t *>[m_config->nbk];
+        //   m_write_bins = new std::map<
+        //       unsigned, std::list<std::list<dram_req_t *>::iterator>>[m_config->nbk];
+        //   m_last_write_row =
+        //       new std::list<std::list<dram_req_t *>::iterator> *[m_config->nbk];
+        //
+        //   for (unsigned i = 0; i < m_config->nbk; i++) {
+        //     m_write_queue[i].clear();
+        //     m_write_bins[i].clear();
+        //     m_last_write_row[i] = NULL;
+        //   }
+        // }
+        // m_mode = READ_MODE;
+
+        Self {
+            num_pending: 0,
+            num_write_pending: 0,
+        }
+    }
+
+    // void frfcfs_scheduler::add_req(dram_req_t *req) {
+    //   if (m_config->seperate_write_queue_enabled && req->data->is_write()) {
+    //     assert(m_num_write_pending < m_config->gpgpu_frfcfs_dram_write_queue_size);
+    //     m_num_write_pending++;
+    //     m_write_queue[req->bk].push_front(req);
+    //     std::list<dram_req_t *>::iterator ptr = m_write_queue[req->bk].begin();
+    //     m_write_bins[req->bk][req->row].push_front(ptr); // newest reqs to the
+    //                                                      // front
+    //   } else {
+    //     assert(m_num_pending < m_config->gpgpu_frfcfs_dram_sched_queue_size);
+    //     m_num_pending++;
+    //     m_queue[req->bk].push_front(req);
+    //     std::list<dram_req_t *>::iterator ptr = m_queue[req->bk].begin();
+    //     m_bins[req->bk][req->row].push_front(ptr); // newest reqs to the front
+    //   }
+    // }
+}
+
+struct Request {}
+
+#[derive()]
+pub struct DRAM {
+    config: Arc<config::GPUConfig>,
+    mrqq: FifoQueue<Request>,
+    scheduler: FrfcfsScheduler,
+}
 
 impl DRAM {
-    pub fn new() -> Self {
-        // m_arbitration_metadata(config),
-        // new dram_t(m_id, m_config, m_stats, this, gpu);
-        Self {}
+    pub fn new(config: Arc<config::GPUConfig>, stats: Arc<Mutex<Stats>>) -> Self {
+        let mrqq = FifoQueue::new("mrqq", Some(0), Some(2));
+        let scheduler = FrfcfsScheduler::new(&*config, stats);
+        Self {
+            config,
+            mrqq,
+            scheduler,
+        }
     }
 
     pub fn cycle(&mut self) {
@@ -25,7 +102,25 @@ impl DRAM {
     }
 
     pub fn full(&self, is_write: bool) -> bool {
-        todo!("dram: full");
+        let write_queue_size = self.config.dram_frfcfs_write_queue_size;
+        let sched_queue_size = self.config.dram_frfcfs_sched_queue_size;
+        if self.config.dram_scheduler == config::DRAMSchedulerKind::FrFcfs {
+            if self.config.dram_frfcfs_sched_queue_size == 0 {
+                return false;
+            }
+            if self.config.dram_seperate_write_queue_enable {
+                if is_write {
+                    return self.scheduler.num_write_pending >= write_queue_size;
+                } else {
+                    return self.scheduler.num_pending >= sched_queue_size;
+                }
+            } else {
+                return self.scheduler.num_pending >= sched_queue_size;
+            }
+        } else {
+            return self.mrqq.full();
+        }
+        // todo!("dram: full");
     }
 }
 

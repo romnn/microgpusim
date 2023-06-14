@@ -7,6 +7,7 @@ use super::{
 };
 use super::{interconn as ic, l1, mem_fetch, scheduler as sched};
 use crate::config::{self, GPUConfig};
+use crate::ported::mem_fetch::BitString;
 use bitvec::{array::BitArray, BitArr};
 use color_eyre::eyre;
 use console::style;
@@ -129,22 +130,42 @@ pub enum Packet {
     Fetch(mem_fetch::MemFetch),
 }
 
-impl<I> InnerSIMTCore<I>
+pub trait WarpIssuer {
+    // fn active_mask(&self, warp_id: usize, instr: &WarpInstruction) -> sched::ThreadActiveMask;
+    fn issue_warp(
+        &self,
+        stage: PipelineStage,
+        // pipe_reg_set: &register_set::RegisterSet,
+        next_inst: &WarpInstruction,
+        // active_mask: sched::ThreadActiveMask,
+        warp_id: usize,
+        sch_id: usize,
+    );
+
+    fn has_free_register(&self, stage: PipelineStage, register_id: usize) -> bool;
+}
+
+impl<I> WarpIssuer for InnerSIMTCore<I>
 where
     // I: ic::MemFetchInterface + 'static,
     I: ic::Interconnect<Packet> + 'static,
     // I: ic::Interconnect<Packet>,
 {
-    pub fn active_mask(&self, warp_id: usize, instr: &WarpInstruction) -> sched::ThreadActiveMask {
-        // for trace-driven, the active mask already set in traces
-        instr.active_mask
+    // pub fn active_mask(&self, warp_id: usize, instr: &WarpInstruction) -> sched::ThreadActiveMask {
+    //     // for trace-driven, the active mask already set in traces
+    //     instr.active_mask
+    // }
+
+    fn has_free_register(&self, stage: PipelineStage, register_id: usize) -> bool {
+        todo!("free register");
     }
 
-    pub fn issue_warp(
+    fn issue_warp(
         &self,
-        pipe_reg_set: &register_set::RegisterSet,
+        stage: PipelineStage,
+        // pipe_reg_set: &register_set::RegisterSet,
         next_inst: &WarpInstruction,
-        active_mask: sched::ThreadActiveMask,
+        // active_mask: sched::ThreadActiveMask,
         warp_id: usize,
         sch_id: usize,
     ) {
@@ -161,6 +182,8 @@ where
         //                    sch_id);  // dynamic instruction information
         // m_stats->shader_cycle_distro[2 + (*pipe_reg)->active_count()]++;
         // func_exec_inst(**pipe_reg);
+        self.exec_instr(next_inst);
+
         //
         // if (next_inst->op == BARRIER_OP) {
         //   m_warp[warp_id]->store_info_of_last_inst_at_barrier(*pipe_reg);
@@ -175,6 +198,42 @@ where
         //
         // m_scoreboard->reserveRegisters(*pipe_reg);
         // m_warp[warp_id]->set_next_pc(next_inst->pc + next_inst->isize);
+    }
+}
+
+impl<I> InnerSIMTCore<I>
+where
+    // I: ic::MemFetchInterface + 'static,
+    I: ic::Interconnect<Packet> + 'static,
+    // I: ic::Interconnect<Packet>,
+{
+    fn exec_instr(&self, instr: &WarpInstruction) {
+        panic!("functional execution of warp instr");
+        // for (unsigned t = 0; t < m_warp_size; t++) {
+        //     if (inst.active(t)) {
+        //       unsigned warpId = inst.warp_id();
+        //       unsigned tid = m_warp_size * warpId + t;
+        //
+        //       // virtual function
+        //       checkExecutionStatusAndUpdate(inst, t, tid);
+        //     }
+        //   }
+        //
+        //   // here, we generate memory acessess and set the status if thread (done?)
+        //   if (inst.is_load() || inst.is_store()) {
+        //     inst.generate_mem_accesses();
+        //   }
+        //
+        //   trace_shd_warp_t *m_trace_warp =
+        //       static_cast<trace_shd_warp_t *>(m_warp[inst.warp_id()]);
+        //   printf("==>> ROMAN: warp %d trace done %d (%d/%lu) functional done %d\n",
+        //          m_trace_warp->get_warp_id(), m_trace_warp->trace_done(),
+        //          m_trace_warp->trace_pc, m_trace_warp->warp_traces.size(),
+        //          m_trace_warp->functional_done());
+        //   if (m_trace_warp->trace_done() && m_trace_warp->functional_done()) {
+        //     m_trace_warp->ibuffer_flush();
+        //     m_barriers.warp_exit(inst.warp_id());
+        //   }
     }
 }
 
@@ -483,6 +542,7 @@ where
                         self.inner.scoreboard.clone(),
                         self.inner.stats.clone(),
                         self.inner.config.clone(),
+                        // &self.inner.pipeline_reg[PipelineStage::ID_OC_MEM as usize],
                         // m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
                         // &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
                         // &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
@@ -656,10 +716,14 @@ where
     }
 
     fn fetch(&mut self) {
-        println!("core {:?}: {}", self.id(), style("fetch").green());
-        dbg!(&self.inner.instr_fetch_buffer.valid);
+        println!(
+            "core {:?}: {} (instr fetch buffer valid={}, l1 instr cache has ready accesses={})",
+            self.id(),
+            style("fetch").green(),
+            self.inner.instr_fetch_buffer.valid,
+            self.inner.instr_l1_cache.has_ready_accesses(),
+        );
         if !self.inner.instr_fetch_buffer.valid {
-            dbg!(self.inner.instr_l1_cache.has_ready_accesses());
             if self.inner.instr_l1_cache.has_ready_accesses() {
                 let fetch = self.inner.instr_l1_cache.next_access().unwrap();
                 let warp = self.inner.warps.get_mut(fetch.warp_id).unwrap();
@@ -667,6 +731,7 @@ where
                 // .as_mut()
                 // .unwrap();
                 // warp.clear_imiss_pending();
+
                 let pc = warp.pc().unwrap() as u64;
                 self.inner.instr_fetch_buffer = InstrFetchBuffer {
                     valid: true,
@@ -676,153 +741,168 @@ where
                 };
 
                 // verify that we got the instruction we were expecting.
-                debug_assert_eq!(
-                    warp.pc(),
-                    Some(fetch.addr() as usize - super::PROGRAM_MEM_START)
-                );
+                // TODO: this does not work because the fetch.addr() is not the same anymore?
+                // it gets changed to the block addr on the way and not ever changed back..
+                // dbg!(&warp.pc());
+                // debug_assert_eq!(
+                //     warp.pc(),
+                //     Some(fetch.addr() as usize - super::PROGRAM_MEM_START)
+                // );
 
                 self.inner.instr_fetch_buffer.valid = true;
                 // warp.set_last_fetch(m_gpu->gpu_sim_cycle);
-                drop(fetch);
+                // drop(fetch);
             } else {
-                println!(
-                    "{} {}",
-                    style("empty instruction cache").red(),
-                    "instr fetch buffer not valid",
-                );
                 // find an active warp with space in
                 // instruction buffer that is not
                 // already waiting on a cache miss and get
                 // next 1-2 instructions from instruction cache
                 let max_warps = self.inner.config.max_warps_per_core();
-                dbg!(&max_warps);
+
+                println!(
+                    "{}: instr fetch buffer not valid (checking {max_warps} warps now)",
+                    style("empty instruction cache").red(),
+                );
+
                 for i in 0..max_warps {
                     let last = self.inner.last_warp_fetched.unwrap_or(0);
                     let warp_id = (last + 1 + i) % max_warps;
-                    // dbg!(&warp_id);
+                    let mut warp = self.inner.warps.get_mut(warp_id).unwrap().lock().unwrap();
+                    // debug_assert_eq!(warp.warp_id, warp_id);
+
+                    println!(
+                        "checking warp_id = {} (last fetched={}, instruction count={})",
+                        &warp_id,
+                        last,
+                        warp.instruction_count()
+                    );
 
                     // this code checks if this warp has finished executing and can be reclaimed
-                    if let Some(warp) = self.inner.warps.get_mut(warp_id) {
-                        // .unwrap().as_mut() {
-                        let mut warp = warp.lock().unwrap();
-                        // dbg!(&warp);
+                    // if let Some(warp) = self.inner.warps.get_mut(warp_id) {
+                    // .unwrap().as_mut() {
+                    // let mut warp = warp.lock().unwrap();
+                    // debug_assert_eq!(warp.warp_id, warp_id);
 
-                        if warp.hardware_done()
-                            && !self.inner.scoreboard.pending_writes(warp_id)
-                            && !warp.done_exit()
-                        {
-                            // reclaim warp
-                            let mut did_exit = false;
-                            for t in 0..self.inner.config.warp_size {
-                                let tid = warp_id * self.inner.config.warp_size + t;
-                                if let Some(Some(state)) = self.inner.thread_state.get_mut(tid) {
-                                    if state.active {
-                                        state.active = false;
-                                        let cta_id = warp.block_id;
-                                        if !self
-                                            .inner
-                                            .thread_info
-                                            .get(tid)
-                                            .map(Option::as_ref)
-                                            .flatten()
-                                            .is_some()
-                                        {
-                                            // register_cta_thread_exit(cta_id, m_warp[warp_id]->get_kernel_info());
-                                        } else {
-                                            // register_cta_thread_exit(cta_id, &(m_thread[tid]->get_kernel()));
-                                        }
-                                        // ref: m_not_completed
-                                        self.inner.num_active_threads -= 1;
-                                        self.inner.active_thread_mask.set(tid, false);
-                                        did_exit = true;
+                    if warp.hardware_done()
+                        && !self.inner.scoreboard.pending_writes(warp_id)
+                        && !warp.done_exit()
+                    {
+                        // reclaim warp
+                        let mut did_exit = false;
+                        for t in 0..self.inner.config.warp_size {
+                            let tid = warp_id * self.inner.config.warp_size + t;
+                            if let Some(Some(state)) = self.inner.thread_state.get_mut(tid) {
+                                if state.active {
+                                    state.active = false;
+                                    let cta_id = warp.block_id;
+                                    if !self
+                                        .inner
+                                        .thread_info
+                                        .get(tid)
+                                        .map(Option::as_ref)
+                                        .flatten()
+                                        .is_some()
+                                    {
+                                        todo!("register cta thread exit");
+                                        // register_cta_thread_exit(cta_id, m_warp[warp_id]->get_kernel_info());
+                                    } else {
+                                        todo!("register cta thread exit");
+                                        // register_cta_thread_exit(cta_id, &(m_thread[tid]->get_kernel()));
                                     }
+                                    // ref: m_not_completed
+                                    self.inner.num_active_threads -= 1;
+                                    self.inner.active_thread_mask.set(tid, false);
+                                    did_exit = true;
                                 }
-                            }
-                            if did_exit {
-                                // warp.set_done_exit();
-                            }
-                            self.inner.num_active_warps -= 1;
-                            debug_assert!(self.inner.num_active_warps >= 0);
-                        }
-
-                        // this code fetches instructions
-                        // from the i-cache or generates memory
-                        if !warp.trace_instructions.is_empty() {
-                            let icache_config = self.inner.config.inst_cache_l1.as_ref().unwrap();
-                            if !warp.functional_done()
-                                && !warp.has_imiss_pending
-                                && warp.ibuffer_empty()
-                            {
-                                let instr = warp.current_instr().unwrap();
-                                let pc = instr.pc;
-                                let pc = warp.pc().unwrap();
-                                let ppc = pc + PROGRAM_MEM_START;
-                                let mut num_bytes = 16;
-                                let line_size = icache_config.line_size as usize;
-                                let offset_in_block = pc & (line_size - 1);
-                                if offset_in_block + num_bytes > line_size as usize {
-                                    num_bytes = line_size as usize - offset_in_block;
-                                }
-                                let access = mem_fetch::MemAccess::new(
-                                    mem_fetch::AccessKind::INST_ACC_R,
-                                    ppc as u64,
-                                    num_bytes as u32,
-                                    false,
-                                    // todo: is this correct?
-                                    BitArray::ZERO,
-                                    BitArray::ZERO,
-                                    BitArray::ZERO,
-                                );
-                                // dbg!(&access);
-                                let fetch = mem_fetch::MemFetch::new(
-                                    None,
-                                    access,
-                                    &*self.inner.config,
-                                    ldst_unit::READ_PACKET_SIZE.into(),
-                                    warp_id,
-                                    self.inner.core_id,
-                                    self.inner.cluster_id,
-                                );
-
-                                // dbg!(&fetch);
-                                let status = if self.inner.config.perfect_inst_const_cache {
-                                    // shader_cache_access_log(m_sid, INSTRUCTION, 0);
-                                    cache::RequestStatus::HIT
-                                } else {
-                                    self.inner
-                                        .instr_l1_cache
-                                        .access(ppc as address, fetch, None)
-                                };
-                                // dbg!(&status);
-
-                                self.inner.last_warp_fetched = Some(warp_id);
-                                if status == cache::RequestStatus::MISS {
-                                    // let warp = self.inner.warps.get_mut(warp_id).unwrap();
-                                    // let warp = warp.lock().unwrap();
-                                    // .as_mut()
-                                    // .unwrap();
-                                    warp.has_imiss_pending = true;
-                                    // warp.set_last_fetch(m_gpu->gpu_sim_cycle);
-                                } else if status == cache::RequestStatus::HIT {
-                                    self.inner.instr_fetch_buffer = InstrFetchBuffer {
-                                        valid: true,
-                                        pc: pc as u64,
-                                        num_bytes,
-                                        warp_id,
-                                    };
-                                    // m_warp[warp_id]->set_last_fetch(m_gpu->gpu_sim_cycle);
-                                    // delete mf;
-                                } else {
-                                    debug_assert_eq!(
-                                        status,
-                                        cache::RequestStatus::RESERVATION_FAIL
-                                    );
-                                    // delete mf;
-                                }
-                                break;
                             }
                         }
+                        if did_exit {
+                            todo!("first warp did exit");
+                            // warp.set_done_exit();
+                        }
+                        self.inner.num_active_warps -= 1;
+                        debug_assert!(self.inner.num_active_warps >= 0);
                     }
+
+                    // this code fetches instructions
+                    // from the i-cache or generates memory
+                    let icache_config = self.inner.config.inst_cache_l1.as_ref().unwrap();
+                    if !warp.trace_instructions.is_empty()
+                        && !warp.functional_done()
+                        && !warp.has_imiss_pending
+                        && warp.ibuffer_empty()
+                    {
+                        let instr = warp.current_instr().unwrap();
+                        let pc = warp.pc().unwrap();
+                        let ppc = pc + PROGRAM_MEM_START;
+
+                        println!(
+                            "\t fetching instr for warp_id = {} (current instr={}, pc={}, ppc={})",
+                            warp.warp_id, &instr, pc, ppc,
+                        );
+
+                        let mut num_bytes = 16;
+                        let line_size = icache_config.line_size as usize;
+                        let offset_in_block = pc & (line_size - 1);
+                        if offset_in_block + num_bytes > line_size as usize {
+                            num_bytes = line_size as usize - offset_in_block;
+                        }
+                        let access = mem_fetch::MemAccess::new(
+                            mem_fetch::AccessKind::INST_ACC_R,
+                            ppc as u64,
+                            num_bytes as u32,
+                            false,
+                            // todo: is this correct?
+                            BitArray::ZERO,
+                            BitArray::ZERO,
+                            BitArray::ZERO,
+                        );
+                        // dbg!(&access);
+                        let fetch = mem_fetch::MemFetch::new(
+                            None,
+                            access,
+                            &*self.inner.config,
+                            ldst_unit::READ_PACKET_SIZE.into(),
+                            warp_id,
+                            self.inner.core_id,
+                            self.inner.cluster_id,
+                        );
+
+                        // dbg!(&fetch);
+                        let status = if self.inner.config.perfect_inst_const_cache {
+                            // shader_cache_access_log(m_sid, INSTRUCTION, 0);
+                            cache::RequestStatus::HIT
+                        } else {
+                            self.inner
+                                .instr_l1_cache
+                                .access(ppc as address, fetch, None)
+                        };
+                        // dbg!(&status);
+
+                        self.inner.last_warp_fetched = Some(warp_id);
+                        if status == cache::RequestStatus::MISS {
+                            // let warp = self.inner.warps.get_mut(warp_id).unwrap();
+                            // let warp = warp.lock().unwrap();
+                            // .as_mut()
+                            // .unwrap();
+                            warp.has_imiss_pending = true;
+                            // warp.set_last_fetch(m_gpu->gpu_sim_cycle);
+                        } else if status == cache::RequestStatus::HIT {
+                            self.inner.instr_fetch_buffer = InstrFetchBuffer {
+                                valid: true,
+                                pc: pc as u64,
+                                num_bytes,
+                                warp_id,
+                            };
+                            // m_warp[warp_id]->set_last_fetch(m_gpu->gpu_sim_cycle);
+                            // delete mf;
+                        } else {
+                            debug_assert_eq!(status, cache::RequestStatus::RESERVATION_FAIL);
+                            // delete mf;
+                        }
+                        break;
+                    }
+                    // }
                 }
             }
         }
@@ -862,58 +942,132 @@ where
         if !valid {
             return;
         }
-        panic!("INST BUFFER FINALLY VALID");
+        // panic!("INST BUFFER FINALLY VALID");
 
         // decode 1 or 2 instructions and buffer them
-        let pc = pc;
-        let warp_id = warp_id;
+        // let instr1 = {
+        let mut warp = self.inner.warps.get_mut(warp_id).unwrap().lock().unwrap();
+        debug_assert_eq!(warp.warp_id, warp_id);
+        let instr1 = warp.next_trace_inst();
+        let instr2 = if instr1.is_some() {
+            warp.next_trace_inst()
+        } else {
+            None
+        };
+
+        // debug: print all instructions in this warp
+        for (trace_pc, trace_instr) in warp.trace_instructions.iter().enumerate() {
+            println!(
+                "====> warp {}: instruction at trace pc {}:\t {}\t\t active={} \tpc = {}",
+                warp_id,
+                trace_pc,
+                trace_instr,
+                trace_instr.active_mask.to_bit_string(),
+                trace_instr.pc
+            );
+        }
+        drop(warp);
+
+        if let Some(instr1) = instr1 {
+            self.decode_instruction(warp_id, instr1, 0);
+        }
+
+        if let Some(instr2) = instr2 {
+            self.decode_instruction(warp_id, instr2, 1);
+        }
+
+        // // if let Some(instr1) = self.next_inst(warp_id, pc) {
+        // if let Some(instr1) = instr1 {
+        //     self.decode_instruction(warp_id, instr1, 0);
+        //     // // .as_mut().unwrap();
+        //     // println!(
+        //     //     "core {:?}: ibuffer fill for warp {warp_id} at slot {} with instruction {} pc={}",
+        //     //     core_id, 0, instr1, instr1.pc,
+        //     // );
+        //     // for (trace_pc, trace_instr) in warp.trace_instructions.iter().enumerate() {
+        //     //     println!(
+        //     //         "====> instruction at trace pc {}:\t {}\t\t active={} \tpc = {}",
+        //     //         trace_pc,
+        //     //         trace_instr,
+        //     //         trace_instr.active_mask.to_bit_string(),
+        //     //         trace_instr.pc
+        //     //     );
+        //     // }
+        //     // warp.ibuffer_fill(0, instr1.clone());
+        //     // warp.num_instr_in_pipeline += 1;
+        //     //
+        //     // // self.stats->m_num_decoded_insn[m_sid]++;
+        //     // // use super::instruction::ArchOp;
+        //     // // match instr1.opcode.category {
+        //     // //     ArchOp::INT_OP | ArchOp::UN_OP => {
+        //     // //         //these counters get added up in mcPat to compute scheduler power
+        //     // //         // m_stats->m_num_INTdecoded_insn[m_sid]++;
+        //     // //     }
+        //     // //     ArchOp::FP_OP => {
+        //     // //         // m_stats->m_num_FPdecoded_insn[m_sid]++;
+        //     // //     }
+        //     // //     _ => {}
+        //     // // }
+        //     //
+        //     // // drop(instr1);
+        //     // // drop(warp);
+        //     // // if let Some(instr2) = self.next_inst(warp_id, pc) {
+        // // let instr2 = {
+        // //     let warp = self.inner.warps.get_mut(warp_id).unwrap().lock().unwrap();
+        // //     debug_assert_eq!(warp.warp_id, warp_id);
+        // //     warp.next_trace_inst()
+        // // };
+        //
+        //     if let Some(instr2) = warp.next_trace_inst() {
+        //         // let warp = self.inner.warps.get_mut(warp_id).unwrap();
+        //         // let mut warp = warp.lock().unwrap();
+        //         // .as_mut().unwrap();
+        //         warp.ibuffer_fill(0, instr2.clone());
+        //         warp.num_instr_in_pipeline += 1;
+        //         // m_stats->m_num_decoded_insn[m_sid]++;
+        //         // if ((pI1->oprnd_type == INT_OP) || (pI1->oprnd_type == UN_OP))  { //these counters get added up in mcPat to compute scheduler power
+        //         //   m_stats->m_num_INTdecoded_insn[m_sid]++;
+        //         // } else if (pI2->oprnd_type == FP_OP) {
+        //         //   m_stats->m_num_FPdecoded_insn[m_sid]++;
+        //         // }
+        //     }
+        // }
+        self.inner.instr_fetch_buffer.valid = false;
+    }
+
+    fn decode_instruction(&mut self, warp_id: usize, instr: WarpInstruction, slot: usize) {
+        let core_id = self.id();
         let warp = self.inner.warps.get_mut(warp_id).unwrap();
         let mut warp = warp.lock().unwrap();
 
-        // if let Some(instr1) = self.next_inst(warp_id, pc) {
-        if let Some(instr1) = warp.next_trace_inst() {
-            // .as_mut().unwrap();
-            println!("core {:?}: decoded {}", core_id, instr1);
-            warp.ibuffer_fill(0, instr1.clone());
-            warp.inc_instr_in_pipeline();
+        println!(
+            "core {:?}: ibuffer fill for warp {} at slot {} with instruction {}",
+            core_id, warp.warp_id, slot, instr,
+        );
+        warp.ibuffer_fill(slot, instr);
+        warp.num_instr_in_pipeline += 1;
 
-            // self.stats->m_num_decoded_insn[m_sid]++;
-            // use super::instruction::ArchOp;
-            // match instr1.opcode.category {
-            //     ArchOp::INT_OP | ArchOp::UN_OP => {
-            //         //these counters get added up in mcPat to compute scheduler power
-            //         // m_stats->m_num_INTdecoded_insn[m_sid]++;
-            //     }
-            //     ArchOp::FP_OP => {
-            //         // m_stats->m_num_FPdecoded_insn[m_sid]++;
-            //     }
-            //     _ => {}
-            // }
+        // self.stats->m_num_decoded_insn[m_sid]++;
+        // use super::instruction::ArchOp;
+        // match instr1.opcode.category {
+        //     ArchOp::INT_OP | ArchOp::UN_OP => {
+        //         //these counters get added up in mcPat to compute scheduler power
+        //         // m_stats->m_num_INTdecoded_insn[m_sid]++;
+        //     }
+        //     ArchOp::FP_OP => {
+        //         // m_stats->m_num_FPdecoded_insn[m_sid]++;
+        //     }
+        //     _ => {}
+        // }
 
-            // drop(instr1);
-            // drop(warp);
-            // if let Some(instr2) = self.next_inst(warp_id, pc) {
-            if let Some(instr2) = warp.next_trace_inst() {
-                // let warp = self.inner.warps.get_mut(warp_id).unwrap();
-                // let mut warp = warp.lock().unwrap();
-                // .as_mut().unwrap();
-                warp.ibuffer_fill(0, instr2.clone());
-                warp.inc_instr_in_pipeline();
-                // m_stats->m_num_decoded_insn[m_sid]++;
-                // if ((pI1->oprnd_type == INT_OP) || (pI1->oprnd_type == UN_OP))  { //these counters get added up in mcPat to compute scheduler power
-                //   m_stats->m_num_INTdecoded_insn[m_sid]++;
-                // } else if (pI2->oprnd_type == FP_OP) {
-                //   m_stats->m_num_FPdecoded_insn[m_sid]++;
-                // }
-            }
-        }
-        self.inner.instr_fetch_buffer.valid = false;
+        // drop(instr1);
+        // drop(warp);
     }
 
     fn issue(&mut self) {
         for scheduler in &mut self.schedulers {
-            // scheduler.cycle(&mut self.inner);
-            scheduler.cycle(());
+            scheduler.cycle(&mut self.inner);
+            // scheduler.cycle(());
         }
     }
 
@@ -982,14 +1136,14 @@ where
         false
     }
 
-    pub fn fetch_unit_response_buffer_full(&self) -> bool {
-        todo!("core: fetch_unit_response_buffer_full");
-        false
-    }
+    // pub fn fetch_unit_response_buffer_full(&self) -> bool {
+    //     // todo!("core: fetch_unit_response_buffer_full");
+    //     false
+    // }
 
     pub fn accept_fetch_response(&mut self, mut fetch: mem_fetch::MemFetch) {
         fetch.status = mem_fetch::Status::IN_SHADER_FETCHED;
-        self.inner.instr_l1_cache.fill(&fetch);
+        self.inner.instr_l1_cache.fill(&mut fetch);
     }
 
     pub fn accept_ldst_unit_response(&self, fetch: mem_fetch::MemFetch) {

@@ -9,6 +9,7 @@
 #include "../trace_kernel_info.hpp"
 #include "../trace_parser.hpp"
 #include "main.hpp"
+#include "playground/src/bridge/main.rs.h"
 
 trace_kernel_info_t *create_kernel_info(kernel_trace_t *kernel_trace_info,
                                         gpgpu_context *m_gpgpu_context,
@@ -108,7 +109,12 @@ trace_kernel_info_t *create_kernel_info(kernel_trace_t *kernel_trace_info,
   return kernel_info;
 }
 
-int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv) {
+// int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv) {
+// std::unique_ptr<accelsim_stats> accelsim(accelsim_config config,
+// rust::Slice<const rust::Str> argv) { AccelsimStats accelsim(accelsim_config
+// config, rust::Slice<const rust::Str> argv) {
+int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv,
+             AccelsimStats &stats) {
   std::cout << "Accel-Sim [build <box>]" << std::endl;
 
   bool silent = false;
@@ -163,6 +169,8 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv) {
   std::vector<unsigned long> busy_streams;
   std::vector<trace_kernel_info_t *> kernels_info;
   kernels_info.reserve(window_size);
+
+  // accelsim_stats stats;
 
   unsigned i = 0;
   while (i < commandlist.size() || !kernels_info.empty()) {
@@ -232,6 +240,7 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv) {
         printf("early exit after %llu cycles\n", cycle);
         fflush(stdout);
         return 0;
+        // return m_gpgpu_sim->get_accelsim_stats();
       }
 #endif
 
@@ -282,6 +291,18 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv) {
       assert(k);
       if (!silent)
         m_gpgpu_sim->print_stats();
+      // total_dram_writes
+      // total_dram_reads
+      // const_cache_read_total
+      // const_cache_write_total
+      // total_core_cache_read_total
+      // total_core_cache_read_hit
+      // l2_cache_read_total
+      // l2_cache_read_hit
+      // l2_cache_read_miss
+      // l2_cache_write_total
+      // l2_cache_write_miss
+      // l2_cache_write_hit
     }
 
     if (!silent && sim_cycles) {
@@ -304,4 +325,5 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv) {
   fflush(stdout);
 
   return 0;
+  // return m_gpgpu_sim->get_accelsim_stats();
 }

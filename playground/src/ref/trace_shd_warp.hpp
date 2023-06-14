@@ -4,6 +4,7 @@
 
 #include "inst_trace.hpp"
 #include "trace_kernel_info.hpp"
+#include "trace_warp_inst.hpp"
 #include "warp_instr.hpp"
 
 class trace_shader_core_ctx;
@@ -58,7 +59,9 @@ public:
   unsigned long instruction_count() const;
 
   std::vector<inst_trace_t> warp_traces;
+  void print_trace_instructions(bool all);
   const warp_inst_t *get_next_trace_inst();
+  const trace_warp_inst_t *get_current_trace_inst() const;
   void clear();
   bool trace_done() const;
 
@@ -138,6 +141,8 @@ public:
     }
   }
   const warp_inst_t *ibuffer_next_inst() const {
+    printf("ibuffer next instruction (m_next = %d)\n", m_next);
+    // throw std::runtime_error("ibuffer next inst");
     return m_ibuffer[m_next].m_inst;
   }
   bool ibuffer_next_valid() const { return m_ibuffer[m_next].m_valid; }
@@ -165,17 +170,7 @@ public:
   unsigned m_warp_size;
   std::bitset<MAX_WARP_SIZE> m_active_threads;
 
-private:
-  // unsigned trace_pc;
-  trace_kernel_info_t *m_kernel_info;
-
   static const unsigned IBUFFER_SIZE = 2;
-  class trace_shader_core_ctx *m_shader;
-  unsigned m_cta_id;
-  unsigned m_warp_id;
-  // unsigned m_warp_size;
-  unsigned m_dynamic_warp_id;
-
   struct ibuffer_entry {
     ibuffer_entry() {
       m_valid = false;
@@ -185,6 +180,30 @@ private:
     bool m_valid;
   };
   ibuffer_entry m_ibuffer[IBUFFER_SIZE];
+
+private:
+  const trace_warp_inst_t *
+  parse_trace_instruction(const inst_trace_t &trace) const;
+
+  // unsigned trace_pc;
+  trace_kernel_info_t *m_kernel_info;
+
+  class trace_shader_core_ctx *m_shader;
+  unsigned m_cta_id;
+  unsigned m_warp_id;
+  // unsigned m_warp_size;
+  unsigned m_dynamic_warp_id;
+
+  // static const unsigned IBUFFER_SIZE = 2;
+  // struct ibuffer_entry {
+  //   ibuffer_entry() {
+  //     m_valid = false;
+  //     m_inst = NULL;
+  //   }
+  //   const warp_inst_t *m_inst;
+  //   bool m_valid;
+  // };
+  // ibuffer_entry m_ibuffer[IBUFFER_SIZE];
   unsigned m_next;
 
   warp_inst_t m_inst_at_barrier;

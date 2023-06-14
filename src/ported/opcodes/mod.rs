@@ -94,6 +94,12 @@ pub struct Opcode {
     pub category: ArchOp,
 }
 
+impl std::fmt::Display for Opcode {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{:?}", self.op)
+    }
+}
+
 pub type OpcodeMap = phf::Map<&'static str, Opcode>;
 
 pub fn get_opcode_map(config: &KernelLaunch) -> eyre::Result<&'static OpcodeMap> {

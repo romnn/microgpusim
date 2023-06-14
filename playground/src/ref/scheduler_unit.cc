@@ -33,10 +33,16 @@ void scheduler_unit::cycle() {
       continue;
     }
     if (!next_warp->trace_done() && next_warp->instruction_count() > 0) {
-      printf("Testing (warp_id %u, dynamic_warp_id %u, pc=%lu, %lu "
-             "instructions)\n",
-             next_warp->get_warp_id(), next_warp->get_dynamic_warp_id(),
-             next_warp->get_pc(), next_warp->instruction_count());
+      printf(
+          "Testing (warp_id %u, dynamic_warp_id %u, trace_pc = %u, pc=%lu, "
+          "ibuffer=[%lu, %lu], %lu instructions)\n",
+          next_warp->get_warp_id(), next_warp->get_dynamic_warp_id(),
+          next_warp->trace_pc, next_warp->get_pc(),
+          next_warp->m_ibuffer[0].m_valid ? next_warp->m_ibuffer[0].m_inst->pc
+                                          : 0,
+          next_warp->m_ibuffer[1].m_valid ? next_warp->m_ibuffer[1].m_inst->pc
+                                          : 0,
+          next_warp->instruction_count());
     }
     SCHED_DPRINTF("Testing (warp_id %u, dynamic_warp_id %u)\n",
                   next_warp->get_warp_id(), next_warp->get_dynamic_warp_id());
@@ -98,12 +104,14 @@ void scheduler_unit::cycle() {
       if (pI)
         m_shader->get_pdom_stack_top_info(warp_id, pI, &pc, &rpc);
 
-      SCHED_DPRINTF(
-          "Warp (warp_id %u, dynamic_warp_id %u) has valid instruction (%s)\n",
-          next_warp->get_warp_id(), next_warp->get_dynamic_warp_id(), "todo",
-          m_shader->m_config->gpgpu_ctx->func_sim->ptx_get_insn_str(pc)
-              .c_str());
       if (pI) {
+        printf("Warp (warp_id %u, dynamic_warp_id %u) instruction buffer has "
+               "valid instruction (%s, pc=%lu)\n",
+               next_warp->get_warp_id(), next_warp->get_dynamic_warp_id(),
+               // next_warp->get_current_trace_inst()->opcode_str(),
+               // next_warp->get_pc(),
+               ((const trace_warp_inst_t *)pI)->opcode_str(), pI->pc);
+
         assert(valid);
         assert(pI->pc == pc &&
                pc == rpc); // trace driven mode has no control hazards
@@ -317,6 +325,7 @@ void scheduler_unit::cycle() {
       checked++;
     }
     if (issued) {
+      throw std::runtime_error("issued instruction");
       // This might be a bit inefficient, but we need to maintain
       // two ordered list for proper scheduler execution.
       // We could remove the need for this loop by associating a

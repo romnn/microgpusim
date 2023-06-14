@@ -79,7 +79,7 @@ pub trait Cache: Component + CacheBandwidth {
         todo!("cache: next access");
     }
 
-    fn fill(&self, fetch: &mem_fetch::MemFetch) {
+    fn fill(&mut self, fetch: &mut mem_fetch::MemFetch) {
         todo!("cache: fill");
     }
 

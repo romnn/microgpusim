@@ -78,20 +78,20 @@ impl MshrTable {
     //     return false;
     // }
 
-    // /// Accept a new cache fill response: mark entry ready for processing
-    // ///
-    // /// # Returns
-    // /// If the ready mshr entry is an atomic
-    // pub fn mark_ready(&mut self, block_addr: address, has_atomic: bool) -> Option<bool> {
-    //     if let Some(entry) = self.data.get(&block_addr) {
-    //         self.current_response.push_back(block_addr);
-    //         debug_assert!(self.current_response.len() <= self.data.len());
-    //         Some(entry.has_atomic)
-    //     } else {
-    //         None
-    //     }
-    // }
-    //
+    /// Accept a new cache fill response: mark entry ready for processing
+    ///
+    /// # Returns
+    /// If the ready mshr entry is an atomic
+    pub fn mark_ready(&mut self, block_addr: address) -> Option<bool> {
+        if let Some(entry) = self.data.get(&block_addr) {
+            self.current_response.push_back(block_addr);
+            debug_assert!(self.current_response.len() <= self.data.len());
+            Some(entry.has_atomic)
+        } else {
+            None
+        }
+    }
+
     /// Returns true if ready accesses exist
     pub fn has_ready_accesses(&self) -> bool {
         !self.current_response.is_empty()

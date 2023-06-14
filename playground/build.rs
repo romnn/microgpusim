@@ -1,6 +1,6 @@
 #![allow(warnings)]
 
-use color_eyre::eyre;
+use color_eyre::eyre::{self, WrapErr};
 use std::path::{Path, PathBuf};
 
 fn output_path() -> PathBuf {
@@ -57,6 +57,7 @@ fn generate_bindings() -> eyre::Result<()> {
         // .allowlist_type("l2_cache")
         // .allowlist_type("read_only_cache_params")
         .allowlist_type("mem_fetch_status")
+        // .allowlist_type("accelsim_stats")
         .allowlist_type("accelsim_config")
         .allowlist_type("cache_config_params")
         .allowlist_type("cache_access_logger_types")
@@ -102,7 +103,7 @@ fn generate_bridge(bridges: &[PathBuf], sources: &[PathBuf]) -> eyre::Result<()>
     build.define("BOX", "YES");
 
     enable_diagnostics_color(&mut build);
-    build.try_compile("playgroundbridge")?;
+    build.try_compile("playgroundbridge").wrap_err_with(|| "failed to build cxx bridge")?;
     Ok(())
 }
 

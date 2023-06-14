@@ -219,8 +219,8 @@ void memory_partition_unit::simple_dram_model_cycle() {
         break;
 
       m_sub_partition[spid]->L2_dram_queue_pop();
-      throw std::runtime_error(
-          "simple dram: issue mem_fetch from sub partition to dram");
+      // throw std::runtime_error(
+      //     "simple dram: issue mem_fetch from sub partition to dram");
       MEMPART_DPRINTF(
           "Issue mem_fetch request %p from sub partition %d to dram\n", mf,
           spid);
@@ -285,7 +285,7 @@ void memory_partition_unit::dram_cycle() {
         break;
 
       m_sub_partition[spid]->L2_dram_queue_pop();
-      throw std::runtime_error("issue mem_fetch from sub partition to dram");
+      // throw std::runtime_error("issue mem_fetch from sub partition to dram");
       MEMPART_DPRINTF(
           "Issue mem_fetch request %p from sub partition %d to dram\n", mf,
           spid);

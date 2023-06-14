@@ -440,13 +440,17 @@ where
 
     pub fn top(&mut self) -> Option<&mem_fetch::MemFetch> {
         use super::AccessKind;
-        match self.l2_to_interconn_queue.first().map(|fetch| fetch.access_kind()) {
+        match self
+            .l2_to_interconn_queue
+            .first()
+            .map(|fetch| fetch.access_kind())
+        {
             Some(AccessKind::L2_WRBK_ACC | AccessKind::L1_WRBK_ACC) => {
                 self.l2_to_interconn_queue.dequeue();
                 // self.request_tracker.remove(fetch);
                 return None;
-            },
-            _ => {},
+            }
+            _ => {}
         }
 
         self.l2_to_interconn_queue.first()
@@ -494,22 +498,23 @@ where
             let queue_full = self.l2_to_interconn_queue.full();
             if l2_cache.has_ready_accesses() && !queue_full {
                 let mut fetch = l2_cache.next_access().unwrap();
+                // panic!("fetch from l2 cache ready");
+
                 // Don't pass write allocate read request back to upper level cache
                 if fetch.access_kind() != &AccessKind::L2_WR_ALLOC_R {
-                    // fetch.set_reply();
+                    fetch.set_reply();
                     fetch.set_status(Status::IN_PARTITION_L2_TO_ICNT_QUEUE, 0);
                     // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
                     self.l2_to_interconn_queue.enqueue(fetch);
                 } else {
                     if l2_config.write_allocate_policy == CacheWriteAllocatePolicy::FETCH_ON_WRITE {
                         todo!("l2 to icnt queue");
-                        // mem_fetch *original_wr_mf = mf->get_original_wr_mf();
-                        // assert(original_wr_mf);
-                        // original_wr_mf->set_reply();
-                        // original_wr_mf->set_status(
-                        //     IN_PARTITION_L2_TO_ICNT_QUEUE,
-                        //     m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-                        // self.l2_to_interconn_queue.push(original_wr_mf);
+                        let mut original_write_fetch = *fetch.original_fetch.unwrap();
+                        original_write_fetch.set_reply();
+                        original_write_fetch
+                            .set_status(mem_fetch::Status::IN_PARTITION_L2_TO_ICNT_QUEUE, 0);
+                        // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+                        self.l2_to_interconn_queue.enqueue(original_write_fetch);
                     }
                     // self.request_tracker.remove(fetch);
                     // delete mf;
@@ -528,8 +533,8 @@ where
                         let mut fetch = self.dram_to_l2_queue.dequeue().unwrap();
                         fetch.set_status(mem_fetch::Status::IN_PARTITION_L2_FILL_QUEUE, 0);
                         // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-                        l2_cache.fill(&fetch) // , m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle + m_memcpy_cycle_offset);
-                                              // m_dram_L2_queue->pop();
+                        l2_cache.fill(&mut fetch) // , m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle + m_memcpy_cycle_offset);
+                                                  // m_dram_L2_queue->pop();
                     }
                 }
             } else if !self.l2_to_interconn_queue.full() {
@@ -726,7 +731,7 @@ impl MemoryPartitionUnit
             })
             .collect();
 
-        let dram = dram::DRAM::new();
+        let dram = dram::DRAM::new(config.clone(), stats.clone());
         let arbitration_metadata = dram::ArbitrationMetadata::new(&*config);
         Self {
             id,
@@ -839,13 +844,14 @@ impl MemoryPartitionUnit
             );
 
             if can_issue_to_dram {
-                if let Some(fetch) = sub.l2_to_dram_queue.lock().unwrap().first() {
+                let mut queue = sub.l2_to_dram_queue.lock().unwrap();
+                if let Some(fetch) = queue.first() {
                     if self.dram.full(fetch.is_write()) {
                         break;
                     }
 
-                    let fetch = sub.l2_to_dram_queue.lock().unwrap().dequeue().unwrap();
-                    panic!("simple dram: issue mem_fetch from sub partition to dram");
+                    let mut fetch = queue.dequeue().unwrap();
+                    // panic!("simple dram: issue mem_fetch from sub partition to dram");
                     println!(
                         "issue mem_fetch request {:?} from sub partition {} to dram",
                         fetch, spid

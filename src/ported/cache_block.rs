@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-pub enum State {
+pub enum Status {
     INVALID = 0,
     RESERVED,
     VALID,
@@ -33,8 +33,8 @@ pub trait CacheBlock {
     fn is_invalid(&self) -> bool;
     fn is_reserved(&self) -> bool;
 
-    fn status(&self, mask: &mem_fetch::MemAccessSectorMask) -> State;
-    fn set_status(&mut self, status: State, mask: &mem_fetch::MemAccessSectorMask);
+    fn status(&self, mask: &mem_fetch::MemAccessSectorMask) -> Status;
+    fn set_status(&mut self, status: Status, mask: &mem_fetch::MemAccessSectorMask);
     fn set_byte_mask(&mut self, mask: &mem_fetch::MemAccessByteMask);
     fn dirty_byte_mask(&self) -> mem_fetch::MemAccessByteMask;
     fn dirty_sector_mask(&self) -> mem_fetch::MemAccessSectorMask;
@@ -58,7 +58,7 @@ pub struct LineCacheBlock {
     pub tag: u64,
     block_addr: address,
 
-    status: State,
+    status: Status,
     is_readable: bool,
 
     alloc_time: usize,
@@ -87,7 +87,7 @@ impl Default for LineCacheBlock {
         Self {
             tag: 0,
             block_addr: 0,
-            status: State::INVALID,
+            status: Status::INVALID,
             alloc_time: 0,
             fill_time: 0,
             last_access_time: 0,
@@ -122,7 +122,7 @@ impl LineCacheBlock {
         self.alloc_time = time;
         self.last_access_time = time;
         self.fill_time = 0;
-        self.status = State::RESERVED;
+        self.status = Status::RESERVED;
         self.ignore_on_fill_status = false;
         self.set_modified_on_fill = false;
         self.set_readable_on_fill = false;
@@ -153,9 +153,9 @@ impl LineCacheBlock {
         byte_mask: &mem_fetch::MemAccessByteMask,
     ) {
         self.status = if self.set_modified_on_fill {
-            State::MODIFIED
+            Status::MODIFIED
         } else {
-            State::VALID
+            Status::VALID
         };
 
         if self.set_readable_on_fill {
@@ -179,7 +179,7 @@ impl LineCacheBlock {
     }
 
     #[inline]
-    pub fn set_status(&mut self, status: State, _mask: &mem_fetch::MemAccessSectorMask) {
+    pub fn set_status(&mut self, status: Status, _mask: &mem_fetch::MemAccessSectorMask) {
         self.status = status;
     }
 
@@ -189,28 +189,28 @@ impl LineCacheBlock {
     }
 
     #[inline]
-    pub fn status(&self, mask: &mem_fetch::MemAccessSectorMask) -> State {
+    pub fn status(&self, mask: &mem_fetch::MemAccessSectorMask) -> Status {
         self.status
     }
 
     #[inline]
     pub fn is_valid(&self) -> bool {
-        self.status == State::VALID
+        self.status == Status::VALID
     }
 
     #[inline]
     pub fn is_modified(&self) -> bool {
-        self.status == State::MODIFIED
+        self.status == Status::MODIFIED
     }
 
     #[inline]
     pub fn is_invalid(&self) -> bool {
-        self.status == State::INVALID
+        self.status == Status::INVALID
     }
 
     #[inline]
     pub fn is_reserved(&self) -> bool {
-        self.status == State::RESERVED
+        self.status == Status::RESERVED
     }
 
     #[inline]

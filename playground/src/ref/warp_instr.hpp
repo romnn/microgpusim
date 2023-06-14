@@ -42,6 +42,8 @@ public:
              unsigned long long cycle, int dynamic_warp_id, int sch_id);
 
   const active_mask_t &get_active_mask() const { return m_warp_active_mask; }
+  active_mask_t get_warp_active_mask_copy() const { return m_warp_active_mask; }
+
   void completed(unsigned long long cycle)
       const; // stat collection: called when the instruction is completed
 
@@ -170,7 +172,6 @@ public:
   void print(FILE *fout) const;
   unsigned get_uid() const { return m_uid; }
   unsigned get_schd_id() const { return m_scheduler_id; }
-  active_mask_t get_warp_active_mask() const { return m_warp_active_mask; }
 
 protected:
   unsigned m_uid;

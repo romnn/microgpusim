@@ -186,8 +186,13 @@ impl<B> TagArray<B> {
         is_write: bool,
         is_probe: bool,
     ) -> (Option<usize>, cache::RequestStatus) {
-        let mask = fetch.access_sector_mask();
-        self.probe_masked(block_addr, &mask, is_write, is_probe, fetch)
+        self.probe_masked(
+            block_addr,
+            fetch.access_sector_mask(),
+            is_write,
+            is_probe,
+            fetch,
+        )
     }
 
     fn probe_masked(
@@ -215,23 +220,23 @@ impl<B> TagArray<B> {
             let line = &self.lines[idx];
             if line.tag == tag {
                 match line.status(&mask) {
-                    cache_block::State::RESERVED => {
+                    cache_block::Status::RESERVED => {
                         return (Some(idx), cache::RequestStatus::HIT_RESERVED);
                     }
-                    cache_block::State::VALID => {
+                    cache_block::Status::VALID => {
                         return (Some(idx), cache::RequestStatus::HIT);
                     }
-                    cache_block::State::MODIFIED => {
+                    cache_block::Status::MODIFIED => {
                         if (!is_write && line.is_readable(mask)) || is_write {
                             return (Some(idx), cache::RequestStatus::HIT);
                         } else {
                             return (Some(idx), cache::RequestStatus::SECTOR_MISS);
                         }
                     }
-                    cache_block::State::INVALID if line.is_valid() => {
+                    cache_block::Status::INVALID if line.is_valid() => {
                         return (Some(idx), cache::RequestStatus::SECTOR_MISS);
                     }
-                    cache_block::State::INVALID => {}
+                    cache_block::Status::INVALID => {}
                 }
             }
             if !line.is_reserved() {
@@ -288,6 +293,47 @@ impl<B> TagArray<B> {
         };
 
         (cache_idx, cache::RequestStatus::MISS)
+    }
+
+    pub fn fill_on_miss(&mut self, cache_index: usize, fetch: &mem_fetch::MemFetch) {
+        debug_assert!(self.config.allocate_policy == config::CacheAllocatePolicy::ON_MISS);
+        let before = self.lines[cache_index].is_modified();
+        let time = 0;
+        self.lines[cache_index].fill(time, fetch.access_sector_mask(), fetch.access_byte_mask());
+        if self.lines[cache_index].is_modified() && !before {
+            self.num_dirty += 1;
+        }
+    }
+
+    // pub fn fill_on_fill(&mut self, addr: address, fetch: &mem_fetch::MemFetch, is_write: bool) {
+    pub fn fill_on_fill(&mut self, addr: address, fetch: &mem_fetch::MemFetch) {
+        // probe tag array
+        let is_probe = false;
+        let (cache_index, probe_status) = self.probe(addr, fetch, fetch.is_write(), is_probe);
+        let cache_index = cache_index.unwrap();
+        let line = self.lines.get_mut(cache_index).unwrap();
+        let mut before = line.is_modified();
+
+        let time = 0;
+        if probe_status == cache::RequestStatus::MISS {
+            line.allocate(
+                self.config.tag(addr),
+                self.config.block_addr(addr),
+                time,
+                fetch.access_sector_mask(),
+            );
+        } else if probe_status == cache::RequestStatus::SECTOR_MISS {
+            debug_assert_eq!(self.config.kind, config::CacheKind::Sector);
+            line.allocate_sector(time, fetch.access_sector_mask());
+        }
+        if before && !line.is_modified() {
+            self.num_dirty -= 1;
+        }
+        before = line.is_modified();
+        line.fill(time, fetch.access_sector_mask(), fetch.access_byte_mask());
+        if line.is_modified() && !before {
+            self.num_dirty += 1;
+        }
     }
 
     pub fn flush(&mut self) {

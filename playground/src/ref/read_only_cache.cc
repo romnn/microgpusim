@@ -7,7 +7,7 @@
 enum cache_request_status
 read_only_cache::access(new_addr_type addr, mem_fetch *mf, unsigned time,
                         std::list<cache_event> &events) {
-  printf("read_only_cache::access(addr=%lu)\n", addr);
+  printf("%s::read_only_cache::access(addr=%lu)\n", name().c_str(), addr);
   assert(mf->get_data_size() <= m_config.get_atom_sz());
   assert(m_config.m_write_policy == READ_ONLY);
   assert(!mf->get_is_write());

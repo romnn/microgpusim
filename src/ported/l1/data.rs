@@ -110,7 +110,7 @@ where
         if fetch.is_atomic() {
             debug_assert_eq!(*fetch.access_kind(), mem_fetch::AccessKind::GLOBAL_ACC_R);
             let block = tag_array.get_block_mut(block_index);
-            block.set_status(cache_block::State::MODIFIED, fetch.access_sector_mask());
+            block.set_status(cache_block::Status::MODIFIED, fetch.access_sector_mask());
             block.set_byte_mask(fetch.access_byte_mask());
             if !block.is_modified() {
                 tag_array.num_dirty += 1;
@@ -441,7 +441,7 @@ where
             // , wb, evicted, mf);
             debug_assert_ne!(status, cache::RequestStatus::HIT);
             let block = self.inner.tag_array.get_block_mut(index.unwrap());
-            block.set_status(cache_block::State::MODIFIED, fetch.access_sector_mask());
+            block.set_status(cache_block::Status::MODIFIED, fetch.access_sector_mask());
             block.set_byte_mask(fetch.access_byte_mask());
             if status == cache::RequestStatus::HIT_RESERVED {
                 block.set_ignore_on_fill(true, fetch.access_sector_mask());
@@ -518,6 +518,7 @@ where
         // events: &[cache::Event],
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
+        todo!("handle write miss");
         let func = match self.inner.cache_config.write_allocate_policy {
             config::CacheWriteAllocatePolicy::NO_WRITE_ALLOCATE => {
                 Self::write_miss_no_write_allocate
@@ -533,7 +534,6 @@ where
             }
         };
         (func)(self, addr, cache_index, fetch, time, events, probe_status)
-        // todo!("handle write miss");
     }
 
     fn write_hit(
@@ -669,11 +669,10 @@ where
         fetch: mem_fetch::MemFetch,
         events: Option<&mut Vec<cache::Event>>,
     ) -> cache::RequestStatus {
-        // let super::base::Base { ref cache_config, ref mut tag_array, ref mut stats, .. } = self.inner;
         let super::base::Base {
             ref cache_config, ..
         } = self.inner;
-        // is this always true?
+
         debug_assert_eq!(&fetch.access.addr, &addr);
         debug_assert!(fetch.data_size <= cache_config.atom_size());
 
@@ -682,8 +681,8 @@ where
         let block_addr = cache_config.block_addr(addr);
 
         println!(
-            "data_cache::access({addr}, write = {is_write}, size = {}, block = {block_addr})",
-            fetch.data_size,
+            "{}::data_cache::access({addr}, write = {is_write}, size = {}, block = {block_addr})",
+            self.inner.name, fetch.data_size,
         );
 
         let (cache_index, probe_status) = self
@@ -740,11 +739,16 @@ where
         self.inner.has_ready_accesses()
     }
 
-    fn fill(&self, fetch: &mem_fetch::MemFetch) {
+    fn fill(&mut self, fetch: &mut mem_fetch::MemFetch) {
         self.inner.fill(fetch)
     }
 
+    fn waiting_for_fill(&self, fetch: &mem_fetch::MemFetch) -> bool {
+        self.inner.waiting_for_fill(fetch)
+    }
+
     // fn data_port_free(&self) -> bool {
+    //
     //     self.inner.data_port_free()
     // }
 

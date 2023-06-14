@@ -200,6 +200,7 @@ void trace_shader_core_ctx::checkExecutionStatusAndUpdate(warp_inst_t &inst,
 }
 
 void trace_shader_core_ctx::func_exec_inst(warp_inst_t &inst) {
+  throw std::runtime_error("functional execution of warp instr");
   for (unsigned t = 0; t < m_warp_size; t++) {
     if (inst.active(t)) {
       unsigned warpId = inst.warp_id();
@@ -781,17 +782,24 @@ void trace_shader_core_ctx::decode() {
   printf("\ntrace_shader_core_ctx::decode() valid=%d\n",
          m_inst_fetch_buffer.m_valid);
   if (m_inst_fetch_buffer.m_valid) {
-    fprintf(stderr, "DECODE: inst fetch buffer valid after %llu cycles\n",
-            m_gpu->gpu_sim_cycle);
     // throw std::runtime_error("DECODE: inst fetch buffer valid");
 
     // decode 1 or 2 instructions and place them into ibuffer
     address_type pc = m_inst_fetch_buffer.m_pc;
-    const warp_inst_t *pI1 = get_next_inst(m_inst_fetch_buffer.m_warp_id, pc);
-    m_warp[m_inst_fetch_buffer.m_warp_id]->ibuffer_fill(0, pI1);
-    m_warp[m_inst_fetch_buffer.m_warp_id]->inc_inst_in_pipeline();
+    unsigned warp_id = m_inst_fetch_buffer.m_warp_id;
+
+    // debug: print all valid instructions in this warp
+    m_warp[warp_id]->print_trace_instructions(false);
+
+    const warp_inst_t *pI1 = get_next_inst(warp_id, pc);
+    printf("ibuffer fill for warp %d at slot %d with instruction pc=%ld trace "
+           "pc=%d\n\n",
+           warp_id, 0, pI1->pc,
+           static_cast<trace_shd_warp_t *>(m_warp[warp_id])->trace_pc);
+    // TODO: roman could this be in the if pI1 block?
+    m_warp[warp_id]->ibuffer_fill(0, pI1);
+    m_warp[warp_id]->inc_inst_in_pipeline();
     if (pI1) {
-      printf("pI1 = %d\n", pI1->op);
       m_stats->m_num_decoded_insn[m_sid]++;
       if ((pI1->oprnd_type == INT_OP) ||
           (pI1->oprnd_type == UN_OP)) { // these counters get added up in mcPat
@@ -800,11 +808,15 @@ void trace_shader_core_ctx::decode() {
       } else if (pI1->oprnd_type == FP_OP) {
         m_stats->m_num_FPdecoded_insn[m_sid]++;
       }
-      const warp_inst_t *pI2 =
-          get_next_inst(m_inst_fetch_buffer.m_warp_id, pc + pI1->isize);
+      const warp_inst_t *pI2 = get_next_inst(warp_id, pc + pI1->isize);
       if (pI2) {
-        m_warp[m_inst_fetch_buffer.m_warp_id]->ibuffer_fill(1, pI2);
-        m_warp[m_inst_fetch_buffer.m_warp_id]->inc_inst_in_pipeline();
+        printf("ibuffer fill for warp %d at slot %d with instruction pc=%ld "
+               "trace pc=%d\n\n",
+               warp_id, 1, pI2->pc,
+               static_cast<trace_shd_warp_t *>(m_warp[warp_id])->trace_pc);
+
+        m_warp[warp_id]->ibuffer_fill(1, pI2);
+        m_warp[warp_id]->inc_inst_in_pipeline();
         m_stats->m_num_decoded_insn[m_sid]++;
         if ((pI1->oprnd_type == INT_OP) ||
             (pI1->oprnd_type == UN_OP)) { // these counters get added up in
@@ -837,19 +849,33 @@ void trace_shader_core_ctx::fetch() {
       m_warp[mf->get_wid()]->set_last_fetch(m_gpu->gpu_sim_cycle);
       delete mf;
     } else {
+      printf("\033[1;31m empty instruction cache\033[0m : instr fetch buffer "
+             "not valid (checking %d warps now)\n",
+             m_config->max_warps_per_shader);
+
+      // sanity check: all 64 warps are initialized
+      assert(m_warp[30]->get_warp_id() == 30);
+      // assert(m_warp[40]->get_warp_id() == 40); // this is not yet the case
+
       // find an active warp with space in instruction buffer that is not
       // already waiting on a cache miss and get next 1-2 instructions from
       // i-cache...
       for (unsigned i = 0; i < m_config->max_warps_per_shader; i++) {
         unsigned warp_id =
             (m_last_warp_fetched + 1 + i) % m_config->max_warps_per_shader;
-        // printf("\twarp_id = %u\n", warp_id);
+        printf("\tchecking warp_id = %u (last fetched=%d, instruction "
+               "count=%ld)\n",
+               warp_id, m_last_warp_fetched,
+               m_warp[warp_id]->instruction_count());
 
         // this code checks if this warp has finished executing and can be
         // reclaimed
         if (m_warp[warp_id]->hardware_done() &&
             !m_scoreboard->pendingWrites(warp_id) &&
             !m_warp[warp_id]->done_exit()) {
+          printf("\tchecking if warp_id = %u did complete\n", warp_id);
+
+          // check each thread of the warp for completion
           bool did_exit = false;
           for (unsigned t = 0; t < m_config->warp_size; t++) {
             unsigned tid = warp_id * m_config->warp_size + t;
@@ -868,8 +894,10 @@ void trace_shader_core_ctx::fetch() {
               did_exit = true;
             }
           }
-          if (did_exit)
+          if (did_exit) {
+            throw std::runtime_error("first warp did exit");
             m_warp[warp_id]->set_done_exit();
+          }
           --m_active_warps;
           assert(m_active_warps >= 0);
         }
@@ -885,8 +913,15 @@ void trace_shader_core_ctx::fetch() {
         //        m_warp[warp_id]->m_active_threads.count());
 
         if (!m_warp[warp_id]->functional_done() &&
+            // m_warp[warp_id]->instruction_count() > 0 &&
             !m_warp[warp_id]->imiss_pending() &&
             m_warp[warp_id]->ibuffer_empty()) {
+          const trace_warp_inst_t *current_inst =
+              m_warp[warp_id]->get_current_trace_inst();
+          assert(current_inst != NULL);
+          printf("\t fetching instr %s for warp_id = %u\n",
+                 current_inst->opcode_str(), warp_id);
+
           address_type pc;
           pc = m_warp[warp_id]->get_pc();
           address_type ppc = pc + PROGRAM_MEM_START;
@@ -906,7 +941,6 @@ void trace_shader_core_ctx::fetch() {
           std::list<cache_event> events;
           enum cache_request_status status;
 
-          printf("m_L1I->access(addr=%lu)\n", ppc);
           if (m_config->perfect_inst_const_cache) {
             status = HIT;
             shader_cache_access_log(m_sid, INSTRUCTION, 0);

@@ -213,13 +213,13 @@ where
         use mem_fetch::AccessKind;
 
         println!(
-            "cluster {}: {}",
+            "cluster {}: {} (response fifo size={})",
             self.cluster_id,
-            style("interconn cycle").cyan()
+            style("interconn cycle").cyan(),
+            self.response_fifo.len(),
         );
-        dbg!(self.response_fifo.front());
 
-        if let Some(fetch) = self.response_fifo.front().cloned() {
+        if let Some(fetch) = self.response_fifo.front() {
             let core_id = self.config.global_core_id_to_core_id(fetch.core_id);
             // debug_assert_eq!(core_id, fetch.cluster_id);
             let mut cores = self.cores.lock().unwrap();
@@ -227,15 +227,15 @@ where
             match *fetch.access_kind() {
                 AccessKind::INST_ACC_R => {
                     // instruction fetch response
-                    if !core.fetch_unit_response_buffer_full() {
-                        self.response_fifo.pop_front();
-                        core.accept_fetch_response(fetch);
-                    }
+                    // if !core.fetch_unit_response_buffer_full() {
+                    let fetch = self.response_fifo.pop_front().unwrap();
+                    core.accept_fetch_response(fetch);
+                    // }
                 }
                 _ => {
                     // data response
                     if !core.ldst_unit_response_buffer_full() {
-                        self.response_fifo.pop_front();
+                        let fetch = self.response_fifo.pop_front().unwrap();
                         // m_memory_stats->memlatstat_read_done(mf);
                         core.accept_ldst_unit_response(fetch);
                     }

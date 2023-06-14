@@ -61,7 +61,7 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
   if (!m_config->m_L2_config.disabled()) {
     if (m_L2cache->access_ready() && !m_L2_icnt_queue->full()) {
       mem_fetch *mf = m_L2cache->next_access();
-      throw std::runtime_error("fetch from l2 cache ready");
+      // throw std::runtime_error("fetch from l2 cache ready");
       if (mf->get_access_type() !=
           L2_WR_ALLOC_R) { // Don't pass write allocate read request back to
                            // upper level cache
@@ -187,7 +187,7 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
       // L2 is disabled or non-texture access to texture-only L2
       mf->set_status(IN_PARTITION_L2_TO_DRAM_QUEUE,
                      m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-      throw std::runtime_error("pushing from l2 to dram: l2 disabled or nen "
+      throw std::runtime_error("pushing from l2 to dram: l2 disabled or non "
                                "texture access to texture only l2");
       m_L2_dram_queue->push(mf);
       m_icnt_L2_queue->pop();

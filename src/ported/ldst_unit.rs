@@ -362,20 +362,20 @@ where
             if self.operand_collector.writeback(&next_writeback) {
                 let mut instr_completed = false;
                 // for r in 0..MAX_OUTPUT_VALUES {
-                for out in next_writeback.outputs {
+                for out in next_writeback.outputs() {
                     // 0..MAX_OUTPUT_VALUES {
                     // for (unsigned r = 0; r < MAX_OUTPUT_VALUES; r++) {
                     // if next_writeback.out[r] > 0 {
-                    if out > 0 {
+                    if *out > 0 {
                         if next_writeback.memory_space != MemorySpace::Shared {
                             let pending_write = self
                                 .pending_writes
                                 .get_mut(&next_writeback.warp_id)
                                 .unwrap();
-                            debug_assert!(pending_write[&out] > 0);
-                            let still_pending = pending_write[&out] - 1;
+                            debug_assert!(pending_write[out] > 0);
+                            let still_pending = pending_write[out] - 1;
                             if still_pending == 0 {
-                                pending_write.remove(&out);
+                                pending_write.remove(out);
                                 // m_scoreboard->releaseRegister(m_next_wb.warp_id(),
                                 //                                 m_next_wb.out[r]);
                                 instr_completed = true;
@@ -752,17 +752,17 @@ where
                     }
                 } else {
                     let mut pending_requests = false;
-                    for reg_id in pipe_reg.outputs {
+                    for reg_id in pipe_reg.outputs() {
                         let mut pending = self.pending_writes.get_mut(&warp_id).unwrap();
-                        if reg_id > 0 {
-                            match pending.get(&reg_id) {
+                        if *reg_id > 0 {
+                            match pending.get(reg_id) {
                                 Some(&p) if p > 0 => {
                                     pending_requests = true;
                                     break;
                                 }
                                 _ => {
                                     // this instruction is done already
-                                    pending.remove(&reg_id);
+                                    pending.remove(reg_id);
                                 }
                             }
                         }

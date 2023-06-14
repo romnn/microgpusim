@@ -1,6 +1,15 @@
 #### TODO
 - BUGS to be fixed:
+  - returning fetches have the block addr instead of their original address, see core todo...
+  - warp 4 does not generate mem access to l1 instr cache
+    - therefore keeps looping through all the instructions (likely because no trace instructions)
+    - warps with id 32+ do not have the correct warp id set
   - FIXED: mshr_addr probe is not working (keeps re-sending already sent requests to interconn) 
+
+- who creates mem fetches?
+  - l1 data
+  - ldst unit
+  - core
 
 - add an intersim alternative to playground and do some tests how this affects cycles and stats
 

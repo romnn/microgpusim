@@ -3,8 +3,21 @@ use accelsim::Options;
 #[allow(unused_imports)]
 use clap::Parser;
 use color_eyre::eyre;
-use playground::bridge::main::{accelsim, accelsim_config};
+use playground::bridge::main::{accelsim, accelsim_config, AccelsimStats};
 use std::path::PathBuf;
+
+// #[derive(Debug)]
+// struct Stats {
+//     l2_total_cache_accesses: u64,
+// }
+
+// impl From<cxx::UniquePtr<accelsim_stats>> for Stats {
+//     fn from(stats: cxx::UniquePtr<accelsim_stats>) -> Self {
+//         Self {
+//             l2_total_cache_accesses: stats.l2_total_cache_accesses,
+//         }
+//     }
+// }
 
 #[allow(unused_mut, unused_assignments)]
 fn main() -> eyre::Result<()> {
@@ -54,8 +67,10 @@ fn main() -> eyre::Result<()> {
     }
     dbg!(&args);
 
-    let ret_code = accelsim(config, &args);
+    let mut stats = AccelsimStats::default();
+    let ret_code = accelsim(config, &args, &mut stats);
     if ret_code == 0 {
+        dbg!(&stats);
         Ok(())
     } else {
         Err(eyre::eyre!("accelsim exited with code {}", ret_code))

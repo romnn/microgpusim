@@ -249,7 +249,7 @@ void trace_gpgpu_sim::simple_cycle() {
     gpu_sim_cycle_parition_util++;
   }
 
-  printf("icnt transfer\n");
+  // printf("icnt transfer\n");
   icnt_transfer();
 
   // L1 cache + shader core pipeline stages
