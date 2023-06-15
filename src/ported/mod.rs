@@ -195,7 +195,10 @@ impl KernelInfo {
             .with_extension("msgpack");
         dbg!(&trace_path);
         let mut trace = read_trace(&trace_path).unwrap();
-        trace.sort_unstable_by(|a, b| (a.block_id, a.warp_id).cmp(&(b.block_id, b.warp_id)));
+        // trace.sort_unstable_by(|a, b| (a.block_id, a.warp_id).cmp(&(b.block_id, b.warp_id)));
+        trace.sort_unstable_by(|a, b| {
+            (a.block_id, a.warp_id, a.instr_offset).cmp(&(b.block_id, b.warp_id, b.instr_offset))
+        });
         let mut trace_iter = trace.clone().into_iter();
 
         let next_block_iter = Mutex::new(config.grid.into_iter().peekable());
@@ -247,7 +250,8 @@ impl KernelInfo {
         let mut lock = self.trace_iter.write().unwrap();
         let trace_iter = lock.take_while_ref(|entry| entry.block_id == next_block);
         for trace in trace_iter {
-            // dbg!(&trace.warp_id);
+            dbg!(&trace.warp_id);
+            dbg!(&trace.instr_offset);
             let warp_id = trace.warp_id as usize;
             let instr = instruction::WarpInstruction::from_trace(&self, trace);
             // warps[warp_id] = Some(SchedulerWarp::default());
@@ -259,21 +263,37 @@ impl KernelInfo {
         }
 
         // set the pc from the traces and ignore the functional model
-        for warp in warps.iter_mut() {
-            // if let Some(warp) = warp {
-            let mut warp = warp.lock().unwrap();
-            let num_instr = warp.instruction_count();
-            if num_instr > 0 {
-                println!("warp {}: {num_instr} instructions", warp.warp_id);
-            }
-            // for schedwarps without any instructions, there is no pc
-            // before, we used option<schedwarp> which was in a way cleaner..
-            if let Some(start_pc) = warp.trace_start_pc() {
-                warp.set_next_pc(start_pc);
-            }
-            // }
-        }
+        // NOTE: set next pc is not needed so the entire block goes away
+        // for warp in warps.iter_mut() {
+        //     // if let Some(warp) = warp {
+        //     let mut warp = warp.lock().unwrap();
+        //     let num_instr = warp.instruction_count();
+        //     if num_instr > 0 {
+        //         println!("warp {}: {num_instr} instructions", warp.warp_id);
+        //     }
+        //     // for schedwarps without any instructions, there is no pc
+        //     // before, we used option<schedwarp> which was in a way cleaner..
+        //     if let Some(start_pc) = warp.trace_start_pc() {
+        //         warp.set_next_pc(start_pc);
+        //     }
+        //     // }
+        // }
         // println!("added {total} instructions");
+
+        // temp: add exit instructions to traces if not already
+        // for warp in warps.iter_mut() {
+        //     let mut warp = warp.lock().unwrap();
+        //     match warp.trace_instructions.back() {
+        //         Some(instruction::WarpInstruction { opcode, .. }) => {
+        //             if opcode.category != opcodes::ArchOp::EXIT_OPS {
+        //                 // add exit to back
+        //             }
+        //         }
+        //         None => {
+        //             // add exit to back
+        //         }
+        //     }
+        // }
     }
 
     pub fn inc_running(&mut self) {

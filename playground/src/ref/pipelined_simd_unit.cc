@@ -25,7 +25,7 @@ pipelined_simd_unit::pipelined_simd_unit(register_set *result_port,
   m_pipeline_depth = max_latency;
   m_pipeline_reg = new warp_inst_t *[m_pipeline_depth];
   for (unsigned i = 0; i < m_pipeline_depth; i++)
-    m_pipeline_reg[i] = new warp_inst_t(config);
+    m_pipeline_reg[i] = new trace_warp_inst_t(config);
   m_core = core;
   m_issue_reg_id = issue_reg_id;
   active_insts_in_pipeline = 0;

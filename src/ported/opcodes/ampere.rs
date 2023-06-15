@@ -1,8 +1,9 @@
 use super::{ArchOp, Op, Opcode, OpcodeMap};
 
 pub static OPCODES: OpcodeMap = phf::phf_map! {
+    // memory ops
     "LD" => Opcode { op: Op::LD, category: ArchOp::LOAD_OP },
-    // For now, we ignore constant loads, consider it as ALU_OP, TO DO
+    // for now, we ignore constant loads, consider it as ALU_OP, TO DO
     "LDC" => Opcode { op: Op::LDC, category: ArchOp::ALU_OP},
     "LDG" => Opcode { op: Op::LDG, category: ArchOp::LOAD_OP },
     "LDL" => Opcode { op: Op::LDL, category: ArchOp::LOAD_OP },
@@ -18,4 +19,6 @@ pub static OPCODES: OpcodeMap = phf::phf_map! {
     "RED" => Opcode { op: Op::RED, category: ArchOp::STORE_OP },
     "MEMBAR" => Opcode { op: Op::MEMBAR, category: ArchOp::MEMORY_BARRIER_OP },
     "LDGSTS" => Opcode { op: Op::LDGSTS, category: ArchOp::LOAD_OP },
+    // control ops
+    "EXIT" => Opcode { op: Op::EXIT, category: ArchOp::EXIT_OPS },
 };

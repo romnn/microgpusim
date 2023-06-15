@@ -141,25 +141,22 @@ pub struct WarpInstruction {
 
 impl std::fmt::Debug for WarpInstruction {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        if self.empty() {
-            f.debug_struct("EmptyWarpInstruction").finish()
-        } else {
-            f.debug_struct("WarpInstruction")
-                .field("opcode", &self.opcode)
-                .field("warp_id", &self.warp_id)
-                .field("pc", &self.pc)
-                .field("active_mask", &self.active_mask.to_bit_string())
-                .field("memory_space", &self.memory_space)
-                .field("mem_access_queue", &self.mem_access_queue)
-                .finish()
-        }
+        f.debug_struct("WarpInstruction")
+            .field("opcode", &self.opcode)
+            .field("warp_id", &self.warp_id)
+            .field("empty", &self.empty)
+            .field("pc", &self.pc)
+            .field("active_mask", &self.active_mask.to_bit_string())
+            .field("memory_space", &self.memory_space)
+            .field("mem_access_queue", &self.mem_access_queue)
+            .finish()
     }
 }
 
 impl std::fmt::Display for WarpInstruction {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         if self.empty() {
-            f.debug_struct("EmptyWarpInstruction").finish()
+            write!(f, "Empty({}[pc={}])", self.opcode, self.pc)
         } else {
             write!(f, "{}[pc={}]", self.opcode, self.pc)
         }
@@ -351,7 +348,8 @@ impl WarpInstruction {
             latency: 1,             // todo
             initiation_interval: 1, // todo
             data_size,
-            empty: false,
+            empty: true,
+            // empty: false,
             mem_access_queue: VecDeque::new(),
             outputs: [0; 8],
             in_count: 0,
@@ -456,7 +454,7 @@ impl WarpInstruction {
             // predicated off
             return None;
         }
-        let initial_queue_size = self.mem_access_queue.len();
+        // let initial_queue_size = self.mem_access_queue.len();
         assert!(self.is_store() || self.is_load());
 
         let is_write = self.is_store();
@@ -594,6 +592,10 @@ impl WarpInstruction {
         dynamic_warp_id: usize,
         scheduler_id: usize,
     ) {
+        assert_eq!(self.active_mask, mask);
+        assert_eq!(self.warp_id, warp_id);
+        assert_eq!(self.scheduler_id, scheduler_id);
+
         self.active_mask = mask;
         self.active_mask = mask;
         // self.id = ++(m_config->gpgpu_ctx->warp_inst_sm_next_uid);
@@ -836,7 +838,7 @@ impl WarpInstruction {
         }
     }
 
-    fn is_active(&self, thread: usize) -> bool {
+    pub fn is_active(&self, thread: usize) -> bool {
         self.active_mask[thread]
     }
 }

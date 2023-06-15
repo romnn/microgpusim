@@ -215,5 +215,3 @@ protected:
 public:
   int m_is_cdp;
 };
-
-void move_warp(warp_inst_t *&dst, warp_inst_t *&src);

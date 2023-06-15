@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include "warp_instr.hpp"
+#include "trace_warp_inst.hpp"
 
 // register that can hold multiple instructions.
 class register_set {
@@ -91,7 +91,8 @@ public:
     warp_inst_t **ready = get_ready();
     move_warp(dest, *ready);
   }
-  void move_out_to(bool sub_core_model, unsigned reg_id, warp_inst_t *&dest) {
+  void move_out_to(bool sub_core_model, unsigned reg_id,
+                   warp_inst_t *&dest) {
     if (!sub_core_model) {
       return move_out_to(dest);
     }

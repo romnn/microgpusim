@@ -1,8 +1,9 @@
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 use trace_model::MemAccessTraceEntry;
 
+use super::core::PipelineStage;
 use super::{instruction::WarpInstruction, opcodes, register_set, scoreboard, stats::Stats};
 use crate::config::GPUConfig;
 use bitvec::{array::BitArray, BitArr};
@@ -40,7 +41,7 @@ pub struct SchedulerWarp {
     // pub trace_pc: Mutex<usize>,
     pub trace_pc: usize,
     // pub next_pc: Mutex<Option<usize>>,
-    pub next_pc: Option<usize>,
+    // pub next_pc: Option<usize>,
     pub active_mask: ThreadActiveMask,
     // pub trace_instructions: Mutex<VecDeque<WarpInstruction>>,
     pub trace_instructions: VecDeque<WarpInstruction>,
@@ -81,7 +82,7 @@ impl Default for SchedulerWarp {
             kernel_id: 0,
             // todo: what is next and trace pc??
             trace_pc: 0,
-            next_pc: None,
+            // next_pc: None,
             trace_instructions: VecDeque::new(),
             active_mask: BitArray::ZERO,
             // pub trace_instructions: Vec<MemAccessTraceEntry>,
@@ -113,7 +114,7 @@ impl SchedulerWarp {
         self.block_id = block_id;
         self.warp_id = warp_id;
         self.dynamic_warp_id = dynamic_warp_id;
-        self.next_pc = start_pc;
+        // self.next_pc = start_pc;
         // assert(self.num_completed >= active.count());
         // assert(n_completed <= m_warp_size);
         self.active_mask = active_mask;
@@ -132,7 +133,7 @@ impl SchedulerWarp {
         self.block_id = block_id;
         self.warp_id = warp_id;
         self.dynamic_warp_id = dynamic_warp_id;
-        self.next_pc = start_pc;
+        // self.next_pc = start_pc;
         // assert(self.num_completed >= active.count());
         // assert(n_completed <= m_warp_size);
         self.active_mask = active_mask;
@@ -146,10 +147,6 @@ impl SchedulerWarp {
     // pub fn inc_instr_in_pipeline(&self) {
     //     todo!("scheduler warp: inc_instr_in_pipeline");
     // }
-
-    pub fn num_completed(&self) -> usize {
-        self.active_mask.count_zeros()
-    }
 
     pub fn current_instr(&self) -> Option<&WarpInstruction> {
         // let trace_pc = *self.trace_pc.lock().unwrap();
@@ -260,8 +257,8 @@ impl SchedulerWarp {
         self.instr_buffer[self.next].is_some()
     }
 
-    pub fn ibuffer_free(&mut self) {
-        self.instr_buffer[self.next] = None
+    pub fn ibuffer_free(&mut self) -> Option<WarpInstruction> {
+        self.instr_buffer[self.next].take()
     }
 
     pub fn ibuffer_step(&mut self) {
@@ -290,6 +287,14 @@ impl SchedulerWarp {
         // todo!("sched warp: stores done");
     }
 
+    pub fn num_completed(&self) -> usize {
+        self.active_mask.count_zeros()
+    }
+
+    pub fn set_thread_completed(&mut self, thread_id: usize) {
+        self.active_mask.set(thread_id, false);
+    }
+
     pub fn functional_done(&self) -> bool {
         // todo: is that correct?
         self.active_mask.is_empty()
@@ -297,11 +302,11 @@ impl SchedulerWarp {
         // todo!("sched warp: functional done");
     }
 
-    pub fn set_next_pc(&mut self, pc: usize) {
-        self.next_pc = Some(pc);
-        // todo!("sched warp: set_next_pc");
-        // *self.next_pc.lock().unwrap() = Some(pc);
-    }
+    // pub fn set_next_pc(&mut self, pc: usize) {
+    //     self.next_pc = Some(pc);
+    //     // todo!("sched warp: set_next_pc");
+    //     // *self.next_pc.lock().unwrap() = Some(pc);
+    // }
 
     // pub fn imiss_pending(&self) -> bool {
     //     self.has_imiss_pending
@@ -393,7 +398,7 @@ pub struct BaseSchedulerUnit {
     // mem_out: Arc<register_set::RegisterSet>,
 
     // core: &'a super::core::InnerSIMTCore,
-    scoreboard: Arc<scoreboard::Scoreboard>,
+    scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
     config: Arc<GPUConfig>,
     stats: Arc<Mutex<Stats>>,
 }
@@ -407,7 +412,7 @@ impl BaseSchedulerUnit {
         // warps: &'a Vec<Option<SchedulerWarp>>,
         // mem_out: &'a register_set::RegisterSet,
         // core: &'a super::core::InnerSIMTCore,
-        scoreboard: Arc<scoreboard::Scoreboard>,
+        scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
         stats: Arc<Mutex<Stats>>,
         config: Arc<GPUConfig>,
     ) -> Self {
@@ -437,7 +442,7 @@ impl BaseSchedulerUnit {
 
     // fn cycle(&mut self, core: ()) {
     // fn cycle<I>(&mut self, core: &mut super::core::InnerSIMTCore<I>) {
-    fn cycle(&mut self, issuer: &dyn super::core::WarpIssuer) {
+    fn cycle(&mut self, issuer: &mut dyn super::core::WarpIssuer) {
         println!("{}: cycle", style("base bscheduler").yellow());
 
         // there was one warp with a valid instruction to issue (didn't require flush due to control hazard)
@@ -487,14 +492,15 @@ impl BaseSchedulerUnit {
 
         for next_warp in &self.next_cycle_prioritized_warps {
             // don't consider warps that are not yet valid
-            let next_warp = next_warp.lock().unwrap();
+            let next_warp = next_warp.try_lock().unwrap();
             let (warp_id, dyn_warp_id) = (next_warp.warp_id, next_warp.dynamic_warp_id);
+            // println!("locked next warp = {}", warp_id);
+
             if next_warp.done_exit() {
                 continue;
             }
             let inst_count = next_warp.instruction_count();
-            // dbg!(inst_count);
-            if inst_count > 0 {
+            if inst_count > 1 {
                 println!(
                     "scheduler: \n\t => testing (warp_id={}, dynamic_warp_id={}, trace_pc={}, pc={:?}, ibuffer={:?}, {} instructions)",
                     warp_id, dyn_warp_id,
@@ -512,7 +518,7 @@ impl BaseSchedulerUnit {
             // units (as in Maxwell and Pascal)
             let diff_exec_units = self.config.dual_issue_diff_exec_units;
 
-            if inst_count > 0 {
+            if inst_count > 1 {
                 if next_warp.ibuffer_empty() {
                     println!(
                         "warp (warp_id={}, dynamic_warp_id={}) fails as ibuffer_empty",
@@ -528,7 +534,6 @@ impl BaseSchedulerUnit {
                 }
             }
 
-            // println!("locking warp {}", warp_id);
             let warp = self
                 .warps
                 // .get_mut(warp_id)
@@ -537,7 +542,9 @@ impl BaseSchedulerUnit {
 
             // todo: what is the difference? why dont we just use next_warp?
             drop(next_warp);
-            let mut warp = warp.lock().unwrap();
+
+            // println!("locking warp = {}", warp_id);
+            let mut warp = warp.try_lock().unwrap();
             // println!("locked warp {}", warp_id);
             // .as_mut()
             // .as_ref()
@@ -557,8 +564,8 @@ impl BaseSchedulerUnit {
                 if let Some(instr) = warp.ibuffer_next_inst() {
                     // let (pc, rpc) = get_pdom_stack_top_info(warp_id, instr);
                     println!(
-                        "Warp (warp_id={}, dynamic_warp_id={}) instruction buffer has valid instruction {}",
-                        warp_id, dyn_warp_id, instr,
+                        "Warp (warp_id={}, dynamic_warp_id={}) instruction buffer[{}] has valid instruction {}",
+                        warp_id, dyn_warp_id, warp.next, instr,
                     );
 
                     // In trace-driven mode, we assume no control hazard, meaning
@@ -572,7 +579,12 @@ impl BaseSchedulerUnit {
                     //     warp.ibuffer_flush();
                     // } else {
                     valid_inst = true;
-                    if !self.scoreboard.has_collision(warp_id, instr) {
+                    if !self
+                        .scoreboard
+                        .read()
+                        .unwrap()
+                        .has_collision(warp_id, instr)
+                    {
                         println!(
                             "Warp (warp_id={}, dynamic_warp_id={}) {}",
                             warp_id,
@@ -592,29 +604,108 @@ impl BaseSchedulerUnit {
                             | ArchOp::MEMORY_BARRIER_OP
                             | ArchOp::TENSOR_CORE_LOAD_OP
                             | ArchOp::TENSOR_CORE_STORE_OP => {
-                                // if self
-                                //     .mem_out
-                                //     .has_free_sub_core(self.config.sub_core_model, self.id)
-                                //     && (!diff_exec_units
-                                //         || prev_issued_exec_unit != ExecUnitKind::MEM)
-                                // {
-                                // let active_mask = core.active_mask(warp_id, instr);
-                                // let warp_id = next_warp.warp_id;
-                                panic!("scheduler issue");
-                                issuer.issue_warp(
-                                    super::core::PipelineStage::ID_OC_MEM,
-                                    instr,
-                                    // active_mask,
-                                    warp_id,
-                                    self.id,
-                                );
-                                issued += 1;
-                                issued_inst = true;
-                                warp_inst_issued = true;
-                                prev_issued_exec_unit = ExecUnitKind::MEM;
-                                // }
+                                let mem_stage = PipelineStage::ID_OC_MEM;
+                                let free_register = issuer.has_free_register(mem_stage, self.id);
+
+                                if free_register
+                                    && (!diff_exec_units
+                                        || prev_issued_exec_unit != ExecUnitKind::MEM)
+                                {
+                                    let instr = warp.ibuffer_free().unwrap();
+                                    debug_assert_eq!(warp_id, warp.warp_id);
+                                    issuer
+                                        .issue_warp(mem_stage, &mut warp, instr, warp_id, self.id);
+                                    issued += 1;
+                                    issued_inst = true;
+                                    warp_inst_issued = true;
+                                    prev_issued_exec_unit = ExecUnitKind::MEM;
+                                } else {
+                                    panic!("issue failed: free register={}", free_register);
+                                }
                             }
-                            op => unimplemented!("op {:?} not implemented", op),
+                            // ArchOp::EXIT_OPS => {}
+                            op => {
+                                if op != ArchOp::TENSOR_CORE_OP
+                                    && op != ArchOp::SFU_OP
+                                    && op != ArchOp::DP_OP
+                                    && (op as usize) < opcodes::SPEC_UNIT_START_ID
+                                {
+                                    let mut execute_on_sp = false;
+                                    let mut execute_on_int = false;
+
+                                    // this is weird? but the default config for now
+                                    let num_int_units = 0;
+                                    let num_sp_units = 4;
+
+                                    let sp_pipe_avail = num_sp_units > 0
+                                        && issuer
+                                            .has_free_register(PipelineStage::ID_OC_SP, self.id);
+                                    let int_pipe_avail = num_int_units > 0
+                                        && issuer
+                                            .has_free_register(PipelineStage::ID_OC_INT, self.id);
+                                    dbg!(&sp_pipe_avail);
+                                    dbg!(&int_pipe_avail);
+                                    //
+                                    // if INT unit pipline exist, then execute ALU and INT
+                                    // operations on INT unit and SP-FPU on SP unit (like in Volta)
+                                    // if INT unit pipline does not exist, then execute all ALU, INT
+                                    // and SP operations on SP unit (as in Fermi, Pascal GPUs)
+                                    if int_pipe_avail
+                                        && op != ArchOp::SP_OP
+                                        && !(diff_exec_units
+                                            && prev_issued_exec_unit == ExecUnitKind::INT)
+                                    {
+                                        execute_on_int = true;
+                                    } else if sp_pipe_avail
+                                        && (num_int_units == 0
+                                            || (num_int_units > 0 && op == ArchOp::SP_OP))
+                                        && !(diff_exec_units
+                                            && prev_issued_exec_unit == ExecUnitKind::SP)
+                                    {
+                                        execute_on_sp = true;
+                                    }
+
+                                    println!(
+                                        "execute on INT={} execute on SP={}",
+                                        execute_on_int, execute_on_sp
+                                    );
+
+                                    let issue_target = if execute_on_sp {
+                                        Some((PipelineStage::ID_OC_SP, ExecUnitKind::SP))
+                                    } else if execute_on_int {
+                                        Some((PipelineStage::ID_OC_INT, ExecUnitKind::INT))
+                                    } else {
+                                        None
+                                    };
+
+                                    if let Some((stage, unit)) = issue_target {
+                                        let instr = warp.ibuffer_free().unwrap();
+                                        issuer
+                                            .issue_warp(stage, &mut warp, instr, warp_id, self.id);
+                                        issued += 1;
+                                        issued_inst = true;
+                                        warp_inst_issued = true;
+                                        prev_issued_exec_unit = unit;
+                                    }
+                                }
+                                // else if ((m_shader->m_config->gpgpu_num_dp_units > 0) &&
+                                //                          (pI->op == DP_OP) &&
+                                //                          !(diff_exec_units && previous_issued_inst_exec_type ==
+                                //                                                   exec_unit_type_t::DP)) {
+                                // } else if (((m_shader->m_config->gpgpu_num_dp_units == 0 &&
+                                //                          pI->op == DP_OP) ||
+                                //                         (pI->op == SFU_OP) || (pI->op == ALU_SFU_OP)) &&
+                                //                        !(diff_exec_units && previous_issued_inst_exec_type ==
+                                //                                                 exec_unit_type_t::SFU)) {
+                                // } else if ((pI->op == TENSOR_CORE_OP) &&
+                                //                          !(diff_exec_units && previous_issued_inst_exec_type ==
+                                //                                                   exec_unit_type_t::TENSOR)) {
+                                // } else if ((pI->op >= SPEC_UNIT_START_ID) &&
+                                //                          !(diff_exec_units &&
+                                //                            previous_issued_inst_exec_type ==
+                                //                                exec_unit_type_t::SPECIALIZED)) {
+                                // }
+                            } // op => unimplemented!("op {:?} not implemented", op),
                         }
                     } else {
                         println!(
@@ -642,11 +733,10 @@ impl BaseSchedulerUnit {
                     );
                     // m_stats->event_warp_issued(m_shader->get_sid(), warp_id, num_issued, warp(warp_id).get_dynamic_warp_id());
                     warp.ibuffer_step();
-                    todo!("do on warp issued");
-                    // self.do_on_warp_issued(next_warp.warp_id, issued, next_warp);
                 }
                 checked += 1;
             }
+            drop(warp);
             if issued > 0 {
                 // This might be a bit inefficient, but we need to maintain
                 // two ordered list for proper scheduler execution.
@@ -656,7 +746,8 @@ impl BaseSchedulerUnit {
                 // For now, just run through until you find the right warp_id
                 for (sup_idx, supervised) in self.supervised_warps.iter().enumerate() {
                     // if *next_warp == *supervised.lock().unwrap().warp_id {
-                    if warp_id == supervised.lock().unwrap().warp_id {
+                    // println!("locking supervised[{}]", sup_idx);
+                    if warp_id == supervised.try_lock().unwrap().warp_id {
                         self.last_supervised_issued_idx = sup_idx;
                     }
                 }
@@ -689,7 +780,7 @@ impl BaseSchedulerUnit {
 }
 
 pub trait SchedulerUnit {
-    fn cycle(&mut self, core: &dyn super::core::WarpIssuer) {
+    fn cycle(&mut self, core: &mut dyn super::core::WarpIssuer) {
         // fn cycle(&mut self, core: ()) {
         // fn cycle(&mut self) {
         todo!("scheduler unit: cycle");
@@ -757,7 +848,7 @@ impl BaseSchedulerUnit {
         out.clear();
 
         let current_turn_warp_ref = self.warps.get(self.current_turn_warp).unwrap();
-        let current_turn_warp = current_turn_warp_ref.lock().unwrap();
+        let current_turn_warp = current_turn_warp_ref.try_lock().unwrap();
         // .as_ref()
         // .unwrap();
 
@@ -776,7 +867,7 @@ impl BaseSchedulerUnit {
                 .chain(self.supervised_warps.iter());
 
             for w in iter.take(num_warps_to_add) {
-                let warp = w.lock().unwrap();
+                let warp = w.try_lock().unwrap();
                 let warp_id = warp.warp_id;
                 if !warp.done_exit() && !warp.waiting() {
                     out.push_back(w.clone());
@@ -875,7 +966,7 @@ impl SchedulerUnit for LrrScheduler {
 
     // fn cycle<I>(&mut self, core: &mut super::core::InnerSIMTCore<I>) {
     // fn cycle(&mut self, core: ()) {
-    fn cycle(&mut self, issuer: &dyn super::core::WarpIssuer) {
+    fn cycle(&mut self, issuer: &mut dyn super::core::WarpIssuer) {
         println!("lrr scheduler: cycle enter");
         self.order_warps();
         self.inner.cycle(issuer);
@@ -902,7 +993,7 @@ impl LrrScheduler {
         // warps: &'a Vec<Option<SchedulerWarp>>,
         // mem_out: &'a register_set::RegisterSet,
         // core: &'a super::core::InnerSIMTCore,
-        scoreboard: Arc<scoreboard::Scoreboard>,
+        scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
         stats: Arc<Mutex<Stats>>,
         config: Arc<GPUConfig>,
     ) -> Self {
@@ -936,7 +1027,7 @@ impl GTOScheduler {
     pub fn new(
         id: usize,
         warps: Vec<CoreWarp>,
-        scoreboard: Arc<scoreboard::Scoreboard>,
+        scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
         stats: Arc<Mutex<Stats>>,
         config: Arc<GPUConfig>,
     ) -> Self {
@@ -962,7 +1053,7 @@ impl SchedulerUnit for GTOScheduler {
     }
 
     // fn cycle(&mut self, core: ()) {
-    fn cycle(&mut self, issuer: &dyn super::core::WarpIssuer) {
+    fn cycle(&mut self, issuer: &mut dyn super::core::WarpIssuer) {
         println!("gto scheduler: cycle enter");
         self.order_warps();
         self.inner.cycle(issuer);

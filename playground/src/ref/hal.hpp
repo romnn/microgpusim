@@ -96,6 +96,8 @@ typedef std::vector<address_type> addr_vector_t;
 #define SPECIALIZED_UNIT_NUM 8
 #define SPEC_UNIT_START_ID 100
 
+extern const char *uarch_op_t_str[];
+
 enum uarch_op_t {
   NO_OP = -1,
   ALU_OP = 1,

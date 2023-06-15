@@ -27,8 +27,11 @@ public:
       const class kernel_trace_t *kernel_trace_info);
 
   unsigned opcode() const { return m_opcode; }
-  const char* opcode_str() const;
+  const char *opcode_str() const;
 
 private:
   unsigned m_opcode;
 };
+
+void move_warp(trace_warp_inst_t *&dst, trace_warp_inst_t *&src);
+void move_warp(warp_inst_t *&dst, warp_inst_t *&src);

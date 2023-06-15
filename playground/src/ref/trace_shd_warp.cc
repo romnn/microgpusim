@@ -151,7 +151,7 @@ unsigned long trace_shd_warp_t::instruction_count() const {
     //                                   m_kernel_info->m_kernel_trace_info);
 
     // note: we do not count EXIT when computing the instruction count
-    if (is_memory_instruction(new_inst)) {
+    if (is_memory_instruction(new_inst) || new_inst->op == EXIT_OPS) {
       // if (new_inst->op == LOAD_OP || new_inst->op == STORE_OP ||
       //     new_inst->opcode() == OP_LDC) {
       count++;

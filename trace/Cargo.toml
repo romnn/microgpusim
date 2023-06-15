@@ -9,7 +9,7 @@ crate-type = ["cdylib"]
 [features]
 default  = [
   "plot",
-  "full",
+  # "full",
 ]
 
 plot = ["dep:plot"]

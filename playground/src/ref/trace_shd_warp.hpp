@@ -44,7 +44,7 @@ public:
     m_cta_id = cta_id;
     m_warp_id = wid;
     m_dynamic_warp_id = dynamic_warp_id;
-    m_next_pc = start_pc;
+    // m_next_pc = start_pc;
     assert(n_completed >= active.count());
     assert(n_completed <= m_warp_size);
     n_completed -= active.count(); // active threads are not yet completed
@@ -79,7 +79,9 @@ public:
   bool done_exit() const { return m_done_exit; }
   void set_done_exit() { m_done_exit = true; }
 
-  void set_next_pc(address_type pc) { m_next_pc = pc; }
+  void set_next_pc(address_type pc) {
+    // m_next_pc = pc;
+  }
   void store_info_of_last_inst_at_barrier(const warp_inst_t *pI) {
     m_inst_at_barrier = *pI;
   }
@@ -180,6 +182,7 @@ public:
     bool m_valid;
   };
   ibuffer_entry m_ibuffer[IBUFFER_SIZE];
+  unsigned m_next;
 
 private:
   const trace_warp_inst_t *
@@ -204,11 +207,11 @@ private:
   //   bool m_valid;
   // };
   // ibuffer_entry m_ibuffer[IBUFFER_SIZE];
-  unsigned m_next;
+  // unsigned m_next;
 
   warp_inst_t m_inst_at_barrier;
 
-  address_type m_next_pc;
+  // address_type m_next_pc;
   unsigned n_completed; // number of threads in warp completed
   // std::bitset<MAX_WARP_SIZE> m_active_threads;
 

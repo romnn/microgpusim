@@ -32,7 +32,7 @@ void scheduler_unit::cycle() {
     if (next_warp == NULL || next_warp->done_exit()) {
       continue;
     }
-    if (!next_warp->trace_done() && next_warp->instruction_count() > 0) {
+    if (!next_warp->trace_done() && next_warp->instruction_count() > 1) {
       printf(
           "Testing (warp_id %u, dynamic_warp_id %u, trace_pc = %u, pc=%lu, "
           "ibuffer=[%lu, %lu], %lu instructions)\n",
@@ -58,7 +58,7 @@ void scheduler_unit::cycle() {
                                                 // units (as in Maxwell and
                                                 // Pascal)
 
-    if (next_warp->instruction_count() > 0) {
+    if (next_warp->instruction_count() > 1) {
       if (warp(warp_id).ibuffer_empty())
         printf("\t => Warp (warp_id %u, dynamic_warp_id %u) fails as "
                "ibuffer_empty\n",
@@ -86,6 +86,8 @@ void scheduler_unit::cycle() {
            (checked < max_issue) && (checked <= issued) &&
            (issued < max_issue)) {
       const warp_inst_t *pI = warp(warp_id).ibuffer_next_inst();
+      // const trace_warp_inst_t *tpI = static_cast<const trace_warp_inst_t
+      // *>(pI); printf("%s\n", tpI->opcode_str());
 
       // this is a special case we have because we might skip instructions
       // if (pI == NULL)
@@ -105,12 +107,14 @@ void scheduler_unit::cycle() {
         m_shader->get_pdom_stack_top_info(warp_id, pI, &pc, &rpc);
 
       if (pI) {
-        printf("Warp (warp_id %u, dynamic_warp_id %u) instruction buffer has "
-               "valid instruction (%s, pc=%lu)\n",
-               next_warp->get_warp_id(), next_warp->get_dynamic_warp_id(),
-               // next_warp->get_current_trace_inst()->opcode_str(),
-               // next_warp->get_pc(),
-               ((const trace_warp_inst_t *)pI)->opcode_str(), pI->pc);
+        printf(
+            "Warp (warp_id %u, dynamic_warp_id %u) instruction buffer has "
+            "valid instruction (%s, ibuffer idx=%d pc=%lu, op=%s, empty=%d)\n",
+            next_warp->get_warp_id(), next_warp->get_dynamic_warp_id(),
+            ((const trace_warp_inst_t *)pI)->opcode_str(), warp(warp_id).m_next,
+            // next_warp->trace_pc, // wrong, trace pc would need to be part
+            // of the inst
+            pI->pc, uarch_op_t_str[pI->op], pI->empty());
 
         assert(valid);
         assert(pI->pc == pc &&
@@ -125,10 +129,11 @@ void scheduler_unit::cycle() {
           warp(warp_id).ibuffer_flush();
         } else {
           valid_inst = true;
+          // m_scoreboard->printContents();
+          // pI->print(stdout);
           if (!m_scoreboard->checkCollision(warp_id, pI)) {
-            SCHED_DPRINTF(
-                "Warp (warp_id %u, dynamic_warp_id %u) passes scoreboard\n",
-                next_warp->get_warp_id(), next_warp->get_dynamic_warp_id());
+            printf("Warp (warp_id %u, dynamic_warp_id %u) passes scoreboard\n",
+                   next_warp->get_warp_id(), next_warp->get_dynamic_warp_id());
             ready_inst = true;
 
             const active_mask_t &active_mask =
@@ -144,6 +149,7 @@ void scheduler_unit::cycle() {
                                       m_id) &&
                   (!diff_exec_units ||
                    previous_issued_inst_exec_type != exec_unit_type_t::MEM)) {
+
                 m_shader->issue_warp(*m_mem_out, pI, active_mask, warp_id,
                                      m_id);
                 issued++;
@@ -155,6 +161,7 @@ void scheduler_unit::cycle() {
               // This code need to be refactored
               if (pI->op != TENSOR_CORE_OP && pI->op != SFU_OP &&
                   pI->op != DP_OP && !(pI->op >= SPEC_UNIT_START_ID)) {
+                // throw std::runtime_error("case 1");
                 bool execute_on_SP = false;
                 bool execute_on_INT = false;
 
@@ -166,6 +173,10 @@ void scheduler_unit::cycle() {
                     (m_shader->m_config->gpgpu_num_int_units > 0) &&
                     m_int_out->has_free(m_shader->m_config->sub_core_model,
                                         m_id);
+                printf("sp pipe avail =%d (%d units) int pipe avail =%d (%d "
+                       "units)\n",
+                       sp_pipe_avail, m_shader->m_config->gpgpu_num_sp_units,
+                       int_pipe_avail, m_shader->m_config->gpgpu_num_int_units);
 
                 // if INT unit pipline exist, then execute ALU and INT
                 // operations on INT unit and SP-FPU on SP unit (like in Volta)
@@ -184,6 +195,8 @@ void scheduler_unit::cycle() {
                                                   exec_unit_type_t::SP))
                   execute_on_SP = true;
 
+                printf("execute on INT=%d execute on SP=%d\n", execute_on_INT,
+                       execute_on_SP);
                 if (execute_on_INT || execute_on_SP) {
                   // Jin: special for CDP api
                   if (pI->m_is_cdp && !warp(warp_id).m_cdp_dummy) {
@@ -227,6 +240,7 @@ void scheduler_unit::cycle() {
                          (pI->op == DP_OP) &&
                          !(diff_exec_units && previous_issued_inst_exec_type ==
                                                   exec_unit_type_t::DP)) {
+                throw std::runtime_error("case 2");
                 bool dp_pipe_avail =
                     (m_shader->m_config->gpgpu_num_dp_units > 0) &&
                     m_dp_out->has_free(m_shader->m_config->sub_core_model,
@@ -247,6 +261,7 @@ void scheduler_unit::cycle() {
                         (pI->op == SFU_OP) || (pI->op == ALU_SFU_OP)) &&
                        !(diff_exec_units && previous_issued_inst_exec_type ==
                                                 exec_unit_type_t::SFU)) {
+                throw std::runtime_error("case 3");
                 bool sfu_pipe_avail =
                     (m_shader->m_config->gpgpu_num_sfu_units > 0) &&
                     m_sfu_out->has_free(m_shader->m_config->sub_core_model,
@@ -263,6 +278,7 @@ void scheduler_unit::cycle() {
               } else if ((pI->op == TENSOR_CORE_OP) &&
                          !(diff_exec_units && previous_issued_inst_exec_type ==
                                                   exec_unit_type_t::TENSOR)) {
+                throw std::runtime_error("case 4");
                 bool tensor_core_pipe_avail =
                     (m_shader->m_config->gpgpu_num_tensor_core_units > 0) &&
                     m_tensor_core_out->has_free(
@@ -280,6 +296,7 @@ void scheduler_unit::cycle() {
                          !(diff_exec_units &&
                            previous_issued_inst_exec_type ==
                                exec_unit_type_t::SPECIALIZED)) {
+                throw std::runtime_error("case 5");
                 unsigned spec_id = pI->op - SPEC_UNIT_START_ID;
                 assert(spec_id < m_shader->m_config->m_specialized_unit.size());
                 register_set *spec_reg_set = m_spec_cores_out[spec_id];
@@ -317,15 +334,15 @@ void scheduler_unit::cycle() {
         warp(warp_id).ibuffer_flush();
       }
       if (warp_inst_issued) {
-        SCHED_DPRINTF(
-            "Warp (warp_id %u, dynamic_warp_id %u) issued %u instructions\n",
-            next_warp->get_warp_id(), next_warp->get_dynamic_warp_id(), issued);
+        printf("Warp (warp_id %u, dynamic_warp_id %u) issued %u instructions\n",
+               next_warp->get_warp_id(), next_warp->get_dynamic_warp_id(),
+               issued);
         do_on_warp_issued(warp_id, issued, iter);
       }
       checked++;
     }
     if (issued) {
-      throw std::runtime_error("issued instruction");
+      // throw std::runtime_error("issued instruction");
       // This might be a bit inefficient, but we need to maintain
       // two ordered list for proper scheduler execution.
       // We could remove the need for this loop by associating a

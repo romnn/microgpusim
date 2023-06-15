@@ -111,7 +111,7 @@ pub struct InnerSIMTCore<I> {
     // pub warps: Vec<Option<sched::SchedulerWarp>>,
     pub thread_state: Vec<Option<ThreadState>>,
     pub thread_info: Vec<Option<ThreadInfo>>,
-    pub scoreboard: Arc<scoreboard::Scoreboard>,
+    pub scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
     pub pipeline_reg: Vec<register_set::RegisterSet>,
     pub barriers: barrier::BarrierSet,
 }
@@ -133,10 +133,12 @@ pub enum Packet {
 pub trait WarpIssuer {
     // fn active_mask(&self, warp_id: usize, instr: &WarpInstruction) -> sched::ThreadActiveMask;
     fn issue_warp(
-        &self,
+        &mut self,
         stage: PipelineStage,
         // pipe_reg_set: &register_set::RegisterSet,
-        next_inst: &WarpInstruction,
+        warp: &mut SchedulerWarp,
+        next_inst: WarpInstruction,
+        // next_inst: &WarpInstruction,
         // active_mask: sched::ThreadActiveMask,
         warp_id: usize,
         sch_id: usize,
@@ -157,85 +159,148 @@ where
     // }
 
     fn has_free_register(&self, stage: PipelineStage, register_id: usize) -> bool {
-        todo!("free register");
+        let pipeline_stage = &self.pipeline_reg[stage as usize];
+        pipeline_stage.has_free_sub_core(self.config.sub_core_model, register_id)
+        // todo!("free register");
     }
 
     fn issue_warp(
-        &self,
+        &mut self,
         stage: PipelineStage,
         // pipe_reg_set: &register_set::RegisterSet,
-        next_inst: &WarpInstruction,
+        warp: &mut SchedulerWarp,
+        next_instr: WarpInstruction,
+        // next_inst: &WarpInstruction,
         // active_mask: sched::ThreadActiveMask,
         warp_id: usize,
         sch_id: usize,
     ) {
-        // warp_inst_t **pipe_reg =
-        //     pipe_reg_set.get_free(m_config->sub_core_model, sch_id);
-        // assert(pipe_reg);
-        //
-        // m_warp[warp_id]->ibuffer_free();
-        // assert(next_inst->valid());
-        // **pipe_reg = *next_inst;  // static instruction information
+        println!("{}", style(format!("issue warp {}", warp_id)).yellow(),);
+        println!("warp={} executed {}", warp_id, next_instr);
+
+        debug_assert_eq!(warp.warp_id, next_instr.warp_id);
+
+        let pipeline_stage = &mut self.pipeline_reg[stage as usize];
+        let pipe_reg = if self.config.sub_core_model {
+            pipeline_stage.get_free_sub_core(sch_id).unwrap()
+        } else {
+            pipeline_stage.get_free().unwrap()
+        };
+
+        // let mut warp = self.warps.get_mut(warp_id).unwrap().lock().unwrap();
+        // warp.ibuffer_free();
+
+        // assert!(next_inst.vali);
+        *pipe_reg = Some(next_instr); // todo: remove clone here
+                                     // *pipe_reg = Some(next_inst.clone()); // todo: remove clone here
+                                     // next_inst.issue(
+        let pipe_reg_mut = pipe_reg.as_mut().unwrap();
+        pipe_reg_mut.issue(
+            pipe_reg_mut.active_mask,
+            warp_id,
+            0,
+            warp.dynamic_warp_id,
+            sch_id,
+        );
+
         // (*pipe_reg)->issue(active_mask, warp_id,
         //                    m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle,
         //                    m_warp[warp_id]->get_dynamic_warp_id(),
         //                    sch_id);  // dynamic instruction information
         // m_stats->shader_cycle_distro[2 + (*pipe_reg)->active_count()]++;
-        // func_exec_inst(**pipe_reg);
-        self.exec_instr(next_inst);
+        // drop(warp);
+        //
+        // panic!("functional execution of warp instr");
+        for thread in 0..self.config.warp_size {
+            if pipe_reg_mut.is_active(thread) {
+                // unsigned warpId = inst.warp_id();
+                // unsigned tid = m_warp_size * warpId + t;
+                //
+                // // virtual function
+                // checkExecutionStatusAndUpdate(inst, t, tid);
+            }
+        }
 
-        //
-        // if (next_inst->op == BARRIER_OP) {
-        //   m_warp[warp_id]->store_info_of_last_inst_at_barrier(*pipe_reg);
-        //   m_barriers.warp_reaches_barrier(m_warp[warp_id]->get_cta_id(), warp_id,
-        //                                   const_cast<warp_inst_t *>(next_inst));
-        //
-        // } else if (next_inst->op == MEMORY_BARRIER_OP) {
-        //   m_warp[warp_id]->set_membar();
-        // }
-        //
+        // here, we generate memory acessess and set the status if thread (done?)
+        if pipe_reg_mut.is_load() || pipe_reg_mut.is_store() {
+            if let Some(accesses) = pipe_reg_mut.generate_mem_accesses(&self.config) {
+                pipe_reg_mut.mem_access_queue.extend(accesses);
+            }
+            // todo!("{:?}", accesses);
+        }
+
+        let pipe_reg_ref = pipe_reg.as_ref().unwrap();
+
+        println!(
+            "{} (done={} ({}/{}), functional done={})",
+            style(format!("checking if warp {} did exit", warp.warp_id)).yellow(),
+            warp.done(),
+            warp.trace_pc,
+            warp.instruction_count(),
+            warp.functional_done()
+        );
+
+        if warp.done() && warp.functional_done() {
+            warp.ibuffer_flush();
+            self.barriers.warp_exit(pipe_reg_ref.warp_id);
+        }
+
+        // self.exec_instr(pipe_reg_ref);
+
+        // let mut warp = self.warps.get_mut(warp_id).unwrap().lock().unwrap();
+        if pipe_reg_ref.opcode.category == opcodes::ArchOp::BARRIER_OP {
+            // m_warp[warp_id]->store_info_of_last_inst_at_barrier(*pipe_reg);
+            // self.barriers.warp_reaches_barrier(warp.block_id, warp_id, next_inst);
+        } else if pipe_reg_ref.opcode.category == opcodes::ArchOp::MEMORY_BARRIER_OP {
+            // m_warp[warp_id]->set_membar();
+            // warp.set_membar();
+        }
+
+        // no simt stack in trace driven mode
         // updateSIMTStack(warp_id, *pipe_reg);
-        //
-        // m_scoreboard->reserveRegisters(*pipe_reg);
-        // m_warp[warp_id]->set_next_pc(next_inst->pc + next_inst->isize);
+
+        self.scoreboard
+            .write()
+            .unwrap()
+            .reserve_registers(pipe_reg_ref);
+        // warp.set_next_pc(warp.pc + next_inst.instruction_size);
     }
 }
 
-impl<I> InnerSIMTCore<I>
-where
-    // I: ic::MemFetchInterface + 'static,
-    I: ic::Interconnect<Packet> + 'static,
-    // I: ic::Interconnect<Packet>,
-{
-    fn exec_instr(&self, instr: &WarpInstruction) {
-        panic!("functional execution of warp instr");
-        // for (unsigned t = 0; t < m_warp_size; t++) {
-        //     if (inst.active(t)) {
-        //       unsigned warpId = inst.warp_id();
-        //       unsigned tid = m_warp_size * warpId + t;
-        //
-        //       // virtual function
-        //       checkExecutionStatusAndUpdate(inst, t, tid);
-        //     }
-        //   }
-        //
-        //   // here, we generate memory acessess and set the status if thread (done?)
-        //   if (inst.is_load() || inst.is_store()) {
-        //     inst.generate_mem_accesses();
-        //   }
-        //
-        //   trace_shd_warp_t *m_trace_warp =
-        //       static_cast<trace_shd_warp_t *>(m_warp[inst.warp_id()]);
-        //   printf("==>> ROMAN: warp %d trace done %d (%d/%lu) functional done %d\n",
-        //          m_trace_warp->get_warp_id(), m_trace_warp->trace_done(),
-        //          m_trace_warp->trace_pc, m_trace_warp->warp_traces.size(),
-        //          m_trace_warp->functional_done());
-        //   if (m_trace_warp->trace_done() && m_trace_warp->functional_done()) {
-        //     m_trace_warp->ibuffer_flush();
-        //     m_barriers.warp_exit(inst.warp_id());
-        //   }
-    }
-}
+// impl<I> InnerSIMTCore<I>
+// where
+//     // I: ic::MemFetchInterface + 'static,
+//     I: ic::Interconnect<Packet> + 'static,
+//     // I: ic::Interconnect<Packet>,
+// {
+//     fn exec_instr(&self, instr: &WarpInstruction) {
+//         // for (unsigned t = 0; t < m_warp_size; t++) {
+//         //     if (inst.active(t)) {
+//         //       unsigned warpId = inst.warp_id();
+//         //       unsigned tid = m_warp_size * warpId + t;
+//         //
+//         //       // virtual function
+//         //       checkExecutionStatusAndUpdate(inst, t, tid);
+//         //     }
+//         //   }
+//         //
+//         //   // here, we generate memory acessess and set the status if thread (done?)
+//         //   if (inst.is_load() || inst.is_store()) {
+//         //     inst.generate_mem_accesses();
+//         //   }
+//         //
+//         //   trace_shd_warp_t *m_trace_warp =
+//         //       static_cast<trace_shd_warp_t *>(m_warp[inst.warp_id()]);
+//         //   printf("==>> ROMAN: warp %d trace done %d (%d/%lu) functional done %d\n",
+//         //          m_trace_warp->get_warp_id(), m_trace_warp->trace_done(),
+//         //          m_trace_warp->trace_pc, m_trace_warp->warp_traces.size(),
+//         //          m_trace_warp->functional_done());
+//         //   if (m_trace_warp->trace_done() && m_trace_warp->functional_done()) {
+//         //     m_trace_warp->ibuffer_flush();
+//         //     m_barriers.warp_exit(inst.warp_id());
+//         //   }
+//     }
+// }
 
 #[derive()]
 // pub struct SIMTCore<'a> {
@@ -391,11 +456,11 @@ where
             config.warp_size,
         );
 
-        let scoreboard = Arc::new(scoreboard::Scoreboard::new(
+        let scoreboard = Arc::new(RwLock::new(scoreboard::Scoreboard::new(
             core_id,
             cluster_id,
             config.max_warps_per_core(),
-        ));
+        )));
 
         // pipeline_stages is the sum of normal pipeline stages
         // and specialized_unit stages * 2 (for ID and EX)
@@ -690,6 +755,9 @@ where
     // }
 
     fn exec_inst(&mut self, instr: &WarpInstruction) {
+        let warp = self.inner.warps.get_mut(instr.warp_id).unwrap();
+        let mut warp = warp.lock().unwrap();
+
         for t in 0..self.inner.config.warp_size {
             if instr.active_mask[t] {
                 let warp_id = instr.warp_id;
@@ -697,6 +765,22 @@ where
 
                 // // virtual function
                 //   checkExecutionStatusAndUpdate(inst, t, tid);
+                if instr.is_atomic() {
+                    // warp.inc_n_atomic();
+                }
+
+                // if instr.memory_space.is_local() && (inst.is_load() || inst.is_store())) {
+                //    new_addr_type localaddrs[MAX_ACCESSES_PER_INSN_PER_THREAD];
+                //    unsigned num_addrs;
+                //    num_addrs = translate_local_memaddr(
+                //        inst.get_addr(t), tid,
+                //        m_config->n_simt_clusters * m_config->n_simt_cores_per_cluster,
+                //        inst.data_size, (new_addr_type *)localaddrs);
+                //    inst.set_addr(t, (new_addr_type *)localaddrs, num_addrs);
+                //  }
+                if instr.opcode.category == opcodes::ArchOp::EXIT_OPS {
+                    warp.set_thread_completed(t);
+                }
             }
         }
 
@@ -705,10 +789,6 @@ where
             instr.generate_mem_accesses(&*self.inner.config);
         }
 
-        let warp = self.inner.warps.get_mut(instr.warp_id).unwrap();
-        let mut warp = warp.lock().unwrap();
-        // .as_mut()
-        // .unwrap();
         if warp.done() && warp.functional_done() {
             warp.ibuffer_flush();
             self.inner.barriers.warp_exit(instr.warp_id);
@@ -784,7 +864,12 @@ where
                     // debug_assert_eq!(warp.warp_id, warp_id);
 
                     if warp.hardware_done()
-                        && !self.inner.scoreboard.pending_writes(warp_id)
+                        && !self
+                            .inner
+                            .scoreboard
+                            .read()
+                            .unwrap()
+                            .pending_writes(warp_id)
                         && !warp.done_exit()
                     {
                         // reclaim warp

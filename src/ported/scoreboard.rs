@@ -38,6 +38,7 @@ impl Scoreboard {
         let mut instr_registers: HashSet<u32> = HashSet::new();
         instr_registers.extend(instr.outputs());
         instr_registers.extend(instr.inputs());
+        // dbg!(&instr_registers);
         // ar1 = 0;
         // ar2 = 0;
 
@@ -49,14 +50,47 @@ impl Scoreboard {
         // if (inst->ar2 > 0)
         //   inst_regs.insert(inst->ar2);
 
-        // check for collision, get the intersection of reserved registers and instruction registers
-        let mut intersection = instr_registers.intersection(&self.register_table[warp_id]);
-        !intersection.next().is_some()
+        // get the intersection of reserved registers and instruction registers
+        let Some(reserved) = self.register_table.get(warp_id) else {
+            return false;
+        };
+        let mut intersection = instr_registers.intersection(&reserved);
+        intersection.next().is_some()
         // todo!("scoreboard: check collision");
     }
 
     pub fn pending_writes(&self, warp_id: usize) -> bool {
         !self.register_table[warp_id].is_empty()
         // todo!("scoreboard: pending writes");
+    }
+
+    pub fn reserve_register(&mut self, warp_id: usize, reg_num: u32) {
+        let warp_registers = &mut self.register_table[warp_id];
+        if !warp_registers.contains(&reg_num) {
+            panic!("trying to reserve an already reserved register (core_id={}, warp_id={}, reg_num={})",
+           self.core_id, warp_id, reg_num);
+        }
+        self.register_table[warp_id].insert(reg_num);
+    }
+
+    pub fn reserve_registers(&mut self, instr: &WarpInstruction) {
+        for &out_reg in instr.outputs() {
+            self.reserve_register(instr.warp_id, out_reg);
+        }
+
+        // Keep track of long operations
+        if instr.is_load()
+            && (instr.memory_space == nvbit_model::MemorySpace::Global
+                || instr.memory_space == nvbit_model::MemorySpace::Local
+                || instr.memory_space == nvbit_model::MemorySpace::Texture)
+        {
+            // inst->space.get_type() == local_space ||
+            // inst->space.get_type() == param_space_kernel ||
+            // inst->space.get_type() == param_space_local ||
+            // inst->space.get_type() == param_space_unclassified ||
+            for &out_reg in instr.outputs() {
+                self.long_op_registers[instr.warp_id].insert(out_reg);
+            }
+        }
     }
 }

@@ -275,3 +275,19 @@ bool trace_warp_inst_t::parse_from_trace_struct(
 
   return true;
 }
+
+void move_warp(trace_warp_inst_t *&dst, trace_warp_inst_t *&src) {
+  assert(dst->empty());
+  trace_warp_inst_t *temp = dst;
+  dst = src;
+  src = temp;
+  src->clear();
+}
+
+void move_warp(warp_inst_t *&dst, warp_inst_t *&src) {
+  assert(dst->empty());
+  warp_inst_t *temp = dst;
+  dst = src;
+  src = temp;
+  src->clear();
+}

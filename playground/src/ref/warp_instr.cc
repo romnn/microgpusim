@@ -83,7 +83,7 @@ void warp_inst_t::generate_mem_accesses() {
   if (m_warp_active_mask.count() == 0)
     return; // predicated off
 
-  const size_t starting_queue_size = m_accessq.size();
+  // const size_t starting_queue_size = m_accessq.size();
 
   assert(is_load() || is_store());
 
@@ -582,10 +582,3 @@ void warp_inst_t::print(FILE *fout) const {
   fprintf(fout, "\n");
 }
 
-void move_warp(warp_inst_t *&dst, warp_inst_t *&src) {
-  assert(dst->empty());
-  warp_inst_t *temp = dst;
-  dst = src;
-  src = temp;
-  src->clear();
-}

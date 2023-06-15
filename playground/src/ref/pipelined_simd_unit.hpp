@@ -1,6 +1,7 @@
 #pragma once
 
 #include "simd_function_unit.hpp"
+#include "trace_warp_inst.hpp"
 
 class trace_shader_core_ctx;
 

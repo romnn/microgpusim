@@ -18,6 +18,7 @@ void dp_unit::active_lanes_in_pipeline() {
 }
 
 void dp_unit ::issue(register_set &source_reg) {
+  // trace_warp_inst_t **ready_reg =
   warp_inst_t **ready_reg =
       source_reg.get_ready(m_config->sub_core_model, m_issue_reg_id);
   // m_core->incexecstat((*ready_reg));

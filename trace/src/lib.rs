@@ -47,6 +47,32 @@ struct Args {
     line_num: u32,
 }
 
+impl Args {
+    pub fn new(instr: &mut nvbit_rs::Instruction<'_>, opcode_id: usize) -> Self {
+        let predicate = instr.predicate().unwrap_or(model::Predicate {
+            num: 0,
+            is_neg: false,
+            is_uniform: false,
+        });
+        Self {
+            instr_data_width: instr.size() as u32,
+            instr_opcode_id: opcode_id.try_into().unwrap(),
+            instr_offset: instr.offset(),
+            instr_idx: instr.idx(),
+            instr_predicate_num: predicate.num,
+            instr_predicate_is_neg: predicate.is_neg,
+            instr_predicate_is_uniform: predicate.is_uniform,
+            instr_mem_space: instr.memory_space() as u8,
+            instr_is_load: instr.is_load(),
+            instr_is_store: instr.is_store(),
+            instr_is_extended: instr.is_extended(),
+            mref_idx: 0,
+            pchannel_dev: 0,
+            line_num: 0,
+        }
+    }
+}
+
 fn open_trace_file(path: &Path) -> std::fs::File {
     let mut file = OpenOptions::new()
         .write(true)
@@ -385,15 +411,43 @@ impl<'c> Instrumentor<'c> {
         }
     }
 
+    fn insert_instrumentation_before_instruction(
+        &self,
+        instr: &mut nvbit_rs::Instruction<'_>,
+        mut inst_args: Args,
+    ) {
+        instr.insert_call("instrument_inst", model::InsertionPoint::Before);
+
+        let mut pchannel_dev_lock = self.dev_channel.lock().unwrap();
+        inst_args.pchannel_dev = pchannel_dev_lock.as_mut_ptr() as u64;
+        // let data_width = instr.size() as u32;
+        // let inst_args = Args {
+        //     instr_data_width: data_width,
+        //     instr_opcode_id: opcode_id.try_into().unwrap(),
+        //     instr_offset: instr.offset(),
+        //     instr_idx: instr.idx(),
+        //     instr_predicate_num: predicate.num,
+        //     instr_predicate_is_neg: predicate.is_neg,
+        //     instr_predicate_is_uniform: predicate.is_uniform,
+        //     instr_mem_space: instr.memory_space() as u8,
+        //     instr_is_load: instr.is_load(),
+        //     instr_is_store: instr.is_store(),
+        //     instr_is_extended: instr.is_extended(),
+        //     mref_idx,
+        //     pchannel_dev: pchannel_dev_lock.as_mut_ptr() as u64,
+        //     line_num,
+        // };
+        inst_args.instrument(instr);
+    }
+
     fn instrument_instruction(&self, instr: &mut nvbit_rs::Instruction<'_>) {
         // instr.print_decoded();
 
         let line_info = instr.line_info(&mut self.ctx.lock().unwrap());
-        let line_num = line_info.map(|info| info.line).unwrap_or(0);
+        let line_num = line_info.as_ref().map(|info| info.line).unwrap_or(0);
 
         let opcode = instr.opcode().expect("has opcode");
         dbg!(&opcode);
-        let data_width = instr.size() as u32;
 
         let opcode_id = {
             let mut opcode_to_id_map = self.opcode_to_id_map.write().unwrap();
@@ -408,38 +462,54 @@ impl<'c> Instrumentor<'c> {
             opcode_to_id_map[opcode]
         };
 
-        let mut mref_idx = 0;
+        #[cfg(feature = "full")]
+        let full_trace = true;
+        #[cfg(not(feature = "full"))]
+        let full_trace = false;
 
-        // iterate on the operands
-        for operand in instr.operands().collect::<Vec<_>>() {
-            println!("operand kind: {:?}", &operand.kind());
-            if let model::OperandKind::MemRef { .. } = operand.kind() {
-                instr.insert_call("instrument_inst", model::InsertionPoint::Before);
-                let mut pchannel_dev_lock = self.dev_channel.lock().unwrap();
-                let predicate = instr.predicate().unwrap_or(model::Predicate {
-                    num: 0,
-                    is_neg: false,
-                    is_uniform: false,
-                });
-                let inst_args = Args {
-                    instr_data_width: data_width,
-                    instr_opcode_id: opcode_id.try_into().unwrap(),
-                    instr_offset: instr.offset(),
-                    instr_idx: instr.idx(),
-                    instr_predicate_num: predicate.num,
-                    instr_predicate_is_neg: predicate.is_neg,
-                    instr_predicate_is_uniform: predicate.is_uniform,
-                    instr_mem_space: instr.memory_space() as u8,
-                    instr_is_load: instr.is_load(),
-                    instr_is_store: instr.is_store(),
-                    instr_is_extended: instr.is_extended(),
-                    mref_idx,
-                    pchannel_dev: pchannel_dev_lock.as_mut_ptr() as u64,
-                    line_num,
-                };
-                inst_args.instrument(instr);
-                mref_idx += 1;
+        let mut instrumented = false;
+
+        if opcode.to_lowercase() == "exit" || full_trace {
+            let mut inst_args = Args::new(instr, opcode_id);
+            inst_args.line_num = line_num;
+            self.insert_instrumentation_before_instruction(instr, inst_args);
+            instrumented = true;
+        }
+
+        if instr.memory_space() != model::MemorySpace::None {
+            let mut mref_idx = 0;
+            // iterate on the operands
+            for operand in instr.operands().collect::<Vec<_>>() {
+                println!("operand kind: {:?}", &operand.kind());
+                if let model::OperandKind::MemRef { .. } = operand.kind() {
+                    let mut inst_args = Args::new(instr, opcode_id);
+                    inst_args.mref_idx = mref_idx;
+                    inst_args.line_num = line_num;
+
+                    self.insert_instrumentation_before_instruction(instr, inst_args);
+                    mref_idx += 1;
+                    instrumented = true;
+                }
             }
+        }
+
+        if instrumented {
+            let instr_idx = instr.idx();
+            let instr_offset = instr.offset();
+            let source_file = line_info.map(|info| {
+                format!(
+                    "{}:{}",
+                    PathBuf::from(info.dir_name).join(info.file_name).display(),
+                    info.line
+                )
+            });
+            println!(
+                "[{}] instrumented instruction {} at index {} (offset {})\n\n",
+                source_file.unwrap_or_default(),
+                instr,
+                instr_idx,
+                instr_offset,
+            );
         }
     }
 
@@ -462,15 +532,6 @@ impl<'c> Instrumentor<'c> {
             // iterate on all the static instructions in the function
             for (cnt, instr) in instrs.iter_mut().enumerate() {
                 if cnt < self.instr_begin_interval || cnt >= self.instr_end_interval {
-                    continue;
-                }
-                // dbg!(&instr.opcode());
-
-                #[cfg(not(feature = "full"))]
-                if let model::MemorySpace::None | model::MemorySpace::Constant =
-                    instr.memory_space()
-                {
-                    // skip non-memory instructions
                     continue;
                 }
 
@@ -628,6 +689,13 @@ impl<'c> Instrumentor<'c> {
 #[inline(never)]
 pub extern "C" fn nvbit_at_init() {
     println!("nvbit_at_init");
+
+    #[cfg(feature = "full")]
+    let trace_mode = "full";
+    #[cfg(not(feature = "full"))]
+    let trace_mode = "mem-only";
+
+    println!("box: trace mode={}", trace_mode);
 }
 
 #[no_mangle]

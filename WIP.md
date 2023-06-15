@@ -1,10 +1,15 @@
 #### TODO
 - BUGS to be fixed:
+  - after issue, the instruction buffer should be emptied
+  - after the issue, the ordering of warps should be different (test that in unit tests)
+
   - returning fetches have the block addr instead of their original address, see core todo...
   - warp 4 does not generate mem access to l1 instr cache
     - therefore keeps looping through all the instructions (likely because no trace instructions)
     - warps with id 32+ do not have the correct warp id set
   - FIXED: mshr_addr probe is not working (keeps re-sending already sent requests to interconn) 
+
+- for comparison: add exit instructions to traces
 
 - who creates mem fetches?
   - l1 data

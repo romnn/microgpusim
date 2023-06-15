@@ -18,6 +18,7 @@ enum BinaryVersion {
 
 #[derive(strum::FromRepr, Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Op {
+    // memory ops
     LD,
     LDC,
     LDG,
@@ -34,6 +35,8 @@ pub enum Op {
     RED,
     MEMBAR,
     LDGSTS,
+    // control ops
+    EXIT,
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
@@ -67,15 +70,20 @@ pub enum ArchOpKind {
 // }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[repr(usize)]
 pub enum ArchOp {
+    /// No-op
     NO_OP,
     ALU_OP,
     SFU_OP,
     TENSOR_CORE_OP,
+    /// Double precision
     DP_OP,
+    /// Single precision
     SP_OP,
     INTP_OP,
     ALU_SFU_OP,
+    /// Load operation
     LOAD_OP,
     TENSOR_CORE_LOAD_OP,
     TENSOR_CORE_STORE_OP,
@@ -86,7 +94,17 @@ pub enum ArchOp {
     CALL_OPS,
     RET_OPS,
     EXIT_OPS,
+    SPECIALIZED_UNIT_1_OP,
+    SPECIALIZED_UNIT_2_OP,
+    SPECIALIZED_UNIT_3_OP,
+    SPECIALIZED_UNIT_4_OP,
+    SPECIALIZED_UNIT_5_OP,
+    SPECIALIZED_UNIT_6_OP,
+    SPECIALIZED_UNIT_7_OP,
+    SPECIALIZED_UNIT_8_OP,
 }
+
+pub const SPEC_UNIT_START_ID: usize = ArchOp::SPECIALIZED_UNIT_1_OP as usize;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Opcode {

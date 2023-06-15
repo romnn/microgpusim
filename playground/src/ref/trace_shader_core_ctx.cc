@@ -200,7 +200,7 @@ void trace_shader_core_ctx::checkExecutionStatusAndUpdate(warp_inst_t &inst,
 }
 
 void trace_shader_core_ctx::func_exec_inst(warp_inst_t &inst) {
-  throw std::runtime_error("functional execution of warp instr");
+  // throw std::runtime_error("functional execution of warp instr");
   for (unsigned t = 0; t < m_warp_size; t++) {
     if (inst.active(t)) {
       unsigned warpId = inst.warp_id();
@@ -218,8 +218,13 @@ void trace_shader_core_ctx::func_exec_inst(warp_inst_t &inst) {
 
   trace_shd_warp_t *m_trace_warp =
       static_cast<trace_shd_warp_t *>(m_warp[inst.warp_id()]);
-  printf("==>> ROMAN: warp %d trace done %d (%d/%lu) functional done %d\n",
-         m_trace_warp->get_warp_id(), m_trace_warp->trace_done(),
+
+  assert(inst.warp_id() == m_trace_warp->get_warp_id());
+  printf("warp=%d executed pc=%lu \t(trace done=%d (%d/%lu) functional "
+         "done=%d)\n",
+         m_trace_warp->get_warp_id(),
+         // static_cast<const trace_warp_inst_t &>(inst).opcode_str(),
+         m_trace_warp->get_pc(), m_trace_warp->trace_done(),
          m_trace_warp->trace_pc, m_trace_warp->warp_traces.size(),
          m_trace_warp->functional_done());
   if (m_trace_warp->trace_done() && m_trace_warp->functional_done()) {
@@ -232,18 +237,40 @@ void trace_shader_core_ctx::issue_warp(register_set &pipe_reg_set,
                                        const warp_inst_t *next_inst,
                                        const active_mask_t &active_mask,
                                        unsigned warp_id, unsigned sch_id) {
+  printf("\e[0;33m issue warp %d \033[0m \n", warp_id);
   warp_inst_t **pipe_reg =
       pipe_reg_set.get_free(m_config->sub_core_model, sch_id);
   assert(pipe_reg);
 
+  // make a copy here
+  const trace_warp_inst_t *next_trace_inst =
+      static_cast<const trace_warp_inst_t *>(next_inst);
+  printf("warp=%d executed %s\n", warp_id, next_trace_inst->opcode_str());
+  trace_warp_inst_t next_trace_inst_copy = *next_trace_inst;
+
   m_warp[warp_id]->ibuffer_free();
   assert(next_inst->valid());
-  **pipe_reg = *next_inst; // static instruction information
+  **pipe_reg = next_trace_inst_copy; // static instruction information
+  // **pipe_reg = *next_inst; // static instruction information
+  // assert(pipe_reg == next_inst);
+  // assert((*pipe_reg)->m_opcode() == next_inst->warp_id());
+  // assert((*pipe_reg)->warp_id() == next_inst->warp_id());
+  // printf("warp=%d executed %s (%d) %s (%d)\n", warp_id,
+  //        static_cast<const trace_warp_inst_t *>(*pipe_reg)->opcode_str(),
+  //        static_cast<const trace_warp_inst_t *>(*pipe_reg)->m_opcode,
+  //        static_cast<const trace_warp_inst_t *>(next_inst)->opcode_str(),
+  //        static_cast<const trace_warp_inst_t *>(next_inst)->m_opcode);
+
   (*pipe_reg)->issue(active_mask, warp_id,
                      m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle,
                      m_warp[warp_id]->get_dynamic_warp_id(),
                      sch_id); // dynamic instruction information
   m_stats->shader_cycle_distro[2 + (*pipe_reg)->active_count()]++;
+
+  printf("warp=%d executed %s pc=%lu\n", (*pipe_reg)->warp_id(),
+         static_cast<const trace_warp_inst_t *>(next_inst)->opcode_str(),
+         static_cast<const trace_warp_inst_t *>(*pipe_reg)->pc);
+
   func_exec_inst(**pipe_reg);
 
   if (next_inst->op == BARRIER_OP) {
