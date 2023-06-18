@@ -15,7 +15,7 @@ void check_cuda_error(cudaError error, const char *file, int line) {
             cudaGetErrorString(error));
     fflush(stderr);
   }
-  // assert(error == cudaSuccess);
+  assert(error == cudaSuccess);
 }
 
 __global__ __noinline__ void flush_channel_kernel(ChannelDev *ch_dev) {
@@ -28,17 +28,20 @@ __global__ __noinline__ void flush_channel_kernel(ChannelDev *ch_dev) {
 
 extern "C" __noinline__ void flush_channel(void *channel_dev) {
   CUDA_CHECK(cudaGetLastError());
-  fprintf(stderr, "flush channel %lu\n", (size_t)channel_dev);
   flush_channel_kernel<<<1, 1>>>((ChannelDev *)channel_dev);
   CUDA_CHECK(cudaGetLastError());
   cudaDeviceSynchronize();
   CUDA_CHECK(cudaGetLastError());
 }
 
-extern "C" __noinline__ void deallocate_reg_info(reg_info_t *dev_info) {
-  CUDA_CHECK(cudaFree(&dev_info));
+extern "C" __noinline__ void cuda_free(void *dev_ptr) {
+  CUDA_CHECK(cudaFree(dev_ptr));
 }
 
+// extern "C" __noinline__ void deallocate_reg_info(reg_info_t *dev_info) {
+//   CUDA_CHECK(cudaFree(dev_info));
+// }
+//
 extern "C" __noinline__ reg_info_t *allocate_reg_info(reg_info_t host_info) {
   reg_info_t *dev_info;
   size_t bytes = sizeof(reg_info_t);

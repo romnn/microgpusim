@@ -5,6 +5,7 @@ use std::path::PathBuf;
 /// Extract app arguments.
 ///
 /// This skips the binary (`argv[0]`) itself.
+#[must_use]
 pub fn app_args(bin_name: Option<&str>) -> Vec<String> {
     std::env::args()
         .skip_while(|arg| {
@@ -37,6 +38,7 @@ pub fn app_prefix(bin_name: Option<&str>) -> String {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct MemAccessTraceEntry {
     pub cuda_ctx: u64,
     pub kernel_id: u64,

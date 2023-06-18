@@ -27,7 +27,7 @@ typedef struct {
   int instr_predicate_num;
   uint32_t instr_mem_space;
 
-  // instr flags
+  // boolean instr flags
   bool instr_is_mem;
   bool instr_is_load;
   bool instr_is_store;
@@ -39,15 +39,16 @@ typedef struct {
   uint32_t active_mask;
   uint32_t predicate_mask;
   uint64_t addrs[32];
+
+  // register info
   bool has_dest_reg;
   uint32_t dest_reg;
   uint32_t src_regs[MAX_SRC];
   uint32_t num_src_regs;
-
-  // for cleanup
-  uint64_t ptr_reg_info;
 } mem_access_t;
 
 extern "C" void flush_channel(void *channel_dev);
 extern "C" reg_info_t *allocate_reg_info(reg_info_t host_info);
-extern "C" void deallocate_reg_info(reg_info_t *dev_info);
+
+// extern "C" void deallocate_reg_info(reg_info_t *dev_info);
+extern "C" void cuda_free(void *dev_ptr);

@@ -23,13 +23,8 @@ instrument_inst(uint32_t pred, uint32_t instr_data_width,
                 uint32_t instr_opcode_id, uint32_t instr_offset,
                 uint32_t instr_idx, uint32_t line_num, uint32_t instr_mem_space,
                 uint32_t instr_predicate_num, uint32_t instr_flags,
-                // int instr_is_mem, int instr_is_load, int instr_is_store,
-                // int instr_is_extended,
-                // int instr_predicate_is_neg, int instr_predicate_is_uniform,
-                uint64_t ptr_reg_info,
-                // int dest_reg, int src_reg1, int src_reg2, int src_reg3,
-                // int src_reg4, int src_reg5, int num_src_regs,
-                uint64_t addr, uint64_t ptr_channel_dev, uint64_t kernel_id) {
+                uint64_t ptr_reg_info, uint64_t addr, uint64_t ptr_channel_dev,
+                uint64_t kernel_id) {
 
   // if thread is predicated off, return
   if (!pred) {
@@ -91,22 +86,14 @@ instrument_inst(uint32_t pred, uint32_t instr_data_width,
   ma.active_mask = active_mask;
   ma.predicate_mask = predicate_mask;
 
+  // register info
   reg_info_t *reg_info = (reg_info_t *)ptr_reg_info;
   ma.has_dest_reg = reg_info->has_dest_reg;
   ma.dest_reg = reg_info->dest_reg;
-  // for (int r = 0; r < reg_info->num_src_regs; r++) {
   for (int r = 0; r < MAX_SRC; r++) {
     ma.src_regs[r] = reg_info->src_regs[r];
   }
-  // for (int r = reg_info->num_src_regs; r < MAX_SRC; r++) {
-  //   ma.src_regs[r] = -1; // reg_info->src_regs[r];
-  //   // ma.src_regs[1] = reg_info->src_regs[1];
-  //   // ma.src_regs[2] = reg_info->src_regs[2];
-  //   // ma.src_regs[3] = reg_info->src_regs[3];
-  //   // ma.src_regs[4] = reg_info->src_regs[4];
-  // }
   ma.num_src_regs = reg_info->num_src_regs;
-  ma.ptr_reg_info = ptr_reg_info;
 
   // first active lane pushes information on the channel
   if (first_laneid == laneid) {

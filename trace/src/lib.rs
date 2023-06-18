@@ -1,9 +1,15 @@
-#![allow(warnings, clippy::missing_panics_doc, clippy::missing_safety_doc)]
+#![allow(
+    warnings,
+    clippy::missing_panics_doc,
+    clippy::missing_safety_doc,
+    clippy::permissions_set_readonly_false
+)]
 
 use bitvec::{array::BitArray, field::BitField, BitArr};
-use lazy_static::lazy_static;
+// use lazy_static::lazy_static;
 use nvbit_io::{Decoder, Encoder};
 use nvbit_rs::{model, DeviceChannel, HostChannel};
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::{hash_map::Entry, HashMap, HashSet};
 use std::ffi;
@@ -24,12 +30,18 @@ use trace_model as trace;
 )]
 mod common {
     include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
-
-    // mark this type as trivially copyable
-    unsafe impl rustacuda::memory::DeviceCopy for reg_info_t {}
 }
 
-use common::mem_access_t;
+use common::{mem_access_t, reg_info_t};
+
+#[cfg(feature = "full")]
+const FULL_TRACE: bool = true;
+#[cfg(not(feature = "full"))]
+const FULL_TRACE: bool = false;
+
+fn kernel_trace_name(id: u64) -> String {
+    format!("kernel-{id}-trace")
+}
 
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Default, Clone)]
@@ -74,8 +86,8 @@ fn open_trace_file(path: &Path) -> std::fs::File {
 fn rmp_serializer(path: &Path) -> rmp_serde::Serializer<std::io::BufWriter<std::fs::File>> {
     let trace_file = open_trace_file(path);
     let mut writer = std::io::BufWriter::new(trace_file);
-    let mut rmp_serializer = rmp_serde::Serializer::new(writer);
-    rmp_serializer
+
+    rmp_serde::Serializer::new(writer)
 }
 
 fn json_serializer(
@@ -91,9 +103,9 @@ fn json_serializer(
 }
 
 impl Args {
-    pub fn instrument(&self, instr: &mut nvbit_rs::Instruction<'_>) {
+    pub fn instrument(&self, trace_ctx: &Instrumentor<'_>, instr: &mut nvbit_rs::Instruction<'_>) {
         instr.add_call_arg_guard_pred_val();
-        instr.add_call_arg_const_val32(self.instr_data_width.try_into().unwrap_or_default());
+        instr.add_call_arg_const_val32(self.instr_data_width);
         instr.add_call_arg_const_val32(self.instr_opcode_id.try_into().unwrap_or_default());
         instr.add_call_arg_const_val32(self.instr_offset);
         instr.add_call_arg_const_val32(self.instr_idx);
@@ -102,7 +114,7 @@ impl Args {
         instr.add_call_arg_const_val32(self.instr_mem_space.into());
         instr.add_call_arg_const_val32(self.instr_predicate_num.try_into().unwrap_or_default());
 
-        // binary flags
+        // pack binary flags due to 11 argument limitation
         let mut flags: BitArr!(for 32) = BitArray::ZERO;
         flags.set(0, self.instr_is_mem);
         flags.set(1, self.instr_is_load);
@@ -111,60 +123,32 @@ impl Args {
         flags.set(4, self.instr_predicate_is_neg);
         flags.set(5, self.instr_predicate_is_uniform);
         instr.add_call_arg_const_val32(flags.load_be::<u32>());
-        // instr.add_call_arg_const_val32(self.instr_predicate_is_neg.into());
-        // instr.add_call_arg_const_val32(self.instr_predicate_is_uniform.into());
-        // instr.add_call_arg_const_val32(self.instr_is_mem.into());
-        // instr.add_call_arg_const_val32(self.instr_is_load.into());
-        // instr.add_call_arg_const_val32(self.instr_is_store.into());
-        // instr.add_call_arg_const_val32(self.instr_is_extended.into());
 
-        // register info
-        // instr.add_call_arg_const_val32(self.dest_reg.unwrap_or(0));
-        //
-        // instr.add_call_arg_const_val32(1);
-        // instr.add_call_arg_const_val32(1);
-        // instr.add_call_arg_const_val32(1);
-        // instr.add_call_arg_const_val32(1);
-        // instr.add_call_arg_const_val32(1);
-        // let mut total = 0;
-        // for valid in 0..(self.num_src_regs as usize) {
-        //     instr.add_call_arg_const_val32(self.src_regs[valid]);
-        //     total += 1;
-        // }
-        // for remaining in self.num_src_regs..common::MAX_SRC {
-        //     instr.add_call_arg_const_val32(u32::MAX);
-        //     total += 1;
-        // }
-
-        // instr.add_call_arg_const_val32(self.num_src_regs);
-        // assert_eq!(total, common::MAX_SRC);
-
-        let reg_info = common::reg_info_t {
+        // register info is allocated on the device and passed by pointer
+        let reg_info = reg_info_t {
             has_dest_reg: self.dest_reg.is_some(),
             dest_reg: self.dest_reg.unwrap_or(0),
             src_regs: self.src_regs,
             num_src_regs: self.num_src_regs,
         };
-        dbg!(&reg_info);
         let dev_reg_info = unsafe { common::allocate_reg_info(reg_info) };
-        // let device_buffer =
-        //     rustacuda::memory::cuda_malloc::<common::reg_info_t>(std::mem::size_of::<
-        //         common::reg_info_t,
-        //     >())
-        //     .unwrap();
-
-        // let mut reg_info = rustacuda::memory::DeviceBox::new(&reg_info).unwrap();
-        // instr.add_call_arg_const_val64(dev_reg_info.as_device_ptr().as_raw_mut() as u64);
         instr.add_call_arg_const_val64(dev_reg_info as u64);
+        {
+            trace_ctx
+                .need_cleanup
+                .lock()
+                .unwrap()
+                .insert(dev_reg_info as u64);
+        };
 
         // memory reference 64 bit address
-        // instr.add_call_arg_mref_addr64(0);
         if self.instr_is_mem {
             instr.add_call_arg_mref_addr64(0);
         } else {
             instr.add_call_arg_const_val64(u64::MAX);
         }
 
+        // pointer to device channel for sending packets
         instr.add_call_arg_const_val64(self.ptr_channel_dev);
 
         // add "space" for kernel_id function pointer,
@@ -190,6 +174,7 @@ struct Instrumentor<'c> {
     instr_begin_interval: usize,
     instr_end_interval: usize,
     skip_flag: Mutex<bool>,
+    need_cleanup: Mutex<HashSet<u64>>,
     traces_dir: PathBuf,
     allocations: Mutex<Vec<trace::MemAllocation>>,
     commands: Mutex<Vec<trace::Command>>,
@@ -198,11 +183,6 @@ struct Instrumentor<'c> {
 impl Instrumentor<'static> {
     fn new(ctx: nvbit_rs::Context<'static>) -> Arc<Self> {
         let mut dev_channel = nvbit_rs::DeviceChannel::new();
-        // assert_eq!(
-        //     unsafe { cuda_runtime_sys::cudaGetLastError() },
-        //     cuda_runtime_sys::cudaError::cudaSuccess
-        // );
-
         let host_channel = HostChannel::new(0, CHANNEL_SIZE, &mut dev_channel).unwrap();
 
         let own_bin_name = option_env!("CARGO_BIN_NAME");
@@ -245,6 +225,7 @@ impl Instrumentor<'static> {
             instr_end_interval: usize::MAX,
             // skip re-entry into intrumention logic
             skip_flag: Mutex::new(false),
+            need_cleanup: Mutex::new(HashSet::new()),
             traces_dir,
             allocations: Mutex::new(Vec::new()),
             commands: Mutex::new(Vec::new()),
@@ -274,17 +255,16 @@ impl Instrumentor<'static> {
         let mut packet_count = 0;
         while let Ok(packet) = rx.recv() {
             // when block_id_x == -1, the kernel has completed
-            // if packet.block_id_x == -1 {
-            //     self.host_channel
-            //         .lock()
-            //         .unwrap()
-            //         .stop()
-            //         .expect("stop host channel");
-            //     break;
-            // }
+            if packet.block_id_x == -1 {
+                self.host_channel
+                    .lock()
+                    .unwrap()
+                    .stop()
+                    .expect("stop host channel");
+                break;
+            }
             packet_count += 1;
 
-            // todo!("got a packet");
             // we keep the read lock for as long as encoding takes
             // so we avoid copying the opcode string
             let cuda_ctx = self.ctx.lock().unwrap().as_ptr() as u64;
@@ -305,12 +285,6 @@ impl Instrumentor<'static> {
                 let variant = u8::try_from(packet.instr_mem_space).unwrap();
                 std::mem::transmute(variant)
             };
-
-            // dbg!(&packet);
-            // println!("is mem reg: {:?}", packet.dest_reg);
-            // println!("dest reg: {:?}", packet.dest_reg);
-            // println!("src regs: {:?}", packet.src_regs);
-            // println!("src reg num: {:?}", packet.num_src_regs);
 
             let entry = trace::MemAccessTraceEntry {
                 cuda_ctx,
@@ -342,12 +316,6 @@ impl Instrumentor<'static> {
                 addrs: packet.addrs,
             };
 
-            // cleanup
-            unsafe {
-                let ptr_reg_info = packet.ptr_reg_info as *mut common::reg_info_t;
-                common::deallocate_reg_info(ptr_reg_info);
-            };
-
             // dbg!(&entry);
             json_encoder
                 .encode::<trace::MemAccessTraceEntry>(&entry)
@@ -372,9 +340,16 @@ impl Instrumentor<'static> {
 type ContextHandle = nvbit_rs::ContextHandle<'static>;
 type Contexts = HashMap<ContextHandle, Arc<Instrumentor<'static>>>;
 
-lazy_static! {
-    static ref CONTEXTS: RwLock<Contexts> = RwLock::new(HashMap::new());
-}
+// lazy_static! {
+//     static mut CONTEXTS: Contexts = HashMap::new();
+// }
+
+static mut CONTEXTS: Lazy<Contexts> = Lazy::new(HashMap::new);
+// unsafe { std::mem::uninitialized() };
+// HashMap::new();
+// lazy_static! {
+//     static ref CONTEXTS: RwLock<Contexts> = RwLock::new(HashMap::new());
+// }
 
 impl<'c> Instrumentor<'c> {
     fn at_cuda_event(
@@ -411,12 +386,13 @@ impl<'c> Instrumentor<'c> {
                 let ctx = &mut self.ctx.lock().unwrap();
                 let mut kernel_id = self.kernel_id.lock().unwrap();
 
-                let shmem_static_nbytes = func.shared_memory_bytes().unwrap() as u32;
+                let shmem_static_nbytes =
+                    u32::try_from(func.shared_memory_bytes().unwrap_or_default()).unwrap();
                 let func_name = func.name(ctx);
                 let pc = func.addr();
 
                 let id = *kernel_id;
-                let trace_file = self.kernel_trace_name(id);
+                let trace_file = kernel_trace_name(id);
 
                 let num_registers = func.num_registers().unwrap();
 
@@ -455,7 +431,7 @@ impl<'c> Instrumentor<'c> {
                         .lock()
                         .unwrap()
                         .push(trace::Command::MemcpyHtoD {
-                            dest_device_addr: dest_device.as_ptr() as u64,
+                            dest_device_addr: dest_device.as_ptr(),
                             num_bytes,
                         });
                 }
@@ -484,21 +460,9 @@ impl<'c> Instrumentor<'c> {
         }
     }
 
-    // fn insert_instrumentation_before_instruction(
-    //     &self,
-    //     instr: &mut nvbit_rs::Instruction<'_>,
-    //     mut inst_args: Args,
-    // ) {
-    //     instr.insert_call("instrument_inst", model::InsertionPoint::Before);
-    //
-    //     let mut pchannel_dev_lock = self.dev_channel.lock().unwrap();
-    //     inst_args.pchannel_dev = pchannel_dev_lock.as_mut_ptr() as u64;
-    //     inst_args.instrument(instr);
-    // }
-
     fn instrument_instruction(&self, instr: &mut nvbit_rs::Instruction<'_>) {
         let line_info = instr.line_info(&mut self.ctx.lock().unwrap());
-        let line_num = line_info.as_ref().map(|info| info.line).unwrap_or(0);
+        let line_num = line_info.as_ref().map_or(0, |info| info.line);
 
         let opcode = instr.opcode().expect("has opcode");
         // dbg!(&opcode);
@@ -516,14 +480,9 @@ impl<'c> Instrumentor<'c> {
             opcode_to_id_map[opcode]
         };
 
-        #[cfg(feature = "full")]
-        let full_trace = true;
-        #[cfg(not(feature = "full"))]
-        let full_trace = false;
-
         let mut instrumented = false;
 
-        if full_trace
+        if FULL_TRACE
             || opcode.to_lowercase() == "exit"
             || instr.memory_space() != model::MemorySpace::None
         {
@@ -566,28 +525,12 @@ impl<'c> Instrumentor<'c> {
                         // for now, ensure one memory operand per inst
                         assert!(mem_operand_idx.is_none());
                         *mem_operand_idx.get_or_insert(0) += 1;
-                        // mem_operand_idx.map_inplace(|i| *i += 1);
-                        // num_mref += 1;
-
-                        // let mut inst_args = Args::new(instr, opcode_id);
-                        // inst_args.mref_idx = mref_idx;
-                        // inst_args.line_num = line_num;
-                        //
-                        // self.insert_instrumentation_before_instruction(instr, inst_args);
-                        // mref_idx += 1;
-                        // instrumented = true;
                     }
                     model::OperandKind::Register { num, .. } => {
                         // reg is found
-                        // if op_id == 0 {
-                        //     // find dst reg
-                        //     dst_operand = num;
-                        // } else {
-                        //     // find src regs
                         assert!(src_num < common::MAX_SRC as usize);
                         src_operands[src_num] = num.try_into().unwrap();
                         src_num += 1;
-                        // }
                     }
                     _ => {
                         // skip anything else (constant and predicates)
@@ -602,7 +545,7 @@ impl<'c> Instrumentor<'c> {
             });
             let mut channel_dev_lock = self.dev_channel.lock().unwrap();
             let mut inst_args = Args {
-                instr_data_width: instr.size() as u32,
+                instr_data_width: instr.size(),
                 instr_opcode_id: opcode_id.try_into().unwrap(),
                 instr_offset: instr.offset(),
                 instr_idx: instr.idx(),
@@ -624,7 +567,7 @@ impl<'c> Instrumentor<'c> {
             dbg!(&inst_args);
 
             instr.insert_call("instrument_inst", model::InsertionPoint::Before);
-            inst_args.instrument(instr);
+            inst_args.instrument(self, instr);
 
             let instr_idx = instr.idx();
             let instr_offset = instr.offset();
@@ -672,12 +615,8 @@ impl<'c> Instrumentor<'c> {
         }
     }
 
-    fn kernel_trace_name(&self, id: u64) -> String {
-        format!("kernel-{id}-trace")
-    }
-
     fn kernel_trace_path(&self, id: u64) -> PathBuf {
-        self.traces_dir.join(self.kernel_trace_name(id))
+        self.traces_dir.join(kernel_trace_name(id))
     }
 
     /// Generate traces on a per kernel basis.
@@ -730,7 +669,7 @@ impl<'c> Instrumentor<'c> {
             .deserialize_seq(decoder)
             .unwrap();
 
-        for (_, encoder) in rmp_encoders.into_iter() {
+        for (_, encoder) in rmp_encoders {
             encoder.finalize();
         }
     }
@@ -827,12 +766,12 @@ pub extern "C" fn nvbit_at_init() {
     #[cfg(not(feature = "full"))]
     let trace_mode = "mem-only";
 
-    println!("box: trace mode={}", trace_mode);
+    println!("box: trace mode={trace_mode}");
 }
 
 #[no_mangle]
 #[inline(never)]
-pub unsafe extern "C" fn nvbit_at_cuda_event(
+pub extern "C" fn nvbit_at_cuda_event(
     ctx: nvbit_rs::Context<'static>,
     is_exit: ffi::c_int,
     cbid: nvbit_sys::nvbit_api_cuda_t,
@@ -843,36 +782,26 @@ pub unsafe extern "C" fn nvbit_at_cuda_event(
     let is_exit = is_exit != 0;
     println!("nvbit_at_cuda_event: {event_name} (is_exit = {is_exit})");
 
-    let lock = CONTEXTS.read().unwrap();
-    let Some(trace_ctx) = lock.get(&ctx.handle()) else {
-        return;
-    };
-    trace_ctx.at_cuda_event(is_exit, cbid, &event_name, params, pstatus);
+    if let Some(trace_ctx) = unsafe { CONTEXTS.get(&ctx.handle()) } {
+        trace_ctx.at_cuda_event(is_exit, cbid, &event_name, params, pstatus);
+    }
 }
 
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn nvbit_at_ctx_init(ctx: nvbit_rs::Context<'static>) {
     println!("nvbit_at_ctx_init");
-    CONTEXTS
-        .write()
-        .unwrap()
-        .entry(ctx.handle())
-        .or_insert_with(|| Instrumentor::new(ctx));
+    unsafe {
+        CONTEXTS
+            .entry(ctx.handle())
+            .or_insert_with(|| Instrumentor::new(ctx));
+    }
 }
 
-#[no_mangle]
-#[inline(never)]
-pub extern "C" fn nvbit_at_ctx_term(ctx: nvbit_rs::Context<'static>) {
-    use std::io::Write;
-
-    println!("nvbit_at_ctx_term");
-    let lock = CONTEXTS.read().unwrap();
-    let Some(trace_ctx) = lock.get(&ctx.handle()) else {
-        return;
-    };
-
+fn finalize_trace_ctx(trace_ctx: &Instrumentor<'_>) {
+    // skip all cuda events
     *trace_ctx.skip_flag.lock().unwrap() = true;
+
     unsafe {
         // flush channel
         let mut dev_channel = trace_ctx.dev_channel.lock().unwrap();
@@ -881,7 +810,6 @@ pub extern "C" fn nvbit_at_ctx_term(ctx: nvbit_rs::Context<'static>) {
         // make sure flush of channel is complete
         nvbit_sys::cuCtxSynchronize();
     };
-    *trace_ctx.skip_flag.lock().unwrap() = false;
 
     // stop the host channel
     trace_ctx
@@ -903,7 +831,6 @@ pub extern "C" fn nvbit_at_ctx_term(ctx: nvbit_rs::Context<'static>) {
     #[cfg(feature = "plot")]
     trace_ctx.plot_memory_accesses();
 
-    // println!("done after {:?}", Instant::now().duration_since(ctx.start));
     println!("done after {:?}", trace_ctx.start.elapsed());
 
     // this is often run as sudo, but we dont want to create files as sudo
@@ -914,4 +841,25 @@ pub extern "C" fn nvbit_at_ctx_term(ctx: nvbit_rs::Context<'static>) {
         false,
     )
     .ok();
+
+    // cleanup
+    let need_cleanup = trace_ctx.need_cleanup.lock().unwrap();
+    for dev_ptr in need_cleanup.iter() {
+        unsafe {
+            common::cuda_free(*dev_ptr as *mut std::ffi::c_void);
+        };
+    }
+}
+
+#[no_mangle]
+#[inline(never)]
+pub extern "C" fn nvbit_at_ctx_term(ctx: nvbit_rs::Context<'static>) {
+    use std::io::Write;
+
+    println!("nvbit_at_ctx_term");
+    if let Some(trace_ctx) = unsafe { CONTEXTS.get(&ctx.handle()) } {
+        finalize_trace_ctx(trace_ctx);
+    }
+
+    // do not remove the context!
 }
