@@ -1,14 +1,23 @@
 #include <stdint.h>
 
-extern "C" void flush_channel(void *channel_dev);
+#define MAX_SRC 5
+
+typedef struct {
+  bool has_dest_reg;
+  uint32_t dest_reg;
+  uint32_t src_regs[MAX_SRC];
+  uint32_t num_src_regs;
+} reg_info_t;
 
 typedef struct {
   uint64_t kernel_id;
-  // use int here, so we identify end of the kernel with cta_idx_id = -1
+  // we identify end of the kernel with block_idx_id = -1
   int block_id_x;
   int block_id_y;
   int block_id_z;
-  int warp_id;
+  int sm_id;
+  int warp_id_in_block;
+  int warp_id_in_sm;
   uint32_t line_num;
   uint32_t instr_data_width;
   // opcode_id is purely internal
@@ -16,13 +25,29 @@ typedef struct {
   uint32_t instr_offset;
   uint32_t instr_idx;
   int instr_predicate_num;
-  bool instr_predicate_is_neg;
-  bool instr_predicate_is_uniform;
   uint32_t instr_mem_space;
+
+  // instr flags
+  bool instr_is_mem;
   bool instr_is_load;
   bool instr_is_store;
   bool instr_is_extended;
+  bool instr_predicate_is_neg;
+  bool instr_predicate_is_uniform;
+
+  uint32_t warp_size;
   uint32_t active_mask;
   uint32_t predicate_mask;
   uint64_t addrs[32];
+  bool has_dest_reg;
+  uint32_t dest_reg;
+  uint32_t src_regs[MAX_SRC];
+  uint32_t num_src_regs;
+
+  // for cleanup
+  uint64_t ptr_reg_info;
 } mem_access_t;
+
+extern "C" void flush_channel(void *channel_dev);
+extern "C" reg_info_t *allocate_reg_info(reg_info_t host_info);
+extern "C" void deallocate_reg_info(reg_info_t *dev_info);

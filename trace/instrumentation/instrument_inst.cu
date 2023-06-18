@@ -8,22 +8,33 @@
 // contains definition of the mem_access_t structure
 #include "common.h"
 
-// Instrumentation function that we want to inject.
-// Please note the use of extern "C" __device__ __noinline__
-// to prevent "dead"-code elimination by the compiler.
-extern "C" __device__ __noinline__ void
-instrument_inst(int pred, uint32_t instr_data_width, int instr_opcode_id,
-                uint32_t instr_offset, uint32_t instr_idx,
-                int instr_predicate_num, bool instr_predicate_is_neg,
-                bool instr_predicate_is_uniform, uint32_t instr_mem_space,
-                bool instr_is_load, bool instr_is_store, bool instr_is_extended,
-                uint64_t addr, uint64_t kernel_id, uint64_t pchannel_dev,
-                uint64_t line_num) {
+#define GET_BIT(value, pos) (((1 << (pos)) & (value)) >> (pos))
 
-  /* if thread is predicated off, return */
-  // if (!pred) {
-  //   return;
-  // }
+// Instrumentation function that we want to inject.
+//
+// Note the use of `extern "C" __device__ __noinline__`
+// to prevent "dead"-code elimination by the compiler.
+//
+// Note: CUDA functions only allowf or at most 11 arguments of <= 256 bytes
+// each. For more or larger arguments fall back to passing device allocated
+// pointers.
+extern "C" __device__ __noinline__ void
+instrument_inst(uint32_t pred, uint32_t instr_data_width,
+                uint32_t instr_opcode_id, uint32_t instr_offset,
+                uint32_t instr_idx, uint32_t line_num, uint32_t instr_mem_space,
+                uint32_t instr_predicate_num, uint32_t instr_flags,
+                // int instr_is_mem, int instr_is_load, int instr_is_store,
+                // int instr_is_extended,
+                // int instr_predicate_is_neg, int instr_predicate_is_uniform,
+                uint64_t ptr_reg_info,
+                // int dest_reg, int src_reg1, int src_reg2, int src_reg3,
+                // int src_reg4, int src_reg5, int num_src_regs,
+                uint64_t addr, uint64_t ptr_channel_dev, uint64_t kernel_id) {
+
+  // if thread is predicated off, return
+  if (!pred) {
+    return;
+  }
 
   const int active_mask = __ballot_sync(__activemask(), 1);
   const int predicate_mask = __ballot_sync(__activemask(), pred);
@@ -32,9 +43,20 @@ instrument_inst(int pred, uint32_t instr_data_width, int instr_opcode_id,
 
   mem_access_t ma;
 
-  /* collect memory address information from other threads */
+  bool instr_is_mem = (bool)GET_BIT(instr_flags, 0);
+  bool instr_is_load = (bool)GET_BIT(instr_flags, 1);
+  bool instr_is_store = (bool)GET_BIT(instr_flags, 2);
+  bool instr_is_extended = (bool)GET_BIT(instr_flags, 3);
+  bool instr_predicate_is_neg = (bool)GET_BIT(instr_flags, 4);
+  bool instr_predicate_is_uniform = (bool)GET_BIT(instr_flags, 5);
+
+  // collect memory address information from other threads
   for (int i = 0; i < 32; i++) {
-    ma.addrs[i] = __shfl_sync(active_mask, addr, i);
+    if (instr_is_mem) {
+      ma.addrs[i] = __shfl_sync(active_mask, addr, i);
+    } else {
+      ma.addrs[i] = 0;
+    }
   }
 
   ma.kernel_id = kernel_id;
@@ -42,25 +64,53 @@ instrument_inst(int pred, uint32_t instr_data_width, int instr_opcode_id,
   ma.block_id_x = block.x;
   ma.block_id_y = block.y;
   ma.block_id_z = block.z;
-  ma.warp_id = get_warpid();
-  ma.line_num = line_num;
+  ma.block_id_x = 0;
+  ma.block_id_y = 0;
+  ma.block_id_z = 0;
+
+  ma.sm_id = get_smid();
+  int unique_thread_id = threadIdx.z * blockDim.y * blockDim.x +
+                         threadIdx.y * blockDim.x + threadIdx.x;
+  ma.warp_id_in_block = unique_thread_id / warpSize;
+  ma.warp_id_in_sm = get_warpid();
+  ma.warp_size = warpSize;
+  ma.line_num = 0;
   ma.instr_data_width = instr_data_width;
   ma.instr_opcode_id = instr_opcode_id;
   ma.instr_offset = instr_offset;
   ma.instr_idx = instr_idx;
   ma.instr_predicate_num = instr_predicate_num;
-  ma.instr_predicate_is_neg = instr_predicate_is_neg;
-  ma.instr_predicate_is_uniform = instr_predicate_is_uniform;
   ma.instr_mem_space = instr_mem_space;
+  ma.instr_is_mem = instr_is_mem;
   ma.instr_is_load = instr_is_load;
   ma.instr_is_store = instr_is_store;
   ma.instr_is_extended = instr_is_extended;
+  ma.instr_predicate_is_neg = instr_predicate_is_neg;
+  ma.instr_predicate_is_uniform = instr_predicate_is_uniform;
+
   ma.active_mask = active_mask;
   ma.predicate_mask = predicate_mask;
 
-  /* first active lane pushes information on the channel */
+  reg_info_t *reg_info = (reg_info_t *)ptr_reg_info;
+  ma.has_dest_reg = reg_info->has_dest_reg;
+  ma.dest_reg = reg_info->dest_reg;
+  // for (int r = 0; r < reg_info->num_src_regs; r++) {
+  for (int r = 0; r < MAX_SRC; r++) {
+    ma.src_regs[r] = reg_info->src_regs[r];
+  }
+  // for (int r = reg_info->num_src_regs; r < MAX_SRC; r++) {
+  //   ma.src_regs[r] = -1; // reg_info->src_regs[r];
+  //   // ma.src_regs[1] = reg_info->src_regs[1];
+  //   // ma.src_regs[2] = reg_info->src_regs[2];
+  //   // ma.src_regs[3] = reg_info->src_regs[3];
+  //   // ma.src_regs[4] = reg_info->src_regs[4];
+  // }
+  ma.num_src_regs = reg_info->num_src_regs;
+  ma.ptr_reg_info = ptr_reg_info;
+
+  // first active lane pushes information on the channel
   if (first_laneid == laneid) {
-    ChannelDev *channel_dev = (ChannelDev *)pchannel_dev;
+    ChannelDev *channel_dev = (ChannelDev *)ptr_channel_dev;
     channel_dev->push(&ma, sizeof(mem_access_t));
   }
 }

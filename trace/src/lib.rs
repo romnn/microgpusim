@@ -1,5 +1,6 @@
 #![allow(warnings, clippy::missing_panics_doc, clippy::missing_safety_doc)]
 
+use bitvec::{array::BitArray, field::BitField, BitArr};
 use lazy_static::lazy_static;
 use nvbit_io::{Decoder, Encoder};
 use nvbit_rs::{model, DeviceChannel, HostChannel};
@@ -23,6 +24,9 @@ use trace_model as trace;
 )]
 mod common {
     include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+
+    // mark this type as trivially copyable
+    unsafe impl rustacuda::memory::DeviceCopy for reg_info_t {}
 }
 
 use common::mem_access_t;
@@ -39,38 +43,19 @@ struct Args {
     instr_predicate_is_neg: bool,
     instr_predicate_is_uniform: bool,
     instr_mem_space: u8,
+    instr_is_mem: bool,
     instr_is_load: bool,
     instr_is_store: bool,
     instr_is_extended: bool,
+    // mem addr
     mref_idx: u64,
-    pchannel_dev: u64,
+    // register info
+    dest_reg: Option<u32>,
+    num_src_regs: u32,
+    src_regs: [u32; common::MAX_SRC as usize],
+    // receiver channel
+    ptr_channel_dev: u64,
     line_num: u32,
-}
-
-impl Args {
-    pub fn new(instr: &mut nvbit_rs::Instruction<'_>, opcode_id: usize) -> Self {
-        let predicate = instr.predicate().unwrap_or(model::Predicate {
-            num: 0,
-            is_neg: false,
-            is_uniform: false,
-        });
-        Self {
-            instr_data_width: instr.size() as u32,
-            instr_opcode_id: opcode_id.try_into().unwrap(),
-            instr_offset: instr.offset(),
-            instr_idx: instr.idx(),
-            instr_predicate_num: predicate.num,
-            instr_predicate_is_neg: predicate.is_neg,
-            instr_predicate_is_uniform: predicate.is_uniform,
-            instr_mem_space: instr.memory_space() as u8,
-            instr_is_load: instr.is_load(),
-            instr_is_store: instr.is_store(),
-            instr_is_extended: instr.is_extended(),
-            mref_idx: 0,
-            pchannel_dev: 0,
-            line_num: 0,
-        }
-    }
 }
 
 fn open_trace_file(path: &Path) -> std::fs::File {
@@ -112,21 +97,80 @@ impl Args {
         instr.add_call_arg_const_val32(self.instr_opcode_id.try_into().unwrap_or_default());
         instr.add_call_arg_const_val32(self.instr_offset);
         instr.add_call_arg_const_val32(self.instr_idx);
-        instr.add_call_arg_const_val32(self.instr_predicate_num.try_into().unwrap_or_default());
-        instr.add_call_arg_const_val32(self.instr_predicate_is_neg.into());
-        instr.add_call_arg_const_val32(self.instr_predicate_is_uniform.into());
+        instr.add_call_arg_const_val32(self.line_num);
+
         instr.add_call_arg_const_val32(self.instr_mem_space.into());
-        instr.add_call_arg_const_val32(self.instr_is_load.into());
-        instr.add_call_arg_const_val32(self.instr_is_store.into());
-        instr.add_call_arg_const_val32(self.instr_is_extended.into());
+        instr.add_call_arg_const_val32(self.instr_predicate_num.try_into().unwrap_or_default());
+
+        // binary flags
+        let mut flags: BitArr!(for 32) = BitArray::ZERO;
+        flags.set(0, self.instr_is_mem);
+        flags.set(1, self.instr_is_load);
+        flags.set(2, self.instr_is_store);
+        flags.set(3, self.instr_is_extended);
+        flags.set(4, self.instr_predicate_is_neg);
+        flags.set(5, self.instr_predicate_is_uniform);
+        instr.add_call_arg_const_val32(flags.load_be::<u32>());
+        // instr.add_call_arg_const_val32(self.instr_predicate_is_neg.into());
+        // instr.add_call_arg_const_val32(self.instr_predicate_is_uniform.into());
+        // instr.add_call_arg_const_val32(self.instr_is_mem.into());
+        // instr.add_call_arg_const_val32(self.instr_is_load.into());
+        // instr.add_call_arg_const_val32(self.instr_is_store.into());
+        // instr.add_call_arg_const_val32(self.instr_is_extended.into());
+
+        // register info
+        // instr.add_call_arg_const_val32(self.dest_reg.unwrap_or(0));
+        //
+        // instr.add_call_arg_const_val32(1);
+        // instr.add_call_arg_const_val32(1);
+        // instr.add_call_arg_const_val32(1);
+        // instr.add_call_arg_const_val32(1);
+        // instr.add_call_arg_const_val32(1);
+        // let mut total = 0;
+        // for valid in 0..(self.num_src_regs as usize) {
+        //     instr.add_call_arg_const_val32(self.src_regs[valid]);
+        //     total += 1;
+        // }
+        // for remaining in self.num_src_regs..common::MAX_SRC {
+        //     instr.add_call_arg_const_val32(u32::MAX);
+        //     total += 1;
+        // }
+
+        // instr.add_call_arg_const_val32(self.num_src_regs);
+        // assert_eq!(total, common::MAX_SRC);
+
+        let reg_info = common::reg_info_t {
+            has_dest_reg: self.dest_reg.is_some(),
+            dest_reg: self.dest_reg.unwrap_or(0),
+            src_regs: self.src_regs,
+            num_src_regs: self.num_src_regs,
+        };
+        dbg!(&reg_info);
+        let dev_reg_info = unsafe { common::allocate_reg_info(reg_info) };
+        // let device_buffer =
+        //     rustacuda::memory::cuda_malloc::<common::reg_info_t>(std::mem::size_of::<
+        //         common::reg_info_t,
+        //     >())
+        //     .unwrap();
+
+        // let mut reg_info = rustacuda::memory::DeviceBox::new(&reg_info).unwrap();
+        // instr.add_call_arg_const_val64(dev_reg_info.as_device_ptr().as_raw_mut() as u64);
+        instr.add_call_arg_const_val64(dev_reg_info as u64);
 
         // memory reference 64 bit address
-        instr.add_call_arg_mref_addr64(self.mref_idx.try_into().unwrap_or_default());
-        // add "space" for kernel function pointer,
+        // instr.add_call_arg_mref_addr64(0);
+        if self.instr_is_mem {
+            instr.add_call_arg_mref_addr64(0);
+        } else {
+            instr.add_call_arg_const_val64(u64::MAX);
+        }
+
+        instr.add_call_arg_const_val64(self.ptr_channel_dev);
+
+        // add "space" for kernel_id function pointer,
         // that will be set at launch time
         // (64 bit value at offset 0 of the dynamic arguments)
         instr.add_call_arg_launch_val64(0);
-        instr.add_call_arg_const_val64(self.pchannel_dev);
     }
 }
 
@@ -154,6 +198,11 @@ struct Instrumentor<'c> {
 impl Instrumentor<'static> {
     fn new(ctx: nvbit_rs::Context<'static>) -> Arc<Self> {
         let mut dev_channel = nvbit_rs::DeviceChannel::new();
+        // assert_eq!(
+        //     unsafe { cuda_runtime_sys::cudaGetLastError() },
+        //     cuda_runtime_sys::cudaError::cudaSuccess
+        // );
+
         let host_channel = HostChannel::new(0, CHANNEL_SIZE, &mut dev_channel).unwrap();
 
         let own_bin_name = option_env!("CARGO_BIN_NAME");
@@ -225,16 +274,17 @@ impl Instrumentor<'static> {
         let mut packet_count = 0;
         while let Ok(packet) = rx.recv() {
             // when block_id_x == -1, the kernel has completed
-            if packet.block_id_x == -1 {
-                self.host_channel
-                    .lock()
-                    .unwrap()
-                    .stop()
-                    .expect("stop host channel");
-                break;
-            }
+            // if packet.block_id_x == -1 {
+            //     self.host_channel
+            //         .lock()
+            //         .unwrap()
+            //         .stop()
+            //         .expect("stop host channel");
+            //     break;
+            // }
             packet_count += 1;
 
+            // todo!("got a packet");
             // we keep the read lock for as long as encoding takes
             // so we avoid copying the opcode string
             let cuda_ctx = self.ctx.lock().unwrap().as_ptr() as u64;
@@ -256,12 +306,19 @@ impl Instrumentor<'static> {
                 std::mem::transmute(variant)
             };
 
-            let kernel_id = packet.kernel_id;
+            // dbg!(&packet);
+            // println!("is mem reg: {:?}", packet.dest_reg);
+            // println!("dest reg: {:?}", packet.dest_reg);
+            // println!("src regs: {:?}", packet.src_regs);
+            // println!("src reg num: {:?}", packet.num_src_regs);
+
             let entry = trace::MemAccessTraceEntry {
                 cuda_ctx,
-                kernel_id,
+                kernel_id: packet.kernel_id,
                 block_id,
-                warp_id: packet.warp_id.unsigned_abs(),
+                warp_id_in_sm: packet.warp_id_in_sm.unsigned_abs(),
+                warp_id_in_block: packet.warp_id_in_block.unsigned_abs(),
+                warp_size: packet.warp_size,
                 line_num: packet.line_num,
                 instr_data_width: packet.instr_data_width,
                 instr_opcode: opcode.clone(),
@@ -270,12 +327,28 @@ impl Instrumentor<'static> {
                 instr_idx: packet.instr_idx,
                 instr_predicate,
                 instr_mem_space,
+                instr_is_mem: packet.instr_is_mem,
                 instr_is_load: packet.instr_is_load,
                 instr_is_store: packet.instr_is_store,
                 instr_is_extended: packet.instr_is_extended,
                 active_mask: packet.active_mask & packet.predicate_mask,
+                dest_reg: if packet.has_dest_reg {
+                    Some(packet.dest_reg)
+                } else {
+                    None
+                },
+                src_regs: packet.src_regs,
+                num_src_regs: packet.num_src_regs,
                 addrs: packet.addrs,
             };
+
+            // cleanup
+            unsafe {
+                let ptr_reg_info = packet.ptr_reg_info as *mut common::reg_info_t;
+                common::deallocate_reg_info(ptr_reg_info);
+            };
+
+            // dbg!(&entry);
             json_encoder
                 .encode::<trace::MemAccessTraceEntry>(&entry)
                 .unwrap();
@@ -411,43 +484,24 @@ impl<'c> Instrumentor<'c> {
         }
     }
 
-    fn insert_instrumentation_before_instruction(
-        &self,
-        instr: &mut nvbit_rs::Instruction<'_>,
-        mut inst_args: Args,
-    ) {
-        instr.insert_call("instrument_inst", model::InsertionPoint::Before);
-
-        let mut pchannel_dev_lock = self.dev_channel.lock().unwrap();
-        inst_args.pchannel_dev = pchannel_dev_lock.as_mut_ptr() as u64;
-        // let data_width = instr.size() as u32;
-        // let inst_args = Args {
-        //     instr_data_width: data_width,
-        //     instr_opcode_id: opcode_id.try_into().unwrap(),
-        //     instr_offset: instr.offset(),
-        //     instr_idx: instr.idx(),
-        //     instr_predicate_num: predicate.num,
-        //     instr_predicate_is_neg: predicate.is_neg,
-        //     instr_predicate_is_uniform: predicate.is_uniform,
-        //     instr_mem_space: instr.memory_space() as u8,
-        //     instr_is_load: instr.is_load(),
-        //     instr_is_store: instr.is_store(),
-        //     instr_is_extended: instr.is_extended(),
-        //     mref_idx,
-        //     pchannel_dev: pchannel_dev_lock.as_mut_ptr() as u64,
-        //     line_num,
-        // };
-        inst_args.instrument(instr);
-    }
+    // fn insert_instrumentation_before_instruction(
+    //     &self,
+    //     instr: &mut nvbit_rs::Instruction<'_>,
+    //     mut inst_args: Args,
+    // ) {
+    //     instr.insert_call("instrument_inst", model::InsertionPoint::Before);
+    //
+    //     let mut pchannel_dev_lock = self.dev_channel.lock().unwrap();
+    //     inst_args.pchannel_dev = pchannel_dev_lock.as_mut_ptr() as u64;
+    //     inst_args.instrument(instr);
+    // }
 
     fn instrument_instruction(&self, instr: &mut nvbit_rs::Instruction<'_>) {
-        // instr.print_decoded();
-
         let line_info = instr.line_info(&mut self.ctx.lock().unwrap());
         let line_num = line_info.as_ref().map(|info| info.line).unwrap_or(0);
 
         let opcode = instr.opcode().expect("has opcode");
-        dbg!(&opcode);
+        // dbg!(&opcode);
 
         let opcode_id = {
             let mut opcode_to_id_map = self.opcode_to_id_map.write().unwrap();
@@ -469,31 +523,109 @@ impl<'c> Instrumentor<'c> {
 
         let mut instrumented = false;
 
-        if opcode.to_lowercase() == "exit" || full_trace {
-            let mut inst_args = Args::new(instr, opcode_id);
-            inst_args.line_num = line_num;
-            self.insert_instrumentation_before_instruction(instr, inst_args);
-            instrumented = true;
-        }
+        if full_trace
+            || opcode.to_lowercase() == "exit"
+            || instr.memory_space() != model::MemorySpace::None
+        {
+            // instr.print_decoded();
 
-        if instr.memory_space() != model::MemorySpace::None {
-            let mut mref_idx = 0;
-            // iterate on the operands
-            for operand in instr.operands().collect::<Vec<_>>() {
+            // check all operands
+            // For now, we ignore constant, TEX, predicates and unified registers.
+            // We only report vector regisers
+            let mut src_operands = [0u32; common::MAX_SRC as usize];
+            let mut src_num: usize = 0;
+            let mut dest_operand: Option<u32> = None;
+            let mut mem_operand_idx: Option<usize> = None;
+            // let mut num_mref = 0;
+
+            // find dst reg and handle the special case if the oprd[0] is mem...
+            // (e.g. store and RED)
+            match instr.operand(0).map(|op| op.kind()) {
+                Some(model::OperandKind::Register { num, .. }) => {
+                    dest_operand = Some(num.try_into().unwrap());
+                }
+                Some(model::OperandKind::MemRef { ra_num, .. }) => {
+                    src_operands[0] = ra_num.try_into().unwrap();
+                    mem_operand_idx = Some(0);
+                    src_num += 1;
+                }
+                _ => {}
+            }
+
+            // iterate on the operands to find src regs and mem
+            // for (op_id, operand) in instr.operands().enumerate().collect::<Vec<_>>() {
+            for operand in instr.operands().skip(1).collect::<Vec<_>>() {
                 println!("operand kind: {:?}", &operand.kind());
-                if let model::OperandKind::MemRef { .. } = operand.kind() {
-                    let mut inst_args = Args::new(instr, opcode_id);
-                    inst_args.mref_idx = mref_idx;
-                    inst_args.line_num = line_num;
+                match operand.kind() {
+                    model::OperandKind::MemRef { ra_num, .. } => {
+                        // mem is found
+                        assert!(src_num < common::MAX_SRC as usize);
+                        src_operands[src_num] = ra_num.try_into().unwrap();
+                        src_num += 1;
+                        // TODO: handle LDGSTS with two mem refs
+                        // for now, ensure one memory operand per inst
+                        assert!(mem_operand_idx.is_none());
+                        *mem_operand_idx.get_or_insert(0) += 1;
+                        // mem_operand_idx.map_inplace(|i| *i += 1);
+                        // num_mref += 1;
 
-                    self.insert_instrumentation_before_instruction(instr, inst_args);
-                    mref_idx += 1;
-                    instrumented = true;
+                        // let mut inst_args = Args::new(instr, opcode_id);
+                        // inst_args.mref_idx = mref_idx;
+                        // inst_args.line_num = line_num;
+                        //
+                        // self.insert_instrumentation_before_instruction(instr, inst_args);
+                        // mref_idx += 1;
+                        // instrumented = true;
+                    }
+                    model::OperandKind::Register { num, .. } => {
+                        // reg is found
+                        // if op_id == 0 {
+                        //     // find dst reg
+                        //     dst_operand = num;
+                        // } else {
+                        //     // find src regs
+                        assert!(src_num < common::MAX_SRC as usize);
+                        src_operands[src_num] = num.try_into().unwrap();
+                        src_num += 1;
+                        // }
+                    }
+                    _ => {
+                        // skip anything else (constant and predicates)
+                    }
                 }
             }
-        }
 
-        if instrumented {
+            let predicate = instr.predicate().unwrap_or(model::Predicate {
+                num: 0,
+                is_neg: false,
+                is_uniform: false,
+            });
+            let mut channel_dev_lock = self.dev_channel.lock().unwrap();
+            let mut inst_args = Args {
+                instr_data_width: instr.size() as u32,
+                instr_opcode_id: opcode_id.try_into().unwrap(),
+                instr_offset: instr.offset(),
+                instr_idx: instr.idx(),
+                instr_predicate_num: predicate.num,
+                instr_predicate_is_neg: predicate.is_neg,
+                instr_predicate_is_uniform: predicate.is_uniform,
+                instr_mem_space: instr.memory_space() as u8,
+                instr_is_mem: mem_operand_idx.is_some(),
+                instr_is_load: instr.is_load(),
+                instr_is_store: instr.is_store(),
+                instr_is_extended: instr.is_extended(),
+                mref_idx: 0,
+                dest_reg: dest_operand,
+                num_src_regs: src_num.try_into().unwrap(),
+                src_regs: src_operands,
+                ptr_channel_dev: channel_dev_lock.as_mut_ptr() as u64,
+                line_num,
+            };
+            dbg!(&inst_args);
+
+            instr.insert_call("instrument_inst", model::InsertionPoint::Before);
+            inst_args.instrument(instr);
+
             let instr_idx = instr.idx();
             let instr_offset = instr.offset();
             let source_file = line_info.map(|info| {
@@ -712,10 +844,10 @@ pub unsafe extern "C" fn nvbit_at_cuda_event(
     println!("nvbit_at_cuda_event: {event_name} (is_exit = {is_exit})");
 
     let lock = CONTEXTS.read().unwrap();
-    let Some(instrumentor) = lock.get(&ctx.handle()) else {
+    let Some(trace_ctx) = lock.get(&ctx.handle()) else {
         return;
     };
-    instrumentor.at_cuda_event(is_exit, cbid, &event_name, params, pstatus);
+    trace_ctx.at_cuda_event(is_exit, cbid, &event_name, params, pstatus);
 }
 
 #[no_mangle]
@@ -736,23 +868,23 @@ pub extern "C" fn nvbit_at_ctx_term(ctx: nvbit_rs::Context<'static>) {
 
     println!("nvbit_at_ctx_term");
     let lock = CONTEXTS.read().unwrap();
-    let Some(instr) = lock.get(&ctx.handle()) else {
+    let Some(trace_ctx) = lock.get(&ctx.handle()) else {
         return;
     };
 
-    *instr.skip_flag.lock().unwrap() = true;
+    *trace_ctx.skip_flag.lock().unwrap() = true;
     unsafe {
         // flush channel
-        let mut dev_channel = instr.dev_channel.lock().unwrap();
+        let mut dev_channel = trace_ctx.dev_channel.lock().unwrap();
         common::flush_channel(dev_channel.as_mut_ptr().cast());
 
         // make sure flush of channel is complete
         nvbit_sys::cuCtxSynchronize();
     };
-    *instr.skip_flag.lock().unwrap() = false;
+    *trace_ctx.skip_flag.lock().unwrap() = false;
 
     // stop the host channel
-    instr
+    trace_ctx
         .host_channel
         .lock()
         .unwrap()
@@ -760,25 +892,23 @@ pub extern "C" fn nvbit_at_ctx_term(ctx: nvbit_rs::Context<'static>) {
         .expect("stop host channel");
 
     // finish receiving packets
-    if let Some(recv_thread) = instr.recv_thread.lock().unwrap().take() {
+    if let Some(recv_thread) = trace_ctx.recv_thread.lock().unwrap().take() {
         recv_thread.join().expect("join receiver thread");
     }
 
-    instr.save_allocations();
-    instr.save_command_trace();
-    instr.generate_per_kernel_traces();
+    trace_ctx.save_allocations();
+    trace_ctx.save_command_trace();
+    trace_ctx.generate_per_kernel_traces();
 
     #[cfg(feature = "plot")]
-    instr.plot_memory_accesses();
+    trace_ctx.plot_memory_accesses();
 
-    println!(
-        "done after {:?}",
-        Instant::now().duration_since(instr.start)
-    );
+    // println!("done after {:?}", Instant::now().duration_since(ctx.start));
+    println!("done after {:?}", trace_ctx.start.elapsed());
 
     // this is often run as sudo, but we dont want to create files as sudo
     utils::rchown(
-        &instr.traces_dir,
+        &trace_ctx.traces_dir,
         utils::UID_NOBODY,
         utils::GID_NOBODY,
         false,

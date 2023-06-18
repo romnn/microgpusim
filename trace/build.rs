@@ -32,11 +32,14 @@ fn main() {
             .unwrap()
     );
 
-    nvbit_build::Build::new()
+    let result = nvbit_build::Build::new()
         .include(nvbit_build::nvbit_include())
         .include(nvbit_build::manifest_path().join("instrumentation"))
         .instrumentation_source("instrumentation/instrument_inst.cu")
         .source("instrumentation/tool.cu")
-        .compile(lib)
-        .unwrap();
+        .compile(lib);
+    if let Err(nvbit_build::Error::Command(std::process::Output { ref stderr, .. })) = result {
+        eprintln!("{}", &String::from_utf8_lossy(stderr));
+    }
+    result.unwrap();
 }
