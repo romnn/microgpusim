@@ -1,6 +1,6 @@
 use super::mem_fetch::{AccessKind, BitString, MemAccess};
 use super::opcodes::{ArchOp, Op, Opcode, OpcodeMap};
-use super::{address, mem_fetch, scheduler as sched};
+use super::{address, mem_fetch, operand_collector as opcoll, scheduler as sched};
 use crate::config;
 use crate::ported::mem_sub_partition::MAX_MEMORY_ACCESS_SIZE;
 
@@ -82,6 +82,8 @@ const SHARED_MEM_SIZE_MAX: u64 = 96 * (1 << 10);
 // Volta max local mem is 16kB
 const LOCAL_MEM_SIZE_MAX: u64 = 1 << 14;
 
+// const MAX_REG_OPERANDS: usize = 32;
+
 #[derive(Clone)]
 pub struct WarpInstruction {
     pub uid: usize,
@@ -92,7 +94,8 @@ pub struct WarpInstruction {
     pub active_mask: sched::ThreadActiveMask,
     pub cache_operator: CacheOperator,
     pub memory_space: MemorySpace,
-    pub threads: [PerThreadInfo; 32],
+    // pub threads: [PerThreadInfo; 32],
+    pub threads: Vec<PerThreadInfo>,
     pub mem_access_queue: VecDeque<MemAccess>,
     // todo: get rid of the empty and always use options for now
     empty: bool,
@@ -103,10 +106,16 @@ pub struct WarpInstruction {
     pub data_size: u32,
     pub is_atomic: bool,
 
-    outputs: [u32; 8],
-    out_count: usize,
-    inputs: [u32; 24],
-    in_count: usize,
+    // access only via the iterators that use in and out counts
+    outputs: [Option<u32>; 8],
+    // outputs: [u32; 8],
+    // out_count: usize,
+    inputs: [Option<u32>; 24],
+    // inputs: [u32; 24],
+    // in_count: usize,
+    /// register number for bank conflict evaluation
+    pub src_arch_reg: [Option<u32>; opcoll::MAX_REG_OPERANDS],
+    pub dest_arch_reg: [Option<u32>; opcoll::MAX_REG_OPERANDS],
     // bool m_mem_accesses_created;
     // std::list<mem_access_t> m_accessq;
     // m_decoded = false;
@@ -156,22 +165,61 @@ impl std::fmt::Debug for WarpInstruction {
 impl std::fmt::Display for WarpInstruction {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         if self.empty() {
-            write!(f, "Empty({}[pc={}])", self.opcode, self.pc)
+            write!(
+                f,
+                "Empty({}[pc={},warp={}])",
+                self.opcode, self.pc, self.warp_id
+            )
         } else {
-            write!(f, "{}[pc={}]", self.opcode, self.pc)
+            write!(f, "{}[pc={},warp={}]", self.opcode, self.pc, self.warp_id)
         }
     }
 }
 
-impl Default for WarpInstruction {
-    fn default() -> Self {
-        let mut threads = [(); 32].map(|_| PerThreadInfo::default());
+// impl Default for WarpInstruction {
+//     fn default() -> Self {
+//         let mut threads = [(); 32].map(|_| PerThreadInfo::default());
+//         Self {
+//             uid: 0,
+//             warp_id: 0,
+//             scheduler_id: 0,
+//             opcode: Opcode {
+//                 op: Op::NOP,
+//                 category: ArchOp::NO_OP,
+//             },
+//             pc: 0,
+//             threads,
+//             memory_space: MemorySpace::None,
+//             is_atomic: false,
+//             active_mask: BitArray::ZERO,
+//             cache_operator: CacheOperator::UNDEFINED,
+//             latency: 0,             // todo
+//             initiation_interval: 0, // todo
+//             data_size: 0,
+//             empty: true,
+//             mem_access_queue: VecDeque::new(),
+//             outputs: [0; 8],
+//             in_count: 0,
+//             inputs: [0; 24],
+//             out_count: 0,
+//         }
+//     }
+// }
+
+pub static MAX_WARP_SIZE: usize = 32;
+
+impl WarpInstruction {
+    pub fn new_empty(config: &config::GPUConfig) -> Self {
+        // let mut threads = [(); config.warp_size].map(|_| PerThreadInfo::default());
+        let mut threads = (0..config.warp_size)
+            .map(|_| PerThreadInfo::default())
+            .collect();
         Self {
             uid: 0,
             warp_id: 0,
             scheduler_id: 0,
             opcode: Opcode {
-                op: Op::LD,
+                op: Op::NOP,
                 category: ArchOp::NO_OP,
             },
             pc: 0,
@@ -185,19 +233,22 @@ impl Default for WarpInstruction {
             data_size: 0,
             empty: true,
             mem_access_queue: VecDeque::new(),
-            outputs: [0; 8],
-            in_count: 0,
-            inputs: [0; 24],
-            out_count: 0,
+            outputs: [None; 8],
+            // in_count: 0,
+            inputs: [None; 24],
+            // out_count: 0,
+            src_arch_reg: [(); opcoll::MAX_REG_OPERANDS].map(|_| None),
+            dest_arch_reg: [(); opcoll::MAX_REG_OPERANDS].map(|_| None),
+            // for (unsigned i = 0; i < MAX_REG_OPERANDS; i++) {
+            //   arch_reg.src[i] = -1;
+            //   arch_reg.dst[i] = -1;
+            // }
         }
     }
-}
 
-pub static MAX_WARP_SIZE: usize = 32;
-
-impl WarpInstruction {
     pub fn from_trace(
         // kernel: trace::KernelLaunch,
+        // config: &config::GPUConfig,
         kernel: &super::KernelInfo,
         trace: trace::MemAccessTraceEntry,
         // opcodes: &OpcodeMap,
@@ -205,9 +256,53 @@ impl WarpInstruction {
         // fill active mask
         let mut active_mask = BitArray::ZERO;
         active_mask.store(trace.active_mask);
-        let mut threads = [(); 32].map(|_| PerThreadInfo::default());
+        assert_eq!(active_mask.len(), trace.warp_size as usize);
+        let mut threads: Vec<_> = (0..active_mask.len())
+            .map(|_| PerThreadInfo::default())
+            .collect();
 
-        // todo: fill registers
+        // let mut src_arch_reg: [;] = [(); opcoll::MAX_REG_OPERANDS].map(|_| None);
+        let mut src_arch_reg = [None; opcoll::MAX_REG_OPERANDS];
+        let mut dest_arch_reg = [None; opcoll::MAX_REG_OPERANDS];
+        // let mut dest_arch_reg = [(); opcoll::MAX_REG_OPERANDS].map(|_| None);
+
+        // unsigned reg_dsts_num;
+        // unsigned reg_dest[MAX_DST];
+        // std::string opcode;
+        // unsigned reg_srcs_num;
+        // unsigned reg_src[MAX_SRC];
+
+        // fill regs information
+        let num_src_regs = trace.num_src_regs as usize;
+        let num_dest_regs = trace.num_dest_regs as usize;
+
+        let num_regs = num_src_regs + num_dest_regs;
+        let num_operands = num_regs;
+
+        // let mut in_count = 0;
+        // let mut out_count = 0;
+
+        // let mut outputs = [0; 8];
+        let mut outputs: [Option<u32>; 8] = [None; 8];
+        // let mut out_count = num_dest_regs;
+
+        for m in 0..num_dest_regs {
+            // increment by one because GPGPU-sim starts from R1, while SASS starts from R0
+            outputs[m] = Some(trace.dest_regs[m] + 1);
+            dest_arch_reg[m] = Some(trace.dest_regs[m] + 1);
+        }
+
+        // let mut inputs = [0; 24];
+        let mut inputs: [Option<u32>; 24] = [None; 24];
+        // let mut in_count = num_src_regs;
+        for m in 0..num_src_regs {
+            // increment by one because GPGPU-sim starts from R1, while SASS starts from R0
+            inputs[m] = Some(trace.src_regs[m] + 1);
+            src_arch_reg[m] = Some(trace.src_regs[m] + 1);
+        }
+
+        // fill latency and initl
+        // tconfig->set_latency(op, latency, initiation_interval);
 
         // fill addresses
         let mut data_size = 0;
@@ -336,7 +431,7 @@ impl WarpInstruction {
 
         Self {
             uid: 0,
-            warp_id: trace.warp_id as usize,
+            warp_id: trace.warp_id_in_block as usize, // todo: block or sm?
             scheduler_id: 0,
             opcode,
             pc: trace.instr_offset as usize,
@@ -351,19 +446,25 @@ impl WarpInstruction {
             empty: true,
             // empty: false,
             mem_access_queue: VecDeque::new(),
-            outputs: [0; 8],
-            in_count: 0,
-            inputs: [0; 24],
-            out_count: 0,
+            outputs,
+            // in_count,
+            inputs,
+            // out_count,
+            src_arch_reg,
+            dest_arch_reg,
         }
     }
 
-    pub fn inputs(&self) -> &[u32] {
-        &self.inputs[0..self.in_count]
+    // pub fn inputs(&self) -> &[u32] {
+    pub fn inputs(&self) -> impl Iterator<Item = &u32> {
+        self.inputs.iter().filter_map(Option::as_ref)
+        // &self.inputs[0..self.in_count]
     }
 
-    pub fn outputs(&self) -> &[u32] {
-        &self.outputs[0..self.out_count]
+    // pub fn outputs(&self) -> &[u32] {
+    pub fn outputs(&self) -> impl Iterator<Item = &u32> {
+        self.outputs.iter().filter_map(Option::as_ref)
+        // &self.outputs[0..self.out_count]
     }
 
     pub fn scheduler_id(&self) -> usize {

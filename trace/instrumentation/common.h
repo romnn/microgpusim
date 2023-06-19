@@ -1,10 +1,11 @@
 #include <stdint.h>
 
+#define MAX_DST 1
 #define MAX_SRC 5
 
 typedef struct {
-  bool has_dest_reg;
-  uint32_t dest_reg;
+  uint32_t dest_regs[MAX_DST];
+  uint32_t num_dest_regs;
   uint32_t src_regs[MAX_SRC];
   uint32_t num_src_regs;
 } reg_info_t;
@@ -41,14 +42,14 @@ typedef struct {
   uint64_t addrs[32];
 
   // register info
-  bool has_dest_reg;
-  uint32_t dest_reg;
+  uint32_t dest_regs[MAX_DST];
+  uint32_t num_dest_regs;
   uint32_t src_regs[MAX_SRC];
   uint32_t num_src_regs;
 } mem_access_t;
 
 extern "C" void flush_channel(void *channel_dev);
+
 extern "C" reg_info_t *allocate_reg_info(reg_info_t host_info);
 
-// extern "C" void deallocate_reg_info(reg_info_t *dev_info);
 extern "C" void cuda_free(void *dev_ptr);

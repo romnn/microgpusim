@@ -1,6 +1,6 @@
 #### TODO
 - BUGS to be fixed:
-  - after issue, the instruction buffer should be emptied
+  - DONE: after issue, the instruction buffer should be emptied
   - after the issue, the ordering of warps should be different (test that in unit tests)
 
   - returning fetches have the block addr instead of their original address, see core todo...
@@ -9,7 +9,14 @@
     - warps with id 32+ do not have the correct warp id set
   - FIXED: mshr_addr probe is not working (keeps re-sending already sent requests to interconn) 
 
-- for comparison: add exit instructions to traces
+
+- when we arrive at model completeness
+  - test box vs non box execution
+  - output statistics
+  - verify implementations for components
+  - build a refactored version based on the akita event driven model
+
+- DONE: for comparison: add exit instructions to traces
 
 - who creates mem fetches?
   - l1 data

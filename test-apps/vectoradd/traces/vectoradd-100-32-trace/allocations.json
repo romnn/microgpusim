@@ -1,14 +1,34 @@
 [
     {
-        "device_ptr": 139638971826176,
+        "device_ptr": 139903215075328,
         "num_bytes": 400
     },
     {
-        "device_ptr": 139638971826688,
+        "device_ptr": 139903215075840,
         "num_bytes": 400
     },
     {
-        "device_ptr": 139638971827200,
+        "device_ptr": 139903215076352,
         "num_bytes": 400
+    },
+    {
+        "device_ptr": 139903215076864,
+        "num_bytes": 32
+    },
+    {
+        "device_ptr": 139903215077376,
+        "num_bytes": 32
+    },
+    {
+        "device_ptr": 139903215077888,
+        "num_bytes": 32
+    },
+    {
+        "device_ptr": 139903215078400,
+        "num_bytes": 32
+    },
+    {
+        "device_ptr": 139903215078912,
+        "num_bytes": 32
     }
 ]

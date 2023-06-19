@@ -1,5 +1,6 @@
-use super::ported::{addrdec, address, mem_sub_partition, utils, KernelInfo};
+use super::ported::{addrdec, address, core::PipelineStage, mem_sub_partition, utils, KernelInfo};
 use color_eyre::eyre;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 /// Cache kind.
@@ -261,7 +262,7 @@ impl std::fmt::Display for CacheConfig {
 }
 
 /// todo: remove the copy stuff, very expensive otherwise
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GPUConfig {
     /// The SM number to pass to ptxas when getting register usage for
     /// computing GPU occupancy.
@@ -355,6 +356,50 @@ pub struct GPUConfig {
     pub reg_bank_use_warp_id: bool, // 0
     /// Sub Core Volta/Pascal model (default = off)
     pub sub_core_model: bool, // 0
+    /// enable_specialized_operand_collector
+    pub enable_specialized_operand_collector: bool, // true
+    /// number of collector units (default = 4)
+    pub operand_collector_num_units_sp: usize, // 4
+    /// number of collector units (default = 0)
+    pub operand_collector_num_units_dp: usize, // 0
+    /// number of collector units (default = 4)
+    pub operand_collector_num_units_sfu: usize, // 4
+    /// number of collector units (default = 0)
+    pub operand_collector_num_units_int: usize, // 0
+    /// number of collector units (default = 4)
+    pub operand_collector_num_units_tensor_core: usize, // 4
+    /// number of collector units (default = 2)
+    pub operand_collector_num_units_mem: usize, // 2
+    /// number of collector units (default = 0)
+    pub operand_collector_num_units_gen: usize, // 0
+    /// number of collector unit in ports (default = 1)
+    pub operand_collector_num_in_ports_sp: usize, // 1
+    /// number of collector unit in ports (default = 0)
+    pub operand_collector_num_in_ports_dp: usize, // 0
+    /// number of collector unit in ports (default = 1)
+    pub operand_collector_num_in_ports_sfu: usize, // 1
+    /// number of collector unit in ports (default = 0)
+    pub operand_collector_num_in_ports_int: usize, // 0
+    /// number of collector unit in ports (default = 1)
+    pub operand_collector_num_in_ports_tensor_core: usize, // 1
+    /// number of collector unit in ports (default = 1)
+    pub operand_collector_num_in_ports_mem: usize, // 1
+    /// number of collector unit in ports (default = 0)
+    pub operand_collector_num_in_ports_gen: usize, // 0
+    /// number of collector unit in ports (default = 1)
+    pub operand_collector_num_out_ports_sp: usize, // 1
+    /// number of collector unit in ports (default = 0)
+    pub operand_collector_num_out_ports_dp: usize, // 0
+    /// number of collector unit in ports (default = 1)
+    pub operand_collector_num_out_ports_sfu: usize, // 1
+    /// number of collector unit in ports (default = 0)
+    pub operand_collector_num_out_ports_int: usize, // 0
+    /// number of collector unit in ports (default = 1)
+    pub operand_collector_num_out_ports_tensor_core: usize, // 1
+    /// number of collector unit in ports (default = 1)
+    pub operand_collector_num_out_ports_mem: usize, // 1
+    /// number of collector unit in ports (default = 0)
+    pub operand_collector_num_out_ports_gen: usize, // 0
     /// Coalescing arch (GT200 = 13, Fermi = 20)
     pub coalescing_arch: Architecture, // 13
     /// Number of warp schedulers per core
@@ -365,7 +410,28 @@ pub struct GPUConfig {
     pub dual_issue_diff_exec_units: bool, // 1
     /// Select the simulation order of cores in a cluster
     pub simt_core_sim_order: SchedulingOrder, // 1
-    /// Number if ldst units (default=1) WARNING: not hooked up to anything
+    // Pipeline widths
+    //
+    // ID_OC_SP,ID_OC_DP,ID_OC_INT,ID_OC_SFU,ID_OC_MEM,OC_EX_SP,OC_EX_DP,
+    // OC_EX_INT,OC_EX_SFU,OC_EX_MEM,EX_WB,ID_OC_TENSOR_CORE,OC_EX_TENSOR_CORE
+    //
+    pub pipeline_widths: HashMap<PipelineStage, usize>, // 4,0,0,1,1,4,0,0,1,1,6
+    /// Number of SP units
+    pub num_sp_units: usize, // 4
+    /// Number of DP units
+    pub num_dp_units: usize, // 0
+    /// Number of INT units
+    pub num_int_units: usize, // 0
+
+    /// Number of SF units
+    pub num_sfu_units: usize, // 1
+    /// Number of tensor cores available
+    pub num_tensor_core_avail: usize, // 0
+    /// Number of tensor_core units
+    pub num_tensor_core_units: usize, // 0
+    /// Number of ldst units
+    ///
+    /// WARNING: not hooked up to anything
     pub num_mem_units: usize, // 1
     /// Scheduler configuration: < lrr | gto | two_level_active > If two_level_active:<num_active_warps>:<inner_prioritization>:<outer_prioritization>For complete list of prioritization values see shader.h enum scheduler_prioritization_typeDefault: gto
     pub scheduler: CoreSchedulerKind, // gto
@@ -428,7 +494,7 @@ pub struct GPUConfig {
     pub dram_seperate_write_queue_enable: bool, // 0
     /// write_Queue_Size
     /// dram_frfcfs_write_queue_size:high_watermark:low_watermark
-    pub dram_frfcfs_write_queue_size: usize, // 32:28:16 
+    pub dram_frfcfs_write_queue_size: usize, // 32:28:16
     /// elimnate_rw_turnaround i.e set tWTR and tRTW = 0
     pub dram_elimnate_rw_turnaround: bool, // 0
     /// mapping memory address to dram model
@@ -1033,11 +1099,55 @@ impl Default for GPUConfig {
             num_reg_banks: 32,
             reg_bank_use_warp_id: false,
             sub_core_model: false,
+            enable_specialized_operand_collector: true,
+            operand_collector_num_units_sp: 20, // 4,
+            operand_collector_num_units_dp: 0,
+            operand_collector_num_units_sfu: 4,
+            operand_collector_num_units_int: 0,
+            operand_collector_num_units_tensor_core: 4,
+            operand_collector_num_units_mem: 8, // 2,
+            operand_collector_num_units_gen: 0,
+            operand_collector_num_in_ports_sp: 4, // 1,
+            operand_collector_num_in_ports_dp: 0,
+            operand_collector_num_in_ports_sfu: 1,
+            operand_collector_num_in_ports_int: 0,
+            operand_collector_num_in_ports_tensor_core: 1,
+            operand_collector_num_in_ports_mem: 1,
+            operand_collector_num_in_ports_gen: 0,
+            operand_collector_num_out_ports_sp: 4, // 1,
+            operand_collector_num_out_ports_dp: 0,
+            operand_collector_num_out_ports_sfu: 1,
+            operand_collector_num_out_ports_int: 0,
+            operand_collector_num_out_ports_tensor_core: 1,
+            operand_collector_num_out_ports_mem: 1,
+            operand_collector_num_out_ports_gen: 0,
             coalescing_arch: Architecture::GT200,
             num_schedulers_per_core: 2,
             max_instruction_issue_per_warp: 2,
             dual_issue_diff_exec_units: true,
             simt_core_sim_order: SchedulingOrder::RoundRobin,
+            pipeline_widths: HashMap::from_iter([
+                (PipelineStage::ID_OC_SP, 4),
+                (PipelineStage::ID_OC_DP, 0),
+                (PipelineStage::ID_OC_INT, 0),
+                (PipelineStage::ID_OC_SFU, 1),
+                (PipelineStage::ID_OC_MEM, 1),
+                (PipelineStage::OC_EX_SP, 4),
+                (PipelineStage::OC_EX_DP, 0),
+                (PipelineStage::OC_EX_INT, 0),
+                (PipelineStage::OC_EX_SFU, 1),
+                (PipelineStage::OC_EX_MEM, 1),
+                (PipelineStage::EX_WB, 6),
+                // don't have tensor cores
+                (PipelineStage::ID_OC_TENSOR_CORE, 0),
+                (PipelineStage::OC_EX_TENSOR_CORE, 0),
+            ]),
+            num_sp_units: 4,
+            num_dp_units: 0,
+            num_int_units: 0,
+            num_sfu_units: 1,
+            num_tensor_core_avail: 0,
+            num_tensor_core_units: 0,
             num_mem_units: 1,
             scheduler: CoreSchedulerKind::GTO,
             concurrent_kernel_sm: false,
@@ -1131,5 +1241,4 @@ mod tests {
         assert_eq!(instr_cache_config.mshr_addr(4026531848), 4026531840);
         assert_eq!(instr_cache_config.mshr_addr(4026531992), 4026531968);
     }
-
 }

@@ -10,6 +10,7 @@ Scoreboard::Scoreboard(unsigned sid, unsigned n_warps,
                        class trace_gpgpu_sim *gpu)
     : longopregs() {
   m_sid = sid;
+
   // Initialize size of table
   reg_table.resize(n_warps);
   longopregs.resize(n_warps);
@@ -31,18 +32,6 @@ void Scoreboard::printContents() const {
   }
 }
 
-void Scoreboard::reserveRegister(unsigned wid, unsigned regnum) {
-  if (!(reg_table[wid].find(regnum) == reg_table[wid].end())) {
-    printf("Error: trying to reserve an already reserved register (sid=%d, "
-           "wid=%d, regnum=%d).",
-           m_sid, wid, regnum);
-    abort();
-  }
-  SHADER_DPRINTF(SCOREBOARD, "Reserved Register - warp:%d, reg: %d\n", wid,
-                 regnum);
-  reg_table[wid].insert(regnum);
-}
-
 // Unmark register as write-pending
 void Scoreboard::releaseRegister(unsigned wid, unsigned regnum) {
   if (!(reg_table[wid].find(regnum) != reg_table[wid].end()))
@@ -54,6 +43,18 @@ void Scoreboard::releaseRegister(unsigned wid, unsigned regnum) {
 
 const bool Scoreboard::islongop(unsigned warp_id, unsigned regnum) {
   return longopregs[warp_id].find(regnum) != longopregs[warp_id].end();
+}
+
+void Scoreboard::reserveRegister(unsigned wid, unsigned regnum) {
+  if (!(reg_table[wid].find(regnum) == reg_table[wid].end())) {
+    printf("Error: trying to reserve an already reserved register (sid=%d, "
+           "wid=%d, regnum=%d).",
+           m_sid, wid, regnum);
+    abort();
+  }
+  SHADER_DPRINTF(SCOREBOARD, "Reserved Register - warp:%d, reg: %d\n", wid,
+                 regnum);
+  reg_table[wid].insert(regnum);
 }
 
 void Scoreboard::reserveRegisters(const class warp_inst_t *inst) {

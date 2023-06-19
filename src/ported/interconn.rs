@@ -190,9 +190,10 @@ pub trait MemFetchInterface: std::fmt::Debug {
     // fn new() -> Self;
     // fn full(&self, size: u32, write: bool) -> bool;
     // fn push(&self, fetch: MemFetch);
-    fn full(&self, size: u32, write: bool) -> bool {
-        todo!("mem fetch interface: full");
-    }
+    fn full(&self, size: u32, write: bool) -> bool;
+    // -> bool {
+    //     todo!("mem fetch interface: full");
+    // }
 
     fn push(&self, fetch: mem_fetch::MemFetch) {
         todo!("mem fetch interface: full");
@@ -215,9 +216,9 @@ pub trait MemFetchInterface: std::fmt::Debug {
 //     }
 // }
 
-#[derive(Debug)]
-pub struct MockCoreMemoryInterface {}
-impl MemFetchInterface for MockCoreMemoryInterface {}
+// #[derive(Debug)]
+// pub struct MockCoreMemoryInterface {}
+// impl MemFetchInterface for MockCoreMemoryInterface {}
 
 #[derive()]
 pub struct CoreMemoryInterface<P> {

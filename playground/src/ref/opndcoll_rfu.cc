@@ -248,6 +248,7 @@ void opndcoll_rfu_t::allocate_cu(unsigned port_num) {
   input_port_t &inp = m_in_ports[port_num];
   for (unsigned i = 0; i < inp.m_in.size(); i++) {
     if ((*inp.m_in[i]).has_ready()) {
+      // throw std::runtime_error("allocate cu for the first time");
       // find a free cu
       for (unsigned j = 0; j < inp.m_cu_sets.size(); j++) {
         std::vector<collector_unit_t> &cu_set = m_cus[inp.m_cu_sets[j]];
@@ -268,6 +269,8 @@ void opndcoll_rfu_t::allocate_cu(unsigned port_num) {
           assert(0 <= cuLowerBound && cuUpperBound <= cu_set.size());
         }
         for (unsigned k = cuLowerBound; k < cuUpperBound; k++) {
+          printf("cu set %d of port %d of port %d free=%d\n", k, i, port_num,
+                 cu_set[k].is_free());
           if (cu_set[k].is_free()) {
             collector_unit_t *cu = &cu_set[k];
             allocated = cu->allocate(inp.m_in[i], inp.m_out[i]);
@@ -307,6 +310,7 @@ void opndcoll_rfu_t::allocate_reads() {
     unsigned operand = op.get_operand();
     m_cu[cu]->collect_operand(operand);
     if (m_shader->get_config()->gpgpu_clock_gated_reg_file) {
+      throw std::runtime_error("todo: clock gated register file");
       unsigned active_count = 0;
       for (unsigned i = 0; i < m_shader->get_config()->warp_size;
            i = i + m_shader->get_config()->n_regfile_gating_group) {
@@ -365,6 +369,7 @@ bool opndcoll_rfu_t::collector_unit_t::allocate(register_set *pipeline_reg_set,
                                                 register_set *output_reg_set) {
   assert(m_free);
   assert(m_not_ready.none());
+  // throw std::runtime_error("no longer free");
   m_free = false;
   m_output_register = output_reg_set;
   warp_inst_t **pipeline_reg = pipeline_reg_set->get_ready();
@@ -383,6 +388,7 @@ bool opndcoll_rfu_t::collector_unit_t::allocate(register_set *pipeline_reg_set,
       }
       if (reg_num >= 0 && new_reg) { // valid register
         prev_regs.push_back(reg_num);
+        // throw std::runtime_error("new operand");
         m_src_op[op] = op_t(this, op, reg_num, m_num_banks, m_bank_warp_shift,
                             m_sub_core_model, m_num_banks_per_sched,
                             (*pipeline_reg)->get_schd_id());
@@ -391,6 +397,7 @@ bool opndcoll_rfu_t::collector_unit_t::allocate(register_set *pipeline_reg_set,
         m_src_op[op] = op_t();
     }
     // move_warp(m_warp,*pipeline_reg);
+    // throw std::runtime_error("opcoll::move out to");
     pipeline_reg_set->move_out_to(m_warp);
     return true;
   }
@@ -400,6 +407,9 @@ bool opndcoll_rfu_t::collector_unit_t::allocate(register_set *pipeline_reg_set,
 void opndcoll_rfu_t::collector_unit_t::dispatch() {
   assert(m_not_ready.none());
   m_output_register->move_in(m_sub_core_model, m_reg_id, m_warp);
+
+  // throw std::runtime_error("free again");
+  // assert(0 && "free again");
   m_free = true;
   m_output_register = NULL;
   for (unsigned i = 0; i < MAX_REG_OPERANDS * 2; i++)

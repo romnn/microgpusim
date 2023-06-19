@@ -1,20 +1,50 @@
 [
     {
         "MemcpyHtoD": {
-            "dest_device_addr": 139638971826176,
+            "dest_device_addr": 139903215075328,
             "num_bytes": 400
         }
     },
     {
         "MemcpyHtoD": {
-            "dest_device_addr": 139638971826688,
+            "dest_device_addr": 139903215075840,
             "num_bytes": 400
         }
     },
     {
         "MemcpyHtoD": {
-            "dest_device_addr": 139638971827200,
+            "dest_device_addr": 139903215076352,
             "num_bytes": 400
+        }
+    },
+    {
+        "MemcpyHtoD": {
+            "dest_device_addr": 139903215076864,
+            "num_bytes": 32
+        }
+    },
+    {
+        "MemcpyHtoD": {
+            "dest_device_addr": 139903215077376,
+            "num_bytes": 32
+        }
+    },
+    {
+        "MemcpyHtoD": {
+            "dest_device_addr": 139903215077888,
+            "num_bytes": 32
+        }
+    },
+    {
+        "MemcpyHtoD": {
+            "dest_device_addr": 139903215078400,
+            "num_bytes": 32
+        }
+    },
+    {
+        "MemcpyHtoD": {
+            "dest_device_addr": 139903215078912,
+            "num_bytes": 32
         }
     },
     {
@@ -36,8 +66,8 @@
             "num_registers": 8,
             "binary_version": 61,
             "stream_id": 0,
-            "shared_mem_base_addr": 139639671226368,
-            "local_mem_base_addr": 139639637671936,
+            "shared_mem_base_addr": 139903979487232,
+            "local_mem_base_addr": 139903945932800,
             "nvbit_version": "1.5.5"
         }
     }

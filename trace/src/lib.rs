@@ -6,7 +6,6 @@
 )]
 
 use bitvec::{array::BitArray, field::BitField, BitArr};
-// use lazy_static::lazy_static;
 use nvbit_io::{Decoder, Encoder};
 use nvbit_rs::{model, DeviceChannel, HostChannel};
 use once_cell::sync::Lazy;
@@ -63,6 +62,8 @@ struct Args {
     mref_idx: u64,
     // register info
     dest_reg: Option<u32>,
+    // num_dest_regs: u32,
+    // dest_regs: [u32; common::MAX_DST as usize],
     num_src_regs: u32,
     src_regs: [u32; common::MAX_SRC as usize],
     // receiver channel
@@ -126,8 +127,10 @@ impl Args {
 
         // register info is allocated on the device and passed by pointer
         let reg_info = reg_info_t {
-            has_dest_reg: self.dest_reg.is_some(),
-            dest_reg: self.dest_reg.unwrap_or(0),
+            // has_dest_reg: self.dest_reg.is_some(),
+            // dest_reg: self.dest_reg.unwrap_or(0),
+            dest_regs: [self.dest_reg.unwrap_or(0)],
+            num_dest_regs: if self.dest_reg.is_some() { 1 } else { 0 },
             src_regs: self.src_regs,
             num_src_regs: self.num_src_regs,
         };
@@ -306,11 +309,13 @@ impl Instrumentor<'static> {
                 instr_is_store: packet.instr_is_store,
                 instr_is_extended: packet.instr_is_extended,
                 active_mask: packet.active_mask & packet.predicate_mask,
-                dest_reg: if packet.has_dest_reg {
-                    Some(packet.dest_reg)
-                } else {
-                    None
-                },
+                // dest_reg: if packet.has_dest_reg {
+                //     Some(packet.dest_reg)
+                // } else {
+                //     None
+                // },
+                dest_regs: packet.dest_regs,
+                num_dest_regs: packet.num_dest_regs,
                 src_regs: packet.src_regs,
                 num_src_regs: packet.num_src_regs,
                 addrs: packet.addrs,
@@ -340,16 +345,7 @@ impl Instrumentor<'static> {
 type ContextHandle = nvbit_rs::ContextHandle<'static>;
 type Contexts = HashMap<ContextHandle, Arc<Instrumentor<'static>>>;
 
-// lazy_static! {
-//     static mut CONTEXTS: Contexts = HashMap::new();
-// }
-
 static mut CONTEXTS: Lazy<Contexts> = Lazy::new(HashMap::new);
-// unsafe { std::mem::uninitialized() };
-// HashMap::new();
-// lazy_static! {
-//     static ref CONTEXTS: RwLock<Contexts> = RwLock::new(HashMap::new());
-// }
 
 impl<'c> Instrumentor<'c> {
     fn at_cuda_event(
@@ -486,6 +482,10 @@ impl<'c> Instrumentor<'c> {
             || opcode.to_lowercase() == "exit"
             || instr.memory_space() != model::MemorySpace::None
         {
+            if instr.memory_space() == model::MemorySpace::Constant {
+                return;
+            }
+
             // instr.print_decoded();
 
             // check all operands
@@ -564,7 +564,7 @@ impl<'c> Instrumentor<'c> {
                 ptr_channel_dev: channel_dev_lock.as_mut_ptr() as u64,
                 line_num,
             };
-            dbg!(&inst_args);
+            // dbg!(&inst_args);
 
             instr.insert_call("instrument_inst", model::InsertionPoint::Before);
             inst_args.instrument(self, instr);
@@ -780,7 +780,7 @@ pub extern "C" fn nvbit_at_cuda_event(
     pstatus: *mut nvbit_sys::CUresult,
 ) {
     let is_exit = is_exit != 0;
-    println!("nvbit_at_cuda_event: {event_name} (is_exit = {is_exit})");
+    // println!("nvbit_at_cuda_event: {event_name} (is_exit = {is_exit})");
 
     if let Some(trace_ctx) = unsafe { CONTEXTS.get(&ctx.handle()) } {
         trace_ctx.at_cuda_event(is_exit, cbid, &event_name, params, pstatus);
@@ -798,7 +798,16 @@ pub extern "C" fn nvbit_at_ctx_init(ctx: nvbit_rs::Context<'static>) {
     }
 }
 
-fn finalize_trace_ctx(trace_ctx: &Instrumentor<'_>) {
+#[no_mangle]
+#[inline(never)]
+pub extern "C" fn nvbit_at_ctx_term(ctx: nvbit_rs::Context<'static>) {
+    use std::io::Write;
+
+    println!("nvbit_at_ctx_term");
+    let Some(trace_ctx) = (unsafe { CONTEXTS.get(&ctx.handle()) }) else {
+        return;
+    };
+
     // skip all cuda events
     *trace_ctx.skip_flag.lock().unwrap() = true;
 
@@ -848,17 +857,6 @@ fn finalize_trace_ctx(trace_ctx: &Instrumentor<'_>) {
         unsafe {
             common::cuda_free(*dev_ptr as *mut std::ffi::c_void);
         };
-    }
-}
-
-#[no_mangle]
-#[inline(never)]
-pub extern "C" fn nvbit_at_ctx_term(ctx: nvbit_rs::Context<'static>) {
-    use std::io::Write;
-
-    println!("nvbit_at_ctx_term");
-    if let Some(trace_ctx) = unsafe { CONTEXTS.get(&ctx.handle()) } {
-        finalize_trace_ctx(trace_ctx);
     }
 
     // do not remove the context!

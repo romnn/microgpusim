@@ -64,9 +64,24 @@ impl Scoreboard {
         // todo!("scoreboard: pending writes");
     }
 
+    pub fn release_register(&mut self, warp_id: usize, reg_num: u32) {
+        // if (!(reg_table[wid].find(regnum) != reg_table[wid].end()))
+        //     return;
+        //   SHADER_DPRINTF(SCOREBOARD, "Release register - warp:%d, reg: %d\n", wid,
+        //                  regnum);
+        self.register_table[warp_id].remove(&reg_num);
+    }
+
+    pub fn release_registers(&mut self, instr: &WarpInstruction) {
+        for &out_reg in instr.outputs() {
+            self.release_register(instr.warp_id, out_reg);
+            self.long_op_registers[instr.warp_id].remove(&out_reg);
+        }
+    }
+
     pub fn reserve_register(&mut self, warp_id: usize, reg_num: u32) {
         let warp_registers = &mut self.register_table[warp_id];
-        if !warp_registers.contains(&reg_num) {
+        if warp_registers.contains(&reg_num) {
             panic!("trying to reserve an already reserved register (core_id={}, warp_id={}, reg_num={})",
            self.core_id, warp_id, reg_num);
         }
@@ -74,6 +89,7 @@ impl Scoreboard {
     }
 
     pub fn reserve_registers(&mut self, instr: &WarpInstruction) {
+        // dbg!(&self.register_table);
         for &out_reg in instr.outputs() {
             self.reserve_register(instr.warp_id, out_reg);
         }

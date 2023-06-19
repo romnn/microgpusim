@@ -19,6 +19,8 @@ pub mod register_set;
 pub mod scheduler;
 pub mod scoreboard;
 pub mod set_index_function;
+pub mod simd_function_unit;
+pub mod sp_unit;
 pub mod stats;
 pub mod tag_array;
 pub mod utils;
@@ -32,6 +34,7 @@ use mem_fetch::*;
 use mem_sub_partition::*;
 use scheduler::*;
 use set_index_function::*;
+use sp_unit::*;
 use stats::Stats;
 use tag_array::*;
 use utils::*;
@@ -197,8 +200,23 @@ impl KernelInfo {
         let mut trace = read_trace(&trace_path).unwrap();
         // trace.sort_unstable_by(|a, b| (a.block_id, a.warp_id).cmp(&(b.block_id, b.warp_id)));
         trace.sort_unstable_by(|a, b| {
-            (a.block_id, a.warp_id, a.instr_offset).cmp(&(b.block_id, b.warp_id, b.instr_offset))
+            (a.block_id, a.warp_id_in_block, a.instr_offset).cmp(&(
+                b.block_id,
+                b.warp_id_in_block,
+                b.instr_offset,
+            ))
         });
+        dbg!(&trace
+            .iter()
+            .map(|i| (
+                &i.block_id,
+                &i.warp_id_in_block,
+                &i.instr_offset,
+                &i.instr_opcode
+            ))
+            .collect::<Vec<_>>());
+
+        // panic!("read trace");
         let mut trace_iter = trace.clone().into_iter();
 
         let next_block_iter = Mutex::new(config.grid.into_iter().peekable());
@@ -250,9 +268,9 @@ impl KernelInfo {
         let mut lock = self.trace_iter.write().unwrap();
         let trace_iter = lock.take_while_ref(|entry| entry.block_id == next_block);
         for trace in trace_iter {
-            dbg!(&trace.warp_id);
-            dbg!(&trace.instr_offset);
-            let warp_id = trace.warp_id as usize;
+            // dbg!(&trace.warp_id_in_block);
+            // dbg!(&trace.instr_offset);
+            let warp_id = trace.warp_id_in_block as usize;
             let instr = instruction::WarpInstruction::from_trace(&self, trace);
             // warps[warp_id] = Some(SchedulerWarp::default());
             let warp = warps.get_mut(warp_id).unwrap();
@@ -279,6 +297,7 @@ impl KernelInfo {
         //     // }
         // }
         // println!("added {total} instructions");
+        // panic!("threadblock traces: {:#?}", warp.push_trace_instruciton);
 
         // temp: add exit instructions to traces if not already
         // for warp in warps.iter_mut() {

@@ -2,6 +2,9 @@
 
 /target
 
+# cuda installation files
+cuda_*.run
+
 # json traces can get too big
 /test-apps/*/traces/*/trace.json
 

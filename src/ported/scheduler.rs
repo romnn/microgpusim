@@ -605,6 +605,7 @@ impl BaseSchedulerUnit {
                             | ArchOp::TENSOR_CORE_LOAD_OP
                             | ArchOp::TENSOR_CORE_STORE_OP => {
                                 let mem_stage = PipelineStage::ID_OC_MEM;
+
                                 let free_register = issuer.has_free_register(mem_stage, self.id);
 
                                 if free_register
@@ -633,14 +634,10 @@ impl BaseSchedulerUnit {
                                     let mut execute_on_sp = false;
                                     let mut execute_on_int = false;
 
-                                    // this is weird? but the default config for now
-                                    let num_int_units = 0;
-                                    let num_sp_units = 4;
-
-                                    let sp_pipe_avail = num_sp_units > 0
+                                    let sp_pipe_avail = self.config.num_sp_units > 0
                                         && issuer
                                             .has_free_register(PipelineStage::ID_OC_SP, self.id);
-                                    let int_pipe_avail = num_int_units > 0
+                                    let int_pipe_avail = self.config.num_int_units > 0
                                         && issuer
                                             .has_free_register(PipelineStage::ID_OC_INT, self.id);
                                     dbg!(&sp_pipe_avail);
@@ -657,8 +654,9 @@ impl BaseSchedulerUnit {
                                     {
                                         execute_on_int = true;
                                     } else if sp_pipe_avail
-                                        && (num_int_units == 0
-                                            || (num_int_units > 0 && op == ArchOp::SP_OP))
+                                        && (self.config.num_int_units == 0
+                                            || (self.config.num_int_units > 0
+                                                && op == ArchOp::SP_OP))
                                         && !(diff_exec_units
                                             && prev_issued_exec_unit == ExecUnitKind::SP)
                                     {

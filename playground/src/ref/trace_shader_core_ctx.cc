@@ -220,16 +220,18 @@ void trace_shader_core_ctx::func_exec_inst(warp_inst_t &inst) {
       static_cast<trace_shd_warp_t *>(m_warp[inst.warp_id()]);
 
   assert(inst.warp_id() == m_trace_warp->get_warp_id());
-  printf("warp=%d executed pc=%lu \t(trace done=%d (%d/%lu) functional "
-         "done=%d)\n",
-         m_trace_warp->get_warp_id(),
-         // static_cast<const trace_warp_inst_t &>(inst).opcode_str(),
-         m_trace_warp->get_pc(), m_trace_warp->trace_done(),
-         m_trace_warp->trace_pc, m_trace_warp->warp_traces.size(),
-         m_trace_warp->functional_done());
   if (m_trace_warp->trace_done() && m_trace_warp->functional_done()) {
+    printf("warp=%d completed\n", m_trace_warp->get_warp_id());
     m_trace_warp->ibuffer_flush();
     m_barriers.warp_exit(inst.warp_id());
+  } else {
+    printf("warp=%d executed pc=%lu \t(trace done=%d (%d/%lu) functional "
+           "done=%d)\n",
+           m_trace_warp->get_warp_id(),
+           // static_cast<const trace_warp_inst_t &>(inst).opcode_str(),
+           m_trace_warp->get_pc(), m_trace_warp->trace_done(),
+           m_trace_warp->trace_pc, m_trace_warp->warp_traces.size(),
+           m_trace_warp->functional_done());
   }
 }
 
@@ -250,6 +252,7 @@ void trace_shader_core_ctx::issue_warp(register_set &pipe_reg_set,
 
   m_warp[warp_id]->ibuffer_free();
   assert(next_inst->valid());
+  // setting the pipe reg, TODO: where is it removed again
   **pipe_reg = next_trace_inst_copy; // static instruction information
   // **pipe_reg = *next_inst; // static instruction information
   // assert(pipe_reg == next_inst);
@@ -284,8 +287,16 @@ void trace_shader_core_ctx::issue_warp(register_set &pipe_reg_set,
 
   updateSIMTStack(warp_id, *pipe_reg);
 
+  printf("reserving %d registers (%d,%d,%d,%d) for instr %s pc=%lu:\n",
+         (*pipe_reg)->outcount, (*pipe_reg)->out[0], (*pipe_reg)->out[1],
+         (*pipe_reg)->out[2], (*pipe_reg)->out[3],
+         static_cast<const trace_warp_inst_t *>(next_inst)->opcode_str(),
+         (*pipe_reg)->pc);
   m_scoreboard->reserveRegisters(*pipe_reg);
   m_warp[warp_id]->set_next_pc(next_inst->pc + next_inst->isize);
+
+  printf("post issue register set:\n");
+  pipe_reg_set.print(stdout);
 
   // delete warp_inst_t class here, it is not required anymore by gpgpu-sim
   // after issue
@@ -299,6 +310,8 @@ void trace_shader_core_ctx::create_front_pipeline() {
       N_PIPELINE_STAGES + m_config->m_specialized_unit.size() * 2;
   m_pipeline_reg.reserve(total_pipeline_stages);
   for (int j = 0; j < N_PIPELINE_STAGES; j++) {
+    printf("pipeline stage %s has width %d\n", pipeline_stage_name_decode[j],
+           m_config->pipe_widths[j]);
     m_pipeline_reg.push_back(
         register_set(m_config->pipe_widths[j], pipeline_stage_name_decode[j]));
   }
@@ -509,6 +522,7 @@ void trace_shader_core_ctx::create_exec_pipeline() {
   }
 
   if (m_config->enable_specialized_operand_collector) {
+    // throw std::runtime_error("specialized operand collector");
     m_operand_collector.add_cu_set(
         SP_CUS, m_config->gpgpu_operand_collector_num_units_sp,
         m_config->gpgpu_operand_collector_num_out_ports_sp);
@@ -716,6 +730,8 @@ void trace_shader_core_ctx::writeback() {
   warp_inst_t **preg = m_pipeline_reg[EX_WB].get_ready();
   warp_inst_t *pipe_reg = (preg == NULL) ? NULL : *preg;
   while (preg and !pipe_reg->empty()) {
+    printf("instruction ready for writeback : %lu\n", pipe_reg->pc);
+    throw std::runtime_error("ready for writeback instruction");
     /*
      * Right now, the writeback stage drains all waiting instructions
      * assuming there are enough ports in the register file or the
@@ -753,12 +769,19 @@ void trace_shader_core_ctx::execute() {
     *(m_result_bus[i]) >>= 1;
   }
   for (unsigned n = 0; n < m_num_function_units; n++) {
+
+    // printf("fu %s\n", ((pipelined_simd_unit)(m_fu[n]))->name());
+    printf("fu %s\n", m_fu[n]->get_name());
     unsigned multiplier = m_fu[n]->clock_multiplier();
     for (unsigned c = 0; c < multiplier; c++)
       m_fu[n]->cycle();
     m_fu[n]->active_lanes_in_pipeline();
     unsigned issue_port = m_issue_port[n];
     register_set &issue_inst = m_pipeline_reg[issue_port];
+
+    // print the state of the issue unit
+    // issue_inst.print(stdout);
+
     unsigned reg_id;
     bool partition_issue =
         m_config->sub_core_model && m_fu[n]->is_issue_partitioned();
@@ -768,6 +791,10 @@ void trace_shader_core_ctx::execute() {
     warp_inst_t **ready_reg = issue_inst.get_ready(partition_issue, reg_id);
     if (issue_inst.has_ready(partition_issue, reg_id) &&
         m_fu[n]->can_issue(**ready_reg)) {
+      // throw std::runtime_error("memory issue");
+      // if (issue_port == OC_EX_MEM) {
+      //   throw std::runtime_error("memory issue");
+      // }
       bool schedule_wb_now = !m_fu[n]->stallable();
       int resbus = -1;
       if (schedule_wb_now &&

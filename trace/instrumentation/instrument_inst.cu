@@ -26,10 +26,11 @@ instrument_inst(uint32_t pred, uint32_t instr_data_width,
                 uint64_t ptr_reg_info, uint64_t addr, uint64_t ptr_channel_dev,
                 uint64_t kernel_id) {
 
-  // if thread is predicated off, return
-  if (!pred) {
-    return;
-  }
+  // if thread is predicated off, do NOT return!
+  // otherwise we end up with different number of instructions for each thread !
+  // if (!pred) {
+  //   return;
+  // }
 
   const int active_mask = __ballot_sync(__activemask(), 1);
   const int predicate_mask = __ballot_sync(__activemask(), pred);
@@ -88,8 +89,11 @@ instrument_inst(uint32_t pred, uint32_t instr_data_width,
 
   // register info
   reg_info_t *reg_info = (reg_info_t *)ptr_reg_info;
-  ma.has_dest_reg = reg_info->has_dest_reg;
-  ma.dest_reg = reg_info->dest_reg;
+  for (int r = 0; r < MAX_DST; r++) {
+    ma.dest_regs[r] = reg_info->dest_regs[r];
+  }
+  ma.num_dest_regs = reg_info->num_dest_regs;
+
   for (int r = 0; r < MAX_SRC; r++) {
     ma.src_regs[r] = reg_info->src_regs[r];
   }

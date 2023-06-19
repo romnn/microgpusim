@@ -32,6 +32,7 @@ pipelined_simd_unit::pipelined_simd_unit(register_set *result_port,
 }
 
 void pipelined_simd_unit::cycle() {
+  // printf("%s::pipelined_simd_unit::cycle()\n", m_name.c_str());
   if (!m_pipeline_reg[0]->empty()) {
     m_result_port->move_in(m_pipeline_reg[0]);
     assert(active_insts_in_pipeline > 0);

@@ -18,6 +18,7 @@ enum BinaryVersion {
 
 #[derive(strum::FromRepr, Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Op {
+    NOP,
     // memory ops
     LD,
     LDC,

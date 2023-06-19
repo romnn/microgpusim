@@ -180,7 +180,7 @@ address_type trace_shd_warp_t::get_start_trace_pc() {
 
 address_type trace_shd_warp_t::get_pc() const {
   // assert(warp_traces.size() > 0);
-  // assert(trace_pc < warp_traces.size());
+  assert(trace_pc < warp_traces.size());
   // return warp_traces[trace_pc].m_pc;
   return get_current_trace_inst()->pc;
 }

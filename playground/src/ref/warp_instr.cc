@@ -573,8 +573,9 @@ void warp_inst_t::print(FILE *fout) const {
     fprintf(fout, "bubble\n");
     return;
   } else
-    fprintf(fout, "0x%04lx ", pc);
-  fprintf(fout, "w%02d[", m_warp_id);
+    fprintf(fout, "pc=%04lu ", pc);
+    // fprintf(fout, "0x%04lx ", pc);
+  fprintf(fout, "warp=%02d[", m_warp_id);
   for (unsigned j = 0; j < m_config->warp_size; j++)
     fprintf(fout, "%c", (active(j) ? '1' : '0'));
   fprintf(fout, "]: ");

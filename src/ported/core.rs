@@ -1,9 +1,8 @@
 use super::instruction::WarpInstruction;
-use super::ldst_unit::SimdFunctionUnit;
 use super::scheduler::SchedulerWarp;
 use super::{
-    address, barrier, cache, ldst_unit, opcodes, register_set, scoreboard, stats::Stats,
-    KernelInfo, LoadStoreUnit, MockSimulator,
+    address, barrier, cache, ldst_unit, opcodes, operand_collector as opcoll, register_set,
+    scoreboard, simd_function_unit as fu, stats::Stats, KernelInfo, LoadStoreUnit, MockSimulator,
 };
 use super::{interconn as ic, l1, mem_fetch, scheduler as sched};
 use crate::config::{self, GPUConfig};
@@ -11,7 +10,10 @@ use crate::ported::mem_fetch::BitString;
 use bitvec::{array::BitArray, BitArr};
 use color_eyre::eyre;
 use console::style;
+use fu::SimdFunctionUnit;
+use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
+use std::rc::Rc;
 use std::sync::{Arc, Mutex, RwLock, Weak};
 use strum::{EnumCount, IntoEnumIterator};
 
@@ -74,6 +76,8 @@ impl InstrFetchBuffer {
     }
 }
 
+type ResultBus = BitArr!(for fu::MAX_ALU_LATENCY);
+
 #[derive()]
 pub struct InnerSIMTCore<I> {
     pub core_id: usize,
@@ -85,8 +89,8 @@ pub struct InnerSIMTCore<I> {
     pub current_kernel: Option<Arc<KernelInfo>>,
     pub last_warp_fetched: Option<usize>,
     pub interconn: Arc<I>,
-    pub load_store_unit: Arc<Mutex<LoadStoreUnit<I>>>,
-
+    pub load_store_unit: Arc<Mutex<LoadStoreUnit<ic::CoreMemoryInterface<Packet>>>>,
+    // pub load_store_unit: Arc<Mutex<LoadStoreUnit<I>>>,
     pub active_thread_mask: BitArr!(for MAX_THREAD_PER_SM),
     pub occupied_hw_thread_ids: BitArr!(for MAX_THREAD_PER_SM),
     pub dynamic_warp_id: usize,
@@ -112,7 +116,9 @@ pub struct InnerSIMTCore<I> {
     pub thread_state: Vec<Option<ThreadState>>,
     pub thread_info: Vec<Option<ThreadInfo>>,
     pub scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
-    pub pipeline_reg: Vec<register_set::RegisterSet>,
+    pub operand_collector: Rc<RefCell<opcoll::OperandCollectorRegisterFileUnit>>,
+    pub pipeline_reg: Vec<Rc<RefCell<register_set::RegisterSet>>>,
+    pub result_busses: Vec<ResultBus>,
     pub barriers: barrier::BarrierSet,
 }
 
@@ -159,8 +165,14 @@ where
     // }
 
     fn has_free_register(&self, stage: PipelineStage, register_id: usize) -> bool {
-        let pipeline_stage = &self.pipeline_reg[stage as usize];
-        pipeline_stage.has_free_sub_core(self.config.sub_core_model, register_id)
+        let pipeline_stage = self.pipeline_reg[stage as usize].borrow();
+
+        println!("register set of {:?} pipeline: {}", stage, pipeline_stage);
+        if self.config.sub_core_model {
+            pipeline_stage.has_free_sub_core(register_id)
+        } else {
+            pipeline_stage.has_free()
+        }
         // todo!("free register");
     }
 
@@ -175,16 +187,16 @@ where
         warp_id: usize,
         sch_id: usize,
     ) {
-        println!("{}", style(format!("issue warp {}", warp_id)).yellow(),);
+        println!("{}", style(format!("issue warp {}", warp_id)).yellow());
         println!("warp={} executed {}", warp_id, next_instr);
 
         debug_assert_eq!(warp.warp_id, next_instr.warp_id);
 
-        let pipeline_stage = &mut self.pipeline_reg[stage as usize];
+        let mut pipeline_stage = self.pipeline_reg[stage as usize].borrow_mut();
         let pipe_reg = if self.config.sub_core_model {
-            pipeline_stage.get_free_sub_core(sch_id).unwrap()
+            pipeline_stage.get_free_sub_core_mut(sch_id).unwrap()
         } else {
-            pipeline_stage.get_free().unwrap()
+            pipeline_stage.get_free_mut().unwrap()
         };
 
         // let mut warp = self.warps.get_mut(warp_id).unwrap().lock().unwrap();
@@ -192,8 +204,8 @@ where
 
         // assert!(next_inst.vali);
         *pipe_reg = Some(next_instr); // todo: remove clone here
-                                     // *pipe_reg = Some(next_inst.clone()); // todo: remove clone here
-                                     // next_inst.issue(
+                                      // *pipe_reg = Some(next_inst.clone()); // todo: remove clone here
+                                      // next_inst.issue(
         let pipe_reg_mut = pipe_reg.as_mut().unwrap();
         pipe_reg_mut.issue(
             pipe_reg_mut.active_mask,
@@ -259,10 +271,26 @@ where
         // no simt stack in trace driven mode
         // updateSIMTStack(warp_id, *pipe_reg);
 
+        println!(
+            "{} ({:?}) for instr {}",
+            style(format!(
+                "reserving {} registers",
+                pipe_reg_ref.outputs().count()
+            ))
+            .yellow(),
+            pipe_reg_ref.outputs().collect::<Vec<_>>(),
+            pipe_reg_ref
+        );
+
         self.scoreboard
             .write()
             .unwrap()
             .reserve_registers(pipe_reg_ref);
+
+        println!(
+            "post issue register set of {:?} pipeline: {}",
+            stage, pipeline_stage
+        );
         // warp.set_next_pc(warp.pc + next_inst.instruction_size);
     }
 }
@@ -339,8 +367,10 @@ pub struct SIMTCore<I> {
     // pub schedulers: Vec<super::SchedulerUnit>,
     // pub schedulers: Vec<LoadStoreUnit>,
     // pub functional_units: VecDeque<Box<dyn SimdFunctionUnit>>,
-    pub functional_units: VecDeque<Arc<Mutex<dyn SimdFunctionUnit>>>,
-    pub schedulers: VecDeque<Box<dyn sched::SchedulerUnit>>,
+    pub issue_ports: Vec<PipelineStage>,
+    pub dispatch_ports: Vec<PipelineStage>,
+    pub functional_units: Vec<Arc<Mutex<dyn SimdFunctionUnit>>>,
+    pub schedulers: Vec<Box<dyn sched::SchedulerUnit>>,
     pub inner: InnerSIMTCore<I>,
 }
 
@@ -396,14 +426,6 @@ where
         let thread_state: Vec<_> = (0..config.max_threads_per_shader).map(|_| None).collect();
         // let interconn = ic::Interconnect::default();
         //
-
-        // m_icnt = new shader_memory_interface(this,cluster);
-        // let interconn = if config.perfect_mem {
-        //     ic::PerfectMemoryInterface::new() //  (this, m_cluster)
-        // } else {
-        //     ic::CoreMemoryInterface::new() // (this, m_cluster)
-        // };
-        // let interconn = Arc::new(ic::CoreMemoryInterface::new()); // (this, m_cluster)
 
         // (this, m_cluster)
         // let interconn = Arc::new(ic::CoreMemoryInterface::new());
@@ -462,19 +484,21 @@ where
             config.max_warps_per_core(),
         )));
 
+        let mut operand_collector = opcoll::OperandCollectorRegisterFileUnit::new(config.clone());
+
+        let operand_collector = Rc::new(RefCell::new(operand_collector));
+
         // pipeline_stages is the sum of normal pipeline stages
         // and specialized_unit stages * 2 (for ID and EX)
-        let total_pipeline_stages = PipelineStage::COUNT; //  + config.num_specialized_unit.len() * 2;
-                                                          // let pipeline_reg = (0..total_pipeline_stages)
+        // let total_pipeline_stages = PipelineStage::COUNT + config.num_specialized_unit.len() * 2;;
+        // let pipeline_reg = (0..total_pipeline_stages)
+
         let pipeline_reg: Vec<_> = PipelineStage::iter()
-            .map(|stage| register_set::RegisterSet::new(stage, 1))
+            .map(|stage| {
+                let pipeline_width = config.pipeline_widths.get(&stage).copied().unwrap_or(0);
+                register_set::RegisterSet::new(stage, pipeline_width)
+            })
             .collect();
-        // let mut pipeline_reg = Vec::new();
-        // pipeline_reg.reserve_exact(total_pipeline_stages);
-        // for (int j = 0; j < N_PIPELINE_STAGES; j++) {
-        //   m_pipeline_reg.push_back(
-        //       register_set(m_config->pipe_widths[j], pipeline_stage_name_decode[j]));
-        // }
 
         // SKIPPING SPECIALIZED UNITS
         // for (int j = 0; j < m_config->m_specialized_unit.size(); j++) {
@@ -492,14 +516,70 @@ where
         //   m_config->m_specialized_unit[j].OC_EX_SPEC_ID = m_pipeline_reg.size() - 1;
         // }
 
+        if config.sub_core_model {
+            // in subcore model, each scheduler should has its own
+            // issue register, so ensure num scheduler = reg width
+            debug_assert_eq!(
+                config.num_schedulers_per_core,
+                pipeline_reg[PipelineStage::ID_OC_SP as usize].size()
+            );
+            debug_assert_eq!(
+                config.num_schedulers_per_core,
+                pipeline_reg[PipelineStage::ID_OC_SFU as usize].size()
+            );
+            debug_assert_eq!(
+                config.num_schedulers_per_core,
+                pipeline_reg[PipelineStage::ID_OC_MEM as usize].size()
+            );
+            // if (m_config->gpgpu_tensor_core_avail)
+            //   assert(m_config->gpgpu_num_sched_per_core ==
+            //          m_pipeline_reg[ID_OC_TENSOR_CORE].get_size());
+            // if (m_config->gpgpu_num_dp_units > 0)
+            //   assert(m_config->gpgpu_num_sched_per_core ==
+            //          m_pipeline_reg[ID_OC_DP].get_size());
+            // if (m_config->gpgpu_num_int_units > 0)
+            //   assert(m_config->gpgpu_num_sched_per_core ==
+            //          m_pipeline_reg[ID_OC_INT].get_size());
+            // for (int j = 0; j < m_config->m_specialized_unit.size(); j++) {
+            //   if (m_config->m_specialized_unit[j].num_units > 0)
+            //     assert(m_config->gpgpu_num_sched_per_core ==
+            //            m_config->m_specialized_unit[j].id_oc_spec_reg_width);
+            // }
+        }
+
+        // m_icnt = new shader_memory_interface(this,cluster);
+        // let interconn = if config.perfect_mem {
+        //     ic::PerfectMemoryInterface::new() //  (this, m_cluster)
+        // } else {
+        //     ic::CoreMemoryInterface::new() // (this, m_cluster)
+        // };
+        let fetch_interconn = Arc::new(ic::CoreMemoryInterface {
+            cluster_id,
+            interconn: interconn.clone(),
+            config: config.clone(),
+        });
+
         let load_store_unit = Arc::new(Mutex::new(LoadStoreUnit::new(
             core_id,
             cluster_id,
             // clister.clone(),
-            interconn.clone(),
+            // interconn.clone(),
+            fetch_interconn.clone(),
+            operand_collector.clone(),
+            scoreboard.clone(),
             config.clone(),
             stats.clone(),
         )));
+
+        // there are as many result buses as the width of the EX_WB stage
+        let result_busses: Vec<_> = (0..pipeline_reg[PipelineStage::EX_WB as usize].size())
+            .map(|_| BitArray::ZERO)
+            .collect();
+
+        let pipeline_reg: Vec<_> = pipeline_reg
+            .into_iter()
+            .map(|reg| Rc::new(RefCell::new(reg)))
+            .collect();
 
         let mut inner = InnerSIMTCore {
             core_id,
@@ -525,17 +605,20 @@ where
             interconn,
             load_store_unit,
             warps: warps.clone(),
-            pipeline_reg: pipeline_reg.clone(),
+            pipeline_reg,
+            result_busses,
             scoreboard: scoreboard.clone(),
+            operand_collector,
             barriers,
             thread_state,
             thread_info,
-            // schedulers,
         };
         let mut core = Self {
             inner,
-            schedulers: VecDeque::new(),
-            functional_units: VecDeque::new(),
+            schedulers: Vec::new(),
+            issue_ports: Vec::new(),
+            dispatch_ports: Vec::new(),
+            functional_units: Vec::new(),
         };
 
         // m_threadState = (thread_ctx_t *)calloc(sizeof(thread_ctx_t),
@@ -562,16 +645,130 @@ where
 
         core.init_schedulers();
         core.init_functional_units();
+        core.init_operand_collectors();
         core
     }
 
-    pub fn init_functional_units(&mut self) {
-        let fu = self.inner.load_store_unit.clone();
-        self.functional_units.push_back(fu);
-        // self.functional_units.push_back(Box::new(load_store_unit));
+    fn init_operand_collectors(&mut self) {
+        let mut operand_collector = self.inner.operand_collector.try_borrow_mut().unwrap();
+
+        // configure generic collectors
+        operand_collector.add_cu_set(
+            opcoll::OperandCollectorUnitKind::GEN_CUS,
+            self.inner.config.operand_collector_num_units_gen,
+            self.inner.config.operand_collector_num_out_ports_gen,
+        );
+
+        for i in 0..self.inner.config.operand_collector_num_in_ports_gen {
+            let mut in_ports = opcoll::PortVec::new();
+            let mut out_ports = opcoll::PortVec::new();
+            let mut cu_sets: Vec<opcoll::OperandCollectorUnitKind> = Vec::new();
+
+            in_ports.push(self.inner.pipeline_reg[PipelineStage::ID_OC_SP as usize].clone());
+            // in_ports.push_back(&m_pipeline_reg[ID_OC_SFU]);
+            // in_ports.push(&self.pipeline_reg[ID_OC_MEM]);
+            out_ports.push(self.inner.pipeline_reg[PipelineStage::OC_EX_SP as usize].clone());
+            // out_ports.push_back(&m_pipeline_reg[OC_EX_SFU]);
+            // out_ports.push(&self.pipeline_reg[OC_EX_MEM]);
+            // if (m_config->gpgpu_tensor_core_avail) {
+            //   in_ports.push_back(&m_pipeline_reg[ID_OC_TENSOR_CORE]);
+            //   out_ports.push_back(&m_pipeline_reg[OC_EX_TENSOR_CORE]);
+            // }
+            // if (m_config->gpgpu_num_dp_units > 0) {
+            //   in_ports.push_back(&m_pipeline_reg[ID_OC_DP]);
+            //   out_ports.push_back(&m_pipeline_reg[OC_EX_DP]);
+            // }
+            // if (m_config->gpgpu_num_int_units > 0) {
+            //   in_ports.push_back(&m_pipeline_reg[ID_OC_INT]);
+            //   out_ports.push_back(&m_pipeline_reg[OC_EX_INT]);
+            // }
+            // if (m_config->m_specialized_unit.size() > 0) {
+            //   for (unsigned j = 0; j < m_config->m_specialized_unit.size(); ++j) {
+            //     in_ports.push_back(
+            //         &m_pipeline_reg[m_config->m_specialized_unit[j].ID_OC_SPEC_ID]);
+            //     out_ports.push_back(
+            //         &m_pipeline_reg[m_config->m_specialized_unit[j].OC_EX_SPEC_ID]);
+            //   }
+            // }
+            // cu_sets.push_back((unsigned)GEN_CUS);
+            // m_operand_collector.add_port(in_ports, out_ports, cu_sets);
+            // in_ports.clear(), out_ports.clear(), cu_sets.clear();
+            cu_sets.push(opcoll::OperandCollectorUnitKind::GEN_CUS);
+            operand_collector.add_port(in_ports, out_ports, cu_sets);
+            // in_ports.clear();
+            // out_ports.clear();
+            // cu_sets.clear();
+        }
+
+        // let enable_specialized_operand_collector = true;
+        if self.inner.config.enable_specialized_operand_collector {
+            // only added two
+            operand_collector.add_cu_set(
+                opcoll::OperandCollectorUnitKind::SP_CUS,
+                self.inner.config.operand_collector_num_units_sp,
+                self.inner.config.operand_collector_num_out_ports_sp,
+            );
+            operand_collector.add_cu_set(
+                opcoll::OperandCollectorUnitKind::MEM_CUS,
+                self.inner.config.operand_collector_num_units_mem,
+                self.inner.config.operand_collector_num_out_ports_mem,
+            );
+
+            for i in 0..self.inner.config.operand_collector_num_in_ports_sp {
+                let mut in_ports = opcoll::PortVec::new();
+                let mut out_ports = opcoll::PortVec::new();
+                let mut cu_sets: Vec<opcoll::OperandCollectorUnitKind> = Vec::new();
+
+                in_ports.push(self.inner.pipeline_reg[PipelineStage::ID_OC_SP as usize].clone());
+                out_ports.push(self.inner.pipeline_reg[PipelineStage::OC_EX_SP as usize].clone());
+                cu_sets.push(opcoll::OperandCollectorUnitKind::SP_CUS);
+                cu_sets.push(opcoll::OperandCollectorUnitKind::GEN_CUS);
+                operand_collector.add_port(in_ports, out_ports, cu_sets);
+            }
+
+            for i in 0..self.inner.config.operand_collector_num_in_ports_mem {
+                let mut in_ports = opcoll::PortVec::new();
+                let mut out_ports = opcoll::PortVec::new();
+                let mut cu_sets: Vec<opcoll::OperandCollectorUnitKind> = Vec::new();
+
+                in_ports.push(self.inner.pipeline_reg[PipelineStage::ID_OC_MEM as usize].clone());
+                out_ports.push(self.inner.pipeline_reg[PipelineStage::OC_EX_MEM as usize].clone());
+                cu_sets.push(opcoll::OperandCollectorUnitKind::MEM_CUS);
+                cu_sets.push(opcoll::OperandCollectorUnitKind::GEN_CUS);
+                operand_collector.add_port(in_ports, out_ports, cu_sets);
+            }
+        }
+
+        // this must be called after we add the collector unit sets!
+        operand_collector.init(self.inner.config.num_reg_banks);
     }
 
-    pub fn init_schedulers(&mut self) {
+    fn init_functional_units(&mut self) {
+        // single precision units
+        for u in 0..self.inner.config.num_sp_units {
+            self.functional_units
+                .push(Arc::new(Mutex::new(super::SPUnit::new(
+                    // &m_pipeline_reg[EX_WB],
+                    self.inner.config.clone(),
+                    self.inner.stats.clone(),
+                    // this,
+                    // k,
+                ))));
+            self.dispatch_ports.push(PipelineStage::ID_OC_SP);
+            self.issue_ports.push(PipelineStage::OC_EX_SP);
+        }
+
+        // load store unit
+        self.functional_units
+            .push(self.inner.load_store_unit.clone());
+        self.dispatch_ports.push(PipelineStage::OC_EX_MEM);
+        self.issue_ports.push(PipelineStage::OC_EX_MEM);
+
+        debug_assert_eq!(self.functional_units.len(), self.issue_ports.len());
+        debug_assert_eq!(self.functional_units.len(), self.dispatch_ports.len());
+    }
+
+    fn init_schedulers(&mut self) {
         // let scheduler_kind = config::SchedulerKind::LRR;
         let scheduler_kind = config::SchedulerKind::GTO;
 
@@ -685,37 +882,6 @@ where
         // for (unsigned i = 0; i < m_config->gpgpu_num_sched_per_core; ++i) {
         //   schedulers[i]->done_adding_supervised_warps();
         // }
-
-        if self.inner.config.sub_core_model {
-            // in subcore model, each scheduler should has its own
-            // issue register, so ensure num scheduler = reg width
-            debug_assert_eq!(
-                self.inner.config.num_schedulers_per_core,
-                self.inner.pipeline_reg[PipelineStage::ID_OC_SP as usize].size()
-            );
-            debug_assert_eq!(
-                self.inner.config.num_schedulers_per_core,
-                self.inner.pipeline_reg[PipelineStage::ID_OC_SFU as usize].size()
-            );
-            debug_assert_eq!(
-                self.inner.config.num_schedulers_per_core,
-                self.inner.pipeline_reg[PipelineStage::ID_OC_MEM as usize].size()
-            );
-            // if (m_config->gpgpu_tensor_core_avail)
-            //   assert(m_config->gpgpu_num_sched_per_core ==
-            //          m_pipeline_reg[ID_OC_TENSOR_CORE].get_size());
-            // if (m_config->gpgpu_num_dp_units > 0)
-            //   assert(m_config->gpgpu_num_sched_per_core ==
-            //          m_pipeline_reg[ID_OC_DP].get_size());
-            // if (m_config->gpgpu_num_int_units > 0)
-            //   assert(m_config->gpgpu_num_sched_per_core ==
-            //          m_pipeline_reg[ID_OC_INT].get_size());
-            // for (int j = 0; j < m_config->m_specialized_unit.size(); j++) {
-            //   if (m_config->m_specialized_unit[j].num_units > 0)
-            //     assert(m_config->gpgpu_num_sched_per_core ==
-            //            m_config->m_specialized_unit[j].id_oc_spec_reg_width);
-            // }
-        }
     }
 
     pub fn active(&self) -> bool {
@@ -756,7 +922,7 @@ where
 
     fn exec_inst(&mut self, instr: &WarpInstruction) {
         let warp = self.inner.warps.get_mut(instr.warp_id).unwrap();
-        let mut warp = warp.lock().unwrap();
+        let mut warp = warp.try_lock().unwrap();
 
         for t in 0..self.inner.config.warp_size {
             if instr.active_mask[t] {
@@ -807,7 +973,7 @@ where
             if self.inner.instr_l1_cache.has_ready_accesses() {
                 let fetch = self.inner.instr_l1_cache.next_access().unwrap();
                 let warp = self.inner.warps.get_mut(fetch.warp_id).unwrap();
-                let warp = warp.lock().unwrap();
+                let warp = warp.try_lock().unwrap();
                 // .as_mut()
                 // .unwrap();
                 // warp.clear_imiss_pending();
@@ -847,7 +1013,13 @@ where
                 for i in 0..max_warps {
                     let last = self.inner.last_warp_fetched.unwrap_or(0);
                     let warp_id = (last + 1 + i) % max_warps;
-                    let mut warp = self.inner.warps.get_mut(warp_id).unwrap().lock().unwrap();
+                    let mut warp = self
+                        .inner
+                        .warps
+                        .get_mut(warp_id)
+                        .unwrap()
+                        .try_lock()
+                        .unwrap();
                     // debug_assert_eq!(warp.warp_id, warp_id);
 
                     println!(
@@ -1031,7 +1203,13 @@ where
 
         // decode 1 or 2 instructions and buffer them
         // let instr1 = {
-        let mut warp = self.inner.warps.get_mut(warp_id).unwrap().lock().unwrap();
+        let mut warp = self
+            .inner
+            .warps
+            .get_mut(warp_id)
+            .unwrap()
+            .try_lock()
+            .unwrap();
         debug_assert_eq!(warp.warp_id, warp_id);
         let instr1 = warp.next_trace_inst();
         let instr2 = if instr1.is_some() {
@@ -1123,7 +1301,7 @@ where
     fn decode_instruction(&mut self, warp_id: usize, instr: WarpInstruction, slot: usize) {
         let core_id = self.id();
         let warp = self.inner.warps.get_mut(warp_id).unwrap();
-        let mut warp = warp.lock().unwrap();
+        let mut warp = warp.try_lock().unwrap();
 
         println!(
             "core {:?}: ibuffer fill for warp {} at slot {} with instruction {}",
@@ -1157,48 +1335,155 @@ where
     }
 
     fn writeback(&mut self) {
-        todo!("core: writeback");
+        println!("core {:?}: {}", self.id(), style("writeback").cyan());
+        // todo!("core: writeback");
+        // from the functional units
+        let mut ex_wb_stage = self.inner.pipeline_reg[PipelineStage::EX_WB as usize].borrow_mut();
+        let max_committed_thread_instructions = self.inner.config.warp_size * ex_wb_stage.size();
+
+        // m_stats->m_pipeline_duty_cycle[m_sid] =
+        //     ((float)(m_stats->m_num_sim_insn[m_sid] -
+        //              m_stats->m_last_num_sim_insn[m_sid])) /
+        //     max_committed_thread_instructions;
+        //
+        // m_stats->m_last_num_sim_insn[m_sid] = m_stats->m_num_sim_insn[m_sid];
+        // m_stats->m_last_num_sim_winsn[m_sid] = m_stats->m_num_sim_winsn[m_sid];
+        //
+        // let preg = ex_wb_stage.get_ready_mut();
+        // let pipe_reg = (preg == NULL) ? NULL : *preg;
+        // while preg.is_some() { // && !pipe_reg.empty() {
+        while let Some(ready) = ex_wb_stage.get_ready_mut() {
+            panic!("instruction ready for writeback : {:?}", ready);
+            //   /*
+            //    * Right now, the writeback stage drains all waiting instructions
+            //    * assuming there are enough ports in the register file or the
+            //    * conflicts are resolved at issue.
+            //    */
+            //   /*
+            //    * The operand collector writeback can generally generate a stall
+            //    * However, here, the pipelines should be un-stallable. This is
+            //    * guaranteed because this is the first time the writeback function
+            //    * is called after the operand collector's step function, which
+            //    * resets the allocations. There is one case which could result in
+            //    * the writeback function returning false (stall), which is when
+            //    * an instruction tries to modify two registers (GPR and predicate)
+            //    * To handle this case, we ignore the return value (thus allowing
+            //    * no stalling).
+            //    */
+            //
+            // self.inner.operand_collector.writeback(ready);
+            //   unsigned warp_id = pipe_reg->warp_id();
+            //   m_scoreboard->releaseRegisters(pipe_reg);
+            //   m_warp[warp_id]->dec_inst_in_pipeline();
+            //   warp_inst_complete(*pipe_reg);
+            //   m_gpu->gpu_sim_insn_last_update_sid = m_sid;
+            //   m_gpu->gpu_sim_insn_last_update = m_gpu->gpu_sim_cycle;
+            //   m_last_inst_gpu_sim_cycle = m_gpu->gpu_sim_cycle;
+            //   m_last_inst_gpu_tot_sim_cycle = m_gpu->gpu_tot_sim_cycle;
+            //   pipe_reg->clear();
+            //   preg = m_pipeline_reg[EX_WB].get_ready();
+            //   pipe_reg = (preg == NULL) ? NULL : *preg;
+        }
     }
 
     fn execute(&mut self) {
-        for (i, fu) in self.functional_units.iter_mut().enumerate() {
-            let mut fu = fu.lock().unwrap();
+        println!("core {:?}: {}", self.id(), style("execute").red());
+        for (fu_id, fu) in self.functional_units.iter_mut().enumerate() {
+            let mut fu = fu.try_lock().unwrap();
+            println!("fu {:?}", &fu);
             fu.cycle();
             fu.active_lanes_in_pipeline();
-            // let issue_port = self.issue_port[n];
-            // let issue_inst = self.pipeline_reg[issue_port];
-            // let mut reg_id;
-            // let partition_issue = self.inner.config.sub_core_model && fu.is_issue_partitioned();
-            // if partition_issue {
-            //     reg_id = fu.get_issue_reg_id();
-            // }
-            // let ready_reg = issue_inst.get_ready(partition_issue, reg_id);
-            // if issue_inst.has_ready(partition_issue, reg_id) && fu.can_issue(ready_reg) {
-            //     let schedule_wb_now = !fu.stallable();
-            //     let resbus = test_res_bus(ready_reg.latency);
-            //     if schedule_wb_now && resbus != -1 {
-            //         debug_assert!(ready_reg.latency < MAX_ALU_LATENCY);
-            //         self.result_bus[resbus].set(ready_reg.latency);
-            //         fu.issue(issue_inst);
-            //     } else if !schedule_wb_now {
-            //         fu.issue(issue_inst);
-            //     } else {
-            //         // stall issue (cannot reserve result bus)
-            //     }
-            // }
+            let issue_port = self.issue_ports[fu_id];
+            dbg!(&issue_port);
+            let mut issue_inst = self.inner.pipeline_reg[issue_port as usize].borrow_mut();
+            dbg!(&issue_inst);
+
+            let partition_issue = self.inner.config.sub_core_model && fu.is_issue_partitioned();
+            let ready_reg = if partition_issue {
+                let reg_id = fu.issue_reg_id();
+                issue_inst.get_ready_sub_core_mut(reg_id)
+            } else {
+                issue_inst.get_ready_mut().map(|(_, r)| r)
+            };
+            // let has_ready = if partition_issue {
+            //     issue_inst.has_ready_sub_core(reg_id)
+            // } else {
+            //     issue_inst.has_ready()
+            // };
+
+            // if has_ready && fu.can_issue(ready_reg) {
+            if let Some(Some(ready_reg)) = ready_reg {
+                // todo!("ready for issue to functional unit");
+                if fu.can_issue(ready_reg) {
+                    let schedule_wb_now = !fu.stallable();
+                    let result_bus = self
+                        .inner
+                        .result_busses
+                        .iter_mut()
+                        .filter(|bus| !bus[ready_reg.latency])
+                        .next();
+
+                    match result_bus {
+                        Some(result_bus) if schedule_wb_now => {
+                            debug_assert!(ready_reg.latency < fu::MAX_ALU_LATENCY);
+                            result_bus.set(ready_reg.latency, true);
+                            fu.issue(&mut issue_inst);
+                        }
+                        _ if !schedule_wb_now => {
+                            fu.issue(&mut issue_inst);
+                        }
+                        _ => {
+                            // stall issue (cannot reserve result bus)
+                        }
+                    }
+                    // if schedule_wb_now && resbus != -1 {
+                    //     debug_assert!(ready_reg.latency < fu::MAX_ALU_LATENCY);
+                    //     self.result_bus[resbus].set(ready_reg.latency);
+                    //     fu.issue(issue_inst);
+                    // } else if !schedule_wb_now {
+                    //     fu.issue(issue_inst);
+                    // } else {
+                    //     // stall issue (cannot reserve result bus)
+                    // }
+                }
+            }
         }
     }
+
+    // fn test_result_bus(&mut self, latency: usize) -> Option<&mut ResultBus> {
+    //     self.inner
+    //         .result_busses
+    //         .iter_mut()
+    //         .filter(|bus| !bus[latency])
+    //         .next()
+    //
+    //     // for res_bus in self.inner.result_busses.iter_mut() {
+    //     //     if !res_bus[latency] {
+    //     //         return Some(res_bus);
+    //     //     }
+    //     // }
+    //     // None
+    // }
 
     pub fn cycle(&mut self) {
         println!("core {:?}: {}", self.id(), style("core cycle").blue());
 
         if !self.is_active() && self.not_completed() == 0 {
-            // return;
+            panic!("core done");
+            return;
         }
         // m_stats->shader_cycles[m_sid]++;
-        // self.writeback();
+        self.writeback();
         self.execute();
         // self.read_operands();
+        for _ in 0..self.inner.config.reg_file_port_throughput {
+            self.inner
+                .operand_collector
+                .try_borrow_mut()
+                .unwrap()
+                .step();
+        }
+
         self.issue();
         for i in 0..self.inner.config.inst_fetch_throughput {
             self.decode();
@@ -1207,12 +1492,12 @@ where
     }
 
     pub fn cache_flush(&mut self) {
-        let mut unit = self.inner.load_store_unit.lock().unwrap();
+        let mut unit = self.inner.load_store_unit.try_lock().unwrap();
         unit.flush();
     }
 
     pub fn cache_invalidate(&mut self) {
-        let mut unit = self.inner.load_store_unit.lock().unwrap();
+        let mut unit = self.inner.load_store_unit.try_lock().unwrap();
         unit.invalidate();
     }
 
@@ -1544,7 +1829,7 @@ where
             //         ..SchedulerWarp::default()
             //     })),
             // );
-            self.inner.warps[warp_id].lock().unwrap().init(
+            self.inner.warps[warp_id].try_lock().unwrap().init(
                 start_pc,
                 block_id,
                 warp_id,

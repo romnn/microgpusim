@@ -1,11 +1,17 @@
 use super::{
-    cache, interconn as ic, l1, mem_fetch, operand_collector as opcoll, register_set::RegisterSet,
-    scheduler as sched, stats::Stats,
+    cache, interconn as ic, l1, mem_fetch, operand_collector as opcoll,
+    register_set::{self, RegisterSet},
+    scheduler as sched,
+    scoreboard::Scoreboard,
+    simd_function_unit as fu,
+    stats::Stats,
 };
 use crate::{config::GPUConfig, ported::operand_collector::OperandCollectorRegisterFileUnit};
 use bitvec::{array::BitArray, BitArr};
 use console::style;
-use std::sync::{Arc, Mutex};
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::sync::{Arc, Mutex, RwLock};
 
 use super::{
     address,
@@ -16,92 +22,6 @@ use nvbit_model::MemorySpace;
 use std::collections::{HashMap, VecDeque};
 use trace_model::MemAccessTraceEntry;
 
-/// A general function to order things in an priority-based way.
-/// The core usage of the function is similar to order_lrr.
-/// The explanation of the additional parameters (beyond order_lrr)
-/// explains the further extensions.
-///
-/// **Ordering**:
-/// An enum that determines how the age function will be treated
-/// in prioritization see the definition of OrderingType.
-///
-/// **priority_function**:
-/// This function is used to sort the input_list.
-/// It is passed to stl::sort as the sorting fucntion.
-/// So, if you wanted to sort a list of integer warp_ids with the
-/// oldest warps having the most priority, then the priority_function
-/// would compare the age of the two warps.
-///
-// fn order_by_priority<T>(
-//     warps: Vec<T>,
-//     last_issued_from_input: Vec<T>,
-//     count: usize,
-//     // ordering: OrderingKind,
-//     priority_func: String,
-// ) {
-// }
-//
-// template <class T>
-// void scheduler_unit::order_by_priority(
-//     std::vector<T> &result_list, const typename std::vector<T> &input_list,
-//     const typename std::vector<T>::const_iterator &last_issued_from_input,
-//     unsigned num_warps_to_add, OrderingType ordering,
-//     bool (*priority_func)(T lhs, T rhs)) {
-//   assert(num_warps_to_add <= input_list.size());
-//   result_list.clear();
-//   typename std::vector<T> temp = input_list;
-//
-//   if (ORDERING_GREEDY_THEN_PRIORITY_FUNC == ordering) {
-//     T greedy_value = *last_issued_from_input;
-//     result_list.push_back(greedy_value);
-//
-//     std::sort(temp.begin(), temp.end(), priority_func);
-//     typename std::vector<T>::iterator iter = temp.begin();
-//     for (unsigned count = 0; count < num_warps_to_add; ++count, ++iter) {
-//       if (*iter != greedy_value) {
-//         result_list.push_back(*iter);
-//       }
-//     }
-//   } else if (ORDERED_PRIORITY_FUNC_ONLY == ordering) {
-//     std::sort(temp.begin(), temp.end(), priority_func);
-//     typename std::vector<T>::iterator iter = temp.begin();
-//     for (unsigned count = 0; count < num_warps_to_add; ++count, ++iter) {
-//       result_list.push_back(*iter);
-//     }
-//   } else {
-//     fprintf(stderr, "Unknown ordering - %d\n", ordering);
-//     abort();
-//   }
-// }
-
-pub trait SimdFunctionUnit {
-    // modifiers
-    fn cycle(&mut self);
-    fn issue(&mut self, source_reg: RegisterSet);
-    // fn compute_active_lanes_in_pipeline(&mut self);
-
-    // accessors
-    fn clock_multiplier(&self) -> usize {
-        1
-    }
-    fn can_issue(&self, instr: &WarpInstruction) -> bool;
-    fn active_lanes_in_pipeline(&self) -> usize;
-    // {
-    //     return m_dispatch_reg->empty() && !occupied.test(inst.latency);
-    //   }
-    fn is_issue_partitioned(&self) -> bool;
-    fn issue_reg_id(&self) -> usize;
-    fn stallable(&self) -> bool;
-
-    // void simd_function_unit::issue(register_set &source_reg) {
-    //   bool partition_issue =
-    //       m_config->sub_core_model && this->is_issue_partitioned();
-    //   source_reg.move_out_to(partition_issue, this->get_issue_reg_id(),
-    //                          m_dispatch_reg);
-    //   occupied.set(m_dispatch_reg->latency);
-    // }
-}
-
 pub static READ_PACKET_SIZE: u8 = 8;
 
 // bytes: 6 address, 2 miscelaneous.
@@ -109,120 +29,9 @@ pub static WRITE_PACKET_SIZE: u8 = 8;
 
 pub static WRITE_MASK_SIZE: u8 = 8;
 
-pub const MAX_ALU_LATENCY: usize = 512;
-
-#[derive()]
-pub struct PipelinedSimdUnitImpl {
-    result_port: Option<RegisterSet>,
-    pipeline_depth: usize,
-    pipeline_reg: Vec<WarpInstruction>,
-    issue_reg_id: usize,
-    active_insts_in_pipeline: usize,
-    dispatch_reg: Option<WarpInstruction>,
-    occupied: BitArr!(for MAX_ALU_LATENCY),
-    config: Arc<GPUConfig>,
-}
-
-impl PipelinedSimdUnitImpl {
-    pub fn new(
-        result_port: Option<RegisterSet>,
-        depth: usize,
-        config: Arc<GPUConfig>,
-        issue_reg_id: usize,
-    ) -> Self {
-        let pipeline_reg = (0..depth).map(|_| WarpInstruction::default()).collect();
-        Self {
-            result_port,
-            pipeline_depth: depth,
-            pipeline_reg,
-            issue_reg_id,
-            active_insts_in_pipeline: 0,
-            dispatch_reg: None,
-            occupied: BitArray::ZERO,
-            config,
-        }
-    }
-}
-
-impl SimdFunctionUnit for PipelinedSimdUnitImpl {
-    fn active_lanes_in_pipeline(&self) -> usize {
-        let mut active_lanes: sched::ThreadActiveMask = BitArray::ZERO;
-        // if self.config.
-        for stage in &self.pipeline_reg {
-            active_lanes |= stage.active_mask;
-        }
-        // for (unsigned stage = 0; (stage + 1) < m_pipeline_depth; stage++) {
-        //   if (!m_pipeline_reg[stage]->empty())
-        //     active_lanes |= m_pipeline_reg[stage]->get_active_mask();
-        // }
-        active_lanes.count_ones()
-    }
-
-    fn cycle(&mut self) {
-        if !self.pipeline_reg[0].empty() {
-            if let Some(port) = &mut self.result_port {
-                port.move_in(self.pipeline_reg[0].clone());
-            }
-            debug_assert!(self.active_insts_in_pipeline > 0);
-            self.active_insts_in_pipeline -= 1;
-        }
-        if self.active_insts_in_pipeline > 0 {
-            for stage in 0..self.pipeline_reg.len() - 1 {
-                let current = &self.pipeline_reg[stage];
-                let next = &self.pipeline_reg[stage + 1];
-                // move_warp(next, current);
-            }
-        }
-        if let Some(dispatch) = &self.dispatch_reg {
-            // if !dispatch.empty() && !dispatch.dispatch_delay() {
-            //     // let start_stage = dispatch.latency - dispatch.initiation_interval;
-            //     // move_warp(m_pipeline_reg[start_stage], m_dispatch_reg);
-            //     self.active_insts_in_pipeline += 1;
-            // }
-        }
-        self.occupied.shift_right(1);
-
-        todo!("pipelined simd unit: cycle");
-    }
-
-    fn issue(&mut self, src_reg: RegisterSet) {
-        let partition_issue = self.config.sub_core_model && self.is_issue_partitioned();
-        // let ready_reg = src_reg.get_ready(partition_issue, self.issue_reg_id());
-        // // self.core.incexecstat((*ready_reg));
-        //
-        // // from simd function unit
-        // src_reg.move_out_to(partition_issue, self.issue_reg_id(), self.dispatch_reg);
-        if let Some(dispatch) = &self.dispatch_reg {
-            self.occupied.set(dispatch.latency, true);
-        }
-
-        todo!("pipelined simd unit: issue");
-    }
-
-    // accessors
-    fn clock_multiplier(&self) -> usize {
-        1
-    }
-    fn can_issue(&self, instr: &WarpInstruction) -> bool {
-        todo!("pipelined simd unit: can issue");
-    }
-    // fn active_lanes_in_pipeline(&self) -> usize;
-    // {
-    //     return m_dispatch_reg->empty() && !occupied.test(inst.latency);
-    //   }
-    fn is_issue_partitioned(&self) -> bool {
-        todo!("pipelined simd unit: is issue partitioned");
-    }
-    fn issue_reg_id(&self) -> usize {
-        todo!("pipelined simd unit: issue reg id");
-    }
-    fn stallable(&self) -> bool {
-        todo!("pipelined simd unit: stallable");
-    }
-}
-
 #[derive()]
 pub struct LoadStoreUnit<I> {
+    // pub struct LoadStoreUnit {
     core_id: usize,
     cluster_id: usize,
     // pipeline_depth: usize,
@@ -236,28 +45,45 @@ pub struct LoadStoreUnit<I> {
     // data_l1: Option<l1::Data<I>>,
     data_l1: Option<Box<dyn cache::Cache>>,
     config: Arc<GPUConfig>,
+    stats: Arc<Mutex<Stats>>,
+    scoreboard: Arc<RwLock<Scoreboard>>,
     next_global: Option<MemFetch>,
     // dispatch_reg: Option<WarpInstruction>,
     /// Pending writes warp -> register -> count
     pending_writes: HashMap<usize, HashMap<u32, usize>>,
     // interconn: ic::Interconnect,
-    interconn: Arc<dyn ic::MemFetchInterface>,
-    // interconn: Arc<I>,
-    pipelined_simd_unit: PipelinedSimdUnitImpl,
-    operand_collector: opcoll::OperandCollectorRegisterFileUnit,
-    phantom: std::marker::PhantomData<I>,
+    // fetch_interconn: Arc<dyn ic::MemFetchInterface>,
+    fetch_interconn: Arc<I>,
+    pipelined_simd_unit: fu::PipelinedSimdUnitImpl,
+    operand_collector: Rc<RefCell<opcoll::OperandCollectorRegisterFileUnit>>,
+    // phantom: std::marker::PhantomData<I>,
+}
+
+impl<I> std::fmt::Debug for LoadStoreUnit<I> {
+    // impl std::fmt::Debug for LoadStoreUnit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LoadStoreUnit")
+            .field("core_id", &self.core_id)
+            .field("cluster_id", &self.cluster_id)
+            .field("response_fifo_size", &self.response_fifo.len())
+            .finish()
+    }
 }
 
 impl<I> LoadStoreUnit<I>
+// impl LoadStoreUnit
 where
-    // I: ic::MemFetchInterface,
-    I: ic::Interconnect<super::core::Packet>,
+    I: ic::MemFetchInterface,
+    // I: ic::Interconnect<super::core::Packet>,
 {
     pub fn new(
         core_id: usize,
         cluster_id: usize,
-        interconn: Arc<I>,
-        // interconn: Arc<dyn ic::MemFetchInterface>,
+        fetch_interconn: Arc<I>,
+        // interconn: Arc<I>,
+        // fetch_interconn: Arc<dyn ic::MemFetchInterface>,
+        operand_collector: Rc<RefCell<OperandCollectorRegisterFileUnit>>,
+        scoreboard: Arc<RwLock<Scoreboard>>,
         config: Arc<GPUConfig>,
         stats: Arc<Mutex<Stats>>,
     ) -> Self {
@@ -265,7 +91,7 @@ where
         // pipelined_simd_unit(NULL, config, config->smem_latency, core, 0),
         let pipeline_depth = config.shared_memory_latency;
         let pipelined_simd_unit =
-            PipelinedSimdUnitImpl::new(None, pipeline_depth, config.clone(), 0);
+            fu::PipelinedSimdUnitImpl::new(None, pipeline_depth, config.clone(), 0);
         //
         // see pipelined_simd_unit::pipelined_simd_unit
         debug_assert!(config.shared_memory_latency > 1);
@@ -283,7 +109,7 @@ where
         // get_shader_normal_cache_id(), m_icnt, m_mf_allocator,
         // IN_L1D_MISS_QUEUE, core->get_gpu());
 
-        let fetch_interconn = Arc::new(ic::MockCoreMemoryInterface {});
+        // let fetch_interconn = Arc::new(ic::MockCoreMemoryInterface {});
 
         let mut l1_latency_queue: Vec<Vec<Option<mem_fetch::MemFetch>>> = Vec::new();
         let data_l1 = if let Some(l1_config) = &config.data_cache_l1 {
@@ -309,7 +135,7 @@ where
         };
 
         let num_banks = 0;
-        let operand_collector = OperandCollectorRegisterFileUnit::new(num_banks);
+        // let operand_collector = OperandCollectorRegisterFileUnit::new(num_banks);
         Self {
             core_id,
             cluster_id,
@@ -324,11 +150,13 @@ where
             pending_writes: HashMap::new(),
             response_fifo: VecDeque::new(),
             // interconn,
-            interconn: fetch_interconn,
+            fetch_interconn,
             pipelined_simd_unit,
             config,
+            stats,
+            scoreboard,
             operand_collector,
-            phantom: std::marker::PhantomData,
+            // phantom: std::marker::PhantomData,
         }
     }
 
@@ -345,8 +173,7 @@ where
 
     pub fn invalidate(&mut self) {
         if let Some(l1) = &mut self.data_l1 {
-            todo!("invalidate data l1");
-            // l1.invalidate();
+            l1.invalidate();
         }
     }
 
@@ -358,40 +185,50 @@ where
     pub fn writeback(&mut self) {
         // process next instruction that is going to writeback
         // if !self.next_writeback.empty()) {
-        if let Some(next_writeback) = self.next_writeback.take() {
-            if self.operand_collector.writeback(&next_writeback) {
+        if let Some(ref next_writeback) = self.next_writeback {
+            if self
+                .operand_collector
+                .try_borrow_mut()
+                .unwrap()
+                .writeback(&next_writeback)
+            {
+                let mut next_writeback = self.next_writeback.take().unwrap();
                 let mut instr_completed = false;
                 // for r in 0..MAX_OUTPUT_VALUES {
                 for out in next_writeback.outputs() {
                     // 0..MAX_OUTPUT_VALUES {
                     // for (unsigned r = 0; r < MAX_OUTPUT_VALUES; r++) {
                     // if next_writeback.out[r] > 0 {
-                    if *out > 0 {
-                        if next_writeback.memory_space != MemorySpace::Shared {
-                            let pending_write = self
-                                .pending_writes
-                                .get_mut(&next_writeback.warp_id)
-                                .unwrap();
-                            debug_assert!(pending_write[out] > 0);
-                            let still_pending = pending_write[out] - 1;
-                            if still_pending == 0 {
-                                pending_write.remove(out);
-                                // m_scoreboard->releaseRegister(m_next_wb.warp_id(),
-                                //                                 m_next_wb.out[r]);
-                                instr_completed = true;
-                            }
-                        } else {
-                            // shared
-                            // m_scoreboard->releaseRegister(m_next_wb.warp_id(),
-                            //                               m_next_wb.out[r]);
+                    // if *out > 0 {
+                    debug_assert!(*out > 0);
+                    if next_writeback.memory_space != MemorySpace::Shared {
+                        let pending_write = self
+                            .pending_writes
+                            .get_mut(&next_writeback.warp_id)
+                            .unwrap();
+                        debug_assert!(pending_write[out] > 0);
+                        let still_pending = pending_write[out] - 1;
+                        if still_pending == 0 {
+                            pending_write.remove(out);
+                            self.scoreboard
+                                .write()
+                                .unwrap()
+                                .release_register(next_writeback.warp_id, *out);
                             instr_completed = true;
                         }
+                    } else {
+                        // shared
+                        self.scoreboard
+                            .write()
+                            .unwrap()
+                            .release_register(next_writeback.warp_id, *out);
+                        instr_completed = true;
                     }
+                    // }
                 }
                 if instr_completed {
-                    // self.core.warp_inst_complete(next_writeback);
+                    warp_inst_complete(&mut next_writeback, &mut self.stats.lock().unwrap());
                 }
-                // m_next_wb.clear();
                 // m_last_inst_gpu_sim_cycle = m_core->get_gpu()->gpu_sim_cycle;
                 // m_last_inst_gpu_tot_sim_cycle = m_core->get_gpu()->gpu_tot_sim_cycle;
             }
@@ -525,12 +362,11 @@ where
             };
             let size = access.req_size_bytes + control_size as u32;
 
-            println!("Interconnect addr: {}, size={}", access.addr, size);
-            todo!("load store unit interconn full");
-            if false
-            // self
-            // .interconn
-            // .full(size, instr.is_store() || instr.is_atomic())
+            // println!("Interconnect addr: {}, size={}", access.addr, size);
+            // todo!("load store unit interconn full");
+            if self
+                .fetch_interconn
+                .full(size, instr.is_store() || instr.is_atomic())
             {
                 // stall_cond = ICNT_RC_FAIL;
             } else {
@@ -573,10 +409,11 @@ where
     }
 }
 
-impl<I> SimdFunctionUnit for LoadStoreUnit<I>
+impl<I> fu::SimdFunctionUnit for LoadStoreUnit<I>
+// impl fu::SimdFunctionUnit for LoadStoreUnit
 where
-    // I: ic::MemFetchInterface,
-    I: ic::Interconnect<super::core::Packet>,
+    I: ic::MemFetchInterface,
+    // I: ic::Interconnect<super::core::Packet>,
 {
     fn active_lanes_in_pipeline(&self) -> usize {
         let active = self.pipelined_simd_unit.active_lanes_in_pipeline();
@@ -586,8 +423,30 @@ where
         // todo!("load store unit: active lanes in pipeline");
     }
 
-    fn issue(&mut self, source_reg: RegisterSet) {
-        todo!("load store unit: issue");
+    fn issue(&mut self, source_reg: &mut RegisterSet) {
+        // warp_inst_t *inst = *(reg_set.get_ready());
+        //
+        // // record how many pending register writes/memory accesses there are for this
+        // // instruction
+        // assert(inst->empty() == false);
+        // if (inst->is_load() and inst->space.get_type() != shared_space) {
+        //   unsigned warp_id = inst->warp_id();
+        //   unsigned n_accesses = inst->accessq_count();
+        //   for (unsigned r = 0; r < MAX_OUTPUT_VALUES; r++) {
+        //     unsigned reg_id = inst->out[r];
+        //     if (reg_id > 0) {
+        //       m_pending_writes[warp_id][reg_id] += n_accesses;
+        //     }
+        //   }
+        // }
+        //
+        // inst->op_pipe = MEM__OP;
+        // // stat collection
+        // m_core->mem_instruction_stats(*inst);
+        // m_core->incmem_stat(m_core->get_config()->warp_size, 1);
+
+        self.pipelined_simd_unit.issue(source_reg);
+        // todo!("load store unit: issue");
     }
 
     fn clock_multiplier(&self) -> usize {
@@ -595,7 +454,16 @@ where
     }
 
     fn can_issue(&self, instr: &WarpInstruction) -> bool {
-        todo!("load store unit: can issue");
+        use super::opcodes::ArchOp;
+        match instr.opcode.category {
+            ArchOp::LOAD_OP
+            | ArchOp::TENSOR_CORE_LOAD_OP
+            | ArchOp::STORE_OP
+            | ArchOp::TENSOR_CORE_STORE_OP
+            | ArchOp::MEMORY_BARRIER_OP => self.pipelined_simd_unit.dispatch_reg.is_none(),
+            _ => false,
+        }
+        // todo!("load store unit: can issue");
     }
 
     fn is_issue_partitioned(&self) -> bool {
@@ -608,17 +476,18 @@ where
     }
 
     fn stallable(&self) -> bool {
-        todo!("load store unit: stallable");
+        true
+        // todo!("load store unit: stallable");
     }
 
     fn cycle(&mut self) {
         use super::instruction::CacheOperator;
 
         println!(
-            "core {}-{}: {} response fifo size={}",
+            "core {}-{}: {} (response fifo size={})",
             self.core_id,
             self.cluster_id,
-            style("load store unit: cycle").magenta(),
+            style("load store unit::cycle()").magenta(),
             self.response_fifo.len(),
         );
 
@@ -627,16 +496,20 @@ where
         let simd_unit = &mut self.pipelined_simd_unit;
         debug_assert!(simd_unit.pipeline_depth > 0);
         for stage in 0..(simd_unit.pipeline_depth - 1) {
-            let current = &simd_unit.pipeline_reg[stage];
+            // let mut current = simd_unit.pipeline_reg[stage];
             let next = &simd_unit.pipeline_reg[stage + 1];
-            if current.empty() && !next.empty() {
-                todo!("move warp");
-                // move_warp(&mut simd_unit.pipeline_reg, stage + 1, stage);
+            // dbg!((&current, &next));
+
+            // if current.empty() && !next.empty() {
+            if let Some(next) = next {
+                if let Some(current) = simd_unit.pipeline_reg[stage].take() {
+                    todo!("move warp");
+                    // register_set::move_warp(&mut simd_unit.pipeline_reg, stage + 1, stage);
+                    // register_set::move_warp(&mut simd_unit.pipeline_reg, stage + 1, stage);
+                }
             }
         }
 
-        // dbg!(&simd_unit.pipeline_reg);
-        // dbg!(&self.response_fifo);
         if let Some(mut fetch) = self.response_fifo.front().cloned() {
             match fetch.access_kind() {
                 mem_fetch::AccessKind::TEXTURE_ACC_R => {
@@ -734,26 +607,21 @@ where
         // let pipe_reg = &self.dispatch_reg;
         // if !pipe_reg.empty {
         let simd_unit = &mut self.pipelined_simd_unit;
-        if let Some(pipe_reg) = simd_unit.dispatch_reg.take() {
+        if let Some(ref pipe_reg) = simd_unit.dispatch_reg {
+            // panic!("ldst unit got instr from dispatch reg");
             let warp_id = pipe_reg.warp_id;
             if pipe_reg.is_load() {
                 if pipe_reg.memory_space == MemorySpace::Shared {
                     let slot = &mut simd_unit.pipeline_reg[self.config.shared_memory_latency - 1];
-                    if slot.empty() {
+                    if slot.is_none() {
                         // new shared memory request
-                        //
-                        // move_warp(&mut self.pipeline_reg, stage + 1, stage);
-                        // move_warp(&slot, self.dispatch_reg);
-                        *slot = pipe_reg;
-                        // self.dispatch_reg.clear();
-
-                        // pipe_reg = None;
-                        // self.dispatch_reg.take();
+                        let pipe_reg = simd_unit.dispatch_reg.take();
+                        register_set::move_warp(pipe_reg, slot);
                     }
                 } else {
                     let mut pending_requests = false;
                     for reg_id in pipe_reg.outputs() {
-                        let mut pending = self.pending_writes.get_mut(&warp_id).unwrap();
+                        let pending = self.pending_writes.entry(warp_id).or_default();
                         if *reg_id > 0 {
                             match pending.get(reg_id) {
                                 Some(&p) if p > 0 => {
@@ -767,21 +635,44 @@ where
                             }
                         }
                     }
+
+                    let mut dispatch_reg = simd_unit.dispatch_reg.take().unwrap();
+
                     if !pending_requests {
-                        // core.warp_inst_complete(self.dispatch_reg);
-                        // self.scoreboard.release_registers(self.dispatch_reg);
+                        warp_inst_complete(&mut dispatch_reg, &mut self.stats.lock().unwrap());
+                        self.scoreboard
+                            .write()
+                            .unwrap()
+                            .release_registers(&dispatch_reg);
                     }
                     // core.dec_inst_in_pipeline(warp_id);
-                    // self.dispatch_reg.clear();
-                    // self.dispatch_reg = None;
+                    simd_unit.dispatch_reg = None;
                 }
             } else {
                 // stores exit pipeline here
                 // core.dec_inst_in_pipeline(warp_id);
-                // core.warp_inst_complete(self.dispatch_reg);
-                // self.dispatch_reg.clear();
-                // self.dispatch_reg = None;
+                // todo!("warp instruction complete");
+                let mut dispatch_reg = simd_unit.dispatch_reg.take().unwrap();
+                warp_inst_complete(&mut dispatch_reg, &mut self.stats.lock().unwrap());
             }
         }
     }
+}
+
+pub fn warp_inst_complete(instr: &mut WarpInstruction, stats: &mut Stats) {
+    // if (inst.op_pipe == SP__OP)
+    //   m_stats->m_num_sp_committed[m_sid]++;
+    // else if (inst.op_pipe == SFU__OP)
+    //   m_stats->m_num_sfu_committed[m_sid]++;
+    // else if (inst.op_pipe == MEM__OP)
+    //   m_stats->m_num_mem_committed[m_sid]++;
+    //
+    // if (m_config->gpgpu_clock_gated_lanes == false)
+    //   m_stats->m_num_sim_insn[m_sid] += m_config->warp_size;
+    // else
+    //   m_stats->m_num_sim_insn[m_sid] += inst.active_count();
+
+    // m_stats->m_num_sim_winsn[m_sid]++;
+    // m_gpu->gpu_sim_insn += inst.active_count();
+    // instr.completed(m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle);
 }

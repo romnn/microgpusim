@@ -1,7 +1,8 @@
 use super::instruction::WarpInstruction;
+use console::style;
 
 /// Register that can hold multiple instructions.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct RegisterSet {
     // name: String,
     stage: super::PipelineStage,
@@ -22,12 +23,13 @@ impl RegisterSet {
         // })
     }
 
-    pub fn has_free_sub_core(&self, sub_core_model: bool, reg_id: usize) -> bool {
+    // pub fn has_free_sub_core(&self, sub_core_model: bool, reg_id: usize) -> bool {
+    pub fn has_free_sub_core(&self, reg_id: usize) -> bool {
         // in subcore model, each sched has a one specific
         // reg to use (based on sched id)
-        if !sub_core_model {
-            return self.has_free();
-        }
+        // if !sub_core_model {
+        //     return self.has_free();
+        // }
 
         debug_assert!(reg_id < self.regs.len());
         // self.regs[reg_id].is_none()
@@ -43,54 +45,26 @@ impl RegisterSet {
         // .unwrap_or(false)
     }
 
-    pub fn has_ready(&self) -> bool {
-        self.regs.iter().any(Option::is_some)
-        // self.regs.iter().any(|r| match r {
-        //     Some(r) => !r.empty(),
-        //     None => false,
-        // })
-    }
+    // pub fn has_ready(&self) -> bool {
+    //     self.regs.iter().any(Option::is_some)
+    //     // self.regs.iter().any(|r| match r {
+    //     //     Some(r) => !r.empty(),
+    //     //     None => false,
+    //     // })
+    // }
 
     // pub fn has_ready_sub_core(&self, sub_core_model: bool, reg_id: usize) -> bool {
-    pub fn has_ready_sub_core(&mut self, reg_id: usize) -> bool {
-        // if !sub_core_model {
-        //     return self.has_ready();
-        // }
-
-        debug_assert!(reg_id < self.regs.len());
-        match self.get_ready_sub_core(reg_id) {
-            Some(ready) => !ready.empty(),
-            None => true,
-        }
-    }
-
-    pub fn ready_reg_id(&self) -> Option<usize> {
-        // for sub core model we need to figure which reg_id has
-        // the ready warp this function should only be called
-        // if has_ready() was true
-        debug_assert!(self.has_ready());
-        let mut non_empty = self
-            .regs
-            .iter()
-            .map(Option::as_ref)
-            .filter_map(|r| r)
-            .filter(|r| !r.empty());
-
-        let mut ready: Option<&WarpInstruction> = None;
-        let mut reg_id = None;
-        for (i, reg) in non_empty.enumerate() {
-            match ready {
-                Some(ready) if ready.warp_id < reg.warp_id => {
-                    // ready is oldest
-                }
-                _ => {
-                    ready.insert(reg);
-                    reg_id = Some(i);
-                }
-            }
-        }
-        reg_id
-    }
+    // pub fn has_ready_sub_core(&self, reg_id: usize) -> bool {
+    //     // if !sub_core_model {
+    //     //     return self.has_ready();
+    //     // }
+    //
+    //     debug_assert!(reg_id < self.regs.len());
+    //     match self.get_ready_sub_core(reg_id) {
+    //         Some(ready) => !ready.empty(),
+    //         None => true,
+    //     }
+    // }
 
     pub fn schd_id(&self, reg_id: usize) -> Option<usize> {
         match self.regs.get(reg_id).map(Option::as_ref).flatten() {
@@ -102,30 +76,198 @@ impl RegisterSet {
         }
     }
 
-    pub fn get_ready_sub_core(&mut self, reg_id: usize) -> Option<&mut WarpInstruction> {
-        debug_assert!(reg_id < self.regs.len());
-        self.regs // [reg_id]
-            .get_mut(reg_id)
-            .map(Option::as_mut)
-            .flatten()
-        // .filter(Option::is_some)
-        // .filter(|r| r.empty())
+    // pub fn take_ready(&mut self) -> Option<WarpInstruction> {
+    //     let mut ready: &Option<WarpInstruction> = &None;
+    //     for free in self.regs.iter().filter_map(|&r| r) {
+    //         if let Some(ref mut r) = ready {
+    //             if free.uid < r.uid {
+    //                 // free is older
+    //                 *r = free;
+    //             }
+    //         } else {
+    //             ready = &Some(free);
+    //         }
+    //     }
+    //     ready.take()
+    // }
+
+    pub fn has_ready(&self) -> bool {
+        self.regs.iter().any(Option::is_some)
     }
 
-    pub fn get_free(&mut self) -> Option<&mut Option<WarpInstruction>> {
-        let mut free = self
-            .regs
+    pub fn get_ready(&self) -> Option<(usize, &Option<WarpInstruction>)> {
+        let mut ready: Option<(usize, &Option<WarpInstruction>)> = None;
+        for free in self.iter_occupied() {
+            match (&ready, free) {
+                (Some((_, Some(ref r))), (_, Some(ref f))) if f.uid < r.uid => {
+                    // free is older
+                    ready = Some(free);
+                }
+                (None, free) => ready = Some(free),
+                _ => {}
+            }
+        }
+        ready
+    }
+
+    // pub fn get_ready_reg_id(&self) -> &Option<WarpInstruction> {
+    //     // let mut ready: &Option<WarpInstruction> = &None;
+    //     for (reg_id, free) in self.iter_occupied() {
+    //         match (ready, free) {
+    //             (Some(ref r), Some(ref f)) if f.uid < r.uid => {
+    //                 // free is older
+    //                 ready = free;
+    //             }
+    //             (None, free) => ready = free,
+    //             _ => {}
+    //         }
+    //         // if let (Some(ref mut r), Some(ref mut f)) = (ready, free) {
+    //         //     if f.uid < r.uid {
+    //         //         // free is older
+    //         //         ready = free;
+    //         //     }
+    //         // } else if ready.is_none() {
+    //         //     ready = free;
+    //         // }
+    //     }
+    //     ready
+    // }
+
+    // pub fn ready_reg_id(&self) -> Option<usize> {
+    //     // for sub core model we need to figure which reg_id has
+    //     // the ready warp this function should only be called
+    //     // if has_ready() was true
+    //     // debug_assert!(self.has_ready());
+    //     let mut non_empty = self
+    //         .regs
+    //         .iter()
+    //         .map(Option::as_ref)
+    //         .filter_map(|r| r)
+    //         .filter(|r| !r.empty());
+    //
+    //     let mut ready: Option<&WarpInstruction> = None;
+    //     let mut reg_id = None;
+    //     for (i, reg) in non_empty.enumerate() {
+    //         match ready {
+    //             Some(ready) if ready.warp_id < reg.warp_id => {
+    //                 // ready is oldest
+    //             }
+    //             _ => {
+    //                 ready.insert(reg);
+    //                 reg_id = Some(i);
+    //             }
+    //         }
+    //     }
+    //     reg_id
+    // }
+
+    pub fn get_ready_mut(&mut self) -> Option<(usize, &mut Option<WarpInstruction>)> {
+        let mut ready: Option<(usize, &mut Option<WarpInstruction>)> = None;
+        for free in self.iter_occupied_mut() {
+            match (&ready, &free) {
+                (Some((_, Some(r))), (_, Some(f))) if f.uid < r.uid => {
+                    // free is older
+                    ready = Some(free);
+                }
+                (None, _) => ready = Some(free),
+                _ => {}
+            }
+        }
+        ready
+    }
+
+    // pub fn get_instruction(&self) -> Option<&WarpInstruction> {
+    //     self.get_ready().map(Option::as_ref).flatten().flatten()
+    // }
+
+    pub fn get_instruction_mut(&mut self) -> Option<&mut WarpInstruction> {
+        self.get_ready_mut()
+            .map(|(_, r)| r)
+            .map(Option::as_mut)
+            .flatten()
+    }
+
+    // pub fn get_ready_mut(&mut self) -> Option<&mut WarpInstruction> {
+    //     let mut ready: Option<&mut WarpInstruction> = None;
+    //     for free in self.iter_instructions_mut() {
+    //         if let Some(ref mut r) = ready {
+    //             if free.uid < r.uid {
+    //                 // free is older
+    //                 *r = free;
+    //             }
+    //         } else {
+    //             ready = Some(free);
+    //         }
+    //     }
+    //     ready
+    // }
+
+    pub fn get_ready_sub_core(&self, reg_id: usize) -> Option<&Option<WarpInstruction>> {
+        debug_assert!(reg_id < self.regs.len());
+        self.regs.get(reg_id)
+    }
+
+    pub fn get_ready_sub_core_mut(
+        &mut self,
+        reg_id: usize,
+    ) -> Option<&mut Option<WarpInstruction>> {
+        debug_assert!(reg_id < self.regs.len());
+        self.regs.get_mut(reg_id)
+    }
+
+    pub fn get_instruction_sub_core(&self, reg_id: usize) -> Option<&WarpInstruction> {
+        debug_assert!(reg_id < self.regs.len());
+        self.regs.get(reg_id).map(Option::as_ref).flatten()
+    }
+
+    pub fn get_instruction_sub_core_mut(&mut self, reg_id: usize) -> Option<&mut WarpInstruction> {
+        debug_assert!(reg_id < self.regs.len());
+        self.regs.get_mut(reg_id).map(Option::as_mut).flatten()
+    }
+
+    pub fn iter_occupied(&self) -> impl Iterator<Item = (usize, &Option<WarpInstruction>)> {
+        self.regs.iter().enumerate().filter(|(_, r)| r.is_some())
+    }
+
+    pub fn iter_occupied_mut(
+        &mut self,
+    ) -> impl Iterator<Item = (usize, &mut Option<WarpInstruction>)> {
+        self.regs
             .iter_mut()
-            // .map(Option::as_mut)
-            .filter(|r| r.is_none());
+            .enumerate()
+            .filter(|(_, r)| r.is_some())
+    }
+
+    pub fn iter_instructions(&self) -> impl Iterator<Item = &WarpInstruction> {
+        self.regs.iter().map(Option::as_ref).filter_map(|r| r)
+    }
+
+    pub fn iter_instructions_mut(&mut self) -> impl Iterator<Item = &mut WarpInstruction> {
+        self.regs.iter_mut().map(Option::as_mut).filter_map(|r| r)
+    }
+
+    pub fn iter_free(&self) -> impl Iterator<Item = &Option<WarpInstruction>> {
+        self.regs.iter().filter(|r| r.is_none())
+    }
+
+    pub fn iter_free_mut(&mut self) -> impl Iterator<Item = &mut Option<WarpInstruction>> {
+        self.regs.iter_mut().filter(|r| r.is_none())
+    }
+
+    pub fn get_free_mut(&mut self) -> Option<&mut Option<WarpInstruction>> {
+        // let mut free = self
+        //     .regs
+        //     .iter_mut()
+        //     // .map(Option::as_mut)
+        //     .filter(|r| r.is_none());
         // .filter(Option::is_none);
         // .filter_map(|r| r.as_ref())
         // .filter_map(|r| r.as_ref())
         // .filter(|r| r.empty());
-        free.next()
+        self.iter_free_mut().next()
     }
 
-    pub fn get_free_sub_core(&mut self, reg_id: usize) -> Option<&mut Option<WarpInstruction>> {
+    pub fn get_free_sub_core_mut(&mut self, reg_id: usize) -> Option<&mut Option<WarpInstruction>> {
         // in subcore model, each sched has a one specific reg
         // to use (based on sched id)
         debug_assert!(reg_id < self.regs.len());
@@ -141,11 +283,17 @@ impl RegisterSet {
         todo!("RegisterSet::empty")
     }
 
-    pub fn move_in(&mut self, src: WarpInstruction) {
-        if let Some(free) = self.get_free() {
-            free.insert(src);
-        }
-        // move_warp(src, free);
+    pub fn move_in_from(&mut self, src: Option<WarpInstruction>) {
+        // panic!("move {:?} in {}", src, self);
+        let free = self.get_free_mut().unwrap();
+        move_warp(src, free);
+    }
+
+    pub fn move_in_from_sub_core(&mut self, reg_id: usize, src: Option<WarpInstruction>) {
+        // panic!("move {:?} in {}", src, self);
+        //     assert(reg_id < regs.size());
+        let free = self.get_free_sub_core_mut(reg_id).unwrap();
+        move_warp(src, free);
     }
 
     // pub fn move_in(&bool sub_core_model, unsigned reg_id, warp_inst_t *&src) {
@@ -159,97 +307,69 @@ impl RegisterSet {
     //   move_warp(*free, src);
     // }
 
-    pub fn move_out_to(&mut self, dest: WarpInstruction) {
-        // warp_inst_t * *ready = get_ready();
-        // move_warp(dest, *ready);
+    pub fn move_out_to(&mut self, dest: &mut Option<WarpInstruction>) {
+        let ready: Option<WarpInstruction> = self
+            .get_ready_mut()
+            .map(|(_, r)| r)
+            .map(Option::take)
+            .flatten();
+        // dbg!(&ready);
+        // dbg!(&dest);
+        move_warp(ready, dest);
+        // todo!("move out to");
     }
 
-    // void move_out_to(bool sub_core_model, unsigned reg_id, warp_inst_t *&dest) {
-    //   if (!sub_core_model) {
-    //     return move_out_to(dest);
-    //   }
-    //   warp_inst_t **ready = get_ready(sub_core_model, reg_id);
-    //   assert(ready != NULL);
-    //   move_warp(dest, *ready);
-    // }
+    pub fn move_out_to_sub_core(&mut self, reg_id: usize, dest: &mut Option<WarpInstruction>) {
+        let ready: Option<WarpInstruction> = self
+            .get_ready_sub_core_mut(reg_id)
+            .map(Option::take)
+            .flatten();
+        move_warp(ready, dest);
+        // todo!("move out to sub core");
+    }
 }
 
 impl std::fmt::Display for RegisterSet {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_list().entries(self.regs.iter()).finish()
+        let instructions = self
+            .regs
+            .iter()
+            .map(|inst| inst.as_ref().map(|i| i.to_string()));
+        f.debug_list().entries(instructions).finish()
     }
 }
 
-fn swap<T>(x: &mut [T], i: usize, j: usize) {
-    let (lo, hi) = match i.cmp(&j) {
-        // no swapping necessary
-        std::cmp::Ordering::Equal => return,
-
-        // get the smallest and largest of the two indices
-        std::cmp::Ordering::Less => (i, j),
-        std::cmp::Ordering::Greater => (j, i),
-    };
-
-    let (init, tail) = x.split_at_mut(hi);
-    std::mem::swap(&mut init[lo], &mut tail[0]);
-}
-
-// fn move_warp<T>(from: &mut Option<T>, to: &mut Option<T>) {
-fn move_warp<T>(from: &mut T, to: &mut T) {
-    // fn move_warp<T>(x: &mut [T], from: usize, to: usize) {
-    // debug_assert!(
-    std::mem::swap(from, to);
-}
-
-// void move_warp(warp_inst_t *&dst, warp_inst_t *&src) {
-//   assert(dst->empty());
-//   warp_inst_t *temp = dst;
-//   dst = src;
-//   src = temp;
-//   src->clear();
+// fn swap<T>(x: &mut [T], i: usize, j: usize) {
+//     let (lo, hi) = match i.cmp(&j) {
+//         // no swapping necessary
+//         std::cmp::Ordering::Equal => return,
+//
+//         // get the smallest and largest of the two indices
+//         std::cmp::Ordering::Less => (i, j),
+//         std::cmp::Ordering::Greater => (j, i),
+//     };
+//
+//     let (init, tail) = x.split_at_mut(hi);
+//     std::mem::swap(&mut init[lo], &mut tail[0]);
 // }
 
-//   void move_in(warp_inst_t *&src) {
-//     warp_inst_t **free = get_free();
-//     move_warp(*free, src);
-//   }
-//
-//   void move_in(bool sub_core_model, unsigned reg_id, warp_inst_t *&src) {
-//     warp_inst_t **free;
-//     if (!sub_core_model) {
-//       free = get_free();
-//     } else {
-//       assert(reg_id < regs.size());
-//       free = get_free(sub_core_model, reg_id);
-//     }
-//     move_warp(*free, src);
-//   }
-//
-//   void move_out_to(warp_inst_t *&dest) {
-//     warp_inst_t **ready = get_ready();
-//     move_warp(dest, *ready);
-//   }
-//
-//   void move_out_to(bool sub_core_model, unsigned reg_id, warp_inst_t *&dest) {
-//     if (!sub_core_model) {
-//       return move_out_to(dest);
-//     }
-//     warp_inst_t **ready = get_ready(sub_core_model, reg_id);
-//     assert(ready != NULL);
-//     move_warp(dest, *ready);
-//   }
-//
-//   warp_inst_t **get_ready() {
-//     warp_inst_t **ready;
-//     ready = NULL;
-//     for (unsigned i = 0; i < regs.size(); i++) {
-//       if (not regs[i]->empty()) {
-//         if (ready and (*ready)->get_uid() < regs[i]->get_uid()) {
-//           // ready is oldest
-//         } else {
-//           ready = &regs[i];
-//         }
-//       }
-//     }
-//     return ready;
-//   }
+// fn move_warp<T>(from: &mut Option<T>, to: &mut Option<T>) {
+// pub fn move_warp<T>(from: &mut T, to: &mut T) {
+pub fn move_warp<T: std::fmt::Display>(from: Option<T>, to: &mut Option<T>) {
+    println!(
+        "{}",
+        style(format!(
+            "moving {:?} to {:?}",
+            from.as_ref().map(|i| i.to_string()),
+            to.as_ref().map(|i| i.to_string())
+        ))
+        .white()
+        .bold()
+    );
+    // debug_assert!(to.is_none());
+    // debug_assert!(from.is_some());
+    *to = from;
+    // fn move_warp<T>(x: &mut [T], from: usize, to: usize) {
+    // debug_assert!(
+    // std::mem::swap(from, to);
+}

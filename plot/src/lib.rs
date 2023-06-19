@@ -33,7 +33,7 @@ where
 impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
     pub fn register_allocation(&mut self, alloc: model::MemAllocation) {
         let start = alloc.device_ptr;
-        let end = alloc.device_ptr + alloc.num_bytes as u64;
+        let end = alloc.device_ptr + alloc.num_bytes;
         self.allocations.insert(start..end, alloc);
         self.bands.push(start..end);
     }
@@ -85,7 +85,7 @@ impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
             .accesses
             .values()
             .flatten()
-            .map(|access| 32 * (access.warp_id + 1))
+            .map(|access| 32 * (access.warp_id_in_block + 1))
             .max()
             .unwrap_or_default();
 
@@ -129,12 +129,16 @@ impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
         // time = [e[1] for e in entries]
 
         for ((is_store, label), mut accesses) in &mut self.accesses {
-            accesses.sort_by(|a, b| a.warp_id.cmp(&b.warp_id));
+            accesses.sort_by(|a, b| a.warp_id_in_block.cmp(&b.warp_id_in_block));
             // dbg!(&accesses);
 
             let color = if *is_store { &RED } else { &BLUE };
 
-            for warp_id in accesses.iter().map(|a| a.warp_id).collect::<HashSet<_>>() {
+            for warp_id in accesses
+                .iter()
+                .map(|a| a.warp_id_in_block)
+                .collect::<HashSet<_>>()
+            {
                 // draw vertical line separating warps
                 let x: u32 = (warp_id + 1) * 32;
                 chart_ctx.plotting_area().draw(&PathElement::new(
@@ -153,7 +157,7 @@ impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
                     .enumerate()
                     .filter(|(_, addr)| *addr > 0)
                     .map(|(tid, addr)| {
-                        let time = 32 * access.warp_id + tid as u32;
+                        let time = 32 * access.warp_id_in_block + tid as u32;
                         Circle::new((time, addr), 5, color)
                     })
             });

@@ -585,6 +585,8 @@ unsigned ldst_unit::clock_multiplier() const {
 }
 
 void ldst_unit::cycle() {
+  printf("\e[0;35m ldst_unit::cycle() (response fifo size=%lu) \e[0m \n",
+         m_response_fifo.size());
   writeback();
 
   for (unsigned stage = 0; (stage + 1) < m_pipeline_depth; stage++)
@@ -672,6 +674,7 @@ void ldst_unit::cycle() {
   }
 
   if (!pipe_reg.empty()) {
+    // throw std::runtime_error("ldst unit got instr from dispatch reg");
     unsigned warp_id = pipe_reg.warp_id();
     if (pipe_reg.is_load()) {
       if (pipe_reg.space.get_type() == shared_space) {
