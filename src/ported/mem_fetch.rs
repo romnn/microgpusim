@@ -2,10 +2,17 @@ use super::addrdec::LinearToRawAddressTranslation;
 use super::instruction::WarpInstruction;
 use super::scheduler::ThreadActiveMask;
 use crate::config;
-use crate::ported::{address, DecodedAddress, READ_PACKET_SIZE, WRITE_PACKET_SIZE};
+use crate::ported::{address, DecodedAddress};
 use bitvec::{array::BitArray, field::BitField, BitArr};
 use std::rc::Rc;
 use std::sync::Mutex;
+
+pub static READ_PACKET_SIZE: u8 = 8;
+
+// bytes: 6 address, 2 miscelaneous.
+pub static WRITE_PACKET_SIZE: u8 = 8;
+
+pub static WRITE_MASK_SIZE: u8 = 8;
 
 pub type MemAccessByteMask = BitArr!(for super::MAX_MEMORY_ACCESS_SIZE as usize);
 pub type MemAccessSectorMask = BitArr!(for super::SECTOR_CHUNCK_SIZE as usize, in u8);
@@ -152,7 +159,6 @@ impl MemAccess {
         // }
 
         Self {
-            // uid:
             warp_mask,
             byte_mask,
             sector_mask,
@@ -160,6 +166,14 @@ impl MemAccess {
             is_write,
             kind,
             addr,
+        }
+    }
+
+    pub fn control_size(&self) -> u32 {
+        if self.is_write {
+            WRITE_PACKET_SIZE as u32
+        } else {
+            READ_PACKET_SIZE as u32
         }
     }
 
@@ -380,10 +394,15 @@ impl MemFetch {
             self.access.kind,
             AccessKind::L1_WRBK_ACC | AccessKind::L2_WRBK_ACC
         ));
-        assert!(!self.is_write());
         self.kind = match self.kind {
-            Kind::READ_REQUEST => Kind::READ_REPLY,
-            Kind::WRITE_REQUEST => Kind::WRITE_ACK,
+            Kind::READ_REQUEST => {
+                debug_assert!(!self.is_write());
+                Kind::READ_REPLY
+            }
+            Kind::WRITE_REQUEST => {
+                debug_assert!(self.is_write());
+                Kind::WRITE_ACK
+            }
             _ => panic!("cannot set reply for fetch of kind {:?}", self.kind),
         }
     }

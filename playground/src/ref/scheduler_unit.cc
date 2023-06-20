@@ -145,13 +145,13 @@ void scheduler_unit::cycle() {
                 (pI->op == MEMORY_BARRIER_OP) ||
                 (pI->op == TENSOR_CORE_LOAD_OP) ||
                 (pI->op == TENSOR_CORE_STORE_OP)) {
-              m_mem_out->print(stdout);
-              if (!m_mem_out->has_free(m_shader->m_config->sub_core_model,
-
-                                       m_id)) {
-                throw std::runtime_error(
-                    "issue failed: no free mem port register");
-              }
+              // m_mem_out->print(stdout);
+              // if (!m_mem_out->has_free(m_shader->m_config->sub_core_model,
+              //
+              //                          m_id)) {
+              //   throw std::runtime_error(
+              //       "issue failed: no free mem port register");
+              // }
 
               if (m_mem_out->has_free(m_shader->m_config->sub_core_model,
                                       m_id) &&
@@ -165,8 +165,8 @@ void scheduler_unit::cycle() {
                 warp_inst_issued = true;
                 previous_issued_inst_exec_type = exec_unit_type_t::MEM;
               } else {
-                throw std::runtime_error(
-                    "issue failed: no free mem port register");
+                // throw std::runtime_error(
+                //     "issue failed: no free mem port register");
               }
             } else {
               // This code need to be refactored

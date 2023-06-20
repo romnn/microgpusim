@@ -1,5 +1,4 @@
 use super::{config, mem_fetch, Packet};
-use crate::ported::ldst_unit::READ_PACKET_SIZE;
 use console::style;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, Weak};
@@ -247,7 +246,11 @@ impl<P> std::fmt::Debug for CoreMemoryInterface<P> {
 impl MemFetchInterface for CoreMemoryInterface<Packet> {
     fn full(&self, size: u32, write: bool) -> bool {
         // todo!("core memory interface: full");
-        let request_size = if write { size } else { READ_PACKET_SIZE as u32 };
+        let request_size = if write {
+            size
+        } else {
+            mem_fetch::READ_PACKET_SIZE as u32
+        };
         !self.interconn.has_buffer(self.cluster_id, request_size)
     }
 

@@ -109,7 +109,8 @@ public:
                                        unsigned *pc, unsigned *rpc);
   virtual const active_mask_t &get_active_mask(unsigned warp_id,
                                                const warp_inst_t *pI);
-  virtual void issue_warp(register_set &pipe_reg_set, const warp_inst_t *next_inst,
+  virtual void issue_warp(register_set &pipe_reg_set,
+                          const warp_inst_t *next_inst,
                           const active_mask_t &active_mask, unsigned warp_id,
                           unsigned sch_id);
 

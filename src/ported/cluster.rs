@@ -362,7 +362,7 @@ where
                 // dbg!(&kernel.no_more_blocks_to_run());
                 // dbg!(&core.can_issue_block(&*kernel));
                 if !kernel.no_more_blocks_to_run() && core.can_issue_block(&*kernel) {
-                    core.issue_block(kernel);
+                    core.issue_block(kernel.clone());
                     num_blocks_issued += 1;
                     *block_issue_next_core = core_id;
                     break;

@@ -170,11 +170,14 @@ void memory_partition_unit::simple_dram_model_cycle() {
     mem_fetch *mf_return = m_dram_latency_queue.front().req;
     if (mf_return->get_access_type() != L1_WRBK_ACC &&
         mf_return->get_access_type() != L2_WRBK_ACC) {
+      printf("got from dram latency queue: %s (write=%d)\n",
+             mf_return->get_access_type_str(), mf_return->is_write());
       mf_return->set_reply();
 
       unsigned dest_global_spid = mf_return->get_sub_partition_id();
       int dest_spid = global_sub_partition_id_to_local_id(dest_global_spid);
       assert(m_sub_partition[dest_spid]->get_id() == dest_global_spid);
+
       if (!m_sub_partition[dest_spid]->dram_L2_queue_full()) {
         if (mf_return->get_access_type() == L1_WRBK_ACC) {
           m_sub_partition[dest_spid]->set_done(mf_return);
@@ -208,9 +211,10 @@ void memory_partition_unit::simple_dram_model_cycle() {
        p++) {
     int spid = (p + last_issued_partition + 1) %
                m_config->m_n_sub_partition_per_memory_channel;
-    printf(
-        "\033[1;31m checking sub partition %d: can issue=%d, l2 to dram queue empty=%d \033[0m \n",
-        spid, can_issue_to_dram(spid), m_sub_partition[spid]->L2_dram_queue_empty());
+    printf("\033[1;31m checking sub partition %d: can issue=%d, l2 to dram "
+           "queue empty=%d \033[0m \n",
+           spid, can_issue_to_dram(spid),
+           m_sub_partition[spid]->L2_dram_queue_empty());
 
     if (!m_sub_partition[spid]->L2_dram_queue_empty() &&
         can_issue_to_dram(spid)) {

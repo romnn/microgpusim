@@ -797,10 +797,13 @@ impl MemoryPartitionUnit
                 let dest_global_spid = returned_fetch.sub_partition_id();
                 let dest_spid = self.global_sub_partition_id_to_local_id(dest_global_spid);
                 let mut sub = self.sub_partitions[dest_spid].borrow_mut();
-                debug_assert!(sub.id == dest_global_spid);
+                debug_assert_eq!(sub.id, dest_global_spid);
+
                 if !sub.dram_to_l2_queue.full() {
                     let mut returned_fetch = self.dram_latency_queue.pop_front().unwrap();
+                    dbg!(&returned_fetch);
                     returned_fetch.set_reply();
+
                     if returned_fetch.access_kind() == &mem_fetch::AccessKind::L1_WRBK_ACC {
                         // sub.set_done(returned_fetch);
                         // delete mf_return;

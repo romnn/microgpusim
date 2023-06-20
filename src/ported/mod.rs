@@ -93,6 +93,7 @@ struct FunctionInfo {
 /// as well as its state of execution.
 ///
 /// TODO: rename to just kernel if this handles all the state.
+#[derive()]
 pub struct KernelInfo {
     // dim3 gridDim, dim3 blockDim,
     // trace_function_info *m_function_info,
@@ -143,6 +144,12 @@ pub struct KernelInfo {
     //     num_blocks() * entry->gpgpu_ctx->device_runtime->g_TB_launch_latency;
     //
     pub cache_config_set: bool,
+}
+
+impl PartialEq for KernelInfo {
+    fn eq(&self, other: &Self) -> bool {
+        self.uid == other.uid
+    }
 }
 
 impl std::fmt::Debug for KernelInfo {

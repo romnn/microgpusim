@@ -83,8 +83,8 @@ address_type trace_shader_core_ctx::next_pc(int tid) const {
   if (the_thread == NULL)
     return -1;
   return the_thread
-      ->get_pc(); // PC should already be updatd to next PC at this point (was
-                  // set in shader_decode() last time thread ran)
+      ->get_pc(); // PC should already be updatd to next PC at this point
+                  // (was set in shader_decode() last time thread ran)
 }
 
 void trace_shader_core_ctx::init_warps(unsigned cta_id, unsigned start_thread,
@@ -114,8 +114,10 @@ void trace_shader_core_ctx::init_warps(unsigned cta_id, unsigned start_thread,
       m_simt_stack[i]->launch(start_pc, active_threads);
 
       // REMOVE: resume
-      // if (m_gpu->resume_option == 1 && kernel_id == m_gpu->resume_kernel &&
-      //     ctaid >= m_gpu->resume_CTA && ctaid < m_gpu->checkpoint_CTA_t) {
+      // if (m_gpu->resume_option == 1 && kernel_id == m_gpu->resume_kernel
+      // &&
+      //     ctaid >= m_gpu->resume_CTA && ctaid < m_gpu->checkpoint_CTA_t)
+      //     {
       //   char fname[2048];
       //   snprintf(fname, 2048, "checkpoint_files/warp_%d_%d_simt.txt",
       //            i % warp_per_cta, ctaid);
@@ -306,8 +308,8 @@ void trace_shader_core_ctx::issue_warp(register_set &pipe_reg_set,
 }
 
 void trace_shader_core_ctx::create_front_pipeline() {
-  // pipeline_stages is the sum of normal pipeline stages and specialized_unit
-  // stages * 2 (for ID and EX)
+  // pipeline_stages is the sum of normal pipeline stages and
+  // specialized_unit stages * 2 (for ID and EX)
   unsigned total_pipeline_stages =
       N_PIPELINE_STAGES + m_config->m_specialized_unit.size() * 2;
   m_pipeline_reg.reserve(total_pipeline_stages);
@@ -333,8 +335,8 @@ void trace_shader_core_ctx::create_front_pipeline() {
   }
 
   if (m_config->sub_core_model) {
-    // in subcore model, each scheduler should has its own issue register, so
-    // ensure num scheduler = reg width
+    // in subcore model, each scheduler should has its own issue register,
+    // so ensure num scheduler = reg width
     assert(m_config->gpgpu_num_sched_per_core ==
            m_pipeline_reg[ID_OC_SP].get_size());
     assert(m_config->gpgpu_num_sched_per_core ==
@@ -614,8 +616,9 @@ void trace_shader_core_ctx::create_exec_pipeline() {
       m_config->gpgpu_num_int_units + m_config->m_specialized_unit_num +
       1; // sp_unit, sfu, dp, tensor, int, ldst_unit
 
-  // m_dispatch_port = new enum pipeline_stage_name_t[ m_num_function_units ];
-  // m_issue_port = new enum pipeline_stage_name_t[ m_num_function_units ];
+  // m_dispatch_port = new enum pipeline_stage_name_t[ m_num_function_units
+  // ]; m_issue_port = new enum pipeline_stage_name_t[ m_num_function_units
+  // ];
 
   // m_fu = new simd_function_unit*[m_num_function_units];
 
@@ -858,8 +861,8 @@ void trace_shader_core_ctx::decode() {
     if (pI1) {
       m_stats->m_num_decoded_insn[m_sid]++;
       if ((pI1->oprnd_type == INT_OP) ||
-          (pI1->oprnd_type == UN_OP)) { // these counters get added up in mcPat
-                                        // to compute scheduler power
+          (pI1->oprnd_type == UN_OP)) { // these counters get added up in
+                                        // mcPat to compute scheduler power
         m_stats->m_num_INTdecoded_insn[m_sid]++;
       } else if (pI1->oprnd_type == FP_OP) {
         m_stats->m_num_FPdecoded_insn[m_sid]++;
@@ -911,7 +914,8 @@ void trace_shader_core_ctx::fetch() {
 
       // sanity check: all 64 warps are initialized
       assert(m_warp[30]->get_warp_id() == 30);
-      // assert(m_warp[40]->get_warp_id() == 40); // this is not yet the case
+      // assert(m_warp[40]->get_warp_id() == 40); // this is not yet the
+      // case
 
       // find an active warp with space in instruction buffer that is not
       // already waiting on a cache miss and get next 1-2 instructions from
@@ -920,7 +924,8 @@ void trace_shader_core_ctx::fetch() {
         unsigned warp_id =
             (m_last_warp_fetched + 1 + i) % m_config->max_warps_per_shader;
         printf("\tchecking warp_id = %u (last fetched=%d, instruction "
-               "count=%ld, hardware_done=%d, functional_done=%d, done_exit=%d, "
+               "count=%ld, hardware_done=%d, functional_done=%d, "
+               "done_exit=%d, "
                "has pending writes=%d)\n",
                warp_id, m_last_warp_fetched,
                m_warp[warp_id]->instruction_count(),
@@ -938,7 +943,7 @@ void trace_shader_core_ctx::fetch() {
             !m_scoreboard->pendingWrites(warp_id) &&
             !m_warp[warp_id]->done_exit()) {
 
-          throw std::runtime_error("first warp reclaim");
+          // throw std::runtime_error("first warp reclaim");
           printf("\tchecking if warp_id = %u did complete\n", warp_id);
 
           // check each thread of the warp for completion
@@ -961,17 +966,18 @@ void trace_shader_core_ctx::fetch() {
             }
           }
           if (did_exit) {
-            throw std::runtime_error("first warp did exit");
+            // throw std::runtime_error("first warp did exit");
             m_warp[warp_id]->set_done_exit();
           }
           --m_active_warps;
           assert(m_active_warps >= 0);
         }
 
-        // this code fetches instructions from the i-cache or generates memory
+        // this code fetches instructions from the i-cache or generates
+        // memory
         //        "(%d/%d) (%lu active)\n",
-        //        m_warp[warp_id]->get_warp_id(), m_warp[warp_id]->trace_done(),
-        //        m_warp[warp_id]->trace_pc,
+        //        m_warp[warp_id]->get_warp_id(),
+        //        m_warp[warp_id]->trace_done(), m_warp[warp_id]->trace_pc,
         //        m_warp[warp_id]->warp_traces.size(),
         //        m_warp[warp_id]->functional_done(),
         //        m_warp[warp_id]->get_n_completed(),
@@ -1288,7 +1294,8 @@ bool trace_shader_core_ctx::occupy_shader_resource_1block(
 }
 
 void trace_shader_core_ctx::set_max_cta(const trace_kernel_info_t &kernel) {
-  // calculate the max cta count and cta size for local memory address mapping
+  // calculate the max cta count and cta size for local memory address
+  // mapping
   kernel_max_cta_per_shader = m_config->max_cta(kernel);
   unsigned int gpu_cta_size = kernel.threads_per_cta();
   kernel_padded_threads_per_cta =
@@ -1348,15 +1355,13 @@ void trace_shader_core_ctx::issue_block2core(trace_kernel_info_t &kernel) {
     m_occupied_cta_to_hwtid[free_cta_hw_id] = start_thread;
   }
 
-  // reset the microarchitecture state of the selected hardware thread and warp
-  // contexts
-  // printf("start thread = %d end thread = %d\n", start_thread, end_thread);
-  // assert(0);
+  // reset the microarchitecture state of the selected hardware thread and
+  // warp contexts printf("start thread = %d end thread = %d\n",
+  // start_thread, end_thread); assert(0);
   reinit(start_thread, end_thread, false);
   for (auto &w : m_warp) {
     assert(w->done_exit());
   }
-  // assert(0);
 
   // initalize scalar threads and determine which hardware warps they are
   // allocated to bind functional simulation state of threads to hardware
@@ -1378,7 +1383,8 @@ void trace_shader_core_ctx::issue_block2core(trace_kernel_info_t &kernel) {
     m_threadState[i].m_active = true;
     // load thread local memory and register file
     // REMOVE: resume
-    // if (m_gpu->resume_option == 1 && kernel.get_uid() == m_gpu->resume_kernel
+    // if (m_gpu->resume_option == 1 && kernel.get_uid() ==
+    // m_gpu->resume_kernel
     // &&
     //     ctaid >= m_gpu->resume_CTA && ctaid < m_gpu->checkpoint_CTA_t) {
     //   char fname[2048];
@@ -1399,9 +1405,13 @@ void trace_shader_core_ctx::issue_block2core(trace_kernel_info_t &kernel) {
              m_config->n_thread_per_shader); // should be at least one, but
                                              // less than max
   m_cta_status[free_cta_hw_id] = nthreads_in_block;
+  printf("num threads in block %d (hw %d) = %d\n", ctaid, free_cta_hw_id,
+         nthreads_in_block);
+  // assert(0);
 
   // REMOVE: resume
-  // if (m_gpu->resume_option == 1 && kernel.get_uid() == m_gpu->resume_kernel
+  // if (m_gpu->resume_option == 1 && kernel.get_uid() ==
+  // m_gpu->resume_kernel
   // &&
   //     ctaid >= m_gpu->resume_CTA && ctaid < m_gpu->checkpoint_CTA_t) {
   //   char f1name[2048];
@@ -1454,8 +1464,9 @@ unsigned trace_shader_core_ctx::translate_local_memaddr(
     // nCpS = number of CTA per shader
     //
     // for a given local memory address threads in a CTA map to contiguous
-    // addresses, then distribute across memory space by CTAs from successive
-    // shader cores first, then by successive CTA in same shader core
+    // addresses, then distribute across memory space by CTAs from
+    // successive shader cores first, then by successive CTA in same shader
+    // core
     thread_base =
         4 * (kernel_padded_threads_per_cta *
                  (m_sid + num_shader * (tid / kernel_padded_threads_per_cta)) +
@@ -1463,8 +1474,8 @@ unsigned trace_shader_core_ctx::translate_local_memaddr(
     max_concurrent_threads =
         kernel_padded_threads_per_cta * kernel_max_cta_per_shader * num_shader;
   } else {
-    // legacy mapping that maps the same address in the local memory space of
-    // all threads to a single contiguous address region
+    // legacy mapping that maps the same address in the local memory space
+    // of all threads to a single contiguous address region
     thread_base = 4 * (m_config->n_thread_per_shader * m_sid + tid);
     max_concurrent_threads = num_shader * m_config->n_thread_per_shader;
   }
@@ -1479,10 +1490,9 @@ unsigned trace_shader_core_ctx::translate_local_memaddr(
     assert(datasize % 4 == 0); // Must be a multiple of 4B
     num_accesses = datasize / 4;
     assert(num_accesses <= MAX_ACCESSES_PER_INSN_PER_THREAD); // max 32B
-    assert(
-        localaddr % 4 ==
-        0); // Address must be 4B aligned - required if accessing 4B per
-            // request, otherwise access will overflow into next thread's space
+    assert(localaddr % 4 == 0); // Address must be 4B aligned - required if
+                                // accessing 4B per request, otherwise access
+                                // will overflow into next thread's space
     for (unsigned i = 0; i < num_accesses; i++) {
       address_type local_word = localaddr / 4 + i;
       address_type linear_address = local_word * max_concurrent_threads * 4 +
@@ -1583,7 +1593,8 @@ bool trace_shader_core_ctx::warp_waiting_at_mem_barrier(unsigned warp_id) {
       // Invalidate L1 cache
       // Based on Nvidia Doc, at MEM barrier, we have to
       //(1) wait for all pending writes till they are acked
-      //(2) invalidate L1 cache to ensure coherence and avoid reading stall data
+      //(2) invalidate L1 cache to ensure coherence and avoid reading stall
+      // data
       cache_invalidate();
       // TO DO: you need to stall the SM for 5k cycles.
     }
@@ -1640,11 +1651,11 @@ void trace_shader_core_ctx::incexecstat(warp_inst_t *&inst) {
   //     incimul_stat(inst->active_count(), scaling_coeffs->int_mul_coeff);
   //     break;
   //   case INT_MUL24_OP:
-  //     incimul24_stat(inst->active_count(), scaling_coeffs->int_mul24_coeff);
-  //     break;
+  //     incimul24_stat(inst->active_count(),
+  //     scaling_coeffs->int_mul24_coeff); break;
   //   case INT_MUL32_OP:
-  //     incimul32_stat(inst->active_count(), scaling_coeffs->int_mul32_coeff);
-  //     break;
+  //     incimul32_stat(inst->active_count(),
+  //     scaling_coeffs->int_mul32_coeff); break;
   //   case INT_DIV_OP:
   //     incidiv_stat(inst->active_count(), scaling_coeffs->int_div_coeff);
   //     break;
@@ -1687,8 +1698,8 @@ void trace_shader_core_ctx::incexecstat(warp_inst_t *&inst) {
   //   default:
   //     break;
   //   }
-  //   if (inst->const_cache_operand) // warp has const address space load as
-  //   one
+  //   if (inst->const_cache_operand) // warp has const address space load
+  //   as one
   //                                  // operand
   //     inc_const_accesses(1);
   // }

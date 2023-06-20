@@ -51,11 +51,7 @@ pub struct ThreadState {
 impl ThreadState {}
 
 #[derive(Debug)]
-pub struct ThreadInfo {
-    // todo: whats that?
-}
-
-impl ThreadInfo {}
+pub struct ThreadInfo {}
 
 #[derive(Debug, Default)]
 pub struct InstrFetchBuffer {
@@ -964,6 +960,91 @@ where
     //     // let warp = &mut self.warps[warp_id];
     //     // warp.next_trace_inst()
     // }
+    //
+    // fn register_thread_in_block_exited(&mut self, block_id: usize, kernel: Option<&KernelInfo>) {
+    fn register_thread_in_block_exited(
+        &mut self,
+        block_id: usize,
+        // kernel: Option<Arc<KernelInfo>>,
+        kernel: Option<&KernelInfo>,
+    ) {
+        // todo!("exit");
+        // todo!("register_thread_in_block_exited");
+        // let kernel = kernel.unwrap();
+        // let kernel = Some(kernel.as_ref());
+
+        // let current_kernel: Option<&mut KernelInfo> = self
+        let current_kernel: &mut Option<_> =
+            &mut self.inner.current_kernel.as_ref().map(|k| k.as_ref());
+
+        // dbg!(&self.inner.block_status);
+        debug_assert!(self.inner.block_status[block_id] > 0);
+        self.inner.block_status[block_id] -= 1;
+        if self.inner.block_status[block_id] == 0 {
+            // Increment the completed CTAs
+            //   m_stats->ctas_completed++;
+            //   m_gpu->inc_completed_cta();
+            self.inner.num_active_blocks -= 1;
+            //   m_barriers.deallocate_barrier(cta_num);
+            //   shader_CTA_count_unlog(m_sid, 1);
+            //
+            //   SHADER_DPRINTF(
+            //       LIVENESS,
+            //       "GPGPU-Sim uArch: Finished CTA #%u (%lld,%lld), %u CTAs running\n",
+            //       cta_num, m_gpu->gpu_sim_cycle, m_gpu->gpu_tot_sim_cycle,
+            //       m_n_active_cta);
+            //
+            if self.inner.num_active_blocks == 0 {
+                //     SHADER_DPRINTF(
+                //         LIVENESS,
+                //         "GPGPU-Sim uArch: Empty (last released kernel %u \'%s\').\n",
+                //         kernel->get_uid(), kernel->name().c_str());
+                //     fflush(stdout);
+                //
+                // Shader can only be empty when no more cta are dispatched
+                if kernel != *current_kernel {
+                    // debug_assert!(current_kernel.is_none() || kernel.no_more_blocks_to_run());
+                }
+                *current_kernel = None;
+            }
+            //
+            //   // Jin: for concurrent kernels on sm
+            // self.release_shader_resource_1block(cta_num, kernel);
+            //   kernel->dec_running();
+            if let Some(kernel) = kernel {
+                if kernel.no_more_blocks_to_run() {
+                    if !kernel.running() {
+                        //       SHADER_DPRINTF(LIVENESS,
+                        //                      "GPGPU-Sim uArch: GPU detected kernel %u \'%s\' "
+                        //                      "finished on shader %u.\n",
+                        //                      kernel->get_uid(), kernel->name().c_str(), m_sid);
+                        //
+                        if *current_kernel == Some(&kernel) {
+                            *current_kernel = None;
+                        }
+                        // m_gpu->set_kernel_done(kernel);
+                    }
+                }
+            }
+        }
+    }
+
+    // fn set_kernel_done(&self, kernel: KernelInfo) {
+    //   let uid = kernel.uid;
+    //   self.finished_kernel.push_back(uid);
+    //         if let Some(running) = self.running_kernels.remove(|k| k.uid == kernel.uid) {
+    //
+    //         }
+    //   // std::vector<trace_kernel_info_t *>::iterator k;
+    //   // for (k = m_running_kernels.begin(); k != m_running_kernels.end(); k++) {
+    //     if (*k == kernel) {
+    //       kernel->end_cycle = gpu_sim_cycle + gpu_tot_sim_cycle;
+    //       *k = NULL;
+    //       break;
+    //     }
+    //   }
+    //   assert(k != m_running_kernels.end());
+    // }
 
     fn fetch(&mut self) {
         println!(
@@ -1015,14 +1096,22 @@ where
                 for i in 0..max_warps {
                     let last = self.inner.last_warp_fetched.unwrap_or(0);
                     let warp_id = (last + 1 + i) % max_warps;
-                    let mut warp = self
-                        .inner
-                        .warps
-                        .get_mut(warp_id)
-                        .unwrap()
-                        .try_lock()
-                        .unwrap();
+
+                    // let mut warp = self
+                    //     .inner
+                    //     .warps
+                    //     // .get_mut(warp_id)
+                    //     .get(warp_id)
+                    //     .unwrap()
+                    //     .try_lock()
+                    //     .unwrap();
+
+                    // dbg!(&self.inner.warps);
+                    let warp = self.inner.warps[warp_id].try_lock().unwrap();
                     // debug_assert_eq!(warp.warp_id, warp_id);
+
+                    let block_id = warp.block_id as usize;
+                    let kernel = warp.kernel.as_ref().map(Arc::clone);
 
                     let has_pending_writes = self
                         .inner
@@ -1030,6 +1119,7 @@ where
                         .read()
                         .unwrap()
                         .pending_writes(warp_id);
+
                     println!(
                         "checking warp_id = {} (last fetched={}, instruction count={}, hardware_done={}, functional_done={}, done_exit={}, pending writes={})",
                         &warp_id,
@@ -1041,58 +1131,61 @@ where
                         has_pending_writes
                     );
 
-                    // if (warp_id == 4) {
-                    //     panic!("first schedule of warp 4");
-                    // }
-
                     // this code checks if this warp has finished executing and can be
                     // reclaimed.
-                    //
-                    // if let Some(warp) = self.inner.warps.get_mut(warp_id) {
-                    // .unwrap().as_mut() {
-                    // let mut warp = warp.lock().unwrap();
-                    // debug_assert_eq!(warp.warp_id, warp_id);
+                    let can_reclaim =
+                        warp.hardware_done() && !has_pending_writes && !warp.done_exit();
 
-                    if warp.hardware_done() && !has_pending_writes && !warp.done_exit() {
-                        todo!("first warp reclaim");
+                    drop(warp);
+
+                    let mut did_exit = false;
+
+                    if can_reclaim {
+                        // todo!("first warp reclaim");
                         // reclaim warp
-                        let mut did_exit = false;
                         for t in 0..self.inner.config.warp_size {
                             let tid = warp_id * self.inner.config.warp_size + t;
                             if let Some(Some(state)) = self.inner.thread_state.get_mut(tid) {
                                 if state.active {
                                     state.active = false;
-                                    let cta_id = warp.block_id;
-                                    if !self
-                                        .inner
-                                        .thread_info
-                                        .get(tid)
-                                        .map(Option::as_ref)
-                                        .flatten()
-                                        .is_some()
-                                    {
-                                        todo!("register cta thread exit");
-                                        // register_cta_thread_exit(cta_id, m_warp[warp_id]->get_kernel_info());
-                                    } else {
-                                        todo!("register cta thread exit");
-                                        // register_cta_thread_exit(cta_id, &(m_thread[tid]->get_kernel()));
-                                    }
-                                    // ref: m_not_completed
+                                    self.register_thread_in_block_exited(
+                                        block_id,
+                                        kernel.as_ref().map(Arc::as_ref),
+                                    );
+
+                                    // if let Some(Some(thread_info)) =
+                                    //     self.inner.thread_info.get(tid).map(Option::as_ref)
+                                    // {
+                                    //     // self.register_thread_in_block_exited(block_id, &(m_thread[tid]->get_kernel()));
+                                    //     self.register_thread_in_block_exited(
+                                    //         block_id,
+                                    //         thread_info.kernel,
+                                    //         // kernel.as_ref().map(Arc::as_ref),
+                                    //     );
+                                    // } else {
+                                    //     self.register_thread_in_block_exited(
+                                    //         block_id,
+                                    //         kernel.as_ref().map(Arc::as_ref),
+                                    //     );
+                                    // }
                                     self.inner.num_active_threads -= 1;
                                     self.inner.active_thread_mask.set(tid, false);
                                     did_exit = true;
                                 }
                             }
                         }
-                        if did_exit {
-                            todo!("first warp did exit");
-                            // warp.set_done_exit();
-                        }
                         self.inner.num_active_warps -= 1;
                         debug_assert!(self.inner.num_active_warps >= 0);
                     }
 
                     // dbg!(&warp);
+                    let mut warp = self.inner.warps[warp_id].try_lock().unwrap();
+                    if did_exit {
+                        // todo!("first warp did exit");
+                        println!("warp_id = {} exited", &warp_id);
+
+                        warp.done_exit = true;
+                    }
 
                     // this code fetches instructions
                     // from the i-cache or generates memory
@@ -1133,7 +1226,7 @@ where
                             None,
                             access,
                             &*self.inner.config,
-                            ldst_unit::READ_PACKET_SIZE.into(),
+                            mem_fetch::READ_PACKET_SIZE.into(),
                             warp_id,
                             self.inner.core_id,
                             self.inner.cluster_id,
@@ -1737,12 +1830,12 @@ where
         kernel.next_threadblock_traces(&mut self.inner.warps);
 
         // dbg!(&self.warps);
-        for warp in &self.inner.warps {
-            // if let Some(warp) = warp {
-            //     // let warp = warp.as_ref().unwrap();
-            //     // dbg!(&warp.trace_instructions.len());
-            // }
-        }
+        // for warp in &self.inner.warps {
+        // if let Some(warp) = warp {
+        //     // let warp = warp.as_ref().unwrap();
+        //     // dbg!(&warp.trace_instructions.len());
+        // }
+        // }
 
         // for warp in kernel.next_threadblock_traces() {
         //     dbg!(&warp);
@@ -1810,7 +1903,7 @@ where
         end_thread: usize,
         block_id: u64,
         thread_block_size: usize,
-        kernel: &Arc<KernelInfo>,
+        kernel: Arc<KernelInfo>,
     ) {
         println!("core {:?}: init warps for block {}", self.id(), &block_id);
         println!("kernel: {}", &kernel);
@@ -1860,6 +1953,7 @@ where
                 warp_id,
                 self.inner.dynamic_warp_id,
                 local_active_thread_mask,
+                kernel.clone(),
             );
 
             self.inner.dynamic_warp_id += 1;
@@ -1898,7 +1992,7 @@ where
         }
     }
 
-    pub fn issue_block(&mut self, kernel: &Arc<KernelInfo>) -> () {
+    pub fn issue_block(&mut self, kernel: Arc<KernelInfo>) -> () {
         println!(
             "core {:?}: issue one block from kernel {} ({})",
             self.id(),
@@ -1978,30 +2072,25 @@ where
                 pc: 0, // todo
             });
             let warp_id = i / self.inner.config.warp_size;
-            let has_threads_in_block = if kernel.no_more_blocks_to_run() {
-                false // finished kernel
-            } else {
-                if kernel.more_threads_in_block() {
-                    // kernel.increment_thread_id();
+            if !kernel.no_more_blocks_to_run() {
+                if !kernel.more_threads_in_block() {
+                    kernel.next_thread_iter.lock().unwrap().next();
                 }
 
                 // we just incremented the thread id so this is not the same
                 if !kernel.more_threads_in_block() {
-                    // kernel.increment_thread_id();
+                    kernel.next_block_iter.lock().unwrap().next();
+                    *kernel.next_thread_iter.lock().unwrap() =
+                        kernel.config.block.into_iter().peekable();
                 }
-                true
-            };
+                num_threads_in_block += 1;
+            }
 
-            // num_threads_in_block += sim_init_thread(
-            //     kernel, &m_thread[i], m_sid, i, cta_size - (i - start_thread),
-            //     m_config->n_thread_per_shader, this, free_cta_hw_id, warp_id,
-            //     m_cluster->get_gpu());
             warps.set(warp_id, true);
         }
 
-        // dbg!(&warps.count_ones());
-
-        // initialize the SIMT stacks and fetch hardware
+        // dbg!(&self.inner.block_status);
+        self.inner.block_status[free_block_hw_id] = num_threads_in_block;
         self.init_warps(
             free_block_hw_id,
             start_thread,

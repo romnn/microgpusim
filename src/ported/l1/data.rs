@@ -348,6 +348,7 @@ where
         events: Option<&mut Vec<cache::Event>>,
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
+        todo!("write_miss_no_write_allocate");
         if self.inner.miss_queue_full() {
             // m_stats.inc_fail_stats(mf->get_access_type(), MISS_QUEUE_FULL);
             // cannot handle request this cycle
@@ -373,8 +374,10 @@ where
         events: Option<&mut Vec<cache::Event>>,
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
+        // todo!("write_miss_write_allocate_naive");
         // TODO: what exactly is the difference between the
         // addr and the fetch addr?
+        debug_assert_eq!(addr, fetch.addr());
         let block_addr = self.inner.cache_config.block_addr(addr);
         let mshr_addr = self.inner.cache_config.mshr_addr(fetch.addr());
 
@@ -397,7 +400,107 @@ where
                 panic!("write_miss_write_allocate_naive bad reason");
             }
         }
-        // todo!("write_miss_write_allocate_naive");
+
+        let event = cache::Event {
+            kind: cache::EventKind::WRITE_REQUEST_SENT,
+            evicted_block: None,
+        };
+
+        self.send_write_request(fetch.clone(), event, time);
+
+        let is_write = false;
+        let new_access = mem_fetch::MemAccess::new(
+            self.write_alloc_type,
+            fetch.addr(),
+            self.cache_config().atom_size(),
+            is_write, // Now performing a read
+            *fetch.access_warp_mask(),
+            *fetch.access_byte_mask(),
+            *fetch.access_sector_mask(),
+        );
+
+        let new_fetch = mem_fetch::MemFetch::new(
+            None,
+            new_access,
+            &self.inner.config,
+            fetch.control_size,
+            fetch.warp_id,
+            fetch.core_id,
+            fetch.cluster_id,
+        );
+        // , mf->get_mem_config(),
+        //             m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle);
+
+        // let new_fetch = mem_fetch::MemFetch {
+        //     access: mem_fetch::MemAccess {
+        //         is_write: false, // now performing a read
+        //         ..fetch.access.clone()
+        //     },
+        //     ..fetch.clone()
+        // };
+
+        // Send read request resulting from write miss
+        let is_read_only = false;
+        let is_write_allocate = true;
+        let (should_miss, writeback, evicted) = self.inner.send_read_request(
+            addr,
+            block_addr,
+            cache_index.unwrap(),
+            new_fetch,
+            time,
+            // events.as_mut().cloned(),
+            is_read_only,
+            is_write_allocate,
+        );
+
+        // events.push_back(cache_event(WRITE_ALLOCATE_SENT));
+
+        if should_miss {
+            // If evicted block is modified and not a write-through
+            // (already modified lower level)
+            let not_write_through =
+                self.cache_config().write_policy != config::CacheWritePolicy::WRITE_THROUGH;
+            if writeback && not_write_through {
+                if let Some(evicted) = evicted {
+                    // SECTOR_MISS and HIT_RESERVED should not send write back
+                    debug_assert_eq!(probe_status, cache::RequestStatus::MISS);
+
+                    let is_write = true;
+                    let wb_access = mem_fetch::MemAccess::new(
+                        self.write_back_type,
+                        evicted.block_addr,
+                        evicted.modified_size,
+                        is_write,
+                        *fetch.access_warp_mask(),
+                        evicted.byte_mask,
+                        evicted.sector_mask,
+                    );
+                    let control_size = wb_access.control_size();
+                    let mut wb_fetch = mem_fetch::MemFetch::new(
+                        None,
+                        wb_access,
+                        &self.inner.config,
+                        control_size,
+                        0, // warp id
+                        0, // self.core_id,
+                        0, // self.cluster_id,
+                    );
+
+                    // the evicted block may have wrong chip id when advanced L2 hashing  is
+                    // used, so set the right chip address from the original mf
+                    wb_fetch.tlx_addr.chip = fetch.tlx_addr.chip;
+                    wb_fetch.tlx_addr.sub_partition = fetch.tlx_addr.sub_partition;
+                    let event = cache::Event {
+                        kind: cache::EventKind::WRITE_BACK_REQUEST_SENT,
+                        evicted_block: Some(evicted),
+                    };
+
+                    self.send_write_request(fetch.clone(), event, time);
+                }
+            }
+            return cache::RequestStatus::MISS;
+        }
+
         cache::RequestStatus::RESERVATION_FAIL
     }
 
@@ -411,6 +514,7 @@ where
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         // let super::base::Base { ref cache_config, ref mut tag_array, .. } = self.inner;
+        todo!("write_miss_write_allocate_fetch_on_write");
         let super::base::Base {
             ref cache_config, ..
         } = self.inner;
@@ -518,7 +622,6 @@ where
         // events: &[cache::Event],
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
-        todo!("handle write miss");
         let func = match self.inner.cache_config.write_allocate_policy {
             config::CacheWriteAllocatePolicy::NO_WRITE_ALLOCATE => {
                 Self::write_miss_no_write_allocate

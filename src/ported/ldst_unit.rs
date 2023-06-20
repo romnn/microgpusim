@@ -23,13 +23,6 @@ use nvbit_model::MemorySpace;
 use std::collections::{HashMap, VecDeque};
 use trace_model::MemAccessTraceEntry;
 
-pub static READ_PACKET_SIZE: u8 = 8;
-
-// bytes: 6 address, 2 miscelaneous.
-pub static WRITE_PACKET_SIZE: u8 = 8;
-
-pub static WRITE_MASK_SIZE: u8 = 8;
-
 fn new_mem_fetch(
     access: mem_fetch::MemAccess,
     instr: WarpInstruction,
@@ -37,18 +30,13 @@ fn new_mem_fetch(
     core_id: usize,
     cluster_id: usize,
 ) -> mem_fetch::MemFetch {
-    let size = if access.is_write {
-        WRITE_PACKET_SIZE
-    } else {
-        READ_PACKET_SIZE
-    } as u32;
-
     let warp_id = instr.warp_id;
+    let control_size = access.control_size();
     mem_fetch::MemFetch::new(
         Some(instr),
         access,
         &config,
-        size,
+        control_size,
         warp_id,
         core_id,
         cluster_id,
@@ -431,10 +419,11 @@ where
         let mut stall_cond = MemStageStallType::NO_RC_FAIL;
         if bypass_l1 {
             // bypass L1 cache
+            debug_assert_eq!(instr.is_store(), access.is_write); // "this must not hold?");
             let control_size = if instr.is_store() {
-                WRITE_PACKET_SIZE
+                mem_fetch::WRITE_PACKET_SIZE
             } else {
-                READ_PACKET_SIZE
+                mem_fetch::READ_PACKET_SIZE
             };
             let size = access.req_size_bytes + control_size as u32;
 

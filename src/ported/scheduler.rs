@@ -36,14 +36,10 @@ pub struct SchedulerWarp {
     pub block_id: u64,
     pub dynamic_warp_id: usize,
     pub warp_id: usize,
-    pub kernel_id: usize,
-    // todo: what is next and trace pc??
-    // pub trace_pc: Mutex<usize>,
+    pub kernel: Option<Arc<super::KernelInfo>>,
+
     pub trace_pc: usize,
-    // pub next_pc: Mutex<Option<usize>>,
-    // pub next_pc: Option<usize>,
     pub active_mask: ThreadActiveMask,
-    // pub trace_instructions: Mutex<VecDeque<WarpInstruction>>,
     pub trace_instructions: VecDeque<WarpInstruction>,
 
     // state
@@ -54,16 +50,11 @@ pub struct SchedulerWarp {
     pub has_imiss_pending: bool,
     pub instr_buffer: Vec<Option<WarpInstruction>>,
     pub next: usize,
-    // pub trace_instructions: Vec<MemAccessTraceEntry>,
-    // pub warp_traces: Vec<Mem>,
-    // pub instructions: Vec<>,
-    // pub kernel: Arc<super::KernelInfo>,
-    // pub config: Arc<GPUConfig>,
 }
 
 impl PartialEq for SchedulerWarp {
     fn eq(&self, other: &Self) -> bool {
-        self.kernel_id == other.kernel_id
+        self.kernel == other.kernel
             && self.block_id == other.block_id
             && self.warp_id == other.warp_id
             && self.dynamic_warp_id == other.dynamic_warp_id
@@ -79,16 +70,10 @@ impl Default for SchedulerWarp {
             block_id: 0,
             dynamic_warp_id: 0,
             warp_id: 0,
-            kernel_id: 0,
-            // todo: what is next and trace pc??
+            kernel: None,
             trace_pc: 0,
-            // next_pc: None,
             trace_instructions: VecDeque::new(),
             active_mask: BitArray::ZERO,
-            // pub trace_instructions: Vec<MemAccessTraceEntry>,
-            // pub warp_traces: Vec<Mem>,
-            // pub instructions: Vec<>,
-            // kernel: Arc<super::KernelInfo>,
             done_exit: false,
             num_instr_in_pipeline: 0,
             num_outstanding_stores: 0,
@@ -127,11 +112,13 @@ impl SchedulerWarp {
         warp_id: usize,
         dynamic_warp_id: usize,
         active_mask: ThreadActiveMask,
+        kernel: Arc<super::KernelInfo>,
     ) {
         self.block_id = block_id;
         self.warp_id = warp_id;
         self.dynamic_warp_id = dynamic_warp_id;
         self.done_exit = false;
+        self.kernel = Some(kernel);
         // self.next_pc = start_pc;
         // assert(self.num_completed >= active.count());
         // assert(n_completed <= m_warp_size);
@@ -637,7 +624,7 @@ impl BaseSchedulerUnit {
                                     warp_inst_issued = true;
                                     prev_issued_exec_unit = ExecUnitKind::MEM;
                                 } else {
-                                    panic!("issue failed: free register={}", free_register);
+                                    // panic!("issue failed: free register={}", free_register);
                                 }
                             }
                             // ArchOp::EXIT_OPS => {}
