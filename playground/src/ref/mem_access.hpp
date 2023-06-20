@@ -13,6 +13,8 @@ public:
                bool wr, gpgpu_context *ctx) {
     init(ctx);
     m_type = type;
+    // if (m_type == GLOBAL_ACC_R)
+    //   throw std::runtime_error("global acc r");
     m_addr = address;
     m_req_size = size;
     m_write = wr;
@@ -25,6 +27,8 @@ public:
         m_sector_mask(sector_mask) {
     init(ctx);
     m_type = type;
+    // if (m_type == GLOBAL_ACC_R)
+    //   throw std::runtime_error("global acc r");
     m_addr = address;
     m_req_size = size;
     m_write = wr;

@@ -1,5 +1,7 @@
 #include "trace_shader_core_ctx.hpp"
 
+#include <csignal>
+
 #include "concrete_scheduler.hpp"
 #include "cuda_sim.hpp"
 #include "dp_unit.hpp"
@@ -731,7 +733,7 @@ void trace_shader_core_ctx::writeback() {
   warp_inst_t *pipe_reg = (preg == NULL) ? NULL : *preg;
   while (preg and !pipe_reg->empty()) {
     printf("instruction ready for writeback : %lu\n", pipe_reg->pc);
-    throw std::runtime_error("ready for writeback instruction");
+    // throw std::runtime_error("ready for writeback instruction");
     /*
      * Right now, the writeback stage drains all waiting instructions
      * assuming there are enough ports in the register file or the
@@ -918,15 +920,25 @@ void trace_shader_core_ctx::fetch() {
         unsigned warp_id =
             (m_last_warp_fetched + 1 + i) % m_config->max_warps_per_shader;
         printf("\tchecking warp_id = %u (last fetched=%d, instruction "
-               "count=%ld)\n",
+               "count=%ld, hardware_done=%d, functional_done=%d, done_exit=%d, "
+               "has pending writes=%d)\n",
                warp_id, m_last_warp_fetched,
-               m_warp[warp_id]->instruction_count());
+               m_warp[warp_id]->instruction_count(),
+               m_warp[warp_id]->hardware_done(),
+               m_warp[warp_id]->functional_done(), m_warp[warp_id]->done_exit(),
+               m_scoreboard->pendingWrites(warp_id));
+
+        // if (warp_id == 4) {
+        //   throw std::runtime_error("first schedule of warp 4");
+        // }
 
         // this code checks if this warp has finished executing and can be
         // reclaimed
         if (m_warp[warp_id]->hardware_done() &&
             !m_scoreboard->pendingWrites(warp_id) &&
             !m_warp[warp_id]->done_exit()) {
+
+          throw std::runtime_error("first warp reclaim");
           printf("\tchecking if warp_id = %u did complete\n", warp_id);
 
           // check each thread of the warp for completion
@@ -1160,8 +1172,11 @@ void trace_shader_core_ctx::reinit(unsigned start_thread, unsigned end_thread,
     m_threadState[i].n_insn = 0;
     m_threadState[i].m_cta_id = -1;
   }
+  printf("warp size %d start=%d end=%d\n", m_config->warp_size, start_thread,
+         end_thread);
   for (unsigned i = start_thread / m_config->warp_size;
        i < end_thread / m_config->warp_size; ++i) {
+    printf("reinit %d\n", i);
     m_warp[i]->reset();
     m_simt_stack[i]->reset();
   }
@@ -1308,6 +1323,7 @@ void trace_shader_core_ctx::issue_block2core(trace_kernel_info_t &kernel) {
 
   // determine hardware threads and warps that will be used for this CTA
   int cta_size = kernel.threads_per_cta();
+  printf("cta size = %d\n", cta_size);
 
   // hw warp id = hw thread id mod warp size, so we need to find a range
   // of hardware thread ids corresponding to an integral number of hardware
@@ -1324,6 +1340,7 @@ void trace_shader_core_ctx::issue_block2core(trace_kernel_info_t &kernel) {
     end_thread = start_thread + cta_size;
   } else {
     start_thread = find_available_hwtid(padded_cta_size, true);
+    // printf("padded cta size: %d\n", padded_cta_size);
     assert((int)start_thread != -1);
     end_thread = start_thread + cta_size;
     assert(m_occupied_cta_to_hwtid.find(free_cta_hw_id) ==
@@ -1333,7 +1350,13 @@ void trace_shader_core_ctx::issue_block2core(trace_kernel_info_t &kernel) {
 
   // reset the microarchitecture state of the selected hardware thread and warp
   // contexts
+  // printf("start thread = %d end thread = %d\n", start_thread, end_thread);
+  // assert(0);
   reinit(start_thread, end_thread, false);
+  for (auto &w : m_warp) {
+    assert(w->done_exit());
+  }
+  // assert(0);
 
   // initalize scalar threads and determine which hardware warps they are
   // allocated to bind functional simulation state of threads to hardware

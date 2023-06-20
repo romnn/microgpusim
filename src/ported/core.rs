@@ -153,6 +153,56 @@ pub trait WarpIssuer {
     fn has_free_register(&self, stage: PipelineStage, register_id: usize) -> bool;
 }
 
+impl<I> InnerSIMTCore<I>
+where
+    I: ic::Interconnect<Packet> + 'static,
+{
+    fn exec_inst(&mut self, instr: &WarpInstruction) {
+        let warp = self.warps.get_mut(instr.warp_id).unwrap();
+        let mut warp = warp.try_lock().unwrap();
+
+        if warp.warp_id == 4 {
+            panic!("warp 4 completed");
+        }
+
+        for t in 0..self.config.warp_size {
+            if instr.active_mask[t] {
+                let warp_id = instr.warp_id;
+                let thread_id = self.config.warp_size * warp_id + t;
+
+                // // virtual function
+                //   checkExecutionStatusAndUpdate(inst, t, tid);
+                if instr.is_atomic() {
+                    // warp.inc_n_atomic();
+                }
+
+                // if instr.memory_space.is_local() && (inst.is_load() || inst.is_store())) {
+                //    new_addr_type localaddrs[MAX_ACCESSES_PER_INSN_PER_THREAD];
+                //    unsigned num_addrs;
+                //    num_addrs = translate_local_memaddr(
+                //        inst.get_addr(t), tid,
+                //        m_config->n_simt_clusters * m_config->n_simt_cores_per_cluster,
+                //        inst.data_size, (new_addr_type *)localaddrs);
+                //    inst.set_addr(t, (new_addr_type *)localaddrs, num_addrs);
+                //  }
+                if instr.opcode.category == opcodes::ArchOp::EXIT_OPS {
+                    warp.set_thread_completed(t);
+                }
+            }
+        }
+
+        // here, we generate memory acessess
+        if instr.is_load() || instr.is_store() {
+            instr.generate_mem_accesses(&*self.config);
+        }
+
+        if warp.done() && warp.functional_done() {
+            warp.ibuffer_flush();
+            self.barriers.warp_exit(instr.warp_id);
+        }
+    }
+}
+
 impl<I> WarpIssuer for InnerSIMTCore<I>
 where
     // I: ic::MemFetchInterface + 'static,
@@ -203,9 +253,8 @@ where
         // warp.ibuffer_free();
 
         // assert!(next_inst.vali);
-        *pipe_reg = Some(next_instr); // todo: remove clone here
-                                      // *pipe_reg = Some(next_inst.clone()); // todo: remove clone here
-                                      // next_inst.issue(
+        *pipe_reg = Some(next_instr);
+
         let pipe_reg_mut = pipe_reg.as_mut().unwrap();
         pipe_reg_mut.issue(
             pipe_reg_mut.active_mask,
@@ -223,17 +272,39 @@ where
         // drop(warp);
         //
         // panic!("functional execution of warp instr");
-        for thread in 0..self.config.warp_size {
-            if pipe_reg_mut.is_active(thread) {
+        for t in 0..self.config.warp_size {
+            if pipe_reg_mut.active_mask[t] {
                 // unsigned warpId = inst.warp_id();
                 // unsigned tid = m_warp_size * warpId + t;
                 //
                 // // virtual function
                 // checkExecutionStatusAndUpdate(inst, t, tid);
+
+                let warp_id = pipe_reg_mut.warp_id;
+                let thread_id = self.config.warp_size * warp_id + t;
+
+                // // virtual function
+                //   checkExecutionStatusAndUpdate(inst, t, tid);
+                if pipe_reg_mut.is_atomic() {
+                    // warp.inc_n_atomic();
+                }
+
+                // if instr.memory_space.is_local() && (inst.is_load() || inst.is_store())) {
+                //    new_addr_type localaddrs[MAX_ACCESSES_PER_INSN_PER_THREAD];
+                //    unsigned num_addrs;
+                //    num_addrs = translate_local_memaddr(
+                //        inst.get_addr(t), tid,
+                //        m_config->n_simt_clusters * m_config->n_simt_cores_per_cluster,
+                //        inst.data_size, (new_addr_type *)localaddrs);
+                //    inst.set_addr(t, (new_addr_type *)localaddrs, num_addrs);
+                //  }
+                if pipe_reg_mut.opcode.category == opcodes::ArchOp::EXIT_OPS {
+                    warp.set_thread_completed(t);
+                }
             }
         }
 
-        // here, we generate memory acessess and set the status if thread (done?)
+        // here, we generate memory acessess
         if pipe_reg_mut.is_load() || pipe_reg_mut.is_store() {
             if let Some(accesses) = pipe_reg_mut.generate_mem_accesses(&self.config) {
                 pipe_reg_mut.mem_access_queue.extend(accesses);
@@ -244,20 +315,30 @@ where
         let pipe_reg_ref = pipe_reg.as_ref().unwrap();
 
         println!(
-            "{} (done={} ({}/{}), functional done={})",
+            "{} (done={} ({}/{}), functional done={}, hardware done={}, stores done={} ({} stores), instr in pipeline = {}, active_threads={})",
             style(format!("checking if warp {} did exit", warp.warp_id)).yellow(),
             warp.done(),
             warp.trace_pc,
             warp.instruction_count(),
-            warp.functional_done()
+            warp.functional_done(),
+            warp.hardware_done(),
+            warp.stores_done(),
+            warp.num_outstanding_stores,
+            warp.num_instr_in_pipeline,
+            warp.active_mask.count_ones(),
+            // pipe_reg_ref.active_mask.count_ones(),
         );
 
         if warp.done() && warp.functional_done() {
             warp.ibuffer_flush();
-            self.barriers.warp_exit(pipe_reg_ref.warp_id);
+            // note: not modeling barriers for now
+            // self.barriers.warp_exit(pipe_reg_ref.warp_id);
         }
 
-        // self.exec_instr(pipe_reg_ref);
+        // self.exec_inst(pipe_reg_ref);
+        // if warp.warp_id == 4 {
+        //     panic!("warp 4 executed");
+        // }
 
         // let mut warp = self.warps.get_mut(warp_id).unwrap().lock().unwrap();
         if pipe_reg_ref.opcode.category == opcodes::ArchOp::BARRIER_OP {
@@ -294,41 +375,6 @@ where
         // warp.set_next_pc(warp.pc + next_inst.instruction_size);
     }
 }
-
-// impl<I> InnerSIMTCore<I>
-// where
-//     // I: ic::MemFetchInterface + 'static,
-//     I: ic::Interconnect<Packet> + 'static,
-//     // I: ic::Interconnect<Packet>,
-// {
-//     fn exec_instr(&self, instr: &WarpInstruction) {
-//         // for (unsigned t = 0; t < m_warp_size; t++) {
-//         //     if (inst.active(t)) {
-//         //       unsigned warpId = inst.warp_id();
-//         //       unsigned tid = m_warp_size * warpId + t;
-//         //
-//         //       // virtual function
-//         //       checkExecutionStatusAndUpdate(inst, t, tid);
-//         //     }
-//         //   }
-//         //
-//         //   // here, we generate memory acessess and set the status if thread (done?)
-//         //   if (inst.is_load() || inst.is_store()) {
-//         //     inst.generate_mem_accesses();
-//         //   }
-//         //
-//         //   trace_shd_warp_t *m_trace_warp =
-//         //       static_cast<trace_shd_warp_t *>(m_warp[inst.warp_id()]);
-//         //   printf("==>> ROMAN: warp %d trace done %d (%d/%lu) functional done %d\n",
-//         //          m_trace_warp->get_warp_id(), m_trace_warp->trace_done(),
-//         //          m_trace_warp->trace_pc, m_trace_warp->warp_traces.size(),
-//         //          m_trace_warp->functional_done());
-//         //   if (m_trace_warp->trace_done() && m_trace_warp->functional_done()) {
-//         //     m_trace_warp->ibuffer_flush();
-//         //     m_barriers.warp_exit(inst.warp_id());
-//         //   }
-//     }
-// }
 
 #[derive()]
 // pub struct SIMTCore<'a> {
@@ -422,8 +468,8 @@ where
         stats: Arc<Mutex<Stats>>,
         config: Arc<GPUConfig>,
     ) -> Self {
-        let thread_info: Vec<_> = (0..config.max_threads_per_shader).map(|_| None).collect();
-        let thread_state: Vec<_> = (0..config.max_threads_per_shader).map(|_| None).collect();
+        let thread_info: Vec<_> = (0..config.max_threads_per_core).map(|_| None).collect();
+        let thread_state: Vec<_> = (0..config.max_threads_per_core).map(|_| None).collect();
         // let interconn = ic::Interconnect::default();
         //
 
@@ -562,6 +608,7 @@ where
         let load_store_unit = Arc::new(Mutex::new(LoadStoreUnit::new(
             core_id,
             cluster_id,
+            warps.clone(),
             // clister.clone(),
             // interconn.clone(),
             fetch_interconn.clone(),
@@ -748,11 +795,9 @@ where
         for u in 0..self.inner.config.num_sp_units {
             self.functional_units
                 .push(Arc::new(Mutex::new(super::SPUnit::new(
-                    // &m_pipeline_reg[EX_WB],
+                    Rc::clone(&self.inner.pipeline_reg[PipelineStage::EX_WB as usize]),
                     self.inner.config.clone(),
                     self.inner.stats.clone(),
-                    // this,
-                    // k,
                 ))));
             self.dispatch_ports.push(PipelineStage::ID_OC_SP);
             self.issue_ports.push(PipelineStage::OC_EX_SP);
@@ -920,47 +965,6 @@ where
     //     // warp.next_trace_inst()
     // }
 
-    fn exec_inst(&mut self, instr: &WarpInstruction) {
-        let warp = self.inner.warps.get_mut(instr.warp_id).unwrap();
-        let mut warp = warp.try_lock().unwrap();
-
-        for t in 0..self.inner.config.warp_size {
-            if instr.active_mask[t] {
-                let warp_id = instr.warp_id;
-                let thread_id = self.inner.config.warp_size * warp_id + t;
-
-                // // virtual function
-                //   checkExecutionStatusAndUpdate(inst, t, tid);
-                if instr.is_atomic() {
-                    // warp.inc_n_atomic();
-                }
-
-                // if instr.memory_space.is_local() && (inst.is_load() || inst.is_store())) {
-                //    new_addr_type localaddrs[MAX_ACCESSES_PER_INSN_PER_THREAD];
-                //    unsigned num_addrs;
-                //    num_addrs = translate_local_memaddr(
-                //        inst.get_addr(t), tid,
-                //        m_config->n_simt_clusters * m_config->n_simt_cores_per_cluster,
-                //        inst.data_size, (new_addr_type *)localaddrs);
-                //    inst.set_addr(t, (new_addr_type *)localaddrs, num_addrs);
-                //  }
-                if instr.opcode.category == opcodes::ArchOp::EXIT_OPS {
-                    warp.set_thread_completed(t);
-                }
-            }
-        }
-
-        // here, we generate memory acessess
-        if instr.is_load() || instr.is_store() {
-            instr.generate_mem_accesses(&*self.inner.config);
-        }
-
-        if warp.done() && warp.functional_done() {
-            warp.ibuffer_flush();
-            self.inner.barriers.warp_exit(instr.warp_id);
-        }
-    }
-
     fn fetch(&mut self) {
         println!(
             "core {:?}: {} (instr fetch buffer valid={}, l1 instr cache has ready accesses={})",
@@ -973,10 +977,8 @@ where
             if self.inner.instr_l1_cache.has_ready_accesses() {
                 let fetch = self.inner.instr_l1_cache.next_access().unwrap();
                 let warp = self.inner.warps.get_mut(fetch.warp_id).unwrap();
-                let warp = warp.try_lock().unwrap();
-                // .as_mut()
-                // .unwrap();
-                // warp.clear_imiss_pending();
+                let mut warp = warp.try_lock().unwrap();
+                warp.has_imiss_pending = false;
 
                 let pc = warp.pc().unwrap() as u64;
                 self.inner.instr_fetch_buffer = InstrFetchBuffer {
@@ -1022,28 +1024,37 @@ where
                         .unwrap();
                     // debug_assert_eq!(warp.warp_id, warp_id);
 
+                    let has_pending_writes = self
+                        .inner
+                        .scoreboard
+                        .read()
+                        .unwrap()
+                        .pending_writes(warp_id);
                     println!(
-                        "checking warp_id = {} (last fetched={}, instruction count={})",
+                        "checking warp_id = {} (last fetched={}, instruction count={}, hardware_done={}, functional_done={}, done_exit={}, pending writes={})",
                         &warp_id,
                         last,
-                        warp.instruction_count()
+                        warp.instruction_count(),
+                        warp.hardware_done(),
+                        warp.functional_done(),
+                        warp.done_exit(),
+                        has_pending_writes
                     );
 
-                    // this code checks if this warp has finished executing and can be reclaimed
+                    // if (warp_id == 4) {
+                    //     panic!("first schedule of warp 4");
+                    // }
+
+                    // this code checks if this warp has finished executing and can be
+                    // reclaimed.
+                    //
                     // if let Some(warp) = self.inner.warps.get_mut(warp_id) {
                     // .unwrap().as_mut() {
                     // let mut warp = warp.lock().unwrap();
                     // debug_assert_eq!(warp.warp_id, warp_id);
 
-                    if warp.hardware_done()
-                        && !self
-                            .inner
-                            .scoreboard
-                            .read()
-                            .unwrap()
-                            .pending_writes(warp_id)
-                        && !warp.done_exit()
-                    {
+                    if warp.hardware_done() && !has_pending_writes && !warp.done_exit() {
+                        todo!("first warp reclaim");
                         // reclaim warp
                         let mut did_exit = false;
                         for t in 0..self.inner.config.warp_size {
@@ -1081,6 +1092,8 @@ where
                         debug_assert!(self.inner.num_active_warps >= 0);
                     }
 
+                    // dbg!(&warp);
+
                     // this code fetches instructions
                     // from the i-cache or generates memory
                     let icache_config = self.inner.config.inst_cache_l1.as_ref().unwrap();
@@ -1089,12 +1102,13 @@ where
                         && !warp.has_imiss_pending
                         && warp.ibuffer_empty()
                     {
+                        // dbg!(&warp);
                         let instr = warp.current_instr().unwrap();
                         let pc = warp.pc().unwrap();
                         let ppc = pc + PROGRAM_MEM_START;
 
                         println!(
-                            "\t fetching instr for warp_id = {} (current instr={}, pc={}, ppc={})",
+                            "\t fetching instr for warp_id = {} (current instr={:?}, pc={}, ppc={})",
                             warp.warp_id, &instr, pc, ppc,
                         );
 
@@ -1352,36 +1366,41 @@ where
         // let preg = ex_wb_stage.get_ready_mut();
         // let pipe_reg = (preg == NULL) ? NULL : *preg;
         // while preg.is_some() { // && !pipe_reg.empty() {
-        while let Some(ready) = ex_wb_stage.get_ready_mut() {
-            panic!("instruction ready for writeback : {:?}", ready);
-            //   /*
-            //    * Right now, the writeback stage drains all waiting instructions
-            //    * assuming there are enough ports in the register file or the
-            //    * conflicts are resolved at issue.
-            //    */
-            //   /*
-            //    * The operand collector writeback can generally generate a stall
-            //    * However, here, the pipelines should be un-stallable. This is
-            //    * guaranteed because this is the first time the writeback function
-            //    * is called after the operand collector's step function, which
-            //    * resets the allocations. There is one case which could result in
-            //    * the writeback function returning false (stall), which is when
-            //    * an instruction tries to modify two registers (GPR and predicate)
-            //    * To handle this case, we ignore the return value (thus allowing
-            //    * no stalling).
-            //    */
+        while let Some(ready) = ex_wb_stage.get_ready_mut().and_then(|(_, r)| r.take()) {
+            println!("instruction ready for writeback: {}", ready);
+            // panic!("instruction ready for writeback : {:?}", ready);
+
+            // Right now, the writeback stage drains all waiting instructions
+            // assuming there are enough ports in the register file or the
+            // conflicts are resolved at issue.
             //
-            // self.inner.operand_collector.writeback(ready);
-            //   unsigned warp_id = pipe_reg->warp_id();
-            //   m_scoreboard->releaseRegisters(pipe_reg);
-            //   m_warp[warp_id]->dec_inst_in_pipeline();
-            //   warp_inst_complete(*pipe_reg);
+            // The operand collector writeback can generally generate a stall
+            // However, here, the pipelines should be un-stallable. This is
+            // guaranteed because this is the first time the writeback function
+            // is called after the operand collector's step function, which
+            // resets the allocations. There is one case which could result in
+            // the writeback function returning false (stall), which is when
+            // an instruction tries to modify two registers (GPR and predicate)
+            // To handle this case, we ignore the return value (thus allowing
+            // no stalling).
+            //
+            self.inner.operand_collector.borrow_mut().writeback(&ready);
+            self.inner
+                .scoreboard
+                .write()
+                .unwrap()
+                .release_registers(&ready);
+            self.inner.warps[ready.warp_id]
+                .lock()
+                .unwrap()
+                .num_instr_in_pipeline -= 1;
+            // warp_inst_complete(ready, &mut self.inner.stats.lock().unwrap());
+
             //   m_gpu->gpu_sim_insn_last_update_sid = m_sid;
             //   m_gpu->gpu_sim_insn_last_update = m_gpu->gpu_sim_cycle;
             //   m_last_inst_gpu_sim_cycle = m_gpu->gpu_sim_cycle;
             //   m_last_inst_gpu_tot_sim_cycle = m_gpu->gpu_tot_sim_cycle;
-            //   pipe_reg->clear();
-            //   preg = m_pipeline_reg[EX_WB].get_ready();
+            // preg = m_pipeline_reg[EX_WB].get_ready();
             //   pipe_reg = (preg == NULL) ? NULL : *preg;
         }
     }
@@ -1502,8 +1521,13 @@ where
     }
 
     pub fn ldst_unit_response_buffer_full(&self) -> bool {
-        todo!("core: ldst_unit_response_buffer_full");
-        false
+        self.inner
+            .load_store_unit
+            .lock()
+            .unwrap()
+            .response_buffer_full()
+        // todo!("core: ldst_unit_response_buffer_full");
+        // false
     }
 
     // pub fn fetch_unit_response_buffer_full(&self) -> bool {
@@ -1517,7 +1541,8 @@ where
     }
 
     pub fn accept_ldst_unit_response(&self, fetch: mem_fetch::MemFetch) {
-        todo!("core: accept_ldst_unit_response");
+        // todo!("core: accept_ldst_unit_response");
+        self.inner.load_store_unit.lock().unwrap().fill(fetch);
     }
 
     pub fn not_completed(&self) -> usize {
@@ -1545,7 +1570,7 @@ where
         occupy: bool,
     ) -> Option<usize> {
         let mut step = 0;
-        while step < self.inner.config.max_threads_per_shader {
+        while step < self.inner.config.max_threads_per_core {
             let mut hw_thread_id = step;
             while hw_thread_id < step + thread_block_size {
                 if self.inner.occupied_hw_thread_ids[hw_thread_id] {
@@ -1558,7 +1583,7 @@ where
             }
             step += thread_block_size;
         }
-        if step >= self.inner.config.max_threads_per_shader {
+        if step >= self.inner.config.max_threads_per_core {
             // didn't find
             None
         } else {
@@ -1594,7 +1619,7 @@ where
     pub fn occupy_resource_for_block(&mut self, kernel: &KernelInfo, occupy: bool) -> bool {
         let thread_block_size = self.inner.config.threads_per_block_padded(kernel);
         if self.inner.num_occupied_threads + thread_block_size
-            > self.inner.config.max_threads_per_shader
+            > self.inner.config.max_threads_per_core
         {
             return false;
         }
@@ -1837,14 +1862,6 @@ where
                 local_active_thread_mask,
             );
 
-            // let warp = self.warps.get_mut(warp_id).unwrap().as_mut().unwrap();
-            // warp.init(
-            //     start_pc,
-            //     block_id,
-            //     warp_id,
-            //     self.dynamic_warp_id,
-            //     local_active_thread_mask,
-            // );
             self.inner.dynamic_warp_id += 1;
             self.inner.num_active_warps += 1;
             self.inner.num_active_threads += num_active;
@@ -1852,6 +1869,33 @@ where
 
         println!("initialized {} warps", &self.inner.warps.len());
         self.init_warps_from_traces(&kernel, start_thread, end_thread);
+    }
+
+    pub fn reinit(&mut self, start_thread: usize, end_thread: usize, reset_not_completed: bool) {
+        if reset_not_completed {
+            self.inner.num_active_threads = 0;
+            self.inner.active_thread_mask.fill(false);
+
+            // Jin: for concurrent kernels on a SM
+            // m_occupied_n_threads = 0;
+            // m_occupied_shmem = 0;
+            // m_occupied_regs = 0;
+            // m_occupied_ctas = 0;
+            // m_occupied_hwtid.reset();
+            // m_occupied_cta_to_hwtid.clear();
+            self.inner.num_active_warps = 0;
+        }
+        for t in start_thread..end_thread {
+            self.inner.thread_state[t] = None;
+        }
+        let warp_size = self.inner.config.warp_size;
+        dbg!((&start_thread, &end_thread, &warp_size));
+
+        for w in (start_thread / warp_size)..(end_thread / warp_size) {
+            // println!("warp = {}/{}", w, self.inner.warps.len());
+            self.inner.warps[w].lock().unwrap().reset();
+            // simt_stack[i]->reset();
+        }
     }
 
     pub fn issue_block(&mut self, kernel: &Arc<KernelInfo>) -> () {
@@ -1909,7 +1953,13 @@ where
         };
 
         // reset state of the selected hardware thread and warp contexts
-        // reinit(start_thread, end_thread, false);
+        // panic!("reinit {:?}", (start_thread, end_thread));
+        self.reinit(start_thread, end_thread, false);
+        debug_assert!(self
+            .inner
+            .warps
+            .iter()
+            .all(|w| w.lock().unwrap().done_exit()));
 
         // initalize scalar threads and determine which hardware warps they are
         // allocated to bind functional simulation state of threads to hardware

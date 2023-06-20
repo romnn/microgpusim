@@ -30,16 +30,14 @@ impl BarrierSet {
     pub fn warp_exit(&mut self, warp_id: usize) {
         // caller needs to verify all threads in warp are done, e.g., by checking PDOM
         // stack to see it has only one entry during exit_impl()
-        // m_warp_active.reset(warp_id);
+        // self.warp_active.set(warp_id, false);
         //
         // // test for barrier release
-        // cta_to_warp_t::iterator w = m_cta_to_warps.begin();
-        // for (; w != m_cta_to_warps.end(); ++w) {
-        //   if (w->second.test(warp_id) == true) break;
-        // }
-        // warp_set_t warps_in_cta = w->second;
-        // warp_set_t active = warps_in_cta & m_warp_active;
-        //
+        // let Some(warps_in_block) = self.block_to_warp.values().find(|w| w[warp_id]) else {
+        //     return;
+        // };
+        // let active = warps_in_block & self.warp_active;
+
         // for (unsigned i = 0; i < m_max_barriers_per_cta; i++) {
         //   warp_set_t at_a_specific_barrier = warps_in_cta & m_bar_id_to_warps[i];
         //   if (at_a_specific_barrier == active) {
@@ -48,7 +46,7 @@ impl BarrierSet {
         //     m_warp_at_barrier &= ~at_a_specific_barrier;
         //   }
         // }
-        todo!("barrier set: allocate barrier");
+        todo!("barrier set: warp exit");
     }
 }
 

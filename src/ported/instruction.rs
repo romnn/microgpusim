@@ -98,7 +98,7 @@ pub struct WarpInstruction {
     pub threads: Vec<PerThreadInfo>,
     pub mem_access_queue: VecDeque<MemAccess>,
     // todo: get rid of the empty and always use options for now
-    empty: bool,
+    // empty: bool,
     /// operation latency
     pub latency: usize,
     pub initiation_interval: usize,
@@ -153,7 +153,7 @@ impl std::fmt::Debug for WarpInstruction {
         f.debug_struct("WarpInstruction")
             .field("opcode", &self.opcode)
             .field("warp_id", &self.warp_id)
-            .field("empty", &self.empty)
+            // .field("empty", &self.empty)
             .field("pc", &self.pc)
             .field("active_mask", &self.active_mask.to_bit_string())
             .field("memory_space", &self.memory_space)
@@ -164,15 +164,15 @@ impl std::fmt::Debug for WarpInstruction {
 
 impl std::fmt::Display for WarpInstruction {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        if self.empty() {
-            write!(
-                f,
-                "Empty({}[pc={},warp={}])",
-                self.opcode, self.pc, self.warp_id
-            )
-        } else {
-            write!(f, "{}[pc={},warp={}]", self.opcode, self.pc, self.warp_id)
-        }
+        // if self.empty() {
+        //     write!(
+        //         f,
+        //         "Empty({}[pc={},warp={}])",
+        //         self.opcode, self.pc, self.warp_id
+        //     )
+        // } else {
+        write!(f, "{}[pc={},warp={}]", self.opcode, self.pc, self.warp_id)
+        // }
     }
 }
 
@@ -231,7 +231,7 @@ impl WarpInstruction {
             latency: 0,             // todo
             initiation_interval: 0, // todo
             data_size: 0,
-            empty: true,
+            // empty: true,
             mem_access_queue: VecDeque::new(),
             outputs: [None; 8],
             // in_count: 0,
@@ -443,8 +443,7 @@ impl WarpInstruction {
             latency: 1,             // todo
             initiation_interval: 1, // todo
             data_size,
-            empty: true,
-            // empty: false,
+            // empty: true,
             mem_access_queue: VecDeque::new(),
             outputs,
             // in_count,
@@ -471,9 +470,10 @@ impl WarpInstruction {
         self.scheduler_id
     }
 
-    pub fn empty(&self) -> bool {
-        self.empty
-    }
+    // pub fn empty(&self) -> bool {
+    //     false
+    //     // self.empty
+    // }
 
     pub fn clear(&mut self) {
         todo!("clean warp instruction");
@@ -578,7 +578,7 @@ impl WarpInstruction {
                     // step 1: compute accesses to words in banks
                     for i in 0..subwarp_size {
                         let thread = subwarp * subwarp_size + i;
-                        if !self.is_active(thread) {
+                        if !self.active_mask[thread] {
                             continue;
                         }
                         let Some(addr) = self.threads[thread].mem_req_addr.first() else {
@@ -705,7 +705,7 @@ impl WarpInstruction {
         // self.issue_cycle = cycle;
         // self.cycles = self.initiation_interval;
         // self.cache_hit = false;
-        self.empty = false;
+        // self.empty = false;
         self.scheduler_id = scheduler_id;
     }
 
@@ -751,7 +751,7 @@ impl WarpInstruction {
             for i in 0..subwarp_size {
                 let thread_id = subwarp * subwarp_size + i;
                 let thread = &self.threads[thread_id];
-                if !self.is_active(thread_id) {
+                if !self.active_mask[thread_id] {
                     continue;
                 }
                 let mut data_size_coales = self.data_size;
@@ -939,9 +939,9 @@ impl WarpInstruction {
         }
     }
 
-    pub fn is_active(&self, thread: usize) -> bool {
-        self.active_mask[thread]
-    }
+    // pub fn is_active(&self, thread: usize) -> bool {
+    //     self.active_mask[thread]
+    // }
 }
 
 pub fn opcode_tokens(opcode: &str) -> Vec<&str> {

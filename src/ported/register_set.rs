@@ -69,7 +69,7 @@ impl RegisterSet {
     pub fn schd_id(&self, reg_id: usize) -> Option<usize> {
         match self.regs.get(reg_id).map(Option::as_ref).flatten() {
             Some(r) => {
-                debug_assert!(!r.empty());
+                // debug_assert!(!r.empty());
                 Some(r.scheduler_id())
             }
             None => None,

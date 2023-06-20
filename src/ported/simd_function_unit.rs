@@ -5,6 +5,8 @@ use super::{
 };
 use crate::config;
 use bitvec::{array::BitArray, BitArr};
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::Arc;
 
 pub trait SimdFunctionUnit: std::fmt::Debug {
@@ -39,9 +41,9 @@ pub const MAX_ALU_LATENCY: usize = 512;
 
 #[derive()]
 pub struct PipelinedSimdUnitImpl {
-    pub result_port: Option<RegisterSet>,
+    // pub result_port: Option<RegisterSet>,
+    pub result_port: Option<Rc<RefCell<RegisterSet>>>,
     pub pipeline_depth: usize,
-    // pub pipeline_reg: Vec<WarpInstruction>,
     pub pipeline_reg: Vec<Option<WarpInstruction>>,
     pub issue_reg_id: usize,
     pub active_insts_in_pipeline: usize,
@@ -58,15 +60,12 @@ impl std::fmt::Debug for PipelinedSimdUnitImpl {
 
 impl PipelinedSimdUnitImpl {
     pub fn new(
-        result_port: Option<RegisterSet>,
+        result_port: Option<Rc<RefCell<RegisterSet>>>,
         depth: usize,
         config: Arc<config::GPUConfig>,
         issue_reg_id: usize,
     ) -> Self {
-        let pipeline_reg = (0..depth)
-            // .map(|_| WarpInstruction::new_empty(&*config))
-            .map(|_| None)
-            .collect();
+        let pipeline_reg = (0..depth).map(|_| None).collect();
         Self {
             result_port,
             pipeline_depth: depth,
@@ -97,13 +96,12 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
     }
 
     fn cycle(&mut self) {
-        // if !self.pipeline_reg[0].empty() {
-        if let Some(port) = &mut self.result_port {
-            if let Some(stage) = self.pipeline_reg[0].take() {
-                port.move_in_from(Some(stage));
+        if let Some(result_port) = &mut self.result_port {
+            if let Some(pipe_reg) = self.pipeline_reg[0].take() {
+                result_port.borrow_mut().move_in_from(Some(pipe_reg));
+                debug_assert!(self.active_insts_in_pipeline > 0);
+                self.active_insts_in_pipeline -= 1;
             }
-            debug_assert!(self.active_insts_in_pipeline > 0);
-            self.active_insts_in_pipeline -= 1;
         }
         if self.active_insts_in_pipeline > 0 {
             for stage in 0..self.pipeline_reg.len() - 1 {
@@ -112,13 +110,11 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
                 register_set::move_warp(current, next);
             }
         }
-        if let Some(dispatch) = &self.dispatch_reg {
+        if let Some(dispatch) = self.dispatch_reg.take() {
             // if !dispatch.empty() && !dispatch.dispatch_delay() {
-            if !dispatch.empty() {
-                // let start_stage = dispatch.latency - dispatch.initiation_interval;
-                // move_warp(m_pipeline_reg[start_stage], m_dispatch_reg);
-                self.active_insts_in_pipeline += 1;
-            }
+            let start_stage = dispatch.latency - dispatch.initiation_interval;
+            register_set::move_warp(Some(dispatch), &mut self.pipeline_reg[start_stage]);
+            self.active_insts_in_pipeline += 1;
         }
         // occupied latencies are shifted each cycle
         self.occupied.shift_right(1);

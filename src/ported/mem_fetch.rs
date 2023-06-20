@@ -147,6 +147,10 @@ impl MemAccess {
         byte_mask: MemAccessByteMask,
         sector_mask: MemAccessSectorMask,
     ) -> Self {
+        // if kind == AccessKind::GLOBAL_ACC_R {
+        //     panic!("global acc r");
+        // }
+
         Self {
             // uid:
             warp_mask,

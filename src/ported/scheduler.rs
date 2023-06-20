@@ -101,27 +101,25 @@ impl Default for SchedulerWarp {
 }
 
 impl SchedulerWarp {
-    #[deprecated]
-    pub fn new(
-        &mut self,
-        start_pc: Option<usize>,
-        block_id: u64,
-        warp_id: usize,
-        // warp_size: usize,
-        dynamic_warp_id: usize,
-        active_mask: ThreadActiveMask,
-    ) {
-        self.block_id = block_id;
-        self.warp_id = warp_id;
-        self.dynamic_warp_id = dynamic_warp_id;
-        // self.next_pc = start_pc;
-        // assert(self.num_completed >= active.count());
-        // assert(n_completed <= m_warp_size);
-        self.active_mask = active_mask;
-    }
-
-    // todo: just use fields direclty now?
     // #[deprecated]
+    // pub fn new(
+    //     &mut self,
+    //     start_pc: Option<usize>,
+    //     block_id: u64,
+    //     warp_id: usize,
+    //     // warp_size: usize,
+    //     dynamic_warp_id: usize,
+    //     active_mask: ThreadActiveMask,
+    // ) {
+    //     self.block_id = block_id;
+    //     self.warp_id = warp_id;
+    //     self.dynamic_warp_id = dynamic_warp_id;
+    //     // self.next_pc = start_pc;
+    //     // assert(self.num_completed >= active.count());
+    //     // assert(n_completed <= m_warp_size);
+    //     self.active_mask = active_mask;
+    // }
+
     pub fn init(
         &mut self,
         start_pc: Option<usize>,
@@ -133,10 +131,30 @@ impl SchedulerWarp {
         self.block_id = block_id;
         self.warp_id = warp_id;
         self.dynamic_warp_id = dynamic_warp_id;
+        self.done_exit = false;
         // self.next_pc = start_pc;
         // assert(self.num_completed >= active.count());
         // assert(n_completed <= m_warp_size);
         self.active_mask = active_mask;
+    }
+
+    pub fn reset(&mut self) {
+        debug_assert_eq!(self.num_outstanding_stores, 0);
+        debug_assert_eq!(self.num_instr_in_pipeline, 0);
+        self.has_imiss_pending = false;
+        self.warp_id = 0; // should be none
+        self.dynamic_warp_id = 0; // should be none
+        self.active_mask.fill(false);
+        // m_n_atomic = 0;
+        // m_membar = false;
+        self.done_exit = true;
+        // self.last_fetch = 0;
+        self.next = 0;
+        //
+        // // Jin: cdp support
+        // m_cdp_latency = 0;
+        // m_cdp_dummy = false;
+        // todo!("reset shd warp");
     }
 
     // pub fn set_has_imiss_pending(&self, value: bool) {
@@ -273,7 +291,7 @@ impl SchedulerWarp {
     }
 
     pub fn hardware_done(&self) -> bool {
-        self.functional_done() && self.stores_done() && self.num_instr_in_pipeline < 1
+        self.functional_done() && self.stores_done() && self.num_instr_in_pipeline == 0
         // todo!("sched warp: hardware done");
     }
 
@@ -283,7 +301,7 @@ impl SchedulerWarp {
     }
 
     pub fn stores_done(&self) -> bool {
-        self.num_outstanding_stores > 0
+        self.num_outstanding_stores == 0
         // todo!("sched warp: stores done");
     }
 
@@ -296,10 +314,8 @@ impl SchedulerWarp {
     }
 
     pub fn functional_done(&self) -> bool {
-        // todo: is that correct?
-        self.active_mask.is_empty()
+        self.active_mask.not_any()
         // self.num_completed() == self.warp_size
-        // todo!("sched warp: functional done");
     }
 
     // pub fn set_next_pc(&mut self, pc: usize) {

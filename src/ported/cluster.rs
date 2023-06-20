@@ -88,7 +88,14 @@ where
             })
             .collect();
         cluster.cores = Mutex::new(cores);
+        cluster.reinit();
         cluster
+    }
+
+    fn reinit(&mut self) {
+        for core in self.cores.lock().unwrap().iter_mut() {
+            core.reinit(0, self.config.max_threads_per_core, true);
+        }
     }
 
     pub fn num_active_sms(&self) -> usize {
@@ -233,6 +240,7 @@ where
                     // }
                 }
                 _ => {
+                    // panic!("got data response");
                     // data response
                     if !core.ldst_unit_response_buffer_full() {
                         let fetch = self.response_fifo.pop_front().unwrap();
@@ -247,14 +255,22 @@ where
             return;
         }
 
-        let fetch = self.interconn.pop(self.cluster_id);
-        dbg!(&fetch.is_some());
-        let Some(Packet::Fetch(mut fetch)) = fetch else {
+        let Some(Packet::Fetch(mut fetch)) = self.interconn.pop(self.cluster_id) else {
             return;
         };
-        dbg!(&fetch.access_kind());
-        dbg!(&fetch.addr());
-        dbg!(&fetch.kind);
+        println!(
+            "{} addr={} kind={:?}",
+            style(format!(
+                "got fetch from interconn: {:?} ",
+                fetch.access_kind()
+            ))
+            .cyan(),
+            fetch.addr(),
+            fetch.kind
+        );
+        // dbg!(&fetch.access_kind());
+        // dbg!(&fetch.addr());
+        // dbg!(&fetch.kind);
         debug_assert_eq!(fetch.cluster_id, self.cluster_id);
         // debug_assert!(matches!(
         //     fetch.kind,

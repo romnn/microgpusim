@@ -3,6 +3,8 @@ use super::{
     simd_function_unit as fu, stats::Stats,
 };
 use crate::config::GPUConfig;
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 #[derive()]
@@ -16,10 +18,14 @@ pub struct SPUnit {
 
 // impl<I> SPUnit<I> {
 impl SPUnit {
-    pub fn new(config: Arc<GPUConfig>, stats: Arc<Mutex<Stats>>) -> Self {
+    pub fn new(
+        result_port: Rc<RefCell<RegisterSet>>,
+        config: Arc<GPUConfig>,
+        stats: Arc<Mutex<Stats>>,
+    ) -> Self {
         let pipeline_depth = config.shared_memory_latency;
         let pipelined_simd_unit =
-            fu::PipelinedSimdUnitImpl::new(None, pipeline_depth, config.clone(), 0);
+            fu::PipelinedSimdUnitImpl::new(Some(result_port), pipeline_depth, config.clone(), 0);
 
         Self {
             config,

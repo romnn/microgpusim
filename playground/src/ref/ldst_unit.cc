@@ -572,6 +572,8 @@ void ldst_unit::writeback() {
   // 1. the writeback buffer was available
   // 2. a client was serviced
   if (serviced_client != (unsigned)-1) {
+    printf("serviced %d\n", serviced_client);
+    // throw std::runtime_error("ldst unit writeback serviced");
     m_writeback_arb = (serviced_client + 1) % m_num_writeback_clients;
   }
 }

@@ -547,7 +547,7 @@ where
     pub fn launch(&mut self, kernel: Arc<KernelInfo>) -> eyre::Result<()> {
         *kernel.launched.lock().unwrap() = true;
         let threads_per_block = kernel.threads_per_block();
-        let max_threads_per_block = self.config.max_threads_per_shader;
+        let max_threads_per_block = self.config.max_threads_per_core;
         if threads_per_block > max_threads_per_block {
             error!("kernel block size is too large");
             error!(
@@ -867,8 +867,8 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> eyre::Result<()> {
     config.num_schedulers_per_core = 1;
     let config = Arc::new(config);
 
-    assert!(config.max_threads_per_shader.rem_euclid(config.warp_size) == 0);
-    let max_warps_per_shader = config.max_threads_per_shader / config.warp_size;
+    assert!(config.max_threads_per_core.rem_euclid(config.warp_size) == 0);
+    let max_warps_per_shader = config.max_threads_per_core / config.warp_size;
 
     let window_size = if config.concurrent_kernel_sm {
         config.max_concurrent_kernels

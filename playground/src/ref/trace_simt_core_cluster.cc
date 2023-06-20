@@ -37,6 +37,8 @@ void trace_simt_core_cluster::icnt_cycle() {
       }
     } else {
       // data response
+      // throw std::runtime_error("got data response");
+
       if (!m_core[cid]->ldst_unit_response_buffer_full()) {
         m_response_fifo.pop_front();
         m_memory_stats->memlatstat_read_done(mf);
@@ -48,10 +50,13 @@ void trace_simt_core_cluster::icnt_cycle() {
     mem_fetch *mf = (mem_fetch *)::icnt_pop(m_cluster_id);
     if (!mf)
       return;
-    printf("cluster::icnt_cycle() got new fetch for addr %lu (%s, %d)\n",
+
+    printf(" \e[0;36m cluster::icnt_cycle() got new fetch for addr %lu (%s, "
+           "%d) \e[0m \n",
            mf->get_addr(), mf->get_access_type_str(), mf->get_type());
     assert(mf->get_tpc() == m_cluster_id);
     assert(mf->get_type() == READ_REPLY || mf->get_type() == WRITE_ACK);
+    // throw std::runtime_error("got the first fetch back");
 
     // The packet size varies depending on the type of request:
     // - For read request and atomic request, the packet contains the data

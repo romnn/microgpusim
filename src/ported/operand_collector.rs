@@ -196,7 +196,8 @@ impl CollectorUnit {
         self.id = id;
         self.num_banks = num_banks;
         debug_assert!(self.warp_instr.is_none());
-        self.warp_instr = Some(WarpInstruction::new_empty(&*config));
+        // self.warp_instr = Some(WarpInstruction::new_empty(&*config));
+        self.warp_instr = None;
         self.bank_warp_shift = log2_warp_size;
         self.sub_core_model = sub_core_model;
         self.reg_id = reg_id;
@@ -254,7 +255,7 @@ impl CollectorUnit {
 
         if let Some((_, Some(ready_reg))) = input_reg_set.get_ready() {
             // if ((ready_reg) and !((*pipeline_reg)->empty())) {
-            debug_assert!(!ready_reg.empty());
+            // debug_assert!(!ready_reg.empty());
 
             self.warp_id = Some(ready_reg.warp_id); // todo: do we need warp id??
 
@@ -978,8 +979,8 @@ impl OperandCollectorRegisterFileUnit {
     }
 
     pub fn writeback(&mut self, instr: &WarpInstruction) -> bool {
-        debug_assert!(!instr.empty());
-        todo!("operand collector: writeback");
+        return true;
+        // todo!("operand collector: writeback");
         // std::list<unsigned> regs = m_shader->get_regs_written(inst);
         // for (unsigned op = 0; op < MAX_REG_OPERANDS; op++) {
         //   int reg_num = inst.arch_reg.dst[op];  // this math needs to match that used

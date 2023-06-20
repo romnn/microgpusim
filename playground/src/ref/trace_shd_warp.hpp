@@ -21,6 +21,7 @@ public:
   }
 
   void reset() {
+    // assert(0 && "reset shd warp");
     assert(m_stores_outstanding == 0);
     assert(m_inst_in_pipeline == 0);
     m_imiss_pending = false;
