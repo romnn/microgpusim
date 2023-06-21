@@ -1,9 +1,17 @@
 #include "warp_instr.hpp"
+#include "trace_instr_opcode.hpp"
 
 new_addr_type line_size_based_tag_func(new_addr_type address,
                                        new_addr_type line_size) {
   // gives the tag for an address based on a given line size
   return address & ~(line_size - 1);
+}
+
+const char *warp_inst_t::opcode_str() const {
+  if (m_opcode > 0 && m_opcode < SASS_NUM_OPCODES) {
+    return g_trace_instr_opcode_str[m_opcode - 1];
+  }
+  return "<UNKNOWN>";
 }
 
 void warp_inst_t::issue(const active_mask_t &mask, unsigned warp_id,
@@ -574,7 +582,7 @@ void warp_inst_t::print(FILE *fout) const {
     return;
   } else
     fprintf(fout, "pc=%04lu ", pc);
-    // fprintf(fout, "0x%04lx ", pc);
+  // fprintf(fout, "0x%04lx ", pc);
   fprintf(fout, "warp=%02d[", m_warp_id);
   for (unsigned j = 0; j < m_config->warp_size; j++)
     fprintf(fout, "%c", (active(j) ? '1' : '0'));
@@ -582,4 +590,3 @@ void warp_inst_t::print(FILE *fout) const {
   m_config->gpgpu_ctx->func_sim->ptx_print_insn(pc, fout);
   fprintf(fout, "\n");
 }
-

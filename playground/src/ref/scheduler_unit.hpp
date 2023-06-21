@@ -36,6 +36,8 @@ public:
     m_last_supervised_issued = m_supervised_warps.end();
   }
 
+  virtual const char *name() = 0;
+
   // The core scheduler cycle method is meant to be common between
   // all the derived schedulers.  The scheduler's behaviour can be
   // modified by changing the contents of the m_next_cycle_prioritized_warps

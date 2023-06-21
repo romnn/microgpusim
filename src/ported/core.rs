@@ -153,50 +153,50 @@ impl<I> InnerSIMTCore<I>
 where
     I: ic::Interconnect<Packet> + 'static,
 {
-    fn exec_inst(&mut self, instr: &WarpInstruction) {
-        let warp = self.warps.get_mut(instr.warp_id).unwrap();
-        let mut warp = warp.try_lock().unwrap();
-
-        if warp.warp_id == 4 {
-            panic!("warp 4 completed");
-        }
-
-        for t in 0..self.config.warp_size {
-            if instr.active_mask[t] {
-                let warp_id = instr.warp_id;
-                let thread_id = self.config.warp_size * warp_id + t;
-
-                // // virtual function
-                //   checkExecutionStatusAndUpdate(inst, t, tid);
-                if instr.is_atomic() {
-                    // warp.inc_n_atomic();
-                }
-
-                // if instr.memory_space.is_local() && (inst.is_load() || inst.is_store())) {
-                //    new_addr_type localaddrs[MAX_ACCESSES_PER_INSN_PER_THREAD];
-                //    unsigned num_addrs;
-                //    num_addrs = translate_local_memaddr(
-                //        inst.get_addr(t), tid,
-                //        m_config->n_simt_clusters * m_config->n_simt_cores_per_cluster,
-                //        inst.data_size, (new_addr_type *)localaddrs);
-                //    inst.set_addr(t, (new_addr_type *)localaddrs, num_addrs);
-                //  }
-                if instr.opcode.category == opcodes::ArchOp::EXIT_OPS {
-                    warp.set_thread_completed(t);
-                }
-            }
-        }
-
-        // here, we generate memory acessess
-        if instr.is_load() || instr.is_store() {
-            instr.generate_mem_accesses(&*self.config);
-        }
-
-        if warp.done() && warp.functional_done() {
-            warp.ibuffer_flush();
-            self.barriers.warp_exit(instr.warp_id);
-        }
-    }
+    // fn exec_inst(&mut self, instr: &WarpInstruction) {
+    //     let warp = self.warps.get_mut(instr.warp_id).unwrap();
+    //     let mut warp = warp.try_lock().unwrap();
+    //
+    //     if warp.warp_id == 4 {
+    //         panic!("warp 4 completed");
+    //     }
+    //
+    //     for t in 0..self.config.warp_size {
+    //         if instr.active_mask[t] {
+    //             let warp_id = instr.warp_id;
+    //             let thread_id = self.config.warp_size * warp_id + t;
+    //
+    //             // // virtual function
+    //             //   checkExecutionStatusAndUpdate(inst, t, tid);
+    //             if instr.is_atomic() {
+    //                 // warp.inc_n_atomic();
+    //             }
+    //
+    //             // if instr.memory_space.is_local() && (inst.is_load() || inst.is_store())) {
+    //             //    new_addr_type localaddrs[MAX_ACCESSES_PER_INSN_PER_THREAD];
+    //             //    unsigned num_addrs;
+    //             //    num_addrs = translate_local_memaddr(
+    //             //        inst.get_addr(t), tid,
+    //             //        m_config->n_simt_clusters * m_config->n_simt_cores_per_cluster,
+    //             //        inst.data_size, (new_addr_type *)localaddrs);
+    //             //    inst.set_addr(t, (new_addr_type *)localaddrs, num_addrs);
+    //             //  }
+    //             if instr.opcode.category == opcodes::ArchOp::EXIT_OPS {
+    //                 warp.set_thread_completed(t);
+    //             }
+    //         }
+    //     }
+    //
+    //     // here, we generate memory acessess
+    //     if instr.is_load() || instr.is_store() {
+    //         instr.generate_mem_accesses(&*self.config);
+    //     }
+    //
+    //     if warp.done() && warp.functional_done() {
+    //         warp.ibuffer_flush();
+    //         self.barriers.warp_exit(instr.warp_id);
+    //     }
+    // }
 }
 
 impl<I> WarpIssuer for InnerSIMTCore<I>
@@ -325,15 +325,22 @@ where
             // pipe_reg_ref.active_mask.count_ones(),
         );
 
+        // if warp.warp_id == 7 {
+        //     panic!("warp 7 executed");
+        // }
+
         if warp.done() && warp.functional_done() {
             warp.ibuffer_flush();
             // note: not modeling barriers for now
             // self.barriers.warp_exit(pipe_reg_ref.warp_id);
+            // if warp.warp_id == 7 {
+            //     panic!("warp 7 is done");
+            // }
         }
 
         // self.exec_inst(pipe_reg_ref);
-        // if warp.warp_id == 4 {
-        //     panic!("warp 4 executed");
+        // if warp.warp_id == 7 {
+        //     panic!("warp 7 executed");
         // }
 
         // let mut warp = self.warps.get_mut(warp_id).unwrap().lock().unwrap();
@@ -1093,6 +1100,32 @@ where
                     style("empty instruction cache").red(),
                 );
 
+                for warp_id in 0..max_warps {
+                    let warp = self.inner.warps[warp_id].try_lock().unwrap();
+                    let has_pending_writes = self
+                        .inner
+                        .scoreboard
+                        .read()
+                        .unwrap()
+                        .pending_writes(warp_id);
+
+                    if warp.functional_done() && warp.hardware_done() && warp.done_exit() {
+                        continue;
+                    }
+                    println!(
+                        "checking warp_id = {} (instruction count={}, hardware_done={}, functional_done={}, instr in pipe={}, stores={}, done_exit={}, pending writes={})",
+                        &warp_id,
+                        warp.instruction_count(),
+                        warp.hardware_done(),
+                        warp.functional_done(),
+                        warp.num_instr_in_pipeline,
+                        warp.num_outstanding_stores,
+                        warp.done_exit(),
+                        has_pending_writes
+                    );
+                }
+
+                println!("\n\n");
                 for i in 0..max_warps {
                     let last = self.inner.last_warp_fetched.unwrap_or(0);
                     let warp_id = (last + 1 + i) % max_warps;
@@ -1120,28 +1153,29 @@ where
                         .unwrap()
                         .pending_writes(warp_id);
 
-                    println!(
-                        "checking warp_id = {} (last fetched={}, instruction count={}, hardware_done={}, functional_done={}, done_exit={}, pending writes={})",
-                        &warp_id,
-                        last,
-                        warp.instruction_count(),
-                        warp.hardware_done(),
-                        warp.functional_done(),
-                        warp.done_exit(),
-                        has_pending_writes
-                    );
+                    if !(warp.hardware_done() && warp.functional_done() && warp.done_exit()) {
+                        println!(
+                            "\n checking warp_id = {} (instruction count={}, hardware_done={}, functional_done={}, instr in pipe={}, stores={}, done_exit={}, pending writes={})",
+                            &warp_id,
+                            warp.instruction_count(),
+                            warp.hardware_done(),
+                            warp.functional_done(),
+                            warp.num_instr_in_pipeline,
+                            warp.num_outstanding_stores,
+                            warp.done_exit(),
+                            has_pending_writes
+                        );
+                    }
 
-                    // this code checks if this warp has finished executing and can be
-                    // reclaimed.
                     let can_reclaim =
                         warp.hardware_done() && !has_pending_writes && !warp.done_exit();
 
                     drop(warp);
 
+                    // check if this warp has finished executing and can be reclaimed.
                     let mut did_exit = false;
-
                     if can_reclaim {
-                        // todo!("first warp reclaim");
+                        // todo!("first warp reclaim of warp id = {}", warp_id);
                         // reclaim warp
                         for t in 0..self.inner.config.warp_size {
                             let tid = warp_id * self.inner.config.warp_size + t;
@@ -1187,22 +1221,24 @@ where
                         warp.done_exit = true;
                     }
 
-                    // this code fetches instructions
-                    // from the i-cache or generates memory
                     let icache_config = self.inner.config.inst_cache_l1.as_ref().unwrap();
-                    if !warp.trace_instructions.is_empty()
+                    let should_fetch_instruction = !warp.trace_instructions.is_empty()
                         && !warp.functional_done()
                         && !warp.has_imiss_pending
-                        && warp.ibuffer_empty()
-                    {
+                        && warp.ibuffer_empty();
+                    dbg!(&should_fetch_instruction);
+
+                    // this code fetches instructions
+                    // from the i-cache or generates memory
+                    if should_fetch_instruction {
                         // dbg!(&warp);
                         let instr = warp.current_instr().unwrap();
                         let pc = warp.pc().unwrap();
                         let ppc = pc + PROGRAM_MEM_START;
 
                         println!(
-                            "\t fetching instr for warp_id = {} (current instr={:?}, pc={}, ppc={})",
-                            warp.warp_id, &instr, pc, ppc,
+                            "\t fetching instr {} for warp_id = {} (pc={}, ppc={})",
+                            &instr, warp.warp_id, pc, ppc,
                         );
 
                         let mut num_bytes = 16;
@@ -1268,6 +1304,7 @@ where
                     }
                     // }
                 }
+                println!("\n\n");
             }
         }
         self.inner.instr_l1_cache.cycle();
@@ -1446,6 +1483,7 @@ where
         // todo!("core: writeback");
         // from the functional units
         let mut ex_wb_stage = self.inner.pipeline_reg[PipelineStage::EX_WB as usize].borrow_mut();
+        dbg!(&ex_wb_stage);
         let max_committed_thread_instructions = self.inner.config.warp_size * ex_wb_stage.size();
 
         // m_stats->m_pipeline_duty_cycle[m_sid] =
@@ -1499,7 +1537,21 @@ where
     }
 
     fn execute(&mut self) {
-        println!("core {:?}: {}", self.id(), style("execute").red());
+        let core_id = self.id();
+        println!("core {:?}: {}", core_id, style("execute").red());
+
+        for res_bus in self.inner.result_busses.iter_mut() {
+            res_bus.shift_right(1);
+        }
+
+        use mem_fetch::BitString;
+        dbg!(&self
+            .inner
+            .result_busses
+            .iter()
+            .map(BitString::to_bit_string)
+            .collect::<Vec<_>>());
+
         for (fu_id, fu) in self.functional_units.iter_mut().enumerate() {
             let mut fu = fu.try_lock().unwrap();
             println!("fu {:?}", &fu);
@@ -1527,6 +1579,16 @@ where
             if let Some(Some(ready_reg)) = ready_reg {
                 // todo!("ready for issue to functional unit");
                 if fu.can_issue(ready_reg) {
+                    println!(
+                        "core {:?}: {}",
+                        core_id,
+                        style(format!(
+                            "execute: {} ready for issue to {}",
+                            ready_reg, fu_id
+                        ))
+                        .red()
+                    );
+
                     let schedule_wb_now = !fu.stallable();
                     let result_bus = self
                         .inner
@@ -1535,6 +1597,7 @@ where
                         .filter(|bus| !bus[ready_reg.latency])
                         .next();
 
+                    let mut issued = true;
                     match result_bus {
                         Some(result_bus) if schedule_wb_now => {
                             debug_assert!(ready_reg.latency < fu::MAX_ALU_LATENCY);
@@ -1546,8 +1609,10 @@ where
                         }
                         _ => {
                             // stall issue (cannot reserve result bus)
+                            issued = false;
                         }
                     }
+                    dbg!(&issued);
                     // if schedule_wb_now && resbus != -1 {
                     //     debug_assert!(ready_reg.latency < fu::MAX_ALU_LATENCY);
                     //     self.result_bus[resbus].set(ready_reg.latency);

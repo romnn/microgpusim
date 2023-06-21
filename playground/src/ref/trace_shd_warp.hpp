@@ -120,6 +120,9 @@ public:
   void inc_inst_in_pipeline() { m_inst_in_pipeline++; }
   void dec_inst_in_pipeline() {
     assert(m_inst_in_pipeline > 0);
+    // printf("inst in pipeline: %d\n", m_inst_in_pipeline);
+    // if (m_warp_id == 7)
+    //   assert(0 && "warp 7 dec instr count");
     m_inst_in_pipeline--;
   }
 
@@ -144,7 +147,7 @@ public:
     }
   }
   const warp_inst_t *ibuffer_next_inst() const {
-    printf("ibuffer next instruction (m_next = %d)\n", m_next);
+    // printf("ibuffer next instruction (m_next = %d)\n", m_next);
     // throw std::runtime_error("ibuffer next inst");
     return m_ibuffer[m_next].m_inst;
   }
@@ -226,6 +229,7 @@ private:
 
   unsigned long long m_last_fetch;
 
+public:
   unsigned m_stores_outstanding; // number of store requests sent but not yet
                                  // acknowledged
   unsigned m_inst_in_pipeline;

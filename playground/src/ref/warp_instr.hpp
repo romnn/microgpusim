@@ -13,11 +13,13 @@ class warp_inst_t : public inst_t {
 public:
   // constructors
   warp_inst_t() {
+    m_opcode = 0;
     m_uid = 0;
     m_empty = true;
     m_config = NULL;
   }
   warp_inst_t(const core_config *config) {
+    m_opcode = 0;
     m_uid = 0;
     assert(config->warp_size <= MAX_WARP_SIZE);
     m_config = config;
@@ -173,7 +175,11 @@ public:
   unsigned get_uid() const { return m_uid; }
   unsigned get_schd_id() const { return m_scheduler_id; }
 
+  unsigned opcode() const { return m_opcode; }
+  const char *opcode_str() const;
+
 protected:
+  unsigned m_opcode;
   unsigned m_uid;
   bool m_empty;
   bool m_cache_hit;

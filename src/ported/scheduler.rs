@@ -253,16 +253,20 @@ impl SchedulerWarp {
         }
     }
 
-    pub fn ibuffer_next_inst(&self) -> Option<&WarpInstruction> {
+    pub fn ibuffer_peek(&self) -> Option<&WarpInstruction> {
         self.instr_buffer[self.next].as_ref()
     }
 
-    #[deprecated(note = "should check ibuffer next instr for none")]
-    pub fn ibuffer_next_valid(&self) -> bool {
-        self.instr_buffer[self.next].is_some()
-    }
+    // #[deprecated(note = "should check ibuffer next instr for none")]
+    // pub fn ibuffer_next_valid(&self) -> bool {
+    //     self.instr_buffer[self.next].is_some()
+    // }
 
-    pub fn ibuffer_free(&mut self) -> Option<WarpInstruction> {
+    pub fn ibuffer_take(&mut self) -> Option<WarpInstruction> {
+        // if self.instr_buffer[self.next].is_some() {
+        //     // usually in flush, however when flushed we already took out all instructions
+        //     self.num_instr_in_pipeline -= 1;
+        // }
         self.instr_buffer[self.next].take()
     }
 
@@ -564,7 +568,7 @@ impl BaseSchedulerUnit {
                 // let valid = warp.ibuffer_next_valid();
                 let mut warp_inst_issued = false;
 
-                if let Some(instr) = warp.ibuffer_next_inst() {
+                if let Some(instr) = warp.ibuffer_peek() {
                     // let (pc, rpc) = get_pdom_stack_top_info(warp_id, instr);
                     println!(
                         "Warp (warp_id={}, dynamic_warp_id={}) instruction buffer[{}] has valid instruction {}",
@@ -615,7 +619,7 @@ impl BaseSchedulerUnit {
                                     && (!diff_exec_units
                                         || prev_issued_exec_unit != ExecUnitKind::MEM)
                                 {
-                                    let instr = warp.ibuffer_free().unwrap();
+                                    let instr = warp.ibuffer_take().unwrap();
                                     debug_assert_eq!(warp_id, warp.warp_id);
                                     issuer
                                         .issue_warp(mem_stage, &mut warp, instr, warp_id, self.id);
@@ -680,7 +684,7 @@ impl BaseSchedulerUnit {
                                     };
 
                                     if let Some((stage, unit)) = issue_target {
-                                        let instr = warp.ibuffer_free().unwrap();
+                                        let instr = warp.ibuffer_take().unwrap();
                                         issuer
                                             .issue_warp(stage, &mut warp, instr, warp_id, self.id);
                                         issued += 1;

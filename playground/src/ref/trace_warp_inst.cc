@@ -7,7 +7,6 @@
 #include "opcode.hpp"
 #include "opcode_power_map.hpp"
 #include "trace_config.hpp"
-#include "trace_instr_opcode.hpp"
 
 types_of_operands get_oprnd_type(op_type op, special_ops sp_op) {
   switch (op) {
@@ -30,13 +29,6 @@ types_of_operands get_oprnd_type(op_type op, special_ops sp_op) {
   default:
     return UN_OP;
   }
-}
-
-const char *trace_warp_inst_t::opcode_str() const {
-  if (m_opcode > 0 && m_opcode < SASS_NUM_OPCODES) {
-    return g_trace_instr_opcode_str[m_opcode - 1];
-  }
-  return "<UNKNOWN>";
 }
 
 bool trace_warp_inst_t::parse_from_trace_struct(
@@ -275,22 +267,3 @@ bool trace_warp_inst_t::parse_from_trace_struct(
 
   return true;
 }
-
-// void move_warp(trace_warp_inst_t *&dst, trace_warp_inst_t *&src) {
-//   assert(dst->empty());
-//   trace_warp_inst_t *temp = dst;
-//   dst = src;
-//   src = temp;
-//   src->clear();
-// }
-//
-// void move_warp(warp_inst_t *&dst, warp_inst_t *&src) {
-//   printf("\e[0;35m ldst_unit::cycle() (response fifo size=%lu) \e[0m \n",
-//          m_response_fifo.size());
-//
-//   assert(dst->empty());
-//   warp_inst_t *temp = dst;
-//   dst = src;
-//   src = temp;
-//   src->clear();
-// }

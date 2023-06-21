@@ -2,6 +2,11 @@
 
 - BUGS to be fixed:
 
+  - ex wb stage should get a new exit each cycle (where is the delay coming from)
+  - why are the ex issue units filled with all the same stuff?? -> its the same one
+
+    - but each cycle instructions should be taken out...
+
   - sp unit needs the ex_wb pipeline stage passed and use it
 
     - pipelined simd unit result port should be rc ref cell register set!

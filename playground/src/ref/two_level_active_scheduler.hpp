@@ -44,6 +44,8 @@ public:
     m_last_supervised_issued = m_supervised_warps.begin();
   }
 
+  const char *name() { return "two_level_scheduler"; }
+
 protected:
   virtual void do_on_warp_issued(
       unsigned warp_id, unsigned num_issued,

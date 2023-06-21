@@ -16,7 +16,7 @@
 trace_shd_warp_t &scheduler_unit::warp(int i) { return *((*m_warp)[i]); }
 
 void scheduler_unit::cycle() {
-  SCHED_DPRINTF("scheduler_unit::cycle()\n");
+  printf("%s::scheduler_unit::cycle()\n", name());
   bool valid_inst = false; // there was one warp with a valid instruction to
                            // issue (didn't require flush due to control hazard)
   bool ready_inst = false; // of the valid instructions, there was one not

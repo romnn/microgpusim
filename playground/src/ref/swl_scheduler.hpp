@@ -19,6 +19,8 @@ public:
     m_last_supervised_issued = m_supervised_warps.begin();
   }
 
+  const char *name() { return "swl_scheduler"; }
+
 protected:
   scheduler_prioritization_type m_prioritization;
   unsigned m_num_warps_to_limit;

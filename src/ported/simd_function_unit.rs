@@ -104,21 +104,26 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
             }
         }
         if self.active_insts_in_pipeline > 0 {
-            for stage in 0..self.pipeline_reg.len() - 1 {
-                let current = self.pipeline_reg[stage].take();
-                let next = &mut self.pipeline_reg[stage + 1];
+            for stage in 0..(self.pipeline_reg.len() - 1) {
+                // let current = self.pipeline_reg[stage].take();
+                // let next = &mut self.pipeline_reg[stage + 1];
+                // register_set::move_warp(current, next);
+
+                let current = self.pipeline_reg[stage + 1].take();
+                let next = &mut self.pipeline_reg[stage];
                 register_set::move_warp(current, next);
             }
         }
         if let Some(dispatch) = self.dispatch_reg.take() {
             // if !dispatch.empty() && !dispatch.dispatch_delay() {
             let start_stage = dispatch.latency - dispatch.initiation_interval;
+            // panic!("start stage: {}", &start_stage);
             register_set::move_warp(Some(dispatch), &mut self.pipeline_reg[start_stage]);
             self.active_insts_in_pipeline += 1;
         }
+
         // occupied latencies are shifted each cycle
         self.occupied.shift_right(1);
-
         // todo!("pipelined simd unit: cycle");
     }
 

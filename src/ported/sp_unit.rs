@@ -40,14 +40,6 @@ impl std::fmt::Debug for SPUnit {
     }
 }
 
-//
-// sp_unit::sp_unit(register_set *result_port, const shader_core_config *config,
-//                  trace_shader_core_ctx *core, unsigned issue_reg_id)
-//     : pipelined_simd_unit(result_port, config, config->max_sp_latency, core,
-//                           issue_reg_id) {
-//   m_name = "SP ";
-// }
-
 // impl<I> fu::SimdFunctionUnit for SPUnit<I>
 impl fu::SimdFunctionUnit for SPUnit
 // where
