@@ -41,20 +41,20 @@
 #include <vector>
 
 SeparableOutputFirstAllocator::SeparableOutputFirstAllocator(
-    Module *parent, const string &name, int inputs, int outputs,
-    const string &arb_type)
+    Module *parent, const std::string &name, int inputs, int outputs,
+    const std::string &arb_type)
     : SeparableAllocator(parent, name, inputs, outputs, arb_type) {}
 
 void SeparableOutputFirstAllocator::Allocate() {
 
-  set<int>::const_iterator port_iter = _out_occ.begin();
+  std::set<int>::const_iterator port_iter = _out_occ.begin();
   while (port_iter != _out_occ.end()) {
 
     const int &output = *port_iter;
 
     // add requests to the output arbiter
 
-    map<int, sRequest>::const_iterator req_iter = _out_req[output].begin();
+    std::map<int, sRequest>::const_iterator req_iter = _out_req[output].begin();
     while (req_iter != _out_req[output].end()) {
 
       const sRequest &req = req_iter->second;

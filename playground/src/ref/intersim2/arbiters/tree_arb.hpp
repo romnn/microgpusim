@@ -7,7 +7,7 @@
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
 
- Redistributions of source code must retain the above copyright notice, this 
+ Redistributions of source code must retain the above copyright notice, this
  list of conditions and the following disclaimer.
  Redistributions in binary form must reproduce the above copyright notice, this
  list of conditions and the following disclaimer in the documentation and/or
@@ -15,7 +15,7 @@
 
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
@@ -38,34 +38,33 @@
 
 class TreeArbiter : public Arbiter {
 
-  int  _group_size ;
+  int _group_size;
 
-  vector<Arbiter *> _group_arbiters;
-  Arbiter * _global_arbiter;
+  std::vector<Arbiter *> _group_arbiters;
+  Arbiter *_global_arbiter;
 
-  vector<int> _group_reqs;
+  std::vector<int> _group_reqs;
 
 public:
-
   // Constructors
-  TreeArbiter( Module *parent, const string &name, int size, int groups, const string & arb_type ) ;
+  TreeArbiter(Module *parent, const std::string &name, int size, int groups,
+              const std::string &arb_type);
 
   ~TreeArbiter();
 
   // Print priority matrix to standard output
-  virtual void PrintState() const ;
-  
+  virtual void PrintState() const;
+
   // Update priority matrix based on last aribtration result
-  virtual void UpdateState() ; 
+  virtual void UpdateState();
 
-  // Arbitrate amongst requests. Returns winning input and 
+  // Arbitrate amongst requests. Returns winning input and
   // updates pointers to metadata when valid pointers are passed
-  virtual int Arbitrate( int* id = 0, int* pri = 0) ;
+  virtual int Arbitrate(int *id = 0, int *pri = 0);
 
-  virtual void AddRequest( int input, int id, int pri ) ;
+  virtual void AddRequest(int input, int id, int pri);
 
   virtual void Clear();
-
-} ;
+};
 
 #endif

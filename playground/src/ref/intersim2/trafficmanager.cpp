@@ -34,6 +34,7 @@
 #include "batchtrafficmanager.hpp"
 #include "booksim.hpp"
 #include "booksim_config.hpp"
+#include "globals.hpp"
 #include "gputrafficmanager.hpp"
 #include "packet_reply_info.hpp"
 #include "random_utils.hpp"
@@ -41,24 +42,26 @@
 #include "vc.hpp"
 
 TrafficManager *TrafficManager::New(Configuration const &config,
-                                    vector<Network *> const &net) {
+                                    std::vector<Network *> const &net,
+                                    InterconnectInterface *icnt) {
   TrafficManager *result = NULL;
-  string sim_type = config.GetStr("sim_type");
+  std::string sim_type = config.GetStr("sim_type");
   if ((sim_type == "latency") || (sim_type == "throughput")) {
-    result = new TrafficManager(config, net);
+    result = new TrafficManager(config, net, icnt);
   } else if (sim_type == "batch") {
-    result = new BatchTrafficManager(config, net);
+    result = new BatchTrafficManager(config, net, icnt);
   } else if (sim_type == "gpgpusim") {
-    result = new GPUTrafficManager(config, net);
+    result = new GPUTrafficManager(config, net, icnt);
   } else {
-    cerr << "Unknown simulation type: " << sim_type << endl;
+    std::cerr << "Unknown simulation type: " << sim_type << std::endl;
   }
   return result;
 }
 
 TrafficManager::TrafficManager(const Configuration &config,
-                               const vector<Network *> &net)
-    : Module(0, "traffic_manager"), _net(net), _empty_network(false),
+                               const std::vector<Network *> &net,
+                               InterconnectInterface *icnt)
+    : Module(0, "traffic_manager", icnt), _net(net), _empty_network(false),
       _deadlock_timer(0), _reset_time(0), _drain_time(-1), _cur_id(0),
       _cur_pid(0), _time(0) {
 
@@ -76,7 +79,7 @@ TrafficManager::TrafficManager(const Configuration &config,
 
   // ============ Message priorities ============
 
-  string priority = config.GetStr("priority");
+  std::string priority = config.GetStr("priority");
 
   if (priority == "class") {
     _pri_type = class_based;
@@ -100,9 +103,9 @@ TrafficManager::TrafficManager(const Configuration &config,
 
   // ============ Routing ============
 
-  string rf =
+  std::string rf =
       config.GetStr("routing_function") + "_" + config.GetStr("topology");
-  map<string, tRoutingFunction>::const_iterator rf_iter =
+  std::map<std::string, tRoutingFunction>::const_iterator rf_iter =
       gRoutingFunctionMap.find(rf);
   if (rf_iter == gRoutingFunctionMap.end()) {
     Error("Invalid routing function: " + rf);
@@ -157,32 +160,33 @@ TrafficManager::TrafficManager(const Configuration &config,
   }
   _write_reply_size.resize(_classes, _write_reply_size.back());
 
-  string packet_size_str = config.GetStr("packet_size");
+  std::string packet_size_str = config.GetStr("packet_size");
   if (packet_size_str.empty()) {
-    _packet_size.push_back(vector<int>(1, config.GetInt("packet_size")));
+    _packet_size.push_back(std::vector<int>(1, config.GetInt("packet_size")));
   } else {
-    vector<string> packet_size_strings = tokenize_str(packet_size_str);
+    std::vector<std::string> packet_size_strings =
+        tokenize_str(packet_size_str);
     for (size_t i = 0; i < packet_size_strings.size(); ++i) {
       _packet_size.push_back(tokenize_int(packet_size_strings[i]));
     }
   }
   _packet_size.resize(_classes, _packet_size.back());
 
-  string packet_size_rate_str = config.GetStr("packet_size_rate");
+  std::string packet_size_rate_str = config.GetStr("packet_size_rate");
   if (packet_size_rate_str.empty()) {
     int rate = config.GetInt("packet_size_rate");
     assert(rate >= 0);
     for (int c = 0; c < _classes; ++c) {
       int size = _packet_size[c].size();
-      _packet_size_rate.push_back(vector<int>(size, rate));
+      _packet_size_rate.push_back(std::vector<int>(size, rate));
       _packet_size_max_val.push_back(size * rate - 1);
     }
   } else {
-    vector<string> packet_size_rate_strings =
+    std::vector<std::string> packet_size_rate_strings =
         tokenize_str(packet_size_rate_str);
     packet_size_rate_strings.resize(_classes, packet_size_rate_strings.back());
     for (int c = 0; c < _classes; ++c) {
-      vector<int> rates = tokenize_int(packet_size_rate_strings[c]);
+      std::vector<int> rates = tokenize_int(packet_size_rate_strings[c]);
       rates.resize(_packet_size[c].size(), rates.back());
       _packet_size_rate.push_back(rates);
       int size = rates.size();
@@ -199,10 +203,10 @@ TrafficManager::TrafficManager(const Configuration &config,
   for (int c = 0; c < _classes; ++c) {
     if (_use_read_write[c]) {
       _packet_size[c] =
-          vector<int>(1, (_read_request_size[c] + _read_reply_size[c] +
-                          _write_request_size[c] + _write_reply_size[c]) /
-                             2);
-      _packet_size_rate[c] = vector<int>(1, 1);
+          std::vector<int>(1, (_read_request_size[c] + _read_reply_size[c] +
+                               _write_request_size[c] + _write_reply_size[c]) /
+                                  2);
+      _packet_size_rate[c] = std::vector<int>(1, 1);
       _packet_size_max_val[c] = 0;
     }
   }
@@ -229,7 +233,8 @@ TrafficManager::TrafficManager(const Configuration &config,
   }
   _class_priority.resize(_classes, _class_priority.back());
 
-  vector<string> injection_process = config.GetStrArray("injection_process");
+  std::vector<std::string> injection_process =
+      config.GetStrArray("injection_process");
   injection_process.resize(_classes, injection_process.back());
 
   _injection_process.resize(_classes);
@@ -251,15 +256,15 @@ TrafficManager::TrafficManager(const Configuration &config,
     _last_class[source].resize(_subnets, 0);
     _last_vc[source].resize(_subnets);
     for (int subnet = 0; subnet < _subnets; ++subnet) {
-      ostringstream tmp_name;
+      std::stringstream tmp_name;
       tmp_name << "terminal_buf_state_" << source << "_" << subnet;
       BufferState *bs = new BufferState(config, this, tmp_name.str());
       int vc_alloc_delay = config.GetInt("vc_alloc_delay");
       int sw_alloc_delay = config.GetInt("sw_alloc_delay");
-      int router_latency =
-          config.GetInt("routing_delay") +
-          (config.GetInt("speculative") ? max(vc_alloc_delay, sw_alloc_delay)
-                                        : (vc_alloc_delay + sw_alloc_delay));
+      int router_latency = config.GetInt("routing_delay") +
+                           (config.GetInt("speculative")
+                                ? std::max(vc_alloc_delay, sw_alloc_delay)
+                                : (vc_alloc_delay + sw_alloc_delay));
       int min_latency = 1 + _net[subnet]->GetInject(source)->GetLatency() +
                         router_latency +
                         _net[subnet]->GetInjectCred(source)->GetLatency();
@@ -272,11 +277,11 @@ TrafficManager::TrafficManager(const Configuration &config,
 #ifdef TRACK_FLOWS
   _outstanding_credits.resize(_classes);
   for (int c = 0; c < _classes; ++c) {
-    _outstanding_credits[c].resize(_subnets, vector<int>(_nodes, 0));
+    _outstanding_credits[c].resize(_subnets, std::vector<int>(_nodes, 0));
   }
   _outstanding_classes.resize(_nodes);
   for (int n = 0; n < _nodes; ++n) {
-    _outstanding_classes[n].resize(_subnets, vector<queue<int>>(_vcs));
+    _outstanding_classes[n].resize(_subnets, std::vector<queue<int>>(_vcs));
   }
 #endif
 
@@ -362,59 +367,59 @@ TrafficManager::TrafficManager(const Configuration &config,
   _print_csv_results = config.GetInt("print_csv_results");
   _deadlock_warn_timeout = config.GetInt("deadlock_warn_timeout");
 
-  string watch_file = config.GetStr("watch_file");
+  std::string watch_file = config.GetStr("watch_file");
   if ((watch_file != "") && (watch_file != "-")) {
     _LoadWatchList(watch_file);
   }
 
-  vector<int> watch_flits = config.GetIntArray("watch_flits");
+  std::vector<int> watch_flits = config.GetIntArray("watch_flits");
   for (size_t i = 0; i < watch_flits.size(); ++i) {
     _flits_to_watch.insert(watch_flits[i]);
   }
 
-  vector<int> watch_packets = config.GetIntArray("watch_packets");
+  std::vector<int> watch_packets = config.GetIntArray("watch_packets");
   for (size_t i = 0; i < watch_packets.size(); ++i) {
     _packets_to_watch.insert(watch_packets[i]);
   }
 
-  string stats_out_file = config.GetStr("stats_out");
+  std::string stats_out_file = config.GetStr("stats_out");
   if (stats_out_file == "") {
     _stats_out = NULL;
   } else if (stats_out_file == "-") {
-    _stats_out = &cout;
+    _stats_out = &std::cout;
   } else {
-    _stats_out = new ofstream(stats_out_file.c_str());
+    _stats_out = new std::ofstream(stats_out_file.c_str());
     config.WriteMatlabFile(_stats_out);
   }
 
 #ifdef TRACK_FLOWS
-  _injected_flits.resize(_classes, vector<int>(_nodes, 0));
-  _ejected_flits.resize(_classes, vector<int>(_nodes, 0));
-  string injected_flits_out_file = config.GetStr("injected_flits_out");
+  _injected_flits.resize(_classes, std::vector<int>(_nodes, 0));
+  _ejected_flits.resize(_classes, std::vector<int>(_nodes, 0));
+  std::string injected_flits_out_file = config.GetStr("injected_flits_out");
   if (injected_flits_out_file == "") {
     _injected_flits_out = NULL;
   } else {
     _injected_flits_out = new ofstream(injected_flits_out_file.c_str());
   }
-  string received_flits_out_file = config.GetStr("received_flits_out");
+  std::string received_flits_out_file = config.GetStr("received_flits_out");
   if (received_flits_out_file == "") {
     _received_flits_out = NULL;
   } else {
     _received_flits_out = new ofstream(received_flits_out_file.c_str());
   }
-  string stored_flits_out_file = config.GetStr("stored_flits_out");
+  std::string stored_flits_out_file = config.GetStr("stored_flits_out");
   if (stored_flits_out_file == "") {
     _stored_flits_out = NULL;
   } else {
     _stored_flits_out = new ofstream(stored_flits_out_file.c_str());
   }
-  string sent_flits_out_file = config.GetStr("sent_flits_out");
+  std::string sent_flits_out_file = config.GetStr("sent_flits_out");
   if (sent_flits_out_file == "") {
     _sent_flits_out = NULL;
   } else {
     _sent_flits_out = new ofstream(sent_flits_out_file.c_str());
   }
-  string outstanding_credits_out_file =
+  std::string outstanding_credits_out_file =
       config.GetStr("outstanding_credits_out");
   if (outstanding_credits_out_file == "") {
     _outstanding_credits_out = NULL;
@@ -422,13 +427,13 @@ TrafficManager::TrafficManager(const Configuration &config,
     _outstanding_credits_out =
         new ofstream(outstanding_credits_out_file.c_str());
   }
-  string ejected_flits_out_file = config.GetStr("ejected_flits_out");
+  std::string ejected_flits_out_file = config.GetStr("ejected_flits_out");
   if (ejected_flits_out_file == "") {
     _ejected_flits_out = NULL;
   } else {
     _ejected_flits_out = new ofstream(ejected_flits_out_file.c_str());
   }
-  string active_packets_out_file = config.GetStr("active_packets_out");
+  std::string active_packets_out_file = config.GetStr("active_packets_out");
   if (active_packets_out_file == "") {
     _active_packets_out = NULL;
   } else {
@@ -437,19 +442,19 @@ TrafficManager::TrafficManager(const Configuration &config,
 #endif
 
 #ifdef TRACK_CREDITS
-  string used_credits_out_file = config.GetStr("used_credits_out");
+  std::string used_credits_out_file = config.GetStr("used_credits_out");
   if (used_credits_out_file == "") {
     _used_credits_out = NULL;
   } else {
     _used_credits_out = new ofstream(used_credits_out_file.c_str());
   }
-  string free_credits_out_file = config.GetStr("free_credits_out");
+  std::string free_credits_out_file = config.GetStr("free_credits_out");
   if (free_credits_out_file == "") {
     _free_credits_out = NULL;
   } else {
     _free_credits_out = new ofstream(free_credits_out_file.c_str());
   }
-  string max_credits_out_file = config.GetStr("max_credits_out");
+  std::string max_credits_out_file = config.GetStr("max_credits_out");
   if (max_credits_out_file == "") {
     _max_credits_out = NULL;
   } else {
@@ -520,7 +525,7 @@ TrafficManager::TrafficManager(const Configuration &config,
 #endif
 
   for (int c = 0; c < _classes; ++c) {
-    ostringstream tmp_name;
+    std::ostringstream tmp_name;
 
     tmp_name << "plat_stat_" << c;
     _plat_stats[c] = new Stats(this, tmp_name.str(), 1.0, 1000);
@@ -622,9 +627,9 @@ TrafficManager::~TrafficManager() {
     }
   }
 
-  if (gWatchOut && (gWatchOut != &cout))
+  if (gWatchOut && (gWatchOut != &std::cout))
     delete gWatchOut;
-  if (_stats_out && (_stats_out != &cout))
+  if (_stats_out && (_stats_out != &std::cout))
     delete _stats_out;
 
 #ifdef TRACK_FLOWS
@@ -675,11 +680,11 @@ void TrafficManager::_RetireFlit(Flit *f, int dest) {
                << "Retiring flit " << f->id << " (packet " << f->pid
                << ", src = " << f->src << ", dest = " << f->dest
                << ", hops = " << f->hops << ", flat = " << f->atime - f->itime
-               << ")." << endl;
+               << ")." << std::endl;
   }
 
   if (f->head && (f->dest != dest)) {
-    ostringstream err;
+    std::ostringstream err;
     err << "Flit " << f->id << " arrived at incorrect output " << dest;
     Error(err.str());
   }
@@ -697,7 +702,7 @@ void TrafficManager::_RetireFlit(Flit *f, int dest) {
     if (f->head) {
       head = f;
     } else {
-      map<unsigned long long, Flit *>::iterator iter =
+      std::map<unsigned long long, Flit *>::iterator iter =
           _retired_packets[f->cl].find(f->pid);
       assert(iter != _retired_packets[f->cl].end());
       head = iter->second;
@@ -719,7 +724,7 @@ void TrafficManager::_RetireFlit(Flit *f, int dest) {
                             // advantage of the fact that the IDs of flits
                             // within a packet are contiguous.
           << ", src = " << head->src << ", dest = " << head->dest << ")."
-          << endl;
+          << std::endl;
     }
 
     // code the source of request, look carefully, its tricky ;)
@@ -766,7 +771,7 @@ void TrafficManager::_RetireFlit(Flit *f, int dest) {
   }
 
   if (f->head && !f->tail) {
-    _retired_packets[f->cl].insert(make_pair(f->pid, f));
+    _retired_packets[f->cl].insert(std::make_pair(f->pid, f));
   } else {
     f->Free();
   }
@@ -821,7 +826,7 @@ void TrafficManager::_GeneratePacket(int source, int stype, int cl, int time) {
         packet_type = Flit::WRITE_REQUEST;
         size = _write_request_size[cl];
       } else {
-        ostringstream err;
+        std::ostringstream err;
         err << "Invalid packet type: " << packet_type;
         Error(err.str());
       }
@@ -834,7 +839,7 @@ void TrafficManager::_GeneratePacket(int source, int stype, int cl, int time) {
         size = _write_reply_size[cl];
         packet_type = Flit::WRITE_REPLY;
       } else {
-        ostringstream err;
+        std::ostringstream err;
         err << "Invalid packet type: " << rinfo->type;
         Error(err.str());
       }
@@ -847,7 +852,7 @@ void TrafficManager::_GeneratePacket(int source, int stype, int cl, int time) {
   }
 
   if ((packet_destination < 0) || (packet_destination >= _nodes)) {
-    ostringstream err;
+    std::ostringstream err;
     err << "Incorrect packet destination " << packet_destination
         << " for stype " << packet_type;
     Error(err.str());
@@ -865,7 +870,7 @@ void TrafficManager::_GeneratePacket(int source, int stype, int cl, int time) {
     *gWatchOut << GetSimTime() << " | "
                << "node" << source << " | "
                << "Enqueuing packet " << pid << " at time " << time << "."
-               << endl;
+               << std::endl;
   }
 
   for (int i = 0; i < size; ++i) {
@@ -880,13 +885,13 @@ void TrafficManager::_GeneratePacket(int source, int stype, int cl, int time) {
     f->record = record;
     f->cl = cl;
 
-    _total_in_flight_flits[f->cl].insert(make_pair(f->id, f));
+    _total_in_flight_flits[f->cl].insert(std::make_pair(f->id, f));
     if (record) {
-      _measured_in_flight_flits[f->cl].insert(make_pair(f->id, f));
+      _measured_in_flight_flits[f->cl].insert(std::make_pair(f->id, f));
     }
 
     if (gTrace) {
-      cout << "New Flit " << f->src << endl;
+      std::cout << "New Flit " << f->src << std::endl;
     }
     f->type = packet_type;
 
@@ -904,11 +909,11 @@ void TrafficManager::_GeneratePacket(int source, int stype, int cl, int time) {
       assert(f->pri >= 0);
       break;
     case age_based:
-      f->pri = numeric_limits<int>::max() - time;
+      f->pri = std::numeric_limits<int>::max() - time;
       assert(f->pri >= 0);
       break;
     case sequence_based:
-      f->pri = numeric_limits<int>::max() - _packet_seq_no[source];
+      f->pri = std::numeric_limits<int>::max() - _packet_seq_no[source];
       assert(f->pri >= 0);
       break;
     default:
@@ -926,7 +931,7 @@ void TrafficManager::_GeneratePacket(int source, int stype, int cl, int time) {
       *gWatchOut << GetSimTime() << " | "
                  << "node" << source << " | "
                  << "Enqueuing flit " << f->id << " (packet " << f->pid
-                 << ") at time " << time << "." << endl;
+                 << ") at time " << time << "." << std::endl;
     }
 
     _partial_packets[source][cl].push_back(f);
@@ -970,10 +975,10 @@ void TrafficManager::_Step() {
   }
   if (flits_in_flight && (_deadlock_timer++ >= _deadlock_warn_timeout)) {
     _deadlock_timer = 0;
-    cout << "WARNING: Possible network deadlock.\n";
+    std::cout << "WARNING: Possible network deadlock.\n";
   }
 
-  vector<map<int, Flit *>> flits(_subnets);
+  std::vector<std::map<int, Flit *>> flits(_subnets);
 
   for (int subnet = 0; subnet < _subnets; ++subnet) {
     for (int n = 0; n < _nodes; ++n) {
@@ -984,9 +989,9 @@ void TrafficManager::_Step() {
                      << "node" << n << " | "
                      << "Ejecting flit " << f->id << " (packet " << f->pid
                      << ")"
-                     << " from VC " << f->vc << "." << endl;
+                     << " from VC " << f->vc << "." << std::endl;
         }
-        flits[subnet].insert(make_pair(n, f));
+        flits[subnet].insert(std::make_pair(n, f));
         if ((_sim_state == warming_up) || (_sim_state == running)) {
           ++_accepted_flits[f->cl][n];
           if (f->tail) {
@@ -1032,7 +1037,7 @@ void TrafficManager::_Step() {
       int class_limit = _classes;
 
       if (_hold_switch_for_packet) {
-        list<Flit *> const &pp = _partial_packets[n][last_class];
+        std::list<Flit *> const &pp = _partial_packets[n][last_class];
         if (!pp.empty() && !pp.front()->head &&
             !dest_buf->IsFullFor(pp.front()->vc)) {
           f = pp.front();
@@ -1048,7 +1053,7 @@ void TrafficManager::_Step() {
 
         int const c = (last_class + i) % _classes;
 
-        list<Flit *> const &pp = _partial_packets[n][c];
+        std::list<Flit *> const &pp = _partial_packets[n][c];
 
         if (pp.empty()) {
           continue;
@@ -1070,7 +1075,7 @@ void TrafficManager::_Step() {
 
           OutputSet route_set;
           _rf(NULL, cf, -1, &route_set, true);
-          set<OutputSet::sSetElement> const &os = route_set.GetSet();
+          std::set<OutputSet::sSetElement> const &os = route_set.GetSet();
           assert(os.size() == 1);
           OutputSet::sSetElement const &se = *os.begin();
           assert(se.output_port == -1);
@@ -1095,9 +1100,10 @@ void TrafficManager::_Step() {
               *gWatchOut << GetSimTime() << " | "
                          << "node" << n << " | "
                          << "Generating lookahead routing info for flit "
-                         << cf->id << " (NOQ)." << endl;
+                         << cf->id << " (NOQ)." << std::endl;
             }
-            set<OutputSet::sSetElement> const sl = cf->la_route_set.GetSet();
+            std::set<OutputSet::sSetElement> const sl =
+                cf->la_route_set.GetSet();
             assert(sl.size() == 1);
             int next_output = sl.begin()->output_port;
             vc_count /= router->NumOutputs();
@@ -1110,7 +1116,7 @@ void TrafficManager::_Step() {
           if (cf->watch) {
             *gWatchOut << GetSimTime() << " | " << FullName() << " | "
                        << "Finding output VC for flit " << cf->id << ":"
-                       << endl;
+                       << std::endl;
           }
           for (int i = 1; i <= vc_count; ++i) {
             int const lvc = _last_vc[n][subnet][c];
@@ -1121,18 +1127,20 @@ void TrafficManager::_Step() {
             if (!dest_buf->IsAvailableFor(vc)) {
               if (cf->watch) {
                 *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                           << "  Output VC " << vc << " is busy." << endl;
+                           << "  Output VC " << vc << " is busy." << std::endl;
               }
             } else {
               if (dest_buf->IsFullFor(vc)) {
                 if (cf->watch) {
                   *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                             << "  Output VC " << vc << " is full." << endl;
+                             << "  Output VC " << vc << " is full."
+                             << std::endl;
                 }
               } else {
                 if (cf->watch) {
                   *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                             << "  Selected output VC " << vc << "." << endl;
+                             << "  Selected output VC " << vc << "."
+                             << std::endl;
                 }
                 cf->vc = vc;
                 break;
@@ -1145,14 +1153,14 @@ void TrafficManager::_Step() {
           if (cf->watch) {
             *gWatchOut << GetSimTime() << " | " << FullName() << " | "
                        << "No output VC found for flit " << cf->id << "."
-                       << endl;
+                       << std::endl;
           }
         } else {
           if (dest_buf->IsFullFor(cf->vc)) {
             if (cf->watch) {
               *gWatchOut << GetSimTime() << " | " << FullName() << " | "
                          << "Selected output VC " << cf->vc
-                         << " is full for flit " << cf->id << "." << endl;
+                         << " is full for flit " << cf->id << "." << std::endl;
             }
           } else {
             f = cf;
@@ -1179,13 +1187,13 @@ void TrafficManager::_Step() {
                 *gWatchOut << GetSimTime() << " | "
                            << "node" << n << " | "
                            << "Generating lookahead routing info for flit "
-                           << f->id << "." << endl;
+                           << f->id << "." << std::endl;
               }
             } else if (f->watch) {
               *gWatchOut << GetSimTime() << " | "
                          << "node" << n << " | "
                          << "Already generated lookahead routing info for flit "
-                         << f->id << " (NOQ)." << endl;
+                         << f->id << " (NOQ)." << std::endl;
             }
           } else {
             f->la_route_set.Clear();
@@ -1207,7 +1215,7 @@ void TrafficManager::_Step() {
         dest_buf->SendingFlit(f);
 
         if (_pri_type == network_age_based) {
-          f->pri = numeric_limits<int>::max() - _time;
+          f->pri = std::numeric_limits<int>::max() - _time;
           assert(f->pri >= 0);
         }
 
@@ -1216,7 +1224,7 @@ void TrafficManager::_Step() {
                      << "node" << n << " | "
                      << "Injecting flit " << f->id << " into subnet " << subnet
                      << " at time " << _time << " with priority " << f->pri
-                     << "." << endl;
+                     << "." << std::endl;
         }
         f->itime = _time;
 
@@ -1244,7 +1252,7 @@ void TrafficManager::_Step() {
 
   for (int subnet = 0; subnet < _subnets; ++subnet) {
     for (int n = 0; n < _nodes; ++n) {
-      map<int, Flit *>::const_iterator iter = flits[subnet].find(n);
+      std::map<int, Flit *>::const_iterator iter = flits[subnet].find(n);
       if (iter != flits[subnet].end()) {
         Flit *const f = iter->second;
 
@@ -1253,7 +1261,7 @@ void TrafficManager::_Step() {
           *gWatchOut << GetSimTime() << " | "
                      << "node" << n << " | "
                      << "Injecting credit for VC " << f->vc << " into subnet "
-                     << subnet << "." << endl;
+                     << subnet << "." << std::endl;
         }
         Credit *const c = Credit::New();
         c->vc.insert(f->vc);
@@ -1274,7 +1282,7 @@ void TrafficManager::_Step() {
   ++_time;
   assert(_time);
   if (gTrace) {
-    cout << "TIME " << _time << endl;
+    std::cout << "TIME " << _time << std::endl;
   }
 }
 
@@ -1286,15 +1294,17 @@ bool TrafficManager::_PacketsOutstanding() const {
         for (int s = 0; s < _nodes; ++s) {
           if (!_qdrained[s][c]) {
 #ifdef DEBUG_DRAIN
-            cout << "waiting on queue " << s << " class " << c;
-            cout << ", time = " << _time << " qtime = " << _qtime[s][c] << endl;
+            std::cout << "waiting on queue " << s << " class " << c;
+            std::cout << ", time = " << _time << " qtime = " << _qtime[s][c]
+                      << std::endl;
 #endif
             return true;
           }
         }
       } else {
 #ifdef DEBUG_DRAIN
-        cout << "in flight = " << _measured_in_flight_flits[c].size() << endl;
+        std::cout << "in flight = " << _measured_in_flight_flits[c].size()
+                  << std::endl;
 #endif
         return true;
       }
@@ -1342,8 +1352,9 @@ void TrafficManager::_ClearStats() {
   _reset_time = _time;
 }
 
-void TrafficManager::_ComputeStats(const vector<int> &stats, int *sum, int *min,
-                                   int *max, int *min_pos, int *max_pos) const {
+void TrafficManager::_ComputeStats(const std::vector<int> &stats, int *sum,
+                                   int *min, int *max, int *min_pos,
+                                   int *max_pos) const {
   int const count = stats.size();
   assert(count > 0);
 
@@ -1381,13 +1392,13 @@ void TrafficManager::_ComputeStats(const vector<int> &stats, int *sum, int *min,
   }
 }
 
-void TrafficManager::_DisplayRemaining(ostream &os) const {
+void TrafficManager::_DisplayRemaining(std::ostream &os) const {
   for (int c = 0; c < _classes; ++c) {
 
-    map<unsigned long long, Flit *>::const_iterator iter;
+    std::map<unsigned long long, Flit *>::const_iterator iter;
     int i;
 
-    os << "Class " << c << ":" << endl;
+    os << "Class " << c << ":" << std::endl;
 
     os << "Remaining flits: ";
     for (iter = _total_in_flight_flits[c].begin(), i = 0;
@@ -1397,7 +1408,7 @@ void TrafficManager::_DisplayRemaining(ostream &os) const {
     if (_total_in_flight_flits[c].size() > 10)
       os << "[...] ";
 
-    os << "(" << _total_in_flight_flits[c].size() << " flits)" << endl;
+    os << "(" << _total_in_flight_flits[c].size() << " flits)" << std::endl;
 
     os << "Measured flits: ";
     for (iter = _measured_in_flight_flits[c].begin(), i = 0;
@@ -1408,7 +1419,7 @@ void TrafficManager::_DisplayRemaining(ostream &os) const {
     if (_measured_in_flight_flits[c].size() > 10)
       os << "[...] ";
 
-    os << "(" << _measured_in_flight_flits[c].size() << " flits)" << endl;
+    os << "(" << _measured_in_flight_flits[c].size() << " flits)" << std::endl;
   }
 }
 
@@ -1416,8 +1427,8 @@ bool TrafficManager::_SingleSim() {
   int converged = 0;
 
   // once warmed up, we require 3 converging runs to end the simulation
-  vector<double> prev_latency(_classes, 0.0);
-  vector<double> prev_accepted(_classes, 0.0);
+  std::vector<double> prev_latency(_classes, 0.0);
+  std::vector<double> prev_accepted(_classes, 0.0);
   bool clear_last = false;
   int total_phases = 0;
   while ((total_phases < _max_samples) &&
@@ -1432,7 +1443,7 @@ bool TrafficManager::_SingleSim() {
     for (int iter = 0; iter < _sample_period; ++iter)
       _Step();
 
-    // cout << _sim_state << endl;
+    // std::cout << _sim_state << std::endl;
 
     UpdateStats();
     DisplayStats();
@@ -1466,7 +1477,7 @@ bool TrafficManager::_SingleSim() {
       double latency = (double)_plat_stats[c]->Sum();
       double count = (double)_plat_stats[c]->NumSamples();
 
-      map<unsigned long long, Flit *>::const_iterator iter;
+      std::map<unsigned long long, Flit *>::const_iterator iter;
       for (iter = _total_in_flight_flits[c].begin();
            iter != _total_in_flight_flits[c].end(); iter++) {
         latency += (double)(_time - iter->second->ctime);
@@ -1478,7 +1489,7 @@ bool TrafficManager::_SingleSim() {
         lat_exc_class = c;
       }
 
-      cout << "latency change    = " << latency_change << endl;
+      std::cout << "latency change    = " << latency_change << std::endl;
       if (lat_chg_exc_class < 0) {
         if ((_sim_state == warming_up) && (_warmup_threshold[c] >= 0.0) &&
             (latency_change > _warmup_threshold[c])) {
@@ -1489,7 +1500,7 @@ bool TrafficManager::_SingleSim() {
         }
       }
 
-      cout << "throughput change = " << accepted_change << endl;
+      std::cout << "throughput change = " << accepted_change << std::endl;
       if (acc_chg_exc_class < 0) {
         if ((_sim_state == warming_up) && (_acc_warmup_threshold[c] >= 0.0) &&
             (accepted_change > _acc_warmup_threshold[c])) {
@@ -1505,9 +1516,9 @@ bool TrafficManager::_SingleSim() {
     // Fail safe for latency mode, throughput will ust continue
     if (_measure_latency && (lat_exc_class >= 0)) {
 
-      cout << "Average latency for class " << lat_exc_class << " exceeded "
-           << _latency_thres[lat_exc_class] << " cycles. Aborting simulation."
-           << endl;
+      std::cout << "Average latency for class " << lat_exc_class << " exceeded "
+                << _latency_thres[lat_exc_class]
+                << " cycles. Aborting simulation." << std::endl;
       converged = 0;
       _sim_state = draining;
       _drain_time = _time;
@@ -1522,8 +1533,8 @@ bool TrafficManager::_SingleSim() {
               ? (total_phases + 1 >= _warmup_periods)
               : ((!_measure_latency || (lat_chg_exc_class < 0)) &&
                  (acc_chg_exc_class < 0))) {
-        cout << "Warmed up ..."
-             << "Time used is " << _time << " cycles" << endl;
+        std::cout << "Warmed up ..."
+                  << "Time used is " << _time << " cycles" << std::endl;
         clear_last = true;
         _sim_state = running;
       }
@@ -1545,7 +1556,7 @@ bool TrafficManager::_SingleSim() {
     _drain_time = _time;
 
     if (_measure_latency) {
-      cout << "Draining all recorded packets ..." << endl;
+      std::cout << "Draining all recorded packets ..." << std::endl;
       int empty_steps = 0;
       while (_PacketsOutstanding()) {
         _Step();
@@ -1567,7 +1578,7 @@ bool TrafficManager::_SingleSim() {
             double acc_latency = _plat_stats[c]->Sum();
             double acc_count = (double)_plat_stats[c]->NumSamples();
 
-            map<unsigned long long, Flit *>::const_iterator iter;
+            std::map<unsigned long long, Flit *>::const_iterator iter;
             for (iter = _total_in_flight_flits[c].begin();
                  iter != _total_in_flight_flits[c].end(); iter++) {
               acc_latency += (double)(_time - iter->second->ctime);
@@ -1581,9 +1592,9 @@ bool TrafficManager::_SingleSim() {
           }
 
           if (lat_exc_class >= 0) {
-            cout << "Average latency for class " << lat_exc_class
-                 << " exceeded " << _latency_thres[lat_exc_class]
-                 << " cycles. Aborting simulation." << endl;
+            std::cout << "Average latency for class " << lat_exc_class
+                      << " exceeded " << _latency_thres[lat_exc_class]
+                      << " cycles. Aborting simulation." << std::endl;
             converged = 0;
             _sim_state = warming_up;
             if (_stats_out) {
@@ -1597,7 +1608,7 @@ bool TrafficManager::_SingleSim() {
       }
     }
   } else {
-    cout << "Too many sample periods needed to converge" << endl;
+    std::cout << "Too many sample periods needed to converge" << std::endl;
   }
 
   return (converged > 0);
@@ -1637,12 +1648,12 @@ bool TrafficManager::Run() {
     }
 
     if (!_SingleSim()) {
-      cout << "Simulation unstable, ending ..." << endl;
+      std::cout << "Simulation unstable, ending ..." << std::endl;
       return false;
     }
 
     // Empty any remaining packets
-    cout << "Draining remaining packets ..." << endl;
+    std::cout << "Draining remaining packets ..." << std::endl;
     _empty_network = true;
     int empty_steps = 0;
 
@@ -1673,7 +1684,7 @@ bool TrafficManager::Run() {
 
     // for the love of god don't ever say "Time taken" anywhere else
     // the power script depend on it
-    cout << "Time taken is " << _time << " cycles" << endl;
+    std::cout << "Time taken is " << _time << " cycles" << std::endl;
 
     if (_stats_out) {
       WriteStats(*_stats_out);
@@ -1774,9 +1785,9 @@ void TrafficManager::_UpdateOverallStats() {
   }
 }
 
-void TrafficManager::WriteStats(ostream &os) const {
+void TrafficManager::WriteStats(std::ostream &os) const {
 
-  os << "%=================================" << endl;
+  os << "%=================================" << std::endl;
 
   for (int c = 0; c < _classes; ++c) {
 
@@ -1785,14 +1796,21 @@ void TrafficManager::WriteStats(ostream &os) const {
     }
 
     // c+1 due to matlab array starting at 1
-    os << "plat(" << c + 1 << ") = " << _plat_stats[c]->Average() << ";" << endl
-       << "plat_hist(" << c + 1 << ",:) = " << *_plat_stats[c] << ";" << endl
-       << "nlat(" << c + 1 << ") = " << _nlat_stats[c]->Average() << ";" << endl
-       << "nlat_hist(" << c + 1 << ",:) = " << *_nlat_stats[c] << ";" << endl
-       << "flat(" << c + 1 << ") = " << _flat_stats[c]->Average() << ";" << endl
-       << "flat_hist(" << c + 1 << ",:) = " << *_flat_stats[c] << ";" << endl
-       << "frag_hist(" << c + 1 << ",:) = " << *_frag_stats[c] << ";" << endl
-       << "hops(" << c + 1 << ",:) = " << *_hop_stats[c] << ";" << endl;
+    os << "plat(" << c + 1 << ") = " << _plat_stats[c]->Average() << ";"
+       << std::endl
+       << "plat_hist(" << c + 1 << ",:) = " << *_plat_stats[c] << ";"
+       << std::endl
+       << "nlat(" << c + 1 << ") = " << _nlat_stats[c]->Average() << ";"
+       << std::endl
+       << "nlat_hist(" << c + 1 << ",:) = " << *_nlat_stats[c] << ";"
+       << std::endl
+       << "flat(" << c + 1 << ") = " << _flat_stats[c]->Average() << ";"
+       << std::endl
+       << "flat_hist(" << c + 1 << ",:) = " << *_flat_stats[c] << ";"
+       << std::endl
+       << "frag_hist(" << c + 1 << ",:) = " << *_frag_stats[c] << ";"
+       << std::endl
+       << "hops(" << c + 1 << ",:) = " << *_hop_stats[c] << ";" << std::endl;
     if (_pair_stats) {
       os << "pair_sent(" << c + 1 << ",:) = [ ";
       for (int i = 0; i < _nodes; ++i) {
@@ -1800,19 +1818,19 @@ void TrafficManager::WriteStats(ostream &os) const {
           os << _pair_plat[c][i * _nodes + j]->NumSamples() << " ";
         }
       }
-      os << "];" << endl << "pair_plat(" << c + 1 << ",:) = [ ";
+      os << "];" << std::endl << "pair_plat(" << c + 1 << ",:) = [ ";
       for (int i = 0; i < _nodes; ++i) {
         for (int j = 0; j < _nodes; ++j) {
           os << _pair_plat[c][i * _nodes + j]->Average() << " ";
         }
       }
-      os << "];" << endl << "pair_nlat(" << c + 1 << ",:) = [ ";
+      os << "];" << std::endl << "pair_nlat(" << c + 1 << ",:) = [ ";
       for (int i = 0; i < _nodes; ++i) {
         for (int j = 0; j < _nodes; ++j) {
           os << _pair_nlat[c][i * _nodes + j]->Average() << " ";
         }
       }
-      os << "];" << endl << "pair_flat(" << c + 1 << ",:) = [ ";
+      os << "];" << std::endl << "pair_flat(" << c + 1 << ",:) = [ ";
       for (int i = 0; i < _nodes; ++i) {
         for (int j = 0; j < _nodes; ++j) {
           os << _pair_flat[c][i * _nodes + j]->Average() << " ";
@@ -1822,54 +1840,55 @@ void TrafficManager::WriteStats(ostream &os) const {
 
     double time_delta = (double)(_drain_time - _reset_time);
 
-    os << "];" << endl << "sent_packets(" << c + 1 << ",:) = [ ";
+    os << "];" << std::endl << "sent_packets(" << c + 1 << ",:) = [ ";
     for (int d = 0; d < _nodes; ++d) {
       os << (double)_sent_packets[c][d] / time_delta << " ";
     }
-    os << "];" << endl << "accepted_packets(" << c + 1 << ",:) = [ ";
+    os << "];" << std::endl << "accepted_packets(" << c + 1 << ",:) = [ ";
     for (int d = 0; d < _nodes; ++d) {
       os << (double)_accepted_packets[c][d] / time_delta << " ";
     }
-    os << "];" << endl << "sent_flits(" << c + 1 << ",:) = [ ";
+    os << "];" << std::endl << "sent_flits(" << c + 1 << ",:) = [ ";
     for (int d = 0; d < _nodes; ++d) {
       os << (double)_sent_flits[c][d] / time_delta << " ";
     }
-    os << "];" << endl << "accepted_flits(" << c + 1 << ",:) = [ ";
+    os << "];" << std::endl << "accepted_flits(" << c + 1 << ",:) = [ ";
     for (int d = 0; d < _nodes; ++d) {
       os << (double)_accepted_flits[c][d] / time_delta << " ";
     }
-    os << "];" << endl << "sent_packet_size(" << c + 1 << ",:) = [ ";
+    os << "];" << std::endl << "sent_packet_size(" << c + 1 << ",:) = [ ";
     for (int d = 0; d < _nodes; ++d) {
       os << (double)_sent_flits[c][d] / (double)_sent_packets[c][d] << " ";
     }
-    os << "];" << endl << "accepted_packet_size(" << c + 1 << ",:) = [ ";
+    os << "];" << std::endl << "accepted_packet_size(" << c + 1 << ",:) = [ ";
     for (int d = 0; d < _nodes; ++d) {
       os << (double)_accepted_flits[c][d] / (double)_accepted_packets[c][d]
          << " ";
     }
-    os << "];" << endl;
+    os << "];" << std::endl;
 #ifdef TRACK_STALLS
     os << "buffer_busy_stalls(" << c + 1 << ",:) = [ ";
     for (int d = 0; d < _subnets * _routers; ++d) {
       os << (double)_buffer_busy_stalls[c][d] / time_delta << " ";
     }
-    os << "];" << endl << "buffer_conflict_stalls(" << c + 1 << ",:) = [ ";
+    os << "];" << std::endl << "buffer_conflict_stalls(" << c + 1 << ",:) = [ ";
     for (int d = 0; d < _subnets * _routers; ++d) {
       os << (double)_buffer_conflict_stalls[c][d] / time_delta << " ";
     }
-    os << "];" << endl << "buffer_full_stalls(" << c + 1 << ",:) = [ ";
+    os << "];" << std::endl << "buffer_full_stalls(" << c + 1 << ",:) = [ ";
     for (int d = 0; d < _subnets * _routers; ++d) {
       os << (double)_buffer_full_stalls[c][d] / time_delta << " ";
     }
-    os << "];" << endl << "buffer_reserved_stalls(" << c + 1 << ",:) = [ ";
+    os << "];" << std::endl << "buffer_reserved_stalls(" << c + 1 << ",:) = [ ";
     for (int d = 0; d < _subnets * _routers; ++d) {
       os << (double)_buffer_reserved_stalls[c][d] / time_delta << " ";
     }
-    os << "];" << endl << "crossbar_conflict_stalls(" << c + 1 << ",:) = [ ";
+    os << "];" << std::endl
+       << "crossbar_conflict_stalls(" << c + 1 << ",:) = [ ";
     for (int d = 0; d < _subnets * _routers; ++d) {
       os << (double)_crossbar_conflict_stalls[c][d] / time_delta << " ";
     }
-    os << "];" << endl;
+    os << "];" << std::endl;
 #endif
   }
 }
@@ -1893,7 +1912,7 @@ void TrafficManager::UpdateStats() {
       if (_outstanding_credits_out)
         *_outstanding_credits_out << _outstanding_credits[c][subnet] << ',';
       if (_stored_flits_out)
-        *_stored_flits_out << vector<int>(_nodes, 0) << ',';
+        *_stored_flits_out << std::vector<int>(_nodes, 0) << ',';
 #endif
       for (int router = 0; router < _routers; ++router) {
         Router *const r = _router[subnet][router];
@@ -1983,7 +2002,7 @@ void TrafficManager::UpdateStats() {
 #endif
 }
 
-void TrafficManager::DisplayStats(ostream &os) const {
+void TrafficManager::DisplayStats(std::ostream &os) const {
 
   for (int c = 0; c < _classes; ++c) {
 
@@ -1991,22 +2010,26 @@ void TrafficManager::DisplayStats(ostream &os) const {
       continue;
     }
 
-    cout << "Class " << c << ":" << endl;
+    std::cout << "Class " << c << ":" << std::endl;
 
-    cout << "Packet latency average = " << _plat_stats[c]->Average() << endl
-         << "\tminimum = " << _plat_stats[c]->Min() << endl
-         << "\tmaximum = " << _plat_stats[c]->Max() << endl
-         << "Network latency average = " << _nlat_stats[c]->Average() << endl
-         << "\tminimum = " << _nlat_stats[c]->Min() << endl
-         << "\tmaximum = " << _nlat_stats[c]->Max() << endl
-         << "Slowest packet = " << _slowest_packet[c] << endl
-         << "Flit latency average = " << _flat_stats[c]->Average() << endl
-         << "\tminimum = " << _flat_stats[c]->Min() << endl
-         << "\tmaximum = " << _flat_stats[c]->Max() << endl
-         << "Slowest flit = " << _slowest_flit[c] << endl
-         << "Fragmentation average = " << _frag_stats[c]->Average() << endl
-         << "\tminimum = " << _frag_stats[c]->Min() << endl
-         << "\tmaximum = " << _frag_stats[c]->Max() << endl;
+    std::cout << "Packet latency average = " << _plat_stats[c]->Average()
+              << std::endl
+              << "\tminimum = " << _plat_stats[c]->Min() << std::endl
+              << "\tmaximum = " << _plat_stats[c]->Max() << std::endl
+              << "Network latency average = " << _nlat_stats[c]->Average()
+              << std::endl
+              << "\tminimum = " << _nlat_stats[c]->Min() << std::endl
+              << "\tmaximum = " << _nlat_stats[c]->Max() << std::endl
+              << "Slowest packet = " << _slowest_packet[c] << std::endl
+              << "Flit latency average = " << _flat_stats[c]->Average()
+              << std::endl
+              << "\tminimum = " << _flat_stats[c]->Min() << std::endl
+              << "\tmaximum = " << _flat_stats[c]->Max() << std::endl
+              << "Slowest flit = " << _slowest_flit[c] << std::endl
+              << "Fragmentation average = " << _frag_stats[c]->Average()
+              << std::endl
+              << "\tminimum = " << _frag_stats[c]->Min() << std::endl
+              << "\tmaximum = " << _frag_stats[c]->Max() << std::endl;
 
     int count_sum, count_min, count_max;
     double rate_sum, rate_min, rate_max;
@@ -2021,10 +2044,11 @@ void TrafficManager::DisplayStats(ostream &os) const {
     rate_max = (double)count_max / time_delta;
     rate_avg = rate_sum / (double)_nodes;
     sent_packets = count_sum;
-    cout << "Injected packet rate average = " << rate_avg << endl
-         << "\tminimum = " << rate_min << " (at node " << min_pos << ")" << endl
-         << "\tmaximum = " << rate_max << " (at node " << max_pos << ")"
-         << endl;
+    std::cout << "Injected packet rate average = " << rate_avg << std::endl
+              << "\tminimum = " << rate_min << " (at node " << min_pos << ")"
+              << std::endl
+              << "\tmaximum = " << rate_max << " (at node " << max_pos << ")"
+              << std::endl;
     _ComputeStats(_accepted_packets[c], &count_sum, &count_min, &count_max,
                   &min_pos, &max_pos);
     rate_sum = (double)count_sum / time_delta;
@@ -2032,10 +2056,11 @@ void TrafficManager::DisplayStats(ostream &os) const {
     rate_max = (double)count_max / time_delta;
     rate_avg = rate_sum / (double)_nodes;
     accepted_packets = count_sum;
-    cout << "Accepted packet rate average = " << rate_avg << endl
-         << "\tminimum = " << rate_min << " (at node " << min_pos << ")" << endl
-         << "\tmaximum = " << rate_max << " (at node " << max_pos << ")"
-         << endl;
+    std::cout << "Accepted packet rate average = " << rate_avg << std::endl
+              << "\tminimum = " << rate_min << " (at node " << min_pos << ")"
+              << std::endl
+              << "\tmaximum = " << rate_max << " (at node " << max_pos << ")"
+              << std::endl;
     _ComputeStats(_sent_flits[c], &count_sum, &count_min, &count_max, &min_pos,
                   &max_pos);
     rate_sum = (double)count_sum / time_delta;
@@ -2043,10 +2068,11 @@ void TrafficManager::DisplayStats(ostream &os) const {
     rate_max = (double)count_max / time_delta;
     rate_avg = rate_sum / (double)_nodes;
     sent_flits = count_sum;
-    cout << "Injected flit rate average = " << rate_avg << endl
-         << "\tminimum = " << rate_min << " (at node " << min_pos << ")" << endl
-         << "\tmaximum = " << rate_max << " (at node " << max_pos << ")"
-         << endl;
+    std::cout << "Injected flit rate average = " << rate_avg << std::endl
+              << "\tminimum = " << rate_min << " (at node " << min_pos << ")"
+              << std::endl
+              << "\tmaximum = " << rate_max << " (at node " << max_pos << ")"
+              << std::endl;
     _ComputeStats(_accepted_flits[c], &count_sum, &count_min, &count_max,
                   &min_pos, &max_pos);
     rate_sum = (double)count_sum / time_delta;
@@ -2054,154 +2080,156 @@ void TrafficManager::DisplayStats(ostream &os) const {
     rate_max = (double)count_max / time_delta;
     rate_avg = rate_sum / (double)_nodes;
     accepted_flits = count_sum;
-    cout << "Accepted flit rate average= " << rate_avg << endl
-         << "\tminimum = " << rate_min << " (at node " << min_pos << ")" << endl
-         << "\tmaximum = " << rate_max << " (at node " << max_pos << ")"
-         << endl;
+    std::cout << "Accepted flit rate average= " << rate_avg << std::endl
+              << "\tminimum = " << rate_min << " (at node " << min_pos << ")"
+              << std::endl
+              << "\tmaximum = " << rate_max << " (at node " << max_pos << ")"
+              << std::endl;
 
-    cout << "Injected packet length average = "
-         << (double)sent_flits / (double)sent_packets << endl
-         << "Accepted packet length average = "
-         << (double)accepted_flits / (double)accepted_packets << endl;
+    std::cout << "Injected packet length average = "
+              << (double)sent_flits / (double)sent_packets << std::endl
+              << "Accepted packet length average = "
+              << (double)accepted_flits / (double)accepted_packets << std::endl;
 
-    cout << "Total in-flight flits = " << _total_in_flight_flits[c].size()
-         << " (" << _measured_in_flight_flits[c].size() << " measured)" << endl;
+    std::cout << "Total in-flight flits = " << _total_in_flight_flits[c].size()
+              << " (" << _measured_in_flight_flits[c].size() << " measured)"
+              << std::endl;
 
 #ifdef TRACK_STALLS
     _ComputeStats(_buffer_busy_stalls[c], &count_sum);
     rate_sum = (double)count_sum / time_delta;
     rate_avg = rate_sum / (double)(_subnets * _routers);
-    os << "Buffer busy stall rate = " << rate_avg << endl;
+    os << "Buffer busy stall rate = " << rate_avg << std::endl;
     _ComputeStats(_buffer_conflict_stalls[c], &count_sum);
     rate_sum = (double)count_sum / time_delta;
     rate_avg = rate_sum / (double)(_subnets * _routers);
-    os << "Buffer conflict stall rate = " << rate_avg << endl;
+    os << "Buffer conflict stall rate = " << rate_avg << std::endl;
     _ComputeStats(_buffer_full_stalls[c], &count_sum);
     rate_sum = (double)count_sum / time_delta;
     rate_avg = rate_sum / (double)(_subnets * _routers);
-    os << "Buffer full stall rate = " << rate_avg << endl;
+    os << "Buffer full stall rate = " << rate_avg << std::endl;
     _ComputeStats(_buffer_reserved_stalls[c], &count_sum);
     rate_sum = (double)count_sum / time_delta;
     rate_avg = rate_sum / (double)(_subnets * _routers);
-    os << "Buffer reserved stall rate = " << rate_avg << endl;
+    os << "Buffer reserved stall rate = " << rate_avg << std::endl;
     _ComputeStats(_crossbar_conflict_stalls[c], &count_sum);
     rate_sum = (double)count_sum / time_delta;
     rate_avg = rate_sum / (double)(_subnets * _routers);
-    os << "Crossbar conflict stall rate = " << rate_avg << endl;
+    os << "Crossbar conflict stall rate = " << rate_avg << std::endl;
 #endif
   }
 }
 
-void TrafficManager::DisplayOverallStats(ostream &os) const {
+void TrafficManager::DisplayOverallStats(std::ostream &os) const {
 
-  os << "====== Overall Traffic Statistics ======" << endl;
+  os << "====== Overall Traffic Statistics ======" << std::endl;
   for (int c = 0; c < _classes; ++c) {
 
     if (_measure_stats[c] == 0) {
       continue;
     }
 
-    os << "====== Traffic class " << c << " ======" << endl;
+    os << "====== Traffic class " << c << " ======" << std::endl;
 
     os << "Packet latency average = "
        << _overall_avg_plat[c] / (double)_total_sims << " (" << _total_sims
-       << " samples)" << endl;
+       << " samples)" << std::endl;
     os << "\tminimum = " << _overall_min_plat[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << endl;
+       << _total_sims << " samples)" << std::endl;
     os << "\tmaximum = " << _overall_max_plat[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << endl;
+       << _total_sims << " samples)" << std::endl;
 
     os << "Network latency average = "
        << _overall_avg_nlat[c] / (double)_total_sims << " (" << _total_sims
-       << " samples)" << endl;
+       << " samples)" << std::endl;
     os << "\tminimum = " << _overall_min_nlat[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << endl;
+       << _total_sims << " samples)" << std::endl;
     os << "\tmaximum = " << _overall_max_nlat[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << endl;
+       << _total_sims << " samples)" << std::endl;
 
     os << "Flit latency average = "
        << _overall_avg_flat[c] / (double)_total_sims << " (" << _total_sims
-       << " samples)" << endl;
+       << " samples)" << std::endl;
     os << "\tminimum = " << _overall_min_flat[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << endl;
+       << _total_sims << " samples)" << std::endl;
     os << "\tmaximum = " << _overall_max_flat[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << endl;
+       << _total_sims << " samples)" << std::endl;
 
     os << "Fragmentation average = "
        << _overall_avg_frag[c] / (double)_total_sims << " (" << _total_sims
-       << " samples)" << endl;
+       << " samples)" << std::endl;
     os << "\tminimum = " << _overall_min_frag[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << endl;
+       << _total_sims << " samples)" << std::endl;
     os << "\tmaximum = " << _overall_max_frag[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << endl;
+       << _total_sims << " samples)" << std::endl;
 
     os << "Injected packet rate average = "
        << _overall_avg_sent_packets[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << endl;
+       << _total_sims << " samples)" << std::endl;
     os << "\tminimum = " << _overall_min_sent_packets[c] / (double)_total_sims
-       << " (" << _total_sims << " samples)" << endl;
+       << " (" << _total_sims << " samples)" << std::endl;
     os << "\tmaximum = " << _overall_max_sent_packets[c] / (double)_total_sims
-       << " (" << _total_sims << " samples)" << endl;
+       << " (" << _total_sims << " samples)" << std::endl;
 
     os << "Accepted packet rate average = "
        << _overall_avg_accepted_packets[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << endl;
+       << _total_sims << " samples)" << std::endl;
     os << "\tminimum = "
        << _overall_min_accepted_packets[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << endl;
+       << _total_sims << " samples)" << std::endl;
     os << "\tmaximum = "
        << _overall_max_accepted_packets[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << endl;
+       << _total_sims << " samples)" << std::endl;
 
     os << "Injected flit rate average = "
        << _overall_avg_sent[c] / (double)_total_sims << " (" << _total_sims
-       << " samples)" << endl;
+       << " samples)" << std::endl;
     os << "\tminimum = " << _overall_min_sent[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << endl;
+       << _total_sims << " samples)" << std::endl;
     os << "\tmaximum = " << _overall_max_sent[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << endl;
+       << _total_sims << " samples)" << std::endl;
 
     os << "Accepted flit rate average = "
        << _overall_avg_accepted[c] / (double)_total_sims << " (" << _total_sims
-       << " samples)" << endl;
+       << " samples)" << std::endl;
     os << "\tminimum = " << _overall_min_accepted[c] / (double)_total_sims
-       << " (" << _total_sims << " samples)" << endl;
+       << " (" << _total_sims << " samples)" << std::endl;
     os << "\tmaximum = " << _overall_max_accepted[c] / (double)_total_sims
-       << " (" << _total_sims << " samples)" << endl;
+       << " (" << _total_sims << " samples)" << std::endl;
 
     os << "Injected packet size average = "
        << _overall_avg_sent[c] / _overall_avg_sent_packets[c] << " ("
-       << _total_sims << " samples)" << endl;
+       << _total_sims << " samples)" << std::endl;
 
     os << "Accepted packet size average = "
        << _overall_avg_accepted[c] / _overall_avg_accepted_packets[c] << " ("
-       << _total_sims << " samples)" << endl;
+       << _total_sims << " samples)" << std::endl;
 
     os << "Hops average = " << _overall_hop_stats[c] / (double)_total_sims
-       << " (" << _total_sims << " samples)" << endl;
+       << " (" << _total_sims << " samples)" << std::endl;
 
 #ifdef TRACK_STALLS
     os << "Buffer busy stall rate = "
        << (double)_overall_buffer_busy_stalls[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << endl
+       << _total_sims << " samples)" << std::endl
        << "Buffer conflict stall rate = "
        << (double)_overall_buffer_conflict_stalls[c] / (double)_total_sims
-       << " (" << _total_sims << " samples)" << endl
+       << " (" << _total_sims << " samples)" << std::endl
        << "Buffer full stall rate = "
        << (double)_overall_buffer_full_stalls[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << endl
+       << _total_sims << " samples)" << std::endl
        << "Buffer reserved stall rate = "
        << (double)_overall_buffer_reserved_stalls[c] / (double)_total_sims
-       << " (" << _total_sims << " samples)" << endl
+       << " (" << _total_sims << " samples)" << std::endl
        << "Crossbar conflict stall rate = "
        << (double)_overall_crossbar_conflict_stalls[c] / (double)_total_sims
-       << " (" << _total_sims << " samples)" << endl;
+       << " (" << _total_sims << " samples)" << std::endl;
 #endif
   }
 }
 
-string TrafficManager::_OverallStatsCSV(int c) const {
-  ostringstream os;
+std::string TrafficManager::_OverallStatsCSV(int c) const {
+  std::ostringstream os;
   os << _traffic[c] << ',' << _use_read_write[c] << ',' << _load[c] << ','
      << _overall_min_plat[c] / (double)_total_sims << ','
      << _overall_avg_plat[c] / (double)_total_sims << ','
@@ -2243,18 +2271,18 @@ string TrafficManager::_OverallStatsCSV(int c) const {
   return os.str();
 }
 
-void TrafficManager::DisplayOverallStatsCSV(ostream &os) const {
+void TrafficManager::DisplayOverallStatsCSV(std::ostream &os) const {
   for (int c = 0; c < _classes; ++c) {
-    os << "results:" << c << ',' << _OverallStatsCSV() << endl;
+    os << "results:" << c << ',' << _OverallStatsCSV() << std::endl;
   }
 }
 
 // read the watchlist
-void TrafficManager::_LoadWatchList(const string &filename) {
-  ifstream watch_list;
+void TrafficManager::_LoadWatchList(const std::string &filename) {
+  std::ifstream watch_list;
   watch_list.open(filename.c_str());
 
-  string line;
+  std::string line;
   if (watch_list.is_open()) {
     while (!watch_list.eof()) {
       getline(watch_list, line);
@@ -2275,14 +2303,14 @@ void TrafficManager::_LoadWatchList(const string &filename) {
 int TrafficManager::_GetNextPacketSize(int cl) const {
   assert(cl >= 0 && cl < _classes);
 
-  vector<int> const &psize = _packet_size[cl];
+  std::vector<int> const &psize = _packet_size[cl];
   int sizes = psize.size();
 
   if (sizes == 1) {
     return psize[0];
   }
 
-  vector<int> const &prate = _packet_size_rate[cl];
+  std::vector<int> const &prate = _packet_size_rate[cl];
   int max_val = _packet_size_max_val[cl];
 
   int pct = RandomInt(max_val);
@@ -2300,12 +2328,12 @@ int TrafficManager::_GetNextPacketSize(int cl) const {
 }
 
 double TrafficManager::_GetAveragePacketSize(int cl) const {
-  vector<int> const &psize = _packet_size[cl];
+  std::vector<int> const &psize = _packet_size[cl];
   int sizes = psize.size();
   if (sizes == 1) {
     return (double)psize[0];
   }
-  vector<int> const &prate = _packet_size_rate[cl];
+  std::vector<int> const &prate = _packet_size_rate[cl];
   int sum = 0;
   for (int i = 0; i < sizes; ++i) {
     sum += psize[i] * prate[i];

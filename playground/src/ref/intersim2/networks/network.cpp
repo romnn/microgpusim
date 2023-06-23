@@ -48,8 +48,9 @@
 #include "qtree.hpp"
 #include "tree4.hpp"
 
-Network::Network(const Configuration &config, const string &name)
-    : TimedModule(0, name) {
+Network::Network(const Configuration &config, const std::string &name,
+                 InterconnectInterface *icnt)
+    : TimedModule(0, name, icnt) {
   _size = -1;
   _nodes = -1;
   _channels = -1;
@@ -81,41 +82,42 @@ Network::~Network() {
   }
 }
 
-Network *Network::New(const Configuration &config, const string &name) {
-  const string topo = config.GetStr("topology");
+Network *Network::New(const Configuration &config, const std::string &name,
+                      InterconnectInterface *icnt) {
+  const std::string topo = config.GetStr("topology");
   Network *n = NULL;
   if (topo == "torus") {
     KNCube::RegisterRoutingFunctions();
-    n = new KNCube(config, name, false);
+    n = new KNCube(config, name, false, icnt);
   } else if (topo == "mesh") {
     KNCube::RegisterRoutingFunctions();
-    n = new KNCube(config, name, true);
+    n = new KNCube(config, name, true, icnt);
   } else if (topo == "cmesh") {
     CMesh::RegisterRoutingFunctions();
-    n = new CMesh(config, name);
+    n = new CMesh(config, name, icnt);
   } else if (topo == "fly") {
     KNFly::RegisterRoutingFunctions();
-    n = new KNFly(config, name);
+    n = new KNFly(config, name, icnt);
   } else if (topo == "qtree") {
     QTree::RegisterRoutingFunctions();
-    n = new QTree(config, name);
+    n = new QTree(config, name, icnt);
   } else if (topo == "tree4") {
     Tree4::RegisterRoutingFunctions();
-    n = new Tree4(config, name);
+    n = new Tree4(config, name, icnt);
   } else if (topo == "fattree") {
     FatTree::RegisterRoutingFunctions();
-    n = new FatTree(config, name);
+    n = new FatTree(config, name, icnt);
   } else if (topo == "flatfly") {
     FlatFlyOnChip::RegisterRoutingFunctions();
-    n = new FlatFlyOnChip(config, name);
+    n = new FlatFlyOnChip(config, name, icnt);
   } else if (topo == "anynet") {
     AnyNet::RegisterRoutingFunctions();
-    n = new AnyNet(config, name);
+    n = new AnyNet(config, name, icnt);
   } else if (topo == "dragonflynew") {
     DragonFlyNew::RegisterRoutingFunctions();
-    n = new DragonFlyNew(config, name);
+    n = new DragonFlyNew(config, name, icnt);
   } else {
-    cerr << "Unknown topology: " << topo << endl;
+    std::cerr << "Unknown topology: " << topo << std::endl;
   }
 
   /*legacy code that insert random faults in the networks
@@ -142,7 +144,7 @@ void Network::_Alloc() {
   _inject.resize(_nodes);
   _inject_cred.resize(_nodes);
   for (int s = 0; s < _nodes; ++s) {
-    ostringstream name;
+    std::stringstream name;
     name << Name() << "_fchan_ingress" << s;
     _inject[s] = new FlitChannel(this, name.str(), _classes);
     _inject[s]->SetSource(NULL, s);
@@ -155,7 +157,7 @@ void Network::_Alloc() {
   _eject.resize(_nodes);
   _eject_cred.resize(_nodes);
   for (int d = 0; d < _nodes; ++d) {
-    ostringstream name;
+    std::stringstream name;
     name << Name() << "_fchan_egress" << d;
     _eject[d] = new FlitChannel(this, name.str(), _classes);
     _eject[d]->SetSink(NULL, d);
@@ -168,7 +170,7 @@ void Network::_Alloc() {
   _chan.resize(_channels);
   _chan_cred.resize(_channels);
   for (int c = 0; c < _channels; ++c) {
-    ostringstream name;
+    std::stringstream name;
     name << Name() << "_fchan_" << c;
     _chan[c] = new FlitChannel(this, name.str(), _classes);
     _timed_modules.push_back(_chan[c]);
@@ -180,21 +182,21 @@ void Network::_Alloc() {
 }
 
 void Network::ReadInputs() {
-  for (deque<TimedModule *>::const_iterator iter = _timed_modules.begin();
+  for (std::deque<TimedModule *>::const_iterator iter = _timed_modules.begin();
        iter != _timed_modules.end(); ++iter) {
     (*iter)->ReadInputs();
   }
 }
 
 void Network::Evaluate() {
-  for (deque<TimedModule *>::const_iterator iter = _timed_modules.begin();
+  for (std::deque<TimedModule *>::const_iterator iter = _timed_modules.begin();
        iter != _timed_modules.end(); ++iter) {
     (*iter)->Evaluate();
   }
 }
 
 void Network::WriteOutputs() {
-  for (deque<TimedModule *>::const_iterator iter = _timed_modules.begin();
+  for (std::deque<TimedModule *>::const_iterator iter = _timed_modules.begin();
        iter != _timed_modules.end(); ++iter) {
     (*iter)->WriteOutputs();
   }
@@ -235,31 +237,33 @@ double Network::Capacity() const { return 1.0; }
  * neceesary of the network, by default, call display on each router
  * and display the channel utilization rate
  */
-void Network::Display(ostream &os) const {
+void Network::Display(std::ostream &os) const {
   for (int r = 0; r < _size; ++r) {
     _routers[r]->Display(os);
   }
 }
 
-void Network::DumpChannelMap(ostream &os, string const &prefix) const {
-  os << prefix << "source_router,source_port,dest_router,dest_port" << endl;
+void Network::DumpChannelMap(std::ostream &os,
+                             std::string const &prefix) const {
+  os << prefix << "source_router,source_port,dest_router,dest_port"
+     << std::endl;
   for (int c = 0; c < _nodes; ++c)
     os << prefix << "-1," << _inject[c]->GetSourcePort() << ','
        << _inject[c]->GetSink()->GetID() << ',' << _inject[c]->GetSinkPort()
-       << endl;
+       << std::endl;
   for (int c = 0; c < _channels; ++c)
     os << prefix << _chan[c]->GetSource()->GetID() << ','
        << _chan[c]->GetSourcePort() << ',' << _chan[c]->GetSink()->GetID()
-       << ',' << _chan[c]->GetSinkPort() << endl;
+       << ',' << _chan[c]->GetSinkPort() << std::endl;
   for (int c = 0; c < _nodes; ++c)
     os << prefix << _eject[c]->GetSource()->GetID() << ','
        << _eject[c]->GetSourcePort() << ',' << "-1," << _eject[c]->GetSinkPort()
-       << endl;
+       << std::endl;
 }
 
-void Network::DumpNodeMap(ostream &os, string const &prefix) const {
-  os << prefix << "source_router,dest_router" << endl;
+void Network::DumpNodeMap(std::ostream &os, std::string const &prefix) const {
+  os << prefix << "source_router,dest_router" << std::endl;
   for (int s = 0; s < _nodes; ++s)
     os << prefix << _eject[s]->GetSource()->GetID() << ','
-       << _inject[s]->GetSink()->GetID() << endl;
+       << _inject[s]->GetSink()->GetID() << std::endl;
 }

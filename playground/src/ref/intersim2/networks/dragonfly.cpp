@@ -144,8 +144,9 @@ int dragonfly_port(int rID, int source, int dest) {
   return out_port;
 }
 
-DragonFlyNew::DragonFlyNew(const Configuration &config, const string &name)
-    : Network(config, name) {
+DragonFlyNew::DragonFlyNew(const Configuration &config, const std::string &name,
+                           InterconnectInterface *icnt)
+    : Network(config, name, icnt) {
 
   _ComputeSize(config);
   _Alloc();
@@ -213,16 +214,16 @@ void DragonFlyNew::_BuildNet(const Configuration &config) {
   int _dim_size = -1;
   int c;
 
-  ostringstream router_name;
+  std::ostringstream router_name;
 
-  cout << " Dragonfly " << endl;
-  cout << " p = " << _p << " n = " << _n << endl;
-  cout << " each switch - total radix =  " << _k << endl;
-  cout << " # of switches = " << _num_of_switch << endl;
-  cout << " # of channels = " << _channels << endl;
-  cout << " # of nodes ( size of network ) = " << _nodes << endl;
-  cout << " # of groups (_g) = " << _g << endl;
-  cout << " # of routers per group (_a) = " << _a << endl;
+  std::cout << " Dragonfly " << std::endl;
+  std::cout << " p = " << _p << " n = " << _n << std::endl;
+  std::cout << " each switch - total radix =  " << _k << std::endl;
+  std::cout << " # of switches = " << _num_of_switch << std::endl;
+  std::cout << " # of channels = " << _channels << std::endl;
+  std::cout << " # of nodes ( size of network ) = " << _nodes << std::endl;
+  std::cout << " # of groups (_g) = " << _g << std::endl;
+  std::cout << " # of routers per group (_a) = " << _a << std::endl;
 
   for (int node = 0; node < _num_of_switch; ++node) {
     // ID of the group
@@ -257,7 +258,7 @@ void DragonFlyNew::_BuildNet(const Configuration &config) {
     //
 
     if (_n > 1) {
-      cout << " ERROR: n>1 dimension NOT supported yet... " << endl;
+      std::cout << " ERROR: n>1 dimension NOT supported yet... " << std::endl;
       exit(-1);
     }
 
@@ -322,7 +323,7 @@ void DragonFlyNew::_BuildNet(const Configuration &config) {
         }
 
         if (_input < 0) {
-          cout << " ERROR: _input less than zero " << endl;
+          std::cout << " ERROR: _input less than zero " << std::endl;
           exit(-1);
         }
 
@@ -365,7 +366,7 @@ void DragonFlyNew::_BuildNet(const Configuration &config) {
     }
   }
 
-  cout << "Done links" << endl;
+  std::cout << "Done links" << std::endl;
 }
 
 int DragonFlyNew::GetN() const { return _n; }
@@ -420,9 +421,9 @@ void min_dragonflynew(const Router *r, const Flit *f, int in_channel,
 
   out_vc = f->ph;
   if (debug)
-    *gWatchOut << GetSimTime() << " | " << r->FullName() << " | "
+    *gWatchOut << r->GetSimTime() << " | " << r->FullName() << " | "
                << "	through output port : " << out_port
-               << " out vc: " << out_vc << endl;
+               << " out vc: " << out_vc << std::endl;
   outputs->AddRange(out_port, out_vc, out_vc);
 }
 
@@ -461,7 +462,7 @@ void ugal_dragonflynew(const Router *r, const Flit *f, int in_channel,
   int intm_rID;
 
   if (debug) {
-    cout << "At router " << rID << endl;
+    std::cout << "At router " << rID << std::endl;
   }
   int min_router_output, nonmin_router_output;
 
@@ -475,8 +476,8 @@ void ugal_dragonflynew(const Router *r, const Flit *f, int in_channel,
       f->intm = RandomInt(_network_size - 1);
       intm_grp_ID = (int)(f->intm / _grp_num_nodes);
       if (debug) {
-        cout << "Intermediate node " << f->intm << " grp id " << intm_grp_ID
-             << endl;
+        std::cout << "Intermediate node " << f->intm << " grp id "
+                  << intm_grp_ID << std::endl;
       }
 
       // random intermediate are in the same group, use minimum routing
@@ -486,18 +487,18 @@ void ugal_dragonflynew(const Router *r, const Flit *f, int in_channel,
         // congestion metrics using queue length, obtained by GetUsedCredit()
         min_hopcnt = dragonflynew_hopcnt(f->src, f->dest);
         min_router_output = dragonfly_port(rID, f->src, f->dest);
-        min_queue_size = max(r->GetUsedCredit(min_router_output), 0);
+        min_queue_size = std::max(r->GetUsedCredit(min_router_output), 0);
 
         nonmin_hopcnt = dragonflynew_hopcnt(f->src, f->intm) +
                         dragonflynew_hopcnt(f->intm, f->dest);
         nonmin_router_output = dragonfly_port(rID, f->src, f->intm);
-        nonmin_queue_size = max(r->GetUsedCredit(nonmin_router_output), 0);
+        nonmin_queue_size = std::max(r->GetUsedCredit(nonmin_router_output), 0);
 
         // congestion comparison, could use hopcnt instead of 1 and 2
         if ((1 * min_queue_size) <=
             (2 * nonmin_queue_size) + adaptive_threshold) {
           if (debug)
-            cout << " MINIMAL routing " << endl;
+            std::cout << " MINIMAL routing " << std::endl;
           f->ph = 1;
         } else {
           f->ph = 0;

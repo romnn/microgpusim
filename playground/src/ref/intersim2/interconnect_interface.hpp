@@ -26,19 +26,19 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#ifndef _INTERCONNECT_INTERFACE_HPP_
-#define _INTERCONNECT_INTERFACE_HPP_
+#pragma once
 
 #include <iostream>
 #include <map>
+#include <memory>
 #include <queue>
 #include <vector>
-using namespace std;
+
+#include "gputrafficmanager.hpp"
 
 // Do not use #include since it will not compile in icnt_wrapper or change the
 // makefile to make it
 class Flit;
-class GPUTrafficManager;
 class IntersimConfig;
 class Network;
 class Stats;
@@ -49,7 +49,6 @@ class InterconnectInterface {
 public:
   InterconnectInterface();
   virtual ~InterconnectInterface();
-  // static InterconnectInterface* New(const char* const config_file);
   virtual void CreateInterconnect(unsigned n_shader, unsigned n_mem);
   virtual void ParseConfigFile(const char *const config_file);
 
@@ -63,7 +62,13 @@ public:
   virtual bool HasBuffer(unsigned deviceID, unsigned int size) const;
   virtual void DisplayStats() const;
   virtual void DisplayOverallStats() const;
+
+  void DisplayMap(unsigned dim, unsigned count) const;
   unsigned GetFlitSize() const;
+  unsigned GetNumNodes() const { return _traffic_manager->_nodes; }
+  unsigned GetNumShaders() const { return _n_shader; }
+  unsigned GetNumMemories() const { return _n_mem; }
+  std::shared_ptr<IntersimConfig> GetConfig() const { return _icnt_config; }
 
   virtual void DisplayState(FILE *fp) const;
 
@@ -73,7 +78,7 @@ public:
 
   int GetIcntTime() const;
 
-  Stats *GetIcntStats(const string &name) const;
+  Stats *GetIcntStats(const std::string &name) const;
 
   Flit *GetEjectedFlit(int subnet, int node);
 
@@ -88,36 +93,36 @@ protected:
     void PushFlitData(void *data, bool is_tail);
 
   private:
-    queue<void *> _buffer;
-    queue<bool> _tail_flag;
+    std::queue<void *> _buffer;
+    std::queue<bool> _tail_flag;
     int _packet_n;
   };
-  typedef queue<Flit *> _EjectionBufferItem;
+  typedef std::queue<Flit *> _EjectionBufferItem;
 
   void _CreateBuffer();
   void _CreateNodeMap(unsigned n_shader, unsigned n_mem, unsigned n_node,
                       int use_map);
-  void _DisplayMap(int dim, int count);
 
   // size: [subnets][nodes][vcs]
-  vector<vector<vector<_BoundaryBufferItem>>> _boundary_buffer;
+  std::vector<std::vector<std::vector<_BoundaryBufferItem>>> _boundary_buffer;
   unsigned int _boundary_buffer_capacity;
   // size: [subnets][nodes][vcs]
-  vector<vector<vector<_EjectionBufferItem>>> _ejection_buffer;
+  std::vector<std::vector<std::vector<_EjectionBufferItem>>> _ejection_buffer;
   // size:[subnets][nodes]
-  vector<vector<queue<Flit *>>> _ejected_flit_queue;
+  std::vector<std::vector<std::queue<Flit *>>> _ejected_flit_queue;
 
   unsigned int _ejection_buffer_capacity;
   unsigned int _input_buffer_capacity;
 
-  vector<vector<int>>
+  std::vector<std::vector<int>>
       _round_robin_turn; // keep track of _boundary_buffer last used in icnt_pop
 
   GPUTrafficManager *_traffic_manager;
   unsigned _flit_size;
-  IntersimConfig *_icnt_config;
+  // IntersimConfig *_icnt_config;
+  std::shared_ptr<IntersimConfig> _icnt_config;
   unsigned _n_shader, _n_mem;
-  vector<Network *> _net;
+  std::vector<Network *> _net;
   int _vcs;
   int _subnets;
 
@@ -125,10 +130,11 @@ protected:
   // deviceID : Starts from 0 for shaders and then continues until mem nodes
   // which starts at location n_shader and then continues to n_shader+n_mem
   // (last device)
-  map<unsigned, unsigned> _node_map;
+  std::map<unsigned, unsigned> _node_map;
 
   // icntID to deviceID map
-  map<unsigned, unsigned> _reverse_node_map;
+  std::map<unsigned, unsigned> _reverse_node_map;
 };
 
-#endif
+std::unique_ptr<InterconnectInterface>
+new_interconnect_interface(const char *config_filename);

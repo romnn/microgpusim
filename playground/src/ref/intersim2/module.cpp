@@ -7,7 +7,7 @@
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
 
- Redistributions of source code must retain the above copyright notice, this 
+ Redistributions of source code must retain the above copyright notice, this
  list of conditions and the following disclaimer.
  Redistributions in binary form must reproduce the above copyright notice, this
  list of conditions and the following disclaimer in the documentation and/or
@@ -15,7 +15,7 @@
 
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
@@ -32,57 +32,51 @@
  *
  */
 
-#include <iostream>
 #include <cstdlib>
+#include <iostream>
 
 #include "booksim.hpp"
+#include "interconnect_interface.hpp"
 #include "module.hpp"
 
-Module::Module( Module *parent, const string& name )
-{
-  _name = name;
+int Module::GetSimTime() const { return m_icnt->GetIcntTime(); }
 
-  if ( parent ) { 
-    parent->_AddChild( this );
+Module::Module(Module *parent, const std::string &name) {
+  _name = name;
+  if (parent) {
+    parent->_AddChild(this);
     _fullname = parent->_fullname + "/" + name;
+    m_icnt = parent->m_icnt;
   } else {
     _fullname = name;
   }
 }
 
-void Module::_AddChild( Module *child )
-{
-  _children.push_back( child );
-}
+void Module::_AddChild(Module *child) { _children.push_back(child); }
 
-void Module::DisplayHierarchy( int level, ostream & os ) const
-{
-  vector<Module *>::const_iterator mod_iter;
+void Module::DisplayHierarchy(int level, std::ostream &os) const {
+  std::vector<Module *>::const_iterator mod_iter;
 
-  for ( int l = 0; l < level; l++ ) {
-    os << "  ";  
+  for (int l = 0; l < level; l++) {
+    os << "  ";
   }
 
-  os << _name << endl;
+  os << _name << std::endl;
 
-  for ( mod_iter = _children.begin( );
-	mod_iter != _children.end( ); mod_iter++ ) {
-    (*mod_iter)->DisplayHierarchy( level + 1 );
+  for (mod_iter = _children.begin(); mod_iter != _children.end(); mod_iter++) {
+    (*mod_iter)->DisplayHierarchy(level + 1);
   }
 }
 
-void Module::Error( const string& msg ) const
-{
-  cout << "Error in " << _fullname << " : " << msg << endl;
-  exit( -1 );
+void Module::Error(const std::string &msg) const {
+  std::cout << "Error in " << _fullname << " : " << msg << std::endl;
+  exit(-1);
 }
 
-void Module::Debug( const string& msg ) const
-{
-  cout << "Debug (" << _fullname << ") : " << msg << endl;
+void Module::Debug(const std::string &msg) const {
+  std::cout << "Debug (" << _fullname << ") : " << msg << std::endl;
 }
 
-void Module::Display( ostream & os ) const 
-{
-  os << "Display method not implemented for " << _fullname << endl;
+void Module::Display(std::ostream &os) const {
+  os << "Display method not implemented for " << _fullname << std::endl;
 }

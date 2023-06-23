@@ -62,33 +62,35 @@ InterconnectInterface *g_icnt_interface;
 
 /* the current traffic manager instance */
 TrafficManager *trafficManager = NULL;
-#if 0
 
-int GetSimTime() {
-    return trafficManager->getTime();
-}
-
-class Stats;
-Stats * GetStats(const std::string & name) {
-    Stats* test =  trafficManager->getStats(name);
-    if(test == 0){
-        cout<<"warning statistics "<<name<<" not found"<<endl;
-    }
-    return test;
-}
-#else
-int GetSimTime() { return g_icnt_interface->GetIcntTime(); }
-
-class Stats;
-Stats *GetStats(const std::string &name) {
-  Stats *test = g_icnt_interface->GetIcntStats(name);
-  if (test == 0) {
-    cout << "warning statistics " << name << " not found" << endl;
-  }
-  return test;
-}
-
-#endif
+// #if 0
+// int GetSimTime() {
+//     return trafficManager->getTime();
+// }
+//
+// class Stats;
+// Stats * GetStats(const std::string & name) {
+//     Stats* test =  trafficManager->getStats(name);
+//     if(test == 0){
+//         cout<<"warning statistics "<<name<<" not found"<<endl;
+//     }
+//     return test;
+// }
+//
+// #else
+//
+// int GetSimTime() { return g_icnt_interface->GetIcntTime(); }
+//
+// class Stats;
+// Stats *GetStats(const std::string &name) {
+//   Stats *test = g_icnt_interface->GetIcntStats(name);
+//   if (test == 0) {
+//     std::cout << "warning statistics " << name << " not found" << std::endl;
+//   }
+//   return test;
+// }
+//
+// #endif
 
 /* printing activity factor*/
 bool gPrintActivity;
@@ -102,7 +104,7 @@ int gNodes;
 // generate nocviewer trace
 bool gTrace;
 
-ostream *gWatchOut;
+std::ostream *gWatchOut;
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -140,7 +142,8 @@ ostream *gWatchOut;
 //   gettimeofday(&end_time, NULL);
 //   total_time =
 //       ((double)(end_time.tv_sec) + (double)(end_time.tv_usec) / 1000000.0) -
-//       ((double)(start_time.tv_sec) + (double)(start_time.tv_usec) / 1000000.0);
+//       ((double)(start_time.tv_sec) + (double)(start_time.tv_usec) /
+//       1000000.0);
 //
 //   cout << "Total run time " << total_time << endl;
 //
@@ -169,8 +172,8 @@ ostream *gWatchOut;
 //   BookSimConfig config;
 //
 //   if (!ParseArgs(&config, argc, argv)) {
-//     cerr << "Usage: " << argv[0] << " configfile... [param=value...]" << endl;
-//     return 0;
+//     cerr << "Usage: " << argv[0] << " configfile... [param=value...]" <<
+//     endl; return 0;
 //   }
 //
 //   /*initialize routing, traffic, injection functions

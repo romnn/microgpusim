@@ -51,7 +51,7 @@ void BufferMonitor::read(int input, Flit const *f) {
   _reads[index(input, f->cl)]++;
 }
 
-void BufferMonitor::display(ostream &os) const {
+void BufferMonitor::display(std::ostream &os) const {
   for (int i = 0; i < _inputs; i++) {
     os << "[ " << i << " ] ";
     for (int c = 0; c < _classes; c++) {
@@ -59,11 +59,11 @@ void BufferMonitor::display(ostream &os) const {
          << "W#" << _writes[index(i, c)] << ")"
          << " ";
     }
-    os << endl;
+    os << std::endl;
   }
 }
 
-ostream &operator<<(ostream &os, BufferMonitor const &obj) {
+std::ostream &operator<<(std::ostream &os, BufferMonitor const &obj) {
   obj.display(os);
   return os;
 }

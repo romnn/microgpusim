@@ -38,8 +38,9 @@
 #include <sstream>
 #include <vector>
 
-KNCube::KNCube(const Configuration &config, const string &name, bool mesh)
-    : Network(config, name) {
+KNCube::KNCube(const Configuration &config, const std::string &name, bool mesh,
+               InterconnectInterface *icnt)
+    : Network(config, name, icnt) {
   _mesh = mesh;
 
   _ComputeSize(config);
@@ -70,7 +71,7 @@ void KNCube::_BuildNet(const Configuration &config) {
   int right_output;
   int left_output;
 
-  ostringstream router_name;
+  std::stringstream router_name;
 
   // latency type, noc or conventional network
   bool use_noc_latency;
@@ -229,7 +230,7 @@ void KNCube::InsertRandomFaults(const Configuration &config) {
     prev_seed = RandomIntLong();
     RandomSeed(config.GetInt("fail_seed"));
 
-    vector<bool> fail_nodes(_size);
+    std::vector<bool> fail_nodes(_size);
 
     for (i = 0; i < _size; ++i) {
       node = i;
@@ -273,7 +274,7 @@ void KNCube::InsertRandomFaults(const Configuration &config) {
         }
 
         if (!available) {
-          cout << "skipping " << node << endl;
+          std::cout << "skipping " << node << std::endl;
         }
       }
 
@@ -289,7 +290,8 @@ void KNCube::InsertRandomFaults(const Configuration &config) {
         fail_nodes[_RightNode(node, n)] = true;
       }
 
-      cout << "failure at node " << node << ", channel " << chan << endl;
+      std::cout << "failure at node " << node << ", channel " << chan
+                << std::endl;
     }
 
     RandomSeed(prev_seed);

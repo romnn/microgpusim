@@ -7,7 +7,7 @@
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
 
- Redistributions of source code must retain the above copyright notice, this 
+ Redistributions of source code must retain the above copyright notice, this
  list of conditions and the following disclaimer.
  Redistributions in binary form must reproduce the above copyright notice, this
  list of conditions and the following disclaimer in the documentation and/or
@@ -15,7 +15,7 @@
 
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
@@ -28,16 +28,14 @@
 #ifndef _IQ_ROUTER_HPP_
 #define _IQ_ROUTER_HPP_
 
-#include <string>
 #include <deque>
+#include <map>
 #include <queue>
 #include <set>
-#include <map>
+#include <string>
 
-#include "router.hpp"
 #include "../routefunc.hpp"
-
-using namespace std;
+#include "router.hpp"
 
 class VC;
 class Flit;
@@ -60,84 +58,85 @@ class IQRouter : public Router {
   bool _spec_check_elig;
   bool _spec_check_cred;
   bool _spec_mask_by_reqs;
-  
+
   bool _active;
 
   int _routing_delay;
   int _vc_alloc_delay;
   int _sw_alloc_delay;
-  
-  map<int, Flit *> _in_queue_flits;
 
-  deque<pair<int, pair<Credit *, int> > > _proc_credits;
+  std::map<int, Flit *> _in_queue_flits;
 
-  deque<pair<int, pair<int, int> > > _route_vcs;
-  deque<pair<int, pair<pair<int, int>, int> > > _vc_alloc_vcs;  
-  deque<pair<int, pair<pair<int, int>, int> > > _sw_hold_vcs;
-  deque<pair<int, pair<pair<int, int>, int> > > _sw_alloc_vcs;
+  std::deque<std::pair<int, std::pair<Credit *, int>>> _proc_credits;
 
-  deque<pair<int, pair<Flit *, pair<int, int> > > > _crossbar_flits;
+  std::deque<std::pair<int, std::pair<int, int>>> _route_vcs;
+  std::deque<std::pair<int, std::pair<std::pair<int, int>, int>>> _vc_alloc_vcs;
+  std::deque<std::pair<int, std::pair<std::pair<int, int>, int>>> _sw_hold_vcs;
+  std::deque<std::pair<int, std::pair<std::pair<int, int>, int>>> _sw_alloc_vcs;
 
-  map<int, Credit *> _out_queue_credits;
+  std::deque<std::pair<int, std::pair<Flit *, std::pair<int, int>>>>
+      _crossbar_flits;
 
-  vector<Buffer *> _buf;
-  vector<BufferState *> _next_buf;
+  std::map<int, Credit *> _out_queue_credits;
+
+  std::vector<Buffer *> _buf;
+  std::vector<BufferState *> _next_buf;
 
   Allocator *_vc_allocator;
   Allocator *_sw_allocator;
   Allocator *_spec_sw_allocator;
-  
-  vector<int> _vc_rr_offset;
-  vector<int> _sw_rr_offset;
 
-  tRoutingFunction   _rf;
+  std::vector<int> _vc_rr_offset;
+  std::vector<int> _sw_rr_offset;
+
+  tRoutingFunction _rf;
 
   int _output_buffer_size;
-  vector<queue<Flit *> > _output_buffer;
+  std::vector<std::queue<Flit *>> _output_buffer;
 
-  vector<queue<Credit *> > _credit_buffer;
+  std::vector<std::queue<Credit *>> _credit_buffer;
 
   bool _hold_switch_for_packet;
-  vector<int> _switch_hold_in;
-  vector<int> _switch_hold_out;
-  vector<int> _switch_hold_vc;
+  std::vector<int> _switch_hold_in;
+  std::vector<int> _switch_hold_out;
+  std::vector<int> _switch_hold_vc;
 
   bool _noq;
-  vector<vector<int> > _noq_next_output_port;
-  vector<vector<int> > _noq_next_vc_start;
-  vector<vector<int> > _noq_next_vc_end;
+  std::vector<std::vector<int>> _noq_next_output_port;
+  std::vector<std::vector<int>> _noq_next_vc_start;
+  std::vector<std::vector<int>> _noq_next_vc_end;
 
 #ifdef TRACK_FLOWS
-  vector<vector<queue<int> > > _outstanding_classes;
+  std::vector<std::vector<std::queue<int>>> _outstanding_classes;
 #endif
 
-  bool _ReceiveFlits( );
-  bool _ReceiveCredits( );
+  bool _ReceiveFlits();
+  bool _ReceiveCredits();
 
-  virtual void _InternalStep( );
+  virtual void _InternalStep();
 
   bool _SWAllocAddReq(int input, int vc, int output);
 
-  void _InputQueuing( );
+  void _InputQueuing();
 
-  void _RouteEvaluate( );
-  void _VCAllocEvaluate( );
-  void _SWHoldEvaluate( );
-  void _SWAllocEvaluate( );
-  void _SwitchEvaluate( );
+  void _RouteEvaluate();
+  void _VCAllocEvaluate();
+  void _SWHoldEvaluate();
+  void _SWAllocEvaluate();
+  void _SwitchEvaluate();
 
-  void _RouteUpdate( );
-  void _VCAllocUpdate( );
-  void _SWHoldUpdate( );
-  void _SWAllocUpdate( );
-  void _SwitchUpdate( );
+  void _RouteUpdate();
+  void _VCAllocUpdate();
+  void _SWHoldUpdate();
+  void _SWAllocUpdate();
+  void _SwitchUpdate();
 
-  void _OutputQueuing( );
+  void _OutputQueuing();
 
-  void _SendFlits( );
-  void _SendCredits( );
-  
-  void _UpdateNOQ(int input, int vc, Flit const * f);
+  void _SendFlits();
+  void _SendCredits();
+
+  void _UpdateNOQ(int input, int vc, Flit const *f);
 
   // ----------------------------------------
   //
@@ -145,23 +144,22 @@ class IQRouter : public Router {
   //
   // ----------------------------------------
 
-  SwitchMonitor * _switchMonitor ;
-  BufferMonitor * _bufferMonitor ;
-  
+  SwitchMonitor *_switchMonitor;
+  BufferMonitor *_bufferMonitor;
+
 public:
+  IQRouter(Configuration const &config, Module *parent, std::string const &name,
+           int id, int inputs, int outputs);
 
-  IQRouter( Configuration const & config,
-	    Module *parent, string const & name, int id,
-	    int inputs, int outputs );
-  
-  virtual ~IQRouter( );
-  
-  virtual void AddOutputChannel(FlitChannel * channel, CreditChannel * backchannel);
+  virtual ~IQRouter();
 
-  virtual void ReadInputs( );
-  virtual void WriteOutputs( );
-  
-  void Display( ostream & os = cout ) const;
+  virtual void AddOutputChannel(FlitChannel *channel,
+                                CreditChannel *backchannel);
+
+  virtual void ReadInputs();
+  virtual void WriteOutputs();
+
+  void Display(std::ostream &os = std::cout) const;
 
   virtual int GetUsedCredit(int o) const;
   virtual int GetBufferOccupancy(int i) const;
@@ -171,13 +169,12 @@ public:
   virtual int GetBufferOccupancyForClass(int input, int cl) const;
 #endif
 
-  virtual vector<int> UsedCredits() const;
-  virtual vector<int> FreeCredits() const;
-  virtual vector<int> MaxCredits() const;
+  virtual std::vector<int> UsedCredits() const;
+  virtual std::vector<int> FreeCredits() const;
+  virtual std::vector<int> MaxCredits() const;
 
-  SwitchMonitor const * const GetSwitchMonitor() const {return _switchMonitor;}
-  BufferMonitor const * const GetBufferMonitor() const {return _bufferMonitor;}
-
+  SwitchMonitor const *const GetSwitchMonitor() const { return _switchMonitor; }
+  BufferMonitor const *const GetBufferMonitor() const { return _bufferMonitor; }
 };
 
 #endif

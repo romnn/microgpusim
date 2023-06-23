@@ -55,8 +55,8 @@ int const Router::STALL_BUFFER_FULL = -4;
 int const Router::STALL_BUFFER_RESERVED = -5;
 int const Router::STALL_CROSSBAR_CONFLICT = -6;
 
-Router::Router(const Configuration &config, Module *parent, const string &name,
-               int id, int inputs, int outputs)
+Router::Router(const Configuration &config, Module *parent,
+               const std::string &name, int id, int inputs, int outputs)
     : TimedModule(parent, name), _id(id), _inputs(inputs), _outputs(outputs),
       _partial_internal_cycles(0.0) {
   _crossbar_delay =
@@ -120,8 +120,9 @@ bool Router::IsFaultyOutput(int c) const {
 
 /*Router constructor*/
 Router *Router::NewRouter(const Configuration &config, Module *parent,
-                          const string &name, int id, int inputs, int outputs) {
-  const string type = config.GetStr("router");
+                          const std::string &name, int id, int inputs,
+                          int outputs) {
+  const std::string type = config.GetStr("router");
   Router *r = NULL;
   if (type == "iq") {
     r = new IQRouter(config, parent, name, id, inputs, outputs);
@@ -130,7 +131,7 @@ Router *Router::NewRouter(const Configuration &config, Module *parent,
   } else if (type == "chaos") {
     r = new ChaosRouter(config, parent, name, id, inputs, outputs);
   } else {
-    cerr << "Unknown router type: " << type << endl;
+    std::cerr << "Unknown router type: " << type << std::endl;
   }
   /*For additional router, add another else if statement*/
   /*Original booksim specifies the router using "flow_control"

@@ -57,18 +57,18 @@ private:
   int _buf_size;
   int _vcs;
 
-  vector<int> _credits;
-  vector<int> _presence;
-  vector<int> _input;
-  vector<int> _inputVC;
+  std::vector<int> _credits;
+  std::vector<int> _presence;
+  std::vector<int> _input;
+  std::vector<int> _inputVC;
 
-  vector<list<tWaiting *>> _waiting;
+  std::vector<std::list<tWaiting *>> _waiting;
 
-  vector<eNextVCState> _state;
+  std::vector<eNextVCState> _state;
 
 public:
   EventNextVCState(const Configuration &config, Module *parent,
-                   const string &name);
+                   const std::string &name);
 
   eNextVCState GetState(int vc) const;
   int GetPresence(int vc) const;
@@ -95,21 +95,21 @@ class EventRouter : public Router {
 
   int _vct;
 
-  vector<Buffer *> _buf;
-  vector<vector<bool>> _active;
+  std::vector<Buffer *> _buf;
+  std::vector<std::vector<bool>> _active;
 
   tRoutingFunction _rf;
 
-  vector<EventNextVCState *> _output_state;
+  std::vector<EventNextVCState *> _output_state;
 
   PipelineFIFO<Flit> *_crossbar_pipe;
   PipelineFIFO<Credit> *_credit_pipe;
 
-  vector<queue<Flit *>> _input_buffer;
-  vector<queue<Flit *>> _output_buffer;
+  std::vector<std::queue<Flit *>> _input_buffer;
+  std::vector<std::queue<Flit *>> _output_buffer;
 
-  vector<queue<Credit *>> _in_cred_buffer;
-  vector<queue<Credit *>> _out_cred_buffer;
+  std::vector<std::queue<Credit *>> _in_cred_buffer;
+  std::vector<std::queue<Credit *>> _out_cred_buffer;
 
   struct tArrivalEvent {
     int input;
@@ -124,8 +124,8 @@ class EventRouter : public Router {
   };
 
   PipelineFIFO<tArrivalEvent> *_arrival_pipe;
-  vector<queue<tArrivalEvent *>> _arrival_queue;
-  vector<PriorityArbiter *> _arrival_arbiter;
+  std::vector<std::queue<tArrivalEvent *>> _arrival_queue;
+  std::vector<PriorityArbiter *> _arrival_arbiter;
 
   struct tTransportEvent {
     int input;
@@ -136,11 +136,11 @@ class EventRouter : public Router {
     bool watch; // debug
   };
 
-  vector<queue<tTransportEvent *>> _transport_queue;
-  vector<PriorityArbiter *> _transport_arbiter;
+  std::vector<std::queue<tTransportEvent *>> _transport_queue;
+  std::vector<PriorityArbiter *> _transport_arbiter;
 
-  vector<bool> _transport_free;
-  vector<int> _transport_match;
+  std::vector<bool> _transport_free;
+  std::vector<int> _transport_match;
 
   void _ReceiveFlits();
   void _ReceiveCredits();
@@ -160,8 +160,8 @@ class EventRouter : public Router {
   virtual void _InternalStep();
 
 public:
-  EventRouter(const Configuration &config, Module *parent, const string &name,
-              int id, int inputs, int outputs);
+  EventRouter(const Configuration &config, Module *parent,
+              const std::string &name, int id, int inputs, int outputs);
   virtual ~EventRouter();
 
   virtual void ReadInputs();
@@ -175,11 +175,11 @@ public:
   virtual int GetBufferOccupancyForClass(int input, int cl) const { return 0; }
 #endif
 
-  virtual vector<int> UsedCredits() const { return vector<int>(); }
-  virtual vector<int> FreeCredits() const { return vector<int>(); }
-  virtual vector<int> MaxCredits() const { return vector<int>(); }
+  virtual std::vector<int> UsedCredits() const { return std::vector<int>(); }
+  virtual std::vector<int> FreeCredits() const { return std::vector<int>(); }
+  virtual std::vector<int> MaxCredits() const { return std::vector<int>(); }
 
-  void Display(ostream &os = cout) const;
+  void Display(std::ostream &os = std::cout) const;
 };
 
 #endif

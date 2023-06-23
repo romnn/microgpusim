@@ -63,8 +63,10 @@ static int _ycount;
 static int _xrouter;
 static int _yrouter;
 
-FlatFlyOnChip::FlatFlyOnChip(const Configuration &config, const string &name)
-    : Network(config, name) {
+FlatFlyOnChip::FlatFlyOnChip(const Configuration &config,
+                             const std::string &name,
+                             InterconnectInterface *icnt)
+    : Network(config, name, icnt) {
 
   _ComputeSize(config);
   _Alloc();
@@ -101,23 +103,23 @@ void FlatFlyOnChip::_ComputeSize(const Configuration &config) {
 void FlatFlyOnChip::_BuildNet(const Configuration &config) {
   int _output;
 
-  ostringstream router_name;
+  std::ostringstream router_name;
 
   if (gTrace) {
 
-    cout << "Setup Finished Router" << endl;
+    std::cout << "Setup Finished Router" << std::endl;
   }
 
   // latency type, noc or conventional network
   bool use_noc_latency;
   use_noc_latency = (config.GetInt("use_noc_latency") == 1);
 
-  cout << " Flat Bufferfly " << endl;
-  cout << " k = " << _k << " n = " << _n << " c = " << _c << endl;
-  cout << " each switch - total radix =  " << _r << endl;
-  cout << " # of switches = " << _num_of_switch << endl;
-  cout << " # of channels = " << _channels << endl;
-  cout << " # of nodes ( size of network ) = " << _nodes << endl;
+  std::cout << " Flat Bufferfly " << std::endl;
+  std::cout << " k = " << _k << " n = " << _n << " c = " << _c << std::endl;
+  std::cout << " each switch - total radix =  " << _r << std::endl;
+  std::cout << " # of switches = " << _num_of_switch << std::endl;
+  std::cout << " # of channels = " << _channels << std::endl;
+  std::cout << " # of nodes ( size of network ) = " << _nodes << std::endl;
 
   for (int node = 0; node < _num_of_switch; ++node) {
 
@@ -129,9 +131,9 @@ void FlatFlyOnChip::_BuildNet(const Configuration &config) {
     _timed_modules.push_back(_routers[node]);
 
 #ifdef DEBUG_FLATFLY
-    cout << " ======== router node : " << node << " ======== "
-         << " router_" << router_name.str() << " router node # : " << node
-         << endl;
+    std::cout << " ======== router node : " << node << " ======== "
+              << " router_" << router_name.str() << " router node # : " << node
+              << std::endl;
 #endif
 
     router_name.str("");
@@ -191,12 +193,12 @@ void FlatFlyOnChip::_BuildNet(const Configuration &config) {
         _routers[node]->AddInputChannel(_inject[link], _inject_cred[link]);
 
 #ifdef DEBUG_FLATFLY
-        cout << "  Adding injection channel " << link << endl;
+        std::cout << "  Adding injection channel " << link << std::endl;
 #endif
 
         _routers[node]->AddOutputChannel(_eject[link], _eject_cred[link]);
 #ifdef DEBUG_FLATFLY
-        cout << "  Adding ejection channel " << link << endl;
+        std::cout << "  Adding ejection channel " << link << std::endl;
 #endif
       }
     }
@@ -244,8 +246,8 @@ void FlatFlyOnChip::_BuildNet(const Configuration &config) {
         assert(dim < 4);
         if (other == node) {
 #ifdef DEBUG_FLATFLY
-          cout << "ignore channel : " << _output << " to node " << node
-               << " and " << other << endl;
+          std::cout << "ignore channel : " << _output << " to node " << node
+                    << " and " << other << std::endl;
 #endif
           continue;
         }
@@ -263,8 +265,8 @@ void FlatFlyOnChip::_BuildNet(const Configuration &config) {
         _output = (_k - 1) * _n * node + (_k - 1) * dim + cnt + offset;
 
 #ifdef DEBUG_FLATFLY
-        cout << "Adding channel : " << _output << " to node " << node << " and "
-             << other << " with length " << length << endl;
+        std::cout << "Adding channel : " << _output << " to node " << node
+                  << " and " << other << " with length " << length << std::endl;
 #endif
         if (use_noc_latency) {
           _chan[_output]->SetLatency(length);
@@ -278,14 +280,14 @@ void FlatFlyOnChip::_BuildNet(const Configuration &config) {
         _routers[other]->AddInputChannel(_chan[_output], _chan_cred[_output]);
 
         if (gTrace) {
-          cout << "Link " << _output << " " << node << " " << other << " "
-               << length << endl;
+          std::cout << "Link " << _output << " " << node << " " << other << " "
+                    << length << std::endl;
         }
       }
     }
   }
   if (gTrace) {
-    cout << "Setup Finished Link" << endl;
+    std::cout << "Setup Finished Link" << std::endl;
   }
 }
 
@@ -472,8 +474,8 @@ int flatfly_outport_yx(int dest, int rID) {
     rID = (int)(rID % power);
   }
   if (output == -1) {
-    cout << " ERROR ---- FLATFLY_OUTPORT function : output not found yx"
-         << endl;
+    std::cout << " ERROR ---- FLATFLY_OUTPORT function : output not found yx"
+              << std::endl;
     exit(-1);
   }
   return -1;
@@ -639,24 +641,24 @@ void ugal_xyyx_flatfly_onchip(const Router *r, const Flit *f, int in_channel,
 
     if (in_channel < gC) {
       if (gTrace) {
-        cout << "New Flit " << f->src << endl;
+        std::cout << "New Flit " << f->src << std::endl;
       }
       f->ph = 0;
     }
 
     if (gTrace) {
       int load = 0;
-      cout << "Router " << rID << endl;
-      cout << "Input Channel " << in_channel << endl;
+      std::cout << "Router " << rID << std::endl;
+      std::cout << "Input Channel " << in_channel << std::endl;
       // need to modify router to report the buffere depth
       load += r->GetBufferOccupancy(in_channel);
-      cout << "Rload " << load << endl;
+      std::cout << "Rload " << load << std::endl;
     }
 
     if (debug) {
-      cout << " FLIT ID: " << f->id << " Router: " << rID
-           << " routing from src : " << f->src << " to dest : " << dest
-           << " f->ph: " << f->ph << " intm: " << f->intm << endl;
+      std::cout << " FLIT ID: " << f->id << " Router: " << rID
+                << " routing from src : " << f->src << " to dest : " << dest
+                << " f->ph: " << f->ph << " intm: " << f->intm << std::endl;
     }
     // f->ph == 0  ==> make initial global adaptive decision
     // f->ph == 1  ==> route nonminimaly to random intermediate node
@@ -673,12 +675,12 @@ void ugal_xyyx_flatfly_onchip(const Router *r, const Flit *f, int in_channel,
         f->ph = 2;
         dest = flatfly_transformation(f->dest);
         if (debug)
-          cout << "      done routing to intermediate ";
+          std::cout << "      done routing to intermediate ";
       } else {
         found = 1;
         out_port = dest % gC;
         if (debug)
-          cout << "      final routing to destination ";
+          std::cout << "      final routing to destination ";
       }
     }
 
@@ -701,7 +703,7 @@ void ugal_xyyx_flatfly_onchip(const Router *r, const Flit *f, int in_channel,
           tmp_out_port = flatfly_outport_yx(dest, rID);
         }
         if (f->watch) {
-          cout << " MIN tmp_out_port: " << tmp_out_port;
+          std::cout << " MIN tmp_out_port: " << tmp_out_port;
         }
         // sum over all vcs of that port
         _min_queucnt = r->GetUsedCredit(tmp_out_port);
@@ -717,31 +719,33 @@ void ugal_xyyx_flatfly_onchip(const Router *r, const Flit *f, int in_channel,
         }
 
         if (f->watch) {
-          cout << " NONMIN tmp_out_port: " << tmp_out_port << endl;
+          std::cout << " NONMIN tmp_out_port: " << tmp_out_port << std::endl;
         }
         if (_ran_intm >= rID * _concentration &&
             _ran_intm < (rID + 1) * _concentration) {
-          _nonmin_queucnt = numeric_limits<int>::max();
+          _nonmin_queucnt = std::numeric_limits<int>::max();
         } else {
           _nonmin_queucnt = r->GetUsedCredit(tmp_out_port);
         }
 
         if (debug) {
-          cout << " _min_hop " << _min_hop << " _min_queucnt: " << _min_queucnt
-               << " _nonmin_hop: " << _nonmin_hop
-               << " _nonmin_queucnt :" << _nonmin_queucnt << endl;
+          std::cout << " _min_hop " << _min_hop
+                    << " _min_queucnt: " << _min_queucnt
+                    << " _nonmin_hop: " << _nonmin_hop
+                    << " _nonmin_queucnt :" << _nonmin_queucnt << std::endl;
         }
 
         if (_min_hop * _min_queucnt <=
             _nonmin_hop * _nonmin_queucnt + threshold) {
 
           if (debug)
-            cout << " Route MINIMALLY " << endl;
+            std::cout << " Route MINIMALLY " << std::endl;
           f->ph = 2;
         } else {
           // route non-minimally
           if (debug) {
-            cout << " Route NONMINIMALLY int node: " << _ran_intm << endl;
+            std::cout << " Route NONMINIMALLY int node: " << _ran_intm
+                      << std::endl;
           }
           f->ph = 1;
           f->intm = _ran_intm;
@@ -786,23 +790,23 @@ void ugal_xyyx_flatfly_onchip(const Router *r, const Flit *f, int in_channel,
     }
 
     if (!found) {
-      cout << " ERROR: output not found in routing. " << endl;
-      cout << *f;
+      std::cout << " ERROR: output not found in routing. " << std::endl;
+      std::cout << *f;
       exit(-1);
     }
 
     if (out_port >= gN * (gK - 1) + gC) {
-      cout << " ERROR: output port too big! " << endl;
-      cout << " OUTPUT select: " << out_port << endl;
-      cout << " router radix: " << gN * (gK - 1) + gK << endl;
+      std::cout << " ERROR: output port too big! " << std::endl;
+      std::cout << " OUTPUT select: " << out_port << std::endl;
+      std::cout << " router radix: " << gN * (gK - 1) + gK << std::endl;
       exit(-1);
     }
 
     if (debug)
-      cout << "        through output port : " << out_port << endl;
+      std::cout << "        through output port : " << out_port << std::endl;
     if (gTrace) {
-      cout << "Outport " << out_port << endl;
-      cout << "Stop Mark" << endl;
+      std::cout << "Outport " << out_port << std::endl;
+      std::cout << "Stop Mark" << std::endl;
     }
   }
 
@@ -851,24 +855,24 @@ void ugal_flatfly_onchip(const Router *r, const Flit *f, int in_channel,
 
     if (in_channel < gC) {
       if (gTrace) {
-        cout << "New Flit " << f->src << endl;
+        std::cout << "New Flit " << f->src << std::endl;
       }
       f->ph = 0;
     }
 
     if (gTrace) {
       int load = 0;
-      cout << "Router " << rID << endl;
-      cout << "Input Channel " << in_channel << endl;
+      std::cout << "Router " << rID << std::endl;
+      std::cout << "Input Channel " << in_channel << std::endl;
       // need to modify router to report the buffere depth
       load += r->GetBufferOccupancy(in_channel);
-      cout << "Rload " << load << endl;
+      std::cout << "Rload " << load << std::endl;
     }
 
     if (debug) {
-      cout << " FLIT ID: " << f->id << " Router: " << rID
-           << " routing from src : " << f->src << " to dest : " << dest
-           << " f->ph: " << f->ph << " intm: " << f->intm << endl;
+      std::cout << " FLIT ID: " << f->id << " Router: " << rID
+                << " routing from src : " << f->src << " to dest : " << dest
+                << " f->ph: " << f->ph << " intm: " << f->intm << std::endl;
     }
     // f->ph == 0  ==> make initial global adaptive decision
     // f->ph == 1  ==> route nonminimaly to random intermediate node
@@ -886,12 +890,12 @@ void ugal_flatfly_onchip(const Router *r, const Flit *f, int in_channel,
         f->ph = 2;
         dest = flatfly_transformation(f->dest);
         if (debug)
-          cout << "      done routing to intermediate ";
+          std::cout << "      done routing to intermediate ";
       } else {
         found = 1;
         out_port = dest % gC;
         if (debug)
-          cout << "      final routing to destination ";
+          std::cout << "      final routing to destination ";
       }
     }
 
@@ -902,7 +906,7 @@ void ugal_flatfly_onchip(const Router *r, const Flit *f, int in_channel,
         _ran_intm = find_ran_intm(flatfly_transformation(f->src), dest);
         tmp_out_port = flatfly_outport(dest, rID);
         if (f->watch) {
-          *gWatchOut << GetSimTime() << " | " << r->FullName() << " | "
+          *gWatchOut << r->GetSimTime() << " | " << r->FullName() << " | "
                      << " MIN tmp_out_port: " << tmp_out_port;
         }
 
@@ -913,32 +917,34 @@ void ugal_flatfly_onchip(const Router *r, const Flit *f, int in_channel,
         tmp_out_port = flatfly_outport(_ran_intm, rID);
 
         if (f->watch) {
-          *gWatchOut << GetSimTime() << " | " << r->FullName() << " | "
-                     << " NONMIN tmp_out_port: " << tmp_out_port << endl;
+          *gWatchOut << r->GetSimTime() << " | " << r->FullName() << " | "
+                     << " NONMIN tmp_out_port: " << tmp_out_port << std::endl;
         }
         if (_ran_intm >= rID * _concentration &&
             _ran_intm < (rID + 1) * _concentration) {
-          _nonmin_queucnt = numeric_limits<int>::max();
+          _nonmin_queucnt = std::numeric_limits<int>::max();
         } else {
           _nonmin_queucnt = r->GetUsedCredit(tmp_out_port);
         }
 
         if (debug) {
-          cout << " _min_hop " << _min_hop << " _min_queucnt: " << _min_queucnt
-               << " _nonmin_hop: " << _nonmin_hop
-               << " _nonmin_queucnt :" << _nonmin_queucnt << endl;
+          std::cout << " _min_hop " << _min_hop
+                    << " _min_queucnt: " << _min_queucnt
+                    << " _nonmin_hop: " << _nonmin_hop
+                    << " _nonmin_queucnt :" << _nonmin_queucnt << std::endl;
         }
 
         if (_min_hop * _min_queucnt <=
             _nonmin_hop * _nonmin_queucnt + threshold) {
 
           if (debug)
-            cout << " Route MINIMALLY " << endl;
+            std::cout << " Route MINIMALLY " << std::endl;
           f->ph = 2;
         } else {
           // route non-minimally
           if (debug) {
-            cout << " Route NONMINIMALLY int node: " << _ran_intm << endl;
+            std::cout << " Route NONMINIMALLY int node: " << _ran_intm
+                      << std::endl;
           }
           f->ph = 1;
           f->intm = _ran_intm;
@@ -971,23 +977,23 @@ void ugal_flatfly_onchip(const Router *r, const Flit *f, int in_channel,
     }
 
     if (!found) {
-      cout << " ERROR: output not found in routing. " << endl;
-      cout << *f;
+      std::cout << " ERROR: output not found in routing. " << std::endl;
+      std::cout << *f;
       exit(-1);
     }
 
     if (out_port >= gN * (gK - 1) + gC) {
-      cout << " ERROR: output port too big! " << endl;
-      cout << " OUTPUT select: " << out_port << endl;
-      cout << " router radix: " << gN * (gK - 1) + gK << endl;
+      std::cout << " ERROR: output port too big! " << std::endl;
+      std::cout << " OUTPUT select: " << out_port << std::endl;
+      std::cout << " router radix: " << gN * (gK - 1) + gK << std::endl;
       exit(-1);
     }
 
     if (debug)
-      cout << "        through output port : " << out_port << endl;
+      std::cout << "        through output port : " << out_port << std::endl;
     if (gTrace) {
-      cout << "Outport " << out_port << endl;
-      cout << "Stop Mark" << endl;
+      std::cout << "Outport " << out_port << std::endl;
+      std::cout << "Stop Mark" << std::endl;
     }
   }
 
@@ -1036,24 +1042,24 @@ void ugal_pni_flatfly_onchip(const Router *r, const Flit *f, int in_channel,
 
     if (in_channel < gC) {
       if (gTrace) {
-        cout << "New Flit " << f->src << endl;
+        std::cout << "New Flit " << f->src << std::endl;
       }
       f->ph = 0;
     }
 
     if (gTrace) {
       int load = 0;
-      cout << "Router " << rID << endl;
-      cout << "Input Channel " << in_channel << endl;
+      std::cout << "Router " << rID << std::endl;
+      std::cout << "Input Channel " << in_channel << std::endl;
       // need to modify router to report the buffere depth
       load += r->GetBufferOccupancy(in_channel);
-      cout << "Rload " << load << endl;
+      std::cout << "Rload " << load << std::endl;
     }
 
     if (debug) {
-      cout << " FLIT ID: " << f->id << " Router: " << rID
-           << " routing from src : " << f->src << " to dest : " << dest
-           << " f->ph: " << f->ph << " intm: " << f->intm << endl;
+      std::cout << " FLIT ID: " << f->id << " Router: " << rID
+                << " routing from src : " << f->src << " to dest : " << dest
+                << " f->ph: " << f->ph << " intm: " << f->intm << std::endl;
     }
     // f->ph == 0  ==> make initial global adaptive decision
     // f->ph == 1  ==> route nonminimaly to random intermediate node
@@ -1071,12 +1077,12 @@ void ugal_pni_flatfly_onchip(const Router *r, const Flit *f, int in_channel,
         f->ph = 2;
         dest = flatfly_transformation(f->dest);
         if (debug)
-          cout << "      done routing to intermediate ";
+          std::cout << "      done routing to intermediate ";
       } else {
         found = 1;
         out_port = dest % gC;
         if (debug)
-          cout << "      final routing to destination ";
+          std::cout << "      final routing to destination ";
       }
     }
 
@@ -1087,7 +1093,7 @@ void ugal_pni_flatfly_onchip(const Router *r, const Flit *f, int in_channel,
         _ran_intm = find_ran_intm(flatfly_transformation(f->src), dest);
         tmp_out_port = flatfly_outport(dest, rID);
         if (f->watch) {
-          *gWatchOut << GetSimTime() << " | " << r->FullName() << " | "
+          *gWatchOut << r->GetSimTime() << " | " << r->FullName() << " | "
                      << " MIN tmp_out_port: " << tmp_out_port;
         }
 
@@ -1098,32 +1104,34 @@ void ugal_pni_flatfly_onchip(const Router *r, const Flit *f, int in_channel,
         tmp_out_port = flatfly_outport(_ran_intm, rID);
 
         if (f->watch) {
-          *gWatchOut << GetSimTime() << " | " << r->FullName() << " | "
-                     << " NONMIN tmp_out_port: " << tmp_out_port << endl;
+          *gWatchOut << r->GetSimTime() << " | " << r->FullName() << " | "
+                     << " NONMIN tmp_out_port: " << tmp_out_port << std::endl;
         }
         if (_ran_intm >= rID * _concentration &&
             _ran_intm < (rID + 1) * _concentration) {
-          _nonmin_queucnt = numeric_limits<int>::max();
+          _nonmin_queucnt = std::numeric_limits<int>::max();
         } else {
           _nonmin_queucnt = r->GetUsedCredit(tmp_out_port);
         }
 
         if (debug) {
-          cout << " _min_hop " << _min_hop << " _min_queucnt: " << _min_queucnt
-               << " _nonmin_hop: " << _nonmin_hop
-               << " _nonmin_queucnt :" << _nonmin_queucnt << endl;
+          std::cout << " _min_hop " << _min_hop
+                    << " _min_queucnt: " << _min_queucnt
+                    << " _nonmin_hop: " << _nonmin_hop
+                    << " _nonmin_queucnt :" << _nonmin_queucnt << std::endl;
         }
 
         if (_min_hop * _min_queucnt <=
             _nonmin_hop * _nonmin_queucnt + threshold) {
 
           if (debug)
-            cout << " Route MINIMALLY " << endl;
+            std::cout << " Route MINIMALLY " << std::endl;
           f->ph = 2;
         } else {
           // route non-minimally
           if (debug) {
-            cout << " Route NONMINIMALLY int node: " << _ran_intm << endl;
+            std::cout << " Route NONMINIMALLY int node: " << _ran_intm
+                      << std::endl;
           }
           f->ph = 1;
           f->intm = _ran_intm;
@@ -1156,23 +1164,23 @@ void ugal_pni_flatfly_onchip(const Router *r, const Flit *f, int in_channel,
     }
 
     if (!found) {
-      cout << " ERROR: output not found in routing. " << endl;
-      cout << *f;
+      std::cout << " ERROR: output not found in routing. " << std::endl;
+      std::cout << *f;
       exit(-1);
     }
 
     if (out_port >= gN * (gK - 1) + gC) {
-      cout << " ERROR: output port too big! " << endl;
-      cout << " OUTPUT select: " << out_port << endl;
-      cout << " router radix: " << gN * (gK - 1) + gK << endl;
+      std::cout << " ERROR: output port too big! " << std::endl;
+      std::cout << " OUTPUT select: " << out_port << std::endl;
+      std::cout << " router radix: " << gN * (gK - 1) + gK << std::endl;
       exit(-1);
     }
 
     if (debug)
-      cout << "        through output port : " << out_port << endl;
+      std::cout << "        through output port : " << out_port << std::endl;
     if (gTrace) {
-      cout << "Outport " << out_port << endl;
-      cout << "Stop Mark" << endl;
+      std::cout << "Outport " << out_port << std::endl;
+      std::cout << "Stop Mark" << std::endl;
     }
   }
 
@@ -1224,7 +1232,7 @@ int find_distance(int src, int dest) {
   int dest_tmp = (int)dest / gC;
   int src_id, dest_id;
 
-  //  cout << " HOP CNT between  src: " << src << " dest: " << dest;
+  //  std::cout << " HOP CNT between  src: " << src << " dest: " << dest;
   for (int d = 0; d < _dim; d++) {
     _dim_size = powi(gK, d) * gC;
     // if ((int)(src / _dim_size) !=  (int)(dest / _dim_size))
@@ -1237,7 +1245,7 @@ int find_distance(int src, int dest) {
     dest_tmp = (int)(dest_tmp / gK);
   }
 
-  //  cout << " : " << dist << endl;
+  //  std::cout << " : " << dist << std::endl;
 
   return dist;
 }
@@ -1252,37 +1260,39 @@ int find_ran_intm(int src, int dest) {
   int debug = 0;
 
   if (debug)
-    cout << " INTM node for  src: " << src << " dest: " << dest << endl;
+    std::cout << " INTM node for  src: " << src << " dest: " << dest
+              << std::endl;
 
   src = (int)(src / gC);
   dest = (int)(dest / gC);
 
   _ran_dest = RandomInt(gC - 1);
   if (debug)
-    cout << " ............ _ran_dest : " << _ran_dest << endl;
+    std::cout << " ............ _ran_dest : " << _ran_dest << std::endl;
   for (int d = 0; d < _dim; d++) {
 
     _dim_size = powi(gK, d) * gC;
     if ((src % gK) == (dest % gK)) {
       _ran_dest += (src % gK) * _dim_size;
       if (debug)
-        cout << "    share same dimension : " << d
-             << " int node : " << _ran_dest << " src ID : " << src % gK << endl;
+        std::cout << "    share same dimension : " << d
+                  << " int node : " << _ran_dest << " src ID : " << src % gK
+                  << std::endl;
     } else {
       // src and dest are in the same dimension "d" + 1
       // ==> thus generate a random destination within
       _ran_dest += RandomInt(gK - 1) * _dim_size;
       if (debug)
-        cout << "    different  dimension : " << d
-             << " int node : " << _ran_dest << " _dim_size: " << _dim_size
-             << endl;
+        std::cout << "    different  dimension : " << d
+                  << " int node : " << _ran_dest << " _dim_size: " << _dim_size
+                  << std::endl;
     }
     src = (int)(src / gK);
     dest = (int)(dest / gK);
   }
 
   if (debug)
-    cout << " intermediate destination NODE: " << _ran_dest << endl;
+    std::cout << " intermediate destination NODE: " << _ran_dest << std::endl;
   return _ran_dest;
 }
 
@@ -1318,7 +1328,8 @@ int flatfly_outport(int dest, int rID) {
     rID = (int)(rID / gK);
   }
   if (output == -1) {
-    cout << " ERROR ---- FLATFLY_OUTPORT function : output not found " << endl;
+    std::cout << " ERROR ---- FLATFLY_OUTPORT function : output not found "
+              << std::endl;
     exit(-1);
   }
   return -1;
@@ -1331,7 +1342,7 @@ int flatfly_transformation(int dest) {
   // to the easier way of routing
   // this transformation only support 64 nodes
 
-  // cout<<"ORiginal destination "<<dest<<endl;
+  // std::cout<<"ORiginal destination "<<dest<<std::endl;
   // router in the x direction = find which column, and then mod by cY to find
   // which horizontal router
   int horizontal = (dest % (_xcount * _xrouter)) / (_xrouter);
@@ -1343,6 +1354,6 @@ int flatfly_transformation(int dest) {
   // transform the destination to as if node0 was 0,1,2,3 and so forth
   dest = (vertical * _xcount + horizontal) * gC + _xrouter * vertical_rem +
          horizontal_rem;
-  // cout<<"Transformed destination "<<dest<<endl<<endl;
+  // std::cout<<"Transformed destination "<<dest<<std::endl<<std::endl;
   return dest;
 }

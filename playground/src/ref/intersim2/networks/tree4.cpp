@@ -52,8 +52,9 @@
 #include "../misc_utils.hpp"
 #include "tree4.hpp"
 
-Tree4::Tree4(const Configuration &config, const string &name)
-    : Network(config, name) {
+Tree4::Tree4(const Configuration &config, const std::string &name,
+             InterconnectInterface *icnt)
+    : Network(config, name, icnt) {
   _ComputeSize(config);
   _Alloc();
   _BuildNet(config);
@@ -88,7 +89,7 @@ void Tree4::_BuildNet(const Configuration &config) {
   //
   // Allocate Routers
   //
-  ostringstream name;
+  std::ostringstream name;
   int h, pos, nPos, degree, id;
 
   for (h = 0; h < _n; h++) {

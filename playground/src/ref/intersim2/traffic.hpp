@@ -7,7 +7,7 @@
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
 
- Redistributions of source code must retain the above copyright notice, this 
+ Redistributions of source code must retain the above copyright notice, this
  list of conditions and the following disclaimer.
  Redistributions in binary form must reproduce the above copyright notice, this
  list of conditions and the following disclaimer in the documentation and/or
@@ -15,7 +15,7 @@
 
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
@@ -28,22 +28,21 @@
 #ifndef _TRAFFIC_HPP_
 #define _TRAFFIC_HPP_
 
-#include <vector>
-#include <set>
 #include "config_utils.hpp"
-
-using namespace std;
+#include <set>
+#include <vector>
 
 class TrafficPattern {
 protected:
   int _nodes;
   TrafficPattern(int nodes);
+
 public:
   virtual ~TrafficPattern() {}
   virtual void reset();
   virtual int dest(int source) = 0;
-  static TrafficPattern * New(string const & pattern, int nodes, 
-			      Configuration const * const config = NULL);
+  static TrafficPattern *New(std::string const &pattern, int nodes,
+                             Configuration const *const config = NULL);
 };
 
 class PermutationTrafficPattern : public TrafficPattern {
@@ -65,6 +64,7 @@ public:
 class TransposeTrafficPattern : public BitPermutationTrafficPattern {
 protected:
   int _shift;
+
 public:
   TransposeTrafficPattern(int nodes);
   virtual int dest(int source);
@@ -104,8 +104,9 @@ public:
 
 class RandomPermutationTrafficPattern : public TrafficPattern {
 private:
-  vector<int> _dest;
+  std::vector<int> _dest;
   inline void randomize(int seed);
+
 public:
   RandomPermutationTrafficPattern(int nodes, int seed);
   virtual int dest(int source);
@@ -124,9 +125,10 @@ public:
 
 class UniformBackgroundTrafficPattern : public RandomTrafficPattern {
 private:
-  set<int> _excluded;
+  std::set<int> _excluded;
+
 public:
-  UniformBackgroundTrafficPattern(int nodes, vector<int> excluded_nodes);
+  UniformBackgroundTrafficPattern(int nodes, std::vector<int> excluded_nodes);
   virtual int dest(int source);
 };
 
@@ -162,12 +164,13 @@ public:
 
 class HotSpotTrafficPattern : public TrafficPattern {
 private:
-  vector<int> _hotspots;
-  vector<int> _rates;
+  std::vector<int> _hotspots;
+  std::vector<int> _rates;
   int _max_val;
+
 public:
-  HotSpotTrafficPattern(int nodes, vector<int> hotspots, 
-			vector<int> rates = vector<int>());
+  HotSpotTrafficPattern(int nodes, std::vector<int> hotspots,
+                        std::vector<int> rates = std::vector<int>());
   virtual int dest(int source);
 };
 

@@ -7,7 +7,7 @@
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
 
- Redistributions of source code must retain the above copyright notice, this 
+ Redistributions of source code must retain the above copyright notice, this
  list of conditions and the following disclaimer.
  Redistributions in binary form must reproduce the above copyright notice, this
  list of conditions and the following disclaimer in the documentation and/or
@@ -15,7 +15,7 @@
 
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
@@ -32,66 +32,58 @@
 
 #include "module.hpp"
 
-template<class T> class PipelineFIFO : public Module {
+template <class T> class PipelineFIFO : public Module {
   int _lanes;
   int _depth;
 
   int _pipe_len;
   int _pipe_ptr;
-  
-  vector<vector<T*> > _data;
+
+  std::vector<std::vector<T *>> _data;
 
 public:
-  PipelineFIFO( Module *parent, const string& name, int lanes, int depth );
-  ~PipelineFIFO( );
+  PipelineFIFO(Module *parent, const std::string &name, int lanes, int depth);
+  ~PipelineFIFO();
 
-  void Write( T* val, int lane = 0 );
-  void WriteAll( T* val );
+  void Write(T *val, int lane = 0);
+  void WriteAll(T *val);
 
-  T*   Read( int lane = 0 );
+  T *Read(int lane = 0);
 
-  void Advance( );
+  void Advance();
 };
 
-template<class T> PipelineFIFO<T>::PipelineFIFO( Module *parent, 
-						 const string& name, 
-						 int lanes, int depth ) :
-  Module( parent, name ),
-  _lanes( lanes ), _depth( depth )
-{
+template <class T>
+PipelineFIFO<T>::PipelineFIFO(Module *parent, const std::string &name,
+                              int lanes, int depth)
+    : Module(parent, name), _lanes(lanes), _depth(depth) {
   _pipe_len = depth + 1;
   _pipe_ptr = 0;
 
   _data.resize(_lanes);
-  for ( int l = 0; l < _lanes; ++l ) {
+  for (int l = 0; l < _lanes; ++l) {
     _data[l].resize(_pipe_len, 0);
   }
 }
 
-template<class T> PipelineFIFO<T>::~PipelineFIFO( ) 
-{
-}
+template <class T> PipelineFIFO<T>::~PipelineFIFO() {}
 
-template<class T> void PipelineFIFO<T>::Write( T* val, int lane )
-{
+template <class T> void PipelineFIFO<T>::Write(T *val, int lane) {
   _data[lane][_pipe_ptr] = val;
 }
 
-template<class T> void PipelineFIFO<T>::WriteAll( T* val )
-{
-  for ( int l = 0; l < _lanes; ++l ) {
+template <class T> void PipelineFIFO<T>::WriteAll(T *val) {
+  for (int l = 0; l < _lanes; ++l) {
     _data[l][_pipe_ptr] = val;
   }
 }
 
-template<class T> T* PipelineFIFO<T>::Read( int lane )
-{
+template <class T> T *PipelineFIFO<T>::Read(int lane) {
   return _data[lane][_pipe_ptr];
 }
 
-template<class T> void PipelineFIFO<T>::Advance( )
-{
-  _pipe_ptr = ( _pipe_ptr + 1 ) % _pipe_len;
+template <class T> void PipelineFIFO<T>::Advance() {
+  _pipe_ptr = (_pipe_ptr + 1) % _pipe_len;
 }
 
-#endif 
+#endif

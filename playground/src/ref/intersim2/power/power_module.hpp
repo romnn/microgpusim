@@ -55,7 +55,7 @@ protected:
   // resimulate all with channel_width decremented by channel_sweep until 0
   double channel_sweep;
   // write result to a tabbed format to file
-  string output_file_name;
+  std::string output_file_name;
 
   // buffer depth
   double depthVC;
@@ -63,7 +63,7 @@ protected:
   double numVC;
 
   // store the property of wires based on length
-  map<double, wire> wire_map;
+  std::map<double, wire> wire_map;
 
   //////////////////////////////////Constants/////////////////////////////
   // wire length in (mm)
@@ -175,7 +175,8 @@ protected:
   double areaOutputModule(double Outputs);
 
 public:
-  Power_Module(Network *net, const Configuration &config);
+  Power_Module(Network *net, const Configuration &config,
+               InterconnectInterface *icnt);
   ~Power_Module();
 
   void run();

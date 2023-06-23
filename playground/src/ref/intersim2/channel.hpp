@@ -7,7 +7,7 @@
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
 
- Redistributions of source code must retain the above copyright notice, this 
+ Redistributions of source code must retain the above copyright notice, this
  list of conditions and the following disclaimer.
  Redistributions in binary form must reproduce the above copyright notice, this
  list of conditions and the following disclaimer in the documentation and/or
@@ -15,7 +15,7 @@
 
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
@@ -29,91 +29,77 @@
 //
 //  File Name: channel.hpp
 //
-//  The Channel models a generic channel with a multi-cycle 
-//   transmission delay. The channel latency can be specified as 
+//  The Channel models a generic channel with a multi-cycle
+//   transmission delay. The channel latency can be specified as
 //   an integer number of simulator cycles.
 //
 /////
 #ifndef _CHANNEL_HPP
 #define _CHANNEL_HPP
 
-#include <queue>
 #include <cassert>
+#include <queue>
 
 #include "globals.hpp"
 #include "module.hpp"
 #include "timed_module.hpp"
 
-using namespace std;
-
-template<typename T>
-class Channel : public TimedModule {
+template <typename T> class Channel : public TimedModule {
 public:
-  Channel(Module * parent, string const & name);
+  Channel(Module *parent, std::string const &name);
   virtual ~Channel() {}
 
   // Physical Parameters
   void SetLatency(int cycles);
-  int GetLatency() const { return _delay ; }
-  
-  // Send data 
-  virtual void Send(T * data);
-  
+  int GetLatency() const { return _delay; }
+
+  // Send data
+  virtual void Send(T *data);
+
   // Receive data
-  virtual T * Receive(); 
-  
+  virtual T *Receive();
+
   virtual void ReadInputs();
   virtual void Evaluate() {}
   virtual void WriteOutputs();
 
 protected:
   int _delay;
-  T * _input;
-  T * _output;
-  queue<pair<int, T *> > _wait_queue;
-
+  T *_input;
+  T *_output;
+  std::queue<std::pair<int, T *>> _wait_queue;
 };
 
-template<typename T>
-Channel<T>::Channel(Module * parent, string const & name)
-  : TimedModule(parent, name), _delay(1), _input(0), _output(0) {
-}
+template <typename T>
+Channel<T>::Channel(Module *parent, std::string const &name)
+    : TimedModule(parent, name), _delay(1), _input(0), _output(0) {}
 
-template<typename T>
-void Channel<T>::SetLatency(int cycles) {
-  if(cycles <= 0) {
+template <typename T> void Channel<T>::SetLatency(int cycles) {
+  if (cycles <= 0) {
     Error("Channel must have positive delay.");
   }
-  _delay = cycles ;
+  _delay = cycles;
 }
 
-template<typename T>
-void Channel<T>::Send(T * data) {
-  _input = data;
-}
+template <typename T> void Channel<T>::Send(T *data) { _input = data; }
 
-template<typename T>
-T * Channel<T>::Receive() {
-  return _output;
-}
+template <typename T> T *Channel<T>::Receive() { return _output; }
 
-template<typename T>
-void Channel<T>::ReadInputs() {
-  if(_input) {
-    _wait_queue.push(make_pair(GetSimTime() + _delay - 1, _input));
+template <typename T> void Channel<T>::ReadInputs() {
+  if (_input) {
+    _wait_queue.push(std::make_pair(GetSimTime() + _delay - 1, _input));
     _input = 0;
   }
 }
 
-template<typename T>
-void Channel<T>::WriteOutputs() {
+template <typename T> void Channel<T>::WriteOutputs() {
   _output = 0;
-  if(_wait_queue.empty()) {
+  if (_wait_queue.empty()) {
     return;
   }
-  pair<int, T *> const & item = _wait_queue.front();
-  int const & time = item.first;
-  if(GetSimTime() < time) {
+  std::pair<int, T *> const &item = _wait_queue.front();
+  int const &time = item.first;
+  if (GetSimTime() < time) {
     return;
   }
   assert(GetSimTime() == time);

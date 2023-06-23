@@ -54,7 +54,8 @@ class FlatFlyOnChip : public Network {
   int _InChannel(int stage, int addr, int port) const;
 
 public:
-  FlatFlyOnChip(const Configuration &config, const string &name);
+  FlatFlyOnChip(const Configuration &config, const std::string &name,
+                InterconnectInterface *icnt);
 
   int GetN() const;
   int GetK() const;

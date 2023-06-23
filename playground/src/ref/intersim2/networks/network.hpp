@@ -43,6 +43,8 @@
 
 typedef Channel<Credit> CreditChannel;
 
+class InterconnectInterface;
+
 class Network : public TimedModule {
 protected:
   int _size;
@@ -50,18 +52,18 @@ protected:
   int _channels;
   int _classes;
 
-  vector<Router *> _routers;
+  std::vector<Router *> _routers;
 
-  vector<FlitChannel *> _inject;
-  vector<CreditChannel *> _inject_cred;
+  std::vector<FlitChannel *> _inject;
+  std::vector<CreditChannel *> _inject_cred;
 
-  vector<FlitChannel *> _eject;
-  vector<CreditChannel *> _eject_cred;
+  std::vector<FlitChannel *> _eject;
+  std::vector<CreditChannel *> _eject_cred;
 
-  vector<FlitChannel *> _chan;
-  vector<CreditChannel *> _chan_cred;
+  std::vector<FlitChannel *> _chan;
+  std::vector<CreditChannel *> _chan_cred;
 
-  deque<TimedModule *> _timed_modules;
+  std::deque<TimedModule *> _timed_modules;
 
   virtual void _ComputeSize(const Configuration &config) = 0;
   virtual void _BuildNet(const Configuration &config) = 0;
@@ -69,10 +71,12 @@ protected:
   void _Alloc();
 
 public:
-  Network(const Configuration &config, const string &name);
+  Network(const Configuration &config, const std::string &name,
+          InterconnectInterface *icnt);
   virtual ~Network();
 
-  static Network *New(const Configuration &config, const string &name);
+  static Network *New(const Configuration &config, const std::string &name,
+                      InterconnectInterface *icnt);
 
   virtual void WriteFlit(Flit *f, int source);
   virtual Flit *ReadFlit(int dest);
@@ -91,22 +95,24 @@ public:
   virtual void Evaluate();
   virtual void WriteOutputs();
 
-  void Display(ostream &os = cout) const;
-  void DumpChannelMap(ostream &os = cout, string const &prefix = "") const;
-  void DumpNodeMap(ostream &os = cout, string const &prefix = "") const;
+  void Display(std::ostream &os = std::cout) const;
+  void DumpChannelMap(std::ostream &os = std::cout,
+                      std::string const &prefix = "") const;
+  void DumpNodeMap(std::ostream &os = std::cout,
+                   std::string const &prefix = "") const;
 
   int NumChannels() const { return _channels; }
-  const vector<FlitChannel *> &GetInject() { return _inject; }
+  const std::vector<FlitChannel *> &GetInject() { return _inject; }
   FlitChannel *GetInject(int index) { return _inject[index]; }
-  const vector<CreditChannel *> &GetInjectCred() { return _inject_cred; }
+  const std::vector<CreditChannel *> &GetInjectCred() { return _inject_cred; }
   CreditChannel *GetInjectCred(int index) { return _inject_cred[index]; }
-  const vector<FlitChannel *> &GetEject() { return _eject; }
+  const std::vector<FlitChannel *> &GetEject() { return _eject; }
   FlitChannel *GetEject(int index) { return _eject[index]; }
-  const vector<CreditChannel *> &GetEjectCred() { return _eject_cred; }
+  const std::vector<CreditChannel *> &GetEjectCred() { return _eject_cred; }
   CreditChannel *GetEjectCred(int index) { return _eject_cred[index]; }
-  const vector<FlitChannel *> &GetChannels() { return _chan; }
-  const vector<CreditChannel *> &GetChannelsCred() { return _chan_cred; }
-  const vector<Router *> &GetRouters() { return _routers; }
+  const std::vector<FlitChannel *> &GetChannels() { return _chan; }
+  const std::vector<CreditChannel *> &GetChannelsCred() { return _chan_cred; }
+  const std::vector<Router *> &GetRouters() { return _routers; }
   Router *GetRouter(int index) { return _routers[index]; }
   int NumRouters() const { return _size; }
 };

@@ -7,7 +7,7 @@
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
 
- Redistributions of source code must retain the above copyright notice, this 
+ Redistributions of source code must retain the above copyright notice, this
  list of conditions and the following disclaimer.
  Redistributions in binary form must reproduce the above copyright notice, this
  list of conditions and the following disclaimer in the documentation and/or
@@ -15,7 +15,7 @@
 
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
@@ -34,8 +34,8 @@
 
 #include "flitchannel.hpp"
 
-#include <iostream>
 #include <iomanip>
+#include <iostream>
 
 #include "./routers/router.hpp"
 #include "globals.hpp"
@@ -45,24 +45,24 @@
 //  $Date: 2007/06/27 23:10:17 $
 //  $Id: flitchannel.cpp 5516 2013-10-06 02:14:48Z dub $
 // ----------------------------------------------------------------------
-FlitChannel::FlitChannel(Module * parent, string const & name, int classes)
-: Channel<Flit>(parent, name), _routerSource(NULL), _routerSourcePort(-1), 
-  _routerSink(NULL), _routerSinkPort(-1), _idle(0) {
+FlitChannel::FlitChannel(Module *parent, std::string const &name, int classes)
+    : Channel<Flit>(parent, name), _routerSource(NULL), _routerSourcePort(-1),
+      _routerSink(NULL), _routerSinkPort(-1), _idle(0) {
   _active.resize(classes, 0);
 }
 
-void FlitChannel::SetSource(Router const * const router, int port) {
+void FlitChannel::SetSource(Router const *const router, int port) {
   _routerSource = router;
   _routerSourcePort = port;
 }
 
-void FlitChannel::SetSink(Router const * const router, int port) {
+void FlitChannel::SetSink(Router const *const router, int port) {
   _routerSink = router;
   _routerSinkPort = port;
 }
 
-void FlitChannel::Send(Flit * f) {
-  if(f) {
+void FlitChannel::Send(Flit *f) {
+  if (f) {
     ++_active[f->cl];
   } else {
     ++_idle;
@@ -71,21 +71,20 @@ void FlitChannel::Send(Flit * f) {
 }
 
 void FlitChannel::ReadInputs() {
-  Flit const * const & f = _input;
-  if(f && f->watch) {
+  Flit const *const &f = _input;
+  if (f && f->watch) {
     *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-	       << "Beginning channel traversal for flit " << f->id
-	       << " with delay " << _delay
-	       << "." << endl;
+               << "Beginning channel traversal for flit " << f->id
+               << " with delay " << _delay << "." << std::endl;
   }
   Channel<Flit>::ReadInputs();
 }
 
 void FlitChannel::WriteOutputs() {
   Channel<Flit>::WriteOutputs();
-  if(_output && _output->watch) {
+  if (_output && _output->watch) {
     *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-	       << "Completed channel traversal for flit " << _output->id
-	       << "." << endl;
+               << "Completed channel traversal for flit " << _output->id << "."
+               << std::endl;
   }
 }

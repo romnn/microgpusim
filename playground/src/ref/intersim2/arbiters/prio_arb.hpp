@@ -45,13 +45,13 @@ protected:
     int pri;
   };
 
-  list<sRequest> _requests;
+  std::list<sRequest> _requests;
 
   int _match;
 
 public:
   PriorityArbiter(const Configuration &config, Module *parent,
-                  const string &name, int inputs);
+                  const std::string &name, int inputs);
 
   void Clear();
 

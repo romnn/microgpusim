@@ -53,8 +53,9 @@
 
 // #define FATTREE_DEBUG
 
-FatTree::FatTree(const Configuration &config, const string &name)
-    : Network(config, name) {
+FatTree::FatTree(const Configuration &config, const std::string &name,
+                 InterconnectInterface *icnt)
+    : Network(config, name, icnt) {
 
   _ComputeSize(config);
   _Alloc();
@@ -81,12 +82,12 @@ void FatTree::_ComputeSize(const Configuration &config) {
 void FatTree::RegisterRoutingFunctions() {}
 
 void FatTree::_BuildNet(const Configuration &config) {
-  cout << "Fat Tree" << endl;
-  cout << " k = " << _k << " levels = " << _n << endl;
-  cout << " each switch - total radix =  " << 2 * _k << endl;
-  cout << " # of switches = " << _size << endl;
-  cout << " # of channels = " << _channels << endl;
-  cout << " # of nodes ( size of network ) = " << _nodes << endl;
+  std::cout << "Fat Tree" << std::endl;
+  std::cout << " k = " << _k << " levels = " << _n << std::endl;
+  std::cout << " each switch - total radix =  " << 2 * _k << std::endl;
+  std::cout << " # of switches = " << _size << std::endl;
+  std::cout << " # of channels = " << _channels << std::endl;
+  std::cout << " # of nodes ( size of network ) = " << _nodes << std::endl;
 
   // Number of router positions at each depth of the network
   const int nPos = powi(_k, _n - 1);
@@ -94,7 +95,7 @@ void FatTree::_BuildNet(const Configuration &config) {
   //
   // Allocate Routers
   //
-  ostringstream name;
+  std::stringstream name;
   int level, pos, id, degree, port;
   for (level = 0; level < _n; ++level) {
     for (pos = 0; pos < nPos; ++pos) {
@@ -139,7 +140,7 @@ void FatTree::_BuildNet(const Configuration &config) {
   }
 
 #ifdef FATTREE_DEBUG
-  cout << "\nAssigning output\n";
+  std::cout << "\nAssigning output\n";
 #endif
 
   // channels are numbered sequentially from an output channel perspective
@@ -156,9 +157,9 @@ void FatTree::_BuildNet(const Configuration &config) {
         _chan[link]->SetLatency(1);
         _chan_cred[link]->SetLatency(1);
 #ifdef FATTREE_DEBUG
-        cout << _Router(level, pos)->Name() << " "
-             << "down output " << port << " "
-             << "channel_id " << link << endl;
+        std::cout << _Router(level, pos)->Name() << " "
+                  << "down output " << port << " "
+                  << "channel_id " << link << std::endl;
 #endif
       }
     }
@@ -174,16 +175,16 @@ void FatTree::_BuildNet(const Configuration &config) {
         _chan[link]->SetLatency(1);
         _chan_cred[link]->SetLatency(1);
 #ifdef FATTREE_DEBUG
-        cout << _Router(level, pos)->Name() << " "
-             << "up output " << port << " "
-             << "channel_id " << link << endl;
+        std::cout << _Router(level, pos)->Name() << " "
+                  << "up output " << port << " "
+                  << "channel_id " << link << std::endl;
 #endif
       }
     }
   }
 
 #ifdef FATTREE_DEBUG
-  cout << "\nAssigning Input\n";
+  std::cout << "\nAssigning Input\n";
 #endif
 
   // connect all down input channels
@@ -206,9 +207,9 @@ void FatTree::_BuildNet(const Configuration &config) {
 
         _Router(level, pos)->AddInputChannel(_chan[link], _chan_cred[link]);
 #ifdef FATTREE_DEBUG
-        cout << _Router(level, pos)->Name() << " "
-             << "down input " << port << " "
-             << "channel_id " << link << endl;
+        std::cout << _Router(level, pos)->Name() << " "
+                  << "down input " << port << " "
+                  << "channel_id " << link << std::endl;
 #endif
       }
     }
@@ -233,15 +234,15 @@ void FatTree::_BuildNet(const Configuration &config) {
 
         _Router(level, pos)->AddInputChannel(_chan[link], _chan_cred[link]);
 #ifdef FATTREE_DEBUG
-        cout << _Router(level, pos)->Name() << " "
-             << "up input " << port << " "
-             << "channel_id " << link << endl;
+        std::cout << _Router(level, pos)->Name() << " "
+                  << "up input " << port << " "
+                  << "channel_id " << link << std::endl;
 #endif
       }
     }
   }
 #ifdef FATTREE_DEBUG
-  cout << "\nChannel assigned\n";
+  std::cout << "\nChannel assigned\n";
 #endif
 }
 

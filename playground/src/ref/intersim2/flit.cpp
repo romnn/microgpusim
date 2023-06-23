@@ -7,7 +7,7 @@
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
 
- Redistributions of source code must retain the above copyright notice, this 
+ Redistributions of source code must retain the above copyright notice, this
  list of conditions and the following disclaimer.
  Redistributions in binary form must reproduce the above copyright notice, this
  list of conditions and the following disclaimer in the documentation and/or
@@ -15,7 +15,7 @@
 
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
@@ -34,57 +34,52 @@
  *When adding objects make sure to set a default value in this constructor
  */
 
-#include "booksim.hpp"
 #include "flit.hpp"
+#include "booksim.hpp"
 
-stack<Flit *> Flit::_all;
-stack<Flit *> Flit::_free;
+std::stack<Flit *> Flit::_all;
+std::stack<Flit *> Flit::_free;
 
-ostream& operator<<( ostream& os, const Flit& f )
-{
-  os << "  Flit ID: " << f.id << " (" << &f << ")" 
-     << " Packet ID: " << f.pid
-     << " Type: " << f.type 
-     << " Head: " << f.head
-     << " Tail: " << f.tail << endl;
-  os << "  Source: " << f.src << "  Dest: " << f.dest << " Intm: "<<f.intm<<endl;
-  os << "  Creation time: " << f.ctime << " Injection time: " << f.itime << " Arrival time: " << f.atime << " Phase: "<<f.ph<< endl;
-  os << "  VC: " << f.vc << endl;
+std::ostream &operator<<(std::ostream &os, const Flit &f) {
+  os << "  Flit ID: " << f.id << " (" << &f << ")"
+     << " Packet ID: " << f.pid << " Type: " << f.type << " Head: " << f.head
+     << " Tail: " << f.tail << std::endl;
+  os << "  Source: " << f.src << "  Dest: " << f.dest << " Intm: " << f.intm
+     << std::endl;
+  os << "  Creation time: " << f.ctime << " Injection time: " << f.itime
+     << " Arrival time: " << f.atime << " Phase: " << f.ph << std::endl;
+  os << "  VC: " << f.vc << std::endl;
   return os;
 }
 
-Flit::Flit() 
-{  
-  Reset();
-}  
+Flit::Flit() { Reset(); }
 
-void Flit::Reset() 
-{  
-  type      = ANY_TYPE ;
-  vc        = -1 ;
-  cl        = -1 ;
-  head      = false ;
-  tail      = false ;
-  ctime     = -1 ;
-  itime     = -1 ;
-  atime     = -1 ;
-  id        = -1 ;
-  pid       = -1 ;
-  hops      = 0 ;
-  watch     = false ;
-  record    = false ;
+void Flit::Reset() {
+  type = ANY_TYPE;
+  vc = -1;
+  cl = -1;
+  head = false;
+  tail = false;
+  ctime = -1;
+  itime = -1;
+  atime = -1;
+  id = -1;
+  pid = -1;
+  hops = 0;
+  watch = false;
+  record = false;
   intm = 0;
   src = -1;
   dest = -1;
   pri = 0;
-  intm =-1;
+  intm = -1;
   ph = -1;
   data = 0;
-}  
+}
 
-Flit * Flit::New() {
-  Flit * f;
-  if(_free.empty()) {
+Flit *Flit::New() {
+  Flit *f;
+  if (_free.empty()) {
     f = new Flit;
     _all.push(f);
   } else {
@@ -95,12 +90,10 @@ Flit * Flit::New() {
   return f;
 }
 
-void Flit::Free() {
-  _free.push(this);
-}
+void Flit::Free() { _free.push(this); }
 
 void Flit::FreeAll() {
-  while(!_all.empty()) {
+  while (!_all.empty()) {
     delete _all.top();
     _all.pop();
   }

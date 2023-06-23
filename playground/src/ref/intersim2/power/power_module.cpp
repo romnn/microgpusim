@@ -31,10 +31,11 @@
 #include "buffer_monitor.hpp"
 #include "switch_monitor.hpp"
 
-Power_Module::Power_Module(Network *n, const Configuration &config)
-    : Module(0, "power_module") {
+Power_Module::Power_Module(Network *n, const Configuration &config,
+                           InterconnectInterface *icnt)
+    : Module(0, "power_module", icnt) {
 
-  string pfile = config.GetStr("tech_file");
+  std::string pfile = config.GetStr("tech_file");
   PowerConfig pconfig;
   pconfig.ParseFile(pfile);
 
@@ -118,8 +119,8 @@ void Power_Module::calcChannel(const FlitChannel *f) {
   channelArea += areaChannel(K, N, M);
 
   // activity factor;
-  const vector<int> temp = f->GetActivity();
-  vector<double> a(classes);
+  const std::vector<int> temp = f->GetActivity();
+  std::vector<double> a(classes);
   for (int i = 0; i < classes; i++) {
 
     a[i] = ((double)temp[i]) / totalTime;
@@ -137,7 +138,7 @@ void Power_Module::calcChannel(const FlitChannel *f) {
 }
 
 wire const &Power_Module::wireOptimize(double L) {
-  map<double, wire>::iterator iter = wire_map.find(L);
+  std::map<double, wire>::iterator iter = wire_map.find(L);
   if (iter == wire_map.end()) {
 
     double W = 64;
@@ -169,11 +170,11 @@ wire const &Power_Module::wireOptimize(double L) {
         }
       }
     }
-    cout << "L = " << L << " K = " << bestK << " M = " << bestM
-         << " N = " << bestN << endl;
+    std::cout << "L = " << L << " K = " << bestK << " M = " << bestM
+              << " N = " << bestN << std::endl;
 
     wire const temp = {L, bestK, bestM, bestN};
-    iter = wire_map.insert(make_pair(L, temp)).first;
+    iter = wire_map.insert(std::make_pair(L, temp)).first;
   }
   return iter->second;
 }
@@ -219,8 +220,8 @@ void Power_Module::calcBuffer(const BufferMonitor *bm) {
   double Pleak = powerMemoryBitLeak(depth) * channel_width;
   // area
 
-  const vector<int> reads = bm->GetReads();
-  const vector<int> writes = bm->GetWrites();
+  const std::vector<int> reads = bm->GetReads();
+  const std::vector<int> writes = bm->GetWrites();
   for (int i = 0; i < bm->NumInputs(); i++) {
     inputArea += areaInputModule(depth);
     inputLeakagePower += Pleak;
@@ -228,8 +229,9 @@ void Power_Module::calcBuffer(const BufferMonitor *bm) {
       double ar = ((double)reads[i * classes + j]) / totalTime;
       double aw = ((double)writes[i * classes + j]) / totalTime;
       if (ar > 1 || aw > 1) {
-        cout << "activity factor is greater than one, soemthing is stomping "
-                "memory\n";
+        std::cout
+            << "activity factor is greater than one, soemthing is stomping "
+               "memory\n";
         exit(-1);
       }
       double Pwl = powerWordLine(channel_width, depth);
@@ -299,8 +301,8 @@ void Power_Module::calcSwitch(const SwitchMonitor *sm) {
   switchPowerLeak +=
       powerCrossbarLeak(channel_width, sm->NumInputs(), sm->NumOutputs());
 
-  const vector<int> activity = sm->GetActivity();
-  vector<double> type_activity(classes);
+  const std::vector<int> activity = sm->GetActivity();
+  std::vector<double> type_activity(classes);
 
   for (int i = 0; i < sm->NumOutputs(); i++) {
     for (int k = 0; k < classes; k++) {
@@ -311,7 +313,7 @@ void Power_Module::calcSwitch(const SwitchMonitor *sm) {
         double a = activity[k + classes * (i + sm->NumOutputs() * j)];
         a = a / totalTime;
         if (a > 1) {
-          cout << "Switcht activity factor is greater than 1!!!\n";
+          std::cout << "Switcht activity factor is greater than 1!!!\n";
           exit(-1);
         }
         double Px = powerCrossbar(channel_width, sm->NumInputs(),
@@ -359,11 +361,11 @@ double Power_Module::powerCrossbar(double width, double inputs, double outputs,
     Cin -= (0.5 * CwIn + outputs / 2 * Cxi);
   }
   // this maybe missing +cti
-  double Cout = CwOut + Cto + (inputs * Cxo);
+  double cout = CwOut + Cto + (inputs * Cxo);
   if (from < inputs / 2) {
-    Cout -= (0.5 * CwOut + (inputs / 2 * Cxo));
+    cout -= (0.5 * CwOut + (inputs / 2 * Cxo));
   }
-  return 0.5 * (Cin + Cout) * (Vdd * Vdd * fCLK);
+  return 0.5 * (Cin + cout) * (Vdd * Vdd * fCLK);
 }
 
 double Power_Module::powerCrossbarCtrl(double width, double inputs,
@@ -467,9 +469,9 @@ void Power_Module::run() {
   maxInputPort = 0;
   maxOutputPort = 0;
 
-  vector<FlitChannel *> inject = net->GetInject();
-  vector<FlitChannel *> eject = net->GetEject();
-  vector<FlitChannel *> chan = net->GetChannels();
+  std::vector<FlitChannel *> inject = net->GetInject();
+  std::vector<FlitChannel *> eject = net->GetEject();
+  std::vector<FlitChannel *> chan = net->GetChannels();
 
   for (int i = 0; i < net->NumNodes(); i++) {
     calcChannel(inject[i]);
@@ -483,7 +485,7 @@ void Power_Module::run() {
     calcChannel(chan[i]);
   }
 
-  vector<Router *> routers = net->GetRouters();
+  std::vector<Router *> routers = net->GetRouters();
   for (size_t i = 0; i < routers.size(); i++) {
     IQRouter *temp = dynamic_cast<IQRouter *>(routers[i]);
     const BufferMonitor *bm = temp->GetBufferMonitor();
@@ -498,35 +500,35 @@ void Power_Module::run() {
                       switchPowerLeak + outputPower + outputPowerClk +
                       outputCtrlPower;
   double totalarea = channelArea + switchArea + inputArea + outputArea;
-  cout << "-----------------------------------------\n";
-  cout << "- OCN Power Summary\n";
-  cout << "- Completion Time:         " << totalTime << "\n";
-  cout << "- Flit Widths:            " << channel_width << "\n";
-  cout << "- Channel Wire Power:      " << channelWirePower << "\n";
-  cout << "- Channel Clock Power:     " << channelClkPower << "\n";
-  cout << "- Channel Retiming Power:  " << channelDFFPower << "\n";
-  cout << "- Channel Leakage Power:   " << channelLeakPower << "\n";
+  std::cout << "-----------------------------------------\n";
+  std::cout << "- OCN Power Summary\n";
+  std::cout << "- Completion Time:         " << totalTime << "\n";
+  std::cout << "- Flit Widths:            " << channel_width << "\n";
+  std::cout << "- Channel Wire Power:      " << channelWirePower << "\n";
+  std::cout << "- Channel Clock Power:     " << channelClkPower << "\n";
+  std::cout << "- Channel Retiming Power:  " << channelDFFPower << "\n";
+  std::cout << "- Channel Leakage Power:   " << channelLeakPower << "\n";
 
-  cout << "- Input Read Power:        " << inputReadPower << "\n";
-  cout << "- Input Write Power:       " << inputWritePower << "\n";
-  cout << "- Input Leakage Power:     " << inputLeakagePower << "\n";
+  std::cout << "- Input Read Power:        " << inputReadPower << "\n";
+  std::cout << "- Input Write Power:       " << inputWritePower << "\n";
+  std::cout << "- Input Leakage Power:     " << inputLeakagePower << "\n";
 
-  cout << "- Switch Power:            " << switchPower << "\n";
-  cout << "- Switch Control Power:    " << switchPowerCtrl << "\n";
-  cout << "- Switch Leakage Power:    " << switchPowerLeak << "\n";
+  std::cout << "- Switch Power:            " << switchPower << "\n";
+  std::cout << "- Switch Control Power:    " << switchPowerCtrl << "\n";
+  std::cout << "- Switch Leakage Power:    " << switchPowerLeak << "\n";
 
-  cout << "- Output DFF Power:        " << outputPower << "\n";
-  cout << "- Output Clk Power:        " << outputPowerClk << "\n";
-  cout << "- Output Control Power:    " << outputCtrlPower << "\n";
-  cout << "- Total Power:             " << totalpower << "\n";
-  cout << "-----------------------------------------\n";
-  cout << "\n";
-  cout << "-----------------------------------------\n";
-  cout << "- OCN Area Summary\n";
-  cout << "- Channel Area:  " << channelArea << "\n";
-  cout << "- Switch  Area:  " << switchArea << "\n";
-  cout << "- Input  Area:   " << inputArea << "\n";
-  cout << "- Output  Area:  " << outputArea << "\n";
-  cout << "- Total Area:    " << totalarea << endl;
-  cout << "-----------------------------------------\n";
+  std::cout << "- Output DFF Power:        " << outputPower << "\n";
+  std::cout << "- Output Clk Power:        " << outputPowerClk << "\n";
+  std::cout << "- Output Control Power:    " << outputCtrlPower << "\n";
+  std::cout << "- Total Power:             " << totalpower << "\n";
+  std::cout << "-----------------------------------------\n";
+  std::cout << "\n";
+  std::cout << "-----------------------------------------\n";
+  std::cout << "- OCN Area Summary\n";
+  std::cout << "- Channel Area:  " << channelArea << "\n";
+  std::cout << "- Switch  Area:  " << switchArea << "\n";
+  std::cout << "- Input  Area:   " << inputArea << "\n";
+  std::cout << "- Output  Area:  " << outputArea << "\n";
+  std::cout << "- Total Area:    " << totalarea << std::endl;
+  std::cout << "-----------------------------------------\n";
 }

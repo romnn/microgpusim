@@ -7,7 +7,7 @@
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
 
- Redistributions of source code must retain the above copyright notice, this 
+ Redistributions of source code must retain the above copyright notice, this
  list of conditions and the following disclaimer.
  Redistributions in binary form must reproduce the above copyright notice, this
  list of conditions and the following disclaimer in the documentation and/or
@@ -15,7 +15,7 @@
 
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
@@ -31,19 +31,18 @@
 #include <string>
 #include <vector>
 
-#include "../timed_module.hpp"
-#include "../flit.hpp"
-#include "../credit.hpp"
-#include "../flitchannel.hpp"
 #include "../channel.hpp"
 #include "../config_utils.hpp"
+#include "../credit.hpp"
+#include "../flit.hpp"
+#include "../flitchannel.hpp"
+#include "../timed_module.hpp"
 
 typedef Channel<Credit> CreditChannel;
 
 class Router : public TimedModule {
 
 protected:
-
   static int const STALL_BUFFER_BUSY;
   static int const STALL_BUFFER_CONFLICT;
   static int const STALL_BUFFER_FULL;
@@ -51,33 +50,33 @@ protected:
   static int const STALL_CROSSBAR_CONFLICT;
 
   int _id;
-  
+
   int _inputs;
   int _outputs;
-  
+
   int _classes;
 
   int _input_speedup;
   int _output_speedup;
-  
+
   double _internal_speedup;
   double _partial_internal_cycles;
 
   int _crossbar_delay;
   int _credit_delay;
-  
-  vector<FlitChannel *>   _input_channels;
-  vector<CreditChannel *> _input_credits;
-  vector<FlitChannel *>   _output_channels;
-  vector<CreditChannel *> _output_credits;
-  vector<bool>            _channel_faults;
+
+  std::vector<FlitChannel *> _input_channels;
+  std::vector<CreditChannel *> _input_credits;
+  std::vector<FlitChannel *> _output_channels;
+  std::vector<CreditChannel *> _output_credits;
+  std::vector<bool> _channel_faults;
 
 #ifdef TRACK_FLOWS
-  vector<vector<int> > _received_flits;
-  vector<vector<int> > _stored_flits;
-  vector<vector<int> > _sent_flits;
-  vector<vector<int> > _outstanding_credits;
-  vector<vector<int> > _active_packets;
+  vector<vector<int>> _received_flits;
+  vector<vector<int>> _stored_flits;
+  vector<vector<int>> _sent_flits;
+  vector<vector<int>> _outstanding_credits;
+  vector<vector<int>> _active_packets;
 #endif
 
 #ifdef TRACK_STALLS
@@ -91,35 +90,35 @@ protected:
   virtual void _InternalStep() = 0;
 
 public:
-  Router( const Configuration& config,
-	  Module *parent, const string & name, int id,
-	  int inputs, int outputs );
+  Router(const Configuration &config, Module *parent, const std::string &name,
+         int id, int inputs, int outputs);
 
-  static Router *NewRouter( const Configuration& config,
-			    Module *parent, const string & name, int id,
-			    int inputs, int outputs );
+  static Router *NewRouter(const Configuration &config, Module *parent,
+                           const std::string &name, int id, int inputs,
+                           int outputs);
 
-  virtual void AddInputChannel( FlitChannel *channel, CreditChannel *backchannel );
-  virtual void AddOutputChannel( FlitChannel *channel, CreditChannel *backchannel );
- 
-  inline FlitChannel * GetInputChannel( int input ) const {
+  virtual void AddInputChannel(FlitChannel *channel,
+                               CreditChannel *backchannel);
+  virtual void AddOutputChannel(FlitChannel *channel,
+                                CreditChannel *backchannel);
+
+  inline FlitChannel *GetInputChannel(int input) const {
     assert((input >= 0) && (input < _inputs));
     return _input_channels[input];
   }
-  inline FlitChannel * GetOutputChannel( int output ) const {
+  inline FlitChannel *GetOutputChannel(int output) const {
     assert((output >= 0) && (output < _outputs));
     return _output_channels[output];
   }
 
-  virtual void ReadInputs( ) = 0;
-  virtual void Evaluate( );
-  virtual void WriteOutputs( ) = 0;
+  virtual void ReadInputs() = 0;
+  virtual void Evaluate();
+  virtual void WriteOutputs() = 0;
 
-  void OutChannelFault( int c, bool fault = true );
-  bool IsFaultyOutput( int c ) const;
+  void OutChannelFault(int c, bool fault = true);
+  bool IsFaultyOutput(int c) const;
 
-  inline int GetID( ) const {return _id;}
-
+  inline int GetID() const { return _id; }
 
   virtual int GetUsedCredit(int o) const = 0;
   virtual int GetBufferOccupancy(int i) const = 0;
@@ -130,24 +129,24 @@ public:
 #endif
 
 #ifdef TRACK_FLOWS
-  inline vector<int> const & GetReceivedFlits(int c) const {
+  inline vector<int> const &GetReceivedFlits(int c) const {
     assert((c >= 0) && (c < _classes));
     return _received_flits[c];
   }
-  inline vector<int> const & GetStoredFlits(int c) const {
+  inline vector<int> const &GetStoredFlits(int c) const {
     assert((c >= 0) && (c < _classes));
     return _stored_flits[c];
   }
-  inline vector<int> const & GetSentFlits(int c) const {
+  inline vector<int> const &GetSentFlits(int c) const {
     assert((c >= 0) && (c < _classes));
     return _sent_flits[c];
   }
-  inline vector<int> const & GetOutstandingCredits(int c) const {
+  inline vector<int> const &GetOutstandingCredits(int c) const {
     assert((c >= 0) && (c < _classes));
     return _outstanding_credits[c];
   }
 
-  inline vector<int> const & GetActivePackets(int c) const {
+  inline vector<int> const &GetActivePackets(int c) const {
     assert((c >= 0) && (c < _classes));
     return _active_packets[c];
   }
@@ -159,9 +158,9 @@ public:
   }
 #endif
 
-  virtual vector<int> UsedCredits() const = 0;
-  virtual vector<int> FreeCredits() const = 0;
-  virtual vector<int> MaxCredits() const = 0;
+  virtual std::vector<int> UsedCredits() const = 0;
+  virtual std::vector<int> FreeCredits() const = 0;
+  virtual std::vector<int> MaxCredits() const = 0;
 
 #ifdef TRACK_STALLS
   inline int GetBufferBusyStalls(int c) const {
@@ -195,8 +194,8 @@ public:
   }
 #endif
 
-  inline int NumInputs() const {return _inputs;}
-  inline int NumOutputs() const {return _outputs;}
+  inline int NumInputs() const { return _inputs; }
+  inline int NumOutputs() const { return _outputs; }
 };
 
 #endif

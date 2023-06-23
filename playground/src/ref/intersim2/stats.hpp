@@ -7,7 +7,7 @@
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
 
- Redistributions of source code must retain the above copyright notice, this 
+ Redistributions of source code must retain the above copyright notice, this
  list of conditions and the following disclaimer.
  Redistributions in binary form must reproduce the above copyright notice, this
  list of conditions and the following disclaimer in the documentation and/or
@@ -15,7 +15,7 @@
 
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
@@ -31,49 +31,44 @@
 #include "module.hpp"
 
 class Stats : public Module {
-  int    _num_samples;
+  int _num_samples;
   double _sample_sum;
   double _sample_squared_sum;
 
-  //bool _reset;
+  // bool _reset;
   double _min;
   double _max;
 
-  int    _num_bins;
+  int _num_bins;
   double _bin_size;
 
-  vector<int> _hist;
+  std::vector<int> _hist;
 
 public:
-  Stats( Module *parent, const string &name,
-	 double bin_size = 1.0, int num_bins = 10 );
+  Stats(Module *parent, const std::string &name, double bin_size = 1.0,
+        int num_bins = 10);
 
-  void Clear( );
+  void Clear();
 
-  double Average( ) const;
-  double Variance( ) const;
-  double Max( ) const;
-  double Min( ) const;
-  double Sum( ) const;
-  double SquaredSum( ) const;
-  int    NumSamples( ) const;
+  double Average() const;
+  double Variance() const;
+  double Max() const;
+  double Min() const;
+  double Sum() const;
+  double SquaredSum() const;
+  int NumSamples() const;
 
-  void AddSample( double val );
-  inline void AddSample( int val ) {
-    AddSample( (double)val );
-  }
-  inline void AddSample( unsigned long long val ) {
-    AddSample( (double)val );
-  }
+  void AddSample(double val);
+  inline void AddSample(int val) { AddSample((double)val); }
+  inline void AddSample(unsigned long long val) { AddSample((double)val); }
 
-  int GetBin(int b){ return _hist[b];}
+  int GetBin(int b) { return _hist[b]; }
 
-  void Display( ostream & os = cout ) const;
+  void Display(std::ostream &os = std::cout) const;
 
-  friend ostream & operator<<(ostream & os, const Stats & s);
-
+  friend std::ostream &operator<<(std::ostream &os, const Stats &s);
 };
 
-ostream & operator<<(ostream & os, const Stats & s);
+std::ostream &operator<<(std::ostream &os, const Stats &s);
 
 #endif

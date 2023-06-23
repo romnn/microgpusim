@@ -7,7 +7,7 @@
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
 
- Redistributions of source code must retain the above copyright notice, this 
+ Redistributions of source code must retain the above copyright notice, this
  list of conditions and the following disclaimer.
  Redistributions in binary form must reproduce the above copyright notice, this
  list of conditions and the following disclaimer in the documentation and/or
@@ -15,7 +15,7 @@
 
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
@@ -38,35 +38,29 @@
 #include "booksim.hpp"
 #include "outputset.hpp"
 
-void OutputSet::Clear( )
-{
-  _outputs.clear( );
+void OutputSet::Clear() { _outputs.clear(); }
+
+void OutputSet::Add(int output_port, int vc, int pri) {
+  AddRange(output_port, vc, vc, pri);
 }
 
-void OutputSet::Add( int output_port, int vc, int pri  )
-{
-  AddRange( output_port, vc, vc, pri );
-}
-
-void OutputSet::AddRange( int output_port, int vc_start, int vc_end, int pri )
-{
+void OutputSet::AddRange(int output_port, int vc_start, int vc_end, int pri) {
 
   sSetElement s;
 
   s.vc_start = vc_start;
-  s.vc_end   = vc_end;
-  s.pri      = pri;
+  s.vc_end = vc_end;
+  s.pri = pri;
   s.output_port = output_port;
-  _outputs.insert( s );
+  _outputs.insert(s);
 }
 
-//legacy support, for performance, just use GetSet()
-int OutputSet::NumVCs( int output_port ) const
-{
+// legacy support, for performance, just use GetSet()
+int OutputSet::NumVCs(int output_port) const {
   int total = 0;
-  set<sSetElement>::const_iterator i = _outputs.begin( );
-  while(i!=_outputs.end( )){
-    if(i->output_port == output_port){
+  std::set<sSetElement>::const_iterator i = _outputs.begin();
+  while (i != _outputs.end()) {
+    if (i->output_port == output_port) {
       total += (i->vc_end - i->vc_start + 1);
     }
     i++;
@@ -74,11 +68,10 @@ int OutputSet::NumVCs( int output_port ) const
   return total;
 }
 
-bool OutputSet::OutputEmpty( int output_port ) const
-{
-  set<sSetElement>::const_iterator i = _outputs.begin( );
-  while(i!=_outputs.end( )){
-    if(i->output_port == output_port){
+bool OutputSet::OutputEmpty(int output_port) const {
+  std::set<sSetElement>::const_iterator i = _outputs.begin();
+  while (i != _outputs.end()) {
+    if (i->output_port == output_port) {
       return false;
     }
     i++;
@@ -86,33 +79,33 @@ bool OutputSet::OutputEmpty( int output_port ) const
   return true;
 }
 
-
-const set<OutputSet::sSetElement> & OutputSet::GetSet() const{
+const std::set<OutputSet::sSetElement> &OutputSet::GetSet() const {
   return _outputs;
 }
 
-//legacy support, for performance, just use GetSet()
-int OutputSet::GetVC( int output_port, int vc_index, int *pri ) const
-{
+// legacy support, for performance, just use GetSet()
+int OutputSet::GetVC(int output_port, int vc_index, int *pri) const {
 
   int range;
   int remaining = vc_index;
   int vc = -1;
-  
-  if ( pri ) { *pri = -1; }
 
-  set<sSetElement>::const_iterator i = _outputs.begin( );
-  while(i!=_outputs.end( )){
-    if(i->output_port == output_port){
+  if (pri) {
+    *pri = -1;
+  }
+
+  std::set<sSetElement>::const_iterator i = _outputs.begin();
+  while (i != _outputs.end()) {
+    if (i->output_port == output_port) {
       range = i->vc_end - i->vc_start + 1;
-      if ( remaining >= range ) {
-	remaining -= range;
+      if (remaining >= range) {
+        remaining -= range;
       } else {
-	vc = i->vc_start + remaining;
-	if ( pri ) {
-	  *pri = i->pri;
-	}
-	break;
+        vc = i->vc_start + remaining;
+        if (pri) {
+          *pri = i->pri;
+        }
+        break;
       }
     }
     i++;
@@ -120,22 +113,20 @@ int OutputSet::GetVC( int output_port, int vc_index, int *pri ) const
   return vc;
 }
 
-//legacy support, for performance, just use GetSet()
-bool OutputSet::GetPortVC( int *out_port, int *out_vc ) const
-{
+// legacy support, for performance, just use GetSet()
+bool OutputSet::GetPortVC(int *out_port, int *out_vc) const {
 
-  
   bool single_output = false;
-  int  used_outputs  = 0;
+  int used_outputs = 0;
 
-  set<sSetElement>::const_iterator i = _outputs.begin( );
-  if(i!=_outputs.end( )){
+  std::set<sSetElement>::const_iterator i = _outputs.begin();
+  if (i != _outputs.end()) {
     used_outputs = i->output_port;
   }
-  while(i!=_outputs.end( )){
+  while (i != _outputs.end()) {
 
-    if ( i->vc_start == i->vc_end ) {
-      *out_vc   = i->vc_start;
+    if (i->vc_start == i->vc_end) {
+      *out_vc = i->vc_start;
       *out_port = i->output_port;
       single_output = true;
     } else {
@@ -147,7 +138,7 @@ bool OutputSet::GetPortVC( int *out_port, int *out_vc ) const
       single_output = false;
       break;
     }
-       i++;
+    i++;
   }
   return single_output;
 }

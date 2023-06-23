@@ -41,49 +41,55 @@ extern "C" int yyparse();
 class Configuration {
   static Configuration *theConfig;
   FILE *_config_file;
-  string _config_string;
+  std::string _config_string;
 
 protected:
-  map<string, string> _str_map;
-  map<string, int> _int_map;
-  map<string, double> _float_map;
+  std::map<std::string, std::string> _str_map;
+  std::map<std::string, int> _int_map;
+  std::map<std::string, double> _float_map;
 
 public:
   Configuration();
 
-  void AddStrField(string const &field, string const &value);
+  void AddStrField(std::string const &field, std::string const &value);
 
-  void Assign(string const &field, string const &value);
-  void Assign(string const &field, int value);
-  void Assign(string const &field, double value);
+  void Assign(std::string const &field, std::string const &value);
+  void Assign(std::string const &field, int value);
+  void Assign(std::string const &field, double value);
 
-  string GetStr(string const &field) const;
-  int GetInt(string const &field) const;
-  double GetFloat(string const &field) const;
+  const std::string &GetStr(std::string const &field) const;
+  int GetInt(std::string const &field) const;
+  double GetFloat(std::string const &field) const;
 
-  vector<string> GetStrArray(const string &field) const;
-  vector<int> GetIntArray(const string &field) const;
-  vector<double> GetFloatArray(const string &field) const;
+  std::vector<std::string> GetStrArray(const std::string &field) const;
+  std::vector<int> GetIntArray(const std::string &field) const;
+  std::vector<double> GetFloatArray(const std::string &field) const;
 
-  void ParseFile(string const &filename);
-  void ParseString(string const &str);
+  void ParseFile(std::string const &filename);
+  void ParseString(std::string const &str);
   int Input(char *line, int max_size);
-  void ParseError(string const &msg, unsigned int lineno = 0) const;
+  void ParseError(std::string const &msg, unsigned int lineno = 0) const;
 
-  void WriteFile(string const &filename);
-  void WriteMatlabFile(ostream *o) const;
+  void WriteFile(std::string const &filename);
+  void WriteMatlabFile(std::ostream *o) const;
 
-  inline const map<string, string> &GetStrMap() const { return _str_map; }
-  inline const map<string, int> &GetIntMap() const { return _int_map; }
-  inline const map<string, double> &GetFloatMap() const { return _float_map; }
+  inline const std::map<std::string, std::string> &GetStrMap() const {
+    return _str_map;
+  }
+  inline const std::map<std::string, int> &GetIntMap() const {
+    return _int_map;
+  }
+  inline const std::map<std::string, double> &GetFloatMap() const {
+    return _float_map;
+  }
 
   static Configuration *GetTheConfig();
 };
 
 bool ParseArgs(Configuration *cf, int argc, char **argv);
 
-vector<string> tokenize_str(string const &data);
-vector<int> tokenize_int(string const &data);
-vector<double> tokenize_float(string const &data);
+std::vector<std::string> tokenize_str(std::string const &data);
+std::vector<int> tokenize_int(std::string const &data);
+std::vector<double> tokenize_float(std::string const &data);
 
 #endif

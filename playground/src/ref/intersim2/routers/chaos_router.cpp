@@ -36,7 +36,8 @@
 #include "chaos_router.hpp"
 
 ChaosRouter::ChaosRouter(const Configuration &config, Module *parent,
-                         const string &name, int id, int inputs, int outputs)
+                         const std::string &name, int id, int inputs,
+                         int outputs)
     : Router(config, parent, name, id, inputs, outputs) {
   int i;
 
@@ -54,9 +55,9 @@ ChaosRouter::ChaosRouter(const Configuration &config, Module *parent,
 
   // Routing
 
-  string rf =
+  std::string rf =
       config.GetStr("routing_function") + "_" + config.GetStr("topology");
-  map<string, tRoutingFunction>::iterator rf_iter =
+  std::map<std::string, tRoutingFunction>::iterator rf_iter =
       gRoutingFunctionMap.find(rf);
   if (rf_iter == gRoutingFunctionMap.end()) {
     Error("Invalid routing function: " + rf);
@@ -134,7 +135,7 @@ void ChaosRouter::ReadInputs() {
       if (f->watch) {
         *gWatchOut << GetSimTime() << " | " << FullName() << " | "
                    << "Flit arriving at " << FullName() << " on channel "
-                   << input << endl
+                   << input << std::endl
                    << *f;
       }
 
@@ -148,7 +149,7 @@ void ChaosRouter::ReadInputs() {
           }
           _rf(this, f, input, _input_route[input], false);
         } else {
-          cout << *f;
+          std::cout << *f;
           Error("Empty buffer received non-head flit!");
         }
         break;
@@ -173,7 +174,7 @@ void ChaosRouter::ReadInputs() {
             Error("Received single-flit packet in leaving state!");
           }
         } else {
-          cout << *f;
+          std::cout << *f;
           Error("Received non-head flit while packet leaving!");
         }
         break;
@@ -183,7 +184,7 @@ void ChaosRouter::ReadInputs() {
           _input_state[input] = leaving;
         }
         if (f->head) {
-          cout << *f;
+          std::cout << *f;
           Error("Received head flit in cut through buffer!");
         }
         break;
@@ -192,8 +193,8 @@ void ChaosRouter::ReadInputs() {
         if (f->head) {
           Error("Shared buffer received another head!");
         } else if (f->tail) {
-          cout << "Input " << input << endl;
-          cout << *f;
+          std::cout << "Input " << input << std::endl;
+          std::cout << *f;
           Error("Shared buffer received another tail!");
         }
         break;
@@ -320,13 +321,13 @@ int ChaosRouter::_MultiQueueForOutput(int output) const {
       m = (i + r) % _multi_queue_size;
       if ((_multi_state[m] == filling) || (_multi_state[m] == full)) {
         mq_oldest = m;
-        // cout << "DEROUTING at " << FullName() << endl;
+        // std::cout << "DEROUTING at " << FullName() << std::endl;
         break;
       }
     }
 
     if (mq_oldest == -1) {
-      cout << "write stall" << endl;
+      std::cout << "write stall" << std::endl;
     }
   }
 
@@ -390,11 +391,14 @@ void ChaosRouter::_NextInterestingChannel() {
   }
 
   if (interesting) {
-    // cout << _cur_channel << " is interesting at " << FullName() << endl;
+    // std::cout << _cur_channel << " is interesting at " << FullName() <<
+    // std::endl;
 
     if (mq_index != -1) {
-      // cout << "Match for multi-queue " << mq_index << " at " << FullName()
-      //     << ", output matched = " << _output_matched[_cur_channel] << endl;
+      // std::cout << "Match for multi-queue " << mq_index << " at " <<
+      // FullName()
+      //     << ", output matched = " << _output_matched[_cur_channel] <<
+      //     std::endl;
 
       _output_matched[_cur_channel] = true;
       _multi_match[mq_index] = _cur_channel;
@@ -402,7 +406,8 @@ void ChaosRouter::_NextInterestingChannel() {
       _output_matched[_cur_channel] = true;
       _input_output_match[in_index] = _cur_channel;
 
-      // cout << "Match for input " << in_index << " at " << FullName() << endl;
+      // std::cout << "Match for input " << in_index << " at " << FullName() <<
+      // std::endl;
 
       if (_input_state[in_index] == full) {
         _input_state[in_index] = leaving;
@@ -436,8 +441,8 @@ void ChaosRouter::_NextInterestingChannel() {
       } else if (_input_state[_cur_channel] == filling) {
         _input_state[_cur_channel] = cut_through;
       } else {
-        cout << "Input " << _cur_channel
-             << " state = " << _input_state[_cur_channel] << endl;
+        std::cout << "Input " << _cur_channel
+                  << " state = " << _input_state[_cur_channel] << std::endl;
         Error("Tried to route input throught multi-queue that was not full or "
               "filling!");
       }
@@ -450,8 +455,8 @@ void ChaosRouter::_NextInterestingChannel() {
       _read_stall = 0;
     } else {
       ++_read_stall;
-      // cout << "stalling at input " << _cur_channel << " (count = " <<
-      // _read_stall << ")" << endl;
+      // std::cout << "stalling at input " << _cur_channel << " (count = " <<
+      // _read_stall << ")" << std::endl;
     }
   }
 }
@@ -474,9 +479,9 @@ void ChaosRouter::_OutputAdvance() {
       /*if ( ! ) {
 
       } else {
-        cout << "Input = " << i
+        std::cout << "Input = " << i
              << ", input_output_match = " << _input_output_match[i]
-             << ", input_mq_match = " << _input_mq_match[i] << endl;
+             << ", input_mq_match = " << _input_mq_match[i] << std::endl;
         Error( "Input queue empty, but matched!" );
         }*/
 
@@ -490,7 +495,7 @@ void ChaosRouter::_OutputAdvance() {
         if (f->watch) {
           *gWatchOut << GetSimTime() << " | " << FullName() << " | "
                      << "Flit traversing crossbar from input queue " << i
-                     << " at " << FullName() << endl
+                     << " at " << FullName() << std::endl
                      << *f;
         }
 
@@ -530,8 +535,9 @@ void ChaosRouter::_OutputAdvance() {
 
         if (f->watch) {
           *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                     << "Flit stored in multiqueue at " << FullName() << endl
-                     << "State = " << _multi_state[mq] << endl
+                     << "Flit stored in multiqueue at " << FullName()
+                     << std::endl
+                     << "State = " << _multi_state[mq] << std::endl
                      << *f;
         }
 
@@ -565,7 +571,7 @@ void ChaosRouter::_OutputAdvance() {
   for (int m = 0; m < _multi_queue_size; ++m) {
     if (_multi_match[m] != -1) {
       if (_multi_queue[m].empty()) {
-        cout << "State = " << _multi_state[m] << endl;
+        std::cout << "State = " << _multi_state[m] << std::endl;
         Error("Multi queue empty, but matched!");
       }
       assert(!_multi_queue[m].empty());
@@ -577,7 +583,7 @@ void ChaosRouter::_OutputAdvance() {
       if (f->watch) {
         *gWatchOut << GetSimTime() << " | " << FullName() << " | "
                    << "Flit traversing crossbar from multiqueue slot " << m
-                   << " at " << FullName() << endl
+                   << " at " << FullName() << std::endl
                    << *f;
       }
 
@@ -600,8 +606,8 @@ void ChaosRouter::_OutputAdvance() {
         } else if (_multi_state[m] == leaving) {
           _multi_state[m] = empty;
         } else {
-          cout << "State = " << _multi_state[m] << endl;
-          cout << *f;
+          std::cout << "State = " << _multi_state[m] << std::endl;
+          std::cout << *f;
           Error("Multi-queue sent tail while not leaving or shared!");
         }
       }
@@ -639,4 +645,4 @@ void ChaosRouter::_SendCredits() {
   }
 }
 
-void ChaosRouter::Display(ostream &os) const {}
+void ChaosRouter::Display(std::ostream &os) const {}
