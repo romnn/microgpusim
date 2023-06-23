@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <cstdio>
+#include <sstream>
 
 template <class T> struct fifo_data {
   T *m_data;
@@ -129,6 +130,19 @@ public:
   unsigned get_n_element() const { return m_n_element; }
   unsigned get_length() const { return m_length; }
   unsigned get_max_len() const { return m_max_len; }
+
+  std::string to_string() const {
+    std::stringstream buffer;
+    fifo_data<T> *ddp = m_head;
+    buffer << m_name << "{" << m_length << "}";
+    buffer << "[";
+    while (ddp) {
+      buffer << ddp->m_data << ",";
+      ddp = ddp->m_next;
+    }
+    buffer << "]";
+    return buffer.str();
+  }
 
   void print() const {
     fifo_data<T> *ddp = m_head;

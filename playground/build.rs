@@ -103,7 +103,9 @@ fn generate_bridge(bridges: &[PathBuf], sources: &[PathBuf]) -> eyre::Result<()>
     build.define("BOX", "YES");
 
     enable_diagnostics_color(&mut build);
-    build.try_compile("playgroundbridge").wrap_err_with(|| "failed to build cxx bridge")?;
+    build
+        .try_compile("playgroundbridge")
+        .wrap_err_with(|| "failed to build cxx bridge")?;
     Ok(())
 }
 
@@ -123,15 +125,9 @@ fn main() -> eyre::Result<()> {
     println!("cargo:rerun-if-changed=src/bridge.hpp");
     println!("cargo:rerun-if-changed=src/ref/");
 
-    let bridges = [
-        "src/bridge/addrdec.rs",
-        "src/bridge/cache_config.rs",
-        "src/bridge/trace_shd_warp.rs",
-        "src/bridge/scheduler_unit.rs",
-        "src/bridge/readonly_cache.rs",
-        "src/bridge/main.rs",
-    ]
-    .map(PathBuf::from);
+    let mut bridges = multi_glob(["./src/bridge/**/*.rs"]).collect::<Result<Vec<_>, _>>()?;
+    let exclude = ["src/bridge/mod.rs"].map(PathBuf::from);
+    bridges.retain(|src| !exclude.contains(src));
 
     let patterns = [
         "./src/tests/**/*.cc",

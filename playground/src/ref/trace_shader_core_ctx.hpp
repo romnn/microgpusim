@@ -7,6 +7,7 @@
 #include "register_set.hpp"
 #include "shader_core_config.hpp"
 #include "shader_core_stats.hpp"
+#include "trace_gpgpu_sim.hpp"
 #include "trace_shd_warp.hpp"
 
 class Scoreboard;
@@ -153,6 +154,10 @@ public:
     //        k->inc_running();
     printf("GPGPU-Sim uArch: Shader %d bind to kernel %u \'%s\'\n", m_sid,
            m_kernel->get_uid(), m_kernel->name().c_str());
+  }
+
+  unsigned current_cycle() {
+    return get_gpu()->gpu_sim_cycle + get_gpu()->gpu_tot_sim_cycle;
   }
 
   void get_L1I_sub_stats(struct cache_sub_stats &css) const;

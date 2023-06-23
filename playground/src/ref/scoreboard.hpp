@@ -1,6 +1,7 @@
 #pragma once
 
 #include <set>
+#include <string>
 #include <vector>
 
 class inst_t;
@@ -16,6 +17,7 @@ public:
 
   bool checkCollision(unsigned wid, const inst_t *inst) const;
   bool pendingWrites(unsigned wid) const;
+  std::string pendingWritesStr(unsigned wid) const;
   void printContents() const;
   const bool islongop(unsigned warp_id, unsigned regnum);
 

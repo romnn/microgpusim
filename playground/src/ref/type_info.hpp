@@ -1,6 +1,5 @@
 #pragma once
 
-// #include "symbol_table.hpp"
 #include "type_info_key.hpp"
 
 class symbol_table;

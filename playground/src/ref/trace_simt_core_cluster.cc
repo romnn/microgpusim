@@ -25,7 +25,8 @@ unsigned trace_simt_core_cluster::get_not_completed() const {
 }
 
 void trace_simt_core_cluster::icnt_cycle() {
-  // printf("icnt_cycle");
+  printf("icnt_cycle response buffer size=%lu\n", m_response_fifo.size());
+
   if (!m_response_fifo.empty()) {
     mem_fetch *mf = m_response_fifo.front();
     unsigned cid = m_config->sid_to_cid(mf->get_sid());
@@ -34,15 +35,30 @@ void trace_simt_core_cluster::icnt_cycle() {
       if (!m_core[cid]->fetch_unit_response_buffer_full()) {
         m_response_fifo.pop_front();
         m_core[cid]->accept_fetch_response(mf);
+        printf("accepted instr access fetch ");
+        mf->print(stdout);
+        printf("\n");
+
+      } else {
+        printf("instr access fetch ");
+        mf->print(stdout);
+        printf(" NOT YET ACCEPTED\n");
       }
+
     } else {
       // data response
-      // throw std::runtime_error("got data response");
-
       if (!m_core[cid]->ldst_unit_response_buffer_full()) {
         m_response_fifo.pop_front();
         m_memory_stats->memlatstat_read_done(mf);
         m_core[cid]->accept_ldst_unit_response(mf);
+        printf("accepted ldst unit fetch ");
+        mf->print(stdout);
+        printf("\n");
+
+      } else {
+        printf("ldst unit fetch ");
+        mf->print(stdout);
+        printf(" NOT YET ACCEPTED\n");
       }
     }
   }
@@ -51,9 +67,10 @@ void trace_simt_core_cluster::icnt_cycle() {
     if (!mf)
       return;
 
-    printf(" \e[0;36m cluster::icnt_cycle() got new fetch for addr %lu (%s, "
-           "%d) \e[0m \n",
-           mf->get_addr(), mf->get_access_type_str(), mf->get_type());
+    printf(" \e[0;36m cluster::icnt_cycle() got fetch from interconn: ");
+    mf->print(stdout);
+    printf(" \e[0m \n");
+
     assert(mf->get_tpc() == m_cluster_id);
     assert(mf->get_type() == READ_REPLY || mf->get_type() == WRITE_ACK);
     // throw std::runtime_error("got the first fetch back");
@@ -69,6 +86,9 @@ void trace_simt_core_cluster::icnt_cycle() {
     // m_memory_stats->memlatstat_read_done(mf,m_shader_config->max_warps_per_shader);
     m_response_fifo.push_back(mf);
     m_stats->n_mem_to_simt[m_cluster_id] += mf->get_num_flits(false);
+  } else {
+    printf("skip: ejection buffer full (%lu/%u)", m_response_fifo.size(),
+           m_config->n_simt_ejection_buffer_size);
   }
 }
 

@@ -12,15 +12,15 @@ bool BoxInterconnect::HasBuffer(unsigned deviceID, unsigned int size) const {
   bool has_buffer =
       simple_input_queue[subnet][icntID][0].size() <= _input_buffer_capacity;
 
-  printf("InterconnectInterface::HasBuffer(dev=%u, size=%u): "
-         "_input_buffer_capacity = %u\n",
-         deviceID, size, _input_buffer_capacity);
+  // printf("InterconnectInterface::HasBuffer(dev=%u, size=%u): "
+  //        "_input_buffer_capacity = %u\n",
+  //        deviceID, size, _input_buffer_capacity);
 
   return has_buffer;
 }
 
 void BoxInterconnect::Advance() {
-  printf("ROMAN INTERCONN ADVANCE\n");
+  // printf("ROMAN INTERCONN ADVANCE\n");
   // do nothing
 }
 
@@ -33,14 +33,15 @@ void *BoxInterconnect::Pop(unsigned deviceID) {
   // unsigned subnet = is_memory_node ? 1 : 0;
 
   // request is subnet 0 and reply is subnet 1
-  int subnet = (deviceID < _n_shader) ? 1 : 0;
-
-  printf("INTERCONN POP FROM %d (device=%u, id=%u, subnet=%d)\n",
-         deviceID, icntID, deviceID, subnet);
+  // int subnet = (deviceID < _n_shader) ? 1 : 0;
+  int subnet = (deviceID >= _n_shader) ? 1 : 0;
 
   void *data = NULL;
 
   int turn = _round_robin_turn[subnet][icntID];
+
+  printf("INTERCONN POP FROM %d (device=%u, id=%u, subnet=%d, turn=%d)\n",
+         deviceID, icntID, deviceID, subnet, turn);
 
   for (int vc = 0; (vc < _vcs) && (data == NULL); vc++) {
     // printf("ROMAN INTERCONN POP from (%d, %d, %d) vc=%d turn=%d size=%lu\n",
@@ -72,20 +73,21 @@ void BoxInterconnect::Push(unsigned input_deviceID, unsigned output_deviceID,
   assert(HasBuffer(input_deviceID, size));
 
   // request is subnet 0 and reply is subnet 1
-  bool is_memory_node = ((_subnets > 1) && (input_deviceID >= _n_shader));
+  // bool is_memory_node = ((_subnets > 1) && (input_deviceID >= _n_shader));
+  bool is_memory_node = ((_subnets > 1) && (output_deviceID >= _n_shader));
   unsigned subnet = is_memory_node ? 1 : 0;
-  // subnet = 1 - subnet;
 
   int input_icntID = _node_map[input_deviceID];
   int output_icntID = _node_map[output_deviceID];
-  printf("ROMAN INTERCONN PUSH from device %d (device %u) to %d (device %u) "
+  printf("INTERCONN PUSH from device %d (device %u) to %d (device %u) "
          "(subnet=%d)\n",
          input_icntID, input_deviceID, output_icntID, output_deviceID, subnet);
 
   // simple_input_queue[subnet][input_icntID][0].push_back(data);
   simple_output_queue[subnet][output_icntID][0].push_back(data);
-  printf("output queue size of (%d, %d, 0) is now %lu\n", subnet, output_icntID,
-         simple_output_queue[subnet][output_icntID][0].size());
+  // printf("output queue size of (%d, %d, 0) is now %lu\n", subnet,
+  // output_icntID,
+  //        simple_output_queue[subnet][output_icntID][0].size());
 }
 
 void BoxInterconnect::Init() {
@@ -102,4 +104,12 @@ void BoxInterconnect::Init() {
       simple_output_queue[subnet][node].resize(classes);
     }
   }
+}
+
+std::unique_ptr<BoxInterconnect>
+new_box_interconnect(const char *config_filename) {
+  std::unique_ptr<BoxInterconnect> box_interconnect =
+      std::make_unique<BoxInterconnect>();
+  box_interconnect->ParseConfigFile(config_filename);
+  return box_interconnect;
 }

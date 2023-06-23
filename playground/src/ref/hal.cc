@@ -26,3 +26,5 @@ const char *uarch_op_t_str[]{"NO_OP",
                              "SPECIALIZED_UNIT_6_OP",
                              "SPECIALIZED_UNIT_7_OP",
                              "SPECIALIZED_UNIT_8_OP"};
+
+const char *str_to_bool(bool value) { return (value) ? "true" : "false"; }

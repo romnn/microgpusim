@@ -134,13 +134,19 @@ public:
   }
 
   void print(FILE *fp) const {
-    // assert(1 == 0 && "here");
-    fprintf(fp, "%s : @%p\n", m_name, this);
+    fprintf(fp, "%s=", m_name);
+    fprintf(fp, "[");
+    // fprintf(fp, "%s : @%p\n", m_name, this);
+    // for (unsigned i = 0; i < regs.size(); i++) {
+    //   fprintf(fp, "     ");
+    //   regs[i]->print(fp);
+    //   fprintf(fp, "\n");
+    // }
     for (unsigned i = 0; i < regs.size(); i++) {
-      fprintf(fp, "     ");
       regs[i]->print(fp);
-      fprintf(fp, "\n");
+      fprintf(fp, ",");
     }
+    fprintf(fp, "]\n");
   }
 
   warp_inst_t **get_free() {

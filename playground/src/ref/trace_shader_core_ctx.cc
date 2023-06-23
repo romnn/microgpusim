@@ -795,17 +795,26 @@ void trace_shader_core_ctx::execute() {
   }
   for (unsigned n = 0; n < m_num_function_units; n++) {
 
-    printf("fu %s\n", m_fu[n]->get_name());
+    unsigned issue_port = m_issue_port[n];
+
+    register_set &issue_inst = m_pipeline_reg[issue_port];
+    if (issue_port == OC_EX_SP || issue_port == OC_EX_MEM) {
+      // print the state of the issue unit BEFORE
+      printf("fu[%d] %s \tcycle %llu before \t", n, m_fu[n]->get_name(),
+             m_gpu->gpu_sim_cycle);
+      issue_inst.print(stdout);
+    }
+
     unsigned multiplier = m_fu[n]->clock_multiplier();
     assert(multiplier <= 1);
     for (unsigned c = 0; c < multiplier; c++)
       m_fu[n]->cycle();
     m_fu[n]->active_lanes_in_pipeline();
-    unsigned issue_port = m_issue_port[n];
-    register_set &issue_inst = m_pipeline_reg[issue_port];
 
     if (issue_port == OC_EX_SP || issue_port == OC_EX_MEM) {
-      // print the state of the issue unit
+      // print the state of the issue unit AFTER
+      printf("fu[%d] %s \tcycle %llu after \t", n, m_fu[n]->get_name(),
+             m_gpu->gpu_sim_cycle);
       issue_inst.print(stdout);
     }
 
@@ -940,10 +949,10 @@ void trace_shader_core_ctx::fetch() {
       m_warp[mf->get_wid()]->set_last_fetch(m_gpu->gpu_sim_cycle);
       delete mf;
     } else {
-      printf("\033[1;31m empty instruction cache\033[0m : instr fetch "
-             "buffer "
-             "not valid (checking %d warps now)\n",
-             m_config->max_warps_per_shader);
+      // printf("\033[1;31m empty instruction cache\033[0m : instr fetch "
+      //        "buffer "
+      //        "not valid (checking %d warps now)\n",
+      //        m_config->max_warps_per_shader);
 
       // sanity check: all 64 warps are initialized
       // assert(m_warp[30]->get_warp_id() == 30);
@@ -958,13 +967,13 @@ void trace_shader_core_ctx::fetch() {
             "\tchecking warp_id = %u (last fetched=%d, instruction "
             "count=%ld, hardware_done=%d, functional_done=%d, "
             "instr in pipe=%d, stores=%d, done_exit=%d, "
-            "has pending writes=%d)\n",
+            "has pending writes=%s)\n",
             warp_id, m_last_warp_fetched, m_warp[warp_id]->instruction_count(),
             m_warp[warp_id]->hardware_done(),
             m_warp[warp_id]->functional_done(),
             m_warp[warp_id]->m_inst_in_pipeline,
             m_warp[warp_id]->m_stores_outstanding, m_warp[warp_id]->done_exit(),
-            m_scoreboard->pendingWrites(warp_id));
+            m_scoreboard->pendingWritesStr(warp_id).c_str());
       }
 
       printf("\n\n");
@@ -983,7 +992,7 @@ void trace_shader_core_ctx::fetch() {
           printf("\tchecking warp_id = %u (last fetched=%d, instruction "
                  "count=%ld, hardware_done=%d, functional_done=%d, "
                  "instr in pipe=%d, stores=%d, done_exit=%d, "
-                 "has pending writes=%d)\n",
+                 "has pending writes=%s)\n",
                  warp_id, m_last_warp_fetched,
                  m_warp[warp_id]->instruction_count(),
                  m_warp[warp_id]->hardware_done(),
@@ -991,7 +1000,7 @@ void trace_shader_core_ctx::fetch() {
                  m_warp[warp_id]->m_inst_in_pipeline,
                  m_warp[warp_id]->m_stores_outstanding,
                  m_warp[warp_id]->done_exit(),
-                 m_scoreboard->pendingWrites(warp_id));
+                 m_scoreboard->pendingWritesStr(warp_id).c_str());
         }
 
         // this code checks if this warp has finished executing and can
@@ -1057,8 +1066,8 @@ void trace_shader_core_ctx::fetch() {
           const trace_warp_inst_t *current_inst =
               m_warp[warp_id]->get_current_trace_inst();
           assert(current_inst != NULL);
-          printf("\t fetching instr %s for warp_id = %u\n",
-                 current_inst->opcode_str(), warp_id);
+          printf("\t fetching instr %s[pc=%lu] for warp_id = %u\n",
+                 current_inst->opcode_str(), current_inst->pc, warp_id);
 
           address_type pc;
           pc = m_warp[warp_id]->get_pc();
@@ -1087,7 +1096,8 @@ void trace_shader_core_ctx::fetch() {
                 (new_addr_type)ppc, mf,
                 m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle, events);
 
-          printf("m_L1I->access(addr=%lu) -> hit = %d\n", ppc, status == HIT);
+          printf("L1I->access(addr=%lu) -> status = %s\n", ppc,
+                 cache_request_status_str(status));
           if (status == MISS) {
             m_last_warp_fetched = warp_id;
             m_warp[warp_id]->set_imiss_pending();

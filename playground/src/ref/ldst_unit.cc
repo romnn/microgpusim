@@ -190,6 +190,7 @@ ldst_unit::process_memory_access_queue_l1cache(l1_cache *cache,
 }
 
 void ldst_unit::L1_latency_queue_cycle() {
+  // throw std::runtime_error("no l1 latency queue");
   for (int j = 0; j < m_config->m_L1D_config.l1_banks; j++) {
     if ((l1_latency_queue[j][0]) != NULL) {
       mem_fetch *mf_next = l1_latency_queue[j][0];
@@ -215,6 +216,7 @@ void ldst_unit::L1_latency_queue_cycle() {
                   --m_pending_writes[mf_next->get_inst().warp_id()]
                                     [mf_next->get_inst().out[r]];
               if (!still_pending) {
+                throw std::runtime_error("must model the l1 latency queue");
                 m_pending_writes[mf_next->get_inst().warp_id()].erase(
                     mf_next->get_inst().out[r]);
                 m_scoreboard->releaseRegister(mf_next->get_inst().warp_id(),
@@ -336,6 +338,10 @@ bool ldst_unit::memory_cycle(warp_inst_t &inst,
   if (inst.accessq_empty())
     return true;
 
+  printf("memory cycle for instruction: ");
+  inst.print(stdout);
+  printf("\n");
+
   mem_stage_stall_type stall_cond = NO_RC_FAIL;
   const mem_access_t &access = inst.accessq_back();
 
@@ -376,6 +382,7 @@ bool ldst_unit::memory_cycle(warp_inst_t &inst,
     assert(CACHE_UNDEFINED != inst.cache_op);
     stall_cond = process_memory_access_queue_l1cache(m_L1D, inst);
   }
+
   if (!inst.accessq_empty() && stall_cond == NO_RC_FAIL)
     stall_cond = COAL_STALL;
   if (stall_cond != NO_RC_FAIL) {
@@ -479,10 +486,15 @@ void ldst_unit::issue(register_set &reg_set) {
 void ldst_unit::writeback() {
   // process next instruction that is going to writeback
   if (!m_next_wb.empty()) {
+    printf("load store unit: cycle %llu writeback: next_wb=%s [warp_id=%d "
+           "pc=%lu] (arb=%d)\n",
+           m_core->get_gpu()->gpu_sim_cycle, m_next_wb.opcode_str(),
+           m_next_wb.warp_id(), m_next_wb.pc, m_writeback_arb);
     if (m_operand_collector->writeback(m_next_wb)) {
       bool insn_completed = false;
       for (unsigned r = 0; r < MAX_OUTPUT_VALUES; r++) {
         if (m_next_wb.out[r] > 0) {
+          printf("load store unit: writeback: release register\n");
           if (m_next_wb.space.get_type() != shared_space) {
             assert(m_pending_writes[m_next_wb.warp_id()][m_next_wb.out[r]] > 0);
             unsigned still_pending =
@@ -507,6 +519,9 @@ void ldst_unit::writeback() {
       m_last_inst_gpu_sim_cycle = m_core->get_gpu()->gpu_sim_cycle;
       m_last_inst_gpu_tot_sim_cycle = m_core->get_gpu()->gpu_tot_sim_cycle;
     }
+  } else {
+    printf("load store unit: cycle %llu writeback: next_wb=NULL (arb=%d)\n",
+           m_core->get_gpu()->gpu_sim_cycle, m_writeback_arb);
   }
 
   unsigned serviced_client = -1;
@@ -546,6 +561,16 @@ void ldst_unit::writeback() {
     case 3: // global/local
       if (m_next_global) {
         m_next_wb = m_next_global->get_inst();
+        printf("has global ");
+        m_next_wb.print(stdout);
+        printf("\n");
+        // %s pc=%lu\n\n", m_next_wb.opcode_str(),
+        //      m_next_wb.pc);
+        // LDG cycles 27, 28, 31(wid=3) (pc 152)
+        // LDG cycles 68, 70, 77(wid=3) (pc 176)
+        if (m_next_global->get_wid() == 3 &&
+            m_core->current_cycle() > 77) // 77)
+          throw std::runtime_error("warp 3 got global");
         if (m_next_global->isatomic()) {
           m_core->decrement_atomic_count(
               m_next_global->get_wid(),
@@ -591,9 +616,12 @@ void ldst_unit::cycle() {
          m_response_fifo.size());
   writeback();
 
-  for (unsigned stage = 0; (stage + 1) < m_pipeline_depth; stage++)
-    if (m_pipeline_reg[stage]->empty() && !m_pipeline_reg[stage + 1]->empty())
+  for (unsigned stage = 0; (stage + 1) < m_pipeline_depth; stage++) {
+    if (m_pipeline_reg[stage]->empty() && !m_pipeline_reg[stage + 1]->empty()) {
+      throw std::runtime_error("is moving");
       move_warp(m_pipeline_reg[stage], m_pipeline_reg[stage + 1]);
+    }
+  }
 
   if (!m_response_fifo.empty()) {
     mem_fetch *mf = m_response_fifo.front();
@@ -682,6 +710,7 @@ void ldst_unit::cycle() {
       if (pipe_reg.space.get_type() == shared_space) {
         if (m_pipeline_reg[m_config->smem_latency - 1]->empty()) {
           // new shared memory request
+          throw std::runtime_error("what is this");
           move_warp(m_pipeline_reg[m_config->smem_latency - 1], m_dispatch_reg);
           m_dispatch_reg->clear();
         }
@@ -708,6 +737,9 @@ void ldst_unit::cycle() {
           }
         }
         if (!pending_requests) {
+          // if (warp_id == 3)
+          //   throw std::runtime_error("rleeasee");
+          throw std::runtime_error("hi");
           m_core->warp_inst_complete(*m_dispatch_reg);
           m_scoreboard->releaseRegisters(m_dispatch_reg);
         }

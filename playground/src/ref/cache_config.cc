@@ -4,7 +4,7 @@
 #include "hashing.hpp"
 
 unsigned cache_config::set_index(new_addr_type addr) const {
-  printf("cache_config::set_index(%lu)\n", addr);
+  // printf("cache_config::set_index(%lu)\n", addr);
   return cache_config::hash_function(addr, m_nset, m_line_sz_log2, m_nset_log2,
                                      m_set_index_function);
 }
@@ -13,7 +13,7 @@ unsigned cache_config::hash_function(new_addr_type addr, unsigned m_nset,
                                      unsigned m_line_sz_log2,
                                      unsigned m_nset_log2,
                                      unsigned m_index_function) const {
-  printf("cache_config::hash_function(%lu)\n", addr);
+  // printf("cache_config::hash_function(%lu)\n", addr);
   unsigned set_index = 0;
 
   switch (m_index_function) {

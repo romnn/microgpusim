@@ -175,3 +175,5 @@ enum mem_operation_t { NOT_TEX, TEX };
 typedef enum mem_operation_t mem_operation;
 
 enum _memory_op_t { no_memory_op = 0, memory_load, memory_store };
+
+const char *str_to_bool(bool value);

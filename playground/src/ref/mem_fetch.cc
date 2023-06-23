@@ -44,20 +44,28 @@ mem_fetch::~mem_fetch() { m_status = MEM_FETCH_DELETED; }
 
 void mem_fetch::print(FILE *fp, bool print_inst) const {
   if (this == NULL) {
-    fprintf(fp, " <NULL mem_fetch pointer>\n");
+    fprintf(fp, "NULL");
     return;
   }
-  fprintf(fp, "  mf: uid=%6u, sid%02u:w%02u, part=%u, ", m_request_uid, m_sid,
-          m_wid, m_raw_addr.chip);
-  m_access.print(fp);
-  if ((unsigned)m_status < NUM_MEM_REQ_STAT)
-    fprintf(fp, " status = %s (%llu), ", Status_str[m_status], m_status_change);
-  else
-    fprintf(fp, " status = %u??? (%llu), ", m_status, m_status_change);
-  if (!m_inst.empty() && print_inst)
-    m_inst.print(fp);
-  else
-    fprintf(fp, "\n");
+  fprintf(fp, "%s@%lu", get_access_type_str(), get_addr());
+
+  // if (this == NULL) {
+  //   fprintf(fp, " <NULL mem_fetch pointer>\n");
+  //   return;
+  // }
+  // fprintf(fp, "  mf: uid=%6u, sid%02u:w%02u, part=%u, ", m_request_uid,
+  // m_sid,
+  //         m_wid, m_raw_addr.chip);
+  // m_access.print(fp);
+  // if ((unsigned)m_status < NUM_MEM_REQ_STAT)
+  //   fprintf(fp, " status = %s (%llu), ", Status_str[m_status],
+  //   m_status_change);
+  // else
+  //   fprintf(fp, " status = %u??? (%llu), ", m_status, m_status_change);
+  // if (!m_inst.empty() && print_inst)
+  //   m_inst.print(fp);
+  // else
+  //   fprintf(fp, "\n");
 }
 
 void mem_fetch::set_status(enum mem_fetch_status status,

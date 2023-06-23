@@ -217,7 +217,7 @@ void trace_gpgpu_sim::simple_cycle() {
       m_memory_partition_unit[i]->simple_dram_model_cycle();
     else
       // Issue the dram command (scheduler + delay model)
-      m_memory_partition_unit[i]->dram_cycle(); 
+      m_memory_partition_unit[i]->dram_cycle();
   }
 
   printf("move mem reqs from icnt to %d mem partitions\n",
@@ -233,7 +233,8 @@ void trace_gpgpu_sim::simple_cycle() {
     } else {
       mem_fetch *mf = (mem_fetch *)icnt_pop(m_shader_config->mem2device(i));
       if (mf)
-        printf("got new %s fetch for addr %lu from mem sub partition %d (device %d)\n",
+        printf("got new %s fetch for addr %lu from mem sub partition %d "
+               "(device %d)\n",
                mf->get_access_type_str(), mf->get_addr(), i,
                m_shader_config->mem2device(i));
       m_memory_sub_partition[i]->push(mf, gpu_sim_cycle + gpu_tot_sim_cycle);
@@ -313,6 +314,34 @@ void trace_gpgpu_sim::simple_cycle() {
       }
     }
   }
+
+  // printf("===== SUMMARY ====="); // sub partition [%u]\n", p);
+  // for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
+  //   const trace_simt_core_cluster *cluster = m_cluster[i];
+  // }
+  // for (unsigned i = 0; i < m_memory_config->m_n_mem; i++)
+  //   m_memory_partition_unit[i]->print(stdout);
+  // printf("===== END SUMMARY =====");
+
+  // print all the state
+  // for (unsigned p = 0;
+  //      p < m_memory_config->m_n_sub_partition_per_memory_channel;
+  //      p++) {
+  //   const memory_sub_partition *sub_part = cluster->m_sub_partition[p];
+  //
+  //   printf("interconn to l2 queue:\t\t%s\n",
+  //          sub_part->m_icnt_L2_queue->to_string().c_str());
+  //   printf("dram to l2 queue:\t\t%s\n",
+  //          sub_part->m_dram_L2_queue->to_string().c_str());
+  //   printf("l2 to interconn queue:\t\t%s\n",
+  //          sub_part->m_L2_icnt_queue->to_string().c_str());
+  //   printf("===== END OF SUMMARY =====");
+  //
+  //   // delete m_L2cache;
+  //   // delete m_L2interface;
+  // }
+  //   }
+  // }
 }
 
 void trace_gpgpu_sim::cycle() {

@@ -578,15 +578,16 @@ void warp_inst_t::completed(unsigned long long cycle) const {
 
 void warp_inst_t::print(FILE *fout) const {
   if (empty()) {
-    fprintf(fout, "bubble\n");
+    // fprintf(fout, "bubble\n");
+    fprintf(fout, "None");
     return;
   } else
-    fprintf(fout, "pc=%04lu ", pc);
-  // fprintf(fout, "0x%04lx ", pc);
-  fprintf(fout, "warp=%02d[", m_warp_id);
-  for (unsigned j = 0; j < m_config->warp_size; j++)
-    fprintf(fout, "%c", (active(j) ? '1' : '0'));
-  fprintf(fout, "]: ");
-  m_config->gpgpu_ctx->func_sim->ptx_print_insn(pc, fout);
-  fprintf(fout, "\n");
+    fprintf(fout, "Some(%s[warp_id=%u pc=%04lu])", opcode_str(), warp_id(), pc);
+
+  // fprintf(fout, "warp=%02d[", m_warp_id);
+  // for (unsigned j = 0; j < m_config->warp_size; j++)
+  //   fprintf(fout, "%c", (active(j) ? '1' : '0'));
+  // fprintf(fout, "]: ");
+  // m_config->gpgpu_ctx->func_sim->ptx_print_insn(pc, fout);
+  // fprintf(fout, "\n");
 }

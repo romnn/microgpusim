@@ -326,3 +326,204 @@ where
         self.l2_to_dram_queue.lock().unwrap().enqueue(fetch)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::config::GPUConfig;
+    use color_eyre::eyre;
+    use cxx::CxxString;
+    use playground::{bindings, bridge};
+    use std::ffi::CString;
+    use std::path::PathBuf;
+    use std::pin::Pin;
+    use std::ptr;
+
+    // #[test]
+    // fn test_intersim_config() -> eyre::Result<()> {
+    //     use bridge::interconnect::{new_intersim_config, IntersimConfig};
+    //     let mut config = new_intersim_config();
+    //
+    //     let config_file = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    //         .join("accelsim/gtx1080/config_fermi_islip.icnt");
+    //
+    //     let config_file = config_file.canonicalize()?.to_string_lossy().to_string();
+    //     cxx::let_cxx_string!(config_file = config_file);
+    //     dbg!(&config_file);
+    //     config.pin_mut().ParseFile(&config_file);
+    //
+    //     cxx::let_cxx_string!(use_map_field = "use_map");
+    //     dbg!(config.GetInt(&use_map_field) != 0);
+    //     cxx::let_cxx_string!(num_vcs_field = "num_vcs");
+    //     dbg!(config.GetInt(&num_vcs_field));
+    //     cxx::let_cxx_string!(ejection_buffer_size_field = "ejection_buffer_size");
+    //     dbg!(&config.GetInt(&ejection_buffer_size_field));
+    //     cxx::let_cxx_string!(sim_type_field = "sim_type");
+    //     dbg!(&config.GetStr(&sim_type_field));
+    //     cxx::let_cxx_string!(topology_field = "topology");
+    //     dbg!(&config.GetStr(&topology_field));
+    //
+    //     assert!(false);
+    //     Ok(())
+    // }
+
+    fn gtx_1080_interconn_config() -> eyre::Result<CString> {
+        let config_file = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("accelsim/gtx1080/config_fermi_islip.icnt");
+        dbg!(&config_file);
+        let config_file = CString::new(&*config_file.canonicalize()?.to_string_lossy())?;
+        Ok(config_file)
+    }
+
+    // #[test]
+    // fn test_box_interconnect() -> eyre::Result<()> {
+    //     use bridge::interconnect::{new_box_interconnect, BoxInterconnect};
+    //
+    //     let config = GPUConfig::default();
+    //     let num_clusters = config.num_simt_clusters;
+    //     let num_mem_sub_partitions = config.total_sub_partitions();
+    //     dbg!(&num_clusters);
+    //     dbg!(&num_mem_sub_partitions);
+    //
+    //     let config_file = gtx_1080_interconn_config()?;
+    //     let mut interconn = unsafe { new_box_interconnect(config_file.as_ptr()) };
+    //
+    //     interconn
+    //         .pin_mut()
+    //         .CreateInterconnect(num_clusters as u32, num_mem_sub_partitions as u32);
+    //     interconn.pin_mut().Init();
+    //
+    //     let num_nodes = interconn.GetNumNodes();
+    //     let num_shaders = interconn.GetNumShaders();
+    //     let num_memories = interconn.GetNumMemories();
+    //     dbg!(&num_nodes);
+    //     dbg!(&num_shaders);
+    //     dbg!(&num_memories);
+    //
+    //     // uses a k-ary n-fly bufferfly network
+    //     // meaning k**n terminals
+    //     //
+    //     // for the GTX 1080: this means:
+    //     // => k=50 port degree of switch
+    //     // => n=1 number of stages
+    //     // => so essentially a single switch for all 50 nodes?
+    //
+    //     // _k = config.GetInt("k");
+    //     // _n = config.GetInt("n");
+    //     //
+    //     // gK = _k;
+    //     // gN = _n;
+    //     //
+    //     // _nodes = powi(_k, _n);
+    //     //
+    //     // // n stages of k^(n-1) k x k switches
+    //     // _size = _n * powi(_k, _n - 1);
+    //     //
+    //     // // n-1 sets of wiring between the stages
+    //     // _channels = (_n - 1) * _nodes;
+    //
+    //     // _subnets = _icnt_config->GetInt("subnets");
+    //     // _net[subnet_id] = Network::New(*_icnt_config, name.str());
+    //     // _traffic_manager = static_cast<GPUTrafficManager *>(
+    //     //       TrafficManager::New(*_icnt_config, _net));
+    //     // _nodes = _net[0]->NumNodes();
+    //
+    //     // check sending and receiving
+    //     // interconn.DisplayMap((num_nodes as f32).sqrt() as u32, num_nodes);
+    //
+    //     // _CreateNodeMap(_n_shader, _n_mem, _traffic_manager->_nodes,
+    //     //          _icnt_config->GetInt("use_map"));
+    //
+    //     // dbg!(&interconn);
+    //     // let core = ptr::null_mut();
+    //     // let warp_size = 32;
+    //     // let mut warp = unsafe { new_trace_shd_warp(core, warp_size) };
+    //     // warp.pin_mut().reset();
+    //     // dbg!(&warp.get_n_completed());
+    //     // dbg!(&warp.hardware_done());
+    //     // dbg!(&warp.functional_done());
+    //     assert!(false);
+    //     Ok(())
+    // }
+
+    #[test]
+    fn test_interconnect_interface() -> eyre::Result<()> {
+        // use bridge::interconnect::{c_void, new_interconnect_interface};
+        use bridge::interconnect::{Interconnect, InterconnectInterface};
+
+        let config = GPUConfig::default();
+        let num_clusters = config.num_simt_clusters;
+        let num_mem_sub_partitions = config.total_sub_partitions();
+        dbg!(&num_clusters);
+        dbg!(&num_mem_sub_partitions);
+
+        // let config_file = gtx_1080_interconn_config()?;
+        let config_file = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("accelsim/gtx1080/config_fermi_islip.icnt");
+        dbg!(&config_file);
+
+        let mut interconn: InterconnectInterface<u32> = InterconnectInterface::new(
+            &config_file,
+            num_clusters as u32,
+            num_mem_sub_partitions as u32,
+        );
+        // let mut interconn = unsafe { new_interconnect_interface(config_file.as_ptr()) };
+
+        // interconn
+        //     .pin_mut()
+        //     .CreateInterconnect(num_clusters as u32, num_mem_sub_partitions as u32);
+        // interconn.pin_mut().Init();
+
+        let num_nodes = interconn.num_nodes();
+        let num_shaders = interconn.num_shaders();
+        let num_memories = interconn.num_memories();
+        dbg!(&num_nodes);
+        dbg!(&num_shaders);
+        dbg!(&num_memories);
+
+        // send from core to memory
+        let core_node = 0;
+        let mem_node = num_shaders;
+
+        let send_data = 42;
+        interconn.push(core_node, mem_node, Box::new(send_data));
+        // unsafe {
+        //     interconn.pin_mut().Push(
+        //         core_node,
+        //         mem_node,
+        //         (&mut send_data as *mut u32) as *mut c_void,
+        //         std::mem::size_of_val(&send_data) as u32,
+        //     )
+        // };
+
+        // let mut recv_data: *mut c_void = ptr::null_mut();
+        // let mut recv_data: Option<Box<u32>> = None;
+        // for _ in 0..100 {
+        //     recv_data = interconn.pop(mem_node);
+        //     if recv_data.is_some() {
+        //         break;
+        //     }
+        //     interconn.advance();
+        // }
+        let (_, recv_data) = interconn.must_pop(mem_node).unwrap();
+        // let recv_data =
+        // assert!(recv_data.is_some());
+        // for _ in 0..100 {
+        //     recv_data = unsafe { interconn.pin_mut().Pop(mem_node) };
+        //     if !recv_data.is_null() {
+        //         break;
+        //     }
+        //     interconn.pin_mut().Advance();
+        // }
+        // assert!(!recv_data.is_null());
+        // let recv_data: u32 = unsafe { *(recv_data as *mut u32) };
+        // dbg!(&recv_data);
+
+        assert_eq!(send_data, *recv_data);
+
+        assert!(false);
+        Ok(())
+    }
+
+    #[test]
+    fn test_interconnect() {}
+}

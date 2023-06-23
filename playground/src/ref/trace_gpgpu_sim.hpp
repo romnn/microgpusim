@@ -1,5 +1,6 @@
 #pragma once
 
+#include "bridge/accelsim_stats.hpp"
 #include "gpgpu_sim_config.hpp"
 #include "icnt_wrapper.hpp"
 #include "memory_partition_unit.hpp"
@@ -7,7 +8,6 @@
 #include "occupancy_stats.hpp"
 #include "shader_core_stats.hpp"
 #include "visualizer.hpp"
-#include "bridge/accelsim_stats.hpp"
 
 // constants for statistics printouts
 #define GPU_RSTAT_SHD_INFO 0x1
@@ -125,9 +125,16 @@ public:
       }
     }
 
+    fprintf(stdout,
+            "GPGPU-Sim uArch: create interconnect for %u clusters with %u "
+            "memory sub partitions\n",
+            m_shader_config->n_simt_clusters,
+            m_memory_config->m_n_mem_sub_partition);
+
     icnt_wrapper_init();
     icnt_create(m_shader_config->n_simt_clusters,
                 m_memory_config->m_n_mem_sub_partition);
+    throw std::runtime_error("create interconn");
 
     time_vector_create(NUM_MEM_REQ_STAT);
     fprintf(stdout,

@@ -1,5 +1,7 @@
 #include "scoreboard.hpp"
 
+#include <sstream>
+
 #include "hal.hpp"
 #include "shader_trace.hpp"
 #include "trace_streams.hpp"
@@ -34,10 +36,11 @@ void Scoreboard::printContents() const {
 
 // Unmark register as write-pending
 void Scoreboard::releaseRegister(unsigned wid, unsigned regnum) {
+  // if (m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle)
+  //   throw std::runtime_error("must model the l1 latency queue");
   if (!(reg_table[wid].find(regnum) != reg_table[wid].end()))
     return;
-  SHADER_DPRINTF(SCOREBOARD, "Release register - warp:%d, reg: %d\n", wid,
-                 regnum);
+  printf("Release register - warp:%d, reg: %d\n", wid, regnum);
   reg_table[wid].erase(regnum);
 }
 
@@ -131,4 +134,15 @@ bool Scoreboard::checkCollision(unsigned wid, const class inst_t *inst) const {
 
 bool Scoreboard::pendingWrites(unsigned wid) const {
   return !reg_table[wid].empty();
+}
+
+std::string Scoreboard::pendingWritesStr(unsigned wid) const {
+  std::stringstream buffer;
+  buffer << "[";
+  std::set<unsigned>::const_iterator it;
+  for (it = reg_table[wid].begin(); it != reg_table[wid].end(); it++) {
+    buffer << *it;
+  }
+  buffer << "]";
+  return buffer.str();
 }

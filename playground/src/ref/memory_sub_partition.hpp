@@ -89,6 +89,7 @@ private:
 
   std::set<mem_fetch *> m_request_tracker;
 
+  friend class memory_partition_unit;
   friend class L2interface;
 
   std::vector<mem_fetch *> breakdown_request_to_sector_requests(mem_fetch *mf);

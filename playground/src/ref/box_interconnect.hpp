@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <list>
+#include <memory>
 
 #include "intersim2/globals.hpp"
 #include "intersim2/interconnect_interface.hpp"
@@ -20,8 +21,8 @@ public:
   bool HasBuffer(unsigned deviceID, unsigned int size) const;
 
 protected:
-  vector<vector<vector<list<void *>>>> simple_input_queue;
-  vector<vector<vector<list<void *>>>> simple_output_queue;
+  std::vector<std::vector<std::vector<std::list<void *>>>> simple_input_queue;
+  std::vector<std::vector<std::vector<std::list<void *>>>> simple_output_queue;
 };
 
 static void BoxInterconnect_create(unsigned int n_shader, unsigned int n_mem) {
@@ -62,3 +63,6 @@ static void BoxInterconnect_display_state(FILE *fp) {
 static unsigned BoxInterconnect_get_flit_size() {
   return g_icnt_interface->GetFlitSize();
 }
+
+std::unique_ptr<BoxInterconnect>
+new_box_interconnect(const char *config_filename);
