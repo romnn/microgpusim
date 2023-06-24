@@ -25,8 +25,7 @@
  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef _CONFIG_UTILS_HPP_
-#define _CONFIG_UTILS_HPP_
+#pragma once
 
 #include "booksim.hpp"
 
@@ -35,13 +34,7 @@
 #include <string>
 #include <vector>
 
-// TODO: ptx replace with config
-// extern "C" int yyparse();
-
 class Configuration {
-  // static Configuration *theConfig;
-  // FILE *_config_file;
-  // std::string _config_string;
 
 protected:
   std::map<std::string, std::string> _str_map;
@@ -65,9 +58,8 @@ public:
   std::vector<int> GetIntArray(const std::string &field) const;
   std::vector<double> GetFloatArray(const std::string &field) const;
 
-  void ParseFile(std::string const &filename);
-  void ParseString(std::string const &str);
-  // int Input(char *line, int max_size);
+  int ParseFile(std::string const &filename);
+  int ParseString(std::string const &str);
   void ParseError(std::string const &msg, unsigned int lineno = 0) const;
 
   void WriteFile(std::string const &filename);
@@ -82,8 +74,6 @@ public:
   inline const std::map<std::string, double> &GetFloatMap() const {
     return _float_map;
   }
-
-  // static Configuration *GetTheConfig();
 };
 
 bool ParseArgs(Configuration *cf, int argc, char **argv);
@@ -91,5 +81,3 @@ bool ParseArgs(Configuration *cf, int argc, char **argv);
 std::vector<std::string> tokenize_str(std::string const &data);
 std::vector<int> tokenize_int(std::string const &data);
 std::vector<double> tokenize_float(std::string const &data);
-
-#endif

@@ -5,23 +5,10 @@
 
 %option reentrant
 %option bison-bridge
+%option bison-locations
 %option noyywrap
-/* %option bison-locations */
-/* %option 8bit */
-/* %option yylineno */
-
-/* #include "config.h" */
-
-/* static unsigned int lineno = 1; */
-
-/* void config_error(char * msg, int lineno); */
-/* void yyerror(char * msg); */
-/**/
-/* extern int config_input(char *, int); */
-/* #undef YY_INPUT */
-/* #define YY_INPUT(b, r, ms) (r = config_input(b, ms)) */
-
-
+%option 8bit
+%option yylineno
 
 Digit [0-9]
 Exponent [eE][+-]?{Digit}+
@@ -38,7 +25,7 @@ StrConst [A-Za-z_\-/\.][A-Za-z0-9_\-/\.\+(\{\,)\}]*
 
   /* Ignore new lines */
 
-\n         { /*lineno++; */ }
+\n         { /*lineno++ handled by %option yylineno; */ }
 
   /* Commands */
 
@@ -57,14 +44,3 @@ StrConst [A-Za-z_\-/\.][A-Za-z0-9_\-/\.\+(\{\,)\}]*
 .          { return yytext[0]; }
 
 %%
-
-/* void yyerror(char * msg ) */
-/* void yyerror(yyscan_t yyscanner, char * msg ) */
-/* { */
-/*   config_error( msg, lineno ); */
-/* } */
-/**/
-/* int yywrap() */
-/* int yywrap(yyscan_t yyscanner) { */
-/*   return 1; */
-/* } */

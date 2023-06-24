@@ -77,13 +77,11 @@ fn generate_bindings() -> eyre::Result<()> {
     Ok(())
 }
 
-fn generate_bridge(bridges: &[PathBuf], mut sources: Vec<PathBuf>) -> eyre::Result<()> {
+fn build_config_parser() -> eyre::Result<()> {
     let args = [
         "--header-file=./src/ref/intersim2/config.lex.h",
         "-o",
         "./src/ref/intersim2/config.lex.c",
-        // &output_path().join("lex.yy.c").to_string_lossy().to_string(),
-        // &output_path().join("lex.yy.c").to_string_lossy().to_string(),
         "./src/ref/intersim2/config.l",
     ];
     let flex_cmd = duct::cmd("flex", &args).unchecked();
@@ -105,11 +103,11 @@ fn generate_bridge(bridges: &[PathBuf], mut sources: Vec<PathBuf>) -> eyre::Resu
         "-d",
         "./src/ref/intersim2/config.y",
         "--file-prefix=./src/ref/intersim2/config.parser",
-        "-Wno-yacc",
+        // "-Wno-yacc",
         // &format!(
         //     "--file-prefix={}",
-        //     // generates $OUT_DIR/y.tab.c and $OUT_DIR/y.tab.h
-        //     &output_path().join("y").to_string_lossy().to_string()
+        //     // generates $OUT_DIR/config.parser.tab.c and $OUT_DIR/config.parser.tab.h
+        //     &output_path().join("config.parser").to_string_lossy().to_string()
         // ),
     ];
     let bison_cmd = duct::cmd("bison", &args).unchecked();
@@ -124,47 +122,26 @@ fn generate_bridge(bridges: &[PathBuf], mut sources: Vec<PathBuf>) -> eyre::Resu
             result.status.code()
         );
     }
-    // panic!("bison {:?}", args);
-
-    // let test = [
-    //     "../accelsim/accel-sim-framework-dev/gpu-simulator/gpgpu-sim/build/gcc-8.4.0/cuda-10010/debug/intersim2/lex.yy.o",
-    //     "../accelsim/accel-sim-framework-dev/gpu-simulator/gpgpu-sim/build/gcc-8.4.0/cuda-10010/debug/intersim2/y.tab.o",
-    // ];
     let parser_sources = [
-        // PathBuf::from("./src/ref/intersim2/config.lex.h"),
         PathBuf::from("./src/ref/intersim2/config.lex.c"),
         PathBuf::from("./src/ref/intersim2/config.parser.tab.c"),
-        // PathBuf::from("./src/ref/intersim2/config.parser.tab.h"),
-        // PathBuf::from("./src/ref/intersim2/config_utils.hpp"),
-        // output_path().join("lex.yy.c"),
-        // output_path().join("y.tab.c"),
-        // output_path().join("y.tab.h"),
     ];
-
-    sources.extend(
-        [
-            // output_path().join("lex.yy.c"),
-            // output_path().join("y.tab.c"),
-            // output_path().join("y.tab.h"),
-            // "./src/ref/intersim2/lex.yy.c",
-            // "./src/ref/intersim2/y.tab.h",
-            // "./src/ref/intersim2/y.tab.c",
-        ], // .map(PathBuf::from),
-    );
 
     cc::Build::new()
         .cpp(true)
-        // .cpp(false)
         .static_flag(true)
         .opt_level(0)
         .debug(true)
         .warnings(false)
-        // .flag("-std=c++14")
         .files(parser_sources)
         .try_compile("playgroundbridgeparser")
         .wrap_err_with(|| "failed to build parser")?;
 
-    // return Ok(());
+    Ok(())
+}
+
+fn generate_bridge(bridges: &[PathBuf], mut sources: Vec<PathBuf>) -> eyre::Result<()> {
+    build_config_parser()?;
     let mut build = cxx_build::bridges(bridges);
     build
         .cpp(true)
@@ -174,8 +151,6 @@ fn generate_bridge(bridges: &[PathBuf], mut sources: Vec<PathBuf>) -> eyre::Resu
         .warnings(false)
         .flag("-std=c++14")
         .files(sources);
-    // .object(test[0])
-    // .object(test[1]);
 
     // our custom build
     build.define("BOX", "YES");

@@ -12,7 +12,7 @@ mod default {
 
         type IntersimConfig;
         fn new_intersim_config() -> UniquePtr<IntersimConfig>;
-        fn ParseFile(self: Pin<&mut IntersimConfig>, filename: &CxxString);
+        fn ParseFile(self: Pin<&mut IntersimConfig>, filename: &CxxString) -> i32;
         fn GetInt(self: &IntersimConfig, field: &CxxString) -> i32;
         fn GetStr<'a, 'b>(self: &'a IntersimConfig, field: &'b CxxString) -> &'a CxxString;
         fn GetFloat(self: &IntersimConfig, field: &CxxString) -> f64;
@@ -68,35 +68,6 @@ mod default {
 pub struct InterconnectInterface(cxx::UniquePtr<default::InterconnectInterface>);
 pub struct BoxInterconnect(cxx::UniquePtr<default::BoxInterconnect>);
 
-// pub struct InterconnectInterface<T> {
-//     inner: cxx::UniquePtr<default::InterconnectInterface>,
-//     phantom: std::marker::PhantomData<T>,
-// }
-//
-// impl<T> InterconnectInterface<T> {
-//     pub fn num_nodes(&self) -> u32 {
-//         self.inner.GetNumNodes()
-//     }
-//
-//     pub fn num_shaders(&self) -> u32 {
-//         self.inner.GetNumShaders()
-//     }
-//
-//     pub fn num_memories(&self) -> u32 {
-//         self.inner.GetNumMemories()
-//     }
-//
-//     fn init(&mut self) {
-//         self.inner.pin_mut().Init();
-//     }
-//
-//     fn create_interconnect(&mut self, num_clusters: u32, num_mem_sub_partitions: u32) {
-//         self.inner
-//             .pin_mut()
-//             .CreateInterconnect(num_clusters, num_mem_sub_partitions);
-//     }
-//
-
 impl InterconnectInterface {
     pub fn new(config_file: &Path, num_clusters: u32, num_mem_sub_partitions: u32) -> Self {
         let config_file = config_file.canonicalize().unwrap();
@@ -127,6 +98,7 @@ trait SealedInterconnect {
     fn num_shaders(&self) -> u32;
     fn num_memories(&self) -> u32;
     fn advance(&mut self);
+    fn has_buffer(&mut self, node: u32, size: u32) -> bool;
     fn push(&mut self, src_node: u32, dest_node: u32, value: *mut default::c_void, size: u32);
     fn pop(&mut self, node: u32) -> *mut default::c_void;
 }
@@ -151,6 +123,9 @@ impl SealedInterconnect for InterconnectInterface {
     }
     fn advance(&mut self) {
         self.0.pin_mut().Advance()
+    }
+    fn has_buffer(&mut self, node: u32, size: u32) -> bool {
+        self.0.HasBuffer(node, size)
     }
     fn push(&mut self, src_node: u32, dest_node: u32, value: *mut default::c_void, size: u32) {
         unsafe { self.0.pin_mut().Push(src_node, dest_node, value, size) }
@@ -181,6 +156,9 @@ impl SealedInterconnect for BoxInterconnect {
     fn advance(&mut self) {
         self.0.pin_mut().Advance()
     }
+    fn has_buffer(&mut self, node: u32, size: u32) -> bool {
+        self.0.HasBuffer(node, size)
+    }
     fn push(&mut self, src_node: u32, dest_node: u32, value: *mut default::c_void, size: u32) {
         unsafe { self.0.pin_mut().Push(src_node, dest_node, value, size) }
     }
@@ -189,28 +167,11 @@ impl SealedInterconnect for BoxInterconnect {
     }
 }
 
-// pub trait Interconnect<T> {
-//     fn advance(&mut self);
-//     fn must_pop(&mut self, node: u32) -> eyre::Result<(u16, Box<T>)>;
-//     fn push(&mut self, src_node: u32, dest_node: u32, value: Box<T>);
-//     fn pop(&mut self, node: u32) -> Option<Box<T>>;
-// }
-//
-
-// pub struct BoxInterconnect<T> {
-//     inner: cxx::UniquePtr<default::BoxInterconnect>,
-//     phantom: std::marker::PhantomData<T>,
-// }
-
-pub struct Interconnect<T, I>
-// where
-//     I: SealedInterconnect,
-{
+pub struct Interconnect<T, I> {
     inner: I,
     phantom: std::marker::PhantomData<T>,
 }
 
-// impl<T> Interconnect<T> for InterconnectInterface<T> {
 impl<T, I> Interconnect<T, I>
 where
     I: SealedInterconnect,
@@ -263,14 +224,13 @@ where
 
     pub fn push(&mut self, src_node: u32, dest_node: u32, value: Box<T>) {
         let mut value: &mut T = Box::leak(value);
+        assert!(self.inner.has_buffer(src_node, 8));
         unsafe {
             self.inner.push(
                 src_node,
                 dest_node,
-                // (&mut value as *mut Box<T>) as *mut default::c_void,
                 (value as *mut T) as *mut default::c_void,
-                std::mem::size_of::<T>() as u32, // (&value) as u32,
-                                                 // std::mem::size_of_val(&value) as u32,
+                std::mem::size_of::<T>() as u32,
             )
         };
     }

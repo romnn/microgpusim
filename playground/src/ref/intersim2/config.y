@@ -1,11 +1,16 @@
-// this will be inserted at the top top 
+// this will be inserted at the very top, so that 
 %code requires {
+// so we can use the Configuration class in %parse-param
 #include "config_utils.hpp"
+
+// this avoids a cyclic include of config.lex.h and config.parser.tab.h
+// because of this typedev we can use yyscan_t in the %parse-param and %lex-param
 typedef void * yyscan_t;
 }
 
 
 %define api.pure full
+%locations
 %lex-param {yyscan_t scanner}
 %parse-param {yyscan_t scanner}{Configuration &config}
 
@@ -14,18 +19,7 @@ typedef void * yyscan_t;
 #include "config.parser.tab.h"
 #include "config.lex.h"
 
-/* int  yylex(void); */
-void yyerror (yyscan_t scanner, Configuration &config, char const *msg);
-/* void yyerror(char * msg); */
-/* void config_assign_string( char const * field, char const * value ); */
-/* void config_assign_int( char const * field, int value ); */
-/* void config_assign_float( char const * field, double value ); */
-/**/
-/* #ifdef _WIN32 */
-/* #pragma warning ( disable : 4102 ) */
-/* #pragma warning ( disable : 4244 ) */
-/* #endif */
-
+void yyerror(YYLTYPE* loc, yyscan_t scanner, Configuration &config, char const *msg);
 %}
 
 %union {
@@ -51,6 +45,7 @@ command : STR '=' STR ';'   { config.Assign( $1, $3 ); free( $1 ); free( $3 ); }
 
 %%
 
-void yyerror (yyscan_t scanner, Configuration &config, char const *msg) {
-	fprintf(stderr, "--> %s\n", msg);
+void yyerror(YYLTYPE* loc, yyscan_t scanner, Configuration &config, char const *msg) {
+  int lineno = yyget_lineno(scanner);
+  config.ParseError(msg, lineno);
 }
