@@ -199,8 +199,10 @@ where
         self.inner.advance()
     }
 
-    pub fn must_pop(&mut self, node: u32) -> eyre::Result<(u16, Box<T>)> {
-        for cycle in 0..u16::MAX {
+    pub fn must_pop(&mut self, node: u32, limit: Option<u16>) -> eyre::Result<(u16, Box<T>)> {
+        let limit = limit.unwrap_or(u16::MAX);
+        assert!(limit > 0);
+        for cycle in 0..limit {
             if let Some(data) = self.pop(node) {
                 return Ok((cycle, data));
             }
@@ -208,7 +210,7 @@ where
         }
         Err(eyre::eyre!(
             "timeout waiting for message after {} cycles",
-            u16::MAX
+            limit
         ))
     }
 

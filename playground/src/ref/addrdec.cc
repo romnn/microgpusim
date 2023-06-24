@@ -1,3 +1,4 @@
+#include <memory>
 #include <unordered_map>
 
 #include <assert.h>
@@ -144,11 +145,11 @@ void linear_to_raw_address_translation::addrdec_setoption(option_parser_t opp) {
                          "0 = old addressing mask, 1 = new addressing mask, 2 "
                          "= new add. mask + flipped bank sel and chip sel bits",
                          "0");
-  option_parser_register(
-      opp, "-gpgpu_memory_partition_indexing", OPT_UINT32,
-      &memory_partition_indexing,
-      "0 = no indexing, 1 = bitwise xoring, 2 = IPoly, 3 = custom indexing",
-      "0");
+  option_parser_register(opp, "-gpgpu_memory_partition_indexing", OPT_UINT32,
+                         &memory_partition_indexing,
+                         "0 = consecutive (no indexing), 1 = bitwise xoring, 2 "
+                         "= IPoly, 3 = pae, 4 = random, 5 = custom",
+                         "0");
 }
 
 new_addr_type
@@ -170,6 +171,11 @@ linear_to_raw_address_translation::partition_address(new_addr_type addr) const {
 
 void linear_to_raw_address_translation::addrdec_tlx(new_addr_type addr,
                                                     addrdec_t *tlx) const {
+  printf("addrdec_option = %s\n", addrdec_option);
+  printf("run_test = %d\n", run_test);
+  printf("gpgpu_mem_address_mask = %d\n", gpgpu_mem_address_mask);
+  printf("memory_partition_indexing = %d\n", memory_partition_indexing);
+
   unsigned long long int addr_for_chip, rest_of_addr, rest_of_addr_high_bits;
   if (!gap) {
     tlx->chip = addrdec_packbits(addrdec_mask[CHIP], addr, addrdec_mkhigh[CHIP],
@@ -508,17 +514,6 @@ void linear_to_raw_address_translation::init(
   addrdec_getmasklimit(addrdec_mask[BURST], &addrdec_mkhigh[BURST],
                        &addrdec_mklow[BURST]);
 
-  printf("addr_dec_mask[CHIP]  = %016lx \thigh:%d low:%d\n", addrdec_mask[CHIP],
-         addrdec_mkhigh[CHIP], addrdec_mklow[CHIP]);
-  printf("addr_dec_mask[BK]    = %016lx \thigh:%d low:%d\n", addrdec_mask[BK],
-         addrdec_mkhigh[BK], addrdec_mklow[BK]);
-  printf("addr_dec_mask[ROW]   = %016lx \thigh:%d low:%d\n", addrdec_mask[ROW],
-         addrdec_mkhigh[ROW], addrdec_mklow[ROW]);
-  printf("addr_dec_mask[COL]   = %016lx \thigh:%d low:%d\n", addrdec_mask[COL],
-         addrdec_mkhigh[COL], addrdec_mklow[COL]);
-  printf("addr_dec_mask[BURST] = %016lx \thigh:%d low:%d\n",
-         addrdec_mask[BURST], addrdec_mkhigh[BURST], addrdec_mklow[BURST]);
-
   // create the sub partition ID mask (for removing the sub partition ID from
   // the partition address)
   sub_partition_id_mask = 0;
@@ -534,7 +529,8 @@ void linear_to_raw_address_translation::init(
       }
     }
   }
-  printf("sub_partition_id_mask = %016lx\n", sub_partition_id_mask);
+
+  print();
 
   if (run_test) {
     sweep_test();
@@ -542,6 +538,27 @@ void linear_to_raw_address_translation::init(
 
   if (memory_partition_indexing == RANDOM)
     srand(1);
+}
+
+void linear_to_raw_address_translation::print() const {
+  printf("addr_dec_mask[CHIP]  = %016lx \thigh:%d low:%d\n", addrdec_mask[CHIP],
+         addrdec_mkhigh[CHIP], addrdec_mklow[CHIP]);
+  printf("addr_dec_mask[BK]    = %016lx \thigh:%d low:%d\n", addrdec_mask[BK],
+         addrdec_mkhigh[BK], addrdec_mklow[BK]);
+  printf("addr_dec_mask[ROW]   = %016lx \thigh:%d low:%d\n", addrdec_mask[ROW],
+         addrdec_mkhigh[ROW], addrdec_mklow[ROW]);
+  printf("addr_dec_mask[COL]   = %016lx \thigh:%d low:%d\n", addrdec_mask[COL],
+         addrdec_mkhigh[COL], addrdec_mklow[COL]);
+  printf("addr_dec_mask[BURST] = %016lx \thigh:%d low:%d\n",
+         addrdec_mask[BURST], addrdec_mkhigh[BURST], addrdec_mklow[BURST]);
+  printf("m_n_channel = %d\n", m_n_channel);
+  printf("m_n_sub_partition_in_channel = %d\n", m_n_sub_partition_in_channel);
+  printf("LOGB2_32(m_n_sub_partition_in_channel) = %d\n",
+         LOGB2_32(m_n_sub_partition_in_channel));
+
+  printf("ADDR_CHIP_S = %d\n", ADDR_CHIP_S);
+  printf("sub_partition_id_mask = %016lx\n", sub_partition_id_mask);
+  printf("gap = %d\n", gap);
 }
 
 bool operator==(const addrdec_t &x, const addrdec_t &y) {
@@ -617,11 +634,25 @@ void linear_to_raw_address_translation::sweep_test() const {
   }
 }
 
-void addrdec_t::print(FILE *fp) const {
+void addrdec_t::print_hex(FILE *fp) const {
   fprintf(fp, "\tchip:%x ", chip);
   fprintf(fp, "\trow:%x ", row);
   fprintf(fp, "\tcol:%x ", col);
   fprintf(fp, "\tbk:%x ", bk);
   fprintf(fp, "\tburst:%x ", burst);
   fprintf(fp, "\tsub_partition:%x ", sub_partition);
+}
+
+void addrdec_t::print_dec(FILE *fp) const {
+  fprintf(fp, "\tchip:%d ", chip);
+  fprintf(fp, "\trow:%d ", row);
+  fprintf(fp, "\tcol:%d ", col);
+  fprintf(fp, "\tbk:%d ", bk);
+  fprintf(fp, "\tburst:%d ", burst);
+  fprintf(fp, "\tsub_partition:%d ", sub_partition);
+}
+
+std::unique_ptr<linear_to_raw_address_translation>
+new_address_translation(linear_to_raw_address_translation_params params) {
+  return std::make_unique<linear_to_raw_address_translation>(params);
 }

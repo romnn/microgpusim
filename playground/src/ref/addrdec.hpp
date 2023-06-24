@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <unordered_map>
 
 #include "hal.hpp"
@@ -33,7 +34,8 @@ enum partition_index_function {
 };
 
 struct addrdec_t {
-  void print(FILE *fp) const;
+  void print_hex(FILE *fp) const;
+  void print_dec(FILE *fp) const;
 
   unsigned chip;
   unsigned bk;
@@ -44,8 +46,25 @@ struct addrdec_t {
   unsigned sub_partition;
 };
 
+typedef struct {
+  bool run_test;
+  int gpgpu_mem_address_mask;
+  partition_index_function memory_partition_indexing;
+} linear_to_raw_address_translation_params;
+
 class linear_to_raw_address_translation {
 public:
+  linear_to_raw_address_translation(
+      linear_to_raw_address_translation_params params)
+      : linear_to_raw_address_translation() {
+    addrdec_option =
+        "dramid@8;00000000.00000000.00000000.00000000.0000RRRR.RRRRRRRR."
+        "RBBBCCCC.BCCSSSSS"; // todo: pass this via params, must live until init
+                             // finishes
+    run_test = params.run_test;
+    gpgpu_mem_address_mask = params.gpgpu_mem_address_mask;
+    memory_partition_indexing = params.memory_partition_indexing;
+  }
   linear_to_raw_address_translation();
   void configure() {
     addrdec_option = 0;
@@ -59,6 +78,8 @@ public:
   // accessors
   void addrdec_tlx(new_addr_type addr, addrdec_t *tlx) const;
   new_addr_type partition_address(new_addr_type addr) const;
+
+  void print() const;
 
 private:
   void addrdec_parseoption(const char *option);
@@ -85,3 +106,6 @@ private:
   unsigned log2sub_partition;
   unsigned nextPowerOf2_m_n_channel;
 };
+
+std::unique_ptr<linear_to_raw_address_translation>
+new_address_translation(linear_to_raw_address_translation_params params);

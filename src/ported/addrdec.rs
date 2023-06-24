@@ -1,4 +1,6 @@
-use crate::ported::address;
+use crate::{config, ported::address};
+use color_eyre::eyre::{self, WrapErr};
+use strum::IntoEnumIterator;
 
 /// Base 2 logarithm of n.
 ///
@@ -46,7 +48,8 @@ pub fn mask_limit(mask: address) -> (u8, u8) {
     (low, high)
 }
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
+#[derive(strum::EnumIter, Clone, Copy, Hash, PartialEq, Eq, Debug)]
+#[repr(usize)]
 pub enum MemoryKind {
     CHIP = 0,
     BK = 1,
@@ -58,38 +61,168 @@ pub enum MemoryKind {
 
 type partition_index_function = usize;
 
-#[derive(Debug)]
+#[derive()]
 pub struct LinearToRawAddressTranslation {
     pub num_channels: usize,
     pub num_sub_partitions_per_channel: usize,
-    // pub num_sub_partitions_total: usize,
-    mem_address_mask: u64,
-    memory_partition_indexing: partition_index_function,
+    mem_address_mask: config::MemoryAddressingMask,
+    memory_partition_indexing: config::MemoryPartitionIndexingScheme,
     sub_partition_id_mask: address,
-    //   bool run_test;
-    //
-    addr_chip_s: usize,
+    addr_chip_start: usize,
     addrdec_mklow: [u8; 5],
     addrdec_mkhigh: [u8; 5],
     addrdec_mask: [address; 5],
-    gap: usize,
+    has_gap: bool,
     num_channels_log2: u32,
     num_channels_next_power2: u32,
     num_sub_partitions_per_channel_log2: u32,
 }
 
+impl std::fmt::Display for LinearToRawAddressTranslation {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("LinearToRawAddressTranslation")
+            .field("num_channels", &self.num_channels)
+            .field(
+                "num_sub_partitions_per_channel",
+                &self.num_sub_partitions_per_channel,
+            )
+            .finish()
+    }
+}
+
+impl std::fmt::Debug for LinearToRawAddressTranslation {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mut out = f.debug_struct("LinearToRawAddressTranslation");
+        out.field("num_channels", &self.num_channels);
+        out.field(
+            "num_sub_partitions_per_channel",
+            &self.num_sub_partitions_per_channel,
+        );
+        out.field(
+            "num_sub_partitions_per_channel_log2",
+            &self.num_sub_partitions_per_channel_log2,
+        );
+
+        out.field("addr_chip_start", &self.addr_chip_start);
+        out.field("has_gap", &self.has_gap);
+        out.field("sub_partition_id_mask", &self.sub_partition_id_mask);
+
+        let mut longest_kind = MemoryKind::iter()
+            .map(|kind| format!("{:?}", kind))
+            .map(|s| s.len())
+            .max()
+            .unwrap_or(0);
+        for kind in MemoryKind::iter() {
+            let (mask, low, high) = self.get_addrdec(kind);
+            let kind_name = format!("{:?}", kind);
+            out.field(
+                &format!(
+                    "addrdec_mask[{:>width$}]",
+                    kind_name,
+                    width = longest_kind + 1
+                ),
+                &format!("{:064b} [low={:>3}, high={:>3}]", mask, low, high),
+            );
+        }
+        out.finish()
+    }
+}
+
 impl LinearToRawAddressTranslation {
+    pub fn get_addrdec(&self, kind: MemoryKind) -> (u64, u8, u8) {
+        let mask = self.addrdec_mask[kind as usize];
+        let low = self.addrdec_mklow[kind as usize];
+        let high = self.addrdec_mkhigh[kind as usize];
+        (mask, low, high)
+    }
+
+    pub fn get_addrdec_mut(&mut self, kind: MemoryKind) -> (&mut u64, &mut u8, &mut u8) {
+        let mask = &mut self.addrdec_mask[kind as usize];
+        let low = &mut self.addrdec_mklow[kind as usize];
+        let high = &mut self.addrdec_mkhigh[kind as usize];
+        (mask, low, high)
+    }
+
+    pub fn parse_address_decode_config(&mut self, config: &str) -> eyre::Result<()> {
+        use regex::Regex;
+
+        let config = config.to_lowercase();
+        self.addrdec_mask[MemoryKind::CHIP as usize] = 0x0;
+        self.addrdec_mask[MemoryKind::BK as usize] = 0x0;
+        self.addrdec_mask[MemoryKind::ROW as usize] = 0x0;
+        self.addrdec_mask[MemoryKind::COL as usize] = 0x0;
+        self.addrdec_mask[MemoryKind::BURST as usize] = 0x0;
+
+        let re = Regex::new(r"(dramid@(?P<dramid>\d+))?;?(?P<rest>.*)")?;
+        let Some(captures) = re.captures(&config) else {
+            eyre::bail!("no captures");
+        };
+
+        let Some(dram_id) = captures.name("dramid").as_ref().map(regex::Match::as_str) else {
+            eyre::bail!("missing dramid in \"{}\"", config);
+        };
+        self.addr_chip_start = dram_id.parse::<usize>().wrap_err("bad dram id")?;
+        let rest = captures
+            .name("rest")
+            .as_ref()
+            .map(regex::Match::as_str)
+            .unwrap_or_default();
+
+        let mut offset: i8 = 63;
+        for c in rest.chars() {
+            match c {
+                'd' => {
+                    self.addrdec_mask[MemoryKind::CHIP as usize] |= 1 << offset;
+                    offset -= 1;
+                }
+                'b' => {
+                    self.addrdec_mask[MemoryKind::BK as usize] |= 1 << offset;
+                    offset -= 1;
+                }
+                'r' => {
+                    self.addrdec_mask[MemoryKind::ROW as usize] |= 1 << offset;
+                    offset -= 1;
+                }
+                'c' => {
+                    self.addrdec_mask[MemoryKind::COL as usize] |= 1 << offset;
+                    offset -= 1;
+                }
+                's' => {
+                    self.addrdec_mask[MemoryKind::BURST as usize] |= 1 << offset;
+                    self.addrdec_mask[MemoryKind::COL as usize] |= 1 << offset;
+                    offset -= 1;
+                }
+                '0' => {
+                    offset -= 1;
+                }
+                '|' | ' ' | '.' => {
+                    // ignore
+                }
+                other => eyre::bail!("undefined character {}", other),
+            }
+        }
+        if offset != -1 {
+            Err(eyre::eyre!(
+                "invalid address mapping \"{}\" (expected length 64 but found {})",
+                rest,
+                63 - offset,
+            ))
+        } else {
+            Ok(())
+        }
+    }
+
     pub fn partition_address(&self, addr: address) -> address {
-        if self.gap == 0 {
+        if !self.has_gap {
             let mut mask = self.addrdec_mask[MemoryKind::CHIP as usize];
             mask |= self.sub_partition_id_mask;
             packbits(!mask, addr, 0, 64)
         } else {
             // see addrdec_tlx for explanation
             let mut partition_addr: address = 0;
-            partition_addr =
-                ((addr >> self.addr_chip_s) / self.num_channels as u64) << self.addr_chip_s;
-            partition_addr |= addr & ((1 << self.addr_chip_s) - 1);
+            partition_addr = (addr >> self.addr_chip_start) / self.num_channels as u64;
+            partition_addr <<= self.addr_chip_start;
+            partition_addr |= addr & ((1 << self.addr_chip_start) - 1);
 
             // remove part of address that constributes to the sub partition id
             packbits(!self.sub_partition_id_mask, partition_addr, 0, 64)
@@ -97,96 +230,70 @@ impl LinearToRawAddressTranslation {
     }
 
     pub fn tlx(&self, addr: address) -> DecodedAddress {
-        let mut addr_for_chip: u64 = 0;
-        let mut rest_of_addr: u64 = 0;
-        let mut rest_of_addr_high_bits: u64 = 0;
+        // let mut addr_for_chip: u64 = 0;
+        // let mut rest_of_addr: u64 = 0;
+        // let mut rest_of_addr_high_bits: u64 = 0;
 
         let mut tlx = DecodedAddress::default();
         let num_channels = self.num_channels as u64;
-        static CHIP: usize = MemoryKind::CHIP as usize;
-        static BK: usize = MemoryKind::BK as usize;
-        static ROW: usize = MemoryKind::ROW as usize;
-        static COL: usize = MemoryKind::COL as usize;
-        static BURST: usize = MemoryKind::BURST as usize;
-        if self.gap == 0 {
-            tlx.chip = packbits(
-                self.addrdec_mask[CHIP],
-                addr,
-                self.addrdec_mkhigh[CHIP],
-                self.addrdec_mklow[CHIP],
-            );
-            tlx.bk = packbits(
-                self.addrdec_mask[BK],
-                addr,
-                self.addrdec_mkhigh[BK],
-                self.addrdec_mklow[BK],
-            );
-            tlx.row = packbits(
-                self.addrdec_mask[ROW],
-                addr,
-                self.addrdec_mkhigh[ROW],
-                self.addrdec_mklow[ROW],
-            );
-            tlx.col = packbits(
-                self.addrdec_mask[COL],
-                addr,
-                self.addrdec_mkhigh[COL],
-                self.addrdec_mklow[COL],
-            );
-            tlx.burst = packbits(
-                self.addrdec_mask[BURST],
-                addr,
-                self.addrdec_mkhigh[BURST],
-                self.addrdec_mklow[BURST],
-            );
-            rest_of_addr_high_bits = (addr
-                >> (self.addr_chip_s
+        // static CHIP: usize = MemoryKind::CHIP as usize;
+        // static BK: usize = MemoryKind::BK as usize;
+        // static ROW: usize = MemoryKind::ROW as usize;
+        // static COL: usize = MemoryKind::COL as usize;
+        // static BURST: usize = MemoryKind::BURST as usize;
+
+        let (chip_mask, chip_low, chip_high) = self.get_addrdec(MemoryKind::CHIP);
+        let (bk_mask, bk_low, bk_high) = self.get_addrdec(MemoryKind::BK);
+        let (row_mask, row_low, row_high) = self.get_addrdec(MemoryKind::ROW);
+        let (col_mask, col_low, col_high) = self.get_addrdec(MemoryKind::COL);
+        let (burst_mask, burst_low, burst_high) = self.get_addrdec(MemoryKind::BURST);
+
+        if !self.has_gap {
+            tlx.chip = packbits(chip_mask, addr, chip_low, chip_high);
+            tlx.bk = packbits(bk_mask, addr, bk_low, bk_high);
+            tlx.row = packbits(row_mask, addr, row_low, row_high);
+            tlx.col = packbits(col_mask, addr, col_low, col_high);
+            tlx.burst = packbits(burst_mask, addr, burst_low, burst_high);
+
+            let rest_of_addr_high_bits = (addr
+                >> (self.addr_chip_start
                     + (self.num_channels_log2 + self.num_sub_partitions_per_channel_log2)
                         as usize));
         } else {
             // Split the given address at ADDR_CHIP_S into (MSBs,LSBs)
             // - extract chip address using modulus of MSBs
             // - recreate rest of the address by stitching the quotient of MSBs and the LSBs
-            addr_for_chip = (addr >> self.addr_chip_s) % num_channels;
-            rest_of_addr = ((addr >> self.addr_chip_s) / num_channels) << self.addr_chip_s;
-            rest_of_addr_high_bits = ((addr >> self.addr_chip_s) / num_channels);
-            rest_of_addr |= addr & ((1 << self.addr_chip_s) - 1);
+            let addr_for_chip = (addr >> self.addr_chip_start) % num_channels;
+            let mut rest_of_addr = (addr >> self.addr_chip_start) / num_channels;
+            rest_of_addr <<= self.addr_chip_start;
+            rest_of_addr |= addr & ((1 << self.addr_chip_start) - 1);
 
             tlx.chip = addr_for_chip;
-            tlx.bk = packbits(
-                self.addrdec_mask[BK],
-                rest_of_addr,
-                self.addrdec_mkhigh[BK],
-                self.addrdec_mklow[BK],
-            );
-            tlx.row = packbits(
-                self.addrdec_mask[ROW],
-                rest_of_addr,
-                self.addrdec_mkhigh[ROW],
-                self.addrdec_mklow[ROW],
-            );
-            tlx.col = packbits(
-                self.addrdec_mask[COL],
-                rest_of_addr,
-                self.addrdec_mkhigh[COL],
-                self.addrdec_mklow[COL],
-            );
-            tlx.burst = packbits(
-                self.addrdec_mask[BURST],
-                rest_of_addr,
-                self.addrdec_mkhigh[BURST],
-                self.addrdec_mklow[BURST],
-            );
+            tlx.bk = packbits(bk_mask, rest_of_addr, bk_low, bk_high);
+            tlx.row = packbits(row_mask, rest_of_addr, row_low, row_high);
+            tlx.col = packbits(col_mask, rest_of_addr, col_low, col_high);
+            tlx.burst = packbits(burst_mask, rest_of_addr, burst_low, burst_high);
+
+            let rest_of_addr_high_bits = ((addr >> self.addr_chip_start) / num_channels);
         }
-        // combine the chip address and the lower bits of DRAM bank
-        // address to form the subpartition ID
+
+        match self.memory_partition_indexing {
+            config::MemoryPartitionIndexingScheme::Consecutive => {}
+            other => unimplemented!("{:?} partition index not implemented", other),
+        }
+
+        // combine the chip address and the lower bits of DRAM bank address to form
+        // the subpartition ID
         let sub_partition_addr_mask = self.num_sub_partitions_per_channel - 1;
         tlx.sub_partition = tlx.chip * (self.num_sub_partitions_per_channel as u64)
             + (tlx.bk & sub_partition_addr_mask as u64);
         tlx
     }
 
-    pub fn new(num_channels: usize, num_sub_partitions_per_channel: usize) -> Self {
+    pub fn new(config: &config::GPUConfig) -> eyre::Result<Self> {
+        let num_channels = config.num_mem_units;
+        let num_sub_partitions_per_channel = config.num_sub_partition_per_memory_channel;
+
         let num_channels_log2 = logb2(num_channels as u32);
         let num_channels_next_power2 = next_power2(num_channels as u32);
         let num_sub_partitions_per_channel_log2 = logb2(num_sub_partitions_per_channel as u32);
@@ -196,7 +303,7 @@ impl LinearToRawAddressTranslation {
         if gap > 0 {
             num_chip_bits += 1;
         }
-        let addr_chip_s = 10;
+        let addr_chip_start = 10;
         let addrdec_mklow = [0; 5];
         let addrdec_mkhigh = [64; 5];
         let mut addrdec_mask = [0; 5];
@@ -205,42 +312,60 @@ impl LinearToRawAddressTranslation {
         addrdec_mask[MemoryKind::ROW as usize] = 0x000000000FFF0000;
         addrdec_mask[MemoryKind::COL as usize] = 0x000000000000E0FF;
         addrdec_mask[MemoryKind::BURST as usize] = 0x000000000000000F;
-        Self {
+
+        let mut mapping = Self {
             num_channels,
             num_sub_partitions_per_channel,
-            gap: gap as usize,
-            addr_chip_s,
+            has_gap: gap != 0,
+            addr_chip_start,
             addrdec_mask,
             addrdec_mklow,
             addrdec_mkhigh,
             num_channels_log2,
             num_channels_next_power2,
             num_sub_partitions_per_channel_log2,
-            mem_address_mask: 0,
-            memory_partition_indexing: 0,
+            mem_address_mask: config.memory_address_mask,
+            memory_partition_indexing: config.memory_partition_indexing,
             sub_partition_id_mask: 0,
+        };
+        if let Some(ref mapping_config) = config.memory_addr_mapping {
+            mapping.parse_address_decode_config(&mapping_config)?;
         }
+
+        // make sure num_sub_partitions_per_channel is power of two
+        debug_assert!((num_sub_partitions_per_channel & (num_sub_partitions_per_channel - 1)) == 0);
+
+        for kind in MemoryKind::iter() {
+            let (mask, low, high) = mapping.get_addrdec_mut(kind);
+            (*low, *high) = mask_limit(*mask);
+        }
+
+        if num_sub_partitions_per_channel > 1 {
+            let mut pos = 0;
+            let (mask, low, high) = mapping.get_addrdec(MemoryKind::BK);
+            // dbg!(&mask);
+            for i in low..high {
+                // dbg!(mask & (1 << i));
+                if (mask & (1 << i)) != 0 {
+                    mapping.sub_partition_id_mask |= 1 << i;
+                    pos += 1;
+                    if pos >= num_sub_partitions_per_channel_log2 {
+                        break;
+                    }
+                }
+            }
+        }
+
+        Ok(mapping)
     }
+
     pub fn num_sub_partition_total(&self) -> usize {
         self.num_channels * self.num_sub_partitions_per_channel
     }
 
-    /// sanity check to ensure no overlapping
-    fn sweep_test(&self) {}
+    // sanity check to ensure no overlapping
+    // fn sweep_test(&self) {}
 }
-
-// static new_addr_type addrdec_packbits(new_addr_type mask, new_addr_type val,
-//                                       unsigned char high, unsigned char low) {
-//   unsigned pos = 0;
-//   new_addr_type result = 0;
-//   for (unsigned i = low; i < high; i++) {
-//     if ((mask & ((unsigned long long int)1 << i)) != 0) {
-//       result |= ((val & ((unsigned long long int)1 << i)) >> i) << pos;
-//       pos++;
-//     }
-//   }
-//   return result;
-// }
 
 fn packbits(mask: super::address, val: super::address, low: u8, high: u8) -> super::address {
     let mut pos = 0;
@@ -280,427 +405,164 @@ impl std::hash::Hash for DecodedAddress {
     }
 }
 
-pub fn addrdec_tlx(addr: super::address) -> DecodedAddress {
-    let addr_for_chip: u64 = 0;
-    let rest_of_addr: u64 = 0;
-    let rest_of_addr_high_bits: u64 = 0;
-    // DecodedAddress { sub_partition: 0 }
-    DecodedAddress::default()
-}
-
-//   if (!gap) {
-//     tlx->chip = addrdec_packbits(addrdec_mask[CHIP], addr, addrdec_mkhigh[CHIP],
-//                                  addrdec_mklow[CHIP]);
-//     tlx->bk = addrdec_packbits(addrdec_mask[BK], addr, addrdec_mkhigh[BK],
-//                                addrdec_mklow[BK]);
-//     tlx->row = addrdec_packbits(addrdec_mask[ROW], addr, addrdec_mkhigh[ROW],
-//                                 addrdec_mklow[ROW]);
-//     tlx->col = addrdec_packbits(addrdec_mask[COL], addr, addrdec_mkhigh[COL],
-//                                 addrdec_mklow[COL]);
-//     tlx->burst = addrdec_packbits(addrdec_mask[BURST], addr,
-//                                   addrdec_mkhigh[BURST], addrdec_mklow[BURST]);
-//     rest_of_addr_high_bits =
-//         (addr >> (ADDR_CHIP_S + (log2channel + log2sub_partition)));
-
-// void linear_to_raw_address_translation::addrdec_tlx(new_addr_type addr,
-//                                                     addrdec_t *tlx) const {
-//   unsigned long long int addr_for_chip, rest_of_addr, rest_of_addr_high_bits;
-//   if (!gap) {
-//     tlx->chip = addrdec_packbits(addrdec_mask[CHIP], addr, addrdec_mkhigh[CHIP],
-//                                  addrdec_mklow[CHIP]);
-//     tlx->bk = addrdec_packbits(addrdec_mask[BK], addr, addrdec_mkhigh[BK],
-//                                addrdec_mklow[BK]);
-//     tlx->row = addrdec_packbits(addrdec_mask[ROW], addr, addrdec_mkhigh[ROW],
-//                                 addrdec_mklow[ROW]);
-//     tlx->col = addrdec_packbits(addrdec_mask[COL], addr, addrdec_mkhigh[COL],
-//                                 addrdec_mklow[COL]);
-//     tlx->burst = addrdec_packbits(addrdec_mask[BURST], addr,
-//                                   addrdec_mkhigh[BURST], addrdec_mklow[BURST]);
-//     rest_of_addr_high_bits =
-//         (addr >> (ADDR_CHIP_S + (log2channel + log2sub_partition)));
-//
-//   } else {
-//     // Split the given address at ADDR_CHIP_S into (MSBs,LSBs)
-//     // - extract chip address using modulus of MSBs
-//     // - recreate the rest of the address by stitching the quotient of MSBs and
-//     // the LSBs
-//     addr_for_chip = (addr >> ADDR_CHIP_S) % m_n_channel;
-//     rest_of_addr = ((addr >> ADDR_CHIP_S) / m_n_channel) << ADDR_CHIP_S;
-//     rest_of_addr_high_bits = ((addr >> ADDR_CHIP_S) / m_n_channel);
-//     rest_of_addr |= addr & ((1 << ADDR_CHIP_S) - 1);
-//
-//     tlx->chip = addr_for_chip;
-//     tlx->bk = addrdec_packbits(addrdec_mask[BK], rest_of_addr,
-//                                addrdec_mkhigh[BK], addrdec_mklow[BK]);
-//     tlx->row = addrdec_packbits(addrdec_mask[ROW], rest_of_addr,
-//                                 addrdec_mkhigh[ROW], addrdec_mklow[ROW]);
-//     tlx->col = addrdec_packbits(addrdec_mask[COL], rest_of_addr,
-//                                 addrdec_mkhigh[COL], addrdec_mklow[COL]);
-//     tlx->burst = addrdec_packbits(addrdec_mask[BURST], rest_of_addr,
-//                                   addrdec_mkhigh[BURST], addrdec_mklow[BURST]);
-//   }
-//
-//   switch (memory_partition_indexing) {
-//     case CONSECUTIVE:
-//       // Do nothing
-//       break;
-//     case BITWISE_PERMUTATION: {
-//       assert(!gap);
-//       tlx->chip =
-//           bitwise_hash_function(rest_of_addr_high_bits, tlx->chip, m_n_channel);
-//       assert(tlx->chip < m_n_channel);
-//       break;
-//     }
-//     case IPOLY: {
-//       // assert(!gap);
-//       unsigned sub_partition_addr_mask = m_n_sub_partition_in_channel - 1;
-//       unsigned sub_partition = tlx->chip * m_n_sub_partition_in_channel +
-//                                (tlx->bk & sub_partition_addr_mask);
-//       sub_partition = ipoly_hash_function(
-//           rest_of_addr_high_bits, sub_partition,
-//           nextPowerOf2_m_n_channel * m_n_sub_partition_in_channel);
-//
-//       if (gap)  // if it is not 2^n partitions, then take modular
-//         sub_partition =
-//             sub_partition % (m_n_channel * m_n_sub_partition_in_channel);
-//
-//       tlx->chip = sub_partition / m_n_sub_partition_in_channel;
-//       tlx->sub_partition = sub_partition;
-//       assert(tlx->chip < m_n_channel);
-//       assert(tlx->sub_partition < m_n_channel * m_n_sub_partition_in_channel);
-//       return;
-//       break;
-//     }
-//     case RANDOM: {
-//       // This is an unrealistic hashing using software hashtable
-//       // we generate a random set for each memory address and save the value in
-//       new_addr_type chip_address = (addr >> (ADDR_CHIP_S - log2sub_partition));
-//       tr1_hash_map<new_addr_type, unsigned>::const_iterator got =
-//           address_random_interleaving.find(chip_address);
-//       if (got == address_random_interleaving.end()) {
-//         unsigned new_chip_id =
-//             rand() % (m_n_channel * m_n_sub_partition_in_channel);
-//         address_random_interleaving[chip_address] = new_chip_id;
-//         tlx->chip = new_chip_id / m_n_sub_partition_in_channel;
-//         tlx->sub_partition = new_chip_id;
-//       } else {
-//         unsigned new_chip_id = got->second;
-//         tlx->chip = new_chip_id / m_n_sub_partition_in_channel;
-//         tlx->sub_partition = new_chip_id;
-//       }
-//
-//       assert(tlx->chip < m_n_channel);
-//       assert(tlx->sub_partition < m_n_channel * m_n_sub_partition_in_channel);
-//       return;
-//       break;
-//     }
-//     case CUSTOM:
-//       /* No custom set function implemented */
-//       // Do you custom index here
-//       break;
-//     default:
-//       assert("\nUndefined set index function.\n" && 0);
-//       break;
-//   }
-//
-//   // combine the chip address and the lower bits of DRAM bank address to form
-//   // the subpartition ID
-//   unsigned sub_partition_addr_mask = m_n_sub_partition_in_channel - 1;
-//   tlx->sub_partition = tlx->chip * m_n_sub_partition_in_channel +
-//                        (tlx->bk & sub_partition_addr_mask);
-// }
-
-// init(
-//     unsigned int n_channel, unsigned int n_sub_partition_in_channel) {
-//   unsigned i;
-//   unsigned long long int mask;
-//   unsigned int nchipbits = ::LOGB2_32(n_channel);
-//   log2channel = nchipbits;
-//   log2sub_partition = ::LOGB2_32(n_sub_partition_in_channel);
-//   m_n_channel = n_channel;
-//   m_n_sub_partition_in_channel = n_sub_partition_in_channel;
-//   nextPowerOf2_m_n_channel = ::next_powerOf2(n_channel);
-//   m_n_sub_partition_total = n_channel * n_sub_partition_in_channel;
-//
-//   gap = (n_channel - ::powli(2, nchipbits));
-//   if (gap) {
-//     nchipbits++;
-//   }
-//   switch (gpgpu_mem_address_mask) {
-//     case 0:
-//       // old, added 2row bits, use #define ADDR_CHIP_S 10
-//       ADDR_CHIP_S = 10;
-//       addrdec_mask[CHIP] = 0x0000000000000000;
-//       addrdec_mask[BK] = 0x0000000000000300;
-//       addrdec_mask[ROW] = 0x0000000007FFE000;
-//       addrdec_mask[COL] = 0x0000000000001CFF;
-//       break;
-//     case 1:
-//       ADDR_CHIP_S = 13;
-//       addrdec_mask[CHIP] = 0x0000000000000000;
-//       addrdec_mask[BK] = 0x0000000000001800;
-//       addrdec_mask[ROW] = 0x0000000007FFE000;
-//       addrdec_mask[COL] = 0x00000000000007FF;
-//       break;
-//     case 2:
-//       ADDR_CHIP_S = 11;
-//       addrdec_mask[CHIP] = 0x0000000000000000;
-//       addrdec_mask[BK] = 0x0000000000001800;
-//       addrdec_mask[ROW] = 0x0000000007FFE000;
-//       addrdec_mask[COL] = 0x00000000000007FF;
-//       break;
-//     case 3:
-//       ADDR_CHIP_S = 11;
-//       addrdec_mask[CHIP] = 0x0000000000000000;
-//       addrdec_mask[BK] = 0x0000000000001800;
-//       addrdec_mask[ROW] = 0x000000000FFFE000;
-//       addrdec_mask[COL] = 0x00000000000007FF;
-//       break;
-//
-//     case 14:
-//       ADDR_CHIP_S = 14;
-//       addrdec_mask[CHIP] = 0x0000000000000000;
-//       addrdec_mask[BK] = 0x0000000000001800;
-//       addrdec_mask[ROW] = 0x0000000007FFE000;
-//       addrdec_mask[COL] = 0x00000000000007FF;
-//       break;
-//     case 15:
-//       ADDR_CHIP_S = 15;
-//       addrdec_mask[CHIP] = 0x0000000000000000;
-//       addrdec_mask[BK] = 0x0000000000001800;
-//       addrdec_mask[ROW] = 0x0000000007FFE000;
-//       addrdec_mask[COL] = 0x00000000000007FF;
-//       break;
-//     case 16:
-//       ADDR_CHIP_S = 16;
-//       addrdec_mask[CHIP] = 0x0000000000000000;
-//       addrdec_mask[BK] = 0x0000000000001800;
-//       addrdec_mask[ROW] = 0x0000000007FFE000;
-//       addrdec_mask[COL] = 0x00000000000007FF;
-//       break;
-//     case 6:
-//       ADDR_CHIP_S = 6;
-//       addrdec_mask[CHIP] = 0x0000000000000000;
-//       addrdec_mask[BK] = 0x0000000000001800;
-//       addrdec_mask[ROW] = 0x0000000007FFE000;
-//       addrdec_mask[COL] = 0x00000000000007FF;
-//       break;
-//     case 5:
-//       ADDR_CHIP_S = 5;
-//       addrdec_mask[CHIP] = 0x0000000000000000;
-//       addrdec_mask[BK] = 0x0000000000001800;
-//       addrdec_mask[ROW] = 0x0000000007FFE000;
-//       addrdec_mask[COL] = 0x00000000000007FF;
-//       break;
-//     case 100:
-//       ADDR_CHIP_S = 1;
-//       addrdec_mask[CHIP] = 0x0000000000000000;
-//       addrdec_mask[BK] = 0x0000000000000003;
-//       addrdec_mask[ROW] = 0x0000000007FFE000;
-//       addrdec_mask[COL] = 0x0000000000001FFC;
-//       break;
-//     case 103:
-//       ADDR_CHIP_S = 3;
-//       addrdec_mask[CHIP] = 0x0000000000000000;
-//       addrdec_mask[BK] = 0x0000000000000003;
-//       addrdec_mask[ROW] = 0x0000000007FFE000;
-//       addrdec_mask[COL] = 0x0000000000001FFC;
-//       break;
-//     case 106:
-//       ADDR_CHIP_S = 6;
-//       addrdec_mask[CHIP] = 0x0000000000000000;
-//       addrdec_mask[BK] = 0x0000000000001800;
-//       addrdec_mask[ROW] = 0x0000000007FFE000;
-//       addrdec_mask[COL] = 0x00000000000007FF;
-//       break;
-//     case 160:
-//       // old, added 2row bits, use #define ADDR_CHIP_S 10
-//       ADDR_CHIP_S = 6;
-//       addrdec_mask[CHIP] = 0x0000000000000000;
-//       addrdec_mask[BK] = 0x0000000000000300;
-//       addrdec_mask[ROW] = 0x0000000007FFE000;
-//       addrdec_mask[COL] = 0x0000000000001CFF;
-//
-//     default:
-//       break;
-//   }
-//
-//   if (addrdec_option != NULL) addrdec_parseoption(addrdec_option);
-//
-//   if (ADDR_CHIP_S != -1) {
-//     if (!gap) {
-//       // number of chip is power of two:
-//       // - insert CHIP mask starting at the bit position ADDR_CHIP_S
-//       mask = ((unsigned long long int)1 << ADDR_CHIP_S) - 1;
-//       addrdec_mask[BK] =
-//           ((addrdec_mask[BK] & ~mask) << nchipbits) | (addrdec_mask[BK] & mask);
-//       addrdec_mask[ROW] = ((addrdec_mask[ROW] & ~mask) << nchipbits) |
-//                           (addrdec_mask[ROW] & mask);
-//       addrdec_mask[COL] = ((addrdec_mask[COL] & ~mask) << nchipbits) |
-//                           (addrdec_mask[COL] & mask);
-//
-//       for (i = ADDR_CHIP_S; i < (ADDR_CHIP_S + nchipbits); i++) {
-//         mask = (unsigned long long int)1 << i;
-//         addrdec_mask[CHIP] |= mask;
-//       }
-//     }  // otherwise, no need to change the masks
-//   } else {
-//     // make sure n_channel is power of two when explicit dram id mask is used
-//     assert((n_channel & (n_channel - 1)) == 0);
-//   }
-//   // make sure m_n_sub_partition_in_channel is power of two
-//   assert((m_n_sub_partition_in_channel & (m_n_sub_partition_in_channel - 1)) ==
-//          0);
-//
-//   addrdec_getmasklimit(addrdec_mask[CHIP], &addrdec_mkhigh[CHIP],
-//                        &addrdec_mklow[CHIP]);
-//   addrdec_getmasklimit(addrdec_mask[BK], &addrdec_mkhigh[BK],
-//                        &addrdec_mklow[BK]);
-//   addrdec_getmasklimit(addrdec_mask[ROW], &addrdec_mkhigh[ROW],
-//                        &addrdec_mklow[ROW]);
-//   addrdec_getmasklimit(addrdec_mask[COL], &addrdec_mkhigh[COL],
-//                        &addrdec_mklow[COL]);
-//   addrdec_getmasklimit(addrdec_mask[BURST], &addrdec_mkhigh[BURST],
-//                        &addrdec_mklow[BURST]);
-//
-//   printf("addr_dec_mask[CHIP]  = %016llx \thigh:%d low:%d\n",
-//          addrdec_mask[CHIP], addrdec_mkhigh[CHIP], addrdec_mklow[CHIP]);
-//   printf("addr_dec_mask[BK]    = %016llx \thigh:%d low:%d\n", addrdec_mask[BK],
-//          addrdec_mkhigh[BK], addrdec_mklow[BK]);
-//   printf("addr_dec_mask[ROW]   = %016llx \thigh:%d low:%d\n", addrdec_mask[ROW],
-//          addrdec_mkhigh[ROW], addrdec_mklow[ROW]);
-//   printf("addr_dec_mask[COL]   = %016llx \thigh:%d low:%d\n", addrdec_mask[COL],
-//          addrdec_mkhigh[COL], addrdec_mklow[COL]);
-//   printf("addr_dec_mask[BURST] = %016llx \thigh:%d low:%d\n",
-//          addrdec_mask[BURST], addrdec_mkhigh[BURST], addrdec_mklow[BURST]);
-//
-//   // create the sub partition ID mask (for removing the sub partition ID from
-//   // the partition address)
-//   sub_partition_id_mask = 0;
-//   if (m_n_sub_partition_in_channel > 1) {
-//     unsigned n_sub_partition_log2 = LOGB2_32(m_n_sub_partition_in_channel);
-//     unsigned pos = 0;
-//     for (unsigned i = addrdec_mklow[BK]; i < addrdec_mkhigh[BK]; i++) {
-//       if ((addrdec_mask[BK] & ((unsigned long long int)1 << i)) != 0) {
-//         sub_partition_id_mask |= ((unsigned long long int)1 << i);
-//         pos++;
-//         if (pos >= n_sub_partition_log2) break;
-//       }
-//     }
-//   }
-//   printf("sub_partition_id_mask = %016llx\n", sub_partition_id_mask);
-//
-//   if (run_test) {
-//     sweep_test();
-//   }
-//
-//   if (memory_partition_indexing == RANDOM) srand(1);
-// }
-
-// class linear_to_raw_address_translation {
-//  public:
-//   linear_to_raw_address_translation();
-//   void addrdec_setoption(option_parser_t opp);
-//   void init(unsigned int n_channel, unsigned int n_sub_partition_in_channel);
-//
-//   // accessors
-//   void addrdec_tlx(new_addr_type addr, addrdec_t *tlx) const;
-//   new_addr_type partition_address(new_addr_type addr) const;
-//
-//  private:
-//   void addrdec_parseoption(const char *option);
-//   void sweep_test() const;  // sanity check to ensure no overlapping
-//
-//   enum { CHIP = 0, BK = 1, ROW = 2, COL = 3, BURST = 4, N_ADDRDEC };
-//
-//   const char *addrdec_option;
-//   int gpgpu_mem_address_mask;
-//   partition_index_function memory_partition_indexing;
-//   bool run_test;
-//
-//   int ADDR_CHIP_S;
-//   unsigned char addrdec_mklow[N_ADDRDEC];
-//   unsigned char addrdec_mkhigh[N_ADDRDEC];
-//   new_addr_type addrdec_mask[N_ADDRDEC];
-//   new_addr_type sub_partition_id_mask;
-//
-//   unsigned int gap;
-//   unsigned m_n_channel;
-//   int m_n_sub_partition_in_channel;
-//   int m_n_sub_partition_total;
-//   unsigned log2channel;
-//   unsigned log2sub_partition;
-//   unsigned nextPowerOf2_m_n_channel;
-// };
-
 #[cfg(test)]
 mod tests {
-    use playground::bindings;
-    use pretty_assertions::assert_eq;
+    use crate::config::GPUConfig;
+    use color_eyre::eyre;
+    use playground::{bindings, bridge};
+    // use pretty_assertions::assert_eq as diff_assert_eq;
 
-    pub fn original_packbits(
-        mask: super::address,
-        val: super::address,
-        low: u8,
-        high: u8,
-    ) -> super::address {
-        assert!(low <= 64);
-        assert!(high <= 64);
-        unsafe { bindings::addrdec_packbits(mask, val, high, low) }
+    macro_rules! diff_assert_all_eq (
+        ($a:expr, $b:expr) => {
+            ::pretty_assertions::assert_eq!($a, $b);
+        };
+        ($a:expr, $b:expr, $c:expr) => {
+            ::pretty_assertions::assert_eq!($a, $b);
+            ::pretty_assertions::assert_eq!($b, $c);
+        };
+        ($a:expr, $b:expr, $c:expr, $($rest:expr),*) => {
+            ::pretty_assertions::assert_eq!($a, $b);
+            diff_assert_all_eq!($b, $c, $($rest),*);
+        }
+    );
+
+    macro_rules! assert_all_eq (
+        ($a:expr, $b:expr) => {
+            assert_eq!($a, $b);
+        };
+        ($a:expr, $b:expr, $c:expr) => {
+            assert_eq!($a, $b);
+            assert_eq!($b, $c);
+        };
+        ($a:expr, $b:expr, $c:expr, $($rest:expr),*) => {
+            assert_eq!($a, $b);
+            assert_all_eq!($b, $c, $($rest),*);
+        }
+    );
+
+    impl From<bridge::addrdec::AddrDec> for super::DecodedAddress {
+        fn from(addr: bridge::addrdec::AddrDec) -> Self {
+            Self {
+                chip: addr.chip as u64,
+                bk: addr.bk as u64,
+                row: addr.row as u64,
+                col: addr.col as u64,
+                burst: addr.burst as u64,
+                sub_partition: addr.sub_partition as u64,
+            }
+        }
+    }
+
+    #[test]
+    fn test_parse_address_decode_config() -> eyre::Result<()> {
+        let config = GPUConfig::default();
+        let mut mapping = super::LinearToRawAddressTranslation::new(&config)?;
+        mapping.parse_address_decode_config(
+            "dramid@8;00000000.00000000.00000000.00000000.0000RRRR.RRRRRRRR.RBBBCCCC.BCCSSSSS",
+        )?;
+        Ok(())
     }
 
     #[test]
     fn test_packbits() {
-        assert_eq!(super::packbits(0, 0, 0, 64), original_packbits(0, 0, 0, 64));
+        use super::packbits;
+        use bridge::addrdec::packbits as ref_packbits;
+        assert_eq!(packbits(0, 0, 0, 64), ref_packbits(0, 0, 0, 64));
+        assert_eq!(
+            packbits(0, 0xFFFFFFFFFFFFFFFF, 0, 64),
+            ref_packbits(0, 0xFFFFFFFFFFFFFFFF, 0, 64),
+        );
+        assert_eq!(
+            packbits(0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0, 64),
+            ref_packbits(0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0, 64),
+        );
+        assert_eq!(
+            packbits(0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 64, 255),
+            ref_packbits(0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 64, 64),
+        );
+        assert_eq!(
+            packbits(0xFFFFFFFFFFFFFFFF, 15, 0, 4),
+            ref_packbits(0xFFFFFFFFFFFFFFFF, 15, 0, 4),
+        );
+    }
+
+    #[test]
+    fn test_tlx() {
+        use bridge::addrdec::AddressTranslation;
+        let config = GPUConfig::default();
+        let mapping = config.address_mapping();
+        let ref_mapping = AddressTranslation::new(
+            config.num_mem_units as u32,
+            config.num_sub_partition_per_memory_channel as u32,
+        );
+        let addr = 139823420539008;
+        dbg!(&mapping);
+        dbg!(&ref_mapping);
 
         assert_eq!(
-            super::packbits(0, 0xFFFFFFFFFFFFFFFF, 0, 64),
-            original_packbits(0, 0xFFFFFFFFFFFFFFFF, 0, 64),
+            ref_mapping.partition_address(addr),
+            mapping.partition_address(addr)
         );
-        assert_eq!(
-            super::packbits(0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0, 64),
-            original_packbits(0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0, 64),
+
+        let tlx_addr = mapping.tlx(addr);
+        let ref_tlx_addr = ref_mapping.tlx(addr);
+
+        diff_assert_all_eq!(
+            super::DecodedAddress::from(ref_tlx_addr),
+            tlx_addr,
+            super::DecodedAddress {
+                chip: 0,
+                bk: 1,
+                row: 6816,
+                col: 0,
+                burst: 0,
+                sub_partition: 1,
+            }
         );
-        assert_eq!(
-            super::packbits(0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 64, 255),
-            original_packbits(0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 64, 64),
-        );
-        assert_eq!(
-            super::packbits(0xFFFFFFFFFFFFFFFF, 15, 0, 4),
-            original_packbits(0xFFFFFFFFFFFFFFFF, 15, 0, 4),
-        );
+    }
+
+    #[test]
+    fn test_mask_limit() {
+        use super::mask_limit;
+        use bridge::addrdec::mask_limit as ref_mask_limit;
+        let mask = 0b0000000000000000000000000000000000000000000000000000000000000000;
+        assert_all_eq!(mask_limit(mask), ref_mask_limit(mask), (0, 64));
+        let mask = 0b0000000000000000000000000000000000000000000000000111000010000000;
+        assert_all_eq!(mask_limit(mask), ref_mask_limit(mask), (7, 15));
+        let mask = 0b0000000000000000000000000000000000001111111111111000000000000000;
+        assert_all_eq!(mask_limit(mask), ref_mask_limit(mask), (15, 28));
+        let mask = 0b0000000000000000000000000000000000000000000000000000111101111111;
+        assert_all_eq!(mask_limit(mask), ref_mask_limit(mask), (0, 12));
+        let mask = 0b0000000000000000000000000000000000000000000000000000000000011111;
+        assert_all_eq!(mask_limit(mask), ref_mask_limit(mask), (0, 5));
     }
 
     #[test]
     fn test_powli() {
-        assert_eq!(0i64.pow(0), unsafe { bindings::powli(0, 0) });
-        assert_eq!(0i64.pow(2), unsafe { bindings::powli(0, 2) });
-        assert_eq!(1i64.pow(1), unsafe { bindings::powli(1, 1) });
-        assert_eq!(1i64.pow(3), unsafe { bindings::powli(1, 3) });
-        assert_eq!(2i64.pow(3), unsafe { bindings::powli(2, 3) });
+        assert_eq!(0i64.pow(0), bridge::addrdec::powli(0, 0));
+        assert_eq!(0i64.pow(2), bridge::addrdec::powli(0, 2));
+        assert_eq!(1i64.pow(1), bridge::addrdec::powli(1, 1));
+        assert_eq!(1i64.pow(3), bridge::addrdec::powli(1, 3));
+        assert_eq!(2i64.pow(3), bridge::addrdec::powli(2, 3));
     }
 
     #[test]
     fn test_logb2() {
-        assert_eq!(super::logb2(0), unsafe { bindings::LOGB2_32(0) });
-        assert_eq!(super::logb2(1), unsafe { bindings::LOGB2_32(1) });
-        assert_eq!(super::logb2(2), unsafe { bindings::LOGB2_32(2) });
-        assert_eq!(super::logb2(3), unsafe { bindings::LOGB2_32(3) });
-        assert_eq!(super::logb2(40), unsafe { bindings::LOGB2_32(40) });
-        assert_eq!(super::logb2(42), unsafe { bindings::LOGB2_32(42) });
+        assert_eq!(super::logb2(0), bridge::addrdec::LOGB2_32(0));
+        assert_eq!(super::logb2(1), bridge::addrdec::LOGB2_32(1));
+        assert_eq!(super::logb2(2), bridge::addrdec::LOGB2_32(2));
+        assert_eq!(super::logb2(3), bridge::addrdec::LOGB2_32(3));
+        assert_eq!(super::logb2(40), bridge::addrdec::LOGB2_32(40));
+        assert_eq!(super::logb2(42), bridge::addrdec::LOGB2_32(42));
     }
 
     #[test]
     fn test_next_power2() {
-        assert_eq!(super::next_power2(0), unsafe { bindings::next_powerOf2(0) });
-        assert_eq!(super::next_power2(1), unsafe { bindings::next_powerOf2(1) });
-        assert_eq!(super::next_power2(2), unsafe { bindings::next_powerOf2(2) });
-        assert_eq!(super::next_power2(3), unsafe { bindings::next_powerOf2(3) });
-        assert_eq!(super::next_power2(40), unsafe {
-            bindings::next_powerOf2(40)
-        });
-        assert_eq!(super::next_power2(42), unsafe {
-            bindings::next_powerOf2(42)
-        });
+        assert_eq!(super::next_power2(0), bridge::addrdec::next_powerOf2(0));
+        assert_eq!(super::next_power2(1), bridge::addrdec::next_powerOf2(1));
+        assert_eq!(super::next_power2(2), bridge::addrdec::next_powerOf2(2));
+        assert_eq!(super::next_power2(3), bridge::addrdec::next_powerOf2(3));
+        assert_eq!(super::next_power2(40), bridge::addrdec::next_powerOf2(40));
+        assert_eq!(super::next_power2(42), bridge::addrdec::next_powerOf2(42));
     }
 }
