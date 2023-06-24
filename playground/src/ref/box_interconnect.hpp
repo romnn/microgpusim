@@ -4,8 +4,9 @@
 #include <list>
 #include <memory>
 
-#include "intersim2/globals.hpp"
 #include "intersim2/interconnect_interface.hpp"
+
+extern InterconnectInterface *g_icnt_interface;
 
 class BoxInterconnect : public InterconnectInterface {
 public:

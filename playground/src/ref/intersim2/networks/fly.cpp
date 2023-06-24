@@ -29,6 +29,7 @@
 #include <sstream>
 #include <vector>
 
+#include "../interconnect_interface.hpp"
 #include "../misc_utils.hpp"
 #include "fly.hpp"
 
@@ -46,8 +47,8 @@ void KNFly::_ComputeSize(const Configuration &config) {
   _k = config.GetInt("k");
   _n = config.GetInt("n");
 
-  gK = _k;
-  gN = _n;
+  m_icnt->K = _k;
+  m_icnt->N = _n;
 
   _nodes = powi(_k, _n);
 

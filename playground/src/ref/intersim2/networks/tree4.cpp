@@ -49,6 +49,7 @@
 #include <sstream>
 #include <vector>
 
+#include "../interconnect_interface.hpp"
 #include "../misc_utils.hpp"
 #include "tree4.hpp"
 
@@ -68,8 +69,8 @@ void Tree4::_ComputeSize(const Configuration &config) {
   _n = config.GetInt("n");
   assert(_n == 3);
 
-  gK = _k;
-  gN = _n;
+  m_icnt->K = _k;
+  m_icnt->N = _n;
 
   _nodes = powi(_k, _n);
 

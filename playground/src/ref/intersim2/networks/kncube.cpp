@@ -33,6 +33,7 @@
 
 #include "kncube.hpp"
 #include "../booksim.hpp"
+#include "../interconnect_interface.hpp"
 #include "../misc_utils.hpp"
 #include "../random_utils.hpp"
 #include <sstream>
@@ -52,8 +53,8 @@ void KNCube::_ComputeSize(const Configuration &config) {
   _k = config.GetInt("k");
   _n = config.GetInt("n");
 
-  gK = _k;
-  gN = _n;
+  m_icnt->K = _k;
+  m_icnt->N = _n;
   _size = powi(_k, _n);
   _channels = 2 * _n * _size;
 

@@ -58,10 +58,10 @@
 //////////////////////
 
 // Interconnect Interface instance
-InterconnectInterface *g_icnt_interface;
+// InterconnectInterface *g_icnt_interface;
 
 /* the current traffic manager instance */
-TrafficManager *trafficManager = NULL;
+// TrafficManager *trafficManager = NULL;
 
 // #if 0
 // int GetSimTime() {
@@ -93,18 +93,18 @@ TrafficManager *trafficManager = NULL;
 // #endif
 
 /* printing activity factor*/
-bool gPrintActivity;
-
-int gK; // radix
-int gN; // dimension
-int gC; // concentration
-
-int gNodes;
+// bool gPrintActivity;
+//
+// int gK; // radix
+// int gN; // dimension
+// int gC; // concentration
+//
+// int gNodes;
 
 // generate nocviewer trace
-bool gTrace;
-
-std::ostream *gWatchOut;
+// bool gTrace;
+//
+// std::ostream *gWatchOut;
 
 /////////////////////////////////////////////////////////////////////////////
 

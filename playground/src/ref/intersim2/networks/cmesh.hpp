@@ -51,8 +51,8 @@ public:
   int GetN() const;
   int GetK() const;
 
-  static int NodeToRouter(int address);
-  static int NodeToPort(int address);
+  static int NodeToRouter(InterconnectInterface *m_icnt, int address);
+  static int NodeToPort(InterconnectInterface *m_icnt, int address);
 
   static void RegisterRoutingFunctions();
 

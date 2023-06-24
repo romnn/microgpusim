@@ -31,7 +31,7 @@
 #include <sstream>
 #include <string>
 
-#include "../globals.hpp"
+#include "../interconnect_interface.hpp"
 #include "../stats.hpp"
 #include "event_router.hpp"
 
@@ -342,11 +342,12 @@ void EventRouter::_IncomingFlits() {
       }
 
       if (f->watch) {
-        *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                   << "Received flit at " << FullName()
-                   << ".  Output port = " << cur_buf->GetOutputPort(vc)
-                   << ", output VC = " << cur_buf->GetOutputVC(vc) << std::endl
-                   << *f;
+        *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                           << "Received flit at " << FullName()
+                           << ".  Output port = " << cur_buf->GetOutputPort(vc)
+                           << ", output VC = " << cur_buf->GetOutputVC(vc)
+                           << std::endl
+                           << *f;
       }
 
       // In cut-through mode, only head flits generate arrivals,
@@ -661,8 +662,9 @@ void EventRouter::_TransportArb(int input) {
     _credit_pipe->Write(c, input);
 
     if (f->watch && c->tail) {
-      *gWatchOut << GetSimTime() << " | " << FullName() << " | " << FullName()
-                 << " sending tail credit back for flit " << f->id << std::endl;
+      *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                         << FullName() << " sending tail credit back for flit "
+                         << f->id << std::endl;
     }
 
     // Update and forward the flit to the crossbar
@@ -672,10 +674,10 @@ void EventRouter::_TransportArb(int input) {
     _crossbar_pipe->Write(f, output);
 
     if (f->watch) {
-      *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                 << "Forwarding flit through crossbar at " << FullName() << ":"
-                 << std::endl
-                 << *f;
+      *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                         << "Forwarding flit through crossbar at " << FullName()
+                         << ":" << std::endl
+                         << *f;
     }
   }
 }

@@ -41,6 +41,7 @@
 // ----------------------------------------------------------------------
 #include "cmesh.hpp"
 #include "../booksim.hpp"
+#include "../interconnect_interface.hpp"
 #include "../misc_utils.hpp"
 #include "../random_utils.hpp"
 #include <cassert>
@@ -86,9 +87,9 @@ void CMesh::_ComputeSize(const Configuration &config) {
   _yrouter = config.GetInt("yr");
   assert(_xrouter == _yrouter); // broken for asymmetric concentration
 
-  gK = _k = k;
-  gN = _n = n;
-  gC = _c = c;
+  m_icnt->K = _k = k;
+  m_icnt->N = _n = n;
+  m_icnt->C = _c = c;
 
   assert(c == _xrouter * _yrouter);
 
@@ -101,8 +102,8 @@ void CMesh::_ComputeSize(const Configuration &config) {
 
   //
   _memo_NodeShiftX = _cX >> 1;
-  _memo_NodeShiftY = log_two(gK * _cX) + (_cY >> 1);
-  _memo_PortShiftY = log_two(gK * _cX);
+  _memo_NodeShiftY = log_two(m_icnt->K * _cX) + (_cY >> 1);
+  _memo_PortShiftY = log_two(m_icnt->K * _cX);
 }
 
 void CMesh::_BuildNet(const Configuration &config) {
@@ -111,7 +112,7 @@ void CMesh::_BuildNet(const Configuration &config) {
   int y_index;
 
   // standard trace configuration
-  if (gTrace) {
+  if (m_icnt->trace) {
     std::cout << "Setup Finished Router" << std::endl;
   }
 
@@ -238,7 +239,7 @@ void CMesh::_BuildNet(const Configuration &config) {
     _routers[node]->AddOutputChannel(_chan[px_out], _chan_cred[px_out]);
     _routers[node]->AddInputChannel(_chan[px_in], _chan_cred[px_in]);
 
-    if (gTrace) {
+    if (m_icnt->trace) {
       std::cout << "Link "
                 << " " << px_out << " " << px_in << " " << node << " "
                 << _chan[px_out]->GetLatency() << std::endl;
@@ -256,7 +257,7 @@ void CMesh::_BuildNet(const Configuration &config) {
     _routers[node]->AddOutputChannel(_chan[nx_out], _chan_cred[nx_out]);
     _routers[node]->AddInputChannel(_chan[nx_in], _chan_cred[nx_in]);
 
-    if (gTrace) {
+    if (m_icnt->trace) {
       std::cout << "Link "
                 << " " << nx_out << " " << nx_in << " " << node << " "
                 << _chan[nx_out]->GetLatency() << std::endl;
@@ -274,7 +275,7 @@ void CMesh::_BuildNet(const Configuration &config) {
     _routers[node]->AddOutputChannel(_chan[py_out], _chan_cred[py_out]);
     _routers[node]->AddInputChannel(_chan[py_in], _chan_cred[py_in]);
 
-    if (gTrace) {
+    if (m_icnt->trace) {
       std::cout << "Link "
                 << " " << py_out << " " << py_in << " " << node << " "
                 << _chan[py_out]->GetLatency() << std::endl;
@@ -292,7 +293,7 @@ void CMesh::_BuildNet(const Configuration &config) {
     _routers[node]->AddOutputChannel(_chan[ny_out], _chan_cred[ny_out]);
     _routers[node]->AddInputChannel(_chan[ny_in], _chan_cred[ny_in]);
 
-    if (gTrace) {
+    if (m_icnt->trace) {
       std::cout << "Link "
                 << " " << ny_out << " " << ny_in << " " << node << " "
                 << _chan[ny_out]->GetLatency() << std::endl;
@@ -303,7 +304,7 @@ void CMesh::_BuildNet(const Configuration &config) {
   for (int i = 0; i < _nodes; i++)
     assert(channel_vector[i] == true);
 
-  if (gTrace) {
+  if (m_icnt->trace) {
     std::cout << "Setup Finished Link" << std::endl;
   }
 }
@@ -314,7 +315,8 @@ void CMesh::_BuildNet(const Configuration &config) {
 //
 // ----------------------------------------------------------------------
 
-int CMesh::NodeToRouter(int address) {
+int CMesh::NodeToRouter(InterconnectInterface *m_icnt, int address) {
+  int gK = m_icnt->K;
 
   int y = (address / (_cX * gK)) / _cY;
   int x = (address % (_cX * gK)) / _cY;
@@ -323,7 +325,9 @@ int CMesh::NodeToRouter(int address) {
   return router;
 }
 
-int CMesh::NodeToPort(int address) {
+int CMesh::NodeToPort(InterconnectInterface *m_icnt, int address) {
+  int gK = m_icnt->K;
+  int gC = m_icnt->C;
 
   const int maskX = _cX - 1;
   const int maskY = _cY - 1;
@@ -341,7 +345,9 @@ int CMesh::NodeToPort(int address) {
 // ----------------------------------------------------------------------
 
 // Concentrated Mesh: X-Y
-int cmesh_xy(int cur, int dest) {
+int cmesh_xy(InterconnectInterface *m_icnt, int cur, int dest) {
+  int gK = m_icnt->K;
+  int gC = m_icnt->C;
 
   const int POSITIVE_X = 0;
   const int NEGATIVE_X = 1;
@@ -398,7 +404,10 @@ int cmesh_xy(int cur, int dest) {
 }
 
 // Concentrated Mesh: Y-X
-int cmesh_yx(int cur, int dest) {
+int cmesh_yx(InterconnectInterface *m_icnt, int cur, int dest) {
+  int gK = m_icnt->K;
+  int gC = m_icnt->C;
+
   const int POSITIVE_X = 0;
   const int NEGATIVE_X = 1;
   const int POSITIVE_Y = 2;
@@ -474,6 +483,7 @@ void xy_yx_cmesh(const Router *r, const Flit *f, int in_channel,
   assert(((f->vc >= vcBegin) && (f->vc <= vcEnd)) || (inject && (f->vc < 0)));
 
   int out_port;
+  int gC = r->m_icnt->C;
 
   if (inject) {
 
@@ -485,12 +495,12 @@ void xy_yx_cmesh(const Router *r, const Flit *f, int in_channel,
     int cur_router = r->GetID();
 
     // Destination Router
-    int dest_router = CMesh::NodeToRouter(f->dest);
+    int dest_router = CMesh::NodeToRouter(r->m_icnt, f->dest);
 
     if (dest_router == cur_router) {
 
       // Forward to processing element
-      out_port = CMesh::NodeToPort(f->dest);
+      out_port = CMesh::NodeToPort(r->m_icnt, f->dest);
 
     } else {
 
@@ -506,10 +516,10 @@ void xy_yx_cmesh(const Router *r, const Flit *f, int in_channel,
                                          : (f->vc < (vcBegin + available_vcs)));
 
       if (x_then_y) {
-        out_port = cmesh_xy(cur_router, dest_router);
+        out_port = cmesh_xy(r->m_icnt, cur_router, dest_router);
         vcEnd -= available_vcs;
       } else {
-        out_port = cmesh_yx(cur_router, dest_router);
+        out_port = cmesh_yx(r->m_icnt, cur_router, dest_router);
         vcBegin += available_vcs;
       }
     }
@@ -529,7 +539,9 @@ void xy_yx_cmesh(const Router *r, const Flit *f, int in_channel,
 //
 // ----------------------------------------------------------------------
 
-int cmesh_xy_no_express(int cur, int dest) {
+int cmesh_xy_no_express(InterconnectInterface *m_icnt, int cur, int dest) {
+  int gK = m_icnt->K;
+  int gC = m_icnt->C;
 
   const int POSITIVE_X = 0;
   const int NEGATIVE_X = 1;
@@ -560,7 +572,9 @@ int cmesh_xy_no_express(int cur, int dest) {
   return 0;
 }
 
-int cmesh_yx_no_express(int cur, int dest) {
+int cmesh_yx_no_express(InterconnectInterface *m_icnt, int cur, int dest) {
+  int gK = m_icnt->K;
+  int gC = m_icnt->C;
 
   const int POSITIVE_X = 0;
   const int NEGATIVE_X = 1;
@@ -611,6 +625,8 @@ void xy_yx_no_express_cmesh(const Router *r, const Flit *f, int in_channel,
   assert(((f->vc >= vcBegin) && (f->vc <= vcEnd)) || (inject && (f->vc < 0)));
 
   int out_port;
+  int gK = r->m_icnt->K;
+  int gC = r->m_icnt->C;
 
   if (inject) {
 
@@ -622,12 +638,12 @@ void xy_yx_no_express_cmesh(const Router *r, const Flit *f, int in_channel,
     int cur_router = r->GetID();
 
     // Destination Router
-    int dest_router = CMesh::NodeToRouter(f->dest);
+    int dest_router = CMesh::NodeToRouter(r->m_icnt, f->dest);
 
     if (dest_router == cur_router) {
 
       // Forward to processing element
-      out_port = CMesh::NodeToPort(f->dest);
+      out_port = CMesh::NodeToPort(r->m_icnt, f->dest);
 
     } else {
 
@@ -643,10 +659,10 @@ void xy_yx_no_express_cmesh(const Router *r, const Flit *f, int in_channel,
                                          : (f->vc < (vcBegin + available_vcs)));
 
       if (x_then_y) {
-        out_port = cmesh_xy_no_express(cur_router, dest_router);
+        out_port = cmesh_xy_no_express(r->m_icnt, cur_router, dest_router);
         vcEnd -= available_vcs;
       } else {
-        out_port = cmesh_yx_no_express(cur_router, dest_router);
+        out_port = cmesh_yx_no_express(r->m_icnt, cur_router, dest_router);
         vcBegin += available_vcs;
       }
     }
@@ -659,7 +675,9 @@ void xy_yx_no_express_cmesh(const Router *r, const Flit *f, int in_channel,
 //============================================================
 //
 //=====
-int cmesh_next(int cur, int dest) {
+int cmesh_next(InterconnectInterface *m_icnt, int cur, int dest) {
+  int gK = m_icnt->K;
+  int gC = m_icnt->C;
 
   const int POSITIVE_X = 0;
   const int NEGATIVE_X = 1;
@@ -748,17 +766,17 @@ void dor_cmesh(const Router *r, const Flit *f, int in_channel,
     int cur_router = r->GetID();
 
     // Destination Router
-    int dest_router = CMesh::NodeToRouter(f->dest);
+    int dest_router = CMesh::NodeToRouter(r->m_icnt, f->dest);
 
     if (dest_router == cur_router) {
 
       // Forward to processing element
-      out_port = CMesh::NodeToPort(f->dest);
+      out_port = CMesh::NodeToPort(r->m_icnt, f->dest);
 
     } else {
 
       // Forward to neighbouring router
-      out_port = cmesh_next(cur_router, dest_router);
+      out_port = cmesh_next(r->m_icnt, cur_router, dest_router);
     }
   }
 
@@ -770,7 +788,9 @@ void dor_cmesh(const Router *r, const Flit *f, int in_channel,
 //============================================================
 //
 //=====
-int cmesh_next_no_express(int cur, int dest) {
+int cmesh_next_no_express(InterconnectInterface *m_icnt, int cur, int dest) {
+  int gK = m_icnt->K;
+  int gC = m_icnt->C;
 
   const int POSITIVE_X = 0;
   const int NEGATIVE_X = 1;
@@ -831,17 +851,17 @@ void dor_no_express_cmesh(const Router *r, const Flit *f, int in_channel,
     int cur_router = r->GetID();
 
     // Destination Router
-    int dest_router = CMesh::NodeToRouter(f->dest);
+    int dest_router = CMesh::NodeToRouter(r->m_icnt, f->dest);
 
     if (dest_router == cur_router) {
 
       // Forward to processing element
-      out_port = CMesh::NodeToPort(f->dest);
+      out_port = CMesh::NodeToPort(r->m_icnt, f->dest);
 
     } else {
 
       // Forward to neighbouring router
-      out_port = cmesh_next_no_express(cur_router, dest_router);
+      out_port = cmesh_next_no_express(r->m_icnt, cur_router, dest_router);
     }
   }
 

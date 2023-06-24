@@ -23,6 +23,7 @@ icnt_get_flit_size_p icnt_get_flit_size;
 unsigned g_network_mode;
 char *g_network_config_filename;
 
+InterconnectInterface *g_icnt_interface;
 struct inct_config g_inct_config;
 
 // Wrapper to intersim2 to accompany old icnt_wrapper

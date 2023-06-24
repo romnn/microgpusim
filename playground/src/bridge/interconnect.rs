@@ -65,63 +65,180 @@ mod default {
     }
 }
 
-pub struct InterconnectInterface<T> {
-    inner: cxx::UniquePtr<default::InterconnectInterface>,
-    phantom: std::marker::PhantomData<T>,
-}
+pub struct InterconnectInterface(cxx::UniquePtr<default::InterconnectInterface>);
+pub struct BoxInterconnect(cxx::UniquePtr<default::BoxInterconnect>);
 
-impl<T> InterconnectInterface<T> {
-    pub fn num_nodes(&self) -> u32 {
-        self.inner.GetNumNodes()
-    }
+// pub struct InterconnectInterface<T> {
+//     inner: cxx::UniquePtr<default::InterconnectInterface>,
+//     phantom: std::marker::PhantomData<T>,
+// }
+//
+// impl<T> InterconnectInterface<T> {
+//     pub fn num_nodes(&self) -> u32 {
+//         self.inner.GetNumNodes()
+//     }
+//
+//     pub fn num_shaders(&self) -> u32 {
+//         self.inner.GetNumShaders()
+//     }
+//
+//     pub fn num_memories(&self) -> u32 {
+//         self.inner.GetNumMemories()
+//     }
+//
+//     fn init(&mut self) {
+//         self.inner.pin_mut().Init();
+//     }
+//
+//     fn create_interconnect(&mut self, num_clusters: u32, num_mem_sub_partitions: u32) {
+//         self.inner
+//             .pin_mut()
+//             .CreateInterconnect(num_clusters, num_mem_sub_partitions);
+//     }
+//
 
-    pub fn num_shaders(&self) -> u32 {
-        self.inner.GetNumShaders()
-    }
-
-    pub fn num_memories(&self) -> u32 {
-        self.inner.GetNumMemories()
-    }
-
-    fn init(&mut self) {
-        self.inner.pin_mut().Init();
-    }
-
-    fn create_interconnect(&mut self, num_clusters: u32, num_mem_sub_partitions: u32) {
-        self.inner
-            .pin_mut()
-            .CreateInterconnect(num_clusters, num_mem_sub_partitions);
-    }
-
+impl InterconnectInterface {
     pub fn new(config_file: &Path, num_clusters: u32, num_mem_sub_partitions: u32) -> Self {
         let config_file = config_file.canonicalize().unwrap();
         let config_file = CString::new(&*config_file.to_string_lossy()).unwrap();
-        let inner = unsafe { default::new_interconnect_interface(config_file.as_ptr()) };
-        let mut interconn = Self {
-            inner,
-            phantom: std::marker::PhantomData,
-        };
+        let mut interconn =
+            Self(unsafe { default::new_interconnect_interface(config_file.as_ptr()) });
         interconn.create_interconnect(num_clusters, num_mem_sub_partitions);
         interconn.init();
         interconn
     }
 }
 
-pub struct BoxInterconnect(default::BoxInterconnect);
-
-pub trait Interconnect<T> {
-    fn advance(&mut self);
-    fn must_pop(&mut self, node: u32) -> eyre::Result<(u16, Box<T>)>;
-    fn push(&mut self, src_node: u32, dest_node: u32, value: Box<T>);
-    fn pop(&mut self, node: u32) -> Option<Box<T>>;
+impl BoxInterconnect {
+    pub fn new(config_file: &Path, num_clusters: u32, num_mem_sub_partitions: u32) -> Self {
+        let config_file = config_file.canonicalize().unwrap();
+        let config_file = CString::new(&*config_file.to_string_lossy()).unwrap();
+        let mut interconn = Self(unsafe { default::new_box_interconnect(config_file.as_ptr()) });
+        interconn.create_interconnect(num_clusters, num_mem_sub_partitions);
+        interconn.init();
+        interconn
+    }
 }
 
-impl<T> Interconnect<T> for InterconnectInterface<T> {
+trait SealedInterconnect {
+    fn init(&mut self);
+    fn create_interconnect(&mut self, num_clusters: u32, num_mem_sub_partitions: u32);
+    fn num_nodes(&self) -> u32;
+    fn num_shaders(&self) -> u32;
+    fn num_memories(&self) -> u32;
+    fn advance(&mut self);
+    fn push(&mut self, src_node: u32, dest_node: u32, value: *mut default::c_void, size: u32);
+    fn pop(&mut self, node: u32) -> *mut default::c_void;
+}
+
+impl SealedInterconnect for InterconnectInterface {
+    fn init(&mut self) {
+        self.0.pin_mut().Init();
+    }
+    fn create_interconnect(&mut self, num_clusters: u32, num_mem_sub_partitions: u32) {
+        self.0
+            .pin_mut()
+            .CreateInterconnect(num_clusters, num_mem_sub_partitions);
+    }
+    fn num_nodes(&self) -> u32 {
+        self.0.GetNumNodes()
+    }
+    fn num_shaders(&self) -> u32 {
+        self.0.GetNumShaders()
+    }
+    fn num_memories(&self) -> u32 {
+        self.0.GetNumMemories()
+    }
     fn advance(&mut self) {
-        self.inner.pin_mut().Advance()
+        self.0.pin_mut().Advance()
+    }
+    fn push(&mut self, src_node: u32, dest_node: u32, value: *mut default::c_void, size: u32) {
+        unsafe { self.0.pin_mut().Push(src_node, dest_node, value, size) }
+    }
+    fn pop(&mut self, node: u32) -> *mut default::c_void {
+        unsafe { self.0.pin_mut().Pop(node) }
+    }
+}
+
+impl SealedInterconnect for BoxInterconnect {
+    fn init(&mut self) {
+        self.0.pin_mut().Init();
+    }
+    fn create_interconnect(&mut self, num_clusters: u32, num_mem_sub_partitions: u32) {
+        self.0
+            .pin_mut()
+            .CreateInterconnect(num_clusters, num_mem_sub_partitions);
+    }
+    fn num_nodes(&self) -> u32 {
+        self.0.GetNumNodes()
+    }
+    fn num_shaders(&self) -> u32 {
+        self.0.GetNumShaders()
+    }
+    fn num_memories(&self) -> u32 {
+        self.0.GetNumMemories()
+    }
+    fn advance(&mut self) {
+        self.0.pin_mut().Advance()
+    }
+    fn push(&mut self, src_node: u32, dest_node: u32, value: *mut default::c_void, size: u32) {
+        unsafe { self.0.pin_mut().Push(src_node, dest_node, value, size) }
+    }
+    fn pop(&mut self, node: u32) -> *mut default::c_void {
+        unsafe { self.0.pin_mut().Pop(node) }
+    }
+}
+
+// pub trait Interconnect<T> {
+//     fn advance(&mut self);
+//     fn must_pop(&mut self, node: u32) -> eyre::Result<(u16, Box<T>)>;
+//     fn push(&mut self, src_node: u32, dest_node: u32, value: Box<T>);
+//     fn pop(&mut self, node: u32) -> Option<Box<T>>;
+// }
+//
+
+// pub struct BoxInterconnect<T> {
+//     inner: cxx::UniquePtr<default::BoxInterconnect>,
+//     phantom: std::marker::PhantomData<T>,
+// }
+
+pub struct Interconnect<T, I>
+// where
+//     I: SealedInterconnect,
+{
+    inner: I,
+    phantom: std::marker::PhantomData<T>,
+}
+
+// impl<T> Interconnect<T> for InterconnectInterface<T> {
+impl<T, I> Interconnect<T, I>
+where
+    I: SealedInterconnect,
+{
+    pub fn new(inner: I) -> Self {
+        Self {
+            inner,
+            phantom: std::marker::PhantomData,
+        }
     }
 
-    fn must_pop(&mut self, node: u32) -> eyre::Result<(u16, Box<T>)> {
+    pub fn num_nodes(&self) -> u32 {
+        self.inner.num_nodes()
+    }
+
+    pub fn num_shaders(&self) -> u32 {
+        self.inner.num_shaders()
+    }
+
+    pub fn num_memories(&self) -> u32 {
+        self.inner.num_memories()
+    }
+
+    pub fn advance(&mut self) {
+        self.inner.advance()
+    }
+
+    pub fn must_pop(&mut self, node: u32) -> eyre::Result<(u16, Box<T>)> {
         for cycle in 0..u16::MAX {
             if let Some(data) = self.pop(node) {
                 return Ok((cycle, data));
@@ -134,8 +251,8 @@ impl<T> Interconnect<T> for InterconnectInterface<T> {
         ))
     }
 
-    fn pop(&mut self, node: u32) -> Option<Box<T>> {
-        let value = unsafe { self.inner.pin_mut().Pop(node) };
+    pub fn pop(&mut self, node: u32) -> Option<Box<T>> {
+        let value = unsafe { self.inner.pop(node) };
         if value.is_null() {
             None
         } else {
@@ -144,10 +261,10 @@ impl<T> Interconnect<T> for InterconnectInterface<T> {
         }
     }
 
-    fn push(&mut self, src_node: u32, dest_node: u32, value: Box<T>) {
+    pub fn push(&mut self, src_node: u32, dest_node: u32, value: Box<T>) {
         let mut value: &mut T = Box::leak(value);
         unsafe {
-            self.inner.pin_mut().Push(
+            self.inner.push(
                 src_node,
                 dest_node,
                 // (&mut value as *mut Box<T>) as *mut default::c_void,
@@ -159,4 +276,37 @@ impl<T> Interconnect<T> for InterconnectInterface<T> {
     }
 }
 
-pub use default::IntersimConfig;
+pub struct IntersimConfig(cxx::UniquePtr<default::IntersimConfig>);
+
+impl IntersimConfig {
+    pub fn new() -> Self {
+        Self(default::new_intersim_config())
+    }
+
+    pub fn from_file(path: &Path) -> eyre::Result<Self> {
+        let mut config = Self(default::new_intersim_config());
+        config.parse_file(path)?;
+        Ok(config)
+    }
+
+    fn parse_file(&mut self, path: &Path) -> eyre::Result<()> {
+        let config_file = path.canonicalize()?.to_string_lossy().to_string();
+        cxx::let_cxx_string!(config_file = config_file);
+        self.0.pin_mut().ParseFile(&config_file);
+        Ok(())
+    }
+
+    pub fn get_int(&self, field: impl AsRef<str>) -> i32 {
+        cxx::let_cxx_string!(field = field.as_ref());
+        self.0.GetInt(&field)
+    }
+
+    pub fn get_string(&self, field: impl AsRef<str>) -> String {
+        cxx::let_cxx_string!(field = field.as_ref());
+        self.0.GetStr(&field).to_string_lossy().to_string()
+    }
+
+    pub fn get_bool(&self, field: impl AsRef<str>) -> bool {
+        self.get_int(field) != 0
+    }
+}

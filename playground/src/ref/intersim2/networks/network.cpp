@@ -36,6 +36,7 @@
 #include <sstream>
 
 #include "../booksim.hpp"
+#include "../interconnect_interface.hpp"
 #include "network.hpp"
 
 #include "anynet.hpp"
@@ -133,7 +134,7 @@ void Network::_Alloc() {
   assert((_size != -1) && (_nodes != -1) && (_channels != -1));
 
   _routers.resize(_size);
-  gNodes = _nodes;
+  m_icnt->Nodes = _nodes;
 
   /*booksim used arrays of flits as the channels which makes have capacity of
    *one. To simulate channel latency, flitchannel class has been added

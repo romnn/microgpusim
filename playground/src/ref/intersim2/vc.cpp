@@ -37,7 +37,7 @@
 #include <sstream>
 
 #include "booksim.hpp"
-#include "globals.hpp"
+#include "interconnect_interface.hpp"
 #include "vc.hpp"
 
 const char *const VC::VCSTATE[] = {"idle", "routing", "vc_alloc", "active"};
@@ -119,9 +119,9 @@ void VC::SetState(eVCState s) {
   Flit *f = FrontFlit();
 
   if (f && f->watch)
-    *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-               << "Changing state from " << VC::VCSTATE[_state] << " to "
-               << VC::VCSTATE[s] << "." << std::endl;
+    *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                       << "Changing state from " << VC::VCSTATE[_state]
+                       << " to " << VC::VCSTATE[s] << "." << std::endl;
 
   _state = s;
 }
@@ -154,16 +154,16 @@ void VC::UpdatePriority() {
           df = bf;
       }
       if ((df != f) && (df->watch || f->watch)) {
-        *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                   << "Flit " << df->id << " donates priority to flit " << f->id
-                   << "." << std::endl;
+        *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                           << "Flit " << df->id << " donates priority to flit "
+                           << f->id << "." << std::endl;
       }
       f = df;
     }
     if (f->watch)
-      *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                 << "Flit " << f->id << " sets priority to " << f->pri << "."
-                 << std::endl;
+      *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                         << "Flit " << f->id << " sets priority to " << f->pri
+                         << "." << std::endl;
     _pri = f->pri;
   }
 }

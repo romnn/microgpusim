@@ -40,7 +40,7 @@
 #include "../arbiters/roundrobin_arb.hpp"
 #include "../buffer.hpp"
 #include "../buffer_state.hpp"
-#include "../globals.hpp"
+#include "../interconnect_interface.hpp"
 #include "../outputset.hpp"
 #include "../power/buffer_monitor.hpp"
 #include "../power/switch_monitor.hpp"
@@ -181,7 +181,7 @@ IQRouter::IQRouter(Configuration const &config, Module *parent,
 
 IQRouter::~IQRouter() {
 
-  if (gPrintActivity) {
+  if (m_icnt->print_activity) {
     std::cout << Name() << ".bufferMonitor:" << std::endl;
     std::cout << *_bufferMonitor << std::endl;
 
@@ -301,9 +301,10 @@ bool IQRouter::_ReceiveFlits() {
 #endif
 
       if (f->watch) {
-        *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                   << "Received flit " << (unsigned)f->id
-                   << " from channel at input " << input << "." << std::endl;
+        *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                           << "Received flit " << (unsigned)f->id
+                           << " from channel at input " << input << "."
+                           << std::endl;
       }
       _in_queue_flits.insert(std::make_pair(input, f));
       activity = true;
@@ -345,16 +346,17 @@ void IQRouter::_InputQueuing() {
     Buffer *const cur_buf = _buf[input];
 
     if (f->watch) {
-      *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                 << "Adding flit " << f->id << " to VC " << vc << " at input "
-                 << input << " (state: " << VC::VCSTATE[cur_buf->GetState(vc)];
+      *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                         << "Adding flit " << f->id << " to VC " << vc
+                         << " at input " << input
+                         << " (state: " << VC::VCSTATE[cur_buf->GetState(vc)];
       if (cur_buf->Empty(vc)) {
-        *gWatchOut << ", empty";
+        *m_icnt->watch_out << ", empty";
       } else {
         assert(cur_buf->FrontFlit(vc));
-        *gWatchOut << ", front: " << cur_buf->FrontFlit(vc)->id;
+        *m_icnt->watch_out << ", front: " << cur_buf->FrontFlit(vc)->id;
       }
-      *gWatchOut << ")." << std::endl;
+      *m_icnt->watch_out << ")." << std::endl;
     }
     cur_buf->AddFlit(vc, f);
 
@@ -377,7 +379,7 @@ void IQRouter::_InputQueuing() {
         _route_vcs.push_back(make_pair(-1, std::make_pair(input, vc)));
       } else {
         if (f->watch) {
-          *gWatchOut
+          *m_icnt->watch_out
               << GetSimTime() << " | " << FullName() << " | "
               << "Using precomputed lookahead routing information for VC " << vc
               << " at input " << input << " (front: " << f->id << ")."
@@ -478,9 +480,9 @@ void IQRouter::_RouteEvaluate() {
     assert(f->head);
 
     if (f->watch) {
-      *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                 << "Beginning routing for VC " << vc << " at input " << input
-                 << " (front: " << f->id << ")." << std::endl;
+      *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                         << "Beginning routing for VC " << vc << " at input "
+                         << input << " (front: " << f->id << ")." << std::endl;
     }
   }
 }
@@ -513,9 +515,9 @@ void IQRouter::_RouteUpdate() {
     assert(f->head);
 
     if (f->watch) {
-      *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                 << "Completed routing for VC " << vc << " at input " << input
-                 << " (front: " << f->id << ")." << std::endl;
+      *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                         << "Completed routing for VC " << vc << " at input "
+                         << input << " (front: " << f->id << ")." << std::endl;
     }
 
     cur_buf->Route(vc, _rf, this, f, input);
@@ -566,9 +568,10 @@ void IQRouter::_VCAllocEvaluate() {
     assert(f->head);
 
     if (f->watch) {
-      *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                 << "Beginning VC allocation for VC " << vc << " at input "
-                 << input << " (front: " << f->id << ")." << std::endl;
+      *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                         << "Beginning VC allocation for VC " << vc
+                         << " at input " << input << " (front: " << f->id
+                         << ")." << std::endl;
     }
 
     OutputSet const *const route_set = cur_buf->GetRouteSet(vc);
@@ -627,33 +630,34 @@ void IQRouter::_VCAllocEvaluate() {
             int const use_input_and_vc = dest_buf->UsedBy(out_vc);
             int const use_input = use_input_and_vc / _vcs;
             int const use_vc = use_input_and_vc % _vcs;
-            *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                       << "  VC " << out_vc << " at output " << out_port
-                       << " is in use by VC " << use_vc << " at input "
-                       << use_input;
+            *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                               << "  VC " << out_vc << " at output " << out_port
+                               << " is in use by VC " << use_vc << " at input "
+                               << use_input;
             Flit *cf = _buf[use_input]->FrontFlit(use_vc);
             if (cf) {
-              *gWatchOut << " (front flit: " << cf->id << ")";
+              *m_icnt->watch_out << " (front flit: " << cf->id << ")";
             } else {
-              *gWatchOut << " (empty)";
+              *m_icnt->watch_out << " (empty)";
             }
-            *gWatchOut << "." << std::endl;
+            *m_icnt->watch_out << "." << std::endl;
           }
         } else {
           elig = true;
           if (_vc_busy_when_full && dest_buf->IsFullFor(out_vc)) {
             if (f->watch)
-              *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                         << "  VC " << out_vc << " at output " << out_port
-                         << " is full." << std::endl;
+              *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                                 << "  VC " << out_vc << " at output "
+                                 << out_port << " is full." << std::endl;
             reserved |= !dest_buf->IsFull();
           } else {
             cred = true;
             if (f->watch) {
-              *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                         << "  Requesting VC " << out_vc << " at output "
-                         << out_port << " (in_pri: " << in_priority
-                         << ", out_pri: " << out_priority << ")." << std::endl;
+              *m_icnt->watch_out
+                  << GetSimTime() << " | " << FullName() << " | "
+                  << "  Requesting VC " << out_vc << " at output " << out_port
+                  << " (in_pri: " << in_priority
+                  << ", out_pri: " << out_priority << ")." << std::endl;
               watched = true;
             }
             int const input_and_vc = _vc_shuffle_requests
@@ -674,15 +678,17 @@ void IQRouter::_VCAllocEvaluate() {
   }
 
   if (watched) {
-    *gWatchOut << GetSimTime() << " | " << _vc_allocator->FullName() << " | ";
-    _vc_allocator->PrintRequests(gWatchOut);
+    *m_icnt->watch_out << GetSimTime() << " | " << _vc_allocator->FullName()
+                       << " | ";
+    _vc_allocator->PrintRequests(m_icnt->watch_out);
   }
 
   _vc_allocator->Allocate();
 
   if (watched) {
-    *gWatchOut << GetSimTime() << " | " << _vc_allocator->FullName() << " | ";
-    _vc_allocator->PrintGrants(gWatchOut);
+    *m_icnt->watch_out << GetSimTime() << " | " << _vc_allocator->FullName()
+                       << " | ";
+    _vc_allocator->PrintGrants(m_icnt->watch_out);
   }
 
   for (std::deque<std::pair<int, std::pair<std::pair<int, int>, int>>>::iterator
@@ -727,10 +733,10 @@ void IQRouter::_VCAllocEvaluate() {
       assert((match_vc >= 0) && (match_vc < _vcs));
 
       if (f->watch) {
-        *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                   << "Assigning VC " << match_vc << " at output "
-                   << match_output << " to VC " << vc << " at input " << input
-                   << "." << std::endl;
+        *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                           << "Assigning VC " << match_vc << " at output "
+                           << match_output << " to VC " << vc << " at input "
+                           << input << "." << std::endl;
       }
 
       iter->second.second = output_and_vc;
@@ -738,9 +744,9 @@ void IQRouter::_VCAllocEvaluate() {
     } else {
 
       if (f->watch) {
-        *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                   << "VC allocation failed for VC " << vc << " at input "
-                   << input << "." << std::endl;
+        *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                           << "VC allocation failed for VC " << vc
+                           << " at input " << input << "." << std::endl;
       }
 
       iter->second.second = STALL_BUFFER_CONFLICT;
@@ -790,20 +796,20 @@ void IQRouter::_VCAllocEvaluate() {
 
       if (!dest_buf->IsAvailableFor(match_vc)) {
         if (f->watch) {
-          *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                     << "  Discarding previously generated grant for VC " << vc
-                     << " at input " << input << ": VC " << match_vc
-                     << " at output " << match_output
-                     << " is no longer available." << std::endl;
+          *m_icnt->watch_out
+              << GetSimTime() << " | " << FullName() << " | "
+              << "  Discarding previously generated grant for VC " << vc
+              << " at input " << input << ": VC " << match_vc << " at output "
+              << match_output << " is no longer available." << std::endl;
         }
         iter->second.second = STALL_BUFFER_BUSY;
       } else if (_vc_busy_when_full && dest_buf->IsFullFor(match_vc)) {
         if (f->watch) {
-          *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                     << "  Discarding previously generated grant for VC " << vc
-                     << " at input " << input << ": VC " << match_vc
-                     << " at output " << match_output << " has become full."
-                     << std::endl;
+          *m_icnt->watch_out
+              << GetSimTime() << " | " << FullName() << " | "
+              << "  Discarding previously generated grant for VC " << vc
+              << " at input " << input << ": VC " << match_vc << " at output "
+              << match_output << " has become full." << std::endl;
         }
         iter->second.second =
             dest_buf->IsFull() ? STALL_BUFFER_FULL : STALL_BUFFER_RESERVED;
@@ -843,9 +849,10 @@ void IQRouter::_VCAllocUpdate() {
     assert(f->head);
 
     if (f->watch) {
-      *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                 << "Completed VC allocation for VC " << vc << " at input "
-                 << input << " (front: " << f->id << ")." << std::endl;
+      *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                         << "Completed VC allocation for VC " << vc
+                         << " at input " << input << " (front: " << f->id
+                         << ")." << std::endl;
     }
 
     int const output_and_vc = item.second.second;
@@ -858,9 +865,9 @@ void IQRouter::_VCAllocUpdate() {
       assert((match_vc >= 0) && (match_vc < _vcs));
 
       if (f->watch) {
-        *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                   << "  Acquiring assigned VC " << match_vc << " at output "
-                   << match_output << "." << std::endl;
+        *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                           << "  Acquiring assigned VC " << match_vc
+                           << " at output " << match_output << "." << std::endl;
       }
 
       BufferState *const dest_buf = _next_buf[match_output];
@@ -876,8 +883,8 @@ void IQRouter::_VCAllocUpdate() {
       }
     } else {
       if (f->watch) {
-        *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                   << "  No output VC allocated." << std::endl;
+        *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                           << "  No output VC allocated." << std::endl;
       }
 
 #ifdef TRACK_STALLS
@@ -929,10 +936,10 @@ void IQRouter::_SWHoldEvaluate() {
     assert(f->vc == vc);
 
     if (f->watch) {
-      *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                 << "Beginning held switch allocation for VC " << vc
-                 << " at input " << input << " (front: " << f->id << ")."
-                 << std::endl;
+      *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                         << "Beginning held switch allocation for VC " << vc
+                         << " at input " << input << " (front: " << f->id
+                         << ")." << std::endl;
     }
 
     int const expanded_input = input * _input_speedup + vc % _input_speedup;
@@ -951,21 +958,23 @@ void IQRouter::_SWHoldEvaluate() {
 
     if (dest_buf->IsFullFor(match_vc)) {
       if (f->watch) {
-        *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                   << "  Unable to reuse held connection from input " << input
-                   << "." << (expanded_input % _input_speedup) << " to output "
-                   << match_port << "." << (expanded_output % _output_speedup)
-                   << ": No credit available." << std::endl;
+        *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                           << "  Unable to reuse held connection from input "
+                           << input << "." << (expanded_input % _input_speedup)
+                           << " to output " << match_port << "."
+                           << (expanded_output % _output_speedup)
+                           << ": No credit available." << std::endl;
       }
       iter->second.second =
           dest_buf->IsFull() ? STALL_BUFFER_FULL : STALL_BUFFER_RESERVED;
     } else {
       if (f->watch) {
-        *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                   << "  Reusing held connection from input " << input << "."
-                   << (expanded_input % _input_speedup) << " to output "
-                   << match_port << "." << (expanded_output % _output_speedup)
-                   << "." << std::endl;
+        *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                           << "  Reusing held connection from input " << input
+                           << "." << (expanded_input % _input_speedup)
+                           << " to output " << match_port << "."
+                           << (expanded_output % _output_speedup) << "."
+                           << std::endl;
       }
       iter->second.second = expanded_output;
     }
@@ -1002,10 +1011,10 @@ void IQRouter::_SWHoldUpdate() {
     assert(f->vc == vc);
 
     if (f->watch) {
-      *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                 << "Completed held switch allocation for VC " << vc
-                 << " at input " << input << " (front: " << f->id << ")."
-                 << std::endl;
+      *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                         << "Completed held switch allocation for VC " << vc
+                         << " at input " << input << " (front: " << f->id
+                         << ")." << std::endl;
     }
 
     int const expanded_input = input * _input_speedup + vc % _input_speedup;
@@ -1030,11 +1039,12 @@ void IQRouter::_SWHoldUpdate() {
       BufferState *const dest_buf = _next_buf[output];
 
       if (f->watch) {
-        *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                   << "  Scheduling switch connection from input " << input
-                   << "." << (vc % _input_speedup) << " to output " << output
-                   << "." << (expanded_output % _output_speedup) << "."
-                   << std::endl;
+        *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                           << "  Scheduling switch connection from input "
+                           << input << "." << (vc % _input_speedup)
+                           << " to output " << output << "."
+                           << (expanded_output % _output_speedup) << "."
+                           << std::endl;
       }
 
       cur_buf->RemoveFlit(vc);
@@ -1056,9 +1066,10 @@ void IQRouter::_SWHoldUpdate() {
         if (router) {
           if (_noq) {
             if (f->watch) {
-              *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                         << "Updating lookahead routing information for flit "
-                         << f->id << " (NOQ)." << std::endl;
+              *m_icnt->watch_out
+                  << GetSimTime() << " | " << FullName() << " | "
+                  << "Updating lookahead routing information for flit " << f->id
+                  << " (NOQ)." << std::endl;
             }
             int next_output_port = _noq_next_output_port[input][vc];
             assert(next_output_port >= 0);
@@ -1074,9 +1085,10 @@ void IQRouter::_SWHoldUpdate() {
                                      next_vc_end);
           } else {
             if (f->watch) {
-              *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                         << "Updating lookahead routing information for flit "
-                         << f->id << "." << std::endl;
+              *m_icnt->watch_out
+                  << GetSimTime() << " | " << FullName() << " | "
+                  << "Updating lookahead routing information for flit " << f->id
+                  << "." << std::endl;
             }
             int in_channel = channel->GetSinkPort();
             _rf(router, f, in_channel, &f->la_route_set, false);
@@ -1103,11 +1115,12 @@ void IQRouter::_SWHoldUpdate() {
 
       if (cur_buf->Empty(vc)) {
         if (f->watch) {
-          *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                     << "  Cancelling held connection from input " << input
-                     << "." << (expanded_input % _input_speedup) << " to "
-                     << output << "." << (expanded_output % _output_speedup)
-                     << ": No more flits." << std::endl;
+          *m_icnt->watch_out
+              << GetSimTime() << " | " << FullName() << " | "
+              << "  Cancelling held connection from input " << input << "."
+              << (expanded_input % _input_speedup) << " to " << output << "."
+              << (expanded_output % _output_speedup) << ": No more flits."
+              << std::endl;
         }
         _switch_hold_vc[expanded_input] = -1;
         _switch_hold_in[expanded_input] = -1;
@@ -1122,11 +1135,12 @@ void IQRouter::_SWHoldUpdate() {
         if (f->tail) {
           assert(nf->head);
           if (f->watch) {
-            *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                       << "  Cancelling held connection from input " << input
-                       << "." << (expanded_input % _input_speedup) << " to "
-                       << output << "." << (expanded_output % _output_speedup)
-                       << ": End of packet." << std::endl;
+            *m_icnt->watch_out
+                << GetSimTime() << " | " << FullName() << " | "
+                << "  Cancelling held connection from input " << input << "."
+                << (expanded_input % _input_speedup) << " to " << output << "."
+                << (expanded_output % _output_speedup) << ": End of packet."
+                << std::endl;
           }
           _switch_hold_vc[expanded_input] = -1;
           _switch_hold_in[expanded_input] = -1;
@@ -1136,7 +1150,7 @@ void IQRouter::_SWHoldUpdate() {
             _route_vcs.push_back(make_pair(-1, item.second.first));
           } else {
             if (nf->watch) {
-              *gWatchOut
+              *m_icnt->watch_out
                   << GetSimTime() << " | " << FullName() << " | "
                   << "Using precomputed lookahead routing information for VC "
                   << vc << " at input " << input << " (front: " << nf->id
@@ -1173,12 +1187,12 @@ void IQRouter::_SWHoldUpdate() {
       assert(held_expanded_output >= 0);
 
       if (f->watch) {
-        *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                   << "  Cancelling held connection from input " << input << "."
-                   << (expanded_input % _input_speedup) << " to "
-                   << (held_expanded_output / _output_speedup) << "."
-                   << (held_expanded_output % _output_speedup)
-                   << ": Flit not sent." << std::endl;
+        *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                           << "  Cancelling held connection from input "
+                           << input << "." << (expanded_input % _input_speedup)
+                           << " to " << (held_expanded_output / _output_speedup)
+                           << "." << (held_expanded_output % _output_speedup)
+                           << ": Flit not sent." << std::endl;
       }
       _switch_hold_vc[expanded_input] = -1;
       _switch_hold_in[expanded_input] = -1;
@@ -1236,57 +1250,57 @@ bool IQRouter::_SWAllocAddReq(int input, int vc, int output) {
       if (RoundRobinArbiter::Supersedes(vc, prio, req.label, req.in_pri,
                                         _sw_rr_offset[expanded_input], _vcs)) {
         if (f->watch) {
-          *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                     << "  Replacing earlier request from VC " << req.label
-                     << " for output " << output << "."
-                     << (expanded_output % _output_speedup) << " with priority "
-                     << req.in_pri << " ("
-                     << ((cur_buf->GetState(vc) == VC::active) ? "non-spec"
-                                                               : "spec")
-                     << ", pri: " << prio << ")." << std::endl;
+          *m_icnt->watch_out
+              << GetSimTime() << " | " << FullName() << " | "
+              << "  Replacing earlier request from VC " << req.label
+              << " for output " << output << "."
+              << (expanded_output % _output_speedup) << " with priority "
+              << req.in_pri << " ("
+              << ((cur_buf->GetState(vc) == VC::active) ? "non-spec" : "spec")
+              << ", pri: " << prio << ")." << std::endl;
         }
         allocator->RemoveRequest(expanded_input, expanded_output, req.label);
         allocator->AddRequest(expanded_input, expanded_output, vc, prio, prio);
         return true;
       }
       if (f->watch) {
-        *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                   << "  Output " << output << "."
-                   << (expanded_output % _output_speedup)
-                   << " was already requested by VC " << req.label
-                   << " with priority " << req.in_pri << " (pri: " << prio
-                   << ")." << std::endl;
+        *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                           << "  Output " << output << "."
+                           << (expanded_output % _output_speedup)
+                           << " was already requested by VC " << req.label
+                           << " with priority " << req.in_pri
+                           << " (pri: " << prio << ")." << std::endl;
       }
       return false;
     }
     if (f->watch) {
-      *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                 << "  Requesting output " << output << "."
-                 << (expanded_output % _output_speedup) << " ("
-                 << ((cur_buf->GetState(vc) == VC::active) ? "non-spec"
-                                                           : "spec")
-                 << ", pri: " << prio << ")." << std::endl;
+      *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                         << "  Requesting output " << output << "."
+                         << (expanded_output % _output_speedup) << " ("
+                         << ((cur_buf->GetState(vc) == VC::active) ? "non-spec"
+                                                                   : "spec")
+                         << ", pri: " << prio << ")." << std::endl;
     }
     allocator->AddRequest(expanded_input, expanded_output, vc, prio, prio);
     return true;
   }
   if (f->watch) {
-    *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-               << "  Ignoring output " << output << "."
-               << (expanded_output % _output_speedup)
-               << " due to switch hold (";
+    *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                       << "  Ignoring output " << output << "."
+                       << (expanded_output % _output_speedup)
+                       << " due to switch hold (";
     if (_switch_hold_in[expanded_input] >= 0) {
-      *gWatchOut << "input: " << input << "."
-                 << (expanded_input % _input_speedup);
+      *m_icnt->watch_out << "input: " << input << "."
+                         << (expanded_input % _input_speedup);
       if (_switch_hold_out[expanded_output] >= 0) {
-        *gWatchOut << ", ";
+        *m_icnt->watch_out << ", ";
       }
     }
     if (_switch_hold_out[expanded_output] >= 0) {
-      *gWatchOut << "output: " << output << "."
-                 << (expanded_output % _output_speedup);
+      *m_icnt->watch_out << "output: " << output << "."
+                         << (expanded_output % _output_speedup);
     }
-    *gWatchOut << ")." << std::endl;
+    *m_icnt->watch_out << ")." << std::endl;
   }
   return false;
 }
@@ -1322,9 +1336,10 @@ void IQRouter::_SWAllocEvaluate() {
     assert(f->vc == vc);
 
     if (f->watch) {
-      *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                 << "Beginning switch allocation for VC " << vc << " at input "
-                 << input << " (front: " << f->id << ")." << std::endl;
+      *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                         << "Beginning switch allocation for VC " << vc
+                         << " at input " << input << " (front: " << f->id
+                         << ")." << std::endl;
     }
 
     if (cur_buf->GetState(vc) == VC::active) {
@@ -1340,9 +1355,9 @@ void IQRouter::_SWAllocEvaluate() {
           (_output_buffer_size != -1 && _output_buffer[dest_output].size() >=
                                             (size_t)(_output_buffer_size))) {
         if (f->watch) {
-          *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                     << "  VC " << dest_vc << " at output " << dest_output
-                     << " is full." << std::endl;
+          *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                             << "  VC " << dest_vc << " at output "
+                             << dest_output << " is full." << std::endl;
         }
         iter->second.second =
             dest_buf->IsFull() ? STALL_BUFFER_FULL : STALL_BUFFER_RESERVED;
@@ -1420,16 +1435,16 @@ void IQRouter::_SWAllocEvaluate() {
 
       if (_spec_check_elig && !elig) {
         if (f->watch) {
-          *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                     << "  Output " << dest_output
-                     << " has no suitable VCs available." << std::endl;
+          *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                             << "  Output " << dest_output
+                             << " has no suitable VCs available." << std::endl;
         }
         iter->second.second = STALL_BUFFER_BUSY;
       } else if (_spec_check_cred && !cred) {
         if (f->watch) {
-          *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                     << "  All suitable VCs at output " << dest_output
-                     << " are full." << std::endl;
+          *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                             << "  All suitable VCs at output " << dest_output
+                             << " are full." << std::endl;
         }
         iter->second.second =
             dest_buf->IsFull() ? STALL_BUFFER_FULL : STALL_BUFFER_RESERVED;
@@ -1441,12 +1456,13 @@ void IQRouter::_SWAllocEvaluate() {
   }
 
   if (watched) {
-    *gWatchOut << GetSimTime() << " | " << _sw_allocator->FullName() << " | ";
-    _sw_allocator->PrintRequests(gWatchOut);
+    *m_icnt->watch_out << GetSimTime() << " | " << _sw_allocator->FullName()
+                       << " | ";
+    _sw_allocator->PrintRequests(m_icnt->watch_out);
     if (_spec_sw_allocator) {
-      *gWatchOut << GetSimTime() << " | " << _spec_sw_allocator->FullName()
-                 << " | ";
-      _spec_sw_allocator->PrintRequests(gWatchOut);
+      *m_icnt->watch_out << GetSimTime() << " | "
+                         << _spec_sw_allocator->FullName() << " | ";
+      _spec_sw_allocator->PrintRequests(m_icnt->watch_out);
     }
   }
 
@@ -1455,12 +1471,13 @@ void IQRouter::_SWAllocEvaluate() {
     _spec_sw_allocator->Allocate();
 
   if (watched) {
-    *gWatchOut << GetSimTime() << " | " << _sw_allocator->FullName() << " | ";
-    _sw_allocator->PrintGrants(gWatchOut);
+    *m_icnt->watch_out << GetSimTime() << " | " << _sw_allocator->FullName()
+                       << " | ";
+    _sw_allocator->PrintGrants(m_icnt->watch_out);
     if (_spec_sw_allocator) {
-      *gWatchOut << GetSimTime() << " | " << _spec_sw_allocator->FullName()
-                 << " | ";
-      _spec_sw_allocator->PrintGrants(gWatchOut);
+      *m_icnt->watch_out << GetSimTime() << " | "
+                         << _spec_sw_allocator->FullName() << " | ";
+      _spec_sw_allocator->PrintGrants(m_icnt->watch_out);
     }
   }
 
@@ -1504,21 +1521,21 @@ void IQRouter::_SWAllocEvaluate() {
           _sw_allocator->ReadRequest(expanded_input, expanded_output);
       if (granted_vc == vc) {
         if (f->watch) {
-          *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                     << "Assigning output "
-                     << (expanded_output / _output_speedup) << "."
-                     << (expanded_output % _output_speedup) << " to VC " << vc
-                     << " at input " << input << "." << (vc % _input_speedup)
-                     << "." << std::endl;
+          *m_icnt->watch_out
+              << GetSimTime() << " | " << FullName() << " | "
+              << "Assigning output " << (expanded_output / _output_speedup)
+              << "." << (expanded_output % _output_speedup) << " to VC " << vc
+              << " at input " << input << "." << (vc % _input_speedup) << "."
+              << std::endl;
         }
         _sw_rr_offset[expanded_input] = (vc + _input_speedup) % _vcs;
         iter->second.second = expanded_output;
       } else {
         if (f->watch) {
-          *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                     << "Switch allocation failed for VC " << vc << " at input "
-                     << input << ": Granted to VC " << granted_vc << "."
-                     << std::endl;
+          *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                             << "Switch allocation failed for VC " << vc
+                             << " at input " << input << ": Granted to VC "
+                             << granted_vc << "." << std::endl;
         }
         iter->second.second = STALL_CROSSBAR_CONFLICT;
       }
@@ -1530,25 +1547,25 @@ void IQRouter::_SWAllocEvaluate() {
         if (_spec_mask_by_reqs &&
             _sw_allocator->OutputHasRequests(expanded_output)) {
           if (f->watch) {
-            *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                       << "Discarding speculative grant for VC " << vc
-                       << " at input " << input << "." << (vc % _input_speedup)
-                       << " because output "
-                       << (expanded_output / _output_speedup) << "."
-                       << (expanded_output % _output_speedup)
-                       << " has non-speculative requests." << std::endl;
+            *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                               << "Discarding speculative grant for VC " << vc
+                               << " at input " << input << "."
+                               << (vc % _input_speedup) << " because output "
+                               << (expanded_output / _output_speedup) << "."
+                               << (expanded_output % _output_speedup)
+                               << " has non-speculative requests." << std::endl;
           }
           iter->second.second = STALL_CROSSBAR_CONFLICT;
         } else if (!_spec_mask_by_reqs &&
                    (_sw_allocator->InputAssigned(expanded_output) >= 0)) {
           if (f->watch) {
-            *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                       << "Discarding speculative grant for VC " << vc
-                       << " at input " << input << "." << (vc % _input_speedup)
-                       << " because output "
-                       << (expanded_output / _output_speedup) << "."
-                       << (expanded_output % _output_speedup)
-                       << " has a non-speculative grant." << std::endl;
+            *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                               << "Discarding speculative grant for VC " << vc
+                               << " at input " << input << "."
+                               << (vc % _input_speedup) << " because output "
+                               << (expanded_output / _output_speedup) << "."
+                               << (expanded_output % _output_speedup)
+                               << " has a non-speculative grant." << std::endl;
           }
           iter->second.second = STALL_CROSSBAR_CONFLICT;
         } else {
@@ -1556,21 +1573,21 @@ void IQRouter::_SWAllocEvaluate() {
               _spec_sw_allocator->ReadRequest(expanded_input, expanded_output);
           if (granted_vc == vc) {
             if (f->watch) {
-              *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                         << "Assigning output "
-                         << (expanded_output / _output_speedup) << "."
-                         << (expanded_output % _output_speedup) << " to VC "
-                         << vc << " at input " << input << "."
-                         << (vc % _input_speedup) << "." << std::endl;
+              *m_icnt->watch_out
+                  << GetSimTime() << " | " << FullName() << " | "
+                  << "Assigning output " << (expanded_output / _output_speedup)
+                  << "." << (expanded_output % _output_speedup) << " to VC "
+                  << vc << " at input " << input << "." << (vc % _input_speedup)
+                  << "." << std::endl;
             }
             _sw_rr_offset[expanded_input] = (vc + _input_speedup) % _vcs;
             iter->second.second = expanded_output;
           } else {
             if (f->watch) {
-              *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                         << "Switch allocation failed for VC " << vc
-                         << " at input " << input << ": Granted to VC "
-                         << granted_vc << "." << std::endl;
+              *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                                 << "Switch allocation failed for VC " << vc
+                                 << " at input " << input << ": Granted to VC "
+                                 << granted_vc << "." << std::endl;
             }
             iter->second.second = STALL_CROSSBAR_CONFLICT;
           }
@@ -1578,9 +1595,10 @@ void IQRouter::_SWAllocEvaluate() {
       } else {
 
         if (f->watch) {
-          *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                     << "Switch allocation failed for VC " << vc << " at input "
-                     << input << ": No output granted." << std::endl;
+          *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                             << "Switch allocation failed for VC " << vc
+                             << " at input " << input << ": No output granted."
+                             << std::endl;
         }
 
         iter->second.second = STALL_CROSSBAR_CONFLICT;
@@ -1588,9 +1606,10 @@ void IQRouter::_SWAllocEvaluate() {
     } else {
 
       if (f->watch) {
-        *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                   << "Switch allocation failed for VC " << vc << " at input "
-                   << input << ": No output granted." << std::endl;
+        *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                           << "Switch allocation failed for VC " << vc
+                           << " at input " << input << ": No output granted."
+                           << std::endl;
       }
 
       iter->second.second = STALL_CROSSBAR_CONFLICT;
@@ -1643,22 +1662,22 @@ void IQRouter::_SWAllocEvaluate() {
       if ((_switch_hold_in[expanded_input] >= 0) ||
           (_switch_hold_out[expanded_output] >= 0)) {
         if (f->watch) {
-          *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                     << "Discarding grant from input " << input << "."
-                     << (vc % _input_speedup) << " to output " << output << "."
-                     << (expanded_output % _output_speedup)
-                     << " due to conflict with held connection at ";
+          *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                             << "Discarding grant from input " << input << "."
+                             << (vc % _input_speedup) << " to output " << output
+                             << "." << (expanded_output % _output_speedup)
+                             << " due to conflict with held connection at ";
           if (_switch_hold_in[expanded_input] >= 0) {
-            *gWatchOut << "input";
+            *m_icnt->watch_out << "input";
           }
           if ((_switch_hold_in[expanded_input] >= 0) &&
               (_switch_hold_out[expanded_output] >= 0)) {
-            *gWatchOut << " and ";
+            *m_icnt->watch_out << " and ";
           }
           if (_switch_hold_out[expanded_output] >= 0) {
-            *gWatchOut << "output";
+            *m_icnt->watch_out << "output";
           }
-          *gWatchOut << "." << std::endl;
+          *m_icnt->watch_out << "." << std::endl;
         }
         iter->second.second = STALL_CROSSBAR_CONFLICT;
       } else if (_speculative && (cur_buf->GetState(vc) == VC::vc_alloc)) {
@@ -1673,16 +1692,17 @@ void IQRouter::_SWAllocEvaluate() {
 
           if (output_and_vc < 0) {
             if (f->watch) {
-              *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                         << "Discarding grant from input " << input << "."
-                         << (vc % _input_speedup) << " to output " << output
-                         << "." << (expanded_output % _output_speedup)
-                         << " due to misspeculation." << std::endl;
+              *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                                 << "Discarding grant from input " << input
+                                 << "." << (vc % _input_speedup)
+                                 << " to output " << output << "."
+                                 << (expanded_output % _output_speedup)
+                                 << " due to misspeculation." << std::endl;
             }
             iter->second.second = -1; // stall is counted in VC allocation path!
           } else if ((output_and_vc / _vcs) != output) {
             if (f->watch) {
-              *gWatchOut
+              *m_icnt->watch_out
                   << GetSimTime() << " | " << FullName() << " | "
                   << "Discarding grant from input " << input << "."
                   << (vc % _input_speedup) << " to output " << output << "."
@@ -1695,11 +1715,12 @@ void IQRouter::_SWAllocEvaluate() {
                                        // allocation
           } else if (dest_buf->IsFullFor((output_and_vc % _vcs))) {
             if (f->watch) {
-              *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                         << "Discarding grant from input " << input << "."
-                         << (vc % _input_speedup) << " to output " << output
-                         << "." << (expanded_output % _output_speedup)
-                         << " due to lack of credit." << std::endl;
+              *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                                 << "Discarding grant from input " << input
+                                 << "." << (vc % _input_speedup)
+                                 << " to output " << output << "."
+                                 << (expanded_output % _output_speedup)
+                                 << " due to lack of credit." << std::endl;
             }
             iter->second.second =
                 dest_buf->IsFull() ? STALL_BUFFER_FULL : STALL_BUFFER_RESERVED;
@@ -1758,24 +1779,26 @@ void IQRouter::_SWAllocEvaluate() {
 
           if (busy) {
             if (f->watch) {
-              *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                         << "Discarding grant from input " << input << "."
-                         << (vc % _input_speedup) << " to output " << output
-                         << "." << (expanded_output % _output_speedup)
-                         << " because no suitable output VC for piggyback "
-                            "allocation is available."
-                         << std::endl;
+              *m_icnt->watch_out
+                  << GetSimTime() << " | " << FullName() << " | "
+                  << "Discarding grant from input " << input << "."
+                  << (vc % _input_speedup) << " to output " << output << "."
+                  << (expanded_output % _output_speedup)
+                  << " because no suitable output VC for piggyback "
+                     "allocation is available."
+                  << std::endl;
             }
             iter->second.second = STALL_BUFFER_BUSY;
           } else if (full) {
             if (f->watch) {
-              *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                         << "Discarding grant from input " << input << "."
-                         << (vc % _input_speedup) << " to output " << output
-                         << "." << (expanded_output % _output_speedup)
-                         << " because all suitable output VCs for piggyback "
-                            "allocation are full."
-                         << std::endl;
+              *m_icnt->watch_out
+                  << GetSimTime() << " | " << FullName() << " | "
+                  << "Discarding grant from input " << input << "."
+                  << (vc % _input_speedup) << " to output " << output << "."
+                  << (expanded_output % _output_speedup)
+                  << " because all suitable output VCs for piggyback "
+                     "allocation are full."
+                  << std::endl;
             }
             iter->second.second =
                 reserved ? STALL_BUFFER_RESERVED : STALL_BUFFER_FULL;
@@ -1790,11 +1813,12 @@ void IQRouter::_SWAllocEvaluate() {
 
         if (dest_buf->IsFullFor(match_vc)) {
           if (f->watch) {
-            *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                       << "  Discarding grant from input " << input << "."
-                       << (vc % _input_speedup) << " to output " << output
-                       << "." << (expanded_output % _output_speedup)
-                       << " due to lack of credit." << std::endl;
+            *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                               << "  Discarding grant from input " << input
+                               << "." << (vc % _input_speedup) << " to output "
+                               << output << "."
+                               << (expanded_output % _output_speedup)
+                               << " due to lack of credit." << std::endl;
           }
           iter->second.second =
               dest_buf->IsFull() ? STALL_BUFFER_FULL : STALL_BUFFER_RESERVED;
@@ -1831,9 +1855,10 @@ void IQRouter::_SWAllocUpdate() {
     assert(f->vc == vc);
 
     if (f->watch) {
-      *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                 << "Completed switch allocation for VC " << vc << " at input "
-                 << input << " (front: " << f->id << ")." << std::endl;
+      *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                         << "Completed switch allocation for VC " << vc
+                         << " at input " << input << " (front: " << f->id
+                         << ")." << std::endl;
     }
 
     int const expanded_output = item.second.second;
@@ -1915,9 +1940,10 @@ void IQRouter::_SWAllocUpdate() {
         assert(match_vc >= 0);
 
         if (f->watch) {
-          *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                     << "  Allocating VC " << match_vc << " at output "
-                     << output << " via piggyback VC allocation." << std::endl;
+          *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                             << "  Allocating VC " << match_vc << " at output "
+                             << output << " via piggyback VC allocation."
+                             << std::endl;
         }
 
         cur_buf->SetState(vc, VC::active);
@@ -1935,11 +1961,12 @@ void IQRouter::_SWAllocUpdate() {
       assert((match_vc >= 0) && (match_vc < _vcs));
 
       if (f->watch) {
-        *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                   << "  Scheduling switch connection from input " << input
-                   << "." << (vc % _input_speedup) << " to output " << output
-                   << "." << (expanded_output % _output_speedup) << "."
-                   << std::endl;
+        *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                           << "  Scheduling switch connection from input "
+                           << input << "." << (vc % _input_speedup)
+                           << " to output " << output << "."
+                           << (expanded_output % _output_speedup) << "."
+                           << std::endl;
       }
 
       cur_buf->RemoveFlit(vc);
@@ -1961,9 +1988,10 @@ void IQRouter::_SWAllocUpdate() {
         if (router) {
           if (_noq) {
             if (f->watch) {
-              *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                         << "Updating lookahead routing information for flit "
-                         << f->id << " (NOQ)." << std::endl;
+              *m_icnt->watch_out
+                  << GetSimTime() << " | " << FullName() << " | "
+                  << "Updating lookahead routing information for flit " << f->id
+                  << " (NOQ)." << std::endl;
             }
             int next_output_port = _noq_next_output_port[input][vc];
             assert(next_output_port >= 0);
@@ -1979,9 +2007,10 @@ void IQRouter::_SWAllocUpdate() {
                                      next_vc_end);
           } else {
             if (f->watch) {
-              *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                         << "Updating lookahead routing information for flit "
-                         << f->id << "." << std::endl;
+              *m_icnt->watch_out
+                  << GetSimTime() << " | " << FullName() << " | "
+                  << "Updating lookahead routing information for flit " << f->id
+                  << "." << std::endl;
             }
             int in_channel = channel->GetSinkPort();
             _rf(router, f, in_channel, &f->la_route_set, false);
@@ -2021,7 +2050,7 @@ void IQRouter::_SWAllocUpdate() {
             _route_vcs.push_back(make_pair(-1, item.second.first));
           } else {
             if (nf->watch) {
-              *gWatchOut
+              *m_icnt->watch_out
                   << GetSimTime() << " | " << FullName() << " | "
                   << "Using precomputed lookahead routing information for VC "
                   << vc << " at input " << input << " (front: " << nf->id
@@ -2044,12 +2073,12 @@ void IQRouter::_SWAllocUpdate() {
         } else {
           if (_hold_switch_for_packet) {
             if (f->watch) {
-              *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                         << "Setting up switch hold for VC " << vc
-                         << " at input " << input << "."
-                         << (expanded_input % _input_speedup) << " to output "
-                         << output << "." << (expanded_output % _output_speedup)
-                         << "." << std::endl;
+              *m_icnt->watch_out
+                  << GetSimTime() << " | " << FullName() << " | "
+                  << "Setting up switch hold for VC " << vc << " at input "
+                  << input << "." << (expanded_input % _input_speedup)
+                  << " to output " << output << "."
+                  << (expanded_output % _output_speedup) << "." << std::endl;
             }
             _switch_hold_vc[expanded_input] = vc;
             _switch_hold_in[expanded_input] = expanded_output;
@@ -2064,8 +2093,8 @@ void IQRouter::_SWAllocUpdate() {
       }
     } else {
       if (f->watch) {
-        *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                   << "  No output port allocated." << std::endl;
+        *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                           << "  No output port allocated." << std::endl;
       }
 
 #ifdef TRACK_STALLS
@@ -2117,12 +2146,13 @@ void IQRouter::_SwitchEvaluate() {
     int const expanded_output = iter->second.second.second;
 
     if (f->watch) {
-      *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                 << "Beginning crossbar traversal for flit " << f->id
-                 << " from input " << (expanded_input / _input_speedup) << "."
-                 << (expanded_input % _input_speedup) << " to output "
-                 << (expanded_output / _output_speedup) << "."
-                 << (expanded_output % _output_speedup) << "." << std::endl;
+      *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                         << "Beginning crossbar traversal for flit " << f->id
+                         << " from input " << (expanded_input / _input_speedup)
+                         << "." << (expanded_input % _input_speedup)
+                         << " to output " << (expanded_output / _output_speedup)
+                         << "." << (expanded_output % _output_speedup) << "."
+                         << std::endl;
     }
   }
 }
@@ -2150,19 +2180,19 @@ void IQRouter::_SwitchUpdate() {
     assert((output >= 0) && (output < _outputs));
 
     if (f->watch) {
-      *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                 << "Completed crossbar traversal for flit " << f->id
-                 << " from input " << input << "."
-                 << (expanded_input % _input_speedup) << " to output " << output
-                 << "." << (expanded_output % _output_speedup) << "."
-                 << std::endl;
+      *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                         << "Completed crossbar traversal for flit " << f->id
+                         << " from input " << input << "."
+                         << (expanded_input % _input_speedup) << " to output "
+                         << output << "." << (expanded_output % _output_speedup)
+                         << "." << std::endl;
     }
     _switchMonitor->traversal(input, output, f);
 
     if (f->watch) {
-      *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                 << "Buffering flit " << f->id << " at output " << output << "."
-                 << std::endl;
+      *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                         << "Buffering flit " << f->id << " at output "
+                         << output << "." << std::endl;
     }
     _output_buffer[output].push(f);
     // the output buffer size isn't precise due to flits in flight
@@ -2212,10 +2242,11 @@ void IQRouter::_SendFlits() {
 #endif
 
       if (f->watch)
-        *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                   << "Sending flit " << f->id << " to channel at output "
-                   << output << "." << std::endl;
-      if (gTrace) {
+        *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                           << "Sending flit " << f->id
+                           << " to channel at output " << output << "."
+                           << std::endl;
+      if (m_icnt->trace) {
         std::cout << "Outport " << output << std::endl
                   << "Stop Mark" << std::endl;
       }
@@ -2331,9 +2362,9 @@ void IQRouter::_UpdateNOQ(int input, int vc, Flit const *f) {
     _noq_next_vc_end[input][vc] = next_vc_end;
     assert(next_vc_start <= next_vc_end);
     if (f->watch) {
-      *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                 << "Computing lookahead routing information for flit " << f->id
-                 << " (NOQ)." << std::endl;
+      *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                         << "Computing lookahead routing information for flit "
+                         << f->id << " (NOQ)." << std::endl;
     }
   }
 }

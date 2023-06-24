@@ -75,16 +75,16 @@ void InterconnectInterface::CreateInterconnect(unsigned n_shader,
 
   InitializeRoutingMap(*_icnt_config);
 
-  gPrintActivity = (_icnt_config->GetInt("print_activity") > 0);
-  gTrace = (_icnt_config->GetInt("viewer_trace") > 0);
+  print_activity = (_icnt_config->GetInt("print_activity") > 0);
+  trace = (_icnt_config->GetInt("viewer_trace") > 0);
 
   std::string watch_out_file = _icnt_config->GetStr("watch_out");
   if (watch_out_file == "") {
-    gWatchOut = NULL;
+    watch_out = NULL;
   } else if (watch_out_file == "-") {
-    gWatchOut = &std::cout;
+    watch_out = &std::cout;
   } else {
-    gWatchOut = new std::ofstream(watch_out_file.c_str());
+    watch_out = new std::ofstream(watch_out_file.c_str());
   }
 
   _subnets = _icnt_config->GetInt("subnets");

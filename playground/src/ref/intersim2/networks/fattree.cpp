@@ -48,6 +48,7 @@
 #include <sstream>
 #include <vector>
 
+#include "../interconnect_interface.hpp"
 #include "../misc_utils.hpp"
 #include "fattree.hpp"
 
@@ -67,8 +68,8 @@ void FatTree::_ComputeSize(const Configuration &config) {
   _k = config.GetInt("k");
   _n = config.GetInt("n");
 
-  gK = _k;
-  gN = _n;
+  m_icnt->K = _k;
+  m_icnt->N = _n;
 
   _nodes = powi(_k, _n);
 
@@ -186,6 +187,8 @@ void FatTree::_BuildNet(const Configuration &config) {
 #ifdef FATTREE_DEBUG
   std::cout << "\nAssigning Input\n";
 #endif
+
+  int gK = m_icnt->K;
 
   // connect all down input channels
   for (level = 0; level < _n - 1; level++) {

@@ -31,7 +31,7 @@
 #include <sstream>
 #include <string>
 
-#include "../globals.hpp"
+#include "../interconnect_interface.hpp"
 #include "../random_utils.hpp"
 #include "chaos_router.hpp"
 
@@ -133,10 +133,10 @@ void ChaosRouter::ReadInputs() {
       _input_frame[input].push(f);
 
       if (f->watch) {
-        *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                   << "Flit arriving at " << FullName() << " on channel "
-                   << input << std::endl
-                   << *f;
+        *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                           << "Flit arriving at " << FullName()
+                           << " on channel " << input << std::endl
+                           << *f;
       }
 
       switch (_input_state[input]) {
@@ -493,10 +493,10 @@ void ChaosRouter::_OutputAdvance() {
         _crossbar_pipe->Write(f, _input_output_match[i]);
 
         if (f->watch) {
-          *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                     << "Flit traversing crossbar from input queue " << i
-                     << " at " << FullName() << std::endl
-                     << *f;
+          *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                             << "Flit traversing crossbar from input queue "
+                             << i << " at " << FullName() << std::endl
+                             << *f;
         }
 
         advanced = true;
@@ -534,11 +534,11 @@ void ChaosRouter::_OutputAdvance() {
         _multi_queue[mq].push(f);
 
         if (f->watch) {
-          *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                     << "Flit stored in multiqueue at " << FullName()
-                     << std::endl
-                     << "State = " << _multi_state[mq] << std::endl
-                     << *f;
+          *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                             << "Flit stored in multiqueue at " << FullName()
+                             << std::endl
+                             << "State = " << _multi_state[mq] << std::endl
+                             << *f;
         }
 
         advanced = true;
@@ -581,10 +581,10 @@ void ChaosRouter::_OutputAdvance() {
       _crossbar_pipe->Write(f, _multi_match[m]);
 
       if (f->watch) {
-        *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-                   << "Flit traversing crossbar from multiqueue slot " << m
-                   << " at " << FullName() << std::endl
-                   << *f;
+        *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                           << "Flit traversing crossbar from multiqueue slot "
+                           << m << " at " << FullName() << std::endl
+                           << *f;
       }
 
       if (f->head) {

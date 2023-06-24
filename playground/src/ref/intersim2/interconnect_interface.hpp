@@ -82,6 +82,16 @@ public:
 
   Flit *GetEjectedFlit(int subnet, int node);
 
+  std::ostream *watch_out;
+  bool print_activity;
+  bool trace;
+
+  int K; // radix
+  int N; // dimension
+  int C; // concentration
+
+  int Nodes;
+
 protected:
   class _BoundaryBufferItem {
   public:

@@ -38,7 +38,7 @@
 #include <iostream>
 
 #include "./routers/router.hpp"
-#include "globals.hpp"
+#include "interconnect_interface.hpp"
 
 // ----------------------------------------------------------------------
 //  $Author: jbalfour $
@@ -73,9 +73,9 @@ void FlitChannel::Send(Flit *f) {
 void FlitChannel::ReadInputs() {
   Flit const *const &f = _input;
   if (f && f->watch) {
-    *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-               << "Beginning channel traversal for flit " << f->id
-               << " with delay " << _delay << "." << std::endl;
+    *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                       << "Beginning channel traversal for flit " << f->id
+                       << " with delay " << _delay << "." << std::endl;
   }
   Channel<Flit>::ReadInputs();
 }
@@ -83,8 +83,8 @@ void FlitChannel::ReadInputs() {
 void FlitChannel::WriteOutputs() {
   Channel<Flit>::WriteOutputs();
   if (_output && _output->watch) {
-    *gWatchOut << GetSimTime() << " | " << FullName() << " | "
-               << "Completed channel traversal for flit " << _output->id << "."
-               << std::endl;
+    *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "
+                       << "Completed channel traversal for flit " << _output->id
+                       << "." << std::endl;
   }
 }

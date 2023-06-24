@@ -58,6 +58,8 @@ public:
 
   virtual void Display(std::ostream &os = std::cout) const;
 
+  InterconnectInterface *m_icnt;
+
 private:
   std::string _name;
   std::string _fullname;
@@ -66,8 +68,6 @@ private:
 
 protected:
   void _AddChild(Module *child);
-
-  InterconnectInterface *m_icnt;
 };
 
 #endif

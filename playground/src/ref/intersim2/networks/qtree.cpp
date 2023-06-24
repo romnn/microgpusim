@@ -41,6 +41,7 @@
 
 #include "qtree.hpp"
 #include "../booksim.hpp"
+#include "../interconnect_interface.hpp"
 #include "../misc_utils.hpp"
 #include <sstream>
 #include <vector>
@@ -60,8 +61,8 @@ void QTree::_ComputeSize(const Configuration &config) {
 
   assert(_k == 4 && _n == 3);
 
-  gK = _k;
-  gN = _n;
+  m_icnt->K = _k;
+  m_icnt->N = _n;
 
   _nodes = powi(_k, _n);
 

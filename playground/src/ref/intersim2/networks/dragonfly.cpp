@@ -29,13 +29,14 @@
 #include <sstream>
 #include <vector>
 
-#include "../globals.hpp"
+#include "../interconnect_interface.hpp"
 #include "../misc_utils.hpp"
 #include "../random_utils.hpp"
 #include "dragonfly.hpp"
 
 #define DRAGON_LATENCY
 
+// TODO: remove globals (Roman)
 int gP, gA, gG;
 
 // calculate the hop count between src and estination
@@ -174,8 +175,8 @@ void DragonFlyNew::_ComputeSize(const Configuration &config) {
     _k = _p + _p + 2 * _p;
 
   // FIX...
-  gK = _p;
-  gN = _n;
+  m_icnt->K = _p;
+  m_icnt->N = _n;
 
   // with 1 dimension, total of 2p routers per group
   // N = 2p * p * (2p^2 + 1)
@@ -421,9 +422,9 @@ void min_dragonflynew(const Router *r, const Flit *f, int in_channel,
 
   out_vc = f->ph;
   if (debug)
-    *gWatchOut << r->GetSimTime() << " | " << r->FullName() << " | "
-               << "	through output port : " << out_port
-               << " out vc: " << out_vc << std::endl;
+    *r->m_icnt->watch_out << r->GetSimTime() << " | " << r->FullName() << " | "
+                          << "	through output port : " << out_port
+                          << " out vc: " << out_vc << std::endl;
   outputs->AddRange(out_port, out_vc, out_vc);
 }
 
