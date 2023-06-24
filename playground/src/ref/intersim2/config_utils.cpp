@@ -30,6 +30,7 @@
  *configuration file
  */
 
+#include "config_utils.hpp"
 #include "booksim.hpp"
 #include <cstdlib>
 #include <cstring>
@@ -37,13 +38,15 @@
 #include <iostream>
 #include <sstream>
 
-#include "config_utils.hpp"
+#include "config.parser.tab.h" // parser
+//
+#include "config.lex.h" // lexer
 
-Configuration *Configuration::theConfig = 0;
+// Configuration *Configuration::theConfig = 0;
 
 Configuration::Configuration() {
-  theConfig = this;
-  _config_file = 0;
+  // theConfig = this;
+  // _config_file = 0;
 }
 
 void Configuration::AddStrField(std::string const &field,
@@ -138,36 +141,56 @@ Configuration::GetFloatArray(std::string const &field) const {
 }
 
 void Configuration::ParseFile(std::string const &filename) {
-  if ((_config_file = fopen(filename.c_str(), "r")) == 0) {
+  FILE *config_file;
+  if ((config_file = fopen(filename.c_str(), "r")) == 0) {
     std::cerr << "Could not open configuration file " << filename << std::endl;
     exit(-1);
   }
 
-  yyparse();
+  yyscan_t scanner;
+  yylex_init(&scanner);
+  yyset_in(config_file, scanner);
 
-  fclose(_config_file);
-  _config_file = 0;
+  int res = yyparse(scanner, *this);
+  yylex_destroy(scanner);
+
+  fclose(config_file);
+  // _config_file = 0;
+
+  // todo: check result
 }
 
 void Configuration::ParseString(std::string const &str) {
-  _config_string = str + ';';
-  yyparse();
-  _config_string = "";
+  std::string config_string = str + ';';
+  // assert((_config_file = fmemopen(_config_string, strlen(str)+1, "r")));
+  // mod->src = ;
+  // yyparse();
+  yyscan_t scanner;
+  yylex_init(&scanner);
+
+  YY_BUFFER_STATE buf = yy_scan_string(config_string.c_str(), scanner);
+  // yyset_in(_config_string, scanner);
+
+  int res = yyparse(scanner, *this);
+  yy_delete_buffer(buf, scanner);
+  yylex_destroy(scanner);
+
+  // config_string = "";
 }
 
-int Configuration::Input(char *line, int max_size) {
-  int length = 0;
-
-  if (_config_file) {
-    length = fread(line, 1, max_size, _config_file);
-  } else {
-    length = _config_string.length();
-    _config_string.copy(line, max_size);
-    _config_string.clear();
-  }
-
-  return length;
-}
+// int Configuration::Input(char *line, int max_size) {
+//   int length = 0;
+//
+//   if (_config_file) {
+//     length = fread(line, 1, max_size, _config_file);
+//   } else {
+//     length = _config_string.length();
+//     _config_string.copy(line, max_size);
+//     _config_string.clear();
+//   }
+//
+//   return length;
+// }
 
 void Configuration::ParseError(std::string const &msg,
                                unsigned int lineno) const {
@@ -180,29 +203,29 @@ void Configuration::ParseError(std::string const &msg,
   exit(-1);
 }
 
-Configuration *Configuration::GetTheConfig() { return theConfig; }
+// Configuration *Configuration::GetTheConfig() { return theConfig; }
 
 //============================================================
 
-extern "C" void config_error(char const *msg, int lineno) {
-  Configuration::GetTheConfig()->ParseError(msg, lineno);
-}
+// extern "C" void config_error(char const *msg, int lineno) {
+//   Configuration::GetTheConfig()->ParseError(msg, lineno);
+// }
 
-extern "C" void config_assign_string(char const *field, char const *value) {
-  Configuration::GetTheConfig()->Assign(field, value);
-}
-
-extern "C" void config_assign_int(char const *field, int value) {
-  Configuration::GetTheConfig()->Assign(field, value);
-}
-
-extern "C" void config_assign_float(char const *field, double value) {
-  Configuration::GetTheConfig()->Assign(field, value);
-}
-
-extern "C" int config_input(char *line, int max_size) {
-  return Configuration::GetTheConfig()->Input(line, max_size);
-}
+// extern "C" void config_assign_string(char const *field, char const *value) {
+//   Configuration::GetTheConfig()->Assign(field, value);
+// }
+//
+// extern "C" void config_assign_int(char const *field, int value) {
+//   Configuration::GetTheConfig()->Assign(field, value);
+// }
+//
+// extern "C" void config_assign_float(char const *field, double value) {
+//   Configuration::GetTheConfig()->Assign(field, value);
+// }
+//
+// extern "C" int config_input(char *line, int max_size) {
+//   return Configuration::GetTheConfig()->Input(line, max_size);
+// }
 
 bool ParseArgs(Configuration *cf, int argc, char **argv) {
   bool rc = false;

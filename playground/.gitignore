@@ -1,2 +1,6 @@
 # debug bindings
 bindings.rs
+
+# auto generated
+src/ref/intersim2/config.lex.*
+src/ref/intersim2/config.parser.*

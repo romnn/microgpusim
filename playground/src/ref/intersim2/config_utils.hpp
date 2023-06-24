@@ -36,12 +36,12 @@
 #include <vector>
 
 // TODO: ptx replace with config
-extern "C" int yyparse();
+// extern "C" int yyparse();
 
 class Configuration {
-  static Configuration *theConfig;
-  FILE *_config_file;
-  std::string _config_string;
+  // static Configuration *theConfig;
+  // FILE *_config_file;
+  // std::string _config_string;
 
 protected:
   std::map<std::string, std::string> _str_map;
@@ -67,7 +67,7 @@ public:
 
   void ParseFile(std::string const &filename);
   void ParseString(std::string const &str);
-  int Input(char *line, int max_size);
+  // int Input(char *line, int max_size);
   void ParseError(std::string const &msg, unsigned int lineno = 0) const;
 
   void WriteFile(std::string const &filename);
@@ -83,7 +83,7 @@ public:
     return _float_map;
   }
 
-  static Configuration *GetTheConfig();
+  // static Configuration *GetTheConfig();
 };
 
 bool ParseArgs(Configuration *cf, int argc, char **argv);
