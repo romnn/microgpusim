@@ -4,7 +4,7 @@ use accelsim::parser::{parse, Options as ParseOptions};
 use accelsim::{Options, SimConfig};
 use async_process::Command;
 use clap::Parser;
-use color_eyre::eyre;
+use color_eyre::{eyre, Section, SectionExt};
 use std::collections::HashMap;
 use std::io::Write;
 use std::os::unix::fs::DirBuilderExt;
@@ -107,11 +107,18 @@ async fn sim_trace(
 
     let mut cmd = Command::new("bash");
     cmd.current_dir(config.config_dir);
-    cmd.arg(&*tmp_sim_sh_path.canonicalize()?.to_string_lossy());
-    if let Some(cuda_path) = utils::find_cuda().first() {
-        cmd.env("CUDA_INSTALL_PATH", &*cuda_path.to_string_lossy());
-    }
-    // dbg!(&cmd);
+    let args = [tmp_sim_sh_path
+        .canonicalize()?
+        .to_string_lossy()
+        .to_string()];
+    cmd.args(&args);
+    let cuda_candidates = utils::find_cuda();
+    let Some(cuda_path) = cuda_candidates.first() else {
+        return Err(eyre::eyre!("CUDA install path not found")
+                .with_section(|| format!("{:?}", &cuda_candidates).header("candidates:")));
+
+    };
+    cmd.env("CUDA_INSTALL_PATH", &*cuda_path.to_string_lossy());
 
     let result = match timeout {
         Some(timeout) => tokio::time::timeout(timeout, cmd.output()).await,
@@ -125,7 +132,12 @@ async fn sim_trace(
 
         // if we want to debug, we leave the file in place
         // gdb --args bash test-apps/vectoradd/traces/vectoradd-100-32-trace/sim.tmp.sh
-        eyre::bail!("cmd failed with code {:?}", result.status.code());
+        eyre::bail!(
+            "cmd `bash {:?}` ({}) failed with code {:?}",
+            args,
+            cuda_path.display(),
+            result.status.code()
+        );
     }
 
     // for now, we want to keep the file

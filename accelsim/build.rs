@@ -1,6 +1,6 @@
 #![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
-use color_eyre::eyre;
+use color_eyre::{eyre, Section, SectionExt};
 use duct::cmd;
 use std::env;
 use std::fs::{File, OpenOptions};
@@ -101,9 +101,13 @@ impl GitRepository {
     }
 }
 
-fn build_accelsim(accel_path: &Path, cuda_path: &Path, _force: bool) -> eyre::Result<()> {
-    let artifact = accel_path.join("gpu-simulator/bin/release/accel-sim.out");
-    if _force || !artifact.is_file() {
+fn build_accelsim(accel_path: &Path, cuda_path: &Path, force: bool) -> eyre::Result<()> {
+    let profile = if is_debug_build() { "debug" } else { "release" };
+    let artifact = accel_path
+        .join("gpu-simulator/bin")
+        .join(profile)
+        .join("accel-sim.out");
+    if !force && artifact.is_file() {
         println!("cargo:warning=using existing {}", &artifact.display());
         return Ok(());
     }
@@ -111,14 +115,14 @@ fn build_accelsim(accel_path: &Path, cuda_path: &Path, _force: bool) -> eyre::Re
     let tmp_build_sh_path = output_path().join("build.tmp.sh");
     let tmp_build_sh = format!(
         "set -e
-source {} {profile}
+source {setup_script} {profile}
 make -C {src} clean
 make -j -C {src}",
-        &accel_path
+        setup_script = &accel_path
             .join("gpu-simulator/setup_environment.sh")
             .canonicalize()?
             .to_string_lossy(),
-        profile = if is_debug_build() { "debug" } else { "release" },
+        profile = profile,
         src = accel_path
             .join("gpu-simulator/")
             .canonicalize()?
@@ -240,11 +244,11 @@ fn main() -> eyre::Result<()> {
         &accel_path.display()
     );
 
-    let cuda_paths = utils::find_cuda();
-    dbg!(&cuda_paths);
-    let cuda_path = cuda_paths
-        .first()
-        .ok_or(eyre::eyre!("CUDA install path not found"))?;
+    let cuda_candidates = utils::find_cuda();
+    let cuda_path = cuda_candidates.first().ok_or(
+        eyre::eyre!("CUDA install path not found")
+            .with_section(|| format!("{:?}", &cuda_candidates).header("candidates:")),
+    )?;
     println!("cargo:warning=using cuda at {}", &cuda_path.display());
 
     let force = matches!(
@@ -256,7 +260,6 @@ fn main() -> eyre::Result<()> {
         Some("yes")
     );
     println!("cargo:warning=force={}", &force);
-    
 
     build_accelsim_tracer_tool(&accel_path, &cuda_path, force)?;
     build_accelsim(&accel_path, &cuda_path, force)?;
