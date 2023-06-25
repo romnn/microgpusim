@@ -41,11 +41,14 @@ pub fn rchown(
 
 pub fn find_cuda() -> Vec<PathBuf> {
     let mut candidates = vec![
+        std::env::var("CUDAHOME").ok().map(PathBuf::from),
+        std::env::var("CUDA_HOME").ok().map(PathBuf::from),
         std::env::var("CUDA_LIBRARY_PATH").ok().map(PathBuf::from),
         Some(PathBuf::from("/opt/cuda")),
         Some(PathBuf::from("/usr/local/cuda")),
     ];
     candidates.extend(
+        // specific cuda versions
         glob::glob("/usr/local/cuda-*")
             .expect("glob cuda")
             .map(Result::ok),

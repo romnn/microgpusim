@@ -109,3 +109,18 @@ unsigned mem_fetch::get_num_flits(bool simt_to_mem) {
 
   return (sz / icnt_flit_size) + ((sz % icnt_flit_size) ? 1 : 0);
 }
+
+std::ostream &operator<<(std::ostream &os, const mem_fetch *fetch) {
+  if (fetch == NULL) {
+    os << "NULL";
+  } else {
+    os << fetch->get_access_type_str() << "@" << fetch->get_addr();
+  }
+  return os;
+}
+
+std::ostream &operator<<(std::ostream &os, const mem_fetch &fetch) {
+  const mem_fetch *mf = &fetch;
+  os << mf;
+  return os;
+}

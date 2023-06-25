@@ -979,7 +979,6 @@ impl OperandCollectorRegisterFileUnit {
     }
 
     pub fn writeback(&mut self, instr: &WarpInstruction) -> bool {
-        return true;
         // todo!("operand collector: writeback");
         // std::list<unsigned> regs = m_shader->get_regs_written(inst);
         // for (unsigned op = 0; op < MAX_REG_OPERANDS; op++) {

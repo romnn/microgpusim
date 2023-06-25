@@ -1,5 +1,8 @@
 #include "memory_sub_partition.hpp"
 
+#include <iostream>
+#include <list>
+
 #include "cache_sub_stats.hpp"
 #include "l2_cache_trace.hpp"
 #include "l2_interface.hpp"
@@ -51,11 +54,20 @@ memory_sub_partition::~memory_sub_partition() {
   delete m_L2interface;
 }
 
+std::ostream &operator<<(std::ostream &os,
+                         const memory_sub_partition::rop_delay_t &delay) {
+  os << delay.req;
+  return os;
+}
+
 void memory_sub_partition::cache_cycle(unsigned cycle) {
-  printf("memory sub partition cache cycle %u (\033[1;31m rop queue size=%lu, "
-         "icnt to l2 "
-         "queue size=%u \033[0m)\n",
-         cycle, m_rop.size(), m_icnt_L2_queue->get_length());
+  unsigned before = m_rop.size();
+  std::cout << "memory sub partition cache cycle " << cycle << " rop queue "
+            << m_rop << " interconn to l2 queue " << m_icnt_L2_queue
+            << std::endl;
+
+  // make sure that printing the rop queue emptied a copy only
+  assert(m_rop.size() == before);
 
   // L2 fill responses
   if (!m_config->m_L2_config.disabled()) {
@@ -198,8 +210,10 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
   if (!m_rop.empty() && (cycle >= m_rop.front().ready_cycle) &&
       !m_icnt_L2_queue->full()) {
     mem_fetch *mf = m_rop.front().req;
-    printf("\nPOP FROM ROP\n\n");
     m_rop.pop();
+    printf("POP FROM ROP: ");
+    mf->print(stdout);
+    printf("\n");
     m_icnt_L2_queue->push(mf);
     mf->set_status(IN_PARTITION_ICNT_TO_L2_QUEUE,
                    m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
@@ -353,10 +367,14 @@ void memory_sub_partition::push(mem_fetch *m_req, unsigned long long cycle) {
     // throw std::runtime_error("sub partition push");
     m_stats->memlatstat_icnt2mem_pop(m_req);
     std::vector<mem_fetch *> reqs;
-    if (m_config->m_L2_config.m_cache_type == SECTOR)
+    if (m_config->m_L2_config.m_cache_type == SECTOR) {
+      throw std::runtime_error("todo");
       reqs = breakdown_request_to_sector_requests(m_req);
-    else
+    } else {
       reqs.push_back(m_req);
+    }
+
+    assert(reqs.size() == 1);
 
     for (unsigned i = 0; i < reqs.size(); ++i) {
       mem_fetch *req = reqs[i];
@@ -369,7 +387,9 @@ void memory_sub_partition::push(mem_fetch *m_req, unsigned long long cycle) {
         rop_delay_t r;
         r.req = req;
         r.ready_cycle = cycle + m_config->rop_latency;
-        printf("\nPUSH TO ROP\n\n");
+        printf("PUSH TO ROP: ");
+        req->print(stdout);
+        printf("\n");
         m_rop.push(r);
         req->set_status(IN_PARTITION_ROP_DELAY,
                         m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);

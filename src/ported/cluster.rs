@@ -2,12 +2,14 @@ use super::{interconn as ic, mem_fetch, stats::Stats, MockSimulator, Packet, SIM
 use crate::config::GPUConfig;
 use console::style;
 use std::collections::VecDeque;
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
 // pub struct SIMTCoreCluster {
 pub struct SIMTCoreCluster<I> {
     pub cluster_id: usize,
+    pub cycle: super::Cycle,
     // pub cores: Mutex<Vec<SIMTCore>>,
     // pub cores: Mutex<Vec<SIMTCore<'a>>>,
     pub cores: Mutex<Vec<SIMTCore<I>>>,
@@ -43,6 +45,7 @@ where
 {
     pub fn new(
         cluster_id: usize,
+        cycle: super::Cycle,
         interconn: Arc<I>,
         stats: Arc<Mutex<Stats>>,
         config: Arc<GPUConfig>,
@@ -64,6 +67,7 @@ where
         let block_issue_next_core = Mutex::new(num_cores - 1);
         let mut cluster = Self {
             cluster_id,
+            cycle: Rc::clone(&cycle),
             config: config.clone(),
             stats: stats.clone(),
             interconn: interconn.clone(),
@@ -80,6 +84,7 @@ where
                 SIMTCore::new(
                     id,
                     cluster_id,
+                    Rc::clone(&cycle),
                     // Arc::new(cluster),
                     interconn.clone(),
                     stats.clone(),
@@ -219,39 +224,65 @@ where
     pub fn interconn_cycle(&mut self) {
         use mem_fetch::AccessKind;
 
+        // println!(
+        //     "cluster {}: {} (response fifo={})",
+        //     self.cluster_id,
+        //     style("interconn cycle").cyan(),
+        //     self.response_fifo.len(),
+        // );
         println!(
-            "cluster {}: {} (response fifo size={})",
-            self.cluster_id,
-            style("interconn cycle").cyan(),
-            self.response_fifo.len(),
+            "{}",
+            style(format!(
+                "cycle {:02} cluster {}: interconn cycle (response fifo={:?})",
+                self.cycle.get(),
+                self.cluster_id,
+                self.response_fifo
+                    .iter()
+                    .map(|fetch| fetch.to_string())
+                    .collect::<Vec<_>>(),
+            ))
+            .cyan()
         );
 
         if let Some(fetch) = self.response_fifo.front() {
             let core_id = self.config.global_core_id_to_core_id(fetch.core_id);
-            // debug_assert_eq!(core_id, fetch.cluster_id);
+
             let mut cores = self.cores.lock().unwrap();
             let core = &mut cores[core_id];
+
             match *fetch.access_kind() {
                 AccessKind::INST_ACC_R => {
-                    // instruction fetch response
-                    // if !core.fetch_unit_response_buffer_full() {
-                    let fetch = self.response_fifo.pop_front().unwrap();
-                    core.accept_fetch_response(fetch);
-                    // }
+                    // this could be the reason
+                    if !core.fetch_unit_response_buffer_full() {
+                        let fetch = self.response_fifo.pop_front().unwrap();
+                        println!("accepted instr access fetch {}", fetch);
+                        core.accept_fetch_response(fetch);
+                    } else {
+                        println!("instr access fetch {} NOT YET ACCEPTED", fetch);
+                    }
                 }
                 _ => {
-                    // panic!("got data response");
-                    // data response
+                    // this could be the reason
                     if !core.ldst_unit_response_buffer_full() {
                         let fetch = self.response_fifo.pop_front().unwrap();
+                        println!("accepted ldst unit fetch {}", fetch);
                         // m_memory_stats->memlatstat_read_done(mf);
                         core.accept_ldst_unit_response(fetch);
+                    } else {
+                        println!("ldst unit fetch {} NOT YET ACCEPTED", fetch);
                     }
                 }
             }
         }
+
+        // this could be the reason?
         let eject_buffer_size = self.config.num_cluster_ejection_buffer_size;
         if self.response_fifo.len() >= eject_buffer_size {
+            println!(
+                "skip: ejection buffer full ({}/{})",
+                self.response_fifo.len(),
+                eject_buffer_size
+            );
             return;
         }
 
@@ -259,18 +290,16 @@ where
             return;
         };
         println!(
-            "{} addr={} kind={:?}",
+            "{}",
             style(format!(
-                "got fetch from interconn: {:?} ",
-                fetch.access_kind()
+                "cycle {:02} cluster {}: got fetch from interconn {})",
+                self.cycle.get(),
+                self.cluster_id,
+                fetch,
             ))
-            .cyan(),
-            fetch.addr(),
-            fetch.kind
+            .cyan()
         );
-        // dbg!(&fetch.access_kind());
-        // dbg!(&fetch.addr());
-        // dbg!(&fetch.kind);
+
         debug_assert_eq!(fetch.cluster_id, self.cluster_id);
         // debug_assert!(matches!(
         //     fetch.kind,

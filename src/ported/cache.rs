@@ -1,5 +1,6 @@
-use crate::config;
 use super::{address, mem_fetch, tag_array};
+use crate::config;
+use std::collections::VecDeque;
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum RequestStatus {
@@ -75,6 +76,10 @@ pub trait Cache: Component + CacheBandwidth {
         todo!("cache: access");
     }
 
+    fn ready_accesses(&self) -> Option<&VecDeque<mem_fetch::MemFetch>> {
+        todo!("cache: ready_accesses");
+    }
+
     fn next_access(&mut self) -> Option<mem_fetch::MemFetch> {
         todo!("cache: next access");
     }
@@ -106,7 +111,6 @@ pub trait Cache: Component + CacheBandwidth {
     fn write_allocate_policy(&self) -> config::CacheWriteAllocatePolicy {
         todo!("cache: write_allocate_policy");
     }
-
 }
 
 // not clear if we ever need this

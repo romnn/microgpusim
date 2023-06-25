@@ -9,10 +9,11 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
-pub trait SimdFunctionUnit: std::fmt::Debug {
+pub trait SimdFunctionUnit: std::fmt::Display {
     // modifiers
     fn cycle(&mut self);
-    fn issue(&mut self, source_reg: &mut RegisterSet);
+    // fn issue(&mut self, source_reg: &mut RegisterSet);
+    fn issue(&mut self, source_reg: WarpInstruction);
     // fn compute_active_lanes_in_pipeline(&mut self);
 
     // accessors
@@ -41,8 +42,10 @@ pub const MAX_ALU_LATENCY: usize = 512;
 
 #[derive()]
 pub struct PipelinedSimdUnitImpl {
-    // pub result_port: Option<RegisterSet>,
+    pub cycle: super::Cycle,
     pub result_port: Option<Rc<RefCell<RegisterSet>>>,
+    pub id: usize,
+    pub name: String,
     pub pipeline_depth: usize,
     pub pipeline_reg: Vec<Option<WarpInstruction>>,
     pub issue_reg_id: usize,
@@ -50,6 +53,12 @@ pub struct PipelinedSimdUnitImpl {
     pub dispatch_reg: Option<WarpInstruction>,
     pub occupied: BitArr!(for MAX_ALU_LATENCY),
     pub config: Arc<config::GPUConfig>,
+}
+
+impl std::fmt::Display for PipelinedSimdUnitImpl {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PipelinedSimdUnitImpl")
+    }
 }
 
 impl std::fmt::Debug for PipelinedSimdUnitImpl {
@@ -60,13 +69,19 @@ impl std::fmt::Debug for PipelinedSimdUnitImpl {
 
 impl PipelinedSimdUnitImpl {
     pub fn new(
+        id: usize,
+        name: String,
         result_port: Option<Rc<RefCell<RegisterSet>>>,
         depth: usize,
         config: Arc<config::GPUConfig>,
+        cycle: super::Cycle,
         issue_reg_id: usize,
     ) -> Self {
         let pipeline_reg = (0..depth).map(|_| None).collect();
         Self {
+            cycle,
+            id,
+            name,
             result_port,
             pipeline_depth: depth,
             pipeline_reg,
@@ -76,6 +91,14 @@ impl PipelinedSimdUnitImpl {
             occupied: BitArray::ZERO,
             config,
         }
+    }
+
+    pub fn num_active_instr_in_pipeline(&self) -> usize {
+        self.pipeline_reg
+            .iter()
+            .map(Option::as_ref)
+            .filter(Option::is_some)
+            .count()
     }
 }
 
@@ -96,22 +119,41 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
     }
 
     fn cycle(&mut self) {
+        println!(
+            "fu[{:03}] {:<10} cycle={:03}: \tpipeline={:?} ({} active)",
+            self.id,
+            self.name,
+            self.cycle.get(),
+            self.pipeline_reg
+                .iter()
+                .map(|reg| reg.as_ref().map(|r| r.to_string()))
+                .collect::<Vec<_>>(),
+            self.num_active_instr_in_pipeline(),
+        );
+
         if let Some(result_port) = &mut self.result_port {
+            // dbg!(&self.pipeline_reg[0]);
             if let Some(pipe_reg) = self.pipeline_reg[0].take() {
+                // move to EX_WB result port
                 result_port.borrow_mut().move_in_from(Some(pipe_reg));
+
                 debug_assert!(self.active_insts_in_pipeline > 0);
                 self.active_insts_in_pipeline -= 1;
             }
         }
+        debug_assert_eq!(
+            self.num_active_instr_in_pipeline(),
+            self.active_insts_in_pipeline
+        );
         if self.active_insts_in_pipeline > 0 {
             for stage in 0..(self.pipeline_reg.len() - 1) {
-                // let current = self.pipeline_reg[stage].take();
-                // let next = &mut self.pipeline_reg[stage + 1];
-                // register_set::move_warp(current, next);
-
-                let current = self.pipeline_reg[stage + 1].take();
-                let next = &mut self.pipeline_reg[stage];
+                let current = self.pipeline_reg[stage].take();
+                let next = &mut self.pipeline_reg[stage + 1];
                 register_set::move_warp(current, next);
+
+                // let current = self.pipeline_reg[stage + 1].take();
+                // let next = &mut self.pipeline_reg[stage];
+                // register_set::move_warp(current, next);
             }
         }
         if let Some(dispatch) = self.dispatch_reg.take() {
@@ -127,25 +169,29 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
         // todo!("pipelined simd unit: cycle");
     }
 
-    fn issue(&mut self, src_reg: &mut RegisterSet) {
-        let partition_issue = self.config.sub_core_model && self.is_issue_partitioned();
-        // let ready_reg = src_reg.get_ready(partition_issue, self.issue_reg_id());
-        // // self.core.incexecstat((*ready_reg));
-        //
-        // // from simd function unit
-        if partition_issue {
-            src_reg.move_out_to_sub_core(self.issue_reg_id(), &mut self.dispatch_reg);
-        } else {
-            src_reg.move_out_to(&mut self.dispatch_reg);
-        }
-
-        let dispatched = self.dispatch_reg.as_ref().unwrap();
-        self.occupied.set(dispatched.latency, true);
-        // if let Some(dispatch) = &self.dispatch_reg {
-        //     self.occupied.set(dispatch.latency, true);
-        // }
-        // todo!("pipelined simd unit: issue");
+    // fn issue(&mut self, src_reg: &mut RegisterSet) {
+    fn issue(&mut self, src_reg: WarpInstruction) {
+        register_set::move_warp(Some(src_reg), &mut self.dispatch_reg);
     }
+    // fn issue(&mut self, src_reg: &mut RegisterSet) {
+    //     let partition_issue = self.config.sub_core_model && self.is_issue_partitioned();
+    //     // let ready_reg = src_reg.get_ready(partition_issue, self.issue_reg_id());
+    //     // // self.core.incexecstat((*ready_reg));
+    //     //
+    //     // // from simd function unit
+    //     if partition_issue {
+    //         src_reg.move_out_to_sub_core(self.issue_reg_id(), &mut self.dispatch_reg);
+    //     } else {
+    //         src_reg.move_out_to(&mut self.dispatch_reg);
+    //     }
+    //
+    //     let dispatched = self.dispatch_reg.as_ref().unwrap();
+    //     self.occupied.set(dispatched.latency, true);
+    //     // if let Some(dispatch) = &self.dispatch_reg {
+    //     //     self.occupied.set(dispatch.latency, true);
+    //     // }
+    //     // todo!("pipelined simd unit: issue");
+    // }
 
     fn clock_multiplier(&self) -> usize {
         1

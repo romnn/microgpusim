@@ -134,7 +134,6 @@ public:
     icnt_wrapper_init();
     icnt_create(m_shader_config->n_simt_clusters,
                 m_memory_config->m_n_mem_sub_partition);
-    throw std::runtime_error("create interconn");
 
     time_vector_create(NUM_MEM_REQ_STAT);
     fprintf(stdout,

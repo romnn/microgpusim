@@ -52,6 +52,7 @@ public:
 
   // TODO: if it is not good...
   friend class InterconnectInterface;
+  friend class BoxInterconnect;
 
   //    virtual void WriteStats( ostream & os = cout ) const;
   //    virtual void DisplayStats( ostream & os = cout ) const;

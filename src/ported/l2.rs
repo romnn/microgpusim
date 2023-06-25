@@ -31,6 +31,8 @@ where
             stats,
             config,
             cache_config,
+            mem_fetch::AccessKind::L2_WR_ALLOC_R,
+            mem_fetch::AccessKind::L2_WRBK_ACC,
         );
         Self { inner }
     }

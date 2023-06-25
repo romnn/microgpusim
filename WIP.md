@@ -1,16 +1,78 @@
 #### TODO
 
+- make data cache not implement the cache interface, make l1 a wrapper around data just like with l2 right now
+
+- playground cycle 68: got fetch return L2_WR_ALLOC_R@139823420540160
+- box cycle 68: got fetch return L1_WR_ALLOC_R@139903215076608 // why is this l1??
+
+- playground cycle 71: got fetch return L2_WR_ALLOC_R@139823420539904
+- box cycle 71: L1_WR_ALLOC_R@139903215076352 // why is this l1??
+
+- same in cycle 74
+
+- we are pushing from device 2 to 0 (subnet 0) in cycle 26, should be 28
+- then we would receive in cycle 30 instead of 28
+- we receive the fetch in cycle 20 for both of them!!
+  INTERCONN POP: from device 2 (device=2, id=2, subnet=1)
+  got new fetch GLOBAL_ACC_R@139903215075712 for mem sub partition 1 (2)
+
+- both in icnt to l2 queue in cycle 21 after l1 cache miss
+- both memport::push in cycle 22 from miss queue to l2
+
+- BOX: winds up in l2 to dram queue in cycle 23 already
+- ACCEL: gets fetch return GLOBAL_ACC_R@139823420539264 from dram latency queue in cycle 24
+
+  - DONE: the requests get broken down if sector (check that)
+  - the sizes are different? (check that)
+  - would be good to test the breakdowns in a unit test (not now)
+
+- DONE: validate simple interconnect model
+
+  - write detailed tests for the interconnect
+  - bridge the intersim2 and boxinterconnect and make sure they are equal (besides latency for now)
+  - then rewrite boxinterconnect into rust and verify all three are equal
+
+- we keep receiving fetch from interconn in cycle 27...
+
+  - when are the fetches pushed to the interconn?
+
+cycle 19
+memory cycle for instruction: Some(OP_LDG[warp_id=3 pc=0152])
+ldst_unit: icnt::push(139823420539264)
+INTERCONN PUSH from device 0 (device 0) to 2 (device 2) (subnet=0)
+
+cycle 27
+accepted ldst unit fetch GLOBAL_ACC_R@139823420539136
+INTERCONN POP FROM 0 (device=0, id=0, subnet=1, turn=0) device is wrong?
+
+- clean up debug output
+- print state of each unit per cycle
+
 - BUGS to be fixed:
 
-  - ex wb stage should get a new exit each cycle (where is the delay coming from)
-  - why are the ex issue units filled with all the same stuff?? -> its the same one
+  - DONE: BUG: simple dram model does not update stats
+    for (i = 0; i < n_mem; i++) {
+    for (j = 0; j < gpu_mem_n_bk; j++) {
+    l = totalbankreads[i][j];
+    k += l;
+    printf("total dram reads = %d\n", k);
 
-    - but each cycle instructions should be taken out...
+    // see
+    void memory_stats_t::memlatstat_dram_access(mem_fetch \*mf) {
 
-  - sp unit needs the ex_wb pipeline stage passed and use it
+  - DONE: BUG: ACCELSIM fails with undefined symbol cache_config::set_index
 
-    - pipelined simd unit result port should be rc ref cell register set!
-    - expect a writeback for the exit in cycle 18!
+    - gpgpu-sim makefile uses CUDART_VERSION instead of CUDA_VERSION_NUMBER (set in setup env)
+    - therefore add exact symbolic link for CUDART version of your system in the makefile
+
+  - DONE?: BUG: scheduler unit ordering is messed up from cycle 59 (warp 3 before warp 0)
+
+  - DONE: BUG: ex wb stage should get a new exit each cycle (where is the delay coming from)
+
+  - DONE: sp unit needs the ex_wb pipeline stage passed and use it
+
+    - DONE: pipelined simd unit result port should be rc ref cell register set!
+    - DONE: expect a writeback for the exit in cycle 18!
 
   - DONE: after issue, the instruction buffer should be emptied
   - after the issue, the ordering of warps should be different (test that in unit tests)

@@ -10,7 +10,7 @@ pub struct Scoreboard {
     cluster_id: usize,
     max_warps: usize,
 
-    register_table: Vec<HashSet<u32>>,
+    pub register_table: Vec<HashSet<u32>>,
     /// Register that depend on a long operation (global, local or tex memory)
     long_op_registers: Vec<HashSet<u32>>,
 }
@@ -59,9 +59,9 @@ impl Scoreboard {
         // todo!("scoreboard: check collision");
     }
 
-    pub fn pending_writes(&self, warp_id: usize) -> bool {
-        !self.register_table[warp_id].is_empty()
-        // todo!("scoreboard: pending writes");
+    pub fn pending_writes(&self, warp_id: usize) -> &HashSet<u32> {
+        &self.register_table[warp_id] // .is_empty()
+                                      // todo!("scoreboard: pending writes");
     }
 
     pub fn release_register(&mut self, warp_id: usize, reg_num: u32) {

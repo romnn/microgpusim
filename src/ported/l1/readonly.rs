@@ -1,6 +1,7 @@
 use super::base;
 use crate::config;
 use crate::ported::{address, cache, interconn as ic, mem_fetch, stats::Stats, tag_array};
+use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
@@ -72,6 +73,11 @@ where
 
     fn next_access(&mut self) -> Option<mem_fetch::MemFetch> {
         self.inner.next_access()
+    }
+
+    fn ready_accesses(&self) -> Option<&VecDeque<mem_fetch::MemFetch>> {
+        // fn ready_access_iter(&self) -> () {
+        self.inner.ready_accesses()
     }
 
     /// Access read only cache.

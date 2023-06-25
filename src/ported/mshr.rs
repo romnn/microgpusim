@@ -97,6 +97,17 @@ impl MshrTable {
         !self.current_response.is_empty()
     }
 
+    /// Returns next ready accesses
+    pub fn ready_accesses(&self) -> Option<&VecDeque<mem_fetch::MemFetch>> {
+        let Some(block_addr) = self.current_response.front() else {
+            return None;
+        };
+        let Some(entry) = self.data.get(&block_addr) else {
+            return None;
+        };
+        Some(&entry.list)
+    }
+
     /// Returns next ready access
     pub fn next_access(&mut self) -> Option<mem_fetch::MemFetch> {
         debug_assert!(self.has_ready_accesses());
@@ -104,14 +115,14 @@ impl MshrTable {
             return None;
         };
 
-        let fetch = if let Some(entry) = self.data.get_mut(&block_addr) {
-            debug_assert!(!entry.list.is_empty());
-            entry.list.pop_front()
-        } else {
+        let Some(entry) = self.data.get_mut(&block_addr) else {
             return None;
         };
 
-        let should_remove = self.data[block_addr].list.is_empty();
+        debug_assert!(!entry.list.is_empty());
+        let fetch = entry.list.pop_front();
+
+        let should_remove = entry.list.is_empty();
         if should_remove {
             self.data.remove(&block_addr);
             self.current_response.pop_front();

@@ -1,5 +1,7 @@
 #include "memory_partition_unit.hpp"
 
+#include <iostream>
+
 #include "l2_cache_trace.hpp"
 #include "memory_sub_partition.hpp"
 #include "trace_gpgpu_sim.hpp"
@@ -168,10 +170,14 @@ void memory_partition_unit::simple_dram_model_cycle() {
       ((m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle) >=
        m_dram_latency_queue.front().ready_cycle)) {
     mem_fetch *mf_return = m_dram_latency_queue.front().req;
+    // ROMAN: added this for compatibility, otherwise we do not get dram metrics
+    m_stats->memlatstat_dram_access(mf_return);
+
     if (mf_return->get_access_type() != L1_WRBK_ACC &&
         mf_return->get_access_type() != L2_WRBK_ACC) {
-      printf("got from dram latency queue: %s (write=%d)\n",
-             mf_return->get_access_type_str(), mf_return->is_write());
+      std::cout << "got " << mf_return
+                << " fetch return from dram latency queue (write="
+                << mf_return->is_write() << ")" << std::endl;
       mf_return->set_reply();
 
       unsigned dest_global_spid = mf_return->get_sub_partition_id();
@@ -193,9 +199,15 @@ void memory_partition_unit::simple_dram_model_cycle() {
               mf_return, dest_spid);
         }
         m_dram_latency_queue.pop_front();
+      } else {
+        throw std::runtime_error("fyi: simple dram model stall");
       }
 
     } else {
+      std::cout << "DROPPING " << mf_return << " fetch return "
+                << " from dram latency queue (write=" << mf_return->is_write()
+                << ")" << std::endl;
+
       this->set_done(mf_return);
       delete mf_return;
       m_dram_latency_queue.pop_front();
@@ -211,10 +223,11 @@ void memory_partition_unit::simple_dram_model_cycle() {
        p++) {
     int spid = (p + last_issued_partition + 1) %
                m_config->m_n_sub_partition_per_memory_channel;
-    printf("\033[1;31m checking sub partition %d: can issue=%d, l2 to dram "
-           "queue empty=%d \033[0m \n",
-           spid, can_issue_to_dram(spid),
-           m_sub_partition[spid]->L2_dram_queue_empty());
+
+    std::cout << "checking sub partition " << spid
+              << ": can issue=" << can_issue_to_dram(spid)
+              << " l2 to dram queue=" << m_sub_partition[spid]->m_L2_dram_queue
+              << " dram latency queue=" << m_dram_latency_queue << std::endl;
 
     if (!m_sub_partition[spid]->L2_dram_queue_empty() &&
         can_issue_to_dram(spid)) {
@@ -359,4 +372,10 @@ void memory_partition_unit::print(FILE *fp) const {
       fprintf(fp, " <NULL mem_fetch?>\n");
   }
   m_dram->print(fp);
+}
+
+std::ostream &operator<<(std::ostream &os,
+                         const memory_partition_unit::dram_delay_t &delay) {
+  os << delay.req;
+  return os;
 }

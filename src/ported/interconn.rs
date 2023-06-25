@@ -93,7 +93,10 @@ impl<P> ToyInterconnect<P> {
     }
 }
 
-impl<P> Interconnect<P> for ToyInterconnect<P> {
+impl<P> Interconnect<P> for ToyInterconnect<P>
+where
+    P: std::fmt::Display,
+{
     fn push(&self, src_device: usize, dest_device: usize, packet: P, size: u32) {
         assert!(self.has_buffer(src_device, size));
 
@@ -102,7 +105,7 @@ impl<P> Interconnect<P> for ToyInterconnect<P> {
         let subnet = if is_memory_node { 1 } else { 0 };
         println!(
             "{}: {size} bytes from device {src_device} to {dest_device} (subnet {subnet})",
-            style("INTERCONN PUSH").bold(),
+            style(format!("INTERCONN PUSH {}", packet)).bold(),
         );
 
         // let mut queue = self.output_queue[subnet][src_device][0].lock().unwrap();
@@ -114,13 +117,14 @@ impl<P> Interconnect<P> for ToyInterconnect<P> {
         // let icnt_id = self.node_map[&device];
         let icnt_id = device;
         let subnet = if device >= self.num_cores { 1 } else { 0 };
-        println!(
-            "{}: from device {device} (device={device}, id={icnt_id}, subnet={subnet})",
-            style("INTERCONN POP").bold()
-        );
 
         let mut lock = self.round_robin_turn[subnet][icnt_id].lock().unwrap();
         let mut turn = *lock;
+        println!(
+            "{}: from device {device} (device={device}, id={icnt_id}, subnet={subnet}, turn={turn})",
+            style("INTERCONN POP").bold()
+        );
+
         for _ in 0..self.num_classes {
             dbg!(&turn);
             let mut queue = self.output_queue[subnet][icnt_id][turn].lock().unwrap();
@@ -259,24 +263,28 @@ impl MemFetchInterface for CoreMemoryInterface<Packet> {
         // self.core.interconn_simt_to_mem(fetch.get_num_flits(true));
         // self.cluster.interconn_inject_request_packet(fetch);
 
+        let dest_sub_partition_id = fetch.sub_partition_id();
+        let mem_dest = self
+            .config
+            .mem_id_to_device_id(dest_sub_partition_id as usize);
+
+        println!(
+            "cluster {} icnt_inject_request_packet({}) dest sub partition id={} dest mem node={}",
+            self.cluster_id, fetch, dest_sub_partition_id, mem_dest
+        );
+
         let packet_size = if fetch.is_write() && fetch.is_atomic() {
             fetch.control_size
         } else {
             fetch.data_size
         };
         // m_stats->m_outgoing_traffic_stats->record_traffic(mf, packet_size);
-        let dest = fetch.sub_partition_id();
         fetch.status = mem_fetch::Status::IN_ICNT_TO_MEM;
 
-        let packet = Packet::Fetch(fetch);
-
         // if !fetch.is_write() && !fetch.is_atomic() {
-        self.interconn.push(
-            self.cluster_id,
-            self.config.mem_id_to_device_id(dest as usize),
-            packet,
-            packet_size,
-        );
+
+        self.interconn
+            .push(self.cluster_id, mem_dest, Packet::Fetch(fetch), packet_size);
     }
 }
 
@@ -383,18 +391,28 @@ mod tests {
         let mem_node = num_shaders;
 
         // send from core to memory
-        let send_data = 42;
-        interconn.push(core_node, mem_node, Box::new(send_data));
-        let (elapsed, recv_data) = interconn.must_pop(mem_node).unwrap();
-        assert_eq!(elapsed, 0);
-        assert_eq!(send_data, *recv_data);
+        // let send_data = 42;
+        interconn.push(core_node, mem_node, Box::new(42));
+        interconn.push(core_node, mem_node, Box::new(43));
+        interconn.push(core_node, mem_node, Box::new(44));
+        let (_, recv_data) = interconn.must_pop(mem_node, Some(1)).unwrap();
+        assert_eq!(42, *recv_data);
+        let (_, recv_data) = interconn.must_pop(mem_node, Some(1)).unwrap();
+        assert_eq!(43, *recv_data);
+        let (_, recv_data) = interconn.must_pop(mem_node, Some(1)).unwrap();
+        assert_eq!(44, *recv_data);
 
         // send memory to core back
-        let send_data = 24;
-        interconn.push(mem_node, core_node, Box::new(send_data));
-        let (elapsed, recv_data) = interconn.must_pop(core_node).unwrap();
-        assert_eq!(elapsed, 0);
-        assert_eq!(send_data, *recv_data);
+        // let send_data = 24;
+        interconn.push(mem_node, core_node, Box::new(32));
+        interconn.push(mem_node, core_node, Box::new(33));
+        interconn.push(mem_node, core_node, Box::new(34));
+        let (_, recv_data) = interconn.must_pop(core_node, Some(1)).unwrap();
+        assert_eq!(32, *recv_data);
+        let (_, recv_data) = interconn.must_pop(core_node, Some(1)).unwrap();
+        assert_eq!(33, *recv_data);
+        let (_, recv_data) = interconn.must_pop(core_node, Some(1)).unwrap();
+        assert_eq!(34, *recv_data);
 
         Ok(())
     }
@@ -432,7 +450,7 @@ mod tests {
         // send from core to memory
         let send_data = 42;
         interconn.push(core_node, mem_node, Box::new(send_data));
-        let (elapsed, recv_data) = interconn.must_pop(mem_node).unwrap();
+        let (elapsed, recv_data) = interconn.must_pop(mem_node, None).unwrap();
         dbg!(elapsed);
         assert!(elapsed > 1);
         assert_eq!(send_data, *recv_data);
@@ -440,7 +458,7 @@ mod tests {
         // send memory to core back
         let send_data = 24;
         interconn.push(mem_node, core_node, Box::new(send_data));
-        let (elapsed, recv_data) = interconn.must_pop(core_node).unwrap();
+        let (elapsed, recv_data) = interconn.must_pop(core_node, None).unwrap();
         assert!(elapsed > 0);
         assert_eq!(send_data, *recv_data);
 

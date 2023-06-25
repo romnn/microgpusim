@@ -63,7 +63,7 @@ fn was_writeallocate_sent(events: &[cache::Event]) -> bool {
     // return false;
 }
 
-pub trait Queue<T> {
+pub trait Queue<T>: std::fmt::Display {
     fn new<S: ToString>(name: S, min_size: Option<usize>, max_size: Option<usize>) -> Self;
     fn enqueue(&mut self, value: T);
     fn dequeue(&mut self) -> Option<T>;
@@ -81,9 +81,23 @@ pub struct FifoQueue<T> {
     max_size: Option<usize>,
 }
 
+impl<T> std::fmt::Display for FifoQueue<T>
+where
+    T: std::fmt::Display,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_list()
+            .entries(self.inner.iter().map(|i| i.to_string()))
+            .finish()
+    }
+}
+
 impl<T> FifoQueue<T> {}
 
-impl<T> Queue<T> for FifoQueue<T> {
+impl<T> Queue<T> for FifoQueue<T>
+where
+    T: std::fmt::Display,
+{
     fn new<S: ToString>(name: S, min_size: Option<usize>, max_size: Option<usize>) -> Self {
         Self {
             inner: VecDeque::new(),
@@ -143,10 +157,10 @@ pub struct MemorySubPartition<Q = FifoQueue<mem_fetch::MemFetch>> {
 
     /// queues
     interconn_to_l2_queue: Q,
-    l2_to_dram_queue: Arc<Mutex<Q>>,
+    pub l2_to_dram_queue: Arc<Mutex<Q>>,
     dram_to_l2_queue: Q,
     /// L2 cache hit response queue
-    l2_to_interconn_queue: Q,
+    pub l2_to_interconn_queue: Q,
     rop_queue: VecDeque<mem_fetch::MemFetch>,
 
     // fetch_interconn: Arc<I>,
@@ -389,7 +403,7 @@ where
                 // m_rop.push(r);
                 // req->set_status(IN_PARTITION_ROP_DELAY,
                 // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-                println!("{}", style("PUSH TO ROP").red());
+                println!("{}: {fetch}", style("PUSH TO ROP").red());
                 self.rop_queue.push_back(fetch);
                 // assert!(!self.interconn_to_l2_queue.full());
                 // fetch.set_status(mem_fetch::Status::IN_PARTITION_ICNT_TO_L2_QUEUE, 0);
@@ -481,12 +495,15 @@ where
         use mem_fetch::{AccessKind, Status};
 
         println!(
-            "{}: rop queue size={}, icnt to l2 queue size={}, l2 to icnt queue size={}, l2 to dram queue size={}",
+            "{}: rop queue={:?}, icnt to l2 queue={}, l2 to icnt queue={}, l2 to dram queue={}",
             style(" => memory sub partition cache cycle").blue(),
-            self.rop_queue.len(),
-            self.interconn_to_l2_queue.len(),
-            self.l2_to_interconn_queue.len(),
-            self.l2_to_dram_queue.lock().unwrap().len(),
+            self.rop_queue
+                .iter()
+                .map(|f| f.to_string())
+                .collect::<Vec<_>>(),
+            self.interconn_to_l2_queue,
+            self.l2_to_interconn_queue,
+            self.l2_to_dram_queue.lock().unwrap(),
         );
 
         // L2 fill responses
@@ -659,7 +676,7 @@ where
         //     !m_icnt_L2_queue->full()) {
         if !self.interconn_to_l2_queue.full() {
             if let Some(mut fetch) = self.rop_queue.pop_front() {
-                println!("{}", style("POP FROM ROP").red());
+                println!("{}: {fetch}", style("POP FROM ROP").red());
                 fetch.set_status(mem_fetch::Status::IN_PARTITION_ICNT_TO_L2_QUEUE, 0);
                 // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
                 self.interconn_to_l2_queue.enqueue(fetch);
@@ -793,6 +810,11 @@ impl MemoryPartitionUnit
                 mem_fetch::AccessKind::L1_WRBK_ACC | mem_fetch::AccessKind::L2_WRBK_ACC
             ) {
                 // returned_fetch.set_reply();
+                println!(
+                    "got {} fetch return from dram latency queue (write={})",
+                    returned_fetch,
+                    returned_fetch.is_write()
+                );
 
                 let dest_global_spid = returned_fetch.sub_partition_id();
                 let dest_spid = self.global_sub_partition_id_to_local_id(dest_global_spid);
@@ -801,7 +823,7 @@ impl MemoryPartitionUnit
 
                 if !sub.dram_to_l2_queue.full() {
                     let mut returned_fetch = self.dram_latency_queue.pop_front().unwrap();
-                    dbg!(&returned_fetch);
+                    // dbg!(&returned_fetch);
                     returned_fetch.set_reply();
 
                     if returned_fetch.access_kind() == &mem_fetch::AccessKind::L1_WRBK_ACC {
@@ -812,15 +834,21 @@ impl MemoryPartitionUnit
                             .set_status(mem_fetch::Status::IN_PARTITION_DRAM_TO_L2_QUEUE, 0);
                         // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
                         self.arbitration_metadata.return_credit(dest_spid);
-                        println!(
-                            "mem_fetch request {:?} return from dram to sub partition {}",
-                            returned_fetch, dest_spid
-                        );
+                        // println!(
+                        //     "mem_fetch request {:?} return from dram to sub partition {}",
+                        //     returned_fetch, dest_spid
+                        // );
 
                         sub.dram_to_l2_queue.enqueue(returned_fetch);
                     }
                 }
             } else {
+                println!(
+                    "dropping {} fetch return from dram latency queue (write={})",
+                    returned_fetch,
+                    returned_fetch.is_write()
+                );
+
                 // this->set_done(mf_return);
                 // delete mf_return;
                 self.dram_latency_queue.pop_front();
@@ -842,8 +870,8 @@ impl MemoryPartitionUnit
             let has_dram_resource = self.arbitration_metadata.has_credits(spid);
             let can_issue_to_dram = has_dram_resource && !sub_partition_contention;
             println!(
-                "checking sub partition {spid}: can issue={} dram_has_resources={}, contention={}, l2 to dram queue size={}",
-                can_issue_to_dram, has_dram_resource, sub_partition_contention, style(sub.l2_to_dram_queue.lock().unwrap().len()).red(),
+                "checking sub partition {spid}: can issue={} dram_has_resources={}, contention={}, l2 to dram queue={}",
+                can_issue_to_dram, has_dram_resource, sub_partition_contention, style(sub.l2_to_dram_queue.lock().unwrap()).red(),
             );
 
             if can_issue_to_dram {
@@ -855,10 +883,10 @@ impl MemoryPartitionUnit
 
                     let mut fetch = queue.dequeue().unwrap();
                     // panic!("simple dram: issue mem_fetch from sub partition to dram");
-                    println!(
-                        "issue mem_fetch request {:?} from sub partition {} to dram",
-                        fetch, spid
-                    );
+                    // println!(
+                    //     "issue mem_fetch request {:?} from sub partition {} to dram",
+                    //     fetch, spid
+                    // );
                     // dram_delay_t d;
                     // d.req = mf;
                     // d.ready_cycle = m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle +

@@ -131,37 +131,56 @@ public:
   unsigned get_length() const { return m_length; }
   unsigned get_max_len() const { return m_max_len; }
 
-  std::string to_string() const {
-    std::stringstream buffer;
-    fifo_data<T> *ddp = m_head;
-    buffer << m_name << "{" << m_length << "}";
-    buffer << "[";
-    while (ddp) {
-      buffer << ddp->m_data << ",";
-      ddp = ddp->m_next;
-    }
-    buffer << "]";
-    return buffer.str();
-  }
-
+  // std::string to_string() const {
+  //   std::stringstream buffer;
+  //   fifo_data<T> *ddp = m_head;
+  //   buffer << m_name << "{" << m_length << "}";
+  //   buffer << "[";
+  //   while (ddp) {
+  //     buffer << ddp->m_data << ",";
+  //     ddp = ddp->m_next;
+  //   }
+  //   buffer << "]";
+  //   return buffer.str();
+  // }
+  //
   void print() const {
-    fifo_data<T> *ddp = m_head;
-    printf("%s(%d): ", m_name, m_length);
-    while (ddp) {
-      printf("%p ", ddp->m_data);
-      ddp = ddp->m_next;
-    }
-    printf("\n");
+    printf("%d", get_n_element());
+
+    // fifo_data<T> *ddp = m_head;
+    //   printf("%s(%d): ", m_name, m_length);
+    //   while (ddp) {
+    //     printf("%p ", ddp->m_data);
+    //     ddp = ddp->m_next;
+    //   }
+    //   printf("\n");
   }
 
-private:
   const char *m_name;
 
+  fifo_data<T> *m_tail;
+  fifo_data<T> *m_head;
+
+private:
   unsigned int m_min_len;
   unsigned int m_max_len;
   unsigned int m_length;
   unsigned int m_n_element;
-
-  fifo_data<T> *m_head;
-  fifo_data<T> *m_tail;
 };
+
+template <class T>
+std::ostream &operator<<(std::ostream &os, const fifo_pipeline<T> *pipe) {
+  if (pipe == NULL) {
+    os << "NULL";
+  } else {
+    os << pipe->get_n_element();
+    // os << "[ ";
+    // fifo_data<T> *ddp = pipe->m_head;
+    // while (ddp) {
+    //   os << ddp->m_data;
+    //   ddp = ddp->m_next;
+    // }
+    // os << "]";
+  }
+  return os;
+}

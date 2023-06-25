@@ -222,6 +222,10 @@ impl<I> Base<I> {
         self.mshrs.has_ready_accesses()
     }
 
+    pub fn ready_accesses(&self) -> Option<&VecDeque<mem_fetch::MemFetch>> {
+        self.mshrs.ready_accesses()
+    }
+
     /// Pop next ready access
     ///
     /// Note: does not include accesses that "HIT"
@@ -641,7 +645,7 @@ mod tests {
             port,
             stats,
             config,
-            cache_config,
+            Arc::clone(&cache_config.inner),
         );
         dbg!(&base);
         assert!(false);

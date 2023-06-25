@@ -48,6 +48,8 @@ where
         stats: Arc<Mutex<Stats>>,
         config: Arc<config::GPUConfig>,
         cache_config: Arc<config::CacheConfig>,
+        write_alloc_type: mem_fetch::AccessKind,
+        write_back_type: mem_fetch::AccessKind,
     ) -> Self {
         let inner = super::base::Base::new(
             name,
@@ -72,8 +74,8 @@ where
             // mshrs,
             // miss_queue: VecDeque::new(),
             // miss_queue_status: mem_fetch::Status::INITIALIZED,
-            write_alloc_type: mem_fetch::AccessKind::L1_WR_ALLOC_R,
-            write_back_type: mem_fetch::AccessKind::L1_WRBK_ACC,
+            write_alloc_type,
+            write_back_type,
         }
     }
 
@@ -966,7 +968,9 @@ mod tests {
             interconn,
             stats.clone(),
             config.clone(),
-            cache_config,
+            Arc::clone(&cache_config.inner),
+            mem_fetch::AccessKind::L1_WR_ALLOC_R,
+            mem_fetch::AccessKind::L1_WRBK_ACC,
         );
 
         let trace_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -1005,7 +1009,7 @@ mod tests {
                 let trace_iter = lock.take_while_ref(|entry| entry.block_id == block);
                 for trace in trace_iter {
                     // dbg!(&trace);
-                    let warp_id = trace.warp_id as usize;
+                    let warp_id = trace.warp_id_in_block as usize;
                     if warp_id != 0 {
                         continue;
                     }
@@ -1111,7 +1115,9 @@ mod tests {
             interconn,
             stats.clone(),
             config.clone(),
-            cache_config,
+            Arc::clone(&cache_config.inner),
+            mem_fetch::AccessKind::L1_WR_ALLOC_R,
+            mem_fetch::AccessKind::L1_WRBK_ACC,
         );
 
         let trace_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -1141,7 +1147,9 @@ mod tests {
             cuda_ctx: 0,
             kernel_id: 0,
             block_id: nvbit_model::Dim { x: 0, y: 0, z: 0 },
-            warp_id: 3,
+            warp_size: 32,
+            warp_id_in_sm: 3,
+            warp_id_in_block: 3,
             line_num: 0,
             instr_data_width: 4,
             instr_opcode: "LDG.E.CG".to_string(),
@@ -1153,10 +1161,16 @@ mod tests {
                 is_uniform: false,
             },
             instr_mem_space: nvbit_model::MemorySpace::Global,
+            instr_is_mem: true,
             instr_is_load: true,
             instr_is_store: false,
             instr_is_extended: true,
             active_mask: 15,
+            // todo: use real values here
+            dest_regs: [0; 1],
+            num_dest_regs: 0,
+            src_regs: [0; 5],
+            num_src_regs: 0,
             addrs: concat(
                 [
                     140663086646144,

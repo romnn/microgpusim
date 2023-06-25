@@ -227,6 +227,19 @@ pub struct MemFetch {
     pub original_write_fetch: Option<Box<MemFetch>>,
 }
 
+impl std::fmt::Display for MemFetch {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            // "MemFetch({:?})[{:?}@{}]",
+            "{:?}@{}",
+            // self.instr.as_ref().map(|i| i.to_string()),
+            self.access_kind(),
+            self.addr(),
+        )
+    }
+}
+
 impl Eq for MemFetch {}
 
 impl PartialEq for MemFetch {
@@ -270,18 +283,14 @@ impl MemFetch {
     //     mem_fetch *original_mf = NULL, mem_fetch *original_wr_mf = NULL);
 
     pub fn new(
-        // uid: u64,
         instr: Option<WarpInstruction>,
         access: MemAccess,
-        // config: &config::CacheConfig,
         config: &config::GPUConfig,
         control_size: u32,
         warp_id: usize,
         core_id: usize,
         cluster_id: usize,
     ) -> Self {
-        // m_request_uid = sm_next_mf_request_uid++;
-        // let warp_id = instr.warp_id;
         let data_size = access.req_size_bytes;
         let kind = if access.is_write {
             Kind::WRITE_REQUEST
@@ -306,7 +315,6 @@ impl MemFetch {
             tlx_addr,
             partition_addr,
             chip: 0,
-            // sub_partition_id: 0,
             kind,
             status: Status::INITIALIZED,
             last_status_change: None,

@@ -53,7 +53,7 @@ pub struct LoadStoreUnit<I> {
     // pipeline_reg: Vec<WarpInstruction>,
     next_writeback: Option<WarpInstruction>,
     response_fifo: VecDeque<MemFetch>,
-    warps: Vec<Arc<Mutex<sched::SchedulerWarp>>>,
+    warps: Vec<sched::CoreWarp>,
     // texture_l1: l1::TextureL1,
     // const_l1: l1::ConstL1,
     // todo: how to use generic interface here
@@ -79,10 +79,15 @@ pub struct LoadStoreUnit<I> {
     // phantom: std::marker::PhantomData<I>,
 }
 
-impl<I> std::fmt::Debug for LoadStoreUnit<I> {
-    // impl std::fmt::Debug for LoadStoreUnit {
+impl<I> std::fmt::Display for LoadStoreUnit<I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("LoadStoreUnit")
+        write!(f, "{}", self.pipelined_simd_unit.name)
+    }
+}
+
+impl<I> std::fmt::Debug for LoadStoreUnit<I> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct(&self.pipelined_simd_unit.name)
             .field("core_id", &self.core_id)
             .field("cluster_id", &self.cluster_id)
             .field("response_fifo_size", &self.response_fifo.len())
@@ -94,16 +99,29 @@ impl<I> std::fmt::Debug for LoadStoreUnit<I> {
 #[repr(usize)]
 enum WritebackClient {
     SharedMemory = 0,
+    L1T = 1,
+    L1C = 2,
     // (uncached)
-    GlobalLocal,
-    L1D,
-    L1T,
-    L1C,
+    GlobalLocal = 3,
+    L1D = 4,
 }
 
 #[derive(strum::EnumCount, strum::FromRepr, Hash, PartialEq, Eq, Clone, Copy, Debug)]
 #[repr(usize)]
-enum MemStageStallType {
+enum MemStageAccessKind {
+    C_MEM,
+    T_MEM,
+    S_MEM,
+    G_MEM_LD,
+    L_MEM_LD,
+    G_MEM_ST,
+    L_MEM_ST,
+    // N_MEM_STAGE_ACCESS_TYPE
+}
+
+#[derive(strum::EnumCount, strum::FromRepr, Hash, PartialEq, Eq, Clone, Copy, Debug)]
+#[repr(usize)]
+enum MemStageStallKind {
     NO_RC_FAIL = 0,
     BK_CONF,
     MSHR_RC_FAIL,
@@ -122,9 +140,10 @@ where
     // I: ic::Interconnect<super::core::Packet>,
 {
     pub fn new(
+        // id: usize,
         core_id: usize,
         cluster_id: usize,
-        warps: Vec<Arc<Mutex<sched::SchedulerWarp>>>,
+        warps: Vec<sched::CoreWarp>,
         fetch_interconn: Arc<I>,
         // interconn: Arc<I>,
         // fetch_interconn: Arc<dyn ic::MemFetchInterface>,
@@ -132,12 +151,21 @@ where
         scoreboard: Arc<RwLock<Scoreboard>>,
         config: Arc<config::GPUConfig>,
         stats: Arc<Mutex<Stats>>,
+        cycle: super::Cycle,
+        // issue_reg_id: usize,
     ) -> Self {
         // pipelined_simd_unit(NULL, config, 3, core, 0),
         // pipelined_simd_unit(NULL, config, config->smem_latency, core, 0),
         let pipeline_depth = config.shared_memory_latency;
-        let pipelined_simd_unit =
-            fu::PipelinedSimdUnitImpl::new(None, pipeline_depth, config.clone(), 0);
+        let pipelined_simd_unit = fu::PipelinedSimdUnitImpl::new(
+            0,
+            "LdstUnit".to_string(),
+            None,
+            pipeline_depth,
+            config.clone(),
+            cycle,
+            0,
+        );
         //
         // see pipelined_simd_unit::pipelined_simd_unit
         debug_assert!(config.shared_memory_latency > 1);
@@ -174,6 +202,8 @@ where
                 stats.clone(),
                 config.clone(),
                 l1_config.inner.clone(),
+                mem_fetch::AccessKind::L1_WR_ALLOC_R,
+                mem_fetch::AccessKind::L1_WRBK_ACC,
             ))
         } else {
             None
@@ -240,9 +270,20 @@ where
     }
 
     pub fn writeback(&mut self) {
-        // process next instruction that is going to writeback
-        // if !self.next_writeback.empty()) {
+        println!(
+            "{} (next_writeback={:?} arb={})",
+            style("ldst unit writeback").magenta(),
+            self.next_writeback.as_ref().map(|wb| wb.to_string()),
+            self.writeback_arb
+        );
+
+        // this processes the next writeback
         if let Some(ref next_writeback) = self.next_writeback {
+            // println!(
+            //     "{}",
+            //     style(format!("ldst unit writeback {}", next_writeback)).magenta()
+            // );
+
             if self
                 .operand_collector
                 .try_borrow_mut()
@@ -250,9 +291,13 @@ where
                 .writeback(&next_writeback)
             {
                 let mut next_writeback = self.next_writeback.take().unwrap();
+
                 let mut instr_completed = false;
                 for out_reg in next_writeback.outputs() {
                     debug_assert!(*out_reg > 0);
+                    // if next_writeback.warp_id == 3 {
+                    //     super::debug_break("process writeback for warp 3");
+                    // }
                     if next_writeback.memory_space != MemorySpace::Shared {
                         let pending = self
                             .pending_writes
@@ -260,6 +305,7 @@ where
                             .or_default();
                         debug_assert!(pending[out_reg] > 0);
                         let still_pending = pending[out_reg] - 1;
+                        dbg!(&still_pending);
                         if still_pending == 0 {
                             pending.remove(out_reg);
                             self.scoreboard
@@ -285,6 +331,8 @@ where
             }
         }
 
+        // this arbitrates between the writeback clients
+        // sets next writeback for writeback in the next cycle
         let mut serviced_client = None;
         for client in 0..self.num_writeback_clients {
             if self.next_writeback.is_some() {
@@ -299,8 +347,9 @@ where
                             // m_core->decrement_atomic_count(m_next_wb.warp_id(),
                             //                                m_next_wb.active_count());
                         }
+
                         self.warps[pipe_reg.warp_id]
-                            .lock()
+                            .try_borrow_mut()
                             .unwrap()
                             .num_instr_in_pipeline -= 1;
                         self.next_writeback = Some(pipe_reg);
@@ -330,11 +379,24 @@ where
                 WritebackClient::GlobalLocal => {
                     // global/local
                     if let Some(next_global) = self.next_global.take() {
+                        if next_global.warp_id == 3 {
+                            super::debug_break("global writeback for warp 3");
+                        }
+                        println!(
+                            "{}",
+                            style(format!(
+                                "ldst unit writeback: has global {:?} ({})",
+                                &next_global.instr.as_ref().map(|i| i.to_string()),
+                                &next_global.addr()
+                            ))
+                            .magenta(),
+                        );
                         if next_global.is_atomic() {
                             // m_core->decrement_atomic_count(
                             //     m_next_global->get_wid(),
                             //     m_next_global->get_access_warp_mask().count());
                         }
+
                         self.next_writeback = next_global.instr;
                         serviced_client = Some(next_client);
                     }
@@ -354,12 +416,13 @@ where
         // 1. the writeback buffer was available
         // 2. a client was serviced
         if let Some(serviced) = serviced_client {
-            println!(
-                "{} {:?}",
-                style("ldst unit writeback: serviced client").magenta(),
-                WritebackClient::from_repr(serviced)
-            );
             self.writeback_arb = (serviced + 1) % self.num_writeback_clients;
+            println!(
+                "{} {:?} ({})",
+                style("ldst unit writeback: serviced client").magenta(),
+                WritebackClient::from_repr(serviced),
+                serviced,
+            );
         }
 
         // todo!("ldst unit writeback");
@@ -371,56 +434,63 @@ where
 
     fn texture_cycle(&mut self) {}
 
-    fn memory_cycle(&mut self) -> bool {
-        println!(
-            "core {}-{}: {}",
-            self.core_id,
-            self.cluster_id,
-            style("load store unit: memory cycle").magenta()
-        );
+    fn memory_cycle(
+        &mut self,
+        rc_fail: &mut MemStageStallKind,
+        kind: &mut MemStageAccessKind,
+    ) -> bool {
+        // println!(
+        //     "core {}-{}: {}",
+        //     self.core_id,
+        //     self.cluster_id,
+        //     style("load store unit: memory cycle").magenta()
+        // );
 
         // let simd_unit = &mut self.pipelined_simd_unit;
-        let Some(instr) = &self.pipelined_simd_unit.dispatch_reg else {
+        let Some(dispatch_instr) = &self.pipelined_simd_unit.dispatch_reg else {
             return true;
         };
-        println!("memory cycle for instruction: {}", &instr);
+        println!("memory cycle for instruction: {}", &dispatch_instr);
 
-        if instr.memory_space != MemorySpace::Global && instr.memory_space != MemorySpace::Local {
+        if !matches!(
+            dispatch_instr.memory_space,
+            MemorySpace::Global | MemorySpace::Local
+        ) {
             return true;
         }
-        if instr.active_thread_count() == 0 {
+        if dispatch_instr.active_thread_count() == 0 {
             return true;
         }
-        if instr.mem_access_queue.is_empty() {
+        if dispatch_instr.mem_access_queue.is_empty() {
             return true;
         }
 
         let mut bypass_l1 = false;
 
-        if self.data_l1.is_none() || instr.cache_operator == CacheOperator::GLOBAL {
+        if self.data_l1.is_none() || dispatch_instr.cache_operator == CacheOperator::GLOBAL {
             bypass_l1 = true;
-        } else if instr.memory_space == MemorySpace::Global {
+        } else if dispatch_instr.memory_space == MemorySpace::Global {
             // global memory access
             // skip L1 cache if the option is enabled
             if self.config.global_mem_skip_l1_data_cache
-                && instr.cache_operator != CacheOperator::L1
+                && dispatch_instr.cache_operator != CacheOperator::L1
             {
                 bypass_l1 = true;
             }
         }
 
         dbg!(&bypass_l1);
-        let Some(access) = instr.mem_access_queue.back() else {
+        let Some(access) = dispatch_instr.mem_access_queue.back() else {
             return true;
         };
 
         // panic!("mem access: {}", access);
 
-        let mut stall_cond = MemStageStallType::NO_RC_FAIL;
+        let mut stall_cond = MemStageStallKind::NO_RC_FAIL;
         if bypass_l1 {
             // bypass L1 cache
-            debug_assert_eq!(instr.is_store(), access.is_write); // "this must not hold?");
-            let control_size = if instr.is_store() {
+            debug_assert_eq!(dispatch_instr.is_store(), access.is_write); // "this must not hold?");
+            let control_size = if dispatch_instr.is_store() {
                 mem_fetch::WRITE_PACKET_SIZE
             } else {
                 mem_fetch::READ_PACKET_SIZE
@@ -428,84 +498,71 @@ where
             let size = access.req_size_bytes + control_size as u32;
 
             // println!("Interconnect addr: {}, size={}", access.addr, size);
-            if self
-                .fetch_interconn
-                .full(size, instr.is_store() || instr.is_atomic())
-            {
-                stall_cond = MemStageStallType::ICNT_RC_FAIL;
+            if self.fetch_interconn.full(
+                size,
+                dispatch_instr.is_store() || dispatch_instr.is_atomic(),
+            ) {
+                stall_cond = MemStageStallKind::ICNT_RC_FAIL;
             } else {
-                // let mut new_instr = instr.clone();
-                // drop(instr);
-                if instr.is_load() {
-                    for out_reg in instr.outputs() {
-                        debug_assert!(self.pending_writes[&instr.warp_id][out_reg] > 0);
+                let pending = &self.pending_writes[&dispatch_instr.warp_id];
+                if dispatch_instr.is_load() {
+                    for out_reg in dispatch_instr.outputs() {
+                        debug_assert!(pending[out_reg] > 0);
                     }
-                } else if instr.is_store() {
+                } else if dispatch_instr.is_store() {
                     // m_core->inc_store_req(inst.warp_id());
                 }
 
+                // shouldnt we remove the dispatch reg here?
                 let instr = &mut self.pipelined_simd_unit.dispatch_reg.as_mut().unwrap();
                 let access = instr.mem_access_queue.pop_back().unwrap();
 
-                let new_instr = instr.clone();
                 let mut fetch = new_mem_fetch(
                     access,
-                    new_instr,
+                    instr.clone(),
                     &self.config,
                     self.core_id,
                     self.cluster_id,
                 );
-                // let fetch = {
-                //     let size = if access.is_write {
-                //         WRITE_PACKET_SIZE
-                //     } else {
-                //         READ_PACKET_SIZE
-                //     } as u32;
-                //
-                //     let warp_id = instr.warp_id;
-                //     mem_fetch::MemFetch::new(
-                //         Some(instr.clone()),
-                //         access.clone(),
-                //         &self.config,
-                //         size,
-                //         warp_id,
-                //         self.core_id,
-                //         self.cluster_id,
-                //     )
-                // };
 
                 self.fetch_interconn.push(fetch);
             }
         } else {
-            // drop(instr);
-            // drop(access);
-            debug_assert_ne!(instr.cache_operator, CacheOperator::UNDEFINED);
+            debug_assert_ne!(dispatch_instr.cache_operator, CacheOperator::UNDEFINED);
             stall_cond = self.process_memory_access_queue_l1cache();
         }
 
-        let Some(instr) = &self.pipelined_simd_unit.dispatch_reg else {
-            return true;
-        };
+        let dispatch_instr = self.pipelined_simd_unit.dispatch_reg.as_ref().unwrap();
 
-        if !instr.mem_access_queue.is_empty() && stall_cond == MemStageStallType::NO_RC_FAIL {
-            stall_cond = MemStageStallType::COAL_STALL;
+        if !dispatch_instr.mem_access_queue.is_empty()
+            && stall_cond == MemStageStallKind::NO_RC_FAIL
+        {
+            stall_cond = MemStageStallKind::COAL_STALL;
         }
-        if stall_cond != MemStageStallType::NO_RC_FAIL {
-            // stall_reason = stall_cond;
-            // if instr.memory_space.is_local() {
-            //     access_type = if instr.is_store() { L_MEM_ST } else { L_MEM_LD };
-            // } else {
-            //     access_type = if instr.is_store() { G_MEM_ST } else { G_MEM_LD };
-            // }
+        if stall_cond != MemStageStallKind::NO_RC_FAIL {
+            *rc_fail = stall_cond;
+            if dispatch_instr.memory_space == MemorySpace::Local {
+                *kind = if dispatch_instr.is_store() {
+                    MemStageAccessKind::L_MEM_ST
+                } else {
+                    MemStageAccessKind::L_MEM_LD
+                };
+            } else {
+                *kind = if dispatch_instr.is_store() {
+                    MemStageAccessKind::G_MEM_ST
+                } else {
+                    MemStageAccessKind::G_MEM_LD
+                };
+            }
         }
-        instr.mem_access_queue.is_empty()
+        dispatch_instr.mem_access_queue.is_empty()
     }
 
     fn process_memory_access_queue_l1cache(
         &mut self,
         // instr: &mut WarpInstruction,
-    ) -> MemStageStallType {
-        let mut stall_cond = MemStageStallType::NO_RC_FAIL;
+    ) -> MemStageStallKind {
+        let mut stall_cond = MemStageStallKind::NO_RC_FAIL;
         let Some(instr) = &mut self.pipelined_simd_unit.dispatch_reg else {
             return stall_cond;
         };
@@ -560,14 +617,14 @@ where
                     }
                     //
                 } else {
-                    stall_cond = MemStageStallType::BK_CONF;
+                    stall_cond = MemStageStallKind::BK_CONF;
                     // delete mf;
                     // do not try again, just break from the loop and try the next cycle
                     break;
                 }
             }
-            if !instr.mem_access_queue.is_empty() && stall_cond != MemStageStallType::BK_CONF {
-                stall_cond = MemStageStallType::COAL_STALL;
+            if !instr.mem_access_queue.is_empty() && stall_cond != MemStageStallKind::BK_CONF {
+                stall_cond = MemStageStallKind::COAL_STALL;
             }
 
             stall_cond
@@ -600,17 +657,18 @@ where
         // std::list<cache_event> &events,
         fetch: mem_fetch::MemFetch,
         status: cache::RequestStatus,
-    ) -> MemStageStallType {
-        let mut stall_cond = MemStageStallType::NO_RC_FAIL;
+    ) -> MemStageStallKind {
+        let mut stall_cond = MemStageStallKind::NO_RC_FAIL;
         // bool write_sent = was_write_sent(events);
         // bool read_sent = was_read_sent(events);
-        // if (write_sent) {
-        //   unsigned inc_ack = (m_config->m_L1D_config.get_mshr_type() == SECTOR_ASSOC)
-        //                          ? (mf->get_data_size() / SECTOR_SIZE)
-        //                          : 1;
-        //
-        //   for (unsigned i = 0; i < inc_ack; ++i)
-        //     m_core->inc_store_req(inst.warp_id());
+        // if write_sent {
+        // unsigned inc_ack = (m_config->m_L1D_config.get_mshr_type() == SECTOR_ASSOC)
+        //                        ? (mf->get_data_size() / SECTOR_SIZE)
+        //                        : 1;
+
+        // for (unsigned i = 0; i < inc_ack; ++i)
+        // self.warps[instr.warp_id].try_borrow_mut().unwrap().num_outstanding_stores += 1;
+        // m_core->inc_store_req(inst.warp_id());
         // }
         if status == cache::RequestStatus::HIT {
             // assert(!read_sent);
@@ -628,7 +686,7 @@ where
             // if (!write_sent)
             //   delete mf;
         } else if status == cache::RequestStatus::RESERVATION_FAIL {
-            stall_cond = MemStageStallType::BK_CONF;
+            stall_cond = MemStageStallKind::BK_CONF;
             // assert(!read_sent);
             // assert(!write_sent);
             // delete mf;
@@ -639,13 +697,14 @@ where
             ));
             instr.mem_access_queue.pop_back();
         }
-        if !instr.mem_access_queue.is_empty() && stall_cond == MemStageStallType::NO_RC_FAIL {
-            stall_cond = MemStageStallType::COAL_STALL;
+        if !instr.mem_access_queue.is_empty() && stall_cond == MemStageStallKind::NO_RC_FAIL {
+            stall_cond = MemStageStallKind::COAL_STALL;
         }
         stall_cond
     }
 
     fn l1_latency_queue_cycle(&mut self) {
+        todo!("l1 latency queue cycle");
         // for (int j = 0; j < m_config->m_L1D_config.l1_banks; j++) {
         //   if ((l1_latency_queue[j][0]) != NULL) {
         //     mem_fetch *mf_next = l1_latency_queue[j][0];
@@ -746,10 +805,11 @@ where
         // todo!("load store unit: active lanes in pipeline");
     }
 
-    fn issue(&mut self, source_reg: &mut RegisterSet) {
-        let Some((_, Some(instr))) = source_reg.get_ready() else {
-            panic!("issue to non ready");
-        };
+    fn issue(&mut self, instr: WarpInstruction) {
+        // fn issue(&mut self, source_reg: &mut RegisterSet) {
+        // let Some((_, Some(instr))) = source_reg.get_ready() else {
+        //     panic!("issue to non ready");
+        // };
 
         // record how many pending register writes/memory accesses there are for this
         // instruction
@@ -767,7 +827,8 @@ where
         // m_core->mem_instruction_stats(*inst);
         // m_core->incmem_stat(m_core->get_config()->warp_size, 1);
 
-        self.pipelined_simd_unit.issue(source_reg);
+        self.pipelined_simd_unit.issue(instr);
+        // self.pipelined_simd_unit.issue(source_reg);
         // todo!("load store unit: issue");
     }
 
@@ -785,7 +846,6 @@ where
             | ArchOp::MEMORY_BARRIER_OP => self.pipelined_simd_unit.dispatch_reg.is_none(),
             _ => false,
         }
-        // todo!("load store unit: can issue");
     }
 
     fn is_issue_partitioned(&self) -> bool {
@@ -799,18 +859,26 @@ where
 
     fn stallable(&self) -> bool {
         true
-        // todo!("load store unit: stallable");
     }
 
     fn cycle(&mut self) {
         use super::instruction::CacheOperator;
 
         println!(
-            "core {}-{}: {} (response fifo size={})",
-            self.core_id,
-            self.cluster_id,
-            style("load store unit::cycle()").magenta(),
-            self.response_fifo.len(),
+            "fu[{:03}] {:<10} cycle={:03}: \tpipeline={:?} ({} active) \tresponse fifo={:?}",
+            self.pipelined_simd_unit.id,
+            self.pipelined_simd_unit.name,
+            self.pipelined_simd_unit.cycle.get(),
+            self.pipelined_simd_unit
+                .pipeline_reg
+                .iter()
+                .map(|reg| reg.as_ref().map(|r| r.to_string()))
+                .collect::<Vec<_>>(),
+            self.pipelined_simd_unit.num_active_instr_in_pipeline(),
+            self.response_fifo
+                .iter()
+                .map(|t| t.to_string())
+                .collect::<Vec<_>>(),
         );
 
         self.writeback();
@@ -818,21 +886,12 @@ where
         let simd_unit = &mut self.pipelined_simd_unit;
         debug_assert!(simd_unit.pipeline_depth > 0);
         for stage in 0..(simd_unit.pipeline_depth - 1) {
-            // let mut current = simd_unit.pipeline_reg[stage];
-            let next = &simd_unit.pipeline_reg[stage + 1];
-            // dbg!((&current, &next));
-
-            // if current.empty() && !next.empty() {
-            if let Some(next) = next {
-                if let Some(current) = simd_unit.pipeline_reg[stage].take() {
-                    todo!("move warp");
-                    // register_set::move_warp(&mut simd_unit.pipeline_reg, stage + 1, stage);
-                    // register_set::move_warp(&mut simd_unit.pipeline_reg, stage + 1, stage);
-                }
-            }
+            let current = simd_unit.pipeline_reg[stage].take();
+            let next = &mut simd_unit.pipeline_reg[stage + 1];
+            register_set::move_warp(current, next);
         }
 
-        if let Some(mut fetch) = self.response_fifo.front().cloned() {
+        if let Some(ref fetch) = self.response_fifo.front() {
             match fetch.access_kind() {
                 mem_fetch::AccessKind::TEXTURE_ACC_R => {
                     todo!("ldst unit: tex access");
@@ -852,7 +911,6 @@ where
                     // }
                 }
                 _ => {
-                    // todo!("{:?}", fetch);
                     if fetch.kind == mem_fetch::Kind::WRITE_ACK
                         || (self.config.perfect_mem && fetch.is_write())
                     {
@@ -880,21 +938,19 @@ where
                             }
                         }
 
-                        match &self.data_l1 {
-                            Some(l1d) if !bypass_l1 => {
-                                todo!("ldst unit: data l1 fill");
-                                // if l1d.has_free_fill_port() {
-                                //     l1d.fill(&fetch);
-                                //     self.response_fifo.pop_front();
-                                // }
+                        if bypass_l1 {
+                            if self.next_global.is_none() {
+                                let mut fetch = self.response_fifo.pop_front().unwrap();
+                                fetch.set_status(mem_fetch::Status::IN_SHADER_FETCHED, 0);
+                                // m_core->get_gpu()->gpu_sim_cycle +
+                                //     m_core->get_gpu()->gpu_tot_sim_cycle);
+                                self.next_global.insert(fetch);
                             }
-                            _ => {
-                                if self.next_global.is_none() {
-                                    // todo!("next global");
-                                    fetch.set_status(mem_fetch::Status::IN_SHADER_FETCHED, 0);
-                                    self.response_fifo.pop_front();
-                                    self.next_global.insert(fetch.clone());
-                                }
+                        } else {
+                            let l1d = self.data_l1.as_mut().unwrap();
+                            if l1d.has_free_fill_port() {
+                                let mut fetch = self.response_fifo.pop_front().unwrap();
+                                l1d.fill(&mut fetch);
                             }
                         }
                     }
@@ -909,27 +965,27 @@ where
         if let Some(data_l1) = &mut self.data_l1 {
             data_l1.cycle();
             let cache_config = self.config.data_cache_l1.as_ref().unwrap();
+            debug_assert_eq!(cache_config.l1_latency, 1);
             if cache_config.l1_latency > 0 {
                 self.l1_latency_queue_cycle();
             }
         }
 
         // let pipe_reg = &self.dispatch_reg;
-        // enum mem_stage_stall_type rc_fail = NO_RC_FAIL;
-        // mem_stage_access_type type;
-        // bool done = true;
+        let mut rc_fail = MemStageStallKind::NO_RC_FAIL;
+        let mut kind = MemStageAccessKind::C_MEM;
+        let mut done = true;
         // done &= shared_cycle(pipe_reg, rc_fail, type);
         // done &= constant_cycle(pipe_reg, rc_fail, type);
         // done &= texture_cycle(pipe_reg, rc_fail, type);
         // done &= memory_cycle(pipe_reg, rc_fail, type);
-        self.memory_cycle(); // &self.dispatch_reg);
-                             // m_mem_rc = rc_fail;
-        let done = true;
-        let mut num_stall_scheduler_mem = 0;
+        done &= self.memory_cycle(&mut rc_fail, &mut kind);
+
+        // let mut num_stall_scheduler_mem = 0;
         if !done {
             // log stall types and return
-            // debug_assert!(rc_fail != NO_RC_FAIL);
-            num_stall_scheduler_mem += 1;
+            debug_assert_ne!(rc_fail, MemStageStallKind::NO_RC_FAIL);
+            // num_stall_scheduler_mem += 1;
             // m_stats->gpu_stall_shd_mem_breakdown[type][rc_fail]++;
             return;
         }
@@ -949,38 +1005,54 @@ where
                         register_set::move_warp(pipe_reg, slot);
                     }
                 } else {
-                    let mut pending_requests = false;
+                    let pending = self.pending_writes.entry(warp_id).or_default();
+                    // dbg!(&pending);
+
+                    // if warp_id == 3 && self.warps[warp_id].borrow().trace_pc > 0 {
+                    //     panic!("warp 3 inst complete: {pipe_reg}");
+                    // }
+
+                    let mut has_pending_requests = false;
+
                     for reg_id in pipe_reg.outputs() {
-                        let pending = self.pending_writes.entry(warp_id).or_default();
-                        if *reg_id > 0 {
-                            match pending.get(reg_id) {
-                                Some(&p) if p > 0 => {
-                                    pending_requests = true;
-                                    break;
-                                }
-                                _ => {
-                                    // this instruction is done already
-                                    pending.remove(reg_id);
-                                }
+                        // if *reg_id > 0 {
+                        match pending.get(reg_id) {
+                            Some(&p) if p > 0 => {
+                                has_pending_requests = true;
+                                break;
+                            }
+                            _ => {
+                                // this instruction is done already
+                                pending.remove(reg_id);
                             }
                         }
+                        // }
                     }
 
                     let mut dispatch_reg = simd_unit.dispatch_reg.take().unwrap();
 
-                    if !pending_requests {
+                    if !has_pending_requests && warp_id == 3 {
+                        panic!("rrr");
+                    }
+                    if !has_pending_requests {
                         warp_inst_complete(&mut dispatch_reg, &mut self.stats.lock().unwrap());
                         self.scoreboard
                             .write()
                             .unwrap()
                             .release_registers(&dispatch_reg);
                     }
-                    self.warps[warp_id].lock().unwrap().num_instr_in_pipeline -= 1;
+                    self.warps[warp_id]
+                        .try_borrow_mut()
+                        .unwrap()
+                        .num_instr_in_pipeline -= 1;
                     simd_unit.dispatch_reg = None;
                 }
             } else {
                 // stores exit pipeline here
-                self.warps[warp_id].lock().unwrap().num_instr_in_pipeline -= 1;
+                self.warps[warp_id]
+                    .try_borrow_mut()
+                    .unwrap()
+                    .num_instr_in_pipeline -= 1;
                 // todo!("warp instruction complete");
                 let mut dispatch_reg = simd_unit.dispatch_reg.take().unwrap();
                 warp_inst_complete(&mut dispatch_reg, &mut self.stats.lock().unwrap());

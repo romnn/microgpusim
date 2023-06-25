@@ -42,11 +42,11 @@ fn generate_bindings() -> eyre::Result<()> {
         .default_enum_style(bindgen::EnumVariation::Rust {
             non_exhaustive: false,
         })
-        .allowlist_function("powli")
-        .allowlist_function("LOGB2_32")
-        .allowlist_function("next_powerOf2")
-        .allowlist_function("addrdec_packbits")
-        .allowlist_function("addrdec_getmasklimit")
+        // .allowlist_function("powli")
+        // .allowlist_function("LOGB2_32")
+        // .allowlist_function("next_powerOf2")
+        // .allowlist_function("addrdec_packbits")
+        // .allowlist_function("addrdec_getmasklimit")
         .allowlist_function("parse_cache_config")
         // .allowlist_type("linear_to_raw_address_translation")
         // .allowlist_type("cache_config")
@@ -57,6 +57,8 @@ fn generate_bindings() -> eyre::Result<()> {
         // .allowlist_type("l2_cache")
         // .allowlist_type("read_only_cache_params")
         .allowlist_type("mem_fetch_status")
+        .allowlist_type("addrdec_t")
+        .allowlist_type("linear_to_raw_address_translation_params")
         // .allowlist_type("accelsim_stats")
         .allowlist_type("accelsim_config")
         .allowlist_type("cache_config_params")
@@ -257,6 +259,7 @@ fn main() -> eyre::Result<()> {
     // accelsim uses zlib for compression
     println!("cargo:rustc-link-lib=z");
 
+    // return Ok(());
     // build(&sources)?;
     generate_bindings()?;
     generate_bridge(&bridges, sources)?;

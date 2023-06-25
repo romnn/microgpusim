@@ -3,14 +3,22 @@ use color_eyre::eyre;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-/// Cache kind.
+/// Memory addressing mask
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum MemoryAddressingMask {
+    Old,
+    New,
+    NewFlippedSelectorBits,
+}
+
+/// Cache kind
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum CacheKind {
     Normal, // N
     Sector, // S
 }
 
-/// A cache replacement policy.
+/// A cache replacement policy
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum CacheReplacementPolicy {
     LRU,  // L
@@ -169,7 +177,7 @@ impl CacheConfig {
     // do not use enabled but options
     #[inline]
     pub fn set_index(&self, addr: address) -> u64 {
-        println!("cache_config::set_index({})", addr);
+        // println!("cache_config::set_index({})", addr);
         hash_function(
             addr,
             self.num_sets,
@@ -554,11 +562,13 @@ pub struct GPUConfig {
     pub dram_elimnate_rw_turnaround: bool, // 0
     /// mapping memory address to dram model
     /// {dramid@<start bit>;<memory address map>}
-    // memory_addr_mapping: String, // dramid@8;00000000.00000000.00000000.00000000.0000RRRR.RRRRRRRR.RBBBCCCC.BCCSSSSS
+    pub memory_addr_mapping: Option<String>, // dramid@8;00000000.00000000.00000000.00000000.0000RRRR.RRRRRRRR.RBBBCCCC.BCCSSSSS
     /// run sweep test to check address mapping for aliased address
     // memory_addr_test: bool, // 0
     /// 0 = old addressing mask, 1 = new addressing mask, 2 = new add. mask + flipped bank sel and chip sel bits
-    // memory_address_mask: usize, // 1
+    pub memory_address_mask: MemoryAddressingMask, // 1
+    /// 0 = consecutive (no indexing), 1 = bitwise xoring
+    /// 2 = IPoly, 3 = pae, 4 = random, 5 = custom"
     pub memory_partition_indexing: MemoryPartitionIndexingScheme, // 0
     /// Major compute capability version number
     pub compute_capability_major: usize, // 7
@@ -909,13 +919,14 @@ pub enum CacheAllocatePolicy {
 }
 
 /// Memory partition indexing scheme.
-///
-/// 0 = no indexing, 1 = bitwise xoring, 2 = IPoly, 3 = custom indexing
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum MemoryPartitionIndexingScheme {
-    None = 0,
+    Consecutive = 0, // no indexing
     BitwiseXor = 1,
     IPoly = 2,
+    PAE = 3,
+    Random = 4,
+    // Custom = 2,
 }
 
 /// DRAM bank group indexing policy.
@@ -1005,10 +1016,11 @@ impl GPUConfig {
     }
 
     pub fn address_mapping(&self) -> addrdec::LinearToRawAddressTranslation {
-        addrdec::LinearToRawAddressTranslation::new(
-            self.num_memory_controllers,
-            self.num_sub_partition_per_memory_channel,
-        )
+        // TODO: compute only once
+        addrdec::LinearToRawAddressTranslation::new(&self).unwrap()
+        //     self.num_memory_controllers,
+        //     self.num_sub_partition_per_memory_channel,
+        // )
     }
 }
 
@@ -1241,7 +1253,12 @@ impl Default for GPUConfig {
             dram_seperate_write_queue_enable: false,
             dram_frfcfs_write_queue_size: 32, // 32:28:16
             dram_elimnate_rw_turnaround: false,
-            memory_partition_indexing: MemoryPartitionIndexingScheme::None,
+            memory_addr_mapping: Some(
+                "dramid@8;00000000.00000000.00000000.00000000.0000RRRR.RRRRRRRR.RBBBCCCC.BCCSSSSS"
+                    .to_string(),
+            ),
+            memory_address_mask: MemoryAddressingMask::New, // 1
+            memory_partition_indexing: MemoryPartitionIndexingScheme::Consecutive,
             compute_capability_major: 7,
             compute_capability_minor: 0,
             flush_l1_cache: false,

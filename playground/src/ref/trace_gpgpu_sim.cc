@@ -190,6 +190,9 @@ void trace_gpgpu_sim::simple_cycle() {
   printf("pop from %d memory sub partitions\n",
          m_memory_config->m_n_mem_sub_partition);
   for (unsigned i = 0; i < m_memory_config->m_n_mem_sub_partition; i++) {
+    printf("checking sub partition[%d]\n", i);
+    m_memory_sub_partition[i]->m_L2_icnt_queue->print();
+
     mem_fetch *mf = m_memory_sub_partition[i]->top();
     if (mf) {
       unsigned response_size =
@@ -220,7 +223,7 @@ void trace_gpgpu_sim::simple_cycle() {
       m_memory_partition_unit[i]->dram_cycle();
   }
 
-  printf("move mem reqs from icnt to %d mem partitions\n",
+  printf("moving mem requests from interconn to %d mem partitions\n",
          m_memory_config->m_n_mem_sub_partition);
   unsigned partiton_reqs_in_parallel_per_cycle = 0;
   for (unsigned i = 0; i < m_memory_config->m_n_mem_sub_partition; i++) {
@@ -232,12 +235,13 @@ void trace_gpgpu_sim::simple_cycle() {
       gpu_stall_dramfull++;
     } else {
       mem_fetch *mf = (mem_fetch *)icnt_pop(m_shader_config->mem2device(i));
-      if (mf)
-        printf("got new %s fetch for addr %lu from mem sub partition %d "
-               "(device %d)\n",
-               mf->get_access_type_str(), mf->get_addr(), i,
+      if (mf) {
+        printf("got new fetch ");
+        mf->print(stdout);
+        printf(" for mem sub partition %d (%d)\n", i,
                m_shader_config->mem2device(i));
-      m_memory_sub_partition[i]->push(mf, gpu_sim_cycle + gpu_tot_sim_cycle);
+        m_memory_sub_partition[i]->push(mf, gpu_sim_cycle + gpu_tot_sim_cycle);
+      }
       if (mf)
         partiton_reqs_in_parallel_per_cycle++;
     }
@@ -418,9 +422,16 @@ void trace_gpgpu_sim::cycle() {
         gpu_stall_dramfull++;
       } else {
         mem_fetch *mf = (mem_fetch *)icnt_pop(m_shader_config->mem2device(i));
-        m_memory_sub_partition[i]->push(mf, gpu_sim_cycle + gpu_tot_sim_cycle);
-        if (mf)
+        if (mf) {
+          printf("got new fetch ");
+          mf->print(stdout);
+          printf(" for mem sub partition %d (%d)\n", i,
+                 m_shader_config->mem2device(i));
+
+          m_memory_sub_partition[i]->push(mf,
+                                          gpu_sim_cycle + gpu_tot_sim_cycle);
           partiton_reqs_in_parallel_per_cycle++;
+        }
       }
       m_memory_sub_partition[i]->cache_cycle(gpu_sim_cycle + gpu_tot_sim_cycle);
       // REMOVE: power

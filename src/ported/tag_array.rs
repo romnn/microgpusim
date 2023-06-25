@@ -417,7 +417,7 @@ mod tests {
     #[test]
     fn test_tag_array() {
         let config = GPUConfig::default().data_cache_l1.unwrap();
-        let tag_array: TagArray<usize> = TagArray::new(0, 0, config);
+        let tag_array: TagArray<usize> = TagArray::new(0, 0, Arc::clone(&config.inner));
         assert!(false);
     }
 }

@@ -2,12 +2,12 @@
 
 #include "addrdec.hpp"
 #include "frfcfs_scheduler.hpp"
-#include "trace_gpgpu_sim.hpp"
 #include "hashing.hpp"
 #include "mem_fetch.hpp"
 #include "memory_partition_unit.hpp"
 #include "memory_stats.hpp"
 #include "stats_wrapper.hpp"
+#include "trace_gpgpu_sim.hpp"
 
 dram_req_t::dram_req_t(class mem_fetch *mf, unsigned banks,
                        unsigned dram_bnk_indexing_policy,
@@ -210,6 +210,8 @@ unsigned int dram_t::queue_limit() const {
 }
 
 void dram_t::push(class mem_fetch *data) {
+  std::cout << "dram [chip=" << id << "] push: " << data << std::endl;
+  throw std::runtime_error("dram push");
   assert(id == data->get_tlx_addr()
                    .chip); // Ensure request is in correct memory partition
 

@@ -22,7 +22,8 @@ class memory_config;
 class memory_partition_unit {
 public:
   memory_partition_unit(unsigned partition_id, const memory_config *config,
-                        class memory_stats_t *stats, class trace_gpgpu_sim *gpu);
+                        class memory_stats_t *stats,
+                        class trace_gpgpu_sim *gpu);
   ~memory_partition_unit();
 
   bool busy() const;
@@ -55,6 +56,12 @@ public:
   unsigned get_mpid() const { return m_id; }
 
   class trace_gpgpu_sim *get_mgpu() const { return m_gpu; }
+
+  // model DRAM access scheduler latency (fixed latency between L2 and DRAM)
+  struct dram_delay_t {
+    unsigned long long ready_cycle;
+    class mem_fetch *req;
+  };
 
 private:
   unsigned m_id;
@@ -95,12 +102,21 @@ private:
   // determine wheither a given subpartition can issue to DRAM
   bool can_issue_to_dram(int inner_sub_partition_id);
 
-  // model DRAM access scheduler latency (fixed latency between L2 and DRAM)
-  struct dram_delay_t {
-    unsigned long long ready_cycle;
-    class mem_fetch *req;
-  };
   std::list<dram_delay_t> m_dram_latency_queue;
 
   class trace_gpgpu_sim *m_gpu;
 };
+
+std::ostream &operator<<(std::ostream &os,
+                         const memory_partition_unit::dram_delay_t &delay);
+
+template <typename T>
+std::ostream &operator<<(std::ostream &os, std::list<T> l) {
+  os << "[ ";
+  for (typename std::list<T>::const_iterator it = l.begin(); it != l.end();
+       ++it) {
+    os << *it << ",";
+  }
+  os << "]";
+  return os;
+}

@@ -41,6 +41,7 @@ thiserror = "1"
 lazy_static = "1"
 nvbit-model = "0"
 nvbit-io = "0"
+regex = "1"
 num-traits = "0"
 itertools = "0"
 clap = { version = "4", features = ["derive"] }
@@ -51,6 +52,7 @@ log = "0"
 bitvec = "1"
 strum = { version = "0", features = ["derive"] }
 phf = { version = "0.11.1", features = ["macros"] }
+dialoguer = "0"
 
 [dependencies.pyo3]
 version = "0"
@@ -60,3 +62,4 @@ optional = true
 [dev-dependencies]
 playground = { path = "./playground" }
 pretty_assertions = "1"
+cxx = "1"

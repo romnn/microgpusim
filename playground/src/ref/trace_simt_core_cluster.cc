@@ -264,6 +264,7 @@ bool trace_simt_core_cluster::icnt_injection_buffer_full(unsigned size,
 }
 
 void trace_simt_core_cluster::icnt_inject_request_packet(class mem_fetch *mf) {
+
   // stats
   if (mf->get_is_write())
     m_stats->made_write_mfs++;
@@ -318,13 +319,27 @@ void trace_simt_core_cluster::icnt_inject_request_packet(class mem_fetch *mf) {
     packet_size = mf->get_ctrl_size();
   }
   m_stats->m_outgoing_traffic_stats->record_traffic(mf, packet_size);
-  unsigned destination = mf->get_sub_partition_id();
+  unsigned sub_partition_id = mf->get_sub_partition_id();
+  unsigned destination = m_config->mem2device(sub_partition_id);
+
+  printf("cluster %u icnt_inject_request_packet(", m_cluster_id);
+  mf->print(stdout);
+  printf(") sub partition id=%d dest mem node=%d\n", sub_partition_id,
+         destination);
+  printf("raw addr:\t\t");
+  mf->get_tlx_addr().print_dec(stdout);
+  printf("\n");
+
+  addrdec_t fresh_raw_adrr;
+  m_mem_config->m_address_mapping.addrdec_tlx(mf->get_addr(), &fresh_raw_adrr);
+  printf("fresh raw addr:\t\t");
+  fresh_raw_adrr.print_dec(stdout);
+  printf("\n");
+
   mf->set_status(IN_ICNT_TO_MEM,
                  m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
   if (!mf->get_is_write() && !mf->isatomic())
-    ::icnt_push(m_cluster_id, m_config->mem2device(destination), (void *)mf,
-                mf->get_ctrl_size());
+    ::icnt_push(m_cluster_id, destination, (void *)mf, mf->get_ctrl_size());
   else
-    ::icnt_push(m_cluster_id, m_config->mem2device(destination), (void *)mf,
-                mf->size());
+    ::icnt_push(m_cluster_id, destination, (void *)mf, mf->size());
 }

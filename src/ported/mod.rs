@@ -42,6 +42,7 @@ use utils::*;
 use crate::config;
 use bitvec::{array::BitArray, field::BitField, BitArr};
 use color_eyre::eyre;
+use console::style;
 use itertools::Itertools;
 use log::{error, info, trace, warn};
 use nvbit_model::dim::{self, Dim};
@@ -56,7 +57,19 @@ use trace_model::{Command, KernelLaunch, MemAccessTraceEntry};
 
 pub type address = u64;
 
-/// Shader config
+fn debug_break(msg: impl AsRef<str>) {
+    let prompt = style(format!("{}: continue?", msg.as_ref()))
+        .red()
+        .to_string();
+    // if !dialoguer::Confirm::new()
+    //     .with_prompt(prompt)
+    //     .wait_for_newline(true)
+    //     .interact()
+    //     .unwrap()
+    // {
+    //     panic!("debug stop: {}", msg.as_ref());
+    // }
+}
 
 /// Context
 #[derive(Debug)]
@@ -165,7 +178,6 @@ impl std::fmt::Debug for KernelInfo {
             .field("shared_mem", &self.config.shared_mem_bytes)
             .field("registers", &self.config.num_registers)
             .field("block", &self.current_block())
-            // next_block_iter.lock().unwrap().peek())
             .field("thread", &self.next_block_iter.lock().unwrap().peek())
             .finish()
     }
@@ -213,17 +225,16 @@ impl KernelInfo {
                 b.instr_offset,
             ))
         });
-        dbg!(&trace
-            .iter()
-            .map(|i| (
-                &i.block_id,
-                &i.warp_id_in_block,
-                &i.instr_offset,
-                &i.instr_opcode
-            ))
-            .collect::<Vec<_>>());
+        // dbg!(&trace
+        //     .iter()
+        //     .map(|i| (
+        //         &i.block_id,
+        //         &i.warp_id_in_block,
+        //         &i.instr_offset,
+        //         &i.instr_opcode
+        //     ))
+        //     .collect::<Vec<_>>());
 
-        // panic!("read trace");
         let mut trace_iter = trace.clone().into_iter();
 
         let next_block_iter = Mutex::new(config.grid.into_iter().peekable());
@@ -255,7 +266,7 @@ impl KernelInfo {
     // pub fn next_threadblock_traces(&self) -> Vec<MemAccessTraceEntry> {
     // pub fn next_threadblock_traces(&self, warps: &mut [Option<SchedulerWarp>]) {
     // pub fn next_threadblock_traces(&self, kernel: &KernelInfo, warps: &mut [SchedulerWarp]) {
-    pub fn next_threadblock_traces(&self, warps: &mut [Arc<Mutex<SchedulerWarp>>]) {
+    pub fn next_threadblock_traces(&self, warps: &mut [scheduler::CoreWarp]) {
         // pub fn next_threadblock_traces(&self, warps: &mut [Option<SchedulerWarp>]) {
         // debug_assert!(self.next_block.is_some());
         // todo!("next_threadblock_traces");
@@ -281,7 +292,7 @@ impl KernelInfo {
             let instr = instruction::WarpInstruction::from_trace(&self, trace);
             // warps[warp_id] = Some(SchedulerWarp::default());
             let warp = warps.get_mut(warp_id).unwrap();
-            let mut warp = warp.lock().unwrap();
+            let mut warp = warp.try_borrow_mut().unwrap();
             // .as_mut().unwrap();
             // warp.trace_instructions.push_back(instr);
             warp.push_trace_instruction(instr);
@@ -441,10 +452,31 @@ pub struct MockSimulator<I> {
     last_cluster_issue: usize,
     last_issued_kernel: usize,
 
-    // stats
-    gpu_stall_icnt2sh: usize,
-    partition_replies_in_parallel: usize,
+    cycle: Cycle,
+    // gpu_stall_icnt2sh: usize,
+    // partition_replies_in_parallel: usize,
 }
+
+#[derive(Debug, Default)]
+pub struct AtomicCycle(std::sync::atomic::AtomicU64);
+
+impl AtomicCycle {
+    pub fn new(cycle: u64) -> Self {
+        Self(std::sync::atomic::AtomicU64::new(cycle))
+    }
+
+    pub fn set(&self, cycle: u64) {
+        use std::sync::atomic::Ordering;
+        self.0.store(cycle, Ordering::SeqCst);
+    }
+
+    pub fn get(&self) -> u64 {
+        use std::sync::atomic::Ordering;
+        self.0.load(Ordering::SeqCst)
+    }
+}
+
+pub type Cycle = Rc<AtomicCycle>;
 
 // impl MockSimulator {
 // impl<'a> MockSimulator<'a> {
@@ -481,8 +513,17 @@ where
         let max_concurrent_kernels = config.max_concurrent_kernels;
         let running_kernels = (0..max_concurrent_kernels).map(|_| None).collect();
 
+        let cycle = Rc::new(AtomicCycle::new(0));
         let clusters: Vec<_> = (0..config.num_simt_clusters)
-            .map(|i| SIMTCoreCluster::new(i, interconn.clone(), stats.clone(), config.clone()))
+            .map(|i| {
+                SIMTCoreCluster::new(
+                    i,
+                    Rc::clone(&cycle),
+                    interconn.clone(),
+                    stats.clone(),
+                    config.clone(),
+                )
+            })
             .collect();
 
         let executed_kernels = Mutex::new(HashMap::new());
@@ -498,8 +539,9 @@ where
             clusters,
             last_cluster_issue: 0,
             last_issued_kernel: 0,
-            gpu_stall_icnt2sh: 0,
-            partition_replies_in_parallel: 0,
+            cycle,
+            // gpu_stall_icnt2sh: 0,
+            // partition_replies_in_parallel: 0,
         }
     }
 
@@ -633,6 +675,10 @@ where
     //     // todo!("sim: interconn transfer");
     // }
 
+    pub fn set_cycle(&self, cycle: u64) {
+        self.cycle.set(cycle)
+    }
+
     pub fn cycle(&mut self) {
         // int clock_mask = next_clock_domain();
 
@@ -651,6 +697,11 @@ where
         // pop from memory controller to interconnect
         for (i, mem_sub) in self.mem_sub_partitions.iter().enumerate() {
             let mut mem_sub = mem_sub.borrow_mut();
+            println!(
+                "checking sub partition[{}]: {}",
+                i, mem_sub.l2_to_interconn_queue
+            );
+
             if let Some(fetch) = mem_sub.top() {
                 dbg!(&fetch.addr());
                 let response_size = if fetch.is_write() {
@@ -672,14 +723,14 @@ where
                         .push(device, cluster_id, packet, response_size);
                     partition_replies_in_parallel_per_cycle += 1;
                 } else {
-                    self.gpu_stall_icnt2sh += 1;
+                    // self.gpu_stall_icnt2sh += 1;
                 }
             }
             // else {
             //     mem_sub.pop();
             // }
         }
-        self.partition_replies_in_parallel += partition_replies_in_parallel_per_cycle;
+        // self.partition_replies_in_parallel += partition_replies_in_parallel_per_cycle;
 
         // dram
         println!("cycle for {} drams", self.mem_partition_units.len());
@@ -696,7 +747,7 @@ where
 
         // L2 operations
         println!(
-            "move mem reqs from icnt to {} mem partitions",
+            "moving mem requests from interconn to {} mem partitions",
             self.mem_sub_partitions.len()
         );
         let mut parallel_mem_partition_reqs_per_cycle = 0;
@@ -715,7 +766,11 @@ where
             } else {
                 let device = self.config.mem_id_to_device_id(i);
                 if let Some(Packet::Fetch(fetch)) = self.interconn.pop(device) {
-                    dbg!(&fetch.addr());
+                    println!(
+                        "got new fetch {} for mem sub partition {} ({})",
+                        fetch, i, device
+                    );
+
                     mem_sub.push(fetch);
                     parallel_mem_partition_reqs_per_cycle += 1;
                 }
@@ -798,73 +853,19 @@ where
                 let mut mask: mem_fetch::MemAccessSectorMask = BitArray::ZERO;
                 mask.store((write_addr % 128 / 32) as u8);
 
-                let raw_addr = addrdec::addrdec_tlx(write_addr);
-                let part_id = raw_addr.sub_partition / n_partitions as u64;
+                let tlx_addr = self.config.address_mapping().tlx(addr);
+                let part_id = tlx_addr.sub_partition / n_partitions as u64;
                 let part = &self.mem_partition_units[part_id as usize];
-                part.handle_memcpy_to_gpu(write_addr, raw_addr.sub_partition as usize, mask);
+                part.handle_memcpy_to_gpu(write_addr, tlx_addr.sub_partition as usize, mask);
                 transfered += 32;
             }
         }
     }
-
-    pub fn cache_cycle() {
-        todo!("sim: cache cycle");
-        // if (m_memory_sub_partition[i]->full(SECTOR_CHUNCK_SIZE)) {
-        // gpu_stall_dramfull++;
-        // } else {
-        // mem_fetch *mf = (mem_fetch *)icnt_pop(m_shader_config->mem2device(i));
-        // m_memory_sub_partition[i]->push(mf, gpu_sim_cycle + gpu_tot_sim_cycle);
-        // if (mf) partiton_reqs_in_parallel_per_cycle++;
-        // }
-        // m_memory_sub_partition[i]->cache_cycle(gpu_sim_cycle + gpu_tot_sim_cycle);
-    }
 }
-
-// void trace_shader_core_ctx::init_traces(unsigned start_warp, unsigned end_warp,
-//                                         kernel_info_t &kernel) {
-//   std::vector<std::vector<inst_trace_t> *> threadblock_traces;
-//   for (unsigned i = start_warp; i < end_warp; ++i) {
-//     trace_shd_warp_t *m_trace_warp = static_cast<trace_shd_warp_t *>(m_warp[i]);
-//     m_trace_warp->clear();
-//     threadblock_traces.push_back(&(m_trace_warp->warp_traces));
-//   }
-//   trace_kernel_info_t &trace_kernel =
-//       static_cast<trace_kernel_info_t &>(kernel);
-//   trace_kernel.get_next_threadblock_traces(threadblock_traces);
-//
-//   // set the pc from the traces and ignore the functional model
-//   for (unsigned i = start_warp; i < end_warp; ++i) {
-//     trace_shd_warp_t *m_trace_warp = static_cast<trace_shd_warp_t *>(m_warp[i]);
-//     m_trace_warp->set_next_pc(m_trace_warp->get_start_trace_pc());
-//     m_trace_warp->set_kernel(&trace_kernel);
-//   }
-// }
-
-// unsigned start_warp = start_thread / m_config->warp_size;
-//   unsigned end_warp = end_thread / m_config->warp_size +
-//                       ((end_thread % m_config->warp_size) ? 1 : 0);
-//   // set the pc from the traces and ignore the functional model
-// for (unsigned i = start_warp; i < end_warp; ++i) {
-//   trace_shd_warp_t *m_trace_warp = static_cast<trace_shd_warp_t *>(m_warp[i]);
-//   m_trace_warp->set_next_pc(m_trace_warp->get_start_trace_pc());
-//   m_trace_warp->set_kernel(&trace_kernel);
-// }
 
 pub fn accelmain(traces_dir: impl AsRef<Path>) -> eyre::Result<()> {
     info!("box version {}", 0);
     let traces_dir = traces_dir.as_ref();
-    // reg_options registers the options from the option parser
-    // init parses some more complex string options and data structures
-
-    // m_gpgpu_context->the_gpgpusim->g_the_gpu_config->init();
-    //
-    // m_gpgpu_context->the_gpgpusim->g_the_gpu = new trace_gpgpu_sim(
-    //   *(m_gpgpu_context->the_gpgpusim->g_the_gpu_config), m_gpgpu_context);
-    //
-    // m_gpgpu_context->the_gpgpusim->g_stream_manager =
-    //   new stream_manager((m_gpgpu_context->the_gpgpusim->g_the_gpu),
-    //                      m_gpgpu_context->func_sim->g_cuda_launch_blocking);
-    //
     let start_time = Instant::now();
 
     // debugging config
@@ -892,10 +893,6 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> eyre::Result<()> {
     let mut busy_streams: VecDeque<u64> = VecDeque::new();
     let mut kernels: VecDeque<Arc<KernelInfo>> = VecDeque::new();
     kernels.reserve_exact(window_size);
-
-    // kernel_trace_t* kernel_trace_info = tracer.parse_kernel_info(commandlist[i].command_string);
-    // kernel_info = create_kernel_info(kernel_trace_info, m_gpgpu_context, &tconfig, &tracer);
-    // kernels_info.push_back(kernel_info);
 
     let interconn = Arc::new(ic::ToyInterconnect::new(
         config.num_simt_clusters,
@@ -951,15 +948,17 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> eyre::Result<()> {
 
         // drive kernels to completion
         // while sim.active() {
-        let cycle_limit: usize = std::env::var("CYCLES")
+        let cycle_limit: u64 = std::env::var("CYCLES")
             .ok()
             .as_deref()
             .map(str::parse)
             .map(Result::ok)
             .flatten()
             .unwrap_or(3);
+
         for cycle in 0..cycle_limit {
             println!("\n======== cycle {cycle} ========\n");
+            sim.set_cycle(cycle);
             sim.cycle();
             // if !sim.active() {
             //     break;

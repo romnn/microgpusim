@@ -60,6 +60,12 @@ public:
     m_memcpy_cycle_offset += 1;
   }
 
+  // model delay of ROP units with a fixed latency
+  struct rop_delay_t {
+    unsigned long long ready_cycle;
+    class mem_fetch *req;
+  };
+
 private:
   // data
   unsigned m_id; //< the global sub partition ID
@@ -69,11 +75,6 @@ private:
   class trace_gpgpu_sim *m_gpu;
   partition_mf_allocator *m_mf_allocator;
 
-  // model delay of ROP units with a fixed latency
-  struct rop_delay_t {
-    unsigned long long ready_cycle;
-    class mem_fetch *req;
-  };
   std::queue<rop_delay_t> m_rop;
 
   // these are various FIFOs between units within a memory partition
@@ -89,6 +90,7 @@ private:
 
   std::set<mem_fetch *> m_request_tracker;
 
+  friend class trace_gpgpu_sim;
   friend class memory_partition_unit;
   friend class L2interface;
 
@@ -102,3 +104,18 @@ private:
   // the gpgpu-sim cycle counters.
   unsigned m_memcpy_cycle_offset;
 };
+
+std::ostream &operator<<(std::ostream &os,
+                         const memory_sub_partition::rop_delay_t &delay);
+
+// must take queue by-value (using copy constructor) for pop and print
+template <typename T>
+std::ostream &operator<<(std::ostream &os, std::queue<T> q) {
+  os << "[ ";
+  while (!q.empty()) {
+    os << q.front() << ",";
+    q.pop();
+  }
+  os << "]";
+  return os;
+}

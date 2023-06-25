@@ -19,18 +19,34 @@ pub struct SPUnit {
 // impl<I> SPUnit<I> {
 impl SPUnit {
     pub fn new(
+        id: usize,
         result_port: Rc<RefCell<RegisterSet>>,
         config: Arc<GPUConfig>,
         stats: Arc<Mutex<Stats>>,
+        cycle: super::Cycle,
+        issue_reg_id: usize,
     ) -> Self {
         let pipeline_depth = config.shared_memory_latency;
-        let pipelined_simd_unit =
-            fu::PipelinedSimdUnitImpl::new(Some(result_port), pipeline_depth, config.clone(), 0);
+        let pipelined_simd_unit = fu::PipelinedSimdUnitImpl::new(
+            id,
+            "SPUnit".to_string(),
+            Some(result_port),
+            pipeline_depth,
+            config.clone(),
+            cycle,
+            issue_reg_id,
+        );
 
         Self {
             config,
             pipelined_simd_unit,
         }
+    }
+}
+
+impl std::fmt::Display for SPUnit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SPUnit")
     }
 }
 
@@ -72,7 +88,8 @@ impl fu::SimdFunctionUnit for SPUnit
         active
     }
 
-    fn issue(&mut self, source_reg: &mut RegisterSet) {
+    // fn issue(&mut self, source_reg: &mut RegisterSet) {
+    fn issue(&mut self, source_reg: WarpInstruction) {
         // let ready_reg = source_reg.get_ready(self.config.sub_core_model, self.issue_reg_id);
         // m_core->incexecstat((*ready_reg));
         // ready_reg.op_pipe = SP__OP;

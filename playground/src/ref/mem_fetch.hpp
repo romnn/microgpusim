@@ -1,6 +1,7 @@
 #pragma once
 
 #include <assert.h>
+#include <iostream>
 
 #include "addrdec.hpp"
 #include "mem_access.hpp"
@@ -42,7 +43,7 @@ public:
 
   const addrdec_t &get_tlx_addr() const { return m_raw_addr; }
   void set_chip(unsigned chip_id) { m_raw_addr.chip = chip_id; }
-  void set_parition(unsigned sub_partition_id) {
+  void set_partition(unsigned sub_partition_id) {
     m_raw_addr.sub_partition = sub_partition_id;
   }
   unsigned get_data_size() const { return m_data_size; }
@@ -142,3 +143,6 @@ private:
   mem_fetch *original_wr_mf; // this pointer refers to the original write req,
                              // when fetch-on-write policy is used
 };
+
+std::ostream &operator<<(std::ostream &os, const mem_fetch *fetch);
+std::ostream &operator<<(std::ostream &os, const mem_fetch &mf);
