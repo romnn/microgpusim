@@ -1,11 +1,17 @@
 #### TODO
 
-- BUG: ported::interconn::tests::test_box_interconnect segfault
+- DONE(dirty) BUG: ported::interconn::tests::test_box_interconnect segfault
+- remove colors from playground i guess because we mostly will use the logs and dont want to detect the terminal
+- get rid of dbg!() and old code in box
 
 - DONE: BUG: does not exit when all warps completed
 
-- playground and box get GLOBAL_ACC_R@139823420539264 / GLOBAL_ACC_R@139903215075712 in cycle 24 from dram latency queue
-- playground pushes to icnt in cycle 28, box in 26 already
+- DONE: playground and box get GLOBAL_ACC_R@139823420539264 / GLOBAL_ACC_R@139903215075712 in cycle 24 from dram latency queue
+- DONE: playground pushes to icnt in cycle 28, box in 26 already
+- BUG: push in cycle 28 has size 136 for box and only 40 for playground :(
+
+  - same in cycle 74: GLOBAL_ACC_R@139903215076224 for box with size 136
+  - hint: data size seems to be 32 instead of 128, this could have to do with l2 / writeback?
 
 - make data cache not implement the cache interface, make l1 a wrapper around data just like with l2 right now
 

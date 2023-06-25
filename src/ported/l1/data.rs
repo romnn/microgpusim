@@ -94,8 +94,7 @@ where
         // cache_index: usize,
         fetch: mem_fetch::MemFetch,
         time: usize,
-        events: Option<&mut Vec<cache::Event>>,
-        // events: &[cache::Event],
+        events: &mut Vec<cache::Event>,
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         let super::base::Base {
@@ -219,12 +218,10 @@ where
         mut fetch: mem_fetch::MemFetch,
         request: cache::Event,
         time: usize,
-        // events: &Option<&mut Vec<cache::Event>>,
+        events: &mut Vec<cache::Event>,
     ) {
         println!("data_cache::send_write_request(...)");
-        // if let Some(events) = events {
-        //     events.push(request);
-        // }
+        events.push(request);
         fetch.set_status(self.inner.miss_queue_status, time);
         self.inner.miss_queue.push_back(fetch);
     }
@@ -240,7 +237,7 @@ where
         // cache_index: usize,
         fetch: mem_fetch::MemFetch,
         time: usize,
-        // events: Option<&mut Vec<cache::Event>>,
+        events: &mut Vec<cache::Event>,
         // events: &[cache::Event],
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
@@ -263,7 +260,7 @@ where
             cache_index.unwrap(),
             fetch.clone(),
             time,
-            // events.as_mut().cloned(),
+            events,
             false,
             false,
         );
@@ -327,12 +324,7 @@ where
                         evicted_block: None,
                     };
 
-                    self.send_write_request(
-                        writeback_fetch,
-                        event,
-                        time,
-                        // &events,
-                    );
+                    self.send_write_request(writeback_fetch, event, time, events);
                 }
             }
             return cache::RequestStatus::MISS;
@@ -347,7 +339,7 @@ where
         cache_index: Option<usize>,
         fetch: mem_fetch::MemFetch,
         time: usize,
-        events: Option<&mut Vec<cache::Event>>,
+        events: &mut Vec<cache::Event>,
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         todo!("write_miss_no_write_allocate");
@@ -363,7 +355,7 @@ where
             kind: cache::EventKind::WRITE_REQUEST_SENT,
             evicted_block: None,
         };
-        self.send_write_request(fetch, event, time); // , events);
+        self.send_write_request(fetch, event, time, events);
         cache::RequestStatus::MISS
     }
 
@@ -373,13 +365,15 @@ where
         cache_index: Option<usize>,
         fetch: mem_fetch::MemFetch,
         time: usize,
-        events: Option<&mut Vec<cache::Event>>,
+        events: &mut Vec<cache::Event>,
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         // todo!("write_miss_write_allocate_naive");
-        // TODO: what exactly is the difference between the
-        // addr and the fetch addr?
+        println!("handling write miss for {} (address {})", fetch, addr);
+
+        // what exactly is the difference between the addr and the fetch addr?
         debug_assert_eq!(addr, fetch.addr());
+
         let block_addr = self.inner.cache_config.block_addr(addr);
         let mshr_addr = self.inner.cache_config.mshr_addr(fetch.addr());
 
@@ -408,7 +402,7 @@ where
             evicted_block: None,
         };
 
-        self.send_write_request(fetch.clone(), event, time);
+        self.send_write_request(fetch.clone(), event, time, events);
 
         let is_write = false;
         let new_access = mem_fetch::MemAccess::new(
@@ -450,16 +444,20 @@ where
             cache_index.unwrap(),
             new_fetch,
             time,
-            // events.as_mut().cloned(),
+            events,
             is_read_only,
             is_write_allocate,
         );
 
-        // events.push_back(cache_event(WRITE_ALLOCATE_SENT));
+        events.push(cache::Event {
+            kind: cache::EventKind::WRITE_ALLOCATE_SENT,
+            evicted_block: None,
+        });
 
         if should_miss {
             // If evicted block is modified and not a write-through
             // (already modified lower level)
+            println!("evicted block: {:?}", evicted);
             let not_write_through =
                 self.cache_config().write_policy != config::CacheWritePolicy::WRITE_THROUGH;
             if writeback && not_write_through {
@@ -497,7 +495,7 @@ where
                         evicted_block: Some(evicted),
                     };
 
-                    self.send_write_request(fetch.clone(), event, time);
+                    self.send_write_request(fetch.clone(), event, time, events);
                 }
             }
             return cache::RequestStatus::MISS;
@@ -512,7 +510,7 @@ where
         cache_index: Option<usize>,
         fetch: mem_fetch::MemFetch,
         time: usize,
-        events: Option<&mut Vec<cache::Event>>,
+        events: &mut Vec<cache::Event>,
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         // let super::base::Base { ref cache_config, ref mut tag_array, .. } = self.inner;
@@ -607,7 +605,7 @@ where
         cache_index: Option<usize>,
         fetch: mem_fetch::MemFetch,
         time: usize,
-        events: Option<&mut Vec<cache::Event>>,
+        events: &mut Vec<cache::Event>,
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         todo!("write_miss_write_allocate_lazy_fetch_on_read");
@@ -620,8 +618,7 @@ where
         cache_index: Option<usize>,
         fetch: mem_fetch::MemFetch,
         time: usize,
-        events: Option<&mut Vec<cache::Event>>,
-        // events: &[cache::Event],
+        events: &mut Vec<cache::Event>,
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         let func = match self.inner.cache_config.write_allocate_policy {
@@ -648,8 +645,7 @@ where
         // cache_index: usize,
         fetch: mem_fetch::MemFetch,
         time: usize,
-        // events: &[cache::Event],
-        events: Option<&mut Vec<cache::Event>>,
+        events: &mut Vec<cache::Event>,
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         let func = match self.inner.cache_config.write_policy {
@@ -657,13 +653,11 @@ where
             // READ_ONLY is now a separate cache class, config is deprecated
             config::CacheWritePolicy::READ_ONLY => unimplemented!("todo: remove the read only cache write policy / writable data cache set as READ_ONLY"),
             config::CacheWritePolicy::WRITE_BACK => Self::wr_hit_wb,
-            config::CacheWritePolicy::WRITE_THROUGH => Self::wr_hit_wb,
-            // m_wr_hit = &data_cache::wr_hit_wt;
-            config::CacheWritePolicy::WRITE_EVICT => Self::wr_hit_wb,
-            // m_wr_hit = &data_cache::wr_hit_we;
-            config::CacheWritePolicy::LOCAL_WB_GLOBAL_WT => Self::wr_hit_wb,
-            // m_wr_hit = &data_cache::wr_hit_global_we_local_wb;
+            config::CacheWritePolicy::WRITE_THROUGH => unimplemented!("Self::wr_hit_wt"),
+            config::CacheWritePolicy::WRITE_EVICT => unimplemented!("Self::wr_hit_we"),
+            config::CacheWritePolicy::LOCAL_WB_GLOBAL_WT => unimplemented!("Self::wr_hit_global_we_local_wb"),
         };
+        // TODO: for now, the write hit functions dont do anything
         todo!("handle write hit");
         cache::RequestStatus::MISS
     }
@@ -679,8 +673,7 @@ where
         addr: address,
         cache_index: Option<usize>,
         fetch: mem_fetch::MemFetch,
-        events: Option<&mut Vec<cache::Event>>,
-        // events: &[cache::Event],
+        events: &mut Vec<cache::Event>,
     ) -> cache::RequestStatus {
         // dbg!(cache_index, probe_status);
         // Each function pointer ( m_[rd/wr]_[hit/miss] ) is set in the
@@ -691,6 +684,8 @@ where
         // branches resulting from many cache configuration options.
         let time = 0;
         let mut access_status = probe_status;
+        let data_size = fetch.data_size;
+
         if is_write {
             if probe_status == cache::RequestStatus::HIT {
                 // let cache_index = cache_index.expect("hit has cache idx");
@@ -712,14 +707,8 @@ where
             if probe_status == cache::RequestStatus::HIT {
                 access_status = self.read_hit(addr, cache_index, fetch, time, events, probe_status);
             } else if probe_status != cache::RequestStatus::RESERVATION_FAIL {
-                access_status = self.read_miss(
-                    addr,
-                    cache_index,
-                    fetch,
-                    time,
-                    // events,
-                    probe_status,
-                );
+                access_status =
+                    self.read_miss(addr, cache_index, fetch, time, events, probe_status);
             } else {
                 // the only reason for reservation fail here is
                 // LINE_ALLOC_FAIL (i.e all lines are reserved)
@@ -727,7 +716,10 @@ where
             }
         }
 
-        // m_bandwidth_management.use_data_port(mf, access_status, events);
+        self.inner
+            .bandwidth
+            .use_data_port(data_size, access_status, events);
+
         access_status
     }
 
@@ -772,7 +764,7 @@ where
         &mut self,
         addr: address,
         fetch: mem_fetch::MemFetch,
-        events: Option<&mut Vec<cache::Event>>,
+        events: &mut Vec<cache::Event>,
     ) -> cache::RequestStatus {
         let super::base::Base {
             ref cache_config, ..
@@ -1042,7 +1034,8 @@ mod tests {
                         core_id,
                         cluster_id,
                     );
-                    let status = l1.access(fetch.access.addr, fetch, None);
+                    let mut events = Vec::new();
+                    let status = l1.access(fetch.access.addr, fetch, &mut events);
                     // let status = l1.access(0x00000000, fetch.clone(), None);
                     dbg!(&status);
                 }
@@ -1203,9 +1196,11 @@ mod tests {
             cluster_id,
         );
         // let status = l1.access(0x00000000, fetch.clone(), None);
-        let status = l1.access(fetch.addr(), fetch.clone(), None);
+        let mut events = Vec::new();
+        let status = l1.access(fetch.addr(), fetch.clone(), &mut events);
         dbg!(&status);
-        let status = l1.access(fetch.addr(), fetch, None);
+        let mut events = Vec::new();
+        let status = l1.access(fetch.addr(), fetch, &mut events);
         dbg!(&status);
 
         // let mut stats = STATS.lock().unwrap();

@@ -107,15 +107,3 @@ private:
 
 std::ostream &operator<<(std::ostream &os,
                          const memory_sub_partition::rop_delay_t &delay);
-
-// must take queue by-value (using copy constructor) for pop and print
-template <typename T>
-std::ostream &operator<<(std::ostream &os, std::queue<T> q) {
-  os << "[ ";
-  while (!q.empty()) {
-    os << q.front() << ",";
-    q.pop();
-  }
-  os << "]";
-  return os;
-}

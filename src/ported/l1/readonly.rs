@@ -88,7 +88,7 @@ where
         &mut self,
         addr: address,
         fetch: mem_fetch::MemFetch,
-        events: Option<&mut Vec<cache::Event>>,
+        events: &mut Vec<cache::Event>,
     ) -> cache::RequestStatus {
         use cache::RequestStatus as Status;
 
@@ -138,8 +138,7 @@ where
                     cache_index.unwrap(),
                     fetch.clone(),
                     time,
-                    // do_miss,
-                    // events,
+                    events,
                     true,
                     false,
                 );
@@ -170,10 +169,6 @@ where
             *fetch.access_kind(),
             cache::AccessStat::Status(Stats::select_status(probe_status, status)),
         );
-
-        // m_stats.inc_stats_pw(mf->get_access_type(),
-        //                      m_stats.select_stats_status(status, cache_status));
-        // todo!("readonly cache: access");
         status
     }
 

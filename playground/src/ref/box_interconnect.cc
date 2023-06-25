@@ -81,7 +81,6 @@ void BoxInterconnect::Push(unsigned input_deviceID, unsigned output_deviceID,
   assert(HasBuffer(input_deviceID, size));
 
   // request is subnet 0 and reply is subnet 1
-  // bool is_memory_node = ((_subnets > 1) && (input_deviceID >= _n_shader));
   bool is_memory_node = ((_subnets > 1) && (output_deviceID >= _n_shader));
   unsigned subnet = is_memory_node ? 1 : 0;
 
@@ -91,27 +90,22 @@ void BoxInterconnect::Push(unsigned input_deviceID, unsigned output_deviceID,
     // std::cout << x.first << ':' << x.second << std::endl;
     assert(x.first == x.second);
   }
-  // printf("output icnt id %u output device id %u\n", output_icntID,
-  //        output_deviceID);
 
   assert(input_icntID == input_deviceID);
   assert(output_icntID == output_deviceID);
 
-  // mem_fetch *mf = static_cast<mem_fetch *>(data);
+  // this is a hotfix, in tests we dont always push mem_fetches in here
   mem_fetch *mf = static_cast<mem_fetch *>(data);
 
-  std::cout << "INTERCONN PUSH " << mf << ": " << size << " bytes from device "
-            << input_icntID << " to " << output_icntID << " (subnet " << subnet
-            << ")" << std::endl;
-  // ((mem_fetch *)data)->print(stdout);
-  // printf(": %d bytes from device %d to %d (subnet %d)\n", size, input_icntID,
-  //        output_icntID, subnet);
+  bool is_fetch = mf->get_access_type() < NUM_MEM_ACCESS_TYPE;
+  if (is_fetch) {
+    std::cout << "INTERCONN PUSH " << mf << ": " << size
+              << " bytes from device " << input_icntID << " to "
+              << output_icntID << " (subnet " << subnet << ")" << std::endl;
+  }
 
   // simple_input_queue[subnet][input_icntID][0].push_back(data);
   simple_output_queue[subnet][output_icntID][0].push_back(data);
-  // printf("output queue size of (%d, %d, 0) is now %lu\n", subnet,
-  // output_icntID,
-  //        simple_output_queue[subnet][output_icntID][0].size());
 }
 
 void BoxInterconnect::Init() {

@@ -109,14 +109,3 @@ private:
 
 std::ostream &operator<<(std::ostream &os,
                          const memory_partition_unit::dram_delay_t &delay);
-
-template <typename T>
-std::ostream &operator<<(std::ostream &os, std::list<T> l) {
-  os << "[ ";
-  for (typename std::list<T>::const_iterator it = l.begin(); it != l.end();
-       ++it) {
-    os << *it << ",";
-  }
-  os << "]";
-  return os;
-}

@@ -80,7 +80,7 @@ public:
     }
   }
 
-  gpgpu_context *gpgpu_ctx;
+  // gpgpu_context *gpgpu_ctx;
 
 private:
   void init(gpgpu_context *ctx);

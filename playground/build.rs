@@ -174,11 +174,12 @@ where
 }
 
 fn main() -> eyre::Result<()> {
-    println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=src/bridge/");
-    println!("cargo:rerun-if-changed=src/bindings.hpp");
-    println!("cargo:rerun-if-changed=src/bridge.hpp");
-    println!("cargo:rerun-if-changed=src/ref/");
+    // println!("cargo:rerun-if-changed=build.rs");
+    // println!("cargo:rerun-if-changed=src/bridge/");
+    // println!("cargo:rerun-if-changed=src/bindings.hpp");
+    // println!("cargo:rerun-if-changed=src/bridge.hpp");
+    // println!("cargo:rerun-if-changed=src/ref/");
+    // println!("cargo:rerun-if-changed=src/tests/");
 
     let mut bridges = multi_glob(["./src/bridge/**/*.rs"]).collect::<Result<Vec<_>, _>>()?;
     let exclude = ["src/bridge/mod.rs"].map(PathBuf::from);

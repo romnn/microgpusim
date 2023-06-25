@@ -637,12 +637,12 @@ where
                 self.core_id,
                 self.cluster_id,
             );
-            // std::list<cache_event> events;
+            let mut events = Vec::new();
             let status = self
                 .data_l1
                 .as_mut()
                 .unwrap()
-                .access(fetch.addr(), fetch, None);
+                .access(fetch.addr(), fetch, &mut events);
             todo!("process cache access");
             // self.process_cache_access(cache, fetch.addr(), instr, fetch, status)
             stall_cond
@@ -654,13 +654,13 @@ where
         cache: (),
         addr: address,
         instr: &mut WarpInstruction,
-        // std::list<cache_event> &events,
+        events: &mut Vec<cache::Event>,
         fetch: mem_fetch::MemFetch,
         status: cache::RequestStatus,
     ) -> MemStageStallKind {
         let mut stall_cond = MemStageStallKind::NO_RC_FAIL;
-        // bool write_sent = was_write_sent(events);
-        // bool read_sent = was_read_sent(events);
+        let write_sent = super::was_write_sent(events);
+        let read_sent = super::was_read_sent(events);
         // if write_sent {
         // unsigned inc_ack = (m_config->m_L1D_config.get_mshr_type() == SECTOR_ASSOC)
         //                        ? (mf->get_data_size() / SECTOR_SIZE)

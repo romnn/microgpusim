@@ -45,7 +45,12 @@ void baseline_cache::bandwidth_management::use_data_port(
 /// use the fill port
 void baseline_cache::bandwidth_management::use_fill_port(mem_fetch *mf) {
   // assume filling the entire line with the returned request
+  std::cout << "atom size: " << m_config.get_atom_sz() << std::endl;
+  std::cout << "line size: " << m_config.get_line_sz() << std::endl;
+  std::cout << "data port width: " << m_config.m_data_port_width << std::endl;
   unsigned fill_cycles = m_config.get_atom_sz() / m_config.m_data_port_width;
+  std::cout << "bandwidth: " << mf << " using fill port for " << fill_cycles
+            << " cycles" << std::endl;
   m_fill_port_occupied_cycles += fill_cycles;
 }
 
@@ -64,26 +69,30 @@ void baseline_cache::bandwidth_management::replenish_port_bandwidth() {
 
 /// query for data port availability
 bool baseline_cache::bandwidth_management::data_port_free() const {
+  std::cout << "has_free_data_port? data_port_occupied_cycles: "
+            << m_data_port_occupied_cycles << std::endl;
   return (m_data_port_occupied_cycles == 0);
 }
 
 /// query for fill port availability
 bool baseline_cache::bandwidth_management::fill_port_free() const {
+  std::cout << "has_free_fill_port? fill_port_occupied_cycles: "
+            << m_fill_port_occupied_cycles << std::endl;
   return (m_fill_port_occupied_cycles == 0);
 }
 
 /// Sends next request to lower level of memory
 void baseline_cache::cycle() {
-  printf("%s::baseline_cache::cycle() miss_queue_size = %lu\n", name().c_str(),
-         m_miss_queue.size());
+  std::cout << name()
+            << "::baseline_cache::cycle() miss_queue = " << m_miss_queue
+            << std::endl;
   if (!m_miss_queue.empty()) {
     mem_fetch *mf = m_miss_queue.front();
     if (!m_memport->full(mf->size(), mf->get_is_write())) {
       m_miss_queue.pop_front();
-      printf("%s::baseline_cache::memport::push(%lu, data size=%d, control "
-             "size=%d)\n",
-             name().c_str(), mf->get_addr(), mf->get_data_size(),
-             mf->get_ctrl_size());
+      std::cout << name() << "::baseline_cache::memport::push("
+                << mf->get_addr() << ", data size=" << mf->get_data_size()
+                << ", control size=" << mf->get_ctrl_size() << ")" << std::endl;
       m_memport->push(mf);
     }
   }
@@ -96,10 +105,11 @@ void baseline_cache::cycle() {
 /// Interface for response from lower memory level (model bandwidth restictions
 /// in caller)
 void baseline_cache::fill(mem_fetch *mf, unsigned time) {
-  printf("%s::baseline_cache::fill(%lu) (is sector=%d)\n", name().c_str(),
-         mf->get_addr(), m_config.m_mshr_type == SECTOR_ASSOC);
+  bool is_sector_cache = m_config.m_mshr_type == SECTOR_ASSOC;
+  std::cout << name() << "::baseline_cache::fill(" << mf->get_addr()
+            << ") (is sector=" << is_sector_cache << ")" << std::endl;
 
-  if (m_config.m_mshr_type == SECTOR_ASSOC) {
+  if (is_sector_cache) {
     assert(mf->get_original_mf());
     extra_mf_fields_lookup::iterator e =
         m_extra_mf_fields.find(mf->get_original_mf());

@@ -69,6 +69,14 @@ cargo install grcov
 cargo xtasks coverage
 ```
 
+#### Missing features and current limitations
+
+- only traces and executes memory instructions and exit instructions
+  - note: divergent control flow is still captured during the trace by the active thread mask
+- currently lacks write hit handlers
+- currently lacks a cycle accurate interconnect
+- currently lacks texture and constant caches (will panic on the latter instructions)
+
 #### Goals
 
 - step 1: we want to count memory accesses to L1, L2, DRAM

@@ -71,7 +71,7 @@ where
         &mut self,
         addr: address,
         fetch: mem_fetch::MemFetch,
-        events: Option<&mut Vec<cache::Event>>,
+        events: &mut Vec<cache::Event>,
     ) -> cache::RequestStatus {
         self.inner.access(addr, fetch, events)
     }
@@ -94,6 +94,6 @@ where
     }
 
     fn has_free_fill_port(&self) -> bool {
-        self.inner.has_free_data_port()
+        self.inner.has_free_fill_port()
     }
 }

@@ -71,7 +71,8 @@ pub trait Cache: Component + CacheBandwidth {
         &mut self,
         addr: address,
         fetch: mem_fetch::MemFetch,
-        events: Option<&mut Vec<Event>>,
+        // events: Option<&mut Vec<Event>>,
+        events: &mut Vec<Event>,
     ) -> RequestStatus {
         todo!("cache: access");
     }

@@ -110,13 +110,8 @@ impl CacheConfig {
     /// todo: this can be replaced with the builder?
     #[inline]
     pub fn data_port_width(&self) -> usize {
-        let width = self.data_port_width.unwrap_or(0);
-        let width = if width == 0 {
-            // default granularity is line size
-            self.line_size as usize
-        } else {
-            width
-        };
+        // default granularity is line size
+        let width = self.data_port_width.unwrap_or(self.line_size as usize);
         debug_assert!(self.line_size as usize % width == 0);
         width
     }
@@ -1132,11 +1127,11 @@ impl Default for GPUConfig {
                 write_allocate_policy: CacheWriteAllocatePolicy::WRITE_ALLOCATE,
                 set_index_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
                 mshr_kind: MshrKind::ASSOC,
-                mshr_entries: 128,
-                mshr_max_merge: 8,
-                miss_queue_size: 32,
-                result_fifo_entries: None,
-                data_port_width: None,
+                mshr_entries: 1024,
+                mshr_max_merge: 1024,
+                miss_queue_size: 4,
+                result_fifo_entries: None, // 0 is none?
+                data_port_width: Some(32),
             })),
             // l1_cache_write_ratio: 0,
             // l1_banks: 1,
@@ -1271,21 +1266,48 @@ impl Default for GPUConfig {
 #[cfg(test)]
 mod tests {
     use playground::bindings;
-    use pretty_assertions::assert_eq;
+    use pretty_assertions::assert_eq as diff_assert_eq;
     use std::ffi;
-    use std::mem::MaybeUninit;
+
+    fn parse_cache_config(config: &str) -> bindings::CacheConfig {
+        use bindings::parse_cache_config as parse;
+        let cache_config = unsafe { parse(config.as_ptr().cast()) };
+        // use std::mem::MaybeUninit;
+        // let config = ffi::CString::new(config).unwrap();
+        // let mut cache_config = MaybeUninit::uninit();
+        // unsafe { parse(config.as_ptr().cast_mut(), cache_config.as_mut_ptr()) };
+        // let cache_config = unsafe { cache_config.assume_init() };
+        cache_config
+    }
 
     #[test]
-    fn test_scanf_cache_config() {
-        let config = "N:16:128:24,L:R:m:N:L,F:128:4,128:2";
-        let config = ffi::CString::new(config).unwrap();
-        let mut cache_config = MaybeUninit::uninit();
-        unsafe {
-            bindings::parse_cache_config(config.as_ptr() as *mut _, cache_config.as_mut_ptr());
-        }
-        let cache_config = unsafe { cache_config.assume_init() };
-        assert_eq!(
-            cache_config,
+    fn test_parse_gtx1080_data_l1_cache_config() {
+        diff_assert_eq!(
+            parse_cache_config("N:64:128:6,L:L:m:N:H,A:128:8,8"),
+            bindings::CacheConfig {
+                ct: 'N' as ffi::c_char,
+                m_nset: 64,
+                m_line_sz: 128,
+                m_assoc: 6,
+                rp: 'L' as ffi::c_char,
+                wp: 'L' as ffi::c_char,
+                ap: 'm' as ffi::c_char,
+                wap: 'N' as ffi::c_char,
+                sif: 'H' as ffi::c_char,
+                mshr_type: 'A' as ffi::c_char,
+                m_mshr_entries: 128,
+                m_mshr_max_merge: 8,
+                m_miss_queue_size: 8,
+                m_result_fifo_entries: 0,
+                m_data_port_width: 0,
+            },
+        );
+    }
+
+    #[test]
+    fn test_parse_gtx1080_tex_l1_cache_config() {
+        diff_assert_eq!(
+            parse_cache_config("N:16:128:24,L:R:m:N:L,F:128:4,128:2"),
             bindings::CacheConfig {
                 ct: 'N' as ffi::c_char,
                 m_nset: 16,
@@ -1302,6 +1324,78 @@ mod tests {
                 m_miss_queue_size: 128,
                 m_result_fifo_entries: 2,
                 m_data_port_width: 0,
+            },
+        );
+    }
+
+    #[test]
+    fn test_parse_gtx1080_inst_l1_cache_config() {
+        diff_assert_eq!(
+            parse_cache_config("N:8:128:4,L:R:f:N:L,A:2:48,4"),
+            bindings::CacheConfig {
+                ct: 'N' as ffi::c_char,
+                m_nset: 8,
+                m_line_sz: 128,
+                m_assoc: 4,
+                rp: 'L' as ffi::c_char,
+                wp: 'R' as ffi::c_char,
+                ap: 'f' as ffi::c_char,
+                wap: 'N' as ffi::c_char,
+                sif: 'L' as ffi::c_char,
+                mshr_type: 'A' as ffi::c_char,
+                m_mshr_entries: 2,
+                m_mshr_max_merge: 48,
+                m_miss_queue_size: 4,
+                m_result_fifo_entries: 0,
+                m_data_port_width: 0,
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_gtx1080_const_l1_cache_config() {
+        diff_assert_eq!(
+            parse_cache_config("N:128:64:2,L:R:f:N:L,A:2:64,4"),
+            bindings::CacheConfig {
+                ct: 'N' as ffi::c_char,
+                m_nset: 128,
+                m_line_sz: 64,
+                m_assoc: 2,
+                rp: 'L' as ffi::c_char,
+                wp: 'R' as ffi::c_char,
+                ap: 'f' as ffi::c_char,
+                wap: 'N' as ffi::c_char,
+                sif: 'L' as ffi::c_char,
+                mshr_type: 'A' as ffi::c_char,
+                m_mshr_entries: 2,
+                m_mshr_max_merge: 64,
+                m_miss_queue_size: 4,
+                m_result_fifo_entries: 0,
+                m_data_port_width: 0,
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_gtx1080_data_l2_cache_config() {
+        diff_assert_eq!(
+            parse_cache_config("N:64:128:16,L:B:m:W:L,A:1024:1024,4:0,32"),
+            bindings::CacheConfig {
+                ct: 'N' as ffi::c_char,
+                m_nset: 64,
+                m_line_sz: 128,
+                m_assoc: 16,
+                rp: 'L' as ffi::c_char,
+                wp: 'B' as ffi::c_char,
+                ap: 'm' as ffi::c_char,
+                wap: 'W' as ffi::c_char,
+                sif: 'L' as ffi::c_char,
+                mshr_type: 'A' as ffi::c_char,
+                m_mshr_entries: 1024,
+                m_mshr_max_merge: 1024,
+                m_miss_queue_size: 4,
+                m_result_fifo_entries: 0,
+                m_data_port_width: 32,
             }
         );
     }

@@ -14,53 +14,35 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 pub const MAX_MEMORY_ACCESS_SIZE: u32 = 128;
-// pub const std::bitset<MAX_MEMORY_ACCESS_SIZE> mem_access_byte_mask_t;
-pub const SECTOR_CHUNCK_SIZE: u32 = 4; // four sectors
-pub const SECTOR_SIZE: u32 = 32; // sector is 32 bytes width
-                                 // typedef std::bitset<SECTOR_CHUNCK_SIZE> mem_access_sector_mask_t;
 
-fn was_write_sent(events: &[cache::Event]) -> bool {
+/// four sectors
+pub const SECTOR_CHUNCK_SIZE: u32 = 4;
+
+/// Sector size is 32 bytes width
+pub const SECTOR_SIZE: u32 = 32;
+
+pub fn was_write_sent(events: &[cache::Event]) -> bool {
     events
         .iter()
         .any(|event| event.kind == cache::EventKind::WRITE_REQUEST_SENT)
 }
 
-fn was_writeback_sent(events: &[cache::Event]) -> Option<&cache::Event> {
+pub fn was_writeback_sent(events: &[cache::Event]) -> Option<&cache::Event> {
     events
         .iter()
         .find(|event| event.kind == cache::EventKind::WRITE_BACK_REQUEST_SENT)
-    // for (std::list<cache_event>::const_iterator e = events.begin();
-    //      e != events.end(); e++) {
-    //   if ((*e).m_cache_event_type == WRITE_BACK_REQUEST_SENT) {
-    //     wb_event = *e;
-    //     return true;
-    //   }
-    // }
-    // return false;
 }
 
-fn was_read_sent(events: &[cache::Event]) -> bool {
+pub fn was_read_sent(events: &[cache::Event]) -> bool {
     events
         .iter()
         .any(|event| event.kind == cache::EventKind::READ_REQUEST_SENT)
-    // for (std::list<cache_event>::const_iterator e = events.begin();
-    //      e != events.end(); e++) {
-    //   if ((*e).m_cache_event_type == READ_REQUEST_SENT)
-    //     return true;
-    // }
-    // return false;
 }
 
-fn was_writeallocate_sent(events: &[cache::Event]) -> bool {
+pub fn was_writeallocate_sent(events: &[cache::Event]) -> bool {
     events
         .iter()
         .any(|event| event.kind == cache::EventKind::WRITE_ALLOCATE_SENT)
-    // for (std::list<cache_event>::const_iterator e = events.begin();
-    //      e != events.end(); e++) {
-    //   if ((*e).m_cache_event_type == WRITE_ALLOCATE_SENT)
-    //     return true;
-    // }
-    // return false;
 }
 
 pub trait Queue<T>: std::fmt::Display {
@@ -141,9 +123,6 @@ where
         }
     }
 }
-
-// trait SubPartitionCache = cache::Cache;
-// trait SubPartitionCache: cache::Cache + cache::CacheBandwidth {}
 
 #[derive()]
 // pub struct MemorySubPartition<I, Q = FifoQueue<mem_fetch::MemFetch>> {
@@ -601,7 +580,7 @@ where
                                 fetch.addr(),
                                 fetch.clone(),
                                 // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle + m_memcpy_cycle_offset,
-                                Some(&mut events),
+                                &mut events,
                             );
                             let write_sent = was_write_sent(&events);
                             let read_sent = was_read_sent(&events);

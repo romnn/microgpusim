@@ -1253,9 +1253,10 @@ where
                             // shader_cache_access_log(m_sid, INSTRUCTION, 0);
                             cache::RequestStatus::HIT
                         } else {
+                            let mut events = Vec::new();
                             self.inner
                                 .instr_l1_cache
-                                .access(ppc as address, fetch, None)
+                                .access(ppc as address, fetch, &mut events)
                         };
                         // dbg!(&status);
 

@@ -123,7 +123,8 @@ enum cache_request_status data_cache::wr_miss_wa_naive(
     new_addr_type addr, unsigned cache_index, mem_fetch *mf, unsigned time,
     std::list<cache_event> &events, enum cache_request_status status) {
 
-  printf(" \e[0;31m  handling write miss for address %lu \e[0m \n", addr);
+  std::cout << "handling write miss for " << mf << "(address " << addr << ")"
+            << std::endl;
   new_addr_type block_addr = m_config.block_addr(addr);
   new_addr_type mshr_addr = m_config.mshr_addr(mf->get_addr());
 
@@ -179,8 +180,7 @@ enum cache_request_status data_cache::wr_miss_wa_naive(
   if (do_miss) {
     // If evicted block is modified and not a write-through
     // (already modified lower level)
-    printf("evicted block info: block addr=%lu modified line size=%d\n",
-           evicted.m_block_addr, evicted.m_modified_size);
+    std::cout << "evicted block: " << evicted << std::endl;
     // throw std::runtime_error("has evicted block");
     if (wb && (m_config.m_write_policy != WRITE_THROUGH)) {
       assert(status ==
