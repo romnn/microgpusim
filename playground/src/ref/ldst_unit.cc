@@ -818,7 +818,8 @@ void ldst_unit::print(FILE *fout) const {
   for (std::list<mem_fetch *>::const_iterator i = m_response_fifo.begin();
        i != m_response_fifo.end(); i++) {
     const mem_fetch *mf = *i;
-    mf->print(fout);
+    (std::ostream &)fout << mf;
+    // mf->print(fout);
   }
 }
 

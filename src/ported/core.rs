@@ -1196,9 +1196,9 @@ where
                     if did_exit {
                         // todo!("first warp did exit");
                         println!("warp_id = {} exited", &warp_id);
-                        if warp_id == 3 {
-                            panic!("warp 3 exited");
-                        }
+                        // if warp_id == 3 {
+                        //     panic!("warp 3 exited");
+                        // }
 
                         warp.done_exit = true;
                     }

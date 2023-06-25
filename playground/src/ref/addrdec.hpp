@@ -34,8 +34,8 @@ enum partition_index_function {
 };
 
 struct addrdec_t {
-  void print_hex(FILE *fp) const;
-  void print_dec(FILE *fp) const;
+  // void print_hex(FILE *fp) const;
+  // void print_dec(FILE *fp) const;
 
   unsigned chip;
   unsigned bk;
@@ -45,6 +45,8 @@ struct addrdec_t {
 
   unsigned sub_partition;
 };
+
+std::ostream &operator<<(std::ostream &os, const addrdec_t &addr);
 
 typedef struct {
   bool run_test;

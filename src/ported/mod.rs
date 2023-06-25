@@ -698,29 +698,32 @@ where
         for (i, mem_sub) in self.mem_sub_partitions.iter().enumerate() {
             let mut mem_sub = mem_sub.borrow_mut();
             println!(
-                "checking sub partition[{}]: {}",
-                i, mem_sub.l2_to_interconn_queue
+                "checking sub partition[{}]: icnt to l2 queue={} l2 to icnt queue={} l2 to dram queue={} dram to l2 queue={}",
+                i,
+                mem_sub.interconn_to_l2_queue,
+                mem_sub.l2_to_interconn_queue,
+                mem_sub.l2_to_dram_queue.lock().unwrap(),
+                mem_sub.dram_to_l2_queue,
             );
 
             if let Some(fetch) = mem_sub.top() {
                 dbg!(&fetch.addr());
-                let response_size = if fetch.is_write() {
+                let response_packet_size = if fetch.is_write() {
                     fetch.control_size
                 } else {
-                    fetch.data_size
+                    fetch.size()
                 };
                 let device = self.config.mem_id_to_device_id(i);
-                if self.interconn.has_buffer(device, response_size) {
+                if self.interconn.has_buffer(device, response_packet_size) {
                     let mut fetch = mem_sub.pop().unwrap();
                     let cluster_id = fetch.cluster_id;
                     fetch.set_status(mem_fetch::Status::IN_ICNT_TO_SHADER, 0);
                     let packet = Packet::Fetch(fetch);
                     // fetch.set_return_timestamp(gpu_sim_cycle + gpu_tot_sim_cycle);
                     // , gpu_sim_cycle + gpu_tot_sim_cycle);
-                    // todo!("sim: pushing to interconn yay");
                     // drop(fetch);
                     self.interconn
-                        .push(device, cluster_id, packet, response_size);
+                        .push(device, cluster_id, packet, response_packet_size);
                     partition_replies_in_parallel_per_cycle += 1;
                 } else {
                     // self.gpu_stall_icnt2sh += 1;

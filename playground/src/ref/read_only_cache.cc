@@ -7,11 +7,16 @@
 enum cache_request_status
 read_only_cache::access(new_addr_type addr, mem_fetch *mf, unsigned time,
                         std::list<cache_event> &events) {
-  printf("%s::read_only_cache::access(addr=%lu)\n", name().c_str(), addr);
   assert(mf->get_data_size() <= m_config.get_atom_sz());
   assert(m_config.m_write_policy == READ_ONLY);
   assert(!mf->get_is_write());
   new_addr_type block_addr = m_config.block_addr(addr);
+
+  printf("%s::read_only_cache::access(%lu, write = %d, data size = %d, control "
+         "size = %d, block = %lu)\n",
+         name().c_str(), addr, mf->is_write(), mf->get_data_size(),
+         mf->get_ctrl_size(), block_addr);
+
   unsigned cache_index = (unsigned)-1;
   enum cache_request_status status =
       m_tag_array->probe(block_addr, cache_index, mf, mf->is_write());

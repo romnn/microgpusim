@@ -1,5 +1,10 @@
 #### TODO
 
+- BUG: does not exit when all warps completed
+
+- playground and box get GLOBAL_ACC_R@139823420539264 / GLOBAL_ACC_R@139903215075712 in cycle 24 from dram latency queue
+- playground pushes to icnt in cycle 28, box in 26 already
+
 - make data cache not implement the cache interface, make l1 a wrapper around data just like with l2 right now
 
 - playground cycle 68: got fetch return L2_WR_ALLOC_R@139823420540160

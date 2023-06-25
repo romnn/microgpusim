@@ -80,8 +80,10 @@ void baseline_cache::cycle() {
     mem_fetch *mf = m_miss_queue.front();
     if (!m_memport->full(mf->size(), mf->get_is_write())) {
       m_miss_queue.pop_front();
-      printf("%s::baseline_cache::memport::push(%lu)\n", name().c_str(),
-             mf->get_addr());
+      printf("%s::baseline_cache::memport::push(%lu, data size=%d, control "
+             "size=%d)\n",
+             name().c_str(), mf->get_addr(), mf->get_data_size(),
+             mf->get_ctrl_size());
       m_memport->push(mf);
     }
   }

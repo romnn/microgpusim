@@ -175,10 +175,10 @@ void memory_partition_unit::simple_dram_model_cycle() {
 
     if (mf_return->get_access_type() != L1_WRBK_ACC &&
         mf_return->get_access_type() != L2_WRBK_ACC) {
+      mf_return->set_reply();
       std::cout << "got " << mf_return
                 << " fetch return from dram latency queue (write="
                 << mf_return->is_write() << ")" << std::endl;
-      mf_return->set_reply();
 
       unsigned dest_global_spid = mf_return->get_sub_partition_id();
       int dest_spid = global_sub_partition_id_to_local_id(dest_global_spid);
@@ -224,9 +224,12 @@ void memory_partition_unit::simple_dram_model_cycle() {
     int spid = (p + last_issued_partition + 1) %
                m_config->m_n_sub_partition_per_memory_channel;
 
-    std::cout << "checking sub partition " << spid
-              << ": can issue=" << can_issue_to_dram(spid)
+    std::cout << "checking sub partition[" << spid
+              << "]:" // can issue=" << can_issue_to_dram(spid)
+              << " icnt to l2 queue=" << m_sub_partition[spid]->m_icnt_L2_queue
+              << " l2 to icnt queue=" << m_sub_partition[spid]->m_L2_icnt_queue
               << " l2 to dram queue=" << m_sub_partition[spid]->m_L2_dram_queue
+              << " dram to l2 queue=" << m_sub_partition[spid]->m_dram_L2_queue
               << " dram latency queue=" << m_dram_latency_queue << std::endl;
 
     if (!m_sub_partition[spid]->L2_dram_queue_empty() &&
@@ -367,7 +370,8 @@ void memory_partition_unit::print(FILE *fp) const {
     mem_fetch *mf = mf_dlq->req;
     fprintf(fp, "Ready @ %llu - ", mf_dlq->ready_cycle);
     if (mf)
-      mf->print(fp);
+      (std::ostream &)fp << mf;
+    // mf->print(fp);
     else
       fprintf(fp, " <NULL mem_fetch?>\n");
   }

@@ -39,7 +39,7 @@ public:
   }
   void do_atomic();
 
-  void print(FILE *fp, bool print_inst = true) const;
+  // void print(FILE *fp, bool print_inst = true) const;
 
   const addrdec_t &get_tlx_addr() const { return m_raw_addr; }
   void set_chip(unsigned chip_id) { m_raw_addr.chip = chip_id; }

@@ -100,21 +100,30 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
   // DRAM to L2 (texture) and icnt (not texture)
   if (!m_dram_L2_queue->empty()) {
     mem_fetch *mf = m_dram_L2_queue->top();
-    printf("HAVE DRAM TO L2 \n");
     if (!m_config->m_L2_config.disabled() && m_L2cache->waiting_for_fill(mf)) {
       if (m_L2cache->fill_port_free()) {
         mf->set_status(IN_PARTITION_L2_FILL_QUEUE,
                        m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+
+        std::cout << "filling L2 with " << mf << std::endl;
         m_L2cache->fill(mf, m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle +
                                 m_memcpy_cycle_offset);
         m_dram_L2_queue->pop();
+      } else {
+        std::cout << "skip filling L2 with " << mf << ": no free fill port"
+                  << std::endl;
       }
     } else if (!m_L2_icnt_queue->full()) {
       if (mf->is_write() && mf->get_type() == WRITE_ACK)
         mf->set_status(IN_PARTITION_L2_TO_ICNT_QUEUE,
                        m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+      std::cout << "pushing " << mf << " to interconn queue" << std::endl;
       m_L2_icnt_queue->push(mf);
       m_dram_L2_queue->pop();
+    } else {
+      std::cout << "skip pushing " << mf
+                << " to interconn queue: l2 to interconn queue full"
+                << std::endl;
     }
   }
 
@@ -211,9 +220,7 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
       !m_icnt_L2_queue->full()) {
     mem_fetch *mf = m_rop.front().req;
     m_rop.pop();
-    printf("POP FROM ROP: ");
-    mf->print(stdout);
-    printf("\n");
+    std::cout << "POP FROM ROP: " << mf << std::endl;
     m_icnt_L2_queue->push(mf);
     mf->set_status(IN_PARTITION_ICNT_TO_L2_QUEUE,
                    m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
@@ -268,7 +275,8 @@ void memory_sub_partition::print(FILE *fp) const {
          r != m_request_tracker.end(); ++r) {
       mem_fetch *mf = *r;
       if (mf)
-        mf->print(fp);
+        // mf->print(fp);
+        (std::ostream &)fp << mf;
       else
         fprintf(fp, " <NULL mem_fetch?>\n");
     }
@@ -387,9 +395,7 @@ void memory_sub_partition::push(mem_fetch *m_req, unsigned long long cycle) {
         rop_delay_t r;
         r.req = req;
         r.ready_cycle = cycle + m_config->rop_latency;
-        printf("PUSH TO ROP: ");
-        req->print(stdout);
-        printf("\n");
+        std::cout << "PUSH TO ROP: " << req << std::endl;
         m_rop.push(r);
         req->set_status(IN_PARTITION_ROP_DELAY,
                         m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);

@@ -156,9 +156,9 @@ pub struct MemorySubPartition<Q = FifoQueue<mem_fetch::MemFetch>> {
     pub stats: Arc<Mutex<Stats>>,
 
     /// queues
-    interconn_to_l2_queue: Q,
+    pub interconn_to_l2_queue: Q,
     pub l2_to_dram_queue: Arc<Mutex<Q>>,
-    dram_to_l2_queue: Q,
+    pub dram_to_l2_queue: Q,
     /// L2 cache hit response queue
     pub l2_to_interconn_queue: Q,
     rop_queue: VecDeque<mem_fetch::MemFetch>,
@@ -540,26 +540,34 @@ where
         }
 
         // DRAM to L2 (texture) and icnt (not texture)
-        // if !self.dram_to_l2_queue.is_empty() {
-        if let Some(fetch) = self.dram_to_l2_queue.first() {
-            // mem_fetch *mf = m_dram_L2_queue->top();
-            println!("HAVE DRAM TO L2");
-            if let Some(ref mut l2_cache) = self.l2_cache {
-                if l2_cache.waiting_for_fill(&fetch) {
+        if let Some(reply) = self.dram_to_l2_queue.first() {
+            match self.l2_cache {
+                Some(ref mut l2_cache) if l2_cache.waiting_for_fill(&reply) => {
                     if l2_cache.has_free_fill_port() {
-                        let mut fetch = self.dram_to_l2_queue.dequeue().unwrap();
-                        fetch.set_status(mem_fetch::Status::IN_PARTITION_L2_FILL_QUEUE, 0);
+                        println!("filling L2 with {}", &reply);
+                        let mut reply = self.dram_to_l2_queue.dequeue().unwrap();
+                        reply.set_status(mem_fetch::Status::IN_PARTITION_L2_FILL_QUEUE, 0);
                         // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-                        l2_cache.fill(&mut fetch) // , m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle + m_memcpy_cycle_offset);
+                        l2_cache.fill(&mut reply) // , m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle + m_memcpy_cycle_offset);
                                                   // m_dram_L2_queue->pop();
+                    } else {
+                        println!("skip filling L2 with {}: no free fill port", &reply);
                     }
                 }
-            } else if !self.l2_to_interconn_queue.full() {
-                if fetch.is_write() && fetch.kind == mem_fetch::Kind::WRITE_ACK {
-                    let mut fetch = self.dram_to_l2_queue.dequeue().unwrap();
-                    fetch.set_status(mem_fetch::Status::IN_PARTITION_L2_TO_ICNT_QUEUE, 0);
+                _ if !self.l2_to_interconn_queue.full() => {
+                    let mut reply = self.dram_to_l2_queue.dequeue().unwrap();
+                    if reply.is_write() && reply.kind == mem_fetch::Kind::WRITE_ACK {
+                        reply.set_status(mem_fetch::Status::IN_PARTITION_L2_TO_ICNT_QUEUE, 0);
+                    }
                     // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-                    self.l2_to_interconn_queue.enqueue(fetch);
+                    println!("pushing {} to interconn queue", &reply);
+                    self.l2_to_interconn_queue.enqueue(reply);
+                }
+                _ => {
+                    println!(
+                        "skip pushing {} to interconn queue: l2 to interconn queue full",
+                        &reply
+                    );
                 }
             }
         }
@@ -804,12 +812,12 @@ impl MemoryPartitionUnit
         // if !self.dram_latency_queue.is_empty() &&
         //     ((m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle) >=
         //      m_dram_latency_queue.front().ready_cycle)) {
-        if let Some(mut returned_fetch) = self.dram_latency_queue.front() {
+        if let Some(mut returned_fetch) = self.dram_latency_queue.front_mut() {
             if !matches!(
                 returned_fetch.access_kind(),
                 mem_fetch::AccessKind::L1_WRBK_ACC | mem_fetch::AccessKind::L2_WRBK_ACC
             ) {
-                // returned_fetch.set_reply();
+                returned_fetch.set_reply(); // todo: is it okay to do that here?
                 println!(
                     "got {} fetch return from dram latency queue (write={})",
                     returned_fetch,
@@ -824,7 +832,7 @@ impl MemoryPartitionUnit
                 if !sub.dram_to_l2_queue.full() {
                     let mut returned_fetch = self.dram_latency_queue.pop_front().unwrap();
                     // dbg!(&returned_fetch);
-                    returned_fetch.set_reply();
+                    // returned_fetch.set_reply();
 
                     if returned_fetch.access_kind() == &mem_fetch::AccessKind::L1_WRBK_ACC {
                         // sub.set_done(returned_fetch);
@@ -869,9 +877,18 @@ impl MemoryPartitionUnit
             let sub_partition_contention = sub.l2_to_dram_queue.lock().unwrap().full();
             let has_dram_resource = self.arbitration_metadata.has_credits(spid);
             let can_issue_to_dram = has_dram_resource && !sub_partition_contention;
+            // println!(
+            //     "checking sub partition {spid}: can issue={} dram_has_resources={}, contention={}",
+            //     can_issue_to_dram, has_dram_resource, sub_partition_contention,
+            // );
+
             println!(
-                "checking sub partition {spid}: can issue={} dram_has_resources={}, contention={}, l2 to dram queue={}",
-                can_issue_to_dram, has_dram_resource, sub_partition_contention, style(sub.l2_to_dram_queue.lock().unwrap()).red(),
+                "checking sub partition {spid}: icnt to l2 queue={} l2 to icnt queue={} l2 to dram queue={} dram to l2 queue={} dram latency queue={:?}",
+                style(&sub.interconn_to_l2_queue).red(),
+                style(&sub.l2_to_interconn_queue).red(),
+                style(&sub.l2_to_dram_queue.lock().unwrap()).red(),
+                style(&sub.dram_to_l2_queue).red(),
+                style(&self.dram_latency_queue.iter().map(|f| f.to_string()).collect::<Vec<_>>()).red(),
             );
 
             if can_issue_to_dram {

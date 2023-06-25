@@ -1,10 +1,12 @@
+#include "addrdec.hpp"
+
+#include <iomanip>
 #include <memory>
 #include <unordered_map>
 
 #include <assert.h>
 #include <cstring>
 
-#include "addrdec.hpp"
 #include "hashing.hpp"
 
 unsigned int LOGB2(unsigned int v) {
@@ -171,10 +173,10 @@ linear_to_raw_address_translation::partition_address(new_addr_type addr) const {
 
 void linear_to_raw_address_translation::addrdec_tlx(new_addr_type addr,
                                                     addrdec_t *tlx) const {
-  printf("addrdec_option = %s\n", addrdec_option);
-  printf("run_test = %d\n", run_test);
-  printf("gpgpu_mem_address_mask = %d\n", gpgpu_mem_address_mask);
-  printf("memory_partition_indexing = %d\n", memory_partition_indexing);
+  // printf("addrdec_option = %s\n", addrdec_option);
+  // printf("run_test = %d\n", run_test);
+  // printf("gpgpu_mem_address_mask = %d\n", gpgpu_mem_address_mask);
+  // printf("memory_partition_indexing = %d\n", memory_partition_indexing);
 
   unsigned long long int addr_for_chip, rest_of_addr, rest_of_addr_high_bits;
   if (!gap) {
@@ -634,25 +636,43 @@ void linear_to_raw_address_translation::sweep_test() const {
   }
 }
 
-void addrdec_t::print_hex(FILE *fp) const {
-  fprintf(fp, "\tchip:%x ", chip);
-  fprintf(fp, "\trow:%x ", row);
-  fprintf(fp, "\tcol:%x ", col);
-  fprintf(fp, "\tbk:%x ", bk);
-  fprintf(fp, "\tburst:%x ", burst);
-  fprintf(fp, "\tsub_partition:%x ", sub_partition);
-}
-
-void addrdec_t::print_dec(FILE *fp) const {
-  fprintf(fp, "\tchip:%d ", chip);
-  fprintf(fp, "\trow:%d ", row);
-  fprintf(fp, "\tcol:%d ", col);
-  fprintf(fp, "\tbk:%d ", bk);
-  fprintf(fp, "\tburst:%d ", burst);
-  fprintf(fp, "\tsub_partition:%d ", sub_partition);
-}
+// void addrdec_t::print_hex(FILE *fp) const {
+//   fprintf(fp, "\tchip:%x ", chip);
+//   fprintf(fp, "\trow:%x ", row);
+//   fprintf(fp, "\tcol:%x ", col);
+//   fprintf(fp, "\tbk:%x ", bk);
+//   fprintf(fp, "\tburst:%x ", burst);
+//   fprintf(fp, "\tsub_partition:%x ", sub_partition);
+// }
+//
+// void addrdec_t::print_dec(FILE *fp) const {
+//   fprintf(fp, "\tchip:%d ", chip);
+//   fprintf(fp, "\trow:%d ", row);
+//   fprintf(fp, "\tcol:%d ", col);
+//   fprintf(fp, "\tbk:%d ", bk);
+//   fprintf(fp, "\tburst:%d ", burst);
+//   fprintf(fp, "\tsub_partition:%d ", sub_partition);
+// }
 
 std::unique_ptr<linear_to_raw_address_translation>
 new_address_translation(linear_to_raw_address_translation_params params) {
   return std::make_unique<linear_to_raw_address_translation>(params);
+}
+
+std::ostream &operator<<(std::ostream &os, const addrdec_t &addr) {
+  // unsigned width = 15;
+  // os << std::setw(width) << "chip: " << addr.chip;
+  // os << std::setw(width) << "row: " << addr.row;
+  // os << std::setw(width) << "col: " << addr.col;
+  // os << std::setw(width) << "bk: " << addr.bk;
+  // os << std::setw(width) << "burst: " << addr.burst;
+  // os << std::setw(width) << "sub_partition: " << addr.sub_partition;
+  os << "chip: " << addr.chip;
+  os << "row: " << addr.row;
+  os << "col: " << addr.col;
+  os << "bk: " << addr.bk;
+  os << "burst: " << addr.burst;
+  os << "sub_partition: " << addr.sub_partition;
+
+  return os;
 }

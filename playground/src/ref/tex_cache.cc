@@ -139,12 +139,14 @@ void tex_cache::display_state(FILE *fp) const {
     else
       fprintf(fp, "       ");
     fprintf(fp, "[idx=%4u]", r.m_index);
-    r.m_request->print(fp, false);
+    (std::ostream &)fp << r.m_request;
+    // r.m_request->print(fp, false);
   }
   if (!m_fragment_fifo.empty()) {
     fprintf(fp, "fragment fifo (oldest) :");
     fragment_entry &f = m_fragment_fifo.peek();
     fprintf(fp, "%s:          ", f.m_miss ? "miss" : "hit ");
-    f.m_request->print(fp, false);
+    (std::ostream &)fp << f.m_request;
+    // f.m_request->print(fp, false);
   }
 }

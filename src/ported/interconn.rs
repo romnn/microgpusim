@@ -273,15 +273,21 @@ impl MemFetchInterface for CoreMemoryInterface<Packet> {
             self.cluster_id, fetch, dest_sub_partition_id, mem_dest
         );
 
-        let packet_size = if fetch.is_write() && fetch.is_atomic() {
+        let packet_size = if !fetch.is_write() && !fetch.is_atomic() {
             fetch.control_size
         } else {
-            fetch.data_size
+            fetch.size()
         };
         // m_stats->m_outgoing_traffic_stats->record_traffic(mf, packet_size);
         fetch.status = mem_fetch::Status::IN_ICNT_TO_MEM;
 
         // if !fetch.is_write() && !fetch.is_atomic() {
+
+        // let packet_size = if !fetch.is_write() && !fetch.is_atomic() {
+        //     fetch.control_size
+        // } else {
+        //     fetch.size()
+        // };
 
         self.interconn
             .push(self.cluster_id, mem_dest, Packet::Fetch(fetch), packet_size);

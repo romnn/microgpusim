@@ -78,7 +78,8 @@ void mshr_table::display(FILE *fp) const {
     if (!e->second.m_list.empty()) {
       mem_fetch *mf = e->second.m_list.front();
       fprintf(fp, "%p :", mf);
-      mf->print(fp);
+      (std::ostream &)fp << mf;
+      // mf->print(fp);
     } else {
       fprintf(fp, " no memory requests???\n");
     }

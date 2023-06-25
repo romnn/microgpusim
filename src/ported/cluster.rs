@@ -292,7 +292,7 @@ where
         println!(
             "{}",
             style(format!(
-                "cycle {:02} cluster {}: got fetch from interconn {})",
+                "cycle {:02} cluster {}: got fetch from interconn: {}",
                 self.cycle.get(),
                 self.cluster_id,
                 fetch,

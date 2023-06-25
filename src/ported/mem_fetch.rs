@@ -229,14 +229,22 @@ pub struct MemFetch {
 
 impl std::fmt::Display for MemFetch {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
-            f,
-            // "MemFetch({:?})[{:?}@{}]",
-            "{:?}@{}",
-            // self.instr.as_ref().map(|i| i.to_string()),
-            self.access_kind(),
-            self.addr(),
-        )
+        match self.kind {
+            Kind::WRITE_ACK | Kind::READ_REPLY => {
+                write!(f, "Reply({:?}@{})", self.access_kind(), self.addr())
+            }
+            Kind::READ_REQUEST | Kind::WRITE_REQUEST => {
+                write!(f, "Req({:?}@{})", self.access_kind(), self.addr())
+            }
+        }
+        // write!(
+        //     f,
+        //     // "MemFetch({:?})[{:?}@{}]",
+        //     "{:?}@{}",
+        //     // self.instr.as_ref().map(|i| i.to_string()),
+        //     self.access_kind(),
+        //     self.addr(),
+        // )
     }
 }
 
@@ -366,6 +374,10 @@ impl MemFetch {
 
     pub fn addr(&self) -> address {
         self.access.addr
+    }
+
+    pub fn size(&self) -> u32 {
+        self.data_size + self.control_size
     }
 
     // pub fn cache_op(&self) -> super::instruction::CacheOperator {

@@ -321,6 +321,8 @@ impl<I> Base<I> {
             );
             // = extra_mf_fields(m_extra_mf_fields[mf] = extra_mf_fields(
             //     mshr_addr, mf->get_addr(), cache_index, mf->get_data_size(), m_config);
+
+            // change address to mshr block address
             fetch.data_size = self.cache_config.atom_size() as u32;
             fetch.access.addr = mshr_addr;
 
@@ -484,12 +486,14 @@ where
             style(self.miss_queue.len()).blue(),
         );
         if let Some(fetch) = self.miss_queue.front() {
-            if !self.mem_port.full(fetch.data_size, fetch.is_write()) {
+            if !self.mem_port.full(fetch.size(), fetch.is_write()) {
                 if let Some(fetch) = self.miss_queue.pop_front() {
                     println!(
-                        "{}::baseline cache::memport::push({})",
+                        "{}::baseline cache::memport::push({}, data size={}, control size={})",
                         &self.name,
-                        fetch.addr()
+                        fetch.addr(),
+                        fetch.data_size,
+                        fetch.control_size,
                     );
                     self.mem_port.push(fetch);
                 }

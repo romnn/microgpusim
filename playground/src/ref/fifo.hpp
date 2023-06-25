@@ -144,17 +144,17 @@ public:
   //   return buffer.str();
   // }
   //
-  void print() const {
-    printf("%d", get_n_element());
-
-    // fifo_data<T> *ddp = m_head;
-    //   printf("%s(%d): ", m_name, m_length);
-    //   while (ddp) {
-    //     printf("%p ", ddp->m_data);
-    //     ddp = ddp->m_next;
-    //   }
-    //   printf("\n");
-  }
+  // void print() const {
+  //   printf("%d", get_n_element());
+  //
+  //   // fifo_data<T> *ddp = m_head;
+  //   //   printf("%s(%d): ", m_name, m_length);
+  //   //   while (ddp) {
+  //   //     printf("%p ", ddp->m_data);
+  //   //     ddp = ddp->m_next;
+  //   //   }
+  //   //   printf("\n");
+  // }
 
   const char *m_name;
 
@@ -173,14 +173,14 @@ std::ostream &operator<<(std::ostream &os, const fifo_pipeline<T> *pipe) {
   if (pipe == NULL) {
     os << "NULL";
   } else {
-    os << pipe->get_n_element();
-    // os << "[ ";
-    // fifo_data<T> *ddp = pipe->m_head;
-    // while (ddp) {
-    //   os << ddp->m_data;
-    //   ddp = ddp->m_next;
-    // }
-    // os << "]";
+    // os << pipe->get_n_element();
+    os << "[ ";
+    fifo_data<T> *ddp = pipe->m_head;
+    while (ddp) {
+      os << ddp->m_data;
+      ddp = ddp->m_next;
+    }
+    os << "]";
   }
   return os;
 }

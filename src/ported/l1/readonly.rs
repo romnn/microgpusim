@@ -107,10 +107,11 @@ where
         let block_addr = cache_config.block_addr(addr);
 
         println!(
-            "{}::readonly_cache::access({addr}, write = {}, size = {}, block = {block_addr})",
+            "{}::readonly_cache::access({addr}, write = {}, data size = {}, control size = {}, block = {block_addr})",
             self.inner.name,
             fetch.is_write(),
             fetch.data_size,
+            fetch.control_size,
         );
 
         // let cache_index = None;

@@ -98,10 +98,14 @@ void BoxInterconnect::Push(unsigned input_deviceID, unsigned output_deviceID,
   assert(output_icntID == output_deviceID);
 
   // mem_fetch *mf = static_cast<mem_fetch *>(data);
-  printf("INTERCONN PUSH ");
-  ((mem_fetch *)data)->print(stdout);
-  printf(": %d bytes from device %d to %d (subnet %d)\n", size, input_icntID,
-         output_icntID, subnet);
+  mem_fetch *mf = static_cast<mem_fetch *>(data);
+
+  std::cout << "INTERCONN PUSH " << mf << ": " << size << " bytes from device "
+            << input_icntID << " to " << output_icntID << " (subnet " << subnet
+            << ")" << std::endl;
+  // ((mem_fetch *)data)->print(stdout);
+  // printf(": %d bytes from device %d to %d (subnet %d)\n", size, input_icntID,
+  //        output_icntID, subnet);
 
   // simple_input_queue[subnet][input_icntID][0].push_back(data);
   simple_output_queue[subnet][output_icntID][0].push_back(data);

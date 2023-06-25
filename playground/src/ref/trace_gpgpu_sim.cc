@@ -187,11 +187,16 @@ void trace_gpgpu_sim::simple_cycle() {
   unsigned partiton_replys_in_parallel_per_cycle = 0;
   // pop from memory controller to interconnect
 
-  printf("pop from %d memory sub partitions\n",
-         m_memory_config->m_n_mem_sub_partition);
+  std::cout << "pop from " << m_memory_config->m_n_mem_sub_partition
+            << " memory sub partitions" << std::endl;
   for (unsigned i = 0; i < m_memory_config->m_n_mem_sub_partition; i++) {
-    printf("checking sub partition[%d]\n", i);
-    m_memory_sub_partition[i]->m_L2_icnt_queue->print();
+    std::cout
+        << "checking sub partition[" << i << "]:"
+        << " icnt to l2 queue=" << m_memory_sub_partition[i]->m_icnt_L2_queue
+        << " l2 to icnt queue=" << m_memory_sub_partition[i]->m_L2_icnt_queue
+        << " l2 to dram queue=" << m_memory_sub_partition[i]->m_L2_dram_queue
+        << " dram to l2 queue=" << m_memory_sub_partition[i]->m_dram_L2_queue
+        << std::endl;
 
     mem_fetch *mf = m_memory_sub_partition[i]->top();
     if (mf) {
@@ -236,10 +241,8 @@ void trace_gpgpu_sim::simple_cycle() {
     } else {
       mem_fetch *mf = (mem_fetch *)icnt_pop(m_shader_config->mem2device(i));
       if (mf) {
-        printf("got new fetch ");
-        mf->print(stdout);
-        printf(" for mem sub partition %d (%d)\n", i,
-               m_shader_config->mem2device(i));
+        std::cout << "got new fetch " << mf << " for mem sub partition " << i
+                  << " (" << m_shader_config->mem2device(i) << ")" << std::endl;
         m_memory_sub_partition[i]->push(mf, gpu_sim_cycle + gpu_tot_sim_cycle);
       }
       if (mf)
@@ -423,10 +426,9 @@ void trace_gpgpu_sim::cycle() {
       } else {
         mem_fetch *mf = (mem_fetch *)icnt_pop(m_shader_config->mem2device(i));
         if (mf) {
-          printf("got new fetch ");
-          mf->print(stdout);
-          printf(" for mem sub partition %d (%d)\n", i,
-                 m_shader_config->mem2device(i));
+          std::cout << "got new fetch " << mf << " for mem sub partition " << i
+                    << " (" << m_shader_config->mem2device(i) << ")"
+                    << std::endl;
 
           m_memory_sub_partition[i]->push(mf,
                                           gpu_sim_cycle + gpu_tot_sim_cycle);

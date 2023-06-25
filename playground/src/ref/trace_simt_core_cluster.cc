@@ -25,7 +25,7 @@ unsigned trace_simt_core_cluster::get_not_completed() const {
 }
 
 void trace_simt_core_cluster::icnt_cycle() {
-  printf("icnt_cycle response buffer size=%lu\n", m_response_fifo.size());
+  std::cout << "icnt_cycle response buffer=" << m_response_fifo << std::endl;
 
   if (!m_response_fifo.empty()) {
     mem_fetch *mf = m_response_fifo.front();
@@ -35,14 +35,11 @@ void trace_simt_core_cluster::icnt_cycle() {
       if (!m_core[cid]->fetch_unit_response_buffer_full()) {
         m_response_fifo.pop_front();
         m_core[cid]->accept_fetch_response(mf);
-        printf("accepted instr access fetch ");
-        mf->print(stdout);
-        printf("\n");
+        std::cout << "accepted instr access fetch " << mf << std::endl;
 
       } else {
-        printf("instr access fetch ");
-        mf->print(stdout);
-        printf(" NOT YET ACCEPTED\n");
+        std::cout << "instr access fetch " << mf << " NOT YET ACCEPTED"
+                  << std::endl;
       }
 
     } else {
@@ -51,14 +48,11 @@ void trace_simt_core_cluster::icnt_cycle() {
         m_response_fifo.pop_front();
         m_memory_stats->memlatstat_read_done(mf);
         m_core[cid]->accept_ldst_unit_response(mf);
-        printf("accepted ldst unit fetch ");
-        mf->print(stdout);
-        printf("\n");
+        std::cout << "accepted ldst unit fetch " << mf << std::endl;
 
       } else {
-        printf("ldst unit fetch ");
-        mf->print(stdout);
-        printf(" NOT YET ACCEPTED\n");
+        std::cout << "ldst unit fetch " << mf << " NOT YET ACCEPTED"
+                  << std::endl;
       }
     }
   }
@@ -67,9 +61,10 @@ void trace_simt_core_cluster::icnt_cycle() {
     if (!mf)
       return;
 
-    printf(" \e[0;36m cluster::icnt_cycle() got fetch from interconn: ");
-    mf->print(stdout);
-    printf(" \e[0m \n");
+    // printf(" \e[0;36m cluster::icnt_cycle() got fetch from interconn: ");
+    // printf(" \e[0m \n");
+    std::cout << "cluster::icnt_cycle() got fetch from interconn: " << mf
+              << std::endl;
 
     assert(mf->get_tpc() == m_cluster_id);
     assert(mf->get_type() == READ_REPLY || mf->get_type() == WRITE_ACK);
@@ -322,19 +317,22 @@ void trace_simt_core_cluster::icnt_inject_request_packet(class mem_fetch *mf) {
   unsigned sub_partition_id = mf->get_sub_partition_id();
   unsigned destination = m_config->mem2device(sub_partition_id);
 
-  printf("cluster %u icnt_inject_request_packet(", m_cluster_id);
-  mf->print(stdout);
-  printf(") sub partition id=%d dest mem node=%d\n", sub_partition_id,
-         destination);
-  printf("raw addr:\t\t");
-  mf->get_tlx_addr().print_dec(stdout);
-  printf("\n");
+  std::cout << "cluster " << m_cluster_id << " icnt_inject_request_packet("
+            << mf << ") sub partition id=" << sub_partition_id
+            << " dest mem node=" << destination << std::endl;
+  std::cout << "raw addr: " << mf->get_tlx_addr() << std::endl;
+
+  // printf("cluster %u icnt_inject_request_packet(", m_cluster_id);
+  // mf->print(stdout);
+  // printf(") sub partition id=%d dest mem node=%d\n", sub_partition_id,
+  //        destination);
+  // printf("raw addr:\t\t");
+  // mf->get_tlx_addr().print_dec(stdout);
+  // printf("\n");
 
   addrdec_t fresh_raw_adrr;
   m_mem_config->m_address_mapping.addrdec_tlx(mf->get_addr(), &fresh_raw_adrr);
-  printf("fresh raw addr:\t\t");
-  fresh_raw_adrr.print_dec(stdout);
-  printf("\n");
+  std::cout << "raw addr: " << fresh_raw_adrr << std::endl;
 
   mf->set_status(IN_ICNT_TO_MEM,
                  m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
