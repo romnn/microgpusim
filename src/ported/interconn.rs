@@ -8,6 +8,10 @@ use std::sync::{Arc, Mutex, Weak};
 /// Functions are not mutable because the interface should
 /// implement locking internally
 pub trait Interconnect<P> {
+    fn busy(&self) -> bool {
+        todo!("interconn: busy");
+    }
+
     fn push(&self, src: usize, dest: usize, packet: P, size: u32) {
         todo!("interconn: push");
     }
@@ -95,8 +99,17 @@ impl<P> ToyInterconnect<P> {
 
 impl<P> Interconnect<P> for ToyInterconnect<P>
 where
-    P: std::fmt::Display,
+    P: std::fmt::Display + std::fmt::Debug,
 {
+    fn busy(&self) -> bool {
+        // todo: this is not efficient, could keep track of this with a variable
+        self.output_queue
+            .iter()
+            .flat_map(|x| x)
+            .flat_map(|x| x)
+            .any(|reqs: &Mutex<VecDeque<_>>| !reqs.lock().unwrap().is_empty())
+    }
+
     fn push(&self, src_device: usize, dest_device: usize, packet: P, size: u32) {
         assert!(self.has_buffer(src_device, size));
 

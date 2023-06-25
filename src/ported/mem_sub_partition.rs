@@ -772,6 +772,12 @@ impl MemoryPartitionUnit
         }
     }
 
+    pub fn busy(&self) -> bool {
+        self.sub_partitions
+            .iter()
+            .any(|sub| sub.try_borrow().unwrap().busy())
+    }
+
     // pub fn sub_partition(&self, p: usize) -> {
     //     self.sub_partitions[
     // }

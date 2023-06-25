@@ -1146,16 +1146,14 @@ where
                         );
                     }
 
-                    let can_reclaim =
+                    let did_maybe_exit =
                         warp.hardware_done() && pending_writes.is_empty() && !warp.done_exit();
 
                     drop(warp);
 
                     // check if this warp has finished executing and can be reclaimed.
                     let mut did_exit = false;
-                    if can_reclaim {
-                        // todo!("first warp reclaim of warp id = {}", warp_id);
-                        // reclaim warp
+                    if did_maybe_exit {
                         for t in 0..self.inner.config.warp_size {
                             let tid = warp_id * self.inner.config.warp_size + t;
                             if let Some(Some(state)) = self.inner.thread_state.get_mut(tid) {

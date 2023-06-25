@@ -1,6 +1,8 @@
 #### TODO
 
-- BUG: does not exit when all warps completed
+- BUG: ported::interconn::tests::test_box_interconnect segfault
+
+- DONE: BUG: does not exit when all warps completed
 
 - playground and box get GLOBAL_ACC_R@139823420539264 / GLOBAL_ACC_R@139903215075712 in cycle 24 from dram latency queue
 - playground pushes to icnt in cycle 28, box in 26 already

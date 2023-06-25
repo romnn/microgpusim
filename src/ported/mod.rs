@@ -582,8 +582,39 @@ where
         None
     }
 
+    pub fn more_blocks_to_run(&self) -> bool {
+        // if (hit_max_cta_count())
+        // return false;
+
+        self.running_kernels.iter().any(|kernel| match kernel {
+            Some(kernel) => !kernel.no_more_blocks_to_run(),
+            None => false,
+        })
+    }
+
     pub fn active(&self) -> bool {
-        true
+        for cluster in &self.clusters {
+            if cluster.not_completed() > 0 {
+                return true;
+            }
+        }
+        // println!("cluster done");
+        for unit in &self.mem_partition_units {
+            if unit.busy() {
+                return true;
+            }
+        }
+        // println!("mem done");
+        if self.interconn.busy() {
+            return true;
+        }
+        // println!("icnt done");
+        if self.more_blocks_to_run() {
+            return true;
+        }
+        // println!("no more blocks");
+        // println!("done");
+        false
     }
 
     pub fn can_start_kernel(&self) -> bool {
@@ -612,39 +643,6 @@ where
         }
         Ok(())
     }
-
-    // fn issue_block_to_core_inner(&self, cluster: &mut SIMTCoreCluster) -> usize {
-    //     let mut num_blocks_issued = 0;
-    //
-    //     let num_cores = cluster.cores.len();
-    //     for (i, core) in cluster.cores.iter().enumerate() {
-    //         let core_id = (i + cluster.block_issue_next_core + 1) % num_cores;
-    //         let mut kernel = None;
-    //         if self.config.concurrent_kernel_sm {
-    //             // always select latest issued kernel
-    //             kernel = self.select_kernel()
-    //         } else {
-    //             if let Some(current) = &core.current_kernel {
-    //                 if !current.no_more_blocks_to_run() {
-    //                     // wait until current kernel finishes
-    //                     if core.active_warps() == 0 {
-    //                         kernel = self.select_kernel();
-    //                         core.current_kernel = kernel;
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //         if let Some(kernel) = kernel {
-    //             if kernel.no_more_blocks_to_run() && core.can_issue_block(kernel) {
-    //                 core.issue_block(kernel);
-    //                 num_blocks_issued += 1;
-    //                 cluster.block_issue_next_core = i;
-    //                 break;
-    //             }
-    //         }
-    //     }
-    //     num_blocks_issued
-    // }
 
     fn issue_block_to_core(&mut self) {
         println!("issue block 2 core");
@@ -951,54 +949,32 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> eyre::Result<()> {
 
         // drive kernels to completion
         // while sim.active() {
-        let cycle_limit: u64 = std::env::var("CYCLES")
+        let cycle_limit: Option<u64> = std::env::var("CYCLES")
             .ok()
             .as_deref()
             .map(str::parse)
             .map(Result::ok)
-            .flatten()
-            .unwrap_or(3);
+            .flatten();
 
-        for cycle in 0..cycle_limit {
+        let mut cycle: u64 = 0;
+        let mut done = false;
+        while !done {
+            if let Some(cycle_limit) = cycle_limit {
+                if cycle >= cycle_limit {
+                    // early exit
+                    break;
+                }
+            }
+
             println!("\n======== cycle {cycle} ========\n");
             sim.set_cycle(cycle);
             sim.cycle();
-            // if !sim.active() {
-            //     break;
-            // }
-            // if sim.active() {
-            //     // sim_cycles = tru
-            //     // m_gpgpu_sim->deadlock_check();
-            // } else {
-            // }
-        }
-        println!("exit after {cycle_limit} cycles");
 
-        // dbg!(&sim.stats.lock().unwrap());
-        // bool active = false;
-        // bool sim_cycles = false;
-        // unsigned finished_kernel_uid = 0;
-        //
-        // do {
-        //   if (!m_gpgpu_sim->active())
-        //     break;
-        //
-        //   // performance simulation
-        //   if (m_gpgpu_sim->active()) {
-        //     m_gpgpu_sim->cycle();
-        //     sim_cycles = true;
-        //     m_gpgpu_sim->deadlock_check();
-        //   } else {
-        //     if (m_gpgpu_sim->cycle_insn_cta_max_hit()) {
-        //       m_gpgpu_context->the_gpgpusim->g_stream_manager
-        //           ->stop_all_running_kernels();
-        //       break;
-        //     }
-        //   }
-        //
-        //   active = m_gpgpu_sim->active();
-        //   finished_kernel_uid = m_gpgpu_sim->finished_kernel();
-        // } while (active && !finished_kernel_uid);
+            done = !sim.active();
+            cycle += 1;
+        }
+
+        println!("exit after {cycle} cycles");
         break;
     }
     Ok(())

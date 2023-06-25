@@ -55,11 +55,17 @@ python setup.py develop --force
 #### Testing
 
 ```bash
+cargo test --workspace -- --test-threads=1
+```
+
+Coverage
+
+```bash
 # install coverage tooling
 rustup component add llvm-tools-preview
 cargo install grcov
 
-# collect code coverage in tests
+# collect code coverage in tests (todo)
 cargo xtasks coverage
 ```
 
