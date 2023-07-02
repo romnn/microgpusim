@@ -1,6 +1,6 @@
 use super::base;
 use crate::config;
-use crate::ported::{address, cache, interconn as ic, mem_fetch, stats::Stats, tag_array};
+use crate::ported::{address, cache, interconn as ic, mem_fetch, stats::CacheStats, tag_array};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
@@ -16,7 +16,7 @@ impl<I> ReadOnly<I> {
         cluster_id: usize,
         // tag_array: tag_array::TagArray<()>,
         mem_port: Arc<I>,
-        stats: Arc<Mutex<Stats>>,
+        stats: Arc<Mutex<CacheStats>>,
         config: Arc<config::GPUConfig>,
         cache_config: Arc<config::CacheConfig>,
     ) -> Self {
@@ -67,6 +67,10 @@ where
     I: ic::MemFetchInterface,
     // I: ic::Interconnect<crate::ported::core::Packet> + 'static,
 {
+    fn stats(&self) -> &Arc<Mutex<CacheStats>> {
+        &self.inner.stats
+    }
+
     fn has_ready_accesses(&self) -> bool {
         self.inner.has_ready_accesses()
     }
@@ -167,7 +171,7 @@ where
         let mut stats = self.inner.stats.lock().unwrap();
         stats.inc_access(
             *fetch.access_kind(),
-            cache::AccessStat::Status(Stats::select_status(probe_status, status)),
+            cache::AccessStat::Status(CacheStats::select_status(probe_status, status)),
         );
         status
     }

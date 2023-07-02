@@ -2,7 +2,9 @@ use super::instruction::WarpInstruction;
 use super::scheduler::SchedulerWarp;
 use super::{
     address, barrier, cache, ldst_unit, opcodes, operand_collector as opcoll, register_set,
-    scoreboard, simd_function_unit as fu, stats::Stats, KernelInfo, LoadStoreUnit, MockSimulator,
+    scoreboard, simd_function_unit as fu,
+    stats::{CacheStats, Stats},
+    KernelInfo, LoadStoreUnit, MockSimulator,
 };
 use super::{interconn as ic, l1, mem_fetch, scheduler as sched};
 use crate::config::{self, GPUConfig};
@@ -452,6 +454,7 @@ where
             config: config.clone(),
             interconn: interconn.clone(),
         });
+        let cache_stats = Arc::new(Mutex::new(CacheStats::default()));
         let instr_l1_cache = l1::ReadOnly::new(
             format!(
                 "core-{}-{}-{}",
@@ -462,7 +465,7 @@ where
             core_id,
             cluster_id,
             port.clone(),
-            stats.clone(),
+            cache_stats,
             config.clone(),
             config.inst_cache_l1.as_ref().unwrap().clone(),
         );

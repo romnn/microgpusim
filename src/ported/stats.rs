@@ -1,8 +1,37 @@
 use super::{cache, mem_fetch};
+use crate::config;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
 pub type CacheRequestStatusCounters = HashMap<(mem_fetch::AccessKind, cache::AccessStat), usize>;
+
+#[derive(Clone, Default, Debug, serde::Serialize, serde::Deserialize)]
+pub struct DRAMStats {
+    /// bank writes [shader id][dram chip id][bank id]
+    pub bank_writes: Vec<Vec<Vec<u64>>>,
+    /// bank reads [shader id][dram chip id][bank id]
+    pub bank_reads: Vec<Vec<Vec<u64>>>,
+    /// bank writes [dram chip id][bank id]
+    pub total_bank_writes: Vec<Vec<u64>>,
+    /// bank reads [dram chip id][bank id]
+    pub total_bank_reads: Vec<Vec<u64>>,
+    /// bank accesses [dram chip id][bank id]
+    pub total_bank_accesses: Vec<Vec<u64>>,
+}
+
+impl DRAMStats {
+    pub fn new(config: &config::GPUConfig) -> Self {
+        let mut total_bank_reads = Vec::new();
+        let num_dram_banks = 0;
+        for chip_id in 0..config.num_mem_units {
+            total_bank_reads.push(vec![0; num_dram_banks]);
+        }
+        Self {
+            total_bank_reads,
+            ..Self::default()
+        }
+    }
+}
 
 #[derive(Clone, Default, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Stats {
@@ -18,10 +47,26 @@ pub struct Stats {
     pub num_mem_l2_writeback: usize,
     pub num_mem_l1_write_allocate: usize,
     pub num_mem_l2_write_allocate: usize,
+}
+
+#[derive(Clone, Default, Debug, serde::Serialize, serde::Deserialize)]
+pub struct CacheStats {
     pub accesses: CacheRequestStatusCounters,
 }
 
-impl Stats {
+impl std::ops::AddAssign for CacheStats {
+    // type Output = Self;
+
+    fn add_assign(&mut self, other: Self) {
+        for (k, v) in other.accesses.into_iter() {
+            *self.accesses.entry(k).or_insert(0) += v;
+        }
+        // self
+    }
+}
+
+impl CacheStats {
+    // pub fn add(&mut self, other: AccessKind, access: cache::AccessStat) {
     pub fn inc_access(&mut self, kind: mem_fetch::AccessKind, access: cache::AccessStat) {
         self.accesses
             .entry((kind, access))
@@ -48,4 +93,24 @@ impl Stats {
             access
         }
     }
+
+    // for (unsigned type = 0; type < NUM_MEM_ACCESS_TYPE; ++type) {
+    //     for (unsigned status = 0; status < NUM_CACHE_REQUEST_STATUS; ++status) {
+    //       fprintf(fout, "\t%s[%s][%s] = %llu\n", m_cache_name.c_str(),
+    //               mem_access_type_str((enum mem_access_type)type),
+    //               cache_request_status_str((enum cache_request_status)status),
+    //               m_stats[type][status]);
+    //
+    //       if (status != RESERVATION_FAIL && status != MSHR_HIT)
+    //         // MSHR_HIT is a special type of SECTOR_MISS
+    //         // so its already included in the SECTOR_MISS
+    //         total_access[type] += m_stats[type][status];
+    //     }
+    //   }
+    //   for (unsigned type = 0; type < NUM_MEM_ACCESS_TYPE; ++type) {
+    //     if (total_access[type] > 0)
+    //       fprintf(fout, "\t%s[%s][%s] = %u\n", m_cache_name.c_str(),
+    //               mem_access_type_str((enum mem_access_type)type), "TOTAL_ACCESS",
+    //               total_access[type]);
+    //   }
 }

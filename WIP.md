@@ -1,5 +1,16 @@
 #### TODO
 
+- get more stats to match
+  - use separate cache stats per cache
+- implement per structure stats
+- create plots with runtime and outputs
+- test one more application
+- fix any todos
+- fix memory packet difference for vecadd
+- check outputs for multiple cores / clusters
+- add compute instructions to box for fun
+- add optional parallel simulation for clusters and cores
+
 - DONE(dirty) BUG: ported::interconn::tests::test_box_interconnect segfault
 - remove colors from playground i guess because we mostly will use the logs and dont want to detect the terminal
 - get rid of dbg!() and old code in box

@@ -1,4 +1,4 @@
-use super::{address, cache, interconn as ic, l1, mem_fetch, stats::Stats};
+use super::{address, cache, interconn as ic, l1, mem_fetch, stats::CacheStats};
 use crate::config;
 use std::sync::{Arc, Mutex};
 
@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 /// todo: move this to cache as its generic
 #[derive(Debug)]
 pub struct DataL2<I> {
-    inner: l1::Data<I>,
+    pub inner: l1::Data<I>,
 }
 
 impl<I> DataL2<I>
@@ -19,7 +19,7 @@ where
         core_id: usize,
         cluster_id: usize,
         fetch_interconn: Arc<I>,
-        stats: Arc<Mutex<Stats>>,
+        stats: Arc<Mutex<CacheStats>>,
         config: Arc<config::GPUConfig>,
         cache_config: Arc<config::CacheConfig>,
     ) -> Self {
@@ -51,6 +51,10 @@ impl<I> cache::Cache for DataL2<I>
 where
     I: ic::MemFetchInterface,
 {
+    fn stats(&self) -> &Arc<Mutex<CacheStats>> {
+        &self.inner.inner.stats
+    }
+
     fn write_allocate_policy(&self) -> config::CacheWriteAllocatePolicy {
         self.inner.write_allocate_policy()
     }

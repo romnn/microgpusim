@@ -1,6 +1,15 @@
 use super::{address, mem_fetch};
 use std::collections::{HashMap, VecDeque};
 
+/// Miss status handlign register kind.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Kind {
+    TEX_FIFO,        // F
+    SECTOR_TEX_FIFO, // T
+    ASSOC,           // A
+    SECTOR_ASSOC,    // S
+}
+
 #[derive(Debug, Default)]
 pub struct MshrEntry {
     list: VecDeque<mem_fetch::MemFetch>,
@@ -106,9 +115,21 @@ impl MshrTable {
         Some(&entry.list)
     }
 
+    /// Returns mutable reference to the next ready accesses
+    pub fn ready_accesses_mut(&mut self) -> Option<&mut VecDeque<mem_fetch::MemFetch>> {
+        let Some(block_addr) = self.current_response.front() else {
+            return None;
+        };
+        let Some(entry) = self.data.get_mut(&block_addr) else {
+            return None;
+        };
+        Some(&mut entry.list)
+    }
+
     /// Returns next ready access
     pub fn next_access(&mut self) -> Option<mem_fetch::MemFetch> {
-        debug_assert!(self.has_ready_accesses());
+        // let ready_accesses = self.ready_accesses_mut();
+        // debug_assert!(self.has_ready_accesses());
         let Some(block_addr) = self.current_response.front() else {
             return None;
         };

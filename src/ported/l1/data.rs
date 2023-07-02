@@ -1,6 +1,7 @@
 use crate::config;
 use crate::ported::{
-    self, address, cache, cache_block, interconn as ic, mem_fetch, mshr, stats::Stats, tag_array,
+    self, address, cache, cache_block, interconn as ic, mem_fetch, mshr, stats::CacheStats,
+    tag_array,
 };
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
@@ -14,7 +15,7 @@ use std::sync::{Arc, Mutex};
 /// TODO: use base cache here!
 #[derive(Debug)]
 pub struct Data<I> {
-    inner: super::base::Base<I>,
+    pub inner: super::base::Base<I>,
     // core_id: usize,
     // cluster_id: usize,
 
@@ -45,7 +46,7 @@ where
         core_id: usize,
         cluster_id: usize,
         mem_port: Arc<I>,
-        stats: Arc<Mutex<Stats>>,
+        stats: Arc<Mutex<CacheStats>>,
         config: Arc<config::GPUConfig>,
         cache_config: Arc<config::CacheConfig>,
         write_alloc_type: mem_fetch::AccessKind,
@@ -120,98 +121,6 @@ where
         return cache::RequestStatus::HIT;
     }
 
-    /// Checks whether this request can be handled in this cycle.
-    ///
-    /// num_miss equals max # of misses to be handled on this cycle.
-    // pub fn miss_queue_can_fit(&self, n: usize) -> bool {
-    //     self.miss_queue.len() + n < self.cache_config.miss_queue_size
-    // }
-    //
-    // pub fn miss_queue_full(&self) -> bool {
-    //     self.miss_queue.len() >= self.cache_config.miss_queue_size
-    // }
-
-    /// Read miss handler.
-    ///
-    /// Check MSHR hit or MSHR available
-    // pub fn send_read_request(
-    //     &mut self,
-    //     addr: address,
-    //     block_addr: u64,
-    //     cache_index: Option<usize>,
-    //     mut fetch: mem_fetch::MemFetch,
-    //     time: usize,
-    //     // events: &mut Option<Vec<cache::Event>>,
-    //     // events: &mut Option<&mut Vec<cache::Event>>,
-    //     read_only: bool,
-    //     write_allocate: bool,
-    // ) -> (bool, bool, Option<tag_array::EvictedBlockInfo>) {
-    //     let mut should_miss = false;
-    //     let mut writeback = false;
-    //     let mut evicted = None;
-    //
-    //     let mshr_addr = self.cache_config.mshr_addr(fetch.addr());
-    //     let mshr_hit = self.mshrs.probe(mshr_addr);
-    //     let mshr_full = self.mshrs.full(mshr_addr);
-    //     let mut cache_index = cache_index.expect("cache index");
-    //
-    //     if mshr_hit && !mshr_full {
-    //         if read_only {
-    //             self.tag_array.access(block_addr, time, &fetch);
-    //         } else {
-    //             tag_array::AccessStatus {
-    //                 writeback,
-    //                 evicted,
-    //                 ..
-    //             } = self.tag_array.access(block_addr, time, &fetch);
-    //         }
-    //
-    //         self.mshrs.add(mshr_addr, fetch.clone());
-    //         // m_stats.inc_stats(mf->get_access_type(), MSHR_HIT);
-    //         let mut stats = self.stats.lock().unwrap();
-    //         stats.inc_access(
-    //             *fetch.access_kind(),
-    //             cache::AccessStat::Status(cache::RequestStatus::MSHR_HIT),
-    //         );
-    //
-    //         should_miss = true;
-    //     } else if !mshr_hit && !mshr_full && !self.miss_queue_full() {
-    //         if read_only {
-    //             self.tag_array.access(block_addr, time, &fetch);
-    //         } else {
-    //             tag_array::AccessStatus {
-    //                 writeback,
-    //                 evicted,
-    //                 ..
-    //             } = self.tag_array.access(block_addr, time, &fetch);
-    //         }
-    //
-    //         // m_extra_mf_fields[mf] = extra_mf_fields(
-    //         //     mshr_addr, mf->get_addr(), cache_index, mf->get_data_size(), m_config);
-    //         fetch.data_size = self.cache_config.atom_size() as u32;
-    //         fetch.access.addr = mshr_addr;
-    //
-    //         self.mshrs.add(mshr_addr, fetch.clone());
-    //         self.miss_queue.push_back(fetch.clone());
-    //         fetch.set_status(self.miss_queue_status, time);
-    //         if !write_allocate {
-    //             // if let Some(events) = events {
-    //             //     let event = cache::Event::new(cache::EventKind::READ_REQUEST_SENT);
-    //             //     events.push(event);
-    //             // }
-    //         }
-    //
-    //         should_miss = true;
-    //     } else if mshr_hit && mshr_full {
-    //         // m_stats.inc_fail_stats(fetch.access_kind(), MSHR_MERGE_ENRTY_FAIL);
-    //     } else if !mshr_hit && mshr_full {
-    //         // m_stats.inc_fail_stats(fetch.access_kind(), MSHR_ENRTY_FAIL);
-    //     } else {
-    //         panic!("mshr full?");
-    //     }
-    //     (should_miss, write_allocate, evicted)
-    // }
-
     /// Sends write request to lower level memory (write or writeback)
     pub fn send_write_request(
         &mut self,
@@ -249,7 +158,11 @@ where
         if !self.inner.miss_queue_can_fit(1) {
             // cannot handle request this cycle
             // (might need to generate two requests)
-            // m_stats.inc_fail_stats(mf->get_access_type(), MISS_QUEUE_FULL);
+            let mut stats = self.inner.stats.lock().unwrap();
+            stats.inc_access(
+                *fetch.access_kind(),
+                cache::AccessStat::ReservationFailure(cache::ReservationFailure::MISS_QUEUE_FULL),
+            );
             return cache::RequestStatus::RESERVATION_FAIL;
         }
 
@@ -344,7 +257,11 @@ where
     ) -> cache::RequestStatus {
         todo!("write_miss_no_write_allocate");
         if self.inner.miss_queue_full() {
-            // m_stats.inc_fail_stats(mf->get_access_type(), MISS_QUEUE_FULL);
+            let stats = self.inner.stats.lock().unwrap();
+            stats.inc_access(
+                *fetch.access_kind(),
+                cache::AccessStat::ReservationFailure(cache::ReservationFailure::MISS_QUEUE_FULL),
+            );
             // cannot handle request this cycle
             return cache::RequestStatus::RESERVATION_FAIL;
         }
@@ -385,16 +302,22 @@ where
         let mshr_free = !self.inner.mshrs.full(mshr_addr);
         let mshr_miss_but_free = !mshr_hit && mshr_free && !self.inner.miss_queue_full();
         if !self.inner.miss_queue_can_fit(2) || (!(mshr_hit && mshr_free) && !mshr_miss_but_free) {
-            // check what is the exactly the failure reason
-            if !self.inner.miss_queue_can_fit(2) {
-                // m_stats.inc_fail_stats(mf->get_access_type(), MISS_QUEUE_FULL);
+            // check what is the exact failure reason
+            let failure = if !self.inner.miss_queue_can_fit(2) {
+                cache::ReservationFailure::MISS_QUEUE_FULL
             } else if mshr_hit && !mshr_free {
-                // m_stats.inc_fail_stats(mf->get_access_type(), MSHR_MERGE_ENRTY_FAIL);
+                cache::ReservationFailure::MSHR_MERGE_ENTRY_FAIL
             } else if !mshr_hit && !mshr_free {
-                // m_stats.inc_fail_stats(mf->get_access_type(), MSHR_ENRTY_FAIL);
+                cache::ReservationFailure::MSHR_ENTRY_FAIL
             } else {
                 panic!("write_miss_write_allocate_naive bad reason");
-            }
+            };
+
+            let mut stats = self.inner.stats.lock().unwrap();
+            stats.inc_access(
+                *fetch.access_kind(),
+                cache::AccessStat::ReservationFailure(failure),
+            );
         }
 
         let event = cache::Event {
@@ -527,7 +450,13 @@ where
             //
             // no need to send read request to memory or reserve mshr
             if self.inner.miss_queue_full() {
-                // m_stats.inc_fail_stats(mf->get_access_type(), MISS_QUEUE_FULL);
+                let stats = self.inner.stats.lock().unwrap();
+                stats.inc_access(
+                    *fetch.access_kind(),
+                    cache::AccessStat::ReservationFailure(
+                        cache::ReservationFailure::MISS_QUEUE_FULL,
+                    ),
+                );
                 // cannot handle request this cycle
                 return cache::RequestStatus::RESERVATION_FAIL;
             }
@@ -699,9 +628,15 @@ where
                 access_status =
                     self.write_miss(addr, cache_index, fetch, time, events, probe_status);
             } else {
-                // the only reason for reservation fail here is
-                // LINE_ALLOC_FAIL (i.e all lines are reserved)
-                // m_stats.inc_fail_stats(mf->get_access_type(), LINE_ALLOC_FAIL);
+                // the only reason for reservation fail here is LINE_ALLOC_FAIL
+                // (i.e all lines are reserved)
+                let mut stats = self.inner.stats.lock().unwrap();
+                stats.inc_access(
+                    *fetch.access_kind(),
+                    cache::AccessStat::ReservationFailure(
+                        cache::ReservationFailure::LINE_ALLOC_FAIL,
+                    ),
+                );
             }
         } else {
             if probe_status == cache::RequestStatus::HIT {
@@ -710,9 +645,15 @@ where
                 access_status =
                     self.read_miss(addr, cache_index, fetch, time, events, probe_status);
             } else {
-                // the only reason for reservation fail here is
-                // LINE_ALLOC_FAIL (i.e all lines are reserved)
-                // m_stats.inc_fail_stats(mf->get_access_type(), LINE_ALLOC_FAIL);
+                // the only reason for reservation fail here is LINE_ALLOC_FAIL
+                // (i.e all lines are reserved)
+                let mut stats = self.inner.stats.lock().unwrap();
+                stats.inc_access(
+                    *fetch.access_kind(),
+                    cache::AccessStat::ReservationFailure(
+                        cache::ReservationFailure::LINE_ALLOC_FAIL,
+                    ),
+                );
             }
         }
 
@@ -722,26 +663,6 @@ where
 
         access_status
     }
-
-    // Sends next request to lower level of memory
-    // pub fn cycle(&mut self) {
-    //     println!(
-    //         "baseline cache cycle: miss queue size {}",
-    //         self.miss_queue.len()
-    //     );
-    //     if let Some(fetch) = self.miss_queue.front() {
-    //         dbg!(&fetch);
-    //         if !self.mem_port.full(fetch.data_size, fetch.is_write()) {
-    //             if let Some(fetch) = self.miss_queue.pop_front() {
-    //                 self.mem_port.push(fetch);
-    //             }
-    //         }
-    //     }
-    //     // bool data_port_busy = !m_bandwidth_management.data_port_free();
-    //     // bool fill_port_busy = !m_bandwidth_management.fill_port_free();
-    //     // m_stats.sample_cache_port_utility(data_port_busy, fill_port_busy);
-    //     // m_bandwidth_management.replenish_port_bandwidth();
-    // }
 }
 
 impl<I> cache::Component for Data<I>
@@ -760,6 +681,10 @@ where
     I: ic::MemFetchInterface,
     // I: ic::Interconnect<crate::ported::core::Packet>,
 {
+    fn stats(&self) -> &Arc<Mutex<CacheStats>> {
+        &self.inner.stats
+    }
+
     fn access(
         &mut self,
         addr: address,
@@ -793,7 +718,6 @@ where
         // dbg!(&access_status);
 
         {
-            // let mut stats = STATS.lock().unwrap();
             let mut stats = self.inner.stats.lock().unwrap();
             let stat_cache_request_status = match probe_status {
                 cache::RequestStatus::HIT_RESERVED
@@ -812,11 +736,6 @@ where
                 access_kind,
                 cache::AccessStat::Status(stat_cache_request_status),
             );
-            // stats
-            //     .accesses
-            //     .entry((access_kind, stat_cache_request_status))
-            //     .and_modify(|s| *s += 1)
-            //     .or_insert(1);
         }
         // m_stats.inc_stats_pw(
         // mf->get_access_type(),
@@ -880,7 +799,7 @@ mod tests {
     use crate::config;
     use crate::ported::{
         cache::Cache, instruction, interconn as ic, mem_fetch, parse_commands, scheduler as sched,
-        stats::Stats, KernelInfo,
+        stats::CacheStats, KernelInfo,
     };
     use itertools::Itertools;
     use playground::{bindings, bridge};
@@ -949,7 +868,7 @@ mod tests {
         let core_id = 0;
         let cluster_id = 0;
 
-        let stats = Arc::new(Mutex::new(Stats::default()));
+        let stats = Arc::new(Mutex::new(CacheStats::default()));
         let config = Arc::new(config::GPUConfig::default());
         let cache_config = config.data_cache_l1.clone().unwrap();
         let interconn = Arc::new(MockFetchInterconn {});
@@ -1097,7 +1016,7 @@ mod tests {
         let core_id = 0;
         let cluster_id = 0;
 
-        let stats = Arc::new(Mutex::new(Stats::default()));
+        let stats = Arc::new(Mutex::new(CacheStats::default()));
         let config = Arc::new(config::GPUConfig::default());
         let cache_config = config.data_cache_l1.clone().unwrap();
         let interconn = Arc::new(MockFetchInterconn {});

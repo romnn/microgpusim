@@ -1,10 +1,10 @@
 use super::{
-    cache, interconn as ic, l1, mem_fetch, operand_collector as opcoll,
+    cache, interconn as ic, l1, mem_fetch, mshr, operand_collector as opcoll,
     register_set::{self, RegisterSet},
     scheduler as sched,
     scoreboard::Scoreboard,
     simd_function_unit as fu,
-    stats::Stats,
+    stats::{CacheStats, Stats},
 };
 use crate::{config, ported::operand_collector::OperandCollectorRegisterFileUnit};
 use bitvec::{array::BitArray, BitArr};
@@ -58,9 +58,9 @@ pub struct LoadStoreUnit<I> {
     // const_l1: l1::ConstL1,
     // todo: how to use generic interface here
     // data_l1: Option<l1::Data<I>>,
-    data_l1: Option<Box<dyn cache::Cache>>,
+    pub data_l1: Option<Box<dyn cache::Cache>>,
     config: Arc<config::GPUConfig>,
-    stats: Arc<Mutex<Stats>>,
+    pub stats: Arc<Mutex<Stats>>,
     scoreboard: Arc<RwLock<Scoreboard>>,
     next_global: Option<MemFetch>,
     // dispatch_reg: Option<WarpInstruction>,
@@ -136,7 +136,7 @@ enum MemStageStallKind {
 impl<I> LoadStoreUnit<I>
 // impl LoadStoreUnit
 where
-    I: ic::MemFetchInterface,
+    I: ic::MemFetchInterface + 'static,
     // I: ic::Interconnect<super::core::Packet>,
 {
     pub fn new(
@@ -186,28 +186,30 @@ where
         // let fetch_interconn = Arc::new(ic::MockCoreMemoryInterface {});
 
         let mut l1_latency_queue: Vec<Vec<Option<mem_fetch::MemFetch>>> = Vec::new();
-        let data_l1 = if let Some(l1_config) = &config.data_cache_l1 {
-            // initialize latency queue
-            debug_assert!(l1_config.l1_latency > 0);
-            l1_latency_queue = (0..l1_config.l1_banks)
-                .map(|bank| vec![None; l1_config.l1_latency])
-                .collect();
+        let data_l1: Option<Box<dyn cache::Cache + 'static>> =
+            if let Some(l1_config) = &config.data_cache_l1 {
+                // initialize latency queue
+                debug_assert!(l1_config.l1_latency > 0);
+                l1_latency_queue = (0..l1_config.l1_banks)
+                    .map(|bank| vec![None; l1_config.l1_latency])
+                    .collect();
 
-            // initialize l1 data cache
-            Some(l1::Data::new(
-                format!("ldst-unit-{}-{}-L1-DATA-CACHE", cluster_id, core_id),
-                core_id,
-                cluster_id,
-                fetch_interconn.clone(),
-                stats.clone(),
-                config.clone(),
-                l1_config.inner.clone(),
-                mem_fetch::AccessKind::L1_WR_ALLOC_R,
-                mem_fetch::AccessKind::L1_WRBK_ACC,
-            ))
-        } else {
-            None
-        };
+                // initialize l1 data cache
+                let cache_stats = Arc::new(Mutex::new(CacheStats::default()));
+                Some(Box::new(l1::Data::new(
+                    format!("ldst-unit-{}-{}-L1-DATA-CACHE", cluster_id, core_id),
+                    core_id,
+                    cluster_id,
+                    fetch_interconn.clone(),
+                    cache_stats,
+                    config.clone(),
+                    l1_config.inner.clone(),
+                    mem_fetch::AccessKind::L1_WR_ALLOC_R,
+                    mem_fetch::AccessKind::L1_WRBK_ACC,
+                ))) //  as Option<Box<dyn cache::Cache + 'static>>
+            } else {
+                None
+            };
 
         let num_banks = 0;
         // let operand_collector = OperandCollectorRegisterFileUnit::new(num_banks);
@@ -216,7 +218,8 @@ where
             cluster_id,
             // const_l1,
             // texture_l1,
-            data_l1: None,
+            // data_l1: None,
+            data_l1,
             // dispatch_reg: None,
             // pipeline_depth,
             // pipeline_reg,
@@ -704,7 +707,65 @@ where
     }
 
     fn l1_latency_queue_cycle(&mut self) {
-        todo!("l1 latency queue cycle");
+        let l1_cache = self.data_l1.as_mut().unwrap();
+        let l1_config = self.config.data_cache_l1.as_ref().unwrap();
+        for bank in 0..l1_config.l1_banks {
+            if let Some(next_fetch) = &self.l1_latency_queue[bank][0] {
+                let mut events = Vec::new(); // std::list<cache_event> events;
+                let access_status =
+                    l1_cache.access(next_fetch.addr(), next_fetch.clone(), &mut events);
+                // enum cache_request_status status =
+                //     m_L1D->access(mf_next->get_addr(), mf_next,
+                //                   m_core->get_gpu()->gpu_sim_cycle +
+                //                       m_core->get_gpu()->gpu_tot_sim_cycle,
+                //                   events);
+
+                let write_sent = super::was_write_sent(&events);
+                let read_sent = super::was_read_sent(&events);
+
+                if access_status == cache::RequestStatus::HIT {
+                    debug_assert!(!read_sent);
+                    let mut next_fetch = self.l1_latency_queue[bank][0].take().unwrap();
+                    let instr = next_fetch.instr.as_ref().unwrap();
+
+                    if instr.is_load() {
+                        for out_reg in instr.outputs() {
+                            let pending = self.pending_writes.get_mut(&instr.warp_id).unwrap();
+                            debug_assert!(pending[out_reg] > 0);
+                            let still_pending = pending[out_reg] - 1;
+                            if still_pending > 0 {
+                                pending.remove(&out_reg);
+                                self.scoreboard
+                                    .write()
+                                    .unwrap()
+                                    .release_register(instr.warp_id, *out_reg);
+                                // m_core->warp_inst_complete(mf_next->get_inst());
+                            }
+                        }
+                    }
+
+                    // For write hit in WB policy
+                    if instr.is_store() && !write_sent {
+                        let dec_ack = if l1_config.inner.mshr_kind == mshr::Kind::SECTOR_ASSOC {
+                            next_fetch.data_size / super::mem_sub_partition::SECTOR_SIZE
+                        } else {
+                            1
+                        };
+
+                        next_fetch.set_reply();
+
+                        for ack in 0..dec_ack {
+                            // core.store_ack(next_fetch);
+                        }
+                    }
+
+                    if !write_sent {
+                        // delete mf_next;
+                    }
+                }
+            }
+        }
+        // todo!("l1 latency queue cycle");
         // for (int j = 0; j < m_config->m_L1D_config.l1_banks; j++) {
         //   if ((l1_latency_queue[j][0]) != NULL) {
         //     mem_fetch *mf_next = l1_latency_queue[j][0];
@@ -794,7 +855,7 @@ where
 impl<I> fu::SimdFunctionUnit for LoadStoreUnit<I>
 // impl fu::SimdFunctionUnit for LoadStoreUnit
 where
-    I: ic::MemFetchInterface,
+    I: ic::MemFetchInterface + 'static,
     // I: ic::Interconnect<super::core::Packet>,
 {
     fn active_lanes_in_pipeline(&self) -> usize {

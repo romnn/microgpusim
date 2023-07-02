@@ -1,4 +1,6 @@
-use super::ported::{addrdec, address, core::PipelineStage, mem_sub_partition, utils, KernelInfo};
+use super::ported::{
+    addrdec, address, core::PipelineStage, mem_sub_partition, mshr, utils, KernelInfo,
+};
 use color_eyre::eyre;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -90,7 +92,7 @@ pub struct CacheConfig {
     pub write_allocate_policy: CacheWriteAllocatePolicy,
     pub set_index_function: CacheSetIndexFunc,
 
-    pub mshr_kind: MshrKind,
+    pub mshr_kind: mshr::Kind,
     pub mshr_entries: usize,
     pub mshr_max_merge: usize,
 
@@ -872,14 +874,6 @@ pub enum CacheSetIndexFunc {
     BITWISE_XORING_FUNCTION, // X
 }
 
-/// Miss status handlign register kind.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum MshrKind {
-    TEX_FIFO,        // F
-    SECTOR_TEX_FIFO, // T
-    ASSOC,           // A
-    SECTOR_ASSOC,    // S
-}
 ///
 /// Cache write-allocate policy.
 ///
@@ -1043,7 +1037,7 @@ impl Default for GPUConfig {
                 allocate_policy: CacheAllocatePolicy::ON_MISS,
                 write_allocate_policy: CacheWriteAllocatePolicy::NO_WRITE_ALLOCATE,
                 set_index_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
-                mshr_kind: MshrKind::TEX_FIFO,
+                mshr_kind: mshr::Kind::TEX_FIFO,
                 mshr_entries: 128,
                 mshr_max_merge: 4,
                 miss_queue_size: 128,
@@ -1062,7 +1056,7 @@ impl Default for GPUConfig {
                 allocate_policy: CacheAllocatePolicy::ON_FILL,
                 write_allocate_policy: CacheWriteAllocatePolicy::NO_WRITE_ALLOCATE,
                 set_index_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
-                mshr_kind: MshrKind::ASSOC,
+                mshr_kind: mshr::Kind::ASSOC,
                 mshr_entries: 2,
                 mshr_max_merge: 64,
                 miss_queue_size: 4,
@@ -1081,7 +1075,7 @@ impl Default for GPUConfig {
                 allocate_policy: CacheAllocatePolicy::ON_FILL,
                 write_allocate_policy: CacheWriteAllocatePolicy::NO_WRITE_ALLOCATE,
                 set_index_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
-                mshr_kind: MshrKind::ASSOC,
+                mshr_kind: mshr::Kind::ASSOC,
                 mshr_entries: 2,
                 mshr_max_merge: 48,
                 miss_queue_size: 4,
@@ -1106,7 +1100,7 @@ impl Default for GPUConfig {
                     allocate_policy: CacheAllocatePolicy::ON_MISS,
                     write_allocate_policy: CacheWriteAllocatePolicy::NO_WRITE_ALLOCATE,
                     set_index_function: CacheSetIndexFunc::FERMI_HASH_SET_FUNCTION,
-                    mshr_kind: MshrKind::ASSOC,
+                    mshr_kind: mshr::Kind::ASSOC,
                     mshr_entries: 128,
                     mshr_max_merge: 8,
                     miss_queue_size: 4,
@@ -1126,7 +1120,7 @@ impl Default for GPUConfig {
                 allocate_policy: CacheAllocatePolicy::ON_MISS,
                 write_allocate_policy: CacheWriteAllocatePolicy::WRITE_ALLOCATE,
                 set_index_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
-                mshr_kind: MshrKind::ASSOC,
+                mshr_kind: mshr::Kind::ASSOC,
                 mshr_entries: 1024,
                 mshr_max_merge: 1024,
                 miss_queue_size: 4,

@@ -46,6 +46,7 @@ use console::style;
 use itertools::Itertools;
 use log::{error, info, trace, warn};
 use nvbit_model::dim::{self, Dim};
+use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::fmt::Binary;
@@ -864,6 +865,50 @@ where
     }
 }
 
+fn save_stats_to_file(stats: &Stats, out_file: &Path) -> eyre::Result<()> {
+    use serde::Serialize;
+    use std::fs;
+
+    let out_file = out_file.with_extension("json");
+
+    if let Some(parent) = &out_file.parent() {
+        fs::create_dir_all(parent).ok();
+    }
+    let output_file = fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(out_file)?;
+
+    // write stats as json
+    output_file
+        .metadata()
+        .unwrap()
+        .permissions()
+        .set_readonly(false);
+    let mut writer = std::io::BufWriter::new(output_file);
+    let mut json_serializer = serde_json::Serializer::with_formatter(
+        writer,
+        serde_json::ser::PrettyFormatter::with_indent(b"    "),
+    );
+    // TODO: how to serialize?
+    // stats.serialize(&mut json_serializer)?;
+
+    // let mut csv_writer = csv::WriterBuilder::new()
+    //     .flexible(false)
+    //     .from_writer(output_file);
+    //
+    // csv_writer.write_record(["kernel", "kernel_id", "stat", "value"])?;
+
+    // sort stats before writing to csv
+    // let mut sorted_stats: Vec<_> = stats.iter().collect();
+    // sorted_stats.sort_by(|a, b| a.0.cmp(b.0));
+    //
+    // for ((kernel, kcount, stat), value) in &sorted_stats {
+    //     csv_writer.write_record([kernel, &kcount.to_string(), stat, &value.to_string()])?;
+    // }
+    Ok(())
+}
 pub fn accelmain(
     traces_dir: impl AsRef<Path>,
     stats_out_file: &Option<PathBuf>,
@@ -982,7 +1027,35 @@ pub fn accelmain(
     }
 
     let stats: Stats = sim.stats.lock().unwrap().clone();
-    dbg!(&stats);
+    // dbg!(&stats);
+
+    let mut l1_inst_stats = stats::CacheStats::default();
+    let mut l1_data_stats = stats::CacheStats::default();
+    for cluster in sim.clusters {
+        for core in cluster.cores.lock().unwrap().iter() {
+            // dbg!(&core.inner.instr_l1_cache.stats().lock().unwrap());
+            l1_inst_stats += core.inner.instr_l1_cache.stats().lock().unwrap().clone();
+            let ldst_unit = &core.inner.load_store_unit.lock().unwrap();
+            // dbg!(&ldst_unit.stats.lock().unwrap());
+            // dbg!(&ldst_unit.data_l1.as_ref().unwrap().stats().lock().unwrap());
+            let data_l1 = ldst_unit.data_l1.as_ref().unwrap();
+            l1_data_stats += data_l1.stats().lock().unwrap().clone();
+        }
+    }
+    dbg!(&l1_inst_stats);
+    dbg!(&l1_data_stats);
+
+    let mut l2_cache_stats = stats::CacheStats::default();
+    for sub in sim.mem_sub_partitions.iter() {
+        let sub: &MemorySubPartition = &sub.as_ref().borrow();
+        let l2_cache = sub.l2_cache.as_ref().unwrap();
+        // dbg!(&l2_cache.stats().lock().unwrap());
+        l2_cache_stats += l2_cache.stats().lock().unwrap().clone();
+        // for (k, v) in l2_cache.stats().lock().unwrap().accesses.iter() {
+        //     *l2_cache_stats.accesses.entry(*k).or_insert(0) += v;
+        // }
+    }
+    dbg!(&l2_cache_stats);
 
     // save stats to file
     let stats_file_path = stats_out_file
@@ -991,50 +1064,5 @@ pub fn accelmain(
         .unwrap_or(traces_dir.join("box.stats.txt"));
     save_stats_to_file(&stats, &stats_file_path)?;
 
-    Ok(())
-}
-
-fn save_stats_to_file(stats: &Stats, out_file: &Path) -> eyre::Result<()> {
-    use serde::Serialize;
-    use std::fs;
-
-    let out_file = out_file.with_extension("json");
-
-    if let Some(parent) = &out_file.parent() {
-        fs::create_dir_all(parent).ok();
-    }
-    let output_file = fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(out_file)?;
-
-    // write stats as json
-    output_file
-        .metadata()
-        .unwrap()
-        .permissions()
-        .set_readonly(false);
-    let mut writer = std::io::BufWriter::new(output_file);
-    let mut json_serializer = serde_json::Serializer::with_formatter(
-        writer,
-        serde_json::ser::PrettyFormatter::with_indent(b"    "),
-    );
-    // TODO: how to serialize?
-    // stats.serialize(&mut json_serializer)?;
-
-    // let mut csv_writer = csv::WriterBuilder::new()
-    //     .flexible(false)
-    //     .from_writer(output_file);
-    //
-    // csv_writer.write_record(["kernel", "kernel_id", "stat", "value"])?;
-
-    // sort stats before writing to csv
-    // let mut sorted_stats: Vec<_> = stats.iter().collect();
-    // sorted_stats.sort_by(|a, b| a.0.cmp(b.0));
-    //
-    // for ((kernel, kcount, stat), value) in &sorted_stats {
-    //     csv_writer.write_record([kernel, &kcount.to_string(), stat, &value.to_string()])?;
-    // }
     Ok(())
 }

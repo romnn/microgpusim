@@ -1,6 +1,7 @@
-use super::{address, mem_fetch, tag_array};
+use super::{address, mem_fetch, stats, tag_array};
 use crate::config;
 use std::collections::VecDeque;
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum RequestStatus {
@@ -19,8 +20,8 @@ pub enum ReservationFailure {
     LINE_ALLOC_FAIL = 0,
     /// MISS queue (i.e. interconnect or DRAM) is full
     MISS_QUEUE_FULL,
-    MSHR_ENRTY_FAIL,
-    MSHR_MERGE_ENRTY_FAIL,
+    MSHR_ENTRY_FAIL,
+    MSHR_MERGE_ENTRY_FAIL,
     MSHR_RW_PENDING,
     NUM_CACHE_RESERVATION_FAIL_STATUS,
 }
@@ -63,9 +64,15 @@ pub trait Component {
 }
 
 pub trait Cache: Component + CacheBandwidth {
-    fn has_ready_accesses(&self) -> bool {
-        todo!("cache: has ready accesses");
-    }
+    fn stats(&self) -> &Arc<Mutex<stats::CacheStats>>;
+    // {
+    //     todo!("cache: stats");
+    // }
+
+    fn has_ready_accesses(&self) -> bool;
+    // {
+    //     todo!("cache: has ready accesses");
+    // }
 
     fn access(
         &mut self,

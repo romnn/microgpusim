@@ -3,7 +3,7 @@ use super::{
     address, cache,
     cache::{Cache, CacheBandwidth},
     dram, interconn as ic, l2, mem_fetch,
-    stats::Stats,
+    stats::{CacheStats, Stats},
     Packet,
 };
 use crate::config::{self, CacheConfig, GPUConfig};
@@ -144,7 +144,7 @@ pub struct MemorySubPartition<Q = FifoQueue<mem_fetch::MemFetch>> {
 
     // fetch_interconn: Arc<I>,
     // l2_cache: Option<l2::DataL2<I>>,
-    l2_cache: Option<Box<dyn cache::Cache>>,
+    pub l2_cache: Option<Box<dyn cache::Cache>>,
     // l2_cache: Option<l2::DataL2<ic::ToyInterconnect<Packet>>>,
 
     // class mem_fetch *L2dramout;
@@ -207,12 +207,13 @@ where
                     l2_to_dram_queue: l2_to_dram_queue.clone(),
                 });
 
+                let cache_stats = Arc::new(Mutex::new(CacheStats::default()));
                 Some(Box::new(l2::DataL2::new(
                     format!("mem-sub-{}-{}", id, style("L2-CACHE").green()),
                     0, // core_id,
                     0, // cluster_id,
                     l2_mem_port,
-                    stats.clone(),
+                    cache_stats,
                     config.clone(),
                     l2_config.clone(),
                 )))

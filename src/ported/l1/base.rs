@@ -1,7 +1,7 @@
 use crate::config;
 use crate::ported::mem_sub_partition::{was_writeback_sent, SECTOR_SIZE};
 use crate::ported::{
-    address, cache, cache_block, interconn as ic, mem_fetch, mshr, stats::Stats, tag_array,
+    address, cache, cache_block, interconn as ic, mem_fetch, mshr, stats::CacheStats, tag_array,
 };
 use console::style;
 use std::collections::{HashMap, VecDeque};
@@ -155,7 +155,8 @@ pub struct Base<I>
     pub core_id: usize,
     pub cluster_id: usize,
 
-    pub stats: Arc<Mutex<Stats>>,
+    // pub stats: Arc<Mutex<Stats>>,
+    pub stats: Arc<Mutex<CacheStats>>,
     pub config: Arc<config::GPUConfig>,
     pub cache_config: Arc<config::CacheConfig>,
 
@@ -197,7 +198,7 @@ impl<I> Base<I> {
         cluster_id: usize,
         // tag_array: tag_array::TagArray<()>,
         mem_port: Arc<I>,
-        stats: Arc<Mutex<Stats>>,
+        stats: Arc<Mutex<CacheStats>>,
         config: Arc<config::GPUConfig>,
         cache_config: Arc<config::CacheConfig>,
     ) -> Self {
@@ -209,7 +210,7 @@ impl<I> Base<I> {
         // m_mshrs(config.m_mshr_entries, config.m_mshr_max_merge),
         debug_assert!(matches!(
             cache_config.mshr_kind,
-            config::MshrKind::ASSOC | config::MshrKind::SECTOR_ASSOC
+            mshr::Kind::ASSOC | mshr::Kind::SECTOR_ASSOC
         ));
         let mshrs = mshr::MshrTable::new(cache_config.mshr_entries, cache_config.mshr_max_merge);
 
@@ -343,7 +344,7 @@ impl<I> Base<I> {
                 } = self.tag_array.access(block_addr, time, &fetch);
             }
 
-            let is_sector_cache = self.cache_config.mshr_kind == config::MshrKind::SECTOR_ASSOC;
+            let is_sector_cache = self.cache_config.mshr_kind == mshr::Kind::SECTOR_ASSOC;
             self.pending.insert(
                 fetch.clone(),
                 PendingRequest {
@@ -379,13 +380,13 @@ impl<I> Base<I> {
             self.stats.lock().unwrap().inc_access(
                 *fetch.access_kind(),
                 cache::AccessStat::ReservationFailure(
-                    cache::ReservationFailure::MSHR_MERGE_ENRTY_FAIL,
+                    cache::ReservationFailure::MSHR_MERGE_ENTRY_FAIL,
                 ),
             );
         } else if !mshr_hit && mshr_full {
             self.stats.lock().unwrap().inc_access(
                 *fetch.access_kind(),
-                cache::AccessStat::ReservationFailure(cache::ReservationFailure::MSHR_ENRTY_FAIL),
+                cache::AccessStat::ReservationFailure(cache::ReservationFailure::MSHR_ENTRY_FAIL),
             );
         } else {
             panic!(
@@ -558,7 +559,7 @@ where
     /// bandwidth restictions should be modeled in the caller.
     /// TODO: fill could also accept the fetch by value, otherwise we drop the fetch!!
     pub fn fill(&mut self, fetch: &mut mem_fetch::MemFetch) {
-        if self.cache_config.mshr_kind == config::MshrKind::SECTOR_ASSOC {
+        if self.cache_config.mshr_kind == mshr::Kind::SECTOR_ASSOC {
             let original_fetch = fetch.original_fetch.as_ref().unwrap();
             let pending = self.pending.get_mut(original_fetch).unwrap();
             pending.pending_reads -= 1;
@@ -650,7 +651,7 @@ impl<I> cache::CacheBandwidth for Base<I> {
 mod tests {
     use super::Base;
     use crate::config;
-    use crate::ported::{interconn as ic, mem_fetch, stats::Stats, Packet};
+    use crate::ported::{interconn as ic, mem_fetch, stats::CacheStats, Packet};
     use std::sync::{Arc, Mutex};
 
     // struct Interconnect {}
@@ -666,7 +667,7 @@ mod tests {
     fn base_cache_init() {
         let core_id = 0;
         let cluster_id = 0;
-        let stats = Arc::new(Mutex::new(Stats::default()));
+        let stats = Arc::new(Mutex::new(CacheStats::default()));
         let config = Arc::new(config::GPUConfig::default());
         let cache_config = config.data_cache_l1.clone().unwrap();
         // let port = ic::Interconnect {};
