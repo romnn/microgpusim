@@ -899,7 +899,6 @@ impl OperandCollectorRegisterFileUnit {
                 // panic!("allocate cu for the first time");
                 // find a free collector unit
                 for cu_set_id in &port.collector_unit_ids {
-                    dbg!(&cu_set_id);
                     let cu_set: &Vec<_> = &self.collector_unit_sets[cu_set_id];
                     let mut allocated = false;
                     let mut cu_lower_bound = 0;
@@ -924,7 +923,6 @@ impl OperandCollectorRegisterFileUnit {
                         let cu_backref = Rc::downgrade(&cu_set[k]);
                         let mut collector_unit = cu_set[k].try_borrow_mut().unwrap();
 
-                        dbg!(&collector_unit.free);
                         if collector_unit.free {
                             // we want to get here
                             allocated =

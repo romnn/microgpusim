@@ -308,7 +308,6 @@ where
                             .or_default();
                         debug_assert!(pending[out_reg] > 0);
                         let still_pending = pending[out_reg] - 1;
-                        dbg!(&still_pending);
                         if still_pending == 0 {
                             pending.remove(out_reg);
                             self.scoreboard
@@ -482,7 +481,6 @@ where
             }
         }
 
-        dbg!(&bypass_l1);
         let Some(access) = dispatch_instr.mem_access_queue.back() else {
             return true;
         };
@@ -1067,7 +1065,6 @@ where
                     }
                 } else {
                     let pending = self.pending_writes.entry(warp_id).or_default();
-                    // dbg!(&pending);
 
                     // if warp_id == 3 && self.warps[warp_id].borrow().trace_pc > 0 {
                     //     panic!("warp 3 inst complete: {pipe_reg}");

@@ -211,12 +211,10 @@ impl KernelInfo {
     // GPGPUSim_Init
     // start_sim_thread
     pub fn from_trace(traces_dir: impl AsRef<Path>, config: KernelLaunch) -> Self {
-        dbg!(&config);
         let trace_path = traces_dir
             .as_ref()
             .join(&config.trace_file)
             .with_extension("msgpack");
-        dbg!(&trace_path);
         let mut trace = read_trace(&trace_path).unwrap();
         // trace.sort_unstable_by(|a, b| (a.block_id, a.warp_id).cmp(&(b.block_id, b.warp_id)));
         trace.sort_unstable_by(|a, b| {
@@ -242,7 +240,6 @@ impl KernelInfo {
         let next_thread_iter = Mutex::new(config.block.into_iter().peekable());
         // let next_block = next_block_iter.next();
         // let next_thread_id = next_block;
-        // dbg!(&next_block);
         // let uid = next_kernel_uid;
         let uid = 0; // todo
         let opcodes = opcodes::get_opcode_map(&config).unwrap();
@@ -279,7 +276,6 @@ impl KernelInfo {
             return;
         };
         // let next_block = nvbit_model::Dim { x: 0, y: 0, z: 0 };
-        // dbg!(&next_block);
         // for warp in warps.iter_mut() {
         //     // warp.clear();
         //     *warp = None;
@@ -287,8 +283,6 @@ impl KernelInfo {
         let mut lock = self.trace_iter.write().unwrap();
         let trace_iter = lock.take_while_ref(|entry| entry.block_id == next_block);
         for trace in trace_iter {
-            // dbg!(&trace.warp_id_in_block);
-            // dbg!(&trace.instr_offset);
             let warp_id = trace.warp_id_in_block as usize;
             let instr = instruction::WarpInstruction::from_trace(&self, trace);
             // warps[warp_id] = Some(SchedulerWarp::default());
@@ -402,7 +396,6 @@ impl KernelInfo {
     }
 
     pub fn no_more_blocks_to_run(&self) -> bool {
-        // dbg!(&self.current_block());
         // todo!("KernelInfo: no_more_blocks_to_run");
         self.current_block().is_none()
         // self.next_block_iter.lock().unwrap().peek().is_none()
@@ -552,9 +545,8 @@ where
     /// but we could maybe refactor
     pub fn select_kernel(&self) -> Option<&Arc<KernelInfo>> {
         let mut executed_kernels = self.executed_kernels.lock().unwrap();
-        dbg!(&self.running_kernels.iter().filter(|k| k.is_some()).count());
+        // dbg!(&self.running_kernels.iter().filter(|k| k.is_some()).count());
         if let Some(k) = &self.running_kernels[self.last_issued_kernel] {
-            dbg!(&k);
             if !k.no_more_blocks_to_run()
             // &&!kernel.kernel_TB_latency)
             {
@@ -706,7 +698,6 @@ where
             );
 
             if let Some(fetch) = mem_sub.top() {
-                dbg!(&fetch.addr());
                 let response_packet_size = if fetch.is_write() {
                     fetch.control_size
                 } else {
@@ -987,13 +978,12 @@ pub fn accelmain(
             }
         }
 
-        dbg!(&config.num_simt_clusters);
-        dbg!(&config.num_cores_per_simt_cluster);
-        dbg!(&config.concurrent_kernel_sm);
-        dbg!(&config.num_mem_units);
-        dbg!(&config.num_sub_partition_per_memory_channel);
-        dbg!(&config.num_memory_chips_per_controller);
-        // return Ok(());
+        // dbg!(&config.num_simt_clusters);
+        // dbg!(&config.num_cores_per_simt_cluster);
+        // dbg!(&config.concurrent_kernel_sm);
+        // dbg!(&config.num_mem_units);
+        // dbg!(&config.num_sub_partition_per_memory_channel);
+        // dbg!(&config.num_memory_chips_per_controller);
 
         // drive kernels to completion
         // while sim.active() {
@@ -1027,35 +1017,28 @@ pub fn accelmain(
     }
 
     let stats: Stats = sim.stats.lock().unwrap().clone();
-    // dbg!(&stats);
+    println!("STATS:\n{:#?}", &stats);
 
     let mut l1_inst_stats = stats::CacheStats::default();
     let mut l1_data_stats = stats::CacheStats::default();
     for cluster in sim.clusters {
         for core in cluster.cores.lock().unwrap().iter() {
-            // dbg!(&core.inner.instr_l1_cache.stats().lock().unwrap());
             l1_inst_stats += core.inner.instr_l1_cache.stats().lock().unwrap().clone();
             let ldst_unit = &core.inner.load_store_unit.lock().unwrap();
-            // dbg!(&ldst_unit.stats.lock().unwrap());
-            // dbg!(&ldst_unit.data_l1.as_ref().unwrap().stats().lock().unwrap());
             let data_l1 = ldst_unit.data_l1.as_ref().unwrap();
             l1_data_stats += data_l1.stats().lock().unwrap().clone();
         }
     }
-    dbg!(&l1_inst_stats);
-    dbg!(&l1_data_stats);
+    println!("L1 INST:\n{:#?}", &l1_inst_stats);
+    println!("L1 DATA:\n{:#?}", &l1_data_stats);
 
     let mut l2_cache_stats = stats::CacheStats::default();
     for sub in sim.mem_sub_partitions.iter() {
         let sub: &MemorySubPartition = &sub.as_ref().borrow();
         let l2_cache = sub.l2_cache.as_ref().unwrap();
-        // dbg!(&l2_cache.stats().lock().unwrap());
         l2_cache_stats += l2_cache.stats().lock().unwrap().clone();
-        // for (k, v) in l2_cache.stats().lock().unwrap().accesses.iter() {
-        //     *l2_cache_stats.accesses.entry(*k).or_insert(0) += v;
-        // }
     }
-    dbg!(&l2_cache_stats);
+    println!("L2 DATA:\n{:#?}", &l2_cache_stats);
 
     // save stats to file
     let stats_file_path = stats_out_file

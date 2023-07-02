@@ -343,9 +343,7 @@ impl LinearToRawAddressTranslation {
         if num_sub_partitions_per_channel > 1 {
             let mut pos = 0;
             let (mask, low, high) = mapping.get_addrdec(MemoryKind::BK);
-            // dbg!(&mask);
             for i in low..high {
-                // dbg!(mask & (1 << i));
                 if (mask & (1 << i)) != 0 {
                     mapping.sub_partition_id_mask |= 1 << i;
                     pos += 1;

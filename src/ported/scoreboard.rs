@@ -38,7 +38,6 @@ impl Scoreboard {
         let mut instr_registers: HashSet<u32> = HashSet::new();
         instr_registers.extend(instr.outputs());
         instr_registers.extend(instr.inputs());
-        // dbg!(&instr_registers);
         // ar1 = 0;
         // ar2 = 0;
 
@@ -89,7 +88,6 @@ impl Scoreboard {
     }
 
     pub fn reserve_registers(&mut self, instr: &WarpInstruction) {
-        // dbg!(&self.register_table);
         for &out_reg in instr.outputs() {
             self.reserve_register(instr.warp_id, out_reg);
         }

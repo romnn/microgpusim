@@ -175,7 +175,6 @@ impl SchedulerWarp {
     pub fn next_trace_inst(&mut self) -> Option<WarpInstruction> {
         // todo!("scheduler warp: next trace instr");
         // let mut trace_pc = self.trace_pc.lock().unwrap();
-        // dbg!(&self.trace_pc);
         // let trace_instructions = self.trace_instructions.lock().unwrap();
         let trace_instr = self.trace_instructions.get(self.trace_pc)?;
         // let Some(trace_instr) = self.trace_instructions.get(self.trace_pc) else {
@@ -567,9 +566,6 @@ impl BaseSchedulerUnit {
                 && checked <= issued
                 && issued < max_issue
             {
-                // dbg!(&checked);
-                // dbg!(&issued);
-                // dbg!(&max_issue);
                 // let valid = warp.ibuffer_next_valid();
                 let mut warp_inst_issued = false;
 
@@ -658,9 +654,7 @@ impl BaseSchedulerUnit {
                                     let int_pipe_avail = self.config.num_int_units > 0
                                         && issuer
                                             .has_free_register(PipelineStage::ID_OC_INT, self.id);
-                                    dbg!(&sp_pipe_avail);
-                                    dbg!(&int_pipe_avail);
-                                    //
+
                                     // if INT unit pipline exist, then execute ALU and INT
                                     // operations on INT unit and SP-FPU on SP unit (like in Volta)
                                     // if INT unit pipline does not exist, then execute all ALU, INT

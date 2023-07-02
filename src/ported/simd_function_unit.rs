@@ -132,7 +132,6 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
         );
 
         if let Some(result_port) = &mut self.result_port {
-            // dbg!(&self.pipeline_reg[0]);
             if let Some(pipe_reg) = self.pipeline_reg[0].take() {
                 // move to EX_WB result port
                 result_port.borrow_mut().move_in_from(Some(pipe_reg));

@@ -1,4 +1,4 @@
-use super::{config, mem_fetch, Packet};
+use super::{config, mem_fetch, stats::Stats, Packet};
 use console::style;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, Weak};
@@ -139,7 +139,6 @@ where
         );
 
         for _ in 0..self.num_classes {
-            dbg!(&turn);
             let mut queue = self.output_queue[subnet][icnt_id][turn].lock().unwrap();
             turn = (turn + 1) % self.num_classes;
             if let Some(packet) = queue.pop_front() {
@@ -192,55 +191,22 @@ where
     }
 }
 
-// pub trait MemPort {
-//     fn full(&self, size: u32, write: bool) -> bool;
-//     fn push(&mut self, fetch: MemFetch);
-//     fn pop(&mut self) -> Option<MemFetch>;
-// }
-
 /// Memory interconnect interface between components.
 ///
 /// Functions are not mutable because the interface should
 /// implement locking internally
 pub trait MemFetchInterface: std::fmt::Debug {
-    // fn new() -> Self;
-    // fn full(&self, size: u32, write: bool) -> bool;
-    // fn push(&self, fetch: MemFetch);
     fn full(&self, size: u32, write: bool) -> bool;
-    // -> bool {
-    //     todo!("mem fetch interface: full");
-    // }
 
     fn push(&self, fetch: mem_fetch::MemFetch) {
         todo!("mem fetch interface: full");
     }
 }
 
-// #[derive(Debug)]
-// pub struct PerfectMemoryInterface { }
-//
-// impl MemFetchInterface for PerfectMemoryInterface {
-//     fn full(&self, size: u32, write: bool) -> bool {
-//         todo!("core memory interface: full");
-//         // self.cluster.interconn_injection_buffer_full(size, write)
-//     }
-//
-//     fn push(&mut self, fetch: MemFetch) {
-//         todo!("core memory interface: push");
-//         // self.core.interconn_simt_to_mem(fetch.get_num_flits(true));
-//         // self.cluster.interconn_inject_request_packet(fetch);
-//     }
-// }
-
-// #[derive(Debug)]
-// pub struct MockCoreMemoryInterface {}
-// impl MemFetchInterface for MockCoreMemoryInterface {}
-
 #[derive()]
 pub struct CoreMemoryInterface<P> {
-    // core: Arc<super::core::SIMTCore>,
-    // cluster: Weak<super::core::SIMTCoreCluster<Self>>,
     pub config: Arc<config::GPUConfig>,
+    pub stats: Arc<Mutex<Stats>>,
     pub cluster_id: usize,
     pub interconn: Arc<dyn Interconnect<P>>,
 }
@@ -251,18 +217,8 @@ impl<P> std::fmt::Debug for CoreMemoryInterface<P> {
     }
 }
 
-// impl<P> CoreMemoryInterface<P> {
-//     // pub fn new(cluster: Weak<super::core::SIMTCoreCluster<Self>>) -> Self {
-//     pub fn new(interconn: Arc<dyn Interconnect<P>>) -> Self {
-//         Self { interconn }
-//     }
-// }
-
-// impl MemFetchInterface for CoreMemoryInterface {
-// impl<P> MemFetchInterface for CoreMemoryInterface<P> {
 impl MemFetchInterface for CoreMemoryInterface<Packet> {
     fn full(&self, size: u32, write: bool) -> bool {
-        // todo!("core memory interface: full");
         let request_size = if write {
             size
         } else {
@@ -272,9 +228,54 @@ impl MemFetchInterface for CoreMemoryInterface<Packet> {
     }
 
     fn push(&self, mut fetch: mem_fetch::MemFetch) {
-        // todo!("core memory interface: push");
         // self.core.interconn_simt_to_mem(fetch.get_num_flits(true));
         // self.cluster.interconn_inject_request_packet(fetch);
+
+        {
+            let mut stats = self.stats.lock().unwrap();
+            if fetch.is_write() {
+                stats.num_mem_write += 1;
+            } else {
+                stats.num_mem_read += 1;
+            }
+
+            match fetch.access_kind() {
+                mem_fetch::AccessKind::CONST_ACC_R => {
+                    stats.num_mem_const += 1;
+                }
+                mem_fetch::AccessKind::TEXTURE_ACC_R => {
+                    stats.num_mem_texture += 1;
+                }
+                mem_fetch::AccessKind::GLOBAL_ACC_R => {
+                    stats.num_mem_read_global += 1;
+                }
+                mem_fetch::AccessKind::GLOBAL_ACC_W => {
+                    stats.num_mem_write_global += 1;
+                }
+                mem_fetch::AccessKind::LOCAL_ACC_R => {
+                    stats.num_mem_read_local += 1;
+                }
+                mem_fetch::AccessKind::LOCAL_ACC_W => {
+                    stats.num_mem_write_local += 1;
+                }
+                mem_fetch::AccessKind::INST_ACC_R => {
+                    stats.num_mem_read_inst += 1;
+                }
+                mem_fetch::AccessKind::L1_WRBK_ACC => {
+                    stats.num_mem_write_global += 1;
+                }
+                mem_fetch::AccessKind::L2_WRBK_ACC => {
+                    stats.num_mem_l2_writeback += 1;
+                }
+                mem_fetch::AccessKind::L1_WR_ALLOC_R => {
+                    stats.num_mem_l1_write_allocate += 1;
+                }
+                mem_fetch::AccessKind::L2_WR_ALLOC_R => {
+                    stats.num_mem_l2_write_allocate += 1;
+                }
+                _ => {}
+            }
+        }
 
         let dest_sub_partition_id = fetch.sub_partition_id();
         let mem_dest = self
@@ -286,21 +287,17 @@ impl MemFetchInterface for CoreMemoryInterface<Packet> {
             self.cluster_id, fetch, dest_sub_partition_id, mem_dest
         );
 
+        // The packet size varies depending on the type of request:
+        // - For write request and atomic request, packet contains the data
+        // - For read request (i.e. not write nor atomic), packet only has control metadata
         let packet_size = if !fetch.is_write() && !fetch.is_atomic() {
             fetch.control_size
         } else {
-            fetch.size()
+            // fetch.size()
+            fetch.data_size // todo: is that correct now?
         };
         // m_stats->m_outgoing_traffic_stats->record_traffic(mf, packet_size);
         fetch.status = mem_fetch::Status::IN_ICNT_TO_MEM;
-
-        // if !fetch.is_write() && !fetch.is_atomic() {
-
-        // let packet_size = if !fetch.is_write() && !fetch.is_atomic() {
-        //     fetch.control_size
-        // } else {
-        //     fetch.size()
-        // };
 
         self.interconn
             .push(self.cluster_id, mem_dest, Packet::Fetch(fetch), packet_size);

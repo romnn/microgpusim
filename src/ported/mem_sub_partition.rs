@@ -557,9 +557,6 @@ where
             l2_cache.cycle();
         }
 
-        dbg!(self.l2_to_dram_queue.lock().unwrap().len());
-        dbg!(self.interconn_to_l2_queue.len());
-
         // new L2 texture accesses and/or non-texture accesses
         if !self.l2_to_dram_queue.lock().unwrap().full() {
             // && !self.interconn_to_l2_queue.empty() {

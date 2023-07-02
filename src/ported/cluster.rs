@@ -6,14 +6,10 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
-// pub struct SIMTCoreCluster {
 pub struct SIMTCoreCluster<I> {
     pub cluster_id: usize,
     pub cycle: super::Cycle,
-    // pub cores: Mutex<Vec<SIMTCore>>,
-    // pub cores: Mutex<Vec<SIMTCore<'a>>>,
     pub cores: Mutex<Vec<SIMTCore<I>>>,
-    // pub cores: Mutex<Vec<SIMTCore<ic::CoreMemoryInterface>>>,
     pub config: Arc<GPUConfig>,
     pub stats: Arc<Mutex<Stats>>,
 
@@ -24,24 +20,9 @@ pub struct SIMTCoreCluster<I> {
     pub response_fifo: VecDeque<mem_fetch::MemFetch>,
 }
 
-// impl super::MemFetchInterconnect for SIMTCoreCluster {
-//     fn full(&self, size: usize, write: bool) -> bool {
-//         self.cluster.interconn_injection_buffer_full(size, write)
-//     }
-//
-//     fn push(&mut self, fetch: mem_fetch::MemFetch) {
-//         // self.core.inc_simt_to_mem(fetch->get_num_flits(true));
-//         self.cluster.interconn_inject_request_packet(fetch);
-//     }
-// }
-
-// impl SIMTCoreCluster {
-// impl<'a> SIMTCoreCluster<'a> {
 impl<I> SIMTCoreCluster<I>
 where
-    // I: ic::MemFetchInterface + 'static,
     I: ic::Interconnect<Packet> + 'static,
-    // I: ic::Interconnect<Packet>,
 {
     pub fn new(
         cluster_id: usize,
@@ -50,19 +31,6 @@ where
         stats: Arc<Mutex<Stats>>,
         config: Arc<GPUConfig>,
     ) -> Self {
-        // let mut core_sim_order = Vec::new();
-        // let cores: Vec<_> = (0..config.num_cores_per_simt_cluster)
-        //     .map(|core_id| {
-        //         core_sim_order.push(core_id);
-        //         let id = config.global_core_id(cluster_id, core_id);
-        //         SIMTCore::new(id, cluster_id, Arc::new(self), stats.clone(), config.clone())
-        //     })
-        //     .collect();
-
-        //     unsigned sid = m_config->cid_to_sid(i, m_cluster_id);
-        //     m_core[i] = new trace_shader_core_ctx(m_gpu, this, sid, m_cluster_id,
-        //                                           m_config, m_mem_config, m_stats);
-
         let num_cores = config.num_cores_per_simt_cluster;
         let block_issue_next_core = Mutex::new(num_cores - 1);
         let mut cluster = Self {
@@ -71,7 +39,6 @@ where
             config: config.clone(),
             stats: stats.clone(),
             interconn: interconn.clone(),
-            // cores: Mutex::new(cores),
             cores: Mutex::new(Vec::new()),
             core_sim_order: Vec::new(),
             block_issue_next_core,
@@ -85,7 +52,6 @@ where
                     id,
                     cluster_id,
                     Rc::clone(&cycle),
-                    // Arc::new(cluster),
                     interconn.clone(),
                     stats.clone(),
                     config.clone(),
@@ -119,9 +85,6 @@ where
             .iter()
             .map(|c| c.not_completed())
             .sum()
-        // not_completed += m_core[i]->get_not_completed();
-        // todo!("cluster: not completed");
-        // true
     }
 
     pub fn warp_waiting_at_barrier(&self, warp_id: usize) -> bool {
@@ -147,79 +110,6 @@ where
         // }
         // return true;
     }
-
-    // pub fn interconn_inject_request_packet(&mut self, mut fetch: mem_fetch::MemFetch) {
-    //     todo!(
-    //         "cluster {}: interconn_inject_request_packet",
-    //         self.cluster_id
-    //     );
-    //     {
-    //         let mut stats = self.stats.lock().unwrap();
-    //         if fetch.is_write() {
-    //             stats.num_mem_write += 1;
-    //         } else {
-    //             stats.num_mem_read += 1;
-    //         }
-    //
-    //         match fetch.access_kind() {
-    //             mem_fetch::AccessKind::CONST_ACC_R => {
-    //                 stats.num_mem_const += 1;
-    //             }
-    //             mem_fetch::AccessKind::TEXTURE_ACC_R => {
-    //                 stats.num_mem_texture += 1;
-    //             }
-    //             mem_fetch::AccessKind::GLOBAL_ACC_R => {
-    //                 stats.num_mem_read_global += 1;
-    //             }
-    //             mem_fetch::AccessKind::GLOBAL_ACC_W => {
-    //                 stats.num_mem_write_global += 1;
-    //             }
-    //             mem_fetch::AccessKind::LOCAL_ACC_R => {
-    //                 stats.num_mem_read_local += 1;
-    //             }
-    //             mem_fetch::AccessKind::LOCAL_ACC_W => {
-    //                 stats.num_mem_write_local += 1;
-    //             }
-    //             mem_fetch::AccessKind::INST_ACC_R => {
-    //                 stats.num_mem_read_inst += 1;
-    //             }
-    //             mem_fetch::AccessKind::L1_WRBK_ACC => {
-    //                 stats.num_mem_write_global += 1;
-    //             }
-    //             mem_fetch::AccessKind::L2_WRBK_ACC => {
-    //                 stats.num_mem_l2_writeback += 1;
-    //             }
-    //             mem_fetch::AccessKind::L1_WR_ALLOC_R => {
-    //                 stats.num_mem_l1_write_allocate += 1;
-    //             }
-    //             mem_fetch::AccessKind::L2_WR_ALLOC_R => {
-    //                 stats.num_mem_l2_write_allocate += 1;
-    //             }
-    //             _ => {}
-    //         }
-    //     }
-    //
-    //     // The packet size varies depending on the type of request:
-    //     // - For write request and atomic request, the packet contains the data
-    //     // - For read request (i.e. not write nor atomic), the packet only has control
-    //     // metadata
-    //     let packet_size = if fetch.is_write() && fetch.is_atomic() {
-    //         fetch.control_size
-    //     } else {
-    //         fetch.data_size
-    //     };
-    //     // m_stats->m_outgoing_traffic_stats->record_traffic(mf, packet_size);
-    //     let dest = fetch.sub_partition_id();
-    //     fetch.status = mem_fetch::Status::IN_ICNT_TO_MEM;
-    //
-    //     // if !fetch.is_write() && !fetch.is_atomic() {
-    //     self.interconn.push(
-    //         self.cluster_id,
-    //         self.config.mem_id_to_device_id(dest as usize),
-    //         fetch,
-    //         packet_size,
-    //     );
-    // }
 
     pub fn interconn_cycle(&mut self) {
         use mem_fetch::AccessKind;
