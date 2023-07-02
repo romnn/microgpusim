@@ -251,14 +251,11 @@ fn main() -> eyre::Result<()> {
     )?;
     println!("cargo:warning=using cuda at {}", &cuda_path.display());
 
-    let force = matches!(
-        env::var("BUILD")
-            .ok()
-            .as_deref()
-            .map(str::to_lowercase)
-            .as_deref(),
-        Some("yes")
-    );
+    let force = ["BUILD", "FORCE"]
+        .into_iter()
+        .filter_map(|name| env::var(name).ok())
+        .map(|var| var.to_lowercase())
+        .any(|var| var == "yes");
     println!("cargo:warning=force={}", &force);
 
     build_accelsim_tracer_tool(&accel_path, &cuda_path, force)?;
