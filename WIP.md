@@ -1,7 +1,8 @@
 #### TODO
 
+- fix github actions build
 - get more stats to match
-  - use separate cache stats per cache
+  - DONE: use separate cache stats per cache
 - implement per structure stats
 - create plots with runtime and outputs
 - test one more application

@@ -35,6 +35,8 @@ fn decompress_tar_bz2(src: impl AsRef<Path>, dest: impl AsRef<Path>) -> eyre::Re
     let compressed = File::open(src)?;
     let stream = bzip2::read::BzDecoder::new(compressed);
     let mut archive = tar::Archive::new(stream);
+    archive.set_overwrite(true);
+    archive.set_preserve_mtime(true);
     archive.unpack(&dest)?;
     Ok(())
 }
@@ -47,21 +49,24 @@ fn download_nvbit(
     let nvbit_release_name = format!("nvbit-Linux-{}-{}", arch.as_ref(), version.as_ref());
     let nvbit_release_archive_name = format!("{nvbit_release_name}.tar.bz2");
     let nvbit_release_archive_url = reqwest::Url::parse(&format!(
-        "{}/{}/{}",
-        NVBIT_RELEASES,
+        "{NVBIT_RELEASES}/{}/{nvbit_release_archive_name}",
         version.as_ref(),
-        nvbit_release_archive_name,
     ))?;
-    println!("cargo:warning=downloading {}", nvbit_release_archive_url);
+    println!("cargo:warning=downloading {nvbit_release_archive_url}");
 
-    let archive_path = output_path().join(nvbit_release_archive_name);
+    let archive_path = output_path().join(&nvbit_release_archive_name);
     std::fs::remove_file(&archive_path).ok();
 
     let mut nvbit_release_archive_file = File::create(&archive_path)?;
-    reqwest::blocking::get(nvbit_release_archive_url)?.copy_to(&mut nvbit_release_archive_file)?;
+    let mut data = reqwest::blocking::get(nvbit_release_archive_url)?;
+    data.copy_to(&mut nvbit_release_archive_file)?;
 
-    std::fs::remove_file(&dest).ok();
     decompress_tar_bz2(&archive_path, &dest)?;
+
+    println!(
+        "cargo:warning=extracted {nvbit_release_archive_name} to {}",
+        dest.as_ref().display()
+    );
     Ok(())
 }
 
@@ -186,7 +191,7 @@ fn build_accelsim_tracer_tool(
 
     let nvbit_path = tracer_nvbit_tool_path.join("nvbit_release");
     if force || !nvbit_path.is_dir() {
-        download_nvbit(nvbit_version, target_arch, &nvbit_path)?;
+        download_nvbit(nvbit_version, target_arch, &tracer_nvbit_tool_path)?;
     }
 
     let artifact = tracer_nvbit_tool_path.join("tracer_tool/tracer_tool.so");
@@ -222,8 +227,7 @@ fn main() -> eyre::Result<()> {
     color_eyre::install()?;
 
     let use_upstream = env::var("USE_UPSTREAM_ACCELSIM")
-        .map(|use_remote| use_remote.to_lowercase() == "yes")
-        .unwrap_or(false);
+        .is_ok_and(|use_remote| use_remote.to_lowercase() == "yes");
 
     let accel_path = if use_upstream {
         let dest = output_path().join("accelsim");

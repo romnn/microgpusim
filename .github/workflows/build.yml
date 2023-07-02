@@ -1,55 +1,40 @@
 name: build
-
 on: [push, pull_request]
-
 jobs:
   feature-matrix:
     uses: ./.github/workflows/feature-matrix.yml
-
   build-accelsim:
-    name: build accelsim (remote=${{ matrix.use_remote }})
+    name: build accelsim (upstream=${{ matrix.use_upstream }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        use_remote: ["no", "yes"]
+        use_upstream: ["no", "yes"]
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
-
       - name: Install dependencies
         run: >-
-          sudo apt-get install -y
-          wget build-essential xutils-dev bison zlib1g-dev flex
-          libglu1-mesa-dev libssl-dev libxml2-dev libboost-all-dev git g++
-
+          sudo apt-get install -y wget build-essential xutils-dev bison zlib1g-dev flex libglu1-mesa-dev libssl-dev libxml2-dev libboost-all-dev git g++
       - name: Install CUDA
         uses: Jimver/cuda-toolkit@v0.2.10
         id: cuda-toolkit
         with:
-          cuda: '11.7.0'
+          cuda: "11.8.0"
           linux-local-args: '["--driver", "--toolkit"]'
-
       - name: Build
         env:
-          USE_REMOTE_ACCELSIM: ${{ matrix.use_remote }}
+          USE_UPSTREAM_ACCELSIM: ${{ matrix.use_upstream }}
         run: >-
-          cargo build
-          --package accelsim
-          --all-targets
-
+          cargo build --package accelsim --all-targets
   build-main:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
-
       - name: Build
         run: >-
-          cargo build
-          --package casimu
-          --all-targets
-
+          cargo build --package casimu --all-targets
   build:
     name: build ${{ matrix.package.name }} (${{ matrix.package.features }})
     runs-on: ubuntu-latest
@@ -61,17 +46,12 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
-      
       - name: Install CUDA
         uses: Jimver/cuda-toolkit@v0.2.10
         id: cuda-toolkit
         with:
-          cuda: '11.7.0'
+          cuda: "11.8.0"
           linux-local-args: '["--driver", "--toolkit"]'
-
       - name: Build all
         run: >-
-          cargo build
-          --package "${{ matrix.package.name }}"
-          --features "${{ matrix.package.features }}"
-          --all-targets
+          cargo build  --package "${{ matrix.package.name }}" --features "${{ matrix.package.features }}" --all-targets
