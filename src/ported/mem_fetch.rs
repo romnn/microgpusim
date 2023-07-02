@@ -5,7 +5,7 @@ use crate::config;
 use crate::ported::{address, DecodedAddress};
 use bitvec::{array::BitArray, field::BitField, BitArr};
 use std::rc::Rc;
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 
 pub static READ_PACKET_SIZE: u8 = 8;
 
@@ -280,10 +280,6 @@ impl std::hash::Hash for MemFetch {
     }
 }
 
-lazy_static::lazy_static! {
-    static ref MEM_FETCH_UID: Mutex<u64> = Mutex::new(0);
-}
-
 impl MemFetch {
     // pub fn new(access: MemAccess, const warp_inst_t *inst,
     //     unsigned ctrl_size, unsigned wid, unsigned sid, unsigned tpc,
@@ -308,7 +304,9 @@ impl MemFetch {
 
         let tlx_addr = config.address_mapping().tlx(access.addr);
         let partition_addr = config.address_mapping().partition_address(access.addr);
-        let mut uid_lock = MEM_FETCH_UID.lock().unwrap();
+
+        static MEM_FETCH_UID: OnceLock<Mutex<u64>> = OnceLock::new();
+        let mut uid_lock = MEM_FETCH_UID.get_or_init(|| Mutex::new(0)).lock().unwrap();
         let uid = *uid_lock;
         *uid_lock += 1;
         Self {

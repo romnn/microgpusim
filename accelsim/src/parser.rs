@@ -3,9 +3,9 @@ use clap::Parser;
 use color_eyre::eyre;
 use itertools::Itertools;
 
-use lazy_static::lazy_static;
 use regex::Regex;
 use std::{
+    cell::OnceCell,
     collections::{HashMap, HashSet},
     fs, io,
     path::{Path, PathBuf},
@@ -75,13 +75,9 @@ fn get_version(mut f: impl BufReadLine + io::Seek) -> Option<String> {
             break;
         }
 
-        lazy_static! {
-            pub static ref GPGPUSIM_BUILD_REGEX: Regex =
-                Regex::new(r".*GPGPU-Sim.*\[build\s+(.*)\].*").unwrap();
-            pub static ref ACCELSIM_BUILD_REGEX: Regex =
-                Regex::new(r".*Accel-Sim.*\[build\s+(.*)\].*").unwrap();
-        }
+        const GPGPUSIM_BUILD_REGEX: OnceCell<Regex> = OnceCell::new();
         if let Some(build) = GPGPUSIM_BUILD_REGEX
+            .get_or_init(|| Regex::new(r".*GPGPU-Sim.*\[build\s+(.*)\].*").unwrap())
             .captures(line)
             .and_then(|c| c.get(1))
             .map(|m| m.as_str().trim().to_string())
@@ -89,7 +85,9 @@ fn get_version(mut f: impl BufReadLine + io::Seek) -> Option<String> {
             return Some(build);
         }
 
+        const ACCELSIM_BUILD_REGEX: OnceCell<Regex> = OnceCell::new();
         if let Some(build) = ACCELSIM_BUILD_REGEX
+            .get_or_init(|| Regex::new(r".*Accel-Sim.*\[build\s+(.*)\].*").unwrap())
             .captures(line)
             .and_then(|c| c.get(1))
             .map(|m| m.as_str().trim().to_string())
@@ -116,11 +114,12 @@ fn check_finished(mut f: impl BufReadLine + io::Seek) -> bool {
         if lines >= MAX_LINES {
             break;
         }
-        lazy_static! {
-            pub static ref EXIT_REGEX: Regex =
-                Regex::new(r"GPGPU-Sim: \*\*\* exit detected \*\*\*").unwrap();
-        }
-        if EXIT_REGEX.captures(line).is_some() {
+        const EXIT_REGEX: OnceCell<Regex> = OnceCell::new();
+        if EXIT_REGEX
+            .get_or_init(|| Regex::new(r"GPGPU-Sim: \*\*\* exit detected \*\*\*").unwrap())
+            .captures(line)
+            .is_some()
+        {
             return true;
         }
 
@@ -638,11 +637,10 @@ pub fn parse(options: Options) -> eyre::Result<Stats> {
             // then ignore the last kernel launch, as it is no complete
             // (only appies if we are doing kernel-by-kernel stats)
 
-            lazy_static! {
-                pub static ref LAST_KERNEL_BREAK_REGEX: Regex =
-                Regex::new(r"GPGPU-Sim: \*\* break due to reaching the maximum cycles \(or instructions\) \*\*").unwrap();
-            }
-            if LAST_KERNEL_BREAK_REGEX.captures(line).is_some() {
+            const LAST_KERNEL_BREAK_REGEX: OnceCell<Regex> = OnceCell::new();
+            if LAST_KERNEL_BREAK_REGEX.get_or_init(|| 
+                Regex::new(r"GPGPU-Sim: \*\* break due to reaching the maximum cycles \(or instructions\) \*\*").unwrap()
+            ).captures(line).is_some() {
                 eprintln!(
                     "{}: found max instructions - ignoring last kernel",
                     options.input.display()
@@ -657,11 +655,9 @@ pub fn parse(options: Options) -> eyre::Result<Stats> {
                 }
             }
 
-            lazy_static! {
-                pub static ref KERNEL_NAME_REGEX: Regex =
-                    Regex::new(r"kernel_name\s+=\s+(.*)").unwrap();
-            }
+            const KERNEL_NAME_REGEX: OnceCell<Regex> = OnceCell::new();
             if let Some(kernel_name) = KERNEL_NAME_REGEX
+                .get_or_init(|| Regex::new(r"kernel_name\s+=\s+(.*)").unwrap())
                 .captures(line)
                 .and_then(|c| c.get(1))
                 .map(|m| m.as_str().trim().to_string())

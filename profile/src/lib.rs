@@ -1,8 +1,8 @@
 #![allow(warnings)]
 
 use async_process::{Command, Output};
-use lazy_static::lazy_static;
 use regex::Regex;
+use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::io::{BufRead, Read, Seek};
 use std::path::Path;
@@ -442,16 +442,23 @@ where
         let Ok(line) = line else {
             continue
         };
-        lazy_static! {
-            pub static ref PROFILE_RESULT_REGEX: Regex =
-                Regex::new(r"^==\d*==\s*Profiling result:\s*$").unwrap();
-        }
-        lazy_static! {
-            pub static ref PROFILER_DISCONNECTED_REGEX: Regex =
-                Regex::new(r"^==PROF== Disconnected\s*$").unwrap();
-        }
+        const PROFILE_RESULT_REGEX: OnceCell<Regex> = OnceCell::new();
+        // const PROFILER_DISCONNECTED_REGEX: OnceCell<Regex> = OnceCell::new();
+        // PROFILER_DISCONNECTED_REGEX
+        //     .get_or_init(|| Regex::new(r"^==PROF== Disconnected\s*$").unwrap());
+        // lazy_static! {
+        //     pub static ref PROFILE_RESULT_REGEX: Regex =
+        //         Regex::new(r"^==\d*==\s*Profiling result:\s*$").unwrap();
+        // }
+        // lazy_static! {
+        //     pub static ref PROFILER_DISCONNECTED_REGEX: Regex =
+        //         Regex::new(r"^==PROF== Disconnected\s*$").unwrap();
+        // }
         // println!("line: {:#?}", &line);
-        if PROFILE_RESULT_REGEX.is_match(&line) {
+        if PROFILE_RESULT_REGEX
+            .get_or_init(|| Regex::new(r"^==\d*==\s*Profiling result:\s*$").unwrap())
+            .is_match(&line)
+        {
             break;
         }
     }

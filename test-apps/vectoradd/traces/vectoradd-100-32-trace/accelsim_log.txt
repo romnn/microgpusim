@@ -8239,11 +8239,11 @@ mrqq: max=0 avg=0
 Memory Partition 4: 
 Cache L2_bank_008:
 MSHR contents
-MSHR: tag=0x2d500400, atomic=0 1 entries : 0x55fbf77f7ca0 :  mf: uid=   204, sid00:w00, part=4, addr=0x7f2b2d500400, load , size=128, unknown  status = IN_PARTITION_DRAM (1280), 
+MSHR: tag=0x2d500400, atomic=0 1 entries : 0x563cfba75ca0 :  mf: uid=   204, sid00:w00, part=4, addr=0x7f2b2d500400, load , size=128, unknown  status = IN_PARTITION_DRAM (1280), 
 
 Cache L2_bank_009:
 MSHR contents
-MSHR: tag=0x2d500480, atomic=0 1 entries : 0x55fbf77f8010 :  mf: uid=   203, sid00:w01, part=4, addr=0x7f2b2d500480, load , size=128, unknown  status = IN_PARTITION_DRAM (1281), 
+MSHR: tag=0x2d500480, atomic=0 1 entries : 0x563cfba76010 :  mf: uid=   203, sid00:w01, part=4, addr=0x7f2b2d500480, load , size=128, unknown  status = IN_PARTITION_DRAM (1281), 
 
 In Dram Latency Queue (total = 0): 
 DRAM[4]: 16 bks, busW=4 BL=8 CL=12, tRRD=6 tCCD=2, tRCD=12 tRAS=28 tRP=12 tRC=40

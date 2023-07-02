@@ -10,21 +10,6 @@ use nvbit_model::MemorySpace;
 use std::collections::{HashMap, VecDeque};
 use trace_model as trace;
 
-pub trait IsSomeAnd<T> {
-    fn is_some_and(self, f: impl FnOnce(T) -> bool) -> bool;
-}
-
-impl<T> IsSomeAnd<T> for Option<T> {
-    #[must_use]
-    #[inline]
-    fn is_some_and(self, f: impl FnOnce(T) -> bool) -> bool {
-        match self {
-            None => false,
-            Some(x) => f(x),
-        }
-    }
-}
-
 // this is done
 #[derive(Debug, Default)]
 struct TransactionInfo {

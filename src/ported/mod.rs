@@ -991,10 +991,6 @@ pub fn accelmain(
         .unwrap_or(traces_dir.join("box.stats.txt"));
     save_stats_to_file(&stats, &stats_file_path)?;
 
-    // if let Some(stats_file_path) = stats_out_file.as_ref() {
-    //     save_stats_to_file(&stats, stats_file_path)?;
-    // }
-
     Ok(())
 }
 

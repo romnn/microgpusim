@@ -1,5 +1,3 @@
-use crate::ported::instruction::IsSomeAnd;
-
 use super::{address, mem_fetch};
 use std::collections::{HashMap, VecDeque};
 

@@ -49,8 +49,3 @@ impl Stats {
         }
     }
 }
-
-// avoid issues with running test / and or parallel instances
-// lazy_static::lazy_static! {
-//     pub static ref STATS: Mutex<Stats> = Mutex::new(Stats::default());
-// }

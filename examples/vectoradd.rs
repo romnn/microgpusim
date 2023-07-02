@@ -3,7 +3,7 @@
 #![allow(clippy::cast_sign_loss)]
 
 use color_eyre::eyre;
-use num_traits::{Float, Zero};
+use num_traits::{Float, NumCast, Zero};
 
 #[derive(Debug)]
 struct VecAdd<'s, 'a, T> {
@@ -15,7 +15,7 @@ struct VecAdd<'s, 'a, T> {
 
 impl<'s, 'a, T> casimu::Kernel for VecAdd<'s, 'a, T>
 where
-    T: num_traits::Float + std::fmt::Debug,
+    T: Float + std::fmt::Debug,
 {
     type Error = std::convert::Infallible;
 
@@ -39,7 +39,7 @@ const BLOCK_SIZE: u32 = 1024;
 
 fn vectoradd<T>(n: usize) -> eyre::Result<()>
 where
-    T: Float + Zero + num_traits::NumCast + std::iter::Sum + std::fmt::Display + std::fmt::Debug,
+    T: Float + Zero + NumCast + std::iter::Sum + std::fmt::Display + std::fmt::Debug,
 {
     // create host vectors
     let mut a: Vec<T> = vec![T::zero(); n];
@@ -65,7 +65,7 @@ where
     let mut d_c = sim.allocate(&mut c, c_size as u64);
 
     // number of thread blocks in grid
-    let grid_size = (n as f64 / f64::from(BLOCK_SIZE)).ceil() as u32;
+    let grid_size = (n as f64 / <f64 as From<_>>::from(BLOCK_SIZE)).ceil() as u32;
 
     let kernel: VecAdd<T> = VecAdd {
         d_a: &mut d_a,

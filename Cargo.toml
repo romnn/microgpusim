@@ -38,7 +38,6 @@ color-eyre = "0"
 human_bytes = "0"
 console = "0"
 thiserror = "1"
-lazy_static = "1"
 nvbit-model = "0"
 nvbit-io = "0"
 regex = "1"
@@ -53,6 +52,8 @@ bitvec = "1"
 strum = { version = "0", features = ["derive"] }
 phf = { version = "0.11.1", features = ["macros"] }
 dialoguer = "0"
+# for vectoradd rust example
+num-traits = "0"
 
 [dependencies.pyo3]
 version = "0"
