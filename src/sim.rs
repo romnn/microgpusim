@@ -2,7 +2,6 @@
 
 use super::ported::*;
 use itertools::Itertools;
-use num_traits::{AsPrimitive, Float, NumCast, Zero};
 use nvbit_model as model;
 use std::path::Path;
 use std::sync::{Arc, Mutex};

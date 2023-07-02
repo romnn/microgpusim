@@ -79,7 +79,7 @@ pub enum MemorySpace {
     Instruction,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum AccessKind {
     GLOBAL_ACC_R,
     LOCAL_ACC_R,

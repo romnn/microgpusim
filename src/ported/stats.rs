@@ -4,7 +4,7 @@ use std::sync::Mutex;
 
 pub type CacheRequestStatusCounters = HashMap<(mem_fetch::AccessKind, cache::AccessStat), usize>;
 
-#[derive(Default, Debug)]
+#[derive(Clone, Default, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Stats {
     pub num_mem_write: usize,
     pub num_mem_read: usize,

@@ -2,6 +2,8 @@
 
 /target
 /debug*.log
+.ipynb_checkpoints
+Pipfile.lock
 
 # cuda installation files
 cuda_*.run

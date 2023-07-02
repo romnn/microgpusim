@@ -864,7 +864,10 @@ where
     }
 }
 
-pub fn accelmain(traces_dir: impl AsRef<Path>) -> eyre::Result<()> {
+pub fn accelmain(
+    traces_dir: impl AsRef<Path>,
+    stats_out_file: &Option<PathBuf>,
+) -> eyre::Result<()> {
     info!("box version {}", 0);
     let traces_dir = traces_dir.as_ref();
     let start_time = Instant::now();
@@ -977,5 +980,65 @@ pub fn accelmain(traces_dir: impl AsRef<Path>) -> eyre::Result<()> {
         println!("exit after {cycle} cycles");
         break;
     }
+
+    let stats: Stats = sim.stats.lock().unwrap().clone();
+    dbg!(&stats);
+
+    // save stats to file
+    let stats_file_path = stats_out_file
+        .as_ref()
+        .cloned()
+        .unwrap_or(traces_dir.join("box.stats.txt"));
+    save_stats_to_file(&stats, &stats_file_path)?;
+
+    // if let Some(stats_file_path) = stats_out_file.as_ref() {
+    //     save_stats_to_file(&stats, stats_file_path)?;
+    // }
+
+    Ok(())
+}
+
+fn save_stats_to_file(stats: &Stats, out_file: &Path) -> eyre::Result<()> {
+    use serde::Serialize;
+    use std::fs;
+
+    let out_file = out_file.with_extension("json");
+
+    if let Some(parent) = &out_file.parent() {
+        fs::create_dir_all(parent).ok();
+    }
+    let output_file = fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(out_file)?;
+
+    // write stats as json
+    output_file
+        .metadata()
+        .unwrap()
+        .permissions()
+        .set_readonly(false);
+    let mut writer = std::io::BufWriter::new(output_file);
+    let mut json_serializer = serde_json::Serializer::with_formatter(
+        writer,
+        serde_json::ser::PrettyFormatter::with_indent(b"    "),
+    );
+    // TODO: how to serialize?
+    // stats.serialize(&mut json_serializer)?;
+
+    // let mut csv_writer = csv::WriterBuilder::new()
+    //     .flexible(false)
+    //     .from_writer(output_file);
+    //
+    // csv_writer.write_record(["kernel", "kernel_id", "stat", "value"])?;
+
+    // sort stats before writing to csv
+    // let mut sorted_stats: Vec<_> = stats.iter().collect();
+    // sorted_stats.sort_by(|a, b| a.0.cmp(b.0));
+    //
+    // for ((kernel, kcount, stat), value) in &sorted_stats {
+    //     csv_writer.write_record([kernel, &kcount.to_string(), stat, &value.to_string()])?;
+    // }
     Ok(())
 }

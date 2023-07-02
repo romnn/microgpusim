@@ -1,0 +1,19 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+pyyaml = "*"
+plotly = "*"
+psutil = "*"
+matplotlib = "*"
+numpy = "*"
+scipy = "*"
+pandas = "*"
+jupyterlab = "*"
+
+[dev-packages]
+invoke = "*"
+flake8 = "*"
+black = "*"

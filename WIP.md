@@ -3,6 +3,7 @@
 - DONE(dirty) BUG: ported::interconn::tests::test_box_interconnect segfault
 - remove colors from playground i guess because we mostly will use the logs and dont want to detect the terminal
 - get rid of dbg!() and old code in box
+- get rid of singleton stuff from accelsim reference copy
 
 - DONE: BUG: does not exit when all warps completed
 

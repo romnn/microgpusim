@@ -1,13 +1,14 @@
 use super::read::BufReadLine;
 use clap::Parser;
 use color_eyre::eyre;
+use itertools::Itertools;
 
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::{
     collections::{HashMap, HashSet},
     fs, io,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 // -R -K -k -B rodinia_2.0-ft -C QV100-PTX
@@ -17,7 +18,7 @@ pub struct Options {
     pub input: PathBuf,
 
     #[arg(short = 'o', long = "output")]
-    pub output: PathBuf,
+    pub output: Option<PathBuf>,
 
     #[arg(short = 'k', long = "per-kernel")]
     pub per_kernel: bool,
@@ -30,14 +31,19 @@ pub struct Options {
 }
 
 impl Options {
-    pub fn new(input: impl Into<PathBuf>, output: impl Into<PathBuf>) -> Self {
+    pub fn new(input: impl Into<PathBuf>) -> Self {
         Self {
             input: input.into(),
-            output: output.into(),
+            output: None,
             per_kernel: false,
             kernel_instance: false,
             strict: false,
         }
+    }
+
+    pub fn save_to(&mut self, output: impl Into<PathBuf>) -> &mut Self {
+        self.output = Some(output.into());
+        self
     }
 }
 
@@ -45,8 +51,8 @@ impl Options {
 pub type Stats = HashMap<(String, u16, String), f64>;
 
 macro_rules! stat {
-    ($name:literal, $kind:expr, $regex:literal) => {
-        ($name.to_string(), ($kind, Regex::new($regex).unwrap()))
+    ($name:expr, $kind:expr, $regex:expr) => {
+        ($name.to_string(), ($kind, Regex::new(&*$regex).unwrap()))
     };
 }
 
@@ -138,7 +144,7 @@ pub fn parse(options: Options) -> eyre::Result<Stats> {
 
     println!("GPGPU-sim version: {:?}", &version);
 
-    let aggregate_stats = vec![
+    let general_stats = vec![
         stat!(
             "gpu_total_instructions",
             StatKind::Aggregate,
@@ -155,75 +161,134 @@ pub fn parse(options: Options) -> eyre::Result<Stats> {
             r"gpu_tot_sim_cycle\s*=\s*(.*)"
         ),
         stat!(
-            "l2_cache_read_hit",
+            "warp_instruction_count",
             StatKind::Aggregate,
-            r"\s+L2_cache_stats_breakdown\[GLOBAL_ACC_R\]\[HIT\]\s*=\s*(.*)"
+            r"gpgpu_n_tot_w_icount\s*=\s*(.*)"
         ),
         stat!(
-            "l2_cache_read_miss",
+            "kernel_launch_uid",
             StatKind::Aggregate,
-            r"\s+L2_cache_stats_breakdown\[GLOBAL_ACC_R\]\[MISS\]\s*=\s*(.*)"
+            r"kernel_launch_uid\s*=\s*(.*)"
         ),
         stat!(
-            "l2_cache_read_total",
+            "num_issued_blocks",
+            StatKind::Aggregate,
+            r"gpu_tot_issued_cta\s*=\s*(.*)"
+        ),
+        stat!(
+            "occupancy",
+            StatKind::Aggregate,
+            r"gpu_occupancy\s*=\s*(.*)"
+        ),
+        stat!(
+            "total_occupancy",
+            StatKind::Aggregate,
+            r"gpu_tot_occupancy\s*=\s*(.*)"
+        ),
+        // stat!(
+        //     "max_total_param_size",
+        //     StatKind::Aggregate,
+        //     r"max_total_param_size\s*=\s*(.*)"
+        // ),
+    ];
+
+    let mem_space = vec![
+        ("GLOBAL_ACC_R", "global_read"),
+        ("LOCAL_ACC_R", "local_read"),
+        ("CONST_ACC_R", "constant_read"),
+        ("TEXTURE_ACC_R", "texture_read"),
+        ("GLOBAL_ACC_W", "global_write"),
+        ("LOCAL_ACC_W", "local_write"),
+        ("L1_WRBK_ACC", "l1_writeback"),
+        ("L2_WRBK_ACC", "l2_writeback"),
+        ("INST_ACC_R", "inst_read"),
+        ("L1_WR_ALLOC_R", "l1_write_alloc_read"),
+        ("L2_WR_ALLOC_R", "l2_write_alloc_read"),
+    ];
+    let outcome = vec![
+        ("HIT", "hit"),
+        ("HIT_RESERVED", "hit_reserved"),
+        ("MISS", "miss"),
+        ("RESERVATION_FAIL", "reservation_fail"),
+        ("SECTOR_MISS", "sector_miss"),
+        ("MSHR_HIT", "mshr_hit"),
+    ];
+    let mut l2_cache_stats: Vec<_> = mem_space
+        .iter()
+        .cartesian_product(outcome.iter())
+        .map(|((space, space_name), (outcome, outcome_name))| {
+            stat!(
+                format!("l2_cache_{space_name}_{outcome_name}"),
+                StatKind::Aggregate,
+                [
+                    r"\s+L2_cache_stats_breakdown\[",
+                    space,
+                    r"\]\[",
+                    outcome,
+                    r"\]\s*=\s*(.*)"
+                ]
+                .join("")
+            )
+        })
+        .collect();
+    l2_cache_stats.extend([
+        stat!(
+            "l2_cache_global_read_total",
             StatKind::Aggregate,
             r"\s+L2_cache_stats_breakdown\[GLOBAL_ACC_R\]\[TOTAL_ACCESS\]\s*=\s*(.*)"
         ),
         stat!(
-            "l2_cache_write_hit",
-            StatKind::Aggregate,
-            r"\s+L2_cache_stats_breakdown\[GLOBAL_ACC_W\]\[HIT\]\s*=\s*(.*)"
-        ),
-        stat!(
-            "l2_cache_write_miss",
-            StatKind::Aggregate,
-            r"\s+L2_cache_stats_breakdown\[GLOBAL_ACC_W\]\[MISS\]\s*=\s*(.*)"
-        ),
-        stat!(
-            "l2_cache_write_total",
+            "l2_cache_global_write_total",
             StatKind::Aggregate,
             r"\s+L2_cache_stats_breakdown\[GLOBAL_ACC_W\]\[TOTAL_ACCESS\]\s*=\s*(.*)"
         ),
         stat!(
-            "const_cache_write_total",
+            "l2_cache_inst_read_total",
             StatKind::Aggregate,
-            r"\s+L2_cache_stats_breakdown\[CONST_ACC_W\]\[TOTAL_ACCESS\]\s*=\s*(.*)"
+            r"\s+L2_cache_stats_breakdown\[INST_ACC_W\]\[TOTAL_ACCESS\]\s*=\s*(.*)"
         ),
         stat!(
-            "const_cache_read_total",
+            "l2_cache_total_accesses",
             StatKind::Aggregate,
-            r"\s+L2_cache_stats_breakdown\[CONST_ACC_R\]\[TOTAL_ACCESS\]\s*=\s*(.*)"
+            r"\s+L2_total_cache_accesses\s*=\s*(.*)"
         ),
         stat!(
-            "total_core_cache_read_total",
+            "l2_cache_total_misses",
             StatKind::Aggregate,
-            r"\s+Total_core_cache_stats_breakdown\[GLOBAL_ACC_R\]\[TOTAL_ACCESS\]\s*=\s*(.*)"
+            r"\s+L2_total_cache_misses\s*=\s*(.*)"
         ),
         stat!(
-            "total_core_cache_read_hit",
+            "l2_cache_total_reservation_fails",
             StatKind::Aggregate,
-            r"\s+Total_core_cache_stats_breakdown\[GLOBAL_ACC_R\]\[HIT\]\s*=\s*(.*)"
+            r"\s+L2_total_cache_reservation_fails\s*=\s*(.*)"
         ),
-        stat!(
-            "total_core_cache_write_hit",
-            StatKind::Aggregate,
-            r"\s+Total_core_cache_stats_breakdown\[GLOBAL_ACC_W\]\[HIT\]\s*=\s*(.*)"
-        ),
-        stat!(
-            "total_core_cache_write_total",
-            StatKind::Aggregate,
-            r"\s+Total_core_cache_stats_breakdown\[GLOBAL_ACC_W\]\[TOTAL_ACCESS\]\s*=\s*(.*)"
-        ),
-        stat!(
-            "total_core_cache_read_mshr_hit",
-            StatKind::Aggregate,
-            r"\s+Total_core_cache_stats_breakdown\[GLOBAL_ACC_R\]\[MSHR_HIT\]\s*=\s*(.*)"
-        ),
-        stat!(
-            "gpgpu_n_tot_w_icount",
-            StatKind::Aggregate,
-            r"gpgpu_n_tot_w_icount\s*=\s*(.*)"
-        ),
+    ]);
+
+    let mut total_core_cache_stats: Vec<_> = mem_space
+        .iter()
+        .cartesian_product(outcome.iter())
+        .map(|((space, space_name), (outcome, outcome_name))| {
+            stat!(
+                format!("total_core_cache_{space_name}_{outcome_name}"),
+                StatKind::Aggregate,
+                [
+                    r"\s+Total_core_cache_stats_breakdown\[",
+                    space,
+                    r"\]\[",
+                    outcome,
+                    r"\]\s*=\s*(.*)"
+                ]
+                .join("")
+            )
+        })
+        .collect();
+    total_core_cache_stats.extend([stat!(
+        "total_core_cache_inst_read_total",
+        StatKind::Aggregate,
+        r"\s+Total_core_cache_stats_breakdown\[INST_ACC_R\]\[TOTAL_ACCESS\]\s*=\s*(.*)"
+    )]);
+
+    let dram_stats = vec![
         stat!(
             "total_dram_reads",
             StatKind::Aggregate,
@@ -234,12 +299,268 @@ pub fn parse(options: Options) -> eyre::Result<Stats> {
             StatKind::Aggregate,
             r"total dram writes\s*=\s*(.*)"
         ),
+    ];
+
+    let inst_stats = vec![
         stat!(
-            "kernel_launch_uid",
+            "num_load_inst",
             StatKind::Aggregate,
-            r"kernel_launch_uid\s*=\s*(.*)"
+            r"gpgpu_n_load_insn\s*=\s*(.*)"
+        ),
+        stat!(
+            "num_store_inst",
+            StatKind::Aggregate,
+            r"gpgpu_n_store_insn\s*=\s*(.*)"
+        ),
+        stat!(
+            "num_shared_mem_inst",
+            StatKind::Aggregate,
+            r"gpgpu_n_shmem_insn\s*=\s*(.*)"
+        ),
+        stat!(
+            "num_star_inst",
+            StatKind::Aggregate,
+            r"gpgpu_n_sstarr_insn\s*=\s*(.*)"
+        ),
+        stat!(
+            "num_tex_inst",
+            StatKind::Aggregate,
+            r"gpgpu_n_tex_insn\s*=\s*(.*)"
+        ),
+        stat!(
+            "num_const_mem_inst",
+            StatKind::Aggregate,
+            r"gpgpu_n_const_mem_insn\s*=\s*(.*)"
+        ),
+        stat!(
+            "num_param_mem_inst",
+            StatKind::Aggregate,
+            r"gpgpu_n_param_mem_insn\s*=\s*(.*)"
         ),
     ];
+
+    let stall_stats = vec![
+        stat!(
+            "num_shared_mem_stalls",
+            StatKind::Aggregate,
+            r"gpgpu_n_stall_shd_mem\s*=\s*(.*)"
+        ),
+        stat!(
+            "num_shared_mem_const_resource_stalls",
+            StatKind::Aggregate,
+            r"gpgpu_stall_shd_mem[c_mem][resource_stall]\s*=\s*(.*)"
+        ),
+        stat!(
+            "num_shared_mem_bank_conflict_stalls",
+            StatKind::Aggregate,
+            r"gpgpu_stall_shd_mem[s_mem][bk_conf]\s*=\s*(.*)"
+        ),
+        stat!(
+            "num_shared_mem_global_resource_stalls",
+            StatKind::Aggregate,
+            r"gpgpu_stall_shd_mem[gl_mem][resource_stall]\s*=\s*(.*)"
+        ),
+        stat!(
+            "num_shared_mem_global_coal_stalls",
+            StatKind::Aggregate,
+            r"gpgpu_stall_shd_mem[gl_mem][coal_stall]\s*=\s*(.*)"
+        ),
+        stat!(
+            "num_shared_mem_global_data_port_stalls",
+            StatKind::Aggregate,
+            r"gpgpu_stall_shd_mem[gl_mem][data_port_stall]\s*=\s*(.*)"
+        ),
+        stat!(
+            "num_register_set_bank_conflict_stalls",
+            StatKind::Aggregate,
+            r"gpu_reg_bank_conflict_stalls\s*=\s*(.*)"
+        ),
+        stat!(
+            "num_dram_full_stalls",
+            StatKind::Aggregate,
+            r"gpu_stall_dramfull\s*=\s*(.*)"
+        ),
+        stat!(
+            "num_interconn_to_shared_mem_stalls",
+            StatKind::Aggregate,
+            r"gpu_stall_icnt2sh\s*=\s*(.*)"
+        ),
+        stat!(
+            "num_shared_mem_bank_conflicts",
+            StatKind::Aggregate,
+            r"gpgpu_n_shmem_bkconflict\s*=\s*(.*)"
+        ),
+        stat!(
+            "num_cache_bank_conflicts",
+            StatKind::Aggregate,
+            r"gpgpu_n_cache_bkconflict\s*=\s*(.*)"
+        ),
+        stat!(
+            "num_intra_warp_mshr_merge",
+            StatKind::Aggregate,
+            r"gpgpu_n_intrawarp_mshr_merge\s*=\s*(.*)"
+        ),
+        stat!(
+            "num_const_mem_port_conflict",
+            StatKind::Aggregate,
+            r"gpgpu_n_cmem_portconflict\s*=\s*(.*)"
+        ),
+    ];
+
+    let mem_stats = vec![
+        stat!(
+            "num_local_mem_read",
+            StatKind::Aggregate,
+            r"gpgpu_n_mem_read_local\s*=\s*(.*)"
+        ),
+        stat!(
+            "num_local_mem_write",
+            StatKind::Aggregate,
+            r"gpgpu_n_mem_write_local\s*=\s*(.*)"
+        ),
+        stat!(
+            "num_global_mem_read",
+            StatKind::Aggregate,
+            r"gpgpu_n_mem_read_global\s*=\s*(.*)"
+        ),
+        stat!(
+            "num_global_mem_write",
+            StatKind::Aggregate,
+            r"gpgpu_n_mem_write_global\s*=\s*(.*)"
+        ),
+        stat!(
+            "num_tex_mem_total_accesses",
+            StatKind::Aggregate,
+            r"gpgpu_n_mem_texture\s*=\s*(.*)"
+        ),
+        stat!(
+            "num_const_mem_total_accesses",
+            StatKind::Aggregate,
+            r"gpgpu_n_mem_const\s*=\s*(.*)"
+        ),
+    ];
+
+    let l1_inst_cache_stats = vec![
+        stat!(
+            "l1_inst_cache_total_accesses",
+            StatKind::Aggregate,
+            r"L1I_total_cache_accesses\s*=\s*(.*)"
+        ),
+        stat!(
+            "l1_inst_cache_total_misses",
+            StatKind::Aggregate,
+            r"L1I_total_cache_misses\s*=\s*(.*)"
+        ),
+        stat!(
+            "l1_inst_cache_total_miss_rate",
+            StatKind::Aggregate,
+            r"L1I_total_cache_miss_rate\s*=\s*(.*)"
+        ),
+        stat!(
+            "l1_inst_cache_total_pending_hits",
+            StatKind::Aggregate,
+            r"L1I_total_cache_pending_hits\s*=\s*(.*)"
+        ),
+        stat!(
+            "l1_inst_cache_total_reservation_fails",
+            StatKind::Aggregate,
+            r"L1I_total_cache_reservation_fails\s*=\s*(.*)"
+        ),
+    ];
+
+    let l1_data_cache_stats = vec![
+        stat!(
+            "l1_data_cache_total_accesses",
+            StatKind::Aggregate,
+            r"L1D_total_cache_accesses\s*=\s*(.*)"
+        ),
+        stat!(
+            "l1_data_cache_total_misses",
+            StatKind::Aggregate,
+            r"L1D_total_cache_misses\s*=\s*(.*)"
+        ),
+        stat!(
+            "l1_data_cache_total_pending_hits",
+            StatKind::Aggregate,
+            r"L1D_total_cache_pending_hits\s*=\s*(.*)"
+        ),
+        stat!(
+            "l1_data_cache_total_reservation_fails",
+            StatKind::Aggregate,
+            r"L1D_total_cache_reservation_fails\s*=\s*(.*)"
+        ),
+        stat!(
+            "l1_data_cache_data_port_utilization",
+            StatKind::Aggregate,
+            r"L1D_cache_data_port_util\s*=\s*(.*)"
+        ),
+        stat!(
+            "l1_data_cache_fill_port_utilization",
+            StatKind::Aggregate,
+            r"L1D_cache_fill_port_util\s*=\s*(.*)"
+        ),
+    ];
+
+    let l1_const_cache_stats = vec![
+        stat!(
+            "l1_const_cache_total_accesses",
+            StatKind::Aggregate,
+            r"L1C_total_cache_accesses\s*=\s*(.*)"
+        ),
+        stat!(
+            "l1_const_cache_total_misses",
+            StatKind::Aggregate,
+            r"L1C_total_cache_misses\s*=\s*(.*)"
+        ),
+        stat!(
+            "l1_const_cache_total_pending_hits",
+            StatKind::Aggregate,
+            r"L1C_total_cache_pending_hits\s*=\s*(.*)"
+        ),
+        stat!(
+            "l1_const_cache_total_reservation_fails",
+            StatKind::Aggregate,
+            r"L1C_total_cache_reservation_fails\s*=\s*(.*)"
+        ),
+    ];
+
+    let l1_tex_cache_stats = vec![
+        stat!(
+            "l1_tex_cache_total_accesses",
+            StatKind::Aggregate,
+            r"L1T_total_cache_accesses\s*=\s*(.*)"
+        ),
+        stat!(
+            "l1_tex_cache_total_misses",
+            StatKind::Aggregate,
+            r"L1T_total_cache_misses\s*=\s*(.*)"
+        ),
+        stat!(
+            "l1_tex_cache_total_pending_hits",
+            StatKind::Aggregate,
+            r"L1T_total_cache_pending_hits\s*=\s*(.*)"
+        ),
+        stat!(
+            "l1_tex_cache_total_reservation_fails",
+            StatKind::Aggregate,
+            r"L1T_total_cache_reservation_fails\s*=\s*(.*)"
+        ),
+    ];
+
+    let aggregate_stats = vec![
+        general_stats,
+        mem_stats,
+        l2_cache_stats,
+        l1_inst_cache_stats,
+        l1_data_cache_stats,
+        l1_const_cache_stats,
+        l1_tex_cache_stats,
+        total_core_cache_stats,
+        dram_stats,
+        inst_stats,
+        stall_stats,
+    ]
+    .concat();
 
     // These stats are reset each kernel and should not be diff'd
     // They cannot be used is only collecting the final_kernel stats
@@ -280,7 +601,6 @@ pub fn parse(options: Options) -> eyre::Result<Stats> {
             .chain(abs_stats)
             .chain(rate_stats),
     );
-    // println!("stats to collect: {:#?}", &stats);
 
     if !finished {
         if options.strict {
@@ -302,18 +622,6 @@ pub fn parse(options: Options) -> eyre::Result<Stats> {
 
     let file = fs::OpenOptions::new().read(true).open(&options.input)?;
 
-    if let Some(parent) = &options.output.parent() {
-        std::fs::create_dir_all(parent).ok();
-    }
-    let output_file = fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(&options.output)?;
-
-    let mut csv_writer = csv::WriterBuilder::new()
-        .flexible(false)
-        .from_writer(output_file);
     let mut stat_map: Stats = HashMap::new();
 
     if options.per_kernel {
@@ -451,15 +759,35 @@ pub fn parse(options: Options) -> eyre::Result<Stats> {
         }
     }
 
+    if let Some(out_file) = options.output.as_ref() {
+        save_stats_to_file(&stat_map, out_file)?;
+    }
+
+    Ok(stat_map)
+}
+
+fn save_stats_to_file(stats: &Stats, out_file: &Path) -> eyre::Result<()> {
+    if let Some(parent) = &out_file.parent() {
+        fs::create_dir_all(parent).ok();
+    }
+    let output_file = fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(out_file)?;
+
+    let mut csv_writer = csv::WriterBuilder::new()
+        .flexible(false)
+        .from_writer(output_file);
+
     csv_writer.write_record(["kernel", "kernel_id", "stat", "value"])?;
 
     // sort stats before writing to csv
-    let mut sorted_stats: Vec<_> = stat_map.iter().collect();
+    let mut sorted_stats: Vec<_> = stats.iter().collect();
     sorted_stats.sort_by(|a, b| a.0.cmp(b.0));
 
     for ((kernel, kcount, stat), value) in &sorted_stats {
         csv_writer.write_record([kernel, &kcount.to_string(), stat, &value.to_string()])?;
     }
-
-    Ok(stat_map)
+    Ok(())
 }

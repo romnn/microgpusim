@@ -2,7 +2,7 @@ use super::{address, mem_fetch, tag_array};
 use crate::config;
 use std::collections::VecDeque;
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum RequestStatus {
     HIT = 0,
     HIT_RESERVED,
@@ -13,7 +13,7 @@ pub enum RequestStatus {
     NUM_CACHE_REQUEST_STATUS,
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ReservationFailure {
     /// all line are reserved
     LINE_ALLOC_FAIL = 0,
@@ -25,7 +25,7 @@ pub enum ReservationFailure {
     NUM_CACHE_RESERVATION_FAIL_STATUS,
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum AccessStat {
     ReservationFailure(ReservationFailure),
     Status(RequestStatus),

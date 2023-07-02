@@ -25,6 +25,9 @@ struct Options {
     /// Input to operate on
     #[arg(short = 'p', long = "path", value_name = "TRACE_DIR")]
     trace_dir: PathBuf,
+    /// Stats output file
+    #[arg(short = 'o', long = "stats", value_name = "STATS_OUT")]
+    stats_out_file: Option<PathBuf>,
     /// Turn debugging information on
     #[arg(short, long, action = clap::ArgAction::Count)]
     debug: u8,
@@ -38,7 +41,7 @@ fn main() -> eyre::Result<()> {
     let start = Instant::now();
     let options = Options::parse();
     std::env::set_var("RUST_BACKTRACE", "full");
-    let res = casimu::ported::accelmain(&options.trace_dir);
+    let res = casimu::ported::accelmain(&options.trace_dir, &options.stats_out_file);
     println!("completed in {:?}", start.elapsed());
     res
 }
