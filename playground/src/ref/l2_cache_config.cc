@@ -6,7 +6,6 @@ void l2_cache_config::init(linear_to_raw_address_translation *address_mapping) {
 }
 
 unsigned l2_cache_config::set_index(new_addr_type addr) const {
-  // Singleton::mem_printf("l2_cache_config::set_index(%llu)\n", addr);
   new_addr_type part_addr = addr;
 
   if (m_address_mapping) {

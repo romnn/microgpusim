@@ -15,13 +15,11 @@ public:
   ~mem_storage() { free(m_data); }
 
   void write(unsigned offset, size_t length, const unsigned char *data) {
-    // Singleton::mem_printf("mem_storage<BSIZE>::write(%lu)\n", offset);
     assert(offset + length <= BSIZE);
     memcpy(m_data + offset, data, length);
   }
 
   void read(unsigned offset, size_t length, unsigned char *data) const {
-    // Singleton::mem_printf("mem_storage<BSIZE>::read(%lu)\n", offset);
     assert(offset + length <= BSIZE);
     memcpy(data, m_data + offset, length);
   }

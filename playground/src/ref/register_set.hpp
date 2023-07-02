@@ -70,7 +70,7 @@ public:
     return regs[reg_id]->get_schd_id();
   }
   void move_in(warp_inst_t *&src) {
-    printf("\e[1;37m move_in warp=%u \e[0m \n", src->warp_id());
+    printf("move_in warp=%u\n", src->warp_id());
     warp_inst_t **free = get_free();
     move_warp(*free, src);
   }
@@ -78,8 +78,7 @@ public:
   //   src->copy_contents_to(*get_free());
   //}
   void move_in(bool sub_core_model, unsigned reg_id, warp_inst_t *&src) {
-    printf("\e[1;37m move_in_sub_core warp=%u reg_id=%u \e[0m \n",
-           src->warp_id(), reg_id);
+    printf("move_in_sub_core warp=%u reg_id=%u\n", src->warp_id(), reg_id);
     warp_inst_t **free;
     if (!sub_core_model) {
       free = get_free();
@@ -92,8 +91,8 @@ public:
 
   void move_out_to(warp_inst_t *&dest) {
     warp_inst_t **ready = get_ready();
-    printf("\e[1;37m move_out_to warp=%u (empty=%d)\e[0m \n",
-           (*ready)->warp_id(), (*ready)->empty());
+    printf("move_out_to warp=%u (empty=%d)\n", (*ready)->warp_id(),
+           (*ready)->empty());
     move_warp(dest, *ready);
     // throw std::runtime_error("move out to");
   }
@@ -103,8 +102,8 @@ public:
     }
     warp_inst_t **ready = get_ready(sub_core_model, reg_id);
     assert(ready != NULL);
-    printf("\e[1;37m move_out_to_sub_core warp=%u reg_id=%u \e[0m \n",
-           (*ready)->warp_id(), reg_id);
+    printf("move_out_to_sub_core warp=%u reg_id=%u\n", (*ready)->warp_id(),
+           reg_id);
     move_warp(dest, *ready);
   }
 

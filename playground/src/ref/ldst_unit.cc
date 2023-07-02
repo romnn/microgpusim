@@ -612,7 +612,7 @@ unsigned ldst_unit::clock_multiplier() const {
 }
 
 void ldst_unit::cycle() {
-  printf("\e[0;35m ldst_unit::cycle() (response fifo size=%lu) \e[0m \n",
+  printf("ldst_unit::cycle() (response fifo size=%lu)\n",
          m_response_fifo.size());
   writeback();
 

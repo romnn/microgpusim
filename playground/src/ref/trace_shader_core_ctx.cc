@@ -243,7 +243,7 @@ void trace_shader_core_ctx::issue_warp(register_set &pipe_reg_set,
                                        const warp_inst_t *next_inst,
                                        const active_mask_t &active_mask,
                                        unsigned warp_id, unsigned sch_id) {
-  printf("\e[0;33m issue warp %d \033[0m \n", warp_id);
+  printf("issue warp %d\n", warp_id);
   warp_inst_t **pipe_reg =
       pipe_reg_set.get_free(m_config->sub_core_model, sch_id);
   assert(pipe_reg);
@@ -734,7 +734,7 @@ void trace_shader_core_ctx::cycle() {
 }
 
 void trace_shader_core_ctx::writeback() {
-  printf("\e[0;36m writeback \e[0m \n");
+  printf("core::writeback\n");
   unsigned max_committed_thread_instructions =
       m_config->warp_size *
       (m_config->pipe_widths[EX_WB]); // from the functional units
@@ -751,7 +751,7 @@ void trace_shader_core_ctx::writeback() {
   warp_inst_t **preg = m_pipeline_reg[EX_WB].get_ready();
   warp_inst_t *pipe_reg = (preg == NULL) ? NULL : *preg;
   while (preg and !pipe_reg->empty()) {
-    printf("\e[0;36m instruction %s (pc=%lu) ready for writeback \e[0m \n",
+    printf("instruction %s (pc=%lu) ready for writeback\n",
            pipe_reg->opcode_str(), pipe_reg->pc);
     // throw std::runtime_error("ready for writeback instruction");
     /*
@@ -789,7 +789,7 @@ void trace_shader_core_ctx::writeback() {
 }
 
 void trace_shader_core_ctx::execute() {
-  printf("\e[0;31m execute \e[0m \n");
+  printf("core::execute\n");
   for (unsigned i = 0; i < num_result_bus; i++) {
     *(m_result_bus[i]) >>= 1;
   }
@@ -849,7 +849,6 @@ void trace_shader_core_ctx::execute() {
         // stall issue (cannot reserve result bus)
         issued = false;
       }
-      printf("issued: %d\n", issued);
     }
   }
 }
@@ -949,11 +948,6 @@ void trace_shader_core_ctx::fetch() {
       m_warp[mf->get_wid()]->set_last_fetch(m_gpu->gpu_sim_cycle);
       delete mf;
     } else {
-      // printf("\033[1;31m empty instruction cache\033[0m : instr fetch "
-      //        "buffer "
-      //        "not valid (checking %d warps now)\n",
-      //        m_config->max_warps_per_shader);
-
       // sanity check: all 64 warps are initialized
       // assert(m_warp[30]->get_warp_id() == 30);
       // assert(m_warp[40]->get_warp_id() == 40); // this is not yet the

@@ -37,7 +37,7 @@ public:
   bool writeback(warp_inst_t &warp);
 
   void step() {
-    printf("\e[0;32m operand collector::step() \e[0m \n");
+    printf("operand collector::step()\n");
     dispatch_ready_cu();
     allocate_reads();
     for (unsigned p = 0; p < m_in_ports.size(); p++)

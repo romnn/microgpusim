@@ -31,7 +31,7 @@ public:
 // void move_warp(warp_inst_t *&dst, warp_inst_t *&src);
 
 template <typename T> void move_warp(T *&dst, T *&src) {
-  printf("\e[1;37m moving warp=%u \e[0m \n", src->warp_id());
+  printf("moving warp=%u\n", src->warp_id());
   assert(dst->empty());
   T *temp = dst;
   dst = src;

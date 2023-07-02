@@ -174,12 +174,14 @@ where
 }
 
 fn main() -> eyre::Result<()> {
-    // println!("cargo:rerun-if-changed=build.rs");
-    // println!("cargo:rerun-if-changed=src/bridge/");
-    // println!("cargo:rerun-if-changed=src/bindings.hpp");
-    // println!("cargo:rerun-if-changed=src/bridge.hpp");
-    // println!("cargo:rerun-if-changed=src/ref/");
-    // println!("cargo:rerun-if-changed=src/tests/");
+    if true {
+        println!("cargo:rerun-if-changed=build.rs");
+        println!("cargo:rerun-if-changed=src/bridge/");
+        println!("cargo:rerun-if-changed=src/bindings.hpp");
+        println!("cargo:rerun-if-changed=src/bridge.hpp");
+        println!("cargo:rerun-if-changed=src/ref/");
+        println!("cargo:rerun-if-changed=src/tests/");
+    }
 
     let mut bridges = multi_glob(["./src/bridge/**/*.rs"]).collect::<Result<Vec<_>, _>>()?;
     let exclude = ["src/bridge/mod.rs"].map(PathBuf::from);
@@ -258,7 +260,7 @@ fn main() -> eyre::Result<()> {
     // panic!("{:#?}", sources);
 
     // accelsim uses zlib for compression
-    println!("cargo:rustc-link-lib=z");
+    // println!("cargo:rustc-link-lib=z");
 
     // return Ok(());
     // build(&sources)?;
