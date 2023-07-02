@@ -34,7 +34,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Build
         run: >-
-          cargo build --package casimu --all-targets
+          cargo build --package casimu
   build:
     name: build ${{ matrix.package.name }} (${{ matrix.package.features }})
     runs-on: ubuntu-latest

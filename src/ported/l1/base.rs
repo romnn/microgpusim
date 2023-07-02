@@ -667,15 +667,16 @@ mod tests {
     fn base_cache_init() {
         let core_id = 0;
         let cluster_id = 0;
-        let stats = Arc::new(Mutex::new(CacheStats::default()));
+        let stats = Arc::new(Mutex::new(Stats::default()));
+        let cache_stats = Arc::new(Mutex::new(CacheStats::default()));
         let config = Arc::new(config::GPUConfig::default());
         let cache_config = config.data_cache_l1.clone().unwrap();
-        // let port = ic::Interconnect {};
         let interconn: Arc<ic::ToyInterconnect<Packet>> =
             Arc::new(ic::ToyInterconnect::new(0, 0, None));
         let port = Arc::new(ic::CoreMemoryInterface {
             interconn,
             cluster_id: 0,
+            stats,
             config: config.clone(),
         });
 
@@ -684,7 +685,7 @@ mod tests {
             core_id,
             cluster_id,
             port,
-            stats,
+            cache_stats,
             config,
             Arc::clone(&cache_config.inner),
         );

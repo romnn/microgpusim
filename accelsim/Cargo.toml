@@ -45,7 +45,7 @@ utils = { path = "../utils" }
 [build-dependencies]
 color-eyre = "0"
 duct = "0"
-reqwest = { version = "0", features = ["blocking"] }
+reqwest = { version = "0", features = ["blocking", "rustls-tls"] }
 bzip2 = "0.4"
 tar = "0.4"
 utils = { path = "../utils" }
