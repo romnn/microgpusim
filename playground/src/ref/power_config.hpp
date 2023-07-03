@@ -1,11 +1,11 @@
 #pragma once
 
-#include <string.h>
 #include <cstdio>
 #include <ctime>
+#include <string.h>
 
-#include "option_parser.hpp"
 #include "hw_perf.hpp"
+#include "option_parser.hpp"
 
 struct power_config {
   power_config() { m_valid = true; }

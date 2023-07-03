@@ -6,7 +6,7 @@
 #include "ptx_instruction.hpp"
 
 class watchpoint_event {
- public:
+public:
   watchpoint_event() {
     m_thread = NULL;
     m_inst = NULL;
@@ -18,7 +18,7 @@ class watchpoint_event {
   const ptx_thread_info *thread() const { return m_thread; }
   const ptx_instruction *inst() const { return m_inst; }
 
- private:
+private:
   const ptx_thread_info *m_thread;
   const ptx_instruction *m_inst;
 };

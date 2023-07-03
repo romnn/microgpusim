@@ -31,9 +31,15 @@ public:
   void memcpy_from_gpu(void *dst, size_t src_start_addr, size_t count);
   void memcpy_gpu_to_gpu(size_t dst, size_t src, size_t count);
 
-  class memory_space *get_global_memory() { return m_global_mem; }
-  class memory_space *get_tex_memory() { return m_tex_mem; }
-  class memory_space *get_surf_memory() { return m_surf_mem; }
+  class memory_space *get_global_memory() {
+    return m_global_mem;
+  }
+  class memory_space *get_tex_memory() {
+    return m_tex_mem;
+  }
+  class memory_space *get_surf_memory() {
+    return m_surf_mem;
+  }
 
   void gpgpu_ptx_sim_bindTextureToArray(const struct textureReference *texref,
                                         const struct cudaArray *array);

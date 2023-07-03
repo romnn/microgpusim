@@ -6,5 +6,7 @@
 
 struct AccelsimStats;
 
-// std::unique_ptr<accelsim_stats> accelsim(accelsim_config config, rust::Slice<const rust::Str> argv);
-int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv, AccelsimStats &stats);
+// std::unique_ptr<accelsim_stats> accelsim(accelsim_config config,
+// rust::Slice<const rust::Str> argv);
+int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv,
+             AccelsimStats &stats);

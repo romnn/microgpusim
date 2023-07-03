@@ -1,7 +1,7 @@
 #pragma once
 
-#include <vector>
 #include <stdio.h>
+#include <vector>
 
 #include "cache_request_status.hpp"
 #include "mem_access_type.hpp"

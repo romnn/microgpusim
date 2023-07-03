@@ -1,17 +1,17 @@
 #pragma once
 
-#include <map>
 #include <list>
+#include <map>
 
 // #include "gpgpu_context.hpp"
 #include "ptx_version.hpp"
-#include "type_info.hpp"
 #include "symbol.hpp"
+#include "type_info.hpp"
 
 class gpgpu_context;
 
 class symbol_table {
- public:
+public:
   symbol_table();
   symbol_table(const char *scope_name, unsigned entry_point,
                symbol_table *parent, gpgpu_context *ctx);
@@ -64,7 +64,7 @@ class symbol_table {
   // backward pointer
   class gpgpu_context *gpgpu_ctx;
 
- private:
+private:
   unsigned m_reg_allocator;
   unsigned m_shared_next;
   unsigned m_sstarr_next;
@@ -77,7 +77,7 @@ class symbol_table {
   ptx_version m_ptx_version;
   std::string m_scope_name;
   std::map<std::string, symbol *>
-      m_symbols;  // map from name of register to pointers to the registers
+      m_symbols; // map from name of register to pointers to the registers
   std::map<type_info_key, type_info *, type_info_key_compare> m_types;
   std::list<symbol *> m_globals;
   std::list<symbol *> m_consts;

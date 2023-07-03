@@ -27,7 +27,9 @@ public:
   }
   bool running() const { return m_num_cores_running > 0; }
   bool done() const { return no_more_ctas_to_run() && !running(); }
-  class function_info *entry() { return m_kernel_entry; }
+  class function_info *entry() {
+    return m_kernel_entry;
+  }
   const class function_info *entry() const { return m_kernel_entry; }
 
   size_t num_blocks() const {
@@ -76,7 +78,9 @@ public:
   std::list<class ptx_thread_info *> &active_threads() {
     return m_active_threads;
   }
-  class memory_space *get_param_memory() { return m_param_mem; }
+  class memory_space *get_param_memory() {
+    return m_param_mem;
+  }
 
   // The following functions access texture bindings present at the kernel's
   // launch
@@ -125,9 +129,9 @@ public:
   bool is_finished();
   bool children_all_finished();
   void notify_parent_finished();
-  CUstream_st* create_stream_cta(dim3 ctaid);
-  CUstream_st* get_default_stream_cta(dim3 ctaid);
-  bool cta_has_stream(dim3 ctaid, CUstream_st* stream);
+  CUstream_st *create_stream_cta(dim3 ctaid);
+  CUstream_st *get_default_stream_cta(dim3 ctaid);
+  bool cta_has_stream(dim3 ctaid, CUstream_st *stream);
   void destroy_cta_streams();
   void print_parent_info();
   kernel_info_t *get_parent() { return m_parent_kernel; }
@@ -139,7 +143,7 @@ private:
   // child kernel launched
   std::list<kernel_info_t *> m_child_kernels;
   // streams created in each CTA
-  std::map<dim3, std::list<CUstream_st*>, dim3comp> m_cta_streams;
+  std::map<dim3, std::list<CUstream_st *>, dim3comp> m_cta_streams;
 
   // Jin: kernel timing
 public:

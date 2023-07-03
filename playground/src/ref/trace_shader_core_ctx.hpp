@@ -116,7 +116,9 @@ public:
                           unsigned sch_id);
 
   // from "core.hpp"
-  class trace_gpgpu_sim *get_gpu() { return m_gpu; }
+  class trace_gpgpu_sim *get_gpu() {
+    return m_gpu;
+  }
 
   // from "shader_core_ctx.hpp"
   void cycle();

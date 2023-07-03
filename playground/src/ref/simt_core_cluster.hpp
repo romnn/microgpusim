@@ -1,10 +1,10 @@
 #pragma once
 
-#include "memory_stats.hpp"
+#include "cache_stats.hpp"
 #include "memory_config.hpp"
+#include "memory_stats.hpp"
 #include "shader_core_config.hpp"
 #include "shader_core_stats.hpp"
-#include "cache_stats.hpp"
 
 class gpgpu_sim;
 class shader_core_ctx;

@@ -1,5 +1,6 @@
 mod coverage;
 mod docs;
+mod format;
 mod util;
 
 use clap::Parser;
@@ -8,6 +9,7 @@ use color_eyre::eyre;
 #[derive(Parser, Debug, Clone)]
 pub enum Command {
     Coverage(coverage::Options),
+    Format(format::Options),
     Docs,
 }
 
@@ -23,6 +25,7 @@ fn main() -> eyre::Result<()> {
     dbg!(&options);
     match options.command {
         Command::Coverage(opts) => coverage::coverage(opts),
+        Command::Format(opts) => format::format(opts),
         Command::Docs => docs::docs(),
     }
 }

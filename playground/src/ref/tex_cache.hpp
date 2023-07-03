@@ -35,9 +35,7 @@ public:
     m_rob_status = rob_status;
   }
 
-  virtual std::string name() {
-    return "tex_cache";
-  }
+  virtual std::string name() { return "tex_cache"; }
 
   /// Access function for tex_cache
   /// return values: RESERVATION_FAIL if request could not be accepted

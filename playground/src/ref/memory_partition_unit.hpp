@@ -55,7 +55,9 @@ public:
 
   unsigned get_mpid() const { return m_id; }
 
-  class trace_gpgpu_sim *get_mgpu() const { return m_gpu; }
+  class trace_gpgpu_sim *get_mgpu() const {
+    return m_gpu;
+  }
 
   // model DRAM access scheduler latency (fixed latency between L2 and DRAM)
   struct dram_delay_t {

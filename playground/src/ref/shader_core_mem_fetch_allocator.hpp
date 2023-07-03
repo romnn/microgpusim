@@ -1,10 +1,10 @@
 #pragma once
 
 #include "hal.hpp"
-#include "mem_fetch_allocator.hpp"
-#include "mem_access_type.hpp"
 #include "mem_access.hpp"
+#include "mem_access_type.hpp"
 #include "mem_fetch.hpp"
+#include "mem_fetch_allocator.hpp"
 
 class memory_config;
 

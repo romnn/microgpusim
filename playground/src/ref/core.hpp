@@ -3,8 +3,8 @@
 #include "gpgpu.hpp"
 #include "hal.hpp"
 // #include "kernel_info.hpp"
-#include "trace_kernel_info.hpp"
 #include "simt_stack.hpp"
+#include "trace_kernel_info.hpp"
 #include "warp_instr.hpp"
 
 // from cuda_sim.h
@@ -47,7 +47,9 @@ public:
   virtual bool warp_waiting_at_barrier(unsigned warp_id) const = 0;
   virtual void checkExecutionStatusAndUpdate(warp_inst_t &inst, unsigned t,
                                              unsigned tid) = 0;
-  class gpgpu_sim *get_gpu() { return m_gpu; }
+  class gpgpu_sim *get_gpu() {
+    return m_gpu;
+  }
   // REMOVE: ptx
   // void execute_warp_inst_t(warp_inst_t &inst, unsigned warpId =
   // (unsigned)-1);
@@ -61,7 +63,9 @@ public:
   void get_pdom_stack_top_info(unsigned warpId, unsigned *pc,
                                unsigned *rpc) const;
   trace_kernel_info_t *get_kernel_info() { return m_kernel; }
-  class ptx_thread_info **get_thread_info() { return m_thread; }
+  class ptx_thread_info **get_thread_info() {
+    return m_thread;
+  }
   unsigned get_warp_size() const { return m_warp_size; }
   void and_reduction(unsigned ctaid, unsigned barid, bool value) {
     reduction_storage[ctaid][barid] &= value;

@@ -126,7 +126,9 @@ public:
   trace_kernel_info_t *get_kernel() { return m_kernel; }
   bool do_operation(trace_gpgpu_sim *gpu);
   void print(FILE *fp) const;
-  struct CUstream_st *get_stream() { return m_stream; }
+  struct CUstream_st *get_stream() {
+    return m_stream;
+  }
   void set_stream(CUstream_st *stream) { m_stream = stream; }
 
 private:

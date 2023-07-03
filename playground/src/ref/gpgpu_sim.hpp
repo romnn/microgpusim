@@ -234,7 +234,9 @@ private:
 
 public:
   bool is_functional_sim() { return m_functional_sim; }
-  trace_kernel_info_t *get_functional_kernel() { return m_functional_sim_kernel; }
+  trace_kernel_info_t *get_functional_kernel() {
+    return m_functional_sim_kernel;
+  }
   void functional_launch(trace_kernel_info_t *k) {
     m_functional_sim = true;
     m_functional_sim_kernel = k;

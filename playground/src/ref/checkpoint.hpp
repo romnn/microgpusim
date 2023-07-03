@@ -1,7 +1,7 @@
 #pragma once
 
-#include <cstdio>
 #include "memory_space.hpp"
+#include <cstdio>
 
 class checkpoint {
 public:

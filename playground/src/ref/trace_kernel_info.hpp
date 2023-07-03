@@ -42,7 +42,9 @@ public:
   bool running() const { return m_num_cores_running > 0; }
   bool done() const { return no_more_ctas_to_run() && !running(); }
 
-  class trace_function_info *entry() { return m_kernel_entry; }
+  class trace_function_info *entry() {
+    return m_kernel_entry;
+  }
   const class trace_function_info *entry() const { return m_kernel_entry; }
 
   size_t num_blocks() const {

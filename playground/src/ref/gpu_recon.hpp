@@ -8,4 +8,3 @@ struct gpgpu_recon_t {
   class ptx_instruction *source_inst;
   class ptx_instruction *target_inst;
 };
-

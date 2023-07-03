@@ -1,7 +1,7 @@
 #pragma once
 
 enum FuncCache {
-    FuncCachePreferNone = 0,
-    FuncCachePreferShared = 1,
-    FuncCachePreferL1 = 2
+  FuncCachePreferNone = 0,
+  FuncCachePreferShared = 1,
+  FuncCachePreferL1 = 2
 };

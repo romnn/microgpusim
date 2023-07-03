@@ -167,7 +167,9 @@ public:
   unsigned get_dynamic_warp_id() const { return m_dynamic_warp_id; }
   unsigned get_warp_id() const { return m_warp_id; }
 
-  class trace_shader_core_ctx *get_shader() const { return m_shader; }
+  class trace_shader_core_ctx *get_shader() const {
+    return m_shader;
+  }
 
   unsigned int m_cdp_latency;
   bool m_cdp_dummy;

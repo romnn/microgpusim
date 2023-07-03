@@ -22,3 +22,12 @@ pub fn clean_files(pattern: &str) -> eyre::Result<()> {
     let files: Result<Vec<PathBuf>, _> = glob::glob(pattern)?.collect();
     files?.iter().try_for_each(remove_file)
 }
+
+pub fn multi_glob<I, S>(patterns: I) -> impl Iterator<Item = Result<PathBuf, glob::GlobError>>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    let globs = patterns.into_iter().map(|p| glob::glob(p.as_ref()));
+    globs.flat_map(|x| x).flat_map(|x| x)
+}
