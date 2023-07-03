@@ -5,6 +5,8 @@
 #include "memory_space_impl.hpp"
 #include "trace_parser.hpp"
 
+#include <stdexcept>
+
 trace_kernel_info_t::trace_kernel_info_t(dim3 gridDim, dim3 blockDim,
                                          trace_function_info *m_function_info,
                                          trace_parser *parser,

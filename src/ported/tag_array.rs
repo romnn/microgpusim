@@ -310,6 +310,10 @@ impl<B> TagArray<B> {
         // probe tag array
         let is_probe = false;
         let (cache_index, probe_status) = self.probe(addr, fetch, fetch.is_write(), is_probe);
+        if probe_status == cache::RequestStatus::RESERVATION_FAIL {
+            return;
+        }
+
         let cache_index = cache_index.unwrap();
         let line = self.lines.get_mut(cache_index).unwrap();
         let mut before = line.is_modified();

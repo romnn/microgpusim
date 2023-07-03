@@ -36,11 +36,10 @@ else
 	export DEBUG=0
 endif
 
-CXXFLAGS = -Wall -fdiagnostics-color=always -fPIC -std=c++11
 ifeq ($(DEBUG),1)
-	CXXFLAGS += -O0 -g3
+	CXXFLAGS = -Wall -O0 -g3 -fPIC -std=c++11
 else
-	CXXFLAGS += -O3 -g3
+	CXXFLAGS = -Wall -O3 -g3 -fPIC -std=c++11
 endif
 
 all: $(BIN_DIR)/accel-sim.out
@@ -52,7 +51,7 @@ makedirs:
 	if [ ! -d $(BUILD_DIR) ]; then mkdir -p $(BUILD_DIR); fi;
 
 gpgpu-sim: checkenv makedirs
-	$(MAKE) -C gpgpu-sim
+	$(MAKE) -C $(GPGPUSIM_ROOT)
 
 checkenv: makedirs
 	 @if [ ! -n "$(ACCELSIM_SETUP_ENVIRONMENT_WAS_RUN)" ]; then \
@@ -84,7 +83,7 @@ trace-parser: checkenv makedirs
 clean:
 	rm -rf $(BIN_DIR)
 	rm -rf $(BUILD_DIR)
-	$(MAKE) clean -C gpgpu-sim
+	$(MAKE) clean -C $(GPGPUSIM_ROOT)
 
 
 include $(BUILD_DIR)/main.makedepend

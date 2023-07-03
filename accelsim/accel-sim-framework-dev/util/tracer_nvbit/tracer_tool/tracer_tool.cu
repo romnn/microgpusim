@@ -320,7 +320,7 @@ void nvbit_at_cuda_event(CUcontext ctx, int is_exit, nvbit_api_cuda_t cbid,
       printf("Stats location is %s \n", stats_location.c_str());
     }
 
-    // kernelsFile = fopen(kernelslist_location.c_str(), "w");
+    kernelsFile = fopen(kernelslist_location.c_str(), "w");
     statsFile = fopen(stats_location.c_str(), "w");
     fprintf(statsFile,
             "kernel id, kernel mangled name, grid_dimX, grid_dimY, grid_dimZ, "

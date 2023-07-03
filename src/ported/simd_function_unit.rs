@@ -159,8 +159,10 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
             // if !dispatch.empty() && !dispatch.dispatch_delay() {
             let start_stage = dispatch.latency - dispatch.initiation_interval;
             // panic!("start stage: {}", &start_stage);
-            register_set::move_warp(Some(dispatch), &mut self.pipeline_reg[start_stage]);
-            self.active_insts_in_pipeline += 1;
+            if self.pipeline_reg[start_stage].is_none() {
+                register_set::move_warp(Some(dispatch), &mut self.pipeline_reg[start_stage]);
+                self.active_insts_in_pipeline += 1;
+            }
         }
 
         // occupied latencies are shifted each cycle

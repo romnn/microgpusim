@@ -1,7 +1,9 @@
 use crate::config;
 use crate::ported::mem_sub_partition::{was_writeback_sent, SECTOR_SIZE};
 use crate::ported::{
-    address, cache, cache_block, interconn as ic, mem_fetch, mshr, stats::CacheStats, tag_array,
+    address, cache, cache_block, interconn as ic, mem_fetch, mshr,
+    stats::{CacheStats, Stats},
+    tag_array,
 };
 use console::style;
 use std::collections::{HashMap, VecDeque};
@@ -651,17 +653,12 @@ impl<I> cache::CacheBandwidth for Base<I> {
 mod tests {
     use super::Base;
     use crate::config;
-    use crate::ported::{interconn as ic, mem_fetch, stats::CacheStats, Packet};
+    use crate::ported::{
+        interconn as ic, mem_fetch,
+        stats::{CacheStats, Stats},
+        Packet,
+    };
     use std::sync::{Arc, Mutex};
-
-    // struct Interconnect {}
-    //
-    // impl mem_fetch:: for Interconnect {
-    //     fn full(&self, size: u32, write: bool) -> bool {
-    //         false
-    //     }
-    //     fn push(&self, mf: mem_fetch::MemFetch) {}
-    // }
 
     #[test]
     fn base_cache_init() {

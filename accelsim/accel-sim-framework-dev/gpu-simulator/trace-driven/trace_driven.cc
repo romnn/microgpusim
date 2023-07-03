@@ -175,6 +175,7 @@ bool trace_warp_inst_t::parse_from_trace_struct(
 
   is_vectorin = 0;
   is_vectorout = 0;
+  pred = 0;
   ar1 = 0;
   ar2 = 0;
   memory_op = no_memory_op;
@@ -199,7 +200,7 @@ bool trace_warp_inst_t::parse_from_trace_struct(
       OpcPowerMap->find(m_opcode);
     if(it2 != OpcPowerMap->end())
       sp_op = (special_ops) (it2->second);
-      oprnd_type = get_oprnd_type(op, sp_op);
+    oprnd_type = get_oprnd_type(op, sp_op);
   } else {
     std::cout << "ERROR:  undefined instruction : " << trace.opcode
               << " Opcode: " << opcode1 << std::endl;
@@ -373,6 +374,8 @@ bool trace_warp_inst_t::parse_from_trace_struct(
     case OP_HSETP2:
       initiation_interval =
           initiation_interval / 2;  // FP16 has 2X throughput than FP32
+      if (initiation_interval < 1)  // Make sure initiaion interval never goes below 1
+        initiation_interval = 1;
       break;
     default:
       break;

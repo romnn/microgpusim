@@ -546,7 +546,6 @@ class gpgpu_functional_sim_config {
 
   int get_ptx_inst_debug_to_file() const { return g_ptx_inst_debug_to_file; }
   const char *get_ptx_inst_debug_file() const { return g_ptx_inst_debug_file; }
-  // const char *get_mem_debug_file() const { return g_mem_debug_file; }
   int get_ptx_inst_debug_thread_uid() const {
     return g_ptx_inst_debug_thread_uid;
   }
@@ -576,7 +575,6 @@ class gpgpu_functional_sim_config {
   int checkpoint_insn_Y;
   int g_ptx_inst_debug_to_file;
   char *g_ptx_inst_debug_file;
-  // char *g_mem_debug_file;
   int g_ptx_inst_debug_thread_uid;
 
   unsigned m_texcache_linesize;
@@ -660,7 +658,6 @@ class gpgpu_t {
     return m_function_model_config;
   }
   FILE *get_ptx_inst_debug_file() { return ptx_inst_debug_file; }
-  // FILE *get_mem_debug_file() { return mem_debug_file; }
 
   //  These maps return the current texture mappings for the GPU at any given
   //  time.
@@ -676,7 +673,6 @@ class gpgpu_t {
  protected:
   const gpgpu_functional_sim_config &m_function_model_config;
   FILE *ptx_inst_debug_file;
-  // FILE *mem_debug_file;
 
   class memory_space *m_global_mem;
   class memory_space *m_tex_mem;
@@ -967,7 +963,7 @@ class inst_t {
   }
   bool valid() const { return m_decoded; }
   virtual void print_insn(FILE *fp) const {
-    fprintf(fp, " [inst @ pc=0x%04x] ", pc);
+    fprintf(fp, " [inst @ pc=0x%04llx] ", pc);
   }
   bool is_load() const {
     return (op == LOAD_OP || op == TENSOR_CORE_LOAD_OP ||
@@ -1161,7 +1157,7 @@ class warp_inst_t : public inst_t {
 
   // accessors
   virtual void print_insn(FILE *fp) const {
-    fprintf(fp, " [inst @ pc=0x%04x] ", pc);
+    fprintf(fp, " [inst @ pc=0x%04llx] ", pc);
     for (int i = (int)m_config->warp_size - 1; i >= 0; i--)
       fprintf(fp, "%c", ((m_warp_active_mask[i]) ? '1' : '0'));
   }
@@ -1390,7 +1386,7 @@ class register_set {
     assert(has_ready());
     warp_inst_t **ready;
     ready = NULL;
-    unsigned reg_id;
+    unsigned reg_id = 0;
     for (unsigned i = 0; i < regs.size(); i++) {
       if (not regs[i]->empty()) {
         if (ready and (*ready)->get_uid() < regs[i]->get_uid()) {

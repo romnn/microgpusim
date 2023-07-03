@@ -41,7 +41,7 @@
 #include "dram.h"
 #include "gpu-cache.h"
 #include "gpu-sim.h"
-// #include "histogram.h"
+#include "histogram.h"
 #include "l2cache.h"
 #include "l2cache_trace.h"
 #include "mem_fetch.h"
