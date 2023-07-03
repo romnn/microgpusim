@@ -1,64 +1,11 @@
-#![allow(warnings)]
-
-use color_eyre::eyre;
 use async_process::Command;
+use color_eyre::eyre;
 use console::style;
 use std::collections::HashMap;
 use std::io::Write;
 use std::os::unix::fs::DirBuilderExt;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
-
-#[tokio::main]
-async fn main() -> eyre::Result<()> {
-    color_eyre::install()?;
-
-    let args: Vec<_> = std::env::args().collect();
-    let exec = PathBuf::from(args.get(1).expect("usage ./trace <executable> [args]"));
-
-    let exec_args: Vec<_> = args.iter().skip(2).cloned().collect();
-
-    let exec_dir = exec.parent().expect("executable has no parent dir");
-    let traces_dir = exec_dir.join("traces").join(format!(
-        "{}-trace",
-        &trace_model::app_prefix(std::option_env!("CARGO_BIN_NAME"))
-    ));
-
-    let mut trace_cmd_string = exec.to_string_lossy().to_string();
-    if !exec_args.is_empty() {
-        trace_cmd_string += "1";
-        trace_cmd_string += &exec_args.join(" ");
-    }
-    if !dialoguer::Confirm::new()
-        .with_prompt(format!(
-            " => tracing command `{}` and saving traces to `{}` ... proceed?",
-            &style(trace_cmd_string).red(),
-            &style(traces_dir.display()).red(),
-        ))
-        .interact()?
-    {
-        println!("exit");
-        return Ok(());
-    }
-
-    std::fs::DirBuilder::new()
-        .recursive(true)
-        .mode(0o777)
-        .create(&traces_dir)
-        .ok();
-
-    dbg!(&traces_dir);
-
-    let start = Instant::now();
-    run_trace(&exec, exec_args.clone(), &traces_dir).await?;
-    println!(
-        "tracing {} {} took {:?}",
-        exec.display(),
-        exec_args.join(" "),
-        start.elapsed()
-    );
-    Ok(())
-}
 
 async fn run_trace(
     exec: impl AsRef<Path>,
@@ -148,9 +95,8 @@ async fn run_trace(
 
     let mut cmd = Command::new("bash");
     cmd.arg(&*tmp_trace_sh_path.canonicalize().unwrap().to_string_lossy());
-    if let Some(cuda_path) = utils::find_cuda().first() {
-        cmd.env("CUDA_INSTALL_PATH", &*cuda_path.to_string_lossy());
-    }
+    let cuda_path = accelsim::find_cuda()?;
+    cmd.env("CUDA_INSTALL_PATH", &*cuda_path.to_string_lossy());
     dbg!(&cmd);
 
     let result = cmd.output().await?;
@@ -164,5 +110,56 @@ async fn run_trace(
     );
 
     std::fs::remove_file(&tmp_trace_sh_path).ok();
+    Ok(())
+}
+
+#[tokio::main]
+async fn main() -> eyre::Result<()> {
+    color_eyre::install()?;
+
+    let args: Vec<_> = std::env::args().collect();
+    let exec = PathBuf::from(args.get(1).expect("usage ./trace <executable> [args]"));
+
+    let exec_args: Vec<_> = args.iter().skip(2).cloned().collect();
+
+    let exec_dir = exec.parent().expect("executable has no parent dir");
+    let traces_dir = exec_dir.join("traces").join(format!(
+        "{}-trace",
+        &trace_model::app_prefix(std::option_env!("CARGO_BIN_NAME"))
+    ));
+
+    let mut trace_cmd_string = exec.to_string_lossy().to_string();
+    if !exec_args.is_empty() {
+        trace_cmd_string += "1";
+        trace_cmd_string += &exec_args.join(" ");
+    }
+    if !dialoguer::Confirm::new()
+        .with_prompt(format!(
+            " => tracing command `{}` and saving traces to `{}` ... proceed?",
+            &style(trace_cmd_string).red(),
+            &style(traces_dir.display()).red(),
+        ))
+        .interact()?
+    {
+        println!("exit");
+        return Ok(());
+    }
+
+    std::fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o777)
+        .create(&traces_dir)
+        .ok();
+
+    dbg!(&traces_dir);
+
+    let start = Instant::now();
+    run_trace(&exec, exec_args.clone(), &traces_dir).await?;
+    println!(
+        "tracing {} {} took {:?}",
+        exec.display(),
+        exec_args.join(" "),
+        start.elapsed()
+    );
     Ok(())
 }

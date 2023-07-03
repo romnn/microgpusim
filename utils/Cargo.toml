@@ -5,4 +5,5 @@ edition = "2021"
 
 [dependencies]
 libc = "0"
-glob = "0"
+color-eyre = "0"
+# duct = "0"

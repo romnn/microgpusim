@@ -1,6 +1,5 @@
-#[allow(unused_imports)]
+// #[allow(unused_imports)]
 use accelsim::Options;
-#[allow(unused_imports)]
 use clap::Parser;
 use color_eyre::eyre;
 use playground::bridge::main::{accelsim, accelsim_config, AccelsimStats};
@@ -19,23 +18,22 @@ use std::path::PathBuf;
 //     }
 // }
 
-#[allow(unused_mut, unused_assignments)]
+#[allow(unused_assignments)]
 fn main() -> eyre::Result<()> {
     color_eyre::install()?;
 
+    let _options = Options::parse();
+    // let gpgpusim_config = options.sim_config.config()?;
+    // let trace_config = options.sim_config.trace_config()?;
+    // let kernelslist = options.kernelslist()?;
+    // let inter_config = options.sim_config.inter_config;
+
     // temp
     let base = PathBuf::from("/home/roman/dev/box/");
-    let mut kernelslist =
-        base.join("test-apps/vectoradd/traces/vectoradd-100-32-trace/kernelslist.g");
-    let mut gpgpusim_config = base.join("accelsim/gtx1080/gpgpusim.config");
-    let mut trace_config = base.join("accelsim/gtx1080/gpgpusim.trace.config");
-    let mut inter_config = Some(base.join("accelsim/gtx1080/config_fermi_islip.icnt"));
-
-    // let options = Options::parse();
-    // gpgpusim_config = options.sim_config.config()?;
-    // trace_config = options.sim_config.trace_config()?;
-    // kernelslist = options.kernelslist()?;
-    // inter_config = options.sim_config.inter_config;
+    let kernelslist = base.join("test-apps/vectoradd/traces/vectoradd-100-32-trace/kernelslist.g");
+    let gpgpusim_config = base.join("accelsim/gtx1080/gpgpusim.config");
+    let trace_config = base.join("accelsim/gtx1080/gpgpusim.trace.config");
+    let inter_config = Some(base.join("accelsim/gtx1080/config_fermi_islip.icnt"));
 
     assert!(gpgpusim_config.is_file());
     assert!(trace_config.is_file());

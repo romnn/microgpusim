@@ -4,6 +4,8 @@ members = [
   "profile",
   "playground",
   "accelsim",
+  "accelsim/trace",
+  "accelsim/sim",
   "utils",
   "plot",
   "trace",

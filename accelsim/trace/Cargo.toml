@@ -1,0 +1,29 @@
+[package]
+name = "accelsim-trace"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default  = []
+
+[package.metadata.cargo-feature-combinations]
+denylist = ["default"]
+
+[dependencies]
+color-eyre = "0"
+dialoguer = "0"
+console = "0"
+async-process = "1"
+tokio = { version = "1", features = ["full"] }
+
+trace-model = { path = "../../trace/model" }
+accelsim = { path = "../" }
+
+[build-dependencies]
+color-eyre = "0"
+duct = "0"
+reqwest = { version = "0", features = ["blocking", "rustls-tls"] }
+bzip2 = "0.4"
+tar = "0.4"
+
+accelsim = { path = "../" }

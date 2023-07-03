@@ -1,6 +1,7 @@
 #### TODO
 
 - fix github actions build
+- DONE: update accelsim reference source
 - get more stats to match
   - DONE: use separate cache stats per cache
 - implement per structure stats
