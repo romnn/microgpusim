@@ -116,10 +116,10 @@ void GPUTrafficManager::_RetireFlit(Flit *f, int dest) {
           << ", nlat = " << f->atime - head->itime << ", frag = "
           << (f->atime - head->atime) -
                  (f->id -
-                  head->id) // NB: In the spirit of solving problems using ugly
-                            // hacks, we compute the packet length by taking
-                            // advantage of the fact that the IDs of flits
-                            // within a packet are contiguous.
+                  head->id)  // NB: In the spirit of solving problems using ugly
+                             // hacks, we compute the packet length by taking
+                             // advantage of the fact that the IDs of flits
+                             // within a packet are contiguous.
           << ", src = " << head->src << ", dest = " << head->dest << ")."
           << std::endl;
     }
@@ -155,7 +155,6 @@ void GPUTrafficManager::_RetireFlit(Flit *f, int dest) {
     // Only record statistics once per packet (at tail)
     // and based on the simulation state
     if ((_sim_state == warming_up) || f->record) {
-
       _hop_stats[f->cl]->AddSample(f->hops);
 
       if ((_slowest_packet[f->cl] < 0) ||
@@ -195,7 +194,7 @@ void GPUTrafficManager::_GeneratePacket(int source, int stype, int cl, int time,
   assert(stype != 0);
 
   //  Flit::FlitType packet_type = Flit::ANY_TYPE;
-  int size = packet_size; // input size
+  int size = packet_size;  // input size
   unsigned long long pid = _cur_pid++;
   assert(_cur_pid > 0);
   int packet_destination = dest;
@@ -288,7 +287,7 @@ void GPUTrafficManager::_GeneratePacket(int source, int stype, int cl, int time,
     }
     f->type = packet_type;
 
-    if (i == 0) { // Head flit
+    if (i == 0) {  // Head flit
       f->head = true;
       // packets are only generated to nodes smaller or equal to limit
       f->dest = packet_destination;
@@ -297,22 +296,22 @@ void GPUTrafficManager::_GeneratePacket(int source, int stype, int cl, int time,
       f->dest = -1;
     }
     switch (_pri_type) {
-    case class_based:
-      f->pri = _class_priority[cl];
-      assert(f->pri >= 0);
-      break;
-    case age_based:
-      f->pri = std::numeric_limits<int>::max() - time;
-      assert(f->pri >= 0);
-      break;
-    case sequence_based:
-      f->pri = std::numeric_limits<int>::max() - _packet_seq_no[source];
-      assert(f->pri >= 0);
-      break;
-    default:
-      f->pri = 0;
+      case class_based:
+        f->pri = _class_priority[cl];
+        assert(f->pri >= 0);
+        break;
+      case age_based:
+        f->pri = std::numeric_limits<int>::max() - time;
+        assert(f->pri >= 0);
+        break;
+      case sequence_based:
+        f->pri = std::numeric_limits<int>::max() - _packet_seq_no[source];
+        assert(f->pri >= 0);
+        break;
+      default:
+        f->pri = 0;
     }
-    if (i == (size - 1)) { // Tail flit
+    if (i == (size - 1)) {  // Tail flit
       f->tail = true;
     } else {
       f->tail = false;
@@ -365,8 +364,7 @@ void GPUTrafficManager::_Step() {
       // Flit *const ejected_flit = g_icnt_interface->GetEjectedFlit(subnet, n);
       Flit *const ejected_flit = m_icnt->GetEjectedFlit(subnet, n);
       if (ejected_flit) {
-        if (ejected_flit->head)
-          assert(ejected_flit->dest == n);
+        if (ejected_flit->head) assert(ejected_flit->dest == n);
         if (ejected_flit->watch) {
           *m_icnt->watch_out << GetSimTime() << " | "
                              << "node" << n << " | "
@@ -413,9 +411,7 @@ void GPUTrafficManager::_Step() {
 #endif
 
   for (int subnet = 0; subnet < _subnets; ++subnet) {
-
     for (int n = 0; n < _nodes; ++n) {
-
       Flit *f = NULL;
 
       BufferState *const dest_buf = _buf_states[n][subnet];
@@ -438,7 +434,6 @@ void GPUTrafficManager::_Step() {
       }
 
       for (int i = 1; i <= class_limit; ++i) {
-
         int const c = (last_class + i) % _classes;
 
         std::list<Flit *> const &pp = _input_queue[subnet][n][c];
@@ -457,7 +452,7 @@ void GPUTrafficManager::_Step() {
           continue;
         }
 
-        if (cf->head && cf->vc == -1) { // Find first available VC
+        if (cf->head && cf->vc == -1) {  // Find first available VC
 
           OutputSet route_set;
           _rf(NULL, cf, -1, &route_set, true);
@@ -558,13 +553,11 @@ void GPUTrafficManager::_Step() {
       }
 
       if (f) {
-
         assert(f->subnetwork == subnet);
 
         int const c = f->cl;
 
         if (f->head) {
-
           if (_lookahead_routing) {
             if (!_noq) {
               const FlitChannel *inject = _net[subnet]->GetInject(n);

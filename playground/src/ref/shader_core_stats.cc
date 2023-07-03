@@ -55,23 +55,23 @@ void shader_core_stats::print(FILE *fout) const {
       gpu_stall_shd_mem_breakdown[G_MEM_LD][BK_CONF] +
           gpu_stall_shd_mem_breakdown[G_MEM_ST][BK_CONF] +
           gpu_stall_shd_mem_breakdown[L_MEM_LD][BK_CONF] +
-          gpu_stall_shd_mem_breakdown[L_MEM_ST][BK_CONF]); // coalescing stall
-                                                           // at data cache
+          gpu_stall_shd_mem_breakdown[L_MEM_ST][BK_CONF]);  // coalescing stall
+                                                            // at data cache
   fprintf(
       fout, "gpgpu_stall_shd_mem[gl_mem][coal_stall] = %d\n",
       gpu_stall_shd_mem_breakdown[G_MEM_LD][COAL_STALL] +
           gpu_stall_shd_mem_breakdown[G_MEM_ST][COAL_STALL] +
           gpu_stall_shd_mem_breakdown[L_MEM_LD][COAL_STALL] +
           gpu_stall_shd_mem_breakdown[L_MEM_ST]
-                                     [COAL_STALL]); // coalescing stall + bank
-                                                    // conflict at data cache
+                                     [COAL_STALL]);  // coalescing stall + bank
+                                                     // conflict at data cache
   fprintf(fout, "gpgpu_stall_shd_mem[gl_mem][data_port_stall] = %d\n",
           gpu_stall_shd_mem_breakdown[G_MEM_LD][DATA_PORT_STALL] +
               gpu_stall_shd_mem_breakdown[G_MEM_ST][DATA_PORT_STALL] +
               gpu_stall_shd_mem_breakdown[L_MEM_LD][DATA_PORT_STALL] +
               gpu_stall_shd_mem_breakdown[L_MEM_ST]
-                                         [DATA_PORT_STALL]); // data port stall
-                                                             // at data cache
+                                         [DATA_PORT_STALL]);  // data port stall
+                                                              // at data cache
   // fprintf(fout, "gpgpu_stall_shd_mem[g_mem_ld][mshr_rc] = %d\n",
   // gpu_stall_shd_mem_breakdown[G_MEM_LD][MSHR_RC_FAIL]); fprintf(fout,
   // "gpgpu_stall_shd_mem[g_mem_ld][icnt_rc] = %d\n",

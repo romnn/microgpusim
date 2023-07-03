@@ -40,12 +40,14 @@
 #include <limits>
 
 Arbiter::Arbiter(Module *parent, const std::string &name, int size)
-    : Module(parent, name), _size(size), _selected(-1),
-      _highest_pri(std::numeric_limits<int>::min()), _best_input(-1),
+    : Module(parent, name),
+      _size(size),
+      _selected(-1),
+      _highest_pri(std::numeric_limits<int>::min()),
+      _best_input(-1),
       _num_reqs(0) {
   _request.resize(size);
-  for (int i = 0; i < size; i++)
-    _request[i].valid = false;
+  for (int i = 0; i < size; i++) _request[i].valid = false;
 }
 
 void Arbiter::AddRequest(int input, int id, int pri) {
@@ -60,10 +62,8 @@ void Arbiter::AddRequest(int input, int id, int pri) {
 
 int Arbiter::Arbitrate(int *id, int *pri) {
   if (_selected != -1) {
-    if (id)
-      *id = _request[_selected].id;
-    if (pri)
-      *pri = _request[_selected].pri;
+    if (id) *id = _request[_selected].id;
+    if (pri) *pri = _request[_selected].pri;
   }
 
   assert((_selected >= 0) || (_num_reqs == 0));
@@ -73,10 +73,8 @@ int Arbiter::Arbitrate(int *id, int *pri) {
 
 void Arbiter::Clear() {
   if (_num_reqs > 0) {
-
     // clear the request vector
-    for (int i = 0; i < _size; i++)
-      _request[i].valid = false;
+    for (int i = 0; i < _size; i++) _request[i].valid = false;
     _num_reqs = 0;
     _selected = -1;
   }

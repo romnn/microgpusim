@@ -5,9 +5,9 @@
 #include "./common/common.h"
 #include "./common/deviceQuery.h"
 
-#define L1_SIZE (64 * 1024) // Max L1 size in bytes, when enabled
+#define L1_SIZE (64 * 1024)  // Max L1 size in bytes, when enabled
 
-#define CLK_FREQUENCY 837 // frequency in MHz
+#define CLK_FREQUENCY 837  // frequency in MHz
 
 #define ISSUE_MODEL issue_model::dual
 #define CORE_MODEL core_model::shared

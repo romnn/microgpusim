@@ -41,12 +41,11 @@
 class Arbiter;
 
 class SeparableAllocator : public SparseAllocator {
-
-protected:
+ protected:
   std::vector<Arbiter *> _input_arb;
   std::vector<Arbiter *> _output_arb;
 
-public:
+ public:
   SeparableAllocator(Module *parent, const std::string &name, int inputs,
                      int outputs, const std::string &arb_type);
 

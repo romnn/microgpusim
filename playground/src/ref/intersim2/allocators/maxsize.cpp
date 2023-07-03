@@ -83,7 +83,6 @@ MaxSizeMatch::~MaxSizeMatch() {
 }
 
 void MaxSizeMatch::Allocate() {
-
   // augment as many times as possible
   // (this is an O(N^3) maximum-size matching algorithm)
   while (_ShortestAugmenting())
@@ -103,7 +102,7 @@ bool MaxSizeMatch::_ShortestAugmenting() {
   // push all unassigned inputs to the stack
   for (i = 0; i < _inputs; ++i) {
     j = (i + _prio) % _inputs;
-    if (_inmatch[j] == -1) { // start with unmatched left nodes
+    if (_inmatch[j] == -1) {  // start with unmatched left nodes
       _s[slen++] = j;
     }
   }
@@ -117,21 +116,21 @@ bool MaxSizeMatch::_ShortestAugmenting() {
       i = _s[e];
 
       for (j = 0; j < _outputs; ++j) {
-        if ((_request[i][j].label != -1) && // edge (i,j) exists
+        if ((_request[i][j].label != -1) &&  // edge (i,j) exists
             (_inmatch[i] !=
-             j) && // (i,j) is not contained in the current matching
-            (_from[j] == -1)) { // no shorter path to j exists
+             j) &&  // (i,j) is not contained in the current matching
+            (_from[j] == -1)) {  // no shorter path to j exists
 
-          _from[j] = i; // how did we get to j?
+          _from[j] = i;  // how did we get to j?
 
 #ifdef DEBUG_MAXSIZE
           cout << "  got to " << j << " from " << i << endl;
 #endif
-          if (_outmatch[j] == -1) { // j is unmatched -- augmenting path found
+          if (_outmatch[j] == -1) {  // j is unmatched -- augmenting path found
             goto found_augmenting;
-          } else {                     // j is matched
-            _ns[nslen] = _outmatch[j]; // add the destination of this edge to
-                                       // the leaf nodes
+          } else {                      // j is matched
+            _ns[nslen] = _outmatch[j];  // add the destination of this edge to
+                                        // the leaf nodes
             nslen++;
 
 #ifdef DEBUG_MAXSIZE
@@ -149,7 +148,7 @@ bool MaxSizeMatch::_ShortestAugmenting() {
     slen = nslen;
   }
 
-  return false; // no augmenting paths
+  return false;  // no augmenting paths
 
 found_augmenting:
 
@@ -166,15 +165,15 @@ found_augmenting:
   cout << i;
 #endif
 
-  while (_inmatch[i] != -1) { // loop until the end of the path
-    jn = _inmatch[i];         // remove previous edge (i,jn) and add (i,j)
+  while (_inmatch[i] != -1) {  // loop until the end of the path
+    jn = _inmatch[i];          // remove previous edge (i,jn) and add (i,j)
     _inmatch[i] = j;
 
 #ifdef DEBUG_MAXSIZE
     cout << " <- " << j << "c <- ";
 #endif
 
-    j = jn; // add edge from (jn,in)
+    j = jn;  // add edge from (jn,in)
     i = _from[j];
     _outmatch[j] = i;
 

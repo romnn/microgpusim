@@ -112,7 +112,7 @@ void SelAlloc::Allocate() {
         p++;
       }
 
-      if (max_index != -1) { // grant
+      if (max_index != -1) {  // grant
         grants[output] = max_index;
       }
     }
@@ -218,8 +218,7 @@ void SelAlloc::MaskOutput(int out, int mask) {
 void SelAlloc::PrintRequests(std::ostream *os) const {
   std::map<int, sRequest>::const_iterator iter;
 
-  if (!os)
-    os = &std::cout;
+  if (!os) os = &std::cout;
 
   *os << "Input requests = [ ";
   for (int input = 0; input < _inputs; ++input) {

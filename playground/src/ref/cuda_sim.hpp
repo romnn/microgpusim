@@ -22,10 +22,11 @@ class gpgpu_ptx_sim_arg_list_t;
 extern void print_splash();
 
 class cuda_sim {
-public:
+ public:
   cuda_sim(gpgpu_context *ctx) {
     g_ptx_sim_num_insn = 0;
-    g_ptx_kernel_count = -1; // used for classification stat collection purposes
+    g_ptx_kernel_count =
+        -1;  // used for classification stat collection purposes
     gpgpu_param_num_shaders = 0;
     g_cuda_launch_blocking = false;
     g_inst_classification_stat = NULL;
@@ -55,12 +56,13 @@ public:
   int g_ptxinfo_error_detected;
   unsigned g_ptx_sim_num_insn;
   char *cdp_latency_str;
-  int g_ptx_kernel_count; // used for classification stat collection purposes
+  int g_ptx_kernel_count;  // used for classification stat collection purposes
   std::map<const void *, std::string>
-      g_global_name_lookup;                                // indexed by hostVar
-  std::map<const void *, std::string> g_const_name_lookup; // indexed by hostVar
-  int g_ptx_sim_mode; // if non-zero run functional simulation only (i.e., no
-                      // notion of a clock cycle)
+      g_global_name_lookup;  // indexed by hostVar
+  std::map<const void *, std::string>
+      g_const_name_lookup;  // indexed by hostVar
+  int g_ptx_sim_mode;  // if non-zero run functional simulation only (i.e., no
+                       // notion of a clock cycle)
   unsigned gpgpu_param_num_shaders;
   class std::map<trace_function_info *, rec_pts> g_rpts;
   bool g_cuda_launch_blocking;

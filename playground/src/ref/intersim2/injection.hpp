@@ -31,12 +31,12 @@
 #include "config_utils.hpp"
 
 class InjectionProcess {
-protected:
+ protected:
   int _nodes;
   double _rate;
   InjectionProcess(int nodes, double rate);
 
-public:
+ public:
   virtual ~InjectionProcess() {}
   virtual bool test(int source) = 0;
   virtual void reset();
@@ -46,20 +46,20 @@ public:
 };
 
 class BernoulliInjectionProcess : public InjectionProcess {
-public:
+ public:
   BernoulliInjectionProcess(int nodes, double rate);
   virtual bool test(int source);
 };
 
 class OnOffInjectionProcess : public InjectionProcess {
-private:
+ private:
   double _alpha;
   double _beta;
   double _r1;
   std::vector<int> _initial;
   std::vector<int> _state;
 
-public:
+ public:
   OnOffInjectionProcess(int nodes, double rate, double alpha, double beta,
                         double r1, std::vector<int> initial);
   virtual void reset();

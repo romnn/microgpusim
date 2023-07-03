@@ -6,7 +6,7 @@
 
 // register that can hold multiple instructions.
 class register_set {
-public:
+ public:
   register_set(unsigned num, const char *name) {
     for (unsigned i = 0; i < num; i++) {
       regs.push_back(new warp_inst_t());
@@ -25,8 +25,7 @@ public:
   bool has_free(bool sub_core_model, unsigned reg_id) {
     // in subcore model, each sched has a one specific reg to use (based on
     // sched id)
-    if (!sub_core_model)
-      return has_free();
+    if (!sub_core_model) return has_free();
 
     assert(reg_id < regs.size());
     return regs[reg_id]->empty();
@@ -40,8 +39,7 @@ public:
     return false;
   }
   bool has_ready(bool sub_core_model, unsigned reg_id) {
-    if (!sub_core_model)
-      return has_ready();
+    if (!sub_core_model) return has_ready();
     assert(reg_id < regs.size());
     return (not regs[reg_id]->empty());
   }
@@ -122,13 +120,11 @@ public:
     return ready;
   }
   warp_inst_t **get_ready(bool sub_core_model, unsigned reg_id) {
-    if (!sub_core_model)
-      return get_ready();
+    if (!sub_core_model) return get_ready();
     warp_inst_t **ready;
     ready = NULL;
     assert(reg_id < regs.size());
-    if (not regs[reg_id]->empty())
-      ready = &regs[reg_id];
+    if (not regs[reg_id]->empty()) ready = &regs[reg_id];
     return ready;
   }
 
@@ -161,8 +157,7 @@ public:
   warp_inst_t **get_free(bool sub_core_model, unsigned reg_id) {
     // in subcore model, each sched has a one specific reg to use (based on
     // sched id)
-    if (!sub_core_model)
-      return get_free();
+    if (!sub_core_model) return get_free();
 
     assert(reg_id < regs.size());
     if (regs[reg_id]->empty()) {
@@ -174,7 +169,7 @@ public:
 
   unsigned get_size() { return regs.size(); }
 
-private:
+ private:
   std::vector<warp_inst_t *> regs;
   const char *m_name;
 };

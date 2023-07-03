@@ -70,10 +70,10 @@ void trace_parser::parse_memcpy_info(const std::string &memcpy_command,
   ss >> std::dec >> count;
 }
 
-kernel_trace_t *
-trace_parser::parse_kernel_info(const std::string &kerneltraces_filepath) {
+kernel_trace_t *trace_parser::parse_kernel_info(
+    const std::string &kerneltraces_filepath) {
   kernel_trace_t *kernel_info = new kernel_trace_t;
-  kernel_info->enable_lineinfo = 0; // default disabled
+  kernel_info->enable_lineinfo = 0;  // default disabled
   kernel_info->ifs = new std::ifstream;
   std::ifstream *ifs = kernel_info->ifs;
   ifs->open(kerneltraces_filepath.c_str());
@@ -94,7 +94,7 @@ trace_parser::parse_kernel_info(const std::string &kerneltraces_filepath) {
       continue;
     } else if (line[0] == '#') {
       // the trace format, ignore this and assume fixed format for now
-      break; // the begin of the instruction stream
+      break;  // the begin of the instruction stream
     } else if (line[0] == '-') {
       std::stringstream ss;
       std::string string1, string2;
@@ -157,8 +157,7 @@ trace_parser::parse_kernel_info(const std::string &kerneltraces_filepath) {
 void trace_parser::kernel_finalizer(kernel_trace_t *trace_info) {
   assert(trace_info);
   assert(trace_info->ifs);
-  if (trace_info->ifs->is_open())
-    trace_info->ifs->close();
+  if (trace_info->ifs->is_open()) trace_info->ifs->close();
   delete trace_info->ifs;
   delete trace_info;
 }
@@ -198,7 +197,7 @@ void trace_parser::get_next_threadblock_traces(
                  "finishes");
       } else if (string1 == "#END_TB") {
         assert(start_of_tb_stream_found);
-        break; // end of TB stream
+        break;  // end of TB stream
       } else if (string1 == "thread" && string2 == "block") {
         assert(start_of_tb_stream_found);
         sscanf(line.c_str(), "thread block = %d,%d,%d", &block_id_x,
@@ -212,7 +211,7 @@ void trace_parser::get_next_threadblock_traces(
         assert(start_of_tb_stream_found);
         sscanf(line.c_str(), "insts = %d", &insts_num);
         threadblock_traces[warp_id]->resize(
-            insts_num); // allocate all the space at once
+            insts_num);  // allocate all the space at once
         inst_count = 0;
       } else {
         assert(start_of_tb_stream_found);

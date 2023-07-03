@@ -71,9 +71,8 @@ void cache_stats::inc_fail_stats(int access_type, int fail_outcome) {
   m_fail_stats[access_type][fail_outcome]++;
 }
 
-enum cache_request_status
-cache_stats::select_stats_status(enum cache_request_status probe,
-                                 enum cache_request_status access) const {
+enum cache_request_status cache_stats::select_stats_status(
+    enum cache_request_status probe, enum cache_request_status access) const {
   ///
   /// This function selects how the cache access outcome should be counted.
   /// HIT_RESERVED is considered as a MISS in the cores, however, it should be
@@ -217,11 +216,10 @@ void cache_stats::print_fail_stats(FILE *fout, const char *cache_name) const {
   }
 }
 
-unsigned long long
-cache_stats::get_stats(enum mem_access_type *access_type,
-                       unsigned num_access_type,
-                       enum cache_request_status *access_status,
-                       unsigned num_access_status) const {
+unsigned long long cache_stats::get_stats(
+    enum mem_access_type *access_type, unsigned num_access_type,
+    enum cache_request_status *access_status,
+    unsigned num_access_status) const {
   ///
   /// Returns a sum of the stats corresponding to each "access_type" and
   /// "access_status" pair. "access_type" is an array of "num_access_type"
@@ -255,11 +253,9 @@ void cache_stats::get_sub_stats(struct cache_sub_stats &css) const {
       if (status == MISS || status == SECTOR_MISS)
         t_css.misses += m_stats[type][status];
 
-      if (status == HIT_RESERVED)
-        t_css.pending_hits += m_stats[type][status];
+      if (status == HIT_RESERVED) t_css.pending_hits += m_stats[type][status];
 
-      if (status == RESERVATION_FAIL)
-        t_css.res_fails += m_stats[type][status];
+      if (status == RESERVATION_FAIL) t_css.res_fails += m_stats[type][status];
     }
   }
 

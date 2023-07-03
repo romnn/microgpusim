@@ -13,7 +13,7 @@
 class gpgpu_context;
 
 class ptx_instruction : public warp_inst_t {
-public:
+ public:
   ptx_instruction(int opcode, const symbol *pred, int neg_pred, int pred_mod,
                   symbol *label, const std::list<operand_info> &operands,
                   const operand_info &return_var, const std::list<int> &options,
@@ -120,7 +120,7 @@ public:
 
   int get_wmma_type() const { return m_wmma_type; }
   int get_wmma_layout(int index) const {
-    return m_wmma_layout[index]; // 0->Matrix D,1->Matrix C
+    return m_wmma_layout[index];  // 0->Matrix D,1->Matrix C
   }
   int get_type() const {
     assert(!m_scalar_type.empty());
@@ -132,8 +132,8 @@ public:
     return m_scalar_type.back();
   }
 
-  void
-  assign_bb(basic_block_t *basic_block) // assign instruction to a basic block
+  void assign_bb(
+      basic_block_t *basic_block)  // assign instruction to a basic block
   {
     m_basic_block = basic_block;
   }
@@ -179,27 +179,26 @@ public:
     // Check PTXPlus operand type below
     // Source operands are memory operands
     ptx_instruction::const_iterator op = op_iter_begin();
-    for (int n = 0; op != op_iter_end(); op++, n++) { // process operands
-      if (n > 0 && op->is_memory_operand2())          // source operands only
+    for (int n = 0; op != op_iter_end(); op++, n++) {  // process operands
+      if (n > 0 && op->is_memory_operand2())           // source operands only
         return true;
     }
     return false;
   }
   bool has_memory_write() const {
-    if (m_opcode == ST_OP || m_opcode == MMA_ST_OP)
-      return true;
+    if (m_opcode == ST_OP || m_opcode == MMA_ST_OP) return true;
     // Check PTXPlus operand type below
     // Destination operand is a memory operand
     ptx_instruction::const_iterator op = op_iter_begin();
     for (int n = 0; (op != op_iter_end() && n < 1);
-         op++, n++) {                         // process operands
-      if (n == 0 && op->is_memory_operand2()) // source operands only
+         op++, n++) {                          // process operands
+      if (n == 0 && op->is_memory_operand2())  // source operands only
         return true;
     }
     return false;
   }
 
-private:
+ private:
   void set_opcode_and_latency();
   void set_bar_type();
   void set_fp_or_int_archop();
@@ -228,8 +227,8 @@ private:
   bool m_exit;
   bool m_abs;
   bool m_neg;
-  bool m_uni; // if branch instruction, this evaluates to true for uniform
-              // branches (ie jumps)
+  bool m_uni;  // if branch instruction, this evaluates to true for uniform
+               // branches (ie jumps)
   bool m_to_option;
   unsigned m_cache_option;
   int m_wmma_type;
@@ -249,8 +248,8 @@ private:
   int m_atomic_spec;
   enum vote_mode_t m_vote_mode;
   int m_membar_level;
-  int m_instr_mem_index; // index into m_instr_mem array
-  unsigned m_inst_size;  // bytes
+  int m_instr_mem_index;  // index into m_instr_mem array
+  unsigned m_inst_size;   // bytes
 
   virtual void pre_decode();
   friend class function_info;

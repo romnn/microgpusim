@@ -14,7 +14,7 @@ class trace_parser;
 
 // class trace_kernel_info_t : public kernel_info_t {
 class trace_kernel_info_t {
-public:
+ public:
   trace_kernel_info_t(dim3 gridDim, dim3 blockDim,
                       trace_function_info *m_function_info,
                       trace_parser *parser, class trace_config *config,
@@ -95,7 +95,7 @@ public:
   std::string get_name() const { return name(); }
   std::string name() const;
 
-private:
+ private:
   trace_kernel_info_t *m_parent_kernel;
   dim3 m_parent_ctaid;
   dim3 m_parent_tid;
@@ -121,13 +121,13 @@ private:
 
   unsigned m_num_cores_running;
 
-public:
+ public:
   void print_parent_info();
   bool is_finished();
   bool children_all_finished();
   void notify_parent_finished();
 
-public:
+ public:
   unsigned long long launch_cycle;
   unsigned long long start_cycle;
   unsigned long long end_cycle;
@@ -135,6 +135,6 @@ public:
 
   mutable bool cache_config_set;
 
-  unsigned m_kernel_TB_latency; // this used for any CPU-GPU kernel latency and
-                                // counted in the gpu_cycle
+  unsigned m_kernel_TB_latency;  // this used for any CPU-GPU kernel latency and
+                                 // counted in the gpu_cycle
 };

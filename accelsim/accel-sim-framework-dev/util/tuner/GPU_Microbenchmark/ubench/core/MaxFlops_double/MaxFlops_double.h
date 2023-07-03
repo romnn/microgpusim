@@ -26,13 +26,14 @@ __global__ void max_flops(uint32_t *startClk, uint32_t *stopClk, T *data1,
   asm volatile("mov.u32 %0, %%clock;" : "=r"(start)::"memory");
 
   for (int j = 0; j < REPEAT_TIMES; ++j) {
-    asm volatile("{\t\n"
-                 "fma.rn.f64 %0, %1, %2 , %0;\n\t"
-                 "fma.rn.f64 %0, %1, %2 , %0;\n\t"
-                 "fma.rn.f64 %0, %1, %2 , %0;\n\t"
-                 "fma.rn.f64 %0, %1, %2 , %0;\n\t"
-                 "}"
-                 : "+d"(result), "+d"(s1), "+d"(s2));
+    asm volatile(
+        "{\t\n"
+        "fma.rn.f64 %0, %1, %2 , %0;\n\t"
+        "fma.rn.f64 %0, %1, %2 , %0;\n\t"
+        "fma.rn.f64 %0, %1, %2 , %0;\n\t"
+        "fma.rn.f64 %0, %1, %2 , %0;\n\t"
+        "}"
+        : "+d"(result), "+d"(s1), "+d"(s2));
   }
 
   // synchronize all threads

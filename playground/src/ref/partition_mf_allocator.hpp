@@ -5,7 +5,7 @@
 class memory_config;
 
 class partition_mf_allocator : public mem_fetch_allocator {
-public:
+ public:
   partition_mf_allocator(const memory_config *config) {
     m_memory_config = config;
   }
@@ -26,6 +26,6 @@ public:
                            unsigned wid, unsigned sid, unsigned tpc,
                            mem_fetch *original_mf) const;
 
-private:
+ private:
   const memory_config *m_memory_config;
 };

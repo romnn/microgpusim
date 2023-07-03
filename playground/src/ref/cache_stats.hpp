@@ -13,7 +13,7 @@
 /// 'cache_request_status' : [mem_access_type][cache_request_status]
 ///
 class cache_stats {
-public:
+ public:
   cache_stats();
   void clear();
   // Clear AerialVision cache stats after each window
@@ -22,9 +22,8 @@ public:
   // Increment AerialVision cache stats
   void inc_stats_pw(int access_type, int access_outcome);
   void inc_fail_stats(int access_type, int fail_outcome);
-  enum cache_request_status
-  select_stats_status(enum cache_request_status probe,
-                      enum cache_request_status access) const;
+  enum cache_request_status select_stats_status(
+      enum cache_request_status probe, enum cache_request_status access) const;
   unsigned long long &operator()(int access_type, int access_outcome,
                                  bool fail_outcome);
   unsigned long long operator()(int access_type, int access_outcome,
@@ -46,7 +45,7 @@ public:
 
   void sample_cache_port_utility(bool data_port_busy, bool fill_port_busy);
 
-private:
+ private:
   bool check_valid(int type, int status) const;
   bool check_fail_valid(int type, int fail) const;
 

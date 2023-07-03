@@ -20,7 +20,7 @@ class memory_config;
 // - It arbitrates the DRAM channel among multiple sub partitions.
 // - It does not connect directly with the interconnection network.
 class memory_partition_unit {
-public:
+ public:
   memory_partition_unit(unsigned partition_id, const memory_config *config,
                         class memory_stats_t *stats,
                         class trace_gpgpu_sim *gpu);
@@ -65,7 +65,7 @@ public:
     class mem_fetch *req;
   };
 
-private:
+ private:
   unsigned m_id;
   const memory_config *m_config;
   class memory_stats_t *m_stats;
@@ -73,7 +73,7 @@ private:
   class dram_t *m_dram;
 
   class arbitration_metadata {
-  public:
+   public:
     arbitration_metadata(const memory_config *config);
 
     // check if a subpartition still has credit
@@ -88,7 +88,7 @@ private:
 
     void print(FILE *fp) const;
 
-  private:
+   private:
     // id of the last subpartition that borrowed credit
     int m_last_borrower;
 

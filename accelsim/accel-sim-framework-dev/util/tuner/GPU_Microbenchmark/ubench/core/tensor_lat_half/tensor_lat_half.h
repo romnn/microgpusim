@@ -56,8 +56,8 @@ __global__ void tensor_latency(uint64_t *startClk, uint64_t *stopClk, T *a,
   stopClk[gid] = stop;
 }
 
-template <class T, class R> float tensor_lat() {
-
+template <class T, class R>
+float tensor_lat() {
   intilizeDeviceProp(0);
 
   THREADS_PER_BLOCK = 1;

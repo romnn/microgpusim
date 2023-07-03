@@ -32,8 +32,7 @@
 #include <stack>
 
 class Credit {
-
-public:
+ public:
   std::set<int> vc;
 
   // these are only used by the event router
@@ -47,7 +46,7 @@ public:
   static void FreeAll();
   static int OutStanding();
 
-private:
+ private:
   static std::stack<Credit *> _all;
   static std::stack<Credit *> _free;
 

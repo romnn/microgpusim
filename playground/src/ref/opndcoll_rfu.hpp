@@ -18,8 +18,8 @@ int register_bank(int regnum, int wid, unsigned num_banks,
                   unsigned bank_warp_shift, bool sub_core_model,
                   unsigned banks_per_sched, unsigned sched_id);
 
-class opndcoll_rfu_t { // operand collector based register file unit
-public:
+class opndcoll_rfu_t {  // operand collector based register file unit
+ public:
   // constructors
   opndcoll_rfu_t() {
     m_num_banks = 0;
@@ -40,8 +40,7 @@ public:
     printf("operand collector::step()\n");
     dispatch_ready_cu();
     allocate_reads();
-    for (unsigned p = 0; p < m_in_ports.size(); p++)
-      allocate_cu(p);
+    for (unsigned p = 0; p < m_in_ports.size(); p++) allocate_cu(p);
     process_banks();
   }
 
@@ -57,7 +56,7 @@ public:
 
   trace_shader_core_ctx *shader_core() { return m_shader; }
 
-private:
+ private:
   void process_banks() { m_arbiter.reset_alloction(); }
 
   void dispatch_ready_cu();
@@ -69,7 +68,7 @@ private:
   class collector_unit_t;
 
   class op_t {
-  public:
+   public:
     op_t() { m_valid = false; }
     op_t(collector_unit_t *cu, unsigned op, unsigned reg, unsigned num_banks,
          unsigned bank_warp_shift, bool sub_core_model,
@@ -154,15 +153,15 @@ private:
     // modifiers
     void reset() { m_valid = false; }
 
-  private:
+   private:
     bool m_valid;
     collector_unit_t *m_cu;
     const warp_inst_t *m_warp;
-    unsigned m_operand; // operand offset in instruction. e.g., add r1,r2,r3;
-                        // r2 is oprd 0, r3 is 1 (r1 is dst)
+    unsigned m_operand;  // operand offset in instruction. e.g., add r1,r2,r3;
+                         // r2 is oprd 0, r3 is 1 (r1 is dst)
     unsigned m_register;
     unsigned m_bank;
-    unsigned m_shced_id; // scheduler id that has issued this inst
+    unsigned m_shced_id;  // scheduler id that has issued this inst
   };
 
   enum alloc_t {
@@ -172,7 +171,7 @@ private:
   };
 
   class allocation_t {
-  public:
+   public:
     allocation_t() { m_allocation = NO_ALLOC; }
     bool is_read() const { return m_allocation == READ_ALLOC; }
     bool is_write() const { return m_allocation == WRITE_ALLOC; }
@@ -201,13 +200,13 @@ private:
     }
     void reset() { m_allocation = NO_ALLOC; }
 
-  private:
+   private:
     enum alloc_t m_allocation;
     op_t m_op;
   };
 
   class arbiter_t {
-  public:
+   public:
     // constructors
     arbiter_t() {
       m_queue = NULL;
@@ -282,19 +281,18 @@ private:
       m_allocated_bank[bank].alloc_read(op);
     }
     void reset_alloction() {
-      for (unsigned b = 0; b < m_num_banks; b++)
-        m_allocated_bank[b].reset();
+      for (unsigned b = 0; b < m_num_banks; b++) m_allocated_bank[b].reset();
     }
 
-  private:
+   private:
     unsigned m_num_banks;
     unsigned m_num_collectors;
 
-    allocation_t *m_allocated_bank; // bank # -> register that wins
+    allocation_t *m_allocated_bank;  // bank # -> register that wins
     std::list<op_t> *m_queue;
 
-    unsigned
-        *m_allocator_rr_head; // cu # -> next bank to check for request (rr-arb)
+    unsigned *
+        m_allocator_rr_head;  // cu # -> next bank to check for request (rr-arb)
     unsigned m_last_cu;       // first cu to check while arb-ing banks (rr)
 
     int *_inmatch;
@@ -303,7 +301,7 @@ private:
   };
 
   class input_port_t {
-  public:
+   public:
     input_port_t(port_vector_t &input, port_vector_t &output,
                  uint_vector_t cu_sets)
         : m_in(input), m_out(output), m_cu_sets(cu_sets) {
@@ -316,7 +314,7 @@ private:
   };
 
   class collector_unit_t {
-  public:
+   public:
     // constructors
     collector_unit_t() {
       m_free = true;
@@ -339,7 +337,7 @@ private:
       return m_warp->get_active_mask();
     }
     unsigned get_sp_op() const { return m_warp->sp_op; }
-    unsigned get_id() const { return m_cuid; } // returns CU hw id
+    unsigned get_id() const { return m_cuid; }  // returns CU hw id
     unsigned get_reg_id() const { return m_reg_id; }
 
     // modifiers
@@ -355,12 +353,13 @@ private:
     void dispatch();
     bool is_free() { return m_free; }
 
-  private:
+   private:
     bool m_free;
-    unsigned m_cuid; // collector unit hw id
+    unsigned m_cuid;  // collector unit hw id
     unsigned m_warp_id;
     warp_inst_t *m_warp;
-    register_set *m_output_register; // pipeline register to issue to when ready
+    register_set
+        *m_output_register;  // pipeline register to issue to when ready
     op_t *m_src_op;
     std::bitset<MAX_REG_OPERANDS * 2> m_not_ready;
     unsigned m_num_banks;
@@ -369,11 +368,11 @@ private:
 
     unsigned m_num_banks_per_sched;
     bool m_sub_core_model;
-    unsigned m_reg_id; // if sub_core_model enabled, limit regs this cu can r/w
+    unsigned m_reg_id;  // if sub_core_model enabled, limit regs this cu can r/w
   };
 
   class dispatch_unit_t {
-  public:
+   public:
     dispatch_unit_t(std::vector<collector_unit_t> *cus) {
       m_last_cu = 0;
       m_collector_units = cus;
@@ -401,11 +400,11 @@ private:
       return NULL;
     }
 
-  private:
+   private:
     unsigned m_num_collectors;
     std::vector<collector_unit_t> *m_collector_units;
-    unsigned m_last_cu; // dispatch ready cu's rr
-    unsigned m_next_cu; // for initialization
+    unsigned m_last_cu;  // dispatch ready cu's rr
+    unsigned m_next_cu;  // for initialization
     bool m_sub_core_model;
     unsigned m_num_warp_scheds;
   };

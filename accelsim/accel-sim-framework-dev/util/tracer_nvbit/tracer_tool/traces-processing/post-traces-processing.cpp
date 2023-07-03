@@ -22,7 +22,6 @@ void group_per_core(const char *filepath);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char **argv) {
-
   string kernellist_filepath;
   bool is_per_core;
   if (argc == 1) {
@@ -81,7 +80,6 @@ int main(int argc, char **argv) {
 }
 
 void group_per_block(const char *filepath) {
-
   ofstream ofs;
   ifstream ifs;
 
@@ -138,7 +136,6 @@ void group_per_block(const char *filepath) {
       ofs << line << endl;
       continue;
     } else {
-
       ss.str(line);
       ss >> tb_id_x >> tb_id_y >> tb_id_z >> warpid_tb;
       tb_id =
@@ -149,10 +146,10 @@ void group_per_block(const char *filepath) {
         insts[tb_id].tb_id_z = tb_id_z;
         insts[tb_id].initialized = true;
       }
-	//ss.ignore(); //remove the space
-	//rest_of_line.clear();
+      // ss.ignore(); //remove the space
+      // rest_of_line.clear();
       // getline(ss, rest_of_line); //get rest of the string!
-	string rest_of_line(ss.str().substr(ss.tellg()+1));
+      string rest_of_line(ss.str().substr(ss.tellg() + 1));
 
       insts[tb_id].warp_insts_array[warpid_tb].push_back(rest_of_line);
     }
@@ -195,6 +192,5 @@ void group_per_block(const char *filepath) {
 }
 
 void group_per_core(const char *filepath) {
-
   // TO DO
 }

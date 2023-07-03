@@ -36,7 +36,7 @@
 class PriorityArbiter : public Module {
   int _rr_ptr;
 
-protected:
+ protected:
   const int _inputs;
 
   struct sRequest {
@@ -49,7 +49,7 @@ protected:
 
   int _match;
 
-public:
+ public:
   PriorityArbiter(const Configuration &config, Module *parent,
                   const std::string &name, int inputs);
 

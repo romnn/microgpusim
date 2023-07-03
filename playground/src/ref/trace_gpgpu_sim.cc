@@ -74,8 +74,7 @@ void trace_gpgpu_sim::init() {
     set_spill_interval(m_config.gpgpu_cflog_interval * 40);
   }
 
-  if (g_network_mode)
-    icnt_init();
+  if (g_network_mode) icnt_init();
 }
 
 const shader_core_config *trace_gpgpu_sim::getShaderCoreConfig() {
@@ -123,12 +122,14 @@ bool trace_gpgpu_sim::can_start_kernel() {
 void trace_gpgpu_sim::launch(trace_kernel_info_t *kinfo) {
   unsigned cta_size = kinfo->threads_per_cta();
   if (cta_size > m_shader_config->n_thread_per_shader) {
-    printf("Execution error: Shader kernel CTA (block) size is too large for "
-           "microarch config.\n");
+    printf(
+        "Execution error: Shader kernel CTA (block) size is too large for "
+        "microarch config.\n");
     printf("                 CTA size (x*y*z) = %u, max supported = %u\n",
            cta_size, m_shader_config->n_thread_per_shader);
-    printf("                 => either change -gpgpu_shader argument in "
-           "gpgpusim.config file or\n");
+    printf(
+        "                 => either change -gpgpu_shader argument in "
+        "gpgpusim.config file or\n");
     printf(
         "                 modify the CUDA source to decrease the kernel block "
         "size.\n");
@@ -157,20 +158,15 @@ bool trace_gpgpu_sim::active() {
   if (m_config.gpu_max_completed_cta_opt &&
       (gpu_completed_cta >= m_config.gpu_max_completed_cta_opt))
     return false;
-  if (m_config.gpu_deadlock_detect && gpu_deadlock)
-    return false;
+  if (m_config.gpu_deadlock_detect && gpu_deadlock) return false;
   for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++)
-    if (m_cluster[i]->get_not_completed() > 0)
-      return true;
+    if (m_cluster[i]->get_not_completed() > 0) return true;
   ;
   for (unsigned i = 0; i < m_memory_config->m_n_mem; i++)
-    if (m_memory_partition_unit[i]->busy() > 0)
-      return true;
+    if (m_memory_partition_unit[i]->busy() > 0) return true;
   ;
-  if (icnt_busy())
-    return true;
-  if (get_more_cta_left())
-    return true;
+  if (icnt_busy()) return true;
+  if (get_more_cta_left()) return true;
   return false;
 }
 
@@ -245,8 +241,7 @@ void trace_gpgpu_sim::simple_cycle() {
                   << " (" << m_shader_config->mem2device(i) << ")" << std::endl;
         m_memory_sub_partition[i]->push(mf, gpu_sim_cycle + gpu_tot_sim_cycle);
       }
-      if (mf)
-        partiton_reqs_in_parallel_per_cycle++;
+      if (mf) partiton_reqs_in_parallel_per_cycle++;
     }
     m_memory_sub_partition[i]->cache_cycle(gpu_sim_cycle + gpu_tot_sim_cycle);
   }
@@ -288,7 +283,6 @@ void trace_gpgpu_sim::simple_cycle() {
   // completed.
   int all_threads_complete = 1;
   if (m_config.gpgpu_flush_l1_cache) {
-
     printf("flushing l1 caches\n");
     for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
       if (m_cluster[i]->get_not_completed() == 0)
@@ -315,7 +309,7 @@ void trace_gpgpu_sim::simple_cycle() {
         int dlc = 0;
         for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
           dlc = m_memory_sub_partition[i]->flushL2();
-          assert(dlc == 0); // TODO: need to model actual writes to DRAM here
+          assert(dlc == 0);  // TODO: need to model actual writes to DRAM here
           printf("dirty lines flushed from L2 %d is %d\n", i, dlc);
         }
       }
@@ -394,7 +388,7 @@ void trace_gpgpu_sim::cycle() {
         m_memory_partition_unit[i]->simple_dram_model_cycle();
       else
         m_memory_partition_unit[i]
-            ->dram_cycle(); // Issue the dram command (scheduler + delay model)
+            ->dram_cycle();  // Issue the dram command (scheduler + delay model)
 
       // REMOVE: power
       // Update performance counters for DRAM
@@ -483,7 +477,7 @@ void trace_gpgpu_sim::cycle() {
 
     if (g_single_step &&
         ((gpu_sim_cycle + gpu_tot_sim_cycle) >= g_single_step)) {
-      raise(SIGTRAP); // Debug breakpoint
+      raise(SIGTRAP);  // Debug breakpoint
     }
     gpu_sim_cycle++;
 
@@ -534,7 +528,7 @@ void trace_gpgpu_sim::cycle() {
           int dlc = 0;
           for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
             dlc = m_memory_sub_partition[i]->flushL2();
-            assert(dlc == 0); // TODO: need to model actual writes to DRAM here
+            assert(dlc == 0);  // TODO: need to model actual writes to DRAM here
             printf("Dirty lines flushed from L2 %d is %d\n", i, dlc);
           }
         }
@@ -622,8 +616,9 @@ void trace_gpgpu_sim::deadlock_check() {
       unsigned not_completed = m_cluster[i]->get_not_completed();
       if (not_completed) {
         if (!num_cores) {
-          printf("GPGPU-Sim uArch: DEADLOCK  shader cores no longer committing "
-                 "instructions [core(# threads)]:\n");
+          printf(
+              "GPGPU-Sim uArch: DEADLOCK  shader cores no longer committing "
+              "instructions [core(# threads)]:\n");
           printf("GPGPU-Sim uArch: DEADLOCK  ");
           m_cluster[i]->print_not_completed(stdout);
         } else if (num_cores < 8) {
@@ -653,8 +648,7 @@ void trace_gpgpu_sim::deadlock_check() {
 }
 
 unsigned trace_gpgpu_sim::finished_kernel() {
-  if (m_finished_kernel.empty())
-    return 0;
+  if (m_finished_kernel.empty()) return 0;
   unsigned result = m_finished_kernel.front();
   m_finished_kernel.pop_front();
   return result;
@@ -897,8 +891,7 @@ void trace_gpgpu_sim::update_stats() {
 }
 
 bool trace_gpgpu_sim::get_more_cta_left() const {
-  if (hit_max_cta_count())
-    return false;
+  if (hit_max_cta_count()) return false;
 
   for (unsigned n = 0; n < m_running_kernels.size(); n++) {
     if (m_running_kernels[n] && !m_running_kernels[n]->no_more_ctas_to_run())
@@ -1089,8 +1082,8 @@ void trace_gpgpu_sim::clear_executed_kernel_info() {
 void trace_gpgpu_sim::stop_all_running_kernels() {
   std::vector<trace_kernel_info_t *>::iterator k;
   for (k = m_running_kernels.begin(); k != m_running_kernels.end(); ++k) {
-    if (*k != NULL) {      // If a kernel is active
-      set_kernel_done(*k); // Stop the kernel
+    if (*k != NULL) {       // If a kernel is active
+      set_kernel_done(*k);  // Stop the kernel
       assert(*k == NULL);
     }
   }
@@ -1166,10 +1159,9 @@ trace_kernel_info_t *trace_gpgpu_sim::select_kernel() {
 }
 
 void trace_gpgpu_sim::visualizer_printstat() {
-  gzFile visualizer_file = NULL; // gzFile is basically a pointer to a struct,
-                                 // so it is fine to initialize it as NULL
-  if (!m_config.g_visualizer_enabled)
-    return;
+  gzFile visualizer_file = NULL;  // gzFile is basically a pointer to a struct,
+                                  // so it is fine to initialize it as NULL
+  if (!m_config.g_visualizer_enabled) return;
 
   // clean the content of the visualizer log if it is the first time, otherwise
   // attach at the end
@@ -1238,11 +1230,9 @@ void trace_gpgpu_sim::set_kernel_done(trace_kernel_info_t *kernel) {
 }
 
 bool trace_gpgpu_sim::kernel_more_cta_left(trace_kernel_info_t *kernel) const {
-  if (hit_max_cta_count())
-    return false;
+  if (hit_max_cta_count()) return false;
 
-  if (kernel && !kernel->no_more_ctas_to_run())
-    return true;
+  if (kernel && !kernel->no_more_ctas_to_run()) return true;
 
   return false;
 }

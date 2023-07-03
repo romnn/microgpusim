@@ -10,7 +10,7 @@
 class kernel_info_t;
 
 class shd_warp_t {
-public:
+ public:
   shd_warp_t(class shader_core_ctx *shader, unsigned warp_size)
       : m_shader(shader), m_warp_size(warp_size) {
     m_stores_outstanding = 0;
@@ -43,7 +43,7 @@ public:
     m_next_pc = start_pc;
     assert(n_completed >= active.count());
     assert(n_completed <= m_warp_size);
-    n_completed -= active.count(); // active threads are not yet completed
+    n_completed -= active.count();  // active threads are not yet completed
     m_active_threads = active;
     m_done_exit = false;
 
@@ -53,7 +53,7 @@ public:
   }
 
   bool functional_done() const;
-  bool waiting(); // not const due to membar
+  bool waiting();  // not const due to membar
   bool hardware_done() const;
 
   bool done_exit() const { return m_done_exit; }
@@ -99,14 +99,12 @@ public:
   }
   bool ibuffer_empty() const {
     for (unsigned i = 0; i < IBUFFER_SIZE; i++)
-      if (m_ibuffer[i].m_valid)
-        return false;
+      if (m_ibuffer[i].m_valid) return false;
     return true;
   }
   void ibuffer_flush() {
     for (unsigned i = 0; i < IBUFFER_SIZE; i++) {
-      if (m_ibuffer[i].m_valid)
-        dec_inst_in_pipeline();
+      if (m_ibuffer[i].m_valid) dec_inst_in_pipeline();
       m_ibuffer[i].m_inst = NULL;
       m_ibuffer[i].m_valid = false;
     }
@@ -135,8 +133,7 @@ public:
   unsigned num_inst_in_buffer() const {
     unsigned count = 0;
     for (unsigned i = 0; i < IBUFFER_SIZE; i++) {
-      if (m_ibuffer[i].m_valid)
-        count++;
+      if (m_ibuffer[i].m_valid) count++;
     }
     return count;
   }
@@ -160,7 +157,7 @@ public:
     return m_shader;
   }
 
-private:
+ private:
   static const unsigned IBUFFER_SIZE = 2;
   class shader_core_ctx *m_shader;
   unsigned m_cta_id;
@@ -169,7 +166,7 @@ private:
   unsigned m_dynamic_warp_id;
 
   address_type m_next_pc;
-  unsigned n_completed; // number of threads in warp completed
+  unsigned n_completed;  // number of threads in warp completed
   std::bitset<MAX_WARP_SIZE> m_active_threads;
 
   bool m_imiss_pending;
@@ -187,20 +184,20 @@ private:
   ibuffer_entry m_ibuffer[IBUFFER_SIZE];
   unsigned m_next;
 
-  unsigned m_n_atomic; // number of outstanding atomic operations
-  bool m_membar;       // if true, warp is waiting at memory barrier
+  unsigned m_n_atomic;  // number of outstanding atomic operations
+  bool m_membar;        // if true, warp is waiting at memory barrier
 
-  bool m_done_exit; // true once thread exit has been registered for threads in
-                    // this warp
+  bool m_done_exit;  // true once thread exit has been registered for threads in
+                     // this warp
 
   unsigned long long m_last_fetch;
 
-  unsigned m_stores_outstanding; // number of store requests sent but not yet
-                                 // acknowledged
+  unsigned m_stores_outstanding;  // number of store requests sent but not yet
+                                  // acknowledged
   unsigned m_inst_in_pipeline;
 
   // Jin: cdp support
-public:
+ public:
   unsigned int m_cdp_latency;
   bool m_cdp_dummy;
 };

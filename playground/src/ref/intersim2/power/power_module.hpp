@@ -45,8 +45,7 @@ struct wire {
 };
 
 class Power_Module : public Module {
-
-protected:
+ protected:
   // network undersimulation
   Network *net;
   int classes;
@@ -80,16 +79,16 @@ protected:
 
   //////////Device Parameters////////////
 
-  double LAMBDA; // [um/LAMBDA]
-  double Cd;     // [F/um] (for Delay)
-  double Cg;     // [F/um] (for Delay)
-  double Cgdl;   // [F/um] (for Delay)
+  double LAMBDA;  // [um/LAMBDA]
+  double Cd;      // [F/um] (for Delay)
+  double Cg;      // [F/um] (for Delay)
+  double Cgdl;    // [F/um] (for Delay)
 
-  double Cd_pwr; // [F/um] (for Power)
-  double Cg_pwr; // [F/um] (for Power)
+  double Cd_pwr;  // [F/um] (for Power)
+  double Cg_pwr;  // [F/um] (for Power)
 
-  double IoffN; // [A/um]
-  double IoffP; // [A/um]
+  double IoffN;  // [A/um]
+  double IoffP;  // [A/um]
   // Leakage from bitlines, two-port cell  [A]
   double IoffSRAM;
   // [Ohm] ( D1=1um Inverter)
@@ -174,7 +173,7 @@ protected:
   double areaInputModule(double Words);
   double areaOutputModule(double Outputs);
 
-public:
+ public:
   Power_Module(Network *net, const Configuration &config,
                InterconnectInterface *icnt);
   ~Power_Module();

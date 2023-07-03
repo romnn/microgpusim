@@ -25,13 +25,14 @@ __global__ void max_flops(uint64_t *startClk, uint64_t *stopClk, float *data1,
   asm volatile("mov.u64 %0, %%clock64;" : "=l"(start)::"memory");
 
   for (int j = 0; j < REPEAT_TIMES; ++j) {
-    asm volatile("{\t\n"
-                 "sqrt.approx.ftz.f32 %0, %0;\n\t"
-                 "sqrt.approx.ftz.f32 %0, %0;\n\t"
-                 "sqrt.approx.ftz.f32 %0, %0;\n\t"
-                 "sqrt.approx.ftz.f32 %0, %0;\n\t"
-                 "}"
-                 : "+f"(result));
+    asm volatile(
+        "{\t\n"
+        "sqrt.approx.ftz.f32 %0, %0;\n\t"
+        "sqrt.approx.ftz.f32 %0, %0;\n\t"
+        "sqrt.approx.ftz.f32 %0, %0;\n\t"
+        "sqrt.approx.ftz.f32 %0, %0;\n\t"
+        "}"
+        : "+f"(result));
   }
   // synchronize all threads
   asm volatile("bar.sync 0;");

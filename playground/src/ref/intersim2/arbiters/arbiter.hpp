@@ -39,8 +39,7 @@
 #include "../module.hpp"
 
 class Arbiter : public Module {
-
-protected:
+ protected:
   typedef struct {
     bool valid;
     int id;
@@ -54,7 +53,7 @@ protected:
   int _highest_pri;
   int _best_input;
 
-public:
+ public:
   int _num_reqs;
   // Constructors
   Arbiter(Module *parent, const std::string &name, int size);

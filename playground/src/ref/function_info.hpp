@@ -16,7 +16,7 @@
 class gpgpu_context;
 
 class function_info {
-public:
+ public:
   function_info(int entry_point, gpgpu_context *ctx);
   const ptx_version &get_ptx_version() const {
     return m_symtab->get_ptx_version();
@@ -31,8 +31,8 @@ public:
   void add_inst(const std::list<ptx_instruction *> &instructions) {
     m_instructions = instructions;
   }
-  std::list<ptx_instruction *>::iterator
-  find_next_real_instruction(std::list<ptx_instruction *>::iterator i);
+  std::list<ptx_instruction *>::iterator find_next_real_instruction(
+      std::list<ptx_instruction *>::iterator i);
   void create_basic_blocks();
 
   void print_basic_blocks();
@@ -41,11 +41,11 @@ public:
   void print_basic_block_dot();
 
   operand_info *find_break_target(
-      ptx_instruction *p_break_insn); // find the target of a break instruction
-  void connect_basic_blocks(); // iterate across m_basic_blocks of function,
-                               // connecting basic blocks together
+      ptx_instruction *p_break_insn);  // find the target of a break instruction
+  void connect_basic_blocks();  // iterate across m_basic_blocks of function,
+                                // connecting basic blocks together
   bool
-  connect_break_targets(); // connecting break instructions with proper targets
+  connect_break_targets();  // connecting break instructions with proper targets
 
   // iterate across m_basic_blocks of function,
   // finding dominator blocks, using algorithm of
@@ -66,7 +66,7 @@ public:
   // Muchnick's Adv. Compiler Design & Implemmntation Fig 7.15
   void find_ipostdominators();
   void print_ipostdominators();
-  void do_pdom(); // function to call pdom analysis
+  void do_pdom();  // function to call pdom analysis
 
   unsigned get_num_reconvergence_pairs();
 
@@ -100,8 +100,7 @@ public:
   const symbol *get_return_var() const { return m_return_var_sym; }
   const ptx_instruction *get_instruction(unsigned PC) const {
     unsigned index = PC - m_start_PC;
-    if (index < m_instr_mem_size)
-      return m_instr_mem[index];
+    if (index < m_instr_mem_size) return m_instr_mem[index];
     return NULL;
   }
   addr_t get_start_PC() const { return m_start_PC; }
@@ -130,8 +129,8 @@ public:
   unsigned local_mem_framesize() const { return m_local_mem_framesize; }
   void set_framesize(unsigned sz) { m_local_mem_framesize = sz; }
   bool is_entry_point() const { return m_entry_point; }
-  bool is_pdom_set() const { return pdom_done; } // return pdom flag
-  void set_pdom() { pdom_done = true; }          // set pdom flag
+  bool is_pdom_set() const { return pdom_done; }  // return pdom flag
+  void set_pdom() { pdom_done = true; }           // set pdom flag
 
   void add_config_param(size_t size, unsigned alignment) {
     unsigned offset = 0;
@@ -154,19 +153,19 @@ public:
   // backward pointer
   class gpgpu_context *gpgpu_ctx;
 
-protected:
+ protected:
   // Registers/shmem/etc. used (from ptxas -v), loaded from ___.ptxinfo along
   // with ___.ptx
   struct gpgpu_ptx_sim_info m_kernel_info;
 
-private:
+ private:
   unsigned maxnt_id;
   unsigned m_uid;
   unsigned m_local_mem_framesize;
   bool m_entry_point;
   bool m_extern;
   bool m_assembled;
-  bool pdom_done; // flag to check whether pdom is completed or not
+  bool pdom_done;  // flag to check whether pdom is completed or not
   std::string m_name;
   ptx_instruction **m_instr_mem;
   unsigned m_start_PC;
@@ -191,5 +190,5 @@ private:
   // parameter size for device kernels
   int m_args_aligned_size;
 
-  addr_t m_n; // offset in m_instr_mem (used in do_pdom)
+  addr_t m_n;  // offset in m_instr_mem (used in do_pdom)
 };

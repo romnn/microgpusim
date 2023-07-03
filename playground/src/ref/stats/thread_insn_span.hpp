@@ -9,7 +9,7 @@ class gpgpu_context;
 
 // thread control-flow locality logger
 class thread_insn_span {
-public:
+ public:
   thread_insn_span(unsigned long long cycle, gpgpu_context *ctx);
   thread_insn_span(const thread_insn_span &other, gpgpu_context *ctx);
   ~thread_insn_span();
@@ -24,7 +24,7 @@ public:
   void print_sparse_histo(FILE *fout) const;
   void print_sparse_histo(gzFile fout) const;
 
-private:
+ private:
   gpgpu_context *gpgpu_ctx;
 
   typedef std::unordered_map<address_type, int> span_count_map;

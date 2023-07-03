@@ -34,7 +34,6 @@
 #include <cassert>
 
 class FlatFlyOnChip : public Network {
-
   int _m;
   int _n;
   int _r;
@@ -53,7 +52,7 @@ class FlatFlyOnChip : public Network {
   int _OutChannel(int stage, int addr, int port, int outputs) const;
   int _InChannel(int stage, int addr, int port) const;
 
-public:
+ public:
   FlatFlyOnChip(const Configuration &config, const std::string &name,
                 InterconnectInterface *icnt);
 

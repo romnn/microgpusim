@@ -27,8 +27,8 @@
 #include "trace_streams.hpp"
 #include "two_level_active_scheduler.hpp"
 
-const struct gpgpu_ptx_sim_info *
-ptx_sim_kernel_info(const function_info *kernel) {
+const struct gpgpu_ptx_sim_info *ptx_sim_kernel_info(
+    const function_info *kernel) {
   return kernel->get_kernel_info();
 }
 
@@ -37,41 +37,40 @@ void shader_core_ctx::mem_instruction_stats(const warp_inst_t &inst) {
   // this breaks some encapsulation: the is_[space] functions, if you change
   // those, change this.
   switch (inst.space.get_type()) {
-  case undefined_space:
-  case reg_space:
-    break;
-  case shared_space:
-    m_stats->gpgpu_n_shmem_insn += active_count;
-    break;
-  case sstarr_space:
-    m_stats->gpgpu_n_sstarr_insn += active_count;
-    break;
-  case const_space:
-    m_stats->gpgpu_n_const_insn += active_count;
-    break;
-  case param_space_kernel:
-  case param_space_local:
-    m_stats->gpgpu_n_param_insn += active_count;
-    break;
-  case tex_space:
-    m_stats->gpgpu_n_tex_insn += active_count;
-    break;
-  case global_space:
-  case local_space:
-    if (inst.is_store())
-      m_stats->gpgpu_n_store_insn += active_count;
-    else
-      m_stats->gpgpu_n_load_insn += active_count;
-    break;
-  default:
-    abort();
+    case undefined_space:
+    case reg_space:
+      break;
+    case shared_space:
+      m_stats->gpgpu_n_shmem_insn += active_count;
+      break;
+    case sstarr_space:
+      m_stats->gpgpu_n_sstarr_insn += active_count;
+      break;
+    case const_space:
+      m_stats->gpgpu_n_const_insn += active_count;
+      break;
+    case param_space_kernel:
+    case param_space_local:
+      m_stats->gpgpu_n_param_insn += active_count;
+      break;
+    case tex_space:
+      m_stats->gpgpu_n_tex_insn += active_count;
+      break;
+    case global_space:
+    case local_space:
+      if (inst.is_store())
+        m_stats->gpgpu_n_store_insn += active_count;
+      else
+        m_stats->gpgpu_n_load_insn += active_count;
+      break;
+    default:
+      abort();
   }
 }
 bool shader_core_ctx::can_issue_1block(trace_kernel_info_t &kernel) {
   // Jin: concurrent kernels on one SM
   if (m_config->gpgpu_concurrent_kernel_sm) {
-    if (m_config->max_cta(kernel) < 1)
-      return false;
+    if (m_config->max_cta(kernel) < 1) return false;
 
     return occupy_shader_resource_1block(kernel, false);
   } else {
@@ -84,13 +83,12 @@ int shader_core_ctx::find_available_hwtid(unsigned int cta_size, bool occupy) {
   for (step = 0; step < m_config->n_thread_per_shader; step += cta_size) {
     unsigned int hw_tid;
     for (hw_tid = step; hw_tid < step + cta_size; hw_tid++) {
-      if (m_occupied_hwtid.test(hw_tid))
-        break;
+      if (m_occupied_hwtid.test(hw_tid)) break;
     }
-    if (hw_tid == step + cta_size) // consecutive non-active
+    if (hw_tid == step + cta_size)  // consecutive non-active
       break;
   }
-  if (step >= m_config->n_thread_per_shader) // didn't find
+  if (step >= m_config->n_thread_per_shader)  // didn't find
     return -1;
   else {
     if (occupy) {
@@ -113,8 +111,7 @@ bool shader_core_ctx::occupy_shader_resource_1block(trace_kernel_info_t &k,
   if (m_occupied_n_threads + padded_cta_size > m_config->n_thread_per_shader)
     return false;
 
-  if (find_available_hwtid(padded_cta_size, false) == -1)
-    return false;
+  if (find_available_hwtid(padded_cta_size, false) == -1) return false;
 
   const struct gpgpu_ptx_sim_info *kernel_info = ptx_sim_kernel_info(kernel);
 
@@ -125,8 +122,7 @@ bool shader_core_ctx::occupy_shader_resource_1block(trace_kernel_info_t &k,
   if (m_occupied_regs + used_regs > m_config->gpgpu_shader_registers)
     return false;
 
-  if (m_occupied_ctas + 1 > m_config->max_cta_per_core)
-    return false;
+  if (m_occupied_ctas + 1 > m_config->max_cta_per_core) return false;
 
   if (occupy) {
     m_occupied_n_threads += padded_cta_size;
@@ -265,8 +261,8 @@ void shader_core_ctx::issue_block2core(trace_kernel_info_t &kernel) {
   }
   assert(nthreads_in_block > 0 &&
          nthreads_in_block <=
-             m_config->n_thread_per_shader); // should be at least one, but
-                                             // less than max
+             m_config->n_thread_per_shader);  // should be at least one, but
+                                              // less than max
   m_cta_status[free_cta_hw_id] = nthreads_in_block;
 
   if (m_gpu->resume_option == 1 && kernel.get_uid() == m_gpu->resume_kernel &&
@@ -303,9 +299,9 @@ void shader_core_ctx::dump_warp_state(FILE *fout) const {
 std::list<unsigned> shader_core_ctx::get_regs_written(const inst_t &fvt) const {
   std::list<unsigned> result;
   for (unsigned op = 0; op < MAX_REG_OPERANDS; op++) {
-    int reg_num = fvt.arch_reg.dst[op]; // this math needs to match that used
-                                        // in function_info::ptx_decode_inst
-    if (reg_num >= 0)                   // valid register
+    int reg_num = fvt.arch_reg.dst[op];  // this math needs to match that used
+                                         // in function_info::ptx_decode_inst
+    if (reg_num >= 0)                    // valid register
       result.push_back(reg_num);
   }
   return result;
@@ -367,8 +363,7 @@ void shader_core_ctx::create_front_pipeline() {
   m_not_completed = 0;
   m_active_threads.reset();
   m_n_active_cta = 0;
-  for (unsigned i = 0; i < MAX_CTA_PER_SHADER; i++)
-    m_cta_status[i] = 0;
+  for (unsigned i = 0; i < MAX_CTA_PER_SHADER; i++) m_cta_status[i] = 0;
   for (unsigned i = 0; i < m_config->n_thread_per_shader; i++) {
     m_thread[i] = NULL;
     m_threadState[i].m_cta_id = -1;
@@ -420,56 +415,56 @@ void shader_core_ctx::create_schedulers() {
 
   for (unsigned i = 0; i < m_config->gpgpu_num_sched_per_core; i++) {
     switch (scheduler) {
-    case CONCRETE_SCHEDULER_LRR:
-      schedulers.push_back(new lrr_scheduler(
-          m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
-          &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
-          &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
-          &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
-          &m_pipeline_reg[ID_OC_MEM], i));
-      break;
-    case CONCRETE_SCHEDULER_TWO_LEVEL_ACTIVE:
-      schedulers.push_back(new two_level_active_scheduler(
-          m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
-          &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
-          &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
-          &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
-          &m_pipeline_reg[ID_OC_MEM], i, m_config->gpgpu_scheduler_string));
-      break;
-    case CONCRETE_SCHEDULER_GTO:
-      schedulers.push_back(new gto_scheduler(
-          m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
-          &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
-          &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
-          &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
-          &m_pipeline_reg[ID_OC_MEM], i));
-      break;
-    case CONCRETE_SCHEDULER_RRR:
-      schedulers.push_back(new rrr_scheduler(
-          m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
-          &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
-          &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
-          &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
-          &m_pipeline_reg[ID_OC_MEM], i));
-      break;
-    case CONCRETE_SCHEDULER_OLDEST_FIRST:
-      schedulers.push_back(new oldest_scheduler(
-          m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
-          &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
-          &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
-          &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
-          &m_pipeline_reg[ID_OC_MEM], i));
-      break;
-    case CONCRETE_SCHEDULER_WARP_LIMITING:
-      schedulers.push_back(new swl_scheduler(
-          m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
-          &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
-          &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
-          &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
-          &m_pipeline_reg[ID_OC_MEM], i, m_config->gpgpu_scheduler_string));
-      break;
-    default:
-      abort();
+      case CONCRETE_SCHEDULER_LRR:
+        schedulers.push_back(new lrr_scheduler(
+            m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
+            &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
+            &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
+            &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
+            &m_pipeline_reg[ID_OC_MEM], i));
+        break;
+      case CONCRETE_SCHEDULER_TWO_LEVEL_ACTIVE:
+        schedulers.push_back(new two_level_active_scheduler(
+            m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
+            &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
+            &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
+            &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
+            &m_pipeline_reg[ID_OC_MEM], i, m_config->gpgpu_scheduler_string));
+        break;
+      case CONCRETE_SCHEDULER_GTO:
+        schedulers.push_back(new gto_scheduler(
+            m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
+            &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
+            &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
+            &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
+            &m_pipeline_reg[ID_OC_MEM], i));
+        break;
+      case CONCRETE_SCHEDULER_RRR:
+        schedulers.push_back(new rrr_scheduler(
+            m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
+            &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
+            &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
+            &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
+            &m_pipeline_reg[ID_OC_MEM], i));
+        break;
+      case CONCRETE_SCHEDULER_OLDEST_FIRST:
+        schedulers.push_back(new oldest_scheduler(
+            m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
+            &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
+            &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
+            &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
+            &m_pipeline_reg[ID_OC_MEM], i));
+        break;
+      case CONCRETE_SCHEDULER_WARP_LIMITING:
+        schedulers.push_back(new swl_scheduler(
+            m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
+            &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
+            &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
+            &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
+            &m_pipeline_reg[ID_OC_MEM], i, m_config->gpgpu_scheduler_string));
+        break;
+      default:
+        abort();
     };
   }
 
@@ -617,7 +612,7 @@ void shader_core_ctx::create_exec_pipeline() {
       m_config->gpgpu_num_sp_units + m_config->gpgpu_num_dp_units +
       m_config->gpgpu_num_sfu_units + m_config->gpgpu_num_tensor_core_units +
       m_config->gpgpu_num_int_units + m_config->m_specialized_unit_num +
-      1; // sp_unit, sfu, dp, tensor, int, ldst_unit
+      1;  // sp_unit, sfu, dp, tensor, int, ldst_unit
   // m_dispatch_port = new enum pipeline_stage_name_t[ m_num_function_units ];
   // m_issue_port = new enum pipeline_stage_name_t[ m_num_function_units ];
 
@@ -690,7 +685,8 @@ shader_core_ctx::shader_core_ctx(class gpgpu_sim *gpu,
     : core_t(gpu, NULL, config->warp_size, config->n_thread_per_shader),
       m_barriers(this, config->max_warps_per_shader, config->max_cta_per_core,
                  config->max_barriers_per_cta, config->warp_size),
-      m_active_warps(0), m_dynamic_warp_id(0) {
+      m_active_warps(0),
+      m_dynamic_warp_id(0) {
   m_cluster = cluster;
   m_config = config;
   m_memory_config = mem_config;
@@ -796,14 +792,12 @@ void shader_core_ctx::init_warps(unsigned cta_id, unsigned start_thread,
 
 // return the next pc of a thread
 address_type shader_core_ctx::next_pc(int tid) const {
-  if (tid == -1)
-    return -1;
+  if (tid == -1) return -1;
   ptx_thread_info *the_thread = m_thread[tid];
-  if (the_thread == NULL)
-    return -1;
+  if (the_thread == NULL) return -1;
   return the_thread
-      ->get_pc(); // PC should already be updatd to next PC at this point (was
-                  // set in shader_decode() last time thread ran)
+      ->get_pc();  // PC should already be updatd to next PC at this point (was
+                   // set in shader_decode() last time thread ran)
 }
 
 void shader_core_ctx::get_pdom_stack_top_info(unsigned tid, unsigned *pc,
@@ -837,8 +831,8 @@ void shader_core_ctx::decode() {
     if (pI1) {
       m_stats->m_num_decoded_insn[m_sid]++;
       if ((pI1->oprnd_type == INT_OP) ||
-          (pI1->oprnd_type == UN_OP)) { // these counters get added up in mcPat
-                                        // to compute scheduler power
+          (pI1->oprnd_type == UN_OP)) {  // these counters get added up in mcPat
+                                         // to compute scheduler power
         m_stats->m_num_INTdecoded_insn[m_sid]++;
       } else if (pI1->oprnd_type == FP_OP) {
         m_stats->m_num_FPdecoded_insn[m_sid]++;
@@ -850,8 +844,8 @@ void shader_core_ctx::decode() {
         m_warp[m_inst_fetch_buffer.m_warp_id]->inc_inst_in_pipeline();
         m_stats->m_num_decoded_insn[m_sid]++;
         if ((pI1->oprnd_type == INT_OP) ||
-            (pI1->oprnd_type == UN_OP)) { // these counters get added up in
-                                          // mcPat to compute scheduler power
+            (pI1->oprnd_type == UN_OP)) {  // these counters get added up in
+                                           // mcPat to compute scheduler power
           m_stats->m_num_INTdecoded_insn[m_sid]++;
         } else if (pI2->oprnd_type == FP_OP) {
           m_stats->m_num_FPdecoded_insn[m_sid]++;
@@ -872,8 +866,8 @@ void shader_core_ctx::fetch() {
                           mf->get_access_size(), mf->get_wid());
       assert(m_warp[mf->get_wid()]->get_pc() ==
              (mf->get_addr() -
-              PROGRAM_MEM_START)); // Verify that we got the instruction we
-                                   // were expecting.
+              PROGRAM_MEM_START));  // Verify that we got the instruction we
+                                    // were expecting.
       m_inst_fetch_buffer.m_valid = true;
       m_warp[mf->get_wid()]->set_last_fetch(m_gpu->gpu_sim_cycle);
       delete mf;
@@ -908,8 +902,7 @@ void shader_core_ctx::fetch() {
               did_exit = true;
             }
           }
-          if (did_exit)
-            m_warp[warp_id]->set_done_exit();
+          if (did_exit) m_warp[warp_id]->set_done_exit();
           --m_active_warps;
           assert(m_active_warps >= 0);
         }
@@ -977,11 +970,11 @@ void shader_core_ctx::issue_warp(register_set &pipe_reg_set,
 
   m_warp[warp_id]->ibuffer_free();
   assert(next_inst->valid());
-  **pipe_reg = *next_inst; // static instruction information
+  **pipe_reg = *next_inst;  // static instruction information
   (*pipe_reg)->issue(active_mask, warp_id,
                      m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle,
                      m_warp[warp_id]->get_dynamic_warp_id(),
-                     sch_id); // dynamic instruction information
+                     sch_id);  // dynamic instruction information
   m_stats->shader_cycle_distro[2 + (*pipe_reg)->active_count()]++;
   func_exec_inst(**pipe_reg);
 
@@ -1022,10 +1015,9 @@ void shader_core_ctx::read_operands() {
 
 // Returns numbers of addresses in translated_addrs, each addr points to a 4B
 // (32-bit) word
-unsigned
-shader_core_ctx::translate_local_memaddr(address_type localaddr, unsigned tid,
-                                         unsigned num_shader, unsigned datasize,
-                                         new_addr_type *translated_addrs) {
+unsigned shader_core_ctx::translate_local_memaddr(
+    address_type localaddr, unsigned tid, unsigned num_shader,
+    unsigned datasize, new_addr_type *translated_addrs) {
   // During functional execution, each thread sees its own memory space for
   // local memory, but these need to be mapped to a shared address space for
   // timing simulation.  We do that mapping here.
@@ -1065,13 +1057,13 @@ shader_core_ctx::translate_local_memaddr(address_type localaddr, unsigned tid,
 
   if (datasize >= 4) {
     // >4B access, split into 4B chunks
-    assert(datasize % 4 == 0); // Must be a multiple of 4B
+    assert(datasize % 4 == 0);  // Must be a multiple of 4B
     num_accesses = datasize / 4;
-    assert(num_accesses <= MAX_ACCESSES_PER_INSN_PER_THREAD); // max 32B
+    assert(num_accesses <= MAX_ACCESSES_PER_INSN_PER_THREAD);  // max 32B
     assert(
         localaddr % 4 ==
-        0); // Address must be 4B aligned - required if accessing 4B per
-            // request, otherwise access will overflow into next thread's space
+        0);  // Address must be 4B aligned - required if accessing 4B per
+             // request, otherwise access will overflow into next thread's space
     for (unsigned i = 0; i < num_accesses; i++) {
       address_type local_word = localaddr / 4 + i;
       address_type linear_address = local_word * max_concurrent_threads * 4 +
@@ -1085,7 +1077,7 @@ shader_core_ctx::translate_local_memaddr(address_type localaddr, unsigned tid,
     address_type local_word = localaddr / 4;
     address_type local_word_offset = localaddr % 4;
     assert((localaddr + datasize - 1) / 4 ==
-           local_word); // Make sure access doesn't overflow into next 4B chunk
+           local_word);  // Make sure access doesn't overflow into next 4B chunk
     address_type linear_address = local_word * max_concurrent_threads * 4 +
                                   local_word_offset + thread_base +
                                   LOCAL_GENERIC_START;
@@ -1109,8 +1101,7 @@ void shader_core_ctx::execute() {
   }
   for (unsigned n = 0; n < m_num_function_units; n++) {
     unsigned multiplier = m_fu[n]->clock_multiplier();
-    for (unsigned c = 0; c < multiplier; c++)
-      m_fu[n]->cycle();
+    for (unsigned c = 0; c < multiplier; c++) m_fu[n]->cycle();
     m_fu[n]->active_lanes_in_pipeline();
     unsigned issue_port = m_issue_port[n];
     register_set &issue_inst = m_pipeline_reg[issue_port];
@@ -1165,7 +1156,7 @@ void shader_core_ctx::warp_inst_complete(const warp_inst_t &inst) {
 void shader_core_ctx::writeback() {
   unsigned max_committed_thread_instructions =
       m_config->warp_size *
-      (m_config->pipe_widths[EX_WB]); // from the functional units
+      (m_config->pipe_widths[EX_WB]);  // from the functional units
   m_stats->m_pipeline_duty_cycle[m_sid] =
       ((float)(m_stats->m_num_sim_insn[m_sid] -
                m_stats->m_last_num_sim_insn[m_sid])) /
@@ -1251,8 +1242,7 @@ void shader_core_ctx::register_cta_thread_exit(unsigned cta_num,
                        "finished on shader %u.\n",
                        kernel->get_uid(), kernel->name().c_str(), m_sid);
 
-        if (m_kernel == kernel)
-          m_kernel = NULL;
+        if (m_kernel == kernel) m_kernel = NULL;
         m_gpu->set_kernel_done(kernel);
       }
     }
@@ -1380,8 +1370,7 @@ void shader_core_ctx::display_pipeline(FILE *fout, int print_mem,
   }
   fprintf(fout, "\nibuffer status:\n");
   for (unsigned i = 0; i < m_config->max_warps_per_shader; i++) {
-    if (!m_warp[i]->ibuffer_empty())
-      m_warp[i]->print_ibuffer(fout);
+    if (!m_warp[i]->ibuffer_empty()) m_warp[i]->print_ibuffer(fout);
   }
   fprintf(fout, "\n");
   display_simt_state(fout, mask);
@@ -1448,8 +1437,7 @@ void shader_core_ctx::display_pipeline(FILE *fout, int print_mem,
 }
 
 void shader_core_ctx::cycle() {
-  if (!isactive() && get_not_completed() == 0)
-    return;
+  if (!isactive() && get_not_completed() == 0) return;
 
   m_stats->shader_cycles[m_sid]++;
   writeback();
@@ -1477,13 +1465,11 @@ void shader_core_ctx::warp_exit(unsigned warp_id) {
     // done = false;
     //		}
 
-    if (m_thread[i] && !m_thread[i]->is_done())
-      done = false;
+    if (m_thread[i] && !m_thread[i]->is_done()) done = false;
   }
   // if (m_warp[warp_id].get_n_completed() == get_config()->warp_size)
   // if (this->m_simt_stack[warp_id]->get_num_entries() == 0)
-  if (done)
-    m_barriers.warp_exit(warp_id);
+  if (done) m_barriers.warp_exit(warp_id);
 }
 
 bool shader_core_ctx::check_if_non_released_reduction_barrier(
@@ -1505,8 +1491,7 @@ bool shader_core_ctx::warp_waiting_at_barrier(unsigned warp_id) const {
 }
 
 bool shader_core_ctx::warp_waiting_at_mem_barrier(unsigned warp_id) {
-  if (!m_warp[warp_id]->get_membar())
-    return false;
+  if (!m_warp[warp_id]->get_membar()) return false;
   if (!m_scoreboard->pendingWrites(warp_id)) {
     m_warp[warp_id]->clear_membar();
     if (m_gpu->get_config().flush_l1()) {
@@ -1581,13 +1566,12 @@ void shader_core_ctx::print_cache_stats(FILE *fp, unsigned &dl1_accesses,
 
 void shader_core_ctx::get_cache_stats(cache_stats &cs) {
   // Adds stats from each cache to 'cs'
-  cs += m_L1I->get_stats();         // Get L1I stats
-  m_ldst_unit->get_cache_stats(cs); // Get L1D, L1C, L1T stats
+  cs += m_L1I->get_stats();          // Get L1I stats
+  m_ldst_unit->get_cache_stats(cs);  // Get L1D, L1C, L1T stats
 }
 
 void shader_core_ctx::get_L1I_sub_stats(struct cache_sub_stats &css) const {
-  if (m_L1I)
-    m_L1I->get_sub_stats(css);
+  if (m_L1I) m_L1I->get_sub_stats(css);
 }
 void shader_core_ctx::get_L1D_sub_stats(struct cache_sub_stats &css) const {
   m_ldst_unit->get_L1D_sub_stats(css);

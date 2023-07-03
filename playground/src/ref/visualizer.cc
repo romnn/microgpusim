@@ -12,7 +12,7 @@
 #include "trace_gpgpu_sim.hpp"
 
 class my_time_vector {
-private:
+ private:
   std::map<unsigned int, std::vector<long int>> ld_time_map;
   std::map<unsigned int, std::vector<long int>> st_time_map;
   unsigned ld_vector_size;
@@ -25,7 +25,7 @@ private:
   int overal_ld_count;
   int overal_st_count;
 
-public:
+ public:
   my_time_vector(int ld_size, int st_size) {
     ld_vector_size = ld_size;
     st_vector_size = st_size;
@@ -77,7 +77,7 @@ public:
     }
   }
 
-private:
+ private:
   void calculate_ld_dist(void) {
     unsigned i, first;
     long int last_update, diff;
@@ -172,7 +172,7 @@ private:
     }
   }
 
-public:
+ public:
   void clear_time_map_vectors(void) {
     ld_time_map.clear();
     st_time_map.clear();

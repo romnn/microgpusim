@@ -99,26 +99,27 @@ void gpgpu_t::gpgpu_ptx_sim_bindTextureToArray(
          m_function_model_config.get_texcache_linesize());
   // first determine base Tx size for given linesize
   switch (m_function_model_config.get_texcache_linesize()) {
-  case 16:
-    Tx = 4;
-    break;
-  case 32:
-    Tx = 8;
-    break;
-  case 64:
-    Tx = 8;
-    break;
-  case 128:
-    Tx = 16;
-    break;
-  case 256:
-    Tx = 16;
-    break;
-  default:
-    printf("GPGPU-Sim PTX:   Line size of %d bytes currently not supported.\n",
-           m_function_model_config.get_texcache_linesize());
-    assert(0);
-    break;
+    case 16:
+      Tx = 4;
+      break;
+    case 32:
+      Tx = 8;
+      break;
+    case 64:
+      Tx = 8;
+      break;
+    case 128:
+      Tx = 16;
+      break;
+    case 256:
+      Tx = 16;
+      break;
+    default:
+      printf(
+          "GPGPU-Sim PTX:   Line size of %d bytes currently not supported.\n",
+          m_function_model_config.get_texcache_linesize());
+      assert(0);
+      break;
   }
   r = texel_size >> 2;
   // modify base Tx size to take into account size of each texel in bytes

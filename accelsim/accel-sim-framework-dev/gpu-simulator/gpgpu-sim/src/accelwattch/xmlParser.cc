@@ -1236,12 +1236,10 @@ static NextToken GetNextToken(XML *pXML, int *pcbToken,
       // Indicate we are dealing with text
       *pType = eTokenText;
       while ((ch = getNextChar(pXML))) {
-        if
-          XML_isSPACECHAR(ch) {
-            indexStart++;
-            break;
-          }
-        else if (ch == _CXML('/')) {
+        if XML_isSPACECHAR (ch) {
+          indexStart++;
+          break;
+        } else if (ch == _CXML('/')) {
           // If we find a slash then this maybe text or a short hand end tag
           // Peek at the next character to see it we have short hand end tag
           ch = pXML->lpXML[pXML->nIndex];

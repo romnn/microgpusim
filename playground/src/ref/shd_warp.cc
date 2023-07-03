@@ -55,8 +55,7 @@ void shd_warp_t::print(FILE *fout) const {
     fprintf(fout, ") ");
     fprintf(fout, " active=%s", m_active_threads.to_string().c_str());
     fprintf(fout, " last fetched @ %5llu", m_last_fetch);
-    if (m_imiss_pending)
-      fprintf(fout, " i-miss pending");
+    if (m_imiss_pending) fprintf(fout, " i-miss pending");
     fprintf(fout, "\n");
   }
 }

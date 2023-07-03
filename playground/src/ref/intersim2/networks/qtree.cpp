@@ -55,7 +55,6 @@ QTree::QTree(const Configuration &config, const std::string &name,
 }
 
 void QTree::_ComputeSize(const Configuration &config) {
-
   _k = config.GetInt("k");
   _n = config.GetInt("n");
 
@@ -67,24 +66,20 @@ void QTree::_ComputeSize(const Configuration &config) {
   _nodes = powi(_k, _n);
 
   _size = 0;
-  for (int i = 0; i < _n; i++)
-    _size += powi(_k, i);
+  for (int i = 0; i < _n; i++) _size += powi(_k, i);
 
   _channels = 0;
-  for (int j = 1; j < _n; j++)
-    _channels += 2 * powi(_k, j);
+  for (int j = 1; j < _n; j++) _channels += 2 * powi(_k, j);
 }
 
 void QTree::RegisterRoutingFunctions() {}
 
 void QTree::_BuildNet(const Configuration &config) {
-
   std::ostringstream routerName;
   int h, r, pos, port;
 
   for (h = 0; h < _n; h++) {
     for (pos = 0; pos < powi(_k, h); ++pos) {
-
       int id = h * 256 + pos;
       r = _RouterIndex(h, pos);
 
@@ -101,7 +96,6 @@ void QTree::_BuildNet(const Configuration &config) {
   for (pos = 0; pos < powi(_k, _n - 1); ++pos) {
     r = _RouterIndex(_n - 1, pos);
     for (port = 0; port < _k; port++) {
-
       _routers[r]->AddInputChannel(_inject[_k * pos + port],
                                    _inject_cred[_k * pos + port]);
 
@@ -114,7 +108,6 @@ void QTree::_BuildNet(const Configuration &config) {
   for (h = 0; h < _n; ++h) {
     for (pos = 0; pos < powi(_k, h); ++pos) {
       for (port = 0; port < _k; port++) {
-
         r = _RouterIndex(h, pos);
 
         if (h < _n - 1) {
@@ -140,24 +133,21 @@ void QTree::_BuildNet(const Configuration &config) {
 
 int QTree::_RouterIndex(int height, int pos) {
   int r = 0;
-  for (int h = 0; h < height; h++)
-    r += powi(_k, h);
+  for (int h = 0; h < height; h++) r += powi(_k, h);
   return (r + pos);
 }
 
 int QTree::_InputIndex(int height, int pos, int port) {
   assert(height >= 0 && height < powi(_k, _n - 1));
   int c = 0;
-  for (int h = 0; h < height; h++)
-    c += powi(_k, h + 1);
+  for (int h = 0; h < height; h++) c += powi(_k, h + 1);
   return (c + _k * pos + port);
 }
 
 int QTree::_OutputIndex(int height, int pos, int port) {
   assert(height >= 0 && height < powi(_k, _n - 1));
   int c = _channels / 2;
-  for (int h = 0; h < height; h++)
-    c += powi(_k, h + 1);
+  for (int h = 0; h < height; h++) c += powi(_k, h + 1);
   return (c + _k * pos + port);
 }
 

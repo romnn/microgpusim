@@ -17,11 +17,12 @@ trace_shd_warp_t &scheduler_unit::warp(int i) { return *((*m_warp)[i]); }
 
 void scheduler_unit::cycle() {
   printf("%s::scheduler_unit::cycle()\n", name());
-  bool valid_inst = false; // there was one warp with a valid instruction to
-                           // issue (didn't require flush due to control hazard)
-  bool ready_inst = false; // of the valid instructions, there was one not
-                           // waiting for pending register writes
-  bool issued_inst = false; // of these we issued one
+  bool valid_inst =
+      false;  // there was one warp with a valid instruction to
+              // issue (didn't require flush due to control hazard)
+  bool ready_inst = false;   // of the valid instructions, there was one not
+                             // waiting for pending register writes
+  bool issued_inst = false;  // of these we issued one
 
   order_warps();
   for (std::vector<trace_shd_warp_t *>::const_iterator iter =
@@ -53,16 +54,17 @@ void scheduler_unit::cycle() {
     unsigned max_issue = m_shader->m_config->gpgpu_max_insn_issue_per_warp;
     bool diff_exec_units =
         m_shader->m_config
-            ->gpgpu_dual_issue_diff_exec_units; // In this mode, we only allow
-                                                // dual issue to diff execution
-                                                // units (as in Maxwell and
-                                                // Pascal)
+            ->gpgpu_dual_issue_diff_exec_units;  // In this mode, we only allow
+                                                 // dual issue to diff execution
+                                                 // units (as in Maxwell and
+                                                 // Pascal)
 
     if (next_warp->instruction_count() > 1) {
       if (warp(warp_id).ibuffer_empty())
-        printf("\t => Warp (warp_id %u, dynamic_warp_id %u) fails as "
-               "ibuffer_empty\n",
-               next_warp->get_warp_id(), next_warp->get_dynamic_warp_id());
+        printf(
+            "\t => Warp (warp_id %u, dynamic_warp_id %u) fails as "
+            "ibuffer_empty\n",
+            next_warp->get_warp_id(), next_warp->get_dynamic_warp_id());
 
       if (warp(warp_id).waiting())
         printf(
@@ -103,8 +105,7 @@ void scheduler_unit::cycle() {
       bool valid = warp(warp_id).ibuffer_next_valid();
       bool warp_inst_issued = false;
       unsigned pc, rpc;
-      if (pI)
-        m_shader->get_pdom_stack_top_info(warp_id, pI, &pc, &rpc);
+      if (pI) m_shader->get_pdom_stack_top_info(warp_id, pI, &pc, &rpc);
 
       if (pI) {
         printf(
@@ -118,12 +119,12 @@ void scheduler_unit::cycle() {
 
         assert(valid);
         assert(pI->pc == pc &&
-               pc == rpc); // trace driven mode has no control hazards
+               pc == rpc);  // trace driven mode has no control hazards
         if (pc != pI->pc) {
-          SCHED_DPRINTF("Warp (warp_id %u, dynamic_warp_id %u) control hazard "
-                        "instruction flush\n",
-                        next_warp->get_warp_id(),
-                        next_warp->get_dynamic_warp_id());
+          SCHED_DPRINTF(
+              "Warp (warp_id %u, dynamic_warp_id %u) control hazard "
+              "instruction flush\n",
+              next_warp->get_warp_id(), next_warp->get_dynamic_warp_id());
           // control hazard
           warp(warp_id).set_next_pc(pc);
           warp(warp_id).ibuffer_flush();
@@ -157,7 +158,6 @@ void scheduler_unit::cycle() {
                                       m_id) &&
                   (!diff_exec_units ||
                    previous_issued_inst_exec_type != exec_unit_type_t::MEM)) {
-
                 m_shader->issue_warp(*m_mem_out, pI, active_mask, warp_id,
                                      m_id);
                 issued++;
@@ -184,10 +184,11 @@ void scheduler_unit::cycle() {
                     (m_shader->m_config->gpgpu_num_int_units > 0) &&
                     m_int_out->has_free(m_shader->m_config->sub_core_model,
                                         m_id);
-                printf("sp pipe avail =%d (%d units) int pipe avail =%d (%d "
-                       "units)\n",
-                       sp_pipe_avail, m_shader->m_config->gpgpu_num_sp_units,
-                       int_pipe_avail, m_shader->m_config->gpgpu_num_int_units);
+                printf(
+                    "sp pipe avail =%d (%d units) int pipe avail =%d (%d "
+                    "units)\n",
+                    sp_pipe_avail, m_shader->m_config->gpgpu_num_sp_units,
+                    int_pipe_avail, m_shader->m_config->gpgpu_num_int_units);
 
                 // if INT unit pipline exist, then execute ALU and INT
                 // operations on INT unit and SP-FPU on SP unit (like in Volta)
@@ -217,7 +218,7 @@ void scheduler_unit::cycle() {
                       warp(warp_id).m_cdp_latency =
                           m_shader->m_config->gpgpu_ctx->func_sim
                               ->cdp_latency[pI->m_is_cdp - 1];
-                    else // cudaLaunchDeviceV2 and cudaGetParameterBufferV2
+                    else  // cudaLaunchDeviceV2 and cudaGetParameterBufferV2
                       warp(warp_id).m_cdp_latency =
                           m_shader->m_config->gpgpu_ctx->func_sim
                               ->cdp_latency[pI->m_is_cdp - 1] +
@@ -265,8 +266,8 @@ void scheduler_unit::cycle() {
                   warp_inst_issued = true;
                   previous_issued_inst_exec_type = exec_unit_type_t::DP;
                 }
-              } // If the DP units = 0 (like in Fermi archi), then execute DP
-                // inst on SFU unit
+              }  // If the DP units = 0 (like in Fermi archi), then execute DP
+                 // inst on SFU unit
               else if (((m_shader->m_config->gpgpu_num_dp_units == 0 &&
                          pI->op == DP_OP) ||
                         (pI->op == SFU_OP) || (pI->op == ALU_SFU_OP)) &&
@@ -328,7 +329,7 @@ void scheduler_unit::cycle() {
                 }
               }
 
-            } // end of else
+            }  // end of else
           } else {
             SCHED_DPRINTF(
                 "Warp (warp_id %u, dynamic_warp_id %u) fails scoreboard\n",
@@ -373,7 +374,7 @@ void scheduler_unit::cycle() {
       else if (issued > 1)
         m_stats->dual_issue_nums[m_id]++;
       else
-        abort(); // issued should be > 0
+        abort();  // issued should be > 0
 
       break;
     }
@@ -381,12 +382,12 @@ void scheduler_unit::cycle() {
 
   // issue stall statistics:
   if (!valid_inst)
-    m_stats->shader_cycle_distro[0]++; // idle or control hazard
+    m_stats->shader_cycle_distro[0]++;  // idle or control hazard
   else if (!ready_inst)
-    m_stats->shader_cycle_distro[1]++; // waiting for RAW hazards (possibly due
-                                       // to memory)
+    m_stats->shader_cycle_distro[1]++;  // waiting for RAW hazards (possibly due
+                                        // to memory)
   else if (!issued_inst)
-    m_stats->shader_cycle_distro[2]++; // pipeline stalled
+    m_stats->shader_cycle_distro[2]++;  // pipeline stalled
 }
 
 void scheduler_unit::do_on_warp_issued(

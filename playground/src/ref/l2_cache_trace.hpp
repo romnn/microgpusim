@@ -3,13 +3,13 @@
 #if TRACING_ON
 
 #define MEMPART_PRINT_STR SIM_PRINT_STR " %d - "
-#define MEMPART_DTRACE(x)                                                      \
-  (DTRACE(x) && (Trace::sampling_memory_partition == -1 ||                     \
+#define MEMPART_DTRACE(x)                                  \
+  (DTRACE(x) && (Trace::sampling_memory_partition == -1 || \
                  Trace::sampling_memory_partition == (int)get_mpid()))
 
 #define MEM_SUBPART_PRINT_STR SIM_PRINT_STR " %d - "
-#define MEM_SUBPART_DTRACE(x)                                                  \
-  (DTRACE(x) && (Trace::sampling_memory_partition == -1 ||                     \
+#define MEM_SUBPART_DTRACE(x)                              \
+  (DTRACE(x) && (Trace::sampling_memory_partition == -1 || \
                  Trace::sampling_memory_partition == (int)m_id))
 
 // Intended to be called from inside components of a memory partition
@@ -37,13 +37,13 @@
 #else
 
 #define MEMPART_DTRACE(x) (false)
-#define MEMPART_DPRINTF(x, ...)                                                \
-  do {                                                                         \
+#define MEMPART_DPRINTF(x, ...) \
+  do {                          \
   } while (0)
 
 #define MEM_SUBPART_DTRACE(x) (false)
-#define MEM_SUBPART_DPRINTF(x, ...)                                            \
-  do {                                                                         \
+#define MEM_SUBPART_DPRINTF(x, ...) \
+  do {                              \
   } while (0)
 
 #endif

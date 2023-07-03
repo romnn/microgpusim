@@ -9,7 +9,7 @@
 extern InterconnectInterface *g_icnt_interface;
 
 class BoxInterconnect : public InterconnectInterface {
-public:
+ public:
   BoxInterconnect() : InterconnectInterface() {}
 
   // we override these functions
@@ -21,7 +21,7 @@ public:
   bool Busy() const;
   bool HasBuffer(unsigned deviceID, unsigned int size) const;
 
-protected:
+ protected:
   std::vector<std::vector<std::vector<std::list<void *>>>> simple_input_queue;
   std::vector<std::vector<std::vector<std::list<void *>>>> simple_output_queue;
 };
@@ -65,5 +65,5 @@ static unsigned BoxInterconnect_get_flit_size() {
   return g_icnt_interface->GetFlitSize();
 }
 
-std::unique_ptr<BoxInterconnect>
-new_box_interconnect(const char *config_filename);
+std::unique_ptr<BoxInterconnect> new_box_interconnect(
+    const char *config_filename);

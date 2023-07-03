@@ -38,11 +38,11 @@ struct cache_config_params {
 };
 
 class cache_config {
-public:
+ public:
   cache_config() {
     m_valid = false;
     m_disabled = false;
-    m_config_string = NULL; // set by option parser
+    m_config_string = NULL;  // set by option parser
     m_config_stringPrefL1 = NULL;
     m_config_stringPrefShared = NULL;
     m_data_port_width = 0;
@@ -70,7 +70,7 @@ public:
     m_nset_log2 = n_set;
     m_assoc = assoc;
     m_atom_sz = atom_sz;
-    m_sector_sz_log2 = atom_sz; // todo
+    m_sector_sz_log2 = atom_sz;  // todo
     m_replacement_policy = replacement_policy;
     m_write_policy = write_policy;
     m_alloc_policy = alloc_policy;
@@ -109,56 +109,56 @@ public:
     }
 
     switch (ct) {
-    case 'N':
-      m_cache_type = NORMAL;
-      break;
-    case 'S':
-      m_cache_type = SECTOR;
-      break;
-    default:
-      exit_parse_error();
+      case 'N':
+        m_cache_type = NORMAL;
+        break;
+      case 'S':
+        m_cache_type = SECTOR;
+        break;
+      default:
+        exit_parse_error();
     }
     switch (rp) {
-    case 'L':
-      m_replacement_policy = LRU;
-      break;
-    case 'F':
-      m_replacement_policy = FIFO;
-      break;
-    default:
-      exit_parse_error();
+      case 'L':
+        m_replacement_policy = LRU;
+        break;
+      case 'F':
+        m_replacement_policy = FIFO;
+        break;
+      default:
+        exit_parse_error();
     }
     switch (wp) {
-    case 'R':
-      m_write_policy = READ_ONLY;
-      break;
-    case 'B':
-      m_write_policy = WRITE_BACK;
-      break;
-    case 'T':
-      m_write_policy = WRITE_THROUGH;
-      break;
-    case 'E':
-      m_write_policy = WRITE_EVICT;
-      break;
-    case 'L':
-      m_write_policy = LOCAL_WB_GLOBAL_WT;
-      break;
-    default:
-      exit_parse_error();
+      case 'R':
+        m_write_policy = READ_ONLY;
+        break;
+      case 'B':
+        m_write_policy = WRITE_BACK;
+        break;
+      case 'T':
+        m_write_policy = WRITE_THROUGH;
+        break;
+      case 'E':
+        m_write_policy = WRITE_EVICT;
+        break;
+      case 'L':
+        m_write_policy = LOCAL_WB_GLOBAL_WT;
+        break;
+      default:
+        exit_parse_error();
     }
     switch (ap) {
-    case 'm':
-      m_alloc_policy = ON_MISS;
-      break;
-    case 'f':
-      m_alloc_policy = ON_FILL;
-      break;
-    case 's':
-      m_alloc_policy = STREAMING;
-      break;
-    default:
-      exit_parse_error();
+      case 'm':
+        m_alloc_policy = ON_MISS;
+        break;
+      case 'f':
+        m_alloc_policy = ON_FILL;
+        break;
+      case 's':
+        m_alloc_policy = STREAMING;
+        break;
+      default:
+        exit_parse_error();
     }
     if (m_alloc_policy == STREAMING) {
       /*
@@ -184,22 +184,22 @@ https://ieeexplore.ieee.org/document/8344474/
       m_alloc_policy = ON_FILL;
     }
     switch (mshr_type) {
-    case 'F':
-      m_mshr_type = TEX_FIFO;
-      assert(ntok == 14);
-      break;
-    case 'T':
-      m_mshr_type = SECTOR_TEX_FIFO;
-      assert(ntok == 14);
-      break;
-    case 'A':
-      m_mshr_type = ASSOC;
-      break;
-    case 'S':
-      m_mshr_type = SECTOR_ASSOC;
-      break;
-    default:
-      exit_parse_error();
+      case 'F':
+        m_mshr_type = TEX_FIFO;
+        assert(ntok == 14);
+        break;
+      case 'T':
+        m_mshr_type = SECTOR_TEX_FIFO;
+        assert(ntok == 14);
+        break;
+      case 'A':
+        m_mshr_type = ASSOC;
+        break;
+      case 'S':
+        m_mshr_type = SECTOR_ASSOC;
+        break;
+      default:
+        exit_parse_error();
     }
     m_line_sz_log2 = LOGB2(m_line_sz);
     m_nset_log2 = LOGB2(m_nset);
@@ -213,20 +213,20 @@ https://ieeexplore.ieee.org/document/8344474/
     // performance". ISCA 93. WRITE_ALLOCATE is the old write policy in
     // GPGPU-sim 3.x, that send WRITE and READ for every write request
     switch (wap) {
-    case 'N':
-      m_write_alloc_policy = NO_WRITE_ALLOCATE;
-      break;
-    case 'W':
-      m_write_alloc_policy = WRITE_ALLOCATE;
-      break;
-    case 'F':
-      m_write_alloc_policy = FETCH_ON_WRITE;
-      break;
-    case 'L':
-      m_write_alloc_policy = LAZY_FETCH_ON_READ;
-      break;
-    default:
-      exit_parse_error();
+      case 'N':
+        m_write_alloc_policy = NO_WRITE_ALLOCATE;
+        break;
+      case 'W':
+        m_write_alloc_policy = WRITE_ALLOCATE;
+        break;
+      case 'F':
+        m_write_alloc_policy = FETCH_ON_WRITE;
+        break;
+      case 'L':
+        m_write_alloc_policy = LAZY_FETCH_ON_READ;
+        break;
+      default:
+        exit_parse_error();
     }
 
     // detect invalid configuration
@@ -274,23 +274,23 @@ https://ieeexplore.ieee.org/document/8344474/
     assert(m_line_sz % m_data_port_width == 0);
 
     switch (sif) {
-    case 'H':
-      m_set_index_function = FERMI_HASH_SET_FUNCTION;
-      break;
-    case 'P':
-      m_set_index_function = HASH_IPOLY_FUNCTION;
-      break;
-    case 'C':
-      m_set_index_function = CUSTOM_SET_FUNCTION;
-      break;
-    case 'L':
-      m_set_index_function = LINEAR_SET_FUNCTION;
-      break;
-    case 'X':
-      m_set_index_function = BITWISE_XORING_FUNCTION;
-      break;
-    default:
-      exit_parse_error();
+      case 'H':
+        m_set_index_function = FERMI_HASH_SET_FUNCTION;
+        break;
+      case 'P':
+        m_set_index_function = HASH_IPOLY_FUNCTION;
+        break;
+      case 'C':
+        m_set_index_function = CUSTOM_SET_FUNCTION;
+        break;
+      case 'L':
+        m_set_index_function = LINEAR_SET_FUNCTION;
+        break;
+      case 'X':
+        m_set_index_function = BITWISE_XORING_FUNCTION;
+        break;
+      default:
+        exit_parse_error();
     }
   }
   bool disabled() const { return m_disabled; }
@@ -374,7 +374,7 @@ https://ieeexplore.ieee.org/document/8344474/
   FuncCache m_cache_status;
   unsigned m_wr_percent;
 
-protected:
+ protected:
   void exit_parse_error() {
     printf("GPGPU-Sim uArch: cache configuration parsing error (%s)\n",
            m_config_string);
@@ -393,16 +393,16 @@ protected:
   unsigned original_m_assoc;
   bool m_is_streaming;
 
-  enum replacement_policy_t m_replacement_policy; // 'L' = LRU, 'F' = FIFO
+  enum replacement_policy_t m_replacement_policy;  // 'L' = LRU, 'F' = FIFO
   enum write_policy_t
-      m_write_policy; // 'T' = write through, 'B' = write back, 'R' = read only
+      m_write_policy;  // 'T' = write through, 'B' = write back, 'R' = read only
   enum allocation_policy_t
-      m_alloc_policy; // 'm' = allocate on miss, 'f' = allocate on fill
+      m_alloc_policy;  // 'm' = allocate on miss, 'f' = allocate on fill
   enum mshr_config_t m_mshr_type;
   enum cache_type m_cache_type;
 
   write_allocate_policy_t
-      m_write_alloc_policy; // 'W' = Write allocate, 'N' = No write allocate
+      m_write_alloc_policy;  // 'W' = Write allocate, 'N' = No write allocate
 
   union {
     unsigned m_mshr_entries;
@@ -417,9 +417,9 @@ protected:
     unsigned m_rob_entries;
   };
   unsigned m_result_fifo_entries;
-  unsigned m_data_port_width; //< number of byte the cache can access per cycle
+  unsigned m_data_port_width;  //< number of byte the cache can access per cycle
   enum set_index_function
-      m_set_index_function; // Hash, linear, or custom set index function
+      m_set_index_function;  // Hash, linear, or custom set index function
 
   friend class tag_array;
   friend class baseline_cache;

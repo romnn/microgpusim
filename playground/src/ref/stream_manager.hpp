@@ -11,7 +11,7 @@
 class trace_gpgpu_sim;
 
 class stream_manager {
-public:
+ public:
   stream_manager(trace_gpgpu_sim *gpu, bool cuda_launch_blocking);
   bool register_finished_kernel(unsigned grid_uid);
   bool check_finished_kernel();
@@ -29,7 +29,7 @@ public:
   unsigned size() { return m_streams.size(); };
   bool is_blocking() { return m_cuda_launch_blocking; };
 
-private:
+ private:
   void print_impl(FILE *fp);
 
   bool m_cuda_launch_blocking;

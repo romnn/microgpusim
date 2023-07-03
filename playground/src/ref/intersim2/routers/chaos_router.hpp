@@ -42,19 +42,18 @@
 #include "router.hpp"
 
 class ChaosRouter : public Router {
-
   tRoutingFunction _rf;
 
   std::vector<OutputSet *> _input_route;
   std::vector<OutputSet *> _mq_route;
 
   enum eQState {
-    empty,       //            input avail
-    filling,     //    >**H    ready to send
-    full,        //  T****H    ready to send
-    leaving,     //    T***>   input avail
-    cut_through, //    >***>
-    shared       // >**HT**>
+    empty,        //            input avail
+    filling,      //    >**H    ready to send
+    full,         //  T****H    ready to send
+    leaving,      //    T***>   input avail
+    cut_through,  //    >***>
+    shared        // >**HT**>
   };
 
   PipelineFIFO<Flit> *_crossbar_pipe;
@@ -104,7 +103,7 @@ class ChaosRouter : public Router {
 
   virtual void _InternalStep();
 
-public:
+ public:
   ChaosRouter(const Configuration &config, Module *parent,
               const std::string &name, int id, int inputs, int outputs);
 

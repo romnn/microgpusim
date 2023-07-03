@@ -171,23 +171,23 @@ void InterconnectInterface::Push(unsigned input_deviceID,
   mem_fetch *mf = static_cast<mem_fetch *>(data);
 
   switch (mf->get_type()) {
-  case READ_REQUEST:
-    packet_type = Flit::READ_REQUEST;
-    break;
-  case WRITE_REQUEST:
-    packet_type = Flit::WRITE_REQUEST;
-    break;
-  case READ_REPLY:
-    packet_type = Flit::READ_REPLY;
-    break;
-  case WRITE_ACK:
-    packet_type = Flit::WRITE_REPLY;
-    break;
-  default: {
-    // this is okay for testing
-    // std::cout << "Type " << mf->get_type() << " is undefined!" << std::endl;
-    // assert(0 && "Type is undefined");
-  }
+    case READ_REQUEST:
+      packet_type = Flit::READ_REQUEST;
+      break;
+    case WRITE_REQUEST:
+      packet_type = Flit::WRITE_REQUEST;
+      break;
+    case READ_REPLY:
+      packet_type = Flit::READ_REPLY;
+      break;
+    case WRITE_ACK:
+      packet_type = Flit::WRITE_REPLY;
+      break;
+    default: {
+      // this is okay for testing
+      // std::cout << "Type " << mf->get_type() << " is undefined!" <<
+      // std::endl; assert(0 && "Type is undefined");
+    }
   }
 
   // TODO: _include_queuing ?
@@ -212,8 +212,7 @@ void *InterconnectInterface::Pop(unsigned deviceID) {
 
   // 0-_n_shader-1 indicates reply(network 1), otherwise request(network 0)
   int subnet = 0;
-  if (deviceID < _n_shader)
-    subnet = 1;
+  if (deviceID < _n_shader) subnet = 1;
 
   int turn = _round_robin_turn[subnet][icntID];
   for (int vc = 0; (vc < _vcs) && (data == NULL); vc++) {
@@ -221,8 +220,7 @@ void *InterconnectInterface::Pop(unsigned deviceID) {
       data = _boundary_buffer[subnet][icntID][turn].PopPacket();
     }
     turn++;
-    if (turn == _vcs)
-      turn = 0;
+    if (turn == _vcs) turn = 0;
   }
   if (data) {
     _round_robin_turn[subnet][icntID] = turn;
@@ -265,10 +263,11 @@ bool InterconnectInterface::HasBuffer(unsigned deviceID,
   has_buffer = _traffic_manager->_input_queue[0][icntID][0].size() + n_flits <=
                _input_buffer_capacity;
 
-  printf("InterconnectInterface::HasBuffer(dev=%u, size=%u): "
-         "_input_buffer_capacity = %u\n",
-         deviceID, size, _input_buffer_capacity);
-  if ((_subnets > 1) && deviceID >= _n_shader) // deviceID is memory node
+  printf(
+      "InterconnectInterface::HasBuffer(dev=%u, size=%u): "
+      "_input_buffer_capacity = %u\n",
+      deviceID, size, _input_buffer_capacity);
+  if ((_subnets > 1) && deviceID >= _n_shader)  // deviceID is memory node
     has_buffer =
         _traffic_manager->_input_queue[1][icntID][0].size() + n_flits <=
         _input_buffer_capacity;
@@ -325,7 +324,6 @@ void InterconnectInterface::Transfer2BoundaryBuffer(int subnet, int output) {
   Flit *flit;
   int vc;
   for (vc = 0; vc < _vcs; vc++) {
-
     if (!_ejection_buffer[subnet][output][vc].empty() &&
         _boundary_buffer[subnet][output][vc].Size() <
             _boundary_buffer_capacity) {
@@ -336,8 +334,8 @@ void InterconnectInterface::Transfer2BoundaryBuffer(int subnet, int output) {
       _boundary_buffer[subnet][output][vc].PushFlitData(flit->data, flit->tail);
 
       _ejected_flit_queue[subnet][output].push(
-          flit); // indicate this flit is already popped from ejection buffer
-                 // and ready for credit return
+          flit);  // indicate this flit is already popped from ejection buffer
+                  // and ready for credit return
 
       if (flit->head) {
         assert(flit->dest == output);
@@ -476,7 +474,7 @@ void InterconnectInterface::_CreateNodeMap(unsigned n_shader, unsigned n_mem,
     for (unsigned i = n_shader; i < n_shader + n_mem; ++i) {
       _node_map[i] = memory_node[i - n_shader];
     }
-  } else { // not use preset map
+  } else {  // not use preset map
     for (unsigned i = 0; i < n_node; i++) {
       _node_map[i] = i;
     }
@@ -529,7 +527,7 @@ void *InterconnectInterface::_BoundaryBufferItem::PopPacket() {
   void *flit_data = _buffer.front();
   while (data == NULL) {
     assert(flit_data ==
-           _buffer.front()); // all flits must belong to the same packet
+           _buffer.front());  // all flits must belong to the same packet
     if (_tail_flag.front()) {
       data = _buffer.front();
       _packet_n--;
@@ -549,7 +547,7 @@ void *InterconnectInterface::_BoundaryBufferItem::TopPacket() const {
       data = _buffer.front();
     }
     assert(temp_d ==
-           _buffer.front()); // all flits must belong to the same packet
+           _buffer.front());  // all flits must belong to the same packet
   }
   return data;
 }
@@ -563,8 +561,8 @@ void InterconnectInterface::_BoundaryBufferItem::PushFlitData(void *data,
   }
 }
 
-std::unique_ptr<InterconnectInterface>
-new_interconnect_interface(const char *config_filename) {
+std::unique_ptr<InterconnectInterface> new_interconnect_interface(
+    const char *config_filename) {
   std::unique_ptr<InterconnectInterface> interconn =
       std::make_unique<InterconnectInterface>();
   interconn->ParseConfigFile(config_filename);

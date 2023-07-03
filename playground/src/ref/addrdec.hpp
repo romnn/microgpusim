@@ -55,14 +55,14 @@ typedef struct {
 } linear_to_raw_address_translation_params;
 
 class linear_to_raw_address_translation {
-public:
+ public:
   linear_to_raw_address_translation(
       linear_to_raw_address_translation_params params)
       : linear_to_raw_address_translation() {
     addrdec_option =
         "dramid@8;00000000.00000000.00000000.00000000.0000RRRR.RRRRRRRR."
-        "RBBBCCCC.BCCSSSSS"; // todo: pass this via params, must live until init
-                             // finishes
+        "RBBBCCCC.BCCSSSSS";  // todo: pass this via params, must live until
+                              // init finishes
     run_test = params.run_test;
     gpgpu_mem_address_mask = params.gpgpu_mem_address_mask;
     memory_partition_indexing = params.memory_partition_indexing;
@@ -83,9 +83,9 @@ public:
 
   void print() const;
 
-private:
+ private:
   void addrdec_parseoption(const char *option);
-  void sweep_test() const; // sanity check to ensure no overlapping
+  void sweep_test() const;  // sanity check to ensure no overlapping
 
   enum { CHIP = 0, BK = 1, ROW = 2, COL = 3, BURST = 4, N_ADDRDEC };
 
@@ -109,5 +109,5 @@ private:
   unsigned nextPowerOf2_m_n_channel;
 };
 
-std::unique_ptr<linear_to_raw_address_translation>
-new_address_translation(linear_to_raw_address_translation_params params);
+std::unique_ptr<linear_to_raw_address_translation> new_address_translation(
+    linear_to_raw_address_translation_params params);

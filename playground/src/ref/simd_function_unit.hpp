@@ -6,7 +6,7 @@ class register_set;
 class shader_core_config;
 
 class simd_function_unit {
-public:
+ public:
   simd_function_unit(const shader_core_config *config);
   ~simd_function_unit() { delete m_dispatch_reg; }
 
@@ -29,7 +29,7 @@ public:
   }
   const char *get_name() { return m_name.c_str(); }
 
-protected:
+ protected:
   std::string m_name;
   const shader_core_config *m_config;
   warp_inst_t *m_dispatch_reg;

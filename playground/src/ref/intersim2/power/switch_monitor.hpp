@@ -41,7 +41,7 @@ class SwitchMonitor {
   std::vector<int> _event;
   int index(int input, int output, int cl) const;
 
-public:
+ public:
   SwitchMonitor(int inputs, int outputs, int classes);
   void cycle();
   std::vector<int> const &GetActivity() const { return _event; }

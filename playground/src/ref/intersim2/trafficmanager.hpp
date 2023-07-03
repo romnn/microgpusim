@@ -48,13 +48,12 @@
 class PacketReplyInfo;
 
 class TrafficManager : public Module {
-
-private:
+ private:
   std::vector<std::vector<int>> _packet_size;
   std::vector<std::vector<int>> _packet_size_rate;
   std::vector<int> _packet_size_max_val;
 
-protected:
+ protected:
   int _nodes;
   int _routers;
   int _vcs;
@@ -268,7 +267,7 @@ protected:
 #endif
 
   // ============ Internal methods ============
-protected:
+ protected:
   virtual void _RetireFlit(Flit *f, int dest);
 
   void _Inject();
@@ -298,7 +297,7 @@ protected:
   int _GetNextPacketSize(int cl) const;
   double _GetAveragePacketSize(int cl) const;
 
-public:
+ public:
   static TrafficManager *New(Configuration const &config,
                              std::vector<Network *> const &net,
                              InterconnectInterface *icnt);

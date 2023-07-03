@@ -24,8 +24,7 @@ Scoreboard::Scoreboard(unsigned sid, unsigned n_warps,
 void Scoreboard::printContents() const {
   printf("scoreboard contents (sid=%d): \n", m_sid);
   for (unsigned i = 0; i < reg_table.size(); i++) {
-    if (reg_table[i].size() == 0)
-      continue;
+    if (reg_table[i].size() == 0) continue;
     printf("  wid = %2d: ", i);
     std::set<unsigned>::const_iterator it;
     for (it = reg_table[i].begin(); it != reg_table[i].end(); it++)
@@ -38,8 +37,7 @@ void Scoreboard::printContents() const {
 void Scoreboard::releaseRegister(unsigned wid, unsigned regnum) {
   // if (m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle)
   //   throw std::runtime_error("must model the l1 latency queue");
-  if (!(reg_table[wid].find(regnum) != reg_table[wid].end()))
-    return;
+  if (!(reg_table[wid].find(regnum) != reg_table[wid].end())) return;
   printf("Release register - warp:%d, reg: %d\n", wid, regnum);
   reg_table[wid].erase(regnum);
 }
@@ -50,9 +48,10 @@ const bool Scoreboard::islongop(unsigned warp_id, unsigned regnum) {
 
 void Scoreboard::reserveRegister(unsigned wid, unsigned regnum) {
   if (!(reg_table[wid].find(regnum) == reg_table[wid].end())) {
-    printf("Error: trying to reserve an already reserved register (sid=%d, "
-           "wid=%d, regnum=%d).",
-           m_sid, wid, regnum);
+    printf(
+        "Error: trying to reserve an already reserved register (sid=%d, "
+        "wid=%d, regnum=%d).",
+        m_sid, wid, regnum);
     abort();
   }
   SHADER_DPRINTF(SCOREBOARD, "Reserved Register - warp:%d, reg: %d\n", wid,
@@ -115,12 +114,9 @@ bool Scoreboard::checkCollision(unsigned wid, const class inst_t *inst) const {
   for (unsigned jjj = 0; jjj < inst->incount; jjj++)
     inst_regs.insert(inst->in[jjj]);
 
-  if (inst->pred > 0)
-    inst_regs.insert(inst->pred);
-  if (inst->ar1 > 0)
-    inst_regs.insert(inst->ar1);
-  if (inst->ar2 > 0)
-    inst_regs.insert(inst->ar2);
+  if (inst->pred > 0) inst_regs.insert(inst->pred);
+  if (inst->ar1 > 0) inst_regs.insert(inst->ar1);
+  if (inst->ar2 > 0) inst_regs.insert(inst->ar2);
 
   // Check for collision, get the intersection of reserved registers and
   // instruction registers

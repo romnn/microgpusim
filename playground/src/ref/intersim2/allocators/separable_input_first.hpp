@@ -39,8 +39,7 @@
 #include "separable.hpp"
 
 class SeparableInputFirstAllocator : public SeparableAllocator {
-
-public:
+ public:
   SeparableInputFirstAllocator(Module *parent, const std::string &name,
                                int inputs, int outputs,
                                const std::string &arb_type);

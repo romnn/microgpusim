@@ -9,7 +9,7 @@
 
 // per-insn active thread distribution (warp occ) logger
 class insn_warp_occ_logger {
-public:
+ public:
   insn_warp_occ_logger(int simd_width)
       : m_simd_width(simd_width),
         m_insn_warp_occ(1, linear_histogram(1, "", m_simd_width)),
@@ -45,7 +45,7 @@ public:
     }
   }
 
-private:
+ private:
   int m_simd_width;
   std::vector<linear_histogram> m_insn_warp_occ;
   int m_id;

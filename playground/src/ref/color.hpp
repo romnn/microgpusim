@@ -15,13 +15,13 @@ enum Code {
 class Modifier {
   Code code;
 
-public:
+ public:
   Modifier(Code pCode) : code(pCode) {}
   friend std::ostream &operator<<(std::ostream &os, const Modifier &mod) {
     return os << "\033[" << mod.code << "m";
   }
 };
-} // namespace Color
+}  // namespace Color
 
 Color::Modifier red(Color::FG_RED);
 Color::Modifier def(Color::FG_DEFAULT);

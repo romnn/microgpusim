@@ -58,8 +58,7 @@ void trace_simt_core_cluster::icnt_cycle() {
   }
   if (m_response_fifo.size() < m_config->n_simt_ejection_buffer_size) {
     mem_fetch *mf = (mem_fetch *)::icnt_pop(m_cluster_id);
-    if (!mf)
-      return;
+    if (!mf) return;
 
     // printf(" \e[0;36m cluster::icnt_cycle() got fetch from interconn: ");
     // printf(" \e[0m \n");
@@ -158,7 +157,7 @@ unsigned trace_simt_core_cluster::issue_block2core() {
 
     trace_kernel_info_t *kernel;
     // Jin: fetch kernel according to concurrent kernel setting
-    if (m_config->gpgpu_concurrent_kernel_sm) { // concurrent kernel on sm
+    if (m_config->gpgpu_concurrent_kernel_sm) {  // concurrent kernel on sm
       // always select latest issued kernel
       trace_kernel_info_t *k = m_gpu->select_kernel();
       kernel = k;
@@ -170,8 +169,7 @@ unsigned trace_simt_core_cluster::issue_block2core() {
         // wait till current kernel finishes
         if (m_core[core]->get_not_completed() == 0) {
           trace_kernel_info_t *k = m_gpu->select_kernel();
-          if (k)
-            m_core[core]->set_kernel(k);
+          if (k) m_core[core]->set_kernel(k);
           kernel = k;
         }
       }
@@ -253,56 +251,54 @@ void trace_simt_core_cluster::print_cache_stats(FILE *fp,
 bool trace_simt_core_cluster::icnt_injection_buffer_full(unsigned size,
                                                          bool write) {
   unsigned request_size = size;
-  if (!write)
-    request_size = READ_PACKET_SIZE;
+  if (!write) request_size = READ_PACKET_SIZE;
   return !::icnt_has_buffer(m_cluster_id, request_size);
 }
 
 void trace_simt_core_cluster::icnt_inject_request_packet(class mem_fetch *mf) {
-
   // stats
   if (mf->get_is_write())
     m_stats->made_write_mfs++;
   else
     m_stats->made_read_mfs++;
   switch (mf->get_access_type()) {
-  case CONST_ACC_R:
-    m_stats->gpgpu_n_mem_const++;
-    break;
-  case TEXTURE_ACC_R:
-    m_stats->gpgpu_n_mem_texture++;
-    break;
-  case GLOBAL_ACC_R:
-    m_stats->gpgpu_n_mem_read_global++;
-    break;
-  // case GLOBAL_ACC_R: m_stats->gpgpu_n_mem_read_global++;
-  // printf("read_global%d\n",m_stats->gpgpu_n_mem_read_global); break;
-  case GLOBAL_ACC_W:
-    m_stats->gpgpu_n_mem_write_global++;
-    break;
-  case LOCAL_ACC_R:
-    m_stats->gpgpu_n_mem_read_local++;
-    break;
-  case LOCAL_ACC_W:
-    m_stats->gpgpu_n_mem_write_local++;
-    break;
-  case INST_ACC_R:
-    m_stats->gpgpu_n_mem_read_inst++;
-    break;
-  case L1_WRBK_ACC:
-    m_stats->gpgpu_n_mem_write_global++;
-    break;
-  case L2_WRBK_ACC:
-    m_stats->gpgpu_n_mem_l2_writeback++;
-    break;
-  case L1_WR_ALLOC_R:
-    m_stats->gpgpu_n_mem_l1_write_allocate++;
-    break;
-  case L2_WR_ALLOC_R:
-    m_stats->gpgpu_n_mem_l2_write_allocate++;
-    break;
-  default:
-    assert(0);
+    case CONST_ACC_R:
+      m_stats->gpgpu_n_mem_const++;
+      break;
+    case TEXTURE_ACC_R:
+      m_stats->gpgpu_n_mem_texture++;
+      break;
+    case GLOBAL_ACC_R:
+      m_stats->gpgpu_n_mem_read_global++;
+      break;
+    // case GLOBAL_ACC_R: m_stats->gpgpu_n_mem_read_global++;
+    // printf("read_global%d\n",m_stats->gpgpu_n_mem_read_global); break;
+    case GLOBAL_ACC_W:
+      m_stats->gpgpu_n_mem_write_global++;
+      break;
+    case LOCAL_ACC_R:
+      m_stats->gpgpu_n_mem_read_local++;
+      break;
+    case LOCAL_ACC_W:
+      m_stats->gpgpu_n_mem_write_local++;
+      break;
+    case INST_ACC_R:
+      m_stats->gpgpu_n_mem_read_inst++;
+      break;
+    case L1_WRBK_ACC:
+      m_stats->gpgpu_n_mem_write_global++;
+      break;
+    case L2_WRBK_ACC:
+      m_stats->gpgpu_n_mem_l2_writeback++;
+      break;
+    case L1_WR_ALLOC_R:
+      m_stats->gpgpu_n_mem_l1_write_allocate++;
+      break;
+    case L2_WR_ALLOC_R:
+      m_stats->gpgpu_n_mem_l2_write_allocate++;
+      break;
+    default:
+      assert(0);
   }
 
   // The packet size varies depending on the type of request:

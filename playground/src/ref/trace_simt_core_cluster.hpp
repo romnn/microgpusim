@@ -14,7 +14,7 @@ class trace_shader_core_ctx;
 
 // class trace_simt_core_cluster : public simt_core_cluster {
 class trace_simt_core_cluster {
-public:
+ public:
   trace_simt_core_cluster(class trace_gpgpu_sim *gpu, unsigned cluster_id,
                           const shader_core_config *config,
                           const memory_config *mem_config,
@@ -22,7 +22,7 @@ public:
                           class memory_stats_t *mstats) {
     m_config = config;
     m_cta_issue_next_core = m_config->n_simt_cores_per_cluster -
-                            1; // this causes first launch to use hw cta 0
+                            1;  // this causes first launch to use hw cta 0
     m_cluster_id = cluster_id;
     m_gpu = gpu;
     m_stats = stats;
@@ -73,7 +73,7 @@ public:
 
   void get_icnt_stats(long &n_simt_to_mem, long &n_mem_to_simt) const;
 
-protected:
+ protected:
   // from "simt_core_cluster.hpp"
   unsigned m_cluster_id;
   trace_gpgpu_sim *m_gpu;

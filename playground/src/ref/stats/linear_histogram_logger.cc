@@ -5,17 +5,25 @@
 linear_histogram_logger::linear_histogram_logger(
     int n_bins, unsigned long long snap_shot_interval, const char *name,
     bool reset_at_snap_shot, unsigned long long start_cycle)
-    : snap_shot_trigger(snap_shot_interval), m_n_bins(n_bins),
-      m_curr_lin_hist(m_n_bins, start_cycle), m_lin_hist_archive(),
-      m_cycle(start_cycle), m_reset_at_snap_shot(reset_at_snap_shot),
-      m_name(name), m_id(s_ids++) {}
+    : snap_shot_trigger(snap_shot_interval),
+      m_n_bins(n_bins),
+      m_curr_lin_hist(m_n_bins, start_cycle),
+      m_lin_hist_archive(),
+      m_cycle(start_cycle),
+      m_reset_at_snap_shot(reset_at_snap_shot),
+      m_name(name),
+      m_id(s_ids++) {}
 
 linear_histogram_logger::linear_histogram_logger(
     const linear_histogram_logger &other)
-    : snap_shot_trigger(other.get_interval()), m_n_bins(other.m_n_bins),
-      m_curr_lin_hist(m_n_bins, other.m_cycle), m_lin_hist_archive(),
-      m_cycle(other.m_cycle), m_reset_at_snap_shot(other.m_reset_at_snap_shot),
-      m_name(other.m_name), m_id(s_ids++) {}
+    : snap_shot_trigger(other.get_interval()),
+      m_n_bins(other.m_n_bins),
+      m_curr_lin_hist(m_n_bins, other.m_cycle),
+      m_lin_hist_archive(),
+      m_cycle(other.m_cycle),
+      m_reset_at_snap_shot(other.m_reset_at_snap_shot),
+      m_name(other.m_name),
+      m_id(s_ids++) {}
 
 linear_histogram_logger::~linear_histogram_logger() {
   remove_snap_shot_trigger(this);
@@ -62,7 +70,7 @@ void linear_histogram_logger::print(FILE *fout) const {
 }
 
 void linear_histogram_logger::print_visualizer(FILE *fout) {
-  assert(m_lin_hist_archive.empty()); // don't support snapshot for now
+  assert(m_lin_hist_archive.empty());  // don't support snapshot for now
   fprintf(fout, "%s", m_name.c_str());
   if (m_id >= 0) {
     fprintf(fout, "%02d: ", m_id);
@@ -77,7 +85,7 @@ void linear_histogram_logger::print_visualizer(FILE *fout) {
 }
 
 void linear_histogram_logger::print_visualizer(gzFile fout) {
-  assert(m_lin_hist_archive.empty()); // don't support snapshot for now
+  assert(m_lin_hist_archive.empty());  // don't support snapshot for now
   gzprintf(fout, "%s", m_name.c_str());
   if (m_id >= 0) {
     gzprintf(fout, "%02d: ", m_id);

@@ -102,8 +102,7 @@ bool kernel_info_t::is_finished() {
 }
 
 bool kernel_info_t::children_all_finished() {
-  if (!m_child_kernels.empty())
-    return false;
+  if (!m_child_kernels.empty()) return false;
 
   return true;
 }
@@ -123,7 +122,7 @@ CUstream_st *kernel_info_t::create_stream_cta(dim3 ctaid) {
   CUstream_st *stream = new CUstream_st();
   m_kernel_entry->gpgpu_ctx->the_gpgpusim->g_stream_manager->add_stream(stream);
   assert(m_cta_streams.find(ctaid) != m_cta_streams.end());
-  assert(m_cta_streams[ctaid].size() >= 1); // must have default stream
+  assert(m_cta_streams[ctaid].size() >= 1);  // must have default stream
   m_cta_streams[ctaid].push_back(stream);
 
   return stream;
@@ -132,7 +131,7 @@ CUstream_st *kernel_info_t::create_stream_cta(dim3 ctaid) {
 CUstream_st *kernel_info_t::get_default_stream_cta(dim3 ctaid) {
   if (m_cta_streams.find(ctaid) != m_cta_streams.end()) {
     assert(m_cta_streams[ctaid].size() >=
-           1); // already created, must have default stream
+           1);  // already created, must have default stream
     return *(m_cta_streams[ctaid].begin());
   } else {
     m_cta_streams[ctaid] = std::list<CUstream_st *>();
@@ -145,8 +144,7 @@ CUstream_st *kernel_info_t::get_default_stream_cta(dim3 ctaid) {
 }
 
 bool kernel_info_t::cta_has_stream(dim3 ctaid, CUstream_st *stream) {
-  if (m_cta_streams.find(ctaid) == m_cta_streams.end())
-    return false;
+  if (m_cta_streams.find(ctaid) == m_cta_streams.end()) return false;
 
   std::list<CUstream_st *> &stream_list = m_cta_streams[ctaid];
   if (std::find(stream_list.begin(), stream_list.end(), stream) ==

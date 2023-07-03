@@ -61,10 +61,15 @@ TrafficManager *TrafficManager::New(Configuration const &config,
 TrafficManager::TrafficManager(const Configuration &config,
                                const std::vector<Network *> &net,
                                InterconnectInterface *icnt)
-    : Module(0, "traffic_manager", icnt), _net(net), _empty_network(false),
-      _deadlock_timer(0), _reset_time(0), _drain_time(-1), _cur_id(0),
-      _cur_pid(0), _time(0) {
-
+    : Module(0, "traffic_manager", icnt),
+      _net(net),
+      _empty_network(false),
+      _deadlock_timer(0),
+      _reset_time(0),
+      _drain_time(-1),
+      _cur_id(0),
+      _cur_pid(0),
+      _time(0) {
   _nodes = _net[0]->NumNodes();
   _routers = _net[0]->NumRouters();
 
@@ -218,8 +223,7 @@ TrafficManager::TrafficManager(const Configuration &config,
   _load.resize(_classes, _load.back());
 
   if (config.GetInt("injection_rate_uses_flits")) {
-    for (int c = 0; c < _classes; ++c)
-      _load[c] /= _GetAveragePacketSize(c);
+    for (int c = 0; c < _classes; ++c) _load[c] /= _GetAveragePacketSize(c);
   }
 
   _traffic = config.GetStrArray("traffic");
@@ -600,7 +604,6 @@ TrafficManager::TrafficManager(const Configuration &config,
 }
 
 TrafficManager::~TrafficManager() {
-
   for (int source = 0; source < _nodes; ++source) {
     for (int subnet = 0; subnet < _subnets; ++subnet) {
       delete _buf_states[source][subnet];
@@ -629,33 +632,22 @@ TrafficManager::~TrafficManager() {
 
   if (m_icnt->watch_out && (m_icnt->watch_out != &std::cout))
     delete m_icnt->watch_out;
-  if (_stats_out && (_stats_out != &std::cout))
-    delete _stats_out;
+  if (_stats_out && (_stats_out != &std::cout)) delete _stats_out;
 
 #ifdef TRACK_FLOWS
-  if (_injected_flits_out)
-    delete _injected_flits_out;
-  if (_received_flits_out)
-    delete _received_flits_out;
-  if (_stored_flits_out)
-    delete _stored_flits_out;
-  if (_sent_flits_out)
-    delete _sent_flits_out;
-  if (_outstanding_credits_out)
-    delete _outstanding_credits_out;
-  if (_ejected_flits_out)
-    delete _ejected_flits_out;
-  if (_active_packets_out)
-    delete _active_packets_out;
+  if (_injected_flits_out) delete _injected_flits_out;
+  if (_received_flits_out) delete _received_flits_out;
+  if (_stored_flits_out) delete _stored_flits_out;
+  if (_sent_flits_out) delete _sent_flits_out;
+  if (_outstanding_credits_out) delete _outstanding_credits_out;
+  if (_ejected_flits_out) delete _ejected_flits_out;
+  if (_active_packets_out) delete _active_packets_out;
 #endif
 
 #ifdef TRACK_CREDITS
-  if (_used_credits_out)
-    delete _used_credits_out;
-  if (_free_credits_out)
-    delete _free_credits_out;
-  if (_max_credits_out)
-    delete _max_credits_out;
+  if (_used_credits_out) delete _used_credits_out;
+  if (_free_credits_out) delete _free_credits_out;
+  if (_max_credits_out) delete _max_credits_out;
 #endif
 
   PacketReplyInfo::FreeAll();
@@ -720,10 +712,10 @@ void TrafficManager::_RetireFlit(Flit *f, int dest) {
           << ", nlat = " << f->atime - head->itime << ", frag = "
           << (f->atime - head->atime) -
                  (f->id -
-                  head->id) // NB: In the spirit of solving problems using ugly
-                            // hacks, we compute the packet length by taking
-                            // advantage of the fact that the IDs of flits
-                            // within a packet are contiguous.
+                  head->id)  // NB: In the spirit of solving problems using ugly
+                             // hacks, we compute the packet length by taking
+                             // advantage of the fact that the IDs of flits
+                             // within a packet are contiguous.
           << ", src = " << head->src << ", dest = " << head->dest << ")."
           << std::endl;
     }
@@ -747,7 +739,6 @@ void TrafficManager::_RetireFlit(Flit *f, int dest) {
     // Only record statistics once per packet (at tail)
     // and based on the simulation state
     if ((_sim_state == warming_up) || f->record) {
-
       _hop_stats[f->cl]->AddSample(f->hops);
 
       if ((_slowest_packet[f->cl] < 0) ||
@@ -780,7 +771,7 @@ void TrafficManager::_RetireFlit(Flit *f, int dest) {
 
 int TrafficManager::_IssuePacket(int source, int cl) {
   int result = 0;
-  if (_use_read_write[cl]) { // use read and write
+  if (_use_read_write[cl]) {  // use read and write
     // check queue for waiting replies.
     // check to make sure it is on time yet
     if (!_repliesPending[source].empty()) {
@@ -788,17 +779,15 @@ int TrafficManager::_IssuePacket(int source, int cl) {
         result = -1;
       }
     } else {
-
       // produce a packet
       if (_injection_process[cl]->test(source)) {
-
         // coin toss to determine request type.
         result = (RandomFloat() < _write_fraction[cl]) ? 2 : 1;
 
         _requestsOutstanding[source]++;
       }
     }
-  } else { // normal mode
+  } else {  // normal mode
     result = _injection_process[cl]->test(source) ? 1 : 0;
     _requestsOutstanding[source]++;
   }
@@ -812,7 +801,7 @@ void TrafficManager::_GeneratePacket(int source, int stype, int cl, int time) {
   assert(stype != 0);
 
   Flit::FlitType packet_type = Flit::ANY_TYPE;
-  int size = _GetNextPacketSize(cl); // input size
+  int size = _GetNextPacketSize(cl);  // input size
   int pid = _cur_pid++;
   assert(_cur_pid);
   int packet_destination = _traffic_pattern[cl]->dest(source);
@@ -833,10 +822,10 @@ void TrafficManager::_GeneratePacket(int source, int stype, int cl, int time) {
       }
     } else {
       PacketReplyInfo *rinfo = _repliesPending[source].front();
-      if (rinfo->type == Flit::READ_REQUEST) { // read reply
+      if (rinfo->type == Flit::READ_REQUEST) {  // read reply
         size = _read_reply_size[cl];
         packet_type = Flit::READ_REPLY;
-      } else if (rinfo->type == Flit::WRITE_REQUEST) { // write reply
+      } else if (rinfo->type == Flit::WRITE_REQUEST) {  // write reply
         size = _write_reply_size[cl];
         packet_type = Flit::WRITE_REPLY;
       } else {
@@ -897,7 +886,7 @@ void TrafficManager::_GeneratePacket(int source, int stype, int cl, int time) {
     }
     f->type = packet_type;
 
-    if (i == 0) { // Head flit
+    if (i == 0) {  // Head flit
       f->head = true;
       // packets are only generated to nodes smaller or equal to limit
       f->dest = packet_destination;
@@ -906,22 +895,22 @@ void TrafficManager::_GeneratePacket(int source, int stype, int cl, int time) {
       f->dest = -1;
     }
     switch (_pri_type) {
-    case class_based:
-      f->pri = _class_priority[cl];
-      assert(f->pri >= 0);
-      break;
-    case age_based:
-      f->pri = std::numeric_limits<int>::max() - time;
-      assert(f->pri >= 0);
-      break;
-    case sequence_based:
-      f->pri = std::numeric_limits<int>::max() - _packet_seq_no[source];
-      assert(f->pri >= 0);
-      break;
-    default:
-      f->pri = 0;
+      case class_based:
+        f->pri = _class_priority[cl];
+        assert(f->pri >= 0);
+        break;
+      case age_based:
+        f->pri = std::numeric_limits<int>::max() - time;
+        assert(f->pri >= 0);
+        break;
+      case sequence_based:
+        f->pri = std::numeric_limits<int>::max() - _packet_seq_no[source];
+        assert(f->pri >= 0);
+        break;
+      default:
+        f->pri = 0;
     }
-    if (i == (size - 1)) { // Tail flit
+    if (i == (size - 1)) {  // Tail flit
       f->tail = true;
     } else {
       f->tail = false;
@@ -941,7 +930,6 @@ void TrafficManager::_GeneratePacket(int source, int stype, int cl, int time) {
 }
 
 void TrafficManager::_Inject() {
-
   for (int input = 0; input < _nodes; ++input) {
     for (int c = 0; c < _classes; ++c) {
       // Potentially generate packets for any (input,class)
@@ -951,7 +939,7 @@ void TrafficManager::_Inject() {
         while (!generated && (_qtime[input][c] <= _time)) {
           int stype = _IssuePacket(input, c);
 
-          if (stype != 0) { // generate a packet
+          if (stype != 0) {  // generate a packet
             _GeneratePacket(input, stype, c,
                             _include_queuing == 1 ? _qtime[input][c] : _time);
             generated = true;
@@ -1027,9 +1015,7 @@ void TrafficManager::_Step() {
   }
 
   for (int subnet = 0; subnet < _subnets; ++subnet) {
-
     for (int n = 0; n < _nodes; ++n) {
-
       Flit *f = NULL;
 
       BufferState *const dest_buf = _buf_states[n][subnet];
@@ -1052,7 +1038,6 @@ void TrafficManager::_Step() {
       }
 
       for (int i = 1; i <= class_limit; ++i) {
-
         int const c = (last_class + i) % _classes;
 
         std::list<Flit *> const &pp = _partial_packets[n][c];
@@ -1073,7 +1058,7 @@ void TrafficManager::_Step() {
           continue;
         }
 
-        if (cf->head && cf->vc == -1) { // Find first available VC
+        if (cf->head && cf->vc == -1) {  // Find first available VC
 
           OutputSet route_set;
           _rf(NULL, cf, -1, &route_set, true);
@@ -1174,13 +1159,11 @@ void TrafficManager::_Step() {
       }
 
       if (f) {
-
         assert(f->subnetwork == subnet);
 
         int const c = f->cl;
 
         if (f->head) {
-
           if (_lookahead_routing) {
             if (!_noq) {
               const FlitChannel *inject = _net[subnet]->GetInject(n);
@@ -1297,7 +1280,6 @@ bool TrafficManager::_PacketsOutstanding() const {
   for (int c = 0; c < _classes; ++c) {
     if (_measure_stats[c]) {
       if (_measured_in_flight_flits[c].empty()) {
-
         for (int s = 0; s < _nodes; ++s) {
           if (!_qdrained[s][c]) {
 #ifdef DEBUG_DRAIN
@@ -1325,7 +1307,6 @@ void TrafficManager::_ClearStats() {
   _slowest_packet.assign(_classes, -1);
 
   for (int c = 0; c < _classes; ++c) {
-
     _plat_stats[c]->Clear();
     _nlat_stats[c]->Clear();
     _flat_stats[c]->Clear();
@@ -1401,7 +1382,6 @@ void TrafficManager::_ComputeStats(const std::vector<int> &stats, int *sum,
 
 void TrafficManager::_DisplayRemaining(std::ostream &os) const {
   for (int c = 0; c < _classes; ++c) {
-
     std::map<unsigned long long, Flit *>::const_iterator iter;
     int i;
 
@@ -1412,8 +1392,7 @@ void TrafficManager::_DisplayRemaining(std::ostream &os) const {
          (iter != _total_in_flight_flits[c].end()) && (i < 10); iter++, i++) {
       os << iter->first << " ";
     }
-    if (_total_in_flight_flits[c].size() > 10)
-      os << "[...] ";
+    if (_total_in_flight_flits[c].size() > 10) os << "[...] ";
 
     os << "(" << _total_in_flight_flits[c].size() << " flits)" << std::endl;
 
@@ -1423,8 +1402,7 @@ void TrafficManager::_DisplayRemaining(std::ostream &os) const {
          iter++, i++) {
       os << iter->first << " ";
     }
-    if (_measured_in_flight_flits[c].size() > 10)
-      os << "[...] ";
+    if (_measured_in_flight_flits[c].size() > 10) os << "[...] ";
 
     os << "(" << _measured_in_flight_flits[c].size() << " flits)" << std::endl;
   }
@@ -1440,15 +1418,13 @@ bool TrafficManager::_SingleSim() {
   int total_phases = 0;
   while ((total_phases < _max_samples) &&
          ((_sim_state != running) || (converged < 3))) {
-
     if (clear_last ||
         (((_sim_state == warming_up) && ((total_phases % 2) == 0)))) {
       clear_last = false;
       _ClearStats();
     }
 
-    for (int iter = 0; iter < _sample_period; ++iter)
-      _Step();
+    for (int iter = 0; iter < _sample_period; ++iter) _Step();
 
     // std::cout << _sim_state << std::endl;
 
@@ -1460,7 +1436,6 @@ bool TrafficManager::_SingleSim() {
     int acc_chg_exc_class = -1;
 
     for (int c = 0; c < _classes; ++c) {
-
       if (_measure_stats[c] == 0) {
         continue;
       }
@@ -1522,7 +1497,6 @@ bool TrafficManager::_SingleSim() {
 
     // Fail safe for latency mode, throughput will ust continue
     if (_measure_latency && (lat_exc_class >= 0)) {
-
       std::cout << "Average latency for class " << lat_exc_class << " exceeded "
                 << _latency_thres[lat_exc_class]
                 << " cycles. Aborting simulation." << std::endl;
@@ -1571,11 +1545,9 @@ bool TrafficManager::_SingleSim() {
         ++empty_steps;
 
         if (empty_steps % 1000 == 0) {
-
           int lat_exc_class = -1;
 
           for (int c = 0; c < _classes; c++) {
-
             double threshold = _latency_thres[c];
 
             if (threshold < 0.0) {
@@ -1623,7 +1595,6 @@ bool TrafficManager::_SingleSim() {
 
 bool TrafficManager::Run() {
   for (int sim = 0; sim < _total_sims; ++sim) {
-
     _time = 0;
 
     // remove any pending request from the previous simulations
@@ -1709,7 +1680,6 @@ bool TrafficManager::Run() {
 
 void TrafficManager::_UpdateOverallStats() {
   for (int c = 0; c < _classes; ++c) {
-
     if (_measure_stats[c] == 0) {
       continue;
     }
@@ -1793,11 +1763,9 @@ void TrafficManager::_UpdateOverallStats() {
 }
 
 void TrafficManager::WriteStats(std::ostream &os) const {
-
   os << "%=================================" << std::endl;
 
   for (int c = 0; c < _classes; ++c) {
-
     if (_measure_stats[c] == 0) {
       continue;
     }
@@ -1958,20 +1926,13 @@ void TrafficManager::UpdateStats() {
     }
   }
 #ifdef TRACK_FLOWS
-  if (_injected_flits_out)
-    *_injected_flits_out << flush;
-  if (_received_flits_out)
-    *_received_flits_out << flush;
-  if (_stored_flits_out)
-    *_stored_flits_out << flush;
-  if (_sent_flits_out)
-    *_sent_flits_out << flush;
-  if (_outstanding_credits_out)
-    *_outstanding_credits_out << flush;
-  if (_ejected_flits_out)
-    *_ejected_flits_out << flush;
-  if (_active_packets_out)
-    *_active_packets_out << flush;
+  if (_injected_flits_out) *_injected_flits_out << flush;
+  if (_received_flits_out) *_received_flits_out << flush;
+  if (_stored_flits_out) *_stored_flits_out << flush;
+  if (_sent_flits_out) *_sent_flits_out << flush;
+  if (_outstanding_credits_out) *_outstanding_credits_out << flush;
+  if (_ejected_flits_out) *_ejected_flits_out << flush;
+  if (_active_packets_out) *_active_packets_out << flush;
 #endif
 #endif
 
@@ -1980,12 +1941,9 @@ void TrafficManager::UpdateStats() {
     for (int n = 0; n < _nodes; ++n) {
       BufferState const *const bs = _buf_states[n][s];
       for (int v = 0; v < _vcs; ++v) {
-        if (_used_credits_out)
-          *_used_credits_out << bs->OccupancyFor(v) << ',';
-        if (_free_credits_out)
-          *_free_credits_out << bs->AvailableFor(v) << ',';
-        if (_max_credits_out)
-          *_max_credits_out << bs->LimitFor(v) << ',';
+        if (_used_credits_out) *_used_credits_out << bs->OccupancyFor(v) << ',';
+        if (_free_credits_out) *_free_credits_out << bs->AvailableFor(v) << ',';
+        if (_max_credits_out) *_max_credits_out << bs->LimitFor(v) << ',';
       }
     }
     for (int r = 0; r < _routers; ++r) {
@@ -2000,19 +1958,14 @@ void TrafficManager::UpdateStats() {
         *_max_credits_out << rtr->MaxCredits() << trail_char;
     }
   }
-  if (_used_credits_out)
-    *_used_credits_out << flush;
-  if (_free_credits_out)
-    *_free_credits_out << flush;
-  if (_max_credits_out)
-    *_max_credits_out << flush;
+  if (_used_credits_out) *_used_credits_out << flush;
+  if (_free_credits_out) *_free_credits_out << flush;
+  if (_max_credits_out) *_max_credits_out << flush;
 #endif
 }
 
 void TrafficManager::DisplayStats(std::ostream &os) const {
-
   for (int c = 0; c < _classes; ++c) {
-
     if (_measure_stats[c] == 0) {
       continue;
     }
@@ -2128,10 +2081,8 @@ void TrafficManager::DisplayStats(std::ostream &os) const {
 }
 
 void TrafficManager::DisplayOverallStats(std::ostream &os) const {
-
   os << "====== Overall Traffic Statistics ======" << std::endl;
   for (int c = 0; c < _classes; ++c) {
-
     if (_measure_stats[c] == 0) {
       continue;
     }

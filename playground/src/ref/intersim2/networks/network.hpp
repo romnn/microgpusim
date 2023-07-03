@@ -46,7 +46,7 @@ typedef Channel<Credit> CreditChannel;
 class InterconnectInterface;
 
 class Network : public TimedModule {
-protected:
+ protected:
   int _size;
   int _nodes;
   int _channels;
@@ -70,7 +70,7 @@ protected:
 
   void _Alloc();
 
-public:
+ public:
   Network(const Configuration &config, const std::string &name,
           InterconnectInterface *icnt);
   virtual ~Network();

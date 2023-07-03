@@ -7,7 +7,7 @@
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
 
- Redistributions of source code must retain the above copyright notice, this 
+ Redistributions of source code must retain the above copyright notice, this
  list of conditions and the following disclaimer.
  Redistributions in binary form must reproduce the above copyright notice, this
  list of conditions and the following disclaimer in the documentation and/or
@@ -15,7 +15,7 @@
 
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
@@ -30,28 +30,24 @@
  *A class for credits
  */
 
-#include "booksim.hpp"
 #include "credit.hpp"
+#include "booksim.hpp"
 
 stack<Credit *> Credit::_all;
 stack<Credit *> Credit::_free;
 
-Credit::Credit()
-{
-  Reset();
-}
+Credit::Credit() { Reset(); }
 
-void Credit::Reset()
-{
+void Credit::Reset() {
   vc.clear();
   head = false;
   tail = false;
-  id   = -1;
+  id = -1;
 }
 
-Credit * Credit::New() {
-  Credit * c;
-  if(_free.empty()) {
+Credit *Credit::New() {
+  Credit *c;
+  if (_free.empty()) {
     c = new Credit();
     _all.push(c);
   } else {
@@ -62,18 +58,13 @@ Credit * Credit::New() {
   return c;
 }
 
-void Credit::Free() {
-  _free.push(this);
-}
+void Credit::Free() { _free.push(this); }
 
 void Credit::FreeAll() {
-  while(!_all.empty()) {
+  while (!_all.empty()) {
     delete _all.top();
     _all.pop();
   }
 }
 
-
-int Credit::OutStanding(){
-  return _all.size()-_free.size();
-}
+int Credit::OutStanding() { return _all.size() - _free.size(); }

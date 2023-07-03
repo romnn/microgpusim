@@ -7,7 +7,7 @@
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
 
- Redistributions of source code must retain the above copyright notice, this 
+ Redistributions of source code must retain the above copyright notice, this
  list of conditions and the following disclaimer.
  Redistributions in binary form must reproduce the above copyright notice, this
  list of conditions and the following disclaimer in the documentation and/or
@@ -15,7 +15,7 @@
 
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
@@ -36,7 +36,7 @@
 //  $Author: jbalfour $
 //  $Date: 2007/06/26 22:49:23 $
 //  $Id: cmesh.hpp 5188 2012-08-30 00:31:31Z dub $
-// 
+//
 ////////////////////////////////////////////////////////////////////////
 #ifndef _CMESH_HPP_
 #define _CMESH_HPP_
@@ -45,31 +45,30 @@
 #include "routefunc.hpp"
 
 class CMesh : public Network {
-public:
-  CMesh( const Configuration &config, const string & name );
+ public:
+  CMesh(const Configuration &config, const string &name);
   int GetN() const;
   int GetK() const;
 
-  static int NodeToRouter( int address ) ;
-  static int NodeToPort( int address ) ;
+  static int NodeToRouter(int address);
+  static int NodeToPort(int address);
 
-  static void RegisterRoutingFunctions() ;
+  static void RegisterRoutingFunctions();
 
-private:
+ private:
+  static int _cX;
+  static int _cY;
 
-  static int _cX ;
-  static int _cY ;
+  static int _memo_NodeShiftX;
+  static int _memo_NodeShiftY;
+  static int _memo_PortShiftY;
 
-  static int _memo_NodeShiftX ;
-  static int _memo_NodeShiftY ;
-  static int _memo_PortShiftY ;
+  void _ComputeSize(const Configuration &config);
+  void _BuildNet(const Configuration &config);
 
-  void _ComputeSize( const Configuration &config );
-  void _BuildNet( const Configuration& config );
-
-  int _k ;
-  int _n ;
-  int _c ;
+  int _k;
+  int _n;
+  int _c;
   int _xcount;
   int _ycount;
   int _xrouter;
@@ -80,16 +79,16 @@ private:
 //
 // Routing Functions
 //
-void xy_yx_cmesh( const Router *r, const Flit *f, int in_channel, 
-		  OutputSet *outputs, bool inject ) ;
+void xy_yx_cmesh(const Router *r, const Flit *f, int in_channel,
+                 OutputSet *outputs, bool inject);
 
-void xy_yx_no_express_cmesh( const Router *r, const Flit *f, int in_channel, 
-			     OutputSet *outputs, bool inject ) ;
+void xy_yx_no_express_cmesh(const Router *r, const Flit *f, int in_channel,
+                            OutputSet *outputs, bool inject);
 
-void dor_cmesh( const Router *r, const Flit *f, int in_channel, 
-		OutputSet *outputs, bool inject ) ;
+void dor_cmesh(const Router *r, const Flit *f, int in_channel,
+               OutputSet *outputs, bool inject);
 
-void dor_no_express_cmesh( const Router *r, const Flit *f, int in_channel, 
-			   OutputSet *outputs, bool inject ) ;
+void dor_no_express_cmesh(const Router *r, const Flit *f, int in_channel,
+                          OutputSet *outputs, bool inject);
 
 #endif

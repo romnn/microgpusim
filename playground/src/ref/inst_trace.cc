@@ -6,16 +6,14 @@
 
 bool is_number(const std::string &s) {
   std::string::const_iterator it = s.begin();
-  while (it != s.end() && std::isdigit(*it))
-    ++it;
+  while (it != s.end() && std::isdigit(*it)) ++it;
   return !s.empty() && it == s.end();
 }
 
 inst_trace_t::inst_trace_t() { memadd_info = NULL; }
 
 inst_trace_t::~inst_trace_t() {
-  if (memadd_info != NULL)
-    delete memadd_info;
+  if (memadd_info != NULL) delete memadd_info;
 }
 
 inst_trace_t::inst_trace_t(const inst_trace_t &b) {
@@ -28,8 +26,7 @@ inst_trace_t::inst_trace_t(const inst_trace_t &b) {
 bool inst_trace_t::check_opcode_contain(const std::vector<std::string> &opcode,
                                         std::string param) const {
   for (unsigned i = 0; i < opcode.size(); ++i)
-    if (opcode[i] == param)
-      return true;
+    if (opcode[i] == param) return true;
 
   return false;
 }
@@ -39,8 +36,7 @@ std::vector<std::string> inst_trace_t::get_opcode_tokens() const {
   std::vector<std::string> opcode_tokens;
   std::string token;
   while (std::getline(iss, token, '.')) {
-    if (!token.empty())
-      opcode_tokens.push_back(token);
+    if (!token.empty()) opcode_tokens.push_back(token);
   }
   return opcode_tokens;
 }
@@ -58,7 +54,7 @@ unsigned inst_trace_t::get_datawidth_from_opcode(
     }
   }
 
-  return 4; // default is 4 bytes
+  return 4;  // default is 4 bytes
 }
 
 bool inst_trace_t::parse_from_string(std::string trace, unsigned trace_version,
@@ -109,7 +105,7 @@ bool inst_trace_t::parse_from_string(std::string trace, unsigned trace_version,
 
   ss >> mem_width;
 
-  if (mem_width > 0) // then it is a memory inst
+  if (mem_width > 0)  // then it is a memory inst
   {
     memadd_info = new inst_memadd_info_t();
 

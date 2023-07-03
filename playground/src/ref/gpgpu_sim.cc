@@ -18,12 +18,14 @@
 void gpgpu_sim::launch(trace_kernel_info_t *kinfo) {
   unsigned cta_size = kinfo->threads_per_cta();
   if (cta_size > m_shader_config->n_thread_per_shader) {
-    printf("Execution error: Shader kernel CTA (block) size is too large for "
-           "microarch config.\n");
+    printf(
+        "Execution error: Shader kernel CTA (block) size is too large for "
+        "microarch config.\n");
     printf("                 CTA size (x*y*z) = %u, max supported = %u\n",
            cta_size, m_shader_config->n_thread_per_shader);
-    printf("                 => either change -gpgpu_shader argument in "
-           "gpgpusim.config file or\n");
+    printf(
+        "                 => either change -gpgpu_shader argument in "
+        "gpgpusim.config file or\n");
     printf(
         "                 modify the CUDA source to decrease the kernel block "
         "size.\n");
@@ -56,18 +58,15 @@ bool gpgpu_sim::hit_max_cta_count() const {
 }
 
 bool gpgpu_sim::kernel_more_cta_left(trace_kernel_info_t *kernel) const {
-  if (hit_max_cta_count())
-    return false;
+  if (hit_max_cta_count()) return false;
 
-  if (kernel && !kernel->no_more_ctas_to_run())
-    return true;
+  if (kernel && !kernel->no_more_ctas_to_run()) return true;
 
   return false;
 }
 
 bool gpgpu_sim::get_more_cta_left() const {
-  if (hit_max_cta_count())
-    return false;
+  if (hit_max_cta_count()) return false;
 
   for (unsigned n = 0; n < m_running_kernels.size(); n++) {
     if (m_running_kernels[n] && !m_running_kernels[n]->no_more_ctas_to_run())
@@ -122,8 +121,7 @@ trace_kernel_info_t *gpgpu_sim::select_kernel() {
 }
 
 unsigned gpgpu_sim::finished_kernel() {
-  if (m_finished_kernel.empty())
-    return 0;
+  if (m_finished_kernel.empty()) return 0;
   unsigned result = m_finished_kernel.front();
   m_finished_kernel.pop_front();
   return result;
@@ -146,8 +144,8 @@ void gpgpu_sim::set_kernel_done(trace_kernel_info_t *kernel) {
 void gpgpu_sim::stop_all_running_kernels() {
   std::vector<trace_kernel_info_t *>::iterator k;
   for (k = m_running_kernels.begin(); k != m_running_kernels.end(); ++k) {
-    if (*k != NULL) {      // If a kernel is active
-      set_kernel_done(*k); // Stop the kernel
+    if (*k != NULL) {       // If a kernel is active
+      set_kernel_done(*k);  // Stop the kernel
       assert(*k == NULL);
     }
   }
@@ -225,7 +223,7 @@ gpgpu_sim::gpgpu_sim(const gpgpu_sim_config &config, gpgpu_context *ctx)
   m_running_kernels.resize(config.max_concurrent_kernel, NULL);
   m_last_issued_kernel = 0;
   m_last_cluster_issue = m_shader_config->n_simt_clusters -
-                         1; // this causes first launch to use simt cluster 0
+                         1;  // this causes first launch to use simt cluster 0
   *average_pipeline_duty_cycle = 0;
   *active_sms = 0;
 
@@ -302,20 +300,15 @@ bool gpgpu_sim::active() {
   if (m_config.gpu_max_completed_cta_opt &&
       (gpu_completed_cta >= m_config.gpu_max_completed_cta_opt))
     return false;
-  if (m_config.gpu_deadlock_detect && gpu_deadlock)
-    return false;
+  if (m_config.gpu_deadlock_detect && gpu_deadlock) return false;
   for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++)
-    if (m_cluster[i]->get_not_completed() > 0)
-      return true;
+    if (m_cluster[i]->get_not_completed() > 0) return true;
   ;
   for (unsigned i = 0; i < m_memory_config->m_n_mem; i++)
-    if (m_memory_partition_unit[i]->busy() > 0)
-      return true;
+    if (m_memory_partition_unit[i]->busy() > 0) return true;
   ;
-  if (icnt_busy())
-    return true;
-  if (get_more_cta_left())
-    return true;
+  if (icnt_busy()) return true;
+  if (get_more_cta_left()) return true;
   return false;
 }
 
@@ -364,8 +357,7 @@ void gpgpu_sim::init() {
     set_spill_interval(m_config.gpgpu_cflog_interval * 40);
   }
 
-  if (g_network_mode)
-    icnt_init();
+  if (g_network_mode) icnt_init();
 }
 
 void gpgpu_sim::update_stats() {
@@ -426,8 +418,9 @@ void gpgpu_sim::deadlock_check() {
       unsigned not_completed = m_cluster[i]->get_not_completed();
       if (not_completed) {
         if (!num_cores) {
-          printf("GPGPU-Sim uArch: DEADLOCK  shader cores no longer committing "
-                 "instructions [core(# threads)]:\n");
+          printf(
+              "GPGPU-Sim uArch: DEADLOCK  shader cores no longer committing "
+              "instructions [core(# threads)]:\n");
           printf("GPGPU-Sim uArch: DEADLOCK  ");
           m_cluster[i]->print_not_completed(stdout);
         } else if (num_cores < 8) {
@@ -532,47 +525,47 @@ void gpgpu_sim::change_cache_config(FuncCache cache_config) {
   }
 
   switch (cache_config) {
-  case FuncCachePreferNone:
-    m_shader_config->m_L1D_config.init(
-        m_shader_config->m_L1D_config.m_config_string, FuncCachePreferNone);
-    m_shader_config->gpgpu_shmem_size =
-        m_shader_config->gpgpu_shmem_sizeDefault;
-    break;
-  case FuncCachePreferL1:
-    if ((m_shader_config->m_L1D_config.m_config_stringPrefL1 == NULL) ||
-        (m_shader_config->gpgpu_shmem_sizePrefL1 == (unsigned)-1)) {
-      printf("WARNING: missing Preferred L1 configuration\n");
+    case FuncCachePreferNone:
       m_shader_config->m_L1D_config.init(
           m_shader_config->m_L1D_config.m_config_string, FuncCachePreferNone);
       m_shader_config->gpgpu_shmem_size =
           m_shader_config->gpgpu_shmem_sizeDefault;
+      break;
+    case FuncCachePreferL1:
+      if ((m_shader_config->m_L1D_config.m_config_stringPrefL1 == NULL) ||
+          (m_shader_config->gpgpu_shmem_sizePrefL1 == (unsigned)-1)) {
+        printf("WARNING: missing Preferred L1 configuration\n");
+        m_shader_config->m_L1D_config.init(
+            m_shader_config->m_L1D_config.m_config_string, FuncCachePreferNone);
+        m_shader_config->gpgpu_shmem_size =
+            m_shader_config->gpgpu_shmem_sizeDefault;
 
-    } else {
-      m_shader_config->m_L1D_config.init(
-          m_shader_config->m_L1D_config.m_config_stringPrefL1,
-          FuncCachePreferL1);
-      m_shader_config->gpgpu_shmem_size =
-          m_shader_config->gpgpu_shmem_sizePrefL1;
-    }
-    break;
-  case FuncCachePreferShared:
-    if ((m_shader_config->m_L1D_config.m_config_stringPrefShared == NULL) ||
-        (m_shader_config->gpgpu_shmem_sizePrefShared == (unsigned)-1)) {
-      printf("WARNING: missing Preferred L1 configuration\n");
-      m_shader_config->m_L1D_config.init(
-          m_shader_config->m_L1D_config.m_config_string, FuncCachePreferNone);
-      m_shader_config->gpgpu_shmem_size =
-          m_shader_config->gpgpu_shmem_sizeDefault;
-    } else {
-      m_shader_config->m_L1D_config.init(
-          m_shader_config->m_L1D_config.m_config_stringPrefShared,
-          FuncCachePreferShared);
-      m_shader_config->gpgpu_shmem_size =
-          m_shader_config->gpgpu_shmem_sizePrefShared;
-    }
-    break;
-  default:
-    break;
+      } else {
+        m_shader_config->m_L1D_config.init(
+            m_shader_config->m_L1D_config.m_config_stringPrefL1,
+            FuncCachePreferL1);
+        m_shader_config->gpgpu_shmem_size =
+            m_shader_config->gpgpu_shmem_sizePrefL1;
+      }
+      break;
+    case FuncCachePreferShared:
+      if ((m_shader_config->m_L1D_config.m_config_stringPrefShared == NULL) ||
+          (m_shader_config->gpgpu_shmem_sizePrefShared == (unsigned)-1)) {
+        printf("WARNING: missing Preferred L1 configuration\n");
+        m_shader_config->m_L1D_config.init(
+            m_shader_config->m_L1D_config.m_config_string, FuncCachePreferNone);
+        m_shader_config->gpgpu_shmem_size =
+            m_shader_config->gpgpu_shmem_sizeDefault;
+      } else {
+        m_shader_config->m_L1D_config.init(
+            m_shader_config->m_L1D_config.m_config_stringPrefShared,
+            FuncCachePreferShared);
+        m_shader_config->gpgpu_shmem_size =
+            m_shader_config->gpgpu_shmem_sizePrefShared;
+      }
+      break;
+    default:
+      break;
   }
 }
 
@@ -819,7 +812,7 @@ void gpgpu_sim::issue_block2core() {
 }
 
 unsigned long long g_single_step =
-    0; // set this in gdb to single step the pipeline
+    0;  // set this in gdb to single step the pipeline
 
 void gpgpu_sim::cycle() {
   // guess: clock mask is which clock domains are active in this cycle (core,
@@ -895,8 +888,7 @@ void gpgpu_sim::cycle() {
       } else {
         mem_fetch *mf = (mem_fetch *)icnt_pop(m_shader_config->mem2device(i));
         m_memory_sub_partition[i]->push(mf, gpu_sim_cycle + gpu_tot_sim_cycle);
-        if (mf)
-          partiton_reqs_in_parallel_per_cycle++;
+        if (mf) partiton_reqs_in_parallel_per_cycle++;
       }
       m_memory_sub_partition[i]->cache_cycle(gpu_sim_cycle + gpu_tot_sim_cycle);
       // REMOVE: power
@@ -946,12 +938,11 @@ void gpgpu_sim::cycle() {
 
     if (g_single_step &&
         ((gpu_sim_cycle + gpu_tot_sim_cycle) >= g_single_step)) {
-      raise(SIGTRAP); // Debug breakpoint
+      raise(SIGTRAP);  // Debug breakpoint
     }
     gpu_sim_cycle++;
 
-    if (g_interactive_debugger_enabled)
-      gpgpu_debug();
+    if (g_interactive_debugger_enabled) gpgpu_debug();
 
     // REMOVE: power
     // McPAT main cycle (interface with McPAT)
@@ -997,7 +988,7 @@ void gpgpu_sim::cycle() {
           int dlc = 0;
           for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
             dlc = m_memory_sub_partition[i]->flushL2();
-            assert(dlc == 0); // TODO: need to model actual writes to DRAM here
+            assert(dlc == 0);  // TODO: need to model actual writes to DRAM here
             printf("Dirty lines flushed from L2 %d is %d\n", i, dlc);
           }
         }
@@ -1107,8 +1098,7 @@ void gpgpu_sim::dump_pipeline(int mask, int s, int m) const {
   */
 
   printf("Dumping pipeline state...\n");
-  if (!mask)
-    mask = 0xFFFFFFFF;
+  if (!mask) mask = 0xFFFFFFFF;
   for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
     if (s != -1) {
       i = s;
@@ -1126,12 +1116,9 @@ void gpgpu_sim::dump_pipeline(int mask, int s, int m) const {
         i = m;
       }
       printf("DRAM / memory controller %u:\n", i);
-      if (mask & 0x100000)
-        m_memory_partition_unit[i]->print_stat(stdout);
-      if (mask & 0x1000000)
-        m_memory_partition_unit[i]->visualize();
-      if (mask & 0x10000000)
-        m_memory_partition_unit[i]->print(stdout);
+      if (mask & 0x100000) m_memory_partition_unit[i]->print_stat(stdout);
+      if (mask & 0x1000000) m_memory_partition_unit[i]->visualize();
+      if (mask & 0x10000000) m_memory_partition_unit[i]->print(stdout);
       if (m != -1) {
         break;
       }

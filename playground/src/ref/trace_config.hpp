@@ -4,7 +4,7 @@
 #include "option_parser.hpp"
 
 class trace_config {
-public:
+ public:
   trace_config();
 
   void set_latency(unsigned category, unsigned &latency,
@@ -13,7 +13,7 @@ public:
   void reg_options(option_parser_t opp);
   char *get_traces_filename() { return g_traces_filename; }
 
-private:
+ private:
   unsigned int_latency, fp_latency, dp_latency, sfu_latency, tensor_latency;
   unsigned int_init, fp_init, dp_init, sfu_init, tensor_init;
   unsigned specialized_unit_latency[SPECIALIZED_UNIT_NUM];

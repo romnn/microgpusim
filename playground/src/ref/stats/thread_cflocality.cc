@@ -4,12 +4,15 @@ thread_CFlocality::thread_CFlocality(gpgpu_context *ctx, std::string name,
                                      unsigned long long snap_shot_interval,
                                      int nthreads, address_type start_pc,
                                      unsigned long long start_cycle)
-    : snap_shot_trigger(snap_shot_interval), m_name(name), m_nthreads(nthreads),
-      m_thread_pc(nthreads, start_pc), m_cycle(start_cycle),
+    : snap_shot_trigger(snap_shot_interval),
+      m_name(name),
+      m_nthreads(nthreads),
+      m_thread_pc(nthreads, start_pc),
+      m_cycle(start_cycle),
       m_thd_span(start_cycle, ctx) {
   std::fill(
       m_thread_pc.begin(), m_thread_pc.end(),
-      -1); // so that hw thread with no work assigned will not clobber results
+      -1);  // so that hw thread with no work assigned will not clobber results
 }
 
 thread_CFlocality::~thread_CFlocality() {}
@@ -51,8 +54,8 @@ void thread_CFlocality::print_visualizer(FILE *fout) {
     for (int i = 0; i < (int)m_thread_pc.size(); i++)
       m_thd_span.set_span(m_thread_pc[i]);
   } else {
-    assert(0); // TODO: implement fall back so that visualizer can work with
-               // snap shots
+    assert(0);  // TODO: implement fall back so that visualizer can work with
+                // snap shots
   }
 }
 
@@ -68,8 +71,8 @@ void thread_CFlocality::print_visualizer(gzFile fout) {
       m_thd_span.set_span(m_thread_pc[i]);
     }
   } else {
-    assert(0); // TODO: implement fall back so that visualizer can work with
-               // snap shots
+    assert(0);  // TODO: implement fall back so that visualizer can work with
+                // snap shots
   }
 }
 

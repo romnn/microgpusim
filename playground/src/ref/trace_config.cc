@@ -65,32 +65,32 @@ void trace_config::set_latency(unsigned category, unsigned &latency,
   initiation_interval = latency = 1;
 
   switch (category) {
-  case ALU_OP:
-  case INTP_OP:
-  case BRANCH_OP:
-  case CALL_OPS:
-  case RET_OPS:
-    latency = int_latency;
-    initiation_interval = int_init;
-    break;
-  case SP_OP:
-    latency = fp_latency;
-    initiation_interval = fp_init;
-    break;
-  case DP_OP:
-    latency = dp_latency;
-    initiation_interval = dp_init;
-    break;
-  case SFU_OP:
-    latency = sfu_latency;
-    initiation_interval = sfu_init;
-    break;
-  case TENSOR_CORE_OP:
-    latency = tensor_latency;
-    initiation_interval = tensor_init;
-    break;
-  default:
-    break;
+    case ALU_OP:
+    case INTP_OP:
+    case BRANCH_OP:
+    case CALL_OPS:
+    case RET_OPS:
+      latency = int_latency;
+      initiation_interval = int_init;
+      break;
+    case SP_OP:
+      latency = fp_latency;
+      initiation_interval = fp_init;
+      break;
+    case DP_OP:
+      latency = dp_latency;
+      initiation_interval = dp_init;
+      break;
+    case SFU_OP:
+      latency = sfu_latency;
+      initiation_interval = sfu_init;
+      break;
+    case TENSOR_CORE_OP:
+      latency = tensor_latency;
+      initiation_interval = tensor_init;
+      break;
+    default:
+      break;
   }
   // for specialized units
   if (category >= SPEC_UNIT_START_ID) {

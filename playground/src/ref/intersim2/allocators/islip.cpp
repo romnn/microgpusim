@@ -56,7 +56,6 @@ void iSLIP_Sparse::Allocate() {
     std::vector<int> grants(_outputs, -1);
 
     for (output = 0; output < _outputs; ++output) {
-
       // Skip loop if there are no requests
       // or the output is already matched
       if ((_out_req[output].empty()) || (_outmatch[output] != -1)) {
@@ -114,7 +113,6 @@ void iSLIP_Sparse::Allocate() {
     // Accept phase
 
     for (input = 0; input < _inputs; ++input) {
-
       if (_in_req[input].empty()) {
         continue;
       }

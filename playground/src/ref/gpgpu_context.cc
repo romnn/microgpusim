@@ -118,8 +118,9 @@ void *gpgpu_sim_thread_concurrent(void *ctx_ptr) {
   fflush(stdout);
 
   if (ctx->the_gpgpusim->break_limit) {
-    printf("GPGPU-Sim: ** break due to reaching the maximum cycles (or "
-           "instructions) **\n");
+    printf(
+        "GPGPU-Sim: ** break due to reaching the maximum cycles (or "
+        "instructions) **\n");
     exit(1);
   }
 

@@ -7,7 +7,7 @@
 #include "param.hpp"
 
 class param_info {
-public:
+ public:
   param_info() {
     m_valid = false;
     m_value_set = false;
@@ -26,8 +26,8 @@ public:
   }
   void add_data(param_t v) {
     assert((!m_value_set) ||
-           (m_value.size == v.size)); // if this fails concurrent kernel
-                                      // launches might execute incorrectly
+           (m_value.size == v.size));  // if this fails concurrent kernel
+                                       // launches might execute incorrectly
     m_value_set = true;
     m_value = v;
   }
@@ -57,7 +57,7 @@ public:
     return (m_is_ptr and m_ptr_space == shared_space);
   }
 
-private:
+ private:
   bool m_valid;
   std::string m_name;
   int m_type;

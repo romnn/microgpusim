@@ -16,10 +16,8 @@ struct power_config {
     char *date = ctime(&curr_time);
     char *s = date;
     while (*s) {
-      if (*s == ' ' || *s == '\t' || *s == ':')
-        *s = '-';
-      if (*s == '\n' || *s == '\r')
-        *s = 0;
+      if (*s == ' ' || *s == '\t' || *s == ':') *s = '-';
+      if (*s == '\n' || *s == '\r') *s = 0;
       s++;
     }
     char buf1[1024];

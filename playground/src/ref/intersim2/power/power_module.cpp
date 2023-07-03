@@ -34,7 +34,6 @@
 Power_Module::Power_Module(Network *n, const Configuration &config,
                            InterconnectInterface *icnt)
     : Module(0, "power_module", icnt) {
-
   std::string pfile = config.GetStr("tech_file");
   PowerConfig pconfig;
   pconfig.ParseFile(pfile);
@@ -63,16 +62,16 @@ Power_Module::Power_Module(Network *n, const Configuration &config,
 
   //////////Device Parameters////////////
 
-  LAMBDA = pconfig.GetFloat("LAMBDA"); // [um/LAMBDA]
-  Cd = pconfig.GetFloat("Cd");         // [F/um] (for Delay)
-  Cg = pconfig.GetFloat("Cg");         // [F/um] (for Delay)
-  Cgdl = pconfig.GetFloat("Cgdl");     // [F/um] (for Delay)
+  LAMBDA = pconfig.GetFloat("LAMBDA");  // [um/LAMBDA]
+  Cd = pconfig.GetFloat("Cd");          // [F/um] (for Delay)
+  Cg = pconfig.GetFloat("Cg");          // [F/um] (for Delay)
+  Cgdl = pconfig.GetFloat("Cgdl");      // [F/um] (for Delay)
 
-  Cd_pwr = pconfig.GetFloat("Cd_pwr"); // [F/um] (for Power)
-  Cg_pwr = pconfig.GetFloat("Cg_pwr"); // [F/um] (for Power)
+  Cd_pwr = pconfig.GetFloat("Cd_pwr");  // [F/um] (for Power)
+  Cg_pwr = pconfig.GetFloat("Cg_pwr");  // [F/um] (for Power)
 
-  IoffN = pconfig.GetFloat("IoffN"); // [A/um]
-  IoffP = pconfig.GetFloat("IoffP"); // [A/um]
+  IoffN = pconfig.GetFloat("IoffN");  // [A/um]
+  IoffP = pconfig.GetFloat("IoffP");  // [A/um]
   // Leakage from bitlines, two-port cell  [A]
   IoffSRAM = pconfig.GetFloat("IoffSRAM");
   // [Ohm] ( D1=1um Inverter)
@@ -122,7 +121,6 @@ void Power_Module::calcChannel(const FlitChannel *f) {
   const std::vector<int> temp = f->GetActivity();
   std::vector<double> a(classes);
   for (int i = 0; i < classes; i++) {
-
     a[i] = ((double)temp[i]) / totalTime;
   }
 
@@ -140,7 +138,6 @@ void Power_Module::calcChannel(const FlitChannel *f) {
 wire const &Power_Module::wireOptimize(double L) {
   std::map<double, wire>::iterator iter = wire_map.find(L);
   if (iter == wire_map.end()) {
-
     double W = 64;
     double bestMetric = 100000000;
     double bestK = -1;
@@ -180,7 +177,6 @@ wire const &Power_Module::wireOptimize(double L) {
 }
 
 double Power_Module::powerRepeatedWire(double L, double K, double M, double N) {
-
   double segments = 1.0 * M * N;
   double Ca = K * (Ci + Co) + Cw * (L / segments);
   double Pa = 0.5 * Ca * Vdd * Vdd * fCLK;
@@ -286,7 +282,6 @@ double Power_Module::powerMemoryBitWrite(double memoryDepth) {
 }
 
 double Power_Module::powerMemoryBitLeak(double memoryDepth) {
-
   return memoryDepth * IoffSRAM * Vdd;
 }
 
@@ -295,7 +290,6 @@ double Power_Module::powerMemoryBitLeak(double memoryDepth) {
 //////////////////////////////////////////////////////////////
 
 void Power_Module::calcSwitch(const SwitchMonitor *sm) {
-
   switchArea += areaCrossbar(sm->NumInputs(), sm->NumOutputs());
   outputArea += areaOutputModule(sm->NumOutputs());
   switchPowerLeak +=
@@ -370,7 +364,6 @@ double Power_Module::powerCrossbar(double width, double inputs, double outputs,
 
 double Power_Module::powerCrossbarCtrl(double width, double inputs,
                                        double outputs) {
-
   // datapath traversal power
   double Wxbar = width * outputs * CrossbarPitch;
   double Hxbar = width * inputs * CrossbarPitch;
@@ -410,7 +403,6 @@ double Power_Module::powerCrossbarLeak(double width, double inputs,
 // output module
 //////////////////////////////////////////////////////////////////
 double Power_Module::powerOutputCtrl(double width) {
-
   double Woutmod = channel_width * ChannelPitch;
   double Cen = Ci;
 
@@ -425,7 +417,6 @@ double Power_Module::powerOutputCtrl(double width) {
 //////////////////////////////////////////////////////////////////
 
 double Power_Module::areaChannel(double K, double N, double M) {
-
   double Adff = M * W_DFQD1 * H_DFQD1;
   double Ainv = M * N * (W_INVD2 + 3 * K) * H_INVD2;
 

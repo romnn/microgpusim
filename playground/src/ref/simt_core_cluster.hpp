@@ -10,7 +10,7 @@ class gpgpu_sim;
 class shader_core_ctx;
 
 class simt_core_cluster {
-public:
+ public:
   simt_core_cluster(class gpgpu_sim *gpu, unsigned cluster_id,
                     const shader_core_config *config,
                     const memory_config *mem_config, shader_core_stats *stats,
@@ -58,7 +58,7 @@ public:
                               unsigned long long &total) const;
   virtual void create_shader_core_ctx() = 0;
 
-protected:
+ protected:
   unsigned m_cluster_id;
   gpgpu_sim *m_gpu;
   const shader_core_config *m_config;

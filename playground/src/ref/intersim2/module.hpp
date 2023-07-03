@@ -38,7 +38,7 @@
 class InterconnectInterface;
 
 class Module {
-public:
+ public:
   // todo maybe the order here
   Module(Module *parent, const std::string &name, InterconnectInterface *icnt)
       : Module(parent, name) {
@@ -60,13 +60,13 @@ public:
 
   InterconnectInterface *m_icnt;
 
-private:
+ private:
   std::string _name;
   std::string _fullname;
 
   std::vector<Module *> _children;
 
-protected:
+ protected:
   void _AddChild(Module *child);
 };
 

@@ -5,7 +5,7 @@
 #include "hal.hpp"
 
 class simt_stack {
-public:
+ public:
   simt_stack(unsigned wid, unsigned warpSize, class trace_gpgpu_sim *gpu);
 
   void reset();
@@ -21,7 +21,7 @@ public:
   void resume(char *fname);
   void print_checkpoint(FILE *fout) const;
 
-protected:
+ protected:
   unsigned m_warp_id;
   unsigned m_warp_size;
 
@@ -35,8 +35,12 @@ protected:
     unsigned long long m_branch_div_cycle;
     stack_entry_type m_type;
     simt_stack_entry()
-        : m_pc(-1), m_calldepth(0), m_active_mask(), m_recvg_pc(-1),
-          m_branch_div_cycle(0), m_type(STACK_ENTRY_TYPE_NORMAL){};
+        : m_pc(-1),
+          m_calldepth(0),
+          m_active_mask(),
+          m_recvg_pc(-1),
+          m_branch_div_cycle(0),
+          m_type(STACK_ENTRY_TYPE_NORMAL){};
   };
 
   std::deque<simt_stack_entry> m_stack;

@@ -36,10 +36,12 @@
 BatchTrafficManager::BatchTrafficManager(const Configuration &config,
                                          const std::vector<Network *> &net,
                                          InterconnectInterface *icnt)
-    : TrafficManager(config, net, icnt), _last_id(-1), _last_pid(-1),
-      _overall_min_batch_time(0), _overall_avg_batch_time(0),
+    : TrafficManager(config, net, icnt),
+      _last_id(-1),
+      _last_pid(-1),
+      _overall_min_batch_time(0),
+      _overall_avg_batch_time(0),
       _overall_max_batch_time(0) {
-
   _max_outstanding = config.GetInt("max_outstanding_requests");
 
   _batch_size = config.GetInt("batch_size");
@@ -58,8 +60,7 @@ BatchTrafficManager::BatchTrafficManager(const Configuration &config,
 
 BatchTrafficManager::~BatchTrafficManager() {
   delete _batch_time;
-  if (_sent_packets_out)
-    delete _sent_packets_out;
+  if (_sent_packets_out) delete _sent_packets_out;
 }
 
 void BatchTrafficManager::_RetireFlit(Flit *f, int dest) {
@@ -70,7 +71,7 @@ void BatchTrafficManager::_RetireFlit(Flit *f, int dest) {
 
 int BatchTrafficManager::_IssuePacket(int source, int cl) {
   int result = 0;
-  if (_use_read_write[cl]) { // read write packets
+  if (_use_read_write[cl]) {  // read write packets
     // check queue for waiting replies.
     // check to make sure it is on time yet
     if (!_repliesPending[source].empty()) {
@@ -81,14 +82,13 @@ int BatchTrafficManager::_IssuePacket(int source, int cl) {
       if ((_packet_seq_no[source] < _batch_size) &&
           ((_max_outstanding <= 0) ||
            (_requestsOutstanding[source] < _max_outstanding))) {
-
         // coin toss to determine request type.
         result = (RandomFloat() < 0.5) ? 2 : 1;
 
         _requestsOutstanding[source]++;
       }
     }
-  } else { // normal
+  } else {  // normal
     if ((_packet_seq_no[source] < _batch_size) &&
         ((_max_outstanding <= 0) ||
          (_requestsOutstanding[source] < _max_outstanding))) {

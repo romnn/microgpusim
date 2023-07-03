@@ -65,7 +65,6 @@ void Allocator::Clear() {
 
 void Allocator::AddRequest(int in, int out, int label, int in_pri,
                            int out_pri) {
-
   assert((in >= 0) && (in < _inputs));
   assert((out >= 0) && (out < _outputs));
   assert(label >= 0);
@@ -85,8 +84,7 @@ int Allocator::InputAssigned(int out) const {
 }
 
 void Allocator::PrintGrants(std::ostream *os) const {
-  if (!os)
-    os = &std::cout;
+  if (!os) os = &std::cout;
 
   *os << "Input grants = [ ";
   for (int input = 0; input < _inputs; ++input) {
@@ -201,8 +199,7 @@ int DenseAllocator::NumOutputRequests(int out) const {
 }
 
 void DenseAllocator::PrintRequests(std::ostream *os) const {
-  if (!os)
-    os = &std::cout;
+  if (!os) os = &std::cout;
 
   *os << "Input requests = [ ";
   for (int input = 0; input < _inputs; ++input) {
@@ -250,13 +247,11 @@ SparseAllocator::SparseAllocator(Module *parent, const std::string &name,
 
 void SparseAllocator::Clear() {
   for (int i = 0; i < _inputs; ++i) {
-    if (!_in_req[i].empty())
-      _in_req[i].clear();
+    if (!_in_req[i].empty()) _in_req[i].clear();
   }
 
   for (int j = 0; j < _outputs; ++j) {
-    if (!_out_req[j].empty())
-      _out_req[j].clear();
+    if (!_out_req[j].empty()) _out_req[j].clear();
   }
 
   _in_occ.clear();
@@ -365,8 +360,7 @@ int SparseAllocator::NumOutputRequests(int out) const {
 void SparseAllocator::PrintRequests(std::ostream *os) const {
   std::map<int, sRequest>::const_iterator iter;
 
-  if (!os)
-    os = &std::cout;
+  if (!os) os = &std::cout;
 
   *os << "Input requests = [ ";
   for (int input = 0; input < _inputs; ++input) {

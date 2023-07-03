@@ -39,13 +39,12 @@
 #include "arbiter.hpp"
 
 class MatrixArbiter : public Arbiter {
-
   // Priority matrix
   std::vector<std::vector<int>> _matrix;
 
   int _last_req;
 
-public:
+ public:
   // Constructors
   MatrixArbiter(Module *parent, const std::string &name, int size);
 

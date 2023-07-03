@@ -9,7 +9,7 @@
 class inst_trace_t;
 
 class trace_warp_inst_t : public warp_inst_t {
-public:
+ public:
   trace_warp_inst_t() {
     // m_opcode = 0;
     should_do_atomic = false;
@@ -30,7 +30,8 @@ public:
 // void move_warp(trace_warp_inst_t *&dst, trace_warp_inst_t *&src);
 // void move_warp(warp_inst_t *&dst, warp_inst_t *&src);
 
-template <typename T> void move_warp(T *&dst, T *&src) {
+template <typename T>
+void move_warp(T *&dst, T *&src) {
   printf("moving warp=%u\n", src->warp_id());
   assert(dst->empty());
   T *temp = dst;

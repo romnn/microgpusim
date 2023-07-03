@@ -3,7 +3,7 @@
 #include "mem_fetch.hpp"
 
 class mem_fetch_allocator {
-public:
+ public:
   virtual mem_fetch *alloc(new_addr_type addr, mem_access_type type,
                            unsigned size, bool wr,
                            unsigned long long cycle) const = 0;

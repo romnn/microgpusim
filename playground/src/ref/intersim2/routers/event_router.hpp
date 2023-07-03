@@ -42,7 +42,7 @@
 #include "router.hpp"
 
 class EventNextVCState : public Module {
-public:
+ public:
   enum eNextVCState { idle, busy, tail_pending };
 
   struct tWaiting {
@@ -53,7 +53,7 @@ public:
     bool watch;
   };
 
-private:
+ private:
   int _buf_size;
   int _vcs;
 
@@ -66,7 +66,7 @@ private:
 
   std::vector<eNextVCState> _state;
 
-public:
+ public:
   EventNextVCState(const Configuration &config, Module *parent,
                    const std::string &name);
 
@@ -119,8 +119,8 @@ class EventRouter : public Router {
     bool head;
     bool tail;
 
-    int id;     // debug
-    bool watch; // debug
+    int id;      // debug
+    bool watch;  // debug
   };
 
   PipelineFIFO<tArrivalEvent> *_arrival_pipe;
@@ -132,8 +132,8 @@ class EventRouter : public Router {
     int src_vc;
     int dst_vc;
 
-    int id;     // debug
-    bool watch; // debug
+    int id;      // debug
+    bool watch;  // debug
   };
 
   std::vector<std::queue<tTransportEvent *>> _transport_queue;
@@ -159,7 +159,7 @@ class EventRouter : public Router {
 
   virtual void _InternalStep();
 
-public:
+ public:
   EventRouter(const Configuration &config, Module *parent,
               const std::string &name, int id, int inputs, int outputs);
   virtual ~EventRouter();

@@ -13,12 +13,12 @@
 enum mf_type {
   READ_REQUEST = 0,
   WRITE_REQUEST,
-  READ_REPLY, // send to shader
+  READ_REPLY,  // send to shader
   WRITE_ACK
 };
 
 class mem_fetch {
-public:
+ public:
   mem_fetch(const mem_access_t &access, const warp_inst_t *inst,
             unsigned ctrl_size, unsigned wid, unsigned sid, unsigned tpc,
             const memory_config *config, unsigned long long cycle,
@@ -98,7 +98,7 @@ public:
   mem_fetch *get_original_mf() { return original_mf; }
   mem_fetch *get_original_wr_mf() { return original_wr_mf; }
 
-private:
+ private:
   // request source information
   unsigned m_request_uid;
   unsigned m_sid;
@@ -111,23 +111,24 @@ private:
 
   // request type, address, size, mask
   mem_access_t m_access;
-  unsigned m_data_size; // how much data is being written
-  unsigned m_ctrl_size; // how big would all this meta data be in hardware (does
-                        // not necessarily match actual size of mem_fetch)
+  unsigned m_data_size;  // how much data is being written
+  unsigned
+      m_ctrl_size;  // how big would all this meta data be in hardware (does
+                    // not necessarily match actual size of mem_fetch)
   new_addr_type
-      m_partition_addr; // linear physical address *within* dram partition
-                        // (partition bank select bits squeezed out)
-  addrdec_t m_raw_addr; // raw physical address (i.e., decoded DRAM
-                        // chip-row-bank-column address)
+      m_partition_addr;  // linear physical address *within* dram partition
+                         // (partition bank select bits squeezed out)
+  addrdec_t m_raw_addr;  // raw physical address (i.e., decoded DRAM
+                         // chip-row-bank-column address)
   enum mf_type m_type;
 
   // statistics
   unsigned
-      m_timestamp; // set to gpu_sim_cycle+gpu_tot_sim_cycle at struct creation
-  unsigned m_timestamp2; // set to gpu_sim_cycle+gpu_tot_sim_cycle when pushed
-                         // onto icnt to shader; only used for reads
-  unsigned m_icnt_receive_time; // set to gpu_sim_cycle + interconnect_latency
-                                // when fixed icnt latency mode is enabled
+      m_timestamp;  // set to gpu_sim_cycle+gpu_tot_sim_cycle at struct creation
+  unsigned m_timestamp2;  // set to gpu_sim_cycle+gpu_tot_sim_cycle when pushed
+                          // onto icnt to shader; only used for reads
+  unsigned m_icnt_receive_time;  // set to gpu_sim_cycle + interconnect_latency
+                                 // when fixed icnt latency mode is enabled
 
   // requesting instruction (put last so mem_fetch prints nicer in gdb)
   warp_inst_t m_inst;
@@ -138,11 +139,11 @@ private:
   unsigned icnt_flit_size;
 
   mem_fetch
-      *original_mf; // this pointer is set up when a request is divided into
-                    // sector requests at L2 cache (if the req size > L2 sector
-                    // size), so the pointer refers to the original request
-  mem_fetch *original_wr_mf; // this pointer refers to the original write req,
-                             // when fetch-on-write policy is used
+      *original_mf;  // this pointer is set up when a request is divided into
+                     // sector requests at L2 cache (if the req size > L2 sector
+                     // size), so the pointer refers to the original request
+  mem_fetch *original_wr_mf;  // this pointer refers to the original write req,
+                              // when fetch-on-write policy is used
 };
 
 std::ostream &operator<<(std::ostream &os, const mem_fetch *fetch);

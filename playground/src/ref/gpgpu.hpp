@@ -7,7 +7,7 @@
 #include "gpgpu_functional_sim_config.hpp"
 
 class gpgpu_t {
-public:
+ public:
   gpgpu_t(const gpgpu_functional_sim_config &config, gpgpu_context *ctx);
   // backward pointer
   class gpgpu_context *gpgpu_ctx;
@@ -47,8 +47,8 @@ public:
                                        const struct textureReference *texref,
                                        int dim, int readmode, int ext);
   void gpgpu_ptx_sim_unbindTexture(const struct textureReference *texref);
-  const char *
-  gpgpu_ptx_sim_findNamefromTexture(const struct textureReference *texref);
+  const char *gpgpu_ptx_sim_findNamefromTexture(
+      const struct textureReference *texref);
 
   const struct textureReference *get_texref(const std::string &texname) const {
     std::map<std::string,
@@ -72,8 +72,8 @@ public:
     return t->second;
   }
 
-  const struct textureReferenceAttr *
-  get_texattr(const std::string &texname) const {
+  const struct textureReferenceAttr *get_texattr(
+      const std::string &texname) const {
     std::map<std::string, const struct textureReferenceAttr *>::const_iterator
         t = m_NameToAttribute.find(texname);
     assert(t != m_NameToAttribute.end());
@@ -97,7 +97,7 @@ public:
 
   virtual ~gpgpu_t() {}
 
-protected:
+ protected:
   const gpgpu_functional_sim_config &m_function_model_config;
   FILE *ptx_inst_debug_file;
   // FILE *mem_debug_file;

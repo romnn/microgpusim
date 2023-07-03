@@ -38,7 +38,7 @@ class iSLIP_Sparse : public SparseAllocator {
   std::vector<int> _gptrs;
   std::vector<int> _aptrs;
 
-public:
+ public:
   iSLIP_Sparse(Module *parent, const std::string &name, int inputs, int outputs,
                int iters);
 

@@ -34,8 +34,7 @@
 
 // register the requests to a node
 class PacketReplyInfo {
-
-public:
+ public:
   int source;
   int time;
   bool record;
@@ -45,7 +44,7 @@ public:
   void Free();
   static void FreeAll();
 
-private:
+ private:
   static std::stack<PacketReplyInfo *> _all;
   static std::stack<PacketReplyInfo *> _free;
 

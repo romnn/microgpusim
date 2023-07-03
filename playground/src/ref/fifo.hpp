@@ -4,13 +4,15 @@
 #include <cstdio>
 #include <sstream>
 
-template <class T> struct fifo_data {
+template <class T>
+struct fifo_data {
   T *m_data;
   fifo_data *m_next;
 };
 
-template <class T> class fifo_pipeline {
-public:
+template <class T>
+class fifo_pipeline {
+ public:
   fifo_pipeline(const char *nm, unsigned int minlen, unsigned int maxlen) {
     assert(maxlen);
     m_name = nm;
@@ -20,8 +22,7 @@ public:
     m_n_element = 0;
     m_head = NULL;
     m_tail = NULL;
-    for (unsigned i = 0; i < m_min_len; i++)
-      push(NULL);
+    for (unsigned i = 0; i < m_min_len; i++) push(NULL);
   }
 
   ~fifo_pipeline() {
@@ -70,7 +71,7 @@ public:
       m_n_element--;
       if (m_min_len && m_length < m_min_len) {
         push(NULL);
-        m_n_element--; // uncount NULL elements inserted to create delays
+        m_n_element--;  // uncount NULL elements inserted to create delays
       }
     } else {
       data = NULL;
@@ -87,14 +88,13 @@ public:
   }
 
   void set_min_length(unsigned int new_min_len) {
-    if (new_min_len == m_min_len)
-      return;
+    if (new_min_len == m_min_len) return;
 
     if (new_min_len > m_min_len) {
       m_min_len = new_min_len;
       while (m_length < m_min_len) {
         push(NULL);
-        m_n_element--; // uncount NULL elements inserted to create delays
+        m_n_element--;  // uncount NULL elements inserted to create delays
       }
     } else {
       // in this branch imply that the original min_len is larger then 0
@@ -104,8 +104,7 @@ public:
       while ((m_length > m_min_len) && (m_tail->m_data == 0)) {
         fifo_data<T> *iter;
         iter = m_head;
-        while (iter && (iter->m_next != m_tail))
-          iter = iter->m_next;
+        while (iter && (iter->m_next != m_tail)) iter = iter->m_next;
         if (!iter) {
           // there is only one node, and that node is empty
           assert(m_head->m_data == 0);
@@ -161,7 +160,7 @@ public:
   fifo_data<T> *m_tail;
   fifo_data<T> *m_head;
 
-private:
+ private:
   unsigned int m_min_len;
   unsigned int m_max_len;
   unsigned int m_length;

@@ -51,7 +51,7 @@ struct sector_cache_block : public cache_block_t {
     m_set_byte_mask_on_fill = false;
 
     // set line stats
-    m_line_alloc_time = time; // only set this for the first allocated sector
+    m_line_alloc_time = time;  // only set this for the first allocated sector
     m_line_last_access_time = time;
     m_line_fill_time = 0;
   }
@@ -65,7 +65,7 @@ struct sector_cache_block : public cache_block_t {
     m_sector_alloc_time[sidx] = time;
     m_last_sector_access_time[sidx] = time;
     m_sector_fill_time[sidx] = 0;
-    if (m_status[sidx] == MODIFIED) // this should be the case only for
+    if (m_status[sidx] == MODIFIED)  // this should be the case only for
       // fetch-on-write policy //TO DO
       m_set_modified_on_fill[sidx] = true;
     else
@@ -95,8 +95,7 @@ struct sector_cache_block : public cache_block_t {
       m_readable[sidx] = true;
       m_set_readable_on_fill[sidx] = false;
     }
-    if (m_set_byte_mask_on_fill)
-      set_byte_mask(byte_mask);
+    if (m_set_byte_mask_on_fill) set_byte_mask(byte_mask);
 
     m_sector_fill_time[sidx] = time;
     m_line_fill_time = time;
@@ -104,8 +103,7 @@ struct sector_cache_block : public cache_block_t {
   virtual bool is_invalid_line() {
     // all the sectors should be invalid
     for (unsigned i = 0; i < SECTOR_CHUNCK_SIZE; ++i) {
-      if (m_status[i] != INVALID)
-        return false;
+      if (m_status[i] != INVALID) return false;
     }
     return true;
   }
@@ -113,22 +111,20 @@ struct sector_cache_block : public cache_block_t {
   virtual bool is_reserved_line() {
     // if any of the sector is reserved, then the line is reserved
     for (unsigned i = 0; i < SECTOR_CHUNCK_SIZE; ++i) {
-      if (m_status[i] == RESERVED)
-        return true;
+      if (m_status[i] == RESERVED) return true;
     }
     return false;
   }
   virtual bool is_modified_line() {
     // if any of the sector is modified, then the line is modified
     for (unsigned i = 0; i < SECTOR_CHUNCK_SIZE; ++i) {
-      if (m_status[i] == MODIFIED)
-        return true;
+      if (m_status[i] == MODIFIED) return true;
     }
     return false;
   }
 
-  virtual enum cache_block_state
-  get_status(mem_access_sector_mask_t sector_mask) {
+  virtual enum cache_block_state get_status(
+      mem_access_sector_mask_t sector_mask) {
     unsigned sidx = get_sector_index(sector_mask);
 
     return m_status[sidx];
@@ -152,8 +148,7 @@ struct sector_cache_block : public cache_block_t {
   virtual mem_access_sector_mask_t get_dirty_sector_mask() {
     mem_access_sector_mask_t sector_mask;
     for (unsigned i = 0; i < SECTOR_CHUNCK_SIZE; i++) {
-      if (m_status[i] == MODIFIED)
-        sector_mask.set(i);
+      if (m_status[i] == MODIFIED) sector_mask.set(i);
     }
     return sector_mask;
   }
@@ -205,8 +200,7 @@ struct sector_cache_block : public cache_block_t {
   virtual unsigned get_modified_size() {
     unsigned modified = 0;
     for (unsigned i = 0; i < SECTOR_CHUNCK_SIZE; ++i) {
-      if (m_status[i] == MODIFIED)
-        modified++;
+      if (m_status[i] == MODIFIED) modified++;
     }
     return modified * SECTOR_SIZE;
   }
@@ -216,7 +210,7 @@ struct sector_cache_block : public cache_block_t {
            m_status[0], m_status[1], m_status[2], m_status[3]);
   }
 
-private:
+ private:
   unsigned m_sector_alloc_time[SECTOR_CHUNCK_SIZE];
   unsigned m_last_sector_access_time[SECTOR_CHUNCK_SIZE];
   unsigned m_sector_fill_time[SECTOR_CHUNCK_SIZE];
@@ -234,9 +228,8 @@ private:
   unsigned get_sector_index(mem_access_sector_mask_t sector_mask) {
     assert(sector_mask.count() == 1);
     for (unsigned i = 0; i < SECTOR_CHUNCK_SIZE; ++i) {
-      if (sector_mask.to_ulong() & (1 << i))
-        return i;
+      if (sector_mask.to_ulong() & (1 << i)) return i;
     }
-    return (unsigned)-1; // ROMAN FIX
+    return (unsigned)-1;  // ROMAN FIX
   }
 };

@@ -7,7 +7,7 @@
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
 
- Redistributions of source code must retain the above copyright notice, this 
+ Redistributions of source code must retain the above copyright notice, this
  list of conditions and the following disclaimer.
  Redistributions in binary form must reproduce the above copyright notice, this
  list of conditions and the following disclaimer in the documentation and/or
@@ -15,7 +15,7 @@
 
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
@@ -35,7 +35,7 @@
 //  $Author: jbalfour $
 //  $Date: 2007/06/26 22:49:23 $
 //  $Id: fattree.hpp 5188 2012-08-30 00:31:31Z dub $
-// 
+//
 ////////////////////////////////////////////////////////////////////////
 
 #ifndef _FatTree_HPP_
@@ -44,33 +44,27 @@
 #include "network.hpp"
 
 class FatTree : public Network {
-
   int _k;
   int _n;
 
-  
-  void _ComputeSize( const Configuration& config );
-  void _BuildNet(    const Configuration& config );
+  void _ComputeSize(const Configuration& config);
+  void _BuildNet(const Configuration& config);
 
-  Router*& _Router( int depth, int pos );
+  Router*& _Router(int depth, int pos);
 
-  int  _mapSize;
+  int _mapSize;
   int* _inputChannelMap;
-  int* _outputChannelMap; 
+  int* _outputChannelMap;
   int* _latencyMap;
 
-
-
-public:
-
-  FatTree( const Configuration& config ,const string & name );
-  static void RegisterRoutingFunctions() ;
+ public:
+  FatTree(const Configuration& config, const string& name);
+  static void RegisterRoutingFunctions();
 
   //
   // Methods to Assit Routing Functions
   //
-  static int PreferedPort( const Router* r, int index );
-			 
+  static int PreferedPort(const Router* r, int index);
 };
 
 #endif

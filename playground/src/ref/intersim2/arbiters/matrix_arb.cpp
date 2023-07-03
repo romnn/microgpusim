@@ -74,20 +74,16 @@ void MatrixArbiter::AddRequest(int input, int id, int pri) {
 }
 
 int MatrixArbiter::Arbitrate(int *id, int *pri) {
-
   // avoid running arbiter if it has not recevied at least two requests
   // (in this case, requests and grants are identical)
   if (_num_reqs < 2) {
-
     _selected = _last_req;
 
   } else {
-
     _selected = -1;
 
     for (int input = 0; input < _size; input++) {
       if (_request[input].valid) {
-
         bool grant = true;
         for (int i = 0; i < _size; i++) {
           if (_request[i].valid && (((_request[i].pri == _request[input].pri) &&

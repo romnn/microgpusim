@@ -31,8 +31,7 @@
 #include "module.hpp"
 
 class TimedModule : public Module {
-
-public:
+ public:
   TimedModule(Module *parent, std::string const &name,
               InterconnectInterface *icnt)
       : Module(parent, name, icnt) {}

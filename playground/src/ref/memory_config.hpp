@@ -9,7 +9,7 @@
 #include "option_parser.hpp"
 
 class memory_config {
-public:
+ public:
   memory_config(gpgpu_context *ctx) {
     m_valid = false;
     gpgpu_dram_timing_opt = NULL;
@@ -122,8 +122,8 @@ public:
     }
     tWTP = (WL + (BL / data_command_freq_ratio) + tWR);
     dram_atom_size =
-        BL * busW * gpu_n_mem_per_ctrlr; // burst length x bus width x # chips
-                                         // per partition
+        BL * busW * gpu_n_mem_per_ctrlr;  // burst length x bus width x # chips
+                                          // per partition
 
     assert(m_n_sub_partition_per_memory_channel > 0);
     assert((nbk % m_n_sub_partition_per_memory_channel == 0) &&
@@ -165,45 +165,46 @@ public:
 
   // DRAM parameters
 
-  unsigned tCCDL; // column to column delay when bank groups are enabled
-  unsigned tRTPL; // read to precharge delay when bank groups are enabled for
-                  // GDDR5 this is identical to RTPS, if for other DRAM this is
-                  // different, you will need to split them in two
+  unsigned tCCDL;  // column to column delay when bank groups are enabled
+  unsigned tRTPL;  // read to precharge delay when bank groups are enabled for
+                   // GDDR5 this is identical to RTPS, if for other DRAM this is
+                   // different, you will need to split them in two
 
-  unsigned tCCD;   // column to column delay
-  unsigned tRRD;   // minimal time required between activation of rows in
-                   // different banks
-  unsigned tRCD;   // row to column delay - time required to activate a row
-                   // before a read
-  unsigned tRCDWR; // row to column delay for a write command
-  unsigned tRAS;   // time needed to activate row
-  unsigned tRP;    // row precharge ie. deactivate row
+  unsigned tCCD;    // column to column delay
+  unsigned tRRD;    // minimal time required between activation of rows in
+                    // different banks
+  unsigned tRCD;    // row to column delay - time required to activate a row
+                    // before a read
+  unsigned tRCDWR;  // row to column delay for a write command
+  unsigned tRAS;    // time needed to activate row
+  unsigned tRP;     // row precharge ie. deactivate row
   unsigned
-      tRC; // row cycle time ie. precharge current, then activate different row
-  unsigned tCDLR; // Last data-in to Read command (switching from write to
-                  // read)
-  unsigned tWR;   // Last data-in to Row precharge
+      tRC;  // row cycle time ie. precharge current, then activate different row
+  unsigned tCDLR;  // Last data-in to Read command (switching from write to
+                   // read)
+  unsigned tWR;    // Last data-in to Row precharge
 
-  unsigned CL;   // CAS latency
-  unsigned WL;   // WRITE latency
-  unsigned BL;   // Burst Length in bytes (4 in GDDR3, 8 in GDDR5)
-  unsigned tRTW; // time to switch from read to write
-  unsigned tWTR; // time to switch from write to read
-  unsigned tWTP; // time to switch from write to precharge in the same bank
+  unsigned CL;    // CAS latency
+  unsigned WL;    // WRITE latency
+  unsigned BL;    // Burst Length in bytes (4 in GDDR3, 8 in GDDR5)
+  unsigned tRTW;  // time to switch from read to write
+  unsigned tWTR;  // time to switch from write to read
+  unsigned tWTP;  // time to switch from write to precharge in the same bank
   unsigned busW;
 
-  unsigned nbkgrp; // number of bank groups (has to be power of 2)
+  unsigned nbkgrp;  // number of bank groups (has to be power of 2)
   unsigned
-      bk_tag_length; // number of bits that define a bank inside a bank group
+      bk_tag_length;  // number of bits that define a bank inside a bank group
 
   unsigned nbk;
 
   bool elimnate_rw_turnaround;
 
-  unsigned data_command_freq_ratio; // frequency ratio between DRAM data bus and
-                                    // command bus (2 for GDDR3, 4 for GDDR5)
   unsigned
-      dram_atom_size; // number of bytes transferred per read or write command
+      data_command_freq_ratio;  // frequency ratio between DRAM data bus and
+                                // command bus (2 for GDDR3, 4 for GDDR5)
+  unsigned
+      dram_atom_size;  // number of bytes transferred per read or write command
 
   linear_to_raw_address_translation m_address_mapping;
 

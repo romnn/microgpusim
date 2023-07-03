@@ -3,7 +3,7 @@
 #include <time.h>
 
 struct CUevent_st {
-public:
+ public:
   CUevent_st(bool blocking) {
     m_uid = ++m_next_event_uid;
     m_blocking = blocking;
@@ -27,7 +27,7 @@ public:
   void issue() { m_issued++; }
   unsigned int num_issued() const { return m_issued; }
 
-private:
+ private:
   int m_uid;
   bool m_blocking;
   bool m_done;

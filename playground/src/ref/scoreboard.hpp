@@ -8,7 +8,7 @@ class inst_t;
 class warp_inst_t;
 
 class Scoreboard {
-public:
+ public:
   Scoreboard(unsigned sid, unsigned n_warps, class trace_gpgpu_sim *gpu);
 
   void reserveRegisters(const warp_inst_t *inst);
@@ -21,7 +21,7 @@ public:
   void printContents() const;
   const bool islongop(unsigned warp_id, unsigned regnum);
 
-private:
+ private:
   void reserveRegister(unsigned wid, unsigned regnum);
   int get_sid() const { return m_sid; }
 

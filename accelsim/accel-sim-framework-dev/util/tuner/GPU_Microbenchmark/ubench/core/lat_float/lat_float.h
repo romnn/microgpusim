@@ -25,13 +25,14 @@ __global__ void fpu_latency(uint32_t *startClk, uint32_t *stopClk, T *data1,
   asm volatile("mov.u32 %0, %%clock;" : "=r"(start)::"memory");
 
   for (int j = 0; j < REPEAT_TIMES; ++j) {
-    asm volatile("{\t\n"
-                 "fma.rn.f32 %0, %1, %2 , %0;\n\t"
-                 "fma.rn.f32 %0, %1, %2 , %0;\n\t"
-                 "fma.rn.f32 %0, %1, %2 , %0;\n\t"
-                 "fma.rn.f32 %0, %1, %2 , %0;\n\t"
-                 "}"
-                 : "+f"(result), "+f"(s1), "+f"(s2));
+    asm volatile(
+        "{\t\n"
+        "fma.rn.f32 %0, %1, %2 , %0;\n\t"
+        "fma.rn.f32 %0, %1, %2 , %0;\n\t"
+        "fma.rn.f32 %0, %1, %2 , %0;\n\t"
+        "fma.rn.f32 %0, %1, %2 , %0;\n\t"
+        "}"
+        : "+f"(result), "+f"(s1), "+f"(s2));
   }
   // synchronize all threads
   asm volatile("bar.sync 0;");

@@ -148,14 +148,12 @@ int dragonfly_port(int rID, int source, int dest) {
 DragonFlyNew::DragonFlyNew(const Configuration &config, const std::string &name,
                            InterconnectInterface *icnt)
     : Network(config, name, icnt) {
-
   _ComputeSize(config);
   _Alloc();
   _BuildNet(config);
 }
 
 void DragonFlyNew::_ComputeSize(const Configuration &config) {
-
   // LIMITATION
   //  -- only one dimension between the group
   // _n == # of dimensions within a group
@@ -163,7 +161,7 @@ void DragonFlyNew::_ComputeSize(const Configuration &config) {
   // inter-group ports : _p
   // terminal ports : _p
   // intra-group ports : 2*_p - 1
-  _p = config.GetInt("k"); // # of ports in each switch
+  _p = config.GetInt("k");  // # of ports in each switch
   _n = config.GetInt("n");
 
   assert(_n == 1);
@@ -207,7 +205,6 @@ void DragonFlyNew::_ComputeSize(const Configuration &config) {
 }
 
 void DragonFlyNew::_BuildNet(const Configuration &config) {
-
   int _output = -1;
   int _input = -1;
   int _dim_ID = -1;
@@ -301,7 +298,6 @@ void DragonFlyNew::_BuildNet(const Configuration &config) {
 
     // intra-group GROUP channels
     for (int dim = 0; dim < _n; ++dim) {
-
       _dim_size = powi(_k, dim);
 
       _dim_ID = ((int)(node / (powi(_p, dim))));
@@ -310,14 +306,11 @@ void DragonFlyNew::_BuildNet(const Configuration &config) {
       _dim_ID = node % _a;
 
       for (int cnt = 0; cnt < (2 * _p - 1); ++cnt) {
-
         if (cnt < _dim_ID) {
-
           _input = grp_ID * _num_ports_per_switch * _a -
                    (_dim_ID - cnt) * _num_ports_per_switch +
                    _dim_ID * _num_ports_per_switch + (_dim_ID - 1);
         } else {
-
           _input = grp_ID * _num_ports_per_switch * _a +
                    _dim_ID * _num_ports_per_switch +
                    (cnt - _dim_ID + 1) * _num_ports_per_switch + _dim_ID;
@@ -345,20 +338,19 @@ void DragonFlyNew::_BuildNet(const Configuration &config) {
       grp_ID2 = (int)((grp_ID - 1) / (_k - 1));
 
       if (grp_ID > grp_output) {
-
-        _input =
-            (grp_output)*_num_ports_per_switch * _a + // starting point of group
-            (_num_ports_per_switch - _p) *
-                (int)((grp_ID - 1) / _p) + // find the correct router within grp
-            (_num_ports_per_switch - _p) + // add offset within router
-            grp_ID -
-            1;
+        _input = (grp_output)*_num_ports_per_switch *
+                     _a +  // starting point of group
+                 (_num_ports_per_switch - _p) *
+                     (int)((grp_ID - 1) /
+                           _p) +  // find the correct router within grp
+                 (_num_ports_per_switch - _p) +  // add offset within router
+                 grp_ID -
+                 1;
       } else {
-
         _input =
             (grp_output + 1) * _num_ports_per_switch * _a +
             (_num_ports_per_switch - _p) *
-                (int)((grp_ID) / _p) + // find the correct router within grp
+                (int)((grp_ID) / _p) +  // find the correct router within grp
             (_num_ports_per_switch - _p) +
             grp_ID;
       }
@@ -379,7 +371,6 @@ void DragonFlyNew::InsertRandomFaults(const Configuration &config) {}
 double DragonFlyNew::Capacity() const { return (double)_k / 8.0; }
 
 void DragonFlyNew::RegisterRoutingFunctions() {
-
   gRoutingFunctionMap["min_dragonflynew"] = &min_dragonflynew;
   gRoutingFunctionMap["ugal_dragonflynew"] = &ugal_dragonflynew;
 }
@@ -498,8 +489,7 @@ void ugal_dragonflynew(const Router *r, const Flit *f, int in_channel,
         // congestion comparison, could use hopcnt instead of 1 and 2
         if ((1 * min_queue_size) <=
             (2 * nonmin_queue_size) + adaptive_threshold) {
-          if (debug)
-            std::cout << " MINIMAL routing " << std::endl;
+          if (debug) std::cout << " MINIMAL routing " << std::endl;
           f->ph = 1;
         } else {
           f->ph = 0;

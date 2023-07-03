@@ -6,7 +6,7 @@
 #include "shader_core_config.hpp"
 
 class memory_stats_t {
-public:
+ public:
   memory_stats_t(unsigned n_shader,
                  const class shader_core_config *shader_config,
                  const memory_config *mem_config,
@@ -44,28 +44,28 @@ public:
   unsigned mf_lat_table[32];
   unsigned icnt2mem_lat_table[24];
   unsigned icnt2sh_lat_table[24];
-  unsigned mf_lat_pw_table[32]; // table storing values of mf latency Per
-                                // Window
+  unsigned mf_lat_pw_table[32];  // table storing values of mf latency Per
+                                 // Window
   unsigned mf_num_lat_pw;
   unsigned max_warps;
-  unsigned mf_tot_lat_pw; // total latency summed up per window. divide by
-                          // mf_num_lat_pw to obtain average latency Per Window
+  unsigned mf_tot_lat_pw;  // total latency summed up per window. divide by
+                           // mf_num_lat_pw to obtain average latency Per Window
   unsigned long long int mf_total_lat;
   unsigned long long int *
-      *mf_total_lat_table;     // mf latency sums[dram chip id][bank id]
-  unsigned **mf_max_lat_table; // mf latency sums[dram chip id][bank id]
+      *mf_total_lat_table;      // mf latency sums[dram chip id][bank id]
+  unsigned **mf_max_lat_table;  // mf latency sums[dram chip id][bank id]
   unsigned num_mfs;
-  unsigned int ***bankwrites; // bankwrites[shader id][dram chip id][bank id]
-  unsigned int ***bankreads;  // bankreads[shader id][dram chip id][bank id]
-  unsigned int **totalbankwrites;   // bankwrites[dram chip id][bank id]
-  unsigned int **totalbankreads;    // bankreads[dram chip id][bank id]
-  unsigned int **totalbankaccesses; // bankaccesses[dram chip id][bank id]
+  unsigned int ***bankwrites;  // bankwrites[shader id][dram chip id][bank id]
+  unsigned int ***bankreads;   // bankreads[shader id][dram chip id][bank id]
+  unsigned int **totalbankwrites;    // bankwrites[dram chip id][bank id]
+  unsigned int **totalbankreads;     // bankreads[dram chip id][bank id]
+  unsigned int **totalbankaccesses;  // bankaccesses[dram chip id][bank id]
   unsigned int
-      *num_MCBs_accessed; // tracks how many memory controllers are accessed
-                          // whenever any thread in a warp misses in cache
-  unsigned int *position_of_mrq_chosen; // position of mrq in m_queue chosen
+      *num_MCBs_accessed;  // tracks how many memory controllers are accessed
+                           // whenever any thread in a warp misses in cache
+  unsigned int *position_of_mrq_chosen;  // position of mrq in m_queue chosen
 
-  unsigned ***mem_access_type_stats; // dram access type classification
+  unsigned ***mem_access_type_stats;  // dram access type classification
 
   // AerialVision L2 stats
   unsigned L2_read_miss;
@@ -83,13 +83,13 @@ public:
 
   // DRAM access row locality stats
   unsigned int *
-      *concurrent_row_access;   // concurrent_row_access[dram chip id][bank id]
-  unsigned int **num_activates; // num_activates[dram chip id][bank id]
-  unsigned int **row_access;    // row_access[dram chip id][bank id]
-  unsigned int **max_conc_access2samerow; // max_conc_access2samerow[dram chip
-                                          // id][bank id]
-  unsigned int **max_servicetime2samerow; // max_servicetime2samerow[dram chip
-                                          // id][bank id]
+      *concurrent_row_access;    // concurrent_row_access[dram chip id][bank id]
+  unsigned int **num_activates;  // num_activates[dram chip id][bank id]
+  unsigned int **row_access;     // row_access[dram chip id][bank id]
+  unsigned int **max_conc_access2samerow;  // max_conc_access2samerow[dram chip
+                                           // id][bank id]
+  unsigned int **max_servicetime2samerow;  // max_servicetime2samerow[dram chip
+                                           // id][bank id]
 
   // Power stats
   unsigned total_n_access;

@@ -28,7 +28,7 @@
 #include "misc_utils.hpp"
 #include "booksim.hpp"
 
-int powi(int x, int y) // compute x to the y
+int powi(int x, int y)  // compute x to the y
 {
   int r = 1;
 

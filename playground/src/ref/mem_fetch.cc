@@ -76,22 +76,19 @@ void mem_fetch::set_status(enum mem_fetch_status status,
 }
 
 bool mem_fetch::isatomic() const {
-  if (m_inst.empty())
-    return false;
+  if (m_inst.empty()) return false;
   return m_inst.isatomic();
 }
 
 void mem_fetch::do_atomic() { m_inst.do_atomic(m_access.get_warp_mask()); }
 
 bool mem_fetch::istexture() const {
-  if (m_inst.empty())
-    return false;
+  if (m_inst.empty()) return false;
   return m_inst.space.get_type() == tex_space;
 }
 
 bool mem_fetch::isconst() const {
-  if (m_inst.empty())
-    return false;
+  if (m_inst.empty()) return false;
   return (m_inst.space.get_type() == const_space) ||
          (m_inst.space.get_type() == param_space_kernel);
 }

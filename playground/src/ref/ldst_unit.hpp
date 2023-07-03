@@ -23,7 +23,7 @@ class opndcoll_rfu_t;
 class tex_cache;
 
 class ldst_unit : public pipelined_simd_unit {
-public:
+ public:
   ldst_unit(mem_fetch_interface *icnt,
             shader_core_mem_fetch_allocator *mf_allocator,
             trace_shader_core_ctx *core, opndcoll_rfu_t *operand_collector,
@@ -46,18 +46,18 @@ public:
 
   virtual bool can_issue(const warp_inst_t &inst) const {
     switch (inst.op) {
-    case LOAD_OP:
-      break;
-    case TENSOR_CORE_LOAD_OP:
-      break;
-    case STORE_OP:
-      break;
-    case TENSOR_CORE_STORE_OP:
-      break;
-    case MEMORY_BARRIER_OP:
-      break;
-    default:
-      return false;
+      case LOAD_OP:
+        break;
+      case TENSOR_CORE_LOAD_OP:
+        break;
+      case STORE_OP:
+        break;
+      case TENSOR_CORE_STORE_OP:
+        break;
+      case MEMORY_BARRIER_OP:
+        break;
+      default:
+        return false;
     }
     return m_dispatch_reg->empty();
   }
@@ -77,7 +77,7 @@ public:
   void get_L1C_sub_stats(struct cache_sub_stats &css) const;
   void get_L1T_sub_stats(struct cache_sub_stats &css) const;
 
-protected:
+ protected:
   ldst_unit(mem_fetch_interface *icnt,
             shader_core_mem_fetch_allocator *mf_allocator,
             trace_shader_core_ctx *core, opndcoll_rfu_t *operand_collector,
@@ -91,7 +91,7 @@ protected:
             const memory_config *mem_config, shader_core_stats *stats,
             unsigned sid, unsigned tpc);
 
-protected:
+ protected:
   bool shared_cycle(warp_inst_t &inst, mem_stage_stall_type &rc_fail,
                     mem_stage_access_type &fail_type);
   bool constant_cycle(warp_inst_t &inst, mem_stage_stall_type &rc_fail,
@@ -101,10 +101,10 @@ protected:
   bool memory_cycle(warp_inst_t &inst, mem_stage_stall_type &rc_fail,
                     mem_stage_access_type &fail_type);
 
-  virtual mem_stage_stall_type
-  process_cache_access(cache_t *cache, new_addr_type address, warp_inst_t &inst,
-                       std::list<cache_event> &events, mem_fetch *mf,
-                       enum cache_request_status status);
+  virtual mem_stage_stall_type process_cache_access(
+      cache_t *cache, new_addr_type address, warp_inst_t &inst,
+      std::list<cache_event> &events, mem_fetch *mf,
+      enum cache_request_status status);
   mem_stage_stall_type process_memory_access_queue(cache_t *cache,
                                                    warp_inst_t &inst);
   mem_stage_stall_type process_memory_access_queue_l1cache(l1_cache *cache,
@@ -117,9 +117,9 @@ protected:
   unsigned m_sid;
   unsigned m_tpc;
 
-  tex_cache *m_L1T;       // texture cache
-  read_only_cache *m_L1C; // constant cache
-  l1_cache *m_L1D;        // data cache
+  tex_cache *m_L1T;        // texture cache
+  read_only_cache *m_L1C;  // constant cache
+  l1_cache *m_L1D;         // data cache
   std::map<unsigned /*warp_id*/,
            std::map<unsigned /*regnum*/, unsigned /*count*/>>
       m_pending_writes;
@@ -129,8 +129,8 @@ protected:
 
   mem_fetch *m_next_global;
   warp_inst_t m_next_wb;
-  unsigned m_writeback_arb; // round-robin arbiter for writeback contention
-                            // between L1T, L1C, shared
+  unsigned m_writeback_arb;  // round-robin arbiter for writeback contention
+                             // between L1T, L1C, shared
   unsigned m_num_writeback_clients;
 
   enum mem_stage_stall_type m_mem_rc;

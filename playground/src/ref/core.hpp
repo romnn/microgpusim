@@ -20,10 +20,13 @@ size_t get_kernel_code_size(class function_info *entry);
  * procedures.
  */
 class core_t {
-public:
+ public:
   core_t(gpgpu_sim *gpu, trace_kernel_info_t *kernel, unsigned warp_size,
          unsigned threads_per_shader)
-      : m_gpu(gpu), m_kernel(kernel), m_simt_stack(NULL), m_thread(NULL),
+      : m_gpu(gpu),
+        m_kernel(kernel),
+        m_simt_stack(NULL),
+        m_thread(NULL),
         m_warp_size(warp_size) {
     m_warp_count = threads_per_shader / m_warp_size;
     // Handle the case where the number of threads is not a
@@ -80,10 +83,10 @@ public:
     return reduction_storage[ctaid][barid];
   }
 
-protected:
+ protected:
   class gpgpu_sim *m_gpu;
   trace_kernel_info_t *m_kernel;
-  simt_stack **m_simt_stack; // pdom based reconvergence context for each warp
+  simt_stack **m_simt_stack;  // pdom based reconvergence context for each warp
   class ptx_thread_info **m_thread;
   unsigned m_warp_size;
   unsigned m_warp_count;

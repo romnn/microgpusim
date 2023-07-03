@@ -21,38 +21,38 @@ extern const char *config_str;
 
 void init();
 
-} // namespace Trace
+}  // namespace Trace
 
 #if TRACING_ON
 
 #define SIM_PRINT_STR "GPGPU-Sim Cycle %llu: %s - "
 #define DTRACE(x) ((Trace::trace_streams_enabled[Trace::x]) && Trace::enabled)
-#define DPRINTF(x, ...)                                                        \
-  do {                                                                         \
-    if (DTRACE(x)) {                                                           \
-      printf(SIM_PRINT_STR, m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle,   \
-             Trace::trace_streams_str[Trace::x]);                              \
-      printf(__VA_ARGS__);                                                     \
-    }                                                                          \
+#define DPRINTF(x, ...)                                                      \
+  do {                                                                       \
+    if (DTRACE(x)) {                                                         \
+      printf(SIM_PRINT_STR, m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle, \
+             Trace::trace_streams_str[Trace::x]);                            \
+      printf(__VA_ARGS__);                                                   \
+    }                                                                        \
   } while (0)
 
-#define DPRINTFG(x, ...)                                                       \
-  do {                                                                         \
-    if (DTRACE(x)) {                                                           \
-      printf(SIM_PRINT_STR, gpu_sim_cycle + gpu_tot_sim_cycle,                 \
-             Trace::trace_streams_str[Trace::x]);                              \
-      printf(__VA_ARGS__);                                                     \
-    }                                                                          \
+#define DPRINTFG(x, ...)                                       \
+  do {                                                         \
+    if (DTRACE(x)) {                                           \
+      printf(SIM_PRINT_STR, gpu_sim_cycle + gpu_tot_sim_cycle, \
+             Trace::trace_streams_str[Trace::x]);              \
+      printf(__VA_ARGS__);                                     \
+    }                                                          \
   } while (0)
 
 #else
 
 #define DTRACE(x) (false)
-#define DPRINTF(x, ...)                                                        \
-  do {                                                                         \
+#define DPRINTF(x, ...) \
+  do {                  \
   } while (0)
-#define DPRINTFG(x, ...)                                                       \
-  do {                                                                         \
+#define DPRINTFG(x, ...) \
+  do {                   \
   } while (0)
 
 #endif

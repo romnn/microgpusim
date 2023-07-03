@@ -37,12 +37,11 @@
 #include "module.hpp"
 
 class BufferState : public Module {
-
   class BufferPolicy : public Module {
-  protected:
+   protected:
     BufferState const *const _buffer_state;
 
-  public:
+   public:
     BufferPolicy(Configuration const &config, BufferState *parent,
                  const std::string &name);
     virtual void SetMinLatency(int min_latency) {}
@@ -58,10 +57,10 @@ class BufferState : public Module {
   };
 
   class PrivateBufferPolicy : public BufferPolicy {
-  protected:
+   protected:
     int _vc_buf_size;
 
-  public:
+   public:
     PrivateBufferPolicy(Configuration const &config, BufferState *parent,
                         const std::string &name);
     virtual void SendingFlit(Flit const *const f);
@@ -71,7 +70,7 @@ class BufferState : public Module {
   };
 
   class SharedBufferPolicy : public BufferPolicy {
-  protected:
+   protected:
     int _buf_size;
     std::vector<int> _private_buf_vc_map;
     std::vector<int> _private_buf_size;
@@ -81,7 +80,7 @@ class BufferState : public Module {
     std::vector<int> _reserved_slots;
     void ProcessFreeSlot(int vc = 0);
 
-  public:
+   public:
     SharedBufferPolicy(Configuration const &config, BufferState *parent,
                        const std::string &name);
     virtual void SendingFlit(Flit const *const f);
@@ -92,12 +91,12 @@ class BufferState : public Module {
   };
 
   class LimitedSharedBufferPolicy : public SharedBufferPolicy {
-  protected:
+   protected:
     int _vcs;
     int _active_vcs;
     int _max_held_slots;
 
-  public:
+   public:
     LimitedSharedBufferPolicy(Configuration const &config, BufferState *parent,
                               const std::string &name);
     virtual void TakeBuffer(int vc = 0);
@@ -108,7 +107,7 @@ class BufferState : public Module {
   };
 
   class DynamicLimitedSharedBufferPolicy : public LimitedSharedBufferPolicy {
-  public:
+   public:
     DynamicLimitedSharedBufferPolicy(Configuration const &config,
                                      BufferState *parent,
                                      const std::string &name);
@@ -118,7 +117,7 @@ class BufferState : public Module {
 
   class ShiftingDynamicLimitedSharedBufferPolicy
       : public DynamicLimitedSharedBufferPolicy {
-  public:
+   public:
     ShiftingDynamicLimitedSharedBufferPolicy(Configuration const &config,
                                              BufferState *parent,
                                              const std::string &name);
@@ -127,7 +126,7 @@ class BufferState : public Module {
   };
 
   class FeedbackSharedBufferPolicy : public SharedBufferPolicy {
-  protected:
+   protected:
     int _ComputeRTT(int vc, int last_rtt) const;
     int _ComputeLimit(int rtt) const;
     int _ComputeMaxSlots(int vc) const;
@@ -140,7 +139,7 @@ class BufferState : public Module {
     int _aging_scale;
     int _offset;
 
-  public:
+   public:
     FeedbackSharedBufferPolicy(Configuration const &config, BufferState *parent,
                                const std::string &name);
     virtual void SetMinLatency(int min_latency);
@@ -152,10 +151,10 @@ class BufferState : public Module {
   };
 
   class SimpleFeedbackSharedBufferPolicy : public FeedbackSharedBufferPolicy {
-  protected:
+   protected:
     std::vector<int> _pending_credits;
 
-  public:
+   public:
     SimpleFeedbackSharedBufferPolicy(Configuration const &config,
                                      BufferState *parent,
                                      const std::string &name);
@@ -182,7 +181,7 @@ class BufferState : public Module {
   vector<int> _class_occupancy;
 #endif
 
-public:
+ public:
   BufferState(const Configuration &config, Module *parent,
               const std::string &name);
 

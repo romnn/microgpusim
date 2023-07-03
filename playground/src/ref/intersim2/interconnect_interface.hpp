@@ -46,7 +46,7 @@ class Stats;
 // TODO: fixed_lat_icnt, add class support? support for signle network
 
 class InterconnectInterface {
-public:
+ public:
   InterconnectInterface();
   virtual ~InterconnectInterface();
   virtual void CreateInterconnect(unsigned n_shader, unsigned n_mem);
@@ -86,15 +86,15 @@ public:
   bool print_activity;
   bool trace;
 
-  int K; // radix
-  int N; // dimension
-  int C; // concentration
+  int K;  // radix
+  int N;  // dimension
+  int C;  // concentration
 
   int Nodes;
 
-protected:
+ protected:
   class _BoundaryBufferItem {
-  public:
+   public:
     _BoundaryBufferItem() : _packet_n(0) {}
     inline unsigned Size(void) const { return _buffer.size(); }
     inline bool HasPacket() const { return _packet_n; }
@@ -102,7 +102,7 @@ protected:
     void *TopPacket() const;
     void PushFlitData(void *data, bool is_tail);
 
-  private:
+   private:
     std::queue<void *> _buffer;
     std::queue<bool> _tail_flag;
     int _packet_n;
@@ -125,7 +125,8 @@ protected:
   unsigned int _input_buffer_capacity;
 
   std::vector<std::vector<int>>
-      _round_robin_turn; // keep track of _boundary_buffer last used in icnt_pop
+      _round_robin_turn;  // keep track of _boundary_buffer last used in
+                          // icnt_pop
 
   GPUTrafficManager *_traffic_manager;
   unsigned _flit_size;
@@ -146,5 +147,5 @@ protected:
   std::map<unsigned, unsigned> _reverse_node_map;
 };
 
-std::unique_ptr<InterconnectInterface>
-new_interconnect_interface(const char *config_filename);
+std::unique_ptr<InterconnectInterface> new_interconnect_interface(
+    const char *config_filename);

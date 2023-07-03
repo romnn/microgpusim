@@ -15,7 +15,7 @@ bool was_read_sent(const std::list<cache_event> &events);
 bool was_writeallocate_sent(const std::list<cache_event> &events);
 
 class cache_t {
-public:
+ public:
   virtual ~cache_t() {}
   virtual std::string name() { return "cache_t"; }
   virtual enum cache_request_status access(new_addr_type addr, mem_fetch *mf,

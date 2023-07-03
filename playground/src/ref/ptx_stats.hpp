@@ -4,7 +4,7 @@
 
 class gpgpu_context;
 class ptx_stats {
-public:
+ public:
   ptx_stats(){};
   char *ptx_line_stats_filename;
   bool enable_ptx_file_line_stats;

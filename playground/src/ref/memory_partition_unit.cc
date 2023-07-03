@@ -10,8 +10,11 @@ memory_partition_unit::memory_partition_unit(unsigned partition_id,
                                              const memory_config *config,
                                              class memory_stats_t *stats,
                                              class trace_gpgpu_sim *gpu)
-    : m_id(partition_id), m_config(config), m_stats(stats),
-      m_arbitration_metadata(config), m_gpu(gpu) {
+    : m_id(partition_id),
+      m_config(config),
+      m_stats(stats),
+      m_arbitration_metadata(config),
+      m_gpu(gpu) {
   m_dram = new dram_t(m_id, m_config, m_stats, this, gpu);
 
   m_sub_partition = new memory_sub_partition
@@ -63,7 +66,7 @@ memory_partition_unit::arbitration_metadata::arbitration_metadata(
   if (config->gpgpu_frfcfs_dram_sched_queue_size == 0 or
       config->gpgpu_dram_return_queue_size == 0) {
     m_shared_credit_limit =
-        0; // no limit if either of the queue has no limit in size
+        0;  // no limit if either of the queue has no limit in size
   }
   assert(m_shared_credit_limit >= 0);
 }
@@ -190,9 +193,9 @@ void memory_partition_unit::simple_dram_model_cycle() {
           delete mf_return;
         } else {
           m_sub_partition[dest_spid]->dram_L2_queue_push(mf_return);
-          mf_return->set_status(IN_PARTITION_DRAM_TO_L2_QUEUE,
-                                m_gpu->gpu_sim_cycle +
-                                    m_gpu->gpu_tot_sim_cycle);
+          mf_return->set_status(
+              IN_PARTITION_DRAM_TO_L2_QUEUE,
+              m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
           m_arbitration_metadata.return_credit(dest_spid);
           MEMPART_DPRINTF(
               "mem_fetch request %p return from dram to sub partition %d\n",
@@ -225,7 +228,7 @@ void memory_partition_unit::simple_dram_model_cycle() {
                m_config->m_n_sub_partition_per_memory_channel;
 
     std::cout << "checking sub partition[" << spid
-              << "]:" // can issue=" << can_issue_to_dram(spid)
+              << "]:"  // can issue=" << can_issue_to_dram(spid)
               << " icnt to l2 queue=" << m_sub_partition[spid]->m_icnt_L2_queue
               << " l2 to icnt queue=" << m_sub_partition[spid]->m_L2_icnt_queue
               << " l2 to dram queue=" << m_sub_partition[spid]->m_L2_dram_queue
@@ -235,8 +238,7 @@ void memory_partition_unit::simple_dram_model_cycle() {
     if (!m_sub_partition[spid]->L2_dram_queue_empty() &&
         can_issue_to_dram(spid)) {
       mem_fetch *mf = m_sub_partition[spid]->L2_dram_queue_top();
-      if (m_dram->full(mf->is_write()))
-        break;
+      if (m_dram->full(mf->is_write())) break;
 
       m_sub_partition[spid]->L2_dram_queue_pop();
       // throw std::runtime_error(
@@ -252,7 +254,7 @@ void memory_partition_unit::simple_dram_model_cycle() {
       mf->set_status(IN_PARTITION_DRAM_LATENCY_QUEUE,
                      m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
       m_arbitration_metadata.borrow_credit(spid);
-      break; // the DRAM should only accept one request per cycle
+      break;  // the DRAM should only accept one request per cycle
     }
   }
   //}
@@ -301,8 +303,7 @@ void memory_partition_unit::dram_cycle() {
     if (!m_sub_partition[spid]->L2_dram_queue_empty() &&
         can_issue_to_dram(spid)) {
       mem_fetch *mf = m_sub_partition[spid]->L2_dram_queue_top();
-      if (m_dram->full(mf->is_write()))
-        break;
+      if (m_dram->full(mf->is_write())) break;
 
       m_sub_partition[spid]->L2_dram_queue_pop();
       // throw std::runtime_error("issue mem_fetch from sub partition to dram");
@@ -317,7 +318,7 @@ void memory_partition_unit::dram_cycle() {
       mf->set_status(IN_PARTITION_DRAM_LATENCY_QUEUE,
                      m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
       m_arbitration_metadata.borrow_credit(spid);
-      break; // the DRAM should only accept one request per cycle
+      break;  // the DRAM should only accept one request per cycle
     }
   }
   //}
@@ -369,8 +370,7 @@ void memory_partition_unit::print(FILE *fp) const {
        mf_dlq != m_dram_latency_queue.end(); ++mf_dlq) {
     mem_fetch *mf = mf_dlq->req;
     fprintf(fp, "Ready @ %llu - ", mf_dlq->ready_cycle);
-    if (mf)
-      (std::ostream &)fp << mf;
+    if (mf) (std::ostream &)fp << mf;
     // mf->print(fp);
     else
       fprintf(fp, " <NULL mem_fetch?>\n");

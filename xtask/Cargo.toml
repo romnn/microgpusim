@@ -8,6 +8,8 @@ color-eyre = "0"
 duct = "0"
 glob = "0"
 difflib = "0"
+indicatif = "0"
+num_cpus = "1"
 chrono = "0"
 rayon = "1"
 clap = { version = "4", features = ["derive"] }

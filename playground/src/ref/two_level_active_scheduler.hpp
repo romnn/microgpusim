@@ -6,7 +6,7 @@
 #include "scheduler_unit.hpp"
 
 class two_level_active_scheduler : public scheduler_unit {
-public:
+ public:
   two_level_active_scheduler(shader_core_stats *stats,
                              trace_shader_core_ctx *shader,
                              Scoreboard *scoreboard, simt_stack **simt,
@@ -46,12 +46,12 @@ public:
 
   const char *name() { return "two_level_scheduler"; }
 
-protected:
+ protected:
   virtual void do_on_warp_issued(
       unsigned warp_id, unsigned num_issued,
       const std::vector<trace_shd_warp_t *>::const_iterator &prioritized_iter);
 
-private:
+ private:
   std::deque<trace_shd_warp_t *> m_pending_warps;
   scheduler_prioritization_type m_inner_level_prioritization;
   scheduler_prioritization_type m_outer_level_prioritization;

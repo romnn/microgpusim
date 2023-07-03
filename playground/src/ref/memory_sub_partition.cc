@@ -75,8 +75,8 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
       mem_fetch *mf = m_L2cache->next_access();
       // throw std::runtime_error("fetch from l2 cache ready");
       if (mf->get_access_type() !=
-          L2_WR_ALLOC_R) { // Don't pass write allocate read request back to
-                           // upper level cache
+          L2_WR_ALLOC_R) {  // Don't pass write allocate read request back to
+                            // upper level cache
         mf->set_reply();
         mf->set_status(IN_PARTITION_L2_TO_ICNT_QUEUE,
                        m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
@@ -86,9 +86,9 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
           mem_fetch *original_wr_mf = mf->get_original_wr_mf();
           assert(original_wr_mf);
           original_wr_mf->set_reply();
-          original_wr_mf->set_status(IN_PARTITION_L2_TO_ICNT_QUEUE,
-                                     m_gpu->gpu_sim_cycle +
-                                         m_gpu->gpu_tot_sim_cycle);
+          original_wr_mf->set_status(
+              IN_PARTITION_L2_TO_ICNT_QUEUE,
+              m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
           m_L2_icnt_queue->push(original_wr_mf);
         }
         m_request_tracker.erase(mf);
@@ -128,8 +128,7 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
   }
 
   // prior L2 misses inserted into m_L2_dram_queue here
-  if (!m_config->m_L2_config.disabled())
-    m_L2cache->cycle();
+  if (!m_config->m_L2_config.disabled()) m_L2cache->cycle();
 
   // new L2 texture accesses and/or non-texture accesses
   // printf("l2 to dram queue full: %d interconn to l2 queue empty: %d\n",
@@ -208,8 +207,9 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
       // L2 is disabled or non-texture access to texture-only L2
       mf->set_status(IN_PARTITION_L2_TO_DRAM_QUEUE,
                      m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-      throw std::runtime_error("pushing from l2 to dram: l2 disabled or non "
-                               "texture access to texture only l2");
+      throw std::runtime_error(
+          "pushing from l2 to dram: l2 disabled or non "
+          "texture access to texture only l2");
       m_L2_dram_queue->push(mf);
       m_icnt_L2_queue->pop();
     }
@@ -264,8 +264,7 @@ void memory_sub_partition::dram_L2_queue_push(class mem_fetch *mf) {
 void memory_sub_partition::print_cache_stat(unsigned &accesses,
                                             unsigned &misses) const {
   FILE *fp = stdout;
-  if (!m_config->m_L2_config.disabled())
-    m_L2cache->print(fp, accesses, misses);
+  if (!m_config->m_L2_config.disabled()) m_L2cache->print(fp, accesses, misses);
 }
 
 void memory_sub_partition::print(FILE *fp) const {
@@ -281,15 +280,14 @@ void memory_sub_partition::print(FILE *fp) const {
         fprintf(fp, " <NULL mem_fetch?>\n");
     }
   }
-  if (!m_config->m_L2_config.disabled())
-    m_L2cache->display_state(fp);
+  if (!m_config->m_L2_config.disabled()) m_L2cache->display_state(fp);
 }
 
 unsigned memory_sub_partition::flushL2() {
   if (!m_config->m_L2_config.disabled()) {
     m_L2cache->flush();
   }
-  return 0; // TODO: write the flushed data to the main memory
+  return 0;  // TODO: write the flushed data to the main memory
 }
 
 unsigned memory_sub_partition::invalidateL2() {
@@ -365,8 +363,7 @@ memory_sub_partition::breakdown_request_to_sector_requests(mem_fetch *mf) {
       }
     }
   }
-  if (result.size() == 0)
-    assert(0 && "no mf sent");
+  if (result.size() == 0) assert(0 && "no mf sent");
   return result;
 }
 
@@ -407,8 +404,7 @@ void memory_sub_partition::push(mem_fetch *m_req, unsigned long long cycle) {
 mem_fetch *memory_sub_partition::pop() {
   mem_fetch *mf = m_L2_icnt_queue->pop();
   m_request_tracker.erase(mf);
-  if (mf && mf->isatomic())
-    mf->do_atomic();
+  if (mf && mf->isatomic()) mf->do_atomic();
   if (mf && (mf->get_access_type() == L2_WRBK_ACC ||
              mf->get_access_type() == L1_WRBK_ACC)) {
     delete mf;

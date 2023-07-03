@@ -7,7 +7,7 @@
 /// Models second level shared cache with global write-back
 /// and write-allocate policies
 class l2_cache : public data_cache {
-public:
+ public:
   l2_cache(const char *name, cache_config &config, int core_id, int type_id,
            mem_fetch_interface *memport, mem_fetch_allocator *mfcreator,
            enum mem_fetch_status status, class trace_gpgpu_sim *gpu)

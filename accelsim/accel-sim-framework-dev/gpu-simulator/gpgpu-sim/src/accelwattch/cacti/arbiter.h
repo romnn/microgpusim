@@ -37,41 +37,34 @@
 #include "basic_circuit.h"
 #include "cacti_interface.h"
 #include "component.h"
-#include "parameter.h"
 #include "mat.h"
+#include "parameter.h"
 #include "wire.h"
 
-class MCPAT_Arbiter : public Component
-{
-  public:
-    MCPAT_Arbiter(
-      double Req,
-      double flit_sz,
-      double output_len,
-      TechnologyParameter::DeviceType *dt = &(g_tp.peri_global));
-    ~MCPAT_Arbiter();
+class MCPAT_Arbiter : public Component {
+ public:
+  MCPAT_Arbiter(double Req, double flit_sz, double output_len,
+                TechnologyParameter::DeviceType *dt = &(g_tp.peri_global));
+  ~MCPAT_Arbiter();
 
-    void print_arbiter();
-    double arb_req();
-    double arb_pri();
-    double arb_grant();
-    double arb_int();
-    void compute_power();
-    double Cw3(double len);
-    double crossbar_ctrline();
-    double transmission_buf_ctrcap();
+  void print_arbiter();
+  double arb_req();
+  double arb_pri();
+  double arb_grant();
+  double arb_int();
+  void compute_power();
+  double Cw3(double len);
+  double crossbar_ctrline();
+  double transmission_buf_ctrcap();
 
-
-
-  private:
-    double NTn1, PTn1, NTn2, PTn2, R, PTi, NTi;
-    double flit_size;
-    double NTtr, PTtr;
-    double o_len;
-    TechnologyParameter::DeviceType *deviceType;
-    double TriS1, TriS2;
-    double min_w_pmos, Vdd;
-
+ private:
+  double NTn1, PTn1, NTn2, PTn2, R, PTi, NTi;
+  double flit_size;
+  double NTtr, PTtr;
+  double o_len;
+  TechnologyParameter::DeviceType *deviceType;
+  double TriS1, TriS2;
+  double min_w_pmos, Vdd;
 };
 
 #endif

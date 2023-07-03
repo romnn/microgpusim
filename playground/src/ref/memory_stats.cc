@@ -82,8 +82,8 @@ memory_stats_t::memory_stats_t(unsigned n_shader,
   max_warps =
       n_shader *
       (shader_config->n_thread_per_shader / shader_config->warp_size + 1);
-  mf_tot_lat_pw = 0; // total latency summed up per window. divide by
-                     // mf_num_lat_pw to obtain average latency Per Window
+  mf_tot_lat_pw = 0;  // total latency summed up per window. divide by
+                      // mf_num_lat_pw to obtain average latency Per Window
   mf_total_lat = 0;
   num_mfs = 0;
   printf("*** Initializing Memory Statistics ***\n");
@@ -176,8 +176,7 @@ unsigned memory_stats_t::memlatstat_done(mem_fetch *mf) {
   shader_mem_lat_log(mf->get_sid(), mf_latency);
   mf_total_lat_table[mf->get_tlx_addr().chip][mf->get_tlx_addr().bk] +=
       mf_latency;
-  if (mf_latency > max_mf_latency)
-    max_mf_latency = mf_latency;
+  if (mf_latency > max_mf_latency) max_mf_latency = mf_latency;
   return mf_latency;
 }
 
@@ -203,7 +202,7 @@ void memory_stats_t::memlatstat_dram_access(mem_fetch *mf) {
   unsigned bank = mf->get_tlx_addr().bk;
   if (m_memory_config->gpgpu_memlatency_stat) {
     if (mf->get_is_write()) {
-      if (mf->get_sid() < m_n_shader) { // do not count L2_writebacks here
+      if (mf->get_sid() < m_n_shader) {  // do not count L2_writebacks here
         bankwrites[mf->get_sid()][dram_id][bank]++;
         shader_mem_acc_log(mf->get_sid(), dram_id, bank, 'w');
       }
@@ -347,18 +346,14 @@ void memory_stats_t::memlatstat_print(unsigned n_mem, unsigned gpu_mem_n_bk) {
       printf("dram[%d]: ", i);
       for (j = 0; j < gpu_mem_n_bk; j++) {
         l = totalbankaccesses[i][j];
-        if (l < min_bank_accesses)
-          min_bank_accesses = l;
-        if (l > max_bank_accesses)
-          max_bank_accesses = l;
+        if (l < min_bank_accesses) min_bank_accesses = l;
+        if (l > max_bank_accesses) max_bank_accesses = l;
         k += l;
         m += l;
         printf("%9d ", l);
       }
-      if (m < min_chip_accesses)
-        min_chip_accesses = m;
-      if (m > max_chip_accesses)
-        max_chip_accesses = m;
+      if (m < min_chip_accesses) min_chip_accesses = m;
+      if (m > max_chip_accesses) max_chip_accesses = m;
       m = 0;
       printf("\n");
     }
@@ -387,18 +382,14 @@ void memory_stats_t::memlatstat_print(unsigned n_mem, unsigned gpu_mem_n_bk) {
       printf("dram[%d]: ", i);
       for (j = 0; j < gpu_mem_n_bk; j++) {
         l = totalbankreads[i][j];
-        if (l < min_bank_accesses)
-          min_bank_accesses = l;
-        if (l > max_bank_accesses)
-          max_bank_accesses = l;
+        if (l < min_bank_accesses) min_bank_accesses = l;
+        if (l > max_bank_accesses) max_bank_accesses = l;
         k += l;
         m += l;
         printf("%9d ", l);
       }
-      if (m < min_chip_accesses)
-        min_chip_accesses = m;
-      if (m > max_chip_accesses)
-        max_chip_accesses = m;
+      if (m < min_chip_accesses) min_chip_accesses = m;
+      if (m > max_chip_accesses) max_chip_accesses = m;
       m = 0;
       printf("\n");
     }
@@ -427,18 +418,14 @@ void memory_stats_t::memlatstat_print(unsigned n_mem, unsigned gpu_mem_n_bk) {
       printf("dram[%d]: ", i);
       for (j = 0; j < gpu_mem_n_bk; j++) {
         l = totalbankwrites[i][j];
-        if (l < min_bank_accesses)
-          min_bank_accesses = l;
-        if (l > max_bank_accesses)
-          max_bank_accesses = l;
+        if (l < min_bank_accesses) min_bank_accesses = l;
+        if (l > max_bank_accesses) max_bank_accesses = l;
         k += l;
         m += l;
         printf("%9d ", l);
       }
-      if (m < min_chip_accesses)
-        min_chip_accesses = m;
-      if (m > max_chip_accesses)
-        max_chip_accesses = m;
+      if (m < min_chip_accesses) min_chip_accesses = m;
+      if (m > max_chip_accesses) max_chip_accesses = m;
       m = 0;
       printf("\n");
     }
@@ -491,9 +478,10 @@ void memory_stats_t::memlatstat_print(unsigned n_mem, unsigned gpu_mem_n_bk) {
       printf("%d\t", num_MCBs_accessed[i]);
     }
 
-    printf("\nAverage # of Memory Banks Accessed per Memory Operation per "
-           "Warp=%f\n",
-           (float)accum_MCBs_accessed / tot_mem_ops_per_warp);
+    printf(
+        "\nAverage # of Memory Banks Accessed per Memory Operation per "
+        "Warp=%f\n",
+        (float)accum_MCBs_accessed / tot_mem_ops_per_warp);
 
     // printf("\nAverage Difference Between First and Last Response from Memory
     // System per warp = ");

@@ -46,17 +46,14 @@ SeparableInputFirstAllocator::SeparableInputFirstAllocator(
     : SeparableAllocator(parent, name, inputs, outputs, arb_type) {}
 
 void SeparableInputFirstAllocator::Allocate() {
-
   std::set<int>::const_iterator port_iter = _in_occ.begin();
   while (port_iter != _in_occ.end()) {
-
     const int &input = *port_iter;
 
     // add requests to the input arbiter
 
     std::map<int, sRequest>::const_iterator req_iter = _in_req[input].begin();
     while (req_iter != _in_req[input].end()) {
-
       const sRequest &req = req_iter->second;
 
       _input_arb[input]->AddRequest(req.port, req.label, req.in_pri);
@@ -81,7 +78,6 @@ void SeparableInputFirstAllocator::Allocate() {
 
   port_iter = _out_occ.begin();
   while (port_iter != _out_occ.end()) {
-
     const int &output = *port_iter;
 
     // Execute the output arbiters.

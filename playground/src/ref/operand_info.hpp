@@ -11,7 +11,7 @@ class symbol;
 class gpgpu_context;
 
 class operand_info {
-public:
+ public:
   operand_info(gpgpu_context *ctx) {
     init(ctx);
     m_is_non_arch_reg = false;
@@ -298,22 +298,14 @@ public:
 
   unsigned get_vect_nelem() const {
     assert(is_vector());
-    if (!m_value.m_vector_symbolic[0])
-      return 0;
-    if (!m_value.m_vector_symbolic[1])
-      return 1;
-    if (!m_value.m_vector_symbolic[2])
-      return 2;
-    if (!m_value.m_vector_symbolic[3])
-      return 3;
-    if (!m_value.m_vector_symbolic[4])
-      return 4;
-    if (!m_value.m_vector_symbolic[5])
-      return 5;
-    if (!m_value.m_vector_symbolic[6])
-      return 6;
-    if (!m_value.m_vector_symbolic[7])
-      return 7;
+    if (!m_value.m_vector_symbolic[0]) return 0;
+    if (!m_value.m_vector_symbolic[1]) return 1;
+    if (!m_value.m_vector_symbolic[2]) return 2;
+    if (!m_value.m_vector_symbolic[3]) return 3;
+    if (!m_value.m_vector_symbolic[4]) return 4;
+    if (!m_value.m_vector_symbolic[5]) return 5;
+    if (!m_value.m_vector_symbolic[6]) return 6;
+    if (!m_value.m_vector_symbolic[7]) return 7;
     return 8;
   }
 
@@ -354,20 +346,17 @@ public:
     return m_value.m_symbolic->type()->get_key().is_reg();
   }
   bool is_param_local() const {
-    if (m_type != symbolic_t)
-      return false;
+    if (m_type != symbolic_t) return false;
     return m_value.m_symbolic->type()->get_key().is_param_local();
   }
 
   bool is_param_kernel() const {
-    if (m_type != symbolic_t)
-      return false;
+    if (m_type != symbolic_t) return false;
     return m_value.m_symbolic->type()->get_key().is_param_kernel();
   }
 
   bool is_vector() const {
-    if (m_vector)
-      return true;
+    if (m_vector) return true;
     return false;
   }
   int reg_num() const { return m_value.m_symbolic->reg_num(); }
@@ -449,21 +438,21 @@ public:
   ptx_reg_t get_literal_value() const {
     ptx_reg_t result;
     switch (m_type) {
-    case int_t:
-      result.s64 = m_value.m_int;
-      break;
-    case float_op_t:
-      result.f32 = m_value.m_float;
-      break;
-    case double_op_t:
-      result.f64 = m_value.m_double;
-      break;
-    case unsigned_t:
-      result.u32 = m_value.m_unsigned;
-      break;
-    default:
-      assert(0);
-      break;
+      case int_t:
+        result.s64 = m_value.m_int;
+        break;
+      case float_op_t:
+        result.f32 = m_value.m_float;
+        break;
+      case double_op_t:
+        result.f64 = m_value.m_double;
+        break;
+      case unsigned_t:
+        result.u32 = m_value.m_unsigned;
+        break;
+      default:
+        assert(0);
+        break;
     }
     return result;
   }
@@ -497,7 +486,7 @@ public:
   addr_t get_const_mem_offset() const { return m_const_mem_offset; }
   bool is_non_arch_reg() const { return m_is_non_arch_reg; }
 
-private:
+ private:
   gpgpu_context *gpgpu_ctx;
   unsigned m_uid;
   bool m_valid;

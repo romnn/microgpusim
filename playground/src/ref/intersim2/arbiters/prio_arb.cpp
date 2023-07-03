@@ -127,7 +127,7 @@ void PriorityArbiter::Arbitrate() {
       p++;
     }
 
-    _match = max_index; // -1 for no match
+    _match = max_index;  // -1 for no match
     if (_match != -1) {
       _rr_ptr = (_match + 1) % _inputs;
     }

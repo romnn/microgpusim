@@ -9,7 +9,7 @@
 #include "traffic_breakdown.hpp"
 
 class shader_core_stats : public shader_core_stats_pod {
-public:
+ public:
   shader_core_stats(const shader_core_config *config) {
     m_config = config;
     shader_core_stats_pod *pod = reinterpret_cast<shader_core_stats_pod *>(
@@ -189,11 +189,11 @@ public:
     return m_shader_warp_slot_issue_distro;
   }
 
-private:
+ private:
   const shader_core_config *m_config;
 
-  traffic_breakdown *m_outgoing_traffic_stats; // core to memory partitions
-  traffic_breakdown *m_incoming_traffic_stats; // memory partition to core
+  traffic_breakdown *m_outgoing_traffic_stats;  // core to memory partitions
+  traffic_breakdown *m_incoming_traffic_stats;  // memory partition to core
 
   // Counts the instructions issued for each dynamic warp.
   std::vector<std::vector<unsigned>> m_shader_dynamic_warp_issue_distro;

@@ -34,10 +34,8 @@ struct line_cache_block : public cache_block_t {
 
     m_status = m_set_modified_on_fill ? MODIFIED : VALID;
 
-    if (m_set_readable_on_fill)
-      m_readable = true;
-    if (m_set_byte_mask_on_fill)
-      set_byte_mask(byte_mask);
+    if (m_set_readable_on_fill) m_readable = true;
+    if (m_set_byte_mask_on_fill) set_byte_mask(byte_mask);
 
     m_fill_time = time;
   }
@@ -46,8 +44,8 @@ struct line_cache_block : public cache_block_t {
   virtual bool is_reserved_line() { return m_status == RESERVED; }
   virtual bool is_modified_line() { return m_status == MODIFIED; }
 
-  virtual enum cache_block_state
-  get_status(mem_access_sector_mask_t sector_mask) {
+  virtual enum cache_block_state get_status(
+      mem_access_sector_mask_t sector_mask) {
     return m_status;
   }
   virtual void set_status(enum cache_block_state status,
@@ -65,8 +63,7 @@ struct line_cache_block : public cache_block_t {
   }
   virtual mem_access_sector_mask_t get_dirty_sector_mask() {
     mem_access_sector_mask_t sector_mask;
-    if (m_status == MODIFIED)
-      sector_mask.set();
+    if (m_status == MODIFIED) sector_mask.set();
     return sector_mask;
   }
   virtual unsigned long long get_last_access_time() {
@@ -93,7 +90,7 @@ struct line_cache_block : public cache_block_t {
     m_set_byte_mask_on_fill = m_modified;
   }
   virtual unsigned get_modified_size() {
-    return SECTOR_CHUNCK_SIZE * SECTOR_SIZE; // i.e. cache line size
+    return SECTOR_CHUNCK_SIZE * SECTOR_SIZE;  // i.e. cache line size
   }
   virtual void set_m_readable(bool readable,
                               mem_access_sector_mask_t sector_mask) {
@@ -106,7 +103,7 @@ struct line_cache_block : public cache_block_t {
     printf("m_block_addr is %lu, status = %u\n", m_block_addr, m_status);
   }
 
-private:
+ private:
   unsigned long long m_alloc_time;
   unsigned long long m_last_access_time;
   unsigned long long m_fill_time;

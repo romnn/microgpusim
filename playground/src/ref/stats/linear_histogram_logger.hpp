@@ -12,7 +12,7 @@
 // generic linear histogram logger
 
 class linear_histogram_snapshot {
-public:
+ public:
   linear_histogram_snapshot(int n_bins, unsigned long long cycle)
       : m_cycle(cycle), m_linear_histogram(n_bins, 0) {}
 
@@ -57,14 +57,14 @@ public:
     }
   }
 
-private:
+ private:
   unsigned long long m_cycle;
   std::vector<int> m_linear_histogram;
 };
 
 class linear_histogram_logger : public snap_shot_trigger,
                                 public spill_log_interface {
-public:
+ public:
   linear_histogram_logger(int n_bins, unsigned long long snap_shot_interval,
                           const char *name, bool reset_at_snap_shot = true,
                           unsigned long long start_cycle = 0);
@@ -82,7 +82,7 @@ public:
   void print_visualizer(FILE *fout);
   void print_visualizer(gzFile fout);
 
-private:
+ private:
   int m_n_bins;
   linear_histogram_snapshot m_curr_lin_hist;
   std::list<linear_histogram_snapshot> m_lin_hist_archive;

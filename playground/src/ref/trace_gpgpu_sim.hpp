@@ -34,7 +34,7 @@ class gpgpu_context;
 
 // class trace_gpgpu_sim : public gpgpu_sim {
 class trace_gpgpu_sim {
-public:
+ public:
   trace_gpgpu_sim(const gpgpu_sim_config &config, gpgpu_context *ctx)
       : m_config(config) {
     gpgpu_ctx = ctx;
@@ -142,7 +142,7 @@ public:
     m_running_kernels.resize(config.max_concurrent_kernel, NULL);
     m_last_issued_kernel = 0;
     m_last_cluster_issue = m_shader_config->n_simt_clusters -
-                           1; // this causes first launch to use simt cluster
+                           1;  // this causes first launch to use simt cluster
     *average_pipeline_duty_cycle = 0;
     *active_sms = 0;
 
@@ -247,7 +247,7 @@ public:
   // backward pointer
   class gpgpu_context *gpgpu_ctx;
 
-private:
+ private:
   // clocks
   void reinit_clock_domains(void);
   int next_clock_domain(void);
@@ -264,7 +264,7 @@ private:
   bool m_functional_sim;
   trace_kernel_info_t *m_functional_sim_kernel;
 
-public:
+ public:
   void functional_launch(trace_kernel_info_t *k) {
     m_functional_sim = true;
     m_functional_sim_kernel = k;
@@ -276,20 +276,20 @@ public:
     m_functional_sim_kernel = NULL;
   }
 
-protected:
+ protected:
   class trace_simt_core_cluster **m_cluster;
   class memory_partition_unit **m_memory_partition_unit;
   class memory_sub_partition **m_memory_sub_partition;
 
   std::vector<std::string>
-      m_executed_kernel_names; //< names of kernel for stat printout
+      m_executed_kernel_names;  //< names of kernel for stat printout
   std::vector<unsigned>
-      m_executed_kernel_uids; //< uids of kernel launches for stat printout
-  std::string executed_kernel_info_string(); //< format the kernel information
-                                             // into a string for stat printout
+      m_executed_kernel_uids;  //< uids of kernel launches for stat printout
+  std::string executed_kernel_info_string();  //< format the kernel information
+                                              // into a string for stat printout
   std::string executed_kernel_name();
-  void clear_executed_kernel_info(); //< clear the kernel information after
-                                     // stat printout
+  void clear_executed_kernel_info();  //< clear the kernel information after
+                                      // stat printout
 
   std::vector<trace_kernel_info_t *> m_running_kernels;
   unsigned m_last_issued_kernel;

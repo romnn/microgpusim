@@ -24,13 +24,14 @@ __global__ void int32_latency(uint32_t *startClk, uint32_t *stopClk, T *data1,
   asm volatile("mov.u32 %0, %%clock;" : "=r"(start)::"memory");
 
   for (int j = 0; j < REPEAT_TIMES; ++j) {
-    asm volatile("{\t\n"
-                 "mad.lo.s32 %0, %1, %2 , %0;\n\t"
-                 "mad.lo.s32 %0, %1, %2 , %0;\n\t"
-                 "mad.lo.s32 %0, %1, %2 , %0;\n\t"
-                 "mad.lo.s32 %0, %1, %2 , %0;\n\t"
-                 "}"
-                 : "+r"(result), "+r"(s1), "+r"(s2));
+    asm volatile(
+        "{\t\n"
+        "mad.lo.s32 %0, %1, %2 , %0;\n\t"
+        "mad.lo.s32 %0, %1, %2 , %0;\n\t"
+        "mad.lo.s32 %0, %1, %2 , %0;\n\t"
+        "mad.lo.s32 %0, %1, %2 , %0;\n\t"
+        "}"
+        : "+r"(result), "+r"(s1), "+r"(s2));
   }
   // synchronize all threads
   asm volatile("bar.sync 0;");

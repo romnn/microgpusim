@@ -4,7 +4,7 @@
 #include <cstdio>
 
 class checkpoint {
-public:
+ public:
   checkpoint();
   ~checkpoint() { printf("clasfsfss destructed\n"); }
 

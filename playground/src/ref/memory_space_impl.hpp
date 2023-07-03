@@ -11,8 +11,9 @@
 
 class ptx_instruction;
 
-template <unsigned BSIZE> class memory_space_impl : public memory_space {
-public:
+template <unsigned BSIZE>
+class memory_space_impl : public memory_space {
+ public:
   memory_space_impl(std::string name, unsigned hash_size);
 
   virtual void write(mem_addr_t addr, size_t length, const void *data,
@@ -24,7 +25,7 @@ public:
 
   virtual void set_watch(addr_t addr, unsigned watchpoint);
 
-private:
+ private:
   void read_single_block(mem_addr_t blk_idx, mem_addr_t addr, size_t length,
                          void *data) const;
   std::string m_name;

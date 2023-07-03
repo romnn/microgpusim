@@ -226,6 +226,11 @@ fn build_accelsim_tracer_tool(
 fn main() -> eyre::Result<()> {
     color_eyre::install()?;
 
+    println!("cargo:rerun-if-env-changed=USE_UPSTREAM_ACCELSIM");
+    println!("cargo:rerun-if-env-changed=FORCE");
+    println!("cargo:rerun-if-env-changed=BUILD");
+    println!("cargo:rerun-if-changed=accel-sim-framework-dev/");
+
     let use_upstream = env::var("USE_UPSTREAM_ACCELSIM")
         .is_ok_and(|use_remote| use_remote.to_lowercase() == "yes");
 

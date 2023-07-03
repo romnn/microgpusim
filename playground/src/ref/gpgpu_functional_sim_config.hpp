@@ -3,7 +3,7 @@
 #include "option_parser.hpp"
 
 class gpgpu_functional_sim_config {
-public:
+ public:
   void reg_options(class OptionParser *opp);
 
   void ptx_set_tex_cache_linesize(unsigned linesize);
@@ -31,7 +31,7 @@ public:
   int get_checkpoint_CTA_t() const { return checkpoint_CTA_t; }
   int get_checkpoint_insn_Y() const { return checkpoint_insn_Y; }
 
-private:
+ private:
   // PTX options
   int m_ptx_convert_to_ptxplus;
   int m_ptx_use_cuobjdump;

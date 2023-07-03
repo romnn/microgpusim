@@ -8,7 +8,7 @@
 class gpgpu_context;
 
 class GPGPUsim_ctx {
-public:
+ public:
   GPGPUsim_ctx(gpgpu_context *ctx) {
     g_sim_active = false;
     g_sim_done = true;

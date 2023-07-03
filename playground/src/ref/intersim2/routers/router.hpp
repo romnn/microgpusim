@@ -41,8 +41,7 @@
 typedef Channel<Credit> CreditChannel;
 
 class Router : public TimedModule {
-
-protected:
+ protected:
   static int const STALL_BUFFER_BUSY;
   static int const STALL_BUFFER_CONFLICT;
   static int const STALL_BUFFER_FULL;
@@ -89,7 +88,7 @@ protected:
 
   virtual void _InternalStep() = 0;
 
-public:
+ public:
   Router(const Configuration &config, Module *parent, const std::string &name,
          int id, int inputs, int outputs);
 

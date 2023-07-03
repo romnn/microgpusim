@@ -36,7 +36,6 @@
 #include <string>
 
 class AnyNet : public Network {
-
   std::string file_name;
   // associtation between  nodes and routers
   std::map<int, int> node_list;
@@ -52,7 +51,7 @@ class AnyNet : public Network {
   void buildRoutingTable();
   void route(int r_start);
 
-public:
+ public:
   AnyNet(const Configuration &config, const std::string &name,
          InterconnectInterface *icnt);
   ~AnyNet();

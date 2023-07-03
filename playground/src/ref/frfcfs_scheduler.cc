@@ -50,14 +50,14 @@ void frfcfs_scheduler::add_req(dram_req_t *req) {
     m_num_write_pending++;
     m_write_queue[req->bk].push_front(req);
     std::list<dram_req_t *>::iterator ptr = m_write_queue[req->bk].begin();
-    m_write_bins[req->bk][req->row].push_front(ptr); // newest reqs to the
-                                                     // front
+    m_write_bins[req->bk][req->row].push_front(ptr);  // newest reqs to the
+                                                      // front
   } else {
     assert(m_num_pending < m_config->gpgpu_frfcfs_dram_sched_queue_size);
     m_num_pending++;
     m_queue[req->bk].push_front(req);
     std::list<dram_req_t *>::iterator ptr = m_queue[req->bk].begin();
-    m_bins[req->bk][req->row].push_front(ptr); // newest reqs to the front
+    m_bins[req->bk][req->row].push_front(ptr);  // newest reqs to the front
   }
 }
 
@@ -111,8 +111,7 @@ dram_req_t *frfcfs_scheduler::schedule(unsigned bank, unsigned curr_row) {
   }
 
   if (m_current_last_row[bank] == NULL) {
-    if (m_current_queue[bank].empty())
-      return NULL;
+    if (m_current_queue[bank].empty()) return NULL;
 
     std::map<unsigned, std::list<std::list<dram_req_t *>::iterator>>::iterator
         bin_ptr = m_current_bins[bank].find(curr_row);
@@ -120,7 +119,7 @@ dram_req_t *frfcfs_scheduler::schedule(unsigned bank, unsigned curr_row) {
       dram_req_t *req = m_current_queue[bank].back();
       bin_ptr = m_current_bins[bank].find(req->row);
       assert(bin_ptr !=
-             m_current_bins[bank].end()); // where did the request go???
+             m_current_bins[bank].end());  // where did the request go???
       m_current_last_row[bank] = &(bin_ptr->second);
       data_collection(bank);
       rowhit = false;

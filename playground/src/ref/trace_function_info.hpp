@@ -10,7 +10,7 @@ class gpgpu_context;
 
 // class trace_function_info : public function_info {
 class trace_function_info {
-public:
+ public:
   trace_function_info(const struct gpgpu_ptx_sim_info &info,
                       gpgpu_context *m_gpgpu_context) {
     // : function_info(0, m_gpgpu_context) {
@@ -51,11 +51,11 @@ public:
   // backward pointer
   class gpgpu_context *gpgpu_ctx;
 
-protected:
+ protected:
   // Registers/shmem/etc. used (from ptxas -v), loaded from ___.ptxinfo along
   // with ___.ptx
   struct gpgpu_ptx_sim_info m_kernel_info;
 
-private:
+ private:
   std::string m_name;
 };

@@ -30,7 +30,6 @@
 #include "network.hpp"
 
 class DragonFlyNew : public Network {
-
   int _m;
   int _n;
   int _r;
@@ -48,7 +47,7 @@ class DragonFlyNew : public Network {
   void _ComputeSize(const Configuration &config);
   void _BuildNet(const Configuration &config);
 
-public:
+ public:
   DragonFlyNew(const Configuration &config, const std::string &name,
                InterconnectInterface *icnt);
 

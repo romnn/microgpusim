@@ -32,7 +32,8 @@
 
 #include "module.hpp"
 
-template <class T> class PipelineFIFO : public Module {
+template <class T>
+class PipelineFIFO : public Module {
   int _lanes;
   int _depth;
 
@@ -41,7 +42,7 @@ template <class T> class PipelineFIFO : public Module {
 
   std::vector<std::vector<T *>> _data;
 
-public:
+ public:
   PipelineFIFO(Module *parent, const std::string &name, int lanes, int depth);
   ~PipelineFIFO();
 
@@ -66,23 +67,28 @@ PipelineFIFO<T>::PipelineFIFO(Module *parent, const std::string &name,
   }
 }
 
-template <class T> PipelineFIFO<T>::~PipelineFIFO() {}
+template <class T>
+PipelineFIFO<T>::~PipelineFIFO() {}
 
-template <class T> void PipelineFIFO<T>::Write(T *val, int lane) {
+template <class T>
+void PipelineFIFO<T>::Write(T *val, int lane) {
   _data[lane][_pipe_ptr] = val;
 }
 
-template <class T> void PipelineFIFO<T>::WriteAll(T *val) {
+template <class T>
+void PipelineFIFO<T>::WriteAll(T *val) {
   for (int l = 0; l < _lanes; ++l) {
     _data[l][_pipe_ptr] = val;
   }
 }
 
-template <class T> T *PipelineFIFO<T>::Read(int lane) {
+template <class T>
+T *PipelineFIFO<T>::Read(int lane) {
   return _data[lane][_pipe_ptr];
 }
 
-template <class T> void PipelineFIFO<T>::Advance() {
+template <class T>
+void PipelineFIFO<T>::Advance() {
   _pipe_ptr = (_pipe_ptr + 1) % _pipe_len;
 }
 

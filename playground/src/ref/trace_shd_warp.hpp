@@ -10,7 +10,7 @@
 class trace_shader_core_ctx;
 
 class trace_shd_warp_t {
-public:
+ public:
   trace_shd_warp_t(class trace_shader_core_ctx *shader, unsigned warp_size)
       : m_shader(shader), m_warp_size(warp_size) {
     m_stores_outstanding = 0;
@@ -48,7 +48,7 @@ public:
     // m_next_pc = start_pc;
     assert(n_completed >= active.count());
     assert(n_completed <= m_warp_size);
-    n_completed -= active.count(); // active threads are not yet completed
+    n_completed -= active.count();  // active threads are not yet completed
     m_active_threads = active;
     m_done_exit = false;
 
@@ -74,7 +74,7 @@ public:
   }
 
   bool functional_done() const;
-  bool waiting(); // not const due to membar
+  bool waiting();  // not const due to membar
   bool hardware_done() const;
 
   bool done_exit() const { return m_done_exit; }
@@ -134,14 +134,12 @@ public:
   }
   bool ibuffer_empty() const {
     for (unsigned i = 0; i < IBUFFER_SIZE; i++)
-      if (m_ibuffer[i].m_valid)
-        return false;
+      if (m_ibuffer[i].m_valid) return false;
     return true;
   }
   void ibuffer_flush() {
     for (unsigned i = 0; i < IBUFFER_SIZE; i++) {
-      if (m_ibuffer[i].m_valid)
-        dec_inst_in_pipeline();
+      if (m_ibuffer[i].m_valid) dec_inst_in_pipeline();
       m_ibuffer[i].m_inst = NULL;
       m_ibuffer[i].m_valid = false;
     }
@@ -190,9 +188,9 @@ public:
   ibuffer_entry m_ibuffer[IBUFFER_SIZE];
   unsigned m_next;
 
-private:
-  const trace_warp_inst_t *
-  parse_trace_instruction(const inst_trace_t &trace) const;
+ private:
+  const trace_warp_inst_t *parse_trace_instruction(
+      const inst_trace_t &trace) const;
 
   // unsigned trace_pc;
   trace_kernel_info_t *m_kernel_info;
@@ -218,24 +216,24 @@ private:
   warp_inst_t m_inst_at_barrier;
 
   // address_type m_next_pc;
-  unsigned n_completed; // number of threads in warp completed
+  unsigned n_completed;  // number of threads in warp completed
   // std::bitset<MAX_WARP_SIZE> m_active_threads;
 
   bool m_imiss_pending;
 
-  unsigned m_n_atomic; // number of outstanding atomic operations
-  bool m_done_exit; // true once thread exit has been registered for threads in
-                    // this warp
+  unsigned m_n_atomic;  // number of outstanding atomic operations
+  bool m_done_exit;  // true once thread exit has been registered for threads in
+                     // this warp
 
-  bool m_membar; // if true, warp is waiting at memory barrier
+  bool m_membar;  // if true, warp is waiting at memory barrier
 
   unsigned long long m_last_fetch;
 
-public:
-  unsigned m_stores_outstanding; // number of store requests sent but not yet
-                                 // acknowledged
+ public:
+  unsigned m_stores_outstanding;  // number of store requests sent but not yet
+                                  // acknowledged
   unsigned m_inst_in_pipeline;
 };
 
-std::unique_ptr<trace_shd_warp_t>
-new_trace_shd_warp(class trace_shader_core_ctx *shader, unsigned warp_size);
+std::unique_ptr<trace_shd_warp_t> new_trace_shd_warp(
+    class trace_shader_core_ctx *shader, unsigned warp_size);

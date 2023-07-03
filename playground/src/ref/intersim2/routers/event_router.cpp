@@ -246,7 +246,6 @@ void EventRouter::_ProcessWaiting(int output, int out_vc) {
   EventNextVCState::tWaiting *w;
 
   if (_output_state[output]->IsWaiting(out_vc)) {
-
     // State remains as busy, but the waiting VC takes over
     w = _output_state[output]->PopWaiting(out_vc);
 
@@ -267,7 +266,7 @@ void EventRouter::_ProcessWaiting(int output, int out_vc) {
       tevt->src_vc = w->vc;
       tevt->dst_vc = out_vc;
       tevt->input = w->input;
-      tevt->watch = w->watch; // just to have something here
+      tevt->watch = w->watch;  // just to have something here
       tevt->id = w->id;
 
       _transport_queue[output].push(tevt);
@@ -314,7 +313,6 @@ void EventRouter::_IncomingFlits() {
 
       // Head flit arriving at idle VC
       if (!_active[input][vc]) {
-
         if (!f->head) {
           std::cout << "Non-head flit:" << std::endl;
           std::cout << *f;
@@ -328,8 +326,9 @@ void EventRouter::_IncomingFlits() {
         route_set = cur_buf->GetRouteSet(vc);
 
         if (!route_set->GetPortVC(&out_port, &out_vc)) {
-          Error("The event-driven router requires routing functions with a "
-                "single (port,vc) output");
+          Error(
+              "The event-driven router requires routing functions with a "
+              "single (port,vc) output");
         }
 
         cur_buf->SetOutput(vc, out_port, out_vc);
@@ -477,7 +476,7 @@ void EventRouter::_ArrivalArb(int output) {
       credits++;
       _output_state[output]->SetCredits(vc, credits);
 
-      if (c->tail) { // tail flit -- recycle VC
+      if (c->tail) {  // tail flit -- recycle VC
         if (state != EventNextVCState::busy) {
           Error("Received tail credit at non-busy output VC");
         }
@@ -524,7 +523,7 @@ void EventRouter::_ArrivalArb(int output) {
     EventNextVCState::eNextVCState state =
         _output_state[output]->GetState(aevt->dst_vc);
 
-    if (aevt->head) { // Head flits
+    if (aevt->head) {  // Head flits
       if (state == EventNextVCState::idle) {
         // Allocate the output VC and queue a transport event
         _output_state[output]->SetState(aevt->dst_vc, EventNextVCState::busy);
@@ -565,7 +564,6 @@ void EventRouter::_ArrivalArb(int output) {
 
         _SendTransport(input, output, aevt);
       } else {
-
         // VC busy with a differnet transaction => update waiting event
         _output_state[output]->IncrWaiting(aevt->dst_vc, input, aevt->src_vc);
       }
@@ -620,7 +618,7 @@ void EventRouter::_TransportArb(int input) {
     }
 
     if (cur_buf->Empty(vc)) {
-      return; // Error( "Empty VC received grant." );
+      return;  // Error( "Empty VC received grant." );
     }
 
     if (tevt->dst_vc != cur_buf->GetOutputVC(vc)) {
@@ -790,8 +788,7 @@ void EventNextVCState::IncrWaiting(int vc, int w_input, int w_vc) {
 
   // search for match
   for (match = _waiting[vc].begin(); match != _waiting[vc].end(); match++) {
-    if (((*match)->input == w_input) && ((*match)->vc == w_vc))
-      break;
+    if (((*match)->input == w_input) && ((*match)->vc == w_vc)) break;
   }
 
   if (match != _waiting[vc].end()) {
@@ -807,8 +804,7 @@ bool EventNextVCState::IsInputWaiting(int vc, int w_input, int w_vc) const {
 
   // search for match
   for (match = _waiting[vc].begin(); match != _waiting[vc].end(); match++) {
-    if (((*match)->input == w_input) && ((*match)->vc == w_vc))
-      break;
+    if (((*match)->input == w_input) && ((*match)->vc == w_vc)) break;
   }
 
   if (match != _waiting[vc].end()) {

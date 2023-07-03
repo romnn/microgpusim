@@ -45,7 +45,6 @@ void OutputSet::Add(int output_port, int vc, int pri) {
 }
 
 void OutputSet::AddRange(int output_port, int vc_start, int vc_end, int pri) {
-
   sSetElement s;
 
   s.vc_start = vc_start;
@@ -85,7 +84,6 @@ const std::set<OutputSet::sSetElement> &OutputSet::GetSet() const {
 
 // legacy support, for performance, just use GetSet()
 int OutputSet::GetVC(int output_port, int vc_index, int *pri) const {
-
   int range;
   int remaining = vc_index;
   int vc = -1;
@@ -115,7 +113,6 @@ int OutputSet::GetVC(int output_port, int vc_index, int *pri) const {
 
 // legacy support, for performance, just use GetSet()
 bool OutputSet::GetPortVC(int *out_port, int *out_vc) const {
-
   bool single_output = false;
   int used_outputs = 0;
 
@@ -124,7 +121,6 @@ bool OutputSet::GetPortVC(int *out_port, int *out_vc) const {
     used_outputs = i->output_port;
   }
   while (i != _outputs.end()) {
-
     if (i->vc_start == i->vc_end) {
       *out_vc = i->vc_start;
       *out_port = i->output_port;

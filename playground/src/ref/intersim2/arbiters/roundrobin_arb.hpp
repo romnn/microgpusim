@@ -37,11 +37,10 @@
 #include "arbiter.hpp"
 
 class RoundRobinArbiter : public Arbiter {
-
   // Priority pointer
   int _pointer;
 
-public:
+ public:
   // Constructors
   RoundRobinArbiter(Module *parent, const std::string &name, int size);
 

@@ -6,9 +6,10 @@
 #include "mem_fetch.hpp"
 
 class mshr_table {
-public:
+ public:
   mshr_table(unsigned num_entries, unsigned max_merged)
-      : m_num_entries(num_entries), m_max_merged(max_merged),
+      : m_num_entries(num_entries),
+        m_max_merged(max_merged),
         m_data(2 * num_entries) {}
 
   /// Checks if there is a pending request to the lower memory level already
@@ -36,7 +37,7 @@ public:
            "Change of MSHR parameters between kernels is not allowed");
   }
 
-private:
+ private:
   // finite sized, fully associative table, with a finite maximum number of
   // merged requests
   const unsigned m_num_entries;

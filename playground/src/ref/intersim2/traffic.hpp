@@ -33,11 +33,11 @@
 #include <vector>
 
 class TrafficPattern {
-protected:
+ protected:
   int _nodes;
   TrafficPattern(int nodes);
 
-public:
+ public:
   virtual ~TrafficPattern() {}
   virtual void reset();
   virtual int dest(int source) = 0;
@@ -46,44 +46,44 @@ public:
 };
 
 class PermutationTrafficPattern : public TrafficPattern {
-protected:
+ protected:
   PermutationTrafficPattern(int nodes);
 };
 
 class BitPermutationTrafficPattern : public PermutationTrafficPattern {
-protected:
+ protected:
   BitPermutationTrafficPattern(int nodes);
 };
 
 class BitCompTrafficPattern : public BitPermutationTrafficPattern {
-public:
+ public:
   BitCompTrafficPattern(int nodes);
   virtual int dest(int source);
 };
 
 class TransposeTrafficPattern : public BitPermutationTrafficPattern {
-protected:
+ protected:
   int _shift;
 
-public:
+ public:
   TransposeTrafficPattern(int nodes);
   virtual int dest(int source);
 };
 
 class BitRevTrafficPattern : public BitPermutationTrafficPattern {
-public:
+ public:
   BitRevTrafficPattern(int nodes);
   virtual int dest(int source);
 };
 
 class ShuffleTrafficPattern : public BitPermutationTrafficPattern {
-public:
+ public:
   ShuffleTrafficPattern(int nodes);
   virtual int dest(int source);
 };
 
 class DigitPermutationTrafficPattern : public PermutationTrafficPattern {
-protected:
+ protected:
   int _k;
   int _n;
   int _xr;
@@ -91,84 +91,84 @@ protected:
 };
 
 class TornadoTrafficPattern : public DigitPermutationTrafficPattern {
-public:
+ public:
   TornadoTrafficPattern(int nodes, int k, int n, int xr = 1);
   virtual int dest(int source);
 };
 
 class NeighborTrafficPattern : public DigitPermutationTrafficPattern {
-public:
+ public:
   NeighborTrafficPattern(int nodes, int k, int n, int xr = 1);
   virtual int dest(int source);
 };
 
 class RandomPermutationTrafficPattern : public TrafficPattern {
-private:
+ private:
   std::vector<int> _dest;
   inline void randomize(int seed);
 
-public:
+ public:
   RandomPermutationTrafficPattern(int nodes, int seed);
   virtual int dest(int source);
 };
 
 class RandomTrafficPattern : public TrafficPattern {
-protected:
+ protected:
   RandomTrafficPattern(int nodes);
 };
 
 class UniformRandomTrafficPattern : public RandomTrafficPattern {
-public:
+ public:
   UniformRandomTrafficPattern(int nodes);
   virtual int dest(int source);
 };
 
 class UniformBackgroundTrafficPattern : public RandomTrafficPattern {
-private:
+ private:
   std::set<int> _excluded;
 
-public:
+ public:
   UniformBackgroundTrafficPattern(int nodes, std::vector<int> excluded_nodes);
   virtual int dest(int source);
 };
 
 class DiagonalTrafficPattern : public RandomTrafficPattern {
-public:
+ public:
   DiagonalTrafficPattern(int nodes);
   virtual int dest(int source);
 };
 
 class AsymmetricTrafficPattern : public RandomTrafficPattern {
-public:
+ public:
   AsymmetricTrafficPattern(int nodes);
   virtual int dest(int source);
 };
 
 class Taper64TrafficPattern : public RandomTrafficPattern {
-public:
+ public:
   Taper64TrafficPattern(int nodes);
   virtual int dest(int source);
 };
 
 class BadPermDFlyTrafficPattern : public DigitPermutationTrafficPattern {
-public:
+ public:
   BadPermDFlyTrafficPattern(int nodes, int k, int n);
   virtual int dest(int source);
 };
 
 class BadPermYarcTrafficPattern : public DigitPermutationTrafficPattern {
-public:
+ public:
   BadPermYarcTrafficPattern(int nodes, int k, int n, int xr = 1);
   virtual int dest(int source);
 };
 
 class HotSpotTrafficPattern : public TrafficPattern {
-private:
+ private:
   std::vector<int> _hotspots;
   std::vector<int> _rates;
   int _max_val;
 
-public:
+ public:
   HotSpotTrafficPattern(int nodes, std::vector<int> hotspots,
                         std::vector<int> rates = std::vector<int>());
   virtual int dest(int source);

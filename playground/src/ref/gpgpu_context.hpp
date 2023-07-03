@@ -10,7 +10,7 @@
 #include "trace_kernel_info.hpp"
 
 class gpgpu_context {
-public:
+ public:
   gpgpu_context() {
     // g_global_allfiles_symbol_table = NULL;
     sm_next_access_uid = 0;
@@ -36,11 +36,11 @@ public:
   const char *g_filename;
   unsigned sm_next_access_uid;
   unsigned warp_inst_sm_next_uid;
-  unsigned operand_info_sm_next_uid; // uid for operand_info
-  unsigned kernel_info_m_next_uid;   // uid for kernel_info_t
-  unsigned g_num_ptx_inst_uid;       // uid for ptx inst inside ptx_instruction
+  unsigned operand_info_sm_next_uid;  // uid for operand_info
+  unsigned kernel_info_m_next_uid;    // uid for kernel_info_t
+  unsigned g_num_ptx_inst_uid;        // uid for ptx inst inside ptx_instruction
   unsigned long long g_ptx_cta_info_uid;
-  unsigned symbol_sm_next_uid; // uid for symbol
+  unsigned symbol_sm_next_uid;  // uid for symbol
   unsigned function_info_sm_next_uid;
   // a direct mapping from PC to instruction
   // std::vector<ptx_instruction *> s_g_pc_to_insn;

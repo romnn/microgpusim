@@ -35,7 +35,7 @@
 #include "config_utils.hpp"
 
 class IntersimConfig : public BookSimConfig {
-public:
+ public:
   IntersimConfig();
 };
 

@@ -19,15 +19,14 @@ static const char *core_model_str[] = {"none", "shared", "subcore"};
 enum dram_model { GDDR5 = 1, GDDR5X = 2, GDDR6 = 3, HBM = 4 };
 
 // GPU error check
-#define gpuErrchk(ans)                                                         \
+#define gpuErrchk(ans) \
   { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line,
                       bool abort = true) {
   if (code != cudaSuccess) {
     fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file,
             line);
-    if (abort)
-      exit(code);
+    if (abort) exit(code);
   }
 }
 
@@ -48,15 +47,14 @@ unsigned round_up_2n(unsigned v) {
 unsigned round_up_2n(float n) { return round_up_2n((unsigned)ceil(n)); }
 
 bool isPowerOfTwo(int n) {
-  if (n == 0)
-    return false;
+  if (n == 0) return false;
 
   return (ceil(log2(n)) == floor(log2(n)));
 }
 
 static const char *dram_model_str[] = {"none", "GDDR5", "GDDR5X", "GDDR6",
                                        "HBM"};
-static const unsigned dram_model_bus_width[] = {0, 32, 32, 16, 128}; // in bits
+static const unsigned dram_model_bus_width[] = {0, 32, 32, 16, 128};  // in bits
 static const unsigned dram_model_mem_per_ctrlr[] = {0, 1, 1, 1, 1};
 static const unsigned dram_model_burst_length[] = {0, 8, 8, 16, 2};
 static const unsigned dram_model_freq_ratio[] = {0, 4, 4, 4, 2};

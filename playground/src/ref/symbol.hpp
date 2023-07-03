@@ -10,7 +10,7 @@ class function_info;
 class gpgpu_context;
 
 class symbol {
-public:
+ public:
   symbol(const char *name, const type_info *type, const char *location,
          unsigned size, gpgpu_context *ctx) {
     gpgpu_ctx = ctx;
@@ -35,22 +35,14 @@ public:
     m_arch_reg_num = (unsigned)-1;
     m_address = (unsigned)-1;
     m_initializer.clear();
-    if (type)
-      m_is_shared = type->get_key().is_shared();
-    if (type)
-      m_is_const = type->get_key().is_const();
-    if (type)
-      m_is_global = type->get_key().is_global();
-    if (type)
-      m_is_local = type->get_key().is_local();
-    if (type)
-      m_is_param_local = type->get_key().is_param_local();
-    if (type)
-      m_is_param_kernel = type->get_key().is_param_kernel();
-    if (type)
-      m_is_tex = type->get_key().is_tex();
-    if (type)
-      m_is_func_addr = type->get_key().is_func_addr();
+    if (type) m_is_shared = type->get_key().is_shared();
+    if (type) m_is_const = type->get_key().is_const();
+    if (type) m_is_global = type->get_key().is_global();
+    if (type) m_is_local = type->get_key().is_local();
+    if (type) m_is_param_local = type->get_key().is_param_local();
+    if (type) m_is_param_kernel = type->get_key().is_param_kernel();
+    if (type) m_is_tex = type->get_key().is_tex();
+    if (type) m_is_func_addr = type->get_key().is_func_addr();
   }
   unsigned get_size_in_bytes() const { return m_size; }
   const std::string &name() const { return m_name; }
@@ -58,7 +50,7 @@ public:
   const type_info *type() const { return m_type; }
   addr_t get_address() const {
     assert(m_is_label ||
-           !m_type->get_key().is_reg()); // todo : other assertions
+           !m_type->get_key().is_reg());  // todo : other assertions
     assert(m_address_valid);
     return m_address;
   }
@@ -120,17 +112,17 @@ public:
   void print_info(FILE *fp) const;
   unsigned uid() const { return m_uid; }
 
-private:
+ private:
   gpgpu_context *gpgpu_ctx;
   unsigned get_uid();
   unsigned m_uid;
   const type_info *m_type;
-  unsigned m_size; // in bytes
+  unsigned m_size;  // in bytes
   std::string m_name;
   std::string m_decl_location;
 
   unsigned m_address;
-  function_info *m_function; // used for function symbols
+  function_info *m_function;  // used for function symbols
 
   bool m_address_valid;
   bool m_is_label;

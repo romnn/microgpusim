@@ -21,9 +21,9 @@
 using namespace nvcuda;
 
 template <class T, class R>
-__global__ void
-max_flops(uint64_t *startClk, uint64_t *stopClk, T *a, T *b, R *res,
-          uint32_t strid) { // strid set to 0 used to prevent optimization
+__global__ void max_flops(
+    uint64_t *startClk, uint64_t *stopClk, T *a, T *b, R *res,
+    uint32_t strid) {  // strid set to 0 used to prevent optimization
 
   // thread index
   uint32_t tid = threadIdx.x;
@@ -69,18 +69,19 @@ max_flops(uint64_t *startClk, uint64_t *stopClk, T *a, T *b, R *res,
   stopClk[gid] = stop;
 }
 
-template <class T, class R> float tensor_max_flops(bool report_fma_bw = false) {
+template <class T, class R>
+float tensor_max_flops(bool report_fma_bw = false) {
   intilizeDeviceProp(0);
 
   BLOCKS_NUM = 1;
   TOTAL_THREADS = THREADS_PER_BLOCK * BLOCKS_NUM;
 
   unsigned total_A_SIZE =
-      A_SIZE * (TOTAL_THREADS / WARP_SIZE); // asume one 16x16 matrix per warp
+      A_SIZE * (TOTAL_THREADS / WARP_SIZE);  // asume one 16x16 matrix per warp
   unsigned total_B_SIZE =
-      B_SIZE * (TOTAL_THREADS / WARP_SIZE); // asume one 16x16 matrix per warp
+      B_SIZE * (TOTAL_THREADS / WARP_SIZE);  // asume one 16x16 matrix per warp
   unsigned total_R_SIZE =
-      R_SIZE * (TOTAL_THREADS / WARP_SIZE); // asume one 16x16 matrix per warp
+      R_SIZE * (TOTAL_THREADS / WARP_SIZE);  // asume one 16x16 matrix per warp
 
   uint64_t *startClk = (uint64_t *)malloc(TOTAL_THREADS * sizeof(uint64_t));
   uint64_t *stopClk = (uint64_t *)malloc(TOTAL_THREADS * sizeof(uint64_t));

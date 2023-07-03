@@ -7,7 +7,7 @@
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
 
- Redistributions of source code must retain the above copyright notice, this 
+ Redistributions of source code must retain the above copyright notice, this
  list of conditions and the following disclaimer.
  Redistributions in binary form must reproduce the above copyright notice, this
  list of conditions and the following disclaimer in the documentation and/or
@@ -15,7 +15,7 @@
 
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
@@ -28,34 +28,32 @@
 #ifndef _TRAFFICMANAGER_HPP_
 #define _TRAFFICMANAGER_HPP_
 
+#include <cassert>
 #include <list>
 #include <map>
 #include <set>
-#include <cassert>
 
-#include "module.hpp"
-#include "config_utils.hpp"
-#include "network.hpp"
-#include "flit.hpp"
 #include "buffer_state.hpp"
+#include "config_utils.hpp"
+#include "flit.hpp"
+#include "injection.hpp"
+#include "module.hpp"
+#include "network.hpp"
+#include "outputset.hpp"
+#include "routefunc.hpp"
 #include "stats.hpp"
 #include "traffic.hpp"
-#include "routefunc.hpp"
-#include "outputset.hpp"
-#include "injection.hpp"
 
-//register the requests to a node
+// register the requests to a node
 class PacketReplyInfo;
 
 class TrafficManager : public Module {
-
-private:
-
+ private:
   vector<vector<int> > _packet_size;
   vector<vector<int> > _packet_size_rate;
   vector<int> _packet_size_max_val;
 
-protected:
+ protected:
   int _nodes;
   int _routers;
   int _vcs;
@@ -63,9 +61,9 @@ protected:
   vector<Network *> _net;
   vector<vector<Router *> > _router;
 
-  // ============ Traffic ============ 
+  // ============ Traffic ============
 
-  int    _classes;
+  int _classes;
 
   vector<double> _load;
 
@@ -86,13 +84,22 @@ protected:
   vector<TrafficPattern *> _traffic_pattern;
   vector<InjectionProcess *> _injection_process;
 
-  // ============ Message priorities ============ 
+  // ============ Message priorities ============
 
-  enum ePriority { class_based, age_based, network_age_based, local_age_based, queue_length_based, hop_count_based, sequence_based, none };
+  enum ePriority {
+    class_based,
+    age_based,
+    network_age_based,
+    local_age_based,
+    queue_length_based,
+    hop_count_based,
+    sequence_based,
+    none
+  };
 
   ePriority _pri_type;
 
-  // ============ Injection VC states  ============ 
+  // ============ Injection VC states  ============
 
   vector<vector<BufferState *> > _buf_states;
 #ifdef TRACK_FLOWS
@@ -101,13 +108,13 @@ protected:
 #endif
   vector<vector<vector<int> > > _last_vc;
 
-  // ============ Routing ============ 
+  // ============ Routing ============
 
   tRoutingFunction _rf;
   bool _lookahead_routing;
   bool _noq;
 
-  // ============ Injection queues ============ 
+  // ============ Injection queues ============
 
   vector<vector<int> > _qtime;
   vector<vector<bool> > _qdrained;
@@ -134,25 +141,25 @@ protected:
   // ============ request & replies ==========================
 
   vector<int> _packet_seq_no;
-  vector<list<PacketReplyInfo*> > _repliesPending;
+  vector<list<PacketReplyInfo *> > _repliesPending;
   vector<int> _requestsOutstanding;
 
   // ============ Statistics ============
 
-  vector<Stats *> _plat_stats;     
-  vector<double> _overall_min_plat;  
-  vector<double> _overall_avg_plat;  
-  vector<double> _overall_max_plat;  
+  vector<Stats *> _plat_stats;
+  vector<double> _overall_min_plat;
+  vector<double> _overall_avg_plat;
+  vector<double> _overall_max_plat;
 
-  vector<Stats *> _nlat_stats;     
-  vector<double> _overall_min_nlat;  
-  vector<double> _overall_avg_nlat;  
-  vector<double> _overall_max_nlat;  
+  vector<Stats *> _nlat_stats;
+  vector<double> _overall_min_nlat;
+  vector<double> _overall_avg_nlat;
+  vector<double> _overall_max_nlat;
 
-  vector<Stats *> _flat_stats;     
-  vector<double> _overall_min_flat;  
-  vector<double> _overall_avg_flat;  
-  vector<double> _overall_max_flat;  
+  vector<Stats *> _flat_stats;
+  vector<double> _overall_min_flat;
+  vector<double> _overall_avg_flat;
+  vector<double> _overall_max_flat;
 
   vector<Stats *> _frag_stats;
   vector<double> _overall_min_frag;
@@ -201,22 +208,22 @@ protected:
 
   map<string, Stats *> _stats;
 
-  // ============ Simulation parameters ============ 
+  // ============ Simulation parameters ============
 
   enum eSimState { warming_up, running, draining, done };
   eSimState _sim_state;
 
   bool _measure_latency;
 
-  int   _reset_time;
-  int   _drain_time;
+  int _reset_time;
+  int _drain_time;
 
-  int   _total_sims;
-  int   _sample_period;
-  int   _max_samples;
-  int   _warmup_periods;
+  int _total_sims;
+  int _sample_period;
+  int _max_samples;
+  int _warmup_periods;
 
-  int   _include_queuing;
+  int _include_queuing;
 
   vector<int> _measure_stats;
   bool _pair_stats;
@@ -238,49 +245,50 @@ protected:
 
   bool _print_csv_results;
 
-  //flits to watch
-  ostream * _stats_out;
+  // flits to watch
+  ostream *_stats_out;
 
 #ifdef TRACK_FLOWS
   vector<vector<int> > _injected_flits;
   vector<vector<int> > _ejected_flits;
-  ostream * _injected_flits_out;
-  ostream * _received_flits_out;
-  ostream * _stored_flits_out;
-  ostream * _sent_flits_out;
-  ostream * _outstanding_credits_out;
-  ostream * _ejected_flits_out;
-  ostream * _active_packets_out;
+  ostream *_injected_flits_out;
+  ostream *_received_flits_out;
+  ostream *_stored_flits_out;
+  ostream *_sent_flits_out;
+  ostream *_outstanding_credits_out;
+  ostream *_ejected_flits_out;
+  ostream *_active_packets_out;
 #endif
 
 #ifdef TRACK_CREDITS
-  ostream * _used_credits_out;
-  ostream * _free_credits_out;
-  ostream * _max_credits_out;
+  ostream *_used_credits_out;
+  ostream *_free_credits_out;
+  ostream *_max_credits_out;
 #endif
 
-  // ============ Internal methods ============ 
-protected:
-
-  virtual void _RetireFlit( Flit *f, int dest );
+  // ============ Internal methods ============
+ protected:
+  virtual void _RetireFlit(Flit *f, int dest);
 
   void _Inject();
-  virtual void _Step( );
+  virtual void _Step();
 
-  bool _PacketsOutstanding( ) const;
-  
-  virtual int  _IssuePacket( int source, int cl );
-  virtual void _GeneratePacket( int source, int size, int cl, int time );
+  bool _PacketsOutstanding() const;
 
-  virtual void _ClearStats( );
+  virtual int _IssuePacket(int source, int cl);
+  virtual void _GeneratePacket(int source, int size, int cl, int time);
 
-  void _ComputeStats( const vector<int> & stats, int *sum, int *min = NULL, int *max = NULL, int *min_pos = NULL, int *max_pos = NULL ) const;
+  virtual void _ClearStats();
 
-  virtual bool _SingleSim( );
+  void _ComputeStats(const vector<int> &stats, int *sum, int *min = NULL,
+                     int *max = NULL, int *min_pos = NULL,
+                     int *max_pos = NULL) const;
 
-  void _DisplayRemaining( ostream & os = cout ) const;
-  
-  void _LoadWatchList(const string & filename);
+  virtual bool _SingleSim();
+
+  void _DisplayRemaining(ostream &os = cout) const;
+
+  void _LoadWatchList(const string &filename);
 
   virtual void _UpdateOverallStats();
 
@@ -289,33 +297,31 @@ protected:
   int _GetNextPacketSize(int cl) const;
   double _GetAveragePacketSize(int cl) const;
 
-public:
+ public:
+  static TrafficManager *New(Configuration const &config,
+                             vector<Network *> const &net);
 
-  static TrafficManager * New(Configuration const & config, 
-			      vector<Network *> const & net);
+  TrafficManager(const Configuration &config, const vector<Network *> &net);
+  virtual ~TrafficManager();
 
-  TrafficManager( const Configuration &config, const vector<Network *> & net );
-  virtual ~TrafficManager( );
+  bool Run();
 
-  bool Run( );
+  virtual void WriteStats(ostream &os = cout) const;
+  virtual void UpdateStats();
+  virtual void DisplayStats(ostream &os = cout) const;
+  virtual void DisplayOverallStats(ostream &os = cout) const;
+  virtual void DisplayOverallStatsCSV(ostream &os = cout) const;
 
-  virtual void WriteStats( ostream & os = cout ) const ;
-  virtual void UpdateStats( ) ;
-  virtual void DisplayStats( ostream & os = cout ) const ;
-  virtual void DisplayOverallStats( ostream & os = cout ) const ;
-  virtual void DisplayOverallStatsCSV( ostream & os = cout ) const ;
-
-  inline int getTime() { return _time;}
-  Stats * getStats(const string & name) { return _stats[name]; }
-
+  inline int getTime() { return _time; }
+  Stats *getStats(const string &name) { return _stats[name]; }
 };
 
-template<class T>
-ostream & operator<<(ostream & os, const vector<T> & v) {
-  for(size_t i = 0; i < v.size() - 1; ++i) {
+template <class T>
+ostream &operator<<(ostream &os, const vector<T> &v) {
+  for (size_t i = 0; i < v.size() - 1; ++i) {
     os << v[i] << ",";
   }
-  os << v[v.size()-1];
+  os << v[v.size() - 1];
   return os;
 }
 

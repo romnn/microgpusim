@@ -7,7 +7,7 @@
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
 
- Redistributions of source code must retain the above copyright notice, this 
+ Redistributions of source code must retain the above copyright notice, this
  list of conditions and the following disclaimer.
  Redistributions in binary form must reproduce the above copyright notice, this
  list of conditions and the following disclaimer in the documentation and/or
@@ -15,7 +15,7 @@
 
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
@@ -33,25 +33,24 @@
 #include "allocator.hpp"
 
 class Wavefront : public DenseAllocator {
-
-private:
+ private:
   int _last_in;
   int _last_out;
   set<pair<int, int> > _priorities;
   bool _skip_diags;
 
-protected:
+ protected:
   int _square;
   int _pri;
   int _num_requests;
 
-public:
-  Wavefront( Module *parent, const string& name,
-	     int inputs, int outputs, bool skip_diags = false );
-  
-  virtual void AddRequest( int in, int out, int label = 1, 
-			   int in_pri = 0, int out_pri = 0 );
-  virtual void Allocate( );
+ public:
+  Wavefront(Module* parent, const string& name, int inputs, int outputs,
+            bool skip_diags = false);
+
+  virtual void AddRequest(int in, int out, int label = 1, int in_pri = 0,
+                          int out_pri = 0);
+  virtual void Allocate();
 };
 
 #endif

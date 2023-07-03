@@ -23,4 +23,4 @@ void init() {
     }
   }
 }
-} // namespace Trace
+}  // namespace Trace

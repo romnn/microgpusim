@@ -22,8 +22,8 @@ struct cache_block_t {
   virtual bool is_reserved_line() = 0;
   virtual bool is_modified_line() = 0;
 
-  virtual enum cache_block_state
-  get_status(mem_access_sector_mask_t sector_mask) = 0;
+  virtual enum cache_block_state get_status(
+      mem_access_sector_mask_t sector_mask) = 0;
   virtual void set_status(enum cache_block_state m_status,
                           mem_access_sector_mask_t sector_mask) = 0;
   virtual void set_byte_mask(mem_fetch *mf) = 0;

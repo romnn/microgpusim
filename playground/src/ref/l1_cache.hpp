@@ -10,7 +10,7 @@
 /// the granularity of individual blocks
 /// (the policy used in fermi according to the CUDA manual)
 class l1_cache : public data_cache {
-public:
+ public:
   l1_cache(const char *name, cache_config &config, int core_id, int type_id,
            mem_fetch_interface *memport, mem_fetch_allocator *mfcreator,
            enum mem_fetch_status status, class trace_gpgpu_sim *gpu)
@@ -25,7 +25,7 @@ public:
                                            unsigned time,
                                            std::list<cache_event> &events);
 
-protected:
+ protected:
   l1_cache(const char *name, cache_config &config, int core_id, int type_id,
            mem_fetch_interface *memport, mem_fetch_allocator *mfcreator,
            enum mem_fetch_status status, tag_array *new_tag_array,

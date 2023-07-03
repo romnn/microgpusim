@@ -10,14 +10,14 @@
 #include "./common/common.h"
 #include "./common/deviceQuery.h"
 
-#define L1_SIZE (128 * 1024) // Max L1 size in bytes
+#define L1_SIZE (128 * 1024)  // Max L1 size in bytes
 
-#define CLK_FREQUENCY 1132 // frequency in MHz
+#define CLK_FREQUENCY 1132  // frequency in MHz
 
-#define ISSUE_MODEL issue_model::single // single issue core or dual issue
-#define CORE_MODEL core_model::subcore  // subcore model or shared model
-#define DRAM_MODEL dram_model::GDDR6    // memory type
-#define WARP_SCHEDS_PER_SM 4            // number of warp schedulers per SM
+#define ISSUE_MODEL issue_model::single  // single issue core or dual issue
+#define CORE_MODEL core_model::subcore   // subcore model or shared model
+#define DRAM_MODEL dram_model::GDDR6     // memory type
+#define WARP_SCHEDS_PER_SM 4             // number of warp schedulers per SM
 
 // number of SASS HMMA per 16x16 PTX WMMA for FP16 - FP32 accumlate operation
 // see slide 22 at

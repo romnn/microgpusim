@@ -44,8 +44,15 @@ const char *const VC::VCSTATE[] = {"idle", "routing", "vc_alloc", "active"};
 
 VC::VC(const Configuration &config, int outputs, Module *parent,
        const std::string &name)
-    : Module(parent, name), _state(idle), _out_port(-1), _out_vc(-1), _pri(0),
-      _watched(false), _expected_pid(-1), _last_id(-1), _last_pid(-1) {
+    : Module(parent, name),
+      _state(idle),
+      _out_port(-1),
+      _out_vc(-1),
+      _pri(0),
+      _watched(false),
+      _expected_pid(-1),
+      _last_id(-1),
+      _last_pid(-1) {
   _lookahead_routing = !config.GetInt("routing_delay");
   _route_set = _lookahead_routing ? NULL : new OutputSet();
 
@@ -140,8 +147,7 @@ void VC::SetOutput(int port, int vc) {
 }
 
 void VC::UpdatePriority() {
-  if (_buffer.empty())
-    return;
+  if (_buffer.empty()) return;
   if (_pri_type == queue_length_based) {
     _pri = _buffer.size();
   } else if (_pri_type != none) {
@@ -150,8 +156,7 @@ void VC::UpdatePriority() {
       Flit *df = f;
       for (size_t i = 1; i < _buffer.size(); ++i) {
         Flit *bf = _buffer[i];
-        if (bf->pri > df->pri)
-          df = bf;
+        if (bf->pri > df->pri) df = bf;
       }
       if ((df != f) && (df->watch || f->watch)) {
         *m_icnt->watch_out << GetSimTime() << " | " << FullName() << " | "

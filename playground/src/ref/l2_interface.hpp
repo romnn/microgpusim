@@ -4,7 +4,7 @@
 #include "memory_sub_partition.hpp"
 
 class L2interface : public mem_fetch_interface {
-public:
+ public:
   L2interface(memory_sub_partition *unit) { m_unit = unit; }
   virtual ~L2interface() {}
   virtual bool full(unsigned size, bool write) const {
@@ -17,6 +17,6 @@ public:
     m_unit->m_L2_dram_queue->push(mf);
   }
 
-private:
+ private:
   memory_sub_partition *m_unit;
 };

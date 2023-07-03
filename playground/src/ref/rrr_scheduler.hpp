@@ -3,7 +3,7 @@
 #include "scheduler_unit.hpp"
 
 class rrr_scheduler : public scheduler_unit {
-public:
+ public:
   rrr_scheduler(shader_core_stats *stats, trace_shader_core_ctx *shader,
                 Scoreboard *scoreboard, simt_stack **simt,
                 std::vector<trace_shd_warp_t *> *warp, register_set *sp_out,

@@ -4,18 +4,18 @@
 #include "mem_stage_stall_type.hpp"
 
 struct shader_core_stats_pod {
-  void
-      *shader_core_stats_pod_start[0]; // DO NOT MOVE FROM THE TOP - spaceless
+  void *
+      shader_core_stats_pod_start[0];  // DO NOT MOVE FROM THE TOP - spaceless
                                        // pointer to the start of this structure
   unsigned long long *shader_cycles;
-  unsigned *m_num_sim_insn;  // number of scalar thread instructions committed
-                             // by this shader core
-  unsigned *m_num_sim_winsn; // number of warp instructions committed by this
-                             // shader core
+  unsigned *m_num_sim_insn;   // number of scalar thread instructions committed
+                              // by this shader core
+  unsigned *m_num_sim_winsn;  // number of warp instructions committed by this
+                              // shader core
   unsigned *m_last_num_sim_insn;
   unsigned *m_last_num_sim_winsn;
-  unsigned
-      *m_num_decoded_insn; // number of instructions decoded by this shader core
+  unsigned *
+      m_num_decoded_insn;  // number of instructions decoded by this shader core
   float *m_pipeline_duty_cycle;
   unsigned *m_num_FPdecoded_insn;
   unsigned *m_num_INTdecoded_insn;
@@ -57,9 +57,9 @@ struct shader_core_stats_pod {
   unsigned *m_active_tensor_core_lanes;
   unsigned *m_active_fu_lanes;
   unsigned *m_active_fu_mem_lanes;
-  double *m_active_exu_threads; // For power model
-  double *m_active_exu_warps;   // For power model
-  unsigned *m_n_diverge;        // number of divergence occurring in this shader
+  double *m_active_exu_threads;  // For power model
+  double *m_active_exu_warps;    // For power model
+  unsigned *m_n_diverge;  // number of divergence occurring in this shader
   unsigned gpgpu_n_load_insn;
   unsigned gpgpu_n_store_insn;
   unsigned gpgpu_n_shmem_insn;
@@ -99,6 +99,6 @@ struct shader_core_stats_pod {
   unsigned made_read_mfs;
 
   unsigned *gpgpu_n_shmem_bank_access;
-  long *n_simt_to_mem; // Interconnect power stats
+  long *n_simt_to_mem;  // Interconnect power stats
   long *n_mem_to_simt;
 };

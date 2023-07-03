@@ -7,7 +7,7 @@
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
 
- Redistributions of source code must retain the above copyright notice, this 
+ Redistributions of source code must retain the above copyright notice, this
  list of conditions and the following disclaimer.
  Redistributions in binary form must reproduce the above copyright notice, this
  list of conditions and the following disclaimer in the documentation and/or
@@ -15,7 +15,7 @@
 
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
@@ -35,41 +35,38 @@
 #include "trafficmanager.hpp"
 
 class BatchTrafficManager : public TrafficManager {
-
-protected:
-
+ protected:
   int _max_outstanding;
   int _batch_size;
   int _batch_count;
   int _last_id;
   int _last_pid;
 
-  Stats * _batch_time;
+  Stats *_batch_time;
   double _overall_min_batch_time;
   double _overall_avg_batch_time;
   double _overall_max_batch_time;
 
-  ostream * _sent_packets_out;
+  ostream *_sent_packets_out;
 
-  virtual void _RetireFlit( Flit *f, int dest );
+  virtual void _RetireFlit(Flit *f, int dest);
 
-  virtual int _IssuePacket( int source, int cl );
-  virtual void _ClearStats( );
-  virtual bool _SingleSim( );
+  virtual int _IssuePacket(int source, int cl);
+  virtual void _ClearStats();
+  virtual bool _SingleSim();
 
-  virtual void _UpdateOverallStats( );
+  virtual void _UpdateOverallStats();
 
   virtual string _OverallStatsCSV(int c = 0) const;
 
-public:
+ public:
+  BatchTrafficManager(const Configuration &config,
+                      const vector<Network *> &net);
+  virtual ~BatchTrafficManager();
 
-  BatchTrafficManager( const Configuration &config, const vector<Network *> & net );
-  virtual ~BatchTrafficManager( );
-
-  virtual void WriteStats( ostream & os = cout ) const;
-  virtual void DisplayStats( ostream & os = cout ) const;
-  virtual void DisplayOverallStats( ostream & os = cout ) const;
-
+  virtual void WriteStats(ostream &os = cout) const;
+  virtual void DisplayStats(ostream &os = cout) const;
+  virtual void DisplayOverallStats(ostream &os = cout) const;
 };
 
 #endif

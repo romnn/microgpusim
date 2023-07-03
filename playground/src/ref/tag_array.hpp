@@ -10,7 +10,7 @@
 #include "mem_fetch.hpp"
 
 class tag_array {
-public:
+ public:
   // Use this constructor
   tag_array(cache_config &config, int core_id, int type_id);
   ~tag_array();
@@ -36,8 +36,8 @@ public:
   unsigned size() const { return m_config.get_num_lines(); }
   cache_block_t *get_block(unsigned idx) { return m_lines[idx]; }
 
-  void flush();      // flush all written entries
-  void invalidate(); // invalidate all entries
+  void flush();       // flush all written entries
+  void invalidate();  // invalidate all entries
   void new_window();
 
   void print(FILE *stream, unsigned &total_access,
@@ -51,7 +51,7 @@ public:
   void remove_pending_line(mem_fetch *mf);
   void inc_dirty() { m_dirty++; }
 
-protected:
+ protected:
   // This constructor is intended for use only from derived classes that wish to
   // avoid unnecessary memory allocation that takes place in the
   // other tag_array constructor
@@ -59,23 +59,23 @@ protected:
             cache_block_t **new_lines);
   void init(int core_id, int type_id);
 
-protected:
+ protected:
   cache_config &m_config;
 
-  cache_block_t **m_lines; // nbanks x nset x assoc lines in total
+  cache_block_t **m_lines;  // nbanks x nset x assoc lines in total
 
   unsigned m_access;
   unsigned m_miss;
-  unsigned m_pending_hit; // number of cache miss that hit a line that is
-                          // allocated but not filled
+  unsigned m_pending_hit;  // number of cache miss that hit a line that is
+                           // allocated but not filled
   unsigned m_res_fail;
   unsigned m_sector_miss;
   unsigned m_dirty;
 
-  int m_core_id; // which shader core is using this
-  int m_type_id; // what kind of cache is this (normal, texture, constant)
+  int m_core_id;  // which shader core is using this
+  int m_type_id;  // what kind of cache is this (normal, texture, constant)
 
-  bool m_is_used; // a flag if the whole cache has ever been accessed before
+  bool m_is_used;  // a flag if the whole cache has ever been accessed before
 
   typedef std::map<new_addr_type, unsigned> line_table;
   line_table pending_lines;

@@ -12,7 +12,7 @@ void ptx_thread_info::ptx_exec_inst(warp_inst_t &inst, unsigned lane_id) {
   int op_classification = 0;
   addr_t pc = next_instr();
   assert(pc ==
-         inst.pc); // make sure timing model and functional model are in sync
+         inst.pc);  // make sure timing model and functional model are in sync
   const ptx_instruction *pI = m_func_info->get_instruction(pc);
 
   set_npc(pc + pI->inst_size());
@@ -22,8 +22,9 @@ void ptx_thread_info::ptx_exec_inst(warp_inst_t &inst, unsigned lane_id) {
     m_last_set_operand_value.u64 = 0;
 
     if (is_done()) {
-      printf("attempted to execute instruction on a thread that is already "
-             "done.\n");
+      printf(
+          "attempted to execute instruction on a thread that is already "
+          "done.\n");
       assert(0);
     }
 
@@ -42,7 +43,7 @@ void ptx_thread_info::ptx_exec_inst(warp_inst_t &inst, unsigned lane_id) {
       ptx_reg_t pred_value = get_operand_value(pred, pred, PRED_TYPE, this, 0);
       if (pI->get_pred_mod() == -1) {
         skip = (pred_value.pred & 0x0001) ^
-               pI->get_pred_neg(); // ptxplus inverts the zero flag
+               pI->get_pred_neg();  // ptxplus inverts the zero flag
       } else {
         skip = !pred_lookup(pI->get_pred_mod(), pred_value.pred & 0x000F);
       }
@@ -56,7 +57,7 @@ void ptx_thread_info::ptx_exec_inst(warp_inst_t &inst, unsigned lane_id) {
       ptx_instruction *pJ = NULL;
       if (pI->get_opcode() == VOTE_OP || pI->get_opcode() == ACTIVEMASK_OP) {
         pJ = new ptx_instruction(*pI);
-        *((warp_inst_t *)pJ) = inst; // copy active mask information
+        *((warp_inst_t *)pJ) = inst;  // copy active mask information
         pI = pJ;
       }
 
@@ -76,30 +77,30 @@ void ptx_thread_info::ptx_exec_inst(warp_inst_t &inst, unsigned lane_id) {
       if (!tensorcore_op(inst_opcode) ||
           ((tensorcore_op(inst_opcode)) && (lane_id == 0))) {
         switch (inst_opcode) {
-#define OP_DEF(OP, FUNC, STR, DST, CLASSIFICATION)                             \
-  case OP:                                                                     \
-    FUNC(pI, this);                                                            \
-    op_classification = CLASSIFICATION;                                        \
+#define OP_DEF(OP, FUNC, STR, DST, CLASSIFICATION) \
+  case OP:                                         \
+    FUNC(pI, this);                                \
+    op_classification = CLASSIFICATION;            \
     break;
-#define OP_W_DEF(OP, FUNC, STR, DST, CLASSIFICATION)                           \
-  case OP:                                                                     \
-    FUNC(pI, get_core(), inst);                                                \
-    op_classification = CLASSIFICATION;                                        \
+#define OP_W_DEF(OP, FUNC, STR, DST, CLASSIFICATION) \
+  case OP:                                           \
+    FUNC(pI, get_core(), inst);                      \
+    op_classification = CLASSIFICATION;              \
     break;
 #include "opcodes.def"
 #undef OP_DEF
 #undef OP_W_DEF
-        default:
-          printf("Execution error: Invalid opcode (0x%x)\n", pI->get_opcode());
-          break;
+          default:
+            printf("Execution error: Invalid opcode (0x%x)\n",
+                   pI->get_opcode());
+            break;
         }
       }
       delete pJ;
       pI = pI_saved;
 
       // Run exit instruction if exit option included
-      if (pI->is_exit())
-        exit_impl(pI, this);
+      if (pI->is_exit()) exit_impl(pI, this);
     }
 
     const gpgpu_functional_sim_config &config = m_gpu->get_config();
@@ -120,12 +121,13 @@ void ptx_thread_info::ptx_exec_inst(warp_inst_t &inst, unsigned lane_id) {
                                                                 pc)) {
       dim3 ctaid = get_ctaid();
       dim3 tid = get_tid();
-      printf("%u [thd=%u][i=%u] : ctaid=(%u,%u,%u) tid=(%u,%u,%u) icount=%u "
-             "[pc=%u] (%s:%u - %s)  [0x%llx]\n",
-             m_gpu->gpgpu_ctx->func_sim->g_ptx_sim_num_insn, get_uid(),
-             pI->uid(), ctaid.x, ctaid.y, ctaid.z, tid.x, tid.y, tid.z,
-             get_icount(), pc, pI->source_file(), pI->source_line(),
-             pI->get_source(), m_last_set_operand_value.u64);
+      printf(
+          "%u [thd=%u][i=%u] : ctaid=(%u,%u,%u) tid=(%u,%u,%u) icount=%u "
+          "[pc=%u] (%s:%u - %s)  [0x%llx]\n",
+          m_gpu->gpgpu_ctx->func_sim->g_ptx_sim_num_insn, get_uid(), pI->uid(),
+          ctaid.x, ctaid.y, ctaid.z, tid.x, tid.y, tid.z, get_icount(), pc,
+          pI->source_file(), pI->source_line(), pI->get_source(),
+          m_last_set_operand_value.u64);
       fflush(stdout);
     }
 
@@ -163,7 +165,7 @@ void ptx_thread_info::ptx_exec_inst(warp_inst_t &inst, unsigned lane_id) {
       assert(inst.space == last_space());
       insn_data_size = get_tex_datasize(
           pI,
-          this); // texture obtain its data granularity from the texture info
+          this);  // texture obtain its data granularity from the texture info
     }
 
     // Output register information to file and stdout
@@ -195,31 +197,31 @@ void ptx_thread_info::ptx_exec_inst(warp_inst_t &inst, unsigned lane_id) {
       m_gpu->gpgpu_ctx->func_sim->init_inst_classification_stat();
       unsigned space_type = 0;
       switch (pI->get_space().get_type()) {
-      case global_space:
-        space_type = 10;
-        break;
-      case local_space:
-        space_type = 11;
-        break;
-      case tex_space:
-        space_type = 12;
-        break;
-      case surf_space:
-        space_type = 13;
-        break;
-      case param_space_kernel:
-      case param_space_local:
-        space_type = 14;
-        break;
-      case shared_space:
-        space_type = 15;
-        break;
-      case const_space:
-        space_type = 16;
-        break;
-      default:
-        space_type = 0;
-        break;
+        case global_space:
+          space_type = 10;
+          break;
+        case local_space:
+          space_type = 11;
+          break;
+        case tex_space:
+          space_type = 12;
+          break;
+        case surf_space:
+          space_type = 13;
+          break;
+        case param_space_kernel:
+        case param_space_local:
+          space_type = 14;
+          break;
+        case shared_space:
+          space_type = 15;
+          break;
+        case const_space:
+          space_type = 16;
+          break;
+        default:
+          space_type = 0;
+          break;
       }
       StatAddSample(m_gpu->gpgpu_ctx->func_sim->g_inst_classification_stat
                         [m_gpu->gpgpu_ctx->func_sim->g_ptx_kernel_count],
@@ -248,7 +250,7 @@ void ptx_thread_info::ptx_exec_inst(warp_inst_t &inst, unsigned lane_id) {
       if (!((inst_opcode == MMA_LD_OP || inst_opcode == MMA_ST_OP))) {
         inst.space = insn_space;
         inst.set_addr(lane_id, insn_memaddr);
-        inst.data_size = insn_data_size; // simpleAtomicIntrinsics
+        inst.data_size = insn_data_size;  // simpleAtomicIntrinsics
         assert(inst.memory_op == insn_memory_op);
       }
     }
@@ -263,13 +265,11 @@ void ptx_thread_info::ptx_exec_inst(warp_inst_t &inst, unsigned lane_id) {
 
 void ptx_thread_info::set_reg(const symbol *reg, const ptx_reg_t &value) {
   assert(reg != NULL);
-  if (reg->name() == "_")
-    return;
+  if (reg->name() == "_") return;
   assert(!m_regs.empty());
   assert(reg->uid() > 0);
   m_regs.back()[reg] = value;
-  if (m_enable_debug_trace)
-    m_debug_trace_regs_modified.back()[reg] = value;
+  if (m_enable_debug_trace) m_debug_trace_regs_modified.back()[reg] = value;
   m_last_set_operand_value = value;
 }
 
@@ -327,15 +327,16 @@ ptx_reg_t ptx_thread_info::get_reg(const symbol *reg) {
     unsigned call_uid = m_callstack.back().m_call_uid;
     ptx_reg_t uninit_reg;
     uninit_reg.u32 = 0x0;
-    set_reg(reg, uninit_reg); // give it a value since we are going to warn the
-                              // user anyway
+    set_reg(reg, uninit_reg);  // give it a value since we are going to warn the
+                               // user anyway
     std::string file_loc = get_location();
     if (!unfound_register_warned) {
-      printf("GPGPU-Sim PTX: WARNING (%s) ** reading undefined register \'%s\' "
-             "(cuid:%u). Setting to 0X00000000. This is okay if you are "
-             "simulating the native ISA"
-             "\n",
-             file_loc.c_str(), name.c_str(), call_uid);
+      printf(
+          "GPGPU-Sim PTX: WARNING (%s) ** reading undefined register \'%s\' "
+          "(cuid:%u). Setting to 0X00000000. This is okay if you are "
+          "simulating the native ISA"
+          "\n",
+          file_loc.c_str(), name.c_str(), call_uid);
       unfound_register_warned = true;
     }
     regs_iter = m_regs.back().find(reg);
@@ -388,9 +389,10 @@ ptx_reg_t ptx_thread_info::get_operand_value(const operand_info &op,
           result.u64 = op.get_symbol()->get_address() + op.get_addr_offset();
         } else {
           const char *name = op.name().c_str();
-          printf("GPGPU-Sim PTX: ERROR ** get_operand_value : unknown memory "
-                 "operand type for %s\n",
-                 name);
+          printf(
+              "GPGPU-Sim PTX: ERROR ** get_operand_value : unknown memory "
+              "operand type for %s\n",
+              name);
           abort();
         }
 
@@ -420,9 +422,10 @@ ptx_reg_t ptx_thread_info::get_operand_value(const operand_info &op,
         if (info2.is_param_kernel()) {
           result.u64 = sym2->get_address() + op.get_addr_offset();
         } else {
-          printf("GPGPU-Sim PTX: ERROR ** get_operand_value : unknown operand "
-                 "type for %s\n",
-                 name);
+          printf(
+              "GPGPU-Sim PTX: ERROR ** get_operand_value : unknown operand "
+              "type for %s\n",
+              name);
           assert(0);
         }
       }
@@ -528,39 +531,39 @@ ptx_reg_t ptx_thread_info::get_operand_value(const operand_info &op,
 
   if ((op.get_operand_neg() == true) && (derefFlag)) {
     switch (opType) {
-    // Default to f32 for now, need to add support for others
-    case S8_TYPE:
-    case U8_TYPE:
-    case B8_TYPE:
-      finalResult.s8 = -finalResult.s8;
-      break;
-    case S16_TYPE:
-    case U16_TYPE:
-    case B16_TYPE:
-      finalResult.s16 = -finalResult.s16;
-      break;
-    case S32_TYPE:
-    case U32_TYPE:
-    case B32_TYPE:
-      finalResult.s32 = -finalResult.s32;
-      break;
-    case S64_TYPE:
-    case U64_TYPE:
-    case B64_TYPE:
-      finalResult.s64 = -finalResult.s64;
-      break;
-    case F16_TYPE:
-      finalResult.f16 = -finalResult.f16;
-      break;
-    case F32_TYPE:
-      finalResult.f32 = -finalResult.f32;
-      break;
-    case F64_TYPE:
-    case FF64_TYPE:
-      finalResult.f64 = -finalResult.f64;
-      break;
-    default:
-      assert(0);
+      // Default to f32 for now, need to add support for others
+      case S8_TYPE:
+      case U8_TYPE:
+      case B8_TYPE:
+        finalResult.s8 = -finalResult.s8;
+        break;
+      case S16_TYPE:
+      case U16_TYPE:
+      case B16_TYPE:
+        finalResult.s16 = -finalResult.s16;
+        break;
+      case S32_TYPE:
+      case U32_TYPE:
+      case B32_TYPE:
+        finalResult.s32 = -finalResult.s32;
+        break;
+      case S64_TYPE:
+      case U64_TYPE:
+      case B64_TYPE:
+        finalResult.s64 = -finalResult.s64;
+        break;
+      case F16_TYPE:
+        finalResult.f16 = -finalResult.f16;
+        break;
+      case F32_TYPE:
+        finalResult.f32 = -finalResult.f32;
+        break;
+      case F64_TYPE:
+      case FF64_TYPE:
+        finalResult.f64 = -finalResult.f64;
+        break;
+      default:
+        assert(0);
     }
   }
 
@@ -653,70 +656,57 @@ void ptx_thread_info::set_operand_value(const operand_info &dst,
       predValue.u64 = 0;
 
       switch (type) {
-      case S8_TYPE:
-        if ((setValue.s8 & 0x7F) == 0)
-          predValue.u64 |= 1;
-        break;
-      case S16_TYPE:
-        if ((setValue.s16 & 0x7FFF) == 0)
-          predValue.u64 |= 1;
-        break;
-      case S32_TYPE:
-        if ((setValue.s32 & 0x7FFFFFFF) == 0)
-          predValue.u64 |= 1;
-        break;
-      case S64_TYPE:
-        if ((setValue.s64 & 0x7FFFFFFFFFFFFFFF) == 0)
-          predValue.u64 |= 1;
-        break;
-      case U8_TYPE:
-      case B8_TYPE:
-        if (setValue.u8 == 0)
-          predValue.u64 |= 1;
-        break;
-      case U16_TYPE:
-      case B16_TYPE:
-        if (setValue.u16 == 0)
-          predValue.u64 |= 1;
-        break;
-      case U32_TYPE:
-      case B32_TYPE:
-        if (setValue.u32 == 0)
-          predValue.u64 |= 1;
-        break;
-      case U64_TYPE:
-      case B64_TYPE:
-        if (setValue.u64 == 0)
-          predValue.u64 |= 1;
-        break;
-      case F16_TYPE:
-        if (setValue.f16 == 0)
-          predValue.u64 |= 1;
-        break;
-      case F32_TYPE:
-        if (setValue.f32 == 0)
-          predValue.u64 |= 1;
-        break;
-      case F64_TYPE:
-      case FF64_TYPE:
-        if (setValue.f64 == 0)
-          predValue.u64 |= 1;
-        break;
-      default:
-        assert(0);
-        break;
+        case S8_TYPE:
+          if ((setValue.s8 & 0x7F) == 0) predValue.u64 |= 1;
+          break;
+        case S16_TYPE:
+          if ((setValue.s16 & 0x7FFF) == 0) predValue.u64 |= 1;
+          break;
+        case S32_TYPE:
+          if ((setValue.s32 & 0x7FFFFFFF) == 0) predValue.u64 |= 1;
+          break;
+        case S64_TYPE:
+          if ((setValue.s64 & 0x7FFFFFFFFFFFFFFF) == 0) predValue.u64 |= 1;
+          break;
+        case U8_TYPE:
+        case B8_TYPE:
+          if (setValue.u8 == 0) predValue.u64 |= 1;
+          break;
+        case U16_TYPE:
+        case B16_TYPE:
+          if (setValue.u16 == 0) predValue.u64 |= 1;
+          break;
+        case U32_TYPE:
+        case B32_TYPE:
+          if (setValue.u32 == 0) predValue.u64 |= 1;
+          break;
+        case U64_TYPE:
+        case B64_TYPE:
+          if (setValue.u64 == 0) predValue.u64 |= 1;
+          break;
+        case F16_TYPE:
+          if (setValue.f16 == 0) predValue.u64 |= 1;
+          break;
+        case F32_TYPE:
+          if (setValue.f32 == 0) predValue.u64 |= 1;
+          break;
+        case F64_TYPE:
+        case FF64_TYPE:
+          if (setValue.f64 == 0) predValue.u64 |= 1;
+          break;
+        default:
+          assert(0);
+          break;
       }
 
       if ((type == S8_TYPE) || (type == S16_TYPE) || (type == S32_TYPE) ||
           (type == S64_TYPE) || (type == U8_TYPE) || (type == U16_TYPE) ||
           (type == U32_TYPE) || (type == U64_TYPE) || (type == B8_TYPE) ||
           (type == B16_TYPE) || (type == B32_TYPE) || (type == B64_TYPE)) {
-        if ((setValue.u32 & (1 << (size - 1))) != 0)
-          predValue.u64 |= 1 << 1;
+        if ((setValue.u32 & (1 << (size - 1))) != 0) predValue.u64 |= 1 << 1;
       }
       if (type == F32_TYPE) {
-        if (setValue.f32 < 0)
-          predValue.u64 |= 1 << 1;
+        if (setValue.f32 < 0) predValue.u64 |= 1 << 1;
       }
 
       if (dst.get_operand_lohi() == 1) {
@@ -920,119 +910,107 @@ void ptx_thread_info::set_done() {
 unsigned ptx_thread_info::get_builtin(int builtin_id, unsigned dim_mod) {
   assert(m_valid);
   switch ((builtin_id & 0xFFFF)) {
-  case CLOCK_REG:
-    return (unsigned)(m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-  case CLOCK64_REG:
-    abort(); // change return value to unsigned long long?
-             // GPGPUSim clock is 4 times slower - multiply by 4
-    return (m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle) * 4;
-  case HALFCLOCK_ID:
-    // GPGPUSim clock is 4 times slower - multiply by 4
-    // Hardware clock counter is incremented at half the shader clock
-    // frequency - divide by 2 (Henry '10)
-    return (m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle) * 2;
-  case CTAID_REG:
-    assert(dim_mod < 3);
-    if (dim_mod == 0)
-      return m_ctaid.x;
-    if (dim_mod == 1)
-      return m_ctaid.y;
-    if (dim_mod == 2)
-      return m_ctaid.z;
-    abort();
-    break;
-  case ENVREG_REG: {
-    int index = builtin_id >> 16;
-    dim3 gdim = this->get_core()->get_kernel_info()->get_grid_dim();
-    switch (index) {
-    case 0:
-    case 1:
-    case 2:
-    case 3:
-    case 4:
-    case 5:
-      return 0;
+    case CLOCK_REG:
+      return (unsigned)(m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+    case CLOCK64_REG:
+      abort();  // change return value to unsigned long long?
+                // GPGPUSim clock is 4 times slower - multiply by 4
+      return (m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle) * 4;
+    case HALFCLOCK_ID:
+      // GPGPUSim clock is 4 times slower - multiply by 4
+      // Hardware clock counter is incremented at half the shader clock
+      // frequency - divide by 2 (Henry '10)
+      return (m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle) * 2;
+    case CTAID_REG:
+      assert(dim_mod < 3);
+      if (dim_mod == 0) return m_ctaid.x;
+      if (dim_mod == 1) return m_ctaid.y;
+      if (dim_mod == 2) return m_ctaid.z;
+      abort();
       break;
-    case 6:
-      return gdim.x;
-    case 7:
-      return gdim.y;
-    case 8:
-      return gdim.z;
-    case 9:
-      if (gdim.z == 1 && gdim.y == 1)
-        return 1;
-      else if (gdim.z == 1)
-        return 2;
-      else
-        return 3;
-      break;
-    default:
-      break;
+    case ENVREG_REG: {
+      int index = builtin_id >> 16;
+      dim3 gdim = this->get_core()->get_kernel_info()->get_grid_dim();
+      switch (index) {
+        case 0:
+        case 1:
+        case 2:
+        case 3:
+        case 4:
+        case 5:
+          return 0;
+          break;
+        case 6:
+          return gdim.x;
+        case 7:
+          return gdim.y;
+        case 8:
+          return gdim.z;
+        case 9:
+          if (gdim.z == 1 && gdim.y == 1)
+            return 1;
+          else if (gdim.z == 1)
+            return 2;
+          else
+            return 3;
+          break;
+        default:
+          break;
+      }
     }
-  }
-  case GRIDID_REG:
-    return m_gridid;
-  case LANEID_REG:
-    return get_hw_tid() % m_core->get_warp_size();
-  case LANEMASK_EQ_REG:
-    feature_not_implemented("%lanemask_eq");
-    return 0;
-  case LANEMASK_LE_REG:
-    feature_not_implemented("%lanemask_le");
-    return 0;
-  case LANEMASK_LT_REG:
-    feature_not_implemented("%lanemask_lt");
-    return 0;
-  case LANEMASK_GE_REG:
-    feature_not_implemented("%lanemask_ge");
-    return 0;
-  case LANEMASK_GT_REG:
-    feature_not_implemented("%lanemask_gt");
-    return 0;
-  case NCTAID_REG:
-    assert(dim_mod < 3);
-    if (dim_mod == 0)
-      return m_nctaid.x;
-    if (dim_mod == 1)
-      return m_nctaid.y;
-    if (dim_mod == 2)
-      return m_nctaid.z;
-    abort();
-    break;
-  case NTID_REG:
-    assert(dim_mod < 3);
-    if (dim_mod == 0)
-      return m_ntid.x;
-    if (dim_mod == 1)
-      return m_ntid.y;
-    if (dim_mod == 2)
-      return m_ntid.z;
-    abort();
-    break;
-  case NWARPID_REG:
-    feature_not_implemented("%nwarpid");
-    return 0;
-  case PM_REG:
-    feature_not_implemented("%pm");
-    return 0;
-  case SMID_REG:
-    feature_not_implemented("%smid");
-    return 0;
-  case TID_REG:
-    assert(dim_mod < 3);
-    if (dim_mod == 0)
-      return m_tid.x;
-    if (dim_mod == 1)
-      return m_tid.y;
-    if (dim_mod == 2)
-      return m_tid.z;
-    abort();
-    break;
-  case WARPSZ_REG:
-    return m_core->get_warp_size();
-  default:
-    assert(0);
+    case GRIDID_REG:
+      return m_gridid;
+    case LANEID_REG:
+      return get_hw_tid() % m_core->get_warp_size();
+    case LANEMASK_EQ_REG:
+      feature_not_implemented("%lanemask_eq");
+      return 0;
+    case LANEMASK_LE_REG:
+      feature_not_implemented("%lanemask_le");
+      return 0;
+    case LANEMASK_LT_REG:
+      feature_not_implemented("%lanemask_lt");
+      return 0;
+    case LANEMASK_GE_REG:
+      feature_not_implemented("%lanemask_ge");
+      return 0;
+    case LANEMASK_GT_REG:
+      feature_not_implemented("%lanemask_gt");
+      return 0;
+    case NCTAID_REG:
+      assert(dim_mod < 3);
+      if (dim_mod == 0) return m_nctaid.x;
+      if (dim_mod == 1) return m_nctaid.y;
+      if (dim_mod == 2) return m_nctaid.z;
+      abort();
+      break;
+    case NTID_REG:
+      assert(dim_mod < 3);
+      if (dim_mod == 0) return m_ntid.x;
+      if (dim_mod == 1) return m_ntid.y;
+      if (dim_mod == 2) return m_ntid.z;
+      abort();
+      break;
+    case NWARPID_REG:
+      feature_not_implemented("%nwarpid");
+      return 0;
+    case PM_REG:
+      feature_not_implemented("%pm");
+      return 0;
+    case SMID_REG:
+      feature_not_implemented("%smid");
+      return 0;
+    case TID_REG:
+      assert(dim_mod < 3);
+      if (dim_mod == 0) return m_tid.x;
+      if (dim_mod == 1) return m_tid.y;
+      if (dim_mod == 2) return m_tid.z;
+      abort();
+      break;
+    case WARPSZ_REG:
+      return m_core->get_warp_size();
+    default:
+      assert(0);
   }
   return 0;
 }
@@ -1098,8 +1076,8 @@ bool ptx_thread_info::callstack_pop() {
   const symbol *rv_src = m_callstack.back().m_return_var_src;
   const symbol *rv_dst = m_callstack.back().m_return_var_dst;
   assert(!((rv_src != NULL) ^
-           (rv_dst != NULL))); // ensure caller and callee agree on whether
-                               // there is a return value
+           (rv_dst != NULL)));  // ensure caller and callee agree on whether
+                                // there is a return value
 
   // read return value from callee frame
   arg_buffer_t buffer(m_gpu->gpgpu_ctx);
@@ -1123,8 +1101,7 @@ bool ptx_thread_info::callstack_pop() {
   m_debug_trace_regs_read.pop_back();
 
   // write return value into caller frame
-  if (rv_dst != NULL)
-    copy_buffer_to_frame(this, buffer);
+  if (rv_dst != NULL) copy_buffer_to_frame(this, buffer);
 
   return m_callstack.empty();
 }
@@ -1134,8 +1111,8 @@ bool ptx_thread_info::callstack_pop_plus() {
   const symbol *rv_src = m_callstack.back().m_return_var_src;
   const symbol *rv_dst = m_callstack.back().m_return_var_dst;
   assert(!((rv_src != NULL) ^
-           (rv_dst != NULL))); // ensure caller and callee agree on whether
-                               // there is a return value
+           (rv_dst != NULL)));  // ensure caller and callee agree on whether
+                                // there is a return value
 
   // read return value from callee frame
   arg_buffer_t buffer(m_gpu->gpgpu_ctx);
@@ -1159,8 +1136,7 @@ bool ptx_thread_info::callstack_pop_plus() {
   // m_debug_trace_regs_read.pop_back();
 
   // write return value into caller frame
-  if (rv_dst != NULL)
-    copy_buffer_to_frame(this, buffer);
+  if (rv_dst != NULL) copy_buffer_to_frame(this, buffer);
 
   return m_callstack.empty();
 }
@@ -1209,10 +1185,8 @@ const ptx_instruction *ptx_thread_info::get_inst(addr_t pc) const {
 }
 
 void ptx_thread_info::dump_regs(FILE *fp) {
-  if (m_regs.empty())
-    return;
-  if (m_regs.back().empty())
-    return;
+  if (m_regs.empty()) return;
+  if (m_regs.back().empty()) return;
   fprintf(fp, "Register File Contents:\n");
   fflush(fp);
   reg_map_t::const_iterator r;

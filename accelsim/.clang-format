@@ -1,0 +1,3 @@
+# required to avoid issues with includes in intersim2
+IncludeBlocks: Preserve
+SortIncludes: Never

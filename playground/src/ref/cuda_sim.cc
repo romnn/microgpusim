@@ -122,8 +122,7 @@ bool cuda_sim::ptx_debug_exec_dump_cond(int thd_uid, addr_t pc) {
 
 void cuda_sim::init_inst_classification_stat() {
   static std::set<unsigned> init;
-  if (init.find(g_ptx_kernel_count) != init.end())
-    return;
+  if (init.find(g_ptx_kernel_count) != init.end()) return;
   init.insert(g_ptx_kernel_count);
 
 #define MAX_CLASS_KER 1024
@@ -133,8 +132,8 @@ void cuda_sim::init_inst_classification_stat() {
   snprintf(kernelname, MAX_CLASS_KER, "Kernel %d Classification\n",
            g_ptx_kernel_count);
   assert(g_ptx_kernel_count <
-         MAX_CLASS_KER); // a static limit on number of kernels increase it if
-                         // it fails!
+         MAX_CLASS_KER);  // a static limit on number of kernels increase it if
+                          // it fails!
   g_inst_classification_stat[g_ptx_kernel_count] =
       StatCreate(kernelname, 1, 20);
   if (!g_inst_op_classification_stat)
@@ -282,13 +281,14 @@ void cuda_sim::read_sim_environment_variables() {
   g_interactive_debugger_enabled = false;
 
   char *mode = getenv("PTX_SIM_MODE_FUNC");
-  if (mode)
-    sscanf(mode, "%u", &g_ptx_sim_mode);
-  printf("GPGPU-Sim PTX: simulation mode %d (can change with PTX_SIM_MODE_FUNC "
-         "environment variable:\n",
-         g_ptx_sim_mode);
-  printf("               1=functional simulation only, 0=detailed performance "
-         "simulator)\n");
+  if (mode) sscanf(mode, "%u", &g_ptx_sim_mode);
+  printf(
+      "GPGPU-Sim PTX: simulation mode %d (can change with PTX_SIM_MODE_FUNC "
+      "environment variable:\n",
+      g_ptx_sim_mode);
+  printf(
+      "               1=functional simulation only, 0=detailed performance "
+      "simulator)\n");
   char *dbg_inter = getenv("GPGPUSIM_DEBUG");
   if (dbg_inter && strlen(dbg_inter)) {
     printf("GPGPU-Sim PTX: enabling interactive debugger\n");
@@ -322,8 +322,9 @@ void cuda_sim::read_sim_environment_variables() {
   g_override_embedded_ptx = false;
   char *usefile = getenv("PTX_SIM_USE_PTX_FILE");
   if (usefile && strlen(usefile)) {
-    printf("GPGPU-Sim PTX: overriding embedded ptx with ptx file "
-           "(PTX_SIM_USE_PTX_FILE is set)\n");
+    printf(
+        "GPGPU-Sim PTX: overriding embedded ptx with ptx file "
+        "(PTX_SIM_USE_PTX_FILE is set)\n");
     fflush(stdout);
     g_override_embedded_ptx = true;
   }

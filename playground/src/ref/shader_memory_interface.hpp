@@ -5,7 +5,7 @@
 #include "trace_simt_core_cluster.hpp"
 
 class shader_memory_interface : public mem_fetch_interface {
-public:
+ public:
   shader_memory_interface(trace_shader_core_ctx *core,
                           trace_simt_core_cluster *cluster) {
     m_core = core;
@@ -19,7 +19,7 @@ public:
     m_cluster->icnt_inject_request_packet(mf);
   }
 
-private:
+ private:
   trace_shader_core_ctx *m_core;
   trace_simt_core_cluster *m_cluster;
 };

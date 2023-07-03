@@ -3,7 +3,7 @@
 #include "shader_core_ctx.hpp"
 
 class exec_shader_core_ctx : public shader_core_ctx {
-public:
+ public:
   exec_shader_core_ctx(class gpgpu_sim *gpu, class simt_core_cluster *cluster,
                        unsigned shader_id, unsigned tpc_id,
                        const shader_core_config *config,

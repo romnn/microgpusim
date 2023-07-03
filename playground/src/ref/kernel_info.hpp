@@ -12,7 +12,7 @@ class CUstream_t;
 class CUstream_st;
 
 class kernel_info_t {
-public:
+ public:
   kernel_info_t(dim3 gridDim, dim3 blockDim, class function_info *entry);
   kernel_info_t(
       dim3 gridDim, dim3 blockDim, class function_info *entry,
@@ -99,9 +99,9 @@ public:
     return t->second;
   }
 
-private:
-  kernel_info_t(const kernel_info_t &);  // disable copy constructor
-  void operator=(const kernel_info_t &); // disable copy operator
+ private:
+  kernel_info_t(const kernel_info_t &);   // disable copy constructor
+  void operator=(const kernel_info_t &);  // disable copy operator
 
   class function_info *m_kernel_entry;
 
@@ -121,7 +121,7 @@ private:
   std::list<class ptx_thread_info *> m_active_threads;
   class memory_space *m_param_mem;
 
-public:
+ public:
   // Jin: parent and child kernel management for CDP
   void set_parent(kernel_info_t *parent, dim3 parent_ctaid, dim3 parent_tid);
   void set_child(kernel_info_t *child);
@@ -136,7 +136,7 @@ public:
   void print_parent_info();
   kernel_info_t *get_parent() { return m_parent_kernel; }
 
-private:
+ private:
   kernel_info_t *m_parent_kernel;
   dim3 m_parent_ctaid;
   dim3 m_parent_tid;
@@ -146,7 +146,7 @@ private:
   std::map<dim3, std::list<CUstream_st *>, dim3comp> m_cta_streams;
 
   // Jin: kernel timing
-public:
+ public:
   unsigned long long launch_cycle;
   unsigned long long start_cycle;
   unsigned long long end_cycle;
@@ -154,6 +154,6 @@ public:
 
   mutable bool cache_config_set;
 
-  unsigned m_kernel_TB_latency; // this used for any CPU-GPU kernel latency and
-                                // counted in the gpu_cycle
+  unsigned m_kernel_TB_latency;  // this used for any CPU-GPU kernel latency and
+                                 // counted in the gpu_cycle
 };

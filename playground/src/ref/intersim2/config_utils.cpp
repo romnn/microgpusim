@@ -38,9 +38,9 @@
 #include <iostream>
 #include <sstream>
 
-#include "config.parser.tab.h" // parser
+#include "config.parser.tab.h"  // parser
 
-#include "config.lex.h" // lexer
+#include "config.lex.h"  // lexer
 
 Configuration::Configuration() {}
 
@@ -118,8 +118,8 @@ double Configuration::GetFloat(std::string const &field) const {
   }
 }
 
-std::vector<std::string>
-Configuration::GetStrArray(std::string const &field) const {
+std::vector<std::string> Configuration::GetStrArray(
+    std::string const &field) const {
   std::string const param_str = GetStr(field);
   return tokenize_str(param_str);
 }
@@ -129,8 +129,8 @@ std::vector<int> Configuration::GetIntArray(std::string const &field) const {
   return tokenize_int(param_str);
 }
 
-std::vector<double>
-Configuration::GetFloatArray(std::string const &field) const {
+std::vector<double> Configuration::GetFloatArray(
+    std::string const &field) const {
   std::string const param_str = GetStr(field);
   return tokenize_float(param_str);
 }
@@ -213,7 +213,6 @@ bool ParseArgs(Configuration *cf, int argc, char **argv) {
 // file. However, it can't and won't write out  empty strings since the booksim
 // yacc parser won't be abled to parse blank strings
 void Configuration::WriteFile(std::string const &filename) {
-
   std::ostream *config_out = new std::ofstream(filename.c_str());
 
   for (std::map<std::string, std::string>::const_iterator i = _str_map.begin();
@@ -238,7 +237,6 @@ void Configuration::WriteFile(std::string const &filename) {
 }
 
 void Configuration::WriteMatlabFile(std::ostream *config_out) const {
-
   for (std::map<std::string, std::string>::const_iterator i = _str_map.begin();
        i != _str_map.end(); i++) {
     // the parser won't read blanks lolz
@@ -281,7 +279,6 @@ std::vector<std::string> tokenize_str(std::string const &data) {
   size_t curr = start;
 
   while (std::string::npos != (curr = data.find_first_of("{,}", curr))) {
-
     if (data[curr] == '{') {
       ++nested;
     } else if ((data[curr] == '}') && nested) {
@@ -321,7 +318,6 @@ std::vector<int> tokenize_int(std::string const &data) {
   size_t curr = start;
 
   while (std::string::npos != (curr = data.find_first_of("{,}", curr))) {
-
     if (data[curr] == '{') {
       ++nested;
     } else if ((data[curr] == '}') && nested) {
@@ -361,7 +357,6 @@ std::vector<double> tokenize_float(std::string const &data) {
   size_t curr = start;
 
   while (std::string::npos != (curr = data.find_first_of("{,}", curr))) {
-
     if (data[curr] == '{') {
       ++nested;
     } else if ((data[curr] == '}') && nested) {

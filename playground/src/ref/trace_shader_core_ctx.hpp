@@ -29,7 +29,7 @@ class shader_core_stats;
 
 // class trace_shader_core_ctx : public shader_core_ctx {
 class trace_shader_core_ctx {
-public:
+ public:
   trace_shader_core_ctx(class trace_gpgpu_sim *gpu,
                         class trace_simt_core_cluster *cluster,
                         unsigned shader_id, unsigned tpc_id,
@@ -38,7 +38,9 @@ public:
                         shader_core_stats *stats)
       : m_barriers(this, config->max_warps_per_shader, config->max_cta_per_core,
                    config->max_barriers_per_cta, config->warp_size),
-        m_active_warps(0), m_dynamic_warp_id(0), m_gpu(gpu),
+        m_active_warps(0),
+        m_dynamic_warp_id(0),
+        m_gpu(gpu),
         // m_kernel(NULL), m_simt_stack(NULL), m_thread(NULL),
         m_warp_size(config->warp_size) {
     m_warp_count = config->n_thread_per_shader / m_warp_size;
@@ -185,7 +187,7 @@ public:
   void decrement_atomic_count(unsigned wid, unsigned n);
   void dec_inst_in_pipeline(unsigned warp_id) {
     m_warp[warp_id]->dec_inst_in_pipeline();
-  } // also used in writeback()
+  }  // also used in writeback()
 
   void incsfu_stat(unsigned active_count, double latency) {
     m_stats->m_num_sfu_acesses[m_sid] =
@@ -249,10 +251,10 @@ public:
 
   const shader_core_config *get_config() const { return m_config; }
 
-protected:
+ protected:
   class trace_gpgpu_sim *m_gpu;
   trace_kernel_info_t *m_kernel;
-  simt_stack **m_simt_stack; // pdom based reconvergence context for each warp
+  simt_stack **m_simt_stack;  // pdom based reconvergence context for each warp
   class ptx_thread_info **m_thread;
 
   unsigned m_warp_size;
@@ -267,9 +269,9 @@ protected:
   unsigned long long m_last_inst_gpu_tot_sim_cycle;
 
   // general information
-  unsigned m_sid; // shader id
-  unsigned m_tpc; // texture processor cluster id (aka, node id when using
-                  // interconnect concentration)
+  unsigned m_sid;  // shader id
+  unsigned m_tpc;  // texture processor cluster id (aka, node id when using
+                   // interconnect concentration)
   const shader_core_config *m_config;
   const memory_config *m_memory_config;
   class trace_simt_core_cluster *m_cluster;
@@ -278,11 +280,11 @@ protected:
   shader_core_stats *m_stats;
 
   // CTA scheduling / hardware thread allocation
-  unsigned m_n_active_cta; // number of Cooperative Thread Arrays (blocks)
-                           // currently running on this shader.
-  unsigned m_cta_status[MAX_CTA_PER_SHADER]; // CTAs status
-  unsigned m_not_completed; // number of threads to be completed (==0 when all
-                            // thread on this core completed)
+  unsigned m_n_active_cta;  // number of Cooperative Thread Arrays (blocks)
+                            // currently running on this shader.
+  unsigned m_cta_status[MAX_CTA_PER_SHADER];  // CTAs status
+  unsigned m_not_completed;  // number of threads to be completed (==0 when all
+                             // thread on this core completed)
   std::bitset<MAX_THREAD_PER_SM> m_active_threads;
 
   // thread contexts
@@ -293,11 +295,11 @@ protected:
   shader_core_mem_fetch_allocator *m_mem_fetch_allocator;
 
   // fetch
-  read_only_cache *m_L1I; // instruction cache
+  read_only_cache *m_L1I;  // instruction cache
   int m_last_warp_fetched;
 
   // decode/dispatch
-  std::vector<trace_shd_warp_t *> m_warp; // per warp information array
+  std::vector<trace_shd_warp_t *> m_warp;  // per warp information array
   barrier_set_t m_barriers;
   ifetch_buffer_t m_inst_fetch_buffer;
   std::vector<register_set> m_pipeline_reg;
@@ -317,7 +319,7 @@ protected:
   std::vector<unsigned> m_dispatch_port;
   std::vector<unsigned> m_issue_port;
   std::vector<simd_function_unit *>
-      m_fu; // stallable pipelines should be last in this array
+      m_fu;  // stallable pipelines should be last in this array
   ldst_unit *m_ldst_unit;
   static const unsigned MAX_ALU_LATENCY = 512;
   unsigned num_result_bus;
@@ -346,7 +348,7 @@ protected:
   //
   // const shader_core_config *m_config;
 
-protected:
+ protected:
   void create_front_pipeline();
   void create_schedulers();
   void create_exec_pipeline();
@@ -377,7 +379,7 @@ protected:
     return (((32 - active_count) >> 1) * latency);
   }
 
-private:
+ private:
   void init_traces(unsigned start_warp, unsigned end_warp,
                    trace_kernel_info_t &kernel);
 

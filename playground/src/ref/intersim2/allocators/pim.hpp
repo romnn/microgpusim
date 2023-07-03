@@ -35,7 +35,7 @@
 class PIM : public DenseAllocator {
   int _PIM_iter;
 
-public:
+ public:
   PIM(Module *parent, const std::string &name, int inputs, int outputs,
       int iters);
 

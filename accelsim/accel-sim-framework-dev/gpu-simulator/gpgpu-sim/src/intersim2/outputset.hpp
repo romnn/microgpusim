@@ -7,7 +7,7 @@
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
 
- Redistributions of source code must retain the above copyright notice, this 
+ Redistributions of source code must retain the above copyright notice, this
  list of conditions and the following disclaimer.
  Redistributions in binary form must reproduce the above copyright notice, this
  list of conditions and the following disclaimer in the documentation and/or
@@ -15,7 +15,7 @@
 
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
@@ -31,9 +31,7 @@
 #include <set>
 
 class OutputSet {
-
-
-public:
+ public:
   struct sSetElement {
     int vc_start;
     int vc_end;
@@ -41,26 +39,25 @@ public:
     int output_port;
   };
 
-  void Clear( );
-  void Add( int output_port, int vc, int pri = 0 );
-  void AddRange( int output_port, int vc_start, int vc_end, int pri = 0 );
+  void Clear();
+  void Add(int output_port, int vc, int pri = 0);
+  void AddRange(int output_port, int vc_start, int vc_end, int pri = 0);
 
-  bool OutputEmpty( int output_port ) const;
-  int NumVCs( int output_port ) const;
-  
-  const set<sSetElement> & GetSet() const;
+  bool OutputEmpty(int output_port) const;
+  int NumVCs(int output_port) const;
 
-  int  GetVC( int output_port,  int vc_index, int *pri = 0 ) const;
-  bool GetPortVC( int *out_port, int *out_vc ) const;
-private:
+  const set<sSetElement> &GetSet() const;
+
+  int GetVC(int output_port, int vc_index, int *pri = 0) const;
+  bool GetPortVC(int *out_port, int *out_vc) const;
+
+ private:
   set<sSetElement> _outputs;
 };
 
-inline bool operator<(const OutputSet::sSetElement & se1, 
-	       const OutputSet::sSetElement & se2) {
-  return se1.pri > se2.pri; // higher priorities first!
+inline bool operator<(const OutputSet::sSetElement &se1,
+                      const OutputSet::sSetElement &se2) {
+  return se1.pri > se2.pri;  // higher priorities first!
 }
 
 #endif
-
-

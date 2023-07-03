@@ -5,8 +5,8 @@
 
 struct cache_event {
   enum cache_event_type m_cache_event_type;
-  evicted_block_info m_evicted_block; // if it was write_back event, fill the
-                                      // the evicted block info
+  evicted_block_info m_evicted_block;  // if it was write_back event, fill the
+                                       // the evicted block info
 
   cache_event(enum cache_event_type m_cache_event) {
     m_cache_event_type = m_cache_event;

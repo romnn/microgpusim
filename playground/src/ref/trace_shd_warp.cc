@@ -5,8 +5,8 @@
 #include "trace_shader_core_ctx.hpp"
 #include "trace_warp_inst.hpp"
 
-const trace_warp_inst_t *
-trace_shd_warp_t::parse_trace_instruction(const inst_trace_t &trace) const {
+const trace_warp_inst_t *trace_shd_warp_t::parse_trace_instruction(
+    const inst_trace_t &trace) const {
   trace_warp_inst_t *new_inst =
       new trace_warp_inst_t(get_shader()->get_config());
 
@@ -50,7 +50,8 @@ const trace_warp_inst_t *trace_shd_warp_t::get_current_trace_inst() const {
   return NULL;
 }
 
-template <size_t N> std::string mask_to_string(std::bitset<N> mask) {
+template <size_t N>
+std::string mask_to_string(std::bitset<N> mask) {
   std::string out;
   for (int i = mask.size() - 1; i >= 0; i--)
     out.append(((mask[i]) ? "1" : "0"));
@@ -76,12 +77,13 @@ void trace_shd_warp_t::print_trace_instructions(bool all) {
     //     new_inst->op == EXIT_OPS || new_inst->opcode() == OP_LDC) {
     if (all || is_memory_instruction(new_inst) || new_inst->op == EXIT_OPS) {
       assert(warp_traces[temp_trace_pc].m_pc == new_inst->pc);
-      printf("====> instruction at trace pc %d:\t %s\t\t (%s) \t\tactive=%s "
-             "\tpc = "
-             "%d==%lu\n",
-             temp_trace_pc, new_inst->opcode_str(), trace.opcode.c_str(),
-             mask_to_string(new_inst->get_active_mask()).c_str(),
-             warp_traces[temp_trace_pc].m_pc, new_inst->pc);
+      printf(
+          "====> instruction at trace pc %d:\t %s\t\t (%s) \t\tactive=%s "
+          "\tpc = "
+          "%d==%lu\n",
+          temp_trace_pc, new_inst->opcode_str(), trace.opcode.c_str(),
+          mask_to_string(new_inst->get_active_mask()).c_str(),
+          warp_traces[temp_trace_pc].m_pc, new_inst->pc);
     }
     temp_trace_pc++;
   }
@@ -214,7 +216,7 @@ bool trace_shd_warp_t::hardware_done() const {
   return functional_done() && stores_done() && !inst_in_pipeline();
 }
 
-std::unique_ptr<trace_shd_warp_t>
-new_trace_shd_warp(class trace_shader_core_ctx *shader, unsigned warp_size) {
+std::unique_ptr<trace_shd_warp_t> new_trace_shd_warp(
+    class trace_shader_core_ctx *shader, unsigned warp_size) {
   return std::make_unique<trace_shd_warp_t>(shader, warp_size);
 }

@@ -33,8 +33,7 @@ thread_insn_span &thread_insn_span::operator+=(const thread_insn_span &other) {
 }
 
 void thread_insn_span::set_span(address_type pc) {
-  if (((int)pc) >= 0)
-    m_insn_span_count[pc] += 1;
+  if (((int)pc) >= 0) m_insn_span_count[pc] += 1;
 }
 
 void thread_insn_span::reset(unsigned long long cycle) {

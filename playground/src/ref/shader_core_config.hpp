@@ -11,7 +11,7 @@
 #include "specialized_unit_params.hpp"
 
 class shader_core_config : public core_config {
-public:
+ public:
   shader_core_config(gpgpu_context *ctx) : core_config(ctx) {
     pipeline_widths_string = NULL;
     gpgpu_ctx = ctx;
@@ -116,8 +116,9 @@ public:
     int ntok = sscanf(gpgpu_shader_core_pipeline_opt, "%d:%d",
                       &n_thread_per_shader, &warp_size);
     if (ntok != 2) {
-      printf("GPGPU-Sim uArch: error while parsing configuration string "
-             "gpgpu_shader_core_pipeline_opt\n");
+      printf(
+          "GPGPU-Sim uArch: error while parsing configuration string "
+          "gpgpu_shader_core_pipeline_opt\n");
       abort();
     }
 
@@ -144,9 +145,10 @@ public:
     delete[] tokd;
 
     if (n_thread_per_shader > MAX_THREAD_PER_SM) {
-      printf("GPGPU-Sim uArch: Error ** increase MAX_THREAD_PER_SM in "
-             "abstract_hardware_model.h from %u to %u\n",
-             MAX_THREAD_PER_SM, n_thread_per_shader);
+      printf(
+          "GPGPU-Sim uArch: Error ** increase MAX_THREAD_PER_SM in "
+          "abstract_hardware_model.h from %u to %u\n",
+          MAX_THREAD_PER_SM, n_thread_per_shader);
       abort();
     }
     max_warps_per_shader = n_thread_per_shader / warp_size;
@@ -177,7 +179,7 @@ public:
                 sizeof(m_specialized_unit.back().name));
         m_specialized_unit_num += sparam.num_units;
       } else
-        break; // we only accept continuous specialized_units, i.e., 1,2,3,4
+        break;  // we only accept continuous specialized_units, i.e., 1,2,3,4
     }
 
     // parse gpgpu_shmem_option for adpative cache config
@@ -220,7 +222,7 @@ public:
   unsigned n_regfile_gating_group;
   unsigned max_warps_per_shader;
   unsigned
-      max_cta_per_core; // Limit on number of concurrent CTAs in shader core
+      max_cta_per_core;  // Limit on number of concurrent CTAs in shader core
   unsigned max_barriers_per_cta;
   char *gpgpu_scheduler_string;
   unsigned gpgpu_shmem_per_block;

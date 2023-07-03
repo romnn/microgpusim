@@ -12,12 +12,11 @@
 
 #include "../../../hw_def/hw_def.h"
 
-#define ITERS 32768 // iterate over the array ITERS times
+#define ITERS 32768  // iterate over the array ITERS times
 #define ARRAY_SIZE 4096
 
 __global__ void l2_hit_lat(uint32_t *startClk, uint32_t *stopClk,
                            uint64_t *posArray, uint64_t *dsink) {
-
   // thread index
   uint32_t tid = threadIdx.x;
 
@@ -31,18 +30,18 @@ __global__ void l2_hit_lat(uint32_t *startClk, uint32_t *stopClk,
   }
 
   if (tid == 0) {
-
     uint64_t *ptr = posArray + tid;
     uint64_t ptr1, ptr0;
 
     // initialize the pointers with the start address
     // use cg modifier to cache the load in L2 and bypass L1
-    asm volatile("{\t\n"
-                 "ld.global.cg.u64 %0, [%1];\n\t"
-                 "}"
-                 : "=l"(ptr1)
-                 : "l"(ptr)
-                 : "memory");
+    asm volatile(
+        "{\t\n"
+        "ld.global.cg.u64 %0, [%1];\n\t"
+        "}"
+        : "=l"(ptr1)
+        : "l"(ptr)
+        : "memory");
 
     // synchronize all threads
     asm volatile("bar.sync 0;");
@@ -54,13 +53,14 @@ __global__ void l2_hit_lat(uint32_t *startClk, uint32_t *stopClk,
     // pointer-chasing ITERS times
     // use cg modifier to cache the load in L2 and bypass L1
     for (uint32_t i = 0; i < ITERS; ++i) {
-      asm volatile("{\t\n"
-                   "ld.global.cg.u64 %0, [%1];\n\t"
-                   "}"
-                   : "=l"(ptr0)
-                   : "l"((uint64_t *)ptr1)
-                   : "memory");
-      ptr1 = ptr0; // swap the register for the next load
+      asm volatile(
+          "{\t\n"
+          "ld.global.cg.u64 %0, [%1];\n\t"
+          "}"
+          : "=l"(ptr0)
+          : "l"((uint64_t *)ptr1)
+          : "memory");
+      ptr1 = ptr0;  // swap the register for the next load
     }
 
     // stop timing

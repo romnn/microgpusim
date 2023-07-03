@@ -41,7 +41,7 @@
 #include "trafficmanager.hpp"
 
 class GPUTrafficManager : public TrafficManager {
-public:
+ public:
   GPUTrafficManager(const Configuration &config,
                     const std::vector<Network *> &net,
                     InterconnectInterface *icnt);
@@ -58,7 +58,7 @@ public:
   //    virtual void DisplayStats( ostream & os = cout ) const;
   //    virtual void DisplayOverallStats( ostream & os = cout ) const;
 
-protected:
+ protected:
   virtual void _RetireFlit(Flit *f, int dest);
   virtual void _GeneratePacket(int source, int stype, int cl, int time,
                                int subnet, int package_size,

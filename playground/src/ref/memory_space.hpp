@@ -20,7 +20,7 @@ enum _memory_space_t {
 };
 
 class memory_space_t {
-public:
+ public:
   memory_space_t() {
     m_type = undefined_space;
     m_bank = 0;
@@ -54,17 +54,17 @@ public:
   }
   bool is_global() const { return (m_type == global_space); }
 
-private:
+ private:
   enum _memory_space_t m_type;
-  unsigned m_bank; // n in ".const[n]"; note .const == .const[0] (see PTX 2.1
-                   // manual, sec. 5.1.3)
+  unsigned m_bank;  // n in ".const[n]"; note .const == .const[0] (see PTX 2.1
+                    // manual, sec. 5.1.3)
 };
 
 class ptx_thread_info;
 class ptx_instruction;
 
 class memory_space {
-public:
+ public:
   virtual ~memory_space() {}
   virtual void write(mem_addr_t addr, size_t length, const void *data,
                      ptx_thread_info *thd, const ptx_instruction *pI) = 0;

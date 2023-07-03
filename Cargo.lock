@@ -3850,6 +3850,8 @@ dependencies = [
  "difflib",
  "duct",
  "glob",
+ "indicatif",
+ "num_cpus",
  "rayon",
 ]
 

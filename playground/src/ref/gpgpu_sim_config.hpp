@@ -35,7 +35,7 @@
 
 class gpgpu_sim_config : public power_config,
                          public gpgpu_functional_sim_config {
-public:
+ public:
   gpgpu_sim_config(gpgpu_context *ctx)
       : m_shader_config(ctx), m_memory_config(ctx) {
     m_valid = false;
@@ -87,7 +87,6 @@ public:
   }
 
   void init() {
-
     gpu_stat_sample_freq = 10000;
     gpu_runtime_stat_flag = 0;
     sscanf(gpgpu_runtime_stat, "%d:%x", &gpu_stat_sample_freq,
@@ -113,7 +112,7 @@ public:
     m_memory_config.dram_latency = 0;
     // cannot create the l1 latency queue otherwise (to be removed i guess)
     m_shader_config.m_L1D_config.l1_latency = 1;
-    m_shader_config.smem_latency = 2; // must be >1 (assert in ldst unit)
+    m_shader_config.smem_latency = 2;  // must be >1 (assert in ldst unit)
 #endif
 
     m_shader_config.init();
@@ -129,10 +128,8 @@ public:
     char *date = ctime(&curr_time);
     char *s = date;
     while (*s) {
-      if (*s == ' ' || *s == '\t' || *s == ':')
-        *s = '-';
-      if (*s == '\n' || *s == '\r')
-        *s = 0;
+      if (*s == ' ' || *s == '\t' || *s == ':') *s = '-';
+      if (*s == '\n' || *s == '\r') *s = 0;
       s++;
     }
     char buf[1024];
@@ -159,7 +156,7 @@ public:
 
   shader_core_config m_shader_config;
 
-private:
+ private:
   void init_clock_domains(void);
 
   // backward pointer

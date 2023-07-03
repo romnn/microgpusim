@@ -5,7 +5,7 @@
 
 #include "fifo.hpp"
 
-#define READ 'R' // define read and write states
+#define READ 'R'  // define read and write states
 #define WRITE 'W'
 #define BANK_IDLE 'I'
 #define BANK_ACTIVE 'A'
@@ -14,7 +14,7 @@ class mem_fetch;
 class memory_config;
 
 class dram_req_t {
-public:
+ public:
   dram_req_t(class mem_fetch *data, unsigned banks,
              unsigned dram_bnk_indexing_policy, class trace_gpgpu_sim *gpu);
 
@@ -26,7 +26,7 @@ public:
   unsigned int dqbytes;
   unsigned int age;
   unsigned int timestamp;
-  unsigned char rw; // is the request a read or a write?
+  unsigned char rw;  // is the request a read or a write?
   unsigned long long int addr;
   unsigned int insertion_time;
   class mem_fetch *data;
@@ -44,11 +44,11 @@ struct bank_t {
   unsigned int RASc;
   unsigned int RPc;
   unsigned int RCc;
-  unsigned int WTPc; // write to precharge
-  unsigned int RTPc; // read to precharge
+  unsigned int WTPc;  // write to precharge
+  unsigned int RTPc;  // read to precharge
 
-  unsigned char rw;    // is the bank reading or writing?
-  unsigned char state; // is the bank active or idle?
+  unsigned char rw;     // is the bank reading or writing?
+  unsigned char state;  // is the bank active or idle?
   unsigned int curr_row;
 
   dram_req_t *mrq;
@@ -70,7 +70,7 @@ enum bank_index_function {
 enum bank_grp_bits_position { HIGHER_BITS = 0, LOWER_BITS };
 
 class dram_t {
-public:
+ public:
   dram_t(unsigned int parition_id, const memory_config *config,
          class memory_stats_t *stats, class memory_partition_unit *mp,
          class trace_gpgpu_sim *gpu);
@@ -102,7 +102,7 @@ public:
 
   const memory_config *m_config;
 
-private:
+ private:
   bankgrp_t **bkgrp;
 
   bank_t **bk;
@@ -118,11 +118,11 @@ private:
 
   unsigned int RRDc;
   unsigned int CCDc;
-  unsigned int RTWc; // read to write penalty applies across banks
-  unsigned int WTRc; // write to read penalty applies across banks
+  unsigned int RTWc;  // read to write penalty applies across banks
+  unsigned int WTRc;  // write to read penalty applies across banks
 
   unsigned char
-      rw; // was last request a read or write? (important for RTW, WTR)
+      rw;  // was last request a read or write? (important for RTW, WTR)
 
   unsigned int pending_writes;
 
@@ -202,7 +202,7 @@ private:
   unsigned int bwutil_partial;
 
   class memory_stats_t *m_stats;
-  class Stats *mrqq_Dist; // memory request queue inside DRAM
+  class Stats *mrqq_Dist;  // memory request queue inside DRAM
 
   friend class frfcfs_scheduler;
 };

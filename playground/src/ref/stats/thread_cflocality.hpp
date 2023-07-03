@@ -11,7 +11,7 @@
 class gpgpu_context;
 
 class thread_CFlocality : public snap_shot_trigger, public spill_log_interface {
-public:
+ public:
   thread_CFlocality(gpgpu_context *ctx, std::string name,
                     unsigned long long snap_shot_interval, int nthreads,
                     address_type start_pc, unsigned long long start_cycle = 0);
@@ -26,7 +26,7 @@ public:
   void print_span(FILE *fout) const;
   void print_histo(FILE *fout) const;
 
-private:
+ private:
   std::string m_name;
 
   int m_nthreads;

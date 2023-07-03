@@ -15,7 +15,7 @@
 #include "symbol.hpp"
 
 class ptx_thread_info {
-public:
+ public:
   ~ptx_thread_info();
   ptx_thread_info(kernel_info_t &kernel);
 
@@ -165,8 +165,7 @@ public:
   bool isInFunctionalSimulationMode() { return m_functionalSimulationMode; }
   void exitCore() {
     // m_core is not used in case of functional simulation mode
-    if (!m_functionalSimulationMode)
-      m_core->warp_exit(m_hw_wid);
+    if (!m_functionalSimulationMode) m_core->warp_exit(m_hw_wid);
   }
 
   void registerExit() { m_cta_info->register_thread_exit(this); }
@@ -186,7 +185,7 @@ public:
   // Jin: get corresponding kernel grid for CDP purpose
   kernel_info_t &get_kernel() { return m_kernel; }
 
-public:
+ public:
   addr_t m_last_effective_address;
   bool m_branch_taken;
   memory_space_t m_last_memory_space;
@@ -198,7 +197,7 @@ public:
   ptx_cta_info *m_cta_info;
   ptx_reg_t m_last_set_operand_value;
 
-private:
+ private:
   bool m_functionalSimulationMode;
   unsigned m_uid;
   kernel_info_t &m_kernel;

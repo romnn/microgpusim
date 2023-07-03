@@ -8,7 +8,7 @@
 #include "utils.hpp"
 
 class l1d_cache_config : public cache_config {
-public:
+ public:
   l1d_cache_config() : cache_config() {}
   unsigned set_bank(new_addr_type addr) const {
     // For sector cache, we select one sector per bank (sector interleaving)

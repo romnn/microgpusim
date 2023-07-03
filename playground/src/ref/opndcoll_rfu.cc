@@ -8,8 +8,8 @@
 // modifiers
 std::list<opndcoll_rfu_t::op_t> opndcoll_rfu_t::arbiter_t::allocate_reads() {
   std::list<op_t>
-      result; // a list of registers that (a) are in different register banks,
-              // (b) do not go to the same operand collector
+      result;  // a list of registers that (a) are in different register banks,
+               // (b) do not go to the same operand collector
 
   int input;
   int output;
@@ -20,10 +20,8 @@ std::list<opndcoll_rfu_t::op_t> opndcoll_rfu_t::arbiter_t::allocate_reads() {
   int _pri = (int)m_last_cu;
 
   // Clear matching
-  for (int i = 0; i < _inputs; ++i)
-    _inmatch[i] = -1;
-  for (int j = 0; j < _outputs; ++j)
-    _outmatch[j] = -1;
+  for (int i = 0; i < _inputs; ++i) _inmatch[i] = -1;
+  for (int j = 0; j < _outputs; ++j) _outmatch[j] = -1;
 
   for (unsigned i = 0; i < m_num_banks; i++) {
     for (unsigned j = 0; j < m_num_collectors; j++) {
@@ -40,7 +38,7 @@ std::list<opndcoll_rfu_t::op_t> opndcoll_rfu_t::arbiter_t::allocate_reads() {
     }
     if (m_allocated_bank[i].is_write()) {
       assert(i < (unsigned)_inputs);
-      _inmatch[i] = 0; // write gets priority
+      _inmatch[i] = 0;  // write gets priority
     }
   }
 
@@ -95,8 +93,8 @@ std::list<opndcoll_rfu_t::op_t> opndcoll_rfu_t::arbiter_t::allocate_reads() {
 
 void opndcoll_rfu_t::add_cu_set(unsigned set_id, unsigned num_cu,
                                 unsigned num_dispatch) {
-  m_cus[set_id].reserve(num_cu); // this is necessary to stop pointers in m_cu
-                                 // from being invalid do to a resize;
+  m_cus[set_id].reserve(num_cu);  // this is necessary to stop pointers in m_cu
+                                  // from being invalid do to a resize;
   for (unsigned i = 0; i < num_cu; i++) {
     m_cus[set_id].push_back(collector_unit_t());
     m_cu.push_back(&m_cus[set_id].back());
@@ -161,8 +159,7 @@ int register_bank(int regnum, int wid, unsigned num_banks,
                   unsigned bank_warp_shift, bool sub_core_model,
                   unsigned banks_per_sched, unsigned sched_id) {
   int bank = regnum;
-  if (bank_warp_shift)
-    bank += wid;
+  if (bank_warp_shift) bank += wid;
   if (sub_core_model) {
     unsigned bank_num = (bank % banks_per_sched) + (sched_id * banks_per_sched);
     assert(bank_num < num_banks);
@@ -175,9 +172,9 @@ bool opndcoll_rfu_t::writeback(warp_inst_t &inst) {
   assert(!inst.empty());
   std::list<unsigned> regs = m_shader->get_regs_written(inst);
   for (unsigned op = 0; op < MAX_REG_OPERANDS; op++) {
-    int reg_num = inst.arch_reg.dst[op]; // this math needs to match that used
-                                         // in function_info::ptx_decode_inst
-    if (reg_num >= 0) {                  // valid register
+    int reg_num = inst.arch_reg.dst[op];  // this math needs to match that used
+                                          // in function_info::ptx_decode_inst
+    if (reg_num >= 0) {                   // valid register
       unsigned bank = register_bank(reg_num, inst.warp_id(), m_num_banks,
                                     m_bank_warp_shift, sub_core_model,
                                     m_num_banks_per_sched, inst.get_schd_id());
@@ -208,7 +205,7 @@ bool opndcoll_rfu_t::writeback(warp_inst_t &inst) {
       m_shader->incregfile_writes(active_count);
     } else {
       m_shader->incregfile_writes(
-          m_shader->get_config()->warp_size); // inst.active_count());
+          m_shader->get_config()->warp_size);  // inst.active_count());
     }
   }
   return true;
@@ -236,7 +233,7 @@ void opndcoll_rfu_t::dispatch_ready_cu() {
           m_shader->incnon_rf_operands(active_count);
         } else {
           m_shader->incnon_rf_operands(
-              m_shader->get_config()->warp_size); // cu->get_active_count());
+              m_shader->get_config()->warp_size);  // cu->get_active_count());
         }
       }
       cu->dispatch();
@@ -277,8 +274,7 @@ void opndcoll_rfu_t::allocate_cu(unsigned port_num) {
             break;
           }
         }
-        if (allocated)
-          break; // cu has been allocated, no need to search more.
+        if (allocated) break;  // cu has been allocated, no need to search more.
       }
       // break;  // can only service a single input, if it failed it will fail
       // for
@@ -324,7 +320,7 @@ void opndcoll_rfu_t::allocate_reads() {
       m_shader->incregfile_reads(active_count);
     } else {
       m_shader->incregfile_reads(
-          m_shader->get_config()->warp_size); // op.get_active_count());
+          m_shader->get_config()->warp_size);  // op.get_active_count());
     }
   }
 }
@@ -373,18 +369,17 @@ bool opndcoll_rfu_t::collector_unit_t::allocate(register_set *pipeline_reg_set,
   warp_inst_t **pipeline_reg = pipeline_reg_set->get_ready();
   if ((pipeline_reg) and !((*pipeline_reg)->empty())) {
     m_warp_id = (*pipeline_reg)->warp_id();
-    std::vector<int> prev_regs; // remove duplicate regs within same instr
+    std::vector<int> prev_regs;  // remove duplicate regs within same instr
     for (unsigned op = 0; op < MAX_REG_OPERANDS; op++) {
       int reg_num =
           (*pipeline_reg)
-              ->arch_reg.src[op]; // this math needs to match that used in
-                                  // function_info::ptx_decode_inst
+              ->arch_reg.src[op];  // this math needs to match that used in
+                                   // function_info::ptx_decode_inst
       bool new_reg = true;
       for (auto r : prev_regs) {
-        if (r == reg_num)
-          new_reg = false;
+        if (r == reg_num) new_reg = false;
       }
-      if (reg_num >= 0 && new_reg) { // valid register
+      if (reg_num >= 0 && new_reg) {  // valid register
         prev_regs.push_back(reg_num);
         m_src_op[op] = op_t(this, op, reg_num, m_num_banks, m_bank_warp_shift,
                             m_sub_core_model, m_num_banks_per_sched,
@@ -407,6 +402,5 @@ void opndcoll_rfu_t::collector_unit_t::dispatch() {
   // assert(0 && "free again");
   m_free = true;
   m_output_register = NULL;
-  for (unsigned i = 0; i < MAX_REG_OPERANDS * 2; i++)
-    m_src_op[i].reset();
+  for (unsigned i = 0; i < MAX_REG_OPERANDS * 2; i++) m_src_op[i].reset();
 }

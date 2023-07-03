@@ -9,7 +9,7 @@
 class memory_config;
 
 class shader_core_mem_fetch_allocator : public mem_fetch_allocator {
-public:
+ public:
   shader_core_mem_fetch_allocator(unsigned core_id, unsigned cluster_id,
                                   const memory_config *config) {
     m_core_id = core_id;
@@ -34,7 +34,7 @@ public:
     return mf;
   }
 
-private:
+ private:
   unsigned m_core_id;
   unsigned m_cluster_id;
   const memory_config *m_memory_config;

@@ -5,8 +5,9 @@
 #include <cstring>
 #include <memory>
 
-template <unsigned BSIZE> class mem_storage {
-public:
+template <unsigned BSIZE>
+class mem_storage {
+ public:
   mem_storage(const mem_storage &another) {
     m_data = (unsigned char *)calloc(1, BSIZE);
     memcpy(m_data, another.m_data, BSIZE);
@@ -37,7 +38,7 @@ public:
     fflush(fout);
   }
 
-private:
+ private:
   unsigned m_nbytes;
   unsigned char *m_data;
 };

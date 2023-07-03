@@ -22,7 +22,7 @@ enum stream_operation_type {
 };
 
 class stream_operation {
-public:
+ public:
   stream_operation() {
     m_kernel = NULL;
     m_type = stream_no_op;
@@ -131,7 +131,7 @@ public:
   }
   void set_stream(CUstream_st *stream) { m_stream = stream; }
 
-private:
+ private:
   struct CUstream_st *m_stream;
 
   bool m_done;

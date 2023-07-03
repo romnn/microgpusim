@@ -22,7 +22,7 @@ static const std::unordered_map<unsigned, unsigned> OpcodePowerMap = {
     {OP_FSET, FP__OP},
     {OP_FSETP, FP__OP},
     {OP_FSWZADD, FP__OP},
-    {OP_MUFU, FP_SIN_OP}, // We differentiate between different MUFU operations
+    {OP_MUFU, FP_SIN_OP},  // We differentiate between different MUFU operations
     // (SIN,EX2,RSQ,LG2) in ../trace-driven/trace_driven.cc
     {OP_HADD2, FP__OP},
     {OP_HADD2_32I, FP__OP},

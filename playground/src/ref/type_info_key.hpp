@@ -6,7 +6,7 @@
 #include "memory_space.hpp"
 
 class type_info_key {
-public:
+ public:
   type_info_key() {
     m_is_non_arch_reg = false;
     m_init = false;
@@ -62,7 +62,7 @@ public:
   static unsigned type_decode(int type, size_t &size, int &t);
   memory_space_t get_memory_space() const { return m_space_spec; }
 
-private:
+ private:
   bool m_init;
   memory_space_t m_space_spec;
   int m_scalar_type_spec;
@@ -79,20 +79,13 @@ private:
 struct type_info_key_compare {
   bool operator()(const type_info_key &a, const type_info_key &b) const {
     assert(a.m_init && b.m_init);
-    if (a.m_space_spec < b.m_space_spec)
-      return true;
-    if (a.m_scalar_type_spec < b.m_scalar_type_spec)
-      return true;
-    if (a.m_vector_spec < b.m_vector_spec)
-      return true;
-    if (a.m_alignment_spec < b.m_alignment_spec)
-      return true;
-    if (a.m_extern_spec < b.m_extern_spec)
-      return true;
-    if (a.m_array_dim < b.m_array_dim)
-      return true;
-    if (a.m_is_function < b.m_is_function)
-      return true;
+    if (a.m_space_spec < b.m_space_spec) return true;
+    if (a.m_scalar_type_spec < b.m_scalar_type_spec) return true;
+    if (a.m_vector_spec < b.m_vector_spec) return true;
+    if (a.m_alignment_spec < b.m_alignment_spec) return true;
+    if (a.m_extern_spec < b.m_extern_spec) return true;
+    if (a.m_array_dim < b.m_array_dim) return true;
+    if (a.m_is_function < b.m_is_function) return true;
 
     return false;
   }

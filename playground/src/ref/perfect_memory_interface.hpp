@@ -6,7 +6,7 @@
 #include "trace_simt_core_cluster.hpp"
 
 class perfect_memory_interface : public mem_fetch_interface {
-public:
+ public:
   perfect_memory_interface(trace_shader_core_ctx *core,
                            trace_simt_core_cluster *cluster) {
     m_core = core;
@@ -17,12 +17,12 @@ public:
   }
   virtual void push(mem_fetch *mf) {
     if (mf && mf->isatomic())
-      mf->do_atomic(); // execute atomic inside the "memory subsystem"
+      mf->do_atomic();  // execute atomic inside the "memory subsystem"
     m_core->inc_simt_to_mem(mf->get_num_flits(true));
     m_cluster->push_response_fifo(mf);
   }
 
-private:
+ private:
   trace_shader_core_ctx *m_core;
   trace_simt_core_cluster *m_cluster;
 };

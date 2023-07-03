@@ -17,28 +17,28 @@ void baseline_cache::bandwidth_management::use_data_port(
   unsigned data_size = mf->get_data_size();
   unsigned port_width = m_config.m_data_port_width;
   switch (outcome) {
-  case HIT: {
-    unsigned data_cycles =
-        data_size / port_width + ((data_size % port_width > 0) ? 1 : 0);
-    m_data_port_occupied_cycles += data_cycles;
-  } break;
-  case HIT_RESERVED:
-  case MISS: {
-    // the data array is accessed to read out the entire line for write-back
-    // in case of sector cache we need to write bank only the modified sectors
-    cache_event ev(WRITE_BACK_REQUEST_SENT);
-    if (was_writeback_sent(events, ev)) {
-      unsigned data_cycles = ev.m_evicted_block.m_modified_size / port_width;
+    case HIT: {
+      unsigned data_cycles =
+          data_size / port_width + ((data_size % port_width > 0) ? 1 : 0);
       m_data_port_occupied_cycles += data_cycles;
-    }
-  } break;
-  case SECTOR_MISS:
-  case RESERVATION_FAIL:
-    // Does not consume any port bandwidth
-    break;
-  default:
-    assert(0);
-    break;
+    } break;
+    case HIT_RESERVED:
+    case MISS: {
+      // the data array is accessed to read out the entire line for write-back
+      // in case of sector cache we need to write bank only the modified sectors
+      cache_event ev(WRITE_BACK_REQUEST_SENT);
+      if (was_writeback_sent(events, ev)) {
+        unsigned data_cycles = ev.m_evicted_block.m_modified_size / port_width;
+        m_data_port_occupied_cycles += data_cycles;
+      }
+    } break;
+    case SECTOR_MISS:
+    case RESERVATION_FAIL:
+      // Does not consume any port bandwidth
+      break;
+    default:
+      assert(0);
+      break;
   }
 }
 
@@ -147,8 +147,8 @@ void baseline_cache::fill(mem_fetch *mf, unsigned time) {
       m_tag_array->inc_dirty();
     }
     block->set_status(MODIFIED,
-                      mf->get_access_sector_mask()); // mark line as dirty for
-                                                     // atomic operation
+                      mf->get_access_sector_mask());  // mark line as dirty for
+                                                      // atomic operation
     block->set_byte_mask(mf);
   }
   m_extra_mf_fields.erase(mf);
@@ -198,10 +198,11 @@ void baseline_cache::send_read_request(new_addr_type addr,
   bool mshr_hit = m_mshrs.probe(mshr_addr);
   bool mshr_avail = !m_mshrs.full(mshr_addr);
 
-  printf("%s::baseline_cache::send_read_request(addr=%lu, block=%lu, "
-         "mshr_addr=%lu, mshr_hit=%d, mshr_full=%d, miss_queue_full=%d)\n",
-         name().c_str(), addr, block_addr, mshr_addr, mshr_hit, !mshr_avail,
-         m_miss_queue.size() >= m_config.m_miss_queue_size);
+  printf(
+      "%s::baseline_cache::send_read_request(addr=%lu, block=%lu, "
+      "mshr_addr=%lu, mshr_hit=%d, mshr_full=%d, miss_queue_full=%d)\n",
+      name().c_str(), addr, block_addr, mshr_addr, mshr_hit, !mshr_avail,
+      m_miss_queue.size() >= m_config.m_miss_queue_size);
 
   if (mshr_hit && mshr_avail) {
     if (read_only)
@@ -227,8 +228,7 @@ void baseline_cache::send_read_request(new_addr_type addr,
     mf->set_addr(mshr_addr);
     m_miss_queue.push_back(mf);
     mf->set_status(m_miss_queue_status, time);
-    if (!wa)
-      events.push_back(cache_event(READ_REQUEST_SENT));
+    if (!wa) events.push_back(cache_event(READ_REQUEST_SENT));
 
     do_miss = true;
   } else if (mshr_hit && !mshr_avail)

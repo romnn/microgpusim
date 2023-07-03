@@ -15,11 +15,12 @@ class mem_fetch_interface;
 // Proceedings of the 1998 Eurographics/SIGGRAPH Workshop on Graphics Hardware
 // http://www-graphics.stanford.edu/papers/texture_prefetch/
 class tex_cache : public cache_t {
-public:
+ public:
   tex_cache(const char *name, cache_config &config, int core_id, int type_id,
             mem_fetch_interface *memport, enum mem_fetch_status request_status,
             enum mem_fetch_status rob_status)
-      : m_config(config), m_tags(config, core_id, type_id),
+      : m_config(config),
+        m_tags(config, core_id, type_id),
         m_fragment_fifo(config.m_fragment_fifo_entries),
         m_request_fifo(config.m_request_fifo_entries),
         m_rob(config.m_rob_entries),
@@ -74,7 +75,7 @@ public:
     m_stats.get_sub_stats(css);
   }
 
-private:
+ private:
   std::string m_name;
   const cache_config &m_config;
 
@@ -86,9 +87,9 @@ private:
       m_miss = m;
       m_data_size = d;
     }
-    mem_fetch *m_request;   // request information
-    unsigned m_cache_index; // where to look for data
-    bool m_miss;            // true if sent memory request
+    mem_fetch *m_request;    // request information
+    unsigned m_cache_index;  // where to look for data
+    bool m_miss;             // true if sent memory request
     unsigned m_data_size;
   };
 
@@ -106,8 +107,8 @@ private:
       m_block_addr = a;
     }
     bool m_ready;
-    unsigned m_time;  // which cycle did this entry become ready?
-    unsigned m_index; // where in cache should block be placed?
+    unsigned m_time;   // which cycle did this entry become ready?
+    unsigned m_index;  // where in cache should block be placed?
     mem_fetch *m_request;
     new_addr_type m_block_addr;
   };
@@ -119,8 +120,9 @@ private:
   };
 
   // TODO: replace fifo_pipeline with this?
-  template <class T> class fifo {
-  public:
+  template <class T>
+  class fifo {
+   public:
     fifo(unsigned size) {
       m_size = size;
       m_num = 0;
@@ -156,7 +158,7 @@ private:
     T &peek() const { return m_data[m_tail]; }
     unsigned next_pop_index() const { return m_tail; }
 
-  private:
+   private:
     void inc_head() {
       m_head = (m_head + 1) % m_size;
       m_num++;
@@ -167,10 +169,10 @@ private:
       m_num--;
     }
 
-    unsigned m_head; // next entry goes here
-    unsigned m_tail; // oldest entry found here
-    unsigned m_num;  // how many in fifo?
-    unsigned m_size; // maximum number of entries in fifo
+    unsigned m_head;  // next entry goes here
+    unsigned m_tail;  // oldest entry found here
+    unsigned m_num;   // how many in fifo?
+    unsigned m_size;  // maximum number of entries in fifo
     T *m_data;
   };
 
@@ -179,7 +181,7 @@ private:
   fifo<mem_fetch *> m_request_fifo;
   fifo<rob_entry> m_rob;
   data_block *m_cache;
-  fifo<mem_fetch *> m_result_fifo; // next completed texture fetch
+  fifo<mem_fetch *> m_result_fifo;  // next completed texture fetch
 
   mem_fetch_interface *m_memport;
   enum mem_fetch_status m_request_queue_status;

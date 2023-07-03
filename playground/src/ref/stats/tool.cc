@@ -19,7 +19,7 @@ void add_snap_shot_trigger(snap_shot_trigger *ss_trigger) {
       min_snap_shot_interval > ss_trigger->get_interval()) {
     min_snap_shot_interval = ss_trigger->get_interval();
     next_snap_shot_cycle =
-        min_snap_shot_interval; // assume that snap shots haven't started yet
+        min_snap_shot_interval;  // assume that snap shots haven't started yet
   }
   list_ss_trigger.push_back(ss_trigger);
 }
@@ -29,18 +29,18 @@ void remove_snap_shot_trigger(snap_shot_trigger *ss_trigger) {
 }
 
 void try_snap_shot(unsigned long long current_cycle) {
-  if (min_snap_shot_interval == 0)
-    return;
-  if (current_cycle != next_snap_shot_cycle)
-    return;
+  if (min_snap_shot_interval == 0) return;
+  if (current_cycle != next_snap_shot_cycle) return;
 
   std::list<snap_shot_trigger *>::iterator ss_trigger_iter =
       list_ss_trigger.begin();
   for (; ss_trigger_iter != list_ss_trigger.end(); ++ss_trigger_iter) {
-    (*ss_trigger_iter)->snap_shot(current_cycle); // WF: should be try_snap_shot
+    (*ss_trigger_iter)
+        ->snap_shot(current_cycle);  // WF: should be try_snap_shot
   }
   next_snap_shot_cycle =
-      current_cycle + min_snap_shot_interval; // WF: stateful testing, maybe bad
+      current_cycle +
+      min_snap_shot_interval;  // WF: stateful testing, maybe bad
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -64,12 +64,10 @@ void set_spill_interval(unsigned long long interval) {
 
 void spill_log_to_file(FILE *fout, int final,
                        unsigned long long current_cycle) {
-  if (!final && spill_interval == 0)
-    return;
-  if (!final && current_cycle <= next_spill_cycle)
-    return;
+  if (!final && spill_interval == 0) return;
+  if (!final && current_cycle <= next_spill_cycle) return;
 
-  fprintf(fout, "\n"); // ensure that the spill occurs at a new line
+  fprintf(fout, "\n");  // ensure that the spill occurs at a new line
   std::list<spill_log_interface *>::iterator i_spill_log =
       list_spill_log.begin();
   for (; i_spill_log != list_spill_log.end(); ++i_spill_log) {
@@ -78,7 +76,7 @@ void spill_log_to_file(FILE *fout, int final,
   fflush(fout);
 
   next_spill_cycle =
-      current_cycle + spill_interval; // WF: stateful testing, maybe bad
+      current_cycle + spill_interval;  // WF: stateful testing, maybe bad
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -120,10 +118,8 @@ void destroy_thread_CFlogger() {
 }
 
 void cflog_update_thread_pc(int logger_id, int thread_id, address_type pc) {
-  if (thread_CFlogger == NULL)
-    return; // this means no visualizer output
-  if (thread_id < 0)
-    return;
+  if (thread_CFlogger == NULL) return;  // this means no visualizer output
+  if (thread_id < 0) return;
   thread_CFlogger[logger_id]->update_thread_pc(thread_id, pc);
 }
 
@@ -133,24 +129,21 @@ void cflog_snapshot(int logger_id, unsigned long long cycle) {
 }
 
 void cflog_print(FILE *fout) {
-  if (thread_CFlogger == NULL)
-    return; // this means no visualizer output
+  if (thread_CFlogger == NULL) return;  // this means no visualizer output
   for (int i = 0; i < n_thread_CFloggers; i++) {
     thread_CFlogger[i]->print_histo(fout);
   }
 }
 
 void cflog_visualizer_print(FILE *fout) {
-  if (thread_CFlogger == NULL)
-    return; // this means no visualizer output
+  if (thread_CFlogger == NULL) return;  // this means no visualizer output
   for (int i = 0; i < n_thread_CFloggers; i++) {
     thread_CFlogger[i]->print_visualizer(fout);
   }
 }
 
 void cflog_visualizer_gzprint(gzFile fout) {
-  if (thread_CFlogger == NULL)
-    return; // this means no visualizer output
+  if (thread_CFlogger == NULL) return;  // this means no visualizer output
   for (int i = 0; i < n_thread_CFloggers; i++) {
     thread_CFlogger[i]->print_visualizer(fout);
   }
@@ -171,8 +164,7 @@ void insn_warp_occ_create(int n_loggers, int simd_width) {
 }
 
 void insn_warp_occ_log(int logger_id, address_type pc, int warp_occ) {
-  if (warp_occ <= 0)
-    return;
+  if (warp_occ <= 0) return;
   iwo_logger[logger_id].log(pc, warp_occ);
 }
 
@@ -244,19 +236,18 @@ void shader_mem_acc_create(int n_loggers, int n_dram, int n_bank,
 }
 
 void shader_mem_acc_log(int logger_id, int dram_id, int bank, char rw) {
-  if (s_mem_acc_logger_n_dram == 0)
-    return;
+  if (s_mem_acc_logger_n_dram == 0) return;
   int write_offset = 0;
   switch (rw) {
-  case 'r':
-    write_offset = 0;
-    break;
-  case 'w':
-    write_offset = (s_mem_acc_logger_n_bank + 1) * s_mem_acc_logger_n_dram;
-    break;
-  default:
-    assert(0);
-    break;
+    case 'r':
+      write_offset = 0;
+      break;
+    case 'w':
+      write_offset = (s_mem_acc_logger_n_bank + 1) * s_mem_acc_logger_n_dram;
+      break;
+    default:
+      assert(0);
+      break;
   }
   s_mem_acc_logger[logger_id].log(dram_id * s_mem_acc_logger_n_bank + bank +
                                   write_offset);
@@ -277,7 +268,7 @@ void shader_mem_acc_print(FILE *fout) {
 /////////////////////////////////////////////////////////////////////////////////////
 
 static bool s_mem_lat_logger_used = false;
-static int s_mem_lat_logger_nbins = 48; // up to 2^24 = 16M
+static int s_mem_lat_logger_nbins = 48;  // up to 2^24 = 16M
 static std::vector<linear_histogram_logger> s_mem_lat_logger;
 
 void shader_mem_lat_create(int n_loggers, unsigned long long logging_interval) {
@@ -295,15 +286,14 @@ void shader_mem_lat_create(int n_loggers, unsigned long long logging_interval) {
 }
 
 void shader_mem_lat_log(int logger_id, int latency) {
-  if (s_mem_lat_logger_used == false)
-    return;
+  if (s_mem_lat_logger_used == false) return;
   if (latency > (1 << (s_mem_lat_logger_nbins / 2)))
-    assert(0); // guard for out of bound bin
+    assert(0);  // guard for out of bound bin
   assert(latency > 0);
 
   int latency_bin;
 
-  int bin; // LOG_2(latency)
+  int bin;  // LOG_2(latency)
   int v = latency;
   unsigned int shift;
 
@@ -323,7 +313,7 @@ void shader_mem_lat_log(int logger_id, int latency) {
   if (bin > 0) {
     latency_bin += ((latency & (1 << (bin - 1))) != 0)
                        ? 1
-                       : 0; // approx. for LOG_sqrt2(latency)
+                       : 0;  // approx. for LOG_sqrt2(latency)
   }
 
   s_mem_lat_logger[logger_id].log(latency_bin);
@@ -367,10 +357,8 @@ void shader_cache_access_create(int n_loggers, int n_types,
 }
 
 void shader_cache_access_log(int logger_id, int type, int miss) {
-  if (s_cache_access_logger_n_types == 0)
-    return;
-  if (logger_id < 0)
-    return;
+  if (s_cache_access_logger_n_types == 0) return;
+  if (logger_id < 0) return;
   assert(type == NORMALS || type == TEXTURE || type == CONSTANT ||
          type == INSTRUCTION);
   assert(miss == 0 || miss == 1);
@@ -379,10 +367,8 @@ void shader_cache_access_log(int logger_id, int type, int miss) {
 }
 
 void shader_cache_access_unlog(int logger_id, int type, int miss) {
-  if (s_cache_access_logger_n_types == 0)
-    return;
-  if (logger_id < 0)
-    return;
+  if (s_cache_access_logger_n_types == 0) return;
+  if (logger_id < 0) return;
   assert(type == NORMALS || type == TEXTURE || type == CONSTANT ||
          type == INSTRUCTION);
   assert(miss == 0 || miss == 1);
@@ -406,8 +392,7 @@ static linear_histogram_logger *s_CTA_count_logger = NULL;
 void shader_CTA_count_create(int n_shaders,
                              unsigned long long logging_interval) {
   // only need one logger to track all the shaders
-  if (s_CTA_count_logger != NULL)
-    delete s_CTA_count_logger;
+  if (s_CTA_count_logger != NULL) delete s_CTA_count_logger;
   s_CTA_count_logger = new linear_histogram_logger(n_shaders, logging_interval,
                                                    "ShdrCTACount", false);
 
@@ -419,8 +404,7 @@ void shader_CTA_count_create(int n_shaders,
 }
 
 void shader_CTA_count_log(int shader_id, int nCTAadded) {
-  if (s_CTA_count_logger == NULL)
-    return;
+  if (s_CTA_count_logger == NULL) return;
 
   for (int i = 0; i < nCTAadded; i++) {
     s_CTA_count_logger->log(shader_id);
@@ -428,8 +412,7 @@ void shader_CTA_count_log(int shader_id, int nCTAadded) {
 }
 
 void shader_CTA_count_unlog(int shader_id, int nCTAdone) {
-  if (s_CTA_count_logger == NULL)
-    return;
+  if (s_CTA_count_logger == NULL) return;
 
   for (int i = 0; i < nCTAdone; i++) {
     s_CTA_count_logger->unlog(shader_id);
@@ -437,19 +420,16 @@ void shader_CTA_count_unlog(int shader_id, int nCTAdone) {
 }
 
 void shader_CTA_count_print(FILE *fout) {
-  if (s_CTA_count_logger == NULL)
-    return;
+  if (s_CTA_count_logger == NULL) return;
   s_CTA_count_logger->print(fout);
 }
 
 void shader_CTA_count_visualizer_print(FILE *fout) {
-  if (s_CTA_count_logger == NULL)
-    return;
+  if (s_CTA_count_logger == NULL) return;
   s_CTA_count_logger->print_visualizer(fout);
 }
 
 void shader_CTA_count_visualizer_gzprint(gzFile fout) {
-  if (s_CTA_count_logger == NULL)
-    return;
+  if (s_CTA_count_logger == NULL) return;
   s_CTA_count_logger->print_visualizer(fout);
 }

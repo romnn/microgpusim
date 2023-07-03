@@ -5,8 +5,8 @@ static const char *static_cache_reservation_fail_reason_str[] = {
     "MSHR_MERGE_ENRTY_FAIL", "MSHR_RW_PENDING"};
 
 enum cache_reservation_fail_reason {
-  LINE_ALLOC_FAIL = 0, // all line are reserved
-  MISS_QUEUE_FULL,     // MISS queue (i.e. interconnect or DRAM) is full
+  LINE_ALLOC_FAIL = 0,  // all line are reserved
+  MISS_QUEUE_FULL,      // MISS queue (i.e. interconnect or DRAM) is full
   MSHR_ENRTY_FAIL,
   MSHR_MERGE_ENRTY_FAIL,
   MSHR_RW_PENDING,

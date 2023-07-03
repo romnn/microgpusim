@@ -23,7 +23,7 @@ enum cache_request_status tex_cache::access(new_addr_type addr, mem_fetch *mf,
       m_tags.access(block_addr, time, cache_index, mf);
   enum cache_request_status cache_status = RESERVATION_FAIL;
   assert(status != RESERVATION_FAIL);
-  assert(status != HIT_RESERVED); // as far as tags are concerned: HIT or MISS
+  assert(status != HIT_RESERVED);  // as far as tags are concerned: HIT or MISS
   m_fragment_fifo.push(
       fragment_entry(mf, cache_index, status == MISS, mf->get_data_size()));
   if (status == MISS) {
@@ -31,7 +31,7 @@ enum cache_request_status tex_cache::access(new_addr_type addr, mem_fetch *mf,
     unsigned rob_index = m_rob.push(rob_entry(cache_index, mf, block_addr));
     m_extra_mf_fields[mf] = extra_mf_fields(rob_index, m_config);
     mf->set_data_size(m_config.get_line_sz());
-    m_tags.fill(cache_index, time, mf); // mark block as valid
+    m_tags.fill(cache_index, time, mf);  // mark block as valid
     m_request_fifo.push(mf);
     mf->set_status(m_request_queue_status, time);
     events.push_back(cache_event(READ_REQUEST_SENT));
@@ -127,8 +127,7 @@ void tex_cache::display_state(FILE *fp) const {
           m_rob.capacity());
   fprintf(fp, "request fifo entries   = %u / %u\n", m_request_fifo.size(),
           m_request_fifo.capacity());
-  if (!m_rob.empty())
-    fprintf(fp, "reorder buffer contents:\n");
+  if (!m_rob.empty()) fprintf(fp, "reorder buffer contents:\n");
   for (int n = m_rob.size() - 1; n >= 0; n--) {
     unsigned index = (m_rob.next_pop_index() + n) % m_rob.capacity();
     const rob_entry &r = m_rob.peek(index);

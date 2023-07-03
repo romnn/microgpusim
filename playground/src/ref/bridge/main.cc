@@ -28,7 +28,7 @@ void cli_configure(gpgpu_context *m_gpgpu_context, trace_config &m_config,
   m_gpgpu_context->the_gpgpusim->g_the_gpu_config =
       new gpgpu_sim_config(m_gpgpu_context);
   m_gpgpu_context->the_gpgpusim->g_the_gpu_config->reg_options(
-      opp); // register GPU microrachitecture options
+      opp);  // register GPU microrachitecture options
   m_config.reg_options(opp);
 
   if (!silent) {
@@ -92,7 +92,6 @@ trace_kernel_info_t *create_kernel_info(kernel_trace_t *kernel_trace_info,
                                         gpgpu_context *m_gpgpu_context,
                                         class trace_config *config,
                                         trace_parser *parser) {
-
   gpgpu_ptx_sim_info info;
   info.smem = kernel_trace_info->shmem;
   info.regs = kernel_trace_info->nregs;
@@ -130,13 +129,11 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv,
   }
 
   std::vector<std::string> valid_argv;
-  for (auto arg : argv)
-    valid_argv.push_back(std::string(arg));
+  for (auto arg : argv) valid_argv.push_back(std::string(arg));
 
   std::vector<const char *> c_argv;
   // THIS stupid &arg here is important !!!!
-  for (std::string &arg : valid_argv)
-    c_argv.push_back(arg.c_str());
+  for (std::string &arg : valid_argv) c_argv.push_back(arg.c_str());
 
   // setup the gpu
   gpgpu_context *m_gpgpu_context = new gpgpu_context();
@@ -209,8 +206,7 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv,
       // check if stream of kernel is busy
       bool stream_busy = false;
       for (auto s : busy_streams) {
-        if (s == k->get_cuda_stream_id())
-          stream_busy = true;
+        if (s == k->get_cuda_stream_id()) stream_busy = true;
       }
       if (!stream_busy && m_gpgpu_sim->can_start_kernel() &&
           !k->was_launched()) {
@@ -229,8 +225,7 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv,
     do {
       unsigned long long cycle =
           m_gpgpu_sim->gpu_tot_sim_cycle + m_gpgpu_sim->gpu_sim_cycle;
-      if (!m_gpgpu_sim->active())
-        break;
+      if (!m_gpgpu_sim->active()) break;
 
 #ifdef BOX
       if (cycle >= cycle_limit) {
@@ -289,8 +284,7 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv,
         }
       }
       assert(k);
-      if (!silent)
-        m_gpgpu_sim->print_stats();
+      if (!silent) m_gpgpu_sim->print_stats();
       // total_dram_writes
       // total_dram_reads
       // const_cache_read_total
@@ -311,8 +305,9 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv,
     }
 
     if (m_gpgpu_sim->cycle_insn_cta_max_hit()) {
-      printf("GPGPU-Sim: ** break due to reaching the maximum cycles (or "
-             "instructions) **\n");
+      printf(
+          "GPGPU-Sim: ** break due to reaching the maximum cycles (or "
+          "instructions) **\n");
       fflush(stdout);
       break;
     }

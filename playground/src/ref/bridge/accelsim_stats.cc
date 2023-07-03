@@ -34,7 +34,6 @@ std::unique_ptr<accelsim_stats> trace_gpgpu_sim::get_accelsim_stats() {
 
     if (!m_memory_config->m_L2_config.disabled() &&
         m_memory_config->m_L2_config.get_num_lines()) {
-
       stats->l2_total_cache_accesses = total_l2_css.accesses;
       stats->l2_total_cache_misses = total_l2_css.misses;
       stats->l2_total_cache_miss_rate = 0.0;

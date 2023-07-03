@@ -4,18 +4,19 @@
 
 /// Access cache for read_only_cache: returns RESERVATION_FAIL if
 // request could not be accepted (for any reason)
-enum cache_request_status
-read_only_cache::access(new_addr_type addr, mem_fetch *mf, unsigned time,
-                        std::list<cache_event> &events) {
+enum cache_request_status read_only_cache::access(
+    new_addr_type addr, mem_fetch *mf, unsigned time,
+    std::list<cache_event> &events) {
   assert(mf->get_data_size() <= m_config.get_atom_sz());
   assert(m_config.m_write_policy == READ_ONLY);
   assert(!mf->get_is_write());
   new_addr_type block_addr = m_config.block_addr(addr);
 
-  printf("%s::read_only_cache::access(%lu, write = %d, data size = %d, control "
-         "size = %d, block = %lu)\n",
-         name().c_str(), addr, mf->is_write(), mf->get_data_size(),
-         mf->get_ctrl_size(), block_addr);
+  printf(
+      "%s::read_only_cache::access(%lu, write = %d, data size = %d, control "
+      "size = %d, block = %lu)\n",
+      name().c_str(), addr, mf->is_write(), mf->get_data_size(),
+      mf->get_ctrl_size(), block_addr);
 
   unsigned cache_index = (unsigned)-1;
   enum cache_request_status status =
@@ -24,7 +25,7 @@ read_only_cache::access(new_addr_type addr, mem_fetch *mf, unsigned time,
 
   if (status == HIT) {
     cache_status = m_tag_array->access(block_addr, time, cache_index,
-                                       mf); // update LRU state
+                                       mf);  // update LRU state
   } else if (status != RESERVATION_FAIL) {
     if (!miss_queue_full(0)) {
       bool do_miss = false;
@@ -49,11 +50,10 @@ read_only_cache::access(new_addr_type addr, mem_fetch *mf, unsigned time,
   return cache_status;
 }
 
-std::unique_ptr<read_only_cache>
-new_read_only_cache(const std::string &name,
-                    std::unique_ptr<cache_config> config, int core_id,
-                    int type_id, mem_fetch_interface *memport,
-                    enum mem_fetch_status fetch_status) {
+std::unique_ptr<read_only_cache> new_read_only_cache(
+    const std::string &name, std::unique_ptr<cache_config> config, int core_id,
+    int type_id, mem_fetch_interface *memport,
+    enum mem_fetch_status fetch_status) {
   return std::make_unique<read_only_cache>(name.c_str(), *config, core_id,
                                            type_id, memport, fetch_status);
 }

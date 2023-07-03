@@ -39,7 +39,7 @@ class LOA : public DenseAllocator {
   std::vector<int> _rptr;
   std::vector<int> _gptr;
 
-public:
+ public:
   LOA(Module *parent, const std::string &name, int inputs, int outputs);
 
   void Allocate();

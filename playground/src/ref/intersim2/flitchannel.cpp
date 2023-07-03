@@ -46,8 +46,12 @@
 //  $Id: flitchannel.cpp 5516 2013-10-06 02:14:48Z dub $
 // ----------------------------------------------------------------------
 FlitChannel::FlitChannel(Module *parent, std::string const &name, int classes)
-    : Channel<Flit>(parent, name), _routerSource(NULL), _routerSourcePort(-1),
-      _routerSink(NULL), _routerSinkPort(-1), _idle(0) {
+    : Channel<Flit>(parent, name),
+      _routerSource(NULL),
+      _routerSourcePort(-1),
+      _routerSink(NULL),
+      _routerSinkPort(-1),
+      _idle(0) {
   _active.resize(classes, 0);
 }
 

@@ -7,7 +7,7 @@
 
 /// Read only cache
 class read_only_cache : public baseline_cache {
-public:
+ public:
   read_only_cache(const char *name, cache_config &config, int core_id,
                   int type_id, mem_fetch_interface *memport,
                   enum mem_fetch_status status)
@@ -23,7 +23,7 @@ public:
 
   virtual ~read_only_cache() {}
 
-protected:
+ protected:
   read_only_cache(const char *name, cache_config &config, int core_id,
                   int type_id, mem_fetch_interface *memport,
                   enum mem_fetch_status status, tag_array *new_tag_array)
@@ -31,8 +31,7 @@ protected:
                        new_tag_array) {}
 };
 
-std::unique_ptr<read_only_cache>
-new_read_only_cache(const std::string &name,
-                    std::unique_ptr<cache_config> config, int core_id,
-                    int type_id, std::unique_ptr<mem_fetch_interface> memport,
-                    enum mem_fetch_status fetch_status);
+std::unique_ptr<read_only_cache> new_read_only_cache(
+    const std::string &name, std::unique_ptr<cache_config> config, int core_id,
+    int type_id, std::unique_ptr<mem_fetch_interface> memport,
+    enum mem_fetch_status fetch_status);

@@ -75,18 +75,16 @@ void Tree4::_ComputeSize(const Configuration &config) {
   _nodes = powi(_k, _n);
 
   _size = 0;
-  for (h = 0; h < _n; ++h)
-    _size += (4 >> h) * powi(_k, h);
+  for (h = 0; h < _n; ++h) _size += (4 >> h) * powi(_k, h);
 
-  _channels = 2                   // Two Channels per Connection
-              * (2 * powi(_k, 1)) // Number of Middle Routers
-              * (2 * _k);         // Connectivity of Middle Routers
+  _channels = 2                    // Two Channels per Connection
+              * (2 * powi(_k, 1))  // Number of Middle Routers
+              * (2 * _k);          // Connectivity of Middle Routers
 }
 
 void Tree4::RegisterRoutingFunctions() {}
 
 void Tree4::_BuildNet(const Configuration &config) {
-
   //
   // Allocate Routers
   //
@@ -124,7 +122,6 @@ void Tree4::_BuildNet(const Configuration &config) {
   nPos = powi(_k, _n - 1);
   for (pos = 0; pos < nPos; ++pos) {
     for (int port = 0; port < _k; ++port) {
-
       _Router(_n - 1, pos)
           ->AddInputChannel(_inject[_k * pos + port],
                             _inject_cred[_k * pos + port]);
@@ -146,7 +143,6 @@ void Tree4::_BuildNet(const Configuration &config) {
   nPos = 2 * powi(_k, 1);
   for (pos = 0; pos < nPos; ++pos) {
     for (int port = 0; port < _k; ++port) {
-
       pp = pos;
       pc = _k * (pos / 2) + port;
 
@@ -213,8 +209,7 @@ Router *&Tree4::_Router(int height, int pos) {
   assert(pos < (4 >> height) * powi(_k, height));
 
   int i = 0;
-  for (int h = 0; h < height; ++h)
-    i += (4 >> h) * powi(_k, h);
+  for (int h = 0; h < height; ++h) i += (4 >> h) * powi(_k, h);
   return _routers[i + pos];
 }
 
@@ -250,65 +245,61 @@ int Tree4::_WireLatency(int height1, int pos1, int height2, int pos2) {
   if (heightChild == 2)
     L = _length_d2_d1;
   else {
-    if (posChild == 0 || posChild == 6)
-      switch (posParent) {
-      case 0:
-        L = _length_d1_d0_0;
-        break;
-      case 1:
-        L = _length_d1_d0_1;
-        break;
-      case 2:
-        L = _length_d1_d0_2;
-        break;
-      case 3:
-        L = _length_d1_d0_3;
-        break;
+    if (posChild == 0 || posChild == 6) switch (posParent) {
+        case 0:
+          L = _length_d1_d0_0;
+          break;
+        case 1:
+          L = _length_d1_d0_1;
+          break;
+        case 2:
+          L = _length_d1_d0_2;
+          break;
+        case 3:
+          L = _length_d1_d0_3;
+          break;
       }
-    if (posChild == 1 || posChild == 7)
-      switch (posParent) {
-      case 0:
-        L = _length_d1_d0_3;
-        break;
-      case 1:
-        L = _length_d1_d0_2;
-        break;
-      case 2:
-        L = _length_d1_d0_1;
-        break;
-      case 3:
-        L = _length_d1_d0_0;
-        break;
+    if (posChild == 1 || posChild == 7) switch (posParent) {
+        case 0:
+          L = _length_d1_d0_3;
+          break;
+        case 1:
+          L = _length_d1_d0_2;
+          break;
+        case 2:
+          L = _length_d1_d0_1;
+          break;
+        case 3:
+          L = _length_d1_d0_0;
+          break;
       }
-    if (posChild == 2 || posChild == 4)
-      switch (posParent) {
-      case 0:
-        L = _length_d1_d0_0;
-        break;
-      case 1:
-        L = _length_d1_d0_1;
-        break;
-      case 2:
-        L = _length_d1_d0_2;
-        break;
-      case 3:
-        L = _length_d1_d0_3;
-        break;
+    if (posChild == 2 || posChild == 4) switch (posParent) {
+        case 0:
+          L = _length_d1_d0_0;
+          break;
+        case 1:
+          L = _length_d1_d0_1;
+          break;
+        case 2:
+          L = _length_d1_d0_2;
+          break;
+        case 3:
+          L = _length_d1_d0_3;
+          break;
       }
-    if (posChild == 3 || posChild == 5)
-      switch (posParent) {
-      case 0:
-        L = _length_d1_d0_3;
-        break;
-      case 1:
-        L = _length_d1_d0_2;
-        break;
-      case 2:
-        L = _length_d1_d0_1;
-        break;
-      case 3:
-        L = _length_d1_d0_0;
-        break;
+    if (posChild == 3 || posChild == 5) switch (posParent) {
+        case 0:
+          L = _length_d1_d0_3;
+          break;
+        case 1:
+          L = _length_d1_d0_2;
+          break;
+        case 2:
+          L = _length_d1_d0_1;
+          break;
+        case 3:
+          L = _length_d1_d0_0;
+          break;
       }
   }
   return L;

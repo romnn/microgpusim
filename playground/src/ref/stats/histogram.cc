@@ -3,8 +3,12 @@
 #include <assert.h>
 
 binned_histogram::binned_histogram(std::string name, int nbins, int *bins)
-    : m_name(name), m_nbins(nbins), m_bins(NULL), m_bin_cnts(new int[m_nbins]),
-      m_maximum(0), m_sum(0) {
+    : m_name(name),
+      m_nbins(nbins),
+      m_bins(NULL),
+      m_bin_cnts(new int[m_nbins]),
+      m_maximum(0),
+      m_sum(0) {
   if (bins) {
     m_bins = new int[m_nbins];
     for (int i = 0; i < nbins; i++) {
@@ -16,8 +20,12 @@ binned_histogram::binned_histogram(std::string name, int nbins, int *bins)
 }
 
 binned_histogram::binned_histogram(const binned_histogram &other)
-    : m_name(other.m_name), m_nbins(other.m_nbins), m_bins(NULL),
-      m_bin_cnts(new int[m_nbins]), m_maximum(0), m_sum(0) {
+    : m_name(other.m_name),
+      m_nbins(other.m_nbins),
+      m_bins(NULL),
+      m_bin_cnts(new int[m_nbins]),
+      m_maximum(0),
+      m_sum(0) {
   for (int i = 0; i < m_nbins; i++) {
     m_bin_cnts[i] = other.m_bin_cnts[i];
   }
@@ -35,8 +43,7 @@ void binned_histogram::add2bin(int sample) {
 }
 
 void binned_histogram::fprint(FILE *fout) const {
-  if (m_name.c_str() != NULL)
-    fprintf(fout, "%s = ", m_name.c_str());
+  if (m_name.c_str() != NULL) fprintf(fout, "%s = ", m_name.c_str());
   int total_sample = 0;
   for (int i = 0; i < m_nbins; i++) {
     fprintf(fout, "%d ", m_bin_cnts[i]);
@@ -51,8 +58,7 @@ void binned_histogram::fprint(FILE *fout) const {
 }
 
 binned_histogram::~binned_histogram() {
-  if (m_bins)
-    delete[] m_bins;
+  if (m_bins) delete[] m_bins;
   delete[] m_bin_cnts;
 }
 
@@ -94,8 +100,7 @@ void linear_histogram::add2bin(int sample) {
   assert(sample >= 0);
 
   int bin = sample / m_stride;
-  if (bin >= m_nbins)
-    bin = m_nbins - 1;
+  if (bin >= m_nbins) bin = m_nbins - 1;
 
   m_bin_cnts[bin] += 1;
 

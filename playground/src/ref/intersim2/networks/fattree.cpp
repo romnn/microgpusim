@@ -57,14 +57,12 @@
 FatTree::FatTree(const Configuration &config, const std::string &name,
                  InterconnectInterface *icnt)
     : Network(config, name, icnt) {
-
   _ComputeSize(config);
   _Alloc();
   _BuildNet(config);
 }
 
 void FatTree::_ComputeSize(const Configuration &config) {
-
   _k = config.GetInt("k");
   _n = config.GetInt("n");
 
@@ -100,8 +98,7 @@ void FatTree::_BuildNet(const Configuration &config) {
   int level, pos, id, degree, port;
   for (level = 0; level < _n; ++level) {
     for (pos = 0; pos < nPos; ++pos) {
-
-      if (level == 0) // top routers is zero
+      if (level == 0)  // top routers is zero
         degree = _k;
       else
         degree = 2 * _k;
@@ -145,8 +142,8 @@ void FatTree::_BuildNet(const Configuration &config) {
 #endif
 
   // channels are numbered sequentially from an output channel perspective
-  int chan_per_direction = (_k * powi(_k, _n - 1)); // up or down
-  int chan_per_level = 2 * (_k * powi(_k, _n - 1)); // up+down
+  int chan_per_direction = (_k * powi(_k, _n - 1));  // up or down
+  int chan_per_level = 2 * (_k * powi(_k, _n - 1));  // up+down
 
   // connect all down output channels
   // level n-1's down channel are injection channels
@@ -201,12 +198,12 @@ void FatTree::_BuildNet(const Configuration &config) {
       int neighborhood_pos = pos % routers_per_neighborhood;
       for (port = 0; port < _k; ++port) {
         int link = ((level + 1) * chan_per_level -
-                    chan_per_direction)             // which levellevel
-                   + neighborhood * level_offset    // region in level
-                   + port * routers_per_branch * gK // sub region in region
+                    chan_per_direction)              // which levellevel
+                   + neighborhood * level_offset     // region in level
+                   + port * routers_per_branch * gK  // sub region in region
                    + (neighborhood_pos) % routers_per_branch *
-                         gK // router in subregion
-                   + (neighborhood_pos) / routers_per_branch; // port on router
+                         gK  // router in subregion
+                   + (neighborhood_pos) / routers_per_branch;  // port on router
 
         _Router(level, pos)->AddInputChannel(_chan[link], _chan_cred[link]);
 #ifdef FATTREE_DEBUG
@@ -228,12 +225,12 @@ void FatTree::_BuildNet(const Configuration &config) {
       int neighborhood = pos / routers_per_neighborhood;
       int neighborhood_pos = pos % routers_per_neighborhood;
       for (port = 0; port < _k; ++port) {
-        int link = ((level - 1) * chan_per_level)   // which levellevel
-                   + neighborhood * level_offset    // region in level
-                   + port * routers_per_branch * gK // sub region in region
+        int link = ((level - 1) * chan_per_level)    // which levellevel
+                   + neighborhood * level_offset     // region in level
+                   + port * routers_per_branch * gK  // sub region in region
                    + (neighborhood_pos) % routers_per_branch *
-                         gK // router in subregion
-                   + (neighborhood_pos) / routers_per_branch; // port on router
+                         gK  // router in subregion
+                   + (neighborhood_pos) / routers_per_branch;  // port on router
 
         _Router(level, pos)->AddInputChannel(_chan[link], _chan_cred[link]);
 #ifdef FATTREE_DEBUG

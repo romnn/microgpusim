@@ -32,14 +32,10 @@ int n;                 /* array length (must be at least KK) */
 #endif
 {
   register int i, j;
-  for (j = 0; j < KK; j++)
-    aa[j] = ran_u[j];
-  for (; j < n; j++)
-    aa[j] = mod_sum(aa[j - KK], aa[j - LL]);
-  for (i = 0; i < LL; i++, j++)
-    ran_u[i] = mod_sum(aa[j - KK], aa[j - LL]);
-  for (; i < KK; i++, j++)
-    ran_u[i] = mod_sum(aa[j - KK], ran_u[i - LL]);
+  for (j = 0; j < KK; j++) aa[j] = ran_u[j];
+  for (; j < n; j++) aa[j] = mod_sum(aa[j - KK], aa[j - LL]);
+  for (i = 0; i < LL; i++, j++) ran_u[i] = mod_sum(aa[j - KK], aa[j - LL]);
+  for (; i < KK; i++, j++) ran_u[i] = mod_sum(aa[j - KK], ran_u[i - LL]);
 }
 
 /* the following routines are adapted from exercise 3.6--15 */
@@ -68,8 +64,7 @@ void ranf_start(seed)  /* do this before using ranf_array */
   for (j = 0; j < KK; j++) {
     u[j] = ss; /* bootstrap the buffer */
     ss += ss;
-    if (ss >= 1.0)
-      ss -= 1.0 - 2 * ulp; /* cyclic shift of 51 bits */
+    if (ss >= 1.0) ss -= 1.0 - 2 * ulp; /* cyclic shift of 51 bits */
   }
   u[1] += ulp; /* make u[1] (and only u[1]) "odd" */
   for (s = seed & 0x3fffffff, t = TT - 1; t;) {
@@ -80,8 +75,7 @@ void ranf_start(seed)  /* do this before using ranf_array */
       u[j - KK] = mod_sum(u[j - KK], u[j]);
     }
     if (is_odd(s)) { /* "multiply by z" */
-      for (j = KK; j > 0; j--)
-        u[j] = u[j - 1];
+      for (j = KK; j > 0; j--) u[j] = u[j - 1];
       u[0] = u[KK]; /* shift the buffer cyclically */
       u[LL] = mod_sum(u[LL], u[KK]);
     }
@@ -90,16 +84,13 @@ void ranf_start(seed)  /* do this before using ranf_array */
     else
       t--;
   }
-  for (j = 0; j < LL; j++)
-    ran_u[j + KK - LL] = u[j];
-  for (; j < KK; j++)
-    ran_u[j - LL] = u[j];
-  for (j = 0; j < 10; j++)
-    ranf_array(u, KK + KK - 1); /* warm things up */
+  for (j = 0; j < LL; j++) ran_u[j + KK - LL] = u[j];
+  for (; j < KK; j++) ran_u[j - LL] = u[j];
+  for (j = 0; j < 10; j++) ranf_array(u, KK + KK - 1); /* warm things up */
   ranf_arr_ptr = &ranf_arr_started;
 }
 
-#define ranf_arr_next()                                                        \
+#define ranf_arr_next() \
   (*ranf_arr_ptr >= 0 ? *ranf_arr_ptr++ : ranf_arr_cycle())
 double ranf_arr_cycle() {
   if (ranf_arr_ptr == &ranf_arr_dummy)
@@ -115,13 +106,11 @@ int main() {
   register int m;
   double a[2009]; /* a rudimentary test */
   ranf_start(310952);
-  for (m = 0; m < 2009; m++)
-    ranf_array(a, 1009);
+  for (m = 0; m < 2009; m++) ranf_array(a, 1009);
   printf("%.20f\n", ran_u[0]); /* 0.36410514377569680455 */
   /* beware of buggy printf routines that do not give full accuracy here! */
   ranf_start(310952);
-  for (m = 0; m < 1009; m++)
-    ranf_array(a, 2009);
+  for (m = 0; m < 1009; m++) ranf_array(a, 2009);
   printf("%.20f\n", ran_u[0]); /* 0.36410514377569680455 */
   return 0;
 }

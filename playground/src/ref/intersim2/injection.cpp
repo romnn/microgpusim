@@ -143,7 +143,10 @@ OnOffInjectionProcess::OnOffInjectionProcess(int nodes, double rate,
                                              double alpha, double beta,
                                              double r1,
                                              std::vector<int> initial)
-    : InjectionProcess(nodes, rate), _alpha(alpha), _beta(beta), _r1(r1),
+    : InjectionProcess(nodes, rate),
+      _alpha(alpha),
+      _beta(beta),
+      _r1(r1),
       _initial(initial) {
   assert(alpha <= 1.0);
   assert(beta <= 1.0);

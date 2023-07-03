@@ -56,9 +56,8 @@ void BufferState::BufferPolicy::SendingFlit(Flit const *const f) {}
 
 void BufferState::BufferPolicy::FreeSlotFor(int vc) {}
 
-BufferState::BufferPolicy *
-BufferState::BufferPolicy::New(Configuration const &config, BufferState *parent,
-                               const std::string &name) {
+BufferState::BufferPolicy *BufferState::BufferPolicy::New(
+    Configuration const &config, BufferState *parent, const std::string &name) {
   BufferPolicy *sp = NULL;
   std::string buffer_policy = config.GetStr("buffer_policy");
   if (buffer_policy == "private") {
@@ -531,7 +530,6 @@ void BufferState::ProcessCredit(Credit const *const c) {
 
   std::set<int>::iterator iter = c->vc.begin();
   while (iter != c->vc.end()) {
-
     int const vc = *iter;
 
     assert((vc >= 0) && (vc < _vcs));

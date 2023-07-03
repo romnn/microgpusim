@@ -22,18 +22,15 @@ pub struct Options {
     pub recursive: bool,
 
     #[clap(
-        short = 'v',
-        long = "verbose",
-        help = "output diffs after reformatting"
-    )]
-    pub verbose: bool,
-
-    #[clap(
         short = 's',
         long = "style",
-        help = "format style to use for clang-format"
+        help = "format style to use for clang-format (use \"file\" for using .clang-format)",
+        default_value = "{BasedOnStyle: Google, IncludeBlocks: Preserve, SortIncludes: false}"
     )]
-    pub style: Option<String>,
+    pub style: String,
+
+    #[clap(long = "style-file", help = "style file to use for clang-format")]
+    pub style_file: Option<PathBuf>,
 }
 
 const EXTENSIONS: [&'static str; 12] = [
@@ -53,13 +50,36 @@ fn read_file(path: impl AsRef<Path>) -> eyre::Result<(Option<DateTime<Local>>, S
     Ok((mod_time, content))
 }
 
+fn partition_results<O, E, OC, EC>(results: impl IntoIterator<Item = Result<O, E>>) -> (OC, EC)
+where
+    O: std::fmt::Debug,
+    E: std::fmt::Debug,
+    OC: std::iter::FromIterator<O>,
+    EC: std::iter::FromIterator<E>,
+{
+    let (succeeded, failed): (Vec<_>, Vec<_>) = results.into_iter().partition(Result::is_ok);
+    let succeeded: OC = succeeded.into_iter().map(Result::unwrap).collect();
+    let failed: EC = failed.into_iter().map(Result::unwrap_err).collect();
+    (succeeded, failed)
+}
+
 pub fn format(options: Options) -> eyre::Result<()> {
+    use rayon::prelude::*;
+    use std::collections::HashSet;
+
     let start = std::time::Instant::now();
+
+    let num_threads = num_cpus::get().max(8);
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(num_threads)
+        .build_global()?;
 
     // common args for clang-format (-i is in-place)
     let mut common_args = vec!["-i".to_string()];
-    if let Some(style) = options.style {
-        common_args.push(format!("-style={}", style));
+    if let Some(style_file) = options.style_file {
+        common_args.push(format!("-style=file:{}", style_file.display()));
+    } else {
+        common_args.push(format!("-style={}", options.style));
     }
 
     let patterns: Vec<_> = EXTENSIONS
@@ -74,14 +94,24 @@ pub fn format(options: Options) -> eyre::Result<()> {
         .map(|path| path.to_string_lossy().to_string())
         .collect();
 
-    use rayon::prelude::*;
+    let (files, glob_failed): (HashSet<_>, Vec<_>) = partition_results(multi_glob(&patterns));
+    assert!(glob_failed.is_empty());
 
-    let files: Vec<_> = multi_glob(&patterns).collect();
     let num_files = files.len();
-    let (succeeded, failed): (Vec<_>, Vec<_>) = files
+    let bar = indicatif::ProgressBar::new(num_files as u64);
+
+    let results: Vec<_> = files
         .into_par_iter()
-        .map(|path| {
-            let file_path = path?;
+        .map(|file_path| {
+            // skip symlinks
+            let skip = match fs::symlink_metadata(&file_path) {
+                Ok(meta) => !meta.file_type().is_file() || meta.file_type().is_symlink(),
+                Err(_) => true,
+            };
+            if skip {
+                return Ok::<_, eyre::Report>((false, file_path));
+            }
+
             let (mod_time_before, before) = read_file(&file_path)?;
 
             // format code
@@ -110,24 +140,26 @@ pub fn format(options: Options) -> eyre::Result<()> {
             let changed = !diff.is_empty();
 
             if changed {
-                println!("reformatted {}", file_path.display());
-                if options.verbose {
-                    println!("{}\n", diff.join("\n"));
-                }
+                bar.println(format!("reformatted {}", file_path.display()));
             }
             Ok::<_, eyre::Report>((changed, file_path))
         })
-        .partition(Result::is_ok);
+        .map(|res| {
+            bar.inc(1);
+            res
+        })
+        .collect();
 
-    let succeeded: Vec<_> = succeeded.into_iter().map(Result::unwrap).collect();
+    assert_eq!(num_files, results.len());
+    let (succeeded, failed): (Vec<_>, Vec<_>) = partition_results(results);
     let changed: Vec<_> = succeeded
         .clone()
         .into_iter()
         .filter(|(changed, _)| *changed)
         .map(|(_, file)| file)
         .collect();
-    let failed: Vec<_> = failed.into_iter().map(Result::unwrap_err).collect();
 
+    bar.finish();
     assert_eq!(num_files, succeeded.len() + failed.len());
     println!(
         "scanned {} files: {} files formatted, {} files failed in {:?}",

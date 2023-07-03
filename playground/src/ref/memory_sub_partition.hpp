@@ -13,7 +13,7 @@ class memory_config;
 class partition_mf_allocator;
 
 class memory_sub_partition {
-public:
+ public:
   memory_sub_partition(unsigned sub_partition_id, const memory_config *config,
                        class memory_stats_t *stats, class trace_gpgpu_sim *gpu);
   ~memory_sub_partition();
@@ -66,9 +66,9 @@ public:
     class mem_fetch *req;
   };
 
-private:
+ private:
   // data
-  unsigned m_id; //< the global sub partition ID
+  unsigned m_id;  //< the global sub partition ID
   const memory_config *m_config;
   class l2_cache *m_L2cache;
   class L2interface *m_L2interface;
@@ -81,7 +81,7 @@ private:
   fifo_pipeline<mem_fetch> *m_icnt_L2_queue;
   fifo_pipeline<mem_fetch> *m_L2_dram_queue;
   fifo_pipeline<mem_fetch> *m_dram_L2_queue;
-  fifo_pipeline<mem_fetch> *m_L2_icnt_queue; // L2 cache hit response queue
+  fifo_pipeline<mem_fetch> *m_L2_icnt_queue;  // L2 cache hit response queue
 
   class mem_fetch *L2dramout;
   unsigned long long int wb_addr;

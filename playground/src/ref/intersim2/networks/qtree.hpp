@@ -45,7 +45,6 @@
 #include <cassert>
 
 class QTree : public Network {
-
   int _k;
   int _n;
 
@@ -56,7 +55,7 @@ class QTree : public Network {
   int _InputIndex(int height, int pos, int port);
   int _OutputIndex(int height, int pos, int port);
 
-public:
+ public:
   QTree(const Configuration &config, const std::string &name,
         InterconnectInterface *icnt);
   static void RegisterRoutingFunctions();

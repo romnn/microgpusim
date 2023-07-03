@@ -41,7 +41,6 @@ SeparableAllocator::SeparableAllocator(Module *parent, const std::string &name,
                                        int inputs, int outputs,
                                        const std::string &arb_type)
     : SparseAllocator(parent, name, inputs, outputs) {
-
   _input_arb.resize(inputs);
 
   for (int i = 0; i < inputs; ++i) {
@@ -62,7 +61,6 @@ SeparableAllocator::SeparableAllocator(Module *parent, const std::string &name,
 }
 
 SeparableAllocator::~SeparableAllocator() {
-
   for (int i = 0; i < _inputs; ++i) {
     delete _input_arb[i];
   }
@@ -74,12 +72,10 @@ SeparableAllocator::~SeparableAllocator() {
 
 void SeparableAllocator::Clear() {
   for (int i = 0; i < _inputs; i++) {
-    if (_input_arb[i]->_num_reqs)
-      _input_arb[i]->Clear();
+    if (_input_arb[i]->_num_reqs) _input_arb[i]->Clear();
   }
   for (int o = 0; o < _outputs; o++) {
-    if (_output_arb[o]->_num_reqs)
-      _output_arb[o]->Clear();
+    if (_output_arb[o]->_num_reqs) _output_arb[o]->Clear();
   }
   SparseAllocator::Clear();
 }

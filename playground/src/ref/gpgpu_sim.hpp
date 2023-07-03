@@ -33,7 +33,7 @@
 class simt_core_cluster;
 
 class gpgpu_sim : public gpgpu_t {
-public:
+ public:
   gpgpu_sim(const gpgpu_sim_config &config, gpgpu_context *ctx);
 
   void set_prop(struct cudaDeviceProp *prop);
@@ -124,7 +124,7 @@ public:
   // backward pointer
   class gpgpu_context *gpgpu_ctx;
 
-private:
+ private:
   // clocks
   void reinit_clock_domains(void);
   int next_clock_domain(void);
@@ -139,7 +139,7 @@ private:
 
   void gpgpu_debug();
 
-protected:
+ protected:
   ///// data /////
   class simt_core_cluster **m_cluster;
   class memory_partition_unit **m_memory_partition_unit;
@@ -188,19 +188,19 @@ protected:
   std::map<std::string, FuncCache> m_special_cache_config;
 
   std::vector<std::string>
-      m_executed_kernel_names; //< names of kernel for stat printout
+      m_executed_kernel_names;  //< names of kernel for stat printout
   std::vector<unsigned>
-      m_executed_kernel_uids; //< uids of kernel launches for stat printout
+      m_executed_kernel_uids;  //< uids of kernel launches for stat printout
   std::map<unsigned, watchpoint_event> g_watchpoint_hits;
 
-  std::string executed_kernel_info_string(); //< format the kernel information
-                                             // into a string for stat printout
+  std::string executed_kernel_info_string();  //< format the kernel information
+                                              // into a string for stat printout
   std::string executed_kernel_name();
-  void clear_executed_kernel_info(); //< clear the kernel information after
-                                     // stat printout
+  void clear_executed_kernel_info();  //< clear the kernel information after
+                                      // stat printout
   virtual void createSIMTCluster() = 0;
 
-public:
+ public:
   unsigned long long gpu_sim_insn;
   unsigned long long gpu_tot_sim_insn;
   unsigned long long gpu_sim_insn_last_update;
@@ -227,12 +227,12 @@ public:
   void set_cache_config(std::string kernel_name);
 
   // Jin: functional simulation for CDP
-private:
+ private:
   // set by stream operation every time a functoinal simulation is done
   bool m_functional_sim;
   trace_kernel_info_t *m_functional_sim_kernel;
 
-public:
+ public:
   bool is_functional_sim() { return m_functional_sim; }
   trace_kernel_info_t *get_functional_kernel() {
     return m_functional_sim_kernel;

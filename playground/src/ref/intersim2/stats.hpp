@@ -44,7 +44,7 @@ class Stats : public Module {
 
   std::vector<int> _hist;
 
-public:
+ public:
   Stats(Module *parent, const std::string &name, double bin_size = 1.0,
         int num_bins = 10);
 

@@ -55,8 +55,7 @@ warp_inst_t core_t::getExecuteWarp(unsigned warpId) {
 
 void core_t::deleteSIMTStack() {
   if (m_simt_stack) {
-    for (unsigned i = 0; i < m_warp_count; ++i)
-      delete m_simt_stack[i];
+    for (unsigned i = 0; i < m_warp_count; ++i) delete m_simt_stack[i];
     delete[] m_simt_stack;
     m_simt_stack = NULL;
   }

@@ -25,8 +25,7 @@ void data_cache::update_m_readable(mem_fetch *mf, unsigned cache_index) {
           break;
         }
       }
-      if (all_set)
-        block->set_m_readable(true, mf->get_access_sector_mask());
+      if (all_set) block->set_m_readable(true, mf->get_access_sector_mask());
     }
   }
 }
@@ -40,7 +39,7 @@ cache_request_status data_cache::wr_hit_wb(new_addr_type addr,
                                            std::list<cache_event> &events,
                                            enum cache_request_status status) {
   new_addr_type block_addr = m_config.block_addr(addr);
-  m_tag_array->access(block_addr, time, cache_index, mf); // update LRU state
+  m_tag_array->access(block_addr, time, cache_index, mf);  // update LRU state
   cache_block_t *block = m_tag_array->get_block(cache_index);
   if (!block->is_modified_line()) {
     m_tag_array->inc_dirty();
@@ -60,11 +59,11 @@ cache_request_status data_cache::wr_hit_wt(new_addr_type addr,
                                            enum cache_request_status status) {
   if (miss_queue_full(0)) {
     m_stats.inc_fail_stats(mf->get_access_type(), MISS_QUEUE_FULL);
-    return RESERVATION_FAIL; // cannot handle request this cycle
+    return RESERVATION_FAIL;  // cannot handle request this cycle
   }
 
   new_addr_type block_addr = m_config.block_addr(addr);
-  m_tag_array->access(block_addr, time, cache_index, mf); // update LRU state
+  m_tag_array->access(block_addr, time, cache_index, mf);  // update LRU state
   cache_block_t *block = m_tag_array->get_block(cache_index);
   if (!block->is_modified_line()) {
     m_tag_array->inc_dirty();
@@ -88,7 +87,7 @@ cache_request_status data_cache::wr_hit_we(new_addr_type addr,
                                            enum cache_request_status status) {
   if (miss_queue_full(0)) {
     m_stats.inc_fail_stats(mf->get_access_type(), MISS_QUEUE_FULL);
-    return RESERVATION_FAIL; // cannot handle request this cycle
+    return RESERVATION_FAIL;  // cannot handle request this cycle
   }
 
   // generate a write-through/evict
@@ -106,13 +105,13 @@ enum cache_request_status data_cache::wr_hit_global_we_local_wb(
     new_addr_type addr, unsigned cache_index, mem_fetch *mf, unsigned time,
     std::list<cache_event> &events, enum cache_request_status status) {
   bool evict = (mf->get_access_type() ==
-                GLOBAL_ACC_W); // evict a line that hits on global memory write
+                GLOBAL_ACC_W);  // evict a line that hits on global memory write
   if (evict)
     return wr_hit_we(addr, cache_index, mf, time, events,
-                     status); // Write-evict
+                     status);  // Write-evict
   else
     return wr_hit_wb(addr, cache_index, mf, time, events,
-                     status); // Write-back
+                     status);  // Write-back
 }
 
 /****** Write-miss functions (Set by config file) ******/
@@ -122,7 +121,6 @@ enum cache_request_status data_cache::wr_hit_global_we_local_wb(
 enum cache_request_status data_cache::wr_miss_wa_naive(
     new_addr_type addr, unsigned cache_index, mem_fetch *mf, unsigned time,
     std::list<cache_event> &events, enum cache_request_status status) {
-
   std::cout << "handling write miss for " << mf << "(address " << addr << ")"
             << std::endl;
   new_addr_type block_addr = m_config.block_addr(addr);
@@ -158,7 +156,7 @@ enum cache_request_status data_cache::wr_miss_wa_naive(
 
   const mem_access_t *ma =
       new mem_access_t(m_wr_alloc_type, mf->get_addr(), m_config.get_atom_sz(),
-                       false, // Now performing a read
+                       false,  // Now performing a read
                        mf->get_access_warp_mask(), mf->get_access_byte_mask(),
                        mf->get_access_sector_mask(), m_gpu->gpgpu_ctx);
 
@@ -184,7 +182,7 @@ enum cache_request_status data_cache::wr_miss_wa_naive(
     // throw std::runtime_error("has evicted block");
     if (wb && (m_config.m_write_policy != WRITE_THROUGH)) {
       assert(status ==
-             MISS); // SECTOR_MISS and HIT_RESERVED should not send write back
+             MISS);  // SECTOR_MISS and HIT_RESERVED should not send write back
       mem_fetch *wb = m_memfetch_creator->alloc(
           evicted.m_block_addr, m_wrbk_type, mf->get_access_warp_mask(),
           evicted.m_byte_mask, evicted.m_sector_mask, evicted.m_modified_size,
@@ -216,7 +214,7 @@ enum cache_request_status data_cache::wr_miss_wa_fetch_on_write(
 
     if (miss_queue_full(0)) {
       m_stats.inc_fail_stats(mf->get_access_type(), MISS_QUEUE_FULL);
-      return RESERVATION_FAIL; // cannot handle request this cycle
+      return RESERVATION_FAIL;  // cannot handle request this cycle
     }
 
     bool wb = false;
@@ -285,7 +283,7 @@ enum cache_request_status data_cache::wr_miss_wa_fetch_on_write(
 
     const mem_access_t *ma = new mem_access_t(
         m_wr_alloc_type, mf->get_addr(), m_config.get_atom_sz(),
-        false, // Now performing a read
+        false,  // Now performing a read
         mf->get_access_warp_mask(), mf->get_access_byte_mask(),
         mf->get_access_sector_mask(), m_gpu->gpgpu_ctx);
 
@@ -340,7 +338,7 @@ enum cache_request_status data_cache::wr_miss_wa_lazy_fetch_on_read(
 
   if (miss_queue_full(0)) {
     m_stats.inc_fail_stats(mf->get_access_type(), MISS_QUEUE_FULL);
-    return RESERVATION_FAIL; // cannot handle request this cycle
+    return RESERVATION_FAIL;  // cannot handle request this cycle
   }
 
   if (m_config.m_write_policy == WRITE_THROUGH) {
@@ -401,7 +399,7 @@ enum cache_request_status data_cache::wr_miss_no_wa(
     std::list<cache_event> &events, enum cache_request_status status) {
   if (miss_queue_full(0)) {
     m_stats.inc_fail_stats(mf->get_access_type(), MISS_QUEUE_FULL);
-    return RESERVATION_FAIL; // cannot handle request this cycle
+    return RESERVATION_FAIL;  // cannot handle request this cycle
   }
 
   // on miss, generate write through (no write buffering -- too many threads for
@@ -415,10 +413,9 @@ enum cache_request_status data_cache::wr_miss_no_wa(
 
 /// Baseline read hit: Update LRU status of block.
 // Special case for atomic instructions -> Mark block as modified
-enum cache_request_status
-data_cache::rd_hit_base(new_addr_type addr, unsigned cache_index, mem_fetch *mf,
-                        unsigned time, std::list<cache_event> &events,
-                        enum cache_request_status status) {
+enum cache_request_status data_cache::rd_hit_base(
+    new_addr_type addr, unsigned cache_index, mem_fetch *mf, unsigned time,
+    std::list<cache_event> &events, enum cache_request_status status) {
   new_addr_type block_addr = m_config.block_addr(addr);
   m_tag_array->access(block_addr, time, cache_index, mf);
   // Atomics treated as global read/write requests - Perform read, mark line as
@@ -430,7 +427,7 @@ data_cache::rd_hit_base(new_addr_type addr, unsigned cache_index, mem_fetch *mf,
       m_tag_array->inc_dirty();
     }
     block->set_status(MODIFIED,
-                      mf->get_access_sector_mask()); // mark line as
+                      mf->get_access_sector_mask());  // mark line as
     block->set_byte_mask(mf);
   }
   return HIT;
@@ -480,17 +477,16 @@ enum cache_request_status data_cache::rd_miss_base(
 //! A general function that takes the result of a tag_array probe
 //  and performs the correspding functions based on the cache configuration
 //  The access fucntion calls this function
-enum cache_request_status
-data_cache::process_tag_probe(bool wr, enum cache_request_status probe_status,
-                              new_addr_type addr, unsigned cache_index,
-                              mem_fetch *mf, unsigned time,
-                              std::list<cache_event> &events) {
+enum cache_request_status data_cache::process_tag_probe(
+    bool wr, enum cache_request_status probe_status, new_addr_type addr,
+    unsigned cache_index, mem_fetch *mf, unsigned time,
+    std::list<cache_event> &events) {
   // Each function pointer ( m_[rd/wr]_[hit/miss] ) is set in the
   // data_cache constructor to reflect the corresponding cache configuration
   // options. Function pointers were used to avoid many long conditional
   // branches resulting from many cache configuration options.
   cache_request_status access_status = probe_status;
-  if (wr) { // Write
+  if (wr) {  // Write
     if (probe_status == HIT) {
       access_status =
           (this->*m_wr_hit)(addr, cache_index, mf, time, events, probe_status);
@@ -504,7 +500,7 @@ data_cache::process_tag_probe(bool wr, enum cache_request_status probe_status,
       // lines are reserved)
       m_stats.inc_fail_stats(mf->get_access_type(), LINE_ALLOC_FAIL);
     }
-  } else { // Read
+  } else {  // Read
     if (probe_status == HIT) {
       access_status =
           (this->*m_rd_hit)(addr, cache_index, mf, time, events, probe_status);
@@ -530,7 +526,6 @@ data_cache::process_tag_probe(bool wr, enum cache_request_status probe_status,
 enum cache_request_status data_cache::access(new_addr_type addr, mem_fetch *mf,
                                              unsigned time,
                                              std::list<cache_event> &events) {
-
   assert(mf->get_data_size() <= m_config.get_atom_sz());
   bool wr = mf->get_is_write();
   new_addr_type block_addr = m_config.block_addr(addr);

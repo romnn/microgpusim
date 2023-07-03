@@ -15,21 +15,21 @@
 #ifdef CUDA_INIT_OPENGL
 
 #if defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64)
-#  define WINDOWS_LEAN_AND_MEAN
-#  define NOMINMAX
-#  include <windows.h>
+#define WINDOWS_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
 #endif
 
 // includes, system
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 #include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 // includes, GL
 #include <GL/glew.h>
 
-#if defined (__APPLE__) || defined(MACOSX)
+#if defined(__APPLE__) || defined(MACOSX)
 #include <GLUT/glut.h>
 #else
 #include <GL/freeglut.h>
@@ -42,9 +42,13 @@
  ***********************************/
 
 // OpenGL/CUDA interop (CUDA 2.0+)
-typedef CUresult CUDAAPI tcuGLCtxCreate(CUcontext *pCtx, unsigned int Flags, CUdevice device);
-typedef CUresult CUDAAPI tcuGraphicsGLRegisterBuffer(CUgraphicsResource *pCudaResource, GLuint buffer, unsigned int Flags);
-typedef CUresult CUDAAPI tcuGraphicsGLRegisterImage(CUgraphicsResource *pCudaResource, GLuint image, GLenum target, unsigned int Flags);
+typedef CUresult CUDAAPI tcuGLCtxCreate(CUcontext *pCtx, unsigned int Flags,
+                                        CUdevice device);
+typedef CUresult CUDAAPI tcuGraphicsGLRegisterBuffer(
+    CUgraphicsResource *pCudaResource, GLuint buffer, unsigned int Flags);
+typedef CUresult CUDAAPI
+tcuGraphicsGLRegisterImage(CUgraphicsResource *pCudaResource, GLuint image,
+                           GLenum target, unsigned int Flags);
 
 #if defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64)
 #include <GL/wglext.h>
@@ -52,7 +56,6 @@ typedef CUresult CUDAAPI tcuGraphicsGLRegisterImage(CUgraphicsResource *pCudaRes
 typedef CUresult CUDAAPI tcuWGLGetDevice(CUdevice *pDevice, HGPUNV hGpu);
 #endif
 
-#endif // CUDA_INIT_OPENGL
+#endif  // CUDA_INIT_OPENGL
 
-#endif // __cuda_drvapi_dynlink_cuda_gl_h__
-
+#endif  // __cuda_drvapi_dynlink_cuda_gl_h__

@@ -22,34 +22,26 @@ void ldst_unit::print_cache_stats(FILE *fp, unsigned &dl1_accesses,
 
 void ldst_unit::get_cache_stats(cache_stats &cs) {
   // Adds stats to 'cs' from each cache
-  if (m_L1D)
-    cs += m_L1D->get_stats();
-  if (m_L1C)
-    cs += m_L1C->get_stats();
-  if (m_L1T)
-    cs += m_L1T->get_stats();
+  if (m_L1D) cs += m_L1D->get_stats();
+  if (m_L1C) cs += m_L1C->get_stats();
+  if (m_L1T) cs += m_L1T->get_stats();
 }
 
 void ldst_unit::get_L1D_sub_stats(struct cache_sub_stats &css) const {
-  if (m_L1D)
-    m_L1D->get_sub_stats(css);
+  if (m_L1D) m_L1D->get_sub_stats(css);
 }
 void ldst_unit::get_L1C_sub_stats(struct cache_sub_stats &css) const {
-  if (m_L1C)
-    m_L1C->get_sub_stats(css);
+  if (m_L1C) m_L1C->get_sub_stats(css);
 }
 void ldst_unit::get_L1T_sub_stats(struct cache_sub_stats &css) const {
-  if (m_L1T)
-    m_L1T->get_sub_stats(css);
+  if (m_L1T) m_L1T->get_sub_stats(css);
 }
 
 bool ldst_unit::shared_cycle(warp_inst_t &inst, mem_stage_stall_type &rc_fail,
                              mem_stage_access_type &fail_type) {
-  if (inst.space.get_type() != shared_space)
-    return true;
+  if (inst.space.get_type() != shared_space) return true;
 
-  if (inst.active_count() == 0)
-    return true;
+  if (inst.active_count() == 0) return true;
 
   if (inst.has_dispatch_delay()) {
     m_stats->gpgpu_n_shmem_bank_access[m_sid]++;
@@ -64,11 +56,10 @@ bool ldst_unit::shared_cycle(warp_inst_t &inst, mem_stage_stall_type &rc_fail,
   return !stall;
 }
 
-mem_stage_stall_type
-ldst_unit::process_cache_access(cache_t *cache, new_addr_type address,
-                                warp_inst_t &inst,
-                                std::list<cache_event> &events, mem_fetch *mf,
-                                enum cache_request_status status) {
+mem_stage_stall_type ldst_unit::process_cache_access(
+    cache_t *cache, new_addr_type address, warp_inst_t &inst,
+    std::list<cache_event> &events, mem_fetch *mf,
+    enum cache_request_status status) {
   mem_stage_stall_type result = NO_RC_FAIL;
   bool write_sent = was_write_sent(events);
   bool read_sent = was_read_sent(events);
@@ -85,11 +76,9 @@ ldst_unit::process_cache_access(cache_t *cache, new_addr_type address,
     inst.accessq_pop_back();
     if (inst.is_load()) {
       for (unsigned r = 0; r < MAX_OUTPUT_VALUES; r++)
-        if (inst.out[r] > 0)
-          m_pending_writes[inst.warp_id()][inst.out[r]]--;
+        if (inst.out[r] > 0) m_pending_writes[inst.warp_id()][inst.out[r]]--;
     }
-    if (!write_sent)
-      delete mf;
+    if (!write_sent) delete mf;
   } else if (status == RESERVATION_FAIL) {
     result = BK_CONF;
     assert(!read_sent);
@@ -101,19 +90,16 @@ ldst_unit::process_cache_access(cache_t *cache, new_addr_type address,
     // when mf returns
     inst.accessq_pop_back();
   }
-  if (!inst.accessq_empty() && result == NO_RC_FAIL)
-    result = COAL_STALL;
+  if (!inst.accessq_empty() && result == NO_RC_FAIL) result = COAL_STALL;
   return result;
 }
 
 mem_stage_stall_type ldst_unit::process_memory_access_queue(cache_t *cache,
                                                             warp_inst_t &inst) {
   mem_stage_stall_type result = NO_RC_FAIL;
-  if (inst.accessq_empty())
-    return result;
+  if (inst.accessq_empty()) return result;
 
-  if (!cache->data_port_free())
-    return DATA_PORT_STALL;
+  if (!cache->data_port_free()) return DATA_PORT_STALL;
 
   // const mem_access_t &access = inst.accessq_back();
   mem_fetch *mf = m_mf_allocator->alloc(
@@ -127,19 +113,16 @@ mem_stage_stall_type ldst_unit::process_memory_access_queue(cache_t *cache,
   return process_cache_access(cache, mf->get_addr(), inst, events, mf, status);
 }
 
-mem_stage_stall_type
-ldst_unit::process_memory_access_queue_l1cache(l1_cache *cache,
-                                               warp_inst_t &inst) {
+mem_stage_stall_type ldst_unit::process_memory_access_queue_l1cache(
+    l1_cache *cache, warp_inst_t &inst) {
   mem_stage_stall_type result = NO_RC_FAIL;
-  if (inst.accessq_empty())
-    return result;
+  if (inst.accessq_empty()) return result;
 
   if (m_config->m_L1D_config.l1_latency > 0) {
     for (int j = 0; j < m_config->m_L1D_config.l1_banks;
-         j++) { // We can handle at max l1_banks reqs per cycle
+         j++) {  // We can handle at max l1_banks reqs per cycle
 
-      if (inst.accessq_empty())
-        return result;
+      if (inst.accessq_empty()) return result;
 
       mem_fetch *mf =
           m_mf_allocator->alloc(inst, inst.accessq_back(),
@@ -166,12 +149,11 @@ ldst_unit::process_memory_access_queue_l1cache(l1_cache *cache,
       } else {
         result = BK_CONF;
         delete mf;
-        break; // do not try again, just break from the loop and try the next
-               // cycle
+        break;  // do not try again, just break from the loop and try the next
+                // cycle
       }
     }
-    if (!inst.accessq_empty() && result != BK_CONF)
-      result = COAL_STALL;
+    if (!inst.accessq_empty() && result != BK_CONF) result = COAL_STALL;
 
     return result;
   } else {
@@ -235,12 +217,10 @@ void ldst_unit::L1_latency_queue_cycle() {
 
           mf_next->set_reply();
 
-          for (unsigned i = 0; i < dec_ack; ++i)
-            m_core->store_ack(mf_next);
+          for (unsigned i = 0; i < dec_ack; ++i) m_core->store_ack(mf_next);
         }
 
-        if (!write_sent)
-          delete mf_next;
+        if (!write_sent) delete mf_next;
 
       } else if (status == RESERVATION_FAIL) {
         assert(!read_sent);
@@ -260,10 +240,8 @@ void ldst_unit::L1_latency_queue_cycle() {
                   ? (mf_next->get_data_size() / SECTOR_SIZE)
                   : 1;
           mf_next->set_reply();
-          for (unsigned i = 0; i < dec_ack; ++i)
-            m_core->store_ack(mf_next);
-          if (!write_sent && !read_sent)
-            delete mf_next;
+          for (unsigned i = 0; i < dec_ack; ++i) m_core->store_ack(mf_next);
+          if (!write_sent && !read_sent) delete mf_next;
         }
       }
     }
@@ -282,15 +260,13 @@ bool ldst_unit::constant_cycle(warp_inst_t &inst, mem_stage_stall_type &rc_fail,
   if (inst.empty() || ((inst.space.get_type() != const_space) &&
                        (inst.space.get_type() != param_space_kernel)))
     return true;
-  if (inst.active_count() == 0)
-    return true;
+  if (inst.active_count() == 0) return true;
 
   mem_stage_stall_type fail;
   if (m_config->perfect_inst_const_cache) {
     fail = NO_RC_FAIL;
     unsigned access_count = inst.accessq_count();
-    while (inst.accessq_count() > 0)
-      inst.accessq_pop_back();
+    while (inst.accessq_count() > 0) inst.accessq_pop_back();
     if (inst.is_load()) {
       for (unsigned r = 0; r < MAX_OUTPUT_VALUES; r++)
         if (inst.out[r] > 0)
@@ -301,29 +277,27 @@ bool ldst_unit::constant_cycle(warp_inst_t &inst, mem_stage_stall_type &rc_fail,
   }
 
   if (fail != NO_RC_FAIL) {
-    rc_fail = fail; // keep other fails if this didn't fail.
+    rc_fail = fail;  // keep other fails if this didn't fail.
     fail_type = C_MEM;
     if (rc_fail == BK_CONF or rc_fail == COAL_STALL) {
-      m_stats->gpgpu_n_cmem_portconflict++; // coal stalls aren't really a bank
-                                            // conflict, but this maintains
-                                            // previous behavior.
+      m_stats->gpgpu_n_cmem_portconflict++;  // coal stalls aren't really a bank
+                                             // conflict, but this maintains
+                                             // previous behavior.
     }
   }
-  return inst.accessq_empty(); // done if empty.
+  return inst.accessq_empty();  // done if empty.
 }
 
 bool ldst_unit::texture_cycle(warp_inst_t &inst, mem_stage_stall_type &rc_fail,
                               mem_stage_access_type &fail_type) {
-  if (inst.empty() || inst.space.get_type() != tex_space)
-    return true;
-  if (inst.active_count() == 0)
-    return true;
+  if (inst.empty() || inst.space.get_type() != tex_space) return true;
+  if (inst.active_count() == 0) return true;
   mem_stage_stall_type fail = process_memory_access_queue(m_L1T, inst);
   if (fail != NO_RC_FAIL) {
-    rc_fail = fail; // keep other fails if this didn't fail.
+    rc_fail = fail;  // keep other fails if this didn't fail.
     fail_type = T_MEM;
   }
-  return inst.accessq_empty(); // done if empty.
+  return inst.accessq_empty();  // done if empty.
 }
 
 bool ldst_unit::memory_cycle(warp_inst_t &inst,
@@ -333,10 +307,8 @@ bool ldst_unit::memory_cycle(warp_inst_t &inst,
                        (inst.space.get_type() != local_space) &&
                        (inst.space.get_type() != param_space_local)))
     return true;
-  if (inst.active_count() == 0)
-    return true;
-  if (inst.accessq_empty())
-    return true;
+  if (inst.active_count() == 0) return true;
+  if (inst.accessq_empty()) return true;
 
   printf("memory cycle for instruction: ");
   inst.print(stdout);
@@ -348,7 +320,7 @@ bool ldst_unit::memory_cycle(warp_inst_t &inst,
   bool bypassL1D = false;
   if (CACHE_GLOBAL == inst.cache_op || (m_L1D == NULL)) {
     bypassL1D = true;
-  } else if (inst.space.is_global()) { // global memory access
+  } else if (inst.space.is_global()) {  // global memory access
     // skip L1 cache if the option is enabled
     if (m_core->get_config()->gmem_skip_L1D && (CACHE_L1 != inst.cache_op))
       bypassL1D = true;
@@ -401,9 +373,9 @@ bool ldst_unit::response_buffer_full() const {
 }
 
 void ldst_unit::fill(mem_fetch *mf) {
-  mf->set_status(IN_SHADER_LDST_RESPONSE_FIFO,
-                 m_core->get_gpu()->gpu_sim_cycle +
-                     m_core->get_gpu()->gpu_tot_sim_cycle);
+  mf->set_status(
+      IN_SHADER_LDST_RESPONSE_FIFO,
+      m_core->get_gpu()->gpu_sim_cycle + m_core->get_gpu()->gpu_tot_sim_cycle);
   m_response_fifo.push_back(mf);
 }
 
@@ -453,7 +425,8 @@ ldst_unit::ldst_unit(mem_fetch_interface *icnt,
                      const shader_core_config *config,
                      const memory_config *mem_config, shader_core_stats *stats,
                      unsigned sid, unsigned tpc, l1_cache *new_l1d_cache)
-    : pipelined_simd_unit(NULL, config, 3, core, 0), m_L1D(new_l1d_cache),
+    : pipelined_simd_unit(NULL, config, 3, core, 0),
+      m_L1D(new_l1d_cache),
       m_next_wb(config) {
   init(icnt, mf_allocator, core, operand_collector, scoreboard, config,
        mem_config, stats, sid, tpc);
@@ -486,10 +459,11 @@ void ldst_unit::issue(register_set &reg_set) {
 void ldst_unit::writeback() {
   // process next instruction that is going to writeback
   if (!m_next_wb.empty()) {
-    printf("load store unit: cycle %llu writeback: next_wb=%s [warp_id=%d "
-           "pc=%lu] (arb=%d)\n",
-           m_core->get_gpu()->gpu_sim_cycle, m_next_wb.opcode_str(),
-           m_next_wb.warp_id(), m_next_wb.pc, m_writeback_arb);
+    printf(
+        "load store unit: cycle %llu writeback: next_wb=%s [warp_id=%d "
+        "pc=%lu] (arb=%d)\n",
+        m_core->get_gpu()->gpu_sim_cycle, m_next_wb.opcode_str(),
+        m_next_wb.warp_id(), m_next_wb.pc, m_writeback_arb);
     if (m_operand_collector->writeback(m_next_wb)) {
       bool insn_completed = false;
       for (unsigned r = 0; r < MAX_OUTPUT_VALUES; r++) {
@@ -505,7 +479,7 @@ void ldst_unit::writeback() {
                                             m_next_wb.out[r]);
               insn_completed = true;
             }
-          } else { // shared
+          } else {  // shared
             m_scoreboard->releaseRegister(m_next_wb.warp_id(),
                                           m_next_wb.out[r]);
             insn_completed = true;
@@ -529,68 +503,68 @@ void ldst_unit::writeback() {
        c++) {
     unsigned next_client = (c + m_writeback_arb) % m_num_writeback_clients;
     switch (next_client) {
-    case 0: // shared memory
-      if (!m_pipeline_reg[0]->empty()) {
-        m_next_wb = *m_pipeline_reg[0];
-        if (m_next_wb.isatomic()) {
-          m_next_wb.do_atomic();
-          m_core->decrement_atomic_count(m_next_wb.warp_id(),
-                                         m_next_wb.active_count());
+      case 0:  // shared memory
+        if (!m_pipeline_reg[0]->empty()) {
+          m_next_wb = *m_pipeline_reg[0];
+          if (m_next_wb.isatomic()) {
+            m_next_wb.do_atomic();
+            m_core->decrement_atomic_count(m_next_wb.warp_id(),
+                                           m_next_wb.active_count());
+          }
+          m_core->dec_inst_in_pipeline(m_pipeline_reg[0]->warp_id());
+          m_pipeline_reg[0]->clear();
+          serviced_client = next_client;
         }
-        m_core->dec_inst_in_pipeline(m_pipeline_reg[0]->warp_id());
-        m_pipeline_reg[0]->clear();
-        serviced_client = next_client;
-      }
-      break;
-    case 1: // texture response
-      if (m_L1T->access_ready()) {
-        mem_fetch *mf = m_L1T->next_access();
-        m_next_wb = mf->get_inst();
-        delete mf;
-        serviced_client = next_client;
-      }
-      break;
-    case 2: // const cache response
-      if (m_L1C->access_ready()) {
-        mem_fetch *mf = m_L1C->next_access();
-        m_next_wb = mf->get_inst();
-        delete mf;
-        serviced_client = next_client;
-      }
-      break;
-    case 3: // global/local
-      if (m_next_global) {
-        m_next_wb = m_next_global->get_inst();
-        printf("has global ");
-        m_next_wb.print(stdout);
-        printf("\n");
-        // %s pc=%lu\n\n", m_next_wb.opcode_str(),
-        //      m_next_wb.pc);
-        // LDG cycles 27, 28, 31(wid=3) (pc 152)
-        // LDG cycles 68, 70, 77(wid=3) (pc 176)
-        if (m_next_global->get_wid() == 3 &&
-            m_core->current_cycle() > 77) // 77)
-          throw std::runtime_error("warp 3 got global");
-        if (m_next_global->isatomic()) {
-          m_core->decrement_atomic_count(
-              m_next_global->get_wid(),
-              m_next_global->get_access_warp_mask().count());
+        break;
+      case 1:  // texture response
+        if (m_L1T->access_ready()) {
+          mem_fetch *mf = m_L1T->next_access();
+          m_next_wb = mf->get_inst();
+          delete mf;
+          serviced_client = next_client;
         }
-        delete m_next_global;
-        m_next_global = NULL;
-        serviced_client = next_client;
-      }
-      break;
-    case 4:
-      if (m_L1D && m_L1D->access_ready()) {
-        mem_fetch *mf = m_L1D->next_access();
-        m_next_wb = mf->get_inst();
-        delete mf;
-        serviced_client = next_client;
-      }
-      break;
-    default:
-      abort();
+        break;
+      case 2:  // const cache response
+        if (m_L1C->access_ready()) {
+          mem_fetch *mf = m_L1C->next_access();
+          m_next_wb = mf->get_inst();
+          delete mf;
+          serviced_client = next_client;
+        }
+        break;
+      case 3:  // global/local
+        if (m_next_global) {
+          m_next_wb = m_next_global->get_inst();
+          printf("has global ");
+          m_next_wb.print(stdout);
+          printf("\n");
+          // %s pc=%lu\n\n", m_next_wb.opcode_str(),
+          //      m_next_wb.pc);
+          // LDG cycles 27, 28, 31(wid=3) (pc 152)
+          // LDG cycles 68, 70, 77(wid=3) (pc 176)
+          if (m_next_global->get_wid() == 3 &&
+              m_core->current_cycle() > 77)  // 77)
+            throw std::runtime_error("warp 3 got global");
+          if (m_next_global->isatomic()) {
+            m_core->decrement_atomic_count(
+                m_next_global->get_wid(),
+                m_next_global->get_access_warp_mask().count());
+          }
+          delete m_next_global;
+          m_next_global = NULL;
+          serviced_client = next_client;
+        }
+        break;
+      case 4:
+        if (m_L1D && m_L1D->access_ready()) {
+          mem_fetch *mf = m_L1D->next_access();
+          m_next_wb = mf->get_inst();
+          delete mf;
+          serviced_client = next_client;
+        }
+        break;
+      default:
+        abort();
     }
   }
   // update arbitration priority only if:
@@ -647,17 +621,16 @@ void ldst_unit::cycle() {
         m_response_fifo.pop_front();
         delete mf;
       } else {
-        assert(!mf->get_is_write()); // L1 cache is write evict, allocate line
-                                     // on load miss only
+        assert(!mf->get_is_write());  // L1 cache is write evict, allocate line
+                                      // on load miss only
 
         bool bypassL1D = false;
         if (CACHE_GLOBAL == mf->get_inst().cache_op || (m_L1D == NULL)) {
           bypassL1D = true;
         } else if (mf->get_access_type() == GLOBAL_ACC_R ||
                    mf->get_access_type() ==
-                       GLOBAL_ACC_W) { // global memory access
-          if (m_core->get_config()->gmem_skip_L1D)
-            bypassL1D = true;
+                       GLOBAL_ACC_W) {  // global memory access
+          if (m_core->get_config()->gmem_skip_L1D) bypassL1D = true;
         }
         if (bypassL1D) {
           if (m_next_global == NULL) {
@@ -682,8 +655,7 @@ void ldst_unit::cycle() {
   m_L1C->cycle();
   if (m_L1D) {
     m_L1D->cycle();
-    if (m_config->m_L1D_config.l1_latency > 0)
-      L1_latency_queue_cycle();
+    if (m_config->m_L1D_config.l1_latency > 0) L1_latency_queue_cycle();
   }
 
   warp_inst_t &pipe_reg = *m_dispatch_reg;
@@ -696,7 +668,7 @@ void ldst_unit::cycle() {
   done &= memory_cycle(pipe_reg, rc_fail, type);
   m_mem_rc = rc_fail;
 
-  if (!done) { // log stall types and return
+  if (!done) {  // log stall types and return
     assert(rc_fail != NO_RC_FAIL);
     m_stats->gpgpu_n_stall_shd_mem++;
     m_stats->gpu_stall_shd_mem_breakdown[type][rc_fail]++;
@@ -761,29 +733,29 @@ void ldst_unit::print(FILE *fout) const {
   if (m_mem_rc != NO_RC_FAIL) {
     fprintf(fout, "              LD/ST stall condition: ");
     switch (m_mem_rc) {
-    case BK_CONF:
-      fprintf(fout, "BK_CONF");
-      break;
-    case MSHR_RC_FAIL:
-      fprintf(fout, "MSHR_RC_FAIL");
-      break;
-    case ICNT_RC_FAIL:
-      fprintf(fout, "ICNT_RC_FAIL");
-      break;
-    case COAL_STALL:
-      fprintf(fout, "COAL_STALL");
-      break;
-    case WB_ICNT_RC_FAIL:
-      fprintf(fout, "WB_ICNT_RC_FAIL");
-      break;
-    case WB_CACHE_RSRV_FAIL:
-      fprintf(fout, "WB_CACHE_RSRV_FAIL");
-      break;
-    case N_MEM_STAGE_STALL_TYPE:
-      fprintf(fout, "N_MEM_STAGE_STALL_TYPE");
-      break;
-    default:
-      abort();
+      case BK_CONF:
+        fprintf(fout, "BK_CONF");
+        break;
+      case MSHR_RC_FAIL:
+        fprintf(fout, "MSHR_RC_FAIL");
+        break;
+      case ICNT_RC_FAIL:
+        fprintf(fout, "ICNT_RC_FAIL");
+        break;
+      case COAL_STALL:
+        fprintf(fout, "COAL_STALL");
+        break;
+      case WB_ICNT_RC_FAIL:
+        fprintf(fout, "WB_ICNT_RC_FAIL");
+        break;
+      case WB_CACHE_RSRV_FAIL:
+        fprintf(fout, "WB_CACHE_RSRV_FAIL");
+        break;
+      case N_MEM_STAGE_STALL_TYPE:
+        fprintf(fout, "N_MEM_STAGE_STALL_TYPE");
+        break;
+      default:
+        abort();
     }
     fprintf(fout, "\n");
   }
@@ -800,8 +772,7 @@ void ldst_unit::print(FILE *fout) const {
     unsigned warp_id = w->first;
     const std::map<unsigned /*regnum*/, unsigned /*count*/> &warp_info =
         w->second;
-    if (warp_info.empty())
-      continue;
+    if (warp_info.empty()) continue;
     fprintf(fout, "  w%2u : ", warp_id);
     std::map<unsigned /*regnum*/, unsigned /*count*/>::const_iterator r;
     for (r = warp_info.begin(); r != warp_info.end(); ++r) {
@@ -811,8 +782,7 @@ void ldst_unit::print(FILE *fout) const {
   }
   m_L1C->display_state(fout);
   m_L1T->display_state(fout);
-  if (!m_config->m_L1D_config.disabled())
-    m_L1D->display_state(fout);
+  if (!m_config->m_L1D_config.disabled()) m_L1D->display_state(fout);
   fprintf(fout, "LD/ST response FIFO (occupancy = %zu):\n",
           m_response_fifo.size());
   for (std::list<mem_fetch *>::const_iterator i = m_response_fifo.begin();
@@ -853,7 +823,7 @@ void ldst_unit::init(mem_fetch_interface *icnt,
   m_L1D = NULL;
   m_mem_rc = NO_RC_FAIL;
   m_num_writeback_clients =
-      5; // = shared memory, global/local (uncached), L1D, L1T, L1C
+      5;  // = shared memory, global/local (uncached), L1D, L1T, L1C
   m_writeback_arb = 0;
   m_next_global = NULL;
   m_last_inst_gpu_sim_cycle = 0;

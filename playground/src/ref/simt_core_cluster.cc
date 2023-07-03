@@ -11,7 +11,7 @@ simt_core_cluster::simt_core_cluster(class gpgpu_sim *gpu, unsigned cluster_id,
                                      class memory_stats_t *mstats) {
   m_config = config;
   m_cta_issue_next_core = m_config->n_simt_cores_per_cluster -
-                          1; // this causes first launch to use hw cta 0
+                          1;  // this causes first launch to use hw cta 0
   m_cluster_id = cluster_id;
   m_gpu = gpu;
   m_stats = stats;
@@ -86,7 +86,7 @@ unsigned simt_core_cluster::issue_block2core() {
 
     trace_kernel_info_t *kernel;
     // Jin: fetch kernel according to concurrent kernel setting
-    if (m_config->gpgpu_concurrent_kernel_sm) { // concurrent kernel on sm
+    if (m_config->gpgpu_concurrent_kernel_sm) {  // concurrent kernel on sm
       // always select latest issued kernel
       trace_kernel_info_t *k = m_gpu->select_kernel();
       kernel = k;
@@ -98,8 +98,7 @@ unsigned simt_core_cluster::issue_block2core() {
         // wait till current kernel finishes
         if (m_core[core]->get_not_completed() == 0) {
           trace_kernel_info_t *k = m_gpu->select_kernel();
-          if (k)
-            m_core[core]->set_kernel(k);
+          if (k) m_core[core]->set_kernel(k);
           kernel = k;
         }
       }
@@ -130,8 +129,7 @@ void simt_core_cluster::cache_invalidate() {
 
 bool simt_core_cluster::icnt_injection_buffer_full(unsigned size, bool write) {
   unsigned request_size = size;
-  if (!write)
-    request_size = READ_PACKET_SIZE;
+  if (!write) request_size = READ_PACKET_SIZE;
   return !::icnt_has_buffer(m_cluster_id, request_size);
 }
 
@@ -142,43 +140,43 @@ void simt_core_cluster::icnt_inject_request_packet(class mem_fetch *mf) {
   else
     m_stats->made_read_mfs++;
   switch (mf->get_access_type()) {
-  case CONST_ACC_R:
-    m_stats->gpgpu_n_mem_const++;
-    break;
-  case TEXTURE_ACC_R:
-    m_stats->gpgpu_n_mem_texture++;
-    break;
-  case GLOBAL_ACC_R:
-    m_stats->gpgpu_n_mem_read_global++;
-    break;
-  // case GLOBAL_ACC_R: m_stats->gpgpu_n_mem_read_global++;
-  // printf("read_global%d\n",m_stats->gpgpu_n_mem_read_global); break;
-  case GLOBAL_ACC_W:
-    m_stats->gpgpu_n_mem_write_global++;
-    break;
-  case LOCAL_ACC_R:
-    m_stats->gpgpu_n_mem_read_local++;
-    break;
-  case LOCAL_ACC_W:
-    m_stats->gpgpu_n_mem_write_local++;
-    break;
-  case INST_ACC_R:
-    m_stats->gpgpu_n_mem_read_inst++;
-    break;
-  case L1_WRBK_ACC:
-    m_stats->gpgpu_n_mem_write_global++;
-    break;
-  case L2_WRBK_ACC:
-    m_stats->gpgpu_n_mem_l2_writeback++;
-    break;
-  case L1_WR_ALLOC_R:
-    m_stats->gpgpu_n_mem_l1_write_allocate++;
-    break;
-  case L2_WR_ALLOC_R:
-    m_stats->gpgpu_n_mem_l2_write_allocate++;
-    break;
-  default:
-    assert(0);
+    case CONST_ACC_R:
+      m_stats->gpgpu_n_mem_const++;
+      break;
+    case TEXTURE_ACC_R:
+      m_stats->gpgpu_n_mem_texture++;
+      break;
+    case GLOBAL_ACC_R:
+      m_stats->gpgpu_n_mem_read_global++;
+      break;
+    // case GLOBAL_ACC_R: m_stats->gpgpu_n_mem_read_global++;
+    // printf("read_global%d\n",m_stats->gpgpu_n_mem_read_global); break;
+    case GLOBAL_ACC_W:
+      m_stats->gpgpu_n_mem_write_global++;
+      break;
+    case LOCAL_ACC_R:
+      m_stats->gpgpu_n_mem_read_local++;
+      break;
+    case LOCAL_ACC_W:
+      m_stats->gpgpu_n_mem_write_local++;
+      break;
+    case INST_ACC_R:
+      m_stats->gpgpu_n_mem_read_inst++;
+      break;
+    case L1_WRBK_ACC:
+      m_stats->gpgpu_n_mem_write_global++;
+      break;
+    case L2_WRBK_ACC:
+      m_stats->gpgpu_n_mem_l2_writeback++;
+      break;
+    case L1_WR_ALLOC_R:
+      m_stats->gpgpu_n_mem_l1_write_allocate++;
+      break;
+    case L2_WR_ALLOC_R:
+      m_stats->gpgpu_n_mem_l2_write_allocate++;
+      break;
+    default:
+      assert(0);
   }
 
   // The packet size varies depending on the type of request:
@@ -222,8 +220,7 @@ void simt_core_cluster::icnt_cycle() {
   }
   if (m_response_fifo.size() < m_config->n_simt_ejection_buffer_size) {
     mem_fetch *mf = (mem_fetch *)::icnt_pop(m_cluster_id);
-    if (!mf)
-      return;
+    if (!mf) return;
     assert(mf->get_tpc() == m_cluster_id);
     assert(mf->get_type() == READ_REPLY || mf->get_type() == WRITE_ACK);
 

@@ -4,7 +4,7 @@
 // automate the snap_shot part of loggers to avoid modifying simulation
 // loop everytime a new time-dependent stat is added
 class snap_shot_trigger {
-public:
+ public:
   snap_shot_trigger(unsigned long long interval)
       : m_snap_shot_interval(interval) {}
   virtual ~snap_shot_trigger() {}
@@ -21,6 +21,6 @@ public:
     return m_snap_shot_interval;
   }
 
-protected:
+ protected:
   unsigned long long m_snap_shot_interval;
 };

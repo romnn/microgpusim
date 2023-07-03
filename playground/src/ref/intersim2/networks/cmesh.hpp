@@ -45,7 +45,7 @@
 #include "network.hpp"
 
 class CMesh : public Network {
-public:
+ public:
   CMesh(const Configuration &config, const std::string &name,
         InterconnectInterface *icnt);
   int GetN() const;
@@ -56,7 +56,7 @@ public:
 
   static void RegisterRoutingFunctions();
 
-private:
+ private:
   static int _cX;
   static int _cY;
 

@@ -7,7 +7,7 @@ class trace_shader_core_ctx;
 class trace_kernel_info_t;
 
 class ptx_thread_info {
-public:
+ public:
   ~ptx_thread_info();
   ptx_thread_info(trace_kernel_info_t &kernel);
 
@@ -193,7 +193,7 @@ public:
   //  ptx_cta_info *m_cta_info;
   //  ptx_reg_t m_last_set_operand_value;
   //
-private:
+ private:
   bool m_functionalSimulationMode;
   //  unsigned m_uid;
   trace_kernel_info_t &m_kernel;

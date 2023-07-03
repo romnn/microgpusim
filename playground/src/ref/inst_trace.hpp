@@ -25,8 +25,8 @@ struct inst_trace_t {
   bool check_opcode_contain(const std::vector<std::string> &opcode,
                             std::string param) const;
 
-  unsigned
-  get_datawidth_from_opcode(const std::vector<std::string> &opcode) const;
+  unsigned get_datawidth_from_opcode(
+      const std::vector<std::string> &opcode) const;
 
   std::vector<std::string> get_opcode_tokens() const;
 

@@ -17,14 +17,13 @@ function_info::function_info(int entry_point, gpgpu_context *ctx) {
   m_kernel_info.smem = 0;
   m_local_mem_framesize = 0;
   m_args_aligned_size = -1;
-  pdom_done = false; // initialize it to false
+  pdom_done = false;  // initialize it to false
 }
 
 std::list<ptx_instruction *>::iterator
 function_info::find_next_real_instruction(
     std::list<ptx_instruction *>::iterator i) {
-  while ((i != m_instructions.end()) && (*i)->is_label())
-    i++;
+  while ((i != m_instructions.end()) && (*i)->is_label()) i++;
   return i;
 }
 
@@ -43,29 +42,27 @@ void function_info::create_basic_blocks() {
       i = find_next_real_instruction(++i);
     } else {
       switch (pI->get_opcode()) {
-      case BRA_OP:
-      case RET_OP:
-      case EXIT_OP:
-      case RETP_OP:
-      case BREAK_OP:
-        i++;
-        if (i != m_instructions.end())
-          leaders.push_back(*i);
-        i = find_next_real_instruction(i);
-        break;
-      case CALL_OP:
-      case CALLP_OP:
-        if (pI->has_pred()) {
-          printf("GPGPU-Sim PTX: Warning found predicated call\n");
+        case BRA_OP:
+        case RET_OP:
+        case EXIT_OP:
+        case RETP_OP:
+        case BREAK_OP:
           i++;
-          if (i != m_instructions.end())
-            leaders.push_back(*i);
+          if (i != m_instructions.end()) leaders.push_back(*i);
           i = find_next_real_instruction(i);
-        } else
+          break;
+        case CALL_OP:
+        case CALLP_OP:
+          if (pI->has_pred()) {
+            printf("GPGPU-Sim PTX: Warning found predicated call\n");
+            i++;
+            if (i != m_instructions.end()) leaders.push_back(*i);
+            i = find_next_real_instruction(i);
+          } else
+            i++;
+          break;
+        default:
           i++;
-        break;
-      default:
-        i++;
       }
     }
   }
@@ -89,7 +86,7 @@ void function_info::create_basic_blocks() {
       // found start of next basic block
       m_basic_blocks.back()->ptx_end = last_real_inst;
       if (find_next_real_instruction(i) !=
-          m_instructions.end()) { // if not bogus trailing label
+          m_instructions.end()) {  // if not bogus trailing label
         m_basic_blocks.push_back(new basic_block_t(
             bb_id++, *find_next_real_instruction(i), NULL, 0, 0));
         last_real_inst = *find_next_real_instruction(i);
@@ -98,8 +95,7 @@ void function_info::create_basic_blocks() {
       l++;
     }
     pI->assign_bb(m_basic_blocks.back());
-    if (!pI->is_label())
-      last_real_inst = pI;
+    if (!pI->is_label()) last_real_inst = pI;
   }
   m_basic_blocks.back()->ptx_end = last_real_inst;
   m_basic_blocks.push_back(
@@ -214,10 +210,9 @@ void function_info::print_idominators() {
 
 unsigned function_info::get_num_reconvergence_pairs() {
   if (!num_reconvergence_pairs) {
-    if (m_basic_blocks.size() == 0)
-      return 0;
+    if (m_basic_blocks.size() == 0) return 0;
     for (unsigned i = 0; i < (m_basic_blocks.size() - 1);
-         i++) { // last basic block containing exit obviously won't have a pair
+         i++) {  // last basic block containing exit obviously won't have a pair
       if (m_basic_blocks[i]->ptx_end->get_opcode() == BRA_OP) {
         num_reconvergence_pairs++;
       }
@@ -227,11 +222,10 @@ unsigned function_info::get_num_reconvergence_pairs() {
 }
 
 void function_info::get_reconvergence_pairs(gpgpu_recon_t *recon_points) {
-  unsigned idx = 0; // array index
-  if (m_basic_blocks.size() == 0)
-    return;
+  unsigned idx = 0;  // array index
+  if (m_basic_blocks.size() == 0) return;
   for (unsigned i = 0; i < (m_basic_blocks.size() - 1);
-       i++) { // last basic block containing exit obviously won't have a pair
+       i++) {  // last basic block containing exit obviously won't have a pair
 #ifdef DEBUG_GET_RECONVERG_PAIRS
     printf("i=%d\n", i);
     fflush(stdout);
@@ -294,7 +288,7 @@ void function_info::print_basic_block_dot() {
 }
 
 operand_info *function_info::find_break_target(
-    ptx_instruction *p_break_insn) // find the target of a break instruction
+    ptx_instruction *p_break_insn)  // find the target of a break instruction
 {
   const basic_block_t *break_bb = p_break_insn->get_bb();
   // go through the dominator tree
@@ -307,7 +301,7 @@ operand_info *function_info::find_break_target(
       ptx_instruction *pI = m_instr_mem[insn_addr];
       insn_addr -= 1;
       if (pI == NULL)
-        continue; // temporary solution for variable size instructions
+        continue;  // temporary solution for variable size instructions
       if (pI->get_opcode() == BREAKADDR_OP) {
         return &(pI->dst());
       }
@@ -328,9 +322,9 @@ operand_info *function_info::find_break_target(
   return NULL;
 }
 
-void function_info::connect_basic_blocks() // iterate across m_basic_blocks of
-                                           // function, connecting basic blocks
-                                           // together
+void function_info::connect_basic_blocks()  // iterate across m_basic_blocks of
+                                            // function, connecting basic blocks
+                                            // together
 {
   std::vector<basic_block_t *>::iterator bb_itr;
   std::vector<basic_block_t *>::iterator bb_target_itr;
@@ -341,7 +335,7 @@ void function_info::connect_basic_blocks() // iterate across m_basic_blocks of
   for (bb_itr = m_basic_blocks.begin(); bb_itr != m_basic_blocks.end();
        bb_itr++) {
     ptx_instruction *pI = (*bb_itr)->ptx_end;
-    if ((*bb_itr)->is_exit) // reached last basic block, no successors to link
+    if ((*bb_itr)->is_exit)  // reached last basic block, no successors to link
       continue;
     if (pI->get_opcode() == RETP_OP || pI->get_opcode() == RET_OP ||
         pI->get_opcode() == EXIT_OP) {
@@ -360,7 +354,7 @@ void function_info::connect_basic_blocks() // iterate across m_basic_blocks of
       continue;
     } else if (pI->get_opcode() == BRA_OP) {
       // find successor and link that basic_block to this one
-      operand_info &target = pI->dst(); // get operand, e.g. target name
+      operand_info &target = pI->dst();  // get operand, e.g. target name
       unsigned addr = labels[target.name()];
       ptx_instruction *target_pI = m_instr_mem[addr];
       basic_block_t *target_bb = target_pI->get_bb();
@@ -380,8 +374,8 @@ void function_info::connect_basic_blocks() // iterate across m_basic_blocks of
       assert(pI->get_opcode() == BRA_OP);
   }
 }
-bool function_info::connect_break_targets() // connecting break instructions
-                                            // with proper targets
+bool function_info::connect_break_targets()  // connecting break instructions
+                                             // with proper targets
 {
   std::vector<basic_block_t *>::iterator bb_itr;
   std::vector<basic_block_t *>::iterator bb_target_itr;
@@ -393,7 +387,7 @@ bool function_info::connect_break_targets() // connecting break instructions
        bb_itr++) {
     basic_block_t *p_bb = *bb_itr;
     ptx_instruction *pI = p_bb->ptx_end;
-    if (p_bb->is_exit) // reached last basic block, no successors to link
+    if (p_bb->is_exit)  // reached last basic block, no successors to link
       continue;
     if (pI->get_opcode() == BREAK_OP) {
       // backup existing successor_ids for stability check
@@ -457,7 +451,7 @@ void function_info::do_pdom() {
   printf("GPGPU-Sim PTX: pre-decoding instructions for \'%s\'...\n",
          m_name.c_str());
   for (unsigned ii = 0; ii < m_n;
-       ii += m_instr_mem[ii]->inst_size()) { // handle branch instructions
+       ii += m_instr_mem[ii]->inst_size()) {  // handle branch instructions
     ptx_instruction *pI = m_instr_mem[ii];
     pI->pre_decode();
   }
@@ -485,15 +479,15 @@ void function_info::ptx_assemble() {
   std::list<ptx_instruction *>::iterator i;
 
   addr_t PC =
-      gpgpu_ctx->func_sim->g_assemble_code_next_pc; // globally unique address
-                                                    // (across functions)
+      gpgpu_ctx->func_sim->g_assemble_code_next_pc;  // globally unique address
+                                                     // (across functions)
   // start function on an aligned address
   for (unsigned i = 0; i < (PC % MAX_INST_SIZE); i++)
     gpgpu_ctx->s_g_pc_to_insn.push_back((ptx_instruction *)NULL);
   PC += PC % MAX_INST_SIZE;
   m_start_PC = PC;
 
-  addr_t n = 0; // offset in m_instr_mem
+  addr_t n = 0;  // offset in m_instr_mem
   // Why s_g_pc_to_insn.size() is needed to reserve additional memory for insts?
   // reserve is cumulative. s_g_pc_to_insn.reserve(s_g_pc_to_insn.size() +
   // MAX_INST_SIZE*m_instructions.size());
@@ -521,11 +515,11 @@ void function_info::ptx_assemble() {
   }
   gpgpu_ctx->func_sim->g_assemble_code_next_pc = PC;
   for (unsigned ii = 0; ii < n;
-       ii += m_instr_mem[ii]->inst_size()) { // handle branch instructions
+       ii += m_instr_mem[ii]->inst_size()) {  // handle branch instructions
     ptx_instruction *pI = m_instr_mem[ii];
     if (pI->get_opcode() == BRA_OP || pI->get_opcode() == BREAKADDR_OP ||
         pI->get_opcode() == CALLP_OP) {
-      operand_info &target = pI->dst(); // get operand, e.g. target name
+      operand_info &target = pI->dst();  // get operand, e.g. target name
       if (labels.find(target.name()) == labels.end()) {
         printf(
             "GPGPU-Sim PTX: Loader error (%s:%u): Branch label \"%s\" does not "
@@ -533,7 +527,7 @@ void function_info::ptx_assemble() {
             pI->source_file(), pI->source_line(), target.name().c_str());
         abort();
       }
-      unsigned index = labels[target.name()]; // determine address from name
+      unsigned index = labels[target.name()];  // determine address from name
       unsigned PC = m_instr_mem[index]->get_PC();
       m_symtab->set_label_address(target.get_symbol(), PC);
       target.set_type(label_t);
@@ -568,7 +562,7 @@ void function_info::add_param_data(unsigned argn,
   const void *data = args->m_start;
 
   bool scratchpad_memory_param =
-      false; // Is this parameter in CUDA shared memory or OpenCL local memory
+      false;  // Is this parameter in CUDA shared memory or OpenCL local memory
 
   std::map<unsigned, param_info>::iterator i =
       m_ptx_kernel_param_info.find(argn);
@@ -628,8 +622,9 @@ void function_info::add_param_data(unsigned argn,
       }
 
       if (!is_ptr_shared and !p->is_shared()) {
-        printf("GPGPU-Sim PTX: ERROR ** clSetKernelArg passed NULL but arg not "
-               "shared memory\n");
+        printf(
+            "GPGPU-Sim PTX: ERROR ** clSetKernelArg passed NULL but arg not "
+            "shared memory\n");
         abort();
       }
       unsigned num_bits = 8 * args->m_nbytes;
@@ -652,8 +647,7 @@ void function_info::add_param_data(unsigned argn,
 }
 
 unsigned function_info::get_args_aligned_size() {
-  if (m_args_aligned_size >= 0)
-    return m_args_aligned_size;
+  if (m_args_aligned_size >= 0) return m_args_aligned_size;
 
   unsigned param_address = 0;
   unsigned int total_size = 0;
@@ -664,14 +658,14 @@ unsigned function_info::get_args_aligned_size() {
     std::string name = p.get_name();
     symbol *param = m_symtab->lookup(name.c_str());
 
-    size_t arg_size = p.get_size() / 8; // size of param in bytes
-    total_size = (total_size + arg_size - 1) / arg_size * arg_size; // aligned
+    size_t arg_size = p.get_size() / 8;  // size of param in bytes
+    total_size = (total_size + arg_size - 1) / arg_size * arg_size;  // aligned
     p.add_offset(total_size);
     param->set_address(param_address + total_size);
     total_size += arg_size;
   }
 
-  m_args_aligned_size = (total_size + 3) / 4 * 4; // final size aligned to word
+  m_args_aligned_size = (total_size + 3) / 4 * 4;  // final size aligned to word
 
   return m_args_aligned_size;
 }
@@ -683,8 +677,8 @@ void function_info::finalize(memory_space *param_mem) {
        i != m_ptx_kernel_param_info.end(); i++) {
     param_info &p = i->second;
     if (p.is_ptr_shared())
-      continue; // Pointer to local memory: Should we pass the allocated shared
-                // memory address to the param memory space?
+      continue;  // Pointer to local memory: Should we pass the allocated shared
+                 // memory address to the param memory space?
     std::string name = p.get_name();
     int type = p.get_type();
     param_t param_value = p.get_value();
@@ -693,7 +687,7 @@ void function_info::finalize(memory_space *param_mem) {
     unsigned xtype = param->type()->get_key().scalar_type();
     assert(xtype == (unsigned)type);
     size_t size;
-    size = param_value.size; // size of param in bytes
+    size = param_value.size;  // size of param in bytes
     // assert(param_value.offset == param_address);
     if (size != p.get_size() / 8) {
       printf(
@@ -709,14 +703,14 @@ void function_info::finalize(memory_space *param_mem) {
     int align_amount = paramtype->get_key().get_alignment_spec();
     align_amount = (align_amount == -1) ? size : align_amount;
     param_address = (param_address + align_amount - 1) / align_amount *
-                    align_amount; // aligned
+                    align_amount;  // aligned
 
     const size_t word_size = 4;
     // param_address = (param_address + size - 1) / size * size; //aligned with
     // size
     for (size_t idx = 0; idx < size; idx += word_size) {
       const char *pdata = reinterpret_cast<const char *>(param_value.pdata) +
-                          idx; // cast to char * for ptr arithmetic
+                          idx;  // cast to char * for ptr arithmetic
       param_mem->write(param_address + idx, word_size, pdata, NULL, NULL);
     }
     unsigned offset = p.get_offset();
@@ -741,8 +735,8 @@ void function_info::param_to_shared(memory_space *shared_mem,
        i != m_ptx_kernel_param_info.end(); i++) {
     param_info &p = i->second;
     if (p.is_ptr_shared())
-      continue; // Pointer to local memory: Should we pass the allocated shared
-                // memory address to the param memory space?
+      continue;  // Pointer to local memory: Should we pass the allocated shared
+                 // memory address to the param memory space?
     std::string name = p.get_name();
     int type = p.get_type();
     param_t value = p.get_value();

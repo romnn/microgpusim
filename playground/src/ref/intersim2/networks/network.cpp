@@ -60,26 +60,19 @@ Network::Network(const Configuration &config, const std::string &name,
 
 Network::~Network() {
   for (int r = 0; r < _size; ++r) {
-    if (_routers[r])
-      delete _routers[r];
+    if (_routers[r]) delete _routers[r];
   }
   for (int s = 0; s < _nodes; ++s) {
-    if (_inject[s])
-      delete _inject[s];
-    if (_inject_cred[s])
-      delete _inject_cred[s];
+    if (_inject[s]) delete _inject[s];
+    if (_inject_cred[s]) delete _inject_cred[s];
   }
   for (int d = 0; d < _nodes; ++d) {
-    if (_eject[d])
-      delete _eject[d];
-    if (_eject_cred[d])
-      delete _eject_cred[d];
+    if (_eject[d]) delete _eject[d];
+    if (_eject_cred[d]) delete _eject_cred[d];
   }
   for (int c = 0; c < _channels; ++c) {
-    if (_chan[c])
-      delete _chan[c];
-    if (_chan_cred[c])
-      delete _chan_cred[c];
+    if (_chan[c]) delete _chan[c];
+    if (_chan_cred[c]) delete _chan_cred[c];
   }
 }
 

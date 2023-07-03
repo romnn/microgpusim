@@ -12,11 +12,11 @@
 #ifndef _PTXJIT_H_
 #define _PTXJIT_H_
 
-struct param{
-    bool isPointer;
-    size_t size;
-    unsigned char *data;
-    unsigned offset;
+struct param {
+  bool isPointer;
+  size_t size;
+  unsigned char *data;
+  unsigned offset;
 };
 
 /*
@@ -30,7 +30,8 @@ struct param{
  *
  */
 
-char myPtx64[] = "\n\
+char myPtx64[] =
+    "\n\
 .version 3.2\n\
 .target sm_20\n\
 .address_size 64\n\
@@ -56,7 +57,8 @@ char myPtx64[] = "\n\
 }\n\
 ";
 
-char myPtx32[] = "\n\
+char myPtx32[] =
+    "\n\
 .version 3.2\n\
 .target sm_20\n\
 .address_size 32\n\

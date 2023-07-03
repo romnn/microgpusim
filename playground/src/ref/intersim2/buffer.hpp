@@ -37,7 +37,6 @@
 #include "vc.hpp"
 
 class Buffer : public Module {
-
   int _occupancy;
   int _size;
 
@@ -47,7 +46,7 @@ class Buffer : public Module {
   std::vector<int> _class_occupancy;
 #endif
 
-public:
+ public:
   Buffer(const Configuration &config, int outputs, Module *parent,
          const std::string &name);
   ~Buffer();

@@ -6,7 +6,7 @@
 class trace_shader_core_ctx;
 
 class pipelined_simd_unit : public simd_function_unit {
-public:
+ public:
   pipelined_simd_unit(register_set *result_port,
                       const shader_core_config *config, unsigned max_latency,
                       trace_shader_core_ctx *core, unsigned issue_reg_id);
@@ -35,13 +35,13 @@ public:
     }
   }
 
-protected:
+ protected:
   unsigned m_pipeline_depth;
   warp_inst_t **m_pipeline_reg;
   register_set *m_result_port;
   class trace_shader_core_ctx *m_core;
-  unsigned m_issue_reg_id; // if sub_core_model is enabled we can only issue
-                           // from a subset of operand collectors
+  unsigned m_issue_reg_id;  // if sub_core_model is enabled we can only issue
+                            // from a subset of operand collectors
 
   unsigned active_insts_in_pipeline;
 };

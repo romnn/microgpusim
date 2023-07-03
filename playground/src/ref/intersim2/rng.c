@@ -33,14 +33,10 @@ int n;                /* array length (must be at least KK) */
 #endif
 {
   register int i, j;
-  for (j = 0; j < KK; j++)
-    aa[j] = ran_x[j];
-  for (; j < n; j++)
-    aa[j] = mod_diff(aa[j - KK], aa[j - LL]);
-  for (i = 0; i < LL; i++, j++)
-    ran_x[i] = mod_diff(aa[j - KK], aa[j - LL]);
-  for (; i < KK; i++, j++)
-    ran_x[i] = mod_diff(aa[j - KK], ran_x[i - LL]);
+  for (j = 0; j < KK; j++) aa[j] = ran_x[j];
+  for (; j < n; j++) aa[j] = mod_diff(aa[j - KK], aa[j - LL]);
+  for (i = 0; i < LL; i++, j++) ran_x[i] = mod_diff(aa[j - KK], aa[j - LL]);
+  for (; i < KK; i++, j++) ran_x[i] = mod_diff(aa[j - KK], ran_x[i - LL]);
 }
 
 /* the following routines are from exercise 3.6--15 */
@@ -67,8 +63,7 @@ void ran_start(seed)  /* do this before using ran_array */
   for (j = 0; j < KK; j++) {
     x[j] = ss; /* bootstrap the buffer */
     ss <<= 1;
-    if (ss >= MM)
-      ss -= MM - 2; /* cyclic shift 29 bits */
+    if (ss >= MM) ss -= MM - 2; /* cyclic shift 29 bits */
   }
   x[1]++; /* make x[1] (and only x[1]) odd */
   for (ss = seed & (MM - 1), t = TT - 1; t;) {
@@ -78,8 +73,7 @@ void ran_start(seed)  /* do this before using ran_array */
       x[j - (KK - LL)] = mod_diff(x[j - (KK - LL)], x[j]),
                   x[j - KK] = mod_diff(x[j - KK], x[j]);
     if (is_odd(ss)) { /* "multiply by z" */
-      for (j = KK; j > 0; j--)
-        x[j] = x[j - 1];
+      for (j = KK; j > 0; j--) x[j] = x[j - 1];
       x[0] = x[KK]; /* shift the buffer cyclically */
       x[LL] = mod_diff(x[LL], x[KK]);
     }
@@ -88,12 +82,9 @@ void ran_start(seed)  /* do this before using ran_array */
     else
       t--;
   }
-  for (j = 0; j < LL; j++)
-    ran_x[j + KK - LL] = x[j];
-  for (; j < KK; j++)
-    ran_x[j - LL] = x[j];
-  for (j = 0; j < 10; j++)
-    ran_array(x, KK + KK - 1); /* warm things up */
+  for (j = 0; j < LL; j++) ran_x[j + KK - LL] = x[j];
+  for (; j < KK; j++) ran_x[j - LL] = x[j];
+  for (j = 0; j < 10; j++) ran_array(x, KK + KK - 1); /* warm things up */
   ran_arr_ptr = &ran_arr_started;
 }
 
@@ -112,12 +103,10 @@ int main() {
   register int m;
   long a[2009];
   ran_start(310952L);
-  for (m = 0; m <= 2009; m++)
-    ran_array(a, 1009);
+  for (m = 0; m <= 2009; m++) ran_array(a, 1009);
   printf("%ld\n", a[0]); /* 995235265 */
   ran_start(310952L);
-  for (m = 0; m <= 1009; m++)
-    ran_array(a, 2009);
+  for (m = 0; m <= 1009; m++) ran_array(a, 2009);
   printf("%ld\n", a[0]); /* 995235265 */
   return 0;
 }

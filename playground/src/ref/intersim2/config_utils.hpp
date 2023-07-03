@@ -35,13 +35,12 @@
 #include <vector>
 
 class Configuration {
-
-protected:
+ protected:
   std::map<std::string, std::string> _str_map;
   std::map<std::string, int> _int_map;
   std::map<std::string, double> _float_map;
 
-public:
+ public:
   Configuration();
 
   void AddStrField(std::string const &field, std::string const &value);

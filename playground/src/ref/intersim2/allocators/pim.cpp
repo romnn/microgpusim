@@ -53,7 +53,6 @@ void PIM::Allocate() {
     std::vector<int> grants(_outputs, -1);
 
     for (output = 0; output < _outputs; ++output) {
-
       // A random arbiter between input requests
       input_offset = RandomInt(_inputs - 1);
 
@@ -62,7 +61,6 @@ void PIM::Allocate() {
 
         if ((_request[input][output].label != -1) && (_inmatch[input] == -1) &&
             (_outmatch[output] == -1)) {
-
           // Grant
           grants[output] = input;
           break;
@@ -74,7 +72,6 @@ void PIM::Allocate() {
     // between input_speedup of their grants
 
     for (input = 0; input < _inputs; ++input) {
-
       // A random arbiter between output grants
       output_offset = RandomInt(_outputs - 1);
 
@@ -82,7 +79,6 @@ void PIM::Allocate() {
         output = (o + output_offset) % _outputs;
 
         if (grants[output] == input) {
-
           // Accept
           _inmatch[input] = output;
           _outmatch[output] = input;

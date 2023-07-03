@@ -46,8 +46,7 @@ void RoundRobinArbiter::PrintState() const {
 
 void RoundRobinArbiter::UpdateState() {
   // update priority matrix using last grant
-  if (_selected > -1)
-    _pointer = (_selected + 1) % _size;
+  if (_selected > -1) _pointer = (_selected + 1) % _size;
 }
 
 void RoundRobinArbiter::AddRequest(int input, int id, int pri) {
@@ -62,7 +61,6 @@ void RoundRobinArbiter::AddRequest(int input, int id, int pri) {
 }
 
 int RoundRobinArbiter::Arbitrate(int *id, int *pri) {
-
   _selected = _best_input;
 
   return Arbiter::Arbitrate(id, pri);

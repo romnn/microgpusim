@@ -79,7 +79,6 @@ void KNCube::_BuildNet(const Configuration &config) {
   use_noc_latency = (config.GetInt("use_noc_latency") == 1);
 
   for (int node = 0; node < _size; ++node) {
-
     router_name << "router";
 
     if (_k > 1) {
@@ -95,7 +94,6 @@ void KNCube::_BuildNet(const Configuration &config) {
     router_name.str("");
 
     for (int dim = 0; dim < _n; ++dim) {
-
       // find the neighbor
       left_node = _LeftNode(node, dim);
       right_node = _RightNode(node, dim);

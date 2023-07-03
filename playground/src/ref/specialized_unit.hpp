@@ -3,7 +3,7 @@
 #include "pipelined_simd_unit.hpp"
 
 class specialized_unit : public pipelined_simd_unit {
-public:
+ public:
   specialized_unit(register_set *result_port, const shader_core_config *config,
                    trace_shader_core_ctx *core, unsigned supported_op,
                    char *unit_name, unsigned latency, unsigned issue_reg_id);
@@ -17,6 +17,6 @@ public:
   virtual void issue(register_set &source_reg);
   bool is_issue_partitioned() { return true; }
 
-private:
+ private:
   unsigned m_supported_op;
 };

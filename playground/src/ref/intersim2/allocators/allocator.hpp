@@ -37,7 +37,7 @@
 #include "../module.hpp"
 
 class Allocator : public Module {
-protected:
+ protected:
   const int _inputs;
   const int _outputs;
 
@@ -46,7 +46,7 @@ protected:
   std::vector<int> _inmatch;
   std::vector<int> _outmatch;
 
-public:
+ public:
   struct sRequest {
     int port;
     int label;
@@ -91,10 +91,10 @@ public:
 //==================================================
 
 class DenseAllocator : public Allocator {
-protected:
+ protected:
   std::vector<std::vector<sRequest>> _request;
 
-public:
+ public:
   DenseAllocator(Module *parent, const std::string &name, int inputs,
                  int outputs);
 
@@ -122,14 +122,14 @@ public:
 //==================================================
 
 class SparseAllocator : public Allocator {
-protected:
+ protected:
   std::set<int> _in_occ;
   std::set<int> _out_occ;
 
   std::vector<std::map<int, sRequest>> _in_req;
   std::vector<std::map<int, sRequest>> _out_req;
 
-public:
+ public:
   SparseAllocator(Module *parent, const std::string &name, int inputs,
                   int outputs);
 

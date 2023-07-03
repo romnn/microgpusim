@@ -74,8 +74,8 @@ const unsigned MAX_ACCESSES_PER_INSN_PER_THREAD = 8;
 const unsigned MAX_MEMORY_ACCESS_SIZE = 128;
 typedef std::bitset<MAX_MEMORY_ACCESS_SIZE> mem_access_byte_mask_t;
 
-const unsigned SECTOR_CHUNCK_SIZE = 4; // four sectors
-const unsigned SECTOR_SIZE = 32;       // sector is 32 bytes width
+const unsigned SECTOR_CHUNCK_SIZE = 4;  // four sectors
+const unsigned SECTOR_SIZE = 32;        // sector is 32 bytes width
 typedef std::bitset<SECTOR_CHUNCK_SIZE> mem_access_sector_mask_t;
 
 // bounded stack that implements simt reconvergence using pdom mechanism from
@@ -159,7 +159,7 @@ enum special_operations_t {
 };
 
 typedef enum special_operations_t
-    special_ops; // Required to identify for the power model
+    special_ops;  // Required to identify for the power model
 enum operation_pipeline_t {
   UNKOWN_OP,
   SP__OP,

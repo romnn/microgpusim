@@ -4,7 +4,7 @@
 #include <map>
 
 class cuda_device_runtime {
-public:
+ public:
   // cuda_device_runtime(gpgpu_context *ctx) {
   cuda_device_runtime() {
     // g_total_param_size = 0;

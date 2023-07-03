@@ -34,9 +34,9 @@ bool mshr_table::is_read_after_write_pending(new_addr_type block_addr) {
   bool write_found = false;
   for (std::list<mem_fetch *>::iterator it = my_list.begin();
        it != my_list.end(); ++it) {
-    if ((*it)->is_write()) // Pending Write Request
+    if ((*it)->is_write())  // Pending Write Request
       write_found = true;
-    else if (write_found) // Pending Read Request and we found previous Write
+    else if (write_found)  // Pending Read Request and we found previous Write
       return true;
   }
 

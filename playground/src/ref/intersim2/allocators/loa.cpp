@@ -62,7 +62,6 @@ void LOA::Allocate() {
 
   // Request phase
   for (input = 0; input < _inputs; ++input) {
-
     // Find the lonely output
     output_offset = _rptr[input];
     lonely = -1;

@@ -40,7 +40,7 @@ class SelAlloc : public SparseAllocator {
 
   std::vector<int> _outmask;
 
-public:
+ public:
   SelAlloc(Module *parent, const std::string &name, int inputs, int outputs,
            int iters);
 

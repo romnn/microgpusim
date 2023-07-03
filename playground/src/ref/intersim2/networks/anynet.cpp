@@ -62,7 +62,6 @@ std::map<int, int> *global_routing_table;
 AnyNet::AnyNet(const Configuration &config, const std::string &name,
                InterconnectInterface *icnt)
     : Network(config, name, icnt) {
-
   router_list.resize(2);
   _ComputeSize(config);
   _Alloc();
@@ -129,7 +128,6 @@ void AnyNet::_ComputeSize(const Configuration &config) {
 }
 
 void AnyNet::_BuildNet(const Configuration &config) {
-
   // I need to keep track the output ports for each router during build
   int *outport = (int *)malloc(sizeof(int) * _size);
   for (int i = 0; i < _size; i++) {
@@ -281,7 +279,7 @@ void AnyNet::route(int r_start) {
              router_list[1][min_cand].begin();
          i != router_list[1][min_cand].end(); i++) {
       int new_dist =
-          dist[min_cand] + i->second.second; // distance is hops not cycles
+          dist[min_cand] + i->second.second;  // distance is hops not cycles
       if (new_dist < dist[i->first]) {
         dist[i->first] = new_dist;
         prev[i->first] = min_cand;
@@ -291,7 +289,7 @@ void AnyNet::route(int r_start) {
 
   // post process from the prev list
   for (int i = 0; i < _size; i++) {
-    if (prev[i] == -1) { // self
+    if (prev[i] == -1) {  // self
       assert(i == r_start);
       for (std::map<int, std::pair<int, int>>::iterator iter =
                router_list[0][i].begin();
@@ -305,10 +303,10 @@ void AnyNet::route(int r_start) {
       while (prev[neighbor] != r_start) {
         assert(router_list[1][neighbor].count(prev[neighbor]) > 0);
         distance +=
-            router_list[1][prev[neighbor]][neighbor].second; // REVERSE lat
+            router_list[1][prev[neighbor]][neighbor].second;  // REVERSE lat
         neighbor = prev[neighbor];
       }
-      distance += router_list[1][prev[neighbor]][neighbor].second; // lat
+      distance += router_list[1][prev[neighbor]][neighbor].second;  // lat
 
       assert(router_list[1][r_start].count(neighbor) != 0);
       int port = router_list[1][r_start][neighbor].first;
@@ -324,7 +322,6 @@ void AnyNet::route(int r_start) {
 }
 
 void AnyNet::readFile() {
-
   std::ifstream network_list;
   std::string line;
   enum ParseState { HEAD_TYPE = 0, HEAD_ID, BODY_TYPE, BODY_ID, LINK_WEIGHT };
@@ -357,7 +354,6 @@ void AnyNet::readFile() {
     int link_weight = 1;
 
     do {
-
       // skip empty spaces
       next_pos = line.find(" ", pos);
       temp = line.substr(pos, next_pos - pos);
@@ -367,102 +363,104 @@ void AnyNet::readFile() {
       }
 
       switch (state) {
-      case HEAD_TYPE:
-        if (temp == "router") {
-          head_type = ROUTER;
-        } else if (temp == "node") {
-          head_type = NODE;
-        } else {
-          std::cout << "Anynet:Unknow head of line type " << temp << "\n";
-          assert(false);
-        }
-        state = HEAD_ID;
-        break;
-      case HEAD_ID:
-        // need better error check
-        head_id = atoi(temp.c_str());
-
-        // intialize router structures
-        if (router_list[NODE].count(head_id) == 0) {
-          router_list[NODE][head_id] = std::map<int, std::pair<int, int>>();
-        }
-        if (router_list[ROUTER].count(head_id) == 0) {
-          router_list[ROUTER][head_id] = std::map<int, std::pair<int, int>>();
-        }
-
-        state = BODY_TYPE;
-        break;
-      case LINK_WEIGHT:
-        if (temp == "router" || temp == "node") {
-          // ignore
-        } else {
-          link_weight = atoi(temp.c_str());
-          router_list[head_type][head_id][body_id].second = link_weight;
+        case HEAD_TYPE:
+          if (temp == "router") {
+            head_type = ROUTER;
+          } else if (temp == "node") {
+            head_type = NODE;
+          } else {
+            std::cout << "Anynet:Unknow head of line type " << temp << "\n";
+            assert(false);
+          }
+          state = HEAD_ID;
           break;
-        }
-        // intentionally letting it flow through
-      case BODY_TYPE:
-        if (temp == "router") {
-          body_type = ROUTER;
-        } else if (temp == "node") {
-          body_type = NODE;
-        } else {
-          std::cout << "Anynet:Unknow body type " << temp << "\n";
-          assert(false);
-        }
-        state = BODY_ID;
-        break;
-      case BODY_ID:
-        body_id = atoi(temp.c_str());
-        // intialize router structures if necessary
-        if (body_type == ROUTER) {
-          if (router_list[NODE].count(body_id) == 0) {
-            router_list[NODE][body_id] = std::map<int, std::pair<int, int>>();
+        case HEAD_ID:
+          // need better error check
+          head_id = atoi(temp.c_str());
+
+          // intialize router structures
+          if (router_list[NODE].count(head_id) == 0) {
+            router_list[NODE][head_id] = std::map<int, std::pair<int, int>>();
           }
-          if (router_list[ROUTER].count(body_id) == 0) {
-            router_list[ROUTER][body_id] = std::map<int, std::pair<int, int>>();
+          if (router_list[ROUTER].count(head_id) == 0) {
+            router_list[ROUTER][head_id] = std::map<int, std::pair<int, int>>();
           }
-        }
 
-        if (head_type == NODE && body_type == NODE) {
-
-          std::cout << "Anynet:Cannot connect node to node " << temp << "\n";
-          assert(false);
-
-        } else if (head_type == NODE && body_type == ROUTER) {
-
-          if (node_list.count(head_id) != 0 && node_list[head_id] != body_id) {
-            std::cout << "Anynet:Node " << body_id
-                      << " trying to connect to multiple router " << body_id
-                      << " and " << node_list[head_id] << std::endl;
+          state = BODY_TYPE;
+          break;
+        case LINK_WEIGHT:
+          if (temp == "router" || temp == "node") {
+            // ignore
+          } else {
+            link_weight = atoi(temp.c_str());
+            router_list[head_type][head_id][body_id].second = link_weight;
+            break;
+          }
+          // intentionally letting it flow through
+        case BODY_TYPE:
+          if (temp == "router") {
+            body_type = ROUTER;
+          } else if (temp == "node") {
+            body_type = NODE;
+          } else {
+            std::cout << "Anynet:Unknow body type " << temp << "\n";
             assert(false);
           }
-          node_list[head_id] = body_id;
-          router_list[NODE][body_id][head_id] = std::pair<int, int>(-1, 1);
+          state = BODY_ID;
+          break;
+        case BODY_ID:
+          body_id = atoi(temp.c_str());
+          // intialize router structures if necessary
+          if (body_type == ROUTER) {
+            if (router_list[NODE].count(body_id) == 0) {
+              router_list[NODE][body_id] = std::map<int, std::pair<int, int>>();
+            }
+            if (router_list[ROUTER].count(body_id) == 0) {
+              router_list[ROUTER][body_id] =
+                  std::map<int, std::pair<int, int>>();
+            }
+          }
 
-        } else if (head_type == ROUTER && body_type == NODE) {
-          // insert and check node
-          if (node_list.count(body_id) != 0 && node_list[body_id] != head_id) {
-            std::cout << "Anynet:Node " << body_id
-                      << " trying to connect to multiple router " << body_id
-                      << " and " << node_list[head_id] << std::endl;
+          if (head_type == NODE && body_type == NODE) {
+            std::cout << "Anynet:Cannot connect node to node " << temp << "\n";
             assert(false);
-          }
-          node_list[body_id] = head_id;
-          router_list[NODE][head_id][body_id] = std::pair<int, int>(-1, 1);
 
-        } else if (head_type == ROUTER && body_type == ROUTER) {
-          router_list[ROUTER][head_id][body_id] = std::pair<int, int>(-1, 1);
-          if (router_list[ROUTER][body_id].count(head_id) == 0) {
-            router_list[ROUTER][body_id][head_id] = std::pair<int, int>(-1, 1);
+          } else if (head_type == NODE && body_type == ROUTER) {
+            if (node_list.count(head_id) != 0 &&
+                node_list[head_id] != body_id) {
+              std::cout << "Anynet:Node " << body_id
+                        << " trying to connect to multiple router " << body_id
+                        << " and " << node_list[head_id] << std::endl;
+              assert(false);
+            }
+            node_list[head_id] = body_id;
+            router_list[NODE][body_id][head_id] = std::pair<int, int>(-1, 1);
+
+          } else if (head_type == ROUTER && body_type == NODE) {
+            // insert and check node
+            if (node_list.count(body_id) != 0 &&
+                node_list[body_id] != head_id) {
+              std::cout << "Anynet:Node " << body_id
+                        << " trying to connect to multiple router " << body_id
+                        << " and " << node_list[head_id] << std::endl;
+              assert(false);
+            }
+            node_list[body_id] = head_id;
+            router_list[NODE][head_id][body_id] = std::pair<int, int>(-1, 1);
+
+          } else if (head_type == ROUTER && body_type == ROUTER) {
+            router_list[ROUTER][head_id][body_id] = std::pair<int, int>(-1, 1);
+            if (router_list[ROUTER][body_id].count(head_id) == 0) {
+              router_list[ROUTER][body_id][head_id] =
+                  std::pair<int, int>(-1, 1);
+            }
           }
-        }
-        state = LINK_WEIGHT;
-        break;
-      default:
-        std::cout << "Anynet:Unknow parse state\n";
-        assert(false);
-        break;
+          state = LINK_WEIGHT;
+          break;
+        default:
+          std::cout << "Anynet:Unknow parse state\n";
+          assert(false);
+          break;
       }
 
     } while (pos != 0);

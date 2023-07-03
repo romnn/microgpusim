@@ -9,7 +9,7 @@ class gpgpu_context;
 class ptx_thread_info;
 
 class ptx_cta_info {
-public:
+ public:
   ptx_cta_info(unsigned sm_idx, gpgpu_context *ctx);
   void add_thread(ptx_thread_info *thd);
   unsigned num_threads() const;
@@ -21,7 +21,7 @@ public:
   void inc_bar_threads();
   void reset_bar_threads();
 
-private:
+ private:
   // backward pointer
   class gpgpu_context *gpgpu_ctx;
   unsigned m_bar_threads;

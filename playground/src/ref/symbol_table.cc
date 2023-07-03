@@ -88,8 +88,7 @@ void symbol_table::add_function(function_info *func, const char *filename,
                                 unsigned linenumber) {
   std::map<std::string, symbol *>::iterator i =
       m_symbols.find(func->get_name());
-  if (i != m_symbols.end())
-    return;
+  if (i != m_symbols.end()) return;
   char buf[1024];
   snprintf(buf, 1024, "%s:%u", filename, linenumber);
   type_info *type = add_type(func);
@@ -137,7 +136,7 @@ symbol_table *symbol_table::end_inst_group() {
 }
 
 void register_ptx_function(const char *name,
-                           function_info *impl); // either libcuda or libopencl
+                           function_info *impl);  // either libcuda or libopencl
 
 bool symbol_table::add_function_decl(const char *name, int entry_point,
                                      function_info **func_info,
@@ -198,8 +197,7 @@ function_info *symbol_table::lookup_function(std::string name) {
 type_info *symbol_table::add_type(memory_space_t space_spec,
                                   int scalar_type_spec, int vector_spec,
                                   int alignment_spec, int extern_spec) {
-  if (space_spec == param_space_unclassified)
-    space_spec = param_space_local;
+  if (space_spec == param_space_unclassified) space_spec = param_space_local;
   type_info_key t(space_spec, scalar_type_spec, vector_spec, alignment_spec,
                   extern_spec, 0);
   type_info *pt;

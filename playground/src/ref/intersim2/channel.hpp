@@ -44,8 +44,9 @@
 #include "module.hpp"
 #include "timed_module.hpp"
 
-template <typename T> class Channel : public TimedModule {
-public:
+template <typename T>
+class Channel : public TimedModule {
+ public:
   Channel(Module *parent, std::string const &name);
   virtual ~Channel() {}
 
@@ -63,7 +64,7 @@ public:
   virtual void Evaluate() {}
   virtual void WriteOutputs();
 
-protected:
+ protected:
   int _delay;
   T *_input;
   T *_output;
@@ -74,25 +75,34 @@ template <typename T>
 Channel<T>::Channel(Module *parent, std::string const &name)
     : TimedModule(parent, name), _delay(1), _input(0), _output(0) {}
 
-template <typename T> void Channel<T>::SetLatency(int cycles) {
+template <typename T>
+void Channel<T>::SetLatency(int cycles) {
   if (cycles <= 0) {
     Error("Channel must have positive delay.");
   }
   _delay = cycles;
 }
 
-template <typename T> void Channel<T>::Send(T *data) { _input = data; }
+template <typename T>
+void Channel<T>::Send(T *data) {
+  _input = data;
+}
 
-template <typename T> T *Channel<T>::Receive() { return _output; }
+template <typename T>
+T *Channel<T>::Receive() {
+  return _output;
+}
 
-template <typename T> void Channel<T>::ReadInputs() {
+template <typename T>
+void Channel<T>::ReadInputs() {
   if (_input) {
     _wait_queue.push(std::make_pair(GetSimTime() + _delay - 1, _input));
     _input = 0;
   }
 }
 
-template <typename T> void Channel<T>::WriteOutputs() {
+template <typename T>
+void Channel<T>::WriteOutputs() {
   _output = 0;
   if (_wait_queue.empty()) {
     return;

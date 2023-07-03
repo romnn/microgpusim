@@ -36,7 +36,7 @@
 #include "routefunc.hpp"
 
 class VC : public Module {
-public:
+ public:
   enum eVCState {
     state_min = 0,
     idle = state_min,
@@ -50,7 +50,7 @@ public:
   };
   static const char *const VCSTATE[];
 
-private:
+ private:
   std::deque<Flit *> _buffer;
 
   eVCState _state;
@@ -81,7 +81,7 @@ private:
 
   bool _lookahead_routing;
 
-public:
+ public:
   VC(const Configuration &config, int outputs, Module *parent,
      const std::string &name);
   ~VC();

@@ -1,8 +1,8 @@
 #pragma once
 
 class thread_ctx_t {
-public:
-  unsigned m_cta_id; // hardware CTA this thread belongs
+ public:
+  unsigned m_cta_id;  // hardware CTA this thread belongs
 
   // per thread stats (ac stands for accumulative).
   unsigned n_insn;

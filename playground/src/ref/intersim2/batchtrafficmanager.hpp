@@ -35,8 +35,7 @@
 #include "trafficmanager.hpp"
 
 class BatchTrafficManager : public TrafficManager {
-
-protected:
+ protected:
   int _max_outstanding;
   int _batch_size;
   int _batch_count;
@@ -60,7 +59,7 @@ protected:
 
   virtual std::string _OverallStatsCSV(int c = 0) const;
 
-public:
+ public:
   BatchTrafficManager(const Configuration &config,
                       const std::vector<Network *> &net,
                       InterconnectInterface *icnt);

@@ -30,7 +30,7 @@ class simd_function_unit;
 #define PROGRAM_MEM_START 0xF0000000
 
 class shader_core_ctx : public core_t {
-public:
+ public:
   // creator:
   shader_core_ctx(class gpgpu_sim *gpu, class simt_core_cluster *cluster,
                   unsigned shader_id, unsigned tpc_id,
@@ -92,7 +92,7 @@ public:
   void inc_store_req(unsigned warp_id) { m_warp[warp_id]->inc_store_req(); }
   void dec_inst_in_pipeline(unsigned warp_id) {
     m_warp[warp_id]->dec_inst_in_pipeline();
-  } // also used in writeback()
+  }  // also used in writeback()
   void store_ack(class mem_fetch *mf);
   bool warp_waiting_at_mem_barrier(unsigned warp_id);
   void set_max_cta(const trace_kernel_info_t &kernel);
@@ -395,7 +395,7 @@ public:
   }
   bool check_if_non_released_reduction_barrier(warp_inst_t &inst);
 
-protected:
+ protected:
   unsigned inactive_lanes_accesses_sfu(unsigned active_count, double latency) {
     return (((32 - active_count) >> 1) * latency) +
            (((32 - active_count) >> 3) * latency) +
@@ -414,7 +414,7 @@ protected:
   void decode();
 
   void issue();
-  friend class scheduler_unit; // this is needed to use private issue warp.
+  friend class scheduler_unit;  // this is needed to use private issue warp.
   friend class TwoLevelScheduler;
   friend class LooseRoundRobbinScheduler;
   virtual void issue_warp(register_set &warp, const warp_inst_t *pI,
@@ -469,9 +469,9 @@ protected:
   unsigned long long m_last_inst_gpu_tot_sim_cycle;
 
   // general information
-  unsigned m_sid; // shader id
-  unsigned m_tpc; // texture processor cluster id (aka, node id when using
-                  // interconnect concentration)
+  unsigned m_sid;  // shader id
+  unsigned m_tpc;  // texture processor cluster id (aka, node id when using
+                   // interconnect concentration)
   const shader_core_config *m_config;
   const memory_config *m_memory_config;
   class simt_core_cluster *m_cluster;
@@ -480,11 +480,11 @@ protected:
   shader_core_stats *m_stats;
 
   // CTA scheduling / hardware thread allocation
-  unsigned m_n_active_cta; // number of Cooperative Thread Arrays (blocks)
-                           // currently running on this shader.
-  unsigned m_cta_status[MAX_CTA_PER_SHADER]; // CTAs status
-  unsigned m_not_completed; // number of threads to be completed (==0 when all
-                            // thread on this core completed)
+  unsigned m_n_active_cta;  // number of Cooperative Thread Arrays (blocks)
+                            // currently running on this shader.
+  unsigned m_cta_status[MAX_CTA_PER_SHADER];  // CTAs status
+  unsigned m_not_completed;  // number of threads to be completed (==0 when all
+                             // thread on this core completed)
   std::bitset<MAX_THREAD_PER_SM> m_active_threads;
 
   // thread contexts
@@ -495,11 +495,11 @@ protected:
   shader_core_mem_fetch_allocator *m_mem_fetch_allocator;
 
   // fetch
-  read_only_cache *m_L1I; // instruction cache
+  read_only_cache *m_L1I;  // instruction cache
   int m_last_warp_fetched;
 
   // decode/dispatch
-  std::vector<trace_shd_warp_t *> m_warp; // per warp information array
+  std::vector<trace_shd_warp_t *> m_warp;  // per warp information array
   barrier_set_t m_barriers;
   ifetch_buffer_t m_inst_fetch_buffer;
   std::vector<register_set> m_pipeline_reg;
@@ -519,7 +519,7 @@ protected:
   std::vector<unsigned> m_dispatch_port;
   std::vector<unsigned> m_issue_port;
   std::vector<simd_function_unit *>
-      m_fu; // stallable pipelines should be last in this array
+      m_fu;  // stallable pipelines should be last in this array
   ldst_unit *m_ldst_unit;
   static const unsigned MAX_ALU_LATENCY = 512;
   unsigned num_result_bus;
@@ -535,14 +535,14 @@ protected:
   unsigned m_dynamic_warp_id;
 
   // Jin: concurrent kernels on a sm
-public:
+ public:
   bool can_issue_1block(trace_kernel_info_t &kernel);
   bool occupy_shader_resource_1block(trace_kernel_info_t &kernel, bool occupy);
   void release_shader_resource_1block(unsigned hw_ctaid,
                                       trace_kernel_info_t &kernel);
   int find_available_hwtid(unsigned int cta_size, bool occupy);
 
-private:
+ private:
   unsigned int m_occupied_n_threads;
   unsigned int m_occupied_shmem;
   unsigned int m_occupied_regs;

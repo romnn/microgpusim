@@ -15,7 +15,6 @@ from CUDA SDK
 // Program main
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char **argv) {
-
   int deviceCount = 0;
   cudaError_t error_id = cudaGetDeviceCount(&deviceCount);
 

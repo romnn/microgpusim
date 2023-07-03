@@ -6,7 +6,7 @@
 #include <string>
 
 class ptx_version {
-public:
+ public:
   ptx_version() {
     m_valid = false;
     m_ptx_version = 0;
@@ -43,7 +43,7 @@ public:
     return m_ptx_extensions;
   }
 
-private:
+ private:
   void check_target_extension(const char *ext) {
     if (ext) {
       if (!strcmp(ext, "texmode_independent"))

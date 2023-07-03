@@ -140,64 +140,64 @@ void ChaosRouter::ReadInputs() {
       }
 
       switch (_input_state[input]) {
-      case empty:
-        if (f->head) {
+        case empty:
+          if (f->head) {
+            if (f->tail) {
+              _input_state[input] = full;
+            } else {
+              _input_state[input] = filling;
+            }
+            _rf(this, f, input, _input_route[input], false);
+          } else {
+            std::cout << *f;
+            Error("Empty buffer received non-head flit!");
+          }
+          break;
+
+        case filling:
           if (f->tail) {
             _input_state[input] = full;
+          } else if (f->head) {
+            Error("Input buffer received another head before previous tail!");
+          }
+          break;
+
+        case full:
+          Error("Received flit while full!");
+          break;
+
+        case leaving:
+          if (f->head) {
+            _input_state[input] = shared;
+
+            if (f->tail) {
+              Error("Received single-flit packet in leaving state!");
+            }
           } else {
-            _input_state[input] = filling;
+            std::cout << *f;
+            Error("Received non-head flit while packet leaving!");
           }
-          _rf(this, f, input, _input_route[input], false);
-        } else {
-          std::cout << *f;
-          Error("Empty buffer received non-head flit!");
-        }
-        break;
+          break;
 
-      case filling:
-        if (f->tail) {
-          _input_state[input] = full;
-        } else if (f->head) {
-          Error("Input buffer received another head before previous tail!");
-        }
-        break;
-
-      case full:
-        Error("Received flit while full!");
-        break;
-
-      case leaving:
-        if (f->head) {
-          _input_state[input] = shared;
-
+        case cut_through:
           if (f->tail) {
-            Error("Received single-flit packet in leaving state!");
+            _input_state[input] = leaving;
           }
-        } else {
-          std::cout << *f;
-          Error("Received non-head flit while packet leaving!");
-        }
-        break;
+          if (f->head) {
+            std::cout << *f;
+            Error("Received head flit in cut through buffer!");
+          }
+          break;
 
-      case cut_through:
-        if (f->tail) {
-          _input_state[input] = leaving;
-        }
-        if (f->head) {
-          std::cout << *f;
-          Error("Received head flit in cut through buffer!");
-        }
-        break;
-
-      case shared:
-        if (f->head) {
-          Error("Shared buffer received another head!");
-        } else if (f->tail) {
-          std::cout << "Input " << input << std::endl;
-          std::cout << *f;
-          Error("Shared buffer received another tail!");
-        }
-        break;
+        case shared:
+          if (f->head) {
+            Error("Shared buffer received another head!");
+          } else if (f->tail) {
+            std::cout << "Input " << input << std::endl;
+            std::cout << *f;
+            Error("Shared buffer received another tail!");
+          }
+          break;
       }
     }
   }
@@ -296,7 +296,6 @@ int ChaosRouter::_MultiQueueForOutput(int output) const {
   for (int i = 0; i < _multi_queue_size; ++i) {
     if ((_multi_match[i] == -1) &&
         ((_multi_state[i] == full) || (_multi_state[i] == filling))) {
-
       if ((!_mq_route[i]->OutputEmpty(output)) &&
           ((mq_oldest == -1) || (_mq_age[i] > mq_age))) {
         mq_oldest = i;
@@ -414,8 +413,9 @@ void ChaosRouter::_NextInterestingChannel() {
       } else if (_input_state[in_index] == filling) {
         _input_state[in_index] = cut_through;
       } else {
-        Error("Tried to route input through crossbar that was not full or "
-              "filling!");
+        Error(
+            "Tried to route input through crossbar that was not full or "
+            "filling!");
       }
     }
 
@@ -443,8 +443,9 @@ void ChaosRouter::_NextInterestingChannel() {
       } else {
         std::cout << "Input " << _cur_channel
                   << " state = " << _input_state[_cur_channel] << std::endl;
-        Error("Tried to route input throught multi-queue that was not full or "
-              "filling!");
+        Error(
+            "Tried to route input throught multi-queue that was not full or "
+            "filling!");
       }
 
       _input_mq_match[_cur_channel] = mq_avail;
@@ -472,7 +473,6 @@ void ChaosRouter::_OutputAdvance() {
   for (int i = 0; i < _inputs; ++i) {
     if (((_input_output_match[i] != -1) || (_input_mq_match[i] != -1)) &&
         (!_input_frame[i].empty())) {
-
       advanced = false;
       f = _input_frame[i].front();
 
@@ -502,7 +502,6 @@ void ChaosRouter::_OutputAdvance() {
         advanced = true;
 
       } else if (!_MultiQueueFull(_input_mq_match[i])) {
-
         mq = _input_mq_match[i];
 
         if (f->head) {
@@ -526,8 +525,9 @@ void ChaosRouter::_OutputAdvance() {
           } else if (_multi_state[mq] == cut_through) {
             _multi_state[mq] = leaving;
           } else {
-            Error("Multi-queue received tail while not filling or "
-                  "cutting-through!");
+            Error(
+                "Multi-queue received tail while not filling or "
+                "cutting-through!");
           }
         }
 
@@ -547,7 +547,7 @@ void ChaosRouter::_OutputAdvance() {
       if (advanced) {
         _input_frame[i].pop();
 
-        if (f->tail) { // last in packet, update state
+        if (f->tail) {  // last in packet, update state
           if (_input_state[i] == leaving) {
             _input_state[i] = empty;
           } else if (_input_state[i] == shared) {

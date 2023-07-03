@@ -47,7 +47,6 @@ class SwitchMonitor;
 class BufferMonitor;
 
 class IQRouter : public Router {
-
   int _vcs;
 
   bool _vc_busy_when_full;
@@ -147,7 +146,7 @@ class IQRouter : public Router {
   SwitchMonitor *_switchMonitor;
   BufferMonitor *_bufferMonitor;
 
-public:
+ public:
   IQRouter(Configuration const &config, Module *parent, std::string const &name,
            int id, int inputs, int outputs);
 

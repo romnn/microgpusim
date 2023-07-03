@@ -84,8 +84,7 @@ bool trace_kernel_info_t::is_finished() {
 }
 
 bool trace_kernel_info_t::children_all_finished() {
-  if (!m_child_kernels.empty())
-    return false;
+  if (!m_child_kernels.empty()) return false;
 
   return true;
 }

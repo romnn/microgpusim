@@ -60,8 +60,7 @@ void *BoxInterconnect::Pop(unsigned deviceID) {
     //   data = _boundary_buffer[subnet][icntID][turn].PopPacket();
     // }
     turn++;
-    if (turn == _vcs)
-      turn = 0;
+    if (turn == _vcs) turn = 0;
   }
   if (data != NULL) {
     _round_robin_turn[subnet][icntID] = turn;
@@ -126,8 +125,8 @@ void BoxInterconnect::Init() {
   }
 }
 
-std::unique_ptr<BoxInterconnect>
-new_box_interconnect(const char *config_filename) {
+std::unique_ptr<BoxInterconnect> new_box_interconnect(
+    const char *config_filename) {
   std::unique_ptr<BoxInterconnect> box_interconnect =
       std::make_unique<BoxInterconnect>();
   box_interconnect->ParseConfigFile(config_filename);

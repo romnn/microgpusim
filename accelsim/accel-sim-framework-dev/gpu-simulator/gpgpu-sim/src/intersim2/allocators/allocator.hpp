@@ -7,7 +7,7 @@
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
 
- Redistributions of source code must retain the above copyright notice, this 
+ Redistributions of source code must retain the above copyright notice, this
  list of conditions and the following disclaimer.
  Redistributions in binary form must reproduce the above copyright notice, this
  list of conditions and the following disclaimer in the documentation and/or
@@ -15,7 +15,7 @@
 
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
@@ -28,16 +28,16 @@
 #ifndef _ALLOCATOR_HPP_
 #define _ALLOCATOR_HPP_
 
-#include <string>
 #include <map>
 #include <set>
+#include <string>
 #include <vector>
 
-#include "module.hpp"
 #include "config_utils.hpp"
+#include "module.hpp"
 
 class Allocator : public Module {
-protected:
+ protected:
   const int _inputs;
   const int _outputs;
 
@@ -46,8 +46,7 @@ protected:
   vector<int> _inmatch;
   vector<int> _outmatch;
 
-public:
-
+ public:
   struct sRequest {
     int port;
     int label;
@@ -55,36 +54,35 @@ public:
     int out_pri;
   };
 
-  Allocator( Module *parent, const string& name,
-	     int inputs, int outputs );
+  Allocator(Module *parent, const string &name, int inputs, int outputs);
 
-  virtual void Clear( );
-  
-  virtual int  ReadRequest( int in, int out ) const = 0;
-  virtual bool ReadRequest( sRequest &req, int in, int out ) const = 0;
+  virtual void Clear();
 
-  virtual void AddRequest( int in, int out, int label = 1, 
-			   int in_pri = 0, int out_pri = 0 );
-  virtual void RemoveRequest( int in, int out, int label = 1 ) = 0;
-  
-  virtual void Allocate( ) = 0;
+  virtual int ReadRequest(int in, int out) const = 0;
+  virtual bool ReadRequest(sRequest &req, int in, int out) const = 0;
 
-  int OutputAssigned( int in ) const;
-  int InputAssigned( int out ) const;
+  virtual void AddRequest(int in, int out, int label = 1, int in_pri = 0,
+                          int out_pri = 0);
+  virtual void RemoveRequest(int in, int out, int label = 1) = 0;
 
-  virtual bool OutputHasRequests( int out ) const = 0;
-  virtual bool InputHasRequests( int in ) const = 0;
+  virtual void Allocate() = 0;
 
-  virtual int NumOutputRequests( int out ) const = 0;
-  virtual int NumInputRequests( int in ) const = 0;
+  int OutputAssigned(int in) const;
+  int InputAssigned(int out) const;
 
-  virtual void PrintRequests( ostream * os = NULL ) const = 0;
-  void PrintGrants( ostream * os = NULL ) const;
+  virtual bool OutputHasRequests(int out) const = 0;
+  virtual bool InputHasRequests(int in) const = 0;
 
-  static Allocator *NewAllocator( Module *parent, const string& name,
-				  const string &alloc_type, 
-				  int inputs, int outputs, 
-				  Configuration const * const config = NULL );
+  virtual int NumOutputRequests(int out) const = 0;
+  virtual int NumInputRequests(int in) const = 0;
+
+  virtual void PrintRequests(ostream *os = NULL) const = 0;
+  void PrintGrants(ostream *os = NULL) const;
+
+  static Allocator *NewAllocator(Module *parent, const string &name,
+                                 const string &alloc_type, int inputs,
+                                 int outputs,
+                                 Configuration const *const config = NULL);
 };
 
 //==================================================
@@ -93,30 +91,28 @@ public:
 //==================================================
 
 class DenseAllocator : public Allocator {
-protected:
+ protected:
   vector<vector<sRequest> > _request;
 
-public:
-  DenseAllocator( Module *parent, const string& name,
-		  int inputs, int outputs );
+ public:
+  DenseAllocator(Module *parent, const string &name, int inputs, int outputs);
 
-  void Clear( );
-  
-  int  ReadRequest( int in, int out ) const;
-  bool ReadRequest( sRequest &req, int in, int out ) const;
+  void Clear();
 
-  void AddRequest( int in, int out, int label = 1, 
-		   int in_pri = 0, int out_pri = 0 );
-  void RemoveRequest( int in, int out, int label = 1 );
+  int ReadRequest(int in, int out) const;
+  bool ReadRequest(sRequest &req, int in, int out) const;
 
-  bool OutputHasRequests( int out ) const;
-  bool InputHasRequests( int in ) const;
+  void AddRequest(int in, int out, int label = 1, int in_pri = 0,
+                  int out_pri = 0);
+  void RemoveRequest(int in, int out, int label = 1);
 
-  int NumOutputRequests( int out ) const;
-  int NumInputRequests( int in ) const;
+  bool OutputHasRequests(int out) const;
+  bool InputHasRequests(int in) const;
 
-  void PrintRequests( ostream * os = NULL ) const;
+  int NumOutputRequests(int out) const;
+  int NumInputRequests(int in) const;
 
+  void PrintRequests(ostream *os = NULL) const;
 };
 
 //==================================================
@@ -125,34 +121,32 @@ public:
 //==================================================
 
 class SparseAllocator : public Allocator {
-protected:
+ protected:
   set<int> _in_occ;
   set<int> _out_occ;
-  
+
   vector<map<int, sRequest> > _in_req;
   vector<map<int, sRequest> > _out_req;
 
-public:
-  SparseAllocator( Module *parent, const string& name,
-		   int inputs, int outputs );
+ public:
+  SparseAllocator(Module *parent, const string &name, int inputs, int outputs);
 
-  void Clear( );
-  
-  int  ReadRequest( int in, int out ) const;
-  bool ReadRequest( sRequest &req, int in, int out ) const;
+  void Clear();
 
-  void AddRequest( int in, int out, int label = 1, 
-		   int in_pri = 0, int out_pri = 0 );
-  void RemoveRequest( int in, int out, int label = 1 );
-  
-  bool OutputHasRequests( int out ) const;
-  bool InputHasRequests( int in ) const;
+  int ReadRequest(int in, int out) const;
+  bool ReadRequest(sRequest &req, int in, int out) const;
 
-  int NumOutputRequests( int out ) const;
-  int NumInputRequests( int in ) const;
+  void AddRequest(int in, int out, int label = 1, int in_pri = 0,
+                  int out_pri = 0);
+  void RemoveRequest(int in, int out, int label = 1);
 
-  void PrintRequests( ostream * os = NULL ) const;
+  bool OutputHasRequests(int out) const;
+  bool InputHasRequests(int in) const;
 
+  int NumOutputRequests(int out) const;
+  int NumInputRequests(int in) const;
+
+  void PrintRequests(ostream *os = NULL) const;
 };
 
 #endif

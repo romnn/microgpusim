@@ -9,8 +9,7 @@
 
 tag_array::~tag_array() {
   unsigned cache_lines_num = m_config.get_max_num_lines();
-  for (unsigned i = 0; i < cache_lines_num; ++i)
-    delete m_lines[i];
+  for (unsigned i = 0; i < cache_lines_num; ++i) delete m_lines[i];
   delete[] m_lines;
 }
 
@@ -155,8 +154,8 @@ enum cache_request_status tag_array::probe(new_addr_type addr, unsigned &idx,
   }
   if (all_reserved) {
     assert(m_config.m_alloc_policy == ON_MISS);
-    return RESERVATION_FAIL; // miss and not enough space in cache to allocate
-                             // on miss
+    return RESERVATION_FAIL;  // miss and not enough space in cache to allocate
+                              // on miss
   }
 
   if (invalid_line != (unsigned)-1) {
@@ -164,8 +163,8 @@ enum cache_request_status tag_array::probe(new_addr_type addr, unsigned &idx,
   } else if (valid_line != (unsigned)-1) {
     idx = valid_line;
   } else
-    abort(); // if an unreserved block exists, it is either invalid or
-             // replaceable
+    abort();  // if an unreserved block exists, it is either invalid or
+              // replaceable
 
   return MISS;
 }
@@ -189,51 +188,51 @@ enum cache_request_status tag_array::access(new_addr_type addr, unsigned time,
   // shader_cache_access_log(m_core_id, m_type_id, 0);  // log accesses to cache
   enum cache_request_status status = probe(addr, idx, mf, mf->is_write());
   switch (status) {
-  case HIT_RESERVED:
-    m_pending_hit++;
-  case HIT:
-    m_lines[idx]->set_last_access_time(time, mf->get_access_sector_mask());
-    break;
-  case MISS:
-    m_miss++;
-    // shader_cache_access_log(m_core_id, m_type_id, 1);  // log cache misses
-    if (m_config.m_alloc_policy == ON_MISS) {
-      if (m_lines[idx]->is_modified_line()) {
-        wb = true;
-        // m_lines[idx]->set_byte_mask(mf);
-        evicted.set_info(m_lines[idx]->m_block_addr,
-                         m_lines[idx]->get_modified_size(),
-                         m_lines[idx]->get_dirty_byte_mask(),
-                         m_lines[idx]->get_dirty_sector_mask());
-        m_dirty--;
+    case HIT_RESERVED:
+      m_pending_hit++;
+    case HIT:
+      m_lines[idx]->set_last_access_time(time, mf->get_access_sector_mask());
+      break;
+    case MISS:
+      m_miss++;
+      // shader_cache_access_log(m_core_id, m_type_id, 1);  // log cache misses
+      if (m_config.m_alloc_policy == ON_MISS) {
+        if (m_lines[idx]->is_modified_line()) {
+          wb = true;
+          // m_lines[idx]->set_byte_mask(mf);
+          evicted.set_info(m_lines[idx]->m_block_addr,
+                           m_lines[idx]->get_modified_size(),
+                           m_lines[idx]->get_dirty_byte_mask(),
+                           m_lines[idx]->get_dirty_sector_mask());
+          m_dirty--;
+        }
+        m_lines[idx]->allocate(m_config.tag(addr), m_config.block_addr(addr),
+                               time, mf->get_access_sector_mask());
       }
-      m_lines[idx]->allocate(m_config.tag(addr), m_config.block_addr(addr),
-                             time, mf->get_access_sector_mask());
-    }
-    break;
-  case SECTOR_MISS:
-    assert(m_config.m_cache_type == SECTOR);
-    m_sector_miss++;
-    // shader_cache_access_log(m_core_id, m_type_id, 1);  // log cache misses
-    if (m_config.m_alloc_policy == ON_MISS) {
-      bool before = m_lines[idx]->is_modified_line();
-      ((sector_cache_block *)m_lines[idx])
-          ->allocate_sector(time, mf->get_access_sector_mask());
-      if (before && !m_lines[idx]->is_modified_line()) {
-        m_dirty--;
+      break;
+    case SECTOR_MISS:
+      assert(m_config.m_cache_type == SECTOR);
+      m_sector_miss++;
+      // shader_cache_access_log(m_core_id, m_type_id, 1);  // log cache misses
+      if (m_config.m_alloc_policy == ON_MISS) {
+        bool before = m_lines[idx]->is_modified_line();
+        ((sector_cache_block *)m_lines[idx])
+            ->allocate_sector(time, mf->get_access_sector_mask());
+        if (before && !m_lines[idx]->is_modified_line()) {
+          m_dirty--;
+        }
       }
-    }
-    break;
-  case RESERVATION_FAIL:
-    m_res_fail++;
-    // shader_cache_access_log(m_core_id, m_type_id, 1);  // log cache misses
-    break;
-  default:
-    fprintf(stderr,
-            "tag_array::access - Error: Unknown"
-            "cache_request_status %d\n",
-            status);
-    abort();
+      break;
+    case RESERVATION_FAIL:
+      m_res_fail++;
+      // shader_cache_access_log(m_core_id, m_type_id, 1);  // log cache misses
+      break;
+    default:
+      fprintf(stderr,
+              "tag_array::access - Error: Unknown"
+              "cache_request_status %d\n",
+              status);
+      abort();
   }
   return status;
 }
@@ -251,8 +250,7 @@ void tag_array::fill(new_addr_type addr, unsigned time,
   // assert( m_config.m_alloc_policy == ON_FILL );
   unsigned idx;
   enum cache_request_status status = probe(addr, idx, mask, is_write);
-  if (status == RESERVATION_FAIL)
-    return;
+  if (status == RESERVATION_FAIL) return;
 
   bool before = m_lines[idx]->is_modified_line();
   // assert(status==MISS||status==SECTOR_MISS); // MSHR should have prevented
@@ -288,8 +286,7 @@ void tag_array::fill(unsigned index, unsigned time, mem_fetch *mf) {
 // TODO: we need write back the flushed data to the upper level
 void tag_array::flush() {
   // printf("tag_array::flush()\n");
-  if (!m_is_used)
-    return;
+  if (!m_is_used) return;
 
   for (unsigned i = 0; i < m_config.get_num_lines(); i++)
     if (m_lines[i]->is_modified_line()) {
@@ -304,8 +301,7 @@ void tag_array::flush() {
 
 void tag_array::invalidate() {
   // printf("tag_array::invalidate()\n");
-  if (!m_is_used)
-    return;
+  if (!m_is_used) return;
 
   for (unsigned i = 0; i < m_config.get_num_lines(); i++)
     for (unsigned j = 0; j < SECTOR_CHUNCK_SIZE; j++)

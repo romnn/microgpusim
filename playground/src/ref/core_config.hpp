@@ -4,7 +4,7 @@
 #include "hal.hpp"
 
 class core_config {
-public:
+ public:
   core_config(gpgpu_context *ctx) {
     gpgpu_ctx = ctx;
     m_valid = false;
@@ -46,7 +46,7 @@ public:
   unsigned gpgpu_cache_constl1_linesize;
 
   unsigned gpgpu_max_insn_issue_per_warp;
-  bool gmem_skip_L1D; // on = global memory access always skip the L1 cache
+  bool gmem_skip_L1D;  // on = global memory access always skip the L1 cache
 
   bool adaptive_cache_config;
 };

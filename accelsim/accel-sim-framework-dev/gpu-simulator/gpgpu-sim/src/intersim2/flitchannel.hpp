@@ -7,7 +7,7 @@
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
 
- Redistributions of source code must retain the above copyright notice, this 
+ Redistributions of source code must retain the above copyright notice, this
  list of conditions and the following disclaimer.
  Redistributions in binary form must reproduce the above copyright notice, this
  list of conditions and the following disclaimer in the documentation and/or
@@ -15,7 +15,7 @@
 
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
@@ -29,8 +29,8 @@
 //
 //  File Name: flitchannel.hpp
 //
-//  The FlitChannel models a flit channel with a multi-cycle 
-//   transmission delay. The channel latency can be specified as 
+//  The FlitChannel models a flit channel with a multi-cycle
+//   transmission delay. The channel latency can be specified as
 //   an integer number of simulator cycles.
 // ----------------------------------------------------------------------
 
@@ -48,47 +48,36 @@
 
 using namespace std;
 
-class Router ;
+class Router;
 
 class FlitChannel : public Channel<Flit> {
-public:
-  FlitChannel(Module * parent, string const & name, int classes);
+ public:
+  FlitChannel(Module* parent, string const& name, int classes);
 
-  void SetSource(Router const * const router, int port) ;
-  inline Router const * const GetSource() const {
-    return _routerSource;
-  }
-  inline int const & GetSourcePort() const {
-    return _routerSourcePort;
-  }
-  void SetSink(Router const * const router, int port) ;
-  inline Router const * const GetSink() const {
-    return _routerSink;
-  }
-  inline int const & GetSinkPort() const {
-    return _routerSinkPort;
-  }
-  inline vector<int> const & GetActivity() const {
-    return _active;
-  }
+  void SetSource(Router const* const router, int port);
+  inline Router const* const GetSource() const { return _routerSource; }
+  inline int const& GetSourcePort() const { return _routerSourcePort; }
+  void SetSink(Router const* const router, int port);
+  inline Router const* const GetSink() const { return _routerSink; }
+  inline int const& GetSinkPort() const { return _routerSinkPort; }
+  inline vector<int> const& GetActivity() const { return _active; }
 
-  // Send flit 
-  virtual void Send(Flit * flit);
+  // Send flit
+  virtual void Send(Flit* flit);
 
   virtual void ReadInputs();
   virtual void WriteOutputs();
 
-private:
-  
+ private:
   ////////////////////////////////////////
   //
   // Power Models OBSOLETE
   //
   ////////////////////////////////////////
 
-  Router const * _routerSource;
+  Router const* _routerSource;
   int _routerSourcePort;
-  Router const * _routerSink;
+  Router const* _routerSink;
   int _routerSinkPort;
 
   // Statistics for Activity Factors

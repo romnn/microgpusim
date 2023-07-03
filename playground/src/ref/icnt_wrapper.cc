@@ -94,53 +94,53 @@ void icnt_reg_options(class OptionParser *opp) {
 
 void icnt_wrapper_init() {
   switch (g_network_mode) {
-  case INTERSIM:
-    // FIXME: delete the object: may add icnt_done wrapper
-    g_icnt_interface = new InterconnectInterface();
-    g_icnt_interface->ParseConfigFile(g_network_config_filename);
-    icnt_create = intersim2_create;
-    icnt_init = intersim2_init;
-    icnt_has_buffer = intersim2_has_buffer;
-    icnt_push = intersim2_push;
-    icnt_pop = intersim2_pop;
-    icnt_transfer = intersim2_transfer;
-    icnt_busy = intersim2_busy;
-    icnt_display_stats = intersim2_display_stats;
-    icnt_display_overall_stats = intersim2_display_overall_stats;
-    icnt_display_state = intersim2_display_state;
-    icnt_get_flit_size = intersim2_get_flit_size;
-    break;
-  case LOCAL_XBAR:
-    g_localicnt_interface = LocalInterconnect::New(g_inct_config);
-    icnt_create = LocalInterconnect_create;
-    icnt_init = LocalInterconnect_init;
-    icnt_has_buffer = LocalInterconnect_has_buffer;
-    icnt_push = LocalInterconnect_push;
-    icnt_pop = LocalInterconnect_pop;
-    icnt_transfer = LocalInterconnect_transfer;
-    icnt_busy = LocalInterconnect_busy;
-    icnt_display_stats = LocalInterconnect_display_stats;
-    icnt_display_overall_stats = LocalInterconnect_display_overall_stats;
-    icnt_display_state = LocalInterconnect_display_state;
-    icnt_get_flit_size = LocalInterconnect_get_flit_size;
-    break;
-  case BOX_NET:
-    g_icnt_interface = new BoxInterconnect();
-    g_icnt_interface->ParseConfigFile(g_network_config_filename);
-    icnt_create = BoxInterconnect_create;
-    icnt_init = BoxInterconnect_init;
-    icnt_has_buffer = BoxInterconnect_has_buffer;
-    icnt_push = BoxInterconnect_push;
-    icnt_pop = BoxInterconnect_pop;
-    icnt_transfer = BoxInterconnect_transfer;
-    icnt_busy = BoxInterconnect_busy;
-    icnt_display_stats = BoxInterconnect_display_stats;
-    icnt_display_overall_stats = BoxInterconnect_display_overall_stats;
-    icnt_display_state = BoxInterconnect_display_state;
-    icnt_get_flit_size = BoxInterconnect_get_flit_size;
-    break;
-  default:
-    throw std::runtime_error("unknown network");
-    break;
+    case INTERSIM:
+      // FIXME: delete the object: may add icnt_done wrapper
+      g_icnt_interface = new InterconnectInterface();
+      g_icnt_interface->ParseConfigFile(g_network_config_filename);
+      icnt_create = intersim2_create;
+      icnt_init = intersim2_init;
+      icnt_has_buffer = intersim2_has_buffer;
+      icnt_push = intersim2_push;
+      icnt_pop = intersim2_pop;
+      icnt_transfer = intersim2_transfer;
+      icnt_busy = intersim2_busy;
+      icnt_display_stats = intersim2_display_stats;
+      icnt_display_overall_stats = intersim2_display_overall_stats;
+      icnt_display_state = intersim2_display_state;
+      icnt_get_flit_size = intersim2_get_flit_size;
+      break;
+    case LOCAL_XBAR:
+      g_localicnt_interface = LocalInterconnect::New(g_inct_config);
+      icnt_create = LocalInterconnect_create;
+      icnt_init = LocalInterconnect_init;
+      icnt_has_buffer = LocalInterconnect_has_buffer;
+      icnt_push = LocalInterconnect_push;
+      icnt_pop = LocalInterconnect_pop;
+      icnt_transfer = LocalInterconnect_transfer;
+      icnt_busy = LocalInterconnect_busy;
+      icnt_display_stats = LocalInterconnect_display_stats;
+      icnt_display_overall_stats = LocalInterconnect_display_overall_stats;
+      icnt_display_state = LocalInterconnect_display_state;
+      icnt_get_flit_size = LocalInterconnect_get_flit_size;
+      break;
+    case BOX_NET:
+      g_icnt_interface = new BoxInterconnect();
+      g_icnt_interface->ParseConfigFile(g_network_config_filename);
+      icnt_create = BoxInterconnect_create;
+      icnt_init = BoxInterconnect_init;
+      icnt_has_buffer = BoxInterconnect_has_buffer;
+      icnt_push = BoxInterconnect_push;
+      icnt_pop = BoxInterconnect_pop;
+      icnt_transfer = BoxInterconnect_transfer;
+      icnt_busy = BoxInterconnect_busy;
+      icnt_display_stats = BoxInterconnect_display_stats;
+      icnt_display_overall_stats = BoxInterconnect_display_overall_stats;
+      icnt_display_state = BoxInterconnect_display_state;
+      icnt_get_flit_size = BoxInterconnect_get_flit_size;
+      break;
+    default:
+      throw std::runtime_error("unknown network");
+      break;
   }
 }

@@ -131,7 +131,7 @@ void simt_stack::update(simt_mask_t &thread_done, addr_vector_t &next_pc,
   simt_mask_t top_active_mask = m_stack.back().m_active_mask;
   address_type top_recvg_pc = m_stack.back().m_recvg_pc;
   address_type top_pc =
-      m_stack.back().m_pc; // the pc of the instruction just executed
+      m_stack.back().m_pc;  // the pc of the instruction just executed
   stack_entry_type top_type = m_stack.back().m_type;
   assert(top_pc == next_inst_pc);
   assert(top_active_mask.any());
@@ -148,9 +148,9 @@ void simt_stack::update(simt_mask_t &thread_done, addr_vector_t &next_pc,
     address_type tmp_next_pc = null_pc;
     simt_mask_t tmp_active_mask;
     for (int i = m_warp_size - 1; i >= 0; i--) {
-      if (top_active_mask.test(i)) { // is this thread active?
+      if (top_active_mask.test(i)) {  // is this thread active?
         if (thread_done.test(i)) {
-          top_active_mask.reset(i); // remove completed thread from active mask
+          top_active_mask.reset(i);  // remove completed thread from active mask
         } else if (tmp_next_pc == null_pc) {
           tmp_next_pc = next_pc[i];
           tmp_active_mask.set(i);
@@ -163,7 +163,7 @@ void simt_stack::update(simt_mask_t &thread_done, addr_vector_t &next_pc,
     }
 
     if (tmp_next_pc == null_pc) {
-      assert(!top_active_mask.any()); // all threads done
+      assert(!top_active_mask.any());  // all threads done
       continue;
     }
 
@@ -210,8 +210,8 @@ void simt_stack::update(simt_mask_t &thread_done, addr_vector_t &next_pc,
       m_stack.pop_back();
 
       assert(m_stack.size() > 0);
-      m_stack.back().m_pc = tmp_next_pc; // set the PC of the stack top entry
-                                         // to return PC from  the call stack;
+      m_stack.back().m_pc = tmp_next_pc;  // set the PC of the stack top entry
+                                          // to return PC from  the call stack;
       // Check if the New top of the stack is reconverging
       if (tmp_next_pc == m_stack.back().m_recvg_pc &&
           m_stack.back().m_type != STACK_ENTRY_TYPE_CALL) {
@@ -244,8 +244,7 @@ void simt_stack::update(simt_mask_t &thread_done, addr_vector_t &next_pc,
     }
 
     // discard the new entry if its PC matches with reconvergence PC
-    if (warp_diverged && tmp_next_pc == new_recvg_pc)
-      continue;
+    if (warp_diverged && tmp_next_pc == new_recvg_pc) continue;
 
     // update the current top of pdom stack
     m_stack.back().m_pc = tmp_next_pc;

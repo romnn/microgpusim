@@ -7,7 +7,7 @@
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
 
- Redistributions of source code must retain the above copyright notice, this 
+ Redistributions of source code must retain the above copyright notice, this
  list of conditions and the following disclaimer.
  Redistributions in binary form must reproduce the above copyright notice, this
  list of conditions and the following disclaimer in the documentation and/or
@@ -15,7 +15,7 @@
 
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
@@ -33,89 +33,80 @@
 
 #include "matrix_arb.hpp"
 #include <iostream>
-using namespace std ;
+using namespace std;
 
-MatrixArbiter::MatrixArbiter( Module *parent, const string &name, int size )
-  : Arbiter( parent, name, size ), _last_req(-1) {
+MatrixArbiter::MatrixArbiter(Module* parent, const string& name, int size)
+    : Arbiter(parent, name, size), _last_req(-1) {
   _matrix.resize(size);
-  for ( int i = 0 ; i < size ; i++ ) {
+  for (int i = 0; i < size; i++) {
     _matrix[i].resize(size);
-    for ( int j = 0; j < i; j++ ) {
+    for (int j = 0; j < i; j++) {
       _matrix[i][j] = 1;
     }
   }
 }
 
-void MatrixArbiter::PrintState() const  {
-  cout << "Priority Matrix: " << endl ;
-  for ( int r = 0; r < _size ; r++ ) {
-    for ( int c = 0 ; c < _size ; c++ ) {
-      cout << _matrix[r][c] << " " ;
+void MatrixArbiter::PrintState() const {
+  cout << "Priority Matrix: " << endl;
+  for (int r = 0; r < _size; r++) {
+    for (int c = 0; c < _size; c++) {
+      cout << _matrix[r][c] << " ";
     }
-    cout << endl ;
+    cout << endl;
   }
-  cout << endl ;
+  cout << endl;
 }
 
 void MatrixArbiter::UpdateState() {
   // update priority matrix using last grant
-  if ( _selected > -1 ) {
-    for ( int i = 0; i < _size ; i++ ) {
-      if( _selected != i ) {
-	_matrix[_selected][i] = 0 ;
-	_matrix[i][_selected] = 1 ;
+  if (_selected > -1) {
+    for (int i = 0; i < _size; i++) {
+      if (_selected != i) {
+        _matrix[_selected][i] = 0;
+        _matrix[i][_selected] = 1;
       }
     }
   }
 }
 
-void MatrixArbiter::AddRequest( int input, int id, int pri )
-{
+void MatrixArbiter::AddRequest(int input, int id, int pri) {
   _last_req = input;
   Arbiter::AddRequest(input, id, pri);
 }
 
-int MatrixArbiter::Arbitrate( int* id, int* pri ) {
-  
+int MatrixArbiter::Arbitrate(int* id, int* pri) {
   // avoid running arbiter if it has not recevied at least two requests
   // (in this case, requests and grants are identical)
-  if ( _num_reqs < 2 ) {
-    
-    _selected = _last_req ;
-    
-  } else {
-    
-    _selected = -1 ;
+  if (_num_reqs < 2) {
+    _selected = _last_req;
 
-    for ( int input = 0 ; input < _size ; input++ ) {
-      if(_request[input].valid) {
-	
-	bool grant = true;
-	for ( int i = 0 ; i < _size ; i++ ) {
-	  if ( _request[i].valid &&
-	       ( ( ( _request[i].pri == _request[input].pri ) &&
-		   _matrix[i][input]) ||
-		 ( _request[i].pri > _request[input].pri )
-		 ) ) {
-	    grant = false ;
-	    break ;
-	  }
-	}
-	
-	if ( grant ) {
-	  _selected = input ;
-	  break ; 
-	}
+  } else {
+    _selected = -1;
+
+    for (int input = 0; input < _size; input++) {
+      if (_request[input].valid) {
+        bool grant = true;
+        for (int i = 0; i < _size; i++) {
+          if (_request[i].valid && (((_request[i].pri == _request[input].pri) &&
+                                     _matrix[i][input]) ||
+                                    (_request[i].pri > _request[input].pri))) {
+            grant = false;
+            break;
+          }
+        }
+
+        if (grant) {
+          _selected = input;
+          break;
+        }
       }
-      
     }
   }
-    
+
   return Arbiter::Arbitrate(id, pri);
 }
 
-void MatrixArbiter::Clear()
-{
+void MatrixArbiter::Clear() {
   _last_req = -1;
   Arbiter::Clear();
 }
