@@ -19,6 +19,9 @@ path = "src/main.rs"
 default = ["parallel"]
 parallel = ["cc/parallel"]
 
+[package.metadata.cargo-feature-combinations]
+denylist = ["default"]
+
 [dependencies]
 cxx = "1"
 accelsim = { path = "../accelsim" }

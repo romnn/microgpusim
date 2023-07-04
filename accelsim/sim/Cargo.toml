@@ -9,6 +9,9 @@ default  = []
 [package.metadata.cargo-feature-combinations]
 denylist = ["default"]
 
+[package.metadata.cargo-feature-combinations.matrix]
+need_cuda = true
+
 [dependencies]
 color-eyre = "0"
 async-process = "1"
@@ -19,5 +22,5 @@ accelsim = { path = "../" }
 
 [build-dependencies]
 color-eyre = "0"
-duct = "0"
+# duct = "0"
 accelsim = { path = "../" }
