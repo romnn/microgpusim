@@ -22,12 +22,12 @@ RUN apt-get install -y \
 ENV CUDA_INSTALL_PATH=/usr/local/cuda
 
 # add source
-WORKDIR /app
-COPY . /app
+# WORKDIR /app
+# COPY . /app
 
-RUN bash /app/accelsim/build.sh
+# RUN bash /app/accelsim/build.sh
 # python-setuptools python3-dev python3-pip
-# ENTRYPOINT [ "/bin/bash" ]
+ENTRYPOINT [ "/bin/bash" ]
 # RUN make -C /app/accelsim/accel-sim-framework-dev/gpu-simulator
 # compile
 
