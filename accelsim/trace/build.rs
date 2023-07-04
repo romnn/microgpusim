@@ -100,9 +100,10 @@ fn main() -> eyre::Result<()> {
     println!("cargo:rerun-if-env-changed=BUILD");
     println!("cargo:rerun-if-env-changed=build.rs");
 
-    let use_upstream = false;
     #[cfg(feature = "upstream")]
     let use_upstream = true;
+    #[cfg(not(feature = "upstream"))]
+    let use_upstream = false;
 
     let accel_path = accelsim::locate(use_upstream)?;
     println!("cargo:rerun-if-changed={}", accel_path.display());

@@ -3,3 +3,4 @@
 # build logs
 build.log*
 accel-sim-framework-dev-*/
+upstream/

@@ -26,9 +26,10 @@ async fn sim_trace(
     config: SimConfig,
     timeout: Option<Duration>,
 ) -> eyre::Result<std::process::Output> {
-    let use_upstream = false;
     #[cfg(feature = "upstream")]
     let use_upstream = true;
+    #[cfg(not(feature = "upstream"))]
+    let use_upstream = false;
 
     let accelsim_path = accelsim::locate(use_upstream)?;
     let profile = accelsim::profile();

@@ -46,6 +46,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install dependencies
+        run: >-
+          sudo apt-get install -y wget build-essential xutils-dev bison zlib1g-dev flex libglu1-mesa-dev libssl-dev libxml2-dev libboost-all-dev git g++
       - name: Install CUDA
         uses: Jimver/cuda-toolkit@v0.2.10
         id: cuda-toolkit
