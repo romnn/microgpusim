@@ -18,6 +18,9 @@ full = []
 [package.metadata.cargo-feature-combinations]
 denylist = ["default"]
 
+[package.metadata.cargo-feature-combinations.matrix]
+need_cuda = true
+
 [dependencies]
 thiserror = "1"
 nvbit-rs = "0"

@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default  = []
+default = []
+upstream = []
 
 [package.metadata.cargo-feature-combinations]
 denylist = ["default"]
@@ -22,5 +23,5 @@ accelsim = { path = "../" }
 
 [build-dependencies]
 color-eyre = "0"
-# duct = "0"
+duct = "0"
 accelsim = { path = "../" }

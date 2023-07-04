@@ -11,11 +11,11 @@ use color_eyre::{eyre, Section, SectionExt};
 pub use options::{Options, SimConfig};
 use std::path::{Path, PathBuf};
 
-#[must_use]
-pub fn use_upstream() -> bool {
-    let use_upstream = std::env::var("USE_UPSTREAM_ACCELSIM");
-    use_upstream.is_ok_and(|v| v.to_lowercase() == "yes")
-}
+// #[must_use]
+// pub fn use_upstream() -> bool {
+//     let use_upstream = std::env::var("USE_UPSTREAM_ACCELSIM");
+//     use_upstream.is_ok_and(|v| v.to_lowercase() == "yes")
+// }
 
 #[must_use]
 pub fn find_cuda() -> eyre::Result<PathBuf> {
@@ -59,8 +59,7 @@ pub fn cuda_candidates() -> Vec<PathBuf> {
     valid_paths
 }
 
-pub fn locate() -> eyre::Result<(bool, PathBuf)> {
-    let use_upstream = use_upstream();
+pub fn locate(use_upstream: bool) -> eyre::Result<PathBuf> {
     let accelsim_path = build::manifest_path()?.join(if use_upstream {
         "upstream/accel-sim-framework"
     } else {
@@ -76,11 +75,11 @@ pub fn locate() -> eyre::Result<(bool, PathBuf)> {
         };
         repo.shallow_clone()?;
     }
-    Ok((use_upstream, accelsim_path))
+    Ok(accelsim_path)
 }
 
-pub fn locate_nvbit_tracer() -> eyre::Result<PathBuf> {
-    let (_, accelsim_path) = locate()?;
+pub fn locate_nvbit_tracer(use_upstream: bool) -> eyre::Result<PathBuf> {
+    let accelsim_path = locate(use_upstream)?;
     let default_tracer_root = accelsim_path.join("util/tracer_nvbit/");
     let tracer_root = if let Ok(path) = std::env::var("NVBIT_TRACER_ROOT") {
         PathBuf::from(path)

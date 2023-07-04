@@ -17,7 +17,6 @@ fn locate_accelsim_bin(accel_path: &Path, profile: &str) -> eyre::Result<PathBuf
             .join("playground")
     } else {
         accelsim::executable(accel_path)
-        // sim_root.join("bin").join(profile).join("accel-sim.out")
     };
     Ok(accelsim_bin)
 }
@@ -27,32 +26,23 @@ async fn sim_trace(
     config: SimConfig,
     timeout: Option<Duration>,
 ) -> eyre::Result<std::process::Output> {
-    let (_is_upstream, accelsim_path) = accelsim::locate()?;
-    let profile = accelsim::profile();
+    let use_upstream = false;
+    #[cfg(feature = "upstream")]
+    let use_upstream = true;
 
-    // #[cfg(debug_assertions)]
-    // let profile = "debug";
-    // #[cfg(not(debug_assertions))]
-    // let profile = "release";
+    let accelsim_path = accelsim::locate(use_upstream)?;
+    let profile = accelsim::profile();
 
     let accelsim_bin = locate_accelsim_bin(&accelsim_path, &profile)?;
     let accelsim_bin = accelsim_bin
         .canonicalize()
         .wrap_err_with(|| format!("{} does not exist", accelsim_bin.display()))?;
 
-    // if !accelsim_bin.is_file() {
-    //     eyre::bail!("missing {}", accelsim_bin.display());
-    // }
-
     let sim_root = accelsim_path.join("gpu-simulator/");
     let setup_env = sim_root.join("setup_environment.sh");
     let setup_env = setup_env
         .canonicalize()
         .wrap_err_with(|| format!("{} does not exist", setup_env.display()))?;
-
-    // if !setup_env.is_file() {
-    //     eyre::bail!("missing {}", setup_env.display());
-    // }
 
     let mut tmp_sim_sh = vec!["set -e".to_string()];
 
@@ -152,7 +142,6 @@ async fn main() -> eyre::Result<()> {
     color_eyre::install()?;
 
     let options = Options::parse();
-    // dbg!(&options.traces_dir);
 
     let start = Instant::now();
     let output = sim_trace(&options.traces_dir, options.sim_config, options.timeout).await?;

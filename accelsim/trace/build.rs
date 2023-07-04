@@ -96,12 +96,15 @@ fn build_accelsim_tracer_tool(
 fn main() -> eyre::Result<()> {
     color_eyre::install()?;
 
-    println!("cargo:rerun-if-env-changed=USE_UPSTREAM_ACCELSIM");
     println!("cargo:rerun-if-env-changed=FORCE");
     println!("cargo:rerun-if-env-changed=BUILD");
     println!("cargo:rerun-if-env-changed=build.rs");
 
-    let (_use_upstream, accel_path) = accelsim::locate()?;
+    let use_upstream = false;
+    #[cfg(feature = "upstream")]
+    let use_upstream = true;
+
+    let accel_path = accelsim::locate(use_upstream)?;
     println!("cargo:rerun-if-changed={}", accel_path.display());
 
     println!(

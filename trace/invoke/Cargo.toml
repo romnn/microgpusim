@@ -9,9 +9,13 @@ default  = []
 [package.metadata.cargo-feature-combinations]
 denylist = ["default"]
 
+[package.metadata.cargo-feature-combinations.matrix]
+need_cuda = true
+
 [dependencies]
 anyhow = "1"
 thiserror = "1"
 tokio = { version = "1", features = ["full"] }
 async-process = "1"
+
 trace = { path = "../" }

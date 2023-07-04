@@ -12,7 +12,11 @@ async fn run_trace(
     exec_args: Vec<String>,
     traces_dir: impl AsRef<Path>,
 ) -> eyre::Result<()> {
-    let nvbit_tracer_root = accelsim::locate_nvbit_tracer()?;
+    let use_upstream = false;
+    #[cfg(feature = "upstream")]
+    let use_upstream = true;
+
+    let nvbit_tracer_root = accelsim::locate_nvbit_tracer(use_upstream)?;
     dbg!(&nvbit_tracer_root);
     assert!(
         nvbit_tracer_root.is_dir(),
