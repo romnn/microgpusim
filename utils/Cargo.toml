@@ -2,8 +2,8 @@
 name = "utils"
 version = "0.1.0"
 edition = "2021"
+publish = false
 
 [dependencies]
 libc = "0"
 color-eyre = "0"
-# duct = "0"

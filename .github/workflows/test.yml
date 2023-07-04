@@ -1,34 +1,30 @@
 name: test
-
 on: [push, pull_request]
-
 jobs:
   feature-matrix:
     uses: ./.github/workflows/feature-matrix.yml
-  
-  test-main:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@stable
-      
-      - name: Lint
-        continue-on-error: true # for now we are not too pedantic
-        run: >-
-          cargo clippy
-          --package casimu
-          --tests
-          --benches
-          --examples
-          --all-targets
-          -- -Dclippy::all -Dclippy::pedantic
-
-      - name: Test
-        run: >-
-          cargo test
-          --package casimu
-          --all-targets
-
+  # test-main:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - uses: dtolnay/rust-toolchain@stable
+  #
+  #     - name: Lint
+  #       continue-on-error: true # for now we are not too pedantic
+  #       run: >-
+  #         cargo clippy
+  #         --package casimu
+  #         --tests
+  #         --benches
+  #         --examples
+  #         --all-targets
+  #         -- -Dclippy::all -Dclippy::pedantic
+  #
+  #     - name: Test
+  #       run: >-
+  #         cargo test
+  #         --package casimu
+  #         --all-targets
   test:
     name: test ${{ matrix.package.name }} (${{ matrix.package.features }})
     runs-on: ubuntu-latest
@@ -40,47 +36,36 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
-
+      - name: Install accelsim dependencies
+        if: ${{ matrix.package.name == 'accelsim-sim' }}
+        run: >-
+          sudo apt-get install -y wget build-essential xutils-dev bison zlib1g-dev flex libglu1-mesa-dev libssl-dev libxml2-dev libboost-all-dev git g++
       - name: Install CUDA
         uses: Jimver/cuda-toolkit@v0.2.10
+        if: ${{ matrix.package.need_cuda }}
         id: cuda-toolkit
         with:
-          cuda: '11.7.0'
+          cuda: "11.7.0"
           linux-local-args: '["--driver", "--toolkit"]'
-
       - name: Lint
         continue-on-error: true # for now we are not too pedantic
         run: >-
-          cargo clippy
-          --package "${{ matrix.package.name }}"
-          --features "${{ matrix.package.features }}"
-          --tests
-          --benches
-          --examples
-          --all-targets
-          -- -Dclippy::all -Dclippy::pedantic
-
+          cargo clippy --package "${{ matrix.package.name }}" --features "${{ matrix.package.features }}" --tests --benches --examples --all-targets -- -Dclippy::all -Dclippy::pedantic
       - name: Test
         run: >-
-          cargo test
-          --package "${{ matrix.package.name }}"
-          --features "${{ matrix.package.features }}"
-          --all-targets
-
+          cargo test --package "${{ matrix.package.name }}" --features "${{ matrix.package.features }}" --all-targets
   publish:
     name: publish (dry-run)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
-
-      - name: Install CUDA
-        uses: Jimver/cuda-toolkit@v0.2.10
-        id: cuda-toolkit
-        with:
-          cuda: '11.7.0'
-          linux-local-args: '["--driver", "--toolkit"]'
-
+      # - name: Install CUDA
+      #   uses: Jimver/cuda-toolkit@v0.2.10
+      #   id: cuda-toolkit
+      #   with:
+      #     cuda: '11.7.0'
+      #     linux-local-args: '["--driver", "--toolkit"]'
       - name: Publish crates (dry-run)
         uses: romnn/publish-crates@main
         with:

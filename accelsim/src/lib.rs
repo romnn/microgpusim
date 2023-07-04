@@ -11,12 +11,6 @@ use color_eyre::{eyre, Section, SectionExt};
 pub use options::{Options, SimConfig};
 use std::path::{Path, PathBuf};
 
-// #[must_use]
-// pub fn use_upstream() -> bool {
-//     let use_upstream = std::env::var("USE_UPSTREAM_ACCELSIM");
-//     use_upstream.is_ok_and(|v| v.to_lowercase() == "yes")
-// }
-
 #[must_use]
 pub fn find_cuda() -> eyre::Result<PathBuf> {
     let cuda_candidates = cuda_candidates();
