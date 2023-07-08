@@ -1,24 +1,14 @@
 name: release
-
 on:
   push:
     tags:
       - "*"
-
 jobs:
   publish-crate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
-
-      - name: Install CUDA
-        uses: Jimver/cuda-toolkit@v0.2.10
-        id: cuda-toolkit
-        with:
-          cuda: '11.7.0'
-          linux-local-args: '["--driver", "--toolkit"]'
-
       - name: Publish crates
         uses: romnn/publish-crates@main
         with:
