@@ -24,6 +24,7 @@ jobs:
         if: ${{ matrix.package.need_cuda }}
         with:
           cuda: "11.8.0"
+          use-github-cache: false
           linux-local-args: '["--driver", "--toolkit"]'
       - name: Build all
         run: >-

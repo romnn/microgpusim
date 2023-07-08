@@ -49,7 +49,6 @@ fn generate_bindings() -> eyre::Result<()> {
         // .allowlist_function("addrdec_getmasklimit")
         // .allowlist_function("parse_cache_config")
         // .allowlist_type("linear_to_raw_address_translation")
-        // .allowlist_type("cache_config")
         // .allowlist_type("mem_fetch_t")
         // .allowlist_type("tag_array")
         // .allowlist_type("data_cache")
@@ -69,6 +68,10 @@ fn generate_bindings() -> eyre::Result<()> {
         .allowlist_type("cache_reservation_fail_reason")
         // for cache config tests
         .allowlist_type("cache_config_params")
+        // for config tests
+        .allowlist_type("CacheConfig")
+        .allowlist_function("parse_cache_config")
+        // .allowlist_type("cache_config")
         // .allowlist_type("cache_access_logger_types")
         // .allowlist_type("mem_fetch_status")
         // .opaque_type("mem_fetch_interface")
@@ -181,13 +184,13 @@ where
 }
 
 fn main() -> eyre::Result<()> {
-    if true {
-        println!("cargo:rerun-if-changed=build.rs");
-        println!("cargo:rerun-if-changed=src/bridge/");
-        println!("cargo:rerun-if-changed=src/bindings.hpp");
-        println!("cargo:rerun-if-changed=src/bridge.hpp");
-        println!("cargo:rerun-if-changed=src/ref/");
-        println!("cargo:rerun-if-changed=src/tests/");
+    if false {
+        println!("cargo:rerun-if-changed=./build.rs");
+        println!("cargo:rerun-if-changed=./src/bridge/");
+        println!("cargo:rerun-if-changed=./src/bindings.hpp");
+        println!("cargo:rerun-if-changed=./src/bridge.hpp");
+        println!("cargo:rerun-if-changed=./src/ref/");
+        println!("cargo:rerun-if-changed=./src/tests/");
     }
 
     let mut bridges = multi_glob(["./src/bridge/**/*.rs"]).collect::<Result<Vec<_>, _>>()?;

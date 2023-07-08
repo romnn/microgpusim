@@ -1,11 +1,6 @@
 use crate::bindings;
-// use cxx::{type_id, ExternType};
 
 super::extern_type!(bindings::cache_config_params, "cache_config_params");
-// unsafe impl ExternType for bindings::cache_config_params {
-//     type Id = type_id!("cache_config_params");
-//     type Kind = cxx::kind::Trivial;
-// }
 
 #[cxx::bridge]
 mod default {

@@ -1216,11 +1216,6 @@ mod tests {
     fn parse_cache_config(config: &str) -> bindings::CacheConfig {
         use bindings::parse_cache_config as parse;
         let cache_config = unsafe { parse(config.as_ptr().cast()) };
-        // use std::mem::MaybeUninit;
-        // let config = ffi::CString::new(config).unwrap();
-        // let mut cache_config = MaybeUninit::uninit();
-        // unsafe { parse(config.as_ptr().cast_mut(), cache_config.as_mut_ptr()) };
-        // let cache_config = unsafe { cache_config.assume_init() };
         cache_config
     }
 

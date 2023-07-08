@@ -2,20 +2,6 @@ use crate::bindings;
 use std::collections::HashMap;
 
 super::extern_type!(bindings::accelsim_config, "accelsim_config");
-// super::extern_type!(bindings::mem_access_type, "mem_access_type");
-// super::extern_type!(bindings::cache_request_status, "cache_request_status");
-// super::extern_type!(
-//     bindings::cache_reservation_fail_reason,
-//     "cache_reservation_fail_reason"
-// );
-
-// #[derive(Debug)]
-// pub enum Value {
-//     U32(u32),
-//     U64(u64),
-//     Float(f32),
-//     Double(f64),
-// }
 
 pub type RequestStatus = bindings::cache_request_status;
 pub type AccessType = bindings::mem_access_type;
@@ -24,8 +10,6 @@ pub type ReservationFailure = bindings::cache_reservation_fail_reason;
 #[derive(Debug, Default, getset::Setters)]
 pub struct AccelsimCacheStats {
     pub accesses: HashMap<(AccessType, AccessStat), u64>,
-    // succeeded_accesses: HashMap<(AccessType, RequestStatus), usize>,
-    // failed_accesses: HashMap<(AccessType, ReservationFailure), usize>,
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
@@ -33,22 +17,6 @@ pub enum AccessStat {
     ReservationFailure(ReservationFailure),
     Status(RequestStatus),
 }
-
-// impl AccelsimCacheStats {
-//     pub fn add_failed_accesses(
-//         &mut self,
-//         // kind: bindings::mem_access_type,
-//         // status: bindings::cache_reservation_fail_reason,
-//         kind: u32,
-//         reason: u32,
-//         num_accesses: u64,
-//     ) {
-//         let kind: bindings::mem_access_type = unsafe { std::mem::transmute(kind) };
-//         let reason: bindings::cache_reservation_fail_reason =
-//             unsafe { std::mem::transmute(reason) };
-//         *self.failed_accesses.entry((kind, reason)).or_insert(0) += num_accesses;
-//     }
-// }
 
 #[derive(Debug, Default)]
 pub struct AccelsimStats {
@@ -167,19 +135,6 @@ impl AccelsimStats {
     pub fn set_num_mem_l2_writeback(&mut self, v: usize) {
         self.num_mem_l2_writeback = v;
     }
-
-    // pub fn set_global_u32(&mut self, k: &cxx::CxxString, v: u32) {
-    //     self.inner.insert(k.to_string(), Value::U32(v));
-    // }
-    // pub fn set_global_u64(&mut self, k: &cxx::CxxString, v: u64) {
-    //     self.inner.insert(k.to_string(), Value::U64(v));
-    // }
-    // pub fn set_global_float(&mut self, k: &cxx::CxxString, v: f32) {
-    //     self.inner.insert(k.to_string(), Value::Float(v));
-    // }
-    // pub fn set_global_double(&mut self, k: &cxx::CxxString, v: f64) {
-    //     self.inner.insert(k.to_string(), Value::Double(v));
-    // }
 }
 
 #[cxx::bridge]
@@ -197,23 +152,14 @@ mod default {
 
     extern "Rust" {
 
-        // fn add_failed_accesses(
-        //     self: &mut AccelsimCacheStats,
-        //     kind: u32,   // bindings::mem_access_type,
-        //     status: u32, // bindings::cache_reservation_fail_reason,
-        //     num_accesses: u64,
-        // );
-
         type AccelsimStats;
-
-        // fn l2_cache_stats(self: &mut AccelsimStats) -> &mut AccelSimCacheStats;
 
         fn add_accesses(
             self: &mut AccelsimStats,
             cache_kind: CacheKind,
             cache_index: usize,
-            kind: u32,   // mem_access_type,
-            status: u32, // cache_request_status,
+            kind: u32,
+            status: u32,
             failed: bool,
             num_accesses: u64,
         );
@@ -240,25 +186,13 @@ mod default {
         // fn set_num_mem_l2_writeback(self: &mut AccelsimStats, v: usize);
         // fn set_num_mem_l1_write_allocate(self: &mut AccelsimStats, v: usize);
         // fn set_num_mem_l2_write_allocate(self: &mut AccelsimStats, v: usize);
-
-        // fn set_global_u64(self: &mut AccelsimStats, k: &CxxString, v: u64);
-        // fn set_global_u32(self: &mut AccelsimStats, k: &CxxString, v: u32);
-        // fn set_global_float(self: &mut AccelsimStats, k: &CxxString, v: f32);
-        // fn set_global_double(self: &mut AccelsimStats, k: &CxxString, v: f64);
     }
-
-    // type mem_access_type = crate::bindings::mem_access_type;
-    // type cache_request_status = crate::bindings::cache_request_status;
 
     unsafe extern "C++" {
         include!("playground/src/ref/bridge/main.hpp");
 
         type accelsim_config = crate::bindings::accelsim_config;
 
-        // type accelsim_stats; //= crate::bindings::accelsim_stats;
-
-        // fn accelsim(config: accelsim_config, argv: &[&str]) -> i32;
-        // fn accelsim(config: accelsim_config, argv: &[&str]) -> UniquePtr<accelsim_stats>;
         fn accelsim(config: accelsim_config, argv: &[&str], stats: &mut AccelsimStats) -> i32;
     }
 }

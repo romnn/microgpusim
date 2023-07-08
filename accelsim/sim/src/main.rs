@@ -48,7 +48,10 @@ async fn sim_trace(
     let mut tmp_sim_sh = vec!["set -e".to_string()];
 
     // change current working dir
-    let config_dir = &config.config_dir;
+    let config_dir = config
+        .config_dir
+        .as_ref()
+        .ok_or(eyre::eyre!("missing config dir"))?;
     let config_dir = config_dir
         .canonicalize()
         .wrap_err_with(|| format!("{} does not exist", config_dir.display()))?;
@@ -67,7 +70,9 @@ async fn sim_trace(
     ));
 
     // run accelsim binary
-    let gpgpusim_config = config.config()?;
+    let gpgpusim_config = config
+        .config()
+        .ok_or(eyre::eyre!("missing gpgpusim config"))?;
     let kernelslist = traces_dir.as_ref().join("kernelslist.g");
     let kernelslist = kernelslist
         .canonicalize()
@@ -81,13 +86,17 @@ async fn sim_trace(
         gpgpusim_config.to_string_lossy().to_string(),
     ];
 
-    let gpgpusim_trace_config = config.trace_config()?;
+    // let gpgpusim_trace_config = config.trace_config()?
+    //     .ok_or(eyre::eyre!("missing gpgpusim config"))?;
 
-    if gpgpusim_trace_config.is_file() {
-        trace_cmd.extend([
-            "-config".to_string(),
-            gpgpusim_trace_config.to_string_lossy().to_string(),
-        ]);
+    match config.trace_config() {
+        Some(gpgpusim_trace_config) if gpgpusim_trace_config.is_file() => {
+            trace_cmd.extend([
+                "-config".to_string(),
+                gpgpusim_trace_config.to_string_lossy().to_string(),
+            ]);
+        }
+        _ => {}
     }
     tmp_sim_sh.push(trace_cmd.join(" "));
     let tmp_sim_sh = tmp_sim_sh.join("\n");

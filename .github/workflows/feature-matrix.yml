@@ -1,12 +1,10 @@
 name: feature-matrix
-
 on:
   workflow_call:
     outputs:
       matrix:
         description: "the feature matrix"
         value: ${{ jobs.matrix.outputs.matrix }}
-
 jobs:
   matrix:
     name: Generate feature matrix
@@ -16,9 +14,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: romnn/cargo-feature-combinations@main
-
       - name: Compute feature matrix
         id: compute-matrix
         run: |
+          cargo fc matrix --pretty
           matrix="$(cargo fc matrix)"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"

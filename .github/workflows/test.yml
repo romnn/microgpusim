@@ -23,7 +23,8 @@ jobs:
         if: ${{ matrix.package.need_cuda }}
         id: cuda-toolkit
         with:
-          cuda: "11.7.0"
+          cuda: "11.8.0"
+          use-github-cache: false
           linux-local-args: '["--driver", "--toolkit"]'
       - name: Lint
         continue-on-error: true # for now we are not too pedantic

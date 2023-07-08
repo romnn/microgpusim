@@ -431,5 +431,4 @@ https://ieeexplore.ieee.org/document/8344474/
   friend class memory_sub_partition;
 };
 
-// std::unique_ptr<cache_config> new_cache_config();
 std::unique_ptr<cache_config> new_cache_config(cache_config_params);

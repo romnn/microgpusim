@@ -81,7 +81,7 @@ pub fn format(options: Options) -> eyre::Result<()> {
         .collect();
 
     let (files, glob_failed): (HashSet<_>, Vec<_>) =
-        partition_results(utils::multi_glob(&patterns));
+        utils::partition_results(utils::multi_glob(&patterns));
     assert!(glob_failed.is_empty());
 
     let num_files = files.len();

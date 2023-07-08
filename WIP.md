@@ -1,8 +1,8 @@
 #### TODO
 
-- commit all those many many changes
-- move stat transfer into own file for cleaner separation
-- clean up stats bridge for now
+- DONE: commit all those many many changes
+- DONE: move stat transfer into own file for cleaner separation
+- DONE: clean up stats bridge for now
 - move stats into own module? can be reused for playground
 
   - what does playground already use? otherwise we have the conversion in validate?

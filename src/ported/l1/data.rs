@@ -836,7 +836,7 @@ mod tests {
         let warp_id = 0;
         let core_id = 0;
         let cluster_id = 0;
-        let type_id = bindings::cache_access_logger_types::NORMALS as i32;
+        // let type_id = bindings::cache_access_logger_types::NORMALS as i32;
 
         // let l1 = bindings::l1_cache::new(0, interconn, cache_config);
         // let cache_config = bindings::cache_config::new();
@@ -929,7 +929,7 @@ mod tests {
                     if warp_id != 0 {
                         continue;
                     }
-                    let instr = instruction::WarpInstruction::from_trace(&kernel, trace);
+                    let mut instr = instruction::WarpInstruction::from_trace(&kernel, trace);
 
                     let mut accesses = instr
                         .generate_mem_accesses(&*config)
