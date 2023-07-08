@@ -1,10 +1,10 @@
-use anyhow::Result;
+use color_eyre::eyre;
 
 async fn open_ssh_tunnel(
     username: impl AsRef<str>,
     password: impl AsRef<str>,
     local_port: impl Into<Option<u16>>,
-) -> Result<
+) -> eyre::Result<
     (
         std::net::SocketAddr,
         tokio::sync::oneshot::Receiver<ssh_jumper::model::SshForwarderEnd>,
@@ -43,7 +43,7 @@ async fn open_ssh_tunnel(
 ///
 /// # Errors
 /// If connection fails.
-pub async fn connect() -> Result<()> {
+pub async fn connect() -> eyre::Result<()> {
     let ssh_username = std::env::var("ssh_user_name")?;
     let ssh_password = std::env::var("ssh_password")?;
 

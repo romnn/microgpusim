@@ -1,0 +1,4535 @@
+-kernel name = _Z8mult_gpuIfEvPT_S1_S1_ii
+-kernel id = 1
+-grid dim = (1,1,1)
+-block dim = (32,32,1)
+-shmem = 8192
+-nregs = 30
+-binary version = 61
+-cuda stream id = 0
+-shmem base_addr = 0x00007fb05c000000
+-local mem base_addr = 0x00007fb05a000000
+-nvbit version = 1.5.5
+-accelsim tracer version = 4
+-enable lineinfo = 0
+
+#traces format = [line_num] PC mask dest_num [reg_dests] opcode src_num [reg_srcs] mem_width [adrrescompress?] [mem_addresses]
+
+
+
+#BEGIN_TB
+
+thread block = 0,0,0
+
+warp = 0
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700000 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701000 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0x0 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1000 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x0 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x10 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x20 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x30 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x40 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x50 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x60 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x70 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702000 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 1
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700080 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701080 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0x80 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1080 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x80 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x90 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xa0 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xb0 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xc0 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xd0 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xe0 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xf0 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702080 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 2
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700100 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701100 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0x100 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1100 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x100 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x110 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x120 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x130 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x140 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x150 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x160 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x170 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702100 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 3
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700180 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701180 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0x180 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1180 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x180 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x190 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x1a0 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x1b0 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x1c0 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x1d0 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x1e0 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x1f0 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702180 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 4
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700200 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701200 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0x200 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1200 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x200 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x210 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x220 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x230 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x240 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x250 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x260 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x270 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702200 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 5
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700280 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701280 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0x280 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1280 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x280 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x290 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x2a0 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x2b0 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x2c0 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x2d0 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x2e0 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x2f0 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702280 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 6
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700300 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701300 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0x300 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1300 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x300 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x310 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x320 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x330 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x340 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x350 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x360 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x370 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702300 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 7
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700380 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701380 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0x380 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1380 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x380 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x390 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x3a0 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x3b0 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x3c0 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x3d0 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x3e0 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x3f0 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702380 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 8
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700400 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701400 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0x400 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1400 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x400 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x410 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x420 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x430 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x440 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x450 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x460 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x470 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702400 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 9
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700480 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701480 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0x480 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1480 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x480 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x490 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x4a0 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x4b0 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x4c0 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x4d0 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x4e0 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x4f0 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702480 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 10
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700500 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701500 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0x500 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1500 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x500 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x510 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x520 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x530 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x540 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x550 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x560 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x570 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702500 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 11
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700580 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701580 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0x580 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1580 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x580 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x590 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x5a0 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x5b0 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x5c0 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x5d0 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x5e0 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x5f0 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702580 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 12
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700600 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701600 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0x600 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1600 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x600 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x610 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x620 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x630 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x640 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x650 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x660 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x670 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702600 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 13
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700680 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701680 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0x680 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1680 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x680 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x690 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x6a0 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x6b0 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x6c0 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x6d0 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x6e0 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x6f0 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702680 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 14
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700700 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701700 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0x700 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1700 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x700 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x710 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x720 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x730 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x740 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x750 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x760 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x770 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702700 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 15
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700780 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701780 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0x780 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1780 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x780 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x790 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x7a0 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x7b0 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x7c0 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x7d0 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x7e0 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x7f0 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702780 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 16
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700800 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701800 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0x800 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1800 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x800 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x810 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x820 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x830 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x840 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x850 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x860 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x870 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702800 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 17
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700880 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701880 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0x880 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1880 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x880 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x890 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x8a0 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x8b0 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x8c0 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x8d0 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x8e0 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x8f0 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702880 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 18
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700900 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701900 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0x900 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1900 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x900 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x910 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x920 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x930 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x940 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x950 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x960 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x970 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702900 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 19
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700980 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701980 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0x980 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1980 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x980 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x990 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x9a0 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x9b0 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x9c0 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x9d0 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0x9e0 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0x9f0 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702980 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 20
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700a00 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701a00 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0xa00 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1a00 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xa00 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xa10 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xa20 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xa30 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xa40 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xa50 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xa60 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xa70 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702a00 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 21
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700a80 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701a80 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0xa80 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1a80 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xa80 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xa90 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xaa0 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xab0 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xac0 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xad0 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xae0 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xaf0 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702a80 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 22
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700b00 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701b00 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0xb00 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1b00 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xb00 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xb10 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xb20 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xb30 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xb40 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xb50 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xb60 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xb70 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702b00 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 23
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700b80 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701b80 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0xb80 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1b80 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xb80 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xb90 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xba0 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xbb0 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xbc0 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xbd0 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xbe0 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xbf0 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702b80 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 24
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700c00 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701c00 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0xc00 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1c00 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xc00 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xc10 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xc20 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xc30 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xc40 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xc50 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xc60 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xc70 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702c00 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 25
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700c80 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701c80 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0xc80 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1c80 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xc80 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xc90 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xca0 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xcb0 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xcc0 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xcd0 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xce0 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xcf0 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702c80 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 26
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700d00 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701d00 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0xd00 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1d00 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xd00 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xd10 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xd20 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xd30 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xd40 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xd50 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xd60 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xd70 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702d00 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 27
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700d80 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701d80 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0xd80 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1d80 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xd80 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xd90 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xda0 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xdb0 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xdc0 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xdd0 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xde0 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xdf0 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702d80 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 28
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700e00 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701e00 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0xe00 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1e00 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xe00 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xe10 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xe20 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xe30 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xe40 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xe50 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xe60 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xe70 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702e00 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 29
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700e80 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701e80 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0xe80 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1e80 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xe80 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xe90 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xea0 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xeb0 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xec0 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xed0 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xee0 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xef0 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702e80 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 30
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700f00 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701f00 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0xf00 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1f00 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xf00 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xf10 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xf20 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xf30 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xf40 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xf50 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xf60 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xf70 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702f00 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+warp = 31
+insts = 138
+0008 ffffffff 1 R1 MOV 0 0 
+0010 ffffffff 1 R17 MOV 0 0 
+0018 ffffffff 1 R0 S2R 0 0 
+0028 ffffffff 1 R17 SHL 1 R17 0 
+0030 ffffffff 1 R3 S2R 0 0 
+0038 ffffffff 1 R11 MOV 1 R255 0 
+0048 ffffffff 1 R6 S2R 0 0 
+0050 ffffffff 1 R0 SHL 1 R0 0 
+0058 ffffffff 1 R8 S2R 0 0 
+0068 ffffffff 1 R0 XMAD 3 R3 R17 R0 0 
+0070 ffffffff 1 R2 XMAD.MRG 3 R3 R17 R255 0 
+0078 ffffffff 1 R4 XMAD 2 R3 R255 0 
+0088 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0090 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R2 R0 0 
+0098 ffffffff 1 R2 IADD 2 R0 R6 0 
+00a8 ffffffff 1 R0 XMAD.PSL.CBCC 3 R3 R5 R4 0 
+00b0 ffffffff 1 R7 SHL 1 R0 0 
+00b8 ffffffff 1 R16 IADD 1 R7 0 
+00c8 ffffffff 1 R3 XMAD.MRG 2 R8 R255 0 
+00d0 ffffffff 1 R2 XMAD 2 R8 R2 0 
+00d8 ffffffff 1 R16 IADD32I 1 R16 0 
+00e8 ffffffff 1 R18 XMAD.PSL.CBCC 3 R8 R3 R2 0 
+00f0 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+00f8 ffffffff 1 R0 SHR 1 R18 0 
+0108 ffffffff 1 R18 ISCADD 1 R18 0 
+0110 ffffffff 1 R19 IADD.X 1 R0 0 
+0118 00000000 0 BRA 0 0 
+0128 ffffffff 1 R11 MOV 1 R255 0 
+0130 ffffffff 1 R3 S2R 0 0 
+0138 ffffffff 1 R0 S2R 0 0 
+0148 ffffffff 1 R4 S2R 0 0 
+0150 ffffffff 1 R5 XMAD.MRG 2 R3 R255 0 
+0158 ffffffff 1 R9 XMAD.MRG 2 R3 R255 0 
+0168 ffffffff 1 R2 SHL 1 R3 0 
+0170 ffffffff 1 R6 XMAD 2 R3 R0 0 
+0178 ffffffff 1 R8 XMAD 2 R3 R0 0 
+0188 ffffffff 1 R4 SHL 1 R4 0 
+0190 ffffffff 1 R6 XMAD.PSL.CBCC 3 R3 R5 R6 0 
+0198 ffffffff 1 R5 SHL 1 R0 0 
+01a8 ffffffff 1 R3 XMAD.PSL.CBCC 3 R3 R9 R8 0 
+01b0 ffffffff 1 R0 ISCADD 2 R0 R2 0 
+01b8 ffffffff 1 R8 IADD 2 R6 R7 0 
+01c8 ffffffff 1 R22 IADD 2 R3 R4 0 
+01d0 ffffffff 1 R9 SHR 1 R8 0 
+01d8 ffffffff 1 R8 ISCADD 1 R8 0 
+01e8 ffffffff 1 R10 SHR 1 R22 0 
+01f0 ffffffff 1 R9 IADD.X 1 R9 0 
+01f8 ffffffff 1 R22 ISCADD 1 R22 0 
+0208 ffffffff 1 R25 LDG.E 1 R8 4 1 0x7fb02d700f80 4 
+0210 ffffffff 1 R23 IADD.X 1 R10 0 
+0218 ffffffff 1 R22 LDG.E 1 R22 4 1 0x7fb02d701f80 4 
+0228 ffffffff 1 R7 IADD32I 1 R7 0 
+0230 ffffffff 0 ISETP.GT.AND 2 R7 R16 0 
+0238 ffffffff 1 R4 IADD 2 R17 R4 0 
+0248 ffffffff 0 STS 2 R0 R25 4 1 0xf80 4 
+0250 ffffffff 0 STS 2 R0 R22 4 1 0x1f80 4 
+0258 ffffffff 0 BAR.SYNC 0 0 
+0268 ffffffff 0 MEMBAR.CTA 0 0 
+0270 ffffffff 1 R10 LDS.U.32 1 R5 4 1 0x1000 4 
+0278 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xf80 0 
+0288 ffffffff 1 R26 LDS.U.32 1 R5 4 1 0x1080 4 
+0290 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1100 4 
+0298 ffffffff 1 R29 LDS.U.32 1 R5 4 1 0x1180 4 
+02a8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1200 4 
+02b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1280 4 
+02b8 ffffffff 1 R12 FFMA 3 R10 R12 R11 0 
+02c8 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xf90 0 
+02d0 ffffffff 1 R12 FFMA 3 R26 R13 R12 0 
+02d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1300 4 
+02e8 ffffffff 1 R12 FFMA 3 R27 R14 R12 0 
+02f0 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1380 4 
+02f8 ffffffff 1 R15 FFMA 3 R29 R15 R12 0 
+0308 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1400 4 
+0310 ffffffff 1 R26 FFMA 3 R21 R8 R15 0 
+0318 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xfa0 0 
+0328 ffffffff 1 R9 FFMA 3 R20 R9 R26 0 
+0330 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1480 4 
+0338 ffffffff 1 R9 FFMA 3 R24 R10 R9 0 
+0348 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1500 4 
+0350 ffffffff 1 R9 FFMA 3 R22 R11 R9 0 
+0358 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1580 4 
+0368 ffffffff 1 R23 FFMA 3 R23 R12 R9 0 
+0370 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1600 4 
+0378 ffffffff 1 R13 FFMA 3 R20 R13 R23 0 
+0388 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xfb0 0 
+0390 ffffffff 1 R14 FFMA 3 R24 R14 R13 0 
+0398 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1680 4 
+03a8 ffffffff 1 R15 FFMA 3 R21 R15 R14 0 
+03b0 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1700 4 
+03b8 ffffffff 1 R22 FFMA 3 R22 R8 R15 0 
+03c8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1780 4 
+03d0 ffffffff 1 R9 FFMA 3 R20 R9 R22 0 
+03d8 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1800 4 
+03e8 ffffffff 1 R9 FFMA 3 R23 R10 R9 0 
+03f0 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xfc0 0 
+03f8 ffffffff 1 R11 FFMA 3 R24 R11 R9 0 
+0408 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1880 4 
+0410 ffffffff 1 R26 FFMA 3 R21 R12 R11 0 
+0418 ffffffff 1 R27 LDS.U.32 1 R5 4 1 0x1900 4 
+0428 ffffffff 1 R13 FFMA 3 R20 R13 R26 0 
+0430 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1980 4 
+0438 ffffffff 1 R13 FFMA 3 R27 R14 R13 0 
+0448 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1a00 4 
+0450 ffffffff 1 R13 FFMA 3 R22 R15 R13 0 
+0458 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xfd0 0 
+0468 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1a80 4 
+0470 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1b00 4 
+0478 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1b80 4 
+0488 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1c00 4 
+0490 ffffffff 1 R23 FFMA 3 R23 R8 R13 0 
+0498 ffffffff 1 R12 LDS.U.128 1 R2 16 1 0xfe0 0 
+04a8 ffffffff 1 R9 FFMA 3 R20 R9 R23 0 
+04b0 ffffffff 1 R20 LDS.U.32 1 R5 4 1 0x1c80 4 
+04b8 ffffffff 1 R10 FFMA 3 R24 R10 R9 0 
+04c8 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1d00 4 
+04d0 ffffffff 1 R11 FFMA 3 R21 R11 R10 0 
+04d8 ffffffff 1 R24 LDS.U.32 1 R5 4 1 0x1d80 4 
+04e8 ffffffff 1 R22 FFMA 3 R22 R12 R11 0 
+04f0 ffffffff 1 R21 LDS.U.32 1 R5 4 1 0x1e00 4 
+04f8 ffffffff 1 R13 FFMA 3 R20 R13 R22 0 
+0508 ffffffff 1 R8 LDS.U.128 1 R2 16 1 0xff0 0 
+0510 ffffffff 1 R13 FFMA 3 R23 R14 R13 0 
+0518 ffffffff 1 R22 LDS.U.32 1 R5 4 1 0x1e80 4 
+0528 ffffffff 1 R15 FFMA 3 R24 R15 R13 0 
+0530 ffffffff 1 R23 LDS.U.32 1 R5 4 1 0x1f00 4 
+0538 ffffffff 1 R8 FFMA 3 R21 R8 R15 0 
+0548 ffffffff 1 R13 LDS.U.32 1 R5 4 1 0x1f80 4 
+0550 ffffffff 1 R8 FFMA 3 R22 R9 R8 0 
+0558 ffffffff 1 R8 FFMA 3 R23 R10 R8 0 
+0568 ffffffff 1 R11 FFMA 3 R13 R11 R8 0 
+0570 ffffffff 0 BAR.SYNC 0 0 
+0578 ffffffff 0 MEMBAR.CTA 0 0 
+0588 00000000 0 BRA 0 0 
+0590 ffffffff 0 STG.E 2 R18 R11 4 1 0x7fb02d702f80 4 
+0598 ffffffff 0 NOP 0 0 
+05a8 ffffffff 0 NOP 0 0 
+05b0 ffffffff 0 NOP 0 0 
+05b8 ffffffff 0 EXIT 0 0 
+
+#END_TB
