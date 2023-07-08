@@ -11,7 +11,7 @@ pub enum RequestStatus {
     RESERVATION_FAIL,
     SECTOR_MISS,
     MSHR_HIT,
-    NUM_CACHE_REQUEST_STATUS,
+    // NUM_CACHE_REQUEST_STATUS,
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -23,7 +23,7 @@ pub enum ReservationFailure {
     MSHR_ENTRY_FAIL,
     MSHR_MERGE_ENTRY_FAIL,
     MSHR_RW_PENDING,
-    NUM_CACHE_RESERVATION_FAIL_STATUS,
+    // NUM_CACHE_RESERVATION_FAIL_STATUS,
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -92,7 +92,8 @@ pub trait Cache: Component + CacheBandwidth {
         todo!("cache: next access");
     }
 
-    fn fill(&mut self, fetch: &mut mem_fetch::MemFetch) {
+    // fn fill(&mut self, fetch: &mut mem_fetch::MemFetch) {
+    fn fill(&mut self, fetch: mem_fetch::MemFetch) {
         todo!("cache: fill");
     }
 

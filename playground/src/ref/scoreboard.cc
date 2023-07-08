@@ -1,10 +1,7 @@
 #include "scoreboard.hpp"
 
-#include <sstream>
-
 #include "hal.hpp"
 #include "shader_trace.hpp"
-#include "trace_streams.hpp"
 #include "warp_instr.hpp"
 
 // Constructor
@@ -128,17 +125,22 @@ bool Scoreboard::checkCollision(unsigned wid, const class inst_t *inst) const {
   return false;
 }
 
-bool Scoreboard::pendingWrites(unsigned wid) const {
+bool Scoreboard::has_pending_writes(unsigned wid) const {
   return !reg_table[wid].empty();
 }
 
-std::string Scoreboard::pendingWritesStr(unsigned wid) const {
-  std::stringstream buffer;
-  buffer << "[";
-  std::set<unsigned>::const_iterator it;
-  for (it = reg_table[wid].begin(); it != reg_table[wid].end(); it++) {
-    buffer << *it;
-  }
-  buffer << "]";
-  return buffer.str();
+const std::set<unsigned int> &Scoreboard::get_pending_writes(
+    unsigned wid) const {
+  return reg_table[wid];
 }
+
+// std::string Scoreboard::pendingWritesStr(unsigned wid) const {
+//   std::stringstream buffer;
+//   buffer << "[";
+//   std::set<unsigned>::const_iterator it;
+//   for (it = reg_table[wid].begin(); it != reg_table[wid].end(); it++) {
+//     buffer << *it;
+//   }
+//   buffer << "]";
+//   return buffer.str();
+// }

@@ -95,5 +95,3 @@ class mem_access_t {
   mem_access_byte_mask_t m_byte_mask;
   mem_access_sector_mask_t m_sector_mask;
 };
-
-const char *mem_access_type_str(enum mem_access_type access_type);

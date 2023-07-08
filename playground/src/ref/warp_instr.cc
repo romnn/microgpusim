@@ -1,5 +1,9 @@
+#include <iostream>
+#include <iomanip>
+
 #include "warp_instr.hpp"
 #include "trace_instr_opcode.hpp"
+#include "io.hpp"
 
 new_addr_type line_size_based_tag_func(new_addr_type address,
                                        new_addr_type line_size) {
@@ -9,7 +13,7 @@ new_addr_type line_size_based_tag_func(new_addr_type address,
 
 const char *warp_inst_t::opcode_str() const {
   if (m_opcode > 0 && m_opcode < SASS_NUM_OPCODES) {
-    return g_trace_instr_opcode_str[m_opcode - 1];
+    return trace_instr_opcode_str[m_opcode - 1];
   }
   return "<UNKNOWN>";
 }
@@ -97,6 +101,8 @@ void warp_inst_t::generate_mem_accesses() {
   bool is_write = is_store();
 
   mem_access_type access_type;
+  // access type is initialized randomly here
+  // assert(access_type == GLOBAL_ACC_R);
   switch (space.get_type()) {
     case const_space:
     case param_space_kernel:
@@ -113,8 +119,12 @@ void warp_inst_t::generate_mem_accesses() {
       access_type = is_write ? LOCAL_ACC_W : LOCAL_ACC_R;
       break;
     case shared_space:
+      // printf("shared mem instruction will use access type %s\n",
+      //        access_type_str[access_type]);
+      // assert(0 && "have shared mem instruction");
       break;
     case sstarr_space:
+      // assert(0 && "have sstarr mem instruction");
       break;
     default:
       assert(0);
@@ -129,11 +139,20 @@ void warp_inst_t::generate_mem_accesses() {
     case sstarr_space: {
       unsigned subwarp_size = m_config->warp_size / m_config->mem_warp_parts;
       unsigned total_accesses = 0;
+      // std::cout << "warp parts: " << m_config->mem_warp_parts << std::endl;
+      // std::cout << "warp size: " << m_config->warp_size << std::endl;
+      // std::cout << "subwarp size: " << subwarp_size << std::endl;
+
+      // for debugging
+      std::list<unsigned> banks;
+      std::list<unsigned> words;
+
       for (unsigned subwarp = 0; subwarp < m_config->mem_warp_parts;
            subwarp++) {
         // data structures used per part warp
-        std::map<unsigned, std::map<new_addr_type, unsigned>>
-            bank_accs;  // bank -> word address -> access count
+        // bank -> word address -> access count
+        // TODO: does this NEED to be a map, can it be an unordered map?
+        std::map<unsigned, std::map<new_addr_type, unsigned>> bank_accs;
 
         // step 1: compute accesses to words in banks
         for (unsigned thread = subwarp * subwarp_size;
@@ -146,9 +165,20 @@ void warp_inst_t::generate_mem_accesses() {
           new_addr_type word =
               line_size_based_tag_func(addr, m_config->WORD_SIZE);
           bank_accs[bank][word]++;
+          banks.push_back(bank);
+          words.push_back(word);
         }
+        // for (const auto &[bank, access_counts] : bank_accs) {
+        //   std::cout << "bank: " << bank;
+        //   for (const auto &[word_addr, count] : access_counts) {
+        //     std::cout << "[addr=" << word_addr << " : "
+        //               << "count=" << count << "], ";
+        //   }
+        //   std::cout << std::endl;
+        // }
 
         if (m_config->shmem_limited_broadcast) {
+          assert(0 && "shmem limited broadcast is used");
           // step 2: look for and select a broadcast bank/word if one occurs
           bool broadcast_detected = false;
           new_addr_type broadcast_word = (new_addr_type)-1;
@@ -210,9 +240,16 @@ void warp_inst_t::generate_mem_accesses() {
           total_accesses += max_bank_accesses;
         }
       }
-      assert(total_accesses > 0 && total_accesses <= m_config->warp_size);
+
+      std::cout << "generate mem accesses[SHARED]: total_accesses="
+                << total_accesses << std::endl;
+      std::cout << "\tbanks=" << banks << std::endl;
+      std::cout << "\tword addresses=" << words << std::endl;
+      assert(total_accesses > 0);
+      assert(total_accesses <= m_config->warp_size);
       cycles = total_accesses;  // shared memory conflicts modeled as larger
                                 // initiation interval
+      // assert(0 && "first shared mem request");
       // REMOVE: ptx
       // m_config->gpgpu_ctx->stats->ptx_file_line_stats_add_smem_bank_conflict(
       //     pc, total_accesses);
@@ -231,10 +268,12 @@ void warp_inst_t::generate_mem_accesses() {
     case local_space:
     case param_space_local:
       if (m_config->gpgpu_coalesce_arch >= 13) {
-        if (isatomic())
+        if (isatomic()) {
+          assert(0 && "atomics are not supported for now");
           memory_coalescing_arch_atomic(is_write, access_type);
-        else
+        } else {
           memory_coalescing_arch(is_write, access_type);
+        }
       } else
         abort();
 
@@ -557,18 +596,51 @@ void warp_inst_t::completed(unsigned long long cycle) const {
   //     pc, latency * active_count());
 }
 
-void warp_inst_t::print(FILE *fout) const {
-  if (empty()) {
-    // fprintf(fout, "bubble\n");
-    fprintf(fout, "None");
-    return;
-  } else
-    fprintf(fout, "Some(%s[warp_id=%u pc=%04lu])", opcode_str(), warp_id(), pc);
-
-  // fprintf(fout, "warp=%02d[", m_warp_id);
-  // for (unsigned j = 0; j < m_config->warp_size; j++)
-  //   fprintf(fout, "%c", (active(j) ? '1' : '0'));
-  // fprintf(fout, "]: ");
-  // m_config->gpgpu_ctx->func_sim->ptx_print_insn(pc, fout);
-  // fprintf(fout, "\n");
+std::ostream &operator<<(std::ostream &os, const warp_inst_t &inst) {
+  os << static_cast<const warp_inst_t *>(&inst);
+  return os;
 }
+
+std::ostream &operator<<(std::ostream &os, const warp_inst_t *inst) {
+  if (inst->empty()) {
+    os << "None";
+    return os;
+  }
+  os << "Some(";
+  inst->print(os);
+  os << ")";
+  return os;
+}
+
+void warp_inst_t::print(std::ostream &os) const {
+  os << opcode_str();
+  os << "[";
+  if (!empty()) {
+    os << "warp_id=" << warp_id() << ",";
+  }
+  os << "pc=" << std::setfill('0') << std::setw(4) << pc;
+  os << "]";
+}
+
+std::string warp_inst_t::display() const {
+  std::stringstream buffer;
+  print(buffer);
+  return buffer.str();
+}
+
+// void warp_inst_t::print(FILE *fout) const {
+//   if (empty()) {
+//     // fprintf(fout, "bubble\n");
+//     fprintf(fout, "None");
+//     return;
+//   } else
+//     fprintf(fout, "Some(%s[warp_id=%u pc=%04lu])", opcode_str(), warp_id(),
+//     pc);
+//
+//   // fprintf(fout, "warp=%02d[", m_warp_id);
+//   // for (unsigned j = 0; j < m_config->warp_size; j++)
+//   //   fprintf(fout, "%c", (active(j) ? '1' : '0'));
+//   // fprintf(fout, "]: ");
+//   // m_config->gpgpu_ctx->func_sim->ptx_print_insn(pc, fout);
+//   // fprintf(fout, "\n");
+// }

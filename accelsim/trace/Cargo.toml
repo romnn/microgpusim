@@ -23,6 +23,7 @@ tokio = { version = "1", features = ["full"] }
 
 trace-model = { path = "../../trace/model" }
 accelsim = { path = "../" }
+utils = { path = "../../utils" }
 
 [build-dependencies]
 color-eyre = "0"
@@ -32,3 +33,4 @@ bzip2 = "0.4"
 tar = "0.4"
 
 accelsim = { path = "../" }
+utils = { path = "../../utils" }

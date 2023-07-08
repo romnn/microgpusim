@@ -1,4 +1,3 @@
-use super::util::multi_glob;
 use chrono::{offset::Local, DateTime};
 use clap::Parser;
 use color_eyre::eyre;
@@ -50,19 +49,6 @@ fn read_file(path: impl AsRef<Path>) -> eyre::Result<(Option<DateTime<Local>>, S
     Ok((mod_time, content))
 }
 
-fn partition_results<O, E, OC, EC>(results: impl IntoIterator<Item = Result<O, E>>) -> (OC, EC)
-where
-    O: std::fmt::Debug,
-    E: std::fmt::Debug,
-    OC: std::iter::FromIterator<O>,
-    EC: std::iter::FromIterator<E>,
-{
-    let (succeeded, failed): (Vec<_>, Vec<_>) = results.into_iter().partition(Result::is_ok);
-    let succeeded: OC = succeeded.into_iter().map(Result::unwrap).collect();
-    let failed: EC = failed.into_iter().map(Result::unwrap_err).collect();
-    (succeeded, failed)
-}
-
 pub fn format(options: Options) -> eyre::Result<()> {
     use rayon::prelude::*;
     use std::collections::HashSet;
@@ -94,7 +80,8 @@ pub fn format(options: Options) -> eyre::Result<()> {
         .map(|path| path.to_string_lossy().to_string())
         .collect();
 
-    let (files, glob_failed): (HashSet<_>, Vec<_>) = partition_results(multi_glob(&patterns));
+    let (files, glob_failed): (HashSet<_>, Vec<_>) =
+        partition_results(utils::multi_glob(&patterns));
     assert!(glob_failed.is_empty());
 
     let num_files = files.len();
@@ -151,7 +138,7 @@ pub fn format(options: Options) -> eyre::Result<()> {
         .collect();
 
     assert_eq!(num_files, results.len());
-    let (succeeded, failed): (Vec<_>, Vec<_>) = partition_results(results);
+    let (succeeded, failed): (Vec<_>, Vec<_>) = utils::partition_results(results);
     let changed: Vec<_> = succeeded
         .clone()
         .into_iter()

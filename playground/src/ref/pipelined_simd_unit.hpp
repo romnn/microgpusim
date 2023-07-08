@@ -25,15 +25,15 @@ class pipelined_simd_unit : public simd_function_unit {
   }
   virtual bool is_issue_partitioned() = 0;
   unsigned get_issue_reg_id() { return m_issue_reg_id; }
-  virtual void print(FILE *fp) const {
-    simd_function_unit::print(fp);
-    for (int s = m_pipeline_depth - 1; s >= 0; s--) {
-      if (!m_pipeline_reg[s]->empty()) {
-        fprintf(fp, "      %s[%2d] ", m_name.c_str(), s);
-        m_pipeline_reg[s]->print(fp);
-      }
-    }
-  }
+  // virtual void print(FILE *fp) const {
+  //   simd_function_unit::print(fp);
+  //   for (int s = m_pipeline_depth - 1; s >= 0; s--) {
+  //     if (!m_pipeline_reg[s]->empty()) {
+  //       fprintf(fp, "      %s[%2d] ", m_name.c_str(), s);
+  //       m_pipeline_reg[s]->print(fp);
+  //     }
+  //   }
+  // }
 
  protected:
   unsigned m_pipeline_depth;

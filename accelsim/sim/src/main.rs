@@ -110,7 +110,7 @@ async fn sim_trace(
     let args = [tmp_sim_sh_path.to_string_lossy().to_string()];
     cmd.args(&args);
 
-    let cuda_path = accelsim::find_cuda()?;
+    let cuda_path = utils::find_cuda().ok_or(eyre::eyre!("CUDA not found"))?;
     cmd.env("CUDA_INSTALL_PATH", &*cuda_path.to_string_lossy());
 
     let result = match timeout {

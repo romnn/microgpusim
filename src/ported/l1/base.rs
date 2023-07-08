@@ -560,8 +560,10 @@ where
     ///
     /// bandwidth restictions should be modeled in the caller.
     /// TODO: fill could also accept the fetch by value, otherwise we drop the fetch!!
-    pub fn fill(&mut self, fetch: &mut mem_fetch::MemFetch) {
+    // pub fn fill(&mut self, fetch: &mut mem_fetch::MemFetch) {
+    pub fn fill(&mut self, mut fetch: mem_fetch::MemFetch) {
         if self.cache_config.mshr_kind == mshr::Kind::SECTOR_ASSOC {
+            todo!("sector assoc cache");
             let original_fetch = fetch.original_fetch.as_ref().unwrap();
             let pending = self.pending.get_mut(original_fetch).unwrap();
             pending.pending_reads -= 1;
@@ -573,69 +575,48 @@ where
                 // mem_fetch *temp = mf;
                 // todo: consume the fetch here?
                 let original_fetch = fetch.original_fetch.as_ref().unwrap().as_ref().clone();
-                *fetch = original_fetch;
+                // *fetch = original_fetch;
                 // delete temp;
             }
         }
-        // dbg!(&self.pending);
-        // dbg!(&fetch);
-        let pending = self.pending.get_mut(fetch).unwrap();
+
+        let pending = self.pending.remove(&fetch).unwrap();
+        self.bandwidth.use_fill_port(&fetch);
+
         debug_assert!(pending.valid);
         fetch.data_size = pending.data_size;
         fetch.access.addr = pending.addr;
+
         match self.cache_config.allocate_policy {
             config::CacheAllocatePolicy::ON_MISS => {
-                self.tag_array.fill_on_miss(pending.cache_index, fetch);
+                self.tag_array.fill_on_miss(pending.cache_index, &fetch);
             }
             config::CacheAllocatePolicy::ON_FILL => {
-                self.tag_array.fill_on_fill(pending.block_addr, fetch);
+                self.tag_array.fill_on_fill(pending.block_addr, &fetch);
             }
             other => unimplemented!("cache allocate policy {:?} is not implemented", other),
         }
-        let has_atomic = self.mshrs.mark_ready(pending.block_addr).unwrap_or(false);
+
+        let access_sector_mask = fetch.access_sector_mask().clone();
+        let access_byte_mask = fetch.access_byte_mask().clone();
+
+        let has_atomic = self
+            .mshrs
+            .mark_ready(pending.block_addr, fetch)
+            .unwrap_or(false);
+
         if has_atomic {
             debug_assert!(
                 self.cache_config.allocate_policy == config::CacheAllocatePolicy::ON_MISS
             );
             let block = self.tag_array.get_block_mut(pending.cache_index);
             // mark line as dirty for atomic operation
-            // let block = self.tag_array.get_block_mut(pending.cache_index);
-            block.set_status(cache_block::Status::MODIFIED, fetch.access_sector_mask());
-            block.set_byte_mask(fetch.access_byte_mask());
+            block.set_status(cache_block::Status::MODIFIED, &access_sector_mask);
+            block.set_byte_mask(&access_byte_mask);
             if !block.is_modified() {
                 self.tag_array.num_dirty += 1;
             }
         }
-        self.pending.remove(fetch);
-        self.bandwidth.use_fill_port(fetch);
-
-        // extra_mf_fields_lookup::iterator e = m_extra_mf_fields.find(mf);
-        // assert(e != m_extra_mf_fields.end());
-        // assert(e->second.m_valid);
-        // mf->set_data_size(e->second.m_data_size);
-        // mf->set_addr(e->second.m_addr);
-        // if (m_config.m_alloc_policy == ON_MISS)
-        //   m_tag_array->fill(e->second.m_cache_index, time, mf);
-        // else if (m_config.m_alloc_policy == ON_FILL) {
-        //   m_tag_array->fill(e->second.m_block_addr, time, mf, mf->is_write());
-        // } else
-        //   abort();
-        // bool has_atomic = false;
-        // m_mshrs.mark_ready(e->second.m_block_addr, has_atomic);
-        // if (has_atomic) {
-        // assert(m_config.m_alloc_policy == ON_MISS);
-        // cache_block_t *block = m_tag_array->get_block(e->second.m_cache_index);
-        // if (!block->is_modified_line()) {
-        //   m_tag_array->inc_dirty();
-        // }
-        // block->set_status(MODIFIED,
-        //                   mf->get_access_sector_mask());  // mark line as dirty for
-        //                                                   // atomic operation
-        // block->set_byte_mask(mf);
-        // }
-        // m_extra_mf_fields.erase(mf);
-        // m_bandwidth_management.use_fill_port(mf);
-        // todo!("baseline_cache: fill");
     }
 }
 

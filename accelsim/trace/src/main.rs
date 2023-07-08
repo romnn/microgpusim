@@ -100,7 +100,7 @@ async fn run_trace(
 
     let mut cmd = Command::new("bash");
     cmd.arg(&*tmp_trace_sh_path.canonicalize().unwrap().to_string_lossy());
-    let cuda_path = accelsim::find_cuda()?;
+    let cuda_path = utils::find_cuda().ok_or(eyre::eyre!("CUDA not found"))?;
     cmd.env("CUDA_INSTALL_PATH", &*cuda_path.to_string_lossy());
     dbg!(&cmd);
 

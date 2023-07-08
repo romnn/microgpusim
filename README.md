@@ -35,7 +35,7 @@ See the [accelsim instructions](accelsim/README.md).
 ```bash
 cargo build --release --workspace --all-targets
 sudo ./target/release/profile <executable> [args]
-sudo ./target/release/validate ./test-apps/simple_matrixmul/matrixmul 5 5 5 32
+sudo ./target/release/validate ./test-apps/simple_matrixmul/matrixmul 32 32
 
 ./accelsim/gtx1080/accelsim_mem_debug_trace.txt
 ```

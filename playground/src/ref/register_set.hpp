@@ -63,18 +63,22 @@ class register_set {
     }
     return reg_id;
   }
+
   unsigned get_schd_id(unsigned reg_id) {
     assert(not regs[reg_id]->empty());
     return regs[reg_id]->get_schd_id();
   }
+
   void move_in(warp_inst_t *&src) {
     printf("move_in warp=%u\n", src->warp_id());
     warp_inst_t **free = get_free();
     move_warp(*free, src);
   }
+
   // void copy_in( warp_inst_t* src ){
   //   src->copy_contents_to(*get_free());
   //}
+
   void move_in(bool sub_core_model, unsigned reg_id, warp_inst_t *&src) {
     printf("move_in_sub_core warp=%u reg_id=%u\n", src->warp_id(), reg_id);
     warp_inst_t **free;
@@ -92,8 +96,8 @@ class register_set {
     printf("move_out_to warp=%u (empty=%d)\n", (*ready)->warp_id(),
            (*ready)->empty());
     move_warp(dest, *ready);
-    // throw std::runtime_error("move out to");
   }
+
   void move_out_to(bool sub_core_model, unsigned reg_id, warp_inst_t *&dest) {
     if (!sub_core_model) {
       return move_out_to(dest);
@@ -128,21 +132,7 @@ class register_set {
     return ready;
   }
 
-  void print(FILE *fp) const {
-    fprintf(fp, "%s=", m_name);
-    fprintf(fp, "[");
-    // fprintf(fp, "%s : @%p\n", m_name, this);
-    // for (unsigned i = 0; i < regs.size(); i++) {
-    //   fprintf(fp, "     ");
-    //   regs[i]->print(fp);
-    //   fprintf(fp, "\n");
-    // }
-    for (unsigned i = 0; i < regs.size(); i++) {
-      regs[i]->print(fp);
-      fprintf(fp, ",");
-    }
-    fprintf(fp, "]\n");
-  }
+  friend std::ostream &operator<<(std::ostream &os, const register_set &reg);
 
   warp_inst_t **get_free() {
     for (unsigned i = 0; i < regs.size(); i++) {

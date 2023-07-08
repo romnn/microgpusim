@@ -1,5 +1,6 @@
 #include "trace_simt_core_cluster.hpp"
 
+#include "io.hpp"
 #include "cache_sub_stats.hpp"
 #include "icnt_wrapper.hpp"
 #include "memory_stats.hpp"
@@ -60,8 +61,6 @@ void trace_simt_core_cluster::icnt_cycle() {
     mem_fetch *mf = (mem_fetch *)::icnt_pop(m_cluster_id);
     if (!mf) return;
 
-    // printf(" \e[0;36m cluster::icnt_cycle() got fetch from interconn: ");
-    // printf(" \e[0m \n");
     std::cout << "cluster::icnt_cycle() got fetch from interconn: " << mf
               << std::endl;
 
@@ -81,8 +80,8 @@ void trace_simt_core_cluster::icnt_cycle() {
     m_response_fifo.push_back(mf);
     m_stats->n_mem_to_simt[m_cluster_id] += mf->get_num_flits(false);
   } else {
-    printf("skip: ejection buffer full (%lu/%u)", m_response_fifo.size(),
-           m_config->n_simt_ejection_buffer_size);
+    std::cout << "skip: ejection buffer full (" << m_response_fifo.size() << "/"
+              << m_config->n_simt_ejection_buffer_size << ")" << std::endl;
   }
 }
 

@@ -1,5 +1,5 @@
-use anyhow::Result;
 use clap::Parser;
+use color_eyre::eyre;
 use serde::Deserializer;
 use std::fs::{File, OpenOptions};
 use std::io::BufReader;
@@ -12,7 +12,7 @@ struct Options {
     output: PathBuf,
 }
 
-fn parse_allocations(path: impl AsRef<Path>) -> Result<Vec<trace_model::MemAllocation>> {
+fn parse_allocations(path: impl AsRef<Path>) -> eyre::Result<Vec<trace_model::MemAllocation>> {
     let file = OpenOptions::new().read(true).open(&path.as_ref())?;
     let reader = BufReader::new(file);
     let allocations = serde_json::from_reader(reader)?;
@@ -21,14 +21,16 @@ fn parse_allocations(path: impl AsRef<Path>) -> Result<Vec<trace_model::MemAlloc
 
 fn read_trace(
     path: impl AsRef<Path>,
-) -> Result<rmp_serde::Deserializer<rmp_serde::decode::ReadReader<BufReader<File>>>> {
+) -> eyre::Result<rmp_serde::Deserializer<rmp_serde::decode::ReadReader<BufReader<File>>>> {
     let file = OpenOptions::new().read(true).open(path.as_ref())?;
     let reader = BufReader::new(file);
     let reader = rmp_serde::Deserializer::new(reader);
     Ok(reader)
 }
 
-fn main() -> Result<()> {
+fn main() -> eyre::Result<()> {
+    color_eyre::install()?;
+
     let options = Options::parse();
     dbg!(&options);
 

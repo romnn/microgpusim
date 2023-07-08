@@ -1,5 +1,5 @@
 use super::addrdec::LinearToRawAddressTranslation;
-use super::instruction::WarpInstruction;
+use super::instruction::{MemorySpace, WarpInstruction};
 use super::scheduler::ThreadActiveMask;
 use crate::config;
 use crate::ported::{address, DecodedAddress};
@@ -59,24 +59,6 @@ pub enum Status {
     IN_SHADER_L1T_ROB,
     DELETED,
     NUM_MEM_REQ_STAT,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum MemorySpace {
-    Undefined,
-    Reg,
-    Local,
-    Shared,
-    Sstarr,
-    ParamUnclassified,
-    ParamKernel, // global to all threads in a kernel : read-only
-    ParamLocal,  // local to a thread : read-writable
-    Const,
-    Tex,
-    Surf,
-    Global,
-    Generic,
-    Instruction,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -229,14 +211,21 @@ pub struct MemFetch {
 
 impl std::fmt::Display for MemFetch {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self.kind {
-            Kind::WRITE_ACK | Kind::READ_REPLY => {
-                write!(f, "Reply({:?}@{})", self.access_kind(), self.addr())
-            }
-            Kind::READ_REQUEST | Kind::WRITE_REQUEST => {
-                write!(f, "Req({:?}@{})", self.access_kind(), self.addr())
-            }
-        }
+        write!(
+            f,
+            "{}({:?}@{})",
+            if self.is_reply() { "Reply" } else { "Req" },
+            self.access_kind(),
+            self.addr()
+        )
+        // match self.kind {
+        //     Kind::WRITE_ACK | Kind::READ_REPLY => {
+        //         write!(f, "Reply({:?}@{})", self.access_kind(), self.addr())
+        //     }
+        //     Kind::READ_REQUEST | Kind::WRITE_REQUEST => {
+        //         write!(f, "Req({:?}@{})", self.access_kind(), self.addr())
+        //     }
+        // }
         // write!(
         //     f,
         //     // "MemFetch({:?})[{:?}@{}]",
@@ -361,9 +350,9 @@ impl MemFetch {
     }
 
     pub fn is_texture(&self) -> bool {
-        self.instr.as_ref().map_or(false, |i| {
-            i.memory_space == nvbit_model::MemorySpace::Texture
-        })
+        self.instr
+            .as_ref()
+            .map_or(false, |i| i.memory_space == Some(MemorySpace::Texture))
     }
 
     pub fn is_write(&self) -> bool {
@@ -407,21 +396,27 @@ impl MemFetch {
         self.last_status_change = Some(time);
     }
 
+    pub fn is_reply(&self) -> bool {
+        matches!(self.kind, Kind::READ_REPLY | Kind::WRITE_ACK)
+    }
+
     pub fn set_reply(&mut self) {
         assert!(!matches!(
             self.access.kind,
             AccessKind::L1_WRBK_ACC | AccessKind::L2_WRBK_ACC
         ));
-        self.kind = match self.kind {
+        match self.kind {
             Kind::READ_REQUEST => {
                 debug_assert!(!self.is_write());
-                Kind::READ_REPLY
+                self.kind = Kind::READ_REPLY
             }
             Kind::WRITE_REQUEST => {
                 debug_assert!(self.is_write());
-                Kind::WRITE_ACK
+                self.kind = Kind::WRITE_ACK
             }
-            _ => panic!("cannot set reply for fetch of kind {:?}", self.kind),
+            Kind::READ_REPLY | Kind::WRITE_ACK => {
+                // panic!("cannot set reply for fetch of kind {:?}", self.kind);
+            }
         }
     }
 }

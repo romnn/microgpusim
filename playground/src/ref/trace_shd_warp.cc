@@ -1,3 +1,5 @@
+#include <iomanip>
+
 #include "trace_shd_warp.hpp"
 
 #include "trace_instr_opcode.hpp"
@@ -23,6 +25,7 @@ bool is_memory_instruction(const trace_warp_inst_t *inst) {
   return false;
 }
 
+#ifdef BOX
 const trace_warp_inst_t *trace_shd_warp_t::get_current_trace_inst() const {
   unsigned int temp_trace_pc = trace_pc;
   while (temp_trace_pc < warp_traces.size()) {
@@ -49,6 +52,7 @@ const trace_warp_inst_t *trace_shd_warp_t::get_current_trace_inst() const {
   }
   return NULL;
 }
+#endif
 
 template <size_t N>
 std::string mask_to_string(std::bitset<N> mask) {
@@ -77,13 +81,28 @@ void trace_shd_warp_t::print_trace_instructions(bool all) {
     //     new_inst->op == EXIT_OPS || new_inst->opcode() == OP_LDC) {
     if (all || is_memory_instruction(new_inst) || new_inst->op == EXIT_OPS) {
       assert(warp_traces[temp_trace_pc].m_pc == new_inst->pc);
+      // std::cout << "====> instruction at trace pc " << std::left <<
+      // std::setw(4)
+      //           << temp_trace_pc << ":";
+      // std::cout << "\t" << std::setfill(' ') << std::left << std::setw(10)
+      //           << new_inst->opcode_str();
+      // std::cout << "\t" << std::setfill(' ') << std::left << std::setw(15)
+      //           << trace.opcode.c_str();
+      // std::cout << "\t"
+      //           << "active=" << mask_to_string(new_inst->get_active_mask());
+      // std::cout << "\t"
+      //           << "tpc=";
+      // std::cout << std::setfill(' ') << std::left << std::setw(4)
+      //           << warp_traces[temp_trace_pc].m_pc;
+      // std::cout << "==";
+      // std::cout << std::setfill(' ') << std::left << std::setw(4)
+      //           << new_inst->pc;
+      // std::cout << std::endl;
       printf(
-          "====> instruction at trace pc %d:\t %s\t\t (%s) \t\tactive=%s "
-          "\tpc = "
-          "%d==%lu\n",
+          "====> instruction at trace pc %-4d:\t %-10s\t %-15s \t\tactive=%s "
+          "\tpc = %-4lu\n",
           temp_trace_pc, new_inst->opcode_str(), trace.opcode.c_str(),
-          mask_to_string(new_inst->get_active_mask()).c_str(),
-          warp_traces[temp_trace_pc].m_pc, new_inst->pc);
+          mask_to_string(new_inst->get_active_mask()).c_str(), new_inst->pc);
     }
     temp_trace_pc++;
   }
@@ -172,7 +191,7 @@ void trace_shd_warp_t::clear() {
 
 // functional_done
 bool trace_shd_warp_t::trace_done() const {
-  return trace_pc >= (warp_traces.size());
+  return trace_pc >= warp_traces.size();
 }
 
 address_type trace_shd_warp_t::get_start_trace_pc() {
@@ -181,10 +200,13 @@ address_type trace_shd_warp_t::get_start_trace_pc() {
 }
 
 address_type trace_shd_warp_t::get_pc() const {
-  // assert(warp_traces.size() > 0);
+  assert(warp_traces.size() > 0);  // must at least contain an exit code
   assert(trace_pc < warp_traces.size());
-  // return warp_traces[trace_pc].m_pc;
+#ifdef BOX
   return get_current_trace_inst()->pc;
+#else
+  return warp_traces[trace_pc].m_pc;
+#endif
 }
 
 bool trace_shd_warp_t::waiting() {

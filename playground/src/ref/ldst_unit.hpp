@@ -31,6 +31,8 @@ class ldst_unit : public pipelined_simd_unit {
             const memory_config *mem_config, class shader_core_stats *stats,
             unsigned sid, unsigned tpc);
 
+  friend class trace_gpgpu_sim_bridge;
+
   // modifiers
   virtual void issue(register_set &inst);
   bool is_issue_partitioned() { return false; }

@@ -58,6 +58,7 @@ class baseline_cache : public cache_t {
   bool access_ready() const { return m_mshrs.access_ready(); }
   /// Pop next ready access (does not include accesses that "HIT")
   mem_fetch *next_access() { return m_mshrs.next_access(); }
+  std::list<mem_fetch *> ready_accesses() { return m_mshrs.next_accesses(); }
   // flash invalidate all entries in cache
   void flush() { m_tag_array->flush(); }
   void invalidate() { m_tag_array->invalidate(); }
@@ -106,6 +107,8 @@ class baseline_cache : public cache_t {
   bool miss_queue_full(unsigned num_miss) const {
     return ((m_miss_queue.size() + num_miss) >= m_config.m_miss_queue_size);
   }
+
+  // friend class trace_gpgpu_sim_bridge;
 
  protected:
   // Constructor that can be used by derived classes with custom tag arrays

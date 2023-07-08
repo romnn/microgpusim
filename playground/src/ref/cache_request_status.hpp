@@ -1,6 +1,6 @@
 #pragma once
 
-static const char *static_cache_request_status_str[] = {
+static const char *cache_request_status_str[] = {
     "HIT",         "HIT_RESERVED", "MISS", "RESERVATION_FAIL",
     "SECTOR_MISS", "MSHR_HIT"};
 
@@ -14,4 +14,4 @@ enum cache_request_status {
   NUM_CACHE_REQUEST_STATUS
 };
 
-const char *cache_request_status_str(enum cache_request_status status);
+const char *get_cache_request_status_str(enum cache_request_status status);

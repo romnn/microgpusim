@@ -118,9 +118,7 @@ class trace_shader_core_ctx {
                           unsigned sch_id);
 
   // from "core.hpp"
-  class trace_gpgpu_sim *get_gpu() {
-    return m_gpu;
-  }
+  class trace_gpgpu_sim *get_gpu() { return m_gpu; }
 
   // from "shader_core_ctx.hpp"
   void cycle();
@@ -264,6 +262,7 @@ class trace_shader_core_ctx {
   friend class scheduler_unit;
   friend class TwoLevelScheduler;
   friend class LooseRoundRobbinScheduler;
+  friend class trace_gpgpu_sim_bridge;
 
   unsigned long long m_last_inst_gpu_sim_cycle;
   unsigned long long m_last_inst_gpu_tot_sim_cycle;

@@ -1,13 +1,48 @@
 #### TODO
 
-- fix github actions build
+- commit all those many many changes
+- move stat transfer into own file for cleaner separation
+- clean up stats bridge for now
+- move stats into own module? can be reused for playground
+
+  - what does playground already use? otherwise we have the conversion in validate?
+
+- check all the nvbit changes and push them
+- add matrix functionality to actions-rs? as actions-workflow-parser?
+  - implement contains, merge, etc. for serde_yaml too and add some examples to serde_merge
+- prepare to move out the benchmark stuff (keep it more generic in lib.rs at least)
+
+  - add timeouts
+
+- DONE: add benchmark yml file
+
+  - DONE: test parsing the benchmark yml file
+  - implement matrix style arguments like github with matrix, include, exclude
+
+- TODO: test max block sizes
+- DONE: shared cache cycle is not yet implemented
+- BUG: matrixmul@54 we have a dram stall
+- BUG: memory space is not a class but just an enum, how can we hold bank info etc in it?
+
+- DONE: fix github actions build
 - DONE: update accelsim reference source
 - get more stats to match
+
   - DONE: use separate cache stats per cache
+
+- add larger benchmark suites (e.g. rodinia)
+- test parsing nvprof output, dump to file
+
+- python script to profile test-apps on the GTX1080
+
+  - try to separate the benchmark apps from the traces
+
 - implement per structure stats
 - create plots with runtime and outputs
 - test one more application
 - fix any todos
+- lint the code
+
 - fix memory packet difference for vecadd
 - check outputs for multiple cores / clusters
 - add compute instructions to box for fun

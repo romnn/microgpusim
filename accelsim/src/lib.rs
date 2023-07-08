@@ -7,51 +7,9 @@ pub mod options;
 pub mod parser;
 pub mod read;
 
-use color_eyre::{eyre, Section, SectionExt};
+use color_eyre::eyre;
 pub use options::{Options, SimConfig};
 use std::path::{Path, PathBuf};
-
-#[must_use]
-pub fn find_cuda() -> eyre::Result<PathBuf> {
-    let cuda_candidates = cuda_candidates();
-    cuda_candidates.iter().cloned().next().ok_or(
-        eyre::eyre!("CUDA install path not found")
-            .with_section(|| format!("{:?}", &cuda_candidates).header("candidates:")),
-    )
-}
-
-#[must_use]
-pub fn cuda_candidates() -> Vec<PathBuf> {
-    let mut candidates = vec![
-        std::env::var("CUDAHOME").ok().map(PathBuf::from),
-        std::env::var("CUDA_HOME").ok().map(PathBuf::from),
-        std::env::var("CUDA_LIBRARY_PATH").ok().map(PathBuf::from),
-        Some(PathBuf::from("/opt/cuda")),
-        Some(PathBuf::from("/usr/local/cuda")),
-    ];
-    candidates.extend(
-        // specific cuda versions
-        glob::glob("/usr/local/cuda-*")
-            .expect("glob cuda")
-            .map(Result::ok),
-    );
-
-    let mut valid_paths = vec![];
-    for base in candidates.iter().flatten() {
-        if base.is_dir() {
-            valid_paths.push(base.clone());
-        }
-        let lib = base.join("lib64");
-        if lib.is_dir() {
-            valid_paths.extend([lib.clone(), lib.join("stubs")]);
-        }
-        let base = base.join("targets/x86_64-linux");
-        if base.join("include/cuda.h").is_file() {
-            valid_paths.extend([base.join("lib"), base.join("lib/stubs")]);
-        }
-    }
-    valid_paths
-}
 
 pub fn locate(use_upstream: bool) -> eyre::Result<PathBuf> {
     let accelsim_path = build::manifest_path()?.join(if use_upstream {

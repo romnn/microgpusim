@@ -310,9 +310,10 @@ bool ldst_unit::memory_cycle(warp_inst_t &inst,
   if (inst.active_count() == 0) return true;
   if (inst.accessq_empty()) return true;
 
-  printf("memory cycle for instruction: ");
-  inst.print(stdout);
-  printf("\n");
+  std::cout << "memory cycle for instruction: " << inst << std::endl;
+  // printf("memory cycle for instruction: ");
+  // inst.print(stdout);
+  // printf("\n");
 
   mem_stage_stall_type stall_cond = NO_RC_FAIL;
   const mem_access_t &access = inst.accessq_back();
@@ -459,16 +460,22 @@ void ldst_unit::issue(register_set &reg_set) {
 void ldst_unit::writeback() {
   // process next instruction that is going to writeback
   if (!m_next_wb.empty()) {
-    printf(
-        "load store unit: cycle %llu writeback: next_wb=%s [warp_id=%d "
-        "pc=%lu] (arb=%d)\n",
-        m_core->get_gpu()->gpu_sim_cycle, m_next_wb.opcode_str(),
-        m_next_wb.warp_id(), m_next_wb.pc, m_writeback_arb);
+    // printf(
+    //     "load store unit: cycle %llu writeback: next_wb=%s [warp_id=%d "
+    //     "pc=%lu] (arb=%d)\n",
+    //     m_core->get_gpu()->gpu_sim_cycle, m_next_wb.opcode_str(),
+    //     m_next_wb.warp_id(), m_next_wb.pc, m_writeback_arb);
+
+    std::cout << "load store unit: cycle " << m_core->get_gpu()->gpu_sim_cycle
+              << " writeback: next_wb=" << m_next_wb
+              << " (arb=" << m_writeback_arb << ")" << std::endl;
+
     if (m_operand_collector->writeback(m_next_wb)) {
       bool insn_completed = false;
       for (unsigned r = 0; r < MAX_OUTPUT_VALUES; r++) {
         if (m_next_wb.out[r] > 0) {
-          printf("load store unit: writeback: release register\n");
+          std::cout << "load store unit: writeback: release register"
+                    << std::endl;
           if (m_next_wb.space.get_type() != shared_space) {
             assert(m_pending_writes[m_next_wb.warp_id()][m_next_wb.out[r]] > 0);
             unsigned still_pending =
@@ -494,8 +501,9 @@ void ldst_unit::writeback() {
       m_last_inst_gpu_tot_sim_cycle = m_core->get_gpu()->gpu_tot_sim_cycle;
     }
   } else {
-    printf("load store unit: cycle %llu writeback: next_wb=NULL (arb=%d)\n",
-           m_core->get_gpu()->gpu_sim_cycle, m_writeback_arb);
+    std::cout << "load store unit: cycle " << m_core->get_gpu()->gpu_sim_cycle
+              << " writeback: next_wb=NULL (arb=" << m_writeback_arb << ")"
+              << std::endl;
   }
 
   unsigned serviced_client = -1;
@@ -535,9 +543,10 @@ void ldst_unit::writeback() {
       case 3:  // global/local
         if (m_next_global) {
           m_next_wb = m_next_global->get_inst();
-          printf("has global ");
-          m_next_wb.print(stdout);
-          printf("\n");
+          std::cout << "has global " << m_next_wb << std::endl;
+          // printf("has global ");
+          // m_next_wb.print(stdout);
+          // printf("\n");
           // %s pc=%lu\n\n", m_next_wb.opcode_str(),
           //      m_next_wb.pc);
           // LDG cycles 27, 28, 31(wid=3) (pc 152)
@@ -586,13 +595,13 @@ unsigned ldst_unit::clock_multiplier() const {
 }
 
 void ldst_unit::cycle() {
-  printf("ldst_unit::cycle() (response fifo size=%lu)\n",
+  printf("\n\nldst_unit::cycle() (response fifo size=%lu)\n",
          m_response_fifo.size());
   writeback();
 
   for (unsigned stage = 0; (stage + 1) < m_pipeline_depth; stage++) {
     if (m_pipeline_reg[stage]->empty() && !m_pipeline_reg[stage + 1]->empty()) {
-      throw std::runtime_error("is moving");
+      // throw std::runtime_error("is moving");
       move_warp(m_pipeline_reg[stage], m_pipeline_reg[stage + 1]);
     }
   }
@@ -676,13 +685,12 @@ void ldst_unit::cycle() {
   }
 
   if (!pipe_reg.empty()) {
-    // throw std::runtime_error("ldst unit got instr from dispatch reg");
+    // ldst unit got instr from dispatch reg
     unsigned warp_id = pipe_reg.warp_id();
     if (pipe_reg.is_load()) {
       if (pipe_reg.space.get_type() == shared_space) {
         if (m_pipeline_reg[m_config->smem_latency - 1]->empty()) {
           // new shared memory request
-          throw std::runtime_error("what is this");
           move_warp(m_pipeline_reg[m_config->smem_latency - 1], m_dispatch_reg);
           m_dispatch_reg->clear();
         }
@@ -727,71 +735,73 @@ void ldst_unit::cycle() {
   }
 }
 
-void ldst_unit::print(FILE *fout) const {
-  fprintf(fout, "LD/ST unit  = ");
-  m_dispatch_reg->print(fout);
-  if (m_mem_rc != NO_RC_FAIL) {
-    fprintf(fout, "              LD/ST stall condition: ");
-    switch (m_mem_rc) {
-      case BK_CONF:
-        fprintf(fout, "BK_CONF");
-        break;
-      case MSHR_RC_FAIL:
-        fprintf(fout, "MSHR_RC_FAIL");
-        break;
-      case ICNT_RC_FAIL:
-        fprintf(fout, "ICNT_RC_FAIL");
-        break;
-      case COAL_STALL:
-        fprintf(fout, "COAL_STALL");
-        break;
-      case WB_ICNT_RC_FAIL:
-        fprintf(fout, "WB_ICNT_RC_FAIL");
-        break;
-      case WB_CACHE_RSRV_FAIL:
-        fprintf(fout, "WB_CACHE_RSRV_FAIL");
-        break;
-      case N_MEM_STAGE_STALL_TYPE:
-        fprintf(fout, "N_MEM_STAGE_STALL_TYPE");
-        break;
-      default:
-        abort();
-    }
-    fprintf(fout, "\n");
-  }
-  fprintf(fout, "LD/ST wb    = ");
-  m_next_wb.print(fout);
-  fprintf(
-      fout,
-      "Last LD/ST writeback @ %llu + %llu (gpu_sim_cycle+gpu_tot_sim_cycle)\n",
-      m_last_inst_gpu_sim_cycle, m_last_inst_gpu_tot_sim_cycle);
-  fprintf(fout, "Pending register writes:\n");
-  std::map<unsigned /*warp_id*/,
-           std::map<unsigned /*regnum*/, unsigned /*count*/>>::const_iterator w;
-  for (w = m_pending_writes.begin(); w != m_pending_writes.end(); w++) {
-    unsigned warp_id = w->first;
-    const std::map<unsigned /*regnum*/, unsigned /*count*/> &warp_info =
-        w->second;
-    if (warp_info.empty()) continue;
-    fprintf(fout, "  w%2u : ", warp_id);
-    std::map<unsigned /*regnum*/, unsigned /*count*/>::const_iterator r;
-    for (r = warp_info.begin(); r != warp_info.end(); ++r) {
-      fprintf(fout, "  %u(%u)", r->first, r->second);
-    }
-    fprintf(fout, "\n");
-  }
-  m_L1C->display_state(fout);
-  m_L1T->display_state(fout);
-  if (!m_config->m_L1D_config.disabled()) m_L1D->display_state(fout);
-  fprintf(fout, "LD/ST response FIFO (occupancy = %zu):\n",
-          m_response_fifo.size());
-  for (std::list<mem_fetch *>::const_iterator i = m_response_fifo.begin();
-       i != m_response_fifo.end(); i++) {
-    const mem_fetch *mf = *i;
-    (std::ostream &)fout << mf;
-    // mf->print(fout);
-  }
-}
+// void ldst_unit::print(FILE *fout) const {
+//   fprintf(fout, "LD/ST unit  = ");
+//   m_dispatch_reg->print(fout);
+//   if (m_mem_rc != NO_RC_FAIL) {
+//     fprintf(fout, "              LD/ST stall condition: ");
+//     switch (m_mem_rc) {
+//       case BK_CONF:
+//         fprintf(fout, "BK_CONF");
+//         break;
+//       case MSHR_RC_FAIL:
+//         fprintf(fout, "MSHR_RC_FAIL");
+//         break;
+//       case ICNT_RC_FAIL:
+//         fprintf(fout, "ICNT_RC_FAIL");
+//         break;
+//       case COAL_STALL:
+//         fprintf(fout, "COAL_STALL");
+//         break;
+//       case WB_ICNT_RC_FAIL:
+//         fprintf(fout, "WB_ICNT_RC_FAIL");
+//         break;
+//       case WB_CACHE_RSRV_FAIL:
+//         fprintf(fout, "WB_CACHE_RSRV_FAIL");
+//         break;
+//       case N_MEM_STAGE_STALL_TYPE:
+//         fprintf(fout, "N_MEM_STAGE_STALL_TYPE");
+//         break;
+//       default:
+//         abort();
+//     }
+//     fprintf(fout, "\n");
+//   }
+//   fprintf(fout, "LD/ST wb    = ");
+//   m_next_wb.print(fout);
+//   fprintf(
+//       fout,
+//       "Last LD/ST writeback @ %llu + %llu
+//       (gpu_sim_cycle+gpu_tot_sim_cycle)\n", m_last_inst_gpu_sim_cycle,
+//       m_last_inst_gpu_tot_sim_cycle);
+//   fprintf(fout, "Pending register writes:\n");
+//   std::map<unsigned /*warp_id*/,
+//            std::map<unsigned /*regnum*/, unsigned /*count*/>>::const_iterator
+//            w;
+//   for (w = m_pending_writes.begin(); w != m_pending_writes.end(); w++) {
+//     unsigned warp_id = w->first;
+//     const std::map<unsigned /*regnum*/, unsigned /*count*/> &warp_info =
+//         w->second;
+//     if (warp_info.empty()) continue;
+//     fprintf(fout, "  w%2u : ", warp_id);
+//     std::map<unsigned /*regnum*/, unsigned /*count*/>::const_iterator r;
+//     for (r = warp_info.begin(); r != warp_info.end(); ++r) {
+//       fprintf(fout, "  %u(%u)", r->first, r->second);
+//     }
+//     fprintf(fout, "\n");
+//   }
+//   m_L1C->display_state(fout);
+//   m_L1T->display_state(fout);
+//   if (!m_config->m_L1D_config.disabled()) m_L1D->display_state(fout);
+//   fprintf(fout, "LD/ST response FIFO (occupancy = %zu):\n",
+//           m_response_fifo.size());
+//   for (std::list<mem_fetch *>::const_iterator i = m_response_fifo.begin();
+//        i != m_response_fifo.end(); i++) {
+//     const mem_fetch *mf = *i;
+//     (std::ostream &)fout << mf;
+//     // mf->print(fout);
+//   }
+// }
 
 void ldst_unit::init(mem_fetch_interface *icnt,
                      shader_core_mem_fetch_allocator *mf_allocator,

@@ -1,5 +1,6 @@
 use super::{address, cache, interconn as ic, l1, mem_fetch, stats::CacheStats};
 use crate::config;
+use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
 /// Generic data cache.
@@ -63,6 +64,10 @@ where
         self.inner.has_ready_accesses()
     }
 
+    fn ready_accesses(&self) -> Option<&VecDeque<mem_fetch::MemFetch>> {
+        self.inner.ready_accesses()
+    }
+
     fn next_access(&mut self) -> Option<mem_fetch::MemFetch> {
         self.inner.next_access()
     }
@@ -84,7 +89,8 @@ where
         self.inner.waiting_for_fill(fetch)
     }
 
-    fn fill(&mut self, fetch: &mut mem_fetch::MemFetch) {
+    // fn fill(&mut self, fetch: &mut mem_fetch::MemFetch) {
+    fn fill(&mut self, fetch: mem_fetch::MemFetch) {
         self.inner.fill(fetch)
     }
 }

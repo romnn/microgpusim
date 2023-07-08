@@ -1,5 +1,6 @@
 #include "baseline_cache.hpp"
 
+#include "io.hpp"
 #include "cache.hpp"
 #include "cache_reservation_fail_reason.hpp"
 
@@ -127,11 +128,13 @@ void baseline_cache::fill(mem_fetch *mf, unsigned time) {
     }
   }
 
+  // find pending
   extra_mf_fields_lookup::iterator e = m_extra_mf_fields.find(mf);
   assert(e != m_extra_mf_fields.end());
   assert(e->second.m_valid);
   mf->set_data_size(e->second.m_data_size);
   mf->set_addr(e->second.m_addr);
+
   if (m_config.m_alloc_policy == ON_MISS)
     m_tag_array->fill(e->second.m_cache_index, time, mf);
   else if (m_config.m_alloc_policy == ON_FILL) {

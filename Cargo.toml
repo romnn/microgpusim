@@ -25,7 +25,7 @@ lto = true
 name = "casimu"
 version = "0.1.0"
 edition = "2021"
-publish = true
+publish = false
 
 [features]
 default = []

@@ -1,6 +1,7 @@
 #pragma once
 
-#include "bridge/accelsim_stats.hpp"
+// #include "playground/src/bridge/main.rs.h"
+// #include "bridge/accelsim_stats.hpp"
 #include "gpgpu_sim_config.hpp"
 #include "icnt_wrapper.hpp"
 #include "memory_partition_unit.hpp"
@@ -175,9 +176,10 @@ class trace_gpgpu_sim {
             (gpu_completed_cta >= m_config.gpu_max_completed_cta_opt));
   }
 
-  std::unique_ptr<accelsim_stats> get_accelsim_stats();
+  // std::unique_ptr<accelsim_stats> get_accelsim_stats();
   void gpu_print_stat();
   void print_stats();
+  // void transfer_stats(AccelsimStats &stats);
   void update_stats();
   void deadlock_check();
 

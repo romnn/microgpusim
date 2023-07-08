@@ -17,6 +17,13 @@ enum mf_type {
   WRITE_ACK
 };
 
+static const char *mf_type_str[] = {
+    "READ_REQUEST",
+    "WRITE_REQUEST",
+    "READ_REPLY",
+    "WRITE_ACK",
+};
+
 class mem_fetch {
  public:
   mem_fetch(const mem_access_t &access, const warp_inst_t *inst,
@@ -26,8 +33,11 @@ class mem_fetch {
   ~mem_fetch();
 
   void set_status(enum mem_fetch_status status, unsigned long long cycle);
+  bool is_reply() const {
+    return (m_type == READ_REPLY || m_type == WRITE_ACK);
+  }
+
   void set_reply() {
-    // throw std::runtime_error("set reply");
     assert(m_access.get_type() != L1_WRBK_ACC &&
            m_access.get_type() != L2_WRBK_ACC);
     if (m_type == READ_REQUEST) {
@@ -36,6 +46,10 @@ class mem_fetch {
     } else if (m_type == WRITE_REQUEST) {
       assert(get_is_write());
       m_type = WRITE_ACK;
+    } else {
+      // already a reply
+      // std::cout << mf_type_str[m_type] << std::endl;
+      // assert(0 && "cannot set reply");
     }
   }
   void do_atomic();
@@ -75,7 +89,7 @@ class mem_fetch {
 
   enum mem_access_type get_access_type() const { return m_access.get_type(); }
   const char *get_access_type_str() const {
-    return mem_access_type_str(m_access.get_type());
+    return get_mem_access_type_str(m_access.get_type());
   }
   const active_mask_t &get_access_warp_mask() const {
     return m_access.get_warp_mask();
@@ -148,26 +162,3 @@ class mem_fetch {
 
 std::ostream &operator<<(std::ostream &os, const mem_fetch *fetch);
 std::ostream &operator<<(std::ostream &os, const mem_fetch &mf);
-
-// must take queue by-value (using copy constructor) for pop and print
-template <typename T>
-std::ostream &operator<<(std::ostream &os, std::queue<T> q) {
-  os << "[ ";
-  while (!q.empty()) {
-    os << q.front() << ",";
-    q.pop();
-  }
-  os << "]";
-  return os;
-}
-
-template <typename T>
-std::ostream &operator<<(std::ostream &os, std::list<T> l) {
-  os << "[ ";
-  for (typename std::list<T>::const_iterator it = l.begin(); it != l.end();
-       ++it) {
-    os << *it << ",";
-  }
-  os << "]";
-  return os;
-}

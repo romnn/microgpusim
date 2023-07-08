@@ -54,6 +54,15 @@ void mshr_table::mark_ready(new_addr_type block_addr, bool &has_atomic) {
   assert(m_current_response.size() <= m_data.size());
 }
 
+/// Returns next ready accesses
+std::list<mem_fetch *> mshr_table::next_accesses() {
+  if (m_current_response.empty()) {
+    return std::list<mem_fetch *>();
+  }
+  new_addr_type block_addr = m_current_response.front();
+  return m_data[block_addr].m_list;
+}
+
 /// Returns next ready access
 mem_fetch *mshr_table::next_access() {
   assert(access_ready());

@@ -1,7 +1,9 @@
 #include "trace_gpgpu_sim.hpp"
 
 #include <signal.h>
+#include <iomanip>
 
+#include "io.hpp"
 #include "cache_sub_stats.hpp"
 #include "icnt_wrapper.hpp"
 #include "memory_partition_unit.hpp"
@@ -183,16 +185,41 @@ void trace_gpgpu_sim::simple_cycle() {
   unsigned partiton_replys_in_parallel_per_cycle = 0;
   // pop from memory controller to interconnect
 
-  std::cout << "pop from " << m_memory_config->m_n_mem_sub_partition
+  std::cout << "POP from " << m_memory_config->m_n_mem_sub_partition
             << " memory sub partitions" << std::endl;
+
   for (unsigned i = 0; i < m_memory_config->m_n_mem_sub_partition; i++) {
+    std::cout << "checking sub partition[" << i << "]:" << std::endl;
+    std::cout << "\t icnt to l2 queue (" << std::setfill(' ') << std::left
+              << std::setw(3)
+              << m_memory_sub_partition[i]->m_icnt_L2_queue->get_n_element()
+              << ") = " << m_memory_sub_partition[i]->m_icnt_L2_queue
+              << std::endl;
+    std::cout << "\t l2 to icnt queue (" << std::setfill(' ') << std::left
+              << std::setw(3)
+              << m_memory_sub_partition[i]->m_L2_icnt_queue->get_n_element()
+              << ") = " << m_memory_sub_partition[i]->m_L2_icnt_queue
+              << std::endl;
+    std::cout << "\t l2 to dram queue (" << std::setfill(' ') << std::left
+              << std::setw(3)
+              << m_memory_sub_partition[i]->m_L2_dram_queue->get_n_element()
+              << ") = " << m_memory_sub_partition[i]->m_L2_dram_queue
+              << std::endl;
+    std::cout << "\t dram to l2 queue (" << std::setfill(' ') << std::left
+              << std::setw(3)
+              << m_memory_sub_partition[i]->m_dram_L2_queue->get_n_element()
+              << ") = " << m_memory_sub_partition[i]->m_dram_L2_queue
+              << std::endl;
+    unsigned partition_id = i / m_memory_config->m_n_mem_sub_partition;
+    assert(partition_id < m_memory_config->m_n_mem);
     std::cout
-        << "checking sub partition[" << i << "]:"
-        << " icnt to l2 queue=" << m_memory_sub_partition[i]->m_icnt_L2_queue
-        << " l2 to icnt queue=" << m_memory_sub_partition[i]->m_L2_icnt_queue
-        << " l2 to dram queue=" << m_memory_sub_partition[i]->m_L2_dram_queue
-        << " dram to l2 queue=" << m_memory_sub_partition[i]->m_dram_L2_queue
+        << "\t dram latency queue (" << std::setfill(' ') << std::left
+        << std::setw(3)
+        << m_memory_partition_unit[partition_id]->m_dram_latency_queue.size()
+        << ") = " << m_memory_partition_unit[partition_id]->m_dram_latency_queue
         << std::endl;
+
+    std::cout << std::endl;
 
     mem_fetch *mf = m_memory_sub_partition[i]->top();
     if (mf) {

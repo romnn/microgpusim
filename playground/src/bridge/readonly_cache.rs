@@ -1,10 +1,11 @@
 use crate::bindings;
 use cxx::{type_id, ExternType};
 
-unsafe impl ExternType for bindings::mem_fetch_status {
-    type Id = type_id!("mem_fetch_status");
-    type Kind = cxx::kind::Trivial;
-}
+super::extern_type!(bindings::mem_fetch_status, "mem_fetch_status");
+// unsafe impl ExternType for bindings::mem_fetch_status {
+//     type Id = type_id!("mem_fetch_status");
+//     type Kind = cxx::kind::Trivial;
+// }
 
 #[cxx::bridge]
 mod default {

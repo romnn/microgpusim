@@ -44,15 +44,15 @@ class opndcoll_rfu_t {  // operand collector based register file unit
     process_banks();
   }
 
-  void dump(FILE *fp) const {
-    fprintf(fp, "\n");
-    fprintf(fp, "Operand Collector State:\n");
-    for (unsigned n = 0; n < m_cu.size(); n++) {
-      fprintf(fp, "   CU-%2u: ", n);
-      m_cu[n]->dump(fp, m_shader);
-    }
-    m_arbiter.dump(fp);
-  }
+  // void dump(FILE *fp) const {
+  //   fprintf(fp, "\n");
+  //   fprintf(fp, "Operand Collector State:\n");
+  //   for (unsigned n = 0; n < m_cu.size(); n++) {
+  //     fprintf(fp, "   CU-%2u: ", n);
+  //     m_cu[n]->dump(fp, m_shader);
+  //   }
+  //   m_arbiter.dump(fp);
+  // }
 
   trace_shader_core_ctx *shader_core() { return m_shader; }
 
@@ -137,13 +137,15 @@ class opndcoll_rfu_t {  // operand collector based register file unit
     unsigned get_oc_id() const { return m_cu->get_id(); }
     unsigned get_bank() const { return m_bank; }
     unsigned get_operand() const { return m_operand; }
-    void dump(FILE *fp) const {
-      if (m_cu)
-        fprintf(fp, " <R%u, CU:%u, w:%02u> ", m_register, m_cu->get_id(),
-                m_cu->get_warp_id());
-      else if (!m_warp->empty())
-        fprintf(fp, " <R%u, wid:%02u> ", m_register, m_warp->warp_id());
-    }
+
+    // void dump(FILE *fp) const {
+    //   if (m_cu)
+    //     fprintf(fp, " <R%u, CU:%u, w:%02u> ", m_register, m_cu->get_id(),
+    //             m_cu->get_warp_id());
+    //   else if (!m_warp->empty())
+    //     fprintf(fp, " <R%u, wid:%02u> ", m_register, m_warp->warp_id());
+    // }
+
     std::string get_reg_string() const {
       char buffer[64];
       snprintf(buffer, 64, "R%u", m_register);
@@ -176,18 +178,20 @@ class opndcoll_rfu_t {  // operand collector based register file unit
     bool is_read() const { return m_allocation == READ_ALLOC; }
     bool is_write() const { return m_allocation == WRITE_ALLOC; }
     bool is_free() const { return m_allocation == NO_ALLOC; }
-    void dump(FILE *fp) const {
-      if (m_allocation == NO_ALLOC) {
-        fprintf(fp, "<free>");
-      } else if (m_allocation == READ_ALLOC) {
-        fprintf(fp, "rd: ");
-        m_op.dump(fp);
-      } else if (m_allocation == WRITE_ALLOC) {
-        fprintf(fp, "wr: ");
-        m_op.dump(fp);
-      }
-      fprintf(fp, "\n");
-    }
+
+    // void dump(FILE *fp) const {
+    //   if (m_allocation == NO_ALLOC) {
+    //     fprintf(fp, "<free>");
+    //   } else if (m_allocation == READ_ALLOC) {
+    //     fprintf(fp, "rd: ");
+    //     m_op.dump(fp);
+    //   } else if (m_allocation == WRITE_ALLOC) {
+    //     fprintf(fp, "wr: ");
+    //     m_op.dump(fp);
+    //   }
+    //   fprintf(fp, "\n");
+    // }
+
     void alloc_read(const op_t &op) {
       assert(is_free());
       m_allocation = READ_ALLOC;
@@ -236,25 +240,25 @@ class opndcoll_rfu_t {  // operand collector based register file unit
     }
 
     // accessors
-    void dump(FILE *fp) const {
-      fprintf(fp, "\n");
-      fprintf(fp, "  Arbiter State:\n");
-      fprintf(fp, "  requests:\n");
-      for (unsigned b = 0; b < m_num_banks; b++) {
-        fprintf(fp, "    bank %u : ", b);
-        std::list<op_t>::const_iterator o = m_queue[b].begin();
-        for (; o != m_queue[b].end(); o++) {
-          o->dump(fp);
-        }
-        fprintf(fp, "\n");
-      }
-      fprintf(fp, "  grants:\n");
-      for (unsigned b = 0; b < m_num_banks; b++) {
-        fprintf(fp, "    bank %u : ", b);
-        m_allocated_bank[b].dump(fp);
-      }
-      fprintf(fp, "\n");
-    }
+    // void dump(FILE *fp) const {
+    //   fprintf(fp, "\n");
+    //   fprintf(fp, "  Arbiter State:\n");
+    //   fprintf(fp, "  requests:\n");
+    //   for (unsigned b = 0; b < m_num_banks; b++) {
+    //     fprintf(fp, "    bank %u : ", b);
+    //     std::list<op_t>::const_iterator o = m_queue[b].begin();
+    //     for (; o != m_queue[b].end(); o++) {
+    //       o->dump(fp);
+    //     }
+    //     fprintf(fp, "\n");
+    //   }
+    //   fprintf(fp, "  grants:\n");
+    //   for (unsigned b = 0; b < m_num_banks; b++) {
+    //     fprintf(fp, "    bank %u : ", b);
+    //     m_allocated_bank[b].dump(fp);
+    //   }
+    //   fprintf(fp, "\n");
+    // }
 
     // modifiers
     std::list<op_t> allocate_reads();

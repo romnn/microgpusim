@@ -1,6 +1,5 @@
 #pragma once
 
-// #include "simt_core_cluster.hpp"
 #include <cstdio>
 #include <list>
 
@@ -12,7 +11,6 @@ class trace_gpgpu_sim;
 class memory_config;
 class trace_shader_core_ctx;
 
-// class trace_simt_core_cluster : public simt_core_cluster {
 class trace_simt_core_cluster {
  public:
   trace_simt_core_cluster(class trace_gpgpu_sim *gpu, unsigned cluster_id,
@@ -73,8 +71,9 @@ class trace_simt_core_cluster {
 
   void get_icnt_stats(long &n_simt_to_mem, long &n_mem_to_simt) const;
 
+  friend class trace_gpgpu_sim_bridge;
+
  protected:
-  // from "simt_core_cluster.hpp"
   unsigned m_cluster_id;
   trace_gpgpu_sim *m_gpu;
 

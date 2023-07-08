@@ -1429,17 +1429,15 @@ where
 
     pub fn accept_fetch_response(&mut self, mut fetch: mem_fetch::MemFetch) {
         fetch.status = mem_fetch::Status::IN_SHADER_FETCHED;
-        self.inner.instr_l1_cache.fill(&mut fetch);
+        self.inner.instr_l1_cache.fill(fetch);
     }
 
     pub fn accept_ldst_unit_response(&self, fetch: mem_fetch::MemFetch) {
-        // todo!("core: accept_ldst_unit_response");
         self.inner.load_store_unit.lock().unwrap().fill(fetch);
     }
 
     pub fn not_completed(&self) -> usize {
         self.inner.num_active_threads
-        // todo!("core: not completed");
     }
 
     pub fn is_active(&self) -> bool {

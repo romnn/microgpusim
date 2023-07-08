@@ -73,7 +73,7 @@ class warp_inst_t : public inst_t {
       std::list<mem_access_t>::iterator it;
       for (it = m_accessq.begin(); it != m_accessq.end(); ++it) {
         printf("MEM_TXN_GEN:%s:%lx, Size:%d \n",
-               mem_access_type_str(it->get_type()), it->get_addr(),
+               get_mem_access_type_str(it->get_type()), it->get_addr(),
                it->get_size());
       }
     }
@@ -169,7 +169,13 @@ class warp_inst_t : public inst_t {
 
   bool has_dispatch_delay() { return cycles > 0; }
 
-  void print(FILE *fout) const;
+  void print(std::ostream &os) const;
+  std::string display() const;
+
+  friend std::ostream &operator<<(std::ostream &os, const warp_inst_t &inst);
+  friend std::ostream &operator<<(std::ostream &os, const warp_inst_t *inst);
+  // void print(FILE *fout) const;
+
   unsigned get_uid() const { return m_uid; }
   unsigned get_schd_id() const { return m_scheduler_id; }
 

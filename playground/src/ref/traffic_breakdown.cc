@@ -42,12 +42,12 @@ std::string traffic_breakdown::classify_memfetch(class mem_fetch *mf) {
     case L2_WRBK_ACC:
     case L1_WR_ALLOC_R:
     case L2_WR_ALLOC_R:
-      traffic_name = mem_access_type_str(access_type);
+      traffic_name = get_mem_access_type_str(access_type);
       break;
     case GLOBAL_ACC_R:
       // check for global atomic operation
       traffic_name = (mf->isatomic()) ? "GLOBAL_ATOMIC"
-                                      : mem_access_type_str(GLOBAL_ACC_R);
+                                      : get_mem_access_type_str(GLOBAL_ACC_R);
       break;
     default:
       assert(0 && "Unknown traffic type");

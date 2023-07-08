@@ -1,5 +1,5 @@
 use super::ported::{
-    addrdec, address, core::PipelineStage, mem_sub_partition, mshr, utils, KernelInfo,
+    addrdec, address, core::PipelineStage, mem_sub_partition, mshr, opcodes, utils, KernelInfo,
 };
 use color_eyre::eyre;
 use std::collections::HashMap;
@@ -572,6 +572,16 @@ pub struct GPUConfig {
     /// Set this value according to max resident grids for your
     /// compute capability.
     pub max_concurrent_kernels: usize, // 32
+    /// Opcode latencies and initiation for integers in trace driven mode (latency,initiation)
+    pub trace_opcode_latency_initiation_int: (usize, usize), // 4, 1
+    /// Opcode latencies and initiation for sp in trace driven mode (latency,initiation)
+    pub trace_opcode_latency_initiation_sp: (usize, usize), // 4, 1
+    /// Opcode latencies and initiation for dp in trace driven mode (latency,initiation)
+    pub trace_opcode_latency_initiation_dp: (usize, usize), // 4, 1
+    /// Opcode latencies and initiation for sfu in trace driven mode (latency,initiation)
+    pub trace_opcode_latency_initiation_sfu: (usize, usize), // 4, 1
+    /// Opcode latencies and initiation for tensor in trace driven mode (latency,initiation)
+    pub trace_opcode_latency_initiation_tensor: (usize, usize), // 4, 1
 }
 
 pub static WORD_SIZE: address = 4;
@@ -611,6 +621,10 @@ impl GPUConfig {
         utils::pad_to_multiple(threads_per_block as usize, self.warp_size)
     }
 
+    /// Compute maximum number of blocks that a kernel can run
+    ///
+    /// Depends on the following constraints:
+    /// -
     pub fn max_blocks(&self, kernel: &KernelInfo) -> eyre::Result<usize> {
         let threads_per_block = kernel.threads_per_block();
         let threads_per_block = utils::pad_to_multiple(threads_per_block as usize, self.warp_size);
@@ -680,180 +694,118 @@ impl GPUConfig {
         }
 
         Ok(limit)
+    }
 
-        // if (adaptive_cache_config && !k.cache_config_set) {
-        //   // For more info about adaptive cache, see
-        //   // https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#shared-memory-7-x
-        //   unsigned total_shmem = kernel_info->smem * result;
-        //   assert(total_shmem >= 0 && total_shmem <= shmem_opt_list.back());
-        //
-        //   // Unified cache config is in KB. Converting to B
-        //   unsigned total_unified = m_L1D_config.m_unified_cache_size * 1024;
-        //
-        //   bool l1d_configured = false;
-        //   unsigned max_assoc = m_L1D_config.get_max_assoc();
-        //
-        //   for (std::vector<unsigned>::const_iterator it = shmem_opt_list.begin();
-        //        it < shmem_opt_list.end(); it++) {
-        //     if (total_shmem <= *it) {
-        //       float l1_ratio = 1 - ((float)*(it) / total_unified);
-        //       // make sure the ratio is between 0 and 1
-        //       assert(0 <= l1_ratio && l1_ratio <= 1);
-        //       // round to nearest instead of round down
-        //       m_L1D_config.set_assoc(max_assoc * l1_ratio + 0.5f);
-        //       l1d_configured = true;
-        //       break;
-        //     }
-        //   }
-        //
-        //   assert(l1d_configured && "no shared memory option found");
-        //
-        //   if (m_L1D_config.is_streaming()) {
-        //     // for streaming cache, if the whole memory is allocated
-        //     // to the L1 cache, then make the allocation to be on_MISS
-        //     // otherwise, make it ON_FILL to eliminate line allocation fails
-        //     // i.e. MSHR throughput is the same, independent on the L1 cache
-        //     // size/associativity
-        //     if (total_shmem == 0) {
-        //       m_L1D_config.set_allocation_policy(ON_MISS);
-        //       printf("GPGPU-Sim: Reconfigure L1 allocation to ON_MISS\n");
-        //     } else {
-        //       m_L1D_config.set_allocation_policy(ON_FILL);
-        //       printf("GPGPU-Sim: Reconfigure L1 allocation to ON_FILL\n");
-        //     }
-        //   }
-        //   printf("GPGPU-Sim: Reconfigure L1 cache to %uKB\n",
-        //          m_L1D_config.get_total_size_inKB());
-        //
-        //   k.cache_config_set = true;
+    pub fn get_latencies(&self, arch_op_category: opcodes::ArchOp) -> (usize, usize) {
+        use opcodes::ArchOp;
+
+        let mut initiation_interval = 1;
+        let mut latency = 1;
+
+        match arch_op_category {
+            ArchOp::ALU_OP
+            | ArchOp::INTP_OP
+            | ArchOp::BRANCH_OP
+            | ArchOp::CALL_OPS
+            | ArchOp::RET_OPS => {
+                // integer units
+                (latency, initiation_interval) = self.trace_opcode_latency_initiation_int;
+                // latency = int_latency;
+                // initiation_interval = int_init;
+            }
+            ArchOp::SP_OP => {
+                // single precision units
+                (latency, initiation_interval) = self.trace_opcode_latency_initiation_sp;
+                // latency = fp_latency;
+                // initiation_interval = fp_init;
+            }
+            ArchOp::DP_OP => {
+                // double precision units
+                (latency, initiation_interval) = self.trace_opcode_latency_initiation_dp;
+                // latency = dp_latency;
+                // initiation_interval = dp_init;
+            }
+            ArchOp::SFU_OP => {
+                // special function units
+                (latency, initiation_interval) = self.trace_opcode_latency_initiation_sfu;
+                // latency = sfu_latency;
+                // initiation_interval = sfu_init;
+            }
+            ArchOp::TENSOR_CORE_OP => {
+                (latency, initiation_interval) = self.trace_opcode_latency_initiation_tensor;
+                // latency = tensor_latency;
+                // initiation_interval = tensor_init;
+            }
+            _ => {}
+        }
+
+        // ignore special function units for now
+        // if (category >= SPEC_UNIT_START_ID) {
+        //   unsigned spec_id = category - SPEC_UNIT_START_ID;
+        //   assert(spec_id >= 0 && spec_id < SPECIALIZED_UNIT_NUM);
+        //   latency = specialized_unit_latency[spec_id];
+        //   initiation_interval = specialized_unit_initiation[spec_id];
         // }
 
-        // unsigned threads_per_cta = k.threads_per_cta();
-        // const class function_info *kernel = k.entry();
-        // unsigned int padded_cta_size = threads_per_cta;
-        // if (padded_cta_size % warp_size)
-        //   padded_cta_size = ((padded_cta_size / warp_size) + 1) * (warp_size);
-        //
-        // // Limit by n_threads/shader
-        // unsigned int result_thread = n_thread_per_shader / padded_cta_size;
-        //
-        // const struct gpgpu_ptx_sim_info *kernel_info = ptx_sim_kernel_info(kernel);
-        //
-        // // Limit by shmem/shader
-        // unsigned int result_shmem = (unsigned)-1;
-        // if (kernel_info->smem > 0)
-        //   result_shmem = gpgpu_shmem_size / kernel_info->smem;
-        //
-        // // Limit by register count, rounded up to multiple of 4.
-        // unsigned int result_regs = (unsigned)-1;
-        // if (kernel_info->regs > 0)
-        //   result_regs = gpgpu_shader_registers /
-        //                 (padded_cta_size * ((kernel_info->regs + 3) & ~3));
-        //
-        // // Limit by CTA
-        // unsigned int result_cta = max_cta_per_core;
-        //
-        // unsigned result = result_thread;
-        // result = gs_min2(result, result_shmem);
-        // result = gs_min2(result, result_regs);
-        // result = gs_min2(result, result_cta);
-        //
-        // static const struct gpgpu_ptx_sim_info *last_kinfo = NULL;
-        // if (last_kinfo !=
-        //     kernel_info) {  // Only print out stats if kernel_info struct changes
-        //   last_kinfo = kernel_info;
-        //   printf("GPGPU-Sim uArch: CTA/core = %u, limited by:", result);
-        //   if (result == result_thread) printf(" threads");
-        //   if (result == result_shmem) printf(" shmem");
-        //   if (result == result_regs) printf(" regs");
-        //   if (result == result_cta) printf(" cta_limit");
-        //   printf("\n");
-        // }
-        //
-        // // gpu_max_cta_per_shader is limited by number of CTAs if not enough to keep
-        // // all cores busy
-        // if (k.num_blocks() < result * num_shader()) {
-        //   result = k.num_blocks() / num_shader();
-        //   if (k.num_blocks() % num_shader()) result++;
-        // }
-        //
-        // assert(result <= MAX_CTA_PER_SHADER);
-        // if (result < 1) {
-        //   printf(
-        //       "GPGPU-Sim uArch: ERROR ** Kernel requires more resources than shader "
-        //       "has.\n");
-        //   if (gpgpu_ignore_resources_limitation) {
-        //     printf(
-        //         "GPGPU-Sim uArch: gpgpu_ignore_resources_limitation is set, ignore "
-        //         "the ERROR!\n");
-        //     return 1;
-        //   }
-        //   abort();
-        // }
-        //
-        // if (adaptive_cache_config && !k.cache_config_set) {
-        //   // For more info about adaptive cache, see
-        //   // https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#shared-memory-7-x
-        //   unsigned total_shmem = kernel_info->smem * result;
-        //   assert(total_shmem >= 0 && total_shmem <= shmem_opt_list.back());
-        //
-        //   // Unified cache config is in KB. Converting to B
-        //   unsigned total_unified = m_L1D_config.m_unified_cache_size * 1024;
-        //
-        //   bool l1d_configured = false;
-        //   unsigned max_assoc = m_L1D_config.get_max_assoc();
-        //
-        //   for (std::vector<unsigned>::const_iterator it = shmem_opt_list.begin();
-        //        it < shmem_opt_list.end(); it++) {
-        //     if (total_shmem <= *it) {
-        //       float l1_ratio = 1 - ((float)*(it) / total_unified);
-        //       // make sure the ratio is between 0 and 1
-        //       assert(0 <= l1_ratio && l1_ratio <= 1);
-        //       // round to nearest instead of round down
-        //       m_L1D_config.set_assoc(max_assoc * l1_ratio + 0.5f);
-        //       l1d_configured = true;
-        //       break;
-        //     }
-        //   }
-        //
-        //   assert(l1d_configured && "no shared memory option found");
-        //
-        //   if (m_L1D_config.is_streaming()) {
-        //     // for streaming cache, if the whole memory is allocated
-        //     // to the L1 cache, then make the allocation to be on_MISS
-        //     // otherwise, make it ON_FILL to eliminate line allocation fails
-        //     // i.e. MSHR throughput is the same, independent on the L1 cache
-        //     // size/associativity
-        //     if (total_shmem == 0) {
-        //       m_L1D_config.set_allocation_policy(ON_MISS);
-        //       printf("GPGPU-Sim: Reconfigure L1 allocation to ON_MISS\n");
-        //     } else {
-        //       m_L1D_config.set_allocation_policy(ON_FILL);
-        //       printf("GPGPU-Sim: Reconfigure L1 allocation to ON_FILL\n");
-        //     }
-        //   }
-        //   printf("GPGPU-Sim: Reconfigure L1 cache to %uKB\n",
-        //          m_L1D_config.get_total_size_inKB());
-        //
-        //   k.cache_config_set = true;
-        // }
-        //
-        // return result;
+        (latency, initiation_interval)
     }
 }
-//     pub fn new() -> Self {
-//         Self {}
-//         // gpu_stat_sample_freq = 10000;
-//         // gpu_runtime_stat_flag = 0;
-//         // sscanf(gpgpu_runtime_stat, "%d:%x", &gpu_stat_sample_freq,
-//         //        &gpu_runtime_stat_flag);
-//         // m_shader_config.init();
-//         // ptx_set_tex_cache_linesize(m_shader_config.m_L1T_config.get_line_sz());
-//         // m_memory_config.init();
-//         // init_clock_domains();
-//         // power_config::init();
-//         // Trace::init();
-//     }
+
+// void trace_config::reg_options(option_parser_t opp) {
+//   option_parser_register(opp, "-trace", OPT_CSTR, &g_traces_filename,
+//                          "traces kernel file"
+//                          "traces kernel file directory",
+//                          "./traces/kernelslist.g");
+//
+//   option_parser_register(opp, "-trace_opcode_latency_initiation_int", OPT_CSTR,
+//                          &trace_opcode_latency_initiation_int,
+//                          "Opcode latencies and initiation for integers in "
+//                          "trace driven mode <latency,initiation>",
+//                          "4,1");
+//   option_parser_register(opp, "-trace_opcode_latency_initiation_sp", OPT_CSTR,
+//                          &trace_opcode_latency_initiation_sp,
+//                          "Opcode latencies and initiation for sp in trace "
+//                          "driven mode <latency,initiation>",
+//                          "4,1");
+//   option_parser_register(opp, "-trace_opcode_latency_initiation_dp", OPT_CSTR,
+//                          &trace_opcode_latency_initiation_dp,
+//                          "Opcode latencies and initiation for dp in trace "
+//                          "driven mode <latency,initiation>",
+//                          "4,1");
+//   option_parser_register(opp, "-trace_opcode_latency_initiation_sfu", OPT_CSTR,
+//                          &trace_opcode_latency_initiation_sfu,
+//                          "Opcode latencies and initiation for sfu in trace "
+//                          "driven mode <latency,initiation>",
+//                          "4,1");
+//   option_parser_register(opp, "-trace_opcode_latency_initiation_tensor",
+//                          OPT_CSTR, &trace_opcode_latency_initiation_tensor,
+//                          "Opcode latencies and initiation for tensor in trace "
+//                          "driven mode <latency,initiation>",
+//                          "4,1");
+//
+//   for (unsigned j = 0; j < SPECIALIZED_UNIT_NUM; ++j) {
+//     std::stringstream ss;
+//     ss << "-trace_opcode_latency_initiation_spec_op_" << j + 1;
+//     option_parser_register(opp, ss.str().c_str(), OPT_CSTR,
+//                            &trace_opcode_latency_initiation_specialized_op[j],
+//                            "specialized unit config"
+//                            " <latency,initiation>",
+//                            "4,4");
+//   }
+// }
+//
+// void trace_config::parse_config() {
+//   sscanf(trace_opcode_latency_initiation_int, "%u,%u", &int_latency, &int_init);
+//   sscanf(trace_opcode_latency_initiation_sp, "%u,%u", &fp_latency, &fp_init);
+//   sscanf(trace_opcode_latency_initiation_dp, "%u,%u", &dp_latency, &dp_init);
+//   sscanf(trace_opcode_latency_initiation_sfu, "%u,%u", &sfu_latency, &sfu_init);
+//   sscanf(trace_opcode_latency_initiation_tensor, "%u,%u", &tensor_latency,
+//          &tensor_init);
+//
+//   for (unsigned j = 0; j < SPECIALIZED_UNIT_NUM; ++j) {
+//     sscanf(trace_opcode_latency_initiation_specialized_op[j], "%u,%u",
+//            &specialized_unit_latency[j], &specialized_unit_initiation[j]);
+//   }
 // }
 
 /// Cache set indexing function kind.
@@ -1245,6 +1197,12 @@ impl Default for GPUConfig {
             flush_l1_cache: false,
             flush_l2_cache: false,
             max_concurrent_kernels: 32,
+            // from gpgpusim.trace.config
+            trace_opcode_latency_initiation_int: (2, 2), // default 4, 1
+            trace_opcode_latency_initiation_sp: (2, 1),  // default 4, 1
+            trace_opcode_latency_initiation_dp: (64, 64), // default 4, 1
+            trace_opcode_latency_initiation_sfu: (21, 8), // default 4, 1
+            trace_opcode_latency_initiation_tensor: (32, 32), // default 4, 1
         }
     }
 }

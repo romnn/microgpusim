@@ -3,6 +3,7 @@
 #include <iostream>
 #include <list>
 
+#include "io.hpp"
 #include "cache_sub_stats.hpp"
 #include "l2_cache_trace.hpp"
 #include "l2_interface.hpp"
@@ -62,18 +63,23 @@ std::ostream &operator<<(std::ostream &os,
 
 void memory_sub_partition::cache_cycle(unsigned cycle) {
   unsigned before = m_rop.size();
-  std::cout << "memory sub partition cache cycle " << cycle << " rop queue "
-            << m_rop << " interconn to l2 queue " << m_icnt_L2_queue
-            << std::endl;
+  std::cout << "memory sub partition cache cycle " << cycle
+            << " rop queue=" << m_rop << " icnt to l2 queue=" << m_icnt_L2_queue
+            << " l2 to icnt queue=" << m_L2_icnt_queue
+            << " l2 to dram queue=" << m_L2_dram_queue << std::endl;
 
   // make sure that printing the rop queue emptied a copy only
   assert(m_rop.size() == before);
 
   // L2 fill responses
   if (!m_config->m_L2_config.disabled()) {
+    std::cout << "memory sub partition cache cycle " << cycle
+              << " l2 cache ready accesses=" << m_L2cache->ready_accesses()
+              << " l2 to icnt queue full=" << m_L2_icnt_queue->full()
+              << std::endl;
     if (m_L2cache->access_ready() && !m_L2_icnt_queue->full()) {
       mem_fetch *mf = m_L2cache->next_access();
-      // throw std::runtime_error("fetch from l2 cache ready");
+      // l2 access is ready to go to interconnect
       if (mf->get_access_type() !=
           L2_WR_ALLOC_R) {  // Don't pass write allocate read request back to
                             // upper level cache
@@ -83,6 +89,7 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
         m_L2_icnt_queue->push(mf);
       } else {
         if (m_config->m_L2_config.m_write_alloc_policy == FETCH_ON_WRITE) {
+          assert(0 && "fetch on write: l2 to icnt queue");
           mem_fetch *original_wr_mf = mf->get_original_wr_mf();
           assert(original_wr_mf);
           original_wr_mf->set_reply();
@@ -158,7 +165,7 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
         bool write_sent = was_write_sent(events);
         bool read_sent = was_read_sent(events);
         printf("probing L2 cache address=%ld, status=%s\n", mf->get_addr(),
-               cache_request_status_str(status));
+               get_cache_request_status_str(status));
 
         if (status == HIT) {
           if (!write_sent) {
@@ -255,9 +262,7 @@ bool memory_sub_partition::dram_L2_queue_full() const {
 
 // DRAM back to L2
 void memory_sub_partition::dram_L2_queue_push(class mem_fetch *mf) {
-  // if (m_L2_dram_queue->top()) {
-  //   throw std::runtime_error("dram to l2 push");
-  // }
+  assert(mf->is_reply());
   m_dram_L2_queue->push(mf);
 }
 

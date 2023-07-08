@@ -16,8 +16,8 @@ class Scoreboard {
   void releaseRegister(unsigned wid, unsigned regnum);
 
   bool checkCollision(unsigned wid, const inst_t *inst) const;
-  bool pendingWrites(unsigned wid) const;
-  std::string pendingWritesStr(unsigned wid) const;
+  bool has_pending_writes(unsigned wid) const;
+  const std::set<unsigned int> &get_pending_writes(unsigned wid) const;
   void printContents() const;
   const bool islongop(unsigned warp_id, unsigned regnum);
 

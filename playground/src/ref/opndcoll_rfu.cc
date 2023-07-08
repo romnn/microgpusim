@@ -330,20 +330,20 @@ bool opndcoll_rfu_t::collector_unit_t::ready() const {
          (*m_output_register).has_free(m_sub_core_model, m_reg_id);
 }
 
-void opndcoll_rfu_t::collector_unit_t::dump(
-    FILE *fp, const trace_shader_core_ctx *shader) const {
-  if (m_free) {
-    fprintf(fp, "    <free>\n");
-  } else {
-    m_warp->print(fp);
-    for (unsigned i = 0; i < MAX_REG_OPERANDS * 2; i++) {
-      if (m_not_ready.test(i)) {
-        std::string r = m_src_op[i].get_reg_string();
-        fprintf(fp, "    '%s' not ready\n", r.c_str());
-      }
-    }
-  }
-}
+// void opndcoll_rfu_t::collector_unit_t::dump(
+//     FILE *fp, const trace_shader_core_ctx *shader) const {
+//   if (m_free) {
+//     fprintf(fp, "    <free>\n");
+//   } else {
+//     m_warp->print(fp);
+//     for (unsigned i = 0; i < MAX_REG_OPERANDS * 2; i++) {
+//       if (m_not_ready.test(i)) {
+//         std::string r = m_src_op[i].get_reg_string();
+//         fprintf(fp, "    '%s' not ready\n", r.c_str());
+//       }
+//     }
+//   }
+// }
 
 void opndcoll_rfu_t::collector_unit_t::init(
     unsigned n, unsigned num_banks, unsigned log2_warp_size,

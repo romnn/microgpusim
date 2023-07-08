@@ -16,10 +16,9 @@ use strum::EnumCount;
 
 use super::{
     address,
-    instruction::{CacheOperator, WarpInstruction},
+    instruction::{CacheOperator, MemorySpace, WarpInstruction},
     mem_fetch::MemFetch,
 };
-use nvbit_model::MemorySpace;
 use std::collections::{HashMap, VecDeque};
 use trace_model::MemAccessTraceEntry;
 
@@ -301,7 +300,7 @@ where
                     // if next_writeback.warp_id == 3 {
                     //     super::debug_break("process writeback for warp 3");
                     // }
-                    if next_writeback.memory_space != MemorySpace::Shared {
+                    if next_writeback.memory_space != Some(MemorySpace::Shared) {
                         let pending = self
                             .pending_writes
                             .entry(next_writeback.warp_id)
@@ -430,11 +429,56 @@ where
         // todo!("ldst unit writeback");
     }
 
-    fn shared_cycle(&mut self) {}
+    fn shared_cycle(
+        &mut self,
+        stall_kind: &mut MemStageStallKind,
+        kind: &mut MemStageAccessKind,
+    ) -> bool {
+        let Some(dispatch_instr) = &mut self.pipelined_simd_unit.dispatch_reg else {
+            return true;
+        };
+        println!("shared cycle for instruction: {}", &dispatch_instr);
 
-    fn constant_cycle(&mut self) {}
+        if dispatch_instr.memory_space != Some(MemorySpace::Shared) {
+            // shared cycle is done
+            return true;
+        }
 
-    fn texture_cycle(&mut self) {}
+        if dispatch_instr.active_thread_count() == 0 {
+            // shared cycle is done
+            return true;
+        }
+
+        if dispatch_instr.has_dispatch_delay() {
+            // self.inner.stats.num_shared_mem_bank_access[self.core_id] += 1;
+        }
+
+        dispatch_instr.dec_dispatch_delay();
+        let has_stall = dispatch_instr.has_dispatch_delay();
+        if has_stall {
+            *kind = MemStageAccessKind::S_MEM;
+            *stall_kind = MemStageStallKind::BK_CONF;
+        } else {
+            *stall_kind = MemStageStallKind::NO_RC_FAIL;
+        }
+        !has_stall
+    }
+
+    fn constant_cycle(
+        &mut self,
+        rc_fail: &mut MemStageStallKind,
+        kind: &mut MemStageAccessKind,
+    ) -> bool {
+        false
+    }
+
+    fn texture_cycle(
+        &mut self,
+        rc_fail: &mut MemStageStallKind,
+        kind: &mut MemStageAccessKind,
+    ) -> bool {
+        false
+    }
 
     fn memory_cycle(
         &mut self,
@@ -456,7 +500,7 @@ where
 
         if !matches!(
             dispatch_instr.memory_space,
-            MemorySpace::Global | MemorySpace::Local
+            Some(MemorySpace::Global | MemorySpace::Local)
         ) {
             return true;
         }
@@ -471,7 +515,7 @@ where
 
         if self.data_l1.is_none() || dispatch_instr.cache_operator == CacheOperator::GLOBAL {
             bypass_l1 = true;
-        } else if dispatch_instr.memory_space == MemorySpace::Global {
+        } else if dispatch_instr.memory_space == Some(MemorySpace::Global) {
             // global memory access
             // skip L1 cache if the option is enabled
             if self.config.global_mem_skip_l1_data_cache
@@ -542,7 +586,7 @@ where
         }
         if stall_cond != MemStageStallKind::NO_RC_FAIL {
             *rc_fail = stall_cond;
-            if dispatch_instr.memory_space == MemorySpace::Local {
+            if dispatch_instr.memory_space == Some(MemorySpace::Local) {
                 *kind = if dispatch_instr.is_store() {
                     MemStageAccessKind::L_MEM_ST
                 } else {
@@ -709,17 +753,19 @@ where
         let l1_config = self.config.data_cache_l1.as_ref().unwrap();
         for bank in 0..l1_config.l1_banks {
             if let Some(next_fetch) = &self.l1_latency_queue[bank][0] {
-                let mut events = Vec::new(); // std::list<cache_event> events;
+                let mut events = Vec::new();
                 let access_status =
                     l1_cache.access(next_fetch.addr(), next_fetch.clone(), &mut events);
-                // enum cache_request_status status =
-                //     m_L1D->access(mf_next->get_addr(), mf_next,
-                //                   m_core->get_gpu()->gpu_sim_cycle +
-                //                       m_core->get_gpu()->gpu_tot_sim_cycle,
-                //                   events);
 
                 let write_sent = super::was_write_sent(&events);
                 let read_sent = super::was_read_sent(&events);
+                let write_allocate_sent = super::was_writeallocate_sent(&events);
+
+                let dec_ack = if l1_config.inner.mshr_kind == mshr::Kind::SECTOR_ASSOC {
+                    next_fetch.data_size / super::mem_sub_partition::SECTOR_SIZE
+                } else {
+                    1
+                };
 
                 if access_status == cache::RequestStatus::HIT {
                     debug_assert!(!read_sent);
@@ -744,12 +790,6 @@ where
 
                     // For write hit in WB policy
                     if instr.is_store() && !write_sent {
-                        let dec_ack = if l1_config.inner.mshr_kind == mshr::Kind::SECTOR_ASSOC {
-                            next_fetch.data_size / super::mem_sub_partition::SECTOR_SIZE
-                        } else {
-                            1
-                        };
-
                         next_fetch.set_reply();
 
                         for ack in 0..dec_ack {
@@ -760,93 +800,46 @@ where
                     if !write_sent {
                         // delete mf_next;
                     }
+                } else if access_status == cache::RequestStatus::RESERVATION_FAIL {
+                    debug_assert!(!read_sent);
+                    debug_assert!(!write_sent);
+                } else {
+                    debug_assert!(matches!(
+                        access_status,
+                        cache::RequestStatus::MISS | cache::RequestStatus::HIT_RESERVED
+                    ));
+                    let mut next_fetch = self.l1_latency_queue[bank][0].take().unwrap();
+                    let instr = next_fetch.instr.as_ref().unwrap();
+
+                    let should_fetch = matches!(
+                        l1_config.inner.write_allocate_policy,
+                        config::CacheWriteAllocatePolicy::FETCH_ON_WRITE
+                            | config::CacheWriteAllocatePolicy::LAZY_FETCH_ON_READ
+                    );
+                    if l1_config.inner.write_policy != config::CacheWritePolicy::WRITE_THROUGH
+                        && instr.is_store()
+                        && should_fetch
+                        && !write_allocate_sent
+                    {
+                        next_fetch.set_reply();
+                        for ack in 0..dec_ack {
+                            // core.store_ack(next_fetch);
+                        }
+
+                        if !write_sent && !read_sent {
+                            // delete mf_next
+                        };
+                    }
+                }
+            }
+
+            for stage in 0..l1_config.l1_latency - 1 {
+                if self.l1_latency_queue[bank][stage].is_none() {
+                    self.l1_latency_queue[bank][stage] =
+                        self.l1_latency_queue[bank][stage + 1].take();
                 }
             }
         }
-        // todo!("l1 latency queue cycle");
-        // for (int j = 0; j < m_config->m_L1D_config.l1_banks; j++) {
-        //   if ((l1_latency_queue[j][0]) != NULL) {
-        //     mem_fetch *mf_next = l1_latency_queue[j][0];
-        //     std::list<cache_event> events;
-        //     enum cache_request_status status =
-        //         m_L1D->access(mf_next->get_addr(), mf_next,
-        //                       m_core->get_gpu()->gpu_sim_cycle +
-        //                           m_core->get_gpu()->gpu_tot_sim_cycle,
-        //                       events);
-        //
-        //     bool write_sent = was_write_sent(events);
-        //     bool read_sent = was_read_sent(events);
-        //
-        //     if (status == HIT) {
-        //       assert(!read_sent);
-        //       l1_latency_queue[j][0] = NULL;
-        //       if (mf_next->get_inst().is_load()) {
-        //         for (unsigned r = 0; r < MAX_OUTPUT_VALUES; r++)
-        //           if (mf_next->get_inst().out[r] > 0) {
-        //             assert(m_pending_writes[mf_next->get_inst().warp_id()]
-        //                                    [mf_next->get_inst().out[r]] > 0);
-        //             unsigned still_pending =
-        //                 --m_pending_writes[mf_next->get_inst().warp_id()]
-        //                                   [mf_next->get_inst().out[r]];
-        //             if (!still_pending) {
-        //               m_pending_writes[mf_next->get_inst().warp_id()].erase(
-        //                   mf_next->get_inst().out[r]);
-        //               m_scoreboard->releaseRegister(mf_next->get_inst().warp_id(),
-        //                                             mf_next->get_inst().out[r]);
-        //               m_core->warp_inst_complete(mf_next->get_inst());
-        //             }
-        //           }
-        //       }
-        //
-        //       // For write hit in WB policy
-        //       if (mf_next->get_inst().is_store() && !write_sent) {
-        //         unsigned dec_ack =
-        //             (m_config->m_L1D_config.get_mshr_type() == SECTOR_ASSOC)
-        //                 ? (mf_next->get_data_size() / SECTOR_SIZE)
-        //                 : 1;
-        //
-        //         mf_next->set_reply();
-        //
-        //         for (unsigned i = 0; i < dec_ack; ++i)
-        //           m_core->store_ack(mf_next);
-        //       }
-        //
-        //       if (!write_sent)
-        //         delete mf_next;
-        //
-        //     } else if (status == RESERVATION_FAIL) {
-        //       assert(!read_sent);
-        //       assert(!write_sent);
-        //     } else {
-        //       assert(status == MISS || status == HIT_RESERVED);
-        //       l1_latency_queue[j][0] = NULL;
-        //       if (m_config->m_L1D_config.get_write_policy() != WRITE_THROUGH &&
-        //           mf_next->get_inst().is_store() &&
-        //           (m_config->m_L1D_config.get_write_allocate_policy() ==
-        //                FETCH_ON_WRITE ||
-        //            m_config->m_L1D_config.get_write_allocate_policy() ==
-        //                LAZY_FETCH_ON_READ) &&
-        //           !was_writeallocate_sent(events)) {
-        //         unsigned dec_ack =
-        //             (m_config->m_L1D_config.get_mshr_type() == SECTOR_ASSOC)
-        //                 ? (mf_next->get_data_size() / SECTOR_SIZE)
-        //                 : 1;
-        //         mf_next->set_reply();
-        //         for (unsigned i = 0; i < dec_ack; ++i)
-        //           m_core->store_ack(mf_next);
-        //         if (!write_sent && !read_sent)
-        //           delete mf_next;
-        //       }
-        //     }
-        //   }
-        //
-        //   for (unsigned stage = 0; stage < m_config->m_L1D_config.l1_latency - 1;
-        //        ++stage)
-        //     if (l1_latency_queue[j][stage] == NULL) {
-        //       l1_latency_queue[j][stage] = l1_latency_queue[j][stage + 1];
-        //       l1_latency_queue[j][stage + 1] = NULL;
-        //     }
-        // }
     }
 }
 
@@ -872,7 +865,7 @@ where
 
         // record how many pending register writes/memory accesses there are for this
         // instruction
-        if instr.is_load() && instr.memory_space != MemorySpace::Shared {
+        if instr.is_load() && instr.memory_space != Some(MemorySpace::Shared) {
             let warp_id = instr.warp_id;
             let num_accessess = instr.mem_access_queue.len();
             for out_reg in instr.outputs() {
@@ -1009,7 +1002,7 @@ where
                             let l1d = self.data_l1.as_mut().unwrap();
                             if l1d.has_free_fill_port() {
                                 let mut fetch = self.response_fifo.pop_front().unwrap();
-                                l1d.fill(&mut fetch);
+                                l1d.fill(fetch);
                             }
                         }
                     }
@@ -1031,19 +1024,18 @@ where
         }
 
         // let pipe_reg = &self.dispatch_reg;
-        let mut rc_fail = MemStageStallKind::NO_RC_FAIL;
-        let mut kind = MemStageAccessKind::C_MEM;
+        let mut stall_kind = MemStageStallKind::NO_RC_FAIL;
+        let mut access_kind = MemStageAccessKind::C_MEM;
         let mut done = true;
-        // done &= shared_cycle(pipe_reg, rc_fail, type);
-        // done &= constant_cycle(pipe_reg, rc_fail, type);
-        // done &= texture_cycle(pipe_reg, rc_fail, type);
-        // done &= memory_cycle(pipe_reg, rc_fail, type);
-        done &= self.memory_cycle(&mut rc_fail, &mut kind);
+        done &= self.shared_cycle(&mut stall_kind, &mut access_kind);
+        // done &= self.constant_cycle(&mut stall_kind, &mut access_kind);
+        // done &= self.texture_cycle(&mut stall_kind, &mut access_kind);
+        done &= self.memory_cycle(&mut stall_kind, &mut access_kind);
 
         // let mut num_stall_scheduler_mem = 0;
         if !done {
             // log stall types and return
-            debug_assert_ne!(rc_fail, MemStageStallKind::NO_RC_FAIL);
+            debug_assert_ne!(stall_kind, MemStageStallKind::NO_RC_FAIL);
             // num_stall_scheduler_mem += 1;
             // m_stats->gpu_stall_shd_mem_breakdown[type][rc_fail]++;
             return;
@@ -1053,27 +1045,23 @@ where
         // if !pipe_reg.empty {
         let simd_unit = &mut self.pipelined_simd_unit;
         if let Some(ref pipe_reg) = simd_unit.dispatch_reg {
-            // panic!("ldst unit got instr from dispatch reg");
+            // ldst unit got instr from dispatch reg
             let warp_id = pipe_reg.warp_id;
             if pipe_reg.is_load() {
-                if pipe_reg.memory_space == MemorySpace::Shared {
-                    let slot = &mut simd_unit.pipeline_reg[self.config.shared_memory_latency - 1];
-                    if slot.is_none() {
+                if pipe_reg.memory_space == Some(MemorySpace::Shared) {
+                    let pipe_slot =
+                        &mut simd_unit.pipeline_reg[self.config.shared_memory_latency - 1];
+                    if pipe_slot.is_none() {
                         // new shared memory request
-                        let pipe_reg = simd_unit.dispatch_reg.take();
-                        register_set::move_warp(pipe_reg, slot);
+                        let dispatch_reg = simd_unit.dispatch_reg.take();
+                        register_set::move_warp(dispatch_reg, pipe_slot);
                     }
                 } else {
                     let pending = self.pending_writes.entry(warp_id).or_default();
 
-                    // if warp_id == 3 && self.warps[warp_id].borrow().trace_pc > 0 {
-                    //     panic!("warp 3 inst complete: {pipe_reg}");
-                    // }
-
                     let mut has_pending_requests = false;
 
                     for reg_id in pipe_reg.outputs() {
-                        // if *reg_id > 0 {
                         match pending.get(reg_id) {
                             Some(&p) if p > 0 => {
                                 has_pending_requests = true;

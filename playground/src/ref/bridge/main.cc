@@ -8,8 +8,347 @@
 #include "../trace_gpgpu_sim.hpp"
 #include "../trace_kernel_info.hpp"
 #include "../trace_parser.hpp"
+
+#include "../cache_stats.hpp"
+#include "../cache_stats.hpp"
+#include "../cache_sub_stats.hpp"
+#include "../memory_sub_partition.hpp"
+#include "../cache_reservation_fail_reason.hpp"
+#include "../trace_simt_core_cluster.hpp"
+#include "../trace_shader_core_ctx.hpp"
+#include "../read_only_cache.hpp"
+#include "../ldst_unit.hpp"
+#include "../tex_cache.hpp"
+#include "../l1_cache.hpp"
+
 #include "main.hpp"
 #include "playground/src/bridge/main.rs.h"
+
+class trace_gpgpu_sim_bridge : public trace_gpgpu_sim {
+ public:
+  using trace_gpgpu_sim::trace_gpgpu_sim;
+
+  void transfer_stats(AccelsimStats &stats) {
+    transfer_general_stats(stats);
+
+    // per core cache stats
+    transfer_core_cache_stats(stats);
+    // transfer_l1i_stats(stats);
+    // transfer_l1t_stats(stats);
+    // transfer_l1d_stats(stats);
+    // transfer_l1c_stats(stats);
+
+    // l2 data cache stats
+    transfer_l2d_stats(stats);
+  }
+
+  void transfer_general_stats(AccelsimStats &stats) {
+    // see: void trace_gpgpu_sim::gpu_print_stat() {
+
+    // stats.set_global_u64("gpu_sim_cycle", gpu_sim_cycle);
+    // stats.set_global_u64("gpu_sim_insn", gpu_sim_insn);
+    // stats.set_global_float("gpu_ipc", (float)gpu_sim_insn / gpu_sim_cycle);
+    // stats.set_global_u64("gpu_tot_sim_cycle",
+    //                      gpu_tot_sim_cycle + gpu_sim_cycle);
+    // stats.set_global_u64("gpu_tot_sim_insn", gpu_tot_sim_insn +
+    // gpu_sim_insn);
+    //
+    // stats.set_global_float("gpu_tot_ipc",
+    //                        (float)(gpu_tot_sim_insn + gpu_sim_insn) /
+    //                            (gpu_tot_sim_cycle + gpu_sim_cycle));
+    //
+    // stats.set_global_u64("gpu_tot_issued_cta",
+    //                      gpu_tot_issued_cta + m_total_cta_launched);
+
+    // see: m_shader_stats->print(stdout);
+    // stats.set_num_stall_shared_mem(m_shader_stats->gpgpu_n_stall_shd_mem);
+    stats.set_num_mem_read_local(m_shader_stats->gpgpu_n_mem_read_local);
+    stats.set_num_mem_write_local(m_shader_stats->gpgpu_n_mem_write_local);
+    stats.set_num_mem_read_global(m_shader_stats->gpgpu_n_mem_read_global);
+    stats.set_num_mem_write_global(m_shader_stats->gpgpu_n_mem_write_global);
+    stats.set_num_mem_texture(m_shader_stats->gpgpu_n_mem_texture);
+    stats.set_num_mem_const(m_shader_stats->gpgpu_n_mem_const);
+
+    stats.set_num_load_instructions(m_shader_stats->gpgpu_n_load_insn);
+    stats.set_num_store_instructions(m_shader_stats->gpgpu_n_store_insn);
+    stats.set_num_shared_mem_instructions(m_shader_stats->gpgpu_n_shmem_insn);
+    stats.set_num_sstarr_instructions(m_shader_stats->gpgpu_n_sstarr_insn);
+    stats.set_num_texture_instructions(m_shader_stats->gpgpu_n_tex_insn);
+    stats.set_num_const_instructions(m_shader_stats->gpgpu_n_const_insn);
+    stats.set_num_param_instructions(m_shader_stats->gpgpu_n_param_insn);
+
+    //   fprintf(fout, "gpgpu_n_shmem_bkconflict = %d\n",
+    //   gpgpu_n_shmem_bkconflict); fprintf(fout, "gpgpu_n_cache_bkconflict =
+    //   %d\n", gpgpu_n_cache_bkconflict);
+    //
+    //   fprintf(fout, "gpgpu_n_intrawarp_mshr_merge = %d\n",
+    //           gpgpu_n_intrawarp_mshr_merge);
+    //   fprintf(fout, "gpgpu_n_cmem_portconflict = %d\n",
+    //   gpgpu_n_cmem_portconflict);
+  }
+
+  // /// L1 data stats
+  // void transfer_l1d_stats(AccelsimStats &stats) {
+  //   if (m_shader_config->m_L1D_config.disabled()) {
+  //     return;
+  //   }
+  //   struct cache_sub_stats total_css;
+  //   struct cache_sub_stats css;
+  //
+  //   total_css.clear();
+  //   css.clear();
+  //   // fprintf(fout, "L1D_cache:\n");
+  //   // for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
+  //   //   m_cluster[i]->get_L1D_sub_stats(css);
+  //   //
+  //   //   fprintf(stdout,
+  //   //           "\tL1D_cache_core[%d]: Access = %llu, Miss = %llu, Miss_rate
+  //   =
+  //   //           "
+  //   //           "%.3lf, Pending_hits = %llu, Reservation_fails = %llu\n",
+  //   //           i, css.accesses, css.misses,
+  //   //           (double)css.misses / (double)css.accesses, css.pending_hits,
+  //   //           css.res_fails);
+  //   //
+  //   //   total_css += css;
+  //   // }
+  //   // fprintf(fout, "\tL1D_total_cache_accesses = %llu\n",
+  //   total_css.accesses);
+  //   // fprintf(fout, "\tL1D_total_cache_misses = %llu\n", total_css.misses);
+  //   // if (total_css.accesses > 0) {
+  //   //   fprintf(fout, "\tL1D_total_cache_miss_rate = %.4lf\n",
+  //   //           (double)total_css.misses / (double)total_css.accesses);
+  //   // }
+  //   // fprintf(fout, "\tL1D_total_cache_pending_hits = %llu\n",
+  //   //         total_css.pending_hits);
+  //   // fprintf(fout, "\tL1D_total_cache_reservation_fails = %llu\n",
+  //   //         total_css.res_fails);
+  //   // total_css.print_port_stats(fout, "\tL1D_cache");
+  // }
+
+  // /// L1 const stats
+  // void transfer_l1c_stats(AccelsimStats &stats) {
+  //   if (m_shader_config->m_L1C_config.disabled()) {
+  //     return;
+  //   }
+  //   struct cache_sub_stats total_css;
+  //   struct cache_sub_stats css;
+  //
+  //   total_css.clear();
+  //   css.clear();
+  //   // fprintf(fout, "L1C_cache:\n");
+  //   // for (unsigned i = 0; i < m_shader_config->n_simt_clusters; ++i) {
+  //   //   m_cluster[i]->get_L1C_sub_stats(css);
+  //   //   total_css += css;
+  //   // }
+  //   // fprintf(fout, "\tL1C_total_cache_accesses = %llu\n",
+  //   total_css.accesses);
+  //   // fprintf(fout, "\tL1C_total_cache_misses = %llu\n", total_css.misses);
+  //   // if (total_css.accesses > 0) {
+  //   //   fprintf(fout, "\tL1C_total_cache_miss_rate = %.4lf\n",
+  //   //           (double)total_css.misses / (double)total_css.accesses);
+  //   // }
+  //   // fprintf(fout, "\tL1C_total_cache_pending_hits = %llu\n",
+  //   //         total_css.pending_hits);
+  //   // fprintf(fout, "\tL1C_total_cache_reservation_fails = %llu\n",
+  //   //         total_css.res_fails);
+  // }
+
+  // /// L1 texture stats
+  // void transfer_l1t_stats(AccelsimStats &stats) {
+  //   if (m_shader_config->m_L1T_config.disabled()) {
+  //     return;
+  //   }
+  //   struct cache_sub_stats total_css;
+  //   struct cache_sub_stats css;
+  //   // total_css.clear();
+  //   // css.clear();
+  //   // fprintf(fout, "L1T_cache:\n");
+  //   // for (unsigned i = 0; i < m_shader_config->n_simt_clusters; ++i) {
+  //   //   m_cluster[i]->get_L1T_sub_stats(css);
+  //   //   total_css += css;
+  //   // }
+  //   // fprintf(fout, "\tL1T_total_cache_accesses = %llu\n",
+  //   total_css.accesses);
+  //   // fprintf(fout, "\tL1T_total_cache_misses = %llu\n", total_css.misses);
+  //   // if (total_css.accesses > 0) {
+  //   //   fprintf(fout, "\tL1T_total_cache_miss_rate = %.4lf\n",
+  //   //           (double)total_css.misses / (double)total_css.accesses);
+  //   // }
+  //   // fprintf(fout, "\tL1T_total_cache_pending_hits = %llu\n",
+  //   //         total_css.pending_hits);
+  //   // fprintf(fout, "\tL1T_total_cache_reservation_fails = %llu\n",
+  //   //         total_css.res_fails);
+  // }
+
+  void transfer_core_cache_stats(AccelsimStats &stats) {
+    for (unsigned cluster_id = 0; cluster_id < m_shader_config->n_simt_clusters;
+         ++cluster_id) {
+      for (unsigned core_id = 0;
+           core_id < m_shader_config->n_simt_cores_per_cluster; ++core_id) {
+        trace_shader_core_ctx *core = m_cluster[cluster_id]->m_core[core_id];
+
+        unsigned global_cache_id = cluster_id * +core_id;
+        assert(core->m_tpc == cluster_id);
+        assert(core->m_sid == core_id);
+
+        // L1I
+        if (!m_shader_config->m_L1I_config.disabled() && core->m_L1I)
+          transfer_cache_stats(CacheKind::L1I, global_cache_id,
+                               core->m_L1I->get_stats(), stats);
+
+        // L1T
+        if (!m_shader_config->m_L1T_config.disabled() && core->m_ldst_unit &&
+            core->m_ldst_unit->m_L1T)
+          transfer_cache_stats(CacheKind::L1T, global_cache_id,
+                               core->m_ldst_unit->m_L1T->get_stats(), stats);
+
+        // L1D
+        if (!m_shader_config->m_L1D_config.disabled() && core->m_ldst_unit &&
+            core->m_ldst_unit->m_L1D)
+          transfer_cache_stats(CacheKind::L1D, global_cache_id,
+                               core->m_ldst_unit->m_L1D->get_stats(), stats);
+
+        // L1C
+        if (!m_shader_config->m_L1C_config.disabled() && core->m_ldst_unit &&
+            core->m_ldst_unit->m_L1C)
+          transfer_cache_stats(CacheKind::L1C, global_cache_id,
+                               core->m_ldst_unit->m_L1C->get_stats(), stats);
+      }
+    }
+  }
+
+  // /// L1 instructions stats
+  // void transfer_l1i_stats(AccelsimStats &stats) {
+  //   if (m_shader_config->m_L1I_config.disabled()) {
+  //     return;
+  //   }
+  //
+  //   // struct cache_sub_stats total_css;
+  //   // struct cache_sub_stats css;
+  //   // total_css.clear();
+  //   // css.clear();
+  //   // fprintf(fout, "\n========= Core cache stats =========\n");
+  //   // fprintf(fout, "L1I_cache:\n");
+  //   for (unsigned cluster_id = 0; cluster_id <
+  //   m_shader_config->n_simt_clusters;
+  //        ++cluster_id) {
+  //     // m_cluster[i]->get_L1I_sub_stats(css);
+  //     // total_css += css;
+  //
+  //     for (unsigned core_id = 0;
+  //          core_id < m_shader_config->n_simt_cores_per_cluster; ++core_id) {
+  //       trace_shader_core_ctx *core = m_cluster[cluster_id]->m_core[core_id];
+  //       // m_core[i]->get_L1I_sub_stats(temp_css);
+  //       // total_css += temp_css;
+  //       //
+  //       // if (core->m_L1I) core->m_L1I->get_sub_stats(css);
+  //
+  //       unsigned global_cache_id = cluster_id * +core_id;
+  //       assert(core->m_tpc == cluster_id);
+  //       assert(core->m_sid == core_id);
+  //
+  //       if (core->m_L1I)
+  //         transfer_cache_stats(CacheKind::L1I, global_cache_id,
+  //                              core->m_L1I->get_stats(), stats);
+  //     }
+  //   }
+  //   // fprintf(fout, "\tL1I_total_cache_accesses = %llu\n",
+  //   total_css.accesses);
+  //   // fprintf(fout, "\tL1I_total_cache_misses = %llu\n", total_css.misses);
+  //   // if (total_css.accesses > 0) {
+  //   //   fprintf(fout, "\tL1I_total_cache_miss_rate = %.4lf\n",
+  //   //           (double)total_css.misses / (double)total_css.accesses);
+  //   // }
+  //   // fprintf(fout, "\tL1I_total_cache_pending_hits = %llu\n",
+  //   //         total_css.pending_hits);
+  //   // fprintf(fout, "\tL1I_total_cache_reservation_fails = %llu\n",
+  //   //         total_css.res_fails);
+  // }
+
+  void transfer_cache_stats(CacheKind cache, unsigned cache_id,
+                            const cache_stats &stats, AccelsimStats &out) {
+    for (unsigned type = 0; type < NUM_MEM_ACCESS_TYPE; ++type) {
+      for (unsigned status = 0; status < NUM_CACHE_REQUEST_STATUS; ++status) {
+        out.add_accesses(cache, cache_id, type, status, false,
+                         (stats)(type, status, false));
+      }
+      for (unsigned status = 0; status < NUM_CACHE_RESERVATION_FAIL_STATUS;
+           ++status) {
+        out.add_accesses(cache, cache_id, type, status, true,
+                         (stats)(type, status, true));
+      }
+    }
+  }
+
+  /// L2 cache stats
+  void transfer_l2d_stats(AccelsimStats &stats) {
+    if (m_memory_config->m_L2_config.disabled()) {
+      return;
+    }
+
+    cache_stats l2_stats;
+    struct cache_sub_stats l2_css;
+    struct cache_sub_stats total_l2_css;
+    l2_stats.clear();
+    l2_css.clear();
+    total_l2_css.clear();
+
+    for (unsigned i = 0; i < m_memory_config->m_n_mem_sub_partition; i++) {
+      if (!m_memory_sub_partition[i]->m_config->m_L2_config.disabled()) {
+        class l2_cache *l2_cache = m_memory_sub_partition[i]->m_L2cache;
+        // l2_cache->get_stats();
+        //
+        transfer_cache_stats(CacheKind::L2D, i, l2_cache->get_stats(), stats);
+
+        // for (unsigned type = 0; type < NUM_MEM_ACCESS_TYPE; ++type) {
+        //   for (unsigned status = 0; status < NUM_CACHE_REQUEST_STATUS;
+        //        ++status) {
+        //     stats.add_accesses(CacheKind::L2D, i, type, status, false,
+        //                        (l2_cache->get_stats())(type, status,
+        //                        false));
+        //
+        //     // stats.add_accesses(type, status,
+        //     //                    (l2_cache->m_stats)[type][status]);
+        //     // ret(type, status, false) =
+        //     //     m_stats[type][status] + cs(type, status, false);
+        //   }
+        //   for (unsigned status = 0; status <
+        //   NUM_CACHE_RESERVATION_FAIL_STATUS;
+        //        ++status) {
+        //     // ret(type, status, true) =
+        //     //     m_fail_stats[type][status] + cs(type, status, true);
+        //     stats.add_accesses(CacheKind::L2D, i, type, status, true,
+        //                        (l2_cache->get_stats())(type, status,
+        //                        true));
+        //   }
+        // }
+
+        // this is just different counting of the same cache_stats, see
+        // sub_stats() method l2_cache->get_sub_stats(css);
+      };
+      // if (!m_memory_config->m_L2_config.disabled() &&
+      //     m_memory_config->m_L2_config.get_num_lines()) {
+      //   // L2c_print_cache_stat();
+      //   printf("L2_total_cache_accesses = %llu\n", total_l2_css.accesses);
+      //   printf("L2_total_cache_misses = %llu\n", total_l2_css.misses);
+      //   if (total_l2_css.accesses > 0)
+      //     printf("L2_total_cache_miss_rate = %.4lf\n",
+      //            (double)total_l2_css.misses /
+      //            (double)total_l2_css.accesses);
+      //   printf("L2_total_cache_pending_hits = %llu\n",
+      //          total_l2_css.pending_hits);
+      //   printf("L2_total_cache_reservation_fails = %llu\n",
+      //          total_l2_css.res_fails);
+      //   printf("L2_total_cache_breakdown:\n");
+      //   l2_stats.print_stats(stdout, "L2_cache_stats_breakdown");
+      //   printf("L2_total_cache_reservation_fail_breakdown:\n");
+      //   l2_stats.print_fail_stats(stdout, "L2_cache_stats_fail_breakdown");
+      //   total_l2_css.print_port_stats(stdout, "L2_cache");
+      // }
+    }
+  }
+};
 
 trace_kernel_info_t *create_kernel_info(kernel_trace_t *kernel_trace_info,
                                         gpgpu_context *m_gpgpu_context,
@@ -51,7 +390,7 @@ void cli_configure(gpgpu_context *m_gpgpu_context, trace_config &m_config,
   g_network_mode = BOX_NET;
 }
 
-trace_gpgpu_sim *gpgpu_trace_sim_init_perf_model(
+trace_gpgpu_sim_bridge *gpgpu_trace_sim_init_perf_model(
     gpgpu_context *m_gpgpu_context, trace_config &m_config,
     const accelsim_config &config, const std::vector<const char *> &argv,
     bool silent) {
@@ -76,7 +415,7 @@ trace_gpgpu_sim *gpgpu_trace_sim_init_perf_model(
   assert(m_gpgpu_context->the_gpgpusim->g_the_gpu_config->m_shader_config
              .gpgpu_num_sched_per_core == 1);
 
-  m_gpgpu_context->the_gpgpusim->g_the_gpu = new trace_gpgpu_sim(
+  m_gpgpu_context->the_gpgpusim->g_the_gpu = new trace_gpgpu_sim_bridge(
       *(m_gpgpu_context->the_gpgpusim->g_the_gpu_config), m_gpgpu_context);
 
   m_gpgpu_context->the_gpgpusim->g_stream_manager =
@@ -85,7 +424,8 @@ trace_gpgpu_sim *gpgpu_trace_sim_init_perf_model(
 
   m_gpgpu_context->the_gpgpusim->g_simulation_starttime = time((time_t *)NULL);
 
-  return m_gpgpu_context->the_gpgpusim->g_the_gpu;
+  return static_cast<class trace_gpgpu_sim_bridge *>(
+      m_gpgpu_context->the_gpgpusim->g_the_gpu);
 }
 
 trace_kernel_info_t *create_kernel_info(kernel_trace_t *kernel_trace_info,
@@ -140,7 +480,7 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv,
   trace_config tconfig;
 
   // init trace based performance model
-  trace_gpgpu_sim *m_gpgpu_sim = gpgpu_trace_sim_init_perf_model(
+  trace_gpgpu_sim_bridge *m_gpgpu_sim = gpgpu_trace_sim_init_perf_model(
       m_gpgpu_context, tconfig, config, c_argv, silent);
 
   m_gpgpu_sim->init();
@@ -166,8 +506,6 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv,
   std::vector<unsigned long> busy_streams;
   std::vector<trace_kernel_info_t *> kernels_info;
   kernels_info.reserve(window_size);
-
-  // accelsim_stats stats;
 
   unsigned i = 0;
   while (i < commandlist.size() || !kernels_info.empty()) {
@@ -200,8 +538,8 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv,
       }
     }
 
-    // Launch all kernels within window that are on a stream that isn't already
-    // running
+    // Launch all kernels within window that are on a stream that isn't
+    // already running
     for (auto k : kernels_info) {
       // check if stream of kernel is busy
       bool stream_busy = false;
@@ -235,7 +573,6 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv,
         printf("early exit after %llu cycles\n", cycle);
         fflush(stdout);
         return 0;
-        // return m_gpgpu_sim->get_accelsim_stats();
       }
 #endif
 
@@ -285,6 +622,33 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv,
       }
       assert(k);
       if (!silent) m_gpgpu_sim->print_stats();
+
+      m_gpgpu_sim->transfer_stats(stats);
+      // stats.set_global_u32("gpu_sim_cycle", m_gpgpu_sim->gpu_sim_cycle);
+      // stats.set_global_u32("gpu_sim_insn", m_gpgpu_sim->gpu_sim_inst);
+      // stats.set_global_u32("gpu_ipc", (float)m_gpgpu_sim->gpu_sim_insn /
+      //                                     m_gpgpu_sim->gpu_sim_cycle);
+      // stats.set_global_u32("gpu_tot_sim_cycle",
+      // m_gpgpu_sim->gpu_tot_sim_cycle +
+      //                                               m_gpgpu_sim->gpu_sim_cycle);
+      // stats.set_global_u32("gpu_tot_sim_insn",
+      // m_gpgpu_sim->gpu_tot_sim_insn
+      // +
+      //                                              m_gpgpu_sim->gpu_sim_insn);
+      //
+      // stats.set_global_u32(
+      //     "gpu_tot_ipc",
+      //     (float)(m_gpgpu_sim->gpu_tot_sim_insn +
+      //     m_gpgpu_sim->gpu_sim_insn)
+      //     /
+      //         (m_gpgpu_sim->gpu_tot_sim_cycle +
+      //         m_gpgpu_sim->gpu_sim_cycle));
+      //
+      // stats.set_global_u32(
+      //     "gpu_tot_ipc",
+      //     m_gpgpu_sim->gpu_tot_issued_cta +
+      //     m_gpgpu_sim->m_total_cta_launched);
+
       // total_dram_writes
       // total_dram_reads
       // const_cache_read_total
@@ -320,5 +684,4 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv,
   fflush(stdout);
 
   return 0;
-  // return m_gpgpu_sim->get_accelsim_stats();
 }

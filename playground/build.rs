@@ -47,7 +47,7 @@ fn generate_bindings() -> eyre::Result<()> {
         // .allowlist_function("next_powerOf2")
         // .allowlist_function("addrdec_packbits")
         // .allowlist_function("addrdec_getmasklimit")
-        .allowlist_function("parse_cache_config")
+        // .allowlist_function("parse_cache_config")
         // .allowlist_type("linear_to_raw_address_translation")
         // .allowlist_type("cache_config")
         // .allowlist_type("mem_fetch_t")
@@ -56,20 +56,27 @@ fn generate_bindings() -> eyre::Result<()> {
         // .allowlist_type("l1_cache")
         // .allowlist_type("l2_cache")
         // .allowlist_type("read_only_cache_params")
+        // for read only cache
         .allowlist_type("mem_fetch_status")
+        // for addr dec bridge
         .allowlist_type("addrdec_t")
         .allowlist_type("linear_to_raw_address_translation_params")
-        // .allowlist_type("accelsim_stats")
+        // for main bridge
         .allowlist_type("accelsim_config")
+        // for stats
+        .allowlist_type("mem_access_type")
+        .allowlist_type("cache_request_status")
+        .allowlist_type("cache_reservation_fail_reason")
+        // for cache config tests
         .allowlist_type("cache_config_params")
-        .allowlist_type("cache_access_logger_types")
-        .allowlist_type("mem_fetch_status")
+        // .allowlist_type("cache_access_logger_types")
+        // .allowlist_type("mem_fetch_status")
         // .opaque_type("mem_fetch_interface")
-        .opaque_type("const_pointer")
-        .opaque_type("tag_array")
-        .opaque_type("warp_inst_t")
-        .opaque_type("kernel_info_t")
-        .opaque_type("(::)?std::.*")
+        // .opaque_type("const_pointer")
+        // .opaque_type("tag_array")
+        // .opaque_type("warp_inst_t")
+        // .opaque_type("kernel_info_t")
+        // .opaque_type("(::)?std::.*")
         .header("src/bindings.hpp")
         .generate()?;
 
@@ -218,52 +225,40 @@ fn main() -> eyre::Result<()> {
     sources.retain(|src| !exclude.contains(src));
 
     // build out bottom up: trace_shader_core first
-    if false {
-        sources = [
-            "src/ref/dram.cc",
-            "src/ref/cuda_sim.cc",
-            "src/ref/tensor_core.cc",
-            "src/ref/int_unit.cc",
-            "src/ref/dp_unit.cc",
-            "src/ref/sp_unit.cc",
-            "src/ref/ldst_unit.cc",
-            "src/ref/specialized_unit.cc",
-            "src/ref/stream_operation.cc",
-            "src/ref/stream_manager.cc",
-            "src/ref/pipelined_simd_unit.cc",
-            "src/ref/simd_function_unit.cc",
-            "src/ref/memory_partition_unit.cc",
-            "src/ref/memory_sub_partition.cc",
-            "src/ref/main.cc",
-            "src/ref/gpgpu_sim_config.cc",
-            "src/ref/gpgpu_context.cc",
-            "src/ref/trace_simt_core_cluster.cc",
-            "src/ref/trace_kernel_info.cc",
-            "src/ref/trace_shd_warp.cc",
-            "src/ref/trace_shader_core_ctx.cc",
-            "src/ref/trace_gpgpu_sim.cc",
-        ]
-        .map(PathBuf::from)
-        .to_vec();
-    }
+    // if false {
+    //     sources = [
+    //         "src/ref/dram.cc",
+    //         "src/ref/cuda_sim.cc",
+    //         "src/ref/tensor_core.cc",
+    //         "src/ref/int_unit.cc",
+    //         "src/ref/dp_unit.cc",
+    //         "src/ref/sp_unit.cc",
+    //         "src/ref/ldst_unit.cc",
+    //         "src/ref/specialized_unit.cc",
+    //         "src/ref/stream_operation.cc",
+    //         "src/ref/stream_manager.cc",
+    //         "src/ref/pipelined_simd_unit.cc",
+    //         "src/ref/simd_function_unit.cc",
+    //         "src/ref/memory_partition_unit.cc",
+    //         "src/ref/memory_sub_partition.cc",
+    //         "src/ref/main.cc",
+    //         "src/ref/gpgpu_sim_config.cc",
+    //         "src/ref/gpgpu_context.cc",
+    //         "src/ref/trace_simt_core_cluster.cc",
+    //         "src/ref/trace_kernel_info.cc",
+    //         "src/ref/trace_shd_warp.cc",
+    //         "src/ref/trace_shader_core_ctx.cc",
+    //         "src/ref/trace_gpgpu_sim.cc",
+    //     ]
+    //     .map(PathBuf::from)
+    //     .to_vec();
+    // }
 
-    // MODIFIED (check them again)
-    // function_info -> trace_function_info
-    // kernel_info -> trace_kernel_info
-    // shader_core_ctx -> trace_shader_core_ctx
-    // simt_core_cluster -> trace_simt_core_cluster
-    // gpgpu_sim -> trace_gpgpu_sim
-
-    // gpgpu_sim_config -> removed device runtime and func_sim
-    // context -> removed func_sim and device runtime
     sources.sort();
-    // panic!("{:#?}", sources);
 
     // accelsim uses zlib for compression
     // println!("cargo:rustc-link-lib=z");
 
-    // return Ok(());
-    // build(&sources)?;
     generate_bindings()?;
     generate_bridge(&bridges, sources)?;
     Ok(())

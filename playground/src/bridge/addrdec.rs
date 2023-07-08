@@ -1,15 +1,20 @@
 use crate::bindings;
-use cxx::{type_id, ExternType};
+// use cxx::{type_id, ExternType};
 
-unsafe impl ExternType for bindings::addrdec_t {
-    type Id = type_id!("addrdec_t");
-    type Kind = cxx::kind::Trivial;
-}
-
-unsafe impl ExternType for bindings::linear_to_raw_address_translation_params {
-    type Id = type_id!("linear_to_raw_address_translation_params");
-    type Kind = cxx::kind::Trivial;
-}
+super::extern_type!(bindings::addrdec_t, "addrdec_t");
+super::extern_type!(
+    bindings::linear_to_raw_address_translation_params,
+    "linear_to_raw_address_translation_params"
+);
+// unsafe impl ExternType for bindings::addrdec_t {
+//     type Id = type_id!("addrdec_t");
+//     type Kind = cxx::kind::Trivial;
+// }
+//
+// unsafe impl ExternType for bindings::linear_to_raw_address_translation_params {
+//     type Id = type_id!("linear_to_raw_address_translation_params");
+//     type Kind = cxx::kind::Trivial;
+// }
 
 #[cxx::bridge]
 mod default {

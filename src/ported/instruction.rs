@@ -6,9 +6,34 @@ use crate::ported::mem_sub_partition::MAX_MEMORY_ACCESS_SIZE;
 
 use bitvec::access;
 use bitvec::{array::BitArray, field::BitField, BitArr};
-use nvbit_model::MemorySpace;
+// use nvbit_model::MemorySpace;
 use std::collections::{HashMap, VecDeque};
 use trace_model as trace;
+
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+pub enum MemorySpace {
+    // undefined_space = 0,
+    // reg_space,
+    Local,
+    // local_space,
+    Shared,
+    // shared_space,
+    // sstarr_space,
+    // param_space_unclassified,
+    // global to all threads in a kernel (read-only)
+    // param_space_kernel,
+    // local to a thread (read-writable)
+    // param_space_local,
+    Constant,
+    // const_space,
+    Texture,
+    // tex_space,
+    // surf_space,
+    Global,
+    // global_space,
+    // generic_space,
+    // instruction_space,
+}
 
 // this is done
 #[derive(Debug, Default)]
@@ -78,59 +103,23 @@ pub struct WarpInstruction {
     pub opcode: Opcode,
     pub active_mask: sched::ThreadActiveMask,
     pub cache_operator: CacheOperator,
-    pub memory_space: MemorySpace,
-    // pub threads: [PerThreadInfo; 32],
+    pub memory_space: Option<MemorySpace>,
     pub threads: Vec<PerThreadInfo>,
     pub mem_access_queue: VecDeque<MemAccess>,
-    // todo: get rid of the empty and always use options for now
-    // empty: bool,
     /// operation latency
     pub latency: usize,
     pub initiation_interval: usize,
+    pub dispatch_delay_cycles: usize,
     /// size of the word being operated on
     pub data_size: u32,
     pub is_atomic: bool,
 
     // access only via the iterators that use in and out counts
     outputs: [Option<u32>; 8],
-    // outputs: [u32; 8],
-    // out_count: usize,
     inputs: [Option<u32>; 24],
-    // inputs: [u32; 24],
-    // in_count: usize,
     /// register number for bank conflict evaluation
     pub src_arch_reg: [Option<u32>; opcoll::MAX_REG_OPERANDS],
     pub dest_arch_reg: [Option<u32>; opcoll::MAX_REG_OPERANDS],
-    // bool m_mem_accesses_created;
-    // std::list<mem_access_t> m_accessq;
-    // m_decoded = false;
-    // pc = (address_type)-1;
-    // reconvergence_pc = (address_type)-1;
-    // op = NO_OP;
-    // bar_type = NOT_BAR;
-    // red_type = NOT_RED;
-    // bar_id = (unsigned)-1;
-    // bar_count = (unsigned)-1;
-    // oprnd_type = UN_OP;
-    // sp_op = OTHER_OP;
-    // op_pipe = UNKOWN_OP;
-    // mem_op = NOT_TEX;
-    // const_cache_operand = 0;
-    // num_operands = 0;
-    // num_regs = 0;
-    // memset(out, 0, sizeof(unsigned));
-    // memset(in, 0, sizeof(unsigned));
-    // is_vectorin = 0;
-    // is_vectorout = 0;
-    // space = memory_space_t();
-    // cache_op = CACHE_UNDEFINED;
-    // latency = 1;
-    // initiation_interval = 1;
-    // for (unsigned i = 0; i < MAX_REG_OPERANDS; i++) {
-    //   arch_reg.src[i] = -1;
-    //   arch_reg.dst[i] = -1;
-    // }
-    // isize = 0;
 }
 
 impl std::fmt::Debug for WarpInstruction {
@@ -209,12 +198,13 @@ impl WarpInstruction {
             },
             pc: 0,
             threads,
-            memory_space: MemorySpace::None,
+            memory_space: None,
             is_atomic: false,
             active_mask: BitArray::ZERO,
             cache_operator: CacheOperator::UNDEFINED,
-            latency: 0,             // todo
-            initiation_interval: 0, // todo
+            latency: 1,             // TODO: used to be one
+            initiation_interval: 1, // TODO: used to be one
+            dispatch_delay_cycles: 0,
             data_size: 0,
             // empty: true,
             mem_access_queue: VecDeque::new(),
@@ -242,20 +232,22 @@ impl WarpInstruction {
         let mut active_mask = BitArray::ZERO;
         active_mask.store(trace.active_mask);
         assert_eq!(active_mask.len(), trace.warp_size as usize);
+
         let mut threads: Vec<_> = (0..active_mask.len())
             .map(|_| PerThreadInfo::default())
             .collect();
 
-        // let mut src_arch_reg: [;] = [(); opcoll::MAX_REG_OPERANDS].map(|_| None);
         let mut src_arch_reg = [None; opcoll::MAX_REG_OPERANDS];
         let mut dest_arch_reg = [None; opcoll::MAX_REG_OPERANDS];
-        // let mut dest_arch_reg = [(); opcoll::MAX_REG_OPERANDS].map(|_| None);
 
-        // unsigned reg_dsts_num;
-        // unsigned reg_dest[MAX_DST];
-        // std::string opcode;
-        // unsigned reg_srcs_num;
-        // unsigned reg_src[MAX_SRC];
+        // get the opcode
+        let opcode_tokens: Vec<_> = trace.instr_opcode.split(".").collect();
+        debug_assert!(!opcode_tokens.is_empty());
+        let opcode1 = opcode_tokens[0];
+
+        let Some(&opcode) = kernel.opcodes.get(opcode1) else {
+            panic!("undefined opcode {}", opcode1);
+        };
 
         // fill regs information
         let num_src_regs = trace.num_src_regs as usize;
@@ -264,30 +256,23 @@ impl WarpInstruction {
         let num_regs = num_src_regs + num_dest_regs;
         let num_operands = num_regs;
 
-        // let mut in_count = 0;
-        // let mut out_count = 0;
-
-        // let mut outputs = [0; 8];
         let mut outputs: [Option<u32>; 8] = [None; 8];
-        // let mut out_count = num_dest_regs;
-
         for m in 0..num_dest_regs {
             // increment by one because GPGPU-sim starts from R1, while SASS starts from R0
             outputs[m] = Some(trace.dest_regs[m] + 1);
             dest_arch_reg[m] = Some(trace.dest_regs[m] + 1);
         }
 
-        // let mut inputs = [0; 24];
         let mut inputs: [Option<u32>; 24] = [None; 24];
-        // let mut in_count = num_src_regs;
         for m in 0..num_src_regs {
             // increment by one because GPGPU-sim starts from R1, while SASS starts from R0
             inputs[m] = Some(trace.src_regs[m] + 1);
             src_arch_reg[m] = Some(trace.src_regs[m] + 1);
         }
 
-        // fill latency and initl
-        // tconfig->set_latency(op, latency, initiation_interval);
+        // fill latency and init latency
+        let config = config::GPUConfig::default();
+        let (latency, initiation_interval) = config.get_latencies(opcode.category);
 
         // fill addresses
         let mut data_size = 0;
@@ -299,26 +284,19 @@ impl WarpInstruction {
         }
 
         // handle special cases and fill memory space
-        let opcode_tokens: Vec<_> = trace.instr_opcode.split(".").collect();
-        debug_assert!(!opcode_tokens.is_empty());
-        let opcode1 = opcode_tokens[0];
 
         let mut memory_op: Option<MemOp> = None;
         let mut is_atomic = false;
         let mut const_cache_operand = false;
-        let mut cache_operator = CacheOperator::UNDEFINED;
-        let mut memory_space = MemorySpace::None;
-
-        let Some(&opcode) = kernel.opcodes.get(opcode1) else {
-            panic!("undefined opcode {}", opcode1);
-        };
+        let mut cache_operator = CacheOperator::UNDEFINED; // TODO: convert to none?
+        let mut memory_space = None;
 
         match opcode.op {
             Op::LDC => {
                 memory_op = Some(MemOp::Load);
                 data_size = 4;
                 const_cache_operand = true;
-                memory_space = MemorySpace::Constant;
+                memory_space = Some(MemorySpace::Constant);
                 cache_operator = CacheOperator::ALL;
             }
             Op::LDG | Op::LDL => {
@@ -326,9 +304,9 @@ impl WarpInstruction {
                 memory_op = Some(MemOp::Load);
                 cache_operator = CacheOperator::ALL;
                 memory_space = if opcode.op == Op::LDL {
-                    MemorySpace::Local
+                    Some(MemorySpace::Local)
                 } else {
-                    MemorySpace::Global
+                    Some(MemorySpace::Global)
                 };
                 // check the cache scope, if its strong GPU, then bypass L1
                 // if (trace.check_opcode_contain(opcode_tokens, "STRONG") &&
@@ -341,16 +319,16 @@ impl WarpInstruction {
                 memory_op = Some(MemOp::Store);
                 cache_operator = CacheOperator::ALL;
                 memory_space = if opcode.op == Op::STL {
-                    MemorySpace::Local
+                    Some(MemorySpace::Local)
                 } else {
-                    MemorySpace::Global
+                    Some(MemorySpace::Global)
                 };
             }
             Op::ATOM | Op::RED | Op::ATOMG => {
                 // assert!(data_size > 0);
                 memory_op = Some(MemOp::Load);
                 // op = Op::LOAD;
-                memory_space = MemorySpace::Global;
+                memory_space = Some(MemorySpace::Global);
                 is_atomic = true;
                 // all the atomics should be done at L2
                 cache_operator = CacheOperator::GLOBAL;
@@ -358,22 +336,22 @@ impl WarpInstruction {
             Op::LDS => {
                 // assert!(data_size > 0);
                 memory_op = Some(MemOp::Load);
-                memory_space = MemorySpace::Shared;
+                memory_space = Some(MemorySpace::Shared);
             }
             Op::STS => {
                 // assert!(data_size > 0);
                 memory_op = Some(MemOp::Store);
-                memory_space = MemorySpace::Shared;
+                memory_space = Some(MemorySpace::Shared);
             }
             Op::ATOMS => {
                 // assert!(data_size > 0);
                 is_atomic = true;
                 memory_op = Some(MemOp::Load);
-                memory_space = MemorySpace::Shared;
+                memory_space = Some(MemorySpace::Shared);
             }
             Op::LDSM => {
                 // assert!(data_size > 0);
-                memory_space = MemorySpace::Shared;
+                memory_space = Some(MemorySpace::Shared);
             }
             Op::ST | Op::LD => {
                 // assert!(data_size > 0);
@@ -392,20 +370,20 @@ impl WarpInstruction {
                 if shared_mem_base_addr == 0 || local_mem_base_addr == 0 {
                     // shmem and local addresses are not set
                     // assume all the mem reqs are shared by default
-                    memory_space = MemorySpace::Shared;
+                    memory_space = Some(MemorySpace::Shared);
                 } else {
                     // check the first active address
                     if let Some(tid) = active_mask.first_one() {
                         let addr = trace.addrs[tid];
                         if (shared_mem_base_addr..local_mem_base_addr).contains(&addr) {
-                            memory_space = MemorySpace::Shared;
+                            memory_space = Some(MemorySpace::Shared);
                         } else if (local_mem_base_addr..(local_mem_base_addr + LOCAL_MEM_SIZE_MAX))
                             .contains(&addr)
                         {
-                            memory_space = MemorySpace::Local;
+                            memory_space = Some(MemorySpace::Local);
                             cache_operator = CacheOperator::ALL;
                         } else {
-                            memory_space = MemorySpace::Global;
+                            memory_space = Some(MemorySpace::Global);
                             cache_operator = CacheOperator::ALL;
                         }
                     }
@@ -425,18 +403,27 @@ impl WarpInstruction {
             is_atomic,
             active_mask,
             cache_operator,
-            latency: 1,             // todo
-            initiation_interval: 1, // todo
+            latency,
+            initiation_interval,
+            dispatch_delay_cycles: initiation_interval,
             data_size,
-            // empty: true,
+            // instruction_size: 16,
             mem_access_queue: VecDeque::new(),
             outputs,
-            // in_count,
             inputs,
-            // out_count,
             src_arch_reg,
             dest_arch_reg,
         }
+    }
+
+    pub fn dec_dispatch_delay(&mut self) {
+        if self.dispatch_delay_cycles > 0 {
+            self.dispatch_delay_cycles -= 1;
+        }
+    }
+
+    pub fn has_dispatch_delay(&self) -> bool {
+        self.dispatch_delay_cycles > 0
     }
 
     // pub fn inputs(&self) -> &[u32] {
@@ -515,17 +502,18 @@ impl WarpInstruction {
     pub fn access_kind(&self) -> Option<AccessKind> {
         let is_write = self.is_store();
         match self.memory_space {
-            MemorySpace::Constant => None,
-            MemorySpace::Texture => None,
-            MemorySpace::Global if is_write => Some(AccessKind::GLOBAL_ACC_W),
-            MemorySpace::Global if !is_write => Some(AccessKind::GLOBAL_ACC_R),
-            MemorySpace::Local if is_write => Some(AccessKind::LOCAL_ACC_W),
-            MemorySpace::Local if !is_write => Some(AccessKind::LOCAL_ACC_R),
+            Some(MemorySpace::Constant) => Some(AccessKind::CONST_ACC_R),
+            Some(MemorySpace::Texture) => Some(AccessKind::TEXTURE_ACC_R),
+            Some(MemorySpace::Global) if is_write => Some(AccessKind::GLOBAL_ACC_W),
+            Some(MemorySpace::Global) if !is_write => Some(AccessKind::GLOBAL_ACC_R),
+            Some(MemorySpace::Local) if is_write => Some(AccessKind::LOCAL_ACC_W),
+            Some(MemorySpace::Local) if !is_write => Some(AccessKind::LOCAL_ACC_R),
+            // space => panic!("no access kind for memory space {:?}", space),
             _ => None,
         }
     }
 
-    pub fn generate_mem_accesses(&self, config: &config::GPUConfig) -> Option<Vec<MemAccess>> {
+    pub fn generate_mem_accesses(&mut self, config: &config::GPUConfig) -> Option<Vec<MemAccess>> {
         let op = self.opcode.category;
         if !matches!(
             op,
@@ -544,7 +532,6 @@ impl WarpInstruction {
         assert!(self.is_store() || self.is_load());
 
         let is_write = self.is_store();
-        let access_kind = self.access_kind().expect("isntr has access kind");
 
         // Calculate memory accesses generated by this warp
         let mut cache_block_size_bytes = 0;
@@ -552,10 +539,18 @@ impl WarpInstruction {
         // Number of portions a warp is divided into for
         // shared memory bank conflict check
         let warp_parts = config.shared_memory_warp_parts;
+
+        // TODO: we could just unwrap the mem space, because we need it?
         match self.memory_space {
-            MemorySpace::Shared => {
+            Some(MemorySpace::Shared) => {
                 let subwarp_size = config.warp_size / warp_parts;
                 let mut total_accesses = 0;
+                // dbg!(&warp_parts);
+                // dbg!(&config.warp_size);
+                // dbg!(&subwarp_size);
+                let mut banks = Vec::new();
+                let mut words = Vec::new();
+
                 for subwarp in 0..warp_parts {
                     // bank -> word address -> access count
                     let mut bank_accesses: HashMap<u64, HashMap<address, usize>> = HashMap::new();
@@ -566,6 +561,8 @@ impl WarpInstruction {
                         if !self.active_mask[thread] {
                             continue;
                         }
+                        // dbg!(&thread);
+                        // dbg!(&self.threads[thread].mem_req_addr);
                         let Some(addr) = self.threads[thread].mem_req_addr.first() else {
                             continue;
                         };
@@ -575,12 +572,17 @@ impl WarpInstruction {
                         let bank = config.shared_mem_bank(*addr);
                         // line_size_based_tag_func
                         let word = line_size_based_tag_func(*addr, config::WORD_SIZE as u64);
-                        if let Some(mut bank) = bank_accesses.get_mut(&bank) {
-                            *bank.get_mut(&word).unwrap() += 1;
-                        }
+
+                        let accesses = bank_accesses.entry(bank).or_default();
+                        *accesses.entry(word).or_default() += 1;
+
+                        banks.push(bank);
+                        words.push(word);
                     }
+                    // dbg!(&bank_accesses);
 
                     if config.shared_memory_limited_broadcast {
+                        panic!("shmem limited broadcast is used");
                         // step 2: look for and select a broadcast bank/word if one occurs
                         let mut broadcast_detected = false;
                         let mut broadcast_word_addr = None;
@@ -624,36 +626,50 @@ impl WarpInstruction {
                         // step 4: accumulate
                         total_accesses += max_bank_accesses;
                     } else {
-                        // step 2: look for the bank with the maximum
-                        // number of access to different words
-                        let mut max_bank_accesses = 0;
-                        for (bank, accesses) in &bank_accesses {
-                            max_bank_accesses = max_bank_accesses.max(accesses.len());
-                        }
+                        // step 2: look for the bank with the maximum number of different
+                        // words accessed
+                        let max_bank_accesses = bank_accesses
+                            .values()
+                            .map(|accesses| accesses.len())
+                            .max()
+                            .unwrap_or(0);
+                        // let mut max_bank_accesses = 0;
+                        // for (bank, accesses) in &bank_accesses.values() {
+                        //     max_bank_accesses = max_bank_accesses.max(accesses.len());
+                        // }
                         // step 3: accumulate
                         total_accesses += max_bank_accesses;
                     }
                 }
+                println!(
+                    "generate mem accesses[SHARED]: total_accesses={}",
+                    total_accesses
+                );
+                println!("\tbanks={:?}", &banks);
+                println!("\tword addresses={:?}", &words);
+
                 debug_assert!(total_accesses > 0);
                 debug_assert!(total_accesses <= config.warp_size);
-                // shared memory conflicts modeled as larger
-                // initiation interval
-                // cycles = total_accesses;
+                // panic!("first shared mem request");
+
+                // shared memory conflicts modeled as larger initiation interval
+                self.dispatch_delay_cycles = total_accesses;
                 None
             }
-            MemorySpace::Texture => {
+            Some(MemorySpace::Texture) => {
                 if let Some(l1_tex) = &config.tex_cache_l1 {
                     cache_block_size_bytes = l1_tex.line_size;
                 }
                 None
             }
-            MemorySpace::Constant => {
+            Some(MemorySpace::Constant) => {
                 if let Some(l1_const) = &config.const_cache_l1 {
                     cache_block_size_bytes = l1_const.line_size;
                 }
                 None
             }
-            MemorySpace::Global | MemorySpace::Local => {
+            Some(MemorySpace::Global | MemorySpace::Local) => {
+                let access_kind = self.access_kind().expect("has access kind");
                 if config.coalescing_arch as usize >= 13 {
                     if self.is_atomic() {
                         // memory_coalescing_arch_atomic(is_write, access_type);
@@ -666,7 +682,8 @@ impl WarpInstruction {
                     panic!("coalescing arch {} < 13", config.coalescing_arch as usize);
                 }
             }
-            other => todo!("{other:?} not yet implemented"),
+            None => todo!("generate mem accesses but dont have mem space"),
+            // other => todo!("generate mem accesses[{other:?}]: not yet implemented"),
         }
     }
 
@@ -742,7 +759,7 @@ impl WarpInstruction {
                 let mut data_size_coales = self.data_size;
                 let mut num_accesses = 1;
 
-                if self.memory_space == MemorySpace::Local {
+                if self.memory_space == Some(MemorySpace::Local) {
                     // Local memory accesses >4B were split into 4B chunks
                     if self.data_size >= 4 {
                         data_size_coales = 4;

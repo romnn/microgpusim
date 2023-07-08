@@ -91,6 +91,7 @@ class memory_sub_partition {
   std::set<mem_fetch *> m_request_tracker;
 
   friend class trace_gpgpu_sim;
+  friend class trace_gpgpu_sim_bridge;
   friend class memory_partition_unit;
   friend class L2interface;
 

@@ -1,6 +1,7 @@
 // #![allow(warnings)]
-pub mod benchmarks;
 pub mod nvprof;
+
+use serde::Deserialize;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -9,6 +10,9 @@ pub enum Error {
 
     #[error(transparent)]
     Csv(#[from] csv::Error),
+
+    #[error(transparent)]
+    JSON(#[from] serde_json::Error),
 
     #[error("missing units")]
     MissingUnits,
@@ -44,8 +48,6 @@ impl std::fmt::Display for CommandError {
     }
 }
 
-use serde::Deserialize;
-
 pub fn deserialize_option_number_from_string<'de, T, D>(
     deserializer: D,
 ) -> Result<Option<T>, D::Error>
@@ -73,19 +75,10 @@ where
 }
 
 #[derive(Hash, PartialEq, Clone, Default, Debug, serde::Serialize, serde::Deserialize)]
-// #[serde(bound = "T: std::str::FromStr + Deserialize<'de>")]
-// #[serde(bound = "T: std::str::FromStr + serde::deser::DeserializeOwned")]
-// pub struct NumericMetric<T>
 pub struct Metric<T>
 where
-    // pub struct NumericMetric
-    // were
     T: std::str::FromStr,
-    // + num_traits::PrimInt,
-    // T: std::str::FromStr + serde::Deserialize<'_> + serde::Deserialize,
-    // T: std::str::FromStr + _::_serde::Deserialize<'_>,
     <T as std::str::FromStr>::Err: std::fmt::Display,
-    // T: std::str::FromStr + for<'de> serde::Deserialize<'de>,
 {
     #[serde(deserialize_with = "deserialize_option_number_from_string")]
     #[serde(bound(deserialize = "T: serde::Deserialize<'de>"))]
@@ -98,23 +91,12 @@ where
     T: std::str::FromStr,
     <T as std::str::FromStr>::Err: std::fmt::Display,
 {
-    // pub fn new<V, VV>(value: V, unit: impl Into<Option<String>>) -> Self
-    // where
-    //     V: Into<Option<VV>>,
-    //     VV: ToOwned<Owned = T>,
     pub fn new(value: impl Into<Option<T>>, unit: impl Into<Option<String>>) -> Self {
         let value: Option<T> = value.into();
         let unit: Option<String> = unit.into();
-        // let value: Option<T> = value.as_ref().map(ToOwned::to_owned);
         Self { value, unit }
     }
 }
-
-// #[derive(Hash, PartialEq, Clone, Default, Debug, serde::Serialize, serde::Deserialize)]
-// pub struct Metric<T> {
-//     value: Option<T>,
-//     unit: Option<String>,
-// }
 
 #[derive(PartialEq, Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct ProfilingResult<M> {

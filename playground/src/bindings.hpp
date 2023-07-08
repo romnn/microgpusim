@@ -4,6 +4,7 @@
 #include "ref/barrier_set.hpp"
 #include "ref/box_interconnect.hpp"
 #include "ref/cache.hpp"
+#include "ref/cache_reservation_fail_reason.hpp"
 #include "ref/cache_access_logger_types.hpp"
 #include "ref/cache_config.hpp"
 #include "ref/cache_sub_stats.hpp"

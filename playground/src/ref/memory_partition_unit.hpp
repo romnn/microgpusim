@@ -55,15 +55,15 @@ class memory_partition_unit {
 
   unsigned get_mpid() const { return m_id; }
 
-  class trace_gpgpu_sim *get_mgpu() const {
-    return m_gpu;
-  }
+  class trace_gpgpu_sim *get_mgpu() const { return m_gpu; }
 
   // model DRAM access scheduler latency (fixed latency between L2 and DRAM)
   struct dram_delay_t {
     unsigned long long ready_cycle;
     class mem_fetch *req;
   };
+
+  std::list<dram_delay_t> m_dram_latency_queue;
 
  private:
   unsigned m_id;
@@ -103,8 +103,6 @@ class memory_partition_unit {
 
   // determine wheither a given subpartition can issue to DRAM
   bool can_issue_to_dram(int inner_sub_partition_id);
-
-  std::list<dram_delay_t> m_dram_latency_queue;
 
   class trace_gpgpu_sim *m_gpu;
 };

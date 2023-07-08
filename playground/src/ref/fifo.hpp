@@ -172,11 +172,10 @@ std::ostream &operator<<(std::ostream &os, const fifo_pipeline<T> *pipe) {
   if (pipe == NULL) {
     os << "NULL";
   } else {
-    // os << pipe->get_n_element();
     os << "[ ";
     fifo_data<T> *ddp = pipe->m_head;
     while (ddp) {
-      os << ddp->m_data;
+      os << ddp->m_data << ",";
       ddp = ddp->m_next;
     }
     os << "]";

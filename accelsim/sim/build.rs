@@ -98,7 +98,7 @@ fn main() -> eyre::Result<()> {
         &accel_path.display()
     );
 
-    let cuda_path = accelsim::find_cuda()?;
+    let cuda_path = utils::find_cuda().ok_or(eyre::eyre!("CUDA not found"))?;
     println!("cargo:warning=using cuda at {}", &cuda_path.display());
 
     let force = accelsim::build::is_force();

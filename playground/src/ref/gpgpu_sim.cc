@@ -573,6 +573,7 @@ void gpgpu_sim::clear_executed_kernel_info() {
   m_executed_kernel_names.clear();
   m_executed_kernel_uids.clear();
 }
+
 void gpgpu_sim::gpu_print_stat() {
   FILE *statfout = stdout;
 

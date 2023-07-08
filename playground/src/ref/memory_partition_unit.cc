@@ -1,7 +1,9 @@
 #include "memory_partition_unit.hpp"
 
 #include <iostream>
+#include <iomanip>
 
+#include "io.hpp"
 #include "l2_cache_trace.hpp"
 #include "memory_sub_partition.hpp"
 #include "trace_gpgpu_sim.hpp"
@@ -173,15 +175,17 @@ void memory_partition_unit::simple_dram_model_cycle() {
       ((m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle) >=
        m_dram_latency_queue.front().ready_cycle)) {
     mem_fetch *mf_return = m_dram_latency_queue.front().req;
-    // ROMAN: added this for compatibility, otherwise we do not get dram metrics
-    m_stats->memlatstat_dram_access(mf_return);
 
     if (mf_return->get_access_type() != L1_WRBK_ACC &&
         mf_return->get_access_type() != L2_WRBK_ACC) {
+      // ROMAN: added this for compatibility, otherwise we do not get dram
+      // metrics
+      m_stats->memlatstat_dram_access(mf_return);
+
       mf_return->set_reply();
       std::cout << "got " << mf_return
-                << " fetch return from dram latency queue (write="
-                << mf_return->is_write() << ")" << std::endl;
+                << " fetch return from dram latency queue";
+      std::cout << " (write=" << mf_return->is_write() << ")" << std::endl;
 
       unsigned dest_global_spid = mf_return->get_sub_partition_id();
       int dest_spid = global_sub_partition_id_to_local_id(dest_global_spid);
@@ -227,13 +231,27 @@ void memory_partition_unit::simple_dram_model_cycle() {
     int spid = (p + last_issued_partition + 1) %
                m_config->m_n_sub_partition_per_memory_channel;
 
-    std::cout << "checking sub partition[" << spid
-              << "]:"  // can issue=" << can_issue_to_dram(spid)
-              << " icnt to l2 queue=" << m_sub_partition[spid]->m_icnt_L2_queue
-              << " l2 to icnt queue=" << m_sub_partition[spid]->m_L2_icnt_queue
-              << " l2 to dram queue=" << m_sub_partition[spid]->m_L2_dram_queue
-              << " dram to l2 queue=" << m_sub_partition[spid]->m_dram_L2_queue
-              << " dram latency queue=" << m_dram_latency_queue << std::endl;
+    std::cout << "checking sub partition[" << spid << "]:" << std::endl;
+    std::cout << "\t icnt to l2 queue (" << std::setfill(' ') << std::left
+              << std::setw(3)
+              << m_sub_partition[spid]->m_icnt_L2_queue->get_n_element()
+              << ") = " << m_sub_partition[spid]->m_icnt_L2_queue << std::endl;
+    std::cout << "\t l2 to icnt queue (" << std::setfill(' ') << std::left
+              << std::setw(3)
+              << m_sub_partition[spid]->m_L2_icnt_queue->get_n_element()
+              << ") = " << m_sub_partition[spid]->m_L2_icnt_queue << std::endl;
+    std::cout << "\t l2 to dram queue (" << std::setfill(' ') << std::left
+              << std::setw(3)
+              << m_sub_partition[spid]->m_L2_dram_queue->get_n_element()
+              << ") = " << m_sub_partition[spid]->m_L2_dram_queue << std::endl;
+    std::cout << "\t dram to l2 queue (" << std::setfill(' ') << std::left
+              << std::setw(3)
+              << m_sub_partition[spid]->m_dram_L2_queue->get_n_element()
+              << ") = " << m_sub_partition[spid]->m_dram_L2_queue << std::endl;
+    std::cout << "\t dram latency queue (" << std::setfill(' ') << std::left
+              << std::setw(3) << m_dram_latency_queue.size()
+              << ") = " << m_dram_latency_queue << std::endl;
+    std::cout << std::endl;
 
     if (!m_sub_partition[spid]->L2_dram_queue_empty() &&
         can_issue_to_dram(spid)) {
@@ -261,11 +279,13 @@ void memory_partition_unit::simple_dram_model_cycle() {
 }
 
 void memory_partition_unit::dram_cycle() {
+  throw std::runtime_error("NON BOX DRAM CYCLE");
+
   // pop completed memory request from dram and push it to dram-to-L2 queue
   // of the original sub partition
+  // WARN: NON BOX
   mem_fetch *mf_return = m_dram->return_queue_top();
   if (mf_return) {
-    throw std::runtime_error("have completed memory request from DRAM");
     unsigned dest_global_spid = mf_return->get_sub_partition_id();
     int dest_spid = global_sub_partition_id_to_local_id(dest_global_spid);
     assert(m_sub_partition[dest_spid]->get_id() == dest_global_spid);
@@ -293,6 +313,7 @@ void memory_partition_unit::dram_cycle() {
 
   // mem_fetch *mf = m_sub_partition[spid]->L2_dram_queue_top();
   // if( !m_dram->full(mf->is_write()) ) {
+
   // L2->DRAM queue to DRAM latency queue
   // Arbitrate among multiple L2 subpartitions
   int last_issued_partition = m_arbitration_metadata.last_borrower();
@@ -306,7 +327,6 @@ void memory_partition_unit::dram_cycle() {
       if (m_dram->full(mf->is_write())) break;
 
       m_sub_partition[spid]->L2_dram_queue_pop();
-      // throw std::runtime_error("issue mem_fetch from sub partition to dram");
       MEMPART_DPRINTF(
           "Issue mem_fetch request %p from sub partition %d to dram\n", mf,
           spid);
@@ -323,12 +343,10 @@ void memory_partition_unit::dram_cycle() {
   }
   //}
 
-  // DRAM latency queue
   if (!m_dram_latency_queue.empty() &&
       ((m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle) >=
        m_dram_latency_queue.front().ready_cycle) &&
       !m_dram->full(m_dram_latency_queue.front().req->is_write())) {
-    // throw std::runtime_error("issue mem_fetch to dram");
     mem_fetch *mf = m_dram_latency_queue.front().req;
     m_dram_latency_queue.pop_front();
     m_dram->push(mf);

@@ -34,7 +34,7 @@ pub struct Options {
 #[derive(Parser, Debug)]
 pub struct SimConfig {
     #[clap(help = "config directory")]
-    pub config_dir: PathBuf,
+    pub config_dir: Option<PathBuf>,
     #[clap(long = "config", help = "config file")]
     pub config: Option<PathBuf>,
     #[clap(long = "trace-config", help = "trace config file")]
@@ -44,23 +44,38 @@ pub struct SimConfig {
 }
 
 impl Options {
-    pub fn kernelslist(&self) -> Result<PathBuf, std::io::Error> {
-        self.traces_dir.join("kernelslist.g").canonicalize()
+    pub fn kernelslist(&self) -> PathBuf {
+        self.traces_dir.join("kernelslist.g")
     }
 }
 
 impl SimConfig {
-    pub fn config(&self) -> Result<PathBuf, std::io::Error> {
-        self.config
-            .as_ref()
-            .unwrap_or(&self.config_dir.join("gpgpusim.config"))
-            .canonicalize()
+    pub fn config(&self) -> Option<PathBuf> {
+        match (&self.config, &self.config_dir) {
+            (None, None) => None,
+            (Some(config), _) => Some(config.to_path_buf()),
+            (None, Some(config_dir)) => Some(config_dir.join("gpgpusim.config")),
+        }
+        // self.config
+        //     .as_ref()
+        //     .or(self
+        //         .config_dir
+        //         .map(|config_dir| config_dir.join("gpgpusim.config"))
+        //         .as_ref())
+        //     .map(PathBuf::as_path)
+        //     .map(std::path::Path::canonicalize)
     }
 
-    pub fn trace_config(&self) -> Result<PathBuf, std::io::Error> {
-        self.trace_config
-            .as_ref()
-            .unwrap_or(&self.config_dir.join("gpgpusim.trace.config"))
-            .canonicalize()
+    // pub fn trace_config(&self) -> Option<Result<PathBuf, std::io::Error>> {
+    pub fn trace_config(&self) -> Option<PathBuf> {
+        match (&self.trace_config, &self.config_dir) {
+            (None, None) => None,
+            (Some(config), _) => Some(config.to_path_buf()),
+            (None, Some(config_dir)) => Some(config_dir.join("gpgpusim.trace.config")),
+        }
+        // self.trace_config
+        //     .as_ref()
+        //     .unwrap_or(&self.config_dir.join("gpgpusim.trace.config"))
+        //     .canonicalize()
     }
 }

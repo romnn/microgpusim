@@ -89,14 +89,18 @@ impl MshrTable {
     ///
     /// # Returns
     /// If the ready mshr entry is an atomic
-    pub fn mark_ready(&mut self, block_addr: address) -> Option<bool> {
-        if let Some(entry) = self.data.get(&block_addr) {
+    pub fn mark_ready(&mut self, block_addr: address, fetch: mem_fetch::MemFetch) -> Option<bool> {
+        let has_atomic = if let Some(entry) = self.data.get_mut(&block_addr) {
             self.current_response.push_back(block_addr);
-            debug_assert!(self.current_response.len() <= self.data.len());
+            if let Some(old_fetch) = entry.list.iter_mut().find(|f| *f == &fetch) {
+                *old_fetch = fetch;
+            }
             Some(entry.has_atomic)
         } else {
             None
-        }
+        };
+        debug_assert!(self.current_response.len() <= self.data.len());
+        has_atomic
     }
 
     /// Returns true if ready accesses exist

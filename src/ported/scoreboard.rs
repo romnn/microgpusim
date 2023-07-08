@@ -1,4 +1,4 @@
-use super::instruction::WarpInstruction;
+use super::instruction::{MemorySpace, WarpInstruction};
 use std::collections::HashSet;
 
 /// Scoreboard implementation
@@ -94,9 +94,10 @@ impl Scoreboard {
 
         // Keep track of long operations
         if instr.is_load()
-            && (instr.memory_space == nvbit_model::MemorySpace::Global
-                || instr.memory_space == nvbit_model::MemorySpace::Local
-                || instr.memory_space == nvbit_model::MemorySpace::Texture)
+            && matches!(
+                instr.memory_space,
+                Some(MemorySpace::Global | MemorySpace::Local | MemorySpace::Texture)
+            )
         {
             // inst->space.get_type() == local_space ||
             // inst->space.get_type() == param_space_kernel ||

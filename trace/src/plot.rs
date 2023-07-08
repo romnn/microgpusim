@@ -1,6 +1,6 @@
 #![allow(clippy::cast_possible_truncation)]
 
-use anyhow::Result;
+use color_eyre::eyre;
 use rangemap::RangeMap;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -47,7 +47,7 @@ impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
     ///
     /// # Errors
     /// When drawing or saving the result fails.
-    pub fn draw(&mut self, path: impl AsRef<Path>) -> Result<()> {
+    pub fn draw(&mut self, path: impl AsRef<Path>) -> eyre::Result<()> {
         use plotters::prelude::*;
 
         // let size = (600, 400);

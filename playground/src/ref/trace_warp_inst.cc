@@ -84,7 +84,7 @@ bool trace_warp_inst_t::parse_from_trace_struct(
 
     assert(m_opcode > 0);
     // printf("====> instruction %s parsed as %s (%u) [%lu active threads]\n",
-    //        opcode1.c_str(), g_trace_instr_opcode_str[m_opcode - 1], m_opcode,
+    //        opcode1.c_str(), trace_instr_opcode_str[m_opcode - 1], m_opcode,
     //        active_mask.count());
 
   } else {

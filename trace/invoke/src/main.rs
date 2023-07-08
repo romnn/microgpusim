@@ -1,10 +1,12 @@
-use anyhow::Result;
+use color_eyre::eyre;
 use invoke_trace;
 use std::os::unix::fs::DirBuilderExt;
 use std::path::PathBuf;
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> eyre::Result<()> {
+    color_eyre::install()?;
+
     let args: Vec<_> = std::env::args().collect();
     let exec = PathBuf::from(args.get(1).expect("usage ./trace <executable> [args]"));
     let exec_args = args.iter().skip(2);

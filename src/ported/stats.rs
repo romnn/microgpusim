@@ -54,24 +54,82 @@ pub struct CacheStats {
     pub accesses: CacheRequestStatusCounters,
 }
 
-impl std::ops::AddAssign for CacheStats {
-    // type Output = Self;
+impl CacheStats {
+    pub fn sub_stats(&self) {
+        use cache::{AccessStat, RequestStatus};
+        let mut total_accesses = 0;
+        let mut total_misses = 0;
+        let mut total_pending_hits = 0;
+        let mut total_reservation_fails = 0;
+        for ((access_kind, status), accesses) in &self.accesses {
+            if let AccessStat::Status(
+                RequestStatus::HIT
+                | RequestStatus::MISS
+                | RequestStatus::SECTOR_MISS
+                | RequestStatus::HIT_RESERVED,
+            ) = status
+            {
+                total_accesses += accesses;
+            }
 
+            match status {
+                AccessStat::Status(RequestStatus::MISS | RequestStatus::SECTOR_MISS) => {
+                    total_misses += accesses;
+                }
+                AccessStat::Status(RequestStatus::HIT_RESERVED) => {
+                    total_pending_hits += accesses;
+                }
+                AccessStat::Status(RequestStatus::RESERVATION_FAIL) => {
+                    total_reservation_fails += accesses;
+                }
+                _ => {}
+            }
+            // if let AccessStat::Status(RequestStatus::MISS | RequestStatus::SECTOR_MISS) = status {
+            //     total_misses += accesses;
+            // }
+            //
+            // if let AccessStat::Status(RequestStatus::HIT_RESERVED) = status {
+            //     total_pending_hits += accesses;
+            // }
+            //
+            // if let AccessStat::Status(RequestStatus::RESERVATION_FAIL) = status {
+            //     total_reservation_fails += accesses;
+            // }
+        }
+    }
+    // for (unsigned type = 0; type < NUM_MEM_ACCESS_TYPE; ++type) {
+    //     for (unsigned status = 0; status < NUM_CACHE_REQUEST_STATUS; ++status) {
+    //       if (status == HIT || status == MISS || status == SECTOR_MISS ||
+    //           status == HIT_RESERVED)
+    //         t_css.accesses += m_stats[type][status];
+    //
+    //       if (status == MISS || status == SECTOR_MISS)
+    //         t_css.misses += m_stats[type][status];
+    //
+    //       if (status == HIT_RESERVED) t_css.pending_hits += m_stats[type][status];
+    //
+    //       if (status == RESERVATION_FAIL) t_css.res_fails += m_stats[type][status];
+    //     }
+    //   }
+}
+
+impl std::ops::AddAssign for CacheStats {
     fn add_assign(&mut self, other: Self) {
         for (k, v) in other.accesses.into_iter() {
             *self.accesses.entry(k).or_insert(0) += v;
         }
-        // self
     }
 }
 
 impl CacheStats {
     // pub fn add(&mut self, other: AccessKind, access: cache::AccessStat) {
     pub fn inc_access(&mut self, kind: mem_fetch::AccessKind, access: cache::AccessStat) {
-        self.accesses
-            .entry((kind, access))
-            .and_modify(|s| *s += 1)
-            .or_insert(1);
+        *self.accesses.entry((kind, access)).or_insert(0) += 1;
+
+        // self.accesses
+        //     .entry((kind, access))
+        //     .and_modify(|s| *s += 1)
+        //     .or_insert(1);
     }
 
     /// This function selects how the cache access outcome should be counted.

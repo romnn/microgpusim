@@ -108,15 +108,11 @@ void scheduler_unit::cycle() {
       if (pI) m_shader->get_pdom_stack_top_info(warp_id, pI, &pc, &rpc);
 
       if (pI) {
-        printf(
-            "Warp (warp_id %u, dynamic_warp_id %u) instruction buffer has "
-            "valid instruction (%s, ibuffer idx=%d pc=%lu, op=%s, empty=%d)\n",
-            next_warp->get_warp_id(), next_warp->get_dynamic_warp_id(),
-            ((const trace_warp_inst_t *)pI)->opcode_str(), warp(warp_id).m_next,
-            // next_warp->trace_pc, // wrong, trace pc would need to be part
-            // of the inst
-            pI->pc, uarch_op_t_str[pI->op], pI->empty());
-
+        std::cout << "Warp (warp_id " << next_warp->get_warp_id()
+                  << ", dynamic_warp_id " << next_warp->get_dynamic_warp_id()
+                  << ") instruction buffer[" << warp(warp_id).m_next
+                  << " has valid instruction (" << pI->display()
+                  << ", op=" << uarch_op_t_str[pI->op] << ")" << std::endl;
         assert(valid);
         assert(pI->pc == pc &&
                pc == rpc);  // trace driven mode has no control hazards
@@ -184,11 +180,11 @@ void scheduler_unit::cycle() {
                     (m_shader->m_config->gpgpu_num_int_units > 0) &&
                     m_int_out->has_free(m_shader->m_config->sub_core_model,
                                         m_id);
-                printf(
-                    "sp pipe avail =%d (%d units) int pipe avail =%d (%d "
-                    "units)\n",
-                    sp_pipe_avail, m_shader->m_config->gpgpu_num_sp_units,
-                    int_pipe_avail, m_shader->m_config->gpgpu_num_int_units);
+                std::cout << "sp pipe avail =" << sp_pipe_avail << "("
+                          << m_shader->m_config->gpgpu_num_sp_units
+                          << "units) int pipe avail =" << int_pipe_avail << "("
+                          << m_shader->m_config->gpgpu_num_int_units
+                          << " units)" << std::endl;
 
                 // if INT unit pipline exist, then execute ALU and INT
                 // operations on INT unit and SP-FPU on SP unit (like in Volta)

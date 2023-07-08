@@ -1,6 +1,6 @@
 #pragma once
 
-static const char *Status_str[] = {
+static const char *mem_fetch_status_str[] = {
     "MEM_FETCH_INITIALIZED",
     "IN_L1I_MISS_QUEUE",
     "IN_L1D_MISS_QUEUE",

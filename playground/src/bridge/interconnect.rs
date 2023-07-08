@@ -91,7 +91,7 @@ impl BoxInterconnect {
     }
 }
 
-trait SealedInterconnect {
+pub trait BridgedInterconnect {
     fn init(&mut self);
     fn create_interconnect(&mut self, num_clusters: u32, num_mem_sub_partitions: u32);
     fn num_nodes(&self) -> u32;
@@ -103,7 +103,7 @@ trait SealedInterconnect {
     fn pop(&mut self, node: u32) -> *mut default::c_void;
 }
 
-impl SealedInterconnect for InterconnectInterface {
+impl BridgedInterconnect for InterconnectInterface {
     fn init(&mut self) {
         self.0.pin_mut().Init();
     }
@@ -135,7 +135,7 @@ impl SealedInterconnect for InterconnectInterface {
     }
 }
 
-impl SealedInterconnect for BoxInterconnect {
+impl BridgedInterconnect for BoxInterconnect {
     fn init(&mut self) {
         self.0.pin_mut().Init();
     }
@@ -174,7 +174,7 @@ pub struct Interconnect<T, I> {
 
 impl<T, I> Interconnect<T, I>
 where
-    I: SealedInterconnect,
+    I: BridgedInterconnect,
 {
     pub fn new(inner: I) -> Self {
         Self {

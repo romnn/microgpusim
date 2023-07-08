@@ -305,7 +305,6 @@ impl<B> TagArray<B> {
         }
     }
 
-    // pub fn fill_on_fill(&mut self, addr: address, fetch: &mem_fetch::MemFetch, is_write: bool) {
     pub fn fill_on_fill(&mut self, addr: address, fetch: &mem_fetch::MemFetch) {
         // probe tag array
         let is_probe = false;

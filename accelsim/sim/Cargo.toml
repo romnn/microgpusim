@@ -21,8 +21,10 @@ clap = { version = "4", features = [ "derive" ] }
 tokio = { version = "1", features = ["full"] }
 
 accelsim = { path = "../" }
+utils = { path = "../../utils" }
 
 [build-dependencies]
 color-eyre = "0"
 duct = "0"
 accelsim = { path = "../" }
+utils = { path = "../../utils" }

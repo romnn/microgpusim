@@ -751,11 +751,16 @@ where
         self.inner.next_access()
     }
 
+    fn ready_accesses(&self) -> Option<&VecDeque<mem_fetch::MemFetch>> {
+        self.inner.ready_accesses()
+    }
+
     fn has_ready_accesses(&self) -> bool {
         self.inner.has_ready_accesses()
     }
 
-    fn fill(&mut self, fetch: &mut mem_fetch::MemFetch) {
+    // fn fill(&mut self, fetch: &mut mem_fetch::MemFetch) {
+    fn fill(&mut self, fetch: mem_fetch::MemFetch) {
         self.inner.fill(fetch)
     }
 

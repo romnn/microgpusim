@@ -23,10 +23,10 @@ class simd_function_unit {
   virtual bool is_issue_partitioned() = 0;
   virtual unsigned get_issue_reg_id() = 0;
   virtual bool stallable() const = 0;
-  virtual void print(FILE *fp) const {
-    fprintf(fp, "%s dispatch= ", m_name.c_str());
-    m_dispatch_reg->print(fp);
-  }
+  // virtual void print(FILE *fp) const {
+  //   fprintf(fp, "%s dispatch= ", m_name.c_str());
+  //   m_dispatch_reg->print(fp);
+  // }
   const char *get_name() { return m_name.c_str(); }
 
  protected:

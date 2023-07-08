@@ -681,21 +681,49 @@ where
         let mut partition_replies_in_parallel_per_cycle = 0;
 
         println!(
-            "pop from {} memory sub partitions",
+            "POP from {} memory sub partitions",
             self.mem_sub_partitions.len()
         );
 
         // pop from memory controller to interconnect
         for (i, mem_sub) in self.mem_sub_partitions.iter().enumerate() {
             let mut mem_sub = mem_sub.borrow_mut();
-            println!(
-                "checking sub partition[{}]: icnt to l2 queue={} l2 to icnt queue={} l2 to dram queue={} dram to l2 queue={}",
-                i,
-                mem_sub.interconn_to_l2_queue,
-                mem_sub.l2_to_interconn_queue,
-                mem_sub.l2_to_dram_queue.lock().unwrap(),
-                mem_sub.dram_to_l2_queue,
-            );
+            {
+                println!("checking sub partition[{i}]:");
+                println!(
+                    "\t icnt to l2 queue ({:<3}) = {}",
+                    mem_sub.interconn_to_l2_queue.len(),
+                    mem_sub.interconn_to_l2_queue
+                );
+                println!(
+                    "\t l2 to icnt queue ({:<3}) = {}",
+                    mem_sub.l2_to_interconn_queue.len(),
+                    mem_sub.l2_to_interconn_queue
+                );
+                let l2_to_dram_queue = mem_sub.l2_to_dram_queue.lock().unwrap();
+                println!(
+                    "\t l2 to dram queue ({:<3}) = {}",
+                    l2_to_dram_queue.len(),
+                    l2_to_dram_queue
+                );
+                println!(
+                    "\t dram to l2 queue ({:<3}) = {}",
+                    mem_sub.dram_to_l2_queue.len(),
+                    mem_sub.dram_to_l2_queue
+                );
+                let partition = &self.mem_partition_units[mem_sub.partition_id];
+                let dram_latency_queue: Vec<_> = partition
+                    .dram_latency_queue
+                    .iter()
+                    .map(|f| f.to_string())
+                    .collect();
+                println!(
+                    "\t dram latency queue ({:3}) = {:?}",
+                    dram_latency_queue.len(),
+                    style(&dram_latency_queue).red()
+                );
+                println!("");
+            }
 
             if let Some(fetch) = mem_sub.top() {
                 let response_packet_size = if fetch.is_write() {

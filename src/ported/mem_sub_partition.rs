@@ -128,6 +128,7 @@ where
 // pub struct MemorySubPartition<I, Q = FifoQueue<mem_fetch::MemFetch>> {
 pub struct MemorySubPartition<Q = FifoQueue<mem_fetch::MemFetch>> {
     pub id: usize,
+    pub partition_id: usize,
     // pub cluster_id: usize,
     // pub core_id: usize,
     /// memory configuration
@@ -170,7 +171,7 @@ where
 {
     pub fn new(
         id: usize,
-        // cluster_id: usize,
+        partition_id: usize,
         // core_id: usize,
         // fetch_interconn: Arc<I>,
         config: Arc<GPUConfig>,
@@ -223,6 +224,7 @@ where
 
         Self {
             id,
+            partition_id,
             // cluster_id,
             // core_id,
             config,
@@ -476,7 +478,7 @@ where
 
         println!(
             "{}: rop queue={:?}, icnt to l2 queue={}, l2 to icnt queue={}, l2 to dram queue={}",
-            style(" => memory sub partition cache cycle").blue(),
+            style(format!(" => memory sub partition cache cycle {}", cycle)).blue(),
             self.rop_queue
                 .iter()
                 .map(|f| f.to_string())
@@ -487,12 +489,25 @@ where
         );
 
         // L2 fill responses
-        // if let Some(l2_config) = self.config.data_cache_l2 {
         if let Some(ref mut l2_cache) = self.l2_cache {
+            let queue_full = self.l2_to_interconn_queue.full();
+
+            println!(
+                "{}: l2 cache ready accesses={:?} l2 to icnt queue full={}",
+                style(format!(" => memory sub partition cache cycle {}", cycle)).blue(),
+                l2_cache
+                    .ready_accesses()
+                    .cloned()
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|fetch| fetch.to_string())
+                    .collect::<Vec<_>>(),
+                queue_full,
+            );
+
             // todo: move config into l2
             let l2_config = self.config.data_cache_l2.as_ref().unwrap();
             // if !l2_config.disabled {}
-            let queue_full = self.l2_to_interconn_queue.full();
             if l2_cache.has_ready_accesses() && !queue_full {
                 let mut fetch = l2_cache.next_access().unwrap();
                 // panic!("fetch from l2 cache ready");
@@ -505,7 +520,7 @@ where
                     self.l2_to_interconn_queue.enqueue(fetch);
                 } else {
                     if l2_config.write_allocate_policy == CacheWriteAllocatePolicy::FETCH_ON_WRITE {
-                        todo!("l2 to icnt queue");
+                        todo!("fetch on write: l2 to icnt queue");
                         let mut original_write_fetch = *fetch.original_fetch.unwrap();
                         original_write_fetch.set_reply();
                         original_write_fetch
@@ -524,12 +539,13 @@ where
             match self.l2_cache {
                 Some(ref mut l2_cache) if l2_cache.waiting_for_fill(&reply) => {
                     if l2_cache.has_free_fill_port() {
-                        println!("filling L2 with {}", &reply);
                         let mut reply = self.dram_to_l2_queue.dequeue().unwrap();
+                        println!("filling L2 with {}", &reply);
                         reply.set_status(mem_fetch::Status::IN_PARTITION_L2_FILL_QUEUE, 0);
-                        // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-                        l2_cache.fill(&mut reply) // , m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle + m_memcpy_cycle_offset);
-                                                  // m_dram_L2_queue->pop();
+                        l2_cache.fill(reply)
+                        // l2_cache.fill(&mut reply)
+                        // reply will be gone forever at this point
+                        // m_dram_L2_queue->pop();
                     } else {
                         println!("skip filling L2 with {}: no free fill port", &reply);
                     }
@@ -677,7 +693,7 @@ pub struct MemoryPartitionUnit {
     // cluster_id: usize,
     // core_id: usize,
     dram: dram::DRAM,
-    dram_latency_queue: VecDeque<mem_fetch::MemFetch>,
+    pub dram_latency_queue: VecDeque<mem_fetch::MemFetch>,
     // fetch_interconn: Arc<I>,
     // pub sub_partitions: Vec<Rc<RefCell<MemorySubPartition<I>>>>,
     pub sub_partitions: Vec<Rc<RefCell<MemorySubPartition<FifoQueue<mem_fetch::MemFetch>>>>>,
@@ -707,7 +723,7 @@ impl MemoryPartitionUnit
 
                 let sub = Rc::new(RefCell::new(MemorySubPartition::new(
                     sub_id,
-                    // cluster_id,
+                    id,
                     // core_id,
                     // fetch_interconn.clone(),
                     config.clone(),
@@ -800,6 +816,8 @@ impl MemoryPartitionUnit
                 returned_fetch.access_kind(),
                 mem_fetch::AccessKind::L1_WRBK_ACC | mem_fetch::AccessKind::L2_WRBK_ACC
             ) {
+                // m_stats->memlatstat_dram_access(mf_return);
+
                 returned_fetch.set_reply(); // todo: is it okay to do that here?
                 println!(
                     "got {} fetch return from dram latency queue (write={})",
@@ -813,6 +831,7 @@ impl MemoryPartitionUnit
                 debug_assert_eq!(sub.id, dest_global_spid);
 
                 if !sub.dram_to_l2_queue.full() {
+                    // here we could set reply
                     let mut returned_fetch = self.dram_latency_queue.pop_front().unwrap();
                     // dbg!(&returned_fetch);
                     // returned_fetch.set_reply();
@@ -830,12 +849,15 @@ impl MemoryPartitionUnit
                         //     returned_fetch, dest_spid
                         // );
 
+                        debug_assert!(returned_fetch.is_reply());
                         sub.dram_to_l2_queue.enqueue(returned_fetch);
                     }
+                } else {
+                    // panic!("fyi: simple dram model stall");
                 }
             } else {
                 println!(
-                    "dropping {} fetch return from dram latency queue (write={})",
+                    "DROPPING {} fetch return from dram latency queue (write={})",
                     returned_fetch,
                     returned_fetch.is_write()
                 );
@@ -860,19 +882,51 @@ impl MemoryPartitionUnit
             let sub_partition_contention = sub.l2_to_dram_queue.lock().unwrap().full();
             let has_dram_resource = self.arbitration_metadata.has_credits(spid);
             let can_issue_to_dram = has_dram_resource && !sub_partition_contention;
-            // println!(
-            //     "checking sub partition {spid}: can issue={} dram_has_resources={}, contention={}",
-            //     can_issue_to_dram, has_dram_resource, sub_partition_contention,
-            // );
 
-            println!(
-                "checking sub partition {spid}: icnt to l2 queue={} l2 to icnt queue={} l2 to dram queue={} dram to l2 queue={} dram latency queue={:?}",
-                style(&sub.interconn_to_l2_queue).red(),
-                style(&sub.l2_to_interconn_queue).red(),
-                style(&sub.l2_to_dram_queue.lock().unwrap()).red(),
-                style(&sub.dram_to_l2_queue).red(),
-                style(&self.dram_latency_queue.iter().map(|f| f.to_string()).collect::<Vec<_>>()).red(),
-            );
+            {
+                println!("checking sub partition[{spid}]:");
+                println!(
+                    "\t icnt to l2 queue ({:3}) = {}",
+                    sub.interconn_to_l2_queue.len(),
+                    style(&sub.interconn_to_l2_queue).red()
+                );
+                println!(
+                    "\t l2 to icnt queue ({:3}) = {}",
+                    sub.l2_to_interconn_queue.len(),
+                    style(&sub.l2_to_interconn_queue).red()
+                );
+                let l2_to_dram_queue = sub.l2_to_dram_queue.lock().unwrap();
+                println!(
+                    "\t l2 to dram queue ({:3}) = {}",
+                    l2_to_dram_queue.len(),
+                    style(&l2_to_dram_queue).red()
+                );
+                println!(
+                    "\t dram to l2 queue ({:3}) = {}",
+                    sub.dram_to_l2_queue.len(),
+                    style(&sub.dram_to_l2_queue).red()
+                );
+                let dram_latency_queue: Vec<_> = self
+                    .dram_latency_queue
+                    .iter()
+                    .map(|f| f.to_string())
+                    .collect();
+                println!(
+                    "\t dram latency queue ({:3}) = {:?}",
+                    dram_latency_queue.len(),
+                    style(&dram_latency_queue).red()
+                );
+                println!("");
+            }
+
+            // println!(
+            //     "checking sub partition {spid}: icnt to l2 queue={} l2 to icnt queue={} l2 to dram queue={} dram to l2 queue={} dram latency queue={:?}",
+            //     style(&sub.interconn_to_l2_queue).red(),
+            //     style(&sub.l2_to_interconn_queue).red(),
+            //     style(&sub.l2_to_dram_queue.lock().unwrap()).red(),
+            //     style(&sub.dram_to_l2_queue).red(),
+            //     style(&self.dram_latency_queue.iter().map(|f| f.to_string()).collect::<Vec<_>>()).red(),
+            // );
 
             if can_issue_to_dram {
                 let mut queue = sub.l2_to_dram_queue.lock().unwrap();
