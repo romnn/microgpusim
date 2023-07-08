@@ -49,21 +49,26 @@ async fn profile_executable(
 // }
 
 #[derive(Parser, Debug, Clone)]
-pub struct ProfileOptions {
-    #[clap(long = "force", help = "force re-run", default_value = "false")]
-    force: bool,
-}
+pub struct BuildOptions {}
+
+#[derive(Parser, Debug, Clone)]
+pub struct ProfileOptions {}
 
 #[derive(Parser, Debug, Clone)]
 pub struct Options {
     #[clap(short = 'b', long = "benches", help = "path to benchmarks yaml file")]
     pub benchmarks_path: Option<PathBuf>,
+
+    #[clap(long = "force", help = "force re-run", default_value = "false")]
+    force: bool,
+
     #[clap(
         short = 'c',
         long = "concurrency",
         help = "number of benchmarks to run concurrently"
     )]
     pub concurrency: Option<usize>,
+
     #[clap(subcommand)]
     pub command: Command,
 }
@@ -73,6 +78,7 @@ pub enum Command {
     Profile(ProfileOptions),
     Trace(ProfileOptions),
     Simulate(ProfileOptions),
+    Build(BuildOptions),
 }
 
 async fn run_bechmark(
@@ -102,6 +108,7 @@ async fn run_bechmark(
             Ok(())
         }
         Command::Simulate(ref opts) => Ok(()),
+        Command::Build(ref opts) => Ok(()),
     };
 
     res
@@ -134,6 +141,7 @@ async fn main() -> eyre::Result<()> {
         Command::Profile(_) => benchmarks.profile_config.common.concurrency,
         Command::Trace(_) => benchmarks.trace_config.common.concurrency,
         Command::Simulate(_) => benchmarks.sim_config.common.concurrency,
+        Command::Build(_) => Some(1),
     };
 
     let concurrency = options
@@ -165,6 +173,7 @@ async fn main() -> eyre::Result<()> {
                     Command::Profile(_) => "profiling",
                     Command::Trace(_) => "tracing",
                     Command::Simulate(_) => "simulating",
+                    Command::Build(_) => "building",
                 };
                 bar.println(format!(
                     "{:>15} {:>20} [ {} {} ] {}",

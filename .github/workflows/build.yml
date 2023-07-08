@@ -24,8 +24,10 @@ jobs:
         if: ${{ matrix.package.need_cuda }}
         with:
           cuda: "11.8.0"
+          method: "network"
           use-github-cache: false
-          linux-local-args: '["--driver", "--toolkit"]'
+          sub-packages: '["nvcc"]'
+          # linux-local-args: '["--driver", "--toolkit"]'
       - name: Build all
         run: >-
           cargo build  --package "${{ matrix.package.name }}" --features "${{ matrix.package.features }}" --all-targets

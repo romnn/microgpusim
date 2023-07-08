@@ -123,6 +123,7 @@ impl Benchmark {
 pub struct TargetConfig {
     pub repetitions: Option<usize>,
     pub concurrency: Option<usize>,
+    pub results_dir: Option<PathBuf>,
 }
 
 #[derive(Debug, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
@@ -164,6 +165,8 @@ pub struct AccelsimSimConfig {
 #[serde(deny_unknown_fields)]
 pub struct Benchmarks {
     pub repetitions: Option<usize>,
+    pub results_dir: Option<PathBuf>,
+
     #[serde(default, rename = "trace")]
     pub trace_config: TraceConfig,
     #[serde(default, rename = "accelsim_trace")]

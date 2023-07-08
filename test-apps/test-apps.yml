@@ -1,6 +1,7 @@
 #
 # General configuration
 #
+results_dir: ../results
 trace:
   # one benchmark at once to not stress the GPU
   concurrency: 1
