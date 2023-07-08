@@ -4,11 +4,45 @@ use serde_yaml::Value;
 use std::collections::HashSet;
 
 pub type Includes = Vec<IndexMap<String, Value>>;
-// pub type Includes = Vec<serde_json::Map<String, serde_json::Value>>;
 pub type Excludes = Vec<IndexMap<String, Value>>;
-// pub type Excludes = Vec<serde_json::Map<String, serde_json::Value>>;
 pub type Inputs = IndexMap<String, Vec<Value>>;
 pub type Input = IndexMap<String, Value>;
+
+#[inline]
+pub fn bool_true() -> bool {
+    true
+}
+
+#[derive(Debug, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+pub struct Workflow {
+    #[serde(default)]
+    pub jobs: IndexMap<String, Job>,
+}
+
+#[derive(Debug, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+pub struct Job {
+    #[serde(rename = "runs-on")]
+    pub runs_on: String,
+    #[serde(rename = "max-parallel")]
+    pub max_parallel: Option<usize>,
+    #[serde(rename = "continue-on-error")]
+    pub continue_on_error: String,
+    pub strategy: Option<Strategy>,
+}
+
+#[derive(Debug, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+pub struct Strategy {
+    /// Fail fast mode (enabled by default)
+    ///
+    /// If `fail-fast` is enabled, all in-progress and queued jobs in the matrix
+    /// will be canceled if any job in the matrix fails.
+    #[serde(rename = "fail-fast", default = "bool_true")]
+    pub fail_fast: bool,
+    #[serde(rename = "max-parallel")]
+    pub max_parallel: Option<usize>,
+    #[serde(default)]
+    pub matrix: Matrix,
+}
 
 #[derive(Debug, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub struct Matrix {
@@ -23,18 +57,16 @@ pub struct Matrix {
 #[derive(Clone, Debug)]
 pub enum ExpandedInput {
     Cartesian(Input),
-    // Cartesian(Vec<(String, Value)>),
     Include(Input),
-    // Include(Vec<Input>),
 }
 
 impl ExpandedInput {
     pub fn insert(&mut self, key: String, value: Value) -> Option<Value> {
         self.as_mut().insert(key, value)
-        // match self {
-        //     Self::Cartesian(input) => input.insert(key, value),
-        //     Self::Include(input) => input.insert(key, value),
-        // }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.as_ref().is_empty()
     }
 
     fn as_mut(&mut self) -> &mut Input {
@@ -57,47 +89,7 @@ impl ExpandedInput {
             Self::Include(input) => input,
         }
     }
-
-    // pub fn matching_entries(&self, subset: &Input) -> bool {
-    //     // let container = self.as_ref();
-    //     // for (k, v) in subset {
-    //     //     let Some(sub_container) = container.get(k) else {
-    //     //     return false;
-    //     // };
-    //     //     if sub_container != v {
-    //     //         return false;
-    //     //     }
-    //     // }
-    //     // true
-    //     // contains_exact(self.as_ref(), subset)
-    // }
-
-    // pub fn contains_exact(&self, subset: &Input) -> bool {
-    //     let container = self.as_ref();
-    //     for (k, v) in subset {
-    //         let Some(sub_container) = container.get(k) else {
-    //         return false;
-    //     };
-    //         if sub_container != v {
-    //             return false;
-    //         }
-    //     }
-    //     true
-    //     // contains_exact(self.as_ref(), subset)
-    // }
 }
-
-// fn contains_exact(container: &Input, subset: &Input) -> bool {
-//     for (k, v) in subset {
-//         let Some(sub_container) = container.get(k) else {
-//             return false;
-//         };
-//         if sub_container != v {
-//             return false;
-//         }
-//     }
-//     true
-// }
 
 /// Expand the input matrix
 ///
@@ -115,60 +107,68 @@ pub fn expand<'a>(
     includes: &'a Includes,
     excludes: &'a Excludes,
 ) -> impl Iterator<Item = Input> + 'a {
-    // let mut prods: Box<dyn Iterator<Item = Vec<(String, Value)>>> =
     let mut prods: Box<dyn Iterator<Item = ExpandedInput>> =
         Box::new(vec![ExpandedInput::Cartesian(Input::default())].into_iter());
 
     let mut prod_keys: HashSet<&String> = HashSet::new();
     for (input, values) in inputs {
-        // if values.is_empty() {
-        //     // skip
-        //     continue;
-        // }
+        if values.is_empty() {
+            // skip
+            continue;
+        }
         prod_keys.insert(input);
         prods = Box::new(prods.flat_map(move |current| {
             values.iter().map(move |v| {
                 let mut out: ExpandedInput = current.clone();
-                // let mut out: Vec<(String, Value)> = current.clone();
                 out.insert(input.clone(), v.clone());
-                // out.push((input.clone(), v.clone()));
                 out
             })
         }));
     }
 
-    let mut prods: Vec<_> = prods.collect();
-    // let before: Vec<Input> = prods
-    //     .map(|prod| IndexMap::from_iter(prod.into_iter()))
-    //     .collect();
-    // let mut out = before.clone();
-    // return before.into_iter();
+    let mut prods: Vec<_> = prods.filter(|input| !input.is_empty()).collect();
 
-    // add includes
+    for exclude in excludes {
+        if exclude.is_empty() {
+            continue;
+        }
+
+        debug_assert!(!exclude.is_empty());
+        let exclude_entries: HashSet<(&String, &Value)> = HashSet::from_iter(exclude.iter());
+
+        prods.retain(|current| {
+            let current_entries: HashSet<(&String, &Value)> =
+                HashSet::from_iter(current.as_ref().iter());
+
+            let intersecting_entries: Vec<_> =
+                current_entries.intersection(&exclude_entries).collect();
+
+            let full_match = intersecting_entries.len() == exclude.len();
+            !full_match
+        });
+    }
+
+    // All include combinations are processed after exclude.
+    // This allows you to use include to add back combinations that were previously excluded.
     for include in includes {
-        // check for intersection
-        // let keys: HashSet<&String> = include.keys().collect();
-        // let overwrites_keys: Vec<_> = input_keys.intersection(&keys).collect();
+        if include.is_empty() {
+            continue;
+        }
+        debug_assert!(!include.is_empty());
 
-        let include_keys: HashSet<&String> = HashSet::from_iter(include.keys()); // .cloned());
+        let include_keys: HashSet<&String> = HashSet::from_iter(include.keys());
         let include_entries: HashSet<(&String, &Value)> = HashSet::from_iter(include.iter());
-        // .clone().into_iter());
 
         dbg!(&include);
-        // let mut append_list = Vec::new();
+
         let mut matched = false;
         for current in &mut prods {
-            // let overwrites = current.contains_exact(&include);
-
             // skip new input productions
             let ExpandedInput::Cartesian(ref mut current) = current else {
                 continue;
             };
 
-            // let current_keys = HashSet::from_iter(current.keys().cloned());
-            // let current_keys = prod_keys;
             let current_entries: HashSet<(&String, &Value)> = HashSet::from_iter(current.iter());
-            // clone().into_iter());
 
             let intersecting_keys: Vec<_> = prod_keys.intersection(&include_keys).collect();
             let intersecting_entries: Vec<_> =
@@ -177,13 +177,16 @@ pub fn expand<'a>(
             dbg!(&intersecting_keys);
             dbg!(&intersecting_entries);
 
+            assert!(!current.is_empty());
             if intersecting_keys.is_empty() {
-                // does not overwrite anything => add to combination
+                // does not overwrite anything: extend combination
                 current.extend(include.clone());
                 matched = true;
             } else if intersecting_keys.len() == include.len() {
-                // ignore
-            } else if !intersecting_entries.is_empty() {
+                // no new keys to extend: must add as new entry
+                // TODO: duplicates are fine?
+            } else if intersecting_entries.len() == intersecting_keys.len() {
+                // full match: extend combination
                 current.extend(include.clone());
                 matched = true;
             }
@@ -192,40 +195,9 @@ pub fn expand<'a>(
             // add as new entry
             prods.push(ExpandedInput::Include(include.clone()));
         }
-
-        // append_list.push(ExpandedInput::Include(include.clone()));
-        // prods.extend(append_list);
-        // dbg!(&overwrites_keys);
-
-        // if overwrites_keys.is_empty() {
-        //     // does not overwrite anything => add to all combinations
-        //     // out.iter_mut(|current: Input| current.extend(include.clone()));
-        //     for current in &mut out {
-        //         current.extend(include.clone());
-        //     }
-        //     // out = out.map(move |current| {
-        //     //     let mut out: Vec<(String, Value)> = current.clone();
-        //     //     out.extend(include.clone());
-        //     //     out
-        //     // }))
-        //     // prods = Box::new(prods.map(move |current| {
-        //     //     let mut out: Vec<(String, Value)> = current.clone();
-        //     //     out.extend(include.clone());
-        //     //     out
-        //     // }));
-        // } else if overwrites_keys.len() == keys.len() {
-        //     // only overwrites values without any new keys => append this configuration
-        //     out.push(include.clone());
-        //
-        //     // let include: Vec<(String, Value)> = include.clone().into_iter().collect();
-        //     // prods = Box::new(prods.chain([include].into_iter()));
-        // }
     }
 
-    return prods.into_iter().map(ExpandedInput::into_inner);
-    //
-    // // let prods = prods.map(|prod| IndexMap::from_iter(prod.into_iter()));
-    // out.into_iter()
+    prods.into_iter().map(ExpandedInput::into_inner)
 }
 
 impl Matrix {
@@ -240,7 +212,6 @@ mod tests {
     use color_eyre::eyre;
     use indexmap::IndexMap;
     use pretty_assertions::assert_eq as diff_assert_eq;
-    // use serde_yaml::Value;
 
     macro_rules! yaml {
         ($($yaml:tt)+) => {{
@@ -268,10 +239,7 @@ fruit: []
 animal: []"#,
             )?,
             Matrix {
-                inputs: IndexMap::from_iter([
-                    ("fruit".to_string(), vec![]),
-                    ("animal".to_string(), vec![])
-                ]),
+                inputs: yaml!({ "fruit": [], "animal": []}),
                 ..Matrix::default()
             }
         );
@@ -286,11 +254,8 @@ include:
             )?,
             Matrix {
                 include: vec![
-                    IndexMap::from_iter([("color".into(), "green".into())]),
-                    IndexMap::from_iter([
-                        ("color".into(), "pink".into()),
-                        ("animal".into(), "cat".into())
-                    ]),
+                    yaml!({ "color": "green"}),
+                    yaml!({ "color": "pink", "animal": "cat"}),
                 ],
                 ..Matrix::default()
             }
@@ -319,16 +284,10 @@ include:
                     "fruit": ["apple", "pear"],
                     "animal": ["cat", "dog"],
                 }),
-                exclude: vec![IndexMap::from_iter([
-                    ("fruit".into(), "apple".into()),
-                    ("animal".into(), "cat".into()),
-                ]),],
+                exclude: vec![yaml!({ "fruit": "apple", "animal": "cat"})],
                 include: vec![
-                    IndexMap::from_iter([("color".into(), "green".into())]),
-                    IndexMap::from_iter([
-                        ("color".into(), "pink".into()),
-                        ("animal".into(), "cat".into())
-                    ]),
+                    yaml!({ "color": "green"}),
+                    yaml!({ "color": "pink", "animal": "cat"}),
                 ],
                 ..Matrix::default()
             }
@@ -362,7 +321,7 @@ os: [ubuntu-latest, windows-latest]"#;
     }
 
     #[test]
-    fn expand_matrix_with_include() -> eyre::Result<()> {
+    fn expand_matrix_with_include_1() -> eyre::Result<()> {
         // taken from https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs
         let matrix = r#"
 fruit: [apple, pear]
@@ -375,22 +334,7 @@ include:
     shape: circle
   - fruit: banana
   - fruit: banana
-    animal: cat
-        "#;
-        let matrix = r#"
-fruit: [apple, pear]
-animal: [cat, dog]
-include:
-  - color: green
-  - color: pink
-    animal: cat
-  - fruit: apple
-    shape: circle
-  - fruit: banana
-  - fruit: banana
-    animal: cat
-        "#;
-
+    animal: cat"#;
         let matrix: Matrix = serde_yaml::from_str(&matrix)?;
 
         let expanded = matrix.expand().collect::<Vec<_>>();
@@ -406,6 +350,152 @@ include:
                 yaml!({"fruit": "banana", "animal": "cat"}),
             ])
         );
+        Ok(())
+    }
+
+    #[test]
+    fn expand_matrix_with_include_2() -> eyre::Result<()> {
+        // taken from https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs
+        let matrix = r#"
+os: [windows-latest, ubuntu-latest]
+node: [12, 14, 16]
+include:
+  - os: windows-latest
+    node: 16
+    npm: 6"#;
+        let matrix: Matrix = serde_yaml::from_str(&matrix)?;
+
+        let expanded = matrix.expand().collect::<Vec<_>>();
+        dbg!(&expanded);
+        diff_assert_eq!(
+            expanded,
+            Vec::<Input>::from_iter([
+                yaml!({"os": "windows-latest", "node": 12}),
+                yaml!({"os": "windows-latest", "node": 14}),
+                yaml!({"os": "windows-latest", "node": 16, "npm": 6}),
+                yaml!({"os": "ubuntu-latest", "node": 12}),
+                yaml!({"os": "ubuntu-latest", "node": 14}),
+                yaml!({"os": "ubuntu-latest", "node": 16}),
+            ])
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn expand_matrix_with_include_3() -> eyre::Result<()> {
+        // taken from https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs
+        let matrix = r#"
+os: [macos-latest, windows-latest, ubuntu-latest]
+version: [12, 14, 16]
+include:
+  - os: windows-latest
+    version: 17"#;
+        let matrix: Matrix = serde_yaml::from_str(&matrix)?;
+
+        let expanded = matrix.expand().collect::<Vec<_>>();
+        dbg!(&expanded);
+        diff_assert_eq!(
+            expanded,
+            Vec::<Input>::from_iter([
+                yaml!({"os": "macos-latest", "version": 12}),
+                yaml!({"os": "macos-latest", "version": 14}),
+                yaml!({"os": "macos-latest", "version": 16}),
+                yaml!({"os": "windows-latest", "version": 12}),
+                yaml!({"os": "windows-latest", "version": 14}),
+                yaml!({"os": "windows-latest", "version": 16}),
+                yaml!({"os": "ubuntu-latest", "version": 12}),
+                yaml!({"os": "ubuntu-latest", "version": 14}),
+                yaml!({"os": "ubuntu-latest", "version": 16}),
+                yaml!({"os": "windows-latest", "version": 17}),
+            ])
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn expand_matrix_include_only() -> eyre::Result<()> {
+        // taken from https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs
+        let matrix = r#"
+include:
+  - site: "production"
+    datacenter: "site-a"
+  - site: "staging"
+    datacenter: "site-b"
+        "#;
+        let matrix: Matrix = serde_yaml::from_str(&matrix)?;
+
+        let expanded = matrix.expand().collect::<Vec<_>>();
+        dbg!(&expanded);
+        diff_assert_eq!(
+            expanded,
+            Vec::<Input>::from_iter([
+                yaml!({"site": "production", "datacenter": "site-a"}),
+                yaml!({"site": "staging", "datacenter": "site-b"}),
+            ])
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn expand_matrix_exclude_1() -> eyre::Result<()> {
+        // taken from https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs
+        let matrix = r#"
+os: [macos-latest, windows-latest]
+version: [12, 14, 16]
+environment: [staging, production]
+exclude:
+  - os: macos-latest
+    version: 12
+    environment: production
+  - os: windows-latest
+    version: 16
+        "#;
+        let matrix: Matrix = serde_yaml::from_str(&matrix)?;
+
+        // An excluded configuration only has to be a partial match for it to be excluded.
+        // For example, the following workflow will run nine jobs: one job for each of the 12
+        // configurations, minus the one excluded job that matches
+        // {os: macos-latest, version: 12, environment: production}, and the two excluded jobs
+        // that match {os: windows-latest, version: 16}.
+        let expanded = matrix.expand().collect::<Vec<_>>();
+        dbg!(&expanded);
+        diff_assert_eq!(
+            expanded,
+            Vec::<Input>::from_iter([
+                yaml!({"os": "macos-latest", "version": 12, "environment": "staging"}),
+                // excl: yaml!({"os": "macos-latest", "version": 12, "environment": "production"}),
+                yaml!({"os": "macos-latest", "version": 14, "environment": "staging"}),
+                yaml!({"os": "macos-latest", "version": 14, "environment": "production"}),
+                yaml!({"os": "macos-latest", "version": 16, "environment": "staging"}),
+                yaml!({"os": "macos-latest", "version": 16, "environment": "production"}),
+                yaml!({"os": "windows-latest", "version": 12, "environment": "staging"}),
+                yaml!({"os": "windows-latest", "version": 12, "environment": "production"}),
+                yaml!({"os": "windows-latest", "version": 14, "environment": "staging"}),
+                yaml!({"os": "windows-latest", "version": 14, "environment": "production"}),
+                // excl: yaml!({"os": "windows-latest", "version": 16, "environment": "staging"}),
+                // excl: yaml!({"os": "windows-latest", "version": 16, "environment": "production"}),
+            ])
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parse_full_workflow() -> eyre::Result<()> {
+        let workflow = r#"
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: true
+      matrix:
+        version: [6, 7, 8]
+        experimental: [false]
+        include:
+          - version: 9
+            experimental: true
+        "#;
+        let workflow: super::Workflow = serde_yaml::from_str(&workflow)?;
         Ok(())
     }
 }
