@@ -1,6 +1,7 @@
 #![allow(warnings)]
 use indexmap::IndexMap;
 use serde_yaml::Value;
+use std::collections::HashSet;
 
 pub type Includes = Vec<IndexMap<String, Value>>;
 // pub type Includes = Vec<serde_json::Map<String, serde_json::Value>>;
@@ -18,8 +19,6 @@ pub struct Matrix {
     #[serde(flatten)]
     pub inputs: Inputs,
 }
-
-use std::collections::HashSet;
 
 #[derive(Clone, Debug)]
 pub enum ExpandedInput {
@@ -59,11 +58,46 @@ impl ExpandedInput {
         }
     }
 
-    pub fn contains(&self, other: &Input) -> bool {
-        // self.as_ref().contains(other.as_ref())
-        false
-    }
+    // pub fn matching_entries(&self, subset: &Input) -> bool {
+    //     // let container = self.as_ref();
+    //     // for (k, v) in subset {
+    //     //     let Some(sub_container) = container.get(k) else {
+    //     //     return false;
+    //     // };
+    //     //     if sub_container != v {
+    //     //         return false;
+    //     //     }
+    //     // }
+    //     // true
+    //     // contains_exact(self.as_ref(), subset)
+    // }
+
+    // pub fn contains_exact(&self, subset: &Input) -> bool {
+    //     let container = self.as_ref();
+    //     for (k, v) in subset {
+    //         let Some(sub_container) = container.get(k) else {
+    //         return false;
+    //     };
+    //         if sub_container != v {
+    //             return false;
+    //         }
+    //     }
+    //     true
+    //     // contains_exact(self.as_ref(), subset)
+    // }
 }
+
+// fn contains_exact(container: &Input, subset: &Input) -> bool {
+//     for (k, v) in subset {
+//         let Some(sub_container) = container.get(k) else {
+//             return false;
+//         };
+//         if sub_container != v {
+//             return false;
+//         }
+//     }
+//     true
+// }
 
 /// Expand the input matrix
 ///
@@ -85,13 +119,13 @@ pub fn expand<'a>(
     let mut prods: Box<dyn Iterator<Item = ExpandedInput>> =
         Box::new(vec![ExpandedInput::Cartesian(Input::default())].into_iter());
 
-    // let mut input_keys = HashSet::new();
+    let mut prod_keys: HashSet<&String> = HashSet::new();
     for (input, values) in inputs {
         // if values.is_empty() {
         //     // skip
         //     continue;
         // }
-        // input_keys.insert(input);
+        prod_keys.insert(input);
         prods = Box::new(prods.flat_map(move |current| {
             values.iter().map(move |v| {
                 let mut out: ExpandedInput = current.clone();
@@ -115,11 +149,52 @@ pub fn expand<'a>(
         // check for intersection
         // let keys: HashSet<&String> = include.keys().collect();
         // let overwrites_keys: Vec<_> = input_keys.intersection(&keys).collect();
-        //
+
+        let include_keys: HashSet<&String> = HashSet::from_iter(include.keys()); // .cloned());
+        let include_entries: HashSet<(&String, &Value)> = HashSet::from_iter(include.iter());
+        // .clone().into_iter());
+
         dbg!(&include);
+        // let mut append_list = Vec::new();
+        let mut matched = false;
         for current in &mut prods {
-            dbg!(current.contains(&include));
+            // let overwrites = current.contains_exact(&include);
+
+            // skip new input productions
+            let ExpandedInput::Cartesian(ref mut current) = current else {
+                continue;
+            };
+
+            // let current_keys = HashSet::from_iter(current.keys().cloned());
+            // let current_keys = prod_keys;
+            let current_entries: HashSet<(&String, &Value)> = HashSet::from_iter(current.iter());
+            // clone().into_iter());
+
+            let intersecting_keys: Vec<_> = prod_keys.intersection(&include_keys).collect();
+            let intersecting_entries: Vec<_> =
+                current_entries.intersection(&include_entries).collect();
+
+            dbg!(&intersecting_keys);
+            dbg!(&intersecting_entries);
+
+            if intersecting_keys.is_empty() {
+                // does not overwrite anything => add to combination
+                current.extend(include.clone());
+                matched = true;
+            } else if intersecting_keys.len() == include.len() {
+                // ignore
+            } else if !intersecting_entries.is_empty() {
+                current.extend(include.clone());
+                matched = true;
+            }
         }
+        if !matched {
+            // add as new entry
+            prods.push(ExpandedInput::Include(include.clone()));
+        }
+
+        // append_list.push(ExpandedInput::Include(include.clone()));
+        // prods.extend(append_list);
         // dbg!(&overwrites_keys);
 
         // if overwrites_keys.is_empty() {
@@ -302,6 +377,20 @@ include:
   - fruit: banana
     animal: cat
         "#;
+        let matrix = r#"
+fruit: [apple, pear]
+animal: [cat, dog]
+include:
+  - color: green
+  - color: pink
+    animal: cat
+  - fruit: apple
+    shape: circle
+  - fruit: banana
+  - fruit: banana
+    animal: cat
+        "#;
+
         let matrix: Matrix = serde_yaml::from_str(&matrix)?;
 
         let expanded = matrix.expand().collect::<Vec<_>>();
