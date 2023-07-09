@@ -28,7 +28,7 @@ jobs:
           use-github-cache: false
           # list of available packages here:
           # https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/
-          sub-packages: '["nvcc", "runtime"]'
+          sub-packages: '["nvcc", "runtime", "profiler-api"]'
           # linux-local-args: '["--driver", "--toolkit"]'
       - name: Build all
         run: >-
