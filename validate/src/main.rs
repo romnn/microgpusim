@@ -10,7 +10,7 @@ use color_eyre::eyre::{self, WrapErr};
 use color_eyre::owo_colors::colors::css::Indigo;
 use indicatif::ProgressBar;
 use progress::ProgressStyle;
-use validate::{Benchmark, Benchmarks, Input};
+use validate::{Benchmark, Benchmarks, Input, PathExt};
 // use std::fs::{self, OpenOptions};
 // use std::io::{BufWriter, Write};
 // use std::os::unix::fs::DirBuilderExt;
@@ -30,23 +30,44 @@ use std::sync::Arc;
 // }
 //
 
-async fn profile_executable(
-    exec: &Path,
-    exec_args: &Vec<&String>,
-    traces_dir: &Path,
-) -> eyre::Result<()> {
-    let profiling_results = profile::nvprof::nvprof(exec, exec_args).await?;
-    // let writer = open_writable(&traces_dir.join("nvprof.json"))?;
-    // serde_json::to_writer_pretty(writer, &profiling_results.metrics)?;
-    // let mut writer = open_writable(&traces_dir.join("nvprof.log"))?;
-    // writer.write_all(profiling_results.raw.as_bytes())?;
-    Ok(())
-}
+// async fn profile_executable(
+//     exec: &Path,
+//     exec_args: &Vec<&String>,
+//     traces_dir: &Path,
+// ) -> eyre::Result<()> {
+//     let profiling_results = profile::nvprof::nvprof(exec, exec_args).await?;
+//     // let writer = open_writable(&traces_dir.join("nvprof.json"))?;
+//     // serde_json::to_writer_pretty(writer, &profiling_results.metrics)?;
+//     // let mut writer = open_writable(&traces_dir.join("nvprof.log"))?;
+//     // writer.write_all(profiling_results.raw.as_bytes())?;
+//     Ok(())
+// }
 
 // async fn trace_exec(exec: &Path, exec_args: &Vec<&String>, traces_dir: &Path) -> eyre::Result<()> {
 //     invoke_trace::trace(exec, exec_args, traces_dir).await?;
 //     Ok(())
 // }
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub enum Format {
+    JSON,
+    YAML,
+}
+
+fn serialize_to_writer(
+    format: Format,
+    writer: &mut impl std::io::Write,
+    data: impl serde::Serialize,
+) -> eyre::Result<()> {
+    match format {
+        Format::JSON => {
+            serde_json::to_writer(writer, &data)?;
+        }
+        Format::YAML => {
+            serde_yaml::to_writer(writer, &data)?;
+        }
+    }
+    Ok(())
+}
 
 #[derive(Parser, Debug, Clone)]
 pub struct BuildOptions {}
@@ -55,9 +76,15 @@ pub struct BuildOptions {}
 pub struct ProfileOptions {}
 
 #[derive(Parser, Debug, Clone)]
+pub struct ExpandOptions {}
+
+#[derive(Parser, Debug, Clone)]
 pub struct Options {
-    #[clap(short = 'b', long = "benches", help = "path to benchmarks yaml file")]
+    #[clap(short = 'p', long = "path", help = "path to benchmarks yaml file")]
     pub benchmarks_path: Option<PathBuf>,
+
+    #[clap(short = 'b', long = "bench", help = "name of benchmark to run")]
+    pub benchmarks: Vec<String>,
 
     #[clap(long = "force", help = "force re-run", default_value = "false")]
     force: bool,
@@ -79,6 +106,7 @@ pub enum Command {
     Trace(ProfileOptions),
     Simulate(ProfileOptions),
     Build(BuildOptions),
+    Expand(ExpandOptions),
 }
 
 async fn run_bechmark(
@@ -95,7 +123,12 @@ async fn run_bechmark(
     let res: eyre::Result<()> = match options.command {
         Command::Profile(ref opts) => {
             let results = profile::nvprof::nvprof(exec, input).await?;
-            dbg!(&results);
+            //     // let writer = open_writable(&traces_dir.join("nvprof.json"))?;
+            //     // serde_json::to_writer_pretty(writer, &profiling_results.metrics)?;
+            //     // let mut writer = open_writable(&traces_dir.join("nvprof.log"))?;
+            //     // writer.write_all(profiling_results.raw.as_bytes())?;
+
+            // dbg!(&results);
             // let traces_dir = exec_dir.join("traces").join(format!(
             //     "{}-trace",
             //     &trace_model::app_prefix(option_env!("CARGO_BIN_NAME"))
@@ -109,6 +142,7 @@ async fn run_bechmark(
         }
         Command::Simulate(ref opts) => Ok(()),
         Command::Build(ref opts) => Ok(()),
+        _ => Ok(()),
     };
 
     res
@@ -123,25 +157,61 @@ async fn main() -> eyre::Result<()> {
     // load env variables from .env files
     dotenv::dotenv().ok();
 
+    let cwd = std::env::current_dir()?;
+
     let options = Arc::new(Options::parse());
+    dbg!(&options);
 
     // parse benchmarks
     let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
-    let default_benchmarks_file = manifest_dir.join("../test-apps/test-apps.yml");
-    let benchmarks_file = options
+    let default_benchmarks_path = manifest_dir.join("../test-apps/test-apps.yml");
+
+    let benchmarks_path = options
         .benchmarks_path
         .as_ref()
-        .unwrap_or(&default_benchmarks_file);
-    let benchmarks_file = benchmarks_file
+        .unwrap_or(&default_benchmarks_path);
+    let benchmarks_path = benchmarks_path
         .canonicalize()
-        .wrap_err_with(|| format!("{} does not exist", benchmarks_file.display()))?;
-    let benchmarks = Benchmarks::from(&benchmarks_file)?;
+        .wrap_err_with(|| format!("{} does not exist", benchmarks_path.display()))?;
+    let mut benchmarks = Benchmarks::from(&benchmarks_path)?;
+    benchmarks.resolve(benchmarks_path.parent().unwrap());
+
+    // dbg!(&benchmarks.materialize);
+    if let Some(ref materialize_path) = benchmarks.materialize {
+        // generate source of truth for any downstream consumers based on configuration
+        let materialized = benchmarks.clone().materialize()?;
+        let materialize_file = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&materialize_path)?;
+        let mut materialize_writer = std::io::BufWriter::new(materialize_file);
+        use std::io::Write;
+        write!(
+            &mut materialize_writer,
+            r#"
+    ##
+    ## AUTO GENERATED! DO NOT EDIT
+    ##
+    ## this file was materialized based on {}
+    ##
+
+    "#,
+            benchmarks_path.display()
+        )?;
+        serialize_to_writer(Format::YAML, &mut materialize_writer, &materialized)?;
+        println!(
+            "materialized to {}",
+            materialize_path.relative_to(cwd).display()
+        );
+    }
 
     let benchmark_concurrency = match options.command {
         Command::Profile(_) => benchmarks.profile_config.common.concurrency,
         Command::Trace(_) => benchmarks.trace_config.common.concurrency,
         Command::Simulate(_) => benchmarks.sim_config.common.concurrency,
         Command::Build(_) => Some(1),
+        _ => Some(1),
     };
 
     let concurrency = options
@@ -151,7 +221,19 @@ async fn main() -> eyre::Result<()> {
     println!("concurrency: {}", &concurrency);
 
     // get benchmark configurations
-    let enabled_benches: Vec<_> = benchmarks.enabled_benchmark_configurations().collect();
+    let enabled_benches: Vec<_> = benchmarks
+        .enabled_benchmark_configurations()
+        .filter(|(name, _bench, _input)| {
+            if options.benchmarks.is_empty() {
+                true
+            } else {
+                options
+                    .benchmarks
+                    .iter()
+                    .any(|b| b.to_lowercase() == name.to_lowercase())
+            }
+        })
+        .collect();
     let num_bench_configs = enabled_benches.len();
 
     // create progress bar
@@ -174,7 +256,12 @@ async fn main() -> eyre::Result<()> {
                     Command::Trace(_) => "tracing",
                     Command::Simulate(_) => "simulating",
                     Command::Build(_) => "building",
+                    _ => "",
                 };
+                let executable = std::env::current_dir()
+                    .ok()
+                    .map(|cwd| bench.executable().relative_to(cwd))
+                    .unwrap_or_else(|| bench.executable());
                 bar.println(format!(
                     "{:>15} {:>20} [ {} {} ] {}",
                     op,
@@ -183,14 +270,24 @@ async fn main() -> eyre::Result<()> {
                     } else {
                         style(name).red()
                     },
-                    bench.executable().display(),
+                    executable.display(),
                     &input_args.join(" "),
-                    if res.is_ok() {
-                        style("succeeded")
-                    } else {
-                        style("failed").red()
-                        // style(format!("failed: {:?}", res)).red()
-                    },
+                    match res {
+                        Ok(_) => {
+                            style("succeeded".to_string())
+                        }
+                        Err(ref err) => {
+                            static PREVIEW_LEN: usize = 75;
+                            let err_preview = err.to_string();
+                            if err_preview.len() > PREVIEW_LEN {
+                                let err_preview = format!(
+                                    "{} ...",
+                                    &err_preview[..err_preview.len().min(PREVIEW_LEN)]
+                                );
+                            }
+                            style(format!("failed: {}", err_preview)).red()
+                        }
+                    }
                 ));
 
                 res
@@ -216,7 +313,9 @@ async fn main() -> eyre::Result<()> {
         },
     );
 
-    // dbg!(&failed);
+    for err in &failed {
+        dbg!(&err);
+    }
 
     // let args: Vec<_> = std::env::args().collect();
     // let exec = PathBuf::from(args.get(1).expect("usage: ./validate <executable> [args]"));

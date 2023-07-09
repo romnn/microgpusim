@@ -4,27 +4,36 @@ pub mod nvprof;
 use serde::Deserialize;
 
 #[derive(thiserror::Error, Debug)]
-pub enum Error {
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
-
-    #[error(transparent)]
-    Csv(#[from] csv::Error),
-
-    #[error(transparent)]
-    JSON(#[from] serde_json::Error),
-
+pub enum ParseError {
     #[error("missing units")]
     MissingUnits,
 
     #[error("missing metrics")]
     MissingMetrics,
 
+    #[error("no permission")]
+    NoPermission,
+
+    #[error(transparent)]
+    Csv(#[from] csv::Error),
+
+    #[error(transparent)]
+    JSON(#[from] serde_json::Error),
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+
     #[error("missing profiler: {0}")]
     MissingProfiler(String),
 
     #[error("missing CUDA")]
     MissingCUDA,
+
+    #[error("parse error: {source}")]
+    Parse { raw_log: String, source: ParseError },
 
     #[error(transparent)]
     Command(#[from] CommandError),

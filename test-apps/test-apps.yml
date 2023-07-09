@@ -2,6 +2,7 @@
 # General configuration
 #
 results_dir: ../results
+materialize: ./test-apps-materialized.yml
 trace:
   # one benchmark at once to not stress the GPU
   concurrency: 1
@@ -31,22 +32,16 @@ benchmarks:
     path: ./vectoradd
     executable: vectoradd
     inputs:
-      - data_type: 32
-        length: 100
-      - data_type: 32
-        length: 1000
-      - data_type: 32
-        length: 10000
-    matrix:
-      version: [10, 12, 14]
-      os: [ubuntu-latest, windows-latest]
-      include: []
-      exclude: []
+      data_type: [32]
+      length: [100, 1000, 10000]
     args: "{{length}} {{data_type}}"
   simple_matrixmul:
     path: ./simple_matrixmul
     executable: matrixmul
     inputs:
-      - data_type: 32
-        dim: 100
-    args: "{{dim}} {{data_type}}"
+      data_type: [32]
+      m: [32, 64, 128]
+      n: [32, 64, 128]
+      p: [32, 64, 128]
+    # (m x n) x (n x p)
+    args: "{{m}} {{n}} {{p}} {{data_type}}"

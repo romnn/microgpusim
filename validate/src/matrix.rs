@@ -44,7 +44,7 @@ pub struct Strategy {
     pub matrix: Matrix,
 }
 
-#[derive(Debug, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub struct Matrix {
     #[serde(default)]
     pub include: Includes,

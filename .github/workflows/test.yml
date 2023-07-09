@@ -25,11 +25,10 @@ jobs:
         with:
           cuda: "11.8.0"
           method: "network"
-          use-github-cache: false
+          use-github-cache: true
           # list of available packages here:
           # https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/
-          sub-packages: '["nvcc", "runtime"]'
-          # linux-local-args: '["--driver", "--toolkit"]'
+          sub-packages: '["nvcc", "runtime", "profiler-api"]'
       - name: Lint
         continue-on-error: true # for now we are not too pedantic
         run: >-

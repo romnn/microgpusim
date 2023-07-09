@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::io::{BufRead, Read, Seek};
 use std::path::{Path, PathBuf};
 
-use crate::{CommandError, Error, Metric};
+use crate::{CommandError, Error, Metric, ParseError};
 pub use metrics::NvprofMetrics;
 
 pub type ProfilingResult = super::ProfilingResult<NvprofMetrics>;
@@ -22,13 +22,22 @@ macro_rules! optional {
     };
 }
 
-pub fn parse_nvprof_csv(reader: &mut impl std::io::BufRead) -> Result<NvprofMetrics, Error> {
+pub fn parse_nvprof_csv(reader: &mut impl std::io::BufRead) -> Result<NvprofMetrics, ParseError> {
     // seek to valid start of csv data
     let mut lines = reader.by_ref().lines();
     for line in &mut lines {
         let Ok(line) = line else {
             continue
         };
+
+        const NO_PERMISSION_REGEX: OnceCell<Regex> = OnceCell::new();
+        if NO_PERMISSION_REGEX
+            .get_or_init(|| Regex::new(r"user does not have permission").unwrap())
+            .is_match(&line)
+        {
+            return Err(ParseError::NoPermission);
+        }
+
         const PROFILE_RESULT_REGEX: OnceCell<Regex> = OnceCell::new();
         if PROFILE_RESULT_REGEX
             .get_or_init(|| Regex::new(r"^==\d*==\s*Profiling result:\s*$").unwrap())
@@ -46,8 +55,8 @@ pub fn parse_nvprof_csv(reader: &mut impl std::io::BufRead) -> Result<NvprofMetr
     let mut records = csv_reader.deserialize();
 
     let mut metrics: HashMap<String, Metric<String>> = HashMap::new();
-    let units: HashMap<String, String> = records.next().ok_or(Error::MissingUnits)??;
-    let values: HashMap<String, String> = records.next().ok_or(Error::MissingUnits)??;
+    let units: HashMap<String, String> = records.next().ok_or(ParseError::MissingUnits)??;
+    let values: HashMap<String, String> = records.next().ok_or(ParseError::MissingMetrics)??;
     assert_eq!(units.len(), values.len());
 
     for (metric, unit) in units.into_iter() {
@@ -56,8 +65,6 @@ pub fn parse_nvprof_csv(reader: &mut impl std::io::BufRead) -> Result<NvprofMetr
     for (metric, value) in values.into_iter() {
         metrics.entry(metric).or_default().value = optional!(value);
     }
-    // dbg!(&metrics);
-    // println!("{}", serde_json::to_string_pretty(&metrics).unwrap());
 
     // this is kind of hacky..
     let metrics = serde_json::to_string(&metrics)?;
@@ -137,7 +144,7 @@ where
     if let Ok(keep_log_file_path) = std::env::var("KEEP_LOG_FILE_PATH").map(PathBuf::from) {
         use std::io::Write;
 
-        println!("writing log to {}", keep_log_file_path.display());
+        // println!("writing log to {}", keep_log_file_path.display());
         if let Some(parent) = keep_log_file_path.parent() {
             std::fs::create_dir_all(parent).ok();
         }
@@ -149,7 +156,10 @@ where
         keep_log_file.write_all(original_log.as_bytes())?;
     }
 
-    let metrics = parse_nvprof_csv(&mut log_reader)?;
+    let metrics = parse_nvprof_csv(&mut log_reader).map_err(|source| Error::Parse {
+        raw_log: original_log.clone(),
+        source,
+    })?;
     Ok(ProfilingResult {
         raw: original_log,
         metrics,
@@ -165,10 +175,11 @@ mod tests {
 
     #[test]
     fn parse_all_metrics() -> eyre::Result<()> {
-        let mut log = Cursor::new(include_bytes!(
-            "../../tests/nvprof_vectoradd_100_32_metrics_all.txt"
-        ));
-        let metrics = parse_nvprof_csv(&mut log)?;
+        let bytes = include_bytes!("../../tests/nvprof_vectoradd_100_32_metrics_all.txt");
+        let log = String::from_utf8_lossy(bytes).to_string();
+        dbg!(&log);
+        let mut log_reader = Cursor::new(bytes);
+        let metrics = parse_nvprof_csv(&mut log_reader)?;
         dbg!(&metrics);
         assert_eq!(
             metrics.device,
