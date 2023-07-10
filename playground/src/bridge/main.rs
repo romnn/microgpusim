@@ -7,8 +7,8 @@ pub type RequestStatus = bindings::cache_request_status;
 pub type AccessType = bindings::mem_access_type;
 pub type ReservationFailure = bindings::cache_reservation_fail_reason;
 
-#[derive(Debug, Default, getset::Setters)]
-pub struct AccelsimCacheStats {
+#[derive(Debug, Default)]
+pub struct CacheStats {
     pub accesses: HashMap<(AccessType, AccessStat), u64>,
 }
 
@@ -19,7 +19,7 @@ pub enum AccessStat {
 }
 
 #[derive(Debug, Default)]
-pub struct AccelsimStats {
+pub struct Stats {
     // memory accesses
     pub num_mem_write: usize,
     pub num_mem_read: usize,
@@ -43,15 +43,15 @@ pub struct AccelsimStats {
     pub num_mem_l2_write_allocate: usize,
 
     // per cache stats
-    pub l1i_stats: HashMap<usize, AccelsimCacheStats>,
-    pub l1c_stats: HashMap<usize, AccelsimCacheStats>,
-    pub l1t_stats: HashMap<usize, AccelsimCacheStats>,
-    pub l1d_stats: HashMap<usize, AccelsimCacheStats>,
-    pub l2d_stats: HashMap<usize, AccelsimCacheStats>,
+    pub l1i_stats: HashMap<usize, CacheStats>,
+    pub l1c_stats: HashMap<usize, CacheStats>,
+    pub l1t_stats: HashMap<usize, CacheStats>,
+    pub l1d_stats: HashMap<usize, CacheStats>,
+    pub l2d_stats: HashMap<usize, CacheStats>,
     // todo: dram stats
 }
 
-impl AccelsimStats {
+impl Stats {
     pub fn add_accesses(
         &mut self,
         cache_kind: CacheKind,
@@ -152,10 +152,10 @@ mod default {
 
     extern "Rust" {
 
-        type AccelsimStats;
+        type Stats;
 
         fn add_accesses(
-            self: &mut AccelsimStats,
+            self: &mut Stats,
             cache_kind: CacheKind,
             cache_index: usize,
             kind: u32,
@@ -165,27 +165,27 @@ mod default {
         );
 
         // memory accesses
-        fn set_num_mem_write(self: &mut AccelsimStats, v: usize);
-        fn set_num_mem_read(self: &mut AccelsimStats, v: usize);
-        fn set_num_mem_const(self: &mut AccelsimStats, v: usize);
-        fn set_num_mem_texture(self: &mut AccelsimStats, v: usize);
-        fn set_num_mem_read_global(self: &mut AccelsimStats, v: usize);
-        fn set_num_mem_write_global(self: &mut AccelsimStats, v: usize);
-        fn set_num_mem_read_local(self: &mut AccelsimStats, v: usize);
-        fn set_num_mem_write_local(self: &mut AccelsimStats, v: usize);
+        fn set_num_mem_write(self: &mut Stats, v: usize);
+        fn set_num_mem_read(self: &mut Stats, v: usize);
+        fn set_num_mem_const(self: &mut Stats, v: usize);
+        fn set_num_mem_texture(self: &mut Stats, v: usize);
+        fn set_num_mem_read_global(self: &mut Stats, v: usize);
+        fn set_num_mem_write_global(self: &mut Stats, v: usize);
+        fn set_num_mem_read_local(self: &mut Stats, v: usize);
+        fn set_num_mem_write_local(self: &mut Stats, v: usize);
 
         // instructions
-        fn set_num_load_instructions(self: &mut AccelsimStats, v: usize);
-        fn set_num_store_instructions(self: &mut AccelsimStats, v: usize);
-        fn set_num_shared_mem_instructions(self: &mut AccelsimStats, v: usize);
-        fn set_num_sstarr_instructions(self: &mut AccelsimStats, v: usize);
-        fn set_num_texture_instructions(self: &mut AccelsimStats, v: usize);
-        fn set_num_const_instructions(self: &mut AccelsimStats, v: usize);
-        fn set_num_param_instructions(self: &mut AccelsimStats, v: usize);
+        fn set_num_load_instructions(self: &mut Stats, v: usize);
+        fn set_num_store_instructions(self: &mut Stats, v: usize);
+        fn set_num_shared_mem_instructions(self: &mut Stats, v: usize);
+        fn set_num_sstarr_instructions(self: &mut Stats, v: usize);
+        fn set_num_texture_instructions(self: &mut Stats, v: usize);
+        fn set_num_const_instructions(self: &mut Stats, v: usize);
+        fn set_num_param_instructions(self: &mut Stats, v: usize);
 
-        // fn set_num_mem_l2_writeback(self: &mut AccelsimStats, v: usize);
-        // fn set_num_mem_l1_write_allocate(self: &mut AccelsimStats, v: usize);
-        // fn set_num_mem_l2_write_allocate(self: &mut AccelsimStats, v: usize);
+        // fn set_num_mem_l2_writeback(self: &mut Stats, v: usize);
+        // fn set_num_mem_l1_write_allocate(self: &mut Stats, v: usize);
+        // fn set_num_mem_l2_write_allocate(self: &mut Stats, v: usize);
     }
 
     unsafe extern "C++" {
@@ -193,8 +193,39 @@ mod default {
 
         type accelsim_config = crate::bindings::accelsim_config;
 
-        fn accelsim(config: accelsim_config, argv: &[&str], stats: &mut AccelsimStats) -> i32;
+        fn accelsim(config: accelsim_config, argv: &[&str], stats: &mut Stats) -> i32;
     }
 }
 
-pub use default::*;
+pub use default::CacheKind;
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+
+    #[error("accelsim playground exited with code {0}")]
+    ExitCode(i32),
+}
+
+#[derive()]
+pub struct Config(default::accelsim_config);
+
+impl Default for Config {
+    fn default() -> Self {
+        Self(default::accelsim_config { test: 0 })
+    }
+}
+
+pub fn run(config: Config, argv: &[&str]) -> Result<Stats, Error> {
+    let exe = std::env::current_exe()?;
+    let argv = [&[exe.as_os_str().to_str().unwrap()], argv].concat();
+
+    let mut stats = Stats::default();
+    let ret_code = default::accelsim(config.0, &argv, &mut stats);
+    if ret_code == 0 {
+        Ok(stats)
+    } else {
+        Err(Error::ExitCode(ret_code))
+    }
+}

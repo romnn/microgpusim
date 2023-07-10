@@ -184,7 +184,7 @@ where
 }
 
 fn main() -> eyre::Result<()> {
-    if false {
+    if true {
         println!("cargo:rerun-if-changed=./build.rs");
         println!("cargo:rerun-if-changed=./src/bridge/");
         println!("cargo:rerun-if-changed=./src/bindings.hpp");

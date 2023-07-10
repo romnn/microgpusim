@@ -1,22 +1,8 @@
-// #[allow(unused_imports)]
 use accelsim::Options;
 use clap::Parser;
 use color_eyre::eyre::{self, WrapErr};
-use playground::bridge::main::{accelsim, accelsim_config, AccelsimStats};
+use playground::bridge::main as accel;
 use std::path::PathBuf;
-
-// #[derive(Debug)]
-// struct Stats {
-//     l2_total_cache_accesses: u64,
-// }
-
-// impl From<cxx::UniquePtr<accelsim_stats>> for Stats {
-//     fn from(stats: cxx::UniquePtr<accelsim_stats>) -> Self {
-//         Self {
-//             l2_total_cache_accesses: stats.l2_total_cache_accesses,
-//         }
-//     }
-// }
 
 #[allow(unused_assignments)]
 fn main() -> eyre::Result<()> {
@@ -55,16 +41,7 @@ fn main() -> eyre::Result<()> {
     assert!(trace_config.is_file());
     assert!(kernelslist.is_file());
 
-    let config = accelsim_config { test: 0 };
-
-    let exe = std::env::current_exe()?;
-    // let os_args: Vec<_> = std::env::args().collect();
-    // let mut args = os_args.iter().map(String::as_str).collect();
-
-    // if os_args.len() <= 1 {
-    // fill in defaults
     let mut args = vec![
-        exe.as_os_str().to_str().unwrap(),
         "-trace",
         kernelslist.as_os_str().to_str().unwrap(),
         "-config",
@@ -78,30 +55,23 @@ fn main() -> eyre::Result<()> {
             inter_config.as_os_str().to_str().unwrap(),
         ]);
     }
-    // }
     dbg!(&args);
 
-    let mut stats = AccelsimStats::default();
-    let ret_code = accelsim(config, &args, &mut stats);
-    if ret_code == 0 {
-        // dbg!(&stats);
-        // accumulate l1i
-        // for ( in stats.l1i_stats.iter().reduce(|acc, (_id, s)| acc + e) {
-        // }
-        for (cache_name, cache_stats) in [("L1I", &stats.l1i_stats), ("L2D", &stats.l2d_stats)] {
-            for (_id, per_stats) in cache_stats {
-                for ((access_type, status), accesses) in &per_stats.accesses {
-                    if *accesses > 0 {
-                        println!(
-                            "{} [{:?}][{:?}] = {}",
-                            cache_name, access_type, status, *accesses
-                        );
-                    }
+    let config = accel::Config::default();
+    let stats = accel::run(config, &args)?;
+    // accumulate l1i
+    // for ( in stats.l1i_stats.iter().reduce(|acc, (_id, s)| acc + e) {
+    for (cache_name, cache_stats) in [("L1I", &stats.l1i_stats), ("L2D", &stats.l2d_stats)] {
+        for (_id, per_stats) in cache_stats {
+            for ((access_type, status), &accesses) in &per_stats.accesses {
+                if accesses > 0 {
+                    println!(
+                        "{} [{:?}][{:?}] = {}",
+                        cache_name, access_type, status, accesses
+                    );
                 }
             }
         }
-        Ok(())
-    } else {
-        Err(eyre::eyre!("accelsim exited with code {}", ret_code))
     }
+    Ok(())
 }

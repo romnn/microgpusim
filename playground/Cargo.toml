@@ -27,7 +27,7 @@ cxx = "1"
 accelsim = { path = "../accelsim" }
 color-eyre = "0"
 clap = { version = "4", features = [ "derive" ] }
-getset = "0"
+thiserror = "1"
 
 [dev-dependencies]
 pretty_assertions = "1"

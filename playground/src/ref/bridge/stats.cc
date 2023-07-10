@@ -13,7 +13,7 @@
 #include "stats.hpp"
 
 void transfer_cache_stats(CacheKind cache, unsigned cache_id,
-                          const cache_stats &stats, AccelsimStats &out) {
+                          const cache_stats &stats, Stats &out) {
   for (unsigned type = 0; type < NUM_MEM_ACCESS_TYPE; ++type) {
     for (unsigned status = 0; status < NUM_CACHE_REQUEST_STATUS; ++status) {
       out.add_accesses(cache, cache_id, type, status, false,
@@ -31,7 +31,7 @@ void transfer_cache_stats(CacheKind cache, unsigned cache_id,
 //  public:
 //   using trace_gpgpu_sim::trace_gpgpu_sim;
 //
-void trace_gpgpu_sim_bridge::transfer_stats(AccelsimStats &stats) {
+void trace_gpgpu_sim_bridge::transfer_stats(Stats &stats) {
   transfer_general_stats(stats);
 
   // per core cache stats
@@ -41,7 +41,7 @@ void trace_gpgpu_sim_bridge::transfer_stats(AccelsimStats &stats) {
   transfer_l2d_stats(stats);
 }
 
-void trace_gpgpu_sim_bridge::transfer_general_stats(AccelsimStats &stats) {
+void trace_gpgpu_sim_bridge::transfer_general_stats(Stats &stats) {
   // see: void trace_gpgpu_sim::gpu_print_stat() {
 
   // stats.set_global_u64("gpu_sim_cycle", gpu_sim_cycle);
@@ -86,7 +86,7 @@ void trace_gpgpu_sim_bridge::transfer_general_stats(AccelsimStats &stats) {
   //   gpgpu_n_cmem_portconflict);
 }
 
-void trace_gpgpu_sim_bridge::transfer_core_cache_stats(AccelsimStats &stats) {
+void trace_gpgpu_sim_bridge::transfer_core_cache_stats(Stats &stats) {
   for (unsigned cluster_id = 0; cluster_id < m_shader_config->n_simt_clusters;
        ++cluster_id) {
     for (unsigned core_id = 0;
@@ -124,7 +124,7 @@ void trace_gpgpu_sim_bridge::transfer_core_cache_stats(AccelsimStats &stats) {
 }
 
 /// L2 cache stats
-void trace_gpgpu_sim_bridge::transfer_l2d_stats(AccelsimStats &stats) {
+void trace_gpgpu_sim_bridge::transfer_l2d_stats(Stats &stats) {
   if (m_memory_config->m_L2_config.disabled()) {
     return;
   }

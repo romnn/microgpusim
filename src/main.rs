@@ -41,7 +41,7 @@ fn main() -> eyre::Result<()> {
     let start = Instant::now();
     let options = Options::parse();
     std::env::set_var("RUST_BACKTRACE", "full");
-    let res = casimu::ported::accelmain(&options.trace_dir, &options.stats_out_file);
+    let _stats = casimu::ported::accelmain(&options.trace_dir, options.stats_out_file.as_ref());
     println!("completed in {:?}", start.elapsed());
-    res
+    Ok(())
 }

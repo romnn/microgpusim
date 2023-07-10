@@ -112,7 +112,7 @@ trace_kernel_info_t *create_kernel_info(kernel_trace_t *kernel_trace_info,
 }
 
 int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv,
-             AccelsimStats &stats) {
+             Stats &stats) {
   std::cout << "Accel-Sim [build <box>]" << std::endl;
 
   bool silent = false;

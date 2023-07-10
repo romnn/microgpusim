@@ -176,10 +176,8 @@ class trace_gpgpu_sim {
             (gpu_completed_cta >= m_config.gpu_max_completed_cta_opt));
   }
 
-  // std::unique_ptr<accelsim_stats> get_accelsim_stats();
   void gpu_print_stat();
   void print_stats();
-  // void transfer_stats(AccelsimStats &stats);
   void update_stats();
   void deadlock_check();
 

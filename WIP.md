@@ -1,5 +1,9 @@
 #### TODO
 
+- make simple tests for the different benchmarks that check if outputs match
+
+  - in box
+
 - add timeout stuff
 - materialize config first? operate on the materialized configurations and benchmarks
 - this could make resolving etc. redundant
