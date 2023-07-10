@@ -184,7 +184,8 @@ mod tests {
         assert_eq!(mshrs.probe(mshr_addr), false);
 
         mshrs.add(mshr_addr, fetch);
-        assert_eq!(mshrs.probe(mshr_addr), false);
-        // assert!(false);
+        assert_eq!(mshrs.probe(mshr_addr), true);
+
+        // TODO: test against bridge here
     }
 }

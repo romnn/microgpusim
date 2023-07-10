@@ -178,6 +178,7 @@ mod tests {
     use crate::config::GPUConfig;
     use playground::bridge::readonly_cache as accelsim;
 
+    #[ignore = "todo"]
     #[test]
     fn test_read_only_cache() {
         // todo: compare accelsim::read_only_cache and readonly

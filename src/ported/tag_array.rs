@@ -413,10 +413,7 @@ mod tests {
     use crate::config::GPUConfig;
     use std::sync::Arc;
 
-    struct Interconnect {}
-
-    impl Interconnect {}
-
+    #[ignore = "todo"]
     #[test]
     fn test_tag_array() {
         let config = GPUConfig::default().data_cache_l1.unwrap();

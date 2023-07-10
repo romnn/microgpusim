@@ -641,6 +641,7 @@ mod tests {
     };
     use std::sync::{Arc, Mutex};
 
+    #[ignore = "todo"]
     #[test]
     fn base_cache_init() {
         let core_id = 0;

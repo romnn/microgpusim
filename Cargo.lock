@@ -3128,6 +3128,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62bb4feee49fdd9f707ef802e22365a35de4b7b299de4763d44bfea899442ff9"
 
 [[package]]
+name = "smart-default"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0eb01866308440fc64d6c44d9e86c5cc17adfe33c4d6eed55da9145044d0ffc1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.23",
+]
+
+[[package]]
 name = "socket2"
 version = "0.3.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3637,6 +3648,7 @@ dependencies = [
  "indexmap 2.0.0",
  "indicatif",
  "num_cpus",
+ "once_cell",
  "pathdiff",
  "pretty_assertions",
  "profile",
@@ -3644,6 +3656,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "shell-words",
+ "smart-default",
  "ssh_jumper",
  "thiserror",
  "tokio",

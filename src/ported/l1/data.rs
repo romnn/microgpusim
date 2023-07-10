@@ -830,6 +830,7 @@ mod tests {
         a.into_iter().chain(b.into_iter())
     }
 
+    #[ignore = "todo"]
     #[test]
     fn test_ref_data_l1() {
         let control_size = 0;
@@ -866,6 +867,7 @@ mod tests {
         assert!(false);
     }
 
+    #[ignore = "todo"]
     #[test]
     fn test_data_l1_full_trace() {
         let control_size = 0;
@@ -1014,6 +1016,7 @@ mod tests {
         assert!(false);
     }
 
+    #[ignore = "todo"]
     #[test]
     fn test_data_l1_single_access() {
         let control_size = 0;

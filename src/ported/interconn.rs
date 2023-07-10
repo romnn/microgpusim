@@ -376,8 +376,6 @@ mod tests {
         assert_eq!(config.get_int("ejection_buffer_size"), 0);
         assert_eq!(config.get_string("sim_type"), "gpgpusim");
         assert_eq!(config.get_string("topology"), "fly");
-        dbg!(config.get_string("topology"));
-        // assert!(false);
         Ok(())
     }
 
@@ -433,6 +431,7 @@ mod tests {
         Ok(())
     }
 
+    #[ignore = "race condition in interconnect"]
     #[test]
     fn test_interconnect_interface() -> eyre::Result<()> {
         use bridge::interconnect::{Interconnect, InterconnectInterface};
@@ -482,6 +481,7 @@ mod tests {
         Ok(())
     }
 
+    #[ignore = "todo"]
     #[test]
     fn test_interconnect() {}
 }

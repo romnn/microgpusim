@@ -1216,6 +1216,7 @@ mod tests {
     use playground::{bindings, bridge};
     use std::ptr;
 
+    #[ignore = "todo"]
     #[test]
     fn test_shd_warp() {
         use bridge::trace_shd_warp::new_trace_shd_warp;

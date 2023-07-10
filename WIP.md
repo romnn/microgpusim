@@ -1,5 +1,10 @@
 #### TODO
 
+- add timeout stuff
+- materialize config first? operate on the materialized configurations and benchmarks
+- this could make resolving etc. redundant
+- this will make run_benchmark much cleaner indeed
+
 - DONE: commit all those many many changes
 - DONE: move stat transfer into own file for cleaner separation
 - DONE: clean up stats bridge for now
