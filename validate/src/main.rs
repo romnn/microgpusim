@@ -10,7 +10,7 @@ use color_eyre::eyre::{self, WrapErr};
 use color_eyre::owo_colors::colors::css::Indigo;
 use indicatif::ProgressBar;
 use progress::ProgressStyle;
-use validate::{Benchmark, Benchmarks, Input, PathExt};
+use validate::{template, Benchmark, Benchmarks, Config, Input, PathExt};
 // use std::fs::{self, OpenOptions};
 // use std::io::{BufWriter, Write};
 // use std::os::unix::fs::DirBuilderExt;
@@ -110,9 +110,10 @@ pub enum Command {
 }
 
 async fn run_bechmark(
-    name: &String,
+    name: String,
     bench: &validate::Benchmark,
-    input: Input,
+    input: Result<Input, validate::CallTemplateError>,
+    config: &Config,
     options: &Options,
     bar: &ProgressBar,
 ) -> eyre::Result<()> {
@@ -120,13 +121,33 @@ async fn run_bechmark(
     let input = input?;
     let exec = bench.executable();
 
+    let mut tmpl_values = template::Values {
+        inputs: input.values,
+        // todo: could also just clone the full benchmark and just set a private name?
+        bench: template::BenchmarkValues { name: name.clone() },
+    };
+
     let res: eyre::Result<()> = match options.command {
         Command::Profile(ref opts) => {
-            let results = profile::nvprof::nvprof(exec, input).await?;
-            //     // let writer = open_writable(&traces_dir.join("nvprof.json"))?;
-            //     // serde_json::to_writer_pretty(writer, &profiling_results.metrics)?;
-            //     // let mut writer = open_writable(&traces_dir.join("nvprof.log"))?;
-            //     // writer.write_all(profiling_results.raw.as_bytes())?;
+            let results = profile::nvprof::nvprof(exec, &input.cmd_args).await?;
+
+            // let metrics_file = bench.profile.metrics_file(&tmpl_values);
+            let default_log_file = config
+                .results_dir
+                .join(&name)
+                .join(format!("{}-{}", &name, input.cmd_args.join("-")))
+                .join("profile.log");
+            dbg!(&default_log_file);
+            let log_file = bench
+                .profile
+                .log_file(&tmpl_values)?
+                .unwrap_or(default_log_file);
+            dbg!(&log_file);
+            //
+            // let writer = open_writable(&traces_dir.join("nvprof.json"))?;
+            // serde_json::to_writer_pretty(writer, &profiling_results.metrics)?;
+            // let mut writer = open_writable(&traces_dir.join("nvprof.log"))?;
+            // writer.write_all(profiling_results.raw.as_bytes())?;
 
             // dbg!(&results);
             // let traces_dir = exec_dir.join("traces").join(format!(
@@ -176,8 +197,7 @@ async fn main() -> eyre::Result<()> {
     let mut benchmarks = Benchmarks::from(&benchmarks_path)?;
     benchmarks.resolve(benchmarks_path.parent().unwrap());
 
-    // dbg!(&benchmarks.materialize);
-    if let Some(ref materialize_path) = benchmarks.materialize {
+    if let Some(ref materialize_path) = benchmarks.config.materialize {
         // generate source of truth for any downstream consumers based on configuration
         let materialized = benchmarks.clone().materialize()?;
         let materialize_file = std::fs::OpenOptions::new()
@@ -206,10 +226,11 @@ async fn main() -> eyre::Result<()> {
         );
     }
 
+    let config = &benchmarks.config;
     let benchmark_concurrency = match options.command {
-        Command::Profile(_) => benchmarks.profile_config.common.concurrency,
-        Command::Trace(_) => benchmarks.trace_config.common.concurrency,
-        Command::Simulate(_) => benchmarks.sim_config.common.concurrency,
+        Command::Profile(_) => config.profile.common.concurrency,
+        Command::Trace(_) => config.trace.common.concurrency,
+        Command::Simulate(_) => config.sim.common.concurrency,
         Command::Build(_) => Some(1),
         _ => Some(1),
     };
@@ -247,8 +268,8 @@ async fn main() -> eyre::Result<()> {
             let options = options.clone();
             let bar = bar.clone();
             async move {
-                let input_args = input.as_ref().cloned().unwrap_or_default();
-                let res = run_bechmark(&name, &bench, input, &options, &bar).await;
+                let input_clone = input.as_ref().cloned().unwrap_or_default();
+                let res = run_bechmark(name.clone(), &bench, input, &config, &options, &bar).await;
                 bar.inc(1);
 
                 let op = match options.command {
@@ -271,7 +292,7 @@ async fn main() -> eyre::Result<()> {
                         style(name).red()
                     },
                     executable.display(),
-                    &input_args.join(" "),
+                    &input_clone.cmd_args.join(" "),
                     match res {
                         Ok(_) => {
                             style("succeeded".to_string())

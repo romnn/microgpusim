@@ -1,11 +1,15 @@
 pub mod matrix;
+pub mod template;
 
-use handlebars::Handlebars;
 use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use template::Template;
 
 pub mod materialize {
-    #[derive(Debug, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
     pub struct Benchmarks {
         // todo
     }
@@ -20,7 +24,7 @@ pub fn bool_true() -> bool {
 pub enum CallTemplateError {
     #[error("\"{args_template}\" cannot be templated with {input:?}")]
     Render {
-        args_template: String,
+        args_template: Template,
         input: matrix::Input,
         source: handlebars::RenderError,
     },
@@ -44,93 +48,115 @@ pub enum Error {
     CallTemplate(#[from] CallTemplateError),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct Input {
+    pub values: template::InputValues,
+    pub cmd_args: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, smart_default::SmartDefault)]
 #[serde(deny_unknown_fields)]
 pub struct ProfileOptions {
+    #[default = true]
     #[serde(default = "bool_true")]
     pub enabled: bool,
-    pub log_output_file: Option<PathBuf>,
-    pub output_file: Option<PathBuf>,
+    log_file: Option<Template>,
+    metrics_file: Option<Template>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+impl ProfileOptions {
+    pub fn log_file(
+        &self,
+        values: &template::Values,
+        // ) -> Option<Result<PathBuf, handlebars::RenderError>> {
+    ) -> Result<Option<PathBuf>, handlebars::RenderError> {
+        template::render_path(&self.log_file, values).transpose()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, smart_default::SmartDefault)]
 #[serde(deny_unknown_fields)]
 pub struct TraceOptions {
+    #[default = true]
     #[serde(default = "bool_true")]
     pub enabled: bool,
-    pub log_output_file: Option<PathBuf>,
-    pub output_file: Option<PathBuf>,
+    // pub log_output_file: Option<Template>,
+    // pub output_file: Option<Template>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, smart_default::SmartDefault)]
 #[serde(deny_unknown_fields)]
 pub struct AccelsimTraceOptions {
+    #[default = true]
     #[serde(default = "bool_true")]
     pub enabled: bool,
-    pub log_output_file: Option<PathBuf>,
-    pub output_file: Option<PathBuf>,
+    // pub log_output_file: Option<Template>,
+    // pub output_file: Option<Template>,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Benchmark {
     pub path: PathBuf,
     pub executable: PathBuf,
     #[serde(default = "bool_true")]
     pub enabled: bool,
-    // #[serde(default)]
-    // pub inputs: Vec<JsonMap>,
     #[serde(default, rename = "inputs")]
     pub matrix: matrix::Matrix,
     #[serde(rename = "args")]
-    pub args_template: String,
-    pub profile: Option<ProfileOptions>,
-    pub trace: Option<TraceOptions>,
-    pub accelsim_trace: Option<AccelsimTraceOptions>,
+    pub args_template: Template,
+    #[serde(default)]
+    pub profile: ProfileOptions,
+    #[serde(default)]
+    pub trace: TraceOptions,
+    #[serde(default)]
+    pub accelsim_trace: AccelsimTraceOptions,
 }
 
-pub type Input = Result<Vec<String>, CallTemplateError>;
+pub type CallArgs = Result<Vec<String>, CallTemplateError>;
 
 impl Benchmark {
-    pub fn inputs(&self) -> impl Iterator<Item = Input> + '_ {
-        let mut reg = Handlebars::new();
-        reg.set_strict_mode(true);
-        self.matrix.expand().map(move |input| {
-            // dbg!(&self.args_template, &input);
-            let cmd_args = reg
-                .render_template(&self.args_template, &input)
-                .map_err(|source| CallTemplateError::Render {
-                    args_template: self.args_template.clone(),
-                    input: input.clone(),
-                    source,
-                })?;
+    pub fn inputs(&self) -> impl Iterator<Item = Result<Input, CallTemplateError>> + '_ {
+        self.matrix.expand().map(|input| {
+            let cmd_args =
+                self.args_template
+                    .render(&input)
+                    .map_err(|source| CallTemplateError::Render {
+                        args_template: self.args_template.clone(),
+                        input: input.clone(),
+                        source,
+                    })?;
             let cmd_args =
                 shell_words::split(&cmd_args).map_err(|source| CallTemplateError::Parse {
                     cmd_args: cmd_args.clone(),
                     source,
                 })?;
-
-            Ok(cmd_args)
+            // input["bench"] = IndexMap::from_iter([("name".to_string(), name)]);
+            Ok(Input {
+                values: template::InputValues(input),
+                cmd_args,
+            })
         })
     }
 
-    // pub fn call_args(&self, input: usize) -> Input {
-    //     let reg = Handlebars::new();
-    //     let input = &self.inputs[input];
-    //     let cmd_args = reg
-    //         .render_template(&self.args_template, input)
-    //         .map_err(|source| CallTemplateError::Render {
-    //             args_template: self.args_template.clone(),
-    //             input: input.clone(),
-    //             source,
-    //         })?;
-    //     let cmd_args =
-    //         shell_words::split(&cmd_args).map_err(|source| CallTemplateError::Parse {
-    //             cmd_args: cmd_args.clone(),
-    //             source,
-    //         })?;
+    // pub fn input_call_args(&self) -> impl Iterator<Item = CallArgs> + '_ {
+    //     self.inputs().map(move |input| {
+    //         let cmd_args =
+    //             self.args_template
+    //                 .render(&input)
+    //                 .map_err(|source| CallTemplateError::Render {
+    //                     args_template: self.args_template.clone(),
+    //                     input: input.clone(),
+    //                     source,
+    //                 })?;
+    //         let cmd_args =
+    //             shell_words::split(&cmd_args).map_err(|source| CallTemplateError::Parse {
+    //                 cmd_args: cmd_args.clone(),
+    //                 source,
+    //             })?;
     //
-    //     Ok(cmd_args)
+    //         Ok(cmd_args)
+    //     })
     // }
 
     pub fn executable(&self) -> PathBuf {
@@ -138,7 +164,7 @@ impl Benchmark {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct TargetConfig {
     pub repetitions: Option<usize>,
@@ -146,59 +172,67 @@ pub struct TargetConfig {
     pub results_dir: Option<PathBuf>,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct TraceConfig {
     #[serde(flatten)]
     pub common: TargetConfig,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccelsimTraceConfig {
     #[serde(flatten)]
     pub common: TargetConfig,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ProfileConfig {
     #[serde(flatten)]
     pub common: TargetConfig,
+    #[serde(default)]
+    pub keep_log_file: bool,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct SimConfig {
     #[serde(flatten)]
     pub common: TargetConfig,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccelsimSimConfig {
     #[serde(flatten)]
     pub common: TargetConfig,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct Benchmarks {
+pub struct Config {
+    pub results_dir: PathBuf,
     pub repetitions: Option<usize>,
-    pub results_dir: Option<PathBuf>,
     pub materialize: Option<PathBuf>,
 
     #[serde(default, rename = "trace")]
-    pub trace_config: TraceConfig,
+    pub trace: TraceConfig,
     #[serde(default, rename = "accelsim_trace")]
-    pub accelsim_trace_config: AccelsimTraceConfig,
+    pub accelsim_trace: AccelsimTraceConfig,
     #[serde(default, rename = "profile")]
-    pub profile_config: ProfileConfig,
+    pub profile: ProfileConfig,
     #[serde(default, rename = "simulate")]
-    pub sim_config: SimConfig,
+    pub sim: SimConfig,
     #[serde(default, rename = "accelsim_simulate")]
-    pub accelsim_sim_config: AccelsimSimConfig,
+    pub accelsim_sim: AccelsimSimConfig,
+}
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Benchmarks {
+    #[serde(flatten)]
+    pub config: Config,
     pub benchmarks: IndexMap<String, Benchmark>,
 }
 
@@ -252,7 +286,10 @@ impl Benchmarks {
     /// Note: this will leave absolute paths unchanged.
     pub fn resolve(&mut self, base: impl AsRef<Path>) {
         let base = base.as_ref();
-        for path in [&mut self.results_dir, &mut self.materialize] {
+        for path in [
+            Some(&mut self.config.results_dir),
+            self.config.materialize.as_mut(),
+        ] {
             if let Some(path) = path {
                 *path = path.resolve(base);
             }
@@ -278,7 +315,7 @@ impl Benchmarks {
 
     pub fn enabled_benchmark_configurations(
         &self,
-    ) -> impl Iterator<Item = (&String, &Benchmark, Input)> + '_ {
+    ) -> impl Iterator<Item = (&String, &Benchmark, Result<Input, CallTemplateError>)> + '_ {
         self.enabled_benchmarks()
             .flat_map(|(name, bench)| bench.inputs().map(move |input| (name, bench, input)))
     }
@@ -308,7 +345,7 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
-    fn parse_from_file() -> eyre::Result<()> {
+    fn test_parse_from_file() -> eyre::Result<()> {
         let benchmark_path =
             PathBuf::from(std::env!("CARGO_MANIFEST_DIR")).join("../test-apps/test-apps.yml");
         let _ = Benchmarks::from(&benchmark_path)?;
@@ -316,7 +353,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_empty_benchmarks() -> eyre::Result<()> {
+    fn test_parse_benchmarks_empty() -> eyre::Result<()> {
         let benchmarks = r#"
 benchmarks: {}
         "#;
@@ -333,7 +370,7 @@ benchmarks: {}
     }
 
     #[test]
-    fn parse_minimal_benchmarks() -> eyre::Result<()> {
+    fn test_parse_benchmarks_minimal() -> eyre::Result<()> {
         let benchmarks = r#"
 benchmarks:
   vectorAdd:
@@ -362,7 +399,7 @@ benchmarks:
     }
 
     #[test]
-    fn parse_full_benchmarks() -> eyre::Result<()> {
+    fn test_parse_benchmarks_full() -> eyre::Result<()> {
         let benchmarks = r#"
 benchmarks:
   vectorAdd:
@@ -391,12 +428,15 @@ benchmarks:
             PathBuf::from("./vectoradd/vectoradd")
         );
         let vec_add_inputs: Result<Vec<_>, _> = vec_add_benchmark.inputs().collect();
-        diff_assert_eq!(&vec_add_inputs?[0], &vec!["-len", "100", "--dtype=32"]);
+        diff_assert_eq!(
+            &vec_add_inputs?[0].cmd_args,
+            &vec!["-len", "100", "--dtype=32"]
+        );
         Ok(())
     }
 
     #[test]
-    fn valid_template() -> eyre::Result<()> {
+    fn test_valid_template() -> eyre::Result<()> {
         use handlebars::Handlebars;
         use std::collections::HashMap;
         let mut reg = Handlebars::new();
@@ -408,7 +448,7 @@ benchmarks:
     }
 
     #[test]
-    fn bad_template() -> eyre::Result<()> {
+    fn test_bad_template() -> eyre::Result<()> {
         use handlebars::Handlebars;
         use std::collections::HashMap;
         let mut reg = Handlebars::new();
