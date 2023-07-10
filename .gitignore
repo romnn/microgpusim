@@ -1,5 +1,6 @@
 .DS_Store
 
+/results
 /target
 /debug*.log
 .ipynb_checkpoints

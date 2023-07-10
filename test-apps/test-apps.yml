@@ -1,30 +1,31 @@
 #
 # General configuration
 #
-results_dir: ../results
-materialize: ./test-apps-materialized.yml
-trace:
-  # one benchmark at once to not stress the GPU
-  concurrency: 1
-  # tracing does not require multiple repetitions
-  repetitions: 1
-accelsim_trace:
-  # one benchmark at once to not stress the GPU
-  concurrency: 1
-  # tracing does not require multiple repetitions
-  repetitions: 1
-profile:
-  # one benchmark at once to not stress the GPU
-  concurrency: 1
-  # profile 5 repetitions to warm up the GPU
-  repetitions: 5
-  keep_log_file: true
-# for simulation, we do not set a limit on concurrency
-simulate:
-  repetitions: 2
-# for accelsim simulation, we do not set a limit on concurrency
-accelsim_simulate:
-  repetitions: 2
+config:
+  results_dir: ../results
+  materialize_to: ./test-apps-materialized.yml
+  trace:
+    # one benchmark at once to not stress the GPU
+    concurrency: 1
+    # tracing does not require multiple repetitions
+    repetitions: 1
+  accelsim_trace:
+    # one benchmark at once to not stress the GPU
+    concurrency: 1
+    # tracing does not require multiple repetitions
+    repetitions: 1
+  profile:
+    # one benchmark at once to not stress the GPU
+    concurrency: 1
+    # profile 5 repetitions to warm up the GPU
+    repetitions: 5
+    keep_log_file: true
+  # for simulation, we do not set a limit on concurrency
+  simulate:
+    repetitions: 2
+  # for accelsim simulation, we do not set a limit on concurrency
+  accelsim_simulate:
+    repetitions: 2
 #
 # Benchmarks
 #
@@ -35,7 +36,7 @@ benchmarks:
     inputs:
       data_type: [32]
       length: [100, 1000, 10000]
-    args: "{{length}} {{data_type}}"
+    args: "{{ input.length }} {{ input.data_type }}"
     # profile:
     # log_file: "./results/{{ bench.name }}/{{ bench.name }}-{{length}}-{{data_type}}/nvprof.log"
     # log_file: "./results/vectorAdd/vectorAdd-32-100/nvprof.log"
@@ -49,4 +50,4 @@ benchmarks:
       n: [32, 64, 128]
       p: [32, 64, 128]
     # (m x n) x (n x p)
-    args: "{{m}} {{n}} {{p}} {{data_type}}"
+    args: "{{ input.m }} {{ input.n }} {{ input.p }} {{ input.data_type }}"

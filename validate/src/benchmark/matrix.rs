@@ -5,7 +5,7 @@ use std::collections::HashSet;
 
 pub type Includes = Vec<IndexMap<String, Value>>;
 pub type Excludes = Vec<IndexMap<String, Value>>;
-pub type Inputs = IndexMap<String, Vec<Value>>;
+pub type Inputs = IndexMap<String, Value>;
 pub type Input = IndexMap<String, Value>;
 
 #[inline]
@@ -102,23 +102,30 @@ impl ExpandedInput {
 /// will be created instead.
 /// Note that the original matrix values will not be overwritten, but added matrix values
 /// can be overwritten.
-pub fn expand<'a>(
-    inputs: &'a Inputs,
-    includes: &'a Includes,
-    excludes: &'a Excludes,
-) -> impl Iterator<Item = Input> + 'a {
+pub fn expand(inputs: &Inputs, includes: &Includes, excludes: &Excludes) -> Vec<Input> {
+    let inputs: IndexMap<&String, Vec<&Value>> = inputs
+        .iter()
+        .map(|(input, value)| {
+            let values = match value {
+                Value::Sequence(seq) => seq.iter().collect(),
+                value => vec![value],
+            };
+            (input, values)
+        })
+        .collect();
+
     let mut prods: Box<dyn Iterator<Item = ExpandedInput>> =
         Box::new(vec![ExpandedInput::Cartesian(Input::default())].into_iter());
 
     let mut prod_keys: HashSet<&String> = HashSet::new();
-    for (input, values) in inputs {
+    for (&input, values) in inputs.iter() {
         if values.is_empty() {
             // skip
             continue;
         }
         prod_keys.insert(input);
         prods = Box::new(prods.flat_map(move |current| {
-            values.iter().map(move |v| {
+            values.iter().map(move |&v: &&Value| {
                 let mut out: ExpandedInput = current.clone();
                 out.insert(input.clone(), v.clone());
                 out
@@ -196,12 +203,11 @@ pub fn expand<'a>(
             prods.push(ExpandedInput::Include(include.clone()));
         }
     }
-
-    prods.into_iter().map(ExpandedInput::into_inner)
+    prods.into_iter().map(ExpandedInput::into_inner).collect()
 }
 
 impl Matrix {
-    pub fn expand(&self) -> impl Iterator<Item = Input> + '_ {
+    pub fn expand(&self) -> Vec<Input> {
         expand(&self.inputs, &self.include, &self.exclude)
     }
 }
@@ -303,7 +309,7 @@ version: [10, 12, 14]
 os: [ubuntu-latest, windows-latest]"#;
         let matrix: Matrix = serde_yaml::from_str(&matrix)?;
 
-        let expanded = matrix.expand().collect::<Vec<_>>();
+        let expanded = matrix.expand();
         dbg!(&expanded);
         diff_assert_eq!(
             expanded,
@@ -337,7 +343,7 @@ include:
     animal: cat"#;
         let matrix: Matrix = serde_yaml::from_str(&matrix)?;
 
-        let expanded = matrix.expand().collect::<Vec<_>>();
+        let expanded = matrix.expand();
         dbg!(&expanded);
         diff_assert_eq!(
             expanded,
@@ -365,7 +371,7 @@ include:
     npm: 6"#;
         let matrix: Matrix = serde_yaml::from_str(&matrix)?;
 
-        let expanded = matrix.expand().collect::<Vec<_>>();
+        let expanded = matrix.expand();
         dbg!(&expanded);
         diff_assert_eq!(
             expanded,
@@ -392,7 +398,7 @@ include:
     version: 17"#;
         let matrix: Matrix = serde_yaml::from_str(&matrix)?;
 
-        let expanded = matrix.expand().collect::<Vec<_>>();
+        let expanded = matrix.expand();
         dbg!(&expanded);
         diff_assert_eq!(
             expanded,
@@ -424,7 +430,7 @@ include:
         "#;
         let matrix: Matrix = serde_yaml::from_str(&matrix)?;
 
-        let expanded = matrix.expand().collect::<Vec<_>>();
+        let expanded = matrix.expand();
         dbg!(&expanded);
         diff_assert_eq!(
             expanded,
@@ -457,7 +463,7 @@ exclude:
         // configurations, minus the one excluded job that matches
         // {os: macos-latest, version: 12, environment: production}, and the two excluded jobs
         // that match {os: windows-latest, version: 16}.
-        let expanded = matrix.expand().collect::<Vec<_>>();
+        let expanded = matrix.expand();
         dbg!(&expanded);
         diff_assert_eq!(
             expanded,

@@ -1,8 +1,604 @@
 
-    ##
-    ## AUTO GENERATED! DO NOT EDIT
-    ##
-    ## this file was materialized based on /home/roman/dev/box/test-apps/test-apps.yml
-    ##
+##
+## AUTO GENERATED! DO NOT EDIT
+##
+## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 10/07/2023 22:13:30
+##
 
-    {}
+config:
+  profile:
+    repetitions: 5
+    concurrency: 1
+    enabled: true
+    results_dir: /home/roman/dev/box/results
+benchmarks:
+  vectorAdd:
+  - name: vectorAdd
+    path: /home/roman/dev/box/test-apps/vectoradd
+    executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd
+    values:
+      data_type: 32
+      length: 100
+    args:
+    - '100'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/vectorAdd/vectorAdd-100-32/profile.log
+      metrics_file: /home/roman/dev/box/results/vectorAdd/vectorAdd-100-32/profile.metrics.csv
+  - name: vectorAdd
+    path: /home/roman/dev/box/test-apps/vectoradd
+    executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd
+    values:
+      data_type: 32
+      length: 1000
+    args:
+    - '1000'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/vectorAdd/vectorAdd-1000-32/profile.log
+      metrics_file: /home/roman/dev/box/results/vectorAdd/vectorAdd-1000-32/profile.metrics.csv
+  - name: vectorAdd
+    path: /home/roman/dev/box/test-apps/vectoradd
+    executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd
+    values:
+      data_type: 32
+      length: 10000
+    args:
+    - '10000'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/vectorAdd/vectorAdd-10000-32/profile.log
+      metrics_file: /home/roman/dev/box/results/vectorAdd/vectorAdd-10000-32/profile.metrics.csv
+  simple_matrixmul:
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 32
+      n: 32
+      p: 32
+    args:
+    - '32'
+    - '32'
+    - '32'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-32-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-32-32/profile.metrics.csv
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 32
+      n: 32
+      p: 64
+    args:
+    - '32'
+    - '32'
+    - '64'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-64-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-64-32/profile.metrics.csv
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 32
+      n: 32
+      p: 128
+    args:
+    - '32'
+    - '32'
+    - '128'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-128-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-128-32/profile.metrics.csv
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 32
+      n: 64
+      p: 32
+    args:
+    - '32'
+    - '64'
+    - '32'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-32-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-32-32/profile.metrics.csv
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 32
+      n: 64
+      p: 64
+    args:
+    - '32'
+    - '64'
+    - '64'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-64-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-64-32/profile.metrics.csv
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 32
+      n: 64
+      p: 128
+    args:
+    - '32'
+    - '64'
+    - '128'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-128-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-128-32/profile.metrics.csv
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 32
+      n: 128
+      p: 32
+    args:
+    - '32'
+    - '128'
+    - '32'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-32-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-32-32/profile.metrics.csv
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 32
+      n: 128
+      p: 64
+    args:
+    - '32'
+    - '128'
+    - '64'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-64-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-64-32/profile.metrics.csv
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 32
+      n: 128
+      p: 128
+    args:
+    - '32'
+    - '128'
+    - '128'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-128-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-128-32/profile.metrics.csv
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 64
+      n: 32
+      p: 32
+    args:
+    - '64'
+    - '32'
+    - '32'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-32-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-32-32/profile.metrics.csv
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 64
+      n: 32
+      p: 64
+    args:
+    - '64'
+    - '32'
+    - '64'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-64-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-64-32/profile.metrics.csv
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 64
+      n: 32
+      p: 128
+    args:
+    - '64'
+    - '32'
+    - '128'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-128-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-128-32/profile.metrics.csv
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 64
+      n: 64
+      p: 32
+    args:
+    - '64'
+    - '64'
+    - '32'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-32-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-32-32/profile.metrics.csv
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 64
+      n: 64
+      p: 64
+    args:
+    - '64'
+    - '64'
+    - '64'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-64-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-64-32/profile.metrics.csv
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 64
+      n: 64
+      p: 128
+    args:
+    - '64'
+    - '64'
+    - '128'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-128-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-128-32/profile.metrics.csv
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 64
+      n: 128
+      p: 32
+    args:
+    - '64'
+    - '128'
+    - '32'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-32-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-32-32/profile.metrics.csv
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 64
+      n: 128
+      p: 64
+    args:
+    - '64'
+    - '128'
+    - '64'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-64-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-64-32/profile.metrics.csv
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 64
+      n: 128
+      p: 128
+    args:
+    - '64'
+    - '128'
+    - '128'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-128-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-128-32/profile.metrics.csv
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 128
+      n: 32
+      p: 32
+    args:
+    - '128'
+    - '32'
+    - '32'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-32-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-32-32/profile.metrics.csv
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 128
+      n: 32
+      p: 64
+    args:
+    - '128'
+    - '32'
+    - '64'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-64-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-64-32/profile.metrics.csv
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 128
+      n: 32
+      p: 128
+    args:
+    - '128'
+    - '32'
+    - '128'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-128-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-128-32/profile.metrics.csv
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 128
+      n: 64
+      p: 32
+    args:
+    - '128'
+    - '64'
+    - '32'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-32-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-32-32/profile.metrics.csv
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 128
+      n: 64
+      p: 64
+    args:
+    - '128'
+    - '64'
+    - '64'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-64-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-64-32/profile.metrics.csv
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 128
+      n: 64
+      p: 128
+    args:
+    - '128'
+    - '64'
+    - '128'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-128-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-128-32/profile.metrics.csv
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 128
+      n: 128
+      p: 32
+    args:
+    - '128'
+    - '128'
+    - '32'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-32-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-32-32/profile.metrics.csv
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 128
+      n: 128
+      p: 64
+    args:
+    - '128'
+    - '128'
+    - '64'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-64-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-64-32/profile.metrics.csv
+  - name: simple_matrixmul
+    path: /home/roman/dev/box/test-apps/simple_matrixmul
+    executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+    values:
+      data_type: 32
+      m: 128
+      n: 128
+      p: 128
+    args:
+    - '128'
+    - '128'
+    - '128'
+    - '32'
+    profile:
+      repetitions: 5
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-128-32/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-128-32/profile.metrics.csv

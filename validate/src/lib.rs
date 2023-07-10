@@ -1,40 +1,36 @@
-pub mod matrix;
-pub mod template;
+#![allow(warnings)]
 
+pub mod benchmark;
+pub mod materialize;
+
+use benchmark::{
+    matrix,
+    template::{self, Template}, // PathTemplate, StringTemplate},
+};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use template::Template;
-
-pub mod materialize {
-    use serde::{Deserialize, Serialize};
-
-    #[derive(Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
-    pub struct Benchmarks {
-        // todo
-    }
-}
 
 #[inline]
 pub fn bool_true() -> bool {
     true
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum CallTemplateError {
-    #[error("\"{args_template}\" cannot be templated with {input:?}")]
-    Render {
-        args_template: Template,
-        input: matrix::Input,
-        source: handlebars::RenderError,
-    },
-
-    #[error("\"{cmd_args}\" cannot be split into shell arguments")]
-    Parse {
-        cmd_args: String,
-        source: shell_words::ParseError,
-    },
-}
+// #[derive(thiserror::Error, Debug)]
+// pub enum CallTemplateError {
+//     #[error("\"{args_template}\" cannot be templated with {input:?}")]
+//     Render {
+//         args_template: StringTemplate,
+//         input: matrix::Input,
+//         source: handlebars::RenderError,
+//     },
+//
+//     #[error("\"{cmd_args}\" cannot be split into shell arguments")]
+//     Parse {
+//         cmd_args: String,
+//         source: shell_words::ParseError,
+//     },
+// }
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -45,66 +41,51 @@ pub enum Error {
     YAML(#[from] serde_yaml::Error),
 
     #[error(transparent)]
-    CallTemplate(#[from] CallTemplateError),
-}
+    Template(#[from] template::Error),
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct Input {
-    pub values: template::InputValues,
-    pub cmd_args: Vec<String>,
+    #[error(transparent)]
+    Shell(#[from] benchmark::ShellParseError),
+
+    #[error("missing value: {0}")]
+    Missing(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, smart_default::SmartDefault)]
-#[serde(deny_unknown_fields)]
 pub struct ProfileOptions {
     #[default = true]
     #[serde(default = "bool_true")]
     pub enabled: bool,
-    log_file: Option<Template>,
-    metrics_file: Option<Template>,
-}
-
-impl ProfileOptions {
-    pub fn log_file(
-        &self,
-        values: &template::Values,
-        // ) -> Option<Result<PathBuf, handlebars::RenderError>> {
-    ) -> Result<Option<PathBuf>, handlebars::RenderError> {
-        template::render_path(&self.log_file, values).transpose()
-    }
+    // log_file: Option<Template<PathBuf>>,
+    // metrics_file: Option<Template<PathBuf>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, smart_default::SmartDefault)]
-#[serde(deny_unknown_fields)]
 pub struct TraceOptions {
     #[default = true]
     #[serde(default = "bool_true")]
     pub enabled: bool,
-    // pub log_output_file: Option<Template>,
-    // pub output_file: Option<Template>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, smart_default::SmartDefault)]
-#[serde(deny_unknown_fields)]
 pub struct AccelsimTraceOptions {
     #[default = true]
     #[serde(default = "bool_true")]
     pub enabled: bool,
-    // pub log_output_file: Option<Template>,
-    // pub output_file: Option<Template>,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Benchmark {
     pub path: PathBuf,
     pub executable: PathBuf,
-    #[serde(default = "bool_true")]
-    pub enabled: bool,
+
     #[serde(default, rename = "inputs")]
     pub matrix: matrix::Matrix,
     #[serde(rename = "args")]
-    pub args_template: Template,
+    pub args_template: Template<String>,
+
+    #[serde(flatten)]
+    pub config: TargetConfig,
+
     #[serde(default)]
     pub profile: ProfileOptions,
     #[serde(default)]
@@ -113,81 +94,127 @@ pub struct Benchmark {
     pub accelsim_trace: AccelsimTraceOptions,
 }
 
-pub type CallArgs = Result<Vec<String>, CallTemplateError>;
-
+// pub type CallArgs = Result<Vec<String>, benchmark::CallTemplateError>;
+//
 impl Benchmark {
-    pub fn inputs(&self) -> impl Iterator<Item = Result<Input, CallTemplateError>> + '_ {
-        self.matrix.expand().map(|input| {
-            let cmd_args =
-                self.args_template
-                    .render(&input)
-                    .map_err(|source| CallTemplateError::Render {
-                        args_template: self.args_template.clone(),
-                        input: input.clone(),
-                        source,
-                    })?;
-            let cmd_args =
-                shell_words::split(&cmd_args).map_err(|source| CallTemplateError::Parse {
-                    cmd_args: cmd_args.clone(),
-                    source,
-                })?;
-            // input["bench"] = IndexMap::from_iter([("name".to_string(), name)]);
-            Ok(Input {
-                values: template::InputValues(input),
-                cmd_args,
-            })
-        })
+    pub fn inputs(&self) -> Vec<matrix::Input> {
+        self.matrix.expand()
     }
 
-    // pub fn input_call_args(&self) -> impl Iterator<Item = CallArgs> + '_ {
-    //     self.inputs().map(move |input| {
-    //         let cmd_args =
-    //             self.args_template
-    //                 .render(&input)
-    //                 .map_err(|source| CallTemplateError::Render {
-    //                     args_template: self.args_template.clone(),
-    //                     input: input.clone(),
+    //     pub fn inputs(&self) -> impl Iterator<Item = Result<Input, CallTemplateError>> + '_ {
+    //         self.matrix.expand().into_iter().map(|input| {
+    //             let cmd_args =
+    //                 self.args_template
+    //                     .render(&input)
+    //                     .map_err(|source| CallTemplateError::Render {
+    //                         args_template: self.args_template.clone(),
+    //                         input: input.clone(),
+    //                         source,
+    //                     })?;
+    //             let cmd_args =
+    //                 shell_words::split(&cmd_args).map_err(|source| CallTemplateError::Parse {
+    //                     cmd_args: cmd_args.clone(),
     //                     source,
     //                 })?;
-    //         let cmd_args =
-    //             shell_words::split(&cmd_args).map_err(|source| CallTemplateError::Parse {
-    //                 cmd_args: cmd_args.clone(),
-    //                 source,
-    //             })?;
+    //             // input["bench"] = IndexMap::from_iter([("name".to_string(), name)]);
+    //             Ok(Input {
+    //                 values: template::InputValues(input),
+    //                 cmd_args,
+    //             })
+    //         })
+    //     }
     //
-    //         Ok(cmd_args)
-    //     })
-    // }
-
+    //     // pub fn input_call_args(&self) -> impl Iterator<Item = CallArgs> + '_ {
+    //     //     self.inputs().map(move |input| {
+    //     //         let cmd_args =
+    //     //             self.args_template
+    //     //                 .render(&input)
+    //     //                 .map_err(|source| CallTemplateError::Render {
+    //     //                     args_template: self.args_template.clone(),
+    //     //                     input: input.clone(),
+    //     //                     source,
+    //     //                 })?;
+    //     //         let cmd_args =
+    //     //             shell_words::split(&cmd_args).map_err(|source| CallTemplateError::Parse {
+    //     //                 cmd_args: cmd_args.clone(),
+    //     //                 source,
+    //     //             })?;
+    //     //
+    //     //         Ok(cmd_args)
+    //     //     })
+    //     // }
+    //
     pub fn executable(&self) -> PathBuf {
-        self.path.join(&self.executable)
+        if self.executable.is_absolute() {
+            self.executable.clone()
+        } else {
+            self.path.join(&self.executable)
+        }
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, smart_default::SmartDefault)]
 pub struct TargetConfig {
     pub repetitions: Option<usize>,
     pub concurrency: Option<usize>,
+
+    // #[default = true]
+    // #[serde(default = "bool_true")]
+    pub enabled: Option<bool>,
+
+    // #[serde(default)]
     pub results_dir: Option<PathBuf>,
 }
 
+// impl TargetConfig {
+//     pub fn materialize(self, base: &Path, parent_config: &TargetConfig) -> Result<Self, Error> {
+//         let results_dir = self
+//             .results_dir
+//             .map(|dir| dir.resolve(base))
+//             .or_else(|| parent_config.results_dir.clone());
+//         // let results_dir = match self.results_dir {
+//         //     Some(results_dir) => Some(results_dir.resolve(base)),
+//         //     None => Some(config.results_dir),
+//         // };
+//         Ok(Self {
+//             repetitions: self.repetitions.or(parent_config.repetitions),
+//             concurrency: self.repetitions.or(parent_config.concurrency),
+//             results_dir,
+//         })
+//     }
+// }
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct TraceConfig {
     #[serde(flatten)]
     pub common: TargetConfig,
 }
 
+// impl TraceConfig {
+//     pub fn materialize(self, base: &Path, parent_config: &TargetConfig) -> Result<Self, Error> {
+//         todo!();
+//         // Ok(Self {
+//         //     common: self.common.materialize(base, parent_config)?,
+//         // })
+//     }
+// }
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct AccelsimTraceConfig {
     #[serde(flatten)]
     pub common: TargetConfig,
 }
 
+// impl AccelsimTraceConfig {
+//     pub fn materialize(self, base: &Path, parent_config: &TargetConfig) -> Result<Self, Error> {
+//         todo!();
+//         // Ok(Self {
+//         //     common: self.common.materialize(base, parent_config)?,
+//         // })
+//     }
+// }
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct ProfileConfig {
     #[serde(flatten)]
     pub common: TargetConfig,
@@ -195,79 +222,71 @@ pub struct ProfileConfig {
     pub keep_log_file: bool,
 }
 
+// impl ProfileConfig {
+//     pub fn materialize(self, base: &Path, parent_config: &TargetConfig) -> Result<Self, Error> {
+//         todo!();
+//         // Ok(Self {
+//         //     common: self.common.materialize(base, parent_config)?,
+//         //     keep_log_file: self.keep_log_file,
+//         // })
+//     }
+// }
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct SimConfig {
     #[serde(flatten)]
     pub common: TargetConfig,
 }
 
+// impl SimConfig {
+//     pub fn materialize(self, base: &Path, parent_config: &TargetConfig) -> Result<Self, Error> {
+//         todo!();
+//         // Ok(Self {
+//         //     common: self.common.materialize(base, parent_config)?,
+//         // })
+//     }
+// }
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct AccelsimSimConfig {
     #[serde(flatten)]
     pub common: TargetConfig,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct Config {
-    pub results_dir: PathBuf,
-    pub repetitions: Option<usize>,
-    pub materialize: Option<PathBuf>,
+// impl AccelsimSimConfig {
+//     pub fn materialize(self, base: &Path, parent_config: &TargetConfig) -> Result<Self, Error> {
+//         todo!();
+//         // Ok(Self {
+//         //     common: self.common.materialize(base, parent_config)?,
+//         // })
+//     }
+// }
 
-    #[serde(default, rename = "trace")]
-    pub trace: TraceConfig,
-    #[serde(default, rename = "accelsim_trace")]
-    pub accelsim_trace: AccelsimTraceConfig,
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
+pub struct Config {
+    pub materialize_to: Option<PathBuf>,
+
+    #[serde(flatten)]
+    pub common: TargetConfig,
+
+    // #[serde(default, rename = "trace")]
+    // pub trace: TraceConfig,
+    // #[serde(default, rename = "accelsim_trace")]
+    // pub accelsim_trace: AccelsimTraceConfig,
     #[serde(default, rename = "profile")]
     pub profile: ProfileConfig,
-    #[serde(default, rename = "simulate")]
-    pub sim: SimConfig,
-    #[serde(default, rename = "accelsim_simulate")]
-    pub accelsim_sim: AccelsimSimConfig,
+    // #[serde(default, rename = "simulate")]
+    // pub sim: SimConfig,
+    // #[serde(default, rename = "accelsim_simulate")]
+    // pub accelsim_sim: AccelsimSimConfig,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct Benchmarks {
-    #[serde(flatten)]
+    #[serde(default)]
     pub config: Config,
+    #[serde(default)]
     pub benchmarks: IndexMap<String, Benchmark>,
-}
-
-pub trait PathExt {
-    #[must_use]
-    fn resolve<P>(&self, base: P) -> PathBuf
-    where
-        P: AsRef<Path>;
-
-    #[must_use]
-    fn relative_to<P>(&self, base: P) -> PathBuf
-    where
-        P: AsRef<Path>;
-}
-
-impl PathExt for Path {
-    #[must_use]
-    fn resolve<P>(&self, base: P) -> PathBuf
-    where
-        P: AsRef<Path>,
-    {
-        if self.is_absolute() {
-            self.to_path_buf()
-        } else {
-            base.as_ref().join(&self)
-        }
-    }
-
-    #[must_use]
-    fn relative_to<P>(&self, base: P) -> PathBuf
-    where
-        P: AsRef<Path>,
-    {
-        pathdiff::diff_paths(&self, base).unwrap_or_else(|| self.to_path_buf())
-    }
 }
 
 impl Benchmarks {
@@ -281,23 +300,23 @@ impl Benchmarks {
         Ok(benchmarks)
     }
 
-    /// Resolve relative paths based on benchmark file location
-    ///
-    /// Note: this will leave absolute paths unchanged.
-    pub fn resolve(&mut self, base: impl AsRef<Path>) {
-        let base = base.as_ref();
-        for path in [
-            Some(&mut self.config.results_dir),
-            self.config.materialize.as_mut(),
-        ] {
-            if let Some(path) = path {
-                *path = path.resolve(base);
-            }
-        }
-        for (_, bench) in &mut self.benchmarks {
-            bench.path = bench.path.resolve(base);
-        }
-    }
+    // /// Resolve relative paths based on benchmark file location
+    // ///
+    // /// Note: this will leave absolute paths unchanged.
+    // pub fn resolve(&mut self, base: impl AsRef<Path>) {
+    //     let base = base.as_ref();
+    //     for path in [
+    //         Some(&mut self.config.results_dir),
+    //         self.config.materialize.as_mut(),
+    //     ] {
+    //         if let Some(path) = path {
+    //             *path = path.resolve(base);
+    //         }
+    //     }
+    //     for (_, bench) in &mut self.benchmarks {
+    //         bench.path = bench.path.resolve(base);
+    //     }
+    // }
 
     pub fn from_reader(reader: impl std::io::BufRead) -> Result<Self, Error> {
         let benches = serde_yaml::from_reader(reader)?;
@@ -309,20 +328,22 @@ impl Benchmarks {
         Ok(benches)
     }
 
-    pub fn enabled_benchmarks(&self) -> impl Iterator<Item = (&String, &Benchmark)> + '_ {
-        self.benchmarks.iter().filter(|(_, bench)| bench.enabled)
-    }
+    // pub fn enabled_benchmarks(&self) -> impl Iterator<Item = (&String, &Benchmark)> + '_ {
+    //     self.benchmarks.iter().filter(|(_, bench)| bench.enabled)
+    // }
 
-    pub fn enabled_benchmark_configurations(
-        &self,
-    ) -> impl Iterator<Item = (&String, &Benchmark, Result<Input, CallTemplateError>)> + '_ {
-        self.enabled_benchmarks()
-            .flat_map(|(name, bench)| bench.inputs().map(move |input| (name, bench, input)))
-    }
-
-    pub fn materialize(self) -> Result<materialize::Benchmarks, Error> {
-        Ok(materialize::Benchmarks::default())
-    }
+    // pub fn enabled_benchmark_configurations(
+    //     &self,
+    // ) -> impl Iterator<
+    //     Item = (
+    //         &String,
+    //         &Benchmark,
+    //         Result<benchmark::Input, benchmark::CallTemplateError>,
+    //     ),
+    // > + '_ {
+    //     self.enabled_benchmarks()
+    //         .flat_map(|(name, bench)| bench.inputs().map(move |input| (name, bench, input)))
+    // }
 }
 
 impl<S> std::ops::Index<S> for Benchmarks
@@ -388,7 +409,6 @@ benchmarks:
                     Benchmark {
                         path: PathBuf::from("./vectoradd"),
                         executable: PathBuf::from("vectoradd"),
-                        enabled: true,
                         ..Benchmark::default()
                     }
                 )]),
@@ -401,6 +421,8 @@ benchmarks:
     #[test]
     fn test_parse_benchmarks_full() -> eyre::Result<()> {
         let benchmarks = r#"
+results_dir: ../results
+materialize_to: ./test-apps-materialized.yml
 benchmarks:
   vectorAdd:
     path: ./vectoradd
@@ -427,11 +449,13 @@ benchmarks:
             vec_add_benchmark.executable(),
             PathBuf::from("./vectoradd/vectoradd")
         );
-        let vec_add_inputs: Result<Vec<_>, _> = vec_add_benchmark.inputs().collect();
-        diff_assert_eq!(
-            &vec_add_inputs?[0].cmd_args,
-            &vec!["-len", "100", "--dtype=32"]
-        );
+        let vec_add_inputs = vec_add_benchmark.inputs();
+        // diff_assert_eq!(&vec_add_inputs[0], yaml!({"data_type": 32, "length": 100}));
+
+        // diff_assert_eq!(
+        //     &vec_add_inputs?[0].cmd_args,
+        //     &vec!["-len", "100", "--dtype=32"]
+        // );
         Ok(())
     }
 
