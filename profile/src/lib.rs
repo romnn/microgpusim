@@ -36,25 +36,7 @@ pub enum Error {
     Parse { raw_log: String, source: ParseError },
 
     #[error(transparent)]
-    Command(#[from] CommandError),
-}
-
-#[derive(thiserror::Error, Debug)]
-pub struct CommandError {
-    pub command: String,
-    pub log: Option<String>,
-    pub output: async_process::Output,
-}
-
-impl std::fmt::Display for CommandError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
-            f,
-            "command \"{}\" failed with exit code {:?}",
-            self.command,
-            self.output.status.code()
-        )
-    }
+    Command(#[from] utils::CommandError),
 }
 
 pub fn deserialize_option_number_from_string<'de, T, D>(

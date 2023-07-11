@@ -65,11 +65,26 @@ pub struct ProfileConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+pub struct TraceConfig {
+    #[serde(flatten)]
+    pub common: TargetConfig,
+    pub full_trace: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct ProfileOptions {
     #[serde(flatten)]
     pub common: TargetConfig,
     pub log_file: PathBuf,
     pub metrics_file: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+pub struct TraceOptions {
+    #[serde(flatten)]
+    pub common: TargetConfig,
+    pub trace_file: PathBuf,
+    pub full_trace: bool,
 }
 
 // impl crate::ProfileOptions {
@@ -154,9 +169,8 @@ pub struct BenchmarkConfig {
     pub values: super::matrix::Input,
     pub args: Vec<String>,
 
-    // pub enabled: bool,
-    // pub results_dir: Option<PathBuf>,
     pub profile: ProfileOptions,
+    pub trace: TraceOptions,
 }
 
 impl crate::Benchmark {
@@ -174,27 +188,27 @@ impl crate::Benchmark {
 
         let cmd_args = self.args_template.render(&values)?;
         let cmd_args = super::benchmark::split_shell_command(cmd_args)?;
+        let default_artifact_path =
+            PathBuf::from(&name).join(format!("{}-{}", &name, cmd_args.join("-")));
 
         // let results_dir = config.results_diras_ref().map(|p| p.resolve(base));
         // let results_dir = results_dir
         //     .as_ref()
         //     .unwrap_or(&config.profile.common.results_dir);
 
-        let common = self
+        let profile_base_config = self
             .config
             .clone()
             .materialize(base, Some(&config.profile.common))?;
 
-        let log_file = common
+        let log_file = profile_base_config
             .results_dir
-            .join(&name)
-            .join(format!("{}-{}", &name, cmd_args.join("-")))
+            .join(&default_artifact_path)
             .join("profile.log");
 
-        let metrics_file = common
+        let metrics_file = profile_base_config
             .results_dir
-            .join(&name)
-            .join(format!("{}-{}", &name, cmd_args.join("-")))
+            .join(&default_artifact_path)
             .join("profile.metrics.csv");
 
         // let results_dir = results_dir
@@ -209,7 +223,23 @@ impl crate::Benchmark {
         let profile = ProfileOptions {
             log_file,
             metrics_file,
-            common,
+            common: profile_base_config,
+        };
+
+        let trace_base_config = self
+            .config
+            .clone()
+            .materialize(base, Some(&config.trace.common))?;
+
+        let trace_file = trace_base_config
+            .results_dir
+            .join(&default_artifact_path)
+            .join("trace.msgpack");
+
+        let trace = TraceOptions {
+            trace_file,
+            full_trace: config.trace.full_trace,
+            common: trace_base_config,
         };
 
         // Ok::<_, super::Error>(BenchmarkConfig {
@@ -222,6 +252,7 @@ impl crate::Benchmark {
             path: self.path.resolve(base),
             executable: self.executable().resolve(base),
             profile,
+            trace,
             // profile: self.profile.materialize(&values, base)?,
             // repetitions: self.repetitions.or(config.repetitions).unwrap_or(1),
             // repetitions: self.repetitions.or(config.repetitions).unwrap_or(1),
@@ -270,8 +301,7 @@ pub struct Config {
 
     // #[serde(flatten)]
     // pub common: TargetConfig,
-    // #[serde(default, rename = "trace")]
-    // pub trace: TraceConfig,
+    pub trace: TraceConfig,
     // #[serde(default, rename = "accelsim_trace")]
     // pub accelsim_trace: AccelsimTraceConfig,
     pub profile: ProfileConfig,
@@ -296,9 +326,15 @@ impl crate::Config {
             // keep_log_file: self.profile.keep_log_file,
         };
 
+        let trace = TraceConfig {
+            common: self.trace.common.materialize(base, Some(&common))?,
+            full_trace: self.trace.full_trace,
+        };
+
         Ok(Config {
             // materialize_to,
             profile,
+            trace,
         })
     }
 }

@@ -34,11 +34,14 @@ pathdiff = "0"
 smart-default = "0"
 chrono = "0"
 once_cell = "1"
-# itertools = "0"
-# normpath = "1"
 
 utils = { path = "../utils" }
-# invoke-trace = { path = "../trace/invoke" }
+
+# trace dependencies
+trace = { path = "../trace" }
+invoke-trace = { path = "../trace/invoke" }
+
+# profile dependencies
 profile = { path = "../profile" }
 # accelsim = { path = "../accelsim" }
 # trace-model = { path = "../trace/model" }

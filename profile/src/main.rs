@@ -1,15 +1,6 @@
-use color_eyre::{
-    eyre::{self, WrapErr},
-    Section, SectionExt,
-};
+use color_eyre::eyre::{self, WrapErr};
 use profile;
 use std::path::PathBuf;
-
-macro_rules! decode {
-    ($x:expr) => {
-        String::from_utf8_lossy(&*$x).to_string()
-    };
-}
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
@@ -40,15 +31,7 @@ async fn main() -> eyre::Result<()> {
     let profile::ProfilingResult { metrics, .. } = profile::nvprof::nvprof(exec, exec_args)
         .await
         .map_err(|err| match err {
-        profile::Error::Command(profile::CommandError {
-            output,
-            command,
-            log,
-        }) => eyre::eyre!("command failed with exit code {:?}", output.status.code())
-            .with_section(|| command.header("command:"))
-            .with_section(|| log.unwrap_or_default().header("log:"))
-            .with_section(|| decode!(&output.stderr).header("stderr:"))
-            .with_section(|| decode!(&output.stdout).header("stdout:")),
+        profile::Error::Command(err) => err.into_eyre(),
         other => other.into(),
     })?;
 

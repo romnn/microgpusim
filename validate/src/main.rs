@@ -62,6 +62,9 @@ pub struct BuildOptions {}
 pub struct ProfileOptions {}
 
 #[derive(Parser, Debug, Clone)]
+pub struct TraceOptions {}
+
+#[derive(Parser, Debug, Clone)]
 pub struct ExpandOptions {}
 
 #[derive(Parser, Debug, Clone)]
@@ -89,7 +92,7 @@ pub struct Options {
 #[derive(Parser, Debug, Clone)]
 pub enum Command {
     Profile(ProfileOptions),
-    Trace(ProfileOptions),
+    Trace(TraceOptions),
     Simulate(ProfileOptions),
     Build(BuildOptions),
     Expand(ExpandOptions),

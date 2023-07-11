@@ -188,6 +188,8 @@ pub struct TargetConfig {
 pub struct TraceConfig {
     #[serde(flatten)]
     pub common: TargetConfig,
+    #[serde(default)]
+    pub full_trace: bool,
 }
 
 // impl TraceConfig {
@@ -269,11 +271,11 @@ pub struct Config {
     #[serde(flatten)]
     pub common: TargetConfig,
 
-    // #[serde(default, rename = "trace")]
-    // pub trace: TraceConfig,
+    #[serde(default)]
+    pub trace: TraceConfig,
     // #[serde(default, rename = "accelsim_trace")]
     // pub accelsim_trace: AccelsimTraceConfig,
-    #[serde(default, rename = "profile")]
+    #[serde(default)]
     pub profile: ProfileConfig,
     // #[serde(default, rename = "simulate")]
     // pub sim: SimConfig,

@@ -1,8 +1,18 @@
 #### TODO
 
+- DONE: fix simple matrix mul
 - make simple tests for the different benchmarks that check if outputs match
 
   - in box
+
+- get stats for dram accesses
+- box: switch prints to proper logging?
+- compare outputs for simple matrix multiply
+
+  - implement stats for logging all accesses (addr, status, cycle) per cache / dram
+  - try to normalize the addresses for better comparability
+
+- write a criterion benchmark
 
 - add timeout stuff
 - materialize config first? operate on the materialized configurations and benchmarks

@@ -10,11 +10,10 @@ crate-type = ["cdylib"]
 [features]
 default  = [
   "plot",
-  # "full",
 ]
 
 plot = ["dep:plot"]
-full = []
+# full = []
 
 [package.metadata.cargo-feature-combinations]
 denylist = ["default"]
@@ -32,10 +31,10 @@ serde_json = "1"
 rmp-serde = "1"
 bitvec = "1"
 once_cell = "1"
+log = "0"
 
 trace-model = { path = "./model" }
 utils = { path = "../utils" }
-
 plot = { path = "../plot", optional = true }
 
 [build-dependencies]

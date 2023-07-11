@@ -1623,10 +1623,12 @@ name = "invoke-trace"
 version = "0.1.0"
 dependencies = [
  "async-process",
+ "clap",
  "color-eyre",
  "thiserror",
  "tokio",
  "trace",
+ "utils",
 ]
 
 [[package]]
@@ -3397,6 +3399,7 @@ version = "0.1.0"
 dependencies = [
  "bindgen 0.66.1",
  "bitvec",
+ "log",
  "nvbit-build",
  "nvbit-io",
  "nvbit-rs",
@@ -3594,9 +3597,11 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 name = "utils"
 version = "0.1.0"
 dependencies = [
+ "async-process",
  "color-eyre",
  "glob",
  "libc",
+ "thiserror",
 ]
 
 [[package]]
@@ -3612,6 +3617,7 @@ dependencies = [
  "handlebars",
  "indexmap 2.0.0",
  "indicatif",
+ "invoke-trace",
  "num_cpus",
  "once_cell",
  "pathdiff",
@@ -3625,6 +3631,7 @@ dependencies = [
  "ssh_jumper",
  "thiserror",
  "tokio",
+ "trace",
  "utils",
 ]
 

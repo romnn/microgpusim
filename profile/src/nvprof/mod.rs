@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::io::{BufRead, Read, Seek};
 use std::path::{Path, PathBuf};
 
-use crate::{CommandError, Error, Metric, ParseError};
+use crate::{Error, Metric, ParseError};
 pub use metrics::NvprofMetrics;
 
 pub type ProfilingResult = super::ProfilingResult<NvprofMetrics>;
@@ -81,9 +81,8 @@ pub fn parse_nvprof_csv(reader: &mut impl std::io::BufRead) -> Result<NvprofMetr
 /// - When profiling fails.
 /// - When application fails.
 #[allow(clippy::too_many_lines)]
-pub async fn nvprof<P, A>(executable: P, args: A) -> Result<ProfilingResult, Error>
+pub async fn nvprof<A>(executable: impl AsRef<Path>, args: A) -> Result<ProfilingResult, Error>
 where
-    P: AsRef<Path>,
     A: IntoIterator,
     <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
 {
@@ -123,11 +122,7 @@ where
 
     let result = cmd.output().await?;
     if !result.status.success() {
-        return Err(Error::Command(CommandError {
-            command: format!("{:?}", cmd),
-            log: std::fs::read_to_string(&log_file_path).ok(),
-            output: result,
-        }));
+        return Err(Error::Command(utils::CommandError::new(cmd, result)));
     }
 
     let log_file = std::fs::OpenOptions::new()
@@ -170,7 +165,6 @@ where
 mod tests {
     use super::{parse_nvprof_csv, Metric};
     use color_eyre::eyre;
-    // use pretty_assertions::assert_eq as diff_assert_eq;
     use std::io::Cursor;
 
     #[test]

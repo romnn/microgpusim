@@ -1,6 +1,7 @@
 #![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 pub mod build;
 
+use color_eyre::{eyre, Section, SectionExt};
 use std::path::{Path, PathBuf};
 
 pub const GID_NOBODY: libc::gid_t = 65534;
@@ -101,4 +102,80 @@ pub fn cuda_candidates() -> Vec<PathBuf> {
         }
     }
     valid_paths
+}
+
+#[must_use]
+pub fn normalize_path(path: impl AsRef<Path>) -> PathBuf {
+    /// source:
+    /// https://github.com/rust-lang/cargo/blob/fede83ccf973457de319ba6fa0e36ead454d2e20/src/cargo/util/paths.rs#L61
+    use std::path::Component;
+    let mut components = path.as_ref().components().peekable();
+    let mut ret = if let Some(c @ Component::Prefix(..)) = components.peek().cloned() {
+        components.next();
+        PathBuf::from(c.as_os_str())
+    } else {
+        PathBuf::new()
+    };
+
+    for component in components {
+        match component {
+            Component::Prefix(..) => unreachable!(),
+            Component::RootDir => {
+                ret.push(component.as_os_str());
+            }
+            Component::CurDir => {}
+            Component::ParentDir => {
+                ret.pop();
+            }
+            Component::Normal(c) => {
+                ret.push(c);
+            }
+        }
+    }
+    ret
+}
+
+#[derive(thiserror::Error, Debug)]
+pub struct CommandError {
+    pub command: String,
+    pub output: async_process::Output,
+}
+
+impl CommandError {
+    #[must_use]
+    pub fn new(cmd: async_process::Command, output: async_process::Output) -> Self {
+        Self {
+            command: format!("{:?}", cmd),
+            output,
+        }
+    }
+}
+
+impl std::fmt::Display for CommandError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "command \"{}\" failed with exit code {:?}",
+            self.command,
+            self.output.status.code()
+        )
+    }
+}
+
+macro_rules! decode_utf8 {
+    ($x:expr) => {
+        String::from_utf8_lossy(&*$x).to_string()
+    };
+}
+
+impl CommandError {
+    pub fn into_eyre(self) -> eyre::Report {
+        eyre::eyre!(
+            "command failed with exit code {:?}",
+            self.output.status.code()
+        )
+        .with_section(|| self.command.header("command:"))
+        .with_section(|| decode_utf8!(&self.output.stderr).header("stderr:"))
+        .with_section(|| decode_utf8!(&self.output.stdout).header("stdout:"))
+    }
 }
