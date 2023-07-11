@@ -61,7 +61,6 @@ impl super::TargetConfig {
 pub struct ProfileConfig {
     #[serde(flatten)]
     pub common: TargetConfig,
-    // pub keep_log_file: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -69,6 +68,7 @@ pub struct TraceConfig {
     #[serde(flatten)]
     pub common: TargetConfig,
     pub full_trace: bool,
+    pub save_json: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -83,7 +83,8 @@ pub struct ProfileOptions {
 pub struct TraceOptions {
     #[serde(flatten)]
     pub common: TargetConfig,
-    pub trace_file: PathBuf,
+    pub traces_dir: PathBuf,
+    pub save_json: bool,
     pub full_trace: bool,
 }
 
@@ -204,22 +205,15 @@ impl crate::Benchmark {
         let log_file = profile_base_config
             .results_dir
             .join(&default_artifact_path)
+            .join("profile")
             .join("profile.log");
 
         let metrics_file = profile_base_config
             .results_dir
             .join(&default_artifact_path)
+            .join("profile")
             .join("profile.metrics.csv");
 
-        // let results_dir = results_dir
-        //     .or(config.profile.results_dir)
-        //     .unwrap_or(config.results_dir);
-
-        // let metrics_file =
-        //     render_path!(self.profile.metrics_file, &values)?.map(|p| p.resolve(&result_dir));
-        //
-        // // todo: default log file
-        // // let log_file = log_file.map(|p| p.resolve(base));
         let profile = ProfileOptions {
             log_file,
             metrics_file,
@@ -231,33 +225,26 @@ impl crate::Benchmark {
             .clone()
             .materialize(base, Some(&config.trace.common))?;
 
-        let trace_file = trace_base_config
+        let traces_dir = trace_base_config
             .results_dir
             .join(&default_artifact_path)
-            .join("trace.msgpack");
+            .join("trace");
 
         let trace = TraceOptions {
-            trace_file,
+            traces_dir,
             full_trace: config.trace.full_trace,
+            save_json: config.trace.save_json,
             common: trace_base_config,
         };
 
-        // Ok::<_, super::Error>(BenchmarkConfig {
         Ok(BenchmarkConfig {
             values: input,
             args: cmd_args,
-            // config: config,
-            // results_dir: self.results_dir.as_ref().map(|p| p.resolve(base)),
             name: name.clone(),
             path: self.path.resolve(base),
             executable: self.executable().resolve(base),
             profile,
             trace,
-            // profile: self.profile.materialize(&values, base)?,
-            // repetitions: self.repetitions.or(config.repetitions).unwrap_or(1),
-            // repetitions: self.repetitions.or(config.repetitions).unwrap_or(1),
-            // repetitions: 1,
-            // concurrency: 1,
         })
     }
 
@@ -296,7 +283,7 @@ impl crate::Benchmark {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Config {
-    // pub results_dir: PathBuf,
+    pub results_dir: PathBuf,
     // pub materialize_to: Option<PathBuf>,
 
     // #[serde(flatten)]
@@ -314,25 +301,23 @@ pub struct Config {
 impl crate::Config {
     pub fn materialize(self, base: &Path) -> Result<Config, super::Error> {
         let common = self.common.materialize(base, None)?;
-        // let results_dir = common
-        //     .results_dir
-        //     .ok_or(super::Error::Missing("top level result_dir".to_string()))?
-        //     .resolve(base);
-
-        // let materialize_to = self.materialize_to.map(|p| p.resolve(base));
+        let results_dir = common.results_dir.resolve(base);
 
         let profile = ProfileConfig {
             common: self.profile.common.materialize(base, Some(&common))?,
-            // keep_log_file: self.profile.keep_log_file,
         };
 
         let trace = TraceConfig {
             common: self.trace.common.materialize(base, Some(&common))?,
             full_trace: self.trace.full_trace,
+            save_json: self.trace.save_json,
         };
+
+        // let materialize_to = self.materialize_to.map(|p| p.resolve(base));
 
         Ok(Config {
             // materialize_to,
+            results_dir,
             profile,
             trace,
         })

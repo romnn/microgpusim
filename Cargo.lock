@@ -2468,8 +2468,11 @@ name = "profile"
 version = "0.1.0"
 dependencies = [
  "async-process",
+ "clap",
  "color-eyre",
  "csv",
+ "log",
+ "once_cell",
  "pretty_assertions",
  "regex",
  "serde",

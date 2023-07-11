@@ -1,16 +1,16 @@
 mod metrics;
 
 use async_process::Command;
+use once_cell::sync::Lazy;
 use regex::Regex;
-use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::io::{BufRead, Read, Seek};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::{Error, Metric, ParseError};
-pub use metrics::NvprofMetrics;
+pub use metrics::Metrics;
 
-pub type ProfilingResult = super::ProfilingResult<NvprofMetrics>;
+pub type ProfilingResult = super::ProfilingResult<Metrics>;
 
 macro_rules! optional {
     ($x:expr) => {
@@ -22,7 +22,13 @@ macro_rules! optional {
     };
 }
 
-pub fn parse_nvprof_csv(reader: &mut impl std::io::BufRead) -> Result<NvprofMetrics, ParseError> {
+static NO_PERMISSION_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"user does not have permission").unwrap());
+
+static PROFILE_RESULT_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^==\d*==\s*Profiling result:\s*$").unwrap());
+
+pub fn parse_nvprof_csv(reader: &mut impl std::io::BufRead) -> Result<Metrics, ParseError> {
     // seek to valid start of csv data
     let mut lines = reader.by_ref().lines();
     for line in &mut lines {
@@ -30,19 +36,11 @@ pub fn parse_nvprof_csv(reader: &mut impl std::io::BufRead) -> Result<NvprofMetr
             continue
         };
 
-        const NO_PERMISSION_REGEX: OnceCell<Regex> = OnceCell::new();
-        if NO_PERMISSION_REGEX
-            .get_or_init(|| Regex::new(r"user does not have permission").unwrap())
-            .is_match(&line)
-        {
+        if NO_PERMISSION_REGEX.is_match(&line) {
             return Err(ParseError::NoPermission);
         }
 
-        const PROFILE_RESULT_REGEX: OnceCell<Regex> = OnceCell::new();
-        if PROFILE_RESULT_REGEX
-            .get_or_init(|| Regex::new(r"^==\d*==\s*Profiling result:\s*$").unwrap())
-            .is_match(&line)
-        {
+        if PROFILE_RESULT_REGEX.is_match(&line) {
             break;
         }
     }
@@ -59,18 +57,21 @@ pub fn parse_nvprof_csv(reader: &mut impl std::io::BufRead) -> Result<NvprofMetr
     let values: HashMap<String, String> = records.next().ok_or(ParseError::MissingMetrics)??;
     assert_eq!(units.len(), values.len());
 
-    for (metric, unit) in units.into_iter() {
+    for (metric, unit) in units {
         metrics.entry(metric).or_default().unit = optional!(unit);
     }
-    for (metric, value) in values.into_iter() {
+    for (metric, value) in values {
         metrics.entry(metric).or_default().value = optional!(value);
     }
 
     // this is kind of hacky..
     let metrics = serde_json::to_string(&metrics)?;
-    let metrics: NvprofMetrics = serde_json::from_str(&metrics)?;
+    let metrics: Metrics = serde_json::from_str(&metrics)?;
     Ok(metrics)
 }
+
+#[derive(Debug, Clone)]
+pub struct Options {}
 
 /// Profile test application using nvbprof profiler.
 ///
@@ -81,7 +82,11 @@ pub fn parse_nvprof_csv(reader: &mut impl std::io::BufRead) -> Result<NvprofMetr
 /// - When profiling fails.
 /// - When application fails.
 #[allow(clippy::too_many_lines)]
-pub async fn nvprof<A>(executable: impl AsRef<Path>, args: A) -> Result<ProfilingResult, Error>
+pub async fn nvprof<A>(
+    executable: impl AsRef<Path>,
+    args: A,
+    _options: &Options,
+) -> Result<ProfilingResult, Error>
 where
     A: IntoIterator,
     <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
@@ -89,14 +94,19 @@ where
     let tmp_dir = tempfile::tempdir()?;
     let log_file_path = tmp_dir.path().join("log_file.csv");
 
-    let nvprof = which::which("nvprof").map_err(|_| Error::MissingProfiler("nvprof".to_string()));
+    let nvprof = which::which("nvprof").map_err(|_| Error::MissingProfiler("nvprof".into()));
     let nvprof = nvprof.or_else(|_| {
         let cuda = utils::find_cuda().ok_or(Error::MissingCUDA)?;
         Ok::<_, Error>(cuda.join("bin/nvprof"))
     })?;
     let nvprof = nvprof
         .canonicalize()
-        .map_err(|_| Error::MissingProfiler(nvprof.to_string_lossy().to_string()))?;
+        .map_err(|_| Error::MissingProfiler(nvprof))?;
+
+    let executable = executable
+        .as_ref()
+        .canonicalize()
+        .map_err(|_| Error::MissingExecutable(executable.as_ref().into()))?;
 
     let mut cmd = Command::new(nvprof);
     cmd.args([
@@ -117,12 +127,12 @@ where
         "--log-file",
     ])
     .arg(&log_file_path)
-    .arg(executable.as_ref())
+    .arg(&executable)
     .args(args.into_iter());
 
     let result = cmd.output().await?;
     if !result.status.success() {
-        return Err(Error::Command(utils::CommandError::new(cmd, result)));
+        return Err(Error::Command(utils::CommandError::new(&cmd, result)));
     }
 
     let log_file = std::fs::OpenOptions::new()
@@ -134,22 +144,6 @@ where
     let mut original_log = String::new();
     log_reader.read_to_string(&mut original_log)?;
     log_reader.rewind()?;
-    // println!("{original_log}");
-
-    if let Ok(keep_log_file_path) = std::env::var("KEEP_LOG_FILE_PATH").map(PathBuf::from) {
-        use std::io::Write;
-
-        // println!("writing log to {}", keep_log_file_path.display());
-        if let Some(parent) = keep_log_file_path.parent() {
-            std::fs::create_dir_all(parent).ok();
-        }
-        let mut keep_log_file = std::fs::OpenOptions::new()
-            .write(true)
-            .truncate(true)
-            .create(true)
-            .open(&keep_log_file_path)?;
-        keep_log_file.write_all(original_log.as_bytes())?;
-    }
 
     let metrics = parse_nvprof_csv(&mut log_reader).map_err(|source| Error::Parse {
         raw_log: original_log.clone(),

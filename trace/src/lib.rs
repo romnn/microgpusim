@@ -1,19 +1,14 @@
-#![allow(
-    warnings,
-    clippy::missing_panics_doc,
-    clippy::missing_safety_doc,
-    clippy::permissions_set_readonly_false
-)]
+#![allow(clippy::missing_panics_doc, clippy::missing_safety_doc)]
+// #![allow(warnings)]
 
 use bitvec::{array::BitArray, field::BitField, BitArr};
 use nvbit_io::{Decoder, Encoder};
 use nvbit_rs::{model, DeviceChannel, HostChannel};
 use once_cell::sync::Lazy;
-use serde::{Deserialize, Deserializer, Serialize};
-use std::collections::{hash_map::Entry, HashMap, HashSet};
+use serde::{Deserializer, Serialize};
+use std::collections::{HashMap, HashSet};
 use std::ffi;
 use std::io::Seek;
-use std::os::unix::fs::DirBuilderExt;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Instant;
@@ -33,11 +28,6 @@ mod common {
 
 use common::{mem_access_t, reg_info_t};
 
-// #[cfg(feature = "full")]
-// const FULL_TRACE: bool = true;
-// #[cfg(not(feature = "full"))]
-// const FULL_TRACE: bool = false;
-
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Default, Clone)]
 struct Args {
@@ -55,6 +45,7 @@ struct Args {
     instr_is_store: bool,
     instr_is_extended: bool,
     // mem addr
+    #[allow(dead_code)]
     mref_idx: u64,
     // register info
     dest_reg: Option<u32>,
@@ -67,33 +58,21 @@ struct Args {
     line_num: u32,
 }
 
-fn open_trace_file(path: &Path) -> std::fs::File {
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(path)
-        .unwrap();
-    // makes the file world readable,
-    // which is useful if this script is invoked by sudo
-    file.metadata().unwrap().permissions().set_readonly(false);
-    file
+fn kernel_trace_file_name(id: u64) -> String {
+    format!("kernel-{id}.msgpack")
 }
 
 fn rmp_serializer(path: &Path) -> rmp_serde::Serializer<std::io::BufWriter<std::fs::File>> {
-    let trace_file = open_trace_file(path);
-    let mut writer = std::io::BufWriter::new(trace_file);
-
-    rmp_serde::Serializer::new(writer)
+    let trace_file = utils::fs::open_writable_as_nobody(path).unwrap();
+    rmp_serde::Serializer::new(trace_file)
 }
 
 fn json_serializer(
     path: &Path,
 ) -> serde_json::Serializer<std::io::BufWriter<std::fs::File>, serde_json::ser::PrettyFormatter> {
-    let trace_file = open_trace_file(path);
-    let mut writer = std::io::BufWriter::new(trace_file);
-    let mut json_serializer = serde_json::Serializer::with_formatter(
-        writer,
+    let trace_file = utils::fs::open_writable_as_nobody(path).unwrap();
+    let json_serializer = serde_json::Serializer::with_formatter(
+        trace_file,
         serde_json::ser::PrettyFormatter::with_indent(b"    "),
     );
     json_serializer
@@ -126,7 +105,7 @@ impl Args {
             // has_dest_reg: self.dest_reg.is_some(),
             // dest_reg: self.dest_reg.unwrap_or(0),
             dest_regs: [self.dest_reg.unwrap_or(0)],
-            num_dest_regs: if self.dest_reg.is_some() { 1 } else { 0 },
+            num_dest_regs: u32::from(self.dest_reg.is_some()),
             src_regs: self.src_regs,
             num_src_regs: self.num_src_regs,
         };
@@ -184,24 +163,7 @@ struct Instrumentor<'c> {
 }
 
 #[inline]
-fn create_trace_dir(path: &Path) -> Result<(), std::io::Error> {
-    log::debug!("creating traces dir {}", path.display());
-    match std::fs::DirBuilder::new()
-        .recursive(true)
-        .mode(0o777)
-        .create(path)
-    {
-        Ok(_) => {}
-        Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {}
-        Err(err) => return Err(err),
-    }
-
-    utils::rchown(path, utils::UID_NOBODY, utils::GID_NOBODY, false)?;
-    Ok(())
-}
-
-#[inline]
-fn bool_env(name: &str) -> Option<bool> {
+fn bool_env(_name: &str) -> Option<bool> {
     std::env::var("SAVE_JSON")
         .ok()
         .map(|value| value.to_lowercase() == "yes")
@@ -230,38 +192,7 @@ impl Instrumentor<'static> {
             &save_json
         );
 
-        // override with defaults if trace dir is provided
-        // if let Some(traces_dir) = traces_dir {
-        //     let own_bin_name = option_env!("CARGO_BIN_NAME");
-        //     let target_app_dir = trace::app_args(own_bin_name)
-        //         .get(0)
-        //         .map(PathBuf::from)
-        //         .and_then(|app| app.parent().map(Path::to_path_buf))
-        //         .expect("missig target app");
-        //     let trace_file_path = traces_dir.join(format!(
-        //         "{}-trace.msgpack",
-        //         &trace::app_prefix(own_bin_name)
-        //     ));
-        //     rmp_trace_file_path.insert(trace_file_path.with_extension("msgpack"));
-        //     json_trace_file_path.insert(trace_file_path.with_extension("json"));
-        //     // json_trace_file_path.insert(
-        //     //     traces_dir.join(format!("{}-trace.json", &trace::app_prefix(own_bin_name))),
-        //     // );
-        // }
-
-        // let traces_dir = std::env::var("TRACES_DIR").map_or_else(
-        //     |_| {
-        //         let prefix = trace::app_prefix(own_bin_name);
-        //         target_app_dir
-        //             .join("traces")
-        //             .join(format!("{}-trace", &prefix))
-        //     },
-        //     PathBuf::from,
-        // );
-
-        create_trace_dir(&traces_dir).ok();
-        // create_trace_dir(rmp_trace_file_path.and_then(|p| p.parent())).ok();
-        // create_trace_dir(json_trace_file_path.and_then(|p| p.parent())).ok();
+        let _ = utils::fs::create_dirs_as_nobody(&traces_dir).ok();
 
         let instr = Arc::new(Self {
             ctx: Mutex::new(ctx),
@@ -405,13 +336,6 @@ type Contexts = HashMap<ContextHandle, Arc<Instrumentor<'static>>>;
 
 static mut CONTEXTS: Lazy<Contexts> = Lazy::new(HashMap::new);
 
-// static FULL_TRACE: Lazy<bool> = Lazy::new(|| {
-//     std::env::var("FULL_TRACE")
-//         .unwrap_or_default()
-//         .to_lowercase()
-//         == "yes"
-// });
-
 impl<'c> Instrumentor<'c> {
     fn at_cuda_event(
         &self,
@@ -450,10 +374,10 @@ impl<'c> Instrumentor<'c> {
                 let shmem_static_nbytes =
                     u32::try_from(func.shared_memory_bytes().unwrap_or_default()).unwrap();
                 let func_name = func.name(ctx);
-                let pc = func.addr();
+                let _pc = func.addr();
 
                 let id = *kernel_id;
-                let trace_file = self.kernel_trace_file_name(id);
+                let trace_file = kernel_trace_file_name(id);
 
                 let num_registers = func.num_registers().unwrap();
 
@@ -541,8 +465,6 @@ impl<'c> Instrumentor<'c> {
             opcode_to_id_map[opcode]
         };
 
-        let mut instrumented = false;
-
         if self.full_trace
             || opcode.to_lowercase() == "exit"
             || instr.memory_space() != model::MemorySpace::None
@@ -609,7 +531,7 @@ impl<'c> Instrumentor<'c> {
                 is_uniform: false,
             });
             let mut channel_dev_lock = self.dev_channel.lock().unwrap();
-            let mut inst_args = Args {
+            let inst_args = Args {
                 instr_data_width: instr.size(),
                 instr_opcode_id: opcode_id.try_into().unwrap(),
                 instr_offset: instr.offset(),
@@ -680,15 +602,6 @@ impl<'c> Instrumentor<'c> {
         }
     }
 
-    fn kernel_trace_file_name(&self, id: u64) -> String {
-        format!("kernel-{id}.msgpack")
-    }
-
-    // fn kernel_trace_path(&self, id: u64) -> Option<PathBuf> {
-    //     self.traces_dir
-    //         .map(|traces_dir| traces_dir.join(self.kernel_trace_file_name(id)))
-    // }
-
     /// Generate traces on a per kernel basis.
     ///
     /// Due to limitations of rusts safety guarantees, we cannot use
@@ -700,19 +613,11 @@ impl<'c> Instrumentor<'c> {
     /// per-kernel files, we already know the number of total kernels
     /// and can pre-allocate serializers for them.
     fn generate_per_kernel_traces(&self) {
-        // let Some(ref traces_dir) = self.traces_dir else {
-        //     return;
-        // };
-        // let Some(ref rmp_trace_file_path) = self.rmp_trace_file_path else {
-        //     return;
-        // };
-
-        let mut reader = BufReader::new(
-            OpenOptions::new()
-                .read(true)
-                .open(&self.rmp_trace_file_path)
-                .unwrap(),
-        );
+        let trace_file = OpenOptions::new()
+            .read(true)
+            .open(&self.rmp_trace_file_path)
+            .unwrap();
+        let mut reader = BufReader::new(trace_file);
 
         // get all traced kernel ids
         let mut kernel_ids = HashSet::new();
@@ -727,48 +632,36 @@ impl<'c> Instrumentor<'c> {
         let mut rmp_serializers: HashMap<u64, _> = kernel_ids
             .into_iter()
             .map(|id| {
-                let kernel_trace_path = self.traces_dir.join(self.kernel_trace_file_name(id));
-
+                let kernel_trace_path = self.traces_dir.join(kernel_trace_file_name(id));
                 (id, rmp_serializer(&kernel_trace_path))
             })
             .collect();
         let mut rmp_encoders: HashMap<u64, _> = rmp_serializers
             .iter_mut()
-            .map(|(id, mut ser)| (*id, Encoder::new(ser).unwrap()))
+            .map(|(id, ser)| (*id, Encoder::new(ser).unwrap()))
             .collect();
         let decoder = Decoder::new(|access: trace::MemAccessTraceEntry| {
             let encoder = rmp_encoders.get_mut(&access.kernel_id).unwrap();
-            encoder.encode::<trace::MemAccessTraceEntry>(access);
+            encoder
+                .encode::<trace::MemAccessTraceEntry>(access)
+                .unwrap();
         });
-        reader.rewind();
+        reader.rewind().unwrap();
         rmp_serde::Deserializer::new(&mut reader)
             .deserialize_seq(decoder)
             .unwrap();
 
         for (_, encoder) in rmp_encoders {
-            encoder.finalize();
+            encoder.finalize().unwrap();
         }
     }
 
     fn save_command_trace(&self) {
-        // let Some(ref traces_dir) = self.traces_dir else {
-        //     return;
-        // };
-
         let command_trace_file_path = self.traces_dir.join("commands.json");
-        let mut command_trace_file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&command_trace_file_path)
-            .unwrap();
-        command_trace_file
-            .metadata()
-            .unwrap()
-            .permissions()
-            .set_readonly(false);
+        let command_trace_file =
+            utils::fs::open_writable_as_nobody(&command_trace_file_path).unwrap();
 
-        let mut writer = std::io::BufWriter::new(command_trace_file);
+        let writer = std::io::BufWriter::new(command_trace_file);
         let mut serializer = serde_json::Serializer::with_formatter(
             writer,
             serde_json::ser::PrettyFormatter::with_indent(b"    "),
@@ -783,24 +676,10 @@ impl<'c> Instrumentor<'c> {
     }
 
     fn save_allocations(&self) {
-        // let Some(ref traces_dir) = self.traces_dir else {
-        //     return;
-        // };
-
         let allocations_file_path = self.traces_dir.join("allocations.json");
-        let mut allocations_file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&allocations_file_path)
-            .unwrap();
-        allocations_file
-            .metadata()
-            .unwrap()
-            .permissions()
-            .set_readonly(false);
+        let allocations_file = utils::fs::open_writable_as_nobody(&allocations_file_path).unwrap();
 
-        let mut writer = std::io::BufWriter::new(allocations_file);
+        let writer = std::io::BufWriter::new(allocations_file);
         let mut serializer = serde_json::Serializer::with_formatter(
             writer,
             serde_json::ser::PrettyFormatter::with_indent(b"    "),
@@ -813,19 +692,11 @@ impl<'c> Instrumentor<'c> {
 
     #[cfg(feature = "plot")]
     fn plot_memory_accesses(&self) {
-        // plot memory accesses
-        // let Some(ref traces_dir)= self.traces_dir else {
-        //     return;
-        // };
-        // let Some(ref trace_file) = self.rmp_trace_file_path else {
-        //     return;
-        // };
-
         let accesses_file = OpenOptions::new()
             .read(true)
             .open(&self.rmp_trace_file_path)
             .unwrap();
-        let mut reader = BufReader::new(accesses_file);
+        let reader = BufReader::new(accesses_file);
         let mut reader = rmp_serde::Deserializer::new(reader);
         let mut access_plot = plot::MemoryAccesses::default();
 
@@ -884,8 +755,6 @@ pub extern "C" fn nvbit_at_ctx_init(ctx: nvbit_rs::Context<'static>) {
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn nvbit_at_ctx_term(ctx: nvbit_rs::Context<'static>) {
-    use std::io::Write;
-
     log::debug!("nvbit_at_ctx_term");
     let Some(trace_ctx) = (unsafe { CONTEXTS.get(&ctx.handle()) }) else {
         return;
@@ -926,7 +795,7 @@ pub extern "C" fn nvbit_at_ctx_term(ctx: nvbit_rs::Context<'static>) {
     log::info!("done after {:?}", trace_ctx.start.elapsed());
 
     // this is often run as sudo, but we dont want to create files as sudo
-    create_trace_dir(&trace_ctx.traces_dir);
+    let _ = utils::fs::create_dirs_as_nobody(&trace_ctx.traces_dir);
 
     // cleanup
     let need_cleanup = trace_ctx.need_cleanup.lock().unwrap();

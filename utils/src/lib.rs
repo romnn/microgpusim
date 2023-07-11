@@ -1,5 +1,6 @@
 #![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 pub mod build;
+pub mod fs;
 
 use color_eyre::{eyre, Section, SectionExt};
 use std::path::{Path, PathBuf};
@@ -49,7 +50,7 @@ where
     S: AsRef<str>,
 {
     let globs = patterns.into_iter().map(|p| glob::glob(p.as_ref()));
-    globs.flat_map(|x| x).flat_map(|x| x)
+    globs.flatten().flatten()
 }
 
 pub fn partition_results<O, E, OC, EC>(results: impl IntoIterator<Item = Result<O, E>>) -> (OC, EC)
@@ -68,7 +69,7 @@ where
 #[must_use]
 pub fn find_cuda() -> Option<PathBuf> {
     let cuda_candidates = cuda_candidates();
-    cuda_candidates.iter().cloned().next()
+    cuda_candidates.first().cloned()
 }
 
 #[must_use]
@@ -104,13 +105,18 @@ pub fn cuda_candidates() -> Vec<PathBuf> {
     valid_paths
 }
 
+/// Normalize paths
+///
+/// Unlike `std::fs::Path::canonicalize`, this function does not access the file system.
+/// Hence, this function can be used for paths that do not (yet) exist.
+///
+/// # Source:
+/// [cargo](https://github.com/rust-lang/cargo/blob/fede83ccf973457de319ba6fa0e36ead454d2e20/src/cargo/util/paths.rs#L61)
 #[must_use]
 pub fn normalize_path(path: impl AsRef<Path>) -> PathBuf {
-    /// source:
-    /// https://github.com/rust-lang/cargo/blob/fede83ccf973457de319ba6fa0e36ead454d2e20/src/cargo/util/paths.rs#L61
     use std::path::Component;
     let mut components = path.as_ref().components().peekable();
-    let mut ret = if let Some(c @ Component::Prefix(..)) = components.peek().cloned() {
+    let mut ret = if let Some(c @ Component::Prefix(..)) = components.peek().copied() {
         components.next();
         PathBuf::from(c.as_os_str())
     } else {
@@ -143,9 +149,9 @@ pub struct CommandError {
 
 impl CommandError {
     #[must_use]
-    pub fn new(cmd: async_process::Command, output: async_process::Output) -> Self {
+    pub fn new(cmd: &async_process::Command, output: async_process::Output) -> Self {
         Self {
-            command: format!("{:?}", cmd),
+            command: format!("{cmd:?}"),
             output,
         }
     }
@@ -178,4 +184,17 @@ impl CommandError {
         .with_section(|| decode_utf8!(&self.output.stderr).header("stderr:"))
         .with_section(|| decode_utf8!(&self.output.stdout).header("stdout:"))
     }
+}
+
+pub const SUCCESS_CODE: i32 = 0;
+pub const BAD_USAGE_CODE: i32 = 2;
+
+/// Exit with exit code.
+pub fn safe_exit(code: i32) -> ! {
+    use std::io::Write;
+
+    let _ = std::io::stdout().lock().flush();
+    let _ = std::io::stderr().lock().flush();
+
+    std::process::exit(code)
 }

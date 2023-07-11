@@ -166,7 +166,6 @@ where
         status
     }
 
-    // fn fill(&mut self, fetch: &mut mem_fetch::MemFetch) {
     fn fill(&mut self, fetch: mem_fetch::MemFetch) {
         self.inner.fill(fetch);
     }

@@ -2,10 +2,18 @@
 ##
 ## AUTO GENERATED! DO NOT EDIT
 ##
-## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 11/07/2023 02:36:48
+## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 11/07/2023 18:52:37
 ##
 
 config:
+  results_dir: /home/roman/dev/box/results
+  trace:
+    repetitions: 1
+    concurrency: 1
+    enabled: true
+    results_dir: /home/roman/dev/box/results
+    full_trace: false
+    save_json: true
   profile:
     repetitions: 5
     concurrency: 1
@@ -27,8 +35,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/vectorAdd/vectorAdd-100-32/profile.log
-      metrics_file: /home/roman/dev/box/results/vectorAdd/vectorAdd-100-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/vectorAdd/vectorAdd-100-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/vectorAdd/vectorAdd-100-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-100-32/trace
+      save_json: true
+      full_trace: false
   - name: vectorAdd
     path: /home/roman/dev/box/test-apps/vectoradd
     executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd
@@ -43,8 +59,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/vectorAdd/vectorAdd-1000-32/profile.log
-      metrics_file: /home/roman/dev/box/results/vectorAdd/vectorAdd-1000-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/vectorAdd/vectorAdd-1000-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/vectorAdd/vectorAdd-1000-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-1000-32/trace
+      save_json: true
+      full_trace: false
   - name: vectorAdd
     path: /home/roman/dev/box/test-apps/vectoradd
     executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd
@@ -59,8 +83,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/vectorAdd/vectorAdd-10000-32/profile.log
-      metrics_file: /home/roman/dev/box/results/vectorAdd/vectorAdd-10000-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/vectorAdd/vectorAdd-10000-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/vectorAdd/vectorAdd-10000-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-10000-32/trace
+      save_json: true
+      full_trace: false
   simple_matrixmul:
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -80,8 +112,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-32-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-32-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-32-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-32-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-32-32/trace
+      save_json: true
+      full_trace: false
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
@@ -100,8 +140,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-64-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-64-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-64-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-64-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-64-32/trace
+      save_json: true
+      full_trace: false
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
@@ -120,8 +168,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-128-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-128-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-128-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-128-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-128-32/trace
+      save_json: true
+      full_trace: false
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
@@ -140,8 +196,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-32-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-32-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-32-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-32-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-32-32/trace
+      save_json: true
+      full_trace: false
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
@@ -160,8 +224,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-64-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-64-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-64-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-64-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-64-32/trace
+      save_json: true
+      full_trace: false
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
@@ -180,8 +252,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-128-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-128-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-128-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-128-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-128-32/trace
+      save_json: true
+      full_trace: false
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
@@ -200,8 +280,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-32-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-32-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-32-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-32-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-32-32/trace
+      save_json: true
+      full_trace: false
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
@@ -220,8 +308,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-64-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-64-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-64-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-64-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-64-32/trace
+      save_json: true
+      full_trace: false
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
@@ -240,8 +336,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-128-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-128-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-128-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-128-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-128-32/trace
+      save_json: true
+      full_trace: false
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
@@ -260,8 +364,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-32-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-32-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-32-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-32-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-32-32/trace
+      save_json: true
+      full_trace: false
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
@@ -280,8 +392,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-64-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-64-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-64-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-64-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-64-32/trace
+      save_json: true
+      full_trace: false
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
@@ -300,8 +420,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-128-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-128-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-128-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-128-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-128-32/trace
+      save_json: true
+      full_trace: false
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
@@ -320,8 +448,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-32-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-32-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-32-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-32-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-32-32/trace
+      save_json: true
+      full_trace: false
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
@@ -340,8 +476,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-64-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-64-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-64-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-64-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-64-32/trace
+      save_json: true
+      full_trace: false
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
@@ -360,8 +504,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-128-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-128-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-128-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-128-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-128-32/trace
+      save_json: true
+      full_trace: false
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
@@ -380,8 +532,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-32-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-32-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-32-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-32-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-32-32/trace
+      save_json: true
+      full_trace: false
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
@@ -400,8 +560,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-64-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-64-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-64-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-64-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-64-32/trace
+      save_json: true
+      full_trace: false
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
@@ -420,8 +588,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-128-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-128-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-128-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-128-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-128-32/trace
+      save_json: true
+      full_trace: false
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
@@ -440,8 +616,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-32-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-32-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-32-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-32-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-32-32/trace
+      save_json: true
+      full_trace: false
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
@@ -460,8 +644,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-64-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-64-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-64-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-64-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-64-32/trace
+      save_json: true
+      full_trace: false
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
@@ -480,8 +672,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-128-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-128-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-128-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-128-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-128-32/trace
+      save_json: true
+      full_trace: false
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
@@ -500,8 +700,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-32-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-32-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-32-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-32-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-32-32/trace
+      save_json: true
+      full_trace: false
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
@@ -520,8 +728,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-64-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-64-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-64-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-64-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-64-32/trace
+      save_json: true
+      full_trace: false
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
@@ -540,8 +756,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-128-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-128-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-128-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-128-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-128-32/trace
+      save_json: true
+      full_trace: false
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
@@ -560,8 +784,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-32-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-32-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-32-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-32-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-32-32/trace
+      save_json: true
+      full_trace: false
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
@@ -580,8 +812,16 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-64-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-64-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-64-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-64-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-64-32/trace
+      save_json: true
+      full_trace: false
   - name: simple_matrixmul
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
@@ -600,5 +840,13 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-128-32/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-128-32/profile.metrics.csv
+      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-128-32/profile/profile.log
+      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-128-32/profile/profile.metrics.csv
+    trace:
+      repetitions: 1
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-128-32/trace
+      save_json: true
+      full_trace: false

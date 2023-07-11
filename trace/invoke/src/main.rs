@@ -1,8 +1,26 @@
-use clap::Parser;
-use color_eyre::eyre::{self, WrapErr};
+use clap::{CommandFactory, Parser};
+use color_eyre::eyre;
 use std::path::PathBuf;
 
+const HELP_TEMPLATE: &str = "{bin} {version} {author}
+
+{about}
+
+USAGE: {usage} -- <executable> [args]
+
+{all-args}
+";
+
+const USAGE: &str = "./trace [OPTIONS] -- <executable> [args]";
+
 #[derive(Parser, Debug, Clone)]
+#[clap(
+    help_template=HELP_TEMPLATE,
+    override_usage=USAGE,
+    version = option_env!("CARGO_PKG_VERSION").unwrap_or("unknown"),
+    about = "trace CUDA applications",
+    author = "romnn <contact@romnn.com>",
+)]
 pub struct Options {
     #[clap(long = "traces-dir", help = "path to output traces dir")]
     pub traces_dir: Option<PathBuf>,
@@ -12,34 +30,35 @@ pub struct Options {
         long = "save-json",
         help = "whether to also save JSON traces (default: false)"
     )]
-    pub save_json: Option<bool>,
+    pub save_json: bool,
+    #[clap(
+        long = "full-trace",
+        help = "trace all instructions, including non-memory instructions (default: false)"
+    )]
+    pub full_trace: bool,
 }
 
-static USAGE: &str = r#"USAGE: ./trace [options] -- <executable> [args]
-    
-Options:
-    --traces-dir       path to output traces dir
-    --save-json        whether to also save JSON traces (default: false)
-    --tracer           path to tracer (e.g. libtrace.so)
-
-"#;
-
-fn parse_args() -> eyre::Result<(PathBuf, Vec<String>, Options)> {
+fn parse_args() -> Result<(PathBuf, Vec<String>, Options), clap::Error> {
     let args: Vec<_> = std::env::args().collect();
 
     // split arguments for tracer and application
     let split_idx = args
         .iter()
         .position(|arg| arg.trim() == "--")
-        .ok_or(eyre::eyre!("missing \"--\" argument separator"))?;
+        .unwrap_or(args.len());
     let mut trace_opts = args;
     let mut exec_args = trace_opts.split_off(split_idx).into_iter();
 
-    exec_args.next(); // skip binary
-    let exec = PathBuf::from(exec_args.next().expect(USAGE));
+    // must parse options first for --help to work
+    let options = Options::try_parse_from(trace_opts)?;
 
-    let options = Options::try_parse_from(trace_opts).wrap_err(USAGE)?;
-    Ok((exec, exec_args.collect(), options))
+    exec_args.next(); // skip binary
+    let exec = exec_args.next().ok_or(Options::command().error(
+        clap::error::ErrorKind::MissingRequiredArgument,
+        "missing executable",
+    ))?;
+
+    Ok((PathBuf::from(exec), exec_args.collect(), options))
 }
 
 #[tokio::main]
@@ -48,10 +67,15 @@ async fn main() -> eyre::Result<()> {
 
     let start = std::time::Instant::now();
 
-    let (exec, exec_args, options) = parse_args()?;
+    let (exec, exec_args, options) = match parse_args() {
+        Ok(parsed) => parsed,
+        Err(err) => err.exit(),
+    };
+
     let Options {
         traces_dir,
         save_json,
+        full_trace,
         tracer,
     } = options;
 
@@ -75,12 +99,15 @@ async fn main() -> eyre::Result<()> {
         traces_dir,
         tracer_so,
         save_json,
+        full_trace,
     };
     dbg!(&trace_options);
-    invoke_trace::trace(exec, exec_args, &trace_options).await.map_err(|err| match err {
-        invoke_trace::Error::Command(err) => err.into_eyre(),
-        err => err.into(),
-    })?;
+    invoke_trace::trace(exec, exec_args, &trace_options)
+        .await
+        .map_err(|err| match err {
+            invoke_trace::Error::Command(err) => err.into_eyre(),
+            err => err.into(),
+        })?;
     println!("tracing done in {:?}", start.elapsed());
     Ok(())
 }

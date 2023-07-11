@@ -55,8 +55,6 @@ pub struct ProfileOptions {
     #[default = true]
     #[serde(default = "bool_true")]
     pub enabled: bool,
-    // log_file: Option<Template<PathBuf>>,
-    // metrics_file: Option<Template<PathBuf>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, smart_default::SmartDefault)]
@@ -157,32 +155,9 @@ impl Benchmark {
 pub struct TargetConfig {
     pub repetitions: Option<usize>,
     pub concurrency: Option<usize>,
-
-    // #[default = true]
-    // #[serde(default = "bool_true")]
     pub enabled: Option<bool>,
-
-    // #[serde(default)]
     pub results_dir: Option<PathBuf>,
 }
-
-// impl TargetConfig {
-//     pub fn materialize(self, base: &Path, parent_config: &TargetConfig) -> Result<Self, Error> {
-//         let results_dir = self
-//             .results_dir
-//             .map(|dir| dir.resolve(base))
-//             .or_else(|| parent_config.results_dir.clone());
-//         // let results_dir = match self.results_dir {
-//         //     Some(results_dir) => Some(results_dir.resolve(base)),
-//         //     None => Some(config.results_dir),
-//         // };
-//         Ok(Self {
-//             repetitions: self.repetitions.or(parent_config.repetitions),
-//             concurrency: self.repetitions.or(parent_config.concurrency),
-//             results_dir,
-//         })
-//     }
-// }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct TraceConfig {
@@ -190,16 +165,9 @@ pub struct TraceConfig {
     pub common: TargetConfig,
     #[serde(default)]
     pub full_trace: bool,
+    #[serde(default = "bool_true")]
+    pub save_json: bool,
 }
-
-// impl TraceConfig {
-//     pub fn materialize(self, base: &Path, parent_config: &TargetConfig) -> Result<Self, Error> {
-//         todo!();
-//         // Ok(Self {
-//         //     common: self.common.materialize(base, parent_config)?,
-//         // })
-//     }
-// }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct AccelsimTraceConfig {
@@ -207,32 +175,11 @@ pub struct AccelsimTraceConfig {
     pub common: TargetConfig,
 }
 
-// impl AccelsimTraceConfig {
-//     pub fn materialize(self, base: &Path, parent_config: &TargetConfig) -> Result<Self, Error> {
-//         todo!();
-//         // Ok(Self {
-//         //     common: self.common.materialize(base, parent_config)?,
-//         // })
-//     }
-// }
-
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct ProfileConfig {
     #[serde(flatten)]
     pub common: TargetConfig,
-    #[serde(default)]
-    pub keep_log_file: bool,
 }
-
-// impl ProfileConfig {
-//     pub fn materialize(self, base: &Path, parent_config: &TargetConfig) -> Result<Self, Error> {
-//         todo!();
-//         // Ok(Self {
-//         //     common: self.common.materialize(base, parent_config)?,
-//         //     keep_log_file: self.keep_log_file,
-//         // })
-//     }
-// }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct SimConfig {
@@ -240,29 +187,11 @@ pub struct SimConfig {
     pub common: TargetConfig,
 }
 
-// impl SimConfig {
-//     pub fn materialize(self, base: &Path, parent_config: &TargetConfig) -> Result<Self, Error> {
-//         todo!();
-//         // Ok(Self {
-//         //     common: self.common.materialize(base, parent_config)?,
-//         // })
-//     }
-// }
-
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct AccelsimSimConfig {
     #[serde(flatten)]
     pub common: TargetConfig,
 }
-
-// impl AccelsimSimConfig {
-//     pub fn materialize(self, base: &Path, parent_config: &TargetConfig) -> Result<Self, Error> {
-//         todo!();
-//         // Ok(Self {
-//         //     common: self.common.materialize(base, parent_config)?,
-//         // })
-//     }
-// }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Config {

@@ -20,19 +20,6 @@ use std::sync::Arc;
 use validate::benchmark::{paths::PathExt, template};
 use validate::{materialize, Benchmark, Benchmarks, Config};
 
-#[inline]
-fn open_writable(path: &Path) -> eyre::Result<std::io::BufWriter<std::fs::File>, std::io::Error> {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).ok();
-    }
-    let file = std::fs::OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .open(path)?;
-    Ok(std::io::BufWriter::new(file))
-}
-
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum Format {
     JSON,
@@ -119,36 +106,28 @@ async fn run_benchmark(
 
     let res: eyre::Result<()> = match options.command {
         Command::Profile(ref opts) => {
-            let results = profile::nvprof::nvprof(&bench.executable, &bench.args).await?;
+            let options = profile::nvprof::Options {};
+            let results = profile::nvprof::nvprof(&bench.executable, &bench.args, &options).await?;
 
-            // let metrics_file = bench.profile.metrics_file(&tmpl_values);
-            // let default_log_file = config
-            //     .results_dir
-            //     .join(&name)
-            //     .join(format!("{}-{}", &name, input.cmd_args.join("-")))
-            //     .join("profile.log");
-            // dbg!(&default_log_file);
-            // let log_file = bench
-            //     .profile
-            //     .log_file(&tmpl_values)?
-            //     .unwrap_or(default_log_file);
-            // dbg!(&log_file);
-            //
-            let writer = open_writable(&bench.profile.metrics_file)?;
+            let writer = utils::fs::open_writable_as_nobody(&bench.profile.metrics_file)?;
             serde_json::to_writer_pretty(writer, &results.metrics)?;
-            let mut writer = open_writable(&bench.profile.log_file)?;
+            let mut writer = utils::fs::open_writable_as_nobody(&bench.profile.log_file)?;
             writer.write_all(results.raw.as_bytes())?;
-
-            // dbg!(&results);
-            // let traces_dir = exec_dir.join("traces").join(format!(
-            //     "{}-trace",
-            //     &trace_model::app_prefix(option_env!("CARGO_BIN_NAME"))
-            // ));
-
             Ok(())
         }
         Command::Trace(ref opts) => {
-            // invoke_trace::trace(exec, exec_args, traces_dir).await?;
+            // create traces dir
+            let traces_dir = &bench.trace.traces_dir;
+            utils::fs::create_dirs_as_nobody(traces_dir)
+                .wrap_err_with(|| format!("failed to create dir {}", traces_dir.display()))?;
+
+            let options = invoke_trace::Options {
+                traces_dir: traces_dir.clone(),
+                tracer_so: None, // auto detect
+                save_json: bench.trace.save_json,
+                full_trace: bench.trace.full_trace,
+            };
+            let results = invoke_trace::trace(&bench.executable, &bench.args, &options).await?;
             Ok(())
         }
         Command::Simulate(ref opts) => Ok(()),
@@ -341,6 +320,13 @@ async fn main() -> eyre::Result<()> {
         .await;
     bar.finish();
 
+    let _ = utils::chown(
+        materialized.config.results_dir,
+        utils::UID_NOBODY,
+        utils::GID_NOBODY,
+        false,
+    );
+
     let (succeeded, failed): (Vec<_>, Vec<_>) = utils::partition_results(results);
     assert_eq!(num_bench_configs, succeeded.len() + failed.len());
 
@@ -357,7 +343,7 @@ async fn main() -> eyre::Result<()> {
     );
 
     for err in &failed {
-        dbg!(&err);
+        eprintln!("{:?}", err);
     }
     Ok(())
 }

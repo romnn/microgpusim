@@ -1,7 +1,9 @@
+#![allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
 // #![allow(warnings)]
 pub mod nvprof;
 
 use serde::Deserialize;
+use std::path::PathBuf;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ParseError {
@@ -26,8 +28,11 @@ pub enum Error {
     #[error(transparent)]
     Io(#[from] std::io::Error),
 
-    #[error("missing profiler: {0}")]
-    MissingProfiler(String),
+    #[error("missing profiler: {0:?}")]
+    MissingProfiler(PathBuf),
+
+    #[error("missing executable: {0:?}")]
+    MissingExecutable(PathBuf),
 
     #[error("missing CUDA")]
     MissingCUDA,
