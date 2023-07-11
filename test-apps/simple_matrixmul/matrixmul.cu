@@ -19,32 +19,16 @@ void check(cudaError_t err, const char *const func, const char *const file,
 
 template <typename T> std::vector<T> create_rand_vector(size_t n) {
   std::random_device r;
-  std::default_random_engine e(r());
-  /* std::uniform_int_distribution<int> uniform_dist(-256, 256); */
-  std::uniform_int_distribution<int> uniform_dist(1, 5);
+  std::default_random_engine engine(r());
+  std::uniform_int_distribution<int> uniform_dist(-256, 256);
+  // std::uniform_int_distribution<int> uniform_dist(1, 5);
 
   std::vector<T> vec(n);
   for (size_t i{0}; i < n; ++i) {
-    vec.at(i) = static_cast<T>(uniform_dist(e));
+    vec.at(i) = static_cast<T>(uniform_dist(engine));
   }
 
   return vec;
-}
-
-template <typename T>
-void mult(T const *A, T const *B, T *C, size_t m, size_t n, size_t p) {
-  size_t mi, ni, pi;
-
-  for (mi = 0; mi < m; mi++) {
-    for (pi = 0; pi < p; pi++) {
-      T sum = 0.0;
-      for (ni = 0; ni < n; ni++) {
-        sum += A[mi * m + ni] * B[ni * p + pi];
-      }
-
-      C[mi * m + pi] = sum;
-    }
-  }
 }
 
 template <typename T> void print_matrix(T const *mat, size_t m, size_t n) {
@@ -55,6 +39,23 @@ template <typename T> void print_matrix(T const *mat, size_t m, size_t n) {
     std::cout << std::endl;
   }
   std::cout << std::endl;
+}
+
+template <typename T>
+void mult(T const *A, T const *B, T *C, size_t m, size_t n, size_t p) {
+  size_t mi, ni, pi;
+
+  for (mi = 0; mi < m; mi++) {
+    for (pi = 0; pi < p; pi++) {
+      T sum = 0.0;
+      for (ni = 0; ni < n; ni++) {
+        // sum += A[mi][ni] * B[ni][pi]
+        sum += A[mi * n + ni] * B[ni * p + pi];
+      }
+
+      C[mi * p + pi] = sum;
+    }
+  }
 }
 
 template <typename T>
@@ -89,11 +90,12 @@ template <typename T> int matrixmul(size_t m, size_t n, size_t p) {
   T *c_gpu{c_gpu_vec.data()};
   T *c_cpu{c_cpu_vec.data()};
 
-  std::cout << "A:" << std::endl;
-  print_matrix<T>(a, m, n);
-
-  std::cout << "B:" << std::endl;
-  print_matrix<T>(b, n, p);
+  printf("(%lu x %lu) x (%lu x %lu) = (%lu x %lu)\n\n", m, n, n, p, m, p);
+  // std::cout << "A:" << std::endl;
+  // print_matrix<T>(a, m, n);
+  //
+  // std::cout << "B:" << std::endl;
+  // print_matrix<T>(b, n, p);
 
   T *dev_a, *dev_b, *dev_c;
 
@@ -110,11 +112,14 @@ template <typename T> int matrixmul(size_t m, size_t n, size_t p) {
 
   // run matrix multiplication on GPU
   dim3 block_size(BLOCK_DIM, BLOCK_DIM);
+  printf("block=(%d, %d, %d)\n", block_size.x, block_size.y, block_size.z);
   size_t grid_x =
       std::ceil(static_cast<double>(p) / static_cast<double>(block_size.x));
   size_t grid_y =
       std::ceil(static_cast<double>(m) / static_cast<double>(block_size.y));
   dim3 grid(grid_x, grid_y);
+  printf("grid=(%d, %d, %d)\n", grid.x, grid.y, grid.z);
+
   mult_gpu<T><<<grid, block_size>>>(dev_a, dev_b, dev_c, m, n, p);
 
   cudaDeviceSynchronize();
@@ -137,19 +142,19 @@ template <typename T> int matrixmul(size_t m, size_t n, size_t p) {
 
   mult<T>(a, b, c_cpu, m, n, p);
 
-  std::cout << "C: (GPU)" << std::endl;
-  print_matrix<T>(c_gpu, m, p);
-
-  std::cout << "C: (CPU)" << std::endl;
-  print_matrix<T>(c_cpu, m, p);
+  // std::cout << "C: (GPU)" << std::endl;
+  // print_matrix<T>(c_gpu, m, p);
+  //
+  // std::cout << "C: (CPU)" << std::endl;
+  // print_matrix<T>(c_cpu, m, p);
 
   // verification
   printf("Verifying... \n");
   bool correct = true;
   for (int mi = 0; mi < m; mi++) {
     for (int pi = 0; pi < p; pi++) {
-      T have = c_gpu[mi * m + pi];
-      T want = c_cpu[mi * m + pi];
+      T have = c_gpu[mi * p + pi];
+      T want = c_cpu[mi * p + pi];
       if (abs(have - want) > 1e-2) {
         printf("Error: have %f but want %f at (%d, %d)\n", have, want, mi, pi);
         correct = false;
