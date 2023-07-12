@@ -184,7 +184,7 @@ async fn main() -> eyre::Result<()> {
         .unwrap_or(log_file_path.with_extension("csv"));
     let mut parse_options = ParseOptions::new(log_file_path);
     parse_options.save_to(stats_file_path);
-    let stats = parse(parse_options)?;
+    let stats = parse(&parse_options)?;
 
     let mut preview: Vec<_> = stats
         .iter()

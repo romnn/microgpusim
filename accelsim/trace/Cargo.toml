@@ -20,6 +20,7 @@ dialoguer = "0"
 console = "0"
 async-process = "1"
 tokio = { version = "1", features = ["full"] }
+clap = { version = "4", features = ["derive"] }
 
 trace-model = { path = "../../trace/model" }
 accelsim = { path = "../" }

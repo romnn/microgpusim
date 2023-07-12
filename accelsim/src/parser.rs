@@ -3,9 +3,9 @@ use clap::Parser;
 use color_eyre::eyre;
 use itertools::Itertools;
 
+use once_cell::sync::Lazy;
 use regex::Regex;
 use std::{
-    cell::OnceCell,
     collections::{HashMap, HashSet},
     fs, io,
     path::{Path, PathBuf},
@@ -63,6 +63,11 @@ enum StatKind {
     Rate,
 }
 
+static GPGPUSIM_BUILD_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r".*GPGPU-Sim.*\[build\s+(.*)\].*").unwrap());
+static ACCELSIM_BUILD_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r".*Accel-Sim.*\[build\s+(.*)\].*").unwrap());
+
 /// Does a quick 100-line pass to get the GPGPU-Sim Version number.
 ///
 /// Assumes the reader is seeked to the beginning of the file.
@@ -75,9 +80,7 @@ fn get_version(mut f: impl BufReadLine + io::Seek) -> Option<String> {
             break;
         }
 
-        const GPGPUSIM_BUILD_REGEX: OnceCell<Regex> = OnceCell::new();
         if let Some(build) = GPGPUSIM_BUILD_REGEX
-            .get_or_init(|| Regex::new(r".*GPGPU-Sim.*\[build\s+(.*)\].*").unwrap())
             .captures(line)
             .and_then(|c| c.get(1))
             .map(|m| m.as_str().trim().to_string())
@@ -85,9 +88,7 @@ fn get_version(mut f: impl BufReadLine + io::Seek) -> Option<String> {
             return Some(build);
         }
 
-        const ACCELSIM_BUILD_REGEX: OnceCell<Regex> = OnceCell::new();
         if let Some(build) = ACCELSIM_BUILD_REGEX
-            .get_or_init(|| Regex::new(r".*Accel-Sim.*\[build\s+(.*)\].*").unwrap())
             .captures(line)
             .and_then(|c| c.get(1))
             .map(|m| m.as_str().trim().to_string())
@@ -99,6 +100,9 @@ fn get_version(mut f: impl BufReadLine + io::Seek) -> Option<String> {
     }
     None
 }
+
+static EXIT_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"GPGPU-Sim: \*\*\* exit detected \*\*\*").unwrap());
 
 /// Performs a quick 10000-line reverse pass,
 /// to make sure the simualtion thread finished.
@@ -114,12 +118,7 @@ fn check_finished(mut f: impl BufReadLine + io::Seek) -> bool {
         if lines >= MAX_LINES {
             break;
         }
-        const EXIT_REGEX: OnceCell<Regex> = OnceCell::new();
-        if EXIT_REGEX
-            .get_or_init(|| Regex::new(r"GPGPU-Sim: \*\*\* exit detected \*\*\*").unwrap())
-            .captures(line)
-            .is_some()
-        {
+        if EXIT_REGEX.captures(line).is_some() {
             return true;
         }
 
@@ -128,8 +127,17 @@ fn check_finished(mut f: impl BufReadLine + io::Seek) -> bool {
     false
 }
 
+static LAST_KERNEL_BREAK_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"GPGPU-Sim: \*\* break due to reaching the maximum cycles \(or instructions\) \*\*")
+        .unwrap()
+});
+
+static KERNEL_NAME_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"kernel_name\s+=\s+(.*)").unwrap());
+
 /// Parses accelsim log and extracts statistics.
-pub fn parse(options: Options) -> eyre::Result<Stats> {
+#[allow(clippy::too_many_lines)]
+pub fn parse(options: &Options) -> eyre::Result<Stats> {
     let finished = {
         let file = fs::OpenOptions::new().read(true).open(&options.input)?;
         let mut reader = rev_buf_reader::RevBufReader::new(file);
@@ -594,25 +602,23 @@ pub fn parse(options: Options) -> eyre::Result<Stats> {
         stat!("gpu_tot_ipc", StatKind::Rate, r"gpu_tot_ipc\s*=\s*(.*)"),
     ];
 
-    let stats: HashMap<String, (StatKind, Regex)> = HashMap::from_iter(
-        aggregate_stats
-            .into_iter()
-            .chain(abs_stats)
-            .chain(rate_stats),
-    );
+    let stats: HashMap<String, (StatKind, Regex)> = aggregate_stats
+        .into_iter()
+        .chain(abs_stats)
+        .chain(rate_stats)
+        .collect();
 
     if !finished {
         if options.strict {
-            return Err(eyre::eyre!(
-                "{} is invalid: termination message from GPGPU-Sim not found",
-                options.input.display()
-            ));
-        } else {
-            eprintln!(
+            eyre::bail!(
                 "{} is invalid: termination message from GPGPU-Sim not found",
                 options.input.display()
             );
         }
+        eprintln!(
+            "{} is invalid: termination message from GPGPU-Sim not found",
+            options.input.display()
+        );
     }
 
     let mut all_named_kernels: HashSet<(String, u16)> = HashSet::new();
@@ -637,10 +643,7 @@ pub fn parse(options: Options) -> eyre::Result<Stats> {
             // then ignore the last kernel launch, as it is no complete
             // (only appies if we are doing kernel-by-kernel stats)
 
-            const LAST_KERNEL_BREAK_REGEX: OnceCell<Regex> = OnceCell::new();
-            if LAST_KERNEL_BREAK_REGEX.get_or_init(|| 
-                Regex::new(r"GPGPU-Sim: \*\* break due to reaching the maximum cycles \(or instructions\) \*\*").unwrap()
-            ).captures(line).is_some() {
+            if LAST_KERNEL_BREAK_REGEX.captures(line).is_some() {
                 eprintln!(
                     "{}: found max instructions - ignoring last kernel",
                     options.input.display()
@@ -655,9 +658,7 @@ pub fn parse(options: Options) -> eyre::Result<Stats> {
                 }
             }
 
-            const KERNEL_NAME_REGEX: OnceCell<Regex> = OnceCell::new();
             if let Some(kernel_name) = KERNEL_NAME_REGEX
-                .get_or_init(|| Regex::new(r"kernel_name\s+=\s+(.*)").unwrap())
                 .captures(line)
                 .and_then(|c| c.get(1))
                 .map(|m| m.as_str().trim().to_string())
@@ -669,8 +670,8 @@ pub fn parse(options: Options) -> eyre::Result<Stats> {
                 if options.kernel_instance {
                     if !running_kcount.contains_key(&current_kernel) {
                         running_kcount.insert(current_kernel.clone(), 0);
-                    } else {
-                        running_kcount.get_mut(&current_kernel).map(|c| *c += 1);
+                    } else if let Some(c) = running_kcount.get_mut(&current_kernel) {
+                        *c += 1;
                     }
                 }
 
@@ -707,9 +708,9 @@ pub fn parse(options: Options) -> eyre::Result<Stats> {
                     } else if stat_map.contains_key(&key) {
                         let stat_last_kernel = raw_last.get(stat_name).copied().unwrap_or(0.0);
                         raw_last.insert(stat_name.clone(), value);
-                        stat_map
-                            .get_mut(&key)
-                            .map(|v| *v += value - stat_last_kernel);
+                        if let Some(v) = stat_map.get_mut(&key) {
+                            *v += value - stat_last_kernel;
+                        }
                     } else {
                         let last_kernel_key =
                             (last_kernel.0.clone(), last_kernel.1, stat_name.to_string());

@@ -44,16 +44,18 @@ pub struct SimConfig {
 }
 
 impl Options {
+    #[must_use]
     pub fn kernelslist(&self) -> PathBuf {
         self.traces_dir.join("kernelslist.g")
     }
 }
 
 impl SimConfig {
+    #[must_use]
     pub fn config(&self) -> Option<PathBuf> {
         match (&self.config, &self.config_dir) {
             (None, None) => None,
-            (Some(config), _) => Some(config.to_path_buf()),
+            (Some(config), _) => Some(config.clone()),
             (None, Some(config_dir)) => Some(config_dir.join("gpgpusim.config")),
         }
         // self.config
@@ -67,10 +69,11 @@ impl SimConfig {
     }
 
     // pub fn trace_config(&self) -> Option<Result<PathBuf, std::io::Error>> {
+    #[must_use]
     pub fn trace_config(&self) -> Option<PathBuf> {
         match (&self.trace_config, &self.config_dir) {
             (None, None) => None,
-            (Some(config), _) => Some(config.to_path_buf()),
+            (Some(config), _) => Some(config.clone()),
             (None, Some(config_dir)) => Some(config_dir.join("gpgpusim.trace.config")),
         }
         // self.trace_config

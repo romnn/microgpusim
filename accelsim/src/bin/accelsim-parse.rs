@@ -1,5 +1,5 @@
-use color_eyre::eyre;
 use clap::Parser;
+use color_eyre::eyre;
 use std::time::Instant;
 
 fn main() -> eyre::Result<()> {
@@ -9,7 +9,7 @@ fn main() -> eyre::Result<()> {
     let options = accelsim::parser::Options::parse();
     println!("options: {:#?}", &options);
 
-    let stats = accelsim::parser::parse(options);
+    let stats = accelsim::parser::parse(&options)?;
 
     println!("stats: {:#?}", &stats);
     println!("done after {:?}", start.elapsed());
