@@ -32,7 +32,7 @@ pub struct Options {
     pub style_file: Option<PathBuf>,
 }
 
-const EXTENSIONS: [&'static str; 12] = [
+const EXTENSIONS: [&str; 12] = [
     "cc", "C", "c", "c++", "cxx", "cpp", // sources
     "hpp", "hxx", "h", "h++", "hh", "H", // headers
 ];
@@ -72,16 +72,16 @@ pub fn format(options: Options) -> eyre::Result<()> {
         .iter()
         .map(|ext| {
             options.dir.join(if options.recursive {
-                format!("**/*.{}", ext)
+                format!("**/*.{ext}")
             } else {
-                format!("*.{}", ext)
+                format!("*.{ext}")
             })
         })
         .map(|path| path.to_string_lossy().to_string())
         .collect();
 
     let (files, glob_failed): (HashSet<_>, Vec<_>) =
-        utils::partition_results(utils::multi_glob(&patterns));
+        utils::partition_results(utils::fs::multi_glob(&patterns));
     assert!(glob_failed.is_empty());
 
     let num_files = files.len();

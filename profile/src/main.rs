@@ -7,7 +7,7 @@ const HELP_TEMPLATE: &str = "{bin} {version} {author}
 
 {about}
 
-USAGE: {usage} -- <executable> [args]
+USAGE: {usage}
 
 {all-args}
 ";

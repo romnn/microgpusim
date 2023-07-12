@@ -5,7 +5,6 @@ use clap::{CommandFactory, Parser};
 use color_eyre::eyre::{self, WrapErr};
 use std::collections::HashMap;
 use std::io::Write;
-use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -83,11 +82,12 @@ pub fn render_trace_script(
     }
     let post_traces_processing = nvbit_tracer_tool.join("traces-processing/post-traces-processing");
 
-    let mut trace_cmds: Vec<String> = vec![];
-    trace_cmds.push("set -e".to_string());
-    trace_cmds.push(r#"echo "hello from tracing file""#.to_string());
-    trace_cmds.extend(env.iter().map(|(k, v)| format!("export {k}=\"{v}\"")));
-    trace_cmds.push(
+    let mut trace_sh: Vec<String> = vec![];
+    trace_sh.push("#!/usr/bin/env bash".to_string());
+    trace_sh.push("set -e".to_string());
+    // trace_sh.push(r#"echo "tracing...""#.to_string());
+    trace_sh.extend(env.iter().map(|(k, v)| format!("export {k}=\"{v}\"")));
+    trace_sh.push(
         [exec.to_string_lossy().to_string()]
             .into_iter()
             .chain(exec_args.iter().cloned())
@@ -95,16 +95,15 @@ pub fn render_trace_script(
             .join(" "),
     );
     let kernelslist = traces_dir.join("kernelslist");
-    trace_cmds.push(format!(
+    trace_sh.push(format!(
         "{} {}",
         post_traces_processing.display(),
         kernelslist.display(),
     ));
-    trace_cmds.push(format!("rm -f {}", traces_dir.join("*.trace").display()));
-    trace_cmds.push(format!("rm -f {}", kernelslist.display(),));
+    trace_sh.push(format!("rm -f {}", traces_dir.join("*.trace").display()));
+    trace_sh.push(format!("rm -f {}", kernelslist.display(),));
 
-    let trace_sh = trace_cmds.join("\n");
-    Ok(trace_sh)
+    Ok(trace_sh.join("\n"))
 }
 
 async fn run_trace(
@@ -151,14 +150,18 @@ async fn run_trace(
     println!("{}", &tmp_trace_sh);
 
     let tmp_trace_sh_path = options.traces_dir.join("trace.tmp.sh");
-    let mut tmp_trace_sh_file = std::fs::OpenOptions::new()
-        .write(true)
-        .truncate(true)
-        .create(true)
-        // file needs to be executable
-        .mode(0o777)
-        .open(&tmp_trace_sh_path)?;
-    tmp_trace_sh_file.write_all(tmp_trace_sh.as_bytes())?;
+    {
+        let mut tmp_trace_sh_file = utils::fs::open_writable(&tmp_trace_sh_path)?;
+        // use std::os::unix::fs::OpenOptionsExt;
+        // let mut tmp_trace_sh_file = std::fs::OpenOptions::new()
+        //     .write(true)
+        //     .truncate(true)
+        //     .create(true)
+        //     // file needs to be executable
+        //     .mode(0o777)
+        //     .open(&tmp_trace_sh_path)?;
+        tmp_trace_sh_file.write_all(tmp_trace_sh.as_bytes())?;
+    }
 
     let tmp_trace_sh_path = tmp_trace_sh_path.canonicalize().wrap_err_with(|| {
         eyre::eyre!(

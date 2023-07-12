@@ -1,6 +1,9 @@
 #### TODO
 
-- LINT: validate, trace, profile, utils
+- BUG: playground memory leak
+
+- deprecate plot binary and maybe even the full lib
+- DONE: LINT: validate, trace, profile, utils
 - DONE: fix simple matrix mul
 - make simple tests for the different benchmarks that check if outputs match
 

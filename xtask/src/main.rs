@@ -24,7 +24,7 @@ fn main() -> eyre::Result<()> {
     let options = Options::parse();
     dbg!(&options);
     match options.command {
-        Command::Coverage(opts) => coverage::coverage(opts),
+        Command::Coverage(ref opts) => coverage::coverage(opts),
         Command::Format(opts) => format::format(opts),
         Command::Docs => docs::docs(),
     }

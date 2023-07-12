@@ -12,7 +12,7 @@ pub struct Options {
 }
 
 /// Run coverage
-pub fn coverage(options: Options) -> eyre::Result<()> {
+pub fn coverage(options: &Options) -> eyre::Result<()> {
     util::remove_dir("coverage")?;
     fs::create_dir_all("coverage")?;
 

@@ -63,14 +63,14 @@ fn kernel_trace_file_name(id: u64) -> String {
 }
 
 fn rmp_serializer(path: &Path) -> rmp_serde::Serializer<std::io::BufWriter<std::fs::File>> {
-    let trace_file = utils::fs::open_writable_as_nobody(path).unwrap();
+    let trace_file = utils::fs::open_writable(path).unwrap();
     rmp_serde::Serializer::new(trace_file)
 }
 
 fn json_serializer(
     path: &Path,
 ) -> serde_json::Serializer<std::io::BufWriter<std::fs::File>, serde_json::ser::PrettyFormatter> {
-    let trace_file = utils::fs::open_writable_as_nobody(path).unwrap();
+    let trace_file = utils::fs::open_writable(path).unwrap();
     let json_serializer = serde_json::Serializer::with_formatter(
         trace_file,
         serde_json::ser::PrettyFormatter::with_indent(b"    "),
@@ -163,8 +163,8 @@ struct Instrumentor<'c> {
 }
 
 #[inline]
-fn bool_env(_name: &str) -> Option<bool> {
-    std::env::var("SAVE_JSON")
+fn bool_env(name: &str) -> Option<bool> {
+    std::env::var(name)
         .ok()
         .map(|value| value.to_lowercase() == "yes")
 }
@@ -185,14 +185,14 @@ impl Instrumentor<'static> {
         let save_json = bool_env("SAVE_JSON").unwrap_or(false);
 
         log::debug!(
-            "ctx@{:?} traces_dir={} full={}, json={}",
-            &ctx,
-            &traces_dir.display(),
-            &full_trace,
-            &save_json
+            "ctx@{:X} traces_dir={} full={}, json={}",
+            ctx.as_ptr() as u64,
+            traces_dir.display(),
+            full_trace,
+            save_json
         );
 
-        let _ = utils::fs::create_dirs_as_nobody(&traces_dir).ok();
+        let _ = utils::fs::create_dirs(&traces_dir).ok();
 
         let instr = Arc::new(Self {
             ctx: Mutex::new(ctx),
@@ -241,6 +241,7 @@ impl Instrumentor<'static> {
         while let Ok(packet) = rx.recv() {
             // when block_id_x == -1, the kernel has completed
             if packet.block_id_x == -1 {
+                log::info!("stopping receiver thread");
                 self.host_channel
                     .lock()
                     .unwrap()
@@ -566,7 +567,7 @@ impl<'c> Instrumentor<'c> {
                 )
             });
             log::info!(
-                "[{}] instrumented instruction {} at index {} (offset {})\n\n",
+                "[{}] instrumented instruction {} at index {} (offset {})",
                 source_file.unwrap_or_default(),
                 instr,
                 instr_idx,
@@ -658,8 +659,7 @@ impl<'c> Instrumentor<'c> {
 
     fn save_command_trace(&self) {
         let command_trace_file_path = self.traces_dir.join("commands.json");
-        let command_trace_file =
-            utils::fs::open_writable_as_nobody(&command_trace_file_path).unwrap();
+        let command_trace_file = utils::fs::open_writable(&command_trace_file_path).unwrap();
 
         let writer = std::io::BufWriter::new(command_trace_file);
         let mut serializer = serde_json::Serializer::with_formatter(
@@ -677,7 +677,7 @@ impl<'c> Instrumentor<'c> {
 
     fn save_allocations(&self) {
         let allocations_file_path = self.traces_dir.join("allocations.json");
-        let allocations_file = utils::fs::open_writable_as_nobody(&allocations_file_path).unwrap();
+        let allocations_file = utils::fs::open_writable(&allocations_file_path).unwrap();
 
         let writer = std::io::BufWriter::new(allocations_file);
         let mut serializer = serde_json::Serializer::with_formatter(
@@ -719,6 +719,7 @@ impl<'c> Instrumentor<'c> {
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn nvbit_at_init() {
+    env_logger::init();
     log::trace!("nvbit_at_init");
 }
 
@@ -795,7 +796,7 @@ pub extern "C" fn nvbit_at_ctx_term(ctx: nvbit_rs::Context<'static>) {
     log::info!("done after {:?}", trace_ctx.start.elapsed());
 
     // this is often run as sudo, but we dont want to create files as sudo
-    let _ = utils::fs::create_dirs_as_nobody(&trace_ctx.traces_dir);
+    let _ = utils::fs::create_dirs(&trace_ctx.traces_dir);
 
     // cleanup
     let need_cleanup = trace_ctx.need_cleanup.lock().unwrap();
@@ -806,4 +807,5 @@ pub extern "C" fn nvbit_at_ctx_term(ctx: nvbit_rs::Context<'static>) {
     }
 
     // do not remove the context!
+    // std::process::exit(0);
 }

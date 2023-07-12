@@ -1,5 +1,5 @@
-#![allow(warnings)]
 #![allow(clippy::cast_possible_truncation)]
+// #![allow(warnings)]
 
 use color_eyre::eyre;
 use rangemap::RangeMap;
@@ -95,8 +95,8 @@ impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
         let x_range = 0..max_time;
         let y_range = min_addr..max_addr;
 
-        dbg!(&x_range);
-        dbg!(&y_range);
+        // dbg!(&x_range);
+        // dbg!(&y_range);
 
         let mut chart_ctx = ChartBuilder::on(&root_area)
             .set_label_area_size(LabelAreaPosition::Left, 100)
@@ -128,7 +128,7 @@ impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
         // addresses = [e[2] for e in entries]
         // time = [e[1] for e in entries]
 
-        for ((is_store, label), mut accesses) in &mut self.accesses {
+        for ((is_store, _label), accesses) in &mut self.accesses {
             accesses.sort_by(|a, b| a.warp_id_in_block.cmp(&b.warp_id_in_block));
             // dbg!(&accesses);
 
@@ -148,7 +148,7 @@ impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
                         filled: false,
                         stroke_width: 2,
                     },
-                ));
+                ))?;
             }
             let series = accesses.iter_mut().flat_map(|access| {
                 access

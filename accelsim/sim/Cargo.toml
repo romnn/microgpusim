@@ -19,6 +19,7 @@ color-eyre = "0"
 async-process = "1"
 clap = { version = "4", features = [ "derive" ] }
 tokio = { version = "1", features = ["full"] }
+duct = "0"
 
 accelsim = { path = "../" }
 utils = { path = "../../utils" }

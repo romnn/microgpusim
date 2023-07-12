@@ -18,6 +18,9 @@ members = [
 opt-level = 0 # no optimizations
 debug = 2 # full debug info
 
+[profile.dev.package.backtrace]
+opt-level = 3
+
 [profile.release]
 lto = true
 
