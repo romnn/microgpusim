@@ -44,7 +44,7 @@ impl PathExt for Path {
 
     #[must_use]
     fn try_normalize(&self) -> Result<PathBuf, std::io::Error> {
-        Ok(utils::normalize_path(self))
+        Ok(utils::fs::normalize_path(self))
     }
 
     #[inline]

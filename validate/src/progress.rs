@@ -12,7 +12,8 @@ impl Default for ProgressStyle {
                 write!(w, "{:.1}s", state.eta().as_secs_f64());
             },
         );
-        let style = style.progress_chars("#>-");
+        // let style = style.progress_chars("#>-");
+        let style = style.progress_chars("#-");
         Self(style)
     }
 }

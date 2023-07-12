@@ -6,7 +6,7 @@ const HELP_TEMPLATE: &str = "{bin} {version} {author}
 
 {about}
 
-USAGE: {usage} -- <executable> [args]
+USAGE: {usage}
 
 {all-args}
 ";
@@ -79,27 +79,28 @@ async fn main() -> eyre::Result<()> {
         tracer,
     } = options;
 
-    let traces_dir = match traces_dir {
-        Some(ref traces_dir) => traces_dir.clone(),
-        None => {
-            let manifest = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?);
-            let results = manifest.join("../../debug_results");
-            let name = exec
-                .file_stem()
-                .ok_or(eyre::eyre!("no file stem for {}", exec.display()))?;
-            let config = format!("{}-{}", &*name.to_string_lossy(), &exec_args.join("-"));
-            results.join(&name).join(config).join("trace")
-        }
+    let traces_dir = if let Some(ref traces_dir) = traces_dir {
+        traces_dir.clone()
+    } else {
+        utils::debug_trace_dir(&exec, exec_args.as_slice())?.join("trace")
+        // let manifest = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?);
+        // let results = manifest.join("../../debug_results");
+        // let name = exec
+        //     .file_stem()
+        //     .ok_or(eyre::eyre!("no file stem for {}", exec.display()))?;
+        // let config = format!("{}-{}", &*name.to_string_lossy(), &exec_args.join("-"));
+        // results.join(name).join(config).join("trace")
     };
 
-    let traces_dir = utils::normalize_path(&traces_dir);
-    let tracer_so = tracer.as_ref().map(|p| utils::normalize_path(p));
+    let traces_dir = utils::fs::normalize_path(&traces_dir);
+    utils::fs::create_dirs(&traces_dir)?;
+    let tracer_so = tracer.as_ref().map(utils::fs::normalize_path);
 
     let trace_options = invoke_trace::Options {
         traces_dir,
-        tracer_so,
         save_json,
         full_trace,
+        tracer_so,
     };
     dbg!(&trace_options);
     invoke_trace::trace(exec, exec_args, &trace_options)

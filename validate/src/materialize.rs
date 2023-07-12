@@ -174,6 +174,22 @@ pub struct BenchmarkConfig {
     pub trace: TraceOptions,
 }
 
+impl std::fmt::Display for BenchmarkConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let executable = std::env::current_dir()
+            .ok()
+            .map(|cwd| self.executable.relative_to(cwd))
+            .unwrap_or_else(|| self.executable.clone());
+        write!(
+            f,
+            "{} [{} {}]",
+            self.name,
+            executable.display(),
+            self.args.join(" ")
+        )
+    }
+}
+
 impl crate::Benchmark {
     pub fn materialize_input(
         &self,

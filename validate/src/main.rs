@@ -9,6 +9,7 @@ use chrono::{offset::Local, DateTime};
 use clap::Parser;
 use color_eyre::eyre::{self, WrapErr};
 use color_eyre::owo_colors::colors::css::Indigo;
+use color_eyre::owo_colors::OwoColorize;
 use console::style;
 use futures::stream::{self, StreamExt};
 use futures::Future;
@@ -65,6 +66,9 @@ pub struct Options {
     #[clap(long = "force", help = "force re-run", default_value = "false")]
     force: bool,
 
+    #[clap(long = "fail-fast", help = "fail fast", default_value = "false")]
+    fail_fast: bool,
+
     #[clap(
         short = 'c',
         long = "concurrency",
@@ -85,6 +89,38 @@ pub enum Command {
     Expand(ExpandOptions),
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("benchmark {0} skipped")]
+    Skipped(materialize::BenchmarkConfig),
+    #[error("benchmark {bench} failed")]
+    Failed {
+        bench: materialize::BenchmarkConfig,
+        #[source]
+        source: eyre::Report,
+    },
+}
+
+// #[inline]
+// fn create_dirs(path: impl AsRef<Path>) -> eyre::Result<()> {
+//     let path = path.as_ref();
+//     utils::fs::create_dirs(path)
+//         .wrap_err_with(|| format!("failed to create dir {}", path.display()))?;
+//     Ok(())
+// }
+
+#[inline]
+fn open_writable(path: impl AsRef<Path>) -> eyre::Result<std::io::BufWriter<std::fs::File>> {
+    let path = path.as_ref();
+    if let Some(parent) = path.parent() {
+        utils::fs::create_dirs(path)?;
+        // create_dirs(parent)?;
+    }
+    let writer = utils::fs::open_writable(path)?;
+    // .wrap_err_with(|| format!("failed to open {} for writing", path.display()))?;
+    Ok(writer)
+}
+
 async fn run_benchmark(
     bench: &materialize::BenchmarkConfig,
     // name: String,
@@ -93,6 +129,8 @@ async fn run_benchmark(
     // config: &Config,
     options: &Options,
     bar: &ProgressBar,
+    // ) -> Result<materialize::BenchmarkConfig, Error> {
+    // ) -> eyre::Result<materialize::BenchmarkConfig>
 ) -> eyre::Result<()> {
     bar.set_message(bench.name.clone());
     // let input = input?;
@@ -104,22 +142,26 @@ async fn run_benchmark(
     //     bench: template::BenchmarkValues { name: name.clone() },
     // };
 
-    let res: eyre::Result<()> = match options.command {
+    // let res: eyre::Result<()> = match options.command {
+    match options.command {
         Command::Profile(ref opts) => {
             let options = profile::nvprof::Options {};
-            let results = profile::nvprof::nvprof(&bench.executable, &bench.args, &options).await?;
+            let results = profile::nvprof::nvprof(&bench.executable, &bench.args, &options)
+                .await
+                .map_err(|err| match err {
+                    profile::Error::Command(err) => err.into_eyre(),
+                    err => err.into(),
+                })?;
 
-            let writer = utils::fs::open_writable_as_nobody(&bench.profile.metrics_file)?;
+            let writer = open_writable(&bench.profile.metrics_file)?;
             serde_json::to_writer_pretty(writer, &results.metrics)?;
-            let mut writer = utils::fs::open_writable_as_nobody(&bench.profile.log_file)?;
+            let mut writer = open_writable(&bench.profile.log_file)?;
             writer.write_all(results.raw.as_bytes())?;
-            Ok(())
         }
         Command::Trace(ref opts) => {
             // create traces dir
             let traces_dir = &bench.trace.traces_dir;
-            utils::fs::create_dirs_as_nobody(traces_dir)
-                .wrap_err_with(|| format!("failed to create dir {}", traces_dir.display()))?;
+            utils::fs::create_dirs(traces_dir)?;
 
             let options = invoke_trace::Options {
                 traces_dir: traces_dir.clone(),
@@ -127,15 +169,27 @@ async fn run_benchmark(
                 save_json: bench.trace.save_json,
                 full_trace: bench.trace.full_trace,
             };
-            let results = invoke_trace::trace(&bench.executable, &bench.args, &options).await?;
-            Ok(())
-        }
-        Command::Simulate(ref opts) => Ok(()),
-        Command::Build(ref opts) => Ok(()),
-        _ => Ok(()),
-    };
+            let results = invoke_trace::trace(&bench.executable, &bench.args, &options)
+                .await
+                .map_err(|err| match err {
+                    invoke_trace::Error::Command(err) => err.into_eyre(),
+                    err => err.into(),
+                })?;
 
-    res
+            // println!("{}", utils::decode_utf8!(&results.stdout));
+            let dur = std::time::Duration::from_secs(3);
+            println!("sleeping for {:?}", &dur);
+            tokio::time::sleep(dur).await;
+        }
+        // Command::Simulate(ref opts) => {}
+        // Command::Build(ref opts) => {}
+        // _ => Ok(())
+        _ => {}
+    }
+
+    // wrap the error
+
+    Ok(())
 }
 
 #[tokio::main]
@@ -255,16 +309,25 @@ async fn main() -> eyre::Result<()> {
     bar.enable_steady_tick(std::time::Duration::from_secs_f64(1.0 / 10.0));
     let bar_style = ProgressStyle::default();
     bar.set_style(bar_style.into());
+    bar.hidden();
 
-    let results: Vec<_> = stream::iter(enabled_benches.into_iter())
+    let should_exit = Arc::new(std::sync::atomic::AtomicBool::new(false));
+
+    let results: Vec<Result<_, Error>> = stream::iter(enabled_benches.into_iter())
         // .map(|(name, bench, input)| {
         .map(|bench_config| {
             // let name = name.clone();
             let options = options.clone();
             let bar = bar.clone();
+            let should_exit = should_exit.clone();
             async move {
+                if should_exit.load(std::sync::atomic::Ordering::Relaxed) {
+                    return Err(Error::Skipped(bench_config.clone()));
+                }
                 // let input_clone = input.as_ref().cloned().unwrap_or_default();
                 // let res = run_benchmark(name.clone(), &bench, input, &config, &options, &bar).await;
+                // now its time for a timeout here
+                // as well as streaming
                 let res = run_benchmark(bench_config, &options, &bar).await;
                 // let res: Result<(), eyre::Report> = Ok(());
                 bar.inc(1);
@@ -278,10 +341,7 @@ async fn main() -> eyre::Result<()> {
                 };
                 let executable = std::env::current_dir()
                     .ok()
-                    // .map(|cwd| bench.executable().relative_to(cwd))
                     .map(|cwd| bench_config.executable.relative_to(cwd))
-                    // .as_ref()
-                    // .unwrap_or_else(|| bench.executable());
                     .unwrap_or_else(|| bench_config.executable.clone());
                 bar.println(format!(
                     "{:>15} {:>20} [ {} {} ] {}",
@@ -312,20 +372,28 @@ async fn main() -> eyre::Result<()> {
                     }
                 ));
 
-                res
+                if options.fail_fast && res.is_err() {
+                    should_exit.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+                res.map_err(|source| Error::Failed {
+                    source,
+                    bench: bench_config.clone(),
+                })
             }
         })
         .buffer_unordered(concurrency)
         .collect()
         .await;
-    bar.finish();
+    bar.finish_and_clear();
 
-    let _ = utils::chown(
-        materialized.config.results_dir,
-        utils::UID_NOBODY,
-        utils::GID_NOBODY,
-        false,
-    );
+    // change owner and permissions
+    // let _ = utils::fs::rchown(
+    //     &materialized.config.results_dir,
+    //     utils::UID_NOBODY,
+    //     utils::GID_NOBODY,
+    //     false,
+    // );
+    let _ = utils::fs::rchmod_writable(&materialized.config.results_dir);
 
     let (succeeded, failed): (Vec<_>, Vec<_>) = utils::partition_results(results);
     assert_eq!(num_bench_configs, succeeded.len() + failed.len());
@@ -342,8 +410,24 @@ async fn main() -> eyre::Result<()> {
         },
     );
 
-    for err in &failed {
-        eprintln!("{:?}", err);
+    for err in failed.into_iter() {
+        match err {
+            // err @ Error::Failed { ref source, .. } => {
+            Error::Failed { ref source, bench } => {
+                use std::error::Error;
+                dbg!(&source.root_cause());
+
+                // err.bench can be used to inspect the benchmark configs that failed in more detail
+                // eprintln!("==============================");
+                eprintln!(
+                    "============ benchmark {} ============",
+                    style(format!("{} failed", &bench)).red()
+                );
+                eprintln!("{:?}\n", source);
+                // eprintln!("{:?}\n", eyre::Report::from(err));
+            }
+            Error::Skipped(_bench) => {}
+        }
     }
     Ok(())
 }
