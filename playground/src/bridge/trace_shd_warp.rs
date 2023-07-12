@@ -41,8 +41,7 @@ mod default {
         fn clear_membar(self: Pin<&mut trace_shd_warp_t>);
         fn get_membar(self: &trace_shd_warp_t) -> bool;
 
-        fn get_pc(self: &trace_shd_warp_t) -> u64;
-        // fn set_next_pc(self: Pin<&mut trace_shd_warp_t>, pc: u64);
+        fn get_pc(self: Pin<&mut trace_shd_warp_t>) -> u64;
         fn get_kernel_info(self: &trace_shd_warp_t) -> *mut trace_kernel_info_t;
 
         unsafe fn ibuffer_fill(

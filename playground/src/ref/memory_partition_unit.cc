@@ -388,10 +388,16 @@ void memory_partition_unit::print(FILE *fp) const {
        mf_dlq != m_dram_latency_queue.end(); ++mf_dlq) {
     mem_fetch *mf = mf_dlq->req;
     fprintf(fp, "Ready @ %llu - ", mf_dlq->ready_cycle);
-    if (mf) (std::ostream &)fp << mf;
-    // mf->print(fp);
-    else
+    if (mf) {
+      std::stringstream buffer;
+      buffer << mf;
+      fprintf(fp, "%s", buffer.str().c_str());
+
+      // (std::ostream &)fp << mf;
+      // mf->print(fp);
+    } else {
       fprintf(fp, " <NULL mem_fetch?>\n");
+    }
   }
   m_dram->print(fp);
 }

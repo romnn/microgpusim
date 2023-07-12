@@ -1,5 +1,7 @@
 #include "mshr_table.hpp"
 
+#include <sstream>
+
 #include "hal.hpp"
 
 /// Checks if there is a pending request to the lower memory level already
@@ -87,7 +89,11 @@ void mshr_table::display(FILE *fp) const {
     if (!e->second.m_list.empty()) {
       mem_fetch *mf = e->second.m_list.front();
       fprintf(fp, "%p :", mf);
-      (std::ostream &)fp << mf;
+      std::stringstream buffer;
+      buffer << mf;
+      fprintf(fp, "%s", buffer.str().c_str());
+
+      // (std::ostream &)fp << mf;
       // mf->print(fp);
     } else {
       fprintf(fp, " no memory requests???\n");

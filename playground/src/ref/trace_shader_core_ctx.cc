@@ -321,6 +321,8 @@ void trace_shader_core_ctx::issue_warp(register_set &pipe_reg_set,
 
   // delete warp_inst_t class here, it is not required anymore by gpgpu-sim
   // after issue
+  // zero out memory
+  // std::memset((void *)next_inst, 0, sizeof(const trace_warp_inst_t));
   delete next_inst;
 }
 

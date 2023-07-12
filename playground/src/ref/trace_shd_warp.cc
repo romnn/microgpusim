@@ -1,6 +1,6 @@
-#include <iomanip>
-
 #include "trace_shd_warp.hpp"
+
+#include <iomanip>
 
 #include "trace_instr_opcode.hpp"
 #include "trace_kernel_info.hpp"
@@ -19,6 +19,7 @@ const trace_warp_inst_t *trace_shd_warp_t::parse_trace_instruction(
 }
 
 bool is_memory_instruction(const trace_warp_inst_t *inst) {
+  // also consider constant loads, which are categorized as ALU_OP
   if (inst->op == LOAD_OP || inst->op == STORE_OP || inst->opcode() == OP_LDC) {
     return true;
   }
@@ -26,29 +27,19 @@ bool is_memory_instruction(const trace_warp_inst_t *inst) {
 }
 
 #ifdef BOX
-const trace_warp_inst_t *trace_shd_warp_t::get_current_trace_inst() const {
+const trace_warp_inst_t *trace_shd_warp_t::get_current_trace_inst() {
   unsigned int temp_trace_pc = trace_pc;
   while (temp_trace_pc < warp_traces.size()) {
-    const trace_warp_inst_t *new_inst =
-        parse_trace_instruction(warp_traces[temp_trace_pc]);
+    const trace_warp_inst_t *parsed_inst =
+        get_cached_trace_instruction(temp_trace_pc);
+    // const trace_warp_inst_t *parsed_inst=
+    //     parse_trace_instruction(warp_traces[temp_trace_pc]);
 
-    // trace_warp_inst_t *new_inst =
-    //     new trace_warp_inst_t(get_shader()->get_config());
-    //
-    // const inst_trace_t &trace = warp_traces[temp_trace_pc];
-    // new_inst->parse_from_trace_struct(trace, m_kernel_info->OpcodeMap,
-    //                                   m_kernel_info->m_tconfig,
-    //                                   m_kernel_info->m_kernel_trace_info);
     temp_trace_pc++;
 
-    if (is_memory_instruction(new_inst) || new_inst->op == EXIT_OPS) {
-      return new_inst;
+    if (is_memory_instruction(parsed_inst) || parsed_inst->op == EXIT_OPS) {
+      return parsed_inst;
     }
-    // also consider constant loads, which are categorized as ALU_OP
-    // if (new_inst->op == LOAD_OP || new_inst->op == STORE_OP ||
-    //     new_inst->op == EXIT_OPS || new_inst->opcode() == OP_LDC) {
-    //   return new_inst;
-    // }
   }
   return NULL;
 }
@@ -62,47 +53,75 @@ std::string mask_to_string(std::bitset<N> mask) {
   return out;
 }
 
+#ifdef BOX
+const trace_warp_inst_t *trace_shd_warp_t::get_cached_trace_instruction(
+    unsigned cache_pc) {
+  if (cache_pc < trace_pc) {
+    assert(0 &&
+           "cache_pc is smaller than trace pc, yet issued instructions are not "
+           "longer valid");
+  }
+  if (cache_pc < parsed_warp_traces_cache.size()) {
+    // cache hit
+    assert(parsed_warp_traces_cache[cache_pc] != NULL);
+    // printf(
+    //     "warp_traces[trace_pc].m_pc = %u \t "
+    //     "parsed_warp_traces_cache[trace_pc]->pc = %lu (empty=%d)\n",
+    //     warp_traces[trace_pc].m_pc, parsed_warp_traces_cache[trace_pc]->pc,
+    //     parsed_warp_traces_cache[trace_pc]->empty());
+
+    // this unfortunatly does not hold, i guess the heap allocated instructions
+    // are at some point deleted with the pointer still dangling?
+    // assert(warp_traces[trace_pc].m_pc ==
+    //        parsed_warp_traces_cache[trace_pc]->pc);
+    return parsed_warp_traces_cache[cache_pc];
+  }
+
+  // cache miss
+  // want trace pc=5
+  // have cached size of 3 (0, 1, 2)
+  // need length of 6
+  // need to add 3 more entries
+  // need to 3 to 5: 3, 4, 5
+  unsigned temp_trace_pc = parsed_warp_traces_cache.size();
+  while (temp_trace_pc < warp_traces.size() && temp_trace_pc <= cache_pc) {
+    // pc = (address_type)trace.m_pc;
+    const inst_trace_t &trace = warp_traces[temp_trace_pc];
+    parsed_warp_traces_cache.push_back(parse_trace_instruction(trace));
+    assert(temp_trace_pc == parsed_warp_traces_cache.size() - 1);
+    assert(warp_traces[temp_trace_pc].m_pc ==
+           parsed_warp_traces_cache[temp_trace_pc]->pc);
+    // printf("=> cached warp trace instruction[%u] pc=%u\n", temp_trace_pc,
+    //        warp_traces[temp_trace_pc].m_pc);
+    temp_trace_pc++;
+  }
+
+  assert(cache_pc < warp_traces.size());
+  assert(parsed_warp_traces_cache.size() == cache_pc + 1);
+  return parsed_warp_traces_cache[cache_pc];
+}
+#endif
+
 void trace_shd_warp_t::print_trace_instructions(bool all) {
-  unsigned temp_trace_pc = 0;
+  // the instructions before trace_pc might have been freed after issue already
+  // unsigned temp_trace_pc = 0;
+  printf("====> instruction at trace pc < %-4d already issued ...\n", trace_pc);
+  unsigned temp_trace_pc = trace_pc;
   while (temp_trace_pc < warp_traces.size()) {
     const inst_trace_t &trace = warp_traces[temp_trace_pc];
-    const trace_warp_inst_t *new_inst = parse_trace_instruction(trace);
+    // const trace_warp_inst_t *new_inst = parse_trace_instruction(trace);
+    const trace_warp_inst_t *parsed_inst =
+        get_cached_trace_instruction(temp_trace_pc);
 
-    // trace_warp_inst_t *new_inst =
-    //     new trace_warp_inst_t(get_shader()->get_config());
-    //
-    // const inst_trace_t &trace = warp_traces[temp_trace_pc];
-    // new_inst->parse_from_trace_struct(trace, m_kernel_info->OpcodeMap,
-    //                                   m_kernel_info->m_tconfig,
-    //                                   m_kernel_info->m_kernel_trace_info);
-
-    // also consider constant loads, which are categorized as ALU_OP
-    // if (all || new_inst->op == LOAD_OP || new_inst->op == STORE_OP ||
-    //     new_inst->op == EXIT_OPS || new_inst->opcode() == OP_LDC) {
-    if (all || is_memory_instruction(new_inst) || new_inst->op == EXIT_OPS) {
-      assert(warp_traces[temp_trace_pc].m_pc == new_inst->pc);
-      // std::cout << "====> instruction at trace pc " << std::left <<
-      // std::setw(4)
-      //           << temp_trace_pc << ":";
-      // std::cout << "\t" << std::setfill(' ') << std::left << std::setw(10)
-      //           << new_inst->opcode_str();
-      // std::cout << "\t" << std::setfill(' ') << std::left << std::setw(15)
-      //           << trace.opcode.c_str();
-      // std::cout << "\t"
-      //           << "active=" << mask_to_string(new_inst->get_active_mask());
-      // std::cout << "\t"
-      //           << "tpc=";
-      // std::cout << std::setfill(' ') << std::left << std::setw(4)
-      //           << warp_traces[temp_trace_pc].m_pc;
-      // std::cout << "==";
-      // std::cout << std::setfill(' ') << std::left << std::setw(4)
-      //           << new_inst->pc;
-      // std::cout << std::endl;
+    if (all || is_memory_instruction(parsed_inst) ||
+        parsed_inst->op == EXIT_OPS) {
+      assert(warp_traces[temp_trace_pc].m_pc == parsed_inst->pc);
       printf(
           "====> instruction at trace pc %-4d:\t %-10s\t %-15s \t\tactive=%s "
-          "\tpc = %-4lu\n",
-          temp_trace_pc, new_inst->opcode_str(), trace.opcode.c_str(),
-          mask_to_string(new_inst->get_active_mask()).c_str(), new_inst->pc);
+          "\tpc = %-4u = %-4lu\n",
+          temp_trace_pc, parsed_inst->opcode_str(), trace.opcode.c_str(),
+          mask_to_string(parsed_inst->get_active_mask()).c_str(),
+          warp_traces[temp_trace_pc].m_pc, parsed_inst->pc);
     }
     temp_trace_pc++;
   }
@@ -111,29 +130,17 @@ void trace_shd_warp_t::print_trace_instructions(bool all) {
 const warp_inst_t *trace_shd_warp_t::get_next_trace_inst() {
 #ifdef BOX
   while (trace_pc < warp_traces.size()) {
-    const trace_warp_inst_t *new_inst =
-        parse_trace_instruction(warp_traces[trace_pc]);
+    const trace_warp_inst_t *parsed_inst =
+        get_cached_trace_instruction(trace_pc);
 
-    // trace_warp_inst_t *new_inst =
-    //     new trace_warp_inst_t(get_shader()->get_config());
-    //
-    // const inst_trace_t &trace = warp_traces[trace_pc];
-    // new_inst->parse_from_trace_struct(trace, m_kernel_info->OpcodeMap,
-    //                                   m_kernel_info->m_tconfig,
-    //                                   m_kernel_info->m_kernel_trace_info);
-
-    // printf("====> trace_shd_warp_t::get_next_trace_inst(): opcode = %s (%s, "
-    //        "%d)\n",
-    //        trace.opcode.c_str(), new_inst->opcode_str(), new_inst->opcode());
+    // const trace_warp_inst_t *parsed_inst =
+    //     parse_trace_instruction(warp_traces[trace_pc]);
 
     // must be here otherwise we do not increment when finding an instruction
     trace_pc++;
 
-    // also consider constant loads, which are categorized as ALU_OP
-    if (is_memory_instruction(new_inst) || new_inst->op == EXIT_OPS) {
-      // if (new_inst->op == LOAD_OP || new_inst->op == STORE_OP ||
-      //     new_inst->op == EXIT_OPS || new_inst->opcode() == OP_LDC) {
-      return new_inst;
+    if (is_memory_instruction(parsed_inst) || parsed_inst->op == EXIT_OPS) {
+      return parsed_inst;
     }
   }
   return NULL;
@@ -146,11 +153,6 @@ const warp_inst_t *trace_shd_warp_t::get_next_trace_inst() {
     new_inst->parse_from_trace_struct(trace, m_kernel_info->OpcodeMap,
                                       m_kernel_info->m_tconfig,
                                       m_kernel_info->m_kernel_trace_info);
-
-    // printf("====> trace_shd_warp_t::get_next_trace_inst(): opcode = %s (%s, "
-    //        "%d)\n",
-    //        trace.opcode.c_str(), new_inst->opcode_str(), new_inst->opcode());
-
     trace_pc++;
     return new_inst;
   } else
@@ -158,25 +160,28 @@ const warp_inst_t *trace_shd_warp_t::get_next_trace_inst() {
 #endif
 }
 
-unsigned long trace_shd_warp_t::instruction_count() const {
+unsigned long trace_shd_warp_t::instruction_count() {
 #ifdef BOX
+  // NOTE: we cannot assume cached instructions < trace_pc to still be valid,
+  // since old warp instructions are being freed after issue.
+  //
+  // have two options:
+  //  1. parse and delete in the loop (expensive)
+  //  2. keep an instruction count and make sure its valid by filling the entire
+  //  cache
+  //
+  // lets use 1 for now because its easier
   unsigned count = 0;
   for (const inst_trace_t &trace : warp_traces) {
-    const trace_warp_inst_t *new_inst = parse_trace_instruction(trace);
+    // for (unsigned temp_pc = 0; temp_pc < warp_traces.size(); temp_pc++) {
+    //   const trace_warp_inst_t *parsed_inst =
+    // get_cached_trace_instruction(temp_pc);
+    const trace_warp_inst_t *parsed_inst = parse_trace_instruction(trace);
 
-    // trace_warp_inst_t *new_inst =
-    //     new trace_warp_inst_t(get_shader()->get_config());
-    //
-    // new_inst->parse_from_trace_struct(trace, m_kernel_info->OpcodeMap,
-    //                                   m_kernel_info->m_tconfig,
-    //                                   m_kernel_info->m_kernel_trace_info);
-
-    // note: we do not count EXIT when computing the instruction count
-    if (is_memory_instruction(new_inst) || new_inst->op == EXIT_OPS) {
-      // if (new_inst->op == LOAD_OP || new_inst->op == STORE_OP ||
-      //     new_inst->opcode() == OP_LDC) {
+    if (is_memory_instruction(parsed_inst) || parsed_inst->op == EXIT_OPS) {
       count++;
     }
+    delete parsed_inst;
   }
   return count;
 #else
@@ -185,8 +190,10 @@ unsigned long trace_shd_warp_t::instruction_count() const {
 }
 
 void trace_shd_warp_t::clear() {
+  // printf("\n====> CLEARED trace shd warp %u\n\n\n", m_warp_id);
   trace_pc = 0;
   warp_traces.clear();
+  parsed_warp_traces_cache.clear();
 }
 
 // functional_done
@@ -199,7 +206,7 @@ address_type trace_shd_warp_t::get_start_trace_pc() {
   return warp_traces[0].m_pc;
 }
 
-address_type trace_shd_warp_t::get_pc() const {
+address_type trace_shd_warp_t::get_pc() {
   assert(warp_traces.size() > 0);  // must at least contain an exit code
   assert(trace_pc < warp_traces.size());
 #ifdef BOX

@@ -24,10 +24,11 @@ denylist = ["default"]
 
 [dependencies]
 cxx = "1"
-accelsim = { path = "../accelsim" }
 color-eyre = "0"
 clap = { version = "4", features = [ "derive" ] }
 thiserror = "1"
+
+accelsim = { path = "../accelsim" }
 
 [dev-dependencies]
 pretty_assertions = "1"
@@ -39,3 +40,5 @@ glob = "0"
 cc = { version = "1", features = [] }
 cxx-build = "1"
 duct = "0"
+
+utils = { path = "../utils" }

@@ -274,15 +274,20 @@ void memory_sub_partition::print_cache_stat(unsigned &accesses,
 
 void memory_sub_partition::print(FILE *fp) const {
   if (!m_request_tracker.empty()) {
-    fprintf(fp, "Memory Sub Parition %u: pending memory requests:\n", m_id);
+    fprintf(fp, "Memory Sub Parition %u: %lu pending memory requests:\n", m_id,
+            m_request_tracker.size());
     for (std::set<mem_fetch *>::const_iterator r = m_request_tracker.begin();
          r != m_request_tracker.end(); ++r) {
       mem_fetch *mf = *r;
-      if (mf)
+      if (mf) {
         // mf->print(fp);
-        (std::ostream &)fp << mf;
-      else
+        std::stringstream buffer;
+        buffer << mf;
+        fprintf(fp, "%s", buffer.str().c_str());
+        // (std::ostream &)fp << mf;
+      } else {
         fprintf(fp, " <NULL mem_fetch?>\n");
+      }
     }
   }
   if (!m_config->m_L2_config.disabled()) m_L2cache->display_state(fp);

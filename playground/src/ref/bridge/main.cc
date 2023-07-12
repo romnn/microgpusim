@@ -122,11 +122,6 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv,
   }
 #endif
 
-  unsigned long long cycle_limit = (unsigned long long)-1;
-  if (std::getenv("CYCLES") && atoi(std::getenv("CYCLES")) > 0) {
-    cycle_limit = atoi(std::getenv("CYCLES"));
-  }
-
   std::vector<std::string> valid_argv;
   for (auto arg : argv) valid_argv.push_back(std::string(arg));
 
@@ -150,6 +145,14 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv,
   // parse trace config
   tconfig.parse_config();
   printf("initialization complete\n");
+
+  gpgpu_sim_config *sim_config =
+      m_gpgpu_context->the_gpgpusim->g_the_gpu_config;
+  // sim_config->gpu_max_cycle_opt;
+  // unsigned long long cycle_limit = (unsigned long long)-1;
+  if (std::getenv("CYCLES") && atoi(std::getenv("CYCLES")) > 0) {
+    sim_config->gpu_max_cycle_opt = atoi(std::getenv("CYCLES"));
+  }
 
   // setup a rolling window with size of the max concurrent kernel executions
   bool concurrent_kernel_sm =
@@ -224,16 +227,16 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv,
           m_gpgpu_sim->gpu_tot_sim_cycle + m_gpgpu_sim->gpu_sim_cycle;
       if (!m_gpgpu_sim->active()) break;
 
-#ifdef BOX
-      if (cycle >= cycle_limit) {
-        // dont wait for kernel to complete
-        // m_gpgpu_context->the_gpgpusim->g_stream_manager
-        //     ->stop_all_running_kernels();
-        printf("early exit after %llu cycles\n", cycle);
-        fflush(stdout);
-        return 0;
-      }
-#endif
+      // #ifdef BOX
+      //       if (cycle >= cycle_limit) {
+      //         printf("early exit after %llu cycles\n", cycle);
+      //         m_gpgpu_context->the_gpgpusim->g_stream_manager
+      //             ->stop_all_running_kernels();
+      //         break;
+      //         // fflush(stdout);
+      //         // return 0;
+      //       }
+      // #endif
 
       // performance simulation
       if (m_gpgpu_sim->active()) {

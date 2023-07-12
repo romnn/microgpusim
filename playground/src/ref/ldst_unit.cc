@@ -544,16 +544,9 @@ void ldst_unit::writeback() {
         if (m_next_global) {
           m_next_wb = m_next_global->get_inst();
           std::cout << "has global " << m_next_wb << std::endl;
-          // printf("has global ");
-          // m_next_wb.print(stdout);
-          // printf("\n");
-          // %s pc=%lu\n\n", m_next_wb.opcode_str(),
-          //      m_next_wb.pc);
-          // LDG cycles 27, 28, 31(wid=3) (pc 152)
-          // LDG cycles 68, 70, 77(wid=3) (pc 176)
-          if (m_next_global->get_wid() == 3 &&
-              m_core->current_cycle() > 77)  // 77)
-            throw std::runtime_error("warp 3 got global");
+          // if (m_next_global->get_wid() == 3 &&
+          //     m_core->current_cycle() > 77)  // 77)
+          //   throw std::runtime_error("warp 3 got global");
           if (m_next_global->isatomic()) {
             m_core->decrement_atomic_count(
                 m_next_global->get_wid(),

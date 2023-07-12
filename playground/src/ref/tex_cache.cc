@@ -1,5 +1,7 @@
 #include "tex_cache.hpp"
 
+#include <sstream>
+
 #include "mem_fetch_interface.hpp"
 
 /// Access function for tex_cache
@@ -138,14 +140,22 @@ void tex_cache::display_state(FILE *fp) const {
     else
       fprintf(fp, "       ");
     fprintf(fp, "[idx=%4u]", r.m_index);
-    (std::ostream &)fp << r.m_request;
+    std::stringstream buffer;
+    buffer << r.m_request;
+    fprintf(fp, "%s", buffer.str().c_str());
+    // (std::ostream &)fp << r.m_request;
     // r.m_request->print(fp, false);
   }
   if (!m_fragment_fifo.empty()) {
     fprintf(fp, "fragment fifo (oldest) :");
     fragment_entry &f = m_fragment_fifo.peek();
     fprintf(fp, "%s:          ", f.m_miss ? "miss" : "hit ");
-    (std::ostream &)fp << f.m_request;
+    std::stringstream buffer;
+    buffer << f.m_request;
+    fprintf(fp, "%s", buffer.str().c_str());
+
+    // (std::ostream &)fp << f.m_request;
     // f.m_request->print(fp, false);
+    //
   }
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string.h>
+#include <algorithm>
 
 #include "bridge/accelsim_config.hpp"
 #include "gpgpu_context.hpp"
@@ -95,7 +96,11 @@ class gpgpu_sim_config : public power_config,
 #ifdef BOX
     // ROMAN TODO: we override config here
 
-    gpu_max_cycle_opt = 2000;
+    if (gpu_max_cycle_opt == 0) {
+      gpu_max_cycle_opt = 1000000;
+    }
+    gpu_max_cycle_opt =
+        std::min(gpu_max_cycle_opt, (long long unsigned int)1000000);
     m_shader_config.n_simt_clusters = 1;
     m_shader_config.n_simt_cores_per_cluster = 1;
     m_shader_config.gpgpu_num_sched_per_core = 1;
@@ -156,6 +161,12 @@ class gpgpu_sim_config : public power_config,
 
   shader_core_config m_shader_config;
 
+  // GPGPU-Sim timing model options
+  unsigned long long gpu_max_cycle_opt;
+  unsigned long long gpu_max_insn_opt;
+  unsigned gpu_max_cta_opt;
+  unsigned gpu_max_completed_cta_opt;
+
  private:
   void init_clock_domains(void);
 
@@ -173,12 +184,6 @@ class gpgpu_sim_config : public power_config,
   double icnt_period;
   double dram_period;
   double l2_period;
-
-  // GPGPU-Sim timing model options
-  unsigned long long gpu_max_cycle_opt;
-  unsigned long long gpu_max_insn_opt;
-  unsigned gpu_max_cta_opt;
-  unsigned gpu_max_completed_cta_opt;
 
   char *gpgpu_runtime_stat;
   bool gpgpu_flush_l1_cache;

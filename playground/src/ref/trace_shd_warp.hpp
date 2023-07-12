@@ -18,6 +18,8 @@ class trace_shd_warp_t {
     reset();
     trace_pc = 0;
     m_kernel_info = NULL;
+
+    // parsed_trace_pc = 0;
   }
 
   void reset() {
@@ -57,17 +59,21 @@ class trace_shd_warp_t {
     m_cdp_dummy = false;
   }
 
-  unsigned long instruction_count() const;
+  unsigned long instruction_count();
 
   std::vector<inst_trace_t> warp_traces;
+  std::vector<const trace_warp_inst_t *> parsed_warp_traces_cache;
+  // unsigned parsed_trace_pc;
+
   void print_trace_instructions(bool all);
   const warp_inst_t *get_next_trace_inst();
-  const trace_warp_inst_t *get_current_trace_inst() const;
+  const trace_warp_inst_t *get_current_trace_inst();
+  const trace_warp_inst_t *get_cached_trace_instruction(unsigned trace_pc);
   void clear();
   bool trace_done() const;
 
   address_type get_start_trace_pc();
-  virtual address_type get_pc() const;
+  virtual address_type get_pc();
   virtual trace_kernel_info_t *get_kernel_info() const { return m_kernel_info; }
   void set_kernel(trace_kernel_info_t *kernel_info) {
     m_kernel_info = kernel_info;
@@ -81,6 +87,11 @@ class trace_shd_warp_t {
   void set_done_exit() { m_done_exit = true; }
 
   void set_next_pc(address_type pc) {
+    // NOTE:
+    // trace-driven version does not use this pc but their own trace_pc
+    // set_next_pc is called but does not effect execution as m_next_pc is not
+    // used.
+
     // m_next_pc = pc;
   }
   void store_info_of_last_inst_at_barrier(const warp_inst_t *pI) {
@@ -165,9 +176,7 @@ class trace_shd_warp_t {
   unsigned get_dynamic_warp_id() const { return m_dynamic_warp_id; }
   unsigned get_warp_id() const { return m_warp_id; }
 
-  class trace_shader_core_ctx *get_shader() const {
-    return m_shader;
-  }
+  class trace_shader_core_ctx *get_shader() const { return m_shader; }
 
   unsigned int m_cdp_latency;
   bool m_cdp_dummy;

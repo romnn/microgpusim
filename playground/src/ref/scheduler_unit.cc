@@ -25,11 +25,11 @@ void scheduler_unit::cycle() {
   bool issued_inst = false;  // of these we issued one
 
   order_warps();
-  for (std::vector<trace_shd_warp_t *>::const_iterator iter =
+  for (std::vector<trace_shd_warp_t *>::iterator iter =
            m_next_cycle_prioritized_warps.begin();
        iter != m_next_cycle_prioritized_warps.end(); iter++) {
     // Don't consider warps that are not yet valid
-    const trace_shd_warp_t *next_warp = *iter;
+    trace_shd_warp_t *next_warp = *iter;
     if (next_warp == NULL || next_warp->done_exit()) {
       continue;
     }

@@ -43,9 +43,19 @@ bool stream_manager::check_finished_kernel() {
 bool stream_manager::register_finished_kernel(unsigned grid_uid) {
   // called by gpu simulation thread
   if (grid_uid > 0) {
+    // ROMAN: check if stream exists
+    std::map<unsigned int, CUstream_st *>::const_iterator it =
+        m_grid_id_to_stream.find(grid_uid);
+    if (it == m_grid_id_to_stream.end()) {
+      // no stream present
+      return false;
+    }
     CUstream_st *stream = m_grid_id_to_stream[grid_uid];
-    // TODO (ROMAN): could check if stream is empty here if we exit before
-    // assigning to streams
+    assert(stream != NULL);
+    // ROMAN: check if stream is empty here
+    if (stream->empty()) {
+      return false;
+    }
     trace_kernel_info_t *kernel = stream->front().get_kernel();
     assert(grid_uid == kernel->get_uid());
 

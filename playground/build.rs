@@ -115,7 +115,7 @@ fn build_config_parser() -> eyre::Result<()> {
         "-d",
         "./src/ref/intersim2/config.y",
         "--file-prefix=./src/ref/intersim2/config.parser",
-        // "-Wno-yacc",
+        "-Wno-yacc",
         // &format!(
         //     "--file-prefix={}",
         //     // generates $OUT_DIR/config.parser.tab.c and $OUT_DIR/config.parser.tab.h
@@ -161,6 +161,7 @@ fn generate_bridge(bridges: &[PathBuf], mut sources: Vec<PathBuf>) -> eyre::Resu
         .opt_level(0)
         .debug(true)
         .warnings(false)
+        .flag("-ggdb3") // as much debug info as possible
         .flag("-std=c++14")
         .files(sources);
 
@@ -174,17 +175,8 @@ fn generate_bridge(bridges: &[PathBuf], mut sources: Vec<PathBuf>) -> eyre::Resu
     Ok(())
 }
 
-fn multi_glob<I, S>(patterns: I) -> impl Iterator<Item = Result<PathBuf, glob::GlobError>>
-where
-    I: IntoIterator<Item = S>,
-    S: AsRef<str>,
-{
-    let globs = patterns.into_iter().map(|p| glob::glob(p.as_ref()));
-    globs.flat_map(|x| x).flat_map(|x| x)
-}
-
 fn main() -> eyre::Result<()> {
-    if false {
+    if true {
         println!("cargo:rerun-if-changed=./build.rs");
         println!("cargo:rerun-if-changed=./src/bridge/");
         println!("cargo:rerun-if-changed=./src/bindings.hpp");
@@ -193,7 +185,8 @@ fn main() -> eyre::Result<()> {
         println!("cargo:rerun-if-changed=./src/tests/");
     }
 
-    let mut bridges = multi_glob(["./src/bridge/**/*.rs"]).collect::<Result<Vec<_>, _>>()?;
+    let bridges: Result<Vec<_>, _> = utils::fs::multi_glob(["./src/bridge/**/*.rs"]).collect();
+    let mut bridges = bridges?;
     let exclude = ["src/bridge/mod.rs"].map(PathBuf::from);
     bridges.retain(|src| !exclude.contains(src));
 
@@ -203,7 +196,8 @@ fn main() -> eyre::Result<()> {
         "./src/ref/**/*.cpp",
     ];
     // collect all source files, fail on first glob error
-    let mut sources = multi_glob(&patterns).collect::<Result<Vec<_>, _>>()?;
+    let sources: Result<Vec<_>, _> = utils::fs::multi_glob(&patterns).collect();
+    let mut sources = sources?;
 
     // filter sources
     let deprecated_ptx = PathBuf::from("src/ref/ptx/");
