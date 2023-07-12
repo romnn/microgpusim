@@ -1,4 +1,5 @@
 cuda-samples-*/
+**/*.o
 
 # json traces can get too big
 **/traces/*/trace.json
