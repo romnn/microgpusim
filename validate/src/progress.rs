@@ -17,8 +17,8 @@ impl Default for ProgressStyle {
     }
 }
 
-impl Into<indicatif::ProgressStyle> for ProgressStyle {
-    fn into(self) -> indicatif::ProgressStyle {
-        self.0
+impl From<ProgressStyle> for indicatif::ProgressStyle {
+    fn from(val: ProgressStyle) -> Self {
+        val.0
     }
 }

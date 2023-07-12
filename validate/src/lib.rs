@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 #[inline]
-pub fn bool_true() -> bool {
+#[must_use] pub fn bool_true() -> bool {
     true
 }
 
@@ -95,7 +95,7 @@ pub struct Benchmark {
 // pub type CallArgs = Result<Vec<String>, benchmark::CallTemplateError>;
 //
 impl Benchmark {
-    pub fn inputs(&self) -> Vec<matrix::Input> {
+    #[must_use] pub fn inputs(&self) -> Vec<matrix::Input> {
         self.matrix.expand()
     }
 
@@ -142,7 +142,7 @@ impl Benchmark {
     //     //     })
     //     // }
     //
-    pub fn executable(&self) -> PathBuf {
+    #[must_use] pub fn executable(&self) -> PathBuf {
         if self.executable.is_absolute() {
             self.executable.clone()
         } else {
@@ -300,7 +300,7 @@ mod tests {
     fn test_parse_from_file() -> eyre::Result<()> {
         let benchmark_path =
             PathBuf::from(std::env!("CARGO_MANIFEST_DIR")).join("../test-apps/test-apps.yml");
-        let _ = Benchmarks::from(&benchmark_path)?;
+        let _ = Benchmarks::from(benchmark_path)?;
         Ok(())
     }
 
@@ -309,7 +309,7 @@ mod tests {
         let benchmarks = r#"
 benchmarks: {}
         "#;
-        let benchmarks = Benchmarks::from_str(&benchmarks)?;
+        let benchmarks = Benchmarks::from_str(benchmarks)?;
         dbg!(&benchmarks);
         diff_assert_eq!(
             benchmarks,
@@ -330,7 +330,7 @@ benchmarks:
     executable: vectoradd
     args: ""
         "#;
-        let benchmarks = Benchmarks::from_str(&benchmarks)?;
+        let benchmarks = Benchmarks::from_str(benchmarks)?;
         dbg!(&benchmarks);
         diff_assert_eq!(
             benchmarks,
@@ -364,7 +364,7 @@ benchmarks:
           length: 100
     args: "-len {{length}} --dtype={{data_type}}"
         "#;
-        let benchmarks = Benchmarks::from_str(&benchmarks)?;
+        let benchmarks = Benchmarks::from_str(benchmarks)?;
         dbg!(&benchmarks);
         let vec_add_benchmark = &benchmarks["vectorAdd"];
         assert_eq!(

@@ -27,7 +27,7 @@ impl Error {
     ) -> Self {
         Self {
             template,
-            input: serde_json::to_string_pretty(input).unwrap_or(format!("{:?}", input)),
+            input: serde_json::to_string_pretty(input).unwrap_or(format!("{input:?}")),
             source,
         }
     }
@@ -55,7 +55,7 @@ pub struct Template<T> {
 }
 
 impl<T> Template<T> {
-    pub fn new(template: String) -> Self {
+    #[must_use] pub fn new(template: String) -> Self {
         Self {
             inner: template,
             phantom: std::marker::PhantomData,

@@ -41,7 +41,7 @@ impl super::TargetConfig {
 
         let concurrency = self
             .concurrency
-            .or(parent_config.map(|c| c.concurrency).flatten());
+            .or(parent_config.and_then(|c| c.concurrency));
 
         let enabled = self
             .enabled
@@ -177,9 +177,7 @@ pub struct BenchmarkConfig {
 impl std::fmt::Display for BenchmarkConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let executable = std::env::current_dir()
-            .ok()
-            .map(|cwd| self.executable.relative_to(cwd))
-            .unwrap_or_else(|| self.executable.clone());
+            .ok().map_or_else(|| self.executable.clone(), |cwd| self.executable.relative_to(cwd));
         write!(
             f,
             "{} [{} {}]",
@@ -256,7 +254,7 @@ impl crate::Benchmark {
         Ok(BenchmarkConfig {
             values: input,
             args: cmd_args,
-            name: name.clone(),
+            name,
             path: self.path.resolve(base),
             executable: self.executable().resolve(base),
             profile,
@@ -331,12 +329,7 @@ impl crate::Config {
 
         // let materialize_to = self.materialize_to.map(|p| p.resolve(base));
 
-        Ok(Config {
-            // materialize_to,
-            results_dir,
-            profile,
-            trace,
-        })
+        Ok(Config { results_dir, trace, profile })
     }
 }
 
@@ -447,7 +440,7 @@ accelsim_simulate:
   repetitions: 2
         "#;
 
-        let config: crate::Config = serde_yaml::from_str(&config)?;
+        let config: crate::Config = serde_yaml::from_str(config)?;
         let materialized = config.materialize(&base)?;
         dbg!(materialized);
         assert!(false);
@@ -499,7 +492,7 @@ accelsim_simulate:
   results_dir: ./results
   repetitions: 2
         "#;
-        let config: crate::Config = serde_yaml::from_str(&config)?;
+        let config: crate::Config = serde_yaml::from_str(config)?;
         let materialized_config = config.materialize(&base)?;
         dbg!(&materialized_config);
 
@@ -517,7 +510,7 @@ args: "{{input.length}} {{input.data_type}}"
 # log_file: "./results/vectorAdd/vectorAdd-32-100/nvprof.log"
 # metrics_file: "./results/vectorAdd/vectorAdd-32-100/metrics.json""#;
 
-        let benchmark: crate::Benchmark = serde_yaml::from_str(&benchmark)?;
+        let benchmark: crate::Benchmark = serde_yaml::from_str(benchmark)?;
         let materialized =
             benchmark.materialize("vectorAdd".to_string(), &base, &materialized_config)?;
         dbg!(&materialized);

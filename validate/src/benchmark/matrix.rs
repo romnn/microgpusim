@@ -9,7 +9,7 @@ pub type Inputs = IndexMap<String, Value>;
 pub type Input = IndexMap<String, Value>;
 
 #[inline]
-pub fn bool_true() -> bool {
+#[must_use] pub fn bool_true() -> bool {
     true
 }
 
@@ -65,7 +65,7 @@ impl ExpandedInput {
         self.as_mut().insert(key, value)
     }
 
-    pub fn is_empty(&self) -> bool {
+    #[must_use] pub fn is_empty(&self) -> bool {
         self.as_ref().is_empty()
     }
 
@@ -83,7 +83,7 @@ impl ExpandedInput {
         }
     }
 
-    pub fn into_inner(self) -> Input {
+    #[must_use] pub fn into_inner(self) -> Input {
         match self {
             Self::Cartesian(input) => input,
             Self::Include(input) => input,
@@ -207,7 +207,7 @@ pub fn expand(inputs: &Inputs, includes: &Includes, excludes: &Excludes) -> Vec<
 }
 
 impl Matrix {
-    pub fn expand(&self) -> Vec<Input> {
+    #[must_use] pub fn expand(&self) -> Vec<Input> {
         expand(&self.inputs, &self.include, &self.exclude)
     }
 }
@@ -307,7 +307,7 @@ include:
         let matrix = r#"
 version: [10, 12, 14]
 os: [ubuntu-latest, windows-latest]"#;
-        let matrix: Matrix = serde_yaml::from_str(&matrix)?;
+        let matrix: Matrix = serde_yaml::from_str(matrix)?;
 
         let expanded = matrix.expand();
         dbg!(&expanded);
@@ -341,7 +341,7 @@ include:
   - fruit: banana
   - fruit: banana
     animal: cat"#;
-        let matrix: Matrix = serde_yaml::from_str(&matrix)?;
+        let matrix: Matrix = serde_yaml::from_str(matrix)?;
 
         let expanded = matrix.expand();
         dbg!(&expanded);
@@ -369,7 +369,7 @@ include:
   - os: windows-latest
     node: 16
     npm: 6"#;
-        let matrix: Matrix = serde_yaml::from_str(&matrix)?;
+        let matrix: Matrix = serde_yaml::from_str(matrix)?;
 
         let expanded = matrix.expand();
         dbg!(&expanded);
@@ -396,7 +396,7 @@ version: [12, 14, 16]
 include:
   - os: windows-latest
     version: 17"#;
-        let matrix: Matrix = serde_yaml::from_str(&matrix)?;
+        let matrix: Matrix = serde_yaml::from_str(matrix)?;
 
         let expanded = matrix.expand();
         dbg!(&expanded);
@@ -428,7 +428,7 @@ include:
   - site: "staging"
     datacenter: "site-b"
         "#;
-        let matrix: Matrix = serde_yaml::from_str(&matrix)?;
+        let matrix: Matrix = serde_yaml::from_str(matrix)?;
 
         let expanded = matrix.expand();
         dbg!(&expanded);
@@ -456,7 +456,7 @@ exclude:
   - os: windows-latest
     version: 16
         "#;
-        let matrix: Matrix = serde_yaml::from_str(&matrix)?;
+        let matrix: Matrix = serde_yaml::from_str(matrix)?;
 
         // An excluded configuration only has to be a partial match for it to be excluded.
         // For example, the following workflow will run nine jobs: one job for each of the 12
@@ -501,7 +501,7 @@ jobs:
           - version: 9
             experimental: true
         "#;
-        let workflow: super::Workflow = serde_yaml::from_str(&workflow)?;
+        let workflow: super::Workflow = serde_yaml::from_str(workflow)?;
         Ok(())
     }
 }

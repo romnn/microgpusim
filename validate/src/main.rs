@@ -47,10 +47,25 @@ fn serialize_to_writer(
 pub struct BuildOptions {}
 
 #[derive(Parser, Debug, Clone)]
+pub struct CleanOptions {}
+
+#[derive(Parser, Debug, Clone)]
 pub struct ProfileOptions {}
 
 #[derive(Parser, Debug, Clone)]
 pub struct TraceOptions {}
+
+#[derive(Parser, Debug, Clone)]
+pub struct AccelsimTraceOptions {}
+
+#[derive(Parser, Debug, Clone)]
+pub struct SimOptions {}
+
+#[derive(Parser, Debug, Clone)]
+pub struct AccelsimSimOptions {}
+
+#[derive(Parser, Debug, Clone)]
+pub struct PlaygroundSimOptions {}
 
 #[derive(Parser, Debug, Clone)]
 pub struct ExpandOptions {}
@@ -84,8 +99,12 @@ pub struct Options {
 pub enum Command {
     Profile(ProfileOptions),
     Trace(TraceOptions),
-    Simulate(ProfileOptions),
+    AccelsimTrace(AccelsimTraceOptions),
+    Simulate(SimOptions),
+    AccelsimSimulate(AccelsimSimOptions),
+    PlaygroundSimulate(PlaygroundSimOptions),
     Build(BuildOptions),
+    Clean(CleanOptions),
     Expand(ExpandOptions),
 }
 
@@ -169,25 +188,38 @@ async fn run_benchmark(
                 save_json: bench.trace.save_json,
                 full_trace: bench.trace.full_trace,
             };
-            let results = invoke_trace::trace(&bench.executable, &bench.args, &options)
+            invoke_trace::trace(&bench.executable, &bench.args, &options)
                 .await
                 .map_err(|err| match err {
                     invoke_trace::Error::Command(err) => err.into_eyre(),
                     err => err.into(),
                 })?;
 
-            // println!("{}", utils::decode_utf8!(&results.stdout));
-            let dur = std::time::Duration::from_secs(3);
-            println!("sleeping for {:?}", &dur);
-            tokio::time::sleep(dur).await;
+            // let dur = std::time::Duration::from_secs(3);
+            // println!("sleeping for {:?}", &dur);
+            // tokio::time::sleep(dur).await;
         }
         // Command::Simulate(ref opts) => {}
-        // Command::Build(ref opts) => {}
-        // _ => Ok(())
+        Command::Build(_) | Command::Clean(_) => {
+            let should_build = options.force || !bench.executable.is_file();
+            let makefile = bench.path.join("Makefile");
+            if !makefile.is_file() {
+                eyre::bail!("Makefile at {} not found", makefile.display());
+            }
+            if should_build {
+                let mut cmd = async_process::Command::new("make");
+                cmd.args(["-C", &*bench.path.to_string_lossy()]);
+                if let Command::Clean(_) = options.command {
+                    cmd.arg("clean");
+                }
+                let result = cmd.output().await?;
+                if !result.status.success() {
+                    return Err(utils::CommandError::new(&cmd, result).into_eyre());
+                }
+            }
+        }
         _ => {}
     }
-
-    // wrap the error
 
     Ok(())
 }
@@ -266,23 +298,21 @@ async fn main() -> eyre::Result<()> {
     let config = &materialized.config;
     let benchmark_concurrency = match options.command {
         Command::Profile(_) => config.profile.common.concurrency,
-        Command::Trace(_) => Some(1), // config.trace.common.concurrency,
+        Command::Trace(_) => config.trace.common.concurrency,
         Command::Simulate(_) => Some(1), // config.sim.common.concurrency,
-        Command::Build(_) => Some(1),
+        Command::Build(_) | Command::Clean(_) => None, // no limit on concurrency
         _ => Some(1),
     };
 
     let concurrency = options
         .concurrency
         .or(benchmark_concurrency)
-        .unwrap_or_else(|| num_cpus::get_physical());
+        .unwrap_or_else(num_cpus::get_physical);
     println!("concurrency: {}", &concurrency);
 
     // get benchmark configurations
-    let enabled_benches: Vec<_> = materialized
+    let mut enabled_benches: Vec<_> = materialized
         .enabled()
-        // .enabled_benchmark_configurations()
-        // .filter(|(name, _bench, _input)| {
         .filter(|bench_config| {
             if options.benchmarks.is_empty() {
                 return true;
@@ -291,17 +321,14 @@ async fn main() -> eyre::Result<()> {
                 .benchmarks
                 .iter()
                 .any(|b| b.to_lowercase() == bench_config.name.to_lowercase())
-            // if options.benchmarks.is_empty() {
-            //
-            //     true
-            // } else {
-            //     options
-            //         .benchmarks
-            //         .iter()
-            //         .any(|b| b.to_lowercase() == name.to_lowercase())
-            // }
         })
         .collect();
+
+    if let Command::Build(_) | Command::Clean(_) = options.command {
+        // do not build the same executables multiple times
+        enabled_benches.dedup_by_key(|bench_config| bench_config.executable.clone());
+    }
+
     let num_bench_configs = enabled_benches.len();
 
     // create progress bar
@@ -314,9 +341,7 @@ async fn main() -> eyre::Result<()> {
     let should_exit = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
     let results: Vec<Result<_, Error>> = stream::iter(enabled_benches.into_iter())
-        // .map(|(name, bench, input)| {
         .map(|bench_config| {
-            // let name = name.clone();
             let options = options.clone();
             let bar = bar.clone();
             let should_exit = should_exit.clone();
@@ -324,25 +349,25 @@ async fn main() -> eyre::Result<()> {
                 if should_exit.load(std::sync::atomic::Ordering::Relaxed) {
                     return Err(Error::Skipped(bench_config.clone()));
                 }
-                // let input_clone = input.as_ref().cloned().unwrap_or_default();
-                // let res = run_benchmark(name.clone(), &bench, input, &config, &options, &bar).await;
-                // now its time for a timeout here
-                // as well as streaming
+                let start = std::time::Instant::now();
                 let res = run_benchmark(bench_config, &options, &bar).await;
-                // let res: Result<(), eyre::Report> = Ok(());
                 bar.inc(1);
 
                 let op = match options.command {
                     Command::Profile(_) => "profiling",
-                    Command::Trace(_) => "tracing",
-                    Command::Simulate(_) => "simulating",
+                    Command::Trace(_) => "tracing [box]",
+                    Command::AccelsimTrace(_) => "tracing [accelsim]",
+                    Command::Simulate(_) => "simulating [box]",
+                    Command::AccelsimSimulate(_) => "simulating [accelsim]",
+                    Command::PlaygroundSimulate(_) => "simulating [playground]",
                     Command::Build(_) => "building",
-                    _ => "",
+                    Command::Clean(_) => "cleaning",
+                    Command::Expand(_) => "expanding",
                 };
-                let executable = std::env::current_dir()
-                    .ok()
-                    .map(|cwd| bench_config.executable.relative_to(cwd))
-                    .unwrap_or_else(|| bench_config.executable.clone());
+                let executable = std::env::current_dir().ok().map_or_else(
+                    || bench_config.executable.clone(),
+                    |cwd| bench_config.executable.relative_to(cwd),
+                );
                 bar.println(format!(
                     "{:>15} {:>20} [ {} {} ] {}",
                     op,
@@ -353,10 +378,9 @@ async fn main() -> eyre::Result<()> {
                     },
                     executable.display(),
                     bench_config.args.join(" "),
-                    // &input_clone.cmd_args.join(" "),
                     match res {
                         Ok(_) => {
-                            style("succeeded".to_string())
+                            format!("succeeded in {:?}", start.elapsed())
                         }
                         Err(ref err) => {
                             static PREVIEW_LEN: usize = 75;
@@ -367,7 +391,11 @@ async fn main() -> eyre::Result<()> {
                                     &err_preview[..err_preview.len().min(PREVIEW_LEN)]
                                 );
                             }
-                            style(format!("failed: {}", err_preview)).red()
+                            format!(
+                                "failed after {:?}: {}",
+                                start.elapsed(),
+                                style(err_preview).red()
+                            )
                         }
                     }
                 ));
@@ -386,13 +414,6 @@ async fn main() -> eyre::Result<()> {
         .await;
     bar.finish_and_clear();
 
-    // change owner and permissions
-    // let _ = utils::fs::rchown(
-    //     &materialized.config.results_dir,
-    //     utils::UID_NOBODY,
-    //     utils::GID_NOBODY,
-    //     false,
-    // );
     let _ = utils::fs::rchmod_writable(&materialized.config.results_dir);
 
     let (succeeded, failed): (Vec<_>, Vec<_>) = utils::partition_results(results);
@@ -410,21 +431,14 @@ async fn main() -> eyre::Result<()> {
         },
     );
 
-    for err in failed.into_iter() {
+    for err in failed {
         match err {
-            // err @ Error::Failed { ref source, .. } => {
             Error::Failed { ref source, bench } => {
-                use std::error::Error;
-                dbg!(&source.root_cause());
-
-                // err.bench can be used to inspect the benchmark configs that failed in more detail
-                // eprintln!("==============================");
                 eprintln!(
-                    "============ benchmark {} ============",
+                    "============ {} ============",
                     style(format!("{} failed", &bench)).red()
                 );
-                eprintln!("{:?}\n", source);
-                // eprintln!("{:?}\n", eyre::Report::from(err));
+                eprintln!("{source:?}\n");
             }
             Error::Skipped(_bench) => {}
         }

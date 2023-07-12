@@ -27,7 +27,7 @@ impl PathExt for Path {
         if self.is_absolute() {
             self.normalize()
         } else {
-            base.as_ref().join(&self).normalize()
+            base.as_ref().join(self).normalize()
         }
     }
 
@@ -38,7 +38,7 @@ impl PathExt for Path {
         P: AsRef<Path>,
     {
         let rel_path: PathBuf =
-            pathdiff::diff_paths(&self, base).unwrap_or_else(|| self.to_path_buf());
+            pathdiff::diff_paths(self, base).unwrap_or_else(|| self.to_path_buf());
         rel_path.normalize()
     }
 
