@@ -3,6 +3,14 @@ on: [push, pull_request]
 jobs:
   feature-matrix:
     uses: ./.github/workflows/feature-matrix.yml
+  loc:
+    name: count LOC
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo install tokei
+      - run: tokei ./
   build:
     name: build ${{ matrix.package.name }} (${{ matrix.package.features }})
     runs-on: ubuntu-latest
