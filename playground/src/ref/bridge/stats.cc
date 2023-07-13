@@ -27,10 +27,6 @@ void transfer_cache_stats(CacheKind cache, unsigned cache_id,
   }
 }
 
-// class trace_gpgpu_sim_bridge : public trace_gpgpu_sim {
-//  public:
-//   using trace_gpgpu_sim::trace_gpgpu_sim;
-//
 void trace_gpgpu_sim_bridge::transfer_stats(Stats &stats) {
   transfer_general_stats(stats);
 
@@ -61,12 +57,19 @@ void trace_gpgpu_sim_bridge::transfer_general_stats(Stats &stats) {
 
   // see: m_shader_stats->print(stdout);
   // stats.set_num_stall_shared_mem(m_shader_stats->gpgpu_n_stall_shd_mem);
-  stats.set_num_mem_read_local(m_shader_stats->gpgpu_n_mem_read_local);
-  stats.set_num_mem_write_local(m_shader_stats->gpgpu_n_mem_write_local);
+  stats.set_num_mem_write(m_shader_stats->made_write_mfs);
+  stats.set_num_mem_read(m_shader_stats->made_read_mfs);
+  stats.set_num_mem_const(m_shader_stats->gpgpu_n_mem_const);
+  stats.set_num_mem_texture(m_shader_stats->gpgpu_n_mem_texture);
   stats.set_num_mem_read_global(m_shader_stats->gpgpu_n_mem_read_global);
   stats.set_num_mem_write_global(m_shader_stats->gpgpu_n_mem_write_global);
-  stats.set_num_mem_texture(m_shader_stats->gpgpu_n_mem_texture);
-  stats.set_num_mem_const(m_shader_stats->gpgpu_n_mem_const);
+  stats.set_num_mem_read_local(m_shader_stats->gpgpu_n_mem_read_local);
+  stats.set_num_mem_write_local(m_shader_stats->gpgpu_n_mem_write_local);
+  stats.set_num_mem_l2_writeback(m_shader_stats->gpgpu_n_mem_l2_writeback);
+  stats.set_num_mem_l1_write_allocate(
+      m_shader_stats->gpgpu_n_mem_l1_write_allocate);
+  stats.set_num_mem_l2_write_allocate(
+      m_shader_stats->gpgpu_n_mem_l2_write_allocate);
 
   stats.set_num_load_instructions(m_shader_stats->gpgpu_n_load_insn);
   stats.set_num_store_instructions(m_shader_stats->gpgpu_n_store_insn);
@@ -144,4 +147,3 @@ void trace_gpgpu_sim_bridge::transfer_l2d_stats(Stats &stats) {
     };
   }
 }
-// };

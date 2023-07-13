@@ -3,8 +3,6 @@ use crate::config;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-pub type CacheRequestStatusCounters = HashMap<(mem_fetch::AccessKind, cache::AccessStat), usize>;
-
 #[derive(Clone, Default, Debug, serde::Serialize, serde::Deserialize)]
 pub struct DRAMStats {
     /// bank writes [shader id][dram chip id][bank id]
@@ -34,29 +32,187 @@ impl DRAMStats {
 }
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct Stats {
-    pub num_mem_write: usize,
-    pub num_mem_read: usize,
-    pub num_mem_const: usize,
-    pub num_mem_texture: usize,
-    pub num_mem_read_global: usize,
-    pub num_mem_write_global: usize,
-    pub num_mem_read_local: usize,
-    pub num_mem_write_local: usize,
-    pub num_mem_read_inst: usize,
-    pub num_mem_l2_writeback: usize,
-    pub num_mem_l1_write_allocate: usize,
-    pub num_mem_l2_write_allocate: usize,
+pub struct PerCacheStats(pub HashMap<usize, CacheStats>);
 
-    pub l1_data: CacheStats,
+impl PerCacheStats {
+    pub fn shave(&mut self) {
+        for stats in self.values_mut() {
+            stats.shave();
+        }
+    }
+
+    pub fn reduce(&self) -> CacheStats {
+        let mut out = CacheStats::default();
+        for stats in self.0.values() {
+            out += stats.clone();
+        }
+        out
+    }
+}
+
+impl std::ops::Deref for PerCacheStats {
+    type Target = HashMap<usize, CacheStats>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for PerCacheStats {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+// #[derive(Clone, Default, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+// pub struct Counters {
+//     // pub num_mem_write: usize,
+//     // pub num_mem_read: usize,
+//     // pub num_mem_const: usize,
+//     // pub num_mem_texture: usize,
+//     // pub num_mem_read_global: usize,
+//     // pub num_mem_write_global: usize,
+//     // pub num_mem_read_local: usize,
+//     // pub num_mem_write_local: usize,
+//     // pub num_mem_load_instructions: usize,
+//     // pub num_mem_store_instructions: usize,
+//     // pub num_mem_l2_writeback: usize,
+//     // pub num_mem_l1_write_allocate: usize,
+//     // pub num_mem_l2_write_allocate: usize,
+// }
+
+#[derive(Clone, Default, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct MemAccesses(pub HashMap<mem_fetch::AccessKind, usize>);
+
+impl MemAccesses {
+    pub fn num_writes(&self) -> usize {
+        self.0
+            .iter()
+            .filter(|(kind, _)| kind.is_write())
+            .map(|(_, count)| count)
+            .sum()
+    }
+
+    pub fn num_reads(&self) -> usize {
+        self.0
+            .iter()
+            .filter(|(kind, _)| !kind.is_write())
+            .map(|(_, count)| count)
+            .sum()
+    }
+
+    pub fn inc(&mut self, kind: mem_fetch::AccessKind, count: usize) {
+        *self.0.entry(kind).or_insert(0) += count;
+    }
+}
+
+impl std::ops::Deref for MemAccesses {
+    type Target = HashMap<mem_fetch::AccessKind, usize>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for MemAccesses {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
 }
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct InstructionCounts(pub HashMap<(super::instruction::MemorySpace, bool), usize>);
+
+impl InstructionCounts {
+    pub fn get_total(&self, space: super::instruction::MemorySpace) -> usize {
+        let stores = self.0.get(&(space, true)).unwrap_or(&0);
+        let loads = self.0.get(&(space, false)).unwrap_or(&0);
+        stores + loads
+    }
+
+    pub fn inc(&mut self, space: super::instruction::MemorySpace, is_store: bool, count: usize) {
+        *self.0.entry((space, is_store)).or_insert(0) += count;
+    }
+}
+
+impl std::ops::Deref for InstructionCounts {
+    type Target = HashMap<(super::instruction::MemorySpace, bool), usize>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for InstructionCounts {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+#[derive(Clone, Default, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct Stats {
+    // pub counters: Counters,
+    pub accesses: MemAccesses,
+    pub instructions: InstructionCounts,
+    pub l1i_stats: PerCacheStats,
+    pub l1c_stats: PerCacheStats,
+    pub l1t_stats: PerCacheStats,
+    pub l1d_stats: PerCacheStats,
+    pub l2d_stats: PerCacheStats,
+}
+
+pub type CacheRequestStatusCounters = HashMap<(mem_fetch::AccessKind, cache::AccessStat), usize>;
+
+#[derive(Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CacheStats {
     pub accesses: CacheRequestStatusCounters,
 }
 
+impl Default for CacheStats {
+    fn default() -> Self {
+        use strum::IntoEnumIterator;
+        let mut accesses = HashMap::new();
+        for access_kind in mem_fetch::AccessKind::iter() {
+            for status in cache::RequestStatus::iter() {
+                accesses.insert((access_kind, cache::AccessStat::Status(status)), 0);
+            }
+            for failure in cache::ReservationFailure::iter() {
+                accesses.insert(
+                    (access_kind, cache::AccessStat::ReservationFailure(failure)),
+                    0,
+                );
+            }
+        }
+        Self { accesses }
+    }
+}
+
+impl std::fmt::Debug for CacheStats {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mut accesses: Vec<_> = self
+            .accesses
+            .iter()
+            .filter(|(_, &count)| count > 0)
+            .map(|((access_kind, access_stat), count)| match access_stat {
+                cache::AccessStat::Status(status) => {
+                    format!("{:?}[{:?}]={}", access_kind, status, count)
+                }
+                cache::AccessStat::ReservationFailure(failure) => {
+                    format!("{:?}[{:?}]={}", access_kind, failure, count)
+                }
+            })
+            .collect();
+        accesses.sort();
+
+        f.debug_list().entries(accesses).finish()
+    }
+}
+
 impl CacheStats {
+    pub fn shave(&mut self) {
+        self.accesses.retain(|_, v| *v > 0);
+    }
+
     #[deprecated]
     pub fn sub_stats(&self) {
         use cache::{AccessStat, RequestStatus};

@@ -10,7 +10,7 @@ use bitvec::{array::BitArray, field::BitField, BitArr};
 use std::collections::{HashMap, VecDeque};
 use trace_model as trace;
 
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum MemorySpace {
     // undefined_space = 0,
     // reg_space,

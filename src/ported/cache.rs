@@ -3,7 +3,9 @@ use crate::config;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, strum::EnumIter, Clone, Copy, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize,
+)]
 pub enum RequestStatus {
     HIT = 0,
     HIT_RESERVED,
@@ -14,7 +16,9 @@ pub enum RequestStatus {
     // NUM_CACHE_REQUEST_STATUS,
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, strum::EnumIter, Clone, Copy, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize,
+)]
 pub enum ReservationFailure {
     /// all line are reserved
     LINE_ALLOC_FAIL = 0,

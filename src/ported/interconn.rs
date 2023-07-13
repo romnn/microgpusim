@@ -233,48 +233,53 @@ impl MemFetchInterface for CoreMemoryInterface<Packet> {
 
         {
             let mut stats = self.stats.lock().unwrap();
-            if fetch.is_write() {
-                stats.num_mem_write += 1;
-            } else {
-                stats.num_mem_read += 1;
-            }
-
-            match fetch.access_kind() {
-                mem_fetch::AccessKind::CONST_ACC_R => {
-                    stats.num_mem_const += 1;
-                }
-                mem_fetch::AccessKind::TEXTURE_ACC_R => {
-                    stats.num_mem_texture += 1;
-                }
-                mem_fetch::AccessKind::GLOBAL_ACC_R => {
-                    stats.num_mem_read_global += 1;
-                }
-                mem_fetch::AccessKind::GLOBAL_ACC_W => {
-                    stats.num_mem_write_global += 1;
-                }
-                mem_fetch::AccessKind::LOCAL_ACC_R => {
-                    stats.num_mem_read_local += 1;
-                }
-                mem_fetch::AccessKind::LOCAL_ACC_W => {
-                    stats.num_mem_write_local += 1;
-                }
-                mem_fetch::AccessKind::INST_ACC_R => {
-                    stats.num_mem_read_inst += 1;
-                }
-                mem_fetch::AccessKind::L1_WRBK_ACC => {
-                    stats.num_mem_write_global += 1;
-                }
-                mem_fetch::AccessKind::L2_WRBK_ACC => {
-                    stats.num_mem_l2_writeback += 1;
-                }
-                mem_fetch::AccessKind::L1_WR_ALLOC_R => {
-                    stats.num_mem_l1_write_allocate += 1;
-                }
-                mem_fetch::AccessKind::L2_WR_ALLOC_R => {
-                    stats.num_mem_l2_write_allocate += 1;
-                }
-                _ => {}
-            }
+            // let counters = &mut stats.counters;
+            // if fetch.is_write() {
+            //     counters.num_mem_write += 1;
+            // } else {
+            //     counters.num_mem_read += 1;
+            // }
+            //
+            let access_kind = *fetch.access_kind();
+            debug_assert_eq!(fetch.is_write(), access_kind.is_write());
+            stats.accesses.inc(access_kind, 1);
+            // match fetch.access_kind() {
+            //     mem_fetch::AccessKind::CONST_ACC_R => {
+            //         counters.num_mem_const += 1;
+            //     }
+            //     mem_fetch::AccessKind::TEXTURE_ACC_R => {
+            //         counters.num_mem_texture += 1;
+            //     }
+            //     mem_fetch::AccessKind::GLOBAL_ACC_R => {
+            //         counters.num_mem_read_global += 1;
+            //     }
+            //     mem_fetch::AccessKind::GLOBAL_ACC_W => {
+            //         counters.num_mem_write_global += 1;
+            //     }
+            //     mem_fetch::AccessKind::LOCAL_ACC_R => {
+            //         counters.num_mem_read_local += 1;
+            //     }
+            //     mem_fetch::AccessKind::LOCAL_ACC_W => {
+            //         counters.num_mem_write_local += 1;
+            //     }
+            //     mem_fetch::AccessKind::INST_ACC_R => {
+            //         // TODO: this is wrong
+            //         counters.num_mem_load_instructions += 1;
+            //     }
+            //     mem_fetch::AccessKind::L1_WRBK_ACC => {
+            //         counters.num_mem_write_global += 1;
+            //     }
+            //     mem_fetch::AccessKind::L2_WRBK_ACC => {
+            //         counters.num_mem_l2_writeback += 1;
+            //     }
+            //     mem_fetch::AccessKind::L1_WR_ALLOC_R => {
+            //         counters.num_mem_l1_write_allocate += 1;
+            //     }
+            //     mem_fetch::AccessKind::L2_WR_ALLOC_R => {
+            //         counters.num_mem_l2_write_allocate += 1;
+            //     }
+            //     _ => {}
+            // }
         }
 
         let dest_sub_partition_id = fetch.sub_partition_id();

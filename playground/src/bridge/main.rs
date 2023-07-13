@@ -12,15 +12,15 @@ pub struct CacheStats {
     pub accesses: HashMap<(AccessType, AccessStat), u64>,
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AccessStat {
     ReservationFailure(ReservationFailure),
     Status(RequestStatus),
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct Stats {
-    // memory accesses
+/// Memory accesses
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Accesses {
     pub num_mem_write: usize,
     pub num_mem_read: usize,
     pub num_mem_const: usize,
@@ -29,7 +29,14 @@ pub struct Stats {
     pub num_mem_write_global: usize,
     pub num_mem_read_local: usize,
     pub num_mem_write_local: usize,
-    // instructions
+    pub num_mem_l2_writeback: usize,
+    pub num_mem_l1_write_allocate: usize,
+    pub num_mem_l2_write_allocate: usize,
+}
+
+/// Instruction counts
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Instructions {
     pub num_load_instructions: usize,
     pub num_store_instructions: usize,
     pub num_shared_mem_instructions: usize,
@@ -37,10 +44,16 @@ pub struct Stats {
     pub num_texture_instructions: usize,
     pub num_const_instructions: usize,
     pub num_param_instructions: usize,
-    // other stuff
-    pub num_mem_l2_writeback: usize,
-    pub num_mem_l1_write_allocate: usize,
-    pub num_mem_l2_write_allocate: usize,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Other {}
+
+#[derive(Debug, Clone, Default)]
+pub struct Stats {
+    pub accesses: Accesses,
+    pub instructions: Instructions,
+    pub other: Other,
 
     // per cache stats
     pub l1i_stats: HashMap<usize, CacheStats>,
@@ -84,56 +97,60 @@ impl Stats {
 
     // memory accesses
     pub fn set_num_mem_write(&mut self, v: usize) {
-        self.num_mem_write = v;
+        self.accesses.num_mem_write = v;
     }
     pub fn set_num_mem_read(&mut self, v: usize) {
-        self.num_mem_read = v;
+        self.accesses.num_mem_read = v;
     }
     pub fn set_num_mem_const(&mut self, v: usize) {
-        self.num_mem_const = v;
+        self.accesses.num_mem_const = v;
     }
     pub fn set_num_mem_texture(&mut self, v: usize) {
-        self.num_mem_texture = v;
+        self.accesses.num_mem_texture = v;
     }
     pub fn set_num_mem_read_global(&mut self, v: usize) {
-        self.num_mem_read_global = v;
+        self.accesses.num_mem_read_global = v;
     }
     pub fn set_num_mem_write_global(&mut self, v: usize) {
-        self.num_mem_write_global = v;
+        self.accesses.num_mem_write_global = v;
     }
     pub fn set_num_mem_read_local(&mut self, v: usize) {
-        self.num_mem_read_local = v;
+        self.accesses.num_mem_read_local = v;
     }
     pub fn set_num_mem_write_local(&mut self, v: usize) {
-        self.num_mem_write_local = v;
+        self.accesses.num_mem_write_local = v;
+    }
+    pub fn set_num_mem_l2_writeback(&mut self, v: usize) {
+        self.accesses.num_mem_l2_writeback = v;
+    }
+    pub fn set_num_mem_l1_write_allocate(&mut self, v: usize) {
+        self.accesses.num_mem_l1_write_allocate = v;
+    }
+    pub fn set_num_mem_l2_write_allocate(&mut self, v: usize) {
+        self.accesses.num_mem_l2_write_allocate = v;
     }
 
-    // instructions
+    // instruction counts
     pub fn set_num_load_instructions(&mut self, v: usize) {
-        self.num_load_instructions = v;
+        self.instructions.num_load_instructions = v;
     }
     pub fn set_num_store_instructions(&mut self, v: usize) {
-        self.num_store_instructions = v;
+        self.instructions.num_store_instructions = v;
     }
     pub fn set_num_shared_mem_instructions(&mut self, v: usize) {
-        self.num_shared_mem_instructions = v;
+        self.instructions.num_shared_mem_instructions = v;
     }
     pub fn set_num_sstarr_instructions(&mut self, v: usize) {
-        self.num_sstarr_instructions = v;
+        self.instructions.num_sstarr_instructions = v;
     }
     pub fn set_num_texture_instructions(&mut self, v: usize) {
-        self.num_texture_instructions = v;
+        self.instructions.num_texture_instructions = v;
     }
     pub fn set_num_const_instructions(&mut self, v: usize) {
-        self.num_const_instructions = v;
+        self.instructions.num_const_instructions = v;
     }
     pub fn set_num_param_instructions(&mut self, v: usize) {
-        self.num_param_instructions = v;
-    }
-
-    // other stuff
-    pub fn set_num_mem_l2_writeback(&mut self, v: usize) {
-        self.num_mem_l2_writeback = v;
+        self.instructions.num_param_instructions = v;
     }
 }
 
@@ -173,8 +190,11 @@ mod default {
         fn set_num_mem_write_global(self: &mut Stats, v: usize);
         fn set_num_mem_read_local(self: &mut Stats, v: usize);
         fn set_num_mem_write_local(self: &mut Stats, v: usize);
+        fn set_num_mem_l2_writeback(self: &mut Stats, v: usize);
+        fn set_num_mem_l1_write_allocate(self: &mut Stats, v: usize);
+        fn set_num_mem_l2_write_allocate(self: &mut Stats, v: usize);
 
-        // instructions
+        // instruction counts
         fn set_num_load_instructions(self: &mut Stats, v: usize);
         fn set_num_store_instructions(self: &mut Stats, v: usize);
         fn set_num_shared_mem_instructions(self: &mut Stats, v: usize);
@@ -182,10 +202,6 @@ mod default {
         fn set_num_texture_instructions(self: &mut Stats, v: usize);
         fn set_num_const_instructions(self: &mut Stats, v: usize);
         fn set_num_param_instructions(self: &mut Stats, v: usize);
-
-        // fn set_num_mem_l2_writeback(self: &mut Stats, v: usize);
-        // fn set_num_mem_l1_write_allocate(self: &mut Stats, v: usize);
-        // fn set_num_mem_l2_write_allocate(self: &mut Stats, v: usize);
     }
 
     unsafe extern "C++" {

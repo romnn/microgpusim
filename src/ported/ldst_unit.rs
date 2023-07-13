@@ -875,8 +875,70 @@ where
         }
 
         // inst->op_pipe = MEM__OP;
-        // // stat collection
+
         // m_core->mem_instruction_stats(*inst);
+        if let Some(mem_space) = instr.memory_space {
+            let mut stats = self.stats.lock().unwrap();
+            let active_count = instr.active_thread_count();
+            stats
+                .instructions
+                .inc(mem_space, instr.is_store(), active_count);
+            // match instr.memory_space {
+            //     Some(MemorySpace::Local | MemorySpace::Global) => {
+            //         if instr.is_store() {
+            //             stats.counters.num_mem_store_instructions += active_count;
+            //         } else {
+            //             stats.counters.num_mem_load_instructions += active_count;
+            //         }
+            //     }
+            //     Some(MemorySpace::Shared) => {
+            //         stats.counters.num_shared_mem_instructions += active_count;
+            //         if instr.is_store() {
+            //             stats.counters.num_shared_mem_store_instructions += active_count;
+            //         } else {
+            //             stats.counters.num_shared_mem_load_instructions += active_count;
+            //         }
+            //     }
+            //     Some(MemorySpace::Texture) => {}
+            //         stats.counters.num_tex_mem_instructions += active_count;
+            //     Some(MemorySpace::Constant) => {
+            //         stats.counters.num_const_mem_instructions += active_count;
+            //     }
+            //     None => {}
+            // }
+        }
+
+        // switch (inst.space.get_type()) {
+        //   case undefined_space:
+        //   case reg_space:
+        //     break;
+        //   case shared_space:
+        //     m_stats->gpgpu_n_shmem_insn += active_count;
+        //     break;
+        //   case sstarr_space:
+        //     m_stats->gpgpu_n_sstarr_insn += active_count;
+        //     break;
+        //   case const_space:
+        //     m_stats->gpgpu_n_const_insn += active_count;
+        //     break;
+        //   case param_space_kernel:
+        //   case param_space_local:
+        //     m_stats->gpgpu_n_param_insn += active_count;
+        //     break;
+        //   case tex_space:
+        //     m_stats->gpgpu_n_tex_insn += active_count;
+        //     break;
+        //   case global_space:
+        //   case local_space:
+        //     if (inst.is_store())
+        //       m_stats->gpgpu_n_store_insn += active_count;
+        //     else
+        //       m_stats->gpgpu_n_load_insn += active_count;
+        //     break;
+        //   default:
+        //     abort();
+        // }
+
         // m_core->incmem_stat(m_core->get_config()->warp_size, 1);
 
         self.pipelined_simd_unit.issue(instr);

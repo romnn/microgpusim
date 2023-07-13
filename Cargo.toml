@@ -71,6 +71,7 @@ optional = true
 
 [dev-dependencies]
 pretty_assertions = "1"
+pretty_assertions_sorted = "1"
 cxx = "1"
 
 # sanity check stats against playground

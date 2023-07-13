@@ -61,7 +61,9 @@ pub enum Status {
     NUM_MEM_REQ_STAT,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, strum::EnumIter, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub enum AccessKind {
     GLOBAL_ACC_R,
     LOCAL_ACC_R,
@@ -74,7 +76,27 @@ pub enum AccessKind {
     INST_ACC_R,
     L1_WR_ALLOC_R,
     L2_WR_ALLOC_R,
-    NUM_MEM_ACCESS_TYPE,
+    // NUM_MEM_ACCESS_TYPE,
+}
+
+impl AccessKind {
+    #[must_use]
+    pub fn is_write(&self) -> bool {
+        match self {
+            AccessKind::GLOBAL_ACC_R
+            | AccessKind::LOCAL_ACC_R
+            | AccessKind::CONST_ACC_R
+            | AccessKind::TEXTURE_ACC_R
+            | AccessKind::INST_ACC_R
+            | AccessKind::L1_WR_ALLOC_R
+            | AccessKind::L2_WR_ALLOC_R => false,
+            // | AccessKind::NUM_MEM_ACCESS_TYPE => false,
+            AccessKind::GLOBAL_ACC_W
+            | AccessKind::LOCAL_ACC_W
+            | AccessKind::L1_WRBK_ACC
+            | AccessKind::L2_WRBK_ACC => true,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
