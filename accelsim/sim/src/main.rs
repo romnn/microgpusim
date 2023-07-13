@@ -11,31 +11,30 @@ use std::time::{Duration, Instant};
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
+    env_logger::init();
     color_eyre::install()?;
 
     let options = Options::parse();
 
     let start = Instant::now();
 
-    dbg!(&options.traces_dir);
-    dbg!(&options.sim_config);
-    dbg!(&options.timeout);
+    log::debug!("options: {:#?}", &options);
 
     let output =
         sim::simulate_trace(&options.traces_dir, options.sim_config, options.timeout).await?;
 
-    println!("simulating took {:?}", start.elapsed());
+    log::info!("simulating took {:?}", start.elapsed());
 
-    // write log
     let stdout = utils::decode_utf8!(&output.stdout);
     let stderr = utils::decode_utf8!(&output.stderr);
-    println!("stdout:\n{}", &stdout);
-    eprintln!("stderr:\n{}", &stderr);
+    log::debug!("stdout:\n{}", &stdout);
+    log::debug!("stderr:\n{}", &stderr);
 
     if stdout.is_empty() && stderr.is_empty() {
         eyre::bail!("empty stdout and stderr: parsing omitted");
     }
 
+    // write log
     let log_file_path = options
         .log_file
         .unwrap_or(options.traces_dir.join("accelsim_log.txt"));

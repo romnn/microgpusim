@@ -31,7 +31,7 @@ pub struct Options {
     pub timeout: Option<Duration>,
 }
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Default)]
 pub struct SimConfig {
     #[clap(help = "config directory")]
     pub config_dir: Option<PathBuf>,
@@ -58,17 +58,8 @@ impl SimConfig {
             (Some(config), _) => Some(config.clone()),
             (None, Some(config_dir)) => Some(config_dir.join("gpgpusim.config")),
         }
-        // self.config
-        //     .as_ref()
-        //     .or(self
-        //         .config_dir
-        //         .map(|config_dir| config_dir.join("gpgpusim.config"))
-        //         .as_ref())
-        //     .map(PathBuf::as_path)
-        //     .map(std::path::Path::canonicalize)
     }
 
-    // pub fn trace_config(&self) -> Option<Result<PathBuf, std::io::Error>> {
     #[must_use]
     pub fn trace_config(&self) -> Option<PathBuf> {
         match (&self.trace_config, &self.config_dir) {
@@ -76,9 +67,5 @@ impl SimConfig {
             (Some(config), _) => Some(config.clone()),
             (None, Some(config_dir)) => Some(config_dir.join("gpgpusim.trace.config")),
         }
-        // self.trace_config
-        //     .as_ref()
-        //     .unwrap_or(&self.config_dir.join("gpgpusim.trace.config"))
-        //     .canonicalize()
     }
 }

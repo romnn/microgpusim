@@ -5,32 +5,18 @@ pub mod materialize;
 
 use benchmark::{
     matrix,
-    template::{self, Template}, // PathTemplate, StringTemplate},
+    template::{self, Template},
 };
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
+use smart_default::SmartDefault;
 use std::path::{Path, PathBuf};
 
 #[inline]
-#[must_use] pub fn bool_true() -> bool {
+#[must_use]
+pub fn bool_true() -> bool {
     true
 }
-
-// #[derive(thiserror::Error, Debug)]
-// pub enum CallTemplateError {
-//     #[error("\"{args_template}\" cannot be templated with {input:?}")]
-//     Render {
-//         args_template: StringTemplate,
-//         input: matrix::Input,
-//         source: handlebars::RenderError,
-//     },
-//
-//     #[error("\"{cmd_args}\" cannot be split into shell arguments")]
-//     Parse {
-//         cmd_args: String,
-//         source: shell_words::ParseError,
-//     },
-// }
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -48,30 +34,58 @@ pub enum Error {
 
     #[error("missing value: {0}")]
     Missing(String),
+
+    #[error("cannot use a relative base: {0:?}")]
+    RelativeBase(PathBuf),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, smart_default::SmartDefault)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
 pub struct ProfileOptions {
     #[default = true]
     #[serde(default = "bool_true")]
     pub enabled: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, smart_default::SmartDefault)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
 pub struct TraceOptions {
     #[default = true]
     #[serde(default = "bool_true")]
     pub enabled: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, smart_default::SmartDefault)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
 pub struct AccelsimTraceOptions {
     #[default = true]
     #[serde(default = "bool_true")]
     pub enabled: bool,
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
+pub struct SimOptions {
+    #[default = true]
+    #[serde(default = "bool_true")]
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
+pub struct AccelsimSimOptions {
+    #[default = true]
+    #[serde(default = "bool_true")]
+    pub enabled: bool,
+    pub trace_config: Option<Template<PathBuf>>,
+    pub inter_config: Option<Template<PathBuf>>,
+    pub config_dir: Option<Template<PathBuf>>,
+    pub config: Option<Template<PathBuf>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
+pub struct PlaygroundSimOptions {
+    #[default = true]
+    #[serde(default = "bool_true")]
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
 pub struct Benchmark {
     pub path: PathBuf,
     pub executable: PathBuf,
@@ -90,59 +104,22 @@ pub struct Benchmark {
     pub trace: TraceOptions,
     #[serde(default)]
     pub accelsim_trace: AccelsimTraceOptions,
+    #[serde(default)]
+    pub simulate: SimOptions,
+    #[serde(default)]
+    pub accelsim_simulate: AccelsimSimOptions,
+    #[serde(default)]
+    pub playground_simulate: PlaygroundSimOptions,
 }
 
-// pub type CallArgs = Result<Vec<String>, benchmark::CallTemplateError>;
-//
 impl Benchmark {
-    #[must_use] pub fn inputs(&self) -> Vec<matrix::Input> {
+    #[must_use]
+    pub fn inputs(&self) -> Vec<matrix::Input> {
         self.matrix.expand()
     }
 
-    //     pub fn inputs(&self) -> impl Iterator<Item = Result<Input, CallTemplateError>> + '_ {
-    //         self.matrix.expand().into_iter().map(|input| {
-    //             let cmd_args =
-    //                 self.args_template
-    //                     .render(&input)
-    //                     .map_err(|source| CallTemplateError::Render {
-    //                         args_template: self.args_template.clone(),
-    //                         input: input.clone(),
-    //                         source,
-    //                     })?;
-    //             let cmd_args =
-    //                 shell_words::split(&cmd_args).map_err(|source| CallTemplateError::Parse {
-    //                     cmd_args: cmd_args.clone(),
-    //                     source,
-    //                 })?;
-    //             // input["bench"] = IndexMap::from_iter([("name".to_string(), name)]);
-    //             Ok(Input {
-    //                 values: template::InputValues(input),
-    //                 cmd_args,
-    //             })
-    //         })
-    //     }
-    //
-    //     // pub fn input_call_args(&self) -> impl Iterator<Item = CallArgs> + '_ {
-    //     //     self.inputs().map(move |input| {
-    //     //         let cmd_args =
-    //     //             self.args_template
-    //     //                 .render(&input)
-    //     //                 .map_err(|source| CallTemplateError::Render {
-    //     //                     args_template: self.args_template.clone(),
-    //     //                     input: input.clone(),
-    //     //                     source,
-    //     //                 })?;
-    //     //         let cmd_args =
-    //     //             shell_words::split(&cmd_args).map_err(|source| CallTemplateError::Parse {
-    //     //                 cmd_args: cmd_args.clone(),
-    //     //                 source,
-    //     //             })?;
-    //     //
-    //     //         Ok(cmd_args)
-    //     //     })
-    //     // }
-    //
-    #[must_use] pub fn executable(&self) -> PathBuf {
+    #[must_use]
+    pub fn executable(&self) -> PathBuf {
         if self.executable.is_absolute() {
             self.executable.clone()
         } else {
@@ -151,15 +128,16 @@ impl Benchmark {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, smart_default::SmartDefault)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
 pub struct TargetConfig {
     pub repetitions: Option<usize>,
     pub concurrency: Option<usize>,
+    pub timeout: Option<duration_string::DurationString>,
     pub enabled: Option<bool>,
     pub results_dir: Option<PathBuf>,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
 pub struct TraceConfig {
     #[serde(flatten)]
     pub common: TargetConfig,
@@ -169,31 +147,41 @@ pub struct TraceConfig {
     pub save_json: bool,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
 pub struct AccelsimTraceConfig {
     #[serde(flatten)]
     pub common: TargetConfig,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
 pub struct ProfileConfig {
     #[serde(flatten)]
     pub common: TargetConfig,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
 pub struct SimConfig {
     #[serde(flatten)]
     pub common: TargetConfig,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
 pub struct AccelsimSimConfig {
+    #[serde(flatten)]
+    pub common: TargetConfig,
+    pub trace_config: PathBuf,
+    pub inter_config: PathBuf,
+    pub config_dir: PathBuf,
+    pub config: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
+pub struct PlaygroundSimConfig {
     #[serde(flatten)]
     pub common: TargetConfig,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
 pub struct Config {
     pub materialize_to: Option<PathBuf>,
 
@@ -202,17 +190,19 @@ pub struct Config {
 
     #[serde(default)]
     pub trace: TraceConfig,
-    // #[serde(default, rename = "accelsim_trace")]
-    // pub accelsim_trace: AccelsimTraceConfig,
+    #[serde(default)]
+    pub accelsim_trace: AccelsimTraceConfig,
     #[serde(default)]
     pub profile: ProfileConfig,
-    // #[serde(default, rename = "simulate")]
-    // pub sim: SimConfig,
-    // #[serde(default, rename = "accelsim_simulate")]
-    // pub accelsim_sim: AccelsimSimConfig,
+    #[serde(default)]
+    pub simulate: SimConfig,
+    #[serde(default)]
+    pub accelsim_simulate: AccelsimSimConfig,
+    #[serde(default)]
+    pub playground_simulate: PlaygroundSimConfig,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
 pub struct Benchmarks {
     #[serde(default)]
     pub config: Config,
@@ -231,24 +221,6 @@ impl Benchmarks {
         Ok(benchmarks)
     }
 
-    // /// Resolve relative paths based on benchmark file location
-    // ///
-    // /// Note: this will leave absolute paths unchanged.
-    // pub fn resolve(&mut self, base: impl AsRef<Path>) {
-    //     let base = base.as_ref();
-    //     for path in [
-    //         Some(&mut self.config.results_dir),
-    //         self.config.materialize.as_mut(),
-    //     ] {
-    //         if let Some(path) = path {
-    //             *path = path.resolve(base);
-    //         }
-    //     }
-    //     for (_, bench) in &mut self.benchmarks {
-    //         bench.path = bench.path.resolve(base);
-    //     }
-    // }
-
     pub fn from_reader(reader: impl std::io::BufRead) -> Result<Self, Error> {
         let benches = serde_yaml::from_reader(reader)?;
         Ok(benches)
@@ -258,23 +230,6 @@ impl Benchmarks {
         let benches = serde_yaml::from_str(s.as_ref())?;
         Ok(benches)
     }
-
-    // pub fn enabled_benchmarks(&self) -> impl Iterator<Item = (&String, &Benchmark)> + '_ {
-    //     self.benchmarks.iter().filter(|(_, bench)| bench.enabled)
-    // }
-
-    // pub fn enabled_benchmark_configurations(
-    //     &self,
-    // ) -> impl Iterator<
-    //     Item = (
-    //         &String,
-    //         &Benchmark,
-    //         Result<benchmark::Input, benchmark::CallTemplateError>,
-    //     ),
-    // > + '_ {
-    //     self.enabled_benchmarks()
-    //         .flat_map(|(name, bench)| bench.inputs().map(move |input| (name, bench, input)))
-    // }
 }
 
 impl<S> std::ops::Index<S> for Benchmarks
@@ -367,26 +322,25 @@ benchmarks:
         let benchmarks = Benchmarks::from_str(benchmarks)?;
         dbg!(&benchmarks);
         let vec_add_benchmark = &benchmarks["vectorAdd"];
-        assert_eq!(
+        diff_assert_eq!(
             &benchmarks["vectorAdd"],
             &benchmarks.benchmarks["vectorAdd"]
         );
-        assert_eq!(
+        diff_assert_eq!(
             &benchmarks["vectorAdd".to_string()],
             &benchmarks.benchmarks["vectorAdd"]
         );
-
         diff_assert_eq!(
             vec_add_benchmark.executable(),
             PathBuf::from("./vectoradd/vectoradd")
         );
         let vec_add_inputs = vec_add_benchmark.inputs();
-        // diff_assert_eq!(&vec_add_inputs[0], yaml!({"data_type": 32, "length": 100}));
-
-        // diff_assert_eq!(
-        //     &vec_add_inputs?[0].cmd_args,
-        //     &vec!["-len", "100", "--dtype=32"]
-        // );
+        diff_assert_eq!(
+            vec_add_inputs[0],
+            serde_yaml::from_str::<IndexMap<String, serde_yaml::Value>>(
+                r#"{ data_type: 32, length: 100 }"#
+            )?
+        );
         Ok(())
     }
 

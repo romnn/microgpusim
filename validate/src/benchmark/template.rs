@@ -33,15 +33,11 @@ impl Error {
     }
 }
 
-// impl<T> std::fmt::Display for Error {
-//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-//         write!(f, "{}", self.0)
-//     }
-// }
-
-// pub trait Template<T> {
-//     fn render(&self, data: &impl Serialize) -> Result<T, Error>;
-// }
+/// Trait for template implementations that render into some value.
+pub trait Render {
+    type Value;
+    fn render(&self, data: &(impl Serialize + std::fmt::Debug)) -> Result<Self::Value, Error>;
+}
 
 /// A template
 ///
@@ -55,7 +51,8 @@ pub struct Template<T> {
 }
 
 impl<T> Template<T> {
-    #[must_use] pub fn new(template: String) -> Self {
+    #[must_use]
+    pub fn new(template: String) -> Self {
         Self {
             inner: template,
             phantom: std::marker::PhantomData,
@@ -74,93 +71,18 @@ pub fn render(template: &str, data: &(impl Serialize + std::fmt::Debug)) -> Resu
         .map_err(|source| Error::new(template.to_string(), data, source))
 }
 
-impl Template<String> {
-    pub fn render(&self, data: &(impl Serialize + std::fmt::Debug)) -> Result<String, Error> {
+impl Render for Template<String> {
+    type Value = String;
+
+    fn render(&self, data: &(impl Serialize + std::fmt::Debug)) -> Result<Self::Value, Error> {
         render(&self.inner, data)
     }
 }
 
-impl Template<PathBuf> {
-    pub fn render(&self, data: &(impl Serialize + std::fmt::Debug)) -> Result<PathBuf, Error> {
+impl Render for Template<PathBuf> {
+    type Value = PathBuf;
+
+    fn render(&self, data: &(impl Serialize + std::fmt::Debug)) -> Result<Self::Value, Error> {
         render(&self.inner, data).map(PathBuf::from)
     }
 }
-
-// /// A templated string
-// ///
-// /// To enforce that template strings are never used without being rendered first,
-// /// the inner string is private
-// #[derive(Debug, Default, Clone, PartialEq, Eq, Deserialize, Serialize)]
-// #[serde(transparent)]
-// pub struct StringTemplate(String);
-//
-// impl std::fmt::Display for StringTemplate {
-//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-//         write!(f, "{}", self.0)
-//     }
-// }
-//
-// impl Template<String> for StringTemplate {
-//     pub fn render(&self, data: &impl Serialize) -> Result<String, Error> {
-//         REG.render_template(&self.0, data)
-// .map_err(|source| {
-//                     Errorr {
-//                         args_template: self.args_template.clone(),
-//                         input: input.clone(),
-//                         source,
-//                     }
-//
-//
-//     }
-// }
-//
-// /// A templated path.
-// ///
-// /// To enforce that template strings are never used without being rendered first,
-// /// the inner string is private
-// #[derive(Debug, Default, Clone, PartialEq, Eq, Deserialize, Serialize)]
-// #[serde(transparent)]
-// pub struct PathTemplate(PathBuf);
-//
-// impl std::fmt::Display for PathTemplate {
-//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-//         write!(f, "{}", self.0.display())
-//     }
-// }
-//
-// impl PathTemplate {
-//     pub fn render(&self, data: &impl Serialize) -> Result<PathBuf, handlebars::RenderError> {
-//         REG.render_template(&self.0.to_string_lossy(), data)
-//             .map(PathBuf::from)
-//     }
-// }
-
-// #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-// pub struct BenchmarkValues {
-//     pub name: String,
-// }
-//
-// #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-// pub struct Values {
-//     pub bench: BenchmarkValues,
-//     #[serde(flatten)]
-//     pub inputs: InputValues,
-// }
-
-// #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize)]
-// #[serde(transparent)]
-// pub struct InputValues(pub matrix::Input);
-//
-// impl From<InputValues> for matrix::Input {
-//     fn from(input: InputValues) -> Self {
-//         input.0
-//     }
-// }
-
-// pub fn render_path(
-//     tmpl: &Option<Template>,
-//     values: &Values,
-// ) -> Option<Result<PathBuf, handlebars::RenderError>> {
-//     tmpl.as_ref()
-//         .map(|templ| templ.render(values).map(PathBuf::from))
-// }

@@ -26,6 +26,11 @@ config:
   # for accelsim simulation, we do not set a limit on concurrency
   accelsim_simulate:
     repetitions: 2
+    # simulation configurations
+    config_dir: ../accelsim/gtx1080/
+    config: ../accelsim/gtx1080/gpgpusim.config
+    trace_config: ../accelsim/gtx1080/gpgpusim.trace.config
+    inter_config: ../accelsim/gtx1080/config_fermi_islip.icnt
 #
 # Benchmarks
 #

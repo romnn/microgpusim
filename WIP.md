@@ -1,10 +1,14 @@
 #### TODO
 
-- BUG: playground memory leak
+- BUG: playground is rebuilding without changes to any source files
+- TODO: test max block sizes
+- BUG: matrixmul@54 we have a dram stall
+- BUG: memory space is not a class but just an enum, how can we hold bank info etc in it?
 
-- deprecate plot binary and maybe even the full lib
-- DONE: LINT: validate, trace, profile, utils
-- DONE: fix simple matrix mul
+  - either split by benchmark (because we would need to run build, trace, sim etc.
+  - or split by command (makes less sense)
+
+- TODO: deprecate plot binary and maybe even the full lib
 - make simple tests for the different benchmarks that check if outputs match
 
   - in box
@@ -23,6 +27,11 @@
 - this could make resolving etc. redundant
 - this will make run_benchmark much cleaner indeed
 
+- DONE: LINT: validate, trace, profile, utils
+- DONE: fix simple matrix mul
+- DONE: exclude benchmark binaries from git
+- DONE: run validate in CI
+- DONE: FIX: playground memory leak
 - DONE: commit all those many many changes
 - DONE: move stat transfer into own file for cleaner separation
 - DONE: clean up stats bridge for now
@@ -40,13 +49,9 @@
 - DONE: add benchmark yml file
 
   - DONE: test parsing the benchmark yml file
-  - implement matrix style arguments like github with matrix, include, exclude
+  - DONE: implement matrix style arguments like github with matrix, include, exclude
 
-- TODO: test max block sizes
 - DONE: shared cache cycle is not yet implemented
-- BUG: matrixmul@54 we have a dram stall
-- BUG: memory space is not a class but just an enum, how can we hold bank info etc in it?
-
 - DONE: fix github actions build
 - DONE: update accelsim reference source
 - get more stats to match

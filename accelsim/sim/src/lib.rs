@@ -122,7 +122,7 @@ pub async fn simulate_trace(
         &config,
         &setup_env_path,
     )?;
-    // println!("\n{}\n", &tmp_sim_sh);
+    log::debug!("{}", &tmp_sim_sh);
 
     let tmp_sim_sh_path = traces_dir.as_ref().join("sim.tmp.sh");
     {
@@ -141,6 +141,7 @@ pub async fn simulate_trace(
     let args = [tmp_sim_sh_path.to_string_lossy().to_string()];
     cmd.args(&args);
     cmd.env("CUDA_INSTALL_PATH", &*cuda_path.to_string_lossy());
+    log::debug!("command: {:?}", &cmd);
 
     let result = match timeout {
         Some(timeout) => tokio::time::timeout(timeout, cmd.output()).await,

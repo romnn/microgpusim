@@ -163,6 +163,7 @@ async fn run_benchmark(
 
     // let res: eyre::Result<()> = match options.command {
     match options.command {
+        Command::Expand(ref opts) => unreachable!("expand command does not run benchmarks"),
         Command::Profile(ref opts) => {
             let options = profile::nvprof::Options {};
             let results = profile::nvprof::nvprof(&bench.executable, &bench.args, &options)
@@ -176,6 +177,17 @@ async fn run_benchmark(
             serde_json::to_writer_pretty(writer, &results.metrics)?;
             let mut writer = open_writable(&bench.profile.log_file)?;
             writer.write_all(results.raw.as_bytes())?;
+        }
+        Command::AccelsimTrace(ref opts) => {
+            let traces_dir = &bench.accelsim_trace.traces_dir;
+            utils::fs::create_dirs(traces_dir)?;
+
+            let options = accelsim_trace::Options {
+                traces_dir: traces_dir.clone(),
+                nvbit_tracer_tool: None, // auto detect
+                ..accelsim_trace::Options::default()
+            };
+            accelsim_trace::trace(&bench.executable, &bench.args, &options).await?;
         }
         Command::Trace(ref opts) => {
             // create traces dir
@@ -194,12 +206,37 @@ async fn run_benchmark(
                     invoke_trace::Error::Command(err) => err.into_eyre(),
                     err => err.into(),
                 })?;
-
-            // let dur = std::time::Duration::from_secs(3);
-            // println!("sleeping for {:?}", &dur);
-            // tokio::time::sleep(dur).await;
         }
-        // Command::Simulate(ref opts) => {}
+        Command::Simulate(ref opts) => {
+            eyre::bail!("todo");
+        }
+        Command::AccelsimSimulate(ref opts) => {
+            // get traces dir from accelsim trace config
+            let traces_dir = &bench.accelsim_trace.traces_dir;
+
+            let materialize::AccelsimSimOptions {
+                config,
+                config_dir,
+                trace_config,
+                inter_config,
+                common,
+                ..
+            } = bench.accelsim_simulate.clone();
+
+            let config = accelsim::SimConfig {
+                config: Some(config),
+                config_dir: Some(config_dir),
+                trace_config: Some(trace_config),
+                inter_config: Some(inter_config),
+                ..accelsim::SimConfig::default()
+            };
+
+            let timeout = common.timeout.map(Into::into);
+            accelsim_sim::simulate_trace(traces_dir, config, timeout).await?;
+        }
+        Command::PlaygroundSimulate(ref opts) => {
+            eyre::bail!("todo");
+        }
         Command::Build(_) | Command::Clean(_) => {
             let should_build = options.force || !bench.executable.is_file();
             let makefile = bench.path.join("Makefile");
@@ -218,14 +255,18 @@ async fn run_benchmark(
                 }
             }
         }
-        _ => {}
     }
+
+    // let dur = std::time::Duration::from_secs(3);
+    // println!("sleeping for {:?}", &dur);
+    // tokio::time::sleep(dur).await;
 
     Ok(())
 }
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
+    env_logger::init();
     color_eyre::install()?;
 
     let start = std::time::Instant::now();
@@ -261,6 +302,7 @@ async fn main() -> eyre::Result<()> {
         .map(|p| p.resolve(base_dir));
 
     // materialize config: source of truth for downstream consumers
+    debug_assert!(base_dir.is_absolute());
     let materialized = benchmarks.materialize(base_dir)?;
 
     if let Command::Expand(_) = options.command {

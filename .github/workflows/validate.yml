@@ -13,7 +13,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Install CUDA
         uses: Jimver/cuda-toolkit@v0.2.10
-        if: ${{ matrix.package.need_cuda }}
         id: cuda-toolkit
         with:
           cuda: "11.8.0"

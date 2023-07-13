@@ -83,13 +83,6 @@ async fn main() -> eyre::Result<()> {
         traces_dir.clone()
     } else {
         utils::debug_trace_dir(&exec, exec_args.as_slice())?.join("trace")
-        // let manifest = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?);
-        // let results = manifest.join("../../debug_results");
-        // let name = exec
-        //     .file_stem()
-        //     .ok_or(eyre::eyre!("no file stem for {}", exec.display()))?;
-        // let config = format!("{}-{}", &*name.to_string_lossy(), &exec_args.join("-"));
-        // results.join(name).join(config).join("trace")
     };
 
     let traces_dir = utils::fs::normalize_path(&traces_dir);

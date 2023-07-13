@@ -26,6 +26,8 @@ dependencies = [
  "clap",
  "color-eyre",
  "duct",
+ "env_logger",
+ "log",
  "tokio",
  "utils",
 ]
@@ -42,6 +44,8 @@ dependencies = [
  "console",
  "dialoguer",
  "duct",
+ "env_logger",
+ "log",
  "reqwest",
  "tar",
  "tokio",
@@ -971,6 +975,9 @@ name = "duration-string"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6fcc1d9ae294a15ed05aeae8e11ee5f2b3fe971c077d45a42fb20825fba6ee13"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "dwrote"
@@ -3637,16 +3644,23 @@ dependencies = [
 name = "validate"
 version = "0.1.0"
 dependencies = [
+ "accelsim",
+ "accelsim-sim",
+ "accelsim-trace",
+ "async-process",
  "chrono",
  "clap",
  "color-eyre",
  "console",
  "dotenv",
+ "duration-string",
+ "env_logger",
  "futures",
  "handlebars",
  "indexmap 2.0.0",
  "indicatif",
  "invoke-trace",
+ "log",
  "num_cpus",
  "once_cell",
  "pathdiff",

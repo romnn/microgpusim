@@ -73,4 +73,58 @@ mod tests {
         );
         Ok(())
     }
+
+    #[test]
+    fn test_path_resolve_on_absolute_path() -> eyre::Result<()> {
+        let absolute_path = PathBuf::from("/base/vectoradd/vectoradd");
+        diff_assert_eq!(absolute_path.resolve("/another-base"), absolute_path,);
+        diff_assert_eq!(absolute_path.resolve("test"), absolute_path,);
+        diff_assert_eq!(absolute_path.resolve("../something"), absolute_path,);
+        diff_assert_eq!(absolute_path.resolve(""), absolute_path,);
+        Ok(())
+    }
+
+    #[test]
+    fn test_path_resolve_absolute_base() -> eyre::Result<()> {
+        diff_assert_eq!(
+            PathBuf::from("./vectoradd/vectoradd").resolve("/base/"),
+            PathBuf::from("/base/vectoradd/vectoradd")
+        );
+        diff_assert_eq!(
+            PathBuf::from("././vectoradd/vectoradd").resolve("/base"),
+            PathBuf::from("/base/vectoradd/vectoradd")
+        );
+        diff_assert_eq!(
+            PathBuf::from("vectoradd/vectoradd").resolve("/base"),
+            PathBuf::from("/base/vectoradd/vectoradd")
+        );
+        diff_assert_eq!(
+            PathBuf::from("vectoradd/vectoradd")
+                .resolve("/base")
+                .resolve("/base"),
+            PathBuf::from("/base/vectoradd/vectoradd")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_path_resolve_relative_base() -> eyre::Result<()> {
+        diff_assert_eq!(
+            PathBuf::from("./vectoradd/vectoradd").resolve("base/"),
+            PathBuf::from("base/vectoradd/vectoradd")
+        );
+        diff_assert_eq!(
+            PathBuf::from("././vectoradd/vectoradd").resolve("./base/test/"),
+            PathBuf::from("base/test/vectoradd/vectoradd")
+        );
+        // at the moment, we do not guard against possibly unwanted behaviour when resolving
+        // multiple times on the same relative path accidentally.
+        diff_assert_eq!(
+            PathBuf::from("vectoradd/vectoradd")
+                .resolve("base")
+                .resolve("base"),
+            PathBuf::from("base/base/vectoradd/vectoradd")
+        );
+        Ok(())
+    }
 }

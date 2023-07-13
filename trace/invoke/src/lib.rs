@@ -1,5 +1,4 @@
-use std::process::{Command, Output};
-// use async_process::{Command, Output};
+use async_process::Command;
 use std::path::{Path, PathBuf};
 
 #[derive(thiserror::Error, Debug)]
@@ -47,10 +46,7 @@ pub fn find_trace_so() -> Option<PathBuf> {
 pub async fn trace<A>(executable: impl AsRef<Path>, args: A, options: &Options) -> Result<(), Error>
 where
     A: IntoIterator,
-    <A as IntoIterator>::Item: Into<std::ffi::OsString>,
-    // <A as IntoIterator>::Item: AsRef<std::ffi::OsString>,
-    // U: IntoIterator,
-    // U::Item: Into<OsString>,
+    <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
 {
     let tracer_so = options
         .tracer_so
@@ -70,34 +66,33 @@ where
         .canonicalize()
         .map_err(|_| Error::MissingExecutable(executable.as_ref().into()))?;
 
-    // let mut cmd = Command::new(executable);
-    let mut cmd = duct::cmd(executable, args.into_iter());
-    // cmd.stdout(std::process::Stdio::null());
-    // cmd.stderr(std::process::Stdio::null());
+    let mut cmd = Command::new(executable);
     // configure application
-    // cmd.args(args);
-    let cmd = cmd.env("TRACES_DIR", traces_dir.to_string_lossy().to_string());
-    let cmd = cmd.env("SAVE_JSON", if options.save_json { "yes" } else { "no" });
-    let cmd = cmd.env("FULL_TRACE", if options.full_trace { "yes" } else { "no" });
-    let cmd = cmd.env("RUST_LOG", "trace");
-    let cmd = cmd.env("LD_PRELOAD", &tracer_so.to_string_lossy().to_string());
+    cmd.args(args);
+
+    // let mut cmd = duct::cmd(executable, args.into_iter());
+    // let cmd = cmd.env("TRACES_DIR", traces_dir.to_string_lossy().to_string());
+    // let cmd = cmd.env("SAVE_JSON", if options.save_json { "yes" } else { "no" });
+    // let cmd = cmd.env("FULL_TRACE", if options.full_trace { "yes" } else { "no" });
+    // let cmd = cmd.env("RUST_LOG", "trace");
+    // let cmd = cmd.env("LD_PRELOAD", &tracer_so.to_string_lossy().to_string());
 
     // configure tracer
-    // cmd.env("TRACES_DIR", traces_dir.to_string_lossy().to_string());
-    // cmd.env("SAVE_JSON", if options.save_json { "yes" } else { "no" });
-    // cmd.env("FULL_TRACE", if options.full_trace { "yes" } else { "no" });
-    // cmd.env("RUST_LOG", "debug");
-    // cmd.env("LD_PRELOAD", &tracer_so.to_string_lossy().to_string());
+    cmd.env("TRACES_DIR", traces_dir.to_string_lossy().to_string());
+    cmd.env("SAVE_JSON", if options.save_json { "yes" } else { "no" });
+    cmd.env("FULL_TRACE", if options.full_trace { "yes" } else { "no" });
+    cmd.env("RUST_LOG", "debug");
+    cmd.env("LD_PRELOAD", &tracer_so.to_string_lossy().to_string());
 
-    dbg!(&cmd);
-    let cmd_string = format!("{:?}", &cmd);
+    // dbg!(&cmd);
+    // let cmd_string = format!("{:?}", &cmd);
 
-    let result = cmd.run()?;
+    // let result = cmd.run()?;
     // let result = handle.output().wait()?;
 
     // let result = tokio::task::spawn_blocking::<_, std::io::Result<Output>>(move || {
 
-    // let result = cmd.output()?;
+    let result = cmd.output().await?;
     // dbg!(&utils::decode_utf8!(result.stderr));
     // dbg!(&utils::decode_utf8!(result.stdout));
 
@@ -131,9 +126,6 @@ where
     if result.status.success() {
         Ok(())
     } else {
-        Err(Error::Command(utils::CommandError::new(
-            &cmd_string,
-            result,
-        )))
+        Err(Error::Command(utils::CommandError::new(&cmd, result)))
     }
 }

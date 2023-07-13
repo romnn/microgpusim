@@ -22,6 +22,9 @@ dotenv = "0"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 serde_yaml = "0"
+duration-string = { version = "0", features = ["serde"] }
+log = "0"
+env_logger = "0"
 handlebars = "4"
 shell-words = "1"
 indexmap = { version = "2", features = ["serde"] }
@@ -44,7 +47,11 @@ invoke-trace = { path = "../trace/invoke" }
 
 # profile dependencies
 profile = { path = "../profile" }
-# accelsim = { path = "../accelsim" }
+
+# accelsim trace dependencies
+accelsim-trace = { path = "../accelsim/trace" }
+accelsim-sim = { path = "../accelsim/sim" }
+accelsim = { path = "../accelsim" }
 # trace-model = { path = "../trace/model" }
 
 ssh_jumper = { version = "0", optional = true }

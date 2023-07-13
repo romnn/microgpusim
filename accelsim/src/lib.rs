@@ -36,10 +36,10 @@ pub fn locate_nvbit_tracer(use_upstream: bool) -> eyre::Result<PathBuf> {
     let tracer_root = if let Ok(path) = std::env::var("NVBIT_TRACER_ROOT") {
         PathBuf::from(path)
     } else {
-        println!(
-            "NVBIT_TRACER_ROOT environment variable is not set, trying {}",
-            default_tracer_root.display()
-        );
+        // log::warning!(
+        //     "NVBIT_TRACER_ROOT environment variable is not set, trying {}",
+        //     default_tracer_root.display()
+        // );
         default_tracer_root
     };
     Ok(tracer_root)
