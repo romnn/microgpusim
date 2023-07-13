@@ -89,7 +89,8 @@ fn generate_bindings() -> eyre::Result<()> {
     Ok(())
 }
 
-fn build_config_parser() -> eyre::Result<()> {
+#[allow(dead_code)]
+fn build_config_parser_in_source() -> eyre::Result<()> {
     let args = [
         "--header-file=./src/ref/intersim2/config.lex.h",
         "-o",
@@ -116,11 +117,6 @@ fn build_config_parser() -> eyre::Result<()> {
         "./src/ref/intersim2/config.y",
         "--file-prefix=./src/ref/intersim2/config.parser",
         "-Wno-yacc",
-        // &format!(
-        //     "--file-prefix={}",
-        //     // generates $OUT_DIR/config.parser.tab.c and $OUT_DIR/config.parser.tab.h
-        //     &output_path().join("config.parser").to_string_lossy().to_string()
-        // ),
     ];
     let bison_cmd = duct::cmd("bison", &args).unchecked();
     let result = bison_cmd.run()?;
@@ -152,8 +148,89 @@ fn build_config_parser() -> eyre::Result<()> {
     Ok(())
 }
 
+fn build_config_parser() -> eyre::Result<PathBuf> {
+    let parser_build_dir = output_path().join("intersim2");
+    std::fs::create_dir_all(&parser_build_dir)?;
+
+    let args = [
+        // generates:
+        // $OUT_DIR/intersim2/config.lex.h
+        format!(
+            "--header-file={}",
+            &*parser_build_dir.join("config.lex.h").to_string_lossy()
+        ),
+        "-o".to_string(),
+        // generates:
+        // $OUT_DIR/intersim2/config.lex.c
+        parser_build_dir
+            .join("config.lex.c")
+            .to_string_lossy()
+            .to_string(),
+        "./src/ref/intersim2/config.l".to_string(),
+    ];
+    let flex_cmd = duct::cmd("flex", &args).unchecked();
+
+    let result = flex_cmd.run()?;
+    println!("{}", String::from_utf8_lossy(&result.stdout));
+    eprintln!("{}", String::from_utf8_lossy(&result.stderr));
+
+    if !result.status.success() {
+        eyre::bail!(
+            "command {:?} exited with code {:?}",
+            [&["flex".to_string()], args.as_slice()].concat(),
+            result.status.code()
+        );
+    }
+
+    let args = [
+        "-y",
+        "-d",
+        "./src/ref/intersim2/config.y",
+        &format!(
+            "--file-prefix={}",
+            // generates:
+            // $OUT_DIR/intersim2/config.parser.tab.c
+            // $OUT_DIR/intersim2/config.parser.tab.h
+            parser_build_dir
+                .join("config.parser")
+                .to_string_lossy()
+                .to_string()
+        ),
+        "-Wno-yacc",
+    ];
+    let bison_cmd = duct::cmd("bison", &args).unchecked();
+    let result = bison_cmd.run()?;
+    println!("{}", String::from_utf8_lossy(&result.stdout));
+    eprintln!("{}", String::from_utf8_lossy(&result.stderr));
+
+    if !result.status.success() {
+        eyre::bail!(
+            "command {:?} exited with code {:?}",
+            [&["bison"], args.as_slice()].concat(),
+            result.status.code()
+        );
+    }
+    let parser_sources = [
+        parser_build_dir.join("config.lex.c"),
+        parser_build_dir.join("config.parser.tab.c"),
+    ];
+
+    cc::Build::new()
+        .cpp(true)
+        .static_flag(true)
+        .include("./src/ref/intersim2/")
+        .opt_level(0)
+        .debug(true)
+        .warnings(false)
+        .files(parser_sources)
+        .try_compile("playgroundbridgeparser")
+        .wrap_err_with(|| "failed to build parser")?;
+
+    Ok(parser_build_dir)
+}
+
 fn generate_bridge(bridges: &[PathBuf], mut sources: Vec<PathBuf>) -> eyre::Result<()> {
-    build_config_parser()?;
+    let parser_include_dir = build_config_parser()?;
     let mut build = cxx_build::bridges(bridges);
     build
         .cpp(true)
@@ -161,6 +238,8 @@ fn generate_bridge(bridges: &[PathBuf], mut sources: Vec<PathBuf>) -> eyre::Resu
         .opt_level(0)
         .debug(true)
         .warnings(false)
+        .include(parser_include_dir)
+        .include("./src/ref/intersim2/")
         .flag("-ggdb3") // as much debug info as possible
         .flag("-std=c++14")
         .files(sources);
@@ -181,6 +260,7 @@ fn main() -> eyre::Result<()> {
         println!("cargo:rerun-if-changed=./src/bridge/");
         println!("cargo:rerun-if-changed=./src/bindings.hpp");
         println!("cargo:rerun-if-changed=./src/bridge.hpp");
+        println!("cargo:rerun-if-changed=src/ref");
         println!("cargo:rerun-if-changed=./src/ref/");
         println!("cargo:rerun-if-changed=./src/tests/");
     }
