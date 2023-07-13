@@ -1,7 +1,8 @@
 #### TODO
 
-- BUG: playground is rebuilding without changes to any source files
+- playground version that includes compute instructions
 - TODO: test max block sizes
+- make data cache not implement the cache interface, make l1 a wrapper around data just like with l2 right now
 - BUG: matrixmul@54 we have a dram stall
 - BUG: memory space is not a class but just an enum, how can we hold bank info etc in it?
 
@@ -13,6 +14,10 @@
 
   - in box
 
+- add larger benchmark suites (e.g. rodinia)
+- test parsing nvprof output, dump to file
+
+- get more stats to match
 - get stats for dram accesses
 - box: switch prints to proper logging?
 - compare outputs for simple matrix multiply
@@ -22,11 +27,22 @@
 
 - write a criterion benchmark
 
-- add timeout stuff
-- materialize config first? operate on the materialized configurations and benchmarks
-- this could make resolving etc. redundant
-- this will make run_benchmark much cleaner indeed
+- TODO: add timeout for validate
 
+- move stats into own module? can be reused for playground
+
+  - what does playground already use? otherwise we have the conversion in validate?
+
+- add matrix functionality to actions-rs? as actions-workflow-parser?
+
+  - implement contains, merge, etc. for serde_yaml too and add some examples to serde_merge
+
+- DONE: prepare to move out the benchmark stuff (keep it more generic in lib.rs at least)
+- DONE: check all the nvbit changes and push them
+- DONE: materialize config first? operate on the materialized configurations and benchmarks
+- DONE: this could make resolving etc. redundant
+- DONE: this will make run_benchmark much cleaner indeed
+- DONE: BUG: playground is rebuilding without changes to any source files
 - DONE: LINT: validate, trace, profile, utils
 - DONE: fix simple matrix mul
 - DONE: exclude benchmark binaries from git
@@ -35,17 +51,6 @@
 - DONE: commit all those many many changes
 - DONE: move stat transfer into own file for cleaner separation
 - DONE: clean up stats bridge for now
-- move stats into own module? can be reused for playground
-
-  - what does playground already use? otherwise we have the conversion in validate?
-
-- check all the nvbit changes and push them
-- add matrix functionality to actions-rs? as actions-workflow-parser?
-  - implement contains, merge, etc. for serde_yaml too and add some examples to serde_merge
-- prepare to move out the benchmark stuff (keep it more generic in lib.rs at least)
-
-  - add timeouts
-
 - DONE: add benchmark yml file
 
   - DONE: test parsing the benchmark yml file
@@ -54,12 +59,8 @@
 - DONE: shared cache cycle is not yet implemented
 - DONE: fix github actions build
 - DONE: update accelsim reference source
-- get more stats to match
 
-  - DONE: use separate cache stats per cache
-
-- add larger benchmark suites (e.g. rodinia)
-- test parsing nvprof output, dump to file
+- DONE: use separate cache stats per cache
 
 - python script to profile test-apps on the GTX1080
 
@@ -89,8 +90,6 @@
 
   - same in cycle 74: GLOBAL_ACC_R@139903215076224 for box with size 136
   - hint: data size seems to be 32 instead of 128, this could have to do with l2 / writeback?
-
-- make data cache not implement the cache interface, make l1 a wrapper around data just like with l2 right now
 
 - playground cycle 68: got fetch return L2_WR_ALLOC_R@139823420540160
 - box cycle 68: got fetch return L1_WR_ALLOC_R@139903215076608 // why is this l1??

@@ -2,7 +2,6 @@ use color_eyre::eyre::{self, WrapErr};
 use std::path::Path;
 
 fn build_accelsim(accel_path: &Path, cuda_path: &Path, force: bool) -> eyre::Result<()> {
-    use std::fs;
     use std::io::Write;
 
     let artifact = accelsim::executable(accel_path);
@@ -34,7 +33,7 @@ make -j -C {src}",
     );
     dbg!(&tmp_build_sh);
 
-    let mut tmp_build_sh_file = fs::OpenOptions::new()
+    let mut tmp_build_sh_file = std::fs::OpenOptions::new()
         .write(true)
         .truncate(true)
         .create(true)
@@ -61,7 +60,7 @@ make -j -C {src}",
         ("build.log.stdout", result.stdout),
         ("build.log.stderr", result.stderr),
     ] {
-        let mut log_file = fs::OpenOptions::new()
+        let mut log_file = std::fs::OpenOptions::new()
             .write(true)
             .truncate(true)
             .create(true)

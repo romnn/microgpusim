@@ -7,10 +7,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        command: ["sim"]
+        command: ["simulate", "accelsim-simulate"]
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install accelsim dependencies
+        run: >-
+          sudo apt-get install -y wget build-essential xutils-dev bison zlib1g-dev flex libglu1-mesa-dev libssl-dev libxml2-dev libboost-all-dev git g++
       - name: Install CUDA
         uses: Jimver/cuda-toolkit@v0.2.10
         id: cuda-toolkit
@@ -24,6 +27,6 @@ jobs:
       - name: Build
         run: cargo build -p validate --all-targets
       - name: Build benchmarks
-        run: cargo run -p validate -- build
+        run: ./target/debug/validate build
       - name: Run benchmarks
-        run: cargo run -p validate -- ${{ matrix.command }}
+        run: ./target/debug/validate ${{ matrix.command }}
