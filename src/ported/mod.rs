@@ -1081,6 +1081,7 @@ pub fn accelmain(
 
 #[cfg(test)]
 mod tests {
+    use super::Stats;
     use color_eyre::eyre;
     use pretty_assertions::assert_eq as diff_assert_eq;
     use std::path::PathBuf;
@@ -1104,7 +1105,7 @@ mod tests {
 
         let stats = super::accelmain(&vec_add_trace_dir.join("trace"), None)?;
 
-        let ref_stats = std::thread::spawn(move || {
+        let ref_stats: playground::Stats = std::thread::spawn(move || {
             let mut args = vec![
                 "-trace",
                 kernelslist.as_os_str().to_str().unwrap(),
@@ -1139,17 +1140,131 @@ mod tests {
         .join()
         .unwrap()?;
 
-        dbg!(&stats);
+        let ref_stats: Stats = ref_stats.clone().into();
         dbg!(&ref_stats);
+        dbg!(&stats);
 
-        // todo: compare both stats here
-
-        assert!(false);
+        // compare stats here
+        diff_assert_eq!(&ref_stats, &stats);
         Ok(())
     }
 
+    impl From<playground::Stats> for Stats {
+        fn from(stats: playground::Stats) -> Self {
+            Self {
+                num_mem_write: stats.num_mem_write,
+                num_mem_read: stats.num_mem_read,
+                num_mem_const: stats.num_mem_const,
+                num_mem_texture: stats.num_mem_texture,
+                num_mem_read_global: stats.num_mem_read_global,
+                num_mem_write_global: stats.num_mem_write_global,
+                num_mem_read_local: stats.num_mem_read_global,
+                num_mem_write_local: stats.num_mem_write_local,
+                num_mem_read_inst: stats.num_load_instructions,
+                num_mem_l2_writeback: stats.num_mem_l2_writeback,
+                num_mem_l1_write_allocate: stats.num_mem_l1_write_allocate,
+                num_mem_l2_write_allocate: stats.num_mem_l2_write_allocate,
+                l1_data: super::stats::CacheStats::default(),
+            }
+        }
+    }
+
+    impl From<playground::RequestStatus> for super::cache::RequestStatus {
+        fn from(status: playground::RequestStatus) -> Self {
+            use super::cache::RequestStatus;
+            match status {
+                playground::RequestStatus::HIT => RequestStatus::HIT,
+                playground::RequestStatus::HIT_RESERVED => RequestStatus::HIT_RESERVED,
+
+                playground::RequestStatus::MISS => RequestStatus::MISS,
+
+                playground::RequestStatus::RESERVATION_FAIL => RequestStatus::RESERVATION_FAIL,
+
+                playground::RequestStatus::SECTOR_MISS => RequestStatus::SECTOR_MISS,
+                playground::RequestStatus::MSHR_HIT => RequestStatus::MSHR_HIT,
+                other @ playground::RequestStatus::NUM_CACHE_REQUEST_STATUS => {
+                    panic!("bad cache request status: {:?}", other)
+                }
+            }
+        }
+    }
+
+    impl From<playground::ReservationFailure> for super::cache::ReservationFailure {
+        fn from(failure: playground::ReservationFailure) -> Self {
+            use super::cache::ReservationFailure;
+            match failure {
+                playground::ReservationFailure::LINE_ALLOC_FAIL => {
+                    ReservationFailure::LINE_ALLOC_FAIL
+                }
+                playground::ReservationFailure::MISS_QUEUE_FULL => {
+                    ReservationFailure::MISS_QUEUE_FULL
+                }
+                playground::ReservationFailure::MSHR_ENRTY_FAIL => {
+                    ReservationFailure::MSHR_ENTRY_FAIL
+                }
+                playground::ReservationFailure::MSHR_MERGE_ENRTY_FAIL => {
+                    ReservationFailure::MSHR_MERGE_ENTRY_FAIL
+                }
+                playground::ReservationFailure::MSHR_RW_PENDING => {
+                    ReservationFailure::MSHR_RW_PENDING
+                }
+                other @ playground::ReservationFailure::NUM_CACHE_RESERVATION_FAIL_STATUS => {
+                    panic!("bad cache request status: {:?}", other)
+                }
+            }
+        }
+    }
+
+    impl From<playground::AccessStat> for super::cache::AccessStat {
+        fn from(stat: playground::AccessStat) -> Self {
+            use super::cache::AccessStat;
+            match stat {
+                playground::AccessStat::Status(status) => AccessStat::Status(status.into()),
+                playground::AccessStat::ReservationFailure(failure) => {
+                    AccessStat::ReservationFailure(failure.into())
+                }
+            }
+        }
+    }
+
+    impl From<playground::AccessType> for super::mem_fetch::AccessKind {
+        fn from(kind: playground::AccessType) -> Self {
+            use super::mem_fetch::AccessKind;
+            match kind {
+                playground::AccessType::GLOBAL_ACC_R => AccessKind::GLOBAL_ACC_R,
+                playground::AccessType::LOCAL_ACC_R => AccessKind::LOCAL_ACC_R,
+                playground::AccessType::CONST_ACC_R => AccessKind::CONST_ACC_R,
+                playground::AccessType::TEXTURE_ACC_R => AccessKind::TEXTURE_ACC_R,
+                playground::AccessType::GLOBAL_ACC_W => AccessKind::GLOBAL_ACC_W,
+                playground::AccessType::LOCAL_ACC_W => AccessKind::LOCAL_ACC_W,
+                playground::AccessType::L1_WRBK_ACC => AccessKind::L1_WRBK_ACC,
+                playground::AccessType::L2_WRBK_ACC => AccessKind::L2_WRBK_ACC,
+                playground::AccessType::INST_ACC_R => AccessKind::INST_ACC_R,
+                playground::AccessType::L1_WR_ALLOC_R => AccessKind::L1_WR_ALLOC_R,
+                playground::AccessType::L2_WR_ALLOC_R => AccessKind::L2_WR_ALLOC_R,
+                playground::AccessType::NUM_MEM_ACCESS_TYPE => AccessKind::NUM_MEM_ACCESS_TYPE,
+            }
+        }
+    }
+
+    impl From<playground::CacheStats> for super::stats::CacheStats {
+        fn from(stats: playground::CacheStats) -> Self {
+            Self {
+                accesses: stats
+                    .accesses
+                    .into_iter()
+                    .map(|((access_kind, access_stat), count)| {
+                        (
+                            (access_kind.into(), access_stat.into()),
+                            count.try_into().unwrap(),
+                        )
+                    })
+                    .collect(),
+            }
+        }
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-    // #[tokio::test(flavor = "current_thread")]
     async fn test_async_vectoradd() -> eyre::Result<()> {
         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
         let vec_add_trace_dir = manifest_dir.join("results/vectorAdd/vectorAdd-100-32");
@@ -1167,7 +1282,7 @@ mod tests {
 
         for _ in 0..10 {
             let trace_dir = vec_add_trace_dir.join("trace");
-            let stats = tokio::task::spawn_blocking(move || {
+            let stats: Stats = tokio::task::spawn_blocking(move || {
                 let stats = super::accelmain(trace_dir, None)?;
                 Ok::<_, eyre::Report>(stats)
             })
@@ -1220,16 +1335,11 @@ mod tests {
             let ref_stats: Result<Vec<_>, _> = ref_stats?.into_iter().collect();
             let ref_stats: Vec<_> = ref_stats?;
 
-            let ref_stats = &ref_stats[0];
+            let ref_stats: playground::Stats = ref_stats[0].clone();
+            let ref_stats: Stats = ref_stats.clone().into();
             dbg!(&ref_stats);
         }
 
-        // dbg!(&stats);
-        // dbg!(&ref_stats);
-
-        // todo: compare both stats here
-
-        assert!(false);
         Ok(())
     }
 }

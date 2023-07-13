@@ -33,7 +33,7 @@ impl DRAMStats {
     }
 }
 
-#[derive(Clone, Default, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Default, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Stats {
     pub num_mem_write: usize,
     pub num_mem_read: usize,
@@ -47,14 +47,17 @@ pub struct Stats {
     pub num_mem_l2_writeback: usize,
     pub num_mem_l1_write_allocate: usize,
     pub num_mem_l2_write_allocate: usize,
+
+    pub l1_data: CacheStats,
 }
 
-#[derive(Clone, Default, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Default, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CacheStats {
     pub accesses: CacheRequestStatusCounters,
 }
 
 impl CacheStats {
+    #[deprecated]
     pub fn sub_stats(&self) {
         use cache::{AccessStat, RequestStatus};
         let mut total_accesses = 0;

@@ -7,7 +7,7 @@ pub type RequestStatus = bindings::cache_request_status;
 pub type AccessType = bindings::mem_access_type;
 pub type ReservationFailure = bindings::cache_reservation_fail_reason;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct CacheStats {
     pub accesses: HashMap<(AccessType, AccessStat), u64>,
 }
@@ -18,7 +18,7 @@ pub enum AccessStat {
     Status(RequestStatus),
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Stats {
     // memory accesses
     pub num_mem_write: usize,
