@@ -325,7 +325,7 @@ where
                     }
                 }
                 if instr_completed {
-                    warp_inst_complete(&mut next_writeback, &mut self.stats.lock().unwrap());
+                    super::warp_inst_complete(&mut next_writeback, &self.stats);
                 }
                 // m_last_inst_gpu_sim_cycle = m_core->get_gpu()->gpu_sim_cycle;
                 // m_last_inst_gpu_tot_sim_cycle = m_core->get_gpu()->gpu_tot_sim_cycle;
@@ -770,9 +770,10 @@ where
                 if access_status == cache::RequestStatus::HIT {
                     debug_assert!(!read_sent);
                     let mut next_fetch = self.l1_latency_queue[bank][0].take().unwrap();
-                    let instr = next_fetch.instr.as_ref().unwrap();
+                    let instr = next_fetch.instr.as_mut().unwrap();
 
                     if instr.is_load() {
+                        let mut completed = false;
                         for out_reg in instr.outputs() {
                             let pending = self.pending_writes.get_mut(&instr.warp_id).unwrap();
                             debug_assert!(pending[out_reg] > 0);
@@ -783,8 +784,11 @@ where
                                     .write()
                                     .unwrap()
                                     .release_register(instr.warp_id, *out_reg);
-                                // m_core->warp_inst_complete(mf_next->get_inst());
+                                completed = true;
                             }
+                        }
+                        if completed {
+                            super::warp_inst_complete(instr, &self.stats);
                         }
                     }
 
@@ -1143,7 +1147,9 @@ where
                         panic!("rrr");
                     }
                     if !has_pending_requests {
-                        warp_inst_complete(&mut dispatch_reg, &mut self.stats.lock().unwrap());
+                        // warp_inst_complete(&mut dispatch_reg, &mut self.stats.lock().unwrap());
+                        super::warp_inst_complete(&mut dispatch_reg, &self.stats);
+
                         self.scoreboard
                             .write()
                             .unwrap()
@@ -1163,26 +1169,9 @@ where
                     .num_instr_in_pipeline -= 1;
                 // todo!("warp instruction complete");
                 let mut dispatch_reg = simd_unit.dispatch_reg.take().unwrap();
-                warp_inst_complete(&mut dispatch_reg, &mut self.stats.lock().unwrap());
+                // warp_inst_complete(&mut dispatch_reg, &mut self.stats.lock().unwrap());
+                super::warp_inst_complete(&mut dispatch_reg, &self.stats);
             }
         }
     }
-}
-
-pub fn warp_inst_complete(instr: &mut WarpInstruction, stats: &mut Stats) {
-    // if (inst.op_pipe == SP__OP)
-    //   m_stats->m_num_sp_committed[m_sid]++;
-    // else if (inst.op_pipe == SFU__OP)
-    //   m_stats->m_num_sfu_committed[m_sid]++;
-    // else if (inst.op_pipe == MEM__OP)
-    //   m_stats->m_num_mem_committed[m_sid]++;
-    //
-    // if (m_config->gpgpu_clock_gated_lanes == false)
-    //   m_stats->m_num_sim_insn[m_sid] += m_config->warp_size;
-    // else
-    //   m_stats->m_num_sim_insn[m_sid] += inst.active_count();
-
-    // m_stats->m_num_sim_winsn[m_sid]++;
-    // m_gpu->gpu_sim_insn += inst.active_count();
-    // instr.completed(m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle);
 }

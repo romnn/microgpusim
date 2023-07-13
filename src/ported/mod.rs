@@ -424,7 +424,7 @@ pub fn parse_commands(path: impl AsRef<Path>) -> eyre::Result<Vec<Command>> {
     Ok(commands)
 }
 
-#[derive(Default)]
+#[derive()]
 // pub struct MockSimulator<'a> {
 pub struct MockSimulator<I> {
     stats: Arc<Mutex<Stats>>,
@@ -481,7 +481,7 @@ where
 {
     // see new trace_gpgpu_sim
     pub fn new(interconn: Arc<I>, config: Arc<config::GPUConfig>) -> Self {
-        let stats = Arc::new(Mutex::new(Stats::default()));
+        let stats = Arc::new(Mutex::new(Stats::new(&*config)));
 
         let num_mem_units = config.num_mem_units;
         let num_sub_partitions = config.num_sub_partition_per_memory_channel;
@@ -1042,10 +1042,15 @@ pub fn accelmain(
         }
 
         println!("exit after {cycle} cycles");
+        {
+            let mut stats = sim.stats.lock().unwrap();
+            stats.sim.cycles = cycle as usize;
+        }
         break;
     }
 
     let mut stats: Stats = sim.stats.lock().unwrap().clone();
+
     for cluster in sim.clusters {
         for core in cluster.cores.lock().unwrap().iter() {
             let core_id = core.inner.core_id;
@@ -1160,8 +1165,8 @@ mod tests {
         let playground_dur = start.elapsed();
 
         // let ref_stats: Stats = ref_stats.clone().into();
-        dbg!(&play_stats);
-        dbg!(&box_stats);
+        // dbg!(&play_stats);
+        // dbg!(&box_stats);
 
         dbg!(&playground_dur);
         dbg!(&box_dur);
@@ -1239,6 +1244,18 @@ mod tests {
         dbg!(&play_stats.instructions);
         dbg!(&box_stats.instructions);
 
+        dbg!(&play_stats.sim);
+        dbg!(&box_stats.sim);
+
+        dbg!(&play_stats.dram);
+        let box_dram_stats = playground::DRAM {
+            total_reads: box_stats.dram.total_reads() as usize,
+            total_writes: box_stats.dram.total_writes() as usize,
+        };
+        dbg!(&box_dram_stats);
+
+        diff::assert_eq_sorted!(&play_stats.dram, &box_dram_stats);
+
         let box_instructions = &box_stats.instructions;
         let playground_instructions = {
             let num_global_loads = box_instructions
@@ -1269,11 +1286,18 @@ mod tests {
                 num_texture_instructions: num_tex,
                 num_const_instructions: num_const,
                 num_param_instructions: 0,
-                // ..playground::Instructions::default()
             }
         };
 
         diff::assert_eq_sorted!(&play_stats.instructions, &playground_instructions);
+
+        diff::assert_eq_sorted!(
+            &play_stats.sim,
+            &playground::Sim {
+                cycle: box_stats.sim.cycles,
+                instructions: box_stats.sim.instructions,
+            }
+        );
 
         assert!(false, "all good!");
         Ok(())
@@ -1284,39 +1308,6 @@ mod tests {
             Self(stats.convert())
         }
     }
-
-    // impl From<playground::Stats> for super::stats::Counters {
-    //     fn from(stats: playground::Stats) -> Self {
-    //         Self {
-    //             // num_mem_write: stats.num_mem_write,
-    //             // num_mem_read: stats.num_mem_read,
-    //             // num_mem_const: stats.num_mem_const,
-    //             // num_mem_texture: stats.num_mem_texture,
-    //             // num_mem_read_global: stats.num_mem_read_global,
-    //             // num_mem_write_global: stats.num_mem_write_global,
-    //             // num_mem_read_local: stats.num_mem_read_global,
-    //             // num_mem_write_local: stats.num_mem_write_local,
-    //             // num_mem_load_instructions: stats.num_load_instructions,
-    //             // num_mem_store_instructions: stats.num_store_instructions,
-    //             // num_mem_l2_writeback: stats.num_mem_l2_writeback,
-    //             // num_mem_l1_write_allocate: stats.num_mem_l1_write_allocate,
-    //             // num_mem_l2_write_allocate: stats.num_mem_l2_write_allocate,
-    //         }
-    //     }
-    // }
-
-    // impl From<playground::Stats> for Stats {
-    //     fn from(stats: playground::Stats) -> Self {
-    //         Self {
-    //             // counters: stats.clone().into(),
-    //             l1i_stats: stats.l1i_stats.into(),
-    //             l1c_stats: stats.l1c_stats.into(),
-    //             l1t_stats: stats.l1t_stats.into(),
-    //             l1d_stats: stats.l1d_stats.into(),
-    //             l2d_stats: stats.l2d_stats.into(),
-    //         }
-    //     }
-    // }
 
     impl From<playground::RequestStatus> for super::cache::RequestStatus {
         fn from(status: playground::RequestStatus) -> Self {

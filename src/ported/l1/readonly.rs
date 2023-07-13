@@ -144,24 +144,27 @@ where
             } else {
                 status = Status::RESERVATION_FAIL;
                 let mut stats = self.inner.stats.lock().unwrap();
-                stats.inc_access(
+                stats.inc(
                     *fetch.access_kind(),
                     cache::AccessStat::ReservationFailure(
                         cache::ReservationFailure::MISS_QUEUE_FULL,
                     ),
+                    1,
                 );
             }
         } else {
             let mut stats = self.inner.stats.lock().unwrap();
-            stats.inc_access(
+            stats.inc(
                 *fetch.access_kind(),
                 cache::AccessStat::ReservationFailure(cache::ReservationFailure::LINE_ALLOC_FAIL),
+                1,
             );
         }
         let mut stats = self.inner.stats.lock().unwrap();
-        stats.inc_access(
+        stats.inc(
             *fetch.access_kind(),
             cache::AccessStat::Status(CacheStats::select_status(probe_status, status)),
+            1,
         );
         status
     }

@@ -29,6 +29,7 @@ void transfer_cache_stats(CacheKind cache, unsigned cache_id,
 
 void trace_gpgpu_sim_bridge::transfer_stats(Stats &stats) {
   transfer_general_stats(stats);
+  transfer_dram_stats(stats);
 
   // per core cache stats
   transfer_core_cache_stats(stats);
@@ -37,11 +38,85 @@ void trace_gpgpu_sim_bridge::transfer_stats(Stats &stats) {
   transfer_l2d_stats(stats);
 }
 
+void trace_gpgpu_sim_bridge::transfer_dram_stats(Stats &stats) {
+  // dram stats are set with
+  // m_stats->memlatstat_dram_access(data);
+
+  unsigned i, j, k, l, m;
+  unsigned max_bank_accesses, min_bank_accesses, max_chip_accesses,
+      min_chip_accesses;
+
+  k = 0;
+  l = 0;
+  m = 0;
+  max_bank_accesses = 0;
+  max_chip_accesses = 0;
+  min_bank_accesses = 0xFFFFFFFF;
+  min_chip_accesses = 0xFFFFFFFF;
+  for (i = 0; i < m_memory_config->m_n_mem; i++) {
+    for (j = 0; j < m_memory_config->nbk; j++) {
+      l = m_memory_stats->totalbankaccesses[i][j];
+      if (l < min_bank_accesses) min_bank_accesses = l;
+      if (l > max_bank_accesses) max_bank_accesses = l;
+      k += l;
+      m += l;
+    }
+    if (m < min_chip_accesses) min_chip_accesses = m;
+    if (m > max_chip_accesses) max_chip_accesses = m;
+    m = 0;
+  }
+  stats.set_total_dram_accesses(k);
+
+  // read access
+  k = 0;
+  l = 0;
+  m = 0;
+  max_bank_accesses = 0;
+  max_chip_accesses = 0;
+  min_bank_accesses = 0xFFFFFFFF;
+  min_chip_accesses = 0xFFFFFFFF;
+  for (i = 0; i < m_memory_config->m_n_mem; i++) {
+    for (j = 0; j < m_memory_config->nbk; j++) {
+      l = m_memory_stats->totalbankreads[i][j];
+      if (l < min_bank_accesses) min_bank_accesses = l;
+      if (l > max_bank_accesses) max_bank_accesses = l;
+      k += l;
+      m += l;
+    }
+    if (m < min_chip_accesses) min_chip_accesses = m;
+    if (m > max_chip_accesses) max_chip_accesses = m;
+    m = 0;
+  }
+  stats.set_total_dram_reads(k);
+
+  // write access
+  k = 0;
+  l = 0;
+  m = 0;
+  max_bank_accesses = 0;
+  max_chip_accesses = 0;
+  min_bank_accesses = 0xFFFFFFFF;
+  min_chip_accesses = 0xFFFFFFFF;
+  for (i = 0; i < m_memory_config->m_n_mem; i++) {
+    for (j = 0; j < m_memory_config->nbk; j++) {
+      l = m_memory_stats->totalbankwrites[i][j];
+      if (l < min_bank_accesses) min_bank_accesses = l;
+      if (l > max_bank_accesses) max_bank_accesses = l;
+      k += l;
+      m += l;
+    }
+    if (m < min_chip_accesses) min_chip_accesses = m;
+    if (m > max_chip_accesses) max_chip_accesses = m;
+    m = 0;
+  }
+  stats.set_total_dram_writes(k);
+}
+
 void trace_gpgpu_sim_bridge::transfer_general_stats(Stats &stats) {
   // see: void trace_gpgpu_sim::gpu_print_stat() {
 
-  // stats.set_global_u64("gpu_sim_cycle", gpu_sim_cycle);
-  // stats.set_global_u64("gpu_sim_insn", gpu_sim_insn);
+  stats.set_sim_cycle(gpu_sim_cycle);
+  stats.set_sim_instructions(gpu_sim_insn);
   // stats.set_global_float("gpu_ipc", (float)gpu_sim_insn / gpu_sim_cycle);
   // stats.set_global_u64("gpu_tot_sim_cycle",
   //                      gpu_tot_sim_cycle + gpu_sim_cycle);

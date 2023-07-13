@@ -329,9 +329,10 @@ impl<I> Base<I> {
 
             self.mshrs.add(mshr_addr, fetch.clone());
             let mut stats = self.stats.lock().unwrap();
-            stats.inc_access(
+            stats.inc(
                 *fetch.access_kind(),
                 cache::AccessStat::Status(cache::RequestStatus::MSHR_HIT),
+                1,
             );
 
             should_miss = true;
@@ -379,16 +380,18 @@ impl<I> Base<I> {
 
             should_miss = true;
         } else if mshr_hit && mshr_full {
-            self.stats.lock().unwrap().inc_access(
+            self.stats.lock().unwrap().inc(
                 *fetch.access_kind(),
                 cache::AccessStat::ReservationFailure(
                     cache::ReservationFailure::MSHR_MERGE_ENTRY_FAIL,
                 ),
+                1,
             );
         } else if !mshr_hit && mshr_full {
-            self.stats.lock().unwrap().inc_access(
+            self.stats.lock().unwrap().inc(
                 *fetch.access_kind(),
                 cache::AccessStat::ReservationFailure(cache::ReservationFailure::MSHR_ENTRY_FAIL),
+                1,
             );
         } else {
             panic!(
@@ -646,10 +649,11 @@ mod tests {
     fn base_cache_init() {
         let core_id = 0;
         let cluster_id = 0;
-        let stats = Arc::new(Mutex::new(Stats::default()));
-        let cache_stats = Arc::new(Mutex::new(CacheStats::default()));
         let config = Arc::new(config::GPUConfig::default());
+        let cache_stats = Arc::new(Mutex::new(CacheStats::default()));
         let cache_config = config.data_cache_l1.clone().unwrap();
+
+        let stats = Arc::new(Mutex::new(Stats::new(&*config)));
         let interconn: Arc<ic::ToyInterconnect<Packet>> =
             Arc::new(ic::ToyInterconnect::new(0, 0, None));
         let port = Arc::new(ic::CoreMemoryInterface {

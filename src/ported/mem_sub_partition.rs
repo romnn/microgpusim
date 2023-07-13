@@ -816,7 +816,7 @@ impl MemoryPartitionUnit
                 returned_fetch.access_kind(),
                 mem_fetch::AccessKind::L1_WRBK_ACC | mem_fetch::AccessKind::L2_WRBK_ACC
             ) {
-                // m_stats->memlatstat_dram_access(mf_return);
+                self.dram.access(returned_fetch);
 
                 returned_fetch.set_reply(); // todo: is it okay to do that here?
                 println!(

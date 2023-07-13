@@ -18,6 +18,16 @@ pub enum AccessStat {
     Status(RequestStatus),
 }
 
+/// DRAM stats
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DRAM {
+    // total accesses are always zero (never set by accelsim)
+    // we ignore them to spare confusion
+    // pub total_accesses: usize,
+    pub total_reads: usize,
+    pub total_writes: usize,
+}
+
 /// Memory accesses
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Accesses {
@@ -47,13 +57,17 @@ pub struct Instructions {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Other {}
+pub struct Sim {
+    pub cycle: usize,
+    pub instructions: usize,
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct Stats {
     pub accesses: Accesses,
     pub instructions: Instructions,
-    pub other: Other,
+    pub sim: Sim,
+    pub dram: DRAM,
 
     // per cache stats
     pub l1i_stats: HashMap<usize, CacheStats>,
@@ -61,7 +75,6 @@ pub struct Stats {
     pub l1t_stats: HashMap<usize, CacheStats>,
     pub l1d_stats: HashMap<usize, CacheStats>,
     pub l2d_stats: HashMap<usize, CacheStats>,
-    // todo: dram stats
 }
 
 impl Stats {
@@ -93,6 +106,25 @@ impl Stats {
         };
         let cache = cache.entry(cache_index).or_default();
         *cache.accesses.entry((kind, status)).or_insert(0) += num_accesses;
+    }
+
+    // dram stats
+    pub fn set_total_dram_accesses(&mut self, v: usize) {
+        // self.dram.total_accesses = v;
+    }
+    pub fn set_total_dram_reads(&mut self, v: usize) {
+        self.dram.total_reads = v;
+    }
+    pub fn set_total_dram_writes(&mut self, v: usize) {
+        self.dram.total_writes = v;
+    }
+
+    // sim stats
+    pub fn set_sim_cycle(&mut self, v: usize) {
+        self.sim.cycle = v;
+    }
+    pub fn set_sim_instructions(&mut self, v: usize) {
+        self.sim.instructions = v;
     }
 
     // memory accesses
@@ -180,6 +212,15 @@ mod default {
             failed: bool,
             num_accesses: u64,
         );
+
+        // dram stats
+        fn set_total_dram_accesses(self: &mut Stats, v: usize);
+        fn set_total_dram_reads(self: &mut Stats, v: usize);
+        fn set_total_dram_writes(self: &mut Stats, v: usize);
+
+        // sim stats
+        fn set_sim_cycle(self: &mut Stats, v: usize);
+        fn set_sim_instructions(self: &mut Stats, v: usize);
 
         // memory accesses
         fn set_num_mem_write(self: &mut Stats, v: usize);

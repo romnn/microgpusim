@@ -469,9 +469,9 @@ pub struct GPUConfig {
     //
     pub pipeline_widths: HashMap<PipelineStage, usize>, // 4,0,0,1,1,4,0,0,1,1,6
     /// Number of SP units
-    pub num_sp_units: usize,  // 4
+    pub num_sp_units: usize, // 4
     /// Number of DP units
-    pub num_dp_units: usize,  // 0
+    pub num_dp_units: usize, // 0
     /// Number of INT units
     pub num_int_units: usize, // 0
 
@@ -530,8 +530,8 @@ pub struct GPUConfig {
     pub dram_data_command_freq_ratio: usize, // 4
     /// DRAM timing parameters =
     /// {nbk:tCCD:tRRD:tRCD:tRAS:tRP:tRC:CL:WL:tCDLR:tWR:nbkgrp:tCCDL:tRTPL}
-    /// dram_timing_opt
     /// nbk=16:CCD=2:RRD=6:RCD=12:RAS=28:RP=12:RC=40: CL=12:WL=4:CDLR=5:WR=12:nbkgrp=1:CCDL=0:RTPL=0
+    pub dram_timing_options: super::ported::dram::TimingOptions,
     /// ROP queue latency (default 85)
     pub l2_rop_latency: usize, // 120
     /// DRAM latency (default 30)
@@ -619,6 +619,12 @@ impl GPUConfig {
     pub fn threads_per_block_padded(&self, kernel: &KernelInfo) -> usize {
         let threads_per_block = kernel.threads_per_block();
         utils::pad_to_multiple(threads_per_block as usize, self.warp_size)
+    }
+
+    /// Number of bytes transferred per read or write command.
+    pub fn dram_atom_size(&self) -> usize {
+        // burst length x bus width x # chips per partition
+        self.dram_burst_length * self.dram_buswidth * self.num_memory_chips_per_controller
     }
 
     /// Compute maximum number of blocks that a kernel can run
@@ -1178,6 +1184,9 @@ impl Default for GPUConfig {
             dram_buswidth: 4,
             dram_burst_length: 8,
             dram_data_command_freq_ratio: 4,
+            // "nbk=16:CCD=2:RRD=6:RCD=12:RAS=28:RP=12:RC=40:
+            // CL=12:WL=4:CDLR=5:WR=12:nbkgrp=1:CCDL=0:RTPL=0"
+            dram_timing_options: super::ported::dram::TimingOptions { num_banks: 16 },
             l2_rop_latency: 120,
             dram_latency: 100,
             dram_dual_bus_interface: false,

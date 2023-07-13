@@ -1249,7 +1249,8 @@ where
                 .try_borrow_mut()
                 .unwrap()
                 .num_instr_in_pipeline -= 1;
-            super::warp_inst_complete(&mut ready, &mut self.inner.stats.lock().unwrap());
+            warp_inst_complete(&mut ready, &self.inner.stats);
+            // warp_inst_complete(&mut ready, &mut self.inner.stats.lock().unwrap());
 
             //   m_gpu->gpu_sim_insn_last_update_sid = m_sid;
             //   m_gpu->gpu_sim_insn_last_update = m_gpu->gpu_sim_cycle;
@@ -1811,127 +1812,29 @@ where
             kernel,
         );
         self.inner.num_active_blocks += 1;
-
-        //
-        //   warp_set_t warps;
-        //   unsigned nthreads_in_block = 0;
-        //   function_info *kernel_func_info = kernel.entry();
-        //   symbol_table *symtab = kernel_func_info->get_symtab();
-        //   unsigned ctaid = kernel.get_next_cta_id_single();
-        //   checkpoint *g_checkpoint = new checkpoint();
-        //   for (unsigned i = start_thread; i < end_thread; i++) {
-        //     m_threadState[i].m_cta_id = free_cta_hw_id;
-        //     unsigned warp_id = i / m_config->warp_size;
-        //     nthreads_in_block += sim_init_thread(
-        //         kernel, &m_thread[i], m_sid, i, cta_size - (i - start_thread),
-        //         m_config->n_thread_per_shader, this, free_cta_hw_id, warp_id,
-        //         m_cluster->get_gpu());
-        //     m_threadState[i].m_active = true;
-        //     // load thread local memory and register file
-        //     if (m_gpu->resume_option == 1 && kernel.get_uid() == m_gpu->resume_kernel &&
-        //         ctaid >= m_gpu->resume_CTA && ctaid < m_gpu->checkpoint_CTA_t) {
-        //       char fname[2048];
-        //       snprintf(fname, 2048, "checkpoint_files/thread_%d_%d_reg.txt",
-        //                i % cta_size, ctaid);
-        //       m_thread[i]->resume_reg_thread(fname, symtab);
-        //       char f1name[2048];
-        //       snprintf(f1name, 2048, "checkpoint_files/local_mem_thread_%d_%d_reg.txt",
-        //                i % cta_size, ctaid);
-        //       g_checkpoint->load_global_mem(m_thread[i]->m_local_mem, f1name);
-        //     }
-        //     //
-        //     warps.set(warp_id);
-        //   }
-        //   assert(nthreads_in_block > 0 &&
-        //          nthreads_in_block <=
-        //              m_config->n_thread_per_shader);  // should be at least one, but
-        //                                               // less than max
-        //   m_cta_status[free_cta_hw_id] = nthreads_in_block;
-        //
-        //   if (m_gpu->resume_option == 1 && kernel.get_uid() == m_gpu->resume_kernel &&
-        //       ctaid >= m_gpu->resume_CTA && ctaid < m_gpu->checkpoint_CTA_t) {
-        //     char f1name[2048];
-        //     snprintf(f1name, 2048, "checkpoint_files/shared_mem_%d.txt", ctaid);
-        //
-        //     g_checkpoint->load_global_mem(m_thread[start_thread]->m_shared_mem, f1name);
-        //   }
-        //   // now that we know which warps are used in this CTA, we can allocate
-        //   // resources for use in CTA-wide barrier operations
-        //   m_barriers.allocate_barrier(free_cta_hw_id, warps);
-        //
-        //   // initialize the SIMT stacks and fetch hardware
-        //   init_warps(free_cta_hw_id, start_thread, end_thread, ctaid, cta_size, kernel);
-        //   m_n_active_cta++;
-        //
-        //   shader_CTA_count_log(m_sid, 1);
-        //   SHADER_DPRINTF(LIVENESS,
-        //                  "GPGPU-Sim uArch: cta:%2u, start_tid:%4u, end_tid:%4u, "
-        //                  "initialized @(%lld,%lld), kernel_uid:%u, kernel_name:%s\n",
-        //                  free_cta_hw_id, start_thread, end_thread, m_gpu->gpu_sim_cycle,
-        //                  m_gpu->gpu_tot_sim_cycle, kernel.get_uid(), kernel.get_name().c_str());
-        // }
     }
-    //
-    //   warp_set_t warps;
-    //   unsigned nthreads_in_block = 0;
-    //   function_info *kernel_func_info = kernel.entry();
-    //   symbol_table *symtab = kernel_func_info->get_symtab();
-    //   unsigned ctaid = kernel.get_next_cta_id_single();
-    //   checkpoint *g_checkpoint = new checkpoint();
-    //   for (unsigned i = start_thread; i < end_thread; i++) {
-    //     m_threadState[i].m_cta_id = free_cta_hw_id;
-    //     unsigned warp_id = i / m_config->warp_size;
-    //     nthreads_in_block += sim_init_thread(
-    //         kernel, &m_thread[i], m_sid, i, cta_size - (i - start_thread),
-    //         m_config->n_thread_per_shader, this, free_cta_hw_id, warp_id,
-    //         m_cluster->get_gpu());
-    //     m_threadState[i].m_active = true;
-    //     // load thread local memory and register file
-    //     if (m_gpu->resume_option == 1 && kernel.get_uid() == m_gpu->resume_kernel &&
-    //         ctaid >= m_gpu->resume_CTA && ctaid < m_gpu->checkpoint_CTA_t) {
-    //       char fname[2048];
-    //       snprintf(fname, 2048, "checkpoint_files/thread_%d_%d_reg.txt",
-    //                i % cta_size, ctaid);
-    //       m_thread[i]->resume_reg_thread(fname, symtab);
-    //       char f1name[2048];
-    //       snprintf(f1name, 2048, "checkpoint_files/local_mem_thread_%d_%d_reg.txt",
-    //                i % cta_size, ctaid);
-    //       g_checkpoint->load_global_mem(m_thread[i]->m_local_mem, f1name);
-    //     }
-    //     //
-    //     warps.set(warp_id);
-    //   }
-    //   assert(nthreads_in_block > 0 &&
-    //          nthreads_in_block <=
-    //              m_config->n_thread_per_shader);  // should be at least one, but
-    //                                               // less than max
-    //   m_cta_status[free_cta_hw_id] = nthreads_in_block;
-    //
-    //   if (m_gpu->resume_option == 1 && kernel.get_uid() == m_gpu->resume_kernel &&
-    //       ctaid >= m_gpu->resume_CTA && ctaid < m_gpu->checkpoint_CTA_t) {
-    //     char f1name[2048];
-    //     snprintf(f1name, 2048, "checkpoint_files/shared_mem_%d.txt", ctaid);
-    //
-    //     g_checkpoint->load_global_mem(m_thread[start_thread]->m_shared_mem, f1name);
-    //   }
-    //   // now that we know which warps are used in this CTA, we can allocate
-    //   // resources for use in CTA-wide barrier operations
-    //   m_barriers.allocate_barrier(free_cta_hw_id, warps);
-    //
-    //   // initialize the SIMT stacks and fetch hardware
-    //   init_warps(free_cta_hw_id, start_thread, end_thread, ctaid, cta_size, kernel);
-    //   m_n_active_cta++;
-    //
-    //   shader_CTA_count_log(m_sid, 1);
-    //   SHADER_DPRINTF(LIVENESS,
-    //                  "GPGPU-Sim uArch: cta:%2u, start_tid:%4u, end_tid:%4u, "
-    //                  "initialized @(%lld,%lld), kernel_uid:%u, kernel_name:%s\n",
-    //                  free_cta_hw_id, start_thread, end_thread, m_gpu->gpu_sim_cycle,
-    //                  m_gpu->gpu_tot_sim_cycle, kernel.get_uid(), kernel.get_name().c_str());
-    // }
 }
 
-// pub trait CoreMemoryInterface {
-//   fn full(&self, size: usize, write: bool) -> bool;
-//   fn push(&mut self, size: usize, write: bool) -> bool;
-// }
+pub fn warp_inst_complete(instr: &mut WarpInstruction, stats: &Mutex<Stats>) {
+    // pub fn warp_inst_complete(&self, instr: &mut WarpInstruction) {
+    // if (inst.op_pipe == SP__OP)
+    //   m_stats->m_num_sp_committed[m_sid]++;
+    // else if (inst.op_pipe == SFU__OP)
+    //   m_stats->m_num_sfu_committed[m_sid]++;
+    // else if (inst.op_pipe == MEM__OP)
+    //   m_stats->m_num_mem_committed[m_sid]++;
+    //
+    // if (m_config->gpgpu_clock_gated_lanes == false)
+    //   m_stats->m_num_sim_insn[m_sid] += m_config->warp_size;
+    // else
+    //   m_stats->m_num_sim_insn[m_sid] += inst.active_count();
+    // m_stats->m_num_sim_winsn[m_sid]++;
+
+    // panic!(
+    //     "warp instr completed: active={}",
+    //     instr.active_thread_count()
+    // );
+    let mut stats = stats.lock().unwrap();
+    stats.sim.instructions += instr.active_thread_count();
+    // instr.completed(m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle);
+}

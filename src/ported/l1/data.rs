@@ -159,9 +159,10 @@ where
             // cannot handle request this cycle
             // (might need to generate two requests)
             let mut stats = self.inner.stats.lock().unwrap();
-            stats.inc_access(
+            stats.inc(
                 *fetch.access_kind(),
                 cache::AccessStat::ReservationFailure(cache::ReservationFailure::MISS_QUEUE_FULL),
+                1,
             );
             return cache::RequestStatus::RESERVATION_FAIL;
         }
@@ -258,9 +259,10 @@ where
         todo!("write_miss_no_write_allocate");
         if self.inner.miss_queue_full() {
             let stats = self.inner.stats.lock().unwrap();
-            stats.inc_access(
+            stats.inc(
                 *fetch.access_kind(),
                 cache::AccessStat::ReservationFailure(cache::ReservationFailure::MISS_QUEUE_FULL),
+                1,
             );
             // cannot handle request this cycle
             return cache::RequestStatus::RESERVATION_FAIL;
@@ -314,9 +316,10 @@ where
             };
 
             let mut stats = self.inner.stats.lock().unwrap();
-            stats.inc_access(
+            stats.inc(
                 *fetch.access_kind(),
                 cache::AccessStat::ReservationFailure(failure),
+                1,
             );
         }
 
@@ -451,11 +454,12 @@ where
             // no need to send read request to memory or reserve mshr
             if self.inner.miss_queue_full() {
                 let stats = self.inner.stats.lock().unwrap();
-                stats.inc_access(
+                stats.inc(
                     *fetch.access_kind(),
                     cache::AccessStat::ReservationFailure(
                         cache::ReservationFailure::MISS_QUEUE_FULL,
                     ),
+                    1,
                 );
                 // cannot handle request this cycle
                 return cache::RequestStatus::RESERVATION_FAIL;
@@ -631,11 +635,12 @@ where
                 // the only reason for reservation fail here is LINE_ALLOC_FAIL
                 // (i.e all lines are reserved)
                 let mut stats = self.inner.stats.lock().unwrap();
-                stats.inc_access(
+                stats.inc(
                     *fetch.access_kind(),
                     cache::AccessStat::ReservationFailure(
                         cache::ReservationFailure::LINE_ALLOC_FAIL,
                     ),
+                    1,
                 );
             }
         } else {
@@ -648,11 +653,12 @@ where
                 // the only reason for reservation fail here is LINE_ALLOC_FAIL
                 // (i.e all lines are reserved)
                 let mut stats = self.inner.stats.lock().unwrap();
-                stats.inc_access(
+                stats.inc(
                     *fetch.access_kind(),
                     cache::AccessStat::ReservationFailure(
                         cache::ReservationFailure::LINE_ALLOC_FAIL,
                     ),
+                    1,
                 );
             }
         }
@@ -732,9 +738,10 @@ where
                 }
                 status => access_status,
             };
-            stats.inc_access(
+            stats.inc(
                 access_kind,
                 cache::AccessStat::Status(stat_cache_request_status),
+                1,
             );
         }
         // m_stats.inc_stats_pw(

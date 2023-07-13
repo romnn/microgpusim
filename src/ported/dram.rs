@@ -83,17 +83,68 @@ pub struct DRAM {
     config: Arc<config::GPUConfig>,
     mrqq: FifoQueue<Request>,
     scheduler: FrfcfsScheduler,
+    stats: Arc<Mutex<Stats>>,
+}
+
+/// DRAM Timing Options
+///
+/// {nbk:tCCD:tRRD:tRCD:tRAS:tRP:tRC:CL:WL:tCDLR:tWR:nbkgrp:tCCDL:tRTPL}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TimingOptions {
+    pub num_banks: usize,
+    // pub t_ccd: usize,
+    // pub t_rrd: usize,
+    // pub t_rcd: usize,
+    // pub t_ras: usize,
+    // pub t_rp: usize,
+    // pub t_rc: usize,
+    // pub cl: usize,
+    // pub wl: usize,
+    // pub t_cdlr: usize,
+    // pub t_wr: usize,
+    // pub num_bank_groups: usize,
+    // pub t_ccdl: usize,
+    // pub t_rtpl: usize,
 }
 
 impl DRAM {
     pub fn new(config: Arc<config::GPUConfig>, stats: Arc<Mutex<Stats>>) -> Self {
         let mrqq = FifoQueue::new("mrqq", Some(0), Some(2));
-        let scheduler = FrfcfsScheduler::new(&*config, stats);
+        let scheduler = FrfcfsScheduler::new(&*config, stats.clone());
         Self {
             config,
             mrqq,
             scheduler,
+            stats,
         }
+    }
+
+    /// DRAM access
+    ///
+    /// Here, we do nothing except logging statistics
+    /// see: memory_stats_t::memlatstat_dram_access()
+    pub fn access(&mut self, fetch: &mem_fetch::MemFetch) {
+        let dram_id = fetch.tlx_addr.chip as usize;
+        let bank = fetch.tlx_addr.bk as usize;
+
+        let mut stats = self.stats.lock().unwrap();
+        let dram_atom_size = self.config.dram_atom_size();
+
+        if fetch.is_write() {
+            // do not count L2_writebacks here
+            if fetch.core_id < self.config.num_cores_per_simt_cluster {
+                stats.dram.bank_writes[fetch.core_id][dram_id][bank] += 1;
+            }
+            stats.dram.total_bank_writes[dram_id][bank] +=
+                (fetch.data_size as f32 / dram_atom_size as f32).ceil() as u64;
+        } else {
+            stats.dram.bank_reads[fetch.core_id][dram_id][bank] += 1;
+            stats.dram.total_bank_reads[dram_id][bank] +=
+                (fetch.data_size as f32 / dram_atom_size as f32).ceil() as u64;
+        }
+        // these stats are not used
+        // mem_access_type_stats[fetch.access_kind()][dram_id][bank] +=
+        //     (fetch.data_size as f32 / dram_atom_size as f32).ceil() as u64;
     }
 
     pub fn cycle(&mut self) {
