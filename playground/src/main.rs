@@ -1,10 +1,8 @@
 use accelsim::Options;
 use clap::Parser;
 use color_eyre::eyre::{self, WrapErr};
-use playground::bridge::main as accel;
 use std::path::PathBuf;
 
-#[allow(unused_assignments)]
 fn main() -> eyre::Result<()> {
     color_eyre::install()?;
 
@@ -57,18 +55,15 @@ fn main() -> eyre::Result<()> {
     }
     dbg!(&args);
 
-    let config = accel::Config::default();
-    let stats = accel::run(config, &args)?;
+    let config = playground::Config::default();
+    let stats = playground::run(&config, &args)?;
     // accumulate l1i
     // for ( in stats.l1i_stats.iter().reduce(|acc, (_id, s)| acc + e) {
     for (cache_name, cache_stats) in [("L1I", &stats.l1i_stats), ("L2D", &stats.l2d_stats)] {
         for (_id, per_stats) in cache_stats {
             for ((access_type, status), &accesses) in &per_stats.accesses {
                 if accesses > 0 {
-                    println!(
-                        "{} [{:?}][{:?}] = {}",
-                        cache_name, access_type, status, accesses
-                    );
+                    println!("{cache_name} [{access_type:?}][{status:?}] = {accesses}");
                 }
             }
         }

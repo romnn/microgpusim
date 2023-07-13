@@ -1431,9 +1431,11 @@ void trace_shader_core_ctx::issue_block2core(trace_kernel_info_t &kernel) {
   // warp contexts printf("start thread = %d end thread = %d\n",
   // start_thread, end_thread); assert(0);
   reinit(start_thread, end_thread, false);
-  for (auto &w : m_warp) {
-    assert(w->done_exit());
-  }
+
+  // NOTE: assertion does not always hold (we only reset start to end)
+  // for (auto &w : m_warp) {
+  //   assert(w->done_exit());
+  // }
 
   // initalize scalar threads and determine which hardware warps they are
   // allocated to bind functional simulation state of threads to hardware

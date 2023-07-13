@@ -217,12 +217,13 @@ impl Default for Config {
     }
 }
 
-pub fn run(config: Config, argv: &[&str]) -> Result<Stats, Error> {
+pub fn run(config: &Config, args: &[&str]) -> Result<Stats, Error> {
     let exe = std::env::current_exe()?;
-    let argv = [&[exe.as_os_str().to_str().unwrap()], argv].concat();
+    let mut argv: Vec<&str> = vec![exe.as_os_str().to_str().unwrap()];
+    argv.extend(args);
 
     let mut stats = Stats::default();
-    let ret_code = default::accelsim(config.0, &argv, &mut stats);
+    let ret_code = default::accelsim(config.0, argv.as_slice(), &mut stats);
     if ret_code == 0 {
         Ok(stats)
     } else {

@@ -1,3 +1,5 @@
+#![allow(clippy::missing_safety_doc, clippy::missing_panics_doc)]
+
 pub mod addrdec;
 pub mod cache_config;
 pub mod interconnect;

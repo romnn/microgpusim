@@ -8,7 +8,14 @@
 #include "option_parser.hpp"
 
 struct power_config {
-  power_config() { m_valid = true; }
+  power_config() {
+    m_valid = true;
+
+    // ROMAN: fix uninitialized variables
+    g_use_nonlinear_model = false;
+    g_steady_power_levels_enabled = false;
+  }
+
   void init() {
     // initialize file name if it is not set
     time_t curr_time;

@@ -128,6 +128,11 @@ int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv,
   std::vector<const char *> c_argv;
   // THIS stupid &arg here is important !!!!
   for (std::string &arg : valid_argv) c_argv.push_back(arg.c_str());
+  for (const std::string &arg : c_argv) {
+    std::cout << "arg:" << arg << std::endl;
+  }
+
+  // return 0;
 
   // setup the gpu
   gpgpu_context *m_gpgpu_context = new gpgpu_context();

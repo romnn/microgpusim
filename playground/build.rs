@@ -1,4 +1,4 @@
-#![allow(warnings)]
+// #![allow(warnings)]
 
 use color_eyre::eyre::{self, WrapErr};
 use std::path::{Path, PathBuf};
@@ -7,6 +7,14 @@ fn output_path() -> PathBuf {
     PathBuf::from(std::env::var("OUT_DIR").unwrap())
         .canonicalize()
         .unwrap()
+}
+
+#[must_use]
+pub fn is_debug() -> bool {
+    #[cfg(debug_assertions)]
+    return true;
+    #[cfg(not(debug_assertions))]
+    return false;
 }
 
 fn enable_diagnostics_color(build: &mut cc::Build) {
@@ -25,6 +33,12 @@ fn build(sources: &[PathBuf]) -> eyre::Result<()> {
         .files(sources)
         .flag("-std=c++14")
         .warnings(false);
+
+    if is_debug() {
+        build.opt_level(0).debug(true).flag("-ggdb3");
+    } else {
+        build.opt_level(3).debug(false);
+    }
 
     enable_diagnostics_color(&mut build);
     build.try_compile("playground")?;
@@ -135,13 +149,20 @@ fn build_config_parser_in_source() -> eyre::Result<()> {
         PathBuf::from("./src/ref/intersim2/config.parser.tab.c"),
     ];
 
-    cc::Build::new()
+    let mut build = cc::Build::new();
+    build
         .cpp(true)
         .static_flag(true)
-        .opt_level(0)
-        .debug(true)
         .warnings(false)
-        .files(parser_sources)
+        .files(parser_sources);
+
+    if is_debug() {
+        build.opt_level(0).debug(true).flag("-ggdb3");
+    } else {
+        build.opt_level(3).debug(false);
+    }
+
+    build
         .try_compile("playgroundbridgeparser")
         .wrap_err_with(|| "failed to build parser")?;
 
@@ -191,10 +212,7 @@ fn build_config_parser() -> eyre::Result<PathBuf> {
             // generates:
             // $OUT_DIR/intersim2/config.parser.tab.c
             // $OUT_DIR/intersim2/config.parser.tab.h
-            parser_build_dir
-                .join("config.parser")
-                .to_string_lossy()
-                .to_string()
+            parser_build_dir.join("config.parser").to_string_lossy()
         ),
         "-Wno-yacc",
     ];
@@ -215,34 +233,44 @@ fn build_config_parser() -> eyre::Result<PathBuf> {
         parser_build_dir.join("config.parser.tab.c"),
     ];
 
-    cc::Build::new()
+    let mut build = cc::Build::new();
+    build
         .cpp(true)
         .static_flag(true)
         .include("./src/ref/intersim2/")
-        .opt_level(0)
-        .debug(true)
         .warnings(false)
-        .files(parser_sources)
+        .files(parser_sources);
+
+    if is_debug() {
+        build.opt_level(0).debug(true).flag("-ggdb3");
+    } else {
+        build.opt_level(3).debug(false);
+    }
+
+    build
         .try_compile("playgroundbridgeparser")
         .wrap_err_with(|| "failed to build parser")?;
 
     Ok(parser_build_dir)
 }
 
-fn generate_bridge(bridges: &[PathBuf], mut sources: Vec<PathBuf>) -> eyre::Result<()> {
+fn generate_bridge(bridges: &[PathBuf], sources: Vec<PathBuf>) -> eyre::Result<()> {
     let parser_include_dir = build_config_parser()?;
     let mut build = cxx_build::bridges(bridges);
     build
         .cpp(true)
         .static_flag(true)
-        .opt_level(0)
-        .debug(true)
         .warnings(false)
         .include(parser_include_dir)
         .include("./src/ref/intersim2/")
-        .flag("-ggdb3") // as much debug info as possible
         .flag("-std=c++14")
         .files(sources);
+
+    if is_debug() {
+        build.opt_level(0).debug(true).flag("-ggdb3");
+    } else {
+        build.opt_level(3).debug(false);
+    }
 
     // our custom build
     build.define("BOX", "YES");
