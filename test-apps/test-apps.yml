@@ -22,9 +22,23 @@ config:
     keep_log_file: true
   # for simulation, we do not set a limit on concurrency
   simulate:
+    # No concurrency limit for now (until we implement multi-threading)
+    concurrency: null
     repetitions: 2
   # for accelsim simulation, we do not set a limit on concurrency
   accelsim_simulate:
+    # No concurrency limit as accelsim is single threaded.
+    # Also, it is spawned as a sub process to avoid global state related issues.
+    concurrency: null
+    repetitions: 2
+    # simulation configurations
+    config_dir: ../accelsim/gtx1080/
+    config: ../accelsim/gtx1080/gpgpusim.config
+    trace_config: ../accelsim/gtx1080/gpgpusim.trace.config
+    inter_config: ../accelsim/gtx1080/config_fermi_islip.icnt
+  playground_simulate:
+    # BUG: due to static global state in intersim2, can only run one benchmark at a time for now
+    concurrency: 1
     repetitions: 2
     # simulation configurations
     config_dir: ../accelsim/gtx1080/

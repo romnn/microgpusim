@@ -1,4 +1,8 @@
-#![allow(clippy::missing_safety_doc, clippy::missing_panics_doc)]
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::missing_safety_doc,
+    clippy::missing_panics_doc
+)]
 
 pub mod addrdec;
 pub mod cache_config;

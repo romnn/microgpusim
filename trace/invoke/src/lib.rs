@@ -70,13 +70,6 @@ where
     // configure application
     cmd.args(args);
 
-    // let mut cmd = duct::cmd(executable, args.into_iter());
-    // let cmd = cmd.env("TRACES_DIR", traces_dir.to_string_lossy().to_string());
-    // let cmd = cmd.env("SAVE_JSON", if options.save_json { "yes" } else { "no" });
-    // let cmd = cmd.env("FULL_TRACE", if options.full_trace { "yes" } else { "no" });
-    // let cmd = cmd.env("RUST_LOG", "trace");
-    // let cmd = cmd.env("LD_PRELOAD", &tracer_so.to_string_lossy().to_string());
-
     // configure tracer
     cmd.env("TRACES_DIR", traces_dir.to_string_lossy().to_string());
     cmd.env("SAVE_JSON", if options.save_json { "yes" } else { "no" });
@@ -84,45 +77,7 @@ where
     cmd.env("RUST_LOG", "debug");
     cmd.env("LD_PRELOAD", &tracer_so.to_string_lossy().to_string());
 
-    // dbg!(&cmd);
-    // let cmd_string = format!("{:?}", &cmd);
-
-    // let result = cmd.run()?;
-    // let result = handle.output().wait()?;
-
-    // let result = tokio::task::spawn_blocking::<_, std::io::Result<Output>>(move || {
-
     let result = cmd.output().await?;
-    // dbg!(&utils::decode_utf8!(result.stderr));
-    // dbg!(&utils::decode_utf8!(result.stdout));
-
-    // Ok(result)
-    // })
-    // .await??;
-
-    // let mut child = cmd.spawn()?;
-    // let mut stderr_reader = child.stderr.take().unwrap();
-    // let mut stdout_reader = child.stdout.take().unwrap();
-    //
-    // tokio::task::spawn(async move {
-    //     use std::time::Duration;
-    //     let mut buffer: Vec<u8> = Vec::new();
-    //     let copy_fut = futures::io::copy(&mut stderr_reader, &mut buffer);
-    //     let _ = tokio::time::timeout(Duration::from_secs(20), copy_fut).await;
-    //     let stderr = String::from_utf8_lossy(&buffer).to_string();
-    //     println!("stdout: {}", &stderr);
-    // });
-    // // tokio::task::spawn(async move {
-    // //     use std::time::Duration;
-    // //     let mut buffer: Vec<u8> = Vec::new();
-    // //     let copy_fut = futures::io::copy(&mut stdout_reader, &mut buffer);
-    // //     let _ = tokio::time::timeout(Duration::from_secs(20), copy_fut).await;
-    // //     let stdout = String::from_utf8_lossy(&buffer).to_string();
-    // //     println!("stdout: {}", &stdout);
-    // // });
-    //
-    // let result = child.output().await?;
-    //
     if result.status.success() {
         Ok(())
     } else {

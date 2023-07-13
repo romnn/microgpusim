@@ -19,14 +19,6 @@ pub struct TargetConfig {
     pub results_dir: PathBuf,
 }
 
-macro_rules! render_path {
-    ($path:expr, $values:expr) => {
-        $path
-            .map(|path_template| path_template.render($values))
-            .transpose()
-    };
-}
-
 impl super::TargetConfig {
     pub fn materialize(
         self,
@@ -49,7 +41,7 @@ impl super::TargetConfig {
             .or(parent_config.map(|c| c.repetitions))
             .unwrap_or(1);
 
-        let timeout = self.timeout.or(parent_config.map(|c| c.timeout).flatten());
+        let timeout = self.timeout.or(parent_config.and_then(|c| c.timeout));
 
         let concurrency = self
             .concurrency
@@ -62,8 +54,8 @@ impl super::TargetConfig {
 
         Ok(TargetConfig {
             repetitions,
-            concurrency,
             timeout,
+            concurrency,
             enabled,
             results_dir,
         })
@@ -130,32 +122,70 @@ pub struct SimOptions {
 pub struct AccelsimSimConfig {
     #[serde(flatten)]
     pub common: TargetConfig,
-    pub config: PathBuf,
-    pub config_dir: PathBuf,
+    #[serde(flatten)]
+    pub configs: AccelsimSimConfigFiles,
+    // pub configs: AccelsimSimOptionsFiles,
+    // pub config: PathBuf,
+    // pub config_dir: PathBuf,
+    // pub trace_config: PathBuf,
+    // pub inter_config: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+// pub struct AccelsimSimOptionsFiles {
+pub struct AccelsimSimConfigFiles {
     pub trace_config: PathBuf,
     pub inter_config: PathBuf,
+    pub config_dir: PathBuf,
+    pub config: PathBuf,
+}
+
+impl crate::AccelsimSimOptionsFiles {
+    pub fn materialize(
+        &self,
+        base: &Path,
+        defaults: AccelsimSimConfigFiles,
+        values: &TemplateValues<crate::Benchmark>,
+    ) -> Result<AccelsimSimConfigFiles, Error> {
+        if !base.is_absolute() {
+            return Err(Error::RelativeBase(base.to_path_buf()));
+        }
+        let trace_config = template_or_default(&self.trace_config, defaults.trace_config, values)?;
+        let gpgpusim_config = template_or_default(&self.config, defaults.config, values)?;
+        let inter_config = template_or_default(&self.inter_config, defaults.inter_config, values)?;
+        let config_dir = template_or_default(&self.config_dir, defaults.config_dir, values)?;
+
+        Ok(AccelsimSimConfigFiles {
+            trace_config: trace_config.resolve(base),
+            inter_config: inter_config.resolve(base),
+            config_dir: config_dir.resolve(base),
+            config: gpgpusim_config.resolve(base),
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct AccelsimSimOptions {
     #[serde(flatten)]
     pub common: TargetConfig,
-    pub trace_config: PathBuf,
-    pub inter_config: PathBuf,
-    pub config_dir: PathBuf,
-    pub config: PathBuf,
+    #[serde(flatten)]
+    pub configs: AccelsimSimConfigFiles,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct PlaygroundSimConfig {
     #[serde(flatten)]
     pub common: TargetConfig,
+    #[serde(flatten)]
+    pub configs: AccelsimSimConfigFiles,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct PlaygroundSimOptions {
     #[serde(flatten)]
     pub common: TargetConfig,
+    #[serde(flatten)]
+    pub configs: AccelsimSimConfigFiles,
 }
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
@@ -168,11 +198,14 @@ pub struct TemplateValues<B> {
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct BenchmarkConfig {
     pub name: String,
+    pub benchmark_idx: usize,
+
     pub path: PathBuf,
     pub executable: PathBuf,
 
     pub values: super::matrix::Input,
     pub args: Vec<String>,
+    pub input_idx: usize,
 
     pub profile: ProfileOptions,
     pub trace: TraceOptions,
@@ -199,13 +232,21 @@ impl std::fmt::Display for BenchmarkConfig {
 }
 
 impl crate::Benchmark {
+    #[allow(clippy::too_many_lines)]
     pub fn materialize_input(
         &self,
         name: String,
+        indices: (usize, usize),
         input: super::matrix::Input,
         top_level_config: &Config,
         base: &Path,
     ) -> Result<BenchmarkConfig, Error> {
+        if !base.is_absolute() {
+            return Err(Error::RelativeBase(base.to_path_buf()));
+        }
+
+        let (benchmark_idx, input_idx) = indices;
+
         let values = TemplateValues {
             name: name.clone(),
             bench: self.clone(),
@@ -216,11 +257,6 @@ impl crate::Benchmark {
         let cmd_args = super::benchmark::split_shell_command(cmd_args)?;
         let default_artifact_path =
             PathBuf::from(&name).join(format!("{}-{}", &name, cmd_args.join("-")));
-
-        // let results_dir = config.results_diras_ref().map(|p| p.resolve(base));
-        // let results_dir = results_dir
-        //     .as_ref()
-        //     .unwrap_or(&config.profile.common.results_dir);
 
         let profile = {
             let defaults = &top_level_config.profile;
@@ -299,31 +335,19 @@ impl crate::Benchmark {
         };
 
         let accelsim_simulate = {
-            let defaults = top_level_config.accelsim_simulate.clone();
+            let defaults = &top_level_config.accelsim_simulate;
             let base_config = self
                 .config
                 .clone()
                 .materialize(base, Some(&defaults.common))?;
 
-            let crate::AccelsimSimOptions {
-                trace_config,
-                config_dir,
-                inter_config,
-                config,
-                ..
-            } = &self.accelsim_simulate;
-
-            let trace_config = template_or_default(trace_config, defaults.trace_config, &values)?;
-            let gpgpusim_config = template_or_default(config, defaults.config, &values)?;
-            let inter_config = template_or_default(inter_config, defaults.inter_config, &values)?;
-            let config_dir = template_or_default(config_dir, defaults.config_dir, &values)?;
-
             AccelsimSimOptions {
                 common: base_config,
-                trace_config: trace_config.resolve(base),
-                inter_config: inter_config.resolve(base),
-                config_dir: config_dir.resolve(base),
-                config: gpgpusim_config.resolve(base),
+                configs: self.accelsim_simulate.configs.materialize(
+                    base,
+                    defaults.configs.clone(),
+                    &values,
+                )?,
             }
         };
 
@@ -336,15 +360,24 @@ impl crate::Benchmark {
 
             PlaygroundSimOptions {
                 common: base_config,
+                configs: self.playground_simulate.configs.materialize(
+                    base,
+                    defaults.configs.clone(),
+                    &values,
+                )?,
             }
         };
 
         Ok(BenchmarkConfig {
-            values: input,
-            args: cmd_args,
             name,
+            benchmark_idx,
             path: self.path.resolve(base),
             executable: self.executable().resolve(base),
+            // input
+            input_idx,
+            values: input,
+            args: cmd_args,
+            // per target options
             profile,
             trace,
             accelsim_trace,
@@ -356,7 +389,8 @@ impl crate::Benchmark {
 
     pub fn materialize(
         self,
-        name: String,
+        name: &str,
+        benchmark_idx: usize,
         base: &Path,
         config: &Config,
     ) -> Result<Vec<BenchmarkConfig>, Error> {
@@ -367,7 +401,11 @@ impl crate::Benchmark {
         let inputs: Result<Vec<_>, _> = self
             .inputs()
             .into_iter()
-            .map(|input| self.materialize_input(name.clone(), input, config, base))
+            .enumerate()
+            .map(|(input_idx, input)| {
+                let indices = (benchmark_idx, input_idx);
+                self.materialize_input(name.to_string(), indices, input, config, base)
+            })
             .collect();
         inputs
     }
@@ -447,13 +485,12 @@ impl crate::Config {
         };
 
         let accelsim_simulate = {
-            let crate::AccelsimSimConfig {
+            let crate::AccelsimSimConfigFiles {
                 config,
                 config_dir,
                 inter_config,
                 trace_config,
-                ..
-            } = self.accelsim_simulate;
+            } = self.accelsim_simulate.configs;
 
             let common = self
                 .accelsim_simulate
@@ -462,19 +499,37 @@ impl crate::Config {
 
             AccelsimSimConfig {
                 common,
-                trace_config: trace_config.resolve(base),
-                inter_config: inter_config.resolve(base),
-                config_dir: config_dir.resolve(base),
-                config: config.resolve(base),
+                configs: AccelsimSimConfigFiles {
+                    trace_config: trace_config.resolve(base),
+                    inter_config: inter_config.resolve(base),
+                    config_dir: config_dir.resolve(base),
+                    config: config.resolve(base),
+                },
             }
         };
 
         let playground_simulate = {
+            let crate::AccelsimSimConfigFiles {
+                config,
+                config_dir,
+                inter_config,
+                trace_config,
+            } = self.playground_simulate.configs;
+
             let common = self
                 .playground_simulate
                 .common
                 .materialize(base, Some(&common))?;
-            PlaygroundSimConfig { common }
+
+            PlaygroundSimConfig {
+                common,
+                configs: AccelsimSimConfigFiles {
+                    trace_config: trace_config.resolve(base),
+                    inter_config: inter_config.resolve(base),
+                    config_dir: config_dir.resolve(base),
+                    config: config.resolve(base),
+                },
+            }
         };
 
         // let materialize_to = self.materialize_to.map(|p| p.resolve(base));
@@ -515,8 +570,9 @@ impl crate::Benchmarks {
         let benchmarks: Result<_, _> = self
             .benchmarks
             .into_iter()
-            .map(|(name, bench)| {
-                let bench = bench.materialize(name.clone(), base, &config)?;
+            .enumerate()
+            .map(|(benchmark_idx, (name, bench))| {
+                let bench = bench.materialize(&name, benchmark_idx, base, &config)?;
                 Ok::<(String, Vec<BenchmarkConfig>), Error>((name, bench))
             })
             .collect();
@@ -525,6 +581,7 @@ impl crate::Benchmarks {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 #[cfg(test)]
 mod tests {
     use color_eyre::eyre;
@@ -564,7 +621,7 @@ mod tests {
 
     #[test]
     fn test_materialize_config_invalid() -> eyre::Result<()> {
-        let base = PathBuf::from("/base");
+        let _base = PathBuf::from("/base");
         let config = r#"
 results_dir: ../results
 materialize_to: ./test-apps-materialized.yml
@@ -723,8 +780,7 @@ other: "hello"
 "#;
 
         let benchmark: crate::Benchmark = serde_yaml::from_str(benchmark)?;
-        let materialized =
-            benchmark.materialize("vectorAdd".to_string(), &base, &materialized_config)?;
+        let materialized = benchmark.materialize("vectorAdd", 0, &base, &materialized_config)?;
         dbg!(&materialized);
 
         diff_assert_eq!(
@@ -748,17 +804,17 @@ other: "hello"
             "resolved path to executable"
         );
         diff_assert_eq!(
-            materialized[0].accelsim_simulate.trace_config,
+            materialized[0].accelsim_simulate.configs.trace_config,
             PathBuf::from("/base/my/configs/vectorAdd-32.config"),
             "used custom template for the trace config"
         );
         diff_assert_eq!(
-            materialized[0].accelsim_simulate.trace_config,
+            materialized[0].accelsim_simulate.configs.trace_config,
             PathBuf::from("/base/my/configs/vectorAdd-32.config"),
             "used custom template for the trace config"
         );
         diff_assert_eq!(
-            materialized[0].accelsim_simulate.inter_config,
+            materialized[0].accelsim_simulate.configs.inter_config,
             PathBuf::from("/absolute/configs/vectorAdd-32.config"),
             "used custom template with absolute path for the inter config"
         );

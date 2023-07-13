@@ -42,19 +42,28 @@ async-process = "1"
 
 utils = { path = "../utils" }
 
-# trace dependencies
+# trace
 trace = { path = "../trace" }
 invoke-trace = { path = "../trace/invoke" }
-
-# profile dependencies
-profile = { path = "../profile" }
-
-# accelsim trace dependencies
-accelsim-trace = { path = "../accelsim/trace" }
-accelsim-sim = { path = "../accelsim/sim" }
-accelsim = { path = "../accelsim" }
 # trace-model = { path = "../trace/model" }
 
+# profile
+profile = { path = "../profile" }
+
+# accelsim trace
+accelsim-trace = { path = "../accelsim/trace" }
+
+# accelsim simulate
+accelsim-sim = { path = "../accelsim/sim" }
+accelsim = { path = "../accelsim" }
+
+# playground simulate
+playground = { path = "../playground" }
+
+# simulate
+casimu = { path = "../" }
+
+# optional dependencies
 ssh_jumper = { version = "0", optional = true }
 
 [dev-dependencies]

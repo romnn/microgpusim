@@ -1,25 +1,22 @@
-#![allow(warnings)]
+// #![allow(warnings)]
 
 mod progress;
 
-#[cfg(feature = "remote")]
-mod remote;
+// #[cfg(feature = "remote")]
+// mod remote;
 
-use chrono::{offset::Local, DateTime};
+use chrono::offset::Local;
 use clap::Parser;
 use color_eyre::eyre::{self, WrapErr};
-use color_eyre::owo_colors::colors::css::Indigo;
-use color_eyre::owo_colors::OwoColorize;
 use console::style;
 use futures::stream::{self, StreamExt};
-use futures::Future;
+
 use indicatif::ProgressBar;
-use progress::ProgressStyle;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use validate::benchmark::{paths::PathExt, template};
-use validate::{materialize, Benchmark, Benchmarks, Config};
+use validate::benchmark::paths::PathExt;
+use validate::materialize::{self, BenchmarkConfig, Benchmarks};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum Format {
@@ -68,7 +65,10 @@ pub struct AccelsimSimOptions {}
 pub struct PlaygroundSimOptions {}
 
 #[derive(Parser, Debug, Clone)]
-pub struct ExpandOptions {}
+pub struct ExpandOptions {
+    #[clap(long = "full", help = "expand full benchmark config")]
+    pub full: bool,
+}
 
 #[derive(Parser, Debug, Clone)]
 pub struct Options {
@@ -76,7 +76,7 @@ pub struct Options {
     pub benches_file_path: Option<PathBuf>,
 
     #[clap(short = 'b', long = "bench", help = "name of benchmark to run")]
-    pub benchmarks: Vec<String>,
+    pub selected_benchmarks: Vec<String>,
 
     #[clap(long = "force", help = "force re-run", default_value = "false")]
     force: bool,
@@ -111,60 +111,37 @@ pub enum Command {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("benchmark {0} skipped")]
-    Skipped(materialize::BenchmarkConfig),
+    Skipped(BenchmarkConfig),
     #[error("benchmark {bench} failed")]
     Failed {
-        bench: materialize::BenchmarkConfig,
+        bench: BenchmarkConfig,
         #[source]
         source: eyre::Report,
     },
 }
 
-// #[inline]
-// fn create_dirs(path: impl AsRef<Path>) -> eyre::Result<()> {
-//     let path = path.as_ref();
-//     utils::fs::create_dirs(path)
-//         .wrap_err_with(|| format!("failed to create dir {}", path.display()))?;
-//     Ok(())
-// }
-
 #[inline]
 fn open_writable(path: impl AsRef<Path>) -> eyre::Result<std::io::BufWriter<std::fs::File>> {
     let path = path.as_ref();
-    if let Some(parent) = path.parent() {
+    if let Some(_parent) = path.parent() {
         utils::fs::create_dirs(path)?;
-        // create_dirs(parent)?;
     }
     let writer = utils::fs::open_writable(path)?;
-    // .wrap_err_with(|| format!("failed to open {} for writing", path.display()))?;
     Ok(writer)
 }
 
+#[allow(clippy::too_many_lines)]
 async fn run_benchmark(
-    bench: &materialize::BenchmarkConfig,
-    // name: String,
-    // bench: &validate::Benchmark,
-    // input: Result<Input, validate::CallTemplateError>,
-    // config: &Config,
+    bench: BenchmarkConfig,
     options: &Options,
     bar: &ProgressBar,
-    // ) -> Result<materialize::BenchmarkConfig, Error> {
-    // ) -> eyre::Result<materialize::BenchmarkConfig>
 ) -> eyre::Result<()> {
     bar.set_message(bench.name.clone());
-    // let input = input?;
-    // let exec = bench.executable;
-
-    // let mut tmpl_values = template::Values {
-    //     inputs: input.values,
-    //     // todo: could also just clone the full benchmark and just set a private name?
-    //     bench: template::BenchmarkValues { name: name.clone() },
-    // };
-
-    // let res: eyre::Result<()> = match options.command {
     match options.command {
-        Command::Expand(ref opts) => unreachable!("expand command does not run benchmarks"),
-        Command::Profile(ref opts) => {
+        Command::Expand(ref _opts) => {
+            // do nothing
+        }
+        Command::Profile(ref _opts) => {
             let options = profile::nvprof::Options {};
             let results = profile::nvprof::nvprof(&bench.executable, &bench.args, &options)
                 .await
@@ -178,7 +155,7 @@ async fn run_benchmark(
             let mut writer = open_writable(&bench.profile.log_file)?;
             writer.write_all(results.raw.as_bytes())?;
         }
-        Command::AccelsimTrace(ref opts) => {
+        Command::AccelsimTrace(ref _opts) => {
             let traces_dir = &bench.accelsim_trace.traces_dir;
             utils::fs::create_dirs(traces_dir)?;
 
@@ -189,7 +166,7 @@ async fn run_benchmark(
             };
             accelsim_trace::trace(&bench.executable, &bench.args, &options).await?;
         }
-        Command::Trace(ref opts) => {
+        Command::Trace(ref _opts) => {
             // create traces dir
             let traces_dir = &bench.trace.traces_dir;
             utils::fs::create_dirs(traces_dir)?;
@@ -207,35 +184,75 @@ async fn run_benchmark(
                     err => err.into(),
                 })?;
         }
-        Command::Simulate(ref opts) => {
-            eyre::bail!("todo");
+        Command::Simulate(ref _opts) => {
+            // get traces dir from trace config
+            let traces_dir = bench.trace.traces_dir;
+
+            // let stats_out_file = bench.simulate.stats_file;
+            let _stats =
+                tokio::task::spawn_blocking(move || casimu::ported::accelmain(traces_dir, None))
+                    .await??;
         }
-        Command::AccelsimSimulate(ref opts) => {
+        Command::AccelsimSimulate(ref _opts) => {
             // get traces dir from accelsim trace config
             let traces_dir = &bench.accelsim_trace.traces_dir;
+            let common = &bench.accelsim_simulate.common;
 
-            let materialize::AccelsimSimOptions {
+            let timeout = common.timeout.map(Into::into);
+
+            let materialize::AccelsimSimConfigFiles {
                 config,
                 config_dir,
                 trace_config,
                 inter_config,
-                common,
-                ..
-            } = bench.accelsim_simulate.clone();
+            } = bench.accelsim_simulate.configs.clone();
 
             let config = accelsim::SimConfig {
                 config: Some(config),
                 config_dir: Some(config_dir),
                 trace_config: Some(trace_config),
                 inter_config: Some(inter_config),
-                ..accelsim::SimConfig::default()
             };
 
-            let timeout = common.timeout.map(Into::into);
             accelsim_sim::simulate_trace(traces_dir, config, timeout).await?;
         }
-        Command::PlaygroundSimulate(ref opts) => {
-            eyre::bail!("todo");
+        Command::PlaygroundSimulate(ref _opts) => {
+            // get traces dir from accelsim trace config
+
+            let materialize::AccelsimSimConfigFiles {
+                config,
+                trace_config,
+                inter_config,
+                ..
+            } = bench.playground_simulate.configs.clone();
+
+            let _stats = tokio::task::spawn_blocking(move || {
+                let traces_dir = &bench.accelsim_trace.traces_dir;
+                let kernelslist = traces_dir
+                    .join("kernelslist.g")
+                    .to_string_lossy()
+                    .to_string();
+                let gpgpusim_config = config.to_string_lossy().to_string();
+                let trace_config = trace_config.to_string_lossy().to_string();
+                let inter_config = inter_config.to_string_lossy().to_string();
+
+                let args = [
+                    "-trace",
+                    &kernelslist,
+                    "-config",
+                    &gpgpusim_config,
+                    "-config",
+                    &trace_config,
+                    "-inter_config_file",
+                    &inter_config,
+                ];
+                dbg!(&args);
+
+                let config = playground::Config::default();
+                playground::run(&config, args.as_slice())
+                // Ok::<_, eyre::Report>(())
+            })
+            .await??;
         }
         Command::Build(_) | Command::Clean(_) => {
             let should_build = options.force || !bench.executable.is_file();
@@ -256,30 +273,11 @@ async fn run_benchmark(
             }
         }
     }
-
-    // let dur = std::time::Duration::from_secs(3);
-    // println!("sleeping for {:?}", &dur);
-    // tokio::time::sleep(dur).await;
-
     Ok(())
 }
 
-#[tokio::main]
-async fn main() -> eyre::Result<()> {
-    env_logger::init();
-    color_eyre::install()?;
-
-    let start = std::time::Instant::now();
-
-    // load env variables from .env files
-    dotenv::dotenv().ok();
-
+fn parse_benchmarks(options: &Options) -> eyre::Result<Benchmarks> {
     let cwd = std::env::current_dir()?;
-
-    let options = Arc::new(Options::parse());
-    dbg!(&options);
-
-    // parse benchmarks
     let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
     let default_benches_file_path = manifest_dir.join("../test-apps/test-apps.yml");
 
@@ -293,57 +291,158 @@ async fn main() -> eyre::Result<()> {
 
     let base_dir = benches_file_path
         .parent()
-        .ok_or_else(|| eyre::eyre!("{} has no parent base path", benches_file_path.display()))?;
-    let mut benchmarks = Benchmarks::from(&benches_file_path)?;
+        .ok_or_else(|| eyre::eyre!("{} has no parent base path", benches_file_path.display()))?
+        .to_path_buf();
+    let benchmarks = validate::Benchmarks::from(&benches_file_path)?;
+
     let materialize_path = benchmarks
         .config
         .materialize_to
         .as_ref()
-        .map(|p| p.resolve(base_dir));
+        .map(|p| p.resolve(&base_dir));
 
     // materialize config: source of truth for downstream consumers
-    debug_assert!(base_dir.is_absolute());
-    let materialized = benchmarks.materialize(base_dir)?;
-
-    if let Command::Expand(_) = options.command {
-        dbg!(&materialized);
-        return Ok(());
-    }
+    let materialized = benchmarks.materialize(&base_dir)?;
 
     if let Some(materialize_path) = materialize_path {
-        let materialize_file = std::fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&materialize_path)?;
-        let mut materialize_writer = std::io::BufWriter::new(materialize_file);
-        use std::io::Write;
+        let mut materialize_file = open_writable(&materialize_path)?;
         write!(
-            &mut materialize_writer,
-            r#"
+            &mut materialize_file,
+            r"
 ##
 ## AUTO GENERATED! DO NOT EDIT
 ##
 ## this configuration was materialized from {} on {}
-##"#,
+##
+
+",
             benches_file_path.display(),
             Local::now().format("%d/%m/%Y %T"),
         )?;
-        write!(&mut materialize_writer, "\n\n");
-        serialize_to_writer(Format::YAML, &mut materialize_writer, &materialized)?;
+        serialize_to_writer(Format::YAML, &mut materialize_file, &materialized)?;
         println!(
             "materialized to {}",
             materialize_path.relative_to(cwd).display()
         );
     }
 
+    Ok(materialized)
+}
+
+/// get benchmark configurations
+pub fn filter_benchmarks(benches: &mut Vec<&BenchmarkConfig>, options: &Options) {
+    benches.retain(|bench_config| {
+        if options.selected_benchmarks.is_empty() {
+            // keep all benchmarks when no filters provided
+            return true;
+        }
+
+        let name = bench_config.name.to_lowercase();
+        for b in &options.selected_benchmarks {
+            let valid_patterns = [
+                // try "benchmark_name"
+                &name,
+                // try "benchmark_name[input_idx]"
+                &format!("{}[{}]", name, bench_config.input_idx + 1),
+                // try "benchmark_name@input_idx"
+                &format!("{}@{}", name, bench_config.input_idx + 1),
+            ];
+            if valid_patterns.into_iter().any(|p| b.to_lowercase() == *p) {
+                // keep benchmark config
+                return true;
+            }
+        }
+        // skip
+        false
+    });
+
+    if let Command::Build(_) | Command::Clean(_) = options.command {
+        // do not build the same executables multiple times
+        benches.dedup_by_key(|bench_config| bench_config.executable.clone());
+    }
+}
+
+fn print_benchmark_result(
+    bench_config: &BenchmarkConfig,
+    result: &eyre::Result<()>,
+    elapsed: std::time::Duration,
+    bar: &ProgressBar,
+    options: &Options,
+) {
+    let op = match options.command {
+        Command::Profile(_) => "profiling",
+        Command::Trace(_) => "tracing [box]",
+        Command::AccelsimTrace(_) => "tracing [accelsim]",
+        Command::Simulate(_) => "simulating [box]",
+        Command::AccelsimSimulate(_) => "simulating [accelsim]",
+        Command::PlaygroundSimulate(_) => "simulating [playground]",
+        Command::Build(_) => "building",
+        Command::Clean(_) => "cleaning",
+        Command::Expand(_) => "expanding",
+    };
+    let executable = std::env::current_dir().ok().map_or_else(
+        || bench_config.executable.clone(),
+        |cwd| bench_config.executable.relative_to(cwd),
+    );
+    bar.println(format!(
+        "{:>15} {:>20} [ {} {} ] {}",
+        op,
+        if result.is_ok() {
+            style(&bench_config.name).green()
+        } else {
+            style(&bench_config.name).red()
+        },
+        executable.display(),
+        bench_config.args.join(" "),
+        match result {
+            Ok(_) => {
+                format!("succeeded in {elapsed:?}")
+            }
+            Err(ref err) => {
+                static PREVIEW_LEN: usize = 75;
+                let err_preview = err.to_string();
+                if err_preview.len() > PREVIEW_LEN {
+                    let _err_preview =
+                        format!("{} ...", &err_preview[..err_preview.len().min(PREVIEW_LEN)]);
+                }
+                format!("failed after {:?}: {}", elapsed, style(err_preview).red())
+            }
+        }
+    ));
+}
+
+#[tokio::main(flavor = "multi_thread")]
+async fn main() -> eyre::Result<()> {
+    env_logger::init();
+    color_eyre::install()?;
+
+    let start = std::time::Instant::now();
+
+    // load env variables from .env files
+    dotenv::dotenv().ok();
+
+    let options = Arc::new(Options::parse());
+
+    // parse benchmarks
+    let materialized = parse_benchmarks(&options)?;
+
+    if let Command::Expand(ref opts) = options.command {
+        if opts.full {
+            println!("{:#?}", &materialized);
+            return Ok(());
+        }
+    }
+
     let config = &materialized.config;
     let benchmark_concurrency = match options.command {
         Command::Profile(_) => config.profile.common.concurrency,
         Command::Trace(_) => config.trace.common.concurrency,
-        Command::Simulate(_) => Some(1), // config.sim.common.concurrency,
+        Command::AccelsimTrace(_) => config.accelsim_trace.common.concurrency,
+        Command::Simulate(_) => config.simulate.common.concurrency,
+        Command::AccelsimSimulate(_) => config.accelsim_simulate.common.concurrency,
+        Command::PlaygroundSimulate(_) => config.playground_simulate.common.concurrency,
         Command::Build(_) | Command::Clean(_) => None, // no limit on concurrency
-        _ => Some(1),
+        Command::Expand(_) => Some(1),                 // to keep deterministic ordering
     };
 
     let concurrency = options
@@ -352,33 +451,15 @@ async fn main() -> eyre::Result<()> {
         .unwrap_or_else(num_cpus::get_physical);
     println!("concurrency: {}", &concurrency);
 
-    // get benchmark configurations
-    let mut enabled_benches: Vec<_> = materialized
-        .enabled()
-        .filter(|bench_config| {
-            if options.benchmarks.is_empty() {
-                return true;
-            }
-            options
-                .benchmarks
-                .iter()
-                .any(|b| b.to_lowercase() == bench_config.name.to_lowercase())
-        })
-        .collect();
-
-    if let Command::Build(_) | Command::Clean(_) = options.command {
-        // do not build the same executables multiple times
-        enabled_benches.dedup_by_key(|bench_config| bench_config.executable.clone());
-    }
-
+    let mut enabled_benches: Vec<_> = materialized.enabled().collect();
+    filter_benchmarks(&mut enabled_benches, &options);
     let num_bench_configs = enabled_benches.len();
 
     // create progress bar
     let bar = Arc::new(ProgressBar::new(enabled_benches.len() as u64));
     bar.enable_steady_tick(std::time::Duration::from_secs_f64(1.0 / 10.0));
-    let bar_style = ProgressStyle::default();
+    let bar_style = progress::Style::default();
     bar.set_style(bar_style.into());
-    bar.hidden();
 
     let should_exit = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
@@ -392,55 +473,9 @@ async fn main() -> eyre::Result<()> {
                     return Err(Error::Skipped(bench_config.clone()));
                 }
                 let start = std::time::Instant::now();
-                let res = run_benchmark(bench_config, &options, &bar).await;
+                let res = run_benchmark(bench_config.clone(), &options, &bar).await;
                 bar.inc(1);
-
-                let op = match options.command {
-                    Command::Profile(_) => "profiling",
-                    Command::Trace(_) => "tracing [box]",
-                    Command::AccelsimTrace(_) => "tracing [accelsim]",
-                    Command::Simulate(_) => "simulating [box]",
-                    Command::AccelsimSimulate(_) => "simulating [accelsim]",
-                    Command::PlaygroundSimulate(_) => "simulating [playground]",
-                    Command::Build(_) => "building",
-                    Command::Clean(_) => "cleaning",
-                    Command::Expand(_) => "expanding",
-                };
-                let executable = std::env::current_dir().ok().map_or_else(
-                    || bench_config.executable.clone(),
-                    |cwd| bench_config.executable.relative_to(cwd),
-                );
-                bar.println(format!(
-                    "{:>15} {:>20} [ {} {} ] {}",
-                    op,
-                    if res.is_ok() {
-                        style(&bench_config.name).green()
-                    } else {
-                        style(&bench_config.name).red()
-                    },
-                    executable.display(),
-                    bench_config.args.join(" "),
-                    match res {
-                        Ok(_) => {
-                            format!("succeeded in {:?}", start.elapsed())
-                        }
-                        Err(ref err) => {
-                            static PREVIEW_LEN: usize = 75;
-                            let err_preview = err.to_string();
-                            if err_preview.len() > PREVIEW_LEN {
-                                let err_preview = format!(
-                                    "{} ...",
-                                    &err_preview[..err_preview.len().min(PREVIEW_LEN)]
-                                );
-                            }
-                            format!(
-                                "failed after {:?}: {}",
-                                start.elapsed(),
-                                style(err_preview).red()
-                            )
-                        }
-                    }
-                ));
+                print_benchmark_result(bench_config, &res, start.elapsed(), &bar, &options);
 
                 if options.fail_fast && res.is_err() {
                     should_exit.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -454,14 +489,15 @@ async fn main() -> eyre::Result<()> {
         .buffer_unordered(concurrency)
         .collect()
         .await;
-    bar.finish_and_clear();
+    bar.finish();
 
     let _ = utils::fs::rchmod_writable(&materialized.config.results_dir);
 
     let (succeeded, failed): (Vec<_>, Vec<_>) = utils::partition_results(results);
     assert_eq!(num_bench_configs, succeeded.len() + failed.len());
 
-    let failed_msg = format!("{} failed", failed.len());
+    let num_failed = failed.len();
+    let failed_msg = format!("{num_failed} failed");
     println!(
         "\n\n => ran {} benchmarks + input configurations in {:?}: {}",
         num_bench_configs,
@@ -485,5 +521,5 @@ async fn main() -> eyre::Result<()> {
             Error::Skipped(_bench) => {}
         }
     }
-    Ok(())
+    std::process::exit(i32::from(num_failed > 0));
 }

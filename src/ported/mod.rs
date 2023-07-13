@@ -1082,42 +1082,147 @@ pub fn accelmain(
 #[cfg(test)]
 mod tests {
     use color_eyre::eyre;
-    use playground;
-    use playground::bridge::main as accel;
     use pretty_assertions::assert_eq as diff_assert_eq;
     use std::path::PathBuf;
 
     #[test]
     fn test_vectoradd() -> eyre::Result<()> {
         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
-        let vec_add_trace_dir =
-            manifest_dir.join("test-apps/vectoradd/traces/vectoradd-100-32-trace/");
+        let vec_add_trace_dir = manifest_dir.join("results/vectorAdd/vectorAdd-100-32");
+        // manifest_dir.join("test-apps/vectoradd/traces/vectoradd-100-32-trace/");
 
-        let kernelslist = vec_add_trace_dir.join("kernelslist.g");
+        let kernelslist = vec_add_trace_dir.join("accelsim-trace/kernelslist.g");
         let gpgpusim_config = manifest_dir.join("accelsim/gtx1080/gpgpusim.config");
         let trace_config = manifest_dir.join("accelsim/gtx1080/gpgpusim.trace.config");
         let inter_config = manifest_dir.join("accelsim/gtx1080/config_fermi_islip.icnt");
 
+        assert!(vec_add_trace_dir.is_dir());
         assert!(kernelslist.is_file());
         assert!(gpgpusim_config.is_file());
         assert!(trace_config.is_file());
         assert!(inter_config.is_file());
 
-        let stats = super::accelmain(&vec_add_trace_dir, None)?;
-        let mut args = vec![
-            "-trace",
-            kernelslist.as_os_str().to_str().unwrap(),
-            "-config",
-            gpgpusim_config.as_os_str().to_str().unwrap(),
-            "-config",
-            trace_config.as_os_str().to_str().unwrap(),
-            "-inter_config_file",
-            inter_config.as_os_str().to_str().unwrap(),
-        ];
-        dbg!(&args);
+        let stats = super::accelmain(&vec_add_trace_dir.join("trace"), None)?;
 
-        let config = accel::Config::default();
-        let ref_stats = accel::run(config, &args)?;
+        let ref_stats = std::thread::spawn(move || {
+            let mut args = vec![
+                "-trace",
+                kernelslist.as_os_str().to_str().unwrap(),
+                "-config",
+                gpgpusim_config.as_os_str().to_str().unwrap(),
+                "-config",
+                trace_config.as_os_str().to_str().unwrap(),
+                "-inter_config_file",
+                inter_config.as_os_str().to_str().unwrap(),
+            ];
+            // let kernelslist = kernelslist.to_string_lossy().to_string();
+            // let gpgpusim_config = gpgpusim_config.to_string_lossy().to_string();
+            // let trace_config = trace_config.to_string_lossy().to_string();
+            // let inter_config = inter_config.to_string_lossy().to_string();
+            // let mut args = vec![
+            //     "-trace",
+            //     &kernelslist,
+            //     "-config",
+            //     &gpgpusim_config,
+            //     "-config",
+            //     &trace_config,
+            //     "-inter_config_file",
+            //     &inter_config,
+            // ];
+
+            dbg!(&args);
+
+            let config = playground::Config::default();
+            let ref_stats = playground::run(&config, &args)?;
+            Ok::<_, eyre::Report>(ref_stats)
+        })
+        .join()
+        .unwrap()?;
+
+        dbg!(&stats);
+        dbg!(&ref_stats);
+
+        // todo: compare both stats here
+
+        assert!(false);
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    // #[tokio::test(flavor = "current_thread")]
+    async fn test_async_vectoradd() -> eyre::Result<()> {
+        let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
+        let vec_add_trace_dir = manifest_dir.join("results/vectorAdd/vectorAdd-100-32");
+
+        let kernelslist = vec_add_trace_dir.join("accelsim-trace/kernelslist.g");
+        let gpgpusim_config = manifest_dir.join("accelsim/gtx1080/gpgpusim.config");
+        let trace_config = manifest_dir.join("accelsim/gtx1080/gpgpusim.trace.config");
+        let inter_config = manifest_dir.join("accelsim/gtx1080/config_fermi_islip.icnt");
+
+        assert!(vec_add_trace_dir.is_dir());
+        assert!(kernelslist.is_file());
+        assert!(gpgpusim_config.is_file());
+        assert!(trace_config.is_file());
+        assert!(inter_config.is_file());
+
+        for _ in 0..10 {
+            let trace_dir = vec_add_trace_dir.join("trace");
+            let stats = tokio::task::spawn_blocking(move || {
+                let stats = super::accelmain(trace_dir, None)?;
+                Ok::<_, eyre::Report>(stats)
+            })
+            .await??;
+
+            let handles = (0..1).map(|_| {
+                let kernelslist = kernelslist.clone();
+                let inter_config = inter_config.clone();
+                let trace_config = trace_config.clone();
+                let gpgpusim_config = gpgpusim_config.clone();
+
+                tokio::task::spawn_blocking(move || {
+                    let kernelslist = kernelslist.to_string_lossy().to_string();
+                    let gpgpusim_config = gpgpusim_config.to_string_lossy().to_string();
+                    let trace_config = trace_config.to_string_lossy().to_string();
+                    let inter_config = inter_config.to_string_lossy().to_string();
+
+                    let mut args = vec![
+                        "-trace",
+                        &kernelslist,
+                        "-config",
+                        &gpgpusim_config,
+                        "-config",
+                        &trace_config,
+                        "-inter_config_file",
+                        &inter_config,
+                    ];
+
+                    // let mut args = vec![
+                    //     "-trace",
+                    //     kernelslist.as_os_str().to_str().unwrap(),
+                    //     "-config",
+                    //     gpgpusim_config.as_os_str().to_str().unwrap(),
+                    //     "-config",
+                    //     trace_config.as_os_str().to_str().unwrap(),
+                    //     "-inter_config_file",
+                    //     inter_config.as_os_str().to_str().unwrap(),
+                    // ];
+                    dbg!(&args);
+
+                    let config = playground::Config::default();
+                    let ref_stats = playground::run(&config, &args)?;
+                    Ok::<_, eyre::Report>(ref_stats)
+                })
+            });
+
+            // wait for all to complete
+            let ref_stats: Vec<Result<Result<_, _>, _>> = futures::future::join_all(handles).await;
+            let ref_stats: Result<Vec<Result<_, _>>, _> = ref_stats.into_iter().collect();
+            let ref_stats: Result<Vec<_>, _> = ref_stats?.into_iter().collect();
+            let ref_stats: Vec<_> = ref_stats?;
+
+            let ref_stats = &ref_stats[0];
+            dbg!(&ref_stats);
+        }
 
         // dbg!(&stats);
         // dbg!(&ref_stats);

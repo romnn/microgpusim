@@ -193,6 +193,7 @@ mod default {
 
         type accelsim_config = crate::bindings::accelsim_config;
 
+        #[must_use]
         fn accelsim(config: accelsim_config, argv: &[&str], stats: &mut Stats) -> i32;
     }
 }
@@ -219,11 +220,11 @@ impl Default for Config {
 
 pub fn run(config: &Config, args: &[&str]) -> Result<Stats, Error> {
     let exe = std::env::current_exe()?;
-    let mut argv: Vec<&str> = vec![exe.as_os_str().to_str().unwrap()];
-    argv.extend(args);
+    let mut ffi_argv: Vec<&str> = vec![exe.as_os_str().to_str().unwrap()];
+    ffi_argv.extend(args);
 
     let mut stats = Stats::default();
-    let ret_code = default::accelsim(config.0, argv.as_slice(), &mut stats);
+    let ret_code = default::accelsim(config.0, ffi_argv.as_slice(), &mut stats);
     if ret_code == 0 {
         Ok(stats)
     } else {

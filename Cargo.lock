@@ -478,6 +478,7 @@ dependencies = [
  "csv",
  "cxx",
  "dialoguer",
+ "futures",
  "human_bytes",
  "itertools",
  "log",
@@ -494,6 +495,7 @@ dependencies = [
  "serde_json",
  "strum",
  "thiserror",
+ "tokio",
  "trace-model",
 ]
 
@@ -3648,6 +3650,7 @@ dependencies = [
  "accelsim-sim",
  "accelsim-trace",
  "async-process",
+ "casimu",
  "chrono",
  "clap",
  "color-eyre",
@@ -3664,6 +3667,7 @@ dependencies = [
  "num_cpus",
  "once_cell",
  "pathdiff",
+ "playground",
  "pretty_assertions",
  "profile",
  "serde",

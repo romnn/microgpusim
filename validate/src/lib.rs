@@ -1,4 +1,9 @@
-#![allow(warnings)]
+#![allow(
+    clippy::missing_panics_doc,
+    clippy::missing_errors_doc,
+    clippy::result_large_err
+)]
+// #![allow(warnings)]
 
 pub mod benchmark;
 pub mod materialize;
@@ -68,10 +73,7 @@ pub struct SimOptions {
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
-pub struct AccelsimSimOptions {
-    #[default = true]
-    #[serde(default = "bool_true")]
-    pub enabled: bool,
+pub struct AccelsimSimOptionsFiles {
     pub trace_config: Option<Template<PathBuf>>,
     pub inter_config: Option<Template<PathBuf>>,
     pub config_dir: Option<Template<PathBuf>>,
@@ -79,10 +81,21 @@ pub struct AccelsimSimOptions {
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
+pub struct AccelsimSimOptions {
+    #[default = true]
+    #[serde(default = "bool_true")]
+    pub enabled: bool,
+    #[serde(flatten)]
+    pub configs: AccelsimSimOptionsFiles,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
 pub struct PlaygroundSimOptions {
     #[default = true]
     #[serde(default = "bool_true")]
     pub enabled: bool,
+    #[serde(flatten)]
+    pub configs: AccelsimSimOptionsFiles,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
@@ -166,9 +179,7 @@ pub struct SimConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
-pub struct AccelsimSimConfig {
-    #[serde(flatten)]
-    pub common: TargetConfig,
+pub struct AccelsimSimConfigFiles {
     pub trace_config: PathBuf,
     pub inter_config: PathBuf,
     pub config_dir: PathBuf,
@@ -176,9 +187,19 @@ pub struct AccelsimSimConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
+pub struct AccelsimSimConfig {
+    #[serde(flatten)]
+    pub common: TargetConfig,
+    #[serde(flatten)]
+    pub configs: AccelsimSimConfigFiles,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
 pub struct PlaygroundSimConfig {
     #[serde(flatten)]
     pub common: TargetConfig,
+    #[serde(flatten)]
+    pub configs: AccelsimSimConfigFiles,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
@@ -225,9 +246,13 @@ impl Benchmarks {
         let benches = serde_yaml::from_reader(reader)?;
         Ok(benches)
     }
+}
 
-    pub fn from_str(s: impl AsRef<str>) -> Result<Self, Error> {
-        let benches = serde_yaml::from_str(s.as_ref())?;
+impl std::str::FromStr for Benchmarks {
+    type Err = serde_yaml::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let benches = serde_yaml::from_str(s)?;
         Ok(benches)
     }
 }
@@ -243,6 +268,7 @@ where
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 #[cfg(test)]
 mod tests {
     use super::{Benchmark, Benchmarks};
@@ -250,6 +276,7 @@ mod tests {
     use indexmap::IndexMap;
     use pretty_assertions::assert_eq as diff_assert_eq;
     use std::path::PathBuf;
+    use std::str::FromStr;
 
     #[test]
     fn test_parse_from_file() -> eyre::Result<()> {

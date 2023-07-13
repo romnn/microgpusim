@@ -1,7 +1,7 @@
 // #![allow(warnings)]
 
 use color_eyre::eyre::{self, WrapErr};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 fn output_path() -> PathBuf {
     PathBuf::from(std::env::var("OUT_DIR").unwrap())

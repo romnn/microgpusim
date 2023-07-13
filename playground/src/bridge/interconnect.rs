@@ -1,3 +1,5 @@
+#![allow(clippy::module_name_repetitions)]
+
 use color_eyre::eyre;
 use std::ffi::CString;
 use std::os::raw::c_char;
@@ -11,6 +13,7 @@ mod default {
         type c_void;
 
         type IntersimConfig;
+        #[must_use]
         fn new_intersim_config() -> UniquePtr<IntersimConfig>;
         #[must_use]
         fn ParseFile(self: Pin<&mut IntersimConfig>, filename: &CxxString) -> i32;
@@ -83,6 +86,7 @@ pub struct InterconnectInterface(cxx::UniquePtr<default::InterconnectInterface>)
 pub struct BoxInterconnect(cxx::UniquePtr<default::BoxInterconnect>);
 
 impl InterconnectInterface {
+    #[must_use]
     pub fn new(config_file: &Path, num_clusters: u32, num_mem_sub_partitions: u32) -> Self {
         let config_file = config_file.canonicalize().unwrap();
         let config_file = CString::new(&*config_file.to_string_lossy()).unwrap();
@@ -95,6 +99,7 @@ impl InterconnectInterface {
 }
 
 impl BoxInterconnect {
+    #[must_use]
     pub fn new(config_file: &Path, num_clusters: u32, num_mem_sub_partitions: u32) -> Self {
         let config_file = config_file.canonicalize().unwrap();
         let config_file = CString::new(&*config_file.to_string_lossy()).unwrap();
@@ -113,7 +118,13 @@ pub trait BridgedInterconnect {
     fn num_memories(&self) -> u32;
     fn advance(&mut self);
     fn has_buffer(&mut self, node: u32, size: u32) -> bool;
-    fn push(&mut self, src_node: u32, dest_node: u32, value: *mut default::c_void, size: u32);
+    unsafe fn push(
+        &mut self,
+        src_node: u32,
+        dest_node: u32,
+        value: *mut default::c_void,
+        size: u32,
+    );
     fn pop(&mut self, node: u32) -> *mut default::c_void;
 }
 
@@ -126,24 +137,35 @@ impl BridgedInterconnect for InterconnectInterface {
             .pin_mut()
             .CreateInterconnect(num_clusters, num_mem_sub_partitions);
     }
+    #[must_use]
     fn num_nodes(&self) -> u32 {
         self.0.GetNumNodes()
     }
     fn num_shaders(&self) -> u32 {
+        #[must_use]
         self.0.GetNumShaders()
     }
+    #[must_use]
     fn num_memories(&self) -> u32 {
         self.0.GetNumMemories()
     }
     fn advance(&mut self) {
-        self.0.pin_mut().Advance()
+        self.0.pin_mut().Advance();
     }
+    #[must_use]
     fn has_buffer(&mut self, node: u32, size: u32) -> bool {
         self.0.HasBuffer(node, size)
     }
-    fn push(&mut self, src_node: u32, dest_node: u32, value: *mut default::c_void, size: u32) {
-        unsafe { self.0.pin_mut().Push(src_node, dest_node, value, size) }
+    unsafe fn push(
+        &mut self,
+        src_node: u32,
+        dest_node: u32,
+        value: *mut default::c_void,
+        size: u32,
+    ) {
+        self.0.pin_mut().Push(src_node, dest_node, value, size);
     }
+    #[must_use]
     fn pop(&mut self, node: u32) -> *mut default::c_void {
         unsafe { self.0.pin_mut().Pop(node) }
     }
@@ -158,24 +180,35 @@ impl BridgedInterconnect for BoxInterconnect {
             .pin_mut()
             .CreateInterconnect(num_clusters, num_mem_sub_partitions);
     }
+    #[must_use]
     fn num_nodes(&self) -> u32 {
         self.0.GetNumNodes()
     }
+    #[must_use]
     fn num_shaders(&self) -> u32 {
         self.0.GetNumShaders()
     }
+    #[must_use]
     fn num_memories(&self) -> u32 {
         self.0.GetNumMemories()
     }
     fn advance(&mut self) {
-        self.0.pin_mut().Advance()
+        self.0.pin_mut().Advance();
     }
+    #[must_use]
     fn has_buffer(&mut self, node: u32, size: u32) -> bool {
         self.0.HasBuffer(node, size)
     }
-    fn push(&mut self, src_node: u32, dest_node: u32, value: *mut default::c_void, size: u32) {
-        unsafe { self.0.pin_mut().Push(src_node, dest_node, value, size) }
+    unsafe fn push(
+        &mut self,
+        src_node: u32,
+        dest_node: u32,
+        value: *mut default::c_void,
+        size: u32,
+    ) {
+        self.0.pin_mut().Push(src_node, dest_node, value, size);
     }
+    #[must_use]
     fn pop(&mut self, node: u32) -> *mut default::c_void {
         unsafe { self.0.pin_mut().Pop(node) }
     }
@@ -197,20 +230,23 @@ where
         }
     }
 
+    #[must_use]
     pub fn num_nodes(&self) -> u32 {
         self.inner.num_nodes()
     }
 
+    #[must_use]
     pub fn num_shaders(&self) -> u32 {
         self.inner.num_shaders()
     }
 
+    #[must_use]
     pub fn num_memories(&self) -> u32 {
         self.inner.num_memories()
     }
 
     pub fn advance(&mut self) {
-        self.inner.advance()
+        self.inner.advance();
     }
 
     pub fn must_pop(&mut self, node: u32, limit: Option<u16>) -> eyre::Result<(u16, Box<T>)> {
@@ -228,12 +264,13 @@ where
         ))
     }
 
+    #[must_use]
     pub fn pop(&mut self, node: u32) -> Option<Box<T>> {
         let value = unsafe { self.inner.pop(node) };
         if value.is_null() {
             None
         } else {
-            let value: Box<T> = unsafe { Box::from_raw(value as *mut T) };
+            let value: Box<T> = unsafe { Box::from_raw(value.cast::<T>()) };
             Some(value)
         }
     }
@@ -245,16 +282,36 @@ where
             self.inner.push(
                 src_node,
                 dest_node,
-                (value as *mut T) as *mut default::c_void,
-                std::mem::size_of::<T>() as u32,
-            )
-        };
+                (value as *mut T).cast::<default::c_void>(),
+                u32::try_from(std::mem::size_of::<T>()).unwrap(),
+            );
+        }
     }
 }
 
 pub struct IntersimConfig(cxx::UniquePtr<default::IntersimConfig>);
 
+impl std::fmt::Display for IntersimConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("IntersimConfig").finish()
+    }
+}
+
+impl std::fmt::Debug for IntersimConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("IntersimConfig").finish()
+    }
+}
+
+impl Default for IntersimConfig {
+    #[must_use]
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl IntersimConfig {
+    #[must_use]
     pub fn new() -> Self {
         Self(default::new_intersim_config())
     }
@@ -272,16 +329,19 @@ impl IntersimConfig {
         Ok(())
     }
 
+    #[must_use]
     pub fn get_int(&self, field: impl AsRef<str>) -> i32 {
         cxx::let_cxx_string!(field = field.as_ref());
         self.0.GetInt(&field)
     }
 
+    #[must_use]
     pub fn get_string(&self, field: impl AsRef<str>) -> String {
         cxx::let_cxx_string!(field = field.as_ref());
         self.0.GetStr(&field).to_string_lossy().to_string()
     }
 
+    #[must_use]
     pub fn get_bool(&self, field: impl AsRef<str>) -> bool {
         self.get_int(field) != 0
     }

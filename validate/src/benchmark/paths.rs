@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+
 pub trait PathExt {
     #[must_use]
     fn resolve<P>(&self, base: P) -> PathBuf
@@ -13,7 +14,6 @@ pub trait PathExt {
     #[must_use]
     fn normalize(&self) -> PathBuf;
 
-    #[must_use]
     fn try_normalize(&self) -> Result<PathBuf, std::io::Error>;
 }
 
@@ -42,7 +42,6 @@ impl PathExt for Path {
         rel_path.normalize()
     }
 
-    #[must_use]
     fn try_normalize(&self) -> Result<PathBuf, std::io::Error> {
         Ok(utils::fs::normalize_path(self))
     }
@@ -54,6 +53,7 @@ impl PathExt for Path {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 #[cfg(test)]
 mod tests {
     use super::PathExt;

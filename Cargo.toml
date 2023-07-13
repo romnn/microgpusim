@@ -23,6 +23,7 @@ opt-level = 3
 
 [profile.release]
 lto = true
+opt-level = 3
 
 [package]
 name = "casimu"
@@ -58,6 +59,8 @@ bitvec = "1"
 strum = { version = "0", features = ["derive"] }
 phf = { version = "0.11.1", features = ["macros"] }
 dialoguer = "0"
+
+
 # for vectoradd rust example
 num-traits = "0"
 
@@ -67,6 +70,12 @@ features = ["extension-module"]
 optional = true
 
 [dev-dependencies]
-playground = { path = "./playground" }
 pretty_assertions = "1"
 cxx = "1"
+
+# sanity check stats against playground
+playground = { path = "./playground" }
+
+# testing if ffi works in async contexts
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"

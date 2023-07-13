@@ -1,4 +1,5 @@
-#![allow(warnings)]
+// #![allow(warnings)]
+
 use indexmap::IndexMap;
 use serde_yaml::Value;
 use std::collections::HashSet;
@@ -9,7 +10,8 @@ pub type Inputs = IndexMap<String, Value>;
 pub type Input = IndexMap<String, Value>;
 
 #[inline]
-#[must_use] pub fn bool_true() -> bool {
+#[must_use]
+pub fn bool_true() -> bool {
     true
 }
 
@@ -65,28 +67,27 @@ impl ExpandedInput {
         self.as_mut().insert(key, value)
     }
 
-    #[must_use] pub fn is_empty(&self) -> bool {
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
         self.as_ref().is_empty()
     }
 
     fn as_mut(&mut self) -> &mut Input {
         match self {
-            Self::Cartesian(ref mut input) => input,
-            Self::Include(ref mut input) => input,
+            Self::Cartesian(input) | Self::Include(input) => input,
         }
     }
 
     fn as_ref(&self) -> &Input {
         match self {
-            Self::Cartesian(ref input) => input,
-            Self::Include(ref input) => input,
+            Self::Cartesian(input) | Self::Include(input) => input,
         }
     }
 
-    #[must_use] pub fn into_inner(self) -> Input {
+    #[must_use]
+    pub fn into_inner(self) -> Input {
         match self {
-            Self::Cartesian(input) => input,
-            Self::Include(input) => input,
+            Self::Cartesian(input) | Self::Include(input) => input,
         }
     }
 }
@@ -141,11 +142,10 @@ pub fn expand(inputs: &Inputs, includes: &Includes, excludes: &Excludes) -> Vec<
         }
 
         debug_assert!(!exclude.is_empty());
-        let exclude_entries: HashSet<(&String, &Value)> = HashSet::from_iter(exclude.iter());
+        let exclude_entries: HashSet<(&String, &Value)> = exclude.iter().collect();
 
         prods.retain(|current| {
-            let current_entries: HashSet<(&String, &Value)> =
-                HashSet::from_iter(current.as_ref().iter());
+            let current_entries: HashSet<(&String, &Value)> = current.as_ref().iter().collect();
 
             let intersecting_entries: Vec<_> =
                 current_entries.intersection(&exclude_entries).collect();
@@ -163,8 +163,8 @@ pub fn expand(inputs: &Inputs, includes: &Includes, excludes: &Excludes) -> Vec<
         }
         debug_assert!(!include.is_empty());
 
-        let include_keys: HashSet<&String> = HashSet::from_iter(include.keys());
-        let include_entries: HashSet<(&String, &Value)> = HashSet::from_iter(include.iter());
+        let include_keys: HashSet<&String> = include.keys().collect();
+        let include_entries: HashSet<(&String, &Value)> = include.iter().collect();
 
         dbg!(&include);
 
@@ -175,7 +175,7 @@ pub fn expand(inputs: &Inputs, includes: &Includes, excludes: &Excludes) -> Vec<
                 continue;
             };
 
-            let current_entries: HashSet<(&String, &Value)> = HashSet::from_iter(current.iter());
+            let current_entries: HashSet<(&String, &Value)> = current.iter().collect();
 
             let intersecting_keys: Vec<_> = prod_keys.intersection(&include_keys).collect();
             let intersecting_entries: Vec<_> =
@@ -207,16 +207,17 @@ pub fn expand(inputs: &Inputs, includes: &Includes, excludes: &Excludes) -> Vec<
 }
 
 impl Matrix {
-    #[must_use] pub fn expand(&self) -> Vec<Input> {
+    #[must_use]
+    pub fn expand(&self) -> Vec<Input> {
         expand(&self.inputs, &self.include, &self.exclude)
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 #[cfg(test)]
 mod tests {
     use super::{Input, Matrix};
     use color_eyre::eyre;
-    use indexmap::IndexMap;
     use pretty_assertions::assert_eq as diff_assert_eq;
 
     macro_rules! yaml {
@@ -295,7 +296,6 @@ include:
                     yaml!({ "color": "green"}),
                     yaml!({ "color": "pink", "animal": "cat"}),
                 ],
-                ..Matrix::default()
             }
         );
         Ok(())
@@ -313,14 +313,16 @@ os: [ubuntu-latest, windows-latest]"#;
         dbg!(&expanded);
         diff_assert_eq!(
             expanded,
-            Vec::<Input>::from_iter([
+            [
                 yaml!({"version": 10, "os": "ubuntu-latest"}),
                 yaml!({"version": 10, "os": "windows-latest"}),
                 yaml!({"version": 12, "os": "ubuntu-latest"}),
                 yaml!({"version": 12, "os": "windows-latest"}),
                 yaml!({"version": 14, "os": "ubuntu-latest"}),
                 yaml!({"version": 14, "os": "windows-latest"}),
-            ])
+            ]
+            .into_iter()
+            .collect::<Vec::<Input>>()
         );
 
         Ok(())
@@ -347,14 +349,16 @@ include:
         dbg!(&expanded);
         diff_assert_eq!(
             expanded,
-            Vec::<Input>::from_iter([
+            [
                 yaml!({"fruit": "apple", "animal": "cat", "color": "pink", "shape": "circle" }),
                 yaml!({"fruit": "apple", "animal": "dog", "color": "green", "shape": "circle" }),
                 yaml!({"fruit": "pear", "animal": "cat", "color": "pink"}),
                 yaml!({"fruit": "pear", "animal": "dog", "color": "green"}),
                 yaml!({"fruit": "banana"}),
                 yaml!({"fruit": "banana", "animal": "cat"}),
-            ])
+            ]
+            .into_iter()
+            .collect::<Vec::<Input>>()
         );
         Ok(())
     }
@@ -375,14 +379,16 @@ include:
         dbg!(&expanded);
         diff_assert_eq!(
             expanded,
-            Vec::<Input>::from_iter([
+            [
                 yaml!({"os": "windows-latest", "node": 12}),
                 yaml!({"os": "windows-latest", "node": 14}),
                 yaml!({"os": "windows-latest", "node": 16, "npm": 6}),
                 yaml!({"os": "ubuntu-latest", "node": 12}),
                 yaml!({"os": "ubuntu-latest", "node": 14}),
                 yaml!({"os": "ubuntu-latest", "node": 16}),
-            ])
+            ]
+            .into_iter()
+            .collect::<Vec::<Input>>()
         );
         Ok(())
     }
@@ -402,7 +408,7 @@ include:
         dbg!(&expanded);
         diff_assert_eq!(
             expanded,
-            Vec::<Input>::from_iter([
+            [
                 yaml!({"os": "macos-latest", "version": 12}),
                 yaml!({"os": "macos-latest", "version": 14}),
                 yaml!({"os": "macos-latest", "version": 16}),
@@ -413,7 +419,9 @@ include:
                 yaml!({"os": "ubuntu-latest", "version": 14}),
                 yaml!({"os": "ubuntu-latest", "version": 16}),
                 yaml!({"os": "windows-latest", "version": 17}),
-            ])
+            ]
+            .into_iter()
+            .collect::<Vec::<Input>>()
         );
         Ok(())
     }
@@ -434,10 +442,12 @@ include:
         dbg!(&expanded);
         diff_assert_eq!(
             expanded,
-            Vec::<Input>::from_iter([
+            [
                 yaml!({"site": "production", "datacenter": "site-a"}),
                 yaml!({"site": "staging", "datacenter": "site-b"}),
-            ])
+            ]
+            .into_iter()
+            .collect::<Vec::<Input>>()
         );
         Ok(())
     }
@@ -467,7 +477,7 @@ exclude:
         dbg!(&expanded);
         diff_assert_eq!(
             expanded,
-            Vec::<Input>::from_iter([
+            [
                 yaml!({"os": "macos-latest", "version": 12, "environment": "staging"}),
                 // excl: yaml!({"os": "macos-latest", "version": 12, "environment": "production"}),
                 yaml!({"os": "macos-latest", "version": 14, "environment": "staging"}),
@@ -480,7 +490,9 @@ exclude:
                 yaml!({"os": "windows-latest", "version": 14, "environment": "production"}),
                 // excl: yaml!({"os": "windows-latest", "version": 16, "environment": "staging"}),
                 // excl: yaml!({"os": "windows-latest", "version": 16, "environment": "production"}),
-            ])
+            ]
+            .into_iter()
+            .collect::<Vec::<Input>>()
         );
         Ok(())
     }
@@ -501,7 +513,7 @@ jobs:
           - version: 9
             experimental: true
         "#;
-        let workflow: super::Workflow = serde_yaml::from_str(workflow)?;
+        let _workflow: super::Workflow = serde_yaml::from_str(workflow)?;
         Ok(())
     }
 }

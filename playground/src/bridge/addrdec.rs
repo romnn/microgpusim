@@ -51,13 +51,21 @@ mod default {
 
 pub use default::{addrdec_t as AddrDec, next_powerOf2, powli, LOGB2_32};
 
+#[must_use]
 pub fn mask_limit(mask: u64) -> (u8, u8) {
     let mut low = 0;
     let mut high = 64;
-    unsafe { default::addrdec_getmasklimit(mask, &mut high as *mut u8, &mut low as *mut u8) };
+    unsafe {
+        default::addrdec_getmasklimit(
+            mask,
+            std::ptr::addr_of_mut!(high),
+            std::ptr::addr_of_mut!(low),
+        );
+    }
     (low, high)
 }
 
+#[must_use]
 pub fn packbits(mask: u64, val: u64, low: u8, high: u8) -> u64 {
     assert!(low <= 64);
     assert!(high <= 64);
@@ -74,6 +82,7 @@ impl std::fmt::Debug for AddressTranslation {
 }
 
 impl AddressTranslation {
+    #[must_use]
     pub fn new(num_channels: u32, num_sub_partitions_per_channel: u32) -> Self {
         let params = default::linear_to_raw_address_translation_params {
             run_test: false,
@@ -89,10 +98,12 @@ impl AddressTranslation {
         Self(inner)
     }
 
+    #[must_use]
     pub fn partition_address(&self, addr: u64) -> u64 {
         self.0.partition_address(addr)
     }
 
+    #[must_use]
     pub fn tlx(&self, addr: u64) -> AddrDec {
         let mut tlx = AddrDec {
             chip: 0,
@@ -104,9 +115,8 @@ impl AddressTranslation {
         };
 
         unsafe {
-            self.0
-                .addrdec_tlx(addr, &mut tlx as *mut default::addrdec_t)
-        };
+            self.0.addrdec_tlx(addr, std::ptr::addr_of_mut!(tlx));
+        }
         tlx
     }
 }

@@ -114,7 +114,7 @@ pub async fn trace(
 
     let tmp_trace_sh = render_trace_script(
         &exec,
-        &exec_args,
+        exec_args,
         &options.traces_dir,
         &nvbit_tracer_tool,
         options.kernel_number,
@@ -146,10 +146,10 @@ pub async fn trace(
 
     if !result.status.success() {
         return Err(utils::CommandError::new(&cmd, result).into_eyre());
-    } else {
-        log::debug!("stdout:\n{}", utils::decode_utf8!(&result.stdout));
-        log::debug!("stderr:\n{}", utils::decode_utf8!(&result.stderr));
     }
+
+    log::debug!("stdout:\n{}", utils::decode_utf8!(&result.stdout));
+    log::debug!("stderr:\n{}", utils::decode_utf8!(&result.stderr));
 
     // std::fs::remove_file(&tmp_trace_sh_path).ok();
     Ok(())
