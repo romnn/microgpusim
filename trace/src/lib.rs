@@ -417,6 +417,7 @@ impl<'c> Instrumentor<'c> {
                         .lock()
                         .unwrap()
                         .push(trace::Command::MemcpyHtoD {
+                            allocation_name: None,
                             dest_device_addr: dest_device.as_ptr(),
                             num_bytes,
                         });

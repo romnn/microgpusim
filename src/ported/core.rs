@@ -12,6 +12,7 @@ use color_eyre::eyre;
 use console::style;
 use fu::SimdFunctionUnit;
 use itertools::Itertools;
+use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::rc::Rc;
@@ -41,6 +42,12 @@ pub type WarpMask = BitArr!(for WARP_PER_CTA_MAX);
 ///
 /// Note: should be distinct from other memory spaces.
 pub const PROGRAM_MEM_START: usize = 0xF0000000;
+
+pub const PROGRAM_MEM_ALLOC: Lazy<super::Allocation> = Lazy::new(|| super::Allocation {
+    name: Some("PROGRAM_MEM".to_string()),
+    id: 0,
+    start_addr: PROGRAM_MEM_START as super::address,
+});
 
 #[derive(Debug)]
 pub struct ThreadState {
@@ -99,6 +106,7 @@ pub struct InnerSIMTCore<I> {
     pub occupied_block_to_hw_thread_id: HashMap<usize, usize>,
     pub block_status: [usize; MAX_CTA_PER_SHADER],
 
+    pub allocations: Rc<RefCell<super::Allocations>>,
     pub instr_l1_cache: Box<dyn cache::Cache>,
     pub instr_fetch_buffer: InstrFetchBuffer,
     pub warps: Vec<sched::CoreWarp>,
@@ -226,7 +234,32 @@ where
         // here, we generate memory acessess
         if pipe_reg_mut.is_load() || pipe_reg_mut.is_store() {
             if let Some(accesses) = pipe_reg_mut.generate_mem_accesses(&self.config) {
-                pipe_reg_mut.mem_access_queue.extend(accesses);
+                for mut access in accesses {
+                    // set mem accesses allocation start addr, because only core knows
+                    match access.kind {
+                        mem_fetch::AccessKind::GLOBAL_ACC_R
+                        | mem_fetch::AccessKind::LOCAL_ACC_R
+                        | mem_fetch::AccessKind::CONST_ACC_R
+                        | mem_fetch::AccessKind::TEXTURE_ACC_R
+                        | mem_fetch::AccessKind::GLOBAL_ACC_W
+                        | mem_fetch::AccessKind::LOCAL_ACC_W => {
+                            access.allocation =
+                                self.allocations.borrow().get(&access.addr).cloned();
+                        }
+
+                        other @ (mem_fetch::AccessKind::L1_WRBK_ACC
+                        | mem_fetch::AccessKind::L2_WRBK_ACC
+                        | mem_fetch::AccessKind::INST_ACC_R
+                        | mem_fetch::AccessKind::L1_WR_ALLOC_R
+                        | mem_fetch::AccessKind::L2_WR_ALLOC_R) => {
+                            panic!(
+                                "generated {:?} access from instruction {}",
+                                &other, &pipe_reg_mut
+                            );
+                        }
+                    }
+                    pipe_reg_mut.mem_access_queue.push_back(access);
+                }
             }
         }
 
@@ -324,6 +357,7 @@ where
     pub fn new(
         core_id: usize,
         cluster_id: usize,
+        allocations: Rc<RefCell<super::Allocations>>,
         cycle: super::Cycle,
         interconn: Arc<I>,
         stats: Arc<Mutex<stats::Stats>>,
@@ -470,6 +504,7 @@ where
             cluster_id,
             cycle,
             stats,
+            allocations,
             config: config.clone(),
             current_kernel: None,
             last_warp_fetched: None,
@@ -1016,6 +1051,7 @@ where
                         let access = mem_fetch::MemAccess::new(
                             mem_fetch::AccessKind::INST_ACC_R,
                             ppc as u64,
+                            Some(PROGRAM_MEM_ALLOC.clone()),
                             num_bytes as u32,
                             false,
                             // todo: is this correct?
@@ -1275,11 +1311,11 @@ where
 
         for (i, res_bus) in self.inner.result_busses.iter_mut().enumerate() {
             res_bus.shift_right(1);
-            println!(
-                "res bus {:03}[:128]: {}",
-                i,
-                &res_bus.to_bit_string()[0..128]
-            );
+            // println!(
+            //     "res bus {:03}[:128]: {}",
+            //     i,
+            //     &res_bus.to_bit_string()[0..128]
+            // );
         }
 
         for (fu_id, fu) in self.functional_units.iter_mut().enumerate() {

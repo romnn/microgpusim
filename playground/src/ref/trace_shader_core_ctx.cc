@@ -217,6 +217,24 @@ void trace_shader_core_ctx::func_exec_inst(warp_inst_t &inst) {
     inst.generate_mem_accesses();
   }
 
+  // update allocation start addresses here
+  std::list<mem_access_t>::iterator access_iter;
+  for (access_iter = inst.m_accessq.begin();
+       access_iter != inst.m_accessq.end(); ++access_iter) {
+    mem_access_t &access = *access_iter;
+
+    std::set<Allocation>::const_iterator alloc_iter;
+    for (alloc_iter = m_gpu->m_allocations.begin();
+         alloc_iter != m_gpu->m_allocations.end(); ++alloc_iter) {
+      const Allocation &alloc = *alloc_iter;
+      if (alloc.contains(access.get_addr())) {
+        access.set_alloc_start_addr(alloc.start_addr);
+        access.set_alloc_id(alloc.id);
+        break;
+      }
+    }
+  }
+
   trace_shd_warp_t *m_trace_warp =
       static_cast<trace_shd_warp_t *>(m_warp[inst.warp_id()]);
   assert(inst.warp_id() == m_trace_warp->get_warp_id());
@@ -1083,6 +1101,8 @@ void trace_shader_core_ctx::fetch() {
           // TODO: replace with use of allocator
           // mem_fetch *mf = m_mem_fetch_allocator->alloc()
           mem_access_t acc(INST_ACC_R, ppc, nbytes, false, m_gpu->gpgpu_ctx);
+          acc.set_alloc_start_addr(PROGRAM_MEM_START);
+
           mem_fetch *mf = new mem_fetch(
               acc, NULL /*we don't have an instruction yet*/, READ_PACKET_SIZE,
               warp_id, m_sid, m_tpc, m_memory_config,

@@ -7,6 +7,7 @@ use std::path::PathBuf;
 fn main() -> eyre::Result<()> {
     color_eyre::install()?;
 
+    let start = std::time::Instant::now();
     let options = Options::parse();
 
     let base = PathBuf::from(std::env!("CARGO_MANIFEST_DIR")).join("../");
@@ -76,6 +77,8 @@ fn main() -> eyre::Result<()> {
         "L2D: {:#?}",
         &stats::PerCache(stats.l2d_stats.convert()).reduce()
     );
+
+    eprintln!("completed in {:?}", start.elapsed());
 
     Ok(())
 }

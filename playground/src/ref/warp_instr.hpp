@@ -182,6 +182,8 @@ class warp_inst_t : public inst_t {
   unsigned opcode() const { return m_opcode; }
   const char *opcode_str() const;
 
+  std::list<mem_access_t> m_accessq;
+
  protected:
   unsigned m_opcode;
   unsigned m_uid;
@@ -217,7 +219,6 @@ class warp_inst_t : public inst_t {
   bool m_per_scalar_thread_valid;
   std::vector<per_thread_info> m_per_scalar_thread;
   bool m_mem_accesses_created;
-  std::list<mem_access_t> m_accessq;
 
   unsigned m_scheduler_id;  // the scheduler that issues this inst
 

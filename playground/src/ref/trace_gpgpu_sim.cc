@@ -3,6 +3,7 @@
 #include <signal.h>
 #include <iomanip>
 
+#include "hal.hpp"
 #include "io.hpp"
 #include "cache_sub_stats.hpp"
 #include "icnt_wrapper.hpp"
@@ -15,6 +16,10 @@
 #include "trace_simt_core_cluster.hpp"
 
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
+
+bool Allocation::contains(new_addr_type addr) const {
+  return start_addr <= addr && addr < end_addr;
+}
 
 void trace_gpgpu_sim::createSIMTCluster() {
   m_cluster = new trace_simt_core_cluster *[m_shader_config->n_simt_clusters];
@@ -79,19 +84,10 @@ void trace_gpgpu_sim::init() {
   if (g_network_mode) icnt_init();
 }
 
-const shader_core_config *trace_gpgpu_sim::getShaderCoreConfig() {
-  return m_shader_config;
-}
-
-// const memory_config *trace_gpgpu_sim::getMemoryConfig() {
-//   return m_memory_config;
-// }
-
-// trace_simt_core_cluster *trace_gpgpu_sim::getSIMTCluster() {
-//   return *m_cluster;
-// }
-
 void trace_gpgpu_sim::perf_memcpy_to_gpu(size_t dst_start_addr, size_t count) {
+  unsigned id = m_allocations.size();
+  m_allocations.insert(Allocation(id, dst_start_addr, dst_start_addr + count));
+
   if (m_memory_config->m_perf_sim_memcpy) {
     // if(!m_config.trace_driven_mode)    //in trace-driven mode, CUDA runtime
     // can start nre data structure at any position 	assert (dst_start_addr %

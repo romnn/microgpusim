@@ -295,13 +295,17 @@ fn main() -> eyre::Result<()> {
         println!("cargo:rerun-if-env-changed=SKIP_BUILD");
     }
 
-    // if std::env::var("SKIP_BUILD")
-    //     .unwrap_or_default()
-    //     .to_lowercase()
-    //     == "yes"
-    // {
-    //     return Ok(());
-    // }
+    if std::env::var("SKIP_BUILD")
+        .unwrap_or_default()
+        .to_lowercase()
+        == "yes"
+    {
+        // skip build
+        println!("cargo:rustc-link-lib=static=playground");
+        println!("cargo:rustc-link-lib=static=playgroundbridge");
+        println!("cargo:rustc-link-lib=static=playgroundbridgeparser");
+        return Ok(());
+    }
 
     let bridges: Result<Vec<_>, _> = utils::fs::multi_glob(["./src/bridge/**/*.rs"]).collect();
     let mut bridges = bridges?;

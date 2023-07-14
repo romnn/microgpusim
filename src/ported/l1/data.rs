@@ -190,6 +190,7 @@ where
                     let access = mem_fetch::MemAccess::new(
                         self.write_back_type,
                         evicted.block_addr,
+                        evicted.allocation,
                         evicted.modified_size as u32,
                         wr,
                         *fetch.access_warp_mask(),
@@ -333,6 +334,7 @@ where
         let new_access = mem_fetch::MemAccess::new(
             self.write_alloc_type,
             fetch.addr(),
+            fetch.access.allocation.clone(),
             self.cache_config().atom_size(),
             is_write, // Now performing a read
             *fetch.access_warp_mask(),
@@ -394,6 +396,7 @@ where
                     let wb_access = mem_fetch::MemAccess::new(
                         self.write_back_type,
                         evicted.block_addr,
+                        evicted.allocation.clone(),
                         evicted.modified_size,
                         is_write,
                         *fetch.access_warp_mask(),
@@ -911,10 +914,11 @@ mod tests {
         for cmd in commands {
             match cmd {
                 Command::MemcpyHtoD {
+                    allocation_name,
                     dest_device_addr,
                     num_bytes,
                 } => {
-                    // sim.memcopy_to_gpu(*dest_device_addr, *num_bytes);
+                    // sim.memcopy_to_gpu(*dest_device_addr, *num_bytes, allocation_name);
                 }
                 Command::KernelLaunch(launch) => {
                     let kernel = KernelInfo::from_trace(&trace_dir, launch.clone());

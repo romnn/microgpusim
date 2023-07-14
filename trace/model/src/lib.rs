@@ -94,6 +94,7 @@ pub struct KernelLaunch {
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub enum Command {
     MemcpyHtoD {
+        allocation_name: Option<String>,
         dest_device_addr: u64,
         num_bytes: u64,
     },

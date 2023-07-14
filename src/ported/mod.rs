@@ -175,7 +175,10 @@ impl std::fmt::Debug for KernelInfo {
             .field("grid", &self.config.grid)
             .field("block", &self.config.block)
             .field("stream", &self.config.stream_id)
-            .field("shared_mem", &self.config.shared_mem_bytes)
+            .field(
+                "shared_mem",
+                &human_bytes::human_bytes(self.config.shared_mem_bytes as f64),
+            )
             .field("registers", &self.config.num_registers)
             .field("block", &self.current_block())
             .field("thread", &self.next_block_iter.lock().unwrap().peek())
@@ -423,6 +426,51 @@ pub fn parse_commands(path: impl AsRef<Path>) -> eyre::Result<Vec<Command>> {
     Ok(commands)
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Allocation {
+    id: usize,
+    name: Option<String>,
+    start_addr: address,
+    // range: std::ops::Range<u64>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
+pub struct Allocations(rangemap::RangeMap<address, Allocation>);
+
+impl std::ops::Deref for Allocations {
+    type Target = rangemap::RangeMap<address, Allocation>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Allocations {
+    // pub fn get(&self, addr: &address) -> Option<(&std::ops::Range<address>, &Allocation)> {
+    //     self.allocations.get_key_value(&addr)
+    // }
+
+    pub fn insert(&mut self, range: std::ops::Range<address>, name: Option<String>) {
+        // check for intersections
+        // for (range, _) in self.allocations.keys() {
+        if self.0.overlaps(&range) {
+            panic!("overlapping memory allocation {:?}", &range);
+        }
+        let id = self.0.len() + 1; // zero is reserved for instructions
+        let start_addr = range.start;
+        self.0.insert(
+            range,
+            Allocation {
+                name,
+                // avoid joining of allocations using the id and range
+                id,
+                start_addr,
+                // range,
+            },
+        );
+    }
+}
+
 #[derive()]
 // pub struct MockSimulator<'a> {
 pub struct MockSimulator<I> {
@@ -444,6 +492,7 @@ pub struct MockSimulator<I> {
 
     last_cluster_issue: usize,
     last_issued_kernel: usize,
+    pub allocations: Rc<RefCell<Allocations>>,
 
     cycle: Cycle,
     // gpu_stall_icnt2sh: usize,
@@ -520,15 +569,18 @@ where
         let max_concurrent_kernels = config.max_concurrent_kernels;
         let running_kernels = (0..max_concurrent_kernels).map(|_| None).collect();
 
+        let allocations = Rc::new(RefCell::new(Allocations::default()));
+
         let cycle = Rc::new(AtomicCycle::new(0));
         let clusters: Vec<_> = (0..config.num_simt_clusters)
             .map(|i| {
                 SIMTCoreCluster::new(
                     i,
                     Rc::clone(&cycle),
-                    interconn.clone(),
-                    stats.clone(),
-                    config.clone(),
+                    Rc::clone(&allocations),
+                    Arc::clone(&interconn),
+                    Arc::clone(&stats),
+                    Arc::clone(&config),
                 )
             })
             .collect();
@@ -547,6 +599,7 @@ where
             last_cluster_issue: 0,
             last_issued_kernel: 0,
             cycle,
+            allocations,
             // gpu_stall_icnt2sh: 0,
             // partition_replies_in_parallel: 0,
         }
@@ -876,9 +929,18 @@ where
         }
     }
 
-    pub fn memcopy_to_gpu(&mut self, addr: address, num_bytes: u64) {
+    pub fn memcopy_to_gpu(&mut self, addr: address, num_bytes: u64, name: Option<String>) {
+        println!(
+            "memcopy: {:<20} {:>15} ({:>5} f32) to address {addr:>20}",
+            name.as_deref().unwrap_or("<unnamed>"),
+            human_bytes::human_bytes(num_bytes as f64),
+            num_bytes / 4,
+        );
+        let alloc_range = addr..(addr + num_bytes);
+        self.allocations
+            .borrow_mut()
+            .insert(alloc_range.clone(), name);
         if self.config.fill_l2_on_memcopy {
-            println!("memcopy: {num_bytes} bytes to {addr:?}");
             let n_partitions = self.config.num_sub_partition_per_memory_channel;
             let mut transfered = 0;
             while transfered < num_bytes {
@@ -996,9 +1058,10 @@ pub fn accelmain(
             let cmd = &commands[i];
             match cmd {
                 Command::MemcpyHtoD {
+                    allocation_name,
                     dest_device_addr,
                     num_bytes,
-                } => sim.memcopy_to_gpu(*dest_device_addr, *num_bytes),
+                } => sim.memcopy_to_gpu(*dest_device_addr, *num_bytes, allocation_name.clone()),
                 Command::KernelLaunch(launch) => {
                     let kernel = KernelInfo::from_trace(traces_dir, launch.clone());
                     kernels.push_back(Arc::new(kernel));
@@ -1006,6 +1069,8 @@ pub fn accelmain(
             }
             i += 1;
         }
+
+        dbg!(&sim.allocations);
 
         // Launch all kernels within window that are on a stream
         // that isn't already running

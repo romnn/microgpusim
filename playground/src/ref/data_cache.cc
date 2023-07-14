@@ -154,14 +154,17 @@ enum cache_request_status data_cache::wr_miss_wa_naive(
   // if(!send_write_allocate(mf, addr, block_addr, cache_index, time, events))
   //    return RESERVATION_FAIL;
 
-  const mem_access_t *ma =
+  mem_access_t *new_access =
       new mem_access_t(m_wr_alloc_type, mf->get_addr(), m_config.get_atom_sz(),
                        false,  // Now performing a read
                        mf->get_access_warp_mask(), mf->get_access_byte_mask(),
                        mf->get_access_sector_mask(), m_gpu->gpgpu_ctx);
+  // keep the original alloc
+  new_access->set_alloc_start_addr(mf->get_alloc_start_addr());
+  new_access->set_alloc_id(mf->get_alloc_id());
 
-  mem_fetch *n_mf =
-      new mem_fetch(*ma, NULL, mf->get_ctrl_size(), mf->get_wid(),
+  mem_fetch *new_fetch =
+      new mem_fetch(*new_access, NULL, mf->get_ctrl_size(), mf->get_wid(),
                     mf->get_sid(), mf->get_tpc(), mf->get_mem_config(),
                     m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle);
 
@@ -170,7 +173,7 @@ enum cache_request_status data_cache::wr_miss_wa_naive(
   evicted_block_info evicted;
 
   // Send read request resulting from write miss
-  send_read_request(addr, block_addr, cache_index, n_mf, time, do_miss, wb,
+  send_read_request(addr, block_addr, cache_index, new_fetch, time, do_miss, wb,
                     evicted, events, false, true);
 
   events.push_back(cache_event(WRITE_ALLOCATE_SENT));
@@ -281,14 +284,18 @@ enum cache_request_status data_cache::wr_miss_wa_fetch_on_write(
       return RESERVATION_FAIL;
     }
 
-    const mem_access_t *ma = new mem_access_t(
+    mem_access_t *new_access = new mem_access_t(
         m_wr_alloc_type, mf->get_addr(), m_config.get_atom_sz(),
         false,  // Now performing a read
         mf->get_access_warp_mask(), mf->get_access_byte_mask(),
         mf->get_access_sector_mask(), m_gpu->gpgpu_ctx);
 
-    mem_fetch *n_mf = new mem_fetch(
-        *ma, NULL, mf->get_ctrl_size(), mf->get_wid(), mf->get_sid(),
+    // keep the original alloc start addr
+    new_access->set_alloc_start_addr(mf->get_alloc_start_addr());
+    new_access->set_alloc_id(mf->get_alloc_id());
+
+    mem_fetch *new_fetch = new mem_fetch(
+        *new_access, NULL, mf->get_ctrl_size(), mf->get_wid(), mf->get_sid(),
         mf->get_tpc(), mf->get_mem_config(),
         m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle, NULL, mf);
 
@@ -296,8 +303,8 @@ enum cache_request_status data_cache::wr_miss_wa_fetch_on_write(
     bool do_miss = false;
     bool wb = false;
     evicted_block_info evicted;
-    send_read_request(addr, block_addr, cache_index, n_mf, time, do_miss, wb,
-                      evicted, events, false, true);
+    send_read_request(addr, block_addr, cache_index, new_fetch, time, do_miss,
+                      wb, evicted, events, false, true);
 
     cache_block_t *block = m_tag_array->get_block(cache_index);
     block->set_modified_on_fill(true, mf->get_access_sector_mask());

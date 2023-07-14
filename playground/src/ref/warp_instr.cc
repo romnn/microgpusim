@@ -288,7 +288,6 @@ void warp_inst_t::generate_mem_accesses() {
     mem_access_byte_mask_t byte_mask;
     std::map<new_addr_type, active_mask_t>
         accesses;  // block address -> set of thread offsets in warp
-    std::map<new_addr_type, active_mask_t>::iterator a;
     for (unsigned thread = 0; thread < m_config->warp_size; thread++) {
       if (!active(thread)) continue;
       new_addr_type addr = m_per_scalar_thread[thread].memreqaddr[0];
@@ -298,10 +297,13 @@ void warp_inst_t::generate_mem_accesses() {
       unsigned idx = addr - block_address;
       for (unsigned i = 0; i < data_size; i++) byte_mask.set(idx + i);
     }
-    for (a = accesses.begin(); a != accesses.end(); ++a)
-      m_accessq.push_back(mem_access_t(
+    std::map<new_addr_type, active_mask_t>::iterator a;
+    for (a = accesses.begin(); a != accesses.end(); ++a) {
+      mem_access_t new_access = mem_access_t(
           access_type, a->first, cache_block_size, is_write, a->second,
-          byte_mask, mem_access_sector_mask_t(), m_config->gpgpu_ctx));
+          byte_mask, mem_access_sector_mask_t(), m_config->gpgpu_ctx);
+      m_accessq.push_back(new_access);
+    }
   }
 
   if (space.get_type() == global_space) {
@@ -582,9 +584,10 @@ void warp_inst_t::memory_coalescing_arch_reduce_and_send(
       assert(lower_half_used && upper_half_used);
     }
   }
-  m_accessq.push_back(mem_access_t(access_type, addr, size, is_write,
-                                   info.active, info.bytes, info.chunks,
-                                   m_config->gpgpu_ctx));
+  mem_access_t new_access =
+      mem_access_t(access_type, addr, size, is_write, info.active, info.bytes,
+                   info.chunks, m_config->gpgpu_ctx);
+  m_accessq.push_back(new_access);
 }
 
 void warp_inst_t::completed(unsigned long long cycle) const {

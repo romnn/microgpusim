@@ -172,6 +172,7 @@ mod tests {
         let access = MemAccess::new(
             AccessKind::INST_ACC_R,
             fetch_addr,
+            None,
             128,
             false,
             ThreadActiveMask::ZERO,

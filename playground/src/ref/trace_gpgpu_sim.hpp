@@ -1,7 +1,5 @@
 #pragma once
 
-// #include "playground/src/bridge/main.rs.h"
-// #include "bridge/accelsim_stats.hpp"
 #include "gpgpu_sim_config.hpp"
 #include "icnt_wrapper.hpp"
 #include "memory_partition_unit.hpp"
@@ -32,6 +30,20 @@
 #define ICNT 0x08
 
 class gpgpu_context;
+
+class Allocation {
+ public:
+  Allocation(unsigned id, new_addr_type start, new_addr_type end)
+      : id(id), start_addr(start), end_addr(end){};
+  bool contains(new_addr_type addr) const;
+  new_addr_type start_addr;
+  new_addr_type end_addr;
+  unsigned id;
+
+  bool operator<(const Allocation &rhs) const {
+    return start_addr < rhs.start_addr;
+  }
+};
 
 // class trace_gpgpu_sim : public gpgpu_sim {
 class trace_gpgpu_sim {
@@ -218,7 +230,7 @@ class trace_gpgpu_sim {
    * Returning the configuration of the shader core, used by the functional
    * simulation only so far
    */
-  const shader_core_config *getShaderCoreConfig();
+  const shader_core_config *getShaderCoreConfig() { return m_shader_config; }
 
   const gpgpu_sim_config &get_config() const { return m_config; }
 
@@ -275,6 +287,8 @@ class trace_gpgpu_sim {
     m_functional_sim = false;
     m_functional_sim_kernel = NULL;
   }
+
+  std::set<Allocation> m_allocations;
 
  protected:
   class trace_simt_core_cluster **m_cluster;

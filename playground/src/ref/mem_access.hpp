@@ -35,8 +35,21 @@ class mem_access_t {
     m_write = wr;
   }
 
-  new_addr_type get_addr() const { return m_addr; }
   void set_addr(new_addr_type addr) { m_addr = addr; }
+  new_addr_type get_addr() const { return m_addr; }
+
+  new_addr_type get_relative_addr() const {
+    assert(m_addr >= m_allocation_start_addr);
+    return m_addr - m_allocation_start_addr;
+  }
+
+  new_addr_type get_alloc_start_addr() const { return m_allocation_start_addr; }
+  void set_alloc_start_addr(new_addr_type addr) {
+    m_allocation_start_addr = addr;
+  }
+  unsigned get_alloc_id() const { return m_allocation_id; }
+  void set_alloc_id(unsigned id) { m_allocation_id = id; }
+
   unsigned get_size() const { return m_req_size; }
   const active_mask_t &get_warp_mask() const { return m_warp_mask; }
   bool is_write() const { return m_write; }
@@ -44,42 +57,42 @@ class mem_access_t {
   mem_access_byte_mask_t get_byte_mask() const { return m_byte_mask; }
   mem_access_sector_mask_t get_sector_mask() const { return m_sector_mask; }
 
-  void print(FILE *fp) const {
-    fprintf(fp, "addr=0x%ld, %s, size=%u, ", m_addr,
-            m_write ? "store" : "load ", m_req_size);
-    switch (m_type) {
-      case GLOBAL_ACC_R:
-        fprintf(fp, "GLOBAL_R");
-        break;
-      case LOCAL_ACC_R:
-        fprintf(fp, "LOCAL_R ");
-        break;
-      case CONST_ACC_R:
-        fprintf(fp, "CONST   ");
-        break;
-      case TEXTURE_ACC_R:
-        fprintf(fp, "TEXTURE ");
-        break;
-      case GLOBAL_ACC_W:
-        fprintf(fp, "GLOBAL_W");
-        break;
-      case LOCAL_ACC_W:
-        fprintf(fp, "LOCAL_W ");
-        break;
-      case L2_WRBK_ACC:
-        fprintf(fp, "L2_WRBK ");
-        break;
-      case INST_ACC_R:
-        fprintf(fp, "INST    ");
-        break;
-      case L1_WRBK_ACC:
-        fprintf(fp, "L1_WRBK ");
-        break;
-      default:
-        fprintf(fp, "unknown ");
-        break;
-    }
-  }
+  // void print(FILE *fp) const {
+  //   fprintf(fp, "addr=0x%ld, %s, size=%u, ", m_addr,
+  //           m_write ? "store" : "load ", m_req_size);
+  //   switch (m_type) {
+  //     case GLOBAL_ACC_R:
+  //       fprintf(fp, "GLOBAL_R");
+  //       break;
+  //     case LOCAL_ACC_R:
+  //       fprintf(fp, "LOCAL_R ");
+  //       break;
+  //     case CONST_ACC_R:
+  //       fprintf(fp, "CONST   ");
+  //       break;
+  //     case TEXTURE_ACC_R:
+  //       fprintf(fp, "TEXTURE ");
+  //       break;
+  //     case GLOBAL_ACC_W:
+  //       fprintf(fp, "GLOBAL_W");
+  //       break;
+  //     case LOCAL_ACC_W:
+  //       fprintf(fp, "LOCAL_W ");
+  //       break;
+  //     case L2_WRBK_ACC:
+  //       fprintf(fp, "L2_WRBK ");
+  //       break;
+  //     case INST_ACC_R:
+  //       fprintf(fp, "INST    ");
+  //       break;
+  //     case L1_WRBK_ACC:
+  //       fprintf(fp, "L1_WRBK ");
+  //       break;
+  //     default:
+  //       fprintf(fp, "unknown ");
+  //       break;
+  //   }
+  // }
 
   // gpgpu_context *gpgpu_ctx;
 
@@ -87,7 +100,9 @@ class mem_access_t {
   void init(gpgpu_context *ctx);
 
   unsigned m_uid;
-  new_addr_type m_addr;  // request address
+  new_addr_type m_addr;                   // request address
+  new_addr_type m_allocation_start_addr;  // allocation start address
+  unsigned m_allocation_id;               // allocation id
   bool m_write;
   unsigned m_req_size;  // bytes
   mem_access_type m_type;

@@ -7,12 +7,12 @@ use bitvec::{array::BitArray, field::BitField, BitArr};
 use std::rc::Rc;
 use std::sync::{Mutex, OnceLock};
 
-pub static READ_PACKET_SIZE: u8 = 8;
+pub const READ_PACKET_SIZE: u8 = 8;
 
 // bytes: 6 address, 2 miscelaneous.
-pub static WRITE_PACKET_SIZE: u8 = 8;
+pub const WRITE_PACKET_SIZE: u8 = 8;
 
-pub static WRITE_MASK_SIZE: u8 = 8;
+pub const WRITE_MASK_SIZE: u8 = 8;
 
 pub type MemAccessByteMask = BitArr!(for super::MAX_MEMORY_ACCESS_SIZE as usize);
 pub type MemAccessSectorMask = BitArr!(for super::SECTOR_CHUNCK_SIZE as usize, in u8);
@@ -117,11 +117,12 @@ impl AccessKind {
     }
 }
 
-#[derive(Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Clone, Hash, Eq, PartialEq)]
 pub struct MemAccess {
     // uid: usize,
     /// request address
     pub addr: super::address,
+    pub allocation: Option<super::Allocation>,
     /// if access is write
     pub is_write: bool,
     /// request size in bytes
@@ -151,7 +152,7 @@ where
     }
 }
 
-impl std::fmt::Display for MemAccess {
+impl std::fmt::Debug for MemAccess {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("MemAccess")
             .field("addr", &self.addr)
@@ -165,11 +166,23 @@ impl std::fmt::Display for MemAccess {
     }
 }
 
+impl std::fmt::Display for MemAccess {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Access({:?}@", self.kind)?;
+        if let Some(ref rel_addr) = self.relative_addr() {
+            write!(f, "+{})", rel_addr)
+        } else {
+            write!(f, "{})", &self.addr)
+        }
+    }
+}
+
 impl MemAccess {
     /// todo: where is this initialized
     pub fn new(
         kind: AccessKind,
         addr: address,
+        allocation: Option<super::Allocation>,
         req_size_bytes: u32,
         is_write: bool,
         warp_mask: ThreadActiveMask,
@@ -180,6 +193,9 @@ impl MemAccess {
         //     panic!("global acc r");
         // }
 
+        if let Some(ref alloc) = allocation {
+            debug_assert!(alloc.start_addr <= addr);
+        }
         Self {
             warp_mask,
             byte_mask,
@@ -188,7 +204,16 @@ impl MemAccess {
             is_write,
             kind,
             addr,
+            allocation,
         }
+    }
+
+    #[inline]
+    pub fn relative_addr(&self) -> Option<super::address> {
+        self.allocation
+            .as_ref()
+            .map(|alloc| alloc.start_addr)
+            .and_then(|start| self.addr.checked_sub(start))
     }
 
     pub fn control_size(&self) -> u32 {
@@ -199,25 +224,25 @@ impl MemAccess {
         }
     }
 
-    /// use gen memory accesses
-    #[deprecated]
-    pub fn from_instr(instr: &WarpInstruction) -> Option<Self> {
-        let Some(kind) = instr.access_kind() else {
-            return None;
-        };
-        let Some(addr) = instr.addr() else {
-            return None;
-        };
-        Some(Self {
-            warp_mask: instr.active_mask,
-            byte_mask: BitArray::ZERO,
-            sector_mask: BitArray::ZERO,
-            req_size_bytes: instr.data_size,
-            is_write: instr.is_store(),
-            kind,
-            addr,
-        })
-    }
+    // /// use gen memory accesses
+    // #[deprecated]
+    // pub fn from_instr(instr: &WarpInstruction) -> Option<Self> {
+    //     let Some(kind) = instr.access_kind() else {
+    //         return None;
+    //     };
+    //     let Some(addr) = instr.addr() else {
+    //         return None;
+    //     };
+    //     Some(Self {
+    //         warp_mask: instr.active_mask,
+    //         byte_mask: BitArray::ZERO,
+    //         sector_mask: BitArray::ZERO,
+    //         req_size_bytes: instr.data_size,
+    //         is_write: instr.is_store(),
+    //         kind,
+    //         addr,
+    //     })
+    // }
 }
 
 #[derive(Clone, Debug)]
@@ -251,29 +276,24 @@ pub struct MemFetch {
 
 impl std::fmt::Display for MemFetch {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
-            f,
-            "{}({:?}@{})",
-            if self.is_reply() { "Reply" } else { "Req" },
-            self.access_kind(),
-            self.addr()
-        )
-        // match self.kind {
-        //     Kind::WRITE_ACK | Kind::READ_REPLY => {
-        //         write!(f, "Reply({:?}@{})", self.access_kind(), self.addr())
-        //     }
-        //     Kind::READ_REQUEST | Kind::WRITE_REQUEST => {
-        //         write!(f, "Req({:?}@{})", self.access_kind(), self.addr())
-        //     }
-        // }
-        // write!(
-        //     f,
-        //     // "MemFetch({:?})[{:?}@{}]",
-        //     "{:?}@{}",
-        //     // self.instr.as_ref().map(|i| i.to_string()),
-        //     self.access_kind(),
-        //     self.addr(),
-        // )
+        if self.is_reply() {
+            write!(f, "Reply")?
+        } else {
+            write!(f, "Req")?
+        }
+        let addr = self.addr();
+        let access_kind = self.access_kind();
+        if let Some(ref alloc) = self.access.allocation {
+            write!(
+                f,
+                "({:?}@{}+{})",
+                access_kind,
+                alloc.id,
+                addr - alloc.start_addr
+            )
+        } else {
+            write!(f, "({:?}@{})", access_kind, addr)
+        }
     }
 }
 
@@ -401,6 +421,10 @@ impl MemFetch {
 
     pub fn addr(&self) -> address {
         self.access.addr
+    }
+
+    pub fn relative_addr(&self) -> Option<address> {
+        self.access.relative_addr()
     }
 
     pub fn size(&self) -> u32 {

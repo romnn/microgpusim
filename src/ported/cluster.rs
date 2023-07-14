@@ -1,6 +1,7 @@
 use super::{interconn as ic, mem_fetch, MockSimulator, Packet, SIMTCore};
 use crate::config::GPUConfig;
 use console::style;
+use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -27,6 +28,7 @@ where
     pub fn new(
         cluster_id: usize,
         cycle: super::Cycle,
+        allocations: Rc<RefCell<super::Allocations>>,
         interconn: Arc<I>,
         stats: Arc<Mutex<stats::Stats>>,
         config: Arc<GPUConfig>,
@@ -51,10 +53,11 @@ where
                 SIMTCore::new(
                     id,
                     cluster_id,
+                    Rc::clone(&allocations),
                     Rc::clone(&cycle),
-                    interconn.clone(),
-                    stats.clone(),
-                    config.clone(),
+                    Arc::clone(&interconn),
+                    Arc::clone(&stats),
+                    Arc::clone(&config),
                 )
             })
             .collect();

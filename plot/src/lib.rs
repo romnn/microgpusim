@@ -2,7 +2,7 @@
 // #![allow(warnings)]
 
 use color_eyre::eyre;
-use rangemap::RangeMap;
+// use rangemap::RangeMap;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use trace_model as model;
@@ -13,7 +13,8 @@ where
     A: Clone + Eq,
 {
     accesses: HashMap<(bool, Option<String>), Vec<T>>,
-    allocations: RangeMap<u64, A>,
+    // allocations: RangeMap<u64, A>,
+    phantom: std::marker::PhantomData<A>,
     bands: Vec<std::ops::Range<u64>>,
 }
 
@@ -24,7 +25,8 @@ where
     fn default() -> Self {
         Self {
             accesses: HashMap::new(),
-            allocations: RangeMap::new(),
+            // allocations: RangeMap::new(),
+            phantom: std::marker::PhantomData,
             bands: Vec::new(),
         }
     }
@@ -34,7 +36,7 @@ impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
     pub fn register_allocation(&mut self, alloc: model::MemAllocation) {
         let start = alloc.device_ptr;
         let end = alloc.device_ptr + alloc.num_bytes;
-        self.allocations.insert(start..end, alloc);
+        // self.allocations.insert(start..end, alloc);
         self.bands.push(start..end);
     }
 

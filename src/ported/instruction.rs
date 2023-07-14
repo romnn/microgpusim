@@ -662,10 +662,12 @@ impl WarpInstruction {
 
                 debug_assert!(total_accesses > 0);
                 debug_assert!(total_accesses <= config.warp_size);
-                // panic!("first shared mem request");
+                panic!("shared mem request");
 
                 // shared memory conflicts modeled as larger initiation interval
                 self.dispatch_delay_cycles = total_accesses;
+
+                // TODO: shared mem does not generate mem accesses?
                 None
             }
             Some(MemorySpace::Texture) => {
@@ -685,16 +687,20 @@ impl WarpInstruction {
                 if config.coalescing_arch as usize >= 13 {
                     if self.is_atomic() {
                         // memory_coalescing_arch_atomic(is_write, access_type);
-                        panic!("atomics are not supported for now");
+                        unimplemented!("atomics not supported for now");
                     } else {
+                        // here, we return the memory accesses
                         let accesses = self.memory_coalescing_arch(is_write, access_kind, &config);
                         Some(accesses)
                     }
                 } else {
-                    panic!("coalescing arch {} < 13", config.coalescing_arch as usize);
+                    panic!(
+                        "coalescing arch {} < 13 not supported?",
+                        config.coalescing_arch as usize
+                    );
                 }
             }
-            None => todo!("generate mem accesses but dont have mem space"),
+            None => panic!("generate mem accesses but dont have mem space"),
             // other => todo!("generate mem accesses[{other:?}]: not yet implemented"),
         }
     }
@@ -929,6 +935,7 @@ impl WarpInstruction {
         let access = MemAccess::new(
             access_kind,
             addr,
+            None, // we cannot know the allocation start address in this context
             req_size_bytes,
             is_write,
             tx.active_mask,
