@@ -2,9 +2,7 @@ use super::instruction::WarpInstruction;
 use super::scheduler::SchedulerWarp;
 use super::{
     address, barrier, cache, ldst_unit, opcodes, operand_collector as opcoll, register_set,
-    scoreboard, simd_function_unit as fu,
-    stats::{CacheStats, Stats},
-    KernelInfo, LoadStoreUnit, MockSimulator,
+    scoreboard, simd_function_unit as fu, KernelInfo, LoadStoreUnit, MockSimulator,
 };
 use super::{interconn as ic, l1, mem_fetch, scheduler as sched};
 use crate::config::{self, GPUConfig};
@@ -82,7 +80,7 @@ pub struct InnerSIMTCore<I> {
     pub core_id: usize,
     pub cluster_id: usize,
     pub cycle: super::Cycle,
-    pub stats: Arc<Mutex<Stats>>,
+    pub stats: Arc<Mutex<stats::Stats>>,
     pub config: Arc<GPUConfig>,
     pub current_kernel: Option<Arc<KernelInfo>>,
     pub last_warp_fetched: Option<usize>,
@@ -328,7 +326,7 @@ where
         cluster_id: usize,
         cycle: super::Cycle,
         interconn: Arc<I>,
-        stats: Arc<Mutex<Stats>>,
+        stats: Arc<Mutex<stats::Stats>>,
         config: Arc<GPUConfig>,
     ) -> Self {
         let thread_info: Vec<_> = (0..config.max_threads_per_core).map(|_| None).collect();
@@ -344,7 +342,7 @@ where
             config: config.clone(),
             interconn: interconn.clone(),
         });
-        let cache_stats = Arc::new(Mutex::new(CacheStats::default()));
+        let cache_stats = Arc::new(Mutex::new(stats::Cache::default()));
         let instr_l1_cache = l1::ReadOnly::new(
             format!(
                 "core-{}-{}-{}",
@@ -1815,7 +1813,7 @@ where
     }
 }
 
-pub fn warp_inst_complete(instr: &mut WarpInstruction, stats: &Mutex<Stats>) {
+pub fn warp_inst_complete(instr: &mut WarpInstruction, stats: &Mutex<stats::Stats>) {
     // pub fn warp_inst_complete(&self, instr: &mut WarpInstruction) {
     // if (inst.op_pipe == SP__OP)
     //   m_stats->m_num_sp_committed[m_sid]++;

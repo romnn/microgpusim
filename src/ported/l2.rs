@@ -1,4 +1,4 @@
-use super::{address, cache, interconn as ic, l1, mem_fetch, stats::CacheStats};
+use super::{address, cache, interconn as ic, l1, mem_fetch};
 use crate::config;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
@@ -20,7 +20,7 @@ where
         core_id: usize,
         cluster_id: usize,
         fetch_interconn: Arc<I>,
-        stats: Arc<Mutex<CacheStats>>,
+        stats: Arc<Mutex<stats::Cache>>,
         config: Arc<config::GPUConfig>,
         cache_config: Arc<config::CacheConfig>,
     ) -> Self {
@@ -52,7 +52,7 @@ impl<I> cache::Cache for DataL2<I>
 where
     I: ic::MemFetchInterface,
 {
-    fn stats(&self) -> &Arc<Mutex<CacheStats>> {
+    fn stats(&self) -> &Arc<Mutex<stats::Cache>> {
         &self.inner.inner.stats
     }
 

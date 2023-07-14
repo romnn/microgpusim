@@ -1,6 +1,6 @@
 use super::base;
 use crate::config;
-use crate::ported::{address, cache, interconn as ic, mem_fetch, stats::CacheStats, tag_array};
+use crate::ported::{address, cache, interconn as ic, mem_fetch, tag_array};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
@@ -15,7 +15,7 @@ impl<I> ReadOnly<I> {
         core_id: usize,
         cluster_id: usize,
         mem_port: Arc<I>,
-        stats: Arc<Mutex<CacheStats>>,
+        stats: Arc<Mutex<stats::Cache>>,
         config: Arc<config::GPUConfig>,
         cache_config: Arc<config::CacheConfig>,
     ) -> Self {
@@ -64,7 +64,7 @@ impl<I> cache::Cache for ReadOnly<I>
 where
     I: ic::MemFetchInterface,
 {
-    fn stats(&self) -> &Arc<Mutex<CacheStats>> {
+    fn stats(&self) -> &Arc<Mutex<stats::Cache>> {
         &self.inner.stats
     }
 
@@ -163,7 +163,7 @@ where
         let mut stats = self.inner.stats.lock().unwrap();
         stats.inc(
             *fetch.access_kind(),
-            cache::AccessStat::Status(CacheStats::select_status(probe_status, status)),
+            cache::AccessStat::Status(select_status(probe_status, status)),
             1,
         );
         status
@@ -171,6 +171,22 @@ where
 
     fn fill(&mut self, fetch: mem_fetch::MemFetch) {
         self.inner.fill(fetch);
+    }
+}
+
+/// This function selects how the cache access outcome should be counted.
+///
+/// `HIT_RESERVED` is considered as a MISS in the cores, however, it should be
+/// counted as a `HIT_RESERVED` in the caches.
+fn select_status(
+    probe: cache::RequestStatus,
+    access: cache::RequestStatus,
+) -> cache::RequestStatus {
+    use cache::RequestStatus;
+    match probe {
+        RequestStatus::HIT_RESERVED if access != RequestStatus::RESERVATION_FAIL => probe,
+        RequestStatus::SECTOR_MISS if access == RequestStatus::MISS => probe,
+        _ => access,
     }
 }
 

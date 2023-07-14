@@ -1,10 +1,6 @@
 use crate::config;
 use crate::ported::mem_sub_partition::{was_writeback_sent, SECTOR_SIZE};
-use crate::ported::{
-    address, cache, cache_block, interconn as ic, mem_fetch, mshr,
-    stats::{CacheStats, Stats},
-    tag_array,
-};
+use crate::ported::{address, cache, cache_block, interconn as ic, mem_fetch, mshr, tag_array};
 use console::style;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
@@ -158,7 +154,7 @@ pub struct Base<I>
     pub cluster_id: usize,
 
     // pub stats: Arc<Mutex<Stats>>,
-    pub stats: Arc<Mutex<CacheStats>>,
+    pub stats: Arc<Mutex<stats::Cache>>,
     pub config: Arc<config::GPUConfig>,
     pub cache_config: Arc<config::CacheConfig>,
 
@@ -200,7 +196,7 @@ impl<I> Base<I> {
         cluster_id: usize,
         // tag_array: tag_array::TagArray<()>,
         mem_port: Arc<I>,
-        stats: Arc<Mutex<CacheStats>>,
+        stats: Arc<Mutex<stats::Cache>>,
         config: Arc<config::GPUConfig>,
         cache_config: Arc<config::CacheConfig>,
     ) -> Self {
@@ -637,11 +633,7 @@ impl<I> cache::CacheBandwidth for Base<I> {
 mod tests {
     use super::Base;
     use crate::config;
-    use crate::ported::{
-        interconn as ic, mem_fetch,
-        stats::{CacheStats, Stats},
-        Packet,
-    };
+    use crate::ported::{interconn as ic, mem_fetch, FromConfig, Packet};
     use std::sync::{Arc, Mutex};
 
     #[ignore = "todo"]
@@ -650,10 +642,10 @@ mod tests {
         let core_id = 0;
         let cluster_id = 0;
         let config = Arc::new(config::GPUConfig::default());
-        let cache_stats = Arc::new(Mutex::new(CacheStats::default()));
+        let cache_stats = Arc::new(Mutex::new(stats::Cache::default()));
         let cache_config = config.data_cache_l1.clone().unwrap();
 
-        let stats = Arc::new(Mutex::new(Stats::new(&*config)));
+        let stats = Arc::new(Mutex::new(stats::Stats::from_config(&*config)));
         let interconn: Arc<ic::ToyInterconnect<Packet>> =
             Arc::new(ic::ToyInterconnect::new(0, 0, None));
         let port = Arc::new(ic::CoreMemoryInterface {

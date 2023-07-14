@@ -1,6 +1,7 @@
 use accelsim::Options;
 use clap::Parser;
 use color_eyre::eyre::{self, WrapErr};
+use stats::ConvertHashMap;
 use std::path::PathBuf;
 
 fn main() -> eyre::Result<()> {
@@ -57,16 +58,24 @@ fn main() -> eyre::Result<()> {
 
     let config = playground::Config::default();
     let stats = playground::run(&config, &args)?;
-    // accumulate l1i
-    // for ( in stats.l1i_stats.iter().reduce(|acc, (_id, s)| acc + e) {
-    for (cache_name, cache_stats) in [("L1I", &stats.l1i_stats), ("L2D", &stats.l2d_stats)] {
-        for (_id, per_stats) in cache_stats {
-            for ((access_type, status), &accesses) in &per_stats.accesses {
-                if accesses > 0 {
-                    println!("{cache_name} [{access_type:?}][{status:?}] = {accesses}");
-                }
-            }
-        }
-    }
+
+    eprintln!("STATS:\n");
+    eprintln!("DRAM: {:#?}", &stats.dram);
+    eprintln!("SIM: {:#?}", &stats.sim);
+    eprintln!("INSTRUCTIONS: {:#?}", &stats.instructions);
+    eprintln!("ACCESSES: {:#?}", &stats.accesses);
+    eprintln!(
+        "L1I: {:#?}",
+        &stats::PerCache(stats.l1i_stats.convert()).reduce()
+    );
+    eprintln!(
+        "L1D: {:#?}",
+        &stats::PerCache(stats.l1d_stats.convert()).reduce()
+    );
+    eprintln!(
+        "L2D: {:#?}",
+        &stats::PerCache(stats.l2d_stats.convert()).reduce()
+    );
+
     Ok(())
 }

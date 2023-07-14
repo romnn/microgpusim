@@ -1,4 +1,4 @@
-use super::{cache, mem_fetch, stats::Stats, FifoQueue, Queue};
+use super::{cache, mem_fetch, FifoQueue, Queue};
 use crate::config;
 use std::sync::{Arc, Mutex};
 
@@ -8,7 +8,7 @@ struct FrfcfsScheduler {
 }
 
 impl FrfcfsScheduler {
-    pub fn new(config: &config::GPUConfig, stats: Arc<Mutex<Stats>>) -> Self {
+    pub fn new(config: &config::GPUConfig, stats: Arc<Mutex<stats::Stats>>) -> Self {
         // , , dram_t *dm, memory_stats_t *stats) {
         // sef.config = config;
         // m_stats = stats;
@@ -83,7 +83,7 @@ pub struct DRAM {
     config: Arc<config::GPUConfig>,
     mrqq: FifoQueue<Request>,
     scheduler: FrfcfsScheduler,
-    stats: Arc<Mutex<Stats>>,
+    stats: Arc<Mutex<stats::Stats>>,
 }
 
 /// DRAM Timing Options
@@ -108,7 +108,7 @@ pub struct TimingOptions {
 }
 
 impl DRAM {
-    pub fn new(config: Arc<config::GPUConfig>, stats: Arc<Mutex<Stats>>) -> Self {
+    pub fn new(config: Arc<config::GPUConfig>, stats: Arc<Mutex<stats::Stats>>) -> Self {
         let mrqq = FifoQueue::new("mrqq", Some(0), Some(2));
         let scheduler = FrfcfsScheduler::new(&*config, stats.clone());
         Self {

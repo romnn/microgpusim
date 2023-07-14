@@ -1,5 +1,10 @@
 #### TODO
 
+- ensure functionality for vectoradd larger size and matrix mul
+
+  - in the process: ease debugging
+  - e.g. relative memory addresses using the allocation base address
+
 - playground version that includes compute instructions
 - TODO: test max block sizes
 - make data cache not implement the cache interface, make l1 a wrapper around data just like with l2 right now
@@ -10,10 +15,6 @@
   - or split by command (makes less sense)
 
 - TODO: deprecate plot binary and maybe even the full lib
-- make simple tests for the different benchmarks that check if outputs match
-
-  - in box
-
 - add larger benchmark suites (e.g. rodinia)
 - test parsing nvprof output, dump to file
 
@@ -37,6 +38,7 @@
 
   - implement contains, merge, etc. for serde_yaml too and add some examples to serde_merge
 
+- DONE: make simple tests for the different benchmarks that check if outputs match
 - DONE: prepare to move out the benchmark stuff (keep it more generic in lib.rs at least)
 - DONE: check all the nvbit changes and push them
 - DONE: materialize config first? operate on the materialized configurations and benchmarks

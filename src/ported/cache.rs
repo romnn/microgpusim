@@ -1,11 +1,9 @@
-use super::{address, mem_fetch, stats, tag_array};
+use super::{address, mem_fetch, tag_array};
 use crate::config;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
-#[derive(
-    Debug, strum::EnumIter, Clone, Copy, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize,
-)]
+#[derive(Debug, strum::EnumIter, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum RequestStatus {
     HIT = 0,
     HIT_RESERVED,
@@ -16,9 +14,20 @@ pub enum RequestStatus {
     // NUM_CACHE_REQUEST_STATUS,
 }
 
-#[derive(
-    Debug, strum::EnumIter, Clone, Copy, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize,
-)]
+impl From<RequestStatus> for stats::cache::RequestStatus {
+    fn from(status: RequestStatus) -> Self {
+        match status {
+            RequestStatus::HIT => Self::HIT,
+            RequestStatus::HIT_RESERVED => Self::HIT_RESERVED,
+            RequestStatus::MISS => Self::MISS,
+            RequestStatus::RESERVATION_FAIL => Self::RESERVATION_FAIL,
+            RequestStatus::SECTOR_MISS => Self::SECTOR_MISS,
+            RequestStatus::MSHR_HIT => Self::MSHR_HIT,
+        }
+    }
+}
+
+#[derive(Debug, strum::EnumIter, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum ReservationFailure {
     /// all line are reserved
     LINE_ALLOC_FAIL = 0,
@@ -30,10 +39,31 @@ pub enum ReservationFailure {
     // NUM_CACHE_RESERVATION_FAIL_STATUS,
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+impl From<ReservationFailure> for stats::cache::ReservationFailure {
+    fn from(failure: ReservationFailure) -> Self {
+        match failure {
+            ReservationFailure::LINE_ALLOC_FAIL => Self::LINE_ALLOC_FAIL,
+            ReservationFailure::MISS_QUEUE_FULL => Self::MISS_QUEUE_FULL,
+            ReservationFailure::MSHR_ENTRY_FAIL => Self::MSHR_ENTRY_FAIL,
+            ReservationFailure::MSHR_MERGE_ENTRY_FAIL => Self::MSHR_MERGE_ENTRY_FAIL,
+            ReservationFailure::MSHR_RW_PENDING => Self::MSHR_RW_PENDING,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum AccessStat {
     ReservationFailure(ReservationFailure),
     Status(RequestStatus),
+}
+
+impl From<AccessStat> for stats::cache::AccessStat {
+    fn from(access: AccessStat) -> Self {
+        match access {
+            AccessStat::Status(status) => Self::Status(status.into()),
+            AccessStat::ReservationFailure(failure) => Self::ReservationFailure(failure.into()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
@@ -68,7 +98,7 @@ pub trait Component {
 }
 
 pub trait Cache: Component + CacheBandwidth {
-    fn stats(&self) -> &Arc<Mutex<stats::CacheStats>>;
+    fn stats(&self) -> &Arc<Mutex<stats::Cache>>;
     // {
     //     todo!("cache: stats");
     // }

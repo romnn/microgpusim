@@ -3,6 +3,7 @@ members = [
   "validate",
   "profile",
   "playground",
+  "stats",
   "accelsim",
   "accelsim/trace",
   "accelsim/sim",
@@ -60,9 +61,10 @@ strum = { version = "0", features = ["derive"] }
 phf = { version = "0.11.1", features = ["macros"] }
 dialoguer = "0"
 
-
 # for vectoradd rust example
 num-traits = "0"
+
+stats = { path = "./stats" }
 
 [dependencies.pyo3]
 version = "0"

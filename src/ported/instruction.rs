@@ -10,7 +10,7 @@ use bitvec::{array::BitArray, field::BitField, BitArr};
 use std::collections::{HashMap, VecDeque};
 use trace_model as trace;
 
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub enum MemorySpace {
     // undefined_space = 0,
     // reg_space,
@@ -33,6 +33,18 @@ pub enum MemorySpace {
     // global_space,
     // generic_space,
     // instruction_space,
+}
+
+impl From<MemorySpace> for stats::instructions::MemorySpace {
+    fn from(space: MemorySpace) -> Self {
+        match space {
+            MemorySpace::Local => Self::Local,
+            MemorySpace::Shared => Self::Shared,
+            MemorySpace::Constant => Self::Constant,
+            MemorySpace::Texture => Self::Texture,
+            MemorySpace::Global => Self::Global,
+        }
+    }
 }
 
 // this is done

@@ -1,4 +1,4 @@
-use super::{config, mem_fetch, stats::Stats, Packet};
+use super::{config, mem_fetch, Packet};
 use console::style;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, Weak};
@@ -206,7 +206,7 @@ pub trait MemFetchInterface: std::fmt::Debug {
 #[derive()]
 pub struct CoreMemoryInterface<P> {
     pub config: Arc<config::GPUConfig>,
-    pub stats: Arc<Mutex<Stats>>,
+    pub stats: Arc<Mutex<stats::Stats>>,
     pub cluster_id: usize,
     pub interconn: Arc<dyn Interconnect<P>>,
 }

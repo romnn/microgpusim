@@ -2,9 +2,7 @@ use super::mem_fetch::BitString;
 use super::{
     address, cache,
     cache::{Cache, CacheBandwidth},
-    dram, interconn as ic, l2, mem_fetch,
-    stats::{CacheStats, Stats},
-    Packet,
+    dram, interconn as ic, l2, mem_fetch, Packet,
 };
 use crate::config::{self, CacheConfig, GPUConfig};
 use console::style;
@@ -133,7 +131,7 @@ pub struct MemorySubPartition<Q = FifoQueue<mem_fetch::MemFetch>> {
     // pub core_id: usize,
     /// memory configuration
     pub config: Arc<GPUConfig>,
-    pub stats: Arc<Mutex<Stats>>,
+    pub stats: Arc<Mutex<stats::Stats>>,
 
     /// queues
     pub interconn_to_l2_queue: Q,
@@ -175,7 +173,7 @@ where
         // core_id: usize,
         // fetch_interconn: Arc<I>,
         config: Arc<GPUConfig>,
-        stats: Arc<Mutex<Stats>>,
+        stats: Arc<Mutex<stats::Stats>>,
     ) -> Self {
         // need to migrate memory config for this
         // assert!(id < config.num_mem_sub_partition);
@@ -208,7 +206,7 @@ where
                     l2_to_dram_queue: l2_to_dram_queue.clone(),
                 });
 
-                let cache_stats = Arc::new(Mutex::new(CacheStats::default()));
+                let cache_stats = Arc::new(Mutex::new(stats::Cache::default()));
                 Some(Box::new(l2::DataL2::new(
                     format!("mem-sub-{}-{}", id, style("L2-CACHE").green()),
                     0, // core_id,
@@ -700,7 +698,7 @@ pub struct MemoryPartitionUnit {
     arbitration_metadata: dram::ArbitrationMetadata,
 
     config: Arc<GPUConfig>,
-    stats: Arc<Mutex<Stats>>,
+    stats: Arc<Mutex<stats::Stats>>,
 }
 
 impl MemoryPartitionUnit
@@ -714,7 +712,7 @@ impl MemoryPartitionUnit
         // core_id: usize,
         // fetch_interconn: Arc<I>,
         config: Arc<GPUConfig>,
-        stats: Arc<Mutex<Stats>>,
+        stats: Arc<Mutex<stats::Stats>>,
     ) -> Self {
         let num_sub_partitions = config.num_sub_partition_per_memory_channel;
         let sub_partitions: Vec<_> = (0..num_sub_partitions)

@@ -1,3 +1,4 @@
+#![allow(non_camel_case_types, clippy::upper_case_acronyms)]
 #![allow(warnings)]
 
 // pub mod gpgpusim;

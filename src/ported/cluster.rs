@@ -1,4 +1,4 @@
-use super::{interconn as ic, mem_fetch, stats::Stats, MockSimulator, Packet, SIMTCore};
+use super::{interconn as ic, mem_fetch, MockSimulator, Packet, SIMTCore};
 use crate::config::GPUConfig;
 use console::style;
 use std::collections::VecDeque;
@@ -11,7 +11,7 @@ pub struct SIMTCoreCluster<I> {
     pub cycle: super::Cycle,
     pub cores: Mutex<Vec<SIMTCore<I>>>,
     pub config: Arc<GPUConfig>,
-    pub stats: Arc<Mutex<Stats>>,
+    pub stats: Arc<Mutex<stats::Stats>>,
 
     pub interconn: Arc<I>,
 
@@ -28,7 +28,7 @@ where
         cluster_id: usize,
         cycle: super::Cycle,
         interconn: Arc<I>,
-        stats: Arc<Mutex<Stats>>,
+        stats: Arc<Mutex<stats::Stats>>,
         config: Arc<GPUConfig>,
     ) -> Self {
         let num_cores = config.num_cores_per_simt_cluster;

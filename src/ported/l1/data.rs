@@ -1,7 +1,6 @@
 use crate::config;
 use crate::ported::{
-    self, address, cache, cache_block, interconn as ic, mem_fetch, mshr, stats::CacheStats,
-    tag_array,
+    self, address, cache, cache_block, interconn as ic, mem_fetch, mshr, tag_array,
 };
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
@@ -19,7 +18,7 @@ pub struct Data<I> {
     // core_id: usize,
     // cluster_id: usize,
 
-    // pub stats: Arc<Mutex<Stats>>,
+    // pub stats: Arc<Mutex<stats::Stats>>,
     // config: Arc<config::GPUConfig>,
     // cache_config: Arc<config::CacheConfig>,
 
@@ -46,7 +45,7 @@ where
         core_id: usize,
         cluster_id: usize,
         mem_port: Arc<I>,
-        stats: Arc<Mutex<CacheStats>>,
+        stats: Arc<Mutex<stats::Cache>>,
         config: Arc<config::GPUConfig>,
         cache_config: Arc<config::CacheConfig>,
         write_alloc_type: mem_fetch::AccessKind,
@@ -687,7 +686,7 @@ where
     I: ic::MemFetchInterface,
     // I: ic::Interconnect<crate::ported::core::Packet>,
 {
-    fn stats(&self) -> &Arc<Mutex<CacheStats>> {
+    fn stats(&self) -> &Arc<Mutex<stats::Cache>> {
         &self.inner.stats
     }
 
@@ -811,7 +810,7 @@ mod tests {
     use crate::config;
     use crate::ported::{
         cache::Cache, instruction, interconn as ic, mem_fetch, parse_commands, scheduler as sched,
-        stats::CacheStats, KernelInfo,
+        KernelInfo,
     };
     use itertools::Itertools;
     use playground::{bindings, bridge};
@@ -882,7 +881,7 @@ mod tests {
         let core_id = 0;
         let cluster_id = 0;
 
-        let stats = Arc::new(Mutex::new(CacheStats::default()));
+        let stats = Arc::new(Mutex::new(stats::Cache::default()));
         let config = Arc::new(config::GPUConfig::default());
         let cache_config = config.data_cache_l1.clone().unwrap();
         let interconn = Arc::new(MockFetchInterconn {});
@@ -1031,7 +1030,7 @@ mod tests {
         let core_id = 0;
         let cluster_id = 0;
 
-        let stats = Arc::new(Mutex::new(CacheStats::default()));
+        let stats = Arc::new(Mutex::new(stats::Cache::default()));
         let config = Arc::new(config::GPUConfig::default());
         let cache_config = config.data_cache_l1.clone().unwrap();
         let interconn = Arc::new(MockFetchInterconn {});

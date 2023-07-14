@@ -291,7 +291,17 @@ fn main() -> eyre::Result<()> {
         println!("cargo:rerun-if-changed=src/ref");
         println!("cargo:rerun-if-changed=./src/ref/");
         println!("cargo:rerun-if-changed=./src/tests/");
+
+        println!("cargo:rerun-if-env-changed=SKIP_BUILD");
     }
+
+    // if std::env::var("SKIP_BUILD")
+    //     .unwrap_or_default()
+    //     .to_lowercase()
+    //     == "yes"
+    // {
+    //     return Ok(());
+    // }
 
     let bridges: Result<Vec<_>, _> = utils::fs::multi_glob(["./src/bridge/**/*.rs"]).collect();
     let mut bridges = bridges?;

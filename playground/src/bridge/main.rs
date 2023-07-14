@@ -77,6 +77,96 @@ pub struct Stats {
     pub l2d_stats: HashMap<usize, CacheStats>,
 }
 
+impl From<CacheStats> for stats::Cache {
+    fn from(stats: CacheStats) -> Self {
+        Self {
+            accesses: stats
+                .accesses
+                .into_iter()
+                .map(|((access_kind, access_stat), count)| {
+                    (
+                        (access_kind.into(), access_stat.into()),
+                        count.try_into().unwrap(),
+                    )
+                })
+                .collect(),
+        }
+    }
+}
+
+impl From<AccessType> for stats::mem::AccessKind {
+    fn from(kind: AccessType) -> Self {
+        match kind {
+            AccessType::GLOBAL_ACC_R => stats::mem::AccessKind::GLOBAL_ACC_R,
+            AccessType::LOCAL_ACC_R => stats::mem::AccessKind::LOCAL_ACC_R,
+            AccessType::CONST_ACC_R => stats::mem::AccessKind::CONST_ACC_R,
+            AccessType::TEXTURE_ACC_R => stats::mem::AccessKind::TEXTURE_ACC_R,
+            AccessType::GLOBAL_ACC_W => stats::mem::AccessKind::GLOBAL_ACC_W,
+            AccessType::LOCAL_ACC_W => stats::mem::AccessKind::LOCAL_ACC_W,
+            AccessType::L1_WRBK_ACC => stats::mem::AccessKind::L1_WRBK_ACC,
+            AccessType::L2_WRBK_ACC => stats::mem::AccessKind::L2_WRBK_ACC,
+            AccessType::INST_ACC_R => stats::mem::AccessKind::INST_ACC_R,
+            AccessType::L1_WR_ALLOC_R => stats::mem::AccessKind::L1_WR_ALLOC_R,
+            AccessType::L2_WR_ALLOC_R => stats::mem::AccessKind::L2_WR_ALLOC_R,
+            other @ AccessType::NUM_MEM_ACCESS_TYPE => {
+                panic!("bad mem access type: {:?}", other)
+            }
+        }
+    }
+}
+
+impl From<AccessStat> for stats::cache::AccessStat {
+    fn from(stat: AccessStat) -> Self {
+        match stat {
+            AccessStat::Status(status) => stats::cache::AccessStat::Status(status.into()),
+            AccessStat::ReservationFailure(failure) => {
+                stats::cache::AccessStat::ReservationFailure(failure.into())
+            }
+        }
+    }
+}
+
+impl From<ReservationFailure> for stats::cache::ReservationFailure {
+    fn from(failure: ReservationFailure) -> Self {
+        match failure {
+            ReservationFailure::LINE_ALLOC_FAIL => {
+                stats::cache::ReservationFailure::LINE_ALLOC_FAIL
+            }
+            ReservationFailure::MISS_QUEUE_FULL => {
+                stats::cache::ReservationFailure::MISS_QUEUE_FULL
+            }
+            ReservationFailure::MSHR_ENRTY_FAIL => {
+                stats::cache::ReservationFailure::MSHR_ENTRY_FAIL
+            }
+            ReservationFailure::MSHR_MERGE_ENRTY_FAIL => {
+                stats::cache::ReservationFailure::MSHR_MERGE_ENTRY_FAIL
+            }
+            ReservationFailure::MSHR_RW_PENDING => {
+                stats::cache::ReservationFailure::MSHR_RW_PENDING
+            }
+            other @ ReservationFailure::NUM_CACHE_RESERVATION_FAIL_STATUS => {
+                panic!("bad cache request status: {:?}", other)
+            }
+        }
+    }
+}
+
+impl From<RequestStatus> for stats::cache::RequestStatus {
+    fn from(status: RequestStatus) -> Self {
+        match status {
+            RequestStatus::HIT => stats::cache::RequestStatus::HIT,
+            RequestStatus::HIT_RESERVED => stats::cache::RequestStatus::HIT_RESERVED,
+            RequestStatus::MISS => stats::cache::RequestStatus::MISS,
+            RequestStatus::RESERVATION_FAIL => stats::cache::RequestStatus::RESERVATION_FAIL,
+            RequestStatus::SECTOR_MISS => stats::cache::RequestStatus::SECTOR_MISS,
+            RequestStatus::MSHR_HIT => stats::cache::RequestStatus::MSHR_HIT,
+            other @ RequestStatus::NUM_CACHE_REQUEST_STATUS => {
+                panic!("bad cache request status: {:?}", other)
+            }
+        }
+    }
+}
+
 impl Stats {
     pub fn add_accesses(
         &mut self,

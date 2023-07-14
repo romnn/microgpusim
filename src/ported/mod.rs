@@ -21,7 +21,6 @@ pub mod scoreboard;
 pub mod set_index_function;
 pub mod simd_function_unit;
 pub mod sp_unit;
-pub mod stats;
 pub mod tag_array;
 pub mod utils;
 
@@ -472,6 +471,20 @@ impl AtomicCycle {
 
 pub type Cycle = Rc<AtomicCycle>;
 
+pub trait FromConfig {
+    fn from_config(config: &config::GPUConfig) -> Self;
+}
+
+impl FromConfig for stats::Stats {
+    fn from_config(config: &config::GPUConfig) -> Self {
+        let num_total_cores = config.total_cores();
+        let num_mem_units = config.num_mem_units;
+        let num_dram_banks = config.dram_timing_options.num_banks;
+
+        Self::new(num_total_cores, num_mem_units, num_dram_banks)
+    }
+}
+
 // impl MockSimulator {
 // impl<'a> MockSimulator<'a> {
 impl<I> MockSimulator<I>
@@ -481,7 +494,7 @@ where
 {
     // see new trace_gpgpu_sim
     pub fn new(interconn: Arc<I>, config: Arc<config::GPUConfig>) -> Self {
-        let stats = Arc::new(Mutex::new(Stats::new(&*config)));
+        let stats = Arc::new(Mutex::new(Stats::from_config(&*config)));
 
         let num_mem_units = config.num_mem_units;
         let num_sub_partitions = config.num_sub_partition_per_memory_channel;
@@ -1063,12 +1076,8 @@ pub fn accelmain(
             stats
                 .l1d_stats
                 .insert(core_id, data_l1.stats().lock().unwrap().clone());
-            stats
-                .l1c_stats
-                .insert(core_id, stats::CacheStats::default());
-            stats
-                .l1t_stats
-                .insert(core_id, stats::CacheStats::default());
+            stats.l1c_stats.insert(core_id, stats::Cache::default());
+            stats.l1t_stats.insert(core_id, stats::Cache::default());
         }
     }
 
@@ -1080,8 +1089,15 @@ pub fn accelmain(
             .insert(sub.id, l2_cache.stats().lock().unwrap().clone());
     }
 
-    println!("STATS:\n{:#?}", &stats);
-    log::info!("STATS:\n{:#?}", &stats);
+    eprintln!("STATS:\n");
+    eprintln!("DRAM: total reads: {}", &stats.dram.total_reads());
+    eprintln!("DRAM: total writes: {}", &stats.dram.total_writes());
+    eprintln!("SIM: {:#?}", &stats.sim);
+    eprintln!("INSTRUCTIONS: {:#?}", &stats.instructions);
+    eprintln!("ACCESSES: {:#?}", &stats.accesses);
+    eprintln!("L1I: {:#?}", &stats.l1i_stats.reduce());
+    eprintln!("L1D: {:#?}", &stats.l1d_stats.reduce());
+    eprintln!("L2D: {:#?}", &stats.l2d_stats.reduce());
 
     // save stats to file
     // let stats_file_path = stats_out_file
@@ -1095,34 +1111,11 @@ pub fn accelmain(
 
 #[cfg(test)]
 mod tests {
-    use super::instruction::MemorySpace;
-    use super::mem_fetch;
-    use super::stats::{self, Stats};
     use color_eyre::eyre;
     use pretty_assertions_sorted as diff;
+    use stats::ConvertHashMap;
     use std::collections::HashMap;
     use std::path::PathBuf;
-
-    pub trait ConvertHashMap<K, V, IK, IV>
-    where
-        IK: Into<K>,
-        IV: Into<V>,
-    {
-        fn convert(self) -> HashMap<K, V>;
-    }
-
-    impl<K, V, IK, IV> ConvertHashMap<K, V, IK, IV> for HashMap<IK, IV>
-    where
-        IK: Into<K>,
-        IV: Into<V>,
-        K: Eq + std::hash::Hash,
-    {
-        fn convert(self) -> HashMap<K, V> {
-            self.into_iter()
-                .map(|(k, v)| (k.into(), v.into()))
-                .collect()
-        }
-    }
 
     #[test]
     fn test_vectoradd() -> eyre::Result<()> {
@@ -1173,23 +1166,23 @@ mod tests {
 
         // compare stats here
         diff::assert_eq_sorted!(
-            &stats::PerCacheStats::from(play_stats.l1i_stats),
+            &stats::PerCache(play_stats.l1i_stats.convert()),
             &box_stats.l1i_stats
         );
         diff::assert_eq_sorted!(
-            &stats::PerCacheStats::from(play_stats.l1d_stats),
+            &stats::PerCache(play_stats.l1d_stats.convert()),
             &box_stats.l1d_stats,
         );
         diff::assert_eq_sorted!(
-            &stats::PerCacheStats::from(play_stats.l1t_stats),
+            &stats::PerCache(play_stats.l1t_stats.convert()),
             &box_stats.l1t_stats,
         );
         diff::assert_eq_sorted!(
-            &stats::PerCacheStats::from(play_stats.l1c_stats),
+            &stats::PerCache(play_stats.l1c_stats.convert()),
             &box_stats.l1c_stats,
         );
         diff::assert_eq_sorted!(
-            &stats::PerCacheStats::from(play_stats.l2d_stats),
+            &stats::PerCache(play_stats.l2d_stats.convert()),
             &box_stats.l2d_stats,
         );
 
@@ -1200,39 +1193,39 @@ mod tests {
                 num_mem_write: box_accesses.num_writes(),
                 num_mem_read: box_accesses.num_reads(),
                 num_mem_const: box_accesses
-                    .get(&mem_fetch::AccessKind::CONST_ACC_R)
+                    .get(&stats::mem::AccessKind::CONST_ACC_R)
                     .copied()
                     .unwrap_or(0),
                 num_mem_texture: box_accesses
-                    .get(&mem_fetch::AccessKind::TEXTURE_ACC_R)
+                    .get(&stats::mem::AccessKind::TEXTURE_ACC_R)
                     .copied()
                     .unwrap_or(0),
                 num_mem_read_global: box_accesses
-                    .get(&mem_fetch::AccessKind::GLOBAL_ACC_R)
+                    .get(&stats::mem::AccessKind::GLOBAL_ACC_R)
                     .copied()
                     .unwrap_or(0),
                 num_mem_write_global: box_accesses
-                    .get(&mem_fetch::AccessKind::GLOBAL_ACC_W)
+                    .get(&stats::mem::AccessKind::GLOBAL_ACC_W)
                     .copied()
                     .unwrap_or(0),
                 num_mem_read_local: box_accesses
-                    .get(&mem_fetch::AccessKind::LOCAL_ACC_R)
+                    .get(&stats::mem::AccessKind::LOCAL_ACC_R)
                     .copied()
                     .unwrap_or(0),
                 num_mem_write_local: box_accesses
-                    .get(&mem_fetch::AccessKind::LOCAL_ACC_W)
+                    .get(&stats::mem::AccessKind::LOCAL_ACC_W)
                     .copied()
                     .unwrap_or(0),
                 num_mem_l2_writeback: box_accesses
-                    .get(&mem_fetch::AccessKind::L2_WRBK_ACC)
+                    .get(&stats::mem::AccessKind::L2_WRBK_ACC)
                     .copied()
                     .unwrap_or(0),
                 num_mem_l1_write_allocate: box_accesses
-                    .get(&mem_fetch::AccessKind::L1_WR_ALLOC_R)
+                    .get(&stats::mem::AccessKind::L1_WR_ALLOC_R)
                     .copied()
                     .unwrap_or(0),
                 num_mem_l2_write_allocate: box_accesses
-                    .get(&mem_fetch::AccessKind::L2_WR_ALLOC_R)
+                    .get(&stats::mem::AccessKind::L2_WR_ALLOC_R)
                     .copied()
                     .unwrap_or(0),
             }
@@ -1259,24 +1252,24 @@ mod tests {
         let box_instructions = &box_stats.instructions;
         let playground_instructions = {
             let num_global_loads = box_instructions
-                .get(&(MemorySpace::Global, false))
+                .get(&(stats::instructions::MemorySpace::Global, false))
                 .copied()
                 .unwrap_or(0);
             let num_local_loads = box_instructions
-                .get(&(MemorySpace::Local, false))
+                .get(&(stats::instructions::MemorySpace::Local, false))
                 .copied()
                 .unwrap_or(0);
             let num_global_stores = box_instructions
-                .get(&(MemorySpace::Global, true))
+                .get(&(stats::instructions::MemorySpace::Global, true))
                 .copied()
                 .unwrap_or(0);
             let num_local_stores = box_instructions
-                .get(&(MemorySpace::Local, true))
+                .get(&(stats::instructions::MemorySpace::Local, true))
                 .copied()
                 .unwrap_or(0);
-            let num_shmem = box_instructions.get_total(MemorySpace::Shared);
-            let num_tex = box_instructions.get_total(MemorySpace::Texture);
-            let num_const = box_instructions.get_total(MemorySpace::Constant);
+            let num_shmem = box_instructions.get_total(stats::instructions::MemorySpace::Shared);
+            let num_tex = box_instructions.get_total(stats::instructions::MemorySpace::Texture);
+            let num_const = box_instructions.get_total(stats::instructions::MemorySpace::Constant);
 
             playground::Instructions {
                 num_load_instructions: num_local_loads + num_global_loads,
@@ -1303,109 +1296,6 @@ mod tests {
         Ok(())
     }
 
-    impl From<HashMap<usize, playground::CacheStats>> for super::stats::PerCacheStats {
-        fn from(stats: HashMap<usize, playground::CacheStats>) -> Self {
-            Self(stats.convert())
-        }
-    }
-
-    impl From<playground::RequestStatus> for super::cache::RequestStatus {
-        fn from(status: playground::RequestStatus) -> Self {
-            use super::cache::RequestStatus;
-            match status {
-                playground::RequestStatus::HIT => RequestStatus::HIT,
-                playground::RequestStatus::HIT_RESERVED => RequestStatus::HIT_RESERVED,
-
-                playground::RequestStatus::MISS => RequestStatus::MISS,
-
-                playground::RequestStatus::RESERVATION_FAIL => RequestStatus::RESERVATION_FAIL,
-
-                playground::RequestStatus::SECTOR_MISS => RequestStatus::SECTOR_MISS,
-                playground::RequestStatus::MSHR_HIT => RequestStatus::MSHR_HIT,
-                other @ playground::RequestStatus::NUM_CACHE_REQUEST_STATUS => {
-                    panic!("bad cache request status: {:?}", other)
-                }
-            }
-        }
-    }
-
-    impl From<playground::ReservationFailure> for super::cache::ReservationFailure {
-        fn from(failure: playground::ReservationFailure) -> Self {
-            use super::cache::ReservationFailure;
-            match failure {
-                playground::ReservationFailure::LINE_ALLOC_FAIL => {
-                    ReservationFailure::LINE_ALLOC_FAIL
-                }
-                playground::ReservationFailure::MISS_QUEUE_FULL => {
-                    ReservationFailure::MISS_QUEUE_FULL
-                }
-                playground::ReservationFailure::MSHR_ENRTY_FAIL => {
-                    ReservationFailure::MSHR_ENTRY_FAIL
-                }
-                playground::ReservationFailure::MSHR_MERGE_ENRTY_FAIL => {
-                    ReservationFailure::MSHR_MERGE_ENTRY_FAIL
-                }
-                playground::ReservationFailure::MSHR_RW_PENDING => {
-                    ReservationFailure::MSHR_RW_PENDING
-                }
-                other @ playground::ReservationFailure::NUM_CACHE_RESERVATION_FAIL_STATUS => {
-                    panic!("bad cache request status: {:?}", other)
-                }
-            }
-        }
-    }
-
-    impl From<playground::AccessStat> for super::cache::AccessStat {
-        fn from(stat: playground::AccessStat) -> Self {
-            use super::cache::AccessStat;
-            match stat {
-                playground::AccessStat::Status(status) => AccessStat::Status(status.into()),
-                playground::AccessStat::ReservationFailure(failure) => {
-                    AccessStat::ReservationFailure(failure.into())
-                }
-            }
-        }
-    }
-
-    impl From<playground::AccessType> for mem_fetch::AccessKind {
-        fn from(kind: playground::AccessType) -> Self {
-            use mem_fetch::AccessKind;
-            match kind {
-                playground::AccessType::GLOBAL_ACC_R => AccessKind::GLOBAL_ACC_R,
-                playground::AccessType::LOCAL_ACC_R => AccessKind::LOCAL_ACC_R,
-                playground::AccessType::CONST_ACC_R => AccessKind::CONST_ACC_R,
-                playground::AccessType::TEXTURE_ACC_R => AccessKind::TEXTURE_ACC_R,
-                playground::AccessType::GLOBAL_ACC_W => AccessKind::GLOBAL_ACC_W,
-                playground::AccessType::LOCAL_ACC_W => AccessKind::LOCAL_ACC_W,
-                playground::AccessType::L1_WRBK_ACC => AccessKind::L1_WRBK_ACC,
-                playground::AccessType::L2_WRBK_ACC => AccessKind::L2_WRBK_ACC,
-                playground::AccessType::INST_ACC_R => AccessKind::INST_ACC_R,
-                playground::AccessType::L1_WR_ALLOC_R => AccessKind::L1_WR_ALLOC_R,
-                playground::AccessType::L2_WR_ALLOC_R => AccessKind::L2_WR_ALLOC_R,
-                other @ playground::AccessType::NUM_MEM_ACCESS_TYPE => {
-                    panic!("bad mem access type: {:?}", other)
-                }
-            }
-        }
-    }
-
-    impl From<playground::CacheStats> for super::stats::CacheStats {
-        fn from(stats: playground::CacheStats) -> Self {
-            Self {
-                accesses: stats
-                    .accesses
-                    .into_iter()
-                    .map(|((access_kind, access_stat), count)| {
-                        (
-                            (access_kind.into(), access_stat.into()),
-                            count.try_into().unwrap(),
-                        )
-                    })
-                    .collect(),
-            }
-        }
-    }
-
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn test_async_vectoradd() -> eyre::Result<()> {
         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
@@ -1424,7 +1314,7 @@ mod tests {
 
         for _ in 0..10 {
             let trace_dir = vec_add_trace_dir.join("trace");
-            let stats: Stats = tokio::task::spawn_blocking(move || {
+            let stats: stats::Stats = tokio::task::spawn_blocking(move || {
                 let stats = super::accelmain(trace_dir, None)?;
                 Ok::<_, eyre::Report>(stats)
             })

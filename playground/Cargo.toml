@@ -29,6 +29,7 @@ clap = { version = "4", features = [ "derive" ] }
 thiserror = "1"
 
 accelsim = { path = "../accelsim" }
+stats = { path = "../stats" }
 
 [dev-dependencies]
 pretty_assertions = "1"

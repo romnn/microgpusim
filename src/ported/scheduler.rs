@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use trace_model::MemAccessTraceEntry;
 
 use super::core::PipelineStage;
-use super::{instruction::WarpInstruction, opcodes, register_set, scoreboard, stats::Stats};
+use super::{instruction::WarpInstruction, opcodes, register_set, scoreboard};
 use crate::config::GPUConfig;
 use bitvec::{array::BitArray, BitArr};
 use console::style;
@@ -411,7 +411,7 @@ pub struct BaseSchedulerUnit {
     // core: &'a super::core::InnerSIMTCore,
     scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
     config: Arc<GPUConfig>,
-    stats: Arc<Mutex<Stats>>,
+    stats: Arc<Mutex<stats::Stats>>,
 }
 
 // impl<'a> BaseSchedulerUnit<'a> {
@@ -424,7 +424,7 @@ impl BaseSchedulerUnit {
         // mem_out: &'a register_set::RegisterSet,
         // core: &'a super::core::InnerSIMTCore,
         scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
-        stats: Arc<Mutex<Stats>>,
+        stats: Arc<Mutex<stats::Stats>>,
         config: Arc<GPUConfig>,
     ) -> Self {
         let supervised_warps = VecDeque::new();
@@ -1056,7 +1056,7 @@ impl LrrScheduler {
         // mem_out: &'a register_set::RegisterSet,
         // core: &'a super::core::InnerSIMTCore,
         scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
-        stats: Arc<Mutex<Stats>>,
+        stats: Arc<Mutex<stats::Stats>>,
         config: Arc<GPUConfig>,
     ) -> Self {
         // todo!("lrr scheduler: new");
@@ -1090,7 +1090,7 @@ impl GTOScheduler {
         id: usize,
         warps: Vec<CoreWarp>,
         scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
-        stats: Arc<Mutex<Stats>>,
+        stats: Arc<Mutex<stats::Stats>>,
         config: Arc<GPUConfig>,
     ) -> Self {
         let inner = BaseSchedulerUnit::new(

@@ -61,9 +61,9 @@ pub enum Status {
     NUM_MEM_REQ_STAT,
 }
 
-#[derive(
-    Debug, strum::EnumIter, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
-)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, strum::EnumIter, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum AccessKind {
     GLOBAL_ACC_R,
     LOCAL_ACC_R,
@@ -77,6 +77,24 @@ pub enum AccessKind {
     L1_WR_ALLOC_R,
     L2_WR_ALLOC_R,
     // NUM_MEM_ACCESS_TYPE,
+}
+
+impl From<AccessKind> for stats::mem::AccessKind {
+    fn from(kind: AccessKind) -> Self {
+        match kind {
+            AccessKind::GLOBAL_ACC_R => Self::GLOBAL_ACC_R,
+            AccessKind::LOCAL_ACC_R => Self::LOCAL_ACC_R,
+            AccessKind::CONST_ACC_R => Self::CONST_ACC_R,
+            AccessKind::TEXTURE_ACC_R => Self::TEXTURE_ACC_R,
+            AccessKind::GLOBAL_ACC_W => Self::GLOBAL_ACC_W,
+            AccessKind::LOCAL_ACC_W => Self::LOCAL_ACC_W,
+            AccessKind::L1_WRBK_ACC => Self::L1_WRBK_ACC,
+            AccessKind::L2_WRBK_ACC => Self::L2_WRBK_ACC,
+            AccessKind::INST_ACC_R => Self::INST_ACC_R,
+            AccessKind::L1_WR_ALLOC_R => Self::L1_WR_ALLOC_R,
+            AccessKind::L2_WR_ALLOC_R => Self::L2_WR_ALLOC_R,
+        }
+    }
 }
 
 impl AccessKind {

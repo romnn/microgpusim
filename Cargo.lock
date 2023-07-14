@@ -500,6 +500,7 @@ dependencies = [
  "rmp-serde",
  "serde",
  "serde_json",
+ "stats",
  "strum",
  "thiserror",
  "tokio",
@@ -2397,6 +2398,7 @@ dependencies = [
  "duct",
  "glob",
  "pretty_assertions",
+ "stats",
  "thiserror",
  "utils",
 ]
@@ -3251,6 +3253,14 @@ dependencies = [
  "async-std-resolver",
  "plain_path",
  "tokio",
+]
+
+[[package]]
+name = "stats"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "strum",
 ]
 
 [[package]]

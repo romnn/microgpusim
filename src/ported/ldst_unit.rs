@@ -4,7 +4,6 @@ use super::{
     scheduler as sched,
     scoreboard::Scoreboard,
     simd_function_unit as fu,
-    stats::{CacheStats, Stats},
 };
 use crate::{config, ported::operand_collector::OperandCollectorRegisterFileUnit};
 use bitvec::{array::BitArray, BitArr};
@@ -59,7 +58,7 @@ pub struct LoadStoreUnit<I> {
     // data_l1: Option<l1::Data<I>>,
     pub data_l1: Option<Box<dyn cache::Cache>>,
     config: Arc<config::GPUConfig>,
-    pub stats: Arc<Mutex<Stats>>,
+    pub stats: Arc<Mutex<stats::Stats>>,
     scoreboard: Arc<RwLock<Scoreboard>>,
     next_global: Option<MemFetch>,
     // dispatch_reg: Option<WarpInstruction>,
@@ -149,7 +148,7 @@ where
         operand_collector: Rc<RefCell<OperandCollectorRegisterFileUnit>>,
         scoreboard: Arc<RwLock<Scoreboard>>,
         config: Arc<config::GPUConfig>,
-        stats: Arc<Mutex<Stats>>,
+        stats: Arc<Mutex<stats::Stats>>,
         cycle: super::Cycle,
         // issue_reg_id: usize,
     ) -> Self {
@@ -194,7 +193,7 @@ where
                     .collect();
 
                 // initialize l1 data cache
-                let cache_stats = Arc::new(Mutex::new(CacheStats::default()));
+                let cache_stats = Arc::new(Mutex::new(stats::Cache::default()));
                 Some(Box::new(l1::Data::new(
                     format!("ldst-unit-{}-{}-L1-DATA-CACHE", cluster_id, core_id),
                     core_id,
