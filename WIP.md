@@ -1,5 +1,7 @@
 #### TODO
 
+- box run per cycle
+- playground run per cycle
 - ensure functionality for vectoradd larger size and matrix mul
 
   - in the process: ease debugging

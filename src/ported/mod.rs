@@ -1203,7 +1203,7 @@ mod tests {
         let box_dur = start.elapsed();
 
         let start = std::time::Instant::now();
-        let play_stats: playground::Stats = {
+        let play_stats: playground::stats::Stats = {
             let mut args = vec![
                 "-trace",
                 kernelslist.as_os_str().to_str().unwrap(),
@@ -1222,12 +1222,13 @@ mod tests {
         }?;
         let playground_dur = start.elapsed();
 
-        // let ref_stats: Stats = ref_stats.clone().into();
         // dbg!(&play_stats);
         // dbg!(&box_stats);
 
         dbg!(&playground_dur);
         dbg!(&box_dur);
+
+        diff::assert_eq_sorted!(&play_stats, &box_stats);
 
         // compare stats here
         diff::assert_eq_sorted!(
@@ -1251,49 +1252,9 @@ mod tests {
             &box_stats.l2d_stats,
         );
 
-        let box_accesses = &box_stats.accesses;
         diff::assert_eq_sorted!(
             play_stats.accesses,
-            playground::Accesses {
-                num_mem_write: box_accesses.num_writes(),
-                num_mem_read: box_accesses.num_reads(),
-                num_mem_const: box_accesses
-                    .get(&stats::mem::AccessKind::CONST_ACC_R)
-                    .copied()
-                    .unwrap_or(0),
-                num_mem_texture: box_accesses
-                    .get(&stats::mem::AccessKind::TEXTURE_ACC_R)
-                    .copied()
-                    .unwrap_or(0),
-                num_mem_read_global: box_accesses
-                    .get(&stats::mem::AccessKind::GLOBAL_ACC_R)
-                    .copied()
-                    .unwrap_or(0),
-                num_mem_write_global: box_accesses
-                    .get(&stats::mem::AccessKind::GLOBAL_ACC_W)
-                    .copied()
-                    .unwrap_or(0),
-                num_mem_read_local: box_accesses
-                    .get(&stats::mem::AccessKind::LOCAL_ACC_R)
-                    .copied()
-                    .unwrap_or(0),
-                num_mem_write_local: box_accesses
-                    .get(&stats::mem::AccessKind::LOCAL_ACC_W)
-                    .copied()
-                    .unwrap_or(0),
-                num_mem_l2_writeback: box_accesses
-                    .get(&stats::mem::AccessKind::L2_WRBK_ACC)
-                    .copied()
-                    .unwrap_or(0),
-                num_mem_l1_write_allocate: box_accesses
-                    .get(&stats::mem::AccessKind::L1_WR_ALLOC_R)
-                    .copied()
-                    .unwrap_or(0),
-                num_mem_l2_write_allocate: box_accesses
-                    .get(&stats::mem::AccessKind::L2_WR_ALLOC_R)
-                    .copied()
-                    .unwrap_or(0),
-            }
+            playground::stats::Accesses::from(box_stats.accesses.clone())
         );
 
         dbg!(&play_stats.accesses);
@@ -1306,55 +1267,18 @@ mod tests {
         dbg!(&box_stats.sim);
 
         dbg!(&play_stats.dram);
-        let box_dram_stats = playground::DRAM {
-            total_reads: box_stats.dram.total_reads() as usize,
-            total_writes: box_stats.dram.total_writes() as usize,
-        };
+        let box_dram_stats = playground::stats::DRAM::from(box_stats.dram.clone());
         dbg!(&box_dram_stats);
 
         diff::assert_eq_sorted!(&play_stats.dram, &box_dram_stats);
 
-        let box_instructions = &box_stats.instructions;
-        let playground_instructions = {
-            let num_global_loads = box_instructions
-                .get(&(stats::instructions::MemorySpace::Global, false))
-                .copied()
-                .unwrap_or(0);
-            let num_local_loads = box_instructions
-                .get(&(stats::instructions::MemorySpace::Local, false))
-                .copied()
-                .unwrap_or(0);
-            let num_global_stores = box_instructions
-                .get(&(stats::instructions::MemorySpace::Global, true))
-                .copied()
-                .unwrap_or(0);
-            let num_local_stores = box_instructions
-                .get(&(stats::instructions::MemorySpace::Local, true))
-                .copied()
-                .unwrap_or(0);
-            let num_shmem = box_instructions.get_total(stats::instructions::MemorySpace::Shared);
-            let num_tex = box_instructions.get_total(stats::instructions::MemorySpace::Texture);
-            let num_const = box_instructions.get_total(stats::instructions::MemorySpace::Constant);
-
-            playground::Instructions {
-                num_load_instructions: num_local_loads + num_global_loads,
-                num_store_instructions: num_local_stores + num_global_stores,
-                num_shared_mem_instructions: num_shmem,
-                num_sstarr_instructions: 0,
-                num_texture_instructions: num_tex,
-                num_const_instructions: num_const,
-                num_param_instructions: 0,
-            }
-        };
-
+        let playground_instructions =
+            playground::stats::Instructions::from(box_stats.instructions.clone());
         diff::assert_eq_sorted!(&play_stats.instructions, &playground_instructions);
 
         diff::assert_eq_sorted!(
             &play_stats.sim,
-            &playground::Sim {
-                cycle: box_stats.sim.cycles,
-                instructions: box_stats.sim.instructions,
-            }
+            &playground::stats::Sim::from(box_stats.sim.clone()),
         );
 
         assert!(false, "all good!");
@@ -1432,7 +1356,7 @@ mod tests {
             let ref_stats: Result<Vec<_>, _> = ref_stats?.into_iter().collect();
             let ref_stats: Vec<_> = ref_stats?;
 
-            let ref_stats: playground::Stats = ref_stats[0].clone();
+            let ref_stats: playground::stats::Stats = ref_stats[0].clone();
             // let ref_stats: Stats = ref_stats.clone().into();
             dbg!(&ref_stats);
         }

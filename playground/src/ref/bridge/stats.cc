@@ -1,3 +1,6 @@
+#include "stats.hpp"
+#include "main.hpp"
+
 #include "../cache_stats.hpp"
 #include "../cache_stats.hpp"
 #include "../cache_sub_stats.hpp"
@@ -9,8 +12,6 @@
 #include "../ldst_unit.hpp"
 #include "../tex_cache.hpp"
 #include "../l1_cache.hpp"
-
-#include "stats.hpp"
 
 void transfer_cache_stats(CacheKind cache, unsigned cache_id,
                           const cache_stats &stats, Stats &out) {
@@ -27,7 +28,11 @@ void transfer_cache_stats(CacheKind cache, unsigned cache_id,
   }
 }
 
-void trace_gpgpu_sim_bridge::transfer_stats(Stats &stats) {
+void accelsim_bridge::transfer_stats(Stats &stats) const {
+  m_gpgpu_sim->transfer_stats(stats);
+}
+
+void trace_gpgpu_sim_bridge::transfer_stats(Stats &stats) const {
   transfer_general_stats(stats);
   transfer_dram_stats(stats);
 
@@ -38,7 +43,7 @@ void trace_gpgpu_sim_bridge::transfer_stats(Stats &stats) {
   transfer_l2d_stats(stats);
 }
 
-void trace_gpgpu_sim_bridge::transfer_dram_stats(Stats &stats) {
+void trace_gpgpu_sim_bridge::transfer_dram_stats(Stats &stats) const {
   // dram stats are set with
   // m_stats->memlatstat_dram_access(data);
 
@@ -112,11 +117,15 @@ void trace_gpgpu_sim_bridge::transfer_dram_stats(Stats &stats) {
   stats.set_total_dram_writes(k);
 }
 
-void trace_gpgpu_sim_bridge::transfer_general_stats(Stats &stats) {
-  // see: void trace_gpgpu_sim::gpu_print_stat() {
+/// see: void trace_gpgpu_sim::gpu_print_stat() {
+void trace_gpgpu_sim_bridge::transfer_general_stats(Stats &stats) const {
+  stats.set_sim_cycle(gpu_tot_sim_cycle);
+  stats.set_sim_instructions(gpu_tot_sim_insn);
 
-  stats.set_sim_cycle(gpu_sim_cycle);
-  stats.set_sim_instructions(gpu_sim_insn);
+  // gpu_sim_cycle and gpu_sim_insn are reset in between launches using
+  // update_stats() stats.set_sim_cycle(gpu_sim_cycle);
+  // stats.set_sim_instructions(gpu_sim_insn);
+
   // stats.set_global_float("gpu_ipc", (float)gpu_sim_insn / gpu_sim_cycle);
   // stats.set_global_u64("gpu_tot_sim_cycle",
   //                      gpu_tot_sim_cycle + gpu_sim_cycle);
@@ -164,7 +173,7 @@ void trace_gpgpu_sim_bridge::transfer_general_stats(Stats &stats) {
   //   gpgpu_n_cmem_portconflict);
 }
 
-void trace_gpgpu_sim_bridge::transfer_core_cache_stats(Stats &stats) {
+void trace_gpgpu_sim_bridge::transfer_core_cache_stats(Stats &stats) const {
   for (unsigned cluster_id = 0; cluster_id < m_shader_config->n_simt_clusters;
        ++cluster_id) {
     for (unsigned core_id = 0;
@@ -202,7 +211,7 @@ void trace_gpgpu_sim_bridge::transfer_core_cache_stats(Stats &stats) {
 }
 
 /// L2 cache stats
-void trace_gpgpu_sim_bridge::transfer_l2d_stats(Stats &stats) {
+void trace_gpgpu_sim_bridge::transfer_l2d_stats(Stats &stats) const {
   if (m_memory_config->m_L2_config.disabled()) {
     return;
   }

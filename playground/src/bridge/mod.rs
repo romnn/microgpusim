@@ -10,6 +10,7 @@ pub mod interconnect;
 pub mod main;
 pub mod readonly_cache;
 pub mod scheduler_unit;
+pub mod stats;
 pub mod trace_shd_warp;
 
 macro_rules! extern_type {

@@ -11,7 +11,7 @@ class trace_config {
                    unsigned &initiation_interval) const;
   void parse_config();
   void reg_options(option_parser_t opp);
-  char *get_traces_filename() { return g_traces_filename; }
+  const char *get_traces_filename() const { return g_traces_filename; }
 
  private:
   unsigned int_latency, fp_latency, dp_latency, sfu_latency, tensor_latency;

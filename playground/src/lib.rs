@@ -14,3 +14,4 @@ pub mod bindings {
 }
 
 pub use bridge::main::*;
+pub use bridge::stats;
