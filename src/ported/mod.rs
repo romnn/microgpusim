@@ -1122,7 +1122,7 @@ pub fn accelmain(
         println!("exit after {cycle} cycles");
         {
             let mut stats = sim.stats.lock().unwrap();
-            stats.sim.cycles = cycle as usize;
+            stats.sim.cycles = cycle;
         }
         break;
     }
@@ -1203,7 +1203,7 @@ mod tests {
         let box_dur = start.elapsed();
 
         let start = std::time::Instant::now();
-        let play_stats: playground::stats::Stats = {
+        let play_stats = {
             let mut args = vec![
                 "-trace",
                 kernelslist.as_os_str().to_str().unwrap(),
@@ -1275,7 +1275,7 @@ mod tests {
         diff::assert_eq!(&play_stats.dram, &box_dram_stats);
 
         let playground_instructions =
-            playground::stats::Instructions::from(box_stats.instructions.clone());
+            playground::stats::InstructionCounts::from(box_stats.instructions.clone());
         diff::assert_eq!(&play_stats.instructions, &playground_instructions);
 
         diff::assert_eq!(
@@ -1361,7 +1361,7 @@ mod tests {
             let ref_stats: Result<Vec<_>, _> = ref_stats?.into_iter().collect();
             let ref_stats: Vec<_> = ref_stats?;
 
-            let ref_stats: playground::stats::Stats = ref_stats[0].clone();
+            let ref_stats = ref_stats[0].clone();
             dbg!(&ref_stats);
         }
 

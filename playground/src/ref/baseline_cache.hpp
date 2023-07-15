@@ -108,8 +108,6 @@ class baseline_cache : public cache_t {
     return ((m_miss_queue.size() + num_miss) >= m_config.m_miss_queue_size);
   }
 
-  // friend class trace_gpgpu_sim_bridge;
-
  protected:
   // Constructor that can be used by derived classes with custom tag arrays
   baseline_cache(const char *name, cache_config &config, int core_id,

@@ -45,21 +45,23 @@ impl Stats {
     }
 }
 
-pub trait ConvertHashMap<K, V, IK, IV>
+pub trait ConvertHashMap<K, V, IK, IV, S>
 where
     IK: Into<K>,
     IV: Into<V>,
+    S: std::hash::BuildHasher,
 {
-    fn convert(self) -> HashMap<K, V>;
+    fn convert(self) -> HashMap<K, V, S>;
 }
 
-impl<K, V, IK, IV> ConvertHashMap<K, V, IK, IV> for HashMap<IK, IV>
+impl<K, V, IK, IV, S> ConvertHashMap<K, V, IK, IV, S> for HashMap<IK, IV, S>
 where
     IK: Into<K>,
     IV: Into<V>,
     K: Eq + std::hash::Hash,
+    S: std::hash::BuildHasher + std::default::Default,
 {
-    fn convert(self) -> HashMap<K, V> {
+    fn convert(self) -> HashMap<K, V, S> {
         self.into_iter()
             .map(|(k, v)| (k.into(), v.into()))
             .collect()

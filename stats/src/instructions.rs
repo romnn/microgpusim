@@ -27,7 +27,7 @@ pub enum MemorySpace {
 }
 
 #[derive(Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct InstructionCounts(pub HashMap<(MemorySpace, bool), usize>);
+pub struct InstructionCounts(pub HashMap<(MemorySpace, bool), u64>);
 
 impl std::fmt::Debug for InstructionCounts {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -53,7 +53,7 @@ impl std::fmt::Debug for InstructionCounts {
 }
 
 impl std::ops::Deref for InstructionCounts {
-    type Target = HashMap<(MemorySpace, bool), usize>;
+    type Target = HashMap<(MemorySpace, bool), u64>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -68,13 +68,13 @@ impl std::ops::DerefMut for InstructionCounts {
 
 impl InstructionCounts {
     #[must_use]
-    pub fn get_total(&self, space: MemorySpace) -> usize {
+    pub fn get_total(&self, space: MemorySpace) -> u64 {
         let stores = self.0.get(&(space, true)).unwrap_or(&0);
         let loads = self.0.get(&(space, false)).unwrap_or(&0);
         stores + loads
     }
 
-    pub fn inc(&mut self, space: impl Into<MemorySpace>, is_store: bool, count: usize) {
+    pub fn inc(&mut self, space: impl Into<MemorySpace>, is_store: bool, count: u64) {
         *self.0.entry((space.into(), is_store)).or_insert(0) += count;
     }
 }

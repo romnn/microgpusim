@@ -882,7 +882,7 @@ where
         // m_core->mem_instruction_stats(*inst);
         if let Some(mem_space) = instr.memory_space {
             let mut stats = self.stats.lock().unwrap();
-            let active_count = instr.active_thread_count();
+            let active_count = instr.active_thread_count() as u64;
             stats
                 .instructions
                 .inc(mem_space, instr.is_store(), active_count);

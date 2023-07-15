@@ -31,7 +31,11 @@ mod default {
         fn active_kernels(self: &accelsim_bridge) -> bool;
         fn kernels_left(self: &accelsim_bridge) -> bool;
 
-        // NOTE: transfer_stats defined in stats.cc bridge
+        // iterate over sub partitions
+        fn sub_partitions(self: &accelsim_bridge) -> bool;
+        // iterate over queues
+
+        // NOTE: stat transfer functions defined in stats.cc bridge
     }
 }
 
@@ -58,22 +62,20 @@ impl Default for Config {
 #[derive()]
 pub struct Accelsim {
     inner: cxx::UniquePtr<default::accelsim_bridge>,
-    stats: super::stats::Stats,
+    stats: super::Stats,
 }
 
 impl Accelsim {
-    #[must_use]
     pub fn new(config: &Config, args: &[&str]) -> Result<Self, Error> {
         let exe = std::env::current_exe()?;
         let mut ffi_argv: Vec<&str> = vec![exe.as_os_str().to_str().unwrap()];
         ffi_argv.extend(args);
 
-        let mut stats = super::stats::Stats::default();
         let mut accelsim_bridge = default::new_accelsim_bridge(config.0, ffi_argv.as_slice());
 
         Ok(Self {
             inner: accelsim_bridge,
-            stats: super::stats::Stats::default(),
+            stats: super::Stats::default(),
         })
     }
 
@@ -82,7 +84,7 @@ impl Accelsim {
     }
 
     #[must_use]
-    pub fn stats(&mut self) -> &super::stats::Stats {
+    pub fn stats(&mut self) -> &super::Stats {
         self.inner.transfer_stats(&mut self.stats);
         &self.stats
     }
@@ -98,11 +100,11 @@ impl Accelsim {
     }
 
     pub fn process_commands(&mut self) {
-        self.inner.pin_mut().process_commands()
+        self.inner.pin_mut().process_commands();
     }
 
     pub fn launch_kernels(&mut self) {
-        self.inner.pin_mut().launch_kernels()
+        self.inner.pin_mut().launch_kernels();
     }
 
     #[must_use]
@@ -111,7 +113,7 @@ impl Accelsim {
     }
 
     pub fn cycle(&mut self) {
-        self.inner.pin_mut().cycle()
+        self.inner.pin_mut().cycle();
     }
 
     #[must_use]
@@ -164,49 +166,8 @@ impl Accelsim {
     }
 }
 
-pub fn run(config: &Config, args: &[&str]) -> Result<super::stats::Stats, Error> {
-    let mut accelsim = Accelsim::new(&config, &args)?;
+pub fn run(config: &Config, args: &[&str]) -> Result<super::Stats, Error> {
+    let mut accelsim = Accelsim::new(config, args)?;
     accelsim.run_to_completion();
     Ok(accelsim.stats().clone())
 }
-
-//     let exe = std::env::current_exe()?;
-//     let mut ffi_argv: Vec<&str> = vec![exe.as_os_str().to_str().unwrap()];
-//     ffi_argv.extend(args);
-//
-//     let mut stats = super::stats::Stats::default();
-//     let mut accelsim_bridge = default::new_accelsim_bridge(config.0, ffi_argv.as_slice());
-//
-//     // accelsim_bridge.pin_mut().run_to_completion();
-//
-//     // while (accelsim_bridge.commands_left() || accelsim_bridge.kernels_left()) {
-//     //     accelsim_bridge.pin_mut().process_commands();
-//     //     accelsim_bridge.pin_mut().launch_kernels();
-//     //
-//     //     let mut finished_kernel_uid = 0;
-//     //     loop {
-//     //         if !accelsim_bridge.active() {
-//     //             break;
-//     //         }
-//     //         accelsim_bridge.pin_mut().cycle();
-//     //
-//     //         finished_kernel_uid = accelsim_bridge.pin_mut().get_finished_kernel_uid();
-//     //         if finished_kernel_uid != 0 {
-//     //             break;
-//     //         }
-//     //     }
-//     //
-//     //     accelsim_bridge
-//     //         .pin_mut()
-//     //         .cleanup_finished_kernel(finished_kernel_uid);
-//     //
-//     //     if accelsim_bridge.limit_reached() {
-//     //         println!("GPGPU-Sim: ** break due to reaching the maximum cycles (or instructions) **");
-//     //         std::io::stdout().flush();
-//     //         break;
-//     //     }
-//     // }
-//
-//     accelsim_bridge.transfer_stats(&mut stats);
-//     Ok(stats)
-// }

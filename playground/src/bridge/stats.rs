@@ -49,13 +49,13 @@ impl From<stats::mem::Accesses> for self::Accesses {
 impl From<stats::dram::DRAM> for self::DRAM {
     fn from(other: stats::dram::DRAM) -> Self {
         Self {
-            total_reads: other.total_reads() as usize,
-            total_writes: other.total_writes() as usize,
+            total_reads: other.total_reads(),
+            total_writes: other.total_writes(),
         }
     }
 }
 
-impl From<stats::instructions::InstructionCounts> for self::Instructions {
+impl From<stats::instructions::InstructionCounts> for self::InstructionCounts {
     fn from(other: stats::instructions::InstructionCounts) -> Self {
         let num_global_loads = other
             .get(&(stats::instructions::MemorySpace::Global, false))
@@ -98,7 +98,7 @@ impl From<stats::sim::Sim> for self::Sim {
     }
 }
 
-impl PartialEq<stats::Stats> for self::Stats {
+impl PartialEq<stats::Stats> for self::StatsBridge {
     fn eq(&self, other: &stats::Stats) -> bool {
         use stats::ConvertHashMap;
         if !(stats::PerCache(self.l1i_stats.clone().convert()) == other.l1i_stats)
@@ -118,7 +118,7 @@ impl PartialEq<stats::Stats> for self::Stats {
             return false;
         }
 
-        if self.instructions != self::Instructions::from(other.instructions.clone()) {
+        if self.instructions != self::InstructionCounts::from(other.instructions.clone()) {
             return false;
         }
 
@@ -131,7 +131,7 @@ pub type AccessType = bindings::mem_access_type;
 pub type ReservationFailure = bindings::cache_reservation_fail_reason;
 
 #[derive(Debug, Clone, Default)]
-pub struct CacheStats {
+pub struct Cache {
     pub accesses: HashMap<(AccessType, AccessStat), u64>,
 }
 
@@ -147,61 +147,61 @@ pub struct DRAM {
     // total accesses are always zero (never set by accelsim)
     // we ignore them to spare confusion
     // pub total_accesses: usize,
-    pub total_reads: usize,
-    pub total_writes: usize,
+    pub total_reads: u64,
+    pub total_writes: u64,
 }
 
 /// Memory accesses
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Accesses {
-    pub num_mem_write: usize,
-    pub num_mem_read: usize,
-    pub num_mem_const: usize,
-    pub num_mem_texture: usize,
-    pub num_mem_read_global: usize,
-    pub num_mem_write_global: usize,
-    pub num_mem_read_local: usize,
-    pub num_mem_write_local: usize,
-    pub num_mem_l2_writeback: usize,
-    pub num_mem_l1_write_allocate: usize,
-    pub num_mem_l2_write_allocate: usize,
+    pub num_mem_write: u64,
+    pub num_mem_read: u64,
+    pub num_mem_const: u64,
+    pub num_mem_texture: u64,
+    pub num_mem_read_global: u64,
+    pub num_mem_write_global: u64,
+    pub num_mem_read_local: u64,
+    pub num_mem_write_local: u64,
+    pub num_mem_l2_writeback: u64,
+    pub num_mem_l1_write_allocate: u64,
+    pub num_mem_l2_write_allocate: u64,
 }
 
 /// Instruction counts
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Instructions {
-    pub num_load_instructions: usize,
-    pub num_store_instructions: usize,
-    pub num_shared_mem_instructions: usize,
-    pub num_sstarr_instructions: usize,
-    pub num_texture_instructions: usize,
-    pub num_const_instructions: usize,
-    pub num_param_instructions: usize,
+pub struct InstructionCounts {
+    pub num_load_instructions: u64,
+    pub num_store_instructions: u64,
+    pub num_shared_mem_instructions: u64,
+    pub num_sstarr_instructions: u64,
+    pub num_texture_instructions: u64,
+    pub num_const_instructions: u64,
+    pub num_param_instructions: u64,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Sim {
-    pub cycle: usize,
-    pub instructions: usize,
+    pub cycle: u64,
+    pub instructions: u64,
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct Stats {
+pub struct StatsBridge {
     pub accesses: Accesses,
-    pub instructions: Instructions,
+    pub instructions: InstructionCounts,
     pub sim: Sim,
     pub dram: DRAM,
 
     // per cache stats
-    pub l1i_stats: HashMap<usize, CacheStats>,
-    pub l1c_stats: HashMap<usize, CacheStats>,
-    pub l1t_stats: HashMap<usize, CacheStats>,
-    pub l1d_stats: HashMap<usize, CacheStats>,
-    pub l2d_stats: HashMap<usize, CacheStats>,
+    pub l1i_stats: HashMap<usize, Cache>,
+    pub l1c_stats: HashMap<usize, Cache>,
+    pub l1t_stats: HashMap<usize, Cache>,
+    pub l1d_stats: HashMap<usize, Cache>,
+    pub l2d_stats: HashMap<usize, Cache>,
 }
 
-impl From<CacheStats> for stats::Cache {
-    fn from(stats: CacheStats) -> Self {
+impl From<self::Cache> for stats::Cache {
+    fn from(stats: self::Cache) -> Self {
         Self {
             accesses: stats
                 .accesses
@@ -232,7 +232,7 @@ impl From<AccessType> for stats::mem::AccessKind {
             AccessType::L1_WR_ALLOC_R => stats::mem::AccessKind::L1_WR_ALLOC_R,
             AccessType::L2_WR_ALLOC_R => stats::mem::AccessKind::L2_WR_ALLOC_R,
             other @ AccessType::NUM_MEM_ACCESS_TYPE => {
-                panic!("bad mem access type: {:?}", other)
+                panic!("bad mem access type: {other:?}")
             }
         }
     }
@@ -268,7 +268,7 @@ impl From<ReservationFailure> for stats::cache::ReservationFailure {
                 stats::cache::ReservationFailure::MSHR_RW_PENDING
             }
             other @ ReservationFailure::NUM_CACHE_RESERVATION_FAIL_STATUS => {
-                panic!("bad cache request status: {:?}", other)
+                panic!("bad cache request status: {other:?}")
             }
         }
     }
@@ -284,13 +284,13 @@ impl From<RequestStatus> for stats::cache::RequestStatus {
             RequestStatus::SECTOR_MISS => stats::cache::RequestStatus::SECTOR_MISS,
             RequestStatus::MSHR_HIT => stats::cache::RequestStatus::MSHR_HIT,
             other @ RequestStatus::NUM_CACHE_REQUEST_STATUS => {
-                panic!("bad cache request status: {:?}", other)
+                panic!("bad cache request status: {other:?}")
             }
         }
     }
 }
 
-impl Stats {
+impl StatsBridge {
     pub fn add_accesses(
         &mut self,
         cache_kind: CacheKind,
@@ -320,81 +320,89 @@ impl Stats {
         let cache = cache.entry(cache_index).or_default();
         *cache.accesses.entry((kind, status)).or_insert(0) += num_accesses;
     }
+}
 
-    // dram stats
-    pub fn set_total_dram_accesses(&mut self, v: usize) {
+// dram stats
+impl StatsBridge {
+    pub fn set_total_dram_accesses(&mut self, v: u64) {
         // self.dram.total_accesses = v;
     }
-    pub fn set_total_dram_reads(&mut self, v: usize) {
+    pub fn set_total_dram_reads(&mut self, v: u64) {
         self.dram.total_reads = v;
     }
-    pub fn set_total_dram_writes(&mut self, v: usize) {
+    pub fn set_total_dram_writes(&mut self, v: u64) {
         self.dram.total_writes = v;
     }
+}
 
-    // sim stats
-    pub fn set_sim_cycle(&mut self, v: usize) {
+// sim stats
+impl StatsBridge {
+    pub fn set_sim_cycle(&mut self, v: u64) {
         self.sim.cycle = v;
     }
-    pub fn set_sim_instructions(&mut self, v: usize) {
+    pub fn set_sim_instructions(&mut self, v: u64) {
         self.sim.instructions = v;
     }
+}
 
-    // memory accesses
-    pub fn set_num_mem_write(&mut self, v: usize) {
+// memory accesses
+impl StatsBridge {
+    pub fn set_num_mem_write(&mut self, v: u64) {
         self.accesses.num_mem_write = v;
     }
-    pub fn set_num_mem_read(&mut self, v: usize) {
+    pub fn set_num_mem_read(&mut self, v: u64) {
         self.accesses.num_mem_read = v;
     }
-    pub fn set_num_mem_const(&mut self, v: usize) {
+    pub fn set_num_mem_const(&mut self, v: u64) {
         self.accesses.num_mem_const = v;
     }
-    pub fn set_num_mem_texture(&mut self, v: usize) {
+    pub fn set_num_mem_texture(&mut self, v: u64) {
         self.accesses.num_mem_texture = v;
     }
-    pub fn set_num_mem_read_global(&mut self, v: usize) {
+    pub fn set_num_mem_read_global(&mut self, v: u64) {
         self.accesses.num_mem_read_global = v;
     }
-    pub fn set_num_mem_write_global(&mut self, v: usize) {
+    pub fn set_num_mem_write_global(&mut self, v: u64) {
         self.accesses.num_mem_write_global = v;
     }
-    pub fn set_num_mem_read_local(&mut self, v: usize) {
+    pub fn set_num_mem_read_local(&mut self, v: u64) {
         self.accesses.num_mem_read_local = v;
     }
-    pub fn set_num_mem_write_local(&mut self, v: usize) {
+    pub fn set_num_mem_write_local(&mut self, v: u64) {
         self.accesses.num_mem_write_local = v;
     }
-    pub fn set_num_mem_l2_writeback(&mut self, v: usize) {
+    pub fn set_num_mem_l2_writeback(&mut self, v: u64) {
         self.accesses.num_mem_l2_writeback = v;
     }
-    pub fn set_num_mem_l1_write_allocate(&mut self, v: usize) {
+    pub fn set_num_mem_l1_write_allocate(&mut self, v: u64) {
         self.accesses.num_mem_l1_write_allocate = v;
     }
-    pub fn set_num_mem_l2_write_allocate(&mut self, v: usize) {
+    pub fn set_num_mem_l2_write_allocate(&mut self, v: u64) {
         self.accesses.num_mem_l2_write_allocate = v;
     }
+}
 
-    // instruction counts
-    pub fn set_num_load_instructions(&mut self, v: usize) {
+// instruction counts
+impl StatsBridge {
+    pub fn set_num_load_instructions(&mut self, v: u64) {
         self.instructions.num_load_instructions = v;
     }
-    pub fn set_num_store_instructions(&mut self, v: usize) {
+    pub fn set_num_store_instructions(&mut self, v: u64) {
         self.instructions.num_store_instructions = v;
     }
-    pub fn set_num_shared_mem_instructions(&mut self, v: usize) {
+    pub fn set_num_shared_mem_instructions(&mut self, v: u64) {
         self.instructions.num_shared_mem_instructions = v;
     }
-    pub fn set_num_sstarr_instructions(&mut self, v: usize) {
+    pub fn set_num_sstarr_instructions(&mut self, v: u64) {
         self.instructions.num_sstarr_instructions = v;
     }
-    pub fn set_num_texture_instructions(&mut self, v: usize) {
+    pub fn set_num_texture_instructions(&mut self, v: u64) {
         self.instructions.num_texture_instructions = v;
     }
-    pub fn set_num_const_instructions(&mut self, v: usize) {
+    pub fn set_num_const_instructions(&mut self, v: u64) {
         self.instructions.num_const_instructions = v;
     }
-    pub fn set_num_param_instructions(&mut self, v: usize) {
+    pub fn set_num_param_instructions(&mut self, v: u64) {
         self.instructions.num_param_instructions = v;
     }
 }
@@ -414,10 +422,10 @@ mod default {
     }
 
     extern "Rust" {
-        type Stats;
+        type StatsBridge;
 
         fn add_accesses(
-            self: &mut Stats,
+            self: &mut StatsBridge,
             cache_kind: CacheKind,
             cache_index: usize,
             kind: u32,
@@ -427,35 +435,35 @@ mod default {
         );
 
         // dram stats
-        fn set_total_dram_accesses(self: &mut Stats, v: usize);
-        fn set_total_dram_reads(self: &mut Stats, v: usize);
-        fn set_total_dram_writes(self: &mut Stats, v: usize);
+        fn set_total_dram_accesses(self: &mut StatsBridge, v: u64);
+        fn set_total_dram_reads(self: &mut StatsBridge, v: u64);
+        fn set_total_dram_writes(self: &mut StatsBridge, v: u64);
 
         // sim stats
-        fn set_sim_cycle(self: &mut Stats, v: usize);
-        fn set_sim_instructions(self: &mut Stats, v: usize);
+        fn set_sim_cycle(self: &mut StatsBridge, v: u64);
+        fn set_sim_instructions(self: &mut StatsBridge, v: u64);
 
         // memory accesses
-        fn set_num_mem_write(self: &mut Stats, v: usize);
-        fn set_num_mem_read(self: &mut Stats, v: usize);
-        fn set_num_mem_const(self: &mut Stats, v: usize);
-        fn set_num_mem_texture(self: &mut Stats, v: usize);
-        fn set_num_mem_read_global(self: &mut Stats, v: usize);
-        fn set_num_mem_write_global(self: &mut Stats, v: usize);
-        fn set_num_mem_read_local(self: &mut Stats, v: usize);
-        fn set_num_mem_write_local(self: &mut Stats, v: usize);
-        fn set_num_mem_l2_writeback(self: &mut Stats, v: usize);
-        fn set_num_mem_l1_write_allocate(self: &mut Stats, v: usize);
-        fn set_num_mem_l2_write_allocate(self: &mut Stats, v: usize);
+        fn set_num_mem_write(self: &mut StatsBridge, v: u64);
+        fn set_num_mem_read(self: &mut StatsBridge, v: u64);
+        fn set_num_mem_const(self: &mut StatsBridge, v: u64);
+        fn set_num_mem_texture(self: &mut StatsBridge, v: u64);
+        fn set_num_mem_read_global(self: &mut StatsBridge, v: u64);
+        fn set_num_mem_write_global(self: &mut StatsBridge, v: u64);
+        fn set_num_mem_read_local(self: &mut StatsBridge, v: u64);
+        fn set_num_mem_write_local(self: &mut StatsBridge, v: u64);
+        fn set_num_mem_l2_writeback(self: &mut StatsBridge, v: u64);
+        fn set_num_mem_l1_write_allocate(self: &mut StatsBridge, v: u64);
+        fn set_num_mem_l2_write_allocate(self: &mut StatsBridge, v: u64);
 
         // instruction counts
-        fn set_num_load_instructions(self: &mut Stats, v: usize);
-        fn set_num_store_instructions(self: &mut Stats, v: usize);
-        fn set_num_shared_mem_instructions(self: &mut Stats, v: usize);
-        fn set_num_sstarr_instructions(self: &mut Stats, v: usize);
-        fn set_num_texture_instructions(self: &mut Stats, v: usize);
-        fn set_num_const_instructions(self: &mut Stats, v: usize);
-        fn set_num_param_instructions(self: &mut Stats, v: usize);
+        fn set_num_load_instructions(self: &mut StatsBridge, v: u64);
+        fn set_num_store_instructions(self: &mut StatsBridge, v: u64);
+        fn set_num_shared_mem_instructions(self: &mut StatsBridge, v: u64);
+        fn set_num_sstarr_instructions(self: &mut StatsBridge, v: u64);
+        fn set_num_texture_instructions(self: &mut StatsBridge, v: u64);
+        fn set_num_const_instructions(self: &mut StatsBridge, v: u64);
+        fn set_num_param_instructions(self: &mut StatsBridge, v: u64);
 
     }
 
@@ -464,7 +472,12 @@ mod default {
 
         type accelsim_bridge = crate::bridge::main::accelsim_bridge;
 
-        fn transfer_stats(self: &accelsim_bridge, stats: &mut Stats);
+        fn transfer_stats(self: &accelsim_bridge, stats: &mut StatsBridge);
+        fn transfer_dram_stats(self: &accelsim_bridge, stats: &mut StatsBridge);
+        fn transfer_general_stats(self: &accelsim_bridge, stats: &mut StatsBridge);
+        fn transfer_core_cache_stats(self: &accelsim_bridge, stats: &mut StatsBridge);
+        fn transfer_l2d_stats(self: &accelsim_bridge, stats: &mut StatsBridge);
+
     }
 }
 

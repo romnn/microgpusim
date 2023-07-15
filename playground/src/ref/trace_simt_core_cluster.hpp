@@ -71,7 +71,7 @@ class trace_simt_core_cluster {
 
   void get_icnt_stats(long &n_simt_to_mem, long &n_mem_to_simt) const;
 
-  friend class trace_gpgpu_sim_bridge;
+  friend class accelsim_bridge;
 
  protected:
   unsigned m_cluster_id;

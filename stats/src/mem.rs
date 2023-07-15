@@ -37,11 +37,11 @@ impl AccessKind {
 }
 
 #[derive(Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Accesses(pub HashMap<AccessKind, usize>);
+pub struct Accesses(pub HashMap<AccessKind, u64>);
 
 impl Accesses {
     #[must_use]
-    pub fn num_writes(&self) -> usize {
+    pub fn num_writes(&self) -> u64 {
         self.0
             .iter()
             .filter(|(kind, _)| kind.is_write())
@@ -50,7 +50,7 @@ impl Accesses {
     }
 
     #[must_use]
-    pub fn num_reads(&self) -> usize {
+    pub fn num_reads(&self) -> u64 {
         self.0
             .iter()
             .filter(|(kind, _)| !kind.is_write())
@@ -58,7 +58,7 @@ impl Accesses {
             .sum()
     }
 
-    pub fn inc(&mut self, kind: impl Into<AccessKind>, count: usize) {
+    pub fn inc(&mut self, kind: impl Into<AccessKind>, count: u64) {
         *self.0.entry(kind.into()).or_insert(0) += count;
     }
 }
@@ -82,7 +82,7 @@ impl std::fmt::Debug for Accesses {
 }
 
 impl std::ops::Deref for Accesses {
-    type Target = HashMap<AccessKind, usize>;
+    type Target = HashMap<AccessKind, u64>;
 
     fn deref(&self) -> &Self::Target {
         &self.0

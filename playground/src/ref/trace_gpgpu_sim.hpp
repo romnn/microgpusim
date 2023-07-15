@@ -273,6 +273,8 @@ class trace_gpgpu_sim {
   // backward pointer
   class gpgpu_context *gpgpu_ctx;
 
+  friend class accelsim_bridge;
+
  private:
   // clocks
   void reinit_clock_domains(void);

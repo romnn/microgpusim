@@ -1869,6 +1869,6 @@ pub fn warp_inst_complete(instr: &mut WarpInstruction, stats: &Mutex<stats::Stat
     //     instr.active_thread_count()
     // );
     let mut stats = stats.lock().unwrap();
-    stats.sim.instructions += instr.active_thread_count();
+    stats.sim.instructions += instr.active_thread_count() as u64;
     // instr.completed(m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle);
 }

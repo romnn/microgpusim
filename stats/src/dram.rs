@@ -13,7 +13,6 @@ pub struct DRAM {
 }
 
 impl DRAM {
-    // pub fn new(config: &config::GPUConfig) -> Self {
     #[must_use]
     pub fn new(num_total_cores: usize, num_mem_units: usize, num_banks: usize) -> Self {
         let total_bank_writes = vec![vec![0; num_banks]; num_mem_units];
