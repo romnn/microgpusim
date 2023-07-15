@@ -5,6 +5,7 @@
 #include "rust/cxx.h"
 #include "playground/src/bridge/stats.rs.h"
 
+#include "./stats.hpp"
 #include "../trace_parser.hpp"
 #include "../trace_config.hpp"
 #include "../trace_command.hpp"
@@ -17,11 +18,19 @@ class accelsim_bridge {
   accelsim_bridge(accelsim_config config, rust::Slice<const rust::Str> argv);
 
   void run_to_completion();
+  void process_commands();
+  void launch_kernels();
+  void cycle();
+  void cleanup_finished_kernel(unsigned finished_kernel_uid);
+  unsigned get_finished_kernel_uid();
+
+  bool active() const;
+  bool limit_reached() const;
+  bool commands_left() const { return command_idx < commandlist.size(); };
+  bool active_kernels() const { return kernels_info.size(); };
+  bool kernels_left() const { return !kernels_info.empty(); };
+
   void transfer_stats(Stats &stats) const;
-  // void transfer_dram_stats(Stats &stats);
-  // void transfer_general_stats(Stats &stats);
-  // void transfer_core_cache_stats(Stats &stats);
-  // void transfer_l2d_stats(Stats &stats);
 
  private:
   trace_parser *tracer;
@@ -33,8 +42,12 @@ class accelsim_bridge {
   std::vector<unsigned long> busy_streams;
   std::vector<trace_kernel_info_t *> kernels_info;
 
+  unsigned command_idx;
   unsigned window_size;
   bool silent;
+
+  // bool active;
+  // unsigned finished_kernel_uid;
 };
 
 // int accelsim(accelsim_config config, rust::Slice<const rust::Str> argv, Stats

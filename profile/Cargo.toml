@@ -31,4 +31,4 @@ clap = { version = "4", features = ["derive"] }
 utils = { path = "../utils" }
 
 [dev-dependencies]
-pretty_assertions = "1"
+pretty_assertions_sorted = "1"

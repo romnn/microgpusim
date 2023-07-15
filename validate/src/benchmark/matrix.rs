@@ -218,7 +218,7 @@ impl Matrix {
 mod tests {
     use super::{Input, Matrix};
     use color_eyre::eyre;
-    use pretty_assertions::assert_eq as diff_assert_eq;
+    use pretty_assertions_sorted as diff;
 
     macro_rules! yaml {
         ($($yaml:tt)+) => {{
@@ -229,8 +229,8 @@ mod tests {
 
     #[test]
     fn parse_empty_matrix() -> eyre::Result<()> {
-        diff_assert_eq!(serde_yaml::from_str::<Matrix>(r#" "#)?, Matrix::default());
-        diff_assert_eq!(
+        diff::assert_eq!(serde_yaml::from_str::<Matrix>(r#" "#)?, Matrix::default());
+        diff::assert_eq!(
             serde_yaml::from_str::<Matrix>(
                 r#"
 exclude: []
@@ -239,7 +239,7 @@ include: []"#,
             Matrix::default()
         );
 
-        diff_assert_eq!(
+        diff::assert_eq!(
             serde_yaml::from_str::<Matrix>(
                 r#"
 fruit: []
@@ -250,7 +250,7 @@ animal: []"#,
                 ..Matrix::default()
             }
         );
-        diff_assert_eq!(
+        diff::assert_eq!(
             serde_yaml::from_str::<Matrix>(
                 r#"
 exclude: []
@@ -272,7 +272,7 @@ include:
 
     #[test]
     fn parse_matrix() -> eyre::Result<()> {
-        diff_assert_eq!(
+        diff::assert_eq!(
             serde_yaml::from_str::<Matrix>(
                 r#"
 fruit: [apple, pear]
@@ -311,7 +311,7 @@ os: [ubuntu-latest, windows-latest]"#;
 
         let expanded = matrix.expand();
         dbg!(&expanded);
-        diff_assert_eq!(
+        diff::assert_eq!(
             expanded,
             [
                 yaml!({"version": 10, "os": "ubuntu-latest"}),
@@ -347,7 +347,7 @@ include:
 
         let expanded = matrix.expand();
         dbg!(&expanded);
-        diff_assert_eq!(
+        diff::assert_eq!(
             expanded,
             [
                 yaml!({"fruit": "apple", "animal": "cat", "color": "pink", "shape": "circle" }),
@@ -377,7 +377,7 @@ include:
 
         let expanded = matrix.expand();
         dbg!(&expanded);
-        diff_assert_eq!(
+        diff::assert_eq!(
             expanded,
             [
                 yaml!({"os": "windows-latest", "node": 12}),
@@ -406,7 +406,7 @@ include:
 
         let expanded = matrix.expand();
         dbg!(&expanded);
-        diff_assert_eq!(
+        diff::assert_eq!(
             expanded,
             [
                 yaml!({"os": "macos-latest", "version": 12}),
@@ -440,7 +440,7 @@ include:
 
         let expanded = matrix.expand();
         dbg!(&expanded);
-        diff_assert_eq!(
+        diff::assert_eq!(
             expanded,
             [
                 yaml!({"site": "production", "datacenter": "site-a"}),
@@ -475,7 +475,7 @@ exclude:
         // that match {os: windows-latest, version: 16}.
         let expanded = matrix.expand();
         dbg!(&expanded);
-        diff_assert_eq!(
+        diff::assert_eq!(
             expanded,
             [
                 yaml!({"os": "macos-latest", "version": 12, "environment": "staging"}),

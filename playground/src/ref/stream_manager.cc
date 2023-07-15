@@ -36,6 +36,11 @@ bool stream_manager::operation(bool *sim) {
 
 bool stream_manager::check_finished_kernel() {
   unsigned grid_uid = m_gpu->finished_kernel();
+  // unsigned grid_uid = 0;
+  // if (!m_gpu->finished_kernel_uids().empty()) {
+  //   grid_uid = m_gpu->finished_kernel_uids().front();
+  //   m_gpu->finished_kernel_uids().pop_front();
+  // }
   bool check = register_finished_kernel(grid_uid);
   return check;
 }

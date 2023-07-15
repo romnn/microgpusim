@@ -58,16 +58,16 @@ impl PathExt for Path {
 mod tests {
     use super::PathExt;
     use color_eyre::eyre;
-    use pretty_assertions::assert_eq as diff_assert_eq;
+    use pretty_assertions_sorted as diff;
     use std::path::PathBuf;
 
     #[test]
     fn test_path_normalize() -> eyre::Result<()> {
-        diff_assert_eq!(
+        diff::assert_eq!(
             PathBuf::from("/base/./vectoradd/vectoradd").try_normalize()?,
             PathBuf::from("/base/vectoradd/vectoradd")
         );
-        diff_assert_eq!(
+        diff::assert_eq!(
             PathBuf::from("/base/../vectoradd/vectoradd").try_normalize()?,
             PathBuf::from("/vectoradd/vectoradd")
         );
@@ -77,28 +77,28 @@ mod tests {
     #[test]
     fn test_path_resolve_on_absolute_path() -> eyre::Result<()> {
         let absolute_path = PathBuf::from("/base/vectoradd/vectoradd");
-        diff_assert_eq!(absolute_path.resolve("/another-base"), absolute_path,);
-        diff_assert_eq!(absolute_path.resolve("test"), absolute_path,);
-        diff_assert_eq!(absolute_path.resolve("../something"), absolute_path,);
-        diff_assert_eq!(absolute_path.resolve(""), absolute_path,);
+        diff::assert_eq!(absolute_path.resolve("/another-base"), absolute_path,);
+        diff::assert_eq!(absolute_path.resolve("test"), absolute_path,);
+        diff::assert_eq!(absolute_path.resolve("../something"), absolute_path,);
+        diff::assert_eq!(absolute_path.resolve(""), absolute_path,);
         Ok(())
     }
 
     #[test]
     fn test_path_resolve_absolute_base() -> eyre::Result<()> {
-        diff_assert_eq!(
+        diff::assert_eq!(
             PathBuf::from("./vectoradd/vectoradd").resolve("/base/"),
             PathBuf::from("/base/vectoradd/vectoradd")
         );
-        diff_assert_eq!(
+        diff::assert_eq!(
             PathBuf::from("././vectoradd/vectoradd").resolve("/base"),
             PathBuf::from("/base/vectoradd/vectoradd")
         );
-        diff_assert_eq!(
+        diff::assert_eq!(
             PathBuf::from("vectoradd/vectoradd").resolve("/base"),
             PathBuf::from("/base/vectoradd/vectoradd")
         );
-        diff_assert_eq!(
+        diff::assert_eq!(
             PathBuf::from("vectoradd/vectoradd")
                 .resolve("/base")
                 .resolve("/base"),
@@ -109,17 +109,17 @@ mod tests {
 
     #[test]
     fn test_path_resolve_relative_base() -> eyre::Result<()> {
-        diff_assert_eq!(
+        diff::assert_eq!(
             PathBuf::from("./vectoradd/vectoradd").resolve("base/"),
             PathBuf::from("base/vectoradd/vectoradd")
         );
-        diff_assert_eq!(
+        diff::assert_eq!(
             PathBuf::from("././vectoradd/vectoradd").resolve("./base/test/"),
             PathBuf::from("base/test/vectoradd/vectoradd")
         );
         // at the moment, we do not guard against possibly unwanted behaviour when resolving
         // multiple times on the same relative path accidentally.
-        diff_assert_eq!(
+        diff::assert_eq!(
             PathBuf::from("vectoradd/vectoradd")
                 .resolve("base")
                 .resolve("base"),

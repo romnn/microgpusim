@@ -67,4 +67,4 @@ casimu = { path = "../" }
 ssh_jumper = { version = "0", optional = true }
 
 [dev-dependencies]
-pretty_assertions = "1"
+pretty_assertions_sorted = "1"

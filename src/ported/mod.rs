@@ -1217,7 +1217,10 @@ mod tests {
             dbg!(&args);
 
             let config = playground::Config::default();
-            let ref_stats = playground::run(&config, &args)?;
+            let mut accelsim = playground::Accelsim::new(&config, &args)?;
+            accelsim.run_to_completion();
+            let ref_stats = accelsim.stats().clone();
+            // let ref_stats = playground::run(&config, &args)?;
             Ok::<_, eyre::Report>(ref_stats)
         }?;
         let playground_dur = start.elapsed();
@@ -1228,31 +1231,30 @@ mod tests {
         dbg!(&playground_dur);
         dbg!(&box_dur);
 
-        diff::assert_eq_sorted!(&play_stats, &box_stats);
-
         // compare stats here
-        diff::assert_eq_sorted!(
-            &stats::PerCache(play_stats.l1i_stats.convert()),
+        dbg!(&box_stats.l1i_stats);
+        diff::assert_eq!(
+            &stats::PerCache(play_stats.l1i_stats.clone().convert()),
             &box_stats.l1i_stats
         );
-        diff::assert_eq_sorted!(
-            &stats::PerCache(play_stats.l1d_stats.convert()),
+        diff::assert_eq!(
+            &stats::PerCache(play_stats.l1d_stats.clone().convert()),
             &box_stats.l1d_stats,
         );
-        diff::assert_eq_sorted!(
-            &stats::PerCache(play_stats.l1t_stats.convert()),
+        diff::assert_eq!(
+            &stats::PerCache(play_stats.l1t_stats.clone().convert()),
             &box_stats.l1t_stats,
         );
-        diff::assert_eq_sorted!(
-            &stats::PerCache(play_stats.l1c_stats.convert()),
+        diff::assert_eq!(
+            &stats::PerCache(play_stats.l1c_stats.clone().convert()),
             &box_stats.l1c_stats,
         );
-        diff::assert_eq_sorted!(
-            &stats::PerCache(play_stats.l2d_stats.convert()),
+        diff::assert_eq!(
+            &stats::PerCache(play_stats.l2d_stats.clone().convert()),
             &box_stats.l2d_stats,
         );
 
-        diff::assert_eq_sorted!(
+        diff::assert_eq!(
             play_stats.accesses,
             playground::stats::Accesses::from(box_stats.accesses.clone())
         );
@@ -1270,16 +1272,19 @@ mod tests {
         let box_dram_stats = playground::stats::DRAM::from(box_stats.dram.clone());
         dbg!(&box_dram_stats);
 
-        diff::assert_eq_sorted!(&play_stats.dram, &box_dram_stats);
+        diff::assert_eq!(&play_stats.dram, &box_dram_stats);
 
         let playground_instructions =
             playground::stats::Instructions::from(box_stats.instructions.clone());
-        diff::assert_eq_sorted!(&play_stats.instructions, &playground_instructions);
+        diff::assert_eq!(&play_stats.instructions, &playground_instructions);
 
-        diff::assert_eq_sorted!(
+        diff::assert_eq!(
             &play_stats.sim,
             &playground::stats::Sim::from(box_stats.sim.clone()),
         );
+
+        // this uses our custom PartialEq::eq implementation
+        assert_eq!(&play_stats, &box_stats);
 
         assert!(false, "all good!");
         Ok(())
@@ -1316,32 +1321,32 @@ mod tests {
                 let gpgpusim_config = gpgpusim_config.clone();
 
                 tokio::task::spawn_blocking(move || {
-                    let kernelslist = kernelslist.to_string_lossy().to_string();
-                    let gpgpusim_config = gpgpusim_config.to_string_lossy().to_string();
-                    let trace_config = trace_config.to_string_lossy().to_string();
-                    let inter_config = inter_config.to_string_lossy().to_string();
+                    // let kernelslist = kernelslist.to_string_lossy().to_string();
+                    // let gpgpusim_config = gpgpusim_config.to_string_lossy().to_string();
+                    // let trace_config = trace_config.to_string_lossy().to_string();
+                    // let inter_config = inter_config.to_string_lossy().to_string();
+                    //
+                    // let mut args = vec![
+                    //     "-trace",
+                    //     &kernelslist,
+                    //     "-config",
+                    //     &gpgpusim_config,
+                    //     "-config",
+                    //     &trace_config,
+                    //     "-inter_config_file",
+                    //     &inter_config,
+                    // ];
 
                     let mut args = vec![
                         "-trace",
-                        &kernelslist,
+                        kernelslist.as_os_str().to_str().unwrap(),
                         "-config",
-                        &gpgpusim_config,
+                        gpgpusim_config.as_os_str().to_str().unwrap(),
                         "-config",
-                        &trace_config,
+                        trace_config.as_os_str().to_str().unwrap(),
                         "-inter_config_file",
-                        &inter_config,
+                        inter_config.as_os_str().to_str().unwrap(),
                     ];
-
-                    // let mut args = vec![
-                    //     "-trace",
-                    //     kernelslist.as_os_str().to_str().unwrap(),
-                    //     "-config",
-                    //     gpgpusim_config.as_os_str().to_str().unwrap(),
-                    //     "-config",
-                    //     trace_config.as_os_str().to_str().unwrap(),
-                    //     "-inter_config_file",
-                    //     inter_config.as_os_str().to_str().unwrap(),
-                    // ];
                     dbg!(&args);
 
                     let config = playground::Config::default();
@@ -1357,7 +1362,6 @@ mod tests {
             let ref_stats: Vec<_> = ref_stats?;
 
             let ref_stats: playground::stats::Stats = ref_stats[0].clone();
-            // let ref_stats: Stats = ref_stats.clone().into();
             dbg!(&ref_stats);
         }
 

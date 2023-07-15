@@ -586,7 +586,7 @@ impl crate::Benchmarks {
 mod tests {
     use color_eyre::eyre;
     use indexmap::IndexMap;
-    use pretty_assertions::assert_eq as diff_assert_eq;
+    use pretty_assertions_sorted as diff;
     use std::path::PathBuf;
 
     #[test]
@@ -599,7 +599,7 @@ mod tests {
             enabled: true,
             results_dir: PathBuf::from("results/"),
         };
-        diff_assert_eq!(
+        diff::assert_eq!(
             crate::TargetConfig {
                 concurrency: Some(2),
                 repetitions: None,
@@ -709,7 +709,7 @@ accelsim_simulate:
     //         //     concurrency: None,
     //         //     results_dir: Some(PathBuf::from("results/")),
     //         // };
-    //         // diff_assert_eq!(
+    //         // diff::assert_eq!(
     //         //     crate::TargetConfig {
     //         //         concurrency: Some(2),
     //         //         repetitions: None,
@@ -783,7 +783,7 @@ other: "hello"
         let materialized = benchmark.materialize("vectorAdd", 0, &base, &materialized_config)?;
         dbg!(&materialized);
 
-        diff_assert_eq!(
+        diff::assert_eq!(
             materialized[0].values,
             serde_yaml::from_str::<IndexMap<String, serde_yaml::Value>>(
                 r#"
@@ -793,27 +793,27 @@ other: "hello"
             )?,
             "expanded both singular and multiple input values in the correct order",
         );
-        diff_assert_eq!(
+        diff::assert_eq!(
             materialized[0].args,
             vec!["100", "32"],
             "templated and split shell args correctly"
         );
-        diff_assert_eq!(
+        diff::assert_eq!(
             materialized[0].executable,
             PathBuf::from("/base/vectoradd/vectoradd"),
             "resolved path to executable"
         );
-        diff_assert_eq!(
+        diff::assert_eq!(
             materialized[0].accelsim_simulate.configs.trace_config,
             PathBuf::from("/base/my/configs/vectorAdd-32.config"),
             "used custom template for the trace config"
         );
-        diff_assert_eq!(
+        diff::assert_eq!(
             materialized[0].accelsim_simulate.configs.trace_config,
             PathBuf::from("/base/my/configs/vectorAdd-32.config"),
             "used custom template for the trace config"
         );
-        diff_assert_eq!(
+        diff::assert_eq!(
             materialized[0].accelsim_simulate.configs.inter_config,
             PathBuf::from("/absolute/configs/vectorAdd-32.config"),
             "used custom template with absolute path for the inter config"

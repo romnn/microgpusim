@@ -203,7 +203,21 @@ class trace_gpgpu_sim {
 
   void launch(trace_kernel_info_t *kinfo);
   bool can_start_kernel();
-  unsigned finished_kernel();
+  // std::list<unsigned int> &finished_kernel_uids() {
+  //   return m_finished_kernel;
+  //   // if (m_finished_kernel.empty()) return 0;
+  //   // unsigned result = m_finished_kernel.front();
+  //   // m_finished_kernel.pop_front();
+  //   // return result;
+  // }
+
+  unsigned finished_kernel() {
+    if (m_finished_kernel.empty()) return 0;
+    unsigned result = m_finished_kernel.front();
+    m_finished_kernel.pop_front();
+    return result;
+  }
+
   void set_kernel_done(trace_kernel_info_t *kernel);
   void stop_all_running_kernels();
 

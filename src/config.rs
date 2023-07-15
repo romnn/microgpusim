@@ -1219,7 +1219,7 @@ impl Default for GPUConfig {
 #[cfg(test)]
 mod tests {
     use playground::bindings;
-    use pretty_assertions::assert_eq as diff_assert_eq;
+    use pretty_assertions_sorted as diff;
     use std::ffi;
 
     fn parse_cache_config(config: &str) -> bindings::CacheConfig {
@@ -1230,7 +1230,7 @@ mod tests {
 
     #[test]
     fn test_parse_gtx1080_data_l1_cache_config() {
-        diff_assert_eq!(
+        diff::assert_eq!(
             parse_cache_config("N:64:128:6,L:L:m:N:H,A:128:8,8"),
             bindings::CacheConfig {
                 ct: 'N' as ffi::c_char,
@@ -1254,7 +1254,7 @@ mod tests {
 
     #[test]
     fn test_parse_gtx1080_tex_l1_cache_config() {
-        diff_assert_eq!(
+        diff::assert_eq!(
             parse_cache_config("N:16:128:24,L:R:m:N:L,F:128:4,128:2"),
             bindings::CacheConfig {
                 ct: 'N' as ffi::c_char,
@@ -1278,7 +1278,7 @@ mod tests {
 
     #[test]
     fn test_parse_gtx1080_inst_l1_cache_config() {
-        diff_assert_eq!(
+        diff::assert_eq!(
             parse_cache_config("N:8:128:4,L:R:f:N:L,A:2:48,4"),
             bindings::CacheConfig {
                 ct: 'N' as ffi::c_char,
@@ -1302,7 +1302,7 @@ mod tests {
 
     #[test]
     fn test_parse_gtx1080_const_l1_cache_config() {
-        diff_assert_eq!(
+        diff::assert_eq!(
             parse_cache_config("N:128:64:2,L:R:f:N:L,A:2:64,4"),
             bindings::CacheConfig {
                 ct: 'N' as ffi::c_char,
@@ -1326,7 +1326,7 @@ mod tests {
 
     #[test]
     fn test_parse_gtx1080_data_l2_cache_config() {
-        diff_assert_eq!(
+        diff::assert_eq!(
             parse_cache_config("N:64:128:16,L:B:m:W:L,A:1024:1024,4:0,32"),
             bindings::CacheConfig {
                 ct: 'N' as ffi::c_char,

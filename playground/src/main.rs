@@ -58,7 +58,9 @@ fn main() -> eyre::Result<()> {
     dbg!(&args);
 
     let config = playground::Config::default();
-    let stats = playground::run(&config, &args)?;
+    let mut accelsim = playground::Accelsim::new(&config, &args)?;
+    accelsim.run_to_completion();
+    let stats = accelsim.stats().clone();
 
     eprintln!("STATS:\n");
     eprintln!("DRAM: {:#?}", &stats.dram);

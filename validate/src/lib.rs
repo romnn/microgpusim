@@ -274,7 +274,7 @@ mod tests {
     use super::{Benchmark, Benchmarks};
     use color_eyre::eyre;
     use indexmap::IndexMap;
-    use pretty_assertions::assert_eq as diff_assert_eq;
+    use pretty_assertions_sorted as diff;
     use std::path::PathBuf;
     use std::str::FromStr;
 
@@ -293,7 +293,7 @@ benchmarks: {}
         "#;
         let benchmarks = Benchmarks::from_str(benchmarks)?;
         dbg!(&benchmarks);
-        diff_assert_eq!(
+        diff::assert_eq!(
             benchmarks,
             Benchmarks {
                 benchmarks: IndexMap::new(),
@@ -314,7 +314,7 @@ benchmarks:
         "#;
         let benchmarks = Benchmarks::from_str(benchmarks)?;
         dbg!(&benchmarks);
-        diff_assert_eq!(
+        diff::assert_eq!(
             benchmarks,
             Benchmarks {
                 benchmarks: IndexMap::from_iter([(
@@ -349,20 +349,20 @@ benchmarks:
         let benchmarks = Benchmarks::from_str(benchmarks)?;
         dbg!(&benchmarks);
         let vec_add_benchmark = &benchmarks["vectorAdd"];
-        diff_assert_eq!(
+        diff::assert_eq!(
             &benchmarks["vectorAdd"],
             &benchmarks.benchmarks["vectorAdd"]
         );
-        diff_assert_eq!(
+        diff::assert_eq!(
             &benchmarks["vectorAdd".to_string()],
             &benchmarks.benchmarks["vectorAdd"]
         );
-        diff_assert_eq!(
+        diff::assert_eq!(
             vec_add_benchmark.executable(),
             PathBuf::from("./vectoradd/vectoradd")
         );
         let vec_add_inputs = vec_add_benchmark.inputs();
-        diff_assert_eq!(
+        diff::assert_eq!(
             vec_add_inputs[0],
             serde_yaml::from_str::<IndexMap<String, serde_yaml::Value>>(
                 r#"{ data_type: 32, length: 100 }"#
@@ -379,7 +379,7 @@ benchmarks:
         reg.set_strict_mode(true);
         let test: HashMap<String, String> =
             HashMap::from_iter([("name".to_string(), "foo".to_string())]);
-        diff_assert_eq!("Hello foo", reg.render_template("Hello {{name}}", &test)?);
+        diff::assert_eq!("Hello foo", reg.render_template("Hello {{name}}", &test)?);
         Ok(())
     }
 

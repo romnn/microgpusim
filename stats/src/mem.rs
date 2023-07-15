@@ -77,7 +77,7 @@ impl std::fmt::Debug for Accesses {
         for (key, count) in accesses {
             out.field(&key, count);
         }
-        out.finish()
+        out.finish_non_exhaustive()
     }
 }
 

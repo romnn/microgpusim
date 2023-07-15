@@ -107,11 +107,9 @@ impl std::fmt::Debug for Cache {
             .map(|((access_kind, access_stat), count)| {
                 let key = match access_stat {
                     AccessStat::Status(status) => {
-                        // format!("{:?}[{:?}]={}", access_kind, status, count)
                         format!("{access_kind:?}[{status:?}]")
                     }
                     AccessStat::ReservationFailure(failure) => {
-                        // format!("{:?}[{:?}]={}", access_kind, failure, count)
                         format!("{access_kind:?}[{failure:?}]")
                     }
                 };
@@ -124,7 +122,7 @@ impl std::fmt::Debug for Cache {
         for (key, count) in accesses {
             out.field(&key, count);
         }
-        out.finish()
+        out.finish_non_exhaustive()
     }
 }
 

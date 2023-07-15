@@ -670,13 +670,6 @@ void trace_gpgpu_sim::deadlock_check() {
   }
 }
 
-unsigned trace_gpgpu_sim::finished_kernel() {
-  if (m_finished_kernel.empty()) return 0;
-  unsigned result = m_finished_kernel.front();
-  m_finished_kernel.pop_front();
-  return result;
-}
-
 void trace_gpgpu_sim::gpu_print_stat() {
   FILE *statfout = stdout;
 

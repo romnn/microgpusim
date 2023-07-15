@@ -48,7 +48,7 @@ impl std::fmt::Debug for InstructionCounts {
         for (key, count) in instructions {
             out.field(&key, count);
         }
-        out.finish()
+        out.finish_non_exhaustive()
     }
 }
 

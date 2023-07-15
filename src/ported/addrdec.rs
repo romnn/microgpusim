@@ -408,18 +408,17 @@ mod tests {
     use crate::config::GPUConfig;
     use color_eyre::eyre;
     use playground::{bindings, bridge};
-    // use pretty_assertions::assert_eq as diff_assert_eq;
 
     macro_rules! diff_assert_all_eq (
         ($a:expr, $b:expr) => {
-            ::pretty_assertions::assert_eq!($a, $b);
+            ::pretty_assertions_sorted::assert_eq!($a, $b);
         };
         ($a:expr, $b:expr, $c:expr) => {
-            ::pretty_assertions::assert_eq!($a, $b);
-            ::pretty_assertions::assert_eq!($b, $c);
+            ::pretty_assertions_sorted::assert_eq!($a, $b);
+            ::pretty_assertions_sorted::assert_eq!($b, $c);
         };
         ($a:expr, $b:expr, $c:expr, $($rest:expr),*) => {
-            ::pretty_assertions::assert_eq!($a, $b);
+            ::pretty_assertions_sorted::assert_eq!($a, $b);
             diff_assert_all_eq!($b, $c, $($rest),*);
         }
     );
