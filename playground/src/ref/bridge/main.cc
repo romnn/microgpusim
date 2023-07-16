@@ -5,6 +5,9 @@
 #include "../option_parser.hpp"
 #include "../stream_manager.hpp"
 #include "../trace_gpgpu_sim.hpp"
+#include "../memory_sub_partition.hpp"
+
+#include "playground/src/bridge/main.rs.h"
 
 #include "stats.hpp"
 #include "main.hpp"
@@ -172,22 +175,29 @@ accelsim_bridge::accelsim_bridge(accelsim_config config,
   commandlist = tracer->parse_commandlist_file();
   kernels_info.reserve(window_size);
   command_idx = 0;
+
+  for (unsigned i = 0; i < m_gpgpu_sim->m_memory_config->m_n_mem_sub_partition;
+       i++) {
+    memory_sub_partition *sub_partition =
+        m_gpgpu_sim->m_memory_sub_partition[i];
+    sub_partitions.push_back(memory_sub_partition_bridge(sub_partition));
+  }
 }
 
-unsigned accelsim_bridge::get_finished_kernel_uid() {
-  return m_gpgpu_sim->finished_kernel();
-};
+// const memory_sub_partition *const *accelsim_bridge::get_sub_partitions()
+// const {
+//   const memory_sub_partition *const *test =
+//       const_cast<const memory_sub_partition *const *>(
+//           m_gpgpu_sim->m_memory_sub_partition);
+//   return test;
+// }
 
-bool accelsim_bridge::limit_reached() const {
-  return m_gpgpu_sim->cycle_insn_cta_max_hit();
-};
-
-bool accelsim_bridge::active() const { return m_gpgpu_sim->active(); };
-
-bool accelsim_bridge::sub_partitions() const {
-  // return m_gpgpu_sim->m_memory_sub_partition;
-  return false;
-}
+// const rust::Vec<MemorySubPartitionShim> &
+// accelsim_bridge::get_sub_partitions_vec() const {
+// const std::rust::Vec<memory_sub_partition_shim> &
+// accelsim_bridge::get_sub_partitions_vec() const {
+//   return sub_partitions;
+// }
 
 void accelsim_bridge::process_commands() {
   // gulp up as many commands as possible - either cpu_gpu_mem_copy

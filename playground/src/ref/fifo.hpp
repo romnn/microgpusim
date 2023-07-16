@@ -1,6 +1,7 @@
 #pragma once
 
 #include <assert.h>
+#include <vector>
 #include <cstdio>
 #include <sstream>
 
@@ -129,6 +130,19 @@ class fifo_pipeline {
   unsigned get_n_element() const { return m_n_element; }
   unsigned get_length() const { return m_length; }
   unsigned get_max_len() const { return m_max_len; }
+
+  std::vector<T *> to_vector() const {
+    std::vector<T *> q;
+    if (this == NULL) {
+      return q;
+    }
+    fifo_data<T> *ddp = this->m_head;
+    while (ddp) {
+      q.push_back(ddp->m_data);
+      ddp = ddp->m_next;
+    }
+    return q;
+  }
 
   // std::string to_string() const {
   //   std::stringstream buffer;

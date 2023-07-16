@@ -6,12 +6,39 @@ super::extern_type!(bindings::accelsim_config, "accelsim_config");
 
 #[cxx::bridge]
 mod default {
+    // struct mem_fetch_bridge {
+    //     ptr: *mut mem_fetch,
+    // }
+
+    // struct SharedMemorySubPartition {
+    //     ptr: SharedPtr<memory_sub_partition>,
+    // }
+    //
+    // struct MemorySubPartitionShim {
+    //     ptr: *mut memory_sub_partition,
+    //     // s: SharedPtr<memory_sub_partition>,
+    // }
+
     unsafe extern "C++" {
         include!("playground/src/ref/bridge/main.hpp");
 
-        type accelsim_config = crate::bindings::accelsim_config;
+        type mem_fetch = crate::bridge::mem_fetch::mem_fetch;
+        type mem_fetch_bridge;
+
+        fn get_mem_fetch(self: &mem_fetch_bridge) -> *mut mem_fetch;
+
+        type memory_sub_partition_bridge;
+
+        // fn get_icnt_L2_queue(self: &memory_sub_partition_bridge) -> Vec<mem_fetch_bridge>;
+        fn get_icnt_L2_queue(
+            self: &memory_sub_partition_bridge,
+        ) -> UniquePtr<CxxVector<mem_fetch_bridge>>;
+
+        // fn get_id(self: &memory_sub_partition) -> u32;
+        // fn get_id(self: &memory_sub_partition) -> u32;
 
         type accelsim_bridge;
+        type accelsim_config = crate::bindings::accelsim_config;
 
         #[must_use]
         fn new_accelsim_bridge(
@@ -32,14 +59,18 @@ mod default {
         fn kernels_left(self: &accelsim_bridge) -> bool;
 
         // iterate over sub partitions
-        fn sub_partitions(self: &accelsim_bridge) -> bool;
-        // iterate over queues
+        // fn get_sub_partitions(self: &accelsim_bridge) -> *const *const memory_sub_partition;
+        // fn get_sub_partitions_vec(self: &accelsim_bridge) -> &Vec<MemorySubPartitionShim>;
+        // fn get_sub_partitions_vec(self: &accelsim_bridge) -> &Vec<memory_sub_partition_shim>;
+        fn get_sub_partitions_vec(
+            self: &accelsim_bridge,
+        ) -> &CxxVector<memory_sub_partition_bridge>;
 
         // NOTE: stat transfer functions defined in stats.cc bridge
     }
 }
 
-pub(super) use default::{accelsim_bridge, accelsim_config};
+pub(super) use default::{accelsim_bridge, accelsim_config, memory_sub_partition_bridge};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -60,6 +91,33 @@ impl Default for Config {
 }
 
 #[derive()]
+#[repr(transparent)]
+// pub struct MemFetch(*mut default::mem_fetch);
+pub struct MemFetch<'a>(&'a default::mem_fetch_bridge);
+
+#[derive()]
+#[repr(transparent)]
+pub struct MemorySubPartition<'a>(&'a default::memory_sub_partition_bridge);
+// pub struct MemorySubPartition(*mut default::memory_sub_partition_bridge);
+
+impl<'a> MemorySubPartition<'a> {
+    // #[must_use]
+    // // pub fn interconn_to_l2_queue(&'a self) -> impl Iterator<Item = MemFetch<'a>> + 'a {
+    // pub fn interconn_to_l2_queue(&'a self) -> Vec<MemFetch<'a>> {
+    //     let queue = self.0.get_icnt_L2_queue();
+    //     queue.into_iter().map(MemFetch).collect()
+    //     // unsafe {
+    //     // .as_ref()
+    //     // .unwrap()
+    //     // .iter()
+    //     // .map(|bridge| MemFetch(bridge.get_mem_fetch()))
+    //     // .map(MemFetch)
+    //     // .collect()
+    //     // }
+    // }
+}
+
+#[derive()]
 pub struct Accelsim {
     inner: cxx::UniquePtr<default::accelsim_bridge>,
     stats: super::Stats,
@@ -77,6 +135,17 @@ impl Accelsim {
             inner: accelsim_bridge,
             stats: super::Stats::default(),
         })
+    }
+
+    // todo
+    // pub fn sub_partitions(&mut self) -> &Vec<MemorySubPartitionShim> {
+    // pub fn sub_partitions(&mut self) -> impl Iterator<Item = &memory_sub_partition_bridge> {
+    pub fn sub_partitions<'a>(&'a mut self) -> impl Iterator<Item = MemorySubPartition<'a>> + '_ {
+        self.inner
+            .get_sub_partitions_vec()
+            .iter()
+            .map(MemorySubPartition)
+        // .map(|bridge| MemorySubPartition(*bridge.get()))
     }
 
     pub fn run_to_completion(&mut self) {

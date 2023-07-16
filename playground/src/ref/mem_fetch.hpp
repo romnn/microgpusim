@@ -65,7 +65,7 @@ class mem_fetch {
   void set_data_size(unsigned size) { m_data_size = size; }
   unsigned get_ctrl_size() const { return m_ctrl_size; }
   unsigned size() const { return m_data_size + m_ctrl_size; }
-  bool is_write() { return m_access.is_write(); }
+  bool is_write() const { return m_access.is_write(); }
   void set_addr(new_addr_type addr) { m_access.set_addr(addr); }
   new_addr_type get_addr() const { return m_access.get_addr(); }
   new_addr_type get_relative_addr() const {

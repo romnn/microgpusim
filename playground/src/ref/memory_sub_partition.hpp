@@ -66,6 +66,9 @@ class memory_sub_partition {
     class mem_fetch *req;
   };
 
+  friend class memory_sub_partition_bridge;
+  friend class accelsim_bridge;
+
  private:
   // data
   unsigned m_id;  //< the global sub partition ID
@@ -91,7 +94,7 @@ class memory_sub_partition {
   std::set<mem_fetch *> m_request_tracker;
 
   friend class trace_gpgpu_sim;
-  friend class accelsim_bridge;
+  friend class trace_gpgpu_sim_bridge;
   friend class memory_partition_unit;
   friend class L2interface;
 

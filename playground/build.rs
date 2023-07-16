@@ -69,15 +69,16 @@ fn generate_bindings() -> eyre::Result<()> {
         // .allowlist_type("l1_cache")
         // .allowlist_type("l2_cache")
         // .allowlist_type("read_only_cache_params")
-        // for read only cache
+        // for mem fetch
+        .allowlist_type("mem_access_type")
         .allowlist_type("mem_fetch_status")
+        .allowlist_type("mf_type")
         // for addr dec bridge
         .allowlist_type("addrdec_t")
         .allowlist_type("linear_to_raw_address_translation_params")
         // for main bridge
         .allowlist_type("accelsim_config")
         // for stats
-        .allowlist_type("mem_access_type")
         .allowlist_type("cache_request_status")
         .allowlist_type("cache_reservation_fail_reason")
         // for cache config tests

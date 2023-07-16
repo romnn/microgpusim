@@ -1,7 +1,3 @@
-use crate::bindings;
-
-super::extern_type!(bindings::mem_fetch_status, "mem_fetch_status");
-
 #[cxx::bridge]
 mod default {
     unsafe extern "C++" {
@@ -10,10 +6,10 @@ mod default {
         type read_only_cache;
 
         type cache_config = crate::bridge::cache_config::cache_config;
-        type mem_fetch;
         type mem_fetch_interface;
 
-        type mem_fetch_status = crate::bindings::mem_fetch_status;
+        type mem_fetch = crate::bridge::mem_fetch::mem_fetch;
+        type mem_fetch_status = crate::bridge::mem_fetch::mem_fetch_status;
 
         #[must_use]
         fn new_read_only_cache(
@@ -44,4 +40,4 @@ mod default {
     }
 }
 
-pub use default::*;
+pub(super) use default::read_only_cache;

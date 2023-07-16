@@ -1180,6 +1180,7 @@ mod tests {
     use pretty_assertions_sorted as diff;
     use stats::ConvertHashMap;
     use std::collections::HashMap;
+    use std::io::Write;
     use std::path::PathBuf;
 
     #[test]
@@ -1203,26 +1204,64 @@ mod tests {
         let box_dur = start.elapsed();
 
         let start = std::time::Instant::now();
-        let play_stats = {
-            let mut args = vec![
-                "-trace",
-                kernelslist.as_os_str().to_str().unwrap(),
-                "-config",
-                gpgpusim_config.as_os_str().to_str().unwrap(),
-                "-config",
-                trace_config.as_os_str().to_str().unwrap(),
-                "-inter_config_file",
-                inter_config.as_os_str().to_str().unwrap(),
-            ];
-            dbg!(&args);
+        let mut args = vec![
+            "-trace",
+            kernelslist.as_os_str().to_str().unwrap(),
+            "-config",
+            gpgpusim_config.as_os_str().to_str().unwrap(),
+            "-config",
+            trace_config.as_os_str().to_str().unwrap(),
+            "-inter_config_file",
+            inter_config.as_os_str().to_str().unwrap(),
+        ];
+        dbg!(&args);
 
-            let config = playground::Config::default();
-            let mut accelsim = playground::Accelsim::new(&config, &args)?;
-            accelsim.run_to_completion();
-            let ref_stats = accelsim.stats().clone();
-            // let ref_stats = playground::run(&config, &args)?;
-            Ok::<_, eyre::Report>(ref_stats)
-        }?;
+        let config = playground::Config::default();
+        let mut sim = playground::Accelsim::new(&config, &args)?;
+
+        // iterate over sub partitions
+        // for sub in sim.sub_partitions() {
+        //     for fetch in sub.get_icnt_L2_queue().iter() {
+        //         println!("{:#?}", fetch.get_relative_addr());
+        //         println!("{:#?}", fetch.get_mem_access_type());
+        //         // println!("{:#?}", sub.get_icnt_L2_queue().collect());
+        //     }
+        // }
+
+        // accelsim.run_to_completion();
+        // let ref_stats = accelsim.stats().clone();
+        // let ref_stats = playground::run(&config, &args)?;
+        while sim.commands_left() || sim.kernels_left() {
+            sim.process_commands();
+            sim.launch_kernels();
+
+            let mut finished_kernel_uid: Option<u32> = None;
+            loop {
+                if !sim.active() {
+                    break;
+                }
+                sim.cycle();
+
+                finished_kernel_uid = sim.finished_kernel_uid();
+                if finished_kernel_uid.is_some() {
+                    break;
+                }
+            }
+
+            if let Some(uid) = finished_kernel_uid {
+                sim.cleanup_finished_kernel(uid);
+            }
+
+            if sim.limit_reached() {
+                println!(
+                    "GPGPU-Sim: ** break due to reaching the maximum cycles (or instructions) **"
+                );
+                std::io::stdout().flush()?;
+                break;
+            }
+        }
+
+        let play_stats = sim.stats().clone();
         let playground_dur = start.elapsed();
 
         // dbg!(&play_stats);
@@ -1232,7 +1271,6 @@ mod tests {
         dbg!(&box_dur);
 
         // compare stats here
-        dbg!(&box_stats.l1i_stats);
         diff::assert_eq!(
             &stats::PerCache(play_stats.l1i_stats.clone().convert()),
             &box_stats.l1i_stats
@@ -1259,18 +1297,19 @@ mod tests {
             playground::stats::Accesses::from(box_stats.accesses.clone())
         );
 
-        dbg!(&play_stats.accesses);
-        dbg!(&box_stats.accesses);
+        // dbg!(&play_stats.accesses);
+        // dbg!(&box_stats.accesses);
+        //
+        // dbg!(&play_stats.instructions);
+        // dbg!(&box_stats.instructions);
+        //
+        // dbg!(&play_stats.sim);
+        // dbg!(&box_stats.sim);
 
-        dbg!(&play_stats.instructions);
-        dbg!(&box_stats.instructions);
-
-        dbg!(&play_stats.sim);
-        dbg!(&box_stats.sim);
-
-        dbg!(&play_stats.dram);
         let box_dram_stats = playground::stats::DRAM::from(box_stats.dram.clone());
-        dbg!(&box_dram_stats);
+
+        // dbg!(&play_stats.dram);
+        // dbg!(&box_dram_stats);
 
         diff::assert_eq!(&play_stats.dram, &box_dram_stats);
 
