@@ -1,0 +1,5 @@
+# debug bindings
+bindings.rs
+
+# valgind logs
+valgrind*.txt

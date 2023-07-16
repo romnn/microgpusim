@@ -1,9 +1,0 @@
-# debug bindings
-bindings.rs
-
-# valgind logs
-valgrind*.txt
-
-# auto generated
-src/ref/intersim2/config.lex.*
-src/ref/intersim2/config.parser.*

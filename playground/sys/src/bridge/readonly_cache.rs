@@ -1,7 +1,7 @@
 #[cxx::bridge]
 mod default {
     unsafe extern "C++" {
-        include!("playground/src/bridge.hpp");
+        include!("playground-sys/src/bridge.hpp");
 
         type read_only_cache;
 

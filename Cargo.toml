@@ -3,6 +3,7 @@ members = [
   "validate",
   "profile",
   "playground",
+  "playground/sys",
   "stats",
   "accelsim",
   "accelsim/trace",

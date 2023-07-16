@@ -1,7 +1,7 @@
 #[cxx::bridge]
 mod default {
     unsafe extern "C++" {
-        include!("playground/src/bindings.hpp");
+        include!("playground-sys/src/bindings.hpp");
 
         type scheduler_unit;
         #[must_use]

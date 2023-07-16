@@ -25,6 +25,7 @@ fn enable_diagnostics_color(build: &mut cc::Build) {
 }
 
 #[allow(dead_code)]
+#[deprecated = "redundant when compiling the bridge"]
 fn build(sources: &[PathBuf]) -> eyre::Result<()> {
     let mut build = cc::Build::new();
     build
@@ -105,6 +106,7 @@ fn generate_bindings() -> eyre::Result<()> {
 }
 
 #[allow(dead_code)]
+#[deprecated = "invalidates build cache"]
 fn build_config_parser_in_source() -> eyre::Result<()> {
     let args = [
         "--header-file=./src/ref/intersim2/config.lex.h",
@@ -289,7 +291,6 @@ fn main() -> eyre::Result<()> {
         println!("cargo:rerun-if-changed=./src/bridge/");
         println!("cargo:rerun-if-changed=./src/bindings.hpp");
         println!("cargo:rerun-if-changed=./src/bridge.hpp");
-        println!("cargo:rerun-if-changed=src/ref");
         println!("cargo:rerun-if-changed=./src/ref/");
         println!("cargo:rerun-if-changed=./src/tests/");
 
@@ -302,7 +303,6 @@ fn main() -> eyre::Result<()> {
         == "yes"
     {
         // skip build
-        println!("cargo:rustc-link-lib=static=playground");
         println!("cargo:rustc-link-lib=static=playgroundbridge");
         println!("cargo:rustc-link-lib=static=playgroundbridgeparser");
         return Ok(());

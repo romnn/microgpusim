@@ -7,7 +7,7 @@ super::extern_type!(bindings::mem_fetch_status, "mem_fetch_status");
 #[cxx::bridge]
 mod default {
     unsafe extern "C++" {
-        include!("playground/src/bridge.hpp");
+        include!("playground-sys/src/bridge.hpp");
 
         type memory_config;
         type mf_type = crate::bindings::mf_type;

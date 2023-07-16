@@ -7,7 +7,7 @@
 #include "../trace_gpgpu_sim.hpp"
 #include "../memory_sub_partition.hpp"
 
-#include "playground/src/bridge/main.rs.h"
+#include "playground-sys/src/bridge/main.rs.h"
 
 #include "stats.hpp"
 #include "main.hpp"

@@ -5,7 +5,7 @@
 #[cxx::bridge]
 mod default {
     unsafe extern "C++" {
-        include!("playground/src/bridge.hpp");
+        include!("playground-sys/src/bridge.hpp");
 
         // type cache_config_params = crate::bindings::cache_config_params;
         type warp_inst_t;

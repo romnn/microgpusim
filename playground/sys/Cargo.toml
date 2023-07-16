@@ -1,0 +1,34 @@
+[package]
+name = "playground-sys"
+version = "0.1.0"
+edition = "2021"
+publish = false
+links = "playgroundbridge"
+exclude = [
+  # debug bindings file
+  "./bindings.rs"
+]
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+default = ["parallel"]
+parallel = ["cc/parallel"]
+
+[package.metadata.cargo-feature-combinations]
+denylist = ["default"]
+
+[dependencies]
+cxx = "1"
+stats = { path = "../../stats" }
+
+[build-dependencies]
+color-eyre = "0"
+bindgen = "0"
+glob = "0"
+cc = { version = "1", features = [] }
+cxx-build = "1"
+duct = "0"
+
+utils = { path = "../../utils" }

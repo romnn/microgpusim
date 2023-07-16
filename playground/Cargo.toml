@@ -3,43 +3,19 @@ name = "playground"
 version = "0.1.0"
 edition = "2021"
 publish = false
-exclude = [
-  # debug bindings file
-  "./bindings.rs"
-]
-
-[lib]
-crate-type = ["rlib"]
-
-[[bin]]
-name = "playground"
-path = "src/main.rs"
 
 [features]
-default = ["parallel"]
-parallel = ["cc/parallel"]
 
 [package.metadata.cargo-feature-combinations]
 denylist = ["default"]
 
 [dependencies]
 cxx = "1"
+thiserror = "1"
+playground-sys = { path = "./sys" }
+
+# for binary target
 color-eyre = "0"
 clap = { version = "4", features = [ "derive" ] }
-thiserror = "1"
-
 accelsim = { path = "../accelsim" }
 stats = { path = "../stats" }
-
-[dev-dependencies]
-pretty_assertions_sorted = "1"
-
-[build-dependencies]
-color-eyre = "0"
-bindgen = "0"
-glob = "0"
-cc = { version = "1", features = [] }
-cxx-build = "1"
-duct = "0"
-
-utils = { path = "../utils" }

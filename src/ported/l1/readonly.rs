@@ -194,7 +194,6 @@ fn select_status(
 mod tests {
     use super::ReadOnly;
     use crate::config::GPUConfig;
-    use playground::bridge::readonly_cache as accelsim;
 
     #[ignore = "todo"]
     #[test]

@@ -361,7 +361,6 @@ mod tests {
     use crate::config::GPUConfig;
     use color_eyre::eyre;
     use cxx::CxxString;
-    use playground::{bindings, bridge};
     use std::ffi::CString;
     use std::path::PathBuf;
     use std::pin::Pin;
@@ -369,7 +368,7 @@ mod tests {
 
     #[test]
     fn test_intersim_config() -> eyre::Result<()> {
-        use bridge::interconnect::IntersimConfig;
+        use playground::interconnect::IntersimConfig;
 
         let config_file = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("accelsim/gtx1080/config_fermi_islip.icnt");
@@ -386,7 +385,7 @@ mod tests {
 
     #[test]
     fn test_box_interconnect() -> eyre::Result<()> {
-        use bridge::interconnect::{BoxInterconnect, Interconnect};
+        use playground::interconnect::{BoxInterconnect, Interconnect};
 
         let config = GPUConfig::default();
         let num_clusters = config.num_simt_clusters;
@@ -439,7 +438,7 @@ mod tests {
     #[ignore = "race condition in interconnect"]
     #[test]
     fn test_interconnect_interface() -> eyre::Result<()> {
-        use bridge::interconnect::{Interconnect, InterconnectInterface};
+        use playground::interconnect::{Interconnect, InterconnectInterface};
 
         let config = GPUConfig::default();
         let num_clusters = config.num_simt_clusters;

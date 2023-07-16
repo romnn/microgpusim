@@ -816,7 +816,6 @@ mod tests {
         KernelInfo,
     };
     use itertools::Itertools;
-    use playground::{bindings, bridge};
     use std::collections::VecDeque;
     use std::path::PathBuf;
     use std::sync::{Arc, Mutex};

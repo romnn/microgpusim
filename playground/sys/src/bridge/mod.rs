@@ -24,5 +24,3 @@ macro_rules! extern_type {
 }
 
 pub(crate) use extern_type;
-
-pub use self::stats::StatsBridge as Stats;

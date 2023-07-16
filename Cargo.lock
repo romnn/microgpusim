@@ -2388,17 +2388,26 @@ name = "playground"
 version = "0.1.0"
 dependencies = [
  "accelsim",
- "bindgen 0.66.1",
- "cc",
  "clap",
+ "color-eyre",
+ "cxx",
+ "playground-sys",
+ "stats",
+ "thiserror",
+]
+
+[[package]]
+name = "playground-sys"
+version = "0.1.0"
+dependencies = [
+ "bindgen 0.61.0",
+ "cc",
  "color-eyre",
  "cxx",
  "cxx-build",
  "duct",
  "glob",
- "pretty_assertions_sorted",
  "stats",
- "thiserror",
  "utils",
 ]
 

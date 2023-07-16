@@ -407,7 +407,6 @@ impl std::hash::Hash for DecodedAddress {
 mod tests {
     use crate::config::GPUConfig;
     use color_eyre::eyre;
-    use playground::{bindings, bridge};
 
     macro_rules! diff_assert_all_eq (
         ($a:expr, $b:expr) => {
@@ -437,8 +436,8 @@ mod tests {
         }
     );
 
-    impl From<bridge::addrdec::AddrDec> for super::DecodedAddress {
-        fn from(addr: bridge::addrdec::AddrDec) -> Self {
+    impl From<playground::addrdec::AddrDec> for super::DecodedAddress {
+        fn from(addr: playground::addrdec::AddrDec) -> Self {
             Self {
                 chip: addr.chip as u64,
                 bk: addr.bk as u64,
@@ -463,7 +462,7 @@ mod tests {
     #[test]
     fn test_packbits() {
         use super::packbits;
-        use bridge::addrdec::packbits as ref_packbits;
+        use playground::addrdec::packbits as ref_packbits;
         assert_eq!(packbits(0, 0, 0, 64), ref_packbits(0, 0, 0, 64));
         assert_eq!(
             packbits(0, 0xFFFFFFFFFFFFFFFF, 0, 64),
@@ -485,7 +484,7 @@ mod tests {
 
     #[test]
     fn test_tlx() {
-        use bridge::addrdec::AddressTranslation;
+        use playground::addrdec::AddressTranslation;
         let config = GPUConfig::default();
         let mapping = config.address_mapping();
         let ref_mapping = AddressTranslation::new(
@@ -521,7 +520,7 @@ mod tests {
     #[test]
     fn test_mask_limit() {
         use super::mask_limit;
-        use bridge::addrdec::mask_limit as ref_mask_limit;
+        use playground::addrdec::mask_limit as ref_mask_limit;
         let mask = 0b0000000000000000000000000000000000000000000000000000000000000000;
         assert_all_eq!(mask_limit(mask), ref_mask_limit(mask), (0, 64));
         let mask = 0b0000000000000000000000000000000000000000000000000111000010000000;
@@ -536,30 +535,36 @@ mod tests {
 
     #[test]
     fn test_powli() {
-        assert_eq!(0i64.pow(0), bridge::addrdec::powli(0, 0));
-        assert_eq!(0i64.pow(2), bridge::addrdec::powli(0, 2));
-        assert_eq!(1i64.pow(1), bridge::addrdec::powli(1, 1));
-        assert_eq!(1i64.pow(3), bridge::addrdec::powli(1, 3));
-        assert_eq!(2i64.pow(3), bridge::addrdec::powli(2, 3));
+        assert_eq!(0i64.pow(0), playground::addrdec::powli(0, 0));
+        assert_eq!(0i64.pow(2), playground::addrdec::powli(0, 2));
+        assert_eq!(1i64.pow(1), playground::addrdec::powli(1, 1));
+        assert_eq!(1i64.pow(3), playground::addrdec::powli(1, 3));
+        assert_eq!(2i64.pow(3), playground::addrdec::powli(2, 3));
     }
 
     #[test]
     fn test_logb2() {
-        assert_eq!(super::logb2(0), bridge::addrdec::LOGB2_32(0));
-        assert_eq!(super::logb2(1), bridge::addrdec::LOGB2_32(1));
-        assert_eq!(super::logb2(2), bridge::addrdec::LOGB2_32(2));
-        assert_eq!(super::logb2(3), bridge::addrdec::LOGB2_32(3));
-        assert_eq!(super::logb2(40), bridge::addrdec::LOGB2_32(40));
-        assert_eq!(super::logb2(42), bridge::addrdec::LOGB2_32(42));
+        assert_eq!(super::logb2(0), playground::addrdec::LOGB2_32(0));
+        assert_eq!(super::logb2(1), playground::addrdec::LOGB2_32(1));
+        assert_eq!(super::logb2(2), playground::addrdec::LOGB2_32(2));
+        assert_eq!(super::logb2(3), playground::addrdec::LOGB2_32(3));
+        assert_eq!(super::logb2(40), playground::addrdec::LOGB2_32(40));
+        assert_eq!(super::logb2(42), playground::addrdec::LOGB2_32(42));
     }
 
     #[test]
     fn test_next_power2() {
-        assert_eq!(super::next_power2(0), bridge::addrdec::next_powerOf2(0));
-        assert_eq!(super::next_power2(1), bridge::addrdec::next_powerOf2(1));
-        assert_eq!(super::next_power2(2), bridge::addrdec::next_powerOf2(2));
-        assert_eq!(super::next_power2(3), bridge::addrdec::next_powerOf2(3));
-        assert_eq!(super::next_power2(40), bridge::addrdec::next_powerOf2(40));
-        assert_eq!(super::next_power2(42), bridge::addrdec::next_powerOf2(42));
+        assert_eq!(super::next_power2(0), playground::addrdec::next_powerOf2(0));
+        assert_eq!(super::next_power2(1), playground::addrdec::next_powerOf2(1));
+        assert_eq!(super::next_power2(2), playground::addrdec::next_powerOf2(2));
+        assert_eq!(super::next_power2(3), playground::addrdec::next_powerOf2(3));
+        assert_eq!(
+            super::next_power2(40),
+            playground::addrdec::next_powerOf2(40)
+        );
+        assert_eq!(
+            super::next_power2(42),
+            playground::addrdec::next_powerOf2(42)
+        );
     }
 }

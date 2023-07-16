@@ -5,7 +5,7 @@
 #include "accelsim_config.hpp"
 #include "accelsim_stats.hpp"
 #include "rust/cxx.h"
-#include "playground/src/bridge/stats.rs.h"
+#include "playground-sys/src/bridge/stats.rs.h"
 
 #include "./stats.hpp"
 #include "../trace_parser.hpp"
