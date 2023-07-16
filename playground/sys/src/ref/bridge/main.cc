@@ -182,22 +182,12 @@ accelsim_bridge::accelsim_bridge(accelsim_config config,
         m_gpgpu_sim->m_memory_sub_partition[i];
     sub_partitions.push_back(memory_sub_partition_bridge(sub_partition));
   }
+
+  for (unsigned i = 0; i < m_gpgpu_sim->m_memory_config->m_n_mem; i++) {
+    memory_partition_unit *partition = m_gpgpu_sim->m_memory_partition_unit[i];
+    partition_units.push_back(memory_partition_unit_bridge(partition));
+  }
 }
-
-// const memory_sub_partition *const *accelsim_bridge::get_sub_partitions()
-// const {
-//   const memory_sub_partition *const *test =
-//       const_cast<const memory_sub_partition *const *>(
-//           m_gpgpu_sim->m_memory_sub_partition);
-//   return test;
-// }
-
-// const rust::Vec<MemorySubPartitionShim> &
-// accelsim_bridge::get_sub_partitions_vec() const {
-// const std::rust::Vec<memory_sub_partition_shim> &
-// accelsim_bridge::get_sub_partitions_vec() const {
-//   return sub_partitions;
-// }
 
 void accelsim_bridge::process_commands() {
   // gulp up as many commands as possible - either cpu_gpu_mem_copy
@@ -321,7 +311,6 @@ void accelsim_bridge::run_to_completion() {
       if (finished_kernel_uid) break;
     } while (true);
 
-    // cleanup finished kernel
     cleanup_finished_kernel(finished_kernel_uid);
 
     if (m_gpgpu_sim->cycle_insn_cta_max_hit()) {

@@ -131,7 +131,8 @@ impl Cache {
         self.accesses.retain(|_, v| *v > 0);
     }
 
-    #[must_use] pub fn total_accesses(&self) -> usize {
+    #[must_use]
+    pub fn total_accesses(&self) -> usize {
         self.accesses.values().sum()
     }
 

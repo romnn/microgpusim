@@ -433,7 +433,6 @@ pub struct Allocation {
     id: usize,
     name: Option<String>,
     start_addr: address,
-    // range: std::ops::Range<u64>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
@@ -448,13 +447,8 @@ impl std::ops::Deref for Allocations {
 }
 
 impl Allocations {
-    // pub fn get(&self, addr: &address) -> Option<(&std::ops::Range<address>, &Allocation)> {
-    //     self.allocations.get_key_value(&addr)
-    // }
-
     pub fn insert(&mut self, range: std::ops::Range<address>, name: Option<String>) {
         // check for intersections
-        // for (range, _) in self.allocations.keys() {
         if self.0.overlaps(&range) {
             panic!("overlapping memory allocation {:?}", &range);
         }
@@ -467,7 +461,6 @@ impl Allocations {
                 // avoid joining of allocations using the id and range
                 id,
                 start_addr,
-                // range,
             },
         );
     }
@@ -1226,6 +1219,7 @@ mod tests {
     use crate::{
         config,
         ported::{fifo::Queue, interconn as ic},
+        Simulation,
     };
     use color_eyre::eyre;
     use pretty_assertions_sorted as diff;
@@ -1234,34 +1228,6 @@ mod tests {
     use std::io::Write;
     use std::path::PathBuf;
     use std::sync::Arc;
-
-    // #[macro_export]
-    // macro_rules! assert_eq_diff_display {
-    //     ($left:expr, $right:expr$(,)?) => ({
-    //         assert_eq_diff_display!(@ $left, $right, "", "");
-    //     });
-    //     ($left:expr, $right:expr, $($arg:tt)*) => ({
-    //         assert_eq_diff_display!(@ $left, $right, ": ", $($arg)+);
-    //     });
-    //     (@ $left:expr, $right:expr, $maybe_colon:expr, $($arg:tt)*) => ({
-    //         match (&($left), &($right)) {
-    //             (left_val, right_val) => {
-    //                 if !(*left_val == *right_val) {
-    //                     // use $crate::private::CreateComparison;
-    //                     ::core::panic!("assertion failed: `(left == right)`{}{}\
-    //                        \n\
-    //                        \n{}\
-    //                        \n",
-    //                        $maybe_colon,
-    //                        format_args!($($arg)*),
-    //                     "todo"
-    //                        // (left_val, right_val).create_comparison()
-    //                     )
-    //                 }
-    //             }
-    //         }
-    //     });
-    // }
 
     impl From<playground::mem_fetch::mf_type> for super::mem_fetch::Kind {
         fn from(kind: playground::mem_fetch::mf_type) -> Self {
@@ -1311,7 +1277,6 @@ mod tests {
             let addr = fetch.get_addr();
             let relative_addr = fetch.get_relative_addr();
             Self {
-                // addr,
                 kind: fetch.get_type().into(),
                 access_kind: fetch.get_access_type().into(),
                 relative_addr: if addr == relative_addr {
@@ -1327,7 +1292,6 @@ mod tests {
         fn from(fetch: super::mem_fetch::MemFetch) -> Self {
             let addr = fetch.addr();
             Self {
-                // addr,
                 kind: fetch.kind,
                 access_kind: *fetch.access_kind(),
                 relative_addr: match fetch.access.allocation {
@@ -1338,31 +1302,28 @@ mod tests {
         }
     }
 
-    // impl<'a> PartialEq<playground::MemFetch<'a>> for super::mem_fetch::MemFetch {
-    //     fn eq(&self, other: &playground::MemFetch<'a>) -> bool {
-    //         // compare type (reply/request) and access type (e.g. global/local etc)
-    //         if self.kind != other.get_type().into()
-    //             || *self.access_kind() != other.get_access_type().into()
-    //         {
-    //             return false;
-    //         }
-    //
-    //         if let Some(allocation) = &self.access.allocation {
-    //             if allocation.start_addr != other.get_alloc_start_addr()
-    //                 || allocation.id != other.get_alloc_id() as usize
-    //                 || self.addr() - allocation.start_addr != other.get_relative_addr()
-    //             {
-    //                 return false;
-    //             }
-    //         } else {
-    //             if self.addr() != other.get_addr() {
-    //                 return false;
-    //             }
-    //             // compare just the address
-    //         }
-    //         true
-    //     }
-    // }
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+    pub struct SimulationState {
+        interconn_to_l2_queue: Vec<Vec<MemFetchKey>>,
+        l2_to_interconn_queue: Vec<Vec<MemFetchKey>>,
+        l2_to_dram_queue: Vec<Vec<MemFetchKey>>,
+        dram_to_l2_queue: Vec<Vec<MemFetchKey>>,
+        dram_latency_queue: Vec<Vec<MemFetchKey>>,
+    }
+
+    impl SimulationState {
+        pub fn new(num_mem_partitions: usize, num_sub_partitions: usize) -> Self {
+            Self {
+                // per sub partition
+                interconn_to_l2_queue: vec![vec![]; num_sub_partitions],
+                l2_to_interconn_queue: vec![vec![]; num_sub_partitions],
+                l2_to_dram_queue: vec![vec![]; num_sub_partitions],
+                dram_to_l2_queue: vec![vec![]; num_sub_partitions],
+                // per partition
+                dram_latency_queue: vec![vec![]; num_mem_partitions],
+            }
+        }
+    }
 
     #[test]
     fn test_vectoradd() -> eyre::Result<()> {
@@ -1421,34 +1382,6 @@ mod tests {
         let play_config = playground::Config::default();
         let mut play_sim = playground::Accelsim::new(&play_config, &args)?;
 
-        // let mut cycle: u64 = 0;
-        // while self.commands_left() || self.kernels_left() {
-        //     self.process_commands();
-        //     self.lauch_kernels();
-        //
-        //     loop {
-        //         println!("\n======== cycle {cycle} ========\n");
-        //
-        //         if self.reached_limit(cycle) || !self.active() {
-        //             break;
-        //         }
-        //
-        //         cycle += 1;
-        //         self.set_cycle(cycle);
-        //         self.cycle();
-        //     }
-        //
-        //     // TODO:
-        //     // self.cleanup_finished_kernel(finished_kernel_uid);
-        //
-        //     println!("exit after {cycle} cycles");
-        //     dbg!(self.commands_left());
-        //     dbg!(self.kernels_left());
-        //
-        //     // since we are not yet cleaning up launched kernels, we break here
-        //     break;
-        // }
-
         // accelsim.run_to_completion();
         // let ref_stats = accelsim.stats().clone();
         // let ref_stats = playground::run(&config, &args)?;
@@ -1472,70 +1405,71 @@ mod tests {
                 box_sim.cycle();
 
                 // iterate over sub partitions
-                let mut box_interconn_to_l2_queue: Vec<Vec<MemFetchKey>> =
-                    vec![vec![]; box_sim.mem_sub_partitions.len()];
+                let num_partitions = box_sim.mem_partition_units.len();
+                let num_sub_partitions = box_sim.mem_sub_partitions.len();
+                let mut box_sim_state: SimulationState =
+                    SimulationState::new(num_partitions, num_sub_partitions);
+                for (partition_id, partition) in box_sim.mem_partition_units.iter().enumerate() {
+                    box_sim_state.dram_latency_queue[partition_id].extend(
+                        partition
+                            .dram_latency_queue
+                            .clone()
+                            .into_iter()
+                            .map(Into::into),
+                    );
+                }
                 for (sub_id, sub) in box_sim.mem_sub_partitions.iter().enumerate() {
-                    box_interconn_to_l2_queue[sub_id].extend(
+                    box_sim_state.interconn_to_l2_queue[sub_id].extend(
                         sub.borrow()
                             .interconn_to_l2_queue
                             .clone()
                             .into_iter()
                             .map(Into::into),
                     );
-                    // for (fetch_num, fetch) in sub.borrow().interconn_to_l2_queue.iter().enumerate()
-                    // {
-                    // }
+                    box_sim_state.l2_to_interconn_queue[sub_id].extend(
+                        sub.borrow()
+                            .l2_to_interconn_queue
+                            .clone()
+                            .into_iter()
+                            .map(Into::into),
+                    );
+                    box_sim_state.l2_to_dram_queue[sub_id].extend(
+                        sub.borrow()
+                            .l2_to_dram_queue
+                            .lock()
+                            .unwrap()
+                            .clone()
+                            .into_iter()
+                            .map(Into::into),
+                    );
+                    box_sim_state.dram_to_l2_queue[sub_id].extend(
+                        sub.borrow()
+                            .dram_to_l2_queue
+                            .clone()
+                            .into_iter()
+                            .map(Into::into),
+                    );
                 }
 
-                let mut play_interconn_to_l2_queue: Vec<Vec<MemFetchKey>> =
-                    vec![vec![]; box_sim.mem_sub_partitions.len()];
+                let mut play_sim_state: SimulationState =
+                    SimulationState::new(num_partitions, num_sub_partitions);
+                for (partition_id, partition) in play_sim.partition_units().enumerate() {
+                    play_sim_state.dram_latency_queue[partition_id]
+                        .extend(partition.dram_latency_queue().into_iter().map(Into::into));
+                }
                 for (sub_id, sub) in play_sim.sub_partitions().enumerate() {
-                    // play_interconn_to_l2_queue[sub_id].extend(sub.get_icnt_L2_queue().iter().map(
-                    //     |b| playground::MemFetch {
-                    //         ptr: b.get_mem_fetch(),
-                    //         phantom: std::marker::PhantomData,
-                    //     },
-                    // ));
-                    //
-                    // MemFetch(b.get_mem_fetch())));
-
-                    play_interconn_to_l2_queue[sub_id]
+                    play_sim_state.interconn_to_l2_queue[sub_id]
                         .extend(sub.interconn_to_l2_queue().into_iter().map(Into::into));
-
-                    // for (fetch_num, fetch) in sub.interconn_to_l2_queue().iter().enumerate() {
-                    // println!(
-                    //     "cycle {:>3} sub {:>2} fetch {:>2} address {:>3} {:>15} {:>10}",
-                    //     cycle,
-                    //     sub_id,
-                    //     fetch_num,
-                    //     fetch.get_alloc_id(),
-                    //     fetch.get_addr(),
-                    //     fetch.get_relative_addr()
-                    // );
-                    // println!("fetch address {:?}", fetch.get_addr());
-                    // println!("fetch relative address {:?}", fetch.get_relative_addr());
-                    // println!("fetch alloc id {:?}", fetch.get_alloc_id());
-                    // }
+                    play_sim_state.l2_to_interconn_queue[sub_id]
+                        .extend(sub.l2_to_interconn_queue().into_iter().map(Into::into));
+                    play_sim_state.dram_to_l2_queue[sub_id]
+                        .extend(sub.dram_to_l2_queue().into_iter().map(Into::into));
+                    play_sim_state.l2_to_dram_queue[sub_id]
+                        .extend(sub.l2_to_dram_queue().into_iter().map(Into::into));
                 }
 
-                // todo: instead of that, and instead of writing a custom partial eq,
-                // better to write a comparison key that implements debug and can be used with
-                // diff::assert_eq out of the box lol
-                // let box_interconn_to_l2_queue: Vec<Vec<String>> = box_interconn_to_l2_queue
-                //     .into_iter()
-                //     .map(|v| v.into_iter().map(|f| f.to_string()).collect())
-                //     .collect();
-                // let play_interconn_to_l2_queue: Vec<Vec<String>> = play_interconn_to_l2_queue
-                //     .into_iter()
-                //     .map(|v| v.into_iter().map(|f| f.to_string()).collect())
-                //     .collect();
-                //
-                // dbg!(&box_interconn_to_l2_queue);
-                // dbg!(&play_interconn_to_l2_queue);
-                // diff::assert_eq!(&box_interconn_to_l2_queue, &play_interconn_to_l2_queue);
-                diff::assert_eq!(&box_interconn_to_l2_queue, &play_interconn_to_l2_queue);
-                // assert_eq_diff_display!(&box_interconn_to_l2_queue, &play_interconn_to_l2_queue);
-                // diff::assert_eq!(&play_interconn_to_l2_queue, &box_interconn_to_l2_queue);
+                dbg!(&cycle);
+                diff::assert_eq!(&box_sim_state, &play_sim_state);
 
                 finished_kernel_uid = play_sim.finished_kernel_uid();
                 if finished_kernel_uid.is_some() {

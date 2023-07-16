@@ -65,6 +65,8 @@ class memory_partition_unit {
 
   std::list<dram_delay_t> m_dram_latency_queue;
 
+  friend class memory_partition_unit_bridge;
+
  private:
   unsigned m_id;
   const memory_config *m_config;

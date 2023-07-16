@@ -1,3 +1,8 @@
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::missing_safety_doc
+)]
 #![allow(warnings)]
 
 pub mod addrdec;
@@ -26,7 +31,6 @@ impl Default for Config {
 #[derive(Clone)]
 #[repr(transparent)]
 pub struct MemFetch<'a> {
-    // ptr: *const playground_sys::main::mem_fetch_bridge,
     ptr: *const playground_sys::mem_fetch::mem_fetch,
     phantom: std::marker::PhantomData<&'a ()>,
 }
@@ -37,50 +41,36 @@ impl<'a> AsRef<playground_sys::mem_fetch::mem_fetch> for MemFetch<'a> {
     }
 }
 
-// impl<'a> std::fmt::Display for MemFetch<'a> {
-//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-//         if self.is_reply() {
-//             write!(f, "Reply")?
-//         } else {
-//             write!(f, "Req")?
-//         }
-//         let addr = self.get_addr();
-//         let relative_addr = self.get_relative_addr();
-//         let access_type = self.get_access_type();
-//         if addr == relative_addr {
-//             write!(f, "({:?}@{})", access_type, addr)
-//         } else {
-//             let alloc_id = self.get_alloc_id();
-//             let alloc_id = self.get_alloc_id();
-//             write!(f, "({:?}@{}+{})", access_type, alloc_id, relative_addr)
-//         }
-//     }
-// }
-
-// impl<'a> MemFetch<'a> {
-// pub fn as_ref(&self) -> &playground_sys::main::mem_fetch_bridge {
-//     unsafe { &*self.ptr as &_ }
-// }
-
-// pub fn mem_fetch(&self) -> &playground_sys::mem_fetch::mem_fetch {
-//     unsafe { &*self.ptr as &_ }
-// }
-// }
-
-// impl std::ops::Deref
 impl<'a> std::ops::Deref for MemFetch<'a> {
     type Target = playground_sys::mem_fetch::mem_fetch;
 
     fn deref(&self) -> &'a Self::Target {
         unsafe { &*self.ptr as &_ }
-        // unsafe { &*self.as_ref().get_mem_fetch() as &_ }
-        // &unsafe { *self.ptr.as_ref().unwrap().get_mem_fetch().cast_const() }
-        // &unsafe { *self.ptr.as_ref().unwrap().get_mem_fetch().cast_const() }
     }
 }
 
-// pub struct MemFetch(*mut playground_sys::mem_fetch::mem_fetch);
-// pub struct MemFetch<'a>(&'a playground_sys::main::mem_fetch_bridge);
+fn get_queue<'a>(
+    queue: &cxx::UniquePtr<cxx::CxxVector<playground_sys::main::mem_fetch_bridge>>,
+) -> Vec<MemFetch<'a>> {
+    queue
+        .into_iter()
+        .map(|fetch| MemFetch {
+            ptr: fetch.get_mem_fetch(),
+            phantom: std::marker::PhantomData,
+        })
+        .collect()
+}
+
+#[derive()]
+#[repr(transparent)]
+pub struct MemoryPartitionUnit<'a>(&'a playground_sys::main::memory_partition_unit_bridge);
+
+impl<'a> MemoryPartitionUnit<'a> {
+    #[must_use]
+    pub fn dram_latency_queue(&self) -> Vec<MemFetch<'a>> {
+        get_queue(&self.0.get_dram_latency_queue())
+    }
+}
 
 #[derive()]
 #[repr(transparent)]
@@ -89,28 +79,30 @@ pub struct MemorySubPartition<'a>(&'a playground_sys::main::memory_sub_partition
 impl<'a> MemorySubPartition<'a> {
     #[must_use]
     pub fn interconn_to_l2_queue(&self) -> Vec<MemFetch<'a>> {
-        let queue = self.0.get_icnt_L2_queue();
-        queue
-            .into_iter()
-            .map(|fetch| MemFetch {
-                ptr: fetch.get_mem_fetch(),
-                phantom: std::marker::PhantomData,
-            })
-            .collect()
+        get_queue(&self.0.get_icnt_L2_queue())
+    }
+    #[must_use]
+    pub fn l2_to_interconn_queue(&self) -> Vec<MemFetch<'a>> {
+        get_queue(&self.0.get_L2_icnt_queue())
+    }
+    #[must_use]
+    pub fn dram_to_l2_queue(&self) -> Vec<MemFetch<'a>> {
+        get_queue(&self.0.get_dram_L2_queue())
+    }
+    #[must_use]
+    pub fn l2_to_dram_queue(&self) -> Vec<MemFetch<'a>> {
+        get_queue(&self.0.get_L2_dram_queue())
     }
 }
 
 #[derive()]
 pub struct Accelsim<'a> {
-    // pub struct Accelsim {
     inner: cxx::UniquePtr<playground_sys::main::accelsim_bridge>,
     stats: crate::stats::Stats,
     phantom: std::marker::PhantomData<&'a playground_sys::main::accelsim_bridge>,
-    // pub sub_partitions: Vec<MemorySubPartition<'a>>,
 }
 
 impl<'a> Accelsim<'a> {
-    // impl Accelsim {
     pub fn new(config: &Config, args: &[&str]) -> Result<Self, Error> {
         let exe = std::env::current_exe()?;
         let mut ffi_argv: Vec<&str> = vec![exe.as_os_str().to_str().unwrap()];
@@ -119,30 +111,12 @@ impl<'a> Accelsim<'a> {
         let mut accelsim_bridge =
             playground_sys::main::new_accelsim_bridge(config.0, ffi_argv.as_slice());
 
-        // let sub_partitions = accelsim_bridge
-        //     .get_sub_partitions_vec()
-        //     .into_iter()
-        //     .map(MemorySubPartition)
-        //     .collect();
-
         Ok(Self {
             inner: accelsim_bridge,
             stats: crate::stats::Stats::default(),
             phantom: std::marker::PhantomData,
-            // sub_partitions,
         })
     }
-
-    // todo
-    // pub fn sub_partitions(&mut self) -> &Vec<MemorySubPartitionShim> {
-    // pub fn sub_partitions(&mut self) -> impl Iterator<Item = &memory_sub_partition_bridge> {
-    // pub fn sub_partitions(&'a self) -> impl Iterator<Item = MemorySubPartition<'a>> + '_ {
-    //     self.inner
-    //         .get_sub_partitions_vec()
-    //         .iter()
-    //         .map(MemorySubPartition)
-    //     // .map(|bridge| MemorySubPartition(*bridge.get()))
-    // }
 
     pub fn sub_partitions(&'a self) -> impl Iterator<Item = MemorySubPartition<'a>> + '_ {
         self.inner
@@ -151,12 +125,12 @@ impl<'a> Accelsim<'a> {
             .map(MemorySubPartition)
     }
 
-    // works
-    // pub fn sub_partitions(
-    //     &'a self,
-    // ) -> impl Iterator<Item = &'a playground_sys::main::memory_sub_partition_bridge> + '_ {
-    //     self.inner.get_sub_partitions_vec().iter()
-    // }
+    pub fn partition_units(&'a self) -> impl Iterator<Item = MemoryPartitionUnit<'a>> + '_ {
+        self.inner
+            .get_partition_units_vec()
+            .iter()
+            .map(MemoryPartitionUnit)
+    }
 
     pub fn run_to_completion(&mut self) {
         self.inner.pin_mut().run_to_completion();

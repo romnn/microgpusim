@@ -1,6 +1,7 @@
 #pragma once
 
-#include <utility>
+// #include <utility>
+#include <list>
 
 #include "accelsim_config.hpp"
 #include "accelsim_stats.hpp"
@@ -12,16 +13,9 @@
 #include "../trace_config.hpp"
 #include "../trace_command.hpp"
 #include "../trace_kernel_info.hpp"
+#include "../memory_partition_unit.hpp"
 #include "../memory_sub_partition.hpp"
 #include "../trace_gpgpu_sim.hpp"
-
-// struct SharedMemorySubPartition;
-// struct MemorySubPartitionShim;
-
-// fifo_pipeline<mem_fetch> *m_icnt_L2_queue;
-// fifo_pipeline<mem_fetch> *m_L2_dram_queue;
-// fifo_pipeline<mem_fetch> *m_dram_L2_queue;
-// fifo_pipeline<mem_fetch> *m_L2_icnt_queue;  // L2 cache hit response queue
 
 class mem_fetch_bridge {
  public:
@@ -33,37 +27,53 @@ class mem_fetch_bridge {
   class mem_fetch *ptr;
 };
 
+class memory_partition_unit_bridge {
+ public:
+  memory_partition_unit_bridge(memory_partition_unit *ptr) : ptr(ptr) {}
+
+  std::unique_ptr<std::vector<mem_fetch_bridge>> get_dram_latency_queue()
+      const {
+    std::vector<mem_fetch_bridge> q;
+    std::list<memory_partition_unit::dram_delay_t>::const_iterator iter;
+    for (iter = (ptr->m_dram_latency_queue).begin();
+         iter != (ptr->m_dram_latency_queue).end(); iter++) {
+      q.push_back(mem_fetch_bridge(iter->req));
+    }
+    return std::make_unique<std::vector<mem_fetch_bridge>>(q);
+  }
+
+ private:
+  class memory_partition_unit *ptr;
+};
+
 class memory_sub_partition_bridge {
  public:
   memory_sub_partition_bridge(memory_sub_partition *ptr) : ptr(ptr) {}
 
-  // std::vector<mem_fetch *> get_icnt_L2_queue() const {
-  //   return ptr->m_icnt_L2_queue->to_vector();
-  // }
-
-  // std::vector<mem_fetch_bridge> get_icnt_L2_queue() const {
-  std::unique_ptr<std::vector<mem_fetch_bridge>> get_icnt_L2_queue() const {
-    // rust::Vec<mem_fetch_bridge> get_icnt_L2_queue() const {
-    fifo_pipeline<mem_fetch> *fifo = ptr->m_icnt_L2_queue;
-    // std::vector<mem_fetch_bridge> q;
+  std::unique_ptr<std::vector<mem_fetch_bridge>> get_queue(
+      fifo_pipeline<mem_fetch> *fifo) const {
     std::vector<mem_fetch_bridge> q;
-    // std::unique_ptr<std::vector<mem_fetch_bridge>> q;
-    // rust::Vec<mem_fetch_bridge> q;
     if (fifo != NULL) {
-      // return std::unique_ptr<std::vector<mem_fetch_bridge>>(q);
-      // return std::make_unique<std::vector<mem_fetch_bridge>>(q);
-      // return q;
       fifo_data<mem_fetch> *ddp = fifo->m_head;
       while (ddp) {
-        // q.push_back(mem_fetch_bridge{ddp->m_data});
-        // q.get()->push_back(mem_fetch_bridge(ddp->m_data));
         q.push_back(mem_fetch_bridge(ddp->m_data));
         ddp = ddp->m_next;
       }
     }
-    // return q;
     return std::make_unique<std::vector<mem_fetch_bridge>>(q);
-    // return std::unique_ptr<std::vector<mem_fetch_bridge>>(q);
+  }
+
+  std::unique_ptr<std::vector<mem_fetch_bridge>> get_icnt_L2_queue() const {
+    return get_queue(ptr->m_icnt_L2_queue);
+  }
+  std::unique_ptr<std::vector<mem_fetch_bridge>> get_L2_dram_queue() const {
+    return get_queue(ptr->m_L2_dram_queue);
+  }
+  std::unique_ptr<std::vector<mem_fetch_bridge>> get_dram_L2_queue() const {
+    return get_queue(ptr->m_dram_L2_queue);
+  }
+  std::unique_ptr<std::vector<mem_fetch_bridge>> get_L2_icnt_queue() const {
+    return get_queue(ptr->m_L2_icnt_queue);
   }
 
  private:
@@ -95,14 +105,14 @@ class accelsim_bridge {
   void transfer_core_cache_stats(StatsBridge &stats) const;
   void transfer_l2d_stats(StatsBridge &stats) const;
 
-  const memory_sub_partition *const *get_sub_partitions() const {
-    return const_cast<const memory_sub_partition *const *>(
-        m_gpgpu_sim->m_memory_sub_partition);
-  }
-  // const rust::Vec<MemorySubPartitionShim> &get_sub_partitions_vec() const;
   const std::vector<memory_sub_partition_bridge> &get_sub_partitions_vec()
       const {
     return sub_partitions;
+  }
+
+  const std::vector<memory_partition_unit_bridge> &get_partition_units_vec()
+      const {
+    return partition_units;
   }
 
  private:
@@ -120,9 +130,8 @@ class accelsim_bridge {
   bool silent;
 
   // for handing out references to components
-  // rust::Vec<MemorySubPartitionShim> sub_partitions;
-  // rust::Vec<memory_sub_partition_shim> sub_partitions;
   std::vector<memory_sub_partition_bridge> sub_partitions;
+  std::vector<memory_partition_unit_bridge> partition_units;
 };
 
 std::unique_ptr<accelsim_bridge> new_accelsim_bridge(

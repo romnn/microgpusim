@@ -60,6 +60,7 @@ pub struct Sim {
     pub instructions: u64,
 }
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone, Default)]
 pub struct StatsBridge {
     pub accesses: Accesses,

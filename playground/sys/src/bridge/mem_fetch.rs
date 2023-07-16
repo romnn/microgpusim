@@ -19,30 +19,30 @@ mod default {
 
         type mem_fetch;
 
-        fn is_reply(self: &mem_fetch) -> bool;
-        fn get_data_size(self: &mem_fetch) -> u32;
-        fn get_ctrl_size(self: &mem_fetch) -> u32;
-        fn size(self: &mem_fetch) -> u32;
-        fn is_write(self: &mem_fetch) -> bool;
-        fn get_addr(self: &mem_fetch) -> u64;
-        fn get_relative_addr(self: &mem_fetch) -> u64;
-        fn get_alloc_start_addr(self: &mem_fetch) -> u64;
-        fn get_alloc_id(self: &mem_fetch) -> u32;
-        fn get_access_size(self: &mem_fetch) -> u32;
-        fn get_partition_addr(self: &mem_fetch) -> u64;
-        fn get_sub_partition_id(self: &mem_fetch) -> u32;
-        fn get_is_write(self: &mem_fetch) -> bool;
-        fn get_request_uid(self: &mem_fetch) -> u32;
-        fn get_sid(self: &mem_fetch) -> u32;
-        fn get_tpc(self: &mem_fetch) -> u32;
-        fn get_wid(self: &mem_fetch) -> u32;
-        fn istexture(self: &mem_fetch) -> bool;
-        fn isconst(self: &mem_fetch) -> bool;
-        fn isatomic(self: &mem_fetch) -> bool;
-        fn get_type(self: &mem_fetch) -> mf_type;
-        fn get_access_type(self: &mem_fetch) -> mem_access_type;
-        fn get_pc(self: &mem_fetch) -> u64;
-        fn get_status(self: &mem_fetch) -> mem_fetch_status;
+        #[must_use] fn is_reply(self: &mem_fetch) -> bool;
+        #[must_use] fn get_data_size(self: &mem_fetch) -> u32;
+        #[must_use] fn get_ctrl_size(self: &mem_fetch) -> u32;
+        #[must_use] fn size(self: &mem_fetch) -> u32;
+        #[must_use] fn is_write(self: &mem_fetch) -> bool;
+        #[must_use] fn get_addr(self: &mem_fetch) -> u64;
+        #[must_use] fn get_relative_addr(self: &mem_fetch) -> u64;
+        #[must_use] fn get_alloc_start_addr(self: &mem_fetch) -> u64;
+        #[must_use] fn get_alloc_id(self: &mem_fetch) -> u32;
+        #[must_use] fn get_access_size(self: &mem_fetch) -> u32;
+        #[must_use] fn get_partition_addr(self: &mem_fetch) -> u64;
+        #[must_use] fn get_sub_partition_id(self: &mem_fetch) -> u32;
+        #[must_use] fn get_is_write(self: &mem_fetch) -> bool;
+        #[must_use] fn get_request_uid(self: &mem_fetch) -> u32;
+        #[must_use] fn get_sid(self: &mem_fetch) -> u32;
+        #[must_use] fn get_tpc(self: &mem_fetch) -> u32;
+        #[must_use] fn get_wid(self: &mem_fetch) -> u32;
+        #[must_use] fn istexture(self: &mem_fetch) -> bool;
+        #[must_use] fn isconst(self: &mem_fetch) -> bool;
+        #[must_use] fn isatomic(self: &mem_fetch) -> bool;
+        #[must_use] fn get_type(self: &mem_fetch) -> mf_type;
+        #[must_use] fn get_access_type(self: &mem_fetch) -> mem_access_type;
+        #[must_use] fn get_pc(self: &mem_fetch) -> u64;
+        #[must_use] fn get_status(self: &mem_fetch) -> mem_fetch_status;
         //
         // unsafe fn new_mem_fetch(
         //     ctrl_size: u32,
