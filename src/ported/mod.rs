@@ -5,6 +5,7 @@ pub mod cache_block;
 pub mod cluster;
 pub mod core;
 pub mod dram;
+pub mod fifo;
 pub mod instruction;
 pub mod interconn;
 pub mod l1;
@@ -27,6 +28,7 @@ pub mod utils;
 use self::cluster::*;
 use self::core::*;
 use addrdec::*;
+use fifo::Queue;
 use interconn as ic;
 use ldst_unit::*;
 use mem_fetch::*;
@@ -481,7 +483,7 @@ pub struct MockSimulator<I> {
     mem_partition_units: Vec<MemoryPartitionUnit>,
     // Vec<MemoryPartitionUnit<ic::L2Interface<I, FifoQueue<mem_fetch::MemFetch>>>>,
     // mem_sub_partitions: Vec<Rc<RefCell<MemorySubPartition<ic::L2Interface<Packet>>>>>,
-    mem_sub_partitions: Vec<Rc<RefCell<MemorySubPartition<FifoQueue<mem_fetch::MemFetch>>>>>,
+    mem_sub_partitions: Vec<Rc<RefCell<MemorySubPartition<fifo::FifoQueue<mem_fetch::MemFetch>>>>>,
     // mem_sub_partitions: Vec<Rc<RefCell<MemorySubPartition<I>>>>,
     running_kernels: Vec<Option<Arc<KernelInfo>>>,
     executed_kernels: Mutex<HashMap<usize, String>>,
@@ -492,9 +494,17 @@ pub struct MockSimulator<I> {
 
     last_cluster_issue: usize,
     last_issued_kernel: usize,
-    pub allocations: Rc<RefCell<Allocations>>,
+    allocations: Rc<RefCell<Allocations>>,
 
+    // for main run loop
     cycle: Cycle,
+    traces_dir: PathBuf,
+    commands: Vec<Command>,
+    command_idx: usize,
+    kernels: VecDeque<Arc<KernelInfo>>,
+    kernel_window_size: usize,
+    busy_streams: VecDeque<u64>,
+    cycle_limit: Option<u64>,
     // gpu_stall_icnt2sh: usize,
     // partition_replies_in_parallel: usize,
 }
@@ -542,7 +552,12 @@ where
     I: ic::Interconnect<core::Packet> + 'static,
 {
     // see new trace_gpgpu_sim
-    pub fn new(interconn: Arc<I>, config: Arc<config::GPUConfig>) -> Self {
+    pub fn new(
+        interconn: Arc<I>,
+        config: Arc<config::GPUConfig>,
+        traces_dir: impl AsRef<Path>,
+    ) -> Self {
+        let traces_dir = traces_dir.as_ref();
         let stats = Arc::new(Mutex::new(Stats::from_config(&*config)));
 
         let num_mem_units = config.num_mem_units;
@@ -587,6 +602,31 @@ where
 
         let executed_kernels = Mutex::new(HashMap::new());
 
+        assert!(config.max_threads_per_core.rem_euclid(config.warp_size) == 0);
+        let max_warps_per_shader = config.max_threads_per_core / config.warp_size;
+
+        let window_size = if config.concurrent_kernel_sm {
+            config.max_concurrent_kernels
+        } else {
+            1
+        };
+        assert!(window_size > 0);
+
+        let command_traces_path = traces_dir.join("commands.json");
+        let mut commands: Vec<Command> = parse_commands(&command_traces_path).unwrap();
+
+        // todo: make this a hashset?
+        let mut busy_streams: VecDeque<u64> = VecDeque::new();
+        let mut kernels: VecDeque<Arc<KernelInfo>> = VecDeque::new();
+        kernels.reserve_exact(window_size);
+
+        let cycle_limit: Option<u64> = std::env::var("CYCLES")
+            .ok()
+            .as_deref()
+            .map(str::parse)
+            .map(Result::ok)
+            .flatten();
+
         Self {
             config,
             stats,
@@ -598,10 +638,15 @@ where
             clusters,
             last_cluster_issue: 0,
             last_issued_kernel: 0,
-            cycle,
             allocations,
-            // gpu_stall_icnt2sh: 0,
-            // partition_replies_in_parallel: 0,
+            cycle,
+            traces_dir: traces_dir.to_path_buf(),
+            commands,
+            command_idx: 0,
+            kernels,
+            kernel_window_size: window_size,
+            busy_streams,
+            cycle_limit,
         }
     }
 
@@ -733,6 +778,8 @@ where
     // }
 
     pub fn set_cycle(&self, cycle: u64) {
+        let mut stats = self.stats.lock().unwrap();
+        stats.sim.cycles = cycle;
         self.cycle.set(cycle)
     }
 
@@ -957,6 +1004,127 @@ where
             }
         }
     }
+
+    pub fn stats(&self) -> Stats {
+        let mut stats: Stats = self.stats.lock().unwrap().clone();
+
+        for cluster in &self.clusters {
+            for core in cluster.cores.lock().unwrap().iter() {
+                let core_id = core.inner.core_id;
+                stats.l1i_stats.insert(
+                    core_id,
+                    core.inner.instr_l1_cache.stats().lock().unwrap().clone(),
+                );
+                let ldst_unit = &core.inner.load_store_unit.lock().unwrap();
+                let data_l1 = ldst_unit.data_l1.as_ref().unwrap();
+                stats
+                    .l1d_stats
+                    .insert(core_id, data_l1.stats().lock().unwrap().clone());
+                stats.l1c_stats.insert(core_id, stats::Cache::default());
+                stats.l1t_stats.insert(core_id, stats::Cache::default());
+            }
+        }
+
+        for sub in &self.mem_sub_partitions {
+            let sub: &MemorySubPartition = &sub.as_ref().borrow();
+            let l2_cache = sub.l2_cache.as_ref().unwrap();
+            stats
+                .l2d_stats
+                .insert(sub.id, l2_cache.stats().lock().unwrap().clone());
+        }
+        stats
+    }
+
+    /// Process commands
+    ///
+    /// Take as many commands as possible until we have collected as many kernels to fill
+    /// the window_size or processed every command.
+    pub fn process_commands(&mut self) {
+        while self.kernels.len() < self.kernel_window_size && self.command_idx < self.commands.len()
+        {
+            let cmd = &self.commands[self.command_idx];
+            match cmd {
+                Command::MemcpyHtoD {
+                    allocation_name,
+                    dest_device_addr,
+                    num_bytes,
+                } => self.memcopy_to_gpu(*dest_device_addr, *num_bytes, allocation_name.clone()),
+                Command::KernelLaunch(launch) => {
+                    let kernel = KernelInfo::from_trace(&self.traces_dir, launch.clone());
+                    self.kernels.push_back(Arc::new(kernel));
+                }
+            }
+            self.command_idx += 1;
+        }
+    }
+
+    /// Lauch more kernels if possible.
+    ///
+    /// Launch all kernels within window that are on a stream that isn't already running
+    pub fn lauch_kernels(&mut self) {
+        let mut launch_queue: Vec<Arc<KernelInfo>> = Vec::new();
+        for kernel in &self.kernels {
+            let stream_busy = self
+                .busy_streams
+                .iter()
+                .any(|stream_id| *stream_id == kernel.config.stream_id);
+            if !stream_busy && self.can_start_kernel() && !kernel.was_launched() {
+                self.busy_streams.push_back(kernel.config.stream_id);
+                launch_queue.push(kernel.clone());
+            }
+        }
+
+        for kernel in launch_queue {
+            println!("launching kernel {:#?}", kernel.name());
+            self.launch(kernel);
+        }
+    }
+
+    pub fn reached_limit(&self, cycle: u64) -> bool {
+        match self.cycle_limit {
+            Some(limit) if cycle >= limit => true,
+            _ => false,
+        }
+    }
+
+    pub fn commands_left(&self) -> bool {
+        self.command_idx < self.commands.len()
+    }
+
+    pub fn kernels_left(&self) -> bool {
+        !self.kernels.is_empty()
+    }
+
+    pub fn run_to_completion(&mut self, traces_dir: impl AsRef<Path>) -> eyre::Result<()> {
+        let mut cycle: u64 = 0;
+        while self.commands_left() || self.kernels_left() {
+            self.process_commands();
+            self.lauch_kernels();
+
+            loop {
+                println!("\n======== cycle {cycle} ========\n");
+
+                if self.reached_limit(cycle) || !self.active() {
+                    break;
+                }
+
+                cycle += 1;
+                self.set_cycle(cycle);
+                self.cycle();
+            }
+
+            // TODO:
+            // self.cleanup_finished_kernel(finished_kernel_uid);
+
+            println!("exit after {cycle} cycles");
+            dbg!(self.commands_left());
+            dbg!(self.kernels_left());
+
+            // since we are not yet cleaning up launched kernels, we break here
+            break;
+        }
+        Ok(())
+    }
 }
 
 fn save_stats_to_file(stats: &Stats, out_file: &Path) -> eyre::Result<()> {
@@ -1004,6 +1172,8 @@ fn save_stats_to_file(stats: &Stats, out_file: &Path) -> eyre::Result<()> {
     Ok(())
 }
 
+pub struct Box {}
+
 pub fn accelmain(
     traces_dir: impl AsRef<Path>,
     stats_out_file: Option<&PathBuf>,
@@ -1019,25 +1189,6 @@ pub fn accelmain(
     config.num_schedulers_per_core = 1;
     let config = Arc::new(config);
 
-    assert!(config.max_threads_per_core.rem_euclid(config.warp_size) == 0);
-    let max_warps_per_shader = config.max_threads_per_core / config.warp_size;
-
-    let window_size = if config.concurrent_kernel_sm {
-        config.max_concurrent_kernels
-    } else {
-        1
-    };
-    assert!(window_size > 0);
-
-    // std::vector<trace_command> commandlist = tracer.parse_commandlist_file();
-    let command_traces_path = traces_dir.join("commands.json");
-    let mut commands: Vec<Command> = parse_commands(&command_traces_path)?;
-
-    // todo: make this a hashset?
-    let mut busy_streams: VecDeque<u64> = VecDeque::new();
-    let mut kernels: VecDeque<Arc<KernelInfo>> = VecDeque::new();
-    kernels.reserve_exact(window_size);
-
     let interconn = Arc::new(ic::ToyInterconnect::new(
         config.num_simt_clusters,
         config.num_mem_units * config.num_sub_partition_per_memory_channel,
@@ -1045,115 +1196,11 @@ pub fn accelmain(
         // config.num_mem_units,
         Some(9), // found by printf debugging gpgusim
     ));
-    let mut sim = MockSimulator::new(interconn, config.clone());
-    // let mut sim = MockSimulator::<ic::CoreMemoryInterface>::new(config.clone());
+    let mut sim = MockSimulator::new(interconn, config.clone(), traces_dir);
 
-    let mut i = 0;
-    while i < commands.len() || !kernels.is_empty() {
-        // take as many commands as possible until we have
-        // collected as many kernels to fill the window_size
-        // or processed every command.
+    sim.run_to_completion(&traces_dir);
 
-        while kernels.len() < window_size && i < commands.len() {
-            let cmd = &commands[i];
-            match cmd {
-                Command::MemcpyHtoD {
-                    allocation_name,
-                    dest_device_addr,
-                    num_bytes,
-                } => sim.memcopy_to_gpu(*dest_device_addr, *num_bytes, allocation_name.clone()),
-                Command::KernelLaunch(launch) => {
-                    let kernel = KernelInfo::from_trace(traces_dir, launch.clone());
-                    kernels.push_back(Arc::new(kernel));
-                }
-            }
-            i += 1;
-        }
-
-        dbg!(&sim.allocations);
-
-        // Launch all kernels within window that are on a stream
-        // that isn't already running
-        for kernel in &mut kernels {
-            let stream_busy = busy_streams
-                .iter()
-                .any(|stream_id| *stream_id == kernel.config.stream_id);
-            if !stream_busy && sim.can_start_kernel() && !kernel.was_launched() {
-                println!("launching kernel {:#?}", kernel.name());
-                busy_streams.push_back(kernel.config.stream_id);
-                sim.launch(kernel.clone());
-            }
-        }
-
-        // dbg!(&config.num_simt_clusters);
-        // dbg!(&config.num_cores_per_simt_cluster);
-        // dbg!(&config.concurrent_kernel_sm);
-        // dbg!(&config.num_mem_units);
-        // dbg!(&config.num_sub_partition_per_memory_channel);
-        // dbg!(&config.num_memory_chips_per_controller);
-
-        // drive kernels to completion
-        // while sim.active() {
-        let cycle_limit: Option<u64> = std::env::var("CYCLES")
-            .ok()
-            .as_deref()
-            .map(str::parse)
-            .map(Result::ok)
-            .flatten();
-
-        let mut cycle: u64 = 0;
-        let mut done = false;
-        while !done {
-            if let Some(cycle_limit) = cycle_limit {
-                if cycle >= cycle_limit {
-                    // early exit
-                    break;
-                }
-            }
-
-            println!("\n======== cycle {cycle} ========\n");
-            sim.set_cycle(cycle);
-            sim.cycle();
-
-            done = !sim.active();
-            cycle += 1;
-        }
-
-        println!("exit after {cycle} cycles");
-        {
-            let mut stats = sim.stats.lock().unwrap();
-            stats.sim.cycles = cycle;
-        }
-        break;
-    }
-
-    let mut stats: Stats = sim.stats.lock().unwrap().clone();
-
-    for cluster in sim.clusters {
-        for core in cluster.cores.lock().unwrap().iter() {
-            let core_id = core.inner.core_id;
-            stats.l1i_stats.insert(
-                core_id,
-                core.inner.instr_l1_cache.stats().lock().unwrap().clone(),
-            );
-            let ldst_unit = &core.inner.load_store_unit.lock().unwrap();
-            let data_l1 = ldst_unit.data_l1.as_ref().unwrap();
-            stats
-                .l1d_stats
-                .insert(core_id, data_l1.stats().lock().unwrap().clone());
-            stats.l1c_stats.insert(core_id, stats::Cache::default());
-            stats.l1t_stats.insert(core_id, stats::Cache::default());
-        }
-    }
-
-    for sub in sim.mem_sub_partitions.iter() {
-        let sub: &MemorySubPartition = &sub.as_ref().borrow();
-        let l2_cache = sub.l2_cache.as_ref().unwrap();
-        stats
-            .l2d_stats
-            .insert(sub.id, l2_cache.stats().lock().unwrap().clone());
-    }
-
+    let stats = sim.stats();
     eprintln!("STATS:\n");
     eprintln!("DRAM: total reads: {}", &stats.dram.total_reads());
     eprintln!("DRAM: total writes: {}", &stats.dram.total_writes());
@@ -1176,12 +1223,146 @@ pub fn accelmain(
 
 #[cfg(test)]
 mod tests {
+    use crate::{
+        config,
+        ported::{fifo::Queue, interconn as ic},
+    };
     use color_eyre::eyre;
     use pretty_assertions_sorted as diff;
     use stats::ConvertHashMap;
     use std::collections::HashMap;
     use std::io::Write;
     use std::path::PathBuf;
+    use std::sync::Arc;
+
+    // #[macro_export]
+    // macro_rules! assert_eq_diff_display {
+    //     ($left:expr, $right:expr$(,)?) => ({
+    //         assert_eq_diff_display!(@ $left, $right, "", "");
+    //     });
+    //     ($left:expr, $right:expr, $($arg:tt)*) => ({
+    //         assert_eq_diff_display!(@ $left, $right, ": ", $($arg)+);
+    //     });
+    //     (@ $left:expr, $right:expr, $maybe_colon:expr, $($arg:tt)*) => ({
+    //         match (&($left), &($right)) {
+    //             (left_val, right_val) => {
+    //                 if !(*left_val == *right_val) {
+    //                     // use $crate::private::CreateComparison;
+    //                     ::core::panic!("assertion failed: `(left == right)`{}{}\
+    //                        \n\
+    //                        \n{}\
+    //                        \n",
+    //                        $maybe_colon,
+    //                        format_args!($($arg)*),
+    //                     "todo"
+    //                        // (left_val, right_val).create_comparison()
+    //                     )
+    //                 }
+    //             }
+    //         }
+    //     });
+    // }
+
+    impl From<playground::mem_fetch::mf_type> for super::mem_fetch::Kind {
+        fn from(kind: playground::mem_fetch::mf_type) -> Self {
+            use playground::mem_fetch::mf_type;
+            match kind {
+                mf_type::READ_REQUEST => super::mem_fetch::Kind::READ_REQUEST,
+                mf_type::WRITE_REQUEST => super::mem_fetch::Kind::WRITE_REQUEST,
+                mf_type::READ_REPLY => super::mem_fetch::Kind::READ_REPLY,
+                mf_type::WRITE_ACK => super::mem_fetch::Kind::WRITE_ACK,
+            }
+        }
+    }
+
+    impl From<playground::mem_fetch::mem_access_type> for super::mem_fetch::AccessKind {
+        fn from(kind: playground::mem_fetch::mem_access_type) -> Self {
+            use playground::mem_fetch::mem_access_type;
+            match kind {
+                mem_access_type::GLOBAL_ACC_R => super::mem_fetch::AccessKind::GLOBAL_ACC_R,
+                mem_access_type::LOCAL_ACC_R => super::mem_fetch::AccessKind::LOCAL_ACC_R,
+                mem_access_type::CONST_ACC_R => super::mem_fetch::AccessKind::CONST_ACC_R,
+                mem_access_type::TEXTURE_ACC_R => super::mem_fetch::AccessKind::TEXTURE_ACC_R,
+                mem_access_type::GLOBAL_ACC_W => super::mem_fetch::AccessKind::GLOBAL_ACC_W,
+                mem_access_type::LOCAL_ACC_W => super::mem_fetch::AccessKind::LOCAL_ACC_W,
+                mem_access_type::L1_WRBK_ACC => super::mem_fetch::AccessKind::L1_WRBK_ACC,
+                mem_access_type::L2_WRBK_ACC => super::mem_fetch::AccessKind::L2_WRBK_ACC,
+                mem_access_type::INST_ACC_R => super::mem_fetch::AccessKind::INST_ACC_R,
+                mem_access_type::L1_WR_ALLOC_R => super::mem_fetch::AccessKind::L1_WR_ALLOC_R,
+                mem_access_type::L2_WR_ALLOC_R => super::mem_fetch::AccessKind::L2_WR_ALLOC_R,
+                other @ mem_access_type::NUM_MEM_ACCESS_TYPE => {
+                    panic!("bad mem access kind: {:?}", other)
+                }
+            }
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+    pub struct MemFetchKey {
+        kind: super::mem_fetch::Kind,
+        access_kind: super::mem_fetch::AccessKind,
+        // cannot compare addr because its different between runs
+        // addr: super::address,
+        relative_addr: Option<(usize, super::address)>,
+    }
+
+    impl<'a> From<playground::MemFetch<'a>> for MemFetchKey {
+        fn from(fetch: playground::MemFetch<'a>) -> Self {
+            let addr = fetch.get_addr();
+            let relative_addr = fetch.get_relative_addr();
+            Self {
+                // addr,
+                kind: fetch.get_type().into(),
+                access_kind: fetch.get_access_type().into(),
+                relative_addr: if addr == relative_addr {
+                    None
+                } else {
+                    Some((fetch.get_alloc_id() as usize, relative_addr))
+                },
+            }
+        }
+    }
+
+    impl From<super::mem_fetch::MemFetch> for MemFetchKey {
+        fn from(fetch: super::mem_fetch::MemFetch) -> Self {
+            let addr = fetch.addr();
+            Self {
+                // addr,
+                kind: fetch.kind,
+                access_kind: *fetch.access_kind(),
+                relative_addr: match fetch.access.allocation {
+                    Some(alloc) => Some((alloc.id, addr - alloc.start_addr)),
+                    None => None,
+                },
+            }
+        }
+    }
+
+    // impl<'a> PartialEq<playground::MemFetch<'a>> for super::mem_fetch::MemFetch {
+    //     fn eq(&self, other: &playground::MemFetch<'a>) -> bool {
+    //         // compare type (reply/request) and access type (e.g. global/local etc)
+    //         if self.kind != other.get_type().into()
+    //             || *self.access_kind() != other.get_access_type().into()
+    //         {
+    //             return false;
+    //         }
+    //
+    //         if let Some(allocation) = &self.access.allocation {
+    //             if allocation.start_addr != other.get_alloc_start_addr()
+    //                 || allocation.id != other.get_alloc_id() as usize
+    //                 || self.addr() - allocation.start_addr != other.get_relative_addr()
+    //             {
+    //                 return false;
+    //             }
+    //         } else {
+    //             if self.addr() != other.get_addr() {
+    //                 return false;
+    //             }
+    //             // compare just the address
+    //         }
+    //         true
+    //     }
+    // }
 
     #[test]
     fn test_vectoradd() -> eyre::Result<()> {
@@ -1199,11 +1380,32 @@ mod tests {
         assert!(trace_config.is_file());
         assert!(inter_config.is_file());
 
-        let start = std::time::Instant::now();
-        let box_stats = super::accelmain(&vec_add_trace_dir.join("trace"), None)?;
-        let box_dur = start.elapsed();
+        // let start = std::time::Instant::now();
+        // let box_stats = super::accelmain(&vec_add_trace_dir.join("trace"), None)?;
 
-        let start = std::time::Instant::now();
+        // debugging config
+        let mut box_config = config::GPUConfig::default();
+        box_config.num_simt_clusters = 1;
+        box_config.num_cores_per_simt_cluster = 1;
+        box_config.num_schedulers_per_core = 1;
+        let box_config = Arc::new(box_config);
+
+        let box_interconn = Arc::new(ic::ToyInterconnect::new(
+            box_config.num_simt_clusters,
+            box_config.num_mem_units * box_config.num_sub_partition_per_memory_channel,
+            // config.num_simt_clusters * config.num_cores_per_simt_cluster,
+            // config.num_mem_units,
+            Some(9), // found by printf debugging gpgusim
+        ));
+
+        let mut box_sim = super::MockSimulator::new(
+            box_interconn,
+            box_config.clone(),
+            vec_add_trace_dir.join("trace"),
+        );
+        // let box_dur = start.elapsed();
+
+        // let start = std::time::Instant::now();
         let mut args = vec![
             "-trace",
             kernelslist.as_os_str().to_str().unwrap(),
@@ -1216,43 +1418,136 @@ mod tests {
         ];
         dbg!(&args);
 
-        let config = playground::Config::default();
-        let mut sim = playground::Accelsim::new(&config, &args)?;
+        let play_config = playground::Config::default();
+        let mut play_sim = playground::Accelsim::new(&play_config, &args)?;
 
-        // iterate over sub partitions
-        // for sub in sim.sub_partitions() {
-        //     for fetch in sub.get_icnt_L2_queue().iter() {
-        //         println!("{:#?}", fetch.get_relative_addr());
-        //         println!("{:#?}", fetch.get_mem_access_type());
-        //         // println!("{:#?}", sub.get_icnt_L2_queue().collect());
+        // let mut cycle: u64 = 0;
+        // while self.commands_left() || self.kernels_left() {
+        //     self.process_commands();
+        //     self.lauch_kernels();
+        //
+        //     loop {
+        //         println!("\n======== cycle {cycle} ========\n");
+        //
+        //         if self.reached_limit(cycle) || !self.active() {
+        //             break;
+        //         }
+        //
+        //         cycle += 1;
+        //         self.set_cycle(cycle);
+        //         self.cycle();
         //     }
+        //
+        //     // TODO:
+        //     // self.cleanup_finished_kernel(finished_kernel_uid);
+        //
+        //     println!("exit after {cycle} cycles");
+        //     dbg!(self.commands_left());
+        //     dbg!(self.kernels_left());
+        //
+        //     // since we are not yet cleaning up launched kernels, we break here
+        //     break;
         // }
 
         // accelsim.run_to_completion();
         // let ref_stats = accelsim.stats().clone();
         // let ref_stats = playground::run(&config, &args)?;
-        while sim.commands_left() || sim.kernels_left() {
-            sim.process_commands();
-            sim.launch_kernels();
+        while play_sim.commands_left() || play_sim.kernels_left() {
+            play_sim.process_commands();
+            play_sim.launch_kernels();
+
+            box_sim.process_commands();
+            box_sim.lauch_kernels();
 
             let mut finished_kernel_uid: Option<u32> = None;
             loop {
-                if !sim.active() {
+                if !play_sim.active() {
                     break;
                 }
-                sim.cycle();
 
-                finished_kernel_uid = sim.finished_kernel_uid();
+                play_sim.cycle();
+                let cycle = play_sim.get_cycle();
+
+                box_sim.set_cycle(cycle);
+                box_sim.cycle();
+
+                // iterate over sub partitions
+                let mut box_interconn_to_l2_queue: Vec<Vec<MemFetchKey>> =
+                    vec![vec![]; box_sim.mem_sub_partitions.len()];
+                for (sub_id, sub) in box_sim.mem_sub_partitions.iter().enumerate() {
+                    box_interconn_to_l2_queue[sub_id].extend(
+                        sub.borrow()
+                            .interconn_to_l2_queue
+                            .clone()
+                            .into_iter()
+                            .map(Into::into),
+                    );
+                    // for (fetch_num, fetch) in sub.borrow().interconn_to_l2_queue.iter().enumerate()
+                    // {
+                    // }
+                }
+
+                let mut play_interconn_to_l2_queue: Vec<Vec<MemFetchKey>> =
+                    vec![vec![]; box_sim.mem_sub_partitions.len()];
+                for (sub_id, sub) in play_sim.sub_partitions().enumerate() {
+                    // play_interconn_to_l2_queue[sub_id].extend(sub.get_icnt_L2_queue().iter().map(
+                    //     |b| playground::MemFetch {
+                    //         ptr: b.get_mem_fetch(),
+                    //         phantom: std::marker::PhantomData,
+                    //     },
+                    // ));
+                    //
+                    // MemFetch(b.get_mem_fetch())));
+
+                    play_interconn_to_l2_queue[sub_id]
+                        .extend(sub.interconn_to_l2_queue().into_iter().map(Into::into));
+
+                    // for (fetch_num, fetch) in sub.interconn_to_l2_queue().iter().enumerate() {
+                    // println!(
+                    //     "cycle {:>3} sub {:>2} fetch {:>2} address {:>3} {:>15} {:>10}",
+                    //     cycle,
+                    //     sub_id,
+                    //     fetch_num,
+                    //     fetch.get_alloc_id(),
+                    //     fetch.get_addr(),
+                    //     fetch.get_relative_addr()
+                    // );
+                    // println!("fetch address {:?}", fetch.get_addr());
+                    // println!("fetch relative address {:?}", fetch.get_relative_addr());
+                    // println!("fetch alloc id {:?}", fetch.get_alloc_id());
+                    // }
+                }
+
+                // todo: instead of that, and instead of writing a custom partial eq,
+                // better to write a comparison key that implements debug and can be used with
+                // diff::assert_eq out of the box lol
+                // let box_interconn_to_l2_queue: Vec<Vec<String>> = box_interconn_to_l2_queue
+                //     .into_iter()
+                //     .map(|v| v.into_iter().map(|f| f.to_string()).collect())
+                //     .collect();
+                // let play_interconn_to_l2_queue: Vec<Vec<String>> = play_interconn_to_l2_queue
+                //     .into_iter()
+                //     .map(|v| v.into_iter().map(|f| f.to_string()).collect())
+                //     .collect();
+                //
+                // dbg!(&box_interconn_to_l2_queue);
+                // dbg!(&play_interconn_to_l2_queue);
+                // diff::assert_eq!(&box_interconn_to_l2_queue, &play_interconn_to_l2_queue);
+                diff::assert_eq!(&box_interconn_to_l2_queue, &play_interconn_to_l2_queue);
+                // assert_eq_diff_display!(&box_interconn_to_l2_queue, &play_interconn_to_l2_queue);
+                // diff::assert_eq!(&play_interconn_to_l2_queue, &box_interconn_to_l2_queue);
+
+                finished_kernel_uid = play_sim.finished_kernel_uid();
                 if finished_kernel_uid.is_some() {
                     break;
                 }
             }
 
             if let Some(uid) = finished_kernel_uid {
-                sim.cleanup_finished_kernel(uid);
+                play_sim.cleanup_finished_kernel(uid);
             }
 
-            if sim.limit_reached() {
+            if play_sim.limit_reached() {
                 println!(
                     "GPGPU-Sim: ** break due to reaching the maximum cycles (or instructions) **"
                 );
@@ -1261,14 +1556,15 @@ mod tests {
             }
         }
 
-        let play_stats = sim.stats().clone();
-        let playground_dur = start.elapsed();
+        let play_stats = play_sim.stats().clone();
+        let box_stats = box_sim.stats();
+        // let playground_dur = start.elapsed();
 
         // dbg!(&play_stats);
         // dbg!(&box_stats);
 
-        dbg!(&playground_dur);
-        dbg!(&box_dur);
+        // dbg!(&playground_dur);
+        // dbg!(&box_dur);
 
         // compare stats here
         diff::assert_eq!(

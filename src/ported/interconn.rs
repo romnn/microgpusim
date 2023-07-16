@@ -333,10 +333,10 @@ impl<Q> std::fmt::Debug for L2Interface<Q> {
 // impl MemFetchInterface for L2Interface {
 impl<Q> MemFetchInterface for L2Interface<Q>
 where
-    Q: super::Queue<mem_fetch::MemFetch>,
+    Q: super::fifo::Queue<mem_fetch::MemFetch>,
 {
     fn full(&self, size: u32, write: bool) -> bool {
-        use super::Queue;
+        use super::fifo::Queue;
         // todo!("l2 interface: full");
         // let request_size = if write { size } else { READ_PACKET_SIZE as u32 };
         // !self.interconn.has_buffer(self.cluster_id, request_size)
@@ -345,7 +345,7 @@ where
     }
 
     fn push(&self, mut fetch: mem_fetch::MemFetch) {
-        use super::Queue;
+        use super::fifo::Queue;
         // todo!("l2 interface: push");
         fetch.set_status(mem_fetch::Status::IN_PARTITION_L2_TO_DRAM_QUEUE, 0);
         // self.sub_partition_unit

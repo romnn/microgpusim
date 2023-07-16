@@ -1,4 +1,8 @@
-use super::{cache, mem_fetch, FifoQueue, Queue};
+use super::{
+    cache,
+    fifo::{FifoQueue, Queue},
+    mem_fetch,
+};
 use crate::config;
 use std::sync::{Arc, Mutex};
 

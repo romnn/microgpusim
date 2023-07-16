@@ -80,6 +80,7 @@ class accelsim_bridge {
   void cycle();
   void cleanup_finished_kernel(unsigned finished_kernel_uid);
 
+  uint64_t get_cycle() const { return m_gpgpu_sim->gpu_sim_cycle; }
   bool active() const { return m_gpgpu_sim->active(); };
   unsigned get_finished_kernel_uid() { return m_gpgpu_sim->finished_kernel(); };
   bool limit_reached() const { return m_gpgpu_sim->cycle_insn_cta_max_hit(); };

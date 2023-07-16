@@ -74,7 +74,11 @@ class mem_fetch {
   new_addr_type get_alloc_start_addr() const {
     return m_access.get_alloc_start_addr();
   }
+  void set_alloc_start_addr(new_addr_type addr) {
+    m_access.set_alloc_start_addr(addr);
+  }
   unsigned get_alloc_id() const { return m_access.get_alloc_id(); }
+  void set_alloc_id(unsigned id) { m_access.set_alloc_id(id); }
 
   unsigned get_access_size() const { return m_access.get_size(); }
   new_addr_type get_partition_addr() const { return m_partition_addr; }

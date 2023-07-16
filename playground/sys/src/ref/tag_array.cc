@@ -203,7 +203,8 @@ enum cache_request_status tag_array::access(new_addr_type addr, unsigned time,
           evicted.set_info(m_lines[idx]->m_block_addr,
                            m_lines[idx]->get_modified_size(),
                            m_lines[idx]->get_dirty_byte_mask(),
-                           m_lines[idx]->get_dirty_sector_mask());
+                           m_lines[idx]->get_dirty_sector_mask(),
+                           mf->get_alloc_id(), mf->get_alloc_start_addr());
           m_dirty--;
         }
         m_lines[idx]->allocate(m_config.tag(addr), m_config.block_addr(addr),

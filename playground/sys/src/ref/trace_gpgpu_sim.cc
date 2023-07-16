@@ -85,7 +85,7 @@ void trace_gpgpu_sim::init() {
 }
 
 void trace_gpgpu_sim::perf_memcpy_to_gpu(size_t dst_start_addr, size_t count) {
-  unsigned id = m_allocations.size();
+  unsigned id = m_allocations.size() + 1;  // zero is reserved for instructions
   m_allocations.insert(Allocation(id, dst_start_addr, dst_start_addr + count));
 
   if (m_memory_config->m_perf_sim_memcpy) {

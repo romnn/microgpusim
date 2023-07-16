@@ -330,6 +330,9 @@ memory_sub_partition::breakdown_request_to_sector_requests(mem_fetch *mf) {
           m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle, mf->get_wid(),
           mf->get_sid(), mf->get_tpc(), mf);
 
+      n_mf->set_alloc_start_addr(mf->get_alloc_start_addr());
+      n_mf->set_alloc_id(mf->get_alloc_id());
+
       result.push_back(n_mf);
     }
     // This is for constant cache
@@ -353,6 +356,9 @@ memory_sub_partition::breakdown_request_to_sector_requests(mem_fetch *mf) {
           m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle, mf->get_wid(),
           mf->get_sid(), mf->get_tpc(), mf);
 
+      n_mf->set_alloc_start_addr(mf->get_alloc_start_addr());
+      n_mf->set_alloc_id(mf->get_alloc_id());
+
       result.push_back(n_mf);
     }
   } else {
@@ -368,6 +374,9 @@ memory_sub_partition::breakdown_request_to_sector_requests(mem_fetch *mf) {
             std::bitset<SECTOR_CHUNCK_SIZE>().set(i), SECTOR_SIZE,
             mf->is_write(), m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle,
             mf->get_wid(), mf->get_sid(), mf->get_tpc(), mf);
+
+        n_mf->set_alloc_start_addr(mf->get_alloc_start_addr());
+        n_mf->set_alloc_id(mf->get_alloc_id());
 
         result.push_back(n_mf);
       }

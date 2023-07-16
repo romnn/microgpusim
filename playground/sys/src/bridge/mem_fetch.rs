@@ -56,7 +56,7 @@ mod default {
     }
 }
 
-pub(super) use default::{mem_access_t, mem_access_type, mem_fetch, mem_fetch_status, mf_type};
+pub use default::*;
 
 // #[repr(transparent)]
 // pub struct MemFetch(cxx::UniquePtr<default::mem_fetch>);
