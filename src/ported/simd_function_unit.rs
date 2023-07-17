@@ -21,6 +21,7 @@ pub trait SimdFunctionUnit: std::fmt::Display {
         1
     }
     fn can_issue(&self, instr: &WarpInstruction) -> bool;
+    fn pipeline(&self) -> &Vec<Option<WarpInstruction>>;
     fn active_lanes_in_pipeline(&self) -> usize;
     // {
     //     return m_dispatch_reg->empty() && !occupied.test(inst.latency);
@@ -116,6 +117,10 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
         //     active_lanes |= m_pipeline_reg[stage]->get_active_mask();
         // }
         active_lanes.count_ones()
+    }
+
+    fn pipeline(&self) -> &Vec<Option<WarpInstruction>> {
+        &self.pipeline_reg
     }
 
     fn cycle(&mut self) {

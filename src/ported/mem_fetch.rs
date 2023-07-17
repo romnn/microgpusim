@@ -169,8 +169,8 @@ impl std::fmt::Debug for MemAccess {
 impl std::fmt::Display for MemAccess {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "Access({:?}@", self.kind)?;
-        if let Some(ref rel_addr) = self.relative_addr() {
-            write!(f, "+{})", rel_addr)
+        if let Some(ref alloc) = self.allocation {
+            write!(f, "{}+{})", &alloc.id, self.addr - alloc.start_addr)
         } else {
             write!(f, "{})", &self.addr)
         }

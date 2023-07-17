@@ -478,6 +478,7 @@ where
         });
 
         let load_store_unit = Arc::new(Mutex::new(LoadStoreUnit::new(
+            0, // no id for now
             core_id,
             cluster_id,
             warps.clone(),
@@ -658,7 +659,7 @@ where
 
         // load store unit
         self.functional_units
-            .push(self.inner.load_store_unit.clone());
+            .push(self.inner.load_store_unit.clone()); // Arc::clone needs type hints
         self.dispatch_ports.push(PipelineStage::OC_EX_MEM);
         self.issue_ports.push(PipelineStage::OC_EX_MEM);
 

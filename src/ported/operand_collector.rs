@@ -241,10 +241,10 @@ impl CollectorUnit {
         input_reg_set: &Rc<RefCell<RegisterSet>>,
         output_reg_set: &Rc<RefCell<RegisterSet>>,
     ) -> bool {
-        println!(
-            "{}",
-            style(format!("operand collector::allocate()")).green()
-        );
+        // println!(
+        //     "{}",
+        //     style(format!("operand collector::allocate()")).green()
+        // );
 
         debug_assert!(self.free);
         debug_assert!(self.not_ready.not_any());
@@ -821,7 +821,7 @@ impl OperandCollectorRegisterFileUnit {
     // }
 
     pub fn step(&mut self) {
-        println!("{}", style("operand collector::step()").green());
+        // println!("{}", style("operand collector::step()").green());
         self.dispatch_ready_cu();
         self.allocate_reads();
         debug_assert!(!self.in_ports.is_empty());
@@ -888,10 +888,10 @@ impl OperandCollectorRegisterFileUnit {
 
     pub fn allocate_cu(&mut self, port_num: usize) {
         let port = &self.in_ports[port_num];
-        println!(
-            "{}",
-            style(format!("operand collector::allocate_cu({:?})", port)).green()
-        );
+        // println!(
+        //     "{}",
+        //     style(format!("operand collector::allocate_cu({:?})", port)).green()
+        // );
 
         debug_assert_eq!(port.in_ports.len(), port.out_ports.len());
         for (input_port, output_port) in port.in_ports.iter().zip(port.out_ports.iter()) {

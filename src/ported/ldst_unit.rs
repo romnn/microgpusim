@@ -138,7 +138,7 @@ where
     // I: ic::Interconnect<super::core::Packet>,
 {
     pub fn new(
-        // id: usize,
+        id: usize,
         core_id: usize,
         cluster_id: usize,
         warps: Vec<sched::CoreWarp>,
@@ -156,7 +156,7 @@ where
         // pipelined_simd_unit(NULL, config, config->smem_latency, core, 0),
         let pipeline_depth = config.shared_memory_latency;
         let pipelined_simd_unit = fu::PipelinedSimdUnitImpl::new(
-            0,
+            id,
             "LdstUnit".to_string(),
             None,
             pipeline_depth,
@@ -528,7 +528,10 @@ where
             return true;
         };
 
-        // panic!("mem access: {}", access);
+        println!(
+            "memory cycle for instruction {} => access: {}",
+            &dispatch_instr, access
+        );
 
         let mut stall_cond = MemStageStallKind::NO_RC_FAIL;
         if bypass_l1 {
@@ -583,6 +586,7 @@ where
         {
             stall_cond = MemStageStallKind::COAL_STALL;
         }
+        println!("memory instruction stall cond: {:?}", &stall_cond);
         if stall_cond != MemStageStallKind::NO_RC_FAIL {
             *rc_fail = stall_cond;
             if dispatch_instr.memory_space == Some(MemorySpace::Local) {
@@ -858,6 +862,10 @@ where
         active
         // m_core->incfumemactivelanes_stat(active_count);
         // todo!("load store unit: active lanes in pipeline");
+    }
+
+    fn pipeline(&self) -> &Vec<Option<WarpInstruction>> {
+        &self.pipelined_simd_unit.pipeline_reg
     }
 
     fn issue(&mut self, instr: WarpInstruction) {

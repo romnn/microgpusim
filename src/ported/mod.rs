@@ -1101,9 +1101,10 @@ where
                     break;
                 }
 
+                self.cycle();
+
                 cycle += 1;
                 self.set_cycle(cycle);
-                self.cycle();
             }
 
             // TODO:
@@ -1263,13 +1264,120 @@ mod tests {
         }
     }
 
-    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+    #[derive(Clone, PartialEq, Eq, Hash)]
+    pub struct WarpInstructionKey {
+        opcode: String,
+        pc: usize,
+        warp_id: usize,
+    }
+
+    impl std::fmt::Debug for WarpInstructionKey {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(f, "{}[pc={},warp={}]", self.opcode, self.pc, self.warp_id)
+        }
+    }
+
+    #[derive(Clone, PartialEq, Eq, Hash)]
+    pub struct RegisterSetKey {
+        stage: super::core::PipelineStage,
+        pipeline: Vec<Option<WarpInstructionKey>>,
+    }
+
+    impl std::fmt::Debug for RegisterSetKey {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(f, "{:?}={:?}", self.stage, self.pipeline)
+        }
+    }
+
+    impl From<super::register_set::RegisterSet> for RegisterSetKey {
+        fn from(reg: super::register_set::RegisterSet) -> Self {
+            let pipeline = reg
+                .regs
+                .into_iter()
+                .map(|instr| match instr {
+                    Some(instr) => Some(WarpInstructionKey {
+                        opcode: instr.opcode.to_string(),
+                        pc: instr.pc,
+                        warp_id: instr.warp_id,
+                    }),
+                    None => None,
+                })
+                .collect();
+            Self {
+                stage: reg.stage,
+                pipeline,
+            }
+        }
+    }
+
+    impl<'a> From<playground::main::pipeline_stage_name_t> for super::core::PipelineStage {
+        fn from(stage: playground::main::pipeline_stage_name_t) -> Self {
+            use playground::main::pipeline_stage_name_t;
+            match stage {
+                // pipeline_stage_name_t::ID_OC_SP => Self::ID_OC_SP,
+                // pipeline_stage_name_t::ID_OC_DP => Self::ID_OC_DP,
+                // pipeline_stage_name_t::ID_OC_INT => Self::ID_OC_INT,
+                // pipeline_stage_name_t::ID_OC_SFU => Self::ID_OC_SFU,
+                // pipeline_stage_name_t::ID_OC_MEM => Self::ID_OC_MEM,
+                pipeline_stage_name_t::OC_EX_SP => Self::OC_EX_SP,
+                // pipeline_stage_name_t::OC_EX_DP => Self::OC_EX_DP,
+                // pipeline_stage_name_t::OC_EX_INT => Self::OC_EX_INT,
+                // pipeline_stage_name_t::OC_EX_SFU => Self::OC_EX_SFU,
+                pipeline_stage_name_t::OC_EX_MEM => Self::OC_EX_MEM,
+                pipeline_stage_name_t::EX_WB => Self::EX_WB,
+                // pipeline_stage_name_t::ID_OC_TENSOR_CORE => Self::ID_OC_TENSOR_CORE,
+                // pipeline_stage_name_t::OC_EX_TENSOR_CORE => Self::OC_EX_TENSOR_CORE,
+                other => panic!("bad pipeline stage {:?}", other),
+            }
+        }
+    }
+
+    impl<'a> From<playground::RegisterSet<'a>> for RegisterSetKey {
+        fn from(reg: playground::RegisterSet<'a>) -> Self {
+            Self {
+                stage: reg.stage.into(),
+                pipeline: reg
+                    .pipeline
+                    .into_iter()
+                    .map(|instr| {
+                        if instr.empty() {
+                            None
+                        } else {
+                            let opcode = unsafe { std::ffi::CStr::from_ptr(instr.opcode_str()) };
+                            let opcode = opcode
+                                .to_str()
+                                .unwrap()
+                                .trim_start_matches("OP_")
+                                .to_string();
+                            Some(WarpInstructionKey {
+                                opcode,
+                                pc: instr.get_pc() as usize,
+                                warp_id: instr.warp_id() as usize,
+                            })
+                        }
+                    })
+                    .collect(),
+            }
+        }
+    }
+
+    #[derive(Clone, PartialEq, Eq, Hash)]
     pub struct MemFetchKey {
         kind: super::mem_fetch::Kind,
         access_kind: super::mem_fetch::AccessKind,
         // cannot compare addr because its different between runs
         // addr: super::address,
         relative_addr: Option<(usize, super::address)>,
+    }
+
+    impl std::fmt::Debug for MemFetchKey {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(f, "{:?}({:?}", self.kind, self.access_kind)?;
+            if let Some((alloc_id, rel_addr)) = self.relative_addr {
+                write!(f, "@{}+{}", alloc_id, rel_addr)?;
+            }
+            write!(f, ")")
+        }
     }
 
     impl<'a> From<playground::MemFetch<'a>> for MemFetchKey {
@@ -1302,17 +1410,23 @@ mod tests {
         }
     }
 
-    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct SimulationState {
         interconn_to_l2_queue: Vec<Vec<MemFetchKey>>,
         l2_to_interconn_queue: Vec<Vec<MemFetchKey>>,
         l2_to_dram_queue: Vec<Vec<MemFetchKey>>,
         dram_to_l2_queue: Vec<Vec<MemFetchKey>>,
         dram_latency_queue: Vec<Vec<MemFetchKey>>,
+        // functional_unit_pipelines: Vec<HashMap<String, Vec<WarpInstructionKey>>>,
+        functional_unit_pipelines: Vec<Vec<RegisterSetKey>>,
     }
 
     impl SimulationState {
-        pub fn new(num_mem_partitions: usize, num_sub_partitions: usize) -> Self {
+        pub fn new(
+            total_cores: usize,
+            num_mem_partitions: usize,
+            num_sub_partitions: usize,
+        ) -> Self {
             Self {
                 // per sub partition
                 interconn_to_l2_queue: vec![vec![]; num_sub_partitions],
@@ -1321,6 +1435,9 @@ mod tests {
                 dram_to_l2_queue: vec![vec![]; num_sub_partitions],
                 // per partition
                 dram_latency_queue: vec![vec![]; num_mem_partitions],
+                // per core
+                // functional_unit_pipelines: vec![HashMap::new(); total_cores],
+                functional_unit_pipelines: vec![vec![]; total_cores],
             }
         }
     }
@@ -1329,6 +1446,7 @@ mod tests {
     fn test_vectoradd() -> eyre::Result<()> {
         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
         let vec_add_trace_dir = manifest_dir.join("results/vectorAdd/vectorAdd-100-32");
+        // let vec_add_trace_dir = manifest_dir.join("results/vectorAdd/vectorAdd-1000-32");
 
         let kernelslist = vec_add_trace_dir.join("accelsim-trace/kernelslist.g");
         let gpgpusim_config = manifest_dir.join("accelsim/gtx1080/gpgpusim.config");
@@ -1385,6 +1503,8 @@ mod tests {
         // accelsim.run_to_completion();
         // let ref_stats = accelsim.stats().clone();
         // let ref_stats = playground::run(&config, &args)?;
+
+        let mut cycle = 0;
         while play_sim.commands_left() || play_sim.kernels_left() {
             play_sim.process_commands();
             play_sim.launch_kernels();
@@ -1399,16 +1519,50 @@ mod tests {
                 }
 
                 play_sim.cycle();
-                let cycle = play_sim.get_cycle();
+                cycle = play_sim.get_cycle();
 
-                box_sim.set_cycle(cycle);
                 box_sim.cycle();
+                box_sim.set_cycle(cycle);
+
+                // todo: extract also l1i ready (least important)
+                // todo: extract oc mem ex pipeline, other pipeline stages
+                // todo: extract wb pipeline
 
                 // iterate over sub partitions
+                let total_cores = box_sim.config.total_cores();
                 let num_partitions = box_sim.mem_partition_units.len();
                 let num_sub_partitions = box_sim.mem_sub_partitions.len();
                 let mut box_sim_state: SimulationState =
-                    SimulationState::new(num_partitions, num_sub_partitions);
+                    SimulationState::new(total_cores, num_partitions, num_sub_partitions);
+
+                for (cluster_id, cluster) in box_sim.clusters.iter().enumerate() {
+                    for (core_id, core) in cluster.cores.lock().unwrap().iter().enumerate() {
+                        for (fu_id, fu) in core.functional_units.iter().enumerate() {
+                            let fu = fu.lock().unwrap();
+                            let issue_port = core.issue_ports[fu_id];
+                            let issue_reg: super::register_set::RegisterSet =
+                                core.inner.pipeline_reg[issue_port as usize]
+                                    .borrow()
+                                    .clone();
+                            assert_eq!(issue_port, issue_reg.stage);
+                            // println!(
+                            //     "fu[{:03}] {:<10} before \t{:?}={}",
+                            //     &fu_id,
+                            //     fu.to_string(),
+                            //     issue_port,
+                            //     issue_inst
+                            // );
+
+                            assert_eq!(
+                                core.inner.core_id,
+                                cluster_id * box_sim.config.num_cores_per_simt_cluster + core_id,
+                            );
+                            box_sim_state.functional_unit_pipelines[core.inner.core_id]
+                                .push(issue_reg.into());
+                        }
+                    }
+                }
+
                 for (partition_id, partition) in box_sim.mem_partition_units.iter().enumerate() {
                     box_sim_state.dram_latency_queue[partition_id].extend(
                         partition
@@ -1452,7 +1606,13 @@ mod tests {
                 }
 
                 let mut play_sim_state: SimulationState =
-                    SimulationState::new(num_partitions, num_sub_partitions);
+                    SimulationState::new(total_cores, num_partitions, num_sub_partitions);
+                for (core_id, core) in play_sim.cores().enumerate() {
+                    for reg in core.register_sets().iter() {
+                        play_sim_state.functional_unit_pipelines[core_id].push(reg.clone().into());
+                    }
+                }
+
                 for (partition_id, partition) in play_sim.partition_units().enumerate() {
                     play_sim_state.dram_latency_queue[partition_id]
                         .extend(partition.dram_latency_queue().into_iter().map(Into::into));
@@ -1489,6 +1649,8 @@ mod tests {
                 break;
             }
         }
+
+        dbg!(&cycle);
 
         let play_stats = play_sim.stats().clone();
         let box_stats = box_sim.stats();

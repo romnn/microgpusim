@@ -1,7 +1,9 @@
 #### TODO
 
-- box run per cycle
-- playground run per cycle
+- BUG: vectoradd@54 Read(GLOBAL_ACC_R) should go l2 to dram queue but goes to dram latency queue
+
+- DONE: box run per cycle
+- DONE: playground run per cycle
 - ensure functionality for vectoradd larger size and matrix mul
 
   - in the process: ease debugging

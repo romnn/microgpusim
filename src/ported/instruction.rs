@@ -150,15 +150,7 @@ impl std::fmt::Debug for WarpInstruction {
 
 impl std::fmt::Display for WarpInstruction {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        // if self.empty() {
-        //     write!(
-        //         f,
-        //         "Empty({}[pc={},warp={}])",
-        //         self.opcode, self.pc, self.warp_id
-        //     )
-        // } else {
         write!(f, "{}[pc={},warp={}]", self.opcode, self.pc, self.warp_id)
-        // }
     }
 }
 

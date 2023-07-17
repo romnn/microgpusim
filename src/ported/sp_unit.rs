@@ -75,6 +75,10 @@ impl fu::SimdFunctionUnit for SPUnit
         // todo!("load store unit: can issue");
     }
 
+    fn pipeline(&self) -> &Vec<Option<WarpInstruction>> {
+        &self.pipelined_simd_unit.pipeline_reg
+    }
+
     fn is_issue_partitioned(&self) -> bool {
         true
     }

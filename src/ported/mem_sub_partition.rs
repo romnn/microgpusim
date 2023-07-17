@@ -126,7 +126,7 @@ where
         let l2_cache: Option<Box<dyn cache::Cache>> = match &config.data_cache_l2 {
             Some(l2_config) => {
                 let l2_mem_port = Arc::new(ic::L2Interface {
-                    l2_to_dram_queue: l2_to_dram_queue.clone(),
+                    l2_to_dram_queue: Arc::clone(&l2_to_dram_queue),
                 });
 
                 let cache_stats = Arc::new(Mutex::new(stats::Cache::default()));
@@ -400,9 +400,15 @@ where
         use config::CacheWriteAllocatePolicy;
         use mem_fetch::{AccessKind, Status};
 
+        let log_line = style(format!(
+            " => memory sub partition[{}] cache cycle {}",
+            self.id, cycle
+        ))
+        .blue();
+
         println!(
             "{}: rop queue={:?}, icnt to l2 queue={}, l2 to icnt queue={}, l2 to dram queue={}",
-            style(format!(" => memory sub partition cache cycle {}", cycle)).blue(),
+            log_line,
             self.rop_queue
                 .iter()
                 .map(|f| f.to_string())
@@ -418,7 +424,7 @@ where
 
             println!(
                 "{}: l2 cache ready accesses={:?} l2 to icnt queue full={}",
-                style(format!(" => memory sub partition cache cycle {}", cycle)).blue(),
+                log_line,
                 l2_cache
                     .ready_accesses()
                     .cloned()
@@ -801,9 +807,13 @@ impl MemoryPartitionUnit
             let spid = (sub_id + last_issued_partition + 1) % self.sub_partitions.len();
             // self.config->m_n_sub_partition_per_memory_channel;
             let mut sub = self.sub_partitions[spid].borrow_mut();
+            debug_assert_eq!(sub.id, spid);
             // if !sub.l2_to_dram_queue.is_empty() && self.can_issue_to_dram(spid) {
             // let sub = self.sub_partitions[inner_sub_partition_id].borrow();
-            let sub_partition_contention = sub.l2_to_dram_queue.lock().unwrap().full();
+
+            // let sub_partition_contention = sub.l2_to_dram_queue.lock().unwrap().full();
+            // let sub_partition_contention = sub.l2_to_dram_queue.lock().unwrap().full();
+            let sub_partition_contention = sub.dram_to_l2_queue.full();
             let has_dram_resource = self.arbitration_metadata.has_credits(spid);
             let can_issue_to_dram = has_dram_resource && !sub_partition_contention;
 
@@ -840,27 +850,26 @@ impl MemoryPartitionUnit
                     dram_latency_queue.len(),
                     style(&dram_latency_queue).red()
                 );
+                println!(
+                    "\t can issue to dram={} dram to l2 queue full={}",
+                    can_issue_to_dram,
+                    sub.dram_to_l2_queue.full()
+                );
                 println!("");
             }
 
-            // println!(
-            //     "checking sub partition {spid}: icnt to l2 queue={} l2 to icnt queue={} l2 to dram queue={} dram to l2 queue={} dram latency queue={:?}",
-            //     style(&sub.interconn_to_l2_queue).red(),
-            //     style(&sub.l2_to_interconn_queue).red(),
-            //     style(&sub.l2_to_dram_queue.lock().unwrap()).red(),
-            //     style(&sub.dram_to_l2_queue).red(),
-            //     style(&self.dram_latency_queue.iter().map(|f| f.to_string()).collect::<Vec<_>>()).red(),
-            // );
-
             if can_issue_to_dram {
-                let mut queue = sub.l2_to_dram_queue.lock().unwrap();
-                if let Some(fetch) = queue.first() {
+                let mut l2_to_dram_queue = sub.l2_to_dram_queue.lock().unwrap();
+                if let Some(fetch) = l2_to_dram_queue.first() {
                     if self.dram.full(fetch.is_write()) {
                         break;
                     }
 
-                    let mut fetch = queue.dequeue().unwrap();
-                    // panic!("simple dram: issue mem_fetch from sub partition to dram");
+                    let mut fetch = l2_to_dram_queue.dequeue().unwrap();
+                    println!(
+                        "simple dram: issue {} from sub partition {} to DRAM",
+                        &fetch, sub.id
+                    );
                     // println!(
                     //     "issue mem_fetch request {:?} from sub partition {} to dram",
                     //     fetch, spid
