@@ -29,17 +29,16 @@ impl Default for Config {
 }
 
 #[derive(Clone)]
-#[repr(transparent)]
 pub struct MemFetch<'a> {
     ptr: *const playground_sys::mem_fetch::mem_fetch,
     phantom: std::marker::PhantomData<&'a ()>,
 }
 
-impl<'a> AsRef<playground_sys::mem_fetch::mem_fetch> for MemFetch<'a> {
-    fn as_ref(&self) -> &'a playground_sys::mem_fetch::mem_fetch {
-        unsafe { &*self.ptr as &_ }
-    }
-}
+// impl<'a> AsRef<playground_sys::mem_fetch::mem_fetch> for MemFetch<'a> {
+//     fn as_ref(&self) -> &'a playground_sys::mem_fetch::mem_fetch {
+//         unsafe { &*self.ptr as &_ }
+//     }
+// }
 
 impl<'a> std::ops::Deref for MemFetch<'a> {
     type Target = playground_sys::mem_fetch::mem_fetch;
@@ -55,14 +54,13 @@ fn get_queue<'a>(
     queue
         .into_iter()
         .map(|fetch| MemFetch {
-            ptr: fetch.get_mem_fetch(),
+            ptr: fetch.get(),
             phantom: std::marker::PhantomData,
         })
         .collect()
 }
 
 #[derive()]
-#[repr(transparent)]
 pub struct MemoryPartitionUnit<'a>(&'a playground_sys::main::memory_partition_unit_bridge);
 
 impl<'a> MemoryPartitionUnit<'a> {
@@ -73,7 +71,6 @@ impl<'a> MemoryPartitionUnit<'a> {
 }
 
 #[derive()]
-#[repr(transparent)]
 pub struct MemorySubPartition<'a>(&'a playground_sys::main::memory_sub_partition_bridge);
 
 impl<'a> MemorySubPartition<'a> {
@@ -92,6 +89,59 @@ impl<'a> MemorySubPartition<'a> {
     #[must_use]
     pub fn l2_to_dram_queue(&self) -> Vec<MemFetch<'a>> {
         get_queue(&self.0.get_L2_dram_queue())
+    }
+}
+
+#[derive(Clone)]
+pub struct WarpInstr<'a> {
+    ptr: *const playground_sys::main::warp_inst_t,
+    phantom: std::marker::PhantomData<&'a playground_sys::main::warp_inst_t>,
+}
+
+impl<'a> std::ops::Deref for WarpInstr<'a> {
+    type Target = playground_sys::main::warp_inst_t;
+
+    fn deref(&self) -> &'a Self::Target {
+        unsafe { &*self.ptr as &_ }
+    }
+}
+
+#[derive(Clone)]
+pub struct RegisterSet<'a> {
+    // ptr: *const playground_sys::main::register_set,
+    phantom: std::marker::PhantomData<&'a playground_sys::main::register_set>,
+    pub stage: playground_sys::main::pipeline_stage_name_t,
+    pub pipeline: Vec<WarpInstr<'a>>,
+}
+
+#[derive()]
+pub struct Core<'a>(&'a playground_sys::main::core_bridge);
+
+impl<'a> Core<'a> {
+    #[must_use]
+    pub fn register_sets(&self) -> Vec<RegisterSet<'a>> {
+        //     // pub fn get_register_sets(&self) -> Vec<&'a playground_sys::main::register_set_bridge> {
+        //     // pub fn get_register_sets(
+        //     //     &'a self,
+        //     // ) -> impl Iterator<Item = &'a playground_sys::main::register_set_bridge> + '_ {
+        //     // ) -> Vec<()> {
+        //     // self.0.get_register_sets().iter
+        self.0
+            .get_register_sets()
+            .iter()
+            .map(|reg| RegisterSet {
+                stage: reg.get_stage(),
+                pipeline: reg
+                    .get_regs()
+                    .iter()
+                    .map(|r| WarpInstr {
+                        ptr: r.get(),
+                        phantom: std::marker::PhantomData,
+                    })
+                    .collect(),
+                phantom: std::marker::PhantomData,
+            })
+            .collect()
     }
 }
 
@@ -120,16 +170,20 @@ impl<'a> Accelsim<'a> {
 
     pub fn sub_partitions(&'a self) -> impl Iterator<Item = MemorySubPartition<'a>> + '_ {
         self.inner
-            .get_sub_partitions_vec()
+            .get_sub_partitions()
             .iter()
             .map(MemorySubPartition)
     }
 
     pub fn partition_units(&'a self) -> impl Iterator<Item = MemoryPartitionUnit<'a>> + '_ {
         self.inner
-            .get_partition_units_vec()
+            .get_partition_units()
             .iter()
             .map(MemoryPartitionUnit)
+    }
+
+    pub fn cores(&'a self) -> impl Iterator<Item = Core<'a>> + '_ {
+        self.inner.get_cores().iter().map(Core)
     }
 
     pub fn run_to_completion(&mut self) {

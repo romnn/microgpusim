@@ -79,6 +79,7 @@ fn generate_bindings() -> eyre::Result<()> {
         .allowlist_type("linear_to_raw_address_translation_params")
         // for main bridge
         .allowlist_type("accelsim_config")
+        .allowlist_type("pipeline_stage_name_t")
         // for stats
         .allowlist_type("cache_request_status")
         .allowlist_type("cache_reservation_fail_reason")

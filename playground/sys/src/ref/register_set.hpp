@@ -159,6 +159,8 @@ class register_set {
 
   unsigned get_size() { return regs.size(); }
 
+  friend class register_set_bridge;
+
  private:
   std::vector<warp_inst_t *> regs;
   const char *m_name;

@@ -100,9 +100,7 @@ class mem_fetch {
   unsigned get_icnt_receive_time() const { return m_icnt_receive_time; }
 
   enum mem_access_type get_access_type() const { return m_access.get_type(); }
-  const char *get_access_type_str() const {
-    return get_mem_access_type_str(m_access.get_type());
-  }
+  const char *get_access_type_str() const { return m_access.get_type_str(); }
   const active_mask_t &get_access_warp_mask() const {
     return m_access.get_warp_mask();
   }
@@ -123,6 +121,8 @@ class mem_fetch {
 
   mem_fetch *get_original_mf() { return original_mf; }
   mem_fetch *get_original_wr_mf() { return original_wr_mf; }
+
+  friend std::ostream &operator<<(std::ostream &os, const mem_fetch *fetch);
 
  private:
   // request source information

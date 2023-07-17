@@ -263,6 +263,7 @@ class trace_shader_core_ctx {
   friend class TwoLevelScheduler;
   friend class LooseRoundRobbinScheduler;
   friend class accelsim_bridge;
+  friend class core_bridge;
 
   unsigned long long m_last_inst_gpu_sim_cycle;
   unsigned long long m_last_inst_gpu_tot_sim_cycle;

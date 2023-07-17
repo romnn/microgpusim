@@ -38,9 +38,12 @@ mod default {
         fn Init(self: Pin<&mut BoxInterconnect>);
         fn CreateInterconnect(self: Pin<&mut BoxInterconnect>, n_shader: u32, n_mem: u32);
         fn DisplayMap(self: &BoxInterconnect, dim: u32, count: u32);
-        #[must_use] fn GetNumNodes(self: &BoxInterconnect) -> u32;
-        #[must_use] fn GetNumMemories(self: &BoxInterconnect) -> u32;
-        #[must_use] fn GetNumShaders(self: &BoxInterconnect) -> u32;
+        #[must_use]
+        fn GetNumNodes(self: &BoxInterconnect) -> u32;
+        #[must_use]
+        fn GetNumMemories(self: &BoxInterconnect) -> u32;
+        #[must_use]
+        fn GetNumShaders(self: &BoxInterconnect) -> u32;
         #[must_use]
         fn GetConfig(self: &BoxInterconnect) -> SharedPtr<IntersimConfig>;
 
@@ -67,9 +70,12 @@ mod default {
         fn Init(self: Pin<&mut InterconnectInterface>);
         fn CreateInterconnect(self: Pin<&mut InterconnectInterface>, n_shader: u32, n_mem: u32);
         fn DisplayMap(self: &InterconnectInterface, dim: u32, count: u32);
-        #[must_use] fn GetNumNodes(self: &InterconnectInterface) -> u32;
-        #[must_use] fn GetNumMemories(self: &InterconnectInterface) -> u32;
-        #[must_use] fn GetNumShaders(self: &InterconnectInterface) -> u32;
+        #[must_use]
+        fn GetNumNodes(self: &InterconnectInterface) -> u32;
+        #[must_use]
+        fn GetNumMemories(self: &InterconnectInterface) -> u32;
+        #[must_use]
+        fn GetNumShaders(self: &InterconnectInterface) -> u32;
         #[must_use]
         fn GetConfig(self: &InterconnectInterface) -> SharedPtr<IntersimConfig>;
     }

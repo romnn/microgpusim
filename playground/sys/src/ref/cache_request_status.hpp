@@ -1,6 +1,6 @@
 #pragma once
 
-static const char *cache_request_status_str[] = {
+const char *const cache_request_status_str[] = {
     "HIT",         "HIT_RESERVED", "MISS", "RESERVATION_FAIL",
     "SECTOR_MISS", "MSHR_HIT"};
 

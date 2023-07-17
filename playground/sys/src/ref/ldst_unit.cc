@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 
+#include "mem_access.hpp"
 #include "l1_cache.hpp"
 #include "opndcoll_rfu.hpp"
 #include "read_only_cache.hpp"
@@ -311,12 +312,12 @@ bool ldst_unit::memory_cycle(warp_inst_t &inst,
   if (inst.accessq_empty()) return true;
 
   std::cout << "memory cycle for instruction: " << inst << std::endl;
-  // printf("memory cycle for instruction: ");
-  // inst.print(stdout);
-  // printf("\n");
 
   mem_stage_stall_type stall_cond = NO_RC_FAIL;
   const mem_access_t &access = inst.accessq_back();
+
+  std::cout << "memory cycle for instruction: " << inst
+            << " => access: " << access << std::endl;
 
   bool bypassL1D = false;
   if (CACHE_GLOBAL == inst.cache_op || (m_L1D == NULL)) {
@@ -356,8 +357,12 @@ bool ldst_unit::memory_cycle(warp_inst_t &inst,
     stall_cond = process_memory_access_queue_l1cache(m_L1D, inst);
   }
 
-  if (!inst.accessq_empty() && stall_cond == NO_RC_FAIL)
+  if (!inst.accessq_empty() && stall_cond == NO_RC_FAIL) {
     stall_cond = COAL_STALL;
+  }
+
+  std::cout << "memory instruction stall cond: "
+            << mem_stage_stall_type_str[stall_cond] << std::endl;
   if (stall_cond != NO_RC_FAIL) {
     stall_reason = stall_cond;
     bool iswrite = inst.is_store();

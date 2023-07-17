@@ -251,19 +251,24 @@ void memory_partition_unit::simple_dram_model_cycle() {
     std::cout << "\t dram latency queue (" << std::setfill(' ') << std::left
               << std::setw(3) << m_dram_latency_queue.size()
               << ") = " << m_dram_latency_queue << std::endl;
+
+    bool can_issue_to_dram_now = can_issue_to_dram(spid);
+    std::cout << "\t can issue to dram=" << can_issue_to_dram_now
+              << " dram to l2 queue full="
+              << m_sub_partition[spid]->dram_L2_queue_full() << std::endl;
     std::cout << std::endl;
 
     if (!m_sub_partition[spid]->L2_dram_queue_empty() &&
-        can_issue_to_dram(spid)) {
+        can_issue_to_dram_now) {
       mem_fetch *mf = m_sub_partition[spid]->L2_dram_queue_top();
       if (m_dram->full(mf->is_write())) break;
 
       m_sub_partition[spid]->L2_dram_queue_pop();
       // throw std::runtime_error(
       //     "simple dram: issue mem_fetch from sub partition to dram");
-      MEMPART_DPRINTF(
-          "Issue mem_fetch request %p from sub partition %d to dram\n", mf,
-          spid);
+      std::cout << "issue mem_fetch " << mf << " from sub partition " << spid
+                << " to DRAM\n"
+                << std::endl;
       dram_delay_t d;
       d.req = mf;
       d.ready_cycle = m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle +

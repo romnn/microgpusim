@@ -132,6 +132,7 @@ class warp_inst_t : public inst_t {
     return m_warp_issued_mask.count();
   }  // for instruction counting
   bool empty() const { return m_empty; }
+  unsigned get_pc() const { return pc; }
   unsigned warp_id() const {
     assert(!m_empty);
     return m_warp_id;

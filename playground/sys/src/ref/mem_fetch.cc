@@ -115,14 +115,15 @@ std::ostream &operator<<(std::ostream &os, const mem_fetch *fetch) {
     } else {
       os << "Req(";
     }
-    os << fetch->get_access_type_str() << "@";
-    new_addr_type addr = fetch->get_addr();
-    new_addr_type rel_addr = fetch->get_relative_addr();
-    if (addr == rel_addr) {
-      os << addr;
-    } else {
-      os << fetch->get_alloc_id() << "+" << rel_addr;
-    }
+    os << fetch->m_access;
+    // os << fetch->get_access_type_str() << "@";
+    // new_addr_type addr = fetch->get_addr();
+    // new_addr_type rel_addr = fetch->get_relative_addr();
+    // if (addr == rel_addr) {
+    //   os << addr;
+    // } else {
+    //   os << fetch->get_alloc_id() << "+" << rel_addr;
+    // }
     os << ")";
   }
   return os;

@@ -621,7 +621,7 @@ void warp_inst_t::print(std::ostream &os) const {
   if (!empty()) {
     os << "warp_id=" << warp_id() << ",";
   }
-  os << "pc=" << std::setfill('0') << std::setw(4) << pc;
+  os << "pc=" << std::right << std::setfill(' ') << std::setw(4) << pc;
   os << "]";
 }
 

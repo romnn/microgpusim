@@ -269,30 +269,13 @@ void trace_shader_core_ctx::issue_warp(register_set &pipe_reg_set,
       pipe_reg_set.get_free(m_config->sub_core_model, sch_id);
   assert(pipe_reg);
 
-  // make a copy here
-  // const trace_warp_inst_t *next_trace_inst =
-  //     static_cast<const trace_warp_inst_t *>(next_inst);
-  // const warp_inst_t *next_trace_inst =
-  //     static_cast<const trace_warp_inst_t *>(next_inst);
-
   std::cout << "warp=" << warp_id << " executed " << next_inst << std::endl;
-  // << next_trace_inst->opcode_str() << std::endl;
-  // trace_warp_inst_t next_trace_inst_copy = *next_trace_inst;
   warp_inst_t next_trace_inst_copy = *next_inst;
 
   m_warp[warp_id]->ibuffer_free();
   assert(next_inst->valid());
   // setting the pipe reg, TODO: where is it removed again
   **pipe_reg = next_trace_inst_copy;  // static instruction information
-  // **pipe_reg = *next_inst; // static instruction information
-  // assert(pipe_reg == next_inst);
-  // assert((*pipe_reg)->m_opcode() == next_inst->warp_id());
-  // assert((*pipe_reg)->warp_id() == next_inst->warp_id());
-  // printf("warp=%d executed %s (%d) %s (%d)\n", warp_id,
-  //        static_cast<const trace_warp_inst_t *>(*pipe_reg)->opcode_str(),
-  //        static_cast<const trace_warp_inst_t *>(*pipe_reg)->m_opcode,
-  //        static_cast<const trace_warp_inst_t *>(next_inst)->opcode_str(),
-  //        static_cast<const trace_warp_inst_t *>(next_inst)->m_opcode);
 
   (*pipe_reg)->issue(active_mask, warp_id,
                      m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle,
@@ -324,18 +307,12 @@ void trace_shader_core_ctx::issue_warp(register_set &pipe_reg_set,
   std::cout << (*pipe_reg)->out[1] << ",";
   std::cout << (*pipe_reg)->out[2] << ",";
   std::cout << (*pipe_reg)->out[3];
+  // NOTE: need display because the instruction has been emptied
   std::cout << ") for instr " << next_inst->display() << ": " << pipe_reg_set
             << std::endl;
 
-  // static_cast<const trace_warp_inst_t *>(next_inst)->opcode_str(),
-  // (*pipe_reg)->pc);
   m_scoreboard->reserveRegisters(*pipe_reg);
   m_warp[warp_id]->set_next_pc(next_inst->pc + next_inst->isize);
-
-  // std::cout << "post issue register set" << std::endl
-  //           << pipe_reg_set << std::endl;
-  // printf("post issue register set:\n");
-  // pipe_reg_set.print(stdout);
 
   // delete warp_inst_t class here, it is not required anymore by gpgpu-sim
   // after issue
@@ -351,10 +328,10 @@ void trace_shader_core_ctx::create_front_pipeline() {
       N_PIPELINE_STAGES + m_config->m_specialized_unit.size() * 2;
   m_pipeline_reg.reserve(total_pipeline_stages);
   for (int j = 0; j < N_PIPELINE_STAGES; j++) {
-    printf("pipeline stage %s has width %d\n", pipeline_stage_name_decode[j],
+    printf("pipeline stage %s has width %d\n", pipeline_stage_name_t_str[j],
            m_config->pipe_widths[j]);
     m_pipeline_reg.push_back(
-        register_set(m_config->pipe_widths[j], pipeline_stage_name_decode[j]));
+        register_set(m_config->pipe_widths[j], pipeline_stage_name_t_str[j]));
   }
   for (int j = 0; j < m_config->m_specialized_unit.size(); j++) {
     m_pipeline_reg.push_back(
@@ -943,9 +920,9 @@ void trace_shader_core_ctx::decode() {
 }
 
 void trace_shader_core_ctx::fetch() {
-  std::cout << "\n\n trace_shader_core_ctx::fetch() valid="
+  std::cout << "\n\n trace_shader_core_ctx::fetch() (valid="
             << m_inst_fetch_buffer.m_valid
-            << " access_ready=" << m_L1I->access_ready() << std::endl;
+            << " l1i ready=" << m_L1I->ready_accesses() << ")" << std::endl;
   if (!m_inst_fetch_buffer.m_valid) {
     if (m_L1I->access_ready()) {
       mem_fetch *mf = m_L1I->next_access();

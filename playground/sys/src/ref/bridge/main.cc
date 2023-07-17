@@ -6,6 +6,8 @@
 #include "../stream_manager.hpp"
 #include "../trace_gpgpu_sim.hpp"
 #include "../memory_sub_partition.hpp"
+#include "../trace_simt_core_cluster.hpp"
+#include "../trace_shader_core_ctx.hpp"
 
 #include "playground-sys/src/bridge/main.rs.h"
 
@@ -186,6 +188,18 @@ accelsim_bridge::accelsim_bridge(accelsim_config config,
   for (unsigned i = 0; i < m_gpgpu_sim->m_memory_config->m_n_mem; i++) {
     memory_partition_unit *partition = m_gpgpu_sim->m_memory_partition_unit[i];
     partition_units.push_back(memory_partition_unit_bridge(partition));
+  }
+
+  for (unsigned cluster_id = 0;
+       cluster_id < m_gpgpu_sim->m_shader_config->n_simt_clusters;
+       cluster_id++) {
+    trace_simt_core_cluster *cluster = m_gpgpu_sim->m_cluster[cluster_id];
+    for (unsigned core_id = 0;
+         core_id < m_gpgpu_sim->m_shader_config->n_simt_cores_per_cluster;
+         core_id++) {
+      trace_shader_core_ctx *core = cluster->m_core[core_id];
+      cores.push_back(core_bridge(core));
+    }
   }
 }
 
