@@ -100,7 +100,7 @@ void opndcoll_rfu_t::add_cu_set(unsigned set_id, unsigned num_cu,
   }
   // for now each collector set gets dedicated dispatch units.
   for (unsigned i = 0; i < num_dispatch; i++) {
-    m_dispatch_units.push_back(dispatch_unit_t(&m_cus[set_id]));
+    m_dispatch_units.push_back(dispatch_unit_t(set_id, &m_cus[set_id]));
   }
 }
 
@@ -131,7 +131,9 @@ void opndcoll_rfu_t::init(unsigned num_banks, trace_shader_core_ctx *shader) {
 
   sub_core_model = shader->get_config()->sub_core_model;
   m_num_warp_scheds = shader->get_config()->gpgpu_num_sched_per_core;
-  unsigned reg_id;
+
+  // ROMAN: initialize variable even if only used in sub core model.
+  unsigned reg_id = 0;
   if (sub_core_model) {
     assert(num_banks % shader->get_config()->gpgpu_num_sched_per_core == 0);
     assert(m_num_warp_scheds <= m_cu.size() &&

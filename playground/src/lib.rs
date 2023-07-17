@@ -186,6 +186,55 @@ impl<'a> Port<'a> {
 }
 
 #[derive()]
+pub struct CollectorUnit<'a> {
+    set_id: u32,
+    unit: &'a playground_sys::main::collector_unit_t,
+}
+
+impl<'a> CollectorUnit<'a> {
+    pub fn set_id(&self) -> u32 {
+        self.set_id
+    }
+
+    pub fn warp_id(&self) -> Option<usize> {
+        if self.unit.is_free() {
+            None
+        } else {
+            Some(self.unit.get_warp_id() as usize)
+        }
+    }
+
+    pub fn reg_id(&self) -> Option<usize> {
+        if self.unit.is_free() {
+            None
+        } else {
+            Some(self.unit.get_reg_id() as usize)
+        }
+    }
+
+    pub fn output_register(&self) -> Option<RegisterSet<'a>> {
+        use playground_sys::main::new_register_set_bridge;
+        if self.unit.is_free() {
+            None
+        } else {
+            let reg = self.unit.get_output_register();
+            Some(RegisterSet {
+                inner: unsafe { new_register_set_bridge(reg) },
+                phantom: PhantomData,
+            })
+        }
+    }
+}
+
+impl<'a> std::ops::Deref for CollectorUnit<'a> {
+    type Target = playground_sys::main::collector_unit_t;
+
+    fn deref(&self) -> &'a Self::Target {
+        self.unit
+    }
+}
+
+#[derive()]
 pub struct OperandCollector<'a> {
     inner: cxx::SharedPtr<playground_sys::main::operand_collector_bridge>,
     phantom: PhantomData<&'a playground_sys::main::opndcoll_rfu_t>,
@@ -200,6 +249,27 @@ impl<'a> std::ops::Deref for OperandCollector<'a> {
 }
 
 impl<'a> OperandCollector<'a> {
+    pub fn dispatch_units(
+        &'a self,
+    ) -> impl Iterator<Item = &playground_sys::main::dispatch_unit_t> + 'a {
+        self.inner.get_dispatch_units().iter()
+    }
+
+    pub fn collector_units(&'a self) -> Vec<CollectorUnit<'a>> {
+        self.inner
+            .get_collector_units()
+            .into_iter()
+            .map(|cu| CollectorUnit {
+                set_id: cu.get_set(),
+                // assume lifetieme of the collector units in vector
+                // is bound to operand collector.
+                //
+                // In practive, just never store references for now
+                unit: unsafe { &*(cu.get_unit() as *const _) as &'a _ },
+            })
+            .collect()
+    }
+
     pub fn ports(&'a self) -> Vec<Port<'a>> {
         use playground_sys::main::new_input_port_bridge;
         self.inner

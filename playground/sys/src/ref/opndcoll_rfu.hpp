@@ -53,7 +53,9 @@ class collector_unit_t {
   unsigned get_num_operands() const { return m_warp->get_num_operands(); }
   unsigned get_num_regs() const { return m_warp->get_num_regs(); }
   void dispatch();
-  bool is_free() { return m_free; }
+  bool is_free() const { return m_free; }
+
+  register_set *get_output_register() const { return m_output_register; }
 
  private:
   bool m_free;
@@ -327,16 +329,22 @@ class input_port_t {
 
 class dispatch_unit_t {
  public:
-  dispatch_unit_t(std::vector<collector_unit_t> *cus) {
+  dispatch_unit_t(unsigned set_id, std::vector<collector_unit_t> *cus) {
     m_last_cu = 0;
     m_collector_units = cus;
     m_num_collectors = (*cus).size();
     m_next_cu = 0;
+    m_set_id = set_id;
   }
   void init(bool sub_core_model, unsigned num_warp_scheds) {
     m_sub_core_model = sub_core_model;
     m_num_warp_scheds = num_warp_scheds;
   }
+
+  unsigned get_last_cu() const { return m_last_cu; }
+  unsigned get_next_cu() const { return m_last_cu; }
+  unsigned get_set_id() const { return m_set_id; }
+  // unsigned get_kind() const { return m_last_cu; }
 
   collector_unit_t *find_ready() {
     // With sub-core enabled round robin starts with the next cu assigned to a
@@ -361,6 +369,7 @@ class dispatch_unit_t {
   unsigned m_next_cu;  // for initialization
   bool m_sub_core_model;
   unsigned m_num_warp_scheds;
+  unsigned m_set_id;
 };
 
 // operand collector based register file unit

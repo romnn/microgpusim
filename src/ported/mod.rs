@@ -1448,7 +1448,7 @@ mod tests {
     fn test_vectoradd() -> eyre::Result<()> {
         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
         let vec_add_trace_dir = manifest_dir.join("results/vectorAdd/vectorAdd-100-32");
-        let vec_add_trace_dir = manifest_dir.join("results/vectorAdd/vectorAdd-1000-32");
+        // let vec_add_trace_dir = manifest_dir.join("results/vectorAdd/vectorAdd-1000-32");
 
         let kernelslist = vec_add_trace_dir.join("accelsim-trace/kernelslist.g");
         let gpgpusim_config = manifest_dir.join("accelsim/gtx1080/gpgpusim.config");

@@ -10,8 +10,10 @@ collector_unit_t::collector_unit_t() {
   m_src_op = new op_t[MAX_REG_OPERANDS * 2];
   m_not_ready.reset();
   m_warp_id = -1;
+  m_reg_id = 0;
   m_num_banks = 0;
   m_bank_warp_shift = 0;
+  // assert(0 && "collector init");
 }
 
 bool collector_unit_t::ready() const {

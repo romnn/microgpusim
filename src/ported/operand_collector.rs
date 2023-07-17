@@ -128,6 +128,7 @@ impl Operand {
 #[derive(Debug)]
 pub struct CollectorUnit {
     free: bool,
+    kind: OperandCollectorUnitKind,
     /// collector unit hw id
     id: usize,
     warp_id: Option<usize>,
@@ -165,11 +166,12 @@ pub struct CollectorUnit {
 // }
 
 impl CollectorUnit {
-    fn new() -> Self {
+    fn new(kind: OperandCollectorUnitKind) -> Self {
         let src_operands = [(); MAX_REG_OPERANDS * 2].map(|_| None);
         Self {
             id: 0,
             free: true,
+            kind,
             warp_instr: None,
             output_register: None,
             src_operands,
@@ -1049,7 +1051,7 @@ impl OperandCollectorRegisterFileUnit {
         let set = self.collector_unit_sets.entry(kind).or_default();
 
         for coll_unit_id in 0..num_collector_units {
-            let unit = Rc::new(RefCell::new(CollectorUnit::new()));
+            let unit = Rc::new(RefCell::new(CollectorUnit::new(kind)));
             set.push(Rc::clone(&unit));
             self.collector_units.push(unit);
         }
@@ -1139,10 +1141,67 @@ mod test {
         }
     }
 
+    impl From<&super::CollectorUnit> for testing::state::CollectorUnit {
+        fn from(cu: &super::CollectorUnit) -> Self {
+            Self {
+                warp_id: cu.warp_id,
+                // warp_instr: Option<WarpInstruction>,
+                /// pipeline register to issue to when ready
+                output_register: cu
+                    .output_register
+                    .as_ref()
+                    .map(|r| r.borrow().deref().clone().into()),
+                // src_operands: [Option<Operand>; MAX_REG_OPERANDS * 2],
+                // not_ready: BitArr!(for MAX_REG_OPERANDS * 2),
+                reg_id: if cu.warp_id.is_some() {
+                    Some(cu.reg_id)
+                } else {
+                    None
+                },
+                kind: cu.kind.into(),
+                // ids: port
+                //     .collector_unit_ids
+                //     .iter()
+                //     .copied()
+                //     .map(Into::into)
+                //     .collect(),
+                // in_ports: port
+                //     .in_ports
+                //     .iter()
+                //     .map(|p| p.borrow().clone().into())
+                //     .collect(),
+                // out_ports: port
+                //     .out_ports
+                //     .iter()
+                //     .map(|p| p.borrow().clone().into())
+                //     .collect(),
+            }
+        }
+    }
+
+    impl From<&super::DispatchUnit> for testing::state::DispatchUnit {
+        fn from(unit: &super::DispatchUnit) -> Self {
+            Self {
+                last_cu: unit.last_cu,
+                next_cu: unit.next_cu,
+                kind: unit.kind.into(),
+            }
+        }
+    }
+
     impl From<&super::OperandCollectorRegisterFileUnit> for testing::state::OperandCollector {
         fn from(opcoll: &super::OperandCollectorRegisterFileUnit) -> Self {
+            let dispatch_units = opcoll.dispatch_units.iter().map(Into::into).collect();
+            let collector_units = opcoll
+                .collector_units
+                .iter()
+                .map(|cu| cu.borrow().deref().into())
+                .collect();
+            let ports = opcoll.in_ports.iter().map(Into::into).collect();
             Self {
-                ports: opcoll.in_ports.iter().map(Into::into).collect(),
+                ports,
+                dispatch_units,
+                collector_units,
             }
         }
     }

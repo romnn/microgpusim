@@ -149,6 +149,39 @@ pub enum OperandCollectorUnitKind {
     GEN_CUS,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct CollectorUnit {
+    // pub in_ports: Vec<RegisterSet>,
+    // pub out_ports: Vec<RegisterSet>,
+    // pub ids: Vec<OperandCollectorUnitKind>,
+    pub warp_id: Option<usize>,
+    // pub warp_instr: Option<WarpInstruction>,
+    pub output_register: Option<RegisterSet>,
+    // pub src_operands: Vec<Option<Operand>>, // ; MAX_REG_OPERANDS * 2],
+    // pub not_ready: BitArr!(for MAX_REG_OPERANDS * 2),
+    pub reg_id: Option<usize>,
+    pub kind: OperandCollectorUnitKind,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct DispatchUnit {
+    pub last_cu: usize,
+    pub next_cu: usize,
+    // pub sub_core_model: bool,
+    // pub num_warp_schedulers: usize,
+    pub kind: OperandCollectorUnitKind,
+}
+
+impl<'a> From<&playground::main::dispatch_unit_t> for DispatchUnit {
+    fn from(unit: &playground::main::dispatch_unit_t) -> Self {
+        Self {
+            last_cu: unit.get_last_cu() as usize,
+            next_cu: unit.get_next_cu() as usize,
+            kind: OperandCollectorUnitKind::from_repr(unit.get_set_id()).unwrap(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Port {
     pub in_ports: Vec<RegisterSet>,
@@ -166,6 +199,8 @@ impl Port {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct OperandCollector {
     pub ports: Vec<Port>,
+    pub collector_units: Vec<CollectorUnit>,
+    pub dispatch_units: Vec<DispatchUnit>,
 }
 
 impl<'a> From<playground::Port<'a>> for Port {
@@ -180,6 +215,17 @@ impl<'a> From<playground::Port<'a>> for Port {
             in_ports: in_ports.map(Into::into).collect(),
             out_ports: out_ports.map(Into::into).collect(),
             ids,
+        }
+    }
+}
+
+impl<'a> From<playground::CollectorUnit<'a>> for CollectorUnit {
+    fn from(cu: playground::CollectorUnit<'a>) -> Self {
+        Self {
+            kind: OperandCollectorUnitKind::from_repr(cu.set_id()).unwrap(),
+            warp_id: cu.warp_id(),
+            output_register: cu.output_register().map(Into::into),
+            reg_id: cu.reg_id(),
         }
     }
 }
@@ -211,7 +257,23 @@ impl<'a> From<playground::OperandCollector<'a>> for OperandCollector {
                 }
             })
             .collect();
-        Self { ports }
+        let collector_units = opcoll
+            .collector_units()
+            .into_iter()
+            .map(CollectorUnit::from)
+            .filter(|unit| !skip.contains(&unit.kind))
+            .collect();
+        let dispatch_units = opcoll
+            .dispatch_units()
+            .map(DispatchUnit::from)
+            .filter(|unit| !skip.contains(&unit.kind))
+            .collect();
+
+        Self {
+            ports,
+            collector_units,
+            dispatch_units,
+        }
     }
 }
 

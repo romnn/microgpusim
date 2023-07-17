@@ -66,9 +66,29 @@ mod default {
         // OPERAND COLL
         type opndcoll_rfu_t;
 
+        type collector_unit_set;
+        fn get_set(self: &collector_unit_set) -> u32;
+        fn get_unit(self: &collector_unit_set) -> &collector_unit_t;
+
+        type collector_unit_t;
+        fn is_free(self: &collector_unit_t) -> bool;
+        fn get_warp_id(self: &collector_unit_t) -> u32;
+        fn get_active_count(self: &collector_unit_t) -> u32;
+        fn get_reg_id(self: &collector_unit_t) -> u32;
+        fn get_output_register(self: &collector_unit_t) -> *mut register_set;
+
+        type dispatch_unit_t;
+        fn get_set_id(self: &dispatch_unit_t) -> u32;
+        fn get_last_cu(self: &dispatch_unit_t) -> u32;
+        fn get_next_cu(self: &dispatch_unit_t) -> u32;
+
         type operand_collector_bridge;
         fn inner(self: &operand_collector_bridge) -> *const opndcoll_rfu_t;
         fn get_input_ports(self: &operand_collector_bridge) -> &CxxVector<input_port_t>;
+        fn get_dispatch_units(self: &operand_collector_bridge) -> &CxxVector<dispatch_unit_t>;
+        fn get_collector_units(
+            self: &operand_collector_bridge,
+        ) -> UniquePtr<CxxVector<collector_unit_set>>;
 
         // CORE
         type core_bridge;
