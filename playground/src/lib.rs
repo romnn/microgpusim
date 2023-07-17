@@ -10,6 +10,9 @@ pub mod interconnect;
 
 pub use playground_sys::{bindings, main, mem_fetch, stats, trace_shd_warp};
 
+use std::marker::PhantomData;
+use std::ops::Deref;
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
@@ -30,8 +33,8 @@ impl Default for Config {
 
 #[derive(Clone)]
 pub struct MemFetch<'a> {
-    ptr: *const playground_sys::mem_fetch::mem_fetch,
-    phantom: std::marker::PhantomData<&'a ()>,
+    inner: cxx::SharedPtr<playground_sys::main::mem_fetch_bridge>,
+    phantom: PhantomData<&'a playground_sys::main::mem_fetch_bridge>,
 }
 
 // impl<'a> AsRef<playground_sys::mem_fetch::mem_fetch> for MemFetch<'a> {
@@ -44,18 +47,19 @@ impl<'a> std::ops::Deref for MemFetch<'a> {
     type Target = playground_sys::mem_fetch::mem_fetch;
 
     fn deref(&self) -> &'a Self::Target {
-        unsafe { &*self.ptr as &_ }
+        unsafe { self.inner.inner().as_ref().unwrap() }
     }
 }
 
-fn get_queue<'a>(
-    queue: &cxx::UniquePtr<cxx::CxxVector<playground_sys::main::mem_fetch_bridge>>,
+fn get_mem_fetches<'a>(
+    queue: &cxx::UniquePtr<cxx::CxxVector<playground_sys::main::mem_fetch_ptr>>,
 ) -> Vec<MemFetch<'a>> {
+    use playground_sys::main::new_mem_fetch_bridge;
     queue
         .into_iter()
-        .map(|fetch| MemFetch {
-            ptr: fetch.get(),
-            phantom: std::marker::PhantomData,
+        .map(|ptr| MemFetch {
+            inner: unsafe { new_mem_fetch_bridge(ptr.get()) },
+            phantom: PhantomData,
         })
         .collect()
 }
@@ -66,7 +70,7 @@ pub struct MemoryPartitionUnit<'a>(&'a playground_sys::main::memory_partition_un
 impl<'a> MemoryPartitionUnit<'a> {
     #[must_use]
     pub fn dram_latency_queue(&self) -> Vec<MemFetch<'a>> {
-        get_queue(&self.0.get_dram_latency_queue())
+        get_mem_fetches(&self.0.get_dram_latency_queue())
     }
 }
 
@@ -76,42 +80,137 @@ pub struct MemorySubPartition<'a>(&'a playground_sys::main::memory_sub_partition
 impl<'a> MemorySubPartition<'a> {
     #[must_use]
     pub fn interconn_to_l2_queue(&self) -> Vec<MemFetch<'a>> {
-        get_queue(&self.0.get_icnt_L2_queue())
+        get_mem_fetches(&self.0.get_icnt_L2_queue())
     }
     #[must_use]
     pub fn l2_to_interconn_queue(&self) -> Vec<MemFetch<'a>> {
-        get_queue(&self.0.get_L2_icnt_queue())
+        get_mem_fetches(&self.0.get_L2_icnt_queue())
     }
     #[must_use]
     pub fn dram_to_l2_queue(&self) -> Vec<MemFetch<'a>> {
-        get_queue(&self.0.get_dram_L2_queue())
+        get_mem_fetches(&self.0.get_dram_L2_queue())
     }
     #[must_use]
     pub fn l2_to_dram_queue(&self) -> Vec<MemFetch<'a>> {
-        get_queue(&self.0.get_L2_dram_queue())
+        get_mem_fetches(&self.0.get_L2_dram_queue())
     }
 }
 
 #[derive(Clone)]
 pub struct WarpInstr<'a> {
-    ptr: *const playground_sys::main::warp_inst_t,
-    phantom: std::marker::PhantomData<&'a playground_sys::main::warp_inst_t>,
+    inner: cxx::SharedPtr<playground_sys::main::warp_inst_bridge>,
+    phantom: PhantomData<&'a playground_sys::main::warp_inst_bridge>,
+}
+
+impl<'a> WarpInstr<'a> {
+    pub fn opcode_str(&self) -> &str {
+        let opcode = self.deref().opcode_str();
+        let opcode = unsafe { std::ffi::CStr::from_ptr(opcode) };
+        opcode.to_str().unwrap()
+    }
 }
 
 impl<'a> std::ops::Deref for WarpInstr<'a> {
     type Target = playground_sys::main::warp_inst_t;
 
     fn deref(&self) -> &'a Self::Target {
-        unsafe { &*self.ptr as &_ }
+        unsafe { self.inner.inner().as_ref().unwrap() }
     }
 }
 
-#[derive(Clone)]
+#[derive()]
 pub struct RegisterSet<'a> {
-    // ptr: *const playground_sys::main::register_set,
-    phantom: std::marker::PhantomData<&'a playground_sys::main::register_set>,
-    pub stage: playground_sys::main::pipeline_stage_name_t,
-    pub pipeline: Vec<WarpInstr<'a>>,
+    pub inner: cxx::SharedPtr<playground_sys::main::register_set_bridge>,
+    phantom: PhantomData<&'a playground_sys::main::register_set_bridge>,
+}
+
+impl<'a> RegisterSet<'a> {
+    pub fn name(&self) -> String {
+        let name = unsafe { std::ffi::CStr::from_ptr(self.get_name()) };
+        name.to_string_lossy().to_string()
+    }
+
+    pub fn registers(&self) -> Vec<WarpInstr<'a>> {
+        use playground_sys::main::new_warp_inst_bridge;
+        self.inner
+            .get_registers()
+            .iter()
+            .map(|ptr| WarpInstr {
+                inner: unsafe { new_warp_inst_bridge(ptr.get()) },
+                phantom: PhantomData,
+            })
+            .collect()
+    }
+}
+
+impl<'a> std::ops::Deref for RegisterSet<'a> {
+    type Target = playground_sys::main::register_set;
+
+    fn deref(&self) -> &'a Self::Target {
+        // unsafe { &*self.inner.inner() as &_ }
+        unsafe { self.inner.inner().as_ref().unwrap() }
+    }
+}
+
+#[derive()]
+pub struct Port<'a> {
+    // ptr: cxx::UniquePtr<playground_sys::main::input_port_bridge>,
+    pub inner: cxx::SharedPtr<playground_sys::main::input_port_bridge>,
+    phantom: PhantomData<&'a playground_sys::main::input_port_t>,
+}
+
+fn get_register_sets<'a>(
+    regs: cxx::UniquePtr<::cxx::CxxVector<playground_sys::main::register_set_ptr>>,
+) -> Vec<RegisterSet<'a>> {
+    use playground_sys::main::new_register_set_bridge;
+    regs.iter()
+        .map(|ptr| RegisterSet {
+            inner: unsafe { new_register_set_bridge(ptr.get()) },
+            phantom: PhantomData,
+        })
+        .collect()
+}
+
+impl<'a> Port<'a> {
+    pub fn cu_sets(&'a self) -> impl Iterator<Item = &u32> {
+        self.inner.get_cu_sets().iter()
+    }
+
+    pub fn in_ports(&'a self) -> Vec<RegisterSet<'a>> {
+        get_register_sets(self.inner.get_in_ports())
+    }
+
+    pub fn out_ports(&'a self) -> Vec<RegisterSet<'a>> {
+        get_register_sets(self.inner.get_out_ports())
+    }
+}
+
+#[derive()]
+pub struct OperandCollector<'a> {
+    inner: cxx::SharedPtr<playground_sys::main::operand_collector_bridge>,
+    phantom: PhantomData<&'a playground_sys::main::opndcoll_rfu_t>,
+}
+
+impl<'a> std::ops::Deref for OperandCollector<'a> {
+    type Target = playground_sys::main::opndcoll_rfu_t;
+
+    fn deref(&self) -> &'a Self::Target {
+        unsafe { self.inner.inner().as_ref().unwrap() }
+    }
+}
+
+impl<'a> OperandCollector<'a> {
+    pub fn ports(&'a self) -> Vec<Port<'a>> {
+        use playground_sys::main::new_input_port_bridge;
+        self.inner
+            .get_input_ports()
+            .iter()
+            .map(|port| Port {
+                inner: unsafe { new_input_port_bridge(port) },
+                phantom: PhantomData,
+            })
+            .collect()
+    }
 }
 
 #[derive()]
@@ -120,28 +219,23 @@ pub struct Core<'a>(&'a playground_sys::main::core_bridge);
 impl<'a> Core<'a> {
     #[must_use]
     pub fn register_sets(&self) -> Vec<RegisterSet<'a>> {
-        //     // pub fn get_register_sets(&self) -> Vec<&'a playground_sys::main::register_set_bridge> {
-        //     // pub fn get_register_sets(
-        //     //     &'a self,
-        //     // ) -> impl Iterator<Item = &'a playground_sys::main::register_set_bridge> + '_ {
-        //     // ) -> Vec<()> {
-        //     // self.0.get_register_sets().iter
+        use playground_sys::main::new_register_set_bridge;
         self.0
             .get_register_sets()
             .iter()
-            .map(|reg| RegisterSet {
-                stage: reg.get_stage(),
-                pipeline: reg
-                    .get_regs()
-                    .iter()
-                    .map(|r| WarpInstr {
-                        ptr: r.get(),
-                        phantom: std::marker::PhantomData,
-                    })
-                    .collect(),
-                phantom: std::marker::PhantomData,
+            .map(|ptr| RegisterSet {
+                inner: unsafe { new_register_set_bridge(ptr.get()) },
+                phantom: PhantomData,
             })
             .collect()
+    }
+
+    #[must_use]
+    pub fn operand_collector(&self) -> OperandCollector<'a> {
+        OperandCollector {
+            inner: self.0.get_operand_collector(),
+            phantom: PhantomData,
+        }
     }
 }
 
@@ -149,7 +243,7 @@ impl<'a> Core<'a> {
 pub struct Accelsim<'a> {
     inner: cxx::UniquePtr<playground_sys::main::accelsim_bridge>,
     stats: crate::stats::Stats,
-    phantom: std::marker::PhantomData<&'a playground_sys::main::accelsim_bridge>,
+    phantom: PhantomData<&'a playground_sys::main::accelsim_bridge>,
 }
 
 impl<'a> Accelsim<'a> {
@@ -164,7 +258,7 @@ impl<'a> Accelsim<'a> {
         Ok(Self {
             inner: accelsim_bridge,
             stats: crate::stats::Stats::default(),
-            phantom: std::marker::PhantomData,
+            phantom: PhantomData,
         })
     }
 

@@ -1,6 +1,5 @@
 #pragma once
 
-// #include <utility>
 #include <list>
 
 #include "accelsim_config.hpp"
@@ -13,34 +12,130 @@
 #include "../trace_config.hpp"
 #include "../trace_command.hpp"
 #include "../trace_kernel_info.hpp"
+#include "../opndcoll_rfu.hpp"
 #include "../memory_partition_unit.hpp"
 #include "../memory_sub_partition.hpp"
 #include "../trace_shader_core_ctx.hpp"
 #include "../trace_gpgpu_sim.hpp"
 
+struct mem_fetch_ptr {
+  const mem_fetch *ptr;
+  const mem_fetch *get() const { return ptr; }
+};
+
 class mem_fetch_bridge {
  public:
-  mem_fetch_bridge(mem_fetch *ptr) : ptr(ptr) {}
+  mem_fetch_bridge(const mem_fetch *ptr) : ptr(ptr) {}
 
-  mem_fetch *get() const { return ptr; }
+  const mem_fetch *inner() const { return ptr; }
 
  private:
-  class mem_fetch *ptr;
+  const class mem_fetch *ptr;
+};
+std::shared_ptr<mem_fetch_bridge> new_mem_fetch_bridge(const mem_fetch *ptr);
+
+struct warp_inst_ptr {
+  const warp_inst_t *ptr;
+  const warp_inst_t *get() const { return ptr; }
+};
+
+class warp_inst_bridge {
+ public:
+  warp_inst_bridge(const warp_inst_t *ptr) : ptr(ptr){};
+
+  const warp_inst_t *inner() const { return ptr; }
+
+ private:
+  const warp_inst_t *ptr;
+};
+std::shared_ptr<warp_inst_bridge> new_warp_inst_bridge(const warp_inst_t *ptr);
+
+struct register_set_ptr {
+  const register_set *ptr;
+  const register_set *get() const { return ptr; }
+};
+
+class register_set_bridge {
+ public:
+  register_set_bridge(const register_set *ptr) : ptr(ptr) {}
+
+  const register_set *inner() const { return ptr; };
+
+  std::unique_ptr<std::vector<warp_inst_ptr>> get_registers() const {
+    std::vector<warp_inst_ptr> out;
+    std::vector<warp_inst_t *>::const_iterator iter;
+    for (iter = (ptr->regs).begin(); iter != (ptr->regs).end(); iter++) {
+      out.push_back(warp_inst_ptr{*iter});
+    }
+    return std::make_unique<std::vector<warp_inst_ptr>>(out);
+  }
+
+ private:
+  const register_set *ptr;
+};
+
+std::shared_ptr<register_set_bridge> new_register_set_bridge(
+    const register_set *ptr);
+
+class input_port_bridge {
+ public:
+  input_port_bridge(const input_port_t *ptr) : ptr(ptr) {}
+
+  const input_port_t *inner() const { return ptr; }
+
+  std::unique_ptr<std::vector<register_set_ptr>> get_in_ports() const {
+    std::vector<register_set_ptr> out;
+    std::vector<register_set *>::const_iterator iter;
+    for (iter = (ptr->m_in).begin(); iter != (ptr->m_in).end(); iter++) {
+      out.push_back(register_set_ptr{*iter});
+    }
+    return std::make_unique<std::vector<register_set_ptr>>(out);
+  }
+
+  std::unique_ptr<std::vector<register_set_ptr>> get_out_ports() const {
+    std::vector<register_set_ptr> out;
+    std::vector<register_set *>::const_iterator iter;
+    for (iter = (ptr->m_out).begin(); iter != (ptr->m_out).end(); iter++) {
+      out.push_back(register_set_ptr{*iter});
+    }
+    return std::make_unique<std::vector<register_set_ptr>>(out);
+  }
+
+  const uint_vector_t &get_cu_sets() const { return ptr->m_cu_sets; }
+
+ private:
+  const class input_port_t *ptr;
+};
+
+std::shared_ptr<input_port_bridge> new_input_port_bridge(
+    const input_port_t *ptr);
+
+class operand_collector_bridge {
+ public:
+  operand_collector_bridge(const opndcoll_rfu_t *ptr) : ptr(ptr) {}
+
+  const opndcoll_rfu_t *inner() const { return ptr; }
+
+  const std::vector<input_port_t> &get_input_ports() const {
+    return ptr->m_in_ports;
+  }
+
+ private:
+  const class opndcoll_rfu_t *ptr;
 };
 
 class memory_partition_unit_bridge {
  public:
   memory_partition_unit_bridge(memory_partition_unit *ptr) : ptr(ptr) {}
 
-  std::unique_ptr<std::vector<mem_fetch_bridge>> get_dram_latency_queue()
-      const {
-    std::vector<mem_fetch_bridge> q;
+  std::unique_ptr<std::vector<mem_fetch_ptr>> get_dram_latency_queue() const {
+    std::vector<mem_fetch_ptr> q;
     std::list<memory_partition_unit::dram_delay_t>::const_iterator iter;
     for (iter = (ptr->m_dram_latency_queue).begin();
          iter != (ptr->m_dram_latency_queue).end(); iter++) {
-      q.push_back(mem_fetch_bridge(iter->req));
+      q.push_back(mem_fetch_ptr{iter->req});
     }
-    return std::make_unique<std::vector<mem_fetch_bridge>>(q);
+    return std::make_unique<std::vector<mem_fetch_ptr>>(q);
   }
 
  private:
@@ -51,29 +146,29 @@ class memory_sub_partition_bridge {
  public:
   memory_sub_partition_bridge(memory_sub_partition *ptr) : ptr(ptr) {}
 
-  std::unique_ptr<std::vector<mem_fetch_bridge>> get_queue(
+  std::unique_ptr<std::vector<mem_fetch_ptr>> get_queue(
       fifo_pipeline<mem_fetch> *fifo) const {
-    std::vector<mem_fetch_bridge> q;
+    std::vector<mem_fetch_ptr> q;
     if (fifo != NULL) {
       fifo_data<mem_fetch> *ddp = fifo->m_head;
       while (ddp) {
-        q.push_back(mem_fetch_bridge(ddp->m_data));
+        q.push_back(mem_fetch_ptr{ddp->m_data});
         ddp = ddp->m_next;
       }
     }
-    return std::make_unique<std::vector<mem_fetch_bridge>>(q);
+    return std::make_unique<std::vector<mem_fetch_ptr>>(q);
   }
 
-  std::unique_ptr<std::vector<mem_fetch_bridge>> get_icnt_L2_queue() const {
+  std::unique_ptr<std::vector<mem_fetch_ptr>> get_icnt_L2_queue() const {
     return get_queue(ptr->m_icnt_L2_queue);
   }
-  std::unique_ptr<std::vector<mem_fetch_bridge>> get_L2_dram_queue() const {
+  std::unique_ptr<std::vector<mem_fetch_ptr>> get_L2_dram_queue() const {
     return get_queue(ptr->m_L2_dram_queue);
   }
-  std::unique_ptr<std::vector<mem_fetch_bridge>> get_dram_L2_queue() const {
+  std::unique_ptr<std::vector<mem_fetch_ptr>> get_dram_L2_queue() const {
     return get_queue(ptr->m_dram_L2_queue);
   }
-  std::unique_ptr<std::vector<mem_fetch_bridge>> get_L2_icnt_queue() const {
+  std::unique_ptr<std::vector<mem_fetch_ptr>> get_L2_icnt_queue() const {
     return get_queue(ptr->m_L2_icnt_queue);
   }
 
@@ -81,80 +176,32 @@ class memory_sub_partition_bridge {
   class memory_sub_partition *ptr;
 };
 
-class warp_inst_bridge {
- public:
-  warp_inst_bridge(warp_inst_t *ptr) : ptr(ptr){};
-
-  warp_inst_t *get() const { return ptr; }
-
- private:
-  warp_inst_t *ptr;
-};
-
-class register_set_bridge {
- public:
-  register_set_bridge(pipeline_stage_name_t stage, register_set *ptr)
-      : ptr(ptr), m_stage(stage) {}
-
-  pipeline_stage_name_t get_stage() const { return m_stage; }
-
-  std::unique_ptr<std::vector<warp_inst_bridge>> get_regs() const {
-    std::vector<warp_inst_bridge> out;
-    std::vector<warp_inst_t *>::const_iterator iter;
-    for (iter = (ptr->regs).begin(); iter != (ptr->regs).end(); iter++) {
-      out.push_back(warp_inst_bridge(*iter));
-    }
-    return std::make_unique<std::vector<warp_inst_bridge>>(out);
-  }
-
-  // todo: warp instructions
-  // std::unique_ptr<std::vector<mem_fetch_bridge>> get_L2_icnt_queue() const {
-  //   return get_queue(ptr->m_L2_icnt_queue);
-  // }
-
- private:
-  pipeline_stage_name_t m_stage;
-  register_set *ptr;
-};
-
 class core_bridge {
  public:
-  core_bridge(trace_shader_core_ctx *ptr) : ptr(ptr) {}
+  core_bridge(const trace_shader_core_ctx *ptr) : ptr(ptr) {}
 
-  // std::unique_ptr<std::vector<mem_fetch_bridge>> get_queue(
-  //     fifo_pipeline<mem_fetch> *fifo) const {
-  //   std::vector<mem_fetch_bridge> q;
-  //   if (fifo != NULL) {
-  //     fifo_data<mem_fetch> *ddp = fifo->m_head;
-  //     while (ddp) {
-  //       q.push_back(mem_fetch_bridge(ddp->m_data));
-  //       ddp = ddp->m_next;
-  //     }
-  //   }
-  //   return std::make_unique<std::vector<mem_fetch_bridge>>(q);
-  // }
-  //
-  std::unique_ptr<std::vector<register_set_bridge>> get_register_sets() const {
-    // std::vector<register_set> &get_icnt_L2_queue() const {
-    std::vector<register_set_bridge> out;
+  std::unique_ptr<std::vector<register_set_ptr>> get_register_sets() const {
+    std::vector<register_set_ptr> out;
     for (unsigned n = 0; n < ptr->m_num_function_units; n++) {
-      // pipeline_stage_name_t issue_port = ptr->m_issue_port[n];
       unsigned int issue_port = ptr->m_issue_port[n];
-
-      register_set &issue_reg = ptr->m_pipeline_reg[issue_port];
-      if (issue_port == OC_EX_SP || issue_port == OC_EX_MEM) {
-        out.push_back(
-            register_set_bridge((pipeline_stage_name_t)issue_port, &issue_reg));
+      const register_set &issue_reg = ptr->m_pipeline_reg[issue_port];
+      bool is_sp = issue_port == ID_OC_SP || issue_port == OC_EX_SP;
+      bool is_mem = issue_port == ID_OC_MEM || issue_port == OC_EX_MEM;
+      if (is_sp || is_mem) {
+        out.push_back(register_set_ptr{std::addressof(issue_reg)});
       }
     }
 
-    // return ptr->m_pipeline_reg;
-    // return get_queue(ptr->m_icnt_L2_queue);
-    return std::make_unique<std::vector<register_set_bridge>>(out);
+    return std::make_unique<std::vector<register_set_ptr>>(out);
+  }
+
+  std::shared_ptr<operand_collector_bridge> get_operand_collector() const {
+    return std::make_shared<operand_collector_bridge>(
+        &(ptr->m_operand_collector));
   }
 
  private:
-  class trace_shader_core_ctx *ptr;
+  const class trace_shader_core_ctx *ptr;
 };
 
 class accelsim_bridge {

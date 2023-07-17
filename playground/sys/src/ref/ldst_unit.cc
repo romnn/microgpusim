@@ -600,7 +600,10 @@ void ldst_unit::cycle() {
   for (unsigned stage = 0; (stage + 1) < m_pipeline_depth; stage++) {
     if (m_pipeline_reg[stage]->empty() && !m_pipeline_reg[stage + 1]->empty()) {
       // throw std::runtime_error("is moving");
-      move_warp(m_pipeline_reg[stage], m_pipeline_reg[stage + 1]);
+      std::stringstream msg;
+      msg << "load store unit: move warp from stage " << stage << " to "
+          << stage + 1;
+      move_warp(m_pipeline_reg[stage], m_pipeline_reg[stage + 1], msg.str());
     }
   }
 
@@ -689,7 +692,14 @@ void ldst_unit::cycle() {
       if (pipe_reg.space.get_type() == shared_space) {
         if (m_pipeline_reg[m_config->smem_latency - 1]->empty()) {
           // new shared memory request
-          move_warp(m_pipeline_reg[m_config->smem_latency - 1], m_dispatch_reg);
+
+          unsigned pipe_slot_idx = m_config->smem_latency - 1;
+          std::stringstream msg;
+          msg << "load store unit: move warp from dispatch register to "
+                 "pipeline["
+              << pipe_slot_idx << "]",
+              move_warp(m_pipeline_reg[m_config->smem_latency - 1],
+                        m_dispatch_reg, msg.str());
           m_dispatch_reg->clear();
         }
       } else {

@@ -25,6 +25,9 @@ pub mod sp_unit;
 pub mod tag_array;
 pub mod utils;
 
+#[cfg(test)]
+pub mod testing;
+
 use self::cluster::*;
 use self::core::*;
 use addrdec::*;
@@ -1219,7 +1222,7 @@ pub fn accelmain(
 mod tests {
     use crate::{
         config,
-        ported::{fifo::Queue, interconn as ic},
+        ported::{fifo::Queue, interconn as ic, testing},
         Simulation,
     };
     use color_eyre::eyre;
@@ -1227,226 +1230,225 @@ mod tests {
     use stats::ConvertHashMap;
     use std::collections::HashMap;
     use std::io::Write;
+    use std::ops::Deref;
     use std::path::PathBuf;
     use std::sync::Arc;
 
-    impl From<playground::mem_fetch::mf_type> for super::mem_fetch::Kind {
-        fn from(kind: playground::mem_fetch::mf_type) -> Self {
-            use playground::mem_fetch::mf_type;
-            match kind {
-                mf_type::READ_REQUEST => super::mem_fetch::Kind::READ_REQUEST,
-                mf_type::WRITE_REQUEST => super::mem_fetch::Kind::WRITE_REQUEST,
-                mf_type::READ_REPLY => super::mem_fetch::Kind::READ_REPLY,
-                mf_type::WRITE_ACK => super::mem_fetch::Kind::WRITE_ACK,
-            }
-        }
-    }
-
-    impl From<playground::mem_fetch::mem_access_type> for super::mem_fetch::AccessKind {
-        fn from(kind: playground::mem_fetch::mem_access_type) -> Self {
-            use playground::mem_fetch::mem_access_type;
-            match kind {
-                mem_access_type::GLOBAL_ACC_R => super::mem_fetch::AccessKind::GLOBAL_ACC_R,
-                mem_access_type::LOCAL_ACC_R => super::mem_fetch::AccessKind::LOCAL_ACC_R,
-                mem_access_type::CONST_ACC_R => super::mem_fetch::AccessKind::CONST_ACC_R,
-                mem_access_type::TEXTURE_ACC_R => super::mem_fetch::AccessKind::TEXTURE_ACC_R,
-                mem_access_type::GLOBAL_ACC_W => super::mem_fetch::AccessKind::GLOBAL_ACC_W,
-                mem_access_type::LOCAL_ACC_W => super::mem_fetch::AccessKind::LOCAL_ACC_W,
-                mem_access_type::L1_WRBK_ACC => super::mem_fetch::AccessKind::L1_WRBK_ACC,
-                mem_access_type::L2_WRBK_ACC => super::mem_fetch::AccessKind::L2_WRBK_ACC,
-                mem_access_type::INST_ACC_R => super::mem_fetch::AccessKind::INST_ACC_R,
-                mem_access_type::L1_WR_ALLOC_R => super::mem_fetch::AccessKind::L1_WR_ALLOC_R,
-                mem_access_type::L2_WR_ALLOC_R => super::mem_fetch::AccessKind::L2_WR_ALLOC_R,
-                other @ mem_access_type::NUM_MEM_ACCESS_TYPE => {
-                    panic!("bad mem access kind: {:?}", other)
-                }
-            }
-        }
-    }
-
-    #[derive(Clone, PartialEq, Eq, Hash)]
-    pub struct WarpInstructionKey {
-        opcode: String,
-        pc: usize,
-        warp_id: usize,
-    }
-
-    impl std::fmt::Debug for WarpInstructionKey {
-        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-            write!(f, "{}[pc={},warp={}]", self.opcode, self.pc, self.warp_id)
-        }
-    }
-
-    #[derive(Clone, PartialEq, Eq, Hash)]
-    pub struct RegisterSetKey {
-        stage: super::core::PipelineStage,
-        pipeline: Vec<Option<WarpInstructionKey>>,
-    }
-
-    impl std::fmt::Debug for RegisterSetKey {
-        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-            write!(f, "{:?}={:?}", self.stage, self.pipeline)
-        }
-    }
-
-    impl From<super::register_set::RegisterSet> for RegisterSetKey {
-        fn from(reg: super::register_set::RegisterSet) -> Self {
-            let pipeline = reg
-                .regs
-                .into_iter()
-                .map(|instr| match instr {
-                    Some(instr) => Some(WarpInstructionKey {
-                        opcode: instr.opcode.to_string(),
-                        pc: instr.pc,
-                        warp_id: instr.warp_id,
-                    }),
-                    None => None,
-                })
-                .collect();
-            Self {
-                stage: reg.stage,
-                pipeline,
-            }
-        }
-    }
-
-    impl<'a> From<playground::main::pipeline_stage_name_t> for super::core::PipelineStage {
-        fn from(stage: playground::main::pipeline_stage_name_t) -> Self {
-            use playground::main::pipeline_stage_name_t;
-            match stage {
-                // pipeline_stage_name_t::ID_OC_SP => Self::ID_OC_SP,
-                // pipeline_stage_name_t::ID_OC_DP => Self::ID_OC_DP,
-                // pipeline_stage_name_t::ID_OC_INT => Self::ID_OC_INT,
-                // pipeline_stage_name_t::ID_OC_SFU => Self::ID_OC_SFU,
-                // pipeline_stage_name_t::ID_OC_MEM => Self::ID_OC_MEM,
-                pipeline_stage_name_t::OC_EX_SP => Self::OC_EX_SP,
-                // pipeline_stage_name_t::OC_EX_DP => Self::OC_EX_DP,
-                // pipeline_stage_name_t::OC_EX_INT => Self::OC_EX_INT,
-                // pipeline_stage_name_t::OC_EX_SFU => Self::OC_EX_SFU,
-                pipeline_stage_name_t::OC_EX_MEM => Self::OC_EX_MEM,
-                pipeline_stage_name_t::EX_WB => Self::EX_WB,
-                // pipeline_stage_name_t::ID_OC_TENSOR_CORE => Self::ID_OC_TENSOR_CORE,
-                // pipeline_stage_name_t::OC_EX_TENSOR_CORE => Self::OC_EX_TENSOR_CORE,
-                other => panic!("bad pipeline stage {:?}", other),
-            }
-        }
-    }
-
-    impl<'a> From<playground::RegisterSet<'a>> for RegisterSetKey {
-        fn from(reg: playground::RegisterSet<'a>) -> Self {
-            Self {
-                stage: reg.stage.into(),
-                pipeline: reg
-                    .pipeline
-                    .into_iter()
-                    .map(|instr| {
-                        if instr.empty() {
-                            None
-                        } else {
-                            let opcode = unsafe { std::ffi::CStr::from_ptr(instr.opcode_str()) };
-                            let opcode = opcode
-                                .to_str()
-                                .unwrap()
-                                .trim_start_matches("OP_")
-                                .to_string();
-                            Some(WarpInstructionKey {
-                                opcode,
-                                pc: instr.get_pc() as usize,
-                                warp_id: instr.warp_id() as usize,
-                            })
-                        }
-                    })
-                    .collect(),
-            }
-        }
-    }
-
-    #[derive(Clone, PartialEq, Eq, Hash)]
-    pub struct MemFetchKey {
-        kind: super::mem_fetch::Kind,
-        access_kind: super::mem_fetch::AccessKind,
-        // cannot compare addr because its different between runs
-        // addr: super::address,
-        relative_addr: Option<(usize, super::address)>,
-    }
-
-    impl std::fmt::Debug for MemFetchKey {
-        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-            write!(f, "{:?}({:?}", self.kind, self.access_kind)?;
-            if let Some((alloc_id, rel_addr)) = self.relative_addr {
-                write!(f, "@{}+{}", alloc_id, rel_addr)?;
-            }
-            write!(f, ")")
-        }
-    }
-
-    impl<'a> From<playground::MemFetch<'a>> for MemFetchKey {
-        fn from(fetch: playground::MemFetch<'a>) -> Self {
-            let addr = fetch.get_addr();
-            let relative_addr = fetch.get_relative_addr();
-            Self {
-                kind: fetch.get_type().into(),
-                access_kind: fetch.get_access_type().into(),
-                relative_addr: if addr == relative_addr {
-                    None
-                } else {
-                    Some((fetch.get_alloc_id() as usize, relative_addr))
-                },
-            }
-        }
-    }
-
-    impl From<super::mem_fetch::MemFetch> for MemFetchKey {
-        fn from(fetch: super::mem_fetch::MemFetch) -> Self {
-            let addr = fetch.addr();
-            Self {
-                kind: fetch.kind,
-                access_kind: *fetch.access_kind(),
-                relative_addr: match fetch.access.allocation {
-                    Some(alloc) => Some((alloc.id, addr - alloc.start_addr)),
-                    None => None,
-                },
-            }
-        }
-    }
-
-    #[derive(Debug, Clone, PartialEq, Eq)]
-    pub struct SimulationState {
-        interconn_to_l2_queue: Vec<Vec<MemFetchKey>>,
-        l2_to_interconn_queue: Vec<Vec<MemFetchKey>>,
-        l2_to_dram_queue: Vec<Vec<MemFetchKey>>,
-        dram_to_l2_queue: Vec<Vec<MemFetchKey>>,
-        dram_latency_queue: Vec<Vec<MemFetchKey>>,
-        // functional_unit_pipelines: Vec<HashMap<String, Vec<WarpInstructionKey>>>,
-        functional_unit_pipelines: Vec<Vec<RegisterSetKey>>,
-    }
-
-    impl SimulationState {
-        pub fn new(
-            total_cores: usize,
-            num_mem_partitions: usize,
-            num_sub_partitions: usize,
-        ) -> Self {
-            Self {
-                // per sub partition
-                interconn_to_l2_queue: vec![vec![]; num_sub_partitions],
-                l2_to_interconn_queue: vec![vec![]; num_sub_partitions],
-                l2_to_dram_queue: vec![vec![]; num_sub_partitions],
-                dram_to_l2_queue: vec![vec![]; num_sub_partitions],
-                // per partition
-                dram_latency_queue: vec![vec![]; num_mem_partitions],
-                // per core
-                // functional_unit_pipelines: vec![HashMap::new(); total_cores],
-                functional_unit_pipelines: vec![vec![]; total_cores],
-            }
-        }
-    }
+    // impl From<playground::mem_fetch::mf_type> for super::mem_fetch::Kind {
+    //     fn from(kind: playground::mem_fetch::mf_type) -> Self {
+    //         use playground::mem_fetch::mf_type;
+    //         match kind {
+    //             mf_type::READ_REQUEST => super::mem_fetch::Kind::READ_REQUEST,
+    //             mf_type::WRITE_REQUEST => super::mem_fetch::Kind::WRITE_REQUEST,
+    //             mf_type::READ_REPLY => super::mem_fetch::Kind::READ_REPLY,
+    //             mf_type::WRITE_ACK => super::mem_fetch::Kind::WRITE_ACK,
+    //         }
+    //     }
+    // }
+    //
+    // impl From<playground::mem_fetch::mem_access_type> for super::mem_fetch::AccessKind {
+    //     fn from(kind: playground::mem_fetch::mem_access_type) -> Self {
+    //         use playground::mem_fetch::mem_access_type;
+    //         match kind {
+    //             mem_access_type::GLOBAL_ACC_R => super::mem_fetch::AccessKind::GLOBAL_ACC_R,
+    //             mem_access_type::LOCAL_ACC_R => super::mem_fetch::AccessKind::LOCAL_ACC_R,
+    //             mem_access_type::CONST_ACC_R => super::mem_fetch::AccessKind::CONST_ACC_R,
+    //             mem_access_type::TEXTURE_ACC_R => super::mem_fetch::AccessKind::TEXTURE_ACC_R,
+    //             mem_access_type::GLOBAL_ACC_W => super::mem_fetch::AccessKind::GLOBAL_ACC_W,
+    //             mem_access_type::LOCAL_ACC_W => super::mem_fetch::AccessKind::LOCAL_ACC_W,
+    //             mem_access_type::L1_WRBK_ACC => super::mem_fetch::AccessKind::L1_WRBK_ACC,
+    //             mem_access_type::L2_WRBK_ACC => super::mem_fetch::AccessKind::L2_WRBK_ACC,
+    //             mem_access_type::INST_ACC_R => super::mem_fetch::AccessKind::INST_ACC_R,
+    //             mem_access_type::L1_WR_ALLOC_R => super::mem_fetch::AccessKind::L1_WR_ALLOC_R,
+    //             mem_access_type::L2_WR_ALLOC_R => super::mem_fetch::AccessKind::L2_WR_ALLOC_R,
+    //             other @ mem_access_type::NUM_MEM_ACCESS_TYPE => {
+    //                 panic!("bad mem access kind: {:?}", other)
+    //             }
+    //         }
+    //     }
+    // }
+    //
+    // #[derive(Clone, PartialEq, Eq, Hash)]
+    // pub struct WarpInstructionKey {
+    //     opcode: String,
+    //     pc: usize,
+    //     warp_id: usize,
+    // }
+    //
+    // impl std::fmt::Debug for WarpInstructionKey {
+    //     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    //         write!(f, "{}[pc={},warp={}]", self.opcode, self.pc, self.warp_id)
+    //     }
+    // }
+    //
+    // #[derive(Clone, PartialEq, Eq, Hash)]
+    // pub struct RegisterSetKey {
+    //     stage: super::core::PipelineStage,
+    //     pipeline: Vec<Option<WarpInstructionKey>>,
+    // }
+    //
+    // impl std::fmt::Debug for RegisterSetKey {
+    //     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    //         write!(f, "{:?}={:?}", self.stage, self.pipeline)
+    //     }
+    // }
+    //
+    // impl From<super::register_set::RegisterSet> for RegisterSetKey {
+    //     fn from(reg: super::register_set::RegisterSet) -> Self {
+    //         let pipeline = reg
+    //             .regs
+    //             .into_iter()
+    //             .map(|instr| match instr {
+    //                 Some(instr) => Some(WarpInstructionKey {
+    //                     opcode: instr.opcode.to_string(),
+    //                     pc: instr.pc,
+    //                     warp_id: instr.warp_id,
+    //                 }),
+    //                 None => None,
+    //             })
+    //             .collect();
+    //         Self {
+    //             stage: reg.stage,
+    //             pipeline,
+    //         }
+    //     }
+    // }
+    //
+    // impl<'a> From<playground::main::pipeline_stage_name_t> for super::core::PipelineStage {
+    //     fn from(stage: playground::main::pipeline_stage_name_t) -> Self {
+    //         use playground::main::pipeline_stage_name_t;
+    //         match stage {
+    //             // pipeline_stage_name_t::ID_OC_SP => Self::ID_OC_SP,
+    //             // pipeline_stage_name_t::ID_OC_DP => Self::ID_OC_DP,
+    //             // pipeline_stage_name_t::ID_OC_INT => Self::ID_OC_INT,
+    //             // pipeline_stage_name_t::ID_OC_SFU => Self::ID_OC_SFU,
+    //             // pipeline_stage_name_t::ID_OC_MEM => Self::ID_OC_MEM,
+    //             pipeline_stage_name_t::OC_EX_SP => Self::OC_EX_SP,
+    //             // pipeline_stage_name_t::OC_EX_DP => Self::OC_EX_DP,
+    //             // pipeline_stage_name_t::OC_EX_INT => Self::OC_EX_INT,
+    //             // pipeline_stage_name_t::OC_EX_SFU => Self::OC_EX_SFU,
+    //             pipeline_stage_name_t::OC_EX_MEM => Self::OC_EX_MEM,
+    //             pipeline_stage_name_t::EX_WB => Self::EX_WB,
+    //             // pipeline_stage_name_t::ID_OC_TENSOR_CORE => Self::ID_OC_TENSOR_CORE,
+    //             // pipeline_stage_name_t::OC_EX_TENSOR_CORE => Self::OC_EX_TENSOR_CORE,
+    //             other => panic!("bad pipeline stage {:?}", other),
+    //         }
+    //     }
+    // }
+    //
+    // impl<'a> From<playground::RegisterSet<'a>> for RegisterSetKey {
+    //     fn from(reg: playground::RegisterSet<'a>) -> Self {
+    //         Self {
+    //             stage: reg.stage.into(),
+    //             pipeline: reg
+    //                 .pipeline
+    //                 .into_iter()
+    //                 .map(|instr| {
+    //                     if instr.empty() {
+    //                         None
+    //                     } else {
+    //                         let opcode = unsafe { std::ffi::CStr::from_ptr(instr.opcode_str()) };
+    //                         let opcode = opcode
+    //                             .to_str()
+    //                             .unwrap()
+    //                             .trim_start_matches("OP_")
+    //                             .to_string();
+    //                         Some(WarpInstructionKey {
+    //                             opcode,
+    //                             pc: instr.get_pc() as usize,
+    //                             warp_id: instr.warp_id() as usize,
+    //                         })
+    //                     }
+    //                 })
+    //                 .collect(),
+    //         }
+    //     }
+    // }
+    //
+    // #[derive(Clone, PartialEq, Eq, Hash)]
+    // pub struct MemFetchKey {
+    //     kind: super::mem_fetch::Kind,
+    //     access_kind: super::mem_fetch::AccessKind,
+    //     // cannot compare addr because its different between runs
+    //     // addr: super::address,
+    //     relative_addr: Option<(usize, super::address)>,
+    // }
+    //
+    // impl std::fmt::Debug for MemFetchKey {
+    //     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    //         write!(f, "{:?}({:?}", self.kind, self.access_kind)?;
+    //         if let Some((alloc_id, rel_addr)) = self.relative_addr {
+    //             write!(f, "@{}+{}", alloc_id, rel_addr)?;
+    //         }
+    //         write!(f, ")")
+    //     }
+    // }
+    //
+    // impl<'a> From<playground::MemFetch<'a>> for MemFetchKey {
+    //     fn from(fetch: playground::MemFetch<'a>) -> Self {
+    //         let addr = fetch.get_addr();
+    //         let relative_addr = fetch.get_relative_addr();
+    //         Self {
+    //             kind: fetch.get_type().into(),
+    //             access_kind: fetch.get_access_type().into(),
+    //             relative_addr: if addr == relative_addr {
+    //                 None
+    //             } else {
+    //                 Some((fetch.get_alloc_id() as usize, relative_addr))
+    //             },
+    //         }
+    //     }
+    // }
+    //
+    // impl From<super::mem_fetch::MemFetch> for MemFetchKey {
+    //     fn from(fetch: super::mem_fetch::MemFetch) -> Self {
+    //         let addr = fetch.addr();
+    //         Self {
+    //             kind: fetch.kind,
+    //             access_kind: *fetch.access_kind(),
+    //             relative_addr: match fetch.access.allocation {
+    //                 Some(alloc) => Some((alloc.id, addr - alloc.start_addr)),
+    //                 None => None,
+    //             },
+    //         }
+    //     }
+    // }
+    //
+    // #[derive(Debug, Clone, PartialEq, Eq)]
+    // pub struct SimulationState {
+    //     interconn_to_l2_queue: Vec<Vec<MemFetchKey>>,
+    //     l2_to_interconn_queue: Vec<Vec<MemFetchKey>>,
+    //     l2_to_dram_queue: Vec<Vec<MemFetchKey>>,
+    //     dram_to_l2_queue: Vec<Vec<MemFetchKey>>,
+    //     dram_latency_queue: Vec<Vec<MemFetchKey>>,
+    //     functional_unit_pipelines: Vec<Vec<RegisterSetKey>>,
+    // }
+    //
+    // impl SimulationState {
+    //     pub fn new(
+    //         total_cores: usize,
+    //         num_mem_partitions: usize,
+    //         num_sub_partitions: usize,
+    //     ) -> Self {
+    //         Self {
+    //             // per sub partition
+    //             interconn_to_l2_queue: vec![vec![]; num_sub_partitions],
+    //             l2_to_interconn_queue: vec![vec![]; num_sub_partitions],
+    //             l2_to_dram_queue: vec![vec![]; num_sub_partitions],
+    //             dram_to_l2_queue: vec![vec![]; num_sub_partitions],
+    //             // per partition
+    //             dram_latency_queue: vec![vec![]; num_mem_partitions],
+    //             // per core
+    //             functional_unit_pipelines: vec![vec![]; total_cores],
+    //         }
+    //     }
+    // }
 
     #[test]
     fn test_vectoradd() -> eyre::Result<()> {
         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
         let vec_add_trace_dir = manifest_dir.join("results/vectorAdd/vectorAdd-100-32");
-        // let vec_add_trace_dir = manifest_dir.join("results/vectorAdd/vectorAdd-1000-32");
+        let vec_add_trace_dir = manifest_dir.join("results/vectorAdd/vectorAdd-1000-32");
 
         let kernelslist = vec_add_trace_dir.join("accelsim-trace/kernelslist.g");
         let gpgpusim_config = manifest_dir.join("accelsim/gtx1080/gpgpusim.config");
@@ -1525,18 +1527,28 @@ mod tests {
                 box_sim.set_cycle(cycle);
 
                 // todo: extract also l1i ready (least important)
-                // todo: extract oc mem ex pipeline, other pipeline stages
                 // todo: extract wb pipeline
 
                 // iterate over sub partitions
                 let total_cores = box_sim.config.total_cores();
                 let num_partitions = box_sim.mem_partition_units.len();
                 let num_sub_partitions = box_sim.mem_sub_partitions.len();
-                let mut box_sim_state: SimulationState =
-                    SimulationState::new(total_cores, num_partitions, num_sub_partitions);
+                let mut box_sim_state = testing::state::Simulation::new(
+                    total_cores,
+                    num_partitions,
+                    num_sub_partitions,
+                );
 
                 for (cluster_id, cluster) in box_sim.clusters.iter().enumerate() {
                     for (core_id, core) in cluster.cores.lock().unwrap().iter().enumerate() {
+                        let global_core_id =
+                            cluster_id * box_sim.config.num_cores_per_simt_cluster + core_id;
+                        assert_eq!(core.inner.core_id, global_core_id);
+
+                        // this is the one we will use (unless the assertion is ever false)
+                        let core_id = core.inner.core_id;
+
+                        // core: functional units
                         for (fu_id, fu) in core.functional_units.iter().enumerate() {
                             let fu = fu.lock().unwrap();
                             let issue_port = core.issue_ports[fu_id];
@@ -1545,21 +1557,19 @@ mod tests {
                                     .borrow()
                                     .clone();
                             assert_eq!(issue_port, issue_reg.stage);
-                            // println!(
-                            //     "fu[{:03}] {:<10} before \t{:?}={}",
-                            //     &fu_id,
-                            //     fu.to_string(),
-                            //     issue_port,
-                            //     issue_inst
-                            // );
 
-                            assert_eq!(
-                                core.inner.core_id,
-                                cluster_id * box_sim.config.num_cores_per_simt_cluster + core_id,
-                            );
-                            box_sim_state.functional_unit_pipelines[core.inner.core_id]
-                                .push(issue_reg.into());
+                            box_sim_state.functional_unit_pipelines[core_id].push(issue_reg.into());
                         }
+                        // core: operand collector
+                        box_sim_state.operand_collectors[core_id]
+                            .insert(core.inner.operand_collector.borrow().deref().into());
+                        // .insert((&*core.inner.operand_collector.borrow()).into());
+
+                        // .in_ports
+                        // .clone()
+                        // .map(Into::into)
+                        // core.operand_collector.collector_units
+                        // core.operand_collector.dispatch_units
                     }
                 }
 
@@ -1573,44 +1583,39 @@ mod tests {
                     );
                 }
                 for (sub_id, sub) in box_sim.mem_sub_partitions.iter().enumerate() {
-                    box_sim_state.interconn_to_l2_queue[sub_id].extend(
-                        sub.borrow()
-                            .interconn_to_l2_queue
-                            .clone()
-                            .into_iter()
-                            .map(Into::into),
-                    );
-                    box_sim_state.l2_to_interconn_queue[sub_id].extend(
-                        sub.borrow()
-                            .l2_to_interconn_queue
-                            .clone()
-                            .into_iter()
-                            .map(Into::into),
-                    );
-                    box_sim_state.l2_to_dram_queue[sub_id].extend(
-                        sub.borrow()
-                            .l2_to_dram_queue
-                            .lock()
-                            .unwrap()
-                            .clone()
-                            .into_iter()
-                            .map(Into::into),
-                    );
-                    box_sim_state.dram_to_l2_queue[sub_id].extend(
-                        sub.borrow()
-                            .dram_to_l2_queue
-                            .clone()
-                            .into_iter()
-                            .map(Into::into),
-                    );
+                    for (dest_queue, src_queue) in [
+                        (
+                            &mut box_sim_state.interconn_to_l2_queue[sub_id],
+                            &sub.borrow().interconn_to_l2_queue,
+                        ),
+                        (
+                            &mut box_sim_state.l2_to_interconn_queue[sub_id],
+                            &sub.borrow().l2_to_interconn_queue,
+                        ),
+                        (
+                            &mut box_sim_state.l2_to_dram_queue[sub_id],
+                            &sub.borrow().l2_to_dram_queue.lock().unwrap(),
+                        ),
+                        (
+                            &mut box_sim_state.dram_to_l2_queue[sub_id],
+                            &sub.borrow().dram_to_l2_queue,
+                        ),
+                    ] {
+                        dest_queue.extend(src_queue.clone().into_iter().map(Into::into));
+                    }
                 }
 
-                let mut play_sim_state: SimulationState =
-                    SimulationState::new(total_cores, num_partitions, num_sub_partitions);
+                let mut play_sim_state = testing::state::Simulation::new(
+                    total_cores,
+                    num_partitions,
+                    num_sub_partitions,
+                );
                 for (core_id, core) in play_sim.cores().enumerate() {
-                    for reg in core.register_sets().iter() {
-                        play_sim_state.functional_unit_pipelines[core_id].push(reg.clone().into());
+                    for reg in core.register_sets().into_iter() {
+                        play_sim_state.functional_unit_pipelines[core_id].push(reg.into());
                     }
+                    let coll = core.operand_collector();
+                    play_sim_state.operand_collectors[core_id].insert(coll.into());
                 }
 
                 for (partition_id, partition) in play_sim.partition_units().enumerate() {
@@ -1630,6 +1635,8 @@ mod tests {
 
                 dbg!(&cycle);
                 diff::assert_eq!(&box_sim_state, &play_sim_state);
+                dbg!(&box_sim_state);
+                dbg!(&play_sim_state);
 
                 finished_kernel_uid = play_sim.finished_kernel_uid();
                 if finished_kernel_uid.is_some() {

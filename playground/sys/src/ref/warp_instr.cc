@@ -618,10 +618,12 @@ std::ostream &operator<<(std::ostream &os, const warp_inst_t *inst) {
 void warp_inst_t::print(std::ostream &os) const {
   os << opcode_str();
   os << "[";
+  // os << "pc=" << std::right << std::setfill(' ') << std::setw(4) << pc;
+  os << "pc=" << pc;
   if (!empty()) {
-    os << "warp_id=" << warp_id() << ",";
+    os << ","
+       << "warp=" << warp_id();
   }
-  os << "pc=" << std::right << std::setfill(' ') << std::setw(4) << pc;
   os << "]";
 }
 

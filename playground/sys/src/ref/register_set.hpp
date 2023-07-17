@@ -13,7 +13,7 @@ class register_set {
     }
     m_name = name;
   }
-  const char *get_name() { return m_name; }
+  const char *get_name() const { return m_name; }
   bool has_free() {
     for (unsigned i = 0; i < regs.size(); i++) {
       if (regs[i]->empty()) {
@@ -69,18 +69,20 @@ class register_set {
     return regs[reg_id]->get_schd_id();
   }
 
-  void move_in(warp_inst_t *&src) {
-    printf("move_in warp=%u\n", src->warp_id());
+  void move_in(warp_inst_t *&src, std::string msg) {
+    // printf("move_in warp=%u\n", src->warp_id());
     warp_inst_t **free = get_free();
-    move_warp(*free, src);
+    // std::cout << "move " << src << " in " << (*free) << std::endl;
+    move_warp(*free, src, msg);
   }
 
   // void copy_in( warp_inst_t* src ){
   //   src->copy_contents_to(*get_free());
   //}
 
-  void move_in(bool sub_core_model, unsigned reg_id, warp_inst_t *&src) {
-    printf("move_in_sub_core warp=%u reg_id=%u\n", src->warp_id(), reg_id);
+  void move_in(bool sub_core_model, unsigned reg_id, warp_inst_t *&src,
+               std::string msg) {
+    // printf("move_in_sub_core warp=%u reg_id=%u\n", src->warp_id(), reg_id);
     warp_inst_t **free;
     if (!sub_core_model) {
       free = get_free();
@@ -88,25 +90,27 @@ class register_set {
       assert(reg_id < regs.size());
       free = get_free(sub_core_model, reg_id);
     }
-    move_warp(*free, src);
+    // std::cout << "move " << src << " out to " << (*free) << std::endl;
+    move_warp(*free, src, msg);
   }
 
-  void move_out_to(warp_inst_t *&dest) {
+  void move_out_to(warp_inst_t *&dest, std::string msg) {
     warp_inst_t **ready = get_ready();
-    printf("move_out_to warp=%u (empty=%d)\n", (*ready)->warp_id(),
-           (*ready)->empty());
-    move_warp(dest, *ready);
+    // std::cout << "move " << (*ready) << " out to " << dest << std::endl;
+    move_warp(dest, *ready, msg);
   }
 
-  void move_out_to(bool sub_core_model, unsigned reg_id, warp_inst_t *&dest) {
+  void move_out_to(bool sub_core_model, unsigned reg_id, warp_inst_t *&dest,
+                   std::string msg) {
     if (!sub_core_model) {
-      return move_out_to(dest);
+      return move_out_to(dest, msg);
     }
     warp_inst_t **ready = get_ready(sub_core_model, reg_id);
     assert(ready != NULL);
-    printf("move_out_to_sub_core warp=%u reg_id=%u\n", (*ready)->warp_id(),
-           reg_id);
-    move_warp(dest, *ready);
+    // std::cout << "move " << (*ready) << " out to " << dest << std::endl;
+    // printf("move_out_to_sub_core warp=%u reg_id=%u\n", (*ready)->warp_id(),
+    //        reg_id);
+    move_warp(dest, *ready, msg);
   }
 
   warp_inst_t **get_ready() {
@@ -160,6 +164,7 @@ class register_set {
   unsigned get_size() { return regs.size(); }
 
   friend class register_set_bridge;
+  friend class register_set_bridge_new;
 
  private:
   std::vector<warp_inst_t *> regs;

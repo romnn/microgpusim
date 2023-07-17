@@ -1,5 +1,7 @@
 #include "pipelined_simd_unit.hpp"
 
+#include <sstream>
+
 #include "trace_gpgpu_sim.hpp"
 #include "trace_shader_core_ctx.hpp"
 
@@ -34,23 +36,36 @@ pipelined_simd_unit::pipelined_simd_unit(register_set *result_port,
 void pipelined_simd_unit::cycle() {
   // printf("%s::pipelined_simd_unit::cycle()\n", m_name.c_str());
   if (!m_pipeline_reg[0]->empty()) {
-    m_result_port->move_in(m_pipeline_reg[0]);
+    std::stringstream msg;
+    msg << m_name << ": move pipeline[0] to result port "
+        << m_result_port->get_name();
+    m_result_port->move_in(m_pipeline_reg[0], msg.str());
+
     assert(active_insts_in_pipeline > 0);
     active_insts_in_pipeline--;
   }
   if (active_insts_in_pipeline) {
-    for (unsigned stage = 0; (stage + 1) < m_pipeline_depth; stage++)
-      move_warp(m_pipeline_reg[stage], m_pipeline_reg[stage + 1]);
+    for (unsigned stage = 0; (stage + 1) < m_pipeline_depth; stage++) {
+      std::stringstream msg;
+      msg << m_name << ": moving to next slot in pipeline register";
+      move_warp(m_pipeline_reg[stage], m_pipeline_reg[stage + 1], msg.str());
+    }
   }
   if (!m_dispatch_reg->empty()) {
     if (!m_dispatch_reg->dispatch_delay()) {
-      int start_stage =
+      // ROMAN: changed to unsigned
+      unsigned start_stage_idx =
           m_dispatch_reg->latency - m_dispatch_reg->initiation_interval;
 
-      // printf("start stage is %u\n", start_stage);
-      // throw std::runtime_error("start stage");
-      move_warp(m_pipeline_reg[start_stage], m_dispatch_reg);
-      active_insts_in_pipeline++;
+      if (m_pipeline_reg[start_stage_idx]->empty()) {
+        std::stringstream msg;
+        msg << m_name
+            << ": moving dispatch register to free "
+               "pipeline_register[start_stage="
+            << start_stage_idx << "]";
+        move_warp(m_pipeline_reg[start_stage_idx], m_dispatch_reg, msg.str());
+        active_insts_in_pipeline++;
+      }
     }
   }
   occupied >>= 1;

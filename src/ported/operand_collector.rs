@@ -223,10 +223,21 @@ impl CollectorUnit {
         let mut output_register = output_register.borrow_mut();
         let warp_instr = self.warp_instr.take();
         // let mut output_register = self.output_register.as_mut().unwrap();
+
         if self.sub_core_model {
-            output_register.move_in_from_sub_core(self.reg_id, warp_instr);
+            let msg = format!(
+                "operand collector: move warp instr {:?} to output register (reg_id={})",
+                warp_instr.as_ref().map(ToString::to_string),
+                self.reg_id,
+            );
+
+            output_register.move_in_from_sub_core(self.reg_id, warp_instr, msg);
         } else {
-            output_register.move_in_from(warp_instr);
+            let msg = format!(
+                "operand collector: move warp instr {:?} to output register",
+                warp_instr.as_ref().map(ToString::to_string),
+            );
+            output_register.move_in_from(warp_instr, msg);
         }
 
         // panic!("free again");
@@ -296,7 +307,12 @@ impl CollectorUnit {
                     }
                 }
             }
-            input_reg_set.move_out_to(&mut self.warp_instr);
+            let msg = format!(
+                "operand collector: move input register {} to warp instruction {:?}",
+                &input_reg_set,
+                self.warp_instr.as_ref().map(ToString::to_string),
+            );
+            input_reg_set.move_out_to(&mut self.warp_instr, msg);
             true
         } else {
             false
@@ -720,22 +736,22 @@ pub type CuSets = HashMap<OperandCollectorUnitKind, Vec<Rc<RefCell<CollectorUnit
 // operand collector based register file unit
 #[derive(Debug)]
 pub struct OperandCollectorRegisterFileUnit {
-    config: Arc<config::GPUConfig>,
+    pub config: Arc<config::GPUConfig>,
 
-    initialized: bool,
-    num_banks: usize,
-    num_collectors: usize,
+    pub initialized: bool,
+    pub num_banks: usize,
+    pub num_collectors: usize,
 
-    bank_warp_shift: usize,
-    sub_core_model: bool,
-    num_banks_per_scheduler: usize,
-    num_warp_schedulers: usize,
+    pub bank_warp_shift: usize,
+    pub sub_core_model: bool,
+    pub num_banks_per_scheduler: usize,
+    pub num_warp_schedulers: usize,
 
-    arbiter: Arbiter,
-    in_ports: VecDeque<InputPort>,
-    collector_units: Vec<Rc<RefCell<CollectorUnit>>>,
-    collector_unit_sets: CuSets,
-    dispatch_units: Vec<DispatchUnit>,
+    pub arbiter: Arbiter,
+    pub in_ports: VecDeque<InputPort>,
+    pub collector_units: Vec<Rc<RefCell<CollectorUnit>>>,
+    pub collector_unit_sets: CuSets,
+    pub dispatch_units: Vec<DispatchUnit>,
     // dispatch_units: Vec<Rc<RefCell<DispatchUnit>>>,
     // dispatch_units: VecDeque<DispatchUnit>,
     // allocation_t *m_allocated_bank;  // bank # -> register that wins
@@ -1053,5 +1069,81 @@ impl OperandCollectorRegisterFileUnit {
     ) {
         self.in_ports
             .push_back(InputPort::new(input, output, cu_sets));
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::ported::testing;
+    use std::ops::Deref;
+
+    // #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    // pub enum {
+    //     SP_CUS,
+    //     DP_CUS,
+    //     SFU_CUS,
+    //     TENSOR_CORE_CUS,
+    //     INT_CUS,
+    //     MEM_CUS,
+    //     GEN_CUS,
+    // }
+
+    impl From<super::OperandCollectorUnitKind> for testing::state::OperandCollectorUnitKind {
+        fn from(id: super::OperandCollectorUnitKind) -> Self {
+            match id {
+                super::OperandCollectorUnitKind::SP_CUS => {
+                    testing::state::OperandCollectorUnitKind::SP_CUS
+                }
+                super::OperandCollectorUnitKind::DP_CUS => {
+                    testing::state::OperandCollectorUnitKind::DP_CUS
+                }
+                super::OperandCollectorUnitKind::SFU_CUS => {
+                    testing::state::OperandCollectorUnitKind::SFU_CUS
+                }
+                super::OperandCollectorUnitKind::TENSOR_CORE_CUS => {
+                    testing::state::OperandCollectorUnitKind::TENSOR_CORE_CUS
+                }
+                super::OperandCollectorUnitKind::INT_CUS => {
+                    testing::state::OperandCollectorUnitKind::INT_CUS
+                }
+                super::OperandCollectorUnitKind::MEM_CUS => {
+                    testing::state::OperandCollectorUnitKind::MEM_CUS
+                }
+                super::OperandCollectorUnitKind::GEN_CUS => {
+                    testing::state::OperandCollectorUnitKind::GEN_CUS
+                }
+            }
+        }
+    }
+
+    impl From<&super::InputPort> for testing::state::Port {
+        fn from(port: &super::InputPort) -> Self {
+            Self {
+                ids: port
+                    .collector_unit_ids
+                    .iter()
+                    .copied()
+                    .map(Into::into)
+                    .collect(),
+                in_ports: port
+                    .in_ports
+                    .iter()
+                    .map(|p| p.borrow().clone().into())
+                    .collect(),
+                out_ports: port
+                    .out_ports
+                    .iter()
+                    .map(|p| p.borrow().clone().into())
+                    .collect(),
+            }
+        }
+    }
+
+    impl From<&super::OperandCollectorRegisterFileUnit> for testing::state::OperandCollector {
+        fn from(opcoll: &super::OperandCollectorRegisterFileUnit) -> Self {
+            Self {
+                ports: opcoll.in_ports.iter().map(Into::into).collect(),
+            }
+        }
     }
 }

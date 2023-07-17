@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <iostream>
 #include <unordered_map>
 
 #include "opcode_char.hpp"
@@ -31,8 +32,9 @@ class trace_warp_inst_t : public warp_inst_t {
 // void move_warp(warp_inst_t *&dst, warp_inst_t *&src);
 
 template <typename T>
-void move_warp(T *&dst, T *&src) {
-  printf("moving warp=%u\n", src->warp_id());
+void move_warp(T *&dst, T *&src, std::string msg) {
+  std::cout << "MOVING " << src << " to " << dst;
+  std::cout << ": " << msg << std::endl;
   assert(dst->empty());
   T *temp = dst;
   dst = src;

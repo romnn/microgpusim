@@ -1013,7 +1013,15 @@ where
         for stage in 0..(simd_unit.pipeline_depth - 1) {
             let current = simd_unit.pipeline_reg[stage].take();
             let next = &mut simd_unit.pipeline_reg[stage + 1];
-            register_set::move_warp(current, next);
+            register_set::move_warp(
+                current,
+                next,
+                format!(
+                    "load store unit: move warp from stage {} to {}",
+                    stage,
+                    stage + 1
+                ),
+            );
         }
 
         if let Some(ref fetch) = self.response_fifo.front() {
@@ -1122,12 +1130,19 @@ where
             let warp_id = pipe_reg.warp_id;
             if pipe_reg.is_load() {
                 if pipe_reg.memory_space == Some(MemorySpace::Shared) {
-                    let pipe_slot =
-                        &mut simd_unit.pipeline_reg[self.config.shared_memory_latency - 1];
+                    let pipe_slot_idx = self.config.shared_memory_latency - 1;
+                    let pipe_slot = &mut simd_unit.pipeline_reg[pipe_slot_idx];
                     if pipe_slot.is_none() {
                         // new shared memory request
                         let dispatch_reg = simd_unit.dispatch_reg.take();
-                        register_set::move_warp(dispatch_reg, pipe_slot);
+                        register_set::move_warp(
+                            dispatch_reg,
+                            pipe_slot,
+                            format!(
+                                "load store unit: move warp from dispatch register to pipeline[{}]",
+                                pipe_slot_idx,
+                            ),
+                        );
                     }
                 } else {
                     let pending = self.pending_writes.entry(warp_id).or_default();

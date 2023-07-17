@@ -496,9 +496,13 @@ void trace_shader_core_ctx::create_exec_pipeline() {
   // op collector configuration
   enum { SP_CUS, DP_CUS, SFU_CUS, TENSOR_CORE_CUS, INT_CUS, MEM_CUS, GEN_CUS };
 
-  opndcoll_rfu_t::port_vector_t in_ports;
-  opndcoll_rfu_t::port_vector_t out_ports;
-  opndcoll_rfu_t::uint_vector_t cu_sets;
+  // opndcoll_rfu_t::port_vector_t in_ports;
+  // opndcoll_rfu_t::port_vector_t out_ports;
+  // opndcoll_rfu_t::uint_vector_t cu_sets;
+
+  port_vector_t in_ports;
+  port_vector_t out_ports;
+  uint_vector_t cu_sets;
 
   // configure generic collectors
   m_operand_collector.add_cu_set(

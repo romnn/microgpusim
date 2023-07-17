@@ -139,7 +139,13 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
         if let Some(result_port) = &mut self.result_port {
             if let Some(pipe_reg) = self.pipeline_reg[0].take() {
                 // move to EX_WB result port
-                result_port.borrow_mut().move_in_from(Some(pipe_reg));
+                let mut result_port = result_port.borrow_mut();
+                let msg = format!(
+                    "{}: move pipeline[0] to result port {:?}",
+                    self.name, result_port.stage
+                );
+
+                result_port.move_in_from(Some(pipe_reg), msg);
 
                 debug_assert!(self.active_insts_in_pipeline > 0);
                 self.active_insts_in_pipeline -= 1;
@@ -153,7 +159,8 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
             for stage in 0..(self.pipeline_reg.len() - 1) {
                 let current = self.pipeline_reg[stage].take();
                 let next = &mut self.pipeline_reg[stage + 1];
-                register_set::move_warp(current, next);
+                let msg = format!("{} moving to next slot in pipeline register", self.name);
+                register_set::move_warp(current, next, msg);
 
                 // let current = self.pipeline_reg[stage + 1].take();
                 // let next = &mut self.pipeline_reg[stage];
@@ -162,10 +169,17 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
         }
         if let Some(dispatch) = self.dispatch_reg.take() {
             // if !dispatch.empty() && !dispatch.dispatch_delay() {
-            let start_stage = dispatch.latency - dispatch.initiation_interval;
+            let start_stage_idx = dispatch.latency - dispatch.initiation_interval;
             // panic!("start stage: {}", &start_stage);
-            if self.pipeline_reg[start_stage].is_none() {
-                register_set::move_warp(Some(dispatch), &mut self.pipeline_reg[start_stage]);
+            if self.pipeline_reg[start_stage_idx].is_none() {
+                register_set::move_warp(
+                    Some(dispatch),
+                    &mut self.pipeline_reg[start_stage_idx],
+                    format!(
+                        "{} moving dispatch register to free pipeline_register[start_stage={}]",
+                        self.name, start_stage_idx
+                    ),
+                );
                 self.active_insts_in_pipeline += 1;
             }
         }
@@ -177,7 +191,14 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
 
     // fn issue(&mut self, src_reg: &mut RegisterSet) {
     fn issue(&mut self, src_reg: WarpInstruction) {
-        register_set::move_warp(Some(src_reg), &mut self.dispatch_reg);
+        register_set::move_warp(
+            Some(src_reg),
+            &mut self.dispatch_reg,
+            format!(
+                "{} moving register to dispatch register for issue",
+                self.name,
+            ),
+        );
     }
     // fn issue(&mut self, src_reg: &mut RegisterSet) {
     //     let partition_issue = self.config.sub_core_model && self.is_issue_partitioned();

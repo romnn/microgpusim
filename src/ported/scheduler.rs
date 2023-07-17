@@ -612,12 +612,12 @@ impl BaseSchedulerUnit {
                             | ArchOp::MEMORY_BARRIER_OP
                             | ArchOp::TENSOR_CORE_LOAD_OP
                             | ArchOp::TENSOR_CORE_STORE_OP => {
-                                if warp.warp_id == 3 {
-                                    super::debug_break(format!(
-                                        "scheduled mem instr for warp id 3: {}",
-                                        instr
-                                    ));
-                                }
+                                // if warp.warp_id == 3 {
+                                //     super::debug_break(format!(
+                                //         "scheduled mem instr for warp id 3: {}",
+                                //         instr
+                                //     ));
+                                // }
                                 let mem_stage = PipelineStage::ID_OC_MEM;
 
                                 let free_register = issuer.has_free_register(mem_stage, self.id);

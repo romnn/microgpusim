@@ -1,6 +1,10 @@
 #### TODO
 
-- BUG: vectoradd@54 Read(GLOBAL_ACC_R) should go l2 to dram queue but goes to dram latency queue
+- BUG: vectoradd@86: play is only moving two warps, box is moving 3
+
+  - STG[pc=216,warp=2] has already been moved?
+
+- DONE: BUG: vectoradd@54 Read(GLOBAL_ACC_R) should go l2 to dram queue but goes to dram latency queue
 
 - DONE: box run per cycle
 - DONE: playground run per cycle
