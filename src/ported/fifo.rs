@@ -65,6 +65,11 @@ where
     }
 
     fn full(&self) -> bool {
+        println!(
+            "FIFO full? max len={:?} length={}",
+            self.max_size,
+            self.inner.len()
+        );
         match self.max_size {
             Some(max) => self.inner.len() >= max,
             None => false,
@@ -82,7 +87,8 @@ where
     fn can_fit(&self, n: usize) -> bool {
         // m_max_len && m_length + size - 1 >= m_max_len
         match self.max_size {
-            Some(max) => self.inner.len() + n - 1 < max,
+            // Some(max) => self.inner.len() + n - 1 < max,
+            Some(max) => self.inner.len() + n <= max,
             None => true,
         }
     }

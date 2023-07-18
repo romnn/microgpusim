@@ -122,7 +122,10 @@ class fifo_pipeline {
     }
   }
 
-  bool full() const { return (m_max_len && m_length >= m_max_len); }
+  bool full() const {
+    printf("FIFO full? max len=%u length=%u\n", m_max_len, m_length);
+    return (m_max_len && m_length >= m_max_len);
+  }
   bool is_available_size(unsigned size) const {
     return (m_max_len && m_length + size - 1 >= m_max_len);
   }

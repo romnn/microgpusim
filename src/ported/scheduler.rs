@@ -195,11 +195,11 @@ impl SchedulerWarp {
         self.trace_instructions.len()
     }
 
-    pub fn trace_start_pc(&self) -> Option<usize> {
-        // debug_assert!(!self.trace_instructions.is_empty());
-        // let trace_instructions = self.trace_instructions.lock().unwrap();
-        self.trace_instructions.front().map(|instr| instr.pc)
-    }
+    // pub fn trace_start_pc(&self) -> Option<usize> {
+    //     // debug_assert!(!self.trace_instructions.is_empty());
+    //     // let trace_instructions = self.trace_instructions.lock().unwrap();
+    //     self.trace_instructions.front().map(|instr| instr.pc)
+    // }
 
     pub fn pc(&self) -> Option<usize> {
         // debug_assert!(!self.trace_instructions.is_empty());

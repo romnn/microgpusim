@@ -968,10 +968,10 @@ where
             // is no L2 cache in the system In the worst case, we may need
             // to push SECTOR_CHUNCK_SIZE requests, so ensure you have enough
             // buffer for them
-            if mem_sub.full(SECTOR_CHUNCK_SIZE) {
-                stall_dram_full += 1;
-            } else {
-                let device = self.config.mem_id_to_device_id(i);
+            let device = self.config.mem_id_to_device_id(i);
+
+            // same as full with parameter overload
+            if mem_sub.interconn_to_l2_can_fit(SECTOR_CHUNCK_SIZE as usize) {
                 if let Some(Packet::Fetch(fetch)) = self.interconn.pop(device) {
                     println!(
                         "got new fetch {} for mem sub partition {} ({})",
@@ -981,6 +981,9 @@ where
                     mem_sub.push(fetch);
                     parallel_mem_partition_reqs_per_cycle += 1;
                 }
+            } else {
+                println!("SKIP sub partition {} ({}): DRAM full stall", i, device);
+                stall_dram_full += 1;
             }
             // we borrow all of sub here, which is a problem for the cyclic reference in l2
             // interface
@@ -1741,8 +1744,8 @@ mod tests {
                 }
 
                 println!("checking for diff after cycle {}", cycle - 1);
-                dbg!(&box_sim_state.schedulers);
-                dbg!(&play_sim_state.schedulers);
+                // dbg!(&box_sim_state.schedulers);
+                // dbg!(&play_sim_state.schedulers);
                 diff::assert_eq!(&box_sim_state, &play_sim_state);
                 println!(
                     "validated play state for cycle {}: {:#?}",

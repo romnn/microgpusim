@@ -51,15 +51,14 @@ pub const PROGRAM_MEM_ALLOC: Lazy<super::Allocation> = Lazy::new(|| super::Alloc
 
 #[derive(Debug)]
 pub struct ThreadState {
-    pub block_id: usize,
     pub active: bool,
+    // pub block_id: usize,
+    // pub active: bool,
     pub pc: usize,
 }
 
-impl ThreadState {}
-
-#[derive(Debug)]
-pub struct ThreadInfo {}
+// #[derive(Debug)]
+// pub struct ThreadInfo {}
 
 #[derive(Debug, Default)]
 pub struct InstrFetchBuffer {
@@ -111,7 +110,7 @@ pub struct InnerSIMTCore<I> {
     pub instr_fetch_buffer: InstrFetchBuffer,
     pub warps: Vec<sched::CoreWarp>,
     pub thread_state: Vec<Option<ThreadState>>,
-    pub thread_info: Vec<Option<ThreadInfo>>,
+    // pub thread_info: Vec<Option<ThreadInfo>>,
     pub scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
     pub operand_collector: Rc<RefCell<opcoll::OperandCollectorRegisterFileUnit>>,
     pub pipeline_reg: Vec<Rc<RefCell<register_set::RegisterSet>>>,
@@ -328,6 +327,9 @@ pub struct SIMTCore<I> {
     pub functional_units: Vec<Arc<Mutex<dyn SimdFunctionUnit>>>,
     pub schedulers: Vec<Box<dyn sched::SchedulerUnit>>,
     pub inner: InnerSIMTCore<I>,
+
+    // for debugging
+    temp_check_state: Vec<std::collections::HashSet<usize>>,
 }
 
 impl<I> std::fmt::Debug for SIMTCore<I> {
@@ -367,7 +369,7 @@ where
         stats: Arc<Mutex<stats::Stats>>,
         config: Arc<GPUConfig>,
     ) -> Self {
-        let thread_info: Vec<_> = (0..config.max_threads_per_core).map(|_| None).collect();
+        // let thread_info: Vec<_> = (0..config.max_threads_per_core).map(|_| None).collect();
         let thread_state: Vec<_> = (0..config.max_threads_per_core).map(|_| None).collect();
 
         let warps: Vec<_> = (0..config.max_warps_per_core())
@@ -535,7 +537,7 @@ where
             operand_collector,
             barriers,
             thread_state,
-            thread_info,
+            // thread_info,
         };
         let mut core = Self {
             inner,
@@ -543,6 +545,7 @@ where
             issue_ports: Vec::new(),
             dispatch_ports: Vec::new(),
             functional_units: Vec::new(),
+            temp_check_state: vec![Default::default(); MAX_CTA_PER_SHADER],
         };
 
         core.init_schedulers();
@@ -803,13 +806,15 @@ where
             .map(|t| t.pc)
     }
 
-    fn register_thread_in_block_exited(&mut self, block_id: usize, kernel: Option<&KernelInfo>) {
+    fn register_thread_in_block_exited(&mut self, block_hw_id: usize, kernel: Option<&KernelInfo>) {
         let current_kernel: &mut Option<_> =
             &mut self.inner.current_kernel.as_ref().map(|k| k.as_ref());
 
-        debug_assert!(self.inner.block_status[block_id] > 0);
-        self.inner.block_status[block_id] -= 1;
-        if self.inner.block_status[block_id] == 0 {
+        // see: m_cta_status
+        debug_assert!(block_hw_id < MAX_CTA_PER_SHADER);
+        debug_assert!(self.inner.block_status[block_hw_id] > 0);
+        self.inner.block_status[block_hw_id] -= 1;
+        if self.inner.block_status[block_hw_id] == 0 {
             // Increment the completed CTAs
             //   m_stats->ctas_completed++;
             //   m_gpu->inc_completed_cta();
@@ -918,6 +923,11 @@ where
 
                 for warp_id in 0..max_warps {
                     let warp = self.inner.warps[warp_id].try_borrow().unwrap();
+                    if warp.instruction_count() == 0 {
+                        // consider empty
+                        continue;
+                    }
+                    debug_assert_eq!(warp.warp_id, warp_id);
 
                     let pending_writes = self
                         .inner
@@ -927,13 +937,15 @@ where
                         .pending_writes(warp_id)
                         .clone();
 
-                    if warp.functional_done() && warp.hardware_done() && warp.done_exit() {
-                        continue;
-                    }
+                    // if warp.functional_done() && warp.hardware_done() && warp.done_exit() {
+                    //     continue;
+                    // }
                     println!(
-                        "checking warp_id = {} (instruction count={}, hardware_done={}, functional_done={}, instr in pipe={}, stores={}, done_exit={}, pending writes={:?})",
+                        "checking warp_id = {} dyn warp id = {} (instruction count={}, trace pc={} hardware_done={}, functional_done={}, instr in pipe={}, stores={}, done_exit={}, pending writes={:?})",
                         &warp_id,
+                        warp.dynamic_warp_id(),
                         warp.instruction_count(),
+                        warp.trace_pc,
                         warp.hardware_done(),
                         warp.functional_done(),
                         warp.num_instr_in_pipeline,
@@ -949,8 +961,14 @@ where
                     let warp_id = (last + 1 + i) % max_warps;
 
                     let warp = self.inner.warps[warp_id].try_borrow().unwrap();
+                    debug_assert_eq!(warp.warp_id, warp_id);
 
-                    let block_id = warp.block_id as usize;
+                    let block_hw_id = warp.block_id as usize;
+                    debug_assert!(
+                        block_hw_id < MAX_CTA_PER_SHADER,
+                        "block id is the hw block id for this core"
+                    );
+
                     let kernel = warp.kernel.as_ref().map(Arc::clone);
 
                     let pending_writes = self
@@ -961,19 +979,20 @@ where
                         .pending_writes(warp_id)
                         .clone();
 
-                    if !(warp.hardware_done() && warp.functional_done() && warp.done_exit()) {
-                        println!(
-                            "\n checking warp_id = {} (instruction count={}, hardware_done={}, functional_done={}, instr in pipe={}, stores={}, done_exit={}, pending writes={:?})",
-                            &warp_id,
-                            warp.instruction_count(),
-                            warp.hardware_done(),
-                            warp.functional_done(),
-                            warp.num_instr_in_pipeline,
-                            warp.num_outstanding_stores,
-                            warp.done_exit(),
-                        pending_writes.iter().sorted().collect::<Vec<_>>()
-                        );
-                    }
+                    // if !(warp.hardware_done() && warp.functional_done() && warp.done_exit()) {
+                    //     println!(
+                    //         "\n checking warp_id = {} dyn warp id = {} (instruction count={}, hardware_done={}, functional_done={}, instr in pipe={}, stores={}, done_exit={}, pending writes={:?})",
+                    //         &warp_id,
+                    //         &warp.dynamic_warp_id(),
+                    //         warp.instruction_count(),
+                    //         warp.hardware_done(),
+                    //         warp.functional_done(),
+                    //         warp.num_instr_in_pipeline,
+                    //         warp.num_outstanding_stores,
+                    //         warp.done_exit(),
+                    //         pending_writes.iter().sorted().collect::<Vec<_>>()
+                    //     );
+                    // }
 
                     let did_maybe_exit =
                         warp.hardware_done() && pending_writes.is_empty() && !warp.done_exit();
@@ -983,14 +1002,24 @@ where
                     // check if this warp has finished executing and can be reclaimed.
                     let mut did_exit = false;
                     if did_maybe_exit {
+                        println!("\tchecking if warp_id = {} did complete", warp_id);
+
                         for t in 0..self.inner.config.warp_size {
                             let tid = warp_id * self.inner.config.warp_size + t;
                             if let Some(Some(state)) = self.inner.thread_state.get_mut(tid) {
                                 if state.active {
                                     state.active = false;
+
+                                    assert!(!self.temp_check_state[block_hw_id].contains(&tid));
+                                    self.temp_check_state[block_hw_id].insert(tid);
+
+                                    println!(
+                                        "thread {} of block {} completed ({} left)",
+                                        tid, block_hw_id, self.inner.block_status[block_hw_id]
+                                    );
                                     self.register_thread_in_block_exited(
-                                        block_id,
-                                        kernel.as_ref().map(Arc::as_ref),
+                                        block_hw_id,
+                                        kernel.as_deref(),
                                     );
 
                                     // if let Some(Some(thread_info)) =
@@ -1030,14 +1059,19 @@ where
                     }
 
                     let icache_config = self.inner.config.inst_cache_l1.as_ref().unwrap();
-                    let should_fetch_instruction = !warp.trace_instructions.is_empty()
-                        && !warp.functional_done()
-                        && !warp.has_imiss_pending
-                        && warp.ibuffer_empty();
+                    // !warp.trace_instructions.is_empty() &&
+                    let should_fetch_instruction =
+                        !warp.functional_done() && !warp.has_imiss_pending && warp.ibuffer_empty();
 
                     // this code fetches instructions
                     // from the i-cache or generates memory
                     if should_fetch_instruction {
+                        if warp.current_instr().is_none() {
+                            // warp.hardware_done() && pending_writes.is_empty() && !warp.done_exit()
+                            dbg!(&warp);
+                            dbg!(&warp.active_mask.to_bit_string());
+                            dbg!(&warp.num_completed());
+                        }
                         let instr = warp.current_instr().unwrap();
                         let pc = warp.pc().unwrap();
                         let ppc = pc + PROGRAM_MEM_START;
@@ -1652,14 +1686,17 @@ where
 
     pub fn init_warps_from_traces(
         &mut self,
-        kernel: &KernelInfo,
+        kernel: &Arc<KernelInfo>,
         start_warp: usize,
         end_warp: usize,
     ) {
         debug_assert!(!self.inner.warps.is_empty());
         let selected_warps = &mut self.inner.warps[start_warp..end_warp];
         for warp in selected_warps.iter_mut() {
-            warp.try_borrow_mut().unwrap().trace_instructions.clear();
+            let mut warp = warp.try_borrow_mut().unwrap();
+            warp.trace_instructions.clear();
+            warp.kernel = Some(Arc::clone(kernel));
+            warp.trace_pc = 0;
         }
         kernel.next_threadblock_traces(selected_warps);
         println!(
@@ -1680,15 +1717,15 @@ where
         kernel: Arc<KernelInfo>,
     ) {
         println!(
-            "core {:?}: init warps (threads {}..{}) for block {}",
+            "core {:?}: init warps (threads {}..{}) for block {} (hw {})",
             self.id(),
             start_thread,
             end_thread,
-            &block_id
+            block_id,
+            block_hw_id
         );
         println!("kernel: {}", &kernel);
 
-        // shader_core_ctx::init_warps
         let start_pc = self.next_pc(start_thread);
         let kernel_id = kernel.uid;
         // if self.config.model == POST_DOMINATOR {
@@ -1730,7 +1767,7 @@ where
             // );
             self.inner.warps[warp_id].try_borrow_mut().unwrap().init(
                 start_pc,
-                block_id,
+                block_hw_id as u64,
                 warp_id,
                 self.inner.dynamic_warp_id,
                 local_active_thread_mask,
@@ -1792,11 +1829,12 @@ where
             kernel.uid,
             kernel.name()
         );
-        if !self.inner.config.concurrent_kernel_sm {
-            self.set_max_blocks(&*kernel);
-        } else {
+        if self.inner.config.concurrent_kernel_sm {
+            unimplemented!("concurrent kernel sm");
             let num = self.occupy_resource_for_block(&*kernel, true);
             assert!(num);
+        } else {
+            self.set_max_blocks(&*kernel);
         }
 
         // kernel.inc_running();
@@ -1819,23 +1857,24 @@ where
         // hw warp id = hw thread id mod warp size, so we need to find a range
         // of hardware thread ids corresponding to an integral number of hardware
         // thread ids
-        let (start_thread, end_thread) = if !self.inner.config.concurrent_kernel_sm {
+        let (start_thread, end_thread) = if self.inner.config.concurrent_kernel_sm {
+            unimplemented!("concurrent kernel sm");
+            // let start_thread = self
+            //     .find_available_hw_thread_id(padded_thread_block_size, true)
+            //     .unwrap();
+            // let end_thread = start_thread + thread_block_size;
+            //
+            // assert!(!self
+            //     .inner
+            //     .occupied_block_to_hw_thread_id
+            //     .contains_key(&free_block_hw_id));
+            // self.inner
+            //     .occupied_block_to_hw_thread_id
+            //     .insert(free_block_hw_id, start_thread);
+            // (start_thread, end_thread)
+        } else {
             let start_thread = free_block_hw_id * padded_thread_block_size;
             let end_thread = start_thread + thread_block_size;
-            (start_thread, end_thread)
-        } else {
-            let start_thread = self
-                .find_available_hw_thread_id(padded_thread_block_size, true)
-                .unwrap();
-            let end_thread = start_thread + thread_block_size;
-
-            assert!(!self
-                .inner
-                .occupied_block_to_hw_thread_id
-                .contains_key(&free_block_hw_id));
-            self.inner
-                .occupied_block_to_hw_thread_id
-                .insert(free_block_hw_id, start_thread);
             (start_thread, end_thread)
         };
 
@@ -1854,14 +1893,16 @@ where
         // resources (simulation)
         let mut warps: WarpMask = BitArray::ZERO;
         // let block_id = kernel.next_block_id();
-        let Some(block) = kernel.current_block() else {
-            panic!("kernel has no block");
+        let block = kernel.current_block().expect("kernel has current block");
+        let block_id = block.id();
 
-        };
+        // for debugging
+        self.temp_check_state[free_block_hw_id].clear();
+
         let mut num_threads_in_block = 0;
         for i in start_thread..end_thread {
             self.inner.thread_state[i] = Some(ThreadState {
-                block_id: free_block_hw_id,
+                // block_id: free_block_hw_id,
                 active: true,
                 pc: 0, // todo
             });
@@ -1884,11 +1925,16 @@ where
         }
 
         self.inner.block_status[free_block_hw_id] = num_threads_in_block;
+        println!(
+            "num threads in block {}={} (hw {}) = {}",
+            block, block_id, free_block_hw_id, num_threads_in_block
+        );
+
         self.init_warps(
             free_block_hw_id,
             start_thread,
             end_thread,
-            block.id(),
+            block_id,
             kernel.threads_per_block(),
             kernel,
         );

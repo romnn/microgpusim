@@ -255,13 +255,15 @@ void trace_gpgpu_sim::simple_cycle() {
     // backed up) Note:This needs to be called in DRAM clock domain if there
     // is no L2 cache in the system In the worst case, we may need to push
     // SECTOR_CHUNCK_SIZE requests, so ensure you have enough buffer for them
+    unsigned device = m_shader_config->mem2device(i);
     if (m_memory_sub_partition[i]->full(SECTOR_CHUNCK_SIZE)) {
+      printf("SKIP sub partition %u (%u): DRAM full stall\n", i, device);
       gpu_stall_dramfull++;
     } else {
-      mem_fetch *mf = (mem_fetch *)icnt_pop(m_shader_config->mem2device(i));
+      mem_fetch *mf = (mem_fetch *)icnt_pop(device);
       if (mf) {
         std::cout << "got new fetch " << mf << " for mem sub partition " << i
-                  << " (" << m_shader_config->mem2device(i) << ")" << std::endl;
+                  << " (" << device << ")" << std::endl;
         m_memory_sub_partition[i]->push(mf, gpu_sim_cycle + gpu_tot_sim_cycle);
       }
       if (mf) partiton_reqs_in_parallel_per_cycle++;
@@ -298,7 +300,6 @@ void trace_gpgpu_sim::simple_cycle() {
 
   gpu_sim_cycle++;
 
-  printf("issueing block to core\n");
   issue_block2core();
   decrement_kernel_latency();
 
@@ -917,6 +918,7 @@ bool trace_gpgpu_sim::get_more_cta_left() const {
 }
 
 void trace_gpgpu_sim::issue_block2core() {
+  printf("issue block to core\n");
   unsigned last_issued = m_last_cluster_issue;
   for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
     unsigned idx = (i + last_issued + 1) % m_shader_config->n_simt_clusters;

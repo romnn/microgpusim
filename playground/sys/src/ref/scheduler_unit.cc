@@ -74,6 +74,7 @@ void scheduler_unit::cycle() {
     if (next_warp == NULL || next_warp->done_exit()) {
       continue;
     }
+    assert(next_warp->instruction_count() > 0);
     if (!next_warp->trace_done() && next_warp->instruction_count() > 1) {
       printf(
           "Testing (warp_id %u, dynamic_warp_id %u, trace_pc = %u, pc=%lu, "

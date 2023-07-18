@@ -88,14 +88,22 @@ void trace_shader_core_ctx::init_warps(unsigned cta_id, unsigned start_thread,
                                        unsigned end_thread, unsigned ctaid,
                                        int cta_size,
                                        trace_kernel_info_t &kernel) {
-  // from shader_core_ctx.cc
   address_type start_pc = next_pc(start_thread);
   unsigned kernel_id = kernel.get_uid();
+
+  unsigned start_warp = start_thread / m_config->warp_size;
+  unsigned end_warp = end_thread / m_config->warp_size +
+                      ((end_thread % m_config->warp_size) ? 1 : 0);
+
+  // unsigned start_warp = start_thread / m_config->warp_size;
+  // unsigned end_warp = end_thread / m_config->warp_size +
+  //                     ((end_thread % m_config->warp_size) ? 1 : 0);
+
   if (m_config->model == POST_DOMINATOR) {
-    unsigned start_warp = start_thread / m_config->warp_size;
-    unsigned warp_per_cta = cta_size / m_config->warp_size;
-    unsigned end_warp = end_thread / m_config->warp_size +
-                        ((end_thread % m_config->warp_size) ? 1 : 0);
+    // post dominator is the default
+    // assert(0 && "post dominator PTX model");
+
+    // unsigned warp_per_cta = cta_size / m_config->warp_size;
     for (unsigned i = start_warp; i < end_warp; ++i) {
       unsigned n_active = 0;
       simt_mask_t active_threads;
@@ -137,12 +145,10 @@ void trace_shader_core_ctx::init_warps(unsigned cta_id, unsigned start_thread,
     }
   }
 
-  // then init traces
-  // from "trace_shader_core_ctx.hpp"
-  unsigned start_warp = start_thread / m_config->warp_size;
-  unsigned end_warp = end_thread / m_config->warp_size +
-                      ((end_thread % m_config->warp_size) ? 1 : 0);
+  printf("initialized warps %u..%u of %lu warps\n", start_warp, end_warp,
+         m_warp.size());
 
+  // now init traces
   init_traces(start_warp, end_warp, kernel);
 }
 
@@ -177,6 +183,9 @@ void trace_shader_core_ctx::init_traces(unsigned start_warp, unsigned end_warp,
     m_trace_warp->set_next_pc(m_trace_warp->get_start_trace_pc());
     m_trace_warp->set_kernel(&trace_kernel);
   }
+
+  printf("initialized traces for warps %u..%u of %lu warps\n", start_warp,
+         end_warp, m_warp.size());
 }
 
 void trace_shader_core_ctx::checkExecutionStatusAndUpdate(warp_inst_t &inst,
@@ -269,18 +278,25 @@ void trace_shader_core_ctx::issue_warp(register_set &pipe_reg_set,
       pipe_reg_set.get_free(m_config->sub_core_model, sch_id);
   assert(pipe_reg);
 
+  assert(next_inst->empty());
+
   std::cout << "warp=" << warp_id << " executed " << next_inst << std::endl;
+  // create a copy
   warp_inst_t next_trace_inst_copy = *next_inst;
 
   m_warp[warp_id]->ibuffer_free();
   assert(next_inst->valid());
-  // setting the pipe reg, TODO: where is it removed again
+
   **pipe_reg = next_trace_inst_copy;  // static instruction information
 
+  // this sets all the info for warp inst* in pipe reg
   (*pipe_reg)->issue(active_mask, warp_id,
                      m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle,
                      m_warp[warp_id]->get_dynamic_warp_id(),
                      sch_id);  // dynamic instruction information
+
+  assert(warp_id == (*pipe_reg)->warp_id());
+
   m_stats->shader_cycle_distro[2 + (*pipe_reg)->active_count()]++;
 
   std::cout << "warp=" << (*pipe_reg)->warp_id() << " executed "
@@ -954,13 +970,22 @@ void trace_shader_core_ctx::fetch() {
       // case
       for (unsigned warp_id = 0; warp_id < m_config->max_warps_per_shader;
            warp_id++) {
-        if (m_warp[warp_id]->functional_done() &&
-            m_warp[warp_id]->hardware_done() && m_warp[warp_id]->done_exit())
+        if (m_warp[warp_id]->instruction_count() == 0) {
+          // consider empty
           continue;
+        }
+        assert(warp_id == m_warp[warp_id]->get_warp_id());
+        // if (m_warp[warp_id]->functional_done() &&
+        //     m_warp[warp_id]->hardware_done() && m_warp[warp_id]->done_exit())
+        //     {
+        //   continue;
+        // }
         std::cout << "\tchecking warp id = " << warp_id
+                  << " dyn warp id = " << m_warp[warp_id]->get_dynamic_warp_id()
                   << " (last fetched=" << m_last_warp_fetched
                   << ", instruction count="
                   << m_warp[warp_id]->instruction_count()
+                  << ", trace pc=" << m_warp[warp_id]->trace_pc
                   << ", hardware_done=" << m_warp[warp_id]->hardware_done()
                   << ", functional_done=" << m_warp[warp_id]->functional_done()
                   << ", instr in pipe=" << m_warp[warp_id]->m_inst_in_pipeline
@@ -969,20 +994,6 @@ void trace_shader_core_ctx::fetch() {
                   << ", has pending writes="
                   << m_scoreboard->get_pending_writes(warp_id) << ")"
                   << std::endl;
-
-        // printf(
-        //     "\tchecking warp_id = %u (last fetched=%d, instruction "
-        //     "count=%ld, hardware_done=%d, functional_done=%d, "
-        //     "instr in pipe=%d, stores=%d, done_exit=%d, "
-        //     "has pending writes=%s)\n",
-        //     warp_id, m_last_warp_fetched,
-        //     m_warp[warp_id]->instruction_count(),
-        //     m_warp[warp_id]->hardware_done(),
-        //     m_warp[warp_id]->functional_done(),
-        //     m_warp[warp_id]->m_inst_in_pipeline,
-        //     m_warp[warp_id]->m_stores_outstanding,
-        //     m_warp[warp_id]->done_exit(),
-        //     m_scoreboard->get_pending_writes(warp_id));
       }
 
       printf("\n\n");
@@ -1018,9 +1029,7 @@ void trace_shader_core_ctx::fetch() {
         if (m_warp[warp_id]->hardware_done() &&
             !m_scoreboard->has_pending_writes(warp_id) &&
             !m_warp[warp_id]->done_exit()) {
-          // first warp reclaim here
-          std::cout << "\tchecking if warp_id = " << warp_id << " did complete"
-                    << std::endl;
+          printf("\tchecking if warp_id = %u did complete\n", warp_id);
 
           // check each thread of the warp for completion
           bool did_exit = false;
@@ -1030,6 +1039,9 @@ void trace_shader_core_ctx::fetch() {
             if (m_threadState[tid].m_active == true) {
               m_threadState[tid].m_active = false;
               unsigned cta_id = m_warp[warp_id]->get_cta_id();
+              printf("thread %u of block %u completed (%u left)\n", tid, cta_id,
+                     m_cta_status[cta_id]);
+
               if (m_thread[tid] == NULL) {
                 register_cta_thread_exit(cta_id,
                                          m_warp[warp_id]->get_kernel_info());
@@ -1262,11 +1274,11 @@ void trace_shader_core_ctx::reinit(unsigned start_thread, unsigned end_thread,
     m_threadState[i].n_insn = 0;
     m_threadState[i].m_cta_id = -1;
   }
-  printf("warp size %d start=%d end=%d\n", m_config->warp_size, start_thread,
-         end_thread);
-  for (unsigned i = start_thread / m_config->warp_size;
-       i < end_thread / m_config->warp_size; ++i) {
-    printf("reinit %d\n", i);
+  unsigned start_warp = start_thread / m_config->warp_size;
+  unsigned end_warp = end_thread / m_config->warp_size;
+  printf("reset warps %u..%u (threads %u..%u)\n", start_warp, end_warp,
+         start_thread, end_thread);
+  for (unsigned i = start_warp; i < end_warp; ++i) {
     m_warp[i]->reset();
     m_simt_stack[i]->reset();
   }

@@ -1,60 +1,56 @@
 #### TODO
 
-in cycle 116, last issued is warp 1 but should be warp 2
+- DONE: BUG: warps using global block id rather than block hw id
+- DONE: BUG: box is unwrapping current instruction on exited warp
 
-in cycle 85, we are collecting both operands at once and hence the collector unit becomes non active immediately.
+  - DONE: fix: initializing a new thread block was not resetting the trace pc
 
-collector unit [21] Some("STG[pc=216,warp=2]") collecting operand for 0
-collector unit [21] Some("STG[pc=216,warp=2]") collecting operand for 1
+- DONE: BUG: "moving mem requests from interconn to 2 mem partitions"
 
-last valid cycle 85
+  - DONE: pops two times in cycle 208 for box but just once for playground
+  - DONE: fix: change mem_sub.full(sec_size) to !can_fit(sec_size)
 
-```
-CollectorUnit {
-    warp_id: Some(
-        3,
-    ),
-    warp_instr: Some(
-        LDG[pc=176,warp=3],
-    ),
-    output_register: Some(
-        "OC_EX_MEM"=[Some(LDG[pc=176,warp=2])],
-    ),
-    reg_id: Some(
-        0,
-    ),
-    kind: MEM_CUS,
-},
-CollectorUnit {
-    warp_id: Some(
-        2,
-    ),
-    warp_instr: Some(
-        STG[pc=216,warp=2],
-    ),
-    output_register: Some(
-        "OC_EX_MEM"=[Some(LDG[pc=176,warp=2])],
-    ),
-    reg_id: Some(
-        0,
-    ),
-    kind: MEM_CUS,
-},
-```
+- DONE: BUG: traces for warps 32..64 in vectoradd 10000 are not initialized
+- DONE: BUG: tracer does not include block sizes
 
-- BUG: vectoradd@86: play is only moving two warps, box is moving 3
+- TODO: add validate env flag for tracer that checks if traces are in the correct order
 
-  - STG[pc=216,warp=2] has already been moved?
+  - run a flamegraph to see that the trace decoding is soooo slow
+  - if that is the case, we can use streaming warp instruction decoding for performance
+
+- TODO: add back tensor and sfu units number and see if everything is still fine (should be)
+
+- ensure functionality for vectoradd 10000 larger size and matrix mul
+
+  - DONE: in the process: ease debugging using state representations
+  - DONE: e.g. relative memory addresses using the allocation base address
+  - add back
+
+- TODO: test if playground can still do compute and validate with accelsim (manual first, then automated)
+
+  - use config (e.g. env) for configuring if box model should be used
+  - remove all #ifdef BOX
+
+- TODO: testing:
+
+  - test scheduler allocate reads etc. (good candidate for a refactor)
+  - test max block sizes (is that used ?? )
+
+- DONE: BUG: in cycle 116, last issued is warp 1 but should be warp 2
+
+- DONE: BUG: in cycle 85, we are collecting both operands at once and hence the collector unit becomes non active immediately.
+
+- DONE: BUG: collector unit [21] Some("STG[pc=216,warp=2]") collecting operand for 0
+- DONE: BUG: collector unit [21] Some("STG[pc=216,warp=2]") collecting operand for 1
+
+- DONE: BUG: vectoradd@86: play is only moving two warps, box is moving 3
+
+  - DONE: STG[pc=216,warp=2] has already been moved?
 
 - DONE: BUG: vectoradd@54 Read(GLOBAL_ACC_R) should go l2 to dram queue but goes to dram latency queue
 
 - DONE: box run per cycle
 - DONE: playground run per cycle
-- ensure functionality for vectoradd larger size and matrix mul
-
-  - in the process: ease debugging
-  - e.g. relative memory addresses using the allocation base address
-
 - playground version that includes compute instructions
 - TODO: test max block sizes
 - make data cache not implement the cache interface, make l1 a wrapper around data just like with l2 right now

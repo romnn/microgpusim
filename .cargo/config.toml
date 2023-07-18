@@ -1,2 +1,7 @@
 [alias]
 xtask = "run --package xtask --"
+validate = "run --package validate --"
+trace = "run --package trace --"
+sim = "run --"
+accelsim-trace = "run --package accelsim-trace --"
+accelsim-sim = "run --package accelsim-sim --"

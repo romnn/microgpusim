@@ -322,6 +322,10 @@ where
         self.interconn_to_l2_queue.full()
     }
 
+    pub fn interconn_to_l2_can_fit(&self, size: usize) -> bool {
+        self.interconn_to_l2_queue.can_fit(size)
+    }
+
     pub fn busy(&self) -> bool {
         !self.request_tracker.is_empty()
     }

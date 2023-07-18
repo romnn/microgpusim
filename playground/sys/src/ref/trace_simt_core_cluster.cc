@@ -149,15 +149,17 @@ void trace_simt_core_cluster::get_icnt_stats(long &n_simt_to_mem,
 }
 
 unsigned trace_simt_core_cluster::issue_block2core() {
+  printf("cluster %u: issue block to core\n", m_cluster_id);
   unsigned num_blocks_issued = 0;
   for (unsigned i = 0; i < m_config->n_simt_cores_per_cluster; i++) {
     unsigned core =
         (i + m_cta_issue_next_core + 1) % m_config->n_simt_cores_per_cluster;
 
-    trace_kernel_info_t *kernel;
+    trace_kernel_info_t *kernel = NULL;
     // Jin: fetch kernel according to concurrent kernel setting
     if (m_config->gpgpu_concurrent_kernel_sm) {  // concurrent kernel on sm
       // always select latest issued kernel
+      assert(0 && "concurrent kernels");
       trace_kernel_info_t *k = m_gpu->select_kernel();
       kernel = k;
     } else {
@@ -172,6 +174,14 @@ unsigned trace_simt_core_cluster::issue_block2core() {
           kernel = k;
         }
       }
+    }
+    printf("core %u-%u: selected kernel %s\n", m_cluster_id, core,
+           kernel != NULL ? kernel->get_name().c_str() : "NULL");
+
+    if (kernel != NULL) {
+      printf("kernel: no more blocks to run=%d can issue block %d\n",
+             !m_gpu->kernel_more_cta_left(kernel),
+             m_core[core]->can_issue_1block(*kernel));
     }
 
     if (m_gpu->kernel_more_cta_left(kernel) &&
