@@ -92,10 +92,26 @@ mod default {
             self: &operand_collector_bridge,
         ) -> UniquePtr<CxxVector<collector_unit_set>>;
 
+        // SCHEDULER UNIT
+        type scheduler_unit_ptr;
+        #[must_use]
+        fn get(self: &scheduler_unit_ptr) -> *const scheduler_unit;
+
+        type scheduler_unit;
+
+        type scheduler_unit_bridge;
+        unsafe fn new_scheduler_unit_bridge(
+            ptr: *const scheduler_unit,
+        ) -> SharedPtr<scheduler_unit_bridge>;
+        #[must_use]
+        fn inner(self: &scheduler_unit_bridge) -> *const scheduler_unit;
+        fn get_prioritized_warp_ids(self: &scheduler_unit_bridge) -> UniquePtr<CxxVector<u32>>;
+
         // CORE
         type core_bridge;
         #[must_use]
         fn get_register_sets(self: &core_bridge) -> UniquePtr<CxxVector<register_set_ptr>>;
+        fn get_scheduler_units(self: &core_bridge) -> UniquePtr<CxxVector<scheduler_unit_ptr>>;
         fn get_operand_collector(self: &core_bridge) -> SharedPtr<operand_collector_bridge>;
 
         // MEM PARTITION

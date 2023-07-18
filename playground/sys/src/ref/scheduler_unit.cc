@@ -1,11 +1,13 @@
+#include "scheduler_unit.hpp"
+
 #include <memory>
+#include <iostream>
 
 #include "barrier_set.hpp"
 #include "exec_unit_type.hpp"
 #include "ifetch_buffer.hpp"
 #include "mem_fetch_interface.hpp"
 #include "opndcoll_rfu.hpp"
-#include "scheduler_unit.hpp"
 #include "shader_core_mem_fetch_allocator.hpp"
 #include "shader_core_stats.hpp"
 #include "shader_trace.hpp"
@@ -24,7 +26,46 @@ void scheduler_unit::cycle() {
                              // waiting for pending register writes
   bool issued_inst = false;  // of these we issued one
 
+  std::vector<unsigned> tmp_warp_ids;
+  std::vector<trace_shd_warp_t *>::const_iterator iter;
+
+  for (iter = m_next_cycle_prioritized_warps.begin();
+       iter != m_next_cycle_prioritized_warps.end(); iter++) {
+    tmp_warp_ids.push_back((*iter)->get_warp_id());
+  }
+  std::cout << name()
+            << "::scheduler_unit BEFORE: m_next_cycle_prioritized_warps: "
+            << tmp_warp_ids << std::endl;
+
+  tmp_warp_ids.clear();
+  for (iter = m_next_cycle_prioritized_warps.begin();
+       iter != m_next_cycle_prioritized_warps.end(); iter++) {
+    tmp_warp_ids.push_back((*iter)->get_dynamic_warp_id());
+  }
+  std::cout << name()
+            << "::scheduler_unit BEFORE: m_next_cycle_prioritized_warps: "
+            << tmp_warp_ids << std::endl;
+
   order_warps();
+
+  tmp_warp_ids.clear();
+  for (iter = m_next_cycle_prioritized_warps.begin();
+       iter != m_next_cycle_prioritized_warps.end(); iter++) {
+    tmp_warp_ids.push_back((*iter)->get_warp_id());
+  }
+  std::cout << name()
+            << "::scheduler_unit AFTER: m_next_cycle_prioritized_warps: "
+            << tmp_warp_ids << std::endl;
+
+  tmp_warp_ids.clear();
+  for (iter = m_next_cycle_prioritized_warps.begin();
+       iter != m_next_cycle_prioritized_warps.end(); iter++) {
+    tmp_warp_ids.push_back((*iter)->get_dynamic_warp_id());
+  }
+  std::cout << name()
+            << "::scheduler_unit AFTER: m_next_cycle_prioritized_warps: "
+            << tmp_warp_ids << std::endl;
+
   for (std::vector<trace_shd_warp_t *>::iterator iter =
            m_next_cycle_prioritized_warps.begin();
        iter != m_next_cycle_prioritized_warps.end(); iter++) {
@@ -59,18 +100,22 @@ void scheduler_unit::cycle() {
                                                  // units (as in Maxwell and
                                                  // Pascal)
 
+    assert(next_warp->instruction_count() > 0);
+
     if (next_warp->instruction_count() > 1) {
-      if (warp(warp_id).ibuffer_empty())
+      if (warp(warp_id).ibuffer_empty()) {
         printf(
             "\t => Warp (warp_id %u, dynamic_warp_id %u) fails as "
             "ibuffer_empty\n",
             next_warp->get_warp_id(), next_warp->get_dynamic_warp_id());
+      }
 
-      if (warp(warp_id).waiting())
+      if (warp(warp_id).waiting()) {
         printf(
             "\t => Warp (warp_id %u, dynamic_warp_id %u) fails as waiting for "
             "barrier\n",
             next_warp->get_warp_id(), next_warp->get_dynamic_warp_id());
+      }
     }
 
     if (warp(warp_id).ibuffer_empty())
@@ -410,6 +455,6 @@ bool scheduler_unit::sort_warps_by_oldest_dynamic_id(trace_shd_warp_t *lhs,
 }
 
 std::unique_ptr<scheduler_unit> new_scheduler_unit() {
-  abort();
+  throw std::runtime_error("todo");
   // return std::make_unique<scheduler_unit>();
 }

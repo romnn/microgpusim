@@ -771,12 +771,12 @@ where
             // distribute i's evenly though schedulers;
             let sched_idx = i % self.inner.config.num_schedulers_per_core;
             let scheduler = &mut self.schedulers[sched_idx];
-            scheduler.add_supervised_warp(warp.clone());
+            scheduler.add_supervised_warp(Rc::clone(&warp));
         }
-        for scheduler in self.schedulers.iter_mut() {
-            // todo!("call done_adding_supervised_warps");
-            scheduler.done_adding_supervised_warps();
-        }
+        // for scheduler in self.schedulers.iter_mut() {
+        //     // todo!("call done_adding_supervised_warps");
+        //     scheduler.done_adding_supervised_warps();
+        // }
         // for (unsigned i = 0; i < m_config->gpgpu_num_sched_per_core; ++i) {
         //   schedulers[i]->done_adding_supervised_warps();
         // }

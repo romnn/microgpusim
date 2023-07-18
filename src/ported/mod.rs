@@ -1563,13 +1563,9 @@ mod tests {
                         // core: operand collector
                         box_sim_state.operand_collectors[core_id]
                             .insert(core.inner.operand_collector.borrow().deref().into());
-                        // .insert((&*core.inner.operand_collector.borrow()).into());
-
-                        // .in_ports
-                        // .clone()
-                        // .map(Into::into)
-                        // core.operand_collector.collector_units
-                        // core.operand_collector.dispatch_units
+                        // core: schedulers
+                        box_sim_state.schedulers[core_id]
+                            .extend(core.schedulers.iter().map(Into::into));
                     }
                 }
 
@@ -1614,8 +1610,41 @@ mod tests {
                     for reg in core.register_sets().into_iter() {
                         play_sim_state.functional_unit_pipelines[core_id].push(reg.into());
                     }
+                    // core: operand collector
                     let coll = core.operand_collector();
                     play_sim_state.operand_collectors[core_id].insert(coll.into());
+                    // core: scheduler units
+                    let schedulers = core.schedulers();
+                    assert_eq!(schedulers.len(), box_sim_state.schedulers[core_id].len());
+                    for (sched_idx, scheduler) in schedulers.into_iter().enumerate() {
+                        // let scheduler = testing::state::Scheduler::from(scheduler);
+                        play_sim_state.schedulers[core_id].push(scheduler.into());
+
+                        let num_box_warps = box_sim_state.schedulers[core_id][sched_idx]
+                            .prioritized_warps
+                            .len();
+                        let num_play_warps = play_sim_state.schedulers[core_id][sched_idx]
+                            .prioritized_warps
+                            .len();
+                        let limit = num_box_warps.min(num_play_warps);
+
+                        // fix: make sure we only compare what can be compared
+                        box_sim_state.schedulers[core_id][sched_idx]
+                            .prioritized_warps
+                            .split_off(limit);
+                        play_sim_state.schedulers[core_id][sched_idx]
+                            .prioritized_warps
+                            .split_off(limit);
+
+                        // assert_eq!(
+                        //     box_sim_state.schedulers[core_id][sched_idx]
+                        //         .prioritized_warps
+                        //         .len(),
+                        //     play_sim_state.schedulers[core_id][sched_idx]
+                        //         .prioritized_warps
+                        //         .len(),
+                        // );
+                    }
                 }
 
                 for (partition_id, partition) in play_sim.partition_units().enumerate() {
@@ -1634,6 +1663,8 @@ mod tests {
                 }
 
                 println!("checking for diff after cycle {}", cycle - 1);
+                dbg!(&box_sim_state.schedulers);
+                dbg!(&play_sim_state.schedulers);
                 diff::assert_eq!(&box_sim_state, &play_sim_state);
                 println!(
                     "validated play state for cycle {}: {:#?}",

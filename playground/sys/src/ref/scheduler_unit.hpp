@@ -160,7 +160,11 @@ class scheduler_unit {
       T greedy_value = *last_issued_from_input;
       result_list.push_back(greedy_value);
 
-      std::sort(temp.begin(), temp.end(), priority_func);
+      std::cout << "added greedy warp: " << greedy_value->get_dynamic_warp_id()
+                << std::endl;
+
+      // std::sort(temp.begin(), temp.end(), priority_func);
+      std::stable_sort(temp.begin(), temp.end(), priority_func);
       typename std::vector<T>::iterator iter = temp.begin();
       for (unsigned count = 0; count < num_warps_to_add; ++count, ++iter) {
         if (*iter != greedy_value) {
@@ -168,7 +172,8 @@ class scheduler_unit {
         }
       }
     } else if (ORDERED_PRIORITY_FUNC_ONLY == ordering) {
-      std::sort(temp.begin(), temp.end(), priority_func);
+      // std::sort(temp.begin(), temp.end(), priority_func);
+      std::stable_sort(temp.begin(), temp.end(), priority_func);
       typename std::vector<T>::iterator iter = temp.begin();
       for (unsigned count = 0; count < num_warps_to_add; ++count, ++iter) {
         result_list.push_back(*iter);
@@ -177,6 +182,7 @@ class scheduler_unit {
       fprintf(stderr, "Unknown ordering - %d\n", ordering);
       abort();
     }
+    assert(result_list.size() == num_warps_to_add);
   }
   // // These are some common ordering fucntions that the
   // // higher order schedulers can take advantage of
@@ -247,6 +253,8 @@ class scheduler_unit {
   unsigned m_current_turn_warp;
 
   int m_id;
+
+  friend class scheduler_unit_bridge;
 };
 
 std::unique_ptr<scheduler_unit> new_scheduler_unit();

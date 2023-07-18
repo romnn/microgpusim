@@ -23,10 +23,12 @@ class trace_shd_warp_t {
   }
 
   void reset() {
-    // assert(0 && "reset shd warp");
     assert(m_stores_outstanding == 0);
     assert(m_inst_in_pipeline == 0);
     m_imiss_pending = false;
+    // ROMAN: use 0 as the default warp id for uninitialized
+    // m_warp_id = 0;
+    // m_dynamic_warp_id = 0;
     m_warp_id = (unsigned)-1;
     m_dynamic_warp_id = (unsigned)-1;
     n_completed = m_warp_size;

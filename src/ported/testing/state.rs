@@ -293,6 +293,18 @@ impl<'a> From<playground::OperandCollector<'a>> for OperandCollector {
     }
 }
 
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+pub struct Scheduler {
+    pub prioritized_warps: Vec<usize>,
+}
+
+impl<'a> From<playground::SchedulerUnit<'a>> for Scheduler {
+    fn from(scheduler: playground::SchedulerUnit<'a>) -> Self {
+        let prioritized_warps = scheduler.prioritized_warp_ids();
+        Self { prioritized_warps }
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct MemFetch {
     pub kind: ported::mem_fetch::Kind,
@@ -352,6 +364,7 @@ pub struct Simulation {
     pub functional_unit_pipelines: Vec<Vec<RegisterSet>>,
     // pub operand_collectors: Vec<Vec<OperandCollector>>,
     pub operand_collectors: Vec<Option<OperandCollector>>,
+    pub schedulers: Vec<Vec<Scheduler>>,
 }
 
 impl Simulation {
@@ -367,6 +380,7 @@ impl Simulation {
             // per core
             functional_unit_pipelines: vec![vec![]; total_cores],
             operand_collectors: vec![None; total_cores],
+            schedulers: vec![vec![]; total_cores],
         }
     }
 }

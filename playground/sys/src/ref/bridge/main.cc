@@ -32,6 +32,11 @@ std::shared_ptr<mem_fetch_bridge> new_mem_fetch_bridge(const mem_fetch *ptr) {
   return std::make_shared<mem_fetch_bridge>(ptr);
 }
 
+std::shared_ptr<scheduler_unit_bridge> new_scheduler_unit_bridge(
+    const scheduler_unit *ptr) {
+  return std::make_shared<scheduler_unit_bridge>(ptr);
+}
+
 trace_kernel_info_t *create_kernel_info(kernel_trace_t *kernel_trace_info,
                                         gpgpu_context *m_gpgpu_context,
                                         class trace_config *config,

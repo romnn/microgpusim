@@ -1,5 +1,7 @@
 #### TODO
 
+in cycle 116, last issued is warp 1 but should be warp 2
+
 in cycle 85, we are collecting both operands at once and hence the collector unit becomes non active immediately.
 
 collector unit [21] Some("STG[pc=216,warp=2]") collecting operand for 0

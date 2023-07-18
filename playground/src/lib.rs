@@ -243,6 +243,30 @@ impl<'a> std::ops::Deref for CollectorUnit<'a> {
 }
 
 #[derive(Clone)]
+pub struct SchedulerUnit<'a> {
+    inner: cxx::SharedPtr<playground_sys::main::scheduler_unit_bridge>,
+    phantom: PhantomData<&'a playground_sys::main::scheduler_unit>,
+}
+
+impl<'a> std::ops::Deref for SchedulerUnit<'a> {
+    type Target = playground_sys::main::scheduler_unit;
+
+    fn deref(&self) -> &'a Self::Target {
+        unsafe { self.inner.inner().as_ref().unwrap() }
+    }
+}
+
+impl<'a> SchedulerUnit<'a> {
+    pub fn prioritized_warp_ids(&'a self) -> Vec<usize> {
+        self.inner
+            .get_prioritized_warp_ids()
+            .iter()
+            .map(|warp_id| *warp_id as usize)
+            .collect()
+    }
+}
+
+#[derive(Clone)]
 pub struct OperandCollector<'a> {
     inner: cxx::SharedPtr<playground_sys::main::operand_collector_bridge>,
     phantom: PhantomData<&'a playground_sys::main::opndcoll_rfu_t>,
@@ -314,6 +338,19 @@ impl<'a> Core<'a> {
             inner: self.0.get_operand_collector(),
             phantom: PhantomData,
         }
+    }
+
+    #[must_use]
+    pub fn schedulers(&self) -> Vec<SchedulerUnit<'a>> {
+        use playground_sys::main::new_scheduler_unit_bridge;
+        self.0
+            .get_scheduler_units()
+            .iter()
+            .map(|ptr| SchedulerUnit {
+                inner: unsafe { new_scheduler_unit_bridge(ptr.get()) },
+                phantom: PhantomData,
+            })
+            .collect()
     }
 }
 
