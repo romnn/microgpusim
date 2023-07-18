@@ -932,15 +932,25 @@ mod tests {
             let mut block_iter = kernel.next_block_iter.lock().unwrap();
             while let Some(block) = block_iter.next() {
                 dbg!(&block);
-                let mut lock = kernel.trace_iter.write().unwrap();
-                let trace_iter = lock.take_while_ref(|entry| entry.block_id == block);
-                for trace in trace_iter {
+                let mut trace_pos = kernel.trace_pos.write().unwrap();
+                // let mut lock = kernel.trace_iter.write().unwrap();
+                // let trace_iter = lock.take_while_ref(|entry| entry.block_id == block);
+                while *trace_pos < kernel.trace.len() {
+                    // for trace in trace_iter {
+                    let trace = &kernel.trace[*trace_pos];
+                    if trace.block_id > block.into() {
+                        break;
+                    }
+
+                    *trace_pos += 1;
+
                     // dbg!(&trace);
                     let warp_id = trace.warp_id_in_block as usize;
                     if warp_id != 0 {
                         continue;
                     }
-                    let mut instr = instruction::WarpInstruction::from_trace(&kernel, trace);
+                    let mut instr =
+                        instruction::WarpInstruction::from_trace(&kernel, trace.clone());
 
                     let mut accesses = instr
                         .generate_mem_accesses(&*config)

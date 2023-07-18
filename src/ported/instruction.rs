@@ -697,6 +697,7 @@ impl WarpInstruction {
         }
     }
 
+    /// this just sets values
     pub fn issue(
         &mut self,
         mask: sched::ThreadActiveMask,
@@ -705,9 +706,9 @@ impl WarpInstruction {
         dynamic_warp_id: usize,
         scheduler_id: usize,
     ) {
-        assert_eq!(self.active_mask, mask);
-        assert_eq!(self.warp_id, warp_id);
-        assert_eq!(self.scheduler_id, scheduler_id);
+        // assert_eq!(self.active_mask, mask);
+        // assert_eq!(self.warp_id, warp_id);
+        // assert_eq!(self.scheduler_id, scheduler_id);
 
         self.active_mask = mask;
         self.active_mask = mask;

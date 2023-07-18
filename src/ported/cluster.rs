@@ -236,7 +236,7 @@ where
     }
 
     pub fn issue_block_to_core(&self, sim: &MockSimulator<I>) -> usize {
-        println!("cluster {}: issue block 2 core", self.cluster_id);
+        println!("cluster {}: issue block to core", self.cluster_id);
         let mut num_blocks_issued = 0;
 
         let mut block_issue_next_core = self.block_issue_next_core.lock().unwrap();
@@ -247,32 +247,81 @@ where
         for (i, core) in cores.iter_mut().enumerate() {
             // debug_assert_eq!(i, core.id);
             let core_id = (i + *block_issue_next_core + 1) % num_cores;
-            let mut kernel = None;
-            if self.config.concurrent_kernel_sm {
+            // let mut kernel = None;
+            let kernel: Option<Arc<crate::ported::KernelInfo>> = if self.config.concurrent_kernel_sm
+            {
+                unimplemented!("concurrent kernel sm");
                 // always select latest issued kernel
-                kernel = sim.select_kernel()
+                // kernel = sim.select_kernel()
+                sim.select_kernel().map(Arc::clone)
             } else {
-                if core
-                    .inner
-                    .current_kernel
-                    .as_ref()
-                    .map(|current| !current.no_more_blocks_to_run())
-                    .unwrap_or(true)
-                {
-                    // wait until current kernel finishes
-                    if core.inner.num_active_warps == 0 {
-                        kernel = sim.select_kernel();
-                        if let Some(k) = kernel {
-                            core.set_kernel(k.clone());
-                        }
+                let mut current_kernel = core.inner.current_kernel.as_ref(); // .map(Arc::clone);
+                                                                             // match core.inner.current_kernel {
+                                                                             //     Some(current) if current.no_more_blocks_to_run() && core.not_completed() == 0 => {
+                                                                             //         // new kernel
+                                                                             //         sim.select_kernel()
+                                                                             //     }
+                                                                             //     None => {
+                                                                             //         // new kernel
+                                                                             //         sim.select_kernel()
+                                                                             //     }
+                                                                             //
+                                                                             // }
+                                                                             // let kernel = core.inner.current_kernel;
+                                                                             // if let Some(current_kernel) = kernel {
+                                                                             // }
+                                                                             // kernel
+                let should_select_new_kernel = if let Some(ref current) = current_kernel {
+                    // if no more blocks left, get new kernel once current block completes
+                    current.no_more_blocks_to_run() && core.not_completed() == 0
+                } else {
+                    // core was not assigned a kernel yet
+                    true
+                };
+
+                if should_select_new_kernel {
+                    current_kernel = sim.select_kernel(); // .map(Arc::clone);
+                    if let Some(ref k) = current_kernel {
+                        core.set_kernel(Arc::clone(k));
                     }
                 }
-            }
+
+                current_kernel.map(Arc::clone)
+
+                // Select current core kernel.
+                // If no more cta, get a new kernel once core completed warps
+                // match core.inner.current_kernel {
+                //     Some(current_kernel)
+                //         if current_kernel.no_more_blocks_to_run() && core.not_completed() == 0 =>
+                //     {
+                // if should_select_new_kernel {
+                //     kernel = sim.select_kernel();
+                //     if let Some(k) = kernel {
+                //         core.set_kernel(Arc::clone(k));
+                //     }
+                // }
+                //     }
+                //     _ => {}
+                // }
+                // Select current core kernel.
+                // If no more cta, get a new kernel once core completed warps
+                // if current_kernel.no_more_blocks_to_run() && core.not_completed() == 0 {
+                //     kernel = sim.select_kernel();
+                //     if let Some(k) = kernel {
+                //         core.set_kernel(Arc::clone(k));
+                //     }
+                // }
+            };
             println!(
-                "core {}-{}: current kernel {}",
+                "core {}-{}: {} active warps, current kernel {:?}, more blocks={:?}",
                 self.cluster_id,
                 core.inner.core_id,
-                &core.inner.current_kernel.is_some()
+                core.inner.num_active_warps,
+                core.inner.current_kernel.as_ref().map(|k| k.name()),
+                core.inner
+                    .current_kernel
+                    .as_ref()
+                    .map(|k| !k.no_more_blocks_to_run())
             );
             println!(
                 "core {}-{}: selected kernel {:?}",
@@ -281,10 +330,16 @@ where
                 kernel.as_ref().map(|k| k.name())
             );
             if let Some(kernel) = kernel {
-                // dbg!(&kernel.no_more_blocks_to_run());
-                // dbg!(&core.can_issue_block(&*kernel));
+                println!(
+                    "kernel: no more blocks to run={} can issue block {}",
+                    kernel.no_more_blocks_to_run(),
+                    core.can_issue_block(&*kernel)
+                );
+                // println!("kernel: {:#?}", &*kernel);
+
                 if !kernel.no_more_blocks_to_run() && core.can_issue_block(&*kernel) {
-                    core.issue_block(kernel.clone());
+                    // core.issue_block(Arc::clone(kernel));
+                    core.issue_block(kernel);
                     num_blocks_issued += 1;
                     *block_issue_next_core = core_id;
                     break;

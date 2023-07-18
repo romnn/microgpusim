@@ -519,6 +519,9 @@ impl BaseSchedulerUnit {
                 continue;
             }
             let inst_count = next_warp.instruction_count();
+            if inst_count == 0 {
+                println!("next warp: {:#?}", &next_warp);
+            }
             debug_assert!(inst_count > 0);
             if inst_count > 1 {
                 println!(
@@ -634,8 +637,8 @@ impl BaseSchedulerUnit {
                                 {
                                     let instr = warp.ibuffer_take().unwrap();
                                     debug_assert_eq!(warp_id, warp.warp_id);
-                                    issuer
-                                        .issue_warp(mem_stage, &mut warp, instr, warp_id, self.id);
+                                    issuer.issue_warp(mem_stage, &mut warp, instr, self.id);
+                                    // .issue_warp(mem_stage, &mut warp, instr, warp_id, self.id);
                                     issued += 1;
                                     issued_inst = true;
                                     warp_inst_issued = true;
@@ -696,8 +699,9 @@ impl BaseSchedulerUnit {
 
                                     if let Some((stage, unit)) = issue_target {
                                         let instr = warp.ibuffer_take().unwrap();
-                                        issuer
-                                            .issue_warp(stage, &mut warp, instr, warp_id, self.id);
+                                        debug_assert_eq!(warp.warp_id, warp_id);
+                                        issuer.issue_warp(stage, &mut warp, instr, self.id);
+                                        // .issue_warp(stage, &mut warp, instr, warp_id, self.id);
                                         issued += 1;
                                         issued_inst = true;
                                         warp_inst_issued = true;
@@ -935,11 +939,11 @@ impl BaseSchedulerUnit {
                                 // std::ptr::eq(greedy_cell.as_ptr(), warp_cell.as_ptr())
                                 // false
                                 // std::ptr::eq(Rc::as_ref(w),
-                                println!(
-                                    "greedy@{:?} warp@{:?}",
-                                    Rc::as_ptr(greedy),
-                                    Rc::as_ptr(warp)
-                                );
+                                // println!(
+                                //     "greedy@{:?} warp@{:?}",
+                                //     Rc::as_ptr(greedy),
+                                //     Rc::as_ptr(warp)
+                                // );
                                 let already_added = Rc::ptr_eq(greedy, warp);
                                 !already_added
                             } else {

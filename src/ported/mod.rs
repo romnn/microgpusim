@@ -52,6 +52,7 @@ use log::{error, info, trace, warn};
 use nvbit_model::dim::{self, Dim};
 use std::borrow::Borrow;
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::collections::{HashMap, VecDeque};
 use std::fmt::Binary;
 use std::path::{Path, PathBuf};
@@ -129,7 +130,9 @@ pub struct KernelInfo {
     // function_info: FunctionInfo,
     // shared_mem: bool,
     trace: Vec<MemAccessTraceEntry>,
-    trace_iter: RwLock<std::vec::IntoIter<MemAccessTraceEntry>>,
+    trace_pos: RwLock<usize>,
+    // trace_iter: RwLock<Peekable<std::vec::IntoIter<MemAccessTraceEntry>>>,
+    // trace_iter: RwLock<std::vec::IntoIter<MemAccessTraceEntry>>,
     launched: Mutex<bool>,
     function_info: FunctionInfo,
     num_cores_running: usize,
@@ -214,14 +217,16 @@ pub fn read_trace(path: &Path) -> eyre::Result<Vec<MemAccessTraceEntry>> {
 }
 
 impl KernelInfo {
-    // gpgpu_ptx_sim_init_perf
-    // GPGPUSim_Init
-    // start_sim_thread
     pub fn from_trace(traces_dir: impl AsRef<Path>, config: KernelLaunch) -> Self {
+        println!(
+            "parsing kernel for launch {:?} from {}",
+            &config, &config.trace_file
+        );
         let trace_path = traces_dir
             .as_ref()
             .join(&config.trace_file)
             .with_extension("msgpack");
+
         let mut trace = read_trace(&trace_path).unwrap();
         // trace.sort_unstable_by(|a, b| (a.block_id, a.warp_id).cmp(&(b.block_id, b.warp_id)));
         trace.sort_unstable_by(|a, b| {
@@ -231,6 +236,16 @@ impl KernelInfo {
                 b.instr_offset,
             ))
         });
+
+        // check if grid size is equal to the number of unique blocks in the trace
+        let all_blocks: HashSet<_> = trace.iter().map(|t| t.block_id).collect();
+        println!(
+            "kernel trace has {}/{} blocks",
+            all_blocks.len(),
+            config.grid.size()
+        );
+        assert_eq!(config.grid.size(), all_blocks.len() as u64);
+
         // dbg!(&trace
         //     .iter()
         //     .map(|i| (
@@ -241,7 +256,7 @@ impl KernelInfo {
         //     ))
         //     .collect::<Vec<_>>());
 
-        let mut trace_iter = trace.clone().into_iter();
+        let mut trace_iter = trace.clone().into_iter().peekable();
 
         let next_block_iter = Mutex::new(config.grid.into_iter().peekable());
         let next_thread_iter = Mutex::new(config.block.into_iter().peekable());
@@ -255,7 +270,8 @@ impl KernelInfo {
             config,
             uid,
             trace,
-            trace_iter: RwLock::new(trace_iter),
+            trace_pos: RwLock::new(0),
+            // trace_iter: RwLock::new(trace_iter),
             opcodes,
             launched: Mutex::new(false),
             num_cores_running: 0,
@@ -278,27 +294,53 @@ impl KernelInfo {
         // debug_assert!(self.next_block_iter.peek().is_some());
         // // let Some(next_block) = self.next_block else {
         let Some(next_block) = self.next_block_iter.lock().unwrap().next() else {
-
             println!("blocks done: no more threadblock traces");
             return;
         };
+        println!("next thread block traces for block {}", next_block);
+
         // let next_block = nvbit_model::Dim { x: 0, y: 0, z: 0 };
         // for warp in warps.iter_mut() {
         //     // warp.clear();
         //     *warp = None;
         // }
-        let mut lock = self.trace_iter.write().unwrap();
-        let trace_iter = lock.take_while_ref(|entry| entry.block_id == next_block);
-        for trace in trace_iter {
-            let warp_id = trace.warp_id_in_block as usize;
-            let instr = instruction::WarpInstruction::from_trace(&self, trace);
-            // warps[warp_id] = Some(SchedulerWarp::default());
+
+        let mut trace_pos = self.trace_pos.write().unwrap();
+        // let mut lock = self.trace_iter.write().unwrap();
+        // let trace_iter = lock.take_while_ref(|entry| entry.block_id == next_block);
+
+        let mut instructions = 0;
+        let trace_size = self.trace.len();
+        while *trace_pos < trace_size {
+            let entry = &self.trace[*trace_pos];
+            if entry.block_id > next_block.into() {
+                // get instructions until new block
+                break;
+            }
+
+            let warp_id = entry.warp_id_in_block as usize;
+            let instr = instruction::WarpInstruction::from_trace(&self, entry.clone());
             let warp = warps.get_mut(warp_id).unwrap();
             let mut warp = warp.try_borrow_mut().unwrap();
-            // .as_mut().unwrap();
-            // warp.trace_instructions.push_back(instr);
             warp.push_trace_instruction(instr);
+
+            instructions += 1;
+            *trace_pos += 1;
         }
+
+        // while
+        // for trace in trace_iter {
+        //     if trace.block_id > next_block
+        //     let warp_id = trace.warp_id_in_block as usize;
+        //     let instr = instruction::WarpInstruction::from_trace(&self, trace);
+        //     // warps[warp_id] = Some(SchedulerWarp::default());
+        //     let warp = warps.get_mut(warp_id).unwrap();
+        //     let mut warp = warp.try_borrow_mut().unwrap();
+        //     // .as_mut().unwrap();
+        //     // warp.trace_instructions.push_back(instr);
+        //     warp.push_trace_instruction(instr);
+        //     instructions += 1;
+        // }
 
         // set the pc from the traces and ignore the functional model
         // NOTE: set next pc is not needed so the entire block goes away
@@ -316,7 +358,42 @@ impl KernelInfo {
         //     }
         //     // }
         // }
-        // println!("added {total} instructions");
+
+        println!(
+            "added {instructions} instructions ({} per thread) for block {next_block}",
+            instructions / 32
+        );
+        debug_assert!(instructions > 0);
+        // debug_assert!(instructions % 32 == 0);
+        // dbg!(warps
+        //     .iter()
+        //     .map(|w| w.try_borrow().unwrap().trace_instructions.len())
+        //     .collect::<Vec<_>>());
+        // debug_assert!(
+        //     warps
+        //         .iter()
+        //         .map(|w| w.try_borrow().unwrap().trace_instructions.len())
+        //         .collect::<HashSet<_>>()
+        //         .len()
+        //         == 1,
+        //     "all warps have the same number of instructions"
+        // );
+        debug_assert!(
+            warps
+                .iter()
+                .all(|w| !w.try_borrow().unwrap().trace_instructions.is_empty()),
+            "all warps have at least one instruction (need at least an EXIT)"
+        );
+
+        // println!("warps: {:#?}", warps);
+
+        // for w in warps {
+        //     let w = w.try_borrow().unwrap();
+        //     if !w.done_exit() && w.trace_instructions.is_empty() {
+        //         panic!("active warp {} has no instructions", w.warp_id);
+        //     }
+        // }
+
         // panic!("threadblock traces: {:#?}", warp.push_trace_instruciton);
 
         // temp: add exit instructions to traces if not already
@@ -745,7 +822,7 @@ where
     }
 
     fn issue_block_to_core(&mut self) {
-        println!("issue block 2 core");
+        println!("issue block to core");
         let last_issued = self.last_cluster_issue;
         let num_clusters = self.config.num_simt_clusters;
         for cluster in &self.clusters {
@@ -1449,6 +1526,7 @@ mod tests {
         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
         let vec_add_trace_dir = manifest_dir.join("results/vectorAdd/vectorAdd-100-32");
         let vec_add_trace_dir = manifest_dir.join("results/vectorAdd/vectorAdd-1000-32");
+        let vec_add_trace_dir = manifest_dir.join("results/vectorAdd/vectorAdd-10000-32");
 
         let kernelslist = vec_add_trace_dir.join("accelsim-trace/kernelslist.g");
         let gpgpusim_config = manifest_dir.join("accelsim/gtx1080/gpgpusim.config");

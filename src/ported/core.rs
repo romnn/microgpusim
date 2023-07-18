@@ -147,7 +147,7 @@ pub trait WarpIssuer {
         stage: PipelineStage,
         warp: &mut SchedulerWarp,
         next_inst: WarpInstruction,
-        warp_id: usize,
+        // warp_id: usize,
         sch_id: usize,
     );
 
@@ -173,7 +173,7 @@ where
         stage: PipelineStage,
         warp: &mut SchedulerWarp,
         next_instr: WarpInstruction,
-        warp_id: usize,
+        // warp_id: usize,
         sch_id: usize,
     ) {
         println!(
@@ -182,12 +182,13 @@ where
                 "cycle {:02} issue {} for warp {}",
                 self.cycle.get(),
                 next_instr,
-                warp_id
+                warp.warp_id
             ))
             .yellow()
         );
 
-        debug_assert_eq!(warp.warp_id, next_instr.warp_id);
+        // debug_assert_eq!(warp.warp_id, next_instr.warp_id);
+        // debug_assert_eq!(warp.warp_id, next_instr.warp_id);
 
         let mut pipeline_stage = self.pipeline_reg[stage as usize].borrow_mut();
         let pipe_reg = if self.config.sub_core_model {
@@ -196,12 +197,15 @@ where
             pipeline_stage.get_free_mut().unwrap()
         };
 
+        // debug_assert!(next_instr.empty());
         *pipe_reg = Some(next_instr);
 
         let pipe_reg_mut = pipe_reg.as_mut().unwrap();
+
+        // this sets all the info for the warp instruction in pipe reg
         pipe_reg_mut.issue(
             pipe_reg_mut.active_mask,
-            warp_id,
+            warp.warp_id,
             0,
             warp.dynamic_warp_id,
             sch_id,
@@ -1558,9 +1562,10 @@ where
         {
             return false;
         }
-        todo!();
+        unimplemented!("occupy resource for block");
         return true;
     }
+
     //     bool shader_core_ctx::occupy_shader_resource_1block(kernel_info_t &k,
     //                                                     bool occupy) {
     //   unsigned threads_per_cta = k.threads_per_cta();
@@ -1605,6 +1610,7 @@ where
     pub fn can_issue_block(&mut self, kernel: &KernelInfo) -> bool {
         let max_blocks = self.inner.config.max_blocks(kernel).unwrap();
         if self.inner.config.concurrent_kernel_sm {
+            unimplemented!("concurrent kernel sm model");
             if max_blocks < 1 {
                 return false;
             }
@@ -1630,22 +1636,38 @@ where
         (self.inner.cluster_id, self.inner.core_id)
     }
 
+    // pub fn init_warps_from_traces(
+    //     &mut self,
+    //     kernel: &KernelInfo,
+    //     start_thread: usize,
+    //     end_thread: usize,
+    // ) {
+    //     let start_warp = start_thread / self.inner.config.warp_size;
+    //     let end_warp = (end_thread / self.inner.config.warp_size)
+    //         + if end_thread % self.inner.config.warp_size != 0 {
+    //             1
+    //         } else {
+    //             0
+    //         };
+
     pub fn init_warps_from_traces(
         &mut self,
         kernel: &KernelInfo,
-        start_thread: usize,
-        end_thread: usize,
+        start_warp: usize,
+        end_warp: usize,
     ) {
-        let start_warp = start_thread / self.inner.config.warp_size;
-        let end_warp = (end_thread / self.inner.config.warp_size)
-            + if end_thread % self.inner.config.warp_size != 0 {
-                1
-            } else {
-                0
-            };
-
         debug_assert!(!self.inner.warps.is_empty());
-        kernel.next_threadblock_traces(&mut self.inner.warps);
+        let selected_warps = &mut self.inner.warps[start_warp..end_warp];
+        for warp in selected_warps.iter_mut() {
+            warp.try_borrow_mut().unwrap().trace_instructions.clear();
+        }
+        kernel.next_threadblock_traces(selected_warps);
+        println!(
+            "initialized traces {}..{} of {} warps",
+            start_warp,
+            end_warp,
+            &self.inner.warps.len()
+        );
     }
 
     pub fn init_warps(
@@ -1657,7 +1679,13 @@ where
         thread_block_size: usize,
         kernel: Arc<KernelInfo>,
     ) {
-        println!("core {:?}: init warps for block {}", self.id(), &block_id);
+        println!(
+            "core {:?}: init warps (threads {}..{}) for block {}",
+            self.id(),
+            start_thread,
+            end_thread,
+            &block_id
+        );
         println!("kernel: {}", &kernel);
 
         // shader_core_ctx::init_warps
@@ -1673,6 +1701,7 @@ where
                 1
             };
         for warp_id in start_warp..end_warp {
+            // println!("init warp {}/{}", warp_id, self.inner.warps.len());
             let mut num_active = 0;
 
             let mut local_active_thread_mask: sched::ThreadActiveMask = BitArray::ZERO;
@@ -1713,8 +1742,14 @@ where
             self.inner.num_active_threads += num_active;
         }
 
-        println!("initialized {} warps", &self.inner.warps.len());
-        self.init_warps_from_traces(&kernel, start_thread, end_thread);
+        println!(
+            "initialized warps {}..{} of {} warps",
+            start_warp,
+            end_warp,
+            &self.inner.warps.len()
+        );
+        // self.init_warps_from_traces(&kernel, start_thread, end_thread);
+        self.init_warps_from_traces(&kernel, start_warp, end_warp);
     }
 
     pub fn reinit(&mut self, start_thread: usize, end_thread: usize, reset_not_completed: bool) {
@@ -1736,8 +1771,15 @@ where
         }
         let warp_size = self.inner.config.warp_size;
 
-        for w in (start_thread / warp_size)..(end_thread / warp_size) {
-            // println!("warp = {}/{}", w, self.inner.warps.len());
+        let start_warp = start_thread / warp_size;
+        let end_warp = end_thread / warp_size;
+        println!(
+            "reset warps {}..{} (threads {}..{})",
+            start_warp, end_warp, start_thread, end_thread
+        );
+
+        for w in start_warp..end_warp {
+            // println!("reset warp = {}/{}", w + 1, self.inner.warps.len());
             self.inner.warps[w].try_borrow_mut().unwrap().reset();
             // simt_stack[i]->reset();
         }
@@ -1798,13 +1840,14 @@ where
         };
 
         // reset state of the selected hardware thread and warp contexts
-        // panic!("reinit {:?}", (start_thread, end_thread));
         self.reinit(start_thread, end_thread, false);
-        debug_assert!(self
-            .inner
-            .warps
-            .iter()
-            .all(|w| w.try_borrow().unwrap().done_exit()));
+
+        // NOTE: assertion does not always hold (we only reset start to end)
+        // debug_assert!(self
+        //     .inner
+        //     .warps
+        //     .iter()
+        //     .all(|w| w.try_borrow().unwrap().done_exit()));
 
         // initalize scalar threads and determine which hardware warps they are
         // allocated to bind functional simulation state of threads to hardware
