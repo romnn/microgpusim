@@ -60,9 +60,6 @@ instrument_inst(uint32_t pred, uint32_t instr_data_width,
   ma.block_id_x = block.x;
   ma.block_id_y = block.y;
   ma.block_id_z = block.z;
-  ma.block_id_x = 0;
-  ma.block_id_y = 0;
-  ma.block_id_z = 0;
 
   ma.sm_id = get_smid();
   int unique_thread_id = threadIdx.z * blockDim.y * blockDim.x +

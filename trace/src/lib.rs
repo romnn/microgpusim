@@ -28,6 +28,8 @@ mod common {
 
 use common::{mem_access_t, reg_info_t};
 
+pub const TRACER_VERSION: u32 = 1;
+
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Default, Clone)]
 struct Args {
@@ -621,14 +623,23 @@ impl<'c> Instrumentor<'c> {
             .unwrap();
         let mut reader = BufReader::new(trace_file);
 
+        // self.commands
+        //     .lock()
+        //     .unwrap()
+        //     .push(trace::Command::KernelLaunch(kernel_info));
+        //
+        // *kernel_id += 1;
+
+        let num_kernels = *self.kernel_id.lock().unwrap();
+        let kernel_ids: HashSet<_> = (0..num_kernels).collect();
         // get all traced kernel ids
-        let mut kernel_ids = HashSet::new();
-        let decoder = Decoder::new(|access: trace::MemAccessTraceEntry| {
-            kernel_ids.insert(access.kernel_id);
-        });
-        rmp_serde::Deserializer::new(&mut reader)
-            .deserialize_seq(decoder)
-            .unwrap();
+        // let mut kernel_ids = HashSet::new();
+        // let decoder = Decoder::new(|access: trace::MemAccessTraceEntry| {
+        //     kernel_ids.insert(access.kernel_id);
+        // });
+        // rmp_serde::Deserializer::new(&mut reader)
+        //     .deserialize_seq(decoder)
+        //     .unwrap();
 
         // encode to different files
         let mut rmp_serializers: HashMap<u64, _> = kernel_ids
@@ -642,8 +653,12 @@ impl<'c> Instrumentor<'c> {
             .iter_mut()
             .map(|(id, ser)| (*id, Encoder::new(ser).unwrap()))
             .collect();
+
+        let mut traced_blocks: Vec<HashSet<_>> = vec![HashSet::new(); num_kernels as usize];
+
         let decoder = Decoder::new(|access: trace::MemAccessTraceEntry| {
             let encoder = rmp_encoders.get_mut(&access.kernel_id).unwrap();
+            traced_blocks[access.kernel_id as usize].insert(access.block_id);
             encoder
                 .encode::<trace::MemAccessTraceEntry>(access)
                 .unwrap();
@@ -653,6 +668,24 @@ impl<'c> Instrumentor<'c> {
             .deserialize_seq(decoder)
             .unwrap();
 
+        for cmd in self.commands.lock().unwrap().iter() {
+            if let trace::Command::KernelLaunch(config) = cmd {
+                // sanity check that grid size matches the number of different blocks contained in the trace
+                let unique_blocks = &traced_blocks[config.id as usize];
+                println!(
+                    "kernel {}: traced {}/{} unique blocks (grid={})",
+                    config.name,
+                    unique_blocks.len(),
+                    config.grid.size(),
+                    config.grid
+                );
+                assert_eq!(
+                    unique_blocks.len() as u64,
+                    config.grid.size(),
+                    "grid size matches number of blocks"
+                );
+            }
+        }
         for (_, encoder) in rmp_encoders {
             encoder.finalize().unwrap();
         }

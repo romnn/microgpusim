@@ -48,6 +48,7 @@ where
     A: IntoIterator,
     <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
 {
+    // println!("tracer version: {}", trace::TRACER_VERSION);
     let tracer_so = options
         .tracer_so
         .clone()
@@ -74,10 +75,11 @@ where
     cmd.env("TRACES_DIR", traces_dir.to_string_lossy().to_string());
     cmd.env("SAVE_JSON", if options.save_json { "yes" } else { "no" });
     cmd.env("FULL_TRACE", if options.full_trace { "yes" } else { "no" });
-    cmd.env("RUST_LOG", "debug");
     cmd.env("LD_PRELOAD", &tracer_so.to_string_lossy().to_string());
 
     let result = cmd.output().await?;
+    // println!("stdout: {}", utils::decode_utf8!(result.stdout));
+    // println!("stderr: {}", utils::decode_utf8!(result.stderr));
     if result.status.success() {
         Ok(())
     } else {
