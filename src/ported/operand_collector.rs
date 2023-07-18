@@ -1,5 +1,6 @@
 use super::{instruction::WarpInstruction, register_set::RegisterSet, scheduler as sched};
 use crate::config;
+use crate::ported::mem_fetch::BitString;
 use bitvec::{array::BitArray, BitArr};
 use console::style;
 use std::cell::RefCell;
@@ -38,7 +39,7 @@ pub struct Operand {
     warp_instr: Option<WarpInstruction>,
     /// operand offset in instruction. e.g., add r1,r2,r3;
     /// r2 is oprd 0, r3 is 1 (r1 is dst)
-    operand: usize,
+    operand: Option<usize>,
 
     register: u32,
     bank: usize,
@@ -59,7 +60,7 @@ impl Operand {
         Self {
             bank,
             warp_instr: None,
-            operand: op,
+            operand: Some(op),
             register: reg,
             scheduler_id,
             collector_unit: Some(cu),
@@ -81,48 +82,6 @@ impl Operand {
             None
         }
     }
-
-    // unsigned get_sid() const { return m_shced_id; }
-    // unsigned get_active_count() const {
-    //   if (m_warp)
-    //     return m_warp->active_count();
-    //   else if (m_cu)
-    //     return m_cu->get_active_count();
-    //   else
-    //     abort();
-    // }
-
-    // const active_mask_t &get_active_mask() {
-    //   if (m_warp)
-    //     return m_warp->get_active_mask();
-    //   else if (m_cu)
-    //     return m_cu->get_active_mask();
-    //   else
-    //     abort();
-    // }
-    // unsigned get_sp_op() const {
-    //   if (m_warp)
-    //     return m_warp->sp_op;
-    //   else if (m_cu)
-    //     return m_cu->get_sp_op();
-    //   else
-    //     abort();
-    // }
-    // unsigned get_oc_id() const { return m_cu->get_id(); }
-    // unsigned get_bank() const { return m_bank; }
-    // unsigned get_operand() const { return m_operand; }
-    // void dump(FILE *fp) const {
-    //   if (m_cu)
-    //     fprintf(fp, " <R%u, CU:%u, w:%02u> ", m_register, m_cu->get_id(),
-    //             m_cu->get_warp_id());
-    //   else if (!m_warp->empty())
-    //     fprintf(fp, " <R%u, wid:%02u> ", m_register, m_warp->warp_id());
-    // }
-    // std::string get_reg_string() const {
-    //   char buffer[64];
-    //   snprintf(buffer, 64, "R%u", m_register);
-    //   return std::string(buffer);
-    // }
 }
 
 #[derive(Debug)]
@@ -206,7 +165,11 @@ impl CollectorUnit {
         self.num_banks_per_scheduler = banks_per_scheduler;
     }
 
+    // looks ok
     pub fn ready(&self) -> bool {
+        if self.free {
+            return false;
+        }
         let Some(output_register) = self.output_register.as_ref() else {
             return false;
         };
@@ -216,14 +179,29 @@ impl CollectorUnit {
         } else {
             output_register.has_free()
         };
+        println!(
+            "is ready?: active = {} (ready={}), has free = {} output register = {:?}",
+            self.not_ready.to_bit_string(),
+            self.not_ready.not_any(),
+            has_free_register,
+            &output_register
+        );
+
         !self.free && self.not_ready.not_any() && has_free_register
     }
 
+    // looks ok
     pub fn dispatch(&mut self) {
         debug_assert!(self.not_ready.not_any());
         let output_register = self.output_register.take().unwrap();
         let mut output_register = output_register.borrow_mut();
+
         let warp_instr = self.warp_instr.take();
+
+        // TODO HOTFIX: workaround
+        self.warp_id = None;
+        self.reg_id = 0;
+
         // let mut output_register = self.output_register.as_mut().unwrap();
 
         if self.sub_core_model {
@@ -242,22 +220,22 @@ impl CollectorUnit {
             output_register.move_in_from(warp_instr, msg);
         }
 
-        // panic!("free again");
         self.free = true;
         self.output_register = None;
         self.src_operands.fill(None);
     }
 
+    // looks ok
     fn allocate(
         &mut self,
         cu: Weak<RefCell<CollectorUnit>>,
         input_reg_set: &Rc<RefCell<RegisterSet>>,
         output_reg_set: &Rc<RefCell<RegisterSet>>,
     ) -> bool {
-        // println!(
-        //     "{}",
-        //     style(format!("operand collector::allocate()")).green()
-        // );
+        println!(
+            "{}",
+            style(format!("operand collector::allocate()")).green()
+        );
 
         debug_assert!(self.free);
         debug_assert!(self.not_ready.not_any());
@@ -272,18 +250,29 @@ impl CollectorUnit {
 
             self.warp_id = Some(ready_reg.warp_id); // todo: do we need warp id??
 
+            println!(
+                "operand collector::allocate() => src arch reg = {:?}",
+                ready_reg
+                    .src_arch_reg
+                    .iter()
+                    .map(|r| r.map(i64::from).unwrap_or(-1))
+                    .collect::<Vec<i64>>(),
+            );
+
             // remove duplicate regs within same instr
             let mut prev_regs: Vec<u32> = Vec::new();
             for op in 0..MAX_REG_OPERANDS {
                 // this math needs to match that used in function_info::ptx_decode_inst
                 if let Some(reg_num) = ready_reg.src_arch_reg[op] {
-                    let mut new_reg = true;
-                    for &r in &prev_regs {
-                        if r == reg_num {
-                            new_reg = false;
-                        }
-                    }
-                    if reg_num >= 0 && new_reg {
+                    // let mut is_new_reg = true;
+                    // is_new_reg &= !prev_regs.contains(&reg_num);
+                    let is_new_reg = !prev_regs.contains(&reg_num);
+                    // for &r in &prev_regs {
+                    //     if r == reg_num {
+                    //         new_reg = false;
+                    //     }
+                    // }
+                    if reg_num >= 0 && is_new_reg {
                         // valid register
                         prev_regs.push(reg_num);
                         let bank = register_bank(
@@ -303,12 +292,18 @@ impl CollectorUnit {
                             bank,
                             ready_reg.scheduler_id(),
                         ));
+                        // panic!("setting op as not ready");
                         self.not_ready.set(op, true);
                     } else {
                         self.src_operands[op] = None;
                     }
                 }
             }
+            println!(
+                "operand collector::allocate() => active: {}",
+                self.not_ready.to_bit_string(),
+            );
+
             let msg = format!(
                 "operand collector: move input register {} to warp instruction {:?}",
                 &input_reg_set,
@@ -331,6 +326,12 @@ impl CollectorUnit {
     // }
 
     pub fn collect_operand(&mut self, op: usize) {
+        println!(
+            "collector unit [{}] {:?} collecting operand for {}",
+            self.id,
+            self.warp_instr.as_ref().map(ToString::to_string),
+            op,
+        );
         self.not_ready.set(op, false);
     }
 
@@ -342,63 +343,6 @@ impl CollectorUnit {
     //     self.warp_instr.map(|i| i.num_regs()).unwrap_or(0)
     // }
 }
-
-// class collector_unit_t {
-//   public:
-//     // constructors
-//     collector_unit_t() {
-//       m_free = true;
-//       m_warp = NULL;
-//       m_output_register = NULL;
-//       m_src_op = new op_t[MAX_REG_OPERANDS * 2];
-//       m_not_ready.reset();
-//       m_warp_id = -1;
-//       m_num_banks = 0;
-//       m_bank_warp_shift = 0;
-//     }
-//     // accessors
-//     bool ready() const;
-//     const op_t *get_operands() const { return m_src_op; }
-//     void dump(FILE *fp, const trace_shader_core_ctx *shader) const;
-//
-//     unsigned get_warp_id() const { return m_warp_id; }
-//     unsigned get_active_count() const { return m_warp->active_count(); }
-//     const active_mask_t &get_active_mask() const {
-//       return m_warp->get_active_mask();
-//     }
-//     unsigned get_sp_op() const { return m_warp->sp_op; }
-//     unsigned get_id() const { return m_cuid; } // returns CU hw id
-//     unsigned get_reg_id() const { return m_reg_id; }
-//
-//     // modifiers
-//     void init(unsigned n, unsigned num_banks, unsigned log2_warp_size,
-//               const core_config *config, opndcoll_rfu_t *rfu,
-//               bool m_sub_core_model, unsigned reg_id,
-//               unsigned num_banks_per_sched);
-//     bool allocate(register_set *pipeline_reg, register_set *output_reg);
-//
-//     void collect_operand(unsigned op) { m_not_ready.reset(op); }
-//     unsigned get_num_operands() const { return m_warp->get_num_operands(); }
-//     unsigned get_num_regs() const { return m_warp->get_num_regs(); }
-//     void dispatch();
-//     bool is_free() { return m_free; }
-//
-//   private:
-//     bool m_free;
-//     unsigned m_cuid; // collector unit hw id
-//     unsigned m_warp_id;
-//     warp_inst_t *m_warp;
-//     register_set *m_output_register; // pipeline register to issue to when ready
-//     op_t *m_src_op;
-//     std::bitset<MAX_REG_OPERANDS * 2> m_not_ready;
-//     unsigned m_num_banks;
-//     unsigned m_bank_warp_shift;
-//     opndcoll_rfu_t *m_rfu;
-//
-//     unsigned m_num_banks_per_sched;
-//     bool m_sub_core_model;
-//     unsigned m_reg_id; // if sub_core_model enabled, limit regs this cu can r/w
-//   };
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum AllocationKind {
@@ -453,19 +397,6 @@ impl Allocation {
         self.kind == AllocationKind::NO_ALLOC
     }
 
-    // void dump(FILE *fp) const {
-    //   if (m_allocation == NO_ALLOC) {
-    //     fprintf(fp, "<free>");
-    //   } else if (m_allocation == READ_ALLOC) {
-    //     fprintf(fp, "rd: ");
-    //     m_op.dump(fp);
-    //   } else if (m_allocation == WRITE_ALLOC) {
-    //     fprintf(fp, "wr: ");
-    //     m_op.dump(fp);
-    //   }
-    //   fprintf(fp, "\n");
-    // }
-
     pub fn allocate_for_read(&mut self, op: Option<Operand>) {
         debug_assert!(self.is_free());
         self.kind = AllocationKind::READ_ALLOC;
@@ -504,16 +435,6 @@ pub struct Arbiter {
 }
 
 impl Arbiter {
-    // // constructors
-    // arbiter_t() {
-    //   m_queue = NULL;
-    //   m_allocated_bank = NULL;
-    //   m_allocator_rr_head = NULL;
-    //   _inmatch = NULL;
-    //   _outmatch = NULL;
-    //   _request = NULL;
-    //   m_last_cu = 0;
-    // }
     pub fn init(&mut self, num_collectors: usize, num_banks: usize) {
         debug_assert!(num_collectors > 0);
         debug_assert!(num_banks > 0);
@@ -534,10 +455,25 @@ impl Arbiter {
         self.reset_alloction();
     }
 
+    fn compat(matches: &[Option<usize>]) -> Vec<i64> {
+        matches
+            .iter()
+            .map(|r| {
+                r.map(i64::try_from)
+                    .transpose()
+                    .ok()
+                    .flatten()
+                    .unwrap_or(-1)
+            })
+            .collect()
+    }
+
     pub fn allocate_reads(&mut self) -> Vec<Operand> {
         /// a list of registers that (a) are in different register banks,
         /// (b) do not go to the same operand collector
         let mut result = Vec::new();
+
+        println!("queue: {:?}", &self.queue);
 
         let _inputs = self.num_banks;
         let _outputs = self.num_collectors;
@@ -560,14 +496,19 @@ impl Arbiter {
                 self.request[bank][collector] = Some(0);
             }
             if let Some(op) = self.queue[bank].front() {
-                let collector_id = 0; // op.collector_unit.id;
+                // todo: this is bad: store the cu hardware id in the operand?
+                let cu = op.collector_unit.as_ref().unwrap().upgrade().unwrap();
+                let collector_id = cu.borrow().id;
                 debug_assert!(collector_id < _outputs);
                 self.request[bank][collector_id] = Some(1);
             }
             if self.allocated_banks[bank].is_write() {
                 self.inmatch[bank] = Some(0); // write gets priority
             }
+            println!("request: {:?}", &Self::compat(&self.request[bank]));
         }
+
+        println!("inmatch: {:?}", &Self::compat(&self.inmatch));
 
         // wavefront allocator from booksim
         // loop through diagonals of request matrix
@@ -583,7 +524,7 @@ impl Arbiter {
                 // banks at the same cycle
                 if output < _outputs
                     && self.inmatch[input].is_none()
-                    && self.request[input][output].is_some()
+                    && self.request[input][output] != Some(0)
                 {
                     // Grant!
                     self.inmatch[input] = Some(output);
@@ -598,14 +539,23 @@ impl Arbiter {
             }
         }
 
+        println!("inmatch: {:?}", &Self::compat(&self.inmatch));
+        println!("outmatch: {:?}", &Self::compat(&self.outmatch));
+
         // Round-robin the priority diagonal
         _pri = (_pri + 1) % _outputs;
+        println!("pri: {:?}", _pri);
 
         // <--- end code from booksim
 
         self.last_cu = _pri;
         for bank in 0..self.num_banks {
             if self.inmatch[bank].is_some() {
+                println!(
+                    "inmatch[bank={}] is write={}",
+                    bank,
+                    self.allocated_banks[bank].is_write()
+                );
                 if !self.allocated_banks[bank].is_write() {
                     if let Some(op) = self.queue[bank].pop_front() {
                         result.push(op);
@@ -687,13 +637,29 @@ impl DispatchUnit {
         } else {
             1
         };
+
+        println!("dispatch unit {:?}: find ready: rr_inc = {},last cu = {},num collectors = {}, num warp schedulers = {}, cusPerSched = {}", self.kind, rr_increment, self.last_cu, num_collector_units, self.num_warp_schedulers, cus_per_scheduler);
+
+        debug_assert_eq!(num_collector_units, collector_units.len());
         for i in 0..num_collector_units {
             let i = (self.last_cu + i + rr_increment) % num_collector_units;
+            // println!(
+            //     "dispatch unit {:?}: checking collector unit {}",
+            //     self.kind, i,
+            // );
+
             if collector_units[i].borrow().ready() {
                 self.last_cu = i;
+                println!(
+                    "dispatch unit {:?}: FOUND ready: chose collector unit {} ({:?})",
+                    self.kind,
+                    i,
+                    collector_units[i].borrow().kind
+                );
                 return collector_units.get(i);
             }
         }
+        println!("dispatch unit {:?}: did NOT find ready", self.kind);
         None
     }
 }
@@ -839,7 +805,7 @@ impl OperandCollectorRegisterFileUnit {
     // }
 
     pub fn step(&mut self) {
-        // println!("{}", style("operand collector::step()").green());
+        println!("{}", style("operand collector::step()").green());
         self.dispatch_ready_cu();
         self.allocate_reads();
         debug_assert!(!self.in_ports.is_empty());
@@ -858,6 +824,11 @@ impl OperandCollectorRegisterFileUnit {
     pub fn allocate_reads(&mut self) {
         // process read requests that do not have conflicts
         let allocated: Vec<_> = self.arbiter.allocate_reads();
+        println!(
+            "arbiter allocated {} reads ({:?})",
+            allocated.len(),
+            &allocated
+        );
         let mut read_ops = HashMap::new();
         for read in &allocated {
             let reg = read.register;
@@ -875,14 +846,16 @@ impl OperandCollectorRegisterFileUnit {
             read_ops.insert(bank, read);
         }
 
+        println!("allocating {} reads ({:?})", read_ops.len(), &read_ops);
         for (bank, read) in &read_ops {
             let cu = read.collector_unit();
             let mut cu = cu.as_ref().unwrap().borrow_mut();
             // let mut cu = read.collector_unit().unwrap().borrow_mut();
             // let cu = read.collector_unit().unwrap().borrow().id;
-            let operand = read.operand;
-            // self.collector_units[cu].collect_operand(operand);
-            cu.collect_operand(operand);
+            if let Some(operand) = read.operand {
+                // self.collector_units[cu].collect_operand(operand);
+                cu.collect_operand(operand);
+            }
             // if self.config.clock_gated_reg_file {
             //     let mut active_count = 0;
             //     let mut thread_id = 0;
@@ -906,10 +879,10 @@ impl OperandCollectorRegisterFileUnit {
 
     pub fn allocate_cu(&mut self, port_num: usize) {
         let port = &self.in_ports[port_num];
-        // println!(
-        //     "{}",
-        //     style(format!("operand collector::allocate_cu({:?})", port)).green()
-        // );
+        println!(
+            "{}",
+            style(format!("operand collector::allocate_cu({:?})", port_num)).green()
+        );
 
         debug_assert_eq!(port.in_ports.len(), port.out_ports.len());
         for (input_port, output_port) in port.in_ports.iter().zip(port.out_ports.iter()) {
@@ -994,9 +967,53 @@ impl OperandCollectorRegisterFileUnit {
         }
     }
 
-    pub fn writeback(&mut self, instr: &WarpInstruction) -> bool {
+    pub fn writeback(&mut self, instr: &mut WarpInstruction) -> bool {
         // todo!("operand collector: writeback");
         // std::list<unsigned> regs = m_shader->get_regs_written(inst);
+        let regs: Vec<u32> = instr.dest_arch_reg.iter().filter_map(|reg| *reg).collect();
+
+        //   std::list<unsigned> result;
+        // for (unsigned op = 0; op < MAX_REG_OPERANDS; op++) {
+        //   int reg_num = fvt.arch_reg.dst[op];  // this math needs to match that used
+        //                                        // in function_info::ptx_decode_inst
+        //   if (reg_num >= 0)                    // valid register
+        //     result.push_back(reg_num);
+        // }
+        // return result;
+
+        for op in 0..MAX_REG_OPERANDS {
+            // this math needs to match that used in function_info::ptx_decode_inst
+            if let Some(reg_num) = instr.dest_arch_reg[op] {
+                let scheduler_id = instr.scheduler_id();
+                let bank = register_bank(
+                    reg_num,
+                    instr.warp_id,
+                    self.num_banks,
+                    self.bank_warp_shift,
+                    self.sub_core_model,
+                    self.num_banks_per_scheduler,
+                    scheduler_id,
+                );
+                if (self.arbiter.bank_idle(bank)) {
+                    self.arbiter.allocate_bank_for_write(
+                        bank,
+                        &Operand {
+                            warp_instr: Some(instr.clone()),
+                            register: reg_num,
+                            scheduler_id,
+                            operand: None,
+                            bank,
+                            collector_unit: None,
+                        }, // op_t(&inst, reg_num, m_num_banks, m_bank_warp_shift, sub_core_model,
+                           //      m_num_banks_per_sched, inst.get_schd_id()));
+                    );
+                    instr.dest_arch_reg[op] = None;
+                } else {
+                    return false;
+                }
+            }
+        }
+
         // for (unsigned op = 0; op < MAX_REG_OPERANDS; op++) {
         //   int reg_num = inst.arch_reg.dst[op];  // this math needs to match that used
         //                                         // in function_info::ptx_decode_inst
@@ -1076,6 +1093,7 @@ impl OperandCollectorRegisterFileUnit {
 
 #[cfg(test)]
 mod test {
+    use crate::ported::mem_fetch::BitString;
     use crate::ported::testing;
     use std::ops::Deref;
 
@@ -1145,36 +1163,20 @@ mod test {
         fn from(cu: &super::CollectorUnit) -> Self {
             Self {
                 warp_id: cu.warp_id,
-                // warp_instr: Option<WarpInstruction>,
+                warp_instr: cu.warp_instr.clone().map(Into::into),
                 /// pipeline register to issue to when ready
                 output_register: cu
                     .output_register
                     .as_ref()
                     .map(|r| r.borrow().deref().clone().into()),
                 // src_operands: [Option<Operand>; MAX_REG_OPERANDS * 2],
-                // not_ready: BitArr!(for MAX_REG_OPERANDS * 2),
+                not_ready: cu.not_ready.to_bit_string(),
                 reg_id: if cu.warp_id.is_some() {
                     Some(cu.reg_id)
                 } else {
                     None
                 },
                 kind: cu.kind.into(),
-                // ids: port
-                //     .collector_unit_ids
-                //     .iter()
-                //     .copied()
-                //     .map(Into::into)
-                //     .collect(),
-                // in_ports: port
-                //     .in_ports
-                //     .iter()
-                //     .map(|p| p.borrow().clone().into())
-                //     .collect(),
-                // out_ports: port
-                //     .out_ports
-                //     .iter()
-                //     .map(|p| p.borrow().clone().into())
-                //     .collect(),
             }
         }
     }

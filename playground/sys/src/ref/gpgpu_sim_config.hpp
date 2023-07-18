@@ -93,7 +93,7 @@ class gpgpu_sim_config : public power_config,
     sscanf(gpgpu_runtime_stat, "%d:%x", &gpu_stat_sample_freq,
            &gpu_runtime_stat_flag);
 
-#ifdef BOX
+    // #ifdef BOX
     // ROMAN TODO: we override config here
 
     if (gpu_max_cycle_opt == 0) {
@@ -104,6 +104,9 @@ class gpgpu_sim_config : public power_config,
     m_shader_config.n_simt_clusters = 1;
     m_shader_config.n_simt_cores_per_cluster = 1;
     m_shader_config.gpgpu_num_sched_per_core = 1;
+
+    m_shader_config.gpgpu_num_sfu_units = 0;
+    m_shader_config.gpgpu_num_tensor_core_units = 0;
 
     // must be called before m_memory_config.init()
     m_memory_config.m_n_mem = 1;
@@ -118,7 +121,7 @@ class gpgpu_sim_config : public power_config,
     // cannot create the l1 latency queue otherwise (to be removed i guess)
     m_shader_config.m_L1D_config.l1_latency = 1;
     m_shader_config.smem_latency = 2;  // must be >1 (assert in ldst unit)
-#endif
+                                       // #endif
 
     m_shader_config.init();
     ptx_set_tex_cache_linesize(m_shader_config.m_L1T_config.get_line_sz());

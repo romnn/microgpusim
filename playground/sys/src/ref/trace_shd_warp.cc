@@ -2,6 +2,7 @@
 
 #include <iomanip>
 
+#include "io.hpp"
 #include "trace_instr_opcode.hpp"
 #include "trace_kernel_info.hpp"
 #include "trace_shader_core_ctx.hpp"
@@ -44,14 +45,6 @@ const trace_warp_inst_t *trace_shd_warp_t::get_current_trace_inst() {
   return NULL;
 }
 #endif
-
-template <size_t N>
-std::string mask_to_string(std::bitset<N> mask) {
-  std::string out;
-  for (int i = mask.size() - 1; i >= 0; i--)
-    out.append(((mask[i]) ? "1" : "0"));
-  return out;
-}
 
 #ifdef BOX
 const trace_warp_inst_t *trace_shd_warp_t::get_cached_trace_instruction(

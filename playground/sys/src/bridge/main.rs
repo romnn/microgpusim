@@ -71,11 +71,13 @@ mod default {
         fn get_unit(self: &collector_unit_set) -> &collector_unit_t;
 
         type collector_unit_t;
+        fn get_warp_instruction(self: &collector_unit_t) -> *mut warp_inst_t;
         fn is_free(self: &collector_unit_t) -> bool;
         fn get_warp_id(self: &collector_unit_t) -> u32;
         fn get_active_count(self: &collector_unit_t) -> u32;
         fn get_reg_id(self: &collector_unit_t) -> u32;
         fn get_output_register(self: &collector_unit_t) -> *mut register_set;
+        fn get_not_ready_mask(self: &collector_unit_t) -> UniquePtr<CxxString>;
 
         type dispatch_unit_t;
         fn get_set_id(self: &dispatch_unit_t) -> u32;

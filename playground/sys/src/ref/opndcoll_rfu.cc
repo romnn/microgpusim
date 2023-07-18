@@ -2,7 +2,18 @@
 
 #include <cmath>
 
+#include "io.hpp"
 #include "trace_shader_core_ctx.hpp"
+
+std::ostream &operator<<(std::ostream &os, const op_t &op) {
+  os << "Op(";
+  os << "operand=" << op.m_operand << ",";
+  os << "reg=" << op.m_register << ",";
+  os << "bank=" << op.m_bank << ",";
+  os << "sched=" << op.m_shced_id;
+  os << ")";
+  return os;
+}
 
 // modifiers
 std::list<op_t> arbiter_t::allocate_reads() {
@@ -17,6 +28,7 @@ std::list<op_t> arbiter_t::allocate_reads() {
   int _square = (_inputs > _outputs) ? _inputs : _outputs;
   assert(_square > 0);
   int _pri = (int)m_last_cu;
+  std::cout << "last cu: " << m_last_cu << std::endl;
 
   // Clear matching
   for (int i = 0; i < _inputs; ++i) _inmatch[i] = -1;
@@ -39,7 +51,10 @@ std::list<op_t> arbiter_t::allocate_reads() {
       assert(i < (unsigned)_inputs);
       _inmatch[i] = 0;  // write gets priority
     }
+    std::cout << "request: " << _request << std::endl;
   }
+
+  std::cout << "inmatch: " << _inmatch << std::endl;
 
   ///// wavefront allocator from booksim... --->
 
@@ -57,6 +72,12 @@ std::list<op_t> arbiter_t::allocate_reads() {
           //( _outmatch[output] == -1 ) &&   //allow OC to read multiple reg
           // banks at the same cycle
           (_request[input][output] /*.label != -1*/)) {
+        // ROMAN: making sure _request[input][output] is equivalent to
+        // everything but zero
+        assert(((int)-1));
+        // assert((int)-1 == true);
+        assert((int)0 == false);
+        assert((int)1 == true);
         // Grant!
         _inmatch[input] = output;
         _outmatch[output] = input;
@@ -70,14 +91,21 @@ std::list<op_t> arbiter_t::allocate_reads() {
     }
   }
 
+  std::cout << "inmatch: " << _inmatch << std::endl;
+  std::cout << "outmatch: " << _outmatch << std::endl;
+  std::cout << "outputs: " << _outputs << std::endl;
+
   // Round-robin the priority diagonal
   _pri = (_pri + 1) % _outputs;
+  std::cout << "pri: " << _pri << std::endl;
 
   /// <--- end code from booksim
 
   m_last_cu = _pri;
   for (unsigned i = 0; i < m_num_banks; i++) {
     if (_inmatch[i] != -1) {
+      std::cout << "inmatch[bank=" << i
+                << "] is write=" << m_allocated_bank[i].is_write() << std::endl;
       if (!m_allocated_bank[i].is_write()) {
         unsigned bank = (unsigned)i;
         op_t &op = m_queue[bank].front();
@@ -244,6 +272,9 @@ void opndcoll_rfu_t::dispatch_ready_cu() {
 
 void opndcoll_rfu_t::allocate_cu(unsigned port_num) {
   input_port_t &inp = m_in_ports[port_num];
+  std::cout << "operand collector::allocate_cu(" << port_num << ")"
+            << std::endl;
+  // std::cout << "operand collector::allocate_cu(" << inp << ")" << std::endl;
   for (unsigned i = 0; i < inp.m_in.size(); i++) {
     if ((*inp.m_in[i]).has_ready()) {
       // find a free cu
@@ -287,6 +318,8 @@ void opndcoll_rfu_t::allocate_cu(unsigned port_num) {
 void opndcoll_rfu_t::allocate_reads() {
   // process read requests that do not have conflicts
   std::list<op_t> allocated = m_arbiter.allocate_reads();
+  std::cout << "arbiter allocated " << allocated.size() << " reads ("
+            << allocated << ")" << std::endl;
   std::map<unsigned, op_t> read_ops;
   for (std::list<op_t>::iterator r = allocated.begin(); r != allocated.end();
        r++) {
@@ -299,6 +332,8 @@ void opndcoll_rfu_t::allocate_reads() {
     m_arbiter.allocate_for_read(bank, rr);
     read_ops[bank] = rr;
   }
+  std::cout << "allocating " << read_ops.size() << " reads (" << read_ops << ")"
+            << std::endl;
   std::map<unsigned, op_t>::iterator r;
   for (r = read_ops.begin(); r != read_ops.end(); ++r) {
     op_t &op = r->second;

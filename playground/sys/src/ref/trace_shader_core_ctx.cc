@@ -492,9 +492,20 @@ void trace_shader_core_ctx::create_schedulers() {
   }
 }
 
+// enum {
+//   SP_CUS,
+//   DP_CUS,
+//   SFU_CUS,
+//   TENSOR_CORE_CUS,
+//   INT_CUS,
+//   MEM_CUS,
+//   GEN_CUS
+// } operand_collector_unit_kind;
+
 void trace_shader_core_ctx::create_exec_pipeline() {
   // op collector configuration
-  enum { SP_CUS, DP_CUS, SFU_CUS, TENSOR_CORE_CUS, INT_CUS, MEM_CUS, GEN_CUS };
+  // enum { SP_CUS, DP_CUS, SFU_CUS, TENSOR_CORE_CUS, INT_CUS, MEM_CUS, GEN_CUS
+  // };
 
   // opndcoll_rfu_t::port_vector_t in_ports;
   // opndcoll_rfu_t::port_vector_t out_ports;
@@ -544,6 +555,7 @@ void trace_shader_core_ctx::create_exec_pipeline() {
 
   if (m_config->enable_specialized_operand_collector) {
     // throw std::runtime_error("specialized operand collector");
+    // assert(0 && "specialized operand collector disabled");
     m_operand_collector.add_cu_set(
         SP_CUS, m_config->gpgpu_operand_collector_num_units_sp,
         m_config->gpgpu_operand_collector_num_out_ports_sp);
@@ -632,12 +644,6 @@ void trace_shader_core_ctx::create_exec_pipeline() {
       m_config->gpgpu_num_sfu_units + m_config->gpgpu_num_tensor_core_units +
       m_config->gpgpu_num_int_units + m_config->m_specialized_unit_num +
       1;  // sp_unit, sfu, dp, tensor, int, ldst_unit
-
-  // m_dispatch_port = new enum pipeline_stage_name_t[ m_num_function_units
-  // ]; m_issue_port = new enum pipeline_stage_name_t[ m_num_function_units
-  // ];
-
-  // m_fu = new simd_function_unit*[m_num_function_units];
 
   for (unsigned k = 0; k < m_config->gpgpu_num_sp_units; k++) {
     m_fu.push_back(new sp_unit(&m_pipeline_reg[EX_WB], m_config, this, k));

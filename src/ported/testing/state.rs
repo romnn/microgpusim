@@ -47,6 +47,16 @@ impl std::fmt::Debug for WarpInstruction {
     }
 }
 
+impl From<ported::instruction::WarpInstruction> for WarpInstruction {
+    fn from(instr: ported::instruction::WarpInstruction) -> Self {
+        WarpInstruction {
+            opcode: instr.opcode.to_string(),
+            pc: instr.pc,
+            warp_id: instr.warp_id,
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct RegisterSet {
     // pub stage: ported::core::PipelineStage,
@@ -76,11 +86,7 @@ impl From<ported::register_set::RegisterSet> for RegisterSet {
             .regs
             .into_iter()
             .map(|instr| match instr {
-                Some(instr) => Some(WarpInstruction {
-                    opcode: instr.opcode.to_string(),
-                    pc: instr.pc,
-                    warp_id: instr.warp_id,
-                }),
+                Some(instr) => Some(instr.into()),
                 None => None,
             })
             .collect();
@@ -113,6 +119,17 @@ impl From<ported::register_set::RegisterSet> for RegisterSet {
 //     }
 // }
 
+impl<'a> From<playground::WarpInstr<'a>> for WarpInstruction {
+    fn from(instr: playground::WarpInstr<'a>) -> Self {
+        let opcode = instr.opcode_str().trim_start_matches("OP_").to_string();
+        Self {
+            opcode,
+            pc: instr.get_pc() as usize,
+            warp_id: instr.warp_id() as usize,
+        }
+    }
+}
+
 impl<'a> From<playground::RegisterSet<'a>> for RegisterSet {
     fn from(reg: playground::RegisterSet<'a>) -> Self {
         Self {
@@ -124,12 +141,7 @@ impl<'a> From<playground::RegisterSet<'a>> for RegisterSet {
                     if instr.empty() {
                         None
                     } else {
-                        let opcode = instr.opcode_str().trim_start_matches("OP_").to_string();
-                        Some(WarpInstruction {
-                            opcode,
-                            pc: instr.get_pc() as usize,
-                            warp_id: instr.warp_id() as usize,
-                        })
+                        Some(instr.into())
                     }
                 })
                 .collect(),
@@ -155,10 +167,11 @@ pub struct CollectorUnit {
     // pub out_ports: Vec<RegisterSet>,
     // pub ids: Vec<OperandCollectorUnitKind>,
     pub warp_id: Option<usize>,
-    // pub warp_instr: Option<WarpInstruction>,
+    pub warp_instr: Option<WarpInstruction>,
     pub output_register: Option<RegisterSet>,
     // pub src_operands: Vec<Option<Operand>>, // ; MAX_REG_OPERANDS * 2],
     // pub not_ready: BitArr!(for MAX_REG_OPERANDS * 2),
+    pub not_ready: String,
     pub reg_id: Option<usize>,
     pub kind: OperandCollectorUnitKind,
 }
@@ -224,7 +237,10 @@ impl<'a> From<playground::CollectorUnit<'a>> for CollectorUnit {
         Self {
             kind: OperandCollectorUnitKind::from_repr(cu.set_id()).unwrap(),
             warp_id: cu.warp_id(),
+            warp_instr: cu.warp_instruction().map(Into::into),
             output_register: cu.output_register().map(Into::into),
+            // fix: default endianness is different for rust bitvec and c++ std::bitset
+            not_ready: cu.not_ready_mask().chars().rev().collect::<String>(),
             reg_id: cu.reg_id(),
         }
     }

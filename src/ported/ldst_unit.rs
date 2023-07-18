@@ -279,7 +279,7 @@ where
         );
 
         // this processes the next writeback
-        if let Some(ref next_writeback) = self.next_writeback {
+        if let Some(ref mut next_writeback) = self.next_writeback {
             // println!(
             //     "{}",
             //     style(format!("ldst unit writeback {}", next_writeback)).magenta()
@@ -289,7 +289,7 @@ where
                 .operand_collector
                 .try_borrow_mut()
                 .unwrap()
-                .writeback(&next_writeback)
+                .writeback(next_writeback)
             {
                 let mut next_writeback = self.next_writeback.take().unwrap();
 

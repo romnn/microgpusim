@@ -3,9 +3,11 @@
 #include <bitset>
 #include <cstdio>
 #include <list>
+#include <memory>
 #include <map>
 #include <vector>
 
+#include "io.hpp"
 #include "hal.hpp"
 #include "warp_instr.hpp"
 
@@ -21,6 +23,20 @@ int register_bank(int regnum, int wid, unsigned num_banks,
 typedef std::vector<register_set *> port_vector_t;
 typedef std::vector<unsigned int> uint_vector_t;
 
+enum operand_collector_unit_kind {
+  SP_CUS,
+  DP_CUS,
+  SFU_CUS,
+  TENSOR_CORE_CUS,
+  INT_CUS,
+  MEM_CUS,
+  GEN_CUS
+};
+
+static const char *operand_collector_unit_kind_str[] = {
+    "SP_CUS",  "DP_CUS",  "SFU_CUS", "TENSOR_CORE_CUS",
+    "INT_CUS", "MEM_CUS", "GEN_CUS"};
+
 class op_t;
 class opndcoll_rfu_t;
 
@@ -33,10 +49,14 @@ class collector_unit_t {
   const op_t *get_operands() const { return m_src_op; }
   void dump(FILE *fp, const trace_shader_core_ctx *shader) const;
 
+  warp_inst_t *get_warp_instruction() const { return m_warp; }
   unsigned get_warp_id() const { return m_warp_id; }
   unsigned get_active_count() const { return m_warp->active_count(); }
   const active_mask_t &get_active_mask() const {
     return m_warp->get_active_mask();
+  }
+  std::unique_ptr<std::string> get_not_ready_mask() const {
+    return std::make_unique<std::string>(mask_to_string(m_not_ready));
   }
   unsigned get_sp_op() const { return m_warp->sp_op; }
   unsigned get_id() const { return m_cuid; }  // returns CU hw id
@@ -49,7 +69,11 @@ class collector_unit_t {
             unsigned num_banks_per_sched);
   bool allocate(register_set *pipeline_reg, register_set *output_reg);
 
-  void collect_operand(unsigned op) { m_not_ready.reset(op); }
+  void collect_operand(unsigned op) {
+    std::cout << "collector unit [" << m_cuid << "] " << m_warp
+              << " collecting operand for " << op << std::endl;
+    m_not_ready.reset(op);
+  }
   unsigned get_num_operands() const { return m_warp->get_num_operands(); }
   unsigned get_num_regs() const { return m_warp->get_num_regs(); }
   void dispatch();
@@ -159,6 +183,8 @@ class op_t {
     snprintf(buffer, 64, "R%u", m_register);
     return std::string(buffer);
   }
+
+  friend std::ostream &operator<<(std::ostream &os, const op_t &op);
 
   // modifiers
   void reset() { m_valid = false; }
@@ -342,7 +368,7 @@ class dispatch_unit_t {
   }
 
   unsigned get_last_cu() const { return m_last_cu; }
-  unsigned get_next_cu() const { return m_last_cu; }
+  unsigned get_next_cu() const { return m_next_cu; }
   unsigned get_set_id() const { return m_set_id; }
   // unsigned get_kind() const { return m_last_cu; }
 
@@ -352,13 +378,28 @@ class dispatch_unit_t {
     unsigned cusPerSched = m_num_collectors / m_num_warp_scheds;
     unsigned rr_increment =
         m_sub_core_model ? cusPerSched - (m_last_cu % cusPerSched) : 1;
+
+    const char *kind = operand_collector_unit_kind_str[m_set_id];
+    printf("dispatch unit %s: find ready: ", kind);
+    printf("rr_inc = %d,", rr_increment);
+    printf("last cu = %d,", m_last_cu);
+    printf("num collectors = %d,", m_num_collectors);
+    printf("num warp schedulers = %d,", m_num_warp_scheds);
+    printf("cusPerSched = %d,", cusPerSched);
+    printf("\n");
+
     for (unsigned n = 0; n < m_num_collectors; n++) {
       unsigned c = (m_last_cu + n + rr_increment) % m_num_collectors;
+      // printf("dispatch unit %s: checking collector unit %d\n", kind, c);
+
       if ((*m_collector_units)[c].ready()) {
+        printf("dispatch unit %s: FOUND ready: chose collector unit %d (?)\n",
+               kind, c);
         m_last_cu = c;
         return &((*m_collector_units)[c]);
       }
     }
+    printf("dispatch unit %s: did NOT find ready\n", kind);
     return NULL;
   }
 
@@ -366,6 +407,7 @@ class dispatch_unit_t {
   unsigned m_num_collectors;
   std::vector<collector_unit_t> *m_collector_units;
   unsigned m_last_cu;  // dispatch ready cu's rr
+  // next cu is never used
   unsigned m_next_cu;  // for initialization
   bool m_sub_core_model;
   unsigned m_num_warp_scheds;
@@ -441,6 +483,7 @@ class opndcoll_rfu_t {
 
   std::vector<input_port_t> m_in_ports;
 
+  // map is ordered
   typedef std::map<unsigned /* collector set */,
                    std::vector<collector_unit_t> /*collector sets*/>
       cu_sets_t;

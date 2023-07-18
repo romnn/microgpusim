@@ -1,5 +1,45 @@
 #### TODO
 
+in cycle 85, we are collecting both operands at once and hence the collector unit becomes non active immediately.
+
+collector unit [21] Some("STG[pc=216,warp=2]") collecting operand for 0
+collector unit [21] Some("STG[pc=216,warp=2]") collecting operand for 1
+
+last valid cycle 85
+
+```
+CollectorUnit {
+    warp_id: Some(
+        3,
+    ),
+    warp_instr: Some(
+        LDG[pc=176,warp=3],
+    ),
+    output_register: Some(
+        "OC_EX_MEM"=[Some(LDG[pc=176,warp=2])],
+    ),
+    reg_id: Some(
+        0,
+    ),
+    kind: MEM_CUS,
+},
+CollectorUnit {
+    warp_id: Some(
+        2,
+    ),
+    warp_instr: Some(
+        STG[pc=216,warp=2],
+    ),
+    output_register: Some(
+        "OC_EX_MEM"=[Some(LDG[pc=176,warp=2])],
+    ),
+    reg_id: Some(
+        0,
+    ),
+    kind: MEM_CUS,
+},
+```
+
 - BUG: vectoradd@86: play is only moving two warps, box is moving 3
 
   - STG[pc=216,warp=2] has already been moved?

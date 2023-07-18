@@ -1274,7 +1274,10 @@ where
             // To handle this case, we ignore the return value (thus allowing
             // no stalling).
             //
-            self.inner.operand_collector.borrow_mut().writeback(&ready);
+            self.inner
+                .operand_collector
+                .borrow_mut()
+                .writeback(&mut ready);
             self.inner
                 .scoreboard
                 .write()

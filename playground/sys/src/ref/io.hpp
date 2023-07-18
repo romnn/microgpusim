@@ -3,6 +3,8 @@
 #include <iostream>
 #include <queue>
 #include <list>
+#include <map>
+#include <bitset>
 #include <set>
 
 // must take queue by-value (using copy constructor) for pop and print
@@ -48,4 +50,23 @@ std::ostream &operator<<(std::ostream &os, const std::set<T> &s) {
   }
   os << "]";
   return os;
+}
+
+template <typename K, typename V>
+std::ostream &operator<<(std::ostream &os, const std::map<K, V> &m) {
+  os << "[";
+  for (typename std::map<K, V>::const_iterator it = m.begin(); it != m.end();
+       ++it) {
+    os << it->first << ":" << it->second << ",";
+  }
+  os << "]";
+  return os;
+}
+
+template <size_t N>
+std::string mask_to_string(const std::bitset<N> &mask) {
+  std::string out;
+  for (int i = mask.size() - 1; i >= 0; i--)
+    out.append(((mask[i]) ? "1" : "0"));
+  return out;
 }

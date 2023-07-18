@@ -22,7 +22,7 @@ pub enum Error {
     ExitCode(i32),
 }
 
-#[derive()]
+#[derive(Clone)]
 pub struct Config(playground_sys::main::accelsim_config);
 
 impl Default for Config {
@@ -36,12 +36,6 @@ pub struct MemFetch<'a> {
     inner: cxx::SharedPtr<playground_sys::main::mem_fetch_bridge>,
     phantom: PhantomData<&'a playground_sys::main::mem_fetch_bridge>,
 }
-
-// impl<'a> AsRef<playground_sys::mem_fetch::mem_fetch> for MemFetch<'a> {
-//     fn as_ref(&self) -> &'a playground_sys::mem_fetch::mem_fetch {
-//         unsafe { &*self.ptr as &_ }
-//     }
-// }
 
 impl<'a> std::ops::Deref for MemFetch<'a> {
     type Target = playground_sys::mem_fetch::mem_fetch;
@@ -64,7 +58,7 @@ fn get_mem_fetches<'a>(
         .collect()
 }
 
-#[derive()]
+#[derive(Clone)]
 pub struct MemoryPartitionUnit<'a>(&'a playground_sys::main::memory_partition_unit_bridge);
 
 impl<'a> MemoryPartitionUnit<'a> {
@@ -74,7 +68,7 @@ impl<'a> MemoryPartitionUnit<'a> {
     }
 }
 
-#[derive()]
+#[derive(Clone)]
 pub struct MemorySubPartition<'a>(&'a playground_sys::main::memory_sub_partition_bridge);
 
 impl<'a> MemorySubPartition<'a> {
@@ -118,7 +112,7 @@ impl<'a> std::ops::Deref for WarpInstr<'a> {
     }
 }
 
-#[derive()]
+#[derive(Clone)]
 pub struct RegisterSet<'a> {
     pub inner: cxx::SharedPtr<playground_sys::main::register_set_bridge>,
     phantom: PhantomData<&'a playground_sys::main::register_set_bridge>,
@@ -147,14 +141,12 @@ impl<'a> std::ops::Deref for RegisterSet<'a> {
     type Target = playground_sys::main::register_set;
 
     fn deref(&self) -> &'a Self::Target {
-        // unsafe { &*self.inner.inner() as &_ }
         unsafe { self.inner.inner().as_ref().unwrap() }
     }
 }
 
-#[derive()]
+#[derive(Clone)]
 pub struct Port<'a> {
-    // ptr: cxx::UniquePtr<playground_sys::main::input_port_bridge>,
     pub inner: cxx::SharedPtr<playground_sys::main::input_port_bridge>,
     phantom: PhantomData<&'a playground_sys::main::input_port_t>,
 }
@@ -185,7 +177,7 @@ impl<'a> Port<'a> {
     }
 }
 
-#[derive()]
+#[derive(Clone)]
 pub struct CollectorUnit<'a> {
     set_id: u32,
     unit: &'a playground_sys::main::collector_unit_t,
@@ -212,6 +204,18 @@ impl<'a> CollectorUnit<'a> {
         }
     }
 
+    pub fn warp_instruction(&self) -> Option<WarpInstr<'a>> {
+        use playground_sys::main::new_warp_inst_bridge;
+        if self.unit.is_free() {
+            None
+        } else {
+            Some(WarpInstr {
+                inner: unsafe { new_warp_inst_bridge(self.unit.get_warp_instruction()) },
+                phantom: PhantomData,
+            })
+        }
+    }
+
     pub fn output_register(&self) -> Option<RegisterSet<'a>> {
         use playground_sys::main::new_register_set_bridge;
         if self.unit.is_free() {
@@ -224,6 +228,10 @@ impl<'a> CollectorUnit<'a> {
             })
         }
     }
+
+    pub fn not_ready_mask(&self) -> String {
+        self.unit.get_not_ready_mask().to_string()
+    }
 }
 
 impl<'a> std::ops::Deref for CollectorUnit<'a> {
@@ -234,7 +242,7 @@ impl<'a> std::ops::Deref for CollectorUnit<'a> {
     }
 }
 
-#[derive()]
+#[derive(Clone)]
 pub struct OperandCollector<'a> {
     inner: cxx::SharedPtr<playground_sys::main::operand_collector_bridge>,
     phantom: PhantomData<&'a playground_sys::main::opndcoll_rfu_t>,
@@ -283,7 +291,7 @@ impl<'a> OperandCollector<'a> {
     }
 }
 
-#[derive()]
+#[derive(Clone)]
 pub struct Core<'a>(&'a playground_sys::main::core_bridge);
 
 impl<'a> Core<'a> {

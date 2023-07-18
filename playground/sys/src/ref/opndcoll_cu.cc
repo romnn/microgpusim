@@ -1,6 +1,7 @@
 #include "opndcoll_rfu.hpp"
 
 #include <sstream>
+#include "io.hpp"
 #include "register_set.hpp"
 
 collector_unit_t::collector_unit_t() {
@@ -13,10 +14,18 @@ collector_unit_t::collector_unit_t() {
   m_reg_id = 0;
   m_num_banks = 0;
   m_bank_warp_shift = 0;
-  // assert(0 && "collector init");
 }
 
 bool collector_unit_t::ready() const {
+  if (m_free) {
+    // to make the print not segfault
+    return false;
+  }
+  printf("is ready?: active = %s (ready=%d), has free = %d",
+         mask_to_string(m_not_ready).c_str(), m_not_ready.none(),
+         (*m_output_register).has_free(m_sub_core_model, m_reg_id));
+  std::cout << " output register = " << (*m_output_register) << std::endl;
+
   return (!m_free) && m_not_ready.none() &&
          (*m_output_register).has_free(m_sub_core_model, m_reg_id);
 }
@@ -53,12 +62,17 @@ void collector_unit_t::init(unsigned n, unsigned num_banks,
 
 bool collector_unit_t::allocate(register_set *pipeline_reg_set,
                                 register_set *output_reg_set) {
+  printf("operand collector::allocate()\n");
   assert(m_free);
   assert(m_not_ready.none());
   m_free = false;
   m_output_register = output_reg_set;
   warp_inst_t **pipeline_reg = pipeline_reg_set->get_ready();
   if ((pipeline_reg) and !((*pipeline_reg)->empty())) {
+    const int *arch_reg_src = ((*pipeline_reg)->arch_reg).src;  // int[32]
+    std::vector<int> arch_reg_src_vec(arch_reg_src, arch_reg_src + 32);
+    std::cout << "operand collector::allocate() => src arch reg = "
+              << arch_reg_src_vec << std::endl;
     m_warp_id = (*pipeline_reg)->warp_id();
     std::vector<int> prev_regs;  // remove duplicate regs within same instr
     for (unsigned op = 0; op < MAX_REG_OPERANDS; op++) {
@@ -75,10 +89,14 @@ bool collector_unit_t::allocate(register_set *pipeline_reg_set,
         m_src_op[op] = op_t(this, op, reg_num, m_num_banks, m_bank_warp_shift,
                             m_sub_core_model, m_num_banks_per_sched,
                             (*pipeline_reg)->get_schd_id());
+        // assert(0 && "setting op as not ready");
         m_not_ready.set(op);
       } else
         m_src_op[op] = op_t();
     }
+    std::cout << "operand collector::allocate() => active = "
+              << mask_to_string(m_not_ready) << std::endl;
+
     // move_warp(m_warp,*pipeline_reg);
     std::stringstream msg;
     msg << "operand collector: move input register "

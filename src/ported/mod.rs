@@ -1448,7 +1448,7 @@ mod tests {
     fn test_vectoradd() -> eyre::Result<()> {
         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
         let vec_add_trace_dir = manifest_dir.join("results/vectorAdd/vectorAdd-100-32");
-        // let vec_add_trace_dir = manifest_dir.join("results/vectorAdd/vectorAdd-1000-32");
+        let vec_add_trace_dir = manifest_dir.join("results/vectorAdd/vectorAdd-1000-32");
 
         let kernelslist = vec_add_trace_dir.join("accelsim-trace/kernelslist.g");
         let gpgpusim_config = manifest_dir.join("accelsim/gtx1080/gpgpusim.config");
@@ -1633,10 +1633,13 @@ mod tests {
                         .extend(sub.l2_to_dram_queue().into_iter().map(Into::into));
                 }
 
-                dbg!(&cycle);
+                println!("checking for diff after cycle {}", cycle - 1);
                 diff::assert_eq!(&box_sim_state, &play_sim_state);
-                dbg!(&box_sim_state);
-                dbg!(&play_sim_state);
+                println!(
+                    "validated play state for cycle {}: {:#?}",
+                    cycle - 1,
+                    &play_sim_state
+                );
 
                 finished_kernel_uid = play_sim.finished_kernel_uid();
                 if finished_kernel_uid.is_some() {

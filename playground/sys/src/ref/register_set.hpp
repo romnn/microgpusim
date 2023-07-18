@@ -14,7 +14,7 @@ class register_set {
     m_name = name;
   }
   const char *get_name() const { return m_name; }
-  bool has_free() {
+  bool has_free() const {
     for (unsigned i = 0; i < regs.size(); i++) {
       if (regs[i]->empty()) {
         return true;
@@ -22,7 +22,7 @@ class register_set {
     }
     return false;
   }
-  bool has_free(bool sub_core_model, unsigned reg_id) {
+  bool has_free(bool sub_core_model, unsigned reg_id) const {
     // in subcore model, each sched has a one specific reg to use (based on
     // sched id)
     if (!sub_core_model) return has_free();
@@ -30,7 +30,7 @@ class register_set {
     assert(reg_id < regs.size());
     return regs[reg_id]->empty();
   }
-  bool has_ready() {
+  bool has_ready() const {
     for (unsigned i = 0; i < regs.size(); i++) {
       if (not regs[i]->empty()) {
         return true;
@@ -38,7 +38,7 @@ class register_set {
     }
     return false;
   }
-  bool has_ready(bool sub_core_model, unsigned reg_id) {
+  bool has_ready(bool sub_core_model, unsigned reg_id) const {
     if (!sub_core_model) return has_ready();
     assert(reg_id < regs.size());
     return (not regs[reg_id]->empty());
@@ -64,7 +64,7 @@ class register_set {
     return reg_id;
   }
 
-  unsigned get_schd_id(unsigned reg_id) {
+  unsigned get_schd_id(unsigned reg_id) const {
     assert(not regs[reg_id]->empty());
     return regs[reg_id]->get_schd_id();
   }
