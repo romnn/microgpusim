@@ -71,8 +71,8 @@ impl Default for SchedulerWarp {
         let instr_buffer = vec![None; IBUFFER_SIZE];
         Self {
             block_id: 0,
-            dynamic_warp_id: 0,
-            warp_id: 0,
+            dynamic_warp_id: u32::MAX as usize,
+            warp_id: u32::MAX as usize,
             kernel: None,
             trace_pc: 0,
             trace_instructions: VecDeque::new(),
@@ -132,8 +132,11 @@ impl SchedulerWarp {
         debug_assert_eq!(self.num_outstanding_stores, 0);
         debug_assert_eq!(self.num_instr_in_pipeline, 0);
         self.has_imiss_pending = false;
-        self.warp_id = 0; // should be none
-        self.dynamic_warp_id = 0; // should be none
+        // self.warp_id = 0; // should be none
+        // self.dynamic_warp_id = 0; // should be none
+        self.warp_id = u32::MAX as usize;
+        self.dynamic_warp_id = u32::MAX as usize;
+
         self.active_mask.fill(false);
         // m_n_atomic = 0;
         // m_membar = false;
@@ -451,10 +454,14 @@ impl BaseSchedulerUnit {
     //     self.supervised_warps.push_back(warp);
     // }
 
+    fn prioritized_warps(&self) -> &VecDeque<CoreWarp> {
+        &self.next_cycle_prioritized_warps
+    }
+
     // fn cycle(&mut self, core: ()) {
     // fn cycle<I>(&mut self, core: &mut super::core::InnerSIMTCore<I>) {
     fn cycle(&mut self, issuer: &mut dyn super::core::WarpIssuer) {
-        println!("{}: cycle", style("base bscheduler").yellow());
+        println!("{}: cycle", style("base scheduler").yellow());
 
         // there was one warp with a valid instruction to issue (didn't require flush due to control hazard)
         let mut valid_inst = false;
@@ -501,9 +508,10 @@ impl BaseSchedulerUnit {
         //         .collect::<Vec<_>>()
         // );
 
-        for next_warp in &self.next_cycle_prioritized_warps {
+        // println!("next cycle prio warp");
+        for next_warp_rc in &self.next_cycle_prioritized_warps {
             // don't consider warps that are not yet valid
-            let next_warp = next_warp.try_borrow().unwrap();
+            let next_warp = next_warp_rc.try_borrow().unwrap();
             let (warp_id, dyn_warp_id) = (next_warp.warp_id, next_warp.dynamic_warp_id);
             // println!("locked next warp = {}", warp_id);
 
@@ -511,6 +519,7 @@ impl BaseSchedulerUnit {
                 continue;
             }
             let inst_count = next_warp.instruction_count();
+            debug_assert!(inst_count > 0);
             if inst_count > 1 {
                 println!(
                     "scheduler: \n\t => testing (warp_id={}, dynamic_warp_id={}, trace_pc={}, pc={:?}, ibuffer={:?}, {} instructions)",
@@ -545,13 +554,10 @@ impl BaseSchedulerUnit {
                 }
             }
 
-            let warp = self
-                .warps
-                // .get_mut(warp_id)
-                .get(warp_id)
-                .unwrap();
+            let warp = self.warps.get(warp_id).unwrap();
 
             // todo: what is the difference? why dont we just use next_warp?
+            debug_assert!(Rc::ptr_eq(warp, next_warp_rc));
             drop(next_warp);
 
             // println!("locking warp = {}", warp_id);
@@ -746,6 +752,7 @@ impl BaseSchedulerUnit {
                 }
                 checked += 1;
             }
+            // drop(next_warp);
             drop(warp);
             if issued > 0 {
                 // This might be a bit inefficient, but we need to maintain
@@ -757,7 +764,10 @@ impl BaseSchedulerUnit {
                 for (sup_idx, supervised) in self.supervised_warps.iter().enumerate() {
                     // if *next_warp == *supervised.lock().unwrap().warp_id {
                     // println!("locking supervised[{}]", sup_idx);
-                    if warp_id == supervised.try_borrow().unwrap().warp_id {
+                    // if dynamicwarp_id == supervised.try_borrow().unwrap().warp_id {
+                    // if warp.borrow() == supervised.borrow() {
+                    if *next_warp_rc.try_borrow().unwrap() == *supervised.try_borrow().unwrap() {
+                        // test
                         self.last_supervised_issued_idx = sup_idx;
                     }
                 }
@@ -796,13 +806,18 @@ pub trait SchedulerUnit {
         todo!("scheduler unit: cycle");
     }
 
-    fn done_adding_supervised_warps(&mut self) {
-        todo!("scheduler unit: done_adding_supervised_warps");
-    }
+    // fn done_adding_supervised_warps(&mut self) {
+    //     todo!("scheduler unit: done_adding_supervised_warps");
+    // }
 
     fn add_supervised_warp(&mut self, warp: CoreWarp) {
         todo!("scheduler unit: add supervised warp id");
     }
+
+    fn prioritized_warps(&self) -> &VecDeque<CoreWarp>;
+
+    // self.scheduler
+    // self.inner.supervised_warps
 
     // fn add_supervised_warp_id(&mut self, warp_id: usize) {
     //     todo!("scheduler unit: add supervised warp id");
@@ -827,6 +842,23 @@ pub trait SchedulerUnit {
 pub struct LrrScheduler {
     inner: BaseSchedulerUnit,
 }
+
+pub fn all_different<T>(values: &[Rc<RefCell<T>>]) -> bool {
+    for (vi, v) in values.iter().enumerate() {
+        for (vii, vv) in values.iter().enumerate() {
+            let should_be_equal = vi == vii;
+            let are_equal = Rc::ptr_eq(v, vv);
+            if should_be_equal && !are_equal {
+                return false;
+            }
+            if !should_be_equal && are_equal {
+                return false;
+            }
+        }
+    }
+    true
+}
+
 // pub struct LrrScheduler<'a> {
 //     inner: BaseSchedulerUnit<'a>,
 // }
@@ -837,6 +869,9 @@ impl BaseSchedulerUnit {
     where
         F: FnMut(&CoreWarp, &CoreWarp) -> std::cmp::Ordering,
     {
+        // gto_scheduler::scheduler_unit BEFORE: m_next_cycle_prioritized_warps: [31,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,]
+        // gto_scheduler::scheduler_unit AFTER: m_next_cycle_prioritized_warps: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,]
+
         // todo!("base scheduler unit: order by priority");
         let num_warps_to_add = self.supervised_warps.len();
         let out = &mut self.next_cycle_prioritized_warps;
@@ -845,9 +880,20 @@ impl BaseSchedulerUnit {
         out.clear();
 
         let mut last_issued_iter = self.warps.iter().skip(self.last_supervised_issued_idx);
+        debug_assert!(all_different(&self.warps));
 
         // TODO: maybe we actually should make a copy of the supervised warps to not actually
         // reorder those for stability
+
+        let mut supervised_warps: Vec<_> = self.supervised_warps.clone().into_iter().collect();
+        supervised_warps.sort_by(priority_func);
+
+        debug_assert!(all_different(&self.supervised_warps.make_contiguous()));
+        debug_assert!(all_different(&supervised_warps));
+
+        // self.supervised_warps
+        //     .make_contiguous()
+        //     .sort_by(priority_func);
 
         match ordering {
             Ordering::GREEDY_THEN_PRIORITY_FUNC => {
@@ -856,37 +902,64 @@ impl BaseSchedulerUnit {
                     out.push_back(Rc::clone(greedy));
                 }
 
-                self.supervised_warps
-                    .make_contiguous()
-                    .sort_by(priority_func);
+                println!(
+                    "added greedy warp (last supervised issued idx={}): {:?}",
+                    self.last_supervised_issued_idx,
+                    &greedy_value.map(|w| w.borrow().dynamic_warp_id)
+                );
+
+                // self.supervised_warps
+                //     .make_contiguous()
+                //     .sort_by(priority_func);
+
+                // self.supervised_warpsself.supervised_warps.any( .iter()
 
                 out.extend(
-                    self.supervised_warps
-                        .iter()
+                    // self.supervised_warps
+                    supervised_warps
+                        .into_iter()
                         .take(num_warps_to_add)
-                        .filter(|&w| {
+                        // .filter(|&warp| {
+                        .filter(|warp| {
                             if let Some(greedy) = greedy_value {
                                 // note: this could defo deadlock because mutex locks both for
                                 // write, we should use the id or whatever warp uses
-                                return *w.borrow() != *greedy.borrow();
+                                // return *w.borrow() != *greedy.borrow();
+                                // return w != greedy;
+                                // return w != greedy;
+                                // Rc::ptr_eq(w, greedy)
+                                // let greedy_cell: &RefCell<_> = greedy.as_ref();
+                                // let warp_cell: &RefCell<_> = warp.as_ref();
+                                // dbg!(greedy_cell.borrow().dynamic_warp_id);
+                                // dbg!(warp_cell.borrow().dynamic_warp_id);
+                                // std::ptr::eq(greedy_cell.as_ptr(), warp_cell.as_ptr())
+                                // false
+                                // std::ptr::eq(Rc::as_ref(w),
+                                println!(
+                                    "greedy@{:?} warp@{:?}",
+                                    Rc::as_ptr(greedy),
+                                    Rc::as_ptr(warp)
+                                );
+                                let already_added = Rc::ptr_eq(greedy, warp);
+                                !already_added
+                            } else {
+                                true
                             }
-                            true
-                        })
-                        .map(Rc::clone),
+                        }),
+                    // .map(Rc::clone),
                 );
             }
             Ordering::PRIORITY_FUNC_ONLY => {
-                self.supervised_warps
-                    .make_contiguous()
-                    .sort_by(priority_func);
+                // self.supervised_warps
+                //     .make_contiguous()
+                //     .sort_by(priority_func);
                 out.extend(
-                    self.supervised_warps
-                        .iter()
-                        .take(num_warps_to_add)
-                        .map(Rc::clone),
+                    // self.supervised_warps
+                    supervised_warps.into_iter().take(num_warps_to_add), // .map(Rc::clone),
                 );
             }
         }
+        assert_eq!(num_warps_to_add, out.len());
     }
 
     fn order_rrr(
@@ -897,6 +970,7 @@ impl BaseSchedulerUnit {
         // const typename std::vector<T>::const_iterator &last_issued_from_input,
         // unsigned num_warps_to_add)
     ) {
+        unimplemented!("order rrr is untested");
         let num_warps_to_add = self.supervised_warps.len();
         let out = &mut self.next_cycle_prioritized_warps;
         // order_lrr(
@@ -964,6 +1038,7 @@ impl BaseSchedulerUnit {
         // last_issued_warp_idx: &mut usize,
         // num_warps_to_add: usize,
     ) {
+        unimplemented!("order lrr is not tested");
         let num_warps_to_add = self.supervised_warps.len();
         let out = &mut self.next_cycle_prioritized_warps;
 
@@ -1018,13 +1093,17 @@ impl SchedulerUnit for LrrScheduler {
         // self.inner.add_supervised_warp_id(warp_id);
     }
 
+    fn prioritized_warps(&self) -> &VecDeque<CoreWarp> {
+        self.inner.prioritized_warps()
+    }
+
     // fn add_supervised_warp_id(&mut self, warp_id: usize) {
     //     self.inner.add_supervised_warp_id(warp_id);
     // }
 
-    fn done_adding_supervised_warps(&mut self) {
-        self.inner.last_supervised_issued_idx = self.inner.supervised_warps.len();
-    }
+    // fn done_adding_supervised_warps(&mut self) {
+    //     self.inner.last_supervised_issued_idx = self.inner.supervised_warps.len();
+    // }
 
     // fn cycle<I>(&mut self, core: &mut super::core::InnerSIMTCore<I>) {
     // fn cycle(&mut self, core: ()) {
@@ -1101,6 +1180,24 @@ impl GTOScheduler {
     }
 }
 
+impl GTOScheduler {
+    fn debug_warp_ids(&self) -> Vec<usize> {
+        self.inner
+            .next_cycle_prioritized_warps
+            .iter()
+            .map(|w| w.borrow().warp_id)
+            .collect()
+    }
+
+    fn debug_dynamic_warp_ids(&self) -> Vec<usize> {
+        self.inner
+            .next_cycle_prioritized_warps
+            .iter()
+            .map(|w| w.borrow().dynamic_warp_id())
+            .collect()
+    }
+}
+
 impl SchedulerUnit for GTOScheduler {
     fn order_warps(&mut self) {
         // order_by_priority(
@@ -1111,25 +1208,53 @@ impl SchedulerUnit for GTOScheduler {
         //     ORDERING_GREEDY_THEN_PRIORITY_FUNC,
         //     scheduler_unit::sort_warps_by_oldest_dynamic_id,
         // );
+        //x
+
+        // let before = self.inner.next_cycle_prioritized_warps.len();
         self.inner.order_by_priority(
             Ordering::GREEDY_THEN_PRIORITY_FUNC,
             sort_warps_by_oldest_dynamic_id,
         );
+        // let after = self.inner.next_cycle_prioritized_warps.len();
+        // assert_eq!(before, after);
     }
 
     fn add_supervised_warp(&mut self, warp: CoreWarp) {
         self.inner.supervised_warps.push_back(warp);
     }
 
-    fn done_adding_supervised_warps(&mut self) {
-        // self.inner.last_supervised_issued_idx = self.inner.supervised_warps.len();
-        self.inner.last_supervised_issued_idx = 0;
+    fn prioritized_warps(&self) -> &VecDeque<CoreWarp> {
+        self.inner.prioritized_warps()
     }
+
+    // fn done_adding_supervised_warps(&mut self) {
+    //     // self.inner.last_supervised_issued_idx = self.inner.supervised_warps.len();
+    //     self.inner.last_supervised_issued_idx = 0;
+    // }
 
     // fn cycle(&mut self, core: ()) {
     fn cycle(&mut self, issuer: &mut dyn super::core::WarpIssuer) {
         println!("gto scheduler: cycle enter");
+        println!(
+            "gto scheduler: BEFORE: prioritized warp ids: {:?}",
+            self.debug_warp_ids()
+        );
+        println!(
+            "gto scheduler: BEFORE: prioritized dynamic warp ids: {:?}",
+            self.debug_dynamic_warp_ids()
+        );
+
         self.order_warps();
+
+        println!(
+            "gto scheduler: AFTER: prioritized warp ids: {:?}",
+            self.debug_warp_ids()
+        );
+        println!(
+            "gto scheduler: AFTER: prioritized dynamic warp ids: {:?}",
+            self.debug_dynamic_warp_ids()
+        );
+
         self.inner.cycle(issuer);
         println!("gto scheduler: cycle exit");
     }
@@ -1213,6 +1338,8 @@ impl GTOScheduler {
 
 #[cfg(test)]
 mod tests {
+    use crate::ported::testing;
+    use std::ops::Deref;
     use std::ptr;
 
     #[ignore = "todo"]
@@ -1227,5 +1354,33 @@ mod tests {
         dbg!(&warp.hardware_done());
         dbg!(&warp.functional_done());
         assert!(false);
+    }
+
+    #[test]
+    fn test_skip_iterator_indexing() {
+        let issued_warp_id = 3;
+        let supervised_warp_ids = vec![1, 2, 3, 4, 5];
+        let mut last_supervised_idx = 0;
+
+        for (idx, id) in supervised_warp_ids.iter().enumerate() {
+            if *id == issued_warp_id {
+                last_supervised_idx = idx;
+            }
+        }
+        assert_eq!(
+            supervised_warp_ids.iter().skip(last_supervised_idx).next(),
+            Some(&issued_warp_id)
+        );
+    }
+
+    impl From<&Box<dyn super::SchedulerUnit>> for testing::state::Scheduler {
+        fn from(scheduler: &Box<dyn super::SchedulerUnit>) -> Self {
+            let prioritized_warps = scheduler
+                .prioritized_warps()
+                .iter()
+                .map(|warp| warp.borrow().warp_id)
+                .collect();
+            Self { prioritized_warps }
+        }
     }
 }
