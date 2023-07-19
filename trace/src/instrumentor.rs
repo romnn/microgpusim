@@ -1,11 +1,8 @@
-use bitvec::{array::BitArray, field::BitField, BitArr};
-use nvbit_io::{Decoder, Encoder};
+use nvbit_io::Encoder;
 use nvbit_rs::{model, DeviceChannel, HostChannel};
-use once_cell::sync::Lazy;
-use serde::{Deserializer, Serialize};
+use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::ffi;
-use std::io::Seek;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Instant;
@@ -381,7 +378,6 @@ impl<'c> Instrumentor<'c> {
             let mut src_num: usize = 0;
             let mut dest_operand: Option<u32> = None;
             let mut mem_operand_idx: Option<usize> = None;
-            // let mut num_mref = 0;
 
             // find dst reg and handle the special case if the oprd[0] is mem...
             // (e.g. store and RED)
@@ -523,8 +519,6 @@ impl<'c> Instrumentor<'c> {
             .expect("stop host channel");
     }
 
-    pub fn finish(&self) {}
-
     pub fn skip(&self, skip: bool) {
         *self.skip_flag.lock().unwrap() = skip;
     }
@@ -542,16 +536,7 @@ impl<'c> Instrumentor<'c> {
         }
     }
 
-    /// Generate traces on a per kernel basis.
-    ///
-    /// Due to limitations of rusts safety guarantees, we cannot use
-    /// a hashmap of serializers for all kernels we receive traces from
-    /// in `read_channel`, essentially because we have to create them
-    /// on-demand.
-    ///
-    /// At this point, when splitting trace.msgpack into multiple
-    /// per-kernel files, we already know the number of total kernels
-    /// and can pre-allocate serializers for them.
+    /// Generate per-kernel trace files
     pub fn generate_per_kernel_traces(&self) {
         let trace_file = OpenOptions::new()
             .read(true)
@@ -563,52 +548,28 @@ impl<'c> Instrumentor<'c> {
         let full_trace: Vec<trace::MemAccessTraceEntry> =
             rmp_serde::from_read(&mut reader).unwrap();
 
-        // per kernel, per block
-        // full_trace.sort_unstable_by(|a, b| {
-        //     (a.block_id, a.warp_id_in_block, a.instr_offset).cmp(&(
-        //         b.block_id,
-        //         b.warp_id_in_block,
-        //         b.instr_offset,
-        //     ))
-        // });
-
-        // let num_kernels = *self.kernel_id.lock().unwrap() as usize;
         let num_kernels = self.kernels.lock().unwrap().len();
         let mut per_kernel_traces: Vec<Vec<trace::MemAccessTraceEntry>> = vec![vec![]; num_kernels];
 
         for entry in full_trace {
-            per_kernel_traces[entry.kernel_id as usize].push(entry);
+            per_kernel_traces[usize::try_from(entry.kernel_id).unwrap()].push(entry);
         }
 
-        for kernel_trace in per_kernel_traces.iter_mut() {
+        for kernel_trace in &mut per_kernel_traces {
             // sort per kernel traces
             #[cfg(feature = "parallel")]
             {
                 use rayon::slice::ParallelSliceMut;
                 kernel_trace.par_sort_unstable();
-                // kernel_trace.par_sort_unstable_by(|a, b| {
-                //     (a.block_id, a.warp_id_in_block, a.instr_offset).cmp(&(
-                //         b.block_id,
-                //         b.warp_id_in_block,
-                //         b.instr_offset,
-                //     ))
-                // });
             }
 
             #[cfg(not(feature = "parallel"))]
             kernel_trace.sort_unstable();
-            // kernel_trace.sort_unstable_by(|a, b| {
-            //     (a.block_id, a.warp_id_in_block, a.instr_offset).cmp(&(
-            //         b.block_id,
-            //         b.warp_id_in_block,
-            //         b.instr_offset,
-            //     ))
-            // });
         }
 
         for (kernel_id, kernel_trace) in per_kernel_traces.into_iter().enumerate() {
             if self.validate {
-                let mut unique_blocks: HashSet<_> =
+                let unique_blocks: HashSet<_> =
                     kernel_trace.iter().map(|entry| entry.block_id).collect();
 
                 let kernel_info = &self.kernels.lock().unwrap()[kernel_id];
@@ -640,81 +601,6 @@ impl<'c> Instrumentor<'c> {
                 kernel_trace_path.display(),
             );
         }
-
-        // rmp_serde::encode::write
-
-        // use rayon::iter::IntoParallelRefMutIterator;
-        //      per_kernel_traces.par_iter_mut().for_each(|kernel_trace| {
-        //          full_trace.sort_unstable_by(|a, b| {
-        //              (a.block_id, a.warp_id_in_block, a.instr_offset).cmp(&(
-        //                  b.block_id,
-        //                  b.warp_id_in_block,
-        //                  b.instr_offset,
-        //              ))
-        //          });
-        //
-        //      });
-        //          println!("{}", &t);
-        //      }
-
-        // rmp_serde::Deserializer::new(&mut reader).deserialize();
-
-        // let num_kernels = *self.kernel_id.lock().unwrap();
-        // let kernel_ids: HashSet<_> = (0..num_kernels).collect();
-        //
-        // // encode to different files
-        // let mut rmp_serializers: HashMap<u64, _> = kernel_ids
-        //     .into_iter()
-        //     .map(|id| {
-        //         let kernel_trace_path = self.traces_dir.join(kernel_trace_file_name(id));
-        //         (id, rmp_serializer(&kernel_trace_path))
-        //     })
-        //     .collect();
-        // let mut rmp_encoders: HashMap<u64, _> = rmp_serializers
-        //     .iter_mut()
-        //     .map(|(id, ser)| (*id, Encoder::new(ser).unwrap()))
-        //     .collect();
-        //
-        // let mut traced_blocks: Vec<HashSet<_>> = vec![HashSet::new(); num_kernels as usize];
-        //
-        // let decoder = Decoder::new(|access: trace::MemAccessTraceEntry| {
-        //     let encoder = rmp_encoders.get_mut(&access.kernel_id).unwrap();
-        //     traced_blocks[access.kernel_id as usize].insert(access.block_id);
-        //     // check that block_id >= last_block_id
-        //     // check that instr offset >= last_instruction offset
-        //     // order of warp id in block does not matter
-        //     encoder
-        //         .encode::<trace::MemAccessTraceEntry>(access)
-        //         .unwrap();
-        // });
-        // reader.rewind().unwrap();
-        // rmp_serde::Deserializer::new(&mut reader)
-        //     .deserialize_seq(decoder)
-        //     .unwrap();
-        //
-        // if self.validate {
-        //     for cmd in self.commands.lock().unwrap().iter() {
-        //         if let trace::Command::KernelLaunch(config) = cmd {
-        //             // sanity check that grid size matches the number of different blocks contained in the trace
-        //             let unique_blocks = &traced_blocks[config.id as usize];
-        //             log::info!(
-        //                 "validation: kernel {}: traced {}/{} unique blocks (grid={})",
-        //                 config.name,
-        //                 unique_blocks.len(),
-        //                 config.grid.size(),
-        //                 config.grid
-        //             );
-        //             assert_eq!(
-        //                 unique_blocks.len() as u64,
-        //                 config.grid.size(),
-        //                 "validation: grid size matches number of blocks"
-        //             );
-        //         }
-        //     }
-        // }
-        // for (_, encoder) in rmp_encoders {
-        //     encoder.finalize().unwrap();
-        // }
     }
 
     pub fn save_command_trace(&self) {
@@ -748,30 +634,5 @@ impl<'c> Instrumentor<'c> {
         allocations.serialize(&mut serializer).unwrap();
 
         log::info!("wrote allocations to {}", allocations_file_path.display());
-    }
-
-    #[cfg(feature = "plot")]
-    pub fn plot_memory_accesses(&self) {
-        let accesses_file = OpenOptions::new()
-            .read(true)
-            .open(&self.rmp_trace_file_path)
-            .unwrap();
-        let reader = BufReader::new(accesses_file);
-        let mut reader = rmp_serde::Deserializer::new(reader);
-        let mut access_plot = plot::MemoryAccesses::default();
-
-        let allocations = self.allocations.lock().unwrap();
-        for allocation in allocations.iter().cloned() {
-            access_plot.register_allocation(allocation);
-        }
-
-        let decoder = Decoder::new(|access: trace::MemAccessTraceEntry| {
-            access_plot.add(access, None);
-        });
-        reader.deserialize_seq(decoder).unwrap();
-
-        let trace_plot_path = self.traces_dir.join("trace.svg");
-        access_plot.draw(&trace_plot_path).unwrap();
-        log::info!("finished drawing to {}", trace_plot_path.display());
     }
 }

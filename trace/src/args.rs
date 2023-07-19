@@ -67,13 +67,6 @@ impl Args {
         let dev_reg_info = unsafe { common::allocate_reg_info(reg_info) };
         instr.add_call_arg_const_val64(dev_reg_info as u64);
         trace_ctx.defer_free_device_memory(dev_reg_info as u64);
-        // {
-        //     trace_ctx
-        //         .defer_free_device_memory
-        //         .lock()
-        //         .unwrap()
-        //         .insert(dev_reg_info as u64);
-        // };
 
         // memory reference 64 bit address
         if self.instr_is_mem {

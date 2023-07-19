@@ -10,7 +10,6 @@ crate-type = ["cdylib"]
 [features]
 default  = ["parallel"]
 
-plot = ["dep:plot"]
 parallel = ["dep:rayon"]
 
 [package.metadata.cargo-feature-combinations]
@@ -36,7 +35,6 @@ clap = { version = "4", features = ["derive"] }
 trace-model = { path = "./model" }
 utils = { path = "../utils" }
 
-plot = { path = "../plot", optional = true }
 rayon = { version = "1", optional = true }
 
 [build-dependencies]

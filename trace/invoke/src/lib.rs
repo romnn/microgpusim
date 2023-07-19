@@ -84,7 +84,7 @@ where
     {
         use std::io::Write;
         std::io::stdout().write_all(&result.stderr)?;
-        std::io::stdout().flush()?
+        std::io::stdout().flush()?;
     }
     if result.status.success() {
         Ok(())
