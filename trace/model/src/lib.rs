@@ -37,7 +37,7 @@ pub fn app_prefix(bin_name: Option<&str>) -> String {
     args.join("-")
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct MemAccessTraceEntry {
     pub cuda_ctx: u64,
@@ -65,6 +65,31 @@ pub struct MemAccessTraceEntry {
     pub active_mask: u32,
     /// Accessed address per thread of a warp
     pub addrs: [u64; 32],
+}
+
+impl MemAccessTraceEntry {
+    #[must_use]
+    #[inline]
+    pub fn sort_key(&self) -> (&u64, &nvbit_model::Dim, &u32, &u32) {
+        (
+            &self.kernel_id,
+            &self.block_id,
+            &self.warp_id_in_block,
+            &self.instr_offset,
+        )
+    }
+}
+
+impl Ord for MemAccessTraceEntry {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.sort_key().cmp(&other.sort_key())
+    }
+}
+
+impl PartialOrd for MemAccessTraceEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 /// A memory allocation.

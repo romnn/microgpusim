@@ -36,6 +36,11 @@ pub struct Options {
         help = "trace all instructions, including non-memory instructions (default: false)"
     )]
     pub full_trace: bool,
+    #[clap(
+        long = "validate",
+        help = "perform validation on the traces after collection"
+    )]
+    pub validate: bool,
 }
 
 fn parse_args() -> Result<(PathBuf, Vec<String>, Options), clap::Error> {
@@ -76,6 +81,7 @@ async fn main() -> eyre::Result<()> {
         traces_dir,
         save_json,
         full_trace,
+        validate,
         tracer,
     } = options;
 
@@ -93,6 +99,7 @@ async fn main() -> eyre::Result<()> {
         traces_dir,
         save_json,
         full_trace,
+        validate,
         tracer_so,
     };
     dbg!(&trace_options);

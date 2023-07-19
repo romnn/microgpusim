@@ -8,9 +8,10 @@ publish = false
 crate-type = ["cdylib"]
 
 [features]
-default  = []
+default  = ["parallel"]
 
 plot = ["dep:plot"]
+parallel = ["dep:rayon"]
 
 [package.metadata.cargo-feature-combinations]
 denylist = ["default"]
@@ -34,7 +35,9 @@ clap = { version = "4", features = ["derive"] }
 
 trace-model = { path = "./model" }
 utils = { path = "../utils" }
+
 plot = { path = "../plot", optional = true }
+rayon = { version = "1", optional = true }
 
 [build-dependencies]
 nvbit-build = "0"

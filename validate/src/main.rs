@@ -175,6 +175,10 @@ async fn run_benchmark(
                 traces_dir: traces_dir.clone(),
                 tracer_so: None, // auto detect
                 save_json: bench.trace.save_json,
+                #[cfg(debug_assertions)]
+                validate: true,
+                #[cfg(not(debug_assertions))]
+                validate: false,
                 full_trace: bench.trace.full_trace,
             };
             invoke_trace::trace(&bench.executable, &bench.args, &options)

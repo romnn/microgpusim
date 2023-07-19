@@ -27,6 +27,7 @@ pub struct Options {
     pub traces_dir: PathBuf,
     pub save_json: bool,
     pub full_trace: bool,
+    pub validate: bool,
     pub tracer_so: Option<PathBuf>,
 }
 
@@ -48,7 +49,6 @@ where
     A: IntoIterator,
     <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
 {
-    // println!("tracer version: {}", trace::TRACER_VERSION);
     let tracer_so = options
         .tracer_so
         .clone()
@@ -75,11 +75,17 @@ where
     cmd.env("TRACES_DIR", traces_dir.to_string_lossy().to_string());
     cmd.env("SAVE_JSON", if options.save_json { "yes" } else { "no" });
     cmd.env("FULL_TRACE", if options.full_trace { "yes" } else { "no" });
+    cmd.env("VALIDATE", if options.validate { "yes" } else { "no" });
     cmd.env("LD_PRELOAD", &tracer_so.to_string_lossy().to_string());
 
     let result = cmd.output().await?;
-    // println!("stdout: {}", utils::decode_utf8!(result.stdout));
+    // stdout just contains nvbit banner and application outputs
     // println!("stderr: {}", utils::decode_utf8!(result.stderr));
+    {
+        use std::io::Write;
+        std::io::stdout().write_all(&result.stderr)?;
+        std::io::stdout().flush()?
+    }
     if result.status.success() {
         Ok(())
     } else {
