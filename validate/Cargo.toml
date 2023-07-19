@@ -43,9 +43,7 @@ async-process = "1"
 utils = { path = "../utils" }
 
 # trace
-trace = { path = "../trace" }
 invoke-trace = { path = "../trace/invoke" }
-# trace-model = { path = "../trace/model" }
 
 # profile
 profile = { path = "../profile" }

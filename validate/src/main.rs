@@ -7,7 +7,10 @@ mod progress;
 
 use chrono::offset::Local;
 use clap::Parser;
-use color_eyre::eyre::{self, WrapErr};
+use color_eyre::{
+    eyre::{self, WrapErr},
+    Help,
+};
 use console::style;
 use futures::stream::{self, StreamExt};
 
@@ -184,8 +187,11 @@ async fn run_benchmark(
             invoke_trace::trace(&bench.executable, &bench.args, &options)
                 .await
                 .map_err(|err| match err {
-                    invoke_trace::Error::Command(err) => err.into_eyre(),
-                    err => err.into(),
+                    err @ invoke_trace::Error::MissingExecutable(_) => eyre::Report::from(err)
+                        .suggestion(
+                            "did you build the benchmarks first using `cargo validate build`?",
+                        ),
+                    err => err.into_eyre(),
                 })?;
         }
         Command::Simulate(ref _opts) => {
@@ -388,13 +394,14 @@ fn print_benchmark_result(
         || bench_config.executable.clone(),
         |cwd| bench_config.executable.relative_to(cwd),
     );
+    let benchmark_config_id = format!("{} @ {}", bench_config.name, bench_config.input_idx);
     bar.println(format!(
         "{:>15} {:>20} [ {} {} ] {}",
         op,
         if result.is_ok() {
-            style(&bench_config.name).green()
+            style(benchmark_config_id).green()
         } else {
-            style(&bench_config.name).red()
+            style(benchmark_config_id).red()
         },
         executable.display(),
         bench_config.args.join(" "),

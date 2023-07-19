@@ -9,8 +9,8 @@ pub enum Error {
     #[error(transparent)]
     Fs(#[from] utils::fs::Error),
 
-    #[error("missing libtrace.so shared library")]
-    MissingSharedLib,
+    #[error("missing libtrace shared library at {0:?}")]
+    MissingSharedLib(PathBuf),
 
     #[error("executable {0:?} not found")]
     MissingExecutable(PathBuf),
@@ -20,6 +20,30 @@ pub enum Error {
 
     #[error(transparent)]
     Join(#[from] tokio::task::JoinError),
+}
+
+impl Error {
+    pub fn into_eyre(self) -> color_eyre::Report {
+        use color_eyre::{eyre, Help};
+        match self {
+            Error::Command(err) => err.into_eyre(),
+            Error::MissingSharedLib(path) => {
+                eyre::Report::from(Error::MissingSharedLib(path.clone())).with_suggestion(|| {
+                    let is_release = path
+                        .components()
+                        .find(|&c| c.as_os_str() == "release")
+                        .is_some();
+                    let cmd = if is_release {
+                        "cargo build --release -p trace"
+                    } else {
+                        "cargo build -p trace"
+                    };
+                    format!("did you build the tracer first using `{}`?", cmd)
+                })
+            }
+            err => err.into(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -53,10 +77,10 @@ where
         .tracer_so
         .clone()
         .or_else(find_trace_so)
-        .ok_or(Error::MissingSharedLib)?;
+        .ok_or(Error::MissingSharedLib(PathBuf::from("libtrace.so")))?;
     let tracer_so = tracer_so
         .canonicalize()
-        .map_err(|_| Error::MissingSharedLib)?;
+        .map_err(|_| Error::MissingSharedLib(tracer_so))?;
 
     let traces_dir = &options.traces_dir;
 
