@@ -32,101 +32,100 @@ static void termination_callback() {
   fflush(stdout);
 }
 
-void *gpgpu_sim_thread_concurrent(void *ctx_ptr) {
-  gpgpu_context *ctx = (gpgpu_context *)ctx_ptr;
-  atexit(termination_callback);
-  // concurrent kernel execution simulation thread
-  // todo: breakpoint here?
-  do {
-    if (g_debug_execution >= 3) {
-      printf(
-          "GPGPU-Sim: *** simulation thread starting and spinning waiting for "
-          "work ***\n");
-      fflush(stdout);
-    }
-    while (ctx->the_gpgpusim->g_stream_manager->empty_protected() &&
-           !ctx->the_gpgpusim->g_sim_done)
-      ;
-    if (g_debug_execution >= 3) {
-      printf("GPGPU-Sim: ** START simulation thread (detected work) **\n");
-      ctx->the_gpgpusim->g_stream_manager->print(stdout);
-      fflush(stdout);
-    }
-    pthread_mutex_lock(&(ctx->the_gpgpusim->g_sim_lock));
-    ctx->the_gpgpusim->g_sim_active = true;
-    pthread_mutex_unlock(&(ctx->the_gpgpusim->g_sim_lock));
-    bool active = false;
-    bool sim_cycles = false;
-    ctx->the_gpgpusim->g_the_gpu->init();
-    do {
-      // check if a kernel has completed
-      // launch operation on device if one is pending and can be run
-
-      // Need to break this loop when a kernel completes. This was a
-      // source of non-deterministic behaviour in GPGPU-Sim (bug 147).
-      // If another stream operation is available, g_the_gpu remains active,
-      // causing this loop to not break. If the next operation happens to be
-      // another kernel, the gpu is not re-initialized and the inter-kernel
-      // behaviour may be incorrect. Check that a kernel has finished and
-      // no other kernel is currently running.
-      if (ctx->the_gpgpusim->g_stream_manager->operation(&sim_cycles) &&
-          !ctx->the_gpgpusim->g_the_gpu->active())
-        break;
-
-      // functional simulation
-      if (ctx->the_gpgpusim->g_the_gpu->is_functional_sim()) {
-        trace_kernel_info_t *kernel =
-            ctx->the_gpgpusim->g_the_gpu->get_functional_kernel();
-        assert(kernel);
-        ctx->the_gpgpusim->gpgpu_ctx->func_sim->gpgpu_cuda_ptx_sim_main_func(
-            *kernel);
-        ctx->the_gpgpusim->g_the_gpu->finish_functional_sim(kernel);
-      }
-
-      // performance simulation
-      if (ctx->the_gpgpusim->g_the_gpu->active()) {
-        ctx->the_gpgpusim->g_the_gpu->cycle();
-        sim_cycles = true;
-        ctx->the_gpgpusim->g_the_gpu->deadlock_check();
-      } else {
-        if (ctx->the_gpgpusim->g_the_gpu->cycle_insn_cta_max_hit()) {
-          ctx->the_gpgpusim->g_stream_manager->stop_all_running_kernels();
-          ctx->the_gpgpusim->g_sim_done = true;
-          ctx->the_gpgpusim->break_limit = true;
-        }
-      }
-
-      active = ctx->the_gpgpusim->g_the_gpu->active() ||
-               !(ctx->the_gpgpusim->g_stream_manager->empty_protected());
-
-    } while (active && !ctx->the_gpgpusim->g_sim_done);
-    if (g_debug_execution >= 3) {
-      printf("GPGPU-Sim: ** STOP simulation thread (no work) **\n");
-      fflush(stdout);
-    }
-    if (sim_cycles) {
-      ctx->the_gpgpusim->g_the_gpu->print_stats();
-      ctx->the_gpgpusim->g_the_gpu->update_stats();
-      ctx->print_simulation_time();
-    }
-    pthread_mutex_lock(&(ctx->the_gpgpusim->g_sim_lock));
-    ctx->the_gpgpusim->g_sim_active = false;
-    pthread_mutex_unlock(&(ctx->the_gpgpusim->g_sim_lock));
-  } while (!ctx->the_gpgpusim->g_sim_done);
-
-  printf("GPGPU-Sim: *** simulation thread exiting ***\n");
-  fflush(stdout);
-
-  if (ctx->the_gpgpusim->break_limit) {
-    printf(
-        "GPGPU-Sim: ** break due to reaching the maximum cycles (or "
-        "instructions) **\n");
-    exit(1);
-  }
-
-  sem_post(&(ctx->the_gpgpusim->g_sim_signal_exit));
-  return NULL;
-}
+// void *gpgpu_sim_thread_concurrent(void *ctx_ptr) {
+//   gpgpu_context *ctx = (gpgpu_context *)ctx_ptr;
+//   atexit(termination_callback);
+//   // concurrent kernel execution simulation thread
+//   do {
+//     if (g_debug_execution >= 3) {
+//       printf(
+//           "GPGPU-Sim: *** simulation thread starting and spinning waiting for
+//           " "work ***\n");
+//       fflush(stdout);
+//     }
+//     while (ctx->the_gpgpusim->g_stream_manager->empty_protected() &&
+//            !ctx->the_gpgpusim->g_sim_done)
+//       ;
+//     if (g_debug_execution >= 3) {
+//       printf("GPGPU-Sim: ** START simulation thread (detected work) **\n");
+//       ctx->the_gpgpusim->g_stream_manager->print(stdout);
+//       fflush(stdout);
+//     }
+//     pthread_mutex_lock(&(ctx->the_gpgpusim->g_sim_lock));
+//     ctx->the_gpgpusim->g_sim_active = true;
+//     pthread_mutex_unlock(&(ctx->the_gpgpusim->g_sim_lock));
+//     bool active = false;
+//     bool sim_cycles = false;
+//     ctx->the_gpgpusim->g_the_gpu->init();
+//     do {
+//       // check if a kernel has completed
+//       // launch operation on device if one is pending and can be run
+//
+//       // Need to break this loop when a kernel completes. This was a
+//       // source of non-deterministic behaviour in GPGPU-Sim (bug 147).
+//       // If another stream operation is available, g_the_gpu remains active,
+//       // causing this loop to not break. If the next operation happens to be
+//       // another kernel, the gpu is not re-initialized and the inter-kernel
+//       // behaviour may be incorrect. Check that a kernel has finished and
+//       // no other kernel is currently running.
+//       if (ctx->the_gpgpusim->g_stream_manager->operation(&sim_cycles) &&
+//           !ctx->the_gpgpusim->g_the_gpu->active())
+//         break;
+//
+//       // functional simulation
+//       if (ctx->the_gpgpusim->g_the_gpu->is_functional_sim()) {
+//         trace_kernel_info_t *kernel =
+//             ctx->the_gpgpusim->g_the_gpu->get_functional_kernel();
+//         assert(kernel);
+//         ctx->the_gpgpusim->gpgpu_ctx->func_sim->gpgpu_cuda_ptx_sim_main_func(
+//             *kernel);
+//         ctx->the_gpgpusim->g_the_gpu->finish_functional_sim(kernel);
+//       }
+//
+//       // performance simulation
+//       if (ctx->the_gpgpusim->g_the_gpu->active()) {
+//         ctx->the_gpgpusim->g_the_gpu->cycle();
+//         sim_cycles = true;
+//         ctx->the_gpgpusim->g_the_gpu->deadlock_check();
+//       } else {
+//         if (ctx->the_gpgpusim->g_the_gpu->cycle_insn_cta_max_hit()) {
+//           ctx->the_gpgpusim->g_stream_manager->stop_all_running_kernels();
+//           ctx->the_gpgpusim->g_sim_done = true;
+//           ctx->the_gpgpusim->break_limit = true;
+//         }
+//       }
+//
+//       active = ctx->the_gpgpusim->g_the_gpu->active() ||
+//                !(ctx->the_gpgpusim->g_stream_manager->empty_protected());
+//
+//     } while (active && !ctx->the_gpgpusim->g_sim_done);
+//     if (g_debug_execution >= 3) {
+//       printf("GPGPU-Sim: ** STOP simulation thread (no work) **\n");
+//       fflush(stdout);
+//     }
+//     if (sim_cycles) {
+//       ctx->the_gpgpusim->g_the_gpu->print_stats();
+//       ctx->the_gpgpusim->g_the_gpu->update_stats();
+//       ctx->print_simulation_time();
+//     }
+//     pthread_mutex_lock(&(ctx->the_gpgpusim->g_sim_lock));
+//     ctx->the_gpgpusim->g_sim_active = false;
+//     pthread_mutex_unlock(&(ctx->the_gpgpusim->g_sim_lock));
+//   } while (!ctx->the_gpgpusim->g_sim_done);
+//
+//   printf("GPGPU-Sim: *** simulation thread exiting ***\n");
+//   fflush(stdout);
+//
+//   if (ctx->the_gpgpusim->break_limit) {
+//     printf(
+//         "GPGPU-Sim: ** break due to reaching the maximum cycles (or "
+//         "instructions) **\n");
+//     exit(1);
+//   }
+//
+//   sem_post(&(ctx->the_gpgpusim->g_sim_signal_exit));
+//   return NULL;
+// }
 
 void gpgpu_context::synchronize() {
   printf("GPGPU-Sim: synchronize waiting for inactive GPU simulation\n");
@@ -217,18 +216,18 @@ void gpgpu_context::ptx_reg_options(option_parser_t opp) {
                          "0");
 }
 
-void gpgpu_context::start_sim_thread(int api) {
-  if (the_gpgpusim->g_sim_done) {
-    the_gpgpusim->g_sim_done = false;
-    if (api == 1) {
-      pthread_create(&(the_gpgpusim->g_simulation_thread), NULL,
-                     gpgpu_sim_thread_concurrent, (void *)this);
-    } else {
-      pthread_create(&(the_gpgpusim->g_simulation_thread), NULL,
-                     gpgpu_sim_thread_sequential, (void *)this);
-    }
-  }
-}
+// void gpgpu_context::start_sim_thread(int api) {
+//   if (the_gpgpusim->g_sim_done) {
+//     the_gpgpusim->g_sim_done = false;
+//     if (api == 1) {
+//       pthread_create(&(the_gpgpusim->g_simulation_thread), NULL,
+//                      gpgpu_sim_thread_concurrent, (void *)this);
+//     } else {
+//       pthread_create(&(the_gpgpusim->g_simulation_thread), NULL,
+//                      gpgpu_sim_thread_sequential, (void *)this);
+//     }
+//   }
+// }
 
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 

@@ -102,48 +102,50 @@ std::string cuda_sim::ptx_get_insn_str(address_type pc) {
   //   return finfo->get_insn_str(pc);
 }
 
-template <int activate_level>
-bool cuda_sim::ptx_debug_exec_dump_cond(int thd_uid, addr_t pc) {
-  if (g_debug_execution >= activate_level) {
-    // check each type of debug dump constraint to filter out dumps
-    if ((g_debug_thread_uid != 0) &&
-        (thd_uid != (unsigned)g_debug_thread_uid)) {
-      return false;
-    }
-    if ((g_debug_pc != 0xBEEF1518) && (pc != g_debug_pc)) {
-      return false;
-    }
+// template <int activate_level>
+// bool cuda_sim::ptx_debug_exec_dump_cond(int thd_uid, addr_t pc) {
+//   if (g_debug_execution >= activate_level) {
+//     // check each type of debug dump constraint to filter out dumps
+//     if ((g_debug_thread_uid != 0) &&
+//         (thd_uid != (unsigned)g_debug_thread_uid)) {
+//       return false;
+//     }
+//     if ((g_debug_pc != 0xBEEF1518) && (pc != g_debug_pc)) {
+//       return false;
+//     }
+//
+//     return true;
+//   }
+//
+//   return false;
+// }
 
-    return true;
-  }
-
-  return false;
-}
-
-void cuda_sim::init_inst_classification_stat() {
-  static std::set<unsigned> init;
-  if (init.find(g_ptx_kernel_count) != init.end()) return;
-  init.insert(g_ptx_kernel_count);
-
-#define MAX_CLASS_KER 1024
-  char kernelname[MAX_CLASS_KER] = "";
-  if (!g_inst_classification_stat)
-    g_inst_classification_stat = (void **)calloc(MAX_CLASS_KER, sizeof(void *));
-  snprintf(kernelname, MAX_CLASS_KER, "Kernel %d Classification\n",
-           g_ptx_kernel_count);
-  assert(g_ptx_kernel_count <
-         MAX_CLASS_KER);  // a static limit on number of kernels increase it if
-                          // it fails!
-  g_inst_classification_stat[g_ptx_kernel_count] =
-      StatCreate(kernelname, 1, 20);
-  if (!g_inst_op_classification_stat)
-    g_inst_op_classification_stat =
-        (void **)calloc(MAX_CLASS_KER, sizeof(void *));
-  snprintf(kernelname, MAX_CLASS_KER, "Kernel %d OP Classification\n",
-           g_ptx_kernel_count);
-  g_inst_op_classification_stat[g_ptx_kernel_count] =
-      StatCreate(kernelname, 1, 100);
-}
+// void cuda_sim::init_inst_classification_stat() {
+//   static std::set<unsigned> init;
+//   if (init.find(g_ptx_kernel_count) != init.end()) return;
+//   init.insert(g_ptx_kernel_count);
+//
+// #define MAX_CLASS_KER 1024
+//   char kernelname[MAX_CLASS_KER] = "";
+//   if (!g_inst_classification_stat)
+//     g_inst_classification_stat = (void **)calloc(MAX_CLASS_KER, sizeof(void
+//     *));
+//   snprintf(kernelname, MAX_CLASS_KER, "Kernel %d Classification\n",
+//            g_ptx_kernel_count);
+//   assert(g_ptx_kernel_count <
+//          MAX_CLASS_KER);  // a static limit on number of kernels increase it
+//          if
+//                           // it fails!
+//   g_inst_classification_stat[g_ptx_kernel_count] =
+//       StatCreate(kernelname, 1, 20);
+//   if (!g_inst_op_classification_stat)
+//     g_inst_op_classification_stat =
+//         (void **)calloc(MAX_CLASS_KER, sizeof(void *));
+//   snprintf(kernelname, MAX_CLASS_KER, "Kernel %d OP Classification\n",
+//            g_ptx_kernel_count);
+//   g_inst_op_classification_stat[g_ptx_kernel_count] =
+//       StatCreate(kernelname, 1, 100);
+// }
 
 // REMOVE: ptx
 // kernel_info_t *cuda_sim::gpgpu_opencl_ptx_sim_init_grid(

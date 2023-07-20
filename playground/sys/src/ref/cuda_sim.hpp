@@ -6,8 +6,8 @@
 
 #include "hal.hpp"
 #include "option_parser.hpp"
-#include "ptx_reg.hpp"
-#include "rec_pts.hpp"
+// #include "ptx_reg.hpp"
+// #include "rec_pts.hpp"
 
 extern int g_debug_execution;
 extern bool g_interactive_debugger_enabled;
@@ -16,8 +16,8 @@ class gpgpu_context;
 class trace_function_info;
 class gpgpu_t;
 class trace_kernel_info_t;
-class rec_pts;
-class gpgpu_ptx_sim_arg_list_t;
+// class rec_pts;
+// class gpgpu_ptx_sim_arg_list_t;
 
 extern void print_splash();
 
@@ -34,11 +34,11 @@ class cuda_sim {
     g_assemble_code_next_pc = 0;
     g_debug_thread_uid = 0;
     g_override_embedded_ptx = false;
-    ptx_tex_regs = NULL;
-    g_ptx_thread_info_delete_count = 0;
-    g_ptx_thread_info_uid_next = 1;
+    // ptx_tex_regs = NULL;
+    // g_ptx_thread_info_delete_count = 0;
+    // g_ptx_thread_info_uid_next = 1;
     g_debug_pc = 0xBEEF1518;
-    gpgpu_ctx = ctx;
+    // gpgpu_ctx = ctx;
   }
   // global variables
   char *opcode_latency_int;
@@ -64,30 +64,32 @@ class cuda_sim {
   int g_ptx_sim_mode;  // if non-zero run functional simulation only (i.e., no
                        // notion of a clock cycle)
   unsigned gpgpu_param_num_shaders;
-  class std::map<trace_function_info *, rec_pts> g_rpts;
+  // class std::map<trace_function_info *, rec_pts> g_rpts;
   bool g_cuda_launch_blocking;
   void **g_inst_classification_stat;
   void **g_inst_op_classification_stat;
   std::set<std::string> g_globals;
   std::set<std::string> g_constants;
   std::map<unsigned, trace_function_info *> g_pc_to_finfo;
+
   int gpgpu_ptx_instruction_classification;
   unsigned cdp_latency[5];
   unsigned g_assemble_code_next_pc;
   int g_debug_thread_uid;
   bool g_override_embedded_ptx;
   std::set<unsigned long long> g_ptx_cta_info_sm_idx_used;
-  ptx_reg_t *ptx_tex_regs;
-  unsigned g_ptx_thread_info_delete_count;
-  unsigned g_ptx_thread_info_uid_next;
+  // ptx_reg_t *ptx_tex_regs;
+  // unsigned g_ptx_thread_info_delete_count;
+  // unsigned g_ptx_thread_info_uid_next;
   addr_t g_debug_pc;
+
   // backward pointer
-  class gpgpu_context *gpgpu_ctx;
+  // class gpgpu_context *gpgpu_ctx;
   // global functions
   void ptx_opcocde_latency_options(option_parser_t opp);
-  void gpgpu_cuda_ptx_sim_main_func(trace_kernel_info_t &kernel,
-                                    bool openCL = false);
-  void init_inst_classification_stat();
+  // void gpgpu_cuda_ptx_sim_main_func(trace_kernel_info_t &kernel,
+  //                                   bool openCL = false);
+  // void init_inst_classification_stat();
 
   // REMOVE: ptx
   // int gpgpu_opencl_ptx_sim_main_func(kernel_info_t *grid);

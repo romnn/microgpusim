@@ -74,8 +74,8 @@ class gpgpu_context {
   //                                     int no_of_ptx = 0);
   // void print_ptx_file(const char *p, unsigned source_num, const char
   // *filename); class symbol_table *init_parser(const char *);
-  class gpgpu_sim *gpgpu_ptx_sim_init_perf();
-  void start_sim_thread(int api);
+  // class gpgpu_sim *gpgpu_ptx_sim_init_perf();
+  // void start_sim_thread(int api);
   // struct _cuda_device_id *GPGPUSim_Init();
   void ptx_reg_options(option_parser_t opp);
   // const ptx_instruction *pc_to_instruction(unsigned pc);

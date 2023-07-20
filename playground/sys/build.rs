@@ -24,6 +24,14 @@ fn enable_diagnostics_color(build: &mut cc::Build) {
     }
 }
 
+fn configure_debug_mode(build: &mut cc::Build) {
+    if is_debug() {
+        build.opt_level(0).debug(true).flag("-ggdb3");
+    } else {
+        build.opt_level(3).debug(false);
+    }
+}
+
 #[allow(dead_code)]
 #[deprecated = "redundant when compiling the bridge"]
 fn build(sources: &[PathBuf]) -> eyre::Result<()> {
@@ -35,12 +43,7 @@ fn build(sources: &[PathBuf]) -> eyre::Result<()> {
         .flag("-std=c++14")
         .warnings(false);
 
-    if is_debug() {
-        build.opt_level(0).debug(true).flag("-ggdb3");
-    } else {
-        build.opt_level(3).debug(false);
-    }
-
+    configure_debug_mode(&mut build);
     enable_diagnostics_color(&mut build);
     build.try_compile("playground")?;
     Ok(())
@@ -160,12 +163,7 @@ fn build_config_parser_in_source() -> eyre::Result<()> {
         .warnings(false)
         .files(parser_sources);
 
-    if is_debug() {
-        build.opt_level(0).debug(true).flag("-ggdb3");
-    } else {
-        build.opt_level(3).debug(false);
-    }
-
+    configure_debug_mode(&mut build);
     build
         .try_compile("playgroundbridgeparser")
         .wrap_err_with(|| "failed to build parser")?;
@@ -245,12 +243,7 @@ fn build_config_parser() -> eyre::Result<PathBuf> {
         .warnings(false)
         .files(parser_sources);
 
-    if is_debug() {
-        build.opt_level(0).debug(true).flag("-ggdb3");
-    } else {
-        build.opt_level(3).debug(false);
-    }
-
+    configure_debug_mode(&mut build);
     build
         .try_compile("playgroundbridgeparser")
         .wrap_err_with(|| "failed to build parser")?;
@@ -270,11 +263,8 @@ fn generate_bridge(bridges: &[PathBuf], sources: Vec<PathBuf>) -> eyre::Result<(
         .flag("-std=c++14")
         .files(sources);
 
-    if is_debug() {
-        build.opt_level(0).debug(true).flag("-ggdb3");
-    } else {
-        build.opt_level(3).debug(false);
-    }
+    configure_debug_mode(&mut build);
+    println!("cargo:warning=playground: debug={}", is_debug());
 
     // our custom build
     build.define("BOX", "YES");
