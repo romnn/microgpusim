@@ -116,7 +116,7 @@ where
         // let is_memory_node = self.num_subnets > 1 && src_device >= self.num_cores;
         let is_memory_node = self.num_subnets > 1 && dest_device >= self.num_cores;
         let subnet = if is_memory_node { 1 } else { 0 };
-        println!(
+        log::trace!(
             "{}: {size} bytes from device {src_device} to {dest_device} (subnet {subnet})",
             style(format!("INTERCONN PUSH {}", packet)).bold(),
         );
@@ -133,7 +133,7 @@ where
 
         let mut lock = self.round_robin_turn[subnet][icnt_id].lock().unwrap();
         let mut turn = *lock;
-        println!(
+        log::trace!(
             "{}: from device {device} (device={device}, id={icnt_id}, subnet={subnet}, turn={turn})",
             style("INTERCONN POP").bold()
         );
@@ -287,9 +287,12 @@ impl MemFetchInterface for CoreMemoryInterface<Packet> {
             .config
             .mem_id_to_device_id(dest_sub_partition_id as usize);
 
-        println!(
+        log::trace!(
             "cluster {} icnt_inject_request_packet({}) dest sub partition id={} dest mem node={}",
-            self.cluster_id, fetch, dest_sub_partition_id, mem_dest
+            self.cluster_id,
+            fetch,
+            dest_sub_partition_id,
+            mem_dest
         );
 
         // The packet size varies depending on the type of request:
@@ -351,7 +354,7 @@ where
         // self.sub_partition_unit
         //     .borrow_mut()
         // todo!("l2 interface push to dram queue");
-        println!("l2 interface push l2_to_dram_queue");
+        log::trace!("l2 interface push l2_to_dram_queue");
         self.l2_to_dram_queue.lock().unwrap().enqueue(fetch)
     }
 }

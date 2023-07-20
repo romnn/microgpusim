@@ -219,9 +219,10 @@ pub fn read_trace(path: &Path) -> eyre::Result<Vec<MemAccessTraceEntry>> {
 impl KernelInfo {
     pub fn from_trace(traces_dir: impl AsRef<Path>, config: KernelLaunch) -> Self {
         let start = Instant::now();
-        println!(
+        log::info!(
             "parsing kernel for launch {:?} from {}",
-            &config, &config.trace_file
+            &config,
+            &config.trace_file
         );
         let trace_path = traces_dir
             .as_ref()
@@ -264,14 +265,14 @@ impl KernelInfo {
 
         // check if grid size is equal to the number of unique blocks in the trace
         let all_blocks: HashSet<_> = trace.iter().map(|t| t.block_id).collect();
-        println!(
-            "kernel trace has {}/{} blocks",
+        log::info!(
+            "parsed kernel trace for {:?}: {}/{} blocks in {:?}",
+            config.name,
             all_blocks.len(),
-            config.grid.size()
+            config.grid.size(),
+            start.elapsed()
         );
         assert_eq!(config.grid.size(), all_blocks.len() as u64);
-
-        println!("reading kernel traces took {:?}", start.elapsed(),);
 
         // dbg!(&trace
         //     .iter()
@@ -322,10 +323,10 @@ impl KernelInfo {
         // debug_assert!(self.next_block_iter.peek().is_some());
         // // let Some(next_block) = self.next_block else {
         let Some(next_block) = self.next_block_iter.lock().unwrap().next() else {
-            println!("blocks done: no more threadblock traces");
+            log::info!("blocks done: no more threadblock traces");
             return;
         };
-        println!("next thread block traces for block {}", next_block);
+        log::info!("next thread block traces for block {}", next_block);
 
         // let next_block = nvbit_model::Dim { x: 0, y: 0, z: 0 };
         // for warp in warps.iter_mut() {
@@ -377,7 +378,7 @@ impl KernelInfo {
         //     let mut warp = warp.lock().unwrap();
         //     let num_instr = warp.instruction_count();
         //     if num_instr > 0 {
-        //         println!("warp {}: {num_instr} instructions", warp.warp_id);
+        //         log::trace!("warp {}: {num_instr} instructions", warp.warp_id);
         //     }
         //     // for schedwarps without any instructions, there is no pc
         //     // before, we used option<schedwarp> which was in a way cleaner..
@@ -387,7 +388,7 @@ impl KernelInfo {
         //     // }
         // }
 
-        println!(
+        log::debug!(
             "added {instructions} instructions ({} per thread) for block {next_block}",
             instructions / 32
         );
@@ -413,7 +414,7 @@ impl KernelInfo {
             "all warps have at least one instruction (need at least an EXIT)"
         );
 
-        // println!("warps: {:#?}", warps);
+        // log::trace!("warps: {:#?}", warps);
 
         // for w in warps {
         //     let w = w.try_borrow().unwrap();
@@ -806,22 +807,22 @@ where
                 return true;
             }
         }
-        // println!("cluster done");
+        // log::trace!("cluster done");
         for unit in &self.mem_partition_units {
             if unit.busy() {
                 return true;
             }
         }
-        // println!("mem done");
+        // log::trace!("mem done");
         if self.interconn.busy() {
             return true;
         }
-        // println!("icnt done");
+        // log::trac!("icnt done");
         if self.more_blocks_to_run() {
             return true;
         }
-        // println!("no more blocks");
-        // println!("done");
+        // log::trace!("no more blocks");
+        // log::trace!("done");
         false
     }
 
@@ -853,7 +854,7 @@ where
     }
 
     fn issue_block_to_core(&mut self) {
-        println!("issue block to core");
+        log::trace!("issue block to core");
         let last_issued = self.last_cluster_issue;
         let num_clusters = self.config.num_simt_clusters;
         for cluster in &self.clusters {
@@ -897,7 +898,7 @@ where
 
         let mut partition_replies_in_parallel_per_cycle = 0;
 
-        println!(
+        log::trace!(
             "POP from {} memory sub partitions",
             self.mem_sub_partitions.len()
         );
@@ -906,24 +907,24 @@ where
         for (i, mem_sub) in self.mem_sub_partitions.iter().enumerate() {
             let mut mem_sub = mem_sub.borrow_mut();
             {
-                println!("checking sub partition[{i}]:");
-                println!(
+                log::debug!("checking sub partition[{i}]:");
+                log::debug!(
                     "\t icnt to l2 queue ({:<3}) = {}",
                     mem_sub.interconn_to_l2_queue.len(),
                     mem_sub.interconn_to_l2_queue
                 );
-                println!(
+                log::debug!(
                     "\t l2 to icnt queue ({:<3}) = {}",
                     mem_sub.l2_to_interconn_queue.len(),
                     mem_sub.l2_to_interconn_queue
                 );
                 let l2_to_dram_queue = mem_sub.l2_to_dram_queue.lock().unwrap();
-                println!(
+                log::debug!(
                     "\t l2 to dram queue ({:<3}) = {}",
                     l2_to_dram_queue.len(),
                     l2_to_dram_queue
                 );
-                println!(
+                log::debug!(
                     "\t dram to l2 queue ({:<3}) = {}",
                     mem_sub.dram_to_l2_queue.len(),
                     mem_sub.dram_to_l2_queue
@@ -934,12 +935,12 @@ where
                     .iter()
                     .map(|f| f.to_string())
                     .collect();
-                println!(
+                log::debug!(
                     "\t dram latency queue ({:3}) = {:?}",
                     dram_latency_queue.len(),
                     style(&dram_latency_queue).red()
                 );
-                println!("");
+                // log::debug!("");
             }
 
             if let Some(fetch) = mem_sub.top() {
@@ -971,7 +972,7 @@ where
         // self.partition_replies_in_parallel += partition_replies_in_parallel_per_cycle;
 
         // dram
-        println!("cycle for {} drams", self.mem_partition_units.len());
+        log::trace!("cycle for {} drams", self.mem_partition_units.len());
         for (i, unit) in self.mem_partition_units.iter_mut().enumerate() {
             unit.simple_dram_cycle();
             // if self.config.simple_dram_model {
@@ -984,7 +985,7 @@ where
         }
 
         // L2 operations
-        println!(
+        log::trace!(
             "moving mem requests from interconn to {} mem partitions",
             self.mem_sub_partitions.len()
         );
@@ -1004,16 +1005,18 @@ where
             // same as full with parameter overload
             if mem_sub.interconn_to_l2_can_fit(SECTOR_CHUNCK_SIZE as usize) {
                 if let Some(Packet::Fetch(fetch)) = self.interconn.pop(device) {
-                    println!(
+                    log::trace!(
                         "got new fetch {} for mem sub partition {} ({})",
-                        fetch, i, device
+                        fetch,
+                        i,
+                        device
                     );
 
                     mem_sub.push(fetch);
                     parallel_mem_partition_reqs_per_cycle += 1;
                 }
             } else {
-                println!("SKIP sub partition {} ({}): DRAM full stall", i, device);
+                log::trace!("SKIP sub partition {} ({}): DRAM full stall", i, device);
                 stall_dram_full += 1;
             }
             // we borrow all of sub here, which is a problem for the cyclic reference in l2
@@ -1068,14 +1071,14 @@ where
             if let Some(l2_config) = &self.config.data_cache_l2 {
                 if all_threads_complete {
                     // && !l2_config.disabled() {
-                    println!("flushed L2 caches...");
+                    log::trace!("flushed L2 caches...");
                     if l2_config.total_lines() > 0 {
                         let mut dlc = 0;
                         for (i, mem_sub) in self.mem_sub_partitions.iter_mut().enumerate() {
                             let mut mem_sub = mem_sub.borrow_mut();
                             mem_sub.flush_l2();
                             // debug_assert_eq!(dlc, 0);
-                            // println!("dirty lines flushed from L2 {} is {}", i, dlc);
+                            // log::trace!("dirty lines flushed from L2 {} is {}", i, dlc);
                         }
                     }
                 }
@@ -1084,7 +1087,7 @@ where
     }
 
     pub fn memcopy_to_gpu(&mut self, addr: address, num_bytes: u64, name: Option<String>) {
-        println!(
+        log::info!(
             "memcopy: {:<20} {:>15} ({:>5} f32) to address {addr:>20}",
             name.as_deref().unwrap_or("<unnamed>"),
             human_bytes::human_bytes(num_bytes as f64),
@@ -1182,7 +1185,7 @@ where
         }
 
         for kernel in launch_queue {
-            println!("launching kernel {:#?}", kernel.name());
+            log::info!("launching kernel {:#?}", kernel.name());
             self.launch(kernel);
         }
     }
@@ -1209,7 +1212,7 @@ where
             self.lauch_kernels();
 
             loop {
-                println!("\n======== cycle {cycle} ========\n");
+                log::debug!("\n======== cycle {cycle} ========\n");
 
                 if self.reached_limit(cycle) || !self.active() {
                     break;
@@ -1224,7 +1227,7 @@ where
             // TODO:
             // self.cleanup_finished_kernel(finished_kernel_uid);
 
-            println!("exit after {cycle} cycles");
+            log::info!("exit after {cycle} cycles");
             dbg!(self.commands_left());
             dbg!(self.kernels_left());
 
@@ -1345,216 +1348,7 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::Arc;
 
-    // impl From<playground::mem_fetch::mf_type> for super::mem_fetch::Kind {
-    //     fn from(kind: playground::mem_fetch::mf_type) -> Self {
-    //         use playground::mem_fetch::mf_type;
-    //         match kind {
-    //             mf_type::READ_REQUEST => super::mem_fetch::Kind::READ_REQUEST,
-    //             mf_type::WRITE_REQUEST => super::mem_fetch::Kind::WRITE_REQUEST,
-    //             mf_type::READ_REPLY => super::mem_fetch::Kind::READ_REPLY,
-    //             mf_type::WRITE_ACK => super::mem_fetch::Kind::WRITE_ACK,
-    //         }
-    //     }
-    // }
-    //
-    // impl From<playground::mem_fetch::mem_access_type> for super::mem_fetch::AccessKind {
-    //     fn from(kind: playground::mem_fetch::mem_access_type) -> Self {
-    //         use playground::mem_fetch::mem_access_type;
-    //         match kind {
-    //             mem_access_type::GLOBAL_ACC_R => super::mem_fetch::AccessKind::GLOBAL_ACC_R,
-    //             mem_access_type::LOCAL_ACC_R => super::mem_fetch::AccessKind::LOCAL_ACC_R,
-    //             mem_access_type::CONST_ACC_R => super::mem_fetch::AccessKind::CONST_ACC_R,
-    //             mem_access_type::TEXTURE_ACC_R => super::mem_fetch::AccessKind::TEXTURE_ACC_R,
-    //             mem_access_type::GLOBAL_ACC_W => super::mem_fetch::AccessKind::GLOBAL_ACC_W,
-    //             mem_access_type::LOCAL_ACC_W => super::mem_fetch::AccessKind::LOCAL_ACC_W,
-    //             mem_access_type::L1_WRBK_ACC => super::mem_fetch::AccessKind::L1_WRBK_ACC,
-    //             mem_access_type::L2_WRBK_ACC => super::mem_fetch::AccessKind::L2_WRBK_ACC,
-    //             mem_access_type::INST_ACC_R => super::mem_fetch::AccessKind::INST_ACC_R,
-    //             mem_access_type::L1_WR_ALLOC_R => super::mem_fetch::AccessKind::L1_WR_ALLOC_R,
-    //             mem_access_type::L2_WR_ALLOC_R => super::mem_fetch::AccessKind::L2_WR_ALLOC_R,
-    //             other @ mem_access_type::NUM_MEM_ACCESS_TYPE => {
-    //                 panic!("bad mem access kind: {:?}", other)
-    //             }
-    //         }
-    //     }
-    // }
-    //
-    // #[derive(Clone, PartialEq, Eq, Hash)]
-    // pub struct WarpInstructionKey {
-    //     opcode: String,
-    //     pc: usize,
-    //     warp_id: usize,
-    // }
-    //
-    // impl std::fmt::Debug for WarpInstructionKey {
-    //     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-    //         write!(f, "{}[pc={},warp={}]", self.opcode, self.pc, self.warp_id)
-    //     }
-    // }
-    //
-    // #[derive(Clone, PartialEq, Eq, Hash)]
-    // pub struct RegisterSetKey {
-    //     stage: super::core::PipelineStage,
-    //     pipeline: Vec<Option<WarpInstructionKey>>,
-    // }
-    //
-    // impl std::fmt::Debug for RegisterSetKey {
-    //     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-    //         write!(f, "{:?}={:?}", self.stage, self.pipeline)
-    //     }
-    // }
-    //
-    // impl From<super::register_set::RegisterSet> for RegisterSetKey {
-    //     fn from(reg: super::register_set::RegisterSet) -> Self {
-    //         let pipeline = reg
-    //             .regs
-    //             .into_iter()
-    //             .map(|instr| match instr {
-    //                 Some(instr) => Some(WarpInstructionKey {
-    //                     opcode: instr.opcode.to_string(),
-    //                     pc: instr.pc,
-    //                     warp_id: instr.warp_id,
-    //                 }),
-    //                 None => None,
-    //             })
-    //             .collect();
-    //         Self {
-    //             stage: reg.stage,
-    //             pipeline,
-    //         }
-    //     }
-    // }
-    //
-    // impl<'a> From<playground::main::pipeline_stage_name_t> for super::core::PipelineStage {
-    //     fn from(stage: playground::main::pipeline_stage_name_t) -> Self {
-    //         use playground::main::pipeline_stage_name_t;
-    //         match stage {
-    //             // pipeline_stage_name_t::ID_OC_SP => Self::ID_OC_SP,
-    //             // pipeline_stage_name_t::ID_OC_DP => Self::ID_OC_DP,
-    //             // pipeline_stage_name_t::ID_OC_INT => Self::ID_OC_INT,
-    //             // pipeline_stage_name_t::ID_OC_SFU => Self::ID_OC_SFU,
-    //             // pipeline_stage_name_t::ID_OC_MEM => Self::ID_OC_MEM,
-    //             pipeline_stage_name_t::OC_EX_SP => Self::OC_EX_SP,
-    //             // pipeline_stage_name_t::OC_EX_DP => Self::OC_EX_DP,
-    //             // pipeline_stage_name_t::OC_EX_INT => Self::OC_EX_INT,
-    //             // pipeline_stage_name_t::OC_EX_SFU => Self::OC_EX_SFU,
-    //             pipeline_stage_name_t::OC_EX_MEM => Self::OC_EX_MEM,
-    //             pipeline_stage_name_t::EX_WB => Self::EX_WB,
-    //             // pipeline_stage_name_t::ID_OC_TENSOR_CORE => Self::ID_OC_TENSOR_CORE,
-    //             // pipeline_stage_name_t::OC_EX_TENSOR_CORE => Self::OC_EX_TENSOR_CORE,
-    //             other => panic!("bad pipeline stage {:?}", other),
-    //         }
-    //     }
-    // }
-    //
-    // impl<'a> From<playground::RegisterSet<'a>> for RegisterSetKey {
-    //     fn from(reg: playground::RegisterSet<'a>) -> Self {
-    //         Self {
-    //             stage: reg.stage.into(),
-    //             pipeline: reg
-    //                 .pipeline
-    //                 .into_iter()
-    //                 .map(|instr| {
-    //                     if instr.empty() {
-    //                         None
-    //                     } else {
-    //                         let opcode = unsafe { std::ffi::CStr::from_ptr(instr.opcode_str()) };
-    //                         let opcode = opcode
-    //                             .to_str()
-    //                             .unwrap()
-    //                             .trim_start_matches("OP_")
-    //                             .to_string();
-    //                         Some(WarpInstructionKey {
-    //                             opcode,
-    //                             pc: instr.get_pc() as usize,
-    //                             warp_id: instr.warp_id() as usize,
-    //                         })
-    //                     }
-    //                 })
-    //                 .collect(),
-    //         }
-    //     }
-    // }
-    //
-    // #[derive(Clone, PartialEq, Eq, Hash)]
-    // pub struct MemFetchKey {
-    //     kind: super::mem_fetch::Kind,
-    //     access_kind: super::mem_fetch::AccessKind,
-    //     // cannot compare addr because its different between runs
-    //     // addr: super::address,
-    //     relative_addr: Option<(usize, super::address)>,
-    // }
-    //
-    // impl std::fmt::Debug for MemFetchKey {
-    //     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-    //         write!(f, "{:?}({:?}", self.kind, self.access_kind)?;
-    //         if let Some((alloc_id, rel_addr)) = self.relative_addr {
-    //             write!(f, "@{}+{}", alloc_id, rel_addr)?;
-    //         }
-    //         write!(f, ")")
-    //     }
-    // }
-    //
-    // impl<'a> From<playground::MemFetch<'a>> for MemFetchKey {
-    //     fn from(fetch: playground::MemFetch<'a>) -> Self {
-    //         let addr = fetch.get_addr();
-    //         let relative_addr = fetch.get_relative_addr();
-    //         Self {
-    //             kind: fetch.get_type().into(),
-    //             access_kind: fetch.get_access_type().into(),
-    //             relative_addr: if addr == relative_addr {
-    //                 None
-    //             } else {
-    //                 Some((fetch.get_alloc_id() as usize, relative_addr))
-    //             },
-    //         }
-    //     }
-    // }
-    //
-    // impl From<super::mem_fetch::MemFetch> for MemFetchKey {
-    //     fn from(fetch: super::mem_fetch::MemFetch) -> Self {
-    //         let addr = fetch.addr();
-    //         Self {
-    //             kind: fetch.kind,
-    //             access_kind: *fetch.access_kind(),
-    //             relative_addr: match fetch.access.allocation {
-    //                 Some(alloc) => Some((alloc.id, addr - alloc.start_addr)),
-    //                 None => None,
-    //             },
-    //         }
-    //     }
-    // }
-    //
-    // #[derive(Debug, Clone, PartialEq, Eq)]
-    // pub struct SimulationState {
-    //     interconn_to_l2_queue: Vec<Vec<MemFetchKey>>,
-    //     l2_to_interconn_queue: Vec<Vec<MemFetchKey>>,
-    //     l2_to_dram_queue: Vec<Vec<MemFetchKey>>,
-    //     dram_to_l2_queue: Vec<Vec<MemFetchKey>>,
-    //     dram_latency_queue: Vec<Vec<MemFetchKey>>,
-    //     functional_unit_pipelines: Vec<Vec<RegisterSetKey>>,
-    // }
-    //
-    // impl SimulationState {
-    //     pub fn new(
-    //         total_cores: usize,
-    //         num_mem_partitions: usize,
-    //         num_sub_partitions: usize,
-    //     ) -> Self {
-    //         Self {
-    //             // per sub partition
-    //             interconn_to_l2_queue: vec![vec![]; num_sub_partitions],
-    //             l2_to_interconn_queue: vec![vec![]; num_sub_partitions],
-    //             l2_to_dram_queue: vec![vec![]; num_sub_partitions],
-    //             dram_to_l2_queue: vec![vec![]; num_sub_partitions],
-    //             // per partition
-    //             dram_latency_queue: vec![vec![]; num_mem_partitions],
-    //             // per core
-    //             functional_unit_pipelines: vec![vec![]; total_cores],
-    //         }
-    //     }
-    // }
-
+    #[ignore = "needs data"]
     #[test]
     fn test_lockstep() -> eyre::Result<()> {
         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));

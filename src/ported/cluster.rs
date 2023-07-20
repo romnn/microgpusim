@@ -117,13 +117,7 @@ where
     pub fn interconn_cycle(&mut self) {
         use mem_fetch::AccessKind;
 
-        // println!(
-        //     "cluster {}: {} (response fifo={})",
-        //     self.cluster_id,
-        //     style("interconn cycle").cyan(),
-        //     self.response_fifo.len(),
-        // );
-        println!(
+        log::debug!(
             "{}",
             style(format!(
                 "cycle {:02} cluster {}: interconn cycle (response fifo={:?})",
@@ -148,21 +142,21 @@ where
                     // this could be the reason
                     if !core.fetch_unit_response_buffer_full() {
                         let fetch = self.response_fifo.pop_front().unwrap();
-                        println!("accepted instr access fetch {}", fetch);
+                        log::trace!("accepted instr access fetch {}", fetch);
                         core.accept_fetch_response(fetch);
                     } else {
-                        println!("instr access fetch {} NOT YET ACCEPTED", fetch);
+                        log::trace!("instr access fetch {} NOT YET ACCEPTED", fetch);
                     }
                 }
                 _ => {
                     // this could be the reason
                     if !core.ldst_unit_response_buffer_full() {
                         let fetch = self.response_fifo.pop_front().unwrap();
-                        println!("accepted ldst unit fetch {}", fetch);
+                        log::trace!("accepted ldst unit fetch {}", fetch);
                         // m_memory_stats->memlatstat_read_done(mf);
                         core.accept_ldst_unit_response(fetch);
                     } else {
-                        println!("ldst unit fetch {} NOT YET ACCEPTED", fetch);
+                        log::trace!("ldst unit fetch {} NOT YET ACCEPTED", fetch);
                     }
                 }
             }
@@ -171,7 +165,7 @@ where
         // this could be the reason?
         let eject_buffer_size = self.config.num_cluster_ejection_buffer_size;
         if self.response_fifo.len() >= eject_buffer_size {
-            println!(
+            log::trace!(
                 "skip: ejection buffer full ({}/{})",
                 self.response_fifo.len(),
                 eject_buffer_size
@@ -182,7 +176,7 @@ where
         let Some(Packet::Fetch(mut fetch)) = self.interconn.pop(self.cluster_id) else {
             return;
         };
-        println!(
+        log::trace!(
             "{}",
             style(format!(
                 "cycle {:02} cluster {}: got fetch from interconn: {}",
@@ -236,7 +230,7 @@ where
     }
 
     pub fn issue_block_to_core(&self, sim: &MockSimulator<I>) -> usize {
-        println!("cluster {}: issue block to core", self.cluster_id);
+        log::trace!("cluster {}: issue block to core", self.cluster_id);
         let mut num_blocks_issued = 0;
 
         let mut block_issue_next_core = self.block_issue_next_core.lock().unwrap();
@@ -312,7 +306,7 @@ where
                 //     }
                 // }
             };
-            println!(
+            log::trace!(
                 "core {}-{}: {} active warps, current kernel {:?}, more blocks={:?}",
                 self.cluster_id,
                 core.inner.core_id,
@@ -323,19 +317,19 @@ where
                     .as_ref()
                     .map(|k| !k.no_more_blocks_to_run())
             );
-            println!(
+            log::trace!(
                 "core {}-{}: selected kernel {:?}",
                 self.cluster_id,
                 core.inner.core_id,
                 kernel.as_ref().map(|k| k.name())
             );
             if let Some(kernel) = kernel {
-                println!(
+                log::trace!(
                     "kernel: no more blocks to run={} can issue block {}",
                     kernel.no_more_blocks_to_run(),
                     core.can_issue_block(&*kernel)
                 );
-                // println!("kernel: {:#?}", &*kernel);
+                // log::trace!("kernel: {:#?}", &*kernel);
 
                 if !kernel.no_more_blocks_to_run() && core.can_issue_block(&*kernel) {
                     // core.issue_block(Arc::clone(kernel));

@@ -124,7 +124,7 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
     }
 
     fn cycle(&mut self) {
-        println!(
+        log::debug!(
             "fu[{:03}] {:<10} cycle={:03}: \tpipeline={:?} ({} active)",
             self.id,
             self.name,

@@ -128,7 +128,7 @@ where
         time: usize,
         events: &mut Vec<cache::Event>,
     ) {
-        println!("data_cache::send_write_request(...)");
+        log::trace!("data_cache::send_write_request(...)");
         events.push(request);
         fetch.set_status(self.inner.miss_queue_status, time);
         self.inner.miss_queue.push_back(fetch);
@@ -288,7 +288,7 @@ where
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         // todo!("write_miss_write_allocate_naive");
-        println!("handling write miss for {} (address {})", fetch, addr);
+        log::trace!("handling write miss for {} (address {})", fetch, addr);
 
         // what exactly is the difference between the addr and the fetch addr?
         debug_assert_eq!(addr, fetch.addr());
@@ -384,7 +384,7 @@ where
         if should_miss {
             // If evicted block is modified and not a write-through
             // (already modified lower level)
-            println!("evicted block: {:?}", evicted);
+            log::trace!("evicted block: {:?}", evicted);
             let not_write_through =
                 self.cache_config().write_policy != config::CacheWritePolicy::WRITE_THROUGH;
             if writeback && not_write_through {
@@ -710,9 +710,10 @@ where
         let access_kind = *fetch.access_kind();
         let block_addr = cache_config.block_addr(addr);
 
-        println!(
+        log::trace!(
             "{}::data_cache::access({addr}, write = {is_write}, size = {}, block = {block_addr})",
-            self.inner.name, fetch.data_size,
+            self.inner.name,
+            fetch.data_size,
         );
 
         let (cache_index, probe_status) = self
@@ -957,14 +958,13 @@ mod tests {
                         .expect("generated acceseses");
                     // dbg!(&accesses);
                     for access in &accesses {
-                        println!(
+                        log::trace!(
                             "block {} warp {}: {} access {}",
                             &block,
                             &warp_id,
                             if access.is_write { "store" } else { "load" },
                             &access.addr
                         );
-                        // println!("{}", &access);
                     }
                     assert_eq!(accesses.len(), 1);
 
@@ -994,11 +994,11 @@ mod tests {
             //     // dbg!(&accesses);
             //     assert_eq!(accesses.len(), 1);
             //     for access in &accesses {
-            //         // println!(
+            //         // log::trace!(
             //         //     "block {} warp {}: access {}",
             //         //     &access.block, &access.warp_id, &access.addr
             //         // );
-            //         // println!("{}", &access);
+            //         // log::trace!("{}", &access);
             //     }
             //     // continue;
             //

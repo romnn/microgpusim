@@ -107,7 +107,7 @@ where
         debug_assert!(!fetch.is_write());
         let block_addr = cache_config.block_addr(addr);
 
-        println!(
+        log::trace!(
             "{}::readonly_cache::access({addr}, write = {}, data size = {}, control size = {}, block = {block_addr})",
             self.inner.name,
             fetch.is_write(),

@@ -373,9 +373,9 @@ fn packbits(mask: super::address, val: super::address, low: u8, high: u8) -> sup
     debug_assert!(low <= 64);
     debug_assert!(high <= 64);
     for i in low..high {
-        // println!("mask at {}: {}", i, mask & (1u64 << i));
+        // log::trace!("mask at {}: {}", i, mask & (1u64 << i));
         if mask & (1u64 << i) != 0 {
-            // println!("value at {}: {}", i, ((val & (1u64 << i)) >> i));
+            // log::trace!("value at {}: {}", i, ((val & (1u64 << i)) >> i));
             result |= ((val & (1u64 << i)) >> i) << pos;
             pos += 1;
         }

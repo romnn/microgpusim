@@ -39,7 +39,7 @@ where
         let flat_idx = idx.flatten();
         let addr = self.offset + elem_size * flat_idx as u64;
         self.sim.load(addr, elem_size);
-        // println!("{:?}[{:?}] => {}", &self, &idx, &addr);
+        // log::trace!("{:?}[{:?}] => {}", &self, &idx, &addr);
         &self.inner[idx]
     }
 }
@@ -54,7 +54,7 @@ where
         let flat_idx = idx.flatten();
         let addr = self.offset + elem_size * flat_idx as u64;
         self.sim.store(addr, elem_size);
-        // println!("{:?}[{:?}] => {}", &self, &idx, &addr);
+        // log::trace!("{:?}[{:?}] => {}", &self, &idx, &addr);
         &mut self.inner[idx]
     }
 }
@@ -193,7 +193,7 @@ impl Simulation {
         let reader = std::io::BufReader::new(file);
         let mut reader = rmp_serde::Deserializer::new(reader);
         let decoder = nvbit_io::Decoder::new(|access: trace_model::MemAccessTraceEntry| {
-            // println!("{:#?}", &access);
+            // log::trace!("{:#?}", &access);
 
             // create a new warp here
             if access.instr_is_load {
@@ -256,11 +256,11 @@ impl Simulation {
             for (warp_num, warp) in threads.chunks(WARP_SIZE).into_iter().enumerate() {
                 for warp_thread_idx in warp {
                     thread_idx.thread_idx = warp_thread_idx.into();
-                    // println!("calling thread {thread_idx:?}");
+                    // log::trace!("calling thread {thread_idx:?}");
                     kernel.run(&thread_idx)?;
                 }
 
-                println!("END WARP #{} ({:?})", &warp_num, &thread_idx);
+                log::info!("END WARP #{} ({:?})", &warp_num, &thread_idx);
 
                 // collect all accesses by threads in a warp
                 let mut warp_loads = self.in_flight_loads.lock().unwrap();
@@ -269,13 +269,13 @@ impl Simulation {
                 let warp_stores = warp_stores.drain(..);
 
                 if warp_loads.len() > 0 {
-                    println!("{} loads total", warp_loads.len());
-                    println!("loads: {:?}", &warp_loads.map(|l| l.0).collect::<Vec<_>>());
+                    log::info!("{} loads total", warp_loads.len());
+                    log::info!("loads: {:?}", &warp_loads.map(|l| l.0).collect::<Vec<_>>());
                 }
 
                 if warp_stores.len() > 0 {
-                    println!("{} stores total", warp_stores.len());
-                    println!(
+                    log::info!("{} stores total", warp_stores.len());
+                    log::info!(
                         "stores: {:?}",
                         &warp_stores.map(|s| s.0).collect::<Vec<_>>()
                     );

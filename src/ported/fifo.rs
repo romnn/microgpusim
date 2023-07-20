@@ -65,7 +65,7 @@ where
     }
 
     fn full(&self) -> bool {
-        println!(
+        log::trace!(
             "FIFO full? max len={:?} length={}",
             self.max_size,
             self.inner.len()

@@ -649,12 +649,12 @@ impl WarpInstruction {
                         total_accesses += max_bank_accesses;
                     }
                 }
-                println!(
+                log::trace!(
                     "generate mem accesses[SHARED]: total_accesses={}",
                     total_accesses
                 );
-                println!("\tbanks={:?}", &banks);
-                println!("\tword addresses={:?}", &words);
+                log::trace!("\tbanks={:?}", &banks);
+                log::trace!("\tword addresses={:?}", &words);
 
                 debug_assert!(total_accesses > 0);
                 debug_assert!(total_accesses <= config.warp_size);

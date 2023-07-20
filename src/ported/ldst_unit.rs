@@ -271,7 +271,7 @@ where
     }
 
     pub fn writeback(&mut self) {
-        println!(
+        log::debug!(
             "{} (next_writeback={:?} arb={})",
             style("ldst unit writeback").magenta(),
             self.next_writeback.as_ref().map(|wb| wb.to_string()),
@@ -280,11 +280,6 @@ where
 
         // this processes the next writeback
         if let Some(ref mut next_writeback) = self.next_writeback {
-            // println!(
-            //     "{}",
-            //     style(format!("ldst unit writeback {}", next_writeback)).magenta()
-            // );
-
             if self
                 .operand_collector
                 .try_borrow_mut()
@@ -382,7 +377,7 @@ where
                         if next_global.warp_id == 3 {
                             super::debug_break("global writeback for warp 3");
                         }
-                        println!(
+                        log::trace!(
                             "{}",
                             style(format!(
                                 "ldst unit writeback: has global {:?} ({})",
@@ -417,7 +412,7 @@ where
         // 2. a client was serviced
         if let Some(serviced) = serviced_client {
             self.writeback_arb = (serviced + 1) % self.num_writeback_clients;
-            println!(
+            log::trace!(
                 "{} {:?} ({})",
                 style("ldst unit writeback: serviced client").magenta(),
                 WritebackClient::from_repr(serviced),
@@ -436,7 +431,7 @@ where
         let Some(dispatch_instr) = &mut self.pipelined_simd_unit.dispatch_reg else {
             return true;
         };
-        println!("shared cycle for instruction: {}", &dispatch_instr);
+        log::trace!("shared cycle for instruction: {}", &dispatch_instr);
 
         if dispatch_instr.memory_space != Some(MemorySpace::Shared) {
             // shared cycle is done
@@ -484,7 +479,7 @@ where
         rc_fail: &mut MemStageStallKind,
         kind: &mut MemStageAccessKind,
     ) -> bool {
-        // println!(
+        // log::trace!(
         //     "core {}-{}: {}",
         //     self.core_id,
         //     self.cluster_id,
@@ -495,7 +490,7 @@ where
         let Some(dispatch_instr) = &self.pipelined_simd_unit.dispatch_reg else {
             return true;
         };
-        println!("memory cycle for instruction: {}", &dispatch_instr);
+        log::trace!("memory cycle for instruction: {}", &dispatch_instr);
 
         if !matches!(
             dispatch_instr.memory_space,
@@ -528,9 +523,10 @@ where
             return true;
         };
 
-        println!(
+        log::trace!(
             "memory cycle for instruction {} => access: {}",
-            &dispatch_instr, access
+            &dispatch_instr,
+            access
         );
 
         let mut stall_cond = MemStageStallKind::NO_RC_FAIL;
@@ -544,7 +540,7 @@ where
             };
             let size = access.req_size_bytes + control_size as u32;
 
-            // println!("Interconnect addr: {}, size={}", access.addr, size);
+            // log::trace!("Interconnect addr: {}, size={}", access.addr, size);
             if self.fetch_interconn.full(
                 size,
                 dispatch_instr.is_store() || dispatch_instr.is_atomic(),
@@ -586,7 +582,7 @@ where
         {
             stall_cond = MemStageStallKind::COAL_STALL;
         }
-        println!("memory instruction stall cond: {:?}", &stall_cond);
+        log::trace!("memory instruction stall cond: {:?}", &stall_cond);
         if stall_cond != MemStageStallKind::NO_RC_FAIL {
             *rc_fail = stall_cond;
             if dispatch_instr.memory_space == Some(MemorySpace::Local) {
@@ -989,7 +985,7 @@ where
     fn cycle(&mut self) {
         use super::instruction::CacheOperator;
 
-        println!(
+        log::debug!(
             "fu[{:03}] {:<10} cycle={:03}: \tpipeline={:?} ({} active) \tresponse fifo={:?}",
             self.pipelined_simd_unit.id,
             self.pipelined_simd_unit.name,

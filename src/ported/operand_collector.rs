@@ -195,7 +195,7 @@ impl CollectorUnit {
         } else {
             output_register.has_free()
         };
-        println!(
+        log::trace!(
             "is ready?: active = {} (ready={}), has free = {} output register = {:?}",
             self.not_ready.to_bit_string(),
             self.not_ready.not_any(),
@@ -249,7 +249,7 @@ impl CollectorUnit {
         input_reg_set: &Rc<RefCell<RegisterSet>>,
         output_reg_set: &Rc<RefCell<RegisterSet>>,
     ) -> bool {
-        println!(
+        log::trace!(
             "{}",
             style(format!("operand collector::allocate({:?})", self.kind)).green(),
         );
@@ -267,7 +267,7 @@ impl CollectorUnit {
 
             self.warp_id = Some(ready_reg.warp_id); // todo: do we need warp id??
 
-            println!(
+            log::trace!(
                 "operand collector::allocate({:?}) => src arch reg = {:?}",
                 self.kind,
                 ready_reg
@@ -319,7 +319,7 @@ impl CollectorUnit {
                     }
                 }
             }
-            println!(
+            log::trace!(
                 "operand collector::allocate({:?}) => active: {}",
                 self.kind,
                 self.not_ready.to_bit_string(),
@@ -347,7 +347,7 @@ impl CollectorUnit {
     // }
 
     pub fn collect_operand(&mut self, op: usize) {
-        println!(
+        log::trace!(
             "collector unit [{}] {:?} collecting operand for {}",
             self.id,
             self.warp_instr.as_ref().map(ToString::to_string),
@@ -494,7 +494,7 @@ impl Arbiter {
         /// (b) do not go to the same operand collector
         let mut result = Vec::new();
 
-        println!("queue: {:?}", &self.queue);
+        log::trace!("queue: {:?}", &self.queue);
 
         let _inputs = self.num_banks;
         let _outputs = self.num_collectors;
@@ -527,10 +527,10 @@ impl Arbiter {
             if self.allocated_banks[bank].is_write() {
                 self.inmatch[bank] = Some(0); // write gets priority
             }
-            println!("request: {:?}", &Self::compat(&self.request[bank]));
+            log::trace!("request: {:?}", &Self::compat(&self.request[bank]));
         }
 
-        println!("inmatch: {:?}", &Self::compat(&self.inmatch));
+        log::trace!("inmatch: {:?}", &Self::compat(&self.inmatch));
 
         // wavefront allocator from booksim
         // loop through diagonals of request matrix
@@ -561,19 +561,19 @@ impl Arbiter {
             }
         }
 
-        println!("inmatch: {:?}", &Self::compat(&self.inmatch));
-        println!("outmatch: {:?}", &Self::compat(&self.outmatch));
+        log::trace!("inmatch: {:?}", &Self::compat(&self.inmatch));
+        log::trace!("outmatch: {:?}", &Self::compat(&self.outmatch));
 
         // Round-robin the priority diagonal
         _pri = (_pri + 1) % _outputs;
-        println!("pri: {:?}", _pri);
+        log::trace!("pri: {:?}", _pri);
 
         // <--- end code from booksim
 
         self.last_cu = _pri;
         for bank in 0..self.num_banks {
             if self.inmatch[bank].is_some() {
-                println!(
+                log::trace!(
                     "inmatch[bank={}] is write={}",
                     bank,
                     self.allocated_banks[bank].is_write()
@@ -660,19 +660,19 @@ impl DispatchUnit {
             1
         };
 
-        println!("dispatch unit {:?}: find ready: rr_inc = {},last cu = {},num collectors = {}, num warp schedulers = {}, cusPerSched = {}", self.kind, rr_increment, self.last_cu, num_collector_units, self.num_warp_schedulers, cus_per_scheduler);
+        log::trace!("dispatch unit {:?}: find ready: rr_inc = {},last cu = {},num collectors = {}, num warp schedulers = {}, cusPerSched = {}", self.kind, rr_increment, self.last_cu, num_collector_units, self.num_warp_schedulers, cus_per_scheduler);
 
         debug_assert_eq!(num_collector_units, collector_units.len());
         for i in 0..num_collector_units {
             let i = (self.last_cu + i + rr_increment) % num_collector_units;
-            // println!(
+            // log::trace!(
             //     "dispatch unit {:?}: checking collector unit {}",
             //     self.kind, i,
             // );
 
             if collector_units[i].borrow().ready() {
                 self.last_cu = i;
-                println!(
+                log::trace!(
                     "dispatch unit {:?}: FOUND ready: chose collector unit {} ({:?})",
                     self.kind,
                     i,
@@ -681,7 +681,7 @@ impl DispatchUnit {
                 return collector_units.get(i);
             }
         }
-        println!("dispatch unit {:?}: did NOT find ready", self.kind);
+        log::trace!("dispatch unit {:?}: did NOT find ready", self.kind);
         None
     }
 }
@@ -830,7 +830,7 @@ impl OperandCollectorRegisterFileUnit {
     // }
 
     pub fn step(&mut self) {
-        println!("{}", style("operand collector::step()").green());
+        log::trace!("{}", style("operand collector::step()").green());
         self.dispatch_ready_cu();
         self.allocate_reads();
         debug_assert!(!self.in_ports.is_empty());
@@ -849,7 +849,7 @@ impl OperandCollectorRegisterFileUnit {
     pub fn allocate_reads(&mut self) {
         // process read requests that do not have conflicts
         let allocated: Vec<_> = self.arbiter.allocate_reads();
-        println!(
+        log::trace!(
             "arbiter allocated {} reads ({:?})",
             allocated.len(),
             &allocated
@@ -871,7 +871,7 @@ impl OperandCollectorRegisterFileUnit {
             read_ops.insert(bank, read);
         }
 
-        println!("allocating {} reads ({:?})", read_ops.len(), &read_ops);
+        log::trace!("allocating {} reads ({:?})", read_ops.len(), &read_ops);
         for (bank, read) in &read_ops {
             // todo: use the cu id here
             // todo!("use cu id here for collecting operand");
@@ -911,7 +911,7 @@ impl OperandCollectorRegisterFileUnit {
 
     pub fn allocate_cu(&mut self, port_num: usize) {
         let port = &self.in_ports[port_num];
-        println!(
+        log::trace!(
             "{}",
             style(format!(
                 "operand collector::allocate_cu({:?}: {:?})",
@@ -953,7 +953,7 @@ impl OperandCollectorRegisterFileUnit {
                         let mut collector_unit = cu_set[k].try_borrow_mut().unwrap();
 
                         if collector_unit.free {
-                            // println!(
+                            // log::trace!(
                             //     "{} cu={:?}",
                             //     style(format!("operand collector::allocate()")).green(),
                             //     collector_unit.kind
