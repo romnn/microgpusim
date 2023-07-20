@@ -16,6 +16,13 @@ cargo run -p playground --inter-config ./accelsim/gtx1080/config_fermi_islip.icn
 ./target/debug/playground --inter-config ./accelsim/gtx1080/config_fermi_islip.icnt ./test-apps/vectoradd/traces/vectoradd-100-32-trace/ ./accelsim/gtx1080/
 ```
 
+#### Debugging
+
+```bash
+cargo build -p playground
+./playground/sys/valgrind.sh ./target/debug/playground results/vectorAdd/vectorAdd-10000-32/accelsim-trace/
+```
+
 #### Formatting
 
 ```bash

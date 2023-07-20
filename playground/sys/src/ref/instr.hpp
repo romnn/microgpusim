@@ -37,6 +37,11 @@ class inst_t {
       arch_reg.dst[i] = -1;
     }
     isize = 0;
+
+    // ROMAN: initialize variables
+    pred = 0;
+    ar1 = 0;
+    ar2 = 0;
   }
   bool valid() const { return m_decoded; }
   virtual void print_insn(FILE *fp) const {

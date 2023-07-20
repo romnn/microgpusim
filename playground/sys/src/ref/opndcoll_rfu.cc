@@ -123,7 +123,7 @@ void opndcoll_rfu_t::add_cu_set(unsigned set_id, unsigned num_cu,
   m_cus[set_id].reserve(num_cu);  // this is necessary to stop pointers in m_cu
                                   // from being invalid do to a resize;
   for (unsigned i = 0; i < num_cu; i++) {
-    m_cus[set_id].push_back(collector_unit_t());
+    m_cus[set_id].push_back(collector_unit_t(set_id));
     m_cu.push_back(&m_cus[set_id].back());
   }
   // for now each collector set gets dedicated dispatch units.
@@ -272,9 +272,13 @@ void opndcoll_rfu_t::dispatch_ready_cu() {
 
 void opndcoll_rfu_t::allocate_cu(unsigned port_num) {
   input_port_t &inp = m_in_ports[port_num];
-  std::cout << "operand collector::allocate_cu(" << port_num << ")"
-            << std::endl;
-  // std::cout << "operand collector::allocate_cu(" << inp << ")" << std::endl;
+  std::vector<std::string> cu_sets_names;
+  for (auto &set_id : inp.m_cu_sets) {
+    cu_sets_names.push_back(
+        std::string(operand_collector_unit_kind_str[set_id]));
+  }
+  std::cout << "operand collector::allocate_cu(" << port_num << ": "
+            << cu_sets_names << ")" << std::endl;
   for (unsigned i = 0; i < inp.m_in.size(); i++) {
     if ((*inp.m_in[i]).has_ready()) {
       // find a free cu
@@ -283,12 +287,12 @@ void opndcoll_rfu_t::allocate_cu(unsigned port_num) {
         bool allocated = false;
         unsigned cuLowerBound = 0;
         unsigned cuUpperBound = cu_set.size();
-        unsigned schd_id;
+        // unsigned schd_id;
         if (sub_core_model) {
           // Sub core model only allocates on the subset of CUs assigned to the
           // scheduler that issued
           unsigned reg_id = (*inp.m_in[i]).get_ready_reg_id();
-          schd_id = (*inp.m_in[i]).get_schd_id(reg_id);
+          unsigned schd_id = (*inp.m_in[i]).get_schd_id(reg_id);
           assert(cu_set.size() % m_num_warp_scheds == 0 &&
                  cu_set.size() >= m_num_warp_scheds);
           unsigned cusPerSched = cu_set.size() / m_num_warp_scheds;

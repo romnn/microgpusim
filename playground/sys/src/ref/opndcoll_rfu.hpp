@@ -42,7 +42,7 @@ class opndcoll_rfu_t;
 
 class collector_unit_t {
  public:
-  collector_unit_t();
+  collector_unit_t(unsigned set_id);
 
   // accessors
   bool ready() const;
@@ -83,6 +83,7 @@ class collector_unit_t {
 
  private:
   bool m_free;
+  unsigned m_set_id;
   unsigned m_cuid;  // collector unit hw id
   unsigned m_warp_id;
   warp_inst_t *m_warp;
@@ -101,7 +102,15 @@ class collector_unit_t {
 // needs collector unit
 class op_t {
  public:
-  op_t() { m_valid = false; }
+  op_t() {
+    m_valid = false;
+    m_warp = NULL;
+    m_cu = NULL;
+    m_operand = (unsigned)-1;
+    m_register = (unsigned)-1;
+    m_shced_id = (unsigned)-1;
+    m_bank = (unsigned)-1;
+  }
   op_t(collector_unit_t *cu, unsigned op, unsigned reg, unsigned num_banks,
        unsigned bank_warp_shift, bool sub_core_model, unsigned banks_per_sched,
        unsigned sched_id) {
@@ -361,6 +370,9 @@ class dispatch_unit_t {
     m_num_collectors = (*cus).size();
     m_next_cu = 0;
     m_set_id = set_id;
+
+    m_sub_core_model = false;
+    m_num_warp_scheds = (unsigned)-1;
   }
   void init(bool sub_core_model, unsigned num_warp_scheds) {
     m_sub_core_model = sub_core_model;

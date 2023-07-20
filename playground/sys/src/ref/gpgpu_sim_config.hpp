@@ -105,8 +105,8 @@ class gpgpu_sim_config : public power_config,
     m_shader_config.n_simt_cores_per_cluster = 1;
     m_shader_config.gpgpu_num_sched_per_core = 1;
 
-    m_shader_config.gpgpu_num_sfu_units = 0;
-    m_shader_config.gpgpu_num_tensor_core_units = 0;
+    // m_shader_config.gpgpu_num_sfu_units = 0;
+    // m_shader_config.gpgpu_num_tensor_core_units = 0;
 
     // must be called before m_memory_config.init()
     m_memory_config.m_n_mem = 1;

@@ -11,7 +11,8 @@ class inst_trace_t;
 
 class trace_warp_inst_t : public warp_inst_t {
  public:
-  trace_warp_inst_t() {
+  // trace_warp_inst_t() {
+  trace_warp_inst_t() : warp_inst_t() {
     // m_opcode = 0;
     should_do_atomic = false;
   }

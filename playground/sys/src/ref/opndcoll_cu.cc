@@ -4,7 +4,8 @@
 #include "io.hpp"
 #include "register_set.hpp"
 
-collector_unit_t::collector_unit_t() {
+collector_unit_t::collector_unit_t(unsigned set_id) {
+  m_set_id = set_id;
   m_free = true;
   m_warp = NULL;
   m_output_register = NULL;
@@ -62,7 +63,8 @@ void collector_unit_t::init(unsigned n, unsigned num_banks,
 
 bool collector_unit_t::allocate(register_set *pipeline_reg_set,
                                 register_set *output_reg_set) {
-  printf("operand collector::allocate()\n");
+  printf("operand collector::allocate(%s)\n",
+         operand_collector_unit_kind_str[m_set_id]);
   assert(m_free);
   assert(m_not_ready.none());
   m_free = false;
@@ -71,8 +73,9 @@ bool collector_unit_t::allocate(register_set *pipeline_reg_set,
   if ((pipeline_reg) and !((*pipeline_reg)->empty())) {
     const int *arch_reg_src = ((*pipeline_reg)->arch_reg).src;  // int[32]
     std::vector<int> arch_reg_src_vec(arch_reg_src, arch_reg_src + 32);
-    std::cout << "operand collector::allocate() => src arch reg = "
-              << arch_reg_src_vec << std::endl;
+    printf("operand collector::allocate(%s)",
+           operand_collector_unit_kind_str[m_set_id]);
+    std::cout << " => src arch reg = " << arch_reg_src_vec << std::endl;
     m_warp_id = (*pipeline_reg)->warp_id();
     std::vector<int> prev_regs;  // remove duplicate regs within same instr
     for (unsigned op = 0; op < MAX_REG_OPERANDS; op++) {

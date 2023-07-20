@@ -12,13 +12,14 @@
 class warp_inst_t : public inst_t {
  public:
   // constructors
-  warp_inst_t() {
+  warp_inst_t() : inst_t() {
     m_opcode = 0;
     m_uid = 0;
     m_empty = true;
     m_config = NULL;
   }
-  warp_inst_t(const core_config *config) {
+
+  warp_inst_t(const core_config *config) : inst_t() {
     m_opcode = 0;
     m_uid = 0;
     assert(config->warp_size <= MAX_WARP_SIZE);

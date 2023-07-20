@@ -15,6 +15,14 @@ class shader_core_config : public core_config {
   shader_core_config(gpgpu_context *ctx) : core_config(ctx) {
     pipeline_widths_string = NULL;
     gpgpu_ctx = ctx;
+
+    gpgpu_num_sp_units = 0;
+    gpgpu_tensor_core_avail = 0;
+    gpgpu_num_dp_units = 0;
+    gpgpu_num_sfu_units = 0;
+    gpgpu_num_tensor_core_units = 0;
+    gpgpu_num_mem_units = 0;
+    gpgpu_num_int_units = 0;
   }
 
   void configure() {

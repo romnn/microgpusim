@@ -1250,7 +1250,10 @@ void trace_gpgpu_sim::set_kernel_done(trace_kernel_info_t *kernel) {
 bool trace_gpgpu_sim::kernel_more_cta_left(trace_kernel_info_t *kernel) const {
   if (hit_max_cta_count()) return false;
 
-  if (kernel && !kernel->no_more_ctas_to_run()) return true;
+  // ROMAN: initialization
+  if (kernel == NULL) return false;
+  if (!kernel->no_more_ctas_to_run()) return true;
+  // if (kernel && !kernel->no_more_ctas_to_run()) return true;
 
   return false;
 }

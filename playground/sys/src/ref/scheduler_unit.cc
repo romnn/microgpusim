@@ -150,7 +150,8 @@ void scheduler_unit::cycle() {
 
       bool valid = warp(warp_id).ibuffer_next_valid();
       bool warp_inst_issued = false;
-      unsigned pc, rpc;
+      unsigned pc = (unsigned)-1;
+      unsigned rpc = (unsigned)-1;
       if (pI) m_shader->get_pdom_stack_top_info(warp_id, pI, &pc, &rpc);
 
       if (pI) {
@@ -256,17 +257,19 @@ void scheduler_unit::cycle() {
                   if (pI->m_is_cdp && !warp(warp_id).m_cdp_dummy) {
                     assert(warp(warp_id).m_cdp_latency == 0);
 
-                    if (pI->m_is_cdp == 1)
+                    if (pI->m_is_cdp == 1) {
                       warp(warp_id).m_cdp_latency =
                           m_shader->m_config->gpgpu_ctx->func_sim
                               ->cdp_latency[pI->m_is_cdp - 1];
-                    else  // cudaLaunchDeviceV2 and cudaGetParameterBufferV2
+                    } else {
+                      // cudaLaunchDeviceV2 and cudaGetParameterBufferV2
                       warp(warp_id).m_cdp_latency =
                           m_shader->m_config->gpgpu_ctx->func_sim
                               ->cdp_latency[pI->m_is_cdp - 1] +
                           m_shader->m_config->gpgpu_ctx->func_sim
                                   ->cdp_latency[pI->m_is_cdp] *
                               active_mask.count();
+                    }
                     warp(warp_id).m_cdp_dummy = true;
                     break;
                   } else if (pI->m_is_cdp && warp(warp_id).m_cdp_dummy) {
@@ -384,6 +387,7 @@ void scheduler_unit::cycle() {
             "Warp (warp_id %u, dynamic_warp_id %u) return from diverged warp "
             "flush\n",
             next_warp->get_warp_id(), next_warp->get_dynamic_warp_id());
+        assert(pc != (unsigned)-1);
         warp(warp_id).set_next_pc(pc);
         warp(warp_id).ibuffer_flush();
       }

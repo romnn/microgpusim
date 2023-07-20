@@ -36,13 +36,16 @@ class trace_shader_core_ctx {
                         const shader_core_config *config,
                         const memory_config *mem_config,
                         shader_core_stats *stats)
-      : m_barriers(this, config->max_warps_per_shader, config->max_cta_per_core,
+      : m_gpu(gpu),
+        m_kernel(NULL),
+        m_simt_stack(NULL),
+        m_thread(NULL),
+        m_warp_size(config->warp_size),
+        m_barriers(this, config->max_warps_per_shader, config->max_cta_per_core,
                    config->max_barriers_per_cta, config->warp_size),
         m_active_warps(0),
-        m_dynamic_warp_id(0),
-        m_gpu(gpu),
-        // m_kernel(NULL), m_simt_stack(NULL), m_thread(NULL),
-        m_warp_size(config->warp_size) {
+        m_dynamic_warp_id(0) {
+    // core
     m_warp_count = config->n_thread_per_shader / m_warp_size;
     // Handle the case where the number of threads is not a
     // multiple of the warp size
@@ -60,11 +63,12 @@ class trace_shader_core_ctx {
       }
     }
 
+    // shader core
     m_cluster = cluster;
     m_config = config;
     m_memory_config = mem_config;
     m_stats = stats;
-    unsigned warp_size = config->warp_size;
+    // unsigned warp_size = config->warp_size;
     Issue_Prio = 0;
 
     m_sid = shader_id;
@@ -86,6 +90,7 @@ class trace_shader_core_ctx {
     m_occupied_hwtid.reset();
     m_occupied_cta_to_hwtid.clear();
 
+    // trace core
     create_front_pipeline();
     create_shd_warp();
     create_schedulers();

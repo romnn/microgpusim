@@ -1004,6 +1004,8 @@ void trace_shader_core_ctx::fetch() {
       for (unsigned i = 0; i < m_config->max_warps_per_shader; i++) {
         unsigned warp_id =
             (m_last_warp_fetched + 1 + i) % m_config->max_warps_per_shader;
+        assert(m_warp[warp_id]->get_warp_id() == warp_id ||
+               m_warp[warp_id]->get_warp_id() == (unsigned)-1);
 
         if (  // m_warp[warp_id]->instruction_count() > 0 &&
             !(m_warp[warp_id]->hardware_done() &&
