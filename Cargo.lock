@@ -1683,8 +1683,7 @@ dependencies = [
  "async-process",
  "clap",
  "color-eyre",
- "duct",
- "futures",
+ "log",
  "thiserror",
  "tokio",
  "trace",
@@ -3508,7 +3507,7 @@ dependencies = [
  "nvbit-rs",
  "nvbit-sys",
  "once_cell",
- "plot",
+ "rayon",
  "rmp-serde",
  "serde",
  "serde_json",
@@ -3749,7 +3748,6 @@ dependencies = [
  "ssh_jumper",
  "thiserror",
  "tokio",
- "trace",
  "utils",
 ]
 

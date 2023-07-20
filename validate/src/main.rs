@@ -394,7 +394,7 @@ fn print_benchmark_result(
         || bench_config.executable.clone(),
         |cwd| bench_config.executable.relative_to(cwd),
     );
-    let benchmark_config_id = format!("{} @ {}", bench_config.name, bench_config.input_idx);
+    let benchmark_config_id = format!("{}@{:<3}", bench_config.name, bench_config.input_idx);
     bar.println(format!(
         "{:>15} {:>20} [ {} {} ] {}",
         op,

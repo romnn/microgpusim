@@ -36,7 +36,9 @@ fn register_bank(
 pub struct Operand {
     // valid: bool,
     // collector_unit: Option<CollectorUnit>,
-    warp_instr: Option<WarpInstruction>,
+    // TODO: removing warp instr
+    warp_id: Option<usize>,
+    // warp_instr: Option<WarpInstruction>,
     /// operand offset in instruction. e.g., add r1,r2,r3;
     /// r2 is oprd 0, r3 is 1 (r1 is dst)
     operand: Option<usize>,
@@ -46,12 +48,15 @@ pub struct Operand {
     /// scheduler id that has issued this inst
     // core_id: usize,
     scheduler_id: usize,
-    collector_unit: Option<Weak<RefCell<CollectorUnit>>>,
+    collector_unit_id: usize,
+    // collector_unit: Option<Weak<RefCell<CollectorUnit>>>,
 }
 
 impl Operand {
     pub fn new(
-        cu: Weak<RefCell<CollectorUnit>>,
+        // cu: Weak<RefCell<CollectorUnit>>,
+        warp_id: Option<usize>,
+        cu_id: usize,
         op: usize,
         reg: u32,
         bank: usize,
@@ -59,29 +64,40 @@ impl Operand {
     ) -> Self {
         Self {
             bank,
-            warp_instr: None,
+            warp_id,
+            // warp_instr: None,
             operand: Some(op),
             register: reg,
             scheduler_id,
-            collector_unit: Some(cu),
+            // collector_unit: Some(cu),
+            collector_unit_id: cu_id,
         }
     }
 
-    pub fn collector_unit(&self) -> Option<Rc<RefCell<CollectorUnit>>> {
-        let collector_unit = self.collector_unit.as_ref()?;
-        let collector_unit = Weak::upgrade(collector_unit)?;
-        Some(collector_unit)
-    }
+    // pub fn collector_unit(&self) -> Option<Rc<RefCell<CollectorUnit>>> {
+    //     let collector_unit = self.collector_unit.as_ref()?;
+    //     let collector_unit = Weak::upgrade(collector_unit)?;
+    //     Some(collector_unit)
+    // }
 
     pub fn warp_id(&self) -> Option<usize> {
-        if let Some(ref warp) = self.warp_instr {
-            Some(warp.warp_id)
-        } else if let Some(cu) = self.collector_unit() {
-            cu.borrow().warp_id
-        } else {
-            None
-        }
+        self.warp_id
     }
+
+    // pub fn warp_id(&self) -> Option<usize> {
+    //     self.warp_instr.as_ref().map(|warp| warp.warp_id)
+    // }
+
+    // TODO: do we need warp instruction?
+    // pub fn warp_id(&self) -> Option<usize> {
+    //     if let Some(ref warp) = self.warp_instr {
+    //         Some(warp.warp_id)
+    //     } else if let Some(cu) = self.collector_unit() {
+    //         cu.borrow().warp_id
+    //     } else {
+    //         None
+    //     }
+    // }
 }
 
 #[derive(Debug)]
@@ -228,13 +244,14 @@ impl CollectorUnit {
     // looks ok
     fn allocate(
         &mut self,
-        cu: Weak<RefCell<CollectorUnit>>,
+        // cu is ourselves??
+        // cu: Weak<RefCell<CollectorUnit>>,
         input_reg_set: &Rc<RefCell<RegisterSet>>,
         output_reg_set: &Rc<RefCell<RegisterSet>>,
     ) -> bool {
         println!(
             "{}",
-            style(format!("operand collector::allocate()")).green()
+            style(format!("operand collector::allocate({:?})", self.kind)).green(),
         );
 
         debug_assert!(self.free);
@@ -251,7 +268,8 @@ impl CollectorUnit {
             self.warp_id = Some(ready_reg.warp_id); // todo: do we need warp id??
 
             println!(
-                "operand collector::allocate() => src arch reg = {:?}",
+                "operand collector::allocate({:?}) => src arch reg = {:?}",
+                self.kind,
                 ready_reg
                     .src_arch_reg
                     .iter()
@@ -286,7 +304,9 @@ impl CollectorUnit {
                         );
 
                         self.src_operands[op] = Some(Operand::new(
-                            Weak::clone(&cu),
+                            // Weak::clone(&cu),
+                            self.warp_id,
+                            self.id, // cu id
                             op,
                             reg_num,
                             bank,
@@ -300,7 +320,8 @@ impl CollectorUnit {
                 }
             }
             println!(
-                "operand collector::allocate() => active: {}",
+                "operand collector::allocate({:?}) => active: {}",
+                self.kind,
                 self.not_ready.to_bit_string(),
             );
 
@@ -497,8 +518,9 @@ impl Arbiter {
             }
             if let Some(op) = self.queue[bank].front() {
                 // todo: this is bad: store the cu hardware id in the operand?
-                let cu = op.collector_unit.as_ref().unwrap().upgrade().unwrap();
-                let collector_id = cu.borrow().id;
+                // let cu = op.collector_unit.as_ref().unwrap().upgrade().unwrap();
+                // let collector_id = cu.borrow().id;
+                let collector_id = op.collector_unit_id;
                 debug_assert!(collector_id < _outputs);
                 self.request[bank][collector_id] = Some(1);
             }
@@ -781,7 +803,8 @@ impl OperandCollectorRegisterFileUnit {
                 let coll_units_per_scheduler = num_collector_units / self.num_warp_schedulers;
                 reg_id = cu_id / coll_units_per_scheduler;
             }
-            cu.try_borrow_mut().unwrap().init(
+            let mut cu = cu.try_borrow_mut().unwrap();
+            cu.init(
                 cu_id,
                 self.num_banks,
                 self.bank_warp_shift,
@@ -790,6 +813,8 @@ impl OperandCollectorRegisterFileUnit {
                 reg_id,
                 self.num_banks_per_scheduler,
             );
+
+            debug_assert!(cu.id == cu_id);
         }
         for dispatch_unit in self.dispatch_units.iter_mut() {
             dispatch_unit.init(self.sub_core_model, self.num_warp_schedulers);
@@ -848,14 +873,21 @@ impl OperandCollectorRegisterFileUnit {
 
         println!("allocating {} reads ({:?})", read_ops.len(), &read_ops);
         for (bank, read) in &read_ops {
-            let cu = read.collector_unit();
-            let mut cu = cu.as_ref().unwrap().borrow_mut();
-            // let mut cu = read.collector_unit().unwrap().borrow_mut();
-            // let cu = read.collector_unit().unwrap().borrow().id;
+            // todo: use the cu id here
+            // todo!("use cu id here for collecting operand");
+
+            // debug_assert!(read.collector_unit_id < self.collector_units.len());
+            let mut cu = self.collector_units[read.collector_unit_id].borrow_mut();
             if let Some(operand) = read.operand {
-                // self.collector_units[cu].collect_operand(operand);
                 cu.collect_operand(operand);
             }
+
+            // let cu = read.collector_unit();
+            // let mut cu = cu.as_ref().unwrap().borrow_mut();
+            // if let Some(operand) = read.operand {
+            //     cu.collect_operand(operand);
+            // }
+
             // if self.config.clock_gated_reg_file {
             //     let mut active_count = 0;
             //     let mut thread_id = 0;
@@ -881,13 +913,17 @@ impl OperandCollectorRegisterFileUnit {
         let port = &self.in_ports[port_num];
         println!(
             "{}",
-            style(format!("operand collector::allocate_cu({:?})", port_num)).green()
+            style(format!(
+                "operand collector::allocate_cu({:?}: {:?})",
+                port_num, port.collector_unit_ids
+            ))
+            .green()
         );
 
         debug_assert_eq!(port.in_ports.len(), port.out_ports.len());
+
         for (input_port, output_port) in port.in_ports.iter().zip(port.out_ports.iter()) {
             if input_port.borrow().has_ready() {
-                // panic!("allocate cu for the first time");
                 // find a free collector unit
                 for cu_set_id in &port.collector_unit_ids {
                     let cu_set: &Vec<_> = &self.collector_unit_sets[cu_set_id];
@@ -911,13 +947,20 @@ impl OperandCollectorRegisterFileUnit {
                     }
 
                     for k in cu_lower_bound..cu_upper_bound {
-                        let cu_backref = Rc::downgrade(&cu_set[k]);
+                        // let cu = &cu_set[k];
+                        // let cu_backref = Rc::downgrade(&cu_set[k]);
+                        // let mut cu = cu_set[k].try_borrow_mut().unwrap();
                         let mut collector_unit = cu_set[k].try_borrow_mut().unwrap();
 
                         if collector_unit.free {
-                            // we want to get here
-                            allocated =
-                                collector_unit.allocate(cu_backref, &input_port, &output_port);
+                            // println!(
+                            //     "{} cu={:?}",
+                            //     style(format!("operand collector::allocate()")).green(),
+                            //     collector_unit.kind
+                            // );
+
+                            allocated = collector_unit.allocate(&input_port, &output_port);
+                            // allocated = collector_unit.allocate(cu_backref, &input_port, &output_port);
                             self.arbiter.add_read_requests(&collector_unit);
                             break;
                         }
@@ -998,12 +1041,14 @@ impl OperandCollectorRegisterFileUnit {
                     self.arbiter.allocate_bank_for_write(
                         bank,
                         &Operand {
-                            warp_instr: Some(instr.clone()),
+                            // warp_instr: Some(instr.clone()),
+                            warp_id: Some(instr.warp_id),
                             register: reg_num,
                             scheduler_id,
                             operand: None,
                             bank,
-                            collector_unit: None,
+                            collector_unit_id: 0, // TODO: that fine?
+                                                  // collector_unit: None,
                         }, // op_t(&inst, reg_num, m_num_banks, m_bank_warp_shift, sub_core_model,
                            //      m_num_banks_per_sched, inst.get_schd_id()));
                     );

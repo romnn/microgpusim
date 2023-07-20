@@ -12,4 +12,6 @@ cuda_*.run
 
 # code coverage files
 **/*.profraw
+**/perf.data*
+**/flamegraph.svg
 /coverage

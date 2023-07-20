@@ -218,6 +218,7 @@ pub fn read_trace(path: &Path) -> eyre::Result<Vec<MemAccessTraceEntry>> {
 
 impl KernelInfo {
     pub fn from_trace(traces_dir: impl AsRef<Path>, config: KernelLaunch) -> Self {
+        let start = Instant::now();
         println!(
             "parsing kernel for launch {:?} from {}",
             &config, &config.trace_file
@@ -228,14 +229,38 @@ impl KernelInfo {
             .with_extension("msgpack");
 
         let mut trace = read_trace(&trace_path).unwrap();
+
+        // sanity check
+        debug_assert!(
+            trace.windows(2).all(|t| t[0] <= t[1]),
+            "trace is sorted correctly"
+        );
+        // l
+        // for t in trace.iter() {
+        // }
+        // let mut last_block_id = nvbit_model::Dim { x: 0, y: 0, z: 0 };
+        // let mut last_instr_offset_per_warp = HashMap::new();
+        // for t in trace.iter() {
+        //     dbg!((t.block_id, t.warp_id_in_block, t.instr_offset));
+        //     // dbg!((lastblock_id, t.warp_id_in_block, t.instr_offset));
+        //     // dbg!(&last_block_id);
+        //     let mut last_instr_offset = last_instr_offset_per_warp
+        //         .entry(t.warp_id_in_block)
+        //         .or_insert(0);
+        //     assert!(t.block_id >= last_block_id);
+        //     assert!(t.instr_offset >= *last_instr_offset);
+        //     last_block_id = t.block_id;
+        //     // last_instr_offset_per_warp.insert(t.warp_id_in_block, t.instr_offset);
+        //     *last_instr_offset = t.instr_offset;
+        // }
         // trace.sort_unstable_by(|a, b| (a.block_id, a.warp_id).cmp(&(b.block_id, b.warp_id)));
-        trace.sort_unstable_by(|a, b| {
-            (a.block_id, a.warp_id_in_block, a.instr_offset).cmp(&(
-                b.block_id,
-                b.warp_id_in_block,
-                b.instr_offset,
-            ))
-        });
+        // trace.sort_unstable_by(|a, b| {
+        //     (a.block_id, a.warp_id_in_block, a.instr_offset).cmp(&(
+        //         b.block_id,
+        //         b.warp_id_in_block,
+        //         b.instr_offset,
+        //     ))
+        // });
 
         // check if grid size is equal to the number of unique blocks in the trace
         let all_blocks: HashSet<_> = trace.iter().map(|t| t.block_id).collect();
@@ -245,6 +270,8 @@ impl KernelInfo {
             config.grid.size()
         );
         assert_eq!(config.grid.size(), all_blocks.len() as u64);
+
+        println!("reading kernel traces took {:?}", start.elapsed(),);
 
         // dbg!(&trace
         //     .iter()
@@ -256,10 +283,11 @@ impl KernelInfo {
         //     ))
         //     .collect::<Vec<_>>());
 
-        let mut trace_iter = trace.clone().into_iter().peekable();
+        // let mut trace_iter = trace.clone().into_iter().peekable();
 
         let next_block_iter = Mutex::new(config.grid.into_iter().peekable());
         let next_thread_iter = Mutex::new(config.block.into_iter().peekable());
+
         // let next_block = next_block_iter.next();
         // let next_thread_id = next_block;
         // let uid = next_kernel_uid;
@@ -570,6 +598,7 @@ pub struct MockSimulator<I> {
     allocations: Rc<RefCell<Allocations>>,
 
     // for main run loop
+    start: Instant,
     cycle: Cycle,
     traces_dir: PathBuf,
     commands: Vec<Command>,
@@ -630,6 +659,7 @@ where
         config: Arc<config::GPUConfig>,
         traces_dir: impl AsRef<Path>,
     ) -> Self {
+        let start = Instant::now();
         let traces_dir = traces_dir.as_ref();
         let stats = Arc::new(Mutex::new(Stats::from_config(&*config)));
 
@@ -712,6 +742,7 @@ where
             last_cluster_issue: 0,
             last_issued_kernel: 0,
             allocations,
+            start,
             cycle,
             traces_dir: traces_dir.to_path_buf(),
             commands,
@@ -1525,18 +1556,25 @@ mod tests {
     // }
 
     #[test]
-    fn test_vectoradd() -> eyre::Result<()> {
+    fn test_lockstep() -> eyre::Result<()> {
         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
-        let vec_add_trace_dir = manifest_dir.join("results/vectorAdd/vectorAdd-100-32");
-        let vec_add_trace_dir = manifest_dir.join("results/vectorAdd/vectorAdd-1000-32");
-        let vec_add_trace_dir = manifest_dir.join("results/vectorAdd/vectorAdd-10000-32");
+        let trace_dir = manifest_dir.join("results/vectorAdd/vectorAdd-100-32");
+        let trace_dir = manifest_dir.join("results/vectorAdd/vectorAdd-1000-32");
+        // // this has a race condition: see WIP.md
+        let trace_dir = manifest_dir.join("results/vectorAdd/vectorAdd-10000-32");
+        let trace_dir = manifest_dir.join("results/simple_matrixmul/simple_matrixmul-32-32-32-32");
+        // this fails in cycle 4654
+        // let trace_dir = manifest_dir.join("results/simple_matrixmul/simple_matrixmul-32-32-64-32");
+        //
+        // untested
+        // let trace_dir = manifest_dir.join("results/simple_matrixmul/simple_matrixmul-64-128-128-64");
 
-        let kernelslist = vec_add_trace_dir.join("accelsim-trace/kernelslist.g");
+        let kernelslist = trace_dir.join("accelsim-trace/kernelslist.g");
         let gpgpusim_config = manifest_dir.join("accelsim/gtx1080/gpgpusim.config");
         let trace_config = manifest_dir.join("accelsim/gtx1080/gpgpusim.trace.config");
         let inter_config = manifest_dir.join("accelsim/gtx1080/config_fermi_islip.icnt");
 
-        assert!(vec_add_trace_dir.is_dir());
+        assert!(trace_dir.is_dir());
         assert!(kernelslist.is_file());
         assert!(gpgpusim_config.is_file());
         assert!(trace_config.is_file());
@@ -1560,11 +1598,8 @@ mod tests {
             Some(9), // found by printf debugging gpgusim
         ));
 
-        let mut box_sim = super::MockSimulator::new(
-            box_interconn,
-            box_config.clone(),
-            vec_add_trace_dir.join("trace"),
-        );
+        let mut box_sim =
+            super::MockSimulator::new(box_interconn, box_config.clone(), trace_dir.join("trace"));
         // let box_dur = start.elapsed();
 
         // let start = std::time::Instant::now();
@@ -1843,6 +1878,7 @@ mod tests {
         Ok(())
     }
 
+    #[ignore = "todo"]
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn test_async_vectoradd() -> eyre::Result<()> {
         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));

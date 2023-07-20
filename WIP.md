@@ -1,5 +1,102 @@
 #### TODO
 
+- BUG: simple matrix mul 32 128 128 32
+  - checking for diff after cycle 4654
+  - accelsim has extra write access without any address???
+
+```
+interconn_to_l2_queue: [
+   [
+>            WRITE_REQUEST(GLOBAL_ACC_W),
+       READ_REQUEST(GLOBAL_ACC_R@1+3936),
+       WRITE_REQUEST(GLOBAL_ACC_W),
+       READ_REQUEST(GLOBAL_ACC_R@2+6400),
+       READ_REQUEST(GLOBAL_ACC_R@2+6656),
+   ],
+   [
+       READ_REQUEST(GLOBAL_ACC_R@1+2528),
+       READ_REQUEST(GLOBAL_ACC_R@1+2528),
+       READ_REQUEST(GLOBAL_ACC_R@2+6528),
+       READ_REQUEST(GLOBAL_ACC_R@2+7296),
+       READ_REQUEST(GLOBAL_ACC_R@1+2528),
+   ],
+],
+```
+
+- BUG: race condition in playground (occurred in cycle 1251) STILL TRUE?
+  - checking for diff after cycle 1251
+  - cause: playground operand collector chooses to clear ID OC SP instead of ID OC MEM
+
+```
+ports: [
+   Port {
+         in_ports: [
+<                            "ID_OC_SP"=[Some(EXIT[pc=240,warp=38]), None, None, None],
+>                            "ID_OC_SP"=[None, None, None, None],
+         ],
+         out_ports: [
+             "OC_EX_SP"=[Some(EXIT[pc=240,warp=36]), None, None, None],
+         ],
+         ids: [
+             SP_CUS,
+             GEN_CUS,
+         ],
+   },
+  Port {
+       in_ports: [
+<                            "ID_OC_SP"=[Some(EXIT[pc=240,warp=38]), None, None, None],
+>                            "ID_OC_SP"=[None, None, None, None],
+       ],
+       out_ports: [
+           "OC_EX_SP"=[Some(EXIT[pc=240,warp=36]), None, None, None],
+       ],
+       ids: [
+           SP_CUS,
+           GEN_CUS,
+       ],
+   },
+   Port {
+       in_ports: [
+<                            "ID_OC_SP"=[Some(EXIT[pc=240,warp=38]), None, None, None],
+>                            "ID_OC_SP"=[None, None, None, None],
+       ],
+       out_ports: [
+           "OC_EX_SP"=[Some(EXIT[pc=240,warp=36]), None, None, None],
+       ],
+       ids: [
+           SP_CUS,
+           GEN_CUS,
+       ],
+   },
+   Port {
+       in_ports: [
+<                            "ID_OC_SP"=[Some(EXIT[pc=240,warp=38]), None, None, None],
+>                            "ID_OC_SP"=[None, None, None, None],
+       ],
+       out_ports: [
+           "OC_EX_SP"=[Some(EXIT[pc=240,warp=36]), None, None, None],
+       ],
+       ids: [
+           SP_CUS,
+           GEN_CUS,
+       ],
+   },
+   Port {
+       in_ports: [
+<                            "ID_OC_MEM"=[None],
+>                            "ID_OC_MEM"=[Some(LDG[pc=176,warp=48])],
+       ],
+       out_ports: [
+           "OC_EX_MEM"=[None],
+       ],
+       ids: [
+           MEM_CUS,
+           GEN_CUS,
+       ],
+   },
+ ],
+```
+
 - DONE: BUG: warps using global block id rather than block hw id
 - DONE: BUG: box is unwrapping current instruction on exited warp
 

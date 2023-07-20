@@ -26,6 +26,7 @@ opt-level = 3
 [profile.release]
 lto = true
 opt-level = 3
+debug = true
 
 [package]
 name = "casimu"

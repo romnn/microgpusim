@@ -58,6 +58,19 @@ python setup.py develop --force
 cargo test --workspace -- --test-threads=1
 ```
 
+Performance profiling
+
+First, configure [permissions for running perf on linux](https://github.com/flamegraph-rs/flamegraph#enabling-perf-for-use-by-unprivileged-users).
+
+Check [this](https://github.com/flamegraph-rs/flamegraph) on how to setup flamegraphs.
+Here is a TLDR for x86 linux:
+
+```bash
+sudo apt install linux-tools-common linux-tools-generic linux-tools-$(uname -r)
+cargo install flamegraph
+cargo flamegraph --bin=casimu -- --path ./results/vectorAdd/vectorAdd-10000-32/trace
+```
+
 Coverage
 
 ```bash

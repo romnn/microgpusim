@@ -1,3 +1,7 @@
+[target.x86_64-unknown-linux-gnu]
+linker = "/usr/bin/clang"
+rustflags = ["-Clink-arg=-fuse-ld=lld", "-Clink-arg=-Wl,--no-rosegment"]
+
 [alias]
 xtask = "run --package xtask --"
 validate = "run --package validate --"
@@ -5,3 +9,5 @@ trace = "run --package trace --"
 sim = "run --"
 accelsim-trace = "run --package accelsim-trace --"
 accelsim-sim = "run --package accelsim-sim --"
+
+t = "test -- --test-threads=1"

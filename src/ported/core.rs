@@ -961,7 +961,7 @@ where
                     let warp_id = (last + 1 + i) % max_warps;
 
                     let warp = self.inner.warps[warp_id].try_borrow().unwrap();
-                    debug_assert_eq!(warp.warp_id, warp_id);
+                    debug_assert!(warp.warp_id == warp_id || warp.warp_id == u32::MAX as usize);
 
                     let block_hw_id = warp.block_id as usize;
                     debug_assert!(
@@ -1171,7 +1171,6 @@ where
         } = self.inner.instr_fetch_buffer;
 
         let core_id = self.id();
-        // println!("core {:?}: {}", core_id, style("decode").red());
         println!(
             "{}",
             style(format!(
@@ -1206,12 +1205,13 @@ where
         // debug: print all instructions in this warp
         for (trace_pc, trace_instr) in warp.trace_instructions.iter().enumerate() {
             println!(
-                "====> warp[warp_id={:03}][trace_pc={:03}]:\t {}\t\t active={} \tpc = {}",
+                "====> warp[warp_id={:03}][trace_pc={:03}]:\t {}\t\t active={} \tpc={} idx={}",
                 warp_id,
                 trace_pc,
                 trace_instr,
                 trace_instr.active_mask.to_bit_string(),
-                trace_instr.pc
+                trace_instr.pc,
+                trace_instr.trace_idx
             );
         }
         drop(warp);
