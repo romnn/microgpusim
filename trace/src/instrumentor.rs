@@ -560,11 +560,11 @@ impl<'c> Instrumentor<'c> {
             #[cfg(feature = "parallel")]
             {
                 use rayon::slice::ParallelSliceMut;
-                kernel_trace.par_sort_unstable();
+                kernel_trace.par_sort();
             }
 
             #[cfg(not(feature = "parallel"))]
-            kernel_trace.sort_unstable();
+            kernel_trace.sort();
         }
 
         for (kernel_id, kernel_trace) in per_kernel_traces.into_iter().enumerate() {

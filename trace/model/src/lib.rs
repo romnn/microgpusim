@@ -70,13 +70,8 @@ pub struct MemAccessTraceEntry {
 impl MemAccessTraceEntry {
     #[must_use]
     #[inline]
-    pub fn sort_key(&self) -> (&u64, &nvbit_model::Dim, &u32, &u32) {
-        (
-            &self.kernel_id,
-            &self.block_id,
-            &self.warp_id_in_block,
-            &self.instr_offset,
-        )
+    pub fn sort_key(&self) -> (&u64, &nvbit_model::Dim, &u32) {
+        (&self.kernel_id, &self.block_id, &self.warp_id_in_block)
     }
 }
 
