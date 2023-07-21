@@ -4,9 +4,11 @@
 #include <memory>
 #include <vector>
 
+#include "spdlog/logger.h"
 #include "register_set.hpp"
 #include "scoreboard.hpp"
 #include "trace_shd_warp.hpp"
+#include "trace_shader_core_ctx.hpp"
 
 class shader_core_stats;
 class simt_stack;
@@ -22,7 +24,8 @@ class scheduler_unit {
                  register_set *int_out, register_set *tensor_core_out,
                  std::vector<register_set *> &spec_cores_out,
                  register_set *mem_out, int id)
-      : m_supervised_warps(),
+      : logger(shader->logger),
+        m_supervised_warps(),
         m_stats(stats),
         m_shader(shader),
         m_scoreboard(scoreboard),
@@ -33,8 +36,8 @@ class scheduler_unit {
         m_sfu_out(sfu_out),
         m_int_out(int_out),
         m_tensor_core_out(tensor_core_out),
-        m_spec_cores_out(spec_cores_out),
         m_mem_out(mem_out),
+        m_spec_cores_out(spec_cores_out),
         m_id(id) {}
   virtual ~scheduler_unit() {}
   virtual void add_supervised_warp_id(int i) {
@@ -160,8 +163,8 @@ class scheduler_unit {
       T greedy_value = *last_issued_from_input;
       result_list.push_back(greedy_value);
 
-      std::cout << "added greedy warp: " << greedy_value->get_dynamic_warp_id()
-                << std::endl;
+      logger->trace("added greedy warp: {}",
+                    greedy_value->get_dynamic_warp_id());
 
       // std::sort(temp.begin(), temp.end(), priority_func);
       std::stable_sort(temp.begin(), temp.end(), priority_func);
@@ -214,6 +217,8 @@ class scheduler_unit {
   virtual void order_warps() = 0;
 
   int get_schd_id() const { return m_id; }
+
+  std::shared_ptr<spdlog::logger> logger;
 
  protected:
   virtual void do_on_warp_issued(

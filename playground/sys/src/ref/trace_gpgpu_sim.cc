@@ -3,6 +3,7 @@
 #include <signal.h>
 #include <iomanip>
 
+#include "fmt/format.h"
 #include "hal.hpp"
 #include "io.hpp"
 #include "cache_sub_stats.hpp"
@@ -173,7 +174,8 @@ unsigned long long g_single_step = 0;
 
 // simpler version of the main loop, which does not use different clock domains.
 void trace_gpgpu_sim::simple_cycle() {
-  printf("=============== cycle %llu ========== \n\n", gpu_sim_cycle);
+  logger->info("=============== cycle {} ===============", gpu_sim_cycle);
+  logger->info("");
 
   for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++)
     m_cluster[i]->icnt_cycle();
@@ -181,41 +183,29 @@ void trace_gpgpu_sim::simple_cycle() {
   unsigned partiton_replys_in_parallel_per_cycle = 0;
   // pop from memory controller to interconnect
 
-  std::cout << "POP from " << m_memory_config->m_n_mem_sub_partition
-            << " memory sub partitions" << std::endl;
+  logger->trace("POP from {} memory sub partitions",
+                m_memory_config->m_n_mem_sub_partition);
 
   for (unsigned i = 0; i < m_memory_config->m_n_mem_sub_partition; i++) {
-    std::cout << "checking sub partition[" << i << "]:" << std::endl;
-    std::cout << "\t icnt to l2 queue (" << std::setfill(' ') << std::left
-              << std::setw(3)
-              << m_memory_sub_partition[i]->m_icnt_L2_queue->get_n_element()
-              << ") = " << m_memory_sub_partition[i]->m_icnt_L2_queue
-              << std::endl;
-    std::cout << "\t l2 to icnt queue (" << std::setfill(' ') << std::left
-              << std::setw(3)
-              << m_memory_sub_partition[i]->m_L2_icnt_queue->get_n_element()
-              << ") = " << m_memory_sub_partition[i]->m_L2_icnt_queue
-              << std::endl;
-    std::cout << "\t l2 to dram queue (" << std::setfill(' ') << std::left
-              << std::setw(3)
-              << m_memory_sub_partition[i]->m_L2_dram_queue->get_n_element()
-              << ") = " << m_memory_sub_partition[i]->m_L2_dram_queue
-              << std::endl;
-    std::cout << "\t dram to l2 queue (" << std::setfill(' ') << std::left
-              << std::setw(3)
-              << m_memory_sub_partition[i]->m_dram_L2_queue->get_n_element()
-              << ") = " << m_memory_sub_partition[i]->m_dram_L2_queue
-              << std::endl;
+    logger->trace("checking sub partition[{}]:", i);
+    logger->trace("\t icnt to l2 queue = {}",
+                  *(m_memory_sub_partition[i]->m_icnt_L2_queue));
+    logger->trace("\t l2 to icnt queue = {}",
+                  *(m_memory_sub_partition[i]->m_L2_icnt_queue));
+    logger->trace("\t l2 to dram queue = {}",
+                  *(m_memory_sub_partition[i]->m_L2_dram_queue));
+    logger->trace("\t dram to l2 queue = {}",
+                  *(m_memory_sub_partition[i]->m_dram_L2_queue));
+
     unsigned partition_id = i / m_memory_config->m_n_mem_sub_partition;
     assert(partition_id < m_memory_config->m_n_mem);
-    std::cout
-        << "\t dram latency queue (" << std::setfill(' ') << std::left
-        << std::setw(3)
-        << m_memory_partition_unit[partition_id]->m_dram_latency_queue.size()
-        << ") = " << m_memory_partition_unit[partition_id]->m_dram_latency_queue
-        << std::endl;
+    logger->trace(
+        "\t dram latency queue ({:<3}) = [{}]",
+        m_memory_partition_unit[partition_id]->m_dram_latency_queue.size(),
+        fmt::join(m_memory_partition_unit[partition_id]->m_dram_latency_queue,
+                  ","));
 
-    std::cout << std::endl;
+    logger->trace("");
 
     mem_fetch *mf = m_memory_sub_partition[i]->top();
     if (mf) {
@@ -238,7 +228,7 @@ void trace_gpgpu_sim::simple_cycle() {
   }
   partiton_replys_in_parallel += partiton_replys_in_parallel_per_cycle;
 
-  printf("cycle for %d drams\n", m_memory_config->m_n_mem);
+  logger->trace("cycle for {} drams", m_memory_config->m_n_mem);
   for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
     if (m_memory_config->simple_dram_model)
       m_memory_partition_unit[i]->simple_dram_model_cycle();
@@ -247,8 +237,8 @@ void trace_gpgpu_sim::simple_cycle() {
       m_memory_partition_unit[i]->dram_cycle();
   }
 
-  printf("moving mem requests from interconn to %d mem partitions\n",
-         m_memory_config->m_n_mem_sub_partition);
+  logger->trace("moving mem requests from interconn to {} mem partitions",
+                m_memory_config->m_n_mem_sub_partition);
   unsigned partiton_reqs_in_parallel_per_cycle = 0;
   for (unsigned i = 0; i < m_memory_config->m_n_mem_sub_partition; i++) {
     // move memory request from interconnect into memory partition (if not
@@ -257,13 +247,13 @@ void trace_gpgpu_sim::simple_cycle() {
     // SECTOR_CHUNCK_SIZE requests, so ensure you have enough buffer for them
     unsigned device = m_shader_config->mem2device(i);
     if (m_memory_sub_partition[i]->full(SECTOR_CHUNCK_SIZE)) {
-      printf("SKIP sub partition %u (%u): DRAM full stall\n", i, device);
+      logger->trace("SKIP sub partition {} ({}): DRAM full stall", i, device);
       gpu_stall_dramfull++;
     } else {
       mem_fetch *mf = (mem_fetch *)icnt_pop(device);
       if (mf) {
-        std::cout << "got new fetch " << mf << " for mem sub partition " << i
-                  << " (" << device << ")" << std::endl;
+        logger->trace("got new fetch {} for mem sub partition {} ({})",
+                      mem_fetch_ptr(mf), i, device);
         m_memory_sub_partition[i]->push(mf, gpu_sim_cycle + gpu_tot_sim_cycle);
       }
       if (mf) partiton_reqs_in_parallel_per_cycle++;
@@ -277,11 +267,11 @@ void trace_gpgpu_sim::simple_cycle() {
     gpu_sim_cycle_parition_util++;
   }
 
-  // printf("icnt transfer\n");
+  // logger->trace("icnt transfer");
   icnt_transfer();
 
   // L1 cache + shader core pipeline stages
-  printf("core cycle for %d clusters\n", m_shader_config->n_simt_clusters);
+  logger->trace("core cycle for {} clusters", m_shader_config->n_simt_clusters);
   for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
     if (m_cluster[i]->get_not_completed() || get_more_cta_left()) {
       m_cluster[i]->core_cycle();
@@ -307,7 +297,7 @@ void trace_gpgpu_sim::simple_cycle() {
   // completed.
   int all_threads_complete = 1;
   if (m_config.gpgpu_flush_l1_cache) {
-    printf("flushing l1 caches\n");
+    logger->trace("flushing l1 caches");
     for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
       if (m_cluster[i]->get_not_completed() == 0)
         m_cluster[i]->cache_invalidate();
@@ -318,7 +308,7 @@ void trace_gpgpu_sim::simple_cycle() {
 
   if (m_config.gpgpu_flush_l2_cache) {
     if (!m_config.gpgpu_flush_l1_cache) {
-      printf("flushing l2 caches\n");
+      logger->trace("flushing l2 caches");
       for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
         if (m_cluster[i]->get_not_completed() != 0) {
           all_threads_complete = 0;
@@ -328,50 +318,22 @@ void trace_gpgpu_sim::simple_cycle() {
     }
 
     if (all_threads_complete && !m_memory_config->m_L2_config.disabled()) {
-      printf("flushed L2 caches...\n");
+      logger->trace("flushed L2 caches...");
       if (m_memory_config->m_L2_config.get_num_lines()) {
         int dlc = 0;
         for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
           dlc = m_memory_sub_partition[i]->flushL2();
           assert(dlc == 0);  // TODO: need to model actual writes to DRAM here
-          printf("dirty lines flushed from L2 %d is %d\n", i, dlc);
+          logger->trace("dirty lines flushed from L2 {} is {}", i, dlc);
         }
       }
     }
   }
-
-  // printf("===== SUMMARY ====="); // sub partition [%u]\n", p);
-  // for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
-  //   const trace_simt_core_cluster *cluster = m_cluster[i];
-  // }
-  // for (unsigned i = 0; i < m_memory_config->m_n_mem; i++)
-  //   m_memory_partition_unit[i]->print(stdout);
-  // printf("===== END SUMMARY =====");
-
-  // print all the state
-  // for (unsigned p = 0;
-  //      p < m_memory_config->m_n_sub_partition_per_memory_channel;
-  //      p++) {
-  //   const memory_sub_partition *sub_part = cluster->m_sub_partition[p];
-  //
-  //   printf("interconn to l2 queue:\t\t%s\n",
-  //          sub_part->m_icnt_L2_queue->to_string().c_str());
-  //   printf("dram to l2 queue:\t\t%s\n",
-  //          sub_part->m_dram_L2_queue->to_string().c_str());
-  //   printf("l2 to interconn queue:\t\t%s\n",
-  //          sub_part->m_L2_icnt_queue->to_string().c_str());
-  //   printf("===== END OF SUMMARY =====");
-  //
-  //   // delete m_L2cache;
-  //   // delete m_L2interface;
-  // }
-  //   }
-  // }
 }
 
 void trace_gpgpu_sim::cycle() {
-  // guess: clock mask is which clock domains are active in this cycle (core,
-  // icnt)
+  // clock mask is which clock domains are active in this cycle (core, icnt)
+  // due to the different frequencies
   int clock_mask = next_clock_domain();
 
   if (clock_mask & CORE) {
@@ -391,7 +353,7 @@ void trace_gpgpu_sim::cycle() {
           // if (!mf->get_is_write())
           mf->set_return_timestamp(gpu_sim_cycle + gpu_tot_sim_cycle);
           mf->set_status(IN_ICNT_TO_SHADER, gpu_sim_cycle + gpu_tot_sim_cycle);
-          printf("trace_gpgpu_sim: icnt_push(%lu)\n", mf->get_addr());
+          logger->trace("trace_gpgpu_sim: icnt_push({})", mf->get_addr());
           ::icnt_push(m_shader_config->mem2device(i), mf->get_tpc(), mf,
                       response_size);
           m_memory_sub_partition[i]->pop();
@@ -444,9 +406,8 @@ void trace_gpgpu_sim::cycle() {
       } else {
         mem_fetch *mf = (mem_fetch *)icnt_pop(m_shader_config->mem2device(i));
         if (mf) {
-          std::cout << "got new fetch " << mf << " for mem sub partition " << i
-                    << " (" << m_shader_config->mem2device(i) << ")"
-                    << std::endl;
+          logger->trace("got new fetch {} for mem sub partition {} ({})",
+                        mem_fetch_ptr(mf), i, m_shader_config->mem2device(i));
 
           m_memory_sub_partition[i]->push(mf,
                                           gpu_sim_cycle + gpu_tot_sim_cycle);
@@ -547,13 +508,13 @@ void trace_gpgpu_sim::cycle() {
       }
 
       if (all_threads_complete && !m_memory_config->m_L2_config.disabled()) {
-        printf("Flushed L2 caches...\n");
+        logger->trace("Flushed L2 caches...");
         if (m_memory_config->m_L2_config.get_num_lines()) {
           int dlc = 0;
           for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
             dlc = m_memory_sub_partition[i]->flushL2();
             assert(dlc == 0);  // TODO: need to model actual writes to DRAM here
-            printf("Dirty lines flushed from L2 %d is %d\n", i, dlc);
+            logger->trace("Dirty lines flushed from L2 {} is {}", i, dlc);
           }
         }
       }
@@ -589,15 +550,15 @@ void trace_gpgpu_sim::cycle() {
         fflush(stdout);
         last_liveness_message_time = elapsed_time;
       }
-      visualizer_printstat();
+      // visualizer_printstat();
       m_memory_stats->memlatstat_lat_pw();
       if (m_config.gpgpu_runtime_stat &&
           (m_config.gpu_runtime_stat_flag != 0)) {
         if (m_config.gpu_runtime_stat_flag & GPU_RSTAT_BW_STAT) {
           for (unsigned i = 0; i < m_memory_config->m_n_mem; i++)
             m_memory_partition_unit[i]->print_stat(stdout);
-          printf("maxmrqlatency = %d \n", m_memory_stats->max_mrq_latency);
-          printf("maxmflatency = %d \n", m_memory_stats->max_mf_latency);
+          logger->trace("maxmrqlatency = {}", m_memory_stats->max_mrq_latency);
+          logger->trace("maxmflatency = {}", m_memory_stats->max_mf_latency);
         }
         if (m_config.gpu_runtime_stat_flag & GPU_RSTAT_SHD_INFO)
           shader_print_runtime_stat(stdout);
@@ -785,8 +746,8 @@ void trace_gpgpu_sim::gpu_print_stat() {
   // performance counter that are not local to one shader
   m_memory_stats->memlatstat_print(m_memory_config->m_n_mem,
                                    m_memory_config->nbk);
-  for (unsigned i = 0; i < m_memory_config->m_n_mem; i++)
-    m_memory_partition_unit[i]->print(stdout);
+  // for (unsigned i = 0; i < m_memory_config->m_n_mem; i++)
+  //   m_memory_partition_unit[i]->print(stdout);
 
   // L2 cache stats
   if (!m_memory_config->m_L2_config.disabled()) {
@@ -918,7 +879,7 @@ bool trace_gpgpu_sim::get_more_cta_left() const {
 }
 
 void trace_gpgpu_sim::issue_block2core() {
-  printf("issue block to core\n");
+  logger->trace("issue block to core");
   unsigned last_issued = m_last_cluster_issue;
   for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
     unsigned idx = (i + last_issued + 1) % m_shader_config->n_simt_clusters;
@@ -1176,43 +1137,45 @@ trace_kernel_info_t *trace_gpgpu_sim::select_kernel() {
   return NULL;
 }
 
-void trace_gpgpu_sim::visualizer_printstat() {
-  gzFile visualizer_file = NULL;  // gzFile is basically a pointer to a struct,
-                                  // so it is fine to initialize it as NULL
-  if (!m_config.g_visualizer_enabled) return;
-
-  // clean the content of the visualizer log if it is the first time, otherwise
-  // attach at the end
-  static bool visualizer_first_printstat = true;
-
-  visualizer_file = gzopen(m_config.g_visualizer_filename,
-                           (visualizer_first_printstat) ? "w" : "a");
-  if (visualizer_file == NULL) {
-    printf("error - could not open visualizer trace file.\n");
-    exit(1);
-  }
-  gzsetparams(visualizer_file, m_config.g_visualizer_zlevel,
-              Z_DEFAULT_STRATEGY);
-  visualizer_first_printstat = false;
-
-  cflog_visualizer_gzprint(visualizer_file);
-  shader_CTA_count_visualizer_gzprint(visualizer_file);
-
-  for (unsigned i = 0; i < m_memory_config->m_n_mem; i++)
-    m_memory_partition_unit[i]->visualizer_print(visualizer_file);
-  m_shader_stats->visualizer_print(visualizer_file);
-  m_memory_stats->visualizer_print(visualizer_file);
-  // m_power_stats->visualizer_print(visualizer_file);
-  // proc->visualizer_print(visualizer_file);
-  // other parameters for graphing
-  gzprintf(visualizer_file, "globalcyclecount: %lld\n", gpu_sim_cycle);
-  gzprintf(visualizer_file, "globalinsncount: %lld\n", gpu_sim_insn);
-  gzprintf(visualizer_file, "globaltotinsncount: %lld\n", gpu_tot_sim_insn);
-
-  time_vector_print_interval2gzfile(visualizer_file);
-
-  gzclose(visualizer_file);
-}
+// void trace_gpgpu_sim::visualizer_printstat() {
+//   gzFile visualizer_file = NULL;  // gzFile is basically a pointer to a
+//   struct,
+//                                   // so it is fine to initialize it as NULL
+//   if (!m_config.g_visualizer_enabled) return;
+//
+//   // clean the content of the visualizer log if it is the first time,
+//   otherwise
+//   // attach at the end
+//   static bool visualizer_first_printstat = true;
+//
+//   visualizer_file = gzopen(m_config.g_visualizer_filename,
+//                            (visualizer_first_printstat) ? "w" : "a");
+//   if (visualizer_file == NULL) {
+//     printf("error - could not open visualizer trace file.\n");
+//     exit(1);
+//   }
+//   gzsetparams(visualizer_file, m_config.g_visualizer_zlevel,
+//               Z_DEFAULT_STRATEGY);
+//   visualizer_first_printstat = false;
+//
+//   cflog_visualizer_gzprint(visualizer_file);
+//   shader_CTA_count_visualizer_gzprint(visualizer_file);
+//
+//   for (unsigned i = 0; i < m_memory_config->m_n_mem; i++)
+//     m_memory_partition_unit[i]->visualizer_print(visualizer_file);
+//   m_shader_stats->visualizer_print(visualizer_file);
+//   m_memory_stats->visualizer_print(visualizer_file);
+//   // m_power_stats->visualizer_print(visualizer_file);
+//   // proc->visualizer_print(visualizer_file);
+//   // other parameters for graphing
+//   gzprintf(visualizer_file, "globalcyclecount: %lld\n", gpu_sim_cycle);
+//   gzprintf(visualizer_file, "globalinsncount: %lld\n", gpu_sim_insn);
+//   gzprintf(visualizer_file, "globaltotinsncount: %lld\n", gpu_tot_sim_insn);
+//
+//   time_vector_print_interval2gzfile(visualizer_file);
+//
+//   gzclose(visualizer_file);
+// }
 
 /// printing the names and uids of a set of executed kernels (usually there is
 /// only one)

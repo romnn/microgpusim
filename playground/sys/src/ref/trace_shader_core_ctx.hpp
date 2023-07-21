@@ -1,7 +1,6 @@
 #pragma once
 
 #include "barrier_set.hpp"
-#include "core.hpp"
 #include "ifetch_buffer.hpp"
 #include "opndcoll_rfu.hpp"
 #include "register_set.hpp"
@@ -9,6 +8,8 @@
 #include "shader_core_stats.hpp"
 #include "trace_gpgpu_sim.hpp"
 #include "trace_shd_warp.hpp"
+
+#include "spdlog/logger.h"
 
 class Scoreboard;
 class ldst_unit;
@@ -19,6 +20,7 @@ class shader_core_mem_fetch_allocator;
 class read_only_cache;
 class thread_ctx_t;
 class cache_stats;
+class simt_stack;
 class memory_config;
 class shader_core_stats;
 
@@ -27,7 +29,6 @@ class shader_core_stats;
 // other memory spaces
 #define PROGRAM_MEM_START 0xF0000000
 
-// class trace_shader_core_ctx : public shader_core_ctx {
 class trace_shader_core_ctx {
  public:
   trace_shader_core_ctx(class trace_gpgpu_sim *gpu,
@@ -36,13 +37,16 @@ class trace_shader_core_ctx {
                         const shader_core_config *config,
                         const memory_config *mem_config,
                         shader_core_stats *stats)
-      : m_gpu(gpu),
+
+      : logger(gpu->logger),
+        m_gpu(gpu),
         m_kernel(NULL),
         m_simt_stack(NULL),
         m_thread(NULL),
         m_warp_size(config->warp_size),
         m_barriers(this, config->max_warps_per_shader, config->max_cta_per_core,
                    config->max_barriers_per_cta, config->warp_size),
+        m_operand_collector(gpu->logger),
         m_active_warps(0),
         m_dynamic_warp_id(0) {
     // core
@@ -159,8 +163,8 @@ class trace_shader_core_ctx {
     assert(k);
     m_kernel = k;
     //        k->inc_running();
-    printf("GPGPU-Sim uArch: Shader %d bind to kernel %u \'%s\'\n", m_sid,
-           m_kernel->get_uid(), m_kernel->name().c_str());
+    logger->trace("GPGPU-Sim uArch: Shader {} bind to kernel {} \'{}\'\n",
+                  m_sid, m_kernel->get_uid(), m_kernel->name());
   }
 
   unsigned current_cycle() {
@@ -253,6 +257,8 @@ class trace_shader_core_ctx {
   unsigned get_sid() const { return m_sid; }
 
   const shader_core_config *get_config() const { return m_config; }
+
+  std::shared_ptr<spdlog::logger> logger;
 
  protected:
   class trace_gpgpu_sim *m_gpu;

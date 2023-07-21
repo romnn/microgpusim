@@ -18,7 +18,7 @@
 trace_shd_warp_t &scheduler_unit::warp(int i) { return *((*m_warp)[i]); }
 
 void scheduler_unit::cycle() {
-  printf("%s::scheduler_unit::cycle()\n", name());
+  logger->trace("{}::scheduler_unit::cycle()", name());
   bool valid_inst =
       false;  // there was one warp with a valid instruction to
               // issue (didn't require flush due to control hazard)
@@ -33,18 +33,16 @@ void scheduler_unit::cycle() {
        iter != m_next_cycle_prioritized_warps.end(); iter++) {
     tmp_warp_ids.push_back((*iter)->get_warp_id());
   }
-  std::cout << name()
-            << "::scheduler_unit BEFORE: m_next_cycle_prioritized_warps: "
-            << tmp_warp_ids << std::endl;
+  logger->trace("{}::scheduler_unit BEFORE: m_next_cycle_prioritized_warps: {}",
+                name(), fmt::join(tmp_warp_ids, ","));
 
   tmp_warp_ids.clear();
   for (iter = m_next_cycle_prioritized_warps.begin();
        iter != m_next_cycle_prioritized_warps.end(); iter++) {
     tmp_warp_ids.push_back((*iter)->get_dynamic_warp_id());
   }
-  std::cout << name()
-            << "::scheduler_unit BEFORE: m_next_cycle_prioritized_warps: "
-            << tmp_warp_ids << std::endl;
+  logger->trace("{}::scheduler_unit BEFORE: m_next_cycle_prioritized_warps: {}",
+                name(), fmt::join(tmp_warp_ids, ","));
 
   order_warps();
 
@@ -53,18 +51,16 @@ void scheduler_unit::cycle() {
        iter != m_next_cycle_prioritized_warps.end(); iter++) {
     tmp_warp_ids.push_back((*iter)->get_warp_id());
   }
-  std::cout << name()
-            << "::scheduler_unit AFTER: m_next_cycle_prioritized_warps: "
-            << tmp_warp_ids << std::endl;
+  logger->trace("{}::scheduler_unit AFTER: m_next_cycle_prioritized_warps: {}",
+                name(), fmt::join(tmp_warp_ids, ","));
 
   tmp_warp_ids.clear();
   for (iter = m_next_cycle_prioritized_warps.begin();
        iter != m_next_cycle_prioritized_warps.end(); iter++) {
     tmp_warp_ids.push_back((*iter)->get_dynamic_warp_id());
   }
-  std::cout << name()
-            << "::scheduler_unit AFTER: m_next_cycle_prioritized_warps: "
-            << tmp_warp_ids << std::endl;
+  logger->trace("{}::scheduler_unit AFTER: m_next_cycle_prioritized_warps: {}",
+                name(), fmt::join(tmp_warp_ids, ","));
 
   for (std::vector<trace_shd_warp_t *>::iterator iter =
            m_next_cycle_prioritized_warps.begin();
@@ -76,9 +72,9 @@ void scheduler_unit::cycle() {
     }
     assert(next_warp->instruction_count() > 0);
     if (!next_warp->trace_done() && next_warp->instruction_count() > 1) {
-      printf(
-          "Testing (warp_id %u, dynamic_warp_id %u, trace_pc = %u, pc=%lu, "
-          "ibuffer=[%lu, %lu], %lu instructions)\n",
+      logger->trace(
+          "Testing (warp_id {}, dynamic_warp_id {}, trace_pc = {}, pc={}, "
+          "ibuffer=[{}, {}], {} instructions)",
           next_warp->get_warp_id(), next_warp->get_dynamic_warp_id(),
           next_warp->trace_pc, next_warp->get_pc(),
           next_warp->m_ibuffer[0].m_valid ? next_warp->m_ibuffer[0].m_inst->pc
@@ -105,16 +101,16 @@ void scheduler_unit::cycle() {
 
     if (next_warp->instruction_count() > 1) {
       if (warp(warp_id).ibuffer_empty()) {
-        printf(
-            "\t => Warp (warp_id %u, dynamic_warp_id %u) fails as "
-            "ibuffer_empty\n",
+        logger->trace(
+            "\t => Warp (warp_id {}, dynamic_warp_id {}) fails as "
+            "ibuffer_empty",
             next_warp->get_warp_id(), next_warp->get_dynamic_warp_id());
       }
 
       if (warp(warp_id).waiting()) {
-        printf(
-            "\t => Warp (warp_id %u, dynamic_warp_id %u) fails as waiting for "
-            "barrier\n",
+        logger->trace(
+            "\t => Warp (warp_id {}, dynamic_warp_id {}) fails as waiting for "
+            "barrier",
             next_warp->get_warp_id(), next_warp->get_dynamic_warp_id());
       }
     }
@@ -134,12 +130,6 @@ void scheduler_unit::cycle() {
            (checked < max_issue) && (checked <= issued) &&
            (issued < max_issue)) {
       const warp_inst_t *pI = warp(warp_id).ibuffer_next_inst();
-      // const trace_warp_inst_t *tpI = static_cast<const trace_warp_inst_t
-      // *>(pI); printf("%s\n", tpI->opcode_str());
-
-      // this is a special case we have because we might skip instructions
-      // if (pI == NULL)
-      //   break;
 
       // Jin: handle cdp latency;
       if (pI && pI->m_is_cdp && warp(warp_id).m_cdp_latency > 0) {
@@ -155,11 +145,11 @@ void scheduler_unit::cycle() {
       if (pI) m_shader->get_pdom_stack_top_info(warp_id, pI, &pc, &rpc);
 
       if (pI) {
-        std::cout << "Warp (warp_id " << next_warp->get_warp_id()
-                  << ", dynamic_warp_id " << next_warp->get_dynamic_warp_id()
-                  << ") instruction buffer[" << warp(warp_id).m_next
-                  << " has valid instruction (" << pI->display()
-                  << ", op=" << uarch_op_t_str[pI->op] << ")" << std::endl;
+        logger->trace(
+            "Warp (warp_id {}, dynamic_warp_id {}) instruction buffer[{}] has "
+            "valid instruction ({}, op={})",
+            next_warp->get_warp_id(), next_warp->get_dynamic_warp_id(),
+            warp(warp_id).m_next, pI->display(), uarch_op_t_str[pI->op]);
         assert(valid);
         assert(pI->pc == pc &&
                pc == rpc);  // trace driven mode has no control hazards
@@ -176,8 +166,9 @@ void scheduler_unit::cycle() {
           // m_scoreboard->printContents();
           // pI->print(stdout);
           if (!m_scoreboard->checkCollision(warp_id, pI)) {
-            printf("Warp (warp_id %u, dynamic_warp_id %u) passes scoreboard\n",
-                   next_warp->get_warp_id(), next_warp->get_dynamic_warp_id());
+            logger->trace(
+                "Warp (warp_id {}, dynamic_warp_id {}) passes scoreboard",
+                next_warp->get_warp_id(), next_warp->get_dynamic_warp_id());
             ready_inst = true;
 
             const active_mask_t &active_mask =
@@ -227,11 +218,10 @@ void scheduler_unit::cycle() {
                     (m_shader->m_config->gpgpu_num_int_units > 0) &&
                     m_int_out->has_free(m_shader->m_config->sub_core_model,
                                         m_id);
-                std::cout << "sp pipe avail =" << sp_pipe_avail << "("
-                          << m_shader->m_config->gpgpu_num_sp_units
-                          << "units) int pipe avail =" << int_pipe_avail << "("
-                          << m_shader->m_config->gpgpu_num_int_units
-                          << " units)" << std::endl;
+                logger->trace(
+                    "sp pipe avail ={}({} units) int pipe avail ={}({} units)",
+                    sp_pipe_avail, m_shader->m_config->gpgpu_num_sp_units,
+                    int_pipe_avail, m_shader->m_config->gpgpu_num_int_units);
 
                 // if INT unit pipline exist, then execute ALU and INT
                 // operations on INT unit and SP-FPU on SP unit (like in Volta)
@@ -250,8 +240,8 @@ void scheduler_unit::cycle() {
                                                   exec_unit_type_t::SP))
                   execute_on_SP = true;
 
-                printf("execute on INT=%d execute on SP=%d\n", execute_on_INT,
-                       execute_on_SP);
+                logger->trace("execute on INT={} execute on SP={}",
+                              execute_on_INT, execute_on_SP);
                 if (execute_on_INT || execute_on_SP) {
                   // Jin: special for CDP api
                   if (pI->m_is_cdp && !warp(warp_id).m_cdp_dummy) {
@@ -392,9 +382,9 @@ void scheduler_unit::cycle() {
         warp(warp_id).ibuffer_flush();
       }
       if (warp_inst_issued) {
-        printf("Warp (warp_id %u, dynamic_warp_id %u) issued %u instructions\n",
-               next_warp->get_warp_id(), next_warp->get_dynamic_warp_id(),
-               issued);
+        logger->trace(
+            "Warp (warp_id {}, dynamic_warp_id {}) issued {} instructions",
+            next_warp->get_warp_id(), next_warp->get_dynamic_warp_id(), issued);
         do_on_warp_issued(warp_id, issued, iter);
       }
       checked++;

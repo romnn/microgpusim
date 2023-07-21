@@ -6,7 +6,7 @@
 void data_cache::send_write_request(mem_fetch *mf, cache_event request,
                                     unsigned time,
                                     std::list<cache_event> &events) {
-  printf("data_cache::send_write_request(...)\n");
+  logger->trace("data_cache::send_write_request(...)");
   events.push_back(request);
   m_miss_queue.push_back(mf);
   mf->set_status(m_miss_queue_status, time);
@@ -121,8 +121,8 @@ enum cache_request_status data_cache::wr_hit_global_we_local_wb(
 enum cache_request_status data_cache::wr_miss_wa_naive(
     new_addr_type addr, unsigned cache_index, mem_fetch *mf, unsigned time,
     std::list<cache_event> &events, enum cache_request_status status) {
-  std::cout << "handling write miss for " << mf << "(address " << addr << ")"
-            << std::endl;
+  logger->trace("handling write miss for {} (address {})", mem_fetch_ptr(mf),
+                addr);
   new_addr_type block_addr = m_config.block_addr(addr);
   new_addr_type mshr_addr = m_config.mshr_addr(mf->get_addr());
 
@@ -181,7 +181,7 @@ enum cache_request_status data_cache::wr_miss_wa_naive(
   if (do_miss) {
     // If evicted block is modified and not a write-through
     // (already modified lower level)
-    std::cout << "evicted block: " << evicted << std::endl;
+    logger->trace("evicted block: {}", evicted);
     // throw std::runtime_error("has evicted block");
     if (wb && (m_config.m_write_policy != WRITE_THROUGH)) {
       assert(status ==
@@ -556,8 +556,9 @@ enum cache_request_status data_cache::access(new_addr_type addr, mem_fetch *mf,
   new_addr_type block_addr = m_config.block_addr(addr);
   unsigned cache_index = (unsigned)-1;
 
-  printf("data_cache::access(%lu, write = %d, size = %u, block = %lu, %s)\n",
-         addr, wr, mf->get_data_size(), block_addr, mf->get_access_type_str());
+  logger->trace("data_cache::access({}, write = {}, size = {}, block = {}, {})",
+                addr, wr, mf->get_data_size(), block_addr,
+                mf->get_access_type_str());
   enum cache_request_status probe_status =
       m_tag_array->probe(block_addr, cache_index, mf, mf->is_write(), true);
   enum cache_request_status access_status =

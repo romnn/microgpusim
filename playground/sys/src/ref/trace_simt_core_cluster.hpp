@@ -3,7 +3,9 @@
 #include <cstdio>
 #include <list>
 
+#include "spdlog/logger.h"
 #include "shader_core_config.hpp"
+#include "trace_gpgpu_sim.hpp"
 
 class mem_fetch;
 class cache_stats;
@@ -17,7 +19,8 @@ class trace_simt_core_cluster {
                           const shader_core_config *config,
                           const memory_config *mem_config,
                           class shader_core_stats *stats,
-                          class memory_stats_t *mstats) {
+                          class memory_stats_t *mstats)
+      : logger(gpu->logger) {
     m_config = config;
     m_cta_issue_next_core = m_config->n_simt_cores_per_cluster -
                             1;  // this causes first launch to use hw cta 0
@@ -70,6 +73,8 @@ class trace_simt_core_cluster {
   void get_L1T_sub_stats(struct cache_sub_stats &css) const;
 
   void get_icnt_stats(long &n_simt_to_mem, long &n_mem_to_simt) const;
+
+  std::shared_ptr<spdlog::logger> logger;
 
   friend class accelsim_bridge;
 

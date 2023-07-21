@@ -12,7 +12,8 @@ memory_partition_unit::memory_partition_unit(unsigned partition_id,
                                              const memory_config *config,
                                              class memory_stats_t *stats,
                                              class trace_gpgpu_sim *gpu)
-    : m_id(partition_id),
+    : logger(gpu->logger),
+      m_id(partition_id),
       m_config(config),
       m_stats(stats),
       m_arbitration_metadata(config),
@@ -140,13 +141,13 @@ void memory_partition_unit::cache_cycle(unsigned cycle) {
   }
 }
 
-void memory_partition_unit::visualizer_print(gzFile visualizer_file) const {
-  m_dram->visualizer_print(visualizer_file);
-  for (unsigned p = 0; p < m_config->m_n_sub_partition_per_memory_channel;
-       p++) {
-    m_sub_partition[p]->visualizer_print(visualizer_file);
-  }
-}
+// void memory_partition_unit::visualizer_print(gzFile visualizer_file) const {
+//   m_dram->visualizer_print(visualizer_file);
+//   for (unsigned p = 0; p < m_config->m_n_sub_partition_per_memory_channel;
+//        p++) {
+//     m_sub_partition[p]->visualizer_print(visualizer_file);
+//   }
+// }
 
 // determine whether a given subpartition can issue to DRAM
 bool memory_partition_unit::can_issue_to_dram(int inner_sub_partition_id) {
@@ -183,9 +184,8 @@ void memory_partition_unit::simple_dram_model_cycle() {
       m_stats->memlatstat_dram_access(mf_return);
 
       mf_return->set_reply();
-      std::cout << "got " << mf_return
-                << " fetch return from dram latency queue";
-      std::cout << " (write=" << mf_return->is_write() << ")" << std::endl;
+      logger->trace("got {} fetch return from dram latency queue (write={})",
+                    mem_fetch_ptr(mf_return), mf_return->is_write());
 
       unsigned dest_global_spid = mf_return->get_sub_partition_id();
       int dest_spid = global_sub_partition_id_to_local_id(dest_global_spid);
@@ -211,9 +211,9 @@ void memory_partition_unit::simple_dram_model_cycle() {
       }
 
     } else {
-      std::cout << "DROPPING " << mf_return << " fetch return "
-                << " from dram latency queue (write=" << mf_return->is_write()
-                << ")" << std::endl;
+      logger->trace(
+          "DROPPING {} fetch return from dram latency queue (write={})",
+          mem_fetch_ptr(mf_return), mf_return->is_write());
 
       this->set_done(mf_return);
       delete mf_return;
@@ -231,32 +231,26 @@ void memory_partition_unit::simple_dram_model_cycle() {
     int spid = (p + last_issued_partition + 1) %
                m_config->m_n_sub_partition_per_memory_channel;
 
-    std::cout << "checking sub partition[" << spid << "]:" << std::endl;
-    std::cout << "\t icnt to l2 queue (" << std::setfill(' ') << std::left
-              << std::setw(3)
-              << m_sub_partition[spid]->m_icnt_L2_queue->get_n_element()
-              << ") = " << m_sub_partition[spid]->m_icnt_L2_queue << std::endl;
-    std::cout << "\t l2 to icnt queue (" << std::setfill(' ') << std::left
-              << std::setw(3)
-              << m_sub_partition[spid]->m_L2_icnt_queue->get_n_element()
-              << ") = " << m_sub_partition[spid]->m_L2_icnt_queue << std::endl;
-    std::cout << "\t l2 to dram queue (" << std::setfill(' ') << std::left
-              << std::setw(3)
-              << m_sub_partition[spid]->m_L2_dram_queue->get_n_element()
-              << ") = " << m_sub_partition[spid]->m_L2_dram_queue << std::endl;
-    std::cout << "\t dram to l2 queue (" << std::setfill(' ') << std::left
-              << std::setw(3)
-              << m_sub_partition[spid]->m_dram_L2_queue->get_n_element()
-              << ") = " << m_sub_partition[spid]->m_dram_L2_queue << std::endl;
-    std::cout << "\t dram latency queue (" << std::setfill(' ') << std::left
-              << std::setw(3) << m_dram_latency_queue.size()
-              << ") = " << m_dram_latency_queue << std::endl;
+    logger->trace("checking sub partition[{}]:", spid);
+    fifo_pipeline<mem_fetch> *q;
+    logger->trace("\t icnt to l2 queue = {}",
+                  *(m_sub_partition[spid]->m_icnt_L2_queue));
+    logger->trace("\t l2 to icnt queue = {}",
+                  *(m_sub_partition[spid]->m_L2_icnt_queue));
+    logger->trace("\t l2 to dram queue = {}",
+                  *(m_sub_partition[spid]->m_L2_dram_queue));
+    logger->trace("\t dram to l2 queue = {}",
+                  *(m_sub_partition[spid]->m_dram_L2_queue));
+    logger->trace("\t dram latency queue = ({:<3})[{}]",
+                  m_dram_latency_queue.size(),
+                  fmt::join(m_dram_latency_queue, ","));
 
     bool can_issue_to_dram_now = can_issue_to_dram(spid);
-    std::cout << "\t can issue to dram=" << can_issue_to_dram_now
-              << " dram to l2 queue full="
-              << m_sub_partition[spid]->dram_L2_queue_full() << std::endl;
-    std::cout << std::endl;
+    logger->trace("\t can issue to dram={} dram to l2 queue full={}",
+                  can_issue_to_dram_now,
+                  m_sub_partition[spid]->dram_L2_queue_full());
+
+    logger->trace("");
 
     if (!m_sub_partition[spid]->L2_dram_queue_empty() &&
         can_issue_to_dram_now) {
@@ -264,11 +258,8 @@ void memory_partition_unit::simple_dram_model_cycle() {
       if (m_dram->full(mf->is_write())) break;
 
       m_sub_partition[spid]->L2_dram_queue_pop();
-      // throw std::runtime_error(
-      //     "simple dram: issue mem_fetch from sub partition to dram");
-      std::cout << "issue mem_fetch " << mf << " from sub partition " << spid
-                << " to DRAM\n"
-                << std::endl;
+      logger->trace("issue mem_fetch {} from sub partition {} to DRAM",
+                    mem_fetch_ptr(mf), spid);
       dram_delay_t d;
       d.req = mf;
       d.ready_cycle = m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle +
@@ -380,32 +371,32 @@ void memory_partition_unit::set_dram_power_stats(
                                n_wr, n_wr_WB, n_req);
 }
 
-void memory_partition_unit::print(FILE *fp) const {
-  fprintf(fp, "Memory Partition %u: \n", m_id);
-  for (unsigned p = 0; p < m_config->m_n_sub_partition_per_memory_channel;
-       p++) {
-    m_sub_partition[p]->print(fp);
-  }
-  fprintf(fp, "In Dram Latency Queue (total = %zd): \n",
-          m_dram_latency_queue.size());
-  for (std::list<dram_delay_t>::const_iterator mf_dlq =
-           m_dram_latency_queue.begin();
-       mf_dlq != m_dram_latency_queue.end(); ++mf_dlq) {
-    mem_fetch *mf = mf_dlq->req;
-    fprintf(fp, "Ready @ %llu - ", mf_dlq->ready_cycle);
-    if (mf) {
-      std::stringstream buffer;
-      buffer << mf;
-      fprintf(fp, "%s", buffer.str().c_str());
-
-      // (std::ostream &)fp << mf;
-      // mf->print(fp);
-    } else {
-      fprintf(fp, " <NULL mem_fetch?>\n");
-    }
-  }
-  m_dram->print(fp);
-}
+// void memory_partition_unit::print(FILE *fp) const {
+//   fprintf(fp, "Memory Partition %u: \n", m_id);
+//   for (unsigned p = 0; p < m_config->m_n_sub_partition_per_memory_channel;
+//        p++) {
+//     m_sub_partition[p]->print(fp);
+//   }
+//   fprintf(fp, "In Dram Latency Queue (total = %zd): \n",
+//           m_dram_latency_queue.size());
+//   for (std::list<dram_delay_t>::const_iterator mf_dlq =
+//            m_dram_latency_queue.begin();
+//        mf_dlq != m_dram_latency_queue.end(); ++mf_dlq) {
+//     mem_fetch *mf = mf_dlq->req;
+//     fprintf(fp, "Ready @ %llu - ", mf_dlq->ready_cycle);
+//     if (mf) {
+//       std::stringstream buffer;
+//       buffer << mf;
+//       fprintf(fp, "%s", buffer.str().c_str());
+//
+//       // (std::ostream &)fp << mf;
+//       // mf->print(fp);
+//     } else {
+//       fprintf(fp, " <NULL mem_fetch?>\n");
+//     }
+//   }
+//   m_dram->print(fp);
+// }
 
 std::ostream &operator<<(std::ostream &os,
                          const memory_partition_unit::dram_delay_t &delay) {

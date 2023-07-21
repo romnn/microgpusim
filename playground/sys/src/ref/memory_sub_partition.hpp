@@ -5,6 +5,7 @@
 #include <set>
 #include <zlib.h>
 
+#include "spdlog/logger.h"
 #include "fifo.hpp"
 #include "hal.hpp"
 #include "l2_cache.hpp"
@@ -43,9 +44,9 @@ class memory_sub_partition {
   bool dram_L2_queue_full() const;
   void dram_L2_queue_push(class mem_fetch *mf);
 
-  void visualizer_print(gzFile visualizer_file);
+  // void visualizer_print(gzFile visualizer_file);
+  // void print(FILE *fp) const;
   void print_cache_stat(unsigned &accesses, unsigned &misses) const;
-  void print(FILE *fp) const;
 
   void accumulate_L2cache_stats(class cache_stats &l2_stats) const;
   void get_L2cache_sub_stats(struct cache_sub_stats &css) const;
@@ -65,6 +66,8 @@ class memory_sub_partition {
     unsigned long long ready_cycle;
     class mem_fetch *req;
   };
+
+  std::shared_ptr<spdlog::logger> logger;
 
   friend class memory_sub_partition_bridge;
   friend class accelsim_bridge;
@@ -111,3 +114,19 @@ class memory_sub_partition {
 
 std::ostream &operator<<(std::ostream &os,
                          const memory_sub_partition::rop_delay_t &delay);
+
+#include "fmt/core.h"
+
+template <>
+struct fmt::formatter<memory_sub_partition::rop_delay_t> {
+  constexpr auto parse(format_parse_context &ctx)
+      -> format_parse_context::iterator {
+    return ctx.end();
+  }
+
+  auto format(const memory_sub_partition::rop_delay_t &delay,
+              format_context &ctx) const -> format_context::iterator {
+    return fmt::format_to(ctx.out(), "(ready at {})({})", delay.ready_cycle,
+                          mem_fetch_ptr(delay.req));
+  }
+};

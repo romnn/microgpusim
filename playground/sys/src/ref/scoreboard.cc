@@ -3,11 +3,11 @@
 #include "hal.hpp"
 #include "shader_trace.hpp"
 #include "warp_instr.hpp"
+#include "trace_gpgpu_sim.hpp"
 
 // Constructor
-Scoreboard::Scoreboard(unsigned sid, unsigned n_warps,
-                       class trace_gpgpu_sim *gpu)
-    : longopregs() {
+Scoreboard::Scoreboard(unsigned sid, unsigned n_warps, trace_gpgpu_sim *gpu)
+    : logger(gpu->logger), longopregs() {
   m_sid = sid;
 
   // Initialize size of table
@@ -33,22 +33,21 @@ void Scoreboard::printContents() const {
 // Unmark register as write-pending
 void Scoreboard::releaseRegister(unsigned wid, unsigned regnum) {
   // if (m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle)
-  //   throw std::runtime_error("must model the l1 latency queue");
   if (!(reg_table[wid].find(regnum) != reg_table[wid].end())) return;
-  printf("Release register - warp:%d, reg: %d\n", wid, regnum);
+  logger->trace("Release register - warp: {}, reg: {}", wid, regnum);
   reg_table[wid].erase(regnum);
 }
 
-const bool Scoreboard::islongop(unsigned warp_id, unsigned regnum) {
+bool Scoreboard::islongop(unsigned warp_id, unsigned regnum) const {
   return longopregs[warp_id].find(regnum) != longopregs[warp_id].end();
 }
 
 void Scoreboard::reserveRegister(unsigned wid, unsigned regnum) {
   if (!(reg_table[wid].find(regnum) == reg_table[wid].end())) {
-    printf(
-        "Error: trying to reserve an already reserved register (sid=%d, "
-        "wid=%d, regnum=%d).",
-        m_sid, wid, regnum);
+    fprintf(stderr,
+            "Error: trying to reserve an already reserved register (sid=%d, "
+            "wid=%d, regnum=%d).",
+            m_sid, wid, regnum);
     abort();
   }
   SHADER_DPRINTF(SCOREBOARD, "Reserved Register - warp:%d, reg: %d\n", wid,

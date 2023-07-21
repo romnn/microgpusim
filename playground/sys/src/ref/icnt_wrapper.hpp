@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdio.h>
+#include "spdlog/logger.h"
 
 // functional interface to the interconnect
 
@@ -34,5 +35,5 @@ extern unsigned g_network_mode;
 
 enum network_mode { INTERSIM = 1, LOCAL_XBAR = 2, BOX_NET = 3, N_NETWORK_MODE };
 
-void icnt_wrapper_init();
+void icnt_wrapper_init(std::shared_ptr<spdlog::logger> logger);
 void icnt_reg_options(class OptionParser *opp);

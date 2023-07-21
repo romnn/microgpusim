@@ -1,5 +1,15 @@
 #### TODO
 
+- Today:
+
+  - configure logging for box and playground
+  - see why playground is so slow? using a flamegraph
+  - see why box is so slow? using a flamegraph
+  - configure playground for accelsim compat mode and compare to native accelsim
+    - could we run unmodified accelsim as well using bridge or will this mess up global state?
+  - DONE: upload traces to google drive
+  - fix tests in CI
+
 - BUG: simple matrix mul 32 128 128 32
   - checking for diff after cycle 4654
   - accelsim has extra write access without any address???
@@ -21,6 +31,72 @@ interconn_to_l2_queue: [
        READ_REQUEST(GLOBAL_ACC_R@1+2528),
    ],
 ],
+```
+
+Some info:
+
+```
+cargo run --release -p playground -- ./results/simple_matrixmul/simple_matrixmul-32-128-128-32/accelsim-trace/
+```
+
+```
+gpgpu_simulation_time = 0 days, 1 hrs, 51 min, 13 sec (6673 sec)
+gpgpu_simulation_rate = 158 (inst/sec)
+gpgpu_simulation_rate = 6 (cycle/sec)
+gpgpu_silicon_slowdown = 267833333x
+GPGPU-Sim: *** simulation thread exiting ***
+GPGPU-Sim: *** exit detected ***
+STATS:
+
+DRAM: DRAM {
+    total_reads: 3088,
+    total_writes: 512,
+}
+SIM: Sim {
+    cycle: 43625,
+    instructions: 1056768,
+}
+INSTRUCTIONS: InstructionCounts {
+    num_load_instructions: 1048576,
+    num_store_instructions: 4096,
+    num_shared_mem_instructions: 0,
+    num_sstarr_instructions: 0,
+    num_texture_instructions: 0,
+    num_const_instructions: 0,
+    num_param_instructions: 0,
+}
+ACCESSES: Accesses {
+    num_mem_write: 128,
+    num_mem_read: 32772,
+    num_mem_const: 0,
+    num_mem_texture: 0,
+    num_mem_read_global: 32768,
+    num_mem_write_global: 128,
+    num_mem_read_local: 0,
+    num_mem_write_local: 0,
+    num_mem_l2_writeback: 0,
+    num_mem_l1_write_allocate: 0,
+    num_mem_l2_write_allocate: 0,
+}
+L1I: CacheStats {
+    INST_ACC_R[HIT]: 16585,
+    INST_ACC_R[MISS]: 55,
+    INST_ACC_R[MSHR_HIT]: 51,
+    ..
+}
+L1D: CacheStats { .. }
+L2D: CacheStats {
+    GLOBAL_ACC_R[HIT]: 31902,
+    GLOBAL_ACC_R[HIT_RESERVED]: 226,
+    GLOBAL_ACC_R[MISS]: 640,
+    GLOBAL_ACC_R[MSHR_HIT]: 226,
+    GLOBAL_ACC_W[MISS]: 128,
+    GLOBAL_ACC_W[MISS_QUEUE_FULL]: 8,
+    GLOBAL_ACC_W[RESERVATION_FAIL]: 8,
+    INST_ACC_R[MISS]: 4,
+    ..
+}
+completed in 6673.223204065s
 ```
 
 - BUG: race condition in playground (occurred in cycle 1251) STILL TRUE?

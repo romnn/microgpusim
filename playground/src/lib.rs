@@ -46,7 +46,7 @@ impl<'a> std::ops::Deref for MemFetch<'a> {
 }
 
 fn get_mem_fetches<'a>(
-    queue: &cxx::UniquePtr<cxx::CxxVector<playground_sys::main::mem_fetch_ptr>>,
+    queue: &cxx::UniquePtr<cxx::CxxVector<playground_sys::main::mem_fetch_ptr_shim>>,
 ) -> Vec<MemFetch<'a>> {
     use playground_sys::main::new_mem_fetch_bridge;
     queue

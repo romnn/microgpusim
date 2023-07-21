@@ -23,6 +23,5 @@ std::ostream &operator<<(std::ostream &os, const mem_access_t &access) {
   } else {
     os << access.get_alloc_id() << "+" << rel_addr;
   }
-  os << ")";
   return os;
 }

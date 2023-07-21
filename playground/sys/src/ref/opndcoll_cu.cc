@@ -4,7 +4,9 @@
 #include "io.hpp"
 #include "register_set.hpp"
 
-collector_unit_t::collector_unit_t(unsigned set_id) {
+collector_unit_t::collector_unit_t(unsigned set_id,
+                                   std::shared_ptr<spdlog::logger> logger)
+    : logger(logger) {
   m_set_id = set_id;
   m_free = true;
   m_warp = NULL;
@@ -22,10 +24,11 @@ bool collector_unit_t::ready() const {
     // to make the print not segfault
     return false;
   }
-  printf("is ready?: active = %s (ready=%d), has free = %d",
-         mask_to_string(m_not_ready).c_str(), m_not_ready.none(),
-         (*m_output_register).has_free(m_sub_core_model, m_reg_id));
-  std::cout << " output register = " << (*m_output_register) << std::endl;
+  logger->trace(
+      "is ready?: active = {} (ready={}), has free = {}, output register = {}",
+      mask_to_string(m_not_ready), m_not_ready.none(),
+      (*m_output_register).has_free(m_sub_core_model, m_reg_id),
+      (*m_output_register));
 
   return (!m_free) && m_not_ready.none() &&
          (*m_output_register).has_free(m_sub_core_model, m_reg_id);
@@ -63,8 +66,8 @@ void collector_unit_t::init(unsigned n, unsigned num_banks,
 
 bool collector_unit_t::allocate(register_set *pipeline_reg_set,
                                 register_set *output_reg_set) {
-  printf("operand collector::allocate(%s)\n",
-         operand_collector_unit_kind_str[m_set_id]);
+  logger->trace("operand collector::allocate({})",
+                operand_collector_unit_kind_str[m_set_id]);
   assert(m_free);
   assert(m_not_ready.none());
   m_free = false;
@@ -73,9 +76,10 @@ bool collector_unit_t::allocate(register_set *pipeline_reg_set,
   if ((pipeline_reg) and !((*pipeline_reg)->empty())) {
     const int *arch_reg_src = ((*pipeline_reg)->arch_reg).src;  // int[32]
     std::vector<int> arch_reg_src_vec(arch_reg_src, arch_reg_src + 32);
-    printf("operand collector::allocate(%s)",
-           operand_collector_unit_kind_str[m_set_id]);
-    std::cout << " => src arch reg = " << arch_reg_src_vec << std::endl;
+    logger->trace("operand collector::allocate({}) => src arch reg = {}",
+                  operand_collector_unit_kind_str[m_set_id],
+                  fmt::join(arch_reg_src_vec, ","));
+
     m_warp_id = (*pipeline_reg)->warp_id();
     std::vector<int> prev_regs;  // remove duplicate regs within same instr
     for (unsigned op = 0; op < MAX_REG_OPERANDS; op++) {
@@ -97,8 +101,8 @@ bool collector_unit_t::allocate(register_set *pipeline_reg_set,
       } else
         m_src_op[op] = op_t();
     }
-    std::cout << "operand collector::allocate() => active = "
-              << mask_to_string(m_not_ready) << std::endl;
+    logger->trace("operand collector::allocate() => active = {}",
+                  mask_to_string(m_not_ready));
 
     // move_warp(m_warp,*pipeline_reg);
     std::stringstream msg;

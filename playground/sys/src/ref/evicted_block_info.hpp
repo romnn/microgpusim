@@ -40,3 +40,18 @@ struct evicted_block_info {
 };
 
 std::ostream &operator<<(std::ostream &os, const evicted_block_info &info);
+
+template <>
+struct fmt::formatter<evicted_block_info> {
+  constexpr auto parse(format_parse_context &ctx)
+      -> format_parse_context::iterator {
+    return ctx.end();
+  }
+
+  auto format(const evicted_block_info &info, format_context &ctx) const
+      -> format_context::iterator {
+    return fmt::format_to(ctx.out(),
+                          "EvictedBlock(block_addr={}, modified size={})",
+                          info.m_block_addr, info.m_modified_size);
+  }
+};

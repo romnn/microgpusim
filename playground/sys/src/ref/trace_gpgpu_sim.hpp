@@ -8,6 +8,12 @@
 #include "shader_core_stats.hpp"
 #include "visualizer.hpp"
 
+#include "spdlog/logger.h"
+#include "spdlog/spdlog.h"
+#include "spdlog/sinks/stdout_color_sinks.h"
+#include "spdlog/sinks/basic_file_sink.h"
+#include "spdlog/cfg/env.h"
+
 // constants for statistics printouts
 #define GPU_RSTAT_SHD_INFO 0x1
 #define GPU_RSTAT_BW_STAT 0x2
@@ -36,16 +42,15 @@ class Allocation {
   Allocation(unsigned id, new_addr_type start, new_addr_type end)
       : id(id), start_addr(start), end_addr(end){};
   bool contains(new_addr_type addr) const;
+  unsigned id;
   new_addr_type start_addr;
   new_addr_type end_addr;
-  unsigned id;
 
   bool operator<(const Allocation &rhs) const {
     return start_addr < rhs.start_addr;
   }
 };
 
-// class trace_gpgpu_sim : public gpgpu_sim {
 class trace_gpgpu_sim {
  public:
   trace_gpgpu_sim(const gpgpu_sim_config &config, gpgpu_context *ctx)
@@ -74,6 +79,24 @@ class trace_gpgpu_sim {
     // if (m_function_model_config.get_ptx_inst_debug_to_file() != 0)
     //   ptx_inst_debug_file =
     //       fopen(m_function_model_config.get_ptx_inst_debug_file(), "w");
+
+    if (std::getenv("PLAYGROUND_USE_LOG_FILE") &&
+        std::getenv("PLAYGROUND_LOG_FILE")) {
+      std::string log_file = std::string(std::getenv("PLAYGROUND_LOG_FILE"));
+      logger = spdlog::basic_logger_mt("playground", log_file);
+    } else {
+      logger = spdlog::stdout_color_mt("playground");
+    }
+    // logger->set_pattern("[multi_sink_example] [%^%l%$] %v");
+    spdlog::cfg::load_env_levels();
+
+    // my_logger->set_level(spdlog::level::debug);
+    // level::level_enum
+    // logger->load_env_levels();
+    // spdlog::init_thread_pool(32768, 1); // queue with max 32k items 1 backing
+    // thread. auto async_file_logger =
+    // spdlog::basic_logger_mt<spdlog::async_factory>("async_file_logger",
+    // "logs/async_log.txt");
 
     gpu_sim_cycle = 0;
     gpu_tot_sim_cycle = 0;
@@ -138,19 +161,19 @@ class trace_gpgpu_sim {
       }
     }
 
-    fprintf(stdout,
-            "GPGPU-Sim uArch: create interconnect for %u clusters with %u "
-            "memory sub partitions\n",
-            m_shader_config->n_simt_clusters,
-            m_memory_config->m_n_mem_sub_partition);
+    logger->debug(
+        "GPGPU-Sim uArch: create interconnect for {} clusters with {} memory "
+        "sub partitions",
+        m_shader_config->n_simt_clusters,
+        m_memory_config->m_n_mem_sub_partition);
 
-    icnt_wrapper_init();
+    icnt_wrapper_init(logger);
     icnt_create(m_shader_config->n_simt_clusters,
                 m_memory_config->m_n_mem_sub_partition);
 
     time_vector_create(NUM_MEM_REQ_STAT);
-    fprintf(stdout,
-            "GPGPU-Sim uArch: performance model initialization complete.\n");
+    logger->debug(
+        "GPGPU-Sim uArch: performance model initialization complete.");
 
     m_running_kernels.resize(config.max_concurrent_kernel, NULL);
     m_last_issued_kernel = 0;
@@ -273,6 +296,8 @@ class trace_gpgpu_sim {
   // backward pointer
   class gpgpu_context *gpgpu_ctx;
 
+  std::shared_ptr<spdlog::logger> logger;
+
   friend class accelsim_bridge;
 
  private:
@@ -285,7 +310,7 @@ class trace_gpgpu_sim {
   void shader_print_l1_miss_stat(FILE *fout) const;
   void shader_print_cache_stats(FILE *fout) const;
   void shader_print_scheduler_stat(FILE *fout, bool print_dynamic_info) const;
-  void visualizer_printstat();
+  // void visualizer_printstat();
   // void gpgpu_debug();
 
   // set by stream operation every time a functoinal simulation is done

@@ -20,7 +20,7 @@
 #include "../trace_shader_core_ctx.hpp"
 #include "../trace_gpgpu_sim.hpp"
 
-struct mem_fetch_ptr {
+struct mem_fetch_ptr_shim {
   const mem_fetch *ptr;
   const mem_fetch *get() const { return ptr; }
 };
@@ -155,14 +155,15 @@ class memory_partition_unit_bridge {
  public:
   memory_partition_unit_bridge(memory_partition_unit *ptr) : ptr(ptr) {}
 
-  std::unique_ptr<std::vector<mem_fetch_ptr>> get_dram_latency_queue() const {
-    std::vector<mem_fetch_ptr> q;
+  std::unique_ptr<std::vector<mem_fetch_ptr_shim>> get_dram_latency_queue()
+      const {
+    std::vector<mem_fetch_ptr_shim> q;
     std::list<memory_partition_unit::dram_delay_t>::const_iterator iter;
     for (iter = (ptr->m_dram_latency_queue).begin();
          iter != (ptr->m_dram_latency_queue).end(); iter++) {
-      q.push_back(mem_fetch_ptr{iter->req});
+      q.push_back(mem_fetch_ptr_shim{iter->req});
     }
-    return std::make_unique<std::vector<mem_fetch_ptr>>(q);
+    return std::make_unique<std::vector<mem_fetch_ptr_shim>>(q);
   }
 
  private:
@@ -173,29 +174,29 @@ class memory_sub_partition_bridge {
  public:
   memory_sub_partition_bridge(const memory_sub_partition *ptr) : ptr(ptr) {}
 
-  std::unique_ptr<std::vector<mem_fetch_ptr>> get_queue(
+  std::unique_ptr<std::vector<mem_fetch_ptr_shim>> get_queue(
       fifo_pipeline<mem_fetch> *fifo) const {
-    std::vector<mem_fetch_ptr> q;
+    std::vector<mem_fetch_ptr_shim> q;
     if (fifo != NULL) {
       fifo_data<mem_fetch> *ddp = fifo->m_head;
       while (ddp) {
-        q.push_back(mem_fetch_ptr{ddp->m_data});
+        q.push_back(mem_fetch_ptr_shim{ddp->m_data});
         ddp = ddp->m_next;
       }
     }
-    return std::make_unique<std::vector<mem_fetch_ptr>>(q);
+    return std::make_unique<std::vector<mem_fetch_ptr_shim>>(q);
   }
 
-  std::unique_ptr<std::vector<mem_fetch_ptr>> get_icnt_L2_queue() const {
+  std::unique_ptr<std::vector<mem_fetch_ptr_shim>> get_icnt_L2_queue() const {
     return get_queue(ptr->m_icnt_L2_queue);
   }
-  std::unique_ptr<std::vector<mem_fetch_ptr>> get_L2_dram_queue() const {
+  std::unique_ptr<std::vector<mem_fetch_ptr_shim>> get_L2_dram_queue() const {
     return get_queue(ptr->m_L2_dram_queue);
   }
-  std::unique_ptr<std::vector<mem_fetch_ptr>> get_dram_L2_queue() const {
+  std::unique_ptr<std::vector<mem_fetch_ptr_shim>> get_dram_L2_queue() const {
     return get_queue(ptr->m_dram_L2_queue);
   }
-  std::unique_ptr<std::vector<mem_fetch_ptr>> get_L2_icnt_queue() const {
+  std::unique_ptr<std::vector<mem_fetch_ptr_shim>> get_L2_icnt_queue() const {
     return get_queue(ptr->m_L2_icnt_queue);
   }
 

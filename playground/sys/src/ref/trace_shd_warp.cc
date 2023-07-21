@@ -95,10 +95,12 @@ const trace_warp_inst_t *trace_shd_warp_t::get_cached_trace_instruction(
 }
 #endif
 
-void trace_shd_warp_t::print_trace_instructions(bool all) {
+void trace_shd_warp_t::print_trace_instructions(
+    bool all, std::shared_ptr<spdlog::logger> &logger) {
   // the instructions before trace_pc might have been freed after issue already
   // unsigned temp_trace_pc = 0;
-  printf("====> instruction at trace pc < %-4d already issued ...\n", trace_pc);
+  logger->trace("====> instruction at trace pc < {:<4} already issued ...",
+                trace_pc);
   unsigned temp_trace_pc = trace_pc;
   while (temp_trace_pc < warp_traces.size()) {
     const inst_trace_t &trace = warp_traces[temp_trace_pc];
@@ -109,11 +111,11 @@ void trace_shd_warp_t::print_trace_instructions(bool all) {
     if (all || is_memory_instruction(parsed_inst) ||
         parsed_inst->op == EXIT_OPS) {
       assert(warp_traces[temp_trace_pc].m_pc == parsed_inst->pc);
-      printf(
-          "====> instruction at trace pc %-4d:\t %-10s\t %-15s \t\tactive=%s "
-          "\tpc = %-4u = %-4lu\n",
-          temp_trace_pc, parsed_inst->opcode_str(), trace.opcode.c_str(),
-          mask_to_string(parsed_inst->get_active_mask()).c_str(),
+      logger->trace(
+          "====> instruction at trace pc {:>4}:\t {:<10}\t {:<15} "
+          "\t\tactive={}\tpc = {:>4} = {:<4}",
+          temp_trace_pc, parsed_inst->opcode_str(), trace.opcode,
+          mask_to_string(parsed_inst->get_active_mask()),
           warp_traces[temp_trace_pc].m_pc, parsed_inst->pc);
     }
     temp_trace_pc++;

@@ -7,8 +7,10 @@
 
 class mshr_table {
  public:
-  mshr_table(unsigned num_entries, unsigned max_merged)
-      : m_num_entries(num_entries),
+  mshr_table(unsigned num_entries, unsigned max_merged,
+             std::shared_ptr<spdlog::logger> logger)
+      : logger(logger),
+        m_num_entries(num_entries),
         m_max_merged(max_merged),
         m_data(2 * num_entries) {}
 
@@ -38,6 +40,8 @@ class mshr_table {
            "Change of MSHR parameters between kernels is not allowed");
   }
 
+  std::shared_ptr<spdlog::logger> logger;
+
  private:
   // finite sized, fully associative table, with a finite maximum number of
   // merged requests
@@ -49,8 +53,6 @@ class mshr_table {
     bool m_has_atomic;
     mshr_entry() : m_has_atomic(false) {}
   };
-  // typedef tr1_hash_map<new_addr_type, mshr_entry> table;
-  // typedef tr1_hash_map<new_addr_type, mshr_entry> line_table;
 
   typedef std::unordered_map<new_addr_type, mshr_entry> table;
   typedef std::unordered_map<new_addr_type, mshr_entry> line_table;

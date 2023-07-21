@@ -42,7 +42,7 @@ class opndcoll_rfu_t;
 
 class collector_unit_t {
  public:
-  collector_unit_t(unsigned set_id);
+  collector_unit_t(unsigned set_id, std::shared_ptr<spdlog::logger> logger);
 
   // accessors
   bool ready() const;
@@ -70,8 +70,8 @@ class collector_unit_t {
   bool allocate(register_set *pipeline_reg, register_set *output_reg);
 
   void collect_operand(unsigned op) {
-    std::cout << "collector unit [" << m_cuid << "] " << m_warp
-              << " collecting operand for " << op << std::endl;
+    logger->trace("collector unit [{}] {} collecting operand for {}", m_cuid,
+                  warp_instr_ptr(m_warp), op);
     m_not_ready.reset(op);
   }
   unsigned get_num_operands() const { return m_warp->get_num_operands(); }
@@ -80,6 +80,8 @@ class collector_unit_t {
   bool is_free() const { return m_free; }
 
   register_set *get_output_register() const { return m_output_register; }
+
+  std::shared_ptr<spdlog::logger> logger;
 
  private:
   bool m_free;
@@ -193,10 +195,11 @@ class op_t {
     return std::string(buffer);
   }
 
-  friend std::ostream &operator<<(std::ostream &os, const op_t &op);
-
   // modifiers
   void reset() { m_valid = false; }
+
+  friend struct fmt::formatter<op_t>;
+  friend std::ostream &operator<<(std::ostream &os, const op_t &op);
 
  private:
   bool m_valid;
@@ -207,6 +210,21 @@ class op_t {
   unsigned m_register;
   unsigned m_bank;
   unsigned m_shced_id;  // scheduler id that has issued this inst
+};
+
+template <>
+struct fmt::formatter<op_t> {
+  constexpr auto parse(format_parse_context &ctx)
+      -> format_parse_context::iterator {
+    return ctx.end();
+  }
+
+  auto format(const op_t &op, format_context &ctx) const
+      -> format_context::iterator {
+    return fmt::format_to(
+        ctx.out(), "Op(operand={}, reg={}, bank={}, sched={})", op.m_operand,
+        op.m_register, op.m_bank, op.m_shced_id);
+  }
 };
 
 // needs nothing
@@ -257,7 +275,7 @@ class allocation_t {
 class arbiter_t {
  public:
   // constructors
-  arbiter_t() {
+  arbiter_t(std::shared_ptr<spdlog::logger> logger) : logger(logger) {
     m_queue = NULL;
     m_allocated_bank = NULL;
     m_allocator_rr_head = NULL;
@@ -266,6 +284,7 @@ class arbiter_t {
     _request = NULL;
     m_last_cu = 0;
   }
+
   void init(unsigned num_cu, unsigned num_banks) {
     assert(num_cu > 0);
     assert(num_banks > 0);
@@ -332,6 +351,7 @@ class arbiter_t {
   void reset_alloction() {
     for (unsigned b = 0; b < m_num_banks; b++) m_allocated_bank[b].reset();
   }
+  std::shared_ptr<spdlog::logger> logger;
 
  private:
   unsigned m_num_banks;
@@ -364,7 +384,9 @@ class input_port_t {
 
 class dispatch_unit_t {
  public:
-  dispatch_unit_t(unsigned set_id, std::vector<collector_unit_t> *cus) {
+  dispatch_unit_t(unsigned set_id, std::vector<collector_unit_t> *cus,
+                  std::shared_ptr<spdlog::logger> logger)
+      : logger(logger) {
     m_last_cu = 0;
     m_collector_units = cus;
     m_num_collectors = (*cus).size();
@@ -391,29 +413,31 @@ class dispatch_unit_t {
     unsigned rr_increment =
         m_sub_core_model ? cusPerSched - (m_last_cu % cusPerSched) : 1;
 
+    assert(m_set_id < 7);
     const char *kind = operand_collector_unit_kind_str[m_set_id];
-    printf("dispatch unit %s: find ready: ", kind);
-    printf("rr_inc = %d,", rr_increment);
-    printf("last cu = %d,", m_last_cu);
-    printf("num collectors = %d,", m_num_collectors);
-    printf("num warp schedulers = %d,", m_num_warp_scheds);
-    printf("cusPerSched = %d,", cusPerSched);
-    printf("\n");
+    logger->trace(
+        "dispatch unit {}: find ready: rr_inc = {}, last cu = {}, num "
+        "collectors = {}, num warp schedulers = {}, cusPerSched = {}",
+        kind, rr_increment, m_last_cu, m_num_collectors, m_num_warp_scheds,
+        cusPerSched);
 
     for (unsigned n = 0; n < m_num_collectors; n++) {
       unsigned c = (m_last_cu + n + rr_increment) % m_num_collectors;
-      // printf("dispatch unit %s: checking collector unit %d\n", kind, c);
+      // logger->trace("dispatch unit {}: checking collector unit {}", kind, c);
 
       if ((*m_collector_units)[c].ready()) {
-        printf("dispatch unit %s: FOUND ready: chose collector unit %d (?)\n",
-               kind, c);
+        logger->trace(
+            "dispatch unit {}: FOUND ready: chose collector unit {} (?)", kind,
+            c);
         m_last_cu = c;
         return &((*m_collector_units)[c]);
       }
     }
-    printf("dispatch unit %s: did NOT find ready\n", kind);
+    logger->trace("dispatch unit {}: did NOT find ready", kind);
     return NULL;
   }
+
+  std::shared_ptr<spdlog::logger> logger;
 
  private:
   unsigned m_num_collectors;
@@ -430,21 +454,24 @@ class dispatch_unit_t {
 class opndcoll_rfu_t {
  public:
   // constructors
-  opndcoll_rfu_t() {
+  opndcoll_rfu_t(std::shared_ptr<spdlog::logger> logger)
+      : logger(logger), m_arbiter(logger) {
     m_num_banks = 0;
     m_shader = NULL;
     m_initialized = false;
   }
+  // std::shared_ptr<spdlog::logger> logger
   void add_cu_set(unsigned cu_set, unsigned num_cu, unsigned num_dispatch);
   void add_port(port_vector_t &input, port_vector_t &ouput,
                 uint_vector_t cu_sets);
+
   void init(unsigned num_banks, trace_shader_core_ctx *shader);
 
   // modifiers
   bool writeback(warp_inst_t &warp);
 
   void step() {
-    printf("operand collector::step()\n");
+    logger->trace("operand collector::step()");
     dispatch_ready_cu();
     allocate_reads();
     for (unsigned p = 0; p < m_in_ports.size(); p++) allocate_cu(p);
@@ -462,6 +489,8 @@ class opndcoll_rfu_t {
   // }
 
   trace_shader_core_ctx *shader_core() { return m_shader; }
+
+  std::shared_ptr<spdlog::logger> logger;
 
  private:
   void process_banks() { m_arbiter.reset_alloction(); }

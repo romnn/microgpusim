@@ -113,3 +113,26 @@ class mem_access_t {
 };
 
 std::ostream &operator<<(std::ostream &os, const mem_access_t &access);
+
+#include "fmt/core.h"
+
+template <>
+struct fmt::formatter<mem_access_t> {
+  constexpr auto parse(format_parse_context &ctx)
+      -> format_parse_context::iterator {
+    return ctx.end();
+  }
+
+  auto format(const mem_access_t &access, format_context &ctx) const
+      -> format_context::iterator {
+    fmt::format_to(ctx.out(), "{}", access.get_type_str());
+    new_addr_type addr = access.get_addr();
+    new_addr_type rel_addr = access.get_relative_addr();
+    if (addr == rel_addr) {
+      return fmt::format_to(ctx.out(), "@{}", addr);
+    } else {
+      return fmt::format_to(ctx.out(), "@{}+{}", access.get_alloc_id(),
+                            rel_addr);
+    }
+  }
+};

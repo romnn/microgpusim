@@ -47,7 +47,7 @@ bool mshr_table::is_read_after_write_pending(new_addr_type block_addr) {
 
 /// Accept a new cache fill response: mark entry ready for processing
 void mshr_table::mark_ready(new_addr_type block_addr, bool &has_atomic) {
-  printf("mshr_table::mark_ready(%lu, %x)\n", block_addr, has_atomic);
+  logger->trace("mshr_table::mark_ready({}, {})", block_addr, has_atomic);
   assert(!busy());
   table::iterator a = m_data.find(block_addr);
   assert(a != m_data.end());
@@ -80,23 +80,23 @@ mem_fetch *mshr_table::next_access() {
   return result;
 }
 
-void mshr_table::display(FILE *fp) const {
-  fprintf(fp, "MSHR contents\n");
-  for (table::const_iterator e = m_data.begin(); e != m_data.end(); ++e) {
-    unsigned block_addr = e->first;
-    fprintf(fp, "MSHR: tag=0x%06x, atomic=%d %zu entries : ", block_addr,
-            e->second.m_has_atomic, e->second.m_list.size());
-    if (!e->second.m_list.empty()) {
-      mem_fetch *mf = e->second.m_list.front();
-      fprintf(fp, "%p :", mf);
-      std::stringstream buffer;
-      buffer << mf;
-      fprintf(fp, "%s", buffer.str().c_str());
-
-      // (std::ostream &)fp << mf;
-      // mf->print(fp);
-    } else {
-      fprintf(fp, " no memory requests???\n");
-    }
-  }
-}
+// void mshr_table::display(FILE *fp) const {
+//   fprintf(fp, "MSHR contents\n");
+//   for (table::const_iterator e = m_data.begin(); e != m_data.end(); ++e) {
+//     unsigned block_addr = e->first;
+//     fprintf(fp, "MSHR: tag=0x%06x, atomic=%d %zu entries : ", block_addr,
+//             e->second.m_has_atomic, e->second.m_list.size());
+//     if (!e->second.m_list.empty()) {
+//       mem_fetch *mf = e->second.m_list.front();
+//       fprintf(fp, "%p :", mf);
+//       std::stringstream buffer;
+//       buffer << mf;
+//       fprintf(fp, "%s", buffer.str().c_str());
+//
+//       // (std::ostream &)fp << mf;
+//       // mf->print(fp);
+//     } else {
+//       fprintf(fp, " no memory requests???\n");
+//     }
+//   }
+// }

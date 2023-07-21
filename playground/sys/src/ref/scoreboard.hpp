@@ -1,7 +1,9 @@
 #pragma once
 
+#include "spdlog/logger.h"
 #include <set>
 #include <string>
+#include <memory>
 #include <vector>
 
 class inst_t;
@@ -19,7 +21,9 @@ class Scoreboard {
   bool has_pending_writes(unsigned wid) const;
   const std::set<unsigned int> &get_pending_writes(unsigned wid) const;
   void printContents() const;
-  const bool islongop(unsigned warp_id, unsigned regnum);
+  bool islongop(unsigned warp_id, unsigned regnum) const;
+
+  std::shared_ptr<spdlog::logger> logger;
 
  private:
   void reserveRegister(unsigned wid, unsigned regnum);

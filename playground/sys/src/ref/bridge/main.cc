@@ -103,7 +103,6 @@ trace_gpgpu_sim *gpgpu_trace_sim_init_perf_model(
   assert(m_gpgpu_context->the_gpgpusim->g_the_gpu_config->m_shader_config
              .gpgpu_num_sched_per_core == 1);
 
-  // m_gpgpu_context->the_gpgpusim->g_the_gpu = new trace_gpgpu_sim_bridge(
   m_gpgpu_context->the_gpgpusim->g_the_gpu = new trace_gpgpu_sim(
       *(m_gpgpu_context->the_gpgpusim->g_the_gpu_config), m_gpgpu_context);
 
@@ -138,6 +137,10 @@ trace_kernel_info_t *create_kernel_info(kernel_trace_t *kernel_trace_info,
   return kernel_info;
 }
 
+bool is_env_set_to(const char *key, const char *value) {
+  return (std::getenv(key) && strcmp(std::getenv(key), value) == 0);
+}
+
 std::unique_ptr<accelsim_bridge> new_accelsim_bridge(
     accelsim_config config, rust::Slice<const rust::Str> argv) {
   return std::make_unique<accelsim_bridge>(config, argv);
@@ -147,10 +150,7 @@ accelsim_bridge::accelsim_bridge(accelsim_config config,
                                  rust::Slice<const rust::Str> argv) {
   std::cout << "Accel-Sim [build <box>]" << std::endl;
 
-  silent = false;
-  if (std::getenv("SILENT") && strcmp(std::getenv("SILENT"), "yes") == 0) {
-    silent = true;
-  }
+  bool silent = is_env_set_to("SILENT", "yes");
 
   std::vector<std::string> valid_argv;
   for (auto arg : argv) valid_argv.push_back(std::string(arg));
@@ -279,8 +279,8 @@ void accelsim_bridge::launch_kernels() {
 }
 
 void accelsim_bridge::cycle() {
-  unsigned long long cycle =
-      m_gpgpu_sim->gpu_tot_sim_cycle + m_gpgpu_sim->gpu_sim_cycle;
+  // unsigned long long cycle =
+  //     m_gpgpu_sim->gpu_tot_sim_cycle + m_gpgpu_sim->gpu_sim_cycle;
 
   // performance simulation
   if (active()) {
@@ -306,7 +306,7 @@ void accelsim_bridge::cleanup_finished_kernel(unsigned finished_kernel_uid) {
     for (unsigned j = 0; j < kernels_info.size(); j++) {
       k = kernels_info.at(j);
       if (k->get_uid() == finished_kernel_uid || limit_reached() || !active()) {
-        for (int l = 0; l < busy_streams.size(); l++) {
+        for (unsigned l = 0; l < busy_streams.size(); l++) {
           if (busy_streams.at(l) == k->get_cuda_stream_id()) {
             busy_streams.erase(busy_streams.begin() + l);
             break;

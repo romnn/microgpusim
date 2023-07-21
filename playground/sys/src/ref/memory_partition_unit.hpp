@@ -5,8 +5,10 @@
 #include <vector>
 #include <zlib.h>
 
+#include "spdlog/logger.h"
 #include "dram.hpp"
 #include "hal.hpp"
+#include "mem_fetch.hpp"
 
 #define CREATELOG 111
 #define SAMPLELOG 222
@@ -34,10 +36,10 @@ class memory_partition_unit {
 
   void set_done(mem_fetch *mf);
 
-  void visualizer_print(gzFile visualizer_file) const;
   void print_stat(FILE *fp) { m_dram->print_stat(fp); }
-  void visualize() const { m_dram->visualize(); }
-  void print(FILE *fp) const;
+  // void visualize() const { m_dram->visualize(); }
+  // void visualizer_print(gzFile visualizer_file) const;
+  // void print(FILE *fp) const;
   void handle_memcpy_to_gpu(size_t dst_start_addr, unsigned subpart_id,
                             mem_access_sector_mask_t mask);
 
@@ -64,6 +66,8 @@ class memory_partition_unit {
   };
 
   std::list<dram_delay_t> m_dram_latency_queue;
+
+  std::shared_ptr<spdlog::logger> logger;
 
   friend class memory_partition_unit_bridge;
 
@@ -111,3 +115,19 @@ class memory_partition_unit {
 
 std::ostream &operator<<(std::ostream &os,
                          const memory_partition_unit::dram_delay_t &delay);
+
+#include "fmt/core.h"
+
+template <>
+struct fmt::formatter<memory_partition_unit::dram_delay_t> {
+  constexpr auto parse(format_parse_context &ctx)
+      -> format_parse_context::iterator {
+    return ctx.end();
+  }
+
+  auto format(const memory_partition_unit::dram_delay_t &delay,
+              format_context &ctx) const -> format_context::iterator {
+    return fmt::format_to(ctx.out(), "(ready at {})({})", delay.ready_cycle,
+                          mem_fetch_ptr(delay.req));
+  }
+};

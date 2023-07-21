@@ -4,13 +4,15 @@
 #include <list>
 #include <memory>
 
+#include "spdlog/logger.h"
 #include "intersim2/interconnect_interface.hpp"
 
 extern InterconnectInterface *g_icnt_interface;
 
 class BoxInterconnect : public InterconnectInterface {
  public:
-  BoxInterconnect() : InterconnectInterface() {}
+  BoxInterconnect(std::shared_ptr<spdlog::logger> logger)
+      : InterconnectInterface(), logger(logger) {}
 
   // we override these functions
   void Init();
@@ -20,6 +22,8 @@ class BoxInterconnect : public InterconnectInterface {
   void Advance();
   bool Busy() const;
   bool HasBuffer(unsigned deviceID, unsigned int size) const;
+
+  std::shared_ptr<spdlog::logger> logger;
 
  protected:
   std::vector<std::vector<std::vector<std::list<void *>>>> simple_input_queue;

@@ -12,11 +12,11 @@ enum cache_request_status read_only_cache::access(
   assert(!mf->get_is_write());
   new_addr_type block_addr = m_config.block_addr(addr);
 
-  printf(
-      "%s::read_only_cache::access(%lu, write = %d, data size = %d, control "
-      "size = %d, block = %lu)\n",
-      name().c_str(), addr, mf->is_write(), mf->get_data_size(),
-      mf->get_ctrl_size(), block_addr);
+  logger->trace(
+      "{}::read_only_cache::access({}, write = {}, data size = {}, control "
+      "size = {}, block = {})",
+      name(), addr, mf->is_write(), mf->get_data_size(), mf->get_ctrl_size(),
+      block_addr);
 
   unsigned cache_index = (unsigned)-1;
   enum cache_request_status status =
@@ -50,10 +50,13 @@ enum cache_request_status read_only_cache::access(
   return cache_status;
 }
 
+#include "spdlog/sinks/stdout_color_sinks.h"
+
 std::unique_ptr<read_only_cache> new_read_only_cache(
     const std::string &name, std::unique_ptr<cache_config> config, int core_id,
     int type_id, mem_fetch_interface *memport,
     enum mem_fetch_status fetch_status) {
-  return std::make_unique<read_only_cache>(name.c_str(), *config, core_id,
-                                           type_id, memport, fetch_status);
+  auto logger = spdlog::stdout_color_mt("read_only_cache");
+  return std::make_unique<read_only_cache>(
+      name.c_str(), *config, core_id, type_id, memport, fetch_status, logger);
 }

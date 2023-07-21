@@ -5,7 +5,7 @@
 #include "mem_fetch.hpp"
 
 bool BoxInterconnect::HasBuffer(unsigned deviceID, unsigned int size) const {
-  int icntID = _node_map.find(deviceID)->second;
+  unsigned icntID = _node_map.find(deviceID)->second;
   assert(icntID == deviceID);
 
   // request is subnet 0 and reply is subnet 1
@@ -14,22 +14,17 @@ bool BoxInterconnect::HasBuffer(unsigned deviceID, unsigned int size) const {
   bool has_buffer =
       simple_input_queue[subnet][icntID][0].size() <= _input_buffer_capacity;
 
-  // printf("InterconnectInterface::HasBuffer(dev=%u, size=%u): "
-  //        "_input_buffer_capacity = %u\n",
-  //        deviceID, size, _input_buffer_capacity);
-
   return has_buffer;
 }
 
 void BoxInterconnect::Advance() {
-  // printf("ROMAN INTERCONN ADVANCE\n");
   // do nothing
 }
 
 bool BoxInterconnect::Busy() const { return false; }
 
 void *BoxInterconnect::Pop(unsigned deviceID) {
-  int icntID = _node_map[deviceID];
+  unsigned icntID = _node_map[deviceID];
   assert(icntID == deviceID);
 
   // bool is_memory_node = ((_subnets > 1) && deviceID >= _n_shader);
@@ -43,14 +38,10 @@ void *BoxInterconnect::Pop(unsigned deviceID) {
 
   int turn = _round_robin_turn[subnet][icntID];
 
-  printf("INTERCONN POP FROM %d (device=%u, id=%u, subnet=%d, turn=%d)\n",
-         deviceID, icntID, deviceID, subnet, turn);
+  logger->trace("INTERCONN POP FROM {} (device={}, id={}, subnet={}, turn={})",
+                deviceID, icntID, deviceID, subnet, turn);
 
   for (int vc = 0; (vc < _vcs) && (data == NULL); vc++) {
-    // printf("ROMAN INTERCONN POP from (%d, %d, %d) vc=%d turn=%d size=%lu\n",
-    //        subnet, icntID, turn, vc, turn,
-    //        simple_output_queue[subnet][icntID][turn].size());
-
     if (!simple_output_queue[subnet][icntID][turn].empty()) {
       data = simple_output_queue[subnet][icntID][turn].front();
       assert(data != NULL);
@@ -83,10 +74,9 @@ void BoxInterconnect::Push(unsigned input_deviceID, unsigned output_deviceID,
   bool is_memory_node = ((_subnets > 1) && (output_deviceID >= _n_shader));
   unsigned subnet = is_memory_node ? 1 : 0;
 
-  int input_icntID = _node_map[input_deviceID];
-  int output_icntID = _node_map[output_deviceID];
+  unsigned input_icntID = _node_map[input_deviceID];
+  unsigned output_icntID = _node_map[output_deviceID];
   for (auto const &x : _node_map) {
-    // std::cout << x.first << ':' << x.second << std::endl;
     assert(x.first == x.second);
   }
 
@@ -98,9 +88,9 @@ void BoxInterconnect::Push(unsigned input_deviceID, unsigned output_deviceID,
 
   bool is_fetch = mf->get_access_type() < NUM_MEM_ACCESS_TYPE;
   if (is_fetch) {
-    std::cout << "INTERCONN PUSH " << mf << ": " << size
-              << " bytes from device " << input_icntID << " to "
-              << output_icntID << " (subnet " << subnet << ")" << std::endl;
+    logger->trace(
+        "INTERCONN PUSH {}: {} bytes from device {} to {} (subnet {})",
+        mem_fetch_ptr(mf), size, input_icntID, output_icntID, subnet);
   }
 
   // simple_input_queue[subnet][input_icntID][0].push_back(data);
@@ -118,17 +108,20 @@ void BoxInterconnect::Init() {
   for (int subnet = 0; subnet < _subnets; ++subnet) {
     simple_input_queue[subnet].resize(nodes);
     simple_output_queue[subnet].resize(nodes);
-    for (int node = 0; node < nodes; ++node) {
+    for (unsigned node = 0; node < nodes; ++node) {
       simple_input_queue[subnet][node].resize(classes);
       simple_output_queue[subnet][node].resize(classes);
     }
   }
 }
 
+#include "spdlog/sinks/stdout_color_sinks.h"
+
 std::unique_ptr<BoxInterconnect> new_box_interconnect(
     const char *config_filename) {
+  auto logger = spdlog::stdout_color_mt("box_interconnnect");
   std::unique_ptr<BoxInterconnect> box_interconnect =
-      std::make_unique<BoxInterconnect>();
+      std::make_unique<BoxInterconnect>(logger);
   box_interconnect->ParseConfigFile(config_filename);
   return box_interconnect;
 }

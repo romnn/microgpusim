@@ -120,7 +120,7 @@ mem_stage_stall_type ldst_unit::process_memory_access_queue_l1cache(
   if (inst.accessq_empty()) return result;
 
   if (m_config->m_L1D_config.l1_latency > 0) {
-    for (int j = 0; j < m_config->m_L1D_config.l1_banks;
+    for (unsigned j = 0; j < m_config->m_L1D_config.l1_banks;
          j++) {  // We can handle at max l1_banks reqs per cycle
 
       if (inst.accessq_empty()) return result;
@@ -174,7 +174,7 @@ mem_stage_stall_type ldst_unit::process_memory_access_queue_l1cache(
 
 void ldst_unit::L1_latency_queue_cycle() {
   // throw std::runtime_error("no l1 latency queue");
-  for (int j = 0; j < m_config->m_L1D_config.l1_banks; j++) {
+  for (unsigned j = 0; j < m_config->m_L1D_config.l1_banks; j++) {
     if ((l1_latency_queue[j][0]) != NULL) {
       mem_fetch *mf_next = l1_latency_queue[j][0];
       std::list<cache_event> events;
@@ -311,13 +311,12 @@ bool ldst_unit::memory_cycle(warp_inst_t &inst,
   if (inst.active_count() == 0) return true;
   if (inst.accessq_empty()) return true;
 
-  std::cout << "memory cycle for instruction: " << inst << std::endl;
+  logger->trace("memory cycle for instruction: {}", inst);
 
   mem_stage_stall_type stall_cond = NO_RC_FAIL;
   const mem_access_t &access = inst.accessq_back();
 
-  std::cout << "memory cycle for instruction: " << inst
-            << " => access: " << access << std::endl;
+  logger->trace("memory cycle for instruction: {} => access: {}", inst, access);
 
   bool bypassL1D = false;
   if (CACHE_GLOBAL == inst.cache_op || (m_L1D == NULL)) {
@@ -361,8 +360,8 @@ bool ldst_unit::memory_cycle(warp_inst_t &inst,
     stall_cond = COAL_STALL;
   }
 
-  std::cout << "memory instruction stall cond: "
-            << mem_stage_stall_type_str[stall_cond] << std::endl;
+  logger->trace("memory instruction stall cond: {}",
+                mem_stage_stall_type_str[stall_cond]);
   if (stall_cond != NO_RC_FAIL) {
     stall_reason = stall_cond;
     bool iswrite = inst.is_store();
@@ -412,7 +411,7 @@ ldst_unit::ldst_unit(mem_fetch_interface *icnt,
     snprintf(L1D_name, 1024, "L1D_%03d", m_sid);
     m_L1D = new l1_cache(L1D_name, m_config->m_L1D_config, m_sid,
                          get_shader_normal_cache_id(), m_icnt, m_mf_allocator,
-                         IN_L1D_MISS_QUEUE, core->get_gpu());
+                         IN_L1D_MISS_QUEUE, logger, core->get_gpu());
 
     l1_latency_queue.resize(m_config->m_L1D_config.l1_banks);
     assert(m_config->m_L1D_config.l1_latency > 0);
@@ -465,22 +464,14 @@ void ldst_unit::issue(register_set &reg_set) {
 void ldst_unit::writeback() {
   // process next instruction that is going to writeback
   if (!m_next_wb.empty()) {
-    // printf(
-    //     "load store unit: cycle %llu writeback: next_wb=%s [warp_id=%d "
-    //     "pc=%lu] (arb=%d)\n",
-    //     m_core->get_gpu()->gpu_sim_cycle, m_next_wb.opcode_str(),
-    //     m_next_wb.warp_id(), m_next_wb.pc, m_writeback_arb);
-
-    std::cout << "load store unit: cycle " << m_core->get_gpu()->gpu_sim_cycle
-              << " writeback: next_wb=" << m_next_wb
-              << " (arb=" << m_writeback_arb << ")" << std::endl;
+    logger->trace("load store unit: cycle {} writeback: next_wb={} (arb={})",
+                  m_core->get_gpu()->gpu_sim_cycle, m_next_wb, m_writeback_arb);
 
     if (m_operand_collector->writeback(m_next_wb)) {
       bool insn_completed = false;
       for (unsigned r = 0; r < MAX_OUTPUT_VALUES; r++) {
         if (m_next_wb.out[r] > 0) {
-          std::cout << "load store unit: writeback: release register"
-                    << std::endl;
+          logger->trace("load store unit: writeback: release register");
           if (m_next_wb.space.get_type() != shared_space) {
             assert(m_pending_writes[m_next_wb.warp_id()][m_next_wb.out[r]] > 0);
             unsigned still_pending =
@@ -506,9 +497,8 @@ void ldst_unit::writeback() {
       m_last_inst_gpu_tot_sim_cycle = m_core->get_gpu()->gpu_tot_sim_cycle;
     }
   } else {
-    std::cout << "load store unit: cycle " << m_core->get_gpu()->gpu_sim_cycle
-              << " writeback: next_wb=NULL (arb=" << m_writeback_arb << ")"
-              << std::endl;
+    logger->trace("load store unit: cycle {} writeback: next_wb=NULL (arb={})",
+                  m_core->get_gpu()->gpu_sim_cycle, m_writeback_arb);
   }
 
   unsigned serviced_client = -1;
@@ -548,10 +538,7 @@ void ldst_unit::writeback() {
       case 3:  // global/local
         if (m_next_global) {
           m_next_wb = m_next_global->get_inst();
-          std::cout << "has global " << m_next_wb << std::endl;
-          // if (m_next_global->get_wid() == 3 &&
-          //     m_core->current_cycle() > 77)  // 77)
-          //   throw std::runtime_error("warp 3 got global");
+          logger->trace("has global {}", m_next_wb);
           if (m_next_global->isatomic()) {
             m_core->decrement_atomic_count(
                 m_next_global->get_wid(),
@@ -578,8 +565,7 @@ void ldst_unit::writeback() {
   // 1. the writeback buffer was available
   // 2. a client was serviced
   if (serviced_client != (unsigned)-1) {
-    printf("serviced %d\n", serviced_client);
-    // throw std::runtime_error("ldst unit writeback serviced");
+    logger->trace("serviced {}", serviced_client);
     m_writeback_arb = (serviced_client + 1) % m_num_writeback_clients;
   }
 }
@@ -593,8 +579,8 @@ unsigned ldst_unit::clock_multiplier() const {
 }
 
 void ldst_unit::cycle() {
-  printf("\n\nldst_unit::cycle() (response fifo size=%lu)\n",
-         m_response_fifo.size());
+  logger->debug("ldst_unit::cycle() (response fifo size={})",
+                m_response_fifo.size());
   writeback();
 
   for (unsigned stage = 0; (stage + 1) < m_pipeline_depth; stage++) {
@@ -603,7 +589,8 @@ void ldst_unit::cycle() {
       std::stringstream msg;
       msg << "load store unit: move warp from stage " << stage << " to "
           << stage + 1;
-      move_warp(m_pipeline_reg[stage], m_pipeline_reg[stage + 1], msg.str());
+      move_warp(m_pipeline_reg[stage], m_pipeline_reg[stage + 1], msg.str(),
+                logger);
     }
   }
 
@@ -699,7 +686,7 @@ void ldst_unit::cycle() {
                  "pipeline["
               << pipe_slot_idx << "]",
               move_warp(m_pipeline_reg[m_config->smem_latency - 1],
-                        m_dispatch_reg, msg.str());
+                        m_dispatch_reg, msg.str(), logger);
           m_dispatch_reg->clear();
         }
       } else {
@@ -834,10 +821,10 @@ void ldst_unit::init(mem_fetch_interface *icnt,
   snprintf(L1C_name, STRSIZE, "L1C_%03d", m_sid);
   m_L1T = new tex_cache(L1T_name, m_config->m_L1T_config, m_sid,
                         get_shader_texture_cache_id(), icnt, IN_L1T_MISS_QUEUE,
-                        IN_SHADER_L1T_ROB);
+                        IN_SHADER_L1T_ROB, logger);
   m_L1C = new read_only_cache(L1C_name, m_config->m_L1C_config, m_sid,
                               get_shader_constant_cache_id(), icnt,
-                              IN_L1C_MISS_QUEUE);
+                              IN_L1C_MISS_QUEUE, logger);
   m_L1D = NULL;
   m_mem_rc = NO_RC_FAIL;
   m_num_writeback_clients =

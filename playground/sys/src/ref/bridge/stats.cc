@@ -117,8 +117,10 @@ void accelsim_bridge::transfer_dram_stats(StatsBridge &stats) const {
 
 /// see: void trace_gpgpu_sim::gpu_print_stat() {
 void accelsim_bridge::transfer_general_stats(StatsBridge &stats) const {
-  stats.set_sim_cycle(m_gpgpu_sim->gpu_tot_sim_cycle);
-  stats.set_sim_instructions(m_gpgpu_sim->gpu_tot_sim_insn);
+  stats.set_sim_cycle(m_gpgpu_sim->gpu_tot_sim_cycle +
+                      m_gpgpu_sim->gpu_sim_cycle);
+  stats.set_sim_instructions(m_gpgpu_sim->gpu_tot_sim_insn +
+                             m_gpgpu_sim->gpu_sim_insn);
 
   // gpu_sim_cycle and gpu_sim_insn are reset in between launches using
   // update_stats() stats.set_sim_cycle(gpu_sim_cycle);

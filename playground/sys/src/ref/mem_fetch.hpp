@@ -48,8 +48,6 @@ class mem_fetch {
       m_type = WRITE_ACK;
     } else {
       // already a reply
-      // std::cout << mf_type_str[m_type] << std::endl;
-      // assert(0 && "cannot set reply");
     }
   }
   void do_atomic();
@@ -124,6 +122,8 @@ class mem_fetch {
 
   friend std::ostream &operator<<(std::ostream &os, const mem_fetch *fetch);
 
+  friend struct fmt::formatter<mem_fetch>;
+
  private:
   // request source information
   unsigned m_request_uid;
@@ -174,3 +174,60 @@ class mem_fetch {
 
 std::ostream &operator<<(std::ostream &os, const mem_fetch *fetch);
 std::ostream &operator<<(std::ostream &os, const mem_fetch &mf);
+
+#include "fmt/core.h"
+
+template <>
+struct fmt::formatter<mem_fetch> {
+  constexpr auto parse(format_parse_context &ctx)
+      -> format_parse_context::iterator {
+    return ctx.end();
+  }
+
+  auto format(const mem_fetch &fetch, format_context &ctx) const
+      -> format_context::iterator {
+    return fmt::format_to(ctx.out(), "{}({})",
+                          (fetch.is_reply()) ? "Reply" : "Req", fetch.m_access);
+  }
+};
+
+struct mem_fetch_ptr {
+ private:
+  const mem_fetch *ptr;
+
+ public:
+  mem_fetch_ptr(const mem_fetch *p) : ptr(p) {}
+
+  friend struct fmt::formatter<mem_fetch_ptr>;
+};
+
+template <>
+struct fmt::formatter<mem_fetch_ptr> {
+  constexpr auto parse(format_parse_context &ctx)
+      -> format_parse_context::iterator {
+    return ctx.end();
+  }
+
+  auto format(mem_fetch_ptr fetch, format_context &ctx) const
+      -> format_context::iterator {
+    if (fetch.ptr == NULL) {
+      return fmt::format_to(ctx.out(), "NULL");
+    }
+    // dispatch
+    return fmt::formatter<mem_fetch>().format(*(fetch.ptr), ctx);
+  }
+};
+
+template <>
+struct fmt::formatter<mem_fetch *> {
+  constexpr auto parse(format_parse_context &ctx)
+      -> format_parse_context::iterator {
+    return ctx.end();
+  }
+
+  auto format(mem_fetch *fetch, format_context &ctx) const
+      -> format_context::iterator {
+    // dispatch
+    return fmt::formatter<mem_fetch_ptr>().format(mem_fetch_ptr(fetch), ctx);
+  }
+};

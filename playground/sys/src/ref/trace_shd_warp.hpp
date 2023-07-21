@@ -67,7 +67,8 @@ class trace_shd_warp_t {
   std::vector<const trace_warp_inst_t *> parsed_warp_traces_cache;
   // unsigned parsed_trace_pc;
 
-  void print_trace_instructions(bool all);
+  void print_trace_instructions(bool all,
+                                std::shared_ptr<spdlog::logger> &logger);
   const warp_inst_t *get_next_trace_inst();
   const trace_warp_inst_t *get_current_trace_inst();
   const trace_warp_inst_t *get_cached_trace_instruction(unsigned trace_pc);

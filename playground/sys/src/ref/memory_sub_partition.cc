@@ -4,6 +4,7 @@
 #include <list>
 
 #include "io.hpp"
+#include "mem_fetch.hpp"
 #include "cache_sub_stats.hpp"
 #include "l2_cache_trace.hpp"
 #include "l2_interface.hpp"
@@ -15,6 +16,7 @@ memory_sub_partition::memory_sub_partition(unsigned sub_partition_id,
                                            const memory_config *config,
                                            class memory_stats_t *stats,
                                            class trace_gpgpu_sim *gpu) {
+  logger = gpu->logger;
   m_id = sub_partition_id;
   m_config = config;
   m_stats = stats;
@@ -31,7 +33,7 @@ memory_sub_partition::memory_sub_partition(unsigned sub_partition_id,
   if (!m_config->m_L2_config.disabled())
     m_L2cache =
         new l2_cache(L2c_name, m_config->m_L2_config, -1, -1, m_L2interface,
-                     m_mf_allocator, IN_PARTITION_L2_MISS_QUEUE, gpu);
+                     m_mf_allocator, IN_PARTITION_L2_MISS_QUEUE, logger, gpu);
 
   unsigned int icnt_L2;
   unsigned int L2_dram;
@@ -63,26 +65,31 @@ std::ostream &operator<<(std::ostream &os,
 
 void memory_sub_partition::cache_cycle(unsigned cycle) {
   unsigned before = m_rop.size();
-  std::cout << "memory sub partition cache cycle " << cycle
-            << " rop queue=" << m_rop << " icnt to l2 queue=" << m_icnt_L2_queue
-            << " l2 to icnt queue=" << m_L2_icnt_queue
-            << " l2 to dram queue=" << m_L2_dram_queue << std::endl;
+  logger->trace(
+      "memory sub partition cache cycle {} rop queue=[{}] icnt to l2 "
+      "queue=[{}] l2 to icnt queue=[{}] l2 to dram queue=[{}]",
+      cycle, fmt::join(queue_to_vector(m_rop), ", "),
+      fmt::join(m_icnt_L2_queue->to_vector(), ", "),
+      fmt::join(m_L2_icnt_queue->to_vector(), ", "),
+      fmt::join(m_L2_dram_queue->to_vector(), ", "));
 
   // make sure that printing the rop queue emptied a copy only
   assert(m_rop.size() == before);
 
   // L2 fill responses
   if (!m_config->m_L2_config.disabled()) {
-    std::cout << "memory sub partition cache cycle " << cycle
-              << " l2 cache ready accesses=" << m_L2cache->ready_accesses()
-              << " l2 to icnt queue full=" << m_L2_icnt_queue->full()
-              << std::endl;
+    logger->trace(
+        "memory sub partition cache cycle {} l2 cache ready accesses=[{}] l2 "
+        "to "
+        "icnt queue full={}",
+        cycle, fmt::join(m_L2cache->ready_accesses(), ", "),
+        m_L2_icnt_queue->full());
     if (m_L2cache->access_ready() && !m_L2_icnt_queue->full()) {
       mem_fetch *mf = m_L2cache->next_access();
       // l2 access is ready to go to interconnect
       if (mf->get_access_type() !=
-          L2_WR_ALLOC_R) {  // Don't pass write allocate read request back to
-                            // upper level cache
+          L2_WR_ALLOC_R) {  // Don't pass write allocate read request back
+                            // to upper level cache
         mf->set_reply();
         mf->set_status(IN_PARTITION_L2_TO_ICNT_QUEUE,
                        m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
@@ -112,25 +119,25 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
         mf->set_status(IN_PARTITION_L2_FILL_QUEUE,
                        m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
 
-        std::cout << "filling L2 with " << mf << std::endl;
+        logger->trace("filling L2 with {}", mem_fetch_ptr(mf));
         m_L2cache->fill(mf, m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle +
                                 m_memcpy_cycle_offset);
         m_dram_L2_queue->pop();
       } else {
-        std::cout << "skip filling L2 with " << mf << ": no free fill port"
-                  << std::endl;
+        logger->trace("skip filling L2 with {}: no free fill port",
+                      mem_fetch_ptr(mf));
       }
     } else if (!m_L2_icnt_queue->full()) {
       if (mf->is_write() && mf->get_type() == WRITE_ACK)
         mf->set_status(IN_PARTITION_L2_TO_ICNT_QUEUE,
                        m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-      std::cout << "pushing " << mf << " to interconn queue" << std::endl;
+      logger->trace("pushing {} to interconn queue", mem_fetch_ptr(mf));
       m_L2_icnt_queue->push(mf);
       m_dram_L2_queue->pop();
     } else {
-      std::cout << "skip pushing " << mf
-                << " to interconn queue: l2 to interconn queue full"
-                << std::endl;
+      logger->trace(
+          "skip pushing {} to interconn queue: l2 to interconn queue full",
+          mem_fetch_ptr(mf));
     }
   }
 
@@ -138,21 +145,13 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
   if (!m_config->m_L2_config.disabled()) m_L2cache->cycle();
 
   // new L2 texture accesses and/or non-texture accesses
-  // printf("l2 to dram queue full: %d interconn to l2 queue empty: %d\n",
-  //        m_L2_dram_queue->full(), m_icnt_L2_queue->empty());
   if (!m_L2_dram_queue->full() && !m_icnt_L2_queue->empty()) {
     mem_fetch *mf = m_icnt_L2_queue->top();
-
-    // printf("l2 disabled: %d L2 texture only: %d fetch is texture: %d\n",
-    //        m_config->m_L2_config.disabled(), m_config->m_L2_texure_only,
-    //        mf->istexture());
-    // throw std::runtime_error("new l2 texture access or non tex access");
 
     if (!m_config->m_L2_config.disabled() &&
         ((m_config->m_L2_texure_only && mf->istexture()) ||
          (!m_config->m_L2_texure_only))) {
       // L2 is enabled and access is for L2
-      // throw std::runtime_error("l2 is enabled and have access for L2");
       bool output_full = m_L2_icnt_queue->full();
       bool port_free = m_L2cache->data_port_free();
       if (!output_full && port_free) {
@@ -164,8 +163,8 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
                               events);
         bool write_sent = was_write_sent(events);
         bool read_sent = was_read_sent(events);
-        printf("probing L2 cache address=%ld, status=%s\n", mf->get_addr(),
-               get_cache_request_status_str(status));
+        logger->trace("probing L2 cache address={}, status={}", mf->get_addr(),
+                      get_cache_request_status_str(status));
 
         if (status == HIT) {
           if (!write_sent) {
@@ -227,7 +226,7 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
       !m_icnt_L2_queue->full()) {
     mem_fetch *mf = m_rop.front().req;
     m_rop.pop();
-    std::cout << "POP FROM ROP: " << mf << std::endl;
+    logger->trace("POP FROM ROP: {}", mem_fetch_ptr(mf));
     m_icnt_L2_queue->push(mf);
     mf->set_status(IN_PARTITION_ICNT_TO_L2_QUEUE,
                    m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
@@ -272,26 +271,27 @@ void memory_sub_partition::print_cache_stat(unsigned &accesses,
   if (!m_config->m_L2_config.disabled()) m_L2cache->print(fp, accesses, misses);
 }
 
-void memory_sub_partition::print(FILE *fp) const {
-  if (!m_request_tracker.empty()) {
-    fprintf(fp, "Memory Sub Parition %u: %lu pending memory requests:\n", m_id,
-            m_request_tracker.size());
-    for (std::set<mem_fetch *>::const_iterator r = m_request_tracker.begin();
-         r != m_request_tracker.end(); ++r) {
-      mem_fetch *mf = *r;
-      if (mf) {
-        // mf->print(fp);
-        std::stringstream buffer;
-        buffer << mf;
-        fprintf(fp, "%s", buffer.str().c_str());
-        // (std::ostream &)fp << mf;
-      } else {
-        fprintf(fp, " <NULL mem_fetch?>\n");
-      }
-    }
-  }
-  if (!m_config->m_L2_config.disabled()) m_L2cache->display_state(fp);
-}
+// void memory_sub_partition::print(FILE *fp) const {
+//   if (!m_request_tracker.empty()) {
+//     fprintf(fp, "Memory Sub Parition %u: %lu pending memory requests:\n",
+//     m_id,
+//             m_request_tracker.size());
+//     for (std::set<mem_fetch *>::const_iterator r = m_request_tracker.begin();
+//          r != m_request_tracker.end(); ++r) {
+//       mem_fetch *mf = *r;
+//       if (mf) {
+//         // mf->print(fp);
+//         std::stringstream buffer;
+//         buffer << mf;
+//         fprintf(fp, "%s", buffer.str().c_str());
+//         // (std::ostream &)fp << mf;
+//       } else {
+//         fprintf(fp, " <NULL mem_fetch?>\n");
+//       }
+//     }
+//   }
+//   if (!m_config->m_L2_config.disabled()) m_L2cache->display_state(fp);
+// }
 
 unsigned memory_sub_partition::flushL2() {
   if (!m_config->m_L2_config.disabled()) {
@@ -411,7 +411,7 @@ void memory_sub_partition::push(mem_fetch *m_req, unsigned long long cycle) {
         rop_delay_t r;
         r.req = req;
         r.ready_cycle = cycle + m_config->rop_latency;
-        std::cout << "PUSH TO ROP: " << req << std::endl;
+        logger->trace("PUSH TO ROP: {}", mem_fetch_ptr(req));
         m_rop.push(r);
         req->set_status(IN_PARTITION_ROP_DELAY,
                         m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
@@ -475,16 +475,16 @@ void memory_sub_partition::clear_L2cache_stats_pw() {
   }
 }
 
-void memory_sub_partition::visualizer_print(gzFile visualizer_file) {
-  // Support for L2 AerialVision stats
-  // Per-sub-partition stats would be trivial to extend from this
-  cache_sub_stats_pw temp_sub_stats;
-  get_L2cache_sub_stats_pw(temp_sub_stats);
-
-  m_stats->L2_read_miss += temp_sub_stats.read_misses;
-  m_stats->L2_write_miss += temp_sub_stats.write_misses;
-  m_stats->L2_read_hit += temp_sub_stats.read_hits;
-  m_stats->L2_write_hit += temp_sub_stats.write_hits;
-
-  clear_L2cache_stats_pw();
-}
+// void memory_sub_partition::visualizer_print(gzFile visualizer_file) {
+//   // Support for L2 AerialVision stats
+//   // Per-sub-partition stats would be trivial to extend from this
+//   cache_sub_stats_pw temp_sub_stats;
+//   get_L2cache_sub_stats_pw(temp_sub_stats);
+//
+//   m_stats->L2_read_miss += temp_sub_stats.read_misses;
+//   m_stats->L2_write_miss += temp_sub_stats.write_misses;
+//   m_stats->L2_read_hit += temp_sub_stats.read_hits;
+//   m_stats->L2_write_hit += temp_sub_stats.write_hits;
+//
+//   clear_L2cache_stats_pw();
+// }

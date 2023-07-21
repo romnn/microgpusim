@@ -1,5 +1,6 @@
 #pragma once
 
+#include "spdlog/logger.h"
 #include "simd_function_unit.hpp"
 #include "trace_warp_inst.hpp"
 
@@ -34,6 +35,8 @@ class pipelined_simd_unit : public simd_function_unit {
   //     }
   //   }
   // }
+
+  std::shared_ptr<spdlog::logger> logger;
 
  protected:
   unsigned m_pipeline_depth;

@@ -26,7 +26,8 @@ unsigned trace_simt_core_cluster::get_not_completed() const {
 }
 
 void trace_simt_core_cluster::icnt_cycle() {
-  std::cout << "icnt_cycle response buffer=" << m_response_fifo << std::endl;
+  logger->trace("icnt_cycle response buffer=[{}]",
+                fmt::join(m_response_fifo, ","));
 
   if (!m_response_fifo.empty()) {
     mem_fetch *mf = m_response_fifo.front();
@@ -36,11 +37,11 @@ void trace_simt_core_cluster::icnt_cycle() {
       if (!m_core[cid]->fetch_unit_response_buffer_full()) {
         m_response_fifo.pop_front();
         m_core[cid]->accept_fetch_response(mf);
-        std::cout << "accepted instr access fetch " << mf << std::endl;
+        logger->trace("accepted instr access fetch {}", mem_fetch_ptr(mf));
 
       } else {
-        std::cout << "instr access fetch " << mf << " NOT YET ACCEPTED"
-                  << std::endl;
+        logger->trace("instr access fetch {} NOT YET ACCEPTED",
+                      mem_fetch_ptr(mf));
       }
 
     } else {
@@ -49,11 +50,10 @@ void trace_simt_core_cluster::icnt_cycle() {
         m_response_fifo.pop_front();
         m_memory_stats->memlatstat_read_done(mf);
         m_core[cid]->accept_ldst_unit_response(mf);
-        std::cout << "accepted ldst unit fetch " << mf << std::endl;
+        logger->trace("accepted ldst unit fetch {}", mem_fetch_ptr(mf));
 
       } else {
-        std::cout << "ldst unit fetch " << mf << " NOT YET ACCEPTED"
-                  << std::endl;
+        logger->trace("ldst unit fetch {} NOT YET ACCEPTED", mem_fetch_ptr(mf));
       }
     }
   }
@@ -61,8 +61,8 @@ void trace_simt_core_cluster::icnt_cycle() {
     mem_fetch *mf = (mem_fetch *)::icnt_pop(m_cluster_id);
     if (!mf) return;
 
-    std::cout << "cluster::icnt_cycle() got fetch from interconn: " << mf
-              << std::endl;
+    logger->trace("cluster::icnt_cycle() got fetch from interconn: {}",
+                  mem_fetch_ptr(mf));
 
     assert(mf->get_tpc() == m_cluster_id);
     assert(mf->get_type() == READ_REPLY || mf->get_type() == WRITE_ACK);
@@ -80,8 +80,8 @@ void trace_simt_core_cluster::icnt_cycle() {
     m_response_fifo.push_back(mf);
     m_stats->n_mem_to_simt[m_cluster_id] += mf->get_num_flits(false);
   } else {
-    std::cout << "skip: ejection buffer full (" << m_response_fifo.size() << "/"
-              << m_config->n_simt_ejection_buffer_size << ")" << std::endl;
+    logger->trace("skip: ejection buffer full ({}/{})", m_response_fifo.size(),
+                  m_config->n_simt_ejection_buffer_size);
   }
 }
 
@@ -149,7 +149,7 @@ void trace_simt_core_cluster::get_icnt_stats(long &n_simt_to_mem,
 }
 
 unsigned trace_simt_core_cluster::issue_block2core() {
-  printf("cluster %u: issue block to core\n", m_cluster_id);
+  logger->trace("cluster {}: issue block to core", m_cluster_id);
   unsigned num_blocks_issued = 0;
   for (unsigned i = 0; i < m_config->n_simt_cores_per_cluster; i++) {
     unsigned core =
@@ -175,13 +175,13 @@ unsigned trace_simt_core_cluster::issue_block2core() {
         }
       }
     }
-    printf("core %u-%u: selected kernel %s\n", m_cluster_id, core,
-           kernel != NULL ? kernel->get_name().c_str() : "NULL");
+    logger->trace("core {}-{}: selected kernel {}", m_cluster_id, core,
+                  kernel != NULL ? kernel->get_name() : "NULL");
 
     if (kernel != NULL) {
-      printf("kernel: no more blocks to run=%d can issue block %d\n",
-             !m_gpu->kernel_more_cta_left(kernel),
-             m_core[core]->can_issue_1block(*kernel));
+      logger->trace("kernel: no more blocks to run={} can issue block {}",
+                    !m_gpu->kernel_more_cta_left(kernel),
+                    m_core[core]->can_issue_1block(*kernel));
     }
 
     if (m_gpu->kernel_more_cta_left(kernel) &&
@@ -322,22 +322,16 @@ void trace_simt_core_cluster::icnt_inject_request_packet(class mem_fetch *mf) {
   unsigned sub_partition_id = mf->get_sub_partition_id();
   unsigned destination = m_config->mem2device(sub_partition_id);
 
-  std::cout << "cluster " << m_cluster_id << " icnt_inject_request_packet("
-            << mf << ") sub partition id=" << sub_partition_id
-            << " dest mem node=" << destination << std::endl;
-  std::cout << "raw addr: " << mf->get_tlx_addr() << std::endl;
+  logger->trace(
+      "cluster {} icnt_inject_request_packet({}) sub partition id={} dest mem "
+      "node={}",
+      m_cluster_id, mem_fetch_ptr(mf), sub_partition_id, destination);
 
-  // printf("cluster %u icnt_inject_request_packet(", m_cluster_id);
-  // mf->print(stdout);
-  // printf(") sub partition id=%d dest mem node=%d\n", sub_partition_id,
-  //        destination);
-  // printf("raw addr:\t\t");
-  // mf->get_tlx_addr().print_dec(stdout);
-  // printf("\n");
+  logger->trace("raw addr: {}", mf->get_tlx_addr());
 
   addrdec_t fresh_raw_adrr;
   m_mem_config->m_address_mapping.addrdec_tlx(mf->get_addr(), &fresh_raw_adrr);
-  std::cout << "raw addr: " << fresh_raw_adrr << std::endl;
+  logger->trace("raw addr: {}", fresh_raw_adrr);
 
   mf->set_status(IN_ICNT_TO_MEM,
                  m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);

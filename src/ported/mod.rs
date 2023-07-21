@@ -1348,7 +1348,7 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::Arc;
 
-    #[ignore = "needs data"]
+    // #[ignore = "needs data"]
     #[test]
     fn test_lockstep() -> eyre::Result<()> {
         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
@@ -1356,9 +1356,10 @@ mod tests {
         let trace_dir = manifest_dir.join("results/vectorAdd/vectorAdd-1000-32");
         // // this has a race condition: see WIP.md
         let trace_dir = manifest_dir.join("results/vectorAdd/vectorAdd-10000-32");
+        // how many cycles does that have?
         let trace_dir = manifest_dir.join("results/simple_matrixmul/simple_matrixmul-32-32-32-32");
         // this fails in cycle 4654
-        // let trace_dir = manifest_dir.join("results/simple_matrixmul/simple_matrixmul-32-32-64-32");
+        let trace_dir = manifest_dir.join("results/simple_matrixmul/simple_matrixmul-32-32-64-32");
         //
         // untested
         // let trace_dir = manifest_dir.join("results/simple_matrixmul/simple_matrixmul-64-128-128-64");
@@ -1660,6 +1661,7 @@ mod tests {
             playground::stats::InstructionCounts::from(box_stats.instructions.clone());
         diff::assert_eq!(&play_stats.instructions, &playground_instructions);
 
+        // dbg!(&play_stats.sim, &box_stats.sim);
         diff::assert_eq!(
             &play_stats.sim,
             &playground::stats::Sim::from(box_stats.sim.clone()),

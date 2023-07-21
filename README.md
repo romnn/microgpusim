@@ -82,6 +82,12 @@ cargo install grcov
 cargo xtasks coverage
 ```
 
+Publishing traces (used by CI)
+
+```bash
+rclone sync ./results drive:gpucachesim
+```
+
 #### Missing features and current limitations
 
 - only traces and executes memory instructions and exit instructions

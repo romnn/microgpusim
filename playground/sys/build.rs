@@ -1,7 +1,8 @@
 // #![allow(warnings)]
 
 use color_eyre::eyre::{self, WrapErr};
-use std::path::PathBuf;
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
 
 fn output_path() -> PathBuf {
     PathBuf::from(std::env::var("OUT_DIR").unwrap())
@@ -18,6 +19,14 @@ pub fn is_debug() -> bool {
 }
 
 fn enable_diagnostics_color(build: &mut cc::Build) {
+    if let "no" | "false" = std::env::var("FORCE_COLOR")
+        .unwrap_or_default()
+        .to_lowercase()
+        .as_str()
+    {
+        return;
+    }
+    // force colored diagnostics for all terminals
     let compiler = build.get_compiler();
     if compiler.is_like_clang() || compiler.is_like_gnu() {
         build.flag("-fdiagnostics-color=always");
@@ -49,9 +58,36 @@ fn build(sources: &[PathBuf]) -> eyre::Result<()> {
     Ok(())
 }
 
-fn generate_bindings() -> eyre::Result<()> {
-    let bindings = bindgen::Builder::default()
+// fn build_fmt(sources: &[PathBuf], include_dir: &Path) -> eyre::Result<()> {
+//     let mut build = cc::Build::new();
+//     build
+//         .no_default_flags(true)
+//         .compiler("/usr/bin/c++")
+//         .cpp(true)
+//         .flag("-O3")
+//         .flag("-DNDEBUG")
+//         .flag("-fPIC")
+//         .flag("-fvisibility=hidden")
+//         .flag("-fvisibility-inlines-hidden")
+//         .include(include_dir)
+//         .files(sources);
+//     // .static_flag(true)
+//     // .flag("-std=c++14")
+//     // .warnings(false);
+//
+//     // -I/home/roman/dev/box/playground/sys/src/libs/fmt/include  -O3 -DNDEBUG -fPIC -fvisibility=hidden -fvisibility-inlines-hidden
+//
+//     configure_debug_mode(&mut build);
+//     enable_diagnostics_color(&mut build);
+//     build.try_compile("fmt")?;
+//     Ok(())
+// }
+
+fn generate_bindings(include_dir: &Path, flags: &HashMap<&str, &str>) -> eyre::Result<()> {
+    let builder = bindgen::Builder::default()
         .clang_arg("-std=c++14")
+        .clang_arg(format!("-I{}", include_dir.display()))
+        .clang_args(flags.iter().map(|(k, v)| format!("-D{k}={v}")))
         .rustified_enum(".*")
         .derive_eq(true)
         .prepend_enum_name(false)
@@ -100,11 +136,12 @@ fn generate_bindings() -> eyre::Result<()> {
         // .opaque_type("warp_inst_t")
         // .opaque_type("kernel_info_t")
         // .opaque_type("(::)?std::.*")
-        .header("src/bindings.hpp")
-        .generate()?;
+        // .include_dir("src/bindings.hpp")
+        .header("src/bindings.hpp");
+
+    let bindings = builder.generate()?;
 
     bindings.write_to_file(output_path().join("bindings.rs"))?;
-
     bindings.write_to_file("./bindings.rs")?;
     Ok(())
 }
@@ -164,9 +201,7 @@ fn build_config_parser_in_source() -> eyre::Result<()> {
         .files(parser_sources);
 
     configure_debug_mode(&mut build);
-    build
-        .try_compile("playgroundbridgeparser")
-        .wrap_err_with(|| "failed to build parser")?;
+    build.try_compile("playgroundbridgeparser")?;
 
     Ok(())
 }
@@ -244,30 +279,71 @@ fn build_config_parser() -> eyre::Result<PathBuf> {
         .files(parser_sources);
 
     configure_debug_mode(&mut build);
-    build
-        .try_compile("playgroundbridgeparser")
-        .wrap_err_with(|| "failed to build parser")?;
+    build.try_compile("playgroundbridgeparser")?;
 
     Ok(parser_build_dir)
 }
 
-fn generate_bridge(bridges: &[PathBuf], sources: Vec<PathBuf>) -> eyre::Result<()> {
-    let parser_include_dir = build_config_parser()?;
+fn build_spdlog(
+    sources: &[PathBuf],
+    include_dir: &Path,
+    flags: &HashMap<&str, &str>,
+    force: bool,
+) -> eyre::Result<()> {
+    println!("cargo:warning=output dir: {}", output_path().display());
+    let lib_name = "spdlog";
+    let lib_artifact = output_path().join(format!("lib{}.a", lib_name));
+    if !force && lib_artifact.is_file() {
+        println!("cargo:warning=using existing {}", lib_artifact.display());
+        println!("cargo:rustc-link-lib=static={}", lib_name);
+        return Ok(());
+    }
+    let mut build = cc::Build::new();
+    build
+        .cpp(true)
+        .static_flag(true)
+        .warnings(false)
+        .include(include_dir)
+        .opt_level(3)
+        .debug(false)
+        .flag("-std=c++14")
+        .files(sources);
+
+    for (&k, &v) in flags {
+        build.define(k, v);
+    }
+
+    build.try_compile("spdlog")?;
+    Ok(())
+}
+
+fn generate_bridge(
+    bridges: &[&PathBuf],
+    sources: &[&PathBuf],
+    include_dir: &Path,
+    flags: &HashMap<&str, &str>,
+    _force: bool,
+) -> eyre::Result<()> {
+    // build config parser
+    let parser_include_dir = build_config_parser().wrap_err("failed to build parser")?;
+
     let mut build = cxx_build::bridges(bridges);
     build
         .cpp(true)
         .static_flag(true)
         .warnings(false)
+        .include(include_dir)
         .include(parser_include_dir)
         .include("./src/ref/intersim2/")
         .flag("-std=c++14")
         .files(sources);
 
+    for (&k, &v) in flags {
+        build.define(k, v);
+    }
+
     configure_debug_mode(&mut build);
     println!("cargo:warning=playground: debug={}", is_debug());
-
-    // our custom build
-    build.define("BOX", "YES");
 
     enable_diagnostics_color(&mut build);
     build
@@ -276,17 +352,83 @@ fn generate_bridge(bridges: &[PathBuf], sources: Vec<PathBuf>) -> eyre::Result<(
     Ok(())
 }
 
-fn main() -> eyre::Result<()> {
-    if true {
-        println!("cargo:rerun-if-changed=./build.rs");
-        println!("cargo:rerun-if-changed=./src/bridge/");
-        println!("cargo:rerun-if-changed=./src/bindings.hpp");
-        println!("cargo:rerun-if-changed=./src/bridge.hpp");
-        println!("cargo:rerun-if-changed=./src/ref/");
-        println!("cargo:rerun-if-changed=./src/tests/");
+/// Renders a compile_flags.text file.
+///
+/// This file is useful for clang-tools such as linters or LSP.
+fn render_compile_flags_txt(include_dir: &Path, flags: &HashMap<&str, &str>) -> eyre::Result<()> {
+    use std::io::Write;
+    let mut compile_flags_file = std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open("./src/compile_flags.txt")?;
+    let mut compile_flags: Vec<String> = vec![
+        "c++",
+        "-Wall",
+        "-Wextra",
+        "-std=c++14",
+        "-O0",
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-fPIC",
+        "-gdwarf-4",
+        "-fno-omit-frame-pointer",
+        "-m64",
+        "-static",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect();
 
-        println!("cargo:rerun-if-env-changed=SKIP_BUILD");
-    }
+    // add flags
+    compile_flags.extend(flags.iter().map(|(k, v)| format!("-D{}={}", k, v)));
+
+    // add includes
+    compile_flags.extend([
+        format!("-I{}", &*include_dir.to_string_lossy()),
+        format!(
+            "-I{}",
+            output_path().join("cxxbridge/include").to_string_lossy()
+        ),
+        format!(
+            "-I{}",
+            output_path().join("cxxbridge/crate").to_string_lossy()
+        ),
+        format!(
+            "-I{}",
+            PathBuf::from("./src/ref/intersim2/")
+                .canonicalize()?
+                .to_string_lossy()
+        ),
+    ]);
+    compile_flags_file.write_all(compile_flags.join("\n").as_bytes())?;
+    Ok(())
+}
+
+fn main() -> eyre::Result<()> {
+    println!("cargo:rerun-if-changed=./build.rs");
+    println!("cargo:rerun-if-changed=./src/bridge/");
+    println!("cargo:rerun-if-changed=./src/bindings.hpp");
+    println!("cargo:rerun-if-changed=./src/bridge.hpp");
+    println!("cargo:rerun-if-changed=./src/ref/");
+    println!("cargo:rerun-if-changed=./src/tests/");
+    println!("cargo:rerun-if-changed=./src/include/");
+
+    println!("cargo:rerun-if-env-changed=SKIP_BUILD");
+    println!("cargo:rerun-if-env-changed=FORCE");
+
+    let flags: HashMap<&str, &str> = [
+        ("BOX", "YES"),
+        // we ship our own version of fmt
+        ("SPDLOG_FMT_EXTERNAL", "YES"),
+        // we compile spdlog separately to reduce compile time compared to using it header-only
+        ("SPDLOG_COMPILED_LIB", "YES"),
+    ]
+    .into_iter()
+    .collect();
+
+    let include_dir = PathBuf::from("./src/include").canonicalize()?;
+    render_compile_flags_txt(&include_dir, &flags)?;
 
     if std::env::var("SKIP_BUILD")
         .unwrap_or_default()
@@ -294,83 +436,53 @@ fn main() -> eyre::Result<()> {
         == "yes"
     {
         // skip build
+        println!("cargo:rustc-link-lib=static=spdlog");
         println!("cargo:rustc-link-lib=static=playgroundbridge");
         println!("cargo:rustc-link-lib=static=playgroundbridgeparser");
         return Ok(());
     }
 
-    let bridges: Result<Vec<_>, _> = utils::fs::multi_glob(["./src/bridge/**/*.rs"]).collect();
-    let mut bridges = bridges?;
-    let exclude = ["src/bridge/mod.rs"].map(PathBuf::from);
-    bridges.retain(|src| !exclude.contains(src));
+    let force = std::env::var("FORCE").unwrap_or_default().to_lowercase() == "yes";
 
-    let patterns = [
+    let spdlog_sources: Vec<_> =
+        utils::fs::multi_glob(["./src/spdlog/**/*.cpp"]).collect::<Result<_, _>>()?;
+
+    build_spdlog(spdlog_sources.as_slice(), &include_dir, &flags, force)
+        .wrap_err("failed to build spdlog")?;
+
+    let bridges_include: HashSet<_> =
+        utils::fs::multi_glob(["./src/bridge/**/*.rs"]).collect::<Result<_, _>>()?;
+    let bridges_exclude: HashSet<_> = ["src/bridge/mod.rs"]
+        .into_iter()
+        .map(PathBuf::from)
+        .collect();
+    let mut bridges: Vec<_> = bridges_include.difference(&bridges_exclude).collect();
+
+    let include_sources: HashSet<_> = utils::fs::multi_glob([
         "./src/tests/**/*.cc",
         "./src/ref/**/*.cc",
         "./src/ref/**/*.cpp",
-    ];
-    // collect all source files, fail on first glob error
-    let sources: Result<Vec<_>, _> = utils::fs::multi_glob(&patterns).collect();
-    let mut sources = sources?;
+        // NOTE: ./src/fmt/fmt.cc is not meant to be compiled as-is
+        "./src/fmt/format.cc",
+        "./src/fmt/os.cc",
+    ])
+    .collect::<Result<_, _>>()?;
+    let exclude_sources: HashSet<_> =
+        utils::fs::multi_glob(["./src/ref/ptx/**/*"]).collect::<Result<_, _>>()?;
+    let mut sources: Vec<_> = include_sources.difference(&exclude_sources).collect();
 
-    // filter sources
-    let deprecated_ptx = PathBuf::from("src/ref/ptx/");
-    sources.retain(|src| !src.starts_with(&deprecated_ptx));
-    let exclude = [
-        // "./src/ref/core.cc",
-        // "src/ref/main.cc",
-        // "src/ref/warp_instr.cc", // warp_isntr is fine!
-        "src/ref/gpgpu.cc",
-        "src/ref/gpgpu_sim.cc",
-        "src/ref/shd_warp.cc",
-        "src/ref/kernel_info.cc",
-        "src/ref/function_info.cc",
-        "src/ref/core.cc",
-        "src/ref/shader_core_ctx.cc",
-        "src/ref/simt_core_cluster.cc",
-        // "src/ref/cuda_sim.cc",
-        // temp
-        // "src/ref/trace_shader_core_ctx.cc",
-    ]
-    .map(PathBuf::from);
-    sources.retain(|src| !exclude.contains(src));
-
-    // build out bottom up: trace_shader_core first
-    // if false {
-    //     sources = [
-    //         "src/ref/dram.cc",
-    //         "src/ref/cuda_sim.cc",
-    //         "src/ref/tensor_core.cc",
-    //         "src/ref/int_unit.cc",
-    //         "src/ref/dp_unit.cc",
-    //         "src/ref/sp_unit.cc",
-    //         "src/ref/ldst_unit.cc",
-    //         "src/ref/specialized_unit.cc",
-    //         "src/ref/stream_operation.cc",
-    //         "src/ref/stream_manager.cc",
-    //         "src/ref/pipelined_simd_unit.cc",
-    //         "src/ref/simd_function_unit.cc",
-    //         "src/ref/memory_partition_unit.cc",
-    //         "src/ref/memory_sub_partition.cc",
-    //         "src/ref/main.cc",
-    //         "src/ref/gpgpu_sim_config.cc",
-    //         "src/ref/gpgpu_context.cc",
-    //         "src/ref/trace_simt_core_cluster.cc",
-    //         "src/ref/trace_kernel_info.cc",
-    //         "src/ref/trace_shd_warp.cc",
-    //         "src/ref/trace_shader_core_ctx.cc",
-    //         "src/ref/trace_gpgpu_sim.cc",
-    //     ]
-    //     .map(PathBuf::from)
-    //     .to_vec();
-    // }
-
+    bridges.sort();
     sources.sort();
 
-    // accelsim uses zlib for compression
-    // println!("cargo:rustc-link-lib=z");
+    generate_bindings(&include_dir, &flags).wrap_err("failed to generate bindings")?;
+    generate_bridge(
+        bridges.as_slice(),
+        sources.as_slice(),
+        &include_dir,
+        &flags,
+        force,
+    )
+    .wrap_err("failed to generate bridge")?;
 
-    generate_bindings()?;
-    generate_bridge(&bridges, sources)?;
     Ok(())
 }

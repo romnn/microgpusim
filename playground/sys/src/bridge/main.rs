@@ -11,8 +11,8 @@ mod default {
         include!("playground-sys/src/ref/bridge/main.hpp");
 
         // MEM FETCH
-        type mem_fetch_ptr;
-        fn get(self: &mem_fetch_ptr) -> *const mem_fetch;
+        type mem_fetch_ptr_shim;
+        fn get(self: &mem_fetch_ptr_shim) -> *const mem_fetch;
 
         type mem_fetch = crate::bridge::mem_fetch::mem_fetch;
         type mem_fetch_bridge;
@@ -119,26 +119,26 @@ mod default {
         #[must_use]
         fn get_dram_latency_queue(
             self: &memory_partition_unit_bridge,
-        ) -> UniquePtr<CxxVector<mem_fetch_ptr>>;
+        ) -> UniquePtr<CxxVector<mem_fetch_ptr_shim>>;
 
         // MEM SUB PARTITION
         type memory_sub_partition_bridge;
         #[must_use]
         fn get_icnt_L2_queue(
             self: &memory_sub_partition_bridge,
-        ) -> UniquePtr<CxxVector<mem_fetch_ptr>>;
+        ) -> UniquePtr<CxxVector<mem_fetch_ptr_shim>>;
         #[must_use]
         fn get_L2_dram_queue(
             self: &memory_sub_partition_bridge,
-        ) -> UniquePtr<CxxVector<mem_fetch_ptr>>;
+        ) -> UniquePtr<CxxVector<mem_fetch_ptr_shim>>;
         #[must_use]
         fn get_dram_L2_queue(
             self: &memory_sub_partition_bridge,
-        ) -> UniquePtr<CxxVector<mem_fetch_ptr>>;
+        ) -> UniquePtr<CxxVector<mem_fetch_ptr_shim>>;
         #[must_use]
         fn get_L2_icnt_queue(
             self: &memory_sub_partition_bridge,
-        ) -> UniquePtr<CxxVector<mem_fetch_ptr>>;
+        ) -> UniquePtr<CxxVector<mem_fetch_ptr_shim>>;
 
         // ACCELSIM
         type accelsim_bridge;

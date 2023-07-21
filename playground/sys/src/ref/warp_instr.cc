@@ -84,7 +84,8 @@ void warp_inst_t::broadcast_barrier_reduction(
   }
 }
 
-void warp_inst_t::generate_mem_accesses() {
+void warp_inst_t::generate_mem_accesses(
+    std::shared_ptr<spdlog::logger> &logger) {
   if (empty() || op == MEMORY_BARRIER_OP || m_mem_accesses_created) return;
   if (!((op == LOAD_OP) || (op == TENSOR_CORE_LOAD_OP) || (op == STORE_OP) ||
         (op == TENSOR_CORE_STORE_OP)))
@@ -241,10 +242,10 @@ void warp_inst_t::generate_mem_accesses() {
         }
       }
 
-      std::cout << "generate mem accesses[SHARED]: total_accesses="
-                << total_accesses << std::endl;
-      std::cout << "\tbanks=" << banks << std::endl;
-      std::cout << "\tword addresses=" << words << std::endl;
+      logger->trace("generate mem accesses[SHARED]: total_accesses={}",
+                    total_accesses);
+      logger->trace("\tbanks={}", fmt::join(banks, ","));
+      logger->trace("\tword addresses={}", fmt::join(words, ","));
       assert(total_accesses > 0);
       assert(total_accesses <= m_config->warp_size);
       cycles = total_accesses;  // shared memory conflicts modeled as larger
@@ -618,7 +619,6 @@ std::ostream &operator<<(std::ostream &os, const warp_inst_t *inst) {
 void warp_inst_t::print(std::ostream &os) const {
   os << opcode_str();
   os << "[";
-  // os << "pc=" << std::right << std::setfill(' ') << std::setw(4) << pc;
   os << "pc=" << pc;
   if (!empty()) {
     os << ","

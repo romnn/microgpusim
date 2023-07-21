@@ -2,6 +2,8 @@
 
 #include <cmath>
 
+#include "fmt/format.h"
+#include "fmt/ranges.h"
 #include "io.hpp"
 #include "trace_shader_core_ctx.hpp"
 
@@ -28,7 +30,7 @@ std::list<op_t> arbiter_t::allocate_reads() {
   int _square = (_inputs > _outputs) ? _inputs : _outputs;
   assert(_square > 0);
   int _pri = (int)m_last_cu;
-  std::cout << "last cu: " << m_last_cu << std::endl;
+  logger->trace("last cu: {}", m_last_cu);
 
   // Clear matching
   for (int i = 0; i < _inputs; ++i) _inmatch[i] = -1;
@@ -51,15 +53,19 @@ std::list<op_t> arbiter_t::allocate_reads() {
       assert(i < (unsigned)_inputs);
       _inmatch[i] = 0;  // write gets priority
     }
-    std::cout << "request: " << _request << std::endl;
+    logger->trace(
+        "request: {}",
+        fmt::join(std::vector<int>(_request[i], _request[i] + m_num_collectors),
+                  ","));
   }
 
-  std::cout << "inmatch: " << _inmatch << std::endl;
+  logger->trace(
+      "inmatch: {}",
+      fmt::join(std::vector<int>(_inmatch, _inmatch + m_num_banks), ","));
 
   ///// wavefront allocator from booksim... --->
 
   // Loop through diagonals of request matrix
-  // printf("####\n");
 
   for (int p = 0; p < _square; ++p) {
     output = (_pri + p) % _outputs;
@@ -91,21 +97,27 @@ std::list<op_t> arbiter_t::allocate_reads() {
     }
   }
 
-  std::cout << "inmatch: " << _inmatch << std::endl;
-  std::cout << "outmatch: " << _outmatch << std::endl;
-  std::cout << "outputs: " << _outputs << std::endl;
+  logger->trace(
+      "inmatch: {}",
+      fmt::join(std::vector<int>(_inmatch, _inmatch + m_num_banks), ","));
+  logger->trace(
+      "outmatch: {}",
+      fmt::join(std::vector<int>(_outmatch, _outmatch + m_num_collectors),
+                ","));
 
   // Round-robin the priority diagonal
   _pri = (_pri + 1) % _outputs;
-  std::cout << "pri: " << _pri << std::endl;
+
+  logger->trace("outputs: {}", _outputs);
+  logger->trace("pri: {}", _pri);
 
   /// <--- end code from booksim
 
   m_last_cu = _pri;
   for (unsigned i = 0; i < m_num_banks; i++) {
     if (_inmatch[i] != -1) {
-      std::cout << "inmatch[bank=" << i
-                << "] is write=" << m_allocated_bank[i].is_write() << std::endl;
+      logger->trace("inmatch[bank={}] is write={}", i,
+                    m_allocated_bank[i].is_write());
       if (!m_allocated_bank[i].is_write()) {
         unsigned bank = (unsigned)i;
         op_t &op = m_queue[bank].front();
@@ -123,12 +135,12 @@ void opndcoll_rfu_t::add_cu_set(unsigned set_id, unsigned num_cu,
   m_cus[set_id].reserve(num_cu);  // this is necessary to stop pointers in m_cu
                                   // from being invalid do to a resize;
   for (unsigned i = 0; i < num_cu; i++) {
-    m_cus[set_id].push_back(collector_unit_t(set_id));
+    m_cus[set_id].push_back(collector_unit_t(set_id, logger));
     m_cu.push_back(&m_cus[set_id].back());
   }
   // for now each collector set gets dedicated dispatch units.
   for (unsigned i = 0; i < num_dispatch; i++) {
-    m_dispatch_units.push_back(dispatch_unit_t(set_id, &m_cus[set_id]));
+    m_dispatch_units.push_back(dispatch_unit_t(set_id, &m_cus[set_id], logger));
   }
 }
 
@@ -277,8 +289,8 @@ void opndcoll_rfu_t::allocate_cu(unsigned port_num) {
     cu_sets_names.push_back(
         std::string(operand_collector_unit_kind_str[set_id]));
   }
-  std::cout << "operand collector::allocate_cu(" << port_num << ": "
-            << cu_sets_names << ")" << std::endl;
+  logger->trace("operand collector::allocate_cu({}: {})", port_num,
+                cu_sets_names);
   for (unsigned i = 0; i < inp.m_in.size(); i++) {
     if ((*inp.m_in[i]).has_ready()) {
       // find a free cu
@@ -301,8 +313,8 @@ void opndcoll_rfu_t::allocate_cu(unsigned port_num) {
           assert(0 <= cuLowerBound && cuUpperBound <= cu_set.size());
         }
         for (unsigned k = cuLowerBound; k < cuUpperBound; k++) {
-          printf("cu set %d of port %d of port %d free=%d\n", k, i, port_num,
-                 cu_set[k].is_free());
+          logger->trace("cu set {} of port {} of port {} free={}", k, i,
+                        port_num, cu_set[k].is_free());
           if (cu_set[k].is_free()) {
             collector_unit_t *cu = &cu_set[k];
             allocated = cu->allocate(inp.m_in[i], inp.m_out[i]);
@@ -319,12 +331,27 @@ void opndcoll_rfu_t::allocate_cu(unsigned port_num) {
   }
 }
 
+using read_ops_t = std::map<unsigned, op_t>;
+
+template <>
+struct fmt::formatter<read_ops_t::value_type> {
+  constexpr auto parse(format_parse_context &ctx)
+      -> format_parse_context::iterator {
+    return ctx.end();
+  }
+
+  auto format(const read_ops_t::value_type &entry, format_context &ctx) const
+      -> format_context::iterator {
+    return fmt::format_to(ctx.out(), "{}: {}", entry.first, entry.second);
+  }
+};
+
 void opndcoll_rfu_t::allocate_reads() {
   // process read requests that do not have conflicts
   std::list<op_t> allocated = m_arbiter.allocate_reads();
-  std::cout << "arbiter allocated " << allocated.size() << " reads ("
-            << allocated << ")" << std::endl;
-  std::map<unsigned, op_t> read_ops;
+  logger->trace("arbiter allocated {} reads ({})", allocated.size(),
+                fmt::join(allocated, ","));
+  read_ops_t read_ops;
   for (std::list<op_t>::iterator r = allocated.begin(); r != allocated.end();
        r++) {
     const op_t &rr = *r;
@@ -336,16 +363,16 @@ void opndcoll_rfu_t::allocate_reads() {
     m_arbiter.allocate_for_read(bank, rr);
     read_ops[bank] = rr;
   }
-  std::cout << "allocating " << read_ops.size() << " reads (" << read_ops << ")"
-            << std::endl;
-  std::map<unsigned, op_t>::iterator r;
+  logger->trace("allocating {} reads {{}}", read_ops.size(),
+                fmt::join(read_ops.begin(), read_ops.end(), ","));
+  read_ops_t::iterator r;
   for (r = read_ops.begin(); r != read_ops.end(); ++r) {
     op_t &op = r->second;
     unsigned cu = op.get_oc_id();
     unsigned operand = op.get_operand();
     m_cu[cu]->collect_operand(operand);
     if (m_shader->get_config()->gpgpu_clock_gated_reg_file) {
-      throw std::runtime_error("todo: clock gated register file");
+      assert(0 && "clock gated register file");
       unsigned active_count = 0;
       for (unsigned i = 0; i < m_shader->get_config()->warp_size;
            i = i + m_shader->get_config()->n_regfile_gating_group) {

@@ -10,8 +10,10 @@ class read_only_cache : public baseline_cache {
  public:
   read_only_cache(const char *name, cache_config &config, int core_id,
                   int type_id, mem_fetch_interface *memport,
-                  enum mem_fetch_status status)
-      : baseline_cache(name, config, core_id, type_id, memport, status) {}
+                  enum mem_fetch_status status,
+                  std::shared_ptr<spdlog::logger> logger)
+      : baseline_cache(name, config, core_id, type_id, memport, status,
+                       logger) {}
 
   std::string name() { return "read_only_cache"; }
 
@@ -26,8 +28,10 @@ class read_only_cache : public baseline_cache {
  protected:
   read_only_cache(const char *name, cache_config &config, int core_id,
                   int type_id, mem_fetch_interface *memport,
-                  enum mem_fetch_status status, tag_array *new_tag_array)
-      : baseline_cache(name, config, core_id, type_id, memport, status,
+                  enum mem_fetch_status status,
+                  std::shared_ptr<spdlog::logger> logger,
+                  tag_array *new_tag_array)
+      : baseline_cache(name, config, core_id, type_id, memport, status, logger,
                        new_tag_array) {}
 };
 

@@ -5,6 +5,9 @@
 #include <cstdio>
 #include <sstream>
 
+#include "fmt/core.h"
+#include "fmt/format.h"
+
 template <class T>
 struct fifo_data {
   T *m_data;
@@ -122,10 +125,7 @@ class fifo_pipeline {
     }
   }
 
-  bool full() const {
-    printf("FIFO full? max len=%u length=%u\n", m_max_len, m_length);
-    return (m_max_len && m_length >= m_max_len);
-  }
+  bool full() const { return (m_max_len && m_length >= m_max_len); }
   bool is_available_size(unsigned size) const {
     return (m_max_len && m_length + size - 1 >= m_max_len);
   }
@@ -177,6 +177,8 @@ class fifo_pipeline {
   fifo_data<T> *m_tail;
   fifo_data<T> *m_head;
 
+  friend struct fmt::formatter<fifo_pipeline<T>>;
+
  private:
   unsigned int m_min_len;
   unsigned int m_max_len;
@@ -199,3 +201,17 @@ std::ostream &operator<<(std::ostream &os, const fifo_pipeline<T> *pipe) {
   }
   return os;
 }
+
+template <typename T>
+struct fmt::formatter<fifo_pipeline<T>> {
+  constexpr auto parse(format_parse_context &ctx)
+      -> format_parse_context::iterator {
+    return ctx.end();
+  }
+
+  auto format(const fifo_pipeline<T> &fifo, format_context &ctx) const
+      -> format_context::iterator {
+    return fmt::format_to(ctx.out(), "({:>2}/{:<2})[{}]", fifo.m_length,
+                          fifo.m_max_len, fmt::join(fifo.to_vector(), ","));
+  }
+};

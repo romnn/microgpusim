@@ -35,7 +35,7 @@ bool trace_warp_inst_t::parse_from_trace_struct(
     const inst_trace_t &trace,
     const std::unordered_map<std::string, OpcodeChar> *OpcodeMap,
     const class trace_config *tconfig,
-    const class kernel_trace_t *kernel_trace_info) {
+    const struct kernel_trace_t *kernel_trace_info) {
   // fill the inst_t and warp_inst_t params
 
   // fill active mask
@@ -88,8 +88,8 @@ bool trace_warp_inst_t::parse_from_trace_struct(
     //        active_mask.count());
 
   } else {
-    std::cout << "ERROR:  undefined instruction : " << trace.opcode
-              << " Opcode: " << opcode1 << std::endl;
+    fprintf(stderr, "ERROR:  undefined instruction : %s Opcode: %s\n",
+            trace.opcode.c_str(), opcode1.c_str());
     assert(0 && "undefined instruction");
   }
   std::string opcode = trace.opcode;
@@ -262,4 +262,15 @@ bool trace_warp_inst_t::parse_from_trace_struct(
   }
 
   return true;
+}
+
+void move_warp(warp_inst_t *&dst, warp_inst_t *&src, std::string msg,
+               std::shared_ptr<spdlog::logger> &logger) {
+  logger->trace("MOVING {} to {}: {}", warp_instr_ptr(src), warp_instr_ptr(dst),
+                msg);
+  assert(dst->empty());
+  warp_inst_t *temp = dst;
+  dst = src;
+  src = temp;
+  src->clear();
 }

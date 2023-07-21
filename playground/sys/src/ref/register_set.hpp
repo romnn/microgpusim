@@ -7,7 +7,9 @@
 // register that can hold multiple instructions.
 class register_set {
  public:
-  register_set(unsigned num, const char *name) {
+  register_set(unsigned num, const char *name,
+               std::shared_ptr<spdlog::logger> logger)
+      : logger(logger) {
     for (unsigned i = 0; i < num; i++) {
       regs.push_back(new warp_inst_t());
     }
@@ -70,19 +72,12 @@ class register_set {
   }
 
   void move_in(warp_inst_t *&src, std::string msg) {
-    // printf("move_in warp=%u\n", src->warp_id());
     warp_inst_t **free = get_free();
-    // std::cout << "move " << src << " in " << (*free) << std::endl;
-    move_warp(*free, src, msg);
+    move_warp(*free, src, msg, logger);
   }
-
-  // void copy_in( warp_inst_t* src ){
-  //   src->copy_contents_to(*get_free());
-  //}
 
   void move_in(bool sub_core_model, unsigned reg_id, warp_inst_t *&src,
                std::string msg) {
-    // printf("move_in_sub_core warp=%u reg_id=%u\n", src->warp_id(), reg_id);
     warp_inst_t **free;
     if (!sub_core_model) {
       free = get_free();
@@ -90,14 +85,12 @@ class register_set {
       assert(reg_id < regs.size());
       free = get_free(sub_core_model, reg_id);
     }
-    // std::cout << "move " << src << " out to " << (*free) << std::endl;
-    move_warp(*free, src, msg);
+    move_warp(*free, src, msg, logger);
   }
 
   void move_out_to(warp_inst_t *&dest, std::string msg) {
     warp_inst_t **ready = get_ready();
-    // std::cout << "move " << (*ready) << " out to " << dest << std::endl;
-    move_warp(dest, *ready, msg);
+    move_warp(dest, *ready, msg, logger);
   }
 
   void move_out_to(bool sub_core_model, unsigned reg_id, warp_inst_t *&dest,
@@ -107,10 +100,7 @@ class register_set {
     }
     warp_inst_t **ready = get_ready(sub_core_model, reg_id);
     assert(ready != NULL);
-    // std::cout << "move " << (*ready) << " out to " << dest << std::endl;
-    // printf("move_out_to_sub_core warp=%u reg_id=%u\n", (*ready)->warp_id(),
-    //        reg_id);
-    move_warp(dest, *ready, msg);
+    move_warp(dest, *ready, msg, logger);
   }
 
   warp_inst_t **get_ready() {
@@ -135,8 +125,6 @@ class register_set {
     if (not regs[reg_id]->empty()) ready = &regs[reg_id];
     return ready;
   }
-
-  friend std::ostream &operator<<(std::ostream &os, const register_set &reg);
 
   warp_inst_t **get_free() {
     for (unsigned i = 0; i < regs.size(); i++) {
@@ -166,7 +154,29 @@ class register_set {
   friend class register_set_bridge;
   friend class register_set_bridge_new;
 
+  friend std::ostream &operator<<(std::ostream &os, const register_set &reg);
+  friend struct fmt::formatter<register_set>;
+
+  std::shared_ptr<spdlog::logger> logger;
+
  private:
   std::vector<warp_inst_t *> regs;
   const char *m_name;
+};
+
+#include "fmt/core.h"
+#include "fmt/format.h"
+
+template <>
+struct fmt::formatter<register_set> {
+  constexpr auto parse(format_parse_context &ctx)
+      -> format_parse_context::iterator {
+    return ctx.end();
+  }
+
+  auto format(const register_set &reg, format_context &ctx) const
+      -> format_context::iterator {
+    return fmt::format_to(ctx.out(), "{}=[{}]", reg.m_name,
+                          fmt::join(reg.regs, ","));
+  }
 };

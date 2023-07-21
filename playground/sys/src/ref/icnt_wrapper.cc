@@ -92,7 +92,7 @@ void icnt_reg_options(class OptionParser *opp) {
                          &g_inct_config.grant_cycles, "grant_cycles", "1");
 }
 
-void icnt_wrapper_init() {
+void icnt_wrapper_init(std::shared_ptr<spdlog::logger> logger) {
   switch (g_network_mode) {
     case INTERSIM:
       // FIXME: delete the object: may add icnt_done wrapper
@@ -125,7 +125,7 @@ void icnt_wrapper_init() {
       icnt_get_flit_size = LocalInterconnect_get_flit_size;
       break;
     case BOX_NET:
-      g_icnt_interface = new BoxInterconnect();
+      g_icnt_interface = new BoxInterconnect(logger);
       g_icnt_interface->ParseConfigFile(g_network_config_filename);
       icnt_create = BoxInterconnect_create;
       icnt_init = BoxInterconnect_init;

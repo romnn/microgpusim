@@ -1,5 +1,7 @@
-# debug bindings
+# debug bindings (auto generated)
 bindings.rs
+# clang compile flags (auto generated)
+src/compile_flags.txt
 
 # valgind logs
 valgrind*.txt

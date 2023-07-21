@@ -4,6 +4,7 @@
 #include <list>
 #include <vector>
 
+#include "spdlog/logger.h"
 #include "core_config.hpp"
 #include "dram_callback.hpp"
 #include "instr.hpp"
@@ -66,19 +67,19 @@ class warp_inst_t : public inst_t {
     for (unsigned i = 0; i < num_addrs; i++)
       m_per_scalar_thread[n].memreqaddr[i] = addr[i];
   }
-  void print_m_accessq() {
-    if (accessq_empty())
-      return;
-    else {
-      printf("Printing mem access generated\n");
-      std::list<mem_access_t>::iterator it;
-      for (it = m_accessq.begin(); it != m_accessq.end(); ++it) {
-        printf("MEM_TXN_GEN:%s:%lx, Size:%d \n",
-               get_mem_access_type_str(it->get_type()), it->get_addr(),
-               it->get_size());
-      }
-    }
-  }
+  // void print_m_accessq() {
+  //   if (accessq_empty())
+  //     return;
+  //   else {
+  //     printf("Printing mem access generated\n");
+  //     std::list<mem_access_t>::iterator it;
+  //     for (it = m_accessq.begin(); it != m_accessq.end(); ++it) {
+  //       printf("MEM_TXN_GEN:%s:%lx, Size:%d \n",
+  //              get_mem_access_type_str(it->get_type()), it->get_addr(),
+  //              it->get_size());
+  //     }
+  //   }
+  // }
   struct transaction_info {
     std::bitset<4> chunks;  // bitmask: 32-byte chunks accessed
     mem_access_byte_mask_t bytes;
@@ -91,7 +92,7 @@ class warp_inst_t : public inst_t {
     }
   };
 
-  void generate_mem_accesses();
+  void generate_mem_accesses(std::shared_ptr<spdlog::logger> &logger);
   void memory_coalescing_arch(bool is_write, mem_access_type access_type);
   void memory_coalescing_arch_atomic(bool is_write,
                                      mem_access_type access_type);
@@ -121,11 +122,11 @@ class warp_inst_t : public inst_t {
   void set_not_active(unsigned lane_id);
 
   // accessors
-  virtual void print_insn(FILE *fp) const {
-    fprintf(fp, " [inst @ pc=0x%04lx] ", pc);
-    for (int i = (int)m_config->warp_size - 1; i >= 0; i--)
-      fprintf(fp, "%c", ((m_warp_active_mask[i]) ? '1' : '0'));
-  }
+  // virtual void print_insn(FILE *fp) const {
+  //   fprintf(fp, " [inst @ pc=0x%04lx] ", pc);
+  //   for (int i = (int)m_config->warp_size - 1; i >= 0; i--)
+  //     fprintf(fp, "%c", ((m_warp_active_mask[i]) ? '1' : '0'));
+  // }
   bool active(unsigned thread) const { return m_warp_active_mask.test(thread); }
   unsigned active_count() const { return m_warp_active_mask.count(); }
   unsigned issued_count() const {
@@ -227,4 +228,64 @@ class warp_inst_t : public inst_t {
   // Jin: cdp support
  public:
   int m_is_cdp;
+};
+
+#include "fmt/core.h"
+
+template <>
+struct fmt::formatter<warp_inst_t> {
+  constexpr auto parse(format_parse_context &ctx)
+      -> format_parse_context::iterator {
+    return ctx.end();
+  }
+
+  auto format(const warp_inst_t &inst, format_context &ctx) const
+      -> format_context::iterator {
+    if (inst.empty()) {
+      return fmt::format_to(ctx.out(), "None");
+    }
+    return fmt::format_to(ctx.out(), "Some({}[pc={},warp={}])",
+                          inst.opcode_str(), inst.pc, inst.warp_id());
+  }
+};
+
+struct warp_instr_ptr {
+ private:
+  const warp_inst_t *ptr;
+
+ public:
+  warp_instr_ptr(const warp_inst_t *p) : ptr(p) {}
+
+  friend struct fmt::formatter<warp_instr_ptr>;
+};
+
+template <>
+struct fmt::formatter<warp_instr_ptr> {
+  constexpr auto parse(format_parse_context &ctx)
+      -> format_parse_context::iterator {
+    return ctx.end();
+  }
+
+  auto format(warp_instr_ptr inst, format_context &ctx) const
+      -> format_context::iterator {
+    if (inst.ptr == NULL) {
+      return fmt::format_to(ctx.out(), "NULL");
+    }
+    // dispatch
+    return fmt::formatter<warp_inst_t>().format(*(inst.ptr), ctx);
+  }
+};
+
+template <>
+struct fmt::formatter<warp_inst_t *> {
+  constexpr auto parse(format_parse_context &ctx)
+      -> format_parse_context::iterator {
+    return ctx.end();
+  }
+
+  auto format(warp_inst_t *inst, format_context &ctx) const
+      -> format_context::iterator {
+    // dispatch
+    return fmt::formatter<warp_instr_ptr>().format(warp_instr_ptr(inst), ctx);
+  }
 };

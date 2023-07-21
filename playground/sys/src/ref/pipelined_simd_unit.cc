@@ -22,7 +22,7 @@ pipelined_simd_unit::pipelined_simd_unit(register_set *result_port,
                                          unsigned max_latency,
                                          trace_shader_core_ctx *core,
                                          unsigned issue_reg_id)
-    : simd_function_unit(config) {
+    : simd_function_unit(config), logger(core->logger) {
   m_result_port = result_port;
   m_pipeline_depth = max_latency;
   m_pipeline_reg = new warp_inst_t *[m_pipeline_depth];
@@ -34,7 +34,7 @@ pipelined_simd_unit::pipelined_simd_unit(register_set *result_port,
 }
 
 void pipelined_simd_unit::cycle() {
-  // printf("%s::pipelined_simd_unit::cycle()\n", m_name.c_str());
+  // logger->debug("{}::pipelined_simd_unit::cycle(), m_name);
   if (!m_pipeline_reg[0]->empty()) {
     std::stringstream msg;
     msg << m_name << ": move pipeline[0] to result port "
@@ -48,7 +48,8 @@ void pipelined_simd_unit::cycle() {
     for (unsigned stage = 0; (stage + 1) < m_pipeline_depth; stage++) {
       std::stringstream msg;
       msg << m_name << ": moving to next slot in pipeline register";
-      move_warp(m_pipeline_reg[stage], m_pipeline_reg[stage + 1], msg.str());
+      move_warp(m_pipeline_reg[stage], m_pipeline_reg[stage + 1], msg.str(),
+                logger);
     }
   }
   if (!m_dispatch_reg->empty()) {
@@ -63,7 +64,8 @@ void pipelined_simd_unit::cycle() {
             << ": moving dispatch register to free "
                "pipeline_register[start_stage="
             << start_stage_idx << "]";
-        move_warp(m_pipeline_reg[start_stage_idx], m_dispatch_reg, msg.str());
+        move_warp(m_pipeline_reg[start_stage_idx], m_dispatch_reg, msg.str(),
+                  logger);
         active_insts_in_pipeline++;
       }
     }

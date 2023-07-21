@@ -4,8 +4,9 @@
 #include "cache.hpp"
 #include "cache_reservation_fail_reason.hpp"
 
-baseline_cache::bandwidth_management::bandwidth_management(cache_config &config)
-    : m_config(config) {
+baseline_cache::bandwidth_management::bandwidth_management(
+    std::shared_ptr<spdlog::logger> logger, cache_config &config)
+    : logger(logger), m_config(config) {
   m_data_port_occupied_cycles = 0;
   m_fill_port_occupied_cycles = 0;
 }
@@ -46,12 +47,13 @@ void baseline_cache::bandwidth_management::use_data_port(
 /// use the fill port
 void baseline_cache::bandwidth_management::use_fill_port(mem_fetch *mf) {
   // assume filling the entire line with the returned request
-  std::cout << "atom size: " << m_config.get_atom_sz() << std::endl;
-  std::cout << "line size: " << m_config.get_line_sz() << std::endl;
-  std::cout << "data port width: " << m_config.m_data_port_width << std::endl;
+  logger->trace("atom size: {} line size: {} data port width: {}",
+                m_config.get_atom_sz(), m_config.get_line_sz(),
+                m_config.m_data_port_width);
+
   unsigned fill_cycles = m_config.get_atom_sz() / m_config.m_data_port_width;
-  std::cout << "bandwidth: " << mf << " using fill port for " << fill_cycles
-            << " cycles" << std::endl;
+  logger->trace("bandwidth: {} using fill port for {} cycles",
+                mem_fetch_ptr(mf), fill_cycles);
   m_fill_port_occupied_cycles += fill_cycles;
 }
 
@@ -70,30 +72,30 @@ void baseline_cache::bandwidth_management::replenish_port_bandwidth() {
 
 /// query for data port availability
 bool baseline_cache::bandwidth_management::data_port_free() const {
-  std::cout << "has_free_data_port? data_port_occupied_cycles: "
-            << m_data_port_occupied_cycles << std::endl;
+  logger->trace("has_free_data_port? data_port_occupied_cycles: {}",
+                m_data_port_occupied_cycles);
   return (m_data_port_occupied_cycles == 0);
 }
 
 /// query for fill port availability
 bool baseline_cache::bandwidth_management::fill_port_free() const {
-  std::cout << "has_free_fill_port? fill_port_occupied_cycles: "
-            << m_fill_port_occupied_cycles << std::endl;
+  logger->trace("has_free_fill_port? fill_port_occupied_cycles: {}",
+                m_fill_port_occupied_cycles);
   return (m_fill_port_occupied_cycles == 0);
 }
 
 /// Sends next request to lower level of memory
 void baseline_cache::cycle() {
-  std::cout << name()
-            << "::baseline_cache::cycle() miss_queue = " << m_miss_queue
-            << std::endl;
+  logger->trace("{}::baseline_cache::cycle() miss_queue = [{}]", name(),
+                fmt::join(m_miss_queue, ","));
   if (!m_miss_queue.empty()) {
     mem_fetch *mf = m_miss_queue.front();
     if (!m_memport->full(mf->size(), mf->get_is_write())) {
       m_miss_queue.pop_front();
-      std::cout << name() << "::baseline_cache::memport::push("
-                << mf->get_addr() << ", data size=" << mf->get_data_size()
-                << ", control size=" << mf->get_ctrl_size() << ")" << std::endl;
+      logger->trace(
+          "{}::baseline_cache::memport::push({}, data size={}, control "
+          "size={})",
+          name(), mf->get_addr(), mf->get_data_size(), mf->get_ctrl_size());
       m_memport->push(mf);
     }
   }
@@ -107,8 +109,8 @@ void baseline_cache::cycle() {
 /// in caller)
 void baseline_cache::fill(mem_fetch *mf, unsigned time) {
   bool is_sector_cache = m_config.m_mshr_type == SECTOR_ASSOC;
-  std::cout << name() << "::baseline_cache::fill(" << mf->get_addr()
-            << ") (is sector=" << is_sector_cache << ")" << std::endl;
+  logger->trace("{}::baseline_cache::fill({}) (is sector={})", name(),
+                mf->get_addr(), is_sector_cache);
 
   if (is_sector_cache) {
     assert(mf->get_original_mf());
@@ -201,10 +203,10 @@ void baseline_cache::send_read_request(new_addr_type addr,
   bool mshr_hit = m_mshrs.probe(mshr_addr);
   bool mshr_avail = !m_mshrs.full(mshr_addr);
 
-  printf(
-      "%s::baseline_cache::send_read_request(addr=%lu, block=%lu, "
-      "mshr_addr=%lu, mshr_hit=%d, mshr_full=%d, miss_queue_full=%d)\n",
-      name().c_str(), addr, block_addr, mshr_addr, mshr_hit, !mshr_avail,
+  logger->trace(
+      "{}::baseline_cache::send_read_request(addr={}, block={}, "
+      "mshr_addr={}, mshr_hit={}, mshr_full={}, miss_queue_full={})",
+      name(), addr, block_addr, mshr_addr, mshr_hit, !mshr_avail,
       m_miss_queue.size() >= m_config.m_miss_queue_size);
 
   if (mshr_hit && mshr_avail) {

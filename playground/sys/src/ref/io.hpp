@@ -7,15 +7,20 @@
 #include <bitset>
 #include <set>
 
+template <typename T>
+std::vector<T> queue_to_vector(std::queue<T> q) {
+  std::vector<T> v;
+  while (!q.empty()) {
+    v.push_back(q.front());
+    q.pop();
+  }
+  return v;
+}
+
 // must take queue by-value (using copy constructor) for pop and print
 template <typename T>
 std::ostream &operator<<(std::ostream &os, std::queue<T> q) {
-  os << "[";
-  while (!q.empty()) {
-    os << q.front() << ",";
-    q.pop();
-  }
-  os << "]";
+  os << queue_to_vector(q);
   return os;
 }
 

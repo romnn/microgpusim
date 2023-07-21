@@ -3,6 +3,7 @@
 #include "cache.hpp"
 #include "cache_stats.hpp"
 #include "tag_array.hpp"
+#include "spdlog/logger.h"
 
 class cache_config;
 class mem_fetch_interface;
@@ -18,8 +19,10 @@ class tex_cache : public cache_t {
  public:
   tex_cache(const char *name, cache_config &config, int core_id, int type_id,
             mem_fetch_interface *memport, enum mem_fetch_status request_status,
-            enum mem_fetch_status rob_status)
-      : m_config(config),
+            enum mem_fetch_status rob_status,
+            std::shared_ptr<spdlog::logger> logger)
+      : logger(logger),
+        m_config(config),
         m_tags(config, core_id, type_id),
         m_fragment_fifo(config.m_fragment_fifo_entries),
         m_request_fifo(config.m_request_fifo_entries),
@@ -74,6 +77,8 @@ class tex_cache : public cache_t {
   void get_sub_stats(struct cache_sub_stats &css) const {
     m_stats.get_sub_stats(css);
   }
+
+  std::shared_ptr<spdlog::logger> logger;
 
  private:
   std::string m_name;

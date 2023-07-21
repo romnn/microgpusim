@@ -48,6 +48,25 @@ struct addrdec_t {
 
 std::ostream &operator<<(std::ostream &os, const addrdec_t &addr);
 
+#include "fmt/core.h"
+
+template <>
+struct fmt::formatter<addrdec_t> {
+  constexpr auto parse(format_parse_context &ctx)
+      -> format_parse_context::iterator {
+    return ctx.end();
+  }
+
+  auto format(const addrdec_t &addr, format_context &ctx) const
+      -> format_context::iterator {
+    return fmt::format_to(ctx.out(),
+                          "{ chip: {}, row: {}, col: {}, bk: {}, burst: {}, "
+                          "sub_partition: {} }",
+                          addr.chip, addr.row, addr.col, addr.bk, addr.burst,
+                          addr.sub_partition);
+  }
+};
+
 typedef struct {
   bool run_test;
   int gpgpu_mem_address_mask;
