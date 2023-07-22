@@ -182,6 +182,9 @@ mod default {
         #[must_use]
         fn get_cores(self: &accelsim_bridge) -> &CxxVector<core_bridge>;
 
+        // #[must_use]
+        // fn get_allocations(self: &accelsim_bridge) -> &CxxVector<core_bridge>;
+
         // NOTE: stat transfer functions defined in stats.cc bridge
     }
 }

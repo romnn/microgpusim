@@ -60,8 +60,8 @@ struct fmt::formatter<addrdec_t> {
   auto format(const addrdec_t &addr, format_context &ctx) const
       -> format_context::iterator {
     return fmt::format_to(ctx.out(),
-                          "{ chip: {}, row: {}, col: {}, bk: {}, burst: {}, "
-                          "sub_partition: {} }",
+                          "{{ chip: {}, row: {}, col: {}, bk: {}, burst: {}, "
+                          "sub_partition: {} }}",
                           addr.chip, addr.row, addr.col, addr.bk, addr.burst,
                           addr.sub_partition);
   }

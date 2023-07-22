@@ -148,7 +148,7 @@ void trace_shader_core_ctx::init_warps(unsigned cta_id, unsigned start_thread,
     }
   }
 
-  m_gpu->logger->trace("initialized warps {}..{} of {} warps", start_warp,
+  m_gpu->logger->debug("initialized warps {}..{} of {} warps", start_warp,
                        end_warp, m_warp.size());
 
   // now init traces
@@ -187,7 +187,7 @@ void trace_shader_core_ctx::init_traces(unsigned start_warp, unsigned end_warp,
     m_trace_warp->set_kernel(&trace_kernel);
   }
 
-  logger->trace("initialized traces for warps {}..{} of {} warps\n", start_warp,
+  logger->debug("initialized traces for warps {}..{} of {} warps\n", start_warp,
                 end_warp, m_warp.size());
 }
 
@@ -251,20 +251,20 @@ void trace_shader_core_ctx::func_exec_inst(warp_inst_t &inst) {
       static_cast<trace_shd_warp_t *>(m_warp[inst.warp_id()]);
   assert(inst.warp_id() == m_trace_warp->get_warp_id());
 
-  logger->trace("warp={}", m_trace_warp->get_warp_id());
+  logger->debug("warp={}", m_trace_warp->get_warp_id());
 
   if (m_trace_warp->trace_done() && m_trace_warp->functional_done()) {
-    logger->trace("completed fully");
+    logger->debug("completed fully");
     m_trace_warp->ibuffer_flush();
     m_barriers.warp_exit(inst.warp_id());
   } else {
     if (m_trace_warp->trace_done()) {
-      logger->trace(" completed trace");
+      logger->debug(" completed trace");
     } else {
-      logger->trace(" executed pc={}", m_trace_warp->get_pc());
+      logger->debug(" executed pc={}", m_trace_warp->get_pc());
     }
   }
-  logger->trace("\t(trace done={} ({}/{}) functional done={})",
+  logger->debug("\t(trace done={} ({}/{}) functional done={})",
                 m_trace_warp->trace_done(), m_trace_warp->trace_pc,
                 m_trace_warp->warp_traces.size(),
                 m_trace_warp->functional_done());
@@ -274,14 +274,14 @@ void trace_shader_core_ctx::issue_warp(register_set &pipe_reg_set,
                                        const warp_inst_t *next_inst,
                                        const active_mask_t &active_mask,
                                        unsigned warp_id, unsigned sch_id) {
-  logger->trace("issue warp {}", warp_id);
+  logger->debug("issue warp {}", warp_id);
   warp_inst_t **pipe_reg =
       pipe_reg_set.get_free(m_config->sub_core_model, sch_id);
   assert(pipe_reg);
 
   assert(next_inst->empty());
 
-  logger->trace("warp={} executed {}", warp_id,
+  logger->debug("warp={} executed {}", warp_id,
                 // static_cast<const warp_inst_t *>(next_inst));
                 static_cast<const warp_inst_t &>(*next_inst));
   // create a copy
@@ -302,7 +302,7 @@ void trace_shader_core_ctx::issue_warp(register_set &pipe_reg_set,
 
   m_stats->shader_cycle_distro[2 + (*pipe_reg)->active_count()]++;
 
-  logger->trace("warp={} executed {} pc={} instr in pipe={}",
+  logger->debug("warp={} executed {} pc={} instr in pipe={}",
                 (*pipe_reg)->warp_id(), next_inst->opcode_str(),
                 (*pipe_reg)->pc, m_warp[warp_id]->m_inst_in_pipeline);
 
@@ -320,7 +320,7 @@ void trace_shader_core_ctx::issue_warp(register_set &pipe_reg_set,
   updateSIMTStack(warp_id, *pipe_reg);
 
   // NOTE: need display because the instruction has been emptied
-  logger->trace("reserving {} registers ({},{},{},{}) for instr {}: {}",
+  logger->debug("reserving {} registers ({},{},{},{}) for instr {}: {}",
                 (*pipe_reg)->outcount, (*pipe_reg)->out[0], (*pipe_reg)->out[1],
                 (*pipe_reg)->out[2], (*pipe_reg)->out[3], next_inst->display(),
                 pipe_reg_set);
@@ -342,7 +342,7 @@ void trace_shader_core_ctx::create_front_pipeline() {
       N_PIPELINE_STAGES + m_config->m_specialized_unit.size() * 2;
   m_pipeline_reg.reserve(total_pipeline_stages);
   for (int j = 0; j < N_PIPELINE_STAGES; j++) {
-    logger->trace("pipeline stage {} has width {}",
+    logger->debug("pipeline stage {} has width {}",
                   pipeline_stage_name_t_str[j], m_config->pipe_widths[j]);
     m_pipeline_reg.push_back(register_set(
         m_config->pipe_widths[j], pipeline_stage_name_t_str[j], logger));
@@ -437,7 +437,7 @@ void trace_shader_core_ctx::create_schedulers() {
       : sched_config.find("warp_limiting") != std::string::npos
           ? CONCRETE_SCHEDULER_WARP_LIMITING
           : NUM_CONCRETE_SCHEDULERS;
-  logger->trace("SCHEDULER: using {} implementation",
+  logger->debug("SCHEDULER: using {} implementation",
                 g_concrete_scheduler_str[scheduler]);
   assert(scheduler != NUM_CONCRETE_SCHEDULERS);
 
@@ -774,7 +774,7 @@ void trace_shader_core_ctx::writeback() {
   while (preg and !pipe_reg->empty()) {
     // ready for writeback instruction
 
-    logger->trace("instruction {} (pc={}) ready for writeback",
+    logger->debug("instruction {} (pc={}) ready for writeback",
                   pipe_reg->opcode_str(), pipe_reg->pc);
     /*
      * Right now, the writeback stage drains all waiting instructions
@@ -793,7 +793,7 @@ void trace_shader_core_ctx::writeback() {
      * no stalling).
      */
 
-    logger->trace("{}", warp_instr_ptr(pipe_reg));
+    logger->debug("{}", warp_instr_ptr(pipe_reg));
 
     m_operand_collector.writeback(*pipe_reg);
     unsigned warp_id = pipe_reg->warp_id();
@@ -821,7 +821,7 @@ void trace_shader_core_ctx::execute() {
     register_set &issue_inst = m_pipeline_reg[issue_port];
     if (issue_port == OC_EX_SP || issue_port == OC_EX_MEM) {
       // print the state of the issue unit BEFORE
-      logger->trace("fu[{}] {}\tcycle {} before \t{}", n, m_fu[n]->get_name(),
+      logger->debug("fu[{}] {}\tcycle {} before \t{}", n, m_fu[n]->get_name(),
                     m_gpu->gpu_sim_cycle, issue_inst);
     }
 
@@ -832,7 +832,7 @@ void trace_shader_core_ctx::execute() {
 
     if (issue_port == OC_EX_SP || issue_port == OC_EX_MEM) {
       // print the state of the issue unit AFTER
-      logger->trace("fu[{}] {}\tcycle {} after \t{}", n, m_fu[n]->get_name(),
+      logger->debug("fu[{}] {}\tcycle {} after \t{}", n, m_fu[n]->get_name(),
                     m_gpu->gpu_sim_cycle, issue_inst);
     }
 
@@ -846,7 +846,7 @@ void trace_shader_core_ctx::execute() {
     warp_inst_t **ready_reg = issue_inst.get_ready(partition_issue, reg_id);
     if (issue_inst.has_ready(partition_issue, reg_id) &&
         m_fu[n]->can_issue(**ready_reg)) {
-      logger->trace("execute: {} ready for issue to {}",
+      logger->debug("execute: {} ready for issue to {}",
                     warp_instr_ptr(*ready_reg), m_fu[n]->get_name());
 
       bool schedule_wb_now = !m_fu[n]->stallable();
@@ -864,7 +864,7 @@ void trace_shader_core_ctx::execute() {
         issued = false;
       }
 
-      logger->trace("execute: issue={}", issued);
+      logger->debug("execute: issue={}", issued);
     }
   }
 }
@@ -902,7 +902,7 @@ void trace_shader_core_ctx::decode() {
     m_warp[warp_id]->print_trace_instructions(false, logger);
 
     const warp_inst_t *pI1 = get_next_inst(warp_id, pc);
-    logger->trace(
+    logger->debug(
         "ibuffer fill for warp {} at slot {} with instruction {} trace pc={}",
         warp_id, 0, pI1->display(),
         static_cast<trace_shd_warp_t *>(m_warp[warp_id])->trace_pc);
@@ -921,7 +921,7 @@ void trace_shader_core_ctx::decode() {
       }
       const warp_inst_t *pI2 = get_next_inst(warp_id, pc + pI1->isize);
       if (pI2) {
-        logger->trace(
+        logger->debug(
             "ibuffer fill for warp {} at slot {} with instruction {} trace "
             "pc={}",
             warp_id, 1, pI2->display(),
@@ -964,7 +964,8 @@ void trace_shader_core_ctx::fetch() {
     } else {
       for (unsigned warp_id = 0; warp_id < m_config->max_warps_per_shader;
            warp_id++) {
-        if (m_warp[warp_id]->instruction_count() == 0) {
+        // if (m_warp[warp_id]->instruction_count() == 0) {
+        if (m_warp[warp_id]->get_warp_id() == (unsigned)-1) {
           // consider empty
           continue;
         }
@@ -974,7 +975,7 @@ void trace_shader_core_ctx::fetch() {
         //     {
         //   continue;
         // }
-        logger->trace(
+        logger->debug(
             "\tchecking warp id = {warp_id} dyn warp id = {dynamic_warp_id} "
             "(instruction count={instruction_count}, "
             "trace pc={trace_pc}, hardware_done={hardware_done}, "
@@ -995,8 +996,8 @@ void trace_shader_core_ctx::fetch() {
                 fmt::join(m_scoreboard->get_pending_writes(warp_id), ",")));
       }
 
-      logger->trace("");
-      logger->trace("");
+      logger->debug("");
+      logger->debug("");
 
       // find an active warp with space in instruction buffer that is not
       // already waiting on a cache miss and get next 1-2 instructions
@@ -1012,7 +1013,7 @@ void trace_shader_core_ctx::fetch() {
         if (m_warp[warp_id]->hardware_done() &&
             !m_scoreboard->has_pending_writes(warp_id) &&
             !m_warp[warp_id]->done_exit()) {
-          logger->trace("\tchecking if warp_id = {} did complete", warp_id);
+          logger->debug("\tchecking if warp_id = {} did complete", warp_id);
 
           // check each thread of the warp for completion
           bool did_exit = false;
@@ -1022,7 +1023,7 @@ void trace_shader_core_ctx::fetch() {
             if (m_threadState[tid].m_active == true) {
               m_threadState[tid].m_active = false;
               unsigned cta_id = m_warp[warp_id]->get_cta_id();
-              logger->trace("thread {} of block {} completed ({} left)", tid,
+              logger->debug("thread {} of block {} completed ({} left)", tid,
                             cta_id, m_cta_status[cta_id]);
 
               if (m_thread[tid] == NULL) {
@@ -1053,7 +1054,7 @@ void trace_shader_core_ctx::fetch() {
               m_warp[warp_id]->get_current_trace_inst();
 
           assert(current_inst != NULL);
-          logger->trace("\t fetching instr {} for warp id = {}",
+          logger->debug("\t fetching instr {} for warp id = {}",
                         current_inst->display(), warp_id);
 
           address_type pc;
@@ -1085,7 +1086,7 @@ void trace_shader_core_ctx::fetch() {
                 (new_addr_type)ppc, mf,
                 m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle, events);
 
-          logger->trace("L1I->access(addr={}) -> status = {}", ppc,
+          logger->debug("L1I->access(addr={}) -> status = {}", ppc,
                         get_cache_request_status_str(status));
           if (status == MISS) {
             m_last_warp_fetched = warp_id;
@@ -1244,7 +1245,7 @@ void trace_shader_core_ctx::reinit(unsigned start_thread, unsigned end_thread,
   }
   unsigned start_warp = start_thread / m_config->warp_size;
   unsigned end_warp = end_thread / m_config->warp_size;
-  logger->trace("reset warps {}..{} (threads {}..{})", start_warp, end_warp,
+  logger->debug("reset warps {}..{} (threads {}..{})", start_warp, end_warp,
                 start_thread, end_thread);
   for (unsigned i = start_warp; i < end_warp; ++i) {
     m_warp[i]->reset();
@@ -1389,7 +1390,7 @@ void trace_shader_core_ctx::issue_block2core(trace_kernel_info_t &kernel) {
 
   // determine hardware threads and warps that will be used for this CTA
   int cta_size = kernel.threads_per_cta();
-  logger->trace("cta size = {}", cta_size);
+  logger->debug("cta size = {}", cta_size);
 
   // hw warp id = hw thread id mod warp size, so we need to find a range
   // of hardware thread ids corresponding to an integral number of hardware
@@ -1406,7 +1407,7 @@ void trace_shader_core_ctx::issue_block2core(trace_kernel_info_t &kernel) {
     end_thread = start_thread + cta_size;
   } else {
     start_thread = find_available_hwtid(padded_cta_size, true);
-    // logger->trace("padded cta size: {}", padded_cta_size);
+    // logger->debug("padded cta size: {}", padded_cta_size);
     assert((int)start_thread != -1);
     end_thread = start_thread + cta_size;
     assert(m_occupied_cta_to_hwtid.find(free_cta_hw_id) ==
@@ -1466,7 +1467,7 @@ void trace_shader_core_ctx::issue_block2core(trace_kernel_info_t &kernel) {
              m_config->n_thread_per_shader);  // should be at least one, but
                                               // less than max
   m_cta_status[free_cta_hw_id] = nthreads_in_block;
-  logger->trace("num threads in block {} (hw {}) = {}\n", ctaid, free_cta_hw_id,
+  logger->debug("num threads in block {} (hw {}) = {}\n", ctaid, free_cta_hw_id,
                 nthreads_in_block);
   // assert(0);
 
@@ -1578,7 +1579,7 @@ unsigned trace_shader_core_ctx::translate_local_memaddr(
 }
 
 void trace_shader_core_ctx::warp_inst_complete(const warp_inst_t &inst) {
-  logger->trace(
+  logger->debug(
       "core {}: warp_inst_complete [uid={}, core={}, warp={}, pc={} @ time={}]",
       m_sid, inst.get_uid(), m_sid, inst.warp_id(), inst.pc,
       m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle);

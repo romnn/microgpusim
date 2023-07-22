@@ -311,12 +311,12 @@ bool ldst_unit::memory_cycle(warp_inst_t &inst,
   if (inst.active_count() == 0) return true;
   if (inst.accessq_empty()) return true;
 
-  logger->trace("memory cycle for instruction: {}", inst);
+  logger->debug("memory cycle for instruction: {}", inst);
 
   mem_stage_stall_type stall_cond = NO_RC_FAIL;
   const mem_access_t &access = inst.accessq_back();
 
-  logger->trace("memory cycle for instruction: {} => access: {}", inst, access);
+  logger->debug("memory cycle for instruction: {} => access: {}", inst, access);
 
   bool bypassL1D = false;
   if (CACHE_GLOBAL == inst.cache_op || (m_L1D == NULL)) {
@@ -360,7 +360,7 @@ bool ldst_unit::memory_cycle(warp_inst_t &inst,
     stall_cond = COAL_STALL;
   }
 
-  logger->trace("memory instruction stall cond: {}",
+  logger->debug("memory instruction stall cond: {}",
                 mem_stage_stall_type_str[stall_cond]);
   if (stall_cond != NO_RC_FAIL) {
     stall_reason = stall_cond;
@@ -464,14 +464,14 @@ void ldst_unit::issue(register_set &reg_set) {
 void ldst_unit::writeback() {
   // process next instruction that is going to writeback
   if (!m_next_wb.empty()) {
-    logger->trace("load store unit: cycle {} writeback: next_wb={} (arb={})",
+    logger->debug("load store unit: cycle {} writeback: next_wb={} (arb={})",
                   m_core->get_gpu()->gpu_sim_cycle, m_next_wb, m_writeback_arb);
 
     if (m_operand_collector->writeback(m_next_wb)) {
       bool insn_completed = false;
       for (unsigned r = 0; r < MAX_OUTPUT_VALUES; r++) {
         if (m_next_wb.out[r] > 0) {
-          logger->trace("load store unit: writeback: release register");
+          logger->debug("load store unit: writeback: release register");
           if (m_next_wb.space.get_type() != shared_space) {
             assert(m_pending_writes[m_next_wb.warp_id()][m_next_wb.out[r]] > 0);
             unsigned still_pending =
@@ -497,7 +497,7 @@ void ldst_unit::writeback() {
       m_last_inst_gpu_tot_sim_cycle = m_core->get_gpu()->gpu_tot_sim_cycle;
     }
   } else {
-    logger->trace("load store unit: cycle {} writeback: next_wb=NULL (arb={})",
+    logger->debug("load store unit: cycle {} writeback: next_wb=NULL (arb={})",
                   m_core->get_gpu()->gpu_sim_cycle, m_writeback_arb);
   }
 
@@ -538,7 +538,7 @@ void ldst_unit::writeback() {
       case 3:  // global/local
         if (m_next_global) {
           m_next_wb = m_next_global->get_inst();
-          logger->trace("has global {}", m_next_wb);
+          logger->debug("has global {}", m_next_wb);
           if (m_next_global->isatomic()) {
             m_core->decrement_atomic_count(
                 m_next_global->get_wid(),
@@ -565,7 +565,7 @@ void ldst_unit::writeback() {
   // 1. the writeback buffer was available
   // 2. a client was serviced
   if (serviced_client != (unsigned)-1) {
-    logger->trace("serviced {}", serviced_client);
+    logger->debug("serviced {}", serviced_client);
     m_writeback_arb = (serviced_client + 1) % m_num_writeback_clients;
   }
 }

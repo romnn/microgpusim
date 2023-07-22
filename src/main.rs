@@ -36,6 +36,8 @@ struct Options {
 }
 
 fn main() -> eyre::Result<()> {
+    use std::io::Write;
+
     color_eyre::install()?;
 
     let start = Instant::now();

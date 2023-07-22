@@ -55,6 +55,7 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::collections::{HashMap, VecDeque};
 use std::fmt::Binary;
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex, RwLock};
@@ -378,7 +379,7 @@ impl KernelInfo {
         //     let mut warp = warp.lock().unwrap();
         //     let num_instr = warp.instruction_count();
         //     if num_instr > 0 {
-        //         log::trace!("warp {}: {num_instr} instructions", warp.warp_id);
+        //         log::debug!("warp {}: {num_instr} instructions", warp.warp_id);
         //     }
         //     // for schedwarps without any instructions, there is no pc
         //     // before, we used option<schedwarp> which was in a way cleaner..
@@ -414,7 +415,7 @@ impl KernelInfo {
             "all warps have at least one instruction (need at least an EXIT)"
         );
 
-        // log::trace!("warps: {:#?}", warps);
+        // log::debug!("warps: {:#?}", warps);
 
         // for w in warps {
         //     let w = w.try_borrow().unwrap();
@@ -542,6 +543,25 @@ pub struct Allocation {
     id: usize,
     name: Option<String>,
     start_addr: address,
+    end_addr: Option<address>,
+}
+
+impl std::fmt::Display for Allocation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let num_bytes = self.end_addr.map(|end| end - self.start_addr);
+        let num_f32 = num_bytes.map(|num_bytes| num_bytes / 4);
+        f.debug_struct("Allocation")
+            .field("id", &self.id)
+            .field("name", &self.name)
+            .field("start_addr", &self.start_addr)
+            .field("end_addr", &self.end_addr)
+            .field(
+                "size",
+                &num_bytes.map(|num_bytes| human_bytes::human_bytes(num_bytes as f64)),
+            )
+            .field("num_f32", &num_f32)
+            .finish()
+    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
@@ -563,6 +583,7 @@ impl Allocations {
         }
         let id = self.0.len() + 1; // zero is reserved for instructions
         let start_addr = range.start;
+        let end_addr = Some(range.end);
         self.0.insert(
             range,
             Allocation {
@@ -570,6 +591,7 @@ impl Allocations {
                 // avoid joining of allocations using the id and range
                 id,
                 start_addr,
+                end_addr,
             },
         );
     }
@@ -608,6 +630,7 @@ pub struct MockSimulator<I> {
     kernel_window_size: usize,
     busy_streams: VecDeque<u64>,
     cycle_limit: Option<u64>,
+    log_after_cycle: Option<u64>,
     // gpu_stall_icnt2sh: usize,
     // partition_replies_in_parallel: usize,
 }
@@ -752,6 +775,7 @@ where
             kernel_window_size: window_size,
             busy_streams,
             cycle_limit,
+            log_after_cycle: None,
         }
     }
 
@@ -807,13 +831,13 @@ where
                 return true;
             }
         }
-        // log::trace!("cluster done");
+        // log::debug!("cluster done");
         for unit in &self.mem_partition_units {
             if unit.busy() {
                 return true;
             }
         }
-        // log::trace!("mem done");
+        // log::debug!("mem done");
         if self.interconn.busy() {
             return true;
         }
@@ -821,8 +845,8 @@ where
         if self.more_blocks_to_run() {
             return true;
         }
-        // log::trace!("no more blocks");
-        // log::trace!("done");
+        // log::debug!("no more blocks");
+        // log::debug!("done");
         false
     }
 
@@ -854,7 +878,7 @@ where
     }
 
     fn issue_block_to_core(&mut self) {
-        log::trace!("issue block to core");
+        log::debug!("issue block to core");
         let last_issued = self.last_cluster_issue;
         let num_clusters = self.config.num_simt_clusters;
         for cluster in &self.clusters {
@@ -898,7 +922,7 @@ where
 
         let mut partition_replies_in_parallel_per_cycle = 0;
 
-        log::trace!(
+        log::debug!(
             "POP from {} memory sub partitions",
             self.mem_sub_partitions.len()
         );
@@ -972,7 +996,7 @@ where
         // self.partition_replies_in_parallel += partition_replies_in_parallel_per_cycle;
 
         // dram
-        log::trace!("cycle for {} drams", self.mem_partition_units.len());
+        log::debug!("cycle for {} drams", self.mem_partition_units.len());
         for (i, unit) in self.mem_partition_units.iter_mut().enumerate() {
             unit.simple_dram_cycle();
             // if self.config.simple_dram_model {
@@ -985,7 +1009,7 @@ where
         }
 
         // L2 operations
-        log::trace!(
+        log::debug!(
             "moving mem requests from interconn to {} mem partitions",
             self.mem_sub_partitions.len()
         );
@@ -1005,7 +1029,7 @@ where
             // same as full with parameter overload
             if mem_sub.interconn_to_l2_can_fit(SECTOR_CHUNCK_SIZE as usize) {
                 if let Some(Packet::Fetch(fetch)) = self.interconn.pop(device) {
-                    log::trace!(
+                    log::debug!(
                         "got new fetch {} for mem sub partition {} ({})",
                         fetch,
                         i,
@@ -1016,7 +1040,7 @@ where
                     parallel_mem_partition_reqs_per_cycle += 1;
                 }
             } else {
-                log::trace!("SKIP sub partition {} ({}): DRAM full stall", i, device);
+                log::debug!("SKIP sub partition {} ({}): DRAM full stall", i, device);
                 stall_dram_full += 1;
             }
             // we borrow all of sub here, which is a problem for the cyclic reference in l2
@@ -1071,14 +1095,14 @@ where
             if let Some(l2_config) = &self.config.data_cache_l2 {
                 if all_threads_complete {
                     // && !l2_config.disabled() {
-                    log::trace!("flushed L2 caches...");
+                    log::debug!("flushed L2 caches...");
                     if l2_config.total_lines() > 0 {
                         let mut dlc = 0;
                         for (i, mem_sub) in self.mem_sub_partitions.iter_mut().enumerate() {
                             let mut mem_sub = mem_sub.borrow_mut();
                             mem_sub.flush_l2();
                             // debug_assert_eq!(dlc, 0);
-                            // log::trace!("dirty lines flushed from L2 {} is {}", i, dlc);
+                            // log::debug!("dirty lines flushed from L2 {} is {}", i, dlc);
                         }
                     }
                 }
@@ -1166,6 +1190,16 @@ where
             }
             self.command_idx += 1;
         }
+        // let allocations: &rangemap::RangeMap<_, _> = *self.allocations.borrow();
+        let allocations = self.allocations.try_borrow().unwrap();
+        log::info!(
+            "allocations: {:#?}",
+            allocations
+                .deref()
+                .iter()
+                .map(|(_, alloc)| alloc.to_string())
+                .collect::<Vec<_>>()
+        );
     }
 
     /// Lauch more kernels if possible.
@@ -1212,7 +1246,8 @@ where
             self.lauch_kernels();
 
             loop {
-                log::debug!("\n======== cycle {cycle} ========\n");
+                log::info!("======== cycle {cycle} ========");
+                log::info!("");
 
                 if self.reached_limit(cycle) || !self.active() {
                     break;
@@ -1222,6 +1257,35 @@ where
 
                 cycle += 1;
                 self.set_cycle(cycle);
+                match self.log_after_cycle {
+                    Some(ref log_after_cycle) if cycle >= *log_after_cycle => {
+                        println!("initializing logging after cycle {}", cycle);
+                        let mut log_builder = env_logger::Builder::new();
+
+                        use std::io::Write;
+                        log_builder.format(|buf, record| {
+                            writeln!(
+                                buf,
+                                // "{} [{}] - {}",
+                                "{}",
+                                // Local::now().format("%Y-%m-%dT%H:%M:%S"),
+                                // record.level(),
+                                record.args()
+                            )
+                        });
+
+                        log_builder.parse_default_env();
+                        log_builder.init();
+
+                        self.log_after_cycle.take();
+
+                        let allocations = self.allocations.try_borrow().unwrap();
+                        for (_, alloc) in allocations.deref().iter() {
+                            log::info!("allocation: {}", alloc);
+                        }
+                    }
+                    _ => {}
+                }
             }
 
             // TODO:
@@ -1283,15 +1347,37 @@ fn save_stats_to_file(stats: &Stats, out_file: &Path) -> eyre::Result<()> {
     Ok(())
 }
 
-pub struct Box {}
-
 pub fn accelmain(
     traces_dir: impl AsRef<Path>,
     stats_out_file: Option<&PathBuf>,
 ) -> eyre::Result<Stats> {
+    use std::io::Write;
+
     info!("box version {}", 0);
     let traces_dir = traces_dir.as_ref();
     let start_time = Instant::now();
+
+    let mut log_builder = env_logger::Builder::new();
+    log_builder.format(|buf, record| {
+        writeln!(
+            buf,
+            // "{} [{}] - {}",
+            "{}",
+            // Local::now().format("%Y-%m-%dT%H:%M:%S"),
+            // record.level(),
+            record.args()
+        )
+    });
+
+    let log_after_cycle = std::env::var("LOG_AFTER")
+        .unwrap_or_default()
+        .parse::<u64>()
+        .ok();
+
+    if log_after_cycle.is_none() {
+        log_builder.parse_default_env();
+        log_builder.init();
+    }
 
     // debugging config
     let mut config = config::GPUConfig::default();
@@ -1309,6 +1395,7 @@ pub fn accelmain(
     ));
     let mut sim = MockSimulator::new(interconn, config.clone(), traces_dir);
 
+    sim.log_after_cycle = log_after_cycle;
     sim.run_to_completion(&traces_dir);
 
     let stats = sim.stats();
@@ -1347,6 +1434,7 @@ mod tests {
     use std::ops::Deref;
     use std::path::PathBuf;
     use std::sync::Arc;
+    use std::time::{Duration, Instant};
 
     // #[ignore = "needs data"]
     #[test]
@@ -1360,9 +1448,8 @@ mod tests {
         let trace_dir = manifest_dir.join("results/simple_matrixmul/simple_matrixmul-32-32-32-32");
         // this fails in cycle 4654
         let trace_dir = manifest_dir.join("results/simple_matrixmul/simple_matrixmul-32-32-64-32");
-        //
-        // untested
-        // let trace_dir = manifest_dir.join("results/simple_matrixmul/simple_matrixmul-64-128-128-64");
+        let trace_dir =
+            manifest_dir.join("results/simple_matrixmul/simple_matrixmul-64-128-128-32");
 
         let kernelslist = trace_dir.join("accelsim-trace/kernelslist.g");
         let gpgpusim_config = manifest_dir.join("accelsim/gtx1080/gpgpusim.config");
@@ -1416,14 +1503,28 @@ mod tests {
         // accelsim.run_to_completion();
         // let ref_stats = accelsim.stats().clone();
         // let ref_stats = playground::run(&config, &args)?;
+        //
+        let mut start = Instant::now();
+        let mut play_time_cycle = std::time::Duration::ZERO;
+        let mut play_time_other = std::time::Duration::ZERO;
+        let mut box_time_cycle = std::time::Duration::ZERO;
+        let mut box_time_other = std::time::Duration::ZERO;
+
+        let mut last_valid_box_sim_state = None;
+        let mut last_valid_play_sim_state = None;
 
         let mut cycle = 0;
+
         while play_sim.commands_left() || play_sim.kernels_left() {
+            start = Instant::now();
             play_sim.process_commands();
             play_sim.launch_kernels();
+            play_time_other += start.elapsed();
 
+            start = Instant::now();
             box_sim.process_commands();
             box_sim.lauch_kernels();
+            box_time_other += start.elapsed();
 
             let mut finished_kernel_uid: Option<u32> = None;
             loop {
@@ -1431,11 +1532,15 @@ mod tests {
                     break;
                 }
 
+                start = Instant::now();
                 play_sim.cycle();
                 cycle = play_sim.get_cycle();
+                play_time_cycle += start.elapsed();
 
+                start = Instant::now();
                 box_sim.cycle();
                 box_sim.set_cycle(cycle);
+                box_time_cycle += start.elapsed();
 
                 // todo: extract also l1i ready (least important)
                 // todo: extract wb pipeline
@@ -1547,14 +1652,14 @@ mod tests {
                             .prioritized_warps
                             .split_off(limit);
 
-                        // assert_eq!(
-                        //     box_sim_state.schedulers[core_id][sched_idx]
-                        //         .prioritized_warps
-                        //         .len(),
-                        //     play_sim_state.schedulers[core_id][sched_idx]
-                        //         .prioritized_warps
-                        //         .len(),
-                        // );
+                        assert_eq!(
+                            box_sim_state.schedulers[core_id][sched_idx]
+                                .prioritized_warps
+                                .len(),
+                            play_sim_state.schedulers[core_id][sched_idx]
+                                .prioritized_warps
+                                .len(),
+                        );
                     }
                 }
 
@@ -1573,15 +1678,34 @@ mod tests {
                         .extend(sub.l2_to_dram_queue().into_iter().map(Into::into));
                 }
 
-                println!("checking for diff after cycle {}", cycle - 1);
-                // dbg!(&box_sim_state.schedulers);
-                // dbg!(&play_sim_state.schedulers);
+                if box_sim_state != play_sim_state {
+                    println!(
+                        "validated play state for cycle {}: {:#?}",
+                        cycle - 1,
+                        &last_valid_play_sim_state
+                    );
+
+                    for (sub_id, sub) in play_sim.sub_partitions().enumerate() {
+                        dbg!(sub
+                            .interconn_to_l2_queue()
+                            .iter()
+                            .map(|fetch| fetch.get_addr())
+                            .collect::<Vec<_>>());
+                    }
+                    for (sub_id, sub) in box_sim.mem_sub_partitions.iter().enumerate() {
+                        dbg!(sub
+                            .borrow()
+                            .interconn_to_l2_queue
+                            .iter()
+                            .map(|fetch| fetch.addr())
+                            .collect::<Vec<_>>());
+                    }
+                }
+                println!("checking for diff after cycle {}", cycle);
                 diff::assert_eq!(&box_sim_state, &play_sim_state);
-                println!(
-                    "validated play state for cycle {}: {:#?}",
-                    cycle - 1,
-                    &play_sim_state
-                );
+
+                last_valid_box_sim_state.insert(box_sim_state);
+                last_valid_play_sim_state.insert(play_sim_state);
 
                 finished_kernel_uid = play_sim.finished_kernel_uid();
                 if finished_kernel_uid.is_some() {
@@ -1602,6 +1726,8 @@ mod tests {
             }
         }
 
+        dbg!(box_time_cycle / u32::try_from(cycle).unwrap());
+        dbg!(play_time_cycle / u32::try_from(cycle).unwrap());
         dbg!(&cycle);
 
         let play_stats = play_sim.stats().clone();

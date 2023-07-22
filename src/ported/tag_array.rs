@@ -101,7 +101,7 @@ impl<B> TagArray<B> {
         // ) -> (Option<usize>, cache::RequestStatus) {
     ) -> AccessStatus {
         // ) {
-        // log::trace!("tag_array::access({})", addr);
+        // log::debug!("tag_array::access({})", addr);
         self.num_access += 1;
         self.is_used = true;
 
@@ -206,7 +206,7 @@ impl<B> TagArray<B> {
         is_probe: bool,
         fetch: &mem_fetch::MemFetch,
     ) -> (Option<usize>, cache::RequestStatus) {
-        // log::trace!("tag_array::probe({block_addr})");
+        // log::debug!("tag_array::probe({block_addr})");
         let set_index = self.config.set_index(block_addr) as usize;
         let tag = self.config.tag(block_addr);
 
@@ -362,7 +362,7 @@ impl<B> TagArray<B> {
     }
 
     pub fn add_pending_line(&mut self, fetch: &mem_fetch::MemFetch) {
-        // log::trace!("tag_array::add_pending_line({})", fetch.addr());
+        // log::debug!("tag_array::add_pending_line({})", fetch.addr());
         let addr = self.config.block_addr(fetch.addr());
         let instr = fetch.instr.as_ref().unwrap();
         if self.pending_lines.contains_key(&addr) {
@@ -371,7 +371,7 @@ impl<B> TagArray<B> {
     }
 
     pub fn remove_pending_line(&mut self, fetch: &mem_fetch::MemFetch) {
-        // log::trace!("tag_array::remove_pending_line({})", fetch.addr());
+        // log::debug!("tag_array::remove_pending_line({})", fetch.addr());
         let addr = self.config.block_addr(fetch.addr());
         self.pending_lines.remove(&addr);
     }

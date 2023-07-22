@@ -3,16 +3,22 @@
 - Today:
 
   - configure logging for box and playground
-  - see why playground is so slow? using a flamegraph
-  - see why box is so slow? using a flamegraph
+
+    - rust: log4rs or tracing subscriber? to log file
+    - both: allow logging after cycle X
+
   - configure playground for accelsim compat mode and compare to native accelsim
     - could we run unmodified accelsim as well using bridge or will this mess up global state?
-  - DONE: upload traces to google drive
   - fix tests in CI
 
-- BUG: simple matrix mul 32 128 128 32
-  - checking for diff after cycle 4654
-  - accelsim has extra write access without any address???
+  - DONE: box: performance: linear to raw addr translation causing bad performance due to alloc in hot loop
+  - DONE: see why playground is so slow? using a flamegraph
+  - DONE: see why box is so slow? using a flamegraph
+  - DONE: upload traces to google drive
+
+- DONE: BUG: simple matrix mul 32 128 128 32
+  - DONE: checking for diff after cycle 4654
+  - DONE: accelsim has extra write access without any address???
 
 ```
 interconn_to_l2_queue: [

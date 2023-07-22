@@ -373,7 +373,7 @@ impl std::fmt::Display for RegisterSet {
 // }
 
 pub fn move_warp<T: std::fmt::Display>(from: Option<T>, to: &mut Option<T>, msg: impl AsRef<str>) {
-    log::trace!(
+    log::debug!(
         "{}",
         style(format!(
             "MOVING {:?} to {:?}: {}",

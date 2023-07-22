@@ -18,7 +18,7 @@
 trace_shd_warp_t &scheduler_unit::warp(int i) { return *((*m_warp)[i]); }
 
 void scheduler_unit::cycle() {
-  logger->trace("{}::scheduler_unit::cycle()", name());
+  logger->debug("{}::scheduler_unit::cycle()", name());
   bool valid_inst =
       false;  // there was one warp with a valid instruction to
               // issue (didn't require flush due to control hazard)
@@ -33,7 +33,7 @@ void scheduler_unit::cycle() {
        iter != m_next_cycle_prioritized_warps.end(); iter++) {
     tmp_warp_ids.push_back((*iter)->get_warp_id());
   }
-  logger->trace("{}::scheduler_unit BEFORE: m_next_cycle_prioritized_warps: {}",
+  logger->debug("{}::scheduler_unit BEFORE: m_next_cycle_prioritized_warps: {}",
                 name(), fmt::join(tmp_warp_ids, ","));
 
   tmp_warp_ids.clear();
@@ -41,7 +41,7 @@ void scheduler_unit::cycle() {
        iter != m_next_cycle_prioritized_warps.end(); iter++) {
     tmp_warp_ids.push_back((*iter)->get_dynamic_warp_id());
   }
-  logger->trace("{}::scheduler_unit BEFORE: m_next_cycle_prioritized_warps: {}",
+  logger->debug("{}::scheduler_unit BEFORE: m_next_cycle_prioritized_warps: {}",
                 name(), fmt::join(tmp_warp_ids, ","));
 
   order_warps();
@@ -51,7 +51,7 @@ void scheduler_unit::cycle() {
        iter != m_next_cycle_prioritized_warps.end(); iter++) {
     tmp_warp_ids.push_back((*iter)->get_warp_id());
   }
-  logger->trace("{}::scheduler_unit AFTER: m_next_cycle_prioritized_warps: {}",
+  logger->debug("{}::scheduler_unit AFTER: m_next_cycle_prioritized_warps: {}",
                 name(), fmt::join(tmp_warp_ids, ","));
 
   tmp_warp_ids.clear();
@@ -59,7 +59,7 @@ void scheduler_unit::cycle() {
        iter != m_next_cycle_prioritized_warps.end(); iter++) {
     tmp_warp_ids.push_back((*iter)->get_dynamic_warp_id());
   }
-  logger->trace("{}::scheduler_unit AFTER: m_next_cycle_prioritized_warps: {}",
+  logger->debug("{}::scheduler_unit AFTER: m_next_cycle_prioritized_warps: {}",
                 name(), fmt::join(tmp_warp_ids, ","));
 
   for (std::vector<trace_shd_warp_t *>::iterator iter =
@@ -72,7 +72,7 @@ void scheduler_unit::cycle() {
     }
     assert(next_warp->instruction_count() > 0);
     if (!next_warp->trace_done() && next_warp->instruction_count() > 1) {
-      logger->trace(
+      logger->debug(
           "Testing (warp_id {}, dynamic_warp_id {}, trace_pc = {}, pc={}, "
           "ibuffer=[{}, {}], {} instructions)",
           next_warp->get_warp_id(), next_warp->get_dynamic_warp_id(),
@@ -101,14 +101,14 @@ void scheduler_unit::cycle() {
 
     if (next_warp->instruction_count() > 1) {
       if (warp(warp_id).ibuffer_empty()) {
-        logger->trace(
+        logger->debug(
             "\t => Warp (warp_id {}, dynamic_warp_id {}) fails as "
             "ibuffer_empty",
             next_warp->get_warp_id(), next_warp->get_dynamic_warp_id());
       }
 
       if (warp(warp_id).waiting()) {
-        logger->trace(
+        logger->debug(
             "\t => Warp (warp_id {}, dynamic_warp_id {}) fails as waiting for "
             "barrier",
             next_warp->get_warp_id(), next_warp->get_dynamic_warp_id());
@@ -145,7 +145,7 @@ void scheduler_unit::cycle() {
       if (pI) m_shader->get_pdom_stack_top_info(warp_id, pI, &pc, &rpc);
 
       if (pI) {
-        logger->trace(
+        logger->debug(
             "Warp (warp_id {}, dynamic_warp_id {}) instruction buffer[{}] has "
             "valid instruction ({}, op={})",
             next_warp->get_warp_id(), next_warp->get_dynamic_warp_id(),
@@ -166,7 +166,7 @@ void scheduler_unit::cycle() {
           // m_scoreboard->printContents();
           // pI->print(stdout);
           if (!m_scoreboard->checkCollision(warp_id, pI)) {
-            logger->trace(
+            logger->debug(
                 "Warp (warp_id {}, dynamic_warp_id {}) passes scoreboard",
                 next_warp->get_warp_id(), next_warp->get_dynamic_warp_id());
             ready_inst = true;
@@ -218,7 +218,7 @@ void scheduler_unit::cycle() {
                     (m_shader->m_config->gpgpu_num_int_units > 0) &&
                     m_int_out->has_free(m_shader->m_config->sub_core_model,
                                         m_id);
-                logger->trace(
+                logger->debug(
                     "sp pipe avail ={}({} units) int pipe avail ={}({} units)",
                     sp_pipe_avail, m_shader->m_config->gpgpu_num_sp_units,
                     int_pipe_avail, m_shader->m_config->gpgpu_num_int_units);
@@ -240,7 +240,7 @@ void scheduler_unit::cycle() {
                                                   exec_unit_type_t::SP))
                   execute_on_SP = true;
 
-                logger->trace("execute on INT={} execute on SP={}",
+                logger->debug("execute on INT={} execute on SP={}",
                               execute_on_INT, execute_on_SP);
                 if (execute_on_INT || execute_on_SP) {
                   // Jin: special for CDP api
@@ -382,7 +382,7 @@ void scheduler_unit::cycle() {
         warp(warp_id).ibuffer_flush();
       }
       if (warp_inst_issued) {
-        logger->trace(
+        logger->debug(
             "Warp (warp_id {}, dynamic_warp_id {}) issued {} instructions",
             next_warp->get_warp_id(), next_warp->get_dynamic_warp_id(), issued);
         do_on_warp_issued(warp_id, issued, iter);

@@ -276,23 +276,17 @@ pub struct MemFetch {
 
 impl std::fmt::Display for MemFetch {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        if self.is_reply() {
-            write!(f, "Reply")?
-        } else {
-            write!(f, "Req")?
-        }
+        // if self.is_reply() {
+        //     write!(f, "Reply")?
+        // } else {
+        //     write!(f, "Req")?
+        // }
         let addr = self.addr();
-        let access_kind = self.access_kind();
+        write!(f, "{:?}({:?}", self.kind, self.access_kind())?;
         if let Some(ref alloc) = self.access.allocation {
-            write!(
-                f,
-                "({:?}@{}+{})",
-                access_kind,
-                alloc.id,
-                addr - alloc.start_addr
-            )
+            write!(f, "@{}+{})", alloc.id, addr - alloc.start_addr)
         } else {
-            write!(f, "({:?}@{})", access_kind, addr)
+            write!(f, "@{})", addr)
         }
     }
 }

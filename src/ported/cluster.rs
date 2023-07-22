@@ -142,21 +142,21 @@ where
                     // this could be the reason
                     if !core.fetch_unit_response_buffer_full() {
                         let fetch = self.response_fifo.pop_front().unwrap();
-                        log::trace!("accepted instr access fetch {}", fetch);
+                        log::debug!("accepted instr access fetch {}", fetch);
                         core.accept_fetch_response(fetch);
                     } else {
-                        log::trace!("instr access fetch {} NOT YET ACCEPTED", fetch);
+                        log::debug!("instr access fetch {} NOT YET ACCEPTED", fetch);
                     }
                 }
                 _ => {
                     // this could be the reason
                     if !core.ldst_unit_response_buffer_full() {
                         let fetch = self.response_fifo.pop_front().unwrap();
-                        log::trace!("accepted ldst unit fetch {}", fetch);
+                        log::debug!("accepted ldst unit fetch {}", fetch);
                         // m_memory_stats->memlatstat_read_done(mf);
                         core.accept_ldst_unit_response(fetch);
                     } else {
-                        log::trace!("ldst unit fetch {} NOT YET ACCEPTED", fetch);
+                        log::debug!("ldst unit fetch {} NOT YET ACCEPTED", fetch);
                     }
                 }
             }
@@ -165,7 +165,7 @@ where
         // this could be the reason?
         let eject_buffer_size = self.config.num_cluster_ejection_buffer_size;
         if self.response_fifo.len() >= eject_buffer_size {
-            log::trace!(
+            log::debug!(
                 "skip: ejection buffer full ({}/{})",
                 self.response_fifo.len(),
                 eject_buffer_size
@@ -176,7 +176,7 @@ where
         let Some(Packet::Fetch(mut fetch)) = self.interconn.pop(self.cluster_id) else {
             return;
         };
-        log::trace!(
+        log::debug!(
             "{}",
             style(format!(
                 "cycle {:02} cluster {}: got fetch from interconn: {}",
@@ -230,7 +230,7 @@ where
     }
 
     pub fn issue_block_to_core(&self, sim: &MockSimulator<I>) -> usize {
-        log::trace!("cluster {}: issue block to core", self.cluster_id);
+        log::debug!("cluster {}: issue block to core", self.cluster_id);
         let mut num_blocks_issued = 0;
 
         let mut block_issue_next_core = self.block_issue_next_core.lock().unwrap();
@@ -306,7 +306,7 @@ where
                 //     }
                 // }
             };
-            log::trace!(
+            log::debug!(
                 "core {}-{}: {} active warps, current kernel {:?}, more blocks={:?}",
                 self.cluster_id,
                 core.inner.core_id,
@@ -317,19 +317,19 @@ where
                     .as_ref()
                     .map(|k| !k.no_more_blocks_to_run())
             );
-            log::trace!(
+            log::debug!(
                 "core {}-{}: selected kernel {:?}",
                 self.cluster_id,
                 core.inner.core_id,
                 kernel.as_ref().map(|k| k.name())
             );
             if let Some(kernel) = kernel {
-                log::trace!(
+                log::debug!(
                     "kernel: no more blocks to run={} can issue block {}",
                     kernel.no_more_blocks_to_run(),
                     core.can_issue_block(&*kernel)
                 );
-                // log::trace!("kernel: {:#?}", &*kernel);
+                // log::debug!("kernel: {:#?}", &*kernel);
 
                 if !kernel.no_more_blocks_to_run() && core.can_issue_block(&*kernel) {
                     // core.issue_block(Arc::clone(kernel));

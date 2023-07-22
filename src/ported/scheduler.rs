@@ -491,7 +491,7 @@ impl BaseSchedulerUnit {
         //     .map(|w| w.lock().unwrap().instruction_count())
         //     .sum::<usize>());
 
-        // log::trace!(
+        // log::debug!(
         //     "supervised warps: {:#?}",
         //     self.supervised_warps
         //         .iter()
@@ -499,7 +499,7 @@ impl BaseSchedulerUnit {
         //         .filter(|&c| c > 0)
         //         .collect::<Vec<_>>()
         // );
-        // log::trace!(
+        // log::debug!(
         //     "next_cycle_prioritized_warps: {:#?}",
         //     self.next_cycle_prioritized_warps
         //         .iter()
@@ -508,23 +508,23 @@ impl BaseSchedulerUnit {
         //         .collect::<Vec<_>>()
         // );
 
-        // log::trace!("next cycle prio warp");
+        // log::debug!("next cycle prio warp");
         for next_warp_rc in &self.next_cycle_prioritized_warps {
             // don't consider warps that are not yet valid
             let next_warp = next_warp_rc.try_borrow().unwrap();
             let (warp_id, dyn_warp_id) = (next_warp.warp_id, next_warp.dynamic_warp_id);
-            // log::trace!("locked next warp = {}", warp_id);
+            // log::debug!("locked next warp = {}", warp_id);
 
             if next_warp.done_exit() {
                 continue;
             }
             let inst_count = next_warp.instruction_count();
             if inst_count == 0 {
-                log::trace!("next warp: {:#?}", &next_warp);
+                log::debug!("next warp: {:#?}", &next_warp);
             }
             debug_assert!(inst_count > 0);
             if inst_count > 1 {
-                log::trace!(
+                log::debug!(
                     "scheduler: \n\t => testing (warp_id={}, dynamic_warp_id={}, trace_pc={}, pc={:?}, ibuffer={:?}, {} instructions)",
                     warp_id, dyn_warp_id,
                     next_warp.trace_pc,
@@ -543,7 +543,7 @@ impl BaseSchedulerUnit {
 
             if inst_count > 1 {
                 if next_warp.ibuffer_empty() {
-                    log::trace!(
+                    log::debug!(
                         "warp (warp_id={}, dynamic_warp_id={}) fails as ibuffer_empty",
                         warp_id,
                         dyn_warp_id
@@ -551,7 +551,7 @@ impl BaseSchedulerUnit {
                 }
 
                 if next_warp.waiting() {
-                    log::trace!(
+                    log::debug!(
                         "warp (warp_id={}, dynamic_warp_id={}) is waiting for completion",
                         warp_id,
                         dyn_warp_id
@@ -565,9 +565,9 @@ impl BaseSchedulerUnit {
             debug_assert!(Rc::ptr_eq(warp, next_warp_rc));
             drop(next_warp);
 
-            // log::trace!("locking warp = {}", warp_id);
+            // log::debug!("locking warp = {}", warp_id);
             let mut warp = warp.try_borrow_mut().unwrap();
-            // log::trace!("locked warp {}", warp_id);
+            // log::debug!("locked warp {}", warp_id);
             // .as_mut()
             // .as_ref()
             // .unwrap();
@@ -582,7 +582,7 @@ impl BaseSchedulerUnit {
 
                 if let Some(instr) = warp.ibuffer_peek() {
                     // let (pc, rpc) = get_pdom_stack_top_info(warp_id, instr);
-                    log::trace!(
+                    log::debug!(
                         "Warp (warp_id={}, dynamic_warp_id={}) instruction buffer[{}] has valid instruction {}",
                         warp_id, dyn_warp_id, warp.next, instr,
                     );
@@ -590,7 +590,7 @@ impl BaseSchedulerUnit {
                     // In trace-driven mode, we assume no control hazard, meaning
                     // that `pc == rpc == instr.pc`
                     // if pc != instr.pc {
-                    //     log::trace!(
+                    //     log::debug!(
                     //         "Warp (warp_id {}, dynamic_warp_id {}) control hazard instruction flush",
                     //         warp_id, dyn_warp_id);
                     //     // control hazard
@@ -604,7 +604,7 @@ impl BaseSchedulerUnit {
                         .unwrap()
                         .has_collision(warp_id, instr)
                     {
-                        log::trace!(
+                        log::debug!(
                             "Warp (warp_id={}, dynamic_warp_id={}) {}",
                             warp_id,
                             dyn_warp_id,
@@ -686,7 +686,7 @@ impl BaseSchedulerUnit {
                                         execute_on_sp = true;
                                     }
 
-                                    log::trace!(
+                                    log::debug!(
                                         "execute on INT={} execute on SP={}",
                                         execute_on_int,
                                         execute_on_sp
@@ -731,7 +731,7 @@ impl BaseSchedulerUnit {
                             } // op => unimplemented!("op {:?} not implemented", op),
                         }
                     } else {
-                        log::trace!(
+                        log::debug!(
                             "Warp (warp_id={}, dynamic_warp_id={}) {}",
                             warp_id,
                             dyn_warp_id,
@@ -750,7 +750,7 @@ impl BaseSchedulerUnit {
                 //   warp(warp_id).ibuffer_flush();
                 // }
                 if warp_inst_issued {
-                    log::trace!(
+                    log::debug!(
                         "Warp (warp_id={}, dynamic_warp_id={}) issued {} instructions",
                         warp_id,
                         dyn_warp_id,
@@ -772,7 +772,7 @@ impl BaseSchedulerUnit {
                 // For now, just run through until you find the right warp_id
                 for (sup_idx, supervised) in self.supervised_warps.iter().enumerate() {
                     // if *next_warp == *supervised.lock().unwrap().warp_id {
-                    // log::trace!("locking supervised[{}]", sup_idx);
+                    // log::debug!("locking supervised[{}]", sup_idx);
                     // if dynamicwarp_id == supervised.try_borrow().unwrap().warp_id {
                     // if warp.borrow() == supervised.borrow() {
                     if *next_warp_rc.try_borrow().unwrap() == *supervised.try_borrow().unwrap() {
@@ -787,8 +787,6 @@ impl BaseSchedulerUnit {
                     // m_stats->dual_issue_nums[m_id]++;
                 }
                 break;
-            } else {
-                log::warn!("issued should be > 0");
             }
         }
 
@@ -911,7 +909,7 @@ impl BaseSchedulerUnit {
                     out.push_back(Rc::clone(greedy));
                 }
 
-                log::trace!(
+                log::debug!(
                     "added greedy warp (last supervised issued idx={}): {:?}",
                     self.last_supervised_issued_idx,
                     &greedy_value.map(|w| w.borrow().dynamic_warp_id)
@@ -930,7 +928,7 @@ impl BaseSchedulerUnit {
                         .take(num_warps_to_add)
                         .filter(|warp| {
                             if let Some(greedy) = greedy_value {
-                                // log::trace!(
+                                // log::debug!(
                                 //     "greedy@{:?} warp@{:?}",
                                 //     Rc::as_ptr(greedy),
                                 //     Rc::as_ptr(warp)
@@ -1227,22 +1225,22 @@ impl SchedulerUnit for GTOScheduler {
 
     // fn cycle(&mut self, core: ()) {
     fn cycle(&mut self, issuer: &mut dyn super::core::WarpIssuer) {
-        log::trace!(
+        log::debug!(
             "gto scheduler: BEFORE: prioritized warp ids: {:?}",
             self.debug_warp_ids()
         );
-        log::trace!(
+        log::debug!(
             "gto scheduler: BEFORE: prioritized dynamic warp ids: {:?}",
             self.debug_dynamic_warp_ids()
         );
 
         self.order_warps();
 
-        log::trace!(
+        log::debug!(
             "gto scheduler: AFTER: prioritized warp ids: {:?}",
             self.debug_warp_ids()
         );
-        log::trace!(
+        log::debug!(
             "gto scheduler: AFTER: prioritized dynamic warp ids: {:?}",
             self.debug_dynamic_warp_ids()
         );

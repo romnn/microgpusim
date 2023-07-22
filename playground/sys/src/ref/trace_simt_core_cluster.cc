@@ -26,7 +26,7 @@ unsigned trace_simt_core_cluster::get_not_completed() const {
 }
 
 void trace_simt_core_cluster::icnt_cycle() {
-  logger->trace("icnt_cycle response buffer=[{}]",
+  logger->debug("icnt_cycle response buffer=[{}]",
                 fmt::join(m_response_fifo, ","));
 
   if (!m_response_fifo.empty()) {
@@ -37,10 +37,10 @@ void trace_simt_core_cluster::icnt_cycle() {
       if (!m_core[cid]->fetch_unit_response_buffer_full()) {
         m_response_fifo.pop_front();
         m_core[cid]->accept_fetch_response(mf);
-        logger->trace("accepted instr access fetch {}", mem_fetch_ptr(mf));
+        logger->debug("accepted instr access fetch {}", mem_fetch_ptr(mf));
 
       } else {
-        logger->trace("instr access fetch {} NOT YET ACCEPTED",
+        logger->debug("instr access fetch {} NOT YET ACCEPTED",
                       mem_fetch_ptr(mf));
       }
 
@@ -50,10 +50,10 @@ void trace_simt_core_cluster::icnt_cycle() {
         m_response_fifo.pop_front();
         m_memory_stats->memlatstat_read_done(mf);
         m_core[cid]->accept_ldst_unit_response(mf);
-        logger->trace("accepted ldst unit fetch {}", mem_fetch_ptr(mf));
+        logger->debug("accepted ldst unit fetch {}", mem_fetch_ptr(mf));
 
       } else {
-        logger->trace("ldst unit fetch {} NOT YET ACCEPTED", mem_fetch_ptr(mf));
+        logger->debug("ldst unit fetch {} NOT YET ACCEPTED", mem_fetch_ptr(mf));
       }
     }
   }
@@ -61,7 +61,7 @@ void trace_simt_core_cluster::icnt_cycle() {
     mem_fetch *mf = (mem_fetch *)::icnt_pop(m_cluster_id);
     if (!mf) return;
 
-    logger->trace("cluster::icnt_cycle() got fetch from interconn: {}",
+    logger->debug("cluster::icnt_cycle() got fetch from interconn: {}",
                   mem_fetch_ptr(mf));
 
     assert(mf->get_tpc() == m_cluster_id);
@@ -80,7 +80,7 @@ void trace_simt_core_cluster::icnt_cycle() {
     m_response_fifo.push_back(mf);
     m_stats->n_mem_to_simt[m_cluster_id] += mf->get_num_flits(false);
   } else {
-    logger->trace("skip: ejection buffer full ({}/{})", m_response_fifo.size(),
+    logger->debug("skip: ejection buffer full ({}/{})", m_response_fifo.size(),
                   m_config->n_simt_ejection_buffer_size);
   }
 }
@@ -149,7 +149,7 @@ void trace_simt_core_cluster::get_icnt_stats(long &n_simt_to_mem,
 }
 
 unsigned trace_simt_core_cluster::issue_block2core() {
-  logger->trace("cluster {}: issue block to core", m_cluster_id);
+  logger->debug("cluster {}: issue block to core", m_cluster_id);
   unsigned num_blocks_issued = 0;
   for (unsigned i = 0; i < m_config->n_simt_cores_per_cluster; i++) {
     unsigned core =
@@ -175,11 +175,11 @@ unsigned trace_simt_core_cluster::issue_block2core() {
         }
       }
     }
-    logger->trace("core {}-{}: selected kernel {}", m_cluster_id, core,
+    logger->debug("core {}-{}: selected kernel {}", m_cluster_id, core,
                   kernel != NULL ? kernel->get_name() : "NULL");
 
     if (kernel != NULL) {
-      logger->trace("kernel: no more blocks to run={} can issue block {}",
+      logger->debug("kernel: no more blocks to run={} can issue block {}",
                     !m_gpu->kernel_more_cta_left(kernel),
                     m_core[core]->can_issue_1block(*kernel));
     }
@@ -322,16 +322,16 @@ void trace_simt_core_cluster::icnt_inject_request_packet(class mem_fetch *mf) {
   unsigned sub_partition_id = mf->get_sub_partition_id();
   unsigned destination = m_config->mem2device(sub_partition_id);
 
-  logger->trace(
+  logger->debug(
       "cluster {} icnt_inject_request_packet({}) sub partition id={} dest mem "
       "node={}",
       m_cluster_id, mem_fetch_ptr(mf), sub_partition_id, destination);
 
-  logger->trace("raw addr: {}", mf->get_tlx_addr());
+  logger->debug("raw addr: {}", mf->get_tlx_addr());
 
   addrdec_t fresh_raw_adrr;
   m_mem_config->m_address_mapping.addrdec_tlx(mf->get_addr(), &fresh_raw_adrr);
-  logger->trace("raw addr: {}", fresh_raw_adrr);
+  logger->debug("raw addr: {}", fresh_raw_adrr);
 
   mf->set_status(IN_ICNT_TO_MEM,
                  m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);

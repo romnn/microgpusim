@@ -47,6 +47,7 @@ pub const PROGRAM_MEM_ALLOC: Lazy<super::Allocation> = Lazy::new(|| super::Alloc
     name: Some("PROGRAM_MEM".to_string()),
     id: 0,
     start_addr: PROGRAM_MEM_START as super::address,
+    end_addr: None,
 });
 
 #[derive(Debug)]
@@ -268,7 +269,7 @@ where
 
         let pipe_reg_ref = pipe_reg.as_ref().unwrap();
 
-        log::trace!(
+        log::debug!(
             "{} (done={} ({}/{}), functional done={}, hardware done={}, stores done={} ({} stores), instr in pipeline = {}, active_threads={})",
             style(format!("checking if warp {} did exit", warp.warp_id)).yellow(),
             warp.done(),
@@ -297,7 +298,7 @@ where
             // warp.set_membar();
         }
 
-        log::trace!(
+        log::debug!(
             "{} ({:?}) for instr {}",
             style(format!(
                 "reserving {} registers",
@@ -313,7 +314,7 @@ where
             .unwrap()
             .reserve_registers(pipe_reg_ref);
 
-        log::trace!(
+        log::debug!(
             "post issue register set of {:?} pipeline: {}",
             stage,
             pipeline_stage
@@ -936,7 +937,7 @@ where
                     // if warp.functional_done() && warp.hardware_done() && warp.done_exit() {
                     //     continue;
                     // }
-                    log::trace!(
+                    log::debug!(
                         "checking warp_id = {} dyn warp id = {} (instruction count={}, trace pc={} hardware_done={}, functional_done={}, instr in pipe={}, stores={}, done_exit={}, pending writes={:?})",
                         &warp_id,
                         warp.dynamic_warp_id(),
@@ -976,7 +977,7 @@ where
                         .clone();
 
                     // if !(warp.hardware_done() && warp.functional_done() && warp.done_exit()) {
-                    //     log::trace!(
+                    //     log::debug!(
                     //         "\n checking warp_id = {} dyn warp id = {} (instruction count={}, hardware_done={}, functional_done={}, instr in pipe={}, stores={}, done_exit={}, pending writes={:?})",
                     //         &warp_id,
                     //         &warp.dynamic_warp_id(),
@@ -998,7 +999,7 @@ where
                     // check if this warp has finished executing and can be reclaimed.
                     let mut did_exit = false;
                     if did_maybe_exit {
-                        log::trace!("\tchecking if warp_id = {} did complete", warp_id);
+                        log::debug!("\tchecking if warp_id = {} did complete", warp_id);
 
                         for t in 0..self.inner.config.warp_size {
                             let tid = warp_id * self.inner.config.warp_size + t;
@@ -1009,7 +1010,7 @@ where
                                     assert!(!self.temp_check_state[block_hw_id].contains(&tid));
                                     self.temp_check_state[block_hw_id].insert(tid);
 
-                                    log::trace!(
+                                    log::debug!(
                                         "thread {} of block {} completed ({} left)",
                                         tid,
                                         block_hw_id,
@@ -1048,7 +1049,7 @@ where
                     let mut warp = self.inner.warps[warp_id].try_borrow_mut().unwrap();
                     if did_exit {
                         // todo!("first warp did exit");
-                        log::trace!("warp_id = {} exited", &warp_id);
+                        log::debug!("warp_id = {} exited", &warp_id);
                         // if warp_id == 3 {
                         //     panic!("warp 3 exited");
                         // }
@@ -1074,7 +1075,7 @@ where
                         let pc = warp.pc().unwrap();
                         let ppc = pc + PROGRAM_MEM_START;
 
-                        log::trace!(
+                        log::debug!(
                             "\t fetching instr {} for warp_id = {} (pc={}, ppc={})",
                             &instr,
                             warp.warp_id,
@@ -1119,7 +1120,7 @@ where
                                 .access(ppc as address, fetch, &mut events)
                         };
 
-                        log::trace!("L1I->access(addr={}) -> status = {:?}", ppc, status);
+                        log::debug!("L1I->access(addr={}) -> status = {:?}", ppc, status);
 
                         self.inner.last_warp_fetched = Some(warp_id);
 
@@ -1204,7 +1205,7 @@ where
 
         // debug: print all instructions in this warp
         for (trace_pc, trace_instr) in warp.trace_instructions.iter().enumerate() {
-            log::trace!(
+            log::debug!(
                 "====> warp[warp_id={:03}][trace_pc={:03}]:\t {}\t\t active={} \tpc={} idx={}",
                 warp_id,
                 trace_pc,
@@ -1232,7 +1233,7 @@ where
         let warp = self.inner.warps.get_mut(warp_id).unwrap();
         let mut warp = warp.try_borrow_mut().unwrap();
 
-        log::trace!(
+        log::debug!(
             "====> warp[warp_id={:03}] ibuffer fill at slot {:01} with instruction {}",
             warp.warp_id,
             slot,
@@ -1298,7 +1299,7 @@ where
             .get_ready_mut()
             .and_then(|(_, r)| r.take())
         {
-            log::trace!("ready for writeback: {}", ready);
+            log::debug!("ready for writeback: {}", ready);
 
             // Right now, the writeback stage drains all waiting instructions
             // assuming there are enough ports in the register file or the
@@ -1355,7 +1356,7 @@ where
 
         for (i, res_bus) in self.inner.result_busses.iter_mut().enumerate() {
             res_bus.shift_right(1);
-            // log::trace!(
+            // log::debug!(
             //     "res bus {:03}[:128]: {}",
             //     i,
             //     &res_bus.to_bit_string()[0..128]
@@ -1368,7 +1369,7 @@ where
             let issue_port = self.issue_ports[fu_id];
             {
                 let issue_inst = self.inner.pipeline_reg[issue_port as usize].borrow();
-                log::trace!(
+                log::debug!(
                     "fu[{:03}] {:<10} before \t{:?}={}",
                     &fu_id,
                     fu.to_string(),
@@ -1381,7 +1382,7 @@ where
             fu.active_lanes_in_pipeline();
 
             let mut issue_inst = self.inner.pipeline_reg[issue_port as usize].borrow_mut();
-            log::trace!(
+            log::debug!(
                 "fu[{:03}] {:<10} after \t{:?}={}",
                 &fu_id,
                 fu.to_string(),
@@ -1414,7 +1415,7 @@ where
                         .filter(|bus| !bus[instr.latency])
                         .next();
 
-                    log::trace!(
+                    log::debug!(
                         "{}",
                         style(format!(
                             "cycle {:03} core={:?} execute: {} ready for issue to fu[{:03}]={}",
@@ -1524,7 +1525,7 @@ where
     }
 
     pub fn set_kernel(&mut self, kernel: Arc<KernelInfo>) {
-        log::trace!(
+        log::debug!(
             "kernel {} ({}) bind to core {:?}",
             kernel.uid,
             kernel.name(),
@@ -1701,7 +1702,7 @@ where
             warp.trace_pc = 0;
         }
         kernel.next_threadblock_traces(selected_warps);
-        log::trace!(
+        log::debug!(
             "initialized traces {}..{} of {} warps",
             start_warp,
             end_warp,
@@ -1726,7 +1727,7 @@ where
         //     block_id,
         //     block_hw_id
         // );
-        log::trace!("kernel: {}", &kernel);
+        log::debug!("kernel: {}", &kernel);
 
         let start_pc = self.next_pc(start_thread);
         let kernel_id = kernel.uid;
@@ -1740,7 +1741,7 @@ where
                 1
             };
         for warp_id in start_warp..end_warp {
-            // log::trace!("init warp {}/{}", warp_id, self.inner.warps.len());
+            // log::debug!("init warp {}/{}", warp_id, self.inner.warps.len());
             let mut num_active = 0;
 
             let mut local_active_thread_mask: sched::ThreadActiveMask = BitArray::ZERO;
@@ -1823,14 +1824,14 @@ where
         );
 
         for w in start_warp..end_warp {
-            // log::trace!("reset warp = {}/{}", w + 1, self.inner.warps.len());
+            // log::debug!("reset warp = {}/{}", w + 1, self.inner.warps.len());
             self.inner.warps[w].try_borrow_mut().unwrap().reset();
             // simt_stack[i]->reset();
         }
     }
 
     pub fn issue_block(&mut self, kernel: Arc<KernelInfo>) -> () {
-        log::trace!(
+        log::debug!(
             "core {:?}: issue one block from kernel {} ({})",
             self.id(),
             kernel.uid,
@@ -1932,7 +1933,7 @@ where
         }
 
         self.inner.block_status[free_block_hw_id] = num_threads_in_block;
-        log::trace!(
+        log::debug!(
             "num threads in block {}={} (hw {}) = {}",
             block,
             block_id,

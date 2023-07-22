@@ -2,3 +2,5 @@ accelsim/accel-sim-framework-dev/** linguist-vendored
 accelsim/accel-sim-framework-dev-*/** linguist-vendored
 playground/sys/src/ref/** linguist-vendored
 playground/sys/src/fmt/** linguist-vendored
+playground/sys/src/spdlog/** linguist-vendored
+playground/sys/src/include/** linguist-vendored

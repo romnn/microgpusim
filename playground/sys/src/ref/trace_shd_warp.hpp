@@ -12,14 +12,12 @@ class trace_shader_core_ctx;
 class trace_shd_warp_t {
  public:
   trace_shd_warp_t(class trace_shader_core_ctx *shader, unsigned warp_size)
-      : m_shader(shader), m_warp_size(warp_size) {
+      : m_warp_size(warp_size), m_shader(shader) {
     m_stores_outstanding = 0;
     m_inst_in_pipeline = 0;
     reset();
     trace_pc = 0;
     m_kernel_info = NULL;
-
-    // parsed_trace_pc = 0;
   }
 
   void reset() {
@@ -31,6 +29,7 @@ class trace_shd_warp_t {
     // m_dynamic_warp_id = 0;
     m_warp_id = (unsigned)-1;
     m_dynamic_warp_id = (unsigned)-1;
+    m_instruction_count = 0;
     n_completed = m_warp_size;
     m_n_atomic = 0;
     m_membar = false;
@@ -49,6 +48,7 @@ class trace_shd_warp_t {
     m_cta_id = cta_id;
     m_warp_id = wid;
     m_dynamic_warp_id = dynamic_warp_id;
+    m_instruction_count = 0;
     // m_next_pc = start_pc;
     assert(n_completed >= active.count());
     assert(n_completed <= m_warp_size);
@@ -212,6 +212,8 @@ class trace_shd_warp_t {
   unsigned m_warp_id;
   // unsigned m_warp_size;
   unsigned m_dynamic_warp_id;
+
+  unsigned m_instruction_count;
 
   // static const unsigned IBUFFER_SIZE = 2;
   // struct ibuffer_entry {

@@ -67,6 +67,8 @@ Here is a TLDR for x86 linux:
 
 ```bash
 sudo apt install linux-tools-common linux-tools-generic linux-tools-$(uname -r)
+echo -1 | sudo tee /proc/sys/kernel/perf_event_paranoid
+echo 0 | sudo tee /proc/sys/kernel/kptr_restrict
 cargo install flamegraph
 cargo flamegraph --bin=casimu -- --path ./results/vectorAdd/vectorAdd-10000-32/trace
 ```

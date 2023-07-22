@@ -12,7 +12,7 @@ enum cache_request_status read_only_cache::access(
   assert(!mf->get_is_write());
   new_addr_type block_addr = m_config.block_addr(addr);
 
-  logger->trace(
+  logger->debug(
       "{}::read_only_cache::access({}, write = {}, data size = {}, control "
       "size = {}, block = {})",
       name(), addr, mf->is_write(), mf->get_data_size(), mf->get_ctrl_size(),

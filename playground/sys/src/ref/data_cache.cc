@@ -6,7 +6,7 @@
 void data_cache::send_write_request(mem_fetch *mf, cache_event request,
                                     unsigned time,
                                     std::list<cache_event> &events) {
-  logger->trace("data_cache::send_write_request(...)");
+  logger->debug("data_cache::send_write_request(...)");
   events.push_back(request);
   m_miss_queue.push_back(mf);
   mf->set_status(m_miss_queue_status, time);
@@ -121,16 +121,22 @@ enum cache_request_status data_cache::wr_hit_global_we_local_wb(
 enum cache_request_status data_cache::wr_miss_wa_naive(
     new_addr_type addr, unsigned cache_index, mem_fetch *mf, unsigned time,
     std::list<cache_event> &events, enum cache_request_status status) {
-  logger->trace("handling write miss for {} (address {})", mem_fetch_ptr(mf),
-                addr);
   new_addr_type block_addr = m_config.block_addr(addr);
   new_addr_type mshr_addr = m_config.mshr_addr(mf->get_addr());
+
+  assert(addr == mf->get_addr());
 
   // Write allocate, maximum 3 requests (write miss, read request, write back
   // request) Conservatively ensure the worst-case request can be handled this
   // cycle
   bool mshr_hit = m_mshrs.probe(mshr_addr);
   bool mshr_avail = !m_mshrs.full(mshr_addr);
+  logger->debug(
+      "handling write miss for {} (block addr={} mshr addr={}, mshr hit={} "
+      "mshr avail={}, miss_queue_full={})",
+      mem_fetch_ptr(mf), block_addr, mshr_addr, mshr_hit, mshr_avail,
+      miss_queue_full(2));
+
   if (miss_queue_full(2) ||
       (!(mshr_hit && mshr_avail) &&
        !(!mshr_hit && mshr_avail &&
@@ -144,6 +150,9 @@ enum cache_request_status data_cache::wr_miss_wa_naive(
       m_stats.inc_fail_stats(mf->get_access_type(), MSHR_ENRTY_FAIL);
     else
       assert(0);
+
+    logger->debug("handling write miss for {}: RESERVATION FAIL",
+                  mem_fetch_ptr(mf));
 
     return RESERVATION_FAIL;
   }
@@ -181,7 +190,7 @@ enum cache_request_status data_cache::wr_miss_wa_naive(
   if (do_miss) {
     // If evicted block is modified and not a write-through
     // (already modified lower level)
-    logger->trace("evicted block: {}", evicted);
+    logger->debug("evicted block: {}", evicted);
     // throw std::runtime_error("has evicted block");
     if (wb && (m_config.m_write_policy != WRITE_THROUGH)) {
       assert(status ==
@@ -556,7 +565,7 @@ enum cache_request_status data_cache::access(new_addr_type addr, mem_fetch *mf,
   new_addr_type block_addr = m_config.block_addr(addr);
   unsigned cache_index = (unsigned)-1;
 
-  logger->trace("data_cache::access({}, write = {}, size = {}, block = {}, {})",
+  logger->debug("data_cache::access({}, write = {}, size = {}, block = {}, {})",
                 addr, wr, mf->get_data_size(), block_addr,
                 mf->get_access_type_str());
   enum cache_request_status probe_status =

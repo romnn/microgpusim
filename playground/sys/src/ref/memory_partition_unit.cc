@@ -184,7 +184,7 @@ void memory_partition_unit::simple_dram_model_cycle() {
       m_stats->memlatstat_dram_access(mf_return);
 
       mf_return->set_reply();
-      logger->trace("got {} fetch return from dram latency queue (write={})",
+      logger->debug("got {} fetch return from dram latency queue (write={})",
                     mem_fetch_ptr(mf_return), mf_return->is_write());
 
       unsigned dest_global_spid = mf_return->get_sub_partition_id();
@@ -211,7 +211,7 @@ void memory_partition_unit::simple_dram_model_cycle() {
       }
 
     } else {
-      logger->trace(
+      logger->debug(
           "DROPPING {} fetch return from dram latency queue (write={})",
           mem_fetch_ptr(mf_return), mf_return->is_write());
 
@@ -231,26 +231,26 @@ void memory_partition_unit::simple_dram_model_cycle() {
     int spid = (p + last_issued_partition + 1) %
                m_config->m_n_sub_partition_per_memory_channel;
 
-    logger->trace("checking sub partition[{}]:", spid);
+    logger->debug("checking sub partition[{}]:", spid);
     fifo_pipeline<mem_fetch> *q;
-    logger->trace("\t icnt to l2 queue = {}",
+    logger->debug("\t icnt to l2 queue = {}",
                   *(m_sub_partition[spid]->m_icnt_L2_queue));
-    logger->trace("\t l2 to icnt queue = {}",
+    logger->debug("\t l2 to icnt queue = {}",
                   *(m_sub_partition[spid]->m_L2_icnt_queue));
-    logger->trace("\t l2 to dram queue = {}",
+    logger->debug("\t l2 to dram queue = {}",
                   *(m_sub_partition[spid]->m_L2_dram_queue));
-    logger->trace("\t dram to l2 queue = {}",
+    logger->debug("\t dram to l2 queue = {}",
                   *(m_sub_partition[spid]->m_dram_L2_queue));
-    logger->trace("\t dram latency queue = ({:<3})[{}]",
+    logger->debug("\t dram latency queue = ({:<3})[{}]",
                   m_dram_latency_queue.size(),
                   fmt::join(m_dram_latency_queue, ","));
 
     bool can_issue_to_dram_now = can_issue_to_dram(spid);
-    logger->trace("\t can issue to dram={} dram to l2 queue full={}",
+    logger->debug("\t can issue to dram={} dram to l2 queue full={}",
                   can_issue_to_dram_now,
                   m_sub_partition[spid]->dram_L2_queue_full());
 
-    logger->trace("");
+    logger->debug("");
 
     if (!m_sub_partition[spid]->L2_dram_queue_empty() &&
         can_issue_to_dram_now) {
@@ -258,7 +258,7 @@ void memory_partition_unit::simple_dram_model_cycle() {
       if (m_dram->full(mf->is_write())) break;
 
       m_sub_partition[spid]->L2_dram_queue_pop();
-      logger->trace("issue mem_fetch {} from sub partition {} to DRAM",
+      logger->debug("issue mem_fetch {} from sub partition {} to DRAM",
                     mem_fetch_ptr(mf), spid);
       dram_delay_t d;
       d.req = mf;

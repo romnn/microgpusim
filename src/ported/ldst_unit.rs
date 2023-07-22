@@ -377,7 +377,7 @@ where
                         if next_global.warp_id == 3 {
                             super::debug_break("global writeback for warp 3");
                         }
-                        log::trace!(
+                        log::debug!(
                             "{}",
                             style(format!(
                                 "ldst unit writeback: has global {:?} ({})",
@@ -412,7 +412,7 @@ where
         // 2. a client was serviced
         if let Some(serviced) = serviced_client {
             self.writeback_arb = (serviced + 1) % self.num_writeback_clients;
-            log::trace!(
+            log::debug!(
                 "{} {:?} ({})",
                 style("ldst unit writeback: serviced client").magenta(),
                 WritebackClient::from_repr(serviced),
@@ -431,7 +431,7 @@ where
         let Some(dispatch_instr) = &mut self.pipelined_simd_unit.dispatch_reg else {
             return true;
         };
-        log::trace!("shared cycle for instruction: {}", &dispatch_instr);
+        log::debug!("shared cycle for instruction: {}", &dispatch_instr);
 
         if dispatch_instr.memory_space != Some(MemorySpace::Shared) {
             // shared cycle is done
@@ -479,7 +479,7 @@ where
         rc_fail: &mut MemStageStallKind,
         kind: &mut MemStageAccessKind,
     ) -> bool {
-        // log::trace!(
+        // log::debug!(
         //     "core {}-{}: {}",
         //     self.core_id,
         //     self.cluster_id,
@@ -490,7 +490,7 @@ where
         let Some(dispatch_instr) = &self.pipelined_simd_unit.dispatch_reg else {
             return true;
         };
-        log::trace!("memory cycle for instruction: {}", &dispatch_instr);
+        log::debug!("memory cycle for instruction: {}", &dispatch_instr);
 
         if !matches!(
             dispatch_instr.memory_space,
@@ -523,7 +523,7 @@ where
             return true;
         };
 
-        log::trace!(
+        log::debug!(
             "memory cycle for instruction {} => access: {}",
             &dispatch_instr,
             access
@@ -540,7 +540,7 @@ where
             };
             let size = access.req_size_bytes + control_size as u32;
 
-            // log::trace!("Interconnect addr: {}, size={}", access.addr, size);
+            // log::debug!("Interconnect addr: {}, size={}", access.addr, size);
             if self.fetch_interconn.full(
                 size,
                 dispatch_instr.is_store() || dispatch_instr.is_atomic(),
@@ -582,7 +582,7 @@ where
         {
             stall_cond = MemStageStallKind::COAL_STALL;
         }
-        log::trace!("memory instruction stall cond: {:?}", &stall_cond);
+        log::debug!("memory instruction stall cond: {:?}", &stall_cond);
         if stall_cond != MemStageStallKind::NO_RC_FAIL {
             *rc_fail = stall_cond;
             if dispatch_instr.memory_space == Some(MemorySpace::Local) {

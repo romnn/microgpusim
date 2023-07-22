@@ -40,14 +40,46 @@ class gpgpu_context;
 class Allocation {
  public:
   Allocation(unsigned id, new_addr_type start, new_addr_type end)
-      : id(id), start_addr(start), end_addr(end){};
+      : id(id), start_addr(start), end_addr(end), name(""){};
   bool contains(new_addr_type addr) const;
   unsigned id;
   new_addr_type start_addr;
   new_addr_type end_addr;
+  std::string name;
 
   bool operator<(const Allocation &rhs) const {
     return start_addr < rhs.start_addr;
+  }
+};
+
+template <>
+struct fmt::formatter<std::set<Allocation>> {
+  constexpr auto parse(format_parse_context &ctx)
+      -> format_parse_context::iterator {
+    return ctx.end();
+  }
+
+  auto format(const std::set<Allocation> &allocations,
+              format_context &ctx) const -> format_context::iterator {
+    return fmt::format_to(
+        ctx.out(), "[{}]",
+        fmt::join(allocations.begin(), allocations.end(), ", "));
+  }
+};
+
+template <>
+struct fmt::formatter<Allocation> {
+  constexpr auto parse(format_parse_context &ctx)
+      -> format_parse_context::iterator {
+    return ctx.end();
+  }
+
+  auto format(const Allocation &alloc, format_context &ctx) const
+      -> format_context::iterator {
+    return fmt::format_to(ctx.out(),
+                          "Allocation(id={}, name={}, range={}..{}, size={})",
+                          alloc.id, alloc.name, alloc.start_addr,
+                          alloc.end_addr, alloc.end_addr - alloc.start_addr);
   }
 };
 
@@ -88,13 +120,14 @@ class trace_gpgpu_sim {
       logger = spdlog::stdout_color_mt("playground");
     }
     // logger->set_pattern("[multi_sink_example] [%^%l%$] %v");
+    logger->set_pattern("%v");
     spdlog::cfg::load_env_levels();
 
     // my_logger->set_level(spdlog::level::debug);
     // level::level_enum
     // logger->load_env_levels();
-    // spdlog::init_thread_pool(32768, 1); // queue with max 32k items 1 backing
-    // thread. auto async_file_logger =
+    // spdlog::init_thread_pool(32768, 1); // queue with max 32k items 1
+    // backing thread. auto async_file_logger =
     // spdlog::basic_logger_mt<spdlog::async_factory>("async_file_logger",
     // "logs/async_log.txt");
 

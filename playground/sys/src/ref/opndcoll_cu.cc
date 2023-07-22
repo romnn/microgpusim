@@ -24,7 +24,7 @@ bool collector_unit_t::ready() const {
     // to make the print not segfault
     return false;
   }
-  logger->trace(
+  logger->debug(
       "is ready?: active = {} (ready={}), has free = {}, output register = {}",
       mask_to_string(m_not_ready), m_not_ready.none(),
       (*m_output_register).has_free(m_sub_core_model, m_reg_id),
@@ -66,7 +66,7 @@ void collector_unit_t::init(unsigned n, unsigned num_banks,
 
 bool collector_unit_t::allocate(register_set *pipeline_reg_set,
                                 register_set *output_reg_set) {
-  logger->trace("operand collector::allocate({})",
+  logger->debug("operand collector::allocate({})",
                 operand_collector_unit_kind_str[m_set_id]);
   assert(m_free);
   assert(m_not_ready.none());
@@ -76,7 +76,7 @@ bool collector_unit_t::allocate(register_set *pipeline_reg_set,
   if ((pipeline_reg) and !((*pipeline_reg)->empty())) {
     const int *arch_reg_src = ((*pipeline_reg)->arch_reg).src;  // int[32]
     std::vector<int> arch_reg_src_vec(arch_reg_src, arch_reg_src + 32);
-    logger->trace("operand collector::allocate({}) => src arch reg = {}",
+    logger->debug("operand collector::allocate({}) => src arch reg = {}",
                   operand_collector_unit_kind_str[m_set_id],
                   fmt::join(arch_reg_src_vec, ","));
 
@@ -101,7 +101,7 @@ bool collector_unit_t::allocate(register_set *pipeline_reg_set,
       } else
         m_src_op[op] = op_t();
     }
-    logger->trace("operand collector::allocate() => active = {}",
+    logger->debug("operand collector::allocate() => active = {}",
                   mask_to_string(m_not_ready));
 
     // move_warp(m_warp,*pipeline_reg);

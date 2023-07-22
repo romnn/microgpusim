@@ -195,7 +195,7 @@ impl CollectorUnit {
         } else {
             output_register.has_free()
         };
-        log::trace!(
+        log::debug!(
             "is ready?: active = {} (ready={}), has free = {} output register = {:?}",
             self.not_ready.to_bit_string(),
             self.not_ready.not_any(),
@@ -249,7 +249,7 @@ impl CollectorUnit {
         input_reg_set: &Rc<RefCell<RegisterSet>>,
         output_reg_set: &Rc<RefCell<RegisterSet>>,
     ) -> bool {
-        log::trace!(
+        log::debug!(
             "{}",
             style(format!("operand collector::allocate({:?})", self.kind)).green(),
         );
@@ -267,7 +267,7 @@ impl CollectorUnit {
 
             self.warp_id = Some(ready_reg.warp_id); // todo: do we need warp id??
 
-            log::trace!(
+            log::debug!(
                 "operand collector::allocate({:?}) => src arch reg = {:?}",
                 self.kind,
                 ready_reg
@@ -319,7 +319,7 @@ impl CollectorUnit {
                     }
                 }
             }
-            log::trace!(
+            log::debug!(
                 "operand collector::allocate({:?}) => active: {}",
                 self.kind,
                 self.not_ready.to_bit_string(),
@@ -347,7 +347,7 @@ impl CollectorUnit {
     // }
 
     pub fn collect_operand(&mut self, op: usize) {
-        log::trace!(
+        log::debug!(
             "collector unit [{}] {:?} collecting operand for {}",
             self.id,
             self.warp_instr.as_ref().map(ToString::to_string),
@@ -586,7 +586,6 @@ impl Arbiter {
             }
         }
 
-        // todo!("arbiter: allocate reads");
         result
     }
 
@@ -660,19 +659,20 @@ impl DispatchUnit {
             1
         };
 
-        log::trace!("dispatch unit {:?}: find ready: rr_inc = {},last cu = {},num collectors = {}, num warp schedulers = {}, cusPerSched = {}", self.kind, rr_increment, self.last_cu, num_collector_units, self.num_warp_schedulers, cus_per_scheduler);
+        log::debug!("dispatch unit {:?}: find ready: rr_inc = {},last cu = {},num collectors = {}, num warp schedulers = {}, cusPerSched = {}", self.kind, rr_increment, self.last_cu, num_collector_units, self.num_warp_schedulers, cus_per_scheduler);
 
         debug_assert_eq!(num_collector_units, collector_units.len());
         for i in 0..num_collector_units {
             let i = (self.last_cu + i + rr_increment) % num_collector_units;
-            // log::trace!(
-            //     "dispatch unit {:?}: checking collector unit {}",
-            //     self.kind, i,
-            // );
+            log::debug!(
+                "dispatch unit {:?}: checking collector unit {}",
+                self.kind,
+                i,
+            );
 
             if collector_units[i].borrow().ready() {
                 self.last_cu = i;
-                log::trace!(
+                log::debug!(
                     "dispatch unit {:?}: FOUND ready: chose collector unit {} ({:?})",
                     self.kind,
                     i,
@@ -681,7 +681,7 @@ impl DispatchUnit {
                 return collector_units.get(i);
             }
         }
-        log::trace!("dispatch unit {:?}: did NOT find ready", self.kind);
+        log::debug!("dispatch unit {:?}: did NOT find ready", self.kind);
         None
     }
 }
@@ -830,7 +830,7 @@ impl OperandCollectorRegisterFileUnit {
     // }
 
     pub fn step(&mut self) {
-        log::trace!("{}", style("operand collector::step()").green());
+        log::debug!("{}", style("operand collector::step()").green());
         self.dispatch_ready_cu();
         self.allocate_reads();
         debug_assert!(!self.in_ports.is_empty());
@@ -849,7 +849,7 @@ impl OperandCollectorRegisterFileUnit {
     pub fn allocate_reads(&mut self) {
         // process read requests that do not have conflicts
         let allocated: Vec<_> = self.arbiter.allocate_reads();
-        log::trace!(
+        log::debug!(
             "arbiter allocated {} reads ({:?})",
             allocated.len(),
             &allocated
@@ -871,7 +871,7 @@ impl OperandCollectorRegisterFileUnit {
             read_ops.insert(bank, read);
         }
 
-        log::trace!("allocating {} reads ({:?})", read_ops.len(), &read_ops);
+        log::debug!("allocating {} reads ({:?})", read_ops.len(), &read_ops);
         for (bank, read) in &read_ops {
             // todo: use the cu id here
             // todo!("use cu id here for collecting operand");
@@ -911,7 +911,7 @@ impl OperandCollectorRegisterFileUnit {
 
     pub fn allocate_cu(&mut self, port_num: usize) {
         let port = &self.in_ports[port_num];
-        log::trace!(
+        log::debug!(
             "{}",
             style(format!(
                 "operand collector::allocate_cu({:?}: {:?})",
@@ -953,11 +953,11 @@ impl OperandCollectorRegisterFileUnit {
                         let mut collector_unit = cu_set[k].try_borrow_mut().unwrap();
 
                         if collector_unit.free {
-                            // log::trace!(
-                            //     "{} cu={:?}",
-                            //     style(format!("operand collector::allocate()")).green(),
-                            //     collector_unit.kind
-                            // );
+                            log::debug!(
+                                "{} cu={:?}",
+                                style(format!("operand collector::allocate()")).green(),
+                                collector_unit.kind
+                            );
 
                             allocated = collector_unit.allocate(&input_port, &output_port);
                             // allocated = collector_unit.allocate(cu_backref, &input_port, &output_port);

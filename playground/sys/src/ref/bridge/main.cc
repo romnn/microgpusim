@@ -177,7 +177,7 @@ accelsim_bridge::accelsim_bridge(accelsim_config config,
 
   // parse trace config
   tconfig.parse_config();
-  printf("initialization complete\n");
+  m_gpgpu_sim->logger->info("initialization complete");
 
   // configure max cycle opt
   gpgpu_sim_config *sim_config =
@@ -238,8 +238,8 @@ void accelsim_bridge::process_commands() {
       size_t addre, Bcount;
       tracer->parse_memcpy_info(commandlist[command_idx].command_string, addre,
                                 Bcount);
-      std::cout << "launching memcpy command : "
-                << commandlist[command_idx].command_string << std::endl;
+      m_gpgpu_sim->logger->info("launching memcpy command : {}",
+                                commandlist[command_idx].command_string);
       m_gpgpu_sim->perf_memcpy_to_gpu(addre, Bcount);
       command_idx++;
     } else if (commandlist[command_idx].m_type == command_type::kernel_launch) {
@@ -249,14 +249,15 @@ void accelsim_bridge::process_commands() {
       kernel_info = create_kernel_info(kernel_trace_info, m_gpgpu_context,
                                        &tconfig, tracer);
       kernels_info.push_back(kernel_info);
-      std::cout << "Header info loaded for kernel command : "
-                << commandlist[command_idx].command_string << std::endl;
+      m_gpgpu_sim->logger->info("Header info loaded for kernel command : {}",
+                                commandlist[command_idx].command_string);
       command_idx++;
     } else {
       // unsupported commands will fail the simulation
-      throw std::runtime_error("undefined command");
+      assert(0 && "undefined command");
     }
   }
+  m_gpgpu_sim->logger->info("allocations: {}", m_gpgpu_sim->m_allocations);
 }
 
 // Launch all kernels within window that are on a stream that isn't
@@ -269,8 +270,8 @@ void accelsim_bridge::launch_kernels() {
       if (s == k->get_cuda_stream_id()) stream_busy = true;
     }
     if (!stream_busy && m_gpgpu_sim->can_start_kernel() && !k->was_launched()) {
-      std::cout << "launching kernel name: " << k->get_name()
-                << " uid: " << k->get_uid() << std::endl;
+      m_gpgpu_sim->logger->info("launching kernel name: {} uid: {}",
+                                k->get_name(), k->get_uid());
       m_gpgpu_sim->launch(k);
       k->set_launched();
       busy_streams.push_back(k->get_cuda_stream_id());

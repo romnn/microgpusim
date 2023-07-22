@@ -5,3 +5,4 @@ src/compile_flags.txt
 
 # valgind logs
 valgrind*.txt
+dhat*.txt

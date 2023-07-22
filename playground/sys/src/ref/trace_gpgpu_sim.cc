@@ -183,29 +183,29 @@ void trace_gpgpu_sim::simple_cycle() {
   unsigned partiton_replys_in_parallel_per_cycle = 0;
   // pop from memory controller to interconnect
 
-  logger->trace("POP from {} memory sub partitions",
+  logger->debug("POP from {} memory sub partitions",
                 m_memory_config->m_n_mem_sub_partition);
 
   for (unsigned i = 0; i < m_memory_config->m_n_mem_sub_partition; i++) {
-    logger->trace("checking sub partition[{}]:", i);
-    logger->trace("\t icnt to l2 queue = {}",
+    logger->debug("checking sub partition[{}]:", i);
+    logger->debug("\t icnt to l2 queue = {}",
                   *(m_memory_sub_partition[i]->m_icnt_L2_queue));
-    logger->trace("\t l2 to icnt queue = {}",
+    logger->debug("\t l2 to icnt queue = {}",
                   *(m_memory_sub_partition[i]->m_L2_icnt_queue));
-    logger->trace("\t l2 to dram queue = {}",
+    logger->debug("\t l2 to dram queue = {}",
                   *(m_memory_sub_partition[i]->m_L2_dram_queue));
-    logger->trace("\t dram to l2 queue = {}",
+    logger->debug("\t dram to l2 queue = {}",
                   *(m_memory_sub_partition[i]->m_dram_L2_queue));
 
     unsigned partition_id = i / m_memory_config->m_n_mem_sub_partition;
     assert(partition_id < m_memory_config->m_n_mem);
-    logger->trace(
+    logger->debug(
         "\t dram latency queue ({:<3}) = [{}]",
         m_memory_partition_unit[partition_id]->m_dram_latency_queue.size(),
         fmt::join(m_memory_partition_unit[partition_id]->m_dram_latency_queue,
                   ","));
 
-    logger->trace("");
+    logger->debug("");
 
     mem_fetch *mf = m_memory_sub_partition[i]->top();
     if (mf) {
@@ -228,7 +228,7 @@ void trace_gpgpu_sim::simple_cycle() {
   }
   partiton_replys_in_parallel += partiton_replys_in_parallel_per_cycle;
 
-  logger->trace("cycle for {} drams", m_memory_config->m_n_mem);
+  logger->debug("cycle for {} drams", m_memory_config->m_n_mem);
   for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
     if (m_memory_config->simple_dram_model)
       m_memory_partition_unit[i]->simple_dram_model_cycle();
@@ -237,7 +237,7 @@ void trace_gpgpu_sim::simple_cycle() {
       m_memory_partition_unit[i]->dram_cycle();
   }
 
-  logger->trace("moving mem requests from interconn to {} mem partitions",
+  logger->debug("moving mem requests from interconn to {} mem partitions",
                 m_memory_config->m_n_mem_sub_partition);
   unsigned partiton_reqs_in_parallel_per_cycle = 0;
   for (unsigned i = 0; i < m_memory_config->m_n_mem_sub_partition; i++) {
@@ -247,12 +247,12 @@ void trace_gpgpu_sim::simple_cycle() {
     // SECTOR_CHUNCK_SIZE requests, so ensure you have enough buffer for them
     unsigned device = m_shader_config->mem2device(i);
     if (m_memory_sub_partition[i]->full(SECTOR_CHUNCK_SIZE)) {
-      logger->trace("SKIP sub partition {} ({}): DRAM full stall", i, device);
+      logger->debug("SKIP sub partition {} ({}): DRAM full stall", i, device);
       gpu_stall_dramfull++;
     } else {
       mem_fetch *mf = (mem_fetch *)icnt_pop(device);
       if (mf) {
-        logger->trace("got new fetch {} for mem sub partition {} ({})",
+        logger->debug("got new fetch {} for mem sub partition {} ({})",
                       mem_fetch_ptr(mf), i, device);
         m_memory_sub_partition[i]->push(mf, gpu_sim_cycle + gpu_tot_sim_cycle);
       }
@@ -267,11 +267,11 @@ void trace_gpgpu_sim::simple_cycle() {
     gpu_sim_cycle_parition_util++;
   }
 
-  // logger->trace("icnt transfer");
+  // logger->debug("icnt transfer");
   icnt_transfer();
 
   // L1 cache + shader core pipeline stages
-  logger->trace("core cycle for {} clusters", m_shader_config->n_simt_clusters);
+  logger->debug("core cycle for {} clusters", m_shader_config->n_simt_clusters);
   for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
     if (m_cluster[i]->get_not_completed() || get_more_cta_left()) {
       m_cluster[i]->core_cycle();
@@ -297,7 +297,7 @@ void trace_gpgpu_sim::simple_cycle() {
   // completed.
   int all_threads_complete = 1;
   if (m_config.gpgpu_flush_l1_cache) {
-    logger->trace("flushing l1 caches");
+    logger->debug("flushing l1 caches");
     for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
       if (m_cluster[i]->get_not_completed() == 0)
         m_cluster[i]->cache_invalidate();
@@ -308,7 +308,7 @@ void trace_gpgpu_sim::simple_cycle() {
 
   if (m_config.gpgpu_flush_l2_cache) {
     if (!m_config.gpgpu_flush_l1_cache) {
-      logger->trace("flushing l2 caches");
+      logger->debug("flushing l2 caches");
       for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
         if (m_cluster[i]->get_not_completed() != 0) {
           all_threads_complete = 0;
@@ -318,13 +318,13 @@ void trace_gpgpu_sim::simple_cycle() {
     }
 
     if (all_threads_complete && !m_memory_config->m_L2_config.disabled()) {
-      logger->trace("flushed L2 caches...");
+      logger->debug("flushed L2 caches...");
       if (m_memory_config->m_L2_config.get_num_lines()) {
         int dlc = 0;
         for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
           dlc = m_memory_sub_partition[i]->flushL2();
           assert(dlc == 0);  // TODO: need to model actual writes to DRAM here
-          logger->trace("dirty lines flushed from L2 {} is {}", i, dlc);
+          logger->debug("dirty lines flushed from L2 {} is {}", i, dlc);
         }
       }
     }
@@ -353,7 +353,7 @@ void trace_gpgpu_sim::cycle() {
           // if (!mf->get_is_write())
           mf->set_return_timestamp(gpu_sim_cycle + gpu_tot_sim_cycle);
           mf->set_status(IN_ICNT_TO_SHADER, gpu_sim_cycle + gpu_tot_sim_cycle);
-          logger->trace("trace_gpgpu_sim: icnt_push({})", mf->get_addr());
+          logger->debug("trace_gpgpu_sim: icnt_push({})", mf->get_addr());
           ::icnt_push(m_shader_config->mem2device(i), mf->get_tpc(), mf,
                       response_size);
           m_memory_sub_partition[i]->pop();
@@ -406,7 +406,7 @@ void trace_gpgpu_sim::cycle() {
       } else {
         mem_fetch *mf = (mem_fetch *)icnt_pop(m_shader_config->mem2device(i));
         if (mf) {
-          logger->trace("got new fetch {} for mem sub partition {} ({})",
+          logger->debug("got new fetch {} for mem sub partition {} ({})",
                         mem_fetch_ptr(mf), i, m_shader_config->mem2device(i));
 
           m_memory_sub_partition[i]->push(mf,
@@ -508,13 +508,13 @@ void trace_gpgpu_sim::cycle() {
       }
 
       if (all_threads_complete && !m_memory_config->m_L2_config.disabled()) {
-        logger->trace("Flushed L2 caches...");
+        logger->debug("Flushed L2 caches...");
         if (m_memory_config->m_L2_config.get_num_lines()) {
           int dlc = 0;
           for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
             dlc = m_memory_sub_partition[i]->flushL2();
             assert(dlc == 0);  // TODO: need to model actual writes to DRAM here
-            logger->trace("Dirty lines flushed from L2 {} is {}", i, dlc);
+            logger->debug("Dirty lines flushed from L2 {} is {}", i, dlc);
           }
         }
       }
@@ -557,8 +557,8 @@ void trace_gpgpu_sim::cycle() {
         if (m_config.gpu_runtime_stat_flag & GPU_RSTAT_BW_STAT) {
           for (unsigned i = 0; i < m_memory_config->m_n_mem; i++)
             m_memory_partition_unit[i]->print_stat(stdout);
-          logger->trace("maxmrqlatency = {}", m_memory_stats->max_mrq_latency);
-          logger->trace("maxmflatency = {}", m_memory_stats->max_mf_latency);
+          logger->debug("maxmrqlatency = {}", m_memory_stats->max_mrq_latency);
+          logger->debug("maxmflatency = {}", m_memory_stats->max_mf_latency);
         }
         if (m_config.gpu_runtime_stat_flag & GPU_RSTAT_SHD_INFO)
           shader_print_runtime_stat(stdout);
@@ -879,7 +879,7 @@ bool trace_gpgpu_sim::get_more_cta_left() const {
 }
 
 void trace_gpgpu_sim::issue_block2core() {
-  logger->trace("issue block to core");
+  logger->debug("issue block to core");
   unsigned last_issued = m_last_cluster_issue;
   for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
     unsigned idx = (i + last_issued + 1) % m_shader_config->n_simt_clusters;

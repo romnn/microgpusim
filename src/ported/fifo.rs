@@ -18,6 +18,15 @@ pub struct FifoQueue<T> {
     max_size: Option<usize>,
 }
 
+// impl<T> std::iter::Iterator for FifoQueue<T> {
+//     type Item = T;
+//     // type IntoIter = std::collections::vec_deque::IntoIter<Self::Item>;
+//
+//     // fn iter(self) -> std::collections::vec_deque::Iter<T> {
+//     //     self.inner.iter()
+//     // }
+// }
+
 impl<T> std::iter::IntoIterator for FifoQueue<T> {
     type Item = T;
     type IntoIter = std::collections::vec_deque::IntoIter<Self::Item>;
@@ -32,13 +41,28 @@ where
     T: std::fmt::Display,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_list()
-            .entries(self.inner.iter().map(|i| i.to_string()))
-            .finish()
+        // self.inner.len() >= max
+        write!(
+            f,
+            "Fifo({:>2}/{:<2})[{:#?}]",
+            self.inner.len(),
+            self.max_size
+                .map(|max| max.to_string())
+                .as_deref()
+                .unwrap_or(""),
+            self.inner.iter().map(|i| i.to_string()).collect::<Vec<_>>() // .join(", ")
+        )
+        // f.debug_list()
+        //     .entries(self.inner.iter().map(|i| i)) // i.to_string()))
+        //     .finish()
     }
 }
 
-impl<T> FifoQueue<T> {}
+impl<T> FifoQueue<T> {
+    pub fn iter(&self) -> std::collections::vec_deque::Iter<T> {
+        self.inner.iter()
+    }
+}
 
 impl<T> Queue<T> for FifoQueue<T>
 where
@@ -65,11 +89,11 @@ where
     }
 
     fn full(&self) -> bool {
-        log::trace!(
-            "FIFO full? max len={:?} length={}",
-            self.max_size,
-            self.inner.len()
-        );
+        // log::trace!(
+        //     "FIFO full? max len={:?} length={}",
+        //     self.max_size,
+        //     self.inner.len()
+        // );
         match self.max_size {
             Some(max) => self.inner.len() >= max,
             None => false,

@@ -482,6 +482,7 @@ dependencies = [
  "color-eyre",
  "console",
  "cxx",
+ "env_logger",
  "futures",
  "human_bytes",
  "itertools",

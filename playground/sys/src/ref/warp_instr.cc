@@ -242,10 +242,10 @@ void warp_inst_t::generate_mem_accesses(
         }
       }
 
-      logger->trace("generate mem accesses[SHARED]: total_accesses={}",
+      logger->debug("generate mem accesses[SHARED]: total_accesses={}",
                     total_accesses);
-      logger->trace("\tbanks={}", fmt::join(banks, ","));
-      logger->trace("\tword addresses={}", fmt::join(words, ","));
+      logger->debug("\tbanks={}", fmt::join(banks, ","));
+      logger->debug("\tword addresses={}", fmt::join(words, ","));
       assert(total_accesses > 0);
       assert(total_accesses <= m_config->warp_size);
       cycles = total_accesses;  // shared memory conflicts modeled as larger

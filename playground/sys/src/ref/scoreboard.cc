@@ -34,7 +34,7 @@ void Scoreboard::printContents() const {
 void Scoreboard::releaseRegister(unsigned wid, unsigned regnum) {
   // if (m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle)
   if (!(reg_table[wid].find(regnum) != reg_table[wid].end())) return;
-  logger->trace("Release register - warp: {}, reg: {}", wid, regnum);
+  logger->debug("Release register - warp: {}, reg: {}", wid, regnum);
   reg_table[wid].erase(regnum);
 }
 

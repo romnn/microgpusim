@@ -79,11 +79,14 @@ impl BandwidthManager {
     /// Use the fill port
     pub fn use_fill_port(&mut self, fetch: &mem_fetch::MemFetch) {
         // assume filling the entire line with the returned request
-        log::trace!("atom size: {}", self.config.atom_size());
-        log::trace!("line size: {}", self.config.line_size);
-        log::trace!("data port width: {}", self.config.data_port_width());
-        let fill_cycles = self.config.atom_size() as usize / self.config.data_port_width();
         log::trace!(
+            "atom size: {} line size: {} data port width: {}",
+            self.config.atom_size(),
+            self.config.line_size,
+            self.config.data_port_width()
+        );
+        let fill_cycles = self.config.atom_size() as usize / self.config.data_port_width();
+        log::debug!(
             "bandwidth: {} using fill port for {} cycles",
             fetch,
             fill_cycles
@@ -109,7 +112,7 @@ impl BandwidthManager {
 
     /// Query for data port availability
     pub fn has_free_data_port(&self) -> bool {
-        log::trace!(
+        log::debug!(
             "has_free_data_port? data_port_occupied_cycles: {}",
             &self.data_port_occupied_cycles
         );
@@ -118,7 +121,7 @@ impl BandwidthManager {
 
     /// Query for fill port availability
     pub fn has_free_fill_port(&self) -> bool {
-        log::trace!(
+        log::debug!(
             "has_free_fill_port? fill_port_occupied_cycles: {}",
             &self.fill_port_occupied_cycles
         );
@@ -308,7 +311,7 @@ impl<I> Base<I> {
         let mshr_full = self.mshrs.full(mshr_addr);
         // let mut cache_index = cache_index.expect("cache index");
 
-        log::trace!(
+        log::debug!(
             "{}::baseline_cache::send_read_request (addr={}, block={}, mshr_addr={}, mshr_hit={}, mshr_full={}, miss_queue_full={})",
             &self.name, addr, block_addr, &mshr_addr, mshr_hit, mshr_full, self.miss_queue_full(),
         );
@@ -520,7 +523,7 @@ where
     /// Sends next request to lower level of memory
     fn cycle(&mut self) {
         use cache::CacheBandwidth;
-        log::trace!(
+        log::debug!(
             "{}::baseline cache::cycle (fetch interface {:?}) miss queue size={}",
             self.name,
             self.mem_port,
@@ -529,7 +532,7 @@ where
         if let Some(fetch) = self.miss_queue.front() {
             if !self.mem_port.full(fetch.size(), fetch.is_write()) {
                 if let Some(fetch) = self.miss_queue.pop_front() {
-                    log::trace!(
+                    log::debug!(
                         "{}::baseline cache::memport::push({}, data size={}, control size={})",
                         &self.name,
                         fetch.addr(),

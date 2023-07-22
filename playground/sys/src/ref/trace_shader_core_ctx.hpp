@@ -163,7 +163,7 @@ class trace_shader_core_ctx {
     assert(k);
     m_kernel = k;
     //        k->inc_running();
-    logger->trace("GPGPU-Sim uArch: Shader {} bind to kernel {} \'{}\'\n",
+    logger->debug("GPGPU-Sim uArch: Shader {} bind to kernel {} \'{}\'\n",
                   m_sid, m_kernel->get_uid(), m_kernel->name());
   }
 

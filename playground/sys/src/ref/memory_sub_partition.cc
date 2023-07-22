@@ -65,7 +65,7 @@ std::ostream &operator<<(std::ostream &os,
 
 void memory_sub_partition::cache_cycle(unsigned cycle) {
   unsigned before = m_rop.size();
-  logger->trace(
+  logger->debug(
       "memory sub partition cache cycle {} rop queue=[{}] icnt to l2 "
       "queue=[{}] l2 to icnt queue=[{}] l2 to dram queue=[{}]",
       cycle, fmt::join(queue_to_vector(m_rop), ", "),
@@ -78,7 +78,7 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
 
   // L2 fill responses
   if (!m_config->m_L2_config.disabled()) {
-    logger->trace(
+    logger->debug(
         "memory sub partition cache cycle {} l2 cache ready accesses=[{}] l2 "
         "to "
         "icnt queue full={}",
@@ -119,23 +119,23 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
         mf->set_status(IN_PARTITION_L2_FILL_QUEUE,
                        m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
 
-        logger->trace("filling L2 with {}", mem_fetch_ptr(mf));
+        logger->debug("filling L2 with {}", mem_fetch_ptr(mf));
         m_L2cache->fill(mf, m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle +
                                 m_memcpy_cycle_offset);
         m_dram_L2_queue->pop();
       } else {
-        logger->trace("skip filling L2 with {}: no free fill port",
+        logger->debug("skip filling L2 with {}: no free fill port",
                       mem_fetch_ptr(mf));
       }
     } else if (!m_L2_icnt_queue->full()) {
       if (mf->is_write() && mf->get_type() == WRITE_ACK)
         mf->set_status(IN_PARTITION_L2_TO_ICNT_QUEUE,
                        m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-      logger->trace("pushing {} to interconn queue", mem_fetch_ptr(mf));
+      logger->debug("pushing {} to interconn queue", mem_fetch_ptr(mf));
       m_L2_icnt_queue->push(mf);
       m_dram_L2_queue->pop();
     } else {
-      logger->trace(
+      logger->debug(
           "skip pushing {} to interconn queue: l2 to interconn queue full",
           mem_fetch_ptr(mf));
     }
@@ -163,7 +163,7 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
                               events);
         bool write_sent = was_write_sent(events);
         bool read_sent = was_read_sent(events);
-        logger->trace("probing L2 cache address={}, status={}", mf->get_addr(),
+        logger->debug("probing L2 cache address={}, status={}", mf->get_addr(),
                       get_cache_request_status_str(status));
 
         if (status == HIT) {
@@ -226,7 +226,7 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
       !m_icnt_L2_queue->full()) {
     mem_fetch *mf = m_rop.front().req;
     m_rop.pop();
-    logger->trace("POP FROM ROP: {}", mem_fetch_ptr(mf));
+    logger->debug("POP FROM ROP: {}", mem_fetch_ptr(mf));
     m_icnt_L2_queue->push(mf);
     mf->set_status(IN_PARTITION_ICNT_TO_L2_QUEUE,
                    m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
@@ -411,7 +411,7 @@ void memory_sub_partition::push(mem_fetch *m_req, unsigned long long cycle) {
         rop_delay_t r;
         r.req = req;
         r.ready_cycle = cycle + m_config->rop_latency;
-        logger->trace("PUSH TO ROP: {}", mem_fetch_ptr(req));
+        logger->debug("PUSH TO ROP: {}", mem_fetch_ptr(req));
         m_rop.push(r);
         req->set_status(IN_PARTITION_ROP_DELAY,
                         m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);

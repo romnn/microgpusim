@@ -163,7 +163,7 @@ class scheduler_unit {
       T greedy_value = *last_issued_from_input;
       result_list.push_back(greedy_value);
 
-      logger->trace("added greedy warp: {}",
+      logger->debug("added greedy warp: {}",
                     greedy_value->get_dynamic_warp_id());
 
       // std::sort(temp.begin(), temp.end(), priority_func);

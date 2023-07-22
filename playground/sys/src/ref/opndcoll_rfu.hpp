@@ -70,7 +70,7 @@ class collector_unit_t {
   bool allocate(register_set *pipeline_reg, register_set *output_reg);
 
   void collect_operand(unsigned op) {
-    logger->trace("collector unit [{}] {} collecting operand for {}", m_cuid,
+    logger->debug("collector unit [{}] {} collecting operand for {}", m_cuid,
                   warp_instr_ptr(m_warp), op);
     m_not_ready.reset(op);
   }
@@ -415,7 +415,7 @@ class dispatch_unit_t {
 
     assert(m_set_id < 7);
     const char *kind = operand_collector_unit_kind_str[m_set_id];
-    logger->trace(
+    logger->debug(
         "dispatch unit {}: find ready: rr_inc = {}, last cu = {}, num "
         "collectors = {}, num warp schedulers = {}, cusPerSched = {}",
         kind, rr_increment, m_last_cu, m_num_collectors, m_num_warp_scheds,
@@ -423,17 +423,17 @@ class dispatch_unit_t {
 
     for (unsigned n = 0; n < m_num_collectors; n++) {
       unsigned c = (m_last_cu + n + rr_increment) % m_num_collectors;
-      // logger->trace("dispatch unit {}: checking collector unit {}", kind, c);
+      // logger->debug("dispatch unit {}: checking collector unit {}", kind, c);
 
       if ((*m_collector_units)[c].ready()) {
-        logger->trace(
+        logger->debug(
             "dispatch unit {}: FOUND ready: chose collector unit {} (?)", kind,
             c);
         m_last_cu = c;
         return &((*m_collector_units)[c]);
       }
     }
-    logger->trace("dispatch unit {}: did NOT find ready", kind);
+    logger->debug("dispatch unit {}: did NOT find ready", kind);
     return NULL;
   }
 
@@ -471,7 +471,7 @@ class opndcoll_rfu_t {
   bool writeback(warp_inst_t &warp);
 
   void step() {
-    logger->trace("operand collector::step()");
+    logger->debug("operand collector::step()");
     dispatch_ready_cu();
     allocate_reads();
     for (unsigned p = 0; p < m_in_ports.size(); p++) allocate_cu(p);

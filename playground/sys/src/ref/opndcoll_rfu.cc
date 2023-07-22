@@ -30,7 +30,7 @@ std::list<op_t> arbiter_t::allocate_reads() {
   int _square = (_inputs > _outputs) ? _inputs : _outputs;
   assert(_square > 0);
   int _pri = (int)m_last_cu;
-  logger->trace("last cu: {}", m_last_cu);
+  logger->debug("last cu: {}", m_last_cu);
 
   // Clear matching
   for (int i = 0; i < _inputs; ++i) _inmatch[i] = -1;
@@ -289,7 +289,7 @@ void opndcoll_rfu_t::allocate_cu(unsigned port_num) {
     cu_sets_names.push_back(
         std::string(operand_collector_unit_kind_str[set_id]));
   }
-  logger->trace("operand collector::allocate_cu({}: {})", port_num,
+  logger->debug("operand collector::allocate_cu({}: {})", port_num,
                 cu_sets_names);
   for (unsigned i = 0; i < inp.m_in.size(); i++) {
     if ((*inp.m_in[i]).has_ready()) {
@@ -313,7 +313,7 @@ void opndcoll_rfu_t::allocate_cu(unsigned port_num) {
           assert(0 <= cuLowerBound && cuUpperBound <= cu_set.size());
         }
         for (unsigned k = cuLowerBound; k < cuUpperBound; k++) {
-          logger->trace("cu set {} of port {} of port {} free={}", k, i,
+          logger->debug("cu set {} of port {} of port {} free={}", k, i,
                         port_num, cu_set[k].is_free());
           if (cu_set[k].is_free()) {
             collector_unit_t *cu = &cu_set[k];
@@ -349,7 +349,7 @@ struct fmt::formatter<read_ops_t::value_type> {
 void opndcoll_rfu_t::allocate_reads() {
   // process read requests that do not have conflicts
   std::list<op_t> allocated = m_arbiter.allocate_reads();
-  logger->trace("arbiter allocated {} reads ({})", allocated.size(),
+  logger->debug("arbiter allocated {} reads ({})", allocated.size(),
                 fmt::join(allocated, ","));
   read_ops_t read_ops;
   for (std::list<op_t>::iterator r = allocated.begin(); r != allocated.end();
@@ -363,7 +363,7 @@ void opndcoll_rfu_t::allocate_reads() {
     m_arbiter.allocate_for_read(bank, rr);
     read_ops[bank] = rr;
   }
-  logger->trace("allocating {} reads {{}}", read_ops.size(),
+  logger->debug("allocating {} reads {{ {} }}", read_ops.size(),
                 fmt::join(read_ops.begin(), read_ops.end(), ","));
   read_ops_t::iterator r;
   for (r = read_ops.begin(); r != read_ops.end(); ++r) {

@@ -38,7 +38,7 @@ void *BoxInterconnect::Pop(unsigned deviceID) {
 
   int turn = _round_robin_turn[subnet][icntID];
 
-  logger->trace("INTERCONN POP FROM {} (device={}, id={}, subnet={}, turn={})",
+  logger->debug("INTERCONN POP FROM {} (device={}, id={}, subnet={}, turn={})",
                 deviceID, icntID, deviceID, subnet, turn);
 
   for (int vc = 0; (vc < _vcs) && (data == NULL); vc++) {
@@ -88,7 +88,7 @@ void BoxInterconnect::Push(unsigned input_deviceID, unsigned output_deviceID,
 
   bool is_fetch = mf->get_access_type() < NUM_MEM_ACCESS_TYPE;
   if (is_fetch) {
-    logger->trace(
+    logger->debug(
         "INTERCONN PUSH {}: {} bytes from device {} to {} (subnet {})",
         mem_fetch_ptr(mf), size, input_icntID, output_icntID, subnet);
   }

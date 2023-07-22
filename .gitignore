@@ -1,10 +1,12 @@
 .DS_Store
 .env
+.vscode/
 
 /results
 /debug_results
 /target
 /debug*.log
+/debug.txt
 .ipynb_checkpoints
 Pipfile.lock
 
