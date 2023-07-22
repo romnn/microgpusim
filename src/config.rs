@@ -314,8 +314,10 @@ impl std::fmt::Display for CacheConfig {
 }
 
 /// todo: remove the copy stuff, very expensive otherwise
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct GPUConfig {
+    pub linear_to_raw_adress_translation:
+        std::sync::OnceLock<addrdec::LinearToRawAddressTranslation>,
     /// The SM number to pass to ptxas when getting register usage for
     /// computing GPU occupancy.
     pub occupancy_sm_number: usize,
@@ -469,9 +471,9 @@ pub struct GPUConfig {
     //
     pub pipeline_widths: HashMap<PipelineStage, usize>, // 4,0,0,1,1,4,0,0,1,1,6
     /// Number of SP units
-    pub num_sp_units: usize, // 4
+    pub num_sp_units: usize,  // 4
     /// Number of DP units
-    pub num_dp_units: usize, // 0
+    pub num_dp_units: usize,  // 0
     /// Number of INT units
     pub num_int_units: usize, // 0
 
@@ -954,12 +956,9 @@ impl GPUConfig {
         self.num_mem_units * self.num_sub_partition_per_memory_channel
     }
 
-    pub fn address_mapping(&self) -> addrdec::LinearToRawAddressTranslation {
-        // TODO: compute only once
-        addrdec::LinearToRawAddressTranslation::new(&self).unwrap()
-        //     self.num_memory_controllers,
-        //     self.num_sub_partition_per_memory_channel,
-        // )
+    pub fn address_mapping(&self) -> &addrdec::LinearToRawAddressTranslation {
+        self.linear_to_raw_adress_translation
+            .get_or_init(|| addrdec::LinearToRawAddressTranslation::new(&self).unwrap())
     }
 }
 
@@ -972,6 +971,7 @@ impl GPUConfig {
 impl Default for GPUConfig {
     fn default() -> Self {
         Self {
+            linear_to_raw_adress_translation: std::sync::OnceLock::new(),
             occupancy_sm_number: 60,
             max_threads_per_core: 2048,
             warp_size: 32,
