@@ -57,15 +57,10 @@ const trace_warp_inst_t *trace_shd_warp_t::get_cached_trace_instruction(
   if (cache_pc < parsed_warp_traces_cache.size()) {
     // cache hit
     assert(parsed_warp_traces_cache[cache_pc] != NULL);
-    // printf(
-    //     "warp_traces[trace_pc].m_pc = %u \t "
-    //     "parsed_warp_traces_cache[trace_pc]->pc = %lu (empty=%d)\n",
-    //     warp_traces[trace_pc].m_pc, parsed_warp_traces_cache[trace_pc]->pc,
-    //     parsed_warp_traces_cache[trace_pc]->empty());
 
-    // this unfortunatly does not hold, i guess the heap allocated instructions
-    // are at some point deleted with the pointer still dangling?
-    // assert(warp_traces[trace_pc].m_pc ==
+    // this does not hold:
+    // (the heap allocated instructions are at some point deleted with the
+    // pointer dangling) assert(warp_traces[trace_pc].m_pc ==
     //        parsed_warp_traces_cache[trace_pc]->pc);
     return parsed_warp_traces_cache[cache_pc];
   }
@@ -80,7 +75,13 @@ const trace_warp_inst_t *trace_shd_warp_t::get_cached_trace_instruction(
   while (temp_trace_pc < warp_traces.size() && temp_trace_pc <= cache_pc) {
     // pc = (address_type)trace.m_pc;
     const inst_trace_t &trace = warp_traces[temp_trace_pc];
-    parsed_warp_traces_cache.push_back(parse_trace_instruction(trace));
+    const trace_warp_inst_t *parsed_inst = parse_trace_instruction(trace);
+
+    if (is_memory_instruction(parsed_inst) || parsed_inst->op == EXIT_OPS) {
+      // count++;
+    }
+
+    parsed_warp_traces_cache.push_back(parsed_inst);
     assert(temp_trace_pc == parsed_warp_traces_cache.size() - 1);
     assert(warp_traces[temp_trace_pc].m_pc ==
            parsed_warp_traces_cache[temp_trace_pc]->pc);
@@ -99,7 +100,7 @@ void trace_shd_warp_t::print_trace_instructions(
     bool all, std::shared_ptr<spdlog::logger> &logger) {
   // the instructions before trace_pc might have been freed after issue already
   // unsigned temp_trace_pc = 0;
-  logger->trace("====> instruction at trace pc < {:<4} already issued ...",
+  logger->debug("====> instruction at trace pc < {:<4} already issued ...",
                 trace_pc);
   unsigned temp_trace_pc = trace_pc;
   while (temp_trace_pc < warp_traces.size()) {
@@ -111,7 +112,7 @@ void trace_shd_warp_t::print_trace_instructions(
     if (all || is_memory_instruction(parsed_inst) ||
         parsed_inst->op == EXIT_OPS) {
       assert(warp_traces[temp_trace_pc].m_pc == parsed_inst->pc);
-      logger->trace(
+      logger->debug(
           "====> instruction at trace pc {:>4}:\t {:<10}\t {:<15} "
           "\t\tactive={}\tpc = {:>4} = {:<4}",
           temp_trace_pc, parsed_inst->opcode_str(), trace.opcode,
@@ -165,20 +166,22 @@ unsigned long trace_shd_warp_t::instruction_count() {
   //  2. keep an instruction count and make sure its valid by filling the entire
   //  cache
   //
-  // lets use 1 for now because its easier
-  unsigned count = 0;
-  for (const inst_trace_t &trace : warp_traces) {
-    // for (unsigned temp_pc = 0; temp_pc < warp_traces.size(); temp_pc++) {
-    //   const trace_warp_inst_t *parsed_inst =
-    // get_cached_trace_instruction(temp_pc);
-    const trace_warp_inst_t *parsed_inst = parse_trace_instruction(trace);
+  // force filling up the entire cache
+  // get_cached_trace_instruction(warp_traces.size() - 1);
+  if (m_instruction_count == 0) {
+    for (const inst_trace_t &trace : warp_traces) {
+      // for (unsigned temp_pc = 0; temp_pc < warp_traces.size(); temp_pc++) {
+      // const trace_warp_inst_t *parsed_inst =
+      // get_cached_trace_instruction(temp_pc);
+      const trace_warp_inst_t *parsed_inst = parse_trace_instruction(trace);
 
-    if (is_memory_instruction(parsed_inst) || parsed_inst->op == EXIT_OPS) {
-      count++;
+      if (is_memory_instruction(parsed_inst) || parsed_inst->op == EXIT_OPS) {
+        m_instruction_count++;
+      }
+      delete parsed_inst;
     }
-    delete parsed_inst;
   }
-  return count;
+  return m_instruction_count;
 #else
   return warp_traces.size();
 #endif
@@ -187,6 +190,7 @@ unsigned long trace_shd_warp_t::instruction_count() {
 void trace_shd_warp_t::clear() {
   // printf("\n====> CLEARED trace shd warp %u\n\n\n", m_warp_id);
   trace_pc = 0;
+  m_instruction_count = 0;
   warp_traces.clear();
   parsed_warp_traces_cache.clear();
 }
