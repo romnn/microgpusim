@@ -194,7 +194,7 @@ impl StatsBridge {
 }
 
 #[cxx::bridge]
-mod default {
+mod ffi {
 
     #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
     pub enum CacheKind {
@@ -267,4 +267,4 @@ mod default {
     }
 }
 
-pub use default::*;
+pub use ffi::*;

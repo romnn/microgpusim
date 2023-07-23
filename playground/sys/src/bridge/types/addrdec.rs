@@ -1,13 +1,13 @@
 use crate::bindings;
 
-super::extern_type!(bindings::addrdec_t, "addrdec_t");
-super::extern_type!(
+crate::bridge::extern_type!(bindings::addrdec_t, "addrdec_t");
+crate::bridge::extern_type!(
     bindings::linear_to_raw_address_translation_params,
     "linear_to_raw_address_translation_params"
 );
 
 #[cxx::bridge]
-mod default {
+mod ffi {
     unsafe extern "C++" {
         include!("playground-sys/src/bindings.hpp");
 
@@ -49,4 +49,4 @@ mod default {
     }
 }
 
-pub use default::*;
+pub use ffi::*;

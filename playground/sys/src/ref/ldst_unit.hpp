@@ -3,7 +3,6 @@
 #include <deque>
 #include <map>
 
-#include "spdlog/logger.h"
 #include "cache.hpp"
 #include "cache_event.hpp"
 #include "cache_request_status.hpp"

@@ -1,15 +1,15 @@
 #[cxx::bridge]
-mod default {
+mod ffi {
     unsafe extern "C++" {
         include!("playground-sys/src/bridge.hpp");
 
         type read_only_cache;
 
-        type cache_config = crate::bridge::cache_config::cache_config;
         type mem_fetch_interface;
 
-        type mem_fetch = crate::bridge::mem_fetch::mem_fetch;
-        type mem_fetch_status = crate::bridge::mem_fetch::mem_fetch_status;
+        type cache_config = crate::bridge::types::cache_config::cache_config;
+        type mem_fetch = crate::bridge::types::mem_fetch::mem_fetch;
+        type mem_fetch_status = crate::bridge::types::mem_fetch::mem_fetch_status;
 
         #[must_use]
         fn new_read_only_cache(
@@ -40,4 +40,4 @@ mod default {
     }
 }
 
-pub(super) use default::read_only_cache;
+pub use ffi::*;

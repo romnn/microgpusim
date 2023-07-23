@@ -1,12 +1,12 @@
-pub use playground_sys::addrdec::{addrdec_t as AddrDec, next_powerOf2, powli, LOGB2_32};
-use playground_sys::bindings;
+pub use playground_sys::types::addrdec::{addrdec_t as AddrDec, next_powerOf2, powli, LOGB2_32};
+use playground_sys::{bindings, types};
 
 #[must_use]
 pub fn mask_limit(mask: u64) -> (u8, u8) {
     let mut low = 0;
     let mut high = 64;
     unsafe {
-        playground_sys::addrdec::addrdec_getmasklimit(
+        types::addrdec::addrdec_getmasklimit(
             mask,
             std::ptr::addr_of_mut!(high),
             std::ptr::addr_of_mut!(low),
@@ -19,12 +19,10 @@ pub fn mask_limit(mask: u64) -> (u8, u8) {
 pub fn packbits(mask: u64, val: u64, low: u8, high: u8) -> u64 {
     assert!(low <= 64);
     assert!(high <= 64);
-    playground_sys::addrdec::addrdec_packbits(mask, val, high, low)
+    types::addrdec::addrdec_packbits(mask, val, high, low)
 }
 
-pub struct AddressTranslation(
-    cxx::UniquePtr<playground_sys::addrdec::linear_to_raw_address_translation>,
-);
+pub struct AddressTranslation(cxx::UniquePtr<types::addrdec::linear_to_raw_address_translation>);
 
 impl std::fmt::Debug for AddressTranslation {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -36,12 +34,12 @@ impl std::fmt::Debug for AddressTranslation {
 impl AddressTranslation {
     #[must_use]
     pub fn new(num_channels: u32, num_sub_partitions_per_channel: u32) -> Self {
-        let params = playground_sys::addrdec::linear_to_raw_address_translation_params {
+        let params = types::addrdec::linear_to_raw_address_translation_params {
             run_test: false,
             gpgpu_mem_address_mask: 1, // new address mask
             memory_partition_indexing: bindings::partition_index_function::CONSECUTIVE,
         };
-        let mut inner = playground_sys::addrdec::new_address_translation(params);
+        let mut inner = types::addrdec::new_address_translation(params);
         // do not initialize cli options to be empty
         // inner.pin_mut().configure();
         inner

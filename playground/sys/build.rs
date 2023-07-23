@@ -58,31 +58,6 @@ fn build(sources: &[PathBuf]) -> eyre::Result<()> {
     Ok(())
 }
 
-// fn build_fmt(sources: &[PathBuf], include_dir: &Path) -> eyre::Result<()> {
-//     let mut build = cc::Build::new();
-//     build
-//         .no_default_flags(true)
-//         .compiler("/usr/bin/c++")
-//         .cpp(true)
-//         .flag("-O3")
-//         .flag("-DNDEBUG")
-//         .flag("-fPIC")
-//         .flag("-fvisibility=hidden")
-//         .flag("-fvisibility-inlines-hidden")
-//         .include(include_dir)
-//         .files(sources);
-//     // .static_flag(true)
-//     // .flag("-std=c++14")
-//     // .warnings(false);
-//
-//     // -I/home/roman/dev/box/playground/sys/src/libs/fmt/include  -O3 -DNDEBUG -fPIC -fvisibility=hidden -fvisibility-inlines-hidden
-//
-//     configure_debug_mode(&mut build);
-//     enable_diagnostics_color(&mut build);
-//     build.try_compile("fmt")?;
-//     Ok(())
-// }
-
 fn generate_bindings(include_dir: &Path, flags: &HashMap<&str, &str>) -> eyre::Result<()> {
     let builder = bindgen::Builder::default()
         .clang_arg("-std=c++14")
@@ -452,7 +427,7 @@ fn main() -> eyre::Result<()> {
 
     let bridges_include: HashSet<_> =
         utils::fs::multi_glob(["./src/bridge/**/*.rs"]).collect::<Result<_, _>>()?;
-    let bridges_exclude: HashSet<_> = ["src/bridge/mod.rs"]
+    let bridges_exclude: HashSet<_> = ["src/bridge/mod.rs", "src/bridge/types/mod.rs"]
         .into_iter()
         .map(PathBuf::from)
         .collect();

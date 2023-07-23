@@ -4,15 +4,17 @@
     clippy::missing_panics_doc
 )]
 
-pub mod addrdec;
-pub mod cache_config;
-pub mod interconnect;
+pub mod core;
+pub mod input_port;
 pub mod main;
 pub mod mem_fetch;
-pub mod readonly_cache;
+pub mod memory_partition_unit;
+pub mod operand_collector;
+pub mod register_set;
 pub mod scheduler_unit;
 pub mod stats;
-pub mod trace_shd_warp;
+pub mod types;
+pub mod warp_inst;
 
 macro_rules! extern_type {
     ($type:ty, $id:literal) => {

@@ -656,19 +656,11 @@ std::unique_ptr<linear_to_raw_address_translation> new_address_translation(
 }
 
 std::ostream &operator<<(std::ostream &os, const addrdec_t &addr) {
-  // unsigned width = 15;
-  // os << std::setw(width) << "chip: " << addr.chip;
-  // os << std::setw(width) << "row: " << addr.row;
-  // os << std::setw(width) << "col: " << addr.col;
-  // os << std::setw(width) << "bk: " << addr.bk;
-  // os << std::setw(width) << "burst: " << addr.burst;
-  // os << std::setw(width) << "sub_partition: " << addr.sub_partition;
   os << "chip: " << addr.chip;
   os << "row: " << addr.row;
   os << "col: " << addr.col;
   os << "bk: " << addr.bk;
   os << "burst: " << addr.burst;
   os << "sub_partition: " << addr.sub_partition;
-
   return os;
 }

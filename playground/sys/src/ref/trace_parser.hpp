@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 
 #include "inst_trace.hpp"
 #include "kernel_trace.hpp"

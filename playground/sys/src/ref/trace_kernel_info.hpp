@@ -12,7 +12,6 @@
 
 class trace_parser;
 
-// class trace_kernel_info_t : public kernel_info_t {
 class trace_kernel_info_t {
  public:
   trace_kernel_info_t(dim3 gridDim, dim3 blockDim,
@@ -21,7 +20,7 @@ class trace_kernel_info_t {
                       kernel_trace_t *kernel_trace_info);
 
   void get_next_threadblock_traces(
-      std::vector<std::vector<inst_trace_t> *> threadblock_traces);
+      std::vector<std::vector<inst_trace_t> *> threadblock_traces) const;
 
   unsigned long get_cuda_stream_id() {
     return m_kernel_trace_info->cuda_stream_id;
@@ -42,9 +41,7 @@ class trace_kernel_info_t {
   bool running() const { return m_num_cores_running > 0; }
   bool done() const { return no_more_ctas_to_run() && !running(); }
 
-  class trace_function_info *entry() {
-    return m_kernel_entry;
-  }
+  class trace_function_info *entry() { return m_kernel_entry; }
   const class trace_function_info *entry() const { return m_kernel_entry; }
 
   size_t num_blocks() const {

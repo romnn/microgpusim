@@ -260,7 +260,6 @@ async fn run_benchmark(
 
                 let config = playground::Config::default();
                 playground::run(&config, args.as_slice())
-                // Ok::<_, eyre::Report>(())
             })
             .await??;
         }

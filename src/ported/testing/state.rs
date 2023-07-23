@@ -1,8 +1,9 @@
 use crate::ported;
+use playground::types;
 
-impl From<playground::mem_fetch::mf_type> for ported::mem_fetch::Kind {
-    fn from(kind: playground::mem_fetch::mf_type) -> Self {
-        use playground::mem_fetch::mf_type;
+impl From<types::mf_type> for ported::mem_fetch::Kind {
+    fn from(kind: types::mf_type) -> Self {
+        use types::mf_type;
         match kind {
             mf_type::READ_REQUEST => ported::mem_fetch::Kind::READ_REQUEST,
             mf_type::WRITE_REQUEST => ported::mem_fetch::Kind::WRITE_REQUEST,
@@ -12,22 +13,22 @@ impl From<playground::mem_fetch::mf_type> for ported::mem_fetch::Kind {
     }
 }
 
-impl From<playground::mem_fetch::mem_access_type> for ported::mem_fetch::AccessKind {
-    fn from(kind: playground::mem_fetch::mem_access_type) -> Self {
-        use playground::mem_fetch::mem_access_type;
+impl From<types::mem_access_type> for ported::mem_fetch::AccessKind {
+    fn from(kind: types::mem_access_type) -> Self {
+        use ported::mem_fetch::AccessKind;
         match kind {
-            mem_access_type::GLOBAL_ACC_R => ported::mem_fetch::AccessKind::GLOBAL_ACC_R,
-            mem_access_type::LOCAL_ACC_R => ported::mem_fetch::AccessKind::LOCAL_ACC_R,
-            mem_access_type::CONST_ACC_R => ported::mem_fetch::AccessKind::CONST_ACC_R,
-            mem_access_type::TEXTURE_ACC_R => ported::mem_fetch::AccessKind::TEXTURE_ACC_R,
-            mem_access_type::GLOBAL_ACC_W => ported::mem_fetch::AccessKind::GLOBAL_ACC_W,
-            mem_access_type::LOCAL_ACC_W => ported::mem_fetch::AccessKind::LOCAL_ACC_W,
-            mem_access_type::L1_WRBK_ACC => ported::mem_fetch::AccessKind::L1_WRBK_ACC,
-            mem_access_type::L2_WRBK_ACC => ported::mem_fetch::AccessKind::L2_WRBK_ACC,
-            mem_access_type::INST_ACC_R => ported::mem_fetch::AccessKind::INST_ACC_R,
-            mem_access_type::L1_WR_ALLOC_R => ported::mem_fetch::AccessKind::L1_WR_ALLOC_R,
-            mem_access_type::L2_WR_ALLOC_R => ported::mem_fetch::AccessKind::L2_WR_ALLOC_R,
-            other @ mem_access_type::NUM_MEM_ACCESS_TYPE => {
+            types::mem_access_type::GLOBAL_ACC_R => AccessKind::GLOBAL_ACC_R,
+            types::mem_access_type::LOCAL_ACC_R => AccessKind::LOCAL_ACC_R,
+            types::mem_access_type::CONST_ACC_R => AccessKind::CONST_ACC_R,
+            types::mem_access_type::TEXTURE_ACC_R => AccessKind::TEXTURE_ACC_R,
+            types::mem_access_type::GLOBAL_ACC_W => AccessKind::GLOBAL_ACC_W,
+            types::mem_access_type::LOCAL_ACC_W => AccessKind::LOCAL_ACC_W,
+            types::mem_access_type::L1_WRBK_ACC => AccessKind::L1_WRBK_ACC,
+            types::mem_access_type::L2_WRBK_ACC => AccessKind::L2_WRBK_ACC,
+            types::mem_access_type::INST_ACC_R => AccessKind::INST_ACC_R,
+            types::mem_access_type::L1_WR_ALLOC_R => AccessKind::L1_WR_ALLOC_R,
+            types::mem_access_type::L2_WR_ALLOC_R => AccessKind::L2_WR_ALLOC_R,
+            other @ types::mem_access_type::NUM_MEM_ACCESS_TYPE => {
                 panic!("bad mem access kind: {:?}", other)
             }
         }
@@ -97,30 +98,8 @@ impl From<ported::register_set::RegisterSet> for RegisterSet {
     }
 }
 
-// impl<'a> From<playground::main::pipeline_stage_name_t> for ported::core::PipelineStage {
-//     fn from(stage: playground::main::pipeline_stage_name_t) -> Self {
-//         use playground::main::pipeline_stage_name_t;
-//         match stage {
-//             // pipeline_stage_name_t::ID_OC_SP => Self::ID_OC_SP,
-//             // pipeline_stage_name_t::ID_OC_DP => Self::ID_OC_DP,
-//             // pipeline_stage_name_t::ID_OC_INT => Self::ID_OC_INT,
-//             // pipeline_stage_name_t::ID_OC_SFU => Self::ID_OC_SFU,
-//             // pipeline_stage_name_t::ID_OC_MEM => Self::ID_OC_MEM,
-//             pipeline_stage_name_t::OC_EX_SP => Self::OC_EX_SP,
-//             // pipeline_stage_name_t::OC_EX_DP => Self::OC_EX_DP,
-//             // pipeline_stage_name_t::OC_EX_INT => Self::OC_EX_INT,
-//             // pipeline_stage_name_t::OC_EX_SFU => Self::OC_EX_SFU,
-//             pipeline_stage_name_t::OC_EX_MEM => Self::OC_EX_MEM,
-//             pipeline_stage_name_t::EX_WB => Self::EX_WB,
-//             // pipeline_stage_name_t::ID_OC_TENSOR_CORE => Self::ID_OC_TENSOR_CORE,
-//             // pipeline_stage_name_t::OC_EX_TENSOR_CORE => Self::OC_EX_TENSOR_CORE,
-//             other => panic!("bad pipeline stage {:?}", other),
-//         }
-//     }
-// }
-
-impl<'a> From<playground::WarpInstr<'a>> for WarpInstruction {
-    fn from(instr: playground::WarpInstr<'a>) -> Self {
+impl<'a> From<playground::warp_inst::WarpInstr<'a>> for WarpInstruction {
+    fn from(instr: playground::warp_inst::WarpInstr<'a>) -> Self {
         let opcode = instr.opcode_str().trim_start_matches("OP_").to_string();
         Self {
             opcode,
@@ -130,8 +109,8 @@ impl<'a> From<playground::WarpInstr<'a>> for WarpInstruction {
     }
 }
 
-impl<'a> From<playground::RegisterSet<'a>> for RegisterSet {
-    fn from(reg: playground::RegisterSet<'a>) -> Self {
+impl<'a> From<playground::register_set::RegisterSet<'a>> for RegisterSet {
+    fn from(reg: playground::register_set::RegisterSet<'a>) -> Self {
         Self {
             stage: reg.name(),
             pipeline: reg
@@ -185,8 +164,8 @@ pub struct DispatchUnit {
     pub kind: OperandCollectorUnitKind,
 }
 
-impl<'a> From<&playground::main::dispatch_unit_t> for DispatchUnit {
-    fn from(unit: &playground::main::dispatch_unit_t) -> Self {
+impl<'a> From<&playground::operand_collector::dispatch_unit_t> for DispatchUnit {
+    fn from(unit: &playground::operand_collector::dispatch_unit_t) -> Self {
         Self {
             last_cu: unit.get_last_cu() as usize,
             next_cu: unit.get_next_cu() as usize,
@@ -216,8 +195,8 @@ pub struct OperandCollector {
     pub dispatch_units: Vec<DispatchUnit>,
 }
 
-impl<'a> From<playground::Port<'a>> for Port {
-    fn from(port: playground::Port<'a>) -> Self {
+impl<'a> From<playground::port::Port<'a>> for Port {
+    fn from(port: playground::port::Port<'a>) -> Self {
         let in_ports = port.in_ports().into_iter();
         let out_ports = port.out_ports().into_iter();
         let ids = port
@@ -232,8 +211,8 @@ impl<'a> From<playground::Port<'a>> for Port {
     }
 }
 
-impl<'a> From<playground::CollectorUnit<'a>> for CollectorUnit {
-    fn from(cu: playground::CollectorUnit<'a>) -> Self {
+impl<'a> From<playground::collector_unit::CollectorUnit<'a>> for CollectorUnit {
+    fn from(cu: playground::collector_unit::CollectorUnit<'a>) -> Self {
         Self {
             kind: OperandCollectorUnitKind::from_repr(cu.set_id()).unwrap(),
             warp_id: cu.warp_id(),
@@ -246,8 +225,8 @@ impl<'a> From<playground::CollectorUnit<'a>> for CollectorUnit {
     }
 }
 
-impl<'a> From<playground::OperandCollector<'a>> for OperandCollector {
-    fn from(opcoll: playground::OperandCollector<'a>) -> Self {
+impl<'a> From<playground::operand_collector::OperandCollector<'a>> for OperandCollector {
+    fn from(opcoll: playground::operand_collector::OperandCollector<'a>) -> Self {
         use std::collections::HashSet;
         let skip: HashSet<_> = [
             OperandCollectorUnitKind::TENSOR_CORE_CUS,
@@ -298,8 +277,8 @@ pub struct Scheduler {
     pub prioritized_warps: Vec<usize>,
 }
 
-impl<'a> From<playground::SchedulerUnit<'a>> for Scheduler {
-    fn from(scheduler: playground::SchedulerUnit<'a>) -> Self {
+impl<'a> From<playground::scheduler_unit::SchedulerUnit<'a>> for Scheduler {
+    fn from(scheduler: playground::scheduler_unit::SchedulerUnit<'a>) -> Self {
         let prioritized_warps = scheduler.prioritized_warp_ids();
         Self { prioritized_warps }
     }
@@ -324,8 +303,8 @@ impl std::fmt::Debug for MemFetch {
     }
 }
 
-impl<'a> From<playground::MemFetch<'a>> for MemFetch {
-    fn from(fetch: playground::MemFetch<'a>) -> Self {
+impl<'a> From<playground::mem_fetch::MemFetch<'a>> for MemFetch {
+    fn from(fetch: playground::mem_fetch::MemFetch<'a>) -> Self {
         let addr = fetch.get_addr();
         let relative_addr = fetch.get_relative_addr();
         Self {
@@ -362,7 +341,6 @@ pub struct Simulation {
     pub dram_to_l2_queue: Vec<Vec<MemFetch>>,
     pub dram_latency_queue: Vec<Vec<MemFetch>>,
     pub functional_unit_pipelines: Vec<Vec<RegisterSet>>,
-    // pub operand_collectors: Vec<Vec<OperandCollector>>,
     pub operand_collectors: Vec<Option<OperandCollector>>,
     pub schedulers: Vec<Vec<Scheduler>>,
 }

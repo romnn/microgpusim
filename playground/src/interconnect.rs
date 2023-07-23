@@ -1,23 +1,21 @@
 #![allow(clippy::module_name_repetitions)]
 
 use color_eyre::eyre;
+use playground_sys::types;
 use std::ffi::CString;
 use std::os::raw::c_char;
 use std::path::Path;
 
-pub struct InterconnectInterface(
-    cxx::UniquePtr<playground_sys::interconnect::InterconnectInterface>,
-);
-pub struct BoxInterconnect(cxx::UniquePtr<playground_sys::interconnect::BoxInterconnect>);
+pub struct InterconnectInterface(cxx::UniquePtr<types::InterconnectInterface>);
+pub struct BoxInterconnect(cxx::UniquePtr<types::BoxInterconnect>);
 
 impl InterconnectInterface {
     #[must_use]
     pub fn new(config_file: &Path, num_clusters: u32, num_mem_sub_partitions: u32) -> Self {
         let config_file = config_file.canonicalize().unwrap();
         let config_file = CString::new(&*config_file.to_string_lossy()).unwrap();
-        let mut interconn = Self(unsafe {
-            playground_sys::interconnect::new_interconnect_interface(config_file.as_ptr())
-        });
+        let mut interconn =
+            Self(unsafe { types::new_interconnect_interface(config_file.as_ptr()) });
         interconn.create_interconnect(num_clusters, num_mem_sub_partitions);
         interconn.init();
         interconn
@@ -29,9 +27,7 @@ impl BoxInterconnect {
     pub fn new(config_file: &Path, num_clusters: u32, num_mem_sub_partitions: u32) -> Self {
         let config_file = config_file.canonicalize().unwrap();
         let config_file = CString::new(&*config_file.to_string_lossy()).unwrap();
-        let mut interconn = Self(unsafe {
-            playground_sys::interconnect::new_box_interconnect(config_file.as_ptr())
-        });
+        let mut interconn = Self(unsafe { types::new_box_interconnect(config_file.as_ptr()) });
         interconn.create_interconnect(num_clusters, num_mem_sub_partitions);
         interconn.init();
         interconn
@@ -50,10 +46,10 @@ pub trait BridgedInterconnect {
         &mut self,
         src_node: u32,
         dest_node: u32,
-        value: *mut playground_sys::interconnect::c_void,
+        value: *mut playground_sys::types::c_void,
         size: u32,
     );
-    fn pop(&mut self, node: u32) -> *mut playground_sys::interconnect::c_void;
+    fn pop(&mut self, node: u32) -> *mut playground_sys::types::c_void;
 }
 
 impl BridgedInterconnect for InterconnectInterface {
@@ -84,17 +80,11 @@ impl BridgedInterconnect for InterconnectInterface {
     fn has_buffer(&mut self, node: u32, size: u32) -> bool {
         self.0.HasBuffer(node, size)
     }
-    unsafe fn push(
-        &mut self,
-        src_node: u32,
-        dest_node: u32,
-        value: *mut playground_sys::interconnect::c_void,
-        size: u32,
-    ) {
+    unsafe fn push(&mut self, src_node: u32, dest_node: u32, value: *mut types::c_void, size: u32) {
         self.0.pin_mut().Push(src_node, dest_node, value, size);
     }
     #[must_use]
-    fn pop(&mut self, node: u32) -> *mut playground_sys::interconnect::c_void {
+    fn pop(&mut self, node: u32) -> *mut types::c_void {
         unsafe { self.0.pin_mut().Pop(node) }
     }
 }
@@ -127,17 +117,11 @@ impl BridgedInterconnect for BoxInterconnect {
     fn has_buffer(&mut self, node: u32, size: u32) -> bool {
         self.0.HasBuffer(node, size)
     }
-    unsafe fn push(
-        &mut self,
-        src_node: u32,
-        dest_node: u32,
-        value: *mut playground_sys::interconnect::c_void,
-        size: u32,
-    ) {
+    unsafe fn push(&mut self, src_node: u32, dest_node: u32, value: *mut types::c_void, size: u32) {
         self.0.pin_mut().Push(src_node, dest_node, value, size);
     }
     #[must_use]
-    fn pop(&mut self, node: u32) -> *mut playground_sys::interconnect::c_void {
+    fn pop(&mut self, node: u32) -> *mut types::c_void {
         unsafe { self.0.pin_mut().Pop(node) }
     }
 }
@@ -210,14 +194,14 @@ where
             self.inner.push(
                 src_node,
                 dest_node,
-                (value as *mut T).cast::<playground_sys::interconnect::c_void>(),
+                (value as *mut T).cast::<types::c_void>(),
                 u32::try_from(std::mem::size_of::<T>()).unwrap(),
             );
         }
     }
 }
 
-pub struct IntersimConfig(cxx::UniquePtr<playground_sys::interconnect::IntersimConfig>);
+pub struct IntersimConfig(cxx::UniquePtr<types::IntersimConfig>);
 
 impl std::fmt::Display for IntersimConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -241,11 +225,11 @@ impl Default for IntersimConfig {
 impl IntersimConfig {
     #[must_use]
     pub fn new() -> Self {
-        Self(playground_sys::interconnect::new_intersim_config())
+        Self(types::new_intersim_config())
     }
 
     pub fn from_file(path: &Path) -> eyre::Result<Self> {
-        let mut config = Self(playground_sys::interconnect::new_intersim_config());
+        let mut config = Self(types::new_intersim_config());
         config.parse_file(path)?;
         Ok(config)
     }

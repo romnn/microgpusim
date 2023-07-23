@@ -1334,7 +1334,7 @@ mod tests {
     #[ignore = "todo"]
     #[test]
     fn test_shd_warp() {
-        use playground::trace_shd_warp::new_trace_shd_warp;
+        use playground::types::trace_shd_warp::new_trace_shd_warp;
         let core = ptr::null_mut();
         let warp_size = 32;
         let mut warp = unsafe { new_trace_shd_warp(core, warp_size) };

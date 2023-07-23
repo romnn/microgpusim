@@ -14,7 +14,4 @@ pub mod bindings {
     include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 }
 
-pub use bridge::{
-    addrdec, cache_config, interconnect, main, mem_fetch, readonly_cache, scheduler_unit,
-    trace_shd_warp,
-};
+pub use bridge::*;

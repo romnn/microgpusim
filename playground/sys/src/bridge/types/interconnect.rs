@@ -1,5 +1,5 @@
 #[cxx::bridge]
-mod default {
+mod ffi {
     unsafe extern "C++" {
         include!("playground-sys/src/bridge.hpp");
 
@@ -81,4 +81,4 @@ mod default {
     }
 }
 
-pub use default::*;
+pub use ffi::*;

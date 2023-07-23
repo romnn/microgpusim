@@ -7,35 +7,13 @@
 #include "../trace_gpgpu_sim.hpp"
 #include "../memory_sub_partition.hpp"
 #include "../trace_simt_core_cluster.hpp"
+#include "../trace_parser.hpp"
 #include "../trace_shader_core_ctx.hpp"
 
 #include "playground-sys/src/bridge/main.rs.h"
 
 #include "stats.hpp"
 #include "main.hpp"
-
-std::shared_ptr<input_port_bridge> new_input_port_bridge(
-    const input_port_t *ptr) {
-  return std::make_shared<input_port_bridge>(ptr);
-}
-
-std::shared_ptr<register_set_bridge> new_register_set_bridge(
-    const register_set *ptr) {
-  return std::make_shared<register_set_bridge>(ptr);
-}
-
-std::shared_ptr<warp_inst_bridge> new_warp_inst_bridge(const warp_inst_t *ptr) {
-  return std::make_shared<warp_inst_bridge>(ptr);
-}
-
-std::shared_ptr<mem_fetch_bridge> new_mem_fetch_bridge(const mem_fetch *ptr) {
-  return std::make_shared<mem_fetch_bridge>(ptr);
-}
-
-std::shared_ptr<scheduler_unit_bridge> new_scheduler_unit_bridge(
-    const scheduler_unit *ptr) {
-  return std::make_shared<scheduler_unit_bridge>(ptr);
-}
 
 trace_kernel_info_t *create_kernel_info(kernel_trace_t *kernel_trace_info,
                                         gpgpu_context *m_gpgpu_context,

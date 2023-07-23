@@ -1,11 +1,11 @@
 use crate::bindings;
 
-super::extern_type!(bindings::cache_config_params, "cache_config_params");
+crate::bridge::extern_type!(bindings::cache_config_params, "cache_config_params");
 
 #[cxx::bridge]
-mod default {
+mod ffi {
     unsafe extern "C++" {
-        include!("playground-sys/src/bridge.hpp");
+        include!("playground-sys/src/ref/cache_config.hpp");
 
         type cache_config_params = crate::bindings::cache_config_params;
         type cache_config;
@@ -19,4 +19,4 @@ mod default {
     }
 }
 
-pub use default::*;
+pub use ffi::*;
