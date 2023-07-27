@@ -107,7 +107,7 @@ pub enum ArchOp {
 
 pub const SPEC_UNIT_START_ID: usize = ArchOp::SPECIALIZED_UNIT_1_OP as usize;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Opcode {
     pub op: Op,
     pub category: ArchOp,

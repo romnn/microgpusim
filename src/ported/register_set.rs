@@ -2,7 +2,7 @@ use super::instruction::WarpInstruction;
 use console::style;
 
 /// Register that can hold multiple instructions.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RegisterSet {
     pub stage: super::PipelineStage,
     pub regs: Vec<Option<WarpInstruction>>,

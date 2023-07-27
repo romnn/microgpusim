@@ -1,12 +1,12 @@
 use super::mem_fetch::BitString;
-use super::{
-    address, cache,
+use crate::config::{self, CacheConfig, GPUConfig};
+use crate::ported::{
+    self, address, cache,
     cache::{Cache, CacheBandwidth},
     dram,
     fifo::{FifoQueue, Queue},
     interconn as ic, l2, mem_fetch, Packet,
 };
-use crate::config::{self, CacheConfig, GPUConfig};
 use console::style;
 use std::cell::RefCell;
 use std::collections::{HashSet, VecDeque};
@@ -93,6 +93,7 @@ where
     pub fn new(
         id: usize,
         partition_id: usize,
+        cycle: ported::Cycle,
         // core_id: usize,
         // fetch_interconn: Arc<I>,
         config: Arc<GPUConfig>,
@@ -134,6 +135,7 @@ where
                     format!("mem-sub-{}-{}", id, style("L2-CACHE").green()),
                     0, // core_id,
                     0, // cluster_id,
+                    cycle,
                     l2_mem_port,
                     cache_stats,
                     config.clone(),
@@ -284,7 +286,7 @@ where
         // m_stats->memlatstat_icnt2mem_pop(m_req);
         let mut requests = Vec::new();
         let l2_config = self.config.data_cache_l2.as_ref().unwrap();
-        if l2_config.kind == config::CacheKind::Sector {
+        if l2_config.inner.kind == config::CacheKind::Sector {
             requests.extend(self.breakdown_request_to_sector_requests(fetch));
         } else {
             requests.push(fetch);
@@ -453,7 +455,9 @@ where
                     // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
                     self.l2_to_interconn_queue.enqueue(fetch);
                 } else {
-                    if l2_config.write_allocate_policy == CacheWriteAllocatePolicy::FETCH_ON_WRITE {
+                    if l2_config.inner.write_allocate_policy
+                        == CacheWriteAllocatePolicy::FETCH_ON_WRITE
+                    {
                         todo!("fetch on write: l2 to icnt queue");
                         let mut original_write_fetch = *fetch.original_fetch.unwrap();
                         original_write_fetch.set_reply();
@@ -509,21 +513,17 @@ where
 
         // new L2 texture accesses and/or non-texture accesses
         if !self.l2_to_dram_queue.lock().unwrap().full() {
-            // && !self.interconn_to_l2_queue.empty() {
             if let Some(fetch) = self.interconn_to_l2_queue.first() {
-                // let l2_cache_config = self.config.data_cache_l2.as_ref();
                 if let Some(ref mut l2_cache) = self.l2_cache {
                     if (self.config.data_cache_l2_texture_only && fetch.is_texture())
                         || !self.config.data_cache_l2_texture_only
                     {
                         // L2 is enabled and access is for L2
-                        // todo!("l2 is enabled and have access for L2");
                         let output_full = self.l2_to_interconn_queue.full();
                         let port_free = l2_cache.has_free_data_port();
+
                         if !output_full && port_free {
-                            // std::list<cache_event> events;
                             let mut events = Vec::new();
-                            // let events = None;
                             let status = l2_cache.access(
                                 fetch.addr(),
                                 fetch.clone(),
@@ -644,6 +644,7 @@ impl MemoryPartitionUnit
 {
     pub fn new(
         id: usize,
+        cycle: ported::Cycle,
         // cluster_id: usize,
         // core_id: usize,
         // fetch_interconn: Arc<I>,
@@ -660,8 +661,9 @@ impl MemoryPartitionUnit
                     id,
                     // core_id,
                     // fetch_interconn.clone(),
-                    config.clone(),
-                    stats.clone(),
+                    Rc::clone(&cycle),
+                    Arc::clone(&config),
+                    Arc::clone(&stats),
                 )));
                 // let l2_port = Arc::new(ic::L2Interface {
                 //     sub_partition_unit: sub.clone(),

@@ -1,6 +1,8 @@
 use super::{config, mem_fetch, Packet};
 use console::style;
+use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
+use std::rc::Rc;
 use std::sync::{Arc, Mutex, Weak};
 
 /// Interconnect is a general interconnect
@@ -301,8 +303,9 @@ impl MemFetchInterface for CoreMemoryInterface<Packet> {
         let packet_size = if !fetch.is_write() && !fetch.is_atomic() {
             fetch.control_size
         } else {
-            // fetch.size()
-            fetch.data_size // todo: is that correct now?
+            // todo: is that correct now?
+            fetch.size()
+            // fetch.data_size
         };
         // m_stats->m_outgoing_traffic_stats->record_traffic(mf, packet_size);
         fetch.status = mem_fetch::Status::IN_ICNT_TO_MEM;
@@ -311,9 +314,6 @@ impl MemFetchInterface for CoreMemoryInterface<Packet> {
             .push(self.cluster_id, mem_dest, Packet::Fetch(fetch), packet_size);
     }
 }
-
-use std::cell::RefCell;
-use std::rc::Rc;
 
 #[derive()]
 // pub struct L2Interface<P> {

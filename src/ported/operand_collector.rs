@@ -32,7 +32,7 @@ fn register_bank(
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Operand {
     // valid: bool,
     // collector_unit: Option<CollectorUnit>,
@@ -100,7 +100,7 @@ impl Operand {
     // }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct CollectorUnit {
     free: bool,
     kind: OperandCollectorUnitKind,
@@ -372,7 +372,7 @@ pub enum AllocationKind {
     WRITE_ALLOC,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Allocation {
     kind: AllocationKind,
     op: Option<Operand>,
@@ -436,7 +436,7 @@ impl Allocation {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct Arbiter {
     num_banks: usize,
     num_collectors: usize,
@@ -505,6 +505,7 @@ impl Arbiter {
         };
         // debug_assert!(_square > 0);
         let mut _pri = self.last_cu;
+        log::debug!("last cu: {}", self.last_cu);
 
         // clear matching
         self.inmatch.fill(None);
@@ -620,7 +621,7 @@ impl Arbiter {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DispatchUnit {
     last_cu: usize,
     next_cu: usize,
@@ -686,7 +687,7 @@ impl DispatchUnit {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct InputPort {
     in_ports: PortVec,
     out_ports: PortVec,
@@ -724,7 +725,7 @@ pub enum OperandCollectorUnitKind {
 pub type CuSets = HashMap<OperandCollectorUnitKind, Vec<Rc<RefCell<CollectorUnit>>>>;
 
 // operand collector based register file unit
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OperandCollectorRegisterFileUnit {
     pub config: Arc<config::GPUConfig>,
 

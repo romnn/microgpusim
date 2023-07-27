@@ -44,7 +44,7 @@ where
         // self.inner.len() >= max
         write!(
             f,
-            "Fifo({:>2}/{:<2})[{:#?}]",
+            "Fifo({:>2}/{:<2}){:#?}",
             self.inner.len(),
             self.max_size
                 .map(|max| max.to_string())

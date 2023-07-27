@@ -646,7 +646,7 @@ impl BaseSchedulerUnit {
                                     warp_inst_issued = true;
                                     prev_issued_exec_unit = ExecUnitKind::MEM;
                                 } else {
-                                    // panic!("issue failed: free register={}", free_register);
+                                    log::debug!("issue failed: no free mem port register");
                                 }
                             }
                             // ArchOp::EXIT_OPS => {}
@@ -1364,12 +1364,31 @@ mod tests {
 
     impl From<&Box<dyn super::SchedulerUnit>> for testing::state::Scheduler {
         fn from(scheduler: &Box<dyn super::SchedulerUnit>) -> Self {
-            let prioritized_warps = scheduler
+            // let prioritized_warps = ;
+            let prioritized_warp_ids: Vec<_> = scheduler
                 .prioritized_warps()
                 .iter()
-                .map(|warp| warp.borrow().warp_id)
+                .map(|warp| (warp.borrow().warp_id, warp.borrow().dynamic_warp_id()))
                 .collect();
-            Self { prioritized_warps }
+            // let prioritized_warp_ids: Vec<_> = prioritized_warps
+            //     .clone()
+            //     .map(|warp| warp.borrow().warp_id)
+            //     .collect();
+            // let prioritized_dynamic_warp_ids: Vec<_> = prioritized_warps
+            //     .clone()
+            //     .map(|warp| warp.borrow().dynamic_warp_id())
+            //     .collect();
+            //
+            // assert_eq!(
+            //     prioritized_warp_ids.len(),
+            //     prioritized_dynamic_warp_ids.len()
+            // );
+
+            Self {
+                prioritized_warp_ids,
+                // prioritized_warp_ids
+                // prioritized_dynamic_warp_ids,
+            }
         }
     }
 }

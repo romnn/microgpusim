@@ -262,7 +262,7 @@ pub struct MemFetch {
     pub cluster_id: usize,
 
     pub status: Status,
-    pub last_status_change: Option<usize>,
+    pub last_status_change: Option<u64>,
 
     // this pointer is set up when a request is divided into
     // sector requests at L2 cache (if the req size > L2 sector
@@ -449,7 +449,7 @@ impl MemFetch {
         &self.access.kind
     }
 
-    pub fn set_status(&mut self, status: Status, time: usize) {
+    pub fn set_status(&mut self, status: Status, time: u64) {
         self.status = status;
         self.last_status_change = Some(time);
     }
