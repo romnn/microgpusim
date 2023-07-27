@@ -156,6 +156,7 @@ pub struct Base<I>
     pub name: String,
     pub core_id: usize,
     pub cluster_id: usize,
+    pub cycle: crate::ported::Cycle,
 
     // pub stats: Arc<Mutex<Stats>>,
     pub stats: Arc<Mutex<stats::Cache>>,
@@ -198,7 +199,7 @@ impl<I> Base<I> {
         name: String,
         core_id: usize,
         cluster_id: usize,
-        // tag_array: tag_array::TagArray<()>,
+        cycle: crate::ported::Cycle,
         mem_port: Arc<I>,
         stats: Arc<Mutex<stats::Cache>>,
         config: Arc<config::GPUConfig>,
@@ -221,6 +222,7 @@ impl<I> Base<I> {
             name,
             core_id,
             cluster_id,
+            cycle,
             tag_array,
             mshrs,
             mem_port,
@@ -297,7 +299,7 @@ impl<I> Base<I> {
         cache_index: usize,
         // cache_index: Option<usize>,
         mut fetch: mem_fetch::MemFetch,
-        time: usize,
+        time: u64,
         events: &mut Vec<cache::Event>,
         read_only: bool,
         write_allocate: bool,
@@ -312,19 +314,19 @@ impl<I> Base<I> {
         // let mut cache_index = cache_index.expect("cache index");
 
         log::debug!(
-            "{}::baseline_cache::send_read_request (addr={}, block={}, mshr_addr={}, mshr_hit={}, mshr_full={}, miss_queue_full={})",
-            &self.name, addr, block_addr, &mshr_addr, mshr_hit, mshr_full, self.miss_queue_full(),
+            "{}::baseline_cache::send_read_request({}) (addr={}, block={}, mshr_addr={}, mshr_hit={}, mshr_full={}, miss_queue_full={})",
+            &self.name, fetch, addr, block_addr, &mshr_addr, mshr_hit, mshr_full, self.miss_queue_full(),
         );
 
         if mshr_hit && !mshr_full {
             if read_only {
-                self.tag_array.access(block_addr, time, &fetch);
+                self.tag_array.access(block_addr, &fetch, time);
             } else {
                 tag_array::AccessStatus {
                     writeback,
                     evicted,
                     ..
-                } = self.tag_array.access(block_addr, time, &fetch);
+                } = self.tag_array.access(block_addr, &fetch, time);
             }
 
             self.mshrs.add(mshr_addr, fetch.clone());
@@ -338,13 +340,13 @@ impl<I> Base<I> {
             should_miss = true;
         } else if !mshr_hit && !mshr_full && !self.miss_queue_full() {
             if read_only {
-                self.tag_array.access(block_addr, time, &fetch);
+                self.tag_array.access(block_addr, &fetch, time);
             } else {
                 tag_array::AccessStatus {
                     writeback,
                     evicted,
                     ..
-                } = self.tag_array.access(block_addr, time, &fetch);
+                } = self.tag_array.access(block_addr, &fetch, time);
             }
 
             let is_sector_cache = self.cache_config.mshr_kind == mshr::Kind::SECTOR_ASSOC;
@@ -524,10 +526,16 @@ where
     fn cycle(&mut self) {
         use cache::CacheBandwidth;
         log::debug!(
-            "{}::baseline cache::cycle (fetch interface {:?}) miss queue size={}",
+            "{}::baseline cache::cycle (fetch interface {:?}) miss queue={:?}",
             self.name,
             self.mem_port,
-            style(self.miss_queue.len()).blue(),
+            style(
+                self.miss_queue
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+            )
+            .blue(),
         );
         if let Some(fetch) = self.miss_queue.front() {
             if !self.mem_port.full(fetch.size(), fetch.is_write()) {
@@ -590,12 +598,15 @@ where
         fetch.data_size = pending.data_size;
         fetch.access.addr = pending.addr;
 
+        let time = self.cycle.get();
         match self.cache_config.allocate_policy {
             config::CacheAllocatePolicy::ON_MISS => {
-                self.tag_array.fill_on_miss(pending.cache_index, &fetch);
+                self.tag_array
+                    .fill_on_miss(pending.cache_index, &fetch, time);
             }
             config::CacheAllocatePolicy::ON_FILL => {
-                self.tag_array.fill_on_fill(pending.block_addr, &fetch);
+                self.tag_array
+                    .fill_on_fill(pending.block_addr, &fetch, time);
             }
             other => unimplemented!("cache allocate policy {:?} is not implemented", other),
         }
@@ -614,9 +625,10 @@ where
             );
             let block = self.tag_array.get_block_mut(pending.cache_index);
             // mark line as dirty for atomic operation
+            let was_modified_before = block.is_modified();
             block.set_status(cache_block::Status::MODIFIED, &access_sector_mask);
             block.set_byte_mask(&access_byte_mask);
-            if !block.is_modified() {
+            if !was_modified_before {
                 self.tag_array.num_dirty += 1;
             }
         }
@@ -637,7 +649,8 @@ impl<I> cache::CacheBandwidth for Base<I> {
 mod tests {
     use super::Base;
     use crate::config;
-    use crate::ported::{interconn as ic, mem_fetch, FromConfig, Packet};
+    use crate::ported::{self, interconn as ic, mem_fetch, FromConfig, Packet};
+    use std::rc::Rc;
     use std::sync::{Arc, Mutex};
 
     #[ignore = "todo"]
@@ -659,10 +672,12 @@ mod tests {
             config: config.clone(),
         });
 
+        let cycle = Rc::new(ported::AtomicCycle::new(0));
         let base = Base::new(
             "base cache".to_string(),
             core_id,
             cluster_id,
+            cycle,
             port,
             cache_stats,
             config,

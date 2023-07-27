@@ -1,5 +1,5 @@
-use super::{address, cache, interconn as ic, l1, mem_fetch};
 use crate::config;
+use crate::ported::{self, address, cache, interconn as ic, l1, mem_fetch};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex};
 #[derive(Debug)]
 pub struct DataL2<I> {
     pub inner: l1::Data<I>,
+    pub cache_config: Arc<config::L2DCacheConfig>,
 }
 
 impl<I> DataL2<I>
@@ -19,23 +20,28 @@ where
         name: String,
         core_id: usize,
         cluster_id: usize,
+        cycle: ported::Cycle,
         fetch_interconn: Arc<I>,
         stats: Arc<Mutex<stats::Cache>>,
         config: Arc<config::GPUConfig>,
-        cache_config: Arc<config::CacheConfig>,
+        cache_config: Arc<config::L2DCacheConfig>,
     ) -> Self {
         let inner = l1::Data::new(
             name,
             core_id,
             cluster_id,
+            cycle,
             fetch_interconn,
             stats,
             config,
-            cache_config,
+            cache_config.inner.clone(),
             mem_fetch::AccessKind::L2_WR_ALLOC_R,
             mem_fetch::AccessKind::L2_WRBK_ACC,
         );
-        Self { inner }
+        Self {
+            inner,
+            cache_config,
+        }
     }
 }
 
@@ -50,8 +56,12 @@ where
 
 impl<I> cache::Cache for DataL2<I>
 where
-    I: ic::MemFetchInterface,
+    I: ic::MemFetchInterface + 'static,
 {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
     fn stats(&self) -> &Arc<Mutex<stats::Cache>> {
         &self.inner.inner.stats
     }

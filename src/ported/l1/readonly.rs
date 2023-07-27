@@ -1,6 +1,6 @@
 use super::base;
 use crate::config;
-use crate::ported::{address, cache, interconn as ic, mem_fetch, tag_array};
+use crate::ported::{self, address, cache, interconn as ic, mem_fetch, tag_array};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
@@ -14,6 +14,7 @@ impl<I> ReadOnly<I> {
         name: String,
         core_id: usize,
         cluster_id: usize,
+        cycle: ported::Cycle,
         mem_port: Arc<I>,
         stats: Arc<Mutex<stats::Cache>>,
         config: Arc<config::GPUConfig>,
@@ -23,6 +24,7 @@ impl<I> ReadOnly<I> {
             name,
             core_id,
             cluster_id,
+            cycle,
             mem_port,
             stats,
             config,
@@ -62,8 +64,12 @@ where
 
 impl<I> cache::Cache for ReadOnly<I>
 where
-    I: ic::MemFetchInterface,
+    I: ic::MemFetchInterface + 'static,
 {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
     fn stats(&self) -> &Arc<Mutex<stats::Cache>> {
         &self.inner.stats
     }
@@ -119,11 +125,11 @@ where
         let (cache_index, probe_status) =
             tag_array.probe(block_addr, &fetch, fetch.is_write(), is_probe);
         let mut status = Status::RESERVATION_FAIL;
-        let time = 0;
 
+        let time = self.inner.cycle.get();
         if probe_status == Status::HIT {
             // update LRU state
-            tag_array::AccessStatus { status, .. } = tag_array.access(block_addr, time, &fetch);
+            tag_array::AccessStatus { status, .. } = tag_array.access(block_addr, &fetch, time);
         } else if probe_status != Status::RESERVATION_FAIL {
             if !self.inner.miss_queue_full() {
                 let (should_miss, writeback, evicted) = self.inner.send_read_request(
