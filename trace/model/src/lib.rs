@@ -43,6 +43,9 @@ pub struct MemAccessTraceEntry {
     pub cuda_ctx: u64,
     pub kernel_id: u64,
     pub block_id: nvbit_model::Dim,
+    pub thread_id: nvbit_model::Dim,
+    pub unique_thread_id: u32,
+    pub global_warp_id: u32,
     pub warp_id_in_sm: u32,
     pub warp_id_in_block: u32,
     pub warp_size: u32,
@@ -116,6 +119,11 @@ pub enum Command {
     MemcpyHtoD {
         allocation_name: Option<String>,
         dest_device_addr: u64,
+        num_bytes: u64,
+    },
+    MemAlloc {
+        allocation_name: Option<String>,
+        device_ptr: u64,
         num_bytes: u64,
     },
     KernelLaunch(KernelLaunch),

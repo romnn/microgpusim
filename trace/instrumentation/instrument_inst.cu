@@ -1,3 +1,4 @@
+#include <cassert>
 #include <cstdarg>
 #include <stdint.h>
 #include <stdio.h>
@@ -34,6 +35,8 @@ instrument_inst(uint32_t pred, uint32_t instr_data_width,
 
   const int active_mask = __ballot_sync(__activemask(), 1);
   const int predicate_mask = __ballot_sync(__activemask(), pred);
+  // A predefined, read-only special register that returns the thread’s lane
+  // within the warp. The lane identifier ranges from zero to WARP_SZ-1.
   const int laneid = get_laneid();
   const int first_laneid = __ffs(active_mask) - 1;
 
@@ -56,18 +59,41 @@ instrument_inst(uint32_t pred, uint32_t instr_data_width,
   }
 
   ma.kernel_id = kernel_id;
+
   int4 block = get_ctaid();
   ma.block_id_x = block.x;
   ma.block_id_y = block.y;
   ma.block_id_z = block.z;
+  assert(blockIdx.x == block.x);
+  assert(blockIdx.y == block.y);
+  assert(blockIdx.z == block.z);
 
   ma.sm_id = get_smid();
-  int unique_thread_id = threadIdx.z * blockDim.y * blockDim.x +
-                         threadIdx.y * blockDim.x + threadIdx.x;
+  // int unique_thread_id = threadIdx.z * (blockDim.y * blockDim.x) +
+  //                        threadIdx.y * blockDim.x + threadIdx.x;
+  int unique_thread_id = (threadIdx.z * (blockDim.x * blockDim.y)) +
+                         (threadIdx.y * blockDim.x) + threadIdx.x;
+
+  // int unique_thread_id = (threadIdx.x * (blockDim.y * blockDim.z)) +
+  //                        (threadIdx.y * blockDim.z) + threadIdx.z;
+  // unique_thread_id += threadIdx.z;
+  // int thread_id = (threadIdx.x * threadIdx.x(blockDim.x *
+  // blockDim.y)) +
+
+  // int l_thread_id = (threadIdx.z * (blockDim.x * blockDim.y))
+  // +
+  //                   (threadIdx.y * blockDim.x) + threadIdx.x;
+
+  ma.thread_id = unique_thread_id;
+  ma.thread_id_x = threadIdx.x;
+  ma.thread_id_y = threadIdx.y;
+  ma.thread_id_z = threadIdx.z;
+
+  ma.global_warp_id = get_global_warp_id();
   ma.warp_id_in_block = unique_thread_id / warpSize;
   ma.warp_id_in_sm = get_warpid();
   ma.warp_size = warpSize;
-  ma.line_num = 0;
+  ma.line_num = line_num;
   ma.instr_data_width = instr_data_width;
   ma.instr_opcode_id = instr_opcode_id;
   ma.instr_offset = instr_offset;

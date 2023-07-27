@@ -166,6 +166,12 @@ impl<'c> Instrumentor<'c> {
                 y: packet.block_id_y.unsigned_abs(),
                 z: packet.block_id_z.unsigned_abs(),
             };
+            let thread_id = model::Dim {
+                x: packet.thread_id_x,
+                y: packet.thread_id_y,
+                z: packet.thread_id_z,
+            };
+
             let instr_predicate = model::Predicate {
                 num: packet.instr_predicate_num,
                 is_neg: packet.instr_predicate_is_neg,
@@ -180,6 +186,9 @@ impl<'c> Instrumentor<'c> {
                 cuda_ctx,
                 kernel_id: packet.kernel_id,
                 block_id,
+                thread_id,
+                unique_thread_id: packet.thread_id,
+                global_warp_id: packet.global_warp_id,
                 warp_id_in_sm: packet.warp_id_in_sm.unsigned_abs(),
                 warp_id_in_block: packet.warp_id_in_block.unsigned_abs(),
                 warp_size: packet.warp_size,
@@ -306,16 +315,18 @@ impl<'c> Instrumentor<'c> {
                 num_bytes,
                 ..
             }) => {
-                if !is_exit {
-                    self.commands
-                        .lock()
-                        .unwrap()
-                        .push(trace::Command::MemcpyHtoD {
-                            allocation_name: None,
-                            dest_device_addr: dest_device.as_ptr(),
-                            num_bytes,
-                        });
+                if is_exit {
+                    return;
                 }
+
+                self.commands
+                    .lock()
+                    .unwrap()
+                    .push(trace::Command::MemcpyHtoD {
+                        allocation_name: None,
+                        dest_device_addr: dest_device.as_ptr(),
+                        num_bytes,
+                    });
             }
             // Some(EventParams::MemCopyDeviceToHost {
             //     // dest_device, bytes, ..
@@ -336,6 +347,15 @@ impl<'c> Instrumentor<'c> {
                     device_ptr,
                     num_bytes,
                 });
+
+                self.commands
+                    .lock()
+                    .unwrap()
+                    .push(trace::Command::MemAlloc {
+                        allocation_name: None,
+                        device_ptr,
+                        num_bytes,
+                    });
             }
             _ => {}
         }
@@ -555,17 +575,18 @@ impl<'c> Instrumentor<'c> {
             per_kernel_traces[usize::try_from(entry.kernel_id).unwrap()].push(entry);
         }
 
-        for kernel_trace in &mut per_kernel_traces {
-            // sort per kernel traces
-            #[cfg(feature = "parallel")]
-            {
-                use rayon::slice::ParallelSliceMut;
-                kernel_trace.par_sort();
-            }
-
-            #[cfg(not(feature = "parallel"))]
-            kernel_trace.sort();
-        }
+        // no sorting for now
+        // for kernel_trace in &mut per_kernel_traces {
+        //     // sort per kernel traces
+        //     #[cfg(feature = "parallel")]
+        //     {
+        //         use rayon::slice::ParallelSliceMut;
+        //         kernel_trace.par_sort();
+        //     }
+        //
+        //     #[cfg(not(feature = "parallel"))]
+        //     kernel_trace.sort();
+        // }
 
         for (kernel_id, kernel_trace) in per_kernel_traces.into_iter().enumerate() {
             if self.validate {

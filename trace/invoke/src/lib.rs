@@ -68,11 +68,17 @@ pub fn find_trace_so() -> Option<PathBuf> {
 ///
 /// # Errors
 /// If tracing the application fails.
-pub async fn trace<A>(executable: impl AsRef<Path>, args: A, options: &Options) -> Result<(), Error>
+pub async fn trace<A>(
+    executable: impl AsRef<Path>,
+    args: A,
+    options: &Options,
+) -> Result<std::time::Duration, Error>
 where
     A: IntoIterator,
     <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
 {
+    use std::io::Write;
+
     let tracer_so = options
         .tracer_so
         .clone()
@@ -102,16 +108,18 @@ where
     cmd.env("VALIDATE", if options.validate { "yes" } else { "no" });
     cmd.env("LD_PRELOAD", &tracer_so.to_string_lossy().to_string());
 
+    let start = std::time::Instant::now();
     let result = cmd.output().await?;
+    let dur = start.elapsed();
+
     // stdout just contains nvbit banner and application outputs
     // println!("stderr: {}", utils::decode_utf8!(result.stderr));
-    {
-        use std::io::Write;
-        std::io::stdout().write_all(&result.stderr)?;
-        std::io::stdout().flush()?;
-    }
+
+    std::io::stdout().write_all(&result.stderr)?;
+    std::io::stdout().flush()?;
+
     if result.status.success() {
-        Ok(())
+        Ok(dur)
     } else {
         Err(Error::Command(utils::CommandError::new(&cmd, result)))
     }
