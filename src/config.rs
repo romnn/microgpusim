@@ -1,5 +1,5 @@
 use super::ported::{
-    addrdec, address, core::PipelineStage, mem_sub_partition, mshr, opcodes, utils, KernelInfo,
+    addrdec, address, core::PipelineStage, mem_sub_partition, mshr, opcodes, KernelInfo,
 };
 use color_eyre::eyre;
 use std::collections::HashMap;
@@ -28,6 +28,25 @@ pub enum CacheReplacementPolicy {
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
+pub struct L2DCacheConfig {
+    pub inner: Arc<CacheConfig>,
+}
+
+impl L2DCacheConfig {
+    #[inline]
+    pub fn set_index(&self, addr: address) -> u64 {
+        let partition_addr = addr;
+
+        // if (m_address_mapping) {
+        //   // Calculate set index without memory partition bits to reduce set camping
+        //   part_addr = m_address_mapping->partition_address(addr);
+        // }
+
+        self.inner.set_index(partition_addr)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct L1DCacheConfig {
     /// L1 Hit Latency
     pub l1_latency: usize, // 1
@@ -37,8 +56,7 @@ pub struct L1DCacheConfig {
     pub l1_banks_byte_interleaving: usize, // 32
     /// The number of L1 cache banks
     pub l1_banks: usize, // 1
-    /// L1D write ratio
-    pub m_wr_percent: usize, // 0
+
     pub inner: Arc<CacheConfig>,
 }
 
@@ -54,7 +72,14 @@ impl L1DCacheConfig {
     }
 
     #[inline]
-    pub fn set_bank(&self, addr: address) -> u64 {
+    pub fn compute_set_bank(&self, addr: address) -> u64 {
+        log::trace!(
+            "computing set bank for address {} ({} l1 banks) using hashing function {:?}",
+            addr,
+            self.l1_banks,
+            self.l1_banks_hashing_function
+        );
+
         // For sector cache, we select one sector per bank (sector interleaving)
         // This is what was found in Volta (one sector per bank, sector
         // interleaving) otherwise, line interleaving
@@ -90,6 +115,11 @@ pub struct CacheConfig {
 
     pub miss_queue_size: usize,
     pub result_fifo_entries: Option<usize>,
+
+    /// L1D write ratio
+    pub l1_cache_write_ratio_percent: usize, // 0
+
+    // private (should be used with accessor methods)
     data_port_width: Option<usize>,
     // pub disabled: bool,
 }
@@ -166,7 +196,6 @@ impl CacheConfig {
     // do not use enabled but options
     #[inline]
     pub fn set_index(&self, addr: address) -> u64 {
-        // log::trace!("cache_config::set_index({})", addr);
         hash_function(
             addr,
             self.num_sets,
@@ -247,7 +276,16 @@ fn hash_function(
     use super::ported::set_index_function as indexing;
 
     let set_idx: u64 = match set_index_function {
-        CacheSetIndexFunc::LINEAR_SET_FUNCTION => (addr >> line_size_log2) & (num_sets as u64 - 1),
+        CacheSetIndexFunc::LINEAR_SET_FUNCTION => {
+            // log::trace!(
+            //     "set_index({}): LINEAR hash func: log2(line)={}, num sets={}",
+            //     addr,
+            //     line_size_log2,
+            //     num_sets,
+            // );
+            let set_index = (addr >> line_size_log2) & (num_sets as u64 - 1);
+            set_index
+        }
         CacheSetIndexFunc::FERMI_HASH_SET_FUNCTION => {
             // Set Indexing function from
             // "A Detailed GPU Cache Model Based on Reuse
@@ -256,7 +294,7 @@ fn hash_function(
             // check for incorrect number of sets
             assert!(
                     matches!(num_sets, 32 | 64),
-                    "bad cache config: number of sets should be 32 or 64 for the hashing set index function",
+                    "bad cache config: num sets should be 32 or 64 for hashing set index function (got {})", num_sets,
                 );
 
             let mut lower_xor = 0;
@@ -314,7 +352,7 @@ impl std::fmt::Display for CacheConfig {
 }
 
 /// todo: remove the copy stuff, very expensive otherwise
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct GPUConfig {
     pub linear_to_raw_adress_translation:
         std::sync::OnceLock<addrdec::LinearToRawAddressTranslation>,
@@ -334,7 +372,7 @@ pub struct GPUConfig {
     /// per-shader L1 data cache config
     pub data_cache_l1: Option<Arc<L1DCacheConfig>>,
     /// unified banked L2 data cache config
-    pub data_cache_l2: Option<Arc<CacheConfig>>,
+    pub data_cache_l2: Option<Arc<L2DCacheConfig>>,
 
     /// L1D write ratio
     // pub l1_cache_write_ratio: usize,
@@ -471,9 +509,9 @@ pub struct GPUConfig {
     //
     pub pipeline_widths: HashMap<PipelineStage, usize>, // 4,0,0,1,1,4,0,0,1,1,6
     /// Number of SP units
-    pub num_sp_units: usize,  // 4
+    pub num_sp_units: usize, // 4
     /// Number of DP units
-    pub num_dp_units: usize,  // 0
+    pub num_dp_units: usize, // 0
     /// Number of INT units
     pub num_int_units: usize, // 0
 
@@ -588,6 +626,14 @@ pub struct GPUConfig {
 
 pub static WORD_SIZE: address = 4;
 
+pub fn pad_to_multiple(n: usize, k: usize) -> usize {
+    let rem = n % k;
+    if rem != 0 {
+        ((n / k) + 1) * k
+    } else {
+        n
+    }
+}
 impl GPUConfig {
     pub fn shared_mem_bank(&self, addr: address) -> address {
         let num_banks = self.shared_memory_num_banks as u64;
@@ -620,7 +666,7 @@ impl GPUConfig {
 
     pub fn threads_per_block_padded(&self, kernel: &KernelInfo) -> usize {
         let threads_per_block = kernel.threads_per_block();
-        utils::pad_to_multiple(threads_per_block as usize, self.warp_size)
+        pad_to_multiple(threads_per_block as usize, self.warp_size)
     }
 
     /// Number of bytes transferred per read or write command.
@@ -635,7 +681,7 @@ impl GPUConfig {
     /// -
     pub fn max_blocks(&self, kernel: &KernelInfo) -> eyre::Result<usize> {
         let threads_per_block = kernel.threads_per_block();
-        let threads_per_block = utils::pad_to_multiple(threads_per_block as usize, self.warp_size);
+        let threads_per_block = pad_to_multiple(threads_per_block as usize, self.warp_size);
         // limit by n_threads/shader
         let by_thread_limit = self.max_threads_per_core / threads_per_block as usize;
 
@@ -992,6 +1038,7 @@ impl Default for GPUConfig {
                 mshr_max_merge: 4,
                 miss_queue_size: 128,
                 result_fifo_entries: Some(2),
+                l1_cache_write_ratio_percent: 0,
                 data_port_width: None,
             })),
             // N:128:64:2,L:R:f:N:L,A:2:64,4
@@ -1011,6 +1058,7 @@ impl Default for GPUConfig {
                 mshr_max_merge: 64,
                 miss_queue_size: 4,
                 result_fifo_entries: None,
+                l1_cache_write_ratio_percent: 0,
                 data_port_width: None,
             })),
             // N:8:128:4,L:R:f:N:L,A:2:48,4
@@ -1030,16 +1078,17 @@ impl Default for GPUConfig {
                 mshr_max_merge: 48,
                 miss_queue_size: 4,
                 result_fifo_entries: None,
+                l1_cache_write_ratio_percent: 0,
                 data_port_width: None,
             })),
             // N:64:128:6,L:L:m:N:H,A:128:8,8
             // {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq> | none}
             data_cache_l1: Some(Arc::new(L1DCacheConfig {
                 l1_latency: 1,
-                l1_banks_hashing_function: CacheSetIndexFunc::FERMI_HASH_SET_FUNCTION,
+                l1_banks_hashing_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
+                // l1_banks_hashing_function: CacheSetIndexFunc::FERMI_HASH_SET_FUNCTION,
                 l1_banks_byte_interleaving: 32,
                 l1_banks: 1,
-                m_wr_percent: 0,
                 inner: Arc::new(CacheConfig {
                     kind: CacheKind::Normal,
                     num_sets: 64,
@@ -1055,27 +1104,31 @@ impl Default for GPUConfig {
                     mshr_max_merge: 8,
                     miss_queue_size: 4,
                     result_fifo_entries: None,
+                    l1_cache_write_ratio_percent: 0,
                     data_port_width: None,
                 }),
             })),
             // N:64:128:16,L:B:m:W:L,A:1024:1024,4:0,32
             // {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>}
-            data_cache_l2: Some(Arc::new(CacheConfig {
-                kind: CacheKind::Normal,
-                num_sets: 64,
-                line_size: 128,
-                associativity: 16,
-                replacement_policy: CacheReplacementPolicy::LRU,
-                write_policy: CacheWritePolicy::WRITE_BACK,
-                allocate_policy: CacheAllocatePolicy::ON_MISS,
-                write_allocate_policy: CacheWriteAllocatePolicy::WRITE_ALLOCATE,
-                set_index_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
-                mshr_kind: mshr::Kind::ASSOC,
-                mshr_entries: 1024,
-                mshr_max_merge: 1024,
-                miss_queue_size: 4,
-                result_fifo_entries: None, // 0 is none?
-                data_port_width: Some(32),
+            data_cache_l2: Some(Arc::new(L2DCacheConfig {
+                inner: Arc::new(CacheConfig {
+                    kind: CacheKind::Normal,
+                    num_sets: 64,
+                    line_size: 128,
+                    associativity: 16,
+                    replacement_policy: CacheReplacementPolicy::LRU,
+                    write_policy: CacheWritePolicy::WRITE_BACK,
+                    allocate_policy: CacheAllocatePolicy::ON_MISS,
+                    write_allocate_policy: CacheWriteAllocatePolicy::WRITE_ALLOCATE,
+                    set_index_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
+                    mshr_kind: mshr::Kind::ASSOC,
+                    mshr_entries: 1024,
+                    mshr_max_merge: 1024,
+                    miss_queue_size: 4,
+                    result_fifo_entries: None, // 0 is none?
+                    l1_cache_write_ratio_percent: 0,
+                    data_port_width: Some(32),
+                }),
             })),
             // l1_cache_write_ratio: 0,
             // l1_banks: 1,
@@ -1349,17 +1402,32 @@ mod tests {
     }
 
     #[test]
-    fn test_block_addr() {
+    fn test_l1i_block_addr() {
         let config = super::GPUConfig::default();
-        let instr_cache_config = config.inst_cache_l1.unwrap();
-        assert_eq!(instr_cache_config.block_addr(4026531848), 4026531840);
+        let l1i_cache_config = config.inst_cache_l1.unwrap();
+        assert_eq!(l1i_cache_config.block_addr(4026531848), 4026531840);
     }
 
     #[test]
-    fn test_mshr_addr() {
+    fn test_l2d_block_addr() {
         let config = super::GPUConfig::default();
-        let instr_cache_config = config.inst_cache_l1.unwrap();
-        assert_eq!(instr_cache_config.mshr_addr(4026531848), 4026531840);
-        assert_eq!(instr_cache_config.mshr_addr(4026531992), 4026531968);
+        let l2d_cache_config = config.data_cache_l2.unwrap();
+        assert_eq!(l2d_cache_config.inner.block_addr(34887082112), 34887082112);
+    }
+
+    #[test]
+    fn test_l1i_mshr_addr() {
+        let config = super::GPUConfig::default();
+        let l1i_cache_config = config.inst_cache_l1.unwrap();
+        assert_eq!(l1i_cache_config.mshr_addr(4026531848), 4026531840);
+        assert_eq!(l1i_cache_config.mshr_addr(4026531992), 4026531968);
+    }
+
+    #[test]
+    fn test_l2d_set_index() {
+        let config = super::GPUConfig::default();
+        let l2d_config = config.data_cache_l2.unwrap();
+        let block_addr = 34887082112;
+        assert_eq!(l2d_config.inner.set_index(block_addr), 1);
     }
 }
