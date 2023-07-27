@@ -161,7 +161,7 @@ where
             None,
             pipeline_depth,
             config.clone(),
-            cycle,
+            Rc::clone(&cycle),
             0,
         );
         //
@@ -198,10 +198,11 @@ where
                     format!("ldst-unit-{}-{}-L1-DATA-CACHE", cluster_id, core_id),
                     core_id,
                     cluster_id,
-                    fetch_interconn.clone(),
+                    Rc::clone(&cycle),
+                    Arc::clone(&fetch_interconn),
                     cache_stats,
-                    config.clone(),
-                    l1_config.inner.clone(),
+                    Arc::clone(&config),
+                    Arc::clone(&l1_config.inner),
                     mem_fetch::AccessKind::L1_WR_ALLOC_R,
                     mem_fetch::AccessKind::L1_WRBK_ACC,
                 ))) //  as Option<Box<dyn cache::Cache + 'static>>
@@ -524,9 +525,10 @@ where
         };
 
         log::debug!(
-            "memory cycle for instruction {} => access: {}",
+            "memory cycle for instruction {} => access: {} (bypass l1={})",
             &dispatch_instr,
-            access
+            access,
+            bypass_l1
         );
 
         let mut stall_cond = MemStageStallKind::NO_RC_FAIL;
@@ -554,6 +556,10 @@ where
                     }
                 } else if dispatch_instr.is_store() {
                     // m_core->inc_store_req(inst.warp_id());
+                    self.warps[dispatch_instr.warp_id]
+                        .try_borrow_mut()
+                        .unwrap()
+                        .num_outstanding_stores += 1;
                 }
 
                 // shouldnt we remove the dispatch reg here?
@@ -582,6 +588,7 @@ where
         {
             stall_cond = MemStageStallKind::COAL_STALL;
         }
+
         log::debug!("memory instruction stall cond: {:?}", &stall_cond);
         if stall_cond != MemStageStallKind::NO_RC_FAIL {
             *rc_fail = stall_cond;
@@ -602,10 +609,16 @@ where
         dispatch_instr.mem_access_queue.is_empty()
     }
 
-    fn process_memory_access_queue_l1cache(
-        &mut self,
-        // instr: &mut WarpInstruction,
-    ) -> MemStageStallKind {
+    fn store_ack(&self, fetch: &mem_fetch::MemFetch) {
+        debug_assert!(
+            fetch.kind == mem_fetch::Kind::WRITE_ACK
+                || (self.config.perfect_mem && fetch.is_write())
+        );
+        let mut warp = self.warps[fetch.warp_id].try_borrow_mut().unwrap();
+        warp.num_outstanding_stores -= 1;
+    }
+
+    fn process_memory_access_queue_l1cache(&mut self) -> MemStageStallKind {
         let mut stall_cond = MemStageStallKind::NO_RC_FAIL;
         let Some(instr) = &mut self.pipelined_simd_unit.dispatch_reg else {
             return stall_cond;
@@ -614,6 +627,7 @@ where
         let Some(access) = instr.mem_access_queue.back() else {
             return stall_cond;
         };
+        let dbg_access = access.clone();
 
         let l1d_config = self.config.data_cache_l1.as_ref().unwrap();
 
@@ -631,8 +645,19 @@ where
                 //     m_mf_allocator->alloc(inst, inst.accessq_back(),
                 //                           m_core->get_gpu()->gpu_sim_cycle +
                 //                               m_core->get_gpu()->gpu_tot_sim_cycle);
-                let bank_id = l1d_config.set_bank(access.addr) as usize;
+                let bank_id = l1d_config.compute_set_bank(access.addr) as usize;
                 debug_assert!(bank_id < l1d_config.l1_banks);
+
+                log::trace!(
+                    "computed bank id {} for access {} (access queue={:?})",
+                    bank_id,
+                    access,
+                    &instr
+                        .mem_access_queue
+                        .iter()
+                        .map(ToString::to_string)
+                        .collect::<Vec<_>>()
+                );
 
                 let slot = self.l1_latency_queue[bank_id]
                     .get_mut(l1d_config.l1_latency - 1)
@@ -648,18 +673,21 @@ where
                         self.core_id,
                         self.cluster_id,
                     );
-                    *slot = Some(fetch);
+                    let data_size = fetch.data_size;
+                    slot.insert(fetch);
 
                     if is_store {
-                        //       unsigned inc_ack =
-                        //           (m_config->m_L1D_config.get_mshr_type() == SECTOR_ASSOC)
-                        //               ? (mf->get_data_size() / SECTOR_SIZE)
-                        //               : 1;
-                        //
-                        //       for (unsigned i = 0; i < inc_ack; ++i)
-                        //         m_core->inc_store_req(inst.warp_id());
+                        let inc_ack = if l1d_config.inner.mshr_kind == mshr::Kind::SECTOR_ASSOC {
+                            data_size / super::mem_sub_partition::SECTOR_SIZE
+                        } else {
+                            1
+                        };
+
+                        let mut warp = self.warps[instr.warp_id].try_borrow_mut().unwrap();
+                        for _ in 0..inc_ack {
+                            warp.num_outstanding_stores += 1;
+                        }
                     }
-                    //
                 } else {
                     stall_cond = MemStageStallKind::BK_CONF;
                     // delete mf;
@@ -667,10 +695,17 @@ where
                     break;
                 }
             }
+
             if !instr.mem_access_queue.is_empty() && stall_cond != MemStageStallKind::BK_CONF {
                 stall_cond = MemStageStallKind::COAL_STALL;
             }
 
+            log::trace!(
+                "process_memory_access_queue_l1cache stall cond {:?} for access {} (access queue size={:?})",
+                stall_cond,
+                &dbg_access,
+                &instr.mem_access_queue.iter().map(ToString::to_string).collect::<Vec<_>>(),
+            );
             stall_cond
         } else {
             let new_instr = instr.clone();
@@ -705,15 +740,19 @@ where
         let mut stall_cond = MemStageStallKind::NO_RC_FAIL;
         let write_sent = super::was_write_sent(events);
         let read_sent = super::was_read_sent(events);
-        // if write_sent {
-        // unsigned inc_ack = (m_config->m_L1D_config.get_mshr_type() == SECTOR_ASSOC)
-        //                        ? (mf->get_data_size() / SECTOR_SIZE)
-        //                        : 1;
+        if write_sent {
+            let l1d_config = self.config.data_cache_l1.as_ref().unwrap();
+            let inc_ack = if l1d_config.inner.mshr_kind == mshr::Kind::SECTOR_ASSOC {
+                fetch.data_size / super::mem_sub_partition::SECTOR_SIZE
+            } else {
+                1
+            };
 
-        // for (unsigned i = 0; i < inc_ack; ++i)
-        // self.warps[instr.warp_id].try_borrow_mut().unwrap().num_outstanding_stores += 1;
-        // m_core->inc_store_req(inst.warp_id());
-        // }
+            let mut warp = self.warps[instr.warp_id].try_borrow_mut().unwrap();
+            for _ in 0..inc_ack {
+                warp.num_outstanding_stores += 1;
+            }
+        }
         if status == cache::RequestStatus::HIT {
             // assert(!read_sent);
             instr.mem_access_queue.pop_back();
@@ -748,11 +787,12 @@ where
     }
 
     fn l1_latency_queue_cycle(&mut self) {
-        let l1_cache = self.data_l1.as_mut().unwrap();
         let l1_config = self.config.data_cache_l1.as_ref().unwrap();
         for bank in 0..l1_config.l1_banks {
             if let Some(next_fetch) = &self.l1_latency_queue[bank][0] {
                 let mut events = Vec::new();
+
+                let l1_cache = self.data_l1.as_mut().unwrap();
                 let access_status =
                     l1_cache.access(next_fetch.addr(), next_fetch.clone(), &mut events);
 
@@ -795,8 +835,8 @@ where
                     if instr.is_store() && !write_sent {
                         next_fetch.set_reply();
 
-                        for ack in 0..dec_ack {
-                            // core.store_ack(next_fetch);
+                        for _ in 0..dec_ack {
+                            self.store_ack(&next_fetch);
                         }
                     }
 
@@ -825,8 +865,8 @@ where
                         && !write_allocate_sent
                     {
                         next_fetch.set_reply();
-                        for ack in 0..dec_ack {
-                            // core.store_ack(next_fetch);
+                        for _ in 0..dec_ack {
+                            self.store_ack(&next_fetch);
                         }
 
                         if !write_sent && !read_sent {
@@ -1020,6 +1060,8 @@ where
             );
         }
 
+        drop(simd_unit);
+
         if let Some(ref fetch) = self.response_fifo.front() {
             match fetch.access_kind() {
                 mem_fetch::AccessKind::TEXTURE_ACC_R => {
@@ -1043,7 +1085,7 @@ where
                     if fetch.kind == mem_fetch::Kind::WRITE_ACK
                         || (self.config.perfect_mem && fetch.is_write())
                     {
-                        // m_core->store_ack(mf);
+                        self.store_ack(&fetch);
                         self.response_fifo.pop_front();
                     } else {
                         // L1 cache is write evict:
@@ -1086,8 +1128,6 @@ where
                 }
             }
         }
-
-        drop(simd_unit);
 
         // self.texture_l1.cycle();
         // self.const_l1.cycle();
@@ -1161,9 +1201,9 @@ where
 
                     let mut dispatch_reg = simd_unit.dispatch_reg.take().unwrap();
 
-                    if !has_pending_requests && warp_id == 3 {
-                        panic!("rrr");
-                    }
+                    // if !has_pending_requests && warp_id == 3 {
+                    //     panic!("rrr");
+                    // }
                     if !has_pending_requests {
                         // warp_inst_complete(&mut dispatch_reg, &mut self.stats.lock().unwrap());
                         super::warp_inst_complete(&mut dispatch_reg, &self.stats);
