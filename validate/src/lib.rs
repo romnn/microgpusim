@@ -23,6 +23,19 @@ pub fn bool_true() -> bool {
     true
 }
 
+pub fn write_csv_rows(
+    writer: impl std::io::Write,
+    rows: &[impl Serialize],
+) -> color_eyre::eyre::Result<()> {
+    let mut csv_writer = csv::WriterBuilder::new()
+        .flexible(false)
+        .from_writer(writer);
+    for row in rows {
+        csv_writer.serialize(row)?;
+    }
+    Ok(())
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]

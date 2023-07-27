@@ -11,6 +11,7 @@ default = []
 denylist = ["default"]
 
 [dependencies]
+indexmap = { version = "2", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 strum = { version = "0", features = ["derive"] }
 

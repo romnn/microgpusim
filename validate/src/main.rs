@@ -18,6 +18,8 @@ use indicatif::ProgressBar;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Instant;
+use utils::fs::create_dirs;
 use validate::benchmark::paths::PathExt;
 use validate::materialize::{self, BenchmarkConfig, Benchmarks};
 
@@ -27,18 +29,47 @@ pub enum Format {
     YAML,
 }
 
-fn serialize_to_writer(
-    format: Format,
-    writer: &mut impl std::io::Write,
-    data: impl serde::Serialize,
-) -> eyre::Result<()> {
-    match format {
-        Format::JSON => {
-            serde_json::to_writer(writer, &data)?;
-        }
-        Format::YAML => {
-            serde_yaml::to_writer(writer, &data)?;
-        }
+fn write_stats_as_csv(stats_dir: impl AsRef<Path>, stats: stats::Stats) -> eyre::Result<()> {
+    let stats_dir = stats_dir.as_ref();
+    validate::write_csv_rows(
+        open_writable(stats_dir.join("stats.sim.csv"))?,
+        &[stats.sim],
+    )?;
+    // validate::write_csv_rows(
+    //     open_writable(stats_dir.join("stats.dram.csv"))?,
+    //     &[stats::dram::PerCoreDRAM {
+    //         bank_writes: stats.dram.bank_writes,
+    //         bank_reads: stats.dram.bank_reads,
+    //     }],
+    // )?;
+    validate::write_csv_rows(
+        open_writable(stats_dir.join("stats.accesses.csv"))?,
+        &stats.accesses.flatten(),
+    )?;
+    validate::write_csv_rows(
+        open_writable(stats_dir.join("stats.instructions.csv"))?,
+        &stats.instructions.flatten(),
+    )?;
+
+    for (cache_name, rows) in [
+        ("l1i", stats.l1i_stats.flatten()),
+        ("l1d", stats.l1d_stats.flatten()),
+        ("l1t", stats.l1t_stats.flatten()),
+        ("l1c", stats.l1c_stats.flatten()),
+        ("l2d", stats.l2d_stats.flatten()),
+    ] {
+        validate::write_csv_rows(
+            open_writable(stats_dir.join(format!("stats.{}.csv", cache_name)))?,
+            &rows,
+        )?;
+        // validate::write_csv_rows(
+        //     open_writable(stats_dir.join("stats.l1i.csv"))?,
+        //     &stats.l1i_stats.flatten(),
+        // )?;
+        // validate::write_csv_rows(
+        //     open_writable(stats_dir.join("stats.l1d.csv"))?,
+        //     &stats.l1d_stats.flatten(),
+        // )?;
     }
     Ok(())
 }
@@ -126,8 +157,8 @@ pub enum Error {
 #[inline]
 fn open_writable(path: impl AsRef<Path>) -> eyre::Result<std::io::BufWriter<std::fs::File>> {
     let path = path.as_ref();
-    if let Some(_parent) = path.parent() {
-        utils::fs::create_dirs(path)?;
+    if let Some(parent) = path.parent() {
+        create_dirs(parent)?;
     }
     let writer = utils::fs::open_writable(path)?;
     Ok(writer)
@@ -145,6 +176,10 @@ async fn run_benchmark(
             // do nothing
         }
         Command::Profile(ref _opts) => {
+            let profile_dir = &bench.profile.profile_dir;
+            // dbg!(&profile_dir);
+            create_dirs(profile_dir)?;
+
             let options = profile::nvprof::Options {};
             let results = profile::nvprof::nvprof(&bench.executable, &bench.args, &options)
                 .await
@@ -153,26 +188,29 @@ async fn run_benchmark(
                     err => err.into(),
                 })?;
 
-            let writer = open_writable(&bench.profile.metrics_file)?;
-            serde_json::to_writer_pretty(writer, &results.metrics)?;
-            let mut writer = open_writable(&bench.profile.log_file)?;
-            writer.write_all(results.raw.as_bytes())?;
+            let log_file = profile_dir.join("profile.log");
+            let metrics_file = profile_dir.join("profile.metrics.csv");
+
+            serde_json::to_writer_pretty(open_writable(&metrics_file)?, &results.metrics)?;
+            open_writable(&log_file)?.write_all(results.raw.as_bytes())?;
         }
         Command::AccelsimTrace(ref _opts) => {
             let traces_dir = &bench.accelsim_trace.traces_dir;
-            utils::fs::create_dirs(traces_dir)?;
+            create_dirs(traces_dir)?;
 
             let options = accelsim_trace::Options {
                 traces_dir: traces_dir.clone(),
                 nvbit_tracer_tool: None, // auto detect
                 ..accelsim_trace::Options::default()
             };
-            accelsim_trace::trace(&bench.executable, &bench.args, &options).await?;
+            let dur = accelsim_trace::trace(&bench.executable, &bench.args, &options).await?;
+
+            let trace_dur_file = traces_dir.join("trace_time.json");
+            serde_json::to_writer_pretty(open_writable(&trace_dur_file)?, &dur.as_millis())?;
         }
         Command::Trace(ref _opts) => {
-            // create traces dir
             let traces_dir = &bench.trace.traces_dir;
-            utils::fs::create_dirs(traces_dir)?;
+            create_dirs(traces_dir)?;
 
             let options = invoke_trace::Options {
                 traces_dir: traces_dir.clone(),
@@ -184,7 +222,7 @@ async fn run_benchmark(
                 validate: false,
                 full_trace: bench.trace.full_trace,
             };
-            invoke_trace::trace(&bench.executable, &bench.args, &options)
+            let dur = invoke_trace::trace(&bench.executable, &bench.args, &options)
                 .await
                 .map_err(|err| match err {
                     err @ invoke_trace::Error::MissingExecutable(_) => eyre::Report::from(err)
@@ -193,19 +231,57 @@ async fn run_benchmark(
                         ),
                     err => err.into_eyre(),
                 })?;
+
+            let trace_dur_file = traces_dir.join("trace_time.json");
+            serde_json::to_writer_pretty(open_writable(&trace_dur_file)?, &dur.as_millis())?;
         }
         Command::Simulate(ref _opts) => {
             // get traces dir from trace config
             let traces_dir = bench.trace.traces_dir;
+            let stats_dir = bench.simulate.stats_dir;
 
-            // let stats_out_file = bench.simulate.stats_file;
-            let _stats =
-                tokio::task::spawn_blocking(move || casimu::ported::accelmain(traces_dir, None))
-                    .await??;
+            let (stats, dur) = tokio::task::spawn_blocking(move || {
+                let start = Instant::now();
+                let stats = casimu::ported::accelmain(traces_dir, None)?;
+                Ok::<_, eyre::Report>((stats, start.elapsed()))
+            })
+            .await??;
+
+            create_dirs(&stats_dir)?;
+
+            write_stats_as_csv(&stats_dir, stats)?;
+
+            serde_json::to_writer_pretty(
+                open_writable(stats_dir.join("exec_time.json"))?,
+                &dur.as_millis(),
+            )?;
+
+            // let json_stats: stats::FlatStats = stats.clone().into();
+            // let json_stats_out_file = stats_dir.join("stats.json");
+            // serde_json::to_writer_pretty(open_writable(&csv_stats_out_file)?, &stats)?;
+
+            // let csv_stats_out_file = stats_dir.join("stats.csv");
+            // let mut csv_writer = csv::WriterBuilder::new()
+            //     .flexible(false)
+            //     .from_writer(open_writable(&csv_stats_out_file)?);
+            // csv_writer.serialize(stats)?;
+            // let data: Vec<(&str, &[&dyn serde::Serialize])> = vec![
+            //     ("sim", &[stats.sim]),
+            //     // ("dram", &[stats.dram]),
+            //     ("accesses", &stats.accesses.flatten()),
+            // ];
+            // for (stat_name, rows) in data {
+            //     validate::write_csv_rows(
+            //         open_writable(stats_dir.join(format!("stats.{}.csv", stat_name)))?,
+            //         rows,
+            //     )?;
+
+            // serde_json::to_writer_pretty(open_writable(&json_stats_out_file)?, &json_stats)?;
         }
         Command::AccelsimSimulate(ref _opts) => {
-            // get traces dir from accelsim trace config
             let traces_dir = &bench.accelsim_trace.traces_dir;
+            let stats_dir = &bench.accelsim_simulate.stats_dir;
+
             let common = &bench.accelsim_simulate.common;
 
             let timeout = common.timeout.map(Into::into);
@@ -224,10 +300,45 @@ async fn run_benchmark(
                 inter_config: Some(inter_config),
             };
 
-            accelsim_sim::simulate_trace(traces_dir, config, timeout).await?;
+            // todo: allow setting this in test-apps.yml ?
+            let kernelslist = traces_dir.join("kernelslist.g");
+            let (log, dur) =
+                accelsim_sim::simulate_trace(&traces_dir, &kernelslist, config, timeout).await?;
+
+            // parse stats
+            let parse_options = accelsim::parser::Options::default();
+            let log_reader = std::io::Cursor::new(&log.stdout);
+            let stats = accelsim::parser::parse_stats(log_reader, &parse_options)?;
+
+            create_dirs(&stats_dir)?;
+
+            open_writable(stats_dir.join("log.txt"))?.write_all(&log.stdout)?;
+
+            let converted_stats: stats::Stats = stats.clone().try_into()?;
+            dbg!(&converted_stats);
+            write_stats_as_csv(&stats_dir, converted_stats)?;
+            // validate::write_csv_rows(
+            //     open_writable(stats_dir.join("stats.csv"))?,
+            //     &stats.into_inner().into_iter().collect::<Vec<_>>(),
+            // )?;
+
+            validate::write_csv_rows(
+                open_writable(stats_dir.join("raw.stats.csv"))?,
+                &stats.into_inner().into_iter().collect::<Vec<_>>(),
+            )?;
+
+            // let flat_stats: Vec<_> = stats.into_inner().into_iter().collect();
+            // serde_json::to_writer_pretty(open_writable(&stats_out_file)?, &flat_stats)?;
+
+            serde_json::to_writer_pretty(
+                open_writable(stats_dir.join("exec_time.json"))?,
+                &dur.as_millis(),
+            )?;
         }
         Command::PlaygroundSimulate(ref _opts) => {
             // get traces dir from accelsim trace config
+            let traces_dir = bench.accelsim_trace.traces_dir;
+            let stats_dir = bench.playground_simulate.stats_dir;
 
             let materialize::AccelsimSimConfigFiles {
                 config,
@@ -236,8 +347,7 @@ async fn run_benchmark(
                 ..
             } = bench.playground_simulate.configs.clone();
 
-            let _stats = tokio::task::spawn_blocking(move || {
-                let traces_dir = &bench.accelsim_trace.traces_dir;
+            let (stats, dur) = tokio::task::spawn_blocking(move || {
                 let kernelslist = traces_dir
                     .join("kernelslist.g")
                     .to_string_lossy()
@@ -258,13 +368,37 @@ async fn run_benchmark(
                 ];
                 dbg!(&args);
 
+                let start = Instant::now();
                 let config = playground::Config::default();
-                playground::run(&config, args.as_slice())
+                let stats = playground::run(&config, args.as_slice())?;
+                Ok::<_, eyre::Report>((stats, start.elapsed()))
             })
             .await??;
+
+            // let stats = stats::Stats {
+            //     accesses: stats.accesses.into(),
+            //     instructions: stats.instructions.into(),
+            //     // pub sim: Sim,
+            //     // pub dram: DRAM,
+            //     // pub l1i_stats: PerCache,
+            //     // pub l1c_stats: PerCache,
+            //     // pub l1t_stats: PerCache,
+            //     // pub l1d_stats: PerCache,
+            //     // pub l2d_stats: PerCache,
+            //     ..stats::Stats::default()
+            // };
+
+            create_dirs(&stats_dir)?;
+            let stats_out_file = stats_dir.join("stats.json");
+            let exec_dur_file = stats_dir.join("exec_time.json");
+
+            // let flat_stats: Vec<_> = stats.into_iter().collect();
+            // serde_json::to_writer_pretty(open_writable(&stats_out_file)?, &flat_stats)?;
+            serde_json::to_writer_pretty(open_writable(&exec_dur_file)?, &dur.as_millis())?;
         }
         Command::Build(_) | Command::Clean(_) => {
-            let should_build = options.force || !bench.executable.is_file();
+            // let should_build = options.force || !bench.executable.is_file();
+            let should_build = true;
             let makefile = bench.path.join("Makefile");
             if !makefile.is_file() {
                 eyre::bail!("Makefile at {} not found", makefile.display());
@@ -275,6 +409,7 @@ async fn run_benchmark(
                 if let Command::Clean(_) = options.command {
                     cmd.arg("clean");
                 }
+                log::debug!("{:?}", &cmd);
                 let result = cmd.output().await?;
                 if !result.status.success() {
                     return Err(utils::CommandError::new(&cmd, result).into_eyre());
@@ -328,7 +463,8 @@ fn parse_benchmarks(options: &Options) -> eyre::Result<Benchmarks> {
             benches_file_path.display(),
             Local::now().format("%d/%m/%Y %T"),
         )?;
-        serialize_to_writer(Format::YAML, &mut materialize_file, &materialized)?;
+
+        serde_yaml::to_writer(&mut materialize_file, &materialized)?;
         println!(
             "materialized to {}",
             materialize_path.relative_to(cwd).display()
@@ -393,7 +529,7 @@ fn print_benchmark_result(
         || bench_config.executable.clone(),
         |cwd| bench_config.executable.relative_to(cwd),
     );
-    let benchmark_config_id = format!("{}@{:<3}", bench_config.name, bench_config.input_idx);
+    let benchmark_config_id = format!("{}@{:<3}", bench_config.name, bench_config.input_idx + 1);
     bar.println(format!(
         "{:>15} {:>20} [ {} {} ] {}",
         op,

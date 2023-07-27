@@ -1,7 +1,19 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, strum::EnumIter, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    strum::EnumIter,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+)]
 pub enum AccessKind {
     GLOBAL_ACC_R,
     LOCAL_ACC_R,
@@ -40,6 +52,18 @@ impl AccessKind {
 pub struct Accesses(pub HashMap<AccessKind, u64>);
 
 impl Accesses {
+    #[must_use]
+    pub fn into_inner(self) -> HashMap<AccessKind, u64> {
+        self.0
+    }
+
+    #[must_use]
+    pub fn flatten(self) -> Vec<(AccessKind, u64)> {
+        let mut flattened: Vec<_> = self.into_inner().into_iter().collect();
+        flattened.sort_by_key(|(kind, _)| *kind);
+        flattened
+    }
+
     #[must_use]
     pub fn num_writes(&self) -> u64 {
         self.0

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum MemorySpace {
     // undefined_space = 0,
     // reg_space,
@@ -26,8 +26,22 @@ pub enum MemorySpace {
     // instruction_space,
 }
 
+pub type InstructionCountCsvRow = ((MemorySpace, bool), u64);
+
 #[derive(Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstructionCounts(pub HashMap<(MemorySpace, bool), u64>);
+
+impl InstructionCounts {
+    pub fn flatten(self) -> Vec<InstructionCountCsvRow> {
+        let mut flattened: Vec<_> = self.into_inner().into_iter().collect();
+        flattened.sort_by_key(|(inst, _)| *inst);
+        flattened
+    }
+
+    pub fn into_inner(self) -> HashMap<(MemorySpace, bool), u64> {
+        self.0
+    }
+}
 
 impl std::fmt::Debug for InstructionCounts {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {

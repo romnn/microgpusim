@@ -59,12 +59,15 @@ void mult(T const *A, T const *B, T *C, size_t m, size_t n, size_t p) {
 }
 
 template <typename T>
-__global__ void mult_gpu(T const *mat_1, T const *mat_2, T *mat_3, size_t m,
+__global__ void mult_gpu(T const *mat_a, T const *mat_b, T *mat_c, size_t m,
                          size_t n, size_t p) {
   // 2D block and 2D thread
   // Each thread computes one cell in mat_3.
-  size_t i{blockIdx.y * blockDim.y + threadIdx.y};
-  size_t j{blockIdx.x * blockDim.x + threadIdx.x};
+  // the grid + thradidx
+  size_t i = blockIdx.y * blockDim.y + threadIdx.y;
+  size_t j = blockIdx.x * blockDim.x + threadIdx.x;
+
+  printf("thread idx = (%u, %u, %u)\n", threadIdx.x, threadIdx.y, threadIdx.z);
 
   // do not process outside the matrix.
   // do not forget the equal sign!
@@ -74,9 +77,9 @@ __global__ void mult_gpu(T const *mat_1, T const *mat_2, T *mat_3, size_t m,
 
   float acc_sum{0};
   for (size_t k = 0; k < n; k++) {
-    acc_sum += mat_1[i * n + k] * mat_2[k * p + j];
+    acc_sum += mat_a[i * n + k] * mat_b[k * p + j];
   }
-  mat_3[i * p + j] = acc_sum;
+  mat_c[i * p + j] = acc_sum;
 }
 
 template <typename T> int matrixmul(size_t m, size_t n, size_t p) {

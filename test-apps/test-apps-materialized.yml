@@ -2,7 +2,7 @@
 ##
 ## AUTO GENERATED! DO NOT EDIT
 ##
-## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 20/07/2023 11:55:22
+## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 26/07/2023 13:54:03
 ##
 
 config:
@@ -72,8 +72,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/vectorAdd/vectorAdd-100-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/vectorAdd/vectorAdd-100-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-100-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -96,6 +95,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-100-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -106,6 +106,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-100-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -116,6 +117,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-100-32/playground-sim
   - name: vectorAdd
     benchmark_idx: 0
     path: /home/roman/dev/box/test-apps/vectoradd
@@ -133,8 +135,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/vectorAdd/vectorAdd-1000-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/vectorAdd/vectorAdd-1000-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-1000-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -157,6 +158,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-1000-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -167,6 +169,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-1000-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -177,6 +180,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-1000-32/playground-sim
   - name: vectorAdd
     benchmark_idx: 0
     path: /home/roman/dev/box/test-apps/vectoradd
@@ -194,8 +198,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/vectorAdd/vectorAdd-10000-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/vectorAdd/vectorAdd-10000-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-10000-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -218,6 +221,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-10000-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -228,6 +232,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-10000-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -238,6 +243,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-10000-32/playground-sim
   simple_matrixmul:
   - name: simple_matrixmul
     benchmark_idx: 1
@@ -260,8 +266,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-32-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-32-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-32-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -284,6 +289,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-32-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -294,6 +300,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-32-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -304,6 +311,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-32-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -325,8 +333,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-64-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-64-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-64-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -349,6 +356,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-64-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -359,6 +367,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-64-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -369,6 +378,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-64-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -390,8 +400,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-128-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-128-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-128-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -414,6 +423,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-128-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -424,6 +434,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-128-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -434,6 +445,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-32-128-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -455,8 +467,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-32-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-32-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-32-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -479,6 +490,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-32-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -489,6 +501,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-32-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -499,6 +512,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-32-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -520,8 +534,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-64-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-64-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-64-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -544,6 +557,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-64-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -554,6 +568,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-64-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -564,6 +579,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-64-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -585,8 +601,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-128-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-128-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-128-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -609,6 +624,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-128-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -619,6 +635,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-128-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -629,6 +646,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-64-128-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -650,8 +668,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-32-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-32-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-32-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -674,6 +691,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-32-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -684,6 +702,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-32-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -694,6 +713,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-32-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -715,8 +735,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-64-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-64-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-64-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -739,6 +758,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-64-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -749,6 +769,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-64-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -759,6 +780,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-64-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -780,8 +802,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-128-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-128-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-128-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -804,6 +825,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-128-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -814,6 +836,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-128-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -824,6 +847,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-32-128-128-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -845,8 +869,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-32-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-32-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-32-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -869,6 +892,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-32-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -879,6 +903,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-32-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -889,6 +914,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-32-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -910,8 +936,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-64-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-64-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-64-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -934,6 +959,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-64-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -944,6 +970,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-64-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -954,6 +981,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-64-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -975,8 +1003,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-128-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-128-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-128-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -999,6 +1026,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-128-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1009,6 +1037,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-128-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -1019,6 +1048,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-32-128-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -1040,8 +1070,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-32-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-32-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-32-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -1064,6 +1093,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-32-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1074,6 +1104,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-32-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -1084,6 +1115,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-32-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -1105,8 +1137,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-64-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-64-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-64-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -1129,6 +1160,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-64-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1139,6 +1171,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-64-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -1149,6 +1182,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-64-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -1170,8 +1204,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-128-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-128-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-128-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -1194,6 +1227,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-128-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1204,6 +1238,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-128-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -1214,6 +1249,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-64-128-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -1235,8 +1271,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-32-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-32-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-32-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -1259,6 +1294,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-32-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1269,6 +1305,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-32-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -1279,6 +1316,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-32-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -1300,8 +1338,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-64-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-64-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-64-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -1324,6 +1361,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-64-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1334,6 +1372,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-64-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -1344,6 +1383,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-64-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -1365,8 +1405,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-128-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-128-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-128-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -1389,6 +1428,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-128-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1399,6 +1439,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-128-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -1409,6 +1450,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-64-128-128-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -1430,8 +1472,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-32-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-32-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-32-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -1454,6 +1495,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-32-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1464,6 +1506,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-32-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -1474,6 +1517,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-32-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -1495,8 +1539,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-64-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-64-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-64-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -1519,6 +1562,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-64-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1529,6 +1573,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-64-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -1539,6 +1584,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-64-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -1560,8 +1606,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-128-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-128-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-128-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -1584,6 +1629,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-128-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1594,6 +1640,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-128-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -1604,6 +1651,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-32-128-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -1625,8 +1673,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-32-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-32-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-32-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -1649,6 +1696,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-32-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1659,6 +1707,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-32-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -1669,6 +1718,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-32-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -1690,8 +1740,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-64-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-64-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-64-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -1714,6 +1763,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-64-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1724,6 +1774,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-64-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -1734,6 +1785,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-64-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -1755,8 +1807,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-128-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-128-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-128-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -1779,6 +1830,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-128-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1789,6 +1841,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-128-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -1799,6 +1852,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-64-128-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -1820,8 +1874,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-32-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-32-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-32-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -1844,6 +1897,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-32-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1854,6 +1908,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-32-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -1864,6 +1919,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-32-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -1885,8 +1941,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-64-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-64-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-64-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -1909,6 +1964,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-64-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1919,6 +1975,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-64-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -1929,6 +1986,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-64-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
     path: /home/roman/dev/box/test-apps/simple_matrixmul
@@ -1950,8 +2008,7 @@ benchmarks:
       concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
-      log_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-128-32/profile/profile.log
-      metrics_file: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-128-32/profile/profile.metrics.csv
+      profile_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-128-32/profile
     trace:
       repetitions: 1
       timeout: null
@@ -1974,6 +2031,7 @@ benchmarks:
       concurrency: null
       enabled: true
       results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-128-32/sim
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1984,6 +2042,7 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-128-32/accelsim-sim
     playground_simulate:
       repetitions: 2
       timeout: null
@@ -1994,3 +2053,4 @@ benchmarks:
       inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-128-128-128-32/playground-sim

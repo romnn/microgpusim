@@ -3,7 +3,19 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use strum::IntoEnumIterator;
 
-#[derive(Debug, strum::EnumIter, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    strum::EnumIter,
+    Clone,
+    Copy,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+)]
 pub enum RequestStatus {
     HIT = 0,
     HIT_RESERVED,
@@ -13,7 +25,19 @@ pub enum RequestStatus {
     MSHR_HIT,
 }
 
-#[derive(Debug, strum::EnumIter, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    strum::EnumIter,
+    Clone,
+    Copy,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+)]
 pub enum ReservationFailure {
     /// all line are reserved
     LINE_ALLOC_FAIL = 0,
@@ -24,55 +48,25 @@ pub enum ReservationFailure {
     MSHR_RW_PENDING,
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum AccessStat {
     ReservationFailure(ReservationFailure),
     Status(RequestStatus),
 }
 
-#[allow(clippy::module_name_repetitions)]
-#[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PerCache(pub HashMap<usize, Cache>);
-
-impl PerCache {
-    pub fn shave(&mut self) {
-        for stats in self.values_mut() {
-            stats.shave();
-        }
-    }
-
-    #[must_use]
-    pub fn total_accesses(&self) -> usize {
-        self.reduce().total_accesses()
-    }
-
-    #[must_use]
-    pub fn reduce(&self) -> Cache {
-        let mut out = Cache::default();
-        for stats in self.0.values() {
-            out += stats.clone();
-        }
-        out
-    }
-}
-
-impl std::ops::Deref for PerCache {
-    type Target = HashMap<usize, Cache>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl std::ops::DerefMut for PerCache {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
+pub type CacheCsvRow = ((AccessKind, AccessStat), usize);
 
 #[derive(Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Cache {
     pub accesses: HashMap<(AccessKind, AccessStat), usize>,
+}
+
+impl Cache {
+    pub fn flatten(self) -> Vec<CacheCsvRow> {
+        let mut flattened: Vec<_> = self.accesses.into_iter().collect();
+        flattened.sort_by_key(|(access, _)| *access);
+        flattened
+    }
 }
 
 impl std::ops::AddAssign for Cache {
@@ -179,5 +173,66 @@ impl Cache {
             .accesses
             .entry((kind.into(), access.into()))
             .or_insert(0) += count;
+    }
+}
+
+pub type PerCacheCsvRow = (usize, CacheCsvRow);
+
+#[allow(clippy::module_name_repetitions)]
+#[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PerCache(pub HashMap<usize, Cache>);
+
+impl PerCache {
+    pub fn into_inner(self) -> HashMap<usize, Cache> {
+        self.0
+    }
+
+    pub fn flatten(self) -> Vec<PerCacheCsvRow> {
+        let mut flattened: Vec<_> = self
+            .into_inner()
+            .into_iter()
+            .flat_map(|(id, cache)| {
+                cache
+                    .flatten()
+                    .into_iter()
+                    .map(move |cache_row| (id, cache_row))
+            })
+            .collect();
+        flattened.sort_by_key(|(id, _)| *id);
+        flattened
+    }
+
+    pub fn shave(&mut self) {
+        for stats in self.values_mut() {
+            stats.shave();
+        }
+    }
+
+    #[must_use]
+    pub fn total_accesses(&self) -> usize {
+        self.reduce().total_accesses()
+    }
+
+    #[must_use]
+    pub fn reduce(&self) -> Cache {
+        let mut out = Cache::default();
+        for stats in self.0.values() {
+            out += stats.clone();
+        }
+        out
+    }
+}
+
+impl std::ops::Deref for PerCache {
+    type Target = HashMap<usize, Cache>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for PerCache {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }

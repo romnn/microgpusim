@@ -72,8 +72,9 @@ pub struct ProfileConfig {
 pub struct ProfileOptions {
     #[serde(flatten)]
     pub common: TargetConfig,
-    pub log_file: PathBuf,
-    pub metrics_file: PathBuf,
+    pub profile_dir: PathBuf,
+    // pub log_file: PathBuf,
+    // pub metrics_file: PathBuf,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -116,6 +117,7 @@ pub struct SimConfig {
 pub struct SimOptions {
     #[serde(flatten)]
     pub common: TargetConfig,
+    pub stats_dir: PathBuf,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -124,15 +126,35 @@ pub struct AccelsimSimConfig {
     pub common: TargetConfig,
     #[serde(flatten)]
     pub configs: AccelsimSimConfigFiles,
-    // pub configs: AccelsimSimOptionsFiles,
-    // pub config: PathBuf,
-    // pub config_dir: PathBuf,
-    // pub trace_config: PathBuf,
-    // pub inter_config: PathBuf,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-// pub struct AccelsimSimOptionsFiles {
+pub struct AccelsimSimOptions {
+    #[serde(flatten)]
+    pub common: TargetConfig,
+    #[serde(flatten)]
+    pub configs: AccelsimSimConfigFiles,
+    pub stats_dir: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct PlaygroundSimConfig {
+    #[serde(flatten)]
+    pub common: TargetConfig,
+    #[serde(flatten)]
+    pub configs: AccelsimSimConfigFiles,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct PlaygroundSimOptions {
+    #[serde(flatten)]
+    pub common: TargetConfig,
+    #[serde(flatten)]
+    pub configs: AccelsimSimConfigFiles,
+    pub stats_dir: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct AccelsimSimConfigFiles {
     pub trace_config: PathBuf,
     pub inter_config: PathBuf,
@@ -162,30 +184,6 @@ impl crate::AccelsimSimOptionsFiles {
             config: gpgpusim_config.resolve(base),
         })
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct AccelsimSimOptions {
-    #[serde(flatten)]
-    pub common: TargetConfig,
-    #[serde(flatten)]
-    pub configs: AccelsimSimConfigFiles,
-}
-
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct PlaygroundSimConfig {
-    #[serde(flatten)]
-    pub common: TargetConfig,
-    #[serde(flatten)]
-    pub configs: AccelsimSimConfigFiles,
-}
-
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct PlaygroundSimOptions {
-    #[serde(flatten)]
-    pub common: TargetConfig,
-    #[serde(flatten)]
-    pub configs: AccelsimSimConfigFiles,
 }
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
@@ -265,21 +263,27 @@ impl crate::Benchmark {
                 .clone()
                 .materialize(base, Some(&defaults.common))?;
 
-            let log_file = base_config
+            let profile_dir = base_config
                 .results_dir
                 .join(&default_artifact_path)
-                .join("profile")
-                .join("profile.log");
+                .join("profile");
 
-            let metrics_file = base_config
-                .results_dir
-                .join(&default_artifact_path)
-                .join("profile")
-                .join("profile.metrics.csv");
+            // let log_file = base_config
+            //     .results_dir
+            //     .join(&default_artifact_path)
+            //     .join("profile")
+            //     .join("profile.log");
+            //
+            // let metrics_file = base_config
+            //     .results_dir
+            //     .join(&default_artifact_path)
+            //     .join("profile")
+            //     .join("profile.metrics.csv");
 
             ProfileOptions {
-                log_file,
-                metrics_file,
+                // log_file,
+                // metrics_file,
+                profile_dir,
                 common: base_config,
             }
         };
@@ -329,7 +333,13 @@ impl crate::Benchmark {
                 .clone()
                 .materialize(base, Some(&defaults.common))?;
 
+            let stats_dir = base_config
+                .results_dir
+                .join(&default_artifact_path)
+                .join("sim");
+
             SimOptions {
+                stats_dir,
                 common: base_config,
             }
         };
@@ -341,7 +351,13 @@ impl crate::Benchmark {
                 .clone()
                 .materialize(base, Some(&defaults.common))?;
 
+            let stats_dir = base_config
+                .results_dir
+                .join(&default_artifact_path)
+                .join("accelsim-sim");
+
             AccelsimSimOptions {
+                stats_dir,
                 common: base_config,
                 configs: self.accelsim_simulate.configs.materialize(
                     base,
@@ -358,7 +374,13 @@ impl crate::Benchmark {
                 .clone()
                 .materialize(base, Some(&defaults.common))?;
 
+            let stats_dir = base_config
+                .results_dir
+                .join(&default_artifact_path)
+                .join("playground-sim");
+
             PlaygroundSimOptions {
+                stats_dir,
                 common: base_config,
                 configs: self.playground_simulate.configs.materialize(
                     base,
