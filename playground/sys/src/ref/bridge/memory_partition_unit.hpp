@@ -3,6 +3,7 @@
 #include "../memory_partition_unit.hpp"
 #include "../memory_sub_partition.hpp"
 #include "mem_fetch.hpp"
+#include "cache.hpp"
 
 class memory_partition_unit_bridge {
  public:
@@ -51,6 +52,9 @@ class memory_sub_partition_bridge {
   }
   std::unique_ptr<std::vector<mem_fetch_ptr_shim>> get_L2_icnt_queue() const {
     return get_queue(ptr->m_L2_icnt_queue);
+  }
+  std::shared_ptr<cache_bridge> get_l2_cache() const {
+    return new_cache_bridge(ptr->m_L2cache);
   }
 
  private:

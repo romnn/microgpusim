@@ -17,7 +17,7 @@ trace_parser::trace_parser(const char *kernellist_filepath) {
   kernellist_filename = kernellist_filepath;
 }
 
-std::vector<trace_command> trace_parser::parse_commandlist_file() {
+std::vector<trace_command> trace_parser::parse_commandlist_file() const {
   std::ifstream fs;
   fs.open(kernellist_filename);
 
@@ -58,7 +58,7 @@ std::vector<trace_command> trace_parser::parse_commandlist_file() {
 }
 
 void trace_parser::parse_memcpy_info(const std::string &memcpy_command,
-                                     size_t &address, size_t &count) {
+                                     size_t &address, size_t &count) const {
   std::vector<std::string> params;
   split(memcpy_command, params, ',');
   assert(params.size() == 3);
@@ -71,7 +71,7 @@ void trace_parser::parse_memcpy_info(const std::string &memcpy_command,
 }
 
 kernel_trace_t *trace_parser::parse_kernel_info(
-    const std::string &kerneltraces_filepath) {
+    const std::string &kerneltraces_filepath) const {
   kernel_trace_t *kernel_info = new kernel_trace_t;
   kernel_info->enable_lineinfo = 0;  // default disabled
   kernel_info->ifs = new std::ifstream;
@@ -154,7 +154,7 @@ kernel_trace_t *trace_parser::parse_kernel_info(
   return kernel_info;
 }
 
-void trace_parser::kernel_finalizer(kernel_trace_t *trace_info) {
+void trace_parser::kernel_finalizer(kernel_trace_t *trace_info) const {
   assert(trace_info);
   assert(trace_info->ifs);
   if (trace_info->ifs->is_open()) trace_info->ifs->close();
@@ -164,7 +164,8 @@ void trace_parser::kernel_finalizer(kernel_trace_t *trace_info) {
 
 void trace_parser::get_next_threadblock_traces(
     std::vector<std::vector<inst_trace_t> *> threadblock_traces,
-    unsigned trace_version, unsigned enable_lineinfo, std::ifstream *ifs) {
+    unsigned trace_version, unsigned enable_lineinfo,
+    std::ifstream *ifs) const {
   for (unsigned i = 0; i < threadblock_traces.size(); ++i) {
     threadblock_traces[i]->clear();
   }

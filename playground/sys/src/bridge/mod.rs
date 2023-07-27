@@ -4,6 +4,7 @@
     clippy::missing_panics_doc
 )]
 
+pub mod cache;
 pub mod core;
 pub mod input_port;
 pub mod main;
@@ -13,6 +14,7 @@ pub mod operand_collector;
 pub mod register_set;
 pub mod scheduler_unit;
 pub mod stats;
+pub mod trace_parser;
 pub mod types;
 pub mod warp_inst;
 

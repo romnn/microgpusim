@@ -82,5 +82,6 @@
 
 #include "ref/bridge/accelsim_config.hpp"
 #include "ref/bridge/accelsim_stats.hpp"
+#include "ref/bridge/trace_entry.hpp"
 
 #include "tests/parse_cache_config.hpp"

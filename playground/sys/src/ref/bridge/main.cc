@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cstdlib>
 
 #include "../gpgpu_context.hpp"
 #include "../icnt_wrapper.hpp"
@@ -12,6 +13,9 @@
 
 #include "playground-sys/src/bridge/main.rs.h"
 
+#include "spdlog/common.h"
+#include "spdlog/sinks/stdout_color_sinks.h"
+#include "spdlog/sinks/basic_file_sink.h"
 #include "stats.hpp"
 #include "main.hpp"
 
@@ -59,7 +63,7 @@ void cli_configure(gpgpu_context *m_gpgpu_context, trace_config &m_config,
 trace_gpgpu_sim *gpgpu_trace_sim_init_perf_model(
     gpgpu_context *m_gpgpu_context, trace_config &m_config,
     const accelsim_config &config, const std::vector<const char *> &argv,
-    bool silent) {
+    std::shared_ptr<spdlog::logger> logger, bool silent) {
   // seed random
   srand(1);
 
@@ -81,8 +85,9 @@ trace_gpgpu_sim *gpgpu_trace_sim_init_perf_model(
   assert(m_gpgpu_context->the_gpgpusim->g_the_gpu_config->m_shader_config
              .gpgpu_num_sched_per_core == 1);
 
-  m_gpgpu_context->the_gpgpusim->g_the_gpu = new trace_gpgpu_sim(
-      *(m_gpgpu_context->the_gpgpusim->g_the_gpu_config), m_gpgpu_context);
+  m_gpgpu_context->the_gpgpusim->g_the_gpu =
+      new trace_gpgpu_sim(*(m_gpgpu_context->the_gpgpusim->g_the_gpu_config),
+                          m_gpgpu_context, logger);
 
   m_gpgpu_context->the_gpgpusim->g_stream_manager =
       new stream_manager((m_gpgpu_context->the_gpgpusim->g_the_gpu),
@@ -124,6 +129,34 @@ std::unique_ptr<accelsim_bridge> new_accelsim_bridge(
   return std::make_unique<accelsim_bridge>(config, argv);
 }
 
+accelsim_bridge::~accelsim_bridge() {
+  // logger->clear();
+  // spdlog::shutdown();
+
+  delete tracer;
+  delete m_gpgpu_sim;
+  delete m_gpgpu_context;
+};
+
+void configure_log_level(std::shared_ptr<spdlog::logger> &logger) {
+  std::string log_level = spdlog::details::os::getenv("SPDLOG_LEVEL");
+  // make lowercase
+  std::transform(log_level.begin(), log_level.end(), log_level.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+  if (log_level.compare("trace") == 0) {
+    logger->set_level(spdlog::level::level_enum::trace);
+  } else if (log_level.compare("debug") == 0) {
+    logger->set_level(spdlog::level::level_enum::debug);
+  } else if (log_level.compare("warn") == 0) {
+    logger->set_level(spdlog::level::level_enum::warn);
+  } else if (log_level.compare("info") == 0) {
+    logger->set_level(spdlog::level::level_enum::info);
+  } else {
+    // disable logging fully
+    logger->set_level(spdlog::level::level_enum::off);
+  }
+}
+
 accelsim_bridge::accelsim_bridge(accelsim_config config,
                                  rust::Slice<const rust::Str> argv) {
   std::cout << "Accel-Sim [build <box>]" << std::endl;
@@ -140,12 +173,36 @@ accelsim_bridge::accelsim_bridge(accelsim_config config,
     std::cout << "arg:" << arg << std::endl;
   }
 
+  if (std::getenv("PLAYGROUND_USE_LOG_FILE") &&
+      std::getenv("PLAYGROUND_LOG_FILE")) {
+    std::string log_file = std::string(std::getenv("PLAYGROUND_LOG_FILE"));
+    auto file_logger =
+        std::make_shared<spdlog::sinks::basic_file_sink_mt>(log_file);
+    logger = std::make_shared<spdlog::logger>("playground", file_logger);
+  } else {
+    auto stdout_logger =
+        std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+    logger = std::make_shared<spdlog::logger>("playground", stdout_logger);
+  }
+  // logger->set_pattern("[multi_sink_example] [%^%l%$] %v");
+  logger->set_pattern("%v");
+  // does not work with non-global static loggers
+  // spdlog::cfg::load_env_levels();
+
+  configure_log_level(logger);
+
+  std::string log_after_cycle_str = spdlog::details::os::getenv("LOG_AFTER");
+  if (log_after_cycle_str.length() > 0 &&
+      atoi(log_after_cycle_str.c_str()) > 0) {
+    logger->set_level(spdlog::level::level_enum::off);
+    log_after_cycle = atoi(log_after_cycle_str.c_str());
+  }
   // setup the gpu
   m_gpgpu_context = new gpgpu_context();
 
   // init trace based performance model
   m_gpgpu_sim = gpgpu_trace_sim_init_perf_model(m_gpgpu_context, tconfig,
-                                                config, c_argv, silent);
+                                                config, c_argv, logger, silent);
 
   m_gpgpu_sim->init();
 
@@ -321,6 +378,16 @@ void accelsim_bridge::run_to_completion() {
     unsigned finished_kernel_uid = 0;
     do {
       if (!active()) break;
+
+      unsigned tot_cycle =
+          m_gpgpu_sim->gpu_tot_sim_cycle + m_gpgpu_sim->gpu_sim_cycle;
+
+      if (log_after_cycle > 0 && tot_cycle >= log_after_cycle) {
+        fmt::println("initializing logging after cycle {}", tot_cycle);
+        configure_log_level(logger);
+        log_after_cycle = 0;
+      }
+
       cycle();
       // check for finished kernel
       finished_kernel_uid = get_finished_kernel_uid();

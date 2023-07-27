@@ -58,6 +58,20 @@ fn build(sources: &[PathBuf]) -> eyre::Result<()> {
     Ok(())
 }
 
+#[derive(Debug)]
+struct ParseCallbacks {}
+
+impl bindgen::callbacks::ParseCallbacks for ParseCallbacks {
+    fn add_derives(&self, info: &bindgen::callbacks::DeriveInfo<'_>) -> Vec<String> {
+        match info.name {
+            "cache_request_status" | "cache_reservation_fail_reason" | "mem_access_type" => vec![
+                "serde::Serialize".to_string(),
+                "serde::Deserialize".to_string(),
+            ],
+            _ => vec![],
+        }
+    }
+}
 fn generate_bindings(include_dir: &Path, flags: &HashMap<&str, &str>) -> eyre::Result<()> {
     let builder = bindgen::Builder::default()
         .clang_arg("-std=c++14")
@@ -71,6 +85,7 @@ fn generate_bindings(include_dir: &Path, flags: &HashMap<&str, &str>) -> eyre::R
         .default_enum_style(bindgen::EnumVariation::Rust {
             non_exhaustive: false,
         })
+        .parse_callbacks(Box::new(ParseCallbacks {}))
         // .allowlist_function("powli")
         // .allowlist_function("LOGB2_32")
         // .allowlist_function("next_powerOf2")
@@ -99,6 +114,9 @@ fn generate_bindings(include_dir: &Path, flags: &HashMap<&str, &str>) -> eyre::R
         .allowlist_type("cache_reservation_fail_reason")
         // for cache config tests
         .allowlist_type("cache_config_params")
+        // for trace parser
+        .allowlist_type("command_type")
+        .allowlist_type("TraceEntry")
         // for config tests
         .allowlist_type("CacheConfig")
         .allowlist_function("parse_cache_config")

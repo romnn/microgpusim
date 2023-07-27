@@ -10,6 +10,9 @@ mod ffi {
         fn get_pc(self: &warp_inst_t) -> u32;
         fn warp_id(self: &warp_inst_t) -> u32;
     }
+
+    // explicit instantiation for warp_inst_t to implement VecElement
+    impl CxxVector<warp_inst_t> {}
 }
 
 pub use ffi::*;

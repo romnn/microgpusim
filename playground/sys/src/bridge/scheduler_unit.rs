@@ -16,6 +16,9 @@ mod ffi {
         #[must_use]
         fn inner(self: &scheduler_unit_bridge) -> *const scheduler_unit;
         fn get_prioritized_warp_ids(self: &scheduler_unit_bridge) -> UniquePtr<CxxVector<u32>>;
+        fn get_prioritized_dynamic_warp_ids(
+            self: &scheduler_unit_bridge,
+        ) -> UniquePtr<CxxVector<u32>>;
     }
 
     // explicit instantiation for scheduler_unit_ptr to implement VecElement

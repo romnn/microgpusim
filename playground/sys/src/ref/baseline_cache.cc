@@ -204,10 +204,10 @@ void baseline_cache::send_read_request(new_addr_type addr,
   bool mshr_avail = !m_mshrs.full(mshr_addr);
 
   logger->debug(
-      "{}::baseline_cache::send_read_request(addr={}, block={}, "
+      "{}::baseline_cache::send_read_request({}) (addr={}, block={}, "
       "mshr_addr={}, mshr_hit={}, mshr_full={}, miss_queue_full={})",
-      name(), addr, block_addr, mshr_addr, mshr_hit, !mshr_avail,
-      m_miss_queue.size() >= m_config.m_miss_queue_size);
+      name(), mem_fetch_ptr(mf), addr, block_addr, mshr_addr, mshr_hit,
+      !mshr_avail, m_miss_queue.size() >= m_config.m_miss_queue_size);
 
   if (mshr_hit && mshr_avail) {
     if (read_only)

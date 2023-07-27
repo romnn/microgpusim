@@ -3,8 +3,6 @@ mod ffi {
     unsafe extern "C++" {
         include!("playground-sys/src/bridge.hpp");
 
-        type inst_trace_t;
-
         type warp_inst_t;
         type trace_kernel_info_t;
 

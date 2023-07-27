@@ -119,6 +119,7 @@ mem_stage_stall_type ldst_unit::process_memory_access_queue_l1cache(
   mem_stage_stall_type result = NO_RC_FAIL;
   if (inst.accessq_empty()) return result;
 
+  new_addr_type dbg_addr = 0;
   if (m_config->m_L1D_config.l1_latency > 0) {
     for (unsigned j = 0; j < m_config->m_L1D_config.l1_banks;
          j++) {  // We can handle at max l1_banks reqs per cycle
@@ -129,8 +130,14 @@ mem_stage_stall_type ldst_unit::process_memory_access_queue_l1cache(
           m_mf_allocator->alloc(inst, inst.accessq_back(),
                                 m_core->get_gpu()->gpu_sim_cycle +
                                     m_core->get_gpu()->gpu_tot_sim_cycle);
-      unsigned bank_id = m_config->m_L1D_config.set_bank(mf->get_addr());
+      dbg_addr = mf->get_addr();
+      unsigned bank_id =
+          m_config->m_L1D_config.set_bank(mf->get_addr(), logger);
       assert(bank_id < m_config->m_L1D_config.l1_banks);
+
+      logger->trace("computed bank id {} for address {} (access queue=[{}])",
+                    bank_id, mf->get_addr(),
+                    fmt::join(inst.mem_access_queue(), ", "));
 
       if ((l1_latency_queue[bank_id][m_config->m_L1D_config.l1_latency - 1]) ==
           NULL) {
@@ -155,6 +162,11 @@ mem_stage_stall_type ldst_unit::process_memory_access_queue_l1cache(
       }
     }
     if (!inst.accessq_empty() && result != BK_CONF) result = COAL_STALL;
+    logger->trace(
+        "process_memory_access_queue_l1cache stall cond {} for addresss {} "
+        "(access queue=[{}])",
+        mem_stage_stall_type_str[result], dbg_addr,
+        fmt::join(inst.mem_access_queue(), ", "));
 
     return result;
   } else {
@@ -316,8 +328,6 @@ bool ldst_unit::memory_cycle(warp_inst_t &inst,
   mem_stage_stall_type stall_cond = NO_RC_FAIL;
   const mem_access_t &access = inst.accessq_back();
 
-  logger->debug("memory cycle for instruction: {} => access: {}", inst, access);
-
   bool bypassL1D = false;
   if (CACHE_GLOBAL == inst.cache_op || (m_L1D == NULL)) {
     bypassL1D = true;
@@ -326,6 +336,9 @@ bool ldst_unit::memory_cycle(warp_inst_t &inst,
     if (m_core->get_config()->gmem_skip_L1D && (CACHE_L1 != inst.cache_op))
       bypassL1D = true;
   }
+  logger->debug("memory cycle for instruction: {} => access: {} (bypass l1={})",
+                inst, access, bypassL1D);
+
   if (bypassL1D) {
     // bypass L1 cache
     unsigned control_size =
@@ -340,7 +353,6 @@ bool ldst_unit::memory_cycle(warp_inst_t &inst,
                                 m_core->get_gpu()->gpu_sim_cycle +
                                     m_core->get_gpu()->gpu_tot_sim_cycle);
 
-      // printf("ldst_unit: icnt::push(%lu)\n", mf->get_addr());
       m_icnt->push(mf);
       inst.accessq_pop_back();
       // inst.clear_active( access.get_warp_mask() );
@@ -712,9 +724,7 @@ void ldst_unit::cycle() {
           }
         }
         if (!pending_requests) {
-          // if (warp_id == 3)
-          //   throw std::runtime_error("rleeasee");
-          throw std::runtime_error("hi");
+          // throw std::runtime_error("hi");
           m_core->warp_inst_complete(*m_dispatch_reg);
           m_scoreboard->releaseRegisters(m_dispatch_reg);
         }

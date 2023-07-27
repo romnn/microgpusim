@@ -110,7 +110,7 @@ void scheduler_unit::cycle() {
       if (warp(warp_id).waiting()) {
         logger->debug(
             "\t => Warp (warp_id {}, dynamic_warp_id {}) fails as waiting for "
-            "barrier",
+            "completion",
             next_warp->get_warp_id(), next_warp->get_dynamic_warp_id());
       }
     }
@@ -163,8 +163,6 @@ void scheduler_unit::cycle() {
           warp(warp_id).ibuffer_flush();
         } else {
           valid_inst = true;
-          // m_scoreboard->printContents();
-          // pI->print(stdout);
           if (!m_scoreboard->checkCollision(warp_id, pI)) {
             logger->debug(
                 "Warp (warp_id {}, dynamic_warp_id {}) passes scoreboard",
@@ -180,14 +178,6 @@ void scheduler_unit::cycle() {
                 (pI->op == MEMORY_BARRIER_OP) ||
                 (pI->op == TENSOR_CORE_LOAD_OP) ||
                 (pI->op == TENSOR_CORE_STORE_OP)) {
-              // m_mem_out->print(stdout);
-              // if (!m_mem_out->has_free(m_shader->m_config->sub_core_model,
-              //
-              //                          m_id)) {
-              //   throw std::runtime_error(
-              //       "issue failed: no free mem port register");
-              // }
-
               if (m_mem_out->has_free(m_shader->m_config->sub_core_model,
                                       m_id) &&
                   (!diff_exec_units ||
@@ -199,14 +189,12 @@ void scheduler_unit::cycle() {
                 warp_inst_issued = true;
                 previous_issued_inst_exec_type = exec_unit_type_t::MEM;
               } else {
-                // throw std::runtime_error(
-                //     "issue failed: no free mem port register");
+                logger->debug("issue failed: no free mem port register");
               }
             } else {
               // This code need to be refactored
               if (pI->op != TENSOR_CORE_OP && pI->op != SFU_OP &&
                   pI->op != DP_OP && !(pI->op >= SPEC_UNIT_START_ID)) {
-                // throw std::runtime_error("case 1");
                 bool execute_on_SP = false;
                 bool execute_on_INT = false;
 

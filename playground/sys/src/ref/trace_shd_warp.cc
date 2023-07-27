@@ -2,6 +2,7 @@
 
 #include <iomanip>
 
+#include "hal.hpp"
 #include "io.hpp"
 #include "trace_instr_opcode.hpp"
 #include "trace_kernel_info.hpp"
@@ -112,12 +113,25 @@ void trace_shd_warp_t::print_trace_instructions(
     if (all || is_memory_instruction(parsed_inst) ||
         parsed_inst->op == EXIT_OPS) {
       assert(warp_traces[temp_trace_pc].m_pc == parsed_inst->pc);
+
+      std::vector<new_addr_type> addresses;
+      if (trace.memadd_info != NULL) {
+        for (unsigned i = 0; i < WARP_SIZE; ++i)
+          addresses.push_back(trace.memadd_info->addrs[i]);
+      }
+
       logger->debug(
           "====> instruction at trace pc {:>4}:\t {:<10}\t {:<15} "
           "\t\tactive={}\tpc = {:>4} = {:<4}",
           temp_trace_pc, parsed_inst->opcode_str(), trace.opcode,
           mask_to_string(parsed_inst->get_active_mask()),
           warp_traces[temp_trace_pc].m_pc, parsed_inst->pc);
+
+      // unsigned tid = 0;
+      // for (new_addr_type &address : addresses) {
+      //   logger->trace("\t thread {:>2} accesses {}", tid, address);
+      //   tid++;
+      // }
     }
     temp_trace_pc++;
   }

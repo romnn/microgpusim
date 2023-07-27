@@ -21,11 +21,13 @@ class baseline_cache : public cache_t {
                  std::shared_ptr<spdlog::logger> logger)
       : logger(logger),
         m_config(config),
-        m_tag_array(new tag_array(config, core_id, type_id)),
+        m_tag_array(new tag_array(config, core_id, type_id, logger)),
         m_mshrs(config.m_mshr_entries, config.m_mshr_max_merge, logger),
         m_bandwidth_management(logger, config) {
     init(name, config, memport, status);
   }
+
+  friend class cache_bridge;
 
   void init(const char *name, const cache_config &config,
             mem_fetch_interface *memport, enum mem_fetch_status status) {

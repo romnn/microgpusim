@@ -7,9 +7,7 @@ mem_fetch::mem_fetch(const mem_access_t &access, const warp_inst_t *inst,
                      unsigned tpc, const memory_config *config,
                      unsigned long long cycle, mem_fetch *m_original_mf,
                      mem_fetch *m_original_wr_mf)
-    : m_access(access)
-
-{
+    : m_access(access) {
   m_request_uid = sm_next_mf_request_uid++;
   m_access = access;
   if (inst) {

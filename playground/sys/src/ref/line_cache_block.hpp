@@ -15,7 +15,7 @@ struct line_cache_block : public cache_block_t {
     m_readable = true;
   }
   void allocate(new_addr_type tag, new_addr_type block_addr, unsigned time,
-                mem_access_sector_mask_t sector_mask) {
+                mem_access_sector_mask_t sector_mask) override {
     m_tag = tag;
     m_block_addr = block_addr;
     m_alloc_time = time;
@@ -28,7 +28,7 @@ struct line_cache_block : public cache_block_t {
     m_set_byte_mask_on_fill = false;
   }
   virtual void fill(unsigned time, mem_access_sector_mask_t sector_mask,
-                    mem_access_byte_mask_t byte_mask) {
+                    mem_access_byte_mask_t byte_mask) override {
     // if(!m_ignore_on_fill_status)
     //	assert( m_status == RESERVED );
 
@@ -39,67 +39,71 @@ struct line_cache_block : public cache_block_t {
 
     m_fill_time = time;
   }
-  virtual bool is_invalid_line() { return m_status == INVALID; }
-  virtual bool is_valid_line() { return m_status == VALID; }
-  virtual bool is_reserved_line() { return m_status == RESERVED; }
-  virtual bool is_modified_line() { return m_status == MODIFIED; }
+  virtual bool is_invalid_line() const override { return m_status == INVALID; }
+  virtual bool is_valid_line() const override { return m_status == VALID; }
+  virtual bool is_reserved_line() const override {
+    return m_status == RESERVED;
+  }
+  virtual bool is_modified_line() const override {
+    return m_status == MODIFIED;
+  }
 
   virtual enum cache_block_state get_status(
-      mem_access_sector_mask_t sector_mask) {
+      mem_access_sector_mask_t sector_mask) override {
     return m_status;
   }
   virtual void set_status(enum cache_block_state status,
-                          mem_access_sector_mask_t sector_mask) {
+                          mem_access_sector_mask_t sector_mask) override {
     m_status = status;
   }
-  virtual void set_byte_mask(mem_fetch *mf) {
+  virtual void set_byte_mask(mem_fetch *mf) override {
     m_dirty_byte_mask = m_dirty_byte_mask | mf->get_access_byte_mask();
   }
-  virtual void set_byte_mask(mem_access_byte_mask_t byte_mask) {
+  virtual void set_byte_mask(mem_access_byte_mask_t byte_mask) override {
     m_dirty_byte_mask = m_dirty_byte_mask | byte_mask;
   }
-  virtual mem_access_byte_mask_t get_dirty_byte_mask() {
+  virtual mem_access_byte_mask_t get_dirty_byte_mask() override {
     return m_dirty_byte_mask;
   }
-  virtual mem_access_sector_mask_t get_dirty_sector_mask() {
+  virtual mem_access_sector_mask_t get_dirty_sector_mask() override {
     mem_access_sector_mask_t sector_mask;
     if (m_status == MODIFIED) sector_mask.set();
     return sector_mask;
   }
-  virtual unsigned long long get_last_access_time() {
+  virtual unsigned long long get_last_access_time() override {
     return m_last_access_time;
   }
-  virtual void set_last_access_time(unsigned long long time,
-                                    mem_access_sector_mask_t sector_mask) {
+  virtual void set_last_access_time(
+      unsigned long long time, mem_access_sector_mask_t sector_mask) override {
     m_last_access_time = time;
   }
-  virtual unsigned long long get_alloc_time() { return m_alloc_time; }
-  virtual void set_ignore_on_fill(bool m_ignore,
-                                  mem_access_sector_mask_t sector_mask) {
+  virtual unsigned long long get_alloc_time() override { return m_alloc_time; }
+  virtual void set_ignore_on_fill(
+      bool m_ignore, mem_access_sector_mask_t sector_mask) override {
     m_ignore_on_fill_status = m_ignore;
   }
-  virtual void set_modified_on_fill(bool m_modified,
-                                    mem_access_sector_mask_t sector_mask) {
+  virtual void set_modified_on_fill(
+      bool m_modified, mem_access_sector_mask_t sector_mask) override {
     m_set_modified_on_fill = m_modified;
   }
-  virtual void set_readable_on_fill(bool readable,
-                                    mem_access_sector_mask_t sector_mask) {
+  virtual void set_readable_on_fill(
+      bool readable, mem_access_sector_mask_t sector_mask) override {
     m_set_readable_on_fill = readable;
   }
-  virtual void set_byte_mask_on_fill(bool m_modified) {
+  virtual void set_byte_mask_on_fill(bool m_modified) override {
     m_set_byte_mask_on_fill = m_modified;
   }
-  virtual unsigned get_modified_size() {
+  virtual unsigned get_modified_size() override {
     return SECTOR_CHUNCK_SIZE * SECTOR_SIZE;  // i.e. cache line size
   }
   virtual void set_m_readable(bool readable,
-                              mem_access_sector_mask_t sector_mask) {
+                              mem_access_sector_mask_t sector_mask) override {
     m_readable = readable;
   }
-  virtual bool is_readable(mem_access_sector_mask_t sector_mask) {
+  virtual bool is_readable(mem_access_sector_mask_t sector_mask) override {
     return m_readable;
   }
-  virtual void print_status() {
+  virtual void print_status() override {
     printf("m_block_addr is %lu, status = %u\n", m_block_addr, m_status);
   }
 

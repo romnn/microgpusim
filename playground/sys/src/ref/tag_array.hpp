@@ -12,8 +12,11 @@
 class tag_array {
  public:
   // Use this constructor
-  tag_array(cache_config &config, int core_id, int type_id);
+  tag_array(cache_config &config, int core_id, int type_id,
+            std::shared_ptr<spdlog::logger> logger);
   ~tag_array();
+
+  friend class cache_bridge;
 
   enum cache_request_status probe(new_addr_type addr, unsigned &idx,
                                   mem_fetch *mf, bool is_write,
@@ -51,12 +54,14 @@ class tag_array {
   void remove_pending_line(mem_fetch *mf);
   void inc_dirty() { m_dirty++; }
 
+  std::shared_ptr<spdlog::logger> logger;
+
  protected:
-  // This constructor is intended for use only from derived classes that wish to
-  // avoid unnecessary memory allocation that takes place in the
+  // This constructor is intended for use only from derived classes that
+  // wish to avoid unnecessary memory allocation that takes place in the
   // other tag_array constructor
-  tag_array(cache_config &config, int core_id, int type_id,
-            cache_block_t **new_lines);
+  // tag_array(cache_config &config, int core_id, int type_id,
+  //           cache_block_t **new_lines);
   void init(int core_id, int type_id);
 
  protected:

@@ -1,23 +1,24 @@
 use crate::bindings;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub type RequestStatus = bindings::cache_request_status;
 pub type AccessType = bindings::mem_access_type;
 pub type ReservationFailure = bindings::cache_reservation_fail_reason;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Cache {
     pub accesses: HashMap<(AccessType, AccessStat), u64>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum AccessStat {
     ReservationFailure(ReservationFailure),
     Status(RequestStatus),
 }
 
 /// DRAM stats
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DRAM {
     // total accesses are always zero (never set by accelsim)
     // we ignore them to spare confusion
@@ -27,7 +28,7 @@ pub struct DRAM {
 }
 
 /// Memory accesses
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Accesses {
     pub num_mem_write: u64,
     pub num_mem_read: u64,
@@ -43,7 +44,7 @@ pub struct Accesses {
 }
 
 /// Instruction counts
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstructionCounts {
     pub num_load_instructions: u64,
     pub num_store_instructions: u64,
@@ -54,14 +55,14 @@ pub struct InstructionCounts {
     pub num_param_instructions: u64,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Sim {
     pub cycle: u64,
     pub instructions: u64,
 }
 
 #[allow(clippy::module_name_repetitions)]
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct StatsBridge {
     pub accesses: Accesses,
     pub instructions: InstructionCounts,

@@ -8,13 +8,17 @@ fn main() -> eyre::Result<()> {
     color_eyre::install()?;
 
     let start = std::time::Instant::now();
-    let options = Options::parse();
+    let mut options = Options::parse();
+    options.resolve()?;
 
     let base = PathBuf::from(std::env!("CARGO_MANIFEST_DIR")).join("../");
-    let kernelslist = options.kernelslist();
+    let kernelslist = options
+        .kernelslist
+        .ok_or(eyre::eyre!("missing kernelslist"))?;
     let kernelslist = kernelslist
         .canonicalize()
         .wrap_err_with(|| format!("{} does not exist", kernelslist.display()))?;
+
     let mut gpgpusim_config = base.join("accelsim/gtx1080/gpgpusim.config");
     let mut trace_config = base.join("accelsim/gtx1080/gpgpusim.trace.config");
     let inter_config = Some(

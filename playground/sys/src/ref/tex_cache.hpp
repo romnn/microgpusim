@@ -23,7 +23,7 @@ class tex_cache : public cache_t {
             std::shared_ptr<spdlog::logger> logger)
       : logger(logger),
         m_config(config),
-        m_tags(config, core_id, type_id),
+        m_tags(config, core_id, type_id, logger),
         m_fragment_fifo(config.m_fragment_fifo_entries),
         m_request_fifo(config.m_request_fifo_entries),
         m_rob(config.m_rob_entries),

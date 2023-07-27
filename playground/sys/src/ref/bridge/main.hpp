@@ -8,16 +8,8 @@
 #include "rust/cxx.h"
 #include "playground-sys/src/bridge/stats.rs.h"
 
-// #include "./stats.hpp"
-// #include "../trace_parser.hpp"
 #include "../trace_config.hpp"
 #include "../trace_command.hpp"
-// #include "../trace_kernel_info.hpp"
-// #include "../opndcoll_rfu.hpp"
-// #include "../memory_partition_unit.hpp"
-// #include "../memory_sub_partition.hpp"
-// #include "../trace_shader_core_ctx.hpp"
-// #include "../trace_gpgpu_sim.hpp"
 
 #include "memory_partition_unit.hpp"
 #include "core.hpp"
@@ -25,6 +17,7 @@
 class accelsim_bridge {
  public:
   accelsim_bridge(accelsim_config config, rust::Slice<const rust::Str> argv);
+  ~accelsim_bridge();
 
   void run_to_completion();
   void process_commands();
@@ -63,6 +56,8 @@ class accelsim_bridge {
   trace_gpgpu_sim *m_gpgpu_sim;
   gpgpu_context *m_gpgpu_context;
 
+  std::shared_ptr<spdlog::logger> logger;
+
   std::vector<trace_command> commandlist;
   std::vector<unsigned long> busy_streams;
   std::vector<trace_kernel_info_t *> kernels_info;
@@ -70,6 +65,7 @@ class accelsim_bridge {
   unsigned command_idx;
   unsigned window_size;
   bool silent;
+  unsigned log_after_cycle;
 
   // for handing out references to components
   std::vector<memory_sub_partition_bridge> sub_partitions;

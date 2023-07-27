@@ -6,6 +6,7 @@
 #![allow(warnings)]
 
 pub mod addrdec;
+pub mod cache;
 pub mod collector_unit;
 pub mod core;
 pub mod interconnect;
@@ -16,6 +17,7 @@ pub mod operand_collector;
 pub mod port;
 pub mod register_set;
 pub mod scheduler_unit;
+pub mod trace_parser;
 pub mod warp;
 pub mod warp_inst;
 

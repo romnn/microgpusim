@@ -5,6 +5,13 @@
 
 enum cache_block_state { INVALID = 0, RESERVED, VALID, MODIFIED };
 
+static const char *cache_block_state_str[] = {
+    "INVALID",
+    "RESERVED",
+    "VALID",
+    "MODIFIED",
+};
+
 struct cache_block_t {
   cache_block_t() {
     m_tag = 0;
@@ -17,10 +24,10 @@ struct cache_block_t {
   virtual void fill(unsigned time, mem_access_sector_mask_t sector_mask,
                     mem_access_byte_mask_t byte_mask) = 0;
 
-  virtual bool is_invalid_line() = 0;
-  virtual bool is_valid_line() = 0;
-  virtual bool is_reserved_line() = 0;
-  virtual bool is_modified_line() = 0;
+  virtual bool is_invalid_line() const = 0;
+  virtual bool is_valid_line() const = 0;
+  virtual bool is_reserved_line() const = 0;
+  virtual bool is_modified_line() const = 0;
 
   virtual enum cache_block_state get_status(
       mem_access_sector_mask_t sector_mask) = 0;
@@ -50,4 +57,7 @@ struct cache_block_t {
 
   new_addr_type m_tag;
   new_addr_type m_block_addr;
+
+  new_addr_type get_tag() const { return m_tag; }
+  new_addr_type get_block_addr() const { return m_block_addr; }
 };

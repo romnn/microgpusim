@@ -47,13 +47,14 @@ bool mshr_table::is_read_after_write_pending(new_addr_type block_addr) {
 
 /// Accept a new cache fill response: mark entry ready for processing
 void mshr_table::mark_ready(new_addr_type block_addr, bool &has_atomic) {
-  logger->debug("mshr_table::mark_ready({}, {})", block_addr, has_atomic);
   assert(!busy());
   table::iterator a = m_data.find(block_addr);
   assert(a != m_data.end());
   m_current_response.push_back(block_addr);
   has_atomic = a->second.m_has_atomic;
   assert(m_current_response.size() <= m_data.size());
+  logger->trace("mshr_table::mark_ready(block_addr={}, has_atomic={})",
+                block_addr, has_atomic);
 }
 
 /// Returns next ready accesses

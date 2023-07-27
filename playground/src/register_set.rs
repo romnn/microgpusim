@@ -28,7 +28,7 @@ impl<'a> RegisterSet<'a> {
         self.inner
             .get_registers()
             .iter()
-            .map(|ptr| unsafe { WarpInstr::new(ptr.get()) })
+            .map(|ptr| unsafe { WarpInstr::wrap_ptr(ptr.get()) })
             .collect()
     }
 }

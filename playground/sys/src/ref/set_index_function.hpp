@@ -7,3 +7,7 @@ enum set_index_function {
   FERMI_HASH_SET_FUNCTION,
   CUSTOM_SET_FUNCTION
 };
+
+static const char* set_index_function_str[] = {
+    "LINEAR_SET_FUNCTION", "BITWISE_XORING_FUNCTION", "HASH_IPOLY_FUNCTION",
+    "FERMI_HASH_SET_FUNCTION", "CUSTOM_SET_FUNCTION"};

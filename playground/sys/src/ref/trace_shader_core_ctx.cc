@@ -212,8 +212,6 @@ void trace_shader_core_ctx::checkExecutionStatusAndUpdate(warp_inst_t &inst,
 }
 
 void trace_shader_core_ctx::func_exec_inst(warp_inst_t &inst) {
-  // throw std::runtime_error("functional execution of warp instr");
-
   for (unsigned t = 0; t < m_warp_size; t++) {
     if (inst.active(t)) {
       unsigned warpId = inst.warp_id();
@@ -1516,6 +1514,7 @@ unsigned trace_shader_core_ctx::translate_local_memaddr(
   address_type thread_base = 0;
   unsigned max_concurrent_threads = 0;
   if (m_config->gpgpu_local_mem_map) {
+    // assert(0 && "gpgpu local mem map");
     // Dnew = D*N + T%nTpC + nTpC*C
     // N = nTpC*nCpS*nS (max concurent threads)
     // C = nS*K + S (hw cta number per gpu)

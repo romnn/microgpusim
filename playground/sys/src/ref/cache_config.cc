@@ -68,6 +68,11 @@ unsigned cache_config::hash_function(new_addr_type addr, unsigned m_nset,
 
     case LINEAR_SET_FUNCTION: {
       set_index = (addr >> m_line_sz_log2) & (m_nset - 1);
+      // fmt::println(
+      //     "cache_config::hash_function::linear_set_function({})
+      //     log2(line)={}, " "num sets={} => {}", addr, m_line_sz_log2, m_nset,
+      //     set_index);
+
       break;
     }
 

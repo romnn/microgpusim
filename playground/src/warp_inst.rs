@@ -1,4 +1,5 @@
-use playground_sys::warp_inst::{warp_inst_bridge, warp_inst_t};
+use playground_sys::warp_inst::warp_inst_bridge;
+pub use playground_sys::warp_inst::warp_inst_t;
 use std::marker::PhantomData;
 
 #[derive(Clone)]
@@ -8,7 +9,15 @@ pub struct WarpInstr<'a> {
 }
 
 impl<'a> WarpInstr<'a> {
-    pub(crate) unsafe fn new(ptr: *const warp_inst_t) -> Self {
+    // pub unsafe fn new(ptr: &warp_inst_t) -> Self {
+    //     use playground_sys::warp_inst::new_warp_inst_bridge;
+    //     Self {
+    //         inner: new_warp_inst_bridge(ptr),
+    //         phantom: PhantomData,
+    //     }
+    // }
+
+    pub(crate) unsafe fn wrap_ptr(ptr: *const warp_inst_t) -> Self {
         use playground_sys::warp_inst::new_warp_inst_bridge;
         Self {
             inner: new_warp_inst_bridge(ptr),
@@ -21,6 +30,12 @@ impl<'a> WarpInstr<'a> {
         let opcode = unsafe { std::ffi::CStr::from_ptr(inst.opcode_str()) };
         opcode.to_str().unwrap()
     }
+
+    // pub fn opcode_str(&self) -> &str {
+    //     let inst: &warp_inst_t = &*self;
+    //     let opcode = unsafe { std::ffi::CStr::from_ptr(inst.opcode_str()) };
+    //     opcode.to_str().unwrap()
+    // }
 }
 
 impl<'a> std::ops::Deref for WarpInstr<'a> {

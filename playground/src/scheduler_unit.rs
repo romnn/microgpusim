@@ -31,4 +31,12 @@ impl<'a> SchedulerUnit<'a> {
             .map(|warp_id| *warp_id as usize)
             .collect()
     }
+
+    pub fn prioritized_dynamic_warp_ids(&'a self) -> Vec<usize> {
+        self.inner
+            .get_prioritized_dynamic_warp_ids()
+            .iter()
+            .map(|warp_id| *warp_id as usize)
+            .collect()
+    }
 }

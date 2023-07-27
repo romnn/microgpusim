@@ -232,7 +232,6 @@ void memory_partition_unit::simple_dram_model_cycle() {
                m_config->m_n_sub_partition_per_memory_channel;
 
     logger->debug("checking sub partition[{}]:", spid);
-    fifo_pipeline<mem_fetch> *q;
     logger->debug("\t icnt to l2 queue = {}",
                   *(m_sub_partition[spid]->m_icnt_L2_queue));
     logger->debug("\t l2 to icnt queue = {}",

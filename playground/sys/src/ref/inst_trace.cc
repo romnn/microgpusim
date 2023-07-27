@@ -2,6 +2,8 @@
 
 #include <sstream>
 
+#include "fmt/format.h"
+#include "hal.hpp"
 #include "trace_parser.hpp"
 
 bool is_number(const std::string &s) {
@@ -10,7 +12,21 @@ bool is_number(const std::string &s) {
   return !s.empty() && it == s.end();
 }
 
-inst_trace_t::inst_trace_t() { memadd_info = NULL; }
+inst_trace_t::inst_trace_t() {
+  // line_num = 0;
+  // m_pc = 0;
+  // mask = 0;
+  // reg_dsts_num = 0;
+  // for (unsigned r = 0; r < MAX_DST; r++) {
+  //   reg_dest[r] = 0;
+  // }
+  // opcode = std::string();
+  // reg_srcs_num = 0;
+  // for (unsigned r = 0; r < MAX_SRC; r++) {
+  //   reg_src[r] = 0;
+  // }
+  memadd_info = NULL;
+}
 
 inst_trace_t::~inst_trace_t() {
   if (memadd_info != NULL) delete memadd_info;

@@ -10,8 +10,6 @@
 
 #include "spdlog/logger.h"
 #include "spdlog/spdlog.h"
-#include "spdlog/sinks/stdout_color_sinks.h"
-#include "spdlog/sinks/basic_file_sink.h"
 #include "spdlog/cfg/env.h"
 
 // constants for statistics printouts
@@ -62,8 +60,8 @@ struct fmt::formatter<std::set<Allocation>> {
   auto format(const std::set<Allocation> &allocations,
               format_context &ctx) const -> format_context::iterator {
     return fmt::format_to(
-        ctx.out(), "[{}]",
-        fmt::join(allocations.begin(), allocations.end(), ", "));
+        ctx.out(), "[\n{}]",
+        fmt::join(allocations.begin(), allocations.end(), ",\n"));
   }
 };
 
@@ -85,8 +83,9 @@ struct fmt::formatter<Allocation> {
 
 class trace_gpgpu_sim {
  public:
-  trace_gpgpu_sim(const gpgpu_sim_config &config, gpgpu_context *ctx)
-      : m_config(config) {
+  trace_gpgpu_sim(const gpgpu_sim_config &config, gpgpu_context *ctx,
+                  std::shared_ptr<spdlog::logger> logger)
+      : logger(logger), m_config(config) {
     gpgpu_ctx = ctx;
     // m_global_mem = new memory_space_impl<8192>("global", 64 * 1024);
     // m_tex_mem = new memory_space_impl<8192>("tex", 64 * 1024);
@@ -111,17 +110,6 @@ class trace_gpgpu_sim {
     // if (m_function_model_config.get_ptx_inst_debug_to_file() != 0)
     //   ptx_inst_debug_file =
     //       fopen(m_function_model_config.get_ptx_inst_debug_file(), "w");
-
-    if (std::getenv("PLAYGROUND_USE_LOG_FILE") &&
-        std::getenv("PLAYGROUND_LOG_FILE")) {
-      std::string log_file = std::string(std::getenv("PLAYGROUND_LOG_FILE"));
-      logger = spdlog::basic_logger_mt("playground", log_file);
-    } else {
-      logger = spdlog::stdout_color_mt("playground");
-    }
-    // logger->set_pattern("[multi_sink_example] [%^%l%$] %v");
-    logger->set_pattern("%v");
-    spdlog::cfg::load_env_levels();
 
     // my_logger->set_level(spdlog::level::debug);
     // level::level_enum

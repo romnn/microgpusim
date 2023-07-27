@@ -32,7 +32,7 @@ impl<'a> CollectorUnit<'a> {
         if self.unit.is_free() {
             None
         } else {
-            Some(unsafe { super::warp_inst::WarpInstr::new(self.unit.get_warp_instruction()) })
+            Some(unsafe { super::warp_inst::WarpInstr::wrap_ptr(self.unit.get_warp_instruction()) })
         }
     }
 

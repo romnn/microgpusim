@@ -211,7 +211,7 @@ struct fmt::formatter<fifo_pipeline<T>> {
 
   auto format(const fifo_pipeline<T> &fifo, format_context &ctx) const
       -> format_context::iterator {
-    return fmt::format_to(ctx.out(), "({:>2}/{:<2})[{}]", fifo.m_length,
-                          fifo.m_max_len, fmt::join(fifo.to_vector(), ","));
+    return fmt::format_to(ctx.out(), "({:>2}/{:<2})[\n{}]", fifo.m_length,
+                          fifo.m_max_len, fmt::join(fifo.to_vector(), ",\n"));
   }
 };

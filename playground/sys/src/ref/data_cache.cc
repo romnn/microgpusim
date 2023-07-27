@@ -6,7 +6,7 @@
 void data_cache::send_write_request(mem_fetch *mf, cache_event request,
                                     unsigned time,
                                     std::list<cache_event> &events) {
-  logger->debug("data_cache::send_write_request(...)");
+  logger->debug("data_cache::send_write_request({})", mem_fetch_ptr(mf));
   events.push_back(request);
   m_miss_queue.push_back(mf);
   mf->set_status(m_miss_queue_status, time);
@@ -38,7 +38,12 @@ cache_request_status data_cache::wr_hit_wb(new_addr_type addr,
                                            unsigned time,
                                            std::list<cache_event> &events,
                                            enum cache_request_status status) {
+  assert(addr == mf->get_addr());
   new_addr_type block_addr = m_config.block_addr(addr);
+  logger->debug(
+      "handling WRITE HIT WRITE BACK for {} (block_addr={}, cache_idx={})",
+      mem_fetch_ptr(mf), block_addr, cache_index);
+
   m_tag_array->access(block_addr, time, cache_index, mf);  // update LRU state
   cache_block_t *block = m_tag_array->get_block(cache_index);
   if (!block->is_modified_line()) {
@@ -425,6 +430,11 @@ enum cache_request_status data_cache::wr_miss_wa_lazy_fetch_on_read(
 enum cache_request_status data_cache::wr_miss_no_wa(
     new_addr_type addr, unsigned cache_index, mem_fetch *mf, unsigned time,
     std::list<cache_event> &events, enum cache_request_status status) {
+  assert(addr == mf->get_addr());
+  logger->debug(
+      "handling WRITE MISS NO WRITE ALLOCATE for {} (miss_queue_full={})",
+      mem_fetch_ptr(mf), miss_queue_full(0));
+
   if (miss_queue_full(0)) {
     m_stats.inc_fail_stats(mf->get_access_type(), MISS_QUEUE_FULL);
     return RESERVATION_FAIL;  // cannot handle request this cycle
@@ -565,13 +575,17 @@ enum cache_request_status data_cache::access(new_addr_type addr, mem_fetch *mf,
   new_addr_type block_addr = m_config.block_addr(addr);
   unsigned cache_index = (unsigned)-1;
 
-  logger->debug("data_cache::access({}, write = {}, size = {}, block = {}, {})",
-                addr, wr, mf->get_data_size(), block_addr,
-                mf->get_access_type_str());
+  logger->debug("data_cache::access({}, write = {}, size = {}, block = {})",
+                mem_fetch_ptr(mf), wr, mf->get_data_size(), block_addr);
   enum cache_request_status probe_status =
       m_tag_array->probe(block_addr, cache_index, mf, mf->is_write(), true);
+
   enum cache_request_status access_status =
       process_tag_probe(wr, probe_status, addr, cache_index, mf, time, events);
+  logger->debug("data_cache::access({}) => probe status={} access status={}",
+                mem_fetch_ptr(mf), cache_request_status_str[probe_status],
+                cache_request_status_str[access_status]);
+
   m_stats.inc_stats(mf->get_access_type(),
                     m_stats.select_stats_status(probe_status, access_status));
   m_stats.inc_stats_pw(mf->get_access_type(), m_stats.select_stats_status(

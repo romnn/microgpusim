@@ -2,6 +2,7 @@
 
 #include <assert.h>
 
+#include "spdlog/logger.h"
 #include "cache.hpp"
 #include "cache_config.hpp"
 #include "hal.hpp"
@@ -10,10 +11,16 @@
 class l1d_cache_config : public cache_config {
  public:
   l1d_cache_config() : cache_config() {}
-  unsigned set_bank(new_addr_type addr) const {
+  unsigned set_bank(new_addr_type addr,
+                    std::shared_ptr<spdlog::logger> &logger) const {
     // For sector cache, we select one sector per bank (sector interleaving)
     // This is what was found in Volta (one sector per bank, sector
     // interleaving) otherwise, line interleaving
+    logger->trace(
+        "computing set bank for address {} ({} l1 banks) using hashing "
+        "function {}",
+        addr, l1_banks, set_index_function_str[l1_banks_hashing_function]);
+
     return cache_config::hash_function(
         addr, l1_banks, l1_banks_byte_interleaving_log2, l1_banks_log2,
         l1_banks_hashing_function);

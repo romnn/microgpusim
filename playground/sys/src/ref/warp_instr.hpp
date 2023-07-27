@@ -36,6 +36,8 @@ class warp_inst_t : public inst_t {
   }
   virtual ~warp_inst_t() {}
 
+  friend class trace_parser_bridge;
+
   // modifiers
   void broadcast_barrier_reduction(const active_mask_t &access_mask);
   void do_atomic(bool forceDo = false);
@@ -93,14 +95,14 @@ class warp_inst_t : public inst_t {
   };
 
   void generate_mem_accesses(std::shared_ptr<spdlog::logger> &logger);
-  void memory_coalescing_arch(bool is_write, mem_access_type access_type);
-  void memory_coalescing_arch_atomic(bool is_write,
-                                     mem_access_type access_type);
-  void memory_coalescing_arch_reduce_and_send(bool is_write,
-                                              mem_access_type access_type,
-                                              const transaction_info &info,
-                                              new_addr_type addr,
-                                              unsigned segment_size);
+  void memory_coalescing_arch(bool is_write, mem_access_type access_type,
+                              std::shared_ptr<spdlog::logger> &logger);
+  void memory_coalescing_arch_atomic(bool is_write, mem_access_type access_type,
+                                     std::shared_ptr<spdlog::logger> &logger);
+  void memory_coalescing_arch_reduce_and_send(
+      bool is_write, mem_access_type access_type, const transaction_info &info,
+      new_addr_type addr, unsigned segment_size,
+      std::shared_ptr<spdlog::logger> &logger);
 
   void add_callback(unsigned lane_id,
                     void (*function)(const class inst_t *,
@@ -160,6 +162,7 @@ class warp_inst_t : public inst_t {
 
   unsigned warp_size() const { return m_config->warp_size; }
 
+  const std::list<mem_access_t> &mem_access_queue() const { return m_accessq; }
   bool accessq_empty() const { return m_accessq.empty(); }
   unsigned accessq_count() const { return m_accessq.size(); }
   const mem_access_t &accessq_back() { return m_accessq.back(); }
@@ -186,6 +189,8 @@ class warp_inst_t : public inst_t {
   const char *opcode_str() const;
 
   std::list<mem_access_t> m_accessq;
+
+  friend class warp_inst_bridge;
 
  protected:
   unsigned m_opcode;
