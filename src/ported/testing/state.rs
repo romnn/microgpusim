@@ -36,6 +36,97 @@ impl From<types::mem_access_type> for ported::mem_fetch::AccessKind {
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
+pub struct Cache {
+    pub lines: Vec<CacheBlock>,
+}
+
+impl std::fmt::Debug for Cache {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_list()
+            .entries(
+                self.lines
+                    .iter()
+                    .enumerate()
+                    .filter(|(idx, line)| line.tag != 0), // .filter(|(idx, line)| line.status == CacheBlockStatus::VALID),
+            )
+            .finish()
+    }
+}
+
+// impl From<ported::TagArray<ported::cache_block::LineCacheBlock>> for Cache {
+impl<T> From<ported::TagArray<T>> for Cache {
+    fn from(tag_array: ported::TagArray<T>) -> Self {
+        Self {
+            lines: tag_array.lines.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub enum CacheBlockStatus {
+    INVALID,
+    RESERVED,
+    VALID,
+    MODIFIED,
+}
+
+impl From<ported::cache_block::Status> for CacheBlockStatus {
+    fn from(status: ported::cache_block::Status) -> Self {
+        use crate::ported::cache_block;
+        match status {
+            cache_block::Status::INVALID => Self::INVALID,
+            cache_block::Status::RESERVED => Self::RESERVED,
+            cache_block::Status::VALID => Self::VALID,
+            cache_block::Status::MODIFIED => Self::MODIFIED,
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct CacheBlock {
+    pub tag: u64,
+    pub block_addr: u64,
+    pub status: CacheBlockStatus,
+}
+
+impl From<ported::cache_block::LineCacheBlock> for CacheBlock {
+    fn from(block: ported::cache_block::LineCacheBlock) -> Self {
+        Self {
+            tag: block.tag,
+            block_addr: block.block_addr,
+            status: block.status.into(),
+        }
+    }
+}
+
+impl<'a> From<&'a playground::cache::cache_block_t> for CacheBlock {
+    fn from(block: &'a playground::cache::cache_block_t) -> Self {
+        let status = if block.is_valid_line() {
+            CacheBlockStatus::VALID
+        } else if block.is_invalid_line() {
+            CacheBlockStatus::INVALID
+        } else if block.is_reserved_line() {
+            CacheBlockStatus::RESERVED
+        } else if block.is_modified_line() {
+            CacheBlockStatus::MODIFIED
+        } else {
+            unreachable!()
+        };
+        Self {
+            status,
+            tag: block.get_tag(),
+            block_addr: block.get_block_addr(),
+        }
+    }
+}
+
+impl std::fmt::Debug for CacheBlock {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{:?}({}, {})", self.status, self.tag, self.block_addr)
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct WarpInstruction {
     pub opcode: String,
     pub pc: usize,
@@ -274,13 +365,26 @@ impl<'a> From<playground::operand_collector::OperandCollector<'a>> for OperandCo
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct Scheduler {
-    pub prioritized_warps: Vec<usize>,
+    pub prioritized_warp_ids: Vec<(usize, usize)>,
+    // pub prioritized_warp_ids: Vec<usize>,
+    // pub prioritized_dynamic_warp_ids: Vec<usize>,
 }
 
 impl<'a> From<playground::scheduler_unit::SchedulerUnit<'a>> for Scheduler {
     fn from(scheduler: playground::scheduler_unit::SchedulerUnit<'a>) -> Self {
-        let prioritized_warps = scheduler.prioritized_warp_ids();
-        Self { prioritized_warps }
+        let prioritized_warp_ids = scheduler.prioritized_warp_ids();
+        let prioritized_dynamic_warp_ids = scheduler.prioritized_dynamic_warp_ids();
+        assert_eq!(
+            prioritized_warp_ids.len(),
+            prioritized_dynamic_warp_ids.len()
+        );
+        Self {
+            prioritized_warp_ids: prioritized_warp_ids
+                .into_iter()
+                .zip(prioritized_dynamic_warp_ids.into_iter())
+                .collect(),
+            // prioritized_dynamic_warp_ids,
+        }
     }
 }
 
@@ -339,6 +443,7 @@ pub struct Simulation {
     pub l2_to_interconn_queue: Vec<Vec<MemFetch>>,
     pub l2_to_dram_queue: Vec<Vec<MemFetch>>,
     pub dram_to_l2_queue: Vec<Vec<MemFetch>>,
+    pub l2_cache: Vec<Option<Cache>>,
     pub dram_latency_queue: Vec<Vec<MemFetch>>,
     pub functional_unit_pipelines: Vec<Vec<RegisterSet>>,
     pub operand_collectors: Vec<Option<OperandCollector>>,
@@ -353,12 +458,13 @@ impl Simulation {
             l2_to_interconn_queue: vec![vec![]; num_sub_partitions],
             l2_to_dram_queue: vec![vec![]; num_sub_partitions],
             dram_to_l2_queue: vec![vec![]; num_sub_partitions],
+            l2_cache: vec![None; num_sub_partitions],
             // per partition
             dram_latency_queue: vec![vec![]; num_mem_partitions],
             // per core
             functional_unit_pipelines: vec![vec![]; total_cores],
-            operand_collectors: vec![None; total_cores],
             schedulers: vec![vec![]; total_cores],
+            operand_collectors: vec![None; total_cores],
         }
     }
 }

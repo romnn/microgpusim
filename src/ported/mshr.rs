@@ -99,6 +99,11 @@ impl MshrTable {
         } else {
             None
         };
+        log::trace!(
+            "mshr_table::mark_ready(block_addr={}, has_atomic={:?})",
+            block_addr,
+            has_atomic
+        );
         debug_assert!(self.current_response.len() <= self.data.len());
         has_atomic
     }

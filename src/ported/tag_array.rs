@@ -23,7 +23,7 @@ pub struct AccessStatus {
     pub status: cache::RequestStatus,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TagArray<B> {
     /// nbanks x nset x assoc lines in total
     pub lines: Vec<cache_block::LineCacheBlock>,
@@ -93,15 +93,14 @@ impl<B> TagArray<B> {
     pub fn access(
         &mut self,
         addr: address,
-        time: usize,
         fetch: &mem_fetch::MemFetch,
+        time: u64,
         // index: &mut usize,
         // writeback: &mut bool,
         // evicted: &mut EvictedBlockInfo,
         // ) -> (Option<usize>, cache::RequestStatus) {
     ) -> AccessStatus {
-        // ) {
-        // log::debug!("tag_array::access({})", addr);
+        log::trace!("tag_array::access({}, time={})", fetch, time);
         self.num_access += 1;
         self.is_used = true;
 
@@ -124,7 +123,6 @@ impl<B> TagArray<B> {
                 self.num_miss += 1;
                 let index = index.expect("hit has idx");
                 let line = &mut self.lines[index];
-                // shader_cache_access_log(m_core_id, m_type_id, 1);
                 if self.config.allocate_policy == config::CacheAllocatePolicy::ON_MISS {
                     if line.is_modified() {
                         writeback = true;
@@ -137,6 +135,11 @@ impl<B> TagArray<B> {
                         });
                         self.num_dirty -= 1;
                     }
+                    log::trace!(
+                        "tag_array::allocate(cache={}, tag={})",
+                        index,
+                        self.config.tag(addr)
+                    );
                     line.allocate(
                         self.config.tag(addr),
                         self.config.block_addr(addr),
@@ -146,23 +149,22 @@ impl<B> TagArray<B> {
                 }
             }
             cache::RequestStatus::SECTOR_MISS => {
+                unimplemented!("no sector miss");
                 debug_assert!(self.config.kind == config::CacheKind::Sector);
                 self.num_sector_miss += 1;
                 // shader_cache_access_log(m_core_id, m_type_id, 1);
                 if self.config.allocate_policy == config::CacheAllocatePolicy::ON_MISS {
                     let index = index.expect("hit has idx");
                     let line = &mut self.lines[index];
-                    let before = line.is_modified();
-                    line.allocate_sector(time, fetch.access_sector_mask());
-                    // ((sector_cache_block *)m_lines[idx]) ->allocate_sector(time, mf->get_access_sector_mask());
-                    if before && !line.is_modified() {
+                    let was_modified_before = line.is_modified();
+                    line.allocate_sector(fetch.access_sector_mask(), time);
+                    if was_modified_before && !line.is_modified() {
                         self.num_dirty -= 1;
                     }
                 }
             }
             cache::RequestStatus::RESERVATION_FAIL => {
                 self.num_reservation_fail += 1;
-                // shader_cache_access_log(m_core_id, m_type_id, 1);
             }
             status => {
                 panic!("tag_array access: unknown cache request status {status:?}");
@@ -206,20 +208,41 @@ impl<B> TagArray<B> {
         is_probe: bool,
         fetch: &mem_fetch::MemFetch,
     ) -> (Option<usize>, cache::RequestStatus) {
-        // log::debug!("tag_array::probe({block_addr})");
         let set_index = self.config.set_index(block_addr) as usize;
         let tag = self.config.tag(block_addr);
 
         let mut invalid_line = None;
         let mut valid_line = None;
-        let mut valid_timestamp = usize::MAX;
+        let mut valid_time = u64::MAX;
 
         let mut all_reserved = true;
+
+        // percentage of dirty lines in the cache
+        // number of dirty lines / total lines in the cache
+        let dirty_line_percent = self.num_dirty as f64 / self.config.total_lines() as f64;
+        let dirty_line_percent = (dirty_line_percent * 100f64) as usize;
+
+        log::trace!(
+            "tag_array::probe({}) set_idx = {}, tag = {}, assoc = {} dirty lines = {}%",
+            fetch,
+            set_index,
+            tag,
+            self.config.associativity,
+            dirty_line_percent,
+        );
 
         // check for hit or pending hit
         for way in 0..self.config.associativity {
             let idx = set_index * self.config.associativity + way;
             let line = &self.lines[idx];
+            log::trace!(
+                "tag_array::probe({}) => checking cache index {} (tag={}, status={:?}, last_access={})",
+                fetch,
+                idx,
+                line.tag,
+                line.status(&mask),
+                line.last_access_time()
+            );
             if line.tag == tag {
                 match line.status(&mask) {
                     cache_block::Status::RESERVED => {
@@ -242,31 +265,28 @@ impl<B> TagArray<B> {
                 }
             }
             if !line.is_reserved() {
-                // percentage of dirty lines in the cache
-                // number of dirty lines / total lines in the cache
-                let dirty_line_percent =
-                    (self.num_dirty as f64 / self.config.total_lines() as f64) * 100f64;
                 // If the cacheline is from a load op (not modified),
                 // or the total dirty cacheline is above a specific value,
                 // Then this cacheline is eligible to be considered for replacement candidate
                 // i.e. Only evict clean cachelines until total dirty cachelines reach the limit.
-                if !line.is_modified() {
-                    // || dirty_line_percent >= self.config.wr_percent {
+                if !line.is_modified()
+                    || dirty_line_percent >= self.config.l1_cache_write_ratio_percent
+                {
                     all_reserved = false;
                     if line.is_invalid() {
                         invalid_line = Some(idx);
                     } else {
                         // valid line: keep track of most appropriate replacement candidate
                         if self.config.replacement_policy == config::CacheReplacementPolicy::LRU {
-                            if line.last_access_time() < valid_timestamp {
-                                valid_timestamp = line.last_access_time();
+                            if line.last_access_time() < valid_time {
+                                valid_time = line.last_access_time();
                                 valid_line = Some(idx);
                             }
                         } else if self.config.replacement_policy
                             == config::CacheReplacementPolicy::FIFO
                         {
-                            if line.alloc_time() < valid_timestamp {
-                                valid_timestamp = line.alloc_time();
+                            if line.alloc_time() < valid_time {
+                                valid_time = line.alloc_time();
                                 valid_line = Some(idx);
                             }
                         }
@@ -274,6 +294,8 @@ impl<B> TagArray<B> {
                 }
             }
         }
+
+        log::trace!("tag_array::probe({}) => all reserved={} invalid_line={:?} valid_line={:?} ({:?} policy)", fetch, all_reserved, invalid_line, valid_line, self.config.replacement_policy);
 
         if all_reserved {
             debug_assert_eq!(
@@ -284,43 +306,74 @@ impl<B> TagArray<B> {
             return (None, cache::RequestStatus::RESERVATION_FAIL);
         }
 
-        let cache_idx = if invalid_line.is_some() {
-            invalid_line
-        } else if valid_line.is_some() {
-            valid_line
-        } else {
-            // if an unreserved block exists,
-            // it is either invalid or replaceable
-            panic!("found neither a valid nor invalid cache line");
+        let cache_idx = match (valid_line, invalid_line) {
+            (_, Some(invalid)) => invalid,
+            (Some(valid), None) => valid,
+            (None, None) => {
+                // if an unreserved block exists,
+                // it is either invalid or replaceable
+                panic!("found neither a valid nor invalid cache line");
+            }
         };
+        // let cache_idx = if invalid_line.is_some() {
+        //     invalid_line
+        // } else if valid_line.is_some() {
+        //     valid_line
+        // } else {
+        //     // if an unreserved block exists,
+        //     // it is either invalid or replaceable
+        //     panic!("found neither a valid nor invalid cache line");
+        // };
 
-        (cache_idx, cache::RequestStatus::MISS)
+        (Some(cache_idx), cache::RequestStatus::MISS)
     }
 
-    pub fn fill_on_miss(&mut self, cache_index: usize, fetch: &mem_fetch::MemFetch) {
+    pub fn fill_on_miss(&mut self, cache_index: usize, fetch: &mem_fetch::MemFetch, time: u64) {
         debug_assert!(self.config.allocate_policy == config::CacheAllocatePolicy::ON_MISS);
-        let before = self.lines[cache_index].is_modified();
-        let time = 0;
+
+        log::trace!(
+            "tag_array::fill(cache={}, tag={}, addr={}) (on miss)",
+            cache_index,
+            self.config.tag(fetch.addr()),
+            fetch.addr(),
+        );
+
+        let was_modified_before = self.lines[cache_index].is_modified();
         self.lines[cache_index].fill(time, fetch.access_sector_mask(), fetch.access_byte_mask());
-        if self.lines[cache_index].is_modified() && !before {
+        if self.lines[cache_index].is_modified() && !was_modified_before {
             self.num_dirty += 1;
         }
     }
 
-    pub fn fill_on_fill(&mut self, addr: address, fetch: &mem_fetch::MemFetch) {
+    pub fn fill_on_fill(&mut self, addr: address, fetch: &mem_fetch::MemFetch, time: u64) {
+        debug_assert!(self.config.allocate_policy == config::CacheAllocatePolicy::ON_FILL);
+
         // probe tag array
         let is_probe = false;
         let (cache_index, probe_status) = self.probe(addr, fetch, fetch.is_write(), is_probe);
+
+        log::trace!(
+            "tag_array::fill(cache={}, tag={}, addr={}) (on fill) status={:?}",
+            cache_index.map(|i| i as i64).unwrap_or(-1),
+            self.config.tag(fetch.addr()),
+            fetch.addr(),
+            probe_status,
+        );
+
         if probe_status == cache::RequestStatus::RESERVATION_FAIL {
             return;
         }
-
         let cache_index = cache_index.unwrap();
-        let line = self.lines.get_mut(cache_index).unwrap();
-        let mut before = line.is_modified();
 
-        let time = 0;
+        let line = self.lines.get_mut(cache_index).unwrap();
+        let mut was_modified_before = line.is_modified();
+
         if probe_status == cache::RequestStatus::MISS {
+            log::trace!(
+                "tag_array::allocate(cache={}, tag={})",
+                cache_index,
+                self.config.tag(addr)
+            );
             line.allocate(
                 self.config.tag(addr),
                 self.config.block_addr(addr),
@@ -329,14 +382,14 @@ impl<B> TagArray<B> {
             );
         } else if probe_status == cache::RequestStatus::SECTOR_MISS {
             debug_assert_eq!(self.config.kind, config::CacheKind::Sector);
-            line.allocate_sector(time, fetch.access_sector_mask());
+            line.allocate_sector(fetch.access_sector_mask(), time);
         }
-        if before && !line.is_modified() {
+        if was_modified_before && !line.is_modified() {
             self.num_dirty -= 1;
         }
-        before = line.is_modified();
+        was_modified_before = line.is_modified();
         line.fill(time, fetch.access_sector_mask(), fetch.access_byte_mask());
-        if line.is_modified() && !before {
+        if line.is_modified() && !was_modified_before {
             self.num_dirty += 1;
         }
     }

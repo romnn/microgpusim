@@ -98,21 +98,16 @@ pub trait Component {
 }
 
 pub trait Cache: Component + CacheBandwidth {
+    fn as_any(&self) -> &dyn std::any::Any;
+
     fn stats(&self) -> &Arc<Mutex<stats::Cache>>;
-    // {
-    //     todo!("cache: stats");
-    // }
 
     fn has_ready_accesses(&self) -> bool;
-    // {
-    //     todo!("cache: has ready accesses");
-    // }
 
     fn access(
         &mut self,
         addr: address,
         fetch: mem_fetch::MemFetch,
-        // events: Option<&mut Vec<Event>>,
         events: &mut Vec<Event>,
     ) -> RequestStatus {
         todo!("cache: access");
@@ -126,7 +121,6 @@ pub trait Cache: Component + CacheBandwidth {
         todo!("cache: next access");
     }
 
-    // fn fill(&mut self, fetch: &mut mem_fetch::MemFetch) {
     fn fill(&mut self, fetch: mem_fetch::MemFetch) {
         todo!("cache: fill");
     }
@@ -138,14 +132,6 @@ pub trait Cache: Component + CacheBandwidth {
     fn invalidate(&mut self) {
         todo!("cache: invalidate");
     }
-
-    // fn data_port_free(&self) -> bool {
-    //     todo!("cache: data port free");
-    // }
-
-    // fn fill_port_free(&self) -> bool {
-    //     todo!("cache: fill port free");
-    // }
 
     fn waiting_for_fill(&self, fetch: &mem_fetch::MemFetch) -> bool {
         todo!("cache: waiting for fill");

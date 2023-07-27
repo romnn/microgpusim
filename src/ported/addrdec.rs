@@ -61,7 +61,7 @@ pub enum MemoryKind {
 
 type partition_index_function = usize;
 
-#[derive()]
+#[derive(PartialEq, Eq, Hash)]
 pub struct LinearToRawAddressTranslation {
     pub num_channels: usize,
     pub num_sub_partitions_per_channel: usize,

@@ -53,17 +53,17 @@ pub trait CacheBlock {
     fn set_readable(&mut self, readable: bool, mask: &mem_fetch::MemAccessSectorMask);
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LineCacheBlock {
     pub tag: u64,
-    block_addr: address,
+    pub block_addr: address,
 
-    status: Status,
+    pub status: Status,
     is_readable: bool,
 
-    alloc_time: usize,
-    fill_time: usize,
-    last_access_time: usize,
+    alloc_time: u64,
+    fill_time: u64,
+    last_access_time: u64,
 
     ignore_on_fill_status: bool,
     set_byte_mask_on_fill: bool,
@@ -106,7 +106,7 @@ impl LineCacheBlock {
         Self::default()
     }
 
-    pub fn allocate_sector(&mut self, time: usize, sector_mask: &mem_fetch::MemAccessSectorMask) {
+    pub fn allocate_sector(&mut self, sector_mask: &mem_fetch::MemAccessSectorMask, time: u64) {
         unimplemented!()
     }
 
@@ -114,7 +114,7 @@ impl LineCacheBlock {
         &mut self,
         tag: address,
         block_addr: address,
-        time: usize,
+        time: u64,
         sector_mask: &mem_fetch::MemAccessSectorMask,
     ) {
         self.tag = tag;
@@ -129,26 +129,9 @@ impl LineCacheBlock {
         self.set_byte_mask_on_fill = false;
     }
 
-    // pub fn allocate(
-    //     tag: address,
-    //     block_addr: address,
-    //     time: usize,
-    //     sector_mask: mem_fetch::MemAccessSectorMask,
-    // ) -> Self {
-    //     Self {
-    //         tag,
-    //         block_addr,
-    //         alloc_time: time,
-    //         last_access_time: time,
-    //         fill_time: 0,
-    //         status: State::RESERVED,
-    //         ..Self::default()
-    //     }
-    // }
-
     pub fn fill(
         &mut self,
-        time: usize,
+        time: u64,
         sector_mask: &mem_fetch::MemAccessSectorMask,
         byte_mask: &mem_fetch::MemAccessByteMask,
     ) {
@@ -169,7 +152,7 @@ impl LineCacheBlock {
     }
 
     #[inline]
-    pub fn set_last_access_time(&mut self, time: usize, _mask: &mem_fetch::MemAccessSectorMask) {
+    pub fn set_last_access_time(&mut self, time: u64, _mask: &mem_fetch::MemAccessSectorMask) {
         self.last_access_time = time;
     }
 
@@ -219,12 +202,17 @@ impl LineCacheBlock {
     }
 
     #[inline]
-    pub fn alloc_time(&self) -> usize {
+    pub fn set_readable(&mut self, readable: bool, _mask: &mem_fetch::MemAccessSectorMask) {
+        self.is_readable = readable
+    }
+
+    #[inline]
+    pub fn alloc_time(&self) -> u64 {
         self.alloc_time
     }
 
     #[inline]
-    pub fn last_access_time(&self) -> usize {
+    pub fn last_access_time(&self) -> u64 {
         self.last_access_time
     }
 
