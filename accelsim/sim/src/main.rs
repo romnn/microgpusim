@@ -1,10 +1,10 @@
 #![allow(warnings)]
 
-use accelsim::parser::{parse, Options as ParseOptions};
 use accelsim::{Options, SimConfig};
 use accelsim_sim as sim;
 use clap::Parser;
 use color_eyre::eyre::{self, WrapErr};
+use std::io::Write;
 use std::time::{Duration, Instant};
 
 // todo add an output dir
@@ -14,14 +14,34 @@ async fn main() -> eyre::Result<()> {
     env_logger::init();
     color_eyre::install()?;
 
-    let options = Options::parse();
+    let mut options = Options::parse();
+    options.resolve()?;
 
     let start = Instant::now();
 
     log::debug!("options: {:#?}", &options);
 
-    let output =
-        sim::simulate_trace(&options.traces_dir, options.sim_config, options.timeout).await?;
+    let traces_dir = options
+        .traces_dir
+        .as_ref()
+        .ok_or(eyre::eyre!("missing traces_dir"))?;
+
+    let kernelslist = options
+        .kernelslist
+        .as_ref()
+        .ok_or(eyre::eyre!("missing kernelslist"))?;
+
+    let kernelslist = kernelslist
+        .canonicalize()
+        .wrap_err_with(|| format!("kernelslist at {} does not exist", kernelslist.display()))?;
+
+    let (output, dur) = sim::simulate_trace(
+        &traces_dir,
+        &kernelslist,
+        options.sim_config,
+        options.timeout,
+    )
+    .await?;
 
     log::info!("simulating took {:?}", start.elapsed());
 
@@ -37,29 +57,28 @@ async fn main() -> eyre::Result<()> {
     // write log
     let log_file_path = options
         .log_file
-        .unwrap_or(options.traces_dir.join("accelsim_log.txt"));
-    {
-        use std::io::Write;
-        let mut log_file = utils::fs::open_writable(&log_file_path)?;
-        log_file.write_all(stdout.as_bytes())?;
-    }
+        .unwrap_or(traces_dir.join("accelsim_log.txt"));
 
-    // parse stats
+    let mut log_file = utils::fs::open_writable(&log_file_path)?;
+    log_file.write_all(stdout.as_bytes())?;
+
     let stats_file_path = options
         .stats_file
-        .unwrap_or(log_file_path.with_extension("csv"));
-    let mut parse_options = ParseOptions::new(log_file_path);
-    parse_options.save_to(stats_file_path);
-    let stats = parse(&parse_options)?;
+        .unwrap_or(log_file_path.with_extension("json"));
 
-    let mut preview: Vec<_> = stats
-        .iter()
-        .map(|(idx, val)| (format!("{} / {} / {}", idx.0, idx.1, idx.2), val))
-        .collect();
-    preview.sort_by(|a, b| a.0.cmp(&b.0));
+    let log_reader = std::io::Cursor::new(stdout);
+    let parse_options = accelsim::parser::Options::default();
+    let stats = accelsim::parser::parse_stats(log_reader, &parse_options)?;
 
-    for (key, val) in preview {
-        println!(" => {key}: {val}");
-    }
+    println!("{:#?}", &stats);
+
+    let converted: Result<stats::Stats, _> = stats.clone().try_into();
+    println!("{:#?}", &converted);
+    // for stat in stats.iter() {
+    //     println!("{}", &stat);
+    // }
+
+    let flat_stats: Vec<_> = stats.into_inner().into_iter().collect();
+    serde_json::to_writer_pretty(utils::fs::open_writable(&stats_file_path)?, &flat_stats)?;
     Ok(())
 }

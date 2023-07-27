@@ -6,9 +6,13 @@ pub mod git;
 pub mod options;
 pub mod parser;
 pub mod read;
+pub mod stats;
+pub mod tracegen;
+
+pub use self::stats::Stats;
+pub use options::{Options, SimConfig};
 
 use color_eyre::eyre;
-pub use options::{Options, SimConfig};
 use std::path::{Path, PathBuf};
 
 pub fn locate(use_upstream: bool) -> eyre::Result<PathBuf> {

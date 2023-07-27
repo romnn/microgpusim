@@ -23,7 +23,7 @@ pub fn locate_accelsim_bin(accel_path: &Path, profile: &str) -> eyre::Result<Pat
 
 pub fn render_sim_script(
     accelsim_bin: &Path,
-    traces_dir: &Path,
+    kernelslist: &Path,
     config_dir: &Path,
     profile: &str,
     config: &SimConfig,
@@ -53,11 +53,6 @@ pub fn render_sim_script(
         )
     })?;
 
-    let kernelslist = traces_dir.join("kernelslist.g");
-    let kernelslist = kernelslist
-        .canonicalize()
-        .wrap_err_with(|| format!("kernelslist at {} does not exist", kernelslist.display()))?;
-
     let mut trace_cmd: Vec<String> = vec![
         accelsim_bin.to_string_lossy().to_string(),
         "-trace".to_string(),
@@ -79,9 +74,10 @@ pub fn render_sim_script(
 
 pub async fn simulate_trace(
     traces_dir: impl AsRef<Path>,
+    kernelslist: impl AsRef<Path>,
     config: SimConfig,
     timeout: Option<Duration>,
-) -> eyre::Result<std::process::Output> {
+) -> eyre::Result<(std::process::Output, std::time::Duration)> {
     #[cfg(feature = "upstream")]
     let use_upstream = true;
     #[cfg(not(feature = "upstream"))]
@@ -101,7 +97,11 @@ pub async fn simulate_trace(
         .canonicalize()
         .wrap_err_with(|| format!("{} does not exist", setup_env_path.display()))?;
 
-    // change current working dir
+    let kernelslist = kernelslist.as_ref();
+    let kernelslist = kernelslist
+        .canonicalize()
+        .wrap_err_with(|| format!("{} does not exist", kernelslist.display()))?;
+
     let config_dir = config
         .config_dir
         .as_ref()
@@ -116,7 +116,7 @@ pub async fn simulate_trace(
 
     let tmp_sim_sh = render_sim_script(
         &accelsim_bin,
-        traces_dir.as_ref(),
+        &kernelslist,
         &config_dir,
         profile,
         &config,
@@ -143,11 +143,13 @@ pub async fn simulate_trace(
     cmd.env("CUDA_INSTALL_PATH", &*cuda_path.to_string_lossy());
     log::debug!("command: {:?}", &cmd);
 
+    let start = std::time::Instant::now();
     let result = match timeout {
         Some(timeout) => tokio::time::timeout(timeout, cmd.output()).await,
         None => Ok(cmd.output().await),
     };
     let result = result??;
+    let dur = start.elapsed();
 
     if !result.status.success() {
         use color_eyre::Section;
@@ -163,5 +165,5 @@ pub async fn simulate_trace(
 
     // for now, we want to keep the file
     // std::fs::remove_file(&tmp_sim_sh_path);
-    Ok(result)
+    Ok((result, dur))
 }

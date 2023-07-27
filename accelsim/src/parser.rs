@@ -1,54 +1,27 @@
 use super::read::BufReadLine;
-use clap::Parser;
+use super::stats::Stats;
 use color_eyre::eyre;
 use itertools::Itertools;
-
 use once_cell::sync::Lazy;
 use regex::Regex;
-use std::{
-    collections::{HashMap, HashSet},
-    fs, io,
-    path::{Path, PathBuf},
-};
+use std::collections::{HashMap, HashSet};
 
-// -R -K -k -B rodinia_2.0-ft -C QV100-PTX
-#[derive(Parser, Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Options {
-    #[arg(short = 'i', long = "input")]
-    pub input: PathBuf,
-
-    #[arg(short = 'o', long = "output")]
-    pub output: Option<PathBuf>,
-
-    #[arg(short = 'k', long = "per-kernel")]
     pub per_kernel: bool,
-
-    #[arg(short = 'K', long = "kernel-instance")]
     pub kernel_instance: bool,
-
-    #[arg(long = "strict")]
     pub strict: bool,
 }
 
-impl Options {
-    pub fn new(input: impl Into<PathBuf>) -> Self {
+impl Default for Options {
+    fn default() -> Self {
         Self {
-            input: input.into(),
-            output: None,
             per_kernel: false,
             kernel_instance: false,
             strict: false,
         }
     }
-
-    pub fn save_to(&mut self, output: impl Into<PathBuf>) -> &mut Self {
-        self.output = Some(output.into());
-        self
-    }
 }
-
-/// Stats map
-pub type Stats = HashMap<(String, u16, String), f64>;
 
 macro_rules! stat {
     ($name:expr, $kind:expr, $regex:expr) => {
@@ -71,7 +44,7 @@ static ACCELSIM_BUILD_REGEX: Lazy<Regex> =
 /// Does a quick 100-line pass to get the GPGPU-Sim Version number.
 ///
 /// Assumes the reader is seeked to the beginning of the file.
-fn get_version(mut f: impl BufReadLine + io::Seek) -> Option<String> {
+fn get_version(mut f: impl BufReadLine + std::io::Seek) -> Option<String> {
     static MAX_LINES: usize = 100;
     let mut buffer = String::new();
     let mut lines = 0;
@@ -109,7 +82,7 @@ static EXIT_REGEX: Lazy<Regex> =
 ///
 /// Assumes the reader is seeked to the end of the file and
 /// reading lines in reverse.
-fn check_finished(mut f: impl BufReadLine + io::Seek) -> bool {
+fn check_finished(mut f: impl BufReadLine + std::io::Seek) -> bool {
     static MAX_LINES: usize = 10_000;
     let mut buffer = String::new();
     let mut lines = 0;
@@ -137,17 +110,25 @@ static KERNEL_NAME_REGEX: Lazy<Regex> =
 
 /// Parses accelsim log and extracts statistics.
 #[allow(clippy::too_many_lines)]
-pub fn parse(options: &Options) -> eyre::Result<Stats> {
-    let finished = {
-        let file = fs::OpenOptions::new().read(true).open(&options.input)?;
-        let mut reader = rev_buf_reader::RevBufReader::new(file);
-        check_finished(&mut reader)
-    };
-    let version = {
-        let file = fs::OpenOptions::new().read(true).open(&options.input)?;
-        let mut reader = io::BufReader::new(file);
-        get_version(&mut reader)
-    };
+// pub fn parse_stats(path: &Path, options: &Options) -> eyre::Result<Stats> {
+pub fn parse_stats(
+    reader: impl std::io::Read + std::io::Seek,
+    options: &Options,
+) -> eyre::Result<Stats> {
+    // let file = fs::OpenOptions::new().read(true).open(&path)?;
+
+    // let finished = {
+    // let file = fs::OpenOptions::new().read(true).open(&path)?;
+    let mut reverse_reader = rev_buf_reader::RevBufReader::new(reader);
+    let finished = check_finished(&mut reverse_reader);
+    let mut reader = reverse_reader.into_inner();
+    reader.rewind()?;
+    // };
+    // let version = {
+    // let file = fs::OpenOptions::new().read(true).open(&path)?;
+    let mut reader = std::io::BufReader::new(reader);
+    let version = get_version(&mut reader);
+    // };
 
     println!("GPGPU-sim version: {:?}", &version);
 
@@ -223,9 +204,9 @@ pub fn parse(options: &Options) -> eyre::Result<Stats> {
     let mut l2_cache_stats: Vec<_> = mem_space
         .iter()
         .cartesian_product(outcome.iter())
-        .map(|((space, space_name), (outcome, outcome_name))| {
+        .map(|((space, _space_name), (outcome, _outcome_name))| {
             stat!(
-                format!("l2_cache_{space_name}_{outcome_name}"),
+                format!("l2_cache_{space}_{outcome}"),
                 StatKind::Aggregate,
                 [
                     r"\s+L2_cache_stats_breakdown\[",
@@ -274,9 +255,9 @@ pub fn parse(options: &Options) -> eyre::Result<Stats> {
     let mut total_core_cache_stats: Vec<_> = mem_space
         .iter()
         .cartesian_product(outcome.iter())
-        .map(|((space, space_name), (outcome, outcome_name))| {
+        .map(|((space, _space_name), (outcome, _outcome_name))| {
             stat!(
-                format!("total_core_cache_{space_name}_{outcome_name}"),
+                format!("total_core_cache_{space}_{outcome}"),
                 StatKind::Aggregate,
                 [
                     r"\s+Total_core_cache_stats_breakdown\[",
@@ -610,24 +591,18 @@ pub fn parse(options: &Options) -> eyre::Result<Stats> {
 
     if !finished {
         if options.strict {
-            eyre::bail!(
-                "{} is invalid: termination message from GPGPU-Sim not found",
-                options.input.display()
-            );
+            eyre::bail!("invalid: termination message from GPGPU-Sim not found");
         }
-        eprintln!(
-            "{} is invalid: termination message from GPGPU-Sim not found",
-            options.input.display()
-        );
+        eprintln!("invalid: termination message from GPGPU-Sim not found");
     }
 
     let mut all_named_kernels: HashSet<(String, u16)> = HashSet::new();
 
     let mut stat_found: HashSet<String> = HashSet::new();
 
-    let file = fs::OpenOptions::new().read(true).open(&options.input)?;
+    // let file = fs::OpenOptions::new().read(true).open(&path)?;
 
-    let mut stat_map: Stats = HashMap::new();
+    let mut stat_map = Stats::default();
 
     if options.per_kernel {
         let mut current_kernel = String::new();
@@ -635,7 +610,7 @@ pub fn parse(options: &Options) -> eyre::Result<Stats> {
         let mut raw_last: HashMap<String, f64> = HashMap::new();
         let mut running_kcount = HashMap::new();
 
-        let mut reader = io::BufReader::new(file);
+        let mut reader = std::io::BufReader::new(reader);
         let mut buffer = String::new();
 
         while let Some(Ok(line)) = reader.read_line(&mut buffer) {
@@ -644,10 +619,7 @@ pub fn parse(options: &Options) -> eyre::Result<Stats> {
             // (only appies if we are doing kernel-by-kernel stats)
 
             if LAST_KERNEL_BREAK_REGEX.captures(line).is_some() {
-                eprintln!(
-                    "{}: found max instructions - ignoring last kernel",
-                    options.input.display()
-                );
+                eprintln!("found max instructions - ignoring last kernel");
                 // remove
                 for stat_name in stats.keys() {
                     stat_map.remove(&(
@@ -729,10 +701,10 @@ pub fn parse(options: &Options) -> eyre::Result<Stats> {
         // not per kernel
         all_named_kernels.insert(("final_kernel".to_string(), 0));
 
-        let mut reader = rev_buf_reader::RevBufReader::new(file);
+        let mut reverse_reader = rev_buf_reader::RevBufReader::new(reader);
 
         let mut buffer = String::new();
-        while let Some(Ok(line)) = reader.read_line(&mut buffer) {
+        while let Some(Ok(line)) = reverse_reader.read_line(&mut buffer) {
             for (stat_name, (_stat_kind, stat_regex)) in &stats {
                 if stat_found.contains(stat_name) {
                     continue;
@@ -756,35 +728,23 @@ pub fn parse(options: &Options) -> eyre::Result<Stats> {
         }
     }
 
-    if let Some(out_file) = options.output.as_ref() {
-        save_stats_to_file(&stat_map, out_file)?;
-    }
-
+    stat_map.sort_keys();
     Ok(stat_map)
 }
 
-fn save_stats_to_file(stats: &Stats, out_file: &Path) -> eyre::Result<()> {
-    if let Some(parent) = &out_file.parent() {
-        fs::create_dir_all(parent).ok();
-    }
-    let output_file = fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(out_file)?;
-
-    let mut csv_writer = csv::WriterBuilder::new()
-        .flexible(false)
-        .from_writer(output_file);
-
-    csv_writer.write_record(["kernel", "kernel_id", "stat", "value"])?;
-
-    // sort stats before writing to csv
-    let mut sorted_stats: Vec<_> = stats.iter().collect();
-    sorted_stats.sort_by(|a, b| a.0.cmp(b.0));
-
-    for ((kernel, kcount, stat), value) in &sorted_stats {
-        csv_writer.write_record([kernel, &kcount.to_string(), stat, &value.to_string()])?;
-    }
-    Ok(())
-}
+// fn save_stats_to_file(writer: impl std::io::Write, stats: &Stats) -> eyre::Result<()> {
+//     let mut csv_writer = csv::WriterBuilder::new()
+//         .flexible(false)
+//         .from_writer(writer);
+//
+//     csv_writer.write_record(["kernel", "kernel_id", "stat", "value"])?;
+//
+//     // sort stats before writing to csv
+//     let mut sorted_stats: Vec<_> = stats.iter().collect();
+//     sorted_stats.sort_by(|a, b| a.0.cmp(b.0));
+//
+//     for ((kernel, kcount, stat), value) in &sorted_stats {
+//         csv_writer.write_record([kernel, &kcount.to_string(), stat, &value.to_string()])?;
+//     }
+//     Ok(())
+// }

@@ -83,7 +83,7 @@ pub async fn trace(
     exec: impl AsRef<Path>,
     exec_args: &[String],
     options: &Options,
-) -> eyre::Result<()> {
+) -> eyre::Result<std::time::Duration> {
     #[cfg(feature = "upstream")]
     let use_upstream = true;
     #[cfg(not(feature = "upstream"))]
@@ -142,15 +142,18 @@ pub async fn trace(
     cmd.env("CUDA_INSTALL_PATH", &*cuda_path.to_string_lossy());
     log::debug!("command: {:?}", &cmd);
 
+    let start = std::time::Instant::now();
     let result = cmd.output().await?;
 
     if !result.status.success() {
         return Err(utils::CommandError::new(&cmd, result).into_eyre());
     }
 
+    let dur = start.elapsed();
+
     log::debug!("stdout:\n{}", utils::decode_utf8!(&result.stdout));
     log::debug!("stderr:\n{}", utils::decode_utf8!(&result.stderr));
 
     // std::fs::remove_file(&tmp_trace_sh_path).ok();
-    Ok(())
+    Ok(dur)
 }

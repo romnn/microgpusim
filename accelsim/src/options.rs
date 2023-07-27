@@ -1,6 +1,6 @@
 use clap::Parser;
 use color_eyre::eyre;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 fn parse_duration_string(duration: &str) -> eyre::Result<Duration> {
@@ -12,7 +12,10 @@ fn parse_duration_string(duration: &str) -> eyre::Result<Duration> {
 #[derive(Parser, Debug)]
 pub struct Options {
     #[clap(help = "directory containing accelsim traces (kernelslist.g)")]
-    pub traces_dir: PathBuf,
+    pub traces_dir: Option<PathBuf>,
+
+    #[clap(long = "kernels", help = "path to kernelslist.g file")]
+    pub kernelslist: Option<PathBuf>,
 
     #[clap(flatten)]
     pub sim_config: SimConfig,
@@ -43,10 +46,42 @@ pub struct SimConfig {
     pub inter_config: Option<PathBuf>,
 }
 
+fn missing_parent(path: &Path) -> eyre::Report {
+    eyre::eyre!("{} missing parent", path.display())
+}
+
 impl Options {
-    #[must_use]
-    pub fn kernelslist(&self) -> PathBuf {
-        self.traces_dir.join("kernelslist.g")
+    pub fn resolve(&mut self) -> eyre::Result<()> {
+        match (&mut self.traces_dir, &mut self.kernelslist) {
+            (Some(_), Some(_)) => {
+                // fine
+            }
+            (Some(ref mut traces_dir), None) if traces_dir.is_file() => {
+                // assume traces dir is the kernelslist
+                let _ = self.kernelslist.insert(traces_dir.clone());
+                *traces_dir = traces_dir
+                    .parent()
+                    .ok_or(missing_parent(traces_dir))?
+                    .to_path_buf();
+            }
+            (Some(traces_dir), None) => {
+                // assume default location for kernelslist
+                let _ = self.kernelslist.insert(traces_dir.join("kernelslist.g"));
+            }
+            (None, Some(kernelslist)) => {
+                // assume trace dir is parent of kernelslist
+                let _ = self.traces_dir.insert(
+                    kernelslist
+                        .parent()
+                        .ok_or(missing_parent(kernelslist))?
+                        .to_path_buf(),
+                );
+            }
+            (None, None) => {
+                eyre::bail!("must specify either trace dir or kernelslist");
+            }
+        }
+        Ok(())
     }
 }
 
