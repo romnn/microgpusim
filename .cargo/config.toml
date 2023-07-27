@@ -10,4 +10,5 @@ sim = "run --"
 accelsim-trace = "run --package accelsim-trace --"
 accelsim-sim = "run --package accelsim-sim --"
 
-t = "test -- --test-threads=1"
+tt = "test -- --test-threads=1"
+t = "test --release -- --test-threads=1"

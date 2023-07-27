@@ -72,6 +72,7 @@ num-traits = "0"
 
 trace-model = { path = "./trace/model" }
 stats = { path = "./stats" }
+utils = { path = "./utils" }
 
 [dependencies.pyo3]
 version = "0"
@@ -80,10 +81,12 @@ optional = true
 
 [dev-dependencies]
 pretty_assertions_sorted = "1"
+similar-asserts = "1"
 cxx = "1"
 
 # sanity check stats against playground
 playground = { path = "./playground" }
+accelsim = { path = "./accelsim" }
 
 # testing if ffi works in async contexts
 tokio = { version = "1", features = ["full"] }
