@@ -4,9 +4,7 @@ use super::{address, mem_fetch, operand_collector as opcoll, scheduler as sched}
 use crate::config;
 use crate::ported::mem_sub_partition::MAX_MEMORY_ACCESS_SIZE;
 
-use bitvec::access;
-use bitvec::{array::BitArray, field::BitField, BitArr};
-// use nvbit_model::MemorySpace;
+use bitvec::{access, array::BitArray, field::BitField, BitArr};
 use std::collections::{HashMap, VecDeque};
 use trace_model as trace;
 
@@ -63,7 +61,7 @@ impl TransactionInfo {
 
 pub const MAX_ACCESSES_PER_INSN_PER_THREAD: usize = 8;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct PerThreadInfo {
     /// Effective addresses
     ///
@@ -98,15 +96,26 @@ fn line_size_based_tag_func(addr: address, line_size: u64) -> u64 {
     addr & !(line_size - 1)
 }
 
-const GLOBAL_HEAP_START: u64 = 0xC0000000;
+pub const GLOBAL_HEAP_START: u64 = 0xC0000000;
 // Volta max shmem size is 96kB
-const SHARED_MEM_SIZE_MAX: u64 = 96 * (1 << 10);
+pub const SHARED_MEM_SIZE_MAX: u64 = 96 * (1 << 10);
 // Volta max local mem is 16kB
-const LOCAL_MEM_SIZE_MAX: u64 = 1 << 14;
+pub const LOCAL_MEM_SIZE_MAX: u64 = 1 << 14;
+
+// Volta Titan V has 80 SMs
+pub const MAX_STREAMING_MULTIPROCESSORS: u64 = 80;
+
+pub const TOTAL_SHARED_MEM: u64 = MAX_STREAMING_MULTIPROCESSORS * SHARED_MEM_SIZE_MAX;
+
+pub const TOTAL_LOCAL_MEM: u64 =
+    MAX_STREAMING_MULTIPROCESSORS * super::MAX_THREAD_PER_SM as u64 * LOCAL_MEM_SIZE_MAX;
+
+pub const SHARED_GENERIC_START: u64 = GLOBAL_HEAP_START - TOTAL_SHARED_MEM;
+pub const LOCAL_GENERIC_START: u64 = SHARED_GENERIC_START - TOTAL_LOCAL_MEM;
 
 // const MAX_REG_OPERANDS: usize = 32;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct WarpInstruction {
     pub uid: usize,
     pub warp_id: usize,
@@ -736,7 +745,7 @@ impl WarpInstruction {
         // before reading this
         // let segment_size = 0;
         let warp_parts = config.shared_memory_warp_parts;
-        let sector_segment_size = false;
+        // let sector_segment_size = false;
         let coalescing_arch = config.coalescing_arch as usize;
 
         let sector_segment_size = if coalescing_arch >= 20 && coalescing_arch < 39 {
@@ -759,6 +768,12 @@ impl WarpInstruction {
             size => panic!("invalid data size {size}"),
         };
         let subwarp_size = config.warp_size / warp_parts;
+        log::trace!(
+            "memory_coalescing_arch {:?}: segment size={} subwarp size={}",
+            access_kind,
+            segment_size,
+            subwarp_size,
+        );
 
         let mut accesses: Vec<MemAccess> = Vec::new();
         for subwarp in 0..warp_parts {
@@ -768,6 +783,14 @@ impl WarpInstruction {
             for i in 0..subwarp_size {
                 let thread_id = subwarp * subwarp_size + i;
                 let thread = &self.threads[thread_id];
+                log::trace!(
+                    "memory_coalescing_arch {:?}: checking thread {} active={} request addresses={:?}",
+                    access_kind,
+                    thread_id,
+                    self.active_mask[thread_id],
+                    thread.mem_req_addr,
+                );
+
                 if !self.active_mask[thread_id] {
                     continue;
                 }
@@ -833,26 +856,31 @@ impl WarpInstruction {
                 }
             }
 
+            log::trace!(
+                "memory_coalescing_arch {:?}: subwarp_transactions: {:?}",
+                access_kind,
+                subwarp_transactions,
+            );
+
+            let mut subwarp_accesses: Vec<_> = subwarp_transactions.into_iter().collect();
+
+            // sort for deterministic ordering: add smallest addresses first
+            subwarp_accesses.sort_by_key(|(block_addr, _)| *block_addr);
+
             // step 2: reduce each transaction size, if possible
-            accesses.extend(subwarp_transactions.into_iter().map(|(addr, transaction)| {
-                self.memory_coalescing_arch_reduce(
-                    is_write,
-                    access_kind,
-                    transaction,
-                    addr,
-                    segment_size,
-                )
-            }));
-            // for (addr, transaction) in subwarp_transactions {
-            //     let access = self.memory_coalescing_arch_reduce(
-            //         is_write,
-            //         access_kind,
-            //         transaction,
-            //         addr,
-            //         segment_size,
-            //     );
-            //     self.mem_access_queue.push_back(access);
-            // }
+            accesses.extend(
+                subwarp_accesses
+                    .into_iter()
+                    .map(|(block_addr, transaction)| {
+                        self.memory_coalescing_arch_reduce(
+                            is_write,
+                            access_kind,
+                            transaction,
+                            block_addr,
+                            segment_size,
+                        )
+                    }),
+            );
         }
         accesses
     }
@@ -942,19 +970,24 @@ impl WarpInstruction {
         access
     }
 
-    fn set_addr(&mut self, thread_id: usize, addr: address) {
+    pub fn set_addr(&mut self, thread_id: usize, addr: address) {
         let thread = &mut self.threads[thread_id];
         thread.mem_req_addr[0] = addr;
     }
 
-    fn set_addrs(&mut self, thread_id: usize, addrs: &[address], count: usize) {
+    // fn set_addresses(&mut self, thread_id: usize, addrs: &[address], count: usize) {
+    pub fn set_addresses(&mut self, thread_id: usize, addresses: Vec<address>) {
         let thread = &mut self.threads[thread_id];
-        let max_count = thread.mem_req_addr.len();
-        debug_assert!(count <= max_count);
-        let count = count.min(max_count).min(addrs.len());
-        for i in 0..count {
-            thread.mem_req_addr[i] = addrs[i];
+        for (i, addr) in addresses.into_iter().enumerate() {
+            thread.mem_req_addr[i] = addr;
         }
+
+        // let max_count = thread.mem_req_addr.len();
+        // debug_assert!(count <= max_count);
+        // let count = count.min(max_count).min(addrs.len());
+        // for i in 0..count {
+        //     thread.mem_req_addr[i] = addrs[i];
+        // }
     }
 
     // pub fn is_active(&self, thread: usize) -> bool {
