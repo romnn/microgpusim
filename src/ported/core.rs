@@ -141,6 +141,97 @@ impl std::fmt::Display for Packet {
     }
 }
 
+impl<I> InnerSIMTCore<I>
+where
+    I: ic::Interconnect<Packet> + 'static,
+{
+    // Returns numbers of addresses in translated_addrs.
+    //
+    // Each addr points to a 4B (32-bit) word
+    pub fn translate_local_memaddr(
+        &self,
+        local_addr: address,
+        thread_id: usize,
+        num_cores: usize,
+        data_size: u32,
+    ) -> Vec<address> {
+        // ) -> &[address] {
+        // During functional execution, each thread sees its own memory space for
+        // local memory, but these need to be mapped to a shared address space for
+        // timing simulation.  We do that mapping here.
+
+        let mut thread_base = 0;
+        let mut max_concurrent_threads = 0;
+        if self.config.local_mem_map {
+            // Dnew = D*N + T%nTpC + nTpC*C
+            // N = nTpC*nCpS*nS (max concurent threads)
+            // C = nS*K + S (hw cta number per gpu)
+            // K = T/nTpC   (hw cta number per core)
+            // D = data index
+            // T = thread
+            // nTpC = number of threads per CTA
+            // nCpS = number of CTA per shader
+            //
+            // for a given local memory address threads in a CTA map to
+            // contiguous addresses, then distribute across memory space by CTAs
+            // from successive shader cores first, then by successive CTA in same
+            // shader core
+            let kernel_padded_threads_per_cta = self.thread_block_size;
+            let kernel_max_cta_per_shader = self.max_blocks_per_shader;
+
+            let temp = (self.core_id + num_cores * (thread_id / kernel_padded_threads_per_cta));
+            let rest = thread_id % kernel_padded_threads_per_cta;
+            thread_base = 4 * (kernel_padded_threads_per_cta * temp + rest);
+            max_concurrent_threads =
+                kernel_padded_threads_per_cta * kernel_max_cta_per_shader * num_cores;
+        } else {
+            // legacy mapping that maps the same address in the local memory
+            // space of all threads to a single contiguous address region
+            thread_base = 4 * (self.config.max_threads_per_core * self.core_id + thread_id);
+            max_concurrent_threads = num_cores * self.config.max_threads_per_core;
+        }
+        debug_assert!(thread_base < 4 /*word size*/ * max_concurrent_threads);
+
+        // If requested datasize > 4B, split into multiple 4B accesses
+        // otherwise do one sub-4 byte memory access
+        let mut translated_addresses = vec![];
+
+        if data_size >= 4 {
+            // >4B access, split into 4B chunks
+            debug_assert_eq!(data_size % 4, 0); // Must be a multiple of 4B
+            let num_accesses = data_size / 4;
+            // max 32B
+            debug_assert!(
+                num_accesses <= super::instruction::MAX_ACCESSES_PER_INSN_PER_THREAD as u32
+            );
+            // Address must be 4B aligned - required if
+            // accessing 4B per request, otherwise access
+            // will overflow into next thread's space
+            debug_assert_eq!(local_addr % 4, 0);
+            for i in 0..num_accesses {
+                let local_word = local_addr / 4 + (i as u64);
+                let linear_address: address = local_word * max_concurrent_threads as u64 * 4
+                    + thread_base as u64
+                    + super::instruction::LOCAL_GENERIC_START;
+                translated_addresses.push(linear_address);
+            }
+        } else {
+            // Sub-4B access, do only one access
+            debug_assert!(data_size > 0);
+            let local_word = local_addr / 4;
+            let local_word_offset = local_addr % 4;
+            // Make sure access doesn't overflow into next 4B chunk
+            debug_assert_eq!((local_addr + data_size as address - 1) / 4, local_word);
+            let linear_address: address = local_word * max_concurrent_threads as u64 * 4
+                + local_word_offset
+                + thread_base as u64
+                + super::instruction::LOCAL_GENERIC_START;
+            translated_addresses.push(linear_address);
+        }
+        return translated_addresses;
+    }
+}
+
 pub trait WarpIssuer {
     fn issue_warp(
         &mut self,
@@ -198,7 +289,8 @@ where
         };
 
         // debug_assert!(next_instr.empty());
-        *pipe_reg = Some(next_instr);
+        // *pipe_reg = Some(next_instr);
+        pipe_reg.insert(next_instr);
 
         let pipe_reg_mut = pipe_reg.as_mut().unwrap();
 
@@ -220,15 +312,25 @@ where
                     // warp.inc_n_atomic();
                 }
 
-                // if instr.memory_space.is_local() && (inst.is_load() || inst.is_store())) {
-                //    new_addr_type localaddrs[MAX_ACCESSES_PER_INSN_PER_THREAD];
-                //    unsigned num_addrs;
-                //    num_addrs = translate_local_memaddr(
-                //        inst.get_addr(t), tid,
-                //        m_config->n_simt_clusters * m_config->n_simt_cores_per_cluster,
-                //        inst.data_size, (new_addr_type *)localaddrs);
-                //    inst.set_addr(t, (new_addr_type *)localaddrs, num_addrs);
-                //  }
+                if pipe_reg_mut.memory_space == Some(super::instruction::MemorySpace::Local)
+                    && (pipe_reg_mut.is_load() || pipe_reg_mut.is_store())
+                {
+                    let total_cores =
+                        self.config.num_simt_clusters * self.config.num_cores_per_simt_cluster;
+                    let translated_local_addresses = self.translate_local_memaddr(
+                        pipe_reg_mut.threads[t].mem_req_addr[0],
+                        thread_id,
+                        total_cores,
+                        pipe_reg_mut.data_size,
+                    );
+
+                    debug_assert!(
+                        translated_local_addresses.len()
+                            < super::instruction::MAX_ACCESSES_PER_INSN_PER_THREAD
+                    );
+                    pipe_reg_mut.set_addresses(t, translated_local_addresses);
+                }
+
                 if pipe_reg_mut.opcode.category == opcodes::ArchOp::EXIT_OPS {
                     warp.set_thread_completed(t);
                 }
@@ -262,6 +364,11 @@ where
                             );
                         }
                     }
+                    log::trace!(
+                        "generate_mem_accesses: adding access {} to instruction {}",
+                        &access,
+                        &pipe_reg_mut
+                    );
                     pipe_reg_mut.mem_access_queue.push_back(access);
                 }
             }
@@ -380,8 +487,8 @@ where
 
         let port = Arc::new(ic::CoreMemoryInterface {
             cluster_id,
-            stats: stats.clone(),
-            config: config.clone(),
+            stats: Arc::clone(&stats),
+            config: Arc::clone(&config),
             interconn: interconn.clone(),
         });
         let cache_stats = Arc::new(Mutex::new(stats::Cache::default()));
@@ -394,9 +501,10 @@ where
             ),
             core_id,
             cluster_id,
-            port.clone(),
+            Rc::clone(&cycle),
+            Arc::clone(&port),
             cache_stats,
-            config.clone(),
+            Arc::clone(&config),
             config.inst_cache_l1.as_ref().unwrap().clone(),
         );
 
@@ -1204,9 +1312,22 @@ where
         };
 
         // debug: print all instructions in this warp
-        for (trace_pc, trace_instr) in warp.trace_instructions.iter().enumerate() {
+        log::debug!(
+            "====> instruction at trace pc < {:<4} already issued ...",
+            warp.trace_pc
+        );
+
+        // let valid_trace_instructions =
+        //     [warp.trace_pc..len(warp.trace_instructions)];
+        for (trace_pc, trace_instr) in warp
+            .trace_instructions
+            .iter()
+            .enumerate()
+            .skip(warp.trace_pc)
+        {
+            // if trace_pc >= warp.trace_pc {
             log::debug!(
-                "====> warp[warp_id={:03}][trace_pc={:03}]:\t {}\t\t active={} \tpc={} idx={}",
+                "====> warp[{:03}][trace_pc={:03}]:\t {}\t\t active={} \tpc={} idx={}",
                 warp_id,
                 trace_pc,
                 trace_instr,
