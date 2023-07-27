@@ -1,12 +1,65 @@
 #### TODO
 
+- TODO: add tag arrays to simulation state
+
+- REMEMBER: add back `perf_memcpy_to_gpu`
+- REMEMBER: changed l2_config::set_index to not use address mapping
+
+- TEST: include mem fetch size in partial diff
+
+  HAVE @ 35816
+
+```
+to scheduler: BEFORE: prioritized warp ids: [63, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62]
+gto scheduler: BEFORE: prioritized dynamic warp ids: [63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62]
+added greedy warp (last supervised issued idx=63): Some(63)
+gto scheduler: AFTER: prioritized warp ids: [63, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62]
+gto scheduler: AFTER: prioritized dynamic warp ids: [63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62]
+base scheduler: cycle
+scheduler:
+	 => testing (warp_id=63, dynamic_warp_id=63, trace_pc=261, pc=None, ibuffer=[], 261 instructions)
+warp (warp_id=63, dynamic_warp_id=63) fails as ibuffer_empty
+warp (warp_id=63, dynamic_warp_id=63) is waiting for completion
+scheduler:
+	 => testing (warp_id=0, dynamic_warp_id=64, trace_pc=2, pc=Some(264), ibuffer=[168, 184], 261 instructions)
+Warp (warp_id=0, dynamic_warp_id=64) instruction buffer[0] has valid instruction STL[pc=168,warp=0]
+Warp (warp_id=0, dynamic_warp_id=64) passes scoreboard
+cycle 35816 issue STL[pc=168,warp=0] for warp 0
+```
+
+WANT @ 35816
+
+```
+gto_scheduler::scheduler_unit BEFORE: m_next_cycle_prioritized_warps: 63,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62
+gto_scheduler::scheduler_unit BEFORE: m_next_cycle_prioritized_warps: 63,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62
+added greedy warp: 63
+gto_scheduler::scheduler_unit AFTER: m_next_cycle_prioritized_warps: 63,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62
+gto_scheduler::scheduler_unit AFTER: m_next_cycle_prioritized_warps: 63,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62
+	 => Warp (warp_id 63, dynamic_warp_id 63) fails as ibuffer_empty
+	 => Warp (warp_id 63, dynamic_warp_id 63) fails as waiting for barrier
+	 => Warp (warp_id 31, dynamic_warp_id 31) fails as ibuffer_empty
+	 => Warp (warp_id 31, dynamic_warp_id 31) fails as waiting for barrier
+```
+
 - Today:
+- DONE: confusing INST_ACC_R@0+128 with READ_ACC@1+128, so there are some off by one errors?
 
-  - configure logging for box and playground
+  - DONE: reason was bad trace generation..
 
-    - rust: log4rs or tracing subscriber? to log file
-    - both: allow logging after cycle X
+- DONE: convert box to accel traces
+- add deadlock check
+- save stats to files and plot them
+- DONE: compute execution time
+- DONE: add mem allocs to commands json
 
+- DONE: BUG: STL[pc=168,warp=1] has stall cond: NO_RC_FAIL in box in cycle 17 but COAL_STALL in cycle 17 in play
+
+  - DONE: configure logging for box and playground
+
+    - rust: log4rs or tracing subscriber? plus log file
+    - both: allow logging after cycle X (rust only currently)
+
+  - parse accelsim config files with defaults for compatibility
   - configure playground for accelsim compat mode and compare to native accelsim
     - could we run unmodified accelsim as well using bridge or will this mess up global state?
   - fix tests in CI
@@ -19,6 +72,16 @@
 - DONE: BUG: simple matrix mul 32 128 128 32
   - DONE: checking for diff after cycle 4654
   - DONE: accelsim has extra write access without any address???
+
+```bash
+// flatten thread id
+__inline__ __device__ int get_flat_tid() {
+	int tid_b = threadIdx.x + (blockDim.x * (threadIdx.y + (threadIdx.z * blockDim.y))); // thread id within a block
+	int bid = blockIdx.x + (gridDim.x * (blockIdx.y + (blockIdx.z * gridDim.y))); // block id
+	int tid = tid_b + (bid * blockDim.x * blockDim.y * blockDim.z);
+	return tid;
+}
+```
 
 ```
 interconn_to_l2_queue: [
