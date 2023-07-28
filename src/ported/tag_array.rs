@@ -110,10 +110,11 @@ impl<B> TagArray<B> {
         // shader_cache_access_log(m_core_id, m_type_id, 0);
         let (index, status) = self.probe(addr, fetch, fetch.is_write(), false);
         match status {
-            cache::RequestStatus::HIT_RESERVED => {
-                self.num_pending_hit += 1;
-            }
-            cache::RequestStatus::HIT => {
+            cache::RequestStatus::HIT | cache::RequestStatus::HIT_RESERVED => {
+                if status == cache::RequestStatus::HIT_RESERVED {
+                    self.num_pending_hit += 1;
+                }
+
                 // TODO: use an enum like either here
                 let index = index.expect("hit has idx");
                 let line = &mut self.lines[index];
