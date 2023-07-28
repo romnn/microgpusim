@@ -386,6 +386,8 @@ pub struct GPUConfig {
     // pub l1_latency: usize,
     /// smem Latency
     pub shared_memory_latency: usize,
+    /// SP unit max latency
+    pub max_sp_latency: usize,
     /// implements -Xptxas -dlcm=cg, default=no skip
     pub global_mem_skip_l1_data_cache: bool,
     /// enable perfect memory mode (no cache miss)
@@ -509,9 +511,9 @@ pub struct GPUConfig {
     //
     pub pipeline_widths: HashMap<PipelineStage, usize>, // 4,0,0,1,1,4,0,0,1,1,6
     /// Number of SP units
-    pub num_sp_units: usize, // 4
+    pub num_sp_units: usize,  // 4
     /// Number of DP units
-    pub num_dp_units: usize, // 0
+    pub num_dp_units: usize,  // 0
     /// Number of INT units
     pub num_int_units: usize, // 0
 
@@ -1136,6 +1138,7 @@ impl Default for GPUConfig {
             // l1_banks_hashing_function: 0,
             // l1_latency: 1,
             shared_memory_latency: 3,
+            max_sp_latency: 13, // make this better, or just parse accelsim configs...
             global_mem_skip_l1_data_cache: true,
             perfect_mem: false,
             shader_registers: 65536,
