@@ -529,32 +529,51 @@ fn print_benchmark_result(
         || bench_config.executable.clone(),
         |cwd| bench_config.executable.relative_to(cwd),
     );
-    let benchmark_config_id = format!("{}@{:<3}", bench_config.name, bench_config.input_idx + 1);
-    bar.println(format!(
-        "{:>15} {:>20} [ {} {} ] {}",
-        op,
-        if result.is_ok() {
-            style(benchmark_config_id).green()
-        } else {
-            style(benchmark_config_id).red()
-        },
-        executable.display(),
-        bench_config.args.join(" "),
-        match result {
-            Ok(_) => {
-                format!("succeeded in {elapsed:?}")
-            }
-            Err(ref err) => {
-                static PREVIEW_LEN: usize = 75;
-                let err_preview = err.to_string();
-                if err_preview.len() > PREVIEW_LEN {
-                    let _err_preview =
-                        format!("{} ...", &err_preview[..err_preview.len().min(PREVIEW_LEN)]);
-                }
-                format!("failed after {:?}: {}", elapsed, style(err_preview).red())
-            }
+    let status = match result {
+        Ok(_) => {
+            format!("succeeded in {elapsed:?}")
         }
-    ));
+        Err(ref err) => {
+            static PREVIEW_LEN: usize = 75;
+            let err_preview = err.to_string();
+            if err_preview.len() > PREVIEW_LEN {
+                let _err_preview =
+                    format!("{} ...", &err_preview[..err_preview.len().min(PREVIEW_LEN)]);
+            }
+            format!("failed after {:?}: {}", elapsed, style(err_preview).red())
+        }
+    };
+    match options.command {
+        Command::Build(_) | Command::Clean(_) => {
+            bar.println(format!(
+                "{:>15} {:>20} [ {} ] {}",
+                op,
+                if result.is_ok() {
+                    style(&bench_config.name).green()
+                } else {
+                    style(&bench_config.name).red()
+                },
+                executable.display(),
+                status,
+            ));
+        }
+        _ => {
+            let benchmark_config_id =
+                format!("{}@{:<3}", &bench_config.name, bench_config.input_idx + 1);
+            bar.println(format!(
+                "{:>15} {:>20} [ {} {} ] {}",
+                op,
+                if result.is_ok() {
+                    style(benchmark_config_id).green()
+                } else {
+                    style(benchmark_config_id).red()
+                },
+                executable.display(),
+                bench_config.args.join(" "),
+                status,
+            ));
+        }
+    };
 }
 
 #[tokio::main(flavor = "multi_thread")]

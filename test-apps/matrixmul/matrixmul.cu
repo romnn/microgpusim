@@ -212,6 +212,8 @@ template <typename T> int matrixmul(int MROW) {
   double start_timer, end_timer;
 
   int MSIZE = MROW * MROW;
+  printf("(%d x %d) x (%d x %d)\n", MROW, MROW, MROW, MROW);
+  printf("data type: %lu bytes (%lu bits)\n", sizeof(T), sizeof(T) * 8);
 
   A = (T *)malloc(sizeof(T) * MSIZE);
   cudaMalloc(&A_dev, MSIZE * sizeof(T));
@@ -291,7 +293,7 @@ template <typename T> int matrixmul(int MROW) {
 }
 
 int main(int argc, char *argv[]) {
-  if (argc < 3) {
+  if (argc != 3) {
     fprintf(stderr, "usage: matrixmul <mrow> <datatype>\n");
     return 1;
   }

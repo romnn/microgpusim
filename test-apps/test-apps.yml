@@ -71,3 +71,13 @@ benchmarks:
       p: [32, 64, 128]
     # (m x n) x (n x p)
     args: "{{ input.m }} {{ input.n }} {{ input.p }} {{ input.data_type }}"
+  matrixmul:
+    path: ./matrixmul
+    executable: matrixmul
+    inputs:
+      data_type: [32]
+      rows: [32, 64, 128, 256, 512]
+      exclude:
+        - rows: 512
+    # (rows x rows) x (rows x rows)
+    args: "{{ input.rows }} {{ input.data_type }}"
