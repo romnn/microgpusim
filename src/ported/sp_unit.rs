@@ -26,7 +26,7 @@ impl SPUnit {
         cycle: super::Cycle,
         issue_reg_id: usize,
     ) -> Self {
-        let pipeline_depth = config.shared_memory_latency;
+        let pipeline_depth = config.max_sp_latency;
         let pipelined_simd_unit = fu::PipelinedSimdUnitImpl::new(
             id,
             "SPUnit".to_string(),
@@ -77,6 +77,10 @@ impl fu::SimdFunctionUnit for SPUnit
 
     fn pipeline(&self) -> &Vec<Option<WarpInstruction>> {
         &self.pipelined_simd_unit.pipeline_reg
+    }
+
+    fn id(&self) -> &str {
+        &self.pipelined_simd_unit.name
     }
 
     fn is_issue_partitioned(&self) -> bool {
