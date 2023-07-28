@@ -134,9 +134,6 @@ class trace_shd_warp_t {
   void inc_inst_in_pipeline() { m_inst_in_pipeline++; }
   void dec_inst_in_pipeline() {
     assert(m_inst_in_pipeline > 0);
-    // printf("inst in pipeline: %d\n", m_inst_in_pipeline);
-    // if (m_warp_id == 7)
-    //   assert(0 && "warp 7 dec instr count");
     m_inst_in_pipeline--;
   }
 

@@ -80,12 +80,12 @@ class ldst_unit : public pipelined_simd_unit {
   void get_L1T_sub_stats(struct cache_sub_stats &css) const;
 
  protected:
-  ldst_unit(mem_fetch_interface *icnt,
-            shader_core_mem_fetch_allocator *mf_allocator,
-            trace_shader_core_ctx *core, opndcoll_rfu_t *operand_collector,
-            Scoreboard *scoreboard, const shader_core_config *config,
-            const memory_config *mem_config, shader_core_stats *stats,
-            unsigned sid, unsigned tpc, l1_cache *new_l1d_cache);
+  // ldst_unit(mem_fetch_interface *icnt,
+  //           shader_core_mem_fetch_allocator *mf_allocator,
+  //           trace_shader_core_ctx *core, opndcoll_rfu_t *operand_collector,
+  //           Scoreboard *scoreboard, const shader_core_config *config,
+  //           const memory_config *mem_config, shader_core_stats *stats,
+  //           unsigned sid, unsigned tpc, l1_cache *new_l1d_cache);
   void init(mem_fetch_interface *icnt,
             shader_core_mem_fetch_allocator *mf_allocator,
             trace_shader_core_ctx *core, opndcoll_rfu_t *operand_collector,

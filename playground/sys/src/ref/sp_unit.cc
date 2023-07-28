@@ -14,7 +14,7 @@ sp_unit::sp_unit(register_set *result_port, const shader_core_config *config,
                  trace_shader_core_ctx *core, unsigned issue_reg_id)
     : pipelined_simd_unit(result_port, config, config->max_sp_latency, core,
                           issue_reg_id) {
-  m_name = "SP ";
+  m_name = "SPUnit";
 }
 
 void sp_unit::issue(register_set &source_reg) {

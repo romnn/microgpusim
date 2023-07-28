@@ -153,7 +153,7 @@ struct sector_cache_block : public cache_block_t {
     }
     return sector_mask;
   }
-  virtual unsigned long long get_last_access_time() override {
+  virtual unsigned long get_last_access_time() const override {
     return m_line_last_access_time;
   }
 

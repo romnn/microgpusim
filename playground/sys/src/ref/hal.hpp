@@ -4,15 +4,6 @@
 #include <bitset>
 #include <vector>
 
-static_assert(sizeof(unsigned long long) == sizeof(uint64_t),
-              "replaced unsigned long long with uint64_t");
-static_assert(sizeof(long int) == sizeof(int64_t),
-              "replaced long int with int32_t");
-static_assert(sizeof(unsigned int) == sizeof(uint32_t),
-              "replaced unsigned int with uint32_t");
-static_assert(sizeof(unsigned) == sizeof(uint32_t),
-              "replaced unsigned with uint32_t");
-
 typedef uint64_t new_addr_type;
 typedef uint64_t cudaTextureObject_t;
 typedef uint64_t address_type;

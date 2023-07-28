@@ -41,7 +41,7 @@ impl<'a> CollectorUnit<'a> {
             None
         } else {
             let reg = self.unit.get_output_register();
-            Some(unsafe { super::register_set::RegisterSet::new(reg) })
+            Some(unsafe { super::register_set::RegisterSet::wrap_ptr(reg) })
         }
     }
 

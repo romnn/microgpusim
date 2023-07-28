@@ -120,8 +120,9 @@ class gpgpu_sim_config : public power_config,
     m_memory_config.dram_latency = 0;
     // cannot create the l1 latency queue otherwise (to be removed i guess)
     m_shader_config.m_L1D_config.l1_latency = 1;
-    m_shader_config.smem_latency = 2;  // must be >1 (assert in ldst unit)
-                                       // #endif
+    // latency must be >1 (assert in ldst unit) for the pipeline to work
+    // m_shader_config.smem_latency = 2;
+    // #endif
 
     m_shader_config.init();
     ptx_set_tex_cache_linesize(m_shader_config.m_L1T_config.get_line_sz());

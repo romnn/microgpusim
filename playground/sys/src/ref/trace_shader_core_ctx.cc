@@ -571,22 +571,27 @@ void trace_shader_core_ctx::create_exec_pipeline() {
     m_operand_collector.add_cu_set(
         SP_CUS, m_config->gpgpu_operand_collector_num_units_sp,
         m_config->gpgpu_operand_collector_num_out_ports_sp);
-    m_operand_collector.add_cu_set(
-        DP_CUS, m_config->gpgpu_operand_collector_num_units_dp,
-        m_config->gpgpu_operand_collector_num_out_ports_dp);
-    m_operand_collector.add_cu_set(
-        TENSOR_CORE_CUS,
-        m_config->gpgpu_operand_collector_num_units_tensor_core,
-        m_config->gpgpu_operand_collector_num_out_ports_tensor_core);
-    m_operand_collector.add_cu_set(
-        SFU_CUS, m_config->gpgpu_operand_collector_num_units_sfu,
-        m_config->gpgpu_operand_collector_num_out_ports_sfu);
+    // TODO: roman make this configurable
+    if (false) {
+      m_operand_collector.add_cu_set(
+          DP_CUS, m_config->gpgpu_operand_collector_num_units_dp,
+          m_config->gpgpu_operand_collector_num_out_ports_dp);
+      m_operand_collector.add_cu_set(
+          TENSOR_CORE_CUS,
+          m_config->gpgpu_operand_collector_num_units_tensor_core,
+          m_config->gpgpu_operand_collector_num_out_ports_tensor_core);
+      m_operand_collector.add_cu_set(
+          SFU_CUS, m_config->gpgpu_operand_collector_num_units_sfu,
+          m_config->gpgpu_operand_collector_num_out_ports_sfu);
+    }
     m_operand_collector.add_cu_set(
         MEM_CUS, m_config->gpgpu_operand_collector_num_units_mem,
         m_config->gpgpu_operand_collector_num_out_ports_mem);
-    m_operand_collector.add_cu_set(
-        INT_CUS, m_config->gpgpu_operand_collector_num_units_int,
-        m_config->gpgpu_operand_collector_num_out_ports_int);
+    if (false) {
+      m_operand_collector.add_cu_set(
+          INT_CUS, m_config->gpgpu_operand_collector_num_units_int,
+          m_config->gpgpu_operand_collector_num_out_ports_int);
+    }
 
     for (unsigned i = 0; i < m_config->gpgpu_operand_collector_num_in_ports_sp;
          i++) {

@@ -34,7 +34,7 @@ void Scoreboard::printContents() const {
 void Scoreboard::releaseRegister(unsigned wid, unsigned regnum) {
   // if (m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle)
   if (!(reg_table[wid].find(regnum) != reg_table[wid].end())) return;
-  logger->debug("Release register - warp: {}, reg: {}", wid, regnum);
+  logger->trace("scoreboard: warp {} releases register {}", wid, regnum);
   reg_table[wid].erase(regnum);
 }
 
@@ -114,13 +114,21 @@ bool Scoreboard::checkCollision(unsigned wid, const class inst_t *inst) const {
   if (inst->ar1 > 0) inst_regs.insert(inst->ar1);
   if (inst->ar2 > 0) inst_regs.insert(inst->ar2);
 
+  logger->trace("scoreboard: {} uses registers: {}",
+                static_cast<const warp_inst_t *>(inst)->display(),
+                fmt::join(inst_regs, ","));
+
+  logger->trace("scoreboard: warp {} reserved registers: {}", wid,
+                fmt::join(reg_table[wid], ","));
+
   // Check for collision, get the intersection of reserved registers and
   // instruction registers
   std::set<int>::const_iterator it2;
-  for (it2 = inst_regs.begin(); it2 != inst_regs.end(); it2++)
+  for (it2 = inst_regs.begin(); it2 != inst_regs.end(); it2++) {
     if (reg_table[wid].find(*it2) != reg_table[wid].end()) {
       return true;
     }
+  }
   return false;
 }
 

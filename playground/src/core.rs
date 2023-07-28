@@ -6,12 +6,24 @@ pub struct Core<'a>(pub(crate) &'a core_bridge);
 
 impl<'a> Core<'a> {
     #[must_use]
-    pub fn register_sets(&self) -> Vec<super::register_set::RegisterSet<'a>> {
+    pub fn functional_unit_issue_register_sets(&self) -> Vec<super::register_set::RegisterSet<'a>> {
         use playground_sys::register_set::new_register_set_bridge;
         self.0
-            .get_register_sets()
+            .get_functional_unit_issue_register_sets()
             .iter()
-            .map(|ptr| unsafe { super::register_set::RegisterSet::new(ptr.get()) })
+            .map(|ptr| unsafe { super::register_set::RegisterSet::wrap_ptr(ptr.get()) })
+            .collect()
+    }
+
+    #[must_use]
+    pub fn functional_unit_simd_pipeline_register_sets(
+        &self,
+    ) -> Vec<super::register_set::RegisterSet<'a>> {
+        use playground_sys::register_set::new_register_set_bridge;
+        self.0
+            .get_functional_unit_simd_pipeline_register_sets()
+            .iter()
+            .map(|ptr| unsafe { super::register_set::RegisterSet::wrap_owned_ptr(ptr.get()) })
             .collect()
     }
 

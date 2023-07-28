@@ -15,7 +15,9 @@ class register_set {
     }
     m_name = name;
   }
+
   const char *get_name() const { return m_name; }
+
   bool has_free() const {
     for (unsigned i = 0; i < regs.size(); i++) {
       if (regs[i]->empty()) {
@@ -24,6 +26,7 @@ class register_set {
     }
     return false;
   }
+
   bool has_free(bool sub_core_model, unsigned reg_id) const {
     // in subcore model, each sched has a one specific reg to use (based on
     // sched id)
@@ -32,6 +35,7 @@ class register_set {
     assert(reg_id < regs.size());
     return regs[reg_id]->empty();
   }
+
   bool has_ready() const {
     for (unsigned i = 0; i < regs.size(); i++) {
       if (not regs[i]->empty()) {
@@ -40,6 +44,7 @@ class register_set {
     }
     return false;
   }
+
   bool has_ready(bool sub_core_model, unsigned reg_id) const {
     if (!sub_core_model) return has_ready();
     assert(reg_id < regs.size());
@@ -152,7 +157,7 @@ class register_set {
   unsigned get_size() { return regs.size(); }
 
   friend class register_set_bridge;
-  friend class register_set_bridge_new;
+  friend class core_bridge;
 
   friend std::ostream &operator<<(std::ostream &os, const register_set &reg);
   friend struct fmt::formatter<register_set>;

@@ -1,4 +1,4 @@
-pub use playground_sys::operand_collector::dispatch_unit_t;
+pub use playground_sys::operand_collector::{arbiter_t, dispatch_unit_t};
 use playground_sys::operand_collector::{operand_collector_bridge, opndcoll_rfu_t};
 use std::marker::PhantomData;
 
@@ -14,6 +14,10 @@ impl<'a> OperandCollector<'a> {
             inner,
             phantom: PhantomData,
         }
+    }
+
+    pub fn arbiter(&'a self) -> &'a arbiter_t {
+        self.inner.get_arbiter()
     }
 
     pub fn dispatch_units(&'a self) -> impl Iterator<Item = &dispatch_unit_t> + 'a {

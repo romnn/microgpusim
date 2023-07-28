@@ -70,7 +70,7 @@ struct line_cache_block : public cache_block_t {
     if (m_status == MODIFIED) sector_mask.set();
     return sector_mask;
   }
-  virtual unsigned long long get_last_access_time() override {
+  virtual unsigned long get_last_access_time() const override {
     return m_last_access_time;
   }
   virtual void set_last_access_time(

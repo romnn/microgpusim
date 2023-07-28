@@ -7,13 +7,20 @@ use std::marker::PhantomData;
 #[derive(Clone)]
 pub struct RegisterSet<'a> {
     pub inner: cxx::SharedPtr<register_set_bridge>,
-    phantom: PhantomData<&'a register_set_bridge>,
+    phantom: PhantomData<&'a register_set>,
 }
 
 impl<'a> RegisterSet<'a> {
-    pub(crate) unsafe fn new(ptr: *const register_set) -> Self {
+    pub(crate) unsafe fn wrap_ptr(ptr: *const register_set) -> Self {
         Self {
-            inner: new_register_set_bridge(ptr),
+            inner: new_register_set_bridge(ptr, false),
+            phantom: PhantomData,
+        }
+    }
+
+    pub(crate) unsafe fn wrap_owned_ptr(ptr: *const register_set) -> Self {
+        Self {
+            inner: new_register_set_bridge(ptr, true),
             phantom: PhantomData,
         }
     }
@@ -39,12 +46,4 @@ impl<'a> std::ops::Deref for RegisterSet<'a> {
     fn deref(&self) -> &'a Self::Target {
         unsafe { self.inner.inner().as_ref().unwrap() }
     }
-}
-
-pub(crate) fn get_register_sets<'a>(
-    regs: cxx::UniquePtr<::cxx::CxxVector<register_set_ptr>>,
-) -> Vec<RegisterSet<'a>> {
-    regs.iter()
-        .map(|ptr| unsafe { RegisterSet::new(ptr.get()) })
-        .collect()
 }

@@ -1,6 +1,15 @@
-use super::register_set::{get_register_sets, RegisterSet};
+use super::register_set::RegisterSet;
 use playground_sys::input_port::{input_port_bridge, input_port_t};
+use playground_sys::register_set::register_set_ptr;
 use std::marker::PhantomData;
+
+fn get_register_sets<'a>(
+    regs: cxx::UniquePtr<::cxx::CxxVector<register_set_ptr>>,
+) -> Vec<RegisterSet<'a>> {
+    regs.iter()
+        .map(|ptr| unsafe { RegisterSet::wrap_ptr(ptr.get()) })
+        .collect()
+}
 
 #[derive(Clone)]
 pub struct Port<'a> {

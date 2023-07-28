@@ -15,6 +15,8 @@ class operand_collector_bridge {
 
   const opndcoll_rfu_t *inner() const { return ptr; }
 
+  const arbiter_t &get_arbiter() const { return ptr->m_arbiter; }
+
   const std::vector<input_port_t> &get_input_ports() const {
     return ptr->m_in_ports;
   }

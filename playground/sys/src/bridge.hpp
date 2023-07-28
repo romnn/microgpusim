@@ -18,5 +18,25 @@
 using c_void = void;
 using c_ulonglong = long long unsigned int;
 
-// this should only be added into source files (.cc) that require rust types
-// #include "playground/src/bridge.rs.h"
+/*
+ * For the FFI boundary, cxx static asserts do not work with all types.
+ *
+ * e.g. unsigned long long (on the C++ side) != u64 (on the rust side)
+ *
+ * therefore, we use standardized uint64_t where necessary and use the following
+ * static assertions to make sure we are indeed running on a modern system where
+ *
+ *		uint64_t == unsigned long == unsigned long long
+ *
+ * holds.
+ */
+static_assert(sizeof(unsigned long long) == sizeof(uint64_t),
+              "replaced unsigned long long with uint64_t");
+static_assert(sizeof(unsigned long) == sizeof(unsigned long long),
+              "replaced unsigned long long with unsigned long");
+static_assert(sizeof(long int) == sizeof(int64_t),
+              "replaced long int with int32_t");
+static_assert(sizeof(unsigned int) == sizeof(uint32_t),
+              "replaced unsigned int with uint32_t");
+static_assert(sizeof(unsigned) == sizeof(uint32_t),
+              "replaced unsigned with uint32_t");

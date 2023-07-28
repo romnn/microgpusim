@@ -249,8 +249,9 @@ struct fmt::formatter<warp_inst_t> {
     if (inst.empty()) {
       return fmt::format_to(ctx.out(), "None");
     }
-    return fmt::format_to(ctx.out(), "Some({}[pc={},warp={}])",
-                          inst.opcode_str(), inst.pc, inst.warp_id());
+    std::string opcode = std::string(inst.opcode_str()).substr(3);
+    return fmt::format_to(ctx.out(), "Some({}[pc={},warp={}])", opcode, inst.pc,
+                          inst.warp_id());
   }
 };
 

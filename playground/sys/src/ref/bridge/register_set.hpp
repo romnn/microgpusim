@@ -10,7 +10,15 @@ struct register_set_ptr {
 
 class register_set_bridge {
  public:
-  register_set_bridge(const register_set *ptr) : ptr(ptr) {}
+  register_set_bridge(const register_set *ptr) : owned(false), ptr(ptr) {}
+  register_set_bridge(const register_set *ptr, bool owned)
+      : owned(owned), ptr(ptr) {}
+
+  ~register_set_bridge() {
+    if (owned) {
+      delete ptr;
+    }
+  }
 
   const register_set *inner() const { return ptr; };
 
@@ -24,8 +32,9 @@ class register_set_bridge {
   }
 
  private:
+  bool owned;
   const register_set *ptr;
 };
 
 std::shared_ptr<register_set_bridge> new_register_set_bridge(
-    const register_set *ptr);
+    const register_set *ptr, bool owned);

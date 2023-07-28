@@ -27,8 +27,12 @@ mod ffi {
         fn get_last_cu(self: &dispatch_unit_t) -> u32;
         fn get_next_cu(self: &dispatch_unit_t) -> u32;
 
+        type arbiter_t;
+        fn get_last_cu(self: &arbiter_t) -> u32;
+
         type operand_collector_bridge;
         fn inner(self: &operand_collector_bridge) -> *const opndcoll_rfu_t;
+        fn get_arbiter(self: &operand_collector_bridge) -> &arbiter_t;
         fn get_input_ports(self: &operand_collector_bridge) -> &CxxVector<input_port_t>;
         fn get_dispatch_units(self: &operand_collector_bridge) -> &CxxVector<dispatch_unit_t>;
         fn get_collector_units(

@@ -214,6 +214,8 @@ void ldst_unit::L1_latency_queue_cycle() {
                 throw std::runtime_error("must model the l1 latency queue");
                 m_pending_writes[mf_next->get_inst().warp_id()].erase(
                     mf_next->get_inst().out[r]);
+
+                logger->trace("l1 latency queue release registers");
                 m_scoreboard->releaseRegister(mf_next->get_inst().warp_id(),
                                               mf_next->get_inst().out[r]);
                 m_core->warp_inst_complete(mf_next->get_inst());
@@ -432,22 +434,22 @@ ldst_unit::ldst_unit(mem_fetch_interface *icnt,
       l1_latency_queue[j].resize(m_config->m_L1D_config.l1_latency,
                                  (mem_fetch *)NULL);
   }
-  m_name = "MEM ";
+  m_name = "LdstUnit";
 }
 
-ldst_unit::ldst_unit(mem_fetch_interface *icnt,
-                     shader_core_mem_fetch_allocator *mf_allocator,
-                     trace_shader_core_ctx *core,
-                     opndcoll_rfu_t *operand_collector, Scoreboard *scoreboard,
-                     const shader_core_config *config,
-                     const memory_config *mem_config, shader_core_stats *stats,
-                     unsigned sid, unsigned tpc, l1_cache *new_l1d_cache)
-    : pipelined_simd_unit(NULL, config, 3, core, 0),
-      m_L1D(new_l1d_cache),
-      m_next_wb(config) {
-  init(icnt, mf_allocator, core, operand_collector, scoreboard, config,
-       mem_config, stats, sid, tpc);
-}
+// ldst_unit::ldst_unit(mem_fetch_interface *icnt,
+//                      shader_core_mem_fetch_allocator *mf_allocator,
+//                      trace_shader_core_ctx *core,
+//                      opndcoll_rfu_t *operand_collector, Scoreboard
+//                      *scoreboard, const shader_core_config *config, const
+//                      memory_config *mem_config, shader_core_stats *stats,
+//                      unsigned sid, unsigned tpc, l1_cache *new_l1d_cache)
+//     : pipelined_simd_unit(NULL, config, 3, core, 0),
+//       m_L1D(new_l1d_cache),
+//       m_next_wb(config) {
+//   init(icnt, mf_allocator, core, operand_collector, scoreboard, config,
+//        mem_config, stats, sid, tpc);
+// }
 
 void ldst_unit::issue(register_set &reg_set) {
   warp_inst_t *inst = *(reg_set.get_ready());
@@ -473,17 +475,25 @@ void ldst_unit::issue(register_set &reg_set) {
   pipelined_simd_unit::issue(reg_set);
 }
 
+static const char *writeback_client_str[] = {
+    "SharedMemory", "L1T", "L1C", "GlobalLocal", "L1D",
+};
+
 void ldst_unit::writeback() {
+  logger->debug(
+      "load store unit: cycle {} writeback (arb={}, writeback clients={})",
+      m_core->get_gpu()->gpu_sim_cycle, m_writeback_arb,
+      m_num_writeback_clients);
+
   // process next instruction that is going to writeback
   if (!m_next_wb.empty()) {
-    logger->debug("load store unit: cycle {} writeback: next_wb={} (arb={})",
-                  m_core->get_gpu()->gpu_sim_cycle, m_next_wb, m_writeback_arb);
+    logger->trace("load store unit: cycle {} writeback: next_wb={}",
+                  m_core->get_gpu()->gpu_sim_cycle, m_next_wb);
 
     if (m_operand_collector->writeback(m_next_wb)) {
       bool insn_completed = false;
       for (unsigned r = 0; r < MAX_OUTPUT_VALUES; r++) {
         if (m_next_wb.out[r] > 0) {
-          logger->debug("load store unit: writeback: release register");
           if (m_next_wb.space.get_type() != shared_space) {
             assert(m_pending_writes[m_next_wb.warp_id()][m_next_wb.out[r]] > 0);
             unsigned still_pending =
@@ -517,6 +527,9 @@ void ldst_unit::writeback() {
   for (unsigned c = 0; m_next_wb.empty() && (c < m_num_writeback_clients);
        c++) {
     unsigned next_client = (c + m_writeback_arb) % m_num_writeback_clients;
+
+    logger->trace("checking writeback client {}",
+                  writeback_client_str[next_client]);
     switch (next_client) {
       case 0:  // shared memory
         if (!m_pipeline_reg[0]->empty()) {
@@ -577,7 +590,10 @@ void ldst_unit::writeback() {
   // 1. the writeback buffer was available
   // 2. a client was serviced
   if (serviced_client != (unsigned)-1) {
-    logger->debug("serviced {}", serviced_client);
+    logger->debug(
+        "load store unit writeback serviced client {} ({}) => next "
+        "writeback={}",
+        writeback_client_str[serviced_client], serviced_client, m_next_wb);
     m_writeback_arb = (serviced_client + 1) % m_num_writeback_clients;
   }
 }
@@ -591,18 +607,24 @@ unsigned ldst_unit::clock_multiplier() const {
 }
 
 void ldst_unit::cycle() {
-  logger->debug("ldst_unit::cycle() (response fifo size={})",
-                m_response_fifo.size());
+  logger->debug(
+      "LdstUnit cycle() \tpipeline=[{}] ({}/{} active) \tresponse "
+      "fifo=[{}]",
+      fmt::join(m_pipeline_reg, m_pipeline_reg + m_pipeline_depth, ","),
+      active_insts_in_pipeline, m_pipeline_depth,
+      fmt::join(m_response_fifo, ", "));
+
   writeback();
 
   for (unsigned stage = 0; (stage + 1) < m_pipeline_depth; stage++) {
     if (m_pipeline_reg[stage]->empty() && !m_pipeline_reg[stage + 1]->empty()) {
-      // throw std::runtime_error("is moving");
       std::stringstream msg;
-      msg << "load store unit: move warp from stage " << stage << " to "
-          << stage + 1;
+      msg << "load store unit: move warp from stage " << stage + 1 << " to "
+          << stage;
       move_warp(m_pipeline_reg[stage], m_pipeline_reg[stage + 1], msg.str(),
                 logger);
+    } else {
+      logger->trace("LdstUnit: skip moving {} to {}", stage + 1, stage);
     }
   }
 
@@ -724,7 +746,8 @@ void ldst_unit::cycle() {
           }
         }
         if (!pending_requests) {
-          // throw std::runtime_error("hi");
+          logger->trace("ldst unit: load instruction {} completed",
+                        warp_instr_ptr(m_dispatch_reg));
           m_core->warp_inst_complete(*m_dispatch_reg);
           m_scoreboard->releaseRegisters(m_dispatch_reg);
         }
@@ -733,6 +756,8 @@ void ldst_unit::cycle() {
       }
     } else {
       // stores exit pipeline here
+      logger->trace("ldst unit: store instruction {} completed",
+                    warp_instr_ptr(m_dispatch_reg));
       m_core->dec_inst_in_pipeline(warp_id);
       m_core->warp_inst_complete(*m_dispatch_reg);
       m_dispatch_reg->clear();

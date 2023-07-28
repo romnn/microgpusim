@@ -29,6 +29,8 @@ std::list<op_t> arbiter_t::allocate_reads() {
   int _outputs = m_num_collectors;
   int _square = (_inputs > _outputs) ? _inputs : _outputs;
   assert(_square > 0);
+
+  unsigned last_cu_before = m_last_cu;
   int _pri = (int)m_last_cu;
   logger->debug("last cu: {}", m_last_cu);
 
@@ -107,13 +109,14 @@ std::list<op_t> arbiter_t::allocate_reads() {
 
   // Round-robin the priority diagonal
   _pri = (_pri + 1) % _outputs;
-
-  logger->trace("outputs: {}", _outputs);
   logger->trace("pri: {}", _pri);
 
   /// <--- end code from booksim
 
   m_last_cu = _pri;
+  logger->debug("last cu: {} -> {} ({} outputs)", last_cu_before, m_last_cu,
+                _outputs);
+
   for (unsigned i = 0; i < m_num_banks; i++) {
     if (_inmatch[i] != -1) {
       logger->trace("inmatch[bank={}] is write={}", i,
@@ -212,6 +215,10 @@ int register_bank(int regnum, int wid, unsigned num_banks,
 bool opndcoll_rfu_t::writeback(warp_inst_t &inst) {
   assert(!inst.empty());
   std::list<unsigned> regs = m_shader->get_regs_written(inst);
+  logger->trace(
+      "operand collector: writeback {} with destination registers [{}]", inst,
+      fmt::join(regs, ","));
+
   for (unsigned op = 0; op < MAX_REG_OPERANDS; op++) {
     int reg_num = inst.arch_reg.dst[op];  // this math needs to match that used
                                           // in function_info::ptx_decode_inst

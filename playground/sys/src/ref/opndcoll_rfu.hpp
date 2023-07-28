@@ -303,6 +303,8 @@ class arbiter_t {
     reset_alloction();
   }
 
+  unsigned get_last_cu() const { return m_last_cu; }
+
   // accessors
   // void dump(FILE *fp) const {
   //   fprintf(fp, "\n");

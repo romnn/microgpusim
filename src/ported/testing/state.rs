@@ -44,16 +44,13 @@ impl std::fmt::Debug for Cache {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_list()
             .entries(
-                self.lines
-                    .iter()
-                    .enumerate()
-                    .filter(|(idx, line)| line.tag != 0), // .filter(|(idx, line)| line.status == CacheBlockStatus::VALID),
+                self.lines.iter().enumerate(), // we only show valid tags
+                                               // .filter(|(idx, line)| line.tag != 0),
             )
             .finish()
     }
 }
 
-// impl From<ported::TagArray<ported::cache_block::LineCacheBlock>> for Cache {
 impl<T> From<ported::TagArray<T>> for Cache {
     fn from(tag_array: ported::TagArray<T>) -> Self {
         Self {
@@ -87,6 +84,7 @@ pub struct CacheBlock {
     pub tag: u64,
     pub block_addr: u64,
     pub status: CacheBlockStatus,
+    pub last_accessed: u64,
 }
 
 impl From<ported::cache_block::LineCacheBlock> for CacheBlock {
@@ -95,6 +93,7 @@ impl From<ported::cache_block::LineCacheBlock> for CacheBlock {
             tag: block.tag,
             block_addr: block.block_addr,
             status: block.status.into(),
+            last_accessed: block.last_access_time,
         }
     }
 }
@@ -116,13 +115,18 @@ impl<'a> From<&'a playground::cache::cache_block_t> for CacheBlock {
             status,
             tag: block.get_tag(),
             block_addr: block.get_block_addr(),
+            last_accessed: block.get_last_access_time(),
         }
     }
 }
 
 impl std::fmt::Debug for CacheBlock {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{:?}({}, {})", self.status, self.tag, self.block_addr)
+        write!(
+            f,
+            "{:?}(tag={}, block={}, accessed={})",
+            self.status, self.tag, self.block_addr, self.last_accessed
+        )
     }
 }
 
@@ -151,8 +155,7 @@ impl From<ported::instruction::WarpInstruction> for WarpInstruction {
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct RegisterSet {
-    // pub stage: ported::core::PipelineStage,
-    pub stage: String,
+    pub name: String,
     pub pipeline: Vec<Option<WarpInstruction>>,
 }
 
@@ -168,7 +171,7 @@ impl RegisterSet {
 
 impl std::fmt::Debug for RegisterSet {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{:?}={:?}", self.stage, self.pipeline)
+        write!(f, "{:?}={:?}", self.name, self.pipeline)
     }
 }
 
@@ -183,7 +186,7 @@ impl From<ported::register_set::RegisterSet> for RegisterSet {
             })
             .collect();
         Self {
-            stage: format!("{:?}", &reg.stage),
+            name: format!("{:?}", &reg.stage),
             pipeline,
         }
     }
@@ -203,7 +206,7 @@ impl<'a> From<playground::warp_inst::WarpInstr<'a>> for WarpInstruction {
 impl<'a> From<playground::register_set::RegisterSet<'a>> for RegisterSet {
     fn from(reg: playground::register_set::RegisterSet<'a>) -> Self {
         Self {
-            stage: reg.name(),
+            name: reg.name(),
             pipeline: reg
                 .registers()
                 .into_iter()
@@ -280,10 +283,25 @@ impl Port {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Arbiter {
+    // pub queue: Vec<Vec<Operand>>,
+    // pub allocations: Vec<Allocation>,
+    pub last_cu: usize,
+}
+
+impl Arbiter {
+    // pub fn is_empty(&self) -> bool {
+    //     self.in_ports.iter().all(RegisterSet::is_empty)
+    //         && self.in_ports.iter().all(RegisterSet::is_empty)
+    // }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct OperandCollector {
     pub ports: Vec<Port>,
     pub collector_units: Vec<CollectorUnit>,
     pub dispatch_units: Vec<DispatchUnit>,
+    pub arbiter: Arbiter,
 }
 
 impl<'a> From<playground::port::Port<'a>> for Port {
@@ -312,6 +330,14 @@ impl<'a> From<playground::collector_unit::CollectorUnit<'a>> for CollectorUnit {
             // fix: default endianness is different for rust bitvec and c++ std::bitset
             not_ready: cu.not_ready_mask().chars().rev().collect::<String>(),
             reg_id: cu.reg_id(),
+        }
+    }
+}
+
+impl<'a> From<&'a playground::operand_collector::arbiter_t> for Arbiter {
+    fn from(arbiter: &'a playground::operand_collector::arbiter_t) -> Self {
+        Self {
+            last_cu: arbiter.get_last_cu() as usize,
         }
     }
 }
@@ -354,11 +380,12 @@ impl<'a> From<playground::operand_collector::OperandCollector<'a>> for OperandCo
             .map(DispatchUnit::from)
             .filter(|unit| !skip.contains(&unit.kind))
             .collect();
-
+        let arbiter = opcoll.arbiter().into();
         Self {
             ports,
             collector_units,
             dispatch_units,
+            arbiter,
         }
     }
 }

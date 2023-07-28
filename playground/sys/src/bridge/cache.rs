@@ -6,6 +6,8 @@ mod ffi {
         type cache_block_t;
         fn get_tag(self: &cache_block_t) -> u64;
         fn get_block_addr(self: &cache_block_t) -> u64;
+        fn get_last_access_time(self: &cache_block_t) -> u64;
+
         fn is_invalid_line(self: &cache_block_t) -> bool;
         fn is_valid_line(self: &cache_block_t) -> bool;
         fn is_reserved_line(self: &cache_block_t) -> bool;
@@ -21,9 +23,6 @@ mod ffi {
         fn inner(self: &cache_bridge) -> *const baseline_cache;
         fn get_lines(self: &cache_bridge) -> UniquePtr<CxxVector<cache_block_ptr>>;
     }
-
-    // explicit instantiation for input_port_t to implement VecElement
-    // impl CxxVector<input_port_t> {}
 }
 
 pub use ffi::*;

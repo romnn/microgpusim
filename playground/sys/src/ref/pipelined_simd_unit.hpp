@@ -12,20 +12,24 @@ class pipelined_simd_unit : public simd_function_unit {
                       const shader_core_config *config, unsigned max_latency,
                       trace_shader_core_ctx *core, unsigned issue_reg_id);
 
+  friend class core_bridge;
+
   // modifiers
-  virtual void cycle();
-  virtual void issue(register_set &source_reg);
+  virtual void cycle() override;
+  virtual void issue(register_set &source_reg) override;
   virtual unsigned get_active_lanes_in_pipeline();
 
-  virtual void active_lanes_in_pipeline() = 0;
+  virtual void active_lanes_in_pipeline() override = 0;
 
   // accessors
-  virtual bool stallable() const { return false; }
-  virtual bool can_issue(const warp_inst_t &inst) const {
+  virtual bool stallable() const override { return false; }
+  virtual bool can_issue(const warp_inst_t &inst) const override {
     return simd_function_unit::can_issue(inst);
   }
-  virtual bool is_issue_partitioned() = 0;
-  unsigned get_issue_reg_id() { return m_issue_reg_id; }
+  virtual bool is_issue_partitioned() override = 0;
+  unsigned get_issue_reg_id() override { return m_issue_reg_id; }
+  bool is_pipelined() const override { return true; }
+
   // virtual void print(FILE *fp) const {
   //   simd_function_unit::print(fp);
   //   for (int s = m_pipeline_depth - 1; s >= 0; s--) {
