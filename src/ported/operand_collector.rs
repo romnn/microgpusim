@@ -442,17 +442,16 @@ pub struct Arbiter {
     num_collectors: usize,
 
     /// bank # -> register that wins
-    // allocated_banks: Vec<Allocation>,
     allocated_banks: Vec<Allocation>,
     queue: Vec<VecDeque<Operand>>,
 
     /// cu # -> next bank to check for request (rr-arb)
-    allocator_round_robin_head: usize,
+    // allocator_round_robin_head: usize,
     /// first cu to check while arb-ing banks (rr)
     last_cu: usize,
-    inmatch: Vec<Option<usize>>,
-    outmatch: Vec<Option<usize>>,
-    request: Vec<Vec<Option<usize>>>,
+    // inmatch: Vec<Option<usize>>,
+    // outmatch: Vec<Option<usize>>,
+    // request: Vec<Vec<Option<usize>>>,
 }
 
 impl Arbiter {
@@ -461,11 +460,11 @@ impl Arbiter {
         debug_assert!(num_banks > 0);
         self.num_collectors = num_collectors;
         self.num_banks = num_banks;
-        self.inmatch = vec![None; self.num_banks];
-        self.outmatch = vec![None; self.num_collectors];
-        self.request = (0..self.num_banks)
-            .map(|_| vec![None; self.num_collectors])
-            .collect();
+        // self.inmatch = vec![None; self.num_banks];
+        // self.outmatch = vec![None; self.num_collectors];
+        // self.request = (0..self.num_banks)
+        //     .map(|_| vec![None; self.num_collectors])
+        //     .collect();
         self.queue = (0..self.num_banks).map(|_| VecDeque::new()).collect();
         // self.allocated_banks = (0..self.num_banks).map(|_| Allocation::new()).collect();
         self.allocated_banks = (0..self.num_banks).map(|_| Allocation::default()).collect();
@@ -504,18 +503,23 @@ impl Arbiter {
             _outputs
         };
         // debug_assert!(_square > 0);
+        let last_cu_before = self.last_cu;
         let mut _pri = self.last_cu;
         log::debug!("last cu: {}", self.last_cu);
 
         // clear matching
-        self.inmatch.fill(None);
-        self.outmatch.fill(None);
+        let mut inmatch = vec![None; self.num_banks];
+        let mut outmatch = vec![None; self.num_collectors];
+        let mut request = vec![vec![None; self.num_collectors]; self.num_banks];
+
+        // self.inmatch.fill(None);
+        // self.outmatch.fill(None);
 
         for bank in 0..self.num_banks {
             debug_assert!(bank < _inputs);
             for collector in 0..self.num_collectors {
                 debug_assert!(collector < _outputs);
-                self.request[bank][collector] = Some(0);
+                request[bank][collector] = Some(0);
             }
             if let Some(op) = self.queue[bank].front() {
                 // todo: this is bad: store the cu hardware id in the operand?
@@ -523,15 +527,15 @@ impl Arbiter {
                 // let collector_id = cu.borrow().id;
                 let collector_id = op.collector_unit_id;
                 debug_assert!(collector_id < _outputs);
-                self.request[bank][collector_id] = Some(1);
+                request[bank][collector_id] = Some(1);
             }
             if self.allocated_banks[bank].is_write() {
-                self.inmatch[bank] = Some(0); // write gets priority
+                inmatch[bank] = Some(0); // write gets priority
             }
-            log::trace!("request: {:?}", &Self::compat(&self.request[bank]));
+            log::trace!("request: {:?}", &Self::compat(&request[bank]));
         }
 
-        log::trace!("inmatch: {:?}", &Self::compat(&self.inmatch));
+        log::trace!("inmatch: {:?}", &Self::compat(&inmatch));
 
         // wavefront allocator from booksim
         // loop through diagonals of request matrix
@@ -546,12 +550,12 @@ impl Arbiter {
 
                 // banks at the same cycle
                 if output < _outputs
-                    && self.inmatch[input].is_none()
-                    && self.request[input][output] != Some(0)
+                    && inmatch[input].is_none()
+                    && request[input][output] != Some(0)
                 {
                     // Grant!
-                    self.inmatch[input] = Some(output);
-                    self.outmatch[output] = Some(input);
+                    inmatch[input] = Some(output);
+                    outmatch[output] = Some(input);
                     // printf("Register File: granting bank %d to OC %d, schedid %d, warpid
                     // %d, Regid %d\n", input, output, (m_queue[input].front()).get_sid(),
                     // (m_queue[input].front()).get_wid(),
@@ -562,8 +566,8 @@ impl Arbiter {
             }
         }
 
-        log::trace!("inmatch: {:?}", &Self::compat(&self.inmatch));
-        log::trace!("outmatch: {:?}", &Self::compat(&self.outmatch));
+        log::trace!("inmatch: {:?}", &Self::compat(&inmatch));
+        log::trace!("outmatch: {:?}", &Self::compat(&outmatch));
 
         // Round-robin the priority diagonal
         _pri = (_pri + 1) % _outputs;
@@ -572,8 +576,15 @@ impl Arbiter {
         // <--- end code from booksim
 
         self.last_cu = _pri;
+        log::debug!(
+            "last cu: {} -> {} ({} outputs)",
+            last_cu_before,
+            self.last_cu,
+            _outputs
+        );
+
         for bank in 0..self.num_banks {
-            if self.inmatch[bank].is_some() {
+            if inmatch[bank].is_some() {
                 log::trace!(
                     "inmatch[bank={}] is write={}",
                     bank,
@@ -1015,6 +1026,11 @@ impl OperandCollectorRegisterFileUnit {
         // todo!("operand collector: writeback");
         // std::list<unsigned> regs = m_shader->get_regs_written(inst);
         let regs: Vec<u32> = instr.dest_arch_reg.iter().filter_map(|reg| *reg).collect();
+        log::trace!(
+            "operand collector: writeback {} with destination registers {:?}",
+            instr,
+            regs
+        );
 
         //   std::list<unsigned> result;
         // for (unsigned op = 0; op < MAX_REG_OPERANDS; op++) {
@@ -1237,6 +1253,14 @@ mod test {
         }
     }
 
+    impl From<&super::Arbiter> for testing::state::Arbiter {
+        fn from(arbiter: &super::Arbiter) -> Self {
+            Self {
+                last_cu: arbiter.last_cu,
+            }
+        }
+    }
+
     impl From<&super::OperandCollectorRegisterFileUnit> for testing::state::OperandCollector {
         fn from(opcoll: &super::OperandCollectorRegisterFileUnit) -> Self {
             let dispatch_units = opcoll.dispatch_units.iter().map(Into::into).collect();
@@ -1246,10 +1270,12 @@ mod test {
                 .map(|cu| cu.borrow().deref().into())
                 .collect();
             let ports = opcoll.in_ports.iter().map(Into::into).collect();
+            let arbiter = (&opcoll.arbiter).into();
             Self {
                 ports,
                 dispatch_units,
                 collector_units,
+                arbiter,
             }
         }
     }

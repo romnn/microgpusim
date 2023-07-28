@@ -1,6 +1,20 @@
 #### TODO
 
-- TODO: add tag arrays to simulation state
+- today:
+
+  - DONE: add last access time to cache runtime state
+  - DONE: add fu simd pipelines to runtime state
+  - DONE: add arbiter to runtime state
+  - add more benchmarks (especially shared memory)
+  - convert accelsim traces to box traces
+  - validate: respect --force flag and do not override existing files
+  - parse accelsim config files
+  - FIX: add perf memcopy to gpu back in
+  - FIX: add l2 set index back in
+  - generate plots and correlation stuff etc
+  - add flag for playground to run in accelsim compatibility mode
+
+- DONE: add tag arrays to simulation state
 
 - REMEMBER: add back `perf_memcpy_to_gpu`
 - REMEMBER: changed l2_config::set_index to not use address mapping

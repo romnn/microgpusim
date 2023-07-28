@@ -34,10 +34,21 @@ impl Scoreboard {
     /// true if WAW or RAW hazard (no WAR since in-order issue)
     ///
     pub fn has_collision(&self, warp_id: usize, instr: &WarpInstruction) -> bool {
+        use itertools::Itertools;
+
         // Get list of all input and output registers
         let mut instr_registers: HashSet<u32> = HashSet::new();
         instr_registers.extend(instr.outputs());
         instr_registers.extend(instr.inputs());
+
+        log::trace!(
+            "scoreboard: {} uses registers {:?} (in) + {:?} (out) = {:?}",
+            instr,
+            instr.inputs().sorted().collect::<Vec<_>>(),
+            instr.outputs().sorted().collect::<Vec<_>>(),
+            instr_registers.iter().sorted().collect::<Vec<_>>(),
+        );
+
         // ar1 = 0;
         // ar2 = 0;
 
@@ -53,21 +64,26 @@ impl Scoreboard {
         let Some(reserved) = self.register_table.get(warp_id) else {
             return false;
         };
+        log::trace!(
+            "scoreboard: warp {} reserved registers: {:?}",
+            warp_id,
+            reserved.iter().sorted().collect::<Vec<_>>(),
+        );
         let mut intersection = instr_registers.intersection(&reserved);
         intersection.next().is_some()
         // todo!("scoreboard: check collision");
     }
 
     pub fn pending_writes(&self, warp_id: usize) -> &HashSet<u32> {
-        &self.register_table[warp_id] // .is_empty()
-                                      // todo!("scoreboard: pending writes");
+        &self.register_table[warp_id]
     }
 
     pub fn release_register(&mut self, warp_id: usize, reg_num: u32) {
-        // if (!(reg_table[wid].find(regnum) != reg_table[wid].end()))
-        //     return;
-        //   SHADER_DPRINTF(SCOREBOARD, "Release register - warp:%d, reg: %d\n", wid,
-        //                  regnum);
+        log::trace!(
+            "scoreboard: warp {} releases register: {}",
+            warp_id,
+            reg_num
+        );
         self.register_table[warp_id].remove(&reg_num);
     }
 

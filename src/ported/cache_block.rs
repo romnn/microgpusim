@@ -63,7 +63,7 @@ pub struct LineCacheBlock {
 
     alloc_time: u64,
     fill_time: u64,
-    last_access_time: u64,
+    pub last_access_time: u64,
 
     ignore_on_fill_status: bool,
     set_byte_mask_on_fill: bool,

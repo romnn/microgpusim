@@ -17,6 +17,10 @@ cargo build --release --workspace --all-targets
 cargo build -p trace --release # single package
 ```
 
+**Note**: To speed up build across workspaces, we strongly recommend to use `sccache`.
+Instructions for installing and setting up `sccache` can be found
+[here](https://github.com/mozilla/sccache#installation).
+
 #### Trace an application
 
 ```bash

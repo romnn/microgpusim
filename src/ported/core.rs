@@ -447,6 +447,17 @@ impl<I> std::fmt::Debug for SIMTCore<I> {
     }
 }
 
+// #[derive(strum::EnumIter, strum::EnumCount, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+// #[repr(usize)]
+// pub enum FunctionalUnit {
+//     SP,
+//     DP,
+//     INT,
+//     MEM,
+//     SFU,
+//     TENSOR_CORE,
+// }
+
 #[derive(strum::EnumIter, strum::EnumCount, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[repr(usize)]
 pub enum PipelineStage {
@@ -1304,6 +1315,8 @@ where
             .try_borrow_mut()
             .unwrap();
         debug_assert_eq!(warp.warp_id, warp_id);
+
+        let already_issued_trace_pc = warp.trace_pc;
         let instr1 = warp.next_trace_inst();
         let instr2 = if instr1.is_some() {
             warp.next_trace_inst()
@@ -1314,18 +1327,15 @@ where
         // debug: print all instructions in this warp
         log::debug!(
             "====> instruction at trace pc < {:<4} already issued ...",
-            warp.trace_pc
+            already_issued_trace_pc
         );
 
-        // let valid_trace_instructions =
-        //     [warp.trace_pc..len(warp.trace_instructions)];
         for (trace_pc, trace_instr) in warp
             .trace_instructions
             .iter()
             .enumerate()
-            .skip(warp.trace_pc)
+            .skip(already_issued_trace_pc)
         {
-            // if trace_pc >= warp.trace_pc {
             log::debug!(
                 "====> warp[{:03}][trace_pc={:03}]:\t {}\t\t active={} \tpc={} idx={}",
                 warp_id,

@@ -658,16 +658,14 @@ impl WarpInstruction {
                         total_accesses += max_bank_accesses;
                     }
                 }
-                log::debug!(
-                    "generate mem accesses[SHARED]: total_accesses={}",
-                    total_accesses
-                );
+                log::debug!("generate mem accesses[SHARED] for {}", self);
+                log::debug!("\ttotal_accesses={:?}", &total_accesses);
                 log::debug!("\tbanks={:?}", &banks);
                 log::debug!("\tword addresses={:?}", &words);
 
                 debug_assert!(total_accesses > 0);
                 debug_assert!(total_accesses <= config.warp_size);
-                panic!("shared mem request");
+                // panic!("shared mem request");
 
                 // shared memory conflicts modeled as larger initiation interval
                 self.dispatch_delay_cycles = total_accesses;
