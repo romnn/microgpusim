@@ -1,4 +1,5 @@
 #![allow(warnings)]
+
 use bitvec::{access, array::BitArray, field::BitField, BitArr};
 use color_eyre::eyre;
 use color_eyre::owo_colors::OwoColorize;
@@ -15,27 +16,31 @@ pub enum AddressFormat {
     BaseDelta = 2,
 }
 
-fn get_data_width_from_opcode(opcode: &str) -> u32 {
+fn is_number(s: &str) -> bool {
+    !s.is_empty() && s.chars().all(char::is_numeric)
+}
+
+fn get_data_width_from_opcode(opcode: &str) -> Result<u32, std::num::ParseIntError> {
     let opcode_tokens: Vec<_> = opcode
         .split(".")
         .map(|t| t.trim())
         .filter(|t| !t.is_empty())
         .collect();
-    // dbg!(&opcode_tokens);
+
     for token in opcode_tokens {
         assert!(!token.is_empty());
 
-        if token.chars().all(char::is_numeric) {
-            return token.parse::<u32>().unwrap() / 8;
-        } else if token.chars().nth(0).unwrap() == 'U'
-            && token[1..token.len()].chars().all(char::is_numeric)
-        {
-            // handle the U* case
-            return token[1..token.len()].parse::<u32>().unwrap() / 8;
+        if is_number(token) {
+            return Ok(token.parse::<u32>()? / 8);
+        } else if let Some('U') = token.chars().nth(0) {
+            if is_number(&token[1..token.len()]) {
+                // handle the U* case
+                return Ok(token[1..token.len()].parse::<u32>()? / 8);
+            }
         }
     }
     // default is 4 bytes
-    4
+    Ok(4)
 }
 
 fn write_kernel_info(
@@ -138,7 +143,8 @@ fn write_trace_instructions(
                 }
                 if inst.instr_is_mem {
                     // mem width
-                    line.push(get_data_width_from_opcode(&inst.instr_opcode).to_string());
+                    let mem_width = get_data_width_from_opcode(&inst.instr_opcode)?;
+                    line.push(mem_width.to_string());
 
                     // list all the addresses
                     line.push((AddressFormat::ListAll as usize).to_string());
