@@ -3811,6 +3811,7 @@ dependencies = [
  "smart-default",
  "ssh_jumper",
  "stats",
+ "strum",
  "thiserror",
  "tokio",
  "utils",

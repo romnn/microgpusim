@@ -1,157 +1,51 @@
 // #![allow(warnings)]
 
+mod accelsim;
+mod options;
+mod playground;
+mod profile;
 mod progress;
+mod simulate;
+mod stats;
+mod trace;
 
 // #[cfg(feature = "remote")]
 // mod remote;
 
 use chrono::offset::Local;
 use clap::Parser;
-use color_eyre::{
-    eyre::{self, WrapErr},
-    Help,
-};
-use console::style;
+use color_eyre::eyre::{self, WrapErr};
+use console::{style, Style};
 use futures::stream::{self, StreamExt};
+use options::{Command, Options};
 
 use indicatif::ProgressBar;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Instant;
 use utils::fs::create_dirs;
 use validate::benchmark::paths::PathExt;
-use validate::materialize::{self, BenchmarkConfig, Benchmarks};
-
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-pub enum Format {
-    JSON,
-    YAML,
-}
-
-fn write_stats_as_csv(stats_dir: impl AsRef<Path>, stats: stats::Stats) -> eyre::Result<()> {
-    let stats_dir = stats_dir.as_ref();
-    validate::write_csv_rows(
-        open_writable(stats_dir.join("stats.sim.csv"))?,
-        &[stats.sim],
-    )?;
-    // validate::write_csv_rows(
-    //     open_writable(stats_dir.join("stats.dram.csv"))?,
-    //     &[stats::dram::PerCoreDRAM {
-    //         bank_writes: stats.dram.bank_writes,
-    //         bank_reads: stats.dram.bank_reads,
-    //     }],
-    // )?;
-    validate::write_csv_rows(
-        open_writable(stats_dir.join("stats.accesses.csv"))?,
-        &stats.accesses.flatten(),
-    )?;
-    validate::write_csv_rows(
-        open_writable(stats_dir.join("stats.instructions.csv"))?,
-        &stats.instructions.flatten(),
-    )?;
-
-    for (cache_name, rows) in [
-        ("l1i", stats.l1i_stats.flatten()),
-        ("l1d", stats.l1d_stats.flatten()),
-        ("l1t", stats.l1t_stats.flatten()),
-        ("l1c", stats.l1c_stats.flatten()),
-        ("l2d", stats.l2d_stats.flatten()),
-    ] {
-        validate::write_csv_rows(
-            open_writable(stats_dir.join(format!("stats.{}.csv", cache_name)))?,
-            &rows,
-        )?;
-        // validate::write_csv_rows(
-        //     open_writable(stats_dir.join("stats.l1i.csv"))?,
-        //     &stats.l1i_stats.flatten(),
-        // )?;
-        // validate::write_csv_rows(
-        //     open_writable(stats_dir.join("stats.l1d.csv"))?,
-        //     &stats.l1d_stats.flatten(),
-        // )?;
-    }
-    Ok(())
-}
-
-#[derive(Parser, Debug, Clone)]
-pub struct BuildOptions {}
-
-#[derive(Parser, Debug, Clone)]
-pub struct CleanOptions {}
-
-#[derive(Parser, Debug, Clone)]
-pub struct ProfileOptions {}
-
-#[derive(Parser, Debug, Clone)]
-pub struct TraceOptions {}
-
-#[derive(Parser, Debug, Clone)]
-pub struct AccelsimTraceOptions {}
-
-#[derive(Parser, Debug, Clone)]
-pub struct SimOptions {}
-
-#[derive(Parser, Debug, Clone)]
-pub struct AccelsimSimOptions {}
-
-#[derive(Parser, Debug, Clone)]
-pub struct PlaygroundSimOptions {}
-
-#[derive(Parser, Debug, Clone)]
-pub struct ExpandOptions {
-    #[clap(long = "full", help = "expand full benchmark config")]
-    pub full: bool,
-}
-
-#[derive(Parser, Debug, Clone)]
-pub struct Options {
-    #[clap(short = 'p', long = "path", help = "path to benchmarks yaml file")]
-    pub benches_file_path: Option<PathBuf>,
-
-    #[clap(short = 'b', long = "bench", help = "name of benchmark to run")]
-    pub selected_benchmarks: Vec<String>,
-
-    #[clap(long = "force", help = "force re-run", default_value = "false")]
-    force: bool,
-
-    #[clap(long = "fail-fast", help = "fail fast", default_value = "false")]
-    fail_fast: bool,
-
-    #[clap(
-        short = 'c',
-        long = "concurrency",
-        help = "number of benchmarks to run concurrently"
-    )]
-    pub concurrency: Option<usize>,
-
-    #[clap(subcommand)]
-    pub command: Command,
-}
-
-#[derive(Parser, Debug, Clone)]
-pub enum Command {
-    Profile(ProfileOptions),
-    Trace(TraceOptions),
-    AccelsimTrace(AccelsimTraceOptions),
-    Simulate(SimOptions),
-    AccelsimSimulate(AccelsimSimOptions),
-    PlaygroundSimulate(PlaygroundSimOptions),
-    Build(BuildOptions),
-    Clean(CleanOptions),
-    Expand(ExpandOptions),
-}
+use validate::materialize::{BenchmarkConfig, Benchmarks};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("benchmark {0} skipped")]
     Skipped(BenchmarkConfig),
+    #[error("benchmark {0} canceled")]
+    Canceled(BenchmarkConfig),
     #[error("benchmark {bench} failed")]
     Failed {
         bench: BenchmarkConfig,
         #[source]
         source: eyre::Report,
     },
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum RunError {
+    #[error("benchmark skipped")]
+    Skipped,
+    #[error(transparent)]
+    Failed(#[from] eyre::Report),
 }
 
 #[inline]
@@ -169,255 +63,48 @@ async fn run_benchmark(
     bench: BenchmarkConfig,
     options: &Options,
     bar: &ProgressBar,
-) -> eyre::Result<()> {
+) -> Result<(), RunError> {
     bar.set_message(bench.name.clone());
     match options.command {
         Command::Expand(ref _opts) => {
             // do nothing
+            Ok(())
         }
-        Command::Profile(ref _opts) => {
-            let profile_dir = &bench.profile.profile_dir;
-            // dbg!(&profile_dir);
-            create_dirs(profile_dir)?;
-
-            let options = profile::nvprof::Options {};
-            let results = profile::nvprof::nvprof(&bench.executable, &bench.args, &options)
-                .await
-                .map_err(|err| match err {
-                    profile::Error::Command(err) => err.into_eyre(),
-                    err => err.into(),
-                })?;
-
-            let log_file = profile_dir.join("profile.log");
-            let metrics_file = profile_dir.join("profile.metrics.csv");
-
-            serde_json::to_writer_pretty(open_writable(&metrics_file)?, &results.metrics)?;
-            open_writable(&log_file)?.write_all(results.raw.as_bytes())?;
-        }
-        Command::AccelsimTrace(ref _opts) => {
-            let traces_dir = &bench.accelsim_trace.traces_dir;
-            create_dirs(traces_dir)?;
-
-            let options = accelsim_trace::Options {
-                traces_dir: traces_dir.clone(),
-                nvbit_tracer_tool: None, // auto detect
-                ..accelsim_trace::Options::default()
-            };
-            let dur = accelsim_trace::trace(&bench.executable, &bench.args, &options).await?;
-
-            let trace_dur_file = traces_dir.join("trace_time.json");
-            serde_json::to_writer_pretty(open_writable(&trace_dur_file)?, &dur.as_millis())?;
-        }
-        Command::Trace(ref _opts) => {
-            let traces_dir = &bench.trace.traces_dir;
-            create_dirs(traces_dir)?;
-
-            let options = invoke_trace::Options {
-                traces_dir: traces_dir.clone(),
-                tracer_so: None, // auto detect
-                save_json: bench.trace.save_json,
-                #[cfg(debug_assertions)]
-                validate: true,
-                #[cfg(not(debug_assertions))]
-                validate: false,
-                full_trace: bench.trace.full_trace,
-            };
-            let dur = invoke_trace::trace(&bench.executable, &bench.args, &options)
-                .await
-                .map_err(|err| match err {
-                    err @ invoke_trace::Error::MissingExecutable(_) => eyre::Report::from(err)
-                        .suggestion(
-                            "did you build the benchmarks first using `cargo validate build`?",
-                        ),
-                    err => err.into_eyre(),
-                })?;
-
-            let trace_dur_file = traces_dir.join("trace_time.json");
-            serde_json::to_writer_pretty(open_writable(&trace_dur_file)?, &dur.as_millis())?;
-        }
-        Command::Simulate(ref _opts) => {
-            // get traces dir from trace config
-            let traces_dir = bench.trace.traces_dir;
-            let stats_dir = bench.simulate.stats_dir;
-
-            let (stats, dur) = tokio::task::spawn_blocking(move || {
-                let start = Instant::now();
-                let stats = casimu::ported::accelmain(traces_dir, None)?;
-                Ok::<_, eyre::Report>((stats, start.elapsed()))
-            })
-            .await??;
-
-            create_dirs(&stats_dir)?;
-
-            write_stats_as_csv(&stats_dir, stats)?;
-
-            serde_json::to_writer_pretty(
-                open_writable(stats_dir.join("exec_time.json"))?,
-                &dur.as_millis(),
-            )?;
-
-            // let json_stats: stats::FlatStats = stats.clone().into();
-            // let json_stats_out_file = stats_dir.join("stats.json");
-            // serde_json::to_writer_pretty(open_writable(&csv_stats_out_file)?, &stats)?;
-
-            // let csv_stats_out_file = stats_dir.join("stats.csv");
-            // let mut csv_writer = csv::WriterBuilder::new()
-            //     .flexible(false)
-            //     .from_writer(open_writable(&csv_stats_out_file)?);
-            // csv_writer.serialize(stats)?;
-            // let data: Vec<(&str, &[&dyn serde::Serialize])> = vec![
-            //     ("sim", &[stats.sim]),
-            //     // ("dram", &[stats.dram]),
-            //     ("accesses", &stats.accesses.flatten()),
-            // ];
-            // for (stat_name, rows) in data {
-            //     validate::write_csv_rows(
-            //         open_writable(stats_dir.join(format!("stats.{}.csv", stat_name)))?,
-            //         rows,
-            //     )?;
-
-            // serde_json::to_writer_pretty(open_writable(&json_stats_out_file)?, &json_stats)?;
-        }
-        Command::AccelsimSimulate(ref _opts) => {
-            let traces_dir = &bench.accelsim_trace.traces_dir;
-            let stats_dir = &bench.accelsim_simulate.stats_dir;
-
-            let common = &bench.accelsim_simulate.common;
-
-            let timeout = common.timeout.map(Into::into);
-
-            let materialize::AccelsimSimConfigFiles {
-                config,
-                config_dir,
-                trace_config,
-                inter_config,
-            } = bench.accelsim_simulate.configs.clone();
-
-            let config = accelsim::SimConfig {
-                config: Some(config),
-                config_dir: Some(config_dir),
-                trace_config: Some(trace_config),
-                inter_config: Some(inter_config),
-            };
-
-            // todo: allow setting this in test-apps.yml ?
-            let kernelslist = traces_dir.join("kernelslist.g");
-            let (log, dur) =
-                accelsim_sim::simulate_trace(&traces_dir, &kernelslist, config, timeout).await?;
-
-            // parse stats
-            let parse_options = accelsim::parser::Options::default();
-            let log_reader = std::io::Cursor::new(&log.stdout);
-            let stats = accelsim::parser::parse_stats(log_reader, &parse_options)?;
-
-            create_dirs(&stats_dir)?;
-
-            open_writable(stats_dir.join("log.txt"))?.write_all(&log.stdout)?;
-
-            let converted_stats: stats::Stats = stats.clone().try_into()?;
-            dbg!(&converted_stats);
-            write_stats_as_csv(&stats_dir, converted_stats)?;
-            // validate::write_csv_rows(
-            //     open_writable(stats_dir.join("stats.csv"))?,
-            //     &stats.into_inner().into_iter().collect::<Vec<_>>(),
-            // )?;
-
-            validate::write_csv_rows(
-                open_writable(stats_dir.join("raw.stats.csv"))?,
-                &stats.into_inner().into_iter().collect::<Vec<_>>(),
-            )?;
-
-            // let flat_stats: Vec<_> = stats.into_inner().into_iter().collect();
-            // serde_json::to_writer_pretty(open_writable(&stats_out_file)?, &flat_stats)?;
-
-            serde_json::to_writer_pretty(
-                open_writable(stats_dir.join("exec_time.json"))?,
-                &dur.as_millis(),
-            )?;
-        }
-        Command::PlaygroundSimulate(ref _opts) => {
-            // get traces dir from accelsim trace config
-            let traces_dir = bench.accelsim_trace.traces_dir;
-            let stats_dir = bench.playground_simulate.stats_dir;
-
-            let materialize::AccelsimSimConfigFiles {
-                config,
-                trace_config,
-                inter_config,
-                ..
-            } = bench.playground_simulate.configs.clone();
-
-            let (stats, dur) = tokio::task::spawn_blocking(move || {
-                let kernelslist = traces_dir
-                    .join("kernelslist.g")
-                    .to_string_lossy()
-                    .to_string();
-                let gpgpusim_config = config.to_string_lossy().to_string();
-                let trace_config = trace_config.to_string_lossy().to_string();
-                let inter_config = inter_config.to_string_lossy().to_string();
-
-                let args = [
-                    "-trace",
-                    &kernelslist,
-                    "-config",
-                    &gpgpusim_config,
-                    "-config",
-                    &trace_config,
-                    "-inter_config_file",
-                    &inter_config,
-                ];
-                dbg!(&args);
-
-                let start = Instant::now();
-                let config = playground::Config::default();
-                let stats = playground::run(&config, args.as_slice())?;
-                Ok::<_, eyre::Report>((stats, start.elapsed()))
-            })
-            .await??;
-
-            // let stats = stats::Stats {
-            //     accesses: stats.accesses.into(),
-            //     instructions: stats.instructions.into(),
-            //     // pub sim: Sim,
-            //     // pub dram: DRAM,
-            //     // pub l1i_stats: PerCache,
-            //     // pub l1c_stats: PerCache,
-            //     // pub l1t_stats: PerCache,
-            //     // pub l1d_stats: PerCache,
-            //     // pub l2d_stats: PerCache,
-            //     ..stats::Stats::default()
-            // };
-
-            create_dirs(&stats_dir)?;
-            let stats_out_file = stats_dir.join("stats.json");
-            let exec_dur_file = stats_dir.join("exec_time.json");
-
-            // let flat_stats: Vec<_> = stats.into_iter().collect();
-            // serde_json::to_writer_pretty(open_writable(&stats_out_file)?, &flat_stats)?;
-            serde_json::to_writer_pretty(open_writable(&exec_dur_file)?, &dur.as_millis())?;
-        }
+        Command::Profile(ref opts) => profile::profile(bench, options, opts).await,
+        Command::AccelsimTrace(ref opts) => accelsim::trace(bench, options, opts).await,
+        Command::Trace(ref opts) => trace::trace(bench, options, opts).await,
+        Command::Simulate(ref opts) => simulate::simulate(bench, options, opts).await,
+        Command::AccelsimSimulate(ref opts) => accelsim::simulate(bench, options, opts).await,
+        Command::PlaygroundSimulate(ref opts) => playground::simulate(bench, options, opts).await,
         Command::Build(_) | Command::Clean(_) => {
-            // let should_build = options.force || !bench.executable.is_file();
-            let should_build = true;
+            if let Command::Build(_) = options.command {
+                if !options.force && bench.executable.is_file() {
+                    return Err(RunError::Skipped);
+                }
+            }
+
             let makefile = bench.path.join("Makefile");
             if !makefile.is_file() {
-                eyre::bail!("Makefile at {} not found", makefile.display());
+                return Err(RunError::from(eyre::eyre!(
+                    "Makefile at {} not found",
+                    makefile.display()
+                )));
             }
-            if should_build {
-                let mut cmd = async_process::Command::new("make");
-                cmd.args(["-C", &*bench.path.to_string_lossy()]);
-                if let Command::Clean(_) = options.command {
-                    cmd.arg("clean");
-                }
-                log::debug!("{:?}", &cmd);
-                let result = cmd.output().await?;
-                if !result.status.success() {
-                    return Err(utils::CommandError::new(&cmd, result).into_eyre());
-                }
+            let mut cmd = async_process::Command::new("make");
+            cmd.args(["-C", &*bench.path.to_string_lossy()]);
+            if let Command::Clean(_) = options.command {
+                cmd.arg("clean");
             }
+            log::debug!("{:?}", &cmd);
+            let result = cmd.output().await.map_err(eyre::Report::from)?;
+            if !result.status.success() {
+                return Err(RunError::Failed(
+                    utils::CommandError::new(&cmd, result).into_eyre(),
+                ));
+            }
+            Ok(())
         }
     }
-    Ok(())
 }
 
 fn parse_benchmarks(options: &Options) -> eyre::Result<Benchmarks> {
@@ -449,6 +136,7 @@ fn parse_benchmarks(options: &Options) -> eyre::Result<Benchmarks> {
     let materialized = benchmarks.materialize(&base_dir)?;
 
     if let Some(materialize_path) = materialize_path {
+        use std::io::Write;
         let mut materialize_file = open_writable(&materialize_path)?;
         write!(
             &mut materialize_file,
@@ -475,7 +163,7 @@ fn parse_benchmarks(options: &Options) -> eyre::Result<Benchmarks> {
 }
 
 /// get benchmark configurations
-pub fn filter_benchmarks(benches: &mut Vec<&BenchmarkConfig>, options: &Options) {
+pub fn filter_benchmarks(benches: &mut Vec<BenchmarkConfig>, options: &Options) {
     benches.retain(|bench_config| {
         if options.selected_benchmarks.is_empty() {
             // keep all benchmarks when no filters provided
@@ -509,7 +197,7 @@ pub fn filter_benchmarks(benches: &mut Vec<&BenchmarkConfig>, options: &Options)
 
 fn print_benchmark_result(
     bench_config: &BenchmarkConfig,
-    result: &eyre::Result<()>,
+    result: &Result<(), RunError>,
     elapsed: std::time::Duration,
     bar: &ProgressBar,
     options: &Options,
@@ -529,18 +217,22 @@ fn print_benchmark_result(
         || bench_config.executable.clone(),
         |cwd| bench_config.executable.relative_to(cwd),
     );
-    let status = match result {
-        Ok(_) => {
-            format!("succeeded in {elapsed:?}")
-        }
-        Err(ref err) => {
+    let (color, status) = match result {
+        Ok(_) => (Style::new().green(), format!("succeeded in {elapsed:?}")),
+        Err(RunError::Skipped) => (
+            Style::new().yellow(),
+            "skipped (already exists)".to_string(),
+        ),
+        Err(RunError::Failed(ref err)) => {
             static PREVIEW_LEN: usize = 75;
-            let err_preview = err.to_string();
+            let mut err_preview = err.to_string();
             if err_preview.len() > PREVIEW_LEN {
-                let _err_preview =
-                    format!("{} ...", &err_preview[..err_preview.len().min(PREVIEW_LEN)]);
+                err_preview = format!("{} ...", &err_preview[..err_preview.len().min(PREVIEW_LEN)]);
             }
-            format!("failed after {:?}: {}", elapsed, style(err_preview).red())
+            (
+                Style::new().red(),
+                format!("failed after {elapsed:?}: {err_preview}"),
+            )
         }
     };
     match options.command {
@@ -548,13 +240,9 @@ fn print_benchmark_result(
             bar.println(format!(
                 "{:>15} {:>20} [ {} ] {}",
                 op,
-                if result.is_ok() {
-                    style(&bench_config.name).green()
-                } else {
-                    style(&bench_config.name).red()
-                },
+                color.apply_to(&bench_config.name),
                 executable.display(),
-                status,
+                color.apply_to(status),
             ));
         }
         _ => {
@@ -563,14 +251,10 @@ fn print_benchmark_result(
             bar.println(format!(
                 "{:>15} {:>20} [ {} {} ] {}",
                 op,
-                if result.is_ok() {
-                    style(benchmark_config_id).green()
-                } else {
-                    style(benchmark_config_id).red()
-                },
+                color.apply_to(benchmark_config_id),
                 executable.display(),
                 bench_config.args.join(" "),
-                status,
+                color.apply_to(status),
             ));
         }
     };
@@ -616,7 +300,7 @@ async fn main() -> eyre::Result<()> {
         .unwrap_or_else(num_cpus::get_physical);
     println!("concurrency: {}", &concurrency);
 
-    let mut enabled_benches: Vec<_> = materialized.enabled().collect();
+    let mut enabled_benches: Vec<_> = materialized.enabled().cloned().collect();
     filter_benchmarks(&mut enabled_benches, &options);
     let num_bench_configs = enabled_benches.len();
 
@@ -628,27 +312,31 @@ async fn main() -> eyre::Result<()> {
 
     let should_exit = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
-    let results: Vec<Result<_, Error>> = stream::iter(enabled_benches.into_iter())
+    let results: Vec<Result<_, Error>> = stream::iter(enabled_benches)
         .map(|bench_config| {
             let options = options.clone();
             let bar = bar.clone();
             let should_exit = should_exit.clone();
             async move {
                 if should_exit.load(std::sync::atomic::Ordering::Relaxed) {
-                    return Err(Error::Skipped(bench_config.clone()));
+                    return Err(Error::Canceled(bench_config.clone()));
                 }
                 let start = std::time::Instant::now();
                 let res = run_benchmark(bench_config.clone(), &options, &bar).await;
                 bar.inc(1);
-                print_benchmark_result(bench_config, &res, start.elapsed(), &bar, &options);
+                print_benchmark_result(&bench_config, &res, start.elapsed(), &bar, &options);
 
                 if options.fail_fast && res.is_err() {
                     should_exit.store(true, std::sync::atomic::Ordering::Relaxed);
                 }
-                res.map_err(|source| Error::Failed {
-                    source,
-                    bench: bench_config.clone(),
-                })
+                match res {
+                    Ok(()) => Ok(()),
+                    Err(RunError::Skipped) => Err(Error::Skipped(bench_config)),
+                    Err(RunError::Failed(source)) => Err(Error::Failed {
+                        source,
+                        bench: bench_config,
+                    }),
+                }
             }
         })
         .buffer_unordered(concurrency)
@@ -661,30 +349,37 @@ async fn main() -> eyre::Result<()> {
     let (succeeded, failed): (Vec<_>, Vec<_>) = utils::partition_results(results);
     assert_eq!(num_bench_configs, succeeded.len() + failed.len());
 
-    let num_failed = failed.len();
-    let failed_msg = format!("{num_failed} failed");
-    println!(
-        "\n\n => ran {} benchmarks + input configurations in {:?}: {}",
-        num_bench_configs,
-        start.elapsed(),
-        if failed.is_empty() {
-            style(failed_msg)
-        } else {
-            style(failed_msg).red()
-        },
-    );
-
+    let mut num_failed = 0;
+    let mut num_skipped = 0;
+    let mut num_canceled = 0;
     for err in failed {
         match err {
             Error::Failed { ref source, bench } => {
+                num_failed += 1;
                 eprintln!(
                     "============ {} ============",
                     style(format!("{} failed", &bench)).red()
                 );
                 eprintln!("{source:?}\n");
             }
-            Error::Skipped(_bench) => {}
+            Error::Skipped(_) => num_skipped += 1,
+            Error::Canceled(_) => num_canceled += 1,
         }
     }
+
+    let failed_msg = style(format!("{num_failed} failed"));
+    println!(
+        "\n\n => ran {} benchmark configurations in {:?}: {} canceled, {} skipped, {}",
+        num_bench_configs,
+        start.elapsed(),
+        num_canceled,
+        num_skipped,
+        if num_failed > 0 {
+            failed_msg.red()
+        } else {
+            failed_msg
+        },
+    );
+
     std::process::exit(i32::from(num_failed > 0));
 }

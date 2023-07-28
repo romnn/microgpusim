@@ -4,11 +4,11 @@ rustflags = ["-Clink-arg=-fuse-ld=lld", "-Clink-arg=-Wl,--no-rosegment"]
 
 [alias]
 xtask = "run --package xtask --"
-validate = "run --package validate --"
-trace = "run --package trace --"
-sim = "run --"
-accelsim-trace = "run --package accelsim-trace --"
-accelsim-sim = "run --package accelsim-sim --"
+validate = "run --release --package validate --"
+trace = "run --release --package trace --"
+sim = "run --release --"
+accelsim-trace = "run --release --package accelsim-trace --"
+accelsim-sim = "run --release --package accelsim-sim --"
 
-tt = "test -- --test-threads=1"
-t = "test --release -- --test-threads=1"
+t = "test -- --test-threads=1"
+tt = "test --release -- --test-threads=1"

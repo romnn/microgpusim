@@ -2,13 +2,14 @@
 
 - today:
 
+  - validate: respect --force flag and do not override existing files
+  - convert accelsim traces to box traces
+  - parse accelsim config files
+
   - DONE: add last access time to cache runtime state
   - DONE: add fu simd pipelines to runtime state
   - DONE: add arbiter to runtime state
-  - add more benchmarks (especially shared memory)
-  - convert accelsim traces to box traces
-  - validate: respect --force flag and do not override existing files
-  - parse accelsim config files
+  - DONE: add matrixmul benchmark (shared memory)
   - FIX: add perf memcopy to gpu back in
   - FIX: add l2 set index back in
   - generate plots and correlation stuff etc
