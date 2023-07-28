@@ -10,6 +10,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 pub trait SimdFunctionUnit: std::fmt::Display {
+    fn id(&self) -> &str;
     // modifiers
     fn cycle(&mut self);
     // fn issue(&mut self, source_reg: &mut RegisterSet);
@@ -119,13 +120,17 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
         active_lanes.count_ones()
     }
 
+    fn id(&self) -> &str {
+        &self.name
+    }
+
     fn pipeline(&self) -> &Vec<Option<WarpInstruction>> {
         &self.pipeline_reg
     }
 
     fn cycle(&mut self) {
         log::debug!(
-            "fu[{:03}] {:<10} cycle={:03}: \tpipeline={:?} ({} active)",
+            "fu[{:03}] {:<10} cycle={:03}: \tpipeline={:?} ({}/{} active)",
             self.id,
             self.name,
             self.cycle.get(),
@@ -134,6 +139,7 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
                 .map(|reg| reg.as_ref().map(|r| r.to_string()))
                 .collect::<Vec<_>>(),
             self.num_active_instr_in_pipeline(),
+            self.pipeline_reg.len(),
         );
 
         if let Some(result_port) = &mut self.result_port {
@@ -157,8 +163,8 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
         );
         if self.active_insts_in_pipeline > 0 {
             for stage in 0..(self.pipeline_reg.len() - 1) {
-                let current = self.pipeline_reg[stage].take();
-                let next = &mut self.pipeline_reg[stage + 1];
+                let current = self.pipeline_reg[stage + 1].take();
+                let next = &mut self.pipeline_reg[stage];
                 let msg = format!("{} moving to next slot in pipeline register", self.name);
                 register_set::move_warp(current, next, msg);
 

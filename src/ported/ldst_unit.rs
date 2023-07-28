@@ -152,8 +152,6 @@ where
         cycle: super::Cycle,
         // issue_reg_id: usize,
     ) -> Self {
-        // pipelined_simd_unit(NULL, config, 3, core, 0),
-        // pipelined_simd_unit(NULL, config, config->smem_latency, core, 0),
         let pipeline_depth = config.shared_memory_latency;
         let pipelined_simd_unit = fu::PipelinedSimdUnitImpl::new(
             id,
@@ -273,14 +271,25 @@ where
 
     pub fn writeback(&mut self) {
         log::debug!(
-            "{} (next_writeback={:?} arb={})",
-            style("ldst unit writeback").magenta(),
-            self.next_writeback.as_ref().map(|wb| wb.to_string()),
-            self.writeback_arb
+            "{} (arb={}, writeback clients={})",
+            style(format!(
+                "load store unit: cycle {} writeback",
+                self.pipelined_simd_unit.cycle.get()
+            ))
+            .magenta(),
+            self.writeback_arb,
+            self.num_writeback_clients,
         );
 
         // this processes the next writeback
         if let Some(ref mut next_writeback) = self.next_writeback {
+            log::trace!(
+                "{} => next_writeback={} ({:?})",
+                style("ldst unit writeback").magenta(),
+                next_writeback,
+                next_writeback.memory_space,
+            );
+
             if self
                 .operand_collector
                 .try_borrow_mut()
@@ -292,10 +301,15 @@ where
                 let mut instr_completed = false;
                 for out_reg in next_writeback.outputs() {
                     debug_assert!(*out_reg > 0);
-                    // if next_writeback.warp_id == 3 {
-                    //     super::debug_break("process writeback for warp 3");
-                    // }
-                    if next_writeback.memory_space != Some(MemorySpace::Shared) {
+
+                    if next_writeback.memory_space == Some(MemorySpace::Shared) {
+                        // shared
+                        self.scoreboard
+                            .write()
+                            .unwrap()
+                            .release_register(next_writeback.warp_id, *out_reg);
+                        instr_completed = true;
+                    } else {
                         let pending = self
                             .pending_writes
                             .entry(next_writeback.warp_id)
@@ -310,13 +324,6 @@ where
                                 .release_register(next_writeback.warp_id, *out_reg);
                             instr_completed = true;
                         }
-                    } else {
-                        // shared
-                        self.scoreboard
-                            .write()
-                            .unwrap()
-                            .release_register(next_writeback.warp_id, *out_reg);
-                        instr_completed = true;
                     }
                 }
                 if instr_completed {
@@ -334,9 +341,17 @@ where
             if self.next_writeback.is_some() {
                 break;
             }
-            let next_client = (client + self.writeback_arb) % self.num_writeback_clients;
-            match WritebackClient::from_repr(next_client).unwrap() {
+            let next_client_id = (client + self.writeback_arb) % self.num_writeback_clients;
+            let next_client = WritebackClient::from_repr(next_client_id).unwrap();
+            log::trace!("checking writeback client {:?}", next_client);
+            match next_client {
                 WritebackClient::SharedMemory => {
+                    // if let Some(pipe_reg) = self.pipelined_simd_unit.pipeline_reg[0].take() {
+                    // let last_stage = self.pipelined_simd_unit.pipeline_reg.len() - 1;
+                    // let output_stage = &mut self.pipelined_simd_unit.pipeline_reg[last_stage];
+                    // let output_stage = self.pipelined_simd_unit.pipeline_reg.last_mut();
+                    // let output_stage = self.pipelined_simd_unit.pipeline_reg.first_mut();
+                    // if let Some(pipe_reg) = output_stage.and_then(Option::take) {
                     if let Some(pipe_reg) = self.pipelined_simd_unit.pipeline_reg[0].take() {
                         if pipe_reg.is_atomic() {
                             // pipe_reg.do_atomic();
@@ -349,7 +364,7 @@ where
                             .unwrap()
                             .num_instr_in_pipeline -= 1;
                         self.next_writeback = Some(pipe_reg);
-                        serviced_client = Some(next_client);
+                        serviced_client = Some(next_client_id);
                     }
                 }
                 WritebackClient::L1T => {
@@ -394,14 +409,14 @@ where
                         }
 
                         self.next_writeback = next_global.instr;
-                        serviced_client = Some(next_client);
+                        serviced_client = Some(next_client_id);
                     }
                 }
                 WritebackClient::L1D => {
                     if let Some(ref mut data_l1) = self.data_l1 {
                         if let Some(fetch) = data_l1.next_access() {
                             self.next_writeback = fetch.instr;
-                            serviced_client = Some(next_client);
+                            serviced_client = Some(next_client_id);
                         }
                     }
                 }
@@ -414,14 +429,13 @@ where
         if let Some(serviced) = serviced_client {
             self.writeback_arb = (serviced + 1) % self.num_writeback_clients;
             log::debug!(
-                "{} {:?} ({})",
-                style("ldst unit writeback: serviced client").magenta(),
+                "{} {:?} ({}) => next writeback={:?}",
+                style("load store unit writeback serviced client").magenta(),
                 WritebackClient::from_repr(serviced),
                 serviced,
+                self.next_writeback.as_ref().map(ToString::to_string),
             );
         }
-
-        // todo!("ldst unit writeback");
     }
 
     fn shared_cycle(
@@ -816,9 +830,11 @@ where
                         for out_reg in instr.outputs() {
                             let pending = self.pending_writes.get_mut(&instr.warp_id).unwrap();
                             debug_assert!(pending[out_reg] > 0);
+
                             let still_pending = pending[out_reg] - 1;
                             if still_pending > 0 {
                                 pending.remove(&out_reg);
+                                log::trace!("l1 latency queue release registers");
                                 self.scoreboard
                                     .write()
                                     .unwrap()
@@ -898,6 +914,10 @@ where
         active
         // m_core->incfumemactivelanes_stat(active_count);
         // todo!("load store unit: active lanes in pipeline");
+    }
+
+    fn id(&self) -> &str {
+        &self.pipelined_simd_unit.name
     }
 
     fn pipeline(&self) -> &Vec<Option<WarpInstruction>> {
@@ -1026,7 +1046,7 @@ where
         use super::instruction::CacheOperator;
 
         log::debug!(
-            "fu[{:03}] {:<10} cycle={:03}: \tpipeline={:?} ({} active) \tresponse fifo={:?}",
+            "fu[{:03}] {:<10} cycle={:03}: \tpipeline={:?} ({}/{} active) \tresponse fifo={:?}",
             self.pipelined_simd_unit.id,
             self.pipelined_simd_unit.name,
             self.pipelined_simd_unit.cycle.get(),
@@ -1036,6 +1056,7 @@ where
                 .map(|reg| reg.as_ref().map(|r| r.to_string()))
                 .collect::<Vec<_>>(),
             self.pipelined_simd_unit.num_active_instr_in_pipeline(),
+            self.pipelined_simd_unit.pipeline_reg.len(),
             self.response_fifo
                 .iter()
                 .map(|t| t.to_string())
@@ -1047,17 +1068,22 @@ where
         let simd_unit = &mut self.pipelined_simd_unit;
         debug_assert!(simd_unit.pipeline_depth > 0);
         for stage in 0..(simd_unit.pipeline_depth - 1) {
-            let current = simd_unit.pipeline_reg[stage].take();
-            let next = &mut simd_unit.pipeline_reg[stage + 1];
-            register_set::move_warp(
-                current,
-                next,
-                format!(
-                    "load store unit: move warp from stage {} to {}",
-                    stage,
-                    stage + 1
-                ),
-            );
+            let current = stage + 1;
+            let next = stage;
+
+            if simd_unit.pipeline_reg[current].is_some() && simd_unit.pipeline_reg[next].is_none() {
+                register_set::move_warp(
+                    simd_unit.pipeline_reg[current].take(),
+                    &mut simd_unit.pipeline_reg[next],
+                    format!(
+                        "load store unit: move warp from stage {} to {}",
+                        stage + 1,
+                        stage,
+                    ),
+                );
+            } else {
+                log::trace!("LdstUnit: skip moving {} to {}", stage + 1, stage);
+            }
         }
 
         drop(simd_unit);
@@ -1171,14 +1197,12 @@ where
                     if pipe_slot.is_none() {
                         // new shared memory request
                         let dispatch_reg = simd_unit.dispatch_reg.take();
-                        register_set::move_warp(
-                            dispatch_reg,
-                            pipe_slot,
-                            format!(
-                                "load store unit: move warp from dispatch register to pipeline[{}]",
-                                pipe_slot_idx,
-                            ),
+                        let msg = format!(
+                            "load store unit: move {:?} from dispatch register to pipeline[{}]",
+                            dispatch_reg.as_ref().map(ToString::to_string),
+                            pipe_slot_idx,
                         );
+                        register_set::move_warp(dispatch_reg, pipe_slot, msg);
                     }
                 } else {
                     let pending = self.pending_writes.entry(warp_id).or_default();
