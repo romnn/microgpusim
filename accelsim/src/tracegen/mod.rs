@@ -13,7 +13,9 @@ pub enum AddressFormat {
     BaseDelta = 2,
 }
 
-fn parse_active_mask(raw_mask: u32) -> bitvec::BitArr!(for 32, in u32) {
+type ActiveMask = bitvec::BitArr!(for 32, in u32);
+
+fn parse_active_mask(raw_mask: u32) -> ActiveMask {
     use bitvec::{access, array::BitArray, field::BitField, BitArr};
     let mut active_mask = BitArray::ZERO;
     active_mask.store(raw_mask);

@@ -1,9 +1,26 @@
 use super::{AddressFormat, WARP_SIZE};
 use color_eyre::eyre::{self, WrapErr};
+use itertools::Itertools;
 use nvbit_model::Dim;
 use once_cell::sync::Lazy;
 use regex::Regex;
+use std::collections::HashSet;
 use std::path::Path;
+
+static LOAD_OPCODES: Lazy<HashSet<&'static str>> = Lazy::new(|| {
+    [
+        // TODO: for now, we ignore constant loads, consider it as ALU_OP
+        // "LDC"
+        "LD", "LDG", "LDL", "LDS", "LDSM", "LDGSTS",
+    ]
+    .into_iter()
+    .collect()
+});
+static STORE_OPCODES: Lazy<HashSet<&'static str>> = Lazy::new(|| {
+    ["ST", "STG", "STL", "STS", "ATOM", "ATOMS", "ATOMG", "RED"]
+        .into_iter()
+        .collect()
+});
 
 #[derive(Debug, Clone)]
 pub struct KernelLaunchMetadata {
@@ -27,10 +44,12 @@ pub fn parse_dim(value: &str) -> Option<Dim> {
     Some(Dim { x, y, z })
 }
 
+#[inline]
 fn missing(k: &str) -> eyre::Report {
     eyre::eyre!("missing {k}")
 }
 
+#[inline]
 pub fn parse_decimal<T>(value: Option<&str>, name: &str) -> eyre::Result<T>
 where
     T: std::str::FromStr,
@@ -43,15 +62,17 @@ where
     Ok(value)
 }
 
+#[inline]
 pub fn parse_hex<T>(value: Option<&str>, name: &str) -> eyre::Result<T>
 where
     T: num_traits::Num,
     <T as num_traits::Num>::FromStrRadixErr: std::error::Error + Send + Sync + 'static,
 {
     let value: &str = value.ok_or_else(|| missing(name))?.trim();
-    let value =
-        T::from_str_radix(value, 16).wrap_err_with(|| format!("bad {}: {:?}", name, value))?;
-    Ok(value)
+    let numeric_value = value.trim_start_matches("0x");
+    let numeric_value = T::from_str_radix(numeric_value, 16)
+        .wrap_err_with(|| format!("bad {}: {:?}", name, value))?;
+    Ok(numeric_value)
 }
 
 pub fn parse_kernel_launch(
@@ -141,11 +162,11 @@ pub fn parse_kernel_launch(
                 }
                 ["shmem", "base_addr"] => {
                     kernel_launch.shared_mem_base_addr =
-                        u64::from_str_radix(value.trim_start_matches("0x"), 16)?;
+                        parse_hex(Some(value), "shared mem base addr")?;
                 }
                 ["local", "mem", "base_addr"] => {
                     kernel_launch.local_mem_base_addr =
-                        u64::from_str_radix(value.trim_start_matches("0x"), 16)?;
+                        parse_hex(Some(value), "local mem base addr")?;
                 }
                 key => eyre::bail!("unknown key: {:?}", key),
             }
@@ -155,15 +176,14 @@ pub fn parse_kernel_launch(
 }
 
 pub fn parse_memcopy_host_to_device(line: String) -> eyre::Result<Command> {
-    use itertools::Itertools;
     // MemcpyHtoD,0x00007f7845700000,400
     let (_, addr, num_bytes) = line
         .split(",")
         .map(str::trim)
         .collect_tuple()
         .ok_or(eyre::eyre!("invalid memcopy command {:?}", line))?;
-    let dest_device_addr = u64::from_str_radix(addr.trim_start_matches("0x"), 16)?;
-    let num_bytes = num_bytes.trim().parse()?;
+    let dest_device_addr = parse_hex(Some(addr), "dest device address")?;
+    let num_bytes = parse_decimal(Some(num_bytes), "num bytes")?;
     Ok(Command::MemcpyHtoD(trace_model::MemcpyHtoD {
         allocation_name: None,
         dest_device_addr,
@@ -190,14 +210,73 @@ pub fn read_commands(
     Ok(commands)
 }
 
-pub fn parse_instruction(
+#[inline]
+fn base_stride_decompress(
+    addrs: &mut [u64],
+    base_address: u64,
+    stride: i32,
+    active_mask: &super::ActiveMask,
+) {
+    let mut first_bit1_found = false;
+    let mut last_bit1_found = false;
+    let mut current_address = base_address;
+    for w in 0..WARP_SIZE {
+        if active_mask[w] && !first_bit1_found {
+            first_bit1_found = true;
+            addrs[w] = base_address;
+        } else if first_bit1_found && !last_bit1_found {
+            if active_mask[w] {
+                current_address += stride.unsigned_abs() as u64;
+                addrs[w] = current_address;
+            } else {
+                last_bit1_found = true;
+            }
+        }
+    }
+}
+
+#[inline]
+fn base_delta_decompress(
+    addrs: &mut [u64],
+    base_address: u64,
+    deltas: Vec<u64>,
+    active_mask: &super::ActiveMask,
+) {
+    let mut first_bit1_found = false;
+    let mut last_address = 0;
+    let mut delta_index = 0;
+    for w in 0..WARP_SIZE {
+        if active_mask[w] && !first_bit1_found {
+            addrs[w] = base_address;
+            first_bit1_found = true;
+            last_address = base_address;
+        } else if active_mask[w] && first_bit1_found {
+            assert!(delta_index < deltas.len());
+            delta_index += 1;
+            addrs[w] = last_address + deltas[delta_index];
+            last_address = addrs[w];
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+pub struct TraceInstruction {
+    pub line_num: Option<u32>,
+    pub pc: u32,
+    pub active_mask: u32,
+    pub opcode: String,
+    pub mem_width: u32,
+    pub mem_addresses: [u64; WARP_SIZE],
+    pub dest_regs: Vec<u32>,
+    pub src_regs: Vec<u32>,
+}
+
+#[inline]
+pub fn parse_trace_instruction(
     line: &[&str],
     trace_version: usize,
     line_info: bool,
-    block_id: Dim,
-    warp_id: u32,
-    kernel: &trace_model::KernelLaunch,
-) -> eyre::Result<trace_model::MemAccessTraceEntry> {
+) -> eyre::Result<TraceInstruction> {
     assert!(
         trace_version >= 0,
         "trace version {} not supported",
@@ -205,102 +284,65 @@ pub fn parse_instruction(
     );
     let mut values: std::collections::VecDeque<&str> = line.iter().copied().collect();
 
-    let line_num: u32 = if line_info {
-        // let line_num = values.pop_front().ok_or(missing("line num"))?.trim();
-        // line_num
-        //     .parse()
-        //     .wrap_err_with(|| format!("bad line num: {:?}", line_num))?
-
-        parse_decimal(values.pop_front(), "line num")?
+    let line_num: Option<u32> = if line_info {
+        Some(parse_decimal(values.pop_front(), "line num")?)
     } else {
-        0
+        None
     };
 
-    // let pc = u32::from_str_radix(values.pop_front().ok_or(missing("pc"))?, 16)?;
     let pc: u32 = parse_hex(values.pop_front(), "pc")?;
     let raw_active_mask: u32 = parse_hex(values.pop_front(), "active mask")?;
-    // let raw_active_mask = u32::from_str_radix(values.pop_front().ok_or(missing("mask"))?, 16)?;
     let active_mask = super::parse_active_mask(raw_active_mask);
 
-    // let num_dest_regs = values.pop_front().ok_or(missing("dest num"))?.trim();
-    // let num_dest_regs: usize = num_dest_regs
-    //     .parse()
-    //     .wrap_err_with(|| format!("bad dest register count: {:?}", num_dest_regs))?;
     let num_dest_regs: usize = parse_decimal(values.pop_front(), "num dest regs")?;
-    assert!(num_dest_regs <= 1, "too many dest registers");
-    let mut dest_regs: [u32; 1] = [0; 1];
-    for r in 0..num_dest_regs {
-        let dest_reg = values
-            .pop_front()
-            .map(str::trim)
-            .map(|r| r.trim_start_matches("R"));
+    assert!(
+        num_dest_regs < 20,
+        "astronomical number of source registers"
+    );
+    let mut dest_regs: Vec<u32> = (0..num_dest_regs)
+        .map(|r| {
+            let dest_reg = values
+                .pop_front()
+                .map(str::trim)
+                .map(|r| r.trim_start_matches("R"));
 
-        // .ok_or_else(|| missing(&format!("dest reg {r}")))?
-        // .trim();
-        dest_regs[r] = parse_decimal(dest_reg, &format!("dest reg {r}"))?;
-        // dest_regs[r] = dest_reg
-        //     .trim_start_matches("R")
-        //     .parse()
-        //     .wrap_err_with(|| format!("bad dest register: {:?}", dest_reg))?;
-    }
+            parse_decimal(dest_reg, &format!("dest reg {r}"))
+        })
+        .try_collect()?;
 
-    let opcode = values.pop_front().ok_or(missing("opcode"))?;
+    let opcode = values.pop_front().ok_or(missing("opcode"))?.to_string();
 
     let num_src_regs: usize = parse_decimal(values.pop_front(), "num src regs")?;
-    // let num_src_regs = values.pop_front().ok_or(missing("src num"))?.trim();
-    // let num_src_regs: usize = num_src_regs
-    //     .parse()
-    //     .wrap_err_with(|| format!("bad src register count: {:?}", num_src_regs))?;
-    let mut src_regs: [u32; 5] = [0; 5];
-    for r in 0..num_src_regs {
-        let src_reg = values
-            .pop_front()
-            .map(str::trim)
-            .map(|r| r.trim_start_matches("R"));
-        // .ok_or_else(|| missing(&format!("src reg {r}")))?
-        // .trim();
-        src_regs[r] = parse_decimal(src_reg, &format!("src reg {r}"))?;
-        // src_regs[r] = src_reg
-        //     .trim_start_matches("R")
-        //     .parse()
-        //     .wrap_err_with(|| format!("bad src register: {:?}", src_reg))?;
-    }
+    assert!(num_src_regs < 20, "astronomical number of source registers");
+    let mut src_regs: Vec<u32> = (0..num_src_regs)
+        .map(|r| {
+            let src_reg = values
+                .pop_front()
+                .map(str::trim)
+                .map(|r| r.trim_start_matches("R"));
+            parse_decimal(src_reg, &format!("src reg {r}"))
+        })
+        .try_collect()?;
 
-    // let mem_width = values.pop_front();
-    // let mem_width: u32 = mem_width
-    //     .ok_or(missing("mem width"))?
-    //     .trim()
-    //     .parse()
-    //     .wrap_err_with(|| format!("bad mem width: {:?}", mem_width))?;
     let mem_width: u32 = parse_decimal(values.pop_front(), "mem width")?;
 
-    let mut addrs: [u64; 32] = [0; 32];
+    let mut mem_addresses: [u64; WARP_SIZE] = [0; WARP_SIZE];
 
     // parse addresses
     if mem_width > 0 {
-        let width = super::get_data_width_from_opcode(opcode)?;
+        let width = super::get_data_width_from_opcode(&opcode)?;
 
         let address_format: usize = parse_decimal(values.pop_front(), "mem address format")?;
         let address_format = AddressFormat::from_repr(address_format)
             .ok_or_else(|| eyre::eyre!("unknown mem address format: {:?}", address_format))?;
-
-        // let address_mode = values
-        //     .pop_front()
-        //     .ok_or(missing("mem address format"))?
-        //     .trim();
-        //
-        // let address_mode = address_mode
-        //     .parse()
-        //     .ok()
-        //     .and_then(AddressFormat::from_repr)
-        //     .ok_or_else(|| eyre::eyre!("bad mem address format: {:?}", address_mode))?;
 
         match address_format {
             AddressFormat::ListAll => {
                 // read addresses one by one from the file
                 for w in 0..WARP_SIZE {
                     if active_mask[w] {
-                        addrs[w] = parse_hex(values.pop_front(), &format!("address #{}", w))?;
+                        mem_addresses[w] =
+                            parse_hex(values.pop_front(), &format!("address #{}", w))?;
                     }
                 }
             }
@@ -308,12 +350,11 @@ pub fn parse_instruction(
                 // read addresses as base address and stride
                 let base_address: u64 = parse_hex(values.pop_front(), "base address")?;
                 let stride: i32 = parse_decimal(values.pop_front(), "stride")?;
-                // memadd_info->base_stride_decompress(base_address, stride, mask_bits);
+                base_stride_decompress(&mut mem_addresses, base_address, stride, &active_mask);
             }
             AddressFormat::BaseDelta => {
                 // read addresses as base address and deltas
                 let base_address: u64 = parse_hex(values.pop_front(), "base address")?;
-                // let stride: i32 = parse_decimal(values.pop_front(), "stride")?;
                 let mut deltas = Vec::new();
                 for w in 0..WARP_SIZE {
                     if active_mask[w] {
@@ -322,44 +363,91 @@ pub fn parse_instruction(
                         deltas.push(delta);
                     }
                 }
-                //   memadd_info->base_delta_decompress(base_address, deltas, mask_bits);
+                base_delta_decompress(&mut mem_addresses, base_address, deltas, &active_mask);
             }
         }
     }
 
-    let instr_predicate = nvbit_model::Predicate {
-        num: 0,
-        is_neg: false,
-        is_uniform: false,
+    Ok(TraceInstruction {
+        line_num,
+        pc,
+        active_mask: raw_active_mask,
+        opcode,
+        mem_width,
+        mem_addresses,
+        dest_regs,
+        src_regs,
+    })
+}
+
+#[inline]
+pub fn parse_instruction(
+    trace_instruction: TraceInstruction,
+    block_id: Dim,
+    warp_id: u32,
+    kernel: &trace_model::KernelLaunch,
+) -> eyre::Result<trace_model::MemAccessTraceEntry> {
+    let opcode_tokens: Vec<_> = trace_instruction.opcode.split(".").collect();
+    assert!(!opcode_tokens.is_empty());
+    let opcode1 = opcode_tokens[0].to_uppercase();
+
+    let instr_is_mem = trace_instruction.mem_width > 0;
+    let instr_is_extended = opcode_tokens.contains(&"E");
+
+    let instr_is_load = instr_is_mem && LOAD_OPCODES.contains(opcode1.as_str());
+    let instr_is_store = instr_is_mem && STORE_OPCODES.contains(opcode1.as_str());
+
+    let instr_mem_space = match opcode1.as_str() {
+        "LDC" => nvbit_model::MemorySpace::Constant, // cannot store constants
+        "LDG" | "STG" => nvbit_model::MemorySpace::Global,
+        "LDL" | "STL" => nvbit_model::MemorySpace::Local,
+        "LDS" | "STS" => nvbit_model::MemorySpace::Shared,
+        opcode @ "LDSM" => panic!("unknown opcode {}", opcode),
+        opcode if instr_is_mem => panic!("unknown opcode {}", opcode),
+        _ => nvbit_model::MemorySpace::None,
     };
-    let instr_mem_space = nvbit_model::MemorySpace::Global;
+
+    let mut dest_regs = [0; 1];
+    let num_dest_regs = trace_instruction.dest_regs.len() as u32;
+    for (i, reg) in trace_instruction.dest_regs.into_iter().enumerate() {
+        dest_regs[i] = reg;
+    }
+    let mut src_regs = [0; 5];
+    let num_src_regs = trace_instruction.src_regs.len() as u32;
+    for (i, reg) in trace_instruction.src_regs.into_iter().enumerate() {
+        src_regs[i] = reg;
+    }
+
     Ok(trace_model::MemAccessTraceEntry {
-        cuda_ctx: 0,
+        cuda_ctx: 0, // cannot infer that (not required)
+        sm_id: 0,    // cannot infer that (not required)
         kernel_id: kernel.id,
         block_id,
-        thread_id: Dim { x: 0, y: 0, z: 0 },
-        unique_thread_id: warp_id,
-        global_warp_id: warp_id,
-        warp_id_in_sm: warp_id,
+        warp_id_in_sm: warp_id, // accelsim does not record warp_id_in_sm (not required)
         warp_id_in_block: warp_id,
         warp_size: WARP_SIZE as u32,
-        line_num,
-        instr_data_width: 0, // todo
-        instr_opcode: opcode.to_string(),
-        instr_offset: pc,
-        instr_idx: 0, // we cannot recover that
-        instr_predicate,
+        line_num: trace_instruction.line_num.unwrap_or(0),
+        instr_data_width: 0, // cannot infer that (not required)
+        instr_opcode: trace_instruction.opcode,
+        instr_offset: trace_instruction.pc,
+        instr_idx: 0, // we cannot recover that (not required)
+        // cannot infer predicate (not required)
+        instr_predicate: nvbit_model::Predicate {
+            num: 0,
+            is_neg: false,
+            is_uniform: false,
+        },
         instr_mem_space,
-        instr_is_mem: mem_width > 0,
-        instr_is_load: false,     // todo
-        instr_is_store: false,    // todo
-        instr_is_extended: false, // todo
+        instr_is_mem,
+        instr_is_load,
+        instr_is_store,
+        instr_is_extended,
         dest_regs,
-        num_dest_regs: num_dest_regs as u32,
+        num_dest_regs,
         src_regs,
-        num_src_regs: num_src_regs as u32,
-        active_mask: raw_active_mask,
-        addrs,
+        num_src_regs,
+        active_mask: trace_instruction.active_mask,
+        addrs: trace_instruction.mem_addresses,
     })
 }
 
@@ -378,7 +466,7 @@ pub fn read_trace_instructions(
         }
     }
 
-    let mut block = Dim { x: 0, y: 0, z: 0 };
+    let mut block = Dim::ZERO;
     let mut start_of_tb_stream_found = false;
 
     let mut warp_id = 0;
@@ -424,18 +512,14 @@ pub fn read_trace_instructions(
                 insts_num = value.trim().parse().wrap_err_with(err)?;
             }
             instruction => {
-                let parsed_instruction = parse_instruction(
-                    instruction,
-                    trace_version,
-                    line_info,
-                    block.clone(),
-                    warp_id,
-                    kernel,
-                )
-                .wrap_err_with(|| format!("bad instruction: {:?}", instruction))?;
-                println!("{:?}", instruction);
-                println!("{:#?}", parsed_instruction);
-                break;
+                let trace_instruction =
+                    parse_trace_instruction(instruction, trace_version, line_info)
+                        .wrap_err_with(|| format!("bad instruction: {:?}", instruction))?;
+                let parsed_instruction =
+                    parse_instruction(trace_instruction.clone(), block.clone(), warp_id, kernel)
+                        .wrap_err_with(|| format!("bad instruction: {:?}", trace_instruction))?;
+                // println!("{:?}", instruction);
+                // println!("{:#?}", parsed_instruction);
                 instructions.push(parsed_instruction);
             }
         }
@@ -446,12 +530,37 @@ pub fn read_trace_instructions(
 #[cfg(test)]
 mod tests {
     use color_eyre::eyre;
+    use nvbit_model::Dim;
+    use similar_asserts as diff;
     use std::path::{Path, PathBuf};
 
     fn open_file(path: &Path) -> std::io::Result<std::io::BufReader<std::fs::File>> {
         let file = std::fs::OpenOptions::new().read(true).open(path)?;
         let reader = std::io::BufReader::new(file);
         Ok(reader)
+    }
+
+    #[test]
+    fn test_block_sorting() -> eyre::Result<()> {
+        let grid = Dim { x: 3, y: 4, z: 2 };
+
+        let mut blocks: Vec<_> = grid.into_iter().collect();
+        blocks.sort();
+
+        let mut accelsim_blocks: Vec<_> = grid.into_iter().collect();
+        accelsim_blocks.sort_by_key(|block| {
+            // tb_id = tb_id_z * grid_dim_y * grid_dim_x + tb_id_y * grid_dim_x + tb_id_x;
+            block.z * grid.y * grid.x + block.y * grid.x + block.x
+        });
+
+        let blocks = blocks.iter().map(|p| p.into_tuple()).collect::<Vec<_>>();
+        let accelsim_blocks = accelsim_blocks
+            .iter()
+            .map(|p| p.into_tuple())
+            .collect::<Vec<_>>();
+        diff::assert_eq!(box: blocks, accelsim: accelsim_blocks);
+        assert!(false);
+        Ok(())
     }
 
     #[test]
@@ -470,6 +579,53 @@ mod tests {
         let reader = open_file(&kernelslist)?;
         let commands = super::read_commands(trace_dir, reader)?;
         println!("{:#?}", &commands);
+        Ok(())
+    }
+
+    #[test]
+    fn test_read_store_local_mem_instruction_multiple_addresses() -> eyre::Result<()> {
+        let line: Vec<_> = "02d8 ffffffff 1 R10 LDG.E 1 R10 4 1 0x7f0e5f717000 4"
+            .split(" ")
+            .map(str::trim)
+            .collect();
+        let have = super::parse_trace_instruction(&line, 4, false)?;
+        let mut mem_addresses = [0x7f0e5f717000; super::WARP_SIZE];
+        for (i, base) in mem_addresses.iter_mut().enumerate() {
+            *base += (i as u64) * 4;
+        }
+
+        let want = super::TraceInstruction {
+            line_num: None,
+            pc: 0x02d8,
+            active_mask: 0xFFFFFFFF,
+            opcode: "LDG.E".to_string(),
+            mem_width: 4,
+            mem_addresses,
+            dest_regs: vec![10],
+            src_regs: vec![10],
+        };
+        diff::assert_eq!(have: have, want: want);
+        Ok(())
+    }
+
+    #[test]
+    fn test_read_store_local_mem_instruction_single_address() -> eyre::Result<()> {
+        let line: Vec<_> = "00a8 ffffffff 0 STL.64 2 R1 R10 8 1 0xfffcd0 0"
+            .split(" ")
+            .map(str::trim)
+            .collect();
+        let have = super::parse_trace_instruction(&line, 4, false)?;
+        let want = super::TraceInstruction {
+            line_num: None,
+            pc: 0xa8,
+            active_mask: 0xFFFFFFFF,
+            opcode: "STL.64".to_string(),
+            mem_width: 8,
+            mem_addresses: [0xfffcd0; super::WARP_SIZE],
+            dest_regs: vec![],
+            src_regs: vec![1, 10],
+        };
+        diff::assert_eq!(have: have, want: want);
         Ok(())
     }
 
@@ -499,7 +655,8 @@ mod tests {
             metadata.line_info,
             &kernel,
         )?;
-        println!("{:#?}", &trace);
+        println!("{:?}", &trace[..10]);
+        dbg!(trace.len());
         assert!(false);
         Ok(())
     }
