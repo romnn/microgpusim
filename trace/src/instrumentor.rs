@@ -166,11 +166,6 @@ impl<'c> Instrumentor<'c> {
                 y: packet.block_id_y.unsigned_abs(),
                 z: packet.block_id_z.unsigned_abs(),
             };
-            let thread_id = model::Dim {
-                x: packet.thread_id_x,
-                y: packet.thread_id_y,
-                z: packet.thread_id_z,
-            };
 
             let instr_predicate = model::Predicate {
                 num: packet.instr_predicate_num,
@@ -184,11 +179,9 @@ impl<'c> Instrumentor<'c> {
 
             let entry = trace::MemAccessTraceEntry {
                 cuda_ctx,
+                sm_id: packet.sm_id,
                 kernel_id: packet.kernel_id,
                 block_id,
-                thread_id,
-                unique_thread_id: packet.thread_id,
-                global_warp_id: packet.global_warp_id,
                 warp_id_in_sm: packet.warp_id_in_sm.unsigned_abs(),
                 warp_id_in_block: packet.warp_id_in_block.unsigned_abs(),
                 warp_size: packet.warp_size,

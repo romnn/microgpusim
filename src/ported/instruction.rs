@@ -135,6 +135,7 @@ pub struct WarpInstruction {
     pub dispatch_delay_cycles: usize,
     /// size of the word being operated on
     pub data_size: u32,
+    pub instr_width: u32,
     pub is_atomic: bool,
 
     // access only via the iterators that use in and out counts
@@ -222,6 +223,7 @@ impl WarpInstruction {
             initiation_interval: 1, // TODO: used to be one
             dispatch_delay_cycles: 0,
             data_size: 0,
+            instr_width: 16,
             // empty: true,
             mem_access_queue: VecDeque::new(),
             outputs: [None; 8],
@@ -237,13 +239,7 @@ impl WarpInstruction {
         }
     }
 
-    pub fn from_trace(
-        // kernel: trace::KernelLaunch,
-        // config: &config::GPUConfig,
-        kernel: &super::KernelInfo,
-        trace: trace::MemAccessTraceEntry,
-        // opcodes: &OpcodeMap,
-    ) -> Self {
+    pub fn from_trace(kernel: &super::KernelInfo, trace: trace::MemAccessTraceEntry) -> Self {
         // fill active mask
         let mut active_mask = BitArray::ZERO;
         active_mask.store(trace.active_mask);
@@ -316,7 +312,7 @@ impl WarpInstruction {
                 cache_operator = CacheOperator::ALL;
             }
             Op::LDG | Op::LDL => {
-                // assert!(data_size > 0);
+                assert!(data_size > 0);
                 memory_op = Some(MemOp::Load);
                 cache_operator = CacheOperator::ALL;
                 memory_space = if opcode.op == Op::LDL {
@@ -325,13 +321,12 @@ impl WarpInstruction {
                     Some(MemorySpace::Global)
                 };
                 // check the cache scope, if its strong GPU, then bypass L1
-                // if (trace.check_opcode_contain(opcode_tokens, "STRONG") &&
-                //     trace.check_opcode_contain(opcode_tokens, "GPU")) {
-                //   cache_op = CACHE_GLOBAL;
-                // }
+                if opcode_tokens.contains(&"STRONG") && opcode_tokens.contains(&"GPU") {
+                    cache_operator = CacheOperator::GLOBAL;
+                }
             }
             Op::STG | Op::STL => {
-                // assert!(data_size > 0);
+                assert!(data_size > 0);
                 memory_op = Some(MemOp::Store);
                 cache_operator = CacheOperator::ALL;
                 memory_space = if opcode.op == Op::STL {
@@ -341,7 +336,7 @@ impl WarpInstruction {
                 };
             }
             Op::ATOM | Op::RED | Op::ATOMG => {
-                // assert!(data_size > 0);
+                assert!(data_size > 0);
                 memory_op = Some(MemOp::Load);
                 // op = Op::LOAD;
                 memory_space = Some(MemorySpace::Global);
@@ -350,27 +345,27 @@ impl WarpInstruction {
                 cache_operator = CacheOperator::GLOBAL;
             }
             Op::LDS => {
-                // assert!(data_size > 0);
+                assert!(data_size > 0);
                 memory_op = Some(MemOp::Load);
                 memory_space = Some(MemorySpace::Shared);
             }
             Op::STS => {
-                // assert!(data_size > 0);
+                assert!(data_size > 0);
                 memory_op = Some(MemOp::Store);
                 memory_space = Some(MemorySpace::Shared);
             }
             Op::ATOMS => {
-                // assert!(data_size > 0);
+                assert!(data_size > 0);
                 is_atomic = true;
                 memory_op = Some(MemOp::Load);
                 memory_space = Some(MemorySpace::Shared);
             }
             Op::LDSM => {
-                // assert!(data_size > 0);
+                assert!(data_size > 0);
                 memory_space = Some(MemorySpace::Shared);
             }
             Op::ST | Op::LD => {
-                // assert!(data_size > 0);
+                assert!(data_size > 0);
                 is_atomic = true;
                 memory_op = Some(if opcode.op == Op::LD {
                     MemOp::Load
@@ -424,7 +419,8 @@ impl WarpInstruction {
             initiation_interval,
             dispatch_delay_cycles: initiation_interval,
             data_size,
-            // instruction_size: 16,
+            // starting from MAXWELL isize=16 bytes (including the control bytes)
+            instr_width: 16,
             mem_access_queue: VecDeque::new(),
             outputs,
             inputs,

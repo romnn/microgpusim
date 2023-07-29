@@ -41,11 +41,9 @@ pub fn app_prefix(bin_name: Option<&str>) -> String {
 #[allow(clippy::struct_excessive_bools)]
 pub struct MemAccessTraceEntry {
     pub cuda_ctx: u64,
+    pub sm_id: u32,
     pub kernel_id: u64,
     pub block_id: nvbit_model::Dim,
-    pub thread_id: nvbit_model::Dim,
-    pub unique_thread_id: u32,
-    pub global_warp_id: u32,
     pub warp_id_in_sm: u32,
     pub warp_id_in_block: u32,
     pub warp_size: u32,
@@ -60,7 +58,6 @@ pub struct MemAccessTraceEntry {
     pub instr_is_load: bool,
     pub instr_is_store: bool,
     pub instr_is_extended: bool,
-    // pub dest_reg: Option<u32>,
     pub dest_regs: [u32; 1],
     pub num_dest_regs: u32,
     pub src_regs: [u32; 5],

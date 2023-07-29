@@ -1154,12 +1154,10 @@ mod tests {
 
         let trace_instr = trace_model::MemAccessTraceEntry {
             cuda_ctx: 0,
+            sm_id: 0,
             kernel_id: 0,
-            block_id: nvbit_model::Dim { x: 0, y: 0, z: 0 },
-            thread_id: nvbit_model::Dim { x: 0, y: 0, z: 0 },
-            unique_thread_id: 0,
+            block_id: nvbit_model::Dim::ZERO,
             warp_size: 32,
-            global_warp_id: 3,
             warp_id_in_sm: 3,
             warp_id_in_block: 3,
             line_num: 0,

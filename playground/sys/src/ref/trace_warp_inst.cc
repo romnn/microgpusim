@@ -46,8 +46,8 @@ bool trace_warp_inst_t::parse_from_trace_struct(
   m_decoded = true;
   pc = (address_type)trace.m_pc;
 
-  isize =
-      16;  // starting from MAXWELL isize=16 bytes (including the control bytes)
+  // starting from MAXWELL isize=16 bytes (including the control bytes)
+  isize = 16;
   for (unsigned i = 0; i < MAX_OUTPUT_VALUES; i++) {
     out[i] = 0;
   }

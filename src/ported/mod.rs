@@ -31,6 +31,7 @@ pub mod testing;
 use self::cluster::*;
 use self::core::*;
 use addrdec::*;
+use color_eyre::Help;
 use fifo::Queue;
 use interconn as ic;
 use ldst_unit::*;
@@ -211,7 +212,7 @@ pub fn read_trace(path: impl AsRef<Path>) -> eyre::Result<Vec<MemAccessTraceEntr
     let decoder = nvbit_io::Decoder::new(|access: MemAccessTraceEntry| {
         trace.push(access);
     });
-    reader.deserialize_seq(decoder)?;
+    reader.deserialize_seq(decoder).suggestion("maybe the traces does not match the most recent binary trace format, try re-generating the traces.")?;
     Ok(trace)
 }
 

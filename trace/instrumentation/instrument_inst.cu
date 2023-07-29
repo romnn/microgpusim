@@ -69,27 +69,9 @@ instrument_inst(uint32_t pred, uint32_t instr_data_width,
   assert(blockIdx.z == block.z);
 
   ma.sm_id = get_smid();
-  // int unique_thread_id = threadIdx.z * (blockDim.y * blockDim.x) +
-  //                        threadIdx.y * blockDim.x + threadIdx.x;
   int unique_thread_id = (threadIdx.z * (blockDim.x * blockDim.y)) +
                          (threadIdx.y * blockDim.x) + threadIdx.x;
 
-  // int unique_thread_id = (threadIdx.x * (blockDim.y * blockDim.z)) +
-  //                        (threadIdx.y * blockDim.z) + threadIdx.z;
-  // unique_thread_id += threadIdx.z;
-  // int thread_id = (threadIdx.x * threadIdx.x(blockDim.x *
-  // blockDim.y)) +
-
-  // int l_thread_id = (threadIdx.z * (blockDim.x * blockDim.y))
-  // +
-  //                   (threadIdx.y * blockDim.x) + threadIdx.x;
-
-  ma.thread_id = unique_thread_id;
-  ma.thread_id_x = threadIdx.x;
-  ma.thread_id_y = threadIdx.y;
-  ma.thread_id_z = threadIdx.z;
-
-  ma.global_warp_id = get_global_warp_id();
   ma.warp_id_in_block = unique_thread_id / warpSize;
   ma.warp_id_in_sm = get_warpid();
   ma.warp_size = warpSize;

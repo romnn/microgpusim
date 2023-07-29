@@ -16,12 +16,7 @@ typedef struct {
   int block_id_x;
   int block_id_y;
   int block_id_z;
-  uint32_t thread_id;
-  uint32_t thread_id_x;
-  uint32_t thread_id_y;
-  uint32_t thread_id_z;
   uint32_t sm_id;
-  uint32_t global_warp_id;
   int warp_id_in_block;
   int warp_id_in_sm;
   uint32_t line_num;
