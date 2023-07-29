@@ -322,11 +322,11 @@ impl<'c> Instrumentor<'c> {
                 self.commands
                     .lock()
                     .unwrap()
-                    .push(trace::Command::MemcpyHtoD {
+                    .push(trace::Command::MemcpyHtoD(trace::MemcpyHtoD {
                         allocation_name: None,
                         dest_device_addr: dest_device.as_ptr(),
                         num_bytes,
-                    });
+                    }));
             }
             // Some(EventParams::MemCopyDeviceToHost {
             //     // dest_device, bytes, ..
@@ -351,11 +351,11 @@ impl<'c> Instrumentor<'c> {
                 self.commands
                     .lock()
                     .unwrap()
-                    .push(trace::Command::MemAlloc {
+                    .push(trace::Command::MemAlloc(trace::MemAlloc {
                         allocation_name: None,
                         device_ptr,
                         num_bytes,
-                    });
+                    }));
             }
             _ => {}
         }

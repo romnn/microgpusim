@@ -91,14 +91,14 @@ impl PartialOrd for MemAccessTraceEntry {
 }
 
 /// A memory allocation.
-#[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct MemAllocation {
     pub device_ptr: u64,
     pub num_bytes: u64,
 }
 
 /// Information about a kernel launch.
-#[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct KernelLaunch {
     pub name: String,
     pub trace_file: String,
@@ -114,17 +114,23 @@ pub struct KernelLaunch {
     pub nvbit_version: String,
 }
 
-#[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct MemcpyHtoD {
+    pub allocation_name: Option<String>,
+    pub dest_device_addr: u64,
+    pub num_bytes: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct MemAlloc {
+    pub allocation_name: Option<String>,
+    pub device_ptr: u64,
+    pub num_bytes: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Command {
-    MemcpyHtoD {
-        allocation_name: Option<String>,
-        dest_device_addr: u64,
-        num_bytes: u64,
-    },
-    MemAlloc {
-        allocation_name: Option<String>,
-        device_ptr: u64,
-        num_bytes: u64,
-    },
+    MemcpyHtoD(MemcpyHtoD),
+    MemAlloc(MemAlloc),
     KernelLaunch(KernelLaunch),
 }

@@ -1205,16 +1205,16 @@ where
         {
             let cmd = &self.commands[self.command_idx];
             match cmd {
-                Command::MemcpyHtoD {
+                Command::MemcpyHtoD(trace_model::MemcpyHtoD {
                     allocation_name,
                     dest_device_addr,
                     num_bytes,
-                } => self.memcopy_to_gpu(*dest_device_addr, *num_bytes, allocation_name.clone()),
-                Command::MemAlloc {
+                }) => self.memcopy_to_gpu(*dest_device_addr, *num_bytes, allocation_name.clone()),
+                Command::MemAlloc(trace_model::MemAlloc {
                     allocation_name,
                     device_ptr,
                     num_bytes,
-                } => self.gpu_mem_alloc(*device_ptr, *num_bytes, allocation_name.clone()),
+                }) => self.gpu_mem_alloc(*device_ptr, *num_bytes, allocation_name.clone()),
                 Command::KernelLaunch(launch) => {
                     let kernel = KernelInfo::from_trace(&self.traces_dir, launch.clone());
                     self.kernels.push_back(Arc::new(kernel));
@@ -1535,12 +1535,12 @@ mod tests {
             self,
             fifo::{self, Queue},
             interconn as ic, testing,
+            testing::diff,
         },
         Simulation,
     };
     use color_eyre::eyre;
     use pretty_assertions_sorted as full_diff;
-    // use similar_asserts as diff;
     use stats::ConvertHashMap;
     use std::collections::{HashMap, HashSet};
     use std::io::Write;
@@ -1549,36 +1549,6 @@ mod tests {
     use std::sync::Arc;
     use std::time::{Duration, Instant};
     use trace_model::Command;
-
-    mod diff {
-        #[macro_export]
-        macro_rules! my_assert_eq {
-            (
-                $left_label:ident:
-                $left:expr,
-                $right_label:ident:
-                $right:expr $(,)?
-            ) => {{
-                match (&($left), &($right)) {
-                    (left_val, right_val) => {
-                        if !(*left_val == *right_val) {
-                            use similar_asserts::traits::*;
-                            let left_label = stringify!($left_label);
-                            let right_label = stringify!($right_label);
-                            let tup = (&*left_val, &*right_val);
-                            let diff = tup.make_diff(left_label, right_label);
-                            panic!(
-                                "assertion failed: `({} == {})`\n\n{}\n",
-                                left_label, right_label, &diff,
-                            );
-                        }
-                    }
-                }
-            }};
-        }
-
-        pub(crate) use my_assert_eq as assert_eq;
-    }
 
     fn run_lockstep(trace_dir: &Path) -> eyre::Result<()> {
         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
@@ -1598,7 +1568,10 @@ mod tests {
                     .to_string_lossy()
             );
             let mut commands_writer = utils::fs::open_writable(&generated_kernelslist_path)?;
-            accelsim::tracegen::generate_commands(&box_commands_path, &mut commands_writer)?;
+            accelsim::tracegen::writer::generate_commands(
+                &box_commands_path,
+                &mut commands_writer,
+            )?;
 
             let commands_file = std::fs::OpenOptions::new()
                 .read(true)
@@ -1622,7 +1595,11 @@ mod tests {
                         kernel.id
                     );
                     let mut trace_writer = utils::fs::open_writable(generated_kernel_trace_path)?;
-                    accelsim::tracegen::generate_trace(&box_trace_dir, &kernel, &mut trace_writer)?;
+                    accelsim::tracegen::writer::generate_trace(
+                        &box_trace_dir,
+                        &kernel,
+                        &mut trace_writer,
+                    )?;
                 }
             }
 

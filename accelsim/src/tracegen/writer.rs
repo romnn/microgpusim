@@ -1,47 +1,10 @@
-#![allow(warnings)]
-
-use bitvec::{access, array::BitArray, field::BitField, BitArr};
+use super::AddressFormat;
 use color_eyre::eyre;
 use color_eyre::owo_colors::OwoColorize;
 use std::collections::HashMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use trace_model::{Command, MemAccessTraceEntry};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[repr(usize)]
-pub enum AddressFormat {
-    ListAll = 0,
-    BaseStride = 1,
-    BaseDelta = 2,
-}
-
-fn is_number(s: &str) -> bool {
-    !s.is_empty() && s.chars().all(char::is_numeric)
-}
-
-fn get_data_width_from_opcode(opcode: &str) -> Result<u32, std::num::ParseIntError> {
-    let opcode_tokens: Vec<_> = opcode
-        .split(".")
-        .map(|t| t.trim())
-        .filter(|t| !t.is_empty())
-        .collect();
-
-    for token in opcode_tokens {
-        assert!(!token.is_empty());
-
-        if is_number(token) {
-            return Ok(token.parse::<u32>()? / 8);
-        } else if let Some('U') = token.chars().nth(0) {
-            if is_number(&token[1..token.len()]) {
-                // handle the U* case
-                return Ok(token[1..token.len()].parse::<u32>()? / 8);
-            }
-        }
-    }
-    // default is 4 bytes
-    Ok(4)
-}
 
 fn write_kernel_info(
     kernel: &trace_model::KernelLaunch,
@@ -97,8 +60,8 @@ fn write_trace_instructions(
     trace: &[MemAccessTraceEntry],
     mut out: impl std::io::Write,
 ) -> eyre::Result<()> {
-    let mut grouped: HashMap<nvbit_model::Dim, HashMap<u32, Vec<&MemAccessTraceEntry>>> =
-        HashMap::new();
+    use nvbit_model::Dim;
+    let mut grouped: HashMap<Dim, HashMap<u32, Vec<&MemAccessTraceEntry>>> = HashMap::new();
 
     for inst in trace {
         let block = grouped.entry(inst.block_id).or_default();
@@ -143,13 +106,12 @@ fn write_trace_instructions(
                 }
                 if inst.instr_is_mem {
                     // mem width
-                    let mem_width = get_data_width_from_opcode(&inst.instr_opcode)?;
+                    let mem_width = super::get_data_width_from_opcode(&inst.instr_opcode)?;
                     line.push(mem_width.to_string());
 
                     // list all the addresses
                     line.push((AddressFormat::ListAll as usize).to_string());
-                    let mut active_mask: BitArr!(for 32, in u32) = BitArray::ZERO;
-                    active_mask.store(inst.active_mask);
+                    let active_mask = super::parse_active_mask(inst.active_mask);
                     for w in 0..32 {
                         if active_mask[w] {
                             line.push(format!("{:#016x}", inst.addrs[w]));
@@ -181,12 +143,12 @@ pub fn generate_commands(
 
     for cmd in commands {
         match cmd {
-            Command::MemAlloc { .. } => {}
-            Command::MemcpyHtoD {
+            Command::MemAlloc(_) => {}
+            Command::MemcpyHtoD(trace_model::MemcpyHtoD {
                 dest_device_addr,
                 num_bytes,
                 ..
-            } => {
+            }) => {
                 writeln!(out, "MemcpyHtoD,{:#016x},{}", dest_device_addr, num_bytes)?;
             }
             Command::KernelLaunch(kernel) => {
@@ -221,6 +183,7 @@ pub fn generate_trace(
 #[cfg(test)]
 mod tests {
     use color_eyre::eyre;
+    use similar_asserts as diff;
     use std::collections::HashMap;
     use std::io::Write;
     use std::path::PathBuf;
@@ -231,11 +194,161 @@ mod tests {
         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
         let trace_dir = manifest_dir.join("../results/vectorAdd/vectorAdd-100-32/trace");
         let commands_path = trace_dir.join("commands.json");
-
+        let _commands = indoc::indoc! { r#"[
+            {
+                "MemAlloc": {
+                    "allocation_name": null,
+                    "device_ptr": 140030084382720,
+                    "num_bytes": 400
+                }
+            },
+            {
+                "MemAlloc": {
+                    "allocation_name": null,
+                    "device_ptr": 140030084383232,
+                    "num_bytes": 400
+                }
+            },
+            {
+                "MemAlloc": {
+                    "allocation_name": null,
+                    "device_ptr": 140030084383744,
+                    "num_bytes": 400
+                }
+            },
+            {
+                "MemcpyHtoD": {
+                    "allocation_name": null,
+                    "dest_device_addr": 140030084382720,
+                    "num_bytes": 400
+                }
+            },
+            {
+                "MemcpyHtoD": {
+                    "allocation_name": null,
+                    "dest_device_addr": 140030084383232,
+                    "num_bytes": 400
+                }
+            },
+            {
+                "MemcpyHtoD": {
+                    "allocation_name": null,
+                    "dest_device_addr": 140030084383744,
+                    "num_bytes": 400
+                }
+            },
+            {
+                "MemAlloc": {
+                    "allocation_name": null,
+                    "device_ptr": 140030084384256,
+                    "num_bytes": 32
+                }
+            },
+            {
+                "MemcpyHtoD": {
+                    "allocation_name": null,
+                    "dest_device_addr": 140030084384256,
+                    "num_bytes": 32
+                }
+            },
+            {
+                "MemAlloc": {
+                    "allocation_name": null,
+                    "device_ptr": 140030084384768,
+                    "num_bytes": 32
+                }
+            },
+            {
+                "MemcpyHtoD": {
+                    "allocation_name": null,
+                    "dest_device_addr": 140030084384768,
+                    "num_bytes": 32
+                }
+            },
+            {
+                "MemAlloc": {
+                    "allocation_name": null,
+                    "device_ptr": 140030084385280,
+                    "num_bytes": 32
+                }
+            },
+            {
+                "MemcpyHtoD": {
+                    "allocation_name": null,
+                    "dest_device_addr": 140030084385280,
+                    "num_bytes": 32
+                }
+            },
+            {
+                "MemAlloc": {
+                    "allocation_name": null,
+                    "device_ptr": 140030084385792,
+                    "num_bytes": 32
+                }
+            },
+            {
+                "MemcpyHtoD": {
+                    "allocation_name": null,
+                    "dest_device_addr": 140030084385792,
+                    "num_bytes": 32
+                }
+            },
+            {
+                "MemAlloc": {
+                    "allocation_name": null,
+                    "device_ptr": 140030084386304,
+                    "num_bytes": 32
+                }
+            },
+            {
+                "MemcpyHtoD": {
+                    "allocation_name": null,
+                    "dest_device_addr": 140030084386304,
+                    "num_bytes": 32
+                }
+            },
+            {
+                "KernelLaunch": {
+                    "name": "void vecAdd<float>(float*, float*, float*, int)",
+                    "trace_file": "kernel-0.msgpack",
+                    "id": 0,
+                    "grid": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                    },
+                    "block": {
+                        "x": 1024,
+                        "y": 1,
+                        "z": 1
+                    },
+                    "shared_mem_bytes": 0,
+                    "num_registers": 8,
+                    "binary_version": 61,
+                    "stream_id": 0,
+                    "shared_mem_base_addr": 140030781685760,
+                    "local_mem_base_addr": 140030748131328,
+                    "nvbit_version": "1.5.5"
+                }
+            }
+        ]"#};
         let mut commands_writer = std::io::Cursor::new(Vec::new());
         super::generate_commands(&commands_path, &mut commands_writer)?;
         let commands = String::from_utf8_lossy(&commands_writer.into_inner()).to_string();
         println!("{}", &commands);
+        // diff::assert_eq!(
+        //     have: commands.trim(),
+        //     want: indoc::indoc! {r"
+        //         MemcpyHtoD,0x007f5b4b700000,400
+        //         MemcpyHtoD,0x007f5b4b700200,400
+        //         MemcpyHtoD,0x007f5b4b700400,400
+        //         MemcpyHtoD,0x007f5b4b700600,32
+        //         MemcpyHtoD,0x007f5b4b700800,32
+        //         MemcpyHtoD,0x007f5b4b700a00,32
+        //         MemcpyHtoD,0x007f5b4b700c00,32
+        //         MemcpyHtoD,0x007f5b4b700e00,32
+        //         kernel-1.box.traceg"}
+        // );
         Ok(())
     }
 
@@ -263,6 +376,7 @@ mod tests {
         super::generate_trace(&trace_dir, &kernel, &mut trace_writer)?;
         let trace = String::from_utf8_lossy(&trace_writer.into_inner()).to_string();
         println!("{}", &trace);
+        // diff::assert_eq!(have: &trace, want: r"");
         Ok(())
     }
 }

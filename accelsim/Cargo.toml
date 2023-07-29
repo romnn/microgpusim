@@ -31,6 +31,7 @@ clap = { version = "4", features = [ "derive" ] }
 # trace compat
 rmp-serde = "1"
 bitvec = "1"
+num-traits = "0"
 serde_json = "1"
 trace-model = { path = "../trace/model" }
 nvbit-model = "0"
@@ -40,3 +41,5 @@ stats = { path = "../stats" }
 strum = { version = "0", features = ["derive"] }
 
 [dev-dependencies]
+similar-asserts = "1"
+indoc = "2"
