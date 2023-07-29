@@ -198,6 +198,33 @@ impl std::fmt::Display for WarpInstruction {
 
 pub static MAX_WARP_SIZE: usize = 32;
 
+fn is_number(s: &str) -> bool {
+    !s.is_empty() && s.chars().all(char::is_numeric)
+}
+
+fn get_data_width_from_opcode(opcode: &str) -> Result<u32, std::num::ParseIntError> {
+    let opcode_tokens: Vec<_> = opcode
+        .split(".")
+        .map(|t| t.trim())
+        .filter(|t| !t.is_empty())
+        .collect();
+
+    for token in opcode_tokens {
+        assert!(!token.is_empty());
+
+        if is_number(token) {
+            return Ok(token.parse::<u32>()? / 8);
+        } else if let Some('U') = token.chars().nth(0) {
+            if is_number(&token[1..token.len()]) {
+                // handle the U* case
+                return Ok(token[1..token.len()].parse::<u32>()? / 8);
+            }
+        }
+    }
+    // default is 4 bytes
+    Ok(4)
+}
+
 impl WarpInstruction {
     pub fn new_empty(config: &config::GPUConfig) -> Self {
         // let mut threads = [(); config.warp_size].map(|_| PerThreadInfo::default());
@@ -289,7 +316,9 @@ impl WarpInstruction {
         // fill addresses
         let mut data_size = 0;
         if trace.instr_is_store || trace.instr_is_load {
-            data_size = trace.instr_data_width;
+            // nvbit traces can be wrong, so we instead compute the data size from the opcode
+            // data_size = trace.instr_data_width;
+            data_size = get_data_width_from_opcode(&trace.instr_opcode).unwrap();
             for (tid, thread) in threads.iter_mut().enumerate() {
                 thread.mem_req_addr[0] = trace.addrs[tid];
             }

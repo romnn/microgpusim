@@ -25,6 +25,7 @@ dependencies = [
  "stats",
  "strum",
  "trace-model",
+ "utils",
 ]
 
 [[package]]
@@ -515,6 +516,7 @@ dependencies = [
  "nvbit-io",
  "nvbit-model",
  "once_cell",
+ "paste",
  "phf",
  "playground",
  "pretty_assertions_sorted",
@@ -3806,6 +3808,7 @@ dependencies = [
  "indexmap 2.0.0",
  "indicatif",
  "invoke-trace",
+ "itertools",
  "log",
  "num_cpus",
  "once_cell",
@@ -3823,6 +3826,7 @@ dependencies = [
  "strum",
  "thiserror",
  "tokio",
+ "trace-model",
  "utils",
 ]
 

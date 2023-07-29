@@ -24,8 +24,8 @@ static STORE_OPCODES: Lazy<HashSet<&'static str>> = Lazy::new(|| {
 
 #[derive(Debug, Clone)]
 pub struct KernelLaunchMetadata {
-    trace_version: usize,
-    line_info: bool,
+    pub trace_version: usize,
+    pub line_info: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -386,7 +386,7 @@ pub fn parse_instruction(
     block_id: Dim,
     warp_id: u32,
     kernel: &trace_model::KernelLaunch,
-) -> eyre::Result<trace_model::MemAccessTraceEntry> {
+) -> eyre::Result<Option<trace_model::MemAccessTraceEntry>> {
     let opcode_tokens: Vec<_> = trace_instruction.opcode.split(".").collect();
     assert!(!opcode_tokens.is_empty());
     let opcode1 = opcode_tokens[0].to_uppercase();
@@ -398,13 +398,14 @@ pub fn parse_instruction(
     let instr_is_store = instr_is_mem && STORE_OPCODES.contains(opcode1.as_str());
 
     let instr_mem_space = match opcode1.as_str() {
+        "EXIT" => nvbit_model::MemorySpace::None,
         "LDC" => nvbit_model::MemorySpace::Constant, // cannot store constants
         "LDG" | "STG" => nvbit_model::MemorySpace::Global,
         "LDL" | "STL" => nvbit_model::MemorySpace::Local,
         "LDS" | "STS" => nvbit_model::MemorySpace::Shared,
-        opcode @ "LDSM" => panic!("unknown opcode {}", opcode),
+        opcode @ "LDSM" => panic!("do not know how to handle opcode {}", opcode),
         opcode if instr_is_mem => panic!("unknown opcode {}", opcode),
-        _ => nvbit_model::MemorySpace::None,
+        _ => return Ok(None), // skip non memory instruction
     };
 
     let mut dest_regs = [0; 1];
@@ -418,7 +419,7 @@ pub fn parse_instruction(
         src_regs[i] = reg;
     }
 
-    Ok(trace_model::MemAccessTraceEntry {
+    Ok(Some(trace_model::MemAccessTraceEntry {
         cuda_ctx: 0, // cannot infer that (not required)
         sm_id: 0,    // cannot infer that (not required)
         kernel_id: kernel.id,
@@ -448,7 +449,7 @@ pub fn parse_instruction(
         num_src_regs,
         active_mask: trace_instruction.active_mask,
         addrs: trace_instruction.mem_addresses,
-    })
+    }))
 }
 
 pub fn read_trace_instructions(
@@ -515,15 +516,23 @@ pub fn read_trace_instructions(
                 let trace_instruction =
                     parse_trace_instruction(instruction, trace_version, line_info)
                         .wrap_err_with(|| format!("bad instruction: {:?}", instruction))?;
-                let parsed_instruction =
-                    parse_instruction(trace_instruction.clone(), block.clone(), warp_id, kernel)
-                        .wrap_err_with(|| format!("bad instruction: {:?}", trace_instruction))?;
-                // println!("{:?}", instruction);
-                // println!("{:#?}", parsed_instruction);
-                instructions.push(parsed_instruction);
+                if let Some(parsed_instruction) =
+                    parse_instruction(trace_instruction.clone(), block, warp_id, kernel)
+                        .wrap_err_with(|| format!("bad instruction: {:?}", trace_instruction))?
+                {
+                    instructions.push(parsed_instruction);
+                }
             }
         }
     }
+    // sort instructions like the accelsim tracer
+    instructions.sort_by_key(|inst| {
+        // tb_id = tb_id_z * grid_dim_y * grid_dim_x + tb_id_y * grid_dim_x + tb_id_x;
+        let block = inst.block_id;
+        let grid = kernel.grid;
+        let block_key = block.z * grid.y * grid.x + block.y * grid.x + block.x;
+        (block_key, inst.warp_id_in_block)
+    });
     Ok(instructions)
 }
 
@@ -560,25 +569,6 @@ mod tests {
             .collect::<Vec<_>>();
         diff::assert_eq!(box: blocks, accelsim: accelsim_blocks);
         assert!(false);
-        Ok(())
-    }
-
-    #[test]
-    fn test_read_commands() -> eyre::Result<()> {
-        // let commands = indoc::indoc! {r#"
-        //     MemcpyHtoD,0x00007f7845700000,400
-        //     MemcpyHtoD,0x00007f7845700200,400
-        //     MemcpyHtoD,0x00007f7845700400,400
-        //     kernel-1.traceg"#
-        // };
-
-        let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
-        let trace_dir = manifest_dir.join("../results/vectorAdd/vectorAdd-100-32/accelsim-trace");
-        let kernelslist = trace_dir.join("kernelslist.g");
-
-        let reader = open_file(&kernelslist)?;
-        let commands = super::read_commands(trace_dir, reader)?;
-        println!("{:#?}", &commands);
         Ok(())
     }
 
@@ -626,6 +616,25 @@ mod tests {
             src_regs: vec![1, 10],
         };
         diff::assert_eq!(have: have, want: want);
+        Ok(())
+    }
+
+    #[test]
+    fn test_read_commands() -> eyre::Result<()> {
+        // let commands = indoc::indoc! {r#"
+        //     MemcpyHtoD,0x00007f7845700000,400
+        //     MemcpyHtoD,0x00007f7845700200,400
+        //     MemcpyHtoD,0x00007f7845700400,400
+        //     kernel-1.traceg"#
+        // };
+
+        let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
+        let trace_dir = manifest_dir.join("../results/vectorAdd/vectorAdd-100-32/accelsim-trace");
+        let kernelslist = trace_dir.join("kernelslist.g");
+
+        let reader = open_file(&kernelslist)?;
+        let commands = super::read_commands(trace_dir, reader)?;
+        println!("{:#?}", &commands);
         Ok(())
     }
 

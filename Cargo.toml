@@ -83,6 +83,7 @@ optional = true
 pretty_assertions_sorted = "1"
 similar-asserts = "1"
 cxx = "1"
+paste = "1"
 
 # sanity check stats against playground
 playground = { path = "./playground" }

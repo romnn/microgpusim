@@ -390,9 +390,6 @@ where
                 WritebackClient::GlobalLocal => {
                     // global/local
                     if let Some(next_global) = self.next_global.take() {
-                        if next_global.warp_id == 3 {
-                            super::debug_break("global writeback for warp 3");
-                        }
                         log::debug!(
                             "{}",
                             style(format!(

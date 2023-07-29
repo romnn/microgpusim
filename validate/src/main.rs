@@ -213,6 +213,7 @@ fn print_benchmark_result(
         Command::Clean(_) => "cleaning",
         Command::Expand(_) => "expanding",
     };
+    let op = style(op).cyan();
     let executable = std::env::current_dir().ok().map_or_else(
         || bench_config.executable.clone(),
         |cwd| bench_config.executable.relative_to(cwd),

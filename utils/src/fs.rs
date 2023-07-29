@@ -78,7 +78,20 @@ pub enum Error {
     },
 }
 
-#[allow(clippy::permissions_set_readonly_false)]
+#[inline]
+pub fn open_readable(path: impl AsRef<Path>) -> Result<std::io::BufReader<std::fs::File>, Error> {
+    let path = path.as_ref();
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .open(path)
+        .map_err(|source| Error::OpenFile {
+            source,
+            path: path.to_path_buf(),
+        })?;
+    let reader = std::io::BufReader::new(file);
+    Ok(reader)
+}
+
 #[inline]
 pub fn open_writable(path: impl AsRef<Path>) -> Result<std::io::BufWriter<std::fs::File>, Error> {
     use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};

@@ -6,7 +6,6 @@ use std::ffi;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Instant;
-use std::{fs::OpenOptions, io::BufReader};
 use trace_model as trace;
 
 use crate::args::Args;
@@ -64,7 +63,6 @@ pub struct Instrumentor<'c> {
     pub validate: bool,
     pub full_trace: bool,
     pub save_json: bool,
-    pub json_trace_file_path: PathBuf,
     pub rmp_trace_file_path: PathBuf,
 }
 
@@ -78,7 +76,6 @@ impl Instrumentor<'static> {
 
         let trace_file_path = traces_dir.join("trace");
         let rmp_trace_file_path = trace_file_path.with_extension("msgpack");
-        let json_trace_file_path = trace_file_path.with_extension("json");
 
         let full_trace = bool_env("FULL_TRACE").unwrap_or(false);
         let validate = bool_env("VALIDATE").unwrap_or(false);
@@ -114,7 +111,6 @@ impl Instrumentor<'static> {
             validate,
             save_json,
             rmp_trace_file_path,
-            json_trace_file_path,
             allocations: Mutex::new(Vec::new()),
             commands: Mutex::new(Vec::new()),
             kernels: Mutex::new(Vec::new()),
@@ -133,9 +129,6 @@ impl Instrumentor<'static> {
 impl<'c> Instrumentor<'c> {
     fn read_channel(self: Arc<Self>) {
         let rx = self.host_channel.lock().unwrap().read();
-
-        let mut json_serializer = json_serializer(&self.json_trace_file_path);
-        let mut json_encoder = Encoder::new(&mut json_serializer).unwrap();
 
         let mut rmp_serializer = rmp_serializer(&self.rmp_trace_file_path);
         let mut rmp_encoder = Encoder::new(&mut rmp_serializer).unwrap();
@@ -206,30 +199,17 @@ impl<'c> Instrumentor<'c> {
             };
 
             // dbg!(&entry);
-            if self.save_json {
-                json_encoder
-                    .encode::<trace::MemAccessTraceEntry>(&entry)
-                    .unwrap();
-            }
             rmp_encoder
                 .encode::<trace::MemAccessTraceEntry>(&entry)
                 .unwrap();
         }
 
-        json_encoder.finalize().unwrap();
         rmp_encoder.finalize().unwrap();
         log::info!(
             "wrote {} packets to {}",
             &packet_count,
             self.rmp_trace_file_path.display(),
         );
-        if self.save_json {
-            log::info!(
-                "wrote {} packets to {}",
-                &packet_count,
-                self.json_trace_file_path.display(),
-            );
-        }
     }
 
     pub fn at_cuda_event(
@@ -551,11 +531,7 @@ impl<'c> Instrumentor<'c> {
 
     /// Generate per-kernel trace files
     pub fn generate_per_kernel_traces(&self) {
-        let trace_file = OpenOptions::new()
-            .read(true)
-            .open(&self.rmp_trace_file_path)
-            .unwrap();
-        let mut reader = BufReader::new(trace_file);
+        let mut reader = utils::fs::open_readable(&self.rmp_trace_file_path).unwrap();
 
         // read full trace
         let full_trace: Vec<trace::MemAccessTraceEntry> =
@@ -568,26 +544,30 @@ impl<'c> Instrumentor<'c> {
             per_kernel_traces[usize::try_from(entry.kernel_id).unwrap()].push(entry);
         }
 
-        // no sorting for now
-        // for kernel_trace in &mut per_kernel_traces {
-        //     // sort per kernel traces
-        //     #[cfg(feature = "parallel")]
-        //     {
-        //         use rayon::slice::ParallelSliceMut;
-        //         kernel_trace.par_sort();
-        //     }
-        //
-        //     #[cfg(not(feature = "parallel"))]
-        //     kernel_trace.sort();
-        // }
+        for (kernel_id, mut kernel_trace) in per_kernel_traces.into_iter().enumerate() {
+            let kernel_info = &self.kernels.lock().unwrap()[kernel_id];
+            assert_eq!(kernel_info.id, kernel_id as u64);
 
-        for (kernel_id, kernel_trace) in per_kernel_traces.into_iter().enumerate() {
+            // sort per kernel traces
+            // #[cfg(feature = "parallel")]
+            // {
+            //     use rayon::slice::ParallelSliceMut;
+            //     kernel_trace.par_sort();
+            //     kernel_trace.par_sort();
+            // }
+            //
+            // #[cfg(not(feature = "parallel"))]
+            // kernel_trace.sort();
+            kernel_trace.sort_by_key(|inst| {
+                let block = inst.block_id;
+                let grid = kernel_info.grid;
+                let block_key = block.z * grid.y * grid.x + block.y * grid.x + block.x;
+                (block_key, inst.warp_id_in_block)
+            });
+
             if self.validate {
                 let unique_blocks: HashSet<_> =
                     kernel_trace.iter().map(|entry| entry.block_id).collect();
-
-                let kernel_info = &self.kernels.lock().unwrap()[kernel_id];
-                assert_eq!(kernel_info.id, kernel_id as u64);
 
                 log::info!(
                     "validation: kernel {}: traced {}/{} unique blocks in grid {}",
@@ -614,20 +594,28 @@ impl<'c> Instrumentor<'c> {
                 kernel_trace.len(),
                 kernel_trace_path.display(),
             );
+
+            // save json
+            if self.save_json {
+                let json_kernel_trace_path = kernel_trace_path.with_extension("json");
+                let mut serializer = json_serializer(&json_kernel_trace_path);
+                kernel_trace.serialize(&mut serializer).unwrap();
+
+                log::info!(
+                    "wrote {} packets to {}",
+                    kernel_trace.len(),
+                    json_kernel_trace_path.display(),
+                );
+            }
         }
     }
 
     pub fn save_command_trace(&self) {
         let command_trace_file_path = self.traces_dir.join("commands.json");
-        let command_trace_file = utils::fs::open_writable(&command_trace_file_path).unwrap();
-
-        let writer = std::io::BufWriter::new(command_trace_file);
-        let mut serializer = serde_json::Serializer::with_formatter(
-            writer,
-            serde_json::ser::PrettyFormatter::with_indent(b"    "),
-        );
+        let mut serializer = json_serializer(&command_trace_file_path);
         let commands = self.commands.lock().unwrap();
         commands.serialize(&mut serializer).unwrap();
+
         log::info!(
             "wrote {} commands to {}",
             commands.len(),
@@ -637,13 +625,7 @@ impl<'c> Instrumentor<'c> {
 
     pub fn save_allocations(&self) {
         let allocations_file_path = self.traces_dir.join("allocations.json");
-        let allocations_file = utils::fs::open_writable(&allocations_file_path).unwrap();
-
-        let writer = std::io::BufWriter::new(allocations_file);
-        let mut serializer = serde_json::Serializer::with_formatter(
-            writer,
-            serde_json::ser::PrettyFormatter::with_indent(b"    "),
-        );
+        let mut serializer = json_serializer(&allocations_file_path);
         let allocations = self.allocations.lock().unwrap();
         allocations.serialize(&mut serializer).unwrap();
 

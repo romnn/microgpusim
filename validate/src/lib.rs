@@ -42,6 +42,9 @@ pub enum Error {
     Io(#[from] std::io::Error),
 
     #[error(transparent)]
+    Fs(#[from] utils::fs::Error),
+
+    #[error(transparent)]
     YAML(#[from] serde_yaml::Error),
 
     #[error(transparent)]
@@ -247,10 +250,7 @@ pub struct Benchmarks {
 impl Benchmarks {
     pub fn from(benchmark_path: impl AsRef<Path>) -> Result<Self, Error> {
         let benchmark_path = benchmark_path.as_ref();
-        let file = std::fs::OpenOptions::new()
-            .read(true)
-            .open(benchmark_path)?;
-        let reader = std::io::BufReader::new(file);
+        let reader = utils::fs::open_readable(benchmark_path)?;
         let benchmarks = Self::from_reader(reader)?;
         Ok(benchmarks)
     }

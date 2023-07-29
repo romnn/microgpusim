@@ -1,5 +1,5 @@
 use super::AddressFormat;
-use color_eyre::eyre;
+use color_eyre::eyre::{self, WrapErr};
 use color_eyre::owo_colors::OwoColorize;
 use std::collections::HashMap;
 use std::io::Write;
@@ -134,10 +134,7 @@ pub fn generate_commands(
     commands_path: impl AsRef<Path>,
     mut out: impl std::io::Write,
 ) -> eyre::Result<()> {
-    let commands_file = std::fs::OpenOptions::new()
-        .read(true)
-        .open(commands_path.as_ref())?;
-    let reader = std::io::BufReader::new(commands_file);
+    let reader = utils::fs::open_readable(commands_path.as_ref())?;
     let commands: Vec<Command> = serde_json::from_reader(reader)?;
     // dbg!(&commands);
 
@@ -169,11 +166,9 @@ pub fn generate_trace(
     write_kernel_info(&kernel, &mut out)?;
 
     let trace_file_path = trace_dir.as_ref().join(&kernel.trace_file);
-    let trace_file = std::fs::OpenOptions::new()
-        .read(true)
-        .open(trace_file_path)?;
-    let reader = std::io::BufReader::new(trace_file);
-    let mut trace: Vec<MemAccessTraceEntry> = rmp_serde::from_read(reader)?;
+    let reader = utils::fs::open_readable(&trace_file_path)?;
+    let mut trace: Vec<MemAccessTraceEntry> = rmp_serde::from_read(reader)
+        .wrap_err_with(|| format!("failed to read trace {}", trace_file_path.display()))?;
     // dbg!(&trace[0]);
 
     write_trace_instructions(&trace, out)?;
@@ -358,10 +353,7 @@ mod tests {
         let trace_dir = manifest_dir.join("../results/vectorAdd/vectorAdd-100-32/trace");
         let commands_path = trace_dir.join("commands.json");
 
-        let commands_file = std::fs::OpenOptions::new()
-            .read(true)
-            .open(&commands_path)?;
-        let reader = std::io::BufReader::new(commands_file);
+        let reader = utils::fs::open_readable(&commands_path)?;
         let commands: Vec<Command> = serde_json::from_reader(reader)?;
         dbg!(&commands);
 
