@@ -2072,36 +2072,36 @@ checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
 
 [[package]]
 name = "nvbit-build"
-version = "0.0.29"
+version = "0.0.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73e8af63c291d117e07493fe68499590edaa48dd512ecbe3e4ba9c954d30c672"
+checksum = "865346fc72a39a7849b44e4f3ad94372021e93f2b0893977e2bedfe71920430c"
 dependencies = [
  "thiserror",
 ]
 
 [[package]]
 name = "nvbit-io"
-version = "0.0.29"
+version = "0.0.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ab1a714b7e8d0eb03819b6cc25e4e10df692bbdff0efa54a57b23d674528114"
+checksum = "9b42a6ff9475093b1ea46661ee9e606c64e70046fb76c95863257ad61d891953"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "nvbit-model"
-version = "0.0.29"
+version = "0.0.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed8221fc0c459a801decee6c2abdfbe62e3824dd14127917e5aa5a414131229a"
+checksum = "3e5081bbadcd2ea95fd37e7a4c793b6709f693bd870d836624c2071f581c59f7"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "nvbit-rs"
-version = "0.0.29"
+version = "0.0.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2758e08307e437602858f241eb1cb72931a710c659010743dc2fd747c1c63b63"
+checksum = "875e3457d6b5fd6115871a8082a5d9387d50d1386f8b3317be5477cbb75fc10a"
 dependencies = [
  "cxx",
  "nvbit-sys",
@@ -2111,9 +2111,9 @@ dependencies = [
 
 [[package]]
 name = "nvbit-sys"
-version = "0.0.29"
+version = "0.0.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e16b2d6cde6bf69f1bf01f2a0abe21f4ff0f377dbf722bf5ed42df6aae9d3f2"
+checksum = "eea95e10e2caa41939c13985a2bba8d7533221d5aa174989ca7a378a3d8035d7"
 dependencies = [
  "bindgen 0.61.0",
  "bzip2",
