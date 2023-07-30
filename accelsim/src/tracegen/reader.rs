@@ -1,11 +1,11 @@
 use super::{AddressFormat, WARP_SIZE};
 use color_eyre::eyre::{self, WrapErr};
 use itertools::Itertools;
-use nvbit_model::Dim;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashSet;
 use std::path::Path;
+use trace_model::Dim;
 
 static LOAD_OPCODES: Lazy<HashSet<&'static str>> = Lazy::new(|| {
     [
@@ -517,7 +517,7 @@ pub fn read_trace_instructions(
                     parse_trace_instruction(instruction, trace_version, line_info)
                         .wrap_err_with(|| format!("bad instruction: {:?}", instruction))?;
                 if let Some(parsed_instruction) =
-                    parse_instruction(trace_instruction.clone(), block, warp_id, kernel)
+                    parse_instruction(trace_instruction.clone(), block.clone(), warp_id, kernel)
                         .wrap_err_with(|| format!("bad instruction: {:?}", trace_instruction))?
                 {
                     instructions.push(parsed_instruction);
@@ -527,49 +527,41 @@ pub fn read_trace_instructions(
     }
     // sort instructions like the accelsim tracer
     instructions.sort_by_key(|inst| {
-        // tb_id = tb_id_z * grid_dim_y * grid_dim_x + tb_id_y * grid_dim_x + tb_id_x;
-        let block = inst.block_id;
-        let grid = kernel.grid;
-        let block_key = block.z * grid.y * grid.x + block.y * grid.x + block.x;
-        (block_key, inst.warp_id_in_block)
+        let block_sort_key = trace_model::dim::accelsim_block_id(&inst.block_id, &kernel.grid);
+        (block_sort_key, inst.warp_id_in_block)
     });
     Ok(instructions)
 }
 
+// pub fn accelsim_tracer_block_sort_key(block_id: &Dim, grid: &Dim) -> u64 {
+//     let block_x = block_id.x as u64;
+//     let block_y = block_id.y as u64;
+//     let block_z = block_id.z as u64;
+//
+//     let grid_x = grid.x as u64;
+//     let grid_y = grid.y as u64;
+//     let grid_z = grid.z as u64;
+//
+//     // tb_id = tb_id_z * grid_dim_y * grid_dim_x + tb_id_y * grid_dim_x + tb_id_x;
+//     block_z * grid_y * grid_x + block_y * grid_x + block_x
+// }
+//
+// pub fn accelsim_tracer_sort_key(inst: &trace_model::MemAccessTraceEntry, grid: &Dim) -> (u64, u32) {
+//     let block_sort_key = accelsim_tracer_block_sort_key(&inst.block_id, grid);
+//     (block_sort_key, inst.warp_id_in_block)
+// }
+
 #[cfg(test)]
 mod tests {
     use color_eyre::eyre;
-    use nvbit_model::Dim;
     use similar_asserts as diff;
     use std::path::{Path, PathBuf};
+    use trace_model::Dim;
 
     fn open_file(path: &Path) -> std::io::Result<std::io::BufReader<std::fs::File>> {
         let file = std::fs::OpenOptions::new().read(true).open(path)?;
         let reader = std::io::BufReader::new(file);
         Ok(reader)
-    }
-
-    #[test]
-    fn test_block_sorting() -> eyre::Result<()> {
-        let grid = Dim { x: 3, y: 4, z: 2 };
-
-        let mut blocks: Vec<_> = grid.into_iter().collect();
-        blocks.sort();
-
-        let mut accelsim_blocks: Vec<_> = grid.into_iter().collect();
-        accelsim_blocks.sort_by_key(|block| {
-            // tb_id = tb_id_z * grid_dim_y * grid_dim_x + tb_id_y * grid_dim_x + tb_id_x;
-            block.z * grid.y * grid.x + block.y * grid.x + block.x
-        });
-
-        let blocks = blocks.iter().map(|p| p.into_tuple()).collect::<Vec<_>>();
-        let accelsim_blocks = accelsim_blocks
-            .iter()
-            .map(|p| p.into_tuple())
-            .collect::<Vec<_>>();
-        diff::assert_eq!(box: blocks, accelsim: accelsim_blocks);
-        assert!(false);
-        Ok(())
     }
 
     #[test]
@@ -664,9 +656,8 @@ mod tests {
             metadata.line_info,
             &kernel,
         )?;
-        println!("{:?}", &trace[..10]);
+        dbg!(&trace[..5]);
         dbg!(trace.len());
-        assert!(false);
         Ok(())
     }
 }

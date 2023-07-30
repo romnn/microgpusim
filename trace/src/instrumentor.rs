@@ -6,7 +6,7 @@ use std::ffi;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Instant;
-use trace_model as trace;
+use trace_model;
 
 use crate::args::Args;
 use crate::common;
@@ -52,9 +52,9 @@ pub struct Instrumentor<'c> {
     kernel_id: Mutex<u64>,
     skip_flag: Mutex<bool>,
     device_allocations: Mutex<HashSet<u64>>,
-    allocations: Mutex<Vec<trace::MemAllocation>>,
-    commands: Mutex<Vec<trace::Command>>,
-    kernels: Mutex<Vec<trace::KernelLaunch>>,
+    allocations: Mutex<Vec<trace_model::MemAllocation>>,
+    commands: Mutex<Vec<trace_model::Command>>,
+    kernels: Mutex<Vec<trace_model::KernelLaunch>>,
 
     pub start: Instant,
     pub instr_begin_interval: usize,
@@ -154,7 +154,7 @@ impl<'c> Instrumentor<'c> {
             let lock = self.id_to_opcode_map.read().unwrap();
             let opcode = &lock[&(packet.instr_opcode_id as usize)];
 
-            let block_id = model::Dim {
+            let block_id = trace_model::Dim {
                 x: packet.block_id_x.unsigned_abs(),
                 y: packet.block_id_y.unsigned_abs(),
                 z: packet.block_id_z.unsigned_abs(),
@@ -170,7 +170,7 @@ impl<'c> Instrumentor<'c> {
                 std::mem::transmute(variant)
             };
 
-            let entry = trace::MemAccessTraceEntry {
+            let entry = trace_model::MemAccessTraceEntry {
                 cuda_ctx,
                 sm_id: packet.sm_id,
                 kernel_id: packet.kernel_id,
@@ -200,7 +200,7 @@ impl<'c> Instrumentor<'c> {
 
             // dbg!(&entry);
             rmp_encoder
-                .encode::<trace::MemAccessTraceEntry>(&entry)
+                .encode::<trace_model::MemAccessTraceEntry>(&entry)
                 .unwrap();
         }
 
@@ -256,12 +256,12 @@ impl<'c> Instrumentor<'c> {
 
                 let num_registers = func.num_registers().unwrap();
 
-                let kernel_info = trace::KernelLaunch {
+                let kernel_info = trace_model::KernelLaunch {
                     name: func_name.to_string(),
                     id,
                     trace_file,
-                    grid,
-                    block,
+                    grid: grid.into(),
+                    block: block.into(),
                     shared_mem_bytes: shmem_static_nbytes + shared_mem_bytes,
                     num_registers: num_registers.unsigned_abs(),
                     binary_version: func.binary_version().unwrap(),
@@ -276,7 +276,7 @@ impl<'c> Instrumentor<'c> {
                 self.commands
                     .lock()
                     .unwrap()
-                    .push(trace::Command::KernelLaunch(kernel_info));
+                    .push(trace_model::Command::KernelLaunch(kernel_info));
 
                 *kernel_id += 1;
 
@@ -295,7 +295,7 @@ impl<'c> Instrumentor<'c> {
                 self.commands
                     .lock()
                     .unwrap()
-                    .push(trace::Command::MemcpyHtoD(trace::MemcpyHtoD {
+                    .push(trace_model::Command::MemcpyHtoD(trace_model::MemcpyHtoD {
                         allocation_name: None,
                         dest_device_addr: dest_device.as_ptr(),
                         num_bytes,
@@ -316,15 +316,18 @@ impl<'c> Instrumentor<'c> {
                     return;
                 }
                 // device_ptr is often aligned (e.g. to 512, power of 2?)
-                self.allocations.lock().unwrap().push(trace::MemAllocation {
-                    device_ptr,
-                    num_bytes,
-                });
+                self.allocations
+                    .lock()
+                    .unwrap()
+                    .push(trace_model::MemAllocation {
+                        device_ptr,
+                        num_bytes,
+                    });
 
                 self.commands
                     .lock()
                     .unwrap()
-                    .push(trace::Command::MemAlloc(trace::MemAlloc {
+                    .push(trace_model::Command::MemAlloc(trace_model::MemAlloc {
                         allocation_name: None,
                         device_ptr,
                         num_bytes,
@@ -534,11 +537,12 @@ impl<'c> Instrumentor<'c> {
         let mut reader = utils::fs::open_readable(&self.rmp_trace_file_path).unwrap();
 
         // read full trace
-        let full_trace: Vec<trace::MemAccessTraceEntry> =
+        let full_trace: Vec<trace_model::MemAccessTraceEntry> =
             rmp_serde::from_read(&mut reader).unwrap();
 
         let num_kernels = self.kernels.lock().unwrap().len();
-        let mut per_kernel_traces: Vec<Vec<trace::MemAccessTraceEntry>> = vec![vec![]; num_kernels];
+        let mut per_kernel_traces: Vec<Vec<trace_model::MemAccessTraceEntry>> =
+            vec![vec![]; num_kernels];
 
         for entry in full_trace {
             per_kernel_traces[usize::try_from(entry.kernel_id).unwrap()].push(entry);
@@ -550,24 +554,28 @@ impl<'c> Instrumentor<'c> {
 
             // sort per kernel traces
             // #[cfg(feature = "parallel")]
-            // {
-            //     use rayon::slice::ParallelSliceMut;
-            //     kernel_trace.par_sort();
-            //     kernel_trace.par_sort();
-            // }
-            //
+            {
+                use rayon::slice::ParallelSliceMut;
+                // kernel_trace.par_sort();
+                kernel_trace.par_sort_by_key(|inst| {
+                    let block = &inst.block_id;
+                    let grid = &kernel_info.grid;
+                    let block_key = block.z * grid.y * grid.x + block.y * grid.x + block.x;
+                    (block_key, inst.warp_id_in_block)
+                });
+            }
+
             // #[cfg(not(feature = "parallel"))]
-            // kernel_trace.sort();
-            kernel_trace.sort_by_key(|inst| {
-                let block = inst.block_id;
-                let grid = kernel_info.grid;
-                let block_key = block.z * grid.y * grid.x + block.y * grid.x + block.x;
-                (block_key, inst.warp_id_in_block)
-            });
+            // kernel_trace.sort_by_key(|inst| {
+            //     let block = &inst.block_id;
+            //     let grid = &kernel_info.grid;
+            //     let block_key = block.z * grid.y * grid.x + block.y * grid.x + block.x;
+            //     (block_key, inst.warp_id_in_block)
+            // });
 
             if self.validate {
                 let unique_blocks: HashSet<_> =
-                    kernel_trace.iter().map(|entry| entry.block_id).collect();
+                    kernel_trace.iter().map(|entry| &entry.block_id).collect();
 
                 log::info!(
                     "validation: kernel {}: traced {}/{} unique blocks in grid {}",
