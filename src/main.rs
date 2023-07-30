@@ -23,7 +23,7 @@ enum Command {
 #[command(author, version, about, long_about = None)]
 struct Options {
     /// Input to operate on
-    #[arg(short = 'p', long = "path", value_name = "TRACE_DIR")]
+    #[arg(value_name = "TRACE_DIR")]
     trace_dir: PathBuf,
     /// Stats output file
     #[arg(short = 'o', long = "stats", value_name = "STATS_OUT")]

@@ -49,7 +49,6 @@ use color_eyre::eyre::{self, WrapErr};
 use console::style;
 use itertools::Itertools;
 use log::{error, info, trace, warn};
-use nvbit_model::dim::{self, Dim};
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::collections::{HashMap, VecDeque};
@@ -59,7 +58,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Instant;
-use trace_model::{Command, KernelLaunch, MemAccessTraceEntry};
+use trace_model::{Command, Dim, KernelLaunch, MemAccessTraceEntry, Point};
 
 pub type address = u64;
 
@@ -122,34 +121,9 @@ pub struct KernelInfo {
     launched: Mutex<bool>,
     function_info: FunctionInfo,
     num_cores_running: usize,
-    // m_kernel_entry = entry;
-    // m_grid_dim = gridDim;
-    // m_block_dim = blockDim;
 
-    // next_block: Option<Dim>,
-    // next_block_iter: RwLock<std::iter::Peekable<dim::Iter>>,
-    next_block_iter: Mutex<std::iter::Peekable<dim::Iter>>,
-    next_thread_iter: Mutex<std::iter::Peekable<dim::Iter>>,
-    // next_thread_id: Option<Dim>,
-    // next_thread_id_iter: dim::Iter,
-
-    // m_next_cta.x = 0;
-    // m_next_cta.y = 0;
-    // m_next_cta.z = 0;
-    // m_next_tid = m_next_cta;
-    // m_num_cores_running = 0;
-    // m_param_mem = new memory_space_impl<8192>("param", 64 * 1024);
-    //
-    // // Jin: parent and child kernel management for CDP
-    // m_parent_kernel = NULL;
-    //
-    // // Jin: launch latency management
-    // m_launch_latency = entry->gpgpu_ctx->device_runtime->g_kernel_launch_latency;
-    //
-    // m_kernel_TB_latency =
-    //     entry->gpgpu_ctx->device_runtime->g_kernel_launch_latency +
-    //     num_blocks() * entry->gpgpu_ctx->device_runtime->g_TB_launch_latency;
-    //
+    // next_block_iter: Mutex<std::iter::Peekable<dim::Iter>>,
+    // next_thread_iter: Mutex<std::iter::Peekable<dim::Iter>>,
     pub cache_config_set: bool,
 }
 
@@ -174,8 +148,8 @@ impl std::fmt::Debug for KernelInfo {
                 &human_bytes::human_bytes(self.config.shared_mem_bytes as f64),
             )
             .field("registers", &self.config.num_registers)
-            .field("block", &self.current_block())
-            .field("thread", &self.next_block_iter.lock().unwrap().peek())
+            // .field("block", &self.current_block())
+            // .field("thread", &self.next_block_iter.lock().unwrap().peek())
             .finish()
     }
 }
@@ -219,11 +193,12 @@ impl KernelInfo {
         // dbg!(trace.len());
         // trace.sort_by_key(|t| (t.kernel_id, t.block_id, t.warp_id_in_block));
 
-        trace.sort_by_key(|t| (t.kernel_id, t.block_id, t.warp_id_in_block));
+        // trace.sort_by_key(|t| (t.kernel_id, t.block_id, t.warp_id_in_block));
 
         // trace.sort_by_key(|t| (t.block_id, t.thread_id));
 
         // sanity check
+        assert!(trace_model::is_valid_trace(&trace));
         // debug_assert!(
         //     trace.windows(2).all(|t| t[0] <= t[1]),
         //     "trace is sorted correctly"
@@ -231,7 +206,6 @@ impl KernelInfo {
         // l
         // for t in trace.iter() {
         // }
-        // let mut last_block_id = nvbit_model::Dim { x: 0, y: 0, z: 0 };
         // let mut last_instr_offset_per_warp = HashMap::new();
         // for t in trace.iter() {
         //     dbg!((t.block_id, t.warp_id_in_block, t.instr_offset));
@@ -256,7 +230,7 @@ impl KernelInfo {
         // });
 
         // check if grid size is equal to the number of unique blocks in the trace
-        let all_blocks: HashSet<_> = trace.iter().map(|t| t.block_id).collect();
+        let all_blocks: HashSet<_> = trace.iter().map(|t| &t.block_id).collect();
         log::info!(
             "parsed kernel trace for {:?}: {}/{} blocks in {:?}",
             config.name,
@@ -278,8 +252,8 @@ impl KernelInfo {
 
         // let mut trace_iter = trace.clone().into_iter().peekable();
 
-        let next_block_iter = Mutex::new(config.grid.into_iter().peekable());
-        let next_thread_iter = Mutex::new(config.block.into_iter().peekable());
+        // let next_block_iter = Mutex::new(config.grid.into_iter().peekable());
+        // let next_thread_iter = Mutex::new(config.block.into_iter().peekable());
 
         // let next_block = next_block_iter.next();
         // let next_thread_id = next_block;
@@ -298,43 +272,36 @@ impl KernelInfo {
             num_cores_running: 0,
             function_info: FunctionInfo {},
             cache_config_set: false,
-            next_block_iter,
-            next_thread_iter,
+            // next_block_iter,
+            // next_thread_iter,
             // next_block,
             // next_thread_id,
         }
     }
 
-    // pub fn next_threadblock_traces(&self) -> Vec<MemAccessTraceEntry> {
-    // pub fn next_threadblock_traces(&self, warps: &mut [Option<SchedulerWarp>]) {
-    // pub fn next_threadblock_traces(&self, kernel: &KernelInfo, warps: &mut [SchedulerWarp]) {
     pub fn next_threadblock_traces(&self, warps: &mut [scheduler::CoreWarp]) {
-        // pub fn next_threadblock_traces(&self, warps: &mut [Option<SchedulerWarp>]) {
-        // debug_assert!(self.next_block.is_some());
-        // todo!("next_threadblock_traces");
-        // debug_assert!(self.next_block_iter.peek().is_some());
-        // // let Some(next_block) = self.next_block else {
-        let Some(next_block) = self.next_block_iter.lock().unwrap().next() else {
-            log::info!("blocks done: no more threadblock traces");
-            return;
-        };
-        log::info!("next thread block traces for block {}", next_block);
-
-        // let next_block = nvbit_model::Dim { x: 0, y: 0, z: 0 };
-        // for warp in warps.iter_mut() {
-        //     // warp.clear();
-        //     *warp = None;
-        // }
+        // let Some(next_block) = self.next_block_iter.lock().unwrap().next() else {
+        //     log::info!("blocks done: no more threadblock traces");
+        //     return;
+        // };
+        // log::info!("next thread block traces for block {}", next_block);
 
         let mut trace_pos = self.trace_pos.write().unwrap();
-        // let mut lock = self.trace_iter.write().unwrap();
-        // let trace_iter = lock.take_while_ref(|entry| entry.block_id == next_block);
 
         let mut instructions = 0;
         let trace_size = self.trace.len();
+
+        if *trace_pos + 1 >= trace_size || trace_size == 0 {
+            // no more threadblocks
+            log::info!("blocks done: no more threadblock traces");
+            return;
+        }
+        let next_block = &self.trace[*trace_pos + 1].block_id;
+
         while *trace_pos < trace_size {
             let entry = &self.trace[*trace_pos];
-            if entry.block_id > next_block.into() {
+            // if entry.block_id > *next_block {
+            if entry.block_id != *next_block {
                 // get instructions until new block
                 break;
             }
@@ -464,12 +431,26 @@ impl KernelInfo {
     //     // self.next_thread_id = self.next_thread_id_iter.next()
     // }
 
-    pub fn current_block(&self) -> Option<nvbit_model::Point> {
-        self.next_block_iter.lock().unwrap().peek().copied()
+    pub fn current_block(&self) -> Option<Point> {
+        let traces_pos = self.trace_pos.read().unwrap();
+        let trace = self.trace.get(*traces_pos)?;
+        Some(Point::new(trace.block_id.clone(), self.config.grid.clone()))
     }
 
+    // // pub fn current_block(&self) -> Option<nvbit_model::Point> {
+    // pub fn current_block(&self) -> Option<Point> {
+    //     let traces_pos = self.trace_pos.read().unwrap();
+    //     let trace = self.trace.get(*traces_pos)?;
+    //     todo!("current block");
+    //     // Some(trace.block_id)
+    //     // Some(nvbit_model::Pi
+    //     // .map(|trace| nvbit_model::Point { x: trace.block_id::new(trace.block_id, self.active_kernel.grid)
+    //     // self.next_block_iter.lock().unwrap().peek().copied()
+    // }
+
     pub fn current_thread(&self) -> Option<nvbit_model::Point> {
-        self.next_thread_iter.lock().unwrap().peek().copied()
+        todo!("current thread");
+        // self.next_thread_iter.lock().unwrap().peek().copied()
     }
 
     // pub fn block_id(&self) -> u64 {
@@ -494,7 +475,7 @@ impl KernelInfo {
     }
 
     pub fn num_blocks(&self) -> usize {
-        let grid = self.config.grid;
+        let grid = &self.config.grid;
         grid.x as usize * grid.y as usize * grid.z as usize
     }
 
@@ -503,7 +484,7 @@ impl KernelInfo {
     // }
 
     pub fn threads_per_block(&self) -> usize {
-        let block = self.config.block;
+        let block = &self.config.block;
         block.x as usize * block.y as usize * block.z as usize
     }
 
@@ -1484,8 +1465,22 @@ pub fn accelmain(
     use std::io::Write;
 
     info!("box version {}", 0);
+
     let traces_dir = traces_dir.as_ref();
-    let commands_path = traces_dir.join("commands.json");
+    let (traces_dir, commands_path) = if traces_dir.is_dir() {
+        (traces_dir.to_path_buf(), traces_dir.join("commands.json"))
+    } else {
+        (
+            traces_dir.parent().map(Path::to_path_buf).ok_or_else(|| {
+                eyre::eyre!(
+                    "could not determine trace dir from file {}",
+                    traces_dir.display()
+                )
+            })?,
+            traces_dir.to_path_buf(),
+        )
+    };
+
     let start_time = Instant::now();
 
     // debugging config
@@ -1502,7 +1497,7 @@ pub fn accelmain(
         // config.num_mem_units,
         Some(9), // found by printf debugging gpgusim
     ));
-    let mut sim = MockSimulator::new(interconn, Arc::clone(&config), traces_dir, &commands_path);
+    let mut sim = MockSimulator::new(interconn, Arc::clone(&config), &traces_dir, &commands_path);
 
     sim.log_after_cycle = log_after_cycle;
     let deadlock_check = true;

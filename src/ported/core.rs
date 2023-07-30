@@ -2033,7 +2033,10 @@ where
         let mut warps: WarpMask = BitArray::ZERO;
         // let block_id = kernel.next_block_id();
         let block = kernel.current_block().expect("kernel has current block");
+
+        // unsigned ctaid = kernel.get_next_cta_id_single();
         let block_id = block.id();
+        dbg!(&block, block_id);
 
         // for debugging
         self.temp_check_state[free_block_hw_id].clear();
@@ -2046,17 +2049,19 @@ where
                 pc: 0, // todo
             });
             let warp_id = i / self.inner.config.warp_size;
-            if !kernel.no_more_blocks_to_run() {
-                if !kernel.more_threads_in_block() {
-                    kernel.next_thread_iter.lock().unwrap().next();
-                }
 
-                // we just incremented the thread id so this is not the same
-                if !kernel.more_threads_in_block() {
-                    kernel.next_block_iter.lock().unwrap().next();
-                    *kernel.next_thread_iter.lock().unwrap() =
-                        kernel.config.block.into_iter().peekable();
-                }
+            // TODO: removed this but is that fine?
+            if !kernel.no_more_blocks_to_run() {
+                //     if !kernel.more_threads_in_block() {
+                //         kernel.next_thread_iter.lock().unwrap().next();
+                //     }
+                //
+                //     // we just incremented the thread id so this is not the same
+                //     if !kernel.more_threads_in_block() {
+                //         kernel.next_block_iter.lock().unwrap().next();
+                //         *kernel.next_thread_iter.lock().unwrap() =
+                //             kernel.config.block.into_iter().peekable();
+                //     }
                 num_threads_in_block += 1;
             }
 

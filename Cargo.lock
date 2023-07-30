@@ -3588,8 +3588,10 @@ dependencies = [
 name = "trace-model"
 version = "0.1.0"
 dependencies = [
+ "itertools",
  "nvbit-model",
  "serde",
+ "similar-asserts",
 ]
 
 [[package]]

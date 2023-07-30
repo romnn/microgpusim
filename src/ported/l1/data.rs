@@ -996,95 +996,95 @@ mod tests {
         }
         // dbg!(&kernels);
 
-        for kernel in &mut kernels {
-            let mut block_iter = kernel.next_block_iter.lock().unwrap();
-            while let Some(block) = block_iter.next() {
-                dbg!(&block);
-                let mut trace_pos = kernel.trace_pos.write().unwrap();
-                // let mut lock = kernel.trace_iter.write().unwrap();
-                // let trace_iter = lock.take_while_ref(|entry| entry.block_id == block);
-                while *trace_pos < kernel.trace.len() {
-                    // for trace in trace_iter {
-                    let trace = &kernel.trace[*trace_pos];
-                    if trace.block_id > block.into() {
-                        break;
-                    }
-
-                    *trace_pos += 1;
-
-                    // dbg!(&trace);
-                    let warp_id = trace.warp_id_in_block as usize;
-                    if warp_id != 0 {
-                        continue;
-                    }
-                    let mut instr =
-                        instruction::WarpInstruction::from_trace(&kernel, trace.clone());
-
-                    let mut accesses = instr
-                        .generate_mem_accesses(&*config)
-                        .expect("generated acceseses");
-                    // dbg!(&accesses);
-                    for access in &accesses {
-                        log::debug!(
-                            "block {} warp {}: {} access {}",
-                            &block,
-                            &warp_id,
-                            if access.is_write { "store" } else { "load" },
-                            &access.addr
-                        );
-                    }
-                    assert_eq!(accesses.len(), 1);
-
-                    let access = accesses.remove(0);
-                    // let access = mem_fetch::MemAccess::from_instr(&instr).unwrap();
-                    let fetch = mem_fetch::MemFetch::new(
-                        Some(instr),
-                        access,
-                        &config,
-                        control_size,
-                        warp_id,
-                        core_id,
-                        cluster_id,
-                    );
-                    let mut events = Vec::new();
-                    let status = l1.access(fetch.access.addr, fetch, &mut events);
-                    // let status = l1.access(0x00000000, fetch.clone(), None);
-                    dbg!(&status);
-                }
-            }
-            // while let Some(trace_instr) = kernel.trace_iter.write().unwrap().next() {
-            //     // dbg!(&instr);
-            //     let mut instr = instruction::WarpInstruction::from_trace(&kernel, trace_instr);
-            //     let mut accesses = instr
-            //         .generate_mem_accesses(&*config)
-            //         .expect("generated acceseses");
-            //     // dbg!(&accesses);
-            //     assert_eq!(accesses.len(), 1);
-            //     for access in &accesses {
-            //         // log::debug!(
-            //         //     "block {} warp {}: access {}",
-            //         //     &access.block, &access.warp_id, &access.addr
-            //         // );
-            //         // log::debug!("{}", &access);
-            //     }
-            //     // continue;
-            //
-            //     let access = accesses.remove(0);
-            //     // let access = mem_fetch::MemAccess::from_instr(&instr).unwrap();
-            //     let fetch = mem_fetch::MemFetch::new(
-            //         instr,
-            //         access,
-            //         &config,
-            //         control_size,
-            //         warp_id,
-            //         core_id,
-            //         cluster_id,
-            //     );
-            //     let status = l1.access(fetch.access.addr, fetch, None);
-            //     // let status = l1.access(0x00000000, fetch.clone(), None);
-            //     dbg!(&status);
-            // }
-        }
+        // for kernel in &mut kernels {
+        //     let mut block_iter = kernel.next_block_iter.lock().unwrap();
+        //     while let Some(block) = block_iter.next() {
+        //         dbg!(&block);
+        //         let mut trace_pos = kernel.trace_pos.write().unwrap();
+        //         // let mut lock = kernel.trace_iter.write().unwrap();
+        //         // let trace_iter = lock.take_while_ref(|entry| entry.block_id == block);
+        //         while *trace_pos < kernel.trace.len() {
+        //             // for trace in trace_iter {
+        //             let trace = &kernel.trace[*trace_pos];
+        //             if trace.block_id > block.into() {
+        //                 break;
+        //             }
+        //
+        //             *trace_pos += 1;
+        //
+        //             // dbg!(&trace);
+        //             let warp_id = trace.warp_id_in_block as usize;
+        //             if warp_id != 0 {
+        //                 continue;
+        //             }
+        //             let mut instr =
+        //                 instruction::WarpInstruction::from_trace(&kernel, trace.clone());
+        //
+        //             let mut accesses = instr
+        //                 .generate_mem_accesses(&*config)
+        //                 .expect("generated acceseses");
+        //             // dbg!(&accesses);
+        //             for access in &accesses {
+        //                 log::debug!(
+        //                     "block {} warp {}: {} access {}",
+        //                     &block,
+        //                     &warp_id,
+        //                     if access.is_write { "store" } else { "load" },
+        //                     &access.addr
+        //                 );
+        //             }
+        //             assert_eq!(accesses.len(), 1);
+        //
+        //             let access = accesses.remove(0);
+        //             // let access = mem_fetch::MemAccess::from_instr(&instr).unwrap();
+        //             let fetch = mem_fetch::MemFetch::new(
+        //                 Some(instr),
+        //                 access,
+        //                 &config,
+        //                 control_size,
+        //                 warp_id,
+        //                 core_id,
+        //                 cluster_id,
+        //             );
+        //             let mut events = Vec::new();
+        //             let status = l1.access(fetch.access.addr, fetch, &mut events);
+        //             // let status = l1.access(0x00000000, fetch.clone(), None);
+        //             dbg!(&status);
+        //         }
+        //     }
+        //     // while let Some(trace_instr) = kernel.trace_iter.write().unwrap().next() {
+        //     //     // dbg!(&instr);
+        //     //     let mut instr = instruction::WarpInstruction::from_trace(&kernel, trace_instr);
+        //     //     let mut accesses = instr
+        //     //         .generate_mem_accesses(&*config)
+        //     //         .expect("generated acceseses");
+        //     //     // dbg!(&accesses);
+        //     //     assert_eq!(accesses.len(), 1);
+        //     //     for access in &accesses {
+        //     //         // log::debug!(
+        //     //         //     "block {} warp {}: access {}",
+        //     //         //     &access.block, &access.warp_id, &access.addr
+        //     //         // );
+        //     //         // log::debug!("{}", &access);
+        //     //     }
+        //     //     // continue;
+        //     //
+        //     //     let access = accesses.remove(0);
+        //     //     // let access = mem_fetch::MemAccess::from_instr(&instr).unwrap();
+        //     //     let fetch = mem_fetch::MemFetch::new(
+        //     //         instr,
+        //     //         access,
+        //     //         &config,
+        //     //         control_size,
+        //     //         warp_id,
+        //     //         core_id,
+        //     //         cluster_id,
+        //     //     );
+        //     //     let status = l1.access(fetch.access.addr, fetch, None);
+        //     //     // let status = l1.access(0x00000000, fetch.clone(), None);
+        //     //     dbg!(&status);
+        //     // }
+        // }
 
         // let mut stats = STATS.lock().unwrap();
         dbg!(&stats.lock().unwrap());
@@ -1136,8 +1136,8 @@ mod tests {
             name: "void vecAdd<float>(float*, float*, float*, int)".into(),
             trace_file: "kernel-0-trace".into(),
             id: 0,
-            grid: nvbit_model::Dim { x: 1, y: 1, z: 1 },
-            block: nvbit_model::Dim {
+            grid: trace_model::Dim { x: 1, y: 1, z: 1 },
+            block: trace_model::Dim {
                 x: 1024,
                 y: 1,
                 z: 1,
@@ -1156,7 +1156,7 @@ mod tests {
             cuda_ctx: 0,
             sm_id: 0,
             kernel_id: 0,
-            block_id: nvbit_model::Dim::ZERO,
+            block_id: trace_model::Dim::ZERO,
             warp_size: 32,
             warp_id_in_sm: 3,
             warp_id_in_block: 3,

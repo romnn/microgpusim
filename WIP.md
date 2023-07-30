@@ -2,14 +2,15 @@
 
 - today:
 
-  - convert accelsim traces to box traces
+  - FIX: lockstep: differences when using accelsim trace provider
+  - FIX: add perf memcopy to gpu back in
   - parse accelsim config files
     - with defaults for compatibility
-  - FIX: add perf memcopy to gpu back in
   - FIX: add l2 set index back in
   - generate plots and correlation stuff etc
   - add flag for playground to run in accelsim compatibility mode
 
+  - DONE: convert accelsim traces to box traces
   - DONE: validate: respect --force flag and do not override existing files
   - DONE: add last access time to cache runtime state
   - DONE: add fu simd pipelines to runtime state
