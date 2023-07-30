@@ -7,3 +7,7 @@ publish = false
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 nvbit-model = "0"
+itertools = "0"
+
+[dev-dependencies]
+similar-asserts = "1"
