@@ -73,18 +73,9 @@ pub extern "C" fn nvbit_at_ctx_term(ctx: nvbit_rs::Context<'static>) {
         return;
     };
 
-    // skip all cuda events we trigger during termination
-    trace_ctx.skip(true);
-
-    trace_ctx.flush_channel();
-    unsafe {
-        // make sure channel is flushed
-        nvbit_sys::cuCtxSynchronize();
-    };
-
     // stop the host channel and finish receiving packets
     trace_ctx.stop_channel();
-    trace_ctx.receive_pending_packets();
+    trace_ctx.join_receiver_thread();
 
     trace_ctx.save_allocations();
     trace_ctx.save_command_trace();

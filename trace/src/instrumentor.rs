@@ -1,10 +1,11 @@
+use console::style;
 use nvbit_io::Encoder;
 use nvbit_rs::{model, DeviceChannel, HostChannel};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::ffi;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{mpsc, Arc, Mutex, RwLock};
 use std::time::Instant;
 use trace_model;
 
@@ -16,6 +17,10 @@ fn bool_env(name: &str) -> Option<bool> {
     std::env::var(name)
         .ok()
         .map(|value| value.to_lowercase() == "yes")
+}
+
+fn sort_key(inst: &trace_model::MemAccessTraceEntry, grid: trace_model::Dim) -> u64 {
+    trace_model::Point::new(inst.block_id.clone(), grid).accelsim_id()
 }
 
 fn kernel_trace_file_name(id: u64) -> String {
@@ -47,6 +52,8 @@ pub struct Instrumentor<'c> {
     dev_channel: Mutex<DeviceChannel<common::mem_access_t>>,
     host_channel: Mutex<HostChannel<common::mem_access_t>>,
     recv_thread: Mutex<Option<std::thread::JoinHandle<()>>>,
+    channel_flush_rx: Mutex<mpsc::Receiver<()>>,
+    channel_flush_tx: Mutex<mpsc::Sender<()>>,
     opcode_to_id_map: RwLock<HashMap<String, usize>>,
     id_to_opcode_map: RwLock<HashMap<usize, String>>,
     kernel_id: Mutex<u64>,
@@ -78,7 +85,14 @@ impl Instrumentor<'static> {
         let rmp_trace_file_path = trace_file_path.with_extension("msgpack");
 
         let full_trace = bool_env("FULL_TRACE").unwrap_or(false);
-        let validate = bool_env("VALIDATE").unwrap_or(false);
+        #[cfg(debug_assertions)]
+        let mut validate = true;
+        #[cfg(not(debug_assertions))]
+        let mut validate = false;
+
+        if let Some(should_validate) = bool_env("VALIDATE") {
+            validate = should_validate;
+        }
         let save_json = bool_env("SAVE_JSON").unwrap_or(false);
 
         log::debug!(
@@ -91,12 +105,16 @@ impl Instrumentor<'static> {
 
         let _ = utils::fs::create_dirs(&traces_dir).ok();
 
+        let (channel_flush_tx, channel_flush_rx) = mpsc::channel();
+
         let instr = Arc::new(Self {
             ctx: Mutex::new(ctx),
             already_instrumented: Mutex::new(HashSet::default()),
             dev_channel: Mutex::new(dev_channel),
             host_channel: Mutex::new(host_channel),
             recv_thread: Mutex::new(None),
+            channel_flush_rx: Mutex::new(channel_flush_rx),
+            channel_flush_tx: Mutex::new(channel_flush_tx),
             opcode_to_id_map: RwLock::new(HashMap::new()),
             id_to_opcode_map: RwLock::new(HashMap::new()),
             kernel_id: Mutex::new(0),
@@ -138,13 +156,14 @@ impl<'c> Instrumentor<'c> {
         while let Ok(packet) = rx.recv() {
             // when block_id_x == -1, the kernel has completed
             if packet.block_id_x == -1 {
-                log::info!("stopping receiver thread");
-                self.host_channel
+                log::info!("receiver thread: channel flush completed");
+                self.channel_flush_tx
                     .lock()
                     .unwrap()
-                    .stop()
-                    .expect("stop host channel");
-                break;
+                    .send(())
+                    .expect("notify channel flushed");
+                // discard this packet
+                continue;
             }
             packet_count += 1;
 
@@ -173,7 +192,7 @@ impl<'c> Instrumentor<'c> {
             let entry = trace_model::MemAccessTraceEntry {
                 cuda_ctx,
                 sm_id: packet.sm_id,
-                kernel_id: packet.kernel_id,
+                kernel_id: *self.kernel_id.lock().unwrap() - 1,
                 block_id,
                 warp_id_in_sm: packet.warp_id_in_sm.unsigned_abs(),
                 warp_id_in_block: packet.warp_id_in_block.unsigned_abs(),
@@ -204,6 +223,7 @@ impl<'c> Instrumentor<'c> {
                 .unwrap();
         }
 
+        log::info!("receiver thread: exiting");
         rmp_encoder.finalize().unwrap();
         log::info!(
             "wrote {} packets to {}",
@@ -236,52 +256,68 @@ impl<'c> Instrumentor<'c> {
                 ..
             }) => {
                 if is_exit {
-                    return;
+                    log::info!(
+                        "KERNEL {} COMPLETED",
+                        &func.name(&mut self.ctx.lock().unwrap())
+                    );
+
+                    // make sure current kernel is completed
+                    unsafe { nvbit_sys::cuCtxSynchronize() };
+
+                    // flush channel to make sure all memory accesses have been pushed
+                    self.flush_channel();
+
+                    // wait until the receiver thread caught up to the channel flush
+                    log::info!("waiting for channel flush");
+                    loop {
+                        if self.channel_flush_rx.lock().unwrap().try_recv().is_ok() {
+                            break;
+                        }
+                        std::thread::yield_now();
+                    }
+                    log::info!("received channel flush");
+                } else {
+                    self.instrument_function_if_needed(&mut func);
+
+                    let ctx = &mut self.ctx.lock().unwrap();
+                    let mut kernel_id = self.kernel_id.lock().unwrap();
+
+                    let shmem_static_nbytes =
+                        u32::try_from(func.shared_memory_bytes().unwrap_or_default()).unwrap();
+                    let func_name = func.name(ctx);
+                    let _pc = func.addr();
+
+                    let trace_file = kernel_trace_file_name(*kernel_id);
+
+                    let num_registers = func.num_registers().unwrap();
+
+                    let kernel_info = trace_model::KernelLaunch {
+                        name: func_name.to_string(),
+                        id: *kernel_id,
+                        trace_file,
+                        grid: grid.into(),
+                        block: block.into(),
+                        shared_mem_bytes: shmem_static_nbytes + shared_mem_bytes,
+                        num_registers: num_registers.unsigned_abs(),
+                        binary_version: func.binary_version().unwrap(),
+                        stream_id: h_stream.as_ptr() as u64,
+                        shared_mem_base_addr: nvbit_rs::shmem_base_addr(ctx),
+                        local_mem_base_addr: nvbit_rs::local_mem_base_addr(ctx),
+                        nvbit_version: nvbit_rs::version().to_string(),
+                    };
+                    log::info!("KERNEL LAUNCH: {:#?}", &kernel_info);
+                    self.kernels.lock().unwrap().push(kernel_info.clone());
+
+                    self.commands
+                        .lock()
+                        .unwrap()
+                        .push(trace_model::Command::KernelLaunch(kernel_info));
+
+                    *kernel_id += 1;
+
+                    // enable instrumented code to run
+                    func.enable_instrumented(ctx, true, true);
                 }
-                // make sure GPU is idle
-                unsafe { nvbit_sys::cuCtxSynchronize() };
-
-                self.instrument_function_if_needed(&mut func);
-
-                let ctx = &mut self.ctx.lock().unwrap();
-                let mut kernel_id = self.kernel_id.lock().unwrap();
-
-                let shmem_static_nbytes =
-                    u32::try_from(func.shared_memory_bytes().unwrap_or_default()).unwrap();
-                let func_name = func.name(ctx);
-                let _pc = func.addr();
-
-                let id = *kernel_id;
-                let trace_file = kernel_trace_file_name(id);
-
-                let num_registers = func.num_registers().unwrap();
-
-                let kernel_info = trace_model::KernelLaunch {
-                    name: func_name.to_string(),
-                    id,
-                    trace_file,
-                    grid: grid.into(),
-                    block: block.into(),
-                    shared_mem_bytes: shmem_static_nbytes + shared_mem_bytes,
-                    num_registers: num_registers.unsigned_abs(),
-                    binary_version: func.binary_version().unwrap(),
-                    stream_id: h_stream.as_ptr() as u64,
-                    shared_mem_base_addr: nvbit_rs::shmem_base_addr(ctx),
-                    local_mem_base_addr: nvbit_rs::local_mem_base_addr(ctx),
-                    nvbit_version: nvbit_rs::version().to_string(),
-                };
-                log::info!("KERNEL LAUNCH: {:#?}", &kernel_info);
-                self.kernels.lock().unwrap().push(kernel_info.clone());
-
-                self.commands
-                    .lock()
-                    .unwrap()
-                    .push(trace_model::Command::KernelLaunch(kernel_info));
-
-                *kernel_id += 1;
-
-                // enable instrumented code to run
-                func.enable_instrumented(ctx, true, true);
             }
             Some(EventParams::MemCopyHostToDevice {
                 dest_device,
@@ -467,7 +503,10 @@ impl<'c> Instrumentor<'c> {
     }
 
     fn instrument_function_if_needed<'f: 'c>(&self, func: &mut nvbit_rs::Function<'f>) {
-        // todo: lock once?
+        log::info!(
+            "checking function: {:#?}",
+            &func.name(&mut self.ctx.lock().unwrap())
+        );
         let mut related_functions = func.related_functions(&mut self.ctx.lock().unwrap());
         for f in related_functions.iter_mut().chain([func]) {
             let func_name = f.name(&mut self.ctx.lock().unwrap());
@@ -494,19 +533,25 @@ impl<'c> Instrumentor<'c> {
     }
 
     pub fn flush_channel(&self) {
+        // prevent re-entry on the nvbit callback when launching flush_channel kernel
+        self.skip(true);
         let mut dev_channel = self.dev_channel.lock().unwrap();
         unsafe {
             common::flush_channel(dev_channel.as_mut_ptr().cast());
         }
+        // make sure channel is flushed
+        unsafe { nvbit_sys::cuCtxSynchronize() };
+        self.skip(false);
     }
 
-    /// finish receiving pending packets
-    pub fn receive_pending_packets(&self) {
+    /// Wait for receiver thread to finish receiving pending packets and exit.
+    pub fn join_receiver_thread(&self) {
         if let Some(recv_thread) = self.recv_thread.lock().unwrap().take() {
             recv_thread.join().expect("join receiver thread");
         }
     }
 
+    /// Stop the host channel receiving packets.
     pub fn stop_channel(&self) {
         self.host_channel
             .lock()
@@ -553,29 +598,39 @@ impl<'c> Instrumentor<'c> {
             assert_eq!(kernel_info.id, kernel_id as u64);
 
             // sort per kernel traces
-            // #[cfg(feature = "parallel")]
+            #[cfg(feature = "parallel")]
             {
                 use rayon::slice::ParallelSliceMut;
-                // kernel_trace.par_sort();
-                kernel_trace.par_sort_by_key(|inst| {
-                    let block = &inst.block_id;
-                    let grid = &kernel_info.grid;
-                    let block_key = block.z * grid.y * grid.x + block.y * grid.x + block.x;
-                    (block_key, inst.warp_id_in_block)
-                });
+                kernel_trace.par_sort_by_key(|inst| sort_key(inst, kernel_info.grid.clone()));
             }
 
-            // #[cfg(not(feature = "parallel"))]
-            // kernel_trace.sort_by_key(|inst| {
-            //     let block = &inst.block_id;
-            //     let grid = &kernel_info.grid;
-            //     let block_key = block.z * grid.y * grid.x + block.y * grid.x + block.x;
-            //     (block_key, inst.warp_id_in_block)
-            // });
+            #[cfg(not(feature = "parallel"))]
+            kernel_trace.sort_by_key(|inst| sort_key(inst, kernel_info.grid.clone()));
 
             if self.validate {
                 let unique_blocks: HashSet<_> =
                     kernel_trace.iter().map(|entry| &entry.block_id).collect();
+
+                #[cfg(debug_assertions)]
+                {
+                    use indexmap::IndexMap;
+                    let mut unique_block_counts: IndexMap<_, usize> = IndexMap::new();
+                    for inst in kernel_trace.iter() {
+                        *unique_block_counts
+                            .entry(inst.block_id.clone())
+                            .or_default() += 1;
+                    }
+
+                    for (unique_block, instruction_count) in unique_block_counts {
+                        log::debug!(
+                            "kernel {:>3} {:<40}: block {:>15} has {:>5} instructions",
+                            style(kernel_info.id).blue(),
+                            style(&kernel_info.name).cyan(),
+                            style(unique_block.to_string()).magenta(),
+                            style(instruction_count).yellow(),
+                        );
+                    }
+                }
 
                 log::info!(
                     "validation: kernel {}: traced {}/{} unique blocks in grid {}",

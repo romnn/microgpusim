@@ -58,8 +58,6 @@ instrument_inst(uint32_t pred, uint32_t instr_data_width,
     }
   }
 
-  ma.kernel_id = kernel_id;
-
   int4 block = get_ctaid();
   ma.block_id_x = block.x;
   ma.block_id_y = block.y;

@@ -11,7 +11,6 @@ typedef struct {
 } reg_info_t;
 
 typedef struct {
-  uint64_t kernel_id;
   // we identify end of the kernel with block_idx_id = -1
   int block_id_x;
   int block_id_y;
