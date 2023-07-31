@@ -3,7 +3,7 @@ pub struct Style(indicatif::ProgressStyle);
 impl Default for Style {
     fn default() -> Self {
         let style = indicatif::ProgressStyle::with_template(
-            "{spinner:.green} [{elapsed_precise}] {msg} [{wide_bar:.cyan/blue}] {pos}/{len} ({eta})",
+            "[{elapsed_precise}] {msg} [{wide_bar:.cyan/blue}] {pos}/{len}",
         )
         .unwrap();
         let style = style.with_key(

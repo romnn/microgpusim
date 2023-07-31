@@ -52,7 +52,7 @@ fn convert_traces_to_json(trace_dir: &Path, kernelslist: &Path) -> eyre::Result<
 }
 
 pub async fn trace(
-    bench: BenchmarkConfig,
+    bench: &BenchmarkConfig,
     options: &Options,
     _trace_opts: &options::AccelsimTrace,
 ) -> Result<(), RunError> {
@@ -88,7 +88,7 @@ pub async fn trace(
 }
 
 pub async fn simulate(
-    bench: BenchmarkConfig,
+    bench: &BenchmarkConfig,
     options: &Options,
     _sim_options: &options::AccelsimSim,
 ) -> Result<(), RunError> {

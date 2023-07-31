@@ -9,7 +9,7 @@ use utils::fs::create_dirs;
 use validate::materialize::BenchmarkConfig;
 
 pub async fn profile(
-    bench: BenchmarkConfig,
+    bench: &BenchmarkConfig,
     options: &Options,
     _trace_opts: &options::Profile,
 ) -> Result<(), RunError> {

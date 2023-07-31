@@ -9,13 +9,13 @@ use utils::fs::create_dirs;
 use validate::materialize::BenchmarkConfig;
 
 pub async fn simulate(
-    bench: BenchmarkConfig,
+    bench: &BenchmarkConfig,
     options: &Options,
     _trace_opts: &options::Sim,
 ) -> Result<(), RunError> {
     // get traces dir from trace config
-    let traces_dir = bench.trace.traces_dir;
-    let stats_dir = bench.simulate.stats_dir;
+    let traces_dir = bench.trace.traces_dir.clone();
+    let stats_dir = &bench.simulate.stats_dir;
 
     if !options.force && crate::stats::already_exist(&stats_dir) {
         return Err(RunError::Skipped);

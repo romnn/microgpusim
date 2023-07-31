@@ -60,7 +60,7 @@ fn open_writable(path: impl AsRef<Path>) -> eyre::Result<std::io::BufWriter<std:
 
 #[allow(clippy::too_many_lines)]
 async fn run_benchmark(
-    bench: BenchmarkConfig,
+    bench: &BenchmarkConfig,
     options: &Options,
     bar: &ProgressBar,
 ) -> Result<(), RunError> {
@@ -197,7 +197,7 @@ pub fn filter_benchmarks(benches: &mut Vec<BenchmarkConfig>, options: &Options) 
 
 fn print_benchmark_result(
     bench_config: &BenchmarkConfig,
-    result: &Result<(), RunError>,
+    result: &Result<(), Error>,
     elapsed: std::time::Duration,
     bar: &ProgressBar,
     options: &Options,
@@ -220,13 +220,14 @@ fn print_benchmark_result(
     );
     let (color, status) = match result {
         Ok(_) => (Style::new().green(), format!("succeeded in {elapsed:?}")),
-        Err(RunError::Skipped) => (
+        Err(Error::Canceled(_)) => (Style::new().color256(0), "canceled".to_string()),
+        Err(Error::Skipped(_)) => (
             Style::new().yellow(),
             "skipped (already exists)".to_string(),
         ),
-        Err(RunError::Failed(ref err)) => {
+        Err(Error::Failed { source, .. }) => {
             static PREVIEW_LEN: usize = 75;
-            let mut err_preview = err.to_string();
+            let mut err_preview = source.to_string();
             if err_preview.len() > PREVIEW_LEN {
                 err_preview = format!("{} ...", &err_preview[..err_preview.len().min(PREVIEW_LEN)]);
             }
@@ -319,25 +320,31 @@ async fn main() -> eyre::Result<()> {
             let bar = bar.clone();
             let should_exit = should_exit.clone();
             async move {
-                if should_exit.load(std::sync::atomic::Ordering::Relaxed) {
-                    return Err(Error::Canceled(bench_config.clone()));
-                }
+                use std::sync::atomic::Ordering::Relaxed;
+
                 let start = std::time::Instant::now();
-                let res = run_benchmark(bench_config.clone(), &options, &bar).await;
+                let res: Result<_, Error> = if should_exit.load(Relaxed) {
+                    Err(Error::Canceled(bench_config.clone()))
+                } else {
+                    match run_benchmark(&bench_config, &options, &bar).await {
+                        Ok(()) => Ok(()),
+                        Err(RunError::Skipped) => Err(Error::Skipped(bench_config.clone())),
+                        Err(RunError::Failed(source)) => Err(Error::Failed {
+                            source,
+                            bench: bench_config.clone(),
+                        }),
+                    }
+                };
                 bar.inc(1);
                 print_benchmark_result(&bench_config, &res, start.elapsed(), &bar, &options);
 
-                if options.fail_fast && res.is_err() {
-                    should_exit.store(true, std::sync::atomic::Ordering::Relaxed);
-                }
                 match res {
-                    Ok(()) => Ok(()),
-                    Err(RunError::Skipped) => Err(Error::Skipped(bench_config)),
-                    Err(RunError::Failed(source)) => Err(Error::Failed {
-                        source,
-                        bench: bench_config,
-                    }),
+                    Err(Error::Failed { .. }) if options.fail_fast => {
+                        should_exit.store(true, Relaxed);
+                    }
+                    _ => {}
                 }
+                res
             }
         })
         .buffer_unordered(concurrency)

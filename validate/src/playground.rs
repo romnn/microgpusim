@@ -9,13 +9,13 @@ use utils::fs::create_dirs;
 use validate::materialize::{self, BenchmarkConfig};
 
 pub async fn simulate(
-    bench: BenchmarkConfig,
+    bench: &BenchmarkConfig,
     options: &Options,
     _sim_opts: &options::PlaygroundSim,
 ) -> Result<(), RunError> {
     // get traces dir from accelsim trace config
-    let traces_dir = bench.accelsim_trace.traces_dir;
-    let stats_dir = bench.playground_simulate.stats_dir;
+    let traces_dir = &bench.accelsim_trace.traces_dir;
+    let stats_dir = &bench.playground_simulate.stats_dir;
 
     if !options.force && crate::stats::already_exist(&stats_dir) {
         return Err(RunError::Skipped);

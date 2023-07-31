@@ -8,7 +8,7 @@ use utils::fs::create_dirs;
 use validate::materialize::BenchmarkConfig;
 
 pub async fn trace(
-    bench: BenchmarkConfig,
+    bench: &BenchmarkConfig,
     options: &Options,
     _trace_opts: &options::Trace,
 ) -> Result<(), RunError> {
