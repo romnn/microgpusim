@@ -63,7 +63,7 @@ pub struct LoadStoreUnit<I> {
     next_global: Option<MemFetch>,
     // dispatch_reg: Option<WarpInstruction>,
     /// Pending writes warp -> register -> count
-    pending_writes: HashMap<usize, HashMap<u32, usize>>,
+    pub pending_writes: HashMap<usize, HashMap<u32, usize>>,
     l1_latency_queue: Vec<Vec<Option<mem_fetch::MemFetch>>>,
     // interconn: ic::Interconnect,
     // fetch_interconn: Arc<dyn ic::MemFetchInterface>,
@@ -239,13 +239,13 @@ where
         }
     }
 
-    fn get_pending_writes(&mut self, warp_id: usize, reg_id: u32) -> &mut usize {
-        self.pending_writes
-            .entry(warp_id)
-            .or_default()
-            .entry(reg_id)
-            .or_default()
-    }
+    // fn get_pending_writes(&mut self, warp_id: usize, reg_id: u32) -> &mut usize {
+    //     self.pending_writes
+    //         .entry(warp_id)
+    //         .or_default()
+    //         .entry(reg_id)
+    //         .or_default()
+    // }
 
     pub fn response_buffer_full(&self) -> bool {
         self.response_fifo.len() >= self.config.num_ldst_response_buffer_size
@@ -310,13 +310,22 @@ where
                             .release_register(next_writeback.warp_id, *out_reg);
                         instr_completed = true;
                     } else {
-                        let pending = self
+                        let mut pending = self
                             .pending_writes
                             .entry(next_writeback.warp_id)
                             .or_default();
-                        debug_assert!(pending[out_reg] > 0);
-                        let still_pending = pending[out_reg] - 1;
-                        if still_pending == 0 {
+                        let mut still_pending = pending.get_mut(out_reg).unwrap();
+                        debug_assert!(*still_pending > 0);
+                        *still_pending -= 1;
+                        log::trace!(
+                            "{} => next_writeback={} dest register {}: pending writes={}",
+                            style("ldst unit writeback").magenta(),
+                            next_writeback,
+                            out_reg,
+                            still_pending,
+                        );
+
+                        if *still_pending == 0 {
                             pending.remove(out_reg);
                             self.scoreboard
                                 .write()
@@ -775,6 +784,13 @@ where
                         .and_then(|p| p.get_mut(out_reg))
                         .unwrap();
                     *pending -= 1;
+                    log::trace!(
+                        "warp {} register {}: decrement from {} to {}",
+                        instr.warp_id,
+                        out_reg,
+                        *pending + 1,
+                        *pending
+                    );
                 }
             }
             // if (!write_sent)
@@ -826,10 +842,19 @@ where
                         let mut completed = false;
                         for out_reg in instr.outputs() {
                             let pending = self.pending_writes.get_mut(&instr.warp_id).unwrap();
-                            debug_assert!(pending[out_reg] > 0);
 
-                            let still_pending = pending[out_reg] - 1;
-                            if still_pending > 0 {
+                            let still_pending = pending.get_mut(out_reg).unwrap();
+                            debug_assert!(*still_pending > 0);
+                            *still_pending -= 1;
+                            log::trace!(
+                                "warp {} register {}: decrement from {} to {}",
+                                instr.warp_id,
+                                out_reg,
+                                *still_pending + 1,
+                                *still_pending
+                            );
+
+                            if *still_pending > 0 {
                                 pending.remove(&out_reg);
                                 log::trace!("l1 latency queue release registers");
                                 self.scoreboard
@@ -897,6 +922,17 @@ where
             }
         }
     }
+
+    fn pending_writes(&self, warp_id: usize, reg_id: u32) -> Option<usize> {
+        let pending = self.pending_writes.get(&warp_id)?;
+        let pending = pending.get(&reg_id)?;
+        Some(*pending)
+    }
+
+    fn pending_writes_mut(&mut self, warp_id: usize, reg_id: u32) -> &mut usize {
+        let pending = self.pending_writes.entry(warp_id).or_default();
+        pending.entry(reg_id).or_default()
+    }
 }
 
 impl<I> fu::SimdFunctionUnit for LoadStoreUnit<I>
@@ -931,10 +967,21 @@ where
         // instruction
         if instr.is_load() && instr.memory_space != Some(MemorySpace::Shared) {
             let warp_id = instr.warp_id;
-            let num_accessess = instr.mem_access_queue.len();
+            let num_accesses = instr.mem_access_queue.len();
             for out_reg in instr.outputs() {
-                let pending = self.pending_writes.entry(warp_id).or_default();
-                *pending.entry(*out_reg).or_default() += num_accessess;
+                let still_pending = self.pending_writes_mut(warp_id, *out_reg);
+                *still_pending += num_accesses;
+                log::trace!(
+                    "warp {} register {}: increment from {} to {}",
+                    warp_id,
+                    *out_reg,
+                    *still_pending - num_accesses,
+                    *still_pending
+                );
+
+                // let pending = self.pending_writes.entry(warp_id).or_default();
+                // let pending = pending.entry(*out_reg).or_default();
+                // *pending += num_accessess;
             }
         }
 
@@ -1205,7 +1252,6 @@ where
                     let pending = self.pending_writes.entry(warp_id).or_default();
 
                     let mut has_pending_requests = false;
-
                     for reg_id in pipe_reg.outputs() {
                         match pending.get(reg_id) {
                             Some(&p) if p > 0 => {
@@ -1217,7 +1263,6 @@ where
                                 pending.remove(reg_id);
                             }
                         }
-                        // }
                     }
 
                     let mut dispatch_reg = simd_unit.dispatch_reg.take().unwrap();
