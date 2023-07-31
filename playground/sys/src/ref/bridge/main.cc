@@ -307,7 +307,11 @@ void accelsim_bridge::launch_kernels() {
     if (!stream_busy && m_gpgpu_sim->can_start_kernel() && !k->was_launched()) {
       m_gpgpu_sim->logger->info("launching kernel name: {} uid: {}",
                                 k->get_name(), k->get_uid());
+      if (k->get_uid() > 1) {
+        assert(0 && "new kernel");
+      }
       m_gpgpu_sim->launch(k);
+
       k->set_launched();
       busy_streams.push_back(k->get_cuda_stream_id());
     }

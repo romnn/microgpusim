@@ -257,8 +257,10 @@ impl WarpInstruction {
             // in_count: 0,
             inputs: [None; 24],
             // out_count: 0,
-            src_arch_reg: [(); opcoll::MAX_REG_OPERANDS].map(|_| None),
-            dest_arch_reg: [(); opcoll::MAX_REG_OPERANDS].map(|_| None),
+            // src_arch_reg: [(); opcoll::MAX_REG_OPERANDS].map(|_| None),
+            src_arch_reg: [None; opcoll::MAX_REG_OPERANDS],
+            dest_arch_reg: [None; opcoll::MAX_REG_OPERANDS],
+            // dest_arch_reg: [(); opcoll::MAX_REG_OPERANDS].map(|_| None),
             // for (unsigned i = 0; i < MAX_REG_OPERANDS; i++) {
             //   arch_reg.src[i] = -1;
             //   arch_reg.dst[i] = -1;

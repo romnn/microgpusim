@@ -214,6 +214,12 @@ enum cache_request_status tag_array::access(new_addr_type addr, unsigned time,
       break;
     case MISS:
       m_miss++;
+      logger->trace(
+          "tag_array::access({}, time={}) => {} cache index={} allocate "
+          "policy={}",
+          mem_fetch_ptr(mf), time, cache_request_status_str[status], idx,
+          allocation_policy_t_str[m_config.m_alloc_policy]);
+
       // shader_cache_access_log(m_core_id, m_type_id, 1);  // log cache misses
       if (m_config.m_alloc_policy == ON_MISS) {
         if (m_lines[idx]->is_modified_line()) {
@@ -224,6 +230,8 @@ enum cache_request_status tag_array::access(new_addr_type addr, unsigned time,
                            m_lines[idx]->get_dirty_byte_mask(),
                            m_lines[idx]->get_dirty_sector_mask(),
                            mf->get_alloc_id(), mf->get_alloc_start_addr());
+          // logger->trace("set evicted alloc start addr = {} from {}",
+          //               mf->get_alloc_start_addr(), mem_fetch_ptr(mf));
           m_dirty--;
         }
         logger->trace("tag_array::allocate(cache={}, tag={})", idx,

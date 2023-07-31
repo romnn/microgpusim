@@ -32,6 +32,14 @@ void baseline_cache::bandwidth_management::use_data_port(
       if (was_writeback_sent(events, ev)) {
         unsigned data_cycles = ev.m_evicted_block.m_modified_size / port_width;
         m_data_port_occupied_cycles += data_cycles;
+
+        logger->trace(
+            "write back request sent: using data port for {} / {} = {} cycles "
+            "({} total)",
+            ev.m_evicted_block.m_modified_size, port_width, data_cycles,
+            m_data_port_occupied_cycles);
+      } else {
+        // logger->trace("write back not sent");
       }
     } break;
     case SECTOR_MISS:

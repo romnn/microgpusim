@@ -1023,7 +1023,6 @@ impl OperandCollectorRegisterFileUnit {
     }
 
     pub fn writeback(&mut self, instr: &mut WarpInstruction) -> bool {
-        // todo!("operand collector: writeback");
         // std::list<unsigned> regs = m_shader->get_regs_written(inst);
         let regs: Vec<u32> = instr.dest_arch_reg.iter().filter_map(|reg| *reg).collect();
         log::trace!(
@@ -1041,6 +1040,8 @@ impl OperandCollectorRegisterFileUnit {
         // }
         // return result;
 
+        // instr.dest_arch_reg[m] == instr.outputs[m](private)
+
         for op in 0..MAX_REG_OPERANDS {
             // this math needs to match that used in function_info::ptx_decode_inst
             if let Some(reg_num) = instr.dest_arch_reg[op] {
@@ -1054,7 +1055,12 @@ impl OperandCollectorRegisterFileUnit {
                     self.num_banks_per_scheduler,
                     scheduler_id,
                 );
-                if (self.arbiter.bank_idle(bank)) {
+                let bank_idle = self.arbiter.bank_idle(bank);
+                log::trace!(
+                  "operand collector: writeback {}: destination register {:>2}: scheduler id={} bank={} (idle={})",
+                  instr, reg_num, scheduler_id, bank, bank_idle);
+
+                if bank_idle {
                     self.arbiter.allocate_bank_for_write(
                         bank,
                         &Operand {

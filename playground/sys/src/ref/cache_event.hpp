@@ -18,3 +18,20 @@ struct cache_event {
     m_evicted_block = evicted_block;
   }
 };
+
+#include "fmt/core.h"
+
+template <>
+struct fmt::formatter<cache_event> {
+  constexpr auto parse(format_parse_context &ctx)
+      -> format_parse_context::iterator {
+    return ctx.end();
+  }
+
+  auto format(const cache_event &event, format_context &ctx) const
+      -> format_context::iterator {
+    return fmt::format_to(ctx.out(), "{}(evicted={})",
+                          cache_event_type_str[event.m_cache_event_type],
+                          event.m_evicted_block);
+  }
+};

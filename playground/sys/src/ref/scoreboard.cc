@@ -50,6 +50,7 @@ void Scoreboard::reserveRegister(unsigned wid, unsigned regnum) {
             m_sid, wid, regnum);
     abort();
   }
+  logger->trace("scoreboard: warp {} reserves register {}", wid, regnum);
   SHADER_DPRINTF(SCOREBOARD, "Reserved Register - warp:%d, reg: %d\n", wid,
                  regnum);
   reg_table[wid].insert(regnum);
@@ -114,11 +115,11 @@ bool Scoreboard::checkCollision(unsigned wid, const class inst_t *inst) const {
   if (inst->ar1 > 0) inst_regs.insert(inst->ar1);
   if (inst->ar2 > 0) inst_regs.insert(inst->ar2);
 
-  logger->trace("scoreboard: {} uses registers: {}",
+  logger->trace("scoreboard: {} uses registers: [{}]",
                 static_cast<const warp_inst_t *>(inst)->display(),
                 fmt::join(inst_regs, ","));
 
-  logger->trace("scoreboard: warp {} reserved registers: {}", wid,
+  logger->trace("scoreboard: warp {} has reserved registers: [{}]", wid,
                 fmt::join(reg_table[wid], ","));
 
   // Check for collision, get the intersection of reserved registers and

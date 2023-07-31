@@ -78,7 +78,10 @@ fn generate_bindings(include_dir: &Path, flags: &HashMap<&str, &str>) -> eyre::R
         .clang_arg(format!("-I{}", include_dir.display()))
         .clang_args(flags.iter().map(|(k, v)| format!("-D{k}={v}")))
         .rustified_enum(".*")
+        .derive_partialeq(true)
         .derive_eq(true)
+        .derive_partialord(true)
+        .derive_ord(true)
         .prepend_enum_name(false)
         .size_t_is_usize(true)
         .generate_comments(true)
@@ -106,6 +109,8 @@ fn generate_bindings(include_dir: &Path, flags: &HashMap<&str, &str>) -> eyre::R
         // for addr dec bridge
         .allowlist_type("addrdec_t")
         .allowlist_type("linear_to_raw_address_translation_params")
+        // for core bridge
+        .allowlist_type("pending_register_writes")
         // for main bridge
         .allowlist_type("accelsim_config")
         .allowlist_type("pipeline_stage_name_t")

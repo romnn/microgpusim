@@ -32,6 +32,7 @@ class ldst_unit : public pipelined_simd_unit {
             unsigned sid, unsigned tpc);
 
   friend class accelsim_bridge;
+  friend class core_bridge;
 
   // modifiers
   virtual void issue(register_set &inst);

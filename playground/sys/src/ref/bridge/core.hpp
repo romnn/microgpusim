@@ -3,9 +3,16 @@
 #include "../trace_shader_core_ctx.hpp"
 #include "../simd_function_unit.hpp"
 #include "../pipelined_simd_unit.hpp"
+#include "../ldst_unit.hpp"
 #include "register_set.hpp"
 #include "scheduler_unit.hpp"
 #include "operand_collector.hpp"
+
+struct pending_register_writes {
+  unsigned warp_id;
+  unsigned reg_num;
+  unsigned pending;
+};
 
 class core_bridge {
  public:
@@ -64,6 +71,29 @@ class core_bridge {
   std::shared_ptr<operand_collector_bridge> get_operand_collector() const {
     return std::make_shared<operand_collector_bridge>(
         &(ptr->m_operand_collector));
+  }
+
+  std::unique_ptr<std::vector<pending_register_writes>>
+  get_pending_register_writes() const {
+    std::vector<pending_register_writes> out;
+    std::map<unsigned int, std::map<unsigned int, unsigned int>>
+        &pending_writes = (ptr->m_ldst_unit)->m_pending_writes;
+    std::map<unsigned int, std::map<unsigned int, unsigned int>>::const_iterator
+        warp_iter;
+    std::map<unsigned int, unsigned int>::const_iterator reg_iter;
+
+    for (warp_iter = pending_writes.begin(); warp_iter != pending_writes.end();
+         warp_iter++) {
+      unsigned warp_id = warp_iter->first;
+      for (reg_iter = (warp_iter->second).begin();
+           reg_iter != (warp_iter->second).end(); reg_iter++) {
+        unsigned reg_num = reg_iter->first;
+        unsigned pending = reg_iter->second;
+        out.push_back(pending_register_writes{warp_id, reg_num, pending});
+      }
+    }
+
+    return std::make_unique<std::vector<pending_register_writes>>(out);
   }
 
  private:

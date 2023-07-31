@@ -3,6 +3,7 @@
 .vscode/
 
 /results
+/notebooks
 /debug_results
 /target
 /debug*.log

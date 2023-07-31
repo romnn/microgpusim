@@ -492,6 +492,12 @@ enum cache_request_status data_cache::rd_miss_base(
   send_read_request(addr, block_addr, cache_index, mf, time, do_miss, wb,
                     evicted, events, false, false);
 
+  logger->trace(
+      "handling READ MISS for {} (should miss={}, writeback={}, writeback "
+      "policy={}, events: [{}])",
+      mem_fetch_ptr(mf), do_miss, wb,
+      write_policy_t_str[m_config.m_write_policy], fmt::join(events, ", "));
+
   if (do_miss) {
     // If evicted block is modified and not a write-through
     // (already modified lower level)
@@ -503,11 +509,16 @@ enum cache_request_status data_cache::rd_miss_base(
           NULL);
       wb->set_alloc_id(evicted.m_allocation_id);
       wb->set_alloc_start_addr(evicted.m_allocation_start_addr);
+      // logger->trace("evicted: allocation start addr={}",
+      //               evicted.m_allocation_start_addr);
 
       // the evicted block may have wrong chip id when advanced L2 hashing  is
       // used, so set the right chip address from the original mf
       wb->set_chip(mf->get_tlx_addr().chip);
       wb->set_partition(mf->get_tlx_addr().sub_partition);
+      logger->trace("handling READ MISS for {}: => sending writeback {}",
+                    mem_fetch_ptr(mf), mem_fetch_ptr(wb));
+
       send_write_request(wb, WRITE_BACK_REQUEST_SENT, time, events);
     }
     return MISS;

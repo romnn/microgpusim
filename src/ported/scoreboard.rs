@@ -65,7 +65,7 @@ impl Scoreboard {
             return false;
         };
         log::trace!(
-            "scoreboard: warp {} reserved registers: {:?}",
+            "scoreboard: warp {} has reserved registers: {:?}",
             warp_id,
             reserved.iter().sorted().collect::<Vec<_>>(),
         );
@@ -79,12 +79,14 @@ impl Scoreboard {
     }
 
     pub fn release_register(&mut self, warp_id: usize, reg_num: u32) {
-        log::trace!(
-            "scoreboard: warp {} releases register: {}",
-            warp_id,
-            reg_num
-        );
-        self.register_table[warp_id].remove(&reg_num);
+        let removed = self.register_table[warp_id].remove(&reg_num);
+        if removed {
+            log::trace!(
+                "scoreboard: warp {} releases register: {}",
+                warp_id,
+                reg_num
+            );
+        }
     }
 
     pub fn release_registers(&mut self, instr: &WarpInstruction) {
@@ -100,6 +102,11 @@ impl Scoreboard {
             panic!("trying to reserve an already reserved register (core_id={}, warp_id={}, reg_num={})",
            self.core_id, warp_id, reg_num);
         }
+        log::trace!(
+            "scoreboard: warp {} reserves register: {}",
+            warp_id,
+            reg_num
+        );
         self.register_table[warp_id].insert(reg_num);
     }
 

@@ -1,3 +1,4 @@
+pub use playground_sys::bridge::core::pending_register_writes;
 use playground_sys::core::core_bridge;
 use std::marker::PhantomData;
 
@@ -5,6 +6,15 @@ use std::marker::PhantomData;
 pub struct Core<'a>(pub(crate) &'a core_bridge);
 
 impl<'a> Core<'a> {
+    #[must_use]
+    pub fn pending_register_writes(&self) -> Vec<pending_register_writes> {
+        self.0
+            .get_pending_register_writes()
+            .into_iter()
+            .cloned()
+            .collect()
+    }
+
     #[must_use]
     pub fn functional_unit_issue_register_sets(&self) -> Vec<super::register_set::RegisterSet<'a>> {
         use playground_sys::register_set::new_register_set_bridge;

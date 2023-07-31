@@ -187,9 +187,7 @@ struct fmt::formatter<mem_fetch> {
   auto format(const mem_fetch &fetch, format_context &ctx) const
       -> format_context::iterator {
     return fmt::format_to(ctx.out(), "{}({})", mf_type_str[fetch.get_type()],
-                          // mem_fetch_status_str[fetch.get_type()],
                           fetch.m_access);
-    // (fetch.is_reply()) ? "Reply" : "Req", fetch.m_access);
   }
 };
 

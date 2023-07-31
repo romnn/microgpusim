@@ -77,7 +77,13 @@ mem_stage_stall_type ldst_unit::process_cache_access(
     inst.accessq_pop_back();
     if (inst.is_load()) {
       for (unsigned r = 0; r < MAX_OUTPUT_VALUES; r++)
-        if (inst.out[r] > 0) m_pending_writes[inst.warp_id()][inst.out[r]]--;
+        if (inst.out[r] > 0) {
+          m_pending_writes[inst.warp_id()][inst.out[r]]--;
+          logger->trace("warp {} register {}: decrement from {} to {}",
+                        inst.warp_id(), inst.out[r],
+                        m_pending_writes[inst.warp_id()][inst.out[r]] + 1,
+                        m_pending_writes[inst.warp_id()][inst.out[r]]);
+        }
     }
     if (!write_sent) delete mf;
   } else if (status == RESERVATION_FAIL) {
@@ -202,23 +208,28 @@ void ldst_unit::L1_latency_queue_cycle() {
       if (status == HIT) {
         assert(!read_sent);
         l1_latency_queue[j][0] = NULL;
-        if (mf_next->get_inst().is_load()) {
+        const warp_inst_t &inst = mf_next->get_inst();
+        if (inst.is_load()) {
           for (unsigned r = 0; r < MAX_OUTPUT_VALUES; r++)
             if (mf_next->get_inst().out[r] > 0) {
-              assert(m_pending_writes[mf_next->get_inst().warp_id()]
-                                     [mf_next->get_inst().out[r]] > 0);
+              assert(m_pending_writes[inst.warp_id()][inst.out[r]] > 0);
+              unsigned before = m_pending_writes[inst.warp_id()][inst.out[r]];
               unsigned still_pending =
-                  --m_pending_writes[mf_next->get_inst().warp_id()]
-                                    [mf_next->get_inst().out[r]];
+                  --m_pending_writes[inst.warp_id()][inst.out[r]];
+              unsigned after = m_pending_writes[inst.warp_id()][inst.out[r]];
+              assert(before == after + 1);
+              logger->trace("warp {} register {}: decrement from {} to {}",
+                            inst.warp_id(), inst.out[r],
+                            m_pending_writes[inst.warp_id()][inst.out[r]] + 1,
+                            m_pending_writes[inst.warp_id()][inst.out[r]]);
+
               if (!still_pending) {
                 throw std::runtime_error("must model the l1 latency queue");
-                m_pending_writes[mf_next->get_inst().warp_id()].erase(
-                    mf_next->get_inst().out[r]);
+                m_pending_writes[inst.warp_id()].erase(inst.out[r]);
 
                 logger->trace("l1 latency queue release registers");
-                m_scoreboard->releaseRegister(mf_next->get_inst().warp_id(),
-                                              mf_next->get_inst().out[r]);
-                m_core->warp_inst_complete(mf_next->get_inst());
+                m_scoreboard->releaseRegister(inst.warp_id(), inst.out[r]);
+                m_core->warp_inst_complete(inst);
               }
             }
         }
@@ -277,6 +288,8 @@ bool ldst_unit::constant_cycle(warp_inst_t &inst, mem_stage_stall_type &rc_fail,
     return true;
   if (inst.active_count() == 0) return true;
 
+  assert(0 && "constant cycle");
+
   mem_stage_stall_type fail;
   if (m_config->perfect_inst_const_cache) {
     fail = NO_RC_FAIL;
@@ -284,8 +297,14 @@ bool ldst_unit::constant_cycle(warp_inst_t &inst, mem_stage_stall_type &rc_fail,
     while (inst.accessq_count() > 0) inst.accessq_pop_back();
     if (inst.is_load()) {
       for (unsigned r = 0; r < MAX_OUTPUT_VALUES; r++)
-        if (inst.out[r] > 0)
+        if (inst.out[r] > 0) {
           m_pending_writes[inst.warp_id()][inst.out[r]] -= access_count;
+          logger->trace(
+              "warp {} register {}: decrement from {} to {}", inst.warp_id(),
+              inst.out[r],
+              m_pending_writes[inst.warp_id()][inst.out[r]] + access_count,
+              m_pending_writes[inst.warp_id()][inst.out[r]]);
+        }
     }
   } else {
     fail = process_memory_access_queue(m_L1C, inst);
@@ -464,6 +483,9 @@ void ldst_unit::issue(register_set &reg_set) {
       unsigned reg_id = inst->out[r];
       if (reg_id > 0) {
         m_pending_writes[warp_id][reg_id] += n_accesses;
+        logger->trace("warp {} register {}: increment from {} to {}", warp_id,
+                      reg_id, m_pending_writes[warp_id][reg_id] - n_accesses,
+                      m_pending_writes[warp_id][reg_id]);
       }
     }
   }
@@ -498,6 +520,12 @@ void ldst_unit::writeback() {
             assert(m_pending_writes[m_next_wb.warp_id()][m_next_wb.out[r]] > 0);
             unsigned still_pending =
                 --m_pending_writes[m_next_wb.warp_id()][m_next_wb.out[r]];
+            logger->trace(
+                "load store unit: cycle {} writeback: next_wb={}, dest "
+                "register {}: pending writes={}",
+                m_core->get_gpu()->gpu_sim_cycle, m_next_wb, m_next_wb.out[r],
+                still_pending);
+
             if (!still_pending) {
               m_pending_writes[m_next_wb.warp_id()].erase(m_next_wb.out[r]);
               m_scoreboard->releaseRegister(m_next_wb.warp_id(),

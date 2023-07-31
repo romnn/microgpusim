@@ -226,7 +226,14 @@ bool opndcoll_rfu_t::writeback(warp_inst_t &inst) {
       unsigned bank = register_bank(reg_num, inst.warp_id(), m_num_banks,
                                     m_bank_warp_shift, sub_core_model,
                                     m_num_banks_per_sched, inst.get_schd_id());
-      if (m_arbiter.bank_idle(bank)) {
+
+      bool bank_idle = m_arbiter.bank_idle(bank);
+      logger->trace(
+          "operand collector: writeback {}: destination register {:>2}: "
+          "scheduler id={} bank={} (idle={})",
+          inst, reg_num, inst.get_schd_id(), bank, bank_idle);
+
+      if (bank_idle) {
         m_arbiter.allocate_bank_for_write(
             bank,
             op_t(&inst, reg_num, m_num_banks, m_bank_warp_shift, sub_core_model,

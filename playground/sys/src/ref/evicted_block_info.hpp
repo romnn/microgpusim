@@ -7,8 +7,8 @@ struct evicted_block_info {
   new_addr_type m_block_addr;
   unsigned m_modified_size;
 
-  new_addr_type m_allocation_start_addr;
   unsigned m_allocation_id;
+  new_addr_type m_allocation_start_addr;
 
   mem_access_byte_mask_t m_byte_mask;
   mem_access_sector_mask_t m_sector_mask;
@@ -22,10 +22,10 @@ struct evicted_block_info {
     m_allocation_id = 0;
     m_allocation_start_addr = 0;
   }
-  void set_info(new_addr_type block_addr, unsigned modified_size) {
-    m_block_addr = block_addr;
-    m_modified_size = modified_size;
-  }
+  // void set_info(new_addr_type block_addr, unsigned modified_size) {
+  //   m_block_addr = block_addr;
+  //   m_modified_size = modified_size;
+  // }
   void set_info(new_addr_type block_addr, unsigned modified_size,
                 mem_access_byte_mask_t byte_mask,
                 mem_access_sector_mask_t sector_mask, unsigned alloc_id,

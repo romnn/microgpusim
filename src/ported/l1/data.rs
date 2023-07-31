@@ -235,25 +235,34 @@ where
             false,
         );
 
+        let writeback_policy = self.inner.cache_config.write_policy;
+        log::debug!(
+            "handling READ MISS for {} (should miss={}, writeback={}, writeback policy={:?})",
+            fetch,
+            should_miss,
+            writeback,
+            writeback_policy,
+        );
+
         if should_miss {
             // If evicted block is modified and not a write-through
             // (already modified lower level)
-            if writeback
-                && self.inner.cache_config.write_policy != config::CacheWritePolicy::WRITE_THROUGH
-            {
+            if writeback && writeback_policy != config::CacheWritePolicy::WRITE_THROUGH {
                 if let Some(evicted) = evicted {
+                    let debug_fetch = fetch.to_string();
+
                     let is_write = true;
                     let writeback_access = mem_fetch::MemAccess::new(
                         self.write_back_type,
                         evicted.block_addr,
-                        evicted.allocation,
+                        evicted.allocation.clone(),
                         evicted.modified_size as u32,
                         is_write,
                         *fetch.access_warp_mask(),
                         evicted.byte_mask,
                         evicted.sector_mask,
                     );
-                    dbg!(&writeback_access);
+                    // dbg!(&writeback_access);
 
                     let mut writeback_fetch = mem_fetch::MemFetch::new(
                         fetch.instr,
@@ -269,7 +278,7 @@ where
                         0,
                         0,
                     );
-                    dbg!(&writeback_fetch);
+                    // dbg!(&writeback_fetch);
 
                     // the evicted block may have wrong chip id when
                     // advanced L2 hashing is used, so set the right chip
@@ -278,8 +287,14 @@ where
                     writeback_fetch.tlx_addr.sub_partition = fetch.tlx_addr.sub_partition;
                     let event = cache::Event {
                         kind: cache::EventKind::WRITE_BACK_REQUEST_SENT,
-                        evicted_block: None,
+                        evicted_block: None, // drop evicted?
                     };
+
+                    log::trace!(
+                        "handling READ MISS for {}: => sending writeback {}",
+                        debug_fetch,
+                        writeback_fetch
+                    );
 
                     self.send_write_request(writeback_fetch, event, time, events);
                 }

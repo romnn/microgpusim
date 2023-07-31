@@ -156,6 +156,8 @@ impl std::fmt::Debug for MemAccess {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("MemAccess")
             .field("addr", &self.addr)
+            .field("relative_addr", &self.relative_addr())
+            .field("allocation", &self.allocation)
             .field("kind", &self.kind)
             .field("req_size_bytes", &self.req_size_bytes)
             .field("is_write", &self.is_write)

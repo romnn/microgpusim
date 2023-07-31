@@ -2,7 +2,6 @@
 
 - today:
 
-  - FIX: lockstep: differences when using accelsim trace provider
   - FIX: add perf memcopy to gpu back in
   - parse accelsim config files
     - with defaults for compatibility
@@ -10,6 +9,10 @@
   - generate plots and correlation stuff etc
   - add flag for playground to run in accelsim compatibility mode
 
+  - DONE: fix tracing of multiple kernels
+  - DONE: add transpose benchmarks
+  - DONE: most likely need to be modified to allow selecting an implementation)
+  - DONE: lockstep: differences when using accelsim trace provider
   - DONE: convert accelsim traces to box traces
   - DONE: validate: respect --force flag and do not override existing files
   - DONE: add last access time to cache runtime state
@@ -20,6 +23,12 @@
 
 - REMEMBER: add back `perf_memcpy_to_gpu`
 - REMEMBER: changed l2_config::set_index to not use address mapping
+
+- refactors:
+
+  - REFACTOR: evicted block unwrapping
+  - REFACTOR: cache index unwrapping
+  - REFACTOR: better ref -> take semantics?
 
 - TEST: include mem fetch size in partial diff
 

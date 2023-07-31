@@ -464,6 +464,33 @@ impl From<ported::mem_fetch::MemFetch> for MemFetch {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct PendingRegisterWrites {
+    pub warp_id: usize,
+    pub reg_num: u32,
+    pub pending: usize,
+}
+
+// impl std::fmt::Debug for PendingRegisterWrites {
+//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+//         f.debug_tuple("")
+//             .field(&self.warp_id)
+//             .field(&self.reg_num)
+//             .field(&self.pending)
+//             .finish()
+//     }
+// }
+
+impl From<playground::core::pending_register_writes> for PendingRegisterWrites {
+    fn from(writes: playground::core::pending_register_writes) -> Self {
+        Self {
+            warp_id: writes.warp_id as usize,
+            reg_num: writes.reg_num,
+            pending: writes.pending as usize,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Simulation {
     pub interconn_to_l2_queue: Vec<Vec<MemFetch>>,
@@ -475,6 +502,7 @@ pub struct Simulation {
     pub functional_unit_pipelines: Vec<Vec<RegisterSet>>,
     pub operand_collectors: Vec<Option<OperandCollector>>,
     pub schedulers: Vec<Vec<Scheduler>>,
+    pub pending_register_writes: Vec<Vec<PendingRegisterWrites>>,
 }
 
 impl Simulation {
@@ -492,6 +520,7 @@ impl Simulation {
             functional_unit_pipelines: vec![vec![]; total_cores],
             schedulers: vec![vec![]; total_cores],
             operand_collectors: vec![None; total_cores],
+            pending_register_writes: vec![vec![]; total_cores],
         }
     }
 }

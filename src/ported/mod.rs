@@ -1144,6 +1144,7 @@ where
                     core.inner.instr_l1_cache.stats().lock().unwrap().clone(),
                 );
                 let ldst_unit = &core.inner.load_store_unit.lock().unwrap();
+
                 let data_l1 = ldst_unit.data_l1.as_ref().unwrap();
                 stats
                     .l1d_stats
@@ -1293,27 +1294,27 @@ where
                 // collect state
                 let state = self.gather_state();
                 if let Some((last_state, update_cycle)) = &last_state_change {
-                    log::info!(
-                        "current: {:?}",
-                        &state
-                            .interconn_to_l2_queue
-                            .iter()
-                            .map(|v| v.iter().map(ToString::to_string).collect())
-                            .collect::<Vec<Vec<String>>>()
-                    );
-                    log::info!(
-                        "last: {:?}",
-                        &last_state
-                            .interconn_to_l2_queue
-                            .iter()
-                            .map(|v| v.iter().map(ToString::to_string).collect())
-                            .collect::<Vec<Vec<String>>>()
-                    );
+                    // log::info!(
+                    //     "current: {:?}",
+                    //     &state
+                    //         .interconn_to_l2_queue
+                    //         .iter()
+                    //         .map(|v| v.iter().map(ToString::to_string).collect())
+                    //         .collect::<Vec<Vec<String>>>()
+                    // );
+                    // log::info!(
+                    //     "last: {:?}",
+                    //     &last_state
+                    //         .interconn_to_l2_queue
+                    //         .iter()
+                    //         .map(|v| v.iter().map(ToString::to_string).collect())
+                    //         .collect::<Vec<Vec<String>>>()
+                    // );
 
-                    log::info!(
-                        "interconn to l2 state updated? {}",
-                        &state.interconn_to_l2_queue != &last_state.interconn_to_l2_queue
-                    );
+                    // log::info!(
+                    //     "interconn to l2 state updated? {}",
+                    //     &state.interconn_to_l2_queue != &last_state.interconn_to_l2_queue
+                    // );
                 }
 
                 match &mut last_state_change {
@@ -1321,7 +1322,7 @@ where
                         panic!("deadlock after cycle {}", update_cycle);
                     }
                     Some((ref mut last_state, ref mut update_cycle)) => {
-                        log::info!("deadlock check: updated state in cycle {}", cycle);
+                        // log::info!("deadlock check: updated state in cycle {}", cycle);
                         *last_state = state;
                         *update_cycle = cycle;
                     }
@@ -1557,6 +1558,7 @@ mod tests {
                 (native_box_commands_path, native_accelsim_kernelslist_path)
             }
             TraceProvider::Accelsim => {
+                assert!(native_accelsim_kernelslist_path.is_file());
                 let generated_box_commands_path = box_trace_dir.join("accelsim.commands.json");
                 println!(
                     "generating commands {}",
@@ -1624,6 +1626,7 @@ mod tests {
                 )
             }
             TraceProvider::Box => {
+                assert!(native_box_commands_path.is_file());
                 let generated_kernelslist_path = accelsim_trace_dir.join("box-kernelslist.g");
                 println!(
                     "generating commands {}",
@@ -1824,6 +1827,26 @@ mod tests {
                             .extend(core.schedulers.iter().map(Into::into));
                         // core: l2 cache
                         let ldst_unit = core.inner.load_store_unit.lock().unwrap();
+
+                        // core: pending register writes
+                        box_sim_state.pending_register_writes[core_id] = ldst_unit
+                            .pending_writes
+                            .clone()
+                            .into_iter()
+                            .flat_map(|(warp_id, pending_registers)| {
+                                pending_registers
+                                    .into_iter()
+                                    .map(move |(reg_num, pending)| {
+                                        testing::state::PendingRegisterWrites {
+                                            warp_id,
+                                            reg_num,
+                                            pending,
+                                        }
+                                    })
+                            })
+                            .collect();
+
+                        box_sim_state.pending_register_writes[core_id].sort();
                         // let l1d_tag_array = ldst_unit.data_l1.unwrap().tag_array;
                         // dbg!(&l1d_tag_array);
                         // let l1d_tag_array = ldst_unit.data_l1.unwrap().tag_array;
@@ -1893,16 +1916,13 @@ mod tests {
                         play_sim_state.functional_unit_pipelines[core_id].push(regs.into());
                     }
 
-                    // box_sim_state.functional_unit_pipelines[core_id].push(
-                    //                                 testing::state::RegisterSet {
-                    //                                     stage: fu.id().to_string(),
-                    //                                     pipeline: fu
-                    //                                         .pipeline()
-                    //                                         .iter()
-                    //                                         .map(|reg| reg.clone().map(Into::into))
-                    //                                         .collect(),
-                    //                                 },
-                    //                             );
+                    // core: pending register writes
+                    play_sim_state.pending_register_writes[core_id] = core
+                        .pending_register_writes()
+                        .into_iter()
+                        .map(Into::into)
+                        .collect();
+                    play_sim_state.pending_register_writes[core_id].sort();
 
                     // core: operand collector
                     let coll = core.operand_collector();
@@ -2119,15 +2139,25 @@ mod tests {
     }
 
     lockstep_checks! {
-        test_vectoradd_100_32: "results/vectorAdd/vectorAdd-100-32",
-        test_vectoradd_1000_32: "results/vectorAdd/vectorAdd-1000-32",
-        test_vectoradd_10000_32: "results/vectorAdd/vectorAdd-10000-32",
-        test_simple_matrixmul_32_32_32_32: "results/simple_matrixmul/simple_matrixmul-32-32-32-32",
-        test_simple_matrixmul_32_32_64_32: "results/simple_matrixmul/simple_matrixmul-32-32-64-32",
-        test_simple_matrixmul_64_128_128_32: "results/simple_matrixmul/simple_matrixmul-64-128-128-32",
-        test_matrixmul_32_32: "results/matrixmul/matrixmul-32-32",
-        test_matrixmul_64_32: "results/matrixmul/matrixmul-64-32",
-        test_matrixmul_128_32: "results/matrixmul/matrixmul-128-32",
-        test_matrixmul_256_32: "results/matrixmul/matrixmul-256-32",
+        // vectoradd
+        test_vectoradd_32_100: "results/vectorAdd/vectorAdd-dtype-32-length-100",
+        test_vectoradd_32_1000: "results/vectorAdd/vectorAdd-dtype-32-length-1000",
+        test_vectoradd_32_10000: "results/vectorAdd/vectorAdd-dtype-32-length-10000",
+        // simple matrixmul
+        test_simple_matrixmul_32_32_32_32:
+            "results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32",
+        test_simple_matrixmul_32_32_32_64:
+            "results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64",
+        test_simple_matrixmul_32_64_128_128:
+            "results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128",
+        // matrixmul (shared memory)
+        test_matrixmul_32_32: "results/matrixmul/matrixmul-dtype-32-rows-32",
+        test_matrixmul_32_64: "results/matrixmul/matrixmul-dtype-32-rows-64",
+        test_matrixmul_32_128: "results/matrixmul/matrixmul-dtype-32-rows-128",
+        test_matrixmul_32_256: "results/matrixmul/matrixmul-dtype-32-rows-256",
+        // transpose
+        test_transpose_256_naive: "results/transpose/transpose-dim-256-variant-naive-repeat-1",
+        test_transpose_256_coalesced: "results/transpose/transpose-dim-256-variant-coalesced-repeat-1",
+        test_transpose_256_optimized: "results/transpose/transpose-dim-256-variant-optimized-repeat-1",
     }
 }
