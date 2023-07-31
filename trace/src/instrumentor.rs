@@ -17,8 +17,11 @@ fn bool_env(name: &str) -> Option<bool> {
         .map(|value| value.to_lowercase() == "yes")
 }
 
-fn sort_key(inst: &trace_model::MemAccessTraceEntry, grid: trace_model::Dim) -> u64 {
-    trace_model::Point::new(inst.block_id.clone(), grid).accelsim_id()
+fn sort_key(inst: &trace_model::MemAccessTraceEntry, grid: trace_model::Dim) -> (u64, u32) {
+    (
+        trace_model::Point::new(inst.block_id.clone(), grid).accelsim_id(),
+        inst.warp_id_in_block,
+    )
 }
 
 fn kernel_trace_file_name(id: u64) -> String {
