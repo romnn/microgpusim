@@ -1,0 +1,5 @@
+nvcc
+-Wall
+-Wextra
+-std=c++14
+-I../cuda-samples-10.2/Common/

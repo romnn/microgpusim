@@ -42,9 +42,9 @@
 
 namespace cg = cooperative_groups;
 // Utilities and system includes
-#include "helper_string.h" // helper for string parsing
 #include <helper_cuda.h>   // helper for cuda error checking functions
 #include <helper_image.h>  // helper for image and data comparison
+#include <helper_string.h> // helper for string parsing
 
 const char *sSDKsample = "Transpose";
 
@@ -307,7 +307,7 @@ void computeTransposeGold(float *gold, float *idata, const int size_x,
 }
 
 void getParams(int argc, char **argv, cudaDeviceProp &deviceProp, int &repeat,
-               int &size_x, int &size_y, int max_tile_dim) {
+               int &size_x, int &size_y, char **variant, int max_tile_dim) {
   // set matrix size (if (x,y) dim of matrix is not square, then this will have
   // to be modified
   if (checkCmdLineFlag(argc, (const char **)argv, "dimX")) {
@@ -341,6 +341,10 @@ void getParams(int argc, char **argv, cudaDeviceProp &deviceProp, int &repeat,
   if (checkCmdLineFlag(argc, (const char **)argv, "repeat")) {
     repeat = getCmdLineArgumentInt(argc, (const char **)argv, "repeat");
   }
+
+  if (checkCmdLineFlag(argc, (const char **)argv, "variant")) {
+    getCmdLineArgumentString(argc, (const char **)argv, "variant", variant);
+  }
 }
 
 void showHelp() {
@@ -351,6 +355,125 @@ void showHelp() {
   printf("\t-dimY=col_dim_size (matrix column dimensions)\n");
 }
 
+void run_variant( // void (*kernel)(float *, float *, int, int),
+                  // const char *kernelName,
+    int variant, int reps, float *h_idata, float *h_odata, float *d_idata,
+    float *d_odata, float *transposeGold, float *gold, dim3 grid, dim3 threads,
+    int size_x, int size_y, size_t mem_size, bool &success) {
+  // kernel pointer and descriptor
+  void (*kernel)(float *, float *, int, int);
+  const char *kernelName;
+
+  // set kernel pointer
+  switch (variant) {
+  case 0:
+    kernel = &copy;
+    kernelName = "simple copy       ";
+    break;
+
+  case 1:
+    kernel = &copySharedMem;
+    kernelName = "shared memory copy";
+    break;
+
+  case 2:
+    kernel = &transposeNaive;
+    kernelName = "naive             ";
+    break;
+
+  case 3:
+    kernel = &transposeCoalesced;
+    kernelName = "coalesced         ";
+    break;
+
+  case 4:
+    kernel = &transposeNoBankConflicts;
+    kernelName = "optimized         ";
+    break;
+
+  case 5:
+    kernel = &transposeCoarseGrained;
+    kernelName = "coarse-grained    ";
+    break;
+
+  case 6:
+    kernel = &transposeFineGrained;
+    kernelName = "fine-grained      ";
+    break;
+
+  case 7:
+    kernel = &transposeDiagonal;
+    kernelName = "diagonal          ";
+    break;
+  }
+  // set reference solution
+  if (kernel == &copy || kernel == &copySharedMem) {
+    gold = h_idata;
+  } else if (kernel == &transposeCoarseGrained ||
+             kernel == &transposeFineGrained) {
+    gold = h_odata; // fine- and coarse-grained kernels are not full
+                    // transposes, so bypass check
+  } else {
+    gold = transposeGold;
+  }
+
+  // Clear error status
+  checkCudaErrors(cudaGetLastError());
+
+  // warmup to avoid timing startup
+  kernel<<<grid, threads>>>(d_odata, d_idata, size_x, size_y);
+  checkCudaErrors(cudaGetLastError());
+
+  // CUDA events
+  cudaEvent_t start, stop;
+  // initialize events
+  checkCudaErrors(cudaEventCreate(&start));
+  checkCudaErrors(cudaEventCreate(&stop));
+
+  // take measurements for loop over kernel launches
+  checkCudaErrors(cudaEventRecord(start, 0));
+
+  for (int i = 0; i < reps; i++) {
+    kernel<<<grid, threads>>>(d_odata, d_idata, size_x, size_y);
+    // Ensure no launch failure
+    checkCudaErrors(cudaGetLastError());
+  }
+
+  checkCudaErrors(cudaEventRecord(stop, 0));
+  checkCudaErrors(cudaEventSynchronize(stop));
+  float kernelTime;
+  checkCudaErrors(cudaEventElapsedTime(&kernelTime, start, stop));
+
+  checkCudaErrors(
+      cudaMemcpy(h_odata, d_odata, mem_size, cudaMemcpyDeviceToHost));
+  bool res = compareData(gold, h_odata, size_x * size_y, 0.01f, 0.0f);
+
+  if (res == false) {
+    printf("*** %s kernel FAILED ***\n", kernelName);
+    success = false;
+  }
+
+  // take measurements for loop inside kernel
+  checkCudaErrors(
+      cudaMemcpy(h_odata, d_odata, mem_size, cudaMemcpyDeviceToHost));
+  res = compareData(gold, h_odata, size_x * size_y, 0.01f, 0.0f);
+
+  if (res == false) {
+    printf("*** %s kernel FAILED ***\n", kernelName);
+    success = false;
+  }
+
+  // report effective bandwidths
+  float kernelBandwidth =
+      2.0f * 1000.0f * mem_size / (1024 * 1024 * 1024) / (kernelTime / reps);
+  printf("transpose %s, Throughput = %.4f GB/s, Time = %.5f ms, Size = %u fp32 "
+         "elements, NumDevsUsed = %u, Workgroup = %u\n",
+         kernelName, kernelBandwidth, kernelTime / reps, (size_x * size_y), 1,
+         TILE_DIM * BLOCK_ROWS);
+
+  checkCudaErrors(cudaEventDestroy(start));
+  checkCudaErrors(cudaEventDestroy(stop));
+}
 // ----
 // main
 // ----
@@ -408,7 +531,9 @@ int main(int argc, char **argv) {
   // Extract parameters if there are any, command line -dimx and -dimy can
   // override any of these settings
   int reps = 100;
-  getParams(argc, argv, deviceProp, reps, size_x, size_y, max_matrix_dim);
+  char *variant_arg = NULL;
+  getParams(argc, argv, deviceProp, reps, size_x, size_y, &variant_arg,
+            max_matrix_dim);
 
   if (size_x != size_y) {
     printf("\n[%s] does not support non-square matrices (row_dim_size(%d) != "
@@ -424,10 +549,6 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  // kernel pointer and descriptor
-  void (*kernel)(float *, float *, int, int);
-  const char *kernelName;
-
   // execution configuration parameters
   dim3 grid(size_x / TILE_DIM, size_y / TILE_DIM),
       threads(TILE_DIM, BLOCK_ROWS);
@@ -437,9 +558,6 @@ int main(int argc, char **argv) {
            sSDKsample);
     exit(EXIT_FAILURE);
   }
-
-  // CUDA events
-  cudaEvent_t start, stop;
 
   // size of memory required to store the matrix
   size_t mem_size = static_cast<size_t>(sizeof(float) * size_x * size_y);
@@ -479,118 +597,41 @@ int main(int argc, char **argv) {
          size_x, size_y, size_x / TILE_DIM, size_y / TILE_DIM, TILE_DIM,
          TILE_DIM, TILE_DIM, BLOCK_ROWS);
 
-  // initialize events
-  checkCudaErrors(cudaEventCreate(&start));
-  checkCudaErrors(cudaEventCreate(&stop));
-
   //
   // loop over different kernels
   //
 
   bool success = true;
 
-  for (int k = 0; k < 8; k++) {
-    // set kernel pointer
-    switch (k) {
-    case 0:
-      kernel = &copy;
-      kernelName = "simple copy       ";
-      break;
+  const int NUM_VARIANTS = 8;
+  const char *variants[NUM_VARIANTS] = {
+      "simple copy", "shared memory copy", "naive",        "coalesced",
+      "optimized",   "coarse-grained",     "fine-grained", "diagonal"};
 
-    case 1:
-      kernel = &copySharedMem;
-      kernelName = "shared memory copy";
-      break;
-
-    case 2:
-      kernel = &transposeNaive;
-      kernelName = "naive             ";
-      break;
-
-    case 3:
-      kernel = &transposeCoalesced;
-      kernelName = "coalesced         ";
-      break;
-
-    case 4:
-      kernel = &transposeNoBankConflicts;
-      kernelName = "optimized         ";
-      break;
-
-    case 5:
-      kernel = &transposeCoarseGrained;
-      kernelName = "coarse-grained    ";
-      break;
-
-    case 6:
-      kernel = &transposeFineGrained;
-      kernelName = "fine-grained      ";
-      break;
-
-    case 7:
-      kernel = &transposeDiagonal;
-      kernelName = "diagonal          ";
-      break;
+  if (variant_arg == NULL) {
+    for (int k = 0; k < NUM_VARIANTS; k++) {
+      run_variant(k, reps, h_idata, h_odata, d_idata, d_odata, transposeGold,
+                  gold, grid, threads, size_x, size_y, mem_size, success);
+    }
+  } else {
+    int k = 0;
+    int *found = NULL;
+    for (; k < NUM_VARIANTS; k++) {
+      if (!strcmp(variant_arg, variants[k])) {
+        found = &k;
+        break;
+      }
     }
 
-    // set reference solution
-    if (kernel == &copy || kernel == &copySharedMem) {
-      gold = h_idata;
-    } else if (kernel == &transposeCoarseGrained ||
-               kernel == &transposeFineGrained) {
-      gold = h_odata; // fine- and coarse-grained kernels are not full
-                      // transposes, so bypass check
+    if (found == NULL) {
+      printf("unknown variant %s\n", variant_arg);
+      success = false;
     } else {
-      gold = transposeGold;
+      printf("running variant %s (%d)\n", variant_arg, *found);
+      run_variant(*found, reps, h_idata, h_odata, d_idata, d_odata,
+                  transposeGold, gold, grid, threads, size_x, size_y, mem_size,
+                  success);
     }
-
-    // Clear error status
-    checkCudaErrors(cudaGetLastError());
-
-    // warmup to avoid timing startup
-    kernel<<<grid, threads>>>(d_odata, d_idata, size_x, size_y);
-
-    // take measurements for loop over kernel launches
-    checkCudaErrors(cudaEventRecord(start, 0));
-
-    for (int i = 0; i < reps; i++) {
-      kernel<<<grid, threads>>>(d_odata, d_idata, size_x, size_y);
-      // Ensure no launch failure
-      checkCudaErrors(cudaGetLastError());
-    }
-
-    checkCudaErrors(cudaEventRecord(stop, 0));
-    checkCudaErrors(cudaEventSynchronize(stop));
-    float kernelTime;
-    checkCudaErrors(cudaEventElapsedTime(&kernelTime, start, stop));
-
-    checkCudaErrors(
-        cudaMemcpy(h_odata, d_odata, mem_size, cudaMemcpyDeviceToHost));
-    bool res = compareData(gold, h_odata, size_x * size_y, 0.01f, 0.0f);
-
-    if (res == false) {
-      printf("*** %s kernel FAILED ***\n", kernelName);
-      success = false;
-    }
-
-    // take measurements for loop inside kernel
-    checkCudaErrors(
-        cudaMemcpy(h_odata, d_odata, mem_size, cudaMemcpyDeviceToHost));
-    res = compareData(gold, h_odata, size_x * size_y, 0.01f, 0.0f);
-
-    if (res == false) {
-      printf("*** %s kernel FAILED ***\n", kernelName);
-      success = false;
-    }
-
-    // report effective bandwidths
-    float kernelBandwidth =
-        2.0f * 1000.0f * mem_size / (1024 * 1024 * 1024) / (kernelTime / reps);
-    printf(
-        "transpose %s, Throughput = %.4f GB/s, Time = %.5f ms, Size = %u fp32 "
-        "elements, NumDevsUsed = %u, Workgroup = %u\n",
-        kernelName, kernelBandwidth, kernelTime / reps, (size_x * size_y), 1,
-        TILE_DIM * BLOCK_ROWS);
   }
 
   // cleanup
@@ -599,9 +640,6 @@ int main(int argc, char **argv) {
   free(transposeGold);
   cudaFree(d_idata);
   cudaFree(d_odata);
-
-  checkCudaErrors(cudaEventDestroy(start));
-  checkCudaErrors(cudaEventDestroy(stop));
 
   if (!success) {
     printf("Test failed!\n");

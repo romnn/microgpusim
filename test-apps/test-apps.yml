@@ -54,30 +54,44 @@ benchmarks:
     path: ./vectoradd
     executable: vectoradd
     inputs:
-      data_type: [32]
+      dtype: [32]
       length: [100, 1000, 10000]
-    args: "{{ input.length }} {{ input.data_type }}"
+    args: "{{ input.length }} {{ input.dtype }}"
     # profile:
-    # log_file: "./results/{{ bench.name }}/{{ bench.name }}-{{length}}-{{data_type}}/nvprof.log"
+    # log_file: "./results/{{ bench.name }}/{{ bench.name }}-{{length}}-{{dtype}}/nvprof.log"
     # log_file: "./results/vectorAdd/vectorAdd-32-100/nvprof.log"
     # metrics_file: "./results/vectorAdd/vectorAdd-32-100/metrics.json"
   simple_matrixmul:
     path: ./simple_matrixmul
     executable: matrixmul
     inputs:
-      data_type: [32]
+      dtype: [32]
       m: [32, 64, 128]
       n: [32, 64, 128]
       p: [32, 64, 128]
     # (m x n) x (n x p)
-    args: "{{ input.m }} {{ input.n }} {{ input.p }} {{ input.data_type }}"
+    args: "{{ input.m }} {{ input.n }} {{ input.p }} {{ input.dtype }}"
   matrixmul:
     path: ./matrixmul
     executable: matrixmul
     inputs:
-      data_type: [32]
+      dtype: [32]
       rows: [32, 64, 128, 256, 512]
       exclude:
         - rows: 512
     # (rows x rows) x (rows x rows)
-    args: "{{ input.rows }} {{ input.data_type }}"
+    args: "{{ input.rows }} {{ input.dtype }}"
+  # CUDA 10 transpose (modified to allow running individual implementations)
+  transpose:
+    path: ./transpose
+    executable: transpose
+    inputs:
+      # must be square matrix
+      dim: [256, 512, 1024]
+      variant:
+        - "naive"
+        - "coalesced"
+        - "optimized"
+      include:
+        - repeat: 1
+    args: "-variant={{ input.variant }} -dimX={{ input.dim }} -dimY={{ input.dim }} -repeat={{ input.repeat }}"
