@@ -63,10 +63,16 @@ impl BandwidthManager {
                 //     self.data_port_occupied_cycles += data_cycles as usize;
                 // }
                 // cache_event ev(WRITE_BACK_REQUEST_SENT);
-                if let Some(writeback) = was_writeback_sent(events) {
-                    let evicted = writeback.evicted_block.as_ref().unwrap();
+                if let Some(evicted) =
+                    was_writeback_sent(events).and_then(|wb| wb.evicted_block.as_ref())
+                {
+                    // let evicted = writeback.evicted_block.as_ref().unwrap();
                     let data_cycles = evicted.modified_size / port_width;
                     self.data_port_occupied_cycles += data_cycles as usize;
+                    log::trace!(
+                        "write back request sent: using data port for {} / {} = {} cycles ({} total)",
+                        evicted.modified_size, port_width, data_cycles,
+                        self.data_port_occupied_cycles);
                 }
             }
             cache::RequestStatus::SECTOR_MISS | cache::RequestStatus::RESERVATION_FAIL => {
@@ -297,7 +303,6 @@ impl<I> Base<I> {
         addr: address,
         block_addr: u64,
         cache_index: usize,
-        // cache_index: Option<usize>,
         mut fetch: mem_fetch::MemFetch,
         time: u64,
         events: &mut Vec<cache::Event>,
@@ -403,7 +408,7 @@ impl<I> Base<I> {
                 self.miss_queue_full()
             );
         }
-        (should_miss, write_allocate, evicted)
+        (should_miss, writeback, evicted)
     }
 
     // /// Base read miss
