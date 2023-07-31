@@ -239,9 +239,9 @@ enum PrimitiveValue {
 impl std::fmt::Display for PrimitiveValue {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Self::String(v) => write!(f, "{}", v),
-            Self::Bool(v) => write!(f, "{}", v),
-            Self::Number(v) => write!(f, "{}", v),
+            Self::String(v) => write!(f, "{v}"),
+            Self::Bool(v) => write!(f, "{v}"),
+            Self::Number(v) => write!(f, "{v}"),
         }
     }
 }
@@ -299,7 +299,7 @@ impl crate::Benchmark {
         // dbg!(&bench_config_dir_name);
 
         let mut bench_config_dir_name = Vec::new();
-        for (k, v) in input.clone().into_iter() {
+        for (k, v) in input.clone() {
             bench_config_dir_name.push(k);
             bench_config_dir_name.extend(flatten(v).into_iter().map(|v| v.to_string()));
         }

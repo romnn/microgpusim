@@ -24,7 +24,7 @@ fn convert_traces_to_json(trace_dir: &Path, kernelslist: &Path) -> eyre::Result<
             AccelsimCommand::KernelLaunch((mut kernel, metadata)) => {
                 // transform kernel instruction trace
                 let kernel_trace_path = trace_dir.join(&kernel.trace_file);
-                let reader = utils::fs::open_readable(&kernel_trace_path)?;
+                let reader = utils::fs::open_readable(kernel_trace_path)?;
                 let parsed_trace = tracegen::reader::read_trace_instructions(
                     reader,
                     metadata.trace_version,
@@ -34,7 +34,7 @@ fn convert_traces_to_json(trace_dir: &Path, kernelslist: &Path) -> eyre::Result<
 
                 let json_kernel_trace_name = format!("kernel-{}.json", kernel.id);
                 let json_kernel_trace_path = trace_dir.join(&json_kernel_trace_name);
-                let mut writer = utils::fs::open_writable(&json_kernel_trace_path)?;
+                let mut writer = utils::fs::open_writable(json_kernel_trace_path)?;
 
                 serde_json::to_writer_pretty(&mut writer, &parsed_trace)?;
 
@@ -47,7 +47,7 @@ fn convert_traces_to_json(trace_dir: &Path, kernelslist: &Path) -> eyre::Result<
         .try_collect()?;
 
     let json_kernelslist = kernelslist.with_extension("json");
-    serde_json::to_writer_pretty(utils::fs::open_writable(&json_kernelslist)?, &commands)?;
+    serde_json::to_writer_pretty(utils::fs::open_writable(json_kernelslist)?, &commands)?;
     Ok(())
 }
 
@@ -76,7 +76,7 @@ pub async fn trace(
         .map_err(eyre::Report::from)?;
 
     // convert accelsim traces to JSON for us to easily inspect
-    convert_traces_to_json(&traces_dir, &kernelslist)?;
+    convert_traces_to_json(traces_dir, &kernelslist)?;
     // if let Err(err) = convert_traces_to_json(&traces_dir, &kernelslist) {
     //     log::error!(
     //         "failed to convert {} to JSON: {}",

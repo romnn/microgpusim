@@ -1,4 +1,3 @@
-use console::style;
 use nvbit_io::Encoder;
 use nvbit_rs::{model, DeviceChannel, HostChannel};
 use serde::Serialize;
@@ -7,7 +6,6 @@ use std::ffi;
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Arc, Mutex, RwLock};
 use std::time::Instant;
-use trace_model;
 
 use crate::args::Args;
 use crate::common;
@@ -232,6 +230,82 @@ impl<'c> Instrumentor<'c> {
         );
     }
 
+    fn process_kernel_launch(&self, kernel_launch: nvbit_rs::EventParams<'c>, is_exit: bool) {
+        let nvbit_rs::EventParams::KernelLaunch {
+                mut func,
+                grid,
+                block,
+                shared_mem_bytes,
+                h_stream,
+                ..
+            } = kernel_launch else {
+            return;
+        };
+        if is_exit {
+            log::info!(
+                "KERNEL {} COMPLETED",
+                &func.name(&mut self.ctx.lock().unwrap())
+            );
+
+            // make sure current kernel is completed
+            unsafe { nvbit_sys::cuCtxSynchronize() };
+
+            // flush channel to make sure all memory accesses have been pushed
+            self.flush_channel();
+
+            // wait until the receiver thread caught up to the channel flush
+            log::info!("waiting for channel flush");
+            loop {
+                if self.channel_flush_rx.lock().unwrap().try_recv().is_ok() {
+                    break;
+                }
+                std::thread::yield_now();
+            }
+            log::info!("received channel flush");
+        } else {
+            self.instrument_function_if_needed(&mut func);
+
+            let ctx = &mut self.ctx.lock().unwrap();
+            let mut kernel_id = self.kernel_id.lock().unwrap();
+
+            let shmem_static_nbytes =
+                u32::try_from(func.shared_memory_bytes().unwrap_or_default()).unwrap();
+            let func_name = func.name(ctx);
+            let _pc = func.addr();
+
+            let trace_file = kernel_trace_file_name(*kernel_id);
+
+            let num_registers = func.num_registers().unwrap();
+
+            let kernel_info = trace_model::KernelLaunch {
+                name: func_name.to_string(),
+                id: *kernel_id,
+                trace_file,
+                grid: grid.into(),
+                block: block.into(),
+                shared_mem_bytes: shmem_static_nbytes + shared_mem_bytes,
+                num_registers: num_registers.unsigned_abs(),
+                binary_version: func.binary_version().unwrap(),
+                stream_id: h_stream.as_ptr() as u64,
+                shared_mem_base_addr: nvbit_rs::shmem_base_addr(ctx),
+                local_mem_base_addr: nvbit_rs::local_mem_base_addr(ctx),
+                nvbit_version: nvbit_rs::version().to_string(),
+            };
+            log::info!("KERNEL LAUNCH: {:#?}", &kernel_info);
+            self.kernels.lock().unwrap().push(kernel_info.clone());
+
+            self.commands
+                .lock()
+                .unwrap()
+                .push(trace_model::Command::KernelLaunch(kernel_info));
+
+            *kernel_id += 1;
+
+            // enable instrumented code to run
+            func.enable_instrumented(ctx, true, true);
+        }
+    }
+
     pub fn at_cuda_event(
         &self,
         is_exit: bool,
@@ -247,77 +321,8 @@ impl<'c> Instrumentor<'c> {
 
         let params = EventParams::new(cbid, params);
         match params {
-            Some(EventParams::KernelLaunch {
-                mut func,
-                grid,
-                block,
-                shared_mem_bytes,
-                h_stream,
-                ..
-            }) => {
-                if is_exit {
-                    log::info!(
-                        "KERNEL {} COMPLETED",
-                        &func.name(&mut self.ctx.lock().unwrap())
-                    );
-
-                    // make sure current kernel is completed
-                    unsafe { nvbit_sys::cuCtxSynchronize() };
-
-                    // flush channel to make sure all memory accesses have been pushed
-                    self.flush_channel();
-
-                    // wait until the receiver thread caught up to the channel flush
-                    log::info!("waiting for channel flush");
-                    loop {
-                        if self.channel_flush_rx.lock().unwrap().try_recv().is_ok() {
-                            break;
-                        }
-                        std::thread::yield_now();
-                    }
-                    log::info!("received channel flush");
-                } else {
-                    self.instrument_function_if_needed(&mut func);
-
-                    let ctx = &mut self.ctx.lock().unwrap();
-                    let mut kernel_id = self.kernel_id.lock().unwrap();
-
-                    let shmem_static_nbytes =
-                        u32::try_from(func.shared_memory_bytes().unwrap_or_default()).unwrap();
-                    let func_name = func.name(ctx);
-                    let _pc = func.addr();
-
-                    let trace_file = kernel_trace_file_name(*kernel_id);
-
-                    let num_registers = func.num_registers().unwrap();
-
-                    let kernel_info = trace_model::KernelLaunch {
-                        name: func_name.to_string(),
-                        id: *kernel_id,
-                        trace_file,
-                        grid: grid.into(),
-                        block: block.into(),
-                        shared_mem_bytes: shmem_static_nbytes + shared_mem_bytes,
-                        num_registers: num_registers.unsigned_abs(),
-                        binary_version: func.binary_version().unwrap(),
-                        stream_id: h_stream.as_ptr() as u64,
-                        shared_mem_base_addr: nvbit_rs::shmem_base_addr(ctx),
-                        local_mem_base_addr: nvbit_rs::local_mem_base_addr(ctx),
-                        nvbit_version: nvbit_rs::version().to_string(),
-                    };
-                    log::info!("KERNEL LAUNCH: {:#?}", &kernel_info);
-                    self.kernels.lock().unwrap().push(kernel_info.clone());
-
-                    self.commands
-                        .lock()
-                        .unwrap()
-                        .push(trace_model::Command::KernelLaunch(kernel_info));
-
-                    *kernel_id += 1;
-
-                    // enable instrumented code to run
-                    func.enable_instrumented(ctx, true, true);
-                }
+            Some(kernel_launch @ EventParams::KernelLaunch { .. }) => {
+                self.process_kernel_launch(kernel_launch, is_exit);
             }
             Some(EventParams::MemCopyHostToDevice {
                 dest_device,
@@ -327,7 +332,6 @@ impl<'c> Instrumentor<'c> {
                 if is_exit {
                     return;
                 }
-
                 self.commands
                     .lock()
                     .unwrap()
@@ -613,9 +617,10 @@ impl<'c> Instrumentor<'c> {
 
                 #[cfg(debug_assertions)]
                 {
+                    use console::style;
                     use indexmap::IndexMap;
                     let mut unique_block_counts: IndexMap<_, usize> = IndexMap::new();
-                    for inst in kernel_trace.iter() {
+                    for inst in &kernel_trace {
                         *unique_block_counts
                             .entry(inst.block_id.clone())
                             .or_default() += 1;

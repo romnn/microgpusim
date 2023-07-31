@@ -17,7 +17,7 @@ pub async fn simulate(
     let traces_dir = &bench.accelsim_trace.traces_dir;
     let stats_dir = &bench.playground_simulate.stats_dir;
 
-    if !options.force && crate::stats::already_exist(&stats_dir) {
+    if !options.force && crate::stats::already_exist(stats_dir) {
         return Err(RunError::Skipped);
     }
 
@@ -81,7 +81,7 @@ pub async fn simulate(
     //     ..stats::Stats::default()
     // };
 
-    create_dirs(&stats_dir).map_err(eyre::Report::from)?;
+    create_dirs(stats_dir).map_err(eyre::Report::from)?;
     let _stats_out_file = stats_dir.join("stats.json");
     let exec_dur_file = stats_dir.join("exec_time.json");
 

@@ -24,7 +24,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use utils::fs::create_dirs;
 use validate::benchmark::paths::PathExt;
-use validate::materialize::{BenchmarkConfig, Benchmarks};
+use validate::materialize::{self, BenchmarkConfig, Benchmarks};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -262,16 +262,33 @@ fn print_benchmark_result(
     };
 }
 
+fn available_concurrency(options: &Options, config: &materialize::Config) -> usize {
+    let benchmark_concurrency = match options.command {
+        Command::Profile(_) => config.profile.common.concurrency,
+        Command::Trace(_) => config.trace.common.concurrency,
+        Command::AccelsimTrace(_) => config.accelsim_trace.common.concurrency,
+        Command::Simulate(_) => config.simulate.common.concurrency,
+        Command::AccelsimSimulate(_) => config.accelsim_simulate.common.concurrency,
+        Command::PlaygroundSimulate(_) => config.playground_simulate.common.concurrency,
+        Command::Build(_) | Command::Clean(_) => None, // no limit on concurrency
+        Command::Expand(_) => Some(1),                 // to keep deterministic ordering
+    };
+
+    let max_concurrency = num_cpus::get_physical();
+    let concurrency = options
+        .concurrency
+        .or(benchmark_concurrency)
+        .unwrap_or(max_concurrency);
+    concurrency.min(max_concurrency)
+}
+
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> eyre::Result<()> {
     env_logger::init();
     color_eyre::install()?;
-
-    let start = std::time::Instant::now();
-
-    // load env variables from .env files
     dotenv::dotenv().ok();
 
+    let start = std::time::Instant::now();
     let options = Arc::new(Options::parse());
 
     // parse benchmarks
@@ -284,23 +301,8 @@ async fn main() -> eyre::Result<()> {
         }
     }
 
-    let config = &materialized.config;
-    let benchmark_concurrency = match options.command {
-        Command::Profile(_) => config.profile.common.concurrency,
-        Command::Trace(_) => config.trace.common.concurrency,
-        Command::AccelsimTrace(_) => config.accelsim_trace.common.concurrency,
-        Command::Simulate(_) => config.simulate.common.concurrency,
-        Command::AccelsimSimulate(_) => config.accelsim_simulate.common.concurrency,
-        Command::PlaygroundSimulate(_) => config.playground_simulate.common.concurrency,
-        Command::Build(_) | Command::Clean(_) => None, // no limit on concurrency
-        Command::Expand(_) => Some(1),                 // to keep deterministic ordering
-    };
-
-    let concurrency = options
-        .concurrency
-        .or(benchmark_concurrency)
-        .unwrap_or_else(num_cpus::get_physical);
-    println!("concurrency: {}", &concurrency);
+    let concurrency = available_concurrency(&options, &materialized.config);
+    println!("concurrency: {concurrency}");
 
     let mut enabled_benches: Vec<_> = materialized.enabled().cloned().collect();
     filter_benchmarks(&mut enabled_benches, &options);
@@ -309,8 +311,7 @@ async fn main() -> eyre::Result<()> {
     // create progress bar
     let bar = Arc::new(ProgressBar::new(enabled_benches.len() as u64));
     bar.enable_steady_tick(std::time::Duration::from_secs_f64(1.0 / 10.0));
-    let bar_style = progress::Style::default();
-    bar.set_style(bar_style.into());
+    bar.set_style(progress::Style::default().into());
 
     let should_exit = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
