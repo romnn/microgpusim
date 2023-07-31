@@ -239,7 +239,7 @@ fn base_stride_decompress(
 fn base_delta_decompress(
     addrs: &mut [u64],
     base_address: u64,
-    deltas: Vec<u64>,
+    deltas: Vec<i64>,
     active_mask: &super::ActiveMask,
 ) {
     let mut first_bit1_found = false;
@@ -252,8 +252,8 @@ fn base_delta_decompress(
             last_address = base_address;
         } else if active_mask[w] && first_bit1_found {
             assert!(delta_index < deltas.len());
+            addrs[w] = (last_address as i64 + deltas[delta_index]) as u64;
             delta_index += 1;
-            addrs[w] = last_address + deltas[delta_index];
             last_address = addrs[w];
         }
     }
@@ -336,6 +336,19 @@ pub fn parse_trace_instruction(
         let address_format = AddressFormat::from_repr(address_format)
             .ok_or_else(|| eyre::eyre!("unknown mem address format: {:?}", address_format))?;
 
+        let num_addresses = values.len();
+        let num_active_threads = active_mask.count_ones();
+
+        if let AddressFormat::ListAll | AddressFormat::BaseDelta = address_format {
+            if num_addresses != num_active_threads {
+                eyre::bail!(
+                    "have {} addresses for {} active threads in warp",
+                    num_addresses,
+                    num_active_threads
+                );
+            }
+        }
+
         match address_format {
             AddressFormat::ListAll => {
                 // read addresses one by one from the file
@@ -355,14 +368,13 @@ pub fn parse_trace_instruction(
             AddressFormat::BaseDelta => {
                 // read addresses as base address and deltas
                 let base_address: u64 = parse_hex(values.pop_front(), "base address")?;
-                let mut deltas = Vec::new();
-                for w in 0..WARP_SIZE {
-                    if active_mask[w] {
-                        let delta: u64 =
-                            parse_decimal(values.pop_front(), &format!("delta {}", w))?;
-                        deltas.push(delta);
-                    }
-                }
+                let deltas: Vec<i64> = values
+                    .into_iter()
+                    .map(|delta| parse_decimal(Some(delta), "delta"))
+                    .try_collect()?;
+
+                // 1 base address + 31 deltas
+                assert!(deltas.len() < WARP_SIZE);
                 base_delta_decompress(&mut mem_addresses, base_address, deltas, &active_mask);
             }
         }
