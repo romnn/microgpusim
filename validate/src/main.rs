@@ -91,7 +91,7 @@ async fn run_benchmark(
                 )));
             }
             let mut cmd = async_process::Command::new("make");
-            cmd.args(["-C", &*bench.path.to_string_lossy()]);
+            cmd.args(["-B", "-C", &*bench.path.to_string_lossy()]);
             if let Command::Clean(_) = options.command {
                 cmd.arg("clean");
             }

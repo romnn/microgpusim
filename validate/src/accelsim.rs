@@ -76,13 +76,14 @@ pub async fn trace(
         .map_err(eyre::Report::from)?;
 
     // convert accelsim traces to JSON for us to easily inspect
-    if let Err(err) = convert_traces_to_json(&traces_dir, &kernelslist) {
-        log::error!(
-            "failed to convert {} to JSON: {}",
-            kernelslist.display(),
-            err
-        );
-    }
+    convert_traces_to_json(&traces_dir, &kernelslist)?;
+    // if let Err(err) = convert_traces_to_json(&traces_dir, &kernelslist) {
+    //     log::error!(
+    //         "failed to convert {} to JSON: {}",
+    //         kernelslist.display(),
+    //         err
+    //     );
+    // }
     Ok(())
 }
 

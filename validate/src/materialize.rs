@@ -229,6 +229,42 @@ impl std::fmt::Display for BenchmarkConfig {
     }
 }
 
+#[derive(Debug, Clone, PartialOrd, PartialEq, Hash)]
+enum PrimitiveValue {
+    String(String),
+    Number(serde_yaml::Number),
+    Bool(bool),
+}
+
+impl std::fmt::Display for PrimitiveValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::String(v) => write!(f, "{}", v),
+            Self::Bool(v) => write!(f, "{}", v),
+            Self::Number(v) => write!(f, "{}", v),
+        }
+    }
+}
+
+fn flatten(value: serde_yaml::Value) -> Vec<PrimitiveValue> {
+    match value {
+        serde_yaml::Value::Bool(v) => vec![PrimitiveValue::Bool(v)],
+        serde_yaml::Value::Number(v) => vec![PrimitiveValue::Number(v)],
+        serde_yaml::Value::String(v) => vec![PrimitiveValue::String(v)],
+        serde_yaml::Value::Sequence(v) => v.into_iter().flat_map(flatten).collect(),
+        serde_yaml::Value::Mapping(v) => {
+            let mut out = Vec::new();
+            for (k, vv) in v {
+                out.extend(flatten(k));
+                out.extend(flatten(vv));
+            }
+            out
+        }
+        // skip
+        serde_yaml::Value::Null | serde_yaml::Value::Tagged(_) => vec![],
+    }
+}
+
 impl crate::Benchmark {
     #[allow(clippy::too_many_lines)]
     pub fn materialize_input(
@@ -253,8 +289,23 @@ impl crate::Benchmark {
 
         let cmd_args = self.args_template.render(&values)?;
         let cmd_args = super::benchmark::split_shell_command(cmd_args)?;
+
+        // let bench_config_dir_name: Vec<_> = input
+        //     .values()
+        //     .cloned()
+        //     .flat_map(flatten)
+        //     .map(|value| value.to_string())
+        //     .collect();
+        // dbg!(&bench_config_dir_name);
+
+        let mut bench_config_dir_name = Vec::new();
+        for (k, v) in input.clone().into_iter() {
+            bench_config_dir_name.push(k);
+            bench_config_dir_name.extend(flatten(v).into_iter().map(|v| v.to_string()));
+        }
+        let bench_config_dir_name = bench_config_dir_name.join("-");
         let default_artifact_path =
-            PathBuf::from(&name).join(format!("{}-{}", &name, cmd_args.join("-")));
+            PathBuf::from(&name).join(format!("{}-{}", &name, bench_config_dir_name));
 
         let profile = {
             let defaults = &top_level_config.profile;
@@ -268,21 +319,7 @@ impl crate::Benchmark {
                 .join(&default_artifact_path)
                 .join("profile");
 
-            // let log_file = base_config
-            //     .results_dir
-            //     .join(&default_artifact_path)
-            //     .join("profile")
-            //     .join("profile.log");
-            //
-            // let metrics_file = base_config
-            //     .results_dir
-            //     .join(&default_artifact_path)
-            //     .join("profile")
-            //     .join("profile.metrics.csv");
-
             ProfileOptions {
-                // log_file,
-                // metrics_file,
                 profile_dir,
                 common: base_config,
             }
