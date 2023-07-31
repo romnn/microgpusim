@@ -87,18 +87,11 @@ impl<B> TagArray<B> {
     }
 
     /// Accesses the tag array
-    ///
-    /// # Returns
-    /// Index, writeback, evicted
     pub fn access(
         &mut self,
         addr: address,
         fetch: &mem_fetch::MemFetch,
         time: u64,
-        // index: &mut usize,
-        // writeback: &mut bool,
-        // evicted: &mut EvictedBlockInfo,
-        // ) -> (Option<usize>, cache::RequestStatus) {
     ) -> AccessStatus {
         log::trace!("tag_array::access({}, time={})", fetch, time);
         self.num_access += 1;
@@ -124,12 +117,23 @@ impl<B> TagArray<B> {
                 self.num_miss += 1;
                 let index = index.expect("hit has idx");
                 let line = &mut self.lines[index];
+
+                log::trace!(
+                    "tag_array::access({}, time={}) => {:?} line[{}]={} allocate policy={:?}",
+                    fetch,
+                    time,
+                    status,
+                    index,
+                    line,
+                    self.config.allocate_policy
+                );
+
                 if self.config.allocate_policy == config::CacheAllocatePolicy::ON_MISS {
                     if line.is_modified() {
                         writeback = true;
                         evicted = Some(EvictedBlockInfo {
-                            block_addr: addr,
                             allocation: fetch.access.allocation.clone(),
+                            block_addr: line.block_addr, // addr
                             modified_size: line.modified_size(),
                             byte_mask: line.dirty_byte_mask(),
                             sector_mask: line.dirty_sector_mask(),
@@ -137,9 +141,10 @@ impl<B> TagArray<B> {
                         self.num_dirty -= 1;
                     }
                     log::trace!(
-                        "tag_array::allocate(cache={}, tag={})",
+                        "tag_array::allocate(cache={}, tag={}, modified={})",
                         index,
-                        self.config.tag(addr)
+                        self.config.tag(addr),
+                        line.is_modified()
                     );
                     line.allocate(
                         self.config.tag(addr),
