@@ -154,6 +154,7 @@ impl LineCacheBlock {
     #[inline]
     pub fn set_last_access_time(&mut self, time: u64, _mask: &mem_fetch::MemAccessSectorMask) {
         self.last_access_time = time;
+        // self.last_access_time = self.last_access_time.max(time);
     }
 
     #[inline]

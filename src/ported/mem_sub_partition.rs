@@ -81,7 +81,7 @@ pub struct MemorySubPartition<Q = FifoQueue<mem_fetch::MemFetch>> {
     // access is made from cudamemcpy this counter is incremented, and when the l2
     // is accessed (in both cudamemcpyies and otherwise) this value is added to
     // the gpgpu-sim cycle counters.
-    memcpy_cycle_offset: usize,
+    memcpy_cycle_offset: u64,
 }
 
 // impl<I, Q> MemorySubPartition<I, Q>
@@ -162,6 +162,18 @@ where
             l2_to_interconn_queue,
             rop_queue: VecDeque::new(),
             request_tracker: HashSet::new(),
+        }
+    }
+
+    pub fn force_l2_tag_update(
+        &mut self,
+        addr: address,
+        mask: mem_fetch::MemAccessSectorMask,
+        time: u64,
+    ) {
+        if let Some(ref mut l2_cache) = self.l2_cache {
+            l2_cache.force_tag_access(addr, time + self.memcpy_cycle_offset, mask);
+            self.memcpy_cycle_offset += 1;
         }
     }
 
@@ -402,7 +414,7 @@ where
         todo!("mem sub partition: dram l2 queue full");
     }
 
-    pub fn cache_cycle(&mut self, cycle: usize) {
+    pub fn cache_cycle(&mut self, cycle: u64) {
         use config::CacheWriteAllocatePolicy;
         use mem_fetch::{AccessKind, Status};
 
@@ -472,6 +484,8 @@ where
             }
         }
 
+        let time = cycle + self.memcpy_cycle_offset;
+
         // DRAM to L2 (texture) and icnt (not texture)
         if let Some(reply) = self.dram_to_l2_queue.first() {
             match self.l2_cache {
@@ -480,7 +494,8 @@ where
                         let mut reply = self.dram_to_l2_queue.dequeue().unwrap();
                         log::debug!("filling L2 with {}", &reply);
                         reply.set_status(mem_fetch::Status::IN_PARTITION_L2_FILL_QUEUE, 0);
-                        l2_cache.fill(reply)
+                        dbg!(cycle, self.memcpy_cycle_offset);
+                        l2_cache.fill(reply, time);
                         // l2_cache.fill(&mut reply)
                         // reply will be gone forever at this point
                         // m_dram_L2_queue->pop();
@@ -524,12 +539,9 @@ where
 
                         if !output_full && port_free {
                             let mut events = Vec::new();
-                            let status = l2_cache.access(
-                                fetch.addr(),
-                                fetch.clone(),
-                                // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle + m_memcpy_cycle_offset,
-                                &mut events,
-                            );
+                            dbg!(cycle, self.memcpy_cycle_offset);
+                            let status =
+                                l2_cache.access(fetch.addr(), fetch.clone(), &mut events, time);
                             let write_sent = was_write_sent(&events);
                             let read_sent = was_read_sent(&events);
                             log::debug!(
@@ -722,17 +734,20 @@ impl MemoryPartitionUnit
         addr: address,
         global_subpart_id: usize,
         mask: mem_fetch::MemAccessSectorMask,
+        time: u64,
     ) {
-        let p = self.global_sub_partition_id_to_local_id(global_subpart_id);
-        // log::debug!(
-        //       "copy engine request received for address={}, local_subpart={}, global_subpart={}, sector_mask={}",
-        //       addr, p, global_subpart_id, mask.to_bit_string());
+        let local_subpart_id = self.global_sub_partition_id_to_local_id(global_subpart_id);
 
-        // self.mem_sub_partititon[p].force_l2_tag_update(addr, mask);
-        // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle, mask);
+        log::trace!(
+            "copy engine request received for address={}, local_subpart={}, global_subpart={}, sector_mask={}",
+            addr, local_subpart_id, global_subpart_id, mask.to_bit_string());
+
+        self.sub_partitions[local_subpart_id]
+            .borrow_mut()
+            .force_l2_tag_update(addr, mask, time);
     }
 
-    pub fn cache_cycle(&mut self, cycle: usize) {
+    pub fn cache_cycle(&mut self, cycle: u64) {
         // todo!("mem partition unit: cache_cycle");
         // for p < m_config->m_n_sub_partition_per_memory_channel
         for mem_sub in self.sub_partitions.iter_mut() {

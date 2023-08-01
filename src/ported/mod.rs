@@ -1033,8 +1033,8 @@ where
             }
             // we borrow all of sub here, which is a problem for the cyclic reference in l2
             // interface
-            mem_sub.cache_cycle(0); // gpu_sim_cycle + gpu_tot_sim_cycle);
-                                    // mem_sub.accumulate_L2cache_stats(m_power_stats->pwr_mem_stat->l2_cache_stats[CURRENT_STAT_IDX]);
+            mem_sub.cache_cycle(self.cycle.get());
+            // mem_sub.accumulate_L2cache_stats(m_power_stats->pwr_mem_stat->l2_cache_stats[CURRENT_STAT_IDX]);
         }
 
         //   partiton_reqs_in_parallel += partiton_reqs_in_parallel_per_cycle;
@@ -1125,22 +1125,39 @@ where
             .unwrap()
             .insert(alloc_range.clone(), name);
 
-        // if self.config.fill_l2_on_memcopy {
-        //     let n_partitions = self.config.num_sub_partition_per_memory_channel;
-        //     let mut transfered = 0;
-        //     while transfered < num_bytes {
-        //         let write_addr = addr + transfered as u64;
-        //
-        //         let mut mask: mem_fetch::MemAccessSectorMask = BitArray::ZERO;
-        //         mask.store((write_addr % 128 / 32) as u8);
-        //
-        //         let tlx_addr = self.config.address_mapping().tlx(addr);
-        //         let part_id = tlx_addr.sub_partition / n_partitions as u64;
-        //         let part = &self.mem_partition_units[part_id as usize];
-        //         part.handle_memcpy_to_gpu(write_addr, tlx_addr.sub_partition as usize, mask);
-        //         transfered += 32;
-        //     }
-        // }
+        if self.config.fill_l2_on_memcopy {
+            let n_partitions = self.config.num_sub_partition_per_memory_channel;
+            let mut transfered = 0;
+            while transfered < num_bytes {
+                let write_addr = addr + transfered as u64;
+
+                let tlx_addr = self.config.address_mapping().tlx(write_addr);
+                let partition_id = tlx_addr.sub_partition / n_partitions as u64;
+                let partition = &self.mem_partition_units[partition_id as usize];
+
+                let mut mask: mem_fetch::MemAccessSectorMask = BitArray::ZERO;
+                // Sector chunk size is 4, so we get the highest 4 bits of the address
+                // to set the sector mask
+                mask.set(((write_addr % 128) as u8 / 32) as usize, true);
+
+                log::trace!(
+                    "memcopy to gpu: copy 32 byte chunk starting at {} to sub partition unit {} of partition unit {} (mask {})",
+                    write_addr,
+                    tlx_addr.sub_partition,
+                    partition_id,
+                    mask.to_bit_string()
+                );
+
+                let time = self.cycle.get();
+                partition.handle_memcpy_to_gpu(
+                    write_addr,
+                    tlx_addr.sub_partition as usize,
+                    mask,
+                    time,
+                );
+                transfered += 32;
+            }
+        }
     }
 
     pub fn stats(&self) -> Stats {
@@ -1284,11 +1301,11 @@ where
                 cycle += 1;
                 self.set_cycle(cycle);
 
-                // if !self.reached_limit(cycle) && self.active()) {
-                // if
-                finished_kernel = self.finished_kernel();
-                if finished_kernel.is_some() {
-                    break;
+                if !self.active() {
+                    finished_kernel = self.finished_kernel();
+                    if finished_kernel.is_some() {
+                        break;
+                    }
                 }
 
                 match self.log_after_cycle {
@@ -1363,8 +1380,6 @@ where
             }
 
             if let Some(kernel) = finished_kernel {
-                // not yet finished
-                // if
                 self.cleanup_finished_kernel(&*kernel);
             }
 
@@ -1393,6 +1408,7 @@ where
 
     fn finished_kernel(&mut self) -> Option<Arc<KernelInfo>> {
         // check running kernels
+        let active = self.active();
         let finished_kernel: Option<&mut Option<Arc<KernelInfo>>> = self
             .running_kernels
             .iter_mut()
@@ -1402,7 +1418,7 @@ where
             .find(|k| {
                 if let Some(k) = k {
                     // TODO: could also check here if !self.active()
-                    k.no_more_blocks_to_run() && !k.running()
+                    k.no_more_blocks_to_run() && !k.running() && k.was_launched()
                 } else {
                     false
                 }
@@ -1736,11 +1752,12 @@ mod tests {
                         .clone();
                     assert_eq!(issue_port, issue_reg.stage);
 
-                    box_sim_state.functional_unit_pipelines[core_id].push(issue_reg.into());
+                    box_sim_state.functional_unit_pipelines_per_core[core_id]
+                        .push(issue_reg.into());
                 }
                 for (fu_id, fu) in core.functional_units.iter().enumerate() {
                     let fu = fu.lock().unwrap();
-                    box_sim_state.functional_unit_pipelines[core_id].push(
+                    box_sim_state.functional_unit_pipelines_per_core[core_id].push(
                         testing::state::RegisterSet {
                             name: fu.id().to_string(),
                             pipeline: fu
@@ -1752,15 +1769,16 @@ mod tests {
                     );
                 }
                 // core: operand collector
-                box_sim_state.operand_collectors[core_id]
+                box_sim_state.operand_collector_per_core[core_id]
                     .insert(core.inner.operand_collector.borrow().deref().into());
                 // core: schedulers
-                box_sim_state.schedulers[core_id].extend(core.schedulers.iter().map(Into::into));
+                box_sim_state.scheduler_per_core[core_id]
+                    .extend(core.schedulers.iter().map(Into::into));
                 // core: l2 cache
                 let ldst_unit = core.inner.load_store_unit.lock().unwrap();
 
                 // core: pending register writes
-                box_sim_state.pending_register_writes[core_id] = ldst_unit
+                box_sim_state.pending_register_writes_per_core[core_id] = ldst_unit
                     .pending_writes
                     .clone()
                     .into_iter()
@@ -1777,7 +1795,7 @@ mod tests {
                     })
                     .collect();
 
-                box_sim_state.pending_register_writes[core_id].sort();
+                box_sim_state.pending_register_writes_per_core[core_id].sort();
                 // let l1d_tag_array = ldst_unit.data_l1.unwrap().tag_array;
                 // dbg!(&l1d_tag_array);
                 // let l1d_tag_array = ldst_unit.data_l1.unwrap().tag_array;
@@ -1785,7 +1803,7 @@ mod tests {
         }
 
         for (partition_id, partition) in box_sim.mem_partition_units.iter().enumerate() {
-            box_sim_state.dram_latency_queue[partition_id].extend(
+            box_sim_state.dram_latency_queue_per_partition[partition_id].extend(
                 partition
                     .dram_latency_queue
                     .clone()
@@ -1800,23 +1818,24 @@ mod tests {
                 ic::L2Interface<fifo::FifoQueue<ported::mem_fetch::MemFetch>>,
             > = l2_cache.as_any().downcast_ref().unwrap();
 
-            box_sim_state.l2_cache[sub_id].insert(l2_cache.inner.inner.tag_array.clone().into());
+            box_sim_state.l2_cache_per_sub[sub_id]
+                .insert(l2_cache.inner.inner.tag_array.clone().into());
 
             for (dest_queue, src_queue) in [
                 (
-                    &mut box_sim_state.interconn_to_l2_queue[sub_id],
+                    &mut box_sim_state.interconn_to_l2_queue_per_sub[sub_id],
                     &sub.interconn_to_l2_queue,
                 ),
                 (
-                    &mut box_sim_state.l2_to_interconn_queue[sub_id],
+                    &mut box_sim_state.l2_to_interconn_queue_per_sub[sub_id],
                     &sub.l2_to_interconn_queue,
                 ),
                 (
-                    &mut box_sim_state.l2_to_dram_queue[sub_id],
+                    &mut box_sim_state.l2_to_dram_queue_per_sub[sub_id],
                     &sub.l2_to_dram_queue.lock().unwrap(),
                 ),
                 (
-                    &mut box_sim_state.dram_to_l2_queue[sub_id],
+                    &mut box_sim_state.dram_to_l2_queue_per_sub[sub_id],
                     &sub.dram_to_l2_queue,
                 ),
             ] {
@@ -1828,9 +1847,9 @@ mod tests {
             testing::state::Simulation::new(total_cores, num_partitions, num_sub_partitions);
         for (core_id, core) in play_sim.cores().enumerate() {
             for regs in core.functional_unit_issue_register_sets().into_iter() {
-                play_sim_state.functional_unit_pipelines[core_id].push(regs.into());
+                play_sim_state.functional_unit_pipelines_per_core[core_id].push(regs.into());
             }
-            let valid_units: HashSet<_> = box_sim_state.functional_unit_pipelines[core_id]
+            let valid_units: HashSet<_> = box_sim_state.functional_unit_pipelines_per_core[core_id]
                 .iter()
                 .map(|fu| fu.name.clone())
                 .collect();
@@ -1840,29 +1859,32 @@ mod tests {
                 .into_iter()
                 .filter(|fu| valid_units.contains(&fu.name()))
             {
-                play_sim_state.functional_unit_pipelines[core_id].push(regs.into());
+                play_sim_state.functional_unit_pipelines_per_core[core_id].push(regs.into());
             }
 
             // core: pending register writes
-            play_sim_state.pending_register_writes[core_id] = core
+            play_sim_state.pending_register_writes_per_core[core_id] = core
                 .pending_register_writes()
                 .into_iter()
                 .map(Into::into)
                 .collect();
-            play_sim_state.pending_register_writes[core_id].sort();
+            play_sim_state.pending_register_writes_per_core[core_id].sort();
 
             // core: operand collector
             let coll = core.operand_collector();
-            play_sim_state.operand_collectors[core_id].insert(coll.into());
+            play_sim_state.operand_collector_per_core[core_id].insert(coll.into());
             // core: scheduler units
             let schedulers = core.schedulers();
-            assert_eq!(schedulers.len(), box_sim_state.schedulers[core_id].len());
+            assert_eq!(
+                schedulers.len(),
+                box_sim_state.scheduler_per_core[core_id].len()
+            );
 
             for (sched_idx, play_scheduler) in schedulers.into_iter().enumerate() {
-                play_sim_state.schedulers[core_id].push(play_scheduler.into());
+                play_sim_state.scheduler_per_core[core_id].push(play_scheduler.into());
 
-                let box_sched = &mut box_sim_state.schedulers[core_id][sched_idx];
-                let play_sched = &mut play_sim_state.schedulers[core_id][sched_idx];
+                let box_sched = &mut box_sim_state.scheduler_per_core[core_id][sched_idx];
+                let play_sched = &mut play_sim_state.scheduler_per_core[core_id][sched_idx];
 
                 let num_box_warps = box_sched.prioritized_warp_ids.len();
                 let num_play_warps = play_sched.prioritized_warp_ids.len();
@@ -1886,20 +1908,20 @@ mod tests {
         }
 
         for (partition_id, partition) in play_sim.partition_units().enumerate() {
-            play_sim_state.dram_latency_queue[partition_id]
+            play_sim_state.dram_latency_queue_per_partition[partition_id]
                 .extend(partition.dram_latency_queue().into_iter().map(Into::into));
         }
         for (sub_id, sub) in play_sim.sub_partitions().enumerate() {
-            play_sim_state.interconn_to_l2_queue[sub_id]
+            play_sim_state.interconn_to_l2_queue_per_sub[sub_id]
                 .extend(sub.interconn_to_l2_queue().into_iter().map(Into::into));
-            play_sim_state.l2_to_interconn_queue[sub_id]
+            play_sim_state.l2_to_interconn_queue_per_sub[sub_id]
                 .extend(sub.l2_to_interconn_queue().into_iter().map(Into::into));
-            play_sim_state.dram_to_l2_queue[sub_id]
+            play_sim_state.dram_to_l2_queue_per_sub[sub_id]
                 .extend(sub.dram_to_l2_queue().into_iter().map(Into::into));
-            play_sim_state.l2_to_dram_queue[sub_id]
+            play_sim_state.l2_to_dram_queue_per_sub[sub_id]
                 .extend(sub.l2_to_dram_queue().into_iter().map(Into::into));
 
-            play_sim_state.l2_cache[sub_id].insert(testing::state::Cache {
+            play_sim_state.l2_cache_per_sub[sub_id].insert(testing::state::Cache {
                 lines: sub.l2_cache().lines().into_iter().map(Into::into).collect(),
             });
         }
@@ -2110,6 +2132,11 @@ mod tests {
 
         let mut cycle = 0;
 
+        let use_full_diff = std::env::var("FULL_DIFF")
+            .unwrap_or_default()
+            .to_lowercase()
+            == "yes";
+
         box_sim.process_commands();
         box_sim.launch_kernels();
 
@@ -2118,6 +2145,15 @@ mod tests {
             play_sim.process_commands();
             play_sim.launch_kernels();
             play_time_other += start.elapsed();
+
+            // check that memcopy commands were handles correctly
+            let (box_sim_state, play_sim_state) =
+                gather_simulation_state(&mut box_sim, &mut play_sim, trace_provider);
+            if use_full_diff {
+                full_diff::assert_eq!(&box_sim_state, &play_sim_state);
+            } else {
+                diff::assert_eq!(box: &box_sim_state, play: &play_sim_state);
+            }
 
             start = Instant::now();
             // box_sim.process_commands();
@@ -2170,10 +2206,7 @@ mod tests {
                     // }
                 }
                 println!("checking for diff after cycle {}", cycle);
-                let use_full_diff = std::env::var("FULL_DIFF")
-                    .unwrap_or_default()
-                    .to_lowercase()
-                    == "yes";
+
                 if use_full_diff {
                     full_diff::assert_eq!(&box_sim_state, &play_sim_state);
                 } else {

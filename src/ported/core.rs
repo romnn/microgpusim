@@ -1172,7 +1172,7 @@ where
                     let mut warp = self.inner.warps[warp_id].try_borrow_mut().unwrap();
                     if did_exit {
                         // todo!("first warp did exit");
-                        log::debug!("warp_id = {} exited", &warp_id);
+                        // log::debug!("warp_id = {} exited", &warp_id);
                         // if warp_id == 3 {
                         //     panic!("warp 3 exited");
                         // }
@@ -1239,9 +1239,13 @@ where
                             cache::RequestStatus::HIT
                         } else {
                             let mut events = Vec::new();
-                            self.inner
-                                .instr_l1_cache
-                                .access(ppc as address, fetch, &mut events)
+                            let time = self.inner.cycle.get();
+                            self.inner.instr_l1_cache.access(
+                                ppc as address,
+                                fetch,
+                                &mut events,
+                                time,
+                            )
                         };
 
                         log::debug!("L1I->access(addr={}) -> status = {:?}", ppc, status);
@@ -1645,8 +1649,9 @@ where
     }
 
     pub fn accept_fetch_response(&mut self, mut fetch: mem_fetch::MemFetch) {
+        let time = self.inner.cycle.get();
         fetch.status = mem_fetch::Status::IN_SHADER_FETCHED;
-        self.inner.instr_l1_cache.fill(fetch);
+        self.inner.instr_l1_cache.fill(fetch, time);
     }
 
     pub fn accept_ldst_unit_response(&self, fetch: mem_fetch::MemFetch) {

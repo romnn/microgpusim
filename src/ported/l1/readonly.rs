@@ -96,6 +96,7 @@ where
         addr: address,
         fetch: mem_fetch::MemFetch,
         events: &mut Vec<cache::Event>,
+        time: u64,
     ) -> cache::RequestStatus {
         use cache::RequestStatus as Status;
 
@@ -114,11 +115,12 @@ where
         let block_addr = cache_config.block_addr(addr);
 
         log::debug!(
-            "{}::readonly_cache::access({addr}, write = {}, data size = {}, control size = {}, block = {block_addr})",
+            "{}::readonly_cache::access({addr}, write = {}, data size = {}, control size = {}, block = {block_addr}, time={})",
             self.inner.name,
             fetch.is_write(),
             fetch.data_size,
             fetch.control_size,
+            time,
         );
 
         let is_probe = false;
@@ -126,7 +128,6 @@ where
             tag_array.probe(block_addr, &fetch, fetch.is_write(), is_probe);
         let mut status = Status::RESERVATION_FAIL;
 
-        let time = self.inner.cycle.get();
         if probe_status == Status::HIT {
             // update LRU state
             tag_array::AccessStatus { status, .. } = tag_array.access(block_addr, &fetch, time);
@@ -175,8 +176,8 @@ where
         status
     }
 
-    fn fill(&mut self, fetch: mem_fetch::MemFetch) {
-        self.inner.fill(fetch);
+    fn fill(&mut self, fetch: mem_fetch::MemFetch, time: u64) {
+        self.inner.fill(fetch, time);
     }
 }
 

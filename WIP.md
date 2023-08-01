@@ -9,6 +9,7 @@
   - generate plots and correlation stuff etc
   - add flag for playground to run in accelsim compatibility mode
 
+  - DONE: support multiple kernel launches
   - DONE: fix tracing of multiple kernels
   - DONE: add transpose benchmarks
   - DONE: most likely need to be modified to allow selecting an implementation)

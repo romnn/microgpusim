@@ -577,7 +577,7 @@ where
     /// bandwidth restictions should be modeled in the caller.
     /// TODO: fill could also accept the fetch by value, otherwise we drop the fetch!!
     // pub fn fill(&mut self, fetch: &mut mem_fetch::MemFetch) {
-    pub fn fill(&mut self, mut fetch: mem_fetch::MemFetch) {
+    pub fn fill(&mut self, mut fetch: mem_fetch::MemFetch, time: u64) {
         if self.cache_config.mshr_kind == mshr::Kind::SECTOR_ASSOC {
             todo!("sector assoc cache");
             let original_fetch = fetch.original_fetch.as_ref().unwrap();
@@ -603,7 +603,7 @@ where
         fetch.data_size = pending.data_size;
         fetch.access.addr = pending.addr;
 
-        let time = self.cycle.get();
+        // let time = self.cycle.get();
         match self.cache_config.allocate_policy {
             config::CacheAllocatePolicy::ON_MISS => {
                 self.tag_array

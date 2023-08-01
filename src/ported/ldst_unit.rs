@@ -737,11 +737,12 @@ where
                 self.cluster_id,
             );
             let mut events = Vec::new();
-            let status = self
-                .data_l1
-                .as_mut()
-                .unwrap()
-                .access(fetch.addr(), fetch, &mut events);
+            let status = self.data_l1.as_mut().unwrap().access(
+                fetch.addr(),
+                fetch,
+                &mut events,
+                self.pipelined_simd_unit.cycle.get(),
+            );
             todo!("process cache access");
             // self.process_cache_access(cache, fetch.addr(), instr, fetch, status)
             stall_cond
@@ -819,9 +820,10 @@ where
             if let Some(next_fetch) = &self.l1_latency_queue[bank][0] {
                 let mut events = Vec::new();
 
+                let time = self.pipelined_simd_unit.cycle.get();
                 let l1_cache = self.data_l1.as_mut().unwrap();
                 let access_status =
-                    l1_cache.access(next_fetch.addr(), next_fetch.clone(), &mut events);
+                    l1_cache.access(next_fetch.addr(), next_fetch.clone(), &mut events, time);
 
                 let write_sent = super::was_write_sent(&events);
                 let read_sent = super::was_read_sent(&events);
@@ -1191,7 +1193,8 @@ where
                             let l1d = self.data_l1.as_mut().unwrap();
                             if l1d.has_free_fill_port() {
                                 let mut fetch = self.response_fifo.pop_front().unwrap();
-                                l1d.fill(fetch);
+                                let time = self.pipelined_simd_unit.cycle.get();
+                                l1d.fill(fetch, time);
                             }
                         }
                     }

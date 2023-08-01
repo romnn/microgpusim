@@ -672,6 +672,7 @@ where
         cache_index: Option<usize>,
         fetch: mem_fetch::MemFetch,
         events: &mut Vec<cache::Event>,
+        time: u64,
     ) -> cache::RequestStatus {
         // dbg!(cache_index, probe_status);
         // Each function pointer ( m_[rd/wr]_[hit/miss] ) is set in the
@@ -680,7 +681,7 @@ where
         //
         // Function pointers were used to avoid many long conditional
         // branches resulting from many cache configuration options.
-        let time = self.inner.cycle.get();
+        // let time = self.inner.cycle.get();
         let mut access_status = probe_status;
         let data_size = fetch.data_size;
 
@@ -765,6 +766,7 @@ where
         addr: address,
         fetch: mem_fetch::MemFetch,
         events: &mut Vec<cache::Event>,
+        time: u64,
     ) -> cache::RequestStatus {
         let super::base::Base {
             ref cache_config, ..
@@ -778,9 +780,9 @@ where
         let block_addr = cache_config.block_addr(addr);
 
         log::debug!(
-            "{}::data_cache::access({fetch}, write = {is_write}, size = {}, block = {block_addr})",
+            "{}::data_cache::access({fetch}, write = {is_write}, size = {}, block = {block_addr}, time = {})",
             self.inner.name,
-            fetch.data_size,
+            fetch.data_size, time,
         );
 
         let dbg_fetch = fetch.clone();
@@ -791,8 +793,15 @@ where
             .probe(block_addr, &fetch, is_write, true);
         // dbg!((cache_index, probe_status));
 
-        let access_status =
-            self.process_tag_probe(is_write, probe_status, addr, cache_index, fetch, events);
+        let access_status = self.process_tag_probe(
+            is_write,
+            probe_status,
+            addr,
+            cache_index,
+            fetch,
+            events,
+            time,
+        );
         // dbg!(&access_status);
 
         log::debug!(
@@ -847,8 +856,8 @@ where
     }
 
     // fn fill(&mut self, fetch: &mut mem_fetch::MemFetch) {
-    fn fill(&mut self, fetch: mem_fetch::MemFetch) {
-        self.inner.fill(fetch)
+    fn fill(&mut self, fetch: mem_fetch::MemFetch, time: u64) {
+        self.inner.fill(fetch, time)
     }
 
     fn waiting_for_fill(&self, fetch: &mem_fetch::MemFetch) -> bool {
@@ -1228,11 +1237,12 @@ mod tests {
             cluster_id,
         );
         // let status = l1.access(0x00000000, fetch.clone(), None);
+        let time = 0;
         let mut events = Vec::new();
-        let status = l1.access(fetch.addr(), fetch.clone(), &mut events);
+        let status = l1.access(fetch.addr(), fetch.clone(), &mut events, time);
         dbg!(&status);
         let mut events = Vec::new();
-        let status = l1.access(fetch.addr(), fetch, &mut events);
+        let status = l1.access(fetch.addr(), fetch, &mut events, time);
         dbg!(&status);
 
         // let mut stats = STATS.lock().unwrap();

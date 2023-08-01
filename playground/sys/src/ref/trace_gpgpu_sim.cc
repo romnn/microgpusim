@@ -86,29 +86,38 @@ void trace_gpgpu_sim::init() {
 }
 
 void trace_gpgpu_sim::perf_memcpy_to_gpu(size_t dst_start_addr, size_t count) {
+  logger->info("memcopy: <unnamed> {:>15} ({:>5} f32) to address {:>20}", count,
+               count / 4, dst_start_addr);
+
   unsigned id = m_allocations.size() + 1;  // zero is reserved for instructions
   m_allocations.insert(Allocation(id, dst_start_addr, dst_start_addr + count));
 
   if (m_memory_config->m_perf_sim_memcpy) {
-    // assert(0 && "no sim memcopy");
     // if(!m_config.trace_driven_mode)    //in trace-driven mode, CUDA runtime
     // can start nre data structure at any position 	assert (dst_start_addr %
     // 32
     //== 0);
 
-    // TODO: add this back in
-    // for (unsigned counter = 0; counter < count; counter += 32) {
-    //   const unsigned wr_addr = dst_start_addr + counter;
-    //   addrdec_t raw_addr;
-    //   mem_access_sector_mask_t mask;
-    //   mask.set(wr_addr % 128 / 32);
-    //   m_memory_config->m_address_mapping.addrdec_tlx(wr_addr, &raw_addr);
-    //   const unsigned partition_id =
-    //       raw_addr.sub_partition /
-    //       m_memory_config->m_n_sub_partition_per_memory_channel;
-    //   m_memory_partition_unit[partition_id]->handle_memcpy_to_gpu(
-    //       wr_addr, raw_addr.sub_partition, mask);
-    // }
+    for (size_t counter = 0; counter < count; counter += 32) {
+      const size_t wr_addr = dst_start_addr + counter;
+      addrdec_t raw_addr;
+
+      m_memory_config->m_address_mapping.addrdec_tlx(wr_addr, &raw_addr);
+      const unsigned partition_id =
+          raw_addr.sub_partition /
+          m_memory_config->m_n_sub_partition_per_memory_channel;
+
+      mem_access_sector_mask_t mask;
+      mask.set(wr_addr % 128 / 32);
+
+      logger->trace(
+          "memcopy to gpu: copy 32 byte chunk starting at {} to sub partition "
+          "unit {} of partition unit {} (mask {})",
+          wr_addr, raw_addr.sub_partition, partition_id, mask_to_string(mask));
+
+      m_memory_partition_unit[partition_id]->handle_memcpy_to_gpu(
+          wr_addr, raw_addr.sub_partition, mask);
+    }
   }
 }
 

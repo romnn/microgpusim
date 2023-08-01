@@ -493,34 +493,37 @@ impl From<playground::core::pending_register_writes> for PendingRegisterWrites {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Simulation {
-    pub interconn_to_l2_queue: Vec<Vec<MemFetch>>,
-    pub l2_to_interconn_queue: Vec<Vec<MemFetch>>,
-    pub l2_to_dram_queue: Vec<Vec<MemFetch>>,
-    pub dram_to_l2_queue: Vec<Vec<MemFetch>>,
-    pub l2_cache: Vec<Option<Cache>>,
-    pub dram_latency_queue: Vec<Vec<MemFetch>>,
-    pub functional_unit_pipelines: Vec<Vec<RegisterSet>>,
-    pub operand_collectors: Vec<Option<OperandCollector>>,
-    pub schedulers: Vec<Vec<Scheduler>>,
-    pub pending_register_writes: Vec<Vec<PendingRegisterWrites>>,
+    // per sub partition
+    pub interconn_to_l2_queue_per_sub: Vec<Vec<MemFetch>>,
+    pub l2_to_interconn_queue_per_sub: Vec<Vec<MemFetch>>,
+    pub l2_to_dram_queue_per_sub: Vec<Vec<MemFetch>>,
+    pub dram_to_l2_queue_per_sub: Vec<Vec<MemFetch>>,
+    pub l2_cache_per_sub: Vec<Option<Cache>>,
+    // per partition
+    pub dram_latency_queue_per_partition: Vec<Vec<MemFetch>>,
+    // per core
+    pub functional_unit_pipelines_per_core: Vec<Vec<RegisterSet>>,
+    pub operand_collector_per_core: Vec<Option<OperandCollector>>,
+    pub scheduler_per_core: Vec<Vec<Scheduler>>,
+    pub pending_register_writes_per_core: Vec<Vec<PendingRegisterWrites>>,
 }
 
 impl Simulation {
     pub fn new(total_cores: usize, num_mem_partitions: usize, num_sub_partitions: usize) -> Self {
         Self {
             // per sub partition
-            interconn_to_l2_queue: vec![vec![]; num_sub_partitions],
-            l2_to_interconn_queue: vec![vec![]; num_sub_partitions],
-            l2_to_dram_queue: vec![vec![]; num_sub_partitions],
-            dram_to_l2_queue: vec![vec![]; num_sub_partitions],
-            l2_cache: vec![None; num_sub_partitions],
+            interconn_to_l2_queue_per_sub: vec![vec![]; num_sub_partitions],
+            l2_to_interconn_queue_per_sub: vec![vec![]; num_sub_partitions],
+            l2_to_dram_queue_per_sub: vec![vec![]; num_sub_partitions],
+            dram_to_l2_queue_per_sub: vec![vec![]; num_sub_partitions],
+            l2_cache_per_sub: vec![None; num_sub_partitions],
             // per partition
-            dram_latency_queue: vec![vec![]; num_mem_partitions],
+            dram_latency_queue_per_partition: vec![vec![]; num_mem_partitions],
             // per core
-            functional_unit_pipelines: vec![vec![]; total_cores],
-            schedulers: vec![vec![]; total_cores],
-            operand_collectors: vec![None; total_cores],
-            pending_register_writes: vec![vec![]; total_cores],
+            functional_unit_pipelines_per_core: vec![vec![]; total_cores],
+            scheduler_per_core: vec![vec![]; total_cores],
+            operand_collector_per_core: vec![None; total_cores],
+            pending_register_writes_per_core: vec![vec![]; total_cores],
         }
     }
 }

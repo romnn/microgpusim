@@ -82,6 +82,24 @@ where
         self.inner.next_access()
     }
 
+    // This is a gapping hole we are poking in the system to quickly handle
+    // filling the cache on cudamemcopies. We don't care about anything other than
+    // L2 state after the memcopy - so just force the tag array to act as though
+    // something is read or written without doing anything else.
+    fn force_tag_access(&mut self, addr: address, time: u64, mask: mem_fetch::MemAccessSectorMask) {
+        // todo!("cache: invalidate");
+
+        // use bitvec::{array::BitArray, field::BitField, BitArr};
+        // let byte_mask: mem_fetch::MemAccessByteMask = !bitvec::array::BitArray::ZERO;
+        let byte_mask: mem_fetch::MemAccessByteMask = bitvec::array::BitArray::ZERO;
+        // let access = mem_fetch::MemAccess {};
+        // let fetch = mem_fetch::MemFetch {};
+        self.inner
+            .inner
+            .tag_array
+            .populate_memcopy(addr, mask, byte_mask, true, time);
+    }
+
     /// Access read only cache.
     ///
     /// returns `RequestStatus::RESERVATION_FAIL` if
@@ -91,17 +109,17 @@ where
         addr: address,
         fetch: mem_fetch::MemFetch,
         events: &mut Vec<cache::Event>,
+        time: u64,
     ) -> cache::RequestStatus {
-        self.inner.access(addr, fetch, events)
+        self.inner.access(addr, fetch, events, time)
     }
 
     fn waiting_for_fill(&self, fetch: &mem_fetch::MemFetch) -> bool {
         self.inner.waiting_for_fill(fetch)
     }
 
-    // fn fill(&mut self, fetch: &mut mem_fetch::MemFetch) {
-    fn fill(&mut self, fetch: mem_fetch::MemFetch) {
-        self.inner.fill(fetch)
+    fn fill(&mut self, fetch: mem_fetch::MemFetch, time: u64) {
+        self.inner.fill(fetch, time)
     }
 }
 

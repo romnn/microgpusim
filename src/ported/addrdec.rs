@@ -409,10 +409,10 @@ mod tests {
     use color_eyre::eyre;
 
     macro_rules! diff_assert_all_eq (
-        ($a:expr, $b:expr) => {
+        ($a:expr, $b:expr $(,)?) => {
             ::pretty_assertions_sorted::assert_eq!($a, $b);
         };
-        ($a:expr, $b:expr, $c:expr) => {
+        ($a:expr, $b:expr, $c:expr $(,)?) => {
             ::pretty_assertions_sorted::assert_eq!($a, $b);
             ::pretty_assertions_sorted::assert_eq!($b, $c);
         };
@@ -423,10 +423,10 @@ mod tests {
     );
 
     macro_rules! assert_all_eq (
-        ($a:expr, $b:expr) => {
+        ($a:expr, $b:expr $(,)?) => {
             assert_eq!($a, $b);
         };
-        ($a:expr, $b:expr, $c:expr) => {
+        ($a:expr, $b:expr, $c:expr $(,)?) => {
             assert_eq!($a, $b);
             assert_eq!($b, $c);
         };
@@ -480,6 +480,29 @@ mod tests {
             packbits(0xFFFFFFFFFFFFFFFF, 15, 0, 4),
             ref_packbits(0xFFFFFFFFFFFFFFFF, 15, 0, 4),
         );
+    }
+
+    #[test]
+    fn test_tlx_sub_partition() {
+        use playground::addrdec::AddressTranslation;
+        let config = GPUConfig::default();
+        let mapping = config.address_mapping();
+        let ref_mapping = AddressTranslation::new(
+            config.num_mem_units as u32,
+            config.num_sub_partition_per_memory_channel as u32,
+        );
+        let addr = 140159034066112;
+
+        let tlx_addr = mapping.tlx(addr);
+        let ref_tlx_addr = ref_mapping.tlx(addr);
+
+        diff_assert_all_eq!(
+            super::DecodedAddress::from(ref_tlx_addr).sub_partition,
+            tlx_addr.sub_partition,
+            1,
+        );
+        dbg!(tlx_addr);
+        assert!(false);
     }
 
     #[test]

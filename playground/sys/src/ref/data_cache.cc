@@ -586,8 +586,9 @@ enum cache_request_status data_cache::access(new_addr_type addr, mem_fetch *mf,
   new_addr_type block_addr = m_config.block_addr(addr);
   unsigned cache_index = (unsigned)-1;
 
-  logger->debug("data_cache::access({}, write = {}, size = {}, block = {})",
-                mem_fetch_ptr(mf), wr, mf->get_data_size(), block_addr);
+  logger->debug(
+      "data_cache::access({}, write = {}, size = {}, block = {}, time = {})",
+      mem_fetch_ptr(mf), wr, mf->get_data_size(), block_addr, time);
   enum cache_request_status probe_status =
       m_tag_array->probe(block_addr, cache_index, mf, mf->is_write(), true);
 

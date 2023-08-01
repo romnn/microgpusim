@@ -141,10 +141,11 @@ impl<B> TagArray<B> {
                         self.num_dirty -= 1;
                     }
                     log::trace!(
-                        "tag_array::allocate(cache={}, tag={}, modified={})",
+                        "tag_array::allocate(cache={}, tag={}, modified={}, time={})",
                         index,
                         self.config.tag(addr),
-                        line.is_modified()
+                        line.is_modified(),
+                        time,
                     );
                     line.allocate(
                         self.config.tag(addr),
@@ -201,18 +202,19 @@ impl<B> TagArray<B> {
             fetch.access_sector_mask(),
             is_write,
             is_probe,
-            fetch,
+            fetch.to_string(),
         )
     }
 
-    fn probe_masked(
+    pub fn probe_masked(
         &self,
         block_addr: address,
         // cache_idx: Option<usize>,
         mask: &mem_fetch::MemAccessSectorMask,
         is_write: bool,
         is_probe: bool,
-        fetch: &mem_fetch::MemFetch,
+        fetch: String,
+        // fetch: &mem_fetch::MemFetch,
     ) -> (Option<usize>, cache::RequestStatus) {
         let set_index = self.config.set_index(block_addr) as usize;
         let tag = self.config.tag(block_addr);
@@ -351,6 +353,68 @@ impl<B> TagArray<B> {
         }
     }
 
+    /// TODO: consolidate with fill on fill
+    pub fn populate_memcopy(
+        &mut self,
+        addr: address,
+        sector_mask: mem_fetch::MemAccessSectorMask,
+        byte_mask: mem_fetch::MemAccessByteMask,
+        is_write: bool,
+        time: u64,
+    ) {
+        let is_probe = false;
+        let (cache_index, probe_status) = self.probe_masked(
+            addr,
+            &sector_mask,
+            is_write,
+            is_probe,
+            "<dgbfetch>".to_string(),
+        );
+
+        log::trace!(
+            "tag_array::fill(cache={}, tag={}, addr={}) (on fill) status={:?}",
+            cache_index.map(|i| i as i64).unwrap_or(-1),
+            self.config.tag(addr),
+            addr,
+            probe_status,
+        );
+
+        if probe_status == cache::RequestStatus::RESERVATION_FAIL {
+            return;
+        }
+        let cache_index = cache_index.unwrap();
+
+        let line = self.lines.get_mut(cache_index).unwrap();
+        let mut was_modified_before = line.is_modified();
+
+        if probe_status == cache::RequestStatus::MISS {
+            log::trace!(
+                "tag_array::allocate(cache={}, tag={}, time={})",
+                cache_index,
+                self.config.tag(addr),
+                time,
+            );
+            line.allocate(
+                self.config.tag(addr),
+                self.config.block_addr(addr),
+                time,
+                &sector_mask,
+            );
+        } else if probe_status == cache::RequestStatus::SECTOR_MISS {
+            debug_assert_eq!(self.config.kind, config::CacheKind::Sector);
+            line.allocate_sector(&sector_mask, time);
+        }
+        if was_modified_before && !line.is_modified() {
+            self.num_dirty -= 1;
+        }
+        was_modified_before = line.is_modified();
+        line.fill(time, &sector_mask, &byte_mask);
+        if line.is_modified() && !was_modified_before {
+            self.num_dirty += 1;
+        }
+    }
+
+    /// TODO: consolidate with populate memcopy
     pub fn fill_on_fill(&mut self, addr: address, fetch: &mem_fetch::MemFetch, time: u64) {
         debug_assert!(self.config.allocate_policy == config::CacheAllocatePolicy::ON_FILL);
 
@@ -376,9 +440,10 @@ impl<B> TagArray<B> {
 
         if probe_status == cache::RequestStatus::MISS {
             log::trace!(
-                "tag_array::allocate(cache={}, tag={})",
+                "tag_array::allocate(cache={}, tag={}, time={})",
                 cache_index,
-                self.config.tag(addr)
+                self.config.tag(addr),
+                time,
             );
             line.allocate(
                 self.config.tag(addr),

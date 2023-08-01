@@ -36,6 +36,11 @@ void memory_partition_unit::handle_memcpy_to_gpu(
   unsigned p = global_sub_partition_id_to_local_id(global_subpart_id);
   std::string mystring = mask.to_string<char, std::string::traits_type,
                                         std::string::allocator_type>();
+  logger->trace(
+      "copy engine request received for address={}, local_subpart={}, "
+      "global_subpart={}, sector_mask={}",
+      addr, p, global_subpart_id, mystring.c_str());
+
   MEMPART_DPRINTF(
       "Copy Engine Request Received For Address=%zx, local_subpart=%u, "
       "global_subpart=%u, sector_mask=%s \n",

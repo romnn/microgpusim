@@ -14,9 +14,9 @@ enum cache_request_status read_only_cache::access(
 
   logger->debug(
       "{}::read_only_cache::access({}, write = {}, data size = {}, control "
-      "size = {}, block = {})",
+      "size = {}, block = {}, time = {})",
       name(), addr, mf->is_write(), mf->get_data_size(), mf->get_ctrl_size(),
-      block_addr);
+      block_addr, time);
 
   unsigned cache_index = (unsigned)-1;
   enum cache_request_status status =
