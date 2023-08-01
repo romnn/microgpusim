@@ -293,6 +293,7 @@ impl CollectorUnit {
                     if reg_num >= 0 && is_new_reg {
                         // valid register
                         prev_regs.push(reg_num);
+                        let scheduler_id = ready_reg.scheduler_id.unwrap();
                         let bank = register_bank(
                             reg_num,
                             ready_reg.warp_id,
@@ -300,7 +301,7 @@ impl CollectorUnit {
                             self.bank_warp_shift,
                             self.sub_core_model,
                             self.num_banks_per_scheduler,
-                            ready_reg.scheduler_id(),
+                            scheduler_id,
                         );
 
                         self.src_operands[op] = Some(Operand::new(
@@ -310,7 +311,7 @@ impl CollectorUnit {
                             op,
                             reg_num,
                             bank,
-                            ready_reg.scheduler_id(),
+                            scheduler_id,
                         ));
                         // panic!("setting op as not ready");
                         self.not_ready.set(op, true);
@@ -952,7 +953,7 @@ impl OperandCollectorRegisterFileUnit {
                                 && cu_set.len() >= self.num_warp_schedulers
                         );
                         let cus_per_sched = cu_set.len() / self.num_warp_schedulers;
-                        let schd_id = input_port.borrow().schd_id(reg_id).unwrap();
+                        let schd_id = input_port.borrow().scheduler_id(reg_id).unwrap();
                         cu_lower_bound = schd_id * cus_per_sched;
                         cu_upper_bound = cu_lower_bound + cus_per_sched;
                         debug_assert!(0 <= cu_lower_bound && cu_upper_bound <= cu_set.len());
@@ -1045,7 +1046,7 @@ impl OperandCollectorRegisterFileUnit {
         for op in 0..MAX_REG_OPERANDS {
             // this math needs to match that used in function_info::ptx_decode_inst
             if let Some(reg_num) = instr.dest_arch_reg[op] {
-                let scheduler_id = instr.scheduler_id();
+                let scheduler_id = instr.scheduler_id.unwrap();
                 let bank = register_bank(
                     reg_num,
                     instr.warp_id,

@@ -4,7 +4,7 @@ use bitvec::{array::BitArray, BitArr};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-pub type LineTable = HashMap<address, usize>;
+pub type LineTable = HashMap<address, u64>;
 
 #[derive(Debug, Clone, Default, Hash, PartialEq, Eq)]
 pub struct EvictedBlockInfo {

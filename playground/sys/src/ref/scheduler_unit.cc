@@ -18,7 +18,7 @@
 trace_shd_warp_t &scheduler_unit::warp(int i) { return *((*m_warp)[i]); }
 
 void scheduler_unit::cycle() {
-  logger->debug("{}::scheduler_unit::cycle()", name());
+  logger->debug("{}::scheduler_unit[{}]::cycle()", name(), m_id);
   bool valid_inst =
       false;  // there was one warp with a valid instruction to
               // issue (didn't require flush due to control hazard)
@@ -33,16 +33,18 @@ void scheduler_unit::cycle() {
        iter != m_next_cycle_prioritized_warps.end(); iter++) {
     tmp_warp_ids.push_back((*iter)->get_warp_id());
   }
-  logger->debug("{}::scheduler_unit BEFORE: m_next_cycle_prioritized_warps: {}",
-                name(), fmt::join(tmp_warp_ids, ","));
+  logger->debug(
+      "{}::scheduler_unit[{}] BEFORE: m_next_cycle_prioritized_warps: {}",
+      name(), m_id, fmt::join(tmp_warp_ids, ","));
 
   tmp_warp_ids.clear();
   for (iter = m_next_cycle_prioritized_warps.begin();
        iter != m_next_cycle_prioritized_warps.end(); iter++) {
     tmp_warp_ids.push_back((*iter)->get_dynamic_warp_id());
   }
-  logger->debug("{}::scheduler_unit BEFORE: m_next_cycle_prioritized_warps: {}",
-                name(), fmt::join(tmp_warp_ids, ","));
+  logger->debug(
+      "{}::scheduler_unit[{}] BEFORE: m_next_cycle_prioritized_warps: {}",
+      name(), m_id, fmt::join(tmp_warp_ids, ","));
 
   order_warps();
 
@@ -51,16 +53,18 @@ void scheduler_unit::cycle() {
        iter != m_next_cycle_prioritized_warps.end(); iter++) {
     tmp_warp_ids.push_back((*iter)->get_warp_id());
   }
-  logger->debug("{}::scheduler_unit AFTER: m_next_cycle_prioritized_warps: {}",
-                name(), fmt::join(tmp_warp_ids, ","));
+  logger->debug(
+      "{}::scheduler_unit[{}] AFTER: m_next_cycle_prioritized_warps: {}",
+      name(), m_id, fmt::join(tmp_warp_ids, ","));
 
   tmp_warp_ids.clear();
   for (iter = m_next_cycle_prioritized_warps.begin();
        iter != m_next_cycle_prioritized_warps.end(); iter++) {
     tmp_warp_ids.push_back((*iter)->get_dynamic_warp_id());
   }
-  logger->debug("{}::scheduler_unit AFTER: m_next_cycle_prioritized_warps: {}",
-                name(), fmt::join(tmp_warp_ids, ","));
+  logger->debug(
+      "{}::scheduler_unit[{}] AFTER: m_next_cycle_prioritized_warps: {}",
+      name(), m_id, fmt::join(tmp_warp_ids, ","));
 
   for (std::vector<trace_shd_warp_t *>::iterator iter =
            m_next_cycle_prioritized_warps.begin();

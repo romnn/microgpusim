@@ -6,12 +6,13 @@ use console::style;
 pub struct RegisterSet {
     pub stage: super::PipelineStage,
     pub regs: Vec<Option<WarpInstruction>>,
+    pub id: usize,
 }
 
 impl RegisterSet {
-    pub fn new(stage: super::PipelineStage, size: usize) -> Self {
+    pub fn new(stage: super::PipelineStage, size: usize, id: usize) -> Self {
         let regs = (0..size).map(|_| None).collect();
-        Self { regs, stage }
+        Self { regs, stage, id }
     }
 
     pub fn has_free(&self) -> bool {
@@ -65,11 +66,11 @@ impl RegisterSet {
     //     }
     // }
 
-    pub fn schd_id(&self, reg_id: usize) -> Option<usize> {
+    pub fn scheduler_id(&self, reg_id: usize) -> Option<usize> {
         match self.regs.get(reg_id).map(Option::as_ref).flatten() {
             Some(r) => {
                 // debug_assert!(!r.empty());
-                Some(r.scheduler_id())
+                r.scheduler_id
             }
             None => None,
         }
@@ -161,18 +162,29 @@ impl RegisterSet {
     // }
 
     pub fn get_ready_mut(&mut self) -> Option<(usize, &mut Option<WarpInstruction>)> {
-        let mut ready: Option<(usize, &mut Option<WarpInstruction>)> = None;
-        for free in self.iter_occupied_mut() {
-            match (&ready, &free) {
-                (Some((_, Some(r))), (_, Some(f))) if f.uid < r.uid => {
-                    // free is older
-                    ready = Some(free);
+        let mut oldest: Option<(usize, &mut Option<WarpInstruction>)> = None;
+        for ready in self.iter_occupied_mut() {
+            if let (Some((_, Some(o))), (_, Some(r))) = (&oldest, &ready) {
+                log::trace!(
+                    "oldest={} uid = {}  <  ready={} uid = {}",
+                    o,
+                    o.uid,
+                    r,
+                    r.uid
+                );
+            }
+            match (&oldest, &ready) {
+                (Some((_, Some(o))), (_, Some(r))) if o.uid < r.uid => {
+                    // ready is older
+                    // ready is newer, so nothing to do here
+                    // oldest = Some(ready);
                 }
-                (None, _) => ready = Some(free),
-                _ => {}
+                // (None, _) => oldest = Some(ready),
+                _ => oldest = Some(ready),
+                // _ => {}
             }
         }
-        ready
+        oldest
     }
 
     // pub fn get_instruction(&self) -> Option<&WarpInstruction> {
@@ -249,11 +261,14 @@ impl RegisterSet {
         self.regs.iter().filter(|r| r.is_none())
     }
 
-    pub fn iter_free_mut(&mut self) -> impl Iterator<Item = &mut Option<WarpInstruction>> {
-        self.regs.iter_mut().filter(|r| r.is_none())
+    pub fn iter_free_mut(&mut self) -> impl Iterator<Item = (usize, &mut Option<WarpInstruction>)> {
+        self.regs
+            .iter_mut()
+            .enumerate()
+            .filter(|(i, r)| r.is_none())
     }
 
-    pub fn get_free_mut(&mut self) -> Option<&mut Option<WarpInstruction>> {
+    pub fn get_free_mut(&mut self) -> Option<(usize, &mut Option<WarpInstruction>)> {
         // let mut free = self
         //     .regs
         //     .iter_mut()
@@ -266,12 +281,18 @@ impl RegisterSet {
         self.iter_free_mut().next()
     }
 
-    pub fn get_free_sub_core_mut(&mut self, reg_id: usize) -> Option<&mut Option<WarpInstruction>> {
+    pub fn get_free_sub_core_mut(
+        &mut self,
+        reg_id: usize,
+    ) -> Option<(usize, &mut Option<WarpInstruction>)> {
         // in subcore model, each sched has a one specific reg
         // to use (based on sched id)
         debug_assert!(reg_id < self.regs.len());
-        self.regs.get_mut(reg_id) // .and_then(Option::as_ref)
-                                  // .filter(|r| r.empty())
+        match self.regs.get_mut(reg_id) {
+            Some(r) => Some((reg_id, r)),
+            None => None,
+        }
+        // .and_then(Option::as_ref) .filter(|r| r.empty())
     }
 
     pub fn size(&self) -> usize {
@@ -284,7 +305,7 @@ impl RegisterSet {
 
     pub fn move_in_from(&mut self, src: Option<WarpInstruction>, msg: impl AsRef<str>) {
         // panic!("move {:?} in {}", src, self);
-        let free = self.get_free_mut().unwrap();
+        let (_, free) = self.get_free_mut().unwrap();
         // let msg = format!(
         //     "register set moving in from {:?} to free={:?}",
         //     src.as_ref().map(ToString::to_string),
@@ -301,7 +322,7 @@ impl RegisterSet {
     ) {
         // panic!("move {:?} in {}", src, self);
         //     assert(reg_id < regs.size());
-        let free = self.get_free_sub_core_mut(reg_id).unwrap();
+        let (_, free) = self.get_free_sub_core_mut(reg_id).unwrap();
         // let msg = format!(
         //     "register set moving in from sub core {:?} to free={:?}",
         //     src.as_ref().map(ToString::to_string),

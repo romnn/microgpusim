@@ -5,12 +5,13 @@ use console::style;
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::{atomic, Arc, Mutex};
 
 #[derive(Debug)]
 pub struct SIMTCoreCluster<I> {
     pub cluster_id: usize,
     pub cycle: super::Cycle,
+    pub warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
     pub cores: Mutex<Vec<SIMTCore<I>>>,
     pub config: Arc<GPUConfig>,
     pub stats: Arc<Mutex<stats::Stats>>,
@@ -29,6 +30,7 @@ where
     pub fn new(
         cluster_id: usize,
         cycle: super::Cycle,
+        warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
         allocations: Rc<RefCell<super::Allocations>>,
         interconn: Arc<I>,
         stats: Arc<Mutex<stats::Stats>>,
@@ -39,6 +41,7 @@ where
         let mut cluster = Self {
             cluster_id,
             cycle: Rc::clone(&cycle),
+            warp_instruction_unique_uid: Arc::clone(&warp_instruction_unique_uid),
             config: config.clone(),
             stats: stats.clone(),
             interconn: interconn.clone(),
@@ -56,6 +59,7 @@ where
                     cluster_id,
                     Rc::clone(&allocations),
                     Rc::clone(&cycle),
+                    Arc::clone(&warp_instruction_unique_uid),
                     Arc::clone(&interconn),
                     Arc::clone(&stats),
                     Arc::clone(&config),

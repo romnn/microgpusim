@@ -16,7 +16,7 @@ use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::rc::Rc;
-use std::sync::{Arc, Mutex, RwLock, Weak};
+use std::sync::{atomic, Arc, Mutex, RwLock, Weak};
 use strum::{EnumCount, IntoEnumIterator};
 
 // Volta max shmem size is 96kB
@@ -87,6 +87,7 @@ pub struct InnerSIMTCore<I> {
     pub core_id: usize,
     pub cluster_id: usize,
     pub cycle: super::Cycle,
+    pub warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
     pub stats: Arc<Mutex<stats::Stats>>,
     pub config: Arc<GPUConfig>,
     pub current_kernel: Option<Arc<KernelInfo>>,
@@ -263,45 +264,72 @@ where
         &mut self,
         stage: PipelineStage,
         warp: &mut SchedulerWarp,
-        next_instr: WarpInstruction,
+        mut next_instr: WarpInstruction,
         // warp_id: usize,
-        sch_id: usize,
+        scheduler_id: usize,
     ) {
+        let mut pipeline_stage = self.pipeline_reg[stage as usize].borrow_mut();
+        let (reg_idx, pipe_reg) = if self.config.sub_core_model {
+            todo!("sub core model");
+            pipeline_stage.get_free_sub_core_mut(scheduler_id).unwrap()
+        } else {
+            pipeline_stage.get_free_mut().unwrap()
+        };
+
         log::debug!(
-            "{}",
+            "{} by scheduler {} to pipeline[{:?}][{}] {:?}",
             style(format!(
                 "cycle {:02} issue {} for warp {}",
                 self.cycle.get(),
                 next_instr,
                 warp.warp_id
             ))
-            .yellow()
+            .yellow(),
+            scheduler_id,
+            stage,
+            reg_idx,
+            pipe_reg.as_ref().map(ToString::to_string),
         );
-
-        // debug_assert_eq!(warp.warp_id, next_instr.warp_id);
-        // debug_assert_eq!(warp.warp_id, next_instr.warp_id);
-
-        let mut pipeline_stage = self.pipeline_reg[stage as usize].borrow_mut();
-        let pipe_reg = if self.config.sub_core_model {
-            pipeline_stage.get_free_sub_core_mut(sch_id).unwrap()
-        } else {
-            pipeline_stage.get_free_mut().unwrap()
-        };
 
         // debug_assert!(next_instr.empty());
         // *pipe_reg = Some(next_instr);
-        pipe_reg.insert(next_instr);
-
-        let pipe_reg_mut = pipe_reg.as_mut().unwrap();
-
+        // we could set all the things here manually
+        //
         // this sets all the info for the warp instruction in pipe reg
-        pipe_reg_mut.issue(
-            pipe_reg_mut.active_mask,
-            warp.warp_id,
-            0,
-            warp.dynamic_warp_id,
-            sch_id,
-        );
+        next_instr.uid = self
+            .warp_instruction_unique_uid
+            .fetch_add(1, atomic::Ordering::SeqCst);
+        // ++(m_config->gpgpu_ctx->warp_inst_sm_next_uid);
+
+        //   m_warp_active_mask = mask;
+        // self.warp_issued_mask = mask;
+        // m_uid = ++(m_config->gpgpu_ctx->warp_inst_sm_next_uid);
+        // m_warp_id = warp_id;
+        next_instr.warp_id = warp.warp_id;
+        // m_dynamic_warp_id = dynamic_warp_id;
+        // issue_cycle = cycle;
+        next_instr.issue_cycle = Some(self.cycle.get());
+        // cycles = initiation_interval;
+        next_instr.dispatch_delay_cycles = next_instr.initiation_interval;
+        // m_cache_hit = false;
+        // m_empty = false;
+        next_instr.scheduler_id = Some(scheduler_id);
+
+        // pipe_reg.insert(next_instr);
+
+        // let pipe_reg_mut = pipe_reg.as_mut().unwrap();
+        // let pipe_reg_mut = &mut next_instr;
+        let mut pipe_reg_mut = next_instr;
+
+        debug_assert_eq!(warp.warp_id, pipe_reg_mut.warp_id);
+
+        // pipe_reg_mut.issue(
+        //     pipe_reg_mut.active_mask,
+        //     warp.warp_id,
+        //     0,
+        //     warp.dynamic_warp_id,
+        //     scheduler_id,
+        // );
 
         for t in 0..self.config.warp_size {
             if pipe_reg_mut.active_mask[t] {
@@ -374,7 +402,8 @@ where
             }
         }
 
-        let pipe_reg_ref = pipe_reg.as_ref().unwrap();
+        let pipe_reg_ref = pipe_reg_mut;
+        // let pipe_reg_ref = pipe_reg.as_ref().unwrap();
 
         log::debug!(
             "{} (done={} ({}/{}), functional done={}, hardware done={}, stores done={} ({} stores), instr in pipeline = {}, active_threads={})",
@@ -419,7 +448,9 @@ where
         self.scoreboard
             .write()
             .unwrap()
-            .reserve_registers(pipe_reg_ref);
+            .reserve_registers(&pipe_reg_ref);
+
+        pipe_reg.insert(pipe_reg_ref);
 
         log::debug!(
             "post issue register set of {:?} pipeline: {}",
@@ -435,9 +466,10 @@ pub struct SIMTCore<I> {
     pub dispatch_ports: Vec<PipelineStage>,
     pub functional_units: Vec<Arc<Mutex<dyn SimdFunctionUnit>>>,
     pub schedulers: Vec<Box<dyn sched::SchedulerUnit>>,
+    pub scheduler_issue_priority: usize,
     pub inner: InnerSIMTCore<I>,
 
-    // for debugging
+    // for debugging, TODO: remove
     temp_check_state: Vec<std::collections::HashSet<usize>>,
 }
 
@@ -485,6 +517,7 @@ where
         cluster_id: usize,
         allocations: Rc<RefCell<super::Allocations>>,
         cycle: super::Cycle,
+        warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
         interconn: Arc<I>,
         stats: Arc<Mutex<stats::Stats>>,
         config: Arc<GPUConfig>,
@@ -546,7 +579,7 @@ where
         let pipeline_reg: Vec<_> = PipelineStage::iter()
             .map(|stage| {
                 let pipeline_width = config.pipeline_widths.get(&stage).copied().unwrap_or(0);
-                register_set::RegisterSet::new(stage, pipeline_width)
+                register_set::RegisterSet::new(stage, pipeline_width, stage as usize)
             })
             .collect();
 
@@ -631,6 +664,7 @@ where
             core_id,
             cluster_id,
             cycle,
+            warp_instruction_unique_uid,
             stats,
             allocations,
             config: config.clone(),
@@ -663,6 +697,7 @@ where
         let mut core = Self {
             inner,
             schedulers: Vec::new(),
+            scheduler_issue_priority: 0,
             issue_ports: Vec::new(),
             dispatch_ports: Vec::new(),
             functional_units: Vec::new(),
@@ -1401,10 +1436,14 @@ where
     }
 
     fn issue(&mut self) {
-        for scheduler in &mut self.schedulers {
-            scheduler.cycle(&mut self.inner);
-            // scheduler.cycle(());
+        // fair round robin issue between schedulers
+        // for (scheduler_idx, scheduler) in self.schedulers.iter_mut().enumerate() {
+        let num_schedulers = self.schedulers.len();
+        for scheduler_idx in 0..num_schedulers {
+            let scheduler_idx = (self.scheduler_issue_priority + scheduler_idx) % num_schedulers;
+            self.schedulers[scheduler_idx].cycle(&mut self.inner);
         }
+        self.scheduler_issue_priority = (self.scheduler_issue_priority + 1) % num_schedulers;
     }
 
     fn writeback(&mut self) {
@@ -1530,9 +1569,11 @@ where
                 issue_inst
             );
 
+            let mut debug_reg_id = None;
             let partition_issue = self.inner.config.sub_core_model && fu.is_issue_partitioned();
             let ready_reg: Option<&mut Option<WarpInstruction>> = if partition_issue {
                 let reg_id = fu.issue_reg_id();
+                debug_reg_id = Some(reg_id);
                 issue_inst.get_ready_sub_core_mut(reg_id)
             } else {
                 issue_inst.get_ready_mut().map(|(_, r)| r)
@@ -1543,9 +1584,7 @@ where
                 continue;
             };
 
-            // if let Some(ref mut ready_reg @ Some(instr)) = ready_reg {
             if let Some(ref instr) = ready_reg {
-                // todo!("ready for issue to functional unit");
                 if fu.can_issue(instr) {
                     let schedule_wb_now = !fu.stallable();
                     let result_bus = self
@@ -1556,16 +1595,18 @@ where
                         .next();
 
                     log::debug!(
-                        "{}",
+                        "{} {} (partition issue={}, reg id={:?}) ready for issue to fu[{:03}]={}",
                         style(format!(
-                            "cycle {:03} core={:?} execute: {} ready for issue to fu[{:03}]={}",
+                            "cycle {:03} core={:?} execute:",
                             self.inner.cycle.get(),
                             core_id,
-                            instr,
-                            fu_id,
-                            fu,
                         ))
-                        .red()
+                        .red(),
+                        instr,
+                        partition_issue,
+                        debug_reg_id,
+                        fu_id,
+                        fu,
                     );
 
                     let mut issued = true;

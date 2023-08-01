@@ -34,7 +34,15 @@ pipelined_simd_unit::pipelined_simd_unit(register_set *result_port,
 }
 
 void pipelined_simd_unit::cycle() {
-  // logger->debug("{}::pipelined_simd_unit::cycle(), m_name);
+  unsigned long cycle =
+      m_core->get_gpu()->gpu_tot_sim_cycle + m_core->get_gpu()->gpu_sim_cycle;
+  if (m_name.compare("SPUnit") == 0) {
+    logger->debug(
+        "{}::pipelined_simd_unit: cycle={}: \tpipeline=[{}] ({}/{} active)",
+        m_name, cycle,
+        fmt::join(m_pipeline_reg, m_pipeline_reg + m_pipeline_depth, ","),
+        active_insts_in_pipeline, m_pipeline_depth);
+  }
   if (!m_pipeline_reg[0]->empty()) {
     std::stringstream msg;
     msg << m_name << ": move pipeline[0] to result port "

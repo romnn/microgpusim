@@ -78,12 +78,12 @@ trace_gpgpu_sim *gpgpu_trace_sim_init_perf_model(
   // TODO: configure using config
   // m_gpgpu_context->the_gpgpusim->g_the_gpu_config->configure(config);
 
-  assert(m_gpgpu_context->the_gpgpusim->g_the_gpu_config->m_shader_config
-             .n_simt_clusters == 1);
-  assert(m_gpgpu_context->the_gpgpusim->g_the_gpu_config->m_shader_config
-             .n_simt_cores_per_cluster == 1);
-  assert(m_gpgpu_context->the_gpgpusim->g_the_gpu_config->m_shader_config
-             .gpgpu_num_sched_per_core == 1);
+  // assert(m_gpgpu_context->the_gpgpusim->g_the_gpu_config->m_shader_config
+  //            .n_simt_clusters == 1);
+  // assert(m_gpgpu_context->the_gpgpusim->g_the_gpu_config->m_shader_config
+  //            .n_simt_cores_per_cluster == 1);
+  // assert(m_gpgpu_context->the_gpgpusim->g_the_gpu_config->m_shader_config
+  //            .gpgpu_num_sched_per_core == 1);
 
   m_gpgpu_context->the_gpgpusim->g_the_gpu =
       new trace_gpgpu_sim(*(m_gpgpu_context->the_gpgpusim->g_the_gpu_config),
@@ -273,8 +273,8 @@ void accelsim_bridge::process_commands() {
       size_t addre, Bcount;
       tracer->parse_memcpy_info(commandlist[command_idx].command_string, addre,
                                 Bcount);
-      m_gpgpu_sim->logger->info("launching memcpy command : {}",
-                                commandlist[command_idx].command_string);
+      // m_gpgpu_sim->logger->info("launching memcpy command : {}",
+      //                           commandlist[command_idx].command_string);
       m_gpgpu_sim->perf_memcpy_to_gpu(addre, Bcount);
       command_idx++;
     } else if (commandlist[command_idx].m_type == command_type::kernel_launch) {

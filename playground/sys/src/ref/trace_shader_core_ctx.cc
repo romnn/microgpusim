@@ -272,16 +272,20 @@ void trace_shader_core_ctx::issue_warp(register_set &pipe_reg_set,
                                        const warp_inst_t *next_inst,
                                        const active_mask_t &active_mask,
                                        unsigned warp_id, unsigned sch_id) {
-  logger->debug("issue warp {}", warp_id);
   warp_inst_t **pipe_reg =
       pipe_reg_set.get_free(m_config->sub_core_model, sch_id);
   assert(pipe_reg);
 
+  logger->debug(
+      "cycle {} issue {} for warp {} by scheduler {} to pipeline[?][?] {}",
+      m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle, next_inst->display(),
+      warp_id, sch_id, pipe_reg_set, (*pipe_reg)->display());
+
   assert(next_inst->empty());
 
-  logger->debug("warp={} executed {}", warp_id,
-                // static_cast<const warp_inst_t *>(next_inst));
-                static_cast<const warp_inst_t &>(*next_inst));
+  // logger->debug("warp={} executed {}", warp_id,
+  //               // static_cast<const warp_inst_t *>(next_inst));
+  //               static_cast<const warp_inst_t &>(*next_inst));
   // create a copy
   warp_inst_t next_trace_inst_copy = *next_inst;
 
@@ -343,12 +347,12 @@ void trace_shader_core_ctx::create_front_pipeline() {
     logger->debug("pipeline stage {} has width {}",
                   pipeline_stage_name_t_str[j], m_config->pipe_widths[j]);
     m_pipeline_reg.push_back(register_set(
-        m_config->pipe_widths[j], pipeline_stage_name_t_str[j], logger));
+        m_config->pipe_widths[j], pipeline_stage_name_t_str[j], j, logger));
   }
   for (unsigned j = 0; j < m_config->m_specialized_unit.size(); j++) {
     m_pipeline_reg.push_back(
         register_set(m_config->m_specialized_unit[j].id_oc_spec_reg_width,
-                     m_config->m_specialized_unit[j].name, logger));
+                     m_config->m_specialized_unit[j].name, j, logger));
     m_config->m_specialized_unit[j].ID_OC_SPEC_ID = m_pipeline_reg.size() - 1;
     m_specilized_dispatch_reg.push_back(
         &m_pipeline_reg[m_pipeline_reg.size() - 1]);
@@ -356,7 +360,7 @@ void trace_shader_core_ctx::create_front_pipeline() {
   for (unsigned j = 0; j < m_config->m_specialized_unit.size(); j++) {
     m_pipeline_reg.push_back(
         register_set(m_config->m_specialized_unit[j].oc_ex_spec_reg_width,
-                     m_config->m_specialized_unit[j].name, logger));
+                     m_config->m_specialized_unit[j].name, j, logger));
     m_config->m_specialized_unit[j].OC_EX_SPEC_ID = m_pipeline_reg.size() - 1;
   }
 
@@ -831,7 +835,7 @@ void trace_shader_core_ctx::execute() {
     }
 
     unsigned multiplier = m_fu[n]->clock_multiplier();
-    assert(multiplier <= 1);
+    assert(multiplier == 1);
     for (unsigned c = 0; c < multiplier; c++) m_fu[n]->cycle();
     m_fu[n]->active_lanes_in_pipeline();
 
@@ -851,8 +855,11 @@ void trace_shader_core_ctx::execute() {
     warp_inst_t **ready_reg = issue_inst.get_ready(partition_issue, reg_id);
     if (issue_inst.has_ready(partition_issue, reg_id) &&
         m_fu[n]->can_issue(**ready_reg)) {
-      logger->debug("execute: {} ready for issue to {}",
-                    warp_instr_ptr(*ready_reg), m_fu[n]->get_name());
+      logger->debug(
+          "execute: {} (partition issue={}, reg_id={}) ready for issue to "
+          "fu[{:<03}]={}",
+          warp_instr_ptr(*ready_reg), partition_issue, reg_id, n,
+          m_fu[n]->get_name());
 
       bool schedule_wb_now = !m_fu[n]->stallable();
       int resbus = -1;

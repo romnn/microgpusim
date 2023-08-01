@@ -56,7 +56,7 @@ use std::fmt::Binary;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{atomic, Arc, Mutex, RwLock};
 use std::time::Instant;
 use trace_model::{Command, Dim, KernelLaunch, MemAccessTraceEntry, Point};
 
@@ -596,6 +596,7 @@ pub struct MockSimulator<I> {
     // clusters: Vec<SIMTCoreCluster>,
     // clusters: Vec<SIMTCoreCluster<'a>>,
     clusters: Vec<SIMTCoreCluster<I>>,
+    warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
     interconn: Arc<I>,
 
     last_cluster_issue: usize,
@@ -699,11 +700,13 @@ where
 
         let allocations = Rc::new(RefCell::new(Allocations::default()));
 
+        let warp_instruction_unique_uid = Arc::new(atomic::AtomicU64::new(0));
         let clusters: Vec<_> = (0..config.num_simt_clusters)
             .map(|i| {
                 SIMTCoreCluster::new(
                     i,
                     Rc::clone(&cycle),
+                    Arc::clone(&warp_instruction_unique_uid),
                     Rc::clone(&allocations),
                     Arc::clone(&interconn),
                     Arc::clone(&stats),
@@ -749,6 +752,7 @@ where
             running_kernels,
             executed_kernels,
             clusters,
+            warp_instruction_unique_uid,
             last_cluster_issue: 0,
             last_issued_kernel: 0,
             allocations,
@@ -1662,9 +1666,11 @@ pub fn accelmain(
 
     // debugging config
     let mut config = config::GPUConfig::default();
-    config.num_simt_clusters = 1;
-    config.num_cores_per_simt_cluster = 1;
-    config.num_schedulers_per_core = 1;
+
+    config.num_simt_clusters = 1; // 20
+    config.num_cores_per_simt_cluster = 1; // 1
+    config.num_schedulers_per_core = 2; // 1
+
     let config = Arc::new(config);
 
     let interconn = Arc::new(ic::ToyInterconnect::new(
@@ -2080,9 +2086,9 @@ mod tests {
 
         // debugging config
         let mut box_config = config::GPUConfig::default();
-        box_config.num_simt_clusters = 1;
-        box_config.num_cores_per_simt_cluster = 1;
-        box_config.num_schedulers_per_core = 1;
+        box_config.num_simt_clusters = 1; // 20
+        box_config.num_cores_per_simt_cluster = 1; // 1
+        box_config.num_schedulers_per_core = 2; // 2
         let box_config = Arc::new(box_config);
 
         let box_interconn = Arc::new(ic::ToyInterconnect::new(

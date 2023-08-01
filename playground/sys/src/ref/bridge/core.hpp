@@ -41,7 +41,7 @@ class core_bridge {
     std::vector<simd_function_unit *>::const_iterator iter;
     for (iter = (ptr->m_fu).begin(); iter != (ptr->m_fu).end(); iter++) {
       const simd_function_unit *fu = *iter;
-      register_set *reg = new register_set(0, fu->get_name(), NULL);
+      register_set *reg = new register_set(0, fu->get_name(), 0, NULL);
 
       if (fu->is_pipelined()) {
         const pipelined_simd_unit *pipe_fu =

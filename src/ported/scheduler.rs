@@ -876,9 +876,6 @@ impl BaseSchedulerUnit {
     where
         F: FnMut(&CoreWarp, &CoreWarp) -> std::cmp::Ordering,
     {
-        // gto_scheduler::scheduler_unit BEFORE: m_next_cycle_prioritized_warps: [31,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,]
-        // gto_scheduler::scheduler_unit AFTER: m_next_cycle_prioritized_warps: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,]
-
         // todo!("base scheduler unit: order by priority");
         let num_warps_to_add = self.supervised_warps.len();
         let out = &mut self.next_cycle_prioritized_warps;
@@ -886,17 +883,29 @@ impl BaseSchedulerUnit {
         debug_assert!(num_warps_to_add <= self.warps.len());
         out.clear();
 
-        let mut last_issued_iter = self.warps.iter().skip(self.last_supervised_issued_idx);
+        debug_assert!(all_different(&self.supervised_warps.make_contiguous()));
+
+        // let mut last_issued_iter = self.warps.iter().skip(self.last_supervised_issued_idx);
+        let mut last_issued_iter = self
+            .supervised_warps
+            .iter()
+            .skip(self.last_supervised_issued_idx);
         debug_assert!(all_different(&self.warps));
 
         // TODO: maybe we actually should make a copy of the supervised warps to not actually
         // reorder those for stability
 
-        let mut supervised_warps: Vec<_> = self.supervised_warps.clone().into_iter().collect();
-        supervised_warps.sort_by(priority_func);
+        let mut supervised_warps_sorted: Vec<_> =
+            self.supervised_warps.clone().into_iter().collect();
+        supervised_warps_sorted.sort_by(priority_func);
 
-        debug_assert!(all_different(&self.supervised_warps.make_contiguous()));
-        debug_assert!(all_different(&supervised_warps));
+        debug_assert!(all_different(&supervised_warps_sorted));
+
+        // dbg!(&supervised_warps_sorted.len());
+        // dbg!(&supervised_warps_sorted
+        //     .iter()
+        //     .map(|w| w.borrow().dynamic_warp_id)
+        //     .collect::<Vec<_>>());
 
         // self.supervised_warps
         //     .make_contiguous()
@@ -915,6 +924,8 @@ impl BaseSchedulerUnit {
                     &greedy_value.map(|w| w.borrow().dynamic_warp_id)
                 );
 
+                // dbg!(&greedy_value);
+
                 // self.supervised_warps
                 //     .make_contiguous()
                 //     .sort_by(priority_func);
@@ -922,8 +933,7 @@ impl BaseSchedulerUnit {
                 // self.supervised_warpsself.supervised_warps.any( .iter()
 
                 out.extend(
-                    // self.supervised_warps
-                    supervised_warps
+                    supervised_warps_sorted
                         .into_iter()
                         .take(num_warps_to_add)
                         .filter(|warp| {
@@ -946,13 +956,15 @@ impl BaseSchedulerUnit {
                 // self.supervised_warps
                 //     .make_contiguous()
                 //     .sort_by(priority_func);
-                out.extend(
-                    // self.supervised_warps
-                    supervised_warps.into_iter().take(num_warps_to_add), // .map(Rc::clone),
-                );
+                out.extend(supervised_warps_sorted.into_iter().take(num_warps_to_add));
             }
         }
-        assert_eq!(num_warps_to_add, out.len());
+        // dbg!(num_warps_to_add, out.len());
+        assert_eq!(
+            num_warps_to_add,
+            out.len(),
+            "either too few supervised warps or greedy warp not in supervised warps"
+        );
     }
 
     fn order_rrr(
@@ -1226,22 +1238,26 @@ impl SchedulerUnit for GTOScheduler {
     // fn cycle(&mut self, core: ()) {
     fn cycle(&mut self, issuer: &mut dyn super::core::WarpIssuer) {
         log::debug!(
-            "gto scheduler: BEFORE: prioritized warp ids: {:?}",
+            "gto scheduler[{}]: BEFORE: prioritized warp ids: {:?}",
+            self.inner.id,
             self.debug_warp_ids()
         );
         log::debug!(
-            "gto scheduler: BEFORE: prioritized dynamic warp ids: {:?}",
+            "gto scheduler[{}]: BEFORE: prioritized dynamic warp ids: {:?}",
+            self.inner.id,
             self.debug_dynamic_warp_ids()
         );
 
         self.order_warps();
 
         log::debug!(
-            "gto scheduler: AFTER: prioritized warp ids: {:?}",
+            "gto scheduler[{}]: AFTER: prioritized warp ids: {:?}",
+            self.inner.id,
             self.debug_warp_ids()
         );
         log::debug!(
-            "gto scheduler: AFTER: prioritized dynamic warp ids: {:?}",
+            "gto scheduler[{}]: AFTER: prioritized dynamic warp ids: {:?}",
+            self.inner.id,
             self.debug_dynamic_warp_ids()
         );
 

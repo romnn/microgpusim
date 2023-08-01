@@ -645,6 +645,9 @@ void warp_inst_t::print(std::ostream &os) const {
   if (!empty()) {
     os << ","
        << "warp=" << warp_id();
+  } else {
+    os << ","
+       << "warp=?";
   }
   os << "]";
 }

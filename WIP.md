@@ -2,13 +2,18 @@
 
 - today:
 
-  - FIX: add perf memcopy to gpu back in
+  - lockstep with multiple cores and clusters
+  - allow basic configurations for the playground bridge
+
+    - add flag for playground to run in accelsim compatibility mode
+    - playground should be able to behave like accelsim
+
   - parse accelsim config files
     - with defaults for compatibility
   - FIX: add l2 set index back in
   - generate plots and correlation stuff etc
-  - add flag for playground to run in accelsim compatibility mode
 
+  - DONE: add perf memcopy to gpu back in
   - DONE: support multiple kernel launches
   - DONE: fix tracing of multiple kernels
   - DONE: add transpose benchmarks

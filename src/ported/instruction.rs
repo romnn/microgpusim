@@ -117,9 +117,13 @@ pub const LOCAL_GENERIC_START: u64 = SHARED_GENERIC_START - TOTAL_LOCAL_MEM;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct WarpInstruction {
-    pub uid: usize,
+    /// Globally unique id for this warp instruction.
+    ///
+    /// The id is assigned once the instruction is issued by a core.
+    pub uid: u64,
     pub warp_id: usize,
-    scheduler_id: usize,
+    /// The ID of the scheduler unit that issued this instruction.
+    pub scheduler_id: Option<usize>,
     pub pc: usize,
     // todo: keep?
     pub trace_idx: usize,
@@ -131,6 +135,8 @@ pub struct WarpInstruction {
     pub mem_access_queue: VecDeque<MemAccess>,
     /// operation latency
     pub latency: usize,
+    /// The cycle in which the instruction was issued by a core.
+    pub issue_cycle: Option<u64>,
     pub initiation_interval: usize,
     pub dispatch_delay_cycles: usize,
     /// size of the word being operated on
@@ -234,7 +240,7 @@ impl WarpInstruction {
         Self {
             uid: 0,
             warp_id: 0,
-            scheduler_id: 0,
+            scheduler_id: None,
             opcode: Opcode {
                 op: Op::NOP,
                 category: ArchOp::NO_OP,
@@ -248,6 +254,7 @@ impl WarpInstruction {
             cache_operator: CacheOperator::UNDEFINED,
             latency: 1,             // TODO: used to be one
             initiation_interval: 1, // TODO: used to be one
+            issue_cycle: None,      // TODO: used to be one
             dispatch_delay_cycles: 0,
             data_size: 0,
             instr_width: 16,
@@ -437,7 +444,7 @@ impl WarpInstruction {
         Self {
             uid: 0,
             warp_id: trace.warp_id_in_block as usize, // todo: block or sm?
-            scheduler_id: 0,
+            scheduler_id: None,
             opcode,
             pc: trace.instr_offset as usize,
             trace_idx: trace.instr_idx as usize,
@@ -447,6 +454,7 @@ impl WarpInstruction {
             active_mask,
             cache_operator,
             latency,
+            issue_cycle: None,
             initiation_interval,
             dispatch_delay_cycles: initiation_interval,
             data_size,
@@ -482,9 +490,9 @@ impl WarpInstruction {
         // &self.outputs[0..self.out_count]
     }
 
-    pub fn scheduler_id(&self) -> usize {
-        self.scheduler_id
-    }
+    // pub fn scheduler_id(&self) -> Option<usize> {
+    //     self.scheduler_id
+    // }
 
     // pub fn empty(&self) -> bool {
     //     false
@@ -736,29 +744,29 @@ impl WarpInstruction {
     }
 
     /// this just sets values
-    pub fn issue(
-        &mut self,
-        mask: sched::ThreadActiveMask,
-        warp_id: usize,
-        cycle: u64,
-        dynamic_warp_id: usize,
-        scheduler_id: usize,
-    ) {
-        // assert_eq!(self.active_mask, mask);
-        // assert_eq!(self.warp_id, warp_id);
-        // assert_eq!(self.scheduler_id, scheduler_id);
-
-        self.active_mask = mask;
-        self.active_mask = mask;
-        // self.id = ++(m_config->gpgpu_ctx->warp_inst_sm_next_uid);
-        self.warp_id = warp_id;
-        // self.dynamic_warp_id = dynamic_warp_id;
-        // self.issue_cycle = cycle;
-        // self.cycles = self.initiation_interval;
-        // self.cache_hit = false;
-        // self.empty = false;
-        self.scheduler_id = scheduler_id;
-    }
+    // pub fn issue(
+    //     &mut self,
+    //     mask: sched::ThreadActiveMask,
+    //     warp_id: usize,
+    //     cycle: u64,
+    //     dynamic_warp_id: usize,
+    //     scheduler_id: usize,
+    // ) {
+    //     // assert_eq!(self.active_mask, mask);
+    //     // assert_eq!(self.warp_id, warp_id);
+    //     // assert_eq!(self.scheduler_id, scheduler_id);
+    //
+    //     self.active_mask = mask;
+    //     self.active_mask = mask;
+    //     // self.id = ++(m_config->gpgpu_ctx->warp_inst_sm_next_uid);
+    //     self.warp_id = warp_id;
+    //     // self.dynamic_warp_id = dynamic_warp_id;
+    //     // self.issue_cycle = cycle;
+    //     // self.cycles = self.initiation_interval;
+    //     // self.cache_hit = false;
+    //     // self.empty = false;
+    //     self.scheduler_id = Some(scheduler_id;
+    // }
 
     fn memory_coalescing_arch(
         &self,

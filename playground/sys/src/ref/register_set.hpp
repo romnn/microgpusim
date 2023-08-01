@@ -7,16 +7,18 @@
 // register that can hold multiple instructions.
 class register_set {
  public:
-  register_set(unsigned num, const char *name,
+  register_set(unsigned num, const char *name, unsigned id,
                std::shared_ptr<spdlog::logger> logger)
       : logger(logger) {
     for (unsigned i = 0; i < num; i++) {
       regs.push_back(new warp_inst_t());
     }
     m_name = name;
+    m_id = id;
   }
 
   const char *get_name() const { return m_name; }
+  unsigned id() const { return m_id; }
 
   bool has_free() const {
     for (unsigned i = 0; i < regs.size(); i++) {
@@ -113,6 +115,11 @@ class register_set {
     ready = NULL;
     for (unsigned i = 0; i < regs.size(); i++) {
       if (not regs[i]->empty()) {
+        if (ready) {
+          logger->trace("oldest={} uid = {}  <  ready={} uid = {}",
+                        warp_instr_ptr(*ready), (*ready)->get_uid(),
+                        warp_instr_ptr(regs[i]), regs[i]->get_uid());
+        }
         if (ready and (*ready)->get_uid() < regs[i]->get_uid()) {
           // ready is oldest
         } else {
@@ -124,6 +131,8 @@ class register_set {
   }
   warp_inst_t **get_ready(bool sub_core_model, unsigned reg_id) {
     if (!sub_core_model) return get_ready();
+
+    assert(0 && "sub core model");
     warp_inst_t **ready;
     ready = NULL;
     assert(reg_id < regs.size());
@@ -146,8 +155,10 @@ class register_set {
     // sched id)
     if (!sub_core_model) return get_free();
 
+    assert(0 && "sub core model");
     assert(reg_id < regs.size());
     if (regs[reg_id]->empty()) {
+      logger->trace("found free register at index {}", reg_id);
       return &regs[reg_id];
     }
     assert(0 && "No free register found");
@@ -167,6 +178,7 @@ class register_set {
  private:
   std::vector<warp_inst_t *> regs;
   const char *m_name;
+  unsigned m_id;
 };
 
 #include "fmt/core.h"
@@ -181,7 +193,7 @@ struct fmt::formatter<register_set> {
 
   auto format(const register_set &reg, format_context &ctx) const
       -> format_context::iterator {
-    return fmt::format_to(ctx.out(), "{}=[{}]", reg.m_name,
+    return fmt::format_to(ctx.out(), "{}[{}]=[{}]", reg.m_name, reg.m_id,
                           fmt::join(reg.regs, ","));
   }
 };
