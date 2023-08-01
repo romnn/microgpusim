@@ -176,7 +176,7 @@ unsigned trace_simt_core_cluster::issue_block2core() {
       }
     }
     logger->debug("core {}-{}: selected kernel {}", m_cluster_id, core,
-                  kernel != NULL ? kernel->get_name() : "NULL");
+                  trace_kernel_info_ptr(kernel));
 
     if (kernel != NULL) {
       logger->debug("kernel: no more blocks to run={} can issue block {}",

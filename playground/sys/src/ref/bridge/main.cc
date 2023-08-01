@@ -298,6 +298,8 @@ void accelsim_bridge::process_commands() {
 // Launch all kernels within window that are on a stream that isn't
 // already running
 void accelsim_bridge::launch_kernels() {
+  m_gpgpu_sim->logger->trace("launching kernels");
+
   for (auto k : kernels_info) {
     // check if stream of kernel is busy
     bool stream_busy = false;
@@ -305,11 +307,11 @@ void accelsim_bridge::launch_kernels() {
       if (s == k->get_cuda_stream_id()) stream_busy = true;
     }
     if (!stream_busy && m_gpgpu_sim->can_start_kernel() && !k->was_launched()) {
-      m_gpgpu_sim->logger->info("launching kernel name: {} uid: {}",
-                                k->get_name(), k->get_uid());
-      if (k->get_uid() > 1) {
-        assert(0 && "new kernel");
-      }
+      m_gpgpu_sim->logger->info("launching kernel: {}",
+                                trace_kernel_info_ptr(k));
+      // if (k->get_uid() > 1) {
+      //   assert(0 && "new kernel");
+      // }
       m_gpgpu_sim->launch(k);
 
       k->set_launched();
@@ -341,6 +343,7 @@ void accelsim_bridge::cycle() {
 }
 
 void accelsim_bridge::cleanup_finished_kernel(unsigned finished_kernel_uid) {
+  logger->debug("cleanup finished kernel with id={}", finished_kernel_uid);
   if (finished_kernel_uid || limit_reached() || !active()) {
     trace_kernel_info_t *k = NULL;
     for (unsigned j = 0; j < kernels_info.size(); j++) {

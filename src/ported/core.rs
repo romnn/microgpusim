@@ -927,7 +927,11 @@ where
             .map(|t| t.pc)
     }
 
-    fn register_thread_in_block_exited(&mut self, block_hw_id: usize, kernel: Option<&KernelInfo>) {
+    fn register_thread_in_block_exited(
+        &mut self,
+        block_hw_id: usize,
+        kernel: &Option<Arc<KernelInfo>>,
+    ) {
         let current_kernel: &mut Option<_> =
             &mut self.inner.current_kernel.as_ref().map(|k| k.as_ref());
 
@@ -935,6 +939,8 @@ where
         debug_assert!(block_hw_id < MAX_CTA_PER_SHADER);
         debug_assert!(self.inner.block_status[block_hw_id] > 0);
         self.inner.block_status[block_hw_id] -= 1;
+
+        // this is the last block that exited
         if self.inner.block_status[block_hw_id] == 0 {
             // Increment the completed CTAs
             //   m_stats->ctas_completed++;
@@ -957,7 +963,7 @@ where
                 //     fflush(stdout);
                 //
                 // Shader can only be empty when no more cta are dispatched
-                if kernel != *current_kernel {
+                if kernel.as_ref().map(|k| k.config.id) != current_kernel.map(|k| k.config.id) {
                     // debug_assert!(current_kernel.is_none() || kernel.no_more_blocks_to_run());
                 }
                 *current_kernel = None;
@@ -974,9 +980,10 @@ where
                         //                      "finished on shader %u.\n",
                         //                      kernel->get_uid(), kernel->name().c_str(), m_sid);
                         //
-                        if *current_kernel == Some(&kernel) {
+                        if current_kernel.map(|k| k.config.id) == Some(kernel.config.id) {
                             *current_kernel = None;
                         }
+
                         // m_gpu->set_kernel_done(kernel);
                     }
                 }
@@ -1135,10 +1142,7 @@ where
                                         block_hw_id,
                                         self.inner.block_status[block_hw_id]
                                     );
-                                    self.register_thread_in_block_exited(
-                                        block_hw_id,
-                                        kernel.as_deref(),
-                                    );
+                                    self.register_thread_in_block_exited(block_hw_id, &kernel);
 
                                     // if let Some(Some(thread_info)) =
                                     //     self.inner.thread_info.get(tid).map(Option::as_ref)
@@ -1189,6 +1193,7 @@ where
                             dbg!(&warp);
                             dbg!(&warp.active_mask.to_bit_string());
                             dbg!(&warp.num_completed());
+                            panic!("?");
                         }
                         let instr = warp.current_instr().unwrap();
                         let pc = warp.pc().unwrap();
@@ -1584,13 +1589,15 @@ where
 
     pub fn cycle(&mut self) {
         log::debug!(
-            "{}",
+            "{} active={}, not completed={}",
             style(format!(
                 "cycle {:03} core {:?}: core cycle",
                 self.inner.cycle.get(),
                 self.id()
             ))
-            .blue()
+            .blue(),
+            self.is_active(),
+            self.not_completed(),
         );
 
         if !self.is_active() && self.not_completed() == 0 {
@@ -1600,7 +1607,6 @@ where
         // m_stats->shader_cycles[m_sid]++;
         self.writeback();
         self.execute();
-        // self.read_operands();
         for _ in 0..self.inner.config.reg_file_port_throughput {
             self.inner
                 .operand_collector
@@ -1656,12 +1662,7 @@ where
     }
 
     pub fn set_kernel(&mut self, kernel: Arc<KernelInfo>) {
-        log::debug!(
-            "kernel {} ({}) bind to core {:?}",
-            kernel.uid,
-            kernel.name(),
-            self.id()
-        );
+        log::debug!("kernel {} bind to core {:?}", kernel, self.id());
         self.inner.current_kernel = Some(kernel);
     }
 
@@ -1861,7 +1862,7 @@ where
         log::debug!("kernel: {}", &kernel);
 
         let start_pc = self.next_pc(start_thread);
-        let kernel_id = kernel.uid;
+        // let kernel_id = kernel.id();
         // if self.config.model == POST_DOMINATOR {
         let start_warp = start_thread / self.inner.config.warp_size;
         let warp_per_cta = thread_block_size / self.inner.config.warp_size;
@@ -1963,10 +1964,9 @@ where
 
     pub fn issue_block(&mut self, kernel: Arc<KernelInfo>) -> () {
         log::debug!(
-            "core {:?}: issue one block from kernel {} ({})",
+            "core {:?}: issue one block from kernel {}",
             self.id(),
-            kernel.uid,
-            kernel.name()
+            kernel,
         );
         if self.inner.config.concurrent_kernel_sm {
             unimplemented!("concurrent kernel sm");
@@ -2036,7 +2036,7 @@ where
 
         // unsigned ctaid = kernel.get_next_cta_id_single();
         let block_id = block.id();
-        dbg!(&block, block_id);
+        // dbg!(&block, block_id);
 
         // for debugging
         self.temp_check_state[free_block_hw_id].clear();

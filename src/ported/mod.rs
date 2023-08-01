@@ -111,7 +111,7 @@ pub struct KernelInfo {
     // kernel_trace_t *m_kernel_trace_info;
     // bool m_was_launched;
     pub config: KernelLaunch,
-    pub uid: usize,
+    // pub uid: usize,
     // function_info: FunctionInfo,
     // shared_mem: bool,
     trace: Vec<MemAccessTraceEntry>,
@@ -129,7 +129,7 @@ pub struct KernelInfo {
 
 impl PartialEq for KernelInfo {
     fn eq(&self, other: &Self) -> bool {
-        self.uid == other.uid
+        self.id() == other.id()
     }
 }
 
@@ -137,7 +137,7 @@ impl std::fmt::Debug for KernelInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("KernelInfo")
             .field("name", &self.name())
-            .field("id", &self.uid)
+            .field("id", &self.id())
             .field("instructions", &self.trace.len())
             .field("launched", &self.launched)
             .field("grid", &self.config.grid)
@@ -158,7 +158,7 @@ impl std::fmt::Display for KernelInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("KernelInfo")
             .field("name", &self.name())
-            .field("id", &self.uid)
+            .field("id", &self.id())
             .finish()
     }
 }
@@ -258,12 +258,12 @@ impl KernelInfo {
         // let next_block = next_block_iter.next();
         // let next_thread_id = next_block;
         // let uid = next_kernel_uid;
-        let uid = 0; // todo
+        // let uid = 0; // todo
         let opcodes = opcodes::get_opcode_map(&config).unwrap();
 
         Self {
             config,
-            uid,
+            // uid,
             trace,
             trace_pos: RwLock::new(0),
             // trace_iter: RwLock::new(trace_iter),
@@ -277,6 +277,10 @@ impl KernelInfo {
             // next_block,
             // next_thread_id,
         }
+    }
+
+    pub fn id(&self) -> u64 {
+        self.config.id
     }
 
     pub fn next_threadblock_traces(&self, warps: &mut [scheduler::CoreWarp]) {
@@ -585,8 +589,10 @@ pub struct MockSimulator<I> {
     // mem_sub_partitions: Vec<Rc<RefCell<MemorySubPartition<ic::L2Interface<Packet>>>>>,
     mem_sub_partitions: Vec<Rc<RefCell<MemorySubPartition<fifo::FifoQueue<mem_fetch::MemFetch>>>>>,
     // mem_sub_partitions: Vec<Rc<RefCell<MemorySubPartition<I>>>>,
+    // finished_kernels: Rc<RefCell<VecDeque<Arc<KernelInfo>>>>,
+    // finished_kernels: Rc<RefCell<VecDeque<u64>>>,
     running_kernels: Vec<Option<Arc<KernelInfo>>>,
-    executed_kernels: Mutex<HashMap<usize, String>>,
+    executed_kernels: Mutex<HashMap<u64, String>>,
     // clusters: Vec<SIMTCoreCluster>,
     // clusters: Vec<SIMTCoreCluster<'a>>,
     clusters: Vec<SIMTCoreCluster<I>>,
@@ -688,6 +694,7 @@ where
         }
 
         let max_concurrent_kernels = config.max_concurrent_kernels;
+        // let finished_kernels = Rc::new(RefCell::new(VecDeque::new()));
         let running_kernels = (0..max_concurrent_kernels).map(|_| None).collect();
 
         let allocations = Rc::new(RefCell::new(Allocations::default()));
@@ -738,6 +745,7 @@ where
             mem_partition_units,
             mem_sub_partitions,
             interconn,
+            // finished_kernels,
             running_kernels,
             executed_kernels,
             clusters,
@@ -768,10 +776,13 @@ where
             if !k.no_more_blocks_to_run()
             // &&!kernel.kernel_TB_latency)
             {
-                let launch_uid = k.uid;
-                if !executed_kernels.contains_key(&launch_uid) {
-                    executed_kernels.insert(launch_uid, k.name().to_string());
-                }
+                let launch_id = k.id();
+                // if !executed_kernels.contains_key(&launch_id) {
+                //     executed_kernels.insert(launch_uid, k.name().to_string());
+                // }
+                executed_kernels
+                    .entry(launch_id)
+                    .or_insert(k.name().to_string());
                 return Some(k);
             }
         }
@@ -780,12 +791,11 @@ where
         for n in 0..num_kernels {
             let idx = (n + self.last_issued_kernel + 1) % max_concurrent;
             if let Some(k) = &self.running_kernels[idx] {
-                if !k.no_more_blocks_to_run()
                 // &&!kernel.kernel_TB_latency)
-                {
-                    let launch_uid = k.uid;
-                    assert!(!executed_kernels.contains_key(&launch_uid));
-                    executed_kernels.insert(launch_uid, k.name().to_string());
+                if !k.no_more_blocks_to_run() {
+                    let launch_id = k.id();
+                    assert!(!executed_kernels.contains_key(&launch_id));
+                    executed_kernels.insert(launch_id, k.name().to_string());
                     return Some(k);
                 }
             }
@@ -1204,7 +1214,8 @@ where
     /// Lauch more kernels if possible.
     ///
     /// Launch all kernels within window that are on a stream that isn't already running
-    pub fn lauch_kernels(&mut self) {
+    pub fn launch_kernels(&mut self) {
+        log::trace!("launching kernels");
         let mut launch_queue: Vec<Arc<KernelInfo>> = Vec::new();
         for kernel in &self.kernels {
             let stream_busy = self
@@ -1218,7 +1229,17 @@ where
         }
 
         for kernel in launch_queue {
-            log::info!("launching kernel {:#?}", kernel.name());
+            log::info!("launching kernel {}", kernel);
+            let up_to_kernel: Option<u64> = std::env::var("UP_TO_KERNEL")
+                .ok()
+                .map(|s| s.parse())
+                .transpose()
+                .unwrap();
+            if let Some(up_to_kernel) = up_to_kernel {
+                if kernel.config.id > up_to_kernel {
+                    panic!("launching kernel {}", kernel);
+                }
+            }
             self.launch(kernel);
         }
     }
@@ -1245,10 +1266,12 @@ where
     ) -> eyre::Result<()> {
         let mut cycle: u64 = 0;
         let mut last_state_change: Option<(DeadlockCheckState, u64)> = None;
-        while self.commands_left() || self.kernels_left() {
-            self.process_commands();
-            self.lauch_kernels();
 
+        while (self.commands_left() || self.kernels_left()) && !self.reached_limit(cycle) {
+            self.process_commands();
+            self.launch_kernels();
+
+            let mut finished_kernel = None;
             loop {
                 log::info!("======== cycle {cycle} ========");
                 log::info!("");
@@ -1258,9 +1281,16 @@ where
                 }
 
                 self.cycle();
-
                 cycle += 1;
                 self.set_cycle(cycle);
+
+                // if !self.reached_limit(cycle) && self.active()) {
+                // if
+                finished_kernel = self.finished_kernel();
+                if finished_kernel.is_some() {
+                    break;
+                }
+
                 match self.log_after_cycle {
                     Some(ref log_after_cycle) if cycle >= *log_after_cycle => {
                         println!("initializing logging after cycle {}", cycle);
@@ -1332,17 +1362,147 @@ where
                 }
             }
 
-            // TODO:
-            // self.cleanup_finished_kernel(finished_kernel_uid);
+            if let Some(kernel) = finished_kernel {
+                // not yet finished
+                // if
+                self.cleanup_finished_kernel(&*kernel);
+            }
 
-            log::info!("exit after {cycle} cycles");
-            // dbg!(self.commands_left());
-            // dbg!(self.kernels_left());
+            dbg!(self.commands_left());
+            dbg!(self.kernels_left());
 
             // since we are not yet cleaning up launched kernels, we break here
-            break;
+            // break;
         }
+        log::info!("exit after {cycle} cycles");
         Ok(())
+    }
+
+    // pub fn set_kernel_done(&mut self, kernel: &mut KernelInfo) {
+    //     self.finished_kernels
+    //         .borrow_mut()
+    //         .push_back(kernel.config.id);
+    //     let running_kernel_idx = self
+    //         .running_kernels
+    //         .iter()
+    //         .position(|k| k.as_ref().map(|k| k.config.id) == Some(kernel.config.id))
+    //         .unwrap();
+    //     // kernel.end_cycle = self.cycle.get();
+    //     self.running_kernels.remove(running_kernel_idx);
+    // }
+
+    fn finished_kernel(&mut self) -> Option<Arc<KernelInfo>> {
+        // check running kernels
+        let finished_kernel: Option<&mut Option<Arc<KernelInfo>>> = self
+            .running_kernels
+            .iter_mut()
+            // .filter_map(|k| k.as_ref())
+            // .filter_map(|k| k)
+            // .filter(|k| {
+            .find(|k| {
+                if let Some(k) = k {
+                    // TODO: could also check here if !self.active()
+                    k.no_more_blocks_to_run() && !k.running()
+                } else {
+                    false
+                }
+            });
+        if let Some(kernel) = finished_kernel {
+            // kernel.end_cycle = self.cycle.get();
+            kernel.take()
+        } else {
+            None
+        }
+        // for running_kernel in self.running_kernels.iter().filter_map(|k| k.as_ref()) {
+        //     if running_kernel.no_more_blocks_to_run() && !running_kernel.running() {
+        //         //       SHADER_DPRINTF(LIVENESS,
+        //         //                      "GPGPU-Sim uArch: GPU detected kernel %u \'%s\' "
+        //         //                      "finished on shader %u.\n",
+        //         //                      kernel->get_uid(), kernel->name().c_str(), m_sid);
+        //         //
+        //         // if current_kernel.map(|k| k.config.id) == Some(kernel.config.id) {
+        //         //     *current_kernel = None;
+        //         // }
+        //
+        //         // m_gpu->set_kernel_done(kernel);
+        //         todo!("kernel {} done", &running_kernel);
+        //     }
+        // }
+
+        // self.finished_kernels.borrow_mut().pop_front()
+    }
+
+    fn cleanup_finished_kernel(&mut self, kernel: &KernelInfo) {
+        // if !self.reached_limit() && self.active()) {
+        //     return;
+        // }
+        //   trace_kernel_info_t *k = NULL;
+        // let finished_kernel_idx = self.kernels.iter().position(|k| k.config.id == id).unwrap();
+        // let finished_kernel = &self.kernels[finished_kernel_idx];
+        log::debug!(
+            "cleanup finished kernel with id={}: {}",
+            kernel.id(),
+            kernel
+        );
+        self.kernels.retain(|k| k.config.id != kernel.config.id);
+        self.busy_streams
+            .retain(|stream| *stream != kernel.config.stream_id);
+
+        // resets some statistics between kernel launches
+        //   if (!silent && m_gpgpu_sim->gpu_sim_cycle > 0) {
+        //   m_gpgpu_sim->update_stats();
+        //   m_gpgpu_context->print_simulation_time();
+        // }
+
+        // if let Some(stream_idx) = self
+        //     .busy_streams
+        //     .iter()
+        //     .position(|stream| *stream == finished_kernel.config.stream_id)
+        // {
+        //     self.busy_streams.remove(stream_idx);
+        // }
+
+        // self.kernels.remove(finished_kernel_idx);
+
+        // tracer->kernel_finalizer(k->get_trace_info());
+        // delete k->entry();
+        // delete k;
+        // kernels_info.erase(kernels_info.begin() + j);
+        // if (!limit_reached() && active()) break;
+
+        // for stream in self.busy_streams.iter() {
+        //     if stream = finished_kernel.config.stream_id
+        //     if (busy_streams.at(l) == k->get_cuda_stream_id()) {
+        //       busy_streams.erase(busy_streams.begin() + l);
+        //       break;
+        //     }
+        //   }
+        //       tracer->kernel_finalizer(k->get_trace_info());
+        //       delete k->entry();
+        //       delete k;
+        //       kernels_info.erase(kernels_info.begin() + j);
+        //       if (!limit_reached() && active()) break;
+
+        // for (unsigned j = 0; j < kernels_info.size(); j++) {
+        // k = kernels_info.at(j);
+        // if (k->get_uid() == finished_kernel_uid || limit_reached() || !active()) {
+        //       for (unsigned l = 0; l < busy_streams.size(); l++) {
+        //         if (busy_streams.at(l) == k->get_cuda_stream_id()) {
+        //           busy_streams.erase(busy_streams.begin() + l);
+        //           break;
+        //         }
+        //       }
+        //       tracer->kernel_finalizer(k->get_trace_info());
+        //       delete k->entry();
+        //       delete k;
+        //       kernels_info.erase(kernels_info.begin() + j);
+        //       if (!limit_reached() && active()) break;
+        //     }
+        //   }
+        //   // make sure kernel was found and removed
+        //   assert(k);
+        //   // if (!silent) m_gpgpu_sim->print_stats();
+        // }
     }
 
     fn gather_state(&self) -> DeadlockCheckState {
@@ -1539,6 +1699,211 @@ mod tests {
         Native,
         Accelsim,
         Box,
+    }
+
+    fn gather_simulation_state(
+        box_sim: &mut super::MockSimulator<ic::ToyInterconnect<super::Packet>>,
+        play_sim: &mut playground::Accelsim,
+        trace_provider: TraceProvider,
+    ) -> (testing::state::Simulation, testing::state::Simulation) {
+        // eyre::Result<()> {
+        // todo: extract also l1i ready (least important)
+        // todo: extract wb pipeline
+
+        // iterate over sub partitions
+        let total_cores = box_sim.config.total_cores();
+        let num_partitions = box_sim.mem_partition_units.len();
+        let num_sub_partitions = box_sim.mem_sub_partitions.len();
+        let mut box_sim_state =
+            testing::state::Simulation::new(total_cores, num_partitions, num_sub_partitions);
+
+        for (cluster_id, cluster) in box_sim.clusters.iter().enumerate() {
+            for (core_id, core) in cluster.cores.lock().unwrap().iter().enumerate() {
+                let global_core_id =
+                    cluster_id * box_sim.config.num_cores_per_simt_cluster + core_id;
+                assert_eq!(core.inner.core_id, global_core_id);
+
+                // this is the one we will use (unless the assertion is ever false)
+                let core_id = core.inner.core_id;
+
+                // core: functional units
+                for (fu_id, fu) in core.functional_units.iter().enumerate() {
+                    let fu = fu.lock().unwrap();
+                    let issue_port = core.issue_ports[fu_id];
+                    let issue_reg: super::register_set::RegisterSet = core.inner.pipeline_reg
+                        [issue_port as usize]
+                        .borrow()
+                        .clone();
+                    assert_eq!(issue_port, issue_reg.stage);
+
+                    box_sim_state.functional_unit_pipelines[core_id].push(issue_reg.into());
+                }
+                for (fu_id, fu) in core.functional_units.iter().enumerate() {
+                    let fu = fu.lock().unwrap();
+                    box_sim_state.functional_unit_pipelines[core_id].push(
+                        testing::state::RegisterSet {
+                            name: fu.id().to_string(),
+                            pipeline: fu
+                                .pipeline()
+                                .iter()
+                                .map(|reg| reg.clone().map(Into::into))
+                                .collect(),
+                        },
+                    );
+                }
+                // core: operand collector
+                box_sim_state.operand_collectors[core_id]
+                    .insert(core.inner.operand_collector.borrow().deref().into());
+                // core: schedulers
+                box_sim_state.schedulers[core_id].extend(core.schedulers.iter().map(Into::into));
+                // core: l2 cache
+                let ldst_unit = core.inner.load_store_unit.lock().unwrap();
+
+                // core: pending register writes
+                box_sim_state.pending_register_writes[core_id] = ldst_unit
+                    .pending_writes
+                    .clone()
+                    .into_iter()
+                    .flat_map(|(warp_id, pending_registers)| {
+                        pending_registers
+                            .into_iter()
+                            .map(
+                                move |(reg_num, pending)| testing::state::PendingRegisterWrites {
+                                    warp_id,
+                                    reg_num,
+                                    pending,
+                                },
+                            )
+                    })
+                    .collect();
+
+                box_sim_state.pending_register_writes[core_id].sort();
+                // let l1d_tag_array = ldst_unit.data_l1.unwrap().tag_array;
+                // dbg!(&l1d_tag_array);
+                // let l1d_tag_array = ldst_unit.data_l1.unwrap().tag_array;
+            }
+        }
+
+        for (partition_id, partition) in box_sim.mem_partition_units.iter().enumerate() {
+            box_sim_state.dram_latency_queue[partition_id].extend(
+                partition
+                    .dram_latency_queue
+                    .clone()
+                    .into_iter()
+                    .map(Into::into),
+            );
+        }
+        for (sub_id, sub) in box_sim.mem_sub_partitions.iter().enumerate() {
+            let sub = sub.borrow();
+            let l2_cache = sub.l2_cache.as_ref().unwrap();
+            let l2_cache: &ported::l2::DataL2<
+                ic::L2Interface<fifo::FifoQueue<ported::mem_fetch::MemFetch>>,
+            > = l2_cache.as_any().downcast_ref().unwrap();
+
+            box_sim_state.l2_cache[sub_id].insert(l2_cache.inner.inner.tag_array.clone().into());
+
+            for (dest_queue, src_queue) in [
+                (
+                    &mut box_sim_state.interconn_to_l2_queue[sub_id],
+                    &sub.interconn_to_l2_queue,
+                ),
+                (
+                    &mut box_sim_state.l2_to_interconn_queue[sub_id],
+                    &sub.l2_to_interconn_queue,
+                ),
+                (
+                    &mut box_sim_state.l2_to_dram_queue[sub_id],
+                    &sub.l2_to_dram_queue.lock().unwrap(),
+                ),
+                (
+                    &mut box_sim_state.dram_to_l2_queue[sub_id],
+                    &sub.dram_to_l2_queue,
+                ),
+            ] {
+                dest_queue.extend(src_queue.clone().into_iter().map(Into::into));
+            }
+        }
+
+        let mut play_sim_state =
+            testing::state::Simulation::new(total_cores, num_partitions, num_sub_partitions);
+        for (core_id, core) in play_sim.cores().enumerate() {
+            for regs in core.functional_unit_issue_register_sets().into_iter() {
+                play_sim_state.functional_unit_pipelines[core_id].push(regs.into());
+            }
+            let valid_units: HashSet<_> = box_sim_state.functional_unit_pipelines[core_id]
+                .iter()
+                .map(|fu| fu.name.clone())
+                .collect();
+
+            for regs in core
+                .functional_unit_simd_pipeline_register_sets()
+                .into_iter()
+                .filter(|fu| valid_units.contains(&fu.name()))
+            {
+                play_sim_state.functional_unit_pipelines[core_id].push(regs.into());
+            }
+
+            // core: pending register writes
+            play_sim_state.pending_register_writes[core_id] = core
+                .pending_register_writes()
+                .into_iter()
+                .map(Into::into)
+                .collect();
+            play_sim_state.pending_register_writes[core_id].sort();
+
+            // core: operand collector
+            let coll = core.operand_collector();
+            play_sim_state.operand_collectors[core_id].insert(coll.into());
+            // core: scheduler units
+            let schedulers = core.schedulers();
+            assert_eq!(schedulers.len(), box_sim_state.schedulers[core_id].len());
+
+            for (sched_idx, play_scheduler) in schedulers.into_iter().enumerate() {
+                play_sim_state.schedulers[core_id].push(play_scheduler.into());
+
+                let box_sched = &mut box_sim_state.schedulers[core_id][sched_idx];
+                let play_sched = &mut play_sim_state.schedulers[core_id][sched_idx];
+
+                let num_box_warps = box_sched.prioritized_warp_ids.len();
+                let num_play_warps = play_sched.prioritized_warp_ids.len();
+                let limit = num_box_warps.min(num_play_warps);
+
+                // make sure we only compare what can be compared
+                box_sched.prioritized_warp_ids.split_off(limit);
+                // box_sched.prioritized_dynamic_warp_ids.split_off(limit);
+                play_sched.prioritized_warp_ids.split_off(limit);
+                // play_sched.prioritized_dynamic_warp_ids.split_off(limit);
+
+                assert_eq!(
+                    box_sched.prioritized_warp_ids.len(),
+                    play_sched.prioritized_warp_ids.len(),
+                );
+                // assert_eq!(
+                //     box_sched.prioritized_dynamic_warp_ids.len(),
+                //     play_sched.prioritized_dynamic_warp_ids.len(),
+                // );
+            }
+        }
+
+        for (partition_id, partition) in play_sim.partition_units().enumerate() {
+            play_sim_state.dram_latency_queue[partition_id]
+                .extend(partition.dram_latency_queue().into_iter().map(Into::into));
+        }
+        for (sub_id, sub) in play_sim.sub_partitions().enumerate() {
+            play_sim_state.interconn_to_l2_queue[sub_id]
+                .extend(sub.interconn_to_l2_queue().into_iter().map(Into::into));
+            play_sim_state.l2_to_interconn_queue[sub_id]
+                .extend(sub.l2_to_interconn_queue().into_iter().map(Into::into));
+            play_sim_state.dram_to_l2_queue[sub_id]
+                .extend(sub.dram_to_l2_queue().into_iter().map(Into::into));
+            play_sim_state.l2_to_dram_queue[sub_id]
+                .extend(sub.l2_to_dram_queue().into_iter().map(Into::into));
+
+            play_sim_state.l2_cache[sub_id].insert(testing::state::Cache {
+                lines: sub.l2_cache().lines().into_iter().map(Into::into).collect(),
+            });
+        }
+        (box_sim_state, play_sim_state)
     }
 
     fn run_lockstep(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> {
@@ -1745,6 +2110,9 @@ mod tests {
 
         let mut cycle = 0;
 
+        box_sim.process_commands();
+        box_sim.launch_kernels();
+
         while play_sim.commands_left() || play_sim.kernels_left() {
             start = Instant::now();
             play_sim.process_commands();
@@ -1752,9 +2120,9 @@ mod tests {
             play_time_other += start.elapsed();
 
             start = Instant::now();
-            box_sim.process_commands();
-            box_sim.lauch_kernels();
-            box_time_other += start.elapsed();
+            // box_sim.process_commands();
+            // box_sim.launch_kernels();
+            // box_time_other += start.elapsed();
 
             let mut finished_kernel_uid: Option<u32> = None;
             loop {
@@ -1772,210 +2140,8 @@ mod tests {
                 box_sim.set_cycle(cycle);
                 box_time_cycle += start.elapsed();
 
-                // todo: extract also l1i ready (least important)
-                // todo: extract wb pipeline
-
-                // iterate over sub partitions
-                let total_cores = box_sim.config.total_cores();
-                let num_partitions = box_sim.mem_partition_units.len();
-                let num_sub_partitions = box_sim.mem_sub_partitions.len();
-                let mut box_sim_state = testing::state::Simulation::new(
-                    total_cores,
-                    num_partitions,
-                    num_sub_partitions,
-                );
-
-                for (cluster_id, cluster) in box_sim.clusters.iter().enumerate() {
-                    for (core_id, core) in cluster.cores.lock().unwrap().iter().enumerate() {
-                        let global_core_id =
-                            cluster_id * box_sim.config.num_cores_per_simt_cluster + core_id;
-                        assert_eq!(core.inner.core_id, global_core_id);
-
-                        // this is the one we will use (unless the assertion is ever false)
-                        let core_id = core.inner.core_id;
-
-                        // core: functional units
-                        for (fu_id, fu) in core.functional_units.iter().enumerate() {
-                            let fu = fu.lock().unwrap();
-                            let issue_port = core.issue_ports[fu_id];
-                            let issue_reg: super::register_set::RegisterSet =
-                                core.inner.pipeline_reg[issue_port as usize]
-                                    .borrow()
-                                    .clone();
-                            assert_eq!(issue_port, issue_reg.stage);
-
-                            box_sim_state.functional_unit_pipelines[core_id].push(issue_reg.into());
-                        }
-                        for (fu_id, fu) in core.functional_units.iter().enumerate() {
-                            let fu = fu.lock().unwrap();
-                            box_sim_state.functional_unit_pipelines[core_id].push(
-                                testing::state::RegisterSet {
-                                    name: fu.id().to_string(),
-                                    pipeline: fu
-                                        .pipeline()
-                                        .iter()
-                                        .map(|reg| reg.clone().map(Into::into))
-                                        .collect(),
-                                },
-                            );
-                        }
-                        // core: operand collector
-                        box_sim_state.operand_collectors[core_id]
-                            .insert(core.inner.operand_collector.borrow().deref().into());
-                        // core: schedulers
-                        box_sim_state.schedulers[core_id]
-                            .extend(core.schedulers.iter().map(Into::into));
-                        // core: l2 cache
-                        let ldst_unit = core.inner.load_store_unit.lock().unwrap();
-
-                        // core: pending register writes
-                        box_sim_state.pending_register_writes[core_id] = ldst_unit
-                            .pending_writes
-                            .clone()
-                            .into_iter()
-                            .flat_map(|(warp_id, pending_registers)| {
-                                pending_registers
-                                    .into_iter()
-                                    .map(move |(reg_num, pending)| {
-                                        testing::state::PendingRegisterWrites {
-                                            warp_id,
-                                            reg_num,
-                                            pending,
-                                        }
-                                    })
-                            })
-                            .collect();
-
-                        box_sim_state.pending_register_writes[core_id].sort();
-                        // let l1d_tag_array = ldst_unit.data_l1.unwrap().tag_array;
-                        // dbg!(&l1d_tag_array);
-                        // let l1d_tag_array = ldst_unit.data_l1.unwrap().tag_array;
-                    }
-                }
-
-                for (partition_id, partition) in box_sim.mem_partition_units.iter().enumerate() {
-                    box_sim_state.dram_latency_queue[partition_id].extend(
-                        partition
-                            .dram_latency_queue
-                            .clone()
-                            .into_iter()
-                            .map(Into::into),
-                    );
-                }
-                for (sub_id, sub) in box_sim.mem_sub_partitions.iter().enumerate() {
-                    let sub = sub.borrow();
-                    let l2_cache = sub.l2_cache.as_ref().unwrap();
-                    let l2_cache: &ported::l2::DataL2<
-                        ic::L2Interface<fifo::FifoQueue<ported::mem_fetch::MemFetch>>,
-                    > = l2_cache.as_any().downcast_ref().unwrap();
-
-                    box_sim_state.l2_cache[sub_id]
-                        .insert(l2_cache.inner.inner.tag_array.clone().into());
-
-                    for (dest_queue, src_queue) in [
-                        (
-                            &mut box_sim_state.interconn_to_l2_queue[sub_id],
-                            &sub.interconn_to_l2_queue,
-                        ),
-                        (
-                            &mut box_sim_state.l2_to_interconn_queue[sub_id],
-                            &sub.l2_to_interconn_queue,
-                        ),
-                        (
-                            &mut box_sim_state.l2_to_dram_queue[sub_id],
-                            &sub.l2_to_dram_queue.lock().unwrap(),
-                        ),
-                        (
-                            &mut box_sim_state.dram_to_l2_queue[sub_id],
-                            &sub.dram_to_l2_queue,
-                        ),
-                    ] {
-                        dest_queue.extend(src_queue.clone().into_iter().map(Into::into));
-                    }
-                }
-
-                let mut play_sim_state = testing::state::Simulation::new(
-                    total_cores,
-                    num_partitions,
-                    num_sub_partitions,
-                );
-                for (core_id, core) in play_sim.cores().enumerate() {
-                    for regs in core.functional_unit_issue_register_sets().into_iter() {
-                        play_sim_state.functional_unit_pipelines[core_id].push(regs.into());
-                    }
-                    let valid_units: HashSet<_> = box_sim_state.functional_unit_pipelines[core_id]
-                        .iter()
-                        .map(|fu| fu.name.clone())
-                        .collect();
-
-                    for regs in core
-                        .functional_unit_simd_pipeline_register_sets()
-                        .into_iter()
-                        .filter(|fu| valid_units.contains(&fu.name()))
-                    {
-                        play_sim_state.functional_unit_pipelines[core_id].push(regs.into());
-                    }
-
-                    // core: pending register writes
-                    play_sim_state.pending_register_writes[core_id] = core
-                        .pending_register_writes()
-                        .into_iter()
-                        .map(Into::into)
-                        .collect();
-                    play_sim_state.pending_register_writes[core_id].sort();
-
-                    // core: operand collector
-                    let coll = core.operand_collector();
-                    play_sim_state.operand_collectors[core_id].insert(coll.into());
-                    // core: scheduler units
-                    let schedulers = core.schedulers();
-                    assert_eq!(schedulers.len(), box_sim_state.schedulers[core_id].len());
-
-                    for (sched_idx, play_scheduler) in schedulers.into_iter().enumerate() {
-                        play_sim_state.schedulers[core_id].push(play_scheduler.into());
-
-                        let box_sched = &mut box_sim_state.schedulers[core_id][sched_idx];
-                        let play_sched = &mut play_sim_state.schedulers[core_id][sched_idx];
-
-                        let num_box_warps = box_sched.prioritized_warp_ids.len();
-                        let num_play_warps = play_sched.prioritized_warp_ids.len();
-                        let limit = num_box_warps.min(num_play_warps);
-
-                        // make sure we only compare what can be compared
-                        box_sched.prioritized_warp_ids.split_off(limit);
-                        // box_sched.prioritized_dynamic_warp_ids.split_off(limit);
-                        play_sched.prioritized_warp_ids.split_off(limit);
-                        // play_sched.prioritized_dynamic_warp_ids.split_off(limit);
-
-                        assert_eq!(
-                            box_sched.prioritized_warp_ids.len(),
-                            play_sched.prioritized_warp_ids.len(),
-                        );
-                        // assert_eq!(
-                        //     box_sched.prioritized_dynamic_warp_ids.len(),
-                        //     play_sched.prioritized_dynamic_warp_ids.len(),
-                        // );
-                    }
-                }
-
-                for (partition_id, partition) in play_sim.partition_units().enumerate() {
-                    play_sim_state.dram_latency_queue[partition_id]
-                        .extend(partition.dram_latency_queue().into_iter().map(Into::into));
-                }
-                for (sub_id, sub) in play_sim.sub_partitions().enumerate() {
-                    play_sim_state.interconn_to_l2_queue[sub_id]
-                        .extend(sub.interconn_to_l2_queue().into_iter().map(Into::into));
-                    play_sim_state.l2_to_interconn_queue[sub_id]
-                        .extend(sub.l2_to_interconn_queue().into_iter().map(Into::into));
-                    play_sim_state.dram_to_l2_queue[sub_id]
-                        .extend(sub.dram_to_l2_queue().into_iter().map(Into::into));
-                    play_sim_state.l2_to_dram_queue[sub_id]
-                        .extend(sub.l2_to_dram_queue().into_iter().map(Into::into));
-
-                    play_sim_state.l2_cache[sub_id].insert(testing::state::Cache {
-                        lines: sub.l2_cache().lines().into_iter().map(Into::into).collect(),
-                    });
-                }
+                let (box_sim_state, play_sim_state) =
+                    gather_simulation_state(&mut box_sim, &mut play_sim, trace_provider);
 
                 if box_sim_state != play_sim_state {
                     println!(
@@ -2016,6 +2182,16 @@ mod tests {
 
                 last_valid_box_sim_state.insert(box_sim_state);
                 last_valid_play_sim_state.insert(play_sim_state);
+
+                // box out of loop
+                if !box_sim.active() {
+                    box_sim.process_commands();
+                    box_sim.launch_kernels();
+                }
+
+                if let Some(kernel) = box_sim.finished_kernel() {
+                    box_sim.cleanup_finished_kernel(&*kernel);
+                }
 
                 finished_kernel_uid = play_sim.finished_kernel_uid();
                 if finished_kernel_uid.is_some() {

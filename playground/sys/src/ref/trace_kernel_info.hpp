@@ -135,3 +135,46 @@ class trace_kernel_info_t {
   unsigned m_kernel_TB_latency;  // this used for any CPU-GPU kernel latency and
                                  // counted in the gpu_cycle
 };
+
+#include "fmt/core.h"
+
+struct trace_kernel_info_ptr {
+ private:
+  const trace_kernel_info_t *ptr;
+
+ public:
+  trace_kernel_info_ptr(const trace_kernel_info_t *p) : ptr(p) {}
+
+  friend struct fmt::formatter<trace_kernel_info_ptr>;
+};
+
+template <>
+struct fmt::formatter<trace_kernel_info_t> {
+  constexpr auto parse(format_parse_context &ctx)
+      -> format_parse_context::iterator {
+    return ctx.end();
+  }
+
+  auto format(const trace_kernel_info_t &kernel, format_context &ctx) const
+      -> format_context::iterator {
+    return fmt::format_to(ctx.out(), "{} [id={}]", kernel.name(),
+                          kernel.get_uid());
+  }
+};
+
+template <>
+struct fmt::formatter<trace_kernel_info_ptr> {
+  constexpr auto parse(format_parse_context &ctx)
+      -> format_parse_context::iterator {
+    return ctx.end();
+  }
+
+  auto format(trace_kernel_info_ptr kernel, format_context &ctx) const
+      -> format_context::iterator {
+    if (kernel.ptr == NULL) {
+      return fmt::format_to(ctx.out(), "NULL");
+    }
+    // dispatch
+    return fmt::formatter<trace_kernel_info_t>().format(*(kernel.ptr), ctx);
+  }
+};

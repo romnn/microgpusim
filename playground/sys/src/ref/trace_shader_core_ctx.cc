@@ -746,6 +746,8 @@ void trace_shader_core_ctx::store_ack(class mem_fetch *mf) {
 }
 
 void trace_shader_core_ctx::cycle() {
+  logger->debug("core::cycle() \t active={}, not completed={}", isactive(),
+                get_not_completed());
   if (!isactive() && get_not_completed() == 0) return;
 
   m_stats->shader_cycles[m_sid]++;
