@@ -1442,6 +1442,9 @@ void trace_shader_core_ctx::issue_block2core(trace_kernel_info_t &kernel) {
   warp_set_t warps;
   unsigned nthreads_in_block = 0;
   // trace_function_info *kernel_func_info = kernel.entry();
+  logger->debug("core[{}][{}]: issue block {} from kernel {}", m_tpc, m_sid,
+                kernel.get_next_cta_id(), kernel);
+
   unsigned ctaid = kernel.get_next_cta_id_single();
   // REMOVE: checkpoint
   // symbol_table *symtab = kernel_func_info->get_symtab();

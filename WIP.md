@@ -13,6 +13,7 @@
   - FIX: add l2 set index back in
   - generate plots and correlation stuff etc
 
+  - DONE: support multiple warp schedulers
   - DONE: add perf memcopy to gpu back in
   - DONE: support multiple kernel launches
   - DONE: fix tracing of multiple kernels

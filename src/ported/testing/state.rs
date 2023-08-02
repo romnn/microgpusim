@@ -493,6 +493,7 @@ impl From<playground::core::pending_register_writes> for PendingRegisterWrites {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Simulation {
+    pub last_cluster_issue: usize,
     // per sub partition
     pub interconn_to_l2_queue_per_sub: Vec<Vec<MemFetch>>,
     pub l2_to_interconn_queue_per_sub: Vec<Vec<MemFetch>>,
@@ -511,6 +512,7 @@ pub struct Simulation {
 impl Simulation {
     pub fn new(total_cores: usize, num_mem_partitions: usize, num_sub_partitions: usize) -> Self {
         Self {
+            last_cluster_issue: 0,
             // per sub partition
             interconn_to_l2_queue_per_sub: vec![vec![]; num_sub_partitions],
             l2_to_interconn_queue_per_sub: vec![vec![]; num_sub_partitions],

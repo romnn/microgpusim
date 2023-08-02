@@ -191,6 +191,7 @@ accelsim_bridge::accelsim_bridge(accelsim_config config,
 
   configure_log_level(logger);
 
+  log_after_cycle = 0;
   std::string log_after_cycle_str = spdlog::details::os::getenv("LOG_AFTER");
   if (log_after_cycle_str.length() > 0 &&
       atoi(log_after_cycle_str.c_str()) > 0) {

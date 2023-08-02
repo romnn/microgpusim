@@ -836,29 +836,33 @@ where
 
         self.schedulers = (0..self.inner.config.num_schedulers_per_core)
             .map(|sched_id| match scheduler_kind {
-                config::SchedulerKind::LRR => {
-                    let mem_out = &self.inner.pipeline_reg[PipelineStage::ID_OC_MEM as usize];
-                    Box::new(sched::LrrScheduler::new(
-                        // &self.inner.warps,
-                        sched_id,
-                        self.inner.warps.clone(),
-                        // mem_out,
-                        // &self.inner,
-                        self.inner.scoreboard.clone(),
-                        self.inner.stats.clone(),
-                        self.inner.config.clone(),
-                        // m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
-                        // &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
-                        // &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
-                        // &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
-                        // &m_pipeline_reg[ID_OC_MEM], i
-                    )) as Box<dyn sched::SchedulerUnit>
-                    // self.schedulers.push_back(Box::new(lrr));
-                }
+                // config::SchedulerKind::LRR => {
+                //     let mem_out = &self.inner.pipeline_reg[PipelineStage::ID_OC_MEM as usize];
+                //     Box::new(sched::LrrScheduler::new(
+                //         // &self.inner.warps,
+                //         sched_id,
+                //         self.inner.cluster_id,
+                //         self.inner.core_id,
+                //         self.inner.warps.clone(),
+                //         // mem_out,
+                //         // &self.inner,
+                //         self.inner.scoreboard.clone(),
+                //         self.inner.stats.clone(),
+                //         self.inner.config.clone(),
+                //         // m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
+                //         // &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
+                //         // &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
+                //         // &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
+                //         // &m_pipeline_reg[ID_OC_MEM], i
+                //     )) as Box<dyn sched::SchedulerUnit>
+                //     // self.schedulers.push_back(Box::new(lrr));
+                // }
                 config::SchedulerKind::GTO => {
                     Box::new(sched::GTOScheduler::new(
                         // &self.inner.warps,
                         sched_id,
+                        self.inner.cluster_id,
+                        self.inner.core_id,
                         self.inner.warps.clone(),
                         // mem_out,
                         // &self.inner,
@@ -2009,11 +2013,6 @@ where
     }
 
     pub fn issue_block(&mut self, kernel: Arc<KernelInfo>) -> () {
-        log::debug!(
-            "core {:?}: issue one block from kernel {}",
-            self.id(),
-            kernel,
-        );
         if self.inner.config.concurrent_kernel_sm {
             unimplemented!("concurrent kernel sm");
             let num = self.occupy_resource_for_block(&*kernel, true);
@@ -2079,7 +2078,12 @@ where
         let mut warps: WarpMask = BitArray::ZERO;
         // let block_id = kernel.next_block_id();
         let block = kernel.current_block().expect("kernel has current block");
-
+        log::debug!(
+            "core {:?}: issue block {} from kernel {}",
+            self.id(),
+            block,
+            kernel,
+        );
         // unsigned ctaid = kernel.get_next_cta_id_single();
         let block_id = block.id();
         // dbg!(&block, block_id);

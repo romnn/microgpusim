@@ -21,3 +21,18 @@ struct dim3comp {
 };
 
 void increment_x_then_y_then_z(dim3 &i, const dim3 &bound);
+
+#include "fmt/core.h"
+
+template <>
+struct fmt::formatter<dim3> {
+  constexpr auto parse(format_parse_context &ctx)
+      -> format_parse_context::iterator {
+    return ctx.end();
+  }
+
+  auto format(const dim3 &dim, format_context &ctx) const
+      -> format_context::iterator {
+    return fmt::format_to(ctx.out(), "({},{},{})", dim.x, dim.y, dim.z);
+  }
+};

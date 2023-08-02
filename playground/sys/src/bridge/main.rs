@@ -189,6 +189,9 @@ mod ffi {
         #[must_use]
         fn get_cores(self: &accelsim_bridge) -> &CxxVector<core_bridge>;
 
+        #[must_use]
+        fn get_last_cluster_issue(self: &accelsim_bridge) -> u32;
+
         // #[must_use]
         // fn get_allocations(self: &accelsim_bridge) -> &CxxVector<core_bridge>;
 

@@ -742,6 +742,8 @@ where
             .map(Result::ok)
             .flatten();
 
+        // this causes first launch to use simt cluster
+        let last_cluster_issue = config.num_simt_clusters - 1;
         Self {
             config,
             stats,
@@ -753,7 +755,7 @@ where
             executed_kernels,
             clusters,
             warp_instruction_unique_uid,
-            last_cluster_issue: 0,
+            last_cluster_issue,
             last_issued_kernel: 0,
             allocations,
             start,
@@ -870,12 +872,15 @@ where
     }
 
     fn issue_block_to_core(&mut self) {
-        log::debug!("issue block to core");
+        log::debug!("===> issue block to core");
         let last_issued = self.last_cluster_issue;
         let num_clusters = self.config.num_simt_clusters;
-        for cluster in &self.clusters {
-            let idx = (cluster.cluster_id + last_issued + 1) % num_clusters;
-            let num_blocks_issued = cluster.issue_block_to_core(self);
+        for cluster_idx in 0..num_clusters {
+            debug_assert_eq!(cluster_idx, self.clusters[cluster_idx].cluster_id);
+            let idx = (cluster_idx + last_issued + 1) % num_clusters;
+            let num_blocks_issued = self.clusters[idx].issue_block_to_core(self);
+            log::trace!("cluster[{}] issued {} blocks", idx, num_blocks_issued);
+
             if num_blocks_issued > 0 {
                 self.last_cluster_issue = idx;
                 // self.total_blocks_launched += num_blocks_issued;
@@ -1343,42 +1348,44 @@ where
                 }
 
                 // collect state
-                let state = self.gather_state();
-                if let Some((last_state, update_cycle)) = &last_state_change {
-                    // log::info!(
-                    //     "current: {:?}",
-                    //     &state
-                    //         .interconn_to_l2_queue
-                    //         .iter()
-                    //         .map(|v| v.iter().map(ToString::to_string).collect())
-                    //         .collect::<Vec<Vec<String>>>()
-                    // );
-                    // log::info!(
-                    //     "last: {:?}",
-                    //     &last_state
-                    //         .interconn_to_l2_queue
-                    //         .iter()
-                    //         .map(|v| v.iter().map(ToString::to_string).collect())
-                    //         .collect::<Vec<Vec<String>>>()
-                    // );
+                if deadlock_check {
+                    let state = self.gather_state();
+                    if let Some((last_state, update_cycle)) = &last_state_change {
+                        // log::info!(
+                        //     "current: {:?}",
+                        //     &state
+                        //         .interconn_to_l2_queue
+                        //         .iter()
+                        //         .map(|v| v.iter().map(ToString::to_string).collect())
+                        //         .collect::<Vec<Vec<String>>>()
+                        // );
+                        // log::info!(
+                        //     "last: {:?}",
+                        //     &last_state
+                        //         .interconn_to_l2_queue
+                        //         .iter()
+                        //         .map(|v| v.iter().map(ToString::to_string).collect())
+                        //         .collect::<Vec<Vec<String>>>()
+                        // );
 
-                    // log::info!(
-                    //     "interconn to l2 state updated? {}",
-                    //     &state.interconn_to_l2_queue != &last_state.interconn_to_l2_queue
-                    // );
-                }
+                        // log::info!(
+                        //     "interconn to l2 state updated? {}",
+                        //     &state.interconn_to_l2_queue != &last_state.interconn_to_l2_queue
+                        // );
+                    }
 
-                match &mut last_state_change {
-                    Some((last_state, update_cycle)) if &state == last_state => {
-                        panic!("deadlock after cycle {}", update_cycle);
-                    }
-                    Some((ref mut last_state, ref mut update_cycle)) => {
-                        // log::info!("deadlock check: updated state in cycle {}", cycle);
-                        *last_state = state;
-                        *update_cycle = cycle;
-                    }
-                    None => {
-                        last_state_change.insert((state, cycle));
+                    match &mut last_state_change {
+                        Some((last_state, update_cycle)) if &state == last_state => {
+                            panic!("deadlock after cycle {}", update_cycle);
+                        }
+                        Some((ref mut last_state, ref mut update_cycle)) => {
+                            // log::info!("deadlock check: updated state in cycle {}", cycle);
+                            *last_state = state;
+                            *update_cycle = cycle;
+                        }
+                        None => {
+                            last_state_change.insert((state, cycle));
+                        }
                     }
                 }
             }
@@ -1667,7 +1674,7 @@ pub fn accelmain(
     // debugging config
     let mut config = config::GPUConfig::default();
 
-    config.num_simt_clusters = 1; // 20
+    config.num_simt_clusters = 20; // 20
     config.num_cores_per_simt_cluster = 1; // 1
     config.num_schedulers_per_core = 2; // 1
 
@@ -1683,7 +1690,11 @@ pub fn accelmain(
     let mut sim = MockSimulator::new(interconn, Arc::clone(&config), &traces_dir, &commands_path);
 
     sim.log_after_cycle = log_after_cycle;
-    let deadlock_check = true;
+
+    let deadlock_check = std::env::var("DEADLOCK_CHECK")
+        .unwrap_or_default()
+        .to_lowercase()
+        == "yes";
     sim.run_to_completion(&traces_dir, deadlock_check);
 
     let stats = sim.stats();
@@ -1738,6 +1749,8 @@ mod tests {
         let num_sub_partitions = box_sim.mem_sub_partitions.len();
         let mut box_sim_state =
             testing::state::Simulation::new(total_cores, num_partitions, num_sub_partitions);
+
+        box_sim_state.last_cluster_issue = box_sim.last_cluster_issue;
 
         for (cluster_id, cluster) in box_sim.clusters.iter().enumerate() {
             for (core_id, core) in cluster.cores.lock().unwrap().iter().enumerate() {
@@ -1851,6 +1864,9 @@ mod tests {
 
         let mut play_sim_state =
             testing::state::Simulation::new(total_cores, num_partitions, num_sub_partitions);
+
+        play_sim_state.last_cluster_issue = play_sim.last_cluster_issue() as usize;
+
         for (core_id, core) in play_sim.cores().enumerate() {
             for regs in core.functional_unit_issue_register_sets().into_iter() {
                 play_sim_state.functional_unit_pipelines_per_core[core_id].push(regs.into());
@@ -2086,7 +2102,7 @@ mod tests {
 
         // debugging config
         let mut box_config = config::GPUConfig::default();
-        box_config.num_simt_clusters = 1; // 20
+        box_config.num_simt_clusters = 20; // 20
         box_config.num_cores_per_simt_cluster = 1; // 1
         box_config.num_schedulers_per_core = 2; // 2
         let box_config = Arc::new(box_config);
@@ -2328,6 +2344,7 @@ mod tests {
         ($($name:ident: $path:expr,)*) => {
             $(
                 paste::paste! {
+                    #[ignore = "native traces cannot be compared"]
                     #[test]
                     fn [<$name _native>]() -> color_eyre::eyre::Result<()> {
                         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));

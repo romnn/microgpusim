@@ -494,7 +494,7 @@ where
                         let mut reply = self.dram_to_l2_queue.dequeue().unwrap();
                         log::debug!("filling L2 with {}", &reply);
                         reply.set_status(mem_fetch::Status::IN_PARTITION_L2_FILL_QUEUE, 0);
-                        dbg!(cycle, self.memcpy_cycle_offset);
+                        // dbg!(cycle, self.memcpy_cycle_offset);
                         l2_cache.fill(reply, time);
                         // l2_cache.fill(&mut reply)
                         // reply will be gone forever at this point
@@ -539,7 +539,7 @@ where
 
                         if !output_full && port_free {
                             let mut events = Vec::new();
-                            dbg!(cycle, self.memcpy_cycle_offset);
+                            // dbg!(cycle, self.memcpy_cycle_offset);
                             let status =
                                 l2_cache.access(fetch.addr(), fetch.clone(), &mut events, time);
                             let write_sent = was_write_sent(&events);

@@ -890,11 +890,12 @@ bool trace_gpgpu_sim::get_more_cta_left() const {
 }
 
 void trace_gpgpu_sim::issue_block2core() {
-  logger->debug("issue block to core");
+  logger->debug("===> issue block to core");
   unsigned last_issued = m_last_cluster_issue;
   for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
     unsigned idx = (i + last_issued + 1) % m_shader_config->n_simt_clusters;
     unsigned num = m_cluster[idx]->issue_block2core();
+    logger->trace("cluster[{}] issued {} blocks", idx, num);
     if (num) {
       m_last_cluster_issue = idx;
       m_total_cta_launched += num;
@@ -1111,10 +1112,38 @@ void trace_gpgpu_sim::decrement_kernel_latency() {
 }
 
 trace_kernel_info_t *trace_gpgpu_sim::select_kernel() {
+  unsigned num_running = 0;
+  for (unsigned n = 0; n < m_running_kernels.size(); n++) {
+    if (m_running_kernels[n]) {
+      num_running++;
+    }
+  }
+  logger->trace("select kernel: {} running kernels, last issued kernel={}",
+                num_running, m_last_issued_kernel);
+  if (m_running_kernels[m_last_issued_kernel]) {
+    trace_kernel_info_t *k = m_running_kernels[m_last_issued_kernel];
+    unsigned launch_uid = k->get_uid();
+    logger->trace(
+        "select kernel: => running_kernels[{}] no more blocks to run={} {}/{} "
+        "kernel "
+        "block latency={} launch uid={}",
+        m_last_issued_kernel, k->no_more_ctas_to_run(), k->get_next_cta_id(),
+        k->get_grid_dim(),
+        // return (m_next_cta.x >= m_grid_dim.x || m_next_cta.y >= m_grid_dim.y
+        // ||
+        //             m_next_cta.z >= m_grid_dim.z);
+        k->m_kernel_TB_latency, launch_uid);
+  }
   if (m_running_kernels[m_last_issued_kernel] &&
       !m_running_kernels[m_last_issued_kernel]->no_more_ctas_to_run() &&
       !m_running_kernels[m_last_issued_kernel]->m_kernel_TB_latency) {
-    unsigned launch_uid = m_running_kernels[m_last_issued_kernel]->get_uid();
+    trace_kernel_info_t *k = m_running_kernels[m_last_issued_kernel];
+    unsigned launch_uid = k->get_uid();
+    // logger->trace(
+    //     "select kernel: => running_kernels[{}] no more blocks to run={}
+    //     kernel " "block latency={} launch uid={}", m_last_issued_kernel,
+    //     k->no_more_ctas_to_run(), k->m_kernel_TB_latency, launch_uid);
+
     if (std::find(m_executed_kernel_uids.begin(), m_executed_kernel_uids.end(),
                   launch_uid) == m_executed_kernel_uids.end()) {
       m_running_kernels[m_last_issued_kernel]->start_cycle =
@@ -1129,6 +1158,14 @@ trace_kernel_info_t *trace_gpgpu_sim::select_kernel() {
   for (unsigned n = 0; n < m_running_kernels.size(); n++) {
     unsigned idx =
         (n + m_last_issued_kernel + 1) % m_config.max_concurrent_kernel;
+    if (m_running_kernels[idx]) {
+      logger->trace(
+          "select kernel: runing_kernels[{}] more blocks left={}, kernel block "
+          "latency={}",
+          idx, kernel_more_cta_left(m_running_kernels[idx]),
+          m_running_kernels[idx]->m_kernel_TB_latency);
+    }
+
     if (kernel_more_cta_left(m_running_kernels[idx]) &&
         !m_running_kernels[idx]->m_kernel_TB_latency) {
       m_last_issued_kernel = idx;

@@ -184,9 +184,12 @@ void accelsim_bridge::transfer_core_cache_stats(StatsBridge &stats) const {
       trace_shader_core_ctx *core =
           m_gpgpu_sim->m_cluster[cluster_id]->m_core[core_id];
 
-      unsigned global_cache_id = cluster_id * +core_id;
+      unsigned global_core_id =
+          cluster_id * shader_config->n_simt_cores_per_cluster + core_id;
+      unsigned global_cache_id =
+          cluster_id * shader_config->n_simt_cores_per_cluster + core_id;
       assert(core->m_tpc == cluster_id);
-      assert(core->m_sid == core_id);
+      assert(core->m_sid == global_core_id);
 
       // L1I
       if (!shader_config->m_L1I_config.disabled() && core->m_L1I)

@@ -383,6 +383,8 @@ pub struct BaseSchedulerUnit {
     // pub struct BaseSchedulerUnit<'a> {
     // <'a> {
     id: usize,
+    cluster_id: usize,
+    core_id: usize,
     /// This is the prioritized warp list that is looped over each cycle to
     /// determine which warp gets to issue.
     // next_cycle_prioritized_warps: VecDeque<&'a CoreWarp>,
@@ -421,6 +423,8 @@ pub struct BaseSchedulerUnit {
 impl BaseSchedulerUnit {
     pub fn new(
         id: usize,
+        cluster_id: usize,
+        core_id: usize,
         // warps: &'a Vec<SchedulerWarp>,
         warps: Vec<CoreWarp>,
         // warps: &'a Vec<Option<SchedulerWarp>>,
@@ -433,6 +437,8 @@ impl BaseSchedulerUnit {
         let supervised_warps = VecDeque::new();
         Self {
             id,
+            cluster_id,
+            core_id,
             next_cycle_prioritized_warps: VecDeque::new(),
             supervised_warps,
             last_supervised_issued_idx: 0,
@@ -525,7 +531,10 @@ impl BaseSchedulerUnit {
             assert!(inst_count > 0);
             if inst_count > 1 {
                 log::debug!(
-                    "scheduler: \n\t => testing (warp_id={}, dynamic_warp_id={}, trace_pc={}, pc={:?}, ibuffer={:?}, {} instructions)",
+                    "core[{}][{}] scheduler[{}]: \n\t => testing (warp_id={}, dynamic_warp_id={}, trace_pc={}, pc={:?}, ibuffer={:?}, {} instructions)",
+                    self.cluster_id,
+                    self.core_id,
+                    self.id,
                     warp_id, dyn_warp_id,
                     next_warp.trace_pc,
                     next_warp.pc(),
@@ -1130,24 +1139,25 @@ impl LrrScheduler {
     //     todo!("scheduler unit: order warps")
     // }
 
-    pub fn new(
-        id: usize,
-        // warps: &'a Vec<SchedulerWarp>,
-        warps: Vec<CoreWarp>,
-        // warps: &'a Vec<Option<SchedulerWarp>>,
-        // mem_out: &'a register_set::RegisterSet,
-        // core: &'a super::core::InnerSIMTCore,
-        scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
-        stats: Arc<Mutex<stats::Stats>>,
-        config: Arc<GPUConfig>,
-    ) -> Self {
-        // todo!("lrr scheduler: new");
-        let inner = BaseSchedulerUnit::new(
-            id, // mem_out, core,
-            warps, scoreboard, stats, config,
-        );
-        Self { inner }
-    }
+    // pub fn new(
+    //     id: usize,
+    //     // warps: &'a Vec<SchedulerWarp>,
+    //     warps: Vec<CoreWarp>,
+    //     // warps: &'a Vec<Option<SchedulerWarp>>,
+    //     // mem_out: &'a register_set::RegisterSet,
+    //     // core: &'a super::core::InnerSIMTCore,
+    //     scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
+    //     stats: Arc<Mutex<stats::Stats>>,
+    //     config: Arc<GPUConfig>,
+    // ) -> Self {
+    //     // todo!("lrr scheduler: new");
+    //     let inner = BaseSchedulerUnit::new(
+    //         id, // mem_out, core,
+    //         warps, scoreboard, stats, config,
+    //     );
+    //     Self { inner }
+    // }
+
     // lrr_scheduler(shader_core_stats *stats, shader_core_ctx *shader,
     //               Scoreboard *scoreboard, simt_stack **simt,
     //               std::vector<shd_warp_t *> *warp, register_set *sp_out,
@@ -1170,6 +1180,8 @@ pub struct GTOScheduler {
 impl GTOScheduler {
     pub fn new(
         id: usize,
+        cluster_id: usize,
+        core_id: usize,
         warps: Vec<CoreWarp>,
         scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
         stats: Arc<Mutex<stats::Stats>>,
@@ -1177,7 +1189,7 @@ impl GTOScheduler {
     ) -> Self {
         let inner = BaseSchedulerUnit::new(
             id, // mem_out, core,
-            warps, scoreboard, stats, config,
+            cluster_id, core_id, warps, scoreboard, stats, config,
         );
         Self { inner }
     }

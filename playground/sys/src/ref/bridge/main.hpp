@@ -52,6 +52,10 @@ class accelsim_bridge {
 
   const std::vector<core_bridge> &get_cores() const { return cores; }
 
+  unsigned get_last_cluster_issue() const {
+    return m_gpgpu_sim->m_last_cluster_issue;
+  }
+
  private:
   trace_parser *tracer;
   trace_config tconfig;

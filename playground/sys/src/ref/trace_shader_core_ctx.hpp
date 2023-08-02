@@ -255,6 +255,7 @@ class trace_shader_core_ctx {
   std::list<unsigned> get_regs_written(const inst_t &fvt) const;
 
   unsigned get_sid() const { return m_sid; }
+  unsigned get_tpc() const { return m_tpc; }
 
   const shader_core_config *get_config() const { return m_config; }
 

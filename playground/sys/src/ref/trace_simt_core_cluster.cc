@@ -168,6 +168,9 @@ unsigned trace_simt_core_cluster::issue_block2core() {
       kernel = m_core[core]->get_kernel();
       if (!m_gpu->kernel_more_cta_left(kernel)) {
         // wait till current kernel finishes
+        logger->debug("core {}-{}: not completed={}", m_cluster_id, core,
+                      m_core[core]->get_not_completed());
+
         if (m_core[core]->get_not_completed() == 0) {
           trace_kernel_info_t *k = m_gpu->select_kernel();
           if (k) m_core[core]->set_kernel(k);

@@ -147,6 +147,11 @@ impl<'a> Accelsim<'a> {
         self.inner.limit_reached()
     }
 
+    #[must_use]
+    pub fn last_cluster_issue(&self) -> u32 {
+        self.inner.get_last_cluster_issue()
+    }
+
     pub fn custom_run_to_completion(&mut self) {
         use std::io::Write;
         while self.commands_left() || self.kernels_left() {

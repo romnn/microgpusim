@@ -102,7 +102,7 @@ class gpgpu_sim_config : public power_config,
     gpu_max_cycle_opt =
         std::min(gpu_max_cycle_opt, (long long unsigned int)1000000);
 
-    m_shader_config.n_simt_clusters = 1;           // 20
+    m_shader_config.n_simt_clusters = 20;          // 20
     m_shader_config.n_simt_cores_per_cluster = 1;  // 1
     m_shader_config.gpgpu_num_sched_per_core = 2;  // 2
 
