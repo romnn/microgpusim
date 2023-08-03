@@ -76,15 +76,9 @@ void trace_shd_warp_t::clear() {
 // functional_done
 bool trace_shd_warp_t::trace_done() { return trace_pc == (warp_traces.size()); }
 
-address_type trace_shd_warp_t::get_start_trace_pc() {
+address_type trace_shd_warp_t::get_start_trace_pc() const {
   assert(warp_traces.size() > 0);
   return warp_traces[0].m_pc;
-}
-
-address_type trace_shd_warp_t::get_pc() {
-  assert(warp_traces.size() > 0);
-  assert(trace_pc < warp_traces.size());
-  return warp_traces[trace_pc].m_pc;
 }
 
 trace_kernel_info_t::trace_kernel_info_t(dim3 gridDim, dim3 blockDim,
@@ -576,6 +570,19 @@ void trace_shader_core_ctx::init_traces(unsigned start_warp, unsigned end_warp,
   trace_kernel_info_t &trace_kernel =
       static_cast<trace_kernel_info_t &>(kernel);
   trace_kernel.get_next_threadblock_traces(threadblock_traces);
+
+  printf("====== INIT TRACES %d-%d \n", start_warp, end_warp);
+  for (unsigned i = start_warp; i < end_warp; ++i) {
+    trace_shd_warp_t *m_trace_warp = static_cast<trace_shd_warp_t *>(m_warp[i]);
+    const std::vector<inst_trace_t> &instructions = m_trace_warp->warp_traces;
+    std::vector<inst_trace_t>::const_iterator iter;
+    printf("====== WARP %d \n", i);
+    for (iter = instructions.begin(); iter != instructions.end(); iter++) {
+      printf("\t => instruction %s pc = %d \n", iter->opcode.c_str(),
+             iter->m_pc);
+    }
+  }
+  printf("====== INIT TRACES %d-%d DONE \n", start_warp, end_warp);
 
   // set the pc from the traces and ignore the functional model
   for (unsigned i = start_warp; i < end_warp; ++i) {

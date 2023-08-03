@@ -1,14 +1,14 @@
 use color_eyre::eyre::{self, WrapErr};
 use std::path::Path;
 
-fn build_accelsim(accel_path: &Path, cuda_path: &Path, force: bool) -> eyre::Result<()> {
+fn build_accelsim(accel_path: &Path, cuda_path: &Path, _force: bool) -> eyre::Result<()> {
     use std::io::Write;
 
     let artifact = accelsim::executable(accel_path);
-    if !force && artifact.is_file() {
-        println!("cargo:warning=using existing {}", &artifact.display());
-        return Ok(());
-    }
+    // if !force && artifact.is_file() {
+    //     println!("cargo:warning=using existing {}", &artifact.display());
+    //     return Ok(());
+    // }
 
     let tmp_build_sh_path = accelsim::build::output_path()?.join("build.tmp.sh");
 
@@ -90,7 +90,18 @@ fn main() -> eyre::Result<()> {
     let use_upstream = false;
 
     let accel_path = accelsim::locate(use_upstream)?;
-    println!("cargo:rerun-if-changed={}", accel_path.display());
+
+    let force = accelsim::build::is_force();
+    println!("cargo:warning=force={}", &force);
+
+    // this does not work well, because accelsim builds in-tree, hence every
+    // build modifies ../accel-sim-framework-dev/ ... /build which triggers a rebuild
+    // Workaround: for now, just use the FORCE / BUILD flag with "yes"
+    // println!("cargo:rerun-if-changed=../accel-sim-framework-dev/");
+
+    if force {
+        println!("cargo:rerun-if-changed={}", accel_path.display());
+    }
 
     println!(
         "cargo:warning=using accelsim source at {}",
@@ -99,9 +110,6 @@ fn main() -> eyre::Result<()> {
 
     let cuda_path = utils::find_cuda().ok_or(eyre::eyre!("CUDA not found"))?;
     println!("cargo:warning=using cuda at {}", &cuda_path.display());
-
-    let force = accelsim::build::is_force();
-    println!("cargo:warning=force={}", &force);
 
     build_accelsim(&accel_path, &cuda_path, force)?;
     Ok(())

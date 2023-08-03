@@ -38,7 +38,7 @@ async fn main() -> eyre::Result<()> {
     let (output, dur) = sim::simulate_trace(
         &traces_dir,
         &kernelslist,
-        options.sim_config,
+        &options.sim_config,
         options.timeout,
     )
     .await?;

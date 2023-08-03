@@ -251,6 +251,9 @@ enum cache_request_status tag_array::probe(new_addr_type addr, unsigned &idx,
   unsigned set_index = m_config.set_index(addr);
   new_addr_type tag = m_config.tag(addr);
 
+  printf("tag_array::probe(%llu) set_idx = %d tag = %llu assoc = %d\n", addr,
+         set_index, tag, m_config.m_assoc);
+
   unsigned invalid_line = (unsigned)-1;
   unsigned valid_line = (unsigned)-1;
   unsigned long long valid_timestamp = (unsigned)-1;
@@ -1699,6 +1702,12 @@ enum cache_request_status read_only_cache::access(
     m_stats.inc_fail_stats(mf->get_access_type(), LINE_ALLOC_FAIL);
   }
 
+  printf(
+      "inst cache access(%lu) time=%d cache index=%d block addr=%lu probe "
+      "status=%s access status = %s\n",
+      addr, time, cache_index, block_addr, cache_request_status_str(status),
+      cache_request_status_str(cache_status));
+
   m_stats.inc_stats(mf->get_access_type(),
                     m_stats.select_stats_status(status, cache_status));
   m_stats.inc_stats_pw(mf->get_access_type(),
@@ -1766,6 +1775,14 @@ enum cache_request_status data_cache::access(new_addr_type addr, mem_fetch *mf,
       m_tag_array->probe(block_addr, cache_index, mf, mf->is_write(), true);
   enum cache_request_status access_status =
       process_tag_probe(wr, probe_status, addr, cache_index, mf, time, events);
+
+  printf(
+      "data cache access(%lu) time=%d cache index=%d block addr=%lu probe "
+      "status=%s access status=%s\n",
+      addr, time, cache_index, block_addr,
+      cache_request_status_str(probe_status),
+      cache_request_status_str(access_status));
+
   m_stats.inc_stats(mf->get_access_type(),
                     m_stats.select_stats_status(probe_status, access_status));
   m_stats.inc_stats_pw(mf->get_access_type(), m_stats.select_stats_status(
@@ -1789,7 +1806,10 @@ enum cache_request_status l1_cache::access(new_addr_type addr, mem_fetch *mf,
 enum cache_request_status l2_cache::access(new_addr_type addr, mem_fetch *mf,
                                            unsigned time,
                                            std::list<cache_event> &events) {
-  return data_cache::access(addr, mf, time, events);
+  cache_request_status status = data_cache::access(addr, mf, time, events);
+  printf("L2 cache access(%lu) time=%d status=%s\n", addr, time,
+         cache_request_status_str(status));
+  return status;
 }
 
 /// Access function for tex_cache

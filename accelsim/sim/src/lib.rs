@@ -6,7 +6,7 @@ use async_process::Command;
 use color_eyre::eyre::{self, WrapErr};
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub fn locate_accelsim_bin(accel_path: &Path, profile: &str) -> eyre::Result<PathBuf> {
     let use_box = std::env::var("USE_BOX").unwrap_or_default().to_lowercase() == "yes";
@@ -75,9 +75,9 @@ pub fn render_sim_script(
 pub async fn simulate_trace(
     traces_dir: impl AsRef<Path>,
     kernelslist: impl AsRef<Path>,
-    config: SimConfig,
+    config: &SimConfig,
     timeout: Option<Duration>,
-) -> eyre::Result<(std::process::Output, std::time::Duration)> {
+) -> eyre::Result<(std::process::Output, Duration)> {
     #[cfg(feature = "upstream")]
     let use_upstream = true;
     #[cfg(not(feature = "upstream"))]
@@ -143,7 +143,7 @@ pub async fn simulate_trace(
     cmd.env("CUDA_INSTALL_PATH", &*cuda_path.to_string_lossy());
     log::debug!("command: {:?}", &cmd);
 
-    let start = std::time::Instant::now();
+    let start = Instant::now();
     let result = match timeout {
         Some(timeout) => tokio::time::timeout(timeout, cmd.output()).await,
         None => Ok(cmd.output().await),

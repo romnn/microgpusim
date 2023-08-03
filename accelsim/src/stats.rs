@@ -1,16 +1,45 @@
 use color_eyre::eyre;
 use std::collections::HashMap;
 
-type StatsMap = indexmap::IndexMap<(String, u16, String), f64>;
+pub type Stat = (String, u16, String);
+pub type StatsMap = indexmap::IndexMap<Stat, f64>;
 
 /// Stats
 #[repr(transparent)]
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Stats(StatsMap);
 
+impl IntoIterator for Stats {
+    type Item = (Stat, f64);
+    type IntoIter = indexmap::map::IntoIter<Stat, f64>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl FromIterator<(Stat, f64)> for Stats {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = (Stat, f64)>,
+    {
+        Self(iter.into_iter().collect())
+    }
+}
+
 impl Stats {
     pub fn into_inner(self) -> StatsMap {
         self.0
+    }
+
+    pub fn find_stat(&self, name: impl AsRef<str>) -> Option<&f64> {
+        self.0.iter().find_map(|((_, _, stat_name), value)| {
+            if stat_name == name.as_ref() {
+                Some(value)
+            } else {
+                None
+            }
+        })
     }
 }
 
