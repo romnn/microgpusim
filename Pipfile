@@ -12,6 +12,7 @@ numpy = "*"
 scipy = "*"
 pandas = "*"
 jupyterlab = "*"
+wasabi = "*"
 
 [dev-packages]
 invoke = "*"

@@ -502,6 +502,8 @@ name = "casimu"
 version = "0.1.0"
 dependencies = [
  "accelsim",
+ "accelsim-sim",
+ "async-process",
  "bitvec",
  "clap",
  "color-eyre",
@@ -533,6 +535,7 @@ dependencies = [
  "tokio",
  "trace-model",
  "utils",
+ "validate",
 ]
 
 [[package]]

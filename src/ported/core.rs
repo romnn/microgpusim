@@ -1638,7 +1638,7 @@ where
 
     pub fn cycle(&mut self) {
         log::debug!(
-            "{} active={}, not completed={}",
+            "{} \tactive={}, not completed={}",
             style(format!(
                 "cycle {:03} core {:?}: core cycle",
                 self.inner.cycle.get(),
@@ -1650,7 +1650,15 @@ where
         );
 
         if !self.is_active() && self.not_completed() == 0 {
-            panic!("core done");
+            log::debug!(
+                "{}",
+                style(format!(
+                    "cycle {:03} core {:?}: core done",
+                    self.inner.cycle.get(),
+                    self.id()
+                ))
+                .blue(),
+            );
             return;
         }
         // m_stats->shader_cycles[m_sid]++;

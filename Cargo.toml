@@ -88,7 +88,10 @@ paste = "1"
 # sanity check stats against playground
 playground = { path = "./playground" }
 accelsim = { path = "./accelsim" }
+accelsim-sim = { path = "./accelsim/sim" }
+validate = { path = "./validate" }
 
 # testing if ffi works in async contexts
 tokio = { version = "1", features = ["full"] }
+async-process = "1"
 futures = "0.3"

@@ -2,14 +2,21 @@
 
 - today:
 
-  - lockstep with multiple cores and clusters
+  - less important:
+
+    - fix: remove global statics to allow running tests in parallel
+    - parse accelsim config files
+      - with defaults for compatibility
+
+  - validate accelsim and playground stats still match
   - allow basic configurations for the playground bridge
 
     - add flag for playground to run in accelsim compatibility mode
     - playground should be able to behave like accelsim
 
-  - parse accelsim config files
-    - with defaults for compatibility
+  - lockstep with multiple cores and clusters
+
+  -
   - FIX: add l2 set index back in
   - generate plots and correlation stuff etc
 
