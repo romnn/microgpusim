@@ -265,6 +265,24 @@ fn flatten(value: serde_yaml::Value) -> Vec<PrimitiveValue> {
     }
 }
 
+pub fn bench_config_name(name: &str, input: &super::matrix::Input) -> String {
+    // let bench_config_dir_name: Vec<_> = input
+    //     .values()
+    //     .cloned()
+    //     .flat_map(flatten)
+    //     .map(|value| value.to_string())
+    //     .collect();
+    // dbg!(&bench_config_dir_name);
+
+    let mut bench_config_dir_name = Vec::new();
+    for (k, v) in input.clone() {
+        bench_config_dir_name.push(k);
+        bench_config_dir_name.extend(flatten(v).into_iter().map(|v| v.to_string()));
+    }
+    let bench_config_dir_name = bench_config_dir_name.join("-");
+    format!("{}-{}", &name, bench_config_dir_name)
+}
+
 impl crate::Benchmark {
     #[allow(clippy::too_many_lines)]
     pub fn materialize_input(
@@ -290,22 +308,7 @@ impl crate::Benchmark {
         let cmd_args = self.args_template.render(&values)?;
         let cmd_args = super::benchmark::split_shell_command(cmd_args)?;
 
-        // let bench_config_dir_name: Vec<_> = input
-        //     .values()
-        //     .cloned()
-        //     .flat_map(flatten)
-        //     .map(|value| value.to_string())
-        //     .collect();
-        // dbg!(&bench_config_dir_name);
-
-        let mut bench_config_dir_name = Vec::new();
-        for (k, v) in input.clone() {
-            bench_config_dir_name.push(k);
-            bench_config_dir_name.extend(flatten(v).into_iter().map(|v| v.to_string()));
-        }
-        let bench_config_dir_name = bench_config_dir_name.join("-");
-        let default_artifact_path =
-            PathBuf::from(&name).join(format!("{}-{}", &name, bench_config_dir_name));
+        let default_bench_dir = PathBuf::from(&name).join(bench_config_name(&name, &input));
 
         let profile = {
             let defaults = &top_level_config.profile;
@@ -316,7 +319,7 @@ impl crate::Benchmark {
 
             let profile_dir = base_config
                 .results_dir
-                .join(&default_artifact_path)
+                .join(&default_bench_dir)
                 .join("profile");
 
             ProfileOptions {
@@ -334,7 +337,7 @@ impl crate::Benchmark {
 
             let traces_dir = base_config
                 .results_dir
-                .join(&default_artifact_path)
+                .join(&default_bench_dir)
                 .join("trace");
 
             TraceOptions {
@@ -354,7 +357,7 @@ impl crate::Benchmark {
 
             let traces_dir = base_config
                 .results_dir
-                .join(&default_artifact_path)
+                .join(&default_bench_dir)
                 .join("accelsim-trace");
 
             AccelsimTraceOptions {
@@ -370,10 +373,7 @@ impl crate::Benchmark {
                 .clone()
                 .materialize(base, Some(&defaults.common))?;
 
-            let stats_dir = base_config
-                .results_dir
-                .join(&default_artifact_path)
-                .join("sim");
+            let stats_dir = base_config.results_dir.join(&default_bench_dir).join("sim");
 
             SimOptions {
                 stats_dir,
@@ -390,7 +390,7 @@ impl crate::Benchmark {
 
             let stats_dir = base_config
                 .results_dir
-                .join(&default_artifact_path)
+                .join(&default_bench_dir)
                 .join("accelsim-sim");
 
             AccelsimSimOptions {
@@ -413,7 +413,7 @@ impl crate::Benchmark {
 
             let stats_dir = base_config
                 .results_dir
-                .join(&default_artifact_path)
+                .join(&default_bench_dir)
                 .join("playground-sim");
 
             PlaygroundSimOptions {
@@ -612,10 +612,34 @@ pub struct Benchmarks {
 }
 
 impl Benchmarks {
+    pub fn from_reader(reader: impl std::io::Read) -> Result<Self, serde_yaml::Error> {
+        serde_yaml::from_reader(reader)
+    }
+
     pub fn enabled(&self) -> impl Iterator<Item = &BenchmarkConfig> + '_ {
         self.benchmarks
             .iter()
             .flat_map(|(_, bench_configs)| bench_configs)
+    }
+
+    pub fn get_input_configs(
+        &self,
+        benchmark_name: String,
+    ) -> impl Iterator<Item = &BenchmarkConfig> + '_ {
+        self.benchmarks
+            .iter()
+            .filter(move |(name, _)| name.as_str() == benchmark_name.as_str())
+            .flat_map(|(_, bench_configs)| bench_configs)
+    }
+
+    pub fn get_single_config(
+        &self,
+        benchmark_name: impl Into<String>,
+        input_idx: usize,
+    ) -> Option<&BenchmarkConfig> {
+        self.get_input_configs(benchmark_name.into())
+            .filter(|config| config.input_idx == input_idx)
+            .next()
     }
 }
 

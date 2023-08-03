@@ -251,9 +251,10 @@ fn print_benchmark_result(
             let benchmark_config_id =
                 format!("{}@{:<3}", &bench_config.name, bench_config.input_idx + 1);
             bar.println(format!(
-                "{:>15} {:>20} [ {} {} ] {}",
+                "{:>15} {:>20} [ {} ][ {} {} ] {}",
                 op,
                 color.apply_to(benchmark_config_id),
+                materialize::bench_config_name(&bench_config.name, &bench_config.values),
                 executable.display(),
                 bench_config.args.join(" "),
                 color.apply_to(status),

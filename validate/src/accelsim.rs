@@ -133,7 +133,7 @@ pub async fn simulate(
     };
 
     let (log, dur) =
-        accelsim_sim::simulate_trace(&traces_dir, &kernelslist, config, timeout).await?;
+        accelsim_sim::simulate_trace(&traces_dir, &kernelslist, &config, timeout).await?;
 
     // parse stats
     let parse_options = accelsim::parser::Options::default();
