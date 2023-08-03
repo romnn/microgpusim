@@ -58,12 +58,12 @@ void mshr_table::mark_ready(new_addr_type block_addr, bool &has_atomic) {
 }
 
 /// Returns next ready accesses
-std::list<mem_fetch *> mshr_table::next_accesses() {
+const std::list<mem_fetch *> mshr_table::next_accesses() const {
   if (m_current_response.empty()) {
     return std::list<mem_fetch *>();
   }
   new_addr_type block_addr = m_current_response.front();
-  return m_data[block_addr].m_list;
+  return m_data.at(block_addr).m_list;
 }
 
 /// Returns next ready access

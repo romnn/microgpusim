@@ -34,7 +34,11 @@ impl std::fmt::Debug for AddressTranslation {
 impl AddressTranslation {
     #[must_use]
     pub fn new(num_channels: u32, num_sub_partitions_per_channel: u32) -> Self {
+        let addrdec_option =
+            "dramid@8;00000000.00000000.00000000.00000000.0000RRRR.RRRRRRRR.RBBBCCCC.BCCSSSSS";
+        let addrdec_option = std::ffi::CString::new(addrdec_option).unwrap();
         let params = types::addrdec::linear_to_raw_address_translation_params {
+            addrdec_option: addrdec_option.as_ptr(),
             run_test: false,
             gpgpu_mem_address_mask: 1, // new address mask
             memory_partition_indexing: bindings::partition_index_function::CONSECUTIVE,

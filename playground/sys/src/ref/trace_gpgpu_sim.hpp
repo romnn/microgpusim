@@ -193,8 +193,7 @@ class trace_gpgpu_sim {
                 m_memory_config->m_n_mem_sub_partition);
 
     time_vector_create(NUM_MEM_REQ_STAT);
-    logger->debug(
-        "GPGPU-Sim uArch: performance model initialization complete.");
+    printf("GPGPU-Sim uArch: performance model initialization complete.\n");
 
     m_running_kernels.resize(config.max_concurrent_kernel, NULL);
     m_last_issued_kernel = 0;

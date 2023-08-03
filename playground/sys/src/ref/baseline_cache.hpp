@@ -63,7 +63,9 @@ class baseline_cache : public cache_t {
   bool access_ready() const { return m_mshrs.access_ready(); }
   /// Pop next ready access (does not include accesses that "HIT")
   mem_fetch *next_access() { return m_mshrs.next_access(); }
-  std::list<mem_fetch *> ready_accesses() { return m_mshrs.next_accesses(); }
+  const std::list<mem_fetch *> ready_accesses() const {
+    return m_mshrs.next_accesses();
+  }
   // flash invalidate all entries in cache
   void flush() { m_tag_array->flush(); }
   void invalidate() { m_tag_array->invalidate(); }

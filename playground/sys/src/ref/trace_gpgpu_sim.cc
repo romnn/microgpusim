@@ -99,6 +99,8 @@ void trace_gpgpu_sim::perf_memcpy_to_gpu(size_t dst_start_addr, size_t count) {
     //== 0);
 
     for (size_t counter = 0; counter < count; counter += 32) {
+      // FIX: ROMAN write address must be size_t as well, otherwise we overflow
+      // the address
       const size_t wr_addr = dst_start_addr + counter;
       addrdec_t raw_addr;
 
@@ -241,11 +243,12 @@ void trace_gpgpu_sim::simple_cycle() {
 
   logger->debug("cycle for {} drams", m_memory_config->m_n_mem);
   for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
-    if (m_memory_config->simple_dram_model)
+    if (m_memory_config->simple_dram_model) {
       m_memory_partition_unit[i]->simple_dram_model_cycle();
-    else
+    } else {
       // Issue the dram command (scheduler + delay model)
       m_memory_partition_unit[i]->dram_cycle();
+    }
   }
 
   logger->debug("moving mem requests from interconn to {} mem partitions",
@@ -381,11 +384,12 @@ void trace_gpgpu_sim::cycle() {
 
   if (clock_mask & DRAM) {
     for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
-      if (m_memory_config->simple_dram_model)
+      if (m_memory_config->simple_dram_model) {
         m_memory_partition_unit[i]->simple_dram_model_cycle();
-      else
-        m_memory_partition_unit[i]
-            ->dram_cycle();  // Issue the dram command (scheduler + delay model)
+      } else {
+        // Issue the dram command (scheduler + delay model)
+        m_memory_partition_unit[i]->dram_cycle();
+      }
 
       // REMOVE: power
       // Update performance counters for DRAM
@@ -568,8 +572,8 @@ void trace_gpgpu_sim::cycle() {
         if (m_config.gpu_runtime_stat_flag & GPU_RSTAT_BW_STAT) {
           for (unsigned i = 0; i < m_memory_config->m_n_mem; i++)
             m_memory_partition_unit[i]->print_stat(stdout);
-          logger->debug("maxmrqlatency = {}", m_memory_stats->max_mrq_latency);
-          logger->debug("maxmflatency = {}", m_memory_stats->max_mf_latency);
+          printf("maxmrqlatency = %d \n", m_memory_stats->max_mrq_latency);
+          printf("maxmflatency = %d \n", m_memory_stats->max_mf_latency);
         }
         if (m_config.gpu_runtime_stat_flag & GPU_RSTAT_SHD_INFO)
           shader_print_runtime_stat(stdout);

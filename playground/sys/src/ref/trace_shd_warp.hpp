@@ -24,9 +24,6 @@ class trace_shd_warp_t {
     assert(m_stores_outstanding == 0);
     assert(m_inst_in_pipeline == 0);
     m_imiss_pending = false;
-    // ROMAN: use 0 as the default warp id for uninitialized
-    // m_warp_id = 0;
-    // m_dynamic_warp_id = 0;
     m_warp_id = (unsigned)-1;
     m_dynamic_warp_id = (unsigned)-1;
     m_instruction_count = 0;
@@ -36,6 +33,10 @@ class trace_shd_warp_t {
     m_done_exit = true;
     m_last_fetch = 0;
     m_next = 0;
+
+    // ROMAN
+    trace_pc = 0;
+    m_kernel_info = NULL;
 
     // Jin: cdp support
     m_cdp_latency = 0;
@@ -49,6 +50,7 @@ class trace_shd_warp_t {
     m_warp_id = wid;
     m_dynamic_warp_id = dynamic_warp_id;
     m_instruction_count = 0;
+    trace_pc = 0;
     // m_next_pc = start_pc;
     assert(n_completed >= active.count());
     assert(n_completed <= m_warp_size);
@@ -156,8 +158,6 @@ class trace_shd_warp_t {
     }
   }
   const warp_inst_t *ibuffer_next_inst() const {
-    // printf("ibuffer next instruction (m_next = %d)\n", m_next);
-    // throw std::runtime_error("ibuffer next inst");
     return m_ibuffer[m_next].m_inst;
   }
   bool ibuffer_next_valid() const { return m_ibuffer[m_next].m_valid; }

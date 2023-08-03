@@ -19,7 +19,7 @@ fn main() -> eyre::Result<()> {
         .canonicalize()
         .wrap_err_with(|| format!("{} does not exist", kernelslist.display()))?;
 
-    let mut gpgpusim_config = base.join("accelsim/gtx1080/gpgpusim.config");
+    let mut gpgpu_sim_config = base.join("accelsim/gtx1080/gpgpusim.config");
     let mut trace_config = base.join("accelsim/gtx1080/gpgpusim.trace.config");
     let inter_config = Some(
         options
@@ -31,7 +31,7 @@ fn main() -> eyre::Result<()> {
 
     // overrides
     if let Some(config) = options.sim_config.config() {
-        gpgpusim_config = config
+        gpgpu_sim_config = config
             .canonicalize()
             .wrap_err_with(|| format!("{} does not exist", config.display()))?;
     }
@@ -41,7 +41,7 @@ fn main() -> eyre::Result<()> {
             .wrap_err_with(|| format!("{} does not exist", config.display()))?;
     }
 
-    assert!(gpgpusim_config.is_file());
+    assert!(gpgpu_sim_config.is_file());
     assert!(trace_config.is_file());
     assert!(kernelslist.is_file());
 
@@ -49,7 +49,7 @@ fn main() -> eyre::Result<()> {
         "-trace",
         kernelslist.as_os_str().to_str().unwrap(),
         "-config",
-        gpgpusim_config.as_os_str().to_str().unwrap(),
+        gpgpu_sim_config.as_os_str().to_str().unwrap(),
         "-config",
         trace_config.as_os_str().to_str().unwrap(),
     ];
@@ -59,32 +59,39 @@ fn main() -> eyre::Result<()> {
             inter_config.as_os_str().to_str().unwrap(),
         ]);
     }
-    dbg!(&args);
+    // dbg!(&args);
 
     let config = playground::Config::default();
     let mut accelsim = playground::Accelsim::new(&config, &args)?;
     accelsim.run_to_completion();
     let stats = accelsim.stats().clone();
 
-    eprintln!("STATS:\n");
-    eprintln!("DRAM: {:#?}", &stats.dram);
-    eprintln!("SIM: {:#?}", &stats.sim);
-    eprintln!("INSTRUCTIONS: {:#?}", &stats.instructions);
-    eprintln!("ACCESSES: {:#?}", &stats.accesses);
-    eprintln!(
-        "L1I: {:#?}",
-        &stats::PerCache(stats.l1i_stats.convert()).reduce()
-    );
-    eprintln!(
-        "L1D: {:#?}",
-        &stats::PerCache(stats.l1d_stats.convert()).reduce()
-    );
-    eprintln!(
-        "L2D: {:#?}",
-        &stats::PerCache(stats.l2d_stats.convert()).reduce()
-    );
+    let accelsim_compat_mode = std::env::var("ACCELSIM_COMPAT_MODE")
+        .unwrap_or_default()
+        .to_lowercase()
+        == "yes";
 
-    eprintln!("completed in {:?}", start.elapsed());
+    if !accelsim_compat_mode {
+        eprintln!("STATS:\n");
+        eprintln!("DRAM: {:#?}", &stats.dram);
+        eprintln!("SIM: {:#?}", &stats.sim);
+        eprintln!("INSTRUCTIONS: {:#?}", &stats.instructions);
+        eprintln!("ACCESSES: {:#?}", &stats.accesses);
+        eprintln!(
+            "L1I: {:#?}",
+            &stats::PerCache(stats.l1i_stats.convert()).reduce()
+        );
+        eprintln!(
+            "L1D: {:#?}",
+            &stats::PerCache(stats.l1d_stats.convert()).reduce()
+        );
+        eprintln!(
+            "L2D: {:#?}",
+            &stats::PerCache(stats.l2d_stats.convert()).reduce()
+        );
+
+        eprintln!("completed in {:?}", start.elapsed());
+    }
 
     Ok(())
 }

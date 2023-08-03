@@ -11,8 +11,8 @@ class mshr_table {
              std::shared_ptr<spdlog::logger> logger)
       : logger(logger),
         m_num_entries(num_entries),
-        m_max_merged(max_merged),
-        m_data(2 * num_entries) {}
+        // m_data(2 * num_entries)
+        m_max_merged(max_merged) {}
 
   /// Checks if there is a pending request to the lower memory level already
   bool probe(new_addr_type block_addr) const;
@@ -28,7 +28,7 @@ class mshr_table {
   bool access_ready() const { return !m_current_response.empty(); }
   /// Returns next ready access
   mem_fetch *next_access();
-  std::list<mem_fetch *> next_accesses();
+  const std::list<mem_fetch *> next_accesses() const;
   void display(FILE *fp) const;
   // Returns true if there is a pending read after write
   bool is_read_after_write_pending(new_addr_type block_addr);
@@ -54,8 +54,10 @@ class mshr_table {
     mshr_entry() : m_has_atomic(false) {}
   };
 
-  typedef std::unordered_map<new_addr_type, mshr_entry> table;
-  typedef std::unordered_map<new_addr_type, mshr_entry> line_table;
+  // typedef std::unordered_map<new_addr_type, mshr_entry> table;
+  typedef std::map<new_addr_type, mshr_entry> table;
+  // typedef std::unordered_map<new_addr_type, mshr_entry> line_table;
+  typedef std::map<new_addr_type, mshr_entry> line_table;
 
   table m_data;
   line_table pending_lines;

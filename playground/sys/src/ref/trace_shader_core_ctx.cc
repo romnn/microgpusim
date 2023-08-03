@@ -180,6 +180,19 @@ void trace_shader_core_ctx::init_traces(unsigned start_warp, unsigned end_warp,
       static_cast<trace_kernel_info_t &>(kernel);
   trace_kernel.get_next_threadblock_traces(threadblock_traces);
 
+  printf("====== INIT TRACES %d-%d \n", start_warp, end_warp);
+  for (unsigned i = start_warp; i < end_warp; ++i) {
+    trace_shd_warp_t *m_trace_warp = static_cast<trace_shd_warp_t *>(m_warp[i]);
+    const std::vector<inst_trace_t> &instructions = m_trace_warp->warp_traces;
+    std::vector<inst_trace_t>::const_iterator iter;
+    printf("====== WARP %d \n", i);
+    for (iter = instructions.begin(); iter != instructions.end(); iter++) {
+      printf("\t => instruction %s pc = %d \n", iter->opcode.c_str(),
+             iter->m_pc);
+    }
+  }
+  printf("====== INIT TRACES %d-%d DONE \n", start_warp, end_warp);
+
   // set the pc from the traces and ignore the functional model
   for (unsigned i = start_warp; i < end_warp; ++i) {
     trace_shd_warp_t *m_trace_warp = static_cast<trace_shd_warp_t *>(m_warp[i]);
@@ -570,13 +583,13 @@ void trace_shader_core_ctx::create_exec_pipeline() {
   }
 
   if (m_config->enable_specialized_operand_collector) {
-    // throw std::runtime_error("specialized operand collector");
-    // assert(0 && "specialized operand collector disabled");
+    bool accelsim_compat_mode = get_gpu()->gpgpu_ctx->accelsim_compat_mode;
+
     m_operand_collector.add_cu_set(
         SP_CUS, m_config->gpgpu_operand_collector_num_units_sp,
         m_config->gpgpu_operand_collector_num_out_ports_sp);
-    // TODO: roman make this configurable
-    if (false) {
+
+    if (accelsim_compat_mode) {
       m_operand_collector.add_cu_set(
           DP_CUS, m_config->gpgpu_operand_collector_num_units_dp,
           m_config->gpgpu_operand_collector_num_out_ports_dp);
@@ -588,10 +601,12 @@ void trace_shader_core_ctx::create_exec_pipeline() {
           SFU_CUS, m_config->gpgpu_operand_collector_num_units_sfu,
           m_config->gpgpu_operand_collector_num_out_ports_sfu);
     }
+
     m_operand_collector.add_cu_set(
         MEM_CUS, m_config->gpgpu_operand_collector_num_units_mem,
         m_config->gpgpu_operand_collector_num_out_ports_mem);
-    if (false) {
+
+    if (accelsim_compat_mode) {
       m_operand_collector.add_cu_set(
           INT_CUS, m_config->gpgpu_operand_collector_num_units_int,
           m_config->gpgpu_operand_collector_num_out_ports_int);
@@ -750,9 +765,14 @@ void trace_shader_core_ctx::store_ack(class mem_fetch *mf) {
 }
 
 void trace_shader_core_ctx::cycle() {
-  logger->debug("core::cycle() \t active={}, not completed={}", isactive(),
-                get_not_completed());
-  if (!isactive() && get_not_completed() == 0) return;
+  logger->debug("cycle {} core {}: core cycle \tactive={}, not completed={}",
+                m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle, get_sid(),
+                isactive(), get_not_completed());
+  if (!isactive() && get_not_completed() == 0) {
+    logger->debug("cycle {} core {}: core done",
+                  m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle, get_sid());
+    return;
+  }
 
   m_stats->shader_cycles[m_sid]++;
   writeback();
@@ -910,8 +930,10 @@ void trace_shader_core_ctx::decode() {
     address_type pc = m_inst_fetch_buffer.m_pc;
     unsigned warp_id = m_inst_fetch_buffer.m_warp_id;
 
-    // debug: print all valid instructions in this warp
-    m_warp[warp_id]->print_trace_instructions(false, logger);
+    if (!get_gpu()->gpgpu_ctx->accelsim_compat_mode) {
+      // debug: print all valid instructions in this warp
+      m_warp[warp_id]->print_trace_instructions(false, logger);
+    }
 
     const warp_inst_t *pI1 = get_next_inst(warp_id, pc);
     logger->debug(
@@ -956,9 +978,16 @@ void trace_shader_core_ctx::decode() {
 }
 
 void trace_shader_core_ctx::fetch() {
+  bool before = m_L1I->access_ready();
+  size_t accesses_before = m_L1I->ready_accesses().size();
   logger->debug("trace_shader_core_ctx::fetch() (valid={} l1i ready=[{}])",
                 m_inst_fetch_buffer.m_valid,
                 fmt::join(m_L1I->ready_accesses(), ","));
+
+  // sanity check that we are not changing anything
+  assert(before == m_L1I->access_ready());
+  assert(accesses_before == m_L1I->ready_accesses().size());
+
   if (!m_inst_fetch_buffer.m_valid) {
     if (m_L1I->access_ready()) {
       mem_fetch *mf = m_L1I->next_access();
@@ -1062,12 +1091,14 @@ void trace_shader_core_ctx::fetch() {
         if (!m_warp[warp_id]->functional_done() &&
             !m_warp[warp_id]->imiss_pending() &&
             m_warp[warp_id]->ibuffer_empty()) {
-          const warp_inst_t *current_inst =
-              m_warp[warp_id]->get_current_trace_inst();
+          if (!get_gpu()->gpgpu_ctx->accelsim_compat_mode) {
+            const warp_inst_t *current_inst =
+                m_warp[warp_id]->get_current_trace_inst();
 
-          assert(current_inst != NULL);
-          logger->debug("\t fetching instr {} for warp id = {}",
-                        current_inst->display(), warp_id);
+            assert(current_inst != NULL);
+            logger->debug("\t fetching instr {} for warp id = {}",
+                          current_inst->display(), warp_id);
+          }
 
           address_type pc;
           pc = m_warp[warp_id]->get_pc();
@@ -1093,13 +1124,21 @@ void trace_shader_core_ctx::fetch() {
           if (m_config->perfect_inst_const_cache) {
             status = HIT;
             shader_cache_access_log(m_sid, INSTRUCTION, 0);
-          } else
+          } else {
+            printf(
+                "core %d-%d fetch inst cache access(%lu) time=%llu warp id=%d "
+                "pc=%lu\n",
+                m_tpc, m_sid, (new_addr_type)ppc,
+                m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle, warp_id,
+                m_warp[warp_id]->get_pc());
+
             status = m_L1I->access(
                 (new_addr_type)ppc, mf,
                 m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle, events);
 
-          logger->debug("L1I->access(addr={}) -> status = {}", ppc,
-                        get_cache_request_status_str(status));
+            logger->debug("L1I->access(addr={}) -> status = {}", ppc,
+                          get_cache_request_status_str(status));
+          }
           if (status == MISS) {
             m_last_warp_fetched = warp_id;
             m_warp[warp_id]->set_imiss_pending();

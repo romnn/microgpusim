@@ -279,8 +279,6 @@ void memory_partition_unit::simple_dram_model_cycle() {
 }
 
 void memory_partition_unit::dram_cycle() {
-  throw std::runtime_error("NON BOX DRAM CYCLE");
-
   // pop completed memory request from dram and push it to dram-to-L2 queue
   // of the original sub partition
   // WARN: NON BOX

@@ -71,6 +71,7 @@ class accelsim_bridge {
   unsigned command_idx;
   unsigned window_size;
   bool silent;
+  bool accelsim_compat_mode;
   unsigned log_after_cycle;
 
   // for handing out references to components

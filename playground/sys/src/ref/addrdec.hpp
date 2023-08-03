@@ -68,6 +68,7 @@ struct fmt::formatter<addrdec_t> {
 };
 
 typedef struct {
+  const char *addrdec_option;
   bool run_test;
   int gpgpu_mem_address_mask;
   partition_index_function memory_partition_indexing;
@@ -78,10 +79,11 @@ class linear_to_raw_address_translation {
   linear_to_raw_address_translation(
       linear_to_raw_address_translation_params params)
       : linear_to_raw_address_translation() {
-    addrdec_option =
-        "dramid@8;00000000.00000000.00000000.00000000.0000RRRR.RRRRRRRR."
-        "RBBBCCCC.BCCSSSSS";  // todo: pass this via params, must live until
-                              // init finishes
+    // addrdec_option =
+    //     "dramid@8;00000000.00000000.00000000.00000000.0000RRRR.RRRRRRRR."
+    //     "RBBBCCCC.BCCSSSSS";  // todo: pass this via params, must live until
+    // init finishes
+    addrdec_option = params.addrdec_option;
     run_test = params.run_test;
     gpgpu_mem_address_mask = params.gpgpu_mem_address_mask;
     memory_partition_indexing = params.memory_partition_indexing;

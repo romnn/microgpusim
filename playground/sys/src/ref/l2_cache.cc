@@ -6,5 +6,9 @@
 enum cache_request_status l2_cache::access(new_addr_type addr, mem_fetch *mf,
                                            unsigned time,
                                            std::list<cache_event> &events) {
-  return data_cache::access(addr, mf, time, events);
+  // return data_cache::access(addr, mf, time, events);
+  cache_request_status status = data_cache::access(addr, mf, time, events);
+  printf("L2 cache access(%lu) time=%d status=%s\n", addr, time,
+         cache_request_status_str[status]);
+  return status;
 }

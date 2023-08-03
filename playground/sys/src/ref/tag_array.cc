@@ -90,6 +90,9 @@ enum cache_request_status tag_array::probe(new_addr_type addr, unsigned &idx,
   logger->trace("tag_array::probe({}) set_idx = {} tag = {} assoc = {}",
                 mem_fetch_ptr(mf), set_index, tag, m_config.m_assoc);
 
+  printf("tag_array::probe(%lu) set_idx = %d tag = %lu assoc = %d\n", addr,
+         set_index, tag, m_config.m_assoc);
+
   unsigned invalid_line = (unsigned)-1;
   unsigned valid_line = (unsigned)-1;
   unsigned long long valid_timestamp = (unsigned)-1;

@@ -218,10 +218,11 @@ void baseline_cache::send_read_request(new_addr_type addr,
       !mshr_avail, m_miss_queue.size() >= m_config.m_miss_queue_size);
 
   if (mshr_hit && mshr_avail) {
-    if (read_only)
+    if (read_only) {
       m_tag_array->access(block_addr, time, cache_index, mf);
-    else
+    } else {
       m_tag_array->access(block_addr, time, cache_index, wb, evicted, mf);
+    }
 
     m_mshrs.add(mshr_addr, mf);
     m_stats.inc_stats(mf->get_access_type(), MSHR_HIT);
@@ -229,10 +230,11 @@ void baseline_cache::send_read_request(new_addr_type addr,
 
   } else if (!mshr_hit && mshr_avail &&
              (m_miss_queue.size() < m_config.m_miss_queue_size)) {
-    if (read_only)
+    if (read_only) {
       m_tag_array->access(block_addr, time, cache_index, mf);
-    else
+    } else {
       m_tag_array->access(block_addr, time, cache_index, wb, evicted, mf);
+    }
 
     m_mshrs.add(mshr_addr, mf);
     m_extra_mf_fields[mf] = extra_mf_fields(

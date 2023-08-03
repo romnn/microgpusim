@@ -30,6 +30,7 @@ class gpgpu_context {
     device_runtime = new cuda_device_runtime();
     // stats = new ptx_stats(this);
     stats = new ptx_stats();
+    accelsim_compat_mode = false;
   }
   // global list
   // symbol_table *g_global_allfiles_symbol_table;
@@ -54,6 +55,8 @@ class gpgpu_context {
   cuda_sim *func_sim;
   cuda_device_runtime *device_runtime;
   ptx_stats *stats;
+
+  bool accelsim_compat_mode;
 
   // member function list
   void synchronize();

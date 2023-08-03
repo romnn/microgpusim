@@ -21,6 +21,7 @@ enum cache_request_status read_only_cache::access(
   unsigned cache_index = (unsigned)-1;
   enum cache_request_status status =
       m_tag_array->probe(block_addr, cache_index, mf, mf->is_write());
+
   enum cache_request_status cache_status = RESERVATION_FAIL;
 
   if (status == HIT) {
@@ -42,6 +43,12 @@ enum cache_request_status read_only_cache::access(
   } else {
     m_stats.inc_fail_stats(mf->get_access_type(), LINE_ALLOC_FAIL);
   }
+
+  printf(
+      "inst cache access(%lu) time=%d cache index=%d block addr=%lu probe "
+      "status=%s access status = %s\n",
+      addr, time, cache_index, block_addr, cache_request_status_str[status],
+      cache_request_status_str[cache_status]);
 
   m_stats.inc_stats(mf->get_access_type(),
                     m_stats.select_stats_status(status, cache_status));

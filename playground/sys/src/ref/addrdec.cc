@@ -550,14 +550,15 @@ void linear_to_raw_address_translation::print() const {
          addrdec_mkhigh[COL], addrdec_mklow[COL]);
   printf("addr_dec_mask[BURST] = %016lx \thigh:%d low:%d\n",
          addrdec_mask[BURST], addrdec_mkhigh[BURST], addrdec_mklow[BURST]);
-  printf("m_n_channel = %d\n", m_n_channel);
-  printf("m_n_sub_partition_in_channel = %d\n", m_n_sub_partition_in_channel);
-  printf("LOGB2_32(m_n_sub_partition_in_channel) = %d\n",
-         LOGB2_32(m_n_sub_partition_in_channel));
-
-  printf("ADDR_CHIP_S = %d\n", ADDR_CHIP_S);
-  printf("sub_partition_id_mask = %016lx\n", sub_partition_id_mask);
-  printf("gap = %d\n", gap);
+  // printf("m_n_channel = %d\n", m_n_channel);
+  // printf("m_n_sub_partition_in_channel = %d\n",
+  // m_n_sub_partition_in_channel);
+  // printf("LOGB2_32(m_n_sub_partition_in_channel) = %d\n",
+  //        LOGB2_32(m_n_sub_partition_in_channel));
+  //
+  // printf("ADDR_CHIP_S = %d\n", ADDR_CHIP_S);
+  // printf("sub_partition_id_mask = %016lx\n", sub_partition_id_mask);
+  // printf("gap = %d\n", gap);
 }
 
 bool operator==(const addrdec_t &x, const addrdec_t &y) {
