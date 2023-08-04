@@ -76,6 +76,7 @@ class trace_simt_core_cluster {
 
   std::shared_ptr<spdlog::logger> logger;
 
+  friend class cluster_bridge;
   friend class accelsim_bridge;
 
  protected:

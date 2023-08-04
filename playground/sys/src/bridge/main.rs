@@ -142,6 +142,7 @@ mod ffi {
         // ) -> UniquePtr<CxxVector<mem_fetch_ptr_shim>>;
 
         type core_bridge = crate::bridge::core::core_bridge;
+        type cluster_bridge = crate::bridge::cluster::cluster_bridge;
         type memory_sub_partition_bridge =
             crate::bridge::memory_partition_unit::memory_sub_partition_bridge;
         type memory_partition_unit_bridge =
@@ -188,6 +189,10 @@ mod ffi {
         // iterate over all cores
         #[must_use]
         fn get_cores(self: &accelsim_bridge) -> &CxxVector<core_bridge>;
+
+        // iterate over all clusters
+        #[must_use]
+        fn get_clusters(self: &accelsim_bridge) -> &CxxVector<cluster_bridge>;
 
         #[must_use]
         fn get_last_cluster_issue(self: &accelsim_bridge) -> u32;

@@ -5,6 +5,7 @@
 #include "mem_access_type.hpp"
 #include "mem_fetch_allocator.hpp"
 #include "mem_fetch_interface.hpp"
+#include "trace_gpgpu_sim.hpp"
 
 /// Data cache - Implements common functions for L1 and L2 data cache
 class data_cache : public baseline_cache {
@@ -16,7 +17,7 @@ class data_cache : public baseline_cache {
              mem_access_type wr_alloc_type, mem_access_type wrbk_type,
              class trace_gpgpu_sim *gpu)
       : baseline_cache(name, config, core_id, type_id, memport, status,
-                       logger) {
+                       gpu->gpgpu_ctx->accelsim_compat_mode, logger) {
     init(mfcreator);
     m_wr_alloc_type = wr_alloc_type;
     m_wrbk_type = wrbk_type;
@@ -84,19 +85,21 @@ class data_cache : public baseline_cache {
                                            std::list<cache_event> &events);
 
  protected:
-  data_cache(const char *name, cache_config &config, int core_id, int type_id,
-             mem_fetch_interface *memport, mem_fetch_allocator *mfcreator,
-             enum mem_fetch_status status,
-             std::shared_ptr<spdlog::logger> logger, tag_array *new_tag_array,
-             mem_access_type wr_alloc_type, mem_access_type wrbk_type,
-             class trace_gpgpu_sim *gpu)
-      : baseline_cache(name, config, core_id, type_id, memport, status, logger,
-                       new_tag_array) {
-    init(mfcreator);
-    m_wr_alloc_type = wr_alloc_type;
-    m_wrbk_type = wrbk_type;
-    m_gpu = gpu;
-  }
+  // data_cache(const char *name, cache_config &config, int core_id, int
+  // type_id,
+  //            mem_fetch_interface *memport, mem_fetch_allocator *mfcreator,
+  //            enum mem_fetch_status status,
+  //            std::shared_ptr<spdlog::logger> logger, tag_array
+  //            *new_tag_array, mem_access_type wr_alloc_type, mem_access_type
+  //            wrbk_type, class trace_gpgpu_sim *gpu)
+  //     : baseline_cache(name, config, core_id, type_id, memport, status,
+  //     logger,
+  //                      new_tag_array) {
+  //   init(mfcreator);
+  //   m_wr_alloc_type = wr_alloc_type;
+  //   m_wrbk_type = wrbk_type;
+  //   m_gpu = gpu;
+  // }
 
   mem_access_type m_wr_alloc_type;  // Specifies type of write allocate request
                                     // (e.g., L1 or L2)

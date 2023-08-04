@@ -881,12 +881,13 @@ void ldst_unit::init(mem_fetch_interface *icnt,
   char L1C_name[STRSIZE];
   snprintf(L1T_name, STRSIZE, "L1T_%03d", m_sid);
   snprintf(L1C_name, STRSIZE, "L1C_%03d", m_sid);
+  bool accelsim_compat_mode = core->get_gpu()->gpgpu_ctx->accelsim_compat_mode;
   m_L1T = new tex_cache(L1T_name, m_config->m_L1T_config, m_sid,
                         get_shader_texture_cache_id(), icnt, IN_L1T_MISS_QUEUE,
-                        IN_SHADER_L1T_ROB, logger);
+                        IN_SHADER_L1T_ROB, accelsim_compat_mode, logger);
   m_L1C = new read_only_cache(L1C_name, m_config->m_L1C_config, m_sid,
                               get_shader_constant_cache_id(), icnt,
-                              IN_L1C_MISS_QUEUE, logger);
+                              IN_L1C_MISS_QUEUE, accelsim_compat_mode, logger);
   m_L1D = NULL;
   m_mem_rc = NO_RC_FAIL;
   m_num_writeback_clients =

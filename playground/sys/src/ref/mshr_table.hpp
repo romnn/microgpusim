@@ -28,7 +28,7 @@ class mshr_table {
   bool access_ready() const { return !m_current_response.empty(); }
   /// Returns next ready access
   mem_fetch *next_access();
-  const std::list<mem_fetch *> next_accesses() const;
+  const std::list<mem_fetch *> &next_accesses() const;
   void display(FILE *fp) const;
   // Returns true if there is a pending read after write
   bool is_read_after_write_pending(new_addr_type block_addr);

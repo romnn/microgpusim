@@ -10,10 +10,10 @@ class read_only_cache : public baseline_cache {
  public:
   read_only_cache(const char *name, cache_config &config, int core_id,
                   int type_id, mem_fetch_interface *memport,
-                  enum mem_fetch_status status,
+                  enum mem_fetch_status status, bool accelsim_compat_mode,
                   std::shared_ptr<spdlog::logger> logger)
       : baseline_cache(name, config, core_id, type_id, memport, status,
-                       logger) {}
+                       accelsim_compat_mode, logger) {}
 
   std::string name() { return "read_only_cache"; }
 
@@ -26,13 +26,15 @@ class read_only_cache : public baseline_cache {
   virtual ~read_only_cache() {}
 
  protected:
-  read_only_cache(const char *name, cache_config &config, int core_id,
-                  int type_id, mem_fetch_interface *memport,
-                  enum mem_fetch_status status,
-                  std::shared_ptr<spdlog::logger> logger,
-                  tag_array *new_tag_array)
-      : baseline_cache(name, config, core_id, type_id, memport, status, logger,
-                       new_tag_array) {}
+  // read_only_cache(const char *name, cache_config &config, int core_id,
+  //                 int type_id, mem_fetch_interface *memport,
+  //                 enum mem_fetch_status status,
+  //                 std::shared_ptr<spdlog::logger> logger,
+  //                 tag_array *new_tag_array)
+  //     : baseline_cache(name, config, core_id, type_id, memport, status,
+  //     logger,
+  //                      new_tag_array),
+  //       m_gpu(NULL) {}
 };
 
 std::unique_ptr<read_only_cache> new_read_only_cache(

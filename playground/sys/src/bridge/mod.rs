@@ -5,6 +5,7 @@
 )]
 
 pub mod cache;
+pub mod cluster;
 pub mod core;
 pub mod input_port;
 pub mod main;

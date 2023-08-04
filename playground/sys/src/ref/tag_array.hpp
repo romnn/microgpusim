@@ -13,7 +13,7 @@ class tag_array {
  public:
   // Use this constructor
   tag_array(cache_config &config, int core_id, int type_id,
-            std::shared_ptr<spdlog::logger> logger);
+            bool accelsim_compat_mode, std::shared_ptr<spdlog::logger> logger);
   ~tag_array();
 
   friend class cache_bridge;
@@ -54,6 +54,7 @@ class tag_array {
   void remove_pending_line(mem_fetch *mf);
   void inc_dirty() { m_dirty++; }
 
+  bool accelsim_compat_mode;
   std::shared_ptr<spdlog::logger> logger;
 
  protected:

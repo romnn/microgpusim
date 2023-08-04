@@ -7,6 +7,7 @@
 
 pub mod addrdec;
 pub mod cache;
+pub mod cluster;
 pub mod collector_unit;
 pub mod core;
 pub mod interconnect;
@@ -23,6 +24,7 @@ pub mod warp_inst;
 
 pub use playground_sys::{bindings, bridge::types, main, stats};
 
+use self::cluster::Cluster;
 use self::core::Core;
 use memory_paritition_unit::MemoryPartitionUnit;
 use memory_sub_partition::MemorySubPartition;
@@ -86,6 +88,10 @@ impl<'a> Accelsim<'a> {
 
     pub fn cores(&'a self) -> impl Iterator<Item = Core<'a>> + '_ {
         self.inner.get_cores().iter().map(Core)
+    }
+
+    pub fn clusters(&'a self) -> impl Iterator<Item = Cluster<'a>> + '_ {
+        self.inner.get_clusters().iter().map(Cluster)
     }
 
     pub fn run_to_completion(&mut self) {

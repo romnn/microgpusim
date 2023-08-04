@@ -29,42 +29,46 @@ void scheduler_unit::cycle() {
   std::vector<unsigned> tmp_warp_ids;
   std::vector<trace_shd_warp_t *>::const_iterator iter;
 
-  for (iter = m_next_cycle_prioritized_warps.begin();
-       iter != m_next_cycle_prioritized_warps.end(); iter++) {
-    tmp_warp_ids.push_back((*iter)->get_warp_id());
-  }
-  logger->debug(
-      "{}::scheduler_unit[{}] BEFORE: m_next_cycle_prioritized_warps: {}",
-      name(), m_id, fmt::join(tmp_warp_ids, ","));
+  if (logger->should_log(spdlog::level::trace)) {
+    for (iter = m_next_cycle_prioritized_warps.begin();
+         iter != m_next_cycle_prioritized_warps.end(); iter++) {
+      tmp_warp_ids.push_back((*iter)->get_warp_id());
+    }
+    logger->debug(
+        "{}::scheduler_unit[{}] BEFORE: m_next_cycle_prioritized_warps: [{}]",
+        name(), m_id, fmt::join(tmp_warp_ids, ", "));
 
-  tmp_warp_ids.clear();
-  for (iter = m_next_cycle_prioritized_warps.begin();
-       iter != m_next_cycle_prioritized_warps.end(); iter++) {
-    tmp_warp_ids.push_back((*iter)->get_dynamic_warp_id());
+    tmp_warp_ids.clear();
+    for (iter = m_next_cycle_prioritized_warps.begin();
+         iter != m_next_cycle_prioritized_warps.end(); iter++) {
+      tmp_warp_ids.push_back((*iter)->get_dynamic_warp_id());
+    }
+    logger->debug(
+        "{}::scheduler_unit[{}] BEFORE: m_next_cycle_prioritized_warps: [{}]",
+        name(), m_id, fmt::join(tmp_warp_ids, ", "));
   }
-  logger->debug(
-      "{}::scheduler_unit[{}] BEFORE: m_next_cycle_prioritized_warps: {}",
-      name(), m_id, fmt::join(tmp_warp_ids, ","));
 
   order_warps();
 
-  tmp_warp_ids.clear();
-  for (iter = m_next_cycle_prioritized_warps.begin();
-       iter != m_next_cycle_prioritized_warps.end(); iter++) {
-    tmp_warp_ids.push_back((*iter)->get_warp_id());
-  }
-  logger->debug(
-      "{}::scheduler_unit[{}] AFTER: m_next_cycle_prioritized_warps: {}",
-      name(), m_id, fmt::join(tmp_warp_ids, ","));
+  if (logger->should_log(spdlog::level::trace)) {
+    tmp_warp_ids.clear();
+    for (iter = m_next_cycle_prioritized_warps.begin();
+         iter != m_next_cycle_prioritized_warps.end(); iter++) {
+      tmp_warp_ids.push_back((*iter)->get_warp_id());
+    }
+    logger->debug(
+        "{}::scheduler_unit[{}] AFTER: m_next_cycle_prioritized_warps: [{}]",
+        name(), m_id, fmt::join(tmp_warp_ids, ", "));
 
-  tmp_warp_ids.clear();
-  for (iter = m_next_cycle_prioritized_warps.begin();
-       iter != m_next_cycle_prioritized_warps.end(); iter++) {
-    tmp_warp_ids.push_back((*iter)->get_dynamic_warp_id());
+    tmp_warp_ids.clear();
+    for (iter = m_next_cycle_prioritized_warps.begin();
+         iter != m_next_cycle_prioritized_warps.end(); iter++) {
+      tmp_warp_ids.push_back((*iter)->get_dynamic_warp_id());
+    }
+    logger->debug(
+        "{}::scheduler_unit[{}] AFTER: m_next_cycle_prioritized_warps: [{}]",
+        name(), m_id, fmt::join(tmp_warp_ids, ", "));
   }
-  logger->debug(
-      "{}::scheduler_unit[{}] AFTER: m_next_cycle_prioritized_warps: {}",
-      name(), m_id, fmt::join(tmp_warp_ids, ","));
 
   for (std::vector<trace_shd_warp_t *>::iterator iter =
            m_next_cycle_prioritized_warps.begin();

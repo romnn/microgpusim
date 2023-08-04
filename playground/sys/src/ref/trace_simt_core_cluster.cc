@@ -86,12 +86,16 @@ void trace_simt_core_cluster::icnt_cycle() {
 }
 
 void trace_simt_core_cluster::core_cycle() {
+  logger->debug("cluster {} cycle {}", m_cluster_id,
+                m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
   for (std::list<unsigned>::iterator it = m_core_sim_order.begin();
        it != m_core_sim_order.end(); ++it) {
     m_core[*it]->cycle();
   }
 
   if (m_config->simt_core_sim_order == 1) {
+    // transfers only the element pointed by .begin() from m_core_sim_order into
+    // the container at position .end().
     m_core_sim_order.splice(m_core_sim_order.end(), m_core_sim_order,
                             m_core_sim_order.begin());
   }

@@ -24,8 +24,11 @@ void tag_array::update_cache_parameters(cache_config &config) {
 }
 
 tag_array::tag_array(cache_config &config, int core_id, int type_id,
+                     bool accelsim_compat_mode,
                      std::shared_ptr<spdlog::logger> logger)
-    : logger(logger), m_config(config) {
+    : accelsim_compat_mode(accelsim_compat_mode),
+      logger(logger),
+      m_config(config) {
   // assert( m_config.m_write_policy == READ_ONLY ); Old assert
   unsigned cache_lines_num = config.get_max_num_lines();
   m_lines = new cache_block_t *[cache_lines_num];
@@ -90,8 +93,10 @@ enum cache_request_status tag_array::probe(new_addr_type addr, unsigned &idx,
   logger->trace("tag_array::probe({}) set_idx = {} tag = {} assoc = {}",
                 mem_fetch_ptr(mf), set_index, tag, m_config.m_assoc);
 
-  printf("tag_array::probe(%lu) set_idx = %d tag = %lu assoc = %d\n", addr,
-         set_index, tag, m_config.m_assoc);
+  if (accelsim_compat_mode) {
+    printf("tag_array::probe(%lu) set_idx = %d tag = %lu assoc = %d\n", addr,
+           set_index, tag, m_config.m_assoc);
+  }
 
   unsigned invalid_line = (unsigned)-1;
   unsigned valid_line = (unsigned)-1;
@@ -141,8 +146,8 @@ enum cache_request_status tag_array::probe(new_addr_type addr, unsigned &idx,
       // If the cacheline is from a load op (not modified),
       // or the total dirty cacheline is above a specific value,
       // Then this cacheline is eligible to be considered for replacement
-      // candidate i.e. Only evict clean cachelines until total dirty cachelines
-      // reach the limit.
+      // candidate i.e. Only evict clean cachelines until total dirty
+      // cachelines reach the limit.
       assert(m_config.m_wr_percent == 0);
       if (!line->is_modified_line() ||
           dirty_line_percentage >= m_config.m_wr_percent) {
@@ -175,8 +180,8 @@ enum cache_request_status tag_array::probe(new_addr_type addr, unsigned &idx,
 
   if (all_reserved) {
     assert(m_config.m_alloc_policy == ON_MISS);
-    return RESERVATION_FAIL;  // miss and not enough space in cache to allocate
-                              // on miss
+    return RESERVATION_FAIL;  // miss and not enough space in cache to
+                              // allocate on miss
   }
 
   if (invalid_line != (unsigned)-1) {
@@ -206,7 +211,8 @@ enum cache_request_status tag_array::access(new_addr_type addr, unsigned time,
   logger->trace("tag_array::access({}, time={})", mem_fetch_ptr(mf), time);
   m_access++;
   m_is_used = true;
-  // shader_cache_access_log(m_core_id, m_type_id, 0);  // log accesses to cache
+  // shader_cache_access_log(m_core_id, m_type_id, 0);  // log accesses to
+  // cache
   enum cache_request_status status = probe(addr, idx, mf, mf->is_write());
 
   switch (status) {
@@ -223,7 +229,8 @@ enum cache_request_status tag_array::access(new_addr_type addr, unsigned time,
           mem_fetch_ptr(mf), time, cache_request_status_str[status], idx,
           allocation_policy_t_str[m_config.m_alloc_policy]);
 
-      // shader_cache_access_log(m_core_id, m_type_id, 1);  // log cache misses
+      // shader_cache_access_log(m_core_id, m_type_id, 1);  // log cache
+      // misses
       if (m_config.m_alloc_policy == ON_MISS) {
         if (m_lines[idx]->is_modified_line()) {
           wb = true;
@@ -247,7 +254,8 @@ enum cache_request_status tag_array::access(new_addr_type addr, unsigned time,
       assert(0 && "no sector cache");
       assert(m_config.m_cache_type == SECTOR);
       m_sector_miss++;
-      // shader_cache_access_log(m_core_id, m_type_id, 1);  // log cache misses
+      // shader_cache_access_log(m_core_id, m_type_id, 1);  // log cache
+      // misses
       if (m_config.m_alloc_policy == ON_MISS) {
         bool before = m_lines[idx]->is_modified_line();
         ((sector_cache_block *)m_lines[idx])
@@ -259,7 +267,8 @@ enum cache_request_status tag_array::access(new_addr_type addr, unsigned time,
       break;
     case RESERVATION_FAIL:
       m_res_fail++;
-      // shader_cache_access_log(m_core_id, m_type_id, 1);  // log cache misses
+      // shader_cache_access_log(m_core_id, m_type_id, 1);  // log cache
+      // misses
       break;
     default:
       fprintf(stderr,

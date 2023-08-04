@@ -25,7 +25,7 @@ trace_kernel_info_t *create_kernel_info(kernel_trace_t *kernel_trace_info,
                                         trace_parser *parser);
 
 void cli_configure(gpgpu_context *m_gpgpu_context, trace_config &m_config,
-                   const std::vector<const char *> &argv, bool silent) {
+                   const std::vector<const char *> &argv, bool print_stats) {
   // register cli options
   option_parser_t opp = option_parser_create();
   m_gpgpu_context->ptx_reg_options(opp);
@@ -39,7 +39,7 @@ void cli_configure(gpgpu_context *m_gpgpu_context, trace_config &m_config,
       opp);  // register GPU microrachitecture options
   m_config.reg_options(opp);
 
-  // if (!silent || m_gpgpu_context->accelsim_compat_mode) {
+  // if (print_stats || m_gpgpu_context->accelsim_compat_mode) {
   //   fprintf(stdout, "GPGPU-Sim: Registered options:\n\n");
   //   option_parser_print_registered(opp, stdout);
   // }
@@ -47,7 +47,7 @@ void cli_configure(gpgpu_context *m_gpgpu_context, trace_config &m_config,
   // parse configuration options
   option_parser_cmdline(opp, argv);
 
-  if (!silent || m_gpgpu_context->accelsim_compat_mode) {
+  if (print_stats || m_gpgpu_context->accelsim_compat_mode) {
     fprintf(stdout, "GPGPU-Sim: Configuration options:\n\n");
     option_parser_print(opp, stdout);
   }
@@ -65,7 +65,7 @@ void cli_configure(gpgpu_context *m_gpgpu_context, trace_config &m_config,
 trace_gpgpu_sim *gpgpu_trace_sim_init_perf_model(
     gpgpu_context *m_gpgpu_context, trace_config &m_config,
     const accelsim_config &config, const std::vector<const char *> &argv,
-    std::shared_ptr<spdlog::logger> logger, bool silent) {
+    std::shared_ptr<spdlog::logger> logger, bool print_stats) {
   // seed random
   srand(1);
 
@@ -75,7 +75,7 @@ trace_gpgpu_sim *gpgpu_trace_sim_init_perf_model(
   assert(setlocale(LC_NUMERIC, "C"));
 
   // configure using cli
-  cli_configure(m_gpgpu_context, m_config, argv, silent);
+  cli_configure(m_gpgpu_context, m_config, argv, print_stats);
 
   // TODO: configure using config
   // m_gpgpu_context->the_gpgpusim->g_the_gpu_config->configure(config);
@@ -156,7 +156,7 @@ accelsim_bridge::accelsim_bridge(accelsim_config config,
                                  rust::Slice<const rust::Str> argv) {
   std::cout << "Accel-Sim [build <box>]" << std::endl;
 
-  silent = is_env_set_to("SILENT", "yes");
+  print_stats = is_env_set_to("PRINT_STATS", "yes");
   accelsim_compat_mode = is_env_set_to("ACCELSIM_COMPAT_MODE", "yes");
 
   std::vector<std::string> valid_argv;
@@ -203,8 +203,8 @@ accelsim_bridge::accelsim_bridge(accelsim_config config,
   m_gpgpu_context->accelsim_compat_mode = accelsim_compat_mode;
 
   // init trace based performance model
-  m_gpgpu_sim = gpgpu_trace_sim_init_perf_model(m_gpgpu_context, tconfig,
-                                                config, c_argv, logger, silent);
+  m_gpgpu_sim = gpgpu_trace_sim_init_perf_model(
+      m_gpgpu_context, tconfig, config, c_argv, logger, print_stats);
 
   m_gpgpu_sim->init();
 
@@ -254,6 +254,7 @@ accelsim_bridge::accelsim_bridge(accelsim_config config,
        cluster_id < m_gpgpu_sim->m_shader_config->n_simt_clusters;
        cluster_id++) {
     trace_simt_core_cluster *cluster = m_gpgpu_sim->m_cluster[cluster_id];
+    clusters.push_back(cluster_bridge(cluster));
     for (unsigned core_id = 0;
          core_id < m_gpgpu_sim->m_shader_config->n_simt_cores_per_cluster;
          core_id++) {
@@ -366,10 +367,10 @@ void accelsim_bridge::cleanup_finished_kernel(unsigned finished_kernel_uid) {
     }
     // make sure kernel was found and removed
     assert(k);
-    if (!silent || accelsim_compat_mode) m_gpgpu_sim->print_stats();
+    if (print_stats || accelsim_compat_mode) m_gpgpu_sim->print_stats();
   }
 
-  if ((!silent || accelsim_compat_mode) && m_gpgpu_sim->gpu_sim_cycle > 0) {
+  if ((print_stats || accelsim_compat_mode) && m_gpgpu_sim->gpu_sim_cycle > 0) {
     // update_stats() resets some statistics between kernel launches
     m_gpgpu_sim->update_stats();
     m_gpgpu_context->print_simulation_time();

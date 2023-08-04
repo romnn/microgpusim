@@ -17,11 +17,13 @@ class baseline_cache : public cache_t {
  public:
   baseline_cache(const char *name, cache_config &config, int core_id,
                  int type_id, mem_fetch_interface *memport,
-                 enum mem_fetch_status status,
+                 enum mem_fetch_status status, bool accelsim_compat_mode,
                  std::shared_ptr<spdlog::logger> logger)
-      : logger(logger),
+      : accelsim_compat_mode(accelsim_compat_mode),
+        logger(logger),
         m_config(config),
-        m_tag_array(new tag_array(config, core_id, type_id, logger)),
+        m_tag_array(new tag_array(config, core_id, type_id,
+                                  accelsim_compat_mode, logger)),
         m_mshrs(config.m_mshr_entries, config.m_mshr_max_merge, logger),
         m_bandwidth_management(logger, config) {
     init(name, config, memport, status);
@@ -63,7 +65,7 @@ class baseline_cache : public cache_t {
   bool access_ready() const { return m_mshrs.access_ready(); }
   /// Pop next ready access (does not include accesses that "HIT")
   mem_fetch *next_access() { return m_mshrs.next_access(); }
-  const std::list<mem_fetch *> ready_accesses() const {
+  const std::list<mem_fetch *> &ready_accesses() const {
     return m_mshrs.next_accesses();
   }
   // flash invalidate all entries in cache
@@ -115,22 +117,23 @@ class baseline_cache : public cache_t {
     return ((m_miss_queue.size() + num_miss) >= m_config.m_miss_queue_size);
   }
 
+  bool accelsim_compat_mode;
   std::shared_ptr<spdlog::logger> logger;
 
  protected:
   // Constructor that can be used by derived classes with custom tag arrays
-  baseline_cache(const char *name, cache_config &config, int core_id,
-                 int type_id, mem_fetch_interface *memport,
-                 enum mem_fetch_status status,
-                 std::shared_ptr<spdlog::logger> logger,
-                 tag_array *new_tag_array)
-      : logger(logger),
-        m_config(config),
-        m_tag_array(new_tag_array),
-        m_mshrs(config.m_mshr_entries, config.m_mshr_max_merge, logger),
-        m_bandwidth_management(logger, config) {
-    init(name, config, memport, status);
-  }
+  // baseline_cache(const char *name, cache_config &config, int core_id,
+  //                int type_id, mem_fetch_interface *memport,
+  //                enum mem_fetch_status status,
+  //                std::shared_ptr<spdlog::logger> logger,
+  //                tag_array *new_tag_array)
+  //     : logger(logger),
+  //       m_config(config),
+  //       m_tag_array(new_tag_array),
+  //       m_mshrs(config.m_mshr_entries, config.m_mshr_max_merge, logger),
+  //       m_bandwidth_management(logger, config) {
+  //   init(name, config, memport, status);
+  // }
 
  protected:
   std::string m_name;

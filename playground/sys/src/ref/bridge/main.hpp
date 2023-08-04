@@ -13,6 +13,7 @@
 
 #include "memory_partition_unit.hpp"
 #include "core.hpp"
+#include "cluster.hpp"
 
 class accelsim_bridge {
  public:
@@ -51,6 +52,7 @@ class accelsim_bridge {
   }
 
   const std::vector<core_bridge> &get_cores() const { return cores; }
+  const std::vector<cluster_bridge> &get_clusters() const { return clusters; }
 
   unsigned get_last_cluster_issue() const {
     return m_gpgpu_sim->m_last_cluster_issue;
@@ -70,7 +72,7 @@ class accelsim_bridge {
 
   unsigned command_idx;
   unsigned window_size;
-  bool silent;
+  bool print_stats;
   bool accelsim_compat_mode;
   unsigned log_after_cycle;
 
@@ -78,6 +80,7 @@ class accelsim_bridge {
   std::vector<memory_sub_partition_bridge> sub_partitions;
   std::vector<memory_partition_unit_bridge> partition_units;
   std::vector<core_bridge> cores;
+  std::vector<cluster_bridge> clusters;
 };
 
 std::unique_ptr<accelsim_bridge> new_accelsim_bridge(

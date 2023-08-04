@@ -19,11 +19,12 @@ class tex_cache : public cache_t {
  public:
   tex_cache(const char *name, cache_config &config, int core_id, int type_id,
             mem_fetch_interface *memport, enum mem_fetch_status request_status,
-            enum mem_fetch_status rob_status,
+            enum mem_fetch_status rob_status, bool accelsim_compat_mode,
             std::shared_ptr<spdlog::logger> logger)
-      : logger(logger),
+      : accelsim_compat_mode(accelsim_compat_mode),
+        logger(logger),
         m_config(config),
-        m_tags(config, core_id, type_id, logger),
+        m_tags(config, core_id, type_id, accelsim_compat_mode, logger),
         m_fragment_fifo(config.m_fragment_fifo_entries),
         m_request_fifo(config.m_request_fifo_entries),
         m_rob(config.m_rob_entries),
@@ -78,6 +79,7 @@ class tex_cache : public cache_t {
     m_stats.get_sub_stats(css);
   }
 
+  bool accelsim_compat_mode;
   std::shared_ptr<spdlog::logger> logger;
 
  private:
