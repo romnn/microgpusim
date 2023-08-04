@@ -354,8 +354,8 @@ impl KernelInfo {
         // }
 
         log::debug!(
-            "added {instructions} instructions ({} per thread) for block {next_block}",
-            instructions / 32
+            "added {instructions} instructions ({} per warp) for block {next_block}",
+            instructions / warps.len()
         );
         debug_assert!(instructions > 0);
         // debug_assert!(instructions % 32 == 0);
@@ -1056,8 +1056,13 @@ where
 
         let mut active_sms = 0;
         for cluster in &mut self.clusters {
-            if cluster.not_completed() > 0 {
-                // || get_more_cta_left())
+            let cores_completed = cluster.not_completed() == 0;
+            let kernels_completed = self
+                .running_kernels
+                .iter()
+                .filter_map(|k| k.as_ref())
+                .all(|k| k.no_more_blocks_to_run());
+            if !cores_completed || !kernels_completed {
                 cluster.cycle();
                 active_sms += cluster.num_active_sms();
             }
@@ -1675,7 +1680,7 @@ pub fn accelmain(
     let mut config = config::GPUConfig::default();
 
     config.num_simt_clusters = 20; // 20
-    config.num_cores_per_simt_cluster = 1; // 1
+    config.num_cores_per_simt_cluster = 4; // 1
     config.num_schedulers_per_core = 2; // 1
 
     let config = Arc::new(config);
@@ -1737,22 +1742,18 @@ mod tests {
     fn gather_simulation_state(
         box_sim: &mut super::MockSimulator<ic::ToyInterconnect<super::Packet>>,
         play_sim: &mut playground::Accelsim,
+        box_sim_state: &mut testing::state::Simulation,
+        play_sim_state: &mut testing::state::Simulation,
         trace_provider: TraceProvider,
-    ) -> (testing::state::Simulation, testing::state::Simulation) {
-        // eyre::Result<()> {
-        // todo: extract also l1i ready (least important)
-        // todo: extract wb pipeline
-
-        // iterate over sub partitions
-        let total_cores = box_sim.config.total_cores();
-        let num_partitions = box_sim.mem_partition_units.len();
-        let num_sub_partitions = box_sim.mem_sub_partitions.len();
-        let mut box_sim_state =
-            testing::state::Simulation::new(total_cores, num_partitions, num_sub_partitions);
-
+    ) {
+        // ) -> (testing::state::Simulation, testing::state::Simulation) {
         box_sim_state.last_cluster_issue = box_sim.last_cluster_issue;
 
         for (cluster_id, cluster) in box_sim.clusters.iter().enumerate() {
+            // cluster: core sim order
+            box_sim_state.core_sim_order_per_cluster[cluster_id] =
+                cluster.core_sim_order.clone().into();
+            // into_iter().collect();
             for (core_id, core) in cluster.cores.lock().unwrap().iter().enumerate() {
                 let global_core_id =
                     cluster_id * box_sim.config.num_cores_per_simt_cluster + core_id;
@@ -1762,6 +1763,10 @@ mod tests {
                 let core_id = core.inner.core_id;
 
                 // core: functional units
+                let num_fus = core.functional_units.len();
+                box_sim_state.functional_unit_pipelines_per_core[core_id]
+                    .resize(2 * num_fus, testing::state::RegisterSet::default());
+
                 for (fu_id, fu) in core.functional_units.iter().enumerate() {
                     let fu = fu.lock().unwrap();
                     let issue_port = core.issue_ports[fu_id];
@@ -1771,12 +1776,15 @@ mod tests {
                         .clone();
                     assert_eq!(issue_port, issue_reg.stage);
 
-                    box_sim_state.functional_unit_pipelines_per_core[core_id]
-                        .push(issue_reg.into());
+                    box_sim_state.functional_unit_pipelines_per_core[core_id][fu_id] =
+                        issue_reg.into();
                 }
+
+                // box_sim_state.functional_unit_pipelines_per_core[core_id]
+                //     .resize(num_fus, testing::state::RegisterSet::default());
                 for (fu_id, fu) in core.functional_units.iter().enumerate() {
                     let fu = fu.lock().unwrap();
-                    box_sim_state.functional_unit_pipelines_per_core[core_id].push(
+                    box_sim_state.functional_unit_pipelines_per_core[core_id][num_fus + fu_id] =
                         testing::state::RegisterSet {
                             name: fu.id().to_string(),
                             pipeline: fu
@@ -1784,15 +1792,16 @@ mod tests {
                                 .iter()
                                 .map(|reg| reg.clone().map(Into::into))
                                 .collect(),
-                        },
-                    );
+                        };
+                    // .push();
                 }
                 // core: operand collector
                 box_sim_state.operand_collector_per_core[core_id]
                     .insert(core.inner.operand_collector.borrow().deref().into());
                 // core: schedulers
-                box_sim_state.scheduler_per_core[core_id]
-                    .extend(core.schedulers.iter().map(Into::into));
+                box_sim_state.scheduler_per_core[core_id] =
+                    core.schedulers.iter().map(Into::into).collect();
+                // .extend(core.schedulers.iter().map(Into::into));
                 // core: l2 cache
                 let ldst_unit = core.inner.load_store_unit.lock().unwrap();
 
@@ -1862,26 +1871,48 @@ mod tests {
             }
         }
 
-        let mut play_sim_state =
-            testing::state::Simulation::new(total_cores, num_partitions, num_sub_partitions);
-
         play_sim_state.last_cluster_issue = play_sim.last_cluster_issue() as usize;
 
+        for (cluster_id, cluster) in play_sim.clusters().enumerate() {
+            // cluster: core sim order
+            play_sim_state.core_sim_order_per_cluster[cluster_id] = cluster.core_sim_order();
+        }
         for (core_id, core) in play_sim.cores().enumerate() {
-            for regs in core.functional_unit_issue_register_sets().into_iter() {
-                play_sim_state.functional_unit_pipelines_per_core[core_id].push(regs.into());
+            let fu_issue_regs = core.functional_unit_issue_register_sets();
+            let num_fu_issue_regs = fu_issue_regs.len();
+            // let fu_names: HashSet<_> = fu_issue_regs.iter().map(|fu| fu.get_name()).collect();
+
+            play_sim_state.functional_unit_pipelines_per_core[core_id]
+                .resize(num_fu_issue_regs, testing::state::RegisterSet::default());
+
+            for (reg_id, regs) in fu_issue_regs.into_iter().enumerate() {
+                play_sim_state.functional_unit_pipelines_per_core[core_id][reg_id] = regs.into();
             }
             let valid_units: HashSet<_> = box_sim_state.functional_unit_pipelines_per_core[core_id]
                 .iter()
-                .map(|fu| fu.name.clone())
+                .map(|fu| fu.name.as_str()) // .clone())
                 .collect();
 
-            for regs in core
+            let fu_simd_pipelines: Vec<testing::state::RegisterSet> = core
                 .functional_unit_simd_pipeline_register_sets()
                 .into_iter()
-                .filter(|fu| valid_units.contains(&fu.name()))
+                .map(testing::state::RegisterSet::from)
+                .filter(|fu| valid_units.contains(fu.name.as_str()))
+                .collect();
+            let num_fu_simd_pipelines = fu_simd_pipelines.len();
+
+            play_sim_state.functional_unit_pipelines_per_core[core_id].resize(
+                num_fu_issue_regs + num_fu_simd_pipelines,
+                testing::state::RegisterSet::default(),
+            );
+            // assert_eq!(num_fu_issue_regs, num_fu_simd_pipelines);
+            for (reg_id, regs) in fu_simd_pipelines
+                .into_iter()
+                // .filter(|fu| valid_units.contains(&fu.name()))
+                .enumerate()
             {
-                play_sim_state.functional_unit_pipelines_per_core[core_id].push(regs.into());
+                play_sim_state.functional_unit_pipelines_per_core[core_id]
+                    [num_fu_issue_regs + reg_id] = regs.into();
             }
 
             // core: pending register writes
@@ -1897,13 +1928,14 @@ mod tests {
             play_sim_state.operand_collector_per_core[core_id].insert(coll.into());
             // core: scheduler units
             let schedulers = core.schedulers();
+            play_sim_state.scheduler_per_core[core_id]
+                .resize(schedulers.len(), testing::state::Scheduler::default());
             assert_eq!(
                 schedulers.len(),
                 box_sim_state.scheduler_per_core[core_id].len()
             );
-
             for (sched_idx, play_scheduler) in schedulers.into_iter().enumerate() {
-                play_sim_state.scheduler_per_core[core_id].push(play_scheduler.into());
+                play_sim_state.scheduler_per_core[core_id][sched_idx] = play_scheduler.into();
 
                 let box_sched = &mut box_sim_state.scheduler_per_core[core_id][sched_idx];
                 let play_sched = &mut play_sim_state.scheduler_per_core[core_id][sched_idx];
@@ -1947,7 +1979,7 @@ mod tests {
                 lines: sub.l2_cache().lines().into_iter().map(Into::into).collect(),
             });
         }
-        (box_sim_state, play_sim_state)
+        // (box_sim_state, play_sim_state)
     }
 
     fn run_lockstep(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> {
@@ -2049,6 +2081,7 @@ mod tests {
                     &native_box_commands_path,
                     &mut commands_writer,
                 )?;
+                drop(commands_writer);
 
                 let reader = utils::fs::open_readable(&native_box_commands_path)?;
                 let commands: Vec<Command> = serde_json::from_reader(reader)?;
@@ -2159,6 +2192,29 @@ mod tests {
             .to_lowercase()
             == "yes";
 
+        let num_clusters = box_sim.config.num_simt_clusters;
+        let cores_per_cluster = box_sim.config.num_cores_per_simt_cluster;
+        assert_eq!(
+            box_sim.config.total_cores(),
+            num_clusters * cores_per_cluster
+        );
+        let num_partitions = box_sim.mem_partition_units.len();
+        let num_sub_partitions = box_sim.mem_sub_partitions.len();
+
+        let mut box_sim_state = testing::state::Simulation::new(
+            num_clusters,
+            cores_per_cluster,
+            num_partitions,
+            num_sub_partitions,
+        );
+
+        let mut play_sim_state = testing::state::Simulation::new(
+            num_clusters,
+            cores_per_cluster,
+            num_partitions,
+            num_sub_partitions,
+        );
+
         box_sim.process_commands();
         box_sim.launch_kernels();
 
@@ -2169,8 +2225,13 @@ mod tests {
             play_time_other += start.elapsed();
 
             // check that memcopy commands were handles correctly
-            let (box_sim_state, play_sim_state) =
-                gather_simulation_state(&mut box_sim, &mut play_sim, trace_provider);
+            gather_simulation_state(
+                &mut box_sim,
+                &mut play_sim,
+                &mut box_sim_state,
+                &mut play_sim_state,
+                trace_provider,
+            );
             if use_full_diff {
                 full_diff::assert_eq!(&box_sim_state, &play_sim_state);
             } else {
@@ -2198,8 +2259,14 @@ mod tests {
                 box_sim.set_cycle(cycle);
                 box_time_cycle += start.elapsed();
 
-                let (box_sim_state, play_sim_state) =
-                    gather_simulation_state(&mut box_sim, &mut play_sim, trace_provider);
+                // let (box_sim_state, play_sim_state) = gather_simulation_state(
+                gather_simulation_state(
+                    &mut box_sim,
+                    &mut play_sim,
+                    &mut box_sim_state,
+                    &mut play_sim_state,
+                    trace_provider,
+                );
 
                 if box_sim_state != play_sim_state {
                     println!(
@@ -2207,6 +2274,14 @@ mod tests {
                         cycle - 1,
                         &last_valid_play_sim_state
                     );
+
+                    {
+                        utils::fs::open_writable(manifest_dir.join("debug.playground.state"))?
+                            .write_all(format!("{:#?}", last_valid_play_sim_state).as_bytes())?;
+                        utils::fs::open_writable(manifest_dir.join("debug.box.state"))?
+                            .write_all(format!("{:#?}", last_valid_box_sim_state).as_bytes())?;
+                    };
+
                     // dbg!(&box_sim.allocations);
                     // for (sub_id, sub) in play_sim.sub_partitions().enumerate() {
                     //     let play_icnt_l2_queue = sub
@@ -2235,8 +2310,11 @@ mod tests {
                     diff::assert_eq!(box: &box_sim_state, play: &play_sim_state);
                 }
 
-                last_valid_box_sim_state.insert(box_sim_state);
-                last_valid_play_sim_state.insert(play_sim_state);
+                // this should be okay performance wise (copy, no allocation)
+                if false {
+                    last_valid_box_sim_state.insert(box_sim_state.clone());
+                    last_valid_play_sim_state.insert(play_sim_state.clone());
+                }
 
                 // box out of loop
                 if !box_sim.active() {
@@ -2338,6 +2416,7 @@ mod tests {
 
         // this uses our custom PartialEq::eq implementation
         assert_eq!(&play_stats, &box_stats);
+        // assert!(false);
         Ok(())
     }
 
@@ -2347,21 +2426,21 @@ mod tests {
                 paste::paste! {
                     #[ignore = "native traces cannot be compared"]
                     #[test]
-                    fn [<$name _native>]() -> color_eyre::eyre::Result<()> {
+                    fn [<lockstep_native_ $name _test>]() -> color_eyre::eyre::Result<()> {
                         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
                         let trace_dir = manifest_dir.join($path);
                         run_lockstep(&trace_dir, TraceProvider::Native)
                     }
 
                     #[test]
-                    fn [<$name _accelsim>]() -> color_eyre::eyre::Result<()> {
+                    fn [<lockstep_accelsim_ $name _test>]() -> color_eyre::eyre::Result<()> {
                         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
                         let trace_dir = manifest_dir.join($path);
                         run_lockstep(&trace_dir, TraceProvider::Accelsim)
                     }
 
                     #[test]
-                    fn [<$name _box>]() -> color_eyre::eyre::Result<()> {
+                    fn [<lockstep_box_ $name _test>]() -> color_eyre::eyre::Result<()> {
                         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
                         let trace_dir = manifest_dir.join($path);
                         run_lockstep(&trace_dir, TraceProvider::Box)
@@ -2373,25 +2452,25 @@ mod tests {
 
     lockstep_checks! {
         // vectoradd
-        test_vectoradd_32_100: "results/vectorAdd/vectorAdd-dtype-32-length-100",
-        test_vectoradd_32_1000: "results/vectorAdd/vectorAdd-dtype-32-length-1000",
-        test_vectoradd_32_10000: "results/vectorAdd/vectorAdd-dtype-32-length-10000",
+        vectoradd_32_100: "results/vectorAdd/vectorAdd-dtype-32-length-100",
+        vectoradd_32_1000: "results/vectorAdd/vectorAdd-dtype-32-length-1000",
+        vectoradd_32_10000: "results/vectorAdd/vectorAdd-dtype-32-length-10000",
         // simple matrixmul
-        test_simple_matrixmul_32_32_32_32:
+        simple_matrixmul_32_32_32_32:
             "results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32",
-        test_simple_matrixmul_32_32_32_64:
+        simple_matrixmul_32_32_32_64:
             "results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64",
-        test_simple_matrixmul_32_64_128_128:
+        simple_matrixmul_32_64_128_128:
             "results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128",
         // matrixmul (shared memory)
-        test_matrixmul_32_32: "results/matrixmul/matrixmul-dtype-32-rows-32",
-        test_matrixmul_32_64: "results/matrixmul/matrixmul-dtype-32-rows-64",
-        test_matrixmul_32_128: "results/matrixmul/matrixmul-dtype-32-rows-128",
-        test_matrixmul_32_256: "results/matrixmul/matrixmul-dtype-32-rows-256",
+        matrixmul_32_32: "results/matrixmul/matrixmul-dtype-32-rows-32",
+        matrixmul_32_64: "results/matrixmul/matrixmul-dtype-32-rows-64",
+        matrixmul_32_128: "results/matrixmul/matrixmul-dtype-32-rows-128",
+        matrixmul_32_256: "results/matrixmul/matrixmul-dtype-32-rows-256",
         // transpose
-        test_transpose_256_naive: "results/transpose/transpose-dim-256-variant-naive-repeat-1",
-        test_transpose_256_coalesced: "results/transpose/transpose-dim-256-variant-coalesced-repeat-1",
-        test_transpose_256_optimized: "results/transpose/transpose-dim-256-variant-optimized-repeat-1",
+        transpose_256_naive: "results/transpose/transpose-dim-256-variant-naive-repeat-1",
+        transpose_256_coalesced: "results/transpose/transpose-dim-256-variant-coalesced-repeat-1",
+        transpose_256_optimized: "results/transpose/transpose-dim-256-variant-optimized-repeat-1",
     }
 
     macro_rules! accelsim_compat_tests {
@@ -2571,6 +2650,8 @@ mod tests {
         kernelslist: &Path,
         sim_config: &accelsim::SimConfig,
     ) -> eyre::Result<()> {
+        use std::io::Write;
+
         dbg!(&traces_dir);
         dbg!(&kernelslist);
         dbg!(&sim_config);
@@ -2661,18 +2742,18 @@ mod tests {
         //     accelsim: cmp_accel_stats.find_stat("gpu_tot_sim_cycle"),
         // );
 
-        // save the logs
+        {
+            // save the logs
+            utils::fs::open_writable(traces_dir.join("debug.playground.stdout"))?
+                .write_all(playground_stdout.as_bytes())?;
+            utils::fs::open_writable(traces_dir.join("debug.playground.stderr"))?
+                .write_all(playground_stderr.as_bytes())?;
 
-        use std::io::Write;
-        utils::fs::open_writable(traces_dir.join("debug.playground.stdout"))?
-            .write_all(playground_stdout.as_bytes())?;
-        utils::fs::open_writable(traces_dir.join("debug.playground.stderr"))?
-            .write_all(playground_stderr.as_bytes())?;
-
-        utils::fs::open_writable(traces_dir.join("debug.accelsim.stdout"))?
-            .write_all(accelsim_stdout.as_bytes())?;
-        utils::fs::open_writable(traces_dir.join("debug.accelsim.stderr"))?
-            .write_all(accelsim_stderr.as_bytes())?;
+            utils::fs::open_writable(traces_dir.join("debug.accelsim.stdout"))?
+                .write_all(accelsim_stdout.as_bytes())?;
+            utils::fs::open_writable(traces_dir.join("debug.accelsim.stderr"))?
+                .write_all(accelsim_stderr.as_bytes())?;
+        }
 
         // diff::assert_eq!(play: playground_stdout, accelsim: accelsim_stdout);
         diff::assert_eq!(play: cmp_play_stats, accelsim: cmp_accel_stats);

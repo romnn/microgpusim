@@ -153,7 +153,7 @@ impl From<ported::instruction::WarpInstruction> for WarpInstruction {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, Default, PartialEq, Eq, Hash)]
 pub struct RegisterSet {
     pub name: String,
     pub pipeline: Vec<Option<WarpInstruction>>,
@@ -502,6 +502,8 @@ pub struct Simulation {
     pub l2_cache_per_sub: Vec<Option<Cache>>,
     // per partition
     pub dram_latency_queue_per_partition: Vec<Vec<MemFetch>>,
+    // per cluster
+    pub core_sim_order_per_cluster: Vec<Vec<usize>>,
     // per core
     pub functional_unit_pipelines_per_core: Vec<Vec<RegisterSet>>,
     pub operand_collector_per_core: Vec<Option<OperandCollector>>,
@@ -510,7 +512,13 @@ pub struct Simulation {
 }
 
 impl Simulation {
-    pub fn new(total_cores: usize, num_mem_partitions: usize, num_sub_partitions: usize) -> Self {
+    pub fn new(
+        num_clusters: usize,
+        cores_per_cluster: usize,
+        num_mem_partitions: usize,
+        num_sub_partitions: usize,
+    ) -> Self {
+        let total_cores = num_clusters * cores_per_cluster;
         Self {
             last_cluster_issue: 0,
             // per sub partition
@@ -521,6 +529,8 @@ impl Simulation {
             l2_cache_per_sub: vec![None; num_sub_partitions],
             // per partition
             dram_latency_queue_per_partition: vec![vec![]; num_mem_partitions],
+            // per cluster
+            core_sim_order_per_cluster: vec![vec![]; num_clusters],
             // per core
             functional_unit_pipelines_per_core: vec![vec![]; total_cores],
             scheduler_per_core: vec![vec![]; total_cores],

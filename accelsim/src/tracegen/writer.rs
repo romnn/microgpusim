@@ -261,7 +261,7 @@ pub fn generate_commands(
         }
     }
     writeln!(out, "")?;
-
+    out.flush()?;
     Ok(())
 }
 

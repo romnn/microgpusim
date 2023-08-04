@@ -677,11 +677,11 @@ impl DispatchUnit {
         debug_assert_eq!(num_collector_units, collector_units.len());
         for i in 0..num_collector_units {
             let i = (self.last_cu + i + rr_increment) % num_collector_units;
-            log::debug!(
-                "dispatch unit {:?}: checking collector unit {}",
-                self.kind,
-                i,
-            );
+            // log::trace!(
+            //     "dispatch unit {:?}: checking collector unit {}",
+            //     self.kind,
+            //     i,
+            // );
 
             if collector_units[i].borrow().ready() {
                 self.last_cu = i;

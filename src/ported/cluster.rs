@@ -18,7 +18,8 @@ pub struct SIMTCoreCluster<I> {
 
     pub interconn: Arc<I>,
 
-    pub core_sim_order: Vec<usize>,
+    // pub core_sim_order: Vec<usize>,
+    pub core_sim_order: VecDeque<usize>,
     pub block_issue_next_core: Mutex<usize>,
     pub response_fifo: VecDeque<mem_fetch::MemFetch>,
 }
@@ -46,13 +47,13 @@ where
             stats: stats.clone(),
             interconn: interconn.clone(),
             cores: Mutex::new(Vec::new()),
-            core_sim_order: Vec::new(),
+            core_sim_order: VecDeque::new(),
             block_issue_next_core,
             response_fifo: VecDeque::new(),
         };
         let cores = (0..num_cores)
             .map(|core_id| {
-                cluster.core_sim_order.push(core_id);
+                cluster.core_sim_order.push_back(core_id);
                 let id = config.global_core_id(cluster_id, core_id);
                 SIMTCore::new(
                     id,
@@ -228,24 +229,42 @@ where
     }
 
     pub fn cycle(&mut self) {
+        log::debug!("cluster {} cycle {}", self.cluster_id, self.cycle.get());
         let mut cores = self.cores.lock().unwrap();
-        for core in cores.iter_mut() {
-            core.cycle()
+
+        // for core in cores.iter_mut() {
+        for core_id in self.core_sim_order.iter() {
+            // core.cycle()
+            cores[*core_id].cycle()
         }
+
+        // if (m_config->simt_core_sim_order == 1) {
+        // self.core_sim_order.rotate_left(1);
+        let first = self.core_sim_order.pop_front().unwrap();
+        self.core_sim_order.push_back(first);
+        // m_core_sim_order.splice(m_core_sim_order.end(), m_core_sim_order,
+        //                         m_core_sim_order.begin());
+        // }
     }
 
     pub fn issue_block_to_core(&self, sim: &MockSimulator<I>) -> usize {
-        log::debug!("cluster {}: issue block to core", self.cluster_id);
+        let mut cores = self.cores.lock().unwrap();
+        let num_cores = cores.len();
+
+        log::debug!(
+            "cluster {}: issue block to core for {} cores",
+            self.cluster_id,
+            num_cores
+        );
         let mut num_blocks_issued = 0;
 
         let mut block_issue_next_core = self.block_issue_next_core.lock().unwrap();
-        let mut cores = self.cores.lock().unwrap();
-        let num_cores = cores.len();
         // dbg!(&sim.select_kernel());
 
-        for (i, core) in cores.iter_mut().enumerate() {
+        for core_id in (0..num_cores) {
             // debug_assert_eq!(i, core.id);
-            let core_id = (i + *block_issue_next_core + 1) % num_cores;
+            let core_id = (core_id + *block_issue_next_core + 1) % num_cores;
+            let core = &mut cores[core_id];
             // let mut kernel = None;
             let kernel: Option<Arc<ported::KernelInfo>> = if self.config.concurrent_kernel_sm {
                 unimplemented!("concurrent kernel sm");
@@ -373,47 +392,5 @@ where
             }
         }
         num_blocks_issued
-
-        // pub fn id(&self) -> (usize, usize) {
-        //         self.id,
-        //         core.id,
-        //
-        // }
-        //       unsigned num_blocks_issued = 0;
-        // for (unsigned i = 0; i < m_config->n_simt_cores_per_cluster; i++) {
-        //   unsigned core =
-        //       (i + m_cta_issue_next_core + 1) % m_config->n_simt_cores_per_cluster;
-        //
-        //   kernel_info_t *kernel;
-        //   // Jin: fetch kernel according to concurrent kernel setting
-        //   if (m_config->gpgpu_concurrent_kernel_sm) {  // concurrent kernel on sm
-        //     // always select latest issued kernel
-        //     kernel_info_t *k = m_gpu->select_kernel();
-        //     kernel = k;
-        //   } else {
-        //     // first select core kernel, if no more cta, get a new kernel
-        //     // only when core completes
-        //     kernel = m_core[core]->get_kernel();
-        //     if (!m_gpu->kernel_more_cta_left(kernel)) {
-        //       // wait till current kernel finishes
-        //       if (m_core[core]->get_not_completed() == 0) {
-        //         kernel_info_t *k = m_gpu->select_kernel();
-        //         if (k) m_core[core]->set_kernel(k);
-        //         kernel = k;
-        //       }
-        //     }
-        //   }
-        //
-        //   if (m_gpu->kernel_more_cta_left(kernel) &&
-        //       //            (m_core[core]->get_n_active_cta() <
-        //       //            m_config->max_cta(*kernel)) ) {
-        //       m_core[core]->can_issue_1block(*kernel)) {
-        //     m_core[core]->issue_block2core(*kernel);
-        //     num_blocks_issued++;
-        //     m_cta_issue_next_core = core;
-        //     break;
-        //   }
-        // }
-        // return num_blocks_issued;
     }
 }

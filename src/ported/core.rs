@@ -1601,7 +1601,7 @@ where
                     log::debug!(
                         "{} {} (partition issue={}, reg id={:?}) ready for issue to fu[{:03}]={}",
                         style(format!(
-                            "cycle {:03} core={:?} execute:",
+                            "cycle {:03} core {:?}: execute:",
                             self.inner.cycle.get(),
                             core_id,
                         ))
@@ -1631,6 +1631,7 @@ where
                             issued = false;
                         }
                     }
+                    log::debug!("execute: issue={}", issued);
                 }
             }
         }
@@ -2021,6 +2022,7 @@ where
     }
 
     pub fn issue_block(&mut self, kernel: Arc<KernelInfo>) -> () {
+        log::debug!("core {:?}: issue block", self.id());
         if self.inner.config.concurrent_kernel_sm {
             unimplemented!("concurrent kernel sm");
             let num = self.occupy_resource_for_block(&*kernel, true);
@@ -2033,10 +2035,16 @@ where
 
         // find a free CTA context
         let max_blocks_per_core = if self.inner.config.concurrent_kernel_sm {
-            self.inner.max_blocks_per_shader
-        } else {
+            unimplemented!("concurrent kernel sm");
             self.inner.config.max_concurrent_blocks_per_core
+        } else {
+            self.inner.max_blocks_per_shader
         };
+        log::debug!(
+            "core {:?}: free block status: {:?}",
+            self.id(),
+            self.inner.block_status
+        );
         let free_block_hw_id = (0..max_blocks_per_core)
             .filter(|i| self.inner.block_status[*i] == 0)
             .next()
