@@ -26,10 +26,10 @@ void scheduler_unit::cycle() {
                              // waiting for pending register writes
   bool issued_inst = false;  // of these we issued one
 
-  std::vector<unsigned> tmp_warp_ids;
-  std::vector<trace_shd_warp_t *>::const_iterator iter;
-
   if (logger->should_log(spdlog::level::trace)) {
+    std::vector<unsigned> tmp_warp_ids;
+    std::vector<trace_shd_warp_t *>::const_iterator iter;
+
     for (iter = m_next_cycle_prioritized_warps.begin();
          iter != m_next_cycle_prioritized_warps.end(); iter++) {
       tmp_warp_ids.push_back((*iter)->get_warp_id());
@@ -51,6 +51,9 @@ void scheduler_unit::cycle() {
   order_warps();
 
   if (logger->should_log(spdlog::level::trace)) {
+    std::vector<unsigned> tmp_warp_ids;
+    std::vector<trace_shd_warp_t *>::const_iterator iter;
+
     tmp_warp_ids.clear();
     for (iter = m_next_cycle_prioritized_warps.begin();
          iter != m_next_cycle_prioritized_warps.end(); iter++) {

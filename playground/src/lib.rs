@@ -19,6 +19,7 @@ pub mod port;
 pub mod register_set;
 pub mod scheduler_unit;
 pub mod trace_parser;
+pub mod vec;
 pub mod warp;
 pub mod warp_inst;
 

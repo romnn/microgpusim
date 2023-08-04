@@ -7,12 +7,8 @@ pub struct Core<'a>(pub(crate) &'a core_bridge);
 
 impl<'a> Core<'a> {
     #[must_use]
-    pub fn pending_register_writes(&self) -> Vec<pending_register_writes> {
-        self.0
-            .get_pending_register_writes()
-            .into_iter()
-            .cloned()
-            .collect()
+    pub fn pending_register_writes(&self) -> super::vec::Owned<pending_register_writes> {
+        super::vec::Owned(self.0.get_pending_register_writes())
     }
 
     #[must_use]
@@ -20,7 +16,7 @@ impl<'a> Core<'a> {
         use playground_sys::register_set::new_register_set_bridge;
         self.0
             .get_functional_unit_issue_register_sets()
-            .iter()
+            .into_iter()
             .map(|ptr| unsafe { super::register_set::RegisterSet::wrap_ptr(ptr.get()) })
             .collect()
     }

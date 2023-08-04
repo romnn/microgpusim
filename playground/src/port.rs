@@ -6,7 +6,7 @@ use std::marker::PhantomData;
 fn get_register_sets<'a>(
     regs: cxx::UniquePtr<::cxx::CxxVector<register_set_ptr>>,
 ) -> Vec<RegisterSet<'a>> {
-    regs.iter()
+    regs.into_iter()
         .map(|ptr| unsafe { RegisterSet::wrap_ptr(ptr.get()) })
         .collect()
 }
@@ -27,7 +27,7 @@ impl<'a> Port<'a> {
     }
 
     pub fn cu_sets(&'a self) -> impl Iterator<Item = &u32> {
-        self.inner.get_cu_sets().iter()
+        self.inner.get_cu_sets().into_iter()
     }
 
     pub fn in_ports(&'a self) -> Vec<RegisterSet<'a>> {

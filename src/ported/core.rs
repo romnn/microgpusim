@@ -1091,13 +1091,9 @@ where
                     }
                     debug_assert_eq!(warp.warp_id, warp_id);
 
-                    let pending_writes = self
-                        .inner
-                        .scoreboard
-                        .read()
-                        .unwrap()
-                        .pending_writes(warp_id)
-                        .clone();
+                    let sb = self.inner.scoreboard.read().unwrap();
+                    let pending_writes = sb.pending_writes(warp_id);
+                    // .clone();
 
                     // if warp.functional_done() && warp.hardware_done() && warp.done_exit() {
                     //     continue;
@@ -1133,13 +1129,16 @@ where
 
                     let kernel = warp.kernel.as_ref().map(Arc::clone);
 
-                    let pending_writes = self
+                    // let sb = self.inner.scoreboard.read().unwrap();
+                    // let pending_writes = sb.pending_writes(warp_id);
+                    let has_pending_writes = !self
                         .inner
                         .scoreboard
                         .read()
                         .unwrap()
                         .pending_writes(warp_id)
-                        .clone();
+                        .is_empty();
+                    // .clone();
 
                     // if !(warp.hardware_done() && warp.functional_done() && warp.done_exit()) {
                     //     log::debug!(
@@ -1157,7 +1156,7 @@ where
                     // }
 
                     let did_maybe_exit =
-                        warp.hardware_done() && pending_writes.is_empty() && !warp.done_exit();
+                        warp.hardware_done() && !has_pending_writes && !warp.done_exit();
 
                     drop(warp);
 

@@ -9,14 +9,6 @@ pub struct WarpInstr<'a> {
 }
 
 impl<'a> WarpInstr<'a> {
-    // pub unsafe fn new(ptr: &warp_inst_t) -> Self {
-    //     use playground_sys::warp_inst::new_warp_inst_bridge;
-    //     Self {
-    //         inner: new_warp_inst_bridge(ptr),
-    //         phantom: PhantomData,
-    //     }
-    // }
-
     pub(crate) unsafe fn wrap_ptr(ptr: *const warp_inst_t) -> Self {
         use playground_sys::warp_inst::new_warp_inst_bridge;
         Self {
@@ -30,12 +22,6 @@ impl<'a> WarpInstr<'a> {
         let opcode = unsafe { std::ffi::CStr::from_ptr(inst.opcode_str()) };
         opcode.to_str().unwrap()
     }
-
-    // pub fn opcode_str(&self) -> &str {
-    //     let inst: &warp_inst_t = &*self;
-    //     let opcode = unsafe { std::ffi::CStr::from_ptr(inst.opcode_str()) };
-    //     opcode.to_str().unwrap()
-    // }
 }
 
 impl<'a> std::ops::Deref for WarpInstr<'a> {

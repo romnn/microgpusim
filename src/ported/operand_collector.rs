@@ -443,16 +443,17 @@ pub struct Arbiter {
     num_collectors: usize,
 
     /// bank # -> register that wins
-    allocated_banks: Vec<Allocation>,
-    queue: Vec<VecDeque<Operand>>,
+    allocated_banks: Box<[Allocation]>,
+    queue: Box<[VecDeque<Operand>]>,
+    result: Vec<Operand>,
 
     /// cu # -> next bank to check for request (rr-arb)
     // allocator_round_robin_head: usize,
     /// first cu to check while arb-ing banks (rr)
     last_cu: usize,
-    // inmatch: Vec<Option<usize>>,
-    // outmatch: Vec<Option<usize>>,
-    // request: Vec<Vec<Option<usize>>>,
+    inmatch: Box<[Option<usize>]>,
+    outmatch: Box<[Option<usize>]>,
+    request: Box<[Box<[Option<usize>]>]>,
 }
 
 impl Arbiter {
@@ -461,14 +462,15 @@ impl Arbiter {
         debug_assert!(num_banks > 0);
         self.num_collectors = num_collectors;
         self.num_banks = num_banks;
-        // self.inmatch = vec![None; self.num_banks];
-        // self.outmatch = vec![None; self.num_collectors];
-        // self.request = (0..self.num_banks)
-        //     .map(|_| vec![None; self.num_collectors])
-        //     .collect();
-        self.queue = (0..self.num_banks).map(|_| VecDeque::new()).collect();
-        // self.allocated_banks = (0..self.num_banks).map(|_| Allocation::new()).collect();
-        self.allocated_banks = (0..self.num_banks).map(|_| Allocation::default()).collect();
+
+        self.result = Vec::new();
+        self.inmatch = vec![None; self.num_banks].into_boxed_slice();
+        self.outmatch = vec![None; self.num_collectors].into_boxed_slice();
+        self.request = vec![vec![None; self.num_collectors].into_boxed_slice(); self.num_banks]
+            .into_boxed_slice();
+
+        self.queue = vec![VecDeque::new(); self.num_banks].into_boxed_slice();
+        self.allocated_banks = vec![Allocation::default(); self.num_banks].into_boxed_slice();
 
         //   m_allocator_rr_head = new unsigned[num_cu];
         //   for (unsigned n = 0; n < num_cu; n++)
@@ -489,10 +491,10 @@ impl Arbiter {
             .collect()
     }
 
-    pub fn allocate_reads(&mut self) -> Vec<Operand> {
+    pub fn allocate_reads(&mut self) -> &Vec<Operand> {
         /// a list of registers that (a) are in different register banks,
         /// (b) do not go to the same operand collector
-        let mut result = Vec::new();
+        // let mut result = Vec::new();
 
         log::trace!("queue: {:?}", &self.queue);
 
@@ -509,12 +511,17 @@ impl Arbiter {
         log::debug!("last cu: {}", self.last_cu);
 
         // clear matching
-        let mut inmatch = vec![None; self.num_banks];
-        let mut outmatch = vec![None; self.num_collectors];
-        let mut request = vec![vec![None; self.num_collectors]; self.num_banks];
+        // let mut inmatch = vec![None; self.num_banks];
+        // let mut outmatch = vec![None; self.num_collectors];
+        // let mut request = vec![vec![None; self.num_collectors]; self.num_banks];
+        let result = &mut self.result;
+        let inmatch = &mut self.inmatch;
+        let outmatch = &mut self.outmatch;
+        let request = &mut self.request;
 
-        // self.inmatch.fill(None);
-        // self.outmatch.fill(None);
+        result.clear();
+        inmatch.fill(None);
+        outmatch.fill(None);
 
         for bank in 0..self.num_banks {
             debug_assert!(bank < _inputs);
@@ -861,7 +868,8 @@ impl OperandCollectorRegisterFileUnit {
     /// Process read requests that do not have conflicts
     pub fn allocate_reads(&mut self) {
         // process read requests that do not have conflicts
-        let allocated: Vec<_> = self.arbiter.allocate_reads();
+        let allocated: Vec<Operand> = self.arbiter.allocate_reads().clone();
+        // TODO: move this into the arbiter??
         log::debug!(
             "arbiter allocated {} reads ({:?})",
             allocated.len(),
