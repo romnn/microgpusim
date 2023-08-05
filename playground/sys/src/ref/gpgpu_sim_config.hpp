@@ -109,10 +109,11 @@ class gpgpu_sim_config : public power_config,
       // m_shader_config.gpgpu_num_tensor_core_units = 0;
 
       // must be called before m_memory_config.init()
-      m_memory_config.m_n_mem = 1;
+      m_memory_config.m_n_mem = 8;  // 8
       m_memory_config.m_n_mem_sub_partition = 1;
       m_memory_config.m_n_sub_partition_per_memory_channel = 2;
       m_memory_config.simple_dram_model = true;
+      m_memory_config.m_perf_sim_memcpy = true;  // true
 
       // gpgpu_l2_rop_latency was 120
       m_memory_config.rop_latency = 0;

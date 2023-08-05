@@ -2,6 +2,8 @@
 
 - today:
 
+  - multiple memories
+
   - less important:
 
     - fix: investigate lockstep performance and see if we can reduce allocations?
@@ -11,12 +13,11 @@
 
   - allow basic configurations for the playground bridge
 
-  - lockstep with multiple cores and clusters
-
   -
   - FIX: add l2 set index back in
   - generate plots and correlation stuff etc
 
+  - DONE: lockstep with multiple cores and clusters
   - DONE: validate accelsim and playground stats still match
   - DONE: add flag for playground to run in accelsim compatibility mode
     - DONE: playground should be able to behave like accelsim

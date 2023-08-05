@@ -513,9 +513,9 @@ pub struct GPUConfig {
     //
     pub pipeline_widths: HashMap<PipelineStage, usize>, // 4,0,0,1,1,4,0,0,1,1,6
     /// Number of SP units
-    pub num_sp_units: usize,  // 4
+    pub num_sp_units: usize, // 4
     /// Number of DP units
-    pub num_dp_units: usize,  // 0
+    pub num_dp_units: usize, // 0
     /// Number of INT units
     pub num_int_units: usize, // 0
 
@@ -525,10 +525,6 @@ pub struct GPUConfig {
     pub num_tensor_core_avail: usize, // 0
     /// Number of tensor_core units
     pub num_tensor_core_units: usize, // 0
-    /// Number of ldst units
-    ///
-    /// WARNING: not hooked up to anything
-    pub num_mem_units: usize, // 1
     /// Scheduler configuration: < lrr | gto | two_level_active > If two_level_active:<num_active_warps>:<inner_prioritization>:<outer_prioritization>For complete list of prioritization values see shader.h enum scheduler_prioritization_typeDefault: gto
     pub scheduler: CoreSchedulerKind, // gto
     /// Support concurrent kernels on a SM (default = disabled)
@@ -1003,7 +999,7 @@ impl GPUConfig {
     }
 
     pub fn total_sub_partitions(&self) -> usize {
-        self.num_mem_units * self.num_sub_partition_per_memory_channel
+        self.num_memory_controllers * self.num_sub_partition_per_memory_channel
     }
 
     pub fn address_mapping(&self) -> &addrdec::LinearToRawAddressTranslation {
@@ -1219,7 +1215,6 @@ impl Default for GPUConfig {
             num_sfu_units: 1,
             num_tensor_core_avail: 0,
             num_tensor_core_units: 0,
-            num_mem_units: 1,
             scheduler: CoreSchedulerKind::GTO,
             concurrent_kernel_sm: false,
             perfect_inst_const_cache: false,

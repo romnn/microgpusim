@@ -4,6 +4,7 @@ use super::scheduler::ThreadActiveMask;
 use crate::config;
 use crate::ported::{address, DecodedAddress};
 use bitvec::{array::BitArray, field::BitField, BitArr};
+use serde::{Deserialize, Serialize};
 use std::rc::Rc;
 use std::sync::{Mutex, OnceLock};
 
@@ -17,7 +18,7 @@ pub const WRITE_MASK_SIZE: u8 = 8;
 pub type MemAccessByteMask = BitArr!(for super::MAX_MEMORY_ACCESS_SIZE as usize);
 pub type MemAccessSectorMask = BitArr!(for super::SECTOR_CHUNCK_SIZE as usize, in u8);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 pub enum Kind {
     READ_REQUEST = 0,
     WRITE_REQUEST,
@@ -60,8 +61,6 @@ pub enum Status {
     DELETED,
     NUM_MEM_REQ_STAT,
 }
-
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, strum::EnumIter, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum AccessKind {

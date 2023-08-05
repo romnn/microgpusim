@@ -646,7 +646,7 @@ pub trait FromConfig {
 impl FromConfig for stats::Stats {
     fn from_config(config: &config::GPUConfig) -> Self {
         let num_total_cores = config.total_cores();
-        let num_mem_units = config.num_mem_units;
+        let num_mem_units = config.num_memory_controllers;
         let num_dram_banks = config.dram_timing_options.num_banks;
 
         Self::new(num_total_cores, num_mem_units, num_dram_banks)
@@ -671,7 +671,7 @@ where
         let traces_dir = traces_dir.as_ref();
         let stats = Arc::new(Mutex::new(Stats::from_config(&*config)));
 
-        let num_mem_units = config.num_mem_units;
+        let num_mem_units = config.num_memory_controllers;
         let num_sub_partitions = config.num_sub_partition_per_memory_channel;
 
         let cycle = Rc::new(AtomicCycle::new(0));
@@ -1140,13 +1140,15 @@ where
             .insert(alloc_range.clone(), name);
 
         if self.config.fill_l2_on_memcopy {
-            let n_partitions = self.config.num_sub_partition_per_memory_channel;
+            let num_sub_partitions = self.config.num_sub_partition_per_memory_channel;
             let mut transfered = 0;
             while transfered < num_bytes {
                 let write_addr = addr + transfered as u64;
 
                 let tlx_addr = self.config.address_mapping().tlx(write_addr);
-                let partition_id = tlx_addr.sub_partition / n_partitions as u64;
+                let partition_id = tlx_addr.sub_partition / num_sub_partitions as u64;
+                let sub_partition_id = tlx_addr.sub_partition % num_sub_partitions as u64;
+
                 let partition = &self.mem_partition_units[partition_id as usize];
 
                 let mut mask: mem_fetch::MemAccessSectorMask = BitArray::ZERO;
@@ -1155,10 +1157,11 @@ where
                 mask.set(((write_addr % 128) as u8 / 32) as usize, true);
 
                 log::trace!(
-                    "memcopy to gpu: copy 32 byte chunk starting at {} to sub partition unit {} of partition unit {} (mask {})",
+                    "memcopy to gpu: copy 32 byte chunk starting at {} to sub partition unit {} of partition unit {} ({}) (mask {})",
                     write_addr,
-                    tlx_addr.sub_partition,
+                    sub_partition_id,
                     partition_id,
+                    tlx_addr.sub_partition,
                     mask.to_bit_string()
                 );
 
@@ -1683,11 +1686,15 @@ pub fn accelmain(
     config.num_cores_per_simt_cluster = 4; // 1
     config.num_schedulers_per_core = 2; // 1
 
+    config.num_memory_controllers = 8; // 8
+    config.num_sub_partition_per_memory_channel = 2; // 2
+    config.fill_l2_on_memcopy = true; // true
+
     let config = Arc::new(config);
 
     let interconn = Arc::new(ic::ToyInterconnect::new(
         config.num_simt_clusters,
-        config.num_mem_units * config.num_sub_partition_per_memory_channel,
+        config.num_memory_controllers * config.num_sub_partition_per_memory_channel,
         // config.num_simt_clusters * config.num_cores_per_simt_cluster,
         // config.num_mem_units,
         Some(9), // found by printf debugging gpgusim
@@ -1955,14 +1962,20 @@ mod tests {
             }
         }
 
+        let mut partitions_added = 0;
         for (partition_id, partition) in play_sim.partition_units().enumerate() {
+            assert!(partition_id < num_partitions);
             play_sim_state.dram_latency_queue_per_partition[partition_id] = partition
                 .dram_latency_queue()
                 .into_iter()
                 .map(Into::into)
                 .collect();
             // .extend(partition.dram_latency_queue().into_iter().map(Into::into));
+            partitions_added += 1;
         }
+        assert_eq!(partitions_added, num_partitions);
+
+        let mut sub_partitions_added = 0;
         for (sub_id, sub) in play_sim.sub_partitions().enumerate() {
             play_sim_state.interconn_to_l2_queue_per_sub[sub_id] = sub
                 .interconn_to_l2_queue()
@@ -1986,7 +1999,9 @@ mod tests {
             play_sim_state.l2_cache_per_sub[sub_id].insert(testing::state::Cache {
                 lines: sub.l2_cache().lines().into_iter().map(Into::into).collect(),
             });
+            sub_partitions_added += 1;
         }
+        assert_eq!(sub_partitions_added, num_sub_partitions);
         (box_sim_state, play_sim_state)
     }
 
@@ -2419,11 +2434,15 @@ mod tests {
         box_config.num_simt_clusters = 20; // 20
         box_config.num_cores_per_simt_cluster = 4; // 1
         box_config.num_schedulers_per_core = 2; // 2
+        box_config.num_memory_controllers = 8; // 8
+        box_config.num_sub_partition_per_memory_channel = 2; // 2
+        box_config.fill_l2_on_memcopy = true; // true
+
         let box_config = Arc::new(box_config);
 
         let box_interconn = Arc::new(ic::ToyInterconnect::new(
             box_config.num_simt_clusters,
-            box_config.num_mem_units * box_config.num_sub_partition_per_memory_channel,
+            box_config.num_memory_controllers * box_config.num_sub_partition_per_memory_channel,
             // config.num_simt_clusters * config.num_cores_per_simt_cluster,
             // config.num_mem_units,
             Some(9), // found by printf debugging gpgusim
@@ -2523,7 +2542,12 @@ mod tests {
             play_sim.launch_kernels();
             play_time_other += start.elapsed();
 
-            // check that memcopy commands were handles correctly
+            // check that memcopy commands were handled correctly
+            start = Instant::now();
+            let (mut box_sim_state, mut play_sim_state) =
+                gather_simulation_state(&mut box_sim, &mut play_sim, trace_provider);
+            gather_state_time += start.elapsed();
+
             // start = Instant::now();
             // gather_box_simulation_state(&mut box_sim, &mut box_sim_state, trace_provider);
             // box_sim_state = gather_box_simulation_state(
@@ -2550,11 +2574,11 @@ mod tests {
             // gather_play_state_time += start.elapsed();
             // gather_state_time += start.elapsed();
 
-            // if use_full_diff {
-            //     full_diff::assert_eq!(&box_sim_state, &play_sim_state);
-            // } else {
-            //     diff::assert_eq!(box: &box_sim_state, play: &play_sim_state);
-            // }
+            if use_full_diff {
+                full_diff::assert_eq!(&box_sim_state, &play_sim_state);
+            } else {
+                diff::assert_eq!(box: &box_sim_state, play: &play_sim_state);
+            }
 
             // start = Instant::now();
             // box_sim.process_commands();
@@ -2643,12 +2667,21 @@ mod tests {
                         );
 
                         {
-                            utils::fs::open_writable(manifest_dir.join("debug.playground.state"))?
-                                .write_all(
-                                    format!("{:#?}", last_valid_play_sim_state).as_bytes(),
-                                )?;
-                            utils::fs::open_writable(manifest_dir.join("debug.box.state"))?
-                                .write_all(format!("{:#?}", last_valid_box_sim_state).as_bytes())?;
+                            serde_json::to_writer_pretty(
+                                utils::fs::open_writable(
+                                    manifest_dir.join("debug.playground.state.json"),
+                                )?,
+                                &last_valid_play_sim_state,
+                            )?;
+
+                            // format!("{:#?}", ).as_bytes(),
+                            serde_json::to_writer_pretty(
+                                utils::fs::open_writable(
+                                    manifest_dir.join("debug.box.state.json"),
+                                )?,
+                                &last_valid_box_sim_state,
+                            )?;
+                            // .write_all(format!("{:#?}", last_valid_box_sim_state).as_bytes())?;
                         };
 
                         // dbg!(&box_sim.allocations);

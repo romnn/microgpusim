@@ -6,12 +6,10 @@
 #include "hal.hpp"
 #include "option_parser.hpp"
 
-// start from gpu-misc
 unsigned int LOGB2(unsigned int v);
 
 #define gs_min2(a, b) (((a) < (b)) ? (a) : (b))
 #define min3(x, y, z) (((x) < (y) && (x) < (z)) ? (x) : (gs_min2((y), (z))))
-// end
 
 extern std::unordered_map<new_addr_type, unsigned> address_random_interleaving;
 
@@ -79,10 +77,6 @@ class linear_to_raw_address_translation {
   linear_to_raw_address_translation(
       linear_to_raw_address_translation_params params)
       : linear_to_raw_address_translation() {
-    // addrdec_option =
-    //     "dramid@8;00000000.00000000.00000000.00000000.0000RRRR.RRRRRRRR."
-    //     "RBBBCCCC.BCCSSSSS";  // todo: pass this via params, must live until
-    // init finishes
     addrdec_option = params.addrdec_option;
     run_test = params.run_test;
     gpgpu_mem_address_mask = params.gpgpu_mem_address_mask;

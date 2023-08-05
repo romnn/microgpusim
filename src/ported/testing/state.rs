@@ -1,5 +1,6 @@
 use crate::ported;
 use playground::types;
+use serde::Serialize;
 
 impl From<types::mf_type> for ported::mem_fetch::Kind {
     fn from(kind: types::mf_type) -> Self {
@@ -35,7 +36,7 @@ impl From<types::mem_access_type> for ported::mem_fetch::AccessKind {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct Cache {
     pub lines: Vec<CacheBlock>,
 }
@@ -59,7 +60,7 @@ impl<T> From<ported::TagArray<T>> for Cache {
     }
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize)]
 pub enum CacheBlockStatus {
     INVALID,
     RESERVED,
@@ -79,7 +80,7 @@ impl From<ported::cache_block::Status> for CacheBlockStatus {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct CacheBlock {
     pub tag: u64,
     pub block_addr: u64,
@@ -130,7 +131,7 @@ impl std::fmt::Debug for CacheBlock {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct WarpInstruction {
     pub opcode: String,
     pub pc: usize,
@@ -153,7 +154,7 @@ impl From<ported::instruction::WarpInstruction> for WarpInstruction {
     }
 }
 
-#[derive(Clone, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Default, PartialEq, Eq, Hash, Serialize)]
 pub struct RegisterSet {
     pub name: String,
     pub pipeline: Vec<Option<WarpInstruction>>,
@@ -222,7 +223,7 @@ impl<'a> From<playground::register_set::RegisterSet<'a>> for RegisterSet {
     }
 }
 
-#[derive(strum::FromRepr, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(strum::FromRepr, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[repr(u32)]
 pub enum OperandCollectorUnitKind {
     SP_CUS,
@@ -234,7 +235,7 @@ pub enum OperandCollectorUnitKind {
     GEN_CUS,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
 pub struct CollectorUnit {
     // pub in_ports: Vec<RegisterSet>,
     // pub out_ports: Vec<RegisterSet>,
@@ -249,7 +250,7 @@ pub struct CollectorUnit {
     pub kind: OperandCollectorUnitKind,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
 pub struct DispatchUnit {
     pub last_cu: usize,
     pub next_cu: usize,
@@ -268,7 +269,7 @@ impl<'a> From<&playground::operand_collector::dispatch_unit_t> for DispatchUnit 
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize)]
 pub struct Port {
     pub in_ports: Vec<RegisterSet>,
     pub out_ports: Vec<RegisterSet>,
@@ -282,7 +283,7 @@ impl Port {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize)]
 pub struct Arbiter {
     // pub queue: Vec<Vec<Operand>>,
     // pub allocations: Vec<Allocation>,
@@ -296,7 +297,7 @@ impl Arbiter {
     // }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize)]
 pub struct OperandCollector {
     pub ports: Vec<Port>,
     pub collector_units: Vec<CollectorUnit>,
@@ -390,7 +391,7 @@ impl<'a> From<playground::operand_collector::OperandCollector<'a>> for OperandCo
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct Scheduler {
     pub prioritized_warp_ids: Vec<(usize, usize)>,
     // pub prioritized_warp_ids: Vec<usize>,
@@ -415,7 +416,7 @@ impl<'a> From<playground::scheduler_unit::SchedulerUnit<'a>> for Scheduler {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct MemFetch {
     pub kind: ported::mem_fetch::Kind,
     pub access_kind: ported::mem_fetch::AccessKind,
@@ -464,7 +465,7 @@ impl From<ported::mem_fetch::MemFetch> for MemFetch {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 pub struct PendingRegisterWrites {
     pub warp_id: usize,
     pub reg_num: u32,
@@ -491,7 +492,7 @@ impl From<&playground::core::pending_register_writes> for PendingRegisterWrites 
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Simulation {
     pub last_cluster_issue: usize,
     // per sub partition

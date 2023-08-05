@@ -360,8 +360,8 @@ void trace_shader_core_ctx::create_front_pipeline() {
       N_PIPELINE_STAGES + m_config->m_specialized_unit.size() * 2;
   m_pipeline_reg.reserve(total_pipeline_stages);
   for (int j = 0; j < N_PIPELINE_STAGES; j++) {
-    logger->debug("pipeline stage {} has width {}",
-                  pipeline_stage_name_t_str[j], m_config->pipe_widths[j]);
+    // logger->trace("pipeline stage {} has width {}",
+    //               pipeline_stage_name_t_str[j], m_config->pipe_widths[j]);
     m_pipeline_reg.push_back(register_set(
         m_config->pipe_widths[j], pipeline_stage_name_t_str[j], j, logger));
   }
@@ -456,8 +456,7 @@ void trace_shader_core_ctx::create_schedulers() {
       : sched_config.find("warp_limiting") != std::string::npos
           ? CONCRETE_SCHEDULER_WARP_LIMITING
           : NUM_CONCRETE_SCHEDULERS;
-  logger->debug("SCHEDULER: using {} implementation",
-                g_concrete_scheduler_str[scheduler]);
+  logger->debug("using {} scheduler", g_concrete_scheduler_str[scheduler]);
   assert(scheduler != NUM_CONCRETE_SCHEDULERS);
 
   for (unsigned i = 0; i < m_config->gpgpu_num_sched_per_core; i++) {

@@ -191,7 +191,6 @@ void linear_to_raw_address_translation::addrdec_tlx(new_addr_type addr,
                                   addrdec_mkhigh[BURST], addrdec_mklow[BURST]);
     rest_of_addr_high_bits =
         (addr >> (ADDR_CHIP_S + (log2channel + log2sub_partition)));
-
   } else {
     // Split the given address at ADDR_CHIP_S into (MSBs,LSBs)
     // - extract chip address using modulus of MSBs
@@ -218,6 +217,8 @@ void linear_to_raw_address_translation::addrdec_tlx(new_addr_type addr,
       // Do nothing
       break;
     case BITWISE_PERMUTATION: {
+      assert(0 &&
+             "bitwise permutation partition indexing function not supported");
       assert(!gap);
       tlx->chip =
           bitwise_hash_function(rest_of_addr_high_bits, tlx->chip, m_n_channel);
@@ -225,6 +226,7 @@ void linear_to_raw_address_translation::addrdec_tlx(new_addr_type addr,
       break;
     }
     case IPOLY: {
+      assert(0 && "ipoly partition indexing not supported");
       // assert(!gap);
       unsigned sub_partition_addr_mask = m_n_sub_partition_in_channel - 1;
       unsigned sub_partition = tlx->chip * m_n_sub_partition_in_channel +
@@ -245,6 +247,7 @@ void linear_to_raw_address_translation::addrdec_tlx(new_addr_type addr,
       break;
     }
     case RANDOM: {
+      assert(0 && "random partition indexing function not supported");
       // This is an unrealistic hashing using software hashtable
       // we generate a random set for each memory address and save the value in
       new_addr_type chip_address = (addr >> (ADDR_CHIP_S - log2sub_partition));
@@ -268,6 +271,7 @@ void linear_to_raw_address_translation::addrdec_tlx(new_addr_type addr,
       break;
     }
     case CUSTOM:
+      assert(0 && "custom partititon indexing function not supported");
       /* No custom set function implemented */
       // Do you custom index here
       break;

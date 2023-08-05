@@ -108,14 +108,18 @@ void trace_gpgpu_sim::perf_memcpy_to_gpu(size_t dst_start_addr, size_t count) {
       const unsigned partition_id =
           raw_addr.sub_partition /
           m_memory_config->m_n_sub_partition_per_memory_channel;
+      const unsigned sub_partition_id =
+          raw_addr.sub_partition %
+          m_memory_config->m_n_sub_partition_per_memory_channel;
 
       mem_access_sector_mask_t mask;
       mask.set(wr_addr % 128 / 32);
 
       logger->trace(
           "memcopy to gpu: copy 32 byte chunk starting at {} to sub partition "
-          "unit {} of partition unit {} (mask {})",
-          wr_addr, raw_addr.sub_partition, partition_id, mask_to_string(mask));
+          "unit {} of partition unit {} ({} )(mask {})",
+          wr_addr, sub_partition_id, partition_id, raw_addr.sub_partition,
+          mask_to_string(mask));
 
       m_memory_partition_unit[partition_id]->handle_memcpy_to_gpu(
           wr_addr, raw_addr.sub_partition, mask);

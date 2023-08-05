@@ -6,9 +6,8 @@
 /notebooks
 /debug_results
 /target
-/debug*.log
-/debug*.state
-/debug.txt
+/debug.*
+/debug*.*
 .ipynb_checkpoints
 Pipfile.lock
 
