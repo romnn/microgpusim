@@ -1,10 +1,10 @@
 use super::mem_fetch::{AccessKind, BitString, MemAccess};
-use super::opcodes::{ArchOp, Op, Opcode, OpcodeMap};
+use super::opcodes::{ArchOp, Op, Opcode};
 use super::{address, mem_fetch, operand_collector as opcoll, scheduler as sched};
 use crate::config;
 use crate::ported::mem_sub_partition::MAX_MEMORY_ACCESS_SIZE;
 
-use bitvec::{access, array::BitArray, field::BitField, BitArr};
+use bitvec::{array::BitArray, field::BitField, BitArr};
 use std::collections::{HashMap, VecDeque};
 use trace_model as trace;
 
@@ -234,7 +234,7 @@ fn get_data_width_from_opcode(opcode: &str) -> Result<u32, std::num::ParseIntErr
 impl WarpInstruction {
     pub fn new_empty(config: &config::GPUConfig) -> Self {
         // let mut threads = [(); config.warp_size].map(|_| PerThreadInfo::default());
-        let mut threads = (0..config.warp_size)
+        let threads = (0..config.warp_size)
             .map(|_| PerThreadInfo::default())
             .collect();
         Self {
@@ -302,7 +302,7 @@ impl WarpInstruction {
         let num_dest_regs = trace.num_dest_regs as usize;
 
         let num_regs = num_src_regs + num_dest_regs;
-        let num_operands = num_regs;
+        let _num_operands = num_regs;
 
         let mut outputs: [Option<u32>; 8] = [None; 8];
         for m in 0..num_dest_regs {
@@ -659,7 +659,7 @@ impl WarpInstruction {
                         let mut max_bank_accesses = 0;
                         for (bank, accesses) in &bank_accesses {
                             let mut bank_accesses = 0;
-                            for (addr, num_accesses) in accesses {
+                            for (_addr, num_accesses) in accesses {
                                 bank_accesses += num_accesses;
                                 if broadcast_detected && broadcast_bank.is_some_and(|b| b == bank) {
                                     for (addr, num_accesses) in accesses {
@@ -859,7 +859,7 @@ impl WarpInstruction {
 
                     tx.chunk_mask.set(chunk as usize, true);
                     tx.active_mask.set(thread_id, true);
-                    let idx = (addr & 127);
+                    let idx = addr & 127;
 
                     for i in 0..data_size_coales {
                         let next_idx = idx as usize + i as usize;
@@ -963,7 +963,7 @@ impl WarpInstruction {
             } else {
                 assert!(lower_half_used && upper_half_used);
             }
-        } else if (segment_size == 64) {
+        } else if segment_size == 64 {
             // need to set halves
             if addr % 128 == 0 {
                 halves |= &tx.chunk_mask[0..2];

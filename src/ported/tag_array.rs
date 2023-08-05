@@ -1,6 +1,6 @@
 use super::{address, cache, cache_block, mem_fetch};
 use crate::config;
-use bitvec::{array::BitArray, BitArr};
+
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -212,7 +212,7 @@ impl<B> TagArray<B> {
         // cache_idx: Option<usize>,
         mask: &mem_fetch::MemAccessSectorMask,
         is_write: bool,
-        is_probe: bool,
+        _is_probe: bool,
         fetch: String,
         // fetch: &mem_fetch::MemFetch,
     ) -> (Option<usize>, cache::RequestStatus) {
@@ -543,7 +543,7 @@ mod tests {
     #[test]
     fn test_tag_array() {
         let config = GPUConfig::default().data_cache_l1.unwrap();
-        let tag_array: TagArray<usize> = TagArray::new(0, 0, Arc::clone(&config.inner));
+        let _tag_array: TagArray<usize> = TagArray::new(0, 0, Arc::clone(&config.inner));
         assert!(false);
     }
 }

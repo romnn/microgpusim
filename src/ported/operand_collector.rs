@@ -1,4 +1,4 @@
-use super::{instruction::WarpInstruction, register_set::RegisterSet, scheduler as sched};
+use super::{instruction::WarpInstruction, register_set::RegisterSet};
 use crate::config;
 use crate::ported::mem_fetch::BitString;
 use bitvec::{array::BitArray, BitArr};
@@ -34,27 +34,17 @@ fn register_bank(
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Operand {
-    // valid: bool,
-    // collector_unit: Option<CollectorUnit>,
-    // TODO: removing warp instr
     warp_id: Option<usize>,
-    // warp_instr: Option<WarpInstruction>,
-    /// operand offset in instruction. e.g., add r1,r2,r3;
-    /// r2 is oprd 0, r3 is 1 (r1 is dst)
     operand: Option<usize>,
 
     register: u32,
     bank: usize,
-    /// scheduler id that has issued this inst
-    // core_id: usize,
     scheduler_id: usize,
     collector_unit_id: usize,
-    // collector_unit: Option<Weak<RefCell<CollectorUnit>>>,
 }
 
 impl Operand {
     pub fn new(
-        // cu: Weak<RefCell<CollectorUnit>>,
         warp_id: Option<usize>,
         cu_id: usize,
         op: usize,
@@ -65,39 +55,16 @@ impl Operand {
         Self {
             bank,
             warp_id,
-            // warp_instr: None,
             operand: Some(op),
             register: reg,
             scheduler_id,
-            // collector_unit: Some(cu),
             collector_unit_id: cu_id,
         }
     }
 
-    // pub fn collector_unit(&self) -> Option<Rc<RefCell<CollectorUnit>>> {
-    //     let collector_unit = self.collector_unit.as_ref()?;
-    //     let collector_unit = Weak::upgrade(collector_unit)?;
-    //     Some(collector_unit)
-    // }
-
     pub fn warp_id(&self) -> Option<usize> {
         self.warp_id
     }
-
-    // pub fn warp_id(&self) -> Option<usize> {
-    //     self.warp_instr.as_ref().map(|warp| warp.warp_id)
-    // }
-
-    // TODO: do we need warp instruction?
-    // pub fn warp_id(&self) -> Option<usize> {
-    //     if let Some(ref warp) = self.warp_instr {
-    //         Some(warp.warp_id)
-    //     } else if let Some(cu) = self.collector_unit() {
-    //         cu.borrow().warp_id
-    //     } else {
-    //         None
-    //     }
-    // }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -114,31 +81,11 @@ pub struct CollectorUnit {
     not_ready: BitArr!(for MAX_REG_OPERANDS * 2),
     num_banks: usize,
     bank_warp_shift: usize,
-    // opndcoll_rfu_t *m_rfu;
     num_banks_per_scheduler: usize,
     sub_core_model: bool,
     /// if sub_core_model enabled, limit regs this cu can r/w
     reg_id: usize,
 }
-
-// impl Default for CollectorUnit {
-//     fn default() -> Self {
-//         Self {
-//             id: 0,
-//             free: true,
-//             warp_instr: None,
-//             // output_register: None,
-//             // src_op = new op_t[MAX_REG_OPERANDS * 2];
-//             not_ready: BitArray::ZERO,
-//             warp_id: None,
-//             num_banks: 0,
-//             bank_warp_shift: 0,
-//             num_banks_per_sched: 0,
-//             reg_id: 0,
-//             sub_core_model: false,
-//         }
-//     }
-// }
 
 impl CollectorUnit {
     fn new(kind: OperandCollectorUnitKind) -> Self {
@@ -165,7 +112,6 @@ impl CollectorUnit {
         id: usize,
         num_banks: usize,
         log2_warp_size: usize,
-        config: Arc<config::GPUConfig>,
         sub_core_model: bool,
         reg_id: usize,
         banks_per_scheduler: usize,
@@ -173,7 +119,6 @@ impl CollectorUnit {
         self.id = id;
         self.num_banks = num_banks;
         debug_assert!(self.warp_instr.is_none());
-        // self.warp_instr = Some(WarpInstruction::new_empty(&*config));
         self.warp_instr = None;
         self.bank_warp_shift = log2_warp_size;
         self.sub_core_model = sub_core_model;
@@ -241,11 +186,8 @@ impl CollectorUnit {
         self.src_operands.fill(None);
     }
 
-    // looks ok
     fn allocate(
         &mut self,
-        // cu is ourselves??
-        // cu: Weak<RefCell<CollectorUnit>>,
         input_reg_set: &Rc<RefCell<RegisterSet>>,
         output_reg_set: &Rc<RefCell<RegisterSet>>,
     ) -> bool {
@@ -262,9 +204,6 @@ impl CollectorUnit {
         let mut input_reg_set = input_reg_set.borrow_mut();
 
         if let Some((_, Some(ready_reg))) = input_reg_set.get_ready() {
-            // if ((ready_reg) and !((*pipeline_reg)->empty())) {
-            // debug_assert!(!ready_reg.empty());
-
             self.warp_id = Some(ready_reg.warp_id); // todo: do we need warp id??
 
             log::debug!(
@@ -282,15 +221,8 @@ impl CollectorUnit {
             for op in 0..MAX_REG_OPERANDS {
                 // this math needs to match that used in function_info::ptx_decode_inst
                 if let Some(reg_num) = ready_reg.src_arch_reg[op] {
-                    // let mut is_new_reg = true;
-                    // is_new_reg &= !prev_regs.contains(&reg_num);
                     let is_new_reg = !prev_regs.contains(&reg_num);
-                    // for &r in &prev_regs {
-                    //     if r == reg_num {
-                    //         new_reg = false;
-                    //     }
-                    // }
-                    if reg_num >= 0 && is_new_reg {
+                    if is_new_reg {
                         // valid register
                         prev_regs.push(reg_num);
                         let scheduler_id = ready_reg.scheduler_id.unwrap();
@@ -305,7 +237,6 @@ impl CollectorUnit {
                         );
 
                         self.src_operands[op] = Some(Operand::new(
-                            // Weak::clone(&cu),
                             self.warp_id,
                             self.id, // cu id
                             op,
@@ -313,7 +244,6 @@ impl CollectorUnit {
                             bank,
                             scheduler_id,
                         ));
-                        // panic!("setting op as not ready");
                         self.not_ready.set(op, true);
                     } else {
                         self.src_operands[op] = None;
@@ -336,16 +266,7 @@ impl CollectorUnit {
         } else {
             false
         }
-        // todo!("collector unit: allocate");
     }
-
-    // pub fn operands(&self) {
-    //     self.src_operand
-    // }
-
-    // pub fn active_mask(&self) -> Option<&sched::ThreadActiveMask> {
-    //     self.warp_instr.map(|i| &i.active_mask)
-    // }
 
     pub fn collect_operand(&mut self, op: usize) {
         log::debug!(
@@ -356,14 +277,6 @@ impl CollectorUnit {
         );
         self.not_ready.set(op, false);
     }
-
-    // pub fn num_operands(&self) -> usize {
-    //     self.warp_instr.map(|i| i.num_operands()).unwrap_or(0)
-    // }
-    //
-    // pub fn num_regs(&self) {
-    //     self.warp_instr.map(|i| i.num_regs()).unwrap_or(0)
-    // }
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -393,20 +306,6 @@ impl Allocation {
         Self { kind, op }
     }
 
-    // pub fn write(op: Option<Operand>) -> Self {
-    //     Self {
-    //         kind: AllocationKind::WRITE_ALLOC,
-    //         op,
-    //     }
-    // }
-    //
-    // pub fn read(op: Option<Operand>) -> Self {
-    //     Self {
-    //         kind: AllocationKind::READ_ALLOC,
-    //         op,
-    //     }
-    // }
-    //
     pub fn is_read(&self) -> bool {
         self.kind == AllocationKind::READ_ALLOC
     }
@@ -472,9 +371,6 @@ impl Arbiter {
         self.queue = vec![VecDeque::new(); self.num_banks].into_boxed_slice();
         self.allocated_banks = vec![Allocation::default(); self.num_banks].into_boxed_slice();
 
-        //   m_allocator_rr_head = new unsigned[num_cu];
-        //   for (unsigned n = 0; n < num_cu; n++)
-        //     m_allocator_rr_head[n] = n % num_banks;
         self.reset_alloction();
     }
 
@@ -492,9 +388,9 @@ impl Arbiter {
     }
 
     pub fn allocate_reads(&mut self) -> &Vec<Operand> {
-        /// a list of registers that (a) are in different register banks,
-        /// (b) do not go to the same operand collector
-        // let mut result = Vec::new();
+        // a list of registers that
+        //  (a) are in different register banks,
+        //  (b) do not go to the same operand collector
 
         log::trace!("queue: {:?}", &self.queue);
 
@@ -511,9 +407,6 @@ impl Arbiter {
         log::debug!("last cu: {}", self.last_cu);
 
         // clear matching
-        // let mut inmatch = vec![None; self.num_banks];
-        // let mut outmatch = vec![None; self.num_collectors];
-        // let mut request = vec![vec![None; self.num_collectors]; self.num_banks];
         let result = &mut self.result;
         let inmatch = &mut self.inmatch;
         let outmatch = &mut self.outmatch;
@@ -530,9 +423,6 @@ impl Arbiter {
                 request[bank][collector] = Some(0);
             }
             if let Some(op) = self.queue[bank].front() {
-                // todo: this is bad: store the cu hardware id in the operand?
-                // let cu = op.collector_unit.as_ref().unwrap().upgrade().unwrap();
-                // let collector_id = cu.borrow().id;
                 let collector_id = op.collector_unit_id;
                 debug_assert!(collector_id < _outputs);
                 request[bank][collector_id] = Some(1);
@@ -612,7 +502,6 @@ impl Arbiter {
     pub fn add_read_requests(&mut self, cu: &CollectorUnit) {
         for src_op in &cu.src_operands {
             if let Some(src_op) = src_op {
-                // if src_op.valid() {
                 let bank = src_op.bank;
                 self.queue[bank].push_back(src_op.clone());
             }
@@ -762,18 +651,6 @@ pub struct OperandCollectorRegisterFileUnit {
     pub collector_units: Vec<Rc<RefCell<CollectorUnit>>>,
     pub collector_unit_sets: CuSets,
     pub dispatch_units: Vec<DispatchUnit>,
-    // dispatch_units: Vec<Rc<RefCell<DispatchUnit>>>,
-    // dispatch_units: VecDeque<DispatchUnit>,
-    // allocation_t *m_allocated_bank;  // bank # -> register that wins
-    // std::list<op_t> *m_queue;
-    //
-    // unsigned *
-    //     m_allocator_rr_head;  // cu # -> next bank to check for request (rr-arb)
-    // unsigned m_last_cu;       // first cu to check while arb-ing banks (rr)
-    //
-    // int *_inmatch;
-    // int *_outmatch;
-    // int **_request;
 }
 
 pub type PortVec = Vec<Rc<RefCell<RegisterSet>>>;
@@ -803,7 +680,6 @@ impl OperandCollectorRegisterFileUnit {
         self.arbiter.init(num_collector_units, num_banks);
         self.num_banks = num_banks;
         self.bank_warp_shift = (self.config.warp_size as f32 + 0.5).log2() as usize;
-        // (unsigned)(int)(std::log(m_warp_size + 0.5) / std::log(2.0));
         debug_assert!(self.bank_warp_shift == 5 || self.config.warp_size != 32);
 
         self.sub_core_model = self.config.sub_core_model;
@@ -828,7 +704,6 @@ impl OperandCollectorRegisterFileUnit {
                 cu_id,
                 self.num_banks,
                 self.bank_warp_shift,
-                self.config.clone(),
                 self.sub_core_model,
                 reg_id,
                 self.num_banks_per_scheduler,
@@ -842,13 +717,6 @@ impl OperandCollectorRegisterFileUnit {
         self.initialized = true;
     }
 
-    // /// NOTE: using an iterator does not work because hash map ordering is non-deterministic
-    // pub fn collector_units(&mut self) -> impl Iterator<Item = &mut CollectorUnit> {
-    //     self.collector_unit_sets
-    //         .values_mut()
-    //         .flat_map(|units| units)
-    // }
-
     pub fn step(&mut self) {
         log::debug!("{}", style("operand collector::step()").green());
         self.dispatch_ready_cu();
@@ -861,7 +729,6 @@ impl OperandCollectorRegisterFileUnit {
     }
 
     fn process_banks(&mut self) {
-        // todo!("operand collector: process banks");
         self.arbiter.reset_alloction();
     }
 
@@ -893,21 +760,12 @@ impl OperandCollectorRegisterFileUnit {
         }
 
         log::debug!("allocating {} reads ({:?})", read_ops.len(), &read_ops);
-        for (bank, read) in &read_ops {
-            // todo: use the cu id here
-            // todo!("use cu id here for collecting operand");
-
-            // debug_assert!(read.collector_unit_id < self.collector_units.len());
+        for (_bank, read) in &read_ops {
+            assert!(read.collector_unit_id < self.collector_units.len());
             let mut cu = self.collector_units[read.collector_unit_id].borrow_mut();
             if let Some(operand) = read.operand {
                 cu.collect_operand(operand);
             }
-
-            // let cu = read.collector_unit();
-            // let mut cu = cu.as_ref().unwrap().borrow_mut();
-            // if let Some(operand) = read.operand {
-            //     cu.collect_operand(operand);
-            // }
 
             // if self.config.clock_gated_reg_file {
             //     let mut active_count = 0;
@@ -926,7 +784,6 @@ impl OperandCollectorRegisterFileUnit {
             // } else {
             //     // self.stats.incregfile_reads(self.config.warp_size);
             // }
-            // todo!("operand coll unit: allocate reads");
         }
     }
 
@@ -964,13 +821,10 @@ impl OperandCollectorRegisterFileUnit {
                         let schd_id = input_port.borrow().scheduler_id(reg_id).unwrap();
                         cu_lower_bound = schd_id * cus_per_sched;
                         cu_upper_bound = cu_lower_bound + cus_per_sched;
-                        debug_assert!(0 <= cu_lower_bound && cu_upper_bound <= cu_set.len());
+                        debug_assert!(cu_upper_bound <= cu_set.len());
                     }
 
                     for k in cu_lower_bound..cu_upper_bound {
-                        // let cu = &cu_set[k];
-                        // let cu_backref = Rc::downgrade(&cu_set[k]);
-                        // let mut cu = cu_set[k].try_borrow_mut().unwrap();
                         let mut collector_unit = cu_set[k].try_borrow_mut().unwrap();
 
                         if collector_unit.free {
@@ -981,7 +835,6 @@ impl OperandCollectorRegisterFileUnit {
                             );
 
                             allocated = collector_unit.allocate(&input_port, &output_port);
-                            // allocated = collector_unit.allocate(cu_backref, &input_port, &output_port);
                             self.arbiter.add_read_requests(&collector_unit);
                             break;
                         }
@@ -993,63 +846,24 @@ impl OperandCollectorRegisterFileUnit {
                 }
             }
         }
-        // todo!("operand collector: allocate cu");
     }
 
     pub fn dispatch_ready_cu(&mut self) {
-        // todo!("operand collector: dispatch ready cu");
-
         for dispatch_unit in &mut self.dispatch_units {
-            // for (unsigned p = 0; p < m_dispatch_units.size(); ++p) {
-            // dispatch_unit_t &du = m_dispatch_units[p];
-
             let set = &self.collector_unit_sets[&dispatch_unit.kind];
             if let Some(collector_unit) = dispatch_unit.find_ready(set) {
-                // if (cu) {
-                // for (unsigned i = 0; i < (cu->get_num_operands() - cu->get_num_regs());
-                //      i++) {
-                //   if (m_shader->get_config()->gpgpu_clock_gated_reg_file) {
-                //     unsigned active_count = 0;
-                //     for (unsigned i = 0; i < m_shader->get_config()->warp_size;
-                //          i = i + m_shader->get_config()->n_regfile_gating_group) {
-                //       for (unsigned j = 0;
-                //            j < m_shader->get_config()->n_regfile_gating_group; j++) {
-                //         if (cu->get_active_mask().test(i + j)) {
-                //           active_count += m_shader->get_config()->n_regfile_gating_group;
-                //           break;
-                //         }
-                //       }
-                //     }
-                //     m_shader->incnon_rf_operands(active_count);
-                //   } else {
-                //     m_shader->incnon_rf_operands(
-                //         m_shader->get_config()->warp_size);  // cu->get_active_count());
-                //   }
-                // }
                 collector_unit.borrow_mut().dispatch();
             }
         }
     }
 
     pub fn writeback(&mut self, instr: &mut WarpInstruction) -> bool {
-        // std::list<unsigned> regs = m_shader->get_regs_written(inst);
         let regs: Vec<u32> = instr.dest_arch_reg.iter().filter_map(|reg| *reg).collect();
         log::trace!(
             "operand collector: writeback {} with destination registers {:?}",
             instr,
             regs
         );
-
-        //   std::list<unsigned> result;
-        // for (unsigned op = 0; op < MAX_REG_OPERANDS; op++) {
-        //   int reg_num = fvt.arch_reg.dst[op];  // this math needs to match that used
-        //                                        // in function_info::ptx_decode_inst
-        //   if (reg_num >= 0)                    // valid register
-        //     result.push_back(reg_num);
-        // }
-        // return result;
-
-        // instr.dest_arch_reg[m] == instr.outputs[m](private)
 
         for op in 0..MAX_REG_OPERANDS {
             // this math needs to match that used in function_info::ptx_decode_inst
@@ -1073,7 +887,6 @@ impl OperandCollectorRegisterFileUnit {
                     self.arbiter.allocate_bank_for_write(
                         bank,
                         &Operand {
-                            // warp_instr: Some(instr.clone()),
                             warp_id: Some(instr.warp_id),
                             register: reg_num,
                             scheduler_id,
@@ -1081,8 +894,7 @@ impl OperandCollectorRegisterFileUnit {
                             bank,
                             collector_unit_id: 0, // TODO: that fine?
                                                   // collector_unit: None,
-                        }, // op_t(&inst, reg_num, m_num_banks, m_bank_warp_shift, sub_core_model,
-                           //      m_num_banks_per_sched, inst.get_schd_id()));
+                        },
                     );
                     instr.dest_arch_reg[op] = None;
                 } else {
@@ -1090,44 +902,6 @@ impl OperandCollectorRegisterFileUnit {
                 }
             }
         }
-
-        // for (unsigned op = 0; op < MAX_REG_OPERANDS; op++) {
-        //   int reg_num = inst.arch_reg.dst[op];  // this math needs to match that used
-        //                                         // in function_info::ptx_decode_inst
-        //   if (reg_num >= 0) {                   // valid register
-        //     unsigned bank = register_bank(reg_num, inst.warp_id(), m_num_banks,
-        //                                   m_bank_warp_shift, sub_core_model,
-        //                                   m_num_banks_per_sched, inst.get_schd_id());
-        //     if (m_arbiter.bank_idle(bank)) {
-        //       m_arbiter.allocate_bank_for_write(
-        //           bank,
-        //           op_t(&inst, reg_num, m_num_banks, m_bank_warp_shift, sub_core_model,
-        //                m_num_banks_per_sched, inst.get_schd_id()));
-        //       inst.arch_reg.dst[op] = -1;
-        //     } else {
-        //       return false;
-        //     }
-        //   }
-        // }
-        // for (unsigned i = 0; i < (unsigned)regs.size(); i++) {
-        //   if (m_shader->get_config()->gpgpu_clock_gated_reg_file) {
-        //     unsigned active_count = 0;
-        //     for (unsigned i = 0; i < m_shader->get_config()->warp_size;
-        //          i = i + m_shader->get_config()->n_regfile_gating_group) {
-        //       for (unsigned j = 0; j < m_shader->get_config()->n_regfile_gating_group;
-        //            j++) {
-        //         if (inst.get_active_mask().test(i + j)) {
-        //           active_count += m_shader->get_config()->n_regfile_gating_group;
-        //           break;
-        //         }
-        //       }
-        //     }
-        //     m_shader->incregfile_writes(active_count);
-        //   } else {
-        //     m_shader->incregfile_writes(
-        //         m_shader->get_config()->warp_size);  // inst.active_count());
-        //   }
-        // }
         true
     }
 
@@ -1137,24 +911,18 @@ impl OperandCollectorRegisterFileUnit {
         num_collector_units: usize,
         num_dispatch_units: usize,
     ) {
-        // this is necessary to stop pointers in m_cu from being invalid
-        // to do a resize;
-        // let set = self.collector_unit_sets.get_mut(&set_id).unwrap();
-        // set.reserve_exact(num_cu);
-
         let set = self.collector_unit_sets.entry(kind).or_default();
 
-        for coll_unit_id in 0..num_collector_units {
+        for _ in 0..num_collector_units {
             let unit = Rc::new(RefCell::new(CollectorUnit::new(kind)));
             set.push(Rc::clone(&unit));
             self.collector_units.push(unit);
         }
         // for now each collector set gets dedicated dispatch units.
-        for dispatch_unit_id in 0..num_dispatch_units {
+        for _ in 0..num_dispatch_units {
             let dispatch_unit = DispatchUnit::new(kind);
             self.dispatch_units.push(dispatch_unit);
         }
-        // todo!("operand collector: add cu set");
     }
 
     pub fn add_port(
@@ -1173,17 +941,6 @@ mod test {
     use crate::ported::mem_fetch::BitString;
     use crate::ported::testing;
     use std::ops::Deref;
-
-    // #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-    // pub enum {
-    //     SP_CUS,
-    //     DP_CUS,
-    //     SFU_CUS,
-    //     TENSOR_CORE_CUS,
-    //     INT_CUS,
-    //     MEM_CUS,
-    //     GEN_CUS,
-    // }
 
     impl From<super::OperandCollectorUnitKind> for testing::state::OperandCollectorUnitKind {
         fn from(id: super::OperandCollectorUnitKind) -> Self {

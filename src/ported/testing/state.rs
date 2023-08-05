@@ -337,7 +337,7 @@ impl<'a> From<playground::operand_collector::OperandCollector<'a>> for OperandCo
         ]
         .into_iter()
         .collect();
-        let mut ports = opcoll
+        let ports = opcoll
             .ports()
             .into_iter()
             .map(Port::from)

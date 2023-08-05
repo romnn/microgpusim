@@ -41,8 +41,8 @@ use sp_unit::*;
 use stats::Stats;
 
 use crate::config;
-use bitvec::{array::BitArray, field::BitField, BitArr};
-use color_eyre::eyre::{self, WrapErr};
+use bitvec::{array::BitArray, field::BitField};
+use color_eyre::eyre::{self};
 use console::style;
 use std::cell::RefCell;
 use std::collections::HashSet;
@@ -52,7 +52,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::{atomic, Arc, Mutex, RwLock};
 use std::time::Instant;
-use trace_model::{Command, Dim, KernelLaunch, MemAccessTraceEntry, Point};
+use trace_model::{Command, KernelLaunch, MemAccessTraceEntry, Point};
 
 pub type address = u64;
 
@@ -183,7 +183,7 @@ impl KernelInfo {
             .join(&config.trace_file)
             .with_extension("msgpack");
 
-        let mut trace = read_trace(&trace_path).unwrap();
+        let trace = read_trace(&trace_path).unwrap();
         // dbg!(trace.len());
         // trace.sort_by_key(|t| (t.kernel_id, t.block_id, t.warp_id_in_block));
 
@@ -712,7 +712,7 @@ where
         let executed_kernels = Mutex::new(HashMap::new());
 
         assert!(config.max_threads_per_core.rem_euclid(config.warp_size) == 0);
-        let max_warps_per_shader = config.max_threads_per_core / config.warp_size;
+        let _max_warps_per_shader = config.max_threads_per_core / config.warp_size;
 
         let window_size = if config.concurrent_kernel_sm {
             config.max_concurrent_kernels
@@ -722,10 +722,10 @@ where
         assert!(window_size > 0);
 
         // let command_traces_path = traces_dir.join("commands.json");
-        let mut commands: Vec<Command> = parse_commands(commands_path.as_ref()).unwrap();
+        let commands: Vec<Command> = parse_commands(commands_path.as_ref()).unwrap();
 
         // todo: make this a hashset?
-        let mut busy_streams: VecDeque<u64> = VecDeque::new();
+        let busy_streams: VecDeque<u64> = VecDeque::new();
         let mut kernels: VecDeque<Arc<KernelInfo>> = VecDeque::new();
         kernels.reserve_exact(window_size);
 
@@ -988,7 +988,7 @@ where
 
         // dram
         log::debug!("cycle for {} drams", self.mem_partition_units.len());
-        for (i, unit) in self.mem_partition_units.iter_mut().enumerate() {
+        for (_i, unit) in self.mem_partition_units.iter_mut().enumerate() {
             unit.simple_dram_cycle();
             // if self.config.simple_dram_model {
             //     unit.simple_dram_cycle();
@@ -1093,8 +1093,8 @@ where
                     // && !l2_config.disabled() {
                     log::debug!("flushed L2 caches...");
                     if l2_config.inner.total_lines() > 0 {
-                        let mut dlc = 0;
-                        for (i, mem_sub) in self.mem_sub_partitions.iter_mut().enumerate() {
+                        let _dlc = 0;
+                        for (_i, mem_sub) in self.mem_sub_partitions.iter_mut().enumerate() {
                             let mut mem_sub = mem_sub.try_borrow_mut().unwrap();
                             mem_sub.flush_l2();
                             // debug_assert_eq!(dlc, 0);
@@ -1289,7 +1289,7 @@ where
 
     pub fn run_to_completion(
         &mut self,
-        traces_dir: impl AsRef<Path>,
+        _traces_dir: impl AsRef<Path>,
         deadlock_check: bool,
     ) -> eyre::Result<()> {
         let mut cycle: u64 = 0;
@@ -1352,7 +1352,7 @@ where
                 // collect state
                 if deadlock_check {
                     let state = self.gather_state();
-                    if let Some((last_state, update_cycle)) = &last_state_change {
+                    if let Some((_last_state, _update_cycle)) = &last_state_change {
                         // log::info!(
                         //     "current: {:?}",
                         //     &state
@@ -1421,7 +1421,7 @@ where
 
     fn finished_kernel(&mut self) -> Option<Arc<KernelInfo>> {
         // check running kernels
-        let active = self.active();
+        let _active = self.active();
         let finished_kernel: Option<&mut Option<Arc<KernelInfo>>> = self
             .running_kernels
             .iter_mut()
@@ -1551,7 +1551,7 @@ where
 
                 // core: functional units
                 for (fu_id, fu) in core.functional_units.iter().enumerate() {
-                    let fu = fu.lock().unwrap();
+                    let _fu = fu.lock().unwrap();
                     let issue_port = core.issue_ports[fu_id];
                     let issue_reg: register_set::RegisterSet = core.inner.pipeline_reg
                         [issue_port as usize]
@@ -1714,19 +1714,18 @@ mod tests {
             interconn as ic, testing,
             testing::diff,
         },
-        Simulation,
     };
     use color_eyre::eyre;
     use itertools::Itertools;
     use pretty_assertions_sorted as full_diff;
     use serde::Serialize;
     use stats::ConvertHashMap;
-    use std::collections::{HashMap, HashSet};
+    use std::collections::{HashSet};
     use std::io::Write;
     use std::ops::Deref;
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
-    use std::time::{Duration, Instant};
+    use std::time::{Instant};
     use trace_model::Command;
 
     #[derive(Debug, Clone, Copy)]
@@ -1740,7 +1739,7 @@ mod tests {
     fn gather_simulation_state(
         box_sim: &mut super::MockSimulator<ic::ToyInterconnect<super::Packet>>,
         play_sim: &mut playground::Accelsim,
-        trace_provider: TraceProvider,
+        _trace_provider: TraceProvider,
     ) -> (testing::state::Simulation, testing::state::Simulation) {
         // eyre::Result<()> {
         // todo: extract also l1i ready (least important)
@@ -1779,7 +1778,7 @@ mod tests {
 
                 // core: functional units
                 for (fu_id, fu) in core.functional_units.iter().enumerate() {
-                    let fu = fu.lock().unwrap();
+                    let _fu = fu.lock().unwrap();
                     let issue_port = core.issue_ports[fu_id];
                     let issue_reg: super::register_set::RegisterSet = core.inner.pipeline_reg
                         [issue_port as usize]
@@ -1790,7 +1789,7 @@ mod tests {
                     box_sim_state.functional_unit_pipelines_per_core[core_id]
                         .push(issue_reg.into());
                 }
-                for (fu_id, fu) in core.functional_units.iter().enumerate() {
+                for (_fu_id, fu) in core.functional_units.iter().enumerate() {
                     let fu = fu.lock().unwrap();
                     box_sim_state.functional_unit_pipelines_per_core[core_id].push(
                         testing::state::RegisterSet {
@@ -2004,7 +2003,7 @@ mod tests {
         // num_sub_partitions: usize,
         box_sim: &mut super::MockSimulator<ic::ToyInterconnect<super::Packet>>,
         box_sim_state: &mut testing::state::Simulation,
-        trace_provider: TraceProvider,
+        _trace_provider: TraceProvider,
     ) {
         // ) -> testing::state::Simulation {
         // let mut box_sim_state = testing::state::Simulation::new(
@@ -2035,7 +2034,7 @@ mod tests {
                     .resize(2 * num_fus, testing::state::RegisterSet::default());
 
                 for (fu_id, fu) in core.functional_units.iter().enumerate() {
-                    let fu = fu.lock().unwrap();
+                    let _fu = fu.lock().unwrap();
                     let issue_port = core.issue_ports[fu_id];
                     let issue_reg: super::register_set::RegisterSet = core.inner.pipeline_reg
                         [issue_port as usize]
@@ -2150,7 +2149,7 @@ mod tests {
         // num_schedulers: usize,
         play_sim: &mut playground::Accelsim,
         play_sim_state: &mut testing::state::Simulation,
-        trace_provider: TraceProvider,
+        _trace_provider: TraceProvider,
     ) {
         // ) -> testing::state::Simulation {
         // let mut play_sim_state = testing::state::Simulation::new(
@@ -2296,7 +2295,7 @@ mod tests {
                 );
 
                 let reader = utils::fs::open_readable(&native_accelsim_kernelslist_path)?;
-                let mut accelsim_commands =
+                let accelsim_commands =
                     accelsim::tracegen::reader::read_commands(&accelsim_trace_dir, reader)?;
 
                 use accelsim::tracegen::reader::Command as AccelsimCommand;
@@ -2447,7 +2446,7 @@ mod tests {
         // let box_dur = start.elapsed();
 
         // let start = std::time::Instant::now();
-        let mut args = vec![
+        let args = vec![
             "-trace",
             accelsim_kernelslist_path.as_os_str().to_str().unwrap(),
             "-config",
@@ -2499,15 +2498,15 @@ mod tests {
             .unwrap_or(200);
         assert!(check_every >= 1);
 
-        let num_schedulers = box_sim.config.num_schedulers_per_core;
+        let _num_schedulers = box_sim.config.num_schedulers_per_core;
         let num_clusters = box_sim.config.num_simt_clusters;
         let cores_per_cluster = box_sim.config.num_cores_per_simt_cluster;
         assert_eq!(
             box_sim.config.total_cores(),
             num_clusters * cores_per_cluster
         );
-        let num_partitions = box_sim.mem_partition_units.len();
-        let num_sub_partitions = box_sim.mem_sub_partitions.len();
+        let _num_partitions = box_sim.mem_partition_units.len();
+        let _num_sub_partitions = box_sim.mem_sub_partitions.len();
         //
         // let mut box_sim_state = testing::state::Simulation::new(
         //     num_clusters,
@@ -2534,7 +2533,7 @@ mod tests {
 
             // check that memcopy commands were handled correctly
             start = Instant::now();
-            let (mut box_sim_state, mut play_sim_state) =
+            let (box_sim_state, play_sim_state) =
                 gather_simulation_state(&mut box_sim, &mut play_sim, trace_provider);
             gather_state_time += start.elapsed();
 
@@ -2593,7 +2592,7 @@ mod tests {
 
                 if cycle >= check_after && cycle % check_every == 0 {
                     start = Instant::now();
-                    let (mut box_sim_state, mut play_sim_state) =
+                    let (box_sim_state, play_sim_state) =
                         gather_simulation_state(&mut box_sim, &mut play_sim, trace_provider);
                     gather_state_time += start.elapsed();
 
@@ -2996,7 +2995,7 @@ mod tests {
         use std::time::{Duration, Instant};
 
         pub async fn simulate_trace(
-            traces_dir: impl AsRef<Path>,
+            _traces_dir: impl AsRef<Path>,
             kernelslist: impl AsRef<Path>,
             sim_config: &accelsim::SimConfig,
             timeout: Option<Duration>,

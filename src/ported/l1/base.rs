@@ -556,8 +556,8 @@ where
                 }
             }
         }
-        let data_port_busy = !self.has_free_data_port();
-        let fill_port_busy = !self.has_free_fill_port();
+        let _data_port_busy = !self.has_free_data_port();
+        let _fill_port_busy = !self.has_free_fill_port();
         // m_stats.sample_cache_port_utility(data_port_busy, fill_port_busy);
         self.bandwidth.replenish_port_bandwidth();
     }
@@ -590,7 +590,7 @@ where
             } else {
                 // mem_fetch *temp = mf;
                 // todo: consume the fetch here?
-                let original_fetch = fetch.original_fetch.as_ref().unwrap().as_ref().clone();
+                let _original_fetch = fetch.original_fetch.as_ref().unwrap().as_ref().clone();
                 // *fetch = original_fetch;
                 // delete temp;
             }
@@ -654,7 +654,7 @@ impl<I> cache::CacheBandwidth for Base<I> {
 mod tests {
     use super::Base;
     use crate::config;
-    use crate::ported::{self, interconn as ic, mem_fetch, FromConfig, Packet};
+    use crate::ported::{self, interconn as ic, FromConfig, Packet};
     use std::rc::Rc;
     use std::sync::{Arc, Mutex};
 

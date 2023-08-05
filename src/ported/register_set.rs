@@ -265,7 +265,7 @@ impl RegisterSet {
         self.regs
             .iter_mut()
             .enumerate()
-            .filter(|(i, r)| r.is_none())
+            .filter(|(_i, r)| r.is_none())
     }
 
     pub fn get_free_mut(&mut self) -> Option<(usize, &mut Option<WarpInstruction>)> {

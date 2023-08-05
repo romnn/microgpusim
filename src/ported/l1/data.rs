@@ -1,6 +1,6 @@
 use crate::config;
 use crate::ported::{
-    self, address, cache, cache_block, interconn as ic, mem_fetch, mshr, tag_array,
+    self, address, cache, cache_block, interconn as ic, mem_fetch, tag_array,
 };
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
@@ -10,35 +10,18 @@ use std::sync::{Arc, Mutex};
 /// The cache uses a write-evict (global) or write-back (local) policy
 /// at the granularity of individual blocks.
 /// (the policy used in fermi according to the CUDA manual)
-///
-/// TODO: use base cache here!
 #[derive(Debug)]
 pub struct Data<I> {
     pub inner: super::base::Base<I>,
-    // core_id: usize,
-    // cluster_id: usize,
-
-    // pub stats: Arc<Mutex<stats::Stats>>,
-    // config: Arc<config::GPUConfig>,
-    // cache_config: Arc<config::CacheConfig>,
-
-    // tag_array: tag_array::TagArray<usize>,
-    // mshrs: mshr::MshrTable,
-    // mem_port: Arc<I>,
     /// Specifies type of write allocate request (e.g., L1 or L2)
     write_alloc_type: mem_fetch::AccessKind,
     /// Specifies type of writeback request (e.g., L1 or L2)
     write_back_type: mem_fetch::AccessKind,
-    // miss_queue: VecDeque<mem_fetch::MemFetch>,
-    // miss_queue_status: mem_fetch::Status,
-    // m_mshrs(config.m_mshr_entries, config.m_mshr_max_merge)
 }
 
 impl<I> Data<I>
 where
-    // I: ic::MemPort,
     I: ic::MemFetchInterface,
-    // I: ic::Interconnect<crate::ported::core::Packet>,
 {
     pub fn new(
         name: String,
@@ -62,20 +45,8 @@ where
             config,
             cache_config,
         );
-        // let tag_array = tag_array::TagArray::new(core_id, 0, cache_config.clone());
-        // let mshrs = mshr::MshrTable::new(cache_config.mshr_entries, cache_config.mshr_max_merge);
         Self {
             inner,
-            // core_id,
-            // cluster_id,
-            // mem_port,
-            // config,
-            // stats,
-            // cache_config,
-            // tag_array,
-            // mshrs,
-            // miss_queue: VecDeque::new(),
-            // miss_queue_status: mem_fetch::Status::INITIALIZED,
             write_alloc_type,
             write_back_type,
         }
@@ -92,8 +63,8 @@ where
         cache_index: Option<usize>,
         fetch: mem_fetch::MemFetch,
         time: u64,
-        events: &mut Vec<cache::Event>,
-        probe_status: cache::RequestStatus,
+        _events: &mut Vec<cache::Event>,
+        _probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         debug_assert_eq!(addr, fetch.addr());
 
@@ -107,14 +78,14 @@ where
 
         // update LRU state
         let tag_array::AccessStatus {
-            status,
+            
             index,
-            writeback,
-            evicted,
+            
+            
             ..
         } = self.inner.tag_array.access(block_addr, &fetch, time);
         let cache_index = index.unwrap();
-        let mut block = self.inner.tag_array.get_block_mut(cache_index);
+        let block = self.inner.tag_array.get_block_mut(cache_index);
         let was_modified_before = block.is_modified();
         block.set_status(cache_block::Status::MODIFIED, fetch.access_sector_mask());
         block.set_byte_mask(fetch.access_byte_mask());
@@ -128,7 +99,7 @@ where
 
     fn update_readable(&mut self, fetch: &mem_fetch::MemFetch, cache_index: usize) {
         use crate::ported::mem_sub_partition::{SECTOR_CHUNCK_SIZE, SECTOR_SIZE};
-        let mut block = self.inner.tag_array.get_block_mut(cache_index);
+        let block = self.inner.tag_array.get_block_mut(cache_index);
         for i in 0..SECTOR_CHUNCK_SIZE as usize {
             let sector_mask = fetch.access_sector_mask();
             if sector_mask[i] {
@@ -151,12 +122,12 @@ where
     fn read_hit(
         &mut self,
         addr: address,
-        cache_index: Option<usize>,
+        _cache_index: Option<usize>,
         // cache_index: usize,
         fetch: mem_fetch::MemFetch,
         time: u64,
-        events: &mut Vec<cache::Event>,
-        probe_status: cache::RequestStatus,
+        _events: &mut Vec<cache::Event>,
+        _probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         let super::base::Base {
             ref mut tag_array,
@@ -209,7 +180,7 @@ where
         time: u64,
         events: &mut Vec<cache::Event>,
         // events: &[cache::Event],
-        probe_status: cache::RequestStatus,
+        _probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         if !self.inner.miss_queue_can_fit(1) {
             // cannot handle request this cycle
@@ -308,11 +279,11 @@ where
     fn write_miss_no_write_allocate(
         &mut self,
         addr: address,
-        cache_index: Option<usize>,
+        _cache_index: Option<usize>,
         fetch: mem_fetch::MemFetch,
         time: u64,
         events: &mut Vec<cache::Event>,
-        probe_status: cache::RequestStatus,
+        _probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         debug_assert_eq!(addr, fetch.addr());
         log::debug!(
@@ -351,8 +322,6 @@ where
         events: &mut Vec<cache::Event>,
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
-        // todo!("write_miss_write_allocate_naive");
-
         // what exactly is the difference between the addr and the fetch addr?
         debug_assert_eq!(addr, fetch.addr());
 
@@ -496,122 +465,6 @@ where
         cache::RequestStatus::RESERVATION_FAIL
     }
 
-    fn write_miss_write_allocate_fetch_on_write(
-        &mut self,
-        addr: address,
-        cache_index: Option<usize>,
-        fetch: mem_fetch::MemFetch,
-        time: u64,
-        events: &mut Vec<cache::Event>,
-        probe_status: cache::RequestStatus,
-    ) -> cache::RequestStatus {
-        // let super::base::Base { ref cache_config, ref mut tag_array, .. } = self.inner;
-        todo!("write_miss_write_allocate_fetch_on_write");
-        let super::base::Base {
-            ref cache_config, ..
-        } = self.inner;
-        let block_addr = cache_config.block_addr(addr);
-        let mshr_addr = cache_config.mshr_addr(fetch.addr());
-
-        if fetch.access_byte_mask().count_ones() == cache_config.atom_size() as usize {
-            // if the request writes to the whole cache line/sector,
-            // then write and set cache line modified.
-            //
-            // no need to send read request to memory or reserve mshr
-            if self.inner.miss_queue_full() {
-                let stats = self.inner.stats.lock().unwrap();
-                stats.inc(
-                    *fetch.access_kind(),
-                    cache::AccessStat::ReservationFailure(
-                        cache::ReservationFailure::MISS_QUEUE_FULL,
-                    ),
-                    1,
-                );
-                // cannot handle request this cycle
-                return cache::RequestStatus::RESERVATION_FAIL;
-            }
-
-            // bool wb = false;
-            // evicted_block_info evicted;
-            let tag_array::AccessStatus {
-                status,
-                index,
-                writeback,
-                evicted,
-                ..
-            } = self.inner.tag_array.access(block_addr, &fetch, time);
-            // , cache_index);
-            // , wb, evicted, mf);
-            debug_assert_ne!(status, cache::RequestStatus::HIT);
-            let block = self.inner.tag_array.get_block_mut(index.unwrap());
-            let was_modified_before = block.is_modified();
-            block.set_status(cache_block::Status::MODIFIED, fetch.access_sector_mask());
-            block.set_byte_mask(fetch.access_byte_mask());
-            if status == cache::RequestStatus::HIT_RESERVED {
-                block.set_ignore_on_fill(true, fetch.access_sector_mask());
-            }
-            if !was_modified_before {
-                self.inner.tag_array.num_dirty += 1;
-                // self.tag_array.inc_dirty();
-            }
-
-            if (status != cache::RequestStatus::RESERVATION_FAIL) {
-                // If evicted block is modified and not a write-through
-                // (already modified lower level)
-
-                if writeback && cache_config.write_policy != config::CacheWritePolicy::WRITE_THROUGH
-                {
-                    // let writeback_fetch = mem_fetch::MemFetch::new(
-                    //     fetch.instr,
-                    //     access,
-                    //     &*self.config,
-                    //     if wr {
-                    //         super::WRITE_PACKET_SIZE
-                    //     } else {
-                    //         super::READ_PACKET_SIZE
-                    //     }
-                    //     .into(),
-                    //     0,
-                    //     0,
-                    //     0,
-                    // );
-
-                    //     evicted.m_block_addr, m_wrbk_type, mf->get_access_warp_mask(),
-                    //     evicted.m_byte_mask, evicted.m_sector_mask, evicted.m_modified_size,
-                    //     true, m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle, -1, -1, -1,
-                    // NULL);
-
-                    // the evicted block may have wrong chip id when
-                    // advanced L2 hashing  is used,
-                    // so set the right chip address from the original mf
-                    // writeback_fetch.set_chip(mf->get_tlx_addr().chip);
-                    // writeback_fetch.set_parition(mf->get_tlx_addr().sub_partition);
-                    // self.send_write_request(wb, cache_event(WRITE_BACK_REQUEST_SENT, evicted),
-                    // time, events);
-                }
-                todo!("write_miss_write_allocate_fetch_on_write");
-                return cache::RequestStatus::MISS;
-            }
-            return cache::RequestStatus::RESERVATION_FAIL;
-        } else {
-            todo!("write_miss_write_allocate_fetch_on_write");
-            return cache::RequestStatus::RESERVATION_FAIL;
-        }
-    }
-
-    fn write_miss_write_allocate_lazy_fetch_on_read(
-        &mut self,
-        addr: address,
-        cache_index: Option<usize>,
-        fetch: mem_fetch::MemFetch,
-        time: u64,
-        events: &mut Vec<cache::Event>,
-        probe_status: cache::RequestStatus,
-    ) -> cache::RequestStatus {
-        todo!("write_miss_write_allocate_lazy_fetch_on_read");
-        cache::RequestStatus::MISS
-    }
-
     fn write_miss(
         &mut self,
         addr: address,
@@ -629,10 +482,12 @@ where
                 Self::write_miss_write_allocate_naive
             }
             config::CacheWriteAllocatePolicy::FETCH_ON_WRITE => {
-                Self::write_miss_write_allocate_fetch_on_write
+                // Self::write_miss_write_allocate_fetch_on_write
+                unimplemented!("fetch on write")
             }
             config::CacheWriteAllocatePolicy::LAZY_FETCH_ON_READ => {
-                Self::write_miss_write_allocate_lazy_fetch_on_read
+                // Self::write_miss_write_allocate_lazy_fetch_on_read
+                unimplemented!("fetch on read")
             }
         };
         (func)(self, addr, cache_index, fetch, time, events, probe_status)
@@ -642,7 +497,6 @@ where
         &mut self,
         addr: address,
         cache_index: Option<usize>,
-        // cache_index: usize,
         fetch: mem_fetch::MemFetch,
         time: u64,
         events: &mut Vec<cache::Event>,
@@ -825,7 +679,7 @@ where
                 {
                     probe_status
                 }
-                status => access_status,
+                _status => access_status,
             };
             stats.inc(
                 access_kind,
@@ -883,14 +737,10 @@ where
 impl<I> cache::CacheBandwidth for Data<I> {
     fn has_free_data_port(&self) -> bool {
         self.inner.has_free_data_port()
-        // todo!("l1 data: has_free_data_port");
-        // false
     }
 
     fn has_free_fill_port(&self) -> bool {
         self.inner.has_free_fill_port()
-        // todo!("l1 data: has_free_fill_port");
-        // false
     }
 }
 
@@ -900,27 +750,26 @@ mod tests {
     use crate::config;
     use crate::ported::{
         self, cache::Cache, instruction, interconn as ic, mem_fetch, parse_commands,
-        scheduler as sched,
     };
     use itertools::Itertools;
     use std::collections::VecDeque;
     use std::path::PathBuf;
     use std::rc::Rc;
     use std::sync::{Arc, Mutex};
-    use trace_model::{Command, KernelLaunch, MemAccessTraceEntry};
+    use trace_model::{Command};
 
     #[derive(Debug)]
     struct MockFetchInterconn {}
 
     impl ic::MemFetchInterface for MockFetchInterconn {
-        fn full(&self, size: u32, write: bool) -> bool {
+        fn full(&self, _size: u32, _write: bool) -> bool {
             false
         }
-        fn push(&self, fetch: mem_fetch::MemFetch) {}
+        fn push(&self, _fetch: mem_fetch::MemFetch) {}
     }
 
     fn concat<T>(
-        mut a: impl IntoIterator<Item = T>,
+        a: impl IntoIterator<Item = T>,
         b: impl IntoIterator<Item = T>,
     ) -> impl Iterator<Item = T> {
         a.into_iter().chain(b.into_iter())
@@ -929,10 +778,10 @@ mod tests {
     #[ignore = "todo"]
     #[test]
     fn test_ref_data_l1() {
-        let control_size = 0;
-        let warp_id = 0;
-        let core_id = 0;
-        let cluster_id = 0;
+        let _control_size = 0;
+        let _warp_id = 0;
+        let _core_id = 0;
+        let _cluster_id = 0;
         // let type_id = bindings::cache_access_logger_types::NORMALS as i32;
 
         // let l1 = bindings::l1_cache::new(0, interconn, cache_config);
@@ -966,7 +815,7 @@ mod tests {
     #[ignore = "todo"]
     #[test]
     fn test_data_l1_full_trace() {
-        let control_size = 0;
+        let _control_size = 0;
         // let warp_id = 0;
         let core_id = 0;
         let cluster_id = 0;
@@ -976,7 +825,7 @@ mod tests {
         let cache_config = config.data_cache_l1.clone().unwrap();
         let interconn = Arc::new(MockFetchInterconn {});
         let cycle: ported::Cycle = Rc::new(ported::AtomicCycle::new(0));
-        let mut l1 = Data::new(
+        let _l1 = Data::new(
             "l1-data".to_string(),
             core_id,
             cluster_id,
@@ -994,7 +843,7 @@ mod tests {
         // let command_traces_path =
         //     traces_dircommands.json");
         dbg!(&trace_dir);
-        let mut commands: Vec<Command> =
+        let commands: Vec<Command> =
             parse_commands(&trace_dir.join("commands.json")).expect("parse trace commands");
 
         dbg!(&commands);

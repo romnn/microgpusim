@@ -1,10 +1,10 @@
 // #![allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
 
-use super::ported::*;
+
 use itertools::Itertools;
 use nvbit_model as model;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::sync::{Mutex};
 
 const DEV_GLOBAL_HEAP_START: u64 = 0xC000_0000;
 const WARP_SIZE: usize = 32;
@@ -252,7 +252,7 @@ impl Simulation {
 
             // loop over the block size (must run on same sms)
             // and form warps
-            let mut threads = block_size.into_iter();
+            let threads = block_size.into_iter();
             for (warp_num, warp) in threads.chunks(WARP_SIZE).into_iter().enumerate() {
                 for warp_thread_idx in warp {
                     thread_idx.thread_idx = warp_thread_idx.into();

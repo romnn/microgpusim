@@ -1,11 +1,11 @@
-use super::addrdec::LinearToRawAddressTranslation;
+
 use super::instruction::{MemorySpace, WarpInstruction};
 use super::scheduler::ThreadActiveMask;
 use crate::config;
 use crate::ported::{address, DecodedAddress};
-use bitvec::{array::BitArray, field::BitField, BitArr};
+use bitvec::{array::BitArray, BitArr};
 use serde::{Deserialize, Serialize};
-use std::rc::Rc;
+
 use std::sync::{Mutex, OnceLock};
 
 pub const READ_PACKET_SIZE: u8 = 8;
@@ -30,7 +30,7 @@ pub enum Kind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[allow(incorrect_ident_case)]
+#[allow(clippy::incorrect_ident_case)]
 pub enum Status {
     INITIALIZED,
     IN_L1I_MISS_QUEUE,

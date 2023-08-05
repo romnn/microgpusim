@@ -71,7 +71,7 @@ fn main() -> eyre::Result<()> {
 
     // save stats to file
     if let Some(stats_out_file) = options.stats_out_file.as_ref() {
-        casimu::ported::save_stats_to_file(&stats, &stats_out_file)?;
+        casimu::ported::save_stats_to_file(&stats, stats_out_file)?;
     }
 
     eprintln!("STATS:\n");

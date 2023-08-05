@@ -640,7 +640,7 @@ impl Config {
 
 #[cfg(test)]
 mod tests {
-    use super::Config;
+    
     use color_eyre::eyre;
     use similar_asserts as diff;
     use std::path::PathBuf;
@@ -650,7 +650,7 @@ mod tests {
         use clap::Parser;
         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
         let config_path = manifest_dir.join("accelsim/gtx1080/gpgpusim.config");
-        let config = std::fs::read_to_string(config_path)?;
+        let _config = std::fs::read_to_string(config_path)?;
         let config = r"
 # --gpgpu_shader_core_pipeline 2048:32
 # --gpgpu_simd_model 1

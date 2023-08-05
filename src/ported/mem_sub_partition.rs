@@ -1,11 +1,11 @@
 use super::mem_fetch::BitString;
-use crate::config::{self, CacheConfig, GPUConfig};
+use crate::config::{self, GPUConfig};
 use crate::ported::{
     self, address, cache,
     cache::{Cache, CacheBandwidth},
     dram,
     fifo::{FifoQueue, Queue},
-    interconn as ic, l2, mem_fetch, Packet,
+    interconn as ic, l2, mem_fetch,
 };
 use console::style;
 use std::cell::RefCell;
@@ -179,7 +179,7 @@ where
 
     fn breakdown_request_to_sector_requests(
         &self,
-        fetch: mem_fetch::MemFetch,
+        _fetch: mem_fetch::MemFetch,
     ) -> Vec<mem_fetch::MemFetch> {
         todo!("breakdown request to sector");
 
@@ -332,7 +332,7 @@ where
         }
     }
 
-    pub fn full(&self, size: u32) -> bool {
+    pub fn full(&self, _size: u32) -> bool {
         self.interconn_to_l2_queue.full()
     }
 
@@ -402,11 +402,11 @@ where
     //     self.interconn_to_l2_queue.has_available_size(size)
     // }
 
-    pub fn set_done(&self, fetch: &mem_fetch::MemFetch) {
+    pub fn set_done(&self, _fetch: &mem_fetch::MemFetch) {
         todo!("mem sub partition: set done");
     }
 
-    pub fn dram_l2_queue_push(&mut self, fetch: &mem_fetch::MemFetch) {
+    pub fn dram_l2_queue_push(&mut self, _fetch: &mem_fetch::MemFetch) {
         todo!("mem sub partition: dram l2 queue push");
     }
 
@@ -762,7 +762,7 @@ impl MemoryPartitionUnit
         // if !self.dram_latency_queue.is_empty() &&
         //     ((m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle) >=
         //      m_dram_latency_queue.front().ready_cycle)) {
-        if let Some(mut returned_fetch) = self.dram_latency_queue.front_mut() {
+        if let Some(returned_fetch) = self.dram_latency_queue.front_mut() {
             if !matches!(
                 returned_fetch.access_kind(),
                 mem_fetch::AccessKind::L1_WRBK_ACC | mem_fetch::AccessKind::L2_WRBK_ACC
@@ -827,7 +827,7 @@ impl MemoryPartitionUnit
             //      p++) {
             let spid = (sub_id + last_issued_partition + 1) % self.sub_partitions.len();
             // self.config->m_n_sub_partition_per_memory_channel;
-            let mut sub = self.sub_partitions[spid].borrow_mut();
+            let sub = self.sub_partitions[spid].borrow_mut();
             debug_assert_eq!(sub.id, spid);
             // if !sub.l2_to_dram_queue.is_empty() && self.can_issue_to_dram(spid) {
             // let sub = self.sub_partitions[inner_sub_partition_id].borrow();

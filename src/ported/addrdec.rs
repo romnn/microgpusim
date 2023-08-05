@@ -252,7 +252,7 @@ impl LinearToRawAddressTranslation {
             tlx.col = packbits(dec.col.mask, rest_of_addr, dec.col.low, dec.col.high);
             tlx.burst = packbits(dec.burst.mask, rest_of_addr, dec.burst.low, dec.burst.high);
 
-            let rest_of_addr_high_bits = ((addr >> addr_chip_start) / num_channels);
+            let _rest_of_addr_high_bits = (addr >> addr_chip_start) / num_channels;
         } else {
             tlx.chip = packbits(dec.chip.mask, addr, dec.chip.low, dec.chip.high);
             tlx.bk = packbits(dec.bank.mask, addr, dec.bank.low, dec.bank.high);
@@ -260,10 +260,10 @@ impl LinearToRawAddressTranslation {
             tlx.col = packbits(dec.col.mask, addr, dec.col.low, dec.col.high);
             tlx.burst = packbits(dec.burst.mask, addr, dec.burst.low, dec.burst.high);
 
-            let rest_of_addr_high_bits = (addr
+            let _rest_of_addr_high_bits = addr
                 >> (addr_chip_start
                     + (self.num_channels_log2 + self.num_sub_partitions_per_channel_log2)
-                        as usize));
+                        as usize);
         }
 
         match self.memory_partition_indexing {

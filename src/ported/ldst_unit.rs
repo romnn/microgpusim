@@ -1,12 +1,12 @@
 use super::{
     cache, interconn as ic, l1, mem_fetch, mshr, operand_collector as opcoll,
-    register_set::{self, RegisterSet},
+    register_set::{self},
     scheduler as sched,
     scoreboard::Scoreboard,
     simd_function_unit as fu,
 };
 use crate::{config, ported::operand_collector::OperandCollectorRegisterFileUnit};
-use bitvec::{array::BitArray, BitArr};
+
 use console::style;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -19,7 +19,7 @@ use super::{
     mem_fetch::MemFetch,
 };
 use std::collections::{HashMap, VecDeque};
-use trace_model::MemAccessTraceEntry;
+
 
 fn new_mem_fetch(
     access: mem_fetch::MemAccess,
@@ -187,7 +187,7 @@ where
                 // initialize latency queue
                 debug_assert!(l1_config.l1_latency > 0);
                 l1_latency_queue = (0..l1_config.l1_banks)
-                    .map(|bank| vec![None; l1_config.l1_latency])
+                    .map(|_bank| vec![None; l1_config.l1_latency])
                     .collect();
 
                 // initialize l1 data cache
@@ -208,7 +208,7 @@ where
                 None
             };
 
-        let num_banks = 0;
+        let _num_banks = 0;
         // let operand_collector = OperandCollectorRegisterFileUnit::new(num_banks);
         Self {
             core_id,
@@ -252,7 +252,7 @@ where
     }
 
     pub fn flush(&mut self) {
-        if let Some(l1) = &mut self.data_l1 {
+        if let Some(_l1) = &mut self.data_l1 {
             todo!("flush data l1");
             // l1.flush();
         }
@@ -310,11 +310,11 @@ where
                             .release_register(next_writeback.warp_id, *out_reg);
                         instr_completed = true;
                     } else {
-                        let mut pending = self
+                        let pending = self
                             .pending_writes
                             .entry(next_writeback.warp_id)
                             .or_default();
-                        let mut still_pending = pending.get_mut(out_reg).unwrap();
+                        let still_pending = pending.get_mut(out_reg).unwrap();
                         debug_assert!(*still_pending > 0);
                         *still_pending -= 1;
                         log::trace!(
@@ -481,16 +481,16 @@ where
 
     fn constant_cycle(
         &mut self,
-        rc_fail: &mut MemStageStallKind,
-        kind: &mut MemStageAccessKind,
+        _rc_fail: &mut MemStageStallKind,
+        _kind: &mut MemStageAccessKind,
     ) -> bool {
         false
     }
 
     fn texture_cycle(
         &mut self,
-        rc_fail: &mut MemStageStallKind,
-        kind: &mut MemStageAccessKind,
+        _rc_fail: &mut MemStageStallKind,
+        _kind: &mut MemStageAccessKind,
     ) -> bool {
         false
     }
@@ -586,7 +586,7 @@ where
                 let instr = &mut self.pipelined_simd_unit.dispatch_reg.as_mut().unwrap();
                 let access = instr.mem_access_queue.pop_back().unwrap();
 
-                let mut fetch = new_mem_fetch(
+                let fetch = new_mem_fetch(
                     access,
                     instr.clone(),
                     &self.config,
@@ -653,7 +653,7 @@ where
 
         if l1d_config.l1_latency > 0 {
             // We can handle at max l1_banks reqs per cycle
-            for bank in 0..l1d_config.l1_banks {
+            for _bank in 0..l1d_config.l1_banks {
                 let Some(access) = instr.mem_access_queue.back() else {
                     break;
                 };
@@ -737,7 +737,7 @@ where
                 self.cluster_id,
             );
             let mut events = Vec::new();
-            let status = self.data_l1.as_mut().unwrap().access(
+            let _status = self.data_l1.as_mut().unwrap().access(
                 fetch.addr(),
                 fetch,
                 &mut events,
@@ -751,8 +751,8 @@ where
 
     fn process_cache_access(
         &mut self,
-        cache: (),
-        addr: address,
+        _cache: (),
+        _addr: address,
         instr: &mut WarpInstruction,
         events: &mut Vec<cache::Event>,
         fetch: mem_fetch::MemFetch,
@@ -760,7 +760,7 @@ where
     ) -> MemStageStallKind {
         let mut stall_cond = MemStageStallKind::NO_RC_FAIL;
         let write_sent = super::was_write_sent(events);
-        let read_sent = super::was_read_sent(events);
+        let _read_sent = super::was_read_sent(events);
         if write_sent {
             let l1d_config = self.config.data_cache_l1.as_ref().unwrap();
             let inc_ack = if l1d_config.inner.mshr_kind == mshr::Kind::SECTOR_ASSOC {
@@ -779,7 +779,7 @@ where
             instr.mem_access_queue.pop_back();
             if instr.is_load() {
                 for out_reg in instr.outputs() {
-                    let mut pending = self
+                    let pending = self
                         .pending_writes
                         .get_mut(&instr.warp_id)
                         .and_then(|p| p.get_mut(out_reg))
@@ -1089,7 +1089,7 @@ where
     }
 
     fn cycle(&mut self) {
-        use super::instruction::CacheOperator;
+        
 
         log::debug!(
             "fu[{:03}] {:<10} cycle={:03}: \tpipeline={:?} ({}/{} active) \tresponse fifo={:?}",
@@ -1192,7 +1192,7 @@ where
                         } else {
                             let l1d = self.data_l1.as_mut().unwrap();
                             if l1d.has_free_fill_port() {
-                                let mut fetch = self.response_fifo.pop_front().unwrap();
+                                let fetch = self.response_fifo.pop_front().unwrap();
                                 let time = self.pipelined_simd_unit.cycle.get();
                                 l1d.fill(fetch, time);
                             }

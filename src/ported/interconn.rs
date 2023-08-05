@@ -1,9 +1,9 @@
 use super::{config, mem_fetch, Packet};
 use console::style;
-use std::cell::RefCell;
+
 use std::collections::{HashMap, VecDeque};
-use std::rc::Rc;
-use std::sync::{Arc, Mutex, Weak};
+
+use std::sync::{Arc, Mutex};
 
 /// Interconnect is a general interconnect
 ///
@@ -14,13 +14,13 @@ pub trait Interconnect<P> {
         todo!("interconn: busy");
     }
 
-    fn push(&self, src: usize, dest: usize, packet: P, size: u32) {
+    fn push(&self, _src: usize, _dest: usize, _packet: P, _size: u32) {
         todo!("interconn: push");
     }
-    fn pop(&self, dest: usize) -> Option<P> {
+    fn pop(&self, _dest: usize) -> Option<P> {
         todo!("interconn: pop");
     }
-    fn has_buffer(&self, dest: usize, size: u32) -> bool {
+    fn has_buffer(&self, _dest: usize, _size: u32) -> bool {
         todo!("interconn: has buffer");
     }
     fn transfer(&self) {
@@ -78,7 +78,7 @@ impl<P> ToyInterconnect<P> {
                 output_queue[subnet].push(Vec::new());
                 round_robin_turn[subnet].push(Mutex::new(0));
 
-                for class in 0..num_classes {
+                for _class in 0..num_classes {
                     input_queue[subnet][node].push(Mutex::new(VecDeque::new()));
                     output_queue[subnet][node].push(Mutex::new(VecDeque::new()));
                 }
@@ -168,7 +168,7 @@ where
         // do nothing
     }
 
-    fn has_buffer(&self, device: usize, size: u32) -> bool {
+    fn has_buffer(&self, device: usize, _size: u32) -> bool {
         // todo!("interconn: has buffer");
         let Some(capacity) = self.capacity else {
             return true;
@@ -200,7 +200,7 @@ where
 pub trait MemFetchInterface: std::fmt::Debug {
     fn full(&self, size: u32, write: bool) -> bool;
 
-    fn push(&self, fetch: mem_fetch::MemFetch) {
+    fn push(&self, _fetch: mem_fetch::MemFetch) {
         todo!("mem fetch interface: full");
     }
 }
@@ -338,7 +338,7 @@ impl<Q> MemFetchInterface for L2Interface<Q>
 where
     Q: super::fifo::Queue<mem_fetch::MemFetch>,
 {
-    fn full(&self, size: u32, write: bool) -> bool {
+    fn full(&self, _size: u32, _write: bool) -> bool {
         use super::fifo::Queue;
         // todo!("l2 interface: full");
         // let request_size = if write { size } else { READ_PACKET_SIZE as u32 };
@@ -363,11 +363,11 @@ where
 mod tests {
     use crate::config::GPUConfig;
     use color_eyre::eyre;
-    use cxx::CxxString;
-    use std::ffi::CString;
+    
+    
     use std::path::PathBuf;
-    use std::pin::Pin;
-    use std::ptr;
+    
+    
 
     #[test]
     fn test_intersim_config() -> eyre::Result<()> {
@@ -376,7 +376,7 @@ mod tests {
         let config_file = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("accelsim/gtx1080/config_fermi_islip.icnt");
 
-        let mut config = IntersimConfig::from_file(&config_file)?;
+        let config = IntersimConfig::from_file(&config_file)?;
 
         assert_eq!(config.get_bool("use_map"), false);
         assert_eq!(config.get_int("num_vcs"), 1); // this means vc can only ever be zero

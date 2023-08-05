@@ -1,5 +1,4 @@
 use super::{
-    cache,
     fifo::{FifoQueue, Queue},
     mem_fetch,
 };
@@ -12,7 +11,7 @@ struct FrfcfsScheduler {
 }
 
 impl FrfcfsScheduler {
-    pub fn new(config: &config::GPUConfig, stats: Arc<Mutex<stats::Stats>>) -> Self {
+    pub fn new(_config: &config::GPUConfig, _stats: Arc<Mutex<stats::Stats>>) -> Self {
         // , , dram_t *dm, memory_stats_t *stats) {
         // sef.config = config;
         // m_stats = stats;

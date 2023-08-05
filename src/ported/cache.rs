@@ -106,10 +106,10 @@ pub trait Cache: Component + CacheBandwidth {
 
     fn access(
         &mut self,
-        addr: address,
-        fetch: mem_fetch::MemFetch,
-        events: &mut Vec<Event>,
-        time: u64,
+        _addr: address,
+        _fetch: mem_fetch::MemFetch,
+        _events: &mut Vec<Event>,
+        _time: u64,
     ) -> RequestStatus {
         todo!("cache: access");
     }
@@ -122,7 +122,7 @@ pub trait Cache: Component + CacheBandwidth {
         todo!("cache: next access");
     }
 
-    fn fill(&mut self, fetch: mem_fetch::MemFetch, time: u64) {
+    fn fill(&mut self, _fetch: mem_fetch::MemFetch, _time: u64) {
         todo!("cache: fill");
     }
 
@@ -134,11 +134,11 @@ pub trait Cache: Component + CacheBandwidth {
         todo!("cache: invalidate");
     }
 
-    fn force_tag_access(&mut self, addr: address, time: u64, mask: mem_fetch::MemAccessSectorMask) {
+    fn force_tag_access(&mut self, _addr: address, _time: u64, _mask: mem_fetch::MemAccessSectorMask) {
         todo!("cache: invalidate");
     }
 
-    fn waiting_for_fill(&self, fetch: &mem_fetch::MemFetch) -> bool {
+    fn waiting_for_fill(&self, _fetch: &mem_fetch::MemFetch) -> bool {
         todo!("cache: waiting for fill");
     }
 

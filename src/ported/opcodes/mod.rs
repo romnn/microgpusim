@@ -1,7 +1,7 @@
 mod ampere;
 
 use color_eyre::eyre;
-use std::collections::HashMap;
+
 use trace_model::KernelLaunch;
 
 #[derive(strum::FromRepr, Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]

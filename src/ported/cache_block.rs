@@ -1,8 +1,8 @@
 use super::{address, mem_fetch};
-use crate::config;
-use bitvec::{array::BitArray, BitArr};
-use std::collections::HashMap;
-use std::sync::Arc;
+
+use bitvec::{array::BitArray};
+
+
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum Status {
@@ -106,7 +106,7 @@ impl LineCacheBlock {
         Self::default()
     }
 
-    pub fn allocate_sector(&mut self, sector_mask: &mem_fetch::MemAccessSectorMask, time: u64) {
+    pub fn allocate_sector(&mut self, _sector_mask: &mem_fetch::MemAccessSectorMask, _time: u64) {
         unimplemented!()
     }
 
@@ -115,7 +115,7 @@ impl LineCacheBlock {
         tag: address,
         block_addr: address,
         time: u64,
-        sector_mask: &mem_fetch::MemAccessSectorMask,
+        _sector_mask: &mem_fetch::MemAccessSectorMask,
     ) {
         self.tag = tag;
         self.block_addr = block_addr;
@@ -132,7 +132,7 @@ impl LineCacheBlock {
     pub fn fill(
         &mut self,
         time: u64,
-        sector_mask: &mem_fetch::MemAccessSectorMask,
+        _sector_mask: &mem_fetch::MemAccessSectorMask,
         byte_mask: &mem_fetch::MemAccessByteMask,
     ) {
         self.status = if self.set_modified_on_fill {
@@ -173,7 +173,7 @@ impl LineCacheBlock {
     }
 
     #[inline]
-    pub fn status(&self, mask: &mem_fetch::MemAccessSectorMask) -> Status {
+    pub fn status(&self, _mask: &mem_fetch::MemAccessSectorMask) -> Status {
         self.status
     }
 

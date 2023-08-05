@@ -102,7 +102,7 @@ where
 
         let base::Base {
             ref cache_config,
-            ref config,
+            
             ref mut tag_array,
             ..
         } = self.inner;
@@ -133,7 +133,7 @@ where
             tag_array::AccessStatus { status, .. } = tag_array.access(block_addr, &fetch, time);
         } else if probe_status != Status::RESERVATION_FAIL {
             if !self.inner.miss_queue_full() {
-                let (should_miss, writeback, evicted) = self.inner.send_read_request(
+                let (should_miss, _writeback, _evicted) = self.inner.send_read_request(
                     addr,
                     block_addr,
                     cache_index.unwrap(),
@@ -199,14 +199,14 @@ fn select_status(
 
 #[cfg(test)]
 mod tests {
-    use super::ReadOnly;
+    
     use crate::config::GPUConfig;
 
     #[ignore = "todo"]
     #[test]
     fn test_read_only_cache() {
         // todo: compare accelsim::read_only_cache and readonly
-        let config = GPUConfig::default().data_cache_l1.unwrap();
+        let _config = GPUConfig::default().data_cache_l1.unwrap();
         assert!(false);
     }
 }

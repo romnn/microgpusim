@@ -3,10 +3,10 @@ use std::collections::VecDeque;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex, RwLock};
 
-use trace_model::MemAccessTraceEntry;
+
 
 use super::core::PipelineStage;
-use super::{instruction::WarpInstruction, opcodes, register_set, scoreboard};
+use super::{instruction::WarpInstruction, opcodes, scoreboard};
 use crate::config::GPUConfig;
 use bitvec::{array::BitArray, BitArr};
 use console::style;
@@ -110,7 +110,7 @@ impl SchedulerWarp {
 
     pub fn init(
         &mut self,
-        start_pc: Option<usize>,
+        _start_pc: Option<usize>,
         block_id: u64,
         warp_id: usize,
         dynamic_warp_id: usize,
@@ -816,7 +816,7 @@ impl BaseSchedulerUnit {
 }
 
 pub trait SchedulerUnit {
-    fn cycle(&mut self, core: &mut dyn super::core::WarpIssuer) {
+    fn cycle(&mut self, _core: &mut dyn super::core::WarpIssuer) {
         // fn cycle(&mut self, core: ()) {
         // fn cycle(&mut self) {
         todo!("scheduler unit: cycle");
@@ -826,7 +826,7 @@ pub trait SchedulerUnit {
     //     todo!("scheduler unit: done_adding_supervised_warps");
     // }
 
-    fn add_supervised_warp(&mut self, warp: CoreWarp) {
+    fn add_supervised_warp(&mut self, _warp: CoreWarp) {
         todo!("scheduler unit: add supervised warp id");
     }
 
@@ -1282,7 +1282,7 @@ impl GTOScheduler {
         &self,
         out: &mut VecDeque<SchedulerWarp>,
         warps: &mut Vec<SchedulerWarp>,
-        last_issued_warps: &Vec<SchedulerWarp>,
+        _last_issued_warps: &Vec<SchedulerWarp>,
         num_warps_to_add: usize,
     ) {
         // let mut next_cycle_prioritized_warps = Vec::new();
@@ -1356,7 +1356,7 @@ impl GTOScheduler {
 #[cfg(test)]
 mod tests {
     use crate::ported::testing;
-    use std::ops::Deref;
+    
     use std::ptr;
 
     #[ignore = "todo"]

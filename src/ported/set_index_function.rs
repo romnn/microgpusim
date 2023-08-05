@@ -30,7 +30,7 @@ pub fn bitwise_hash_function(higher_bits: address, index: usize, bank_set_num: u
 /// IPOLY hashing guarantees conflict-free for all 2^n strides which widely
 /// exit in GPGPU applications and also show good performance for other
 /// strides.
-pub fn ipoly_hash_function(higher_bits: address, index: usize, bank_set_num: usize) -> u64 {
+pub fn ipoly_hash_function(_higher_bits: address, _index: usize, _bank_set_num: usize) -> u64 {
     todo!("ipoly_hash_function");
 }
 
@@ -57,12 +57,11 @@ impl SetIndexFunction for BitwiseXORSetIndexFunction {
         line_size_log2: u64,
         num_sets_log2: u64,
     ) -> eyre::Result<usize> {
-        let higher_bits = addr >> (line_size_log2 + num_sets_log2);
-        let index = (addr >> line_size_log2) & (num_sets - 1);
+        let _higher_bits = addr >> (line_size_log2 + num_sets_log2);
+        let _index = (addr >> line_size_log2) & (num_sets - 1);
         // let set_index = bitwise_hash_function(higher_bits, index, m_nset);
-        todo!();
-        let set_index = 0;
-        Ok(set_index)
+        let _set_index = 0;
+        todo!("bitwise xor set index function");
     }
 }
 
@@ -70,19 +69,19 @@ impl SetIndexFunction for FermiSetIndexFunction {
     /// Set Indexing function from "A Detailed GPU Cache Model Based on Reuse
     /// Distance Theory" Cedric Nugteren et al. HPCA 2014
     fn compute_set_index(
-        addr: super::address,
+        _addr: super::address,
         num_sets: u64,
-        line_size_log2: u64,
-        num_sets_log2: u64,
+        _line_size_log2: u64,
+        _num_sets_log2: u64,
     ) -> eyre::Result<usize> {
         assert!(
             !(num_sets != 32 && num_sets != 64),
             "cache config error: number of sets should be 32 or 64"
         );
-        let set_index = 0;
-        let lower_xor = 0;
-        let upper_xor = 0;
-        todo!();
+        let _set_index = 0;
+        let _lower_xor = 0;
+        let _upper_xor = 0;
+        todo!("fermi set index function");
 
         //   // Lower xor value is bits 7-11
         //   lower_xor = (addr >> m_line_sz_log2) & 0x1F;
@@ -97,6 +96,5 @@ impl SetIndexFunction for FermiSetIndexFunction {
         //   // 48KB cache prepends the set_index with bit 12
         //   if (m_nset == 64) set_index |= (addr & 0x1000) >> 7;
         //
-        Ok(set_index)
     }
 }

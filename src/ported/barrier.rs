@@ -13,21 +13,21 @@ pub struct BarrierSet {
 
 impl BarrierSet {
     pub fn new(
-        max_warps_per_core: usize,
-        max_blocks_per_core: usize,
-        max_barriers_per_block: usize,
-        warp_size: usize,
+        _max_warps_per_core: usize,
+        _max_blocks_per_core: usize,
+        _max_barriers_per_block: usize,
+        _warp_size: usize,
     ) -> Self {
         Self {}
     }
 
     /// during cta allocation
-    pub fn allocate_barrier(&mut self, block_id: usize, warps: super::WarpMask) {
+    pub fn allocate_barrier(&mut self, _block_id: usize, _warps: super::WarpMask) {
         todo!("barrier set: allocate barrier");
     }
 
     /// warp reaches exit
-    pub fn warp_exit(&mut self, warp_id: usize) {
+    pub fn warp_exit(&mut self, _warp_id: usize) {
         // caller needs to verify all threads in warp are done, e.g., by checking PDOM
         // stack to see it has only one entry during exit_impl()
         // self.warp_active.set(warp_id, false);

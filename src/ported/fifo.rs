@@ -68,7 +68,7 @@ impl<T> Queue<T> for FifoQueue<T>
 where
     T: std::fmt::Display,
 {
-    fn new<S: ToString>(name: S, min_size: Option<usize>, max_size: Option<usize>) -> Self {
+    fn new<S: ToString>(_name: S, min_size: Option<usize>, max_size: Option<usize>) -> Self {
         Self {
             inner: VecDeque::new(),
             min_size,

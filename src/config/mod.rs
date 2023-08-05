@@ -703,7 +703,7 @@ impl GPUConfig {
         };
 
         // limit by CTA
-        let by_block_limit = self.max_concurrent_blocks_per_core;
+        let _by_block_limit = self.max_concurrent_blocks_per_core;
 
         // find the minimum
         let mut limit = [
@@ -984,7 +984,7 @@ impl GPUConfig {
     pub fn parse() -> eyre::Result<Self> {
         let adaptive_cache_config = false;
         let shared_memory_sizes_string = "0";
-        let shared_memory_sizes: Vec<u32> = if adaptive_cache_config {
+        let _shared_memory_sizes: Vec<u32> = if adaptive_cache_config {
             let sizes: Result<Vec<u32>, _> = shared_memory_sizes_string
                 .split(",")
                 .map(str::parse)

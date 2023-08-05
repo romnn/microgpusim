@@ -164,8 +164,8 @@ mod tests {
     use super::MshrTable;
     use crate::config;
     use crate::ported::{mem_fetch, scheduler::ThreadActiveMask};
-    use mem_fetch::{AccessKind, Kind as MemFetchKind, MemAccess, MemFetch};
-    use std::sync::Arc;
+    use mem_fetch::{AccessKind, MemAccess, MemFetch};
+    
 
     #[test]
     fn test_mshr_table() {

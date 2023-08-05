@@ -1,5 +1,5 @@
 use super::{
-    instruction::WarpInstruction, interconn as ic, opcodes, register_set::RegisterSet,
+    instruction::WarpInstruction, opcodes, register_set::RegisterSet,
     simd_function_unit as fu,
 };
 use crate::config::GPUConfig;
@@ -22,7 +22,7 @@ impl SPUnit {
         id: usize,
         result_port: Rc<RefCell<RegisterSet>>,
         config: Arc<GPUConfig>,
-        stats: Arc<Mutex<stats::Stats>>,
+        _stats: Arc<Mutex<stats::Stats>>,
         cycle: super::Cycle,
         issue_reg_id: usize,
     ) -> Self {

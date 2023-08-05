@@ -96,12 +96,12 @@ where
             .sum()
     }
 
-    pub fn warp_waiting_at_barrier(&self, warp_id: usize) -> bool {
+    pub fn warp_waiting_at_barrier(&self, _warp_id: usize) -> bool {
         todo!("cluster: warp_waiting_at_barrier");
         // self.barriers.warp_waiting_at_barrier(warp_id)
     }
 
-    pub fn warp_waiting_at_mem_barrier(&self, warp_id: usize) -> bool {
+    pub fn warp_waiting_at_mem_barrier(&self, _warp_id: usize) -> bool {
         todo!("cluster: warp_waiting_at_mem_barrier");
         // if (!m_warp[warp_id]->get_membar()) return false;
         // if (!m_scoreboard->pendingWrites(warp_id)) {
@@ -202,7 +202,7 @@ where
         // The packet size varies depending on the type of request:
         // - For read request and atomic request, the packet contains the data
         // - For write-ack, the packet only has control metadata
-        let packet_size = if fetch.is_write() {
+        let _packet_size = if fetch.is_write() {
             fetch.control_size
         } else {
             fetch.data_size
@@ -261,7 +261,7 @@ where
         let mut block_issue_next_core = self.block_issue_next_core.lock().unwrap();
         // dbg!(&sim.select_kernel());
 
-        for core_id in (0..num_cores) {
+        for core_id in 0..num_cores {
             // debug_assert_eq!(i, core.id);
             let core_id = (core_id + *block_issue_next_core + 1) % num_cores;
             let core = &mut cores[core_id];

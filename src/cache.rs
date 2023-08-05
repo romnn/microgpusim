@@ -1,4 +1,4 @@
-use super::cache;
+
 use std::sync::Arc;
 
 pub trait ReplacementPolicy {}

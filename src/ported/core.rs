@@ -1,8 +1,8 @@
 use super::instruction::WarpInstruction;
 use super::scheduler::SchedulerWarp;
 use super::{
-    address, barrier, cache, ldst_unit, opcodes, operand_collector as opcoll, register_set,
-    scoreboard, simd_function_unit as fu, KernelInfo, LoadStoreUnit, MockSimulator,
+    address, barrier, cache, opcodes, operand_collector as opcoll, register_set,
+    scoreboard, simd_function_unit as fu, KernelInfo, LoadStoreUnit,
 };
 use super::{interconn as ic, l1, mem_fetch, scheduler as sched};
 use crate::config::{self, GPUConfig};
@@ -14,10 +14,10 @@ use fu::SimdFunctionUnit;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap};
 use std::rc::Rc;
-use std::sync::{atomic, Arc, Mutex, RwLock, Weak};
-use strum::{EnumCount, IntoEnumIterator};
+use std::sync::{atomic, Arc, Mutex, RwLock};
+use strum::{IntoEnumIterator};
 
 // Volta max shmem size is 96kB
 pub const SHARED_MEM_SIZE_MAX: usize = 96 * (1 << 10);
@@ -180,7 +180,7 @@ where
             let kernel_padded_threads_per_cta = self.thread_block_size;
             let kernel_max_cta_per_shader = self.max_blocks_per_shader;
 
-            let temp = (self.core_id + num_cores * (thread_id / kernel_padded_threads_per_cta));
+            let temp = self.core_id + num_cores * (thread_id / kernel_padded_threads_per_cta);
             let rest = thread_id % kernel_padded_threads_per_cta;
             thread_base = 4 * (kernel_padded_threads_per_cta * temp + rest);
             max_concurrent_threads =
@@ -567,7 +567,7 @@ where
             config.max_warps_per_core(),
         )));
 
-        let mut operand_collector = opcoll::OperandCollectorRegisterFileUnit::new(config.clone());
+        let operand_collector = opcoll::OperandCollectorRegisterFileUnit::new(config.clone());
 
         let operand_collector = Rc::new(RefCell::new(operand_collector));
 
@@ -660,7 +660,7 @@ where
             .map(|reg| Rc::new(RefCell::new(reg)))
             .collect();
 
-        let mut inner = InnerSIMTCore {
+        let inner = InnerSIMTCore {
             core_id,
             cluster_id,
             cycle,
@@ -720,7 +720,7 @@ where
             self.inner.config.operand_collector_num_out_ports_gen,
         );
 
-        for i in 0..self.inner.config.operand_collector_num_in_ports_gen {
+        for _i in 0..self.inner.config.operand_collector_num_in_ports_gen {
             let mut in_ports = opcoll::PortVec::new();
             let mut out_ports = opcoll::PortVec::new();
             let mut cu_sets: Vec<opcoll::OperandCollectorUnitKind> = Vec::new();
@@ -775,7 +775,7 @@ where
                 self.inner.config.operand_collector_num_out_ports_mem,
             );
 
-            for i in 0..self.inner.config.operand_collector_num_in_ports_sp {
+            for _i in 0..self.inner.config.operand_collector_num_in_ports_sp {
                 let mut in_ports = opcoll::PortVec::new();
                 let mut out_ports = opcoll::PortVec::new();
                 let mut cu_sets: Vec<opcoll::OperandCollectorUnitKind> = Vec::new();
@@ -787,7 +787,7 @@ where
                 operand_collector.add_port(in_ports, out_ports, cu_sets);
             }
 
-            for i in 0..self.inner.config.operand_collector_num_in_ports_mem {
+            for _i in 0..self.inner.config.operand_collector_num_in_ports_mem {
                 let mut in_ports = opcoll::PortVec::new();
                 let mut out_ports = opcoll::PortVec::new();
                 let mut cu_sets: Vec<opcoll::OperandCollectorUnitKind> = Vec::new();
@@ -1334,10 +1334,10 @@ where
     /// response
     fn decode(&mut self) {
         let InstrFetchBuffer {
-            valid, pc, warp_id, ..
+            valid,  warp_id, ..
         } = self.inner.instr_fetch_buffer;
 
-        let core_id = self.id();
+        let _core_id = self.id();
         log::debug!(
             "{}",
             style(format!(
@@ -1407,7 +1407,7 @@ where
     }
 
     fn decode_instruction(&mut self, warp_id: usize, instr: WarpInstruction, slot: usize) {
-        let core_id = self.id();
+        let _core_id = self.id();
         let warp = self.inner.warps.get_mut(warp_id).unwrap();
         let mut warp = warp.try_borrow_mut().unwrap();
 
@@ -1463,7 +1463,7 @@ where
             ))
             .cyan()
         );
-        let max_committed_thread_instructions =
+        let _max_committed_thread_instructions =
             self.inner.config.warp_size * exec_writeback_pipeline.size();
 
         // m_stats->m_pipeline_duty_cycle[m_sid] =
@@ -1523,7 +1523,7 @@ where
     }
 
     fn execute(&mut self) {
-        use mem_fetch::BitString;
+        
 
         let core_id = self.id();
         log::debug!(
@@ -1536,7 +1536,7 @@ where
             .red()
         );
 
-        for (i, res_bus) in self.inner.result_busses.iter_mut().enumerate() {
+        for (_i, res_bus) in self.inner.result_busses.iter_mut().enumerate() {
             res_bus.shift_right(1);
             // log::debug!(
             //     "res bus {:03}[:128]: {}",
@@ -1673,7 +1673,7 @@ where
         }
 
         self.issue();
-        for i in 0..self.inner.config.inst_fetch_throughput {
+        for _i in 0..self.inner.config.inst_fetch_throughput {
             self.decode();
             self.fetch();
         }
@@ -1731,7 +1731,7 @@ where
     ) -> Option<usize> {
         let mut step = 0;
         while step < self.inner.config.max_threads_per_core {
-            let mut hw_thread_id = step;
+            let hw_thread_id = step;
             while hw_thread_id < step + thread_block_size {
                 if self.inner.occupied_hw_thread_ids[hw_thread_id] {
                     break;
@@ -1776,7 +1776,7 @@ where
     //   }
     // }
 
-    pub fn occupy_resource_for_block(&mut self, kernel: &KernelInfo, occupy: bool) -> bool {
+    pub fn occupy_resource_for_block(&mut self, kernel: &KernelInfo, _occupy: bool) -> bool {
         let thread_block_size = self.inner.config.threads_per_block_padded(kernel);
         if self.inner.num_occupied_threads + thread_block_size
             > self.inner.config.max_threads_per_core
@@ -1923,7 +1923,7 @@ where
         // let kernel_id = kernel.id();
         // if self.config.model == POST_DOMINATOR {
         let start_warp = start_thread / self.inner.config.warp_size;
-        let warp_per_cta = thread_block_size / self.inner.config.warp_size;
+        let _warp_per_cta = thread_block_size / self.inner.config.warp_size;
         let end_warp = end_thread / self.inner.config.warp_size
             + if end_thread % self.inner.config.warp_size == 0 {
                 0
