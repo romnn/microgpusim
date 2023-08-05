@@ -290,10 +290,10 @@ fn build_spdlog(
 ) -> eyre::Result<()> {
     println!("cargo:warning=output dir: {}", output_path().display());
     let lib_name = "spdlog";
-    let lib_artifact = output_path().join(format!("lib{}.a", lib_name));
+    let lib_artifact = output_path().join(format!("lib{lib_name}.a"));
     if !force && lib_artifact.is_file() {
         println!("cargo:warning=using existing {}", lib_artifact.display());
-        println!("cargo:rustc-link-lib=static={}", lib_name);
+        println!("cargo:rustc-link-lib=static={lib_name}");
         return Ok(());
     }
     let mut build = cc::Build::new();
@@ -350,7 +350,7 @@ fn generate_bridge(
     Ok(())
 }
 
-/// Renders a compile_flags.text file.
+/// Renders a `compile_flags.text` file.
 ///
 /// This file is useful for clang-tools such as linters or LSP.
 fn render_compile_flags_txt(include_dir: &Path, flags: &HashMap<&str, &str>) -> eyre::Result<()> {
@@ -379,7 +379,7 @@ fn render_compile_flags_txt(include_dir: &Path, flags: &HashMap<&str, &str>) -> 
     .collect();
 
     // add flags
-    compile_flags.extend(flags.iter().map(|(k, v)| format!("-D{}={}", k, v)));
+    compile_flags.extend(flags.iter().map(|(k, v)| format!("-D{k}={v}")));
 
     // add includes
     compile_flags.extend([

@@ -7,21 +7,14 @@ use regex::Regex;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Default)]
 pub struct Options {
     pub per_kernel: bool,
     pub kernel_instance: bool,
     pub strict: bool,
 }
 
-impl Default for Options {
-    fn default() -> Self {
-        Self {
-            per_kernel: false,
-            kernel_instance: false,
-            strict: false,
-        }
-    }
-}
+
 
 macro_rules! stat {
     ($name:expr, $kind:expr, $regex:expr) => {

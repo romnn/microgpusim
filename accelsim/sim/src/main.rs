@@ -1,11 +1,11 @@
-#![allow(warnings)]
+// #![allow(warnings)]
 
-use accelsim::{Options, SimConfig};
+use accelsim::Options;
 use accelsim_sim as sim;
 use clap::Parser;
 use color_eyre::eyre::{self, WrapErr};
 use std::io::Write;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 // todo add an output dir
 
@@ -35,7 +35,7 @@ async fn main() -> eyre::Result<()> {
         .canonicalize()
         .wrap_err_with(|| format!("kernelslist at {} does not exist", kernelslist.display()))?;
 
-    let (output, dur) = sim::simulate_trace(
+    let (output, _dur) = sim::simulate_trace(
         &traces_dir,
         &kernelslist,
         &options.sim_config,
@@ -78,7 +78,7 @@ async fn main() -> eyre::Result<()> {
     //     println!("{}", &stat);
     // }
 
-    let flat_stats: Vec<_> = stats.into_inner().into_iter().collect();
-    serde_json::to_writer_pretty(utils::fs::open_writable(&stats_file_path)?, &flat_stats)?;
+    let flat_stats: Vec<_> = stats.into_iter().collect();
+    serde_json::to_writer_pretty(utils::fs::open_writable(stats_file_path)?, &flat_stats)?;
     Ok(())
 }

@@ -23,7 +23,6 @@ pub mod set_index_function;
 pub mod simd_function_unit;
 pub mod sp_unit;
 pub mod tag_array;
-pub mod traces;
 
 #[cfg(test)]
 pub mod testing;
@@ -38,21 +37,16 @@ use ldst_unit::*;
 use mem_fetch::*;
 use mem_sub_partition::*;
 use scheduler::*;
-use set_index_function::*;
 use sp_unit::*;
 use stats::Stats;
-use tag_array::*;
 
 use crate::config;
 use bitvec::{array::BitArray, field::BitField, BitArr};
 use color_eyre::eyre::{self, WrapErr};
 use console::style;
-use itertools::Itertools;
-use log::{error, info, trace, warn};
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::collections::{HashMap, VecDeque};
-use std::fmt::Binary;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -856,8 +850,8 @@ where
         let threads_per_block = kernel.threads_per_block();
         let max_threads_per_block = self.config.max_threads_per_core;
         if threads_per_block > max_threads_per_block {
-            error!("kernel block size is too large");
-            error!(
+            log::error!("kernel block size is too large");
+            log::error!(
                 "CTA size (x*y*z) = {threads_per_block}, max supported = {max_threads_per_block}"
             );
             return Err(eyre::eyre!("kernel block size is too large"));
@@ -1658,9 +1652,7 @@ pub fn accelmain(
     traces_dir: impl AsRef<Path>,
     log_after_cycle: Option<u64>,
 ) -> eyre::Result<Stats> {
-    use std::io::Write;
-
-    info!("box version {}", 0);
+    log::info!("box version {}", 0);
 
     let traces_dir = traces_dir.as_ref();
     let (traces_dir, commands_path) = if traces_dir.is_dir() {
@@ -1676,8 +1668,6 @@ pub fn accelmain(
             traces_dir.to_path_buf(),
         )
     };
-
-    let start_time = Instant::now();
 
     // debugging config
     let mut config = config::GPUConfig::default();

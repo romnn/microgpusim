@@ -1,9 +1,7 @@
 use super::AddressFormat;
 use color_eyre::eyre::{self, WrapErr};
-use color_eyre::owo_colors::OwoColorize;
 use std::collections::HashMap;
-use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use trace_model::{Command, Dim, MemAccessTraceEntry};
 
 fn write_kernel_info(
@@ -54,8 +52,8 @@ fn write_kernel_info(
     writeln!(out, "-accelsim tracer version = 4")?;
     // -enable lineinfo = 0
     writeln!(out, "-enable lineinfo = 0")?;
-    writeln!(out, "")?;
-    writeln!(out, "#traces format = [line_num] PC mask dest_num [reg_dests] opcode src_num [reg_srcs] mem_width [adrrescompress?] [mem_addresses]");
+    writeln!(out)?;
+    writeln!(out, "#traces format = [line_num] PC mask dest_num [reg_dests] opcode src_num [reg_srcs] mem_width [adrrescompress?] [mem_addresses]")?;
 
     Ok(())
 }
@@ -114,18 +112,8 @@ pub fn write_trace_instructions(
     trace: &[MemAccessTraceEntry],
     mut out: impl std::io::Write,
 ) -> eyre::Result<()> {
-    // use itertools::Itertools;
     use std::collections::HashSet;
-    // for inst in trace {
-    //     let block = grouped.entry(inst.block_id).or_default();
-    //     let warp = block.entry(inst.warp_id_in_block).or_default();
-    //     warp.push(inst);
-    // }
-
     assert!(trace_model::is_valid_trace(trace));
-    // let mut blocks = grouped.into_iter();
-    // let mut blocks: Vec<_> = grouped.into_iter().collect();
-    // blocks.sort_by_key(|(block_id, _warps)| *block_id);
 
     let mut instruction_counts: HashMap<_, u64> = HashMap::new();
     for inst in trace {
@@ -155,20 +143,20 @@ pub fn write_trace_instructions(
             // write new thread block
             writeln!(out, "\n#BEGIN_TB\n")?;
             let Dim { x, y, z } = inst.block_id;
-            writeln!(out, "thread block = {},{},{}\n", x, y, z)?;
+            writeln!(out, "thread block = {x},{y},{z}\n")?;
             blocks_written += 1;
 
             // sanity check
             assert!(!started_blocks.contains(&key));
             started_blocks.insert(key);
         }
-        last_block_id.insert(inst.block_id.clone());
+        last_block_id = Some(inst.block_id.clone());
 
         if is_new_warp {
             let key = (inst.block_id.clone(), inst.warp_id_in_block);
 
             // write new warp
-            writeln!(out, "")?;
+            writeln!(out)?;
             writeln!(out, "warp = {}", inst.warp_id_in_block)?;
             writeln!(out, "insts = {}", instruction_counts[&key])?;
 
@@ -176,23 +164,7 @@ pub fn write_trace_instructions(
             assert!(!started_warps.contains(&key));
             started_warps.insert(key);
         }
-        last_warp_id.insert(inst.warp_id_in_block.clone());
-
-        // assert!(!warps.is_empty());
-
-        // let mut warps: Vec<_> = warps.into_iter().collect();
-        // warps.sort_by_key(|(warp_id, _instructions)| *warp_id);
-        //
-        // for (warp_id, instructions) in warps {
-        //     assert!(!instructions.is_empty());
-        //     writeln!(out, "")?;
-        //     writeln!(out, "warp = {}", warp_id)?;
-        //     writeln!(out, "insts = {}", instructions.len())?;
-        //
-        //     for inst in instructions {
-        //         write_single_trace_instruction(inst, &mut out)?;
-        //     }
-        // }
+        last_warp_id = Some(inst.warp_id_in_block);
 
         write_single_trace_instruction(inst, &mut out)?;
     }
@@ -201,39 +173,6 @@ pub fn write_trace_instructions(
         writeln!(out, "\n#END_TB\n")?;
     }
     out.flush()?;
-    // let mut grouped: HashMap<Dim, HashMap<u32, Vec<&MemAccessTraceEntry>>> = HashMap::new();
-    //
-    // for inst in trace {
-    //     let block = grouped.entry(inst.block_id).or_default();
-    //     let warp = block.entry(inst.warp_id_in_block).or_default();
-    //     warp.push(inst);
-    // }
-    //
-    // let mut blocks = grouped.into_iter();
-    // // let mut blocks: Vec<_> = grouped.into_iter().collect();
-    // // blocks.sort_by_key(|(block_id, _warps)| *block_id);
-    //
-    // for (block, warps) in blocks {
-    //     assert!(!warps.is_empty());
-    //     writeln!(out, "\n#BEGIN_TB\n")?;
-    //     writeln!(out, "thread block = {},{},{}\n", block.x, block.y, block.z)?;
-    //
-    //     let mut warps: Vec<_> = warps.into_iter().collect();
-    //     warps.sort_by_key(|(warp_id, _instructions)| *warp_id);
-    //
-    //     for (warp_id, instructions) in warps {
-    //         assert!(!instructions.is_empty());
-    //         writeln!(out, "")?;
-    //         writeln!(out, "warp = {}", warp_id)?;
-    //         writeln!(out, "insts = {}", instructions.len())?;
-    //
-    //         for inst in instructions {
-    //             write_single_trace_instruction(inst, &mut out)?;
-    //         }
-    //     }
-    //
-    //     writeln!(out, "\n#END_TB\n")?;
-    // }
     Ok(())
 }
 
@@ -243,7 +182,6 @@ pub fn generate_commands(
 ) -> eyre::Result<()> {
     let reader = utils::fs::open_readable(commands_path.as_ref())?;
     let commands: Vec<Command> = serde_json::from_reader(reader)?;
-    // dbg!(&commands);
 
     for cmd in commands {
         match cmd {
@@ -253,14 +191,14 @@ pub fn generate_commands(
                 num_bytes,
                 ..
             }) => {
-                writeln!(out, "MemcpyHtoD,{:#016x},{}", dest_device_addr, num_bytes)?;
+                writeln!(out, "MemcpyHtoD,{dest_device_addr:#016x},{num_bytes}")?;
             }
             Command::KernelLaunch(kernel) => {
                 writeln!(out, "kernel-{}.box.traceg", kernel.id + 1)?;
             }
         }
     }
-    writeln!(out, "")?;
+    writeln!(out)?;
     out.flush()?;
     Ok(())
 }
@@ -270,11 +208,11 @@ pub fn generate_trace(
     kernel: &trace_model::KernelLaunch,
     mut out: impl std::io::Write,
 ) -> eyre::Result<()> {
-    write_kernel_info(&kernel, &mut out)?;
+    write_kernel_info(kernel, &mut out)?;
 
     let trace_file_path = trace_dir.as_ref().join(&kernel.trace_file);
     let reader = utils::fs::open_readable(&trace_file_path)?;
-    let mut trace: Vec<MemAccessTraceEntry> = rmp_serde::from_read(reader)
+    let trace: Vec<MemAccessTraceEntry> = rmp_serde::from_read(reader)
         .wrap_err_with(|| format!("failed to read trace {}", trace_file_path.display()))?;
     write_trace_instructions(&trace, out)?;
     Ok(())
@@ -284,10 +222,8 @@ pub fn generate_trace(
 mod tests {
     use color_eyre::eyre;
     use similar_asserts as diff;
-    use std::collections::HashMap;
-    use std::io::Write;
     use std::path::PathBuf;
-    use trace_model::{Command, MemAccessTraceEntry};
+    use trace_model::Command;
 
     #[test]
     fn test_write_kernel_info() -> eyre::Result<()> {
@@ -300,10 +236,10 @@ mod tests {
             num_registers: 31,
             binary_version: 61,
             stream_id: 0,
-            shared_mem_base_addr: 0x7f0e8e000000,
-            local_mem_base_addr: 0x7f0e8c000000,
+            shared_mem_base_addr: 0x7f0e_8e00_0000,
+            local_mem_base_addr: 0x7f0e_8c00_0000,
             nvbit_version: "1.5.5".to_string(),
-            trace_file: "".to_string(),
+            trace_file: String::new(),
         };
         let mut writer = std::io::Cursor::new(Vec::new());
         super::write_kernel_info(&kernel, &mut writer)?;
@@ -343,108 +279,10 @@ mod tests {
                 }
             },
             {
-                "MemAlloc": {
-                    "allocation_name": null,
-                    "device_ptr": 140030084383232,
-                    "num_bytes": 400
-                }
-            },
-            {
-                "MemAlloc": {
-                    "allocation_name": null,
-                    "device_ptr": 140030084383744,
-                    "num_bytes": 400
-                }
-            },
-            {
                 "MemcpyHtoD": {
                     "allocation_name": null,
                     "dest_device_addr": 140030084382720,
                     "num_bytes": 400
-                }
-            },
-            {
-                "MemcpyHtoD": {
-                    "allocation_name": null,
-                    "dest_device_addr": 140030084383232,
-                    "num_bytes": 400
-                }
-            },
-            {
-                "MemcpyHtoD": {
-                    "allocation_name": null,
-                    "dest_device_addr": 140030084383744,
-                    "num_bytes": 400
-                }
-            },
-            {
-                "MemAlloc": {
-                    "allocation_name": null,
-                    "device_ptr": 140030084384256,
-                    "num_bytes": 32
-                }
-            },
-            {
-                "MemcpyHtoD": {
-                    "allocation_name": null,
-                    "dest_device_addr": 140030084384256,
-                    "num_bytes": 32
-                }
-            },
-            {
-                "MemAlloc": {
-                    "allocation_name": null,
-                    "device_ptr": 140030084384768,
-                    "num_bytes": 32
-                }
-            },
-            {
-                "MemcpyHtoD": {
-                    "allocation_name": null,
-                    "dest_device_addr": 140030084384768,
-                    "num_bytes": 32
-                }
-            },
-            {
-                "MemAlloc": {
-                    "allocation_name": null,
-                    "device_ptr": 140030084385280,
-                    "num_bytes": 32
-                }
-            },
-            {
-                "MemcpyHtoD": {
-                    "allocation_name": null,
-                    "dest_device_addr": 140030084385280,
-                    "num_bytes": 32
-                }
-            },
-            {
-                "MemAlloc": {
-                    "allocation_name": null,
-                    "device_ptr": 140030084385792,
-                    "num_bytes": 32
-                }
-            },
-            {
-                "MemcpyHtoD": {
-                    "allocation_name": null,
-                    "dest_device_addr": 140030084385792,
-                    "num_bytes": 32
-                }
-            },
-            {
-                "MemAlloc": {
-                    "allocation_name": null,
-                    "device_ptr": 140030084386304,
-                    "num_bytes": 32
-                }
-            },
-            {
-                "MemcpyHtoD": {
-                    "allocation_name": null,
-                    "dest_device_addr": 140030084386304,
-                    "num_bytes": 32
                 }
             },
             {
@@ -498,17 +336,16 @@ mod tests {
         let trace_dir = manifest_dir.join("../results/vectorAdd/vectorAdd-100-32/trace");
         let commands_path = trace_dir.join("commands.json");
 
-        let reader = utils::fs::open_readable(&commands_path)?;
+        let reader = utils::fs::open_readable(commands_path)?;
         let commands: Vec<Command> = serde_json::from_reader(reader)?;
         dbg!(&commands);
 
         let kernel = commands
             .into_iter()
-            .filter_map(|cmd| match cmd {
+            .find_map(|cmd| match cmd {
                 Command::KernelLaunch(kernel) => Some(kernel),
                 _ => None,
             })
-            .next()
             .unwrap();
 
         let mut trace_writer = std::io::Cursor::new(Vec::new());

@@ -25,7 +25,6 @@ pub struct Args {
     // register info
     pub dest_reg: Option<u32>,
     // num_dest_regs: u32,
-    // dest_regs: [u32; common::MAX_DST as usize],
     pub num_src_regs: u32,
     pub src_regs: [u32; common::MAX_SRC as usize],
     // receiver channel
@@ -57,8 +56,6 @@ impl Args {
 
         // register info is allocated on the device and passed by pointer
         let reg_info = common::reg_info_t {
-            // has_dest_reg: self.dest_reg.is_some(),
-            // dest_reg: self.dest_reg.unwrap_or(0),
             dest_regs: [self.dest_reg.unwrap_or(0)],
             num_dest_regs: u32::from(self.dest_reg.is_some()),
             src_regs: self.src_regs,

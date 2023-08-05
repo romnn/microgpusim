@@ -7,9 +7,9 @@ mod ffi {
         type mem_fetch_bridge;
 
         type mem_fetch_ptr_shim;
-        fn get(self: &mem_fetch_ptr_shim) -> *const mem_fetch;
+        #[must_use] fn get(self: &mem_fetch_ptr_shim) -> *const mem_fetch;
 
-        unsafe fn new_mem_fetch_bridge(ptr: *const mem_fetch) -> SharedPtr<mem_fetch_bridge>;
+        #[must_use] unsafe fn new_mem_fetch_bridge(ptr: *const mem_fetch) -> SharedPtr<mem_fetch_bridge>;
         #[must_use]
         fn inner(self: &mem_fetch_bridge) -> *const mem_fetch;
     }

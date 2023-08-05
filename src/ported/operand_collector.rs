@@ -5,7 +5,7 @@ use bitvec::{array::BitArray, BitArr};
 use console::style;
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 use std::sync::Arc;
 
 pub const MAX_REG_OPERANDS: usize = 32;

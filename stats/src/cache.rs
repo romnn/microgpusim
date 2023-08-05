@@ -54,7 +54,7 @@ pub enum AccessStat {
     Status(RequestStatus),
 }
 
-pub type CacheCsvRow = ((AccessKind, AccessStat), usize);
+pub type CsvRow = ((AccessKind, AccessStat), usize);
 
 #[derive(Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Cache {
@@ -62,7 +62,8 @@ pub struct Cache {
 }
 
 impl Cache {
-    pub fn flatten(self) -> Vec<CacheCsvRow> {
+    #[must_use]
+    pub fn flatten(self) -> Vec<CsvRow> {
         let mut flattened: Vec<_> = self.accesses.into_iter().collect();
         flattened.sort_by_key(|(access, _)| *access);
         flattened
@@ -176,17 +177,19 @@ impl Cache {
     }
 }
 
-pub type PerCacheCsvRow = (usize, CacheCsvRow);
+pub type PerCacheCsvRow = (usize, CsvRow);
 
 #[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PerCache(pub HashMap<usize, Cache>);
 
 impl PerCache {
+    #[must_use]
     pub fn into_inner(self) -> HashMap<usize, Cache> {
         self.0
     }
 
+    #[must_use]
     pub fn flatten(self) -> Vec<PerCacheCsvRow> {
         let mut flattened: Vec<_> = self
             .into_inner()

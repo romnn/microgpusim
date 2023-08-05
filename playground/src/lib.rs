@@ -3,7 +3,7 @@
     clippy::missing_panics_doc,
     clippy::missing_safety_doc
 )]
-#![allow(warnings)]
+// #![allow(warnings)]
 
 pub mod addrdec;
 pub mod cache;
@@ -18,7 +18,6 @@ pub mod operand_collector;
 pub mod port;
 pub mod register_set;
 pub mod scheduler_unit;
-pub mod trace_parser;
 pub mod vec;
 pub mod warp;
 pub mod warp_inst;
@@ -30,7 +29,6 @@ use self::core::Core;
 use memory_paritition_unit::MemoryPartitionUnit;
 use memory_sub_partition::MemorySubPartition;
 use std::marker::PhantomData;
-use std::ops::Deref;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -63,7 +61,7 @@ impl<'a> Accelsim<'a> {
         let mut ffi_argv: Vec<&str> = vec![exe.as_os_str().to_str().unwrap()];
         ffi_argv.extend(args);
 
-        let mut accelsim_bridge =
+        let accelsim_bridge =
             playground_sys::main::new_accelsim_bridge(config.0, ffi_argv.as_slice());
 
         Ok(Self {

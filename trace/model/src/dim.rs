@@ -37,6 +37,7 @@ impl std::fmt::Display for Dim {
 }
 
 impl From<nvbit_model::Dim> for Dim {
+    #[inline]
     fn from(dim: nvbit_model::Dim) -> Self {
         let nvbit_model::Dim { x, y, z } = dim;
         Self { x, y, z }
@@ -72,13 +73,15 @@ impl PartialEq<Point> for Dim {
     }
 }
 
+#[must_use]
+#[inline]
 pub fn accelsim_block_id(block_id: &Dim, grid: &Dim) -> u64 {
-    let block_x = block_id.x as u64;
-    let block_y = block_id.y as u64;
-    let block_z = block_id.z as u64;
+    let block_x = u64::from(block_id.x);
+    let block_y = u64::from(block_id.y);
+    let block_z = u64::from(block_id.z);
 
-    let grid_x = grid.x as u64;
-    let grid_y = grid.y as u64;
+    let grid_x = u64::from(grid.x);
+    let grid_y = u64::from(grid.y);
 
     // tb_id = tb_id_z * grid_dim_y * grid_dim_x + tb_id_y * grid_dim_x + tb_id_x;
     block_z * grid_y * grid_x + block_y * grid_x + block_x
@@ -93,23 +96,26 @@ pub struct Point {
 }
 
 impl std::fmt::Display for Point {
-    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "({},{},{})", self.x, self.y, self.z)
     }
 }
 
 impl Point {
+    #[must_use]
+    #[allow(clippy::needless_pass_by_value)]
     pub fn new(point: Dim, bounds: Dim) -> Self {
         let Dim { x, y, z } = point;
         Self { x, y, z, bounds }
     }
 
+    #[must_use]
     pub fn to_dim(&self) -> Dim {
         let Self { x, y, z, .. } = self.clone();
         Dim { x, y, z }
     }
 
+    #[must_use]
     pub fn id(&self) -> u64 {
         let Self { x, y, z, bounds } = self;
         u64::from(*x)
@@ -117,14 +123,9 @@ impl Point {
             + u64::from(bounds.x) * u64::from(bounds.y) * u64::from(*z)
     }
 
+    #[must_use]
     pub fn accelsim_id(&self) -> u64 {
-        // let Self { x, y, z, bounds } = self;
         accelsim_block_id(&self.to_dim(), &self.bounds)
-        // let grid_x = bounds.x as u64;
-        // let grid_y = bounds.y as u64;
-        //
-        // // tb_id = tb_id_z * grid_dim_y * grid_dim_x + tb_id_y * grid_dim_x + tb_id_x;
-        // u64::from(*z) * grid_y * grid_x + u64::from(*y) * grid_x + u64::from(*x)
     }
 }
 
@@ -179,49 +180,6 @@ impl IntoIterator for Dim {
     }
 }
 
-// impl Ord for Dim {
-//     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-//         // self.as_tuple().cmp(&other.as_tuple())
-//         todo!();
-//     }
-// }
-//
-// impl PartialOrd for Dim {
-//     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-//         Some(self.cmp(other))
-//     }
-// }
-
-//   bool no_more_ctas_to_run() const {
-//     return (m_next_cta.x >= m_grid_dim.x || m_next_cta.y >= m_grid_dim.y ||
-//             m_next_cta.z >= m_grid_dim.z);
-//   }
-//
-// this is the default tuple sorting but its only used for stream vector
-// bool operator()(const dim3 &a, const dim3 &b) const {
-//     if (a.z < b.z)
-//       return true;
-//     else if (a.y < b.y)
-//       return true;
-//     else if (a.x < b.x)
-//       return true;
-//     else
-//       return false;
-//   }
-//
-
-// void increment_x_then_y_then_z(dim3 &i, const dim3 &bound) {
-//   i.x++;
-//   if (i.x >= bound.x) {
-//     i.x = 0;
-//     i.y++;
-//     if (i.y >= bound.y) {
-//       i.y = 0;
-//       if (i.z < bound.z) i.z++;
-//     }
-//   }
-// }
-
 #[cfg(test)]
 mod tests {
     use super::{Dim, Point};
@@ -231,14 +189,14 @@ mod tests {
     fn test_block_id() {
         let grid = Dim { x: 2, y: 2, z: 2 };
         let block = Dim { x: 1, y: 0, z: 0 };
-        diff::assert_eq!(have: Point::new(block, grid.clone()).id(), want: 1);
+        diff::assert_eq!(have: Point::new(block, grid).id(), want: 1);
     }
 
     #[test]
     fn test_block_sorting() {
         let grid = Dim { x: 3, y: 4, z: 2 };
         let mut blocks: Vec<_> = grid.into_iter().collect();
-        blocks.sort_by_key(|block| block.accelsim_id());
+        blocks.sort_by_key(super::Point::accelsim_id);
         let blocks: Vec<_> = blocks.iter().map(|p| p.to_dim().into_tuple()).collect();
         dbg!(&blocks);
         diff::assert_eq!(

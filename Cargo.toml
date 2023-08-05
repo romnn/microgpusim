@@ -24,6 +24,7 @@ debug = 2 # full debug info
 opt-level = 3
 
 [profile.release]
+# lto just takes too long for now
 # lto = true
 opt-level = 3
 debug = true

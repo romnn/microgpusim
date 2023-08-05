@@ -31,14 +31,13 @@ impl Error {
                 eyre::Report::from(Error::MissingSharedLib(path.clone())).with_suggestion(|| {
                     let is_release = path
                         .components()
-                        .find(|&c| c.as_os_str() == "release")
-                        .is_some();
+                        .any(|c| c.as_os_str() == "release");
                     let cmd = if is_release {
                         "cargo build --release -p trace"
                     } else {
                         "cargo build -p trace"
                     };
-                    format!("did you build the tracer first using `{}`?", cmd)
+                    format!("did you build the tracer first using `{cmd}`?")
                 })
             }
             err => err.into(),

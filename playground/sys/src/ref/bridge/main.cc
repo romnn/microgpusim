@@ -6,9 +6,9 @@
 #include "../option_parser.hpp"
 #include "../stream_manager.hpp"
 #include "../trace_gpgpu_sim.hpp"
+#include "../trace_parser.hpp"
 #include "../memory_sub_partition.hpp"
 #include "../trace_simt_core_cluster.hpp"
-#include "../trace_parser.hpp"
 #include "../trace_shader_core_ctx.hpp"
 
 #include "playground-sys/src/bridge/main.rs.h"

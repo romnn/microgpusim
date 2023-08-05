@@ -62,7 +62,7 @@ pub struct Sim {
 }
 
 #[allow(clippy::module_name_repetitions)]
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct StatsBridge {
     pub accesses: Accesses,
     pub instructions: InstructionCounts,
@@ -111,7 +111,7 @@ impl StatsBridge {
 
 // dram stats
 impl StatsBridge {
-    pub fn set_total_dram_accesses(&mut self, v: u64) {
+    pub fn set_total_dram_accesses(&mut self, _v: u64) {
         // self.dram.total_accesses = v;
     }
     pub fn set_total_dram_reads(&mut self, v: u64) {

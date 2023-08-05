@@ -2,9 +2,10 @@
 
 - today:
 
-  - multiple memories
-
   - less important:
+
+    - perf: investigate if the many small allocations of msg for move in / move warp etc are problematic
+    - perf: investigate the performance overhead for finding the allocation ids
 
     - fix: investigate lockstep performance and see if we can reduce allocations?
     - fix: remove global statics to allow running tests in parallel
@@ -17,6 +18,7 @@
   - FIX: add l2 set index back in
   - generate plots and correlation stuff etc
 
+  - DONE: multiple memories
   - DONE: lockstep with multiple cores and clusters
   - DONE: validate accelsim and playground stats still match
   - DONE: add flag for playground to run in accelsim compatibility mode

@@ -2,9 +2,9 @@ use crate::ported;
 use playground::types;
 use serde::Serialize;
 
-impl From<types::mf_type> for ported::mem_fetch::Kind {
-    fn from(kind: types::mf_type) -> Self {
-        use types::mf_type;
+impl From<types::mem_fetch::mf_type> for ported::mem_fetch::Kind {
+    fn from(kind: types::mem_fetch::mf_type) -> Self {
+        use types::mem_fetch::mf_type;
         match kind {
             mf_type::READ_REQUEST => ported::mem_fetch::Kind::READ_REQUEST,
             mf_type::WRITE_REQUEST => ported::mem_fetch::Kind::WRITE_REQUEST,
@@ -14,22 +14,23 @@ impl From<types::mf_type> for ported::mem_fetch::Kind {
     }
 }
 
-impl From<types::mem_access_type> for ported::mem_fetch::AccessKind {
-    fn from(kind: types::mem_access_type) -> Self {
+impl From<types::mem_fetch::mem_access_type> for ported::mem_fetch::AccessKind {
+    fn from(kind: types::mem_fetch::mem_access_type) -> Self {
         use ported::mem_fetch::AccessKind;
+        use types::mem_fetch::mem_access_type;
         match kind {
-            types::mem_access_type::GLOBAL_ACC_R => AccessKind::GLOBAL_ACC_R,
-            types::mem_access_type::LOCAL_ACC_R => AccessKind::LOCAL_ACC_R,
-            types::mem_access_type::CONST_ACC_R => AccessKind::CONST_ACC_R,
-            types::mem_access_type::TEXTURE_ACC_R => AccessKind::TEXTURE_ACC_R,
-            types::mem_access_type::GLOBAL_ACC_W => AccessKind::GLOBAL_ACC_W,
-            types::mem_access_type::LOCAL_ACC_W => AccessKind::LOCAL_ACC_W,
-            types::mem_access_type::L1_WRBK_ACC => AccessKind::L1_WRBK_ACC,
-            types::mem_access_type::L2_WRBK_ACC => AccessKind::L2_WRBK_ACC,
-            types::mem_access_type::INST_ACC_R => AccessKind::INST_ACC_R,
-            types::mem_access_type::L1_WR_ALLOC_R => AccessKind::L1_WR_ALLOC_R,
-            types::mem_access_type::L2_WR_ALLOC_R => AccessKind::L2_WR_ALLOC_R,
-            other @ types::mem_access_type::NUM_MEM_ACCESS_TYPE => {
+            mem_access_type::GLOBAL_ACC_R => AccessKind::GLOBAL_ACC_R,
+            mem_access_type::LOCAL_ACC_R => AccessKind::LOCAL_ACC_R,
+            mem_access_type::CONST_ACC_R => AccessKind::CONST_ACC_R,
+            mem_access_type::TEXTURE_ACC_R => AccessKind::TEXTURE_ACC_R,
+            mem_access_type::GLOBAL_ACC_W => AccessKind::GLOBAL_ACC_W,
+            mem_access_type::LOCAL_ACC_W => AccessKind::LOCAL_ACC_W,
+            mem_access_type::L1_WRBK_ACC => AccessKind::L1_WRBK_ACC,
+            mem_access_type::L2_WRBK_ACC => AccessKind::L2_WRBK_ACC,
+            mem_access_type::INST_ACC_R => AccessKind::INST_ACC_R,
+            mem_access_type::L1_WR_ALLOC_R => AccessKind::L1_WR_ALLOC_R,
+            mem_access_type::L2_WR_ALLOC_R => AccessKind::L2_WR_ALLOC_R,
+            other @ mem_access_type::NUM_MEM_ACCESS_TYPE => {
                 panic!("bad mem access kind: {:?}", other)
             }
         }
@@ -52,8 +53,8 @@ impl std::fmt::Debug for Cache {
     }
 }
 
-impl<T> From<ported::TagArray<T>> for Cache {
-    fn from(tag_array: ported::TagArray<T>) -> Self {
+impl<T> From<ported::tag_array::TagArray<T>> for Cache {
+    fn from(tag_array: ported::tag_array::TagArray<T>) -> Self {
         Self {
             lines: tag_array.lines.into_iter().map(Into::into).collect(),
         }
@@ -237,14 +238,9 @@ pub enum OperandCollectorUnitKind {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
 pub struct CollectorUnit {
-    // pub in_ports: Vec<RegisterSet>,
-    // pub out_ports: Vec<RegisterSet>,
-    // pub ids: Vec<OperandCollectorUnitKind>,
     pub warp_id: Option<usize>,
     pub warp_instr: Option<WarpInstruction>,
     pub output_register: Option<RegisterSet>,
-    // pub src_operands: Vec<Option<Operand>>, // ; MAX_REG_OPERANDS * 2],
-    // pub not_ready: BitArr!(for MAX_REG_OPERANDS * 2),
     pub not_ready: String,
     pub reg_id: Option<usize>,
     pub kind: OperandCollectorUnitKind,
@@ -254,8 +250,6 @@ pub struct CollectorUnit {
 pub struct DispatchUnit {
     pub last_cu: usize,
     pub next_cu: usize,
-    // pub sub_core_model: bool,
-    // pub num_warp_schedulers: usize,
     pub kind: OperandCollectorUnitKind,
 }
 
@@ -285,16 +279,7 @@ impl Port {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize)]
 pub struct Arbiter {
-    // pub queue: Vec<Vec<Operand>>,
-    // pub allocations: Vec<Allocation>,
     pub last_cu: usize,
-}
-
-impl Arbiter {
-    // pub fn is_empty(&self) -> bool {
-    //     self.in_ports.iter().all(RegisterSet::is_empty)
-    //         && self.in_ports.iter().all(RegisterSet::is_empty)
-    // }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize)]
@@ -394,8 +379,6 @@ impl<'a> From<playground::operand_collector::OperandCollector<'a>> for OperandCo
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct Scheduler {
     pub prioritized_warp_ids: Vec<(usize, usize)>,
-    // pub prioritized_warp_ids: Vec<usize>,
-    // pub prioritized_dynamic_warp_ids: Vec<usize>,
 }
 
 impl<'a> From<playground::scheduler_unit::SchedulerUnit<'a>> for Scheduler {
@@ -411,7 +394,6 @@ impl<'a> From<playground::scheduler_unit::SchedulerUnit<'a>> for Scheduler {
                 .into_iter()
                 .zip(prioritized_dynamic_warp_ids.into_iter())
                 .collect(),
-            // prioritized_dynamic_warp_ids,
         }
     }
 }
@@ -472,16 +454,6 @@ pub struct PendingRegisterWrites {
     pub pending: usize,
 }
 
-// impl std::fmt::Debug for PendingRegisterWrites {
-//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-//         f.debug_tuple("")
-//             .field(&self.warp_id)
-//             .field(&self.reg_num)
-//             .field(&self.pending)
-//             .finish()
-//     }
-// }
-
 impl From<&playground::core::pending_register_writes> for PendingRegisterWrites {
     fn from(writes: &playground::core::pending_register_writes) -> Self {
         Self {
@@ -497,30 +469,19 @@ pub struct Simulation {
     pub last_cluster_issue: usize,
     // per sub partition
     pub interconn_to_l2_queue_per_sub: Box<[Vec<MemFetch>]>,
-    // pub interconn_to_l2_queue_per_sub: Vec<Vec<MemFetch>>,
     pub l2_to_interconn_queue_per_sub: Box<[Vec<MemFetch>]>,
-    // pub l2_to_interconn_queue_per_sub: Vec<Vec<MemFetch>>,
     pub l2_to_dram_queue_per_sub: Box<[Vec<MemFetch>]>,
-    // pub l2_to_dram_queue_per_sub: Vec<Vec<MemFetch>>,
     pub dram_to_l2_queue_per_sub: Box<[Vec<MemFetch>]>,
-    // pub dram_to_l2_queue_per_sub: Vec<Vec<MemFetch>>,
     pub l2_cache_per_sub: Box<[Option<Cache>]>,
-    // pub l2_cache_per_sub: Vec<Option<Cache>>,
     // per partition
     pub dram_latency_queue_per_partition: Box<[Vec<MemFetch>]>,
-    // pub dram_latency_queue_per_partition: Vec<Vec<MemFetch>>,
     // per cluster
     pub core_sim_order_per_cluster: Box<[Box<[usize]>]>,
-    // pub core_sim_order_per_cluster: Vec<Vec<usize>>,
     // per core
     pub functional_unit_pipelines_per_core: Box<[Vec<RegisterSet>]>,
-    // pub functional_unit_pipelines_per_core: Vec<Vec<RegisterSet>>,
     pub operand_collector_per_core: Box<[Option<OperandCollector>]>,
-    // pub operand_collector_per_core: Vec<Option<OperandCollector>>,
     pub scheduler_per_core: Box<[Box<[Scheduler]>]>,
-    // pub scheduler_per_core: Vec<Vec<Scheduler>>,
     pub pending_register_writes_per_core: Box<[Vec<PendingRegisterWrites>]>,
-    // pub pending_register_writes_per_core: Vec<Vec<PendingRegisterWrites>>,
 }
 
 impl Simulation {

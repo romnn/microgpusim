@@ -105,7 +105,7 @@ async fn main() -> eyre::Result<()> {
     dbg!(&trace_options);
     invoke_trace::trace(exec, exec_args, &trace_options)
         .await
-        .map_err(|err| err.into_eyre())?;
+        .map_err(invoke_trace::Error::into_eyre)?;
     println!("tracing done in {:?}", start.elapsed());
     Ok(())
 }

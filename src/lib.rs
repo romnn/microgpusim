@@ -1,5 +1,5 @@
 #![allow(non_camel_case_types, clippy::upper_case_acronyms)]
-#![allow(warnings)]
+// #![allow(warnings)]
 
 // pub mod gpgpusim;
 pub mod cache;

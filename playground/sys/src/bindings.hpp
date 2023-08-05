@@ -73,7 +73,6 @@
 #include "ref/trace_function_info.hpp"
 #include "ref/trace_gpgpu_sim.hpp"
 #include "ref/trace_kernel_info.hpp"
-#include "ref/trace_parser.hpp"
 #include "ref/trace_shader_core_ctx.hpp"
 #include "ref/trace_shd_warp.hpp"
 #include "ref/trace_simt_core_cluster.hpp"

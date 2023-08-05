@@ -3,11 +3,10 @@
 use color_eyre::eyre;
 use playground_sys::types;
 use std::ffi::CString;
-use std::os::raw::c_char;
 use std::path::Path;
 
-pub struct InterconnectInterface(cxx::UniquePtr<types::InterconnectInterface>);
-pub struct BoxInterconnect(cxx::UniquePtr<types::BoxInterconnect>);
+pub struct InterconnectInterface(cxx::UniquePtr<types::interconnect::InterconnectInterface>);
+pub struct BoxInterconnect(cxx::UniquePtr<types::interconnect::BoxInterconnect>);
 
 impl InterconnectInterface {
     #[must_use]
@@ -15,7 +14,7 @@ impl InterconnectInterface {
         let config_file = config_file.canonicalize().unwrap();
         let config_file = CString::new(&*config_file.to_string_lossy()).unwrap();
         let mut interconn =
-            Self(unsafe { types::new_interconnect_interface(config_file.as_ptr()) });
+            Self(unsafe { types::interconnect::new_interconnect_interface(config_file.as_ptr()) });
         interconn.create_interconnect(num_clusters, num_mem_sub_partitions);
         interconn.init();
         interconn
@@ -27,7 +26,8 @@ impl BoxInterconnect {
     pub fn new(config_file: &Path, num_clusters: u32, num_mem_sub_partitions: u32) -> Self {
         let config_file = config_file.canonicalize().unwrap();
         let config_file = CString::new(&*config_file.to_string_lossy()).unwrap();
-        let mut interconn = Self(unsafe { types::new_box_interconnect(config_file.as_ptr()) });
+        let mut interconn =
+            Self(unsafe { types::interconnect::new_box_interconnect(config_file.as_ptr()) });
         interconn.create_interconnect(num_clusters, num_mem_sub_partitions);
         interconn.init();
         interconn
@@ -65,8 +65,8 @@ impl BridgedInterconnect for InterconnectInterface {
     fn num_nodes(&self) -> u32 {
         self.0.GetNumNodes()
     }
+    #[must_use]
     fn num_shaders(&self) -> u32 {
-        #[must_use]
         self.0.GetNumShaders()
     }
     #[must_use]
@@ -178,7 +178,7 @@ where
 
     #[must_use]
     pub fn pop(&mut self, node: u32) -> Option<Box<T>> {
-        let value = unsafe { self.inner.pop(node) };
+        let value = self.inner.pop(node);
         if value.is_null() {
             None
         } else {
@@ -188,7 +188,7 @@ where
     }
 
     pub fn push(&mut self, src_node: u32, dest_node: u32, value: Box<T>) {
-        let mut value: &mut T = Box::leak(value);
+        let value: &mut T = Box::leak(value);
         assert!(self.inner.has_buffer(src_node, 8));
         unsafe {
             self.inner.push(
@@ -201,7 +201,7 @@ where
     }
 }
 
-pub struct IntersimConfig(cxx::UniquePtr<types::IntersimConfig>);
+pub struct IntersimConfig(cxx::UniquePtr<types::interconnect::IntersimConfig>);
 
 impl std::fmt::Display for IntersimConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -225,19 +225,22 @@ impl Default for IntersimConfig {
 impl IntersimConfig {
     #[must_use]
     pub fn new() -> Self {
-        Self(types::new_intersim_config())
+        Self(types::interconnect::new_intersim_config())
     }
 
     pub fn from_file(path: &Path) -> eyre::Result<Self> {
-        let mut config = Self(types::new_intersim_config());
+        let mut config = Self(types::interconnect::new_intersim_config());
         config.parse_file(path)?;
         Ok(config)
     }
 
     fn parse_file(&mut self, path: &Path) -> eyre::Result<()> {
-        let config_file = path.canonicalize()?.to_string_lossy().to_string();
-        cxx::let_cxx_string!(config_file = config_file);
-        self.0.pin_mut().ParseFile(&config_file);
+        let config_file = path.canonicalize()?;
+        cxx::let_cxx_string!(config_file_string = config_file.to_string_lossy().to_string());
+        let ret_code = self.0.pin_mut().ParseFile(&config_file_string);
+        if ret_code != 0 {
+            eyre::bail!("error parsing config file {}", config_file.display());
+        }
         Ok(())
     }
 

@@ -25,7 +25,7 @@ pub fn packbits(mask: u64, val: u64, low: u8, high: u8) -> u64 {
 pub struct AddressTranslation(cxx::UniquePtr<types::addrdec::linear_to_raw_address_translation>);
 
 impl std::fmt::Debug for AddressTranslation {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut std::fmt::Formatter) -> std::fmt::Result {
         self.0.print();
         Ok(())
     }

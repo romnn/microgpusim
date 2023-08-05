@@ -15,7 +15,6 @@ pub mod operand_collector;
 pub mod register_set;
 pub mod scheduler_unit;
 pub mod stats;
-pub mod trace_parser;
 pub mod types;
 pub mod warp_inst;
 

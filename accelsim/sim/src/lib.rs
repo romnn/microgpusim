@@ -119,7 +119,7 @@ pub async fn simulate_trace(
         &kernelslist,
         &config_dir,
         profile,
-        &config,
+        config,
         &setup_env_path,
     )?;
     log::debug!("{}", &tmp_sim_sh);

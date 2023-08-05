@@ -16,7 +16,7 @@ impl<'a> OperandCollector<'a> {
         }
     }
 
-    pub fn arbiter(&'a self) -> &'a arbiter_t {
+    #[must_use] pub fn arbiter(&'a self) -> &'a arbiter_t {
         self.inner.get_arbiter()
     }
 
@@ -24,7 +24,7 @@ impl<'a> OperandCollector<'a> {
         self.inner.get_dispatch_units().iter()
     }
 
-    pub fn collector_units(&'a self) -> Vec<super::collector_unit::CollectorUnit<'a>> {
+    #[must_use] pub fn collector_units(&'a self) -> Vec<super::collector_unit::CollectorUnit<'a>> {
         self.inner
             .get_collector_units()
             .into_iter()
@@ -39,8 +39,7 @@ impl<'a> OperandCollector<'a> {
             .collect()
     }
 
-    pub fn ports(&'a self) -> Vec<super::port::Port<'a>> {
-        use playground_sys::input_port::new_input_port_bridge;
+    #[must_use] pub fn ports(&'a self) -> Vec<super::port::Port<'a>> {
         self.inner
             .get_input_ports()
             .iter()

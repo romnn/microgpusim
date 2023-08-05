@@ -1,4 +1,3 @@
-use super::cache::L2Cache;
 use super::mem_fetch::{get_mem_fetches, MemFetch};
 use playground_sys::memory_partition_unit::memory_sub_partition_bridge;
 
@@ -27,7 +26,7 @@ impl<'a> MemorySubPartition<'a> {
     }
 
     #[must_use]
-    pub fn l2_cache(&self) -> L2Cache<'a> {
-        L2Cache::new(self.0.get_l2_cache())
+    pub fn l2_cache(&self) -> super::cache::L2<'a> {
+        super::cache::L2::new(self.0.get_l2_cache())
     }
 }

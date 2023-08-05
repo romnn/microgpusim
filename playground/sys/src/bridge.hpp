@@ -12,7 +12,6 @@
 #include "./ref/bridge/memory_partition_unit.hpp"
 #include "./ref/bridge/operand_collector.hpp"
 #include "./ref/bridge/scheduler_unit.hpp"
-#include "./ref/bridge/trace_parser.hpp"
 #include "./ref/bridge/warp_inst.hpp"
 
 using c_void = void;

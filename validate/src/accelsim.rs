@@ -156,7 +156,7 @@ pub async fn simulate(
 
     validate::write_csv_rows(
         open_writable(stats_dir.join("raw.stats.csv"))?,
-        &stats.into_inner().into_iter().collect::<Vec<_>>(),
+        &stats.into_iter().collect::<Vec<_>>(),
     )?;
 
     // let flat_stats: Vec<_> = stats.into_inner().into_iter().collect();

@@ -1,6 +1,5 @@
 pub use crate::bridge::stats::StatsBridge as Stats;
 pub use crate::bridge::stats::*;
-use stats::ConvertHashMap;
 
 impl From<Cache> for stats::Cache {
     fn from(stats: crate::bridge::stats::Cache) -> Self {

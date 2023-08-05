@@ -265,7 +265,7 @@ fn flatten(value: serde_yaml::Value) -> Vec<PrimitiveValue> {
     }
 }
 
-pub fn bench_config_name(name: &str, input: &super::matrix::Input) -> String {
+#[must_use] pub fn bench_config_name(name: &str, input: &super::matrix::Input) -> String {
     // let bench_config_dir_name: Vec<_> = input
     //     .values()
     //     .cloned()
@@ -637,9 +637,7 @@ impl Benchmarks {
         benchmark_name: impl Into<String>,
         input_idx: usize,
     ) -> Option<&BenchmarkConfig> {
-        self.get_input_configs(benchmark_name.into())
-            .filter(|config| config.input_idx == input_idx)
-            .next()
+        self.get_input_configs(benchmark_name.into()).find(|config| config.input_idx == input_idx)
     }
 }
 

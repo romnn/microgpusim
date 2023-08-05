@@ -2,43 +2,6 @@ pub mod dim;
 pub use dim::{Dim, Point};
 
 use serde::{Deserialize, Serialize};
-// use std::ffi::OsStr;
-// use std::path::PathBuf;
-
-// /// Extract app arguments.
-// ///
-// /// This skips the binary (`argv[0]`) itself.
-// #[must_use]
-// pub fn app_args(bin_name: Option<&str>) -> Vec<String> {
-//     std::env::args()
-//         .skip_while(|arg| {
-//             let arg = PathBuf::from(arg);
-//             let Some(arg_name) = arg.file_name().and_then(OsStr::to_str) else {
-//                 return false;
-//             };
-//             match bin_name {
-//                 Some(b) => b == arg_name,
-//                 None => false,
-//             }
-//         })
-//         .collect()
-// }
-//
-// /// Buidld unique app prefix.
-// ///
-// /// Used for storing traces related to a specific invocation
-// /// of an application with arguments.
-// pub fn app_prefix(bin_name: Option<&str>) -> String {
-//     let mut args: Vec<_> = app_args(bin_name);
-//     if let Some(executable) = args.get_mut(0) {
-//         *executable = PathBuf::from(&*executable)
-//             .file_name()
-//             .and_then(OsStr::to_str)
-//             .map(String::from)
-//             .unwrap_or(String::new());
-//     }
-//     args.join("-")
-// }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[allow(clippy::struct_excessive_bools)]
@@ -73,6 +36,8 @@ pub struct MemAccessTraceEntry {
 /// Sanity checks a trace for _any_ valid sorting.
 ///
 /// In order to pass, a trace must not contain any non-consecutive duplicate block or warp ids.
+#[must_use]
+#[inline]
 pub fn is_valid_trace(trace: &[MemAccessTraceEntry]) -> bool {
     use itertools::Itertools;
 
@@ -93,31 +58,6 @@ pub fn is_valid_trace(trace: &[MemAccessTraceEntry]) -> bool {
     // assert_eq!(duplicate_warp_ids, 0);
     duplicate_blocks == 0 && duplicate_warp_ids == 0
 }
-
-// impl MemAccessTraceEntry {
-//     #[must_use]
-//     #[inline]
-//     pub fn sort_key(&self) -> (&u64, u64, &u32) {
-//         (
-//             &self.kernel_id,
-//             self.block_id.accelsim_id(),
-//             // Point(self.block_id, self.grid).accelsim_id(),
-//             &self.warp_id_in_block,
-//         )
-//     }
-// }
-//
-// impl Ord for MemAccessTraceEntry {
-//     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-//         self.sort_key().cmp(&other.sort_key())
-//     }
-// }
-//
-// impl PartialOrd for MemAccessTraceEntry {
-//     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-//         Some(self.cmp(other))
-//     }
-// }
 
 /// A memory allocation.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

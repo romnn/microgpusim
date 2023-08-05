@@ -1,4 +1,4 @@
-#![allow(warnings)]
+// #![allow(warnings)]
 
 use clap::{Parser, Subcommand};
 use color_eyre::eyre;

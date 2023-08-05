@@ -1,4 +1,5 @@
 use playground_sys::warp_inst::warp_inst_bridge;
+#[allow(clippy::module_name_repetitions)]
 pub use playground_sys::warp_inst::warp_inst_t;
 use std::marker::PhantomData;
 
@@ -17,8 +18,9 @@ impl<'a> WarpInstr<'a> {
         }
     }
 
+    #[must_use]
     pub fn opcode_str(&self) -> &str {
-        let inst: &warp_inst_t = &*self;
+        let inst: &warp_inst_t = self;
         let opcode = unsafe { std::ffi::CStr::from_ptr(inst.opcode_str()) };
         opcode.to_str().unwrap()
     }

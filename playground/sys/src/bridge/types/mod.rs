@@ -8,12 +8,4 @@ pub mod scheduler_unit;
 pub mod trace_shd_warp;
 pub mod warp_inst;
 
-pub use addrdec::*;
-pub use cache_config::*;
-pub use interconnect::*;
-pub use mem_fetch::*;
-pub use readonly_cache::*;
-pub use register_set::*;
-pub use scheduler_unit::*;
-pub use trace_shd_warp::*;
-pub use warp_inst::*;
+pub use interconnect::c_void;

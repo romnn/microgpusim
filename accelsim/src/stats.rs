@@ -2,12 +2,12 @@ use color_eyre::eyre;
 use std::collections::HashMap;
 
 pub type Stat = (String, u16, String);
-pub type StatsMap = indexmap::IndexMap<Stat, f64>;
+pub type Map = indexmap::IndexMap<Stat, f64>;
 
 /// Stats
 #[repr(transparent)]
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct Stats(StatsMap);
+pub struct Stats(Map);
 
 impl IntoIterator for Stats {
     type Item = (Stat, f64);
@@ -28,10 +28,6 @@ impl FromIterator<(Stat, f64)> for Stats {
 }
 
 impl Stats {
-    pub fn into_inner(self) -> StatsMap {
-        self.0
-    }
-
     pub fn find_stat(&self, name: impl AsRef<str>) -> Option<&f64> {
         self.0.iter().find_map(|((_, _, stat_name), value)| {
             if stat_name == name.as_ref() {
@@ -44,7 +40,7 @@ impl Stats {
 }
 
 impl std::ops::Deref for Stats {
-    type Target = StatsMap;
+    type Target = Map;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -65,7 +61,7 @@ impl std::fmt::Display for Stats {
         let mut s = f.debug_struct("Stats");
         for ((current_kernel, running_kcount, stat_name), value) in stats.iter() {
             s.field(
-                &format!("{} / {} / {}", current_kernel, running_kcount, stat_name),
+                &format!("{current_kernel} / {running_kcount} / {stat_name}"),
                 value,
             );
         }
@@ -76,6 +72,7 @@ impl std::fmt::Display for Stats {
 impl TryFrom<Stats> for stats::Stats {
     type Error = eyre::Report;
 
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     fn try_from(stats: Stats) -> Result<Self, Self::Error> {
         use stats::{
             cache::{AccessStat, RequestStatus, ReservationFailure},
