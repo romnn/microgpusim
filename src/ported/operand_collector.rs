@@ -166,19 +166,19 @@ impl CollectorUnit {
         // let mut output_register = self.output_register.as_mut().unwrap();
 
         if self.sub_core_model {
-            let msg = format!(
-                "operand collector: move warp instr {:?} to output register (reg_id={})",
-                warp_instr.as_ref().map(ToString::to_string),
-                self.reg_id,
-            );
+            // let msg = format!(
+            //     "operand collector: move warp instr {:?} to output register (reg_id={})",
+            //     warp_instr.as_ref().map(ToString::to_string),
+            //     self.reg_id,
+            // );
 
-            output_register.move_in_from_sub_core(self.reg_id, warp_instr, msg);
+            output_register.move_in_from_sub_core(self.reg_id, warp_instr);
         } else {
-            let msg = format!(
-                "operand collector: move warp instr {:?} to output register",
-                warp_instr.as_ref().map(ToString::to_string),
-            );
-            output_register.move_in_from(warp_instr, msg);
+            // let msg = format!(
+            //     "operand collector: move warp instr {:?} to output register",
+            //     warp_instr.as_ref().map(ToString::to_string),
+            // );
+            output_register.move_in_from(warp_instr);
         }
 
         self.free = true;
@@ -256,12 +256,12 @@ impl CollectorUnit {
                 self.not_ready.to_bit_string(),
             );
 
-            let msg = format!(
-                "operand collector: move input register {} to warp instruction {:?}",
-                &input_reg_set,
-                self.warp_instr.as_ref().map(ToString::to_string),
-            );
-            input_reg_set.move_out_to(&mut self.warp_instr, msg);
+            // let msg = format!(
+            //     "operand collector: move input register {} to warp instruction {:?}",
+            //     &input_reg_set,
+            //     self.warp_instr.as_ref().map(ToString::to_string),
+            // );
+            input_reg_set.move_out_to(&mut self.warp_instr);
             true
         } else {
             false

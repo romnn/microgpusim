@@ -72,7 +72,7 @@ enum special_operations_t {
   FP_EXP_OP
 };
 typedef enum special_operations_t
-    special_ops;  // Required to identify for the power model
+    special_ops; // Required to identify for the power model
 enum operation_pipeline_t {
   UNKOWN_OP,
   SP__OP,
@@ -108,8 +108,8 @@ const unsigned MAX_WARP_PER_SM = 1 << 6;
 // from abstract_hardware_model.h
 const unsigned MAX_MEMORY_ACCESS_SIZE = 128;
 typedef std::bitset<MAX_MEMORY_ACCESS_SIZE> mem_access_byte_mask_t;
-const unsigned SECTOR_CHUNCK_SIZE = 4;  // four sectors
-const unsigned SECTOR_SIZE = 32;        // sector is 32 bytes width
+const unsigned SECTOR_CHUNCK_SIZE = 4; // four sectors
+const unsigned SECTOR_SIZE = 32;       // sector is 32 bytes width
 typedef std::bitset<SECTOR_CHUNCK_SIZE> mem_access_sector_mask_t;
 
 enum FuncCache {
@@ -118,10 +118,9 @@ enum FuncCache {
   FuncCachePreferL1 = 2
 };
 
-
 // fake gpgpusim context
 class gpgpu_context {
- public:
+public:
   gpgpu_context() {
     // g_global_allfiles_symbol_table = NULL;
     sm_next_access_uid = 0;
@@ -139,14 +138,14 @@ class gpgpu_context {
   const char *g_filename;
   unsigned sm_next_access_uid;
   unsigned warp_inst_sm_next_uid;
-  unsigned operand_info_sm_next_uid;  // uid for operand_info
-  unsigned kernel_info_m_next_uid;    // uid for kernel_info_t
-  unsigned g_num_ptx_inst_uid;        // uid for ptx inst inside ptx_instruction
+  unsigned operand_info_sm_next_uid; // uid for operand_info
+  unsigned kernel_info_m_next_uid;   // uid for kernel_info_t
+  unsigned g_num_ptx_inst_uid;       // uid for ptx inst inside ptx_instruction
   unsigned long long g_ptx_cta_info_uid;
-  unsigned symbol_sm_next_uid;  // uid for symbol
+  unsigned symbol_sm_next_uid; // uid for symbol
   unsigned function_info_sm_next_uid;
   // std::vector<ptx_instruction *>
-      // s_g_pc_to_insn;  // a direct mapping from PC to instruction
+  // s_g_pc_to_insn;  // a direct mapping from PC to instruction
   bool debug_tensorcore;
 
   // objects pointers for each file
@@ -165,8 +164,8 @@ class gpgpu_context {
   void cuobjdumpParseBinary(unsigned int handle);
   class symbol_table *gpgpu_ptx_sim_load_ptx_from_string(const char *p,
                                                          unsigned source_num);
-  class symbol_table *gpgpu_ptx_sim_load_ptx_from_filename(
-      const char *filename);
+  class symbol_table *
+  gpgpu_ptx_sim_load_ptx_from_filename(const char *filename);
   void gpgpu_ptx_info_load_from_filename(const char *filename,
                                          unsigned sm_version);
   void gpgpu_ptxinfo_load_from_string(const char *p_for_info,
@@ -191,18 +190,18 @@ enum cache_operator_type {
   CACHE_UNDEFINED,
 
   // loads
-  CACHE_ALL,       // .ca
-  CACHE_LAST_USE,  // .lu
-  CACHE_VOLATILE,  // .cv
-  CACHE_L1,        // .nc
+  CACHE_ALL,      // .ca
+  CACHE_LAST_USE, // .lu
+  CACHE_VOLATILE, // .cv
+  CACHE_L1,       // .nc
 
   // loads and stores
-  CACHE_STREAMING,  // .cs
-  CACHE_GLOBAL,     // .cg
+  CACHE_STREAMING, // .cs
+  CACHE_GLOBAL,    // .cg
 
   // stores
-  CACHE_WRITE_BACK,    // .wb
-  CACHE_WRITE_THROUGH  // .wt
+  CACHE_WRITE_BACK,   // .wb
+  CACHE_WRITE_THROUGH // .wt
 };
 
 enum _memory_space_t {
@@ -223,7 +222,7 @@ enum _memory_space_t {
 };
 
 class memory_space_t {
- public:
+public:
   memory_space_t() {
     m_type = undefined_space;
     m_bank = 0;
@@ -257,31 +256,31 @@ class memory_space_t {
   }
   bool is_global() const { return (m_type == global_space); }
 
- private:
+private:
   enum _memory_space_t m_type;
-  unsigned m_bank;  // n in ".const[n]"; note .const == .const[0] (see PTX 2.1
-                    // manual, sec. 5.1.3)
+  unsigned m_bank; // n in ".const[n]"; note .const == .const[0] (see PTX 2.1
+                   // manual, sec. 5.1.3)
 };
 
 enum mem_access_type {
-    GLOBAL_ACC_R,
-    LOCAL_ACC_R,
-    CONST_ACC_R,
-    TEXTURE_ACC_R,
-    GLOBAL_ACC_W,
-    LOCAL_ACC_W,
-    L1_WRBK_ACC,
-    L2_WRBK_ACC,
-    INST_ACC_R,
-    L1_WR_ALLOC_R,
-    L2_WR_ALLOC_R,
-    NUM_MEM_ACCESS_TYPE,
+  GLOBAL_ACC_R,
+  LOCAL_ACC_R,
+  CONST_ACC_R,
+  TEXTURE_ACC_R,
+  GLOBAL_ACC_W,
+  LOCAL_ACC_W,
+  L1_WRBK_ACC,
+  L2_WRBK_ACC,
+  INST_ACC_R,
+  L1_WR_ALLOC_R,
+  L2_WR_ALLOC_R,
+  NUM_MEM_ACCESS_TYPE,
 };
 
 const char *mem_access_type_str(enum mem_access_type access_type);
 
 class mem_access_t {
- public:
+public:
   mem_access_t(gpgpu_context *ctx) { init(ctx); }
   mem_access_t(mem_access_type type, new_addr_type address, unsigned size,
                bool wr, gpgpu_context *ctx) {
@@ -295,8 +294,7 @@ class mem_access_t {
                bool wr, const active_mask_t &active_mask,
                const mem_access_byte_mask_t &byte_mask,
                const mem_access_sector_mask_t &sector_mask, gpgpu_context *ctx)
-      : m_warp_mask(active_mask),
-        m_byte_mask(byte_mask),
+      : m_warp_mask(active_mask), m_byte_mask(byte_mask),
         m_sector_mask(sector_mask) {
     init(ctx);
     m_type = type;
@@ -318,48 +316,48 @@ class mem_access_t {
     fprintf(fp, "addr=0x%llx, %s, size=%u, ", m_addr,
             m_write ? "store" : "load ", m_req_size);
     switch (m_type) {
-      case GLOBAL_ACC_R:
-        fprintf(fp, "GLOBAL_R");
-        break;
-      case LOCAL_ACC_R:
-        fprintf(fp, "LOCAL_R ");
-        break;
-      case CONST_ACC_R:
-        fprintf(fp, "CONST   ");
-        break;
-      case TEXTURE_ACC_R:
-        fprintf(fp, "TEXTURE ");
-        break;
-      case GLOBAL_ACC_W:
-        fprintf(fp, "GLOBAL_W");
-        break;
-      case LOCAL_ACC_W:
-        fprintf(fp, "LOCAL_W ");
-        break;
-      case L2_WRBK_ACC:
-        fprintf(fp, "L2_WRBK ");
-        break;
-      case INST_ACC_R:
-        fprintf(fp, "INST    ");
-        break;
-      case L1_WRBK_ACC:
-        fprintf(fp, "L1_WRBK ");
-        break;
-      default:
-        fprintf(fp, "unknown ");
-        break;
+    case GLOBAL_ACC_R:
+      fprintf(fp, "GLOBAL_R");
+      break;
+    case LOCAL_ACC_R:
+      fprintf(fp, "LOCAL_R ");
+      break;
+    case CONST_ACC_R:
+      fprintf(fp, "CONST   ");
+      break;
+    case TEXTURE_ACC_R:
+      fprintf(fp, "TEXTURE ");
+      break;
+    case GLOBAL_ACC_W:
+      fprintf(fp, "GLOBAL_W");
+      break;
+    case LOCAL_ACC_W:
+      fprintf(fp, "LOCAL_W ");
+      break;
+    case L2_WRBK_ACC:
+      fprintf(fp, "L2_WRBK ");
+      break;
+    case INST_ACC_R:
+      fprintf(fp, "INST    ");
+      break;
+    case L1_WRBK_ACC:
+      fprintf(fp, "L1_WRBK ");
+      break;
+    default:
+      fprintf(fp, "unknown ");
+      break;
     }
   }
 
   gpgpu_context *gpgpu_ctx;
 
- private:
+private:
   void init(gpgpu_context *ctx);
 
   unsigned m_uid;
-  new_addr_type m_addr;  // request address
+  new_addr_type m_addr; // request address
   bool m_write;
-  unsigned m_req_size;  // bytes
+  unsigned m_req_size; // bytes
   mem_access_type m_type;
   active_mask_t m_warp_mask;
   mem_access_byte_mask_t m_byte_mask;
@@ -371,7 +369,7 @@ class mem_access_t {
 #define MAX_REG_OPERANDS 32
 
 class inst_t {
- public:
+public:
   inst_t() {
     m_decoded = false;
     pc = (address_type)-1;
@@ -420,28 +418,28 @@ class inst_t {
   void set_bar_id(unsigned id) { bar_id = id; }
   void set_bar_count(unsigned count) { bar_count = count; }
 
-  address_type pc;  // program counter address of instruction
-  unsigned isize;   // size of instruction in bytes
-  op_type op;       // opcode (uarch visible)
+  address_type pc; // program counter address of instruction
+  unsigned isize;  // size of instruction in bytes
+  op_type op;      // opcode (uarch visible)
 
   barrier_type bar_type;
   reduction_type red_type;
   unsigned bar_id;
   unsigned bar_count;
 
-  types_of_operands oprnd_type;  // code (uarch visible) identify if the
-                                 // operation is an interger or a floating point
+  types_of_operands oprnd_type; // code (uarch visible) identify if the
+                                // operation is an interger or a floating point
   special_ops
-      sp_op;  // code (uarch visible) identify if int_alu, fp_alu, int_mul ....
-  operation_pipeline op_pipe;  // code (uarch visible) identify the pipeline of
-                               // the operation (SP, SFU or MEM)
-  mem_operation mem_op;        // code (uarch visible) identify memory type
-  _memory_op_t memory_op;      // memory_op used by ptxplus
+      sp_op; // code (uarch visible) identify if int_alu, fp_alu, int_mul ....
+  operation_pipeline op_pipe; // code (uarch visible) identify the pipeline of
+                              // the operation (SP, SFU or MEM)
+  mem_operation mem_op;       // code (uarch visible) identify memory type
+  _memory_op_t memory_op;     // memory_op used by ptxplus
   unsigned num_operands;
-  unsigned num_regs;  // count vector operand as one register operand
+  unsigned num_regs; // count vector operand as one register operand
 
-  address_type reconvergence_pc;  // -1 => not a branch, -2 => use function
-                                  // return address
+  address_type reconvergence_pc; // -1 => not a branch, -2 => use function
+                                 // return address
 
   unsigned out[8];
   unsigned outcount;
@@ -449,7 +447,7 @@ class inst_t {
   unsigned incount;
   unsigned char is_vectorin;
   unsigned char is_vectorout;
-  int pred;  // predicate register number
+  int pred; // predicate register number
   int ar1, ar2;
   // register number for bank conflict evaluation
   struct {
@@ -458,14 +456,14 @@ class inst_t {
   } arch_reg;
   // int arch_reg[MAX_REG_OPERANDS]; // register number for bank conflict
   // evaluation
-  unsigned latency;  // operation latency
+  unsigned latency; // operation latency
   unsigned initiation_interval;
 
-  unsigned data_size;  // what is the size of the word being operated on?
+  unsigned data_size; // what is the size of the word being operated on?
   memory_space_t space;
   cache_operator_type cache_op;
 
- protected:
+protected:
   bool m_decoded;
   virtual void pre_decode() {}
 };
@@ -475,7 +473,7 @@ enum divergence_support_t { POST_DOMINATOR = 1, NUM_SIMD_MODEL };
 const unsigned MAX_ACCESSES_PER_INSN_PER_THREAD = 8;
 
 class core_config {
- public:
+public:
   core_config(gpgpu_context *ctx) {
     gpgpu_ctx = ctx;
     m_valid = false;
@@ -515,7 +513,7 @@ class core_config {
   unsigned gpgpu_cache_constl1_linesize;
 
   unsigned gpgpu_max_insn_issue_per_warp;
-  bool gmem_skip_L1D;  // on = global memory access always skip the L1 cache
+  bool gmem_skip_L1D; // on = global memory access always skip the L1 cache
 
   bool adaptive_cache_config;
 };
@@ -533,7 +531,7 @@ struct dram_callback_t {
 };
 
 class warp_inst_t : public inst_t {
- public:
+public:
   // constructors
   warp_inst_t() {
     m_uid = 0;
@@ -566,7 +564,7 @@ class warp_inst_t : public inst_t {
 
   const active_mask_t &get_active_mask() const { return m_warp_active_mask; }
   void completed(unsigned long long cycle)
-      const;  // stat collection: called when the instruction is completed
+      const; // stat collection: called when the instruction is completed
 
   void set_addr(unsigned n, new_addr_type addr) {
     if (!m_per_scalar_thread_valid) {
@@ -598,13 +596,14 @@ class warp_inst_t : public inst_t {
     }
   }
   struct transaction_info {
-    std::bitset<4> chunks;  // bitmask: 32-byte chunks accessed
+    std::bitset<4> chunks; // bitmask: 32-byte chunks accessed
     mem_access_byte_mask_t bytes;
-    active_mask_t active;  // threads in this transaction
+    active_mask_t active; // threads in this transaction
 
     bool test_bytes(unsigned start_bit, unsigned end_bit) {
       for (unsigned i = start_bit; i <= end_bit; i++)
-        if (bytes.test(i)) return true;
+        if (bytes.test(i))
+          return true;
       return false;
     }
   };
@@ -619,15 +618,15 @@ class warp_inst_t : public inst_t {
                                               new_addr_type addr,
                                               unsigned segment_size);
 
-  void add_callback(unsigned lane_id,
-                    void (*function)(const class inst_t *,
-                                     class ptx_thread_info *),
-                    const inst_t *inst, class ptx_thread_info *thread,
-                    bool atomic) {
+  void
+  add_callback(unsigned lane_id,
+               void (*function)(const class inst_t *, class ptx_thread_info *),
+               const inst_t *inst, class ptx_thread_info *thread, bool atomic) {
     if (!m_per_scalar_thread_valid) {
       m_per_scalar_thread.resize(m_config->warp_size);
       m_per_scalar_thread_valid = true;
-      if (atomic) m_isatomic = true;
+      if (atomic)
+        m_isatomic = true;
     }
     m_per_scalar_thread[lane_id].callback.function = function;
     m_per_scalar_thread[lane_id].callback.instruction = inst;
@@ -649,13 +648,13 @@ class warp_inst_t : public inst_t {
   unsigned issued_count() const {
     assert(m_empty == false);
     return m_warp_issued_mask.count();
-  }  // for instruction counting
+  } // for instruction counting
   bool empty() const { return m_empty; }
   unsigned warp_id() const {
     assert(!m_empty);
     return m_warp_id;
   }
-  unsigned warp_id_func() const  // to be used in functional simulations only
+  unsigned warp_id_func() const // to be used in functional simulations only
   {
     return m_warp_id;
   }
@@ -682,7 +681,8 @@ class warp_inst_t : public inst_t {
   void accessq_pop_back() { m_accessq.pop_back(); }
 
   bool dispatch_delay() {
-    if (cycles > 0) cycles--;
+    if (cycles > 0)
+      cycles--;
     return cycles > 0;
   }
 
@@ -693,23 +693,23 @@ class warp_inst_t : public inst_t {
   unsigned get_schd_id() const { return m_scheduler_id; }
   active_mask_t get_warp_active_mask() const { return m_warp_active_mask; }
 
- protected:
+protected:
   unsigned m_uid;
   bool m_empty;
   bool m_cache_hit;
   unsigned long long issue_cycle;
-  unsigned cycles;  // used for implementing initiation interval delay
+  unsigned cycles; // used for implementing initiation interval delay
   bool m_isatomic;
   bool should_do_atomic;
   bool m_is_printf;
   unsigned m_warp_id;
   unsigned m_dynamic_warp_id;
   const core_config *m_config;
-  active_mask_t m_warp_active_mask;  // dynamic active mask for timing model
-                                     // (after predication)
+  active_mask_t m_warp_active_mask; // dynamic active mask for timing model
+                                    // (after predication)
   active_mask_t
-      m_warp_issued_mask;  // active mask at issue (prior to predication test)
-                           // -- for instruction counting
+      m_warp_issued_mask; // active mask at issue (prior to predication test)
+                          // -- for instruction counting
 
   struct per_thread_info {
     per_thread_info() {
@@ -718,27 +718,27 @@ class warp_inst_t : public inst_t {
     }
     dram_callback_t callback;
     new_addr_type
-        memreqaddr[MAX_ACCESSES_PER_INSN_PER_THREAD];  // effective address,
-                                                       // upto 8 different
-                                                       // requests (to support
-                                                       // 32B access in 8 chunks
-                                                       // of 4B each)
+        memreqaddr[MAX_ACCESSES_PER_INSN_PER_THREAD]; // effective address,
+                                                      // upto 8 different
+                                                      // requests (to support
+                                                      // 32B access in 8 chunks
+                                                      // of 4B each)
   };
   bool m_per_scalar_thread_valid;
   std::vector<per_thread_info> m_per_scalar_thread;
   bool m_mem_accesses_created;
   std::list<mem_access_t> m_accessq;
 
-  unsigned m_scheduler_id;  // the scheduler that issues this inst
+  unsigned m_scheduler_id; // the scheduler that issues this inst
 
   // Jin: cdp support
- public:
+public:
   int m_is_cdp;
 };
 
 // from gpgu-sim.h
 class memory_config {
- public:
+public:
   memory_config(gpgpu_context *ctx) {
     m_valid = false;
     gpgpu_dram_timing_opt = NULL;
@@ -820,14 +820,15 @@ class memory_config {
     }
     tWTP = (WL + (BL / data_command_freq_ratio) + tWR);
     dram_atom_size =
-        BL * busW * gpu_n_mem_per_ctrlr;  // burst length x bus width x # chips
-                                          // per partition
+        BL * busW * gpu_n_mem_per_ctrlr; // burst length x bus width x # chips
+                                         // per partition
 
     assert(m_n_sub_partition_per_memory_channel > 0);
     assert((nbk % m_n_sub_partition_per_memory_channel == 0) &&
            "Number of DRAM banks must be a perfect multiple of memory sub "
            "partition");
     m_n_mem_sub_partition = m_n_mem * m_n_sub_partition_per_memory_channel;
+
     fprintf(stdout, "Total number of memory sub partition = %u\n",
             m_n_mem_sub_partition);
 
@@ -863,46 +864,45 @@ class memory_config {
 
   // DRAM parameters
 
-  unsigned tCCDL;  // column to column delay when bank groups are enabled
-  unsigned tRTPL;  // read to precharge delay when bank groups are enabled for
-                   // GDDR5 this is identical to RTPS, if for other DRAM this is
-                   // different, you will need to split them in two
+  unsigned tCCDL; // column to column delay when bank groups are enabled
+  unsigned tRTPL; // read to precharge delay when bank groups are enabled for
+                  // GDDR5 this is identical to RTPS, if for other DRAM this is
+                  // different, you will need to split them in two
 
-  unsigned tCCD;    // column to column delay
-  unsigned tRRD;    // minimal time required between activation of rows in
-                    // different banks
-  unsigned tRCD;    // row to column delay - time required to activate a row
-                    // before a read
-  unsigned tRCDWR;  // row to column delay for a write command
-  unsigned tRAS;    // time needed to activate row
-  unsigned tRP;     // row precharge ie. deactivate row
+  unsigned tCCD;   // column to column delay
+  unsigned tRRD;   // minimal time required between activation of rows in
+                   // different banks
+  unsigned tRCD;   // row to column delay - time required to activate a row
+                   // before a read
+  unsigned tRCDWR; // row to column delay for a write command
+  unsigned tRAS;   // time needed to activate row
+  unsigned tRP;    // row precharge ie. deactivate row
   unsigned
-      tRC;  // row cycle time ie. precharge current, then activate different row
-  unsigned tCDLR;  // Last data-in to Read command (switching from write to
-                   // read)
-  unsigned tWR;    // Last data-in to Row precharge
+      tRC; // row cycle time ie. precharge current, then activate different row
+  unsigned tCDLR; // Last data-in to Read command (switching from write to
+                  // read)
+  unsigned tWR;   // Last data-in to Row precharge
 
-  unsigned CL;    // CAS latency
-  unsigned WL;    // WRITE latency
-  unsigned BL;    // Burst Length in bytes (4 in GDDR3, 8 in GDDR5)
-  unsigned tRTW;  // time to switch from read to write
-  unsigned tWTR;  // time to switch from write to read
-  unsigned tWTP;  // time to switch from write to precharge in the same bank
+  unsigned CL;   // CAS latency
+  unsigned WL;   // WRITE latency
+  unsigned BL;   // Burst Length in bytes (4 in GDDR3, 8 in GDDR5)
+  unsigned tRTW; // time to switch from read to write
+  unsigned tWTR; // time to switch from write to read
+  unsigned tWTP; // time to switch from write to precharge in the same bank
   unsigned busW;
 
-  unsigned nbkgrp;  // number of bank groups (has to be power of 2)
+  unsigned nbkgrp; // number of bank groups (has to be power of 2)
   unsigned
-      bk_tag_length;  // number of bits that define a bank inside a bank group
+      bk_tag_length; // number of bits that define a bank inside a bank group
 
   unsigned nbk;
 
   bool elimnate_rw_turnaround;
 
+  unsigned data_command_freq_ratio; // frequency ratio between DRAM data bus and
+                                    // command bus (2 for GDDR3, 4 for GDDR5)
   unsigned
-      data_command_freq_ratio;  // frequency ratio between DRAM data bus and
-                                // command bus (2 for GDDR3, 4 for GDDR5)
-  unsigned
-      dram_atom_size;  // number of bytes transferred per read or write command
+      dram_atom_size; // number of bytes transferred per read or write command
 
   linear_to_raw_address_translation m_address_mapping;
 
@@ -927,12 +927,12 @@ class memory_config {
 enum mf_type {
   READ_REQUEST = 0,
   WRITE_REQUEST,
-  READ_REPLY,  // send to shader
+  READ_REPLY, // send to shader
   WRITE_ACK
 };
 
 class mem_fetch {
- public:
+public:
   mem_fetch(const mem_access_t &access, const warp_inst_t *inst,
             unsigned ctrl_size, unsigned wid, unsigned sid, unsigned tpc,
             const memory_config *config, unsigned long long cycle,
@@ -1008,7 +1008,7 @@ class mem_fetch {
   mem_fetch *get_original_mf() { return original_mf; }
   mem_fetch *get_original_wr_mf() { return original_wr_mf; }
 
- private:
+private:
   // request source information
   unsigned m_request_uid;
   unsigned m_sid;
@@ -1021,24 +1021,23 @@ class mem_fetch {
 
   // request type, address, size, mask
   mem_access_t m_access;
-  unsigned m_data_size;  // how much data is being written
-  unsigned
-      m_ctrl_size;  // how big would all this meta data be in hardware (does not
-                    // necessarily match actual size of mem_fetch)
+  unsigned m_data_size; // how much data is being written
+  unsigned m_ctrl_size; // how big would all this meta data be in hardware (does
+                        // not necessarily match actual size of mem_fetch)
   new_addr_type
-      m_partition_addr;  // linear physical address *within* dram partition
-                         // (partition bank select bits squeezed out)
-  addrdec_t m_raw_addr;  // raw physical address (i.e., decoded DRAM
-                         // chip-row-bank-column address)
+      m_partition_addr; // linear physical address *within* dram partition
+                        // (partition bank select bits squeezed out)
+  addrdec_t m_raw_addr; // raw physical address (i.e., decoded DRAM
+                        // chip-row-bank-column address)
   enum mf_type m_type;
 
   // statistics
   unsigned
-      m_timestamp;  // set to gpu_sim_cycle+gpu_tot_sim_cycle at struct creation
-  unsigned m_timestamp2;  // set to gpu_sim_cycle+gpu_tot_sim_cycle when pushed
-                          // onto icnt to shader; only used for reads
-  unsigned m_icnt_receive_time;  // set to gpu_sim_cycle + interconnect_latency
-                                 // when fixed icnt latency mode is enabled
+      m_timestamp; // set to gpu_sim_cycle+gpu_tot_sim_cycle at struct creation
+  unsigned m_timestamp2; // set to gpu_sim_cycle+gpu_tot_sim_cycle when pushed
+                         // onto icnt to shader; only used for reads
+  unsigned m_icnt_receive_time; // set to gpu_sim_cycle + interconnect_latency
+                                // when fixed icnt latency mode is enabled
 
   // requesting instruction (put last so mem_fetch prints nicer in gdb)
   warp_inst_t m_inst;
@@ -1049,11 +1048,11 @@ class mem_fetch {
   unsigned icnt_flit_size;
 
   mem_fetch
-      *original_mf;  // this pointer is set up when a request is divided into
-                     // sector requests at L2 cache (if the req size > L2 sector
-                     // size), so the pointer refers to the original request
-  mem_fetch *original_wr_mf;  // this pointer refers to the original write req,
-                              // when fetch-on-write policy is used
+      *original_mf; // this pointer is set up when a request is divided into
+                    // sector requests at L2 cache (if the req size > L2 sector
+                    // size), so the pointer refers to the original request
+  mem_fetch *original_wr_mf; // this pointer refers to the original write req,
+                             // when fetch-on-write policy is used
 };
 
 // from src/gpgpu-sim/gpu-misc.cc
@@ -1097,8 +1096,8 @@ enum cache_request_status {
 };
 
 enum cache_reservation_fail_reason {
-  LINE_ALLOC_FAIL = 0,  // all line are reserved
-  MISS_QUEUE_FULL,      // MISS queue (i.e. interconnect or DRAM) is full
+  LINE_ALLOC_FAIL = 0, // all line are reserved
+  MISS_QUEUE_FULL,     // MISS queue (i.e. interconnect or DRAM) is full
   MSHR_ENRTY_FAIL,
   MSHR_MERGE_ENRTY_FAIL,
   MSHR_RW_PENDING,
@@ -1127,8 +1126,8 @@ struct evicted_block_info {
 
 struct cache_event {
   enum cache_event_type m_cache_event_type;
-  evicted_block_info m_evicted_block;  // if it was write_back event, fill the
-                                       // the evicted block info
+  evicted_block_info m_evicted_block; // if it was write_back event, fill the
+                                      // the evicted block info
 
   cache_event(enum cache_event_type m_cache_event) {
     m_cache_event_type = m_cache_event;
@@ -1159,8 +1158,8 @@ struct cache_block_t {
   virtual bool is_reserved_line() = 0;
   virtual bool is_modified_line() = 0;
 
-  virtual enum cache_block_state get_status(
-      mem_access_sector_mask_t sector_mask) = 0;
+  virtual enum cache_block_state
+  get_status(mem_access_sector_mask_t sector_mask) = 0;
   virtual void set_status(enum cache_block_state m_status,
                           mem_access_sector_mask_t sector_mask) = 0;
 
@@ -1217,8 +1216,8 @@ struct line_cache_block : public cache_block_t {
   virtual bool is_reserved_line() { return m_status == RESERVED; }
   virtual bool is_modified_line() { return m_status == MODIFIED; }
 
-  virtual enum cache_block_state get_status(
-      mem_access_sector_mask_t sector_mask) {
+  virtual enum cache_block_state
+  get_status(mem_access_sector_mask_t sector_mask) {
     return m_status;
   }
   virtual void set_status(enum cache_block_state status,
@@ -1242,7 +1241,7 @@ struct line_cache_block : public cache_block_t {
     m_set_modified_on_fill = m_modified;
   }
   virtual unsigned get_modified_size() {
-    return SECTOR_CHUNCK_SIZE * SECTOR_SIZE;  // i.e. cache line size
+    return SECTOR_CHUNCK_SIZE * SECTOR_SIZE; // i.e. cache line size
   }
   virtual void set_m_readable(bool readable,
                               mem_access_sector_mask_t sector_mask) {
@@ -1255,7 +1254,7 @@ struct line_cache_block : public cache_block_t {
     printf("m_block_addr is %llu, status = %u\n", m_block_addr, m_status);
   }
 
- private:
+private:
   unsigned long long m_alloc_time;
   unsigned long long m_last_access_time;
   unsigned long long m_fill_time;
@@ -1307,7 +1306,7 @@ struct sector_cache_block : public cache_block_t {
     m_set_modified_on_fill[sidx] = false;
 
     // set line stats
-    m_line_alloc_time = time;  // only set this for the first allocated sector
+    m_line_alloc_time = time; // only set this for the first allocated sector
     m_line_last_access_time = time;
     m_line_fill_time = 0;
   }
@@ -1321,8 +1320,8 @@ struct sector_cache_block : public cache_block_t {
     m_sector_alloc_time[sidx] = time;
     m_last_sector_access_time[sidx] = time;
     m_sector_fill_time[sidx] = 0;
-    if (m_status[sidx] == MODIFIED)  // this should be the case only for
-                                     // fetch-on-write policy //TO DO
+    if (m_status[sidx] == MODIFIED) // this should be the case only for
+                                    // fetch-on-write policy //TO DO
       m_set_modified_on_fill[sidx] = true;
     else
       m_set_modified_on_fill[sidx] = false;
@@ -1351,7 +1350,8 @@ struct sector_cache_block : public cache_block_t {
   virtual bool is_invalid_line() {
     // all the sectors should be invalid
     for (unsigned i = 0; i < SECTOR_CHUNCK_SIZE; ++i) {
-      if (m_status[i] != INVALID) return false;
+      if (m_status[i] != INVALID)
+        return false;
     }
     return true;
   }
@@ -1359,20 +1359,22 @@ struct sector_cache_block : public cache_block_t {
   virtual bool is_reserved_line() {
     // if any of the sector is reserved, then the line is reserved
     for (unsigned i = 0; i < SECTOR_CHUNCK_SIZE; ++i) {
-      if (m_status[i] == RESERVED) return true;
+      if (m_status[i] == RESERVED)
+        return true;
     }
     return false;
   }
   virtual bool is_modified_line() {
     // if any of the sector is modified, then the line is modified
     for (unsigned i = 0; i < SECTOR_CHUNCK_SIZE; ++i) {
-      if (m_status[i] == MODIFIED) return true;
+      if (m_status[i] == MODIFIED)
+        return true;
     }
     return false;
   }
 
-  virtual enum cache_block_state get_status(
-      mem_access_sector_mask_t sector_mask) {
+  virtual enum cache_block_state
+  get_status(mem_access_sector_mask_t sector_mask) {
     unsigned sidx = get_sector_index(sector_mask);
 
     return m_status[sidx];
@@ -1424,7 +1426,8 @@ struct sector_cache_block : public cache_block_t {
   virtual unsigned get_modified_size() {
     unsigned modified = 0;
     for (unsigned i = 0; i < SECTOR_CHUNCK_SIZE; ++i) {
-      if (m_status[i] == MODIFIED) modified++;
+      if (m_status[i] == MODIFIED)
+        modified++;
     }
     return modified * SECTOR_SIZE;
   }
@@ -1434,7 +1437,7 @@ struct sector_cache_block : public cache_block_t {
            m_status[0], m_status[1], m_status[2], m_status[3]);
   }
 
- private:
+private:
   unsigned m_sector_alloc_time[SECTOR_CHUNCK_SIZE];
   unsigned m_last_sector_access_time[SECTOR_CHUNCK_SIZE];
   unsigned m_sector_fill_time[SECTOR_CHUNCK_SIZE];
@@ -1449,7 +1452,8 @@ struct sector_cache_block : public cache_block_t {
   unsigned get_sector_index(mem_access_sector_mask_t sector_mask) {
     assert(sector_mask.count() == 1);
     for (unsigned i = 0; i < SECTOR_CHUNCK_SIZE; ++i) {
-      if (sector_mask.to_ulong() & (1 << i)) return i;
+      if (sector_mask.to_ulong() & (1 << i))
+        return i;
     }
   }
 };
@@ -1474,10 +1478,10 @@ enum write_allocate_policy_t {
 };
 
 enum mshr_config_t {
-  TEX_FIFO,         // Tex cache
-  ASSOC,            // normal cache
-  SECTOR_TEX_FIFO,  // Tex cache sends requests to high-level sector cache
-  SECTOR_ASSOC      // normal cache sends requests to high-level sector cache
+  TEX_FIFO,        // Tex cache
+  ASSOC,           // normal cache
+  SECTOR_TEX_FIFO, // Tex cache sends requests to high-level sector cache
+  SECTOR_ASSOC     // normal cache sends requests to high-level sector cache
 };
 
 enum set_index_function {
@@ -1497,11 +1501,11 @@ enum cache_type { NORMAL = 0, SECTOR };
 #define MAX_WARP_PER_SHADER 64
 
 class cache_config {
- public:
+public:
   cache_config() {
     m_valid = false;
     m_disabled = false;
-    m_config_string = NULL;  // set by option parser
+    m_config_string = NULL; // set by option parser
     m_config_stringPrefL1 = NULL;
     m_config_stringPrefShared = NULL;
     m_data_port_width = 0;
@@ -1528,66 +1532,66 @@ class cache_config {
     }
 
     switch (ct) {
-      case 'N':
-        m_cache_type = NORMAL;
-        break;
-      case 'S':
-        m_cache_type = SECTOR;
-        break;
-      default:
-        exit_parse_error();
+    case 'N':
+      m_cache_type = NORMAL;
+      break;
+    case 'S':
+      m_cache_type = SECTOR;
+      break;
+    default:
+      exit_parse_error();
     }
     switch (rp) {
-      case 'L':
-        m_replacement_policy = LRU;
-        break;
-      case 'F':
-        m_replacement_policy = FIFO;
-        break;
-      default:
-        exit_parse_error();
+    case 'L':
+      m_replacement_policy = LRU;
+      break;
+    case 'F':
+      m_replacement_policy = FIFO;
+      break;
+    default:
+      exit_parse_error();
     }
     switch (rp) {
-      case 'L':
-        m_replacement_policy = LRU;
-        break;
-      case 'F':
-        m_replacement_policy = FIFO;
-        break;
-      default:
-        exit_parse_error();
+    case 'L':
+      m_replacement_policy = LRU;
+      break;
+    case 'F':
+      m_replacement_policy = FIFO;
+      break;
+    default:
+      exit_parse_error();
     }
     switch (wp) {
-      case 'R':
-        m_write_policy = READ_ONLY;
-        break;
-      case 'B':
-        m_write_policy = WRITE_BACK;
-        break;
-      case 'T':
-        m_write_policy = WRITE_THROUGH;
-        break;
-      case 'E':
-        m_write_policy = WRITE_EVICT;
-        break;
-      case 'L':
-        m_write_policy = LOCAL_WB_GLOBAL_WT;
-        break;
-      default:
-        exit_parse_error();
+    case 'R':
+      m_write_policy = READ_ONLY;
+      break;
+    case 'B':
+      m_write_policy = WRITE_BACK;
+      break;
+    case 'T':
+      m_write_policy = WRITE_THROUGH;
+      break;
+    case 'E':
+      m_write_policy = WRITE_EVICT;
+      break;
+    case 'L':
+      m_write_policy = LOCAL_WB_GLOBAL_WT;
+      break;
+    default:
+      exit_parse_error();
     }
     switch (ap) {
-      case 'm':
-        m_alloc_policy = ON_MISS;
-        break;
-      case 'f':
-        m_alloc_policy = ON_FILL;
-        break;
-      case 's':
-        m_alloc_policy = STREAMING;
-        break;
-      default:
-        exit_parse_error();
+    case 'm':
+      m_alloc_policy = ON_MISS;
+      break;
+    case 'f':
+      m_alloc_policy = ON_FILL;
+      break;
+    case 's':
+      m_alloc_policy = STREAMING;
+      break;
+    default:
+      exit_parse_error();
     }
     if (m_alloc_policy == STREAMING) {
       // For streaming cache, we set the alloc policy to be on-fill to remove
@@ -1604,26 +1608,27 @@ class cache_config {
       m_is_streaming = true;
       m_alloc_policy = ON_FILL;
       m_mshr_entries = m_nset * m_assoc * MAX_DEFAULT_CACHE_SIZE_MULTIBLIER;
-      if (m_cache_type == SECTOR) m_mshr_entries *= SECTOR_CHUNCK_SIZE;
+      if (m_cache_type == SECTOR)
+        m_mshr_entries *= SECTOR_CHUNCK_SIZE;
       m_mshr_max_merge = MAX_WARP_PER_SM;
     }
     switch (mshr_type) {
-      case 'F':
-        m_mshr_type = TEX_FIFO;
-        assert(ntok == 14);
-        break;
-      case 'T':
-        m_mshr_type = SECTOR_TEX_FIFO;
-        assert(ntok == 14);
-        break;
-      case 'A':
-        m_mshr_type = ASSOC;
-        break;
-      case 'S':
-        m_mshr_type = SECTOR_ASSOC;
-        break;
-      default:
-        exit_parse_error();
+    case 'F':
+      m_mshr_type = TEX_FIFO;
+      assert(ntok == 14);
+      break;
+    case 'T':
+      m_mshr_type = SECTOR_TEX_FIFO;
+      assert(ntok == 14);
+      break;
+    case 'A':
+      m_mshr_type = ASSOC;
+      break;
+    case 'S':
+      m_mshr_type = SECTOR_ASSOC;
+      break;
+    default:
+      exit_parse_error();
     }
     m_line_sz_log2 = LOGB2(m_line_sz);
     m_nset_log2 = LOGB2(m_nset);
@@ -1637,20 +1642,20 @@ class cache_config {
     // performance". ISCA 93. WRITE_ALLOCATE is the old write policy in
     // GPGPU-sim 3.x, that send WRITE and READ for every write request
     switch (wap) {
-      case 'N':
-        m_write_alloc_policy = NO_WRITE_ALLOCATE;
-        break;
-      case 'W':
-        m_write_alloc_policy = WRITE_ALLOCATE;
-        break;
-      case 'F':
-        m_write_alloc_policy = FETCH_ON_WRITE;
-        break;
-      case 'L':
-        m_write_alloc_policy = LAZY_FETCH_ON_READ;
-        break;
-      default:
-        exit_parse_error();
+    case 'N':
+      m_write_alloc_policy = NO_WRITE_ALLOCATE;
+      break;
+    case 'W':
+      m_write_alloc_policy = WRITE_ALLOCATE;
+      break;
+    case 'F':
+      m_write_alloc_policy = FETCH_ON_WRITE;
+      break;
+    case 'L':
+      m_write_alloc_policy = LAZY_FETCH_ON_READ;
+      break;
+    default:
+      exit_parse_error();
     }
 
     // detect invalid configuration
@@ -1688,20 +1693,20 @@ class cache_config {
     assert(m_line_sz % m_data_port_width == 0);
 
     switch (sif) {
-      case 'H':
-        m_set_index_function = FERMI_HASH_SET_FUNCTION;
-        break;
-      case 'P':
-        m_set_index_function = HASH_IPOLY_FUNCTION;
-        break;
-      case 'C':
-        m_set_index_function = CUSTOM_SET_FUNCTION;
-        break;
-      case 'L':
-        m_set_index_function = LINEAR_SET_FUNCTION;
-        break;
-      default:
-        exit_parse_error();
+    case 'H':
+      m_set_index_function = FERMI_HASH_SET_FUNCTION;
+      break;
+    case 'P':
+      m_set_index_function = HASH_IPOLY_FUNCTION;
+      break;
+    case 'C':
+      m_set_index_function = CUSTOM_SET_FUNCTION;
+      break;
+    case 'L':
+      m_set_index_function = LINEAR_SET_FUNCTION;
+      break;
+    default:
+      exit_parse_error();
     }
   }
   bool disabled() const { return m_disabled; }
@@ -1771,7 +1776,7 @@ class cache_config {
   char *m_config_stringPrefShared;
   FuncCache cache_status;
 
- protected:
+protected:
   void exit_parse_error() {
     printf("GPGPU-Sim uArch: cache configuration parsing error (%s)\n",
            m_config_string);
@@ -1790,16 +1795,16 @@ class cache_config {
   unsigned original_m_assoc;
   bool m_is_streaming;
 
-  enum replacement_policy_t m_replacement_policy;  // 'L' = LRU, 'F' = FIFO
+  enum replacement_policy_t m_replacement_policy; // 'L' = LRU, 'F' = FIFO
   enum write_policy_t
-      m_write_policy;  // 'T' = write through, 'B' = write back, 'R' = read only
+      m_write_policy; // 'T' = write through, 'B' = write back, 'R' = read only
   enum allocation_policy_t
-      m_alloc_policy;  // 'm' = allocate on miss, 'f' = allocate on fill
+      m_alloc_policy; // 'm' = allocate on miss, 'f' = allocate on fill
   enum mshr_config_t m_mshr_type;
   enum cache_type m_cache_type;
 
   write_allocate_policy_t
-      m_write_alloc_policy;  // 'W' = Write allocate, 'N' = No write allocate
+      m_write_alloc_policy; // 'W' = Write allocate, 'N' = No write allocate
 
   union {
     unsigned m_mshr_entries;
@@ -1814,9 +1819,9 @@ class cache_config {
     unsigned m_rob_entries;
   };
   unsigned m_result_fifo_entries;
-  unsigned m_data_port_width;  //< number of byte the cache can access per cycle
+  unsigned m_data_port_width; //< number of byte the cache can access per cycle
   enum set_index_function
-      m_set_index_function;  // Hash, linear, or custom set index function
+      m_set_index_function; // Hash, linear, or custom set index function
 
   friend class tag_array;
   friend class baseline_cache;
@@ -1829,7 +1834,7 @@ class cache_config {
 };
 
 class tag_array {
- public:
+public:
   // Use this constructor
   tag_array(cache_config &config, int core_id, int type_id);
   ~tag_array();
@@ -1853,8 +1858,8 @@ class tag_array {
   unsigned size() const { return m_config.get_num_lines(); }
   cache_block_t *get_block(unsigned idx) { return m_lines[idx]; }
 
-  void flush();       // flush all written entries
-  void invalidate();  // invalidate all entries
+  void flush();      // flush all written entries
+  void invalidate(); // invalidate all entries
   void new_window();
 
   void print(FILE *stream, unsigned &total_access,
@@ -1867,7 +1872,7 @@ class tag_array {
   void add_pending_line(mem_fetch *mf);
   void remove_pending_line(mem_fetch *mf);
 
- protected:
+protected:
   // This constructor is intended for use only from derived classes that wish to
   // avoid unnecessary memory allocation that takes place in the
   // other tag_array constructor
@@ -1875,15 +1880,15 @@ class tag_array {
             cache_block_t **new_lines);
   void init(int core_id, int type_id);
 
- protected:
+protected:
   cache_config &m_config;
 
   cache_block_t **m_lines; /* nbanks x nset x assoc lines in total */
 
   unsigned m_access;
   unsigned m_miss;
-  unsigned m_pending_hit;  // number of cache miss that hit a line that is
-                           // allocated but not filled
+  unsigned m_pending_hit; // number of cache miss that hit a line that is
+                          // allocated but not filled
   unsigned m_res_fail;
   unsigned m_sector_miss;
 
@@ -1893,10 +1898,10 @@ class tag_array {
   unsigned m_prev_snapshot_miss;
   unsigned m_prev_snapshot_pending_hit;
 
-  int m_core_id;  // which shader core is using this
-  int m_type_id;  // what kind of cache is this (normal, texture, constant)
+  int m_core_id; // which shader core is using this
+  int m_type_id; // what kind of cache is this (normal, texture, constant)
 
-  bool is_used;  // a flag if the whole cache has ever been accessed before
+  bool is_used; // a flag if the whole cache has ever been accessed before
 
   typedef tr1_hash_map<new_addr_type, unsigned> line_table;
   line_table pending_lines;

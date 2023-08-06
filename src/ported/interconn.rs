@@ -1,7 +1,6 @@
 use super::{config, mem_fetch, Packet};
 use console::style;
-
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 
 use std::sync::{Arc, Mutex};
 
@@ -42,19 +41,8 @@ pub struct ToyInterconnect<P> {
     // deviceID to icntID map
     // deviceID : Starts from 0 for shaders and then continues until mem nodes
     // which starts at location n_shader and then continues to n_shader+n_mem (last device)
-    node_map: HashMap<usize, usize>,
+    // node_map: HashMap<usize, usize>,
 }
-
-// impl<P> Default for ToyInterconnect<P> {
-//     fn default() -> ToyInterconnect<P> {
-//         Self {
-//             capacity: Some(100),
-//             num_cores: 1,
-//             num_mems: 1,
-//             queue: vec![vec![VecDeque::new()]],
-//         }
-//     }
-// }
 
 impl<P> ToyInterconnect<P> {
     pub fn new(num_cores: usize, num_mems: usize, capacity: Option<usize>) -> ToyInterconnect<P> {
@@ -65,8 +53,6 @@ impl<P> ToyInterconnect<P> {
         let mut input_queue: Vec<Vec<Vec<Mutex<VecDeque<P>>>>> = Vec::new();
         let mut output_queue: Vec<Vec<Vec<Mutex<VecDeque<P>>>>> = Vec::new();
         let mut round_robin_turn: Vec<Vec<Mutex<usize>>> = Vec::new();
-
-        let node_map = HashMap::new();
 
         for subnet in 0..num_subnets {
             input_queue.push(Vec::new());
@@ -93,7 +79,6 @@ impl<P> ToyInterconnect<P> {
             num_classes,
             input_queue,
             output_queue,
-            node_map,
             round_robin_turn,
         }
     }
@@ -115,7 +100,6 @@ where
     fn push(&self, src_device: usize, dest_device: usize, packet: P, size: u32) {
         assert!(self.has_buffer(src_device, size));
 
-        // let is_memory_node = self.num_subnets > 1 && src_device >= self.num_cores;
         let is_memory_node = self.num_subnets > 1 && dest_device >= self.num_cores;
         let subnet = if is_memory_node { 1 } else { 0 };
         log::debug!(
@@ -123,13 +107,11 @@ where
             style(format!("INTERCONN PUSH {}", packet)).bold(),
         );
 
-        // let mut queue = self.output_queue[subnet][src_device][0].lock().unwrap();
         let mut queue = self.output_queue[subnet][dest_device][0].lock().unwrap();
         queue.push_back(packet);
     }
 
     fn pop(&self, device: usize) -> Option<P> {
-        // let icnt_id = self.node_map[&device];
         let icnt_id = device;
         let subnet = if device >= self.num_cores { 1 } else { 0 };
 
@@ -149,19 +131,6 @@ where
             }
         }
         None
-
-        // for (int vc=0;(vc<_vcs) && (data==NULL);vc++) {
-        //   if (_boundary_buffer[subnet][icntID][turn].HasPacket()) {
-        //     data = _boundary_buffer[subnet][icntID][turn].PopPacket();
-        //   }
-        //   turn++;
-        //   if (turn == _vcs) turn = 0;
-        // }
-        // if (data) {
-        //   _round_robin_turn[subnet][icntID] = turn;
-        // }
-        // let mut queue = self.queue[subnet][device][0].lock().unwrap();
-        // queue.pop_front()
     }
 
     fn transfer(&self) {
@@ -169,22 +138,9 @@ where
     }
 
     fn has_buffer(&self, device: usize, _size: u32) -> bool {
-        // todo!("interconn: has buffer");
         let Some(capacity) = self.capacity else {
             return true;
         };
-        // InterconnectInterface::HasBuffer(unsigned deviceID, unsigned int size)
-        // bool has_buffer = false;
-        // unsigned int n_flits = size / _flit_size + ((size % _flit_size)? 1:0);
-        // int icntID = _node_map.find(deviceID)->second;
-        //
-        // has_buffer = _traffic_manager->_input_queue[0][icntID][0].size() +n_flits <= _input_buffer_capacity;
-        //
-        // if ((_subnets>1) && deviceID >= _n_shader) // deviceID is memory node
-        //   has_buffer = _traffic_manager->_input_queue[1][icntID][0].size() +n_flits <= _input_buffer_capacity;
-        //
-        // return has_buffer;
-        // _traffic_manager->_input_queue[1][icntID][0].size() +n_flits <= _input_buffer_capacity;
 
         // TODO: using input queue makes no sense as we push into output directly
         let subnet = if device >= self.num_cores { 1 } else { 0 };
@@ -235,53 +191,9 @@ impl MemFetchInterface for CoreMemoryInterface<Packet> {
 
         {
             let mut stats = self.stats.lock().unwrap();
-            // let counters = &mut stats.counters;
-            // if fetch.is_write() {
-            //     counters.num_mem_write += 1;
-            // } else {
-            //     counters.num_mem_read += 1;
-            // }
-            //
             let access_kind = *fetch.access_kind();
             debug_assert_eq!(fetch.is_write(), access_kind.is_write());
             stats.accesses.inc(access_kind, 1);
-            // match fetch.access_kind() {
-            //     mem_fetch::AccessKind::CONST_ACC_R => {
-            //         counters.num_mem_const += 1;
-            //     }
-            //     mem_fetch::AccessKind::TEXTURE_ACC_R => {
-            //         counters.num_mem_texture += 1;
-            //     }
-            //     mem_fetch::AccessKind::GLOBAL_ACC_R => {
-            //         counters.num_mem_read_global += 1;
-            //     }
-            //     mem_fetch::AccessKind::GLOBAL_ACC_W => {
-            //         counters.num_mem_write_global += 1;
-            //     }
-            //     mem_fetch::AccessKind::LOCAL_ACC_R => {
-            //         counters.num_mem_read_local += 1;
-            //     }
-            //     mem_fetch::AccessKind::LOCAL_ACC_W => {
-            //         counters.num_mem_write_local += 1;
-            //     }
-            //     mem_fetch::AccessKind::INST_ACC_R => {
-            //         // TODO: this is wrong
-            //         counters.num_mem_load_instructions += 1;
-            //     }
-            //     mem_fetch::AccessKind::L1_WRBK_ACC => {
-            //         counters.num_mem_write_global += 1;
-            //     }
-            //     mem_fetch::AccessKind::L2_WRBK_ACC => {
-            //         counters.num_mem_l2_writeback += 1;
-            //     }
-            //     mem_fetch::AccessKind::L1_WR_ALLOC_R => {
-            //         counters.num_mem_l1_write_allocate += 1;
-            //     }
-            //     mem_fetch::AccessKind::L2_WR_ALLOC_R => {
-            //         counters.num_mem_l2_write_allocate += 1;
-            //     }
-            //     _ => {}
-            // }
         }
 
         let dest_sub_partition_id = fetch.sub_partition_id();
@@ -316,13 +228,8 @@ impl MemFetchInterface for CoreMemoryInterface<Packet> {
 }
 
 #[derive()]
-// pub struct L2Interface<P> {
-// pub struct L2Interface<I, Q> {
 pub struct L2Interface<Q> {
     pub l2_to_dram_queue: Arc<Mutex<Q>>,
-    // pub sub_partition_unit: Rc<RefCell<super::MemorySubPartition<I, Q>>>,
-    // pub sub_partition_unit: Rc<RefCell<super::MemorySubPartition>>,
-    // pub interconn: Arc<dyn Interconnect<P>>,
 }
 
 impl<Q> std::fmt::Debug for L2Interface<Q> {
@@ -331,29 +238,16 @@ impl<Q> std::fmt::Debug for L2Interface<Q> {
     }
 }
 
-// impl MemFetchInterface for L2Interface<Packet> {
-// impl<I, Q> MemFetchInterface for L2Interface<I, Q> {
-// impl MemFetchInterface for L2Interface {
 impl<Q> MemFetchInterface for L2Interface<Q>
 where
     Q: super::fifo::Queue<mem_fetch::MemFetch>,
 {
     fn full(&self, _size: u32, _write: bool) -> bool {
-        use super::fifo::Queue;
-        // todo!("l2 interface: full");
-        // let request_size = if write { size } else { READ_PACKET_SIZE as u32 };
-        // !self.interconn.has_buffer(self.cluster_id, request_size)
-        // self.sub_partition_unit.borrow().l2_to_dram_queue.full()
         self.l2_to_dram_queue.lock().unwrap().full()
     }
 
     fn push(&self, mut fetch: mem_fetch::MemFetch) {
-        use super::fifo::Queue;
-        // todo!("l2 interface: push");
         fetch.set_status(mem_fetch::Status::IN_PARTITION_L2_TO_DRAM_QUEUE, 0);
-        // self.sub_partition_unit
-        //     .borrow_mut()
-        // todo!("l2 interface push to dram queue");
         log::debug!("l2 interface push l2_to_dram_queue");
         self.l2_to_dram_queue.lock().unwrap().enqueue(fetch)
     }
@@ -363,11 +257,8 @@ where
 mod tests {
     use crate::config::GPUConfig;
     use color_eyre::eyre;
-    
-    
+
     use std::path::PathBuf;
-    
-    
 
     #[test]
     fn test_intersim_config() -> eyre::Result<()> {

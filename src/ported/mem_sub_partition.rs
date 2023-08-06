@@ -1,16 +1,14 @@
-use super::mem_fetch::BitString;
 use crate::config::{self, GPUConfig};
 use crate::ported::{
     self, address, cache,
-    cache::{Cache, CacheBandwidth},
-    dram,
+    cache::Cache,
     fifo::{FifoQueue, Queue},
     interconn as ic, l2, mem_fetch,
 };
 use console::style;
-use std::cell::RefCell;
+
 use std::collections::{HashSet, VecDeque};
-use std::rc::Rc;
+
 use std::sync::{Arc, Mutex};
 
 pub const MAX_MEMORY_ACCESS_SIZE: u32 = 128;
@@ -46,13 +44,9 @@ pub fn was_writeallocate_sent(events: &[cache::Event]) -> bool {
 }
 
 #[derive()]
-// pub struct MemorySubPartition<I, Q = FifoQueue<mem_fetch::MemFetch>> {
 pub struct MemorySubPartition<Q = FifoQueue<mem_fetch::MemFetch>> {
     pub id: usize,
     pub partition_id: usize,
-    // pub cluster_id: usize,
-    // pub core_id: usize,
-    /// memory configuration
     pub config: Arc<GPUConfig>,
     pub stats: Arc<Mutex<stats::Stats>>,
 
@@ -64,15 +58,8 @@ pub struct MemorySubPartition<Q = FifoQueue<mem_fetch::MemFetch>> {
     pub l2_to_interconn_queue: Q,
     rop_queue: VecDeque<mem_fetch::MemFetch>,
 
-    // fetch_interconn: Arc<I>,
-    // l2_cache: Option<l2::DataL2<I>>,
     pub l2_cache: Option<Box<dyn cache::Cache>>,
-    // l2_cache: Option<l2::DataL2<ic::ToyInterconnect<Packet>>>,
 
-    // class mem_fetch *L2dramout;
-    wb_addr: Option<u64>,
-
-    // class memory_stats_t *m_stats;
     request_tracker: HashSet<mem_fetch::MemFetch>,
 
     // This is a cycle offset that has to be applied to the l2 accesses to account
@@ -84,25 +71,17 @@ pub struct MemorySubPartition<Q = FifoQueue<mem_fetch::MemFetch>> {
     memcpy_cycle_offset: u64,
 }
 
-// impl<I, Q> MemorySubPartition<I, Q>
 impl<Q> MemorySubPartition<Q>
 where
     Q: Queue<mem_fetch::MemFetch> + 'static,
-    // I: ic::MemFetchInterface + 'static,
 {
     pub fn new(
         id: usize,
         partition_id: usize,
         cycle: ported::Cycle,
-        // core_id: usize,
-        // fetch_interconn: Arc<I>,
         config: Arc<GPUConfig>,
         stats: Arc<Mutex<stats::Stats>>,
     ) -> Self {
-        // need to migrate memory config for this
-        // assert!(id < config.num_mem_sub_partition);
-        // assert!(id < config.numjjjkk);
-
         let interconn_to_l2_queue = Q::new(
             "icnt-to-L2",
             Some(0),
@@ -152,9 +131,7 @@ where
             // core_id,
             config,
             stats,
-            // fetch_interconn,
             l2_cache,
-            wb_addr: None,
             memcpy_cycle_offset: 0,
             interconn_to_l2_queue,
             l2_to_dram_queue,
@@ -344,9 +321,11 @@ where
         !self.request_tracker.is_empty()
     }
 
-    pub fn flush_l2(&mut self) {
+    pub fn flush_l2(&mut self) -> Option<usize> {
         if let Some(l2) = &mut self.l2_cache {
-            l2.flush();
+            Some(l2.flush())
+        } else {
+            None
         }
     }
 
@@ -402,8 +381,8 @@ where
     //     self.interconn_to_l2_queue.has_available_size(size)
     // }
 
-    pub fn set_done(&self, _fetch: &mem_fetch::MemFetch) {
-        todo!("mem sub partition: set done");
+    pub fn set_done(&mut self, fetch: &mem_fetch::MemFetch) {
+        self.request_tracker.remove(fetch);
     }
 
     pub fn dram_l2_queue_push(&mut self, _fetch: &mem_fetch::MemFetch) {
@@ -470,13 +449,13 @@ where
                     if l2_config.inner.write_allocate_policy
                         == CacheWriteAllocatePolicy::FETCH_ON_WRITE
                     {
-                        todo!("fetch on write: l2 to icnt queue");
                         let mut original_write_fetch = *fetch.original_fetch.unwrap();
                         original_write_fetch.set_reply();
                         original_write_fetch
                             .set_status(mem_fetch::Status::IN_PARTITION_L2_TO_ICNT_QUEUE, 0);
                         // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
                         self.l2_to_interconn_queue.enqueue(original_write_fetch);
+                        todo!("fetch on write: l2 to icnt queue");
                     }
                     // self.request_tracker.remove(fetch);
                     // delete mf;
@@ -596,8 +575,8 @@ where
                                             0,
                                         );
                                         // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-                                        panic!("l2 to interconn queue push");
                                         self.l2_to_interconn_queue.enqueue(fetch);
+                                        panic!("l2 to interconn queue push");
                                     }
                                 }
                             } else {
@@ -630,370 +609,4 @@ where
             }
         }
     }
-}
-
-#[derive()]
-// pub struct MemoryPartitionUnit<I> {
-pub struct MemoryPartitionUnit {
-    id: usize,
-    // cluster_id: usize,
-    // core_id: usize,
-    dram: dram::DRAM,
-    pub dram_latency_queue: VecDeque<mem_fetch::MemFetch>,
-    // fetch_interconn: Arc<I>,
-    // pub sub_partitions: Vec<Rc<RefCell<MemorySubPartition<I>>>>,
-    pub sub_partitions: Vec<Rc<RefCell<MemorySubPartition<FifoQueue<mem_fetch::MemFetch>>>>>,
-    arbitration_metadata: dram::ArbitrationMetadata,
-
-    config: Arc<GPUConfig>,
-    stats: Arc<Mutex<stats::Stats>>,
-}
-
-impl MemoryPartitionUnit
-// impl<I> MemoryPartitionUnit<I>
-// where
-//     I: ic::MemFetchInterface + 'static,
-{
-    pub fn new(
-        id: usize,
-        cycle: ported::Cycle,
-        // cluster_id: usize,
-        // core_id: usize,
-        // fetch_interconn: Arc<I>,
-        config: Arc<GPUConfig>,
-        stats: Arc<Mutex<stats::Stats>>,
-    ) -> Self {
-        let num_sub_partitions = config.num_sub_partition_per_memory_channel;
-        let sub_partitions: Vec<_> = (0..num_sub_partitions)
-            .map(|i| {
-                let sub_id = id * num_sub_partitions + i;
-
-                let sub = Rc::new(RefCell::new(MemorySubPartition::new(
-                    sub_id,
-                    id,
-                    // core_id,
-                    // fetch_interconn.clone(),
-                    Rc::clone(&cycle),
-                    Arc::clone(&config),
-                    Arc::clone(&stats),
-                )));
-                // let l2_port = Arc::new(ic::L2Interface {
-                //     sub_partition_unit: sub.clone(),
-                // });
-                // let l2_cache: Option<Box<dyn cache::Cache>> = match &config.data_cache_l2 {
-
-                // if let Some(l2_config) = &config.data_cache_l2 {
-                //     sub.borrow_mut().l2_cache = Some(Box::new(l2::DataL2::new(
-                //         0, // core_id,
-                //         0, // cluster_id,
-                //         l2_port,
-                //         stats.clone(),
-                //         config.clone(),
-                //         l2_config.clone(),
-                //     )));
-                // }
-
-                sub
-            })
-            .collect();
-
-        let dram = dram::DRAM::new(config.clone(), stats.clone());
-        let arbitration_metadata = dram::ArbitrationMetadata::new(&*config);
-        Self {
-            id,
-            // cluster_id,
-            // core_id,
-            // fetch_interconn,
-            config,
-            stats,
-            dram,
-            dram_latency_queue: VecDeque::new(),
-            arbitration_metadata,
-            sub_partitions,
-        }
-    }
-
-    pub fn busy(&self) -> bool {
-        self.sub_partitions
-            .iter()
-            .any(|sub| sub.try_borrow().unwrap().busy())
-    }
-
-    // pub fn sub_partition(&self, p: usize) -> {
-    //     self.sub_partitions[
-    // }
-
-    fn global_sub_partition_id_to_local_id(&self, global_sub_partition_id: usize) -> usize {
-        let mut local_id = global_sub_partition_id;
-        local_id -= self.id * self.config.num_sub_partition_per_memory_channel;
-        local_id
-    }
-
-    pub fn handle_memcpy_to_gpu(
-        &self,
-        addr: address,
-        global_subpart_id: usize,
-        mask: mem_fetch::MemAccessSectorMask,
-        time: u64,
-    ) {
-        let local_subpart_id = self.global_sub_partition_id_to_local_id(global_subpart_id);
-
-        log::trace!(
-            "copy engine request received for address={}, local_subpart={}, global_subpart={}, sector_mask={}",
-            addr, local_subpart_id, global_subpart_id, mask.to_bit_string());
-
-        self.sub_partitions[local_subpart_id]
-            .borrow_mut()
-            .force_l2_tag_update(addr, mask, time);
-    }
-
-    pub fn cache_cycle(&mut self, cycle: u64) {
-        // todo!("mem partition unit: cache_cycle");
-        // for p < m_config->m_n_sub_partition_per_memory_channel
-        for mem_sub in self.sub_partitions.iter_mut() {
-            mem_sub.borrow_mut().cache_cycle(cycle);
-        }
-    }
-
-    pub fn simple_dram_cycle(&mut self) {
-        log::debug!("{} ...", style("simple dram cycle").red());
-        // pop completed memory request from dram and push it to dram-to-L2 queue
-        // of the original sub partition
-        // if !self.dram_latency_queue.is_empty() &&
-        //     ((m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle) >=
-        //      m_dram_latency_queue.front().ready_cycle)) {
-        if let Some(returned_fetch) = self.dram_latency_queue.front_mut() {
-            if !matches!(
-                returned_fetch.access_kind(),
-                mem_fetch::AccessKind::L1_WRBK_ACC | mem_fetch::AccessKind::L2_WRBK_ACC
-            ) {
-                self.dram.access(returned_fetch);
-
-                returned_fetch.set_reply(); // todo: is it okay to do that here?
-                log::debug!(
-                    "got {} fetch return from dram latency queue (write={})",
-                    returned_fetch,
-                    returned_fetch.is_write()
-                );
-
-                let dest_global_spid = returned_fetch.sub_partition_id();
-                let dest_spid = self.global_sub_partition_id_to_local_id(dest_global_spid);
-                let mut sub = self.sub_partitions[dest_spid].borrow_mut();
-                debug_assert_eq!(sub.id, dest_global_spid);
-
-                if !sub.dram_to_l2_queue.full() {
-                    // here we could set reply
-                    let mut returned_fetch = self.dram_latency_queue.pop_front().unwrap();
-                    // dbg!(&returned_fetch);
-                    // returned_fetch.set_reply();
-
-                    if returned_fetch.access_kind() == &mem_fetch::AccessKind::L1_WRBK_ACC {
-                        // sub.set_done(returned_fetch);
-                        // delete mf_return;
-                    } else {
-                        returned_fetch
-                            .set_status(mem_fetch::Status::IN_PARTITION_DRAM_TO_L2_QUEUE, 0);
-                        // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-                        self.arbitration_metadata.return_credit(dest_spid);
-                        // log::debug!(
-                        //     "mem_fetch request {:?} return from dram to sub partition {}",
-                        //     returned_fetch, dest_spid
-                        // );
-
-                        debug_assert!(returned_fetch.is_reply());
-                        sub.dram_to_l2_queue.enqueue(returned_fetch);
-                    }
-                } else {
-                    // panic!("fyi: simple dram model stall");
-                }
-            } else {
-                log::debug!(
-                    "DROPPING {} fetch return from dram latency queue (write={})",
-                    returned_fetch,
-                    returned_fetch.is_write()
-                );
-
-                // this->set_done(mf_return);
-                // delete mf_return;
-                self.dram_latency_queue.pop_front();
-            }
-        }
-
-        // L2->DRAM queue to DRAM latency queue
-        // Arbitrate among multiple L2 subpartitions
-        let last_issued_partition = self.arbitration_metadata.last_borrower();
-        for sub_id in 0..self.sub_partitions.len() {
-            // for (unsigned p = 0; p < m_config->m_n_sub_partition_per_memory_channel;
-            //      p++) {
-            let spid = (sub_id + last_issued_partition + 1) % self.sub_partitions.len();
-            // self.config->m_n_sub_partition_per_memory_channel;
-            let sub = self.sub_partitions[spid].borrow_mut();
-            debug_assert_eq!(sub.id, spid);
-            // if !sub.l2_to_dram_queue.is_empty() && self.can_issue_to_dram(spid) {
-            // let sub = self.sub_partitions[inner_sub_partition_id].borrow();
-
-            // let sub_partition_contention = sub.l2_to_dram_queue.lock().unwrap().full();
-            // let sub_partition_contention = sub.l2_to_dram_queue.lock().unwrap().full();
-            let sub_partition_contention = sub.dram_to_l2_queue.full();
-            let has_dram_resource = self.arbitration_metadata.has_credits(spid);
-            let can_issue_to_dram = has_dram_resource && !sub_partition_contention;
-
-            {
-                log::debug!("checking sub partition[{spid}]:");
-                log::debug!(
-                    "\t icnt to l2 queue ({:3}) = {}",
-                    sub.interconn_to_l2_queue.len(),
-                    style(&sub.interconn_to_l2_queue).red()
-                );
-                log::debug!(
-                    "\t l2 to icnt queue ({:3}) = {}",
-                    sub.l2_to_interconn_queue.len(),
-                    style(&sub.l2_to_interconn_queue).red()
-                );
-                let l2_to_dram_queue = sub.l2_to_dram_queue.lock().unwrap();
-                log::debug!(
-                    "\t l2 to dram queue ({:3}) = {}",
-                    l2_to_dram_queue.len(),
-                    style(&l2_to_dram_queue).red()
-                );
-                log::debug!(
-                    "\t dram to l2 queue ({:3}) = {}",
-                    sub.dram_to_l2_queue.len(),
-                    style(&sub.dram_to_l2_queue).red()
-                );
-                let dram_latency_queue: Vec<_> = self
-                    .dram_latency_queue
-                    .iter()
-                    .map(|f| f.to_string())
-                    .collect();
-                log::debug!(
-                    "\t dram latency queue ({:3}) = {:?}",
-                    dram_latency_queue.len(),
-                    style(&dram_latency_queue).red()
-                );
-                log::debug!(
-                    "\t can issue to dram={} dram to l2 queue full={}",
-                    can_issue_to_dram,
-                    sub.dram_to_l2_queue.full()
-                );
-                // log::debug!("");
-            }
-
-            if can_issue_to_dram {
-                let mut l2_to_dram_queue = sub.l2_to_dram_queue.lock().unwrap();
-                if let Some(fetch) = l2_to_dram_queue.first() {
-                    if self.dram.full(fetch.is_write()) {
-                        break;
-                    }
-
-                    let mut fetch = l2_to_dram_queue.dequeue().unwrap();
-                    log::debug!(
-                        "simple dram: issue {} from sub partition {} to DRAM",
-                        &fetch,
-                        sub.id
-                    );
-                    // log::debug!(
-                    //     "issue mem_fetch request {:?} from sub partition {} to dram",
-                    //     fetch, spid
-                    // );
-                    // dram_delay_t d;
-                    // d.req = mf;
-                    // d.ready_cycle = m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle +
-                    //                 m_config->dram_latency;
-                    fetch.set_status(mem_fetch::Status::IN_PARTITION_DRAM_LATENCY_QUEUE, 0);
-                    // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-                    self.dram_latency_queue.push_back(fetch);
-                    self.arbitration_metadata.borrow_credit(spid);
-                    break; // the DRAM should only accept one request per cycle
-                }
-            }
-        }
-    }
-
-    // pub fn dram_cycle(&mut self) {
-    //     todo!("deprecated: dram cycle");
-    //     use mem_fetch::{AccessKind, Status};
-    //     // todo!("mem partition unit: dram_cycle");
-    //     // TODO
-    //     return;
-    //
-    //     // pop completed memory request from dram and push it to
-    //     // dram-to-L2 queue of the original sub partition
-    //     if let Some(return_fetch) = self.dram.return_queue_top() {
-    //         panic!("have completed memory request from DRAM");
-    //         let dest_global_spid = return_fetch.sub_partition_id() as usize;
-    //         let dest_spid = self.global_sub_partition_id_to_local_id(dest_global_spid);
-    //         let mem_sub = self.sub_partitions[dest_spid].borrow();
-    //         debug_assert_eq!(mem_sub.id, dest_global_spid);
-    //         if !mem_sub.dram_l2_queue_full() {
-    //             if return_fetch.access_kind() == &AccessKind::L1_WRBK_ACC {
-    //                 mem_sub.set_done(return_fetch);
-    //                 // delete mf_return;
-    //             } else {
-    //                 mem_sub.dram_l2_queue_push(return_fetch);
-    //                 return_fetch.set_status(Status::IN_PARTITION_DRAM_TO_L2_QUEUE, 0);
-    //                 // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-    //                 // m_arbitration_metadata.return_credit(dest_spid);
-    //                 log::debug!(
-    //                     "mem_fetch request {:?} return from dram to sub partition {}",
-    //                     return_fetch, dest_spid
-    //                 );
-    //             }
-    //             self.dram.return_queue_pop();
-    //         }
-    //     } else {
-    //         self.dram.return_queue_pop();
-    //     }
-    //
-    //     self.dram.cycle();
-    //
-    //     // L2->DRAM queue to DRAM latency queue
-    //     // Arbitrate among multiple L2 subpartitions
-    //     let num_sub_partitions = self.config.num_sub_partition_per_memory_channel;
-    //     let last_issued_partition = self.arbitration_metadata.last_borrower;
-    //
-    //     for p in 0..num_sub_partitions {
-    //         let spid = (p + last_issued_partition + 1) % num_sub_partitions;
-    //         let sub = self.sub_partitions[spid].borrow_mut();
-    //         if !sub.l2_to_dram_queue.is_empty() && self.can_issue_to_dram(spid) {
-    //             let Some(fetch) = sub.l2_to_dram_queue.first() else { break; };
-    //             if self.dram.full(fetch.is_write()) {
-    //                 break;
-    //             }
-    //
-    //             let fetch = sub.l2_to_dram_queue.dequeue().unwrap();
-    //             panic!("issue mem_fetch from sub partition to dram");
-    //             log::debug!(
-    //                 "Issue mem_fetch request {} from sub partition {} to dram",
-    //                 fetch.addr(),
-    //                 spid,
-    //             );
-    //             // dram_delay_t d;
-    //             // d.req = mf;
-    //             // d.ready_cycle = m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle +
-    //             //                 m_config->dram_latency;
-    //             // m_dram_latency_queue.push_back(d);
-    //             // mf->set_status(IN_PARTITION_DRAM_LATENCY_QUEUE,
-    //             //                m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-    //             // m_arbitration_metadata.borrow_credit(spid);
-    //             // break; // the DRAM should only accept one request per cycle
-    //         }
-    //     }
-    // }
-
-    // determine whether a given subpartition can issue to DRAM
-    // fn can_issue_to_dram(&self, inner_sub_partition_id: usize) -> bool {
-    //     let sub = self.sub_partitions[inner_sub_partition_id].borrow();
-    //     let sub_partition_contention = sub.dram_to_l2_queue.full();
-    //     let has_dram_resource = self
-    //         .arbitration_metadata
-    //         .has_credits(inner_sub_partition_id);
-    //
-    //     log::debug!(
-    //         "sub partition {} sub_partition_contention={} has_dram_resource={}",
-    //         inner_sub_partition_id, sub_partition_contention, has_dram_resource
-    //     );
-    //
-    //     has_dram_resource && !sub_partition_contention
-    // }
 }

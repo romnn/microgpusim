@@ -2,6 +2,7 @@
 
 - today:
 
+  - test flush caches using config options
   - less important:
 
     - perf: investigate if the many small allocations of msg for move in / move warp etc are problematic

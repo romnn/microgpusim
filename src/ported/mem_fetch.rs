@@ -1,8 +1,7 @@
-
 use super::instruction::{MemorySpace, WarpInstruction};
 use super::scheduler::ThreadActiveMask;
 use crate::config;
-use crate::ported::{address, DecodedAddress};
+use crate::ported::{address, mem_sub_partition, DecodedAddress};
 use bitvec::{array::BitArray, BitArr};
 use serde::{Deserialize, Serialize};
 
@@ -15,8 +14,8 @@ pub const WRITE_PACKET_SIZE: u8 = 8;
 
 pub const WRITE_MASK_SIZE: u8 = 8;
 
-pub type MemAccessByteMask = BitArr!(for super::MAX_MEMORY_ACCESS_SIZE as usize);
-pub type MemAccessSectorMask = BitArr!(for super::SECTOR_CHUNCK_SIZE as usize, in u8);
+pub type MemAccessByteMask = BitArr!(for mem_sub_partition::MAX_MEMORY_ACCESS_SIZE as usize);
+pub type MemAccessSectorMask = BitArr!(for mem_sub_partition::SECTOR_CHUNCK_SIZE as usize, in u8);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 pub enum Kind {

@@ -465,6 +465,13 @@ impl From<&playground::core::pending_register_writes> for PendingRegisterWrites 
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ArbitrationState {
+    pub last_borrower: usize,
+    pub shared_credit: usize,
+    pub private_credit: Box<[usize]>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Simulation {
     pub last_cluster_issue: usize,
     // per sub partition
@@ -475,6 +482,7 @@ pub struct Simulation {
     pub l2_cache_per_sub: Box<[Option<Cache>]>,
     // per partition
     pub dram_latency_queue_per_partition: Box<[Vec<MemFetch>]>,
+    pub dram_arbitration_per_partition: Box<[ArbitrationState]>,
     // per cluster
     pub core_sim_order_per_cluster: Box<[Box<[usize]>]>,
     // per core
@@ -495,20 +503,33 @@ impl Simulation {
         let total_cores = num_clusters * cores_per_cluster;
         Self {
             last_cluster_issue: 0,
+
             // per sub partition
             interconn_to_l2_queue_per_sub: vec![vec![]; num_sub_partitions].into_boxed_slice(),
             l2_to_interconn_queue_per_sub: vec![vec![]; num_sub_partitions].into_boxed_slice(),
             l2_to_dram_queue_per_sub: vec![vec![]; num_sub_partitions].into_boxed_slice(),
             dram_to_l2_queue_per_sub: vec![vec![]; num_sub_partitions].into_boxed_slice(),
             l2_cache_per_sub: vec![None; num_sub_partitions].into_boxed_slice(),
+
             // per partition
             dram_latency_queue_per_partition: vec![vec![]; num_mem_partitions].into_boxed_slice(),
+            dram_arbitration_per_partition: vec![
+                ArbitrationState {
+                    last_borrower: 0,
+                    shared_credit: 0,
+                    private_credit: vec![0; num_sub_partitions].into_boxed_slice(),
+                };
+                num_mem_partitions
+            ]
+            .into_boxed_slice(),
+
             // per cluster
             core_sim_order_per_cluster: vec![
                 vec![0; cores_per_cluster].into_boxed_slice();
                 num_clusters
             ]
             .into_boxed_slice(),
+
             // per core
             functional_unit_pipelines_per_core: vec![vec![]; total_cores].into_boxed_slice(),
             scheduler_per_core: vec![

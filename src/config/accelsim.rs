@@ -85,19 +85,19 @@ pub struct ShaderCore {
         help = "per-shader L1 data cache config {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq> | none}",
         default_value = "none"
     )]
-    pub gpgpu_cache_dl1PrefL1: String,
+    pub gpgpu_cache_dl1_pref_l1: String,
     #[clap(
         long = "gpgpu_cache:dl1PrefShared",
         help = "per-shader L1 data cache config {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq> | none}",
         default_value = "none"
     )]
-    pub gpgpu_cache_dl1PrefShared: String,
+    pub gpgpu_cache_dl1_pref_shared: String,
     #[clap(
         long = "gpgpu_gmem_skip_L1D:dl1PrefShared",
         help = "global memory access skip L1D cache (implements -Xptxas -dlcm=cg, default=no skip)",
         default_value = "false"
     )]
-    pub gpgpu_gmem_skip_L1D: bool,
+    pub gpgpu_gmem_skip_l1d: bool,
     #[clap(
         long = "gpgpu_perfect_mem",
         help = "enable perfect memory mode (no cache miss)",
@@ -211,19 +211,19 @@ pub struct ShaderCore {
         help = "Size of shared memory per shader core (default 16kB)",
         default_value = "16384"
     )]
-    pub gpgpu_shmem_sizeDefault: u32,
+    pub gpgpu_shmem_size_default: u32,
     #[clap(
         long = "gpgpu_shmem_size_PrefL1",
         help = "Size of shared memory per shader core (default 16kB)",
         default_value = "16384"
     )]
-    pub gpgpu_shmem_size_PrefL1: u32,
+    pub gpgpu_shmem_size_pref_l1: u32,
     #[clap(
         long = "gpgpu_shmem_size_PrefShared",
         help = "Size of shared memory per shader core (default 16kB)",
         default_value = "16384"
     )]
-    pub gpgpu_shmem_size_PrefShared: u32,
+    pub gpgpu_shmem_size_pref_shared: u32,
     #[clap(
         long = "gpgpu_shmem_num_banks",
         help = "Number of banks in the shared memory in each shader core (default 16)",
@@ -640,7 +640,7 @@ impl Config {
 
 #[cfg(test)]
 mod tests {
-    
+
     use color_eyre::eyre;
     use similar_asserts as diff;
     use std::path::PathBuf;

@@ -77,6 +77,11 @@ cargo install flamegraph
 cargo flamegraph --bin=casimu -- --path ./results/vectorAdd/vectorAdd-10000-32/trace
 ```
 
+```bash
+cargo install cargo-criterion
+cargo criterion -- vectoradd
+```
+
 Coverage
 
 ```bash

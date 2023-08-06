@@ -126,7 +126,7 @@ pub trait Cache: Component + CacheBandwidth {
         todo!("cache: fill");
     }
 
-    fn flush(&mut self) {
+    fn flush(&mut self) -> usize {
         todo!("cache: flush");
     }
 
@@ -134,7 +134,12 @@ pub trait Cache: Component + CacheBandwidth {
         todo!("cache: invalidate");
     }
 
-    fn force_tag_access(&mut self, _addr: address, _time: u64, _mask: mem_fetch::MemAccessSectorMask) {
+    fn force_tag_access(
+        &mut self,
+        _addr: address,
+        _time: u64,
+        _mask: mem_fetch::MemAccessSectorMask,
+    ) {
         todo!("cache: invalidate");
     }
 

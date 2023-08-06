@@ -1,4 +1,5 @@
-use crate::{
+use super::materialize::BenchmarkConfig;
+use super::{
     open_writable,
     options::{self, Options},
     RunError,
@@ -6,20 +7,10 @@ use crate::{
 use color_eyre::{eyre, Help};
 use std::time::Instant;
 use utils::fs::create_dirs;
-use validate::materialize::BenchmarkConfig;
 
-pub async fn simulate(
-    bench: &BenchmarkConfig,
-    options: &Options,
-    _trace_opts: &options::Sim,
-) -> Result<(), RunError> {
+pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<stats::Stats, RunError> {
     // get traces dir from trace config
     let traces_dir = bench.trace.traces_dir.clone();
-    let stats_dir = &bench.simulate.stats_dir;
-
-    if !options.force && crate::stats::already_exist(stats_dir) {
-        return Err(RunError::Skipped);
-    }
 
     let commandlist = traces_dir.join("commands.json");
     if !commandlist.is_file() {
@@ -35,17 +26,32 @@ pub async fn simulate(
         ));
     }
 
+    let stats = casimu::ported::accelmain(traces_dir, None)?;
+    Ok(stats)
+}
+
+pub async fn simulate(
+    bench: BenchmarkConfig,
+    options: &Options,
+    _trace_opts: &options::Sim,
+) -> Result<(), RunError> {
+    let stats_dir = bench.simulate.stats_dir.clone();
+
+    if !options.force && crate::stats::already_exist(&stats_dir) {
+        return Err(RunError::Skipped);
+    }
+
     let (stats, dur) = tokio::task::spawn_blocking(move || {
         let start = Instant::now();
-        let stats = casimu::ported::accelmain(traces_dir, None)?;
+        let stats = simulate_bench_config(&bench)?;
         Ok::<_, eyre::Report>((stats, start.elapsed()))
     })
     .await
     .map_err(eyre::Report::from)??;
 
-    create_dirs(stats_dir).map_err(eyre::Report::from)?;
+    create_dirs(&stats_dir).map_err(eyre::Report::from)?;
 
-    crate::stats::write_stats_as_csv(stats_dir, stats)?;
+    crate::stats::write_stats_as_csv(&stats_dir, stats)?;
 
     serde_json::to_writer_pretty(
         open_writable(stats_dir.join("exec_time.json"))?,

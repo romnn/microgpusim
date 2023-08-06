@@ -1,7 +1,5 @@
 use crate::config;
-use crate::ported::{
-    self, address, cache, cache_block, interconn as ic, mem_fetch, tag_array,
-};
+use crate::ported::{self, address, cache, cache_block, interconn as ic, mem_fetch, tag_array};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
@@ -77,13 +75,8 @@ where
         );
 
         // update LRU state
-        let tag_array::AccessStatus {
-            
-            index,
-            
-            
-            ..
-        } = self.inner.tag_array.access(block_addr, &fetch, time);
+        let tag_array::AccessStatus { index, .. } =
+            self.inner.tag_array.access(block_addr, &fetch, time);
         let cache_index = index.unwrap();
         let block = self.inner.tag_array.get_block_mut(cache_index);
         let was_modified_before = block.is_modified();
@@ -751,12 +744,11 @@ mod tests {
     use crate::ported::{
         self, cache::Cache, instruction, interconn as ic, mem_fetch, parse_commands,
     };
-    use itertools::Itertools;
     use std::collections::VecDeque;
     use std::path::PathBuf;
     use std::rc::Rc;
     use std::sync::{Arc, Mutex};
-    use trace_model::{Command};
+    use trace_model::Command;
 
     #[derive(Debug)]
     struct MockFetchInterconn {}

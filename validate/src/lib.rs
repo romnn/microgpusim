@@ -5,35 +5,48 @@
 )]
 // #![allow(warnings)]
 
+pub mod accelsim;
 pub mod benchmark;
 pub mod materialize;
+pub mod options;
+pub mod playground;
+pub mod profile;
+pub mod simulate;
+pub mod stats;
+pub mod trace;
 
 use benchmark::{
     matrix,
     template::{self, Template},
 };
+use color_eyre::eyre;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use smart_default::SmartDefault;
 use std::path::{Path, PathBuf};
 
+#[derive(thiserror::Error, Debug)]
+pub enum RunError {
+    #[error("benchmark skipped")]
+    Skipped,
+    #[error(transparent)]
+    Failed(#[from] eyre::Report),
+}
+
+#[inline]
+pub fn open_writable(path: impl AsRef<Path>) -> eyre::Result<std::io::BufWriter<std::fs::File>> {
+    let path = path.as_ref();
+    if let Some(parent) = path.parent() {
+        utils::fs::create_dirs(parent)?;
+    }
+    let writer = utils::fs::open_writable(path)?;
+    Ok(writer)
+}
+
 #[inline]
 #[must_use]
 pub fn bool_true() -> bool {
     true
-}
-
-pub fn write_csv_rows(
-    writer: impl std::io::Write,
-    rows: &[impl Serialize],
-) -> color_eyre::eyre::Result<()> {
-    let mut csv_writer = csv::WriterBuilder::new()
-        .flexible(false)
-        .from_writer(writer);
-    for row in rows {
-        csv_writer.serialize(row)?;
-    }
-    Ok(())
 }
 
 #[derive(thiserror::Error, Debug)]

@@ -1,8 +1,8 @@
 use super::instruction::WarpInstruction;
 use super::scheduler::SchedulerWarp;
 use super::{
-    address, barrier, cache, opcodes, operand_collector as opcoll, register_set,
-    scoreboard, simd_function_unit as fu, KernelInfo, LoadStoreUnit,
+    address, barrier, cache, opcodes, operand_collector as opcoll, register_set, scoreboard,
+    simd_function_unit as fu, KernelInfo, LoadStoreUnit,
 };
 use super::{interconn as ic, l1, mem_fetch, scheduler as sched};
 use crate::config::{self, GPUConfig};
@@ -14,10 +14,10 @@ use fu::SimdFunctionUnit;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
-use std::collections::{HashMap};
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::{atomic, Arc, Mutex, RwLock};
-use strum::{IntoEnumIterator};
+use strum::IntoEnumIterator;
 
 // Volta max shmem size is 96kB
 pub const SHARED_MEM_SIZE_MAX: usize = 96 * (1 << 10);
@@ -57,9 +57,6 @@ pub struct ThreadState {
     // pub active: bool,
     pub pc: usize,
 }
-
-// #[derive(Debug)]
-// pub struct ThreadInfo {}
 
 #[derive(Debug, Default)]
 pub struct InstrFetchBuffer {
@@ -156,14 +153,11 @@ where
         num_cores: usize,
         data_size: u32,
     ) -> Vec<address> {
-        // ) -> &[address] {
         // During functional execution, each thread sees its own memory space for
         // local memory, but these need to be mapped to a shared address space for
         // timing simulation.  We do that mapping here.
 
-        let mut thread_base = 0;
-        let mut max_concurrent_threads = 0;
-        if self.config.local_mem_map {
+        let (thread_base, max_concurrent_threads) = if self.config.local_mem_map {
             // Dnew = D*N + T%nTpC + nTpC*C
             // N = nTpC*nCpS*nS (max concurent threads)
             // C = nS*K + S (hw cta number per gpu)
@@ -182,15 +176,17 @@ where
 
             let temp = self.core_id + num_cores * (thread_id / kernel_padded_threads_per_cta);
             let rest = thread_id % kernel_padded_threads_per_cta;
-            thread_base = 4 * (kernel_padded_threads_per_cta * temp + rest);
-            max_concurrent_threads =
+            let thread_base = 4 * (kernel_padded_threads_per_cta * temp + rest);
+            let max_concurrent_threads =
                 kernel_padded_threads_per_cta * kernel_max_cta_per_shader * num_cores;
+            (thread_base, max_concurrent_threads)
         } else {
             // legacy mapping that maps the same address in the local memory
             // space of all threads to a single contiguous address region
-            thread_base = 4 * (self.config.max_threads_per_core * self.core_id + thread_id);
-            max_concurrent_threads = num_cores * self.config.max_threads_per_core;
-        }
+            let thread_base = 4 * (self.config.max_threads_per_core * self.core_id + thread_id);
+            let max_concurrent_threads = num_cores * self.config.max_threads_per_core;
+            (thread_base, max_concurrent_threads)
+        };
         debug_assert!(thread_base < 4 /*word size*/ * max_concurrent_threads);
 
         // If requested datasize > 4B, split into multiple 4B accesses
@@ -265,13 +261,12 @@ where
         stage: PipelineStage,
         warp: &mut SchedulerWarp,
         mut next_instr: WarpInstruction,
-        // warp_id: usize,
         scheduler_id: usize,
     ) {
         let mut pipeline_stage = self.pipeline_reg[stage as usize].borrow_mut();
         let (reg_idx, pipe_reg) = if self.config.sub_core_model {
+            pipeline_stage.get_free_sub_core_mut(scheduler_id).unwrap();
             todo!("sub core model");
-            pipeline_stage.get_free_sub_core_mut(scheduler_id).unwrap()
         } else {
             pipeline_stage.get_free_mut().unwrap()
         };
@@ -291,45 +286,19 @@ where
             pipe_reg.as_ref().map(ToString::to_string),
         );
 
-        // debug_assert!(next_instr.empty());
-        // *pipe_reg = Some(next_instr);
-        // we could set all the things here manually
-        //
         // this sets all the info for the warp instruction in pipe reg
         next_instr.uid = self
             .warp_instruction_unique_uid
             .fetch_add(1, atomic::Ordering::SeqCst);
-        // ++(m_config->gpgpu_ctx->warp_inst_sm_next_uid);
 
-        //   m_warp_active_mask = mask;
-        // self.warp_issued_mask = mask;
-        // m_uid = ++(m_config->gpgpu_ctx->warp_inst_sm_next_uid);
-        // m_warp_id = warp_id;
         next_instr.warp_id = warp.warp_id;
-        // m_dynamic_warp_id = dynamic_warp_id;
-        // issue_cycle = cycle;
         next_instr.issue_cycle = Some(self.cycle.get());
-        // cycles = initiation_interval;
         next_instr.dispatch_delay_cycles = next_instr.initiation_interval;
-        // m_cache_hit = false;
-        // m_empty = false;
         next_instr.scheduler_id = Some(scheduler_id);
 
-        // pipe_reg.insert(next_instr);
-
-        // let pipe_reg_mut = pipe_reg.as_mut().unwrap();
-        // let pipe_reg_mut = &mut next_instr;
         let mut pipe_reg_mut = next_instr;
 
         debug_assert_eq!(warp.warp_id, pipe_reg_mut.warp_id);
-
-        // pipe_reg_mut.issue(
-        //     pipe_reg_mut.active_mask,
-        //     warp.warp_id,
-        //     0,
-        //     warp.dynamic_warp_id,
-        //     scheduler_id,
-        // );
 
         for t in 0..self.config.warp_size {
             if pipe_reg_mut.active_mask[t] {
@@ -450,7 +419,7 @@ where
             .unwrap()
             .reserve_registers(&pipe_reg_ref);
 
-        pipe_reg.insert(pipe_reg_ref);
+        *pipe_reg = Some(pipe_reg_ref);
 
         log::debug!(
             "post issue register set of {:?} pipeline: {}",
@@ -522,7 +491,6 @@ where
         stats: Arc<Mutex<stats::Stats>>,
         config: Arc<GPUConfig>,
     ) -> Self {
-        // let thread_info: Vec<_> = (0..config.max_threads_per_core).map(|_| None).collect();
         let thread_state: Vec<_> = (0..config.max_threads_per_core).map(|_| None).collect();
 
         let warps: Vec<_> = (0..config.max_warps_per_core())
@@ -553,7 +521,6 @@ where
         );
 
         // todo: are those parameters correct?
-        // m_barriers(this, config->max_warps_per_shader, config->max_cta_per_core, config->max_barriers_per_cta, config->warp_size);
         let barriers = barrier::BarrierSet::new(
             config.max_warps_per_core(),
             config.max_concurrent_blocks_per_core,
@@ -1129,8 +1096,6 @@ where
 
                     let kernel = warp.kernel.as_ref().map(Arc::clone);
 
-                    // let sb = self.inner.scoreboard.read().unwrap();
-                    // let pending_writes = sb.pending_writes(warp_id);
                     let has_pending_writes = !self
                         .inner
                         .scoreboard
@@ -1138,22 +1103,6 @@ where
                         .unwrap()
                         .pending_writes(warp_id)
                         .is_empty();
-                    // .clone();
-
-                    // if !(warp.hardware_done() && warp.functional_done() && warp.done_exit()) {
-                    //     log::debug!(
-                    //         "\n checking warp_id = {} dyn warp id = {} (instruction count={}, hardware_done={}, functional_done={}, instr in pipe={}, stores={}, done_exit={}, pending writes={:?})",
-                    //         &warp_id,
-                    //         &warp.dynamic_warp_id(),
-                    //         warp.instruction_count(),
-                    //         warp.hardware_done(),
-                    //         warp.functional_done(),
-                    //         warp.num_instr_in_pipeline,
-                    //         warp.num_outstanding_stores,
-                    //         warp.done_exit(),
-                    //         pending_writes.iter().sorted().collect::<Vec<_>>()
-                    //     );
-                    // }
 
                     let did_maybe_exit =
                         warp.hardware_done() && !has_pending_writes && !warp.done_exit();
@@ -1333,9 +1282,7 @@ where
     /// - only void simt_core_cluster::icnt_cycle() calls accept_fetch_response when there is a
     /// response
     fn decode(&mut self) {
-        let InstrFetchBuffer {
-            valid,  warp_id, ..
-        } = self.inner.instr_fetch_buffer;
+        let InstrFetchBuffer { valid, warp_id, .. } = self.inner.instr_fetch_buffer;
 
         let _core_id = self.id();
         log::debug!(
@@ -1364,9 +1311,9 @@ where
         debug_assert_eq!(warp.warp_id, warp_id);
 
         let already_issued_trace_pc = warp.trace_pc;
-        let instr1 = warp.next_trace_inst();
+        let instr1 = warp.next_trace_inst().cloned();
         let instr2 = if instr1.is_some() {
-            warp.next_trace_inst()
+            warp.next_trace_inst().cloned()
         } else {
             None
         };
@@ -1418,29 +1365,12 @@ where
             instr,
         );
 
-        warp.ibuffer_fill(slot, instr);
+        warp.ibuffer_fill(slot, instr.clone());
         warp.num_instr_in_pipeline += 1;
-
-        // self.stats->m_num_decoded_insn[m_sid]++;
-        // use super::instruction::ArchOp;
-        // match instr1.opcode.category {
-        //     ArchOp::INT_OP | ArchOp::UN_OP => {
-        //         //these counters get added up in mcPat to compute scheduler power
-        //         // m_stats->m_num_INTdecoded_insn[m_sid]++;
-        //     }
-        //     ArchOp::FP_OP => {
-        //         // m_stats->m_num_FPdecoded_insn[m_sid]++;
-        //     }
-        //     _ => {}
-        // }
-
-        // drop(instr1);
-        // drop(warp);
     }
 
     fn issue(&mut self) {
         // fair round robin issue between schedulers
-        // for (scheduler_idx, scheduler) in self.schedulers.iter_mut().enumerate() {
         let num_schedulers = self.schedulers.len();
         for scheduler_idx in 0..num_schedulers {
             let scheduler_idx = (self.scheduler_issue_priority + scheduler_idx) % num_schedulers;
@@ -1523,8 +1453,6 @@ where
     }
 
     fn execute(&mut self) {
-        
-
         let core_id = self.id();
         log::debug!(
             "{}",
@@ -1920,8 +1848,6 @@ where
         log::debug!("kernel: {}", &kernel);
 
         let start_pc = self.next_pc(start_thread);
-        // let kernel_id = kernel.id();
-        // if self.config.model == POST_DOMINATOR {
         let start_warp = start_thread / self.inner.config.warp_size;
         let _warp_per_cta = thread_block_size / self.inner.config.warp_size;
         let end_warp = end_thread / self.inner.config.warp_size
@@ -1931,7 +1857,6 @@ where
                 1
             };
         for warp_id in start_warp..end_warp {
-            // log::debug!("init warp {}/{}", warp_id, self.inner.warps.len());
             let mut num_active = 0;
 
             let mut local_active_thread_mask: sched::ThreadActiveMask = BitArray::ZERO;
@@ -1944,20 +1869,6 @@ where
                     local_active_thread_mask.set(warp_thread_id, true);
                 }
             }
-            // self.simt_stack[i].launch(start_pc, self.active_threads);
-            // self.inner.warps.insert(
-            //     warp_id,
-            //     // Some(SchedulerWarp {
-            //     // SchedulerWarp {
-            //     Arc::new(Mutex::new(SchedulerWarp {
-            //         next_pc: start_pc,
-            //         warp_id,
-            //         block_id,
-            //         dynamic_warp_id: self.inner.dynamic_warp_id,
-            //         active_mask: local_active_thread_mask,
-            //         ..SchedulerWarp::default()
-            //     })),
-            // );
             self.inner.warps[warp_id].try_borrow_mut().unwrap().init(
                 start_pc,
                 block_hw_id as u64,
@@ -2023,11 +1934,11 @@ where
     pub fn issue_block(&mut self, kernel: Arc<KernelInfo>) -> () {
         log::debug!("core {:?}: issue block", self.id());
         if self.inner.config.concurrent_kernel_sm {
+            let occupied = self.occupy_resource_for_block(&*kernel, true);
+            assert!(occupied);
             unimplemented!("concurrent kernel sm");
-            let num = self.occupy_resource_for_block(&*kernel, true);
-            assert!(num);
         } else {
-            self.set_max_blocks(&*kernel);
+            self.set_max_blocks(&*kernel).unwrap();
         }
 
         // kernel.inc_running();
@@ -2035,7 +1946,7 @@ where
         // find a free CTA context
         let max_blocks_per_core = if self.inner.config.concurrent_kernel_sm {
             unimplemented!("concurrent kernel sm");
-            self.inner.config.max_concurrent_blocks_per_core
+            // self.inner.config.max_concurrent_blocks_per_core
         } else {
             self.inner.max_blocks_per_shader
         };
@@ -2057,20 +1968,19 @@ where
         // of hardware thread ids corresponding to an integral number of hardware
         // thread ids
         let (start_thread, end_thread) = if self.inner.config.concurrent_kernel_sm {
-            unimplemented!("concurrent kernel sm");
-            // let start_thread = self
-            //     .find_available_hw_thread_id(padded_thread_block_size, true)
-            //     .unwrap();
-            // let end_thread = start_thread + thread_block_size;
-            //
-            // assert!(!self
-            //     .inner
-            //     .occupied_block_to_hw_thread_id
-            //     .contains_key(&free_block_hw_id));
-            // self.inner
-            //     .occupied_block_to_hw_thread_id
-            //     .insert(free_block_hw_id, start_thread);
-            // (start_thread, end_thread)
+            let start_thread = self
+                .find_available_hw_thread_id(padded_thread_block_size, true)
+                .unwrap();
+            let end_thread = start_thread + thread_block_size;
+
+            assert!(!self
+                .inner
+                .occupied_block_to_hw_thread_id
+                .contains_key(&free_block_hw_id));
+            self.inner
+                .occupied_block_to_hw_thread_id
+                .insert(free_block_hw_id, start_thread);
+            (start_thread, end_thread)
         } else {
             let start_thread = free_block_hw_id * padded_thread_block_size;
             let end_thread = start_thread + thread_block_size;
@@ -2080,18 +1990,10 @@ where
         // reset state of the selected hardware thread and warp contexts
         self.reinit(start_thread, end_thread, false);
 
-        // NOTE: assertion does not always hold (we only reset start to end)
-        // debug_assert!(self
-        //     .inner
-        //     .warps
-        //     .iter()
-        //     .all(|w| w.try_borrow().unwrap().done_exit()));
-
         // initalize scalar threads and determine which hardware warps they are
         // allocated to bind functional simulation state of threads to hardware
         // resources (simulation)
         let mut warps: WarpMask = BitArray::ZERO;
-        // let block_id = kernel.next_block_id();
         let block = kernel.current_block().expect("kernel has current block");
         log::debug!(
             "core {:?}: issue block {} from kernel {}",
@@ -2099,9 +2001,7 @@ where
             block,
             kernel,
         );
-        // unsigned ctaid = kernel.get_next_cta_id_single();
         let block_id = block.id();
-        // dbg!(&block, block_id);
 
         // for debugging
         self.temp_check_state[free_block_hw_id].clear();
@@ -2155,25 +2055,6 @@ where
 }
 
 pub fn warp_inst_complete(instr: &mut WarpInstruction, stats: &Mutex<stats::Stats>) {
-    // pub fn warp_inst_complete(&self, instr: &mut WarpInstruction) {
-    // if (inst.op_pipe == SP__OP)
-    //   m_stats->m_num_sp_committed[m_sid]++;
-    // else if (inst.op_pipe == SFU__OP)
-    //   m_stats->m_num_sfu_committed[m_sid]++;
-    // else if (inst.op_pipe == MEM__OP)
-    //   m_stats->m_num_mem_committed[m_sid]++;
-    //
-    // if (m_config->gpgpu_clock_gated_lanes == false)
-    //   m_stats->m_num_sim_insn[m_sid] += m_config->warp_size;
-    // else
-    //   m_stats->m_num_sim_insn[m_sid] += inst.active_count();
-    // m_stats->m_num_sim_winsn[m_sid]++;
-
-    // panic!(
-    //     "warp instr completed: active={}",
-    //     instr.active_thread_count()
-    // );
     let mut stats = stats.lock().unwrap();
     stats.sim.instructions += instr.active_thread_count() as u64;
-    // instr.completed(m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle);
 }

@@ -1,5 +1,6 @@
 use super::open_writable;
 use color_eyre::eyre;
+use serde::Serialize;
 use std::path::{Path, PathBuf};
 
 #[derive(strum::IntoStaticStr, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -46,9 +47,22 @@ pub fn already_exist(stats_dir: impl AsRef<Path>) -> bool {
     .all(Path::is_file)
 }
 
+pub fn write_csv_rows(
+    writer: impl std::io::Write,
+    rows: &[impl Serialize],
+) -> color_eyre::eyre::Result<()> {
+    let mut csv_writer = csv::WriterBuilder::new()
+        .flexible(false)
+        .from_writer(writer);
+    for row in rows {
+        csv_writer.serialize(row)?;
+    }
+    Ok(())
+}
+
 pub fn write_stats_as_csv(stats_dir: impl AsRef<Path>, stats: stats::Stats) -> eyre::Result<()> {
     let stats_dir = stats_dir.as_ref();
-    validate::write_csv_rows(open_writable(sim_stats_path(stats_dir))?, &[stats.sim])?;
+    write_csv_rows(open_writable(sim_stats_path(stats_dir))?, &[stats.sim])?;
     // validate::write_csv_rows(
     //     open_writable(stats_dir.join("stats.dram.csv"))?,
     //     &[stats::dram::PerCoreDRAM {
@@ -56,11 +70,11 @@ pub fn write_stats_as_csv(stats_dir: impl AsRef<Path>, stats: stats::Stats) -> e
     //         bank_reads: stats.dram.bank_reads,
     //     }],
     // )?;
-    validate::write_csv_rows(
+    write_csv_rows(
         open_writable(access_stats_path(stats_dir))?,
         &stats.accesses.flatten(),
     )?;
-    validate::write_csv_rows(
+    write_csv_rows(
         open_writable(instruction_stats_path(stats_dir))?,
         &stats.instructions.flatten(),
     )?;
@@ -72,7 +86,7 @@ pub fn write_stats_as_csv(stats_dir: impl AsRef<Path>, stats: stats::Stats) -> e
         (Cache::L1C, stats.l1c_stats.flatten()),
         (Cache::L2D, stats.l2d_stats.flatten()),
     ] {
-        validate::write_csv_rows(
+        write_csv_rows(
             open_writable(cache_stats_path(stats_dir, cache.into()))?,
             &rows,
         )?;

@@ -1,5 +1,4 @@
 use super::instruction::WarpInstruction;
-use console::style;
 
 /// Register that can hold multiple instructions.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -303,7 +302,8 @@ impl RegisterSet {
         todo!("RegisterSet::empty")
     }
 
-    pub fn move_in_from(&mut self, src: Option<WarpInstruction>, msg: impl AsRef<str>) {
+    // pub fn move_in_from(&mut self, src: Option<WarpInstruction>, msg: impl AsRef<str>) {
+    pub fn move_in_from(&mut self, src: Option<WarpInstruction>) {
         // panic!("move {:?} in {}", src, self);
         let (_, free) = self.get_free_mut().unwrap();
         // let msg = format!(
@@ -311,16 +311,15 @@ impl RegisterSet {
         //     src.as_ref().map(ToString::to_string),
         //     free.as_ref().map(ToString::to_string)
         // );
-        move_warp(src, free, msg);
+        move_warp(src, free);
     }
 
     pub fn move_in_from_sub_core(
         &mut self,
         reg_id: usize,
         src: Option<WarpInstruction>,
-        msg: impl AsRef<str>,
+        // msg: impl AsRef<str>,
     ) {
-        // panic!("move {:?} in {}", src, self);
         //     assert(reg_id < regs.size());
         let (_, free) = self.get_free_sub_core_mut(reg_id).unwrap();
         // let msg = format!(
@@ -328,32 +327,30 @@ impl RegisterSet {
         //     src.as_ref().map(ToString::to_string),
         //     free.as_ref().map(ToString::to_string),
         // );
-        move_warp(src, free, msg);
+        move_warp(src, free);
     }
 
-    pub fn move_out_to(&mut self, dest: &mut Option<WarpInstruction>, msg: impl AsRef<str>) {
+    // pub fn move_out_to(&mut self, dest: &mut Option<WarpInstruction>, msg: impl AsRef<str>) {
+    pub fn move_out_to(&mut self, dest: &mut Option<WarpInstruction>) {
         let ready: Option<WarpInstruction> = self
             .get_ready_mut()
             .map(|(_, r)| r)
             .map(Option::take)
             .flatten();
-        // dbg!(&ready);
-        // dbg!(&dest);
         // let msg = format!(
         //     "register set moving out from ready={:?} to {:?}",
         //     ready.as_ref().map(ToString::to_string),
         //     dest.as_ref().map(ToString::to_string)
         // );
 
-        move_warp(ready, dest, msg);
-        // todo!("move out to");
+        move_warp(ready, dest);
     }
 
     pub fn move_out_to_sub_core(
         &mut self,
         reg_id: usize,
         dest: &mut Option<WarpInstruction>,
-        msg: impl AsRef<str>,
+        // msg: impl AsRef<str>,
     ) {
         let ready: Option<WarpInstruction> = self
             .get_ready_sub_core_mut(reg_id)
@@ -364,8 +361,7 @@ impl RegisterSet {
         //     ready.as_ref().map(ToString::to_string),
         //     dest.as_ref().map(ToString::to_string),
         // );
-        move_warp(ready, dest, msg);
-        // todo!("move out to sub core");
+        move_warp(ready, dest);
     }
 }
 
@@ -393,22 +389,21 @@ impl std::fmt::Display for RegisterSet {
 //     std::mem::swap(&mut init[lo], &mut tail[0]);
 // }
 
-pub fn move_warp<T: std::fmt::Display>(from: Option<T>, to: &mut Option<T>, msg: impl AsRef<str>) {
-    log::debug!(
-        "{}",
-        style(format!(
-            "MOVING {:?} to {:?}: {}",
-            from.as_ref().map(|i| i.to_string()),
-            to.as_ref().map(|i| i.to_string()),
-            msg.as_ref(),
-        ))
-        .white()
-        .bold()
-    );
+// pub fn move_warp<T: std::fmt::Display>(from: Option<T>, to: &mut Option<T>, msg: impl AsRef<str>) {
+#[inline(always)]
+pub fn move_warp<T: std::fmt::Display>(from: Option<T>, to: &mut Option<T>) {
+    // log::debug!(
+    //     "{}",
+    //     style(format!(
+    //         "MOVING {:?} to {:?}: {}",
+    //         from.as_ref().map(|i| i.to_string()),
+    //         to.as_ref().map(|i| i.to_string()),
+    //         msg.as_ref(),
+    //     ))
+    //     .white()
+    //     .bold()
+    // );
     // debug_assert!(to.is_none());
     // debug_assert!(from.is_some());
     *to = from;
-    // fn move_warp<T>(x: &mut [T], from: usize, to: usize) {
-    // debug_assert!(
-    // std::mem::swap(from, to);
 }

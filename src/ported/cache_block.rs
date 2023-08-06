@@ -1,8 +1,6 @@
-use super::{address, mem_fetch};
+use super::{address, mem_fetch, mem_sub_partition};
 
-use bitvec::{array::BitArray};
-
-
+use bitvec::array::BitArray;
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum Status {
@@ -219,7 +217,8 @@ impl LineCacheBlock {
 
     #[inline]
     pub fn modified_size(&self) -> u32 {
-        super::SECTOR_CHUNCK_SIZE * super::SECTOR_SIZE // cache line size
+        // cache line size
+        mem_sub_partition::SECTOR_CHUNCK_SIZE * mem_sub_partition::SECTOR_SIZE
     }
 
     #[inline]

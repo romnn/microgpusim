@@ -1,3 +1,4 @@
+use super::materialize::BenchmarkConfig;
 use crate::{
     open_writable,
     options::{self, Options},
@@ -6,7 +7,6 @@ use crate::{
 use color_eyre::eyre;
 use std::io::Write;
 use utils::fs::create_dirs;
-use validate::materialize::BenchmarkConfig;
 
 pub async fn profile(
     bench: &BenchmarkConfig,

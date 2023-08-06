@@ -11,11 +11,8 @@ use std::sync::Arc;
 
 pub trait SimdFunctionUnit: std::fmt::Display {
     fn id(&self) -> &str;
-    // modifiers
     fn cycle(&mut self);
-    // fn issue(&mut self, source_reg: &mut RegisterSet);
     fn issue(&mut self, source_reg: WarpInstruction);
-    // fn compute_active_lanes_in_pipeline(&mut self);
 
     // accessors
     fn clock_multiplier(&self) -> usize {
@@ -24,20 +21,9 @@ pub trait SimdFunctionUnit: std::fmt::Display {
     fn can_issue(&self, instr: &WarpInstruction) -> bool;
     fn pipeline(&self) -> &Vec<Option<WarpInstruction>>;
     fn active_lanes_in_pipeline(&self) -> usize;
-    // {
-    //     return m_dispatch_reg->empty() && !occupied.test(inst.latency);
-    //   }
     fn is_issue_partitioned(&self) -> bool;
     fn issue_reg_id(&self) -> usize;
     fn stallable(&self) -> bool;
-
-    // void simd_function_unit::issue(register_set &source_reg) {
-    //   bool partition_issue =
-    //       m_config->sub_core_model && this->is_issue_partitioned();
-    //   source_reg.move_out_to(partition_issue, this->get_issue_reg_id(),
-    //                          m_dispatch_reg);
-    //   occupied.set(m_dispatch_reg->latency);
-    // }
 }
 
 pub const MAX_ALU_LATENCY: usize = 512;
@@ -146,12 +132,11 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
             if let Some(pipe_reg) = self.pipeline_reg[0].take() {
                 // move to EX_WB result port
                 let mut result_port = result_port.borrow_mut();
-                let msg = format!(
-                    "{}: move pipeline[0] to result port {:?}",
-                    self.name, result_port.stage
-                );
-
-                result_port.move_in_from(Some(pipe_reg), msg);
+                // let msg = format!(
+                //     "{}: move pipeline[0] to result port {:?}",
+                //     self.name, result_port.stage
+                // );
+                result_port.move_in_from(Some(pipe_reg));
 
                 debug_assert!(self.active_insts_in_pipeline > 0);
                 self.active_insts_in_pipeline -= 1;
@@ -165,26 +150,21 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
             for stage in 0..(self.pipeline_reg.len() - 1) {
                 let current = self.pipeline_reg[stage + 1].take();
                 let next = &mut self.pipeline_reg[stage];
-                let msg = format!("{} moving to next slot in pipeline register", self.name);
-                register_set::move_warp(current, next, msg);
-
-                // let current = self.pipeline_reg[stage + 1].take();
-                // let next = &mut self.pipeline_reg[stage];
-                // register_set::move_warp(current, next);
+                // let msg = format!("{} moving to next slot in pipeline register", self.name);
+                register_set::move_warp(current, next);
             }
         }
         if let Some(dispatch) = self.dispatch_reg.take() {
             // if !dispatch.empty() && !dispatch.dispatch_delay() {
             let start_stage_idx = dispatch.latency - dispatch.initiation_interval;
-            // panic!("start stage: {}", &start_stage);
             if self.pipeline_reg[start_stage_idx].is_none() {
                 register_set::move_warp(
                     Some(dispatch),
                     &mut self.pipeline_reg[start_stage_idx],
-                    format!(
-                        "{} moving dispatch register to free pipeline_register[start_stage={}]",
-                        self.name, start_stage_idx
-                    ),
+                    // format!(
+                    //     "{} moving dispatch register to free pipeline_register[start_stage={}]",
+                    //     self.name, start_stage_idx
+                    // ),
                 );
                 self.active_insts_in_pipeline += 1;
             }
@@ -192,39 +172,18 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
 
         // occupied latencies are shifted each cycle
         self.occupied.shift_right(1);
-        // todo!("pipelined simd unit: cycle");
     }
 
-    // fn issue(&mut self, src_reg: &mut RegisterSet) {
     fn issue(&mut self, src_reg: WarpInstruction) {
         register_set::move_warp(
             Some(src_reg),
             &mut self.dispatch_reg,
-            format!(
-                "{} moving register to dispatch register for issue",
-                self.name,
-            ),
+            // format!(
+            //     "{} moving register to dispatch register for issue",
+            //     self.name,
+            // ),
         );
     }
-    // fn issue(&mut self, src_reg: &mut RegisterSet) {
-    //     let partition_issue = self.config.sub_core_model && self.is_issue_partitioned();
-    //     // let ready_reg = src_reg.get_ready(partition_issue, self.issue_reg_id());
-    //     // // self.core.incexecstat((*ready_reg));
-    //     //
-    //     // // from simd function unit
-    //     if partition_issue {
-    //         src_reg.move_out_to_sub_core(self.issue_reg_id(), &mut self.dispatch_reg);
-    //     } else {
-    //         src_reg.move_out_to(&mut self.dispatch_reg);
-    //     }
-    //
-    //     let dispatched = self.dispatch_reg.as_ref().unwrap();
-    //     self.occupied.set(dispatched.latency, true);
-    //     // if let Some(dispatch) = &self.dispatch_reg {
-    //     //     self.occupied.set(dispatch.latency, true);
-    //     // }
-    //     // todo!("pipelined simd unit: issue");
-    // }
 
     fn clock_multiplier(&self) -> usize {
         1
@@ -232,13 +191,7 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
 
     fn can_issue(&self, instr: &WarpInstruction) -> bool {
         self.dispatch_reg.is_none() && !self.occupied[instr.latency]
-        // todo!("pipelined simd unit: can issue");
     }
-
-    // fn active_lanes_in_pipeline(&self) -> usize;
-    // {
-    //     return m_dispatch_reg->empty() && !occupied.test(inst.latency);
-    //   }
 
     fn is_issue_partitioned(&self) -> bool {
         todo!("pipelined simd unit: is issue partitioned");
@@ -250,6 +203,5 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
 
     fn stallable(&self) -> bool {
         false
-        // todo!("pipelined simd unit: stallable");
     }
 }

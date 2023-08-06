@@ -1,26 +1,16 @@
+use super::materialize::{self, BenchmarkConfig};
 use crate::{
     open_writable,
     options::{self, Options},
     RunError,
 };
 use color_eyre::{eyre, Help};
-use std::time::Instant;
 use utils::fs::create_dirs;
-use validate::materialize::{self, BenchmarkConfig};
 
-pub async fn simulate(
+pub fn simulate_bench_config(
     bench: &BenchmarkConfig,
-    options: &Options,
-    _sim_opts: &options::PlaygroundSim,
-) -> Result<(), RunError> {
-    // get traces dir from accelsim trace config
+) -> Result<playground::stats::StatsBridge, RunError> {
     let traces_dir = &bench.accelsim_trace.traces_dir;
-    let stats_dir = &bench.playground_simulate.stats_dir;
-
-    if !options.force && crate::stats::already_exist(stats_dir) {
-        return Err(RunError::Skipped);
-    }
-
     let kernelslist = traces_dir.join("kernelslist.g");
     if !kernelslist.is_file() {
         return Err(RunError::Failed(
@@ -42,31 +32,46 @@ pub async fn simulate(
         ..
     } = bench.playground_simulate.configs.clone();
 
+    let kernelslist = kernelslist.to_string_lossy().to_string();
+    let gpgpusim_config = config.to_string_lossy().to_string();
+    let trace_config = trace_config.to_string_lossy().to_string();
+    let inter_config = inter_config.to_string_lossy().to_string();
+
+    let args = [
+        "-trace",
+        &kernelslist,
+        "-config",
+        &gpgpusim_config,
+        "-config",
+        &trace_config,
+        "-inter_config_file",
+        &inter_config,
+    ];
+
+    let config = playground::Config::default();
+    let stats = playground::run(&config, args.as_slice()).map_err(eyre::Report::from)?;
+    Ok(stats)
+}
+
+pub async fn simulate(
+    bench: BenchmarkConfig,
+    options: &Options,
+    _sim_opts: &options::PlaygroundSim,
+) -> Result<(), RunError> {
+    // get traces dir from accelsim trace config
+    let stats_dir = bench.playground_simulate.stats_dir.clone();
+
+    if !options.force && crate::stats::already_exist(&stats_dir) {
+        return Err(RunError::Skipped);
+    }
+
     let (_stats, dur) = tokio::task::spawn_blocking(move || {
-        let kernelslist = kernelslist.to_string_lossy().to_string();
-        let gpgpusim_config = config.to_string_lossy().to_string();
-        let trace_config = trace_config.to_string_lossy().to_string();
-        let inter_config = inter_config.to_string_lossy().to_string();
-
-        let args = [
-            "-trace",
-            &kernelslist,
-            "-config",
-            &gpgpusim_config,
-            "-config",
-            &trace_config,
-            "-inter_config_file",
-            &inter_config,
-        ];
-        dbg!(&args);
-
-        let start = Instant::now();
-        let config = playground::Config::default();
-        let stats = playground::run(&config, args.as_slice())?;
+        let start = std::time::Instant::now();
+        let stats = simulate_bench_config(&bench)?;
         Ok::<_, eyre::Report>((stats, start.elapsed()))
     })
     .await
-    .map_err(eyre::Report::from)??;
+    .unwrap()?;
 
     // let stats = stats::Stats {
     //     accesses: stats.accesses.into(),
@@ -81,7 +86,7 @@ pub async fn simulate(
     //     ..stats::Stats::default()
     // };
 
-    create_dirs(stats_dir).map_err(eyre::Report::from)?;
+    create_dirs(&stats_dir).map_err(eyre::Report::from)?;
     let _stats_out_file = stats_dir.join("stats.json");
     let exec_dur_file = stats_dir.join("exec_time.json");
 

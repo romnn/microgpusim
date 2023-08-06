@@ -1,3 +1,4 @@
+use super::materialize::{self, BenchmarkConfig};
 use crate::{
     open_writable,
     options::{self, Options},
@@ -8,8 +9,8 @@ use color_eyre::{eyre, Help};
 use itertools::Itertools;
 use std::io::Write;
 use std::path::Path;
+use std::time::Duration;
 use utils::fs::create_dirs;
-use validate::materialize::{self, BenchmarkConfig};
 
 fn convert_traces_to_json(trace_dir: &Path, kernelslist: &Path) -> eyre::Result<()> {
     let reader = utils::fs::open_readable(kernelslist)?;
@@ -87,17 +88,10 @@ pub async fn trace(
     Ok(())
 }
 
-pub async fn simulate(
+pub async fn simulate_bench_config(
     bench: &BenchmarkConfig,
-    options: &Options,
-    _sim_options: &options::AccelsimSim,
-) -> Result<(), RunError> {
+) -> Result<(async_process::Output, Duration), RunError> {
     let traces_dir = &bench.accelsim_trace.traces_dir;
-    let stats_dir = &bench.accelsim_simulate.stats_dir;
-
-    if !options.force && crate::stats::already_exist(stats_dir) {
-        return Err(RunError::Skipped);
-    }
 
     // todo: allow setting this in test-apps.yml ?
     let kernelslist = traces_dir.join("kernelslist.g");
@@ -134,6 +128,22 @@ pub async fn simulate(
 
     let (log, dur) =
         accelsim_sim::simulate_trace(&traces_dir, &kernelslist, &config, timeout).await?;
+    Ok((log, dur))
+}
+
+pub async fn simulate(
+    bench: &BenchmarkConfig,
+    options: &Options,
+    _sim_options: &options::AccelsimSim,
+) -> Result<(), RunError> {
+    let _traces_dir = &bench.accelsim_trace.traces_dir;
+    let stats_dir = &bench.accelsim_simulate.stats_dir;
+
+    if !options.force && crate::stats::already_exist(stats_dir) {
+        return Err(RunError::Skipped);
+    }
+
+    let (log, dur) = simulate_bench_config(bench).await?;
 
     // parse stats
     let parse_options = accelsim::parser::Options::default();
@@ -154,7 +164,7 @@ pub async fn simulate(
     //     &stats.into_inner().into_iter().collect::<Vec<_>>(),
     // )?;
 
-    validate::write_csv_rows(
+    super::stats::write_csv_rows(
         open_writable(stats_dir.join("raw.stats.csv"))?,
         &stats.into_iter().collect::<Vec<_>>(),
     )?;

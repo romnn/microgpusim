@@ -1,13 +1,6 @@
 // #![allow(warnings)]
 
-mod accelsim;
-mod options;
-mod playground;
-mod profile;
 mod progress;
-mod simulate;
-mod stats;
-mod trace;
 
 // #[cfg(feature = "remote")]
 // mod remote;
@@ -17,12 +10,11 @@ use clap::Parser;
 use color_eyre::eyre::{self, WrapErr};
 use console::{style, Style};
 use futures::stream::{self, StreamExt};
-use options::{Command, Options};
+use validate::options::{Command, Options};
 
 use indicatif::ProgressBar;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
-use utils::fs::create_dirs;
 use validate::benchmark::paths::PathExt;
 use validate::materialize::{self, BenchmarkConfig, Benchmarks};
 
@@ -40,52 +32,38 @@ pub enum Error {
     },
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum RunError {
-    #[error("benchmark skipped")]
-    Skipped,
-    #[error(transparent)]
-    Failed(#[from] eyre::Report),
-}
-
-#[inline]
-fn open_writable(path: impl AsRef<Path>) -> eyre::Result<std::io::BufWriter<std::fs::File>> {
-    let path = path.as_ref();
-    if let Some(parent) = path.parent() {
-        create_dirs(parent)?;
-    }
-    let writer = utils::fs::open_writable(path)?;
-    Ok(writer)
-}
-
 #[allow(clippy::too_many_lines)]
 async fn run_benchmark(
-    bench: &BenchmarkConfig,
+    bench: BenchmarkConfig,
     options: &Options,
     bar: &ProgressBar,
-) -> Result<(), RunError> {
+) -> Result<(), validate::RunError> {
     bar.set_message(bench.name.clone());
     match options.command {
         Command::Expand(ref _opts) => {
             // do nothing
             Ok(())
         }
-        Command::Profile(ref opts) => profile::profile(bench, options, opts).await,
-        Command::AccelsimTrace(ref opts) => accelsim::trace(bench, options, opts).await,
-        Command::Trace(ref opts) => trace::trace(bench, options, opts).await,
-        Command::Simulate(ref opts) => simulate::simulate(bench, options, opts).await,
-        Command::AccelsimSimulate(ref opts) => accelsim::simulate(bench, options, opts).await,
-        Command::PlaygroundSimulate(ref opts) => playground::simulate(bench, options, opts).await,
+        Command::Profile(ref opts) => validate::profile::profile(&bench, options, opts).await,
+        Command::AccelsimTrace(ref opts) => validate::accelsim::trace(&bench, options, opts).await,
+        Command::Trace(ref opts) => validate::trace::trace(&bench, options, opts).await,
+        Command::Simulate(ref opts) => validate::simulate::simulate(bench, options, opts).await,
+        Command::AccelsimSimulate(ref opts) => {
+            validate::accelsim::simulate(&bench, options, opts).await
+        }
+        Command::PlaygroundSimulate(ref opts) => {
+            validate::playground::simulate(bench, options, opts).await
+        }
         Command::Build(_) | Command::Clean(_) => {
             if let Command::Build(_) = options.command {
                 if !options.force && bench.executable.is_file() {
-                    return Err(RunError::Skipped);
+                    return Err(validate::RunError::Skipped);
                 }
             }
 
             let makefile = bench.path.join("Makefile");
             if !makefile.is_file() {
-                return Err(RunError::from(eyre::eyre!(
+                return Err(validate::RunError::from(eyre::eyre!(
                     "Makefile at {} not found",
                     makefile.display()
                 )));
@@ -98,7 +76,7 @@ async fn run_benchmark(
             log::debug!("{:?}", &cmd);
             let result = cmd.output().await.map_err(eyre::Report::from)?;
             if !result.status.success() {
-                return Err(RunError::Failed(
+                return Err(validate::RunError::Failed(
                     utils::CommandError::new(&cmd, result).into_eyre(),
                 ));
             }
@@ -137,7 +115,7 @@ fn parse_benchmarks(options: &Options) -> eyre::Result<Benchmarks> {
 
     if let Some(materialize_path) = materialize_path {
         use std::io::Write;
-        let mut materialize_file = open_writable(&materialize_path)?;
+        let mut materialize_file = validate::open_writable(&materialize_path)?;
         write!(
             &mut materialize_file,
             r"
@@ -328,10 +306,12 @@ async fn main() -> eyre::Result<()> {
                 let res: Result<_, Error> = if should_exit.load(Relaxed) {
                     Err(Error::Canceled(bench_config.clone()))
                 } else {
-                    match run_benchmark(&bench_config, &options, &bar).await {
+                    match run_benchmark(bench_config.clone(), &options, &bar).await {
                         Ok(()) => Ok(()),
-                        Err(RunError::Skipped) => Err(Error::Skipped(bench_config.clone())),
-                        Err(RunError::Failed(source)) => Err(Error::Failed {
+                        Err(validate::RunError::Skipped) => {
+                            Err(Error::Skipped(bench_config.clone()))
+                        }
+                        Err(validate::RunError::Failed(source)) => Err(Error::Failed {
                             source,
                             bench: bench_config.clone(),
                         }),

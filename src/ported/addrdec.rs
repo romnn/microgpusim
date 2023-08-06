@@ -49,8 +49,6 @@ pub fn mask_limit(mask: address) -> (u8, u8) {
     (low, high)
 }
 
-type partition_index_function = usize;
-
 #[derive(PartialEq, Eq, Hash)]
 pub struct LinearToRawAddressTranslation {
     pub num_channels: usize,
@@ -220,8 +218,7 @@ impl LinearToRawAddressTranslation {
         } else {
             // see addrdec_tlx for explanation
             let addr_chip_start = self.decode_config.addr_chip_start.unwrap();
-            let mut partition_addr: address = 0;
-            partition_addr = (addr >> addr_chip_start) / self.num_channels as u64;
+            let mut partition_addr = (addr >> addr_chip_start) / self.num_channels as u64;
             partition_addr <<= addr_chip_start;
             partition_addr |= addr & ((1 << addr_chip_start) - 1);
 
@@ -262,8 +259,7 @@ impl LinearToRawAddressTranslation {
 
             let _rest_of_addr_high_bits = addr
                 >> (addr_chip_start
-                    + (self.num_channels_log2 + self.num_sub_partitions_per_channel_log2)
-                        as usize);
+                    + (self.num_channels_log2 + self.num_sub_partitions_per_channel_log2) as usize);
         }
 
         match self.memory_partition_indexing {
@@ -481,7 +477,7 @@ mod tests {
         );
 
         let mut config = GPUConfig::default();
-        config.memory_addr_mapping.insert(config_str.to_string());
+        config.memory_addr_mapping = Some(config_str.to_string());
         config.num_memory_controllers = 8;
         config.num_sub_partition_per_memory_channel = 2;
 
