@@ -28,6 +28,13 @@ opt-level = 3
 # lto = true
 opt-level = 3
 debug = true
+debug-assertions = true
+
+[profile.bench]
+# lto = true
+codegen-units = 10
+opt-level = 3
+debug = false
 
 [package]
 name = "casimu"
@@ -42,6 +49,10 @@ python = ["dep:pyo3"]
 
 [package.metadata.cargo-feature-combinations]
 denylist = ["default"]
+
+[[bench]]
+name = "vectoradd"
+harness = false
 
 [dependencies]
 color-eyre = "0"
@@ -86,6 +97,7 @@ pretty_assertions_sorted = "1"
 similar-asserts = "1"
 cxx = "1"
 paste = "1"
+criterion = { version = "0.5", features = ["async_tokio"] }
 
 # sanity check stats against playground
 playground = { path = "./playground" }
