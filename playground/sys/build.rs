@@ -37,7 +37,7 @@ fn configure_debug_mode(build: &mut cc::Build) {
     if is_debug() {
         build.opt_level(0).debug(true).flag("-ggdb3");
     } else {
-        build.opt_level(3).debug(false);
+        build.opt_level(3).debug(true);
     }
 }
 

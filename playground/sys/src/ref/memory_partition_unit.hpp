@@ -80,7 +80,10 @@ class memory_partition_unit {
 
   class arbitration_metadata {
    public:
-    arbitration_metadata(const memory_config *config);
+    arbitration_metadata(const memory_config *config,
+                         std::shared_ptr<spdlog::logger> logger);
+
+    friend class memory_partition_unit_bridge;
 
     // check if a subpartition still has credit
     bool has_credits(int inner_sub_partition_id) const;
@@ -93,6 +96,8 @@ class memory_partition_unit {
     int last_borrower() const { return m_last_borrower; }
 
     void print(FILE *fp) const;
+
+    std::shared_ptr<spdlog::logger> logger;
 
    private:
     // id of the last subpartition that borrowed credit

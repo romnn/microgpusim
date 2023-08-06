@@ -12,7 +12,7 @@ extern InterconnectInterface *g_icnt_interface;
 class BoxInterconnect : public InterconnectInterface {
  public:
   BoxInterconnect(std::shared_ptr<spdlog::logger> logger)
-      : InterconnectInterface(), logger(logger) {}
+      : InterconnectInterface(false), logger(logger) {}
 
   // we override these functions
   void Init();

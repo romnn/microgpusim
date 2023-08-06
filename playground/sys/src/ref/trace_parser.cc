@@ -13,16 +13,12 @@ void split(const std::string &str, std::vector<std::string> &cont,
   }
 }
 
-trace_parser::trace_parser(const char *kernellist_filepath) {
-  kernellist_filename = kernellist_filepath;
-}
-
 std::vector<trace_command> trace_parser::parse_commandlist_file() const {
   std::ifstream fs;
   fs.open(kernellist_filename);
 
   if (!fs.is_open()) {
-    std::cout << "Unable to open file: " << kernellist_filename << std::endl;
+    std::cerr << "Unable to open file: " << kernellist_filename << std::endl;
     exit(1);
   }
 
@@ -79,11 +75,13 @@ kernel_trace_t *trace_parser::parse_kernel_info(
   ifs->open(kerneltraces_filepath.c_str());
 
   if (!ifs->is_open()) {
-    std::cout << "Unable to open file: " << kerneltraces_filepath << std::endl;
+    std::cerr << "Unable to open file: " << kerneltraces_filepath << std::endl;
     exit(1);
   }
 
-  std::cout << "Processing kernel " << kerneltraces_filepath << std::endl;
+  if (!m_quiet) {
+    std::cout << "Processing kernel " << kerneltraces_filepath << std::endl;
+  }
 
   std::string line;
 
@@ -145,7 +143,9 @@ kernel_trace_t *trace_parser::parse_kernel_info(
         ss.str(line.substr(equal_idx + 1));
         ss >> std::hex >> kernel_info->local_base_addr;
       }
-      std::cout << line << std::endl;
+      if (!m_quiet) {
+        std::cout << line << std::endl;
+      }
       continue;
     }
   }
@@ -203,7 +203,10 @@ void trace_parser::get_next_threadblock_traces(
         assert(start_of_tb_stream_found);
         sscanf(line.c_str(), "thread block = %d,%d,%d", &block_id_x,
                &block_id_y, &block_id_z);
-        std::cout << line << std::endl;
+
+        if (!m_quiet) {
+          std::cout << line << std::endl;
+        }
       } else if (string1 == "warp") {
         // the start of new warp stream
         assert(start_of_tb_stream_found);

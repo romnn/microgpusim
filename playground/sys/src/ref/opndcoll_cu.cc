@@ -105,10 +105,10 @@ bool collector_unit_t::allocate(register_set *pipeline_reg_set,
                   mask_to_string(m_not_ready));
 
     // move_warp(m_warp,*pipeline_reg);
-    std::stringstream msg;
-    msg << "operand collector: move input register "
-        << pipeline_reg_set->get_name() << " to warp instruction " << m_warp;
-    pipeline_reg_set->move_out_to(m_warp, msg.str());
+    // std::stringstream msg;
+    // msg << "operand collector: move input register "
+    //     << pipeline_reg_set->get_name() << " to warp instruction " << m_warp;
+    pipeline_reg_set->move_out_to(m_warp);
     return true;
   }
   return false;
@@ -116,11 +116,11 @@ bool collector_unit_t::allocate(register_set *pipeline_reg_set,
 
 void collector_unit_t::dispatch() {
   assert(m_not_ready.none());
-  std::stringstream msg;
-  msg << "operand collector: move warp instr " << m_warp
-      << " to output register (reg id=" << m_reg_id << ")";
+  // std::stringstream msg;
+  // msg << "operand collector: move warp instr " << m_warp
+  //     << " to output register (reg id=" << m_reg_id << ")";
 
-  m_output_register->move_in(m_sub_core_model, m_reg_id, m_warp, msg.str());
+  m_output_register->move_in(m_sub_core_model, m_reg_id, m_warp);
 
   m_free = true;
   m_output_register = NULL;

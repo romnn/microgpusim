@@ -35,5 +35,6 @@ extern unsigned g_network_mode;
 
 enum network_mode { INTERSIM = 1, LOCAL_XBAR = 2, BOX_NET = 3, N_NETWORK_MODE };
 
-void icnt_wrapper_init(std::shared_ptr<spdlog::logger> logger);
+void icnt_wrapper_init(std::shared_ptr<spdlog::logger> logger,
+                       bool accelsim_compat_mode);
 void icnt_reg_options(class OptionParser *opp);

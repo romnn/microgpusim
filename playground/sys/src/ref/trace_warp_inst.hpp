@@ -26,5 +26,6 @@ class trace_warp_inst_t : public warp_inst_t {
       const struct kernel_trace_t *kernel_trace_info);
 };
 
-void move_warp(warp_inst_t *&dst, warp_inst_t *&src, std::string msg,
-               std::shared_ptr<spdlog::logger> &logger);
+void move_warp(warp_inst_t *&dst,
+               warp_inst_t *&src);  // std::string msg,
+                                    // std::shared_ptr<spdlog::logger> &logger);

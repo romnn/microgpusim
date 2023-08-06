@@ -172,11 +172,6 @@ new_addr_type linear_to_raw_address_translation::partition_address(
 
 void linear_to_raw_address_translation::addrdec_tlx(new_addr_type addr,
                                                     addrdec_t *tlx) const {
-  // printf("addrdec_option = %s\n", addrdec_option);
-  // printf("run_test = %d\n", run_test);
-  // printf("gpgpu_mem_address_mask = %d\n", gpgpu_mem_address_mask);
-  // printf("memory_partition_indexing = %d\n", memory_partition_indexing);
-
   unsigned long long int addr_for_chip, rest_of_addr, rest_of_addr_high_bits;
   if (!gap) {
     tlx->chip = addrdec_packbits(addrdec_mask[CHIP], addr, addrdec_mkhigh[CHIP],
@@ -533,8 +528,6 @@ void linear_to_raw_address_translation::init(
       }
     }
   }
-
-  print();
 
   if (run_test) {
     sweep_test();

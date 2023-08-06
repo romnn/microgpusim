@@ -37,12 +37,14 @@ unsigned int shader_core_config::max_cta(const trace_kernel_info_t &k) const {
   if (last_kinfo !=
       kernel_info) {  // Only print out stats if kernel_info struct changes
     last_kinfo = kernel_info;
-    printf("GPGPU-Sim uArch: CTA/core = %u, limited by:", result);
-    if (result == result_thread) printf(" threads");
-    if (result == result_shmem) printf(" shmem");
-    if (result == result_regs) printf(" regs");
-    if (result == result_cta) printf(" cta_limit");
-    printf("\n");
+    if (gpgpu_ctx->accelsim_compat_mode) {
+      printf("GPGPU-Sim uArch: CTA/core = %u, limited by:", result);
+      if (result == result_thread) printf(" threads");
+      if (result == result_shmem) printf(" shmem");
+      if (result == result_regs) printf(" regs");
+      if (result == result_cta) printf(" cta_limit");
+      printf("\n");
+    }
   }
 
   // gpu_max_cta_per_shader is limited by number of CTAs if not enough to keep
@@ -101,14 +103,21 @@ unsigned int shader_core_config::max_cta(const trace_kernel_info_t &k) const {
       // size/associativity
       if (total_shmem == 0) {
         m_L1D_config.set_allocation_policy(ON_MISS);
-        printf("GPGPU-Sim: Reconfigure L1 allocation to ON_MISS\n");
+
+        if (gpgpu_ctx->accelsim_compat_mode) {
+          printf("GPGPU-Sim: Reconfigure L1 allocation to ON_MISS\n");
+        }
       } else {
         m_L1D_config.set_allocation_policy(ON_FILL);
-        printf("GPGPU-Sim: Reconfigure L1 allocation to ON_FILL\n");
+        if (gpgpu_ctx->accelsim_compat_mode) {
+          printf("GPGPU-Sim: Reconfigure L1 allocation to ON_FILL\n");
+        }
       }
     }
-    printf("GPGPU-Sim: Reconfigure L1 cache to %uKB\n",
-           m_L1D_config.get_total_size_inKB());
+    if (gpgpu_ctx->accelsim_compat_mode) {
+      printf("GPGPU-Sim: Reconfigure L1 cache to %uKB\n",
+             m_L1D_config.get_total_size_inKB());
+    }
 
     k.cache_config_set = true;
   }

@@ -44,20 +44,20 @@ void pipelined_simd_unit::cycle() {
         active_insts_in_pipeline, m_pipeline_depth);
   }
   if (!m_pipeline_reg[0]->empty()) {
-    std::stringstream msg;
-    msg << m_name << ": move pipeline[0] to result port "
-        << m_result_port->get_name();
-    m_result_port->move_in(m_pipeline_reg[0], msg.str());
+    // std::stringstream msg;
+    // msg << m_name << ": move pipeline[0] to result port "
+    //     << m_result_port->get_name();
+    m_result_port->move_in(m_pipeline_reg[0]);
 
     assert(active_insts_in_pipeline > 0);
     active_insts_in_pipeline--;
   }
   if (active_insts_in_pipeline) {
     for (unsigned stage = 0; (stage + 1) < m_pipeline_depth; stage++) {
-      std::stringstream msg;
-      msg << m_name << ": moving to next slot in pipeline register";
-      move_warp(m_pipeline_reg[stage], m_pipeline_reg[stage + 1], msg.str(),
-                logger);
+      // std::stringstream msg;
+      // msg << m_name << ": moving to next slot in pipeline register";
+      move_warp(m_pipeline_reg[stage],
+                m_pipeline_reg[stage + 1]);  // , msg.str(), logger);
     }
   }
   if (!m_dispatch_reg->empty()) {
@@ -67,13 +67,13 @@ void pipelined_simd_unit::cycle() {
           m_dispatch_reg->latency - m_dispatch_reg->initiation_interval;
 
       if (m_pipeline_reg[start_stage_idx]->empty()) {
-        std::stringstream msg;
-        msg << m_name
-            << ": moving dispatch register to free "
-               "pipeline_register[start_stage="
-            << start_stage_idx << "]";
-        move_warp(m_pipeline_reg[start_stage_idx], m_dispatch_reg, msg.str(),
-                  logger);
+        // std::stringstream msg;
+        // msg << m_name
+        //     << ": moving dispatch register to free "
+        //        "pipeline_register[start_stage="
+        //     << start_stage_idx << "]";
+        move_warp(m_pipeline_reg[start_stage_idx],
+                  m_dispatch_reg);  // , msg.str(), logger);
         active_insts_in_pipeline++;
       }
     }

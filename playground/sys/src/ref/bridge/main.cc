@@ -154,8 +154,6 @@ void configure_log_level(std::shared_ptr<spdlog::logger> &logger) {
 
 accelsim_bridge::accelsim_bridge(accelsim_config config,
                                  rust::Slice<const rust::Str> argv) {
-  std::cout << "Accel-Sim [build <box>]" << std::endl;
-
   print_stats = is_env_set_to("PRINT_STATS", "yes");
   accelsim_compat_mode = is_env_set_to("ACCELSIM_COMPAT_MODE", "yes");
 
@@ -163,11 +161,7 @@ accelsim_bridge::accelsim_bridge(accelsim_config config,
   for (auto arg : argv) valid_argv.push_back(std::string(arg));
 
   std::vector<const char *> c_argv;
-  // THIS stupid &arg here is important !!!!
   for (std::string &arg : valid_argv) c_argv.push_back(arg.c_str());
-  // for (const std::string &arg : c_argv) {
-  //   std::cout << "arg:" << arg << std::endl;
-  // }
 
   if (std::getenv("PLAYGROUND_USE_LOG_FILE") &&
       std::getenv("PLAYGROUND_LOG_FILE")) {
@@ -198,9 +192,14 @@ accelsim_bridge::accelsim_bridge(accelsim_config config,
     logger->set_level(spdlog::level::level_enum::off);
     log_after_cycle = atoi(log_after_cycle_str.c_str());
   }
+
   // setup the gpu
   m_gpgpu_context = new gpgpu_context();
   m_gpgpu_context->accelsim_compat_mode = accelsim_compat_mode;
+
+  if (m_gpgpu_context->accelsim_compat_mode) {
+    printf("Accel-Sim [build <box>]");
+  }
 
   // init trace based performance model
   m_gpgpu_sim = gpgpu_trace_sim_init_perf_model(
@@ -209,8 +208,8 @@ accelsim_bridge::accelsim_bridge(accelsim_config config,
   m_gpgpu_sim->init();
 
   // init trace parser
-  tracer = new trace_parser(
-      static_cast<const char *>(tconfig.get_traces_filename()));
+  tracer =
+      new trace_parser(tconfig.get_traces_filename(), !accelsim_compat_mode);
 
   // parse trace config
   tconfig.parse_config();
@@ -276,8 +275,10 @@ void accelsim_bridge::process_commands() {
       size_t addre, Bcount;
       tracer->parse_memcpy_info(commandlist[command_idx].command_string, addre,
                                 Bcount);
-      printf("launching memcpy command : %s\n",
-             commandlist[command_idx].command_string.c_str());
+      if (m_gpgpu_context->accelsim_compat_mode) {
+        printf("launching memcpy command : %s\n",
+               commandlist[command_idx].command_string.c_str());
+      }
       m_gpgpu_sim->perf_memcpy_to_gpu(addre, Bcount);
       command_idx++;
     } else if (commandlist[command_idx].m_type == command_type::kernel_launch) {
@@ -287,8 +288,11 @@ void accelsim_bridge::process_commands() {
       kernel_info = create_kernel_info(kernel_trace_info, m_gpgpu_context,
                                        &tconfig, tracer);
       kernels_info.push_back(kernel_info);
-      printf("Header info loaded for kernel command : %s\n",
-             commandlist[command_idx].command_string.c_str());
+
+      if (m_gpgpu_context->accelsim_compat_mode) {
+        printf("Header info loaded for kernel command : %s\n",
+               commandlist[command_idx].command_string.c_str());
+      }
       command_idx++;
     } else {
       // unsupported commands will fail the simulation
@@ -407,17 +411,21 @@ void accelsim_bridge::run_to_completion() {
     cleanup_finished_kernel(finished_kernel_uid);
 
     if (m_gpgpu_sim->cycle_insn_cta_max_hit()) {
-      printf(
-          "GPGPU-Sim: ** break due to reaching the maximum cycles (or "
-          "instructions) **\n");
-      fflush(stdout);
+      if (m_gpgpu_context->accelsim_compat_mode) {
+        printf(
+            "GPGPU-Sim: ** break due to reaching the maximum cycles (or "
+            "instructions) **\n");
+        fflush(stdout);
+      }
       break;
     }
   }
 
   // we print this message to inform the gpgpu-simulation stats_collect script
   // that we are done
-  printf("GPGPU-Sim: *** simulation thread exiting ***\n");
-  printf("GPGPU-Sim: *** exit detected ***\n");
-  fflush(stdout);
+  if (m_gpgpu_context->accelsim_compat_mode) {
+    printf("GPGPU-Sim: *** simulation thread exiting ***\n");
+    printf("GPGPU-Sim: *** exit detected ***\n");
+    fflush(stdout);
+  }
 }

@@ -264,10 +264,10 @@ bool trace_warp_inst_t::parse_from_trace_struct(
   return true;
 }
 
-void move_warp(warp_inst_t *&dst, warp_inst_t *&src, std::string msg,
-               std::shared_ptr<spdlog::logger> &logger) {
-  logger->debug("MOVING {} to {}: {}", warp_instr_ptr(src), warp_instr_ptr(dst),
-                msg);
+void move_warp(warp_inst_t *&dst, warp_inst_t *&src) {
+  // std::string msg, std::shared_ptr<spdlog::logger> &logger) {
+  // logger->debug("MOVING {} to {}: {}", warp_instr_ptr(src),
+  // warp_instr_ptr(dst), msg);
   assert(dst->empty());
   warp_inst_t *temp = dst;
   dst = src;

@@ -78,13 +78,13 @@ class register_set {
     return regs[reg_id]->get_schd_id();
   }
 
-  void move_in(warp_inst_t *&src, std::string msg) {
+  void move_in(warp_inst_t *&src) {  // , std::string msg) {
     warp_inst_t **free = get_free();
-    move_warp(*free, src, msg, logger);
+    move_warp(*free, src);  // , msg, logger);
   }
 
-  void move_in(bool sub_core_model, unsigned reg_id, warp_inst_t *&src,
-               std::string msg) {
+  void move_in(bool sub_core_model, unsigned reg_id,
+               warp_inst_t *&src) {  //, std::string msg) {
     warp_inst_t **free;
     if (!sub_core_model) {
       free = get_free();
@@ -92,22 +92,22 @@ class register_set {
       assert(reg_id < regs.size());
       free = get_free(sub_core_model, reg_id);
     }
-    move_warp(*free, src, msg, logger);
+    move_warp(*free, src);  // , msg, logger);
   }
 
-  void move_out_to(warp_inst_t *&dest, std::string msg) {
+  void move_out_to(warp_inst_t *&dest) {  // , std::string msg) {
     warp_inst_t **ready = get_ready();
-    move_warp(dest, *ready, msg, logger);
+    move_warp(dest, *ready);  // , msg, logger);
   }
 
-  void move_out_to(bool sub_core_model, unsigned reg_id, warp_inst_t *&dest,
-                   std::string msg) {
+  void move_out_to(bool sub_core_model, unsigned reg_id, warp_inst_t *&dest) {
+    // std::string msg) {
     if (!sub_core_model) {
-      return move_out_to(dest, msg);
+      return move_out_to(dest);
     }
     warp_inst_t **ready = get_ready(sub_core_model, reg_id);
     assert(ready != NULL);
-    move_warp(dest, *ready, msg, logger);
+    move_warp(dest, *ready);  // , msg, logger);
   }
 
   warp_inst_t **get_ready() {

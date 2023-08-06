@@ -112,6 +112,8 @@ void trace_shd_warp_t::print_trace_instructions(
            "print_trace_instructions cannot be used in accelsim compat mode");
   }
 
+  if (!logger->should_log(spdlog::level::debug)) return;
+
   // the instructions before trace_pc might have been freed after issue already
   // unsigned temp_trace_pc = 0;
   logger->debug("====> instruction at trace pc < {:<4} already issued ...",

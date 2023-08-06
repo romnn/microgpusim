@@ -13,10 +13,13 @@ void gpgpu_sim_config::init_clock_domains(void) {
   icnt_period = 1 / icnt_freq;
   dram_period = 1 / dram_freq;
   l2_period = 1 / l2_freq;
-  printf("GPGPU-Sim uArch: clock freqs: %lf:%lf:%lf:%lf\n", core_freq,
-         icnt_freq, l2_freq, dram_freq);
-  printf("GPGPU-Sim uArch: clock periods: %.20lf:%.20lf:%.20lf:%.20lf\n",
-         core_period, icnt_period, l2_period, dram_period);
+
+  if (gpgpu_ctx->accelsim_compat_mode) {
+    printf("GPGPU-Sim uArch: clock freqs: %lf:%lf:%lf:%lf\n", core_freq,
+           icnt_freq, l2_freq, dram_freq);
+    printf("GPGPU-Sim uArch: clock periods: %.20lf:%.20lf:%.20lf:%.20lf\n",
+           core_period, icnt_period, l2_period, dram_period);
+  }
 }
 
 void gpgpu_sim_config::reg_options(option_parser_t opp) {

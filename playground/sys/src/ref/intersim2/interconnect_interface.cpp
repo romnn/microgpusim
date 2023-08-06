@@ -46,8 +46,6 @@
 #include "routefunc.hpp"
 #include "trafficmanager.hpp"
 
-InterconnectInterface::InterconnectInterface() {}
-
 InterconnectInterface::~InterconnectInterface() {
   for (int i = 0; i < _subnets; ++i) {
     /// Power analysis
@@ -388,8 +386,10 @@ void InterconnectInterface::_CreateBuffer() {
 
 void InterconnectInterface::_CreateNodeMap(unsigned n_shader, unsigned n_mem,
                                            unsigned n_node, int use_map) {
-  printf("create node map (shaders=%u, memories=%u, nodes=%u)\n", n_shader,
-         n_mem, n_node);
+  if (accelsim_compat_mode) {
+    printf("create node map (shaders=%u, memories=%u, nodes=%u)\n", n_shader,
+           n_mem, n_node);
+  }
   if (use_map) {
     // The (<SM, Memory>, Memory Location Vector) map
     std::map<std::pair<unsigned, unsigned>, std::vector<unsigned>>
@@ -485,8 +485,10 @@ void InterconnectInterface::_CreateNodeMap(unsigned n_shader, unsigned n_mem,
     }
   }
 
-  // FIXME: should compatible with non-square number
-  DisplayMap((int)sqrt(n_node), n_node);
+  if (accelsim_compat_mode) {
+    // FIXME: should compatible with non-square number
+    DisplayMap((int)sqrt(n_node), n_node);
+  }
 }
 
 void InterconnectInterface::DisplayMap(unsigned dim, unsigned count) const {
@@ -496,7 +498,7 @@ void InterconnectInterface::DisplayMap(unsigned dim, unsigned count) const {
   std::cout << "GPGPU-Sim uArch: Memory nodes ID start from index: "
             << _n_shader << std::endl;
   std::cout << "GPGPU-Sim uArch: ";
-  for (int i = 0; i < count; i++) {
+  for (unsigned i = 0; i < count; i++) {
     std::cout << std::setw(4) << _node_map.at(i);
     if ((i + 1) % dim == 0 && i != count - 1)
       std::cout << std::endl << "GPGPU-Sim uArch: ";
@@ -509,7 +511,7 @@ void InterconnectInterface::DisplayMap(unsigned dim, unsigned count) const {
   std::cout << "GPGPU-Sim uArch: Memory nodes start from ID: " << _n_shader
             << std::endl;
   std::cout << "GPGPU-Sim uArch: ";
-  for (int i = 0; i < count; i++) {
+  for (unsigned i = 0; i < count; i++) {
     std::cout << std::setw(4) << _reverse_node_map.at(i);
     if ((i + 1) % dim == 0 && i != count - 1)
       std::cout << std::endl << "GPGPU-Sim uArch: ";
@@ -560,7 +562,7 @@ void InterconnectInterface::_BoundaryBufferItem::PushFlitData(void *data,
 std::unique_ptr<InterconnectInterface> new_interconnect_interface(
     const char *config_filename) {
   std::unique_ptr<InterconnectInterface> interconn =
-      std::make_unique<InterconnectInterface>();
+      std::make_unique<InterconnectInterface>(false);
   interconn->ParseConfigFile(config_filename);
   return interconn;
 }

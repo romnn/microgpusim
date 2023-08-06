@@ -100,8 +100,11 @@ class memory_config {
           "0");
 
       option_parser_delimited_string(dram_opp, gpgpu_dram_timing_opt, "=:;");
-      fprintf(stdout, "DRAM Timing Options:\n");
-      option_parser_print(dram_opp, stdout);
+
+      if (gpgpu_ctx->accelsim_compat_mode) {
+        fprintf(stdout, "DRAM Timing Options:\n");
+        option_parser_print(dram_opp, stdout);
+      }
       option_parser_destroy(dram_opp);
     }
 
@@ -130,10 +133,17 @@ class memory_config {
            "Number of DRAM banks must be a perfect multiple of memory sub "
            "partition");
     m_n_mem_sub_partition = m_n_mem * m_n_sub_partition_per_memory_channel;
-    fprintf(stdout, "Total number of memory sub partition = %u\n",
-            m_n_mem_sub_partition);
+
+    if (gpgpu_ctx->accelsim_compat_mode) {
+      fprintf(stdout, "Total number of memory sub partition = %u\n",
+              m_n_mem_sub_partition);
+    }
 
     m_address_mapping.init(m_n_mem, m_n_sub_partition_per_memory_channel);
+    if (gpgpu_ctx->accelsim_compat_mode) {
+      m_address_mapping.print();
+    }
+
     m_L2_config.init(&m_address_mapping);
 
     m_valid = true;

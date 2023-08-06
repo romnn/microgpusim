@@ -16,7 +16,7 @@ memory_partition_unit::memory_partition_unit(unsigned partition_id,
       m_id(partition_id),
       m_config(config),
       m_stats(stats),
-      m_arbitration_metadata(config),
+      m_arbitration_metadata(config, gpu->logger),
       m_gpu(gpu) {
   m_dram = new dram_t(m_id, m_config, m_stats, this, gpu);
 
@@ -59,8 +59,9 @@ memory_partition_unit::~memory_partition_unit() {
 }
 
 memory_partition_unit::arbitration_metadata::arbitration_metadata(
-    const memory_config *config)
-    : m_last_borrower(config->m_n_sub_partition_per_memory_channel - 1),
+    const memory_config *config, std::shared_ptr<spdlog::logger> logger)
+    : logger(logger),
+      m_last_borrower(config->m_n_sub_partition_per_memory_channel - 1),
       m_private_credit(config->m_n_sub_partition_per_memory_channel, 0),
       m_shared_credit(0) {
   // each sub partition get at least 1 credit for forward progress
@@ -95,6 +96,8 @@ bool memory_partition_unit::arbitration_metadata::has_credits(
 void memory_partition_unit::arbitration_metadata::borrow_credit(
     int inner_sub_partition_id) {
   int spid = inner_sub_partition_id;
+  // int private_before = m_private_credit[spid];
+  // int shared_before = m_shared_credit;
   if (m_private_credit[spid] < m_private_credit_limit) {
     m_private_credit[spid] += 1;
   } else if (m_shared_credit_limit == 0 ||
@@ -103,17 +106,31 @@ void memory_partition_unit::arbitration_metadata::borrow_credit(
   } else {
     assert(0 && "DRAM arbitration error: Borrowing from depleted credit!");
   }
+  // logger->trace(
+  //     "arbitration: borrow from spid {}: private credit={}/{} (was {}), "
+  //     "shared_credit={}/{} (was {}), last borrower is now {}",
+  //     spid, m_private_credit[spid], m_private_credit_limit, private_before,
+  //     m_shared_credit, m_shared_credit_limit, shared_before, spid);
+
   m_last_borrower = spid;
 }
 
 void memory_partition_unit::arbitration_metadata::return_credit(
     int inner_sub_partition_id) {
   int spid = inner_sub_partition_id;
+  // int private_before = m_private_credit[spid];
+  // int shared_before = m_shared_credit;
   if (m_private_credit[spid] > 0) {
     m_private_credit[spid] -= 1;
   } else {
     m_shared_credit -= 1;
   }
+  // logger->trace(
+  //     "arbitration: return credit to spid {}: private credit={}/{} (was {}),
+  //     " "shared_credit={}/{} (was {})", spid, m_private_credit[spid],
+  //     m_private_credit_limit, private_before, m_shared_credit,
+  //     m_shared_credit_limit, shared_before);
+
   assert((m_shared_credit >= 0) &&
          "DRAM arbitration error: Returning more than available credits!");
 }
@@ -358,9 +375,8 @@ void memory_partition_unit::set_done(mem_fetch *mf) {
   if (mf->get_access_type() == L1_WRBK_ACC ||
       mf->get_access_type() == L2_WRBK_ACC) {
     m_arbitration_metadata.return_credit(spid);
-    MEMPART_DPRINTF(
-        "mem_fetch request %p return from dram to sub partition %d\n", mf,
-        spid);
+    logger->trace("mem_fetch request {} return from dram to sub partition {}",
+                  mem_fetch_ptr(mf), spid);
   }
   m_sub_partition[spid]->set_done(mf);
 }

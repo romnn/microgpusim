@@ -92,11 +92,12 @@ void icnt_reg_options(class OptionParser *opp) {
                          &g_inct_config.grant_cycles, "grant_cycles", "1");
 }
 
-void icnt_wrapper_init(std::shared_ptr<spdlog::logger> logger) {
+void icnt_wrapper_init(std::shared_ptr<spdlog::logger> logger,
+                       bool accelsim_compat_mode) {
   switch (g_network_mode) {
     case INTERSIM:
       // FIXME: delete the object: may add icnt_done wrapper
-      g_icnt_interface = new InterconnectInterface();
+      g_icnt_interface = new InterconnectInterface(accelsim_compat_mode);
       g_icnt_interface->ParseConfigFile(g_network_config_filename);
       icnt_create = intersim2_create;
       icnt_init = intersim2_init;

@@ -1014,42 +1014,48 @@ void trace_shader_core_ctx::fetch() {
       m_warp[mf->get_wid()]->set_last_fetch(m_gpu->gpu_sim_cycle);
       delete mf;
     } else {
-      for (unsigned warp_id = 0; warp_id < m_config->max_warps_per_shader;
-           warp_id++) {
-        // if (m_warp[warp_id]->instruction_count() == 0) {
-        if (m_warp[warp_id]->get_warp_id() == (unsigned)-1) {
-          // consider empty
-          continue;
+      if (logger->should_log(spdlog::level::debug)) {
+        for (unsigned warp_id = 0; warp_id < m_config->max_warps_per_shader;
+             warp_id++) {
+          // if (m_warp[warp_id]->instruction_count() == 0) {
+          if (m_warp[warp_id]->get_warp_id() == (unsigned)-1) {
+            // consider empty
+            continue;
+          }
+          assert(warp_id == m_warp[warp_id]->get_warp_id());
+          // if (m_warp[warp_id]->functional_done() &&
+          //     m_warp[warp_id]->hardware_done() &&
+          //     m_warp[warp_id]->done_exit())
+          //     {
+          //   continue;
+          // }
+          logger->debug(
+              "\tchecking warp id = {warp_id} dyn warp id = {dynamic_warp_id} "
+              "(instruction count={instruction_count}, "
+              "trace pc={trace_pc}, hardware_done={hardware_done}, "
+              "functional_done={functional_done}, instr in "
+              "pipe={instr_in_pipe}, stores={stores}, done_exit={done_exit}, "
+              "has "
+              "pending writes=[{pending_writes}])",
+              fmt::arg("warp_id", warp_id),
+              fmt::arg("dynamic_warp_id",
+                       m_warp[warp_id]->get_dynamic_warp_id()),
+              fmt::arg("instruction_count",
+                       m_warp[warp_id]->instruction_count()),
+              fmt::arg("trace_pc", m_warp[warp_id]->trace_pc),
+              fmt::arg("hardware_done", m_warp[warp_id]->hardware_done()),
+              fmt::arg("functional_done", m_warp[warp_id]->functional_done()),
+              fmt::arg("instr_in_pipe", m_warp[warp_id]->m_inst_in_pipeline),
+              fmt::arg("stores", m_warp[warp_id]->m_stores_outstanding),
+              fmt::arg("done_exit", m_warp[warp_id]->done_exit()),
+              fmt::arg(
+                  "pending_writes",
+                  fmt::join(m_scoreboard->get_pending_writes(warp_id), ",")));
         }
-        assert(warp_id == m_warp[warp_id]->get_warp_id());
-        // if (m_warp[warp_id]->functional_done() &&
-        //     m_warp[warp_id]->hardware_done() && m_warp[warp_id]->done_exit())
-        //     {
-        //   continue;
-        // }
-        logger->debug(
-            "\tchecking warp id = {warp_id} dyn warp id = {dynamic_warp_id} "
-            "(instruction count={instruction_count}, "
-            "trace pc={trace_pc}, hardware_done={hardware_done}, "
-            "functional_done={functional_done}, instr in "
-            "pipe={instr_in_pipe}, stores={stores}, done_exit={done_exit}, has "
-            "pending writes=[{pending_writes}])",
-            fmt::arg("warp_id", warp_id),
-            fmt::arg("dynamic_warp_id", m_warp[warp_id]->get_dynamic_warp_id()),
-            fmt::arg("instruction_count", m_warp[warp_id]->instruction_count()),
-            fmt::arg("trace_pc", m_warp[warp_id]->trace_pc),
-            fmt::arg("hardware_done", m_warp[warp_id]->hardware_done()),
-            fmt::arg("functional_done", m_warp[warp_id]->functional_done()),
-            fmt::arg("instr_in_pipe", m_warp[warp_id]->m_inst_in_pipeline),
-            fmt::arg("stores", m_warp[warp_id]->m_stores_outstanding),
-            fmt::arg("done_exit", m_warp[warp_id]->done_exit()),
-            fmt::arg(
-                "pending_writes",
-                fmt::join(m_scoreboard->get_pending_writes(warp_id), ",")));
-      }
 
-      logger->debug("");
-      logger->debug("");
+        logger->debug("");
+        logger->debug("");
+      }
 
       // find an active warp with space in instruction buffer that is not
       // already waiting on a cache miss and get next 1-2 instructions

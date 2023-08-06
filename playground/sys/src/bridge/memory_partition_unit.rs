@@ -13,6 +13,15 @@ mod ffi {
             self: &memory_partition_unit_bridge,
         ) -> UniquePtr<CxxVector<mem_fetch_ptr_shim>>;
 
+        #[must_use]
+        fn get_last_borrower(self: &memory_partition_unit_bridge) -> i32;
+
+        #[must_use]
+        fn get_shared_credit(self: &memory_partition_unit_bridge) -> i32;
+
+        #[must_use]
+        fn get_private_credit(self: &memory_partition_unit_bridge) -> &CxxVector<i32>;
+
         type memory_sub_partition_bridge;
         #[must_use]
         fn get_icnt_L2_queue(
@@ -32,6 +41,7 @@ mod ffi {
         ) -> UniquePtr<CxxVector<mem_fetch_ptr_shim>>;
         #[must_use]
         fn get_l2_cache(self: &memory_sub_partition_bridge) -> SharedPtr<cache_bridge>;
+
     }
 
     // explicit instantiation for memory_partition_unit_bridge to implement VecElement

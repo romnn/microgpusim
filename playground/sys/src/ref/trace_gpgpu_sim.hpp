@@ -188,12 +188,15 @@ class trace_gpgpu_sim {
         m_shader_config->n_simt_clusters,
         m_memory_config->m_n_mem_sub_partition);
 
-    icnt_wrapper_init(logger);
+    icnt_wrapper_init(logger, gpgpu_ctx->accelsim_compat_mode);
     icnt_create(m_shader_config->n_simt_clusters,
                 m_memory_config->m_n_mem_sub_partition);
 
     time_vector_create(NUM_MEM_REQ_STAT);
-    printf("GPGPU-Sim uArch: performance model initialization complete.\n");
+
+    if (gpgpu_ctx->accelsim_compat_mode) {
+      printf("GPGPU-Sim uArch: performance model initialization complete.\n");
+    }
 
     m_running_kernels.resize(config.max_concurrent_kernel, NULL);
     m_last_issued_kernel = 0;

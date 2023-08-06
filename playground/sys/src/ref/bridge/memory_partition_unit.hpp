@@ -20,6 +20,18 @@ class memory_partition_unit_bridge {
     return std::make_unique<std::vector<mem_fetch_ptr_shim>>(q);
   }
 
+  int get_last_borrower() const {
+    return ptr->m_arbitration_metadata.last_borrower();
+  }
+
+  int get_shared_credit() const {
+    return ptr->m_arbitration_metadata.m_shared_credit;
+  }
+
+  const std::vector<int> &get_private_credit() const {
+    return ptr->m_arbitration_metadata.m_private_credit;
+  }
+
  private:
   class memory_partition_unit *ptr;
 };

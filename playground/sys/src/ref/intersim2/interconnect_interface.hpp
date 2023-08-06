@@ -47,7 +47,8 @@ class Stats;
 
 class InterconnectInterface {
  public:
-  InterconnectInterface();
+  InterconnectInterface(bool accelsim_compat_mode)
+      : accelsim_compat_mode(accelsim_compat_mode){};
   virtual ~InterconnectInterface();
   virtual void CreateInterconnect(unsigned n_shader, unsigned n_mem);
   virtual void ParseConfigFile(const char *const config_file);
@@ -91,6 +92,8 @@ class InterconnectInterface {
   int C;  // concentration
 
   int Nodes;
+
+  bool accelsim_compat_mode;
 
  protected:
   class _BoundaryBufferItem {
