@@ -1,8 +1,7 @@
-use crate::config::{self, GPUConfig};
-use crate::ported::{
-    self, address, cache,
+use crate::{
+    address, cache, config,
     fifo::{FifoQueue, Queue},
-    interconn as ic, l2, mem_fetch,
+    interconn as ic, l2, mem_fetch, Cycle,
 };
 use console::style;
 
@@ -18,25 +17,29 @@ pub const SECTOR_CHUNCK_SIZE: u32 = 4;
 /// Sector size is 32 bytes width
 pub const SECTOR_SIZE: u32 = 32;
 
-#[must_use] pub fn was_write_sent(events: &[cache::Event]) -> bool {
+#[must_use]
+pub fn was_write_sent(events: &[cache::Event]) -> bool {
     events
         .iter()
         .any(|event| event.kind == cache::EventKind::WRITE_REQUEST_SENT)
 }
 
-#[must_use] pub fn was_writeback_sent(events: &[cache::Event]) -> Option<&cache::Event> {
+#[must_use]
+pub fn was_writeback_sent(events: &[cache::Event]) -> Option<&cache::Event> {
     events
         .iter()
         .find(|event| event.kind == cache::EventKind::WRITE_BACK_REQUEST_SENT)
 }
 
-#[must_use] pub fn was_read_sent(events: &[cache::Event]) -> bool {
+#[must_use]
+pub fn was_read_sent(events: &[cache::Event]) -> bool {
     events
         .iter()
         .any(|event| event.kind == cache::EventKind::READ_REQUEST_SENT)
 }
 
-#[must_use] pub fn was_writeallocate_sent(events: &[cache::Event]) -> bool {
+#[must_use]
+pub fn was_writeallocate_sent(events: &[cache::Event]) -> bool {
     events
         .iter()
         .any(|event| event.kind == cache::EventKind::WRITE_ALLOCATE_SENT)
@@ -46,7 +49,7 @@ pub const SECTOR_SIZE: u32 = 32;
 pub struct MemorySubPartition<Q = FifoQueue<mem_fetch::MemFetch>> {
     pub id: usize,
     pub partition_id: usize,
-    pub config: Arc<GPUConfig>,
+    pub config: Arc<config::GPUConfig>,
     pub stats: Arc<Mutex<stats::Stats>>,
 
     /// queues
@@ -77,8 +80,8 @@ where
     pub fn new(
         id: usize,
         partition_id: usize,
-        cycle: ported::Cycle,
-        config: Arc<GPUConfig>,
+        cycle: Cycle,
+        config: Arc<config::GPUConfig>,
         stats: Arc<Mutex<stats::Stats>>,
     ) -> Self {
         let interconn_to_l2_queue = Q::new(
@@ -349,7 +352,7 @@ where
         if let Some(AccessKind::L2_WRBK_ACC | AccessKind::L1_WRBK_ACC) = self
             .l2_to_interconn_queue
             .first()
-            .map(ported::mem_fetch::MemFetch::access_kind)
+            .map(mem_fetch::MemFetch::access_kind)
         {
             self.l2_to_interconn_queue.dequeue();
             // self.request_tracker.remove(fetch);

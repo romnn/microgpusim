@@ -1,6 +1,6 @@
-use super::{interconn as ic, mem_fetch, MockSimulator, Packet, SIMTCore};
-use crate::config::GPUConfig;
-use crate::ported::{self, Kernel};
+use super::{
+    config, core, interconn as ic, kernel::Kernel, mem_fetch, MockSimulator, Packet, SIMTCore,
+};
 use console::style;
 use std::cell::RefCell;
 use std::collections::VecDeque;
@@ -13,7 +13,7 @@ pub struct SIMTCoreCluster<I> {
     pub cycle: super::Cycle,
     pub warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
     pub cores: Mutex<Vec<SIMTCore<I>>>,
-    pub config: Arc<GPUConfig>,
+    pub config: Arc<config::GPUConfig>,
     pub stats: Arc<Mutex<stats::Stats>>,
 
     pub interconn: Arc<I>,
@@ -34,7 +34,7 @@ where
         allocations: Rc<RefCell<super::Allocations>>,
         interconn: Arc<I>,
         stats: Arc<Mutex<stats::Stats>>,
-        config: Arc<GPUConfig>,
+        config: Arc<config::GPUConfig>,
     ) -> Self {
         let num_cores = config.num_cores_per_simt_cluster;
         let block_issue_next_core = Mutex::new(num_cores - 1);
@@ -91,7 +91,7 @@ where
             .lock()
             .unwrap()
             .iter()
-            .map(ported::core::SIMTCore::not_completed)
+            .map(core::SIMTCore::not_completed)
             .sum()
     }
 
@@ -235,7 +235,7 @@ where
             cores[*core_id].cycle()
         }
 
-        if let ported::config::SchedulingOrder::RoundRobin = self.config.simt_core_sim_order {
+        if let config::SchedulingOrder::RoundRobin = self.config.simt_core_sim_order {
             self.core_sim_order.rotate_left(1);
             // let first = self.core_sim_order.pop_front().unwrap();
             // self.core_sim_order.push_back(first);

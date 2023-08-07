@@ -347,7 +347,7 @@ impl BaseSchedulerUnit {
 
 #[cfg(test)]
 mod tests {
-    use crate::ported::testing;
+    use crate::testing;
     use std::ptr;
 
     #[ignore = "todo"]

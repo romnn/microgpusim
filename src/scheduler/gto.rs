@@ -1,6 +1,5 @@
 use super::{BaseSchedulerUnit, SchedulerUnit, WarpRef};
-use crate::config::GPUConfig;
-use crate::ported::scoreboard::Scoreboard;
+use crate::{config::GPUConfig, core::WarpIssuer, scoreboard::Scoreboard};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, RwLock};
 
@@ -59,7 +58,7 @@ impl SchedulerUnit for Scheduler {
         self.inner.prioritized_warps()
     }
 
-    fn cycle(&mut self, issuer: &mut dyn crate::ported::core::WarpIssuer) {
+    fn cycle(&mut self, issuer: &mut dyn WarpIssuer) {
         log::debug!(
             "gto scheduler[{}]: BEFORE: prioritized warp ids: {:?}",
             self.inner.id,

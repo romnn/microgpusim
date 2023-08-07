@@ -32,7 +32,8 @@ pub struct MshrTable {
 }
 
 impl MshrTable {
-    #[must_use] pub fn new(num_entries: usize, max_merged: usize) -> Self {
+    #[must_use]
+    pub fn new(num_entries: usize, max_merged: usize) -> Self {
         let data = HashMap::with_capacity(2 * num_entries);
         Self {
             num_entries,
@@ -43,12 +44,14 @@ impl MshrTable {
     }
 
     /// Checks if there is a pending request to the lower memory level already
-    #[must_use] pub fn probe(&self, block_addr: address) -> bool {
+    #[must_use]
+    pub fn probe(&self, block_addr: address) -> bool {
         self.data.contains_key(&block_addr)
     }
 
     /// Checks if there is space for tracking a new memory access
-    #[must_use] pub fn full(&self, block_addr: address) -> bool {
+    #[must_use]
+    pub fn full(&self, block_addr: address) -> bool {
         match self.data.get(&block_addr) {
             Some(entry) => entry.list.len() >= self.max_merged,
             None => self.data.len() >= self.num_entries,
@@ -106,12 +109,14 @@ impl MshrTable {
     }
 
     /// Returns true if ready accesses exist
-    #[must_use] pub fn has_ready_accesses(&self) -> bool {
+    #[must_use]
+    pub fn has_ready_accesses(&self) -> bool {
         !self.current_response.is_empty()
     }
 
     /// Returns next ready accesses
-    #[must_use] pub fn ready_accesses(&self) -> Option<&VecDeque<mem_fetch::MemFetch>> {
+    #[must_use]
+    pub fn ready_accesses(&self) -> Option<&VecDeque<mem_fetch::MemFetch>> {
         let Some(block_addr) = self.current_response.front() else {
             return None;
         };
@@ -159,9 +164,7 @@ impl MshrTable {
 #[cfg(test)]
 mod tests {
     use super::MshrTable;
-    use crate::config;
-    use crate::ported::{mem_fetch, scheduler::ThreadActiveMask};
-    use mem_fetch::{AccessKind, MemAccess, MemFetch};
+    use crate::{config, mem_fetch, scheduler::ThreadActiveMask};
 
     #[test]
     fn test_mshr_table() {
@@ -170,8 +173,8 @@ mod tests {
         let mut mshrs = MshrTable::new(cache_config.mshr_entries, cache_config.mshr_max_merge);
 
         let fetch_addr = 4_026_531_848;
-        let access = MemAccess::new(
-            AccessKind::INST_ACC_R,
+        let access = mem_fetch::MemAccess::new(
+            mem_fetch::AccessKind::INST_ACC_R,
             fetch_addr,
             None,
             128,
@@ -180,7 +183,7 @@ mod tests {
             mem_fetch::MemAccessByteMask::ZERO,
             mem_fetch::MemAccessSectorMask::ZERO,
         );
-        let fetch = MemFetch::new(None, access, &config, 0, 0, 0, 0);
+        let fetch = mem_fetch::MemFetch::new(None, access, &config, 0, 0, 0, 0);
         let mshr_addr = cache_config.mshr_addr(fetch_addr);
         assert!(!mshrs.probe(mshr_addr));
         assert!(!mshrs.probe(mshr_addr));

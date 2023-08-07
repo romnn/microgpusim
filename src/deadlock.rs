@@ -1,4 +1,4 @@
-use super::{core, interconn as ic, mem_fetch, operand_collector, register_set};
+use super::{core, interconn as ic, mem_fetch, register_set};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct State {

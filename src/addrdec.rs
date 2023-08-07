@@ -1,4 +1,4 @@
-use crate::{config, ported::address};
+use crate::{address, config};
 use color_eyre::eyre::{self, WrapErr};
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -6,14 +6,16 @@ use regex::Regex;
 /// Base 2 logarithm of n.
 ///
 /// Effectively the minium number of bits required to store n.
-#[must_use] pub fn logb2(n: u32) -> u32 {
+#[must_use]
+pub fn logb2(n: u32) -> u32 {
     n.max(1).ilog2()
 }
 
 /// Compute power of two greater than or equal to n
 ///
 /// see: https://www.techiedelight.com/round-next-highest-power-2/
-#[must_use] pub fn next_power2(mut n: u32) -> u32 {
+#[must_use]
+pub fn next_power2(mut n: u32) -> u32 {
     // avoid subtract with overflow
     if n == 0 {
         return 0;
@@ -32,7 +34,8 @@ use regex::Regex;
     n << 1
 }
 
-#[must_use] pub fn mask_limit(mask: address) -> (u8, u8) {
+#[must_use]
+pub fn mask_limit(mask: address) -> (u8, u8) {
     let mut high = 64;
     let mut low = 0;
     let mut low_found = false;
@@ -210,7 +213,8 @@ impl AddressDecodingConfig {
 }
 
 impl LinearToRawAddressTranslation {
-    #[must_use] pub fn partition_address(&self, addr: address) -> address {
+    #[must_use]
+    pub fn partition_address(&self, addr: address) -> address {
         if !self.has_gap {
             let mut mask = self.decode_config.chip.mask;
             mask |= self.sub_partition_id_mask;
@@ -227,7 +231,8 @@ impl LinearToRawAddressTranslation {
         }
     }
 
-    #[must_use] pub fn tlx(&self, addr: address) -> DecodedAddress {
+    #[must_use]
+    pub fn tlx(&self, addr: address) -> DecodedAddress {
         let mut tlx = DecodedAddress::default();
         let num_channels = self.num_channels as u64;
 
@@ -366,7 +371,8 @@ impl LinearToRawAddressTranslation {
         })
     }
 
-    #[must_use] pub fn num_sub_partition_total(&self) -> usize {
+    #[must_use]
+    pub fn num_sub_partition_total(&self) -> usize {
         self.num_channels * self.num_sub_partitions_per_channel
     }
 }
@@ -483,11 +489,20 @@ mod tests {
 
         let mapping = super::LinearToRawAddressTranslation::new(&config)?;
         let dec_config = mapping.decode_config;
-        assert_eq!(bit_str(dec_config.chip.mask), bit_str(0x0000_0000_0000_0700));
-        assert_eq!(bit_str(dec_config.bank.mask), bit_str(0x0000_0000_0003_8080));
+        assert_eq!(
+            bit_str(dec_config.chip.mask),
+            bit_str(0x0000_0000_0000_0700)
+        );
+        assert_eq!(
+            bit_str(dec_config.bank.mask),
+            bit_str(0x0000_0000_0003_8080)
+        );
         assert_eq!(bit_str(dec_config.row.mask), bit_str(0x0000_0000_7ffc_0000));
         assert_eq!(bit_str(dec_config.col.mask), bit_str(0x0000_0000_0000_787f));
-        assert_eq!(bit_str(dec_config.burst.mask), bit_str(0x0000_0000_0000_001f));
+        assert_eq!(
+            bit_str(dec_config.burst.mask),
+            bit_str(0x0000_0000_0000_001f)
+        );
 
         assert_eq!((dec_config.chip.low, dec_config.chip.high), (8, 11));
         assert_eq!((dec_config.bank.low, dec_config.bank.high), (7, 18));
@@ -587,23 +602,28 @@ mod tests {
     fn test_mask_limit() {
         use playground::addrdec::mask_limit as ref_mask_limit;
 
-        let mask = 0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000;
+        let mask =
+            0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000;
         diff::assert_eq!(super::mask_limit(mask), (0, 64));
         diff::assert_eq!(ref_mask_limit(mask), (0, 64));
 
-        let mask = 0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0111_0000_1000_0000;
+        let mask =
+            0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0111_0000_1000_0000;
         diff::assert_eq!(super::mask_limit(mask), (7, 15));
         diff::assert_eq!(ref_mask_limit(mask), (7, 15));
 
-        let mask = 0b0000_0000_0000_0000_0000_0000_0000_0000_0000_1111_1111_1111_1000_0000_0000_0000;
+        let mask =
+            0b0000_0000_0000_0000_0000_0000_0000_0000_0000_1111_1111_1111_1000_0000_0000_0000;
         diff::assert_eq!(super::mask_limit(mask), (15, 28));
         diff::assert_eq!(ref_mask_limit(mask), (15, 28));
 
-        let mask = 0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_1111_0111_1111;
+        let mask =
+            0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_1111_0111_1111;
         diff::assert_eq!(super::mask_limit(mask), (0, 12));
         diff::assert_eq!(ref_mask_limit(mask), (0, 12));
 
-        let mask = 0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0001_1111;
+        let mask =
+            0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0001_1111;
         diff::assert_eq!(super::mask_limit(mask), (0, 5));
         diff::assert_eq!(ref_mask_limit(mask), (0, 5));
     }

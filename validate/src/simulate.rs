@@ -26,7 +26,7 @@ pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<stats::Stats, Ru
         ));
     }
 
-    let stats = casimu::ported::accelmain(traces_dir, None)?;
+    let stats = casimu::accelmain(traces_dir, None)?;
     Ok(stats)
 }
 

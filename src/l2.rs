@@ -1,5 +1,4 @@
-use crate::config;
-use crate::ported::{self, address, cache, interconn as ic, l1, mem_fetch};
+use crate::{address, cache, config, interconn as ic, l1, mem_fetch, Cycle};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
@@ -20,7 +19,7 @@ where
         name: String,
         core_id: usize,
         cluster_id: usize,
-        cycle: ported::Cycle,
+        cycle: Cycle,
         fetch_interconn: Arc<I>,
         stats: Arc<Mutex<stats::Cache>>,
         config: Arc<config::GPUConfig>,

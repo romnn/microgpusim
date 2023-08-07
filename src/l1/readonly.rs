@@ -1,6 +1,5 @@
 use super::base;
-use crate::config;
-use crate::ported::{self, address, cache, interconn as ic, mem_fetch, tag_array};
+use crate::{address, cache, config, interconn as ic, mem_fetch, tag_array, Cycle};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
@@ -14,7 +13,7 @@ impl<I> ReadOnly<I> {
         name: String,
         core_id: usize,
         cluster_id: usize,
-        cycle: ported::Cycle,
+        cycle: Cycle,
         mem_port: Arc<I>,
         stats: Arc<Mutex<stats::Cache>>,
         config: Arc<config::GPUConfig>,
@@ -32,17 +31,11 @@ impl<I> ReadOnly<I> {
         );
         Self { inner }
     }
-
-    // pub fn access_ready(&self) -> bool {
-    //     todo!("readonly: access_ready");
-    // }
 }
 
 impl<I> cache::Component for ReadOnly<I>
 where
-    // I: ic::MemPort,
     I: ic::MemFetchInterface,
-    // I: ic::Interconnect<crate::ported::core::Packet> + 'static,
 {
     fn cycle(&mut self) {
         self.inner.cycle()
@@ -102,7 +95,7 @@ where
 
         let base::Base {
             ref cache_config,
-            
+
             ref mut tag_array,
             ..
         } = self.inner;
@@ -199,7 +192,6 @@ fn select_status(
 
 #[cfg(test)]
 mod tests {
-    
     use crate::config::GPUConfig;
 
     #[ignore = "todo"]

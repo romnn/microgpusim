@@ -1,10 +1,10 @@
-use super::mem_fetch::BitString;
-use crate::config::GPUConfig;
-use crate::ported::{
-    self, address, dram,
+use super::{
+    address, config, dram,
     fifo::{FifoQueue, Queue},
     mem_fetch,
+    mem_fetch::BitString,
     mem_sub_partition::MemorySubPartition,
+    Cycle,
 };
 use console::style;
 use std::cell::RefCell;
@@ -20,7 +20,7 @@ pub struct MemoryPartitionUnit {
     pub sub_partitions: Vec<Rc<RefCell<MemorySubPartition<FifoQueue<mem_fetch::MemFetch>>>>>,
     pub arbitration_metadata: super::arbitration::ArbitrationMetadata,
 
-    config: Arc<GPUConfig>,
+    config: Arc<config::GPUConfig>,
     #[allow(dead_code)]
     stats: Arc<Mutex<stats::Stats>>,
 }
@@ -28,8 +28,8 @@ pub struct MemoryPartitionUnit {
 impl MemoryPartitionUnit {
     pub fn new(
         id: usize,
-        cycle: ported::Cycle,
-        config: Arc<GPUConfig>,
+        cycle: Cycle,
+        config: Arc<config::GPUConfig>,
         stats: Arc<Mutex<stats::Stats>>,
     ) -> Self {
         let num_sub_partitions = config.num_sub_partition_per_memory_channel;
@@ -37,7 +37,6 @@ impl MemoryPartitionUnit {
             .map(|i| {
                 let sub_id = id * num_sub_partitions + i;
 
-                
                 Rc::new(RefCell::new(MemorySubPartition::new(
                     sub_id,
                     id,
@@ -61,7 +60,8 @@ impl MemoryPartitionUnit {
         }
     }
 
-    #[must_use] pub fn busy(&self) -> bool {
+    #[must_use]
+    pub fn busy(&self) -> bool {
         self.sub_partitions
             .iter()
             .any(|sub| sub.try_borrow().unwrap().busy())

@@ -23,7 +23,7 @@ pub mod fermi {
             addr: super::address,
             num_sets: usize,
             line_size_log2: u32,
-            num_sets_log2: u32,
+            _num_sets_log2: u32,
         ) -> u64 {
             // check for incorrect number of sets
             assert!(
@@ -147,7 +147,7 @@ pub mod linear {
             addr: super::address,
             num_sets: usize,
             line_size_log2: u32,
-            num_sets_log2: u32,
+            _num_sets_log2: u32,
         ) -> u64 {
             let set_idx = (addr >> line_size_log2) & (num_sets as u64 - 1);
             assert!(set_idx < num_sets as u64, "set index out of bounds");

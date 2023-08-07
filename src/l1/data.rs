@@ -1,5 +1,4 @@
-use crate::config;
-use crate::ported::{self, address, cache, cache_block, interconn as ic, mem_fetch, tag_array};
+use crate::{address, cache, cache_block, config, interconn as ic, mem_fetch, tag_array, Cycle};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
@@ -25,7 +24,7 @@ where
         name: String,
         core_id: usize,
         cluster_id: usize,
-        cycle: ported::Cycle,
+        cycle: Cycle,
         mem_port: Arc<I>,
         stats: Arc<Mutex<stats::Cache>>,
         config: Arc<config::GPUConfig>,
@@ -50,7 +49,8 @@ where
         }
     }
 
-    #[must_use] pub fn cache_config(&self) -> &Arc<config::CacheConfig> {
+    #[must_use]
+    pub fn cache_config(&self) -> &Arc<config::CacheConfig> {
         &self.inner.cache_config
     }
 
@@ -91,7 +91,7 @@ where
     }
 
     fn update_readable(&mut self, fetch: &mem_fetch::MemFetch, cache_index: usize) {
-        use crate::ported::mem_sub_partition::{SECTOR_CHUNCK_SIZE, SECTOR_SIZE};
+        use crate::mem_sub_partition::{SECTOR_CHUNCK_SIZE, SECTOR_SIZE};
         let block = self.inner.tag_array.get_block_mut(cache_index);
         for i in 0..SECTOR_CHUNCK_SIZE as usize {
             let sector_mask = fetch.access_sector_mask();
@@ -228,9 +228,9 @@ where
                         writeback_access,
                         &self.inner.config,
                         if is_write {
-                            ported::WRITE_PACKET_SIZE
+                            mem_fetch::WRITE_PACKET_SIZE
                         } else {
-                            ported::READ_PACKET_SIZE
+                            mem_fetch::READ_PACKET_SIZE
                         }
                         .into(),
                         0,
@@ -728,9 +728,9 @@ impl<I> cache::CacheBandwidth for Data<I> {
 #[cfg(test)]
 mod tests {
     use super::Data;
-    use crate::config;
-    use crate::ported::{
-        self, cache::Cache, instruction, interconn as ic, kernel::Kernel, mem_fetch, parse_commands,
+    use crate::{
+        cache::Cache, config, instruction, interconn as ic, kernel::Kernel, mem_fetch,
+        parse_commands, AtomicCycle,
     };
     use std::collections::VecDeque;
     use std::path::PathBuf;
@@ -803,7 +803,7 @@ mod tests {
         let config = Arc::new(config::GPUConfig::default());
         let cache_config = config.data_cache_l1.clone().unwrap();
         let interconn = Arc::new(MockFetchInterconn {});
-        let cycle: ported::Cycle = Rc::new(ported::AtomicCycle::new(0));
+        let cycle = Rc::new(AtomicCycle::new(0));
         let _l1 = Data::new(
             "l1-data".to_string(),
             core_id,
@@ -954,7 +954,7 @@ mod tests {
         let config = Arc::new(config::GPUConfig::default());
         let cache_config = config.data_cache_l1.clone().unwrap();
         let interconn = Arc::new(MockFetchInterconn {});
-        let cycle: ported::Cycle = Rc::new(ported::AtomicCycle::new(0));
+        let cycle = Rc::new(AtomicCycle::new(0));
 
         let mut l1 = Data::new(
             "l1-data".to_string(),

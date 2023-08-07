@@ -1,22 +1,21 @@
-use crate::ported;
 use playground::types;
 use serde::Serialize;
 
-impl From<types::mem_fetch::mf_type> for ported::mem_fetch::Kind {
+impl From<types::mem_fetch::mf_type> for crate::mem_fetch::Kind {
     fn from(kind: types::mem_fetch::mf_type) -> Self {
         use types::mem_fetch::mf_type;
         match kind {
-            mf_type::READ_REQUEST => ported::mem_fetch::Kind::READ_REQUEST,
-            mf_type::WRITE_REQUEST => ported::mem_fetch::Kind::WRITE_REQUEST,
-            mf_type::READ_REPLY => ported::mem_fetch::Kind::READ_REPLY,
-            mf_type::WRITE_ACK => ported::mem_fetch::Kind::WRITE_ACK,
+            mf_type::READ_REQUEST => crate::mem_fetch::Kind::READ_REQUEST,
+            mf_type::WRITE_REQUEST => crate::mem_fetch::Kind::WRITE_REQUEST,
+            mf_type::READ_REPLY => crate::mem_fetch::Kind::READ_REPLY,
+            mf_type::WRITE_ACK => crate::mem_fetch::Kind::WRITE_ACK,
         }
     }
 }
 
-impl From<types::mem_fetch::mem_access_type> for ported::mem_fetch::AccessKind {
+impl From<types::mem_fetch::mem_access_type> for crate::mem_fetch::AccessKind {
     fn from(kind: types::mem_fetch::mem_access_type) -> Self {
-        use ported::mem_fetch::AccessKind;
+        use crate::mem_fetch::AccessKind;
         use types::mem_fetch::mem_access_type;
         match kind {
             mem_access_type::GLOBAL_ACC_R => AccessKind::GLOBAL_ACC_R,
@@ -53,8 +52,8 @@ impl std::fmt::Debug for Cache {
     }
 }
 
-impl<T> From<ported::tag_array::TagArray<T>> for Cache {
-    fn from(tag_array: ported::tag_array::TagArray<T>) -> Self {
+impl<T> From<crate::tag_array::TagArray<T>> for Cache {
+    fn from(tag_array: crate::tag_array::TagArray<T>) -> Self {
         Self {
             lines: tag_array.lines.into_iter().map(Into::into).collect(),
         }
@@ -69,9 +68,9 @@ pub enum CacheBlockStatus {
     MODIFIED,
 }
 
-impl From<ported::cache_block::Status> for CacheBlockStatus {
-    fn from(status: ported::cache_block::Status) -> Self {
-        use crate::ported::cache_block;
+impl From<crate::cache_block::Status> for CacheBlockStatus {
+    fn from(status: crate::cache_block::Status) -> Self {
+        use crate::cache_block;
         match status {
             cache_block::Status::INVALID => Self::INVALID,
             cache_block::Status::RESERVED => Self::RESERVED,
@@ -89,8 +88,8 @@ pub struct CacheBlock {
     pub last_accessed: u64,
 }
 
-impl From<ported::cache_block::LineCacheBlock> for CacheBlock {
-    fn from(block: ported::cache_block::LineCacheBlock) -> Self {
+impl From<crate::cache_block::LineCacheBlock> for CacheBlock {
+    fn from(block: crate::cache_block::LineCacheBlock) -> Self {
         Self {
             tag: block.tag,
             block_addr: block.block_addr,
@@ -145,8 +144,8 @@ impl std::fmt::Debug for WarpInstruction {
     }
 }
 
-impl From<ported::instruction::WarpInstruction> for WarpInstruction {
-    fn from(instr: ported::instruction::WarpInstruction) -> Self {
+impl From<crate::instruction::WarpInstruction> for WarpInstruction {
+    fn from(instr: crate::instruction::WarpInstruction) -> Self {
         WarpInstruction {
             opcode: instr.opcode.to_string(),
             pc: instr.pc,
@@ -182,8 +181,8 @@ impl std::fmt::Debug for RegisterSet {
     }
 }
 
-impl From<ported::register_set::RegisterSet> for RegisterSet {
-    fn from(reg: ported::register_set::RegisterSet) -> Self {
+impl From<crate::register_set::RegisterSet> for RegisterSet {
+    fn from(reg: crate::register_set::RegisterSet) -> Self {
         let pipeline = reg
             .regs
             .into_iter()
@@ -402,11 +401,11 @@ impl<'a> From<playground::scheduler_unit::SchedulerUnit<'a>> for Scheduler {
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct MemFetch {
-    pub kind: ported::mem_fetch::Kind,
-    pub access_kind: ported::mem_fetch::AccessKind,
+    pub kind: crate::mem_fetch::Kind,
+    pub access_kind: crate::mem_fetch::AccessKind,
     // cannot compare addr because its different between runs
-    // addr: ported::address,
-    pub relative_addr: Option<(usize, ported::address)>,
+    // addr: crate::address,
+    pub relative_addr: Option<(usize, crate::address)>,
 }
 
 impl std::fmt::Debug for MemFetch {
@@ -435,8 +434,8 @@ impl<'a> From<playground::mem_fetch::MemFetch<'a>> for MemFetch {
     }
 }
 
-impl From<ported::mem_fetch::MemFetch> for MemFetch {
-    fn from(fetch: ported::mem_fetch::MemFetch) -> Self {
+impl From<crate::mem_fetch::MemFetch> for MemFetch {
+    fn from(fetch: crate::mem_fetch::MemFetch) -> Self {
         let addr = fetch.addr();
         Self {
             kind: fetch.kind,

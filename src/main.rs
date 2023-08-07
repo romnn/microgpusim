@@ -67,11 +67,11 @@ fn main() -> eyre::Result<()> {
         log_builder.init();
     }
 
-    let stats = casimu::ported::accelmain(&options.trace_dir, log_after_cycle)?;
+    let stats = casimu::accelmain(&options.trace_dir, log_after_cycle)?;
 
     // save stats to file
     if let Some(stats_out_file) = options.stats_out_file.as_ref() {
-        casimu::ported::save_stats_to_file(&stats, stats_out_file)?;
+        casimu::save_stats_to_file(&stats, stats_out_file)?;
     }
 
     eprintln!("STATS:\n");

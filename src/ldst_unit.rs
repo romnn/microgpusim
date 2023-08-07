@@ -1,12 +1,12 @@
 use super::{
-    cache, interconn as ic, l1, mem_fetch, mem_sub_partition, mshr, operand_collector as opcoll,
+    cache, config, interconn as ic, l1, mem_fetch, mem_sub_partition, mshr,
+    operand_collector as opcoll,
+    operand_collector::OperandCollectorRegisterFileUnit,
     register_set::{self},
     scheduler as sched,
     scoreboard::Scoreboard,
     simd_function_unit as fu,
 };
-use crate::{config, ported::operand_collector::OperandCollectorRegisterFileUnit};
-
 use console::style;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -195,7 +195,8 @@ where
         }
     }
 
-    #[must_use] pub fn response_buffer_full(&self) -> bool {
+    #[must_use]
+    pub fn response_buffer_full(&self) -> bool {
         self.response_fifo.len() >= self.config.num_ldst_response_buffer_size
     }
 
@@ -343,7 +344,10 @@ where
                             "{}",
                             style(format!(
                                 "ldst unit writeback: has global {:?} ({})",
-                                &next_global.instr.as_ref().map(std::string::ToString::to_string),
+                                &next_global
+                                    .instr
+                                    .as_ref()
+                                    .map(std::string::ToString::to_string),
                                 &next_global.addr()
                             ))
                             .magenta(),
@@ -837,7 +841,8 @@ where
         }
     }
 
-    #[must_use] pub fn pending_writes(&self, warp_id: usize, reg_id: u32) -> Option<usize> {
+    #[must_use]
+    pub fn pending_writes(&self, warp_id: usize, reg_id: u32) -> Option<usize> {
         let pending = self.pending_writes.get(&warp_id)?;
         let pending = pending.get(&reg_id)?;
         Some(*pending)

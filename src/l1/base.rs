@@ -1,6 +1,7 @@
-use crate::config;
-use crate::ported::mem_sub_partition::{was_writeback_sent, SECTOR_SIZE};
-use crate::ported::{address, cache, cache_block, interconn as ic, mem_fetch, mshr, tag_array};
+use crate::mem_sub_partition::{was_writeback_sent, SECTOR_SIZE};
+use crate::{
+    address, cache, cache_block, config, interconn as ic, mem_fetch, mshr, tag_array, Cycle,
+};
 use console::style;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
@@ -142,16 +143,12 @@ impl PendingRequest {}
 /// Implements common functions for `read_only_cache` and `data_cache`
 /// Each subclass implements its own 'access' function
 #[derive()]
-pub struct Base<I>
-// where
-//     I: ic::MemPort,
-{
+pub struct Base<I> {
     pub name: String,
     pub core_id: usize,
     pub cluster_id: usize,
-    pub cycle: crate::ported::Cycle,
+    pub cycle: Cycle,
 
-    // pub stats: Arc<Mutex<Stats>>,
     pub stats: Arc<Mutex<stats::Cache>>,
     pub config: Arc<config::GPUConfig>,
     pub cache_config: Arc<config::CacheConfig>,
@@ -164,15 +161,6 @@ pub struct Base<I>
     pending: HashMap<mem_fetch::MemFetch, PendingRequest>,
     mem_port: Arc<I>,
 
-    // /// Specifies type of write allocate request
-    // ///
-    // /// (e.g., L1 or L2)
-    // write_alloc_type: mem_fetch::AccessKind,
-    //
-    // /// Specifies type of writeback request
-    // ///
-    // /// (e.g., L1 or L2)
-    // write_back_type: mem_fetch::AccessKind,
     pub bandwidth: BandwidthManager,
 }
 
@@ -192,7 +180,7 @@ impl<I> Base<I> {
         name: String,
         core_id: usize,
         cluster_id: usize,
-        cycle: crate::ported::Cycle,
+        cycle: Cycle,
         mem_port: Arc<I>,
         stats: Arc<Mutex<stats::Cache>>,
         config: Arc<config::GPUConfig>,
@@ -497,8 +485,7 @@ impl<I> cache::CacheBandwidth for Base<I> {
 #[cfg(test)]
 mod tests {
     use super::Base;
-    use crate::config;
-    use crate::ported::{self, interconn as ic, FromConfig, Packet};
+    use crate::{config, interconn as ic, AtomicCycle, FromConfig, Packet};
     use std::rc::Rc;
     use std::sync::{Arc, Mutex};
 
@@ -520,7 +507,7 @@ mod tests {
             config: config.clone(),
         });
 
-        let cycle = Rc::new(ported::AtomicCycle::new(0));
+        let cycle = Rc::new(AtomicCycle::new(0));
         let base = Base::new(
             "base cache".to_string(),
             core_id,

@@ -1,4 +1,4 @@
-use crate::ported::{instruction::WarpInstruction, kernel::Kernel};
+use crate::{instruction::WarpInstruction, kernel::Kernel};
 use bitvec::{array::BitArray, BitArr};
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -89,7 +89,8 @@ impl SchedulerWarp {
         self.next = 0;
     }
 
-    #[must_use] pub fn current_instr(&self) -> Option<&WarpInstruction> {
+    #[must_use]
+    pub fn current_instr(&self) -> Option<&WarpInstruction> {
         self.trace_instructions.get(self.trace_pc)
     }
 
@@ -103,18 +104,21 @@ impl SchedulerWarp {
         Some(trace_instr)
     }
 
-    #[must_use] pub fn instruction_count(&self) -> usize {
+    #[must_use]
+    pub fn instruction_count(&self) -> usize {
         self.trace_instructions.len()
     }
 
-    #[must_use] pub fn pc(&self) -> Option<usize> {
+    #[must_use]
+    pub fn pc(&self) -> Option<usize> {
         debug_assert!(self.trace_pc <= self.instruction_count());
         self.trace_instructions
             .get(self.trace_pc)
             .map(|instr| instr.pc)
     }
 
-    #[must_use] pub fn done(&self) -> bool {
+    #[must_use]
+    pub fn done(&self) -> bool {
         self.trace_pc == self.instruction_count()
     }
 
@@ -129,7 +133,8 @@ impl SchedulerWarp {
         self.next = 0;
     }
 
-    #[must_use] pub fn ibuffer_size(&self) -> usize {
+    #[must_use]
+    pub fn ibuffer_size(&self) -> usize {
         self.instr_buffer.iter().filter(|x| x.is_some()).count()
     }
 
@@ -146,7 +151,8 @@ impl SchedulerWarp {
         }
     }
 
-    #[must_use] pub fn ibuffer_peek(&self) -> Option<&WarpInstruction> {
+    #[must_use]
+    pub fn ibuffer_peek(&self) -> Option<&WarpInstruction> {
         self.instr_buffer[self.next].as_ref()
     }
 
@@ -158,23 +164,28 @@ impl SchedulerWarp {
         self.next = (self.next + 1) % IBUFFER_SIZE;
     }
 
-    #[must_use] pub fn done_exit(&self) -> bool {
+    #[must_use]
+    pub fn done_exit(&self) -> bool {
         self.done_exit
     }
 
-    #[must_use] pub fn hardware_done(&self) -> bool {
+    #[must_use]
+    pub fn hardware_done(&self) -> bool {
         self.functional_done() && self.stores_done() && self.num_instr_in_pipeline == 0
     }
 
-    #[must_use] pub fn has_instr_in_pipeline(&self) -> bool {
+    #[must_use]
+    pub fn has_instr_in_pipeline(&self) -> bool {
         self.num_instr_in_pipeline > 0
     }
 
-    #[must_use] pub fn stores_done(&self) -> bool {
+    #[must_use]
+    pub fn stores_done(&self) -> bool {
         self.num_outstanding_stores == 0
     }
 
-    #[must_use] pub fn num_completed(&self) -> usize {
+    #[must_use]
+    pub fn num_completed(&self) -> usize {
         self.active_mask.count_zeros()
     }
 
@@ -182,11 +193,13 @@ impl SchedulerWarp {
         self.active_mask.set(thread_id, false);
     }
 
-    #[must_use] pub fn functional_done(&self) -> bool {
+    #[must_use]
+    pub fn functional_done(&self) -> bool {
         self.active_mask.not_any()
     }
 
-    #[must_use] pub fn waiting(&self) -> bool {
+    #[must_use]
+    pub fn waiting(&self) -> bool {
         if self.functional_done() {
             // waiting to be initialized with a kernel
             true
@@ -201,7 +214,8 @@ impl SchedulerWarp {
         }
     }
 
-    #[must_use] pub fn dynamic_warp_id(&self) -> usize {
+    #[must_use]
+    pub fn dynamic_warp_id(&self) -> usize {
         self.dynamic_warp_id
     }
 }

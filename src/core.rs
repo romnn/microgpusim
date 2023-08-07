@@ -1,12 +1,8 @@
-use super::instruction::WarpInstruction;
-use super::scheduler::SchedulerWarp;
 use super::{
-    address, barrier, cache, kernel::Kernel, opcodes, operand_collector as opcoll, register_set,
-    scoreboard, simd_function_unit as fu, LoadStoreUnit,
+    address, barrier, cache, config, instruction::WarpInstruction, interconn as ic, kernel::Kernel,
+    l1, mem_fetch, mem_fetch::BitString, opcodes, operand_collector as opcoll, register_set,
+    scheduler as sched, scoreboard, simd_function_unit as fu, LoadStoreUnit,
 };
-use super::{interconn as ic, l1, mem_fetch, scheduler as sched};
-use crate::config::{self, GPUConfig};
-use crate::ported::mem_fetch::BitString;
 use bitvec::{array::BitArray, BitArr};
 use color_eyre::eyre;
 use console::style;
@@ -63,7 +59,8 @@ pub struct InstrFetchBuffer {
 }
 
 impl InstrFetchBuffer {
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             valid: false,
             warp_id: 0,
@@ -80,7 +77,7 @@ pub struct InnerSIMTCore<I> {
     pub cycle: super::Cycle,
     pub warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
     pub stats: Arc<Mutex<stats::Stats>>,
-    pub config: Arc<GPUConfig>,
+    pub config: Arc<config::GPUConfig>,
     pub current_kernel: Option<Arc<Kernel>>,
     pub last_warp_fetched: Option<usize>,
     pub interconn: Arc<I>,
@@ -139,7 +136,8 @@ where
     // Returns numbers of addresses in translated_addrs.
     //
     // Each addr points to a 4B (32-bit) word
-    #[must_use] pub fn translate_local_memaddr(
+    #[must_use]
+    pub fn translate_local_memaddr(
         &self,
         local_addr: address,
         thread_id: usize,
@@ -226,7 +224,7 @@ pub trait WarpIssuer {
     fn issue_warp(
         &mut self,
         stage: PipelineStage,
-        warp: &mut SchedulerWarp,
+        warp: &mut sched::SchedulerWarp,
         next_inst: WarpInstruction,
         // warp_id: usize,
         sch_id: usize,
@@ -252,7 +250,7 @@ where
     fn issue_warp(
         &mut self,
         stage: PipelineStage,
-        warp: &mut SchedulerWarp,
+        warp: &mut sched::SchedulerWarp,
         mut next_instr: WarpInstruction,
         scheduler_id: usize,
     ) {
@@ -471,12 +469,12 @@ where
         warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
         interconn: Arc<I>,
         stats: Arc<Mutex<stats::Stats>>,
-        config: Arc<GPUConfig>,
+        config: Arc<config::GPUConfig>,
     ) -> Self {
         let thread_state: Vec<_> = (0..config.max_threads_per_core).map(|_| None).collect();
 
         let warps: Vec<_> = (0..config.max_warps_per_core())
-            .map(|_| Rc::new(RefCell::new(SchedulerWarp::default())))
+            .map(|_| Rc::new(RefCell::new(sched::SchedulerWarp::default())))
             .collect();
 
         let port = Arc::new(ic::CoreMemoryInterface {
@@ -779,7 +777,8 @@ where
         }
     }
 
-    #[must_use] pub fn active(&self) -> bool {
+    #[must_use]
+    pub fn active(&self) -> bool {
         self.inner.num_active_blocks > 0
     }
 
@@ -793,8 +792,11 @@ where
         block_hw_id: usize,
         kernel: &Option<Arc<Kernel>>,
     ) {
-        let current_kernel: &mut Option<_> =
-            &mut self.inner.current_kernel.as_ref().map(std::convert::AsRef::as_ref);
+        let current_kernel: &mut Option<_> = &mut self
+            .inner
+            .current_kernel
+            .as_ref()
+            .map(std::convert::AsRef::as_ref);
 
         debug_assert!(block_hw_id < MAX_CTA_PER_SHADER);
         debug_assert!(self.inner.block_status[block_hw_id] > 0);
@@ -1416,7 +1418,8 @@ where
         unit.invalidate();
     }
 
-    #[must_use] pub fn ldst_unit_response_buffer_full(&self) -> bool {
+    #[must_use]
+    pub fn ldst_unit_response_buffer_full(&self) -> bool {
         self.inner
             .load_store_unit
             .lock()
@@ -1424,7 +1427,8 @@ where
             .response_buffer_full()
     }
 
-    #[must_use] pub fn fetch_unit_response_buffer_full(&self) -> bool {
+    #[must_use]
+    pub fn fetch_unit_response_buffer_full(&self) -> bool {
         false
     }
 
@@ -1438,11 +1442,13 @@ where
         self.inner.load_store_unit.lock().unwrap().fill(fetch);
     }
 
-    #[must_use] pub fn not_completed(&self) -> usize {
+    #[must_use]
+    pub fn not_completed(&self) -> usize {
         self.inner.num_active_threads
     }
 
-    #[must_use] pub fn is_active(&self) -> bool {
+    #[must_use]
+    pub fn is_active(&self) -> bool {
         self.inner.num_active_blocks > 0
     }
 
@@ -1507,7 +1513,8 @@ where
         Ok(())
     }
 
-    #[must_use] pub fn id(&self) -> (usize, usize) {
+    #[must_use]
+    pub fn id(&self) -> (usize, usize) {
         (self.inner.cluster_id, self.inner.core_id)
     }
 

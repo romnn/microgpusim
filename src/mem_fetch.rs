@@ -1,7 +1,10 @@
-use super::instruction::{MemorySpace, WarpInstruction};
-use super::scheduler::ThreadActiveMask;
-use crate::config;
-use crate::ported::{address, mem_sub_partition, DecodedAddress};
+use super::{
+    address, config,
+    instruction::{MemorySpace, WarpInstruction},
+    mem_sub_partition,
+    scheduler::ThreadActiveMask,
+    DecodedAddress,
+};
 use bitvec::{array::BitArray, BitArr};
 use serde::{Deserialize, Serialize};
 
@@ -175,7 +178,8 @@ impl std::fmt::Display for MemAccess {
 
 impl MemAccess {
     /// todo: where is this initialized
-    #[must_use] pub fn new(
+    #[must_use]
+    pub fn new(
         kind: AccessKind,
         addr: address,
         allocation: Option<super::Allocation>,
@@ -192,18 +196,29 @@ impl MemAccess {
         if let Some(ref alloc) = allocation {
             debug_assert!(alloc.start_addr <= addr);
         }
-        Self { addr, allocation, is_write, req_size_bytes, kind, warp_mask, byte_mask, sector_mask }
+        Self {
+            addr,
+            allocation,
+            is_write,
+            req_size_bytes,
+            kind,
+            warp_mask,
+            byte_mask,
+            sector_mask,
+        }
     }
 
     #[inline]
-    #[must_use] pub fn relative_addr(&self) -> Option<super::address> {
+    #[must_use]
+    pub fn relative_addr(&self) -> Option<super::address> {
         self.allocation
             .as_ref()
             .map(|alloc| alloc.start_addr)
             .and_then(|start| self.addr.checked_sub(start))
     }
 
-    #[must_use] pub fn control_size(&self) -> u32 {
+    #[must_use]
+    pub fn control_size(&self) -> u32 {
         if self.is_write {
             u32::from(WRITE_PACKET_SIZE)
         } else {
@@ -390,25 +405,30 @@ impl MemFetch {
             .map_or(false, WarpInstruction::is_atomic)
     }
 
-    #[must_use] pub fn is_texture(&self) -> bool {
+    #[must_use]
+    pub fn is_texture(&self) -> bool {
         self.instr
             .as_ref()
             .map_or(false, |i| i.memory_space == Some(MemorySpace::Texture))
     }
 
-    #[must_use] pub fn is_write(&self) -> bool {
+    #[must_use]
+    pub fn is_write(&self) -> bool {
         self.access.is_write
     }
 
-    #[must_use] pub fn addr(&self) -> address {
+    #[must_use]
+    pub fn addr(&self) -> address {
         self.access.addr
     }
 
-    #[must_use] pub fn relative_addr(&self) -> Option<address> {
+    #[must_use]
+    pub fn relative_addr(&self) -> Option<address> {
         self.access.relative_addr()
     }
 
-    #[must_use] pub fn size(&self) -> u32 {
+    #[must_use]
+    pub fn size(&self) -> u32 {
         self.data_size + self.control_size
     }
 
@@ -416,23 +436,28 @@ impl MemFetch {
     //     self.instr.cache_op
     // }
 
-    #[must_use] pub fn access_byte_mask(&self) -> &MemAccessByteMask {
+    #[must_use]
+    pub fn access_byte_mask(&self) -> &MemAccessByteMask {
         &self.access.byte_mask
     }
 
-    #[must_use] pub fn access_warp_mask(&self) -> &ThreadActiveMask {
+    #[must_use]
+    pub fn access_warp_mask(&self) -> &ThreadActiveMask {
         &self.access.warp_mask
     }
 
-    #[must_use] pub fn access_sector_mask(&self) -> &MemAccessSectorMask {
+    #[must_use]
+    pub fn access_sector_mask(&self) -> &MemAccessSectorMask {
         &self.access.sector_mask
     }
 
-    #[must_use] pub fn sub_partition_id(&self) -> usize {
+    #[must_use]
+    pub fn sub_partition_id(&self) -> usize {
         self.tlx_addr.sub_partition as usize
     }
 
-    #[must_use] pub fn access_kind(&self) -> &AccessKind {
+    #[must_use]
+    pub fn access_kind(&self) -> &AccessKind {
         &self.access.kind
     }
 
@@ -441,7 +466,8 @@ impl MemFetch {
         self.last_status_change = Some(time);
     }
 
-    #[must_use] pub fn is_reply(&self) -> bool {
+    #[must_use]
+    pub fn is_reply(&self) -> bool {
         matches!(self.kind, Kind::READ_REPLY | Kind::WRITE_ACK)
     }
 

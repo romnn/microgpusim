@@ -1,6 +1,6 @@
-use super::{instruction::WarpInstruction, register_set::RegisterSet};
-use crate::config;
-use crate::ported::mem_fetch::BitString;
+use super::{
+    config, instruction::WarpInstruction, mem_fetch::BitString, register_set::RegisterSet,
+};
 use bitvec::{array::BitArray, BitArr};
 use console::style;
 use std::cell::RefCell;
@@ -945,8 +945,7 @@ impl OperandCollectorRegisterFileUnit {
 
 #[cfg(test)]
 mod test {
-    use crate::ported::mem_fetch::BitString;
-    use crate::ported::testing;
+    use crate::{mem_fetch::BitString, testing};
     use std::ops::Deref;
 
     impl From<super::OperandCollectorUnitKind> for testing::state::OperandCollectorUnitKind {

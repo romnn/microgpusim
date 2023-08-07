@@ -1,9 +1,11 @@
-use super::kernel::Kernel;
-use super::mem_fetch::{AccessKind, BitString, MemAccess};
-use super::opcodes::{ArchOp, Op, Opcode};
-use super::{address, mem_fetch, operand_collector as opcoll, scheduler as sched};
-use crate::config;
-use crate::ported::mem_sub_partition::MAX_MEMORY_ACCESS_SIZE;
+use super::{
+    address, config,
+    kernel::Kernel,
+    mem_fetch::{self, BitString},
+    mem_sub_partition::MAX_MEMORY_ACCESS_SIZE,
+    opcodes::{ArchOp, Op, Opcode},
+    operand_collector as opcoll, scheduler as sched,
+};
 
 use bitvec::{array::BitArray, field::BitField, BitArr};
 use std::collections::{HashMap, VecDeque};
@@ -124,7 +126,7 @@ pub struct WarpInstruction {
     pub cache_operator: CacheOperator,
     pub memory_space: Option<MemorySpace>,
     pub threads: Vec<PerThreadInfo>,
-    pub mem_access_queue: VecDeque<MemAccess>,
+    pub mem_access_queue: VecDeque<mem_fetch::MemAccess>,
     /// operation latency
     pub latency: usize,
     /// The cycle in which the instruction was issued by a core.
@@ -170,10 +172,7 @@ fn is_number(s: &str) -> bool {
 }
 
 fn opcode_tokens(opcode: &str) -> impl Iterator<Item = &str> {
-    opcode
-        .split('.')
-        .map(str::trim)
-        .filter(|t| !t.is_empty())
+    opcode.split('.').map(str::trim).filter(|t| !t.is_empty())
 }
 
 fn get_data_width_from_opcode(opcode: &str) -> Result<u32, std::num::ParseIntError> {
@@ -424,7 +423,8 @@ impl WarpInstruction {
         }
     }
 
-    #[must_use] pub fn has_dispatch_delay(&self) -> bool {
+    #[must_use]
+    pub fn has_dispatch_delay(&self) -> bool {
         self.dispatch_delay_cycles > 0
     }
 
@@ -475,21 +475,25 @@ impl WarpInstruction {
 
     // m_uid = ++(m_config->gpgpu_ctx->warp_inst_sm_next_uid);
 
-    #[must_use] pub fn active_thread_count(&self) -> usize {
+    #[must_use]
+    pub fn active_thread_count(&self) -> usize {
         self.active_mask.count_ones()
     }
 
-    #[must_use] pub fn is_load(&self) -> bool {
+    #[must_use]
+    pub fn is_load(&self) -> bool {
         let op = self.opcode.category;
         matches!(op, ArchOp::LOAD_OP | ArchOp::TENSOR_CORE_LOAD_OP)
     }
 
-    #[must_use] pub fn is_store(&self) -> bool {
+    #[must_use]
+    pub fn is_store(&self) -> bool {
         let op = self.opcode.category;
         matches!(op, ArchOp::STORE_OP | ArchOp::TENSOR_CORE_STORE_OP)
     }
 
-    #[must_use] pub fn is_atomic(&self) -> bool {
+    #[must_use]
+    pub fn is_atomic(&self) -> bool {
         let op = self.opcode.op;
         matches!(
             op,
@@ -497,25 +501,30 @@ impl WarpInstruction {
         )
     }
 
-    #[must_use] pub fn addr(&self) -> Option<address> {
+    #[must_use]
+    pub fn addr(&self) -> Option<address> {
         self.mem_access_queue.front().map(|access| access.addr)
     }
 
-    #[must_use] pub fn access_kind(&self) -> Option<AccessKind> {
+    #[must_use]
+    pub fn access_kind(&self) -> Option<mem_fetch::AccessKind> {
         let is_write = self.is_store();
         match self.memory_space {
-            Some(MemorySpace::Constant) => Some(AccessKind::CONST_ACC_R),
-            Some(MemorySpace::Texture) => Some(AccessKind::TEXTURE_ACC_R),
-            Some(MemorySpace::Global) if is_write => Some(AccessKind::GLOBAL_ACC_W),
-            Some(MemorySpace::Global) if !is_write => Some(AccessKind::GLOBAL_ACC_R),
-            Some(MemorySpace::Local) if is_write => Some(AccessKind::LOCAL_ACC_W),
-            Some(MemorySpace::Local) if !is_write => Some(AccessKind::LOCAL_ACC_R),
+            Some(MemorySpace::Constant) => Some(mem_fetch::AccessKind::CONST_ACC_R),
+            Some(MemorySpace::Texture) => Some(mem_fetch::AccessKind::TEXTURE_ACC_R),
+            Some(MemorySpace::Global) if is_write => Some(mem_fetch::AccessKind::GLOBAL_ACC_W),
+            Some(MemorySpace::Global) if !is_write => Some(mem_fetch::AccessKind::GLOBAL_ACC_R),
+            Some(MemorySpace::Local) if is_write => Some(mem_fetch::AccessKind::LOCAL_ACC_W),
+            Some(MemorySpace::Local) if !is_write => Some(mem_fetch::AccessKind::LOCAL_ACC_R),
             // space => panic!("no access kind for memory space {:?}", space),
             _ => None,
         }
     }
 
-    pub fn generate_mem_accesses(&mut self, config: &config::GPUConfig) -> Option<Vec<MemAccess>> {
+    pub fn generate_mem_accesses(
+        &mut self,
+        config: &config::GPUConfig,
+    ) -> Option<Vec<mem_fetch::MemAccess>> {
         let op = self.opcode.category;
         if !matches!(
             op,
@@ -683,9 +692,9 @@ impl WarpInstruction {
     fn memory_coalescing_arch(
         &self,
         is_write: bool,
-        access_kind: AccessKind,
+        access_kind: mem_fetch::AccessKind,
         config: &config::GPUConfig,
-    ) -> Vec<MemAccess> {
+    ) -> Vec<mem_fetch::MemAccess> {
         // see the CUDA manual where it discusses coalescing rules
         // before reading this
         let warp_parts = config.shared_memory_warp_parts;
@@ -714,7 +723,7 @@ impl WarpInstruction {
             subwarp_size,
         );
 
-        let mut accesses: Vec<MemAccess> = Vec::new();
+        let mut accesses: Vec<mem_fetch::MemAccess> = Vec::new();
         for subwarp in 0..warp_parts {
             let mut subwarp_transactions: HashMap<address, TransactionInfo> = HashMap::new();
 
@@ -823,11 +832,11 @@ impl WarpInstruction {
     fn memory_coalescing_arch_reduce(
         &self,
         is_write: bool,
-        access_kind: AccessKind,
+        access_kind: mem_fetch::AccessKind,
         tx: TransactionInfo,
         mut addr: address,
         segment_size: u64,
-    ) -> MemAccess {
+    ) -> mem_fetch::MemAccess {
         debug_assert_eq!(addr & (segment_size - 1), 0);
         debug_assert!(tx.chunk_mask.count_ones() >= 1);
         // halves (used to check if 64 byte segment can be
@@ -873,7 +882,7 @@ impl WarpInstruction {
             }
         }
 
-        MemAccess::new(
+        mem_fetch::MemAccess::new(
             access_kind,
             addr,
             None, // we cannot know the allocation start address in this context

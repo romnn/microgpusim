@@ -8,8 +8,8 @@
 
   - refactor
 
-    - join core and inner core
     - flatten ported submodule
+    - join core and inner core
     - lint
     - factor into multiple files
     - some minor todos
