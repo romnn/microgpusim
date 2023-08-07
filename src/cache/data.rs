@@ -1,4 +1,5 @@
-use crate::{address, cache, cache_block, config, interconn as ic, mem_fetch, tag_array, Cycle};
+use super::{base, event};
+use crate::{address, cache, config, interconn as ic, mem_fetch, tag_array, Cycle};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
@@ -9,7 +10,7 @@ use std::sync::{Arc, Mutex};
 /// (the policy used in fermi according to the CUDA manual)
 #[derive(Debug)]
 pub struct Data<I> {
-    pub inner: super::base::Base<I>,
+    pub inner: base::Base<I>,
     /// Specifies type of write allocate request (e.g., L1 or L2)
     write_alloc_type: mem_fetch::AccessKind,
     /// Specifies type of writeback request (e.g., L1 or L2)
@@ -61,7 +62,7 @@ where
         cache_index: Option<usize>,
         fetch: mem_fetch::MemFetch,
         time: u64,
-        _events: &mut [cache::Event],
+        _events: &mut [event::Event],
         _probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         debug_assert_eq!(addr, fetch.addr());
@@ -80,7 +81,7 @@ where
         let cache_index = index.unwrap();
         let block = self.inner.tag_array.get_block_mut(cache_index);
         let was_modified_before = block.is_modified();
-        block.set_status(cache_block::Status::MODIFIED, fetch.access_sector_mask());
+        block.set_status(cache::block::Status::MODIFIED, fetch.access_sector_mask());
         block.set_byte_mask(fetch.access_byte_mask());
         if !was_modified_before {
             self.inner.tag_array.num_dirty += 1;
@@ -119,7 +120,7 @@ where
         // cache_index: usize,
         fetch: mem_fetch::MemFetch,
         time: u64,
-        _events: &mut [cache::Event],
+        _events: &mut [event::Event],
         _probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         let super::base::Base {
@@ -137,7 +138,7 @@ where
             debug_assert_eq!(*fetch.access_kind(), mem_fetch::AccessKind::GLOBAL_ACC_R);
             let block = tag_array.get_block_mut(block_index);
             let was_modified_before = block.is_modified();
-            block.set_status(cache_block::Status::MODIFIED, fetch.access_sector_mask());
+            block.set_status(cache::block::Status::MODIFIED, fetch.access_sector_mask());
             block.set_byte_mask(fetch.access_byte_mask());
             if !was_modified_before {
                 tag_array.num_dirty += 1;
@@ -150,9 +151,9 @@ where
     pub fn send_write_request(
         &mut self,
         mut fetch: mem_fetch::MemFetch,
-        request: cache::Event,
+        request: event::Event,
         time: u64,
-        events: &mut Vec<cache::Event>,
+        events: &mut Vec<event::Event>,
     ) {
         log::debug!("data_cache::send_write_request({})", fetch);
         events.push(request);
@@ -170,7 +171,7 @@ where
         cache_index: Option<usize>,
         fetch: mem_fetch::MemFetch,
         time: u64,
-        events: &mut Vec<cache::Event>,
+        events: &mut Vec<event::Event>,
         _probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         if !self.inner.miss_queue_can_fit(1) {
@@ -243,8 +244,8 @@ where
                     // address from the original mf
                     writeback_fetch.tlx_addr.chip = fetch.tlx_addr.chip;
                     writeback_fetch.tlx_addr.sub_partition = fetch.tlx_addr.sub_partition;
-                    let event = cache::Event {
-                        kind: cache::EventKind::WRITE_BACK_REQUEST_SENT,
+                    let event = event::Event {
+                        kind: event::Kind::WRITE_BACK_REQUEST_SENT,
                         evicted_block: None, // drop evicted?
                     };
 
@@ -269,7 +270,7 @@ where
         _cache_index: Option<usize>,
         fetch: mem_fetch::MemFetch,
         time: u64,
-        events: &mut Vec<cache::Event>,
+        events: &mut Vec<event::Event>,
         _probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         debug_assert_eq!(addr, fetch.addr());
@@ -291,8 +292,8 @@ where
         }
 
         // on miss, generate write through
-        let event = cache::Event {
-            kind: cache::EventKind::WRITE_REQUEST_SENT,
+        let event = event::Event {
+            kind: event::Kind::WRITE_REQUEST_SENT,
             evicted_block: None,
         };
         self.send_write_request(fetch, event, time, events);
@@ -305,7 +306,7 @@ where
         cache_index: Option<usize>,
         fetch: mem_fetch::MemFetch,
         time: u64,
-        events: &mut Vec<cache::Event>,
+        events: &mut Vec<event::Event>,
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         // what exactly is the difference between the addr and the fetch addr?
@@ -346,8 +347,8 @@ where
             return cache::RequestStatus::RESERVATION_FAIL;
         }
 
-        let event = cache::Event {
-            kind: cache::EventKind::WRITE_REQUEST_SENT,
+        let event = event::Event {
+            kind: event::Kind::WRITE_REQUEST_SENT,
             evicted_block: None,
         };
 
@@ -389,8 +390,8 @@ where
             is_write_allocate,
         );
 
-        events.push(cache::Event {
-            kind: cache::EventKind::WRITE_ALLOCATE_SENT,
+        events.push(event::Event {
+            kind: event::Kind::WRITE_ALLOCATE_SENT,
             evicted_block: None,
         });
 
@@ -437,8 +438,8 @@ where
                     // is used, so set the right chip address from the original mf
                     writeback_fetch.tlx_addr.chip = fetch.tlx_addr.chip;
                     writeback_fetch.tlx_addr.sub_partition = fetch.tlx_addr.sub_partition;
-                    let event = cache::Event {
-                        kind: cache::EventKind::WRITE_BACK_REQUEST_SENT,
+                    let event = event::Event {
+                        kind: event::Kind::WRITE_BACK_REQUEST_SENT,
                         evicted_block: Some(evicted),
                     };
 
@@ -457,7 +458,7 @@ where
         cache_index: Option<usize>,
         fetch: mem_fetch::MemFetch,
         time: u64,
-        events: &mut Vec<cache::Event>,
+        events: &mut Vec<event::Event>,
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         let func = match self.inner.cache_config.write_allocate_policy {
@@ -485,7 +486,7 @@ where
         cache_index: Option<usize>,
         fetch: mem_fetch::MemFetch,
         time: u64,
-        events: &mut [cache::Event],
+        events: &mut [event::Event],
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         let func = match self.inner.cache_config.write_policy {
@@ -511,7 +512,7 @@ where
         addr: address,
         cache_index: Option<usize>,
         fetch: mem_fetch::MemFetch,
-        events: &mut Vec<cache::Event>,
+        events: &mut Vec<event::Event>,
         time: u64,
     ) -> cache::RequestStatus {
         // dbg!(cache_index, probe_status);
@@ -600,7 +601,7 @@ where
         &mut self,
         addr: address,
         fetch: mem_fetch::MemFetch,
-        events: &mut Vec<cache::Event>,
+        events: &mut Vec<event::Event>,
         time: u64,
     ) -> cache::RequestStatus {
         let super::base::Base {

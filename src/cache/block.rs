@@ -1,4 +1,4 @@
-use super::{address, mem_fetch, mem_sub_partition};
+use crate::{address, mem_fetch, mem_sub_partition};
 
 use bitvec::array::BitArray;
 
@@ -52,7 +52,7 @@ pub trait CacheBlock {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LineCacheBlock {
+pub struct Line {
     pub tag: u64,
     pub block_addr: address,
 
@@ -71,16 +71,16 @@ pub struct LineCacheBlock {
     dirty_byte_mask: mem_fetch::MemAccessByteMask,
 }
 
-impl std::fmt::Display for LineCacheBlock {
+impl std::fmt::Display for Line {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct("LineCacheBlock")
+        f.debug_struct("Line")
             .field("addr", &self.block_addr)
             .field("status", &self.status)
             .finish()
     }
 }
 
-impl Default for LineCacheBlock {
+impl Default for Line {
     fn default() -> Self {
         Self {
             tag: 0,
@@ -99,8 +99,9 @@ impl Default for LineCacheBlock {
     }
 }
 
-impl LineCacheBlock {
-    #[must_use] pub fn new() -> Self {
+impl Line {
+    #[must_use]
+    pub fn new() -> Self {
         Self::default()
     }
 
@@ -152,7 +153,6 @@ impl LineCacheBlock {
     #[inline]
     pub fn set_last_access_time(&mut self, time: u64, _mask: &mem_fetch::MemAccessSectorMask) {
         self.last_access_time = time;
-        // self.last_access_time = self.last_access_time.max(time);
     }
 
     #[inline]
@@ -171,32 +171,38 @@ impl LineCacheBlock {
     }
 
     #[inline]
-    #[must_use] pub fn status(&self, _mask: &mem_fetch::MemAccessSectorMask) -> Status {
+    #[must_use]
+    pub fn status(&self, _mask: &mem_fetch::MemAccessSectorMask) -> Status {
         self.status
     }
 
     #[inline]
-    #[must_use] pub fn is_valid(&self) -> bool {
+    #[must_use]
+    pub fn is_valid(&self) -> bool {
         self.status == Status::VALID
     }
 
     #[inline]
-    #[must_use] pub fn is_modified(&self) -> bool {
+    #[must_use]
+    pub fn is_modified(&self) -> bool {
         self.status == Status::MODIFIED
     }
 
     #[inline]
-    #[must_use] pub fn is_invalid(&self) -> bool {
+    #[must_use]
+    pub fn is_invalid(&self) -> bool {
         self.status == Status::INVALID
     }
 
     #[inline]
-    #[must_use] pub fn is_reserved(&self) -> bool {
+    #[must_use]
+    pub fn is_reserved(&self) -> bool {
         self.status == Status::RESERVED
     }
 
     #[inline]
-    #[must_use] pub fn is_readable(&self, _mask: &mem_fetch::MemAccessSectorMask) -> bool {
+    #[must_use]
+    pub fn is_readable(&self, _mask: &mem_fetch::MemAccessSectorMask) -> bool {
         self.is_readable
     }
 
@@ -206,28 +212,33 @@ impl LineCacheBlock {
     }
 
     #[inline]
-    #[must_use] pub fn alloc_time(&self) -> u64 {
+    #[must_use]
+    pub fn alloc_time(&self) -> u64 {
         self.alloc_time
     }
 
     #[inline]
-    #[must_use] pub fn last_access_time(&self) -> u64 {
+    #[must_use]
+    pub fn last_access_time(&self) -> u64 {
         self.last_access_time
     }
 
     #[inline]
-    #[must_use] pub fn modified_size(&self) -> u32 {
+    #[must_use]
+    pub fn modified_size(&self) -> u32 {
         // cache line size
         mem_sub_partition::SECTOR_CHUNCK_SIZE * mem_sub_partition::SECTOR_SIZE
     }
 
     #[inline]
-    #[must_use] pub fn dirty_byte_mask(&self) -> mem_fetch::MemAccessByteMask {
+    #[must_use]
+    pub fn dirty_byte_mask(&self) -> mem_fetch::MemAccessByteMask {
         self.dirty_byte_mask
     }
 
     #[inline]
-    #[must_use] pub fn dirty_sector_mask(&self) -> mem_fetch::MemAccessSectorMask {
+    #[must_use]
+    pub fn dirty_sector_mask(&self) -> mem_fetch::MemAccessSectorMask {
         if self.is_modified() {
             !BitArray::ZERO
         } else {

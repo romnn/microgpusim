@@ -1,7 +1,7 @@
 use crate::{
     address, cache, config,
     fifo::{FifoQueue, Queue},
-    interconn as ic, l2, mem_fetch, Cycle,
+    interconn as ic, mem_fetch, Cycle,
 };
 use console::style;
 
@@ -16,34 +16,6 @@ pub const SECTOR_CHUNCK_SIZE: u32 = 4;
 
 /// Sector size is 32 bytes width
 pub const SECTOR_SIZE: u32 = 32;
-
-#[must_use]
-pub fn was_write_sent(events: &[cache::Event]) -> bool {
-    events
-        .iter()
-        .any(|event| event.kind == cache::EventKind::WRITE_REQUEST_SENT)
-}
-
-#[must_use]
-pub fn was_writeback_sent(events: &[cache::Event]) -> Option<&cache::Event> {
-    events
-        .iter()
-        .find(|event| event.kind == cache::EventKind::WRITE_BACK_REQUEST_SENT)
-}
-
-#[must_use]
-pub fn was_read_sent(events: &[cache::Event]) -> bool {
-    events
-        .iter()
-        .any(|event| event.kind == cache::EventKind::READ_REQUEST_SENT)
-}
-
-#[must_use]
-pub fn was_writeallocate_sent(events: &[cache::Event]) -> bool {
-    events
-        .iter()
-        .any(|event| event.kind == cache::EventKind::WRITE_ALLOCATE_SENT)
-}
 
 #[derive()]
 pub struct MemorySubPartition<Q = FifoQueue<mem_fetch::MemFetch>> {
@@ -112,7 +84,7 @@ where
                 });
 
                 let cache_stats = Arc::new(Mutex::new(stats::Cache::default()));
-                Some(Box::new(l2::DataL2::new(
+                Some(Box::new(cache::DataL2::new(
                     format!("mem-sub-{}-{}", id, style("L2-CACHE").green()),
                     0, // core_id,
                     0, // cluster_id,
@@ -491,8 +463,8 @@ where
                             let mut events = Vec::new();
                             let status =
                                 l2_cache.access(fetch.addr(), fetch.clone(), &mut events, time);
-                            let write_sent = was_write_sent(&events);
-                            let read_sent = was_read_sent(&events);
+                            let write_sent = cache::event::was_write_sent(&events);
+                            let read_sent = cache::event::was_read_sent(&events);
                             log::debug!(
                                 "probing L2 cache address={}, status={:?}",
                                 fetch.addr(),
@@ -529,7 +501,7 @@ where
                                 );
                                 if fetch.is_write()
                                     && should_fetch
-                                    && !was_writeallocate_sent(&events)
+                                    && !cache::event::was_writeallocate_sent(&events)
                                 {
                                     if fetch.access_kind() == &mem_fetch::AccessKind::L1_WRBK_ACC {
                                         //     m_request_tracker.erase(mf);

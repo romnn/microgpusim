@@ -1,4 +1,4 @@
-use super::{address, cache, cache_block, mem_fetch};
+use super::{address, cache, mem_fetch};
 use crate::config;
 
 use std::collections::HashMap;
@@ -26,7 +26,7 @@ pub struct AccessStatus {
 #[derive(Debug, Clone)]
 pub struct TagArray<B> {
     /// nbanks x nset x assoc lines in total
-    pub lines: Vec<cache_block::LineCacheBlock>,
+    pub lines: Vec<cache::block::Line>,
     phantom: std::marker::PhantomData<B>,
     is_used: bool,
     num_access: usize,
@@ -44,7 +44,7 @@ impl<B> TagArray<B> {
     pub fn new(config: Arc<config::CacheConfig>) -> Self {
         let num_cache_lines = config.max_num_lines();
         let lines = (0..num_cache_lines)
-            .map(|_| cache_block::LineCacheBlock::new())
+            .map(|_| cache::block::Line::new())
             .collect();
 
         Self {
@@ -225,13 +225,13 @@ impl<B> TagArray<B> {
             );
             if line.tag == tag {
                 match line.status(mask) {
-                    cache_block::Status::RESERVED => {
+                    cache::block::Status::RESERVED => {
                         return (Some(idx), cache::RequestStatus::HIT_RESERVED);
                     }
-                    cache_block::Status::VALID => {
+                    cache::block::Status::VALID => {
                         return (Some(idx), cache::RequestStatus::HIT);
                     }
-                    cache_block::Status::MODIFIED => {
+                    cache::block::Status::MODIFIED => {
                         let status = if is_write || line.is_readable(mask) {
                             cache::RequestStatus::HIT
                         } else {
@@ -244,10 +244,10 @@ impl<B> TagArray<B> {
                         // };
                         return (Some(idx), status);
                     }
-                    cache_block::Status::INVALID if line.is_valid() => {
+                    cache::block::Status::INVALID if line.is_valid() => {
                         return (Some(idx), cache::RequestStatus::SECTOR_MISS);
                     }
-                    cache_block::Status::INVALID => {}
+                    cache::block::Status::INVALID => {}
                 }
             }
             if !line.is_reserved() {
@@ -440,12 +440,12 @@ impl<B> TagArray<B> {
         self.config.max_num_lines()
     }
 
-    pub fn get_block_mut(&mut self, idx: usize) -> &mut cache_block::LineCacheBlock {
+    pub fn get_block_mut(&mut self, idx: usize) -> &mut cache::block::Line {
         &mut self.lines[idx]
     }
 
     #[must_use]
-    pub fn get_block(&self, idx: usize) -> &cache_block::LineCacheBlock {
+    pub fn get_block(&self, idx: usize) -> &cache::block::Line {
         &self.lines[idx]
     }
 

@@ -1,4 +1,17 @@
-use super::{address, mem_fetch, tag_array};
+pub mod bandwidth;
+pub mod base;
+pub mod block;
+pub mod data;
+pub mod event;
+pub mod l2;
+pub mod readonly;
+
+pub use data::Data;
+pub use event::Event;
+pub use l2::DataL2;
+pub use readonly::ReadOnly;
+
+use super::{address, mem_fetch};
 use crate::config;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
@@ -11,7 +24,6 @@ pub enum RequestStatus {
     RESERVATION_FAIL,
     SECTOR_MISS,
     MSHR_HIT,
-    // NUM_CACHE_REQUEST_STATUS,
 }
 
 impl From<RequestStatus> for stats::cache::RequestStatus {
@@ -36,7 +48,6 @@ pub enum ReservationFailure {
     MSHR_ENTRY_FAIL,
     MSHR_MERGE_ENTRY_FAIL,
     MSHR_RW_PENDING,
-    // NUM_CACHE_RESERVATION_FAIL_STATUS,
 }
 
 impl From<ReservationFailure> for stats::cache::ReservationFailure {
@@ -66,31 +77,6 @@ impl From<AccessStat> for stats::cache::AccessStat {
     }
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-pub enum EventKind {
-    WRITE_BACK_REQUEST_SENT,
-    READ_REQUEST_SENT,
-    WRITE_REQUEST_SENT,
-    WRITE_ALLOCATE_SENT,
-}
-
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct Event {
-    pub kind: EventKind,
-
-    // if it was write_back event, fill the the evicted block info
-    pub evicted_block: Option<tag_array::EvictedBlockInfo>,
-}
-
-impl Event {
-    #[must_use] pub fn new(kind: EventKind) -> Self {
-        Self {
-            kind,
-            evicted_block: None,
-        }
-    }
-}
-
 pub trait Component {
     fn cycle(&mut self);
 }
@@ -106,7 +92,7 @@ pub trait Cache: Component + CacheBandwidth {
         &mut self,
         _addr: address,
         _fetch: mem_fetch::MemFetch,
-        _events: &mut Vec<Event>,
+        _events: &mut Vec<event::Event>,
         _time: u64,
     ) -> RequestStatus {
         todo!("cache: access");

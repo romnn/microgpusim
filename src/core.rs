@@ -1,6 +1,6 @@
 use super::{
     address, barrier, cache, config, instruction::WarpInstruction, interconn as ic, kernel::Kernel,
-    l1, mem_fetch, mem_fetch::BitString, opcodes, operand_collector as opcoll, register_set,
+    mem_fetch, mem_fetch::BitString, opcodes, operand_collector as opcoll, register_set,
     scheduler as sched, scoreboard, simd_function_unit as fu, LoadStoreUnit,
 };
 use bitvec::{array::BitArray, BitArr};
@@ -484,7 +484,7 @@ where
             interconn: interconn.clone(),
         });
         let cache_stats = Arc::new(Mutex::new(stats::Cache::default()));
-        let instr_l1_cache = l1::ReadOnly::new(
+        let instr_l1_cache = cache::ReadOnly::new(
             format!(
                 "core-{}-{}-{}",
                 cluster_id,

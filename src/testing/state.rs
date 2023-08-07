@@ -68,14 +68,13 @@ pub enum CacheBlockStatus {
     MODIFIED,
 }
 
-impl From<crate::cache_block::Status> for CacheBlockStatus {
-    fn from(status: crate::cache_block::Status) -> Self {
-        use crate::cache_block;
+impl From<crate::cache::block::Status> for CacheBlockStatus {
+    fn from(status: crate::cache::block::Status) -> Self {
         match status {
-            cache_block::Status::INVALID => Self::INVALID,
-            cache_block::Status::RESERVED => Self::RESERVED,
-            cache_block::Status::VALID => Self::VALID,
-            cache_block::Status::MODIFIED => Self::MODIFIED,
+            crate::cache::block::Status::INVALID => Self::INVALID,
+            crate::cache::block::Status::RESERVED => Self::RESERVED,
+            crate::cache::block::Status::VALID => Self::VALID,
+            crate::cache::block::Status::MODIFIED => Self::MODIFIED,
         }
     }
 }
@@ -88,8 +87,8 @@ pub struct CacheBlock {
     pub last_accessed: u64,
 }
 
-impl From<crate::cache_block::LineCacheBlock> for CacheBlock {
-    fn from(block: crate::cache_block::LineCacheBlock) -> Self {
+impl From<crate::cache::block::Line> for CacheBlock {
+    fn from(block: crate::cache::block::Line) -> Self {
         Self {
             tag: block.tag,
             block_addr: block.block_addr,

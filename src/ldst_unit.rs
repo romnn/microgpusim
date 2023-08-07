@@ -1,5 +1,5 @@
 use super::{
-    cache, config, interconn as ic, l1, mem_fetch, mem_sub_partition, mshr,
+    cache, config, interconn as ic, mem_fetch, mem_sub_partition, mshr,
     operand_collector as opcoll,
     operand_collector::OperandCollectorRegisterFileUnit,
     register_set::{self},
@@ -158,7 +158,7 @@ where
 
                 // initialize l1 data cache
                 let cache_stats = Arc::new(Mutex::new(stats::Cache::default()));
-                Some(Box::new(l1::Data::new(
+                Some(Box::new(cache::Data::new(
                     format!("ldst-unit-{cluster_id}-{core_id}-L1-DATA-CACHE"),
                     core_id,
                     cluster_id,
@@ -686,8 +686,8 @@ where
         status: cache::RequestStatus,
     ) -> MemStageStallKind {
         let mut stall_cond = MemStageStallKind::NO_RC_FAIL;
-        let write_sent = mem_sub_partition::was_write_sent(events);
-        let read_sent = mem_sub_partition::was_read_sent(events);
+        let write_sent = cache::event::was_write_sent(events);
+        let read_sent = cache::event::was_read_sent(events);
         if write_sent {
             let l1d_config = self.config.data_cache_l1.as_ref().unwrap();
             let inc_ack = if l1d_config.inner.mshr_kind == mshr::Kind::SECTOR_ASSOC {
@@ -749,9 +749,9 @@ where
                 let access_status =
                     l1_cache.access(next_fetch.addr(), next_fetch.clone(), &mut events, time);
 
-                let write_sent = mem_sub_partition::was_write_sent(&events);
-                let read_sent = mem_sub_partition::was_read_sent(&events);
-                let write_allocate_sent = mem_sub_partition::was_writeallocate_sent(&events);
+                let write_sent = cache::event::was_write_sent(&events);
+                let read_sent = cache::event::was_read_sent(&events);
+                let write_allocate_sent = cache::event::was_writeallocate_sent(&events);
 
                 let dec_ack = if l1_config.inner.mshr_kind == mshr::Kind::SECTOR_ASSOC {
                     next_fetch.data_size / mem_sub_partition::SECTOR_SIZE

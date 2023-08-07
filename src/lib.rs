@@ -12,7 +12,6 @@ pub mod addrdec;
 pub mod arbitration;
 pub mod barrier;
 pub mod cache;
-pub mod cache_block;
 pub mod cluster;
 pub mod config;
 pub mod core;
@@ -22,8 +21,6 @@ pub mod fifo;
 pub mod instruction;
 pub mod interconn;
 pub mod kernel;
-pub mod l1;
-pub mod l2;
 pub mod ldst_unit;
 pub mod mem_fetch;
 pub mod mem_partition_unit;
@@ -1049,7 +1046,7 @@ pub fn accelmain(
 
 #[cfg(test)]
 mod tests {
-    use crate::{config, fifo, interconn as ic, l2, mem_fetch, testing, testing::diff};
+    use crate::{cache, config, fifo, interconn as ic, mem_fetch, testing, testing::diff};
     use color_eyre::eyre;
     use itertools::Itertools;
     use pretty_assertions_sorted as full_diff;
@@ -1185,7 +1182,7 @@ mod tests {
         for (sub_id, sub) in box_sim.mem_sub_partitions.iter().enumerate() {
             let sub = sub.borrow();
             let l2_cache = sub.l2_cache.as_ref().unwrap();
-            let l2_cache: &l2::DataL2<ic::L2Interface<fifo::FifoQueue<mem_fetch::MemFetch>>> =
+            let l2_cache: &cache::DataL2<ic::L2Interface<fifo::FifoQueue<mem_fetch::MemFetch>>> =
                 l2_cache.as_any().downcast_ref().unwrap();
 
             box_sim_state.l2_cache_per_sub[sub_id] =

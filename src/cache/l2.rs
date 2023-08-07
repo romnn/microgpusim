@@ -1,4 +1,4 @@
-use crate::{address, cache, config, interconn as ic, l1, mem_fetch, Cycle};
+use crate::{address, config, interconn as ic, mem_fetch, Cycle};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 /// todo: move this to cache as its generic
 #[derive(Debug)]
 pub struct DataL2<I> {
-    pub inner: l1::Data<I>,
+    pub inner: super::data::Data<I>,
     pub cache_config: Arc<config::L2DCacheConfig>,
 }
 
@@ -25,7 +25,7 @@ where
         config: Arc<config::GPUConfig>,
         cache_config: Arc<config::L2DCacheConfig>,
     ) -> Self {
-        let inner = l1::Data::new(
+        let inner = super::data::Data::new(
             name,
             core_id,
             cluster_id,
@@ -44,7 +44,7 @@ where
     }
 }
 
-impl<I> cache::Component for DataL2<I>
+impl<I> super::Component for DataL2<I>
 where
     I: ic::MemFetchInterface,
 {
@@ -53,7 +53,7 @@ where
     }
 }
 
-impl<I> cache::Cache for DataL2<I>
+impl<I> super::Cache for DataL2<I>
 where
     I: ic::MemFetchInterface + 'static,
 {
@@ -107,9 +107,9 @@ where
         &mut self,
         addr: address,
         fetch: mem_fetch::MemFetch,
-        events: &mut Vec<cache::Event>,
+        events: &mut Vec<super::event::Event>,
         time: u64,
-    ) -> cache::RequestStatus {
+    ) -> super::RequestStatus {
         self.inner.access(addr, fetch, events, time)
     }
 
@@ -122,7 +122,7 @@ where
     }
 }
 
-impl<I> cache::CacheBandwidth for DataL2<I>
+impl<I> super::CacheBandwidth for DataL2<I>
 where
     I: ic::MemFetchInterface,
 {

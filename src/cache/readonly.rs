@@ -76,7 +76,6 @@ where
     }
 
     fn ready_accesses(&self) -> Option<&VecDeque<mem_fetch::MemFetch>> {
-        // fn ready_access_iter(&self) -> () {
         self.inner.ready_accesses()
     }
 

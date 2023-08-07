@@ -48,7 +48,6 @@ impl From<MemorySpace> for stats::instructions::MemorySpace {
     }
 }
 
-// this is done
 #[derive(Debug, Default)]
 struct TransactionInfo {
     chunk_mask: BitArr!(for 4, in u8),
@@ -428,52 +427,13 @@ impl WarpInstruction {
         self.dispatch_delay_cycles > 0
     }
 
-    // pub fn inputs(&self) -> &[u32] {
     pub fn inputs(&self) -> impl Iterator<Item = &u32> {
         self.inputs.iter().filter_map(Option::as_ref)
-        // &self.inputs[0..self.in_count]
     }
 
-    // pub fn outputs(&self) -> &[u32] {
     pub fn outputs(&self) -> impl Iterator<Item = &u32> {
         self.outputs.iter().filter_map(Option::as_ref)
-        // &self.outputs[0..self.out_count]
     }
-
-    // pub fn scheduler_id(&self) -> Option<usize> {
-    //     self.scheduler_id
-    // }
-
-    // pub fn empty(&self) -> bool {
-    //     false
-    //     // self.empty
-    // }
-
-    pub fn clear(&mut self) {
-        todo!("clean warp instruction");
-    }
-
-    // pub fn new() -> Self {
-    //     let threads = [PerThreadInfo::default(); 32];
-    //     Self {
-    //         id: 0,
-    //         pc: 0,
-    //         op: ArchOp::LOAD_OP,
-    //         cache_operator: CacheOperator::UNDEFINED,
-    //         threads,
-    //         empty: true,
-    //         memory_space: Some(MemorySpace::Global),
-    //         mem_access_queue: VecDeque::new(),
-    //         active_mask: BitBox::from_bitslice(bits![0; 32]),
-    //     }
-    // }
-
-    // bool accessq_empty() const { return m_accessq.empty(); }
-    // unsigned accessq_count() const { return m_accessq.size(); }
-    // const mem_access_t &accessq_back() { return m_accessq.back(); }
-    // void accessq_pop_back() { m_accessq.pop_back(); }
-
-    // m_uid = ++(m_config->gpgpu_ctx->warp_inst_sm_next_uid);
 
     #[must_use]
     pub fn active_thread_count(&self) -> usize {
