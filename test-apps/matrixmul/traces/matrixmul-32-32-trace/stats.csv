@@ -1,2 +1,0 @@
-kernel id, kernel mangled name, grid_dimX, grid_dimY, grid_dimZ, #blocks, block_dimX, block_dimY, block_dimZ, #threads, total_insts, total_reported_insts
-kernel-1.trace, _Z8mult_gpuIfEvPT_S1_S1_ii, 1, 1, 1, 1, 32, 32, 1, 1024, 4416,4416

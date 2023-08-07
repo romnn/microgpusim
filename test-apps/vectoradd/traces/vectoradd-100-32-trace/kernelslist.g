@@ -1,4 +1,0 @@
-MemcpyHtoD,0x00007f2b2d500000,400
-MemcpyHtoD,0x00007f2b2d500200,400
-MemcpyHtoD,0x00007f2b2d500400,400
-kernel-1.traceg

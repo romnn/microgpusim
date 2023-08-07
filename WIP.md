@@ -8,7 +8,7 @@
 
   - refactor
 
-    - flatten ported submodule
+    - restructure caches source files
     - join core and inner core
     - lint
     - factor into multiple files
@@ -16,6 +16,8 @@
     - remove dead code
     - instantiate the entire GPU in one file to find a good API
     - factor out traits
+
+    - DONE: flatten ported submodule
 
   - generate plots and correlation stuff etc
 
