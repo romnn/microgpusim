@@ -2,22 +2,38 @@
 
 - today:
 
-  - test flush caches using config options
+  - todos
+
+    - use gpu_mem_alloc for the allocations but still allow smart comparision with play whose traces does not include allocations
+
+  - refactor
+
+    - join core and inner core
+    - flatten ported submodule
+    - lint
+    - factor into multiple files
+    - some minor todos
+    - remove dead code
+    - instantiate the entire GPU in one file to find a good API
+    - factor out traits
+
+  - generate plots and correlation stuff etc
+
   - less important:
 
-    - perf: investigate if the many small allocations of msg for move in / move warp etc are problematic
-    - perf: investigate the performance overhead for finding the allocation ids
-
-    - fix: investigate lockstep performance and see if we can reduce allocations?
     - fix: remove global statics to allow running tests in parallel
     - parse accelsim config files
+
       - with defaults for compatibility
+
+    - test flush caches using config options
+    - perf: investigate if the many small allocations of msg for move in / move warp etc are problematic
+    - perf: investigate the performance overhead for finding the allocation ids
+    - perf: investigate lockstep performance and see if we can reduce allocations?
 
   - allow basic configurations for the playground bridge
 
-  -
   - FIX: add l2 set index back in
-  - generate plots and correlation stuff etc
 
   - DONE: multiple memories
   - DONE: lockstep with multiple cores and clusters

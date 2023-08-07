@@ -9,9 +9,9 @@ pub struct RegisterSet {
 }
 
 impl RegisterSet {
-    pub fn new(stage: super::PipelineStage, size: usize, id: usize) -> Self {
+    #[must_use] pub fn new(stage: super::PipelineStage, size: usize, id: usize) -> Self {
         let regs = (0..size).map(|_| None).collect();
-        Self { regs, stage, id }
+        Self { stage, regs, id }
     }
 
     pub fn has_free(&self) -> bool {
@@ -23,7 +23,7 @@ impl RegisterSet {
     }
 
     // pub fn has_free_sub_core(&self, sub_core_model: bool, reg_id: usize) -> bool {
-    pub fn has_free_sub_core(&self, reg_id: usize) -> bool {
+    #[must_use] pub fn has_free_sub_core(&self, reg_id: usize) -> bool {
         // in subcore model, each sched has a one specific
         // reg to use (based on sched id)
         // if !sub_core_model {
@@ -66,7 +66,7 @@ impl RegisterSet {
     // }
 
     pub fn scheduler_id(&self, reg_id: usize) -> Option<usize> {
-        match self.regs.get(reg_id).map(Option::as_ref).flatten() {
+        match self.regs.get(reg_id).and_then(Option::as_ref) {
             Some(r) => {
                 // debug_assert!(!r.empty());
                 r.scheduler_id
@@ -94,7 +94,7 @@ impl RegisterSet {
         self.regs.iter().any(Option::is_some)
     }
 
-    pub fn get_ready(&self) -> Option<(usize, &Option<WarpInstruction>)> {
+    #[must_use] pub fn get_ready(&self) -> Option<(usize, &Option<WarpInstruction>)> {
         let mut ready: Option<(usize, &Option<WarpInstruction>)> = None;
         for free in self.iter_occupied() {
             match (&ready, free) {
@@ -193,8 +193,7 @@ impl RegisterSet {
     pub fn get_instruction_mut(&mut self) -> Option<&mut WarpInstruction> {
         self.get_ready_mut()
             .map(|(_, r)| r)
-            .map(Option::as_mut)
-            .flatten()
+            .and_then(Option::as_mut)
     }
 
     // pub fn get_ready_mut(&mut self) -> Option<&mut WarpInstruction> {
@@ -212,7 +211,7 @@ impl RegisterSet {
     //     ready
     // }
 
-    pub fn get_ready_sub_core(&self, reg_id: usize) -> Option<&Option<WarpInstruction>> {
+    #[must_use] pub fn get_ready_sub_core(&self, reg_id: usize) -> Option<&Option<WarpInstruction>> {
         debug_assert!(reg_id < self.regs.len());
         self.regs.get(reg_id)
     }
@@ -227,12 +226,12 @@ impl RegisterSet {
 
     pub fn get_instruction_sub_core(&self, reg_id: usize) -> Option<&WarpInstruction> {
         debug_assert!(reg_id < self.regs.len());
-        self.regs.get(reg_id).map(Option::as_ref).flatten()
+        self.regs.get(reg_id).and_then(Option::as_ref)
     }
 
     pub fn get_instruction_sub_core_mut(&mut self, reg_id: usize) -> Option<&mut WarpInstruction> {
         debug_assert!(reg_id < self.regs.len());
-        self.regs.get_mut(reg_id).map(Option::as_mut).flatten()
+        self.regs.get_mut(reg_id).and_then(Option::as_mut)
     }
 
     pub fn iter_occupied(&self) -> impl Iterator<Item = (usize, &Option<WarpInstruction>)> {
@@ -249,11 +248,11 @@ impl RegisterSet {
     }
 
     pub fn iter_instructions(&self) -> impl Iterator<Item = &WarpInstruction> {
-        self.regs.iter().map(Option::as_ref).filter_map(|r| r)
+        self.regs.iter().filter_map(Option::as_ref)
     }
 
     pub fn iter_instructions_mut(&mut self) -> impl Iterator<Item = &mut WarpInstruction> {
-        self.regs.iter_mut().map(Option::as_mut).filter_map(|r| r)
+        self.regs.iter_mut().filter_map(Option::as_mut)
     }
 
     pub fn iter_free(&self) -> impl Iterator<Item = &Option<WarpInstruction>> {
@@ -287,18 +286,15 @@ impl RegisterSet {
         // in subcore model, each sched has a one specific reg
         // to use (based on sched id)
         debug_assert!(reg_id < self.regs.len());
-        match self.regs.get_mut(reg_id) {
-            Some(r) => Some((reg_id, r)),
-            None => None,
-        }
+        self.regs.get_mut(reg_id).map(|r| (reg_id, r))
         // .and_then(Option::as_ref) .filter(|r| r.empty())
     }
 
-    pub fn size(&self) -> usize {
+    #[must_use] pub fn size(&self) -> usize {
         self.regs.len()
     }
 
-    pub fn empty(&self) -> bool {
+    #[must_use] pub fn empty(&self) -> bool {
         todo!("RegisterSet::empty")
     }
 
@@ -335,8 +331,7 @@ impl RegisterSet {
         let ready: Option<WarpInstruction> = self
             .get_ready_mut()
             .map(|(_, r)| r)
-            .map(Option::take)
-            .flatten();
+            .and_then(Option::take);
         // let msg = format!(
         //     "register set moving out from ready={:?} to {:?}",
         //     ready.as_ref().map(ToString::to_string),
@@ -354,8 +349,7 @@ impl RegisterSet {
     ) {
         let ready: Option<WarpInstruction> = self
             .get_ready_sub_core_mut(reg_id)
-            .map(Option::take)
-            .flatten();
+            .and_then(Option::take);
         // let msg = format!(
         //     "register set moving out to sub core from ready={:?} to {:?}",
         //     ready.as_ref().map(ToString::to_string),
@@ -370,7 +364,7 @@ impl std::fmt::Display for RegisterSet {
         let instructions = self
             .regs
             .iter()
-            .map(|inst| inst.as_ref().map(|i| i.to_string()));
+            .map(|inst| inst.as_ref().map(std::string::ToString::to_string));
         f.debug_list().entries(instructions).finish()
     }
 }

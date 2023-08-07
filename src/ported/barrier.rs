@@ -12,7 +12,7 @@ pub struct BarrierSet {
 }
 
 impl BarrierSet {
-    pub fn new(
+    #[must_use] pub fn new(
         _max_warps_per_core: usize,
         _max_blocks_per_core: usize,
         _max_barriers_per_block: usize,

@@ -1,3 +1,5 @@
+#![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
+
 use color_eyre::eyre;
 use criterion::{black_box, Criterion};
 use validate::materialize::{BenchmarkConfig, Benchmarks};
@@ -21,8 +23,8 @@ fn get_bench_config(benchmark_name: &str, input_idx: usize) -> eyre::Result<Benc
     Ok(bench_config.clone())
 }
 
-pub fn run_box(bench_config: BenchmarkConfig) -> eyre::Result<()> {
-    let _stats = validate::simulate::simulate_bench_config(&bench_config)?;
+pub fn run_box(bench_config: &BenchmarkConfig) -> eyre::Result<()> {
+    let _stats = validate::simulate::simulate_bench_config(bench_config)?;
     Ok(())
 }
 
@@ -31,8 +33,8 @@ pub async fn run_accelsim(bench_config: BenchmarkConfig) -> eyre::Result<()> {
     Ok(())
 }
 
-pub fn run_playground(bench_config: BenchmarkConfig) -> eyre::Result<()> {
-    let _stats = validate::playground::simulate_bench_config(&bench_config);
+pub fn run_playground(bench_config: &BenchmarkConfig) -> eyre::Result<()> {
+    let _stats = validate::playground::simulate_bench_config(bench_config);
     Ok(())
 }
 
@@ -48,7 +50,7 @@ pub fn accelsim_benchmark(c: &mut Criterion) {
 
     group.bench_function("vectoradd/10000", |b| {
         b.to_async(&runtime)
-            .iter(|| run_accelsim(black_box(get_bench_config("vectorAdd", 2).unwrap())))
+            .iter(|| run_accelsim(black_box(get_bench_config("vectorAdd", 2).unwrap())));
     });
     // group.bench_function("transpose/256/naive", |b| {
     //     b.iter(|| run_accelsim(black_box(get_bench_config("transpose", 0).unwrap())))
@@ -61,7 +63,7 @@ pub fn play_benchmark(c: &mut Criterion) {
     group.sampling_mode(criterion::SamplingMode::Flat);
 
     group.bench_function("vectoradd/10000", |b| {
-        b.iter(|| run_playground(black_box(get_bench_config("vectorAdd", 2).unwrap())))
+        b.iter(|| run_playground(&black_box(get_bench_config("vectorAdd", 2).unwrap())));
     });
     // group.bench_function("transpose/256/naive", |b| {
     //     b.iter(|| run_playground(black_box(get_bench_config("transpose", 0).unwrap())))
@@ -74,7 +76,7 @@ pub fn box_benchmark(c: &mut Criterion) {
     group.sampling_mode(criterion::SamplingMode::Flat);
 
     group.bench_function("vectoradd/10000", |b| {
-        b.iter(|| run_box(black_box(get_bench_config("vectorAdd", 2).unwrap())))
+        b.iter(|| run_box(&black_box(get_bench_config("vectorAdd", 2).unwrap())));
     });
     // group.bench_function("transpose/256/naive", |b| {
     //     b.iter(|| run_box(black_box(get_bench_config("transpose", 0).unwrap())))
@@ -82,30 +84,29 @@ pub fn box_benchmark(c: &mut Criterion) {
 }
 
 criterion::criterion_group!(benches, box_benchmark, play_benchmark, accelsim_benchmark);
-criterion::criterion_main!(benches);
+// criterion::criterion_main!(benches);
 
 #[allow(dead_code)]
-fn custom() -> eyre::Result<()> {
+fn main() -> eyre::Result<()> {
     use std::time::Instant;
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
-        .build()
-        .expect("build tokio runtime");
+        .build()?;
 
     let mut start = Instant::now();
-    let _ = run_box(black_box(get_bench_config("transpose", 0)?));
+    let _ = run_box(&black_box(get_bench_config("transpose", 0)?));
     println!("box took:\t\t{:?}", start.elapsed());
 
     start = Instant::now();
-    let _ = run_playground(black_box(get_bench_config("transpose", 0)?));
+    let _ = run_playground(&black_box(get_bench_config("transpose", 0)?));
     println!("play took:\t\t{:?}", start.elapsed());
 
     start = Instant::now();
-    let _ = runtime.block_on(async {
-        let _ = run_accelsim(black_box(get_bench_config("transpose", 0)?)).await?;
+    runtime.block_on(async {
+        run_accelsim(black_box(get_bench_config("transpose", 0)?)).await?;
         Ok::<(), eyre::Report>(())
-    });
+    })?;
     println!("accel took:\t\t{:?}", start.elapsed());
 
     Ok(())

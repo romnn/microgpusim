@@ -28,13 +28,6 @@ pub struct TagArray<B> {
     /// nbanks x nset x assoc lines in total
     pub lines: Vec<cache_block::LineCacheBlock>,
     phantom: std::marker::PhantomData<B>,
-    access: usize,
-    miss: usize,
-    pending_hit: usize,
-    res_fail: usize,
-    sector_miss: usize,
-    core_id: usize,
-    type_id: usize,
     is_used: bool,
     num_access: usize,
     num_miss: usize,
@@ -48,32 +41,15 @@ pub struct TagArray<B> {
 
 impl<B> TagArray<B> {
     #[must_use]
-    pub fn new(core_id: usize, type_id: usize, config: Arc<config::CacheConfig>) -> Self {
+    pub fn new(config: Arc<config::CacheConfig>) -> Self {
         let num_cache_lines = config.max_num_lines();
         let lines = (0..num_cache_lines)
             .map(|_| cache_block::LineCacheBlock::new())
             .collect();
-        // if (config.m_cache_type == NORMAL) {
-        //   for (unsigned i = 0; i < cache_lines_num; ++i)
-        //     m_lines[i] = new line_cache_block();
-        // } else if (config.m_cache_type == SECTOR) {
-        //   for (unsigned i = 0; i < cache_lines_num; ++i)
-        //     m_lines[i] = new sector_cache_block();
-        // } else
-        //   assert(0);
-        //
-        // init(core_id, type_id);
 
         Self {
             lines,
             phantom: std::marker::PhantomData,
-            access: 0,
-            miss: 0,
-            pending_hit: 0,
-            res_fail: 0,
-            sector_miss: 0,
-            core_id,
-            type_id,
             is_used: false,
             num_access: 0,
             num_miss: 0,
@@ -100,7 +76,6 @@ impl<B> TagArray<B> {
         let mut writeback = false;
         let mut evicted = None;
 
-        // shader_cache_access_log(m_core_id, m_type_id, 0);
         let (index, status) = self.probe(addr, fetch, fetch.is_write(), false);
         match status {
             cache::RequestStatus::HIT | cache::RequestStatus::HIT_RESERVED => {
@@ -156,10 +131,8 @@ impl<B> TagArray<B> {
                 }
             }
             cache::RequestStatus::SECTOR_MISS => {
-                unimplemented!("no sector miss");
                 debug_assert!(self.config.kind == config::CacheKind::Sector);
                 self.num_sector_miss += 1;
-                // shader_cache_access_log(m_core_id, m_type_id, 1);
                 if self.config.allocate_policy == config::CacheAllocatePolicy::ON_MISS {
                     let index = index.expect("hit has idx");
                     let line = &mut self.lines[index];
@@ -169,12 +142,13 @@ impl<B> TagArray<B> {
                         self.num_dirty -= 1;
                     }
                 }
+                unimplemented!("sector miss");
             }
             cache::RequestStatus::RESERVATION_FAIL => {
                 self.num_reservation_fail += 1;
             }
-            status => {
-                panic!("tag_array access: unknown cache request status {status:?}");
+            status @ cache::RequestStatus::MSHR_HIT => {
+                panic!("tag_array access: status {status:?} should never be returned");
             }
         }
         AccessStatus {
@@ -189,10 +163,10 @@ impl<B> TagArray<B> {
     ///
     /// # Returns
     /// A tuple with the cache index `Option<usize>` and cache request status.
+    #[must_use]
     pub fn probe(
         &self,
         block_addr: address,
-        // cache_idx: Option<usize>,
         fetch: &mem_fetch::MemFetch,
         is_write: bool,
         is_probe: bool,
@@ -202,19 +176,17 @@ impl<B> TagArray<B> {
             fetch.access_sector_mask(),
             is_write,
             is_probe,
-            fetch.to_string(),
+            Some(fetch),
         )
     }
 
     pub fn probe_masked(
         &self,
         block_addr: address,
-        // cache_idx: Option<usize>,
         mask: &mem_fetch::MemAccessSectorMask,
         is_write: bool,
         _is_probe: bool,
-        fetch: String,
-        // fetch: &mem_fetch::MemFetch,
+        fetch: Option<&mem_fetch::MemFetch>,
     ) -> (Option<usize>, cache::RequestStatus) {
         let set_index = self.config.set_index(block_addr) as usize;
         let tag = self.config.tag(block_addr);
@@ -231,8 +203,8 @@ impl<B> TagArray<B> {
         let dirty_line_percent = (dirty_line_percent * 100f64) as usize;
 
         log::trace!(
-            "tag_array::probe({}) set_idx = {}, tag = {}, assoc = {} dirty lines = {}%",
-            fetch,
+            "tag_array::probe({:?}) set_idx = {}, tag = {}, assoc = {} dirty lines = {}%",
+            fetch.map(ToString::to_string),
             set_index,
             tag,
             self.config.associativity,
@@ -244,15 +216,15 @@ impl<B> TagArray<B> {
             let idx = set_index * self.config.associativity + way;
             let line = &self.lines[idx];
             log::trace!(
-                "tag_array::probe({}) => checking cache index {} (tag={}, status={:?}, last_access={})",
-                fetch,
+                "tag_array::probe({:?}) => checking cache index {} (tag={}, status={:?}, last_access={})",
+                fetch.map(ToString::to_string),
                 idx,
                 line.tag,
-                line.status(&mask),
+                line.status(mask),
                 line.last_access_time()
             );
             if line.tag == tag {
-                match line.status(&mask) {
+                match line.status(mask) {
                     cache_block::Status::RESERVED => {
                         return (Some(idx), cache::RequestStatus::HIT_RESERVED);
                     }
@@ -260,11 +232,17 @@ impl<B> TagArray<B> {
                         return (Some(idx), cache::RequestStatus::HIT);
                     }
                     cache_block::Status::MODIFIED => {
-                        if (!is_write && line.is_readable(mask)) || is_write {
-                            return (Some(idx), cache::RequestStatus::HIT);
+                        let status = if is_write || line.is_readable(mask) {
+                            cache::RequestStatus::HIT
                         } else {
-                            return (Some(idx), cache::RequestStatus::SECTOR_MISS);
-                        }
+                            cache::RequestStatus::SECTOR_MISS
+                        };
+                        // let status = match is_write {
+                        //     true => cache::RequestStatus::HIT,
+                        //     false if line.is_readable(mask) => cache::RequestStatus::HIT,
+                        //     _ => cache::RequestStatus::SECTOR_MISS,
+                        // };
+                        return (Some(idx), status);
                     }
                     cache_block::Status::INVALID if line.is_valid() => {
                         return (Some(idx), cache::RequestStatus::SECTOR_MISS);
@@ -292,18 +270,17 @@ impl<B> TagArray<B> {
                             }
                         } else if self.config.replacement_policy
                             == config::CacheReplacementPolicy::FIFO
+                            && line.alloc_time() < valid_time
                         {
-                            if line.alloc_time() < valid_time {
-                                valid_time = line.alloc_time();
-                                valid_line = Some(idx);
-                            }
+                            valid_time = line.alloc_time();
+                            valid_line = Some(idx);
                         }
                     }
                 }
             }
         }
 
-        log::trace!("tag_array::probe({}) => all reserved={} invalid_line={:?} valid_line={:?} ({:?} policy)", fetch, all_reserved, invalid_line, valid_line, self.config.replacement_policy);
+        log::trace!("tag_array::probe({:?}) => all reserved={} invalid_line={:?} valid_line={:?} ({:?} policy)", fetch.map(ToString::to_string), all_reserved, invalid_line, valid_line, self.config.replacement_policy);
 
         if all_reserved {
             debug_assert_eq!(
@@ -323,16 +300,6 @@ impl<B> TagArray<B> {
                 panic!("found neither a valid nor invalid cache line");
             }
         };
-        // let cache_idx = if invalid_line.is_some() {
-        //     invalid_line
-        // } else if valid_line.is_some() {
-        //     valid_line
-        // } else {
-        //     // if an unreserved block exists,
-        //     // it is either invalid or replaceable
-        //     panic!("found neither a valid nor invalid cache line");
-        // };
-
         (Some(cache_idx), cache::RequestStatus::MISS)
     }
 
@@ -363,17 +330,12 @@ impl<B> TagArray<B> {
         time: u64,
     ) {
         let is_probe = false;
-        let (cache_index, probe_status) = self.probe_masked(
-            addr,
-            &sector_mask,
-            is_write,
-            is_probe,
-            "<dgbfetch>".to_string(),
-        );
+        let (cache_index, probe_status) =
+            self.probe_masked(addr, &sector_mask, is_write, is_probe, None);
 
         log::trace!(
             "tag_array::fill(cache={}, tag={}, addr={}) (on fill) status={:?}",
-            cache_index.map(|i| i as i64).unwrap_or(-1),
+            cache_index.map_or(-1, |i| i as i64),
             self.config.tag(addr),
             addr,
             probe_status,
@@ -424,7 +386,7 @@ impl<B> TagArray<B> {
 
         log::trace!(
             "tag_array::fill(cache={}, tag={}, addr={}) (on fill) status={:?}",
-            cache_index.map(|i| i as i64).unwrap_or(-1),
+            cache_index.map_or(-1, |i| i as i64),
             self.config.tag(fetch.addr()),
             fetch.addr(),
             probe_status,
@@ -473,6 +435,7 @@ impl<B> TagArray<B> {
         todo!("invalidate tag array");
     }
 
+    #[must_use]
     pub fn size(&self) -> usize {
         self.config.max_num_lines()
     }
@@ -481,12 +444,12 @@ impl<B> TagArray<B> {
         &mut self.lines[idx]
     }
 
+    #[must_use]
     pub fn get_block(&self, idx: usize) -> &cache_block::LineCacheBlock {
         &self.lines[idx]
     }
 
     pub fn add_pending_line(&mut self, fetch: &mem_fetch::MemFetch) {
-        // log::debug!("tag_array::add_pending_line({})", fetch.addr());
         let addr = self.config.block_addr(fetch.addr());
         let instr = fetch.instr.as_ref().unwrap();
         if self.pending_lines.contains_key(&addr) {
@@ -495,42 +458,9 @@ impl<B> TagArray<B> {
     }
 
     pub fn remove_pending_line(&mut self, fetch: &mem_fetch::MemFetch) {
-        // log::debug!("tag_array::remove_pending_line({})", fetch.addr());
         let addr = self.config.block_addr(fetch.addr());
         self.pending_lines.remove(&addr);
     }
-
-    // pub fn from_block(
-    //     config: GenericCacheConfig,
-    //     core_id: usize,
-    //     type_id: usize,
-    //     block: CacheBlock,
-    // ) -> Self {
-    //     Self {
-    //         // config,
-    //         lines: Vec::new(),
-    //     }
-    // }
-
-    // pub fn from_config(config: GenericCacheConfig, core_id: usize, type_id: usize) -> Self {
-    //     config.max_lines;
-    //     let lines =
-    //     Self {
-    //         // config,
-    //         lines: Vec::new(),
-    //     }
-    //     // unsigned cache_lines_num = config.get_max_num_lines();
-    //     //   m_lines = new cache_block_t *[cache_lines_num];
-    //     //   if (config.m_cache_type == NORMAL) {
-    //     //     for (unsigned i = 0; i < cache_lines_num; ++i)
-    //     //       m_lines[i] = new line_cache_block();
-    //     //   } else if (config.m_cache_type == SECTOR) {
-    //     //     for (unsigned i = 0; i < cache_lines_num; ++i)
-    //     //       m_lines[i] = new sector_cache_block();
-    //     //   } else
-    //     //     assert(0);
-    // }
-    // todo: update config (GenericCacheConfig)
 }
 
 #[cfg(test)]
@@ -543,7 +473,7 @@ mod tests {
     #[test]
     fn test_tag_array() {
         let config = GPUConfig::default().data_cache_l1.unwrap();
-        let _tag_array: TagArray<usize> = TagArray::new(0, 0, Arc::clone(&config.inner));
+        let _tag_array: TagArray<usize> = TagArray::new(Arc::clone(&config.inner));
         assert!(false);
     }
 }

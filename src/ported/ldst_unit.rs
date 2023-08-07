@@ -32,7 +32,7 @@ fn new_mem_fetch(
     mem_fetch::MemFetch::new(
         Some(instr),
         access,
-        &config,
+        config,
         control_size,
         warp_id,
         core_id,
@@ -46,7 +46,7 @@ pub struct LoadStoreUnit<I> {
     cluster_id: usize,
     next_writeback: Option<WarpInstruction>,
     response_fifo: VecDeque<MemFetch>,
-    warps: Vec<sched::CoreWarp>,
+    warps: Vec<sched::WarpRef>,
     pub data_l1: Option<Box<dyn cache::Cache>>,
     config: Arc<config::GPUConfig>,
     pub stats: Arc<Mutex<stats::Stats>>,
@@ -91,6 +91,7 @@ enum WritebackClient {
 }
 
 #[derive(strum::EnumCount, strum::FromRepr, Hash, PartialEq, Eq, Clone, Copy, Debug)]
+#[allow(dead_code)]
 #[repr(usize)]
 enum MemStageAccessKind {
     C_MEM,
@@ -104,6 +105,7 @@ enum MemStageAccessKind {
 }
 
 #[derive(strum::EnumCount, strum::FromRepr, Hash, PartialEq, Eq, Clone, Copy, Debug)]
+#[allow(dead_code)]
 #[repr(usize)]
 enum MemStageStallKind {
     NO_RC_FAIL = 0,
@@ -125,7 +127,7 @@ where
         id: usize,
         core_id: usize,
         cluster_id: usize,
-        warps: Vec<sched::CoreWarp>,
+        warps: Vec<sched::WarpRef>,
         fetch_interconn: Arc<I>,
         operand_collector: Rc<RefCell<OperandCollectorRegisterFileUnit>>,
         scoreboard: Arc<RwLock<Scoreboard>>,
@@ -157,7 +159,7 @@ where
                 // initialize l1 data cache
                 let cache_stats = Arc::new(Mutex::new(stats::Cache::default()));
                 Some(Box::new(l1::Data::new(
-                    format!("ldst-unit-{}-{}-L1-DATA-CACHE", cluster_id, core_id),
+                    format!("ldst-unit-{cluster_id}-{core_id}-L1-DATA-CACHE"),
                     core_id,
                     cluster_id,
                     Rc::clone(&cycle),
@@ -193,7 +195,7 @@ where
         }
     }
 
-    pub fn response_buffer_full(&self) -> bool {
+    #[must_use] pub fn response_buffer_full(&self) -> bool {
         self.response_fifo.len() >= self.config.num_ldst_response_buffer_size
     }
 
@@ -341,7 +343,7 @@ where
                             "{}",
                             style(format!(
                                 "ldst unit writeback: has global {:?} ({})",
-                                &next_global.instr.as_ref().map(|i| i.to_string()),
+                                &next_global.instr.as_ref().map(std::string::ToString::to_string),
                                 &next_global.addr()
                             ))
                             .magenta(),
@@ -423,7 +425,7 @@ where
         _rc_fail: &mut MemStageStallKind,
         _kind: &mut MemStageAccessKind,
     ) -> bool {
-        false
+        true
     }
 
     fn texture_cycle(
@@ -431,7 +433,7 @@ where
         _rc_fail: &mut MemStageStallKind,
         _kind: &mut MemStageAccessKind,
     ) -> bool {
-        false
+        true
     }
 
     fn memory_cycle(
@@ -491,7 +493,7 @@ where
             } else {
                 mem_fetch::READ_PACKET_SIZE
             };
-            let size = access.req_size_bytes + control_size as u32;
+            let size = access.req_size_bytes + u32::from(control_size);
 
             if self.fetch_interconn.full(
                 size,
@@ -669,12 +671,13 @@ where
         }
     }
 
+    #[allow(dead_code)]
     fn process_cache_access(
         &mut self,
         _cache: (),
         _addr: address,
         instr: &mut WarpInstruction,
-        events: &mut Vec<cache::Event>,
+        events: &mut [cache::Event],
         fetch: mem_fetch::MemFetch,
         status: cache::RequestStatus,
     ) -> MemStageStallKind {
@@ -774,7 +777,7 @@ where
                             );
 
                             if *still_pending > 0 {
-                                pending.remove(&out_reg);
+                                pending.remove(out_reg);
                                 log::trace!("l1 latency queue release registers");
                                 self.scoreboard
                                     .write()
@@ -834,13 +837,13 @@ where
         }
     }
 
-    fn pending_writes(&self, warp_id: usize, reg_id: u32) -> Option<usize> {
+    #[must_use] pub fn pending_writes(&self, warp_id: usize, reg_id: u32) -> Option<usize> {
         let pending = self.pending_writes.get(&warp_id)?;
         let pending = pending.get(&reg_id)?;
         Some(*pending)
     }
 
-    fn pending_writes_mut(&mut self, warp_id: usize, reg_id: u32) -> &mut usize {
+    pub fn pending_writes_mut(&mut self, warp_id: usize, reg_id: u32) -> &mut usize {
         let pending = self.pending_writes.entry(warp_id).or_default();
         pending.entry(reg_id).or_default()
     }
@@ -935,13 +938,13 @@ where
             self.pipelined_simd_unit
                 .pipeline_reg
                 .iter()
-                .map(|reg| reg.as_ref().map(|r| r.to_string()))
+                .map(|reg| reg.as_ref().map(std::string::ToString::to_string))
                 .collect::<Vec<_>>(),
             self.pipelined_simd_unit.num_active_instr_in_pipeline(),
             self.pipelined_simd_unit.pipeline_reg.len(),
             self.response_fifo
                 .iter()
-                .map(|t| t.to_string())
+                .map(std::string::ToString::to_string)
                 .collect::<Vec<_>>(),
         );
 
@@ -968,9 +971,7 @@ where
             }
         }
 
-        drop(simd_unit);
-
-        if let Some(ref fetch) = self.response_fifo.front() {
+        if let Some(fetch) = self.response_fifo.front() {
             match fetch.access_kind() {
                 mem_fetch::AccessKind::TEXTURE_ACC_R => {
                     todo!("ldst unit: tex access");
@@ -993,7 +994,7 @@ where
                     if fetch.kind == mem_fetch::Kind::WRITE_ACK
                         || (self.config.perfect_mem && fetch.is_write())
                     {
-                        self.store_ack(&fetch);
+                        self.store_ack(fetch);
                         self.response_fifo.pop_front();
                     } else {
                         // L1 cache is write evict:
@@ -1051,11 +1052,10 @@ where
         let mut access_kind = MemStageAccessKind::C_MEM;
         let mut done = true;
         done &= self.shared_cycle(&mut stall_kind, &mut access_kind);
-        // done &= self.constant_cycle(&mut stall_kind, &mut access_kind);
-        // done &= self.texture_cycle(&mut stall_kind, &mut access_kind);
+        done &= self.constant_cycle(&mut stall_kind, &mut access_kind);
+        done &= self.texture_cycle(&mut stall_kind, &mut access_kind);
         done &= self.memory_cycle(&mut stall_kind, &mut access_kind);
 
-        // let mut num_stall_scheduler_mem = 0;
         if !done {
             // log stall types and return
             debug_assert_ne!(stall_kind, MemStageStallKind::NO_RC_FAIL);

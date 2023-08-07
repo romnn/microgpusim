@@ -1,6 +1,6 @@
 use super::{interconn as ic, mem_fetch, MockSimulator, Packet, SIMTCore};
 use crate::config::GPUConfig;
-use crate::ported;
+use crate::ported::{self, Kernel};
 use console::style;
 use std::cell::RefCell;
 use std::collections::VecDeque;
@@ -18,7 +18,6 @@ pub struct SIMTCoreCluster<I> {
 
     pub interconn: Arc<I>,
 
-    // pub core_sim_order: Vec<usize>,
     pub core_sim_order: VecDeque<usize>,
     pub block_issue_next_core: Mutex<usize>,
     pub response_fifo: VecDeque<mem_fetch::MemFetch>,
@@ -92,7 +91,7 @@ where
             .lock()
             .unwrap()
             .iter()
-            .map(|c| c.not_completed())
+            .map(ported::core::SIMTCore::not_completed)
             .sum()
     }
 
@@ -131,7 +130,7 @@ where
                 self.cluster_id,
                 self.response_fifo
                     .iter()
-                    .map(|fetch| fetch.to_string())
+                    .map(std::string::ToString::to_string)
                     .collect::<Vec<_>>(),
             ))
             .cyan()
@@ -209,7 +208,7 @@ where
         };
         // m_stats->m_incoming_traffic_stats->record_traffic(mf, packet_size);
         fetch.status = mem_fetch::Status::IN_CLUSTER_TO_SHADER_QUEUE;
-        self.response_fifo.push_back(fetch.clone());
+        self.response_fifo.push_back(fetch);
 
         // m_stats->n_mem_to_simt[m_cluster_id] += mf->get_num_flits(false);
     }
@@ -232,19 +231,15 @@ where
         log::debug!("cluster {} cycle {}", self.cluster_id, self.cycle.get());
         let mut cores = self.cores.lock().unwrap();
 
-        // for core in cores.iter_mut() {
-        for core_id in self.core_sim_order.iter() {
-            // core.cycle()
+        for core_id in &self.core_sim_order {
             cores[*core_id].cycle()
         }
 
-        // if (m_config->simt_core_sim_order == 1) {
-        // self.core_sim_order.rotate_left(1);
-        let first = self.core_sim_order.pop_front().unwrap();
-        self.core_sim_order.push_back(first);
-        // m_core_sim_order.splice(m_core_sim_order.end(), m_core_sim_order,
-        //                         m_core_sim_order.begin());
-        // }
+        if let ported::config::SchedulingOrder::RoundRobin = self.config.simt_core_sim_order {
+            self.core_sim_order.rotate_left(1);
+            // let first = self.core_sim_order.pop_front().unwrap();
+            // self.core_sim_order.push_back(first);
+        }
     }
 
     pub fn issue_block_to_core(&self, sim: &MockSimulator<I>) -> usize {
@@ -259,37 +254,18 @@ where
         let mut num_blocks_issued = 0;
 
         let mut block_issue_next_core = self.block_issue_next_core.lock().unwrap();
-        // dbg!(&sim.select_kernel());
 
         for core_id in 0..num_cores {
-            // debug_assert_eq!(i, core.id);
             let core_id = (core_id + *block_issue_next_core + 1) % num_cores;
             let core = &mut cores[core_id];
-            // let mut kernel = None;
-            let kernel: Option<Arc<ported::KernelInfo>> = if self.config.concurrent_kernel_sm {
-                unimplemented!("concurrent kernel sm");
+            let kernel: Option<Arc<Kernel>> = if self.config.concurrent_kernel_sm {
                 // always select latest issued kernel
                 // kernel = sim.select_kernel()
-                sim.select_kernel().map(Arc::clone)
+                // sim.select_kernel().map(Arc::clone);
+                unimplemented!("concurrent kernel sm");
             } else {
                 let mut current_kernel = core.inner.current_kernel.as_ref();
-                // .map(Arc::clone);
-                // match core.inner.current_kernel {
-                //     Some(current) if current.no_more_blocks_to_run() && core.not_completed() == 0 => {
-                //         // new kernel
-                //         sim.select_kernel()
-                //     }
-                //     None => {
-                //         // new kernel
-                //         sim.select_kernel()
-                //     }
-                //
-                // }
-                // let kernel = core.inner.current_kernel;
-                // if let Some(current_kernel) = kernel {
-                // }
-                // kernel
-                let should_select_new_kernel = if let Some(ref current) = current_kernel {
+                let should_select_new_kernel = if let Some(current) = current_kernel {
                     // if no more blocks left, get new kernel once current block completes
                     current.no_more_blocks_to_run() && core.not_completed() == 0
                 } else {
@@ -310,74 +286,24 @@ where
 
                 if should_select_new_kernel {
                     current_kernel = sim.select_kernel();
-                    if let Some(ref k) = current_kernel {
+                    if let Some(k) = current_kernel {
                         core.set_kernel(Arc::clone(k));
                     }
                 }
 
                 current_kernel.map(Arc::clone)
-
-                // Select current core kernel.
-                // If no more cta, get a new kernel once core completed warps
-                // match core.inner.current_kernel {
-                //     Some(current_kernel)
-                //         if current_kernel.no_more_blocks_to_run() && core.not_completed() == 0 =>
-                //     {
-                // if should_select_new_kernel {
-                //     kernel = sim.select_kernel();
-                //     if let Some(k) = kernel {
-                //         core.set_kernel(Arc::clone(k));
-                //     }
-                // }
-                //     }
-                //     _ => {}
-                // }
-                // Select current core kernel.
-                // If no more cta, get a new kernel once core completed warps
-                // if current_kernel.no_more_blocks_to_run() && core.not_completed() == 0 {
-                //     kernel = sim.select_kernel();
-                //     if let Some(k) = kernel {
-                //         core.set_kernel(Arc::clone(k));
-                //     }
-                // }
             };
-            // log::debug!(
-            //     "core {}-{}: {} active warps, current kernel {:?}, more blocks={:?}",
-            //     self.cluster_id,
-            //     core.inner.core_id,
-            //     core.inner.num_active_warps,
-            //     core.inner.current_kernel.as_ref().map(|k| k.name()),
-            //     core.inner
-            //         .current_kernel
-            //         .as_ref()
-            //         .map(|k| !k.no_more_blocks_to_run())
-            // );
-            // log::debug!(
-            //     "core {}-{}: selected kernel {:?}",
-            //     self.cluster_id,
-            //     core.inner.core_id,
-            //     kernel.as_ref().map(|k| k.name())
-            // );
             if let Some(kernel) = kernel {
-                // let core_id = 0;
                 log::debug!(
                     "core {}-{}: selected kernel {} more blocks={} can issue={}",
                     self.cluster_id,
                     core_id,
                     kernel,
                     !kernel.no_more_blocks_to_run(),
-                    core.can_issue_block(&*kernel),
+                    core.can_issue_block(&kernel),
                 );
 
-                // log::debug!(
-                //     "kernel: no more blocks to run={} can issue block {}",
-                //     kernel.no_more_blocks_to_run(),
-                //     core.can_issue_block(&*kernel)
-                // );
-                // log::debug!("kernel: {:#?}", &*kernel);
-
-                if !kernel.no_more_blocks_to_run() && core.can_issue_block(&*kernel) {
-                    // core.issue_block(Arc::clone(kernel));
+                if !kernel.no_more_blocks_to_run() && core.can_issue_block(&kernel) {
                     core.issue_block(kernel);
                     num_blocks_issued += 1;
                     *block_issue_next_core = core_id;

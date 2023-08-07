@@ -100,7 +100,7 @@ impl Default for LineCacheBlock {
 }
 
 impl LineCacheBlock {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self::default()
     }
 
@@ -143,7 +143,7 @@ impl LineCacheBlock {
             self.is_readable = true;
         }
         if self.set_byte_mask_on_fill {
-            self.set_byte_mask(&byte_mask)
+            self.set_byte_mask(byte_mask)
         }
 
         self.fill_time = time;
@@ -171,32 +171,32 @@ impl LineCacheBlock {
     }
 
     #[inline]
-    pub fn status(&self, _mask: &mem_fetch::MemAccessSectorMask) -> Status {
+    #[must_use] pub fn status(&self, _mask: &mem_fetch::MemAccessSectorMask) -> Status {
         self.status
     }
 
     #[inline]
-    pub fn is_valid(&self) -> bool {
+    #[must_use] pub fn is_valid(&self) -> bool {
         self.status == Status::VALID
     }
 
     #[inline]
-    pub fn is_modified(&self) -> bool {
+    #[must_use] pub fn is_modified(&self) -> bool {
         self.status == Status::MODIFIED
     }
 
     #[inline]
-    pub fn is_invalid(&self) -> bool {
+    #[must_use] pub fn is_invalid(&self) -> bool {
         self.status == Status::INVALID
     }
 
     #[inline]
-    pub fn is_reserved(&self) -> bool {
+    #[must_use] pub fn is_reserved(&self) -> bool {
         self.status == Status::RESERVED
     }
 
     #[inline]
-    pub fn is_readable(&self, _mask: &mem_fetch::MemAccessSectorMask) -> bool {
+    #[must_use] pub fn is_readable(&self, _mask: &mem_fetch::MemAccessSectorMask) -> bool {
         self.is_readable
     }
 
@@ -206,28 +206,28 @@ impl LineCacheBlock {
     }
 
     #[inline]
-    pub fn alloc_time(&self) -> u64 {
+    #[must_use] pub fn alloc_time(&self) -> u64 {
         self.alloc_time
     }
 
     #[inline]
-    pub fn last_access_time(&self) -> u64 {
+    #[must_use] pub fn last_access_time(&self) -> u64 {
         self.last_access_time
     }
 
     #[inline]
-    pub fn modified_size(&self) -> u32 {
+    #[must_use] pub fn modified_size(&self) -> u32 {
         // cache line size
         mem_sub_partition::SECTOR_CHUNCK_SIZE * mem_sub_partition::SECTOR_SIZE
     }
 
     #[inline]
-    pub fn dirty_byte_mask(&self) -> mem_fetch::MemAccessByteMask {
+    #[must_use] pub fn dirty_byte_mask(&self) -> mem_fetch::MemAccessByteMask {
         self.dirty_byte_mask
     }
 
     #[inline]
-    pub fn dirty_sector_mask(&self) -> mem_fetch::MemAccessSectorMask {
+    #[must_use] pub fn dirty_sector_mask(&self) -> mem_fetch::MemAccessSectorMask {
         if self.is_modified() {
             !BitArray::ZERO
         } else {

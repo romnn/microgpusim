@@ -29,14 +29,14 @@ pub trait Interconnect<P> {
 
 #[derive(Debug)]
 pub struct ToyInterconnect<P> {
-    pub capacity: Option<usize>,
+    // pub capacity: Option<usize>,
     pub num_cores: usize,
     pub num_mems: usize,
     pub num_subnets: usize,
     pub num_nodes: usize,
     pub num_classes: usize,
     round_robin_turn: Vec<Vec<Mutex<usize>>>,
-    input_queue: Vec<Vec<Vec<Mutex<VecDeque<P>>>>>,
+    // input_queue: Vec<Vec<Vec<Mutex<VecDeque<P>>>>>,
     output_queue: Vec<Vec<Vec<Mutex<VecDeque<P>>>>>,
     // deviceID to icntID map
     // deviceID : Starts from 0 for shaders and then continues until mem nodes
@@ -45,41 +45,42 @@ pub struct ToyInterconnect<P> {
 }
 
 impl<P> ToyInterconnect<P> {
-    pub fn new(num_cores: usize, num_mems: usize, capacity: Option<usize>) -> ToyInterconnect<P> {
+    #[must_use]
+    pub fn new(num_cores: usize, num_mems: usize) -> ToyInterconnect<P> {
         let num_subnets = 2;
         let num_nodes = num_cores + num_mems;
         let num_classes = 1;
 
-        let mut input_queue: Vec<Vec<Vec<Mutex<VecDeque<P>>>>> = Vec::new();
+        // let mut input_queue: Vec<Vec<Vec<Mutex<VecDeque<P>>>>> = Vec::new();
         let mut output_queue: Vec<Vec<Vec<Mutex<VecDeque<P>>>>> = Vec::new();
         let mut round_robin_turn: Vec<Vec<Mutex<usize>>> = Vec::new();
 
         for subnet in 0..num_subnets {
-            input_queue.push(Vec::new());
+            // input_queue.push(Vec::new());
             output_queue.push(Vec::new());
             round_robin_turn.push(Vec::new());
 
             for node in 0..num_nodes {
-                input_queue[subnet].push(Vec::new());
+                // input_queue[subnet].push(Vec::new());
                 output_queue[subnet].push(Vec::new());
                 round_robin_turn[subnet].push(Mutex::new(0));
 
                 for _class in 0..num_classes {
-                    input_queue[subnet][node].push(Mutex::new(VecDeque::new()));
+                    // input_queue[subnet][node].push(Mutex::new(VecDeque::new()));
                     output_queue[subnet][node].push(Mutex::new(VecDeque::new()));
                 }
             }
         }
         Self {
-            capacity,
+            // capacity,
             num_cores,
             num_mems,
             num_subnets,
             num_nodes,
             num_classes,
-            input_queue,
-            output_queue,
             round_robin_turn,
+            // input_queue,
+            output_queue,
         }
     }
 }
@@ -92,8 +93,8 @@ where
         // todo: this is not efficient, could keep track of this with a variable
         self.output_queue
             .iter()
-            .flat_map(|x| x)
-            .flat_map(|x| x)
+            .flatten()
+            .flatten()
             .any(|reqs: &Mutex<VecDeque<_>>| !reqs.lock().unwrap().is_empty())
     }
 
@@ -101,10 +102,10 @@ where
         assert!(self.has_buffer(src_device, size));
 
         let is_memory_node = self.num_subnets > 1 && dest_device >= self.num_cores;
-        let subnet = if is_memory_node { 1 } else { 0 };
+        let subnet = usize::from(is_memory_node);
         log::debug!(
             "{}: {size} bytes from device {src_device} to {dest_device} (subnet {subnet})",
-            style(format!("INTERCONN PUSH {}", packet)).bold(),
+            style(format!("INTERCONN PUSH {packet}")).bold(),
         );
 
         let mut queue = self.output_queue[subnet][dest_device][0].lock().unwrap();
@@ -113,7 +114,7 @@ where
 
     fn pop(&self, device: usize) -> Option<P> {
         let icnt_id = device;
-        let subnet = if device >= self.num_cores { 1 } else { 0 };
+        let subnet = usize::from(device >= self.num_cores);
 
         let mut lock = self.round_robin_turn[subnet][icnt_id].lock().unwrap();
         let mut turn = *lock;
@@ -137,15 +138,16 @@ where
         // do nothing
     }
 
-    fn has_buffer(&self, device: usize, _size: u32) -> bool {
-        let Some(capacity) = self.capacity else {
-            return true;
-        };
-
-        // TODO: using input queue makes no sense as we push into output directly
-        let subnet = if device >= self.num_cores { 1 } else { 0 };
-        let queue = self.input_queue[subnet][device][0].lock().unwrap();
-        queue.len() <= capacity
+    fn has_buffer(&self, _device: usize, _size: u32) -> bool {
+        true
+        // let Some(capacity) = self.capacity else {
+        //     return true;
+        // };
+        //
+        // // TODO: using input queue makes no sense as we push into output directly
+        // let subnet = usize::from(device >= self.num_cores);
+        // let queue = self.input_queue[subnet][device][0].lock().unwrap();
+        // queue.len() <= capacity
     }
 }
 
@@ -180,7 +182,7 @@ impl MemFetchInterface for CoreMemoryInterface<Packet> {
         let request_size = if write {
             size
         } else {
-            mem_fetch::READ_PACKET_SIZE as u32
+            u32::from(mem_fetch::READ_PACKET_SIZE)
         };
         !self.interconn.has_buffer(self.cluster_id, request_size)
     }
@@ -197,9 +199,7 @@ impl MemFetchInterface for CoreMemoryInterface<Packet> {
         }
 
         let dest_sub_partition_id = fetch.sub_partition_id();
-        let mem_dest = self
-            .config
-            .mem_id_to_device_id(dest_sub_partition_id as usize);
+        let mem_dest = self.config.mem_id_to_device_id(dest_sub_partition_id);
 
         log::debug!(
             "cluster {} icnt_inject_request_packet({}) dest sub partition id={} dest mem node={}",
@@ -269,7 +269,7 @@ mod tests {
 
         let config = IntersimConfig::from_file(&config_file)?;
 
-        assert_eq!(config.get_bool("use_map"), false);
+        assert!(!config.get_bool("use_map"));
         assert_eq!(config.get_int("num_vcs"), 1); // this means vc can only ever be zero
         assert_eq!(config.get_int("ejection_buffer_size"), 0);
         assert_eq!(config.get_string("sim_type"), "gpgpusim");

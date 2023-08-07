@@ -50,7 +50,7 @@ where
         }
     }
 
-    pub fn cache_config(&self) -> &Arc<config::CacheConfig> {
+    #[must_use] pub fn cache_config(&self) -> &Arc<config::CacheConfig> {
         &self.inner.cache_config
     }
 
@@ -61,7 +61,7 @@ where
         cache_index: Option<usize>,
         fetch: mem_fetch::MemFetch,
         time: u64,
-        _events: &mut Vec<cache::Event>,
+        _events: &mut [cache::Event],
         _probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         debug_assert_eq!(addr, fetch.addr());
@@ -119,7 +119,7 @@ where
         // cache_index: usize,
         fetch: mem_fetch::MemFetch,
         time: u64,
-        _events: &mut Vec<cache::Event>,
+        _events: &mut [cache::Event],
         _probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         let super::base::Base {
@@ -143,7 +143,7 @@ where
                 tag_array.num_dirty += 1;
             }
         }
-        return cache::RequestStatus::HIT;
+        cache::RequestStatus::HIT
     }
 
     /// Sends write request to lower level memory (write or writeback)
@@ -168,11 +168,9 @@ where
         &mut self,
         addr: address,
         cache_index: Option<usize>,
-        // cache_index: usize,
         fetch: mem_fetch::MemFetch,
         time: u64,
         events: &mut Vec<cache::Event>,
-        // events: &[cache::Event],
         _probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         if !self.inner.miss_queue_can_fit(1) {
@@ -213,25 +211,22 @@ where
             // (already modified lower level)
             if writeback && writeback_policy != config::CacheWritePolicy::WRITE_THROUGH {
                 if let Some(evicted) = evicted {
-                    let debug_fetch = fetch.to_string();
-
                     let is_write = true;
                     let writeback_access = mem_fetch::MemAccess::new(
                         self.write_back_type,
                         evicted.block_addr,
                         evicted.allocation.clone(),
-                        evicted.modified_size as u32,
+                        evicted.modified_size,
                         is_write,
                         *fetch.access_warp_mask(),
                         evicted.byte_mask,
                         evicted.sector_mask,
                     );
-                    // dbg!(&writeback_access);
 
                     let mut writeback_fetch = mem_fetch::MemFetch::new(
-                        fetch.instr,
+                        fetch.instr.clone(),
                         writeback_access,
-                        &*self.inner.config,
+                        &self.inner.config,
                         if is_write {
                             ported::WRITE_PACKET_SIZE
                         } else {
@@ -242,7 +237,6 @@ where
                         0,
                         0,
                     );
-                    // dbg!(&writeback_fetch);
 
                     // the evicted block may have wrong chip id when
                     // advanced L2 hashing is used, so set the right chip
@@ -256,7 +250,7 @@ where
 
                     log::trace!(
                         "handling READ MISS for {}: => sending writeback {}",
-                        debug_fetch,
+                        fetch,
                         writeback_fetch
                     );
 
@@ -266,7 +260,7 @@ where
             return cache::RequestStatus::MISS;
         }
 
-        return cache::RequestStatus::RESERVATION_FAIL;
+        cache::RequestStatus::RESERVATION_FAIL
     }
 
     fn write_miss_no_write_allocate(
@@ -297,7 +291,6 @@ where
         }
 
         // on miss, generate write through
-        // (no write buffering -- too many threads for that)
         let event = cache::Event {
             kind: cache::EventKind::WRITE_REQUEST_SENT,
             evicted_block: None,
@@ -331,7 +324,7 @@ where
 
         log::debug!("handling write miss for {} (block addr={}, mshr addr={}, mshr hit={} mshr avail={}, miss queue full={})", &fetch, block_addr, mshr_addr, mshr_hit, mshr_free, self.inner.miss_queue_can_fit(2));
 
-        if !self.inner.miss_queue_can_fit(2) || (!(mshr_hit && mshr_free) && !mshr_miss_but_free) {
+        if !self.inner.miss_queue_can_fit(2) || !(mshr_miss_but_free || mshr_hit && mshr_free) {
             // check what is the exact failure reason
             let failure = if !self.inner.miss_queue_can_fit(2) {
                 cache::ReservationFailure::MISS_QUEUE_FULL
@@ -492,7 +485,7 @@ where
         cache_index: Option<usize>,
         fetch: mem_fetch::MemFetch,
         time: u64,
-        events: &mut Vec<cache::Event>,
+        events: &mut [cache::Event],
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         let func = match self.inner.cache_config.write_policy {
@@ -556,24 +549,19 @@ where
                     1,
                 );
             }
+        } else if probe_status == cache::RequestStatus::HIT {
+            access_status = self.read_hit(addr, cache_index, fetch, time, events, probe_status);
+        } else if probe_status != cache::RequestStatus::RESERVATION_FAIL {
+            access_status = self.read_miss(addr, cache_index, fetch, time, events, probe_status);
         } else {
-            if probe_status == cache::RequestStatus::HIT {
-                access_status = self.read_hit(addr, cache_index, fetch, time, events, probe_status);
-            } else if probe_status != cache::RequestStatus::RESERVATION_FAIL {
-                access_status =
-                    self.read_miss(addr, cache_index, fetch, time, events, probe_status);
-            } else {
-                // the only reason for reservation fail here is LINE_ALLOC_FAIL
-                // (i.e all lines are reserved)
-                let mut stats = self.inner.stats.lock().unwrap();
-                stats.inc(
-                    *fetch.access_kind(),
-                    cache::AccessStat::ReservationFailure(
-                        cache::ReservationFailure::LINE_ALLOC_FAIL,
-                    ),
-                    1,
-                );
-            }
+            // the only reason for reservation fail here is LINE_ALLOC_FAIL
+            // (i.e all lines are reserved)
+            let mut stats = self.inner.stats.lock().unwrap();
+            stats.inc(
+                *fetch.access_kind(),
+                cache::AccessStat::ReservationFailure(cache::ReservationFailure::LINE_ALLOC_FAIL),
+                1,
+            );
         }
 
         self.inner
@@ -742,7 +730,7 @@ mod tests {
     use super::Data;
     use crate::config;
     use crate::ported::{
-        self, cache::Cache, instruction, interconn as ic, mem_fetch, parse_commands,
+        self, cache::Cache, instruction, interconn as ic, kernel::Kernel, mem_fetch, parse_commands,
     };
     use std::collections::VecDeque;
     use std::path::PathBuf;
@@ -808,7 +796,6 @@ mod tests {
     #[test]
     fn test_data_l1_full_trace() {
         let _control_size = 0;
-        // let warp_id = 0;
         let core_id = 0;
         let cluster_id = 0;
 
@@ -824,7 +811,7 @@ mod tests {
             cycle,
             interconn,
             stats.clone(),
-            config.clone(),
+            config,
             Arc::clone(&cache_config.inner),
             mem_fetch::AccessKind::L1_WR_ALLOC_R,
             mem_fetch::AccessKind::L1_WRBK_ACC,
@@ -832,34 +819,22 @@ mod tests {
 
         let trace_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("test-apps/vectoradd/traces/vectoradd-100-32-trace/");
-        // let command_traces_path =
-        //     traces_dircommands.json");
         dbg!(&trace_dir);
         let commands: Vec<Command> =
             parse_commands(&trace_dir.join("commands.json")).expect("parse trace commands");
 
         dbg!(&commands);
-        // let mut kernels: VecDeque<Arc<KernelInfo>> = VecDeque::new();
         let mut kernels: VecDeque<_> = VecDeque::new();
         for cmd in commands {
             match cmd {
                 Command::MemcpyHtoD { .. } => {}
                 Command::MemAlloc { .. } => {}
-                // Command::MemcpyHtoD {
-                //     allocation_name,
-                //     dest_device_addr,
-                //     num_bytes,
-                // } => {
-                //     // sim.memcopy_to_gpu(*dest_device_addr, *num_bytes, allocation_name);
-                // }
                 Command::KernelLaunch(launch) => {
-                    let kernel = ported::KernelInfo::from_trace(&trace_dir, launch.clone());
-                    // kernels.push_back(Arc::new(kernel));
+                    let kernel = Kernel::from_trace(&trace_dir, launch.clone());
                     kernels.push_back(kernel);
                 }
             }
         }
-        // dbg!(&kernels);
 
         // for kernel in &mut kernels {
         //     let mut block_iter = kernel.next_block_iter.lock().unwrap();
@@ -1011,11 +986,11 @@ mod tests {
             num_registers: 8,
             binary_version: 61,
             stream_id: 0,
-            shared_mem_base_addr: 140663786045440,
-            local_mem_base_addr: 140663752491008,
+            shared_mem_base_addr: 140_663_786_045_440,
+            local_mem_base_addr: 140_663_752_491_008,
             nvbit_version: "1.5.5".to_string(),
         };
-        let kernel = crate::ported::KernelInfo::from_trace(trace_dir, launch);
+        let kernel = Kernel::from_trace(trace_dir, launch);
 
         let trace_instr = trace_model::MemAccessTraceEntry {
             cuda_ctx: 0,
@@ -1048,10 +1023,10 @@ mod tests {
             num_src_regs: 0,
             addrs: concat(
                 [
-                    140663086646144,
-                    140663086646148,
-                    140663086646152,
-                    140663086646156,
+                    140_663_086_646_144,
+                    140_663_086_646_148,
+                    140_663_086_646_152,
+                    140_663_086_646_156,
                 ],
                 [0; 32 - 4],
             )
@@ -1062,7 +1037,7 @@ mod tests {
         let mut instr = instruction::WarpInstruction::from_trace(&kernel, trace_instr);
         dbg!(&instr);
         let mut accesses = instr
-            .generate_mem_accesses(&*config)
+            .generate_mem_accesses(&config)
             .expect("generated acceseses");
         assert_eq!(accesses.len(), 1);
 

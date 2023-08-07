@@ -6,21 +6,21 @@ use regex::Regex;
 /// Base 2 logarithm of n.
 ///
 /// Effectively the minium number of bits required to store n.
-pub fn logb2(n: u32) -> u32 {
+#[must_use] pub fn logb2(n: u32) -> u32 {
     n.max(1).ilog2()
 }
 
 /// Compute power of two greater than or equal to n
 ///
 /// see: https://www.techiedelight.com/round-next-highest-power-2/
-pub fn next_power2(mut n: u32) -> u32 {
+#[must_use] pub fn next_power2(mut n: u32) -> u32 {
     // avoid subtract with overflow
     if n == 0 {
         return 0;
     }
 
     // decrement n (handle the case when n itself is a power of 2)
-    n = n - 1;
+    n -= 1;
 
     // unset rightmost bit until only one bit is left
     while n > 0 && (n & (n - 1)) > 0 {
@@ -32,7 +32,7 @@ pub fn next_power2(mut n: u32) -> u32 {
     n << 1
 }
 
-pub fn mask_limit(mask: address) -> (u8, u8) {
+#[must_use] pub fn mask_limit(mask: address) -> (u8, u8) {
     let mut high = 64;
     let mut low = 0;
     let mut low_found = false;
@@ -129,7 +129,7 @@ pub struct AddressDecodingConfig {
     pub burst: Mask,
 }
 
-const ACCELSIM_ADDRESS_DECODE_CONFIG_REGEX: Lazy<Regex> =
+static ACCELSIM_ADDRESS_DECODE_CONFIG_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(dramid@(?P<dramid>\d+))?;?(?P<rest>.*)").unwrap());
 
 impl AddressDecodingConfig {
@@ -210,7 +210,7 @@ impl AddressDecodingConfig {
 }
 
 impl LinearToRawAddressTranslation {
-    pub fn partition_address(&self, addr: address) -> address {
+    #[must_use] pub fn partition_address(&self, addr: address) -> address {
         if !self.has_gap {
             let mut mask = self.decode_config.chip.mask;
             mask |= self.sub_partition_id_mask;
@@ -227,7 +227,7 @@ impl LinearToRawAddressTranslation {
         }
     }
 
-    pub fn tlx(&self, addr: address) -> DecodedAddress {
+    #[must_use] pub fn tlx(&self, addr: address) -> DecodedAddress {
         let mut tlx = DecodedAddress::default();
         let num_channels = self.num_channels as u64;
 
@@ -284,20 +284,20 @@ impl LinearToRawAddressTranslation {
         let num_sub_partitions_per_channel_log2 = logb2(num_sub_partitions_per_channel as u32);
 
         let mut num_chip_bits = num_channels_log2;
-        let gap = num_channels as i64 - 2u32.pow(num_chip_bits) as i64;
+        let gap = num_channels as i64 - i64::from(2u32.pow(num_chip_bits));
         if gap > 0 {
             num_chip_bits += 1;
         }
         let mut decode_config = if let Some(ref mapping_config) = config.memory_addr_mapping {
-            AddressDecodingConfig::parse_accelsim_config(&mapping_config)?
+            AddressDecodingConfig::parse_accelsim_config(mapping_config)?
         } else {
             AddressDecodingConfig {
                 addr_chip_start: Some(10),
-                chip: 0x0000000000001C00.into(),
-                bank: 0x0000000000000300.into(),
-                row: 0x000000000FFF0000.into(),
-                col: 0x000000000000E0FF.into(),
-                burst: 0x000000000000000F.into(),
+                chip: 0x0000_0000_0000_1C00.into(),
+                bank: 0x0000_0000_0000_0300.into(),
+                row: 0x0000_0000_0FFF_0000.into(),
+                col: 0x0000_0000_0000_E0FF.into(),
+                burst: 0x0000_0000_0000_000F.into(),
             }
         };
 
@@ -366,7 +366,7 @@ impl LinearToRawAddressTranslation {
         })
     }
 
-    pub fn num_sub_partition_total(&self) -> usize {
+    #[must_use] pub fn num_sub_partition_total(&self) -> usize {
         self.num_channels * self.num_sub_partitions_per_channel
     }
 }
@@ -386,7 +386,7 @@ fn packbits(mask: super::address, val: super::address, low: u8, high: u8) -> sup
             pos += 1;
         }
     }
-    return res;
+    res
 }
 
 #[derive(Default, Debug, Clone, Copy, Eq, PartialEq)]
@@ -417,18 +417,18 @@ mod tests {
 
     #[inline]
     fn bit_str(n: u64) -> String {
-        format!("{:064b}", n)
+        format!("{n:064b}")
     }
 
     impl From<playground::addrdec::AddrDec> for super::DecodedAddress {
         fn from(addr: playground::addrdec::AddrDec) -> Self {
             Self {
-                chip: addr.chip as u64,
-                bk: addr.bk as u64,
-                row: addr.row as u64,
-                col: addr.col as u64,
-                burst: addr.burst as u64,
-                sub_partition: addr.sub_partition as u64,
+                chip: u64::from(addr.chip),
+                bk: u64::from(addr.bk),
+                row: u64::from(addr.row),
+                col: u64::from(addr.col),
+                burst: u64::from(addr.burst),
+                sub_partition: u64::from(addr.sub_partition),
             }
         }
     }
@@ -457,23 +457,23 @@ mod tests {
         dbg!(&dec_config);
         assert_eq!(
             bit_str(dec_config.chip.mask),
-            bit_str(0b00000000_00000000_00000000_00000000)
+            bit_str(0b0000_0000_0000_0000_0000_0000_0000_0000)
         );
         assert_eq!(
             bit_str(dec_config.bank.mask),
-            bit_str(0b00000000_00000000_01110000_10000000)
+            bit_str(0b0000_0000_0000_0000_0111_0000_1000_0000)
         );
         assert_eq!(
             bit_str(dec_config.row.mask),
-            bit_str(0b00001111_11111111_10000000_00000000)
+            bit_str(0b0000_1111_1111_1111_1000_0000_0000_0000)
         );
         assert_eq!(
             bit_str(dec_config.col.mask),
-            bit_str(0b00000000_00000000_00001111_01111111)
+            bit_str(0b0000_0000_0000_0000_0000_1111_0111_1111)
         );
         assert_eq!(
             bit_str(dec_config.burst.mask),
-            bit_str(0b00000000_00000000_00000000_00011111)
+            bit_str(0b0000_0000_0000_0000_0000_0000_0001_1111)
         );
 
         let mut config = GPUConfig::default();
@@ -483,11 +483,11 @@ mod tests {
 
         let mapping = super::LinearToRawAddressTranslation::new(&config)?;
         let dec_config = mapping.decode_config;
-        assert_eq!(bit_str(dec_config.chip.mask), bit_str(0x0000000000000700));
-        assert_eq!(bit_str(dec_config.bank.mask), bit_str(0x0000000000038080));
-        assert_eq!(bit_str(dec_config.row.mask), bit_str(0x000000007ffc0000));
-        assert_eq!(bit_str(dec_config.col.mask), bit_str(0x000000000000787f));
-        assert_eq!(bit_str(dec_config.burst.mask), bit_str(0x000000000000001f));
+        assert_eq!(bit_str(dec_config.chip.mask), bit_str(0x0000_0000_0000_0700));
+        assert_eq!(bit_str(dec_config.bank.mask), bit_str(0x0000_0000_0003_8080));
+        assert_eq!(bit_str(dec_config.row.mask), bit_str(0x0000_0000_7ffc_0000));
+        assert_eq!(bit_str(dec_config.col.mask), bit_str(0x0000_0000_0000_787f));
+        assert_eq!(bit_str(dec_config.burst.mask), bit_str(0x0000_0000_0000_001f));
 
         assert_eq!((dec_config.chip.low, dec_config.chip.high), (8, 11));
         assert_eq!((dec_config.bank.low, dec_config.bank.high), (7, 18));
@@ -503,20 +503,20 @@ mod tests {
         use playground::addrdec::packbits as ref_packbits;
         assert_eq!(packbits(0, 0, 0, 64), ref_packbits(0, 0, 0, 64));
         assert_eq!(
-            packbits(0, 0xFFFFFFFFFFFFFFFF, 0, 64),
-            ref_packbits(0, 0xFFFFFFFFFFFFFFFF, 0, 64),
+            packbits(0, 0xFFFF_FFFF_FFFF_FFFF, 0, 64),
+            ref_packbits(0, 0xFFFF_FFFF_FFFF_FFFF, 0, 64),
         );
         assert_eq!(
-            packbits(0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0, 64),
-            ref_packbits(0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0, 64),
+            packbits(0xFFFF_FFFF_FFFF_FFFF, 0xFFFF_FFFF_FFFF_FFFF, 0, 64),
+            ref_packbits(0xFFFF_FFFF_FFFF_FFFF, 0xFFFF_FFFF_FFFF_FFFF, 0, 64),
         );
         assert_eq!(
-            packbits(0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 64, 255),
-            ref_packbits(0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 64, 64),
+            packbits(0xFFFF_FFFF_FFFF_FFFF, 0xFFFF_FFFF_FFFF_FFFF, 64, 255),
+            ref_packbits(0xFFFF_FFFF_FFFF_FFFF, 0xFFFF_FFFF_FFFF_FFFF, 64, 64),
         );
         assert_eq!(
-            packbits(0xFFFFFFFFFFFFFFFF, 15, 0, 4),
-            ref_packbits(0xFFFFFFFFFFFFFFFF, 15, 0, 4),
+            packbits(0xFFFF_FFFF_FFFF_FFFF, 15, 0, 4),
+            ref_packbits(0xFFFF_FFFF_FFFF_FFFF, 15, 0, 4),
         );
     }
 
@@ -526,42 +526,42 @@ mod tests {
         config.num_memory_controllers = 8;
         config.num_sub_partition_per_memory_channel = 2;
 
-        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 140159034064896);
+        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 140_159_034_064_896);
         dbg!(&tlx_addr, &ref_tlx_addr);
         assert_eq!(ref_tlx_addr.sub_partition, 0);
         assert_eq!(tlx_addr.sub_partition, 0);
 
-        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 140159034065024);
+        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 140_159_034_065_024);
         dbg!(&tlx_addr, &ref_tlx_addr);
         assert_eq!(ref_tlx_addr.sub_partition, 1);
         assert_eq!(tlx_addr.sub_partition, 1);
 
-        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 140159034065120);
+        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 140_159_034_065_120);
         dbg!(&tlx_addr, &ref_tlx_addr);
         assert_eq!(ref_tlx_addr.sub_partition, 1);
         assert_eq!(tlx_addr.sub_partition, 1);
 
-        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 140159034065152);
+        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 140_159_034_065_152);
         dbg!(&tlx_addr, &ref_tlx_addr);
         assert_eq!(ref_tlx_addr.sub_partition, 2);
         assert_eq!(tlx_addr.sub_partition, 2);
 
-        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 140159034065472);
+        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 140_159_034_065_472);
         dbg!(&tlx_addr, &ref_tlx_addr);
         assert_eq!(ref_tlx_addr.sub_partition, 4);
         assert_eq!(tlx_addr.sub_partition, 4);
 
-        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 140159034066048);
+        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 140_159_034_066_048);
         dbg!(&tlx_addr, &ref_tlx_addr);
         assert_eq!(ref_tlx_addr.sub_partition, 9);
         assert_eq!(tlx_addr.sub_partition, 9);
 
-        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 140159034066432);
+        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 140_159_034_066_432);
         dbg!(&tlx_addr, &ref_tlx_addr);
         assert_eq!(ref_tlx_addr.sub_partition, 12);
         assert_eq!(tlx_addr.sub_partition, 12);
 
-        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 140159034066944);
+        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 140_159_034_066_944);
         dbg!(&tlx_addr, &ref_tlx_addr);
         assert_eq!(ref_tlx_addr.sub_partition, 0);
         assert_eq!(tlx_addr.sub_partition, 0);
@@ -570,7 +570,7 @@ mod tests {
     #[test]
     fn test_tlx() {
         let config = GPUConfig::default();
-        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 139823420539008);
+        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 139_823_420_539_008);
         let expected = super::DecodedAddress {
             chip: 0,
             bk: 1,
@@ -587,23 +587,23 @@ mod tests {
     fn test_mask_limit() {
         use playground::addrdec::mask_limit as ref_mask_limit;
 
-        let mask = 0b0000000000000000000000000000000000000000000000000000000000000000;
+        let mask = 0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000;
         diff::assert_eq!(super::mask_limit(mask), (0, 64));
         diff::assert_eq!(ref_mask_limit(mask), (0, 64));
 
-        let mask = 0b0000000000000000000000000000000000000000000000000111000010000000;
+        let mask = 0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0111_0000_1000_0000;
         diff::assert_eq!(super::mask_limit(mask), (7, 15));
         diff::assert_eq!(ref_mask_limit(mask), (7, 15));
 
-        let mask = 0b0000000000000000000000000000000000001111111111111000000000000000;
+        let mask = 0b0000_0000_0000_0000_0000_0000_0000_0000_0000_1111_1111_1111_1000_0000_0000_0000;
         diff::assert_eq!(super::mask_limit(mask), (15, 28));
         diff::assert_eq!(ref_mask_limit(mask), (15, 28));
 
-        let mask = 0b0000000000000000000000000000000000000000000000000000111101111111;
+        let mask = 0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_1111_0111_1111;
         diff::assert_eq!(super::mask_limit(mask), (0, 12));
         diff::assert_eq!(ref_mask_limit(mask), (0, 12));
 
-        let mask = 0b0000000000000000000000000000000000000000000000000000000000011111;
+        let mask = 0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0001_1111;
         diff::assert_eq!(super::mask_limit(mask), (0, 5));
         diff::assert_eq!(ref_mask_limit(mask), (0, 5));
     }

@@ -31,7 +31,7 @@ impl From<types::mem_fetch::mem_access_type> for ported::mem_fetch::AccessKind {
             mem_access_type::L1_WR_ALLOC_R => AccessKind::L1_WR_ALLOC_R,
             mem_access_type::L2_WR_ALLOC_R => AccessKind::L2_WR_ALLOC_R,
             other @ mem_access_type::NUM_MEM_ACCESS_TYPE => {
-                panic!("bad mem access kind: {:?}", other)
+                panic!("bad mem access kind: {other:?}")
             }
         }
     }
@@ -100,8 +100,8 @@ impl From<ported::cache_block::LineCacheBlock> for CacheBlock {
     }
 }
 
-impl<'a> From<&'a playground::cache::cache_block_t> for CacheBlock {
-    fn from(block: &'a playground::cache::cache_block_t) -> Self {
+impl From<&playground::cache::cache_block_t> for CacheBlock {
+    fn from(block: &playground::cache::cache_block_t) -> Self {
         let status = if block.is_valid_line() {
             CacheBlockStatus::VALID
         } else if block.is_invalid_line() {
@@ -162,12 +162,17 @@ pub struct RegisterSet {
 }
 
 impl RegisterSet {
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.num_instructions_in_pipeline() == 0
     }
 
+    #[must_use]
     pub fn num_instructions_in_pipeline(&self) -> usize {
-        self.pipeline.iter().filter_map(|x| x.as_ref()).count()
+        self.pipeline
+            .iter()
+            .filter_map(std::option::Option::as_ref)
+            .count()
     }
 }
 
@@ -182,10 +187,7 @@ impl From<ported::register_set::RegisterSet> for RegisterSet {
         let pipeline = reg
             .regs
             .into_iter()
-            .map(|instr| match instr {
-                Some(instr) => Some(instr.into()),
-                None => None,
-            })
+            .map(|instr| instr.map(std::convert::Into::into))
             .collect();
         Self {
             name: format!("{:?}", &reg.stage),
@@ -253,7 +255,7 @@ pub struct DispatchUnit {
     pub kind: OperandCollectorUnitKind,
 }
 
-impl<'a> From<&playground::operand_collector::dispatch_unit_t> for DispatchUnit {
+impl From<&playground::operand_collector::dispatch_unit_t> for DispatchUnit {
     fn from(unit: &playground::operand_collector::dispatch_unit_t) -> Self {
         Self {
             last_cu: unit.get_last_cu() as usize,
@@ -320,8 +322,8 @@ impl<'a> From<playground::collector_unit::CollectorUnit<'a>> for CollectorUnit {
     }
 }
 
-impl<'a> From<&'a playground::operand_collector::arbiter_t> for Arbiter {
-    fn from(arbiter: &'a playground::operand_collector::arbiter_t) -> Self {
+impl From<&playground::operand_collector::arbiter_t> for Arbiter {
+    fn from(arbiter: &playground::operand_collector::arbiter_t) -> Self {
         Self {
             last_cu: arbiter.get_last_cu() as usize,
         }
@@ -411,7 +413,7 @@ impl std::fmt::Debug for MemFetch {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{:?}({:?}", self.kind, self.access_kind)?;
         if let Some((alloc_id, rel_addr)) = self.relative_addr {
-            write!(f, "@{}+{}", alloc_id, rel_addr)?;
+            write!(f, "@{alloc_id}+{rel_addr}")?;
         }
         write!(f, ")")
     }
@@ -465,7 +467,7 @@ impl From<&playground::core::pending_register_writes> for PendingRegisterWrites 
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct ArbitrationState {
+pub struct Arbitration {
     pub last_borrower: usize,
     pub shared_credit: usize,
     pub private_credit: Box<[usize]>,
@@ -482,7 +484,7 @@ pub struct Simulation {
     pub l2_cache_per_sub: Box<[Option<Cache>]>,
     // per partition
     pub dram_latency_queue_per_partition: Box<[Vec<MemFetch>]>,
-    pub dram_arbitration_per_partition: Box<[ArbitrationState]>,
+    pub dram_arbitration_per_partition: Box<[Arbitration]>,
     // per cluster
     pub core_sim_order_per_cluster: Box<[Box<[usize]>]>,
     // per core
@@ -493,6 +495,7 @@ pub struct Simulation {
 }
 
 impl Simulation {
+    #[must_use]
     pub fn new(
         num_clusters: usize,
         cores_per_cluster: usize,
@@ -514,7 +517,7 @@ impl Simulation {
             // per partition
             dram_latency_queue_per_partition: vec![vec![]; num_mem_partitions].into_boxed_slice(),
             dram_arbitration_per_partition: vec![
-                ArbitrationState {
+                Arbitration {
                     last_borrower: 0,
                     shared_credit: 0,
                     private_credit: vec![0; num_sub_partitions].into_boxed_slice(),

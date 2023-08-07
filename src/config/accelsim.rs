@@ -619,7 +619,7 @@ static ARGUMENT_REGEX: Lazy<Regex> = Lazy::new(|| {
         .unwrap()
 });
 
-pub fn extract_arguments<'a>(config: &'a str) -> impl Iterator<Item = (&'a str, &'a str)> + '_ {
+pub fn extract_arguments(config: &str) -> impl Iterator<Item = (&str, &str)> {
     ARGUMENT_REGEX.captures_iter(config).filter_map(|cap| {
         let key = cap.get(1)?.as_str().trim();
         let value = cap.get(2)?.as_str().trim();
@@ -630,7 +630,7 @@ pub fn extract_arguments<'a>(config: &'a str) -> impl Iterator<Item = (&'a str, 
 impl Config {
     pub fn from_config_str(config: impl AsRef<str>) -> eyre::Result<Self> {
         let args = extract_arguments(config.as_ref())
-            .flat_map(|(key, value)| [format!("--{}", key), value.to_string()]);
+            .flat_map(|(key, value)| [format!("--{key}"), value.to_string()]);
         let args: Vec<String> = ["test".to_string()].into_iter().chain(args).collect();
         dbg!(&args);
         let config = Self::try_parse_from(&args)?;
@@ -655,8 +655,8 @@ mod tests {
 # --gpgpu_shader_core_pipeline 2048:32
 # --gpgpu_simd_model 1
         ";
-        let args = super::extract_arguments(&config)
-            .flat_map(|(key, value)| [format!("--{}", key), value.to_string()]);
+        let args = super::extract_arguments(config)
+            .flat_map(|(key, value)| [format!("--{key}"), value.to_string()]);
         let mut args: std::collections::VecDeque<String> = args.collect();
         args.push_front("test".to_string());
 

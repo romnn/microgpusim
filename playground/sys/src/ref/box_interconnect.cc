@@ -5,16 +5,17 @@
 #include "mem_fetch.hpp"
 
 bool BoxInterconnect::HasBuffer(unsigned deviceID, unsigned int size) const {
-  unsigned icntID = _node_map.find(deviceID)->second;
-  assert(icntID == deviceID);
-
-  // request is subnet 0 and reply is subnet 1
-  bool is_memory_node = ((_subnets > 1) && deviceID >= _n_shader);
-  unsigned subnet = is_memory_node ? 1 : 0;
-  bool has_buffer =
-      simple_input_queue[subnet][icntID][0].size() <= _input_buffer_capacity;
-
-  return has_buffer;
+  return true;
+  // unsigned icntID = _node_map.find(deviceID)->second;
+  // assert(icntID == deviceID);
+  //
+  // // request is subnet 0 and reply is subnet 1
+  // bool is_memory_node = ((_subnets > 1) && deviceID >= _n_shader);
+  // unsigned subnet = is_memory_node ? 1 : 0;
+  // bool has_buffer =
+  //     simple_input_queue[subnet][icntID][0].size() <= _input_buffer_capacity;
+  //
+  // return has_buffer;
 }
 
 void BoxInterconnect::Advance() {
@@ -93,7 +94,6 @@ void BoxInterconnect::Push(unsigned input_deviceID, unsigned output_deviceID,
         mem_fetch_ptr(mf), size, input_icntID, output_icntID, subnet);
   }
 
-  // simple_input_queue[subnet][input_icntID][0].push_back(data);
   simple_output_queue[subnet][output_icntID][0].push_back(data);
 }
 
@@ -103,13 +103,13 @@ void BoxInterconnect::Init() {
   unsigned nodes = _net[0]->NumNodes();
   unsigned classes = _icnt_config->GetInt("classes");
 
-  simple_input_queue.resize(_subnets);
+  // simple_input_queue.resize(_subnets);
   simple_output_queue.resize(_subnets);
   for (int subnet = 0; subnet < _subnets; ++subnet) {
-    simple_input_queue[subnet].resize(nodes);
+    // simple_input_queue[subnet].resize(nodes);
     simple_output_queue[subnet].resize(nodes);
     for (unsigned node = 0; node < nodes; ++node) {
-      simple_input_queue[subnet][node].resize(classes);
+      // simple_input_queue[subnet][node].resize(classes);
       simple_output_queue[subnet][node].resize(classes);
     }
   }

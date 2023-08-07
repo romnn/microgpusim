@@ -4,6 +4,7 @@ pub mod cache;
 pub mod dram;
 pub mod instructions;
 pub mod mem;
+pub mod scheduler;
 pub mod sim;
 
 pub use cache::{Cache, PerCache};
@@ -55,6 +56,8 @@ pub struct Stats {
     pub l1t_stats: PerCache,
     pub l1d_stats: PerCache,
     pub l2d_stats: PerCache,
+    // where should those go?
+    pub stall_dram_full: u64,
 }
 
 impl Stats {
@@ -70,6 +73,7 @@ impl Stats {
             l1t_stats: PerCache::default(),
             l1d_stats: PerCache::default(),
             l2d_stats: PerCache::default(),
+            stall_dram_full: 0,
         }
     }
 }

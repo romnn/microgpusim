@@ -26,7 +26,8 @@ class BoxInterconnect : public InterconnectInterface {
   std::shared_ptr<spdlog::logger> logger;
 
  protected:
-  std::vector<std::vector<std::vector<std::list<void *>>>> simple_input_queue;
+  // std::vector<std::vector<std::vector<std::list<void *>>>>
+  // simple_input_queue;
   std::vector<std::vector<std::vector<std::list<void *>>>> simple_output_queue;
 };
 

@@ -170,6 +170,7 @@ impl TryFrom<Stats> for stats::Stats {
             l1c_stats: stats::PerCache::default(),
             l1d_stats: stats::PerCache::default(),
             l2d_stats,
+            stall_dram_full: 0, // todo
         })
     }
 }

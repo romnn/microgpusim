@@ -1,9 +1,7 @@
 use super::mem_fetch::BitString;
 use crate::config::GPUConfig;
 use crate::ported::{
-    self, address,
-    cache::Cache,
-    dram,
+    self, address, dram,
     fifo::{FifoQueue, Queue},
     mem_fetch,
     mem_sub_partition::MemorySubPartition,
@@ -23,6 +21,7 @@ pub struct MemoryPartitionUnit {
     pub arbitration_metadata: super::arbitration::ArbitrationMetadata,
 
     config: Arc<GPUConfig>,
+    #[allow(dead_code)]
     stats: Arc<Mutex<stats::Stats>>,
 }
 
@@ -38,19 +37,19 @@ impl MemoryPartitionUnit {
             .map(|i| {
                 let sub_id = id * num_sub_partitions + i;
 
-                let sub = Rc::new(RefCell::new(MemorySubPartition::new(
+                
+                Rc::new(RefCell::new(MemorySubPartition::new(
                     sub_id,
                     id,
                     Rc::clone(&cycle),
                     Arc::clone(&config),
                     Arc::clone(&stats),
-                )));
-                sub
+                )))
             })
             .collect();
 
         let dram = dram::DRAM::new(config.clone(), stats.clone());
-        let arbitration_metadata = super::arbitration::ArbitrationMetadata::new(&*config);
+        let arbitration_metadata = super::arbitration::ArbitrationMetadata::new(&config);
         Self {
             id,
             config,
@@ -62,7 +61,7 @@ impl MemoryPartitionUnit {
         }
     }
 
-    pub fn busy(&self) -> bool {
+    #[must_use] pub fn busy(&self) -> bool {
         self.sub_partitions
             .iter()
             .any(|sub| sub.try_borrow().unwrap().busy())
@@ -93,7 +92,7 @@ impl MemoryPartitionUnit {
     }
 
     pub fn cache_cycle(&mut self, cycle: u64) {
-        for mem_sub in self.sub_partitions.iter_mut() {
+        for mem_sub in &mut self.sub_partitions {
             mem_sub.borrow_mut().cache_cycle(cycle);
         }
     }
@@ -216,7 +215,7 @@ impl MemoryPartitionUnit {
                 let dram_latency_queue: Vec<_> = self
                     .dram_latency_queue
                     .iter()
-                    .map(|f| f.to_string())
+                    .map(std::string::ToString::to_string)
                     .collect();
                 log::debug!(
                     "\t dram latency queue ({:3}) = {:?}",

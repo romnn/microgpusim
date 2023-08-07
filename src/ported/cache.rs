@@ -83,7 +83,7 @@ pub struct Event {
 }
 
 impl Event {
-    pub fn new(kind: EventKind) -> Self {
+    #[must_use] pub fn new(kind: EventKind) -> Self {
         Self {
             kind,
             evicted_block: None,
@@ -92,9 +92,7 @@ impl Event {
 }
 
 pub trait Component {
-    fn cycle(&mut self) {
-        todo!("component: cycle");
-    }
+    fn cycle(&mut self);
 }
 
 pub trait Cache: Component + CacheBandwidth {
@@ -152,15 +150,8 @@ pub trait Cache: Component + CacheBandwidth {
     }
 }
 
-// not clear if we ever need this
 pub trait CacheBandwidth {
-    fn has_free_data_port(&self) -> bool {
-        todo!("cache: has_free_data_port");
-        false
-    }
+    fn has_free_data_port(&self) -> bool;
 
-    fn has_free_fill_port(&self) -> bool {
-        todo!("cache: has_free_fill_port");
-        false
-    }
+    fn has_free_fill_port(&self) -> bool;
 }

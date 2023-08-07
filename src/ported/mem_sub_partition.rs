@@ -1,7 +1,6 @@
 use crate::config::{self, GPUConfig};
 use crate::ported::{
     self, address, cache,
-    cache::Cache,
     fifo::{FifoQueue, Queue},
     interconn as ic, l2, mem_fetch,
 };
@@ -19,25 +18,25 @@ pub const SECTOR_CHUNCK_SIZE: u32 = 4;
 /// Sector size is 32 bytes width
 pub const SECTOR_SIZE: u32 = 32;
 
-pub fn was_write_sent(events: &[cache::Event]) -> bool {
+#[must_use] pub fn was_write_sent(events: &[cache::Event]) -> bool {
     events
         .iter()
         .any(|event| event.kind == cache::EventKind::WRITE_REQUEST_SENT)
 }
 
-pub fn was_writeback_sent(events: &[cache::Event]) -> Option<&cache::Event> {
+#[must_use] pub fn was_writeback_sent(events: &[cache::Event]) -> Option<&cache::Event> {
     events
         .iter()
         .find(|event| event.kind == cache::EventKind::WRITE_BACK_REQUEST_SENT)
 }
 
-pub fn was_read_sent(events: &[cache::Event]) -> bool {
+#[must_use] pub fn was_read_sent(events: &[cache::Event]) -> bool {
     events
         .iter()
         .any(|event| event.kind == cache::EventKind::READ_REQUEST_SENT)
 }
 
-pub fn was_writeallocate_sent(events: &[cache::Event]) -> bool {
+#[must_use] pub fn was_writeallocate_sent(events: &[cache::Event]) -> bool {
     events
         .iter()
         .any(|event| event.kind == cache::EventKind::WRITE_ALLOCATE_SENT)
@@ -271,7 +270,6 @@ where
     }
 
     pub fn push(&mut self, fetch: mem_fetch::MemFetch) {
-        // todo!("mem sub partition: push");
         // m_stats->memlatstat_icnt2mem_pop(m_req);
         let mut requests = Vec::new();
         let l2_config = self.config.data_cache_l2.as_ref().unwrap();
@@ -322,11 +320,7 @@ where
     }
 
     pub fn flush_l2(&mut self) -> Option<usize> {
-        if let Some(l2) = &mut self.l2_cache {
-            Some(l2.flush())
-        } else {
-            None
-        }
+        self.l2_cache.as_mut().map(|l2| l2.flush())
     }
 
     pub fn invalidate_l2(&mut self) {
@@ -341,13 +335,8 @@ where
         let fetch = self.l2_to_interconn_queue.dequeue()?;
         // self.request_tracker.remove(fetch);
         if fetch.is_atomic() {
-            // fetch.do_atomic();
             unimplemented!("atomic memory operation");
         }
-        // panic!(
-        //     "l2 to dram queue fetch: access kind = {:?}",
-        //     fetch.access_kind(),
-        // );
         match fetch.access_kind() {
             // writeback accesses not counted
             AccessKind::L2_WRBK_ACC | AccessKind::L1_WRBK_ACC => None,
@@ -357,29 +346,18 @@ where
 
     pub fn top(&mut self) -> Option<&mem_fetch::MemFetch> {
         use super::AccessKind;
-        match self
+        if let Some(AccessKind::L2_WRBK_ACC | AccessKind::L1_WRBK_ACC) = self
             .l2_to_interconn_queue
             .first()
-            .map(|fetch| fetch.access_kind())
+            .map(ported::mem_fetch::MemFetch::access_kind)
         {
-            Some(AccessKind::L2_WRBK_ACC | AccessKind::L1_WRBK_ACC) => {
-                self.l2_to_interconn_queue.dequeue();
-                // self.request_tracker.remove(fetch);
-                return None;
-            }
-            _ => {}
+            self.l2_to_interconn_queue.dequeue();
+            // self.request_tracker.remove(fetch);
+            return None;
         }
 
         self.l2_to_interconn_queue.first()
     }
-
-    // pub fn full(&self) -> bool {
-    //     self.interconn_to_l2_queue.full()
-    // }
-    //
-    // pub fn has_available_size(&self, size: usize) -> bool {
-    //     self.interconn_to_l2_queue.has_available_size(size)
-    // }
 
     pub fn set_done(&mut self, fetch: &mem_fetch::MemFetch) {
         self.request_tracker.remove(fetch);
@@ -408,7 +386,7 @@ where
             log_line,
             self.rop_queue
                 .iter()
-                .map(|f| f.to_string())
+                .map(std::string::ToString::to_string)
                 .collect::<Vec<_>>(),
             self.interconn_to_l2_queue,
             self.l2_to_interconn_queue,
@@ -434,10 +412,8 @@ where
 
             // todo: move config into l2
             let l2_config = self.config.data_cache_l2.as_ref().unwrap();
-            // if !l2_config.disabled {}
             if l2_cache.has_ready_accesses() && !queue_full {
                 let mut fetch = l2_cache.next_access().unwrap();
-                // panic!("fetch from l2 cache ready");
 
                 // Don't pass write allocate read request back to upper level cache
                 if fetch.access_kind() != &AccessKind::L2_WR_ALLOC_R {
@@ -445,20 +421,16 @@ where
                     fetch.set_status(Status::IN_PARTITION_L2_TO_ICNT_QUEUE, 0);
                     // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
                     self.l2_to_interconn_queue.enqueue(fetch);
-                } else {
-                    if l2_config.inner.write_allocate_policy
-                        == CacheWriteAllocatePolicy::FETCH_ON_WRITE
-                    {
-                        let mut original_write_fetch = *fetch.original_fetch.unwrap();
-                        original_write_fetch.set_reply();
-                        original_write_fetch
-                            .set_status(mem_fetch::Status::IN_PARTITION_L2_TO_ICNT_QUEUE, 0);
-                        // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-                        self.l2_to_interconn_queue.enqueue(original_write_fetch);
-                        todo!("fetch on write: l2 to icnt queue");
-                    }
-                    // self.request_tracker.remove(fetch);
-                    // delete mf;
+                } else if l2_config.inner.write_allocate_policy
+                    == CacheWriteAllocatePolicy::FETCH_ON_WRITE
+                {
+                    let mut original_write_fetch = *fetch.original_fetch.unwrap();
+                    original_write_fetch.set_reply();
+                    original_write_fetch
+                        .set_status(mem_fetch::Status::IN_PARTITION_L2_TO_ICNT_QUEUE, 0);
+                    // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+                    self.l2_to_interconn_queue.enqueue(original_write_fetch);
+                    todo!("fetch on write: l2 to icnt queue");
                 }
             }
         }
@@ -468,14 +440,12 @@ where
         // DRAM to L2 (texture) and icnt (not texture)
         if let Some(reply) = self.dram_to_l2_queue.first() {
             match self.l2_cache {
-                Some(ref mut l2_cache) if l2_cache.waiting_for_fill(&reply) => {
+                Some(ref mut l2_cache) if l2_cache.waiting_for_fill(reply) => {
                     if l2_cache.has_free_fill_port() {
                         let mut reply = self.dram_to_l2_queue.dequeue().unwrap();
                         log::debug!("filling L2 with {}", &reply);
                         reply.set_status(mem_fetch::Status::IN_PARTITION_L2_FILL_QUEUE, 0);
-                        // dbg!(cycle, self.memcpy_cycle_offset);
                         l2_cache.fill(reply, time);
-                        // l2_cache.fill(&mut reply)
                         // reply will be gone forever at this point
                         // m_dram_L2_queue->pop();
                     } else {
@@ -509,16 +479,13 @@ where
         if !self.l2_to_dram_queue.lock().unwrap().full() {
             if let Some(fetch) = self.interconn_to_l2_queue.first() {
                 if let Some(ref mut l2_cache) = self.l2_cache {
-                    if (self.config.data_cache_l2_texture_only && fetch.is_texture())
-                        || !self.config.data_cache_l2_texture_only
-                    {
+                    if !self.config.data_cache_l2_texture_only || fetch.is_texture() {
                         // L2 is enabled and access is for L2
                         let output_full = self.l2_to_interconn_queue.full();
                         let port_free = l2_cache.has_free_data_port();
 
                         if !output_full && port_free {
                             let mut events = Vec::new();
-                            // dbg!(cycle, self.memcpy_cycle_offset);
                             let status =
                                 l2_cache.access(fetch.addr(), fetch.clone(), &mut events, time);
                             let write_sent = was_write_sent(&events);
@@ -545,17 +512,13 @@ where
                                         );
                                         self.l2_to_interconn_queue.enqueue(fetch);
                                     }
-                                    // m_icnt_L2_queue->pop();
                                 } else {
                                     assert!(write_sent);
-                                    // m_icnt_L2_queue->pop();
                                 }
                             } else if status != cache::RequestStatus::RESERVATION_FAIL {
                                 // L2 cache accepted request
                                 let mut fetch = self.interconn_to_l2_queue.dequeue().unwrap();
                                 let wa_policy = l2_cache.write_allocate_policy();
-                                // let is_fetch_on_write = l2_cache.write_allocate_policy()
-                                //     == config::CacheWriteAllocatePolicy::FETCH_ON_WRITE;
                                 let should_fetch = matches!(
                                     wa_policy,
                                     config::CacheWriteAllocatePolicy::FETCH_ON_WRITE

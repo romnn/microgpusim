@@ -93,16 +93,9 @@ impl PipelinedSimdUnitImpl {
 impl SimdFunctionUnit for PipelinedSimdUnitImpl {
     fn active_lanes_in_pipeline(&self) -> usize {
         let mut active_lanes: sched::ThreadActiveMask = BitArray::ZERO;
-        // if self.config.
-        for stage in &self.pipeline_reg {
-            if let Some(stage) = stage {
-                active_lanes |= stage.active_mask;
-            }
+        for stage in self.pipeline_reg.iter().flatten() {
+            active_lanes |= stage.active_mask;
         }
-        // for (unsigned stage = 0; (stage + 1) < m_pipeline_depth; stage++) {
-        //   if (!m_pipeline_reg[stage]->empty())
-        //     active_lanes |= m_pipeline_reg[stage]->get_active_mask();
-        // }
         active_lanes.count_ones()
     }
 
@@ -122,7 +115,7 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
             self.cycle.get(),
             self.pipeline_reg
                 .iter()
-                .map(|reg| reg.as_ref().map(|r| r.to_string()))
+                .map(|reg| reg.as_ref().map(std::string::ToString::to_string))
                 .collect::<Vec<_>>(),
             self.num_active_instr_in_pipeline(),
             self.pipeline_reg.len(),

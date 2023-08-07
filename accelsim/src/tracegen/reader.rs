@@ -332,8 +332,6 @@ pub fn parse_trace_instruction(
 
     // parse addresses
     if mem_width > 0 {
-        // let width = super::get_data_width_from_opcode(&opcode)?;
-
         let address_format: usize = parse_decimal(values.pop_front(), "mem address format")?;
         let address_format = AddressFormat::from_repr(address_format)
             .ok_or_else(|| eyre::eyre!("unknown mem address format: {:?}", address_format))?;

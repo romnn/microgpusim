@@ -1,8 +1,8 @@
 use super::instruction::WarpInstruction;
 use super::scheduler::SchedulerWarp;
 use super::{
-    address, barrier, cache, opcodes, operand_collector as opcoll, register_set, scoreboard,
-    simd_function_unit as fu, KernelInfo, LoadStoreUnit,
+    address, barrier, cache, kernel::Kernel, opcodes, operand_collector as opcoll, register_set,
+    scoreboard, simd_function_unit as fu, LoadStoreUnit,
 };
 use super::{interconn as ic, l1, mem_fetch, scheduler as sched};
 use crate::config::{self, GPUConfig};
@@ -41,9 +41,9 @@ pub type WarpMask = BitArr!(for WARP_PER_CTA_MAX);
 /// Start of the program memory space
 ///
 /// Note: should be distinct from other memory spaces.
-pub const PROGRAM_MEM_START: usize = 0xF0000000;
+pub const PROGRAM_MEM_START: usize = 0xF000_0000;
 
-pub const PROGRAM_MEM_ALLOC: Lazy<super::Allocation> = Lazy::new(|| super::Allocation {
+pub static PROGRAM_MEM_ALLOC: Lazy<super::Allocation> = Lazy::new(|| super::Allocation {
     name: Some("PROGRAM_MEM".to_string()),
     id: 0,
     start_addr: PROGRAM_MEM_START as super::address,
@@ -53,25 +53,19 @@ pub const PROGRAM_MEM_ALLOC: Lazy<super::Allocation> = Lazy::new(|| super::Alloc
 #[derive(Debug)]
 pub struct ThreadState {
     pub active: bool,
-    // pub block_id: usize,
-    // pub active: bool,
     pub pc: usize,
 }
 
 #[derive(Debug, Default)]
 pub struct InstrFetchBuffer {
     valid: bool,
-    pc: address,
-    num_bytes: usize,
     warp_id: usize,
 }
 
 impl InstrFetchBuffer {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             valid: false,
-            pc: 0,
-            num_bytes: 0,
             warp_id: 0,
         }
     }
@@ -87,12 +81,12 @@ pub struct InnerSIMTCore<I> {
     pub warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
     pub stats: Arc<Mutex<stats::Stats>>,
     pub config: Arc<GPUConfig>,
-    pub current_kernel: Option<Arc<KernelInfo>>,
+    pub current_kernel: Option<Arc<Kernel>>,
     pub last_warp_fetched: Option<usize>,
     pub interconn: Arc<I>,
     pub load_store_unit: Arc<Mutex<LoadStoreUnit<ic::CoreMemoryInterface<Packet>>>>,
     pub active_thread_mask: BitArr!(for MAX_THREAD_PER_SM),
-    pub occupied_hw_thread_ids: BitArr!(for MAX_THREAD_PER_SM),
+    occupied_hw_thread_ids: BitArr!(for MAX_THREAD_PER_SM),
     pub dynamic_warp_id: usize,
     pub num_active_blocks: usize,
     pub num_active_warps: usize,
@@ -107,9 +101,8 @@ pub struct InnerSIMTCore<I> {
     pub allocations: Rc<RefCell<super::Allocations>>,
     pub instr_l1_cache: Box<dyn cache::Cache>,
     pub instr_fetch_buffer: InstrFetchBuffer,
-    pub warps: Vec<sched::CoreWarp>,
+    pub warps: Vec<sched::WarpRef>,
     pub thread_state: Vec<Option<ThreadState>>,
-    // pub thread_info: Vec<Option<ThreadInfo>>,
     pub scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
     pub operand_collector: Rc<RefCell<opcoll::OperandCollectorRegisterFileUnit>>,
     pub pipeline_reg: Vec<Rc<RefCell<register_set::RegisterSet>>>,
@@ -134,7 +127,7 @@ pub enum Packet {
 impl std::fmt::Display for Packet {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Packet::Fetch(fetch) => write!(f, "{}", fetch),
+            Packet::Fetch(fetch) => write!(f, "{fetch}"),
         }
     }
 }
@@ -146,7 +139,7 @@ where
     // Returns numbers of addresses in translated_addrs.
     //
     // Each addr points to a 4B (32-bit) word
-    pub fn translate_local_memaddr(
+    #[must_use] pub fn translate_local_memaddr(
         &self,
         local_addr: address,
         thread_id: usize,
@@ -206,7 +199,7 @@ where
             // will overflow into next thread's space
             debug_assert_eq!(local_addr % 4, 0);
             for i in 0..num_accesses {
-                let local_word = local_addr / 4 + (i as u64);
+                let local_word = local_addr / 4 + u64::from(i);
                 let linear_address: address = local_word * max_concurrent_threads as u64 * 4
                     + thread_base as u64
                     + super::instruction::LOCAL_GENERIC_START;
@@ -218,14 +211,14 @@ where
             let local_word = local_addr / 4;
             let local_word_offset = local_addr % 4;
             // Make sure access doesn't overflow into next 4B chunk
-            debug_assert_eq!((local_addr + data_size as address - 1) / 4, local_word);
+            debug_assert_eq!((local_addr + u64::from(data_size) - 1) / 4, local_word);
             let linear_address: address = local_word * max_concurrent_threads as u64 * 4
                 + local_word_offset
                 + thread_base as u64
                 + super::instruction::LOCAL_GENERIC_START;
             translated_addresses.push(linear_address);
         }
-        return translated_addresses;
+        translated_addresses
     }
 }
 
@@ -390,17 +383,6 @@ where
 
         if warp.done() && warp.functional_done() {
             warp.ibuffer_flush();
-            // note: not modeling barriers for now
-            // self.barriers.warp_exit(pipe_reg_ref.warp_id);
-        }
-
-        // let mut warp = self.warps.get_mut(warp_id).unwrap().lock().unwrap();
-        if pipe_reg_ref.opcode.category == opcodes::ArchOp::BARRIER_OP {
-            // m_warp[warp_id]->store_info_of_last_inst_at_barrier(*pipe_reg);
-            // self.barriers.warp_reaches_barrier(warp.block_id, warp_id, next_inst);
-        } else if pipe_reg_ref.opcode.category == opcodes::ArchOp::MEMORY_BARRIER_OP {
-            // m_warp[warp_id]->set_membar();
-            // warp.set_membar();
         }
 
         log::debug!(
@@ -550,22 +532,6 @@ where
             })
             .collect();
 
-        // SKIPPING SPECIALIZED UNITS
-        // for (int j = 0; j < m_config->m_specialized_unit.size(); j++) {
-        //   m_pipeline_reg.push_back(
-        //       register_set(m_config->m_specialized_unit[j].id_oc_spec_reg_width,
-        //                    m_config->m_specialized_unit[j].name));
-        //   m_config->m_specialized_unit[j].ID_OC_SPEC_ID = m_pipeline_reg.size() - 1;
-        //   m_specilized_dispatch_reg.push_back(
-        //       &m_pipeline_reg[m_pipeline_reg.size() - 1]);
-        // }
-        // for (int j = 0; j < m_config->m_specialized_unit.size(); j++) {
-        //   m_pipeline_reg.push_back(
-        //       register_set(m_config->m_specialized_unit[j].oc_ex_spec_reg_width,
-        //                    m_config->m_specialized_unit[j].name));
-        //   m_config->m_specialized_unit[j].OC_EX_SPEC_ID = m_pipeline_reg.size() - 1;
-        // }
-
         if config.sub_core_model {
             // in subcore model, each scheduler should has its own
             // issue register, so ensure num scheduler = reg width
@@ -581,20 +547,6 @@ where
                 config.num_schedulers_per_core,
                 pipeline_reg[PipelineStage::ID_OC_MEM as usize].size()
             );
-            // if (m_config->gpgpu_tensor_core_avail)
-            //   assert(m_config->gpgpu_num_sched_per_core ==
-            //          m_pipeline_reg[ID_OC_TENSOR_CORE].get_size());
-            // if (m_config->gpgpu_num_dp_units > 0)
-            //   assert(m_config->gpgpu_num_sched_per_core ==
-            //          m_pipeline_reg[ID_OC_DP].get_size());
-            // if (m_config->gpgpu_num_int_units > 0)
-            //   assert(m_config->gpgpu_num_sched_per_core ==
-            //          m_pipeline_reg[ID_OC_INT].get_size());
-            // for (int j = 0; j < m_config->m_specialized_unit.size(); j++) {
-            //   if (m_config->m_specialized_unit[j].num_units > 0)
-            //     assert(m_config->gpgpu_num_sched_per_core ==
-            //            m_config->m_specialized_unit[j].id_oc_spec_reg_width);
-            // }
         }
 
         let fetch_interconn = Arc::new(ic::CoreMemoryInterface {
@@ -609,7 +561,7 @@ where
             core_id,
             cluster_id,
             warps.clone(),
-            fetch_interconn.clone(),
+            fetch_interconn,
             operand_collector.clone(),
             scoreboard.clone(),
             config.clone(),
@@ -634,7 +586,7 @@ where
             warp_instruction_unique_uid,
             stats,
             allocations,
-            config: config.clone(),
+            config,
             current_kernel: None,
             last_warp_fetched: None,
             active_thread_mask: BitArray::ZERO,
@@ -652,10 +604,10 @@ where
             instr_fetch_buffer: InstrFetchBuffer::default(),
             interconn,
             load_store_unit,
-            warps: warps.clone(),
+            warps,
             pipeline_reg,
             result_busses,
-            scoreboard: scoreboard.clone(),
+            scoreboard,
             operand_collector,
             barriers,
             thread_state,
@@ -798,150 +750,52 @@ where
     }
 
     fn init_schedulers(&mut self) {
-        // let scheduler_kind = config::SchedulerKind::LRR;
         let scheduler_kind = config::SchedulerKind::GTO;
 
         self.schedulers = (0..self.inner.config.num_schedulers_per_core)
-            .map(|sched_id| match scheduler_kind {
-                // config::SchedulerKind::LRR => {
-                //     let mem_out = &self.inner.pipeline_reg[PipelineStage::ID_OC_MEM as usize];
-                //     Box::new(sched::LrrScheduler::new(
-                //         // &self.inner.warps,
-                //         sched_id,
-                //         self.inner.cluster_id,
-                //         self.inner.core_id,
-                //         self.inner.warps.clone(),
-                //         // mem_out,
-                //         // &self.inner,
-                //         self.inner.scoreboard.clone(),
-                //         self.inner.stats.clone(),
-                //         self.inner.config.clone(),
-                //         // m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
-                //         // &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
-                //         // &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
-                //         // &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
-                //         // &m_pipeline_reg[ID_OC_MEM], i
-                //     )) as Box<dyn sched::SchedulerUnit>
-                //     // self.schedulers.push_back(Box::new(lrr));
-                // }
-                config::SchedulerKind::GTO => {
-                    Box::new(sched::GTOScheduler::new(
-                        // &self.inner.warps,
+            .map(|sched_id| {
+                let scheduler_stats = Arc::new(Mutex::new(stats::scheduler::Scheduler::default()));
+                match scheduler_kind {
+                    config::SchedulerKind::GTO => Box::new(sched::gto::Scheduler::new(
                         sched_id,
                         self.inner.cluster_id,
                         self.inner.core_id,
                         self.inner.warps.clone(),
-                        // mem_out,
-                        // &self.inner,
                         self.inner.scoreboard.clone(),
-                        self.inner.stats.clone(),
+                        scheduler_stats,
                         self.inner.config.clone(),
-                        // &self.inner.pipeline_reg[PipelineStage::ID_OC_MEM as usize],
-                        // m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
-                        // &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
-                        // &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
-                        // &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
-                        // &m_pipeline_reg[ID_OC_MEM], i
-
-                        // ORIGINAL PARAMS
-                        // m_stats,
-                        // this,
-                        // m_scoreboard,
-                        // m_simt_stack,
-                        // &m_warp,
-                        // &m_pipeline_reg[ID_OC_SP],
-                        // &m_pipeline_reg[ID_OC_DP],
-                        // &m_pipeline_reg[ID_OC_SFU],
-                        // &m_pipeline_reg[ID_OC_INT],
-                        // &m_pipeline_reg[ID_OC_TENSOR_CORE],
-                        // m_specilized_dispatch_reg,
-                        // &m_pipeline_reg[ID_OC_MEM],
-                        // i,
-                    )) as Box<dyn sched::SchedulerUnit>
-                    // schedulers.push_back(gto);
+                    ))
+                        as Box<dyn sched::SchedulerUnit>,
+                    scheduler_kind => unimplemented!("scheduler: {:?}", &scheduler_kind),
                 }
-                //     SchedulerKind::TwoLevelActive => {
-                // Box::new(sched::TwoLevelActiveScheduler::new(
-                //                   m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
-                //                   &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
-                //                   &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
-                //                   &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
-                //                   &m_pipeline_reg[ID_OC_MEM], i, m_config->gpgpu_scheduler_string);
-                //               schedulers.push_back(tla);
-                //         },
-                other => todo!("scheduler: {:?}", &other),
-                //         SchedulerKind::RRR => {
-                //                     let rrr = RrrScheduler::new(
-                //                   m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
-                //                   &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
-                //                   &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
-                //                   &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
-                //                   &m_pipeline_reg[ID_OC_MEM], i);
-                //               schedulers.push_back(rrr);
-                //         },
-                //             SchedulerKind::OldestFirst => {
-                //                     let oldest = OldestScheduler::new(
-                //                   m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
-                //                   &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
-                //                   &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
-                //                   &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
-                //                   &m_pipeline_reg[ID_OC_MEM], i);
-                //               schedulers.push_back(oldest);
-                //         },
-                //             SchedulerKind::WarpLimiting => {
-                //                     let swl = SwlScheduler::new(
-                //                   m_stats, this, m_scoreboard, m_simt_stack, &m_warp,
-                //                   &m_pipeline_reg[ID_OC_SP], &m_pipeline_reg[ID_OC_DP],
-                //                   &m_pipeline_reg[ID_OC_SFU], &m_pipeline_reg[ID_OC_INT],
-                //                   &m_pipeline_reg[ID_OC_TENSOR_CORE], m_specilized_dispatch_reg,
-                //                   &m_pipeline_reg[ID_OC_MEM], i, m_config->gpgpu_scheduler_string);
-                //               schedulers.push_back(swl);
-                //         },
             })
             .collect();
-        // }
 
         for (i, warp) in self.inner.warps.iter().enumerate() {
-            // distribute i's evenly though schedulers;
+            // distribute warps evenly though schedulers
             let sched_idx = i % self.inner.config.num_schedulers_per_core;
             let scheduler = &mut self.schedulers[sched_idx];
-            scheduler.add_supervised_warp(Rc::clone(&warp));
+            scheduler.add_supervised_warp(Rc::clone(warp));
         }
-        // for scheduler in self.schedulers.iter_mut() {
-        //     // todo!("call done_adding_supervised_warps");
-        //     scheduler.done_adding_supervised_warps();
-        // }
-        // for (unsigned i = 0; i < m_config->gpgpu_num_sched_per_core; ++i) {
-        //   schedulers[i]->done_adding_supervised_warps();
-        // }
     }
 
-    pub fn active(&self) -> bool {
+    #[must_use] pub fn active(&self) -> bool {
         self.inner.num_active_blocks > 0
     }
 
     /// return the next pc of a thread
     pub fn next_pc(&mut self, thread_id: usize) -> Option<usize> {
-        // if (tid == -1) return -1;
-        // PC should already be updatd to next PC at this point (was
-        // set in shader_decode() last time thread ran)
-        self.inner
-            .thread_state
-            .get(thread_id)
-            .map(Option::as_ref)
-            .flatten()
-            .map(|t| t.pc)
+        self.inner.thread_state[thread_id].as_ref().map(|t| t.pc)
     }
 
     fn register_thread_in_block_exited(
         &mut self,
         block_hw_id: usize,
-        kernel: &Option<Arc<KernelInfo>>,
+        kernel: &Option<Arc<Kernel>>,
     ) {
         let current_kernel: &mut Option<_> =
-            &mut self.inner.current_kernel.as_ref().map(|k| k.as_ref());
+            &mut self.inner.current_kernel.as_ref().map(std::convert::AsRef::as_ref);
 
-        // see: m_cta_status
         debug_assert!(block_hw_id < MAX_CTA_PER_SHADER);
         debug_assert!(self.inner.block_status[block_hw_id] > 0);
         self.inner.block_status[block_hw_id] -= 1;
@@ -952,22 +806,7 @@ where
             //   m_stats->ctas_completed++;
             //   m_gpu->inc_completed_cta();
             self.inner.num_active_blocks -= 1;
-            //   m_barriers.deallocate_barrier(cta_num);
-            //   shader_CTA_count_unlog(m_sid, 1);
-            //
-            //   SHADER_DPRINTF(
-            //       LIVENESS,
-            //       "GPGPU-Sim uArch: Finished CTA #%u (%lld,%lld), %u CTAs running\n",
-            //       cta_num, m_gpu->gpu_sim_cycle, m_gpu->gpu_tot_sim_cycle,
-            //       m_n_active_cta);
-            //
             if self.inner.num_active_blocks == 0 {
-                //     SHADER_DPRINTF(
-                //         LIVENESS,
-                //         "GPGPU-Sim uArch: Empty (last released kernel %u \'%s\').\n",
-                //         kernel->get_uid(), kernel->name().c_str());
-                //     fflush(stdout);
-                //
                 // Shader can only be empty when no more cta are dispatched
                 if kernel.as_ref().map(|k| k.config.id) != current_kernel.map(|k| k.config.id) {
                     // debug_assert!(current_kernel.is_none() || kernel.no_more_blocks_to_run());
@@ -975,23 +814,14 @@ where
                 *current_kernel = None;
             }
             //
-            //   // Jin: for concurrent kernels on sm
             // self.release_shader_resource_1block(cta_num, kernel);
             //   kernel->dec_running();
             if let Some(kernel) = kernel {
-                if kernel.no_more_blocks_to_run() {
-                    if !kernel.running() {
-                        //       SHADER_DPRINTF(LIVENESS,
-                        //                      "GPGPU-Sim uArch: GPU detected kernel %u \'%s\' "
-                        //                      "finished on shader %u.\n",
-                        //                      kernel->get_uid(), kernel->name().c_str(), m_sid);
-                        //
-                        if current_kernel.map(|k| k.config.id) == Some(kernel.config.id) {
-                            *current_kernel = None;
-                        }
-
-                        // m_gpu->set_kernel_done(kernel);
-                    }
+                if kernel.no_more_blocks_to_run()
+                    && !kernel.running()
+                    && current_kernel.map(|k| k.config.id) == Some(kernel.config.id)
+                {
+                    *current_kernel = None;
                 }
             }
         }
@@ -1011,7 +841,7 @@ where
                     .cloned()
                     .unwrap_or_default()
                     .iter()
-                    .map(|access| access.to_string())
+                    .map(std::string::ToString::to_string)
                     .collect::<Vec<_>>(),
             ))
             .green()
@@ -1024,21 +854,16 @@ where
                 let mut warp = warp.try_borrow_mut().unwrap();
                 warp.has_imiss_pending = false;
 
-                let pc = warp.pc().unwrap() as u64;
                 self.inner.instr_fetch_buffer = InstrFetchBuffer {
                     valid: true,
-                    pc,
-                    num_bytes: fetch.data_size as usize,
                     warp_id: fetch.warp_id,
                 };
 
                 // verify that we got the instruction we were expecting.
-                // TODO: this does not work because the fetch.addr() is not the same anymore?
-                // it gets changed to the block addr on the way and not ever changed back..
-                // debug_assert_eq!(
-                //     warp.pc(),
-                //     Some(fetch.addr() as usize - super::PROGRAM_MEM_START)
-                // );
+                debug_assert_eq!(
+                    warp.pc(),
+                    Some(fetch.addr() as usize - super::PROGRAM_MEM_START)
+                );
 
                 self.inner.instr_fetch_buffer.valid = true;
                 // warp.set_last_fetch(m_gpu->gpu_sim_cycle);
@@ -1060,7 +885,6 @@ where
 
                     let sb = self.inner.scoreboard.read().unwrap();
                     let pending_writes = sb.pending_writes(warp_id);
-                    // .clone();
 
                     // if warp.functional_done() && warp.hardware_done() && warp.done_exit() {
                     //     continue;
@@ -1080,7 +904,6 @@ where
                     );
                 }
 
-                // log!("\n\n");
                 for i in 0..max_warps {
                     let last = self.inner.last_warp_fetched.unwrap_or(0);
                     let warp_id = (last + 1 + i) % max_warps;
@@ -1153,7 +976,6 @@ where
                             }
                         }
                         self.inner.num_active_warps -= 1;
-                        debug_assert!(self.inner.num_active_warps >= 0);
                     }
 
                     let mut warp = self.inner.warps[warp_id].try_borrow_mut().unwrap();
@@ -1197,13 +1019,14 @@ where
                         let mut num_bytes = 16;
                         let line_size = icache_config.line_size as usize;
                         let offset_in_block = pc & (line_size - 1);
-                        if offset_in_block + num_bytes > line_size as usize {
-                            num_bytes = line_size as usize - offset_in_block;
+                        if offset_in_block + num_bytes > line_size {
+                            num_bytes = line_size - offset_in_block;
                         }
+                        let inst_alloc = &*PROGRAM_MEM_ALLOC;
                         let access = mem_fetch::MemAccess::new(
                             mem_fetch::AccessKind::INST_ACC_R,
                             ppc as u64,
-                            Some(PROGRAM_MEM_ALLOC.clone()),
+                            Some(inst_alloc.clone()),
                             num_bytes as u32,
                             false,
                             // todo: is this correct?
@@ -1214,7 +1037,7 @@ where
                         let fetch = mem_fetch::MemFetch::new(
                             None,
                             access,
-                            &*self.inner.config,
+                            &self.inner.config,
                             mem_fetch::READ_PACKET_SIZE.into(),
                             warp_id,
                             self.inner.core_id,
@@ -1222,7 +1045,6 @@ where
                         );
 
                         let status = if self.inner.config.perfect_inst_const_cache {
-                            // shader_cache_access_log(m_sid, INSTRUCTION, 0);
                             cache::RequestStatus::HIT
                         } else {
                             let mut events = Vec::new();
@@ -1240,47 +1062,28 @@ where
                         self.inner.last_warp_fetched = Some(warp_id);
 
                         if status == cache::RequestStatus::MISS {
-                            // let warp = self.inner.warps.get_mut(warp_id).unwrap();
-                            // let warp = warp.lock().unwrap();
-                            // .as_mut()
-                            // .unwrap();
                             warp.has_imiss_pending = true;
                             // warp.set_last_fetch(m_gpu->gpu_sim_cycle);
                         } else if status == cache::RequestStatus::HIT {
                             self.inner.instr_fetch_buffer = InstrFetchBuffer {
                                 valid: true,
-                                pc: pc as u64,
-                                num_bytes,
+                                // pc: pc as u64,
+                                // num_bytes,
                                 warp_id,
                             };
                             // m_warp[warp_id]->set_last_fetch(m_gpu->gpu_sim_cycle);
-                            // delete mf;
                         } else {
                             debug_assert_eq!(status, cache::RequestStatus::RESERVATION_FAIL);
-                            // delete mf;
                         }
                         break;
                     }
-                    // }
                 }
             }
         }
         self.inner.instr_l1_cache.cycle();
     }
 
-    /// shader core decode pipeline stage
-    ///
-    /// NOTE: inst fetch buffer valid after 279 cycles
-    ///
-    /// investigate:
-    /// - fetch buffer becomes valid when icache has access ready
-    /// - icache has access ready whenm mshrs has next access
-    /// - mshrs has next access when mshrs::current_response queue is not empty
-    /// - mshrs::current_response is pushed into by mshr_table::mark_ready
-    /// - mshr_table::mark_ready is called by baseline_cache::fill
-    /// - only trace_shader_core_ctx::accept_fetch_response calls baseline_cache::fill
-    /// - only void simt_core_cluster::icnt_cycle() calls accept_fetch_response when there is a
-    /// response
+    /// Shader core decode
     fn decode(&mut self) {
         let InstrFetchBuffer { valid, warp_id, .. } = self.inner.instr_fetch_buffer;
 
@@ -1365,7 +1168,7 @@ where
             instr,
         );
 
-        warp.ibuffer_fill(slot, instr.clone());
+        warp.ibuffer_fill(slot, instr);
         warp.num_instr_in_pipeline += 1;
     }
 
@@ -1522,8 +1325,7 @@ where
                         .inner
                         .result_busses
                         .iter_mut()
-                        .filter(|bus| !bus[instr.latency])
-                        .next();
+                        .find(|bus| !bus[instr.latency]);
 
                     log::debug!(
                         "{} {} (partition issue={}, reg id={:?}) ready for issue to fu[{:03}]={}",
@@ -1545,12 +1347,9 @@ where
                         Some(result_bus) if schedule_wb_now => {
                             debug_assert!(instr.latency < fu::MAX_ALU_LATENCY);
                             result_bus.set(instr.latency, true);
-                            // fu.issue(&mut issue_inst);
-                            // let ready_reg = ready_reg.take();
                             fu.issue(ready_reg.take().unwrap());
                         }
                         _ if !schedule_wb_now => {
-                            // fu.issue(&mut issue_inst);
                             fu.issue(ready_reg.take().unwrap());
                         }
                         _ => {
@@ -1617,7 +1416,7 @@ where
         unit.invalidate();
     }
 
-    pub fn ldst_unit_response_buffer_full(&self) -> bool {
+    #[must_use] pub fn ldst_unit_response_buffer_full(&self) -> bool {
         self.inner
             .load_store_unit
             .lock()
@@ -1625,7 +1424,7 @@ where
             .response_buffer_full()
     }
 
-    pub fn fetch_unit_response_buffer_full(&self) -> bool {
+    #[must_use] pub fn fetch_unit_response_buffer_full(&self) -> bool {
         false
     }
 
@@ -1639,15 +1438,15 @@ where
         self.inner.load_store_unit.lock().unwrap().fill(fetch);
     }
 
-    pub fn not_completed(&self) -> usize {
+    #[must_use] pub fn not_completed(&self) -> usize {
         self.inner.num_active_threads
     }
 
-    pub fn is_active(&self) -> bool {
+    #[must_use] pub fn is_active(&self) -> bool {
         self.inner.num_active_blocks > 0
     }
 
-    pub fn set_kernel(&mut self, kernel: Arc<KernelInfo>) {
+    pub fn set_kernel(&mut self, kernel: Arc<Kernel>) {
         log::debug!("kernel {} bind to core {:?}", kernel, self.id());
         self.inner.current_kernel = Some(kernel);
     }
@@ -1659,16 +1458,19 @@ where
     ) -> Option<usize> {
         let mut step = 0;
         while step < self.inner.config.max_threads_per_core {
-            let hw_thread_id = step;
-            while hw_thread_id < step + thread_block_size {
-                if self.inner.occupied_hw_thread_ids[hw_thread_id] {
-                    break;
-                }
-            }
-            // consecutive non-active
-            if hw_thread_id == step + thread_block_size {
+            if self.inner.occupied_hw_thread_ids[step..(step + thread_block_size)].not_any() {
+                // found consecutive non-active
                 break;
             }
+            // for hw_thread_id in step..(step + thread_block_size) {
+            //     if self.inner.occupied_hw_thread_ids[hw_thread_id] {
+            //         break;
+            //     }
+            // }
+            // consecutive non-active
+            // if hw_thread_id == step + thread_block_size {
+            //     break;
+            // }
             step += thread_block_size;
         }
         if step >= self.inner.config.max_threads_per_core {
@@ -1676,138 +1478,42 @@ where
             None
         } else {
             if occupy {
-                for hw_thread_id in step..step + thread_block_size {
-                    self.inner.occupied_hw_thread_ids.set(hw_thread_id, true);
-                }
+                self.inner.occupied_hw_thread_ids[step..(step + thread_block_size)].fill(true);
+                // for hw_thread_id in step..(step + thread_block_size) {
+                //     self.inner.occupied_hw_thread_ids.set(hw_thread_id, true);
+                // }
             }
             Some(step)
         }
     }
-    //     int shader_core_ctx::find_available_hwtid(unsigned int cta_size, bool occupy) {
-    //   unsigned int step;
-    //   for (step = 0; step < m_config->n_thread_per_shader; step += cta_size) {
-    //     unsigned int hw_tid;
-    //     for (hw_tid = step; hw_tid < step + cta_size; hw_tid++) {
-    //       if (m_occupied_hwtid.test(hw_tid)) break;
-    //     }
-    //     if (hw_tid == step + cta_size)  // consecutive non-active
-    //       break;
-    //   }
-    //   if (step >= m_config->n_thread_per_shader)  // didn't find
-    //     return -1;
-    //   else {
-    //     if (occupy) {
-    //       for (unsigned hw_tid = step; hw_tid < step + cta_size; hw_tid++)
-    //         m_occupied_hwtid.set(hw_tid);
-    //     }
-    //     return step;
-    //   }
-    // }
 
-    pub fn occupy_resource_for_block(&mut self, kernel: &KernelInfo, _occupy: bool) -> bool {
-        let thread_block_size = self.inner.config.threads_per_block_padded(kernel);
-        if self.inner.num_occupied_threads + thread_block_size
-            > self.inner.config.max_threads_per_core
-        {
-            return false;
-        }
-        if self
-            .find_available_hw_thread_id(thread_block_size, false)
-            .is_none()
-        {
-            return false;
-        }
-        unimplemented!("occupy resource for block");
-        return true;
-    }
-
-    //     bool shader_core_ctx::occupy_shader_resource_1block(kernel_info_t &k,
-    //                                                     bool occupy) {
-    //   unsigned threads_per_cta = k.threads_per_cta();
-    //   const class function_info *kernel = k.entry();
-    //   unsigned int padded_cta_size = threads_per_cta;
-    //   unsigned int warp_size = m_config->warp_size;
-    //   if (padded_cta_size % warp_size)
-    //     padded_cta_size = ((padded_cta_size / warp_size) + 1) * (warp_size);
-    //
-    //   if (m_occupied_n_threads + padded_cta_size > m_config->n_thread_per_shader)
-    //     return false;
-    //
-    //   if (find_available_hwtid(padded_cta_size, false) == -1) return false;
-    //
-    //   const struct gpgpu_ptx_sim_info *kernel_info = ptx_sim_kernel_info(kernel);
-    //
-    //   if (m_occupied_shmem + kernel_info->smem > m_config->gpgpu_shmem_size)
-    //     return false;
-    //
-    //   unsigned int used_regs = padded_cta_size * ((kernel_info->regs + 3) & ~3);
-    //   if (m_occupied_regs + used_regs > m_config->gpgpu_shader_registers)
-    //     return false;
-    //
-    //   if (m_occupied_ctas + 1 > m_config->max_cta_per_core) return false;
-    //
-    //   if (occupy) {
-    //     m_occupied_n_threads += padded_cta_size;
-    //     m_occupied_shmem += kernel_info->smem;
-    //     m_occupied_regs += (padded_cta_size * ((kernel_info->regs + 3) & ~3));
-    //     m_occupied_ctas++;
-    //
-    //     SHADER_DPRINTF(LIVENESS,
-    //                    "GPGPU-Sim uArch: Occupied %u threads, %u shared mem, %u "
-    //                    "registers, %u ctas, on shader %d\n",
-    //                    m_occupied_n_threads, m_occupied_shmem, m_occupied_regs,
-    //                    m_occupied_ctas, m_sid);
-    //   }
-    //
-    //   return true;
-    // }
-
-    pub fn can_issue_block(&mut self, kernel: &KernelInfo) -> bool {
+    pub fn can_issue_block(&mut self, kernel: &Kernel) -> bool {
         let max_blocks = self.inner.config.max_blocks(kernel).unwrap();
         if self.inner.config.concurrent_kernel_sm {
-            unimplemented!("concurrent kernel sm model");
             if max_blocks < 1 {
                 return false;
             }
-            self.occupy_resource_for_block(kernel, false)
+            // self.occupy_resource_for_block(kernel, false);
+            unimplemented!("concurrent kernel sm model");
         } else {
             self.inner.num_active_blocks < max_blocks
         }
     }
 
-    /// m_not_completed
-    // pub fn active_warps(&self) -> usize {
-    //     0
-    // }
-
-    fn set_max_blocks(&mut self, kernel: &KernelInfo) -> eyre::Result<()> {
+    fn set_max_blocks(&mut self, kernel: &Kernel) -> eyre::Result<()> {
         // calculate the max cta count and cta size for local memory address mapping
         self.inner.max_blocks_per_shader = self.inner.config.max_blocks(kernel)?;
         self.inner.thread_block_size = self.inner.config.threads_per_block_padded(kernel);
         Ok(())
     }
 
-    pub fn id(&self) -> (usize, usize) {
+    #[must_use] pub fn id(&self) -> (usize, usize) {
         (self.inner.cluster_id, self.inner.core_id)
     }
 
-    // pub fn init_warps_from_traces(
-    //     &mut self,
-    //     kernel: &KernelInfo,
-    //     start_thread: usize,
-    //     end_thread: usize,
-    // ) {
-    //     let start_warp = start_thread / self.inner.config.warp_size;
-    //     let end_warp = (end_thread / self.inner.config.warp_size)
-    //         + if end_thread % self.inner.config.warp_size != 0 {
-    //             1
-    //         } else {
-    //             0
-    //         };
-
     pub fn init_warps_from_traces(
         &mut self,
-        kernel: &Arc<KernelInfo>,
+        kernel: &Arc<Kernel>,
         start_warp: usize,
         end_warp: usize,
     ) {
@@ -1835,27 +1541,13 @@ where
         end_thread: usize,
         block_id: u64,
         thread_block_size: usize,
-        kernel: Arc<KernelInfo>,
+        kernel: Arc<Kernel>,
     ) {
-        // log::debug!(
-        //     "core {:?}: init warps (threads {}..{}) for block {} (hw {})",
-        //     self.id(),
-        //     start_thread,
-        //     end_thread,
-        //     block_id,
-        //     block_hw_id
-        // );
-        log::debug!("kernel: {}", &kernel);
-
         let start_pc = self.next_pc(start_thread);
         let start_warp = start_thread / self.inner.config.warp_size;
         let _warp_per_cta = thread_block_size / self.inner.config.warp_size;
         let end_warp = end_thread / self.inner.config.warp_size
-            + if end_thread % self.inner.config.warp_size == 0 {
-                0
-            } else {
-                1
-            };
+            + usize::from(end_thread % self.inner.config.warp_size != 0);
         for warp_id in start_warp..end_warp {
             let mut num_active = 0;
 
@@ -1897,17 +1589,11 @@ where
 
     pub fn reinit(&mut self, start_thread: usize, end_thread: usize, reset_not_completed: bool) {
         if reset_not_completed {
+            self.inner.num_active_warps = 0;
             self.inner.num_active_threads = 0;
             self.inner.active_thread_mask.fill(false);
-
-            // Jin: for concurrent kernels on a SM
-            // m_occupied_n_threads = 0;
-            // m_occupied_shmem = 0;
-            // m_occupied_regs = 0;
-            // m_occupied_ctas = 0;
-            // m_occupied_hwtid.reset();
-            // m_occupied_cta_to_hwtid.clear();
-            self.inner.num_active_warps = 0;
+            self.inner.occupied_block_to_hw_thread_id.clear();
+            self.inner.occupied_hw_thread_ids.fill(false);
         }
         for t in start_thread..end_thread {
             self.inner.thread_state[t] = None;
@@ -1925,20 +1611,18 @@ where
         );
 
         for w in start_warp..end_warp {
-            // log::debug!("reset warp = {}/{}", w + 1, self.inner.warps.len());
             self.inner.warps[w].try_borrow_mut().unwrap().reset();
-            // simt_stack[i]->reset();
         }
     }
 
-    pub fn issue_block(&mut self, kernel: Arc<KernelInfo>) -> () {
+    pub fn issue_block(&mut self, kernel: Arc<Kernel>) {
         log::debug!("core {:?}: issue block", self.id());
         if self.inner.config.concurrent_kernel_sm {
-            let occupied = self.occupy_resource_for_block(&*kernel, true);
-            assert!(occupied);
+            // let occupied = self.occupy_resource_for_block(&*kernel, true);
+            // assert!(occupied);
             unimplemented!("concurrent kernel sm");
         } else {
-            self.set_max_blocks(&*kernel).unwrap();
+            self.set_max_blocks(&kernel).unwrap();
         }
 
         // kernel.inc_running();
@@ -1956,13 +1640,12 @@ where
             self.inner.block_status
         );
         let free_block_hw_id = (0..max_blocks_per_core)
-            .filter(|i| self.inner.block_status[*i] == 0)
-            .next()
+            .find(|i| self.inner.block_status[*i] == 0)
             .unwrap();
 
         // determine hardware threads and warps that will be used for this block
         let thread_block_size = kernel.threads_per_block();
-        let padded_thread_block_size = self.inner.config.threads_per_block_padded(&*kernel);
+        let padded_thread_block_size = self.inner.config.threads_per_block_padded(&kernel);
 
         // hw warp id = hw thread id mod warp size, so we need to find a range
         // of hardware thread ids corresponding to an integral number of hardware

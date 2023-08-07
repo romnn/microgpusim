@@ -50,7 +50,7 @@ where
                 .map(|max| max.to_string())
                 .as_deref()
                 .unwrap_or(""),
-            self.inner.iter().map(|i| i.to_string()).collect::<Vec<_>>() // .join(", ")
+            self.inner.iter().map(std::string::ToString::to_string).collect::<Vec<_>>() // .join(", ")
         )
         // f.debug_list()
         //     .entries(self.inner.iter().map(|i| i)) // i.to_string()))
@@ -59,7 +59,7 @@ where
 }
 
 impl<T> FifoQueue<T> {
-    pub fn iter(&self) -> std::collections::vec_deque::Iter<T> {
+    #[must_use] pub fn iter(&self) -> std::collections::vec_deque::Iter<T> {
         self.inner.iter()
     }
 }

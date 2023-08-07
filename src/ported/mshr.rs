@@ -24,7 +24,6 @@ pub struct MshrTable {
     num_entries: usize,
     max_merged: usize,
     data: Table,
-    pending_lines: LineTable,
     /// If the current response is ready
     ///
     /// it may take several cycles to process the merged requests
@@ -33,25 +32,23 @@ pub struct MshrTable {
 }
 
 impl MshrTable {
-    pub fn new(num_entries: usize, max_merged: usize) -> Self {
+    #[must_use] pub fn new(num_entries: usize, max_merged: usize) -> Self {
         let data = HashMap::with_capacity(2 * num_entries);
         Self {
             num_entries,
             max_merged,
             data,
-            pending_lines: HashMap::new(),
             current_response: VecDeque::new(),
-            // current_response_ready: false,
         }
     }
 
     /// Checks if there is a pending request to the lower memory level already
-    pub fn probe(&self, block_addr: address) -> bool {
+    #[must_use] pub fn probe(&self, block_addr: address) -> bool {
         self.data.contains_key(&block_addr)
     }
 
     /// Checks if there is space for tracking a new memory access
-    pub fn full(&self, block_addr: address) -> bool {
+    #[must_use] pub fn full(&self, block_addr: address) -> bool {
         match self.data.get(&block_addr) {
             Some(entry) => entry.list.len() >= self.max_merged,
             None => self.data.len() >= self.num_entries,
@@ -109,16 +106,16 @@ impl MshrTable {
     }
 
     /// Returns true if ready accesses exist
-    pub fn has_ready_accesses(&self) -> bool {
+    #[must_use] pub fn has_ready_accesses(&self) -> bool {
         !self.current_response.is_empty()
     }
 
     /// Returns next ready accesses
-    pub fn ready_accesses(&self) -> Option<&VecDeque<mem_fetch::MemFetch>> {
+    #[must_use] pub fn ready_accesses(&self) -> Option<&VecDeque<mem_fetch::MemFetch>> {
         let Some(block_addr) = self.current_response.front() else {
             return None;
         };
-        let Some(entry) = self.data.get(&block_addr) else {
+        let Some(entry) = self.data.get(block_addr) else {
             return None;
         };
         Some(&entry.list)
@@ -129,7 +126,7 @@ impl MshrTable {
         let Some(block_addr) = self.current_response.front() else {
             return None;
         };
-        let Some(entry) = self.data.get_mut(&block_addr) else {
+        let Some(entry) = self.data.get_mut(block_addr) else {
             return None;
         };
         Some(&mut entry.list)
@@ -143,7 +140,7 @@ impl MshrTable {
             return None;
         };
 
-        let Some(entry) = self.data.get_mut(&block_addr) else {
+        let Some(entry) = self.data.get_mut(block_addr) else {
             return None;
         };
 
@@ -152,7 +149,7 @@ impl MshrTable {
 
         let should_remove = entry.list.is_empty();
         if should_remove {
-            self.data.remove(&block_addr);
+            self.data.remove(block_addr);
             self.current_response.pop_front();
         }
         fetch
@@ -165,7 +162,6 @@ mod tests {
     use crate::config;
     use crate::ported::{mem_fetch, scheduler::ThreadActiveMask};
     use mem_fetch::{AccessKind, MemAccess, MemFetch};
-    
 
     #[test]
     fn test_mshr_table() {
@@ -173,7 +169,7 @@ mod tests {
         let cache_config = config.inst_cache_l1.as_ref().unwrap();
         let mut mshrs = MshrTable::new(cache_config.mshr_entries, cache_config.mshr_max_merge);
 
-        let fetch_addr = 4026531848;
+        let fetch_addr = 4_026_531_848;
         let access = MemAccess::new(
             AccessKind::INST_ACC_R,
             fetch_addr,
@@ -186,11 +182,11 @@ mod tests {
         );
         let fetch = MemFetch::new(None, access, &config, 0, 0, 0, 0);
         let mshr_addr = cache_config.mshr_addr(fetch_addr);
-        assert_eq!(mshrs.probe(mshr_addr), false);
-        assert_eq!(mshrs.probe(mshr_addr), false);
+        assert!(!mshrs.probe(mshr_addr));
+        assert!(!mshrs.probe(mshr_addr));
 
         mshrs.add(mshr_addr, fetch);
-        assert_eq!(mshrs.probe(mshr_addr), true);
+        assert!(mshrs.probe(mshr_addr));
 
         // TODO: test against bridge here
     }

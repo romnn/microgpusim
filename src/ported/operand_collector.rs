@@ -44,6 +44,7 @@ pub struct Operand {
 }
 
 impl Operand {
+    #[must_use]
     pub fn new(
         warp_id: Option<usize>,
         cu_id: usize,
@@ -62,6 +63,7 @@ impl Operand {
         }
     }
 
+    #[must_use]
     pub fn warp_id(&self) -> Option<usize> {
         self.warp_id
     }
@@ -127,6 +129,7 @@ impl CollectorUnit {
     }
 
     // looks ok
+    #[must_use]
     pub fn ready(&self) -> bool {
         if self.free {
             return false;
@@ -302,18 +305,22 @@ impl Default for Allocation {
 }
 
 impl Allocation {
+    #[must_use]
     pub fn new(kind: AllocationKind, op: Option<Operand>) -> Self {
         Self { kind, op }
     }
 
+    #[must_use]
     pub fn is_read(&self) -> bool {
         self.kind == AllocationKind::READ_ALLOC
     }
 
+    #[must_use]
     pub fn is_write(&self) -> bool {
         self.kind == AllocationKind::WRITE_ALLOC
     }
 
+    #[must_use]
     pub fn is_free(&self) -> bool {
         self.kind == AllocationKind::NO_ALLOC
     }
@@ -433,14 +440,13 @@ impl Arbiter {
             log::trace!("request: {:?}", &Self::compat(&request[bank]));
         }
 
-        log::trace!("inmatch: {:?}", &Self::compat(&inmatch));
+        log::trace!("inmatch: {:?}", &Self::compat(inmatch));
 
         // wavefront allocator from booksim
         // loop through diagonals of request matrix
 
-        let mut output = 0;
         for p in 0.._square {
-            output = (_pri + p) % _outputs;
+            let mut output = (_pri + p) % _outputs;
 
             // step through the current diagonal
             for input in 0.._inputs {
@@ -464,8 +470,8 @@ impl Arbiter {
             }
         }
 
-        log::trace!("inmatch: {:?}", &Self::compat(&inmatch));
-        log::trace!("outmatch: {:?}", &Self::compat(&outmatch));
+        log::trace!("inmatch: {:?}", &Self::compat(inmatch));
+        log::trace!("outmatch: {:?}", &Self::compat(outmatch));
 
         // Round-robin the priority diagonal
         _pri = (_pri + 1) % _outputs;
@@ -500,14 +506,13 @@ impl Arbiter {
     }
 
     pub fn add_read_requests(&mut self, cu: &CollectorUnit) {
-        for src_op in &cu.src_operands {
-            if let Some(src_op) = src_op {
-                let bank = src_op.bank;
-                self.queue[bank].push_back(src_op.clone());
-            }
+        for src_op in cu.src_operands.iter().flatten() {
+            let bank = src_op.bank;
+            self.queue[bank].push_back(src_op.clone());
         }
     }
 
+    #[must_use]
     pub fn bank_idle(&self, bank: usize) -> bool {
         self.allocated_banks[bank].is_free()
     }
@@ -539,6 +544,7 @@ pub struct DispatchUnit {
 }
 
 impl DispatchUnit {
+    #[must_use]
     pub fn new(kind: OperandCollectorUnitKind) -> Self {
         Self {
             kind,
@@ -603,6 +609,7 @@ pub struct InputPort {
 }
 
 impl InputPort {
+    #[must_use]
     pub fn new(
         in_ports: PortVec,
         out_ports: PortVec,
@@ -633,7 +640,7 @@ pub enum OperandCollectorUnitKind {
 pub type CuSets = HashMap<OperandCollectorUnitKind, Vec<Rc<RefCell<CollectorUnit>>>>;
 
 // operand collector based register file unit
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct OperandCollectorRegisterFileUnit {
     pub config: Arc<config::GPUConfig>,
 
@@ -711,7 +718,7 @@ impl OperandCollectorRegisterFileUnit {
 
             debug_assert!(cu.id == cu_id);
         }
-        for dispatch_unit in self.dispatch_units.iter_mut() {
+        for dispatch_unit in &mut self.dispatch_units {
             dispatch_unit.init(self.sub_core_model, self.num_warp_schedulers);
         }
         self.initialized = true;
@@ -760,7 +767,7 @@ impl OperandCollectorRegisterFileUnit {
         }
 
         log::debug!("allocating {} reads ({:?})", read_ops.len(), &read_ops);
-        for (_bank, read) in &read_ops {
+        for read in read_ops.values() {
             assert!(read.collector_unit_id < self.collector_units.len());
             let mut cu = self.collector_units[read.collector_unit_id].borrow_mut();
             if let Some(operand) = read.operand {
@@ -824,17 +831,17 @@ impl OperandCollectorRegisterFileUnit {
                         debug_assert!(cu_upper_bound <= cu_set.len());
                     }
 
-                    for k in cu_lower_bound..cu_upper_bound {
-                        let mut collector_unit = cu_set[k].try_borrow_mut().unwrap();
+                    for collector_unit in &cu_set[cu_lower_bound..cu_upper_bound] {
+                        let mut collector_unit = collector_unit.try_borrow_mut().unwrap();
 
                         if collector_unit.free {
                             log::debug!(
                                 "{} cu={:?}",
-                                style(format!("operand collector::allocate()")).green(),
+                                style("operand collector::allocate()".to_string()).green(),
                                 collector_unit.kind
                             );
 
-                            allocated = collector_unit.allocate(&input_port, &output_port);
+                            allocated = collector_unit.allocate(input_port, output_port);
                             self.arbiter.add_read_requests(&collector_unit);
                             break;
                         }
@@ -1045,8 +1052,8 @@ mod test {
             let arbiter = (&opcoll.arbiter).into();
             Self {
                 ports,
-                dispatch_units,
                 collector_units,
+                dispatch_units,
                 arbiter,
             }
         }

@@ -1,3 +1,10 @@
+#![allow(
+    clippy::too_many_arguments,
+    clippy::missing_panics_doc,
+    clippy::missing_errors_doc,
+    clippy::too_many_lines
+)]
+
 pub mod addrdec;
 pub mod arbitration;
 pub mod barrier;
@@ -5,10 +12,12 @@ pub mod cache;
 pub mod cache_block;
 pub mod cluster;
 pub mod core;
+pub mod deadlock;
 pub mod dram;
 pub mod fifo;
 pub mod instruction;
 pub mod interconn;
+pub mod kernel;
 pub mod l1;
 pub mod l2;
 pub mod ldst_unit;
@@ -21,7 +30,7 @@ pub mod operand_collector;
 pub mod register_set;
 pub mod scheduler;
 pub mod scoreboard;
-pub mod set_index_function;
+pub mod set_index;
 pub mod simd_function_unit;
 pub mod sp_unit;
 pub mod tag_array;
@@ -29,15 +38,18 @@ pub mod tag_array;
 #[cfg(test)]
 pub mod testing;
 
-use self::cluster::*;
-use self::core::*;
-use addrdec::*;
-use color_eyre::Help;
+use self::cluster::SIMTCoreCluster;
+use self::core::{
+    warp_inst_complete, Packet, PipelineStage, SIMTCore, WarpMask, MAX_THREAD_PER_SM,
+    PROGRAM_MEM_START,
+};
+use addrdec::DecodedAddress;
 use fifo::Queue;
 use interconn as ic;
-use ldst_unit::*;
-use mem_fetch::*;
-use sp_unit::*;
+use kernel::Kernel;
+use ldst_unit::LoadStoreUnit;
+use mem_fetch::{AccessKind, BitString, READ_PACKET_SIZE, WRITE_PACKET_SIZE};
+use sp_unit::SPUnit;
 use stats::Stats;
 
 use crate::config;
@@ -45,230 +57,15 @@ use bitvec::array::BitArray;
 use color_eyre::eyre::{self};
 use console::style;
 use std::cell::RefCell;
-use std::collections::HashSet;
 use std::collections::{HashMap, VecDeque};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::sync::{atomic, Arc, Mutex, RwLock};
+use std::sync::{atomic, Arc, Mutex};
 use std::time::Instant;
-use trace_model::{Command, KernelLaunch, MemAccessTraceEntry, Point};
+use trace_model::Command;
 
 pub type address = u64;
-
-/// KernelInfo represents a kernel.
-///
-/// This includes its launch configuration,
-/// as well as its state of execution.
-#[derive()]
-pub struct KernelInfo {
-    pub opcodes: &'static opcodes::OpcodeMap,
-    pub config: KernelLaunch,
-    trace: Vec<MemAccessTraceEntry>,
-    trace_pos: RwLock<usize>,
-    launched: Mutex<bool>,
-    num_cores_running: usize,
-
-    pub cache_config_set: bool,
-}
-
-impl PartialEq for KernelInfo {
-    fn eq(&self, other: &Self) -> bool {
-        self.id() == other.id()
-    }
-}
-
-impl std::fmt::Debug for KernelInfo {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("KernelInfo")
-            .field("name", &self.name())
-            .field("id", &self.id())
-            .field("instructions", &self.trace.len())
-            .field("launched", &self.launched)
-            .field("grid", &self.config.grid)
-            .field("block", &self.config.block)
-            .field("stream", &self.config.stream_id)
-            .field(
-                "shared_mem",
-                &human_bytes::human_bytes(self.config.shared_mem_bytes as f64),
-            )
-            .field("registers", &self.config.num_registers)
-            // .field("block", &self.current_block())
-            // .field("thread", &self.next_block_iter.lock().unwrap().peek())
-            .finish()
-    }
-}
-
-impl std::fmt::Display for KernelInfo {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("KernelInfo")
-            .field("name", &self.name())
-            .field("id", &self.id())
-            .finish()
-    }
-}
-
-pub fn read_trace(path: impl AsRef<Path>) -> eyre::Result<Vec<MemAccessTraceEntry>> {
-    use serde::Deserializer;
-
-    let reader = utils::fs::open_readable(path.as_ref())?;
-    let mut reader = rmp_serde::Deserializer::new(reader);
-    let mut trace = vec![];
-    let decoder = nvbit_io::Decoder::new(|access: MemAccessTraceEntry| {
-        trace.push(access);
-    });
-    reader.deserialize_seq(decoder).suggestion("maybe the traces does not match the most recent binary trace format, try re-generating the traces.")?;
-    Ok(trace)
-}
-
-impl KernelInfo {
-    pub fn from_trace(traces_dir: impl AsRef<Path>, config: KernelLaunch) -> Self {
-        let start = Instant::now();
-        log::info!(
-            "parsing kernel for launch {:?} from {}",
-            &config,
-            &config.trace_file
-        );
-        let trace_path = traces_dir
-            .as_ref()
-            .join(&config.trace_file)
-            .with_extension("msgpack");
-
-        let trace = read_trace(&trace_path).unwrap();
-
-        // sanity check
-        assert!(trace_model::is_valid_trace(&trace));
-
-        // check if grid size is equal to the number of unique blocks in the trace
-        let all_blocks: HashSet<_> = trace.iter().map(|t| &t.block_id).collect();
-        log::info!(
-            "parsed kernel trace for {:?}: {}/{} blocks in {:?}",
-            config.name,
-            all_blocks.len(),
-            config.grid.size(),
-            start.elapsed()
-        );
-        assert_eq!(config.grid.size(), all_blocks.len() as u64);
-
-        let opcodes = opcodes::get_opcode_map(&config).unwrap();
-
-        Self {
-            config,
-            trace,
-            trace_pos: RwLock::new(0),
-            opcodes,
-            launched: Mutex::new(false),
-            num_cores_running: 0,
-            cache_config_set: false,
-        }
-    }
-
-    pub fn id(&self) -> u64 {
-        self.config.id
-    }
-
-    pub fn next_threadblock_traces(&self, warps: &mut [scheduler::CoreWarp]) {
-        let mut trace_pos = self.trace_pos.write().unwrap();
-
-        let mut instructions = 0;
-        let trace_size = self.trace.len();
-
-        if *trace_pos + 1 >= trace_size || trace_size == 0 {
-            // no more threadblocks
-            log::info!("blocks done: no more threadblock traces");
-            return;
-        }
-        let next_block = &self.trace[*trace_pos + 1].block_id;
-
-        while *trace_pos < trace_size {
-            let entry = &self.trace[*trace_pos];
-            if entry.block_id != *next_block {
-                // get instructions until new block
-                break;
-            }
-
-            let warp_id = entry.warp_id_in_block as usize;
-            let instr = instruction::WarpInstruction::from_trace(&self, entry.clone());
-            let warp = warps.get_mut(warp_id).unwrap();
-            let mut warp = warp.try_borrow_mut().unwrap();
-            warp.push_trace_instruction(instr);
-
-            instructions += 1;
-            *trace_pos += 1;
-        }
-
-        log::debug!(
-            "added {instructions} instructions ({} per warp) for block {next_block}",
-            instructions / warps.len()
-        );
-        debug_assert!(instructions > 0);
-        // debug_assert!(instructions % 32 == 0);
-        // dbg!(warps
-        //     .iter()
-        //     .map(|w| w.try_borrow().unwrap().trace_instructions.len())
-        //     .collect::<Vec<_>>());
-        // debug_assert!(
-        //     warps
-        //         .iter()
-        //         .map(|w| w.try_borrow().unwrap().trace_instructions.len())
-        //         .collect::<HashSet<_>>()
-        //         .len()
-        //         == 1,
-        //     "all warps have the same number of instructions"
-        // );
-        // dbg!(warps
-        //     .iter()
-        //     .map(|w| w.try_borrow().unwrap().trace_instructions.len())
-        //     .collect::<Vec<_>>());
-
-        debug_assert!(
-            warps
-                .iter()
-                .all(|w| !w.try_borrow().unwrap().trace_instructions.is_empty()),
-            "all warps have at least one instruction (need at least an EXIT)"
-        );
-    }
-
-    pub fn inc_running(&mut self) {
-        self.num_cores_running += 1;
-    }
-
-    pub fn name(&self) -> &str {
-        &self.config.name
-    }
-
-    pub fn was_launched(&self) -> bool {
-        *self.launched.lock().unwrap()
-    }
-
-    pub fn running(&self) -> bool {
-        self.num_cores_running > 0
-    }
-
-    pub fn current_block(&self) -> Option<Point> {
-        let traces_pos = self.trace_pos.read().unwrap();
-        let trace = self.trace.get(*traces_pos)?;
-        Some(Point::new(trace.block_id.clone(), self.config.grid.clone()))
-    }
-
-    pub fn done(&self) -> bool {
-        self.no_more_blocks_to_run() && !self.running()
-    }
-
-    pub fn num_blocks(&self) -> usize {
-        let grid = &self.config.grid;
-        grid.x as usize * grid.y as usize * grid.z as usize
-    }
-
-    pub fn threads_per_block(&self) -> usize {
-        let block = &self.config.block;
-        block.x as usize * block.y as usize * block.z as usize
-    }
-
-    pub fn no_more_blocks_to_run(&self) -> bool {
-        self.current_block().is_none()
-    }
-}
 
 pub fn parse_commands(path: impl AsRef<Path>) -> eyre::Result<Vec<Command>> {
     let reader = utils::fs::open_readable(path.as_ref())?;
@@ -316,18 +113,19 @@ impl std::ops::Deref for Allocations {
 impl Allocations {
     pub fn insert(&mut self, range: std::ops::Range<address>, name: Option<String>) {
         // check for intersections
-        if self.0.overlaps(&range) {
-            panic!("overlapping memory allocation {:?}", &range);
-        }
+        assert!(
+            !self.0.overlaps(&range),
+            "overlapping memory allocation {:?}",
+            &range
+        );
         let id = self.0.len() + 1; // zero is reserved for instructions
         let start_addr = range.start;
         let end_addr = Some(range.end);
         self.0.insert(
             range,
             Allocation {
-                name,
-                // avoid joining of allocations using the id and range
                 id,
+                name,
                 start_addr,
                 end_addr,
             },
@@ -343,7 +141,7 @@ pub struct MockSimulator<I> {
     mem_sub_partitions: Vec<
         Rc<RefCell<mem_sub_partition::MemorySubPartition<fifo::FifoQueue<mem_fetch::MemFetch>>>>,
     >,
-    running_kernels: Vec<Option<Arc<KernelInfo>>>,
+    running_kernels: Vec<Option<Arc<kernel::Kernel>>>,
     executed_kernels: Mutex<HashMap<u64, String>>,
     clusters: Vec<SIMTCoreCluster<I>>,
     #[allow(dead_code)]
@@ -359,19 +157,20 @@ pub struct MockSimulator<I> {
     traces_dir: PathBuf,
     commands: Vec<Command>,
     command_idx: usize,
-    kernels: VecDeque<Arc<KernelInfo>>,
+    kernels: VecDeque<Arc<kernel::Kernel>>,
     kernel_window_size: usize,
     busy_streams: VecDeque<u64>,
     cycle_limit: Option<u64>,
     log_after_cycle: Option<u64>,
     // gpu_stall_icnt2sh: usize,
-    // partition_replies_in_parallel: usize,
+    partition_replies_in_parallel: usize,
 }
 
 #[derive(Debug, Default)]
 pub struct AtomicCycle(std::sync::atomic::AtomicU64);
 
 impl AtomicCycle {
+    #[must_use]
     pub fn new(cycle: u64) -> Self {
         Self(std::sync::atomic::AtomicU64::new(cycle))
     }
@@ -403,14 +202,10 @@ impl FromConfig for stats::Stats {
     }
 }
 
-// impl MockSimulator {
-// impl<'a> MockSimulator<'a> {
 impl<I> MockSimulator<I>
 where
-    // I: ic::MemFetchInterface + 'static,
     I: ic::Interconnect<core::Packet> + 'static,
 {
-    // see new trace_gpgpu_sim
     pub fn new(
         interconn: Arc<I>,
         config: Arc<config::GPUConfig>,
@@ -419,7 +214,7 @@ where
     ) -> Self {
         let _start = Instant::now();
         let traces_dir = traces_dir.as_ref();
-        let stats = Arc::new(Mutex::new(Stats::from_config(&*config)));
+        let stats = Arc::new(Mutex::new(Stats::from_config(&config)));
 
         let num_mem_units = config.num_memory_controllers;
         let num_sub_partitions = config.num_sub_partition_per_memory_channel;
@@ -481,15 +276,14 @@ where
 
         // todo: make this a hashset?
         let busy_streams: VecDeque<u64> = VecDeque::new();
-        let mut kernels: VecDeque<Arc<KernelInfo>> = VecDeque::new();
+        let mut kernels: VecDeque<Arc<kernel::Kernel>> = VecDeque::new();
         kernels.reserve_exact(window_size);
 
         let cycle_limit: Option<u64> = std::env::var("CYCLES")
             .ok()
             .as_deref()
             .map(str::parse)
-            .map(Result::ok)
-            .flatten();
+            .and_then(Result::ok);
 
         // this causes first launch to use simt cluster
         let last_cluster_issue = config.num_simt_clusters - 1;
@@ -516,6 +310,7 @@ where
             busy_streams,
             cycle_limit,
             log_after_cycle: None,
+            partition_replies_in_parallel: 0,
         }
     }
 
@@ -523,7 +318,7 @@ where
     ///
     /// Todo: used hack to allow selecting the kernel from the shader core,
     /// but we could maybe refactor
-    pub fn select_kernel(&self) -> Option<&Arc<KernelInfo>> {
+    pub fn select_kernel(&self) -> Option<&Arc<Kernel>> {
         let mut executed_kernels = self.executed_kernels.lock().unwrap();
         if let Some(k) = &self.running_kernels[self.last_issued_kernel] {
             if !k.no_more_blocks_to_run()
@@ -590,8 +385,8 @@ where
         })
     }
 
-    pub fn launch(&mut self, kernel: Arc<KernelInfo>) -> eyre::Result<()> {
-        *kernel.launched.lock().unwrap() = true;
+    pub fn launch(&mut self, kernel: Arc<Kernel>) -> eyre::Result<()> {
+        kernel.set_launched();
         let threads_per_block = kernel.threads_per_block();
         let max_threads_per_block = self.config.max_threads_per_core;
         if threads_per_block > max_threads_per_block {
@@ -630,7 +425,7 @@ where
     pub fn set_cycle(&self, cycle: u64) {
         let mut stats = self.stats.lock().unwrap();
         stats.sim.cycles = cycle;
-        self.cycle.set(cycle)
+        self.cycle.set(cycle);
     }
 
     pub fn cycle(&mut self) {
@@ -640,8 +435,6 @@ where
         for cluster in &mut self.clusters {
             cluster.interconn_cycle();
         }
-
-        let mut partition_replies_in_parallel_per_cycle = 0;
 
         log::debug!(
             "POP from {} memory sub partitions",
@@ -678,7 +471,7 @@ where
                 let dram_latency_queue: Vec<_> = partition
                     .dram_latency_queue
                     .iter()
-                    .map(|f| f.to_string())
+                    .map(std::string::ToString::to_string)
                     .collect();
                 log::debug!(
                     "\t dram latency queue ({:3}) = {:?}",
@@ -705,13 +498,12 @@ where
                     // drop(fetch);
                     self.interconn
                         .push(device, cluster_id, packet, response_packet_size);
-                    partition_replies_in_parallel_per_cycle += 1;
+                    self.partition_replies_in_parallel += 1;
                 } else {
                     // self.gpu_stall_icnt2sh += 1;
                 }
             }
         }
-        // self.partition_replies_in_parallel += partition_replies_in_parallel_per_cycle;
 
         // dram
         log::debug!("cycle for {} drams", self.mem_partition_units.len());
@@ -731,8 +523,8 @@ where
             "moving mem requests from interconn to {} mem partitions",
             self.mem_sub_partitions.len()
         );
-        let mut parallel_mem_partition_reqs_per_cycle = 0;
-        let mut stall_dram_full = 0;
+        // let mut parallel_mem_partition_reqs_per_cycle = 0;
+        // let mut stall_dram_full = 0;
         for (i, mem_sub) in self.mem_sub_partitions.iter_mut().enumerate() {
             let mut mem_sub = mem_sub.try_borrow_mut().unwrap();
             // move memory request from interconnect into memory partition
@@ -755,11 +547,11 @@ where
                     );
 
                     mem_sub.push(fetch);
-                    parallel_mem_partition_reqs_per_cycle += 1;
+                    // self.parallel_mem_partition_reqs += 1;
                 }
             } else {
                 log::debug!("SKIP sub partition {} ({}): DRAM full stall", i, device);
-                stall_dram_full += 1;
+                self.stats.lock().unwrap().stall_dram_full += 1;
             }
             // we borrow all of sub here, which is a problem for the cyclic reference in l2
             // interface
@@ -774,17 +566,17 @@ where
 
         // self.interconn_transfer();
 
-        let mut active_sms = 0;
+        // let mut active_sms = 0;
         for cluster in &mut self.clusters {
             let cores_completed = cluster.not_completed() == 0;
             let kernels_completed = self
                 .running_kernels
                 .iter()
-                .filter_map(|k| k.as_ref())
+                .filter_map(std::option::Option::as_ref)
                 .all(|k| k.no_more_blocks_to_run());
             if !cores_completed || !kernels_completed {
                 cluster.cycle();
-                active_sms += cluster.num_active_sms();
+                // active_sms += cluster.num_active_sms();
             }
         }
 
@@ -795,7 +587,7 @@ where
         // once all of threads are completed.
         let mut all_threads_complete = true;
         if self.config.flush_l1_cache {
-            for cluster in self.clusters.iter_mut() {
+            for cluster in &mut self.clusters {
                 if cluster.not_completed() == 0 {
                     cluster.cache_invalidate();
                 } else {
@@ -806,7 +598,7 @@ where
 
         if self.config.flush_l2_cache {
             if !self.config.flush_l1_cache {
-                for cluster in self.clusters.iter_mut() {
+                for cluster in &mut self.clusters {
                     if cluster.not_completed() > 0 {
                         all_threads_complete = false;
                         break;
@@ -833,7 +625,7 @@ where
         }
     }
 
-    pub fn gpu_mem_alloc(&mut self, addr: address, num_bytes: u64, name: Option<String>) {
+    pub fn gpu_mem_alloc(&mut self, addr: address, num_bytes: u64, name: Option<&str>) {
         log::info!(
             "memalloc: {:<20} {:>15} ({:>5} f32) at address {addr:>20}",
             name.as_deref().unwrap_or("<unnamed>"),
@@ -858,13 +650,13 @@ where
         self.allocations
             .try_borrow_mut()
             .unwrap()
-            .insert(alloc_range.clone(), name);
+            .insert(alloc_range, name);
 
         if self.config.fill_l2_on_memcopy {
             let num_sub_partitions = self.config.num_sub_partition_per_memory_channel;
             let mut transfered = 0;
             while transfered < num_bytes {
-                let write_addr = addr + transfered as u64;
+                let write_addr = addr + transfered;
 
                 let tlx_addr = self.config.address_mapping().tlx(write_addr);
                 let partition_id = tlx_addr.sub_partition / num_sub_partitions as u64;
@@ -932,7 +724,7 @@ where
     /// Process commands
     ///
     /// Take as many commands as possible until we have collected as many kernels to fill
-    /// the window_size or processed every command.
+    /// the `window_size` or processed every command.
     pub fn process_commands(&mut self) {
         while self.kernels.len() < self.kernel_window_size && self.command_idx < self.commands.len()
         {
@@ -947,9 +739,11 @@ where
                     allocation_name,
                     device_ptr,
                     num_bytes,
-                }) => self.gpu_mem_alloc(*device_ptr, *num_bytes, allocation_name.clone()),
+                }) => {
+                    self.gpu_mem_alloc(*device_ptr, *num_bytes, allocation_name.clone().as_deref())
+                }
                 Command::KernelLaunch(launch) => {
-                    let kernel = KernelInfo::from_trace(&self.traces_dir, launch.clone());
+                    let kernel = Kernel::from_trace(&self.traces_dir, launch.clone());
                     self.kernels.push_back(Arc::new(kernel));
                 }
             }
@@ -971,7 +765,7 @@ where
     /// Launch all kernels within window that are on a stream that isn't already running
     pub fn launch_kernels(&mut self) {
         log::trace!("launching kernels");
-        let mut launch_queue: Vec<Arc<KernelInfo>> = Vec::new();
+        let mut launch_queue: Vec<Arc<Kernel>> = Vec::new();
         for kernel in &self.kernels {
             let stream_busy = self
                 .busy_streams
@@ -991,19 +785,17 @@ where
                 .transpose()
                 .unwrap();
             if let Some(up_to_kernel) = up_to_kernel {
-                if kernel.config.id > up_to_kernel {
-                    panic!("launching kernel {}", kernel);
-                }
+                assert!(
+                    kernel.config.id <= up_to_kernel,
+                    "launching kernel {kernel}"
+                );
             }
-            self.launch(kernel);
+            self.launch(kernel).unwrap();
         }
     }
 
     pub fn reached_limit(&self, cycle: u64) -> bool {
-        match self.cycle_limit {
-            Some(limit) if cycle >= limit => true,
-            _ => false,
-        }
+        matches!(self.cycle_limit, Some(limit) if cycle >= limit)
     }
 
     pub fn commands_left(&self) -> bool {
@@ -1020,7 +812,7 @@ where
         deadlock_check: bool,
     ) -> eyre::Result<()> {
         let mut cycle: u64 = 0;
-        let mut last_state_change: Option<(DeadlockCheckState, u64)> = None;
+        let mut last_state_change: Option<(deadlock::State, u64)> = None;
 
         while (self.commands_left() || self.kernels_left()) && !self.reached_limit(cycle) {
             self.process_commands();
@@ -1048,10 +840,11 @@ where
 
                 match self.log_after_cycle {
                     Some(ref log_after_cycle) if cycle >= *log_after_cycle => {
-                        println!("initializing logging after cycle {}", cycle);
+                        use std::io::Write;
+
+                        println!("initializing logging after cycle {cycle}");
                         let mut log_builder = env_logger::Builder::new();
 
-                        use std::io::Write;
                         log_builder.format(|buf, record| {
                             writeln!(
                                 buf,
@@ -1105,7 +898,7 @@ where
 
                     match &mut last_state_change {
                         Some((last_state, update_cycle)) if &state == last_state => {
-                            panic!("deadlock after cycle {}", update_cycle);
+                            panic!("deadlock after cycle {update_cycle}");
                         }
                         Some((ref mut last_state, ref mut update_cycle)) => {
                             // log::info!("deadlock check: updated state in cycle {}", cycle);
@@ -1120,7 +913,7 @@ where
             }
 
             if let Some(kernel) = finished_kernel {
-                self.cleanup_finished_kernel(&*kernel);
+                self.cleanup_finished_kernel(&kernel);
             }
 
             log::trace!(
@@ -1133,7 +926,7 @@ where
         Ok(())
     }
 
-    // pub fn set_kernel_done(&mut self, kernel: &mut KernelInfo) {
+    // pub fn set_kernel_done(&mut self, kernel: &mut Kernel) {
     //     self.finished_kernels
     //         .borrow_mut()
     //         .push_back(kernel.config.id);
@@ -1146,16 +939,11 @@ where
     //     self.running_kernels.remove(running_kernel_idx);
     // }
 
-    fn finished_kernel(&mut self) -> Option<Arc<KernelInfo>> {
+    fn finished_kernel(&mut self) -> Option<Arc<Kernel>> {
         // check running kernels
         let _active = self.active();
-        let finished_kernel: Option<&mut Option<Arc<KernelInfo>>> = self
-            .running_kernels
-            .iter_mut()
-            // .filter_map(|k| k.as_ref())
-            // .filter_map(|k| k)
-            // .filter(|k| {
-            .find(|k| {
+        let finished_kernel: Option<&mut Option<Arc<Kernel>>> =
+            self.running_kernels.iter_mut().find(|k| {
                 if let Some(k) = k {
                     // TODO: could also check here if !self.active()
                     k.no_more_blocks_to_run() && !k.running() && k.was_launched()
@@ -1169,32 +957,9 @@ where
         } else {
             None
         }
-        // for running_kernel in self.running_kernels.iter().filter_map(|k| k.as_ref()) {
-        //     if running_kernel.no_more_blocks_to_run() && !running_kernel.running() {
-        //         //       SHADER_DPRINTF(LIVENESS,
-        //         //                      "GPGPU-Sim uArch: GPU detected kernel %u \'%s\' "
-        //         //                      "finished on shader %u.\n",
-        //         //                      kernel->get_uid(), kernel->name().c_str(), m_sid);
-        //         //
-        //         // if current_kernel.map(|k| k.config.id) == Some(kernel.config.id) {
-        //         //     *current_kernel = None;
-        //         // }
-        //
-        //         // m_gpu->set_kernel_done(kernel);
-        //         todo!("kernel {} done", &running_kernel);
-        //     }
-        // }
-
-        // self.finished_kernels.borrow_mut().pop_front()
     }
 
-    fn cleanup_finished_kernel(&mut self, kernel: &KernelInfo) {
-        // if !self.reached_limit() && self.active()) {
-        //     return;
-        // }
-        //   trace_kernel_info_t *k = NULL;
-        // let finished_kernel_idx = self.kernels.iter().position(|k| k.config.id == id).unwrap();
-        // let finished_kernel = &self.kernels[finished_kernel_idx];
+    fn cleanup_finished_kernel(&mut self, kernel: &Kernel) {
         log::debug!(
             "cleanup finished kernel with id={}: {}",
             kernel.id(),
@@ -1209,152 +974,6 @@ where
         //   m_gpgpu_sim->update_stats();
         //   m_gpgpu_context->print_simulation_time();
         // }
-
-        // if let Some(stream_idx) = self
-        //     .busy_streams
-        //     .iter()
-        //     .position(|stream| *stream == finished_kernel.config.stream_id)
-        // {
-        //     self.busy_streams.remove(stream_idx);
-        // }
-
-        // self.kernels.remove(finished_kernel_idx);
-
-        // tracer->kernel_finalizer(k->get_trace_info());
-        // delete k->entry();
-        // delete k;
-        // kernels_info.erase(kernels_info.begin() + j);
-        // if (!limit_reached() && active()) break;
-
-        // for stream in self.busy_streams.iter() {
-        //     if stream = finished_kernel.config.stream_id
-        //     if (busy_streams.at(l) == k->get_cuda_stream_id()) {
-        //       busy_streams.erase(busy_streams.begin() + l);
-        //       break;
-        //     }
-        //   }
-        //       tracer->kernel_finalizer(k->get_trace_info());
-        //       delete k->entry();
-        //       delete k;
-        //       kernels_info.erase(kernels_info.begin() + j);
-        //       if (!limit_reached() && active()) break;
-
-        // for (unsigned j = 0; j < kernels_info.size(); j++) {
-        // k = kernels_info.at(j);
-        // if (k->get_uid() == finished_kernel_uid || limit_reached() || !active()) {
-        //       for (unsigned l = 0; l < busy_streams.size(); l++) {
-        //         if (busy_streams.at(l) == k->get_cuda_stream_id()) {
-        //           busy_streams.erase(busy_streams.begin() + l);
-        //           break;
-        //         }
-        //       }
-        //       tracer->kernel_finalizer(k->get_trace_info());
-        //       delete k->entry();
-        //       delete k;
-        //       kernels_info.erase(kernels_info.begin() + j);
-        //       if (!limit_reached() && active()) break;
-        //     }
-        //   }
-        //   // make sure kernel was found and removed
-        //   assert(k);
-        //   // if (!silent) m_gpgpu_sim->print_stats();
-        // }
-    }
-
-    fn gather_state(&self) -> DeadlockCheckState {
-        let total_cores = self.config.total_cores();
-        let num_partitions = self.mem_partition_units.len();
-        let num_sub_partitions = self.mem_sub_partitions.len();
-
-        let mut state = DeadlockCheckState::new(total_cores, num_partitions, num_sub_partitions);
-
-        for (cluster_id, cluster) in self.clusters.iter().enumerate() {
-            for (core_id, core) in cluster.cores.lock().unwrap().iter().enumerate() {
-                let global_core_id = cluster_id * self.config.num_cores_per_simt_cluster + core_id;
-                assert_eq!(core.inner.core_id, global_core_id);
-
-                // this is the one we will use (unless the assertion is ever false)
-                let core_id = core.inner.core_id;
-
-                // core: functional units
-                for (fu_id, fu) in core.functional_units.iter().enumerate() {
-                    let _fu = fu.lock().unwrap();
-                    let issue_port = core.issue_ports[fu_id];
-                    let issue_reg: register_set::RegisterSet = core.inner.pipeline_reg
-                        [issue_port as usize]
-                        .borrow()
-                        .clone();
-                    assert_eq!(issue_port, issue_reg.stage);
-
-                    state.functional_unit_pipelines[core_id].push(issue_reg);
-                }
-                // core: operand collector
-                state.operand_collectors[core_id] =
-                    Some(core.inner.operand_collector.borrow().clone());
-                // core: schedulers
-                // state.schedulers[core_id].extend(core.schedulers.iter().map(Into::into));
-            }
-        }
-        for (partition_id, partition) in self.mem_partition_units.iter().enumerate() {
-            state.dram_latency_queue[partition_id]
-                .extend(partition.dram_latency_queue.clone().into_iter());
-        }
-        for (sub_id, sub) in self.mem_sub_partitions.iter().enumerate() {
-            for (dest_queue, src_queue) in [
-                (
-                    &mut state.interconn_to_l2_queue[sub_id],
-                    &sub.borrow().interconn_to_l2_queue,
-                ),
-                (
-                    &mut state.l2_to_interconn_queue[sub_id],
-                    &sub.borrow().l2_to_interconn_queue,
-                ),
-                (
-                    &mut state.l2_to_dram_queue[sub_id],
-                    &sub.borrow().l2_to_dram_queue.lock().unwrap(),
-                ),
-                (
-                    &mut state.dram_to_l2_queue[sub_id],
-                    &sub.borrow().dram_to_l2_queue,
-                ),
-            ] {
-                dest_queue.extend(src_queue.clone().into_iter());
-            }
-        }
-        state
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-struct DeadlockCheckState {
-    pub interconn_to_l2_queue: Vec<Vec<MemFetch>>,
-    pub l2_to_interconn_queue: Vec<Vec<MemFetch>>,
-    pub l2_to_dram_queue: Vec<Vec<MemFetch>>,
-    pub dram_to_l2_queue: Vec<Vec<MemFetch>>,
-    pub dram_latency_queue: Vec<Vec<MemFetch>>,
-    pub functional_unit_pipelines: Vec<Vec<register_set::RegisterSet>>,
-    pub operand_collectors: Vec<Option<operand_collector::OperandCollectorRegisterFileUnit>>,
-    // pub schedulers: Vec<Vec<sched::Scheduler>>,
-    // functional_unit_pipelines
-    // schedulers
-    // operand_collectors
-}
-
-impl DeadlockCheckState {
-    pub fn new(total_cores: usize, num_mem_partitions: usize, num_sub_partitions: usize) -> Self {
-        Self {
-            // per sub partition
-            interconn_to_l2_queue: vec![vec![]; num_sub_partitions],
-            l2_to_interconn_queue: vec![vec![]; num_sub_partitions],
-            l2_to_dram_queue: vec![vec![]; num_sub_partitions],
-            dram_to_l2_queue: vec![vec![]; num_sub_partitions],
-            // per partition
-            dram_latency_queue: vec![vec![]; num_mem_partitions],
-            // per core
-            functional_unit_pipelines: vec![vec![]; total_cores],
-            operand_collectors: vec![None; total_cores],
-            // schedulers: vec![vec![]; total_cores],
-        }
     }
 }
 
@@ -1379,8 +998,6 @@ pub fn accelmain(
     traces_dir: impl AsRef<Path>,
     log_after_cycle: Option<u64>,
 ) -> eyre::Result<Stats> {
-    log::info!("box version {}", 0);
-
     let traces_dir = traces_dir.as_ref();
     let (traces_dir, commands_path) = if traces_dir.is_dir() {
         (traces_dir.to_path_buf(), traces_dir.join("commands.json"))
@@ -1397,26 +1014,21 @@ pub fn accelmain(
     };
 
     // debugging config
-    let mut config = config::GPUConfig::default();
-
-    config.num_simt_clusters = 20; // 20
-    config.num_cores_per_simt_cluster = 4; // 1
-    config.num_schedulers_per_core = 2; // 1
-
-    config.num_memory_controllers = 8; // 8
-    config.num_sub_partition_per_memory_channel = 2; // 2
-    config.fill_l2_on_memcopy = true; // true
-
-    let config = Arc::new(config);
+    let config = Arc::new(config::GPUConfig {
+        num_simt_clusters: 20,                   // 20
+        num_cores_per_simt_cluster: 4,           // 1
+        num_schedulers_per_core: 2,              // 1
+        num_memory_controllers: 8,               // 8
+        num_sub_partition_per_memory_channel: 2, // 2
+        fill_l2_on_memcopy: true,                // true
+        ..config::GPUConfig::default()
+    });
 
     let interconn = Arc::new(ic::ToyInterconnect::new(
         config.num_simt_clusters,
         config.num_memory_controllers * config.num_sub_partition_per_memory_channel,
-        // config.num_simt_clusters * config.num_cores_per_simt_cluster,
-        // config.num_mem_units,
-        Some(9), // found by printf debugging gpgusim
     ));
-    let mut sim = MockSimulator::new(interconn, Arc::clone(&config), &traces_dir, &commands_path);
+    let mut sim = MockSimulator::new(interconn, Arc::clone(&config), &traces_dir, commands_path);
 
     sim.log_after_cycle = log_after_cycle;
 
@@ -1424,7 +1036,8 @@ pub fn accelmain(
         .unwrap_or_default()
         .to_lowercase()
         == "yes";
-    sim.run_to_completion(&traces_dir, deadlock_check);
+
+    sim.run_to_completion(&traces_dir, deadlock_check)?;
 
     let stats = sim.stats();
 
@@ -1435,12 +1048,7 @@ pub fn accelmain(
 mod tests {
     use crate::{
         config,
-        ported::{
-            self,
-            fifo::{self, Queue},
-            interconn as ic, testing,
-            testing::diff,
-        },
+        ported::{self, fifo, interconn as ic, testing, testing::diff},
     };
     use color_eyre::eyre;
     use itertools::Itertools;
@@ -1568,7 +1176,7 @@ mod tests {
                     .map(Into::into),
             );
             box_sim_state.dram_arbitration_per_partition[partition_id] =
-                testing::state::ArbitrationState {
+                testing::state::Arbitration {
                     last_borrower: partition.arbitration_metadata.last_borrower,
                     shared_credit: partition.arbitration_metadata.shared_credit,
                     private_credit: partition.arbitration_metadata.private_credit.clone().into(),
@@ -1618,7 +1226,7 @@ mod tests {
         play_sim_state.last_cluster_issue = play_sim.last_cluster_issue() as usize;
 
         for (core_id, core) in play_sim.cores().enumerate() {
-            for regs in core.functional_unit_issue_register_sets().into_iter() {
+            for regs in core.functional_unit_issue_register_sets() {
                 play_sim_state.functional_unit_pipelines_per_core[core_id].push(regs.into());
             }
             let valid_units: HashSet<_> = box_sim_state.functional_unit_pipelines_per_core[core_id]
@@ -1685,7 +1293,7 @@ mod tests {
             partitions_added += 1;
 
             play_sim_state.dram_arbitration_per_partition[partition_id] =
-                testing::state::ArbitrationState {
+                testing::state::Arbitration {
                     last_borrower: partition.last_borrower(),
                     shared_credit: partition.shared_credit(),
                     private_credit: partition.private_credit().into(),
@@ -1997,6 +1605,8 @@ mod tests {
     // }
 
     fn run_lockstep(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> {
+        use accelsim::tracegen::reader::Command as AccelsimCommand;
+
         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
 
         let box_trace_dir = trace_dir.join("trace");
@@ -2027,7 +1637,6 @@ mod tests {
                 let accelsim_commands =
                     accelsim::tracegen::reader::read_commands(&accelsim_trace_dir, reader)?;
 
-                use accelsim::tracegen::reader::Command as AccelsimCommand;
                 let commands: Vec<_> = accelsim_commands
                     .into_iter()
                     .map(|cmd| match cmd {
@@ -2037,7 +1646,7 @@ mod tests {
                         AccelsimCommand::KernelLaunch((mut kernel, metadata)) => {
                             // transform kernel instruction trace
                             let kernel_trace_path = accelsim_trace_dir.join(&kernel.trace_file);
-                            let reader = utils::fs::open_readable(&kernel_trace_path)?;
+                            let reader = utils::fs::open_readable(kernel_trace_path)?;
                             let parsed_trace = accelsim::tracegen::reader::read_trace_instructions(
                                 reader,
                                 metadata.trace_version,
@@ -2130,7 +1739,6 @@ mod tests {
         dbg!(&box_commands_path);
         dbg!(&accelsim_kernelslist_path);
 
-        // assert!(false);
         let gpgpusim_config = manifest_dir.join("accelsim/gtx1080/gpgpusim.config");
         let trace_config = manifest_dir.join("accelsim/gtx1080/gpgpusim.trace.config");
         let inter_config = manifest_dir.join("accelsim/gtx1080/config_fermi_islip.icnt");
@@ -2143,37 +1751,29 @@ mod tests {
         assert!(trace_config.is_file());
         assert!(inter_config.is_file());
 
-        // let start = std::time::Instant::now();
-        // let box_stats = super::accelmain(&vec_add_trace_dir.join("trace"), None)?;
-
         // debugging config
-        let mut box_config = config::GPUConfig::default();
-        box_config.num_simt_clusters = 20; // 20
-        box_config.num_cores_per_simt_cluster = 4; // 1
-        box_config.num_schedulers_per_core = 2; // 2
-        box_config.num_memory_controllers = 8; // 8
-        box_config.num_sub_partition_per_memory_channel = 2; // 2
-        box_config.fill_l2_on_memcopy = true; // true
-
-        let box_config = Arc::new(box_config);
+        let box_config = Arc::new(config::GPUConfig {
+            num_simt_clusters: 20,                   // 20
+            num_cores_per_simt_cluster: 4,           // 1
+            num_schedulers_per_core: 2,              // 2
+            num_memory_controllers: 8,               // 8
+            num_sub_partition_per_memory_channel: 2, // 2
+            fill_l2_on_memcopy: true,                // true
+            ..config::GPUConfig::default()
+        });
 
         let box_interconn = Arc::new(ic::ToyInterconnect::new(
             box_config.num_simt_clusters,
             box_config.num_memory_controllers * box_config.num_sub_partition_per_memory_channel,
-            // config.num_simt_clusters * config.num_cores_per_simt_cluster,
-            // config.num_mem_units,
-            Some(9), // found by printf debugging gpgusim
         ));
 
         let mut box_sim = super::MockSimulator::new(
             box_interconn,
-            box_config.clone(),
+            box_config,
             &box_trace_dir,
             &box_commands_path,
         );
-        // let box_dur = start.elapsed();
 
-        // let start = std::time::Instant::now();
         let args = vec![
             "-trace",
             accelsim_kernelslist_path.as_os_str().to_str().unwrap(),
@@ -2189,10 +1789,6 @@ mod tests {
         let play_config = playground::Config::default();
         let mut play_sim = playground::Accelsim::new(&play_config, &args)?;
 
-        // accelsim.run_to_completion();
-        // let ref_stats = accelsim.stats().clone();
-        // let ref_stats = playground::run(&config, &args)?;
-        //
         let mut play_time_cycle = std::time::Duration::ZERO;
         let mut play_time_other = std::time::Duration::ZERO;
         let mut box_time_cycle = std::time::Duration::ZERO;
@@ -2225,15 +1821,15 @@ mod tests {
             .unwrap_or(200);
         assert!(check_every >= 1);
 
-        let _num_schedulers = box_sim.config.num_schedulers_per_core;
-        let num_clusters = box_sim.config.num_simt_clusters;
-        let cores_per_cluster = box_sim.config.num_cores_per_simt_cluster;
-        assert_eq!(
-            box_sim.config.total_cores(),
-            num_clusters * cores_per_cluster
-        );
-        let _num_partitions = box_sim.mem_partition_units.len();
-        let _num_sub_partitions = box_sim.mem_sub_partitions.len();
+        // let _num_schedulers = box_sim.config.num_schedulers_per_core;
+        // let num_clusters = box_sim.config.num_simt_clusters;
+        // let cores_per_cluster = box_sim.config.num_cores_per_simt_cluster;
+        // assert_eq!(
+        //     box_sim.config.total_cores(),
+        //     num_clusters * cores_per_cluster
+        // );
+        // let _num_partitions = box_sim.mem_partition_units.len();
+        // let _num_sub_partitions = box_sim.mem_sub_partitions.len();
         //
         // let mut box_sim_state = testing::state::Simulation::new(
         //     num_clusters,
@@ -2420,7 +2016,7 @@ mod tests {
                         //     dbg!(sub_id, box_icnt_l2_queue);
                         // }
                     }
-                    println!("checking for diff after cycle {}", cycle);
+                    println!("checking for diff after cycle {cycle}");
 
                     if use_full_diff {
                         full_diff::assert_eq!(&box_sim_state, &play_sim_state);
@@ -2441,7 +2037,7 @@ mod tests {
                 }
 
                 if let Some(kernel) = box_sim.finished_kernel() {
-                    box_sim.cleanup_finished_kernel(&*kernel);
+                    box_sim.cleanup_finished_kernel(&kernel);
                 }
                 box_time_other += start.elapsed();
 
@@ -2743,7 +2339,7 @@ mod tests {
                         playground_bin.display()
                     )
                 })
-                .with_suggestion(|| format!("make sure to build playground with `cargo build -p playground` for the {:?} target", target))?;
+                .with_suggestion(|| format!("make sure to build playground with `cargo build -p playground` for the {target:?} target"))?;
 
             let gpgpu_sim_config = sim_config.config().unwrap();
             let trace_config = sim_config.trace_config().unwrap();
@@ -2799,8 +2395,6 @@ mod tests {
         kernelslist: &Path,
         sim_config: &accelsim::SimConfig,
     ) -> eyre::Result<()> {
-        use std::io::Write;
-
         dbg!(&traces_dir);
         dbg!(&kernelslist);
         dbg!(&sim_config);
@@ -2849,24 +2443,21 @@ mod tests {
         let filter_func =
             |((_name, _kernel, stat_name), _value): &((String, u16, String), f64)| -> bool {
                 // we ignore rates and other stats that can vary per run
-                match stat_name.as_str() {
+                !matches!(
+                    stat_name.as_str(),
                     "gpgpu_silicon_slowdown"
-                    | "gpgpu_simulation_rate"
-                    | "gpgpu_simulation_time_sec"
-                    | "gpu_ipc"
-                    | "gpu_occupancy"
-                    | "gpu_tot_ipc"
-                    | "l1_inst_cache_total_miss_rate"
-                    | "l2_bandwidth_gbps" => false,
-                    _ => true,
-                }
+                        | "gpgpu_simulation_rate"
+                        | "gpgpu_simulation_time_sec"
+                        | "gpu_ipc"
+                        | "gpu_occupancy"
+                        | "gpu_tot_ipc"
+                        | "l1_inst_cache_total_miss_rate"
+                        | "l2_bandwidth_gbps"
+                )
             };
 
-        let cmp_play_stats: accelsim::Stats = playground_stats
-            .clone()
-            .into_iter()
-            .filter(filter_func)
-            .collect();
+        let cmp_play_stats: accelsim::Stats =
+            playground_stats.into_iter().filter(filter_func).collect();
 
         let cmp_accel_stats: accelsim::Stats = accelsim_stats
             .clone()

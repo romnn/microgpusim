@@ -55,7 +55,7 @@ impl DRAM {
     /// DRAM access
     ///
     /// Here, we do nothing except logging statistics
-    /// see: memory_stats_t::memlatstat_dram_access()
+    /// see: `memory_stats_t::memlatstat_dram_access`()
     pub fn access(&mut self, fetch: &mem_fetch::MemFetch) {
         let dram_id = fetch.tlx_addr.chip as usize;
         let bank = fetch.tlx_addr.bk as usize;
@@ -92,7 +92,7 @@ impl DRAM {
     //     todo!("dram: return_queue_top");
     // }
     //
-    pub fn full(&self, _is_write: bool) -> bool {
+    #[must_use] pub fn full(&self, _is_write: bool) -> bool {
         false
         // let write_queue_size = self.config.dram_frfcfs_write_queue_size;
         // let sched_queue_size = self.config.dram_frfcfs_sched_queue_size;

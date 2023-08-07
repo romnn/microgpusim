@@ -41,23 +41,6 @@ fn configure_debug_mode(build: &mut cc::Build) {
     }
 }
 
-#[allow(dead_code)]
-#[deprecated = "redundant when compiling the bridge"]
-fn build(sources: &[PathBuf]) -> eyre::Result<()> {
-    let mut build = cc::Build::new();
-    build
-        .cpp(true)
-        .static_flag(true)
-        .files(sources)
-        .flag("-std=c++14")
-        .warnings(false);
-
-    configure_debug_mode(&mut build);
-    enable_diagnostics_color(&mut build);
-    build.try_compile("playground")?;
-    Ok(())
-}
-
 #[derive(Debug)]
 struct ParseCallbacks {}
 
@@ -329,6 +312,7 @@ fn generate_bridge(
     build
         .cpp(true)
         .static_flag(true)
+        .pic(true)
         .warnings(false)
         .include(include_dir)
         .include(parser_include_dir)

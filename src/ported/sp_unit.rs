@@ -1,6 +1,5 @@
 use super::{
-    instruction::WarpInstruction, opcodes, register_set::RegisterSet,
-    simd_function_unit as fu,
+    instruction::WarpInstruction, opcodes, register_set::RegisterSet, simd_function_unit as fu,
 };
 use crate::config::GPUConfig;
 use std::cell::RefCell;
@@ -8,15 +7,11 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 #[derive()]
-// pub struct SPUnit<I> {
 pub struct SPUnit {
-    // core_id: usize,
-    // cluster_id: usize,
     config: Arc<GPUConfig>,
     pipelined_simd_unit: fu::PipelinedSimdUnitImpl,
 }
 
-// impl<I> SPUnit<I> {
 impl SPUnit {
     pub fn new(
         id: usize,
@@ -56,23 +51,19 @@ impl std::fmt::Debug for SPUnit {
     }
 }
 
-// impl<I> fu::SimdFunctionUnit for SPUnit<I>
-impl fu::SimdFunctionUnit for SPUnit
-// where
-//     I: ic::Interconnect<super::core::Packet>,
-{
+impl fu::SimdFunctionUnit for SPUnit {
     fn can_issue(&self, instr: &WarpInstruction) -> bool {
+        use opcodes::ArchOp;
         match instr.opcode.category {
-            opcodes::ArchOp::SFU_OP => false,
-            opcodes::ArchOp::LOAD_OP => false,
-            opcodes::ArchOp::TENSOR_CORE_LOAD_OP => false,
-            opcodes::ArchOp::STORE_OP => false,
-            opcodes::ArchOp::TENSOR_CORE_STORE_OP => false,
-            opcodes::ArchOp::MEMORY_BARRIER_OP => false,
-            opcodes::ArchOp::DP_OP => false,
+            ArchOp::SFU_OP
+            | ArchOp::LOAD_OP
+            | ArchOp::TENSOR_CORE_LOAD_OP
+            | ArchOp::STORE_OP
+            | ArchOp::TENSOR_CORE_STORE_OP
+            | ArchOp::MEMORY_BARRIER_OP
+            | ArchOp::DP_OP => false,
             _ => self.pipelined_simd_unit.can_issue(instr),
         }
-        // todo!("load store unit: can issue");
     }
 
     fn pipeline(&self) -> &Vec<Option<WarpInstruction>> {

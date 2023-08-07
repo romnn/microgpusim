@@ -1,10 +1,6 @@
 use super::address;
 use color_eyre::eyre;
 
-pub fn bitwise_hash_function(higher_bits: address, index: usize, bank_set_num: usize) -> u64 {
-    index as u64 ^ (higher_bits & (bank_set_num as u64 - 1))
-}
-
 /// Set Indexing function from "Pseudo-randomly interleaved memory."
 /// Rau, B. R et al.
 /// ISCA 1991
@@ -30,6 +26,7 @@ pub fn bitwise_hash_function(higher_bits: address, index: usize, bank_set_num: u
 /// IPOLY hashing guarantees conflict-free for all 2^n strides which widely
 /// exit in GPGPU applications and also show good performance for other
 /// strides.
+#[must_use]
 pub fn ipoly_hash_function(_higher_bits: address, _index: usize, _bank_set_num: usize) -> u64 {
     todo!("ipoly_hash_function");
 }
