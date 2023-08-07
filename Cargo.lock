@@ -532,6 +532,7 @@ dependencies = [
  "pretty_assertions_sorted",
  "pyo3",
  "rangemap",
+ "rayon",
  "regex",
  "rmp-serde",
  "serde",

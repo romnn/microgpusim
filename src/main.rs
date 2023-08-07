@@ -31,8 +31,9 @@ struct Options {
     /// Turn debugging information on
     #[arg(short, long, action = clap::ArgAction::Count)]
     debug: u8,
-    // #[command(subcommand)]
-    // command: Option<Command>,
+    /// Use multi-threading
+    #[arg(long = "parallel")]
+    parallel: bool,
 }
 
 fn main() -> eyre::Result<()> {

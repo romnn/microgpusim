@@ -1,6 +1,8 @@
 use std::collections::VecDeque;
 
-pub trait Queue<T>: std::iter::IntoIterator<Item = T> + std::fmt::Display {
+pub trait Queue<T>:
+    std::iter::IntoIterator<Item = T> + Send + Sync + std::fmt::Display + 'static
+{
     fn new<S: ToString>(name: S, min_size: Option<usize>, max_size: Option<usize>) -> Self;
     fn enqueue(&mut self, value: T);
     fn dequeue(&mut self) -> Option<T>;
@@ -17,15 +19,6 @@ pub struct FifoQueue<T> {
     min_size: Option<usize>,
     max_size: Option<usize>,
 }
-
-// impl<T> std::iter::Iterator for FifoQueue<T> {
-//     type Item = T;
-//     // type IntoIter = std::collections::vec_deque::IntoIter<Self::Item>;
-//
-//     // fn iter(self) -> std::collections::vec_deque::Iter<T> {
-//     //     self.inner.iter()
-//     // }
-// }
 
 impl<T> std::iter::IntoIterator for FifoQueue<T> {
     type Item = T;
@@ -50,7 +43,10 @@ where
                 .map(|max| max.to_string())
                 .as_deref()
                 .unwrap_or(""),
-            self.inner.iter().map(std::string::ToString::to_string).collect::<Vec<_>>() // .join(", ")
+            self.inner
+                .iter()
+                .map(std::string::ToString::to_string)
+                .collect::<Vec<_>>() // .join(", ")
         )
         // f.debug_list()
         //     .entries(self.inner.iter().map(|i| i)) // i.to_string()))
@@ -59,14 +55,15 @@ where
 }
 
 impl<T> FifoQueue<T> {
-    #[must_use] pub fn iter(&self) -> std::collections::vec_deque::Iter<T> {
+    #[must_use]
+    pub fn iter(&self) -> std::collections::vec_deque::Iter<T> {
         self.inner.iter()
     }
 }
 
 impl<T> Queue<T> for FifoQueue<T>
 where
-    T: std::fmt::Display,
+    T: Send + Sync + std::fmt::Display + 'static,
 {
     fn new<S: ToString>(_name: S, min_size: Option<usize>, max_size: Option<usize>) -> Self {
         Self {

@@ -12,7 +12,8 @@ pub struct SIMTCoreCluster<I> {
     pub cluster_id: usize,
     pub cycle: super::Cycle,
     pub warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
-    pub cores: Mutex<Vec<SIMTCore<I>>>,
+    // pub cores: Mutex<Vec<SIMTCore<I>>>,
+    pub cores: Vec<Mutex<SIMTCore<I>>>,
     pub config: Arc<config::GPUConfig>,
     pub stats: Arc<Mutex<stats::Stats>>,
 
@@ -31,7 +32,7 @@ where
         cluster_id: usize,
         cycle: super::Cycle,
         warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
-        allocations: Rc<RefCell<super::Allocations>>,
+        allocations: super::allocation::Ref,
         interconn: Arc<I>,
         stats: Arc<Mutex<stats::Stats>>,
         config: Arc<config::GPUConfig>,
@@ -40,12 +41,13 @@ where
         let block_issue_next_core = Mutex::new(num_cores - 1);
         let mut cluster = Self {
             cluster_id,
-            cycle: Rc::clone(&cycle),
+            cycle: cycle.clone(),
             warp_instruction_unique_uid: Arc::clone(&warp_instruction_unique_uid),
             config: config.clone(),
             stats: stats.clone(),
             interconn: interconn.clone(),
-            cores: Mutex::new(Vec::new()),
+            // cores: Mutex::new(Vec::new()),
+            cores: Vec::new(),
             core_sim_order: VecDeque::new(),
             block_issue_next_core,
             response_fifo: VecDeque::new(),
@@ -54,70 +56,84 @@ where
             .map(|core_id| {
                 cluster.core_sim_order.push_back(core_id);
                 let id = config.global_core_id(cluster_id, core_id);
-                SIMTCore::new(
+                Mutex::new(SIMTCore::new(
                     id,
                     cluster_id,
-                    Rc::clone(&allocations),
-                    Rc::clone(&cycle),
+                    Arc::clone(&allocations),
+                    cycle.clone(),
                     Arc::clone(&warp_instruction_unique_uid),
                     Arc::clone(&interconn),
                     Arc::clone(&stats),
                     Arc::clone(&config),
-                )
+                ))
             })
             .collect();
-        cluster.cores = Mutex::new(cores);
+        // cluster.cores = Mutex::new(cores);
+        cluster.cores = cores;
         cluster.reinit();
         cluster
     }
 
     fn reinit(&mut self) {
-        for core in self.cores.lock().unwrap().iter_mut() {
-            core.reinit(0, self.config.max_threads_per_core, true);
+        // for core in self.cores.lock().unwrap().iter_mut() {
+        for core in &self.cores {
+            core.lock()
+                .unwrap()
+                .reinit(0, self.config.max_threads_per_core, true);
         }
     }
 
     pub fn num_active_sms(&self) -> usize {
         self.cores
-            .lock()
-            .unwrap()
             .iter()
-            .filter(|c| c.active())
+            .filter(|core| core.lock().unwrap().active())
             .count()
+
+        // self.cores
+        //     .lock()
+        //     .unwrap()
+        //     .iter()
+        //     .filter(|c| c.active())
+        //     .count()
     }
 
     pub fn not_completed(&self) -> usize {
         self.cores
-            .lock()
-            .unwrap()
             .iter()
-            .map(core::SIMTCore::not_completed)
+            .map(|core| core.lock().unwrap().not_completed())
             .sum()
+
+        // self.cores
+        //     .lock()
+        //     .unwrap()
+        //     .iter()
+        //     .map(core::SIMTCore::not_completed)
+        //     .sum()
     }
 
-    pub fn warp_waiting_at_barrier(&self, _warp_id: usize) -> bool {
-        todo!("cluster: warp_waiting_at_barrier");
-        // self.barriers.warp_waiting_at_barrier(warp_id)
-    }
-
-    pub fn warp_waiting_at_mem_barrier(&self, _warp_id: usize) -> bool {
-        todo!("cluster: warp_waiting_at_mem_barrier");
-        // if (!m_warp[warp_id]->get_membar()) return false;
-        // if (!m_scoreboard->pendingWrites(warp_id)) {
-        //   m_warp[warp_id]->clear_membar();
-        //   if (m_gpu->get_config().flush_l1()) {
-        //     // Mahmoud fixed this on Nov 2019
-        //     // Invalidate L1 cache
-        //     // Based on Nvidia Doc, at MEM barrier, we have to
-        //     //(1) wait for all pending writes till they are acked
-        //     //(2) invalidate L1 cache to ensure coherence and avoid reading stall data
-        //     cache_invalidate();
-        //     // TO DO: you need to stall the SM for 5k cycles.
-        //   }
-        //   return false;
-        // }
-        // return true;
-    }
+    // pub fn warp_waiting_at_barrier(&self, _warp_id: usize) -> bool {
+    //     todo!("cluster: warp_waiting_at_barrier");
+    //     // self.barriers.warp_waiting_at_barrier(warp_id)
+    // }
+    //
+    // pub fn warp_waiting_at_mem_barrier(&self, _warp_id: usize) -> bool {
+    //     todo!("cluster: warp_waiting_at_mem_barrier");
+    //     // if (!m_warp[warp_id]->get_membar()) return false;
+    //     // if (!m_scoreboard->pendingWrites(warp_id)) {
+    //     //   m_warp[warp_id]->clear_membar();
+    //     //   if (m_gpu->get_config().flush_l1()) {
+    //     //     // Mahmoud fixed this on Nov 2019
+    //     //     // Invalidate L1 cache
+    //     //     // Based on Nvidia Doc, at MEM barrier, we have to
+    //     //     //(1) wait for all pending writes till they are acked
+    //     //     //(2) invalidate L1 cache to ensure coherence and avoid reading stall data
+    //     //     cache_invalidate();
+    //     //     // TO DO: you need to stall the SM for 5k cycles.
+    //     //   }
+    //     //   return false;
+    //     // }
+    //     // return true;
+    // }
 
     pub fn interconn_cycle(&mut self) {
         use mem_fetch::AccessKind;
@@ -139,8 +155,9 @@ where
         if let Some(fetch) = self.response_fifo.front() {
             let core_id = self.config.global_core_id_to_core_id(fetch.core_id);
 
-            let mut cores = self.cores.lock().unwrap();
-            let core = &mut cores[core_id];
+            // let mut cores = self.cores.lock().unwrap();
+            // let core = &mut cores[core_id];
+            let mut core = self.cores[core_id].lock().unwrap();
 
             match *fetch.access_kind() {
                 AccessKind::INST_ACC_R => {
@@ -214,25 +231,33 @@ where
     }
 
     pub fn cache_flush(&mut self) {
-        let mut cores = self.cores.lock().unwrap();
-        for core in cores.iter_mut() {
-            core.cache_flush();
+        // let mut cores = self.cores.lock().unwrap();
+        // for core in cores.iter_mut() {
+        //     core.cache_flush();
+        // }
+
+        for core in &self.cores {
+            core.lock().unwrap().cache_flush();
         }
     }
 
     pub fn cache_invalidate(&mut self) {
-        let mut cores = self.cores.lock().unwrap();
-        for core in cores.iter_mut() {
-            core.cache_invalidate();
+        // let mut cores = self.cores.lock().unwrap();
+        // for core in cores.iter_mut() {
+        //     core.cache_invalidate();
+        // }
+        for core in &self.cores {
+            core.lock().unwrap().cache_invalidate()
         }
     }
 
     pub fn cycle(&mut self) {
         log::debug!("cluster {} cycle {}", self.cluster_id, self.cycle.get());
-        let mut cores = self.cores.lock().unwrap();
+        // let mut cores = self.cores.lock().unwrap();
 
         for core_id in &self.core_sim_order {
-            cores[*core_id].cycle()
+            // cores[*core_id].cycle()
+            self.cores[*core_id].lock().unwrap().cycle();
         }
 
         if let config::SchedulingOrder::RoundRobin = self.config.simt_core_sim_order {
@@ -243,8 +268,9 @@ where
     }
 
     pub fn issue_block_to_core(&self, sim: &MockSimulator<I>) -> usize {
-        let mut cores = self.cores.lock().unwrap();
-        let num_cores = cores.len();
+        // let mut cores = self.cores.lock().unwrap();
+        // let num_cores = cores.len();
+        let num_cores = self.cores.len();
 
         log::debug!(
             "cluster {}: issue block to core for {} cores",
@@ -257,7 +283,8 @@ where
 
         for core_id in 0..num_cores {
             let core_id = (core_id + *block_issue_next_core + 1) % num_cores;
-            let core = &mut cores[core_id];
+            // let core = &mut cores[core_id];
+            let mut core = self.cores[core_id].lock().unwrap();
             let kernel: Option<Arc<Kernel>> = if self.config.concurrent_kernel_sm {
                 // always select latest issued kernel
                 // kernel = sim.select_kernel()

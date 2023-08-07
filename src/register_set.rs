@@ -1,4 +1,8 @@
 use super::instruction::WarpInstruction;
+use std::sync::{Arc, Mutex};
+
+// pub type RegisterSetRef = Rc<RefCell<RegisterSet>>;
+pub type Ref = Arc<Mutex<RegisterSet>>;
 
 /// Register that can hold multiple instructions.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -9,7 +13,8 @@ pub struct RegisterSet {
 }
 
 impl RegisterSet {
-    #[must_use] pub fn new(stage: super::PipelineStage, size: usize, id: usize) -> Self {
+    #[must_use]
+    pub fn new(stage: super::PipelineStage, size: usize, id: usize) -> Self {
         let regs = (0..size).map(|_| None).collect();
         Self { stage, regs, id }
     }
@@ -23,7 +28,8 @@ impl RegisterSet {
     }
 
     // pub fn has_free_sub_core(&self, sub_core_model: bool, reg_id: usize) -> bool {
-    #[must_use] pub fn has_free_sub_core(&self, reg_id: usize) -> bool {
+    #[must_use]
+    pub fn has_free_sub_core(&self, reg_id: usize) -> bool {
         // in subcore model, each sched has a one specific
         // reg to use (based on sched id)
         // if !sub_core_model {
@@ -94,7 +100,8 @@ impl RegisterSet {
         self.regs.iter().any(Option::is_some)
     }
 
-    #[must_use] pub fn get_ready(&self) -> Option<(usize, &Option<WarpInstruction>)> {
+    #[must_use]
+    pub fn get_ready(&self) -> Option<(usize, &Option<WarpInstruction>)> {
         let mut ready: Option<(usize, &Option<WarpInstruction>)> = None;
         for free in self.iter_occupied() {
             match (&ready, free) {
@@ -211,7 +218,8 @@ impl RegisterSet {
     //     ready
     // }
 
-    #[must_use] pub fn get_ready_sub_core(&self, reg_id: usize) -> Option<&Option<WarpInstruction>> {
+    #[must_use]
+    pub fn get_ready_sub_core(&self, reg_id: usize) -> Option<&Option<WarpInstruction>> {
         debug_assert!(reg_id < self.regs.len());
         self.regs.get(reg_id)
     }
@@ -290,11 +298,13 @@ impl RegisterSet {
         // .and_then(Option::as_ref) .filter(|r| r.empty())
     }
 
-    #[must_use] pub fn size(&self) -> usize {
+    #[must_use]
+    pub fn size(&self) -> usize {
         self.regs.len()
     }
 
-    #[must_use] pub fn empty(&self) -> bool {
+    #[must_use]
+    pub fn empty(&self) -> bool {
         todo!("RegisterSet::empty")
     }
 
@@ -328,10 +338,8 @@ impl RegisterSet {
 
     // pub fn move_out_to(&mut self, dest: &mut Option<WarpInstruction>, msg: impl AsRef<str>) {
     pub fn move_out_to(&mut self, dest: &mut Option<WarpInstruction>) {
-        let ready: Option<WarpInstruction> = self
-            .get_ready_mut()
-            .map(|(_, r)| r)
-            .and_then(Option::take);
+        let ready: Option<WarpInstruction> =
+            self.get_ready_mut().map(|(_, r)| r).and_then(Option::take);
         // let msg = format!(
         //     "register set moving out from ready={:?} to {:?}",
         //     ready.as_ref().map(ToString::to_string),
@@ -347,9 +355,8 @@ impl RegisterSet {
         dest: &mut Option<WarpInstruction>,
         // msg: impl AsRef<str>,
     ) {
-        let ready: Option<WarpInstruction> = self
-            .get_ready_sub_core_mut(reg_id)
-            .and_then(Option::take);
+        let ready: Option<WarpInstruction> =
+            self.get_ready_sub_core_mut(reg_id).and_then(Option::take);
         // let msg = format!(
         //     "register set moving out to sub core from ready={:?} to {:?}",
         //     ready.as_ref().map(ToString::to_string),

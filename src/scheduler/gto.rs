@@ -29,7 +29,8 @@ impl Scheduler {
         self.inner
             .next_cycle_prioritized_warps
             .iter()
-            .map(|w| w.borrow().warp_id)
+            // .map(|w| w.borrow().warp_id)
+            .map(|(_idx, w)| w.try_lock().unwrap().warp_id)
             .collect()
     }
 
@@ -37,7 +38,8 @@ impl Scheduler {
         self.inner
             .next_cycle_prioritized_warps
             .iter()
-            .map(|w| w.borrow().dynamic_warp_id())
+            // .map(|w| w.borrow().dynamic_warp_id())
+            .map(|(_idx, w)| w.try_lock().unwrap().dynamic_warp_id())
             .collect()
     }
 }
@@ -54,7 +56,7 @@ impl SchedulerUnit for Scheduler {
         self.inner.supervised_warps.push_back(warp);
     }
 
-    fn prioritized_warps(&self) -> &VecDeque<WarpRef> {
+    fn prioritized_warps(&self) -> &VecDeque<(usize, WarpRef)> {
         self.inner.prioritized_warps()
     }
 

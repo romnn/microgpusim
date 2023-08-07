@@ -98,30 +98,35 @@ impl<I> Base<I> {
     /// Checks whether this request can be handled in this cycle.
     ///
     /// `n` equals the number of misses to be handled in this cycle.
-    #[must_use] pub fn miss_queue_can_fit(&self, n: usize) -> bool {
+    #[must_use]
+    pub fn miss_queue_can_fit(&self, n: usize) -> bool {
         self.miss_queue.len() + n < self.cache_config.miss_queue_size
     }
 
     /// Checks whether the miss queue is full.
     ///
     /// This leads to misses not being handled in this cycle.
-    #[must_use] pub fn miss_queue_full(&self) -> bool {
+    #[must_use]
+    pub fn miss_queue_full(&self) -> bool {
         self.miss_queue.len() >= self.cache_config.miss_queue_size
     }
 
     /// Checks if fetch is waiting to be filled by lower memory level
-    #[must_use] pub fn waiting_for_fill(&self, fetch: &mem_fetch::MemFetch) -> bool {
+    #[must_use]
+    pub fn waiting_for_fill(&self, fetch: &mem_fetch::MemFetch) -> bool {
         self.pending.contains_key(fetch)
     }
 
     /// Are any (accepted) accesses that had to wait for memory now ready?
     ///
     /// Note: does not include accesses that "HIT"
-    #[must_use] pub fn has_ready_accesses(&self) -> bool {
+    #[must_use]
+    pub fn has_ready_accesses(&self) -> bool {
         self.mshrs.has_ready_accesses()
     }
 
-    #[must_use] pub fn ready_accesses(&self) -> Option<&VecDeque<mem_fetch::MemFetch>> {
+    #[must_use]
+    pub fn ready_accesses(&self) -> Option<&VecDeque<mem_fetch::MemFetch>> {
         self.mshrs.ready_accesses()
     }
 
@@ -367,7 +372,7 @@ impl<I> super::CacheBandwidth for Base<I> {
 #[cfg(test)]
 mod tests {
     use super::Base;
-    use crate::{config, interconn as ic, AtomicCycle, FromConfig, Packet};
+    use crate::{config, interconn as ic, Cycle, FromConfig, Packet};
     use std::rc::Rc;
     use std::sync::{Arc, Mutex};
 
@@ -389,7 +394,7 @@ mod tests {
             config: config.clone(),
         });
 
-        let cycle = Rc::new(AtomicCycle::new(0));
+        let cycle = Cycle::new(0);
         let base = Base::new(
             "base cache".to_string(),
             core_id,

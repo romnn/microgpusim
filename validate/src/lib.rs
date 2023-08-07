@@ -99,6 +99,7 @@ pub struct SimOptions {
     #[default = true]
     #[serde(default = "bool_true")]
     pub enabled: bool,
+    pub parallel: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
@@ -205,6 +206,7 @@ pub struct ProfileConfig {
 pub struct SimConfig {
     #[serde(flatten)]
     pub common: TargetConfig,
+    pub parallel: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]

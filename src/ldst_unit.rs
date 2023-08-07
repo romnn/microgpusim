@@ -8,8 +8,8 @@ use super::{
     simd_function_unit as fu,
 };
 use console::style;
-use std::cell::RefCell;
-use std::rc::Rc;
+// use std::cell::RefCell;
+// use std::rc::Rc;
 use std::sync::{Arc, Mutex, RwLock};
 use strum::EnumCount;
 
@@ -56,7 +56,9 @@ pub struct LoadStoreUnit<I> {
     l1_latency_queue: Vec<Vec<Option<mem_fetch::MemFetch>>>,
     fetch_interconn: Arc<I>,
     pipelined_simd_unit: fu::PipelinedSimdUnitImpl,
-    operand_collector: Rc<RefCell<opcoll::OperandCollectorRegisterFileUnit>>,
+
+    // operand_collector: Rc<RefCell<opcoll::OperandCollectorRegisterFileUnit>>,
+    operand_collector: Arc<Mutex<opcoll::OperandCollectorRegisterFileUnit>>,
 
     /// round-robin arbiter for writeback contention between L1T, L1C, shared
     writeback_arb: usize,
@@ -129,7 +131,8 @@ where
         cluster_id: usize,
         warps: Vec<sched::WarpRef>,
         fetch_interconn: Arc<I>,
-        operand_collector: Rc<RefCell<OperandCollectorRegisterFileUnit>>,
+        // operand_collector: Rc<RefCell<OperandCollectorRegisterFileUnit>>,
+        operand_collector: Arc<Mutex<OperandCollectorRegisterFileUnit>>,
         scoreboard: Arc<RwLock<Scoreboard>>,
         config: Arc<config::GPUConfig>,
         stats: Arc<Mutex<stats::Stats>>,
@@ -142,7 +145,7 @@ where
             None,
             pipeline_depth,
             config.clone(),
-            Rc::clone(&cycle),
+            cycle.clone(),
             0,
         );
         debug_assert!(config.shared_memory_latency > 1);
@@ -162,7 +165,7 @@ where
                     format!("ldst-unit-{cluster_id}-{core_id}-L1-DATA-CACHE"),
                     core_id,
                     cluster_id,
-                    Rc::clone(&cycle),
+                    cycle.clone(),
                     Arc::clone(&fetch_interconn),
                     cache_stats,
                     Arc::clone(&config),
@@ -241,8 +244,10 @@ where
 
             if self
                 .operand_collector
-                .try_borrow_mut()
+                .try_lock()
                 .unwrap()
+                // .try_borrow_mut()
+                // .unwrap()
                 .writeback(next_writeback)
             {
                 let mut next_writeback = self.next_writeback.take().unwrap();
@@ -310,7 +315,8 @@ where
                         }
 
                         self.warps[pipe_reg.warp_id]
-                            .try_borrow_mut()
+                            // .try_borrow_mut()
+                            .try_lock()
                             .unwrap()
                             .num_instr_in_pipeline -= 1;
                         self.next_writeback = Some(pipe_reg);
@@ -512,7 +518,8 @@ where
                     }
                 } else if dispatch_instr.is_store() {
                     self.warps[dispatch_instr.warp_id]
-                        .try_borrow_mut()
+                        // .try_borrow_mut()
+                        .try_lock()
                         .unwrap()
                         .num_outstanding_stores += 1;
                 }
@@ -568,7 +575,8 @@ where
             fetch.kind == mem_fetch::Kind::WRITE_ACK
                 || (self.config.perfect_mem && fetch.is_write())
         );
-        let mut warp = self.warps[fetch.warp_id].try_borrow_mut().unwrap();
+        // let mut warp = self.warps[fetch.warp_id].try_borrow_mut().unwrap();
+        let mut warp = self.warps[fetch.warp_id].try_lock().unwrap();
         warp.num_outstanding_stores -= 1;
     }
 
@@ -630,7 +638,8 @@ where
                             1
                         };
 
-                        let mut warp = self.warps[instr.warp_id].try_borrow_mut().unwrap();
+                        // let mut warp = self.warps[instr.warp_id].try_borrow_mut().unwrap();
+                        let mut warp = self.warps[instr.warp_id].try_lock().unwrap();
                         for _ in 0..inc_ack {
                             warp.num_outstanding_stores += 1;
                         }
@@ -696,7 +705,8 @@ where
                 1
             };
 
-            let mut warp = self.warps[instr.warp_id].try_borrow_mut().unwrap();
+            // let mut warp = self.warps[instr.warp_id].try_borrow_mut().unwrap();
+            let mut warp = self.warps[instr.warp_id].try_lock().unwrap();
             for _ in 0..inc_ack {
                 warp.num_outstanding_stores += 1;
             }
@@ -856,7 +866,7 @@ where
 
 impl<I> fu::SimdFunctionUnit for LoadStoreUnit<I>
 where
-    I: ic::MemFetchInterface + 'static,
+    I: ic::MemFetchInterface,
 {
     fn active_lanes_in_pipeline(&self) -> usize {
         let active = self.pipelined_simd_unit.active_lanes_in_pipeline();
@@ -1115,7 +1125,8 @@ where
                             .release_registers(&dispatch_reg);
                     }
                     self.warps[warp_id]
-                        .try_borrow_mut()
+                        // .try_borrow_mut()
+                        .try_lock()
                         .unwrap()
                         .num_instr_in_pipeline -= 1;
                     simd_unit.dispatch_reg = None;
@@ -1123,7 +1134,8 @@ where
             } else {
                 // stores exit pipeline here
                 self.warps[warp_id]
-                    .try_borrow_mut()
+                    // .try_borrow_mut()
+                    .try_lock()
                     .unwrap()
                     .num_instr_in_pipeline -= 1;
                 let mut dispatch_reg = simd_unit.dispatch_reg.take().unwrap();

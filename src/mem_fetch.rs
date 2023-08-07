@@ -119,7 +119,7 @@ pub struct MemAccess {
     // uid: usize,
     /// request address
     pub addr: super::address,
-    pub allocation: Option<super::Allocation>,
+    pub allocation: Option<crate::allocation::Allocation>,
     /// if access is write
     pub is_write: bool,
     /// request size in bytes
@@ -182,7 +182,7 @@ impl MemAccess {
     pub fn new(
         kind: AccessKind,
         addr: address,
-        allocation: Option<super::Allocation>,
+        allocation: Option<crate::allocation::Allocation>,
         req_size_bytes: u32,
         is_write: bool,
         warp_mask: ThreadActiveMask,

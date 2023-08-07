@@ -6,14 +6,15 @@ use super::core::PipelineStage;
 use super::{opcodes, scoreboard};
 use crate::config::GPUConfig;
 use console::style;
-use std::cell::RefCell;
+// use std::cell::RefCell;
 use std::collections::VecDeque;
-use std::rc::Rc;
+// use std::rc::Rc;
 use std::sync::{Arc, Mutex, RwLock};
 
 pub use warp::{SchedulerWarp, ThreadActiveMask};
 
-pub type WarpRef = Rc<RefCell<warp::SchedulerWarp>>;
+// pub type WarpRef = Rc<RefCell<warp::SchedulerWarp>>;
+pub type WarpRef = Arc<Mutex<warp::SchedulerWarp>>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum ExecUnitKind {
@@ -31,12 +32,12 @@ enum ExecUnitKind {
     SPECIALIZED = 7,
 }
 
-pub trait SchedulerUnit {
+pub trait SchedulerUnit: Send + 'static {
     fn cycle(&mut self, _core: &mut dyn super::core::WarpIssuer);
 
     fn add_supervised_warp(&mut self, warp: WarpRef);
 
-    fn prioritized_warps(&self) -> &VecDeque<WarpRef>;
+    fn prioritized_warps(&self) -> &VecDeque<(usize, WarpRef)>;
 
     /// Order warps based on scheduling policy.
     fn order_warps(&mut self);
@@ -50,7 +51,7 @@ pub struct BaseSchedulerUnit {
 
     /// This is the prioritized warp list that is looped over each cycle to
     /// determine which warp gets to issue.
-    next_cycle_prioritized_warps: VecDeque<WarpRef>,
+    next_cycle_prioritized_warps: VecDeque<(usize, WarpRef)>,
 
     // Supervised warps keeps all warps this scheduler can arbitrate between.
     //
@@ -80,13 +81,12 @@ impl BaseSchedulerUnit {
         stats: Arc<Mutex<stats::scheduler::Scheduler>>,
         config: Arc<GPUConfig>,
     ) -> Self {
-        let supervised_warps = VecDeque::new();
         Self {
             id,
             cluster_id,
             core_id,
             next_cycle_prioritized_warps: VecDeque::new(),
-            supervised_warps,
+            supervised_warps: VecDeque::new(),
             last_supervised_issued_idx: 0,
             warps,
             num_issued_last_cycle: 0,
@@ -96,7 +96,7 @@ impl BaseSchedulerUnit {
         }
     }
 
-    fn prioritized_warps(&self) -> &VecDeque<WarpRef> {
+    fn prioritized_warps(&self) -> &VecDeque<(usize, WarpRef)> {
         &self.next_cycle_prioritized_warps
     }
 
@@ -107,9 +107,10 @@ impl BaseSchedulerUnit {
         let mut ready_inst = false;
         let mut issued_inst = false;
 
-        for next_warp_rc in &self.next_cycle_prioritized_warps {
+        for (next_warp_supervised_idx, next_warp_rc) in &self.next_cycle_prioritized_warps {
             // don't consider warps that are not yet valid
-            let next_warp = next_warp_rc.try_borrow().unwrap();
+            // let next_warp = next_warp_rc.try_borrow().unwrap();
+            let next_warp = next_warp_rc.lock().unwrap();
             let (warp_id, dyn_warp_id) = (next_warp.warp_id, next_warp.dynamic_warp_id);
 
             if next_warp.done_exit() {
@@ -162,10 +163,13 @@ impl BaseSchedulerUnit {
             let warp = self.warps.get(warp_id).unwrap();
 
             // todo: what is the difference? why dont we just use next_warp?
-            debug_assert!(Rc::ptr_eq(warp, next_warp_rc));
+            debug_assert!(Arc::ptr_eq(warp, next_warp_rc));
+            // debug_assert!(Rc::ptr_eq(warp, next_warp_rc));
             drop(next_warp);
 
-            let mut warp = warp.try_borrow_mut().unwrap();
+            let mut warp = warp.lock().unwrap();
+            // let mut warp = warp.try_borrow_mut().unwrap();
+            // let warp = warp.try_borrow_mut().unwrap();
             while !warp.waiting()
                 && !warp.ibuffer_empty()
                 && checked < max_issue
@@ -277,7 +281,6 @@ impl BaseSchedulerUnit {
                                         let instr = warp.ibuffer_take().unwrap();
                                         debug_assert_eq!(warp.warp_id, warp_id);
                                         issuer.issue_warp(stage, &mut warp, instr, self.id);
-                                        // .issue_warp(stage, &mut warp, instr, warp_id, self.id);
                                         issued += 1;
                                         issued_inst = true;
                                         warp_inst_issued = true;
@@ -314,11 +317,34 @@ impl BaseSchedulerUnit {
                 // supervised_is index with each entry in the
                 // m_next_cycle_prioritized_warps vector.
                 // For now, just run through until you find the right warp_id
-                for (sup_idx, supervised) in self.supervised_warps.iter().enumerate() {
-                    if *next_warp_rc.try_borrow().unwrap() == *supervised.try_borrow().unwrap() {
-                        self.last_supervised_issued_idx = sup_idx;
-                    }
-                }
+                // for (sup_idx, supervised) in self.supervised_warps.iter().enumerate() {
+                //     // if *next_warp_rc.try_borrow().unwrap() == *supervised.try_borrow().unwrap() {
+                //     // todo!("check if this deadlocks.. (it will). if so just order next cycle prio using sort_by_key and using enumerate to maintain the indexes");
+                //     let next_warp_rc = next_warp_rc.try_lock().unwrap();
+                //     let nw = (
+                //         next_warp_rc.block_id,
+                //         next_warp_rc.warp_id,
+                //         next_warp_rc.dynamic_warp_id,
+                //     );
+                //     drop(next_warp_rc);
+                //
+                //     let supervised = supervised.try_lock().unwrap();
+                //     let sup = (
+                //         supervised.block_id,
+                //         supervised.warp_id,
+                //         supervised.dynamic_warp_id,
+                //     );
+                //
+                //     drop(supervised);
+                //
+                //     // if *next_warp_rc.try_lock().unwrap() == *supervised.try_lock().unwrap() {
+                //     if nw == sup {
+                //         self.last_supervised_issued_idx = sup_idx;
+                //     }
+                // }
+
+                self.last_supervised_issued_idx = *next_warp_supervised_idx;
+
                 self.num_issued_last_cycle = issued;
                 let mut stats = self.stats.lock().unwrap();
                 if issued == 1 {
@@ -386,7 +412,11 @@ mod tests {
             let prioritized_warp_ids: Vec<_> = scheduler
                 .prioritized_warps()
                 .iter()
-                .map(|warp| (warp.borrow().warp_id, warp.borrow().dynamic_warp_id()))
+                // .map(|warp| (warp.borrow().warp_id, warp.borrow().dynamic_warp_id()))
+                .map(|(_idx, warp)| {
+                    let warp = warp.try_lock().unwrap();
+                    (warp.warp_id, warp.dynamic_warp_id)
+                })
                 .collect();
             Self {
                 prioritized_warp_ids,

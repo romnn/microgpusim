@@ -20,7 +20,8 @@ jobs:
           sudo apt-get install -y wget build-essential xutils-dev bison zlib1g-dev flex libglu1-mesa-dev libssl-dev libxml2-dev libboost-all-dev git g++
       - name: Install CUDA
         uses: Jimver/cuda-toolkit@v0.2.10
-        if: ${{ matrix.package.need_cuda }}
+        # for testing, we always install CUDA
+        # if: ${{ matrix.package.need_cuda }}
         id: cuda-toolkit
         with:
           cuda: "11.8.0"

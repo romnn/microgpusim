@@ -1,9 +1,7 @@
-use super::{
-    instruction::WarpInstruction, opcodes, register_set::RegisterSet, simd_function_unit as fu,
-};
+use super::{instruction::WarpInstruction, opcodes, register_set, simd_function_unit as fu};
 use crate::config::GPUConfig;
-use std::cell::RefCell;
-use std::rc::Rc;
+// use std::cell::RefCell;
+// use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 #[derive()]
@@ -15,7 +13,8 @@ pub struct SPUnit {
 impl SPUnit {
     pub fn new(
         id: usize,
-        result_port: Rc<RefCell<RegisterSet>>,
+        result_port: register_set::Ref,
+        // result_port: Rc<RefCell<RegisterSet>>,
         config: Arc<GPUConfig>,
         _stats: Arc<Mutex<stats::Stats>>,
         cycle: super::Cycle,

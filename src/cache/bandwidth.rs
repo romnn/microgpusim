@@ -1,8 +1,5 @@
-
 use crate::{config, mem_fetch};
-
-
-use std::sync::{Arc};
+use std::sync::Arc;
 
 /// Metadata for port bandwidth management
 #[derive(Clone)]
@@ -28,7 +25,8 @@ impl std::fmt::Debug for BandwidthManager {
 
 impl BandwidthManager {
     /// Create a new bandwidth manager from config
-    #[must_use] pub fn new(config: Arc<config::CacheConfig>) -> Self {
+    #[must_use]
+    pub fn new(config: Arc<config::CacheConfig>) -> Self {
         Self {
             config,
             data_port_occupied_cycles: 0,
@@ -103,7 +101,8 @@ impl BandwidthManager {
     }
 
     /// Query for data port availability
-    #[must_use] pub fn has_free_data_port(&self) -> bool {
+    #[must_use]
+    pub fn has_free_data_port(&self) -> bool {
         log::debug!(
             "has_free_data_port? data_port_occupied_cycles: {}",
             &self.data_port_occupied_cycles
@@ -112,7 +111,8 @@ impl BandwidthManager {
     }
 
     /// Query for fill port availability
-    #[must_use] pub fn has_free_fill_port(&self) -> bool {
+    #[must_use]
+    pub fn has_free_fill_port(&self) -> bool {
         log::debug!(
             "has_free_fill_port? fill_port_occupied_cycles: {}",
             &self.fill_port_occupied_cycles

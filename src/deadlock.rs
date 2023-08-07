@@ -46,7 +46,9 @@ where
         let mut state = State::new(total_cores, num_partitions, num_sub_partitions);
 
         for (cluster_id, cluster) in self.clusters.iter().enumerate() {
-            for (core_id, core) in cluster.cores.lock().unwrap().iter().enumerate() {
+            // for (core_id, core) in cluster.cores.lock().unwrap().iter().enumerate() {
+            for (core_id, core) in cluster.cores.iter().enumerate() {
+                let core = core.lock().unwrap();
                 let global_core_id = cluster_id * self.config.num_cores_per_simt_cluster + core_id;
                 assert_eq!(core.inner.core_id, global_core_id);
 
@@ -55,11 +57,13 @@ where
 
                 // core: functional units
                 for (fu_id, fu) in core.functional_units.iter().enumerate() {
-                    let _fu = fu.lock().unwrap();
+                    // let _fu = fu.lock().unwrap();
                     let issue_port = core.issue_ports[fu_id];
                     let issue_reg: register_set::RegisterSet = core.inner.pipeline_reg
                         [issue_port as usize]
-                        .borrow()
+                        // .borrow()
+                        .try_lock()
+                        .unwrap()
                         .clone();
                     assert_eq!(issue_port, issue_reg.stage);
 
@@ -80,19 +84,23 @@ where
             for (dest_queue, src_queue) in [
                 (
                     &mut state.interconn_to_l2_queue[sub_id],
-                    &sub.borrow().interconn_to_l2_queue,
+                    &sub.try_lock().unwrap().interconn_to_l2_queue,
+                    // &sub.borrow().interconn_to_l2_queue,
                 ),
                 (
                     &mut state.l2_to_interconn_queue[sub_id],
-                    &sub.borrow().l2_to_interconn_queue,
+                    &sub.try_lock().unwrap().l2_to_interconn_queue,
+                    // &sub.borrow().l2_to_interconn_queue,
                 ),
                 (
                     &mut state.l2_to_dram_queue[sub_id],
-                    &sub.borrow().l2_to_dram_queue.lock().unwrap(),
+                    &sub.try_lock().unwrap().l2_to_dram_queue.lock().unwrap(),
+                    // &sub.borrow().l2_to_dram_queue.lock().unwrap(),
                 ),
                 (
                     &mut state.dram_to_l2_queue[sub_id],
-                    &sub.borrow().dram_to_l2_queue,
+                    &sub.try_lock().unwrap().dram_to_l2_queue,
+                    // &sub.borrow().dram_to_l2_queue,
                 ),
             ] {
                 dest_queue.extend(src_queue.clone().into_iter());

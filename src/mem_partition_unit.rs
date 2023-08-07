@@ -7,9 +7,9 @@ use super::{
     Cycle,
 };
 use console::style;
-use std::cell::RefCell;
+// use std::cell::RefCell;
 use std::collections::VecDeque;
-use std::rc::Rc;
+// use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 #[derive()]
@@ -17,7 +17,8 @@ pub struct MemoryPartitionUnit {
     id: usize,
     dram: dram::DRAM,
     pub dram_latency_queue: VecDeque<mem_fetch::MemFetch>,
-    pub sub_partitions: Vec<Rc<RefCell<MemorySubPartition<FifoQueue<mem_fetch::MemFetch>>>>>,
+    // pub sub_partitions: Vec<Rc<RefCell<MemorySubPartition<FifoQueue<mem_fetch::MemFetch>>>>>,
+    pub sub_partitions: Vec<Arc<Mutex<MemorySubPartition<FifoQueue<mem_fetch::MemFetch>>>>>,
     pub arbitration_metadata: super::arbitration::ArbitrationMetadata,
 
     config: Arc<config::GPUConfig>,
@@ -37,10 +38,11 @@ impl MemoryPartitionUnit {
             .map(|i| {
                 let sub_id = id * num_sub_partitions + i;
 
-                Rc::new(RefCell::new(MemorySubPartition::new(
+                // Rc::new(RefCell::new(MemorySubPartition::new(
+                Arc::new(Mutex::new(MemorySubPartition::new(
                     sub_id,
                     id,
-                    Rc::clone(&cycle),
+                    cycle.clone(),
                     Arc::clone(&config),
                     Arc::clone(&stats),
                 )))
@@ -64,7 +66,8 @@ impl MemoryPartitionUnit {
     pub fn busy(&self) -> bool {
         self.sub_partitions
             .iter()
-            .any(|sub| sub.try_borrow().unwrap().busy())
+            .any(|sub| sub.try_lock().unwrap().busy())
+        // .any(|sub| sub.try_borrow().unwrap().busy())
     }
 
     fn global_sub_partition_id_to_local_id(&self, global_sub_partition_id: usize) -> usize {
@@ -87,20 +90,24 @@ impl MemoryPartitionUnit {
             addr, local_subpart_id, global_subpart_id, mask.to_bit_string());
 
         self.sub_partitions[local_subpart_id]
-            .borrow_mut()
+            // .borrow_mut()
+            .lock()
+            .unwrap()
             .force_l2_tag_update(addr, mask, time);
     }
 
     pub fn cache_cycle(&mut self, cycle: u64) {
         for mem_sub in &mut self.sub_partitions {
-            mem_sub.borrow_mut().cache_cycle(cycle);
+            // mem_sub.borrow_mut().cache_cycle(cycle);
+            mem_sub.try_lock().unwrap().cache_cycle(cycle);
         }
     }
 
     pub fn set_done(&mut self, fetch: mem_fetch::MemFetch) {
         let global_spid = fetch.sub_partition_id();
         let spid = self.global_sub_partition_id_to_local_id(global_spid);
-        let mut sub = self.sub_partitions[spid].try_borrow_mut().unwrap();
+        // let mut sub = self.sub_partitions[spid].try_borrow_mut().unwrap();
+        let mut sub = self.sub_partitions[spid].try_lock().unwrap();
         debug_assert_eq!(sub.id, global_spid);
         if matches!(
             fetch.access_kind(),
@@ -139,7 +146,8 @@ impl MemoryPartitionUnit {
 
                 let dest_global_spid = returned_fetch.sub_partition_id();
                 let dest_spid = self.global_sub_partition_id_to_local_id(dest_global_spid);
-                let mut sub = self.sub_partitions[dest_spid].borrow_mut();
+                // let mut sub = self.sub_partitions[dest_spid].borrow_mut();
+                let mut sub = self.sub_partitions[dest_spid].try_lock().unwrap();
                 debug_assert_eq!(sub.id, dest_global_spid);
 
                 if !sub.dram_to_l2_queue.full() {
@@ -183,7 +191,8 @@ impl MemoryPartitionUnit {
         let last_issued_partition = self.arbitration_metadata.last_borrower();
         for sub_id in 0..self.sub_partitions.len() {
             let spid = (sub_id + last_issued_partition + 1) % self.sub_partitions.len();
-            let sub = self.sub_partitions[spid].borrow_mut();
+            // let sub = self.sub_partitions[spid].borrow_mut();
+            let sub = self.sub_partitions[spid].try_lock().unwrap();
 
             let sub_partition_contention = sub.dram_to_l2_queue.full();
             let has_dram_resource = self.arbitration_metadata.has_credits(spid);

@@ -1,6 +1,6 @@
 use super::address;
 
-pub trait SetIndexFunction: std::fmt::Debug {
+pub trait SetIndexFunction: std::fmt::Debug + Send + Sync + 'static {
     /// Compute set index using
     fn compute_set_index(
         &self,

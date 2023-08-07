@@ -1,15 +1,11 @@
-use super::{
-    instruction::WarpInstruction,
-    register_set::{self, RegisterSet},
-    scheduler as sched,
-};
+use super::{instruction::WarpInstruction, register_set, scheduler as sched};
 use crate::config;
 use bitvec::{array::BitArray, BitArr};
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::sync::Arc;
+// use std::cell::RefCell;
+// use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
-pub trait SimdFunctionUnit: std::fmt::Display {
+pub trait SimdFunctionUnit: Send + Sync + std::fmt::Display + 'static {
     fn id(&self) -> &str;
     fn cycle(&mut self);
     fn issue(&mut self, source_reg: WarpInstruction);
@@ -31,7 +27,7 @@ pub const MAX_ALU_LATENCY: usize = 512;
 #[derive()]
 pub struct PipelinedSimdUnitImpl {
     pub cycle: super::Cycle,
-    pub result_port: Option<Rc<RefCell<RegisterSet>>>,
+    pub result_port: Option<register_set::Ref>,
     pub id: usize,
     pub name: String,
     pub pipeline_depth: usize,
@@ -59,7 +55,8 @@ impl PipelinedSimdUnitImpl {
     pub fn new(
         id: usize,
         name: String,
-        result_port: Option<Rc<RefCell<RegisterSet>>>,
+        // result_port: Option<Rc<RefCell<RegisterSet>>>,
+        result_port: Option<register_set::Ref>,
         depth: usize,
         config: Arc<config::GPUConfig>,
         cycle: super::Cycle,
@@ -124,7 +121,8 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
         if let Some(result_port) = &mut self.result_port {
             if let Some(pipe_reg) = self.pipeline_reg[0].take() {
                 // move to EX_WB result port
-                let mut result_port = result_port.borrow_mut();
+                // let mut result_port = result_port.borrow_mut();
+                let mut result_port = result_port.try_lock().unwrap();
                 // let msg = format!(
                 //     "{}: move pipeline[0] to result port {:?}",
                 //     self.name, result_port.stage

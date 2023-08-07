@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 ///
 /// Functions are not mutable because the interface should
 /// implement locking internally
-pub trait Interconnect<P> {
+pub trait Interconnect<P>: Send + Sync + 'static {
     fn busy(&self) -> bool {
         todo!("interconn: busy");
     }
@@ -87,7 +87,7 @@ impl<P> ToyInterconnect<P> {
 
 impl<P> Interconnect<P> for ToyInterconnect<P>
 where
-    P: std::fmt::Display + std::fmt::Debug,
+    P: Send + Sync + std::fmt::Display + std::fmt::Debug + 'static,
 {
     fn busy(&self) -> bool {
         // todo: this is not efficient, could keep track of this with a variable
@@ -155,7 +155,7 @@ where
 ///
 /// Functions are not mutable because the interface should
 /// implement locking internally
-pub trait MemFetchInterface: std::fmt::Debug {
+pub trait MemFetchInterface: Send + Sync + std::fmt::Debug + 'static {
     fn full(&self, size: u32, write: bool) -> bool;
 
     fn push(&self, _fetch: mem_fetch::MemFetch) {

@@ -9,7 +9,7 @@ pub type LineTable = HashMap<address, u64>;
 #[derive(Debug, Clone, Default, Hash, PartialEq, Eq)]
 pub struct EvictedBlockInfo {
     pub block_addr: address,
-    pub allocation: Option<super::Allocation>,
+    pub allocation: Option<crate::allocation::Allocation>,
     pub modified_size: u32,
     pub byte_mask: mem_fetch::MemAccessByteMask,
     pub sector_mask: mem_fetch::MemAccessSectorMask,

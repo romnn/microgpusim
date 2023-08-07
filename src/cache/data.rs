@@ -731,7 +731,7 @@ mod tests {
     use super::Data;
     use crate::{
         cache::Cache, config, instruction, interconn as ic, kernel::Kernel, mem_fetch,
-        parse_commands, AtomicCycle,
+        parse_commands, Cycle,
     };
     use std::collections::VecDeque;
     use std::path::PathBuf;
@@ -804,7 +804,7 @@ mod tests {
         let config = Arc::new(config::GPUConfig::default());
         let cache_config = config.data_cache_l1.clone().unwrap();
         let interconn = Arc::new(MockFetchInterconn {});
-        let cycle = Rc::new(AtomicCycle::new(0));
+        let cycle = Cycle::new(0);
         let _l1 = Data::new(
             "l1-data".to_string(),
             core_id,
@@ -955,7 +955,7 @@ mod tests {
         let config = Arc::new(config::GPUConfig::default());
         let cache_config = config.data_cache_l1.clone().unwrap();
         let interconn = Arc::new(MockFetchInterconn {});
-        let cycle = Rc::new(AtomicCycle::new(0));
+        let cycle = Cycle::new(0);
 
         let mut l1 = Data::new(
             "l1-data".to_string(),

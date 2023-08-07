@@ -81,7 +81,7 @@ pub trait Component {
     fn cycle(&mut self);
 }
 
-pub trait Cache: Component + CacheBandwidth {
+pub trait Cache: Send + Sync + Component + CacheBandwidth + 'static {
     fn as_any(&self) -> &dyn std::any::Any;
 
     fn stats(&self) -> &Arc<Mutex<stats::Cache>>;

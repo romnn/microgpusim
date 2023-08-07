@@ -2,7 +2,7 @@
 ##
 ## AUTO GENERATED! DO NOT EDIT
 ##
-## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 03/08/2023 00:02:02
+## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 08/08/2023 00:32:08
 ##
 
 config:
@@ -33,6 +33,7 @@ config:
     concurrency: null
     enabled: true
     results_dir: /home/roman/dev/box/results
+    parallel: null
   accelsim_simulate:
     repetitions: 2
     timeout: null
@@ -96,6 +97,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-100/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -159,6 +161,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-1000/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -222,6 +225,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-10000/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -290,6 +294,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -357,6 +362,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -424,6 +430,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-128/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -491,6 +498,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-32/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -558,6 +566,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-64/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -625,6 +634,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-128/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -692,6 +702,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-32/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -759,6 +770,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-64/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -826,6 +838,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-128/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -893,6 +906,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-32/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -960,6 +974,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-64/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1027,6 +1042,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-128/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1094,6 +1110,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-32/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1161,6 +1178,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-64/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1228,6 +1246,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-128/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1295,6 +1314,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-32/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1362,6 +1382,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-64/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1429,6 +1450,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1496,6 +1518,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-32/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1563,6 +1586,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-64/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1630,6 +1654,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-128/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1697,6 +1722,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-32/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1764,6 +1790,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-64/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1831,6 +1858,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-128/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1898,6 +1926,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-32/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -1965,6 +1994,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-64/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -2032,6 +2062,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-128/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -2096,6 +2127,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-32/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -2159,6 +2191,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-64/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -2222,6 +2255,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-128/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -2285,6 +2319,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-256/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -2352,6 +2387,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-variant-naive-repeat-1/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -2418,6 +2454,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-variant-coalesced-repeat-1/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -2484,6 +2521,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-variant-optimized-repeat-1/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -2550,6 +2588,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-variant-naive-repeat-1/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -2616,6 +2655,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-variant-coalesced-repeat-1/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -2682,6 +2722,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-variant-optimized-repeat-1/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -2748,6 +2789,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-variant-naive-repeat-1/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -2814,6 +2856,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-variant-coalesced-repeat-1/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null
@@ -2880,6 +2923,7 @@ benchmarks:
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-variant-optimized-repeat-1/sim
+      parallel: false
     accelsim_simulate:
       repetitions: 2
       timeout: null

@@ -131,7 +131,8 @@ impl Kernel {
             let warp_id = entry.warp_id_in_block as usize;
             let instr = instruction::WarpInstruction::from_trace(self, entry.clone());
             let warp = warps.get_mut(warp_id).unwrap();
-            let mut warp = warp.try_borrow_mut().unwrap();
+            // let mut warp = warp.try_borrow_mut().unwrap();
+            let mut warp = warp.try_lock().unwrap();
             warp.push_trace_instruction(instr);
 
             instructions += 1;
@@ -165,7 +166,8 @@ impl Kernel {
         debug_assert!(
             warps
                 .iter()
-                .all(|w| !w.try_borrow().unwrap().trace_instructions.is_empty()),
+                .all(|w| !w.try_lock().unwrap().trace_instructions.is_empty()),
+            // .all(|w| !w.try_borrow().unwrap().trace_instructions.is_empty()),
             "all warps have at least one instruction (need at least an EXIT)"
         );
     }

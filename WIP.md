@@ -8,8 +8,10 @@
 
   - refactor
 
-    - restructure caches source files
+    - look into: // TODO HOTFIX: workaround
+
     - join core and inner core
+    - remove the configs from inside the components
     - lint
     - factor into multiple files
     - some minor todos
@@ -17,6 +19,7 @@
     - instantiate the entire GPU in one file to find a good API
     - factor out traits
 
+    - DONE: restructure caches source files
     - DONE: flatten ported submodule
 
   - generate plots and correlation stuff etc

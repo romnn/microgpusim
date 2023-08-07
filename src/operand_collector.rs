@@ -1,12 +1,10 @@
-use super::{
-    config, instruction::WarpInstruction, mem_fetch::BitString, register_set::RegisterSet,
-};
+use super::{config, instruction::WarpInstruction, mem_fetch::BitString, register_set};
 use bitvec::{array::BitArray, BitArr};
 use console::style;
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 pub const MAX_REG_OPERANDS: usize = 32;
 
@@ -69,7 +67,7 @@ impl Operand {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct CollectorUnit {
     free: bool,
     kind: OperandCollectorUnitKind,
@@ -78,7 +76,7 @@ pub struct CollectorUnit {
     warp_id: Option<usize>,
     warp_instr: Option<WarpInstruction>,
     /// pipeline register to issue to when ready
-    output_register: Option<Rc<RefCell<RegisterSet>>>,
+    output_register: Option<register_set::Ref>,
     src_operands: [Option<Operand>; MAX_REG_OPERANDS * 2],
     not_ready: BitArr!(for MAX_REG_OPERANDS * 2),
     num_banks: usize,
@@ -137,7 +135,7 @@ impl CollectorUnit {
         let Some(output_register) = self.output_register.as_ref() else {
             return false;
         };
-        let output_register = output_register.borrow();
+        let output_register = output_register.try_lock().unwrap();
         let has_free_register = if self.sub_core_model {
             output_register.has_free_sub_core(self.reg_id)
         } else {
@@ -158,7 +156,7 @@ impl CollectorUnit {
     pub fn dispatch(&mut self) {
         debug_assert!(self.not_ready.not_any());
         let output_register = self.output_register.take().unwrap();
-        let mut output_register = output_register.borrow_mut();
+        let mut output_register = output_register.try_lock().unwrap();
 
         let warp_instr = self.warp_instr.take();
 
@@ -191,8 +189,8 @@ impl CollectorUnit {
 
     fn allocate(
         &mut self,
-        input_reg_set: &Rc<RefCell<RegisterSet>>,
-        output_reg_set: &Rc<RefCell<RegisterSet>>,
+        input_reg_set: &register_set::Ref,
+        output_reg_set: &register_set::Ref,
     ) -> bool {
         log::debug!(
             "{}",
@@ -203,8 +201,9 @@ impl CollectorUnit {
         debug_assert!(self.not_ready.not_any());
 
         self.free = false;
-        self.output_register = Some(Rc::clone(output_reg_set));
-        let mut input_reg_set = input_reg_set.borrow_mut();
+        self.output_register = Some(Arc::clone(output_reg_set));
+        // self.output_register = Some(Rc::clone(output_reg_set));
+        let mut input_reg_set = input_reg_set.try_lock().unwrap();
 
         if let Some((_, Some(ready_reg))) = input_reg_set.get_ready() {
             self.warp_id = Some(ready_reg.warp_id); // todo: do we need warp id??
@@ -562,8 +561,10 @@ impl DispatchUnit {
 
     pub fn find_ready<'a>(
         &mut self,
-        collector_units: &'a Vec<Rc<RefCell<CollectorUnit>>>,
-    ) -> Option<&'a Rc<RefCell<CollectorUnit>>> {
+        // collector_units: &'a Vec<Rc<RefCell<CollectorUnit>>>,
+        collector_units: &'a Vec<Arc<Mutex<CollectorUnit>>>,
+    ) -> Option<&'a Arc<Mutex<CollectorUnit>>> {
+        // ) -> Option<&'a Rc<RefCell<CollectorUnit>>> {
         // With sub-core enabled round robin starts with the next cu assigned to a
         // different sub-core than the one that dispatched last
         let num_collector_units = collector_units.len();
@@ -585,13 +586,13 @@ impl DispatchUnit {
             //     i,
             // );
 
-            if collector_units[i].borrow().ready() {
+            if collector_units[i].try_lock().unwrap().ready() {
                 self.last_cu = i;
                 log::debug!(
                     "dispatch unit {:?}: FOUND ready: chose collector unit {} ({:?})",
                     self.kind,
                     i,
-                    collector_units[i].borrow().kind
+                    collector_units[i].try_lock().unwrap().kind
                 );
                 return collector_units.get(i);
             }
@@ -601,7 +602,7 @@ impl DispatchUnit {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default)]
 pub struct InputPort {
     in_ports: PortVec,
     out_ports: PortVec,
@@ -637,7 +638,8 @@ pub enum OperandCollectorUnitKind {
     GEN_CUS,
 }
 
-pub type CuSets = HashMap<OperandCollectorUnitKind, Vec<Rc<RefCell<CollectorUnit>>>>;
+// pub type CuSets = HashMap<OperandCollectorUnitKind, Vec<Rc<RefCell<CollectorUnit>>>>;
+pub type CuSets = HashMap<OperandCollectorUnitKind, Vec<Arc<Mutex<CollectorUnit>>>>;
 
 // operand collector based register file unit
 #[derive(Debug, Clone)]
@@ -655,12 +657,12 @@ pub struct OperandCollectorRegisterFileUnit {
 
     pub arbiter: Arbiter,
     pub in_ports: VecDeque<InputPort>,
-    pub collector_units: Vec<Rc<RefCell<CollectorUnit>>>,
+    pub collector_units: Vec<Arc<Mutex<CollectorUnit>>>,
     pub collector_unit_sets: CuSets,
     pub dispatch_units: Vec<DispatchUnit>,
 }
 
-pub type PortVec = Vec<Rc<RefCell<RegisterSet>>>;
+pub type PortVec = Vec<register_set::Ref>;
 
 impl OperandCollectorRegisterFileUnit {
     pub fn new(config: Arc<config::GPUConfig>) -> Self {
@@ -706,7 +708,7 @@ impl OperandCollectorRegisterFileUnit {
                 let coll_units_per_scheduler = num_collector_units / self.num_warp_schedulers;
                 reg_id = cu_id / coll_units_per_scheduler;
             }
-            let mut cu = cu.try_borrow_mut().unwrap();
+            let mut cu = cu.try_lock().unwrap();
             cu.init(
                 cu_id,
                 self.num_banks,
@@ -769,7 +771,9 @@ impl OperandCollectorRegisterFileUnit {
         log::debug!("allocating {} reads ({:?})", read_ops.len(), &read_ops);
         for read in read_ops.values() {
             assert!(read.collector_unit_id < self.collector_units.len());
-            let mut cu = self.collector_units[read.collector_unit_id].borrow_mut();
+            let mut cu = self.collector_units[read.collector_unit_id]
+                .try_lock()
+                .unwrap();
             if let Some(operand) = read.operand {
                 cu.collect_operand(operand);
             }
@@ -808,7 +812,7 @@ impl OperandCollectorRegisterFileUnit {
         debug_assert_eq!(port.in_ports.len(), port.out_ports.len());
 
         for (input_port, output_port) in port.in_ports.iter().zip(port.out_ports.iter()) {
-            if input_port.borrow().has_ready() {
+            if input_port.try_lock().unwrap().has_ready() {
                 // find a free collector unit
                 for cu_set_id in &port.collector_unit_ids {
                     let cu_set: &Vec<_> = &self.collector_unit_sets[cu_set_id];
@@ -819,20 +823,20 @@ impl OperandCollectorRegisterFileUnit {
                     if self.sub_core_model {
                         // sub core model only allocates on the subset of CUs assigned
                         // to the scheduler that issued
-                        let (reg_id, _) = input_port.borrow().get_ready().unwrap();
+                        let (reg_id, _) = input_port.try_lock().unwrap().get_ready().unwrap();
                         debug_assert!(
                             cu_set.len() % self.num_warp_schedulers == 0
                                 && cu_set.len() >= self.num_warp_schedulers
                         );
                         let cus_per_sched = cu_set.len() / self.num_warp_schedulers;
-                        let schd_id = input_port.borrow().scheduler_id(reg_id).unwrap();
+                        let schd_id = input_port.try_lock().unwrap().scheduler_id(reg_id).unwrap();
                         cu_lower_bound = schd_id * cus_per_sched;
                         cu_upper_bound = cu_lower_bound + cus_per_sched;
                         debug_assert!(cu_upper_bound <= cu_set.len());
                     }
 
                     for collector_unit in &cu_set[cu_lower_bound..cu_upper_bound] {
-                        let mut collector_unit = collector_unit.try_borrow_mut().unwrap();
+                        let mut collector_unit = collector_unit.try_lock().unwrap();
 
                         if collector_unit.free {
                             log::debug!(
@@ -859,7 +863,7 @@ impl OperandCollectorRegisterFileUnit {
         for dispatch_unit in &mut self.dispatch_units {
             let set = &self.collector_unit_sets[&dispatch_unit.kind];
             if let Some(collector_unit) = dispatch_unit.find_ready(set) {
-                collector_unit.borrow_mut().dispatch();
+                collector_unit.try_lock().unwrap().dispatch();
             }
         }
     }
@@ -921,8 +925,9 @@ impl OperandCollectorRegisterFileUnit {
         let set = self.collector_unit_sets.entry(kind).or_default();
 
         for _ in 0..num_collector_units {
-            let unit = Rc::new(RefCell::new(CollectorUnit::new(kind)));
-            set.push(Rc::clone(&unit));
+            // let unit = Rc::new(RefCell::new(CollectorUnit::new(kind)));
+            let unit = Arc::new(Mutex::new(CollectorUnit::new(kind)));
+            set.push(Arc::clone(&unit));
             self.collector_units.push(unit);
         }
         // for now each collector set gets dedicated dispatch units.
@@ -988,12 +993,12 @@ mod test {
                 in_ports: port
                     .in_ports
                     .iter()
-                    .map(|p| p.borrow().clone().into())
+                    .map(|p| p.try_lock().unwrap().clone().into())
                     .collect(),
                 out_ports: port
                     .out_ports
                     .iter()
-                    .map(|p| p.borrow().clone().into())
+                    .map(|p| p.try_lock().unwrap().clone().into())
                     .collect(),
             }
         }
@@ -1008,7 +1013,7 @@ mod test {
                 output_register: cu
                     .output_register
                     .as_ref()
-                    .map(|r| r.borrow().deref().clone().into()),
+                    .map(|r| r.try_lock().unwrap().deref().clone().into()),
                 // src_operands: [Option<Operand>; MAX_REG_OPERANDS * 2],
                 not_ready: cu.not_ready.to_bit_string(),
                 reg_id: if cu.warp_id.is_some() {
@@ -1045,7 +1050,7 @@ mod test {
             let collector_units = opcoll
                 .collector_units
                 .iter()
-                .map(|cu| cu.borrow().deref().into())
+                .map(|cu| cu.try_lock().unwrap().deref().into())
                 .collect();
             let ports = opcoll.in_ports.iter().map(Into::into).collect();
             let arbiter = (&opcoll.arbiter).into();

@@ -23,8 +23,9 @@ fn get_bench_config(benchmark_name: &str, input_idx: usize) -> eyre::Result<Benc
     Ok(bench_config.clone())
 }
 
-pub fn run_box(bench_config: &BenchmarkConfig) -> eyre::Result<()> {
-    let _stats = validate::simulate::simulate_bench_config(bench_config)?;
+pub fn run_box(mut bench_config: BenchmarkConfig) -> eyre::Result<()> {
+    bench_config.simulate.parallel = true;
+    let _stats = validate::simulate::simulate_bench_config(&bench_config)?;
     Ok(())
 }
 
@@ -76,7 +77,7 @@ pub fn box_benchmark(c: &mut Criterion) {
     group.sampling_mode(criterion::SamplingMode::Flat);
 
     group.bench_function("vectoradd/10000", |b| {
-        b.iter(|| run_box(&black_box(get_bench_config("vectorAdd", 2).unwrap())));
+        b.iter(|| run_box(black_box(get_bench_config("vectorAdd", 2).unwrap())));
     });
     // group.bench_function("transpose/256/naive", |b| {
     //     b.iter(|| run_box(black_box(get_bench_config("transpose", 0).unwrap())))
@@ -95,7 +96,7 @@ fn main() -> eyre::Result<()> {
         .build()?;
 
     let mut start = Instant::now();
-    let _ = run_box(&black_box(get_bench_config("transpose", 0)?));
+    let _ = run_box(black_box(get_bench_config("transpose", 0)?));
     println!("box took:\t\t{:?}", start.elapsed());
 
     start = Instant::now();

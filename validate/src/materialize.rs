@@ -111,6 +111,7 @@ pub struct AccelsimTraceOptions {
 pub struct SimConfig {
     #[serde(flatten)]
     pub common: TargetConfig,
+    pub parallel: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -118,6 +119,7 @@ pub struct SimOptions {
     #[serde(flatten)]
     pub common: TargetConfig,
     pub stats_dir: PathBuf,
+    pub parallel: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -265,7 +267,8 @@ fn flatten(value: serde_yaml::Value) -> Vec<PrimitiveValue> {
     }
 }
 
-#[must_use] pub fn bench_config_name(name: &str, input: &super::matrix::Input) -> String {
+#[must_use]
+pub fn bench_config_name(name: &str, input: &super::matrix::Input) -> String {
     // let bench_config_dir_name: Vec<_> = input
     //     .values()
     //     .cloned()
@@ -374,10 +377,16 @@ impl crate::Benchmark {
                 .materialize(base, Some(&defaults.common))?;
 
             let stats_dir = base_config.results_dir.join(&default_bench_dir).join("sim");
+            let parallel = self
+                .simulate
+                .parallel
+                .or(defaults.parallel)
+                .unwrap_or(false);
 
             SimOptions {
                 stats_dir,
                 common: base_config,
+                parallel,
             }
         };
 
@@ -540,6 +549,7 @@ impl crate::Config {
         let simulate = {
             SimConfig {
                 common: self.simulate.common.materialize(base, Some(&common))?,
+                parallel: self.simulate.parallel,
             }
         };
 
@@ -637,7 +647,8 @@ impl Benchmarks {
         benchmark_name: impl Into<String>,
         input_idx: usize,
     ) -> Option<&BenchmarkConfig> {
-        self.get_input_configs(benchmark_name.into()).find(|config| config.input_idx == input_idx)
+        self.get_input_configs(benchmark_name.into())
+            .find(|config| config.input_idx == input_idx)
     }
 }
 
