@@ -7,11 +7,13 @@ pub struct CollectorUnit<'a> {
 }
 
 impl<'a> CollectorUnit<'a> {
-    #[must_use] pub fn set_id(&self) -> u32 {
+    #[must_use]
+    pub fn set_id(&self) -> u32 {
         self.set_id
     }
 
-    #[must_use] pub fn warp_id(&self) -> Option<usize> {
+    #[must_use]
+    pub fn warp_id(&self) -> Option<usize> {
         if self.unit.is_free() {
             None
         } else {
@@ -19,7 +21,8 @@ impl<'a> CollectorUnit<'a> {
         }
     }
 
-    #[must_use] pub fn reg_id(&self) -> Option<usize> {
+    #[must_use]
+    pub fn reg_id(&self) -> Option<usize> {
         if self.unit.is_free() {
             None
         } else {
@@ -27,7 +30,8 @@ impl<'a> CollectorUnit<'a> {
         }
     }
 
-    #[must_use] pub fn warp_instruction(&self) -> Option<super::warp_inst::WarpInstr<'a>> {
+    #[must_use]
+    pub fn warp_instruction(&self) -> Option<super::warp_inst::WarpInstr<'a>> {
         if self.unit.is_free() {
             None
         } else {
@@ -35,7 +39,8 @@ impl<'a> CollectorUnit<'a> {
         }
     }
 
-    #[must_use] pub fn output_register(&self) -> Option<super::register_set::RegisterSet<'a>> {
+    #[must_use]
+    pub fn output_register(&self) -> Option<super::register_set::RegisterSet<'a>> {
         if self.unit.is_free() {
             None
         } else {
@@ -44,7 +49,8 @@ impl<'a> CollectorUnit<'a> {
         }
     }
 
-    #[must_use] pub fn not_ready_mask(&self) -> String {
+    #[must_use]
+    pub fn not_ready_mask(&self) -> String {
         self.unit.get_not_ready_mask().to_string()
     }
 }

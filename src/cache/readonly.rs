@@ -98,7 +98,7 @@ where
             ref mut tag_array,
             ..
         } = self.inner;
-        debug_assert!(fetch.data_size <= cache_config.atom_size());
+        debug_assert!(fetch.data_size() <= cache_config.atom_size());
         debug_assert_eq!(
             cache_config.write_policy,
             config::CacheWritePolicy::READ_ONLY
@@ -110,8 +110,8 @@ where
             "{}::readonly_cache::access({addr}, write = {}, data size = {}, control size = {}, block = {block_addr}, time={})",
             self.inner.name,
             fetch.is_write(),
-            fetch.data_size,
-            fetch.control_size,
+            fetch.data_size(),
+            fetch.control_size(),
             time,
         );
 

@@ -56,7 +56,7 @@ where
                 let core_id = core.inner.core_id;
 
                 // core: functional units
-                for (fu_id, fu) in core.functional_units.iter().enumerate() {
+                for (fu_id, _fu) in core.functional_units.iter().enumerate() {
                     // let _fu = fu.lock().unwrap();
                     let issue_port = core.issue_ports[fu_id];
                     let issue_reg: register_set::RegisterSet = core.inner.pipeline_reg
@@ -81,27 +81,21 @@ where
                 .extend(partition.dram_latency_queue.clone().into_iter());
         }
         for (sub_id, sub) in self.mem_sub_partitions.iter().enumerate() {
+            let sub = sub.try_lock().unwrap();
             for (dest_queue, src_queue) in [
                 (
                     &mut state.interconn_to_l2_queue[sub_id],
-                    &sub.try_lock().unwrap().interconn_to_l2_queue,
-                    // &sub.borrow().interconn_to_l2_queue,
+                    &sub.interconn_to_l2_queue,
                 ),
                 (
                     &mut state.l2_to_interconn_queue[sub_id],
-                    &sub.try_lock().unwrap().l2_to_interconn_queue,
-                    // &sub.borrow().l2_to_interconn_queue,
+                    &sub.l2_to_interconn_queue,
                 ),
                 (
                     &mut state.l2_to_dram_queue[sub_id],
-                    &sub.try_lock().unwrap().l2_to_dram_queue.lock().unwrap(),
-                    // &sub.borrow().l2_to_dram_queue.lock().unwrap(),
+                    &sub.l2_to_dram_queue.lock().unwrap(),
                 ),
-                (
-                    &mut state.dram_to_l2_queue[sub_id],
-                    &sub.try_lock().unwrap().dram_to_l2_queue,
-                    // &sub.borrow().dram_to_l2_queue,
-                ),
+                (&mut state.dram_to_l2_queue[sub_id], &sub.dram_to_l2_queue),
             ] {
                 dest_queue.extend(src_queue.clone().into_iter());
             }

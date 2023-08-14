@@ -24,7 +24,8 @@ impl<'a> SchedulerUnit<'a> {
         }
     }
 
-    #[must_use] pub fn prioritized_warp_ids(&'a self) -> Vec<usize> {
+    #[must_use]
+    pub fn prioritized_warp_ids(&'a self) -> Vec<usize> {
         self.inner
             .get_prioritized_warp_ids()
             .iter()
@@ -32,7 +33,8 @@ impl<'a> SchedulerUnit<'a> {
             .collect()
     }
 
-    #[must_use] pub fn prioritized_dynamic_warp_ids(&'a self) -> Vec<usize> {
+    #[must_use]
+    pub fn prioritized_dynamic_warp_ids(&'a self) -> Vec<usize> {
         self.inner
             .get_prioritized_dynamic_warp_ids()
             .iter()

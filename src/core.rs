@@ -1,8 +1,7 @@
 use super::{
-    address, allocation::Allocation, barrier, cache, config, instruction::WarpInstruction,
-    interconn as ic, kernel::Kernel, mem_fetch, mem_fetch::BitString, opcodes,
-    operand_collector as opcoll, register_set, scheduler as sched, scoreboard,
-    simd_function_unit as fu, LoadStoreUnit,
+    address, allocation::Allocation, cache, config, instruction::WarpInstruction, interconn as ic,
+    kernel::Kernel, mem_fetch, mem_fetch::BitString, opcodes, operand_collector as opcoll,
+    register_set, scheduler as sched, scoreboard, simd_function_unit as fu, LoadStoreUnit,
 };
 use bitvec::{array::BitArray, BitArr};
 use color_eyre::eyre;
@@ -10,9 +9,7 @@ use console::style;
 use fu::SimdFunctionUnit;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
-// use std::cell::RefCell;
-use std::collections::HashMap;
-// use std::rc::Rc;
+use std::collections::{HashMap, VecDeque};
 use std::sync::{atomic, Arc, Mutex, RwLock};
 use strum::IntoEnumIterator;
 
@@ -82,6 +79,7 @@ pub struct InnerSIMTCore<I> {
     pub current_kernel: Option<Arc<Kernel>>,
     pub last_warp_fetched: Option<usize>,
     pub interconn: Arc<I>,
+    pub interconn_port: ic::InterconnPort,
     pub load_store_unit: Arc<Mutex<LoadStoreUnit<ic::CoreMemoryInterface<Packet>>>>,
     pub active_thread_mask: BitArr!(for MAX_THREAD_PER_SM),
     occupied_hw_thread_ids: BitArr!(for MAX_THREAD_PER_SM),
@@ -107,7 +105,7 @@ pub struct InnerSIMTCore<I> {
     // pub pipeline_reg: Vec<Rc<RefCell<register_set::RegisterSet>>>,
     pub pipeline_reg: Vec<register_set::Ref>,
     pub result_busses: Vec<ResultBus>,
-    pub barriers: barrier::BarrierSet,
+    pub interconn_queue: VecDeque<(usize, mem_fetch::MemFetch, u32)>,
 }
 
 impl<I> std::fmt::Debug for InnerSIMTCore<I> {
@@ -241,7 +239,6 @@ where
     I: ic::Interconnect<Packet> + Send + 'static,
 {
     fn has_free_register(&self, stage: PipelineStage, register_id: usize) -> bool {
-        // let pipeline_stage = self.pipeline_reg[stage as usize].borrow();
         let pipeline_stage = self.pipeline_reg[stage as usize].try_lock().unwrap();
 
         if self.config.sub_core_model {
@@ -258,7 +255,6 @@ where
         mut next_instr: WarpInstruction,
         scheduler_id: usize,
     ) {
-        // let mut pipeline_stage = self.pipeline_reg[stage as usize].borrow_mut();
         let mut pipeline_stage = self.pipeline_reg[stage as usize].try_lock().unwrap();
         let (reg_idx, pipe_reg) = if self.config.sub_core_model {
             pipeline_stage.get_free_sub_core_mut(scheduler_id).unwrap();
@@ -344,7 +340,6 @@ where
                         | mem_fetch::AccessKind::LOCAL_ACC_W => {
                             access.allocation =
                                 self.allocations.read().unwrap().get(&access.addr).cloned();
-                            // self.allocations.borrow().get(&access.addr).cloned();
                         }
 
                         other @ (mem_fetch::AccessKind::L1_WRBK_ACC
@@ -369,7 +364,6 @@ where
         }
 
         let pipe_reg_ref = pipe_reg_mut;
-        // let pipe_reg_ref = pipe_reg.as_ref().unwrap();
 
         log::debug!(
             "{} (done={} ({}/{}), functional done={}, hardware done={}, stores done={} ({} stores), instr in pipeline = {}, active_threads={})",
@@ -423,9 +417,8 @@ pub struct SIMTCore<I> {
     pub schedulers: Vec<Box<dyn sched::SchedulerUnit>>,
     pub scheduler_issue_priority: usize,
     pub inner: InnerSIMTCore<I>,
-
     // for debugging, TODO: remove
-    temp_check_state: Vec<std::collections::HashSet<usize>>,
+    // temp_check_state: Vec<std::collections::HashSet<usize>>,
 }
 
 impl<I> std::fmt::Debug for SIMTCore<I> {
@@ -433,17 +426,6 @@ impl<I> std::fmt::Debug for SIMTCore<I> {
         std::fmt::Debug::fmt(&self.inner, f)
     }
 }
-
-// #[derive(strum::EnumIter, strum::EnumCount, Clone, Copy, Debug, PartialEq, Eq, Hash)]
-// #[repr(usize)]
-// pub enum FunctionalUnit {
-//     SP,
-//     DP,
-//     INT,
-//     MEM,
-//     SFU,
-//     TENSOR_CORE,
-// }
 
 #[derive(strum::EnumIter, strum::EnumCount, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[repr(usize)]
@@ -471,7 +453,6 @@ where
         core_id: usize,
         cluster_id: usize,
         allocations: super::allocation::Ref,
-        // allocations: Rc<RefCell<super::Allocations>>,
         cycle: super::Cycle,
         warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
         interconn: Arc<I>,
@@ -482,14 +463,16 @@ where
 
         let warps: Vec<_> = (0..config.max_warps_per_core())
             .map(|_| Arc::new(Mutex::new(sched::SchedulerWarp::default())))
-            // .map(|_| Rc::new(RefCell::new(sched::SchedulerWarp::default())))
             .collect();
+
+        let interconn_port = ic::InterconnPort::default();
 
         let port = Arc::new(ic::CoreMemoryInterface {
             cluster_id,
             stats: Arc::clone(&stats),
             config: Arc::clone(&config),
             interconn: interconn.clone(),
+            interconn_port: interconn_port.clone(),
         });
         let cache_stats = Arc::new(Mutex::new(stats::Cache::default()));
         let instr_l1_cache = cache::ReadOnly::new(
@@ -506,14 +489,6 @@ where
             cache_stats,
             Arc::clone(&config),
             config.inst_cache_l1.as_ref().unwrap().clone(),
-        );
-
-        // todo: are those parameters correct?
-        let barriers = barrier::BarrierSet::new(
-            config.max_warps_per_core(),
-            config.max_concurrent_blocks_per_core,
-            config.num_cta_barriers,
-            config.warp_size,
         );
 
         let scoreboard = Arc::new(RwLock::new(scoreboard::Scoreboard::new(
@@ -558,6 +533,7 @@ where
         let fetch_interconn = Arc::new(ic::CoreMemoryInterface {
             cluster_id,
             interconn: interconn.clone(),
+            interconn_port: interconn_port.clone(),
             stats: stats.clone(),
             config: config.clone(),
         });
@@ -567,7 +543,9 @@ where
             core_id,
             cluster_id,
             warps.clone(),
+            interconn.clone(),
             fetch_interconn,
+            // interconn_queue,
             operand_collector.clone(),
             scoreboard.clone(),
             config.clone(),
@@ -582,7 +560,6 @@ where
 
         let pipeline_reg: Vec<_> = pipeline_reg
             .into_iter()
-            // .map(|reg| Rc::new(RefCell::new(reg)))
             .map(|reg| Arc::new(Mutex::new(reg)))
             .collect();
 
@@ -610,15 +587,15 @@ where
             instr_l1_cache: Box::new(instr_l1_cache),
             instr_fetch_buffer: InstrFetchBuffer::default(),
             interconn,
+            interconn_port,
             load_store_unit,
             warps,
             pipeline_reg,
             result_busses,
+            interconn_queue: VecDeque::new(),
             scoreboard,
             operand_collector,
-            barriers,
             thread_state,
-            // thread_info,
         };
         let mut core = Self {
             inner,
@@ -627,7 +604,7 @@ where
             issue_ports: Vec::new(),
             dispatch_ports: Vec::new(),
             functional_units: Vec::new(),
-            temp_check_state: vec![Default::default(); MAX_CTA_PER_SHADER],
+            // temp_check_state: vec![Default::default(); MAX_CTA_PER_SHADER],
         };
 
         core.init_schedulers();
@@ -860,8 +837,9 @@ where
         );
 
         if !self.inner.instr_fetch_buffer.valid {
-            if self.inner.instr_l1_cache.has_ready_accesses() {
-                let fetch = self.inner.instr_l1_cache.next_access().unwrap();
+            // if self.inner.instr_l1_cache.has_ready_accesses() {
+            if let Some(fetch) = self.inner.instr_l1_cache.next_access() {
+                // let fetch = self.inner.instr_l1_cache.next_access().unwrap();
                 let warp = self.inner.warps.get_mut(fetch.warp_id).unwrap();
                 // let mut warp = warp.try_borrow_mut().unwrap();
                 let mut warp = warp.lock().unwrap();
@@ -958,8 +936,8 @@ where
                                 if state.active {
                                     state.active = false;
 
-                                    assert!(!self.temp_check_state[block_hw_id].contains(&tid));
-                                    self.temp_check_state[block_hw_id].insert(tid);
+                                    // assert!(!self.temp_check_state[block_hw_id].contains(&tid));
+                                    // self.temp_check_state[block_hw_id].insert(tid);
 
                                     log::debug!(
                                         "thread {} of block {} completed ({} left)",
@@ -1193,7 +1171,6 @@ where
         let mut exec_writeback_pipeline = self.inner.pipeline_reg[PipelineStage::EX_WB as usize]
             .try_lock()
             .unwrap();
-        // self.inner.pipeline_reg[PipelineStage::EX_WB as usize].borrow_mut();
         log::debug!(
             "{}",
             style(format!(
@@ -1242,7 +1219,6 @@ where
                 .operand_collector
                 .try_lock()
                 .unwrap()
-                // .borrow_mut()
                 .writeback(&mut ready);
             self.inner
                 .scoreboard
@@ -1252,11 +1228,8 @@ where
             self.inner.warps[ready.warp_id]
                 .try_lock()
                 .unwrap()
-                // .try_borrow_mut()
-                // .unwrap()
                 .num_instr_in_pipeline -= 1;
             warp_inst_complete(&mut ready, &self.inner.stats);
-            // warp_inst_complete(&mut ready, &mut self.inner.stats.lock().unwrap());
 
             //   m_gpu->gpu_sim_insn_last_update_sid = m_sid;
             //   m_gpu->gpu_sim_insn_last_update = m_gpu->gpu_sim_cycle;
@@ -1293,7 +1266,6 @@ where
 
             let issue_port = self.issue_ports[fu_id];
             {
-                // let issue_inst = self.inner.pipeline_reg[issue_port as usize].borrow();
                 let issue_inst = self.inner.pipeline_reg[issue_port as usize]
                     .try_lock()
                     .unwrap();
@@ -1309,7 +1281,6 @@ where
             fu.cycle();
             fu.active_lanes_in_pipeline();
 
-            // let mut issue_inst = self.inner.pipeline_reg[issue_port as usize].borrow_mut();
             let mut issue_inst = self.inner.pipeline_reg[issue_port as usize]
                 .try_lock()
                 .unwrap();
@@ -1410,13 +1381,7 @@ where
         self.writeback();
         self.execute();
         for _ in 0..self.inner.config.reg_file_port_throughput {
-            self.inner
-                .operand_collector
-                .try_lock()
-                .unwrap()
-                // .try_borrow_mut()
-                // .unwrap()
-                .step();
+            self.inner.operand_collector.try_lock().unwrap().step();
         }
 
         self.issue();
@@ -1715,7 +1680,7 @@ where
         let block_id = block.id();
 
         // for debugging
-        self.temp_check_state[free_block_hw_id].clear();
+        // self.temp_check_state[free_block_hw_id].clear();
 
         let mut num_threads_in_block = 0;
         for i in start_thread..end_thread {

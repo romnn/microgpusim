@@ -26,17 +26,19 @@ pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<stats::Stats, Ru
         ));
     }
 
-    // let config = Arc::new(config::GPUConfig {
-    //     num_simt_clusters: 20,                   // 20
-    //     num_cores_per_simt_cluster: 4,           // 1
-    //     num_schedulers_per_core: 2,              // 1
-    //     num_memory_controllers: 8,               // 8
-    //     num_sub_partition_per_memory_channel: 2, // 2
-    //     fill_l2_on_memcopy: true,                // true
-    //     ..config::GPUConfig::default()
-    // });
+    let config = casimu::config::GPUConfig {
+        num_simt_clusters: 20,                   // 20
+        num_cores_per_simt_cluster: 4,           // 1
+        num_schedulers_per_core: 2,              // 1
+        num_memory_controllers: 8,               // 8
+        num_sub_partition_per_memory_channel: 2, // 2
+        fill_l2_on_memcopy: true,                // true
+        parallel: bench.simulate.parallel,       // true
+        log_after_cycle: None,
+        ..casimu::config::GPUConfig::default()
+    };
 
-    let stats = casimu::accelmain(traces_dir, None)?;
+    let stats = casimu::accelmain(traces_dir, config)?;
     Ok(stats)
 }
 

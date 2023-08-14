@@ -7,7 +7,8 @@ mod ffi {
         type warp_inst_ptr = crate::bridge::warp_inst::warp_inst_ptr;
 
         type register_set_ptr;
-        #[must_use] fn get(self: &register_set_ptr) -> *const register_set;
+        #[must_use]
+        fn get(self: &register_set_ptr) -> *const register_set;
 
         type register_set_bridge;
 

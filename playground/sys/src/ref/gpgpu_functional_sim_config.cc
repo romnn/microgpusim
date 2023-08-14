@@ -51,12 +51,6 @@ void gpgpu_functional_sim_config::reg_options(class OptionParser *opp) {
                          &g_ptx_inst_debug_thread_uid,
                          "Thread UID for executed instructions' debug output",
                          "1");
-
-  /* custom
-  option_parser_register(
-      opp, "-gpgpu_mem_debug_file", OPT_CSTR, &g_mem_debug_file,
-      "Custom memory debug output file", "mem_debug.txt");
-  */
 }
 
 void gpgpu_functional_sim_config::ptx_set_tex_cache_linesize(

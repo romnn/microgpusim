@@ -1,5 +1,3 @@
-
-
 use crate::bindings;
 
 super::extern_type!(bindings::accelsim_config, "accelsim_config");

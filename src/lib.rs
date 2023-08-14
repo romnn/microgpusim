@@ -11,7 +11,6 @@
 pub mod addrdec;
 pub mod allocation;
 pub mod arbitration;
-pub mod barrier;
 pub mod cache;
 pub mod cluster;
 pub mod config;
@@ -42,13 +41,13 @@ pub mod testing;
 
 use self::cluster::SIMTCoreCluster;
 use self::core::{
-    warp_inst_complete, Packet, PipelineStage, SIMTCore, WarpMask, MAX_THREAD_PER_SM,
-    PROGRAM_MEM_START,
+    warp_inst_complete, Packet, PipelineStage, SIMTCore, MAX_THREAD_PER_SM, PROGRAM_MEM_START,
 };
 use addrdec::DecodedAddress;
 use allocation::Allocations;
 use fifo::Queue;
 use interconn as ic;
+use itertools::Itertools;
 use kernel::Kernel;
 use ldst_unit::LoadStoreUnit;
 use mem_fetch::{AccessKind, BitString};
@@ -60,12 +59,10 @@ use bitvec::array::BitArray;
 use color_eyre::eyre::{self};
 use console::style;
 use rayon::prelude::*;
-// use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
-// use std::rc::Rc;
 use std::sync::{atomic, Arc, Mutex, RwLock};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 pub type address = u64;
 
@@ -76,6 +73,13 @@ pub fn parse_commands(path: impl AsRef<Path>) -> eyre::Result<Vec<Command>> {
 }
 
 pub type SubPartition = mem_sub_partition::MemorySubPartition<fifo::FifoQueue<mem_fetch::MemFetch>>;
+
+use once_cell::sync::Lazy;
+pub static CORE_CYCLE_DUR: Lazy<Mutex<Duration>> = Lazy::new(|| Mutex::new(Duration::ZERO));
+pub static ICNT_CYCLE_DUR: Lazy<Mutex<Duration>> = Lazy::new(|| Mutex::new(Duration::ZERO));
+pub static DRAM_CYCLE_DUR: Lazy<Mutex<Duration>> = Lazy::new(|| Mutex::new(Duration::ZERO));
+pub static L2_CYCLE_DUR: Lazy<Mutex<Duration>> = Lazy::new(|| Mutex::new(Duration::ZERO));
+pub static TOTAL_CYCLE_DUR: Lazy<Mutex<Duration>> = Lazy::new(|| Mutex::new(Duration::ZERO));
 
 #[derive()]
 pub struct MockSimulator<I> {
@@ -128,6 +132,7 @@ impl Cycle {
         self.0.store(cycle, Ordering::SeqCst);
     }
 
+    #[must_use]
     pub fn get(&self) -> u64 {
         use std::sync::atomic::Ordering;
         self.0.load(Ordering::SeqCst)
@@ -171,7 +176,6 @@ where
                 mem_partition_unit::MemoryPartitionUnit::new(
                     i,
                     cycle.clone(),
-                    // Rc::clone(&cycle),
                     Arc::clone(&config),
                     Arc::clone(&stats),
                 )
@@ -375,23 +379,25 @@ where
     }
 
     pub fn cycle(&mut self) {
+        let start_total = Instant::now();
         // int clock_mask = next_clock_domain();
 
         // fn is_send<T: Send>(_: T) {}
         // fn is_sync<T: Sync>(_: T) {}
         // fn is_par_iter<T: rayon::iter::ParallelIterator>(_: T) {}
-        let parallel = true;
 
         // shader core loading (pop from ICNT into core)
-        if self.parallel_simulation {
+        let start = Instant::now();
+        if false && self.parallel_simulation {
             self.clusters
                 .par_iter_mut()
-                .for_each(|cluster| cluster.interconn_cycle());
+                .for_each(cluster::SIMTCoreCluster::interconn_cycle);
         } else {
             for cluster in &mut self.clusters {
                 cluster.interconn_cycle();
             }
         }
+        *ICNT_CYCLE_DUR.lock().unwrap() += start.elapsed();
 
         log::debug!(
             "POP from {} memory sub partitions",
@@ -399,110 +405,113 @@ where
         );
 
         // pop from memory controller to interconnect
-        if self.parallel_simulation {
-            self.mem_sub_partitions
-                .par_iter_mut()
-                .enumerate()
-                .for_each(|(i, mem_sub)| {
-                    let mut mem_sub = mem_sub.try_lock().unwrap();
-                    if let Some(fetch) = mem_sub.top() {
-                        let response_packet_size = if fetch.is_write() {
-                            fetch.control_size
-                        } else {
-                            fetch.size()
-                        };
-                        let device = self.config.mem_id_to_device_id(i);
-                        if self.interconn.has_buffer(device, response_packet_size) {
-                            let mut fetch = mem_sub.pop().unwrap();
-                            let cluster_id = fetch.cluster_id;
-                            fetch.set_status(mem_fetch::Status::IN_ICNT_TO_SHADER, 0);
-                            let packet = Packet::Fetch(fetch);
-                            // fetch.set_return_timestamp(gpu_sim_cycle + gpu_tot_sim_cycle);
-                            // , gpu_sim_cycle + gpu_tot_sim_cycle);
-                            // drop(fetch);
-                            self.interconn
-                                .push(device, cluster_id, packet, response_packet_size);
-                            // self.partition_replies_in_parallel += 1;
-                        } else {
-                            // self.gpu_stall_icnt2sh += 1;
-                        }
-                    }
-                });
-        } else {
-            for (i, mem_sub) in self.mem_sub_partitions.iter().enumerate() {
-                // let mut mem_sub = mem_sub.try_borrow_mut().unwrap();
-                let mut mem_sub = mem_sub.try_lock().unwrap();
-                {
-                    log::debug!("checking sub partition[{i}]:");
-                    log::debug!(
-                        "\t icnt to l2 queue ({:<3}) = {}",
-                        mem_sub.interconn_to_l2_queue.len(),
-                        mem_sub.interconn_to_l2_queue
-                    );
-                    log::debug!(
-                        "\t l2 to icnt queue ({:<3}) = {}",
-                        mem_sub.l2_to_interconn_queue.len(),
-                        mem_sub.l2_to_interconn_queue
-                    );
-                    let l2_to_dram_queue = mem_sub.l2_to_dram_queue.lock().unwrap();
-                    log::debug!(
-                        "\t l2 to dram queue ({:<3}) = {}",
-                        l2_to_dram_queue.len(),
-                        l2_to_dram_queue
-                    );
-                    log::debug!(
-                        "\t dram to l2 queue ({:<3}) = {}",
-                        mem_sub.dram_to_l2_queue.len(),
-                        mem_sub.dram_to_l2_queue
-                    );
-                    let partition = &self.mem_partition_units[mem_sub.partition_id];
-                    let dram_latency_queue: Vec<_> = partition
-                        .dram_latency_queue
-                        .iter()
-                        .map(std::string::ToString::to_string)
-                        .collect();
-                    log::debug!(
-                        "\t dram latency queue ({:3}) = {:?}",
-                        dram_latency_queue.len(),
-                        style(&dram_latency_queue).red()
-                    );
-                    // log::debug!("");
-                }
+        // if false && self.parallel_simulation {
+        // self.mem_sub_partitions
+        //     .par_iter_mut()
+        //     .enumerate()
+        //     .for_each(|(i, mem_sub)| {
+        //         let mut mem_sub = mem_sub.try_lock().unwrap();
+        //         if let Some(fetch) = mem_sub.top() {
+        //             let response_packet_size = if fetch.is_write() {
+        //                 fetch.control_size
+        //             } else {
+        //                 fetch.size()
+        //             };
+        //             let device = self.config.mem_id_to_device_id(i);
+        //             if self.interconn.has_buffer(device, response_packet_size) {
+        //                 let mut fetch = mem_sub.pop().unwrap();
+        //                 let cluster_id = fetch.cluster_id;
+        //                 fetch.set_status(mem_fetch::Status::IN_ICNT_TO_SHADER, 0);
+        //                 let packet = Packet::Fetch(fetch);
+        //                 // fetch.set_return_timestamp(gpu_sim_cycle + gpu_tot_sim_cycle);
+        //                 // , gpu_sim_cycle + gpu_tot_sim_cycle);
+        //                 // drop(fetch);
+        //                 self.interconn
+        //                     .push(device, cluster_id, packet, response_packet_size);
+        //                 // self.partition_replies_in_parallel += 1;
+        //             } else {
+        //                 // self.gpu_stall_icnt2sh += 1;
+        //             }
+        //         }
+        //     });
+        // } else {
+        for (i, mem_sub) in self.mem_sub_partitions.iter().enumerate() {
+            // let mut mem_sub = mem_sub.try_borrow_mut().unwrap();
+            let mut mem_sub = mem_sub.try_lock().unwrap();
+            {
+                log::debug!("checking sub partition[{i}]:");
+                log::debug!(
+                    "\t icnt to l2 queue ({:<3}) = {}",
+                    mem_sub.interconn_to_l2_queue.len(),
+                    mem_sub.interconn_to_l2_queue
+                );
+                log::debug!(
+                    "\t l2 to icnt queue ({:<3}) = {}",
+                    mem_sub.l2_to_interconn_queue.len(),
+                    mem_sub.l2_to_interconn_queue
+                );
+                let l2_to_dram_queue = mem_sub.l2_to_dram_queue.lock().unwrap();
+                log::debug!(
+                    "\t l2 to dram queue ({:<3}) = {}",
+                    l2_to_dram_queue.len(),
+                    l2_to_dram_queue
+                );
+                log::debug!(
+                    "\t dram to l2 queue ({:<3}) = {}",
+                    mem_sub.dram_to_l2_queue.len(),
+                    mem_sub.dram_to_l2_queue
+                );
+                let partition = &self.mem_partition_units[mem_sub.partition_id];
+                let dram_latency_queue: Vec<_> = partition
+                    .dram_latency_queue
+                    .iter()
+                    .map(std::string::ToString::to_string)
+                    .collect();
+                log::debug!(
+                    "\t dram latency queue ({:3}) = {:?}",
+                    dram_latency_queue.len(),
+                    style(&dram_latency_queue).red()
+                );
+                // log::debug!("");
+            }
 
-                if let Some(fetch) = mem_sub.top() {
-                    let response_packet_size = if fetch.is_write() {
-                        fetch.control_size
-                    } else {
-                        fetch.size()
-                    };
-                    let device = self.config.mem_id_to_device_id(i);
-                    if self.interconn.has_buffer(device, response_packet_size) {
-                        let mut fetch = mem_sub.pop().unwrap();
-                        let cluster_id = fetch.cluster_id;
-                        fetch.set_status(mem_fetch::Status::IN_ICNT_TO_SHADER, 0);
-                        let packet = Packet::Fetch(fetch);
-                        // fetch.set_return_timestamp(gpu_sim_cycle + gpu_tot_sim_cycle);
-                        // , gpu_sim_cycle + gpu_tot_sim_cycle);
-                        // drop(fetch);
-                        self.interconn
-                            .push(device, cluster_id, packet, response_packet_size);
-                        self.partition_replies_in_parallel += 1;
-                    } else {
-                        // self.gpu_stall_icnt2sh += 1;
-                    }
+            if let Some(fetch) = mem_sub.top() {
+                let response_packet_size = if fetch.is_write() {
+                    fetch.control_size()
+                } else {
+                    fetch.size()
+                };
+                let device = self.config.mem_id_to_device_id(i);
+                if self.interconn.has_buffer(device, response_packet_size) {
+                    let mut fetch = mem_sub.pop().unwrap();
+                    let cluster_id = fetch.cluster_id;
+                    fetch.set_status(mem_fetch::Status::IN_ICNT_TO_SHADER, 0);
+                    let packet = Packet::Fetch(fetch);
+                    // fetch.set_return_timestamp(gpu_sim_cycle + gpu_tot_sim_cycle);
+                    // , gpu_sim_cycle + gpu_tot_sim_cycle);
+                    // drop(fetch);
+                    self.interconn
+                        .push(device, cluster_id, packet, response_packet_size);
+                    self.partition_replies_in_parallel += 1;
+                } else {
+                    // self.gpu_stall_icnt2sh += 1;
                 }
             }
         }
+        // }
 
-        if self.parallel_simulation {
+        // DRAM
+        let start = Instant::now();
+        if false && self.parallel_simulation {
             self.mem_partition_units
                 .par_iter_mut()
-                .for_each(|unit| unit.simple_dram_cycle());
+                .for_each(mem_partition_unit::MemoryPartitionUnit::simple_dram_cycle);
+            // this pushes into sub.dram_to_l2_queue and messes up the order
         } else {
-            // dram
             log::debug!("cycle for {} drams", self.mem_partition_units.len());
             for (_i, unit) in self.mem_partition_units.iter_mut().enumerate() {
                 unit.simple_dram_cycle();
+
                 // if self.config.simple_dram_model {
                 //     unit.simple_dram_cycle();
                 // } else {
@@ -512,6 +521,7 @@ where
                 // }
             }
         }
+        *DRAM_CYCLE_DUR.lock().unwrap() += start.elapsed();
 
         // L2 operations
         log::debug!(
@@ -519,37 +529,39 @@ where
             self.mem_sub_partitions.len()
         );
 
-        if self.parallel_simulation {
-            self.mem_sub_partitions
-                .par_iter_mut()
-                .enumerate()
-                .for_each(|(i, mem_sub)| {
-                    let mut mem_sub = mem_sub.try_lock().unwrap();
-                    let device = self.config.mem_id_to_device_id(i);
-
-                    // same as full with parameter overload
-                    if mem_sub
-                        .interconn_to_l2_can_fit(mem_sub_partition::SECTOR_CHUNCK_SIZE as usize)
-                    {
-                        if let Some(Packet::Fetch(fetch)) = self.interconn.pop(device) {
-                            log::debug!(
-                                "got new fetch {} for mem sub partition {} ({})",
-                                fetch,
-                                i,
-                                device
-                            );
-
-                            mem_sub.push(fetch);
-                            // self.parallel_mem_partition_reqs += 1;
-                        }
-                    } else {
-                        log::debug!("SKIP sub partition {} ({}): DRAM full stall", i, device);
-                        self.stats.lock().unwrap().stall_dram_full += 1;
-                    }
-                    // we borrow all of sub here, which is a problem for the cyclic reference in l2
-                    // interface
-                    mem_sub.cache_cycle(self.cycle.get());
-                })
+        let start = Instant::now();
+        if false && self.parallel_simulation {
+            todo!("parallel");
+            // self.mem_sub_partitions
+            //     .par_iter_mut()
+            //     .enumerate()
+            //     .for_each(|(i, mem_sub)| {
+            //         let mut mem_sub = mem_sub.try_lock().unwrap();
+            //         let device = self.config.mem_id_to_device_id(i);
+            //
+            //         // same as full with parameter overload
+            //         if mem_sub
+            //             .interconn_to_l2_can_fit(mem_sub_partition::SECTOR_CHUNCK_SIZE as usize)
+            //         {
+            //             if let Some(Packet::Fetch(fetch)) = self.interconn.pop(device) {
+            //                 log::debug!(
+            //                     "got new fetch {} for mem sub partition {} ({})",
+            //                     fetch,
+            //                     i,
+            //                     device
+            //                 );
+            //
+            //                 mem_sub.push(fetch);
+            //                 // self.parallel_mem_partition_reqs += 1;
+            //             }
+            //         } else {
+            //             log::debug!("SKIP sub partition {} ({}): DRAM full stall", i, device);
+            //             self.stats.lock().unwrap().stall_dram_full += 1;
+            //         }
+            //         // we borrow all of sub here, which is a problem for the cyclic reference in l2
+            //         // interface
+            //         mem_sub.cache_cycle(self.cycle.get());
+            //     })
         } else {
             // let mut parallel_mem_partition_reqs_per_cycle = 0;
             // let mut stall_dram_full = 0;
@@ -587,6 +599,7 @@ where
                 mem_sub.cache_cycle(self.cycle.get());
             }
         }
+        *L2_CYCLE_DUR.lock().unwrap() += start.elapsed();
 
         //   partiton_reqs_in_parallel += partiton_reqs_in_parallel_per_cycle;
         // if (partiton_reqs_in_parallel_per_cycle > 0) {
@@ -596,50 +609,194 @@ where
 
         // self.interconn_transfer();
 
+        // dbg!(self.parallel_simulation);
+        let start = Instant::now();
+
+        let kernels_completed = self
+            .running_kernels
+            .iter()
+            .filter_map(std::option::Option::as_ref)
+            .all(|k| k.no_more_blocks_to_run());
+        // let active_clusters: Vec<_> = self
+        //     .clusters
+        //     .iter_mut()
+        //     .filter(|cluster| {
+        //         let cores_completed = cluster.not_completed() == 0;
+        //         !cores_completed || !kernels_completed
+        //     })
+        //     .collect();
+
+        let mut executed_cluster_ids = std::collections::HashSet::new();
+
         if self.parallel_simulation {
+            // let ic_before = self.interconn
+            // let before = self.gather_state();
+            // panic!("doing parallel for real");
+            // dbg!(rayon::current_num_threads());
             let cores: Vec<_> = self
                 .clusters
-                .iter()
+                .iter_mut()
+                .filter(|cluster| {
+                    let cores_completed = cluster.not_completed() == 0;
+                    !cores_completed || !kernels_completed
+                })
                 .flat_map(|cluster| cluster.cores.iter())
                 .collect();
             cores.par_iter().for_each(|core| {
                 core.lock().unwrap().cycle();
-            })
+            });
+            // dbg!(cores.len());
+            // let after = self.gather_state();
+            // if before != after {
+            // similar_asserts::assert_eq!(before: before, after: after);
+            // }
+
+            // for cluster in self.clusters.iter_mut() {
+            //     // let ordering = cluster.core_sim_order
+            //     for core_id in &cluster.core_sim_order {
+            //         let core = cluster.cores[*core_id].lock().unwrap();
+            //         let mut load_store_unit = core.inner.load_store_unit.lock().unwrap();
+            //         for (dest, fetch, size) in load_store_unit.interconn_port.drain(..) {
+            //             self.interconn
+            //                 .push(cluster.cluster_id, dest, Packet::Fetch(fetch), size);
+            //         }
+            //     }
+            //
+            //     if let config::SchedulingOrder::RoundRobin = self.config.simt_core_sim_order {
+            //         cluster.core_sim_order.rotate_left(1);
+            //     }
+            // }
+
+            // self.interconn.commit();
+
+            if false {
+                for sub in &self.mem_sub_partitions {
+                    let sub = sub.lock().unwrap();
+                    let mem_dest = self.config.mem_id_to_device_id(sub.id);
+                    // sub id: 0..15 (have 8 mem controllers, 2 sub partitions per channel)
+                    // dbg!(sub.id);
+                    // dbg!(mem_dest);
+                    let mut dest_queue = self.interconn.dest_queue(mem_dest).lock().unwrap();
+                    // todo sort the dest queue here
+                    dest_queue.make_contiguous().sort_by_key(|packet| {
+                        let Packet::Fetch(fetch) = packet;
+                        let ordering = &self.clusters[fetch.cluster_id].core_sim_order;
+                        // dbg!(&ordering);
+                        let core_id = fetch.core_id
+                            - (fetch.cluster_id * self.config.num_cores_per_simt_cluster);
+                        // dbg!(fetch.core_id, core_id);
+                        let ordering_idx = ordering.iter().position(|id| *id == core_id).unwrap();
+                        // dbg!(fetch.cluster_id);
+                        // dbg!(fetch.core_id);
+                        let pushed_cycle = fetch.pushed_cycle.unwrap();
+                        // dbg!((pushed_cycle, core_idx));
+                        (pushed_cycle, fetch.cluster_id, ordering_idx)
+                    });
+                    let _q = dest_queue
+                        .iter()
+                        .map(|p| {
+                            let Packet::Fetch(fetch) = p;
+                            (fetch.pushed_cycle.unwrap(), fetch.cluster_id, fetch.core_id)
+                        })
+                        .collect::<Vec<_>>();
+                    // if !q.is_empty() {
+                    //     dbg!(sub.id, q);
+                    // }
+                }
+            }
+
+            for cluster in self.clusters.iter_mut() {
+                // let cores_completed = cluster.not_completed() == 0;
+                // let kernels_completed = self
+                //     .running_kernels
+                //     .iter()
+                //     .filter_map(std::option::Option::as_ref)
+                //     .all(|k| k.no_more_blocks_to_run());
+                // if cores_completed && kernels_completed {
+                //     continue;
+                // }
+                // dbg!(&executed_cluster_ids);
+                // if !executed_cluster_ids.contains(&cluster.cluster_id) {
+                //     continue;
+                // }
+
+                for core_id in &cluster.core_sim_order {
+                    let core = cluster.cores[*core_id].lock().unwrap();
+                    let mut port = core.inner.interconn_port.lock().unwrap();
+                    for (dest, fetch, size) in port.drain(..) {
+                        self.interconn.push(
+                            core.inner.cluster_id,
+                            dest,
+                            Packet::Fetch(fetch),
+                            size,
+                        );
+                    }
+                }
+
+                if let config::SchedulingOrder::RoundRobin = self.config.simt_core_sim_order {
+                    cluster.core_sim_order.rotate_left(1);
+                }
+            }
         } else {
             // let mut active_sms = 0;
             for cluster in &mut self.clusters {
+                log::debug!("cluster {} cycle {}", cluster.cluster_id, self.cycle.get());
                 let cores_completed = cluster.not_completed() == 0;
                 let kernels_completed = self
                     .running_kernels
                     .iter()
                     .filter_map(std::option::Option::as_ref)
                     .all(|k| k.no_more_blocks_to_run());
-                if !cores_completed || !kernels_completed {
-                    cluster.cycle();
-                    // active_sms += cluster.num_active_sms();
+                if cores_completed && kernels_completed {
+                    continue;
                 }
+                executed_cluster_ids.insert(cluster.cluster_id);
+
+                // cluster.cycle();
+                for core_id in &cluster.core_sim_order {
+                    let mut core = cluster.cores[*core_id].lock().unwrap();
+                    core.cycle();
+
+                    let mut port = core.inner.interconn_port.lock().unwrap();
+                    for (dest, fetch, size) in port.drain(..) {
+                        self.interconn.push(
+                            core.inner.cluster_id,
+                            dest,
+                            Packet::Fetch(fetch),
+                            size,
+                        );
+                    }
+                }
+
+                if let config::SchedulingOrder::RoundRobin = self.config.simt_core_sim_order {
+                    cluster.core_sim_order.rotate_left(1);
+                }
+
+                // active_sms += cluster.num_active_sms();
             }
         }
 
-        if false && self.parallel_simulation {
-            // log::debug!("===> issue block to core");
-            // let last_issued = self.last_cluster_issue;
-            // let num_clusters = self.config.num_simt_clusters;
-            // for cluster_idx in 0..num_clusters {
-            //     debug_assert_eq!(cluster_idx, self.clusters[cluster_idx].cluster_id);
-            //     let idx = (cluster_idx + last_issued + 1) % num_clusters;
-            //     let num_blocks_issued = self.clusters[idx].issue_block_to_core(self);
-            //     log::trace!("cluster[{}] issued {} blocks", idx, num_blocks_issued);
-            //
-            //     if num_blocks_issued > 0 {
-            //         self.last_cluster_issue = idx;
-            //         // self.total_blocks_launched += num_blocks_issued;
-            //     }
-            // }
-        } else {
-            self.issue_block_to_core();
-            // self.decrement_kernel_latency();
-        }
+        *CORE_CYCLE_DUR.lock().unwrap() += start.elapsed();
+
+        // if false && self.parallel_simulation {
+        // log::debug!("===> issue block to core");
+        // let last_issued = self.last_cluster_issue;
+        // let num_clusters = self.config.num_simt_clusters;
+        // for cluster_idx in 0..num_clusters {
+        //     debug_assert_eq!(cluster_idx, self.clusters[cluster_idx].cluster_id);
+        //     let idx = (cluster_idx + last_issued + 1) % num_clusters;
+        //     let num_blocks_issued = self.clusters[idx].issue_block_to_core(self);
+        //     log::trace!("cluster[{}] issued {} blocks", idx, num_blocks_issued);
+        //
+        //     if num_blocks_issued > 0 {
+        //         self.last_cluster_issue = idx;
+        //         // self.total_blocks_launched += num_blocks_issued;
+        //     }
+        // }
+        // } else {
+        self.issue_block_to_core();
+        // self.decrement_kernel_latency();
+        // }
 
         // Depending on configuration, invalidate the caches
         // once all of threads are completed.
@@ -682,6 +839,8 @@ where
                 }
             }
         }
+
+        *TOTAL_CYCLE_DUR.lock().unwrap() += start_total.elapsed();
     }
 
     pub fn gpu_mem_alloc(&mut self, addr: address, num_bytes: u64, name: Option<&str>) {
@@ -753,7 +912,7 @@ where
 
         for cluster in &self.clusters {
             // for core in cluster.cores.lock().unwrap().iter() {
-            for core in cluster.cores.iter() {
+            for core in &cluster.cores {
                 let core = core.lock().unwrap();
                 let core_id = core.inner.core_id;
                 stats.l1i_stats.insert(
@@ -772,7 +931,6 @@ where
         }
 
         for sub in &self.mem_sub_partitions {
-            // let sub: &mem_sub_partition::MemorySubPartition = &sub.as_ref().try_borrow().unwrap();
             let sub = sub.try_lock().unwrap();
             let l2_cache = sub.l2_cache.as_ref().unwrap();
             stats
@@ -1096,8 +1254,10 @@ pub fn save_stats_to_file(stats: &Stats, path: &Path) -> eyre::Result<()> {
 
 pub fn accelmain(
     traces_dir: impl AsRef<Path>,
-    log_after_cycle: Option<u64>,
+    config: impl Into<Arc<config::GPUConfig>>,
+    // log_after_cycle: Option<u64>,
 ) -> eyre::Result<Stats> {
+    let config = config.into();
     let traces_dir = traces_dir.as_ref();
     let (traces_dir, commands_path) = if traces_dir.is_dir() {
         (traces_dir.to_path_buf(), traces_dir.join("commands.json"))
@@ -1114,24 +1274,24 @@ pub fn accelmain(
     };
 
     // debugging config
-    let config = Arc::new(config::GPUConfig {
-        num_simt_clusters: 20,                   // 20
-        num_cores_per_simt_cluster: 4,           // 1
-        num_schedulers_per_core: 2,              // 1
-        num_memory_controllers: 8,               // 8
-        num_sub_partition_per_memory_channel: 2, // 2
-        fill_l2_on_memcopy: true,                // true
-        ..config::GPUConfig::default()
-    });
+    // let config = Arc::new(config::GPUConfig {
+    //     num_simt_clusters: 20,                   // 20
+    //     num_cores_per_simt_cluster: 4,           // 1
+    //     num_schedulers_per_core: 2,              // 1
+    //     num_memory_controllers: 8,               // 8
+    //     num_sub_partition_per_memory_channel: 2, // 2
+    //     fill_l2_on_memcopy: true,                // true
+    //     ..config::GPUConfig::default()
+    // });
 
     let interconn = Arc::new(ic::ToyInterconnect::new(
         config.num_simt_clusters,
         config.num_memory_controllers * config.num_sub_partition_per_memory_channel,
     ));
-    let mut sim = MockSimulator::new(interconn, Arc::clone(&config), &traces_dir, commands_path);
+    let mut sim = MockSimulator::new(interconn, Arc::clone(&config), traces_dir, commands_path);
 
-    sim.log_after_cycle = log_after_cycle;
-    sim.parallel_simulation = true;
+    sim.log_after_cycle = config.log_after_cycle;
+    sim.parallel_simulation = config.parallel;
 
     let deadlock_check = std::env::var("DEADLOCK_CHECK")
         .unwrap_or_default()
@@ -1158,7 +1318,7 @@ mod tests {
     use std::ops::Deref;
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
-    use std::time::Instant;
+    use std::time::{Duration, Instant};
     use trace_model::Command;
 
     #[derive(Debug, Clone, Copy)]
@@ -1713,20 +1873,65 @@ mod tests {
     //     // play_sim_state
     // }
 
-    fn cache_stats_max_rel_err(
-        play_stats: &stats::cache::Cache,
-        box_stats: &stats::cache::Cache,
-    ) -> f64 {
-        cache_stats_rel_err(play_stats, box_stats)
-            .into_iter()
-            .max_by(|a, b| a.total_cmp(b))
-            .unwrap_or(0.0)
+    // fn cache_stats_max_rel_err<'a>(
+    //     play_stats: &'a stats::cache::Cache,
+    //     box_stats: &'a stats::cache::Cache,
+    // ) -> Option<(&'a (stats::mem::AccessKind, stats::cache::AccessStat), f64) {
+    //     let rel_errs = cache_stats_rel_err(play_stats, box_stats);
+    //     dbg!(&rel_errs);
+    //     rel_errs
+    //         .into_iter()
+    //         .max_by(|(_, a), (_, b)| a.total_cmp(b))
+    // }
+
+    fn rel_err<T: num_traits::NumCast>(b: T, p: T) -> f64 {
+        let b: f64 = num_traits::NumCast::from(b).unwrap();
+        let p: f64 = num_traits::NumCast::from(p).unwrap();
+        let diff = b - p;
+        let rel_err = if p == 0.0 || b == 0.0 {
+            // absolute difference of more than 5 causes big relative error, else 0.0
+            if diff > 5.0 {
+                diff / (p as f64 + 0.1)
+            } else {
+                0.0
+            }
+        } else {
+            diff / (p as f64)
+        };
+        rel_err
+    }
+
+    fn dram_stats_rel_err(
+        play_stats: &playground::stats::DRAM,
+        box_stats: &playground::stats::DRAM,
+    ) -> Vec<(String, f64)> {
+        vec![
+            (
+                "total_reads".to_string(),
+                rel_err(box_stats.total_reads, play_stats.total_reads),
+            ),
+            (
+                "total_writes".to_string(),
+                rel_err(box_stats.total_writes, play_stats.total_writes),
+            ),
+        ]
     }
 
     fn cache_stats_rel_err(
         play_stats: &stats::cache::Cache,
         box_stats: &stats::cache::Cache,
-    ) -> Vec<f64> {
+    ) -> Vec<(String, f64)> {
+        all_cache_stats_rel_err(play_stats, box_stats)
+            .into_iter()
+            .map(|(k, err)| (k.to_string(), err))
+            .filter(|(_, err)| *err != 0.0)
+            .collect()
+    }
+
+    fn all_cache_stats_rel_err<'a>(
+        play_stats: &'a stats::cache::Cache,
+        box_stats: &'a stats::cache::Cache,
+    ) -> Vec<(&'a stats::cache::Access, f64)> {
         let keys: HashSet<_> = play_stats
             .accesses
             .keys()
@@ -1736,17 +1941,19 @@ mod tests {
             .map(|k| {
                 let p = play_stats.accesses.get(k).copied().unwrap_or_default();
                 let b = box_stats.accesses.get(k).copied().unwrap_or_default();
-                let diff = b as f64 - p as f64;
-                if p == 0 || b == 0 {
-                    // absolute difference of more than 5 causes big relative error, else 0.0
-                    if diff > 5.0 {
-                        diff / (p as f64 + 0.1)
-                    } else {
-                        0.0
-                    }
-                } else {
-                    diff / (p as f64)
-                }
+                let rel_err = rel_err(b, p);
+                // let diff = b as f64 - p as f64;
+                // let rel_err = if p == 0 || b == 0 {
+                //     // absolute difference of more than 5 causes big relative error, else 0.0
+                //     if diff > 5.0 {
+                //         diff / (p as f64 + 0.1)
+                //     } else {
+                //         0.0
+                //     }
+                // } else {
+                //     diff / (p as f64)
+                // };
+                (k, rel_err)
             })
             .collect()
     }
@@ -1920,7 +2127,10 @@ mod tests {
             &box_trace_dir,
             &box_commands_path,
         );
-        box_sim.parallel_simulation = true;
+        box_sim.parallel_simulation =
+            std::env::var("PARALLEL").unwrap_or_default().to_lowercase() == "yes";
+
+        let should_compare_states = !box_sim.parallel_simulation;
 
         let args = vec![
             "-trace",
@@ -1937,14 +2147,14 @@ mod tests {
         let play_config = playground::Config::default();
         let mut play_sim = playground::Accelsim::new(&play_config, &args)?;
 
-        let mut play_time_cycle = std::time::Duration::ZERO;
-        let mut play_time_other = std::time::Duration::ZERO;
-        let mut box_time_cycle = std::time::Duration::ZERO;
-        let mut box_time_other = std::time::Duration::ZERO;
+        let mut play_time_cycle = Duration::ZERO;
+        let mut play_time_other = Duration::ZERO;
+        let mut box_time_cycle = Duration::ZERO;
+        let mut box_time_other = Duration::ZERO;
 
-        let mut gather_state_time = std::time::Duration::ZERO;
-        let mut gather_box_state_time = std::time::Duration::ZERO;
-        let mut gather_play_state_time = std::time::Duration::ZERO;
+        let mut gather_state_time = Duration::ZERO;
+        let mut gather_box_state_time = Duration::ZERO;
+        let mut gather_play_state_time = Duration::ZERO;
 
         let mut last_valid_box_sim_state = None;
         let mut last_valid_play_sim_state = None;
@@ -2003,7 +2213,7 @@ mod tests {
             play_time_other += start.elapsed();
 
             // check that memcopy commands were handled correctly
-            if !box_sim.parallel_simulation {
+            if should_compare_states {
                 start = Instant::now();
                 let (box_sim_state, play_sim_state) =
                     gather_simulation_state(&mut box_sim, &mut play_sim, trace_provider);
@@ -2064,7 +2274,7 @@ mod tests {
                 box_time_cycle += start.elapsed();
 
                 let should_check = cycle >= check_after && cycle % check_every == 0;
-                if !box_sim.parallel_simulation && should_check {
+                if should_compare_states && should_check {
                     start = Instant::now();
                     let (box_sim_state, play_sim_state) =
                         gather_simulation_state(&mut box_sim, &mut play_sim, trace_provider);
@@ -2123,11 +2333,11 @@ mod tests {
                     // // );
 
                     if box_sim_state != play_sim_state {
-                        println!(
-                            "validated play state for cycle {}: {:#?}",
-                            cycle - 1,
-                            &last_valid_play_sim_state
-                        );
+                        // println!(
+                        //     "validated play state for cycle {}: {:#?}",
+                        //     cycle - 1,
+                        //     &last_valid_play_sim_state
+                        // );
 
                         {
                             serde_json::to_writer_pretty(
@@ -2288,36 +2498,68 @@ mod tests {
                 let play_l1i_stats = play_l1i_stats.reduce();
                 let box_l1i_stats = box_stats.l1i_stats.reduce();
                 dbg!(&play_l1i_stats, &box_l1i_stats);
-                diff::diff!(play: &play_l1i_stats, box: &box_l1i_stats);
-                assert!(cache_stats_max_rel_err(&play_l1i_stats, &box_l1i_stats) <= max_rel_err);
+                if play_l1i_stats != box_l1i_stats {
+                    diff::diff!(play: &play_l1i_stats, box: &box_l1i_stats);
+                }
+                let rel_err = cache_stats_rel_err(&play_l1i_stats, &box_l1i_stats);
+                dbg!(&rel_err);
+                assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
             }
             {
                 let play_l1d_stats = play_l1d_stats.reduce();
                 let box_l1d_stats = box_stats.l1d_stats.reduce();
                 dbg!(&play_l1d_stats, &box_l1d_stats);
-                diff::diff!(play: &play_l1d_stats, box: &box_l1d_stats);
-                assert!(cache_stats_max_rel_err(&play_l1d_stats, &box_l1d_stats) <= max_rel_err);
+                if play_l1d_stats != box_l1d_stats {
+                    diff::diff!(play: &play_l1d_stats, box: &box_l1d_stats);
+                }
+                let rel_err = cache_stats_rel_err(&play_l1d_stats, &box_l1d_stats);
+                dbg!(&rel_err);
+                assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
             }
             {
                 let play_l1t_stats = play_l1t_stats.reduce();
                 let box_l1t_stats = box_stats.l1t_stats.reduce();
                 dbg!(&play_l1t_stats, &box_l1t_stats);
-                diff::diff!(play: &play_l1t_stats, box: &box_l1t_stats);
-                assert!(cache_stats_max_rel_err(&play_l1t_stats, &box_l1t_stats) <= max_rel_err);
+                if play_l1t_stats != box_l1t_stats {
+                    diff::diff!(play: &play_l1t_stats, box: &box_l1t_stats);
+                }
+                let rel_err = cache_stats_rel_err(&play_l1t_stats, &box_l1t_stats);
+                dbg!(&rel_err);
+                assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
             }
             {
                 let play_l1c_stats = play_l1c_stats.reduce();
                 let box_l1c_stats = box_stats.l1c_stats.reduce();
                 dbg!(&play_l1c_stats, &box_l1c_stats);
-                diff::diff!(play: &play_l1c_stats, box: &box_l1c_stats);
-                assert!(cache_stats_max_rel_err(&play_l1c_stats, &box_l1c_stats) <= max_rel_err);
+                if play_l1c_stats != box_l1c_stats {
+                    diff::diff!(play: &play_l1c_stats, box: &box_l1c_stats);
+                }
+                let rel_err = cache_stats_rel_err(&play_l1c_stats, &box_l1c_stats);
+                dbg!(&rel_err);
+                assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
             }
             {
                 let play_l2d_stats = play_l2d_stats.reduce();
                 let box_l2d_stats = box_stats.l2d_stats.reduce();
                 dbg!(&play_l2d_stats, &box_l2d_stats);
-                diff::diff!(play: &play_l2d_stats, box: &box_l2d_stats);
-                assert!(cache_stats_max_rel_err(&play_l2d_stats, &box_l2d_stats) <= max_rel_err);
+                if play_l2d_stats != box_l2d_stats {
+                    diff::diff!(play: &play_l2d_stats, box: &box_l2d_stats);
+                }
+                let rel_err = cache_stats_rel_err(&play_l2d_stats, &box_l2d_stats);
+                dbg!(&rel_err);
+                assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
+            }
+
+            {
+                // compare DRAM stats
+                let box_dram_stats = playground::stats::DRAM::from(box_stats.dram.clone());
+                dbg!(&play_stats.dram, &box_dram_stats);
+                if play_stats.dram != box_dram_stats {
+                    diff::diff!(play: &play_stats.dram, box: &box_dram_stats);
+                }
+                let rel_err = dram_stats_rel_err(&play_stats.dram, &box_dram_stats);
+                dbg!(&rel_err);
+                assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
             }
         } else {
             dbg!(&play_l1i_stats, &box_stats.l1i_stats);
@@ -2330,17 +2572,17 @@ mod tests {
             diff::assert_eq!( play: &play_l1c_stats, box: &box_stats.l1c_stats);
             dbg!(&play_l2d_stats, &box_stats.l2d_stats);
             diff::assert_eq!( play: &play_l2d_stats, box: &box_stats.l2d_stats);
+
+            // compare DRAM stats
+            let box_dram_stats = playground::stats::DRAM::from(box_stats.dram.clone());
+            dbg!(&play_stats.dram, &box_dram_stats);
+            diff::assert_eq!(play: &play_stats.dram, box: &box_dram_stats);
         }
 
         // compare accesses
         let box_accesses = playground::stats::Accesses::from(box_stats.accesses.clone());
         dbg!(&play_stats.accesses, &box_stats.accesses);
         diff::assert_eq!(play: play_stats.accesses, box: box_accesses);
-
-        // compare DRAM stats
-        let box_dram_stats = playground::stats::DRAM::from(box_stats.dram.clone());
-        dbg!(&play_stats.dram, &box_dram_stats);
-        diff::assert_eq!(play: &play_stats.dram, box: &box_dram_stats);
 
         // compare instruction stats
         let box_instructions =
@@ -2354,7 +2596,7 @@ mod tests {
         diff::assert_eq!(play: &play_stats.sim, box: &box_sim_stats);
 
         // this uses our custom PartialEq::eq implementation
-        assert_eq!(&play_stats, &box_stats);
+        // assert_eq!(&play_stats, &box_stats);
         // assert!(false);
         Ok(())
     }

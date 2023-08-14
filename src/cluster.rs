@@ -1,10 +1,8 @@
-use super::{
-    config, core, interconn as ic, kernel::Kernel, mem_fetch, MockSimulator, Packet, SIMTCore,
-};
+use super::{config, interconn as ic, kernel::Kernel, mem_fetch, MockSimulator, Packet, SIMTCore};
 use console::style;
-use std::cell::RefCell;
+
 use std::collections::VecDeque;
-use std::rc::Rc;
+
 use std::sync::{atomic, Arc, Mutex};
 
 #[derive(Debug)]
@@ -155,8 +153,6 @@ where
         if let Some(fetch) = self.response_fifo.front() {
             let core_id = self.config.global_core_id_to_core_id(fetch.core_id);
 
-            // let mut cores = self.cores.lock().unwrap();
-            // let core = &mut cores[core_id];
             let mut core = self.cores[core_id].lock().unwrap();
 
             match *fetch.access_kind() {
@@ -170,16 +166,14 @@ where
                         log::debug!("instr access fetch {} NOT YET ACCEPTED", fetch);
                     }
                 }
+                _ if !core.ldst_unit_response_buffer_full() => {
+                    let fetch = self.response_fifo.pop_front().unwrap();
+                    log::debug!("accepted ldst unit fetch {}", fetch);
+                    // m_memory_stats->memlatstat_read_done(mf);
+                    core.accept_ldst_unit_response(fetch);
+                }
                 _ => {
-                    // this could be the reason
-                    if !core.ldst_unit_response_buffer_full() {
-                        let fetch = self.response_fifo.pop_front().unwrap();
-                        log::debug!("accepted ldst unit fetch {}", fetch);
-                        // m_memory_stats->memlatstat_read_done(mf);
-                        core.accept_ldst_unit_response(fetch);
-                    } else {
-                        log::debug!("ldst unit fetch {} NOT YET ACCEPTED", fetch);
-                    }
+                    log::debug!("ldst unit fetch {} NOT YET ACCEPTED", fetch);
                 }
             }
         }
@@ -218,11 +212,11 @@ where
         // The packet size varies depending on the type of request:
         // - For read request and atomic request, the packet contains the data
         // - For write-ack, the packet only has control metadata
-        let _packet_size = if fetch.is_write() {
-            fetch.control_size
-        } else {
-            fetch.data_size
-        };
+        // let _packet_size = if fetch.is_write() {
+        //     fetch.control_size()
+        // } else {
+        //     fetch.data_size()
+        // };
         // m_stats->m_incoming_traffic_stats->record_traffic(mf, packet_size);
         fetch.status = mem_fetch::Status::IN_CLUSTER_TO_SHADER_QUEUE;
         self.response_fifo.push_back(fetch);
@@ -251,21 +245,16 @@ where
         }
     }
 
-    pub fn cycle(&mut self) {
-        log::debug!("cluster {} cycle {}", self.cluster_id, self.cycle.get());
-        // let mut cores = self.cores.lock().unwrap();
-
-        for core_id in &self.core_sim_order {
-            // cores[*core_id].cycle()
-            self.cores[*core_id].lock().unwrap().cycle();
-        }
-
-        if let config::SchedulingOrder::RoundRobin = self.config.simt_core_sim_order {
-            self.core_sim_order.rotate_left(1);
-            // let first = self.core_sim_order.pop_front().unwrap();
-            // self.core_sim_order.push_back(first);
-        }
-    }
+    // pub fn cycle(&mut self) {
+    //     log::debug!("cluster {} cycle {}", self.cluster_id, self.cycle.get());
+    //     for core_id in &self.core_sim_order {
+    //         self.cores[*core_id].lock().unwrap().cycle();
+    //     }
+    //
+    //     if let config::SchedulingOrder::RoundRobin = self.config.simt_core_sim_order {
+    //         self.core_sim_order.rotate_left(1);
+    //     }
+    // }
 
     pub fn issue_block_to_core(&self, sim: &MockSimulator<I>) -> usize {
         // let mut cores = self.cores.lock().unwrap();

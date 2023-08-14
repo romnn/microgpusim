@@ -75,7 +75,7 @@ impl TryFrom<Stats> for stats::Stats {
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     fn try_from(stats: Stats) -> Result<Self, Self::Error> {
         use stats::{
-            cache::{AccessStat, RequestStatus, ReservationFailure},
+            cache::{Access, AccessStat, RequestStatus, ReservationFailure},
             mem::AccessKind,
         };
         use strum::IntoEnumIterator;
@@ -107,7 +107,7 @@ impl TryFrom<Stats> for stats::Stats {
         for kind in AccessKind::iter() {
             for reservation_failure in ReservationFailure::iter() {
                 l2d_total.accesses.insert(
-                    (kind, AccessStat::ReservationFailure(reservation_failure)),
+                    Access((kind, AccessStat::ReservationFailure(reservation_failure))),
                     stats
                         .get(&key!(format!("l2_cache_{kind:?}_{reservation_failure:?}")))
                         .copied()
@@ -116,7 +116,7 @@ impl TryFrom<Stats> for stats::Stats {
             }
             for status in RequestStatus::iter() {
                 l2d_total.accesses.insert(
-                    (kind, AccessStat::Status(status)),
+                    Access((kind, AccessStat::Status(status))),
                     stats
                         .get(&key!(format!("l2_cache_{kind:?}_{status:?}")))
                         .copied()

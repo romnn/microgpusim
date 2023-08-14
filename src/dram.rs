@@ -69,11 +69,11 @@ impl DRAM {
                 stats.dram.bank_writes[fetch.core_id][dram_id][bank] += 1;
             }
             stats.dram.total_bank_writes[dram_id][bank] +=
-                (fetch.data_size as f32 / dram_atom_size as f32).ceil() as u64;
+                (fetch.data_size() as f32 / dram_atom_size as f32).ceil() as u64;
         } else {
             stats.dram.bank_reads[fetch.core_id][dram_id][bank] += 1;
             stats.dram.total_bank_reads[dram_id][bank] +=
-                (fetch.data_size as f32 / dram_atom_size as f32).ceil() as u64;
+                (fetch.data_size() as f32 / dram_atom_size as f32).ceil() as u64;
         }
         // these stats are not used
         // mem_access_type_stats[fetch.access_kind()][dram_id][bank] +=
@@ -92,7 +92,8 @@ impl DRAM {
     //     todo!("dram: return_queue_top");
     // }
     //
-    #[must_use] pub fn full(&self, _is_write: bool) -> bool {
+    #[must_use]
+    pub fn full(&self, _is_write: bool) -> bool {
         false
         // let write_queue_size = self.config.dram_frfcfs_write_queue_size;
         // let sched_queue_size = self.config.dram_frfcfs_sched_queue_size;

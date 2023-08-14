@@ -29,9 +29,7 @@ impl Error {
             Error::Command(err) => err.into_eyre(),
             Error::MissingSharedLib(path) => {
                 eyre::Report::from(Error::MissingSharedLib(path.clone())).with_suggestion(|| {
-                    let is_release = path
-                        .components()
-                        .any(|c| c.as_os_str() == "release");
+                    let is_release = path.components().any(|c| c.as_os_str() == "release");
                     let cmd = if is_release {
                         "cargo build --release -p trace"
                     } else {

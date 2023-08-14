@@ -26,8 +26,10 @@ mod ffi {
             self: &core_bridge,
         ) -> UniquePtr<CxxVector<register_set_ptr>>;
 
-        #[must_use] fn get_scheduler_units(self: &core_bridge) -> UniquePtr<CxxVector<scheduler_unit_ptr>>;
-        #[must_use] fn get_operand_collector(self: &core_bridge) -> SharedPtr<operand_collector_bridge>;
+        #[must_use]
+        fn get_scheduler_units(self: &core_bridge) -> UniquePtr<CxxVector<scheduler_unit_ptr>>;
+        #[must_use]
+        fn get_operand_collector(self: &core_bridge) -> SharedPtr<operand_collector_bridge>;
 
         type pending_register_writes = crate::bindings::pending_register_writes;
 

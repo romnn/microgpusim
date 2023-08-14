@@ -9,7 +9,7 @@ impl From<Cache> for stats::Cache {
                 .into_iter()
                 .map(|((access_kind, access_stat), count)| {
                     (
-                        (access_kind.into(), access_stat.into()),
+                        stats::cache::Access((access_kind.into(), access_stat.into())),
                         count.try_into().unwrap(),
                     )
                 })

@@ -3,7 +3,7 @@ use crate::config;
 use bitvec::{array::BitArray, BitArr};
 // use std::cell::RefCell;
 // use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 pub trait SimdFunctionUnit: Send + Sync + std::fmt::Display + 'static {
     fn id(&self) -> &str;

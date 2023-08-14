@@ -1,9 +1,9 @@
 use super::{config, instruction::WarpInstruction, mem_fetch::BitString, register_set};
 use bitvec::{array::BitArray, BitArr};
 use console::style;
-use std::cell::RefCell;
+
 use std::collections::{HashMap, VecDeque};
-use std::rc::Rc;
+
 use std::sync::{Arc, Mutex};
 
 pub const MAX_REG_OPERANDS: usize = 32;

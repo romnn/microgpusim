@@ -16,7 +16,8 @@ impl<'a> OperandCollector<'a> {
         }
     }
 
-    #[must_use] pub fn arbiter(&'a self) -> &'a arbiter_t {
+    #[must_use]
+    pub fn arbiter(&'a self) -> &'a arbiter_t {
         self.inner.get_arbiter()
     }
 
@@ -24,7 +25,8 @@ impl<'a> OperandCollector<'a> {
         self.inner.get_dispatch_units().iter()
     }
 
-    #[must_use] pub fn collector_units(&'a self) -> Vec<super::collector_unit::CollectorUnit<'a>> {
+    #[must_use]
+    pub fn collector_units(&'a self) -> Vec<super::collector_unit::CollectorUnit<'a>> {
         self.inner
             .get_collector_units()
             .into_iter()
@@ -39,7 +41,8 @@ impl<'a> OperandCollector<'a> {
             .collect()
     }
 
-    #[must_use] pub fn ports(&'a self) -> Vec<super::port::Port<'a>> {
+    #[must_use]
+    pub fn ports(&'a self) -> Vec<super::port::Port<'a>> {
         self.inner
             .get_input_ports()
             .iter()

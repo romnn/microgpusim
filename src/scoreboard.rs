@@ -13,7 +13,8 @@ pub struct Scoreboard {
 }
 
 impl Scoreboard {
-    #[must_use] pub fn new(core_id: usize, cluster_id: usize, max_warps: usize) -> Self {
+    #[must_use]
+    pub fn new(core_id: usize, cluster_id: usize, max_warps: usize) -> Self {
         let register_table: Vec<_> = (0..max_warps).map(|_| HashSet::new()).collect();
         Self {
             core_id,
@@ -27,7 +28,8 @@ impl Scoreboard {
     /// # Returns
     /// true if WAW or RAW hazard (no WAR since in-order issue)
     ///
-    #[must_use] pub fn has_collision(&self, warp_id: usize, instr: &WarpInstruction) -> bool {
+    #[must_use]
+    pub fn has_collision(&self, warp_id: usize, instr: &WarpInstruction) -> bool {
         use itertools::Itertools;
 
         // Get list of all input and output registers
@@ -56,7 +58,8 @@ impl Scoreboard {
         intersection.next().is_some()
     }
 
-    #[must_use] pub fn pending_writes(&self, warp_id: usize) -> &HashSet<u32> {
+    #[must_use]
+    pub fn pending_writes(&self, warp_id: usize) -> &HashSet<u32> {
         &self.register_table[warp_id]
     }
 
@@ -79,8 +82,13 @@ impl Scoreboard {
 
     pub fn reserve_register(&mut self, warp_id: usize, reg_num: u32) {
         let warp_registers = &mut self.register_table[warp_id];
-        assert!(!warp_registers.contains(&reg_num), "trying to reserve an already reserved register (core_id={}, warp_id={}, reg_num={})",
-           self.core_id, warp_id, reg_num);
+        assert!(
+            !warp_registers.contains(&reg_num),
+            "trying to reserve an already reserved register (core_id={}, warp_id={}, reg_num={})",
+            self.core_id,
+            warp_id,
+            reg_num
+        );
         log::trace!(
             "scoreboard: warp {} reserves register: {}",
             warp_id,

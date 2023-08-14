@@ -54,11 +54,29 @@ pub enum AccessStat {
     Status(RequestStatus),
 }
 
-pub type CsvRow = ((AccessKind, AccessStat), usize);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[repr(transparent)]
+#[serde(transparent)]
+pub struct Access(pub (AccessKind, AccessStat));
+
+impl std::fmt::Display for Access {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self.0 {
+            (access_kind, AccessStat::Status(status)) => {
+                write!(f, "{access_kind:?}[{status:?}]")
+            }
+            (access_kind, AccessStat::ReservationFailure(failure)) => {
+                write!(f, "{access_kind:?}[{failure:?}]")
+            }
+        }
+    }
+}
+
+pub type CsvRow = (Access, usize);
 
 #[derive(Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Cache {
-    pub accesses: HashMap<(AccessKind, AccessStat), usize>,
+    pub accesses: HashMap<Access, usize>,
 }
 
 impl Cache {
@@ -83,10 +101,13 @@ impl Default for Cache {
         let mut accesses = HashMap::new();
         for access_kind in AccessKind::iter() {
             for status in RequestStatus::iter() {
-                accesses.insert((access_kind, AccessStat::Status(status)), 0);
+                accesses.insert(Access((access_kind, AccessStat::Status(status))), 0);
             }
             for failure in ReservationFailure::iter() {
-                accesses.insert((access_kind, AccessStat::ReservationFailure(failure)), 0);
+                accesses.insert(
+                    Access((access_kind, AccessStat::ReservationFailure(failure))),
+                    0,
+                );
             }
         }
         Self { accesses }
@@ -99,23 +120,24 @@ impl std::fmt::Debug for Cache {
             .accesses
             .iter()
             .filter(|(_, &count)| count > 0)
-            .map(|((access_kind, access_stat), count)| {
-                let key = match access_stat {
-                    AccessStat::Status(status) => {
-                        format!("{access_kind:?}[{status:?}]")
-                    }
-                    AccessStat::ReservationFailure(failure) => {
-                        format!("{access_kind:?}[{failure:?}]")
-                    }
-                };
-                (key, count)
+            // .map(|((access_kind, access_stat), count)| {
+            .map(|(access, count)| {
+                // let key = match access_stat {
+                //     AccessStat::Status(status) => {
+                //         format!("{access_kind:?}[{status:?}]")
+                //     }
+                //     AccessStat::ReservationFailure(failure) => {
+                //         format!("{access_kind:?}[{failure:?}]")
+                //     }
+                // };
+                (access.to_string(), count)
             })
             .collect();
         accesses.sort_by_key(|(key, _)| key.clone());
 
         let mut out = f.debug_struct("CacheStats");
-        for (key, count) in accesses {
-            out.field(&key, count);
+        for (access, count) in accesses {
+            out.field(&access, count);
         }
         out.finish_non_exhaustive()
     }
@@ -137,7 +159,9 @@ impl Cache {
         let mut total_misses = 0;
         let mut total_pending_hits = 0;
         let mut total_reservation_fails = 0;
-        for ((_access_kind, status), accesses) in &self.accesses {
+        for (access, accesses) in &self.accesses {
+            let Access((_access_kind, status)) = access;
+
             if let AccessStat::Status(
                 RequestStatus::HIT
                 | RequestStatus::MISS
@@ -172,7 +196,7 @@ impl Cache {
     ) {
         *self
             .accesses
-            .entry((kind.into(), access.into()))
+            .entry(Access((kind.into(), access.into())))
             .or_insert(0) += count;
     }
 }

@@ -1,6 +1,19 @@
 #### TODO
 
+- notes
+
+  - l2 cache is shared in sub partitions, we get different l2 metrics
+  - l1i are the same always, as they are local to the core
+
 - today:
+
+  - look into the DRAM issue
+  - execution driven frontend
+  - finally render plots and compare with accelsim and with gpu
+  - record mem fetch latency
+  - output all memory accesses for post simulation tools to visualize
+
+    - asynchronously push into file (unordered)
 
   - todos
 

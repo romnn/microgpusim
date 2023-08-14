@@ -9,22 +9,24 @@ use std::sync::{Arc, Mutex};
 /// Functions are not mutable because the interface should
 /// implement locking internally
 pub trait Interconnect<P>: Send + Sync + 'static {
-    fn busy(&self) -> bool {
-        todo!("interconn: busy");
-    }
+    fn busy(&self) -> bool;
 
-    fn push(&self, _src: usize, _dest: usize, _packet: P, _size: u32) {
-        todo!("interconn: push");
-    }
-    fn pop(&self, _dest: usize) -> Option<P> {
-        todo!("interconn: pop");
-    }
-    fn has_buffer(&self, _dest: usize, _size: u32) -> bool {
-        todo!("interconn: has buffer");
-    }
-    fn transfer(&self) {
-        todo!("interconn: transfer");
-    }
+    fn push(&self, _src: usize, _dest: usize, _packet: P, _size: u32);
+
+    // fn push_all(&self, _src: usize, _dest: usize, _packet: P, _size: u32);
+
+    fn pop(&self, _dest: usize) -> Option<P>;
+
+    fn has_buffer(&self, _dest: usize, _size: u32) -> bool;
+
+    fn dest_queue(&self, _dest: usize) -> &Mutex<VecDeque<P>>;
+
+    // fn commit(&self);
+
+    // fn iter(&self) -> Box<dyn Iterator<Item = (VecDeque<P>>>;
+    // fn sort(&self);
+
+    fn transfer(&self);
 }
 
 #[derive(Debug)]
@@ -37,7 +39,7 @@ pub struct ToyInterconnect<P> {
     pub num_classes: usize,
     round_robin_turn: Vec<Vec<Mutex<usize>>>,
     // input_queue: Vec<Vec<Vec<Mutex<VecDeque<P>>>>>,
-    output_queue: Vec<Vec<Vec<Mutex<VecDeque<P>>>>>,
+    pub output_queue: Vec<Vec<Vec<Mutex<VecDeque<P>>>>>,
     // deviceID to icntID map
     // deviceID : Starts from 0 for shaders and then continues until mem nodes
     // which starts at location n_shader and then continues to n_shader+n_mem (last device)
@@ -98,6 +100,48 @@ where
             .any(|reqs: &Mutex<VecDeque<_>>| !reqs.lock().unwrap().is_empty())
     }
 
+    // fn iter(&self) -> Box<dyn Iterator<Item = (uVecDeque<P>>>{
+    //     // let mut queue = self.output_queue[subnet][dest_device][0].lock().unwrap();
+    //     // for (subnet_idx, subnet) in &self.output_queue.enumerate() {
+    //     // for (subnet_idx, subnet) in &self.output_queue.enumerate() {
+    //     //     for (nodex_idx, node) in subnet.iter().enumerate() {
+    //     //         for (class_idx, class) in node.iter().enumerate() {
+    //     //             // let _test = class.lock().unwrap();
+    //     //             // self.output_queue[subnet][node][class];
+    //     //         }
+    //     //     }
+    //     // }
+    // }
+
+    // fn sort(&self, order: Option<Vec>) {
+    //     // let mut queue = self.output_queue[subnet][dest_device][0].lock().unwrap();
+    //     for subnet in &self.output_queue {
+    //         for node in subnet {
+    //             for class in node {
+    //                 let _test = class.lock().unwrap();
+    //                 // self.output_queue[subnet][node][class];
+    //             }
+    //         }
+    //     }
+    // }
+
+    // fn commit(&self) {
+    //     self.commit_queue
+    // }
+
+    fn dest_queue(&self, dest_device: usize) -> &Mutex<VecDeque<P>> {
+        // assert!(self.has_buffer(src_device, size));
+
+        let is_memory_node = self.num_subnets > 1 && dest_device >= self.num_cores;
+        let subnet = usize::from(is_memory_node);
+        // log::debug!(
+        //     "{}: {size} bytes from device {src_device} to {dest_device} (subnet {subnet})",
+        //     style(format!("INTERCONN PUSH {packet}")).bold(),
+        // );
+
+        &self.output_queue[subnet][dest_device][0]
+    }
+
     fn push(&self, src_device: usize, dest_device: usize, packet: P, size: u32) {
         assert!(self.has_buffer(src_device, size));
 
@@ -151,6 +195,8 @@ where
     }
 }
 
+pub type InterconnPort = Arc<Mutex<VecDeque<(usize, mem_fetch::MemFetch, u32)>>>;
+
 /// Memory interconnect interface between components.
 ///
 /// Functions are not mutable because the interface should
@@ -158,9 +204,7 @@ where
 pub trait MemFetchInterface: Send + Sync + std::fmt::Debug + 'static {
     fn full(&self, size: u32, write: bool) -> bool;
 
-    fn push(&self, _fetch: mem_fetch::MemFetch) {
-        todo!("mem fetch interface: full");
-    }
+    fn push(&self, _fetch: mem_fetch::MemFetch, time: u64);
 }
 
 #[derive()]
@@ -169,6 +213,7 @@ pub struct CoreMemoryInterface<P> {
     pub stats: Arc<Mutex<stats::Stats>>,
     pub cluster_id: usize,
     pub interconn: Arc<dyn Interconnect<P>>,
+    pub interconn_port: InterconnPort,
 }
 
 impl<P> std::fmt::Debug for CoreMemoryInterface<P> {
@@ -187,7 +232,7 @@ impl MemFetchInterface for CoreMemoryInterface<Packet> {
         !self.interconn.has_buffer(self.cluster_id, request_size)
     }
 
-    fn push(&self, mut fetch: mem_fetch::MemFetch) {
+    fn push(&self, mut fetch: mem_fetch::MemFetch, time: u64) {
         // self.core.interconn_simt_to_mem(fetch.get_num_flits(true));
         // self.cluster.interconn_inject_request_packet(fetch);
 
@@ -213,7 +258,7 @@ impl MemFetchInterface for CoreMemoryInterface<Packet> {
         // - For write request and atomic request, packet contains the data
         // - For read request (i.e. not write nor atomic), packet only has control metadata
         let packet_size = if !fetch.is_write() && !fetch.is_atomic() {
-            fetch.control_size
+            fetch.control_size()
         } else {
             // todo: is that correct now?
             fetch.size()
@@ -222,8 +267,17 @@ impl MemFetchInterface for CoreMemoryInterface<Packet> {
         // m_stats->m_outgoing_traffic_stats->record_traffic(mf, packet_size);
         fetch.status = mem_fetch::Status::IN_ICNT_TO_MEM;
 
-        self.interconn
-            .push(self.cluster_id, mem_dest, Packet::Fetch(fetch), packet_size);
+        // if let Packet::Fetch(fetch) = packet {
+        fetch.pushed_cycle = Some(time);
+
+        // self.interconn_queue
+        //     .push_back((mem_dest, fetch, packet_size));
+        // self.interconn
+        //     .push(self.cluster_id, mem_dest, Packet::Fetch(fetch), packet_size);
+        self.interconn_port
+            .lock()
+            .unwrap()
+            .push_back((mem_dest, fetch, packet_size))
     }
 }
 
@@ -246,7 +300,7 @@ where
         self.l2_to_dram_queue.lock().unwrap().full()
     }
 
-    fn push(&self, mut fetch: mem_fetch::MemFetch) {
+    fn push(&self, mut fetch: mem_fetch::MemFetch, _time: u64) {
         fetch.set_status(mem_fetch::Status::IN_PARTITION_L2_TO_DRAM_QUEUE, 0);
         log::debug!("l2 interface push l2_to_dram_queue");
         self.l2_to_dram_queue.lock().unwrap().enqueue(fetch)

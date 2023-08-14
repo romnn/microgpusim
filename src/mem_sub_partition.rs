@@ -26,6 +26,7 @@ pub struct MemorySubPartition<Q = FifoQueue<mem_fetch::MemFetch>> {
 
     /// queues
     pub interconn_to_l2_queue: Q,
+    // pub l2_to_dram_queue: Q,
     pub l2_to_dram_queue: Arc<Mutex<Q>>,
     pub dram_to_l2_queue: Q,
     /// L2 cache hit response queue

@@ -149,6 +149,7 @@ class trace_shd_warp_t : public shd_warp_t {
   void clear();
   bool trace_done();
   address_type get_start_trace_pc() const;
+
   // ROMAN: Fix: add const to make sure parent class method is overridden
   virtual address_type get_pc() const override {
     assert(warp_traces.size() > 0);

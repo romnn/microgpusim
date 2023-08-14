@@ -4,7 +4,8 @@ mod ffi {
         include!("playground-sys/src/ref/register_set.hpp");
 
         type register_set;
-        #[must_use] fn get_name(self: &register_set) -> *const c_char;
+        #[must_use]
+        fn get_name(self: &register_set) -> *const c_char;
     }
 
     // explicit instantiation for register_set to implement VecElement

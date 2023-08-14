@@ -6,15 +6,12 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[derive(Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct Options {
     pub per_kernel: bool,
     pub kernel_instance: bool,
     pub strict: bool,
 }
-
-
 
 macro_rules! stat {
     ($name:expr, $kind:expr, $regex:expr) => {

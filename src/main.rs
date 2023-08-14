@@ -1,5 +1,6 @@
 // #![allow(warnings)]
 
+use casimu::config::GPUConfig;
 use clap::{Parser, Subcommand};
 use color_eyre::eyre;
 use std::path::PathBuf;
@@ -34,6 +35,9 @@ struct Options {
     /// Use multi-threading
     #[arg(long = "parallel")]
     parallel: bool,
+
+    #[clap(flatten)]
+    pub accelsim: casimu::config::accelsim::Config,
 }
 
 fn main() -> eyre::Result<()> {
@@ -68,7 +72,19 @@ fn main() -> eyre::Result<()> {
         log_builder.init();
     }
 
-    let stats = casimu::accelmain(&options.trace_dir, log_after_cycle)?;
+    let config = GPUConfig {
+        num_simt_clusters: 20,                   // 20
+        num_cores_per_simt_cluster: 4,           // 1
+        num_schedulers_per_core: 2,              // 1
+        num_memory_controllers: 8,               // 8
+        num_sub_partition_per_memory_channel: 2, // 2
+        fill_l2_on_memcopy: true,                // true
+        parallel: options.parallel,
+        log_after_cycle,
+        ..GPUConfig::default()
+    };
+
+    let stats = casimu::accelmain(&options.trace_dir, config)?;
 
     // save stats to file
     if let Some(stats_out_file) = options.stats_out_file.as_ref() {

@@ -23,12 +23,14 @@ impl<'a> RegisterSet<'a> {
         }
     }
 
-    #[must_use] pub fn name(&self) -> String {
+    #[must_use]
+    pub fn name(&self) -> String {
         let name = unsafe { std::ffi::CStr::from_ptr(self.get_name()) };
         name.to_string_lossy().to_string()
     }
 
-    #[must_use] pub fn registers(&self) -> Vec<WarpInstr<'a>> {
+    #[must_use]
+    pub fn registers(&self) -> Vec<WarpInstr<'a>> {
         self.inner
             .get_registers()
             .iter()

@@ -10,13 +10,16 @@ mod ffi {
         type scheduler_unit;
 
         type scheduler_unit_bridge;
-        #[must_use] unsafe fn new_scheduler_unit_bridge(
+        #[must_use]
+        unsafe fn new_scheduler_unit_bridge(
             ptr: *const scheduler_unit,
         ) -> SharedPtr<scheduler_unit_bridge>;
         #[must_use]
         fn inner(self: &scheduler_unit_bridge) -> *const scheduler_unit;
-        #[must_use] fn get_prioritized_warp_ids(self: &scheduler_unit_bridge) -> UniquePtr<CxxVector<u32>>;
-        #[must_use] fn get_prioritized_dynamic_warp_ids(
+        #[must_use]
+        fn get_prioritized_warp_ids(self: &scheduler_unit_bridge) -> UniquePtr<CxxVector<u32>>;
+        #[must_use]
+        fn get_prioritized_dynamic_warp_ids(
             self: &scheduler_unit_bridge,
         ) -> UniquePtr<CxxVector<u32>>;
     }

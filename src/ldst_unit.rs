@@ -8,8 +8,6 @@ use super::{
     simd_function_unit as fu,
 };
 use console::style;
-// use std::cell::RefCell;
-// use std::rc::Rc;
 use std::sync::{Arc, Mutex, RwLock};
 use strum::EnumCount;
 
@@ -54,10 +52,11 @@ pub struct LoadStoreUnit<I> {
     next_global: Option<MemFetch>,
     pub pending_writes: HashMap<usize, HashMap<u32, usize>>,
     l1_latency_queue: Vec<Vec<Option<mem_fetch::MemFetch>>>,
+    interconn: Arc<dyn ic::Interconnect<super::Packet> + Send + 'static>,
     fetch_interconn: Arc<I>,
+    // pub interconn_port: super::InterconnPort,
     pipelined_simd_unit: fu::PipelinedSimdUnitImpl,
 
-    // operand_collector: Rc<RefCell<opcoll::OperandCollectorRegisterFileUnit>>,
     operand_collector: Arc<Mutex<opcoll::OperandCollectorRegisterFileUnit>>,
 
     /// round-robin arbiter for writeback contention between L1T, L1C, shared
@@ -130,8 +129,9 @@ where
         core_id: usize,
         cluster_id: usize,
         warps: Vec<sched::WarpRef>,
+        interconn: Arc<dyn ic::Interconnect<super::Packet> + Send + 'static>,
         fetch_interconn: Arc<I>,
-        // operand_collector: Rc<RefCell<OperandCollectorRegisterFileUnit>>,
+        // interconn_port: InterconnPort,
         operand_collector: Arc<Mutex<OperandCollectorRegisterFileUnit>>,
         scoreboard: Arc<RwLock<Scoreboard>>,
         config: Arc<config::GPUConfig>,
@@ -165,7 +165,7 @@ where
                     format!("ldst-unit-{cluster_id}-{core_id}-L1-DATA-CACHE"),
                     core_id,
                     cluster_id,
-                    cycle.clone(),
+                    cycle,
                     Arc::clone(&fetch_interconn),
                     cache_stats,
                     Arc::clone(&config),
@@ -186,7 +186,9 @@ where
             next_global: None,
             pending_writes: HashMap::new(),
             response_fifo: VecDeque::new(),
+            interconn,
             fetch_interconn,
+            // interconn_port,
             pipelined_simd_unit,
             config,
             stats,
@@ -246,8 +248,6 @@ where
                 .operand_collector
                 .try_lock()
                 .unwrap()
-                // .try_borrow_mut()
-                // .unwrap()
                 .writeback(next_writeback)
             {
                 let mut next_writeback = self.next_writeback.take().unwrap();
@@ -315,7 +315,6 @@ where
                         }
 
                         self.warps[pipe_reg.warp_id]
-                            // .try_borrow_mut()
                             .try_lock()
                             .unwrap()
                             .num_instr_in_pipeline -= 1;
@@ -446,6 +445,107 @@ where
         true
     }
 
+    // fn interconn_full(&self) -> bool {
+    //     let size = self
+    //         .interconn_port
+    //         .iter()
+    //         // .map(|(_dest, _fetch, _packet_size, size)| {
+    //         .map(|(_dest, _fetch, size)| {
+    //             // dispatch_instr.is_store() || dispatch_instr.is_atomic(),
+    //             *size
+    //         })
+    //         .sum();
+    //     // let size: u32 = self
+    //     //     .interconn_port
+    //     //     .iter()
+    //     //     .filter_map(|fetch| fetch.instr)
+    //     //     .map(|instr| {
+    //     //         let control_size = if instr.is_store() {
+    //     //             mem_fetch::WRITE_PACKET_SIZE
+    //     //         } else {
+    //     //             mem_fetch::READ_PACKET_SIZE
+    //     //         };
+    //     //         let size = access.req_size_bytes + u32::from(control_size);
+    //     //
+    //     //         let is_write = instr.is_store() || instr.is_atomic();
+    //     //         let request_size = if is_write {
+    //     //             size
+    //     //         } else {
+    //     //             u32::from(mem_fetch::READ_PACKET_SIZE)
+    //     //         };
+    //     //         request_size
+    //     //     })
+    //     //     .sum();
+    //     // false
+    //     !self.interconn.has_buffer(self.cluster_id, size)
+    // }
+    //
+    // fn interconn_push(&mut self, mut fetch: mem_fetch::MemFetch, time: u64) {
+    //     {
+    //         let mut stats = self.stats.lock().unwrap();
+    //         let access_kind = *fetch.access_kind();
+    //         debug_assert_eq!(fetch.is_write(), access_kind.is_write());
+    //         stats.accesses.inc(access_kind, 1);
+    //     }
+    //
+    //     let dest_sub_partition_id = fetch.sub_partition_id();
+    //     let mem_dest = self.config.mem_id_to_device_id(dest_sub_partition_id);
+    //
+    //     log::debug!(
+    //         "cluster {} icnt_inject_request_packet({}) dest sub partition id={} dest mem node={}",
+    //         self.cluster_id,
+    //         fetch,
+    //         dest_sub_partition_id,
+    //         mem_dest
+    //     );
+    //
+    //     // The packet size varies depending on the type of request:
+    //     // - For write request and atomic request, packet contains the data
+    //     // - For read request (i.e. not write nor atomic), packet only has control metadata
+    //     let packet_size = if !fetch.is_write() && !fetch.is_atomic() {
+    //         fetch.control_size()
+    //     } else {
+    //         // todo: is that correct now?
+    //         fetch.size()
+    //         // fetch.data_size
+    //     };
+    //
+    //     // let instr = fetch.instr.as_ref().unwrap();
+    //     // let request_size = if instr.is_store() || instr.is_atomic() {
+    //     //     packet_size
+    //     // } else {
+    //     //     u32::from(mem_fetch::READ_PACKET_SIZE)
+    //     // };
+    //
+    //     // {
+    //     //     let control_size = if instr.is_store() {
+    //     //         mem_fetch::WRITE_PACKET_SIZE
+    //     //     } else {
+    //     //         mem_fetch::READ_PACKET_SIZE
+    //     //     };
+    //     //     let size = fetch.access.req_size_bytes + u32::from(control_size);
+    //     //     // debug_assert_eq!(fetch.access.size(), size);
+    //     //     assert_eq!(packet_size, size);
+    //     // }
+    //
+    //     // m_stats->m_outgoing_traffic_stats->record_traffic(mf, packet_size);
+    //     fetch.status = mem_fetch::Status::IN_ICNT_TO_MEM;
+    //
+    //     // if let Packet::Fetch(fetch) = packet {
+    //     fetch.pushed_cycle = Some(time);
+    //
+    //     // self.interconn_queue
+    //     //     .push_back((mem_dest, fetch, packet_size));
+    //     self.interconn.push(
+    //         self.cluster_id,
+    //         mem_dest,
+    //         super::Packet::Fetch(fetch),
+    //         packet_size,
+    //     );
+    //     // self.interconn_port
+    //     //     .push_back((mem_dest, fetch, packet_size));
+    // }
+
     fn memory_cycle(
         &mut self,
         rc_fail: &mut MemStageStallKind,
@@ -498,18 +598,23 @@ where
         if bypass_l1 {
             // bypass L1 cache
             debug_assert_eq!(dispatch_instr.is_store(), access.is_write);
+            // debug_assert_eq!(access.req_size_bytes, dispatch_instr.data_size);
             let control_size = if dispatch_instr.is_store() {
                 mem_fetch::WRITE_PACKET_SIZE
             } else {
                 mem_fetch::READ_PACKET_SIZE
             };
             let size = access.req_size_bytes + u32::from(control_size);
+            debug_assert_eq!(access.size(), size);
 
-            if self.fetch_interconn.full(
-                size,
-                dispatch_instr.is_store() || dispatch_instr.is_atomic(),
-            ) {
-                stall_cond = MemStageStallKind::ICNT_RC_FAIL;
+            // if self.fetch_interconn.full(
+            if false
+            // if self.interconn_full(
+            // size,
+            // dispatch_instr.is_store() || dispatch_instr.is_atomic(),
+            {
+                // stall_cond = MemStageStallKind::ICNT_RC_FAIL;
+                panic!("interconn full");
             } else {
                 let pending = &self.pending_writes[&dispatch_instr.warp_id];
                 if dispatch_instr.is_load() {
@@ -518,7 +623,6 @@ where
                     }
                 } else if dispatch_instr.is_store() {
                     self.warps[dispatch_instr.warp_id]
-                        // .try_borrow_mut()
                         .try_lock()
                         .unwrap()
                         .num_outstanding_stores += 1;
@@ -535,7 +639,9 @@ where
                     self.cluster_id,
                 );
 
-                self.fetch_interconn.push(fetch);
+                let time = self.pipelined_simd_unit.cycle.get();
+                // self.interconn_push(fetch, time);
+                self.fetch_interconn.push(fetch, time);
             }
         } else {
             debug_assert_ne!(dispatch_instr.cache_operator, CacheOperator::UNDEFINED);
@@ -628,7 +734,7 @@ where
                         self.core_id,
                         self.cluster_id,
                     );
-                    let data_size = fetch.data_size;
+                    let data_size = fetch.data_size();
                     *slot = Some(fetch);
 
                     if is_store {
@@ -700,7 +806,7 @@ where
         if write_sent {
             let l1d_config = self.config.data_cache_l1.as_ref().unwrap();
             let inc_ack = if l1d_config.inner.mshr_kind == mshr::Kind::SECTOR_ASSOC {
-                fetch.data_size / super::mem_sub_partition::SECTOR_SIZE
+                fetch.data_size() / super::mem_sub_partition::SECTOR_SIZE
             } else {
                 1
             };
@@ -764,7 +870,7 @@ where
                 let write_allocate_sent = cache::event::was_writeallocate_sent(&events);
 
                 let dec_ack = if l1_config.inner.mshr_kind == mshr::Kind::SECTOR_ASSOC {
-                    next_fetch.data_size / mem_sub_partition::SECTOR_SIZE
+                    next_fetch.data_size() / mem_sub_partition::SECTOR_SIZE
                 } else {
                     1
                 };
@@ -1125,7 +1231,6 @@ where
                             .release_registers(&dispatch_reg);
                     }
                     self.warps[warp_id]
-                        // .try_borrow_mut()
                         .try_lock()
                         .unwrap()
                         .num_instr_in_pipeline -= 1;
@@ -1134,7 +1239,6 @@ where
             } else {
                 // stores exit pipeline here
                 self.warps[warp_id]
-                    // .try_borrow_mut()
                     .try_lock()
                     .unwrap()
                     .num_instr_in_pipeline -= 1;

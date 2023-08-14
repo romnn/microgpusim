@@ -24,8 +24,29 @@ fn get_bench_config(benchmark_name: &str, input_idx: usize) -> eyre::Result<Benc
 }
 
 pub fn run_box(mut bench_config: BenchmarkConfig) -> eyre::Result<()> {
-    bench_config.simulate.parallel = true;
-    let _stats = validate::simulate::simulate_bench_config(&bench_config)?;
+    bench_config.simulate.parallel =
+        std::env::var("PARALLEL").unwrap_or_default().to_lowercase() == "yes";
+    println!("parallel: {}", bench_config.simulate.parallel);
+    let stats = validate::simulate::simulate_bench_config(&bench_config)?;
+    let cycles = stats.sim.cycles;
+    // fast parallel:   cycle loop time: 558485 ns
+    // serial:          cycle loop time: 2814591 ns (speedup 5x)
+    // have 80 cores and 16 threads
+    //
+    // parallel: dram cycle time: 229004 ns
+    let total = casimu::TOTAL_CYCLE_DUR.lock().unwrap().clone();
+    for (name, dur) in [
+        ("core cycle", &casimu::CORE_CYCLE_DUR),
+        ("icnt cycle", &casimu::ICNT_CYCLE_DUR),
+        ("dram cycle", &casimu::DRAM_CYCLE_DUR),
+        ("l2 cycle", &casimu::L2_CYCLE_DUR),
+        ("total cycle", &casimu::TOTAL_CYCLE_DUR),
+    ] {
+        let dur = dur.lock().unwrap();
+        let percent = (dur.as_secs_f64() / total.as_secs_f64()) * 100.0;
+        let ns = dur.as_nanos() / u128::from(cycles);
+        println!("{name} time: {ns} ns ({percent:>2.2}%)");
+    }
     Ok(())
 }
 
@@ -97,18 +118,26 @@ fn main() -> eyre::Result<()> {
 
     let mut start = Instant::now();
     let _ = run_box(black_box(get_bench_config("transpose", 0)?));
-    println!("box took:\t\t{:?}", start.elapsed());
+    let box_dur = start.elapsed();
+    println!("box took:\t\t{:?}", box_dur);
 
     start = Instant::now();
     let _ = run_playground(&black_box(get_bench_config("transpose", 0)?));
-    println!("play took:\t\t{:?}", start.elapsed());
+    let play_dur = start.elapsed();
+    println!("play took:\t\t{:?}", play_dur);
 
     start = Instant::now();
     runtime.block_on(async {
         run_accelsim(black_box(get_bench_config("transpose", 0)?)).await?;
         Ok::<(), eyre::Report>(())
     })?;
-    println!("accel took:\t\t{:?}", start.elapsed());
+    let accel_dur = start.elapsed();
+    println!("accel took:\t\t{:?}", accel_dur);
+
+    println!(
+        "speedup is :\t\t{:.2}",
+        play_dur.as_secs_f64() / box_dur.as_secs_f64()
+    );
 
     Ok(())
 }

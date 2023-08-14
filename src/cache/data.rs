@@ -370,7 +370,7 @@ where
             None,
             new_access,
             &self.inner.config,
-            fetch.control_size,
+            fetch.control_size(),
             fetch.warp_id,
             fetch.core_id,
             fetch.cluster_id,
@@ -524,7 +524,7 @@ where
         // branches resulting from many cache configuration options.
         // let time = self.inner.cycle.get();
         let mut access_status = probe_status;
-        let data_size = fetch.data_size;
+        let data_size = fetch.data_size();
 
         if is_write {
             if probe_status == cache::RequestStatus::HIT {
@@ -609,7 +609,7 @@ where
         } = self.inner;
 
         debug_assert_eq!(&fetch.access.addr, &addr);
-        debug_assert!(fetch.data_size <= cache_config.atom_size());
+        debug_assert!(fetch.data_size() <= cache_config.atom_size());
 
         let is_write = fetch.is_write();
         let access_kind = *fetch.access_kind();
@@ -618,7 +618,7 @@ where
         log::debug!(
             "{}::data_cache::access({fetch}, write = {is_write}, size = {}, block = {block_addr}, time = {})",
             self.inner.name,
-            fetch.data_size, time,
+            fetch.data_size(), time,
         );
 
         let dbg_fetch = fetch.clone();
@@ -735,7 +735,7 @@ mod tests {
     };
     use std::collections::VecDeque;
     use std::path::PathBuf;
-    use std::rc::Rc;
+
     use std::sync::{Arc, Mutex};
     use trace_model::Command;
 
@@ -746,7 +746,7 @@ mod tests {
         fn full(&self, _size: u32, _write: bool) -> bool {
             false
         }
-        fn push(&self, _fetch: mem_fetch::MemFetch) {}
+        fn push(&self, _fetch: mem_fetch::MemFetch, _time: u64) {}
     }
 
     fn concat<T>(

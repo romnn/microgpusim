@@ -6,7 +6,8 @@ pub mod ffi {
         type warp_inst_t = crate::bridge::types::warp_inst::warp_inst_t;
 
         type warp_inst_ptr;
-        #[must_use] fn get(self: &warp_inst_ptr) -> *const warp_inst_t;
+        #[must_use]
+        fn get(self: &warp_inst_ptr) -> *const warp_inst_t;
 
         type warp_inst_bridge;
         #[must_use]

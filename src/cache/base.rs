@@ -213,7 +213,7 @@ impl<I> Base<I> {
                     block_addr: mshr_addr,
                     addr: fetch.addr(),
                     cache_index,
-                    data_size: fetch.data_size,
+                    data_size: fetch.data_size(),
                     pending_reads: if is_sector_cache {
                         self.cache_config.line_size / SECTOR_SIZE
                     } else {
@@ -223,7 +223,8 @@ impl<I> Base<I> {
             );
 
             // change address to mshr block address
-            fetch.data_size = self.cache_config.atom_size();
+            fetch.access.req_size_bytes = self.cache_config.atom_size();
+            // fetch.data_size = self.cache_config.atom_size();
             fetch.access.addr = mshr_addr;
 
             self.mshrs.add(mshr_addr, fetch.clone());
@@ -287,10 +288,11 @@ where
                         "{}::baseline cache::memport::push({}, data size={}, control size={})",
                         &self.name,
                         fetch.addr(),
-                        fetch.data_size,
-                        fetch.control_size,
+                        fetch.data_size(),
+                        fetch.control_size(),
                     );
-                    self.mem_port.push(fetch);
+                    let time = self.cycle.get();
+                    self.mem_port.push(fetch, time);
                 }
             }
         }
@@ -320,7 +322,8 @@ where
         self.bandwidth.use_fill_port(&fetch);
 
         debug_assert!(pending.valid);
-        fetch.data_size = pending.data_size;
+        // fetch.data_size = pending.data_size();
+        fetch.access.req_size_bytes = pending.data_size;
         fetch.access.addr = pending.addr;
 
         match self.cache_config.allocate_policy {
@@ -371,41 +374,42 @@ impl<I> super::CacheBandwidth for Base<I> {
 
 #[cfg(test)]
 mod tests {
-    use super::Base;
-    use crate::{config, interconn as ic, Cycle, FromConfig, Packet};
-    use std::rc::Rc;
-    use std::sync::{Arc, Mutex};
+    // use super::Base;
+    // use crate::{config, interconn as ic, Cycle, FromConfig, Packet};
+    //
+    // use std::sync::{Arc, Mutex};
 
-    #[ignore = "todo"]
-    #[test]
-    fn base_cache_init() {
-        let core_id = 0;
-        let cluster_id = 0;
-        let config = Arc::new(config::GPUConfig::default());
-        let cache_stats = Arc::new(Mutex::new(stats::Cache::default()));
-        let cache_config = config.data_cache_l1.clone().unwrap();
-
-        let stats = Arc::new(Mutex::new(stats::Stats::from_config(&config)));
-        let interconn: Arc<ic::ToyInterconnect<Packet>> = Arc::new(ic::ToyInterconnect::new(0, 0));
-        let port = Arc::new(ic::CoreMemoryInterface {
-            interconn,
-            cluster_id: 0,
-            stats,
-            config: config.clone(),
-        });
-
-        let cycle = Cycle::new(0);
-        let base = Base::new(
-            "base cache".to_string(),
-            core_id,
-            cluster_id,
-            cycle,
-            port,
-            cache_stats,
-            config,
-            Arc::clone(&cache_config.inner),
-        );
-        dbg!(&base);
-        assert!(false);
-    }
+    // #[ignore = "todo"]
+    // #[test]
+    // fn base_cache_init() {
+    //     let core_id = 0;
+    //     let cluster_id = 0;
+    //     let config = Arc::new(config::GPUConfig::default());
+    //     let cache_stats = Arc::new(Mutex::new(stats::Cache::default()));
+    //     let cache_config = config.data_cache_l1.clone().unwrap();
+    //
+    //     let stats = Arc::new(Mutex::new(stats::Stats::from_config(&config)));
+    //     let interconn: Arc<ic::ToyInterconnect<Packet>> = Arc::new(ic::ToyInterconnect::new(0, 0));
+    //     let port = Arc::new(ic::CoreMemoryInterface {
+    //         interconn,
+    //         interconn_port,
+    //         cluster_id: 0,
+    //         stats,
+    //         config: config.clone(),
+    //     });
+    //
+    //     let cycle = Cycle::new(0);
+    //     let base = Base::new(
+    //         "base cache".to_string(),
+    //         core_id,
+    //         cluster_id,
+    //         cycle,
+    //         port,
+    //         cache_stats,
+    //         config,
+    //         Arc::clone(&cache_config.inner),
+    //     );
+    //     dbg!(&base);
+    //     assert!(false);
+    // }
 }

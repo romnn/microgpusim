@@ -315,6 +315,11 @@ impl CacheConfig {
 /// todo: remove the copy stuff, very expensive otherwise
 #[derive(Debug)]
 pub struct GPUConfig {
+    /// Log after cycle
+    pub log_after_cycle: Option<u64>,
+    /// Parallel simulation
+    pub parallel: bool,
+
     pub linear_to_raw_adress_translation:
         std::sync::OnceLock<addrdec::LinearToRawAddressTranslation>,
     /// The SM number to pass to ptxas when getting register usage for
@@ -462,9 +467,9 @@ pub struct GPUConfig {
     //
     pub pipeline_widths: HashMap<PipelineStage, usize>, // 4,0,0,1,1,4,0,0,1,1,6
     /// Number of SP units
-    pub num_sp_units: usize,  // 4
+    pub num_sp_units: usize, // 4
     /// Number of DP units
-    pub num_dp_units: usize,  // 0
+    pub num_dp_units: usize, // 0
     /// Number of INT units
     pub num_int_units: usize, // 0
 
@@ -934,6 +939,8 @@ impl GPUConfig {
 impl Default for GPUConfig {
     fn default() -> Self {
         Self {
+            log_after_cycle: None,
+            parallel: false,
             linear_to_raw_adress_translation: std::sync::OnceLock::new(),
             occupancy_sm_number: 60,
             max_threads_per_core: 2048,

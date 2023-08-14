@@ -32,13 +32,15 @@ pub type InstructionCountCsvRow = ((MemorySpace, bool), u64);
 pub struct InstructionCounts(pub HashMap<(MemorySpace, bool), u64>);
 
 impl InstructionCounts {
-    #[must_use] pub fn flatten(self) -> Vec<InstructionCountCsvRow> {
+    #[must_use]
+    pub fn flatten(self) -> Vec<InstructionCountCsvRow> {
         let mut flattened: Vec<_> = self.into_inner().into_iter().collect();
         flattened.sort_by_key(|(inst, _)| *inst);
         flattened
     }
 
-    #[must_use] pub fn into_inner(self) -> HashMap<(MemorySpace, bool), u64> {
+    #[must_use]
+    pub fn into_inner(self) -> HashMap<(MemorySpace, bool), u64> {
         self.0
     }
 }

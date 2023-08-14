@@ -42,7 +42,8 @@ impl ArbitrationMetadata {
     }
 
     /// check if a subpartition still has credit
-    #[must_use] pub fn has_credits(&self, inner_sub_partition_id: usize) -> bool {
+    #[must_use]
+    pub fn has_credits(&self, inner_sub_partition_id: usize) -> bool {
         if self.private_credit[inner_sub_partition_id] < self.private_credit_limit {
             return true;
         }
@@ -89,7 +90,8 @@ impl ArbitrationMetadata {
     }
 
     /// return the last subpartition that borrowed credit
-    #[must_use] pub fn last_borrower(&self) -> usize {
+    #[must_use]
+    pub fn last_borrower(&self) -> usize {
         self.last_borrower
     }
 }

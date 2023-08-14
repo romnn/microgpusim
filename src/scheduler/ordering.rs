@@ -1,13 +1,9 @@
 use super::{BaseSchedulerUnit, WarpRef};
 
 use std::sync::{Arc, Mutex};
-// use std::cell::RefCell;
-// use std::rc::Rc;
 
-// pub fn all_different<T>(values: &[Arc<Mutex<T>>]) -> bool {
+#[must_use]
 pub fn all_different<T>(values: &Vec<Arc<Mutex<T>>>) -> bool {
-    // pub fn all_different<T>(values: &[Rc<RefCell<T>>]) -> bool {
-    // pub fn all_different<'a, T: 'a>(values: impl Iterator<Item = &'a Arc<Mutex<T>>>) -> bool {
     for (vi, v) in values.iter().enumerate() {
         for (vii, vv) in values.iter().enumerate() {
             let should_be_equal = vi == vii;
@@ -24,9 +20,7 @@ pub fn all_different<T>(values: &Vec<Arc<Mutex<T>>>) -> bool {
 }
 
 pub fn sort_warps_by_oldest_dynamic_id(lhs: &WarpRef, rhs: &WarpRef) -> std::cmp::Ordering {
-    // let lhs = lhs.try_borrow().unwrap();
     let lhs = lhs.try_lock().unwrap();
-    // let rhs = rhs.try_borrow().unwrap();
     let rhs = rhs.try_lock().unwrap();
     if lhs.done_exit() || lhs.waiting() {
         std::cmp::Ordering::Greater

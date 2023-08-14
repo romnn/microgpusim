@@ -226,6 +226,21 @@ impl MemAccess {
         }
     }
 
+    #[must_use]
+    pub fn data_size(&self) -> u32 {
+        self.req_size_bytes
+    }
+
+    // #[must_use]
+    // pub fn control_size(&self) -> u32 {
+    //     self.access.control_size()
+    // }
+
+    #[must_use]
+    pub fn size(&self) -> u32 {
+        self.data_size() + self.control_size()
+    }
+
     // /// use gen memory accesses
     // #[deprecated]
     // pub fn from_instr(instr: &WarpInstruction) -> Option<Self> {
@@ -255,13 +270,13 @@ pub struct MemFetch {
     pub tlx_addr: DecodedAddress,
     pub partition_addr: address,
     pub chip: u64,
-    // pub sub_partition_id: usize,
-    pub control_size: u32,
+    // pub control_size: u32,
     pub kind: Kind,
-    pub data_size: u32,
+    // pub data_size: u32,
     pub warp_id: usize,
     pub core_id: usize,
     pub cluster_id: usize,
+    pub pushed_cycle: Option<u64>,
 
     pub status: Status,
     pub last_status_change: Option<u64>,
@@ -278,11 +293,6 @@ pub struct MemFetch {
 
 impl std::fmt::Display for MemFetch {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        // if self.is_reply() {
-        //     write!(f, "Reply")?
-        // } else {
-        //     write!(f, "Req")?
-        // }
         let addr = self.addr();
         write!(f, "{:?}({:?}", self.kind, self.access_kind())?;
         if let Some(ref alloc) = self.access.allocation {
@@ -326,11 +336,6 @@ impl std::hash::Hash for MemFetch {
 }
 
 impl MemFetch {
-    // pub fn new(access: MemAccess, const warp_inst_t *inst,
-    //     unsigned ctrl_size, unsigned wid, unsigned sid, unsigned tpc,
-    //     const memory_config *config, unsigned long long cycle,
-    //     mem_fetch *original_mf = NULL, mem_fetch *original_wr_mf = NULL);
-
     pub fn new(
         instr: Option<WarpInstruction>,
         access: MemAccess,
@@ -340,7 +345,7 @@ impl MemFetch {
         core_id: usize,
         cluster_id: usize,
     ) -> Self {
-        let data_size = access.req_size_bytes;
+        // let data_size = access.req_size_bytes;
         let kind = if access.is_write {
             Kind::WRITE_REQUEST
         } else {
@@ -361,42 +366,18 @@ impl MemFetch {
             warp_id,
             core_id,
             cluster_id,
-            data_size,
-            control_size,
+            // data_size,
+            // control_size,
             tlx_addr,
             partition_addr,
             chip: 0,
             kind,
             status: Status::INITIALIZED,
+            pushed_cycle: None,
             last_status_change: None,
             original_fetch: None,
             original_write_fetch: None,
         }
-        // if (inst) {
-        // m_inst = *inst;
-        // assert(wid == m_inst.warp_id());
-        // }
-        // m_data_size = access.get_size();
-        // m_ctrl_size = ctrl_size;
-        // m_sid = sid;
-        // m_tpc = tpc;
-        // m_wid = wid;
-        // config->m_address_mapping.addrdec_tlx(access.get_addr(), &m_raw_addr);
-        // m_partition_addr =
-        //   config->m_address_mapping.partition_address(access.get_addr());
-        // m_type = m_access.is_write() ? WRITE_REQUEST : READ_REQUEST;
-        // m_timestamp = cycle;
-        // m_timestamp2 = 0;
-        // m_status = MEM_FETCH_INITIALIZED;
-        // m_status_change = cycle;
-        // m_mem_config = config;
-        // icnt_flit_size = config->icnt_flit_size;
-        // original_mf = m_original_mf;
-        // original_wr_mf = m_original_wr_mf;
-        // if (m_original_mf) {
-        // m_raw_addr.chip = m_original_mf->get_tlx_addr().chip;
-        // m_raw_addr.sub_partition = m_original_mf->get_tlx_addr().sub_partition;
-        // }
     }
 
     pub fn is_atomic(&self) -> bool {
@@ -428,13 +409,19 @@ impl MemFetch {
     }
 
     #[must_use]
-    pub fn size(&self) -> u32 {
-        self.data_size + self.control_size
+    pub fn data_size(&self) -> u32 {
+        self.access.req_size_bytes
     }
 
-    // pub fn cache_op(&self) -> super::instruction::CacheOperator {
-    //     self.instr.cache_op
-    // }
+    #[must_use]
+    pub fn control_size(&self) -> u32 {
+        self.access.control_size()
+    }
+
+    #[must_use]
+    pub fn size(&self) -> u32 {
+        self.data_size() + self.control_size()
+    }
 
     #[must_use]
     pub fn access_byte_mask(&self) -> &MemAccessByteMask {
