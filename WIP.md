@@ -7,10 +7,19 @@
 
 - today:
 
+  - add rop delay queue
+  - record mem fetch latency
+  - add a few more stats
+  - refactor events
+  - lint
+
+- tomorrow:
+
+  -
+
   - look into the DRAM issue
   - execution driven frontend
   - finally render plots and compare with accelsim and with gpu
-  - record mem fetch latency
   - output all memory accesses for post simulation tools to visualize
 
     - asynchronously push into file (unordered)
@@ -23,10 +32,10 @@
 
     - look into: // TODO HOTFIX: workaround
 
+    - factor into multiple files
     - join core and inner core
     - remove the configs from inside the components
     - lint
-    - factor into multiple files
     - some minor todos
     - remove dead code
     - instantiate the entire GPU in one file to find a good API

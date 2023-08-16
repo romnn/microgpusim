@@ -62,17 +62,22 @@ pub struct Stats {
 
 impl Stats {
     #[must_use]
-    pub fn new(num_total_cores: usize, num_mem_units: usize, num_dram_banks: usize) -> Self {
+    pub fn new(
+        num_total_cores: usize,
+        num_mem_units: usize,
+        num_sub_partitions: usize,
+        num_dram_banks: usize,
+    ) -> Self {
         Self {
             accesses: Accesses::default(),
             instructions: InstructionCounts::default(),
             sim: Sim::default(),
             dram: DRAM::new(num_total_cores, num_mem_units, num_dram_banks),
-            l1i_stats: PerCache::default(),
-            l1c_stats: PerCache::default(),
-            l1t_stats: PerCache::default(),
-            l1d_stats: PerCache::default(),
-            l2d_stats: PerCache::default(),
+            l1i_stats: PerCache::new(num_total_cores),
+            l1c_stats: PerCache::new(num_total_cores),
+            l1t_stats: PerCache::new(num_total_cores),
+            l1d_stats: PerCache::new(num_total_cores),
+            l2d_stats: PerCache::new(num_sub_partitions),
             stall_dram_full: 0,
         }
     }

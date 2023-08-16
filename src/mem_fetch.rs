@@ -1,9 +1,7 @@
 use super::{
     address, config,
     instruction::{MemorySpace, WarpInstruction},
-    mem_sub_partition,
-    scheduler::ThreadActiveMask,
-    DecodedAddress,
+    mem_sub_partition, warp, DecodedAddress,
 };
 use bitvec::{array::BitArray, BitArr};
 use serde::{Deserialize, Serialize};
@@ -17,8 +15,8 @@ pub const WRITE_PACKET_SIZE: u8 = 8;
 
 pub const WRITE_MASK_SIZE: u8 = 8;
 
-pub type MemAccessByteMask = BitArr!(for mem_sub_partition::MAX_MEMORY_ACCESS_SIZE as usize);
-pub type MemAccessSectorMask = BitArr!(for mem_sub_partition::SECTOR_CHUNCK_SIZE as usize, in u8);
+pub type ByteMask = BitArr!(for mem_sub_partition::MAX_MEMORY_ACCESS_SIZE as usize);
+pub type SectorMask = BitArr!(for mem_sub_partition::SECTOR_CHUNCK_SIZE as usize, in u8);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 pub enum Kind {
@@ -127,9 +125,9 @@ pub struct MemAccess {
     /// access type
     pub kind: AccessKind,
     // active_mask_t m_warp_mask;
-    pub warp_mask: ThreadActiveMask,
-    pub byte_mask: MemAccessByteMask,
-    pub sector_mask: MemAccessSectorMask,
+    pub warp_mask: warp::ActiveMask,
+    pub byte_mask: ByteMask,
+    pub sector_mask: SectorMask,
 }
 
 pub trait BitString {
@@ -185,14 +183,10 @@ impl MemAccess {
         allocation: Option<crate::allocation::Allocation>,
         req_size_bytes: u32,
         is_write: bool,
-        warp_mask: ThreadActiveMask,
-        byte_mask: MemAccessByteMask,
-        sector_mask: MemAccessSectorMask,
+        warp_mask: warp::ActiveMask,
+        byte_mask: ByteMask,
+        sector_mask: SectorMask,
     ) -> Self {
-        // if kind == AccessKind::GLOBAL_ACC_R {
-        //     panic!("global acc r");
-        // }
-
         if let Some(ref alloc) = allocation {
             debug_assert!(alloc.start_addr <= addr);
         }
@@ -424,17 +418,17 @@ impl MemFetch {
     }
 
     #[must_use]
-    pub fn access_byte_mask(&self) -> &MemAccessByteMask {
+    pub fn access_byte_mask(&self) -> &ByteMask {
         &self.access.byte_mask
     }
 
     #[must_use]
-    pub fn access_warp_mask(&self) -> &ThreadActiveMask {
+    pub fn access_warp_mask(&self) -> &warp::ActiveMask {
         &self.access.warp_mask
     }
 
     #[must_use]
-    pub fn access_sector_mask(&self) -> &MemAccessSectorMask {
+    pub fn access_sector_mask(&self) -> &SectorMask {
         &self.access.sector_mask
     }
 

@@ -1,8 +1,6 @@
-use super::{instruction::WarpInstruction, register_set, scheduler as sched};
+use super::{instruction::WarpInstruction, register_set, scheduler, warp};
 use crate::config;
 use bitvec::{array::BitArray, BitArr};
-// use std::cell::RefCell;
-// use std::rc::Rc;
 use std::sync::Arc;
 
 pub trait SimdFunctionUnit: Send + Sync + std::fmt::Display + 'static {
@@ -89,7 +87,7 @@ impl PipelinedSimdUnitImpl {
 
 impl SimdFunctionUnit for PipelinedSimdUnitImpl {
     fn active_lanes_in_pipeline(&self) -> usize {
-        let mut active_lanes: sched::ThreadActiveMask = BitArray::ZERO;
+        let mut active_lanes: warp::ActiveMask = BitArray::ZERO;
         for stage in self.pipeline_reg.iter().flatten() {
             active_lanes |= stage.active_mask;
         }

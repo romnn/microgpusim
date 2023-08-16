@@ -1,4 +1,4 @@
-use super::{instruction, opcodes, scheduler as sched};
+use super::{instruction, opcodes, scheduler, warp};
 use color_eyre::{
     eyre::{self},
     Help,
@@ -108,7 +108,7 @@ impl Kernel {
         self.config.id
     }
 
-    pub fn next_threadblock_traces(&self, warps: &mut [sched::WarpRef]) {
+    pub fn next_threadblock_traces(&self, warps: &mut [warp::Ref]) {
         let mut trace_pos = self.trace_pos.write().unwrap();
 
         let mut instructions = 0;

@@ -1,4 +1,4 @@
-use super::{BaseSchedulerUnit, SchedulerUnit, WarpRef};
+use super::{warp, BaseSchedulerUnit, SchedulerUnit};
 use crate::{config::GPUConfig, core::WarpIssuer, scoreboard::Scoreboard};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, RwLock};
@@ -13,7 +13,7 @@ impl Scheduler {
         id: usize,
         cluster_id: usize,
         core_id: usize,
-        warps: Vec<WarpRef>,
+        warps: Vec<warp::Ref>,
         scoreboard: Arc<RwLock<Scoreboard>>,
         stats: Arc<Mutex<stats::scheduler::Scheduler>>,
         config: Arc<GPUConfig>,
@@ -29,7 +29,6 @@ impl Scheduler {
         self.inner
             .next_cycle_prioritized_warps
             .iter()
-            // .map(|w| w.borrow().warp_id)
             .map(|(_idx, w)| w.try_lock().unwrap().warp_id)
             .collect()
     }
@@ -38,7 +37,6 @@ impl Scheduler {
         self.inner
             .next_cycle_prioritized_warps
             .iter()
-            // .map(|w| w.borrow().dynamic_warp_id())
             .map(|(_idx, w)| w.try_lock().unwrap().dynamic_warp_id())
             .collect()
     }
@@ -52,15 +50,16 @@ impl SchedulerUnit for Scheduler {
         );
     }
 
-    fn add_supervised_warp(&mut self, warp: WarpRef) {
+    fn add_supervised_warp(&mut self, warp: warp::Ref) {
         self.inner.supervised_warps.push_back(warp);
     }
 
-    fn prioritized_warps(&self) -> &VecDeque<(usize, WarpRef)> {
+    fn prioritized_warps(&self) -> &VecDeque<(usize, warp::Ref)> {
         self.inner.prioritized_warps()
     }
 
-    fn cycle(&mut self, issuer: &mut dyn WarpIssuer) {
+    // fn cycle(&mut self, issuer: &mut dyn WarpIssuer) {
+    fn cycle(&mut self, issuer: &dyn WarpIssuer) {
         log::debug!(
             "gto scheduler[{}]: BEFORE: prioritized warp ids: {:?}",
             self.inner.id,

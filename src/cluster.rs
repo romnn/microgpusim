@@ -280,7 +280,7 @@ where
                 // sim.select_kernel().map(Arc::clone);
                 unimplemented!("concurrent kernel sm");
             } else {
-                let mut current_kernel = core.inner.current_kernel.as_ref();
+                let mut current_kernel = core.current_kernel.as_ref();
                 let should_select_new_kernel = if let Some(current) = current_kernel {
                     // if no more blocks left, get new kernel once current block completes
                     current.no_more_blocks_to_run() && core.not_completed() == 0
@@ -329,7 +329,7 @@ where
                 log::debug!(
                     "core {}-{}: selected kernel NULL",
                     self.cluster_id,
-                    core.inner.core_id,
+                    core.core_id,
                 );
             }
         }

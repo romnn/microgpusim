@@ -23,7 +23,7 @@ fn get_bench_config(benchmark_name: &str, input_idx: usize) -> eyre::Result<Benc
     Ok(bench_config.clone())
 }
 
-pub fn run_box(mut bench_config: BenchmarkConfig) -> eyre::Result<()> {
+pub fn run_box(mut bench_config: BenchmarkConfig) -> eyre::Result<stats::Stats> {
     bench_config.simulate.parallel =
         std::env::var("PARALLEL").unwrap_or_default().to_lowercase() == "yes";
     println!("parallel: {}", bench_config.simulate.parallel);
@@ -34,20 +34,22 @@ pub fn run_box(mut bench_config: BenchmarkConfig) -> eyre::Result<()> {
     // have 80 cores and 16 threads
     //
     // parallel: dram cycle time: 229004 ns
-    let total = casimu::TOTAL_CYCLE_DUR.lock().unwrap().clone();
+    println!("");
+    let timings = casimu::TIMINGS.lock().unwrap();
+    let total = timings["total_cycle"].mean();
     for (name, dur) in [
-        ("core cycle", &casimu::CORE_CYCLE_DUR),
-        ("icnt cycle", &casimu::ICNT_CYCLE_DUR),
-        ("dram cycle", &casimu::DRAM_CYCLE_DUR),
-        ("l2 cycle", &casimu::L2_CYCLE_DUR),
-        ("total cycle", &casimu::TOTAL_CYCLE_DUR),
+        ("core cycle", &timings["core_cycle"]),
+        ("icnt cycle", &timings["icnt_cycle"]),
+        ("dram cycle", &timings["dram_cycle"]),
+        ("l2 cycle", &timings["l2_cycle"]),
     ] {
-        let dur = dur.lock().unwrap();
+        let dur = dur.mean();
         let percent = (dur.as_secs_f64() / total.as_secs_f64()) * 100.0;
-        let ns = dur.as_nanos() / u128::from(cycles);
-        println!("{name} time: {ns} ns ({percent:>2.2}%)");
+        let ms = dur.as_secs_f64() * 1000.0;
+        println!("{name} time: {ms:.5} ms ({percent:>2.2}%)");
     }
-    Ok(())
+    println!("");
+    Ok(stats)
 }
 
 pub async fn run_accelsim(bench_config: BenchmarkConfig) -> eyre::Result<()> {
@@ -112,17 +114,28 @@ criterion::criterion_group!(benches, box_benchmark, play_benchmark, accelsim_ben
 fn main() -> eyre::Result<()> {
     use std::time::Instant;
 
+    env_logger::init();
+
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
 
     let mut start = Instant::now();
-    let _ = run_box(black_box(get_bench_config("transpose", 0)?));
+    let stats = run_box(black_box(get_bench_config("transpose", 0)?))?;
+    dbg!(stats.sim);
     let box_dur = start.elapsed();
     println!("box took:\t\t{:?}", box_dur);
 
+    let timings = casimu::TIMINGS.lock().unwrap();
+    let mut timings: Vec<_> = timings.iter().map(|(name, dur)| (name, dur.mean())).collect();
+    timings.sort_by_key(|(name, dur)| *dur);
+    for (name, dur) in timings {
+        println!("{name:>30}: {:>6.5} ms", dur.as_secs_f64() * 1000.0);
+    }
+    println!("");
+
     start = Instant::now();
-    let _ = run_playground(&black_box(get_bench_config("transpose", 0)?));
+    let _ = run_playground(&black_box(get_bench_config("transpose", 0)?))?;
     let play_dur = start.elapsed();
     println!("play took:\t\t{:?}", play_dur);
 
@@ -138,6 +151,5 @@ fn main() -> eyre::Result<()> {
         "speedup is :\t\t{:.2}",
         play_dur.as_secs_f64() / box_dur.as_secs_f64()
     );
-
     Ok(())
 }

@@ -64,9 +64,11 @@ impl<'a> Accelsim<'a> {
         let accelsim_bridge =
             playground_sys::main::new_accelsim_bridge(config.0, ffi_argv.as_slice());
 
+        let num_cores = accelsim_bridge.get_cores().len();
+        let num_sub_partitions = accelsim_bridge.get_sub_partitions().len();
         Ok(Self {
             inner: accelsim_bridge,
-            stats: crate::stats::Stats::default(),
+            stats: crate::stats::Stats::new(num_cores, num_sub_partitions),
             phantom: PhantomData,
         })
     }

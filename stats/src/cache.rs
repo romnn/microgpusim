@@ -204,12 +204,20 @@ impl Cache {
 pub type PerCacheCsvRow = (usize, CsvRow);
 
 #[allow(clippy::module_name_repetitions)]
-#[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PerCache(pub HashMap<usize, Cache>);
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PerCache(pub Box<[Cache]>);
+// pub struct PerCache(pub indexmap::IndexMap<usize, Cache>);
+// pub struct PerCache(pub HashMap<usize, Cache>);
 
 impl PerCache {
     #[must_use]
-    pub fn into_inner(self) -> HashMap<usize, Cache> {
+    pub fn new(size: usize) -> Self {
+        Self(vec![Cache::default(); size].into_boxed_slice())
+    }
+
+    #[must_use]
+    // pub fn into_inner(self) -> indexmap::IndexMap<usize, Cache> {
+    pub fn into_inner(self) -> Box<[Cache]> {
         self.0
     }
 
@@ -217,7 +225,9 @@ impl PerCache {
     pub fn flatten(self) -> Vec<PerCacheCsvRow> {
         let mut flattened: Vec<_> = self
             .into_inner()
+            .to_vec()
             .into_iter()
+            .enumerate()
             .flat_map(|(id, cache)| {
                 cache
                     .flatten()
@@ -230,7 +240,7 @@ impl PerCache {
     }
 
     pub fn shave(&mut self) {
-        for stats in self.values_mut() {
+        for stats in self.0.iter_mut() {
             stats.shave();
         }
     }
@@ -243,7 +253,7 @@ impl PerCache {
     #[must_use]
     pub fn reduce(&self) -> Cache {
         let mut out = Cache::default();
-        for stats in self.0.values() {
+        for stats in self.0.into_iter() {
             out += stats.clone();
         }
         out
@@ -251,7 +261,9 @@ impl PerCache {
 }
 
 impl std::ops::Deref for PerCache {
-    type Target = HashMap<usize, Cache>;
+    type Target = Box<[Cache]>;
+    // type Target = indexmap::IndexMap<usize, Cache>;
+    // type Target = HashMap<usize, Cache>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -261,5 +273,11 @@ impl std::ops::Deref for PerCache {
 impl std::ops::DerefMut for PerCache {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl<T: Into<Cache>> FromIterator<T> for PerCache {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        Self(iter.into_iter().map(Into::into).collect())
     }
 }

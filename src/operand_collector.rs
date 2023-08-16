@@ -422,6 +422,25 @@ impl Arbiter {
         inmatch.fill(None);
         outmatch.fill(None);
 
+        use rayon::prelude::*;
+        // (0..self.num_banks)
+        // (0..self.num_banks).into_par_iter().for_each(|bank| {
+        //     debug_assert!(bank < _inputs);
+        //     for collector in 0..self.num_collectors {
+        //         debug_assert!(collector < _outputs);
+        //         request[bank][collector] = Some(0);
+        //     }
+        //     if let Some(op) = self.queue[bank].front() {
+        //         let collector_id = op.collector_unit_id;
+        //         debug_assert!(collector_id < _outputs);
+        //         request[bank][collector_id] = Some(1);
+        //     }
+        //     if self.allocated_banks[bank].is_write() {
+        //         inmatch[bank] = Some(0); // write gets priority
+        //     }
+        //     log::trace!("request: {:?}", &Self::compat(&request[bank]));
+        // });
+
         for bank in 0..self.num_banks {
             debug_assert!(bank < _inputs);
             for collector in 0..self.num_collectors {
@@ -728,13 +747,14 @@ impl OperandCollectorRegisterFileUnit {
 
     pub fn step(&mut self) {
         log::debug!("{}", style("operand collector::step()").green());
-        self.dispatch_ready_cu();
-        self.allocate_reads();
+        crate::timeit!(self.dispatch_ready_cu());
+        crate::timeit!(self.allocate_reads());
+
         debug_assert!(!self.in_ports.is_empty());
         for port_num in 0..self.in_ports.len() {
             self.allocate_cu(port_num);
         }
-        self.process_banks();
+        crate::timeit!(self.process_banks());
     }
 
     fn process_banks(&mut self) {

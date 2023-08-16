@@ -1,19 +1,29 @@
 use crate::{instruction::WarpInstruction, kernel::Kernel};
 use bitvec::{array::BitArray, BitArr};
 use std::collections::VecDeque;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
-pub type ThreadActiveMask = BitArr!(for 32, in u32);
+/// Warp size.
+///
+/// Number of threads per warp.
+pub const WARP_SIZE: usize = 32;
+
+/// Thread active mask.
+///
+/// Bitmask where a 1 at position i means that thread i is active for the current instruction.
+pub type ActiveMask = BitArr!(for WARP_SIZE, in u32);
+
+pub type Ref = Arc<Mutex<Warp>>;
 
 #[derive(Debug)]
-pub struct SchedulerWarp {
+pub struct Warp {
     pub block_id: u64,
     pub dynamic_warp_id: usize,
     pub warp_id: usize,
     pub kernel: Option<Arc<Kernel>>,
 
     pub trace_pc: usize,
-    pub active_mask: ThreadActiveMask,
+    pub active_mask: ActiveMask,
     pub trace_instructions: VecDeque<WarpInstruction>,
 
     // state
@@ -26,7 +36,7 @@ pub struct SchedulerWarp {
     pub next: usize,
 }
 
-impl PartialEq for SchedulerWarp {
+impl PartialEq for Warp {
     fn eq(&self, other: &Self) -> bool {
         self.kernel == other.kernel
             && self.block_id == other.block_id
@@ -37,7 +47,7 @@ impl PartialEq for SchedulerWarp {
 
 const IBUFFER_SIZE: usize = 2;
 
-impl Default for SchedulerWarp {
+impl Default for Warp {
     fn default() -> Self {
         let instr_buffer = vec![None; IBUFFER_SIZE];
         Self {
@@ -59,14 +69,14 @@ impl Default for SchedulerWarp {
     }
 }
 
-impl SchedulerWarp {
+impl Warp {
     pub fn init(
         &mut self,
-        _start_pc: Option<usize>,
+        // _start_pc: Option<usize>,
         block_id: u64,
         warp_id: usize,
         dynamic_warp_id: usize,
-        active_mask: ThreadActiveMask,
+        active_mask: ActiveMask,
         kernel: Arc<Kernel>,
     ) {
         self.block_id = block_id;

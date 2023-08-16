@@ -117,12 +117,7 @@ where
         }
     }
 
-    pub fn force_l2_tag_update(
-        &mut self,
-        addr: address,
-        mask: mem_fetch::MemAccessSectorMask,
-        time: u64,
-    ) {
+    pub fn force_l2_tag_update(&mut self, addr: address, mask: mem_fetch::SectorMask, time: u64) {
         if let Some(ref mut l2_cache) = self.l2_cache {
             l2_cache.force_tag_access(addr, time + self.memcpy_cycle_offset, mask);
             self.memcpy_cycle_offset += 1;
@@ -373,13 +368,13 @@ where
         if let Some(ref mut l2_cache) = self.l2_cache {
             let queue_full = self.l2_to_interconn_queue.full();
 
+            const EMPTY: VecDeque<mem_fetch::MemFetch> = VecDeque::new();
             log::debug!(
                 "{}: l2 cache ready accesses={:?} l2 to icnt queue full={}",
                 log_line,
                 l2_cache
                     .ready_accesses()
-                    .cloned()
-                    .unwrap_or_default()
+                    .unwrap_or(&EMPTY)
                     .into_iter()
                     .map(|fetch| fetch.to_string())
                     .collect::<Vec<_>>(),

@@ -11,19 +11,16 @@ pub enum Kind {
 }
 
 #[derive(Debug, Default)]
-pub struct MshrEntry {
+pub struct Entry {
     list: VecDeque<mem_fetch::MemFetch>,
     has_atomic: bool,
 }
 
-pub type Table = HashMap<address, MshrEntry>;
-pub type LineTable = HashMap<address, MshrEntry>;
-
 #[derive(Debug)]
-pub struct MshrTable {
+pub struct Table {
     num_entries: usize,
     max_merged: usize,
-    data: Table,
+    data: HashMap<address, Entry>,
     /// If the current response is ready
     ///
     /// it may take several cycles to process the merged requests
@@ -31,7 +28,7 @@ pub struct MshrTable {
     current_response: VecDeque<address>,
 }
 
-impl MshrTable {
+impl Table {
     #[must_use]
     pub fn new(num_entries: usize, max_merged: usize) -> Self {
         let data = HashMap::with_capacity(2 * num_entries);
@@ -163,14 +160,13 @@ impl MshrTable {
 
 #[cfg(test)]
 mod tests {
-    use super::MshrTable;
-    use crate::{config, mem_fetch, scheduler::ThreadActiveMask};
+    use crate::{config, mem_fetch, warp};
 
     #[test]
     fn test_mshr_table() {
         let config = config::GPUConfig::default();
         let cache_config = config.inst_cache_l1.as_ref().unwrap();
-        let mut mshrs = MshrTable::new(cache_config.mshr_entries, cache_config.mshr_max_merge);
+        let mut mshrs = super::Table::new(cache_config.mshr_entries, cache_config.mshr_max_merge);
 
         let fetch_addr = 4_026_531_848;
         let access = mem_fetch::MemAccess::new(
@@ -179,9 +175,9 @@ mod tests {
             None,
             128,
             false,
-            ThreadActiveMask::ZERO,
-            mem_fetch::MemAccessByteMask::ZERO,
-            mem_fetch::MemAccessSectorMask::ZERO,
+            warp::ActiveMask::ZERO,
+            mem_fetch::ByteMask::ZERO,
+            mem_fetch::SectorMask::ZERO,
         );
         let fetch = mem_fetch::MemFetch::new(None, access, &config, 0, 0, 0, 0);
         let mshr_addr = cache_config.mshr_addr(fetch_addr);

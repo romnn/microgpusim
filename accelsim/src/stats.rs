@@ -102,8 +102,8 @@ impl TryFrom<Stats> for stats::Stats {
         .into_iter()
         .collect();
 
-        let mut l2d_stats = stats::PerCache::default();
-        let l2d_total = l2d_stats.entry(0).or_default();
+        let mut l2d_stats = stats::PerCache(vec![stats::Cache::default(); 1].into_boxed_slice());
+        let l2d_total = &mut l2d_stats[0];
         for kind in AccessKind::iter() {
             for reservation_failure in ReservationFailure::iter() {
                 l2d_total.accesses.insert(
@@ -140,6 +140,7 @@ impl TryFrom<Stats> for stats::Stats {
         // ]
         // .into_iter()
         // .collect();
+        //num_cores: usize, num_sub_partitions: usize
         let total_dram_reads = stats.get(&key!("total_dram_reads")).copied().unwrap_or(0.0) as u64;
         let total_dram_writes = stats
             .get(&key!("total_dram_writes"))
@@ -165,10 +166,10 @@ impl TryFrom<Stats> for stats::Stats {
                 total_bank_reads: vec![vec![total_dram_reads]],
             },
             instructions: stats::InstructionCounts::default(),
-            l1i_stats: stats::PerCache::default(),
-            l1t_stats: stats::PerCache::default(),
-            l1c_stats: stats::PerCache::default(),
-            l1d_stats: stats::PerCache::default(),
+            l1i_stats: stats::PerCache::new(0),
+            l1t_stats: stats::PerCache::new(0),
+            l1c_stats: stats::PerCache::new(0),
+            l1d_stats: stats::PerCache::new(0),
             l2d_stats,
             stall_dram_full: 0, // todo
         })

@@ -11,8 +11,8 @@ pub struct EvictedBlockInfo {
     pub block_addr: address,
     pub allocation: Option<crate::allocation::Allocation>,
     pub modified_size: u32,
-    pub byte_mask: mem_fetch::MemAccessByteMask,
-    pub sector_mask: mem_fetch::MemAccessSectorMask,
+    pub byte_mask: mem_fetch::ByteMask,
+    pub sector_mask: mem_fetch::SectorMask,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -183,7 +183,7 @@ impl<B> TagArray<B> {
     pub fn probe_masked(
         &self,
         block_addr: address,
-        mask: &mem_fetch::MemAccessSectorMask,
+        mask: &mem_fetch::SectorMask,
         is_write: bool,
         _is_probe: bool,
         fetch: Option<&mem_fetch::MemFetch>,
@@ -324,8 +324,8 @@ impl<B> TagArray<B> {
     pub fn populate_memcopy(
         &mut self,
         addr: address,
-        sector_mask: mem_fetch::MemAccessSectorMask,
-        byte_mask: mem_fetch::MemAccessByteMask,
+        sector_mask: mem_fetch::SectorMask,
+        byte_mask: mem_fetch::ByteMask,
         is_write: bool,
         time: u64,
     ) {

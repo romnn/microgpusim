@@ -7,9 +7,7 @@ use super::{
     Cycle,
 };
 use console::style;
-// use std::cell::RefCell;
 use std::collections::VecDeque;
-// use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 #[derive()]
@@ -17,7 +15,6 @@ pub struct MemoryPartitionUnit {
     id: usize,
     dram: dram::DRAM,
     pub dram_latency_queue: VecDeque<mem_fetch::MemFetch>,
-    // pub sub_partitions: Vec<Rc<RefCell<MemorySubPartition<FifoQueue<mem_fetch::MemFetch>>>>>,
     pub sub_partitions: Vec<Arc<Mutex<MemorySubPartition<FifoQueue<mem_fetch::MemFetch>>>>>,
     pub arbitration_metadata: super::arbitration::ArbitrationMetadata,
 
@@ -38,7 +35,6 @@ impl MemoryPartitionUnit {
             .map(|i| {
                 let sub_id = id * num_sub_partitions + i;
 
-                // Rc::new(RefCell::new(MemorySubPartition::new(
                 Arc::new(Mutex::new(MemorySubPartition::new(
                     sub_id,
                     id,
@@ -67,7 +63,6 @@ impl MemoryPartitionUnit {
         self.sub_partitions
             .iter()
             .any(|sub| sub.try_lock().unwrap().busy())
-        // .any(|sub| sub.try_borrow().unwrap().busy())
     }
 
     fn global_sub_partition_id_to_local_id(&self, global_sub_partition_id: usize) -> usize {
@@ -80,7 +75,7 @@ impl MemoryPartitionUnit {
         &self,
         addr: address,
         global_subpart_id: usize,
-        mask: mem_fetch::MemAccessSectorMask,
+        mask: mem_fetch::SectorMask,
         time: u64,
     ) {
         let local_subpart_id = self.global_sub_partition_id_to_local_id(global_subpart_id);
@@ -90,7 +85,6 @@ impl MemoryPartitionUnit {
             addr, local_subpart_id, global_subpart_id, mask.to_bit_string());
 
         self.sub_partitions[local_subpart_id]
-            // .borrow_mut()
             .lock()
             .unwrap()
             .force_l2_tag_update(addr, mask, time);
@@ -98,7 +92,6 @@ impl MemoryPartitionUnit {
 
     pub fn cache_cycle(&mut self, cycle: u64) {
         for mem_sub in &mut self.sub_partitions {
-            // mem_sub.borrow_mut().cache_cycle(cycle);
             mem_sub.try_lock().unwrap().cache_cycle(cycle);
         }
     }
@@ -106,7 +99,6 @@ impl MemoryPartitionUnit {
     pub fn set_done(&mut self, fetch: mem_fetch::MemFetch) {
         let global_spid = fetch.sub_partition_id();
         let spid = self.global_sub_partition_id_to_local_id(global_spid);
-        // let mut sub = self.sub_partitions[spid].try_borrow_mut().unwrap();
         let mut sub = self.sub_partitions[spid].try_lock().unwrap();
         debug_assert_eq!(sub.id, global_spid);
         if matches!(

@@ -1,20 +1,10 @@
 pub mod gto;
 pub mod ordering;
-pub mod warp;
 
-use super::core::PipelineStage;
-use super::{opcodes, scoreboard};
-use crate::config::GPUConfig;
+use crate::{config::GPUConfig, core::PipelineStage, opcodes, scoreboard, warp};
 use console::style;
-// use std::cell::RefCell;
 use std::collections::VecDeque;
-// use std::rc::Rc;
 use std::sync::{Arc, Mutex, RwLock};
-
-pub use warp::{SchedulerWarp, ThreadActiveMask};
-
-// pub type WarpRef = Rc<RefCell<warp::SchedulerWarp>>;
-pub type WarpRef = Arc<Mutex<warp::SchedulerWarp>>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum ExecUnitKind {
@@ -32,12 +22,14 @@ enum ExecUnitKind {
     SPECIALIZED = 7,
 }
 
-pub trait SchedulerUnit: Send + 'static {
-    fn cycle(&mut self, _core: &mut dyn super::core::WarpIssuer);
+pub trait SchedulerUnit: Send + Sync + std::fmt::Debug + 'static {
+    // fn cycle(&mut self, _core: &mut dyn super::core::WarpIssuer);
+    // fn cycle(&mut self, _core: &mut dyn super::core::WarpIssuer);
+    fn cycle(&mut self, _core: &dyn super::core::WarpIssuer);
 
-    fn add_supervised_warp(&mut self, warp: WarpRef);
+    fn add_supervised_warp(&mut self, warp: warp::Ref);
 
-    fn prioritized_warps(&self) -> &VecDeque<(usize, WarpRef)>;
+    fn prioritized_warps(&self) -> &VecDeque<(usize, warp::Ref)>;
 
     /// Order warps based on scheduling policy.
     fn order_warps(&mut self);
@@ -51,15 +43,15 @@ pub struct BaseSchedulerUnit {
 
     /// This is the prioritized warp list that is looped over each cycle to
     /// determine which warp gets to issue.
-    next_cycle_prioritized_warps: VecDeque<(usize, WarpRef)>,
+    next_cycle_prioritized_warps: VecDeque<(usize, warp::Ref)>,
 
     // Supervised warps keeps all warps this scheduler can arbitrate between.
     //
     // This is useful in systems where there is more than one warp scheduler.
     // In a single scheduler system, this is simply all the warps
     // assigned to this core.
-    supervised_warps: VecDeque<WarpRef>,
-    warps: Vec<WarpRef>,
+    supervised_warps: VecDeque<warp::Ref>,
+    warps: Vec<warp::Ref>,
 
     /// This is the iterator pointer to the last supervised warp issued
     last_supervised_issued_idx: usize,
@@ -76,7 +68,7 @@ impl BaseSchedulerUnit {
         id: usize,
         cluster_id: usize,
         core_id: usize,
-        warps: Vec<WarpRef>,
+        warps: Vec<warp::Ref>,
         scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
         stats: Arc<Mutex<stats::scheduler::Scheduler>>,
         config: Arc<GPUConfig>,
@@ -96,11 +88,12 @@ impl BaseSchedulerUnit {
         }
     }
 
-    fn prioritized_warps(&self) -> &VecDeque<(usize, WarpRef)> {
+    fn prioritized_warps(&self) -> &VecDeque<(usize, warp::Ref)> {
         &self.next_cycle_prioritized_warps
     }
 
-    fn cycle(&mut self, issuer: &mut dyn super::core::WarpIssuer) {
+    // fn cycle(&mut self, issuer: &mut dyn super::core::WarpIssuer) {
+    fn cycle(&mut self, issuer: &dyn super::core::WarpIssuer) {
         log::debug!("{}: cycle", style("base scheduler").yellow());
 
         let mut valid_inst = false;
@@ -216,13 +209,18 @@ impl BaseSchedulerUnit {
                                     && (!diff_exec_units
                                         || prev_issued_exec_unit != ExecUnitKind::MEM)
                                 {
+                                    // if !diff_exec_units || prev_issued_exec_unit != ExecUnitKind::MEM {
                                     let instr = warp.ibuffer_take().unwrap();
                                     debug_assert_eq!(warp_id, warp.warp_id);
-                                    issuer.issue_warp(mem_stage, &mut warp, instr, self.id);
-                                    issued += 1;
-                                    issued_inst = true;
-                                    warp_inst_issued = true;
-                                    prev_issued_exec_unit = ExecUnitKind::MEM;
+                                    if issuer
+                                        .issue_warp(mem_stage, &mut warp, instr, self.id)
+                                        .is_ok()
+                                    {
+                                        issued += 1;
+                                        issued_inst = true;
+                                        warp_inst_issued = true;
+                                        prev_issued_exec_unit = ExecUnitKind::MEM;
+                                    }
                                 } else {
                                     log::debug!("issue failed: no free mem port register");
                                 }
@@ -280,11 +278,15 @@ impl BaseSchedulerUnit {
                                     if let Some((stage, unit)) = issue_target {
                                         let instr = warp.ibuffer_take().unwrap();
                                         debug_assert_eq!(warp.warp_id, warp_id);
-                                        issuer.issue_warp(stage, &mut warp, instr, self.id);
-                                        issued += 1;
-                                        issued_inst = true;
-                                        warp_inst_issued = true;
-                                        prev_issued_exec_unit = unit;
+                                        if issuer
+                                            .issue_warp(stage, &mut warp, instr, self.id)
+                                            .is_ok()
+                                        {
+                                            issued += 1;
+                                            issued_inst = true;
+                                            warp_inst_issued = true;
+                                            prev_issued_exec_unit = unit;
+                                        }
                                     }
                                 }
                             } // op => unimplemented!("op {:?} not implemented", op),
@@ -407,12 +409,11 @@ mod tests {
         );
     }
 
-    impl From<&Box<dyn super::SchedulerUnit>> for testing::state::Scheduler {
-        fn from(scheduler: &Box<dyn super::SchedulerUnit>) -> Self {
+    impl From<&dyn super::SchedulerUnit> for testing::state::Scheduler {
+        fn from(scheduler: &dyn super::SchedulerUnit) -> Self {
             let prioritized_warp_ids: Vec<_> = scheduler
                 .prioritized_warps()
                 .iter()
-                // .map(|warp| (warp.borrow().warp_id, warp.borrow().dynamic_warp_id()))
                 .map(|(_idx, warp)| {
                     let warp = warp.try_lock().unwrap();
                     (warp.warp_id, warp.dynamic_warp_id)

@@ -50,16 +50,16 @@ where
             for (core_id, core) in cluster.cores.iter().enumerate() {
                 let core = core.lock().unwrap();
                 let global_core_id = cluster_id * self.config.num_cores_per_simt_cluster + core_id;
-                assert_eq!(core.inner.core_id, global_core_id);
+                assert_eq!(core.core_id, global_core_id);
 
                 // this is the one we will use (unless the assertion is ever false)
-                let core_id = core.inner.core_id;
+                let core_id = core.core_id;
 
                 // core: functional units
                 for (fu_id, _fu) in core.functional_units.iter().enumerate() {
                     // let _fu = fu.lock().unwrap();
                     let issue_port = core.issue_ports[fu_id];
-                    let issue_reg: register_set::RegisterSet = core.inner.pipeline_reg
+                    let issue_reg: register_set::RegisterSet = core.pipeline_reg
                         [issue_port as usize]
                         // .borrow()
                         .try_lock()

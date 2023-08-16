@@ -1,11 +1,11 @@
-use super::{
+use crate::{
     cache, config, interconn as ic, mem_fetch, mem_sub_partition, mshr,
     operand_collector as opcoll,
     operand_collector::OperandCollectorRegisterFileUnit,
     register_set::{self},
-    scheduler as sched,
+    scheduler,
     scoreboard::Scoreboard,
-    simd_function_unit as fu,
+    simd_function_unit as fu, warp,
 };
 use console::style;
 use std::sync::{Arc, Mutex, RwLock};
@@ -44,7 +44,7 @@ pub struct LoadStoreUnit<I> {
     cluster_id: usize,
     next_writeback: Option<WarpInstruction>,
     response_fifo: VecDeque<MemFetch>,
-    warps: Vec<sched::WarpRef>,
+    warps: Vec<warp::Ref>,
     pub data_l1: Option<Box<dyn cache::Cache>>,
     config: Arc<config::GPUConfig>,
     pub stats: Arc<Mutex<stats::Stats>>,
@@ -128,7 +128,7 @@ where
         id: usize,
         core_id: usize,
         cluster_id: usize,
-        warps: Vec<sched::WarpRef>,
+        warps: Vec<warp::Ref>,
         interconn: Arc<dyn ic::Interconnect<super::Packet> + Send + 'static>,
         fetch_interconn: Arc<I>,
         // interconn_port: InterconnPort,

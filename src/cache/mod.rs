@@ -118,12 +118,7 @@ pub trait Cache: Send + Sync + Component + CacheBandwidth + 'static {
         todo!("cache: invalidate");
     }
 
-    fn force_tag_access(
-        &mut self,
-        _addr: address,
-        _time: u64,
-        _mask: mem_fetch::MemAccessSectorMask,
-    ) {
+    fn force_tag_access(&mut self, _addr: address, _time: u64, _mask: mem_fetch::SectorMask) {
         todo!("cache: invalidate");
     }
 

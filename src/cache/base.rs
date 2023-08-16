@@ -37,7 +37,7 @@ pub struct Base<I> {
 
     pub miss_queue: VecDeque<mem_fetch::MemFetch>,
     pub miss_queue_status: mem_fetch::Status,
-    pub mshrs: mshr::MshrTable,
+    pub mshrs: mshr::Table,
     pub tag_array: tag_array::TagArray<()>,
 
     pending: HashMap<mem_fetch::MemFetch, PendingRequest>,
@@ -74,7 +74,7 @@ impl<I> Base<I> {
             cache_config.mshr_kind,
             mshr::Kind::ASSOC | mshr::Kind::SECTOR_ASSOC
         ));
-        let mshrs = mshr::MshrTable::new(cache_config.mshr_entries, cache_config.mshr_max_merge);
+        let mshrs = mshr::Table::new(cache_config.mshr_entries, cache_config.mshr_max_merge);
 
         let bandwidth = BandwidthManager::new(cache_config.clone());
         Self {

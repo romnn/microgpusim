@@ -1,10 +1,10 @@
-use super::{
+use crate::{
     address, config,
     kernel::Kernel,
     mem_fetch::{self, BitString},
     mem_sub_partition::MAX_MEMORY_ACCESS_SIZE,
     opcodes::{ArchOp, Op, Opcode},
-    operand_collector as opcoll, scheduler as sched,
+    operand_collector as opcoll, scheduler, warp,
 };
 
 use bitvec::{array::BitArray, field::BitField, BitArr};
@@ -51,8 +51,8 @@ impl From<MemorySpace> for stats::instructions::MemorySpace {
 #[derive(Debug, Default)]
 struct TransactionInfo {
     chunk_mask: BitArr!(for 4, in u8),
-    byte_mask: mem_fetch::MemAccessByteMask,
-    active_mask: sched::ThreadActiveMask,
+    byte_mask: mem_fetch::ByteMask,
+    active_mask: warp::ActiveMask,
 }
 
 pub const MAX_ACCESSES_PER_INSN_PER_THREAD: usize = 8;
@@ -121,7 +121,7 @@ pub struct WarpInstruction {
     pub pc: usize,
     pub trace_idx: usize,
     pub opcode: Opcode,
-    pub active_mask: sched::ThreadActiveMask,
+    pub active_mask: warp::ActiveMask,
     pub cache_operator: CacheOperator,
     pub memory_space: Option<MemorySpace>,
     pub threads: Vec<PerThreadInfo>,

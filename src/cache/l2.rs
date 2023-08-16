@@ -85,12 +85,12 @@ where
     // filling the cache on cudamemcopies. We don't care about anything other than
     // L2 state after the memcopy - so just force the tag array to act as though
     // something is read or written without doing anything else.
-    fn force_tag_access(&mut self, addr: address, time: u64, mask: mem_fetch::MemAccessSectorMask) {
+    fn force_tag_access(&mut self, addr: address, time: u64, mask: mem_fetch::SectorMask) {
         // todo!("cache: invalidate");
 
         // use bitvec::{array::BitArray, field::BitField, BitArr};
         // let byte_mask: mem_fetch::MemAccessByteMask = !bitvec::array::BitArray::ZERO;
-        let byte_mask: mem_fetch::MemAccessByteMask = bitvec::array::BitArray::ZERO;
+        let byte_mask: mem_fetch::ByteMask = bitvec::array::BitArray::ZERO;
         // let access = mem_fetch::MemAccess {};
         // let fetch = mem_fetch::MemFetch {};
         self.inner

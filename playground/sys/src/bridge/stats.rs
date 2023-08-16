@@ -62,7 +62,7 @@ pub struct Sim {
 }
 
 #[allow(clippy::module_name_repetitions)]
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct StatsBridge {
     pub accesses: Accesses,
     pub instructions: InstructionCounts,
@@ -70,14 +70,29 @@ pub struct StatsBridge {
     pub dram: DRAM,
 
     // per cache stats
-    pub l1i_stats: HashMap<usize, Cache>,
-    pub l1c_stats: HashMap<usize, Cache>,
-    pub l1t_stats: HashMap<usize, Cache>,
-    pub l1d_stats: HashMap<usize, Cache>,
-    pub l2d_stats: HashMap<usize, Cache>,
+    pub l1i_stats: Box<[Cache]>,
+    pub l1c_stats: Box<[Cache]>,
+    pub l1t_stats: Box<[Cache]>,
+    pub l1d_stats: Box<[Cache]>,
+    pub l2d_stats: Box<[Cache]>,
 }
 
 impl StatsBridge {
+    pub fn new(num_cores: usize, num_sub_partitions: usize) -> Self {
+        Self {
+            accesses: Accesses::default(),
+            instructions: InstructionCounts::default(),
+            sim: Sim::default(),
+            dram: DRAM::default(),
+            // per cache stats
+            l1i_stats: vec![Cache::default(); num_cores].into_boxed_slice(),
+            l1c_stats: vec![Cache::default(); num_cores].into_boxed_slice(),
+            l1t_stats: vec![Cache::default(); num_cores].into_boxed_slice(),
+            l1d_stats: vec![Cache::default(); num_cores].into_boxed_slice(),
+            l2d_stats: vec![Cache::default(); num_sub_partitions].into_boxed_slice(),
+        }
+    }
+
     pub fn add_accesses(
         &mut self,
         cache_kind: CacheKind,
@@ -104,8 +119,10 @@ impl StatsBridge {
         } else {
             AccessStat::Status(unsafe { std::mem::transmute(status) })
         };
-        let cache = cache.entry(cache_index).or_default();
-        *cache.accesses.entry((kind, status)).or_insert(0) += num_accesses;
+        *cache[cache_index]
+            .accesses
+            .entry((kind, status))
+            .or_insert(0) += num_accesses;
     }
 }
 

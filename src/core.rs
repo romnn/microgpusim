@@ -1,7 +1,7 @@
 use super::{
     address, allocation::Allocation, cache, config, instruction::WarpInstruction, interconn as ic,
     kernel::Kernel, mem_fetch, mem_fetch::BitString, opcodes, operand_collector as opcoll,
-    register_set, scheduler as sched, scoreboard, simd_function_unit as fu, LoadStoreUnit,
+    register_set, scheduler, scoreboard, simd_function_unit as fu, warp, LoadStoreUnit,
 };
 use bitvec::{array::BitArray, BitArr};
 use color_eyre::eyre;
@@ -68,55 +68,6 @@ impl InstrFetchBuffer {
 
 type ResultBus = BitArr!(for fu::MAX_ALU_LATENCY);
 
-#[derive()]
-pub struct InnerSIMTCore<I> {
-    pub core_id: usize,
-    pub cluster_id: usize,
-    pub cycle: super::Cycle,
-    pub warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
-    pub stats: Arc<Mutex<stats::Stats>>,
-    pub config: Arc<config::GPUConfig>,
-    pub current_kernel: Option<Arc<Kernel>>,
-    pub last_warp_fetched: Option<usize>,
-    pub interconn: Arc<I>,
-    pub interconn_port: ic::InterconnPort,
-    pub load_store_unit: Arc<Mutex<LoadStoreUnit<ic::CoreMemoryInterface<Packet>>>>,
-    pub active_thread_mask: BitArr!(for MAX_THREAD_PER_SM),
-    occupied_hw_thread_ids: BitArr!(for MAX_THREAD_PER_SM),
-    pub dynamic_warp_id: usize,
-    pub num_active_blocks: usize,
-    pub num_active_warps: usize,
-    pub num_active_threads: usize,
-    pub num_occupied_threads: usize,
-
-    pub max_blocks_per_shader: usize,
-    pub thread_block_size: usize,
-    pub occupied_block_to_hw_thread_id: HashMap<usize, usize>,
-    pub block_status: [usize; MAX_CTA_PER_SHADER],
-
-    pub allocations: super::allocation::Ref,
-    pub instr_l1_cache: Box<dyn cache::Cache>,
-    pub instr_fetch_buffer: InstrFetchBuffer,
-    pub warps: Vec<sched::WarpRef>,
-    pub thread_state: Vec<Option<ThreadState>>,
-    pub scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
-    // pub operand_collector: Rc<RefCell<opcoll::OperandCollectorRegisterFileUnit>>,
-    pub operand_collector: Arc<Mutex<opcoll::OperandCollectorRegisterFileUnit>>,
-    // pub pipeline_reg: Vec<Rc<RefCell<register_set::RegisterSet>>>,
-    pub pipeline_reg: Vec<register_set::Ref>,
-    pub result_busses: Vec<ResultBus>,
-    pub interconn_queue: VecDeque<(usize, mem_fetch::MemFetch, u32)>,
-}
-
-impl<I> std::fmt::Debug for InnerSIMTCore<I> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("InnerSIMTCore")
-            .field("core_id", &self.core_id)
-            .field("cluster_id", &self.cluster_id)
-            .finish()
-    }
-}
-
 #[derive(Debug)]
 pub enum Packet {
     Fetch(mem_fetch::MemFetch),
@@ -130,7 +81,7 @@ impl std::fmt::Display for Packet {
     }
 }
 
-impl<I> InnerSIMTCore<I>
+impl<I> SIMTCore<I>
 where
     I: ic::Interconnect<Packet> + Send + 'static,
 {
@@ -223,23 +174,23 @@ where
 
 pub trait WarpIssuer {
     fn issue_warp(
-        &mut self,
+        &self,
         stage: PipelineStage,
-        warp: &mut sched::SchedulerWarp,
+        warp: &mut warp::Warp,
         next_inst: WarpInstruction,
-        // warp_id: usize,
         sch_id: usize,
-    );
+    ) -> eyre::Result<()>;
 
     fn has_free_register(&self, stage: PipelineStage, register_id: usize) -> bool;
 }
 
-impl<I> WarpIssuer for InnerSIMTCore<I>
+impl<I> WarpIssuer for SIMTCore<I>
 where
     I: ic::Interconnect<Packet> + Send + 'static,
 {
     fn has_free_register(&self, stage: PipelineStage, register_id: usize) -> bool {
-        let pipeline_stage = self.pipeline_reg[stage as usize].try_lock().unwrap();
+        // locking here blocks when we run schedulers in parallel
+        let pipeline_stage = self.pipeline_reg[stage as usize].lock().unwrap();
 
         if self.config.sub_core_model {
             pipeline_stage.has_free_sub_core(register_id)
@@ -249,19 +200,23 @@ where
     }
 
     fn issue_warp(
-        &mut self,
+        &self,
         stage: PipelineStage,
-        warp: &mut sched::SchedulerWarp,
+        warp: &mut warp::Warp,
         mut next_instr: WarpInstruction,
         scheduler_id: usize,
-    ) {
-        let mut pipeline_stage = self.pipeline_reg[stage as usize].try_lock().unwrap();
-        let (reg_idx, pipe_reg) = if self.config.sub_core_model {
-            pipeline_stage.get_free_sub_core_mut(scheduler_id).unwrap();
+    ) -> eyre::Result<()> {
+        // let mut pipeline_stage = self.pipeline_reg[stage as usize].try_lock().unwrap();
+        let mut pipeline_stage = self.pipeline_reg[stage as usize].lock().unwrap();
+        // let (reg_idx, pipe_reg) = if self.config.sub_core_model {
+        let free = if self.config.sub_core_model {
+            pipeline_stage.get_free_sub_core_mut(scheduler_id);
             todo!("sub core model");
         } else {
-            pipeline_stage.get_free_mut().unwrap()
+            pipeline_stage.get_free_mut()
         };
+        let (reg_idx, pipe_reg) = free.ok_or(eyre::eyre!("no free register"))?;
+        // drop(&pipeline_stage);
 
         log::debug!(
             "{} by scheduler {} to pipeline[{:?}][{}] {:?}",
@@ -406,24 +361,7 @@ where
             stage,
             pipeline_stage
         );
-    }
-}
-
-#[derive()]
-pub struct SIMTCore<I> {
-    pub issue_ports: Vec<PipelineStage>,
-    pub dispatch_ports: Vec<PipelineStage>,
-    pub functional_units: Vec<Arc<Mutex<dyn SimdFunctionUnit>>>,
-    pub schedulers: Vec<Box<dyn sched::SchedulerUnit>>,
-    pub scheduler_issue_priority: usize,
-    pub inner: InnerSIMTCore<I>,
-    // for debugging, TODO: remove
-    // temp_check_state: Vec<std::collections::HashSet<usize>>,
-}
-
-impl<I> std::fmt::Debug for SIMTCore<I> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Debug::fmt(&self.inner, f)
+        Ok(())
     }
 }
 
@@ -445,6 +383,58 @@ pub enum PipelineStage {
     OC_EX_TENSOR_CORE = 12,
 }
 
+#[derive()]
+pub struct SIMTCore<I> {
+    pub core_id: usize,
+    pub cluster_id: usize,
+    pub cycle: super::Cycle,
+    pub warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
+    pub stats: Arc<Mutex<stats::Stats>>,
+    pub config: Arc<config::GPUConfig>,
+    pub current_kernel: Option<Arc<Kernel>>,
+    pub last_warp_fetched: Option<usize>,
+    pub interconn: Arc<I>,
+    pub interconn_port: ic::InterconnPort,
+    pub load_store_unit: Arc<Mutex<LoadStoreUnit<ic::CoreMemoryInterface<Packet>>>>,
+    pub active_thread_mask: BitArr!(for MAX_THREAD_PER_SM),
+    pub occupied_hw_thread_ids: BitArr!(for MAX_THREAD_PER_SM),
+    pub dynamic_warp_id: usize,
+    pub num_active_blocks: usize,
+    pub num_active_warps: usize,
+    pub num_active_threads: usize,
+    pub num_occupied_threads: usize,
+
+    pub max_blocks_per_shader: usize,
+    pub thread_block_size: usize,
+    pub occupied_block_to_hw_thread_id: HashMap<usize, usize>,
+    pub block_status: [usize; MAX_CTA_PER_SHADER],
+
+    pub allocations: super::allocation::Ref,
+    pub instr_l1_cache: Box<dyn cache::Cache>,
+    pub instr_fetch_buffer: InstrFetchBuffer,
+    pub warps: Vec<warp::Ref>,
+    pub thread_state: Vec<Option<ThreadState>>,
+    pub scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
+    pub operand_collector: Arc<Mutex<opcoll::OperandCollectorRegisterFileUnit>>,
+    pub pipeline_reg: Vec<register_set::Ref>,
+    pub result_busses: Vec<ResultBus>,
+    pub interconn_queue: VecDeque<(usize, mem_fetch::MemFetch, u32)>,
+    pub issue_ports: Vec<PipelineStage>,
+    pub dispatch_ports: Vec<PipelineStage>,
+    pub functional_units: Vec<Arc<Mutex<dyn SimdFunctionUnit>>>,
+    pub schedulers: Vec<Arc<Mutex<dyn scheduler::SchedulerUnit>>>,
+    pub scheduler_issue_priority: usize,
+}
+
+impl<I> std::fmt::Debug for SIMTCore<I> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SIMTCore")
+            .field("core_id", &self.core_id)
+            .field("cluster_id", &self.cluster_id)
+            .finish()
+    }
+}
+
 impl<I> SIMTCore<I>
 where
     I: ic::Interconnect<Packet> + Send + 'static,
@@ -462,7 +452,7 @@ where
         let thread_state: Vec<_> = (0..config.max_threads_per_core).map(|_| None).collect();
 
         let warps: Vec<_> = (0..config.max_warps_per_core())
-            .map(|_| Arc::new(Mutex::new(sched::SchedulerWarp::default())))
+            .map(|_| warp::Ref::default())
             .collect();
 
         let interconn_port = ic::InterconnPort::default();
@@ -496,10 +486,6 @@ where
             cluster_id,
             config.max_warps_per_core(),
         )));
-
-        let operand_collector = opcoll::OperandCollectorRegisterFileUnit::new(config.clone());
-
-        let operand_collector = Arc::new(Mutex::new(operand_collector));
 
         // pipeline_stages is the sum of normal pipeline stages
         // and specialized_unit stages * 2 (for ID and EX)
@@ -538,6 +524,10 @@ where
             config: config.clone(),
         });
 
+        let operand_collector = Arc::new(Mutex::new(
+            opcoll::OperandCollectorRegisterFileUnit::new(config.clone()),
+        ));
+
         let load_store_unit = Arc::new(Mutex::new(LoadStoreUnit::new(
             0, // no id for now
             core_id,
@@ -563,7 +553,160 @@ where
             .map(|reg| Arc::new(Mutex::new(reg)))
             .collect();
 
-        let inner = InnerSIMTCore {
+        let scheduler_kind = config::SchedulerKind::GTO;
+
+        let mut schedulers: Vec<Arc<Mutex<dyn scheduler::SchedulerUnit>>> = (0..config
+            .num_schedulers_per_core)
+            .map(|sched_id| {
+                let scheduler_stats = Arc::new(Mutex::new(stats::scheduler::Scheduler::default()));
+                let scheduler: Arc<Mutex<dyn scheduler::SchedulerUnit>> = match scheduler_kind {
+                    config::SchedulerKind::GTO => {
+                        Arc::new(Mutex::new(scheduler::gto::Scheduler::new(
+                            sched_id,
+                            cluster_id,
+                            core_id,
+                            warps.clone(),
+                            scoreboard.clone(),
+                            scheduler_stats,
+                            config.clone(),
+                        )))
+                    }
+                    scheduler_kind => unimplemented!("scheduler: {:?}", &scheduler_kind),
+                };
+                scheduler
+            })
+            .collect();
+
+        for (i, warp) in warps.iter().enumerate() {
+            // distribute warps evenly though schedulers
+            let sched_idx = i % config.num_schedulers_per_core;
+            let scheduler = &mut schedulers[sched_idx];
+            scheduler
+                .lock()
+                .unwrap()
+                .add_supervised_warp(Arc::clone(warp));
+        }
+
+        let mut functional_units: Vec<Arc<Mutex<dyn SimdFunctionUnit>>> = Vec::new();
+        let mut issue_ports = Vec::new();
+        let mut dispatch_ports = Vec::new();
+
+        // single precision units
+        for u in 0..config.num_sp_units {
+            functional_units.push(Arc::new(Mutex::new(super::SPUnit::new(
+                u, // id
+                Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
+                Arc::clone(&config),
+                Arc::clone(&stats),
+                cycle.clone(),
+                u, // issue reg id
+            ))));
+            dispatch_ports.push(PipelineStage::ID_OC_SP);
+            issue_ports.push(PipelineStage::OC_EX_SP);
+        }
+
+        // load store unit
+        functional_units.push(load_store_unit.clone()); // Arc::clone needs type hints
+        dispatch_ports.push(PipelineStage::OC_EX_MEM);
+        issue_ports.push(PipelineStage::OC_EX_MEM);
+
+        debug_assert_eq!(functional_units.len(), issue_ports.len());
+        debug_assert_eq!(functional_units.len(), dispatch_ports.len());
+
+        // configure generic collectors
+        {
+            let mut operand_collector = operand_collector.lock().unwrap();
+            operand_collector.add_cu_set(
+                opcoll::OperandCollectorUnitKind::GEN_CUS,
+                config.operand_collector_num_units_gen,
+                config.operand_collector_num_out_ports_gen,
+            );
+
+            for _i in 0..config.operand_collector_num_in_ports_gen {
+                let mut in_ports = opcoll::PortVec::new();
+                let mut out_ports = opcoll::PortVec::new();
+                let mut cu_sets: Vec<opcoll::OperandCollectorUnitKind> = Vec::new();
+
+                in_ports.push(pipeline_reg[PipelineStage::ID_OC_SP as usize].clone());
+                // in_ports.push_back(&m_pipeline_reg[ID_OC_SFU]);
+                // in_ports.push(&self.pipeline_reg[ID_OC_MEM]);
+                out_ports.push(pipeline_reg[PipelineStage::OC_EX_SP as usize].clone());
+                // out_ports.push_back(&m_pipeline_reg[OC_EX_SFU]);
+                // out_ports.push(&self.pipeline_reg[OC_EX_MEM]);
+                // if (m_config->gpgpu_tensor_core_avail) {
+                //   in_ports.push_back(&m_pipeline_reg[ID_OC_TENSOR_CORE]);
+                //   out_ports.push_back(&m_pipeline_reg[OC_EX_TENSOR_CORE]);
+                // }
+                // if (m_config->gpgpu_num_dp_units > 0) {
+                //   in_ports.push_back(&m_pipeline_reg[ID_OC_DP]);
+                //   out_ports.push_back(&m_pipeline_reg[OC_EX_DP]);
+                // }
+                // if (m_config->gpgpu_num_int_units > 0) {
+                //   in_ports.push_back(&m_pipeline_reg[ID_OC_INT]);
+                //   out_ports.push_back(&m_pipeline_reg[OC_EX_INT]);
+                // }
+                // if (m_config->m_specialized_unit.size() > 0) {
+                //   for (unsigned j = 0; j < m_config->m_specialized_unit.size(); ++j) {
+                //     in_ports.push_back(
+                //         &m_pipeline_reg[m_config->m_specialized_unit[j].ID_OC_SPEC_ID]);
+                //     out_ports.push_back(
+                //         &m_pipeline_reg[m_config->m_specialized_unit[j].OC_EX_SPEC_ID]);
+                //   }
+                // }
+                // cu_sets.push_back((unsigned)GEN_CUS);
+                // m_operand_collector.add_port(in_ports, out_ports, cu_sets);
+                // in_ports.clear(), out_ports.clear(), cu_sets.clear();
+                cu_sets.push(opcoll::OperandCollectorUnitKind::GEN_CUS);
+                operand_collector.add_port(in_ports, out_ports, cu_sets);
+                // in_ports.clear();
+                // out_ports.clear();
+                // cu_sets.clear();
+            }
+
+            // let enable_specialized_operand_collector = true;
+            if config.enable_specialized_operand_collector {
+                // only added two
+                operand_collector.add_cu_set(
+                    opcoll::OperandCollectorUnitKind::SP_CUS,
+                    config.operand_collector_num_units_sp,
+                    config.operand_collector_num_out_ports_sp,
+                );
+                operand_collector.add_cu_set(
+                    opcoll::OperandCollectorUnitKind::MEM_CUS,
+                    config.operand_collector_num_units_mem,
+                    config.operand_collector_num_out_ports_mem,
+                );
+
+                for _i in 0..config.operand_collector_num_in_ports_sp {
+                    let mut in_ports = opcoll::PortVec::new();
+                    let mut out_ports = opcoll::PortVec::new();
+                    let mut cu_sets: Vec<opcoll::OperandCollectorUnitKind> = Vec::new();
+
+                    in_ports.push(pipeline_reg[PipelineStage::ID_OC_SP as usize].clone());
+                    out_ports.push(pipeline_reg[PipelineStage::OC_EX_SP as usize].clone());
+                    cu_sets.push(opcoll::OperandCollectorUnitKind::SP_CUS);
+                    cu_sets.push(opcoll::OperandCollectorUnitKind::GEN_CUS);
+                    operand_collector.add_port(in_ports, out_ports, cu_sets);
+                }
+
+                for _i in 0..config.operand_collector_num_in_ports_mem {
+                    let mut in_ports = opcoll::PortVec::new();
+                    let mut out_ports = opcoll::PortVec::new();
+                    let mut cu_sets: Vec<opcoll::OperandCollectorUnitKind> = Vec::new();
+
+                    in_ports.push(pipeline_reg[PipelineStage::ID_OC_MEM as usize].clone());
+                    out_ports.push(pipeline_reg[PipelineStage::OC_EX_MEM as usize].clone());
+                    cu_sets.push(opcoll::OperandCollectorUnitKind::MEM_CUS);
+                    cu_sets.push(opcoll::OperandCollectorUnitKind::GEN_CUS);
+                    operand_collector.add_port(in_ports, out_ports, cu_sets);
+                }
+            }
+
+            // this must be called after we add the collector unit sets!
+            operand_collector.init(config.num_reg_banks);
+        }
+
+        Self {
             core_id,
             cluster_id,
             cycle,
@@ -596,182 +739,177 @@ where
             scoreboard,
             operand_collector,
             thread_state,
-        };
-        let mut core = Self {
-            inner,
-            schedulers: Vec::new(),
+            schedulers,
             scheduler_issue_priority: 0,
-            issue_ports: Vec::new(),
-            dispatch_ports: Vec::new(),
-            functional_units: Vec::new(),
-            // temp_check_state: vec![Default::default(); MAX_CTA_PER_SHADER],
-        };
-
-        core.init_schedulers();
-        core.init_functional_units();
-        core.init_operand_collectors();
-        core
-    }
-
-    fn init_operand_collectors(&mut self) {
-        let mut operand_collector = self.inner.operand_collector.lock().unwrap();
-        // let mut operand_collector = self.inner.operand_collector.try_borrow_mut().unwrap();
-
-        // configure generic collectors
-        operand_collector.add_cu_set(
-            opcoll::OperandCollectorUnitKind::GEN_CUS,
-            self.inner.config.operand_collector_num_units_gen,
-            self.inner.config.operand_collector_num_out_ports_gen,
-        );
-
-        for _i in 0..self.inner.config.operand_collector_num_in_ports_gen {
-            let mut in_ports = opcoll::PortVec::new();
-            let mut out_ports = opcoll::PortVec::new();
-            let mut cu_sets: Vec<opcoll::OperandCollectorUnitKind> = Vec::new();
-
-            in_ports.push(self.inner.pipeline_reg[PipelineStage::ID_OC_SP as usize].clone());
-            // in_ports.push_back(&m_pipeline_reg[ID_OC_SFU]);
-            // in_ports.push(&self.pipeline_reg[ID_OC_MEM]);
-            out_ports.push(self.inner.pipeline_reg[PipelineStage::OC_EX_SP as usize].clone());
-            // out_ports.push_back(&m_pipeline_reg[OC_EX_SFU]);
-            // out_ports.push(&self.pipeline_reg[OC_EX_MEM]);
-            // if (m_config->gpgpu_tensor_core_avail) {
-            //   in_ports.push_back(&m_pipeline_reg[ID_OC_TENSOR_CORE]);
-            //   out_ports.push_back(&m_pipeline_reg[OC_EX_TENSOR_CORE]);
-            // }
-            // if (m_config->gpgpu_num_dp_units > 0) {
-            //   in_ports.push_back(&m_pipeline_reg[ID_OC_DP]);
-            //   out_ports.push_back(&m_pipeline_reg[OC_EX_DP]);
-            // }
-            // if (m_config->gpgpu_num_int_units > 0) {
-            //   in_ports.push_back(&m_pipeline_reg[ID_OC_INT]);
-            //   out_ports.push_back(&m_pipeline_reg[OC_EX_INT]);
-            // }
-            // if (m_config->m_specialized_unit.size() > 0) {
-            //   for (unsigned j = 0; j < m_config->m_specialized_unit.size(); ++j) {
-            //     in_ports.push_back(
-            //         &m_pipeline_reg[m_config->m_specialized_unit[j].ID_OC_SPEC_ID]);
-            //     out_ports.push_back(
-            //         &m_pipeline_reg[m_config->m_specialized_unit[j].OC_EX_SPEC_ID]);
-            //   }
-            // }
-            // cu_sets.push_back((unsigned)GEN_CUS);
-            // m_operand_collector.add_port(in_ports, out_ports, cu_sets);
-            // in_ports.clear(), out_ports.clear(), cu_sets.clear();
-            cu_sets.push(opcoll::OperandCollectorUnitKind::GEN_CUS);
-            operand_collector.add_port(in_ports, out_ports, cu_sets);
-            // in_ports.clear();
-            // out_ports.clear();
-            // cu_sets.clear();
-        }
-
-        // let enable_specialized_operand_collector = true;
-        if self.inner.config.enable_specialized_operand_collector {
-            // only added two
-            operand_collector.add_cu_set(
-                opcoll::OperandCollectorUnitKind::SP_CUS,
-                self.inner.config.operand_collector_num_units_sp,
-                self.inner.config.operand_collector_num_out_ports_sp,
-            );
-            operand_collector.add_cu_set(
-                opcoll::OperandCollectorUnitKind::MEM_CUS,
-                self.inner.config.operand_collector_num_units_mem,
-                self.inner.config.operand_collector_num_out_ports_mem,
-            );
-
-            for _i in 0..self.inner.config.operand_collector_num_in_ports_sp {
-                let mut in_ports = opcoll::PortVec::new();
-                let mut out_ports = opcoll::PortVec::new();
-                let mut cu_sets: Vec<opcoll::OperandCollectorUnitKind> = Vec::new();
-
-                in_ports.push(self.inner.pipeline_reg[PipelineStage::ID_OC_SP as usize].clone());
-                out_ports.push(self.inner.pipeline_reg[PipelineStage::OC_EX_SP as usize].clone());
-                cu_sets.push(opcoll::OperandCollectorUnitKind::SP_CUS);
-                cu_sets.push(opcoll::OperandCollectorUnitKind::GEN_CUS);
-                operand_collector.add_port(in_ports, out_ports, cu_sets);
-            }
-
-            for _i in 0..self.inner.config.operand_collector_num_in_ports_mem {
-                let mut in_ports = opcoll::PortVec::new();
-                let mut out_ports = opcoll::PortVec::new();
-                let mut cu_sets: Vec<opcoll::OperandCollectorUnitKind> = Vec::new();
-
-                in_ports.push(self.inner.pipeline_reg[PipelineStage::ID_OC_MEM as usize].clone());
-                out_ports.push(self.inner.pipeline_reg[PipelineStage::OC_EX_MEM as usize].clone());
-                cu_sets.push(opcoll::OperandCollectorUnitKind::MEM_CUS);
-                cu_sets.push(opcoll::OperandCollectorUnitKind::GEN_CUS);
-                operand_collector.add_port(in_ports, out_ports, cu_sets);
-            }
-        }
-
-        // this must be called after we add the collector unit sets!
-        operand_collector.init(self.inner.config.num_reg_banks);
-    }
-
-    fn init_functional_units(&mut self) {
-        // single precision units
-        for u in 0..self.inner.config.num_sp_units {
-            self.functional_units
-                .push(Arc::new(Mutex::new(super::SPUnit::new(
-                    u, // id
-                    Arc::clone(&self.inner.pipeline_reg[PipelineStage::EX_WB as usize]),
-                    Arc::clone(&self.inner.config),
-                    Arc::clone(&self.inner.stats),
-                    self.inner.cycle.clone(),
-                    u, // issue reg id
-                ))));
-            self.dispatch_ports.push(PipelineStage::ID_OC_SP);
-            self.issue_ports.push(PipelineStage::OC_EX_SP);
-        }
-
-        // load store unit
-        self.functional_units
-            .push(self.inner.load_store_unit.clone()); // Arc::clone needs type hints
-        self.dispatch_ports.push(PipelineStage::OC_EX_MEM);
-        self.issue_ports.push(PipelineStage::OC_EX_MEM);
-
-        debug_assert_eq!(self.functional_units.len(), self.issue_ports.len());
-        debug_assert_eq!(self.functional_units.len(), self.dispatch_ports.len());
-    }
-
-    fn init_schedulers(&mut self) {
-        let scheduler_kind = config::SchedulerKind::GTO;
-
-        self.schedulers = (0..self.inner.config.num_schedulers_per_core)
-            .map(|sched_id| {
-                let scheduler_stats = Arc::new(Mutex::new(stats::scheduler::Scheduler::default()));
-                match scheduler_kind {
-                    config::SchedulerKind::GTO => Box::new(sched::gto::Scheduler::new(
-                        sched_id,
-                        self.inner.cluster_id,
-                        self.inner.core_id,
-                        self.inner.warps.clone(),
-                        self.inner.scoreboard.clone(),
-                        scheduler_stats,
-                        self.inner.config.clone(),
-                    ))
-                        as Box<dyn sched::SchedulerUnit>,
-                    scheduler_kind => unimplemented!("scheduler: {:?}", &scheduler_kind),
-                }
-            })
-            .collect();
-
-        for (i, warp) in self.inner.warps.iter().enumerate() {
-            // distribute warps evenly though schedulers
-            let sched_idx = i % self.inner.config.num_schedulers_per_core;
-            let scheduler = &mut self.schedulers[sched_idx];
-            scheduler.add_supervised_warp(Arc::clone(warp));
+            functional_units,
+            issue_ports,
+            dispatch_ports,
         }
     }
+
+    // fn init_operand_collectors(&mut self) {
+    //     let mut operand_collector = self.operand_collector.lock().unwrap();
+    //
+    //     // let mut operand_collector = self.operand_collector.try_borrow_mut().unwrap();
+    //
+    //     // configure generic collectors
+    //     operand_collector.add_cu_set(
+    //         opcoll::OperandCollectorUnitKind::GEN_CUS,
+    //         self.config.operand_collector_num_units_gen,
+    //         self.config.operand_collector_num_out_ports_gen,
+    //     );
+    //
+    //     for _i in 0..self.config.operand_collector_num_in_ports_gen {
+    //         let mut in_ports = opcoll::PortVec::new();
+    //         let mut out_ports = opcoll::PortVec::new();
+    //         let mut cu_sets: Vec<opcoll::OperandCollectorUnitKind> = Vec::new();
+    //
+    //         in_ports.push(self.pipeline_reg[PipelineStage::ID_OC_SP as usize].clone());
+    //         // in_ports.push_back(&m_pipeline_reg[ID_OC_SFU]);
+    //         // in_ports.push(&self.pipeline_reg[ID_OC_MEM]);
+    //         out_ports.push(self.pipeline_reg[PipelineStage::OC_EX_SP as usize].clone());
+    //         // out_ports.push_back(&m_pipeline_reg[OC_EX_SFU]);
+    //         // out_ports.push(&self.pipeline_reg[OC_EX_MEM]);
+    //         // if (m_config->gpgpu_tensor_core_avail) {
+    //         //   in_ports.push_back(&m_pipeline_reg[ID_OC_TENSOR_CORE]);
+    //         //   out_ports.push_back(&m_pipeline_reg[OC_EX_TENSOR_CORE]);
+    //         // }
+    //         // if (m_config->gpgpu_num_dp_units > 0) {
+    //         //   in_ports.push_back(&m_pipeline_reg[ID_OC_DP]);
+    //         //   out_ports.push_back(&m_pipeline_reg[OC_EX_DP]);
+    //         // }
+    //         // if (m_config->gpgpu_num_int_units > 0) {
+    //         //   in_ports.push_back(&m_pipeline_reg[ID_OC_INT]);
+    //         //   out_ports.push_back(&m_pipeline_reg[OC_EX_INT]);
+    //         // }
+    //         // if (m_config->m_specialized_unit.size() > 0) {
+    //         //   for (unsigned j = 0; j < m_config->m_specialized_unit.size(); ++j) {
+    //         //     in_ports.push_back(
+    //         //         &m_pipeline_reg[m_config->m_specialized_unit[j].ID_OC_SPEC_ID]);
+    //         //     out_ports.push_back(
+    //         //         &m_pipeline_reg[m_config->m_specialized_unit[j].OC_EX_SPEC_ID]);
+    //         //   }
+    //         // }
+    //         // cu_sets.push_back((unsigned)GEN_CUS);
+    //         // m_operand_collector.add_port(in_ports, out_ports, cu_sets);
+    //         // in_ports.clear(), out_ports.clear(), cu_sets.clear();
+    //         cu_sets.push(opcoll::OperandCollectorUnitKind::GEN_CUS);
+    //         operand_collector.add_port(in_ports, out_ports, cu_sets);
+    //         // in_ports.clear();
+    //         // out_ports.clear();
+    //         // cu_sets.clear();
+    //     }
+    //
+    //     // let enable_specialized_operand_collector = true;
+    //     if self.config.enable_specialized_operand_collector {
+    //         // only added two
+    //         operand_collector.add_cu_set(
+    //             opcoll::OperandCollectorUnitKind::SP_CUS,
+    //             self.config.operand_collector_num_units_sp,
+    //             self.config.operand_collector_num_out_ports_sp,
+    //         );
+    //         operand_collector.add_cu_set(
+    //             opcoll::OperandCollectorUnitKind::MEM_CUS,
+    //             self.config.operand_collector_num_units_mem,
+    //             self.config.operand_collector_num_out_ports_mem,
+    //         );
+    //
+    //         for _i in 0..self.config.operand_collector_num_in_ports_sp {
+    //             let mut in_ports = opcoll::PortVec::new();
+    //             let mut out_ports = opcoll::PortVec::new();
+    //             let mut cu_sets: Vec<opcoll::OperandCollectorUnitKind> = Vec::new();
+    //
+    //             in_ports.push(self.pipeline_reg[PipelineStage::ID_OC_SP as usize].clone());
+    //             out_ports.push(self.pipeline_reg[PipelineStage::OC_EX_SP as usize].clone());
+    //             cu_sets.push(opcoll::OperandCollectorUnitKind::SP_CUS);
+    //             cu_sets.push(opcoll::OperandCollectorUnitKind::GEN_CUS);
+    //             operand_collector.add_port(in_ports, out_ports, cu_sets);
+    //         }
+    //
+    //         for _i in 0..self.config.operand_collector_num_in_ports_mem {
+    //             let mut in_ports = opcoll::PortVec::new();
+    //             let mut out_ports = opcoll::PortVec::new();
+    //             let mut cu_sets: Vec<opcoll::OperandCollectorUnitKind> = Vec::new();
+    //
+    //             in_ports.push(self.pipeline_reg[PipelineStage::ID_OC_MEM as usize].clone());
+    //             out_ports.push(self.pipeline_reg[PipelineStage::OC_EX_MEM as usize].clone());
+    //             cu_sets.push(opcoll::OperandCollectorUnitKind::MEM_CUS);
+    //             cu_sets.push(opcoll::OperandCollectorUnitKind::GEN_CUS);
+    //             operand_collector.add_port(in_ports, out_ports, cu_sets);
+    //         }
+    //     }
+    //
+    //     // this must be called after we add the collector unit sets!
+    //     operand_collector.init(self.config.num_reg_banks);
+    // }
+    //
+    // fn init_functional_units(&mut self) {
+    //     // single precision units
+    //     for u in 0..self.config.num_sp_units {
+    //         self.functional_units
+    //             .push(Arc::new(Mutex::new(super::SPUnit::new(
+    //                 u, // id
+    //                 Arc::clone(&self.pipeline_reg[PipelineStage::EX_WB as usize]),
+    //                 Arc::clone(&self.config),
+    //                 Arc::clone(&self.stats),
+    //                 self.cycle.clone(),
+    //                 u, // issue reg id
+    //             ))));
+    //         self.dispatch_ports.push(PipelineStage::ID_OC_SP);
+    //         self.issue_ports.push(PipelineStage::OC_EX_SP);
+    //     }
+    //
+    //     // load store unit
+    //     self.functional_units.push(self.load_store_unit.clone()); // Arc::clone needs type hints
+    //     self.dispatch_ports.push(PipelineStage::OC_EX_MEM);
+    //     self.issue_ports.push(PipelineStage::OC_EX_MEM);
+    //
+    //     debug_assert_eq!(self.functional_units.len(), self.issue_ports.len());
+    //     debug_assert_eq!(self.functional_units.len(), self.dispatch_ports.len());
+    // }
+    //
+    // fn init_schedulers(&mut self) {
+    //     let scheduler_kind = config::SchedulerKind::GTO;
+    //
+    //     self.schedulers = (0..self.config.num_schedulers_per_core)
+    //         .map(|sched_id| {
+    //             let scheduler_stats = Arc::new(Mutex::new(stats::scheduler::Scheduler::default()));
+    //             match scheduler_kind {
+    //                 config::SchedulerKind::GTO => {
+    //                     Arc::new(Mutex::new(scheduler::gto::Scheduler::new(
+    //                         sched_id,
+    //                         self.cluster_id,
+    //                         self.core_id,
+    //                         self.warps.clone(),
+    //                         self.scoreboard.clone(),
+    //                         scheduler_stats,
+    //                         self.config.clone(),
+    //                     ))) as Arc<Mutex<dyn scheduler::SchedulerUnit>>
+    //                 }
+    //                 scheduler_kind => unimplemented!("scheduler: {:?}", &scheduler_kind),
+    //             }
+    //         })
+    //         .collect();
+    //
+    //     for (i, warp) in self.warps.iter().enumerate() {
+    //         // distribute warps evenly though schedulers
+    //         let sched_idx = i % self.config.num_schedulers_per_core;
+    //         let scheduler = &mut self.schedulers[sched_idx];
+    //         scheduler
+    //             .lock()
+    //             .unwrap()
+    //             .add_supervised_warp(Arc::clone(warp));
+    //     }
+    // }
 
     #[must_use]
     pub fn active(&self) -> bool {
-        self.inner.num_active_blocks > 0
+        self.num_active_blocks > 0
     }
 
     /// return the next pc of a thread
     pub fn next_pc(&mut self, thread_id: usize) -> Option<usize> {
-        self.inner.thread_state[thread_id].as_ref().map(|t| t.pc)
+        self.thread_state[thread_id].as_ref().map(|t| t.pc)
     }
 
     fn register_thread_in_block_exited(
@@ -780,22 +918,21 @@ where
         kernel: &Option<Arc<Kernel>>,
     ) {
         let current_kernel: &mut Option<_> = &mut self
-            .inner
             .current_kernel
             .as_ref()
             .map(std::convert::AsRef::as_ref);
 
         debug_assert!(block_hw_id < MAX_CTA_PER_SHADER);
-        debug_assert!(self.inner.block_status[block_hw_id] > 0);
-        self.inner.block_status[block_hw_id] -= 1;
+        debug_assert!(self.block_status[block_hw_id] > 0);
+        self.block_status[block_hw_id] -= 1;
 
         // this is the last block that exited
-        if self.inner.block_status[block_hw_id] == 0 {
+        if self.block_status[block_hw_id] == 0 {
             // Increment the completed CTAs
             //   m_stats->ctas_completed++;
             //   m_gpu->inc_completed_cta();
-            self.inner.num_active_blocks -= 1;
-            if self.inner.num_active_blocks == 0 {
+            self.num_active_blocks -= 1;
+            if self.num_active_blocks == 0 {
                 // Shader can only be empty when no more cta are dispatched
                 if kernel.as_ref().map(|k| k.config.id) != current_kernel.map(|k| k.config.id) {
                     // debug_assert!(current_kernel.is_none() || kernel.no_more_blocks_to_run());
@@ -821,11 +958,10 @@ where
             "{}",
             style(format!(
                 "cycle {:03} core {:?}: fetch (fetch buffer valid={}, l1i ready={:?})",
-                self.inner.cycle.get(),
+                self.cycle.get(),
                 self.id(),
-                self.inner.instr_fetch_buffer.valid,
-                self.inner
-                    .instr_l1_cache
+                self.instr_fetch_buffer.valid,
+                self.instr_l1_cache
                     .ready_accesses()
                     .cloned()
                     .unwrap_or_default()
@@ -836,16 +972,16 @@ where
             .green()
         );
 
-        if !self.inner.instr_fetch_buffer.valid {
-            // if self.inner.instr_l1_cache.has_ready_accesses() {
-            if let Some(fetch) = self.inner.instr_l1_cache.next_access() {
-                // let fetch = self.inner.instr_l1_cache.next_access().unwrap();
-                let warp = self.inner.warps.get_mut(fetch.warp_id).unwrap();
+        if !self.instr_fetch_buffer.valid {
+            // if self.instr_l1_cache.has_ready_accesses() {
+            if let Some(fetch) = self.instr_l1_cache.next_access() {
+                // let fetch = self.instr_l1_cache.next_access().unwrap();
+                let warp = self.warps.get_mut(fetch.warp_id).unwrap();
                 // let mut warp = warp.try_borrow_mut().unwrap();
                 let mut warp = warp.lock().unwrap();
                 warp.has_imiss_pending = false;
 
-                self.inner.instr_fetch_buffer = InstrFetchBuffer {
+                self.instr_fetch_buffer = InstrFetchBuffer {
                     valid: true,
                     warp_id: fetch.warp_id,
                 };
@@ -856,7 +992,7 @@ where
                     Some(fetch.addr() as usize - super::PROGRAM_MEM_START)
                 );
 
-                self.inner.instr_fetch_buffer.valid = true;
+                self.instr_fetch_buffer.valid = true;
                 // warp.set_last_fetch(m_gpu->gpu_sim_cycle);
                 // drop(fetch);
             } else {
@@ -864,24 +1000,25 @@ where
                 // instruction buffer that is not
                 // already waiting on a cache miss and get
                 // next 1-2 instructions from instruction cache
-                let max_warps = self.inner.config.max_warps_per_core();
+                let max_warps = self.config.max_warps_per_core();
 
-                for warp_id in 0..max_warps {
-                    // let warp = self.inner.warps[warp_id].try_borrow().unwrap();
-                    let warp = self.inner.warps[warp_id].lock().unwrap();
-                    if warp.instruction_count() == 0 {
-                        // consider empty
-                        continue;
-                    }
-                    debug_assert_eq!(warp.warp_id, warp_id);
+                if false {
+                    for warp_id in 0..max_warps {
+                        // let warp = self.warps[warp_id].try_borrow().unwrap();
+                        let warp = self.warps[warp_id].lock().unwrap();
+                        if warp.instruction_count() == 0 {
+                            // consider empty
+                            continue;
+                        }
+                        debug_assert_eq!(warp.warp_id, warp_id);
 
-                    let sb = self.inner.scoreboard.read().unwrap();
-                    let pending_writes = sb.pending_writes(warp_id);
+                        let sb = self.scoreboard.read().unwrap();
+                        let pending_writes = sb.pending_writes(warp_id);
 
-                    // if warp.functional_done() && warp.hardware_done() && warp.done_exit() {
-                    //     continue;
-                    // }
-                    log::debug!(
+                        // if warp.functional_done() && warp.hardware_done() && warp.done_exit() {
+                        //     continue;
+                        // }
+                        log::debug!(
                         "checking warp_id = {} dyn warp id = {} (instruction count={}, trace pc={} hardware_done={}, functional_done={}, instr in pipe={}, stores={}, done_exit={}, pending writes={:?})",
                         &warp_id,
                         warp.dynamic_warp_id(),
@@ -894,14 +1031,15 @@ where
                         warp.done_exit(),
                         pending_writes.iter().sorted().collect::<Vec<_>>()
                     );
+                    }
                 }
 
                 for i in 0..max_warps {
-                    let last = self.inner.last_warp_fetched.unwrap_or(0);
+                    let last = self.last_warp_fetched.unwrap_or(0);
                     let warp_id = (last + 1 + i) % max_warps;
 
-                    // let warp = self.inner.warps[warp_id].try_borrow().unwrap();
-                    let warp = self.inner.warps[warp_id].lock().unwrap();
+                    // let warp = self.warps[warp_id].try_borrow().unwrap();
+                    let warp = self.warps[warp_id].lock().unwrap();
                     debug_assert!(warp.warp_id == warp_id || warp.warp_id == u32::MAX as usize);
 
                     let block_hw_id = warp.block_id as usize;
@@ -913,7 +1051,6 @@ where
                     let kernel = warp.kernel.as_ref().map(Arc::clone);
 
                     let has_pending_writes = !self
-                        .inner
                         .scoreboard
                         .read()
                         .unwrap()
@@ -930,25 +1067,22 @@ where
                     if did_maybe_exit {
                         log::debug!("\tchecking if warp_id = {} did complete", warp_id);
 
-                        for t in 0..self.inner.config.warp_size {
-                            let tid = warp_id * self.inner.config.warp_size + t;
-                            if let Some(Some(state)) = self.inner.thread_state.get_mut(tid) {
+                        for t in 0..self.config.warp_size {
+                            let tid = warp_id * self.config.warp_size + t;
+                            if let Some(Some(state)) = self.thread_state.get_mut(tid) {
                                 if state.active {
                                     state.active = false;
-
-                                    // assert!(!self.temp_check_state[block_hw_id].contains(&tid));
-                                    // self.temp_check_state[block_hw_id].insert(tid);
 
                                     log::debug!(
                                         "thread {} of block {} completed ({} left)",
                                         tid,
                                         block_hw_id,
-                                        self.inner.block_status[block_hw_id]
+                                        self.block_status[block_hw_id]
                                     );
                                     self.register_thread_in_block_exited(block_hw_id, &kernel);
 
                                     // if let Some(Some(thread_info)) =
-                                    //     self.inner.thread_info.get(tid).map(Option::as_ref)
+                                    //     self.thread_info.get(tid).map(Option::as_ref)
                                     // {
                                     //     // self.register_thread_in_block_exited(block_id, &(m_thread[tid]->get_kernel()));
                                     //     self.register_thread_in_block_exited(
@@ -962,22 +1096,22 @@ where
                                     //         kernel.as_ref().map(Arc::as_ref),
                                     //     );
                                     // }
-                                    self.inner.num_active_threads -= 1;
-                                    self.inner.active_thread_mask.set(tid, false);
+                                    self.num_active_threads -= 1;
+                                    self.active_thread_mask.set(tid, false);
                                     did_exit = true;
                                 }
                             }
                         }
-                        self.inner.num_active_warps -= 1;
+                        self.num_active_warps -= 1;
                     }
 
-                    // let mut warp = self.inner.warps[warp_id].try_borrow_mut().unwrap();
-                    let mut warp = self.inner.warps[warp_id].lock().unwrap();
+                    // let mut warp = self.warps[warp_id].try_borrow_mut().unwrap();
+                    let mut warp = self.warps[warp_id].lock().unwrap();
                     if did_exit {
                         warp.done_exit = true;
                     }
 
-                    let icache_config = self.inner.config.inst_cache_l1.as_ref().unwrap();
+                    let icache_config = self.config.inst_cache_l1.as_ref().unwrap();
                     // !warp.trace_instructions.is_empty() &&
                     let should_fetch_instruction =
                         !warp.functional_done() && !warp.has_imiss_pending && warp.ibuffer_empty();
@@ -1025,35 +1159,31 @@ where
                         let fetch = mem_fetch::MemFetch::new(
                             None,
                             access,
-                            &self.inner.config,
+                            &self.config,
                             mem_fetch::READ_PACKET_SIZE.into(),
                             warp_id,
-                            self.inner.core_id,
-                            self.inner.cluster_id,
+                            self.core_id,
+                            self.cluster_id,
                         );
 
-                        let status = if self.inner.config.perfect_inst_const_cache {
+                        let status = if self.config.perfect_inst_const_cache {
                             cache::RequestStatus::HIT
                         } else {
                             let mut events = Vec::new();
-                            let time = self.inner.cycle.get();
-                            self.inner.instr_l1_cache.access(
-                                ppc as address,
-                                fetch,
-                                &mut events,
-                                time,
-                            )
+                            let time = self.cycle.get();
+                            self.instr_l1_cache
+                                .access(ppc as address, fetch, &mut events, time)
                         };
 
                         log::debug!("L1I->access(addr={}) -> status = {:?}", ppc, status);
 
-                        self.inner.last_warp_fetched = Some(warp_id);
+                        self.last_warp_fetched = Some(warp_id);
 
                         if status == cache::RequestStatus::MISS {
                             warp.has_imiss_pending = true;
                             // warp.set_last_fetch(m_gpu->gpu_sim_cycle);
                         } else if status == cache::RequestStatus::HIT {
-                            self.inner.instr_fetch_buffer = InstrFetchBuffer {
+                            self.instr_fetch_buffer = InstrFetchBuffer {
                                 valid: true,
                                 // pc: pc as u64,
                                 // num_bytes,
@@ -1068,19 +1198,19 @@ where
                 }
             }
         }
-        self.inner.instr_l1_cache.cycle();
+        self.instr_l1_cache.cycle();
     }
 
     /// Shader core decode
     fn decode(&mut self) {
-        let InstrFetchBuffer { valid, warp_id, .. } = self.inner.instr_fetch_buffer;
+        let InstrFetchBuffer { valid, warp_id, .. } = self.instr_fetch_buffer;
 
         let _core_id = self.id();
         log::debug!(
             "{}",
             style(format!(
                 "cycle {:03} core {:?}: decode (fetch buffer valid={})",
-                self.inner.cycle.get(),
+                self.cycle.get(),
                 self.id(),
                 valid
             ))
@@ -1092,7 +1222,7 @@ where
         }
 
         // decode 1 or 2 instructions and buffer them
-        let warp = self.inner.warps.get_mut(warp_id).unwrap();
+        let warp = self.warps.get_mut(warp_id).unwrap();
         let mut warp = warp.try_lock().unwrap();
         debug_assert_eq!(warp.warp_id, warp_id);
 
@@ -1136,12 +1266,12 @@ where
             self.decode_instruction(warp_id, instr2, 1);
         }
 
-        self.inner.instr_fetch_buffer.valid = false;
+        self.instr_fetch_buffer.valid = false;
     }
 
     fn decode_instruction(&mut self, warp_id: usize, instr: WarpInstruction, slot: usize) {
         let _core_id = self.id();
-        let warp = self.inner.warps.get_mut(warp_id).unwrap();
+        let warp = self.warps.get_mut(warp_id).unwrap();
         // let mut warp = warp.try_borrow_mut().unwrap();
         let mut warp = warp.lock().unwrap();
 
@@ -1157,32 +1287,40 @@ where
     }
 
     fn issue(&mut self) {
-        // fair round robin issue between schedulers
-        let num_schedulers = self.schedulers.len();
-        for scheduler_idx in 0..num_schedulers {
-            let scheduler_idx = (self.scheduler_issue_priority + scheduler_idx) % num_schedulers;
-            self.schedulers[scheduler_idx].cycle(&mut self.inner);
+        if false {
+            use rayon::prelude::*;
+            self.schedulers
+                .par_iter()
+                .for_each(|scheduler| scheduler.lock().unwrap().cycle(self));
+        } else {
+            // fair round robin issue between schedulers
+            let num_schedulers = self.schedulers.len();
+            for scheduler_idx in 0..num_schedulers {
+                let scheduler_idx =
+                    (self.scheduler_issue_priority + scheduler_idx) % num_schedulers;
+                self.schedulers[scheduler_idx].lock().unwrap().cycle(self);
+            }
+            self.scheduler_issue_priority = (self.scheduler_issue_priority + 1) % num_schedulers;
         }
-        self.scheduler_issue_priority = (self.scheduler_issue_priority + 1) % num_schedulers;
     }
 
     fn writeback(&mut self) {
         // from the functional units
-        let mut exec_writeback_pipeline = self.inner.pipeline_reg[PipelineStage::EX_WB as usize]
+        let mut exec_writeback_pipeline = self.pipeline_reg[PipelineStage::EX_WB as usize]
             .try_lock()
             .unwrap();
         log::debug!(
             "{}",
             style(format!(
                 "cycle {:03} core {:?}: writeback: ex wb pipeline={}",
-                self.inner.cycle.get(),
+                self.cycle.get(),
                 self.id(),
                 exec_writeback_pipeline
             ))
             .cyan()
         );
         let _max_committed_thread_instructions =
-            self.inner.config.warp_size * exec_writeback_pipeline.size();
+            self.config.warp_size * exec_writeback_pipeline.size();
 
         // m_stats->m_pipeline_duty_cycle[m_sid] =
         //     ((float)(m_stats->m_num_sim_insn[m_sid] -
@@ -1215,21 +1353,16 @@ where
             // To handle this case, we ignore the return value (thus allowing
             // no stalling).
             //
-            self.inner
-                .operand_collector
+            self.operand_collector
                 .try_lock()
                 .unwrap()
                 .writeback(&mut ready);
-            self.inner
-                .scoreboard
-                .write()
-                .unwrap()
-                .release_registers(&ready);
-            self.inner.warps[ready.warp_id]
+            self.scoreboard.write().unwrap().release_registers(&ready);
+            self.warps[ready.warp_id]
                 .try_lock()
                 .unwrap()
                 .num_instr_in_pipeline -= 1;
-            warp_inst_complete(&mut ready, &self.inner.stats);
+            warp_inst_complete(&mut ready, &self.stats);
 
             //   m_gpu->gpu_sim_insn_last_update_sid = m_sid;
             //   m_gpu->gpu_sim_insn_last_update = m_gpu->gpu_sim_cycle;
@@ -1246,13 +1379,13 @@ where
             "{}",
             style(format!(
                 "cycle {:03} core {:?} execute: ",
-                self.inner.cycle.get(),
+                self.cycle.get(),
                 core_id
             ))
             .red()
         );
 
-        for (_i, res_bus) in self.inner.result_busses.iter_mut().enumerate() {
+        for (_i, res_bus) in self.result_busses.iter_mut().enumerate() {
             res_bus.shift_right(1);
             // log::debug!(
             //     "res bus {:03}[:128]: {}",
@@ -1266,9 +1399,7 @@ where
 
             let issue_port = self.issue_ports[fu_id];
             {
-                let issue_inst = self.inner.pipeline_reg[issue_port as usize]
-                    .try_lock()
-                    .unwrap();
+                let issue_inst = self.pipeline_reg[issue_port as usize].try_lock().unwrap();
                 log::debug!(
                     "fu[{:03}] {:<10} before \t{:?}={}",
                     &fu_id,
@@ -1281,9 +1412,7 @@ where
             fu.cycle();
             fu.active_lanes_in_pipeline();
 
-            let mut issue_inst = self.inner.pipeline_reg[issue_port as usize]
-                .try_lock()
-                .unwrap();
+            let mut issue_inst = self.pipeline_reg[issue_port as usize].try_lock().unwrap();
             log::debug!(
                 "fu[{:03}] {:<10} after \t{:?}={}",
                 &fu_id,
@@ -1293,7 +1422,7 @@ where
             );
 
             let mut debug_reg_id = None;
-            let partition_issue = self.inner.config.sub_core_model && fu.is_issue_partitioned();
+            let partition_issue = self.config.sub_core_model && fu.is_issue_partitioned();
             let ready_reg: Option<&mut Option<WarpInstruction>> = if partition_issue {
                 let reg_id = fu.issue_reg_id();
                 debug_reg_id = Some(reg_id);
@@ -1311,7 +1440,6 @@ where
                 if fu.can_issue(instr) {
                     let schedule_wb_now = !fu.stallable();
                     let result_bus = self
-                        .inner
                         .result_busses
                         .iter_mut()
                         .find(|bus| !bus[instr.latency]);
@@ -1320,7 +1448,7 @@ where
                         "{} {} (partition issue={}, reg id={:?}) ready for issue to fu[{:03}]={}",
                         style(format!(
                             "cycle {:03} core {:?}: execute:",
-                            self.inner.cycle.get(),
+                            self.cycle.get(),
                             core_id,
                         ))
                         .red(),
@@ -1357,7 +1485,7 @@ where
             "{} \tactive={}, not completed={}",
             style(format!(
                 "cycle {:03} core {:?}: core cycle",
-                self.inner.cycle.get(),
+                self.cycle.get(),
                 self.id()
             ))
             .blue(),
@@ -1370,44 +1498,44 @@ where
                 "{}",
                 style(format!(
                     "cycle {:03} core {:?}: core done",
-                    self.inner.cycle.get(),
+                    self.cycle.get(),
                     self.id()
                 ))
                 .blue(),
             );
             return;
         }
+
         // m_stats->shader_cycles[m_sid]++;
-        self.writeback();
-        self.execute();
-        for _ in 0..self.inner.config.reg_file_port_throughput {
-            self.inner.operand_collector.try_lock().unwrap().step();
+        crate::timeit!("writeback", self.writeback());
+        crate::timeit!("execute", self.execute());
+        for _ in 0..self.config.reg_file_port_throughput {
+            crate::timeit!(
+                "operand collector",
+                self.operand_collector.try_lock().unwrap().step()
+            );
         }
 
-        self.issue();
-        for _i in 0..self.inner.config.inst_fetch_throughput {
-            self.decode();
-            self.fetch();
+        crate::timeit!(self.issue());
+        for _i in 0..self.config.inst_fetch_throughput {
+            crate::timeit!(self.decode());
+            crate::timeit!(self.fetch());
         }
     }
 
     pub fn cache_flush(&mut self) {
-        let mut unit = self.inner.load_store_unit.try_lock().unwrap();
+        let mut unit = self.load_store_unit.try_lock().unwrap();
         unit.flush();
     }
 
     pub fn cache_invalidate(&mut self) {
-        let mut unit = self.inner.load_store_unit.try_lock().unwrap();
+        let mut unit = self.load_store_unit.try_lock().unwrap();
         unit.invalidate();
     }
 
     #[must_use]
     pub fn ldst_unit_response_buffer_full(&self) -> bool {
-        self.inner
-            .load_store_unit
-            .lock()
-            .unwrap()
-            .response_buffer_full()
+        self.load_store_unit.lock().unwrap().response_buffer_full()
     }
 
     #[must_use]
@@ -1416,28 +1544,28 @@ where
     }
 
     pub fn accept_fetch_response(&mut self, mut fetch: mem_fetch::MemFetch) {
-        let time = self.inner.cycle.get();
+        let time = self.cycle.get();
         fetch.status = mem_fetch::Status::IN_SHADER_FETCHED;
-        self.inner.instr_l1_cache.fill(fetch, time);
+        self.instr_l1_cache.fill(fetch, time);
     }
 
     pub fn accept_ldst_unit_response(&self, fetch: mem_fetch::MemFetch) {
-        self.inner.load_store_unit.lock().unwrap().fill(fetch);
+        self.load_store_unit.lock().unwrap().fill(fetch);
     }
 
     #[must_use]
     pub fn not_completed(&self) -> usize {
-        self.inner.num_active_threads
+        self.num_active_threads
     }
 
     #[must_use]
     pub fn is_active(&self) -> bool {
-        self.inner.num_active_blocks > 0
+        self.num_active_blocks > 0
     }
 
     pub fn set_kernel(&mut self, kernel: Arc<Kernel>) {
         log::debug!("kernel {} bind to core {:?}", kernel, self.id());
-        self.inner.current_kernel = Some(kernel);
+        self.current_kernel = Some(kernel);
     }
 
     pub fn find_available_hw_thread_id(
@@ -1446,13 +1574,13 @@ where
         occupy: bool,
     ) -> Option<usize> {
         let mut step = 0;
-        while step < self.inner.config.max_threads_per_core {
-            if self.inner.occupied_hw_thread_ids[step..(step + thread_block_size)].not_any() {
+        while step < self.config.max_threads_per_core {
+            if self.occupied_hw_thread_ids[step..(step + thread_block_size)].not_any() {
                 // found consecutive non-active
                 break;
             }
             // for hw_thread_id in step..(step + thread_block_size) {
-            //     if self.inner.occupied_hw_thread_ids[hw_thread_id] {
+            //     if self.occupied_hw_thread_ids[hw_thread_id] {
             //         break;
             //     }
             // }
@@ -1462,14 +1590,14 @@ where
             // }
             step += thread_block_size;
         }
-        if step >= self.inner.config.max_threads_per_core {
+        if step >= self.config.max_threads_per_core {
             // didn't find
             None
         } else {
             if occupy {
-                self.inner.occupied_hw_thread_ids[step..(step + thread_block_size)].fill(true);
+                self.occupied_hw_thread_ids[step..(step + thread_block_size)].fill(true);
                 // for hw_thread_id in step..(step + thread_block_size) {
-                //     self.inner.occupied_hw_thread_ids.set(hw_thread_id, true);
+                //     self.occupied_hw_thread_ids.set(hw_thread_id, true);
                 // }
             }
             Some(step)
@@ -1477,28 +1605,28 @@ where
     }
 
     pub fn can_issue_block(&mut self, kernel: &Kernel) -> bool {
-        let max_blocks = self.inner.config.max_blocks(kernel).unwrap();
-        if self.inner.config.concurrent_kernel_sm {
+        let max_blocks = self.config.max_blocks(kernel).unwrap();
+        if self.config.concurrent_kernel_sm {
             if max_blocks < 1 {
                 return false;
             }
             // self.occupy_resource_for_block(kernel, false);
             unimplemented!("concurrent kernel sm model");
         } else {
-            self.inner.num_active_blocks < max_blocks
+            self.num_active_blocks < max_blocks
         }
     }
 
     fn set_max_blocks(&mut self, kernel: &Kernel) -> eyre::Result<()> {
         // calculate the max cta count and cta size for local memory address mapping
-        self.inner.max_blocks_per_shader = self.inner.config.max_blocks(kernel)?;
-        self.inner.thread_block_size = self.inner.config.threads_per_block_padded(kernel);
+        self.max_blocks_per_shader = self.config.max_blocks(kernel)?;
+        self.thread_block_size = self.config.threads_per_block_padded(kernel);
         Ok(())
     }
 
     #[must_use]
     pub fn id(&self) -> (usize, usize) {
-        (self.inner.cluster_id, self.inner.core_id)
+        (self.cluster_id, self.core_id)
     }
 
     pub fn init_warps_from_traces(
@@ -1507,8 +1635,8 @@ where
         start_warp: usize,
         end_warp: usize,
     ) {
-        debug_assert!(!self.inner.warps.is_empty());
-        let selected_warps = &mut self.inner.warps[start_warp..end_warp];
+        debug_assert!(!self.warps.is_empty());
+        let selected_warps = &mut self.warps[start_warp..end_warp];
         for warp in selected_warps.iter_mut() {
             // let mut warp = warp.try_borrow_mut().unwrap();
             let mut warp = warp.try_lock().unwrap();
@@ -1521,7 +1649,7 @@ where
             "initialized traces {}..{} of {} warps",
             start_warp,
             end_warp,
-            &self.inner.warps.len()
+            &self.warps.len()
         );
     }
 
@@ -1534,37 +1662,37 @@ where
         thread_block_size: usize,
         kernel: Arc<Kernel>,
     ) {
-        let start_pc = self.next_pc(start_thread);
-        let start_warp = start_thread / self.inner.config.warp_size;
-        let _warp_per_cta = thread_block_size / self.inner.config.warp_size;
-        let end_warp = end_thread / self.inner.config.warp_size
-            + usize::from(end_thread % self.inner.config.warp_size != 0);
+        // let start_pc = self.next_pc(start_thread);
+        let start_warp = start_thread / self.config.warp_size;
+        let _warp_per_cta = thread_block_size / self.config.warp_size;
+        let end_warp = end_thread / self.config.warp_size
+            + usize::from(end_thread % self.config.warp_size != 0);
         for warp_id in start_warp..end_warp {
             let mut num_active = 0;
 
-            let mut local_active_thread_mask: sched::ThreadActiveMask = BitArray::ZERO;
-            for warp_thread_id in 0..self.inner.config.warp_size {
-                let hwtid = warp_id * self.inner.config.warp_size + warp_thread_id;
+            let mut local_active_thread_mask: warp::ActiveMask = BitArray::ZERO;
+            for warp_thread_id in 0..self.config.warp_size {
+                let hwtid = warp_id * self.config.warp_size + warp_thread_id;
                 if hwtid < end_thread {
                     num_active += 1;
-                    debug_assert!(!self.inner.active_thread_mask[hwtid]);
-                    self.inner.active_thread_mask.set(hwtid, true);
+                    debug_assert!(!self.active_thread_mask[hwtid]);
+                    self.active_thread_mask.set(hwtid, true);
                     local_active_thread_mask.set(warp_thread_id, true);
                 }
             }
-            // self.inner.warps[warp_id].try_borrow_mut().unwrap().init(
-            self.inner.warps[warp_id].try_lock().unwrap().init(
-                start_pc,
+            // self.warps[warp_id].try_borrow_mut().unwrap().init(
+            self.warps[warp_id].try_lock().unwrap().init(
+                // start_pc,
                 block_hw_id as u64,
                 warp_id,
-                self.inner.dynamic_warp_id,
+                self.dynamic_warp_id,
                 local_active_thread_mask,
                 kernel.clone(),
             );
 
-            self.inner.dynamic_warp_id += 1;
-            self.inner.num_active_warps += 1;
-            self.inner.num_active_threads += num_active;
+            self.dynamic_warp_id += 1;
+            self.num_active_warps += 1;
+            self.num_active_threads += num_active;
         }
 
         log::debug!(
@@ -1581,16 +1709,16 @@ where
 
     pub fn reinit(&mut self, start_thread: usize, end_thread: usize, reset_not_completed: bool) {
         if reset_not_completed {
-            self.inner.num_active_warps = 0;
-            self.inner.num_active_threads = 0;
-            self.inner.active_thread_mask.fill(false);
-            self.inner.occupied_block_to_hw_thread_id.clear();
-            self.inner.occupied_hw_thread_ids.fill(false);
+            self.num_active_warps = 0;
+            self.num_active_threads = 0;
+            self.active_thread_mask.fill(false);
+            self.occupied_block_to_hw_thread_id.clear();
+            self.occupied_hw_thread_ids.fill(false);
         }
         for t in start_thread..end_thread {
-            self.inner.thread_state[t] = None;
+            self.thread_state[t] = None;
         }
-        let warp_size = self.inner.config.warp_size;
+        let warp_size = self.config.warp_size;
 
         let start_warp = start_thread / warp_size;
         let end_warp = end_thread / warp_size;
@@ -1603,14 +1731,14 @@ where
         );
 
         for w in start_warp..end_warp {
-            // self.inner.warps[w].try_borrow_mut().unwrap().reset();
-            self.inner.warps[w].try_lock().unwrap().reset();
+            // self.warps[w].try_borrow_mut().unwrap().reset();
+            self.warps[w].try_lock().unwrap().reset();
         }
     }
 
     pub fn issue_block(&mut self, kernel: Arc<Kernel>) {
         log::debug!("core {:?}: issue block", self.id());
-        if self.inner.config.concurrent_kernel_sm {
+        if self.config.concurrent_kernel_sm {
             // let occupied = self.occupy_resource_for_block(&*kernel, true);
             // assert!(occupied);
             unimplemented!("concurrent kernel sm");
@@ -1621,40 +1749,38 @@ where
         // kernel.inc_running();
 
         // find a free CTA context
-        let max_blocks_per_core = if self.inner.config.concurrent_kernel_sm {
+        let max_blocks_per_core = if self.config.concurrent_kernel_sm {
             unimplemented!("concurrent kernel sm");
-            // self.inner.config.max_concurrent_blocks_per_core
+            // self.config.max_concurrent_blocks_per_core
         } else {
-            self.inner.max_blocks_per_shader
+            self.max_blocks_per_shader
         };
         log::debug!(
             "core {:?}: free block status: {:?}",
             self.id(),
-            self.inner.block_status
+            self.block_status
         );
         let free_block_hw_id = (0..max_blocks_per_core)
-            .find(|i| self.inner.block_status[*i] == 0)
+            .find(|i| self.block_status[*i] == 0)
             .unwrap();
 
         // determine hardware threads and warps that will be used for this block
         let thread_block_size = kernel.threads_per_block();
-        let padded_thread_block_size = self.inner.config.threads_per_block_padded(&kernel);
+        let padded_thread_block_size = self.config.threads_per_block_padded(&kernel);
 
         // hw warp id = hw thread id mod warp size, so we need to find a range
         // of hardware thread ids corresponding to an integral number of hardware
         // thread ids
-        let (start_thread, end_thread) = if self.inner.config.concurrent_kernel_sm {
+        let (start_thread, end_thread) = if self.config.concurrent_kernel_sm {
             let start_thread = self
                 .find_available_hw_thread_id(padded_thread_block_size, true)
                 .unwrap();
             let end_thread = start_thread + thread_block_size;
 
             assert!(!self
-                .inner
                 .occupied_block_to_hw_thread_id
                 .contains_key(&free_block_hw_id));
-            self.inner
-                .occupied_block_to_hw_thread_id
+            self.occupied_block_to_hw_thread_id
                 .insert(free_block_hw_id, start_thread);
             (start_thread, end_thread)
         } else {
@@ -1679,17 +1805,14 @@ where
         );
         let block_id = block.id();
 
-        // for debugging
-        // self.temp_check_state[free_block_hw_id].clear();
-
         let mut num_threads_in_block = 0;
         for i in start_thread..end_thread {
-            self.inner.thread_state[i] = Some(ThreadState {
+            self.thread_state[i] = Some(ThreadState {
                 // block_id: free_block_hw_id,
                 active: true,
                 pc: 0, // todo
             });
-            let warp_id = i / self.inner.config.warp_size;
+            let warp_id = i / self.config.warp_size;
 
             // TODO: removed this but is that fine?
             if !kernel.no_more_blocks_to_run() {
@@ -1709,7 +1832,7 @@ where
             warps.set(warp_id, true);
         }
 
-        self.inner.block_status[free_block_hw_id] = num_threads_in_block;
+        self.block_status[free_block_hw_id] = num_threads_in_block;
         log::debug!(
             "num threads in block {}={} (hw {}) = {}",
             block,
@@ -1726,7 +1849,7 @@ where
             kernel.threads_per_block(),
             kernel,
         );
-        self.inner.num_active_blocks += 1;
+        self.num_active_blocks += 1;
     }
 }
 

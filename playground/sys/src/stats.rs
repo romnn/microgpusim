@@ -188,30 +188,30 @@ impl From<stats::sim::Sim> for Sim {
     }
 }
 
-impl PartialEq<stats::Stats> for StatsBridge {
-    fn eq(&self, other: &stats::Stats) -> bool {
-        use stats::ConvertHashMap;
-        if !(stats::PerCache(self.l1i_stats.clone().convert()) == other.l1i_stats)
-            && (stats::PerCache(self.l1d_stats.clone().convert()) == other.l1d_stats)
-            && (stats::PerCache(self.l1t_stats.clone().convert()) == other.l1t_stats)
-            && (stats::PerCache(self.l1c_stats.clone().convert()) == other.l1c_stats)
-            && (stats::PerCache(self.l2d_stats.clone().convert()) == other.l2d_stats)
-        {
-            return false;
-        }
-
-        if self.accesses != Accesses::from(other.accesses.clone()) {
-            return false;
-        }
-
-        if self.dram != DRAM::from(other.dram.clone()) {
-            return false;
-        }
-
-        if self.instructions != InstructionCounts::from(other.instructions.clone()) {
-            return false;
-        }
-
-        self.sim == Sim::from(other.sim.clone())
-    }
-}
+// impl PartialEq<stats::Stats> for StatsBridge {
+//     fn eq(&self, other: &stats::Stats) -> bool {
+//         // use stats::ConvertHashMap;
+//         if !(stats::PerCache(self.l1i_stats.clone().convert()) == other.l1i_stats)
+//             && (stats::PerCache(self.l1d_stats.clone().convert()) == other.l1d_stats)
+//             && (stats::PerCache(self.l1t_stats.clone().convert()) == other.l1t_stats)
+//             && (stats::PerCache(self.l1c_stats.clone().convert()) == other.l1c_stats)
+//             && (stats::PerCache(self.l2d_stats.clone().convert()) == other.l2d_stats)
+//         {
+//             return false;
+//         }
+//
+//         if self.accesses != Accesses::from(other.accesses.clone()) {
+//             return false;
+//         }
+//
+//         if self.dram != DRAM::from(other.dram.clone()) {
+//             return false;
+//         }
+//
+//         if self.instructions != InstructionCounts::from(other.instructions.clone()) {
+//             return false;
+//         }
+//
+//         self.sim == Sim::from(other.sim.clone())
+//     }
+// }

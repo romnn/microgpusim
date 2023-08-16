@@ -1,4 +1,5 @@
-use super::{BaseSchedulerUnit, WarpRef};
+use super::BaseSchedulerUnit;
+use crate::warp;
 
 use std::sync::{Arc, Mutex};
 
@@ -19,7 +20,7 @@ pub fn all_different<T>(values: &Vec<Arc<Mutex<T>>>) -> bool {
     true
 }
 
-pub fn sort_warps_by_oldest_dynamic_id(lhs: &WarpRef, rhs: &WarpRef) -> std::cmp::Ordering {
+pub fn sort_warps_by_oldest_dynamic_id(lhs: &warp::Ref, rhs: &warp::Ref) -> std::cmp::Ordering {
     let lhs = lhs.try_lock().unwrap();
     let rhs = rhs.try_lock().unwrap();
     if lhs.done_exit() || lhs.waiting() {
@@ -46,7 +47,7 @@ pub enum Ordering {
 impl BaseSchedulerUnit {
     pub fn order_by_priority<F>(&mut self, ordering: Ordering, mut priority_func: F)
     where
-        F: FnMut(&WarpRef, &WarpRef) -> std::cmp::Ordering,
+        F: FnMut(&warp::Ref, &warp::Ref) -> std::cmp::Ordering,
     {
         let num_warps_to_add = self.supervised_warps.len();
         let out = &mut self.next_cycle_prioritized_warps;

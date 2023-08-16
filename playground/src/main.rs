@@ -1,7 +1,6 @@
 use accelsim::Options;
 use clap::Parser;
 use color_eyre::eyre::{self, WrapErr};
-use stats::ConvertHashMap;
 use std::path::PathBuf;
 
 fn main() -> eyre::Result<()> {
@@ -79,15 +78,15 @@ fn main() -> eyre::Result<()> {
         eprintln!("ACCESSES: {:#?}", &stats.accesses);
         eprintln!(
             "L1I: {:#?}",
-            &stats::PerCache(stats.l1i_stats.convert()).reduce()
+            &stats::PerCache::from_iter(stats.l1i_stats.to_vec()).reduce()
         );
         eprintln!(
             "L1D: {:#?}",
-            &stats::PerCache(stats.l1d_stats.convert()).reduce()
+            &stats::PerCache::from_iter(stats.l1d_stats.to_vec()).reduce()
         );
         eprintln!(
             "L2D: {:#?}",
-            &stats::PerCache(stats.l2d_stats.convert()).reduce()
+            &stats::PerCache::from_iter(stats.l2d_stats.to_vec()).reduce()
         );
 
         eprintln!("completed in {:?}", start.elapsed());
