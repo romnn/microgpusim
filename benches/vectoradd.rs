@@ -28,13 +28,13 @@ pub fn run_box(mut bench_config: BenchmarkConfig) -> eyre::Result<stats::Stats> 
         std::env::var("PARALLEL").unwrap_or_default().to_lowercase() == "yes";
     println!("parallel: {}", bench_config.simulate.parallel);
     let stats = validate::simulate::simulate_bench_config(&bench_config)?;
-    let cycles = stats.sim.cycles;
+    let _cycles = stats.sim.cycles;
     // fast parallel:   cycle loop time: 558485 ns
     // serial:          cycle loop time: 2814591 ns (speedup 5x)
     // have 80 cores and 16 threads
     //
     // parallel: dram cycle time: 229004 ns
-    println!("");
+    println!();
     let timings = casimu::TIMINGS.lock().unwrap();
     let total = timings["total_cycle"].mean();
     for (name, dur) in [
@@ -48,7 +48,7 @@ pub fn run_box(mut bench_config: BenchmarkConfig) -> eyre::Result<stats::Stats> 
         let ms = dur.as_secs_f64() * 1000.0;
         println!("{name} time: {ms:.5} ms ({percent:>2.2}%)");
     }
-    println!("");
+    println!();
     Ok(stats)
 }
 
@@ -124,20 +124,20 @@ fn main() -> eyre::Result<()> {
     let stats = run_box(black_box(get_bench_config("transpose", 0)?))?;
     dbg!(stats.sim);
     let box_dur = start.elapsed();
-    println!("box took:\t\t{:?}", box_dur);
+    println!("box took:\t\t{box_dur:?}");
 
     let timings = casimu::TIMINGS.lock().unwrap();
     let mut timings: Vec<_> = timings.iter().map(|(name, dur)| (name, dur.mean())).collect();
-    timings.sort_by_key(|(name, dur)| *dur);
+    timings.sort_by_key(|(_name, dur)| *dur);
     for (name, dur) in timings {
         println!("{name:>30}: {:>6.5} ms", dur.as_secs_f64() * 1000.0);
     }
-    println!("");
+    println!();
 
     start = Instant::now();
-    let _ = run_playground(&black_box(get_bench_config("transpose", 0)?))?;
+    run_playground(&black_box(get_bench_config("transpose", 0)?))?;
     let play_dur = start.elapsed();
-    println!("play took:\t\t{:?}", play_dur);
+    println!("play took:\t\t{play_dur:?}");
 
     start = Instant::now();
     runtime.block_on(async {
@@ -145,7 +145,7 @@ fn main() -> eyre::Result<()> {
         Ok::<(), eyre::Report>(())
     })?;
     let accel_dur = start.elapsed();
-    println!("accel took:\t\t{:?}", accel_dur);
+    println!("accel took:\t\t{accel_dur:?}");
 
     println!(
         "speedup is :\t\t{:.2}",

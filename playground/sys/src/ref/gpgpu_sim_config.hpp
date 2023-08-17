@@ -116,7 +116,7 @@ class gpgpu_sim_config : public power_config,
       m_memory_config.m_perf_sim_memcpy = true;  // true
 
       // gpgpu_l2_rop_latency was 120
-      m_memory_config.rop_latency = 0;
+      // m_memory_config.rop_latency = 0;
       // dram_latency latency was 100
       m_memory_config.dram_latency = 0;
       // cannot create the l1 latency queue otherwise (to be removed i guess)

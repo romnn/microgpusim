@@ -1,4 +1,4 @@
-use super::{instruction, opcodes, scheduler, warp};
+use super::{instruction, opcodes, warp};
 use color_eyre::{
     eyre::{self},
     Help,
@@ -7,19 +7,19 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::sync::{Mutex, RwLock};
 use std::time::Instant;
-use trace_model::{KernelLaunch, MemAccessTraceEntry, Point};
+use trace_model as model;
 
-pub fn read_trace(path: impl AsRef<Path>) -> eyre::Result<Vec<MemAccessTraceEntry>> {
+pub fn read_trace(path: impl AsRef<Path>) -> eyre::Result<model::MemAccessTrace> {
     use serde::Deserializer;
 
     let reader = utils::fs::open_readable(path.as_ref())?;
     let mut reader = rmp_serde::Deserializer::new(reader);
     let mut trace = vec![];
-    let decoder = nvbit_io::Decoder::new(|access: MemAccessTraceEntry| {
+    let decoder = nvbit_io::Decoder::new(|access: model::MemAccessTraceEntry| {
         trace.push(access);
     });
     reader.deserialize_seq(decoder).suggestion("maybe the traces does not match the most recent binary trace format, try re-generating the traces.")?;
-    Ok(trace)
+    Ok(model::MemAccessTrace(trace))
 }
 
 /// Kernel represents a kernel.
@@ -29,8 +29,8 @@ pub fn read_trace(path: impl AsRef<Path>) -> eyre::Result<Vec<MemAccessTraceEntr
 #[derive(Debug)]
 pub struct Kernel {
     pub opcodes: &'static opcodes::OpcodeMap,
-    pub config: KernelLaunch,
-    trace: Vec<MemAccessTraceEntry>,
+    pub config: model::KernelLaunch,
+    trace: model::MemAccessTrace,
     trace_pos: RwLock<usize>,
     launched: Mutex<bool>,
     num_cores_running: usize,
@@ -52,8 +52,32 @@ impl std::fmt::Display for Kernel {
 }
 
 impl Kernel {
-    pub fn from_trace(traces_dir: impl AsRef<Path>, config: KernelLaunch) -> Self {
-        let start = Instant::now();
+    pub fn new(config: model::KernelLaunch, trace: model::MemAccessTrace) -> Self {
+        // sanity check
+        assert!(trace.is_valid());
+
+        // check if grid size is equal to the number of unique blocks in the trace
+        let all_blocks: HashSet<_> = trace.iter().map(|t| &t.block_id).collect();
+        log::info!(
+            "parsed kernel trace for {:?}: {}/{} blocks",
+            config.name,
+            all_blocks.len(),
+            config.grid.size(),
+        );
+        assert_eq!(config.grid.size(), all_blocks.len() as u64);
+
+        let opcodes = opcodes::get_opcode_map(&config).unwrap();
+        Self {
+            config,
+            trace,
+            trace_pos: RwLock::new(0),
+            opcodes,
+            launched: Mutex::new(false),
+            num_cores_running: 0,
+        }
+    }
+
+    pub fn from_trace(config: model::KernelLaunch, traces_dir: impl AsRef<Path>) -> Self {
         log::info!(
             "parsing kernel for launch {:?} from {}",
             &config,
@@ -65,31 +89,7 @@ impl Kernel {
             .with_extension("msgpack");
 
         let trace = read_trace(trace_path).unwrap();
-
-        // sanity check
-        assert!(trace_model::is_valid_trace(&trace));
-
-        // check if grid size is equal to the number of unique blocks in the trace
-        let all_blocks: HashSet<_> = trace.iter().map(|t| &t.block_id).collect();
-        log::info!(
-            "parsed kernel trace for {:?}: {}/{} blocks in {:?}",
-            config.name,
-            all_blocks.len(),
-            config.grid.size(),
-            start.elapsed()
-        );
-        assert_eq!(config.grid.size(), all_blocks.len() as u64);
-
-        let opcodes = opcodes::get_opcode_map(&config).unwrap();
-
-        Self {
-            config,
-            trace,
-            trace_pos: RwLock::new(0),
-            opcodes,
-            launched: Mutex::new(false),
-            num_cores_running: 0,
-        }
+        Self::new(config, trace)
     }
 
     pub fn shared_memory_bytes_human_readable(&self) -> String {
@@ -188,10 +188,13 @@ impl Kernel {
         self.num_cores_running > 0
     }
 
-    pub fn current_block(&self) -> Option<Point> {
+    pub fn current_block(&self) -> Option<model::Point> {
         let traces_pos = self.trace_pos.read().unwrap();
         let trace = self.trace.get(*traces_pos)?;
-        Some(Point::new(trace.block_id.clone(), self.config.grid.clone()))
+        Some(model::Point::new(
+            trace.block_id.clone(),
+            self.config.grid.clone(),
+        ))
     }
 
     pub fn done(&self) -> bool {

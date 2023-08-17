@@ -422,7 +422,7 @@ impl Arbiter {
         inmatch.fill(None);
         outmatch.fill(None);
 
-        use rayon::prelude::*;
+        
         // (0..self.num_banks)
         // (0..self.num_banks).into_par_iter().for_each(|bank| {
         //     debug_assert!(bank < _inputs);

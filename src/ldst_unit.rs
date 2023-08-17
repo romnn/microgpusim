@@ -3,7 +3,6 @@ use crate::{
     operand_collector as opcoll,
     operand_collector::OperandCollectorRegisterFileUnit,
     register_set::{self},
-    scheduler,
     scoreboard::Scoreboard,
     simd_function_unit as fu, warp,
 };
@@ -616,9 +615,9 @@ where
                 // stall_cond = MemStageStallKind::ICNT_RC_FAIL;
                 panic!("interconn full");
             } else {
-                let pending = &self.pending_writes[&dispatch_instr.warp_id];
                 if dispatch_instr.is_load() {
                     for out_reg in dispatch_instr.outputs() {
+                        let pending = &self.pending_writes[&dispatch_instr.warp_id];
                         debug_assert!(pending[out_reg] > 0);
                     }
                 } else if dispatch_instr.is_store() {

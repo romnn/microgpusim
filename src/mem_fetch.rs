@@ -334,7 +334,7 @@ impl MemFetch {
         instr: Option<WarpInstruction>,
         access: MemAccess,
         config: &config::GPUConfig,
-        control_size: u32,
+        _control_size: u32,
         warp_id: usize,
         core_id: usize,
         cluster_id: usize,

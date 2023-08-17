@@ -72,6 +72,11 @@ fn main() -> eyre::Result<()> {
         log_builder.init();
     }
 
+    let deadlock_check = std::env::var("DEADLOCK_CHECK")
+        .unwrap_or_default()
+        .to_lowercase()
+        == "yes";
+
     let config = GPUConfig {
         num_simt_clusters: 20,                   // 20
         num_cores_per_simt_cluster: 4,           // 1
@@ -80,6 +85,7 @@ fn main() -> eyre::Result<()> {
         num_sub_partition_per_memory_channel: 2, // 2
         fill_l2_on_memcopy: true,                // true
         parallel: options.parallel,
+        deadlock_check,
         log_after_cycle,
         ..GPUConfig::default()
     };

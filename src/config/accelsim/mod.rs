@@ -196,7 +196,7 @@ impl Config {
         let args =
             extract_arguments(config.as_ref()).map(|(key, value)| format!("--{key}={value}"));
         let args: Vec<String> = ["test".to_string()].into_iter().chain(args).collect();
-        let config = Self::try_parse_from(&args)?;
+        let config = Self::try_parse_from(args)?;
         Ok(config)
     }
 }
@@ -215,7 +215,7 @@ mod tests {
         let config = std::fs::read_to_string(config_path)?;
         diff::assert_eq!(super::Config::parse("")?, super::Config::default());
         diff::assert_eq!(
-            super::Config::parse(&config)?,
+            super::Config::parse(config)?,
             super::Config {
                 shader_core: super::core::CoreConfig {
                     specialized_unit_1: "1,4,4,4,4,BRA".to_string(),
@@ -254,7 +254,7 @@ mod tests {
             super::Config::default()
         );
 
-        let mut have = super::Config::parse(&config)?;
+        let mut have = super::Config::parse(config)?;
         let mut want = super::Config {
             functional: super::functional::FunctionalConfig {
                 m_ptx_force_max_capability: 60,

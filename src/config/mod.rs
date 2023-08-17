@@ -319,6 +319,8 @@ pub struct GPUConfig {
     pub log_after_cycle: Option<u64>,
     /// Parallel simulation
     pub parallel: bool,
+    /// Deadlock check
+    pub deadlock_check: bool,
 
     pub linear_to_raw_adress_translation:
         std::sync::OnceLock<addrdec::LinearToRawAddressTranslation>,
@@ -527,7 +529,7 @@ pub struct GPUConfig {
     /// nbk=16:CCD=2:RRD=6:RCD=12:RAS=28:RP=12:RC=40: CL=12:WL=4:CDLR=5:WR=12:nbkgrp=1:CCDL=0:RTPL=0
     pub dram_timing_options: dram::TimingOptions,
     /// ROP queue latency (default 85)
-    pub l2_rop_latency: usize, // 120
+    pub l2_rop_latency: u64, // 120
     /// DRAM latency (default 30)
     pub dram_latency: usize, // 100
     /// dual_bus_interface (default = 0)
@@ -941,6 +943,7 @@ impl Default for GPUConfig {
         Self {
             log_after_cycle: None,
             parallel: false,
+            deadlock_check: false,
             linear_to_raw_adress_translation: std::sync::OnceLock::new(),
             occupancy_sm_number: 60,
             max_threads_per_core: 2048,

@@ -4,14 +4,14 @@ use crate::{
     mem_fetch::{self, BitString},
     mem_sub_partition::MAX_MEMORY_ACCESS_SIZE,
     opcodes::{ArchOp, Op, Opcode},
-    operand_collector as opcoll, scheduler, warp,
+    operand_collector as opcoll, warp,
 };
 
 use bitvec::{array::BitArray, field::BitField, BitArr};
 use std::collections::{HashMap, VecDeque};
 use trace_model as trace;
 
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MemorySpace {
     // undefined_space = 0,
     // reg_space,

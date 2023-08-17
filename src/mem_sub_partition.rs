@@ -31,7 +31,7 @@ pub struct MemorySubPartition<Q = FifoQueue<mem_fetch::MemFetch>> {
     pub dram_to_l2_queue: Q,
     /// L2 cache hit response queue
     pub l2_to_interconn_queue: Q,
-    rop_queue: VecDeque<mem_fetch::MemFetch>,
+    rop_queue: VecDeque<(u64, mem_fetch::MemFetch)>,
 
     pub l2_cache: Option<Box<dyn cache::Cache>>,
 
@@ -240,7 +240,7 @@ where
         // result
     }
 
-    pub fn push(&mut self, fetch: mem_fetch::MemFetch) {
+    pub fn push(&mut self, fetch: mem_fetch::MemFetch, time: u64) {
         // m_stats->memlatstat_icnt2mem_pop(m_req);
         let mut requests = Vec::new();
         let l2_config = self.config.data_cache_l2.as_ref().unwrap();
@@ -259,21 +259,13 @@ where
             // self.interconn_to_l2_queue.enqueue(fetch);
 
             if fetch.is_texture() {
+                fetch.status = mem_fetch::Status::IN_PARTITION_ICNT_TO_L2_QUEUE;
                 self.interconn_to_l2_queue.enqueue(fetch);
-                // fetch.status = mem_fetch::Status::IN_PARTITION_ICNT_TO_L2_QUEUE;
-                // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
             } else {
-                // rop_delay_t r;
-                // r.req = req;
-                // r.ready_cycle = cycle + m_config->rop_latency;
-                // m_rop.push(r);
-                // req->set_status(IN_PARTITION_ROP_DELAY,
-                // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+                let ready_cycle = time + self.config.l2_rop_latency;
+                fetch.status = mem_fetch::Status::IN_PARTITION_ROP_DELAY;
                 log::debug!("{}: {fetch}", style("PUSH TO ROP").red());
-                self.rop_queue.push_back(fetch);
-                // assert!(!self.interconn_to_l2_queue.full());
-                // fetch.set_status(mem_fetch::Status::IN_PARTITION_ICNT_TO_L2_QUEUE, 0);
-                // self.interconn_to_l2_queue.enqueue(fetch);
+                self.rop_queue.push_back((ready_cycle, fetch));
             }
         }
     }
@@ -357,7 +349,7 @@ where
             log_line,
             self.rop_queue
                 .iter()
-                .map(std::string::ToString::to_string)
+                .map(|(ready_cycle, fetch)| (ready_cycle, fetch.to_string()))
                 .collect::<Vec<_>>(),
             self.interconn_to_l2_queue,
             self.l2_to_interconn_queue,
@@ -375,8 +367,8 @@ where
                 l2_cache
                     .ready_accesses()
                     .unwrap_or(&EMPTY)
-                    .into_iter()
-                    .map(|fetch| fetch.to_string())
+                    .iter()
+                    .map(std::string::ToString::to_string)
                     .collect::<Vec<_>>(),
                 queue_full,
             );
@@ -535,11 +527,15 @@ where
         // if (!m_rop.empty() && (cycle >= m_rop.front().ready_cycle) &&
         //     !m_icnt_L2_queue->full()) {
         if !self.interconn_to_l2_queue.full() {
-            if let Some(mut fetch) = self.rop_queue.pop_front() {
-                log::debug!("{}: {fetch}", style("POP FROM ROP").red());
-                fetch.set_status(mem_fetch::Status::IN_PARTITION_ICNT_TO_L2_QUEUE, 0);
-                // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-                self.interconn_to_l2_queue.enqueue(fetch);
+            match self.rop_queue.front() {
+                Some((ready_cycle, _)) if cycle >= *ready_cycle => {
+                    let (_, mut fetch) = self.rop_queue.pop_front().unwrap();
+                    log::debug!("{}: {fetch}", style("POP FROM ROP").red());
+                    fetch.set_status(mem_fetch::Status::IN_PARTITION_ICNT_TO_L2_QUEUE, 0);
+                    // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+                    self.interconn_to_l2_queue.enqueue(fetch);
+                }
+                _ => {}
             }
         }
     }

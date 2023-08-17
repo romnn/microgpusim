@@ -220,7 +220,7 @@ impl Default for SimConfig {
             g_visualizer_filename: None,
             g_visualizer_zlevel: 6,
             stack_size_limit: 1024,
-            heap_size_limit: 8388608,
+            heap_size_limit: 8_388_608,
             runtime_sync_depth_limit: 2,
             runtime_pending_launch_count_limit: 2048,
             trace_enabled: false.into(),

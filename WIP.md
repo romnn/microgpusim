@@ -7,11 +7,12 @@
 
 - today:
 
-  - add rop delay queue
+  - execution driven frontend
   - record mem fetch latency
   - add a few more stats
   - refactor events
   - lint
+  - DONE: add rop delay queue
 
 - tomorrow:
 

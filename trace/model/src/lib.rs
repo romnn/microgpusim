@@ -1,7 +1,7 @@
 pub mod dim;
 pub use dim::{Dim, Point};
-
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[allow(clippy::struct_excessive_bools)]
@@ -31,6 +31,47 @@ pub struct MemAccessTraceEntry {
     pub active_mask: u32,
     /// Accessed address per thread of a warp
     pub addrs: [u64; 32],
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(transparent)]
+pub struct MemAccessTrace(pub Vec<MemAccessTraceEntry>);
+
+impl MemAccessTrace {
+    #[must_use]
+    pub fn is_valid(&self) -> bool {
+        is_valid_trace(&self.0)
+    }
+
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    #[must_use]
+    pub fn iter(&self) -> std::slice::Iter<MemAccessTraceEntry> {
+        self.0.iter()
+    }
+
+    #[must_use]
+    pub fn to_warp_traces(self) -> HashMap<(Dim, u32), Vec<MemAccessTraceEntry>> {
+        let mut warp_traces: HashMap<(Dim, u32), Vec<MemAccessTraceEntry>> = HashMap::new();
+        for entry in self.0 {
+            warp_traces
+                .entry((entry.block_id.clone().into(), entry.warp_id_in_block))
+                .or_default()
+                .push(entry);
+        }
+        warp_traces
+    }
+}
+
+impl std::ops::Deref for MemAccessTrace {
+    type Target = Vec<MemAccessTraceEntry>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 /// Sanity checks a trace for _any_ valid sorting.

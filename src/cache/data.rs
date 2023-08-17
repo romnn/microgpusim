@@ -831,7 +831,7 @@ mod tests {
                 Command::MemcpyHtoD { .. } => {}
                 Command::MemAlloc { .. } => {}
                 Command::KernelLaunch(launch) => {
-                    let kernel = Kernel::from_trace(&trace_dir, launch.clone());
+                    let kernel = Kernel::from_trace(launch.clone(), &trace_dir);
                     kernels.push_back(kernel);
                 }
             }
@@ -991,7 +991,7 @@ mod tests {
             local_mem_base_addr: 140_663_752_491_008,
             nvbit_version: "1.5.5".to_string(),
         };
-        let kernel = Kernel::from_trace(trace_dir, launch);
+        let kernel = Kernel::from_trace(launch, trace_dir);
 
         let trace_instr = trace_model::MemAccessTraceEntry {
             cuda_ctx: 0,

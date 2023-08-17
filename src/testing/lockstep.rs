@@ -4,7 +4,7 @@ use color_eyre::eyre;
 use itertools::Itertools;
 use pretty_assertions_sorted as full_diff;
 use serde::Serialize;
-use stats::ConvertHashMap;
+
 use std::collections::HashSet;
 use std::io::Write;
 use std::ops::Deref;
@@ -559,6 +559,7 @@ fn gather_simulation_state(
 
 pub fn run_lockstep(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> {
     use accelsim::tracegen::reader::Command as AccelsimCommand;
+    // let _ = color_eyre::install();
 
     let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
 
@@ -718,12 +719,8 @@ pub fn run_lockstep(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Re
         box_config.num_memory_controllers * box_config.num_sub_partition_per_memory_channel,
     ));
 
-    let mut box_sim = crate::MockSimulator::new(
-        box_interconn,
-        box_config,
-        &box_trace_dir,
-        &box_commands_path,
-    );
+    let mut box_sim = crate::MockSimulator::new(box_interconn, box_config);
+    box_sim.add_commands(&box_commands_path, &box_trace_dir)?;
     box_sim.parallel_simulation =
         std::env::var("PARALLEL").unwrap_or_default().to_lowercase() == "yes";
 
@@ -1019,7 +1016,7 @@ pub fn run_lockstep(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Re
 
     if box_sim.parallel_simulation {
         // allow parallel simulation to complete
-        box_sim.run_to_completion(false)?;
+        box_sim.run_to_completion()?;
         box_cycle = box_sim.cycle.get();
     }
 
@@ -1078,11 +1075,6 @@ pub fn run_lockstep(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Re
 
     // compare stats here
 
-    // let play_l1i_stats = stats::PerCache(play_stats.l1i_stats.clone().convert());
-    // let play_l1d_stats = stats::PerCache(play_stats.l1d_stats.clone().convert());
-    // let play_l1t_stats = stats::PerCache(play_stats.l1t_stats.clone().convert());
-    // let play_l1c_stats = stats::PerCache(play_stats.l1c_stats.clone().convert());
-    // let play_l2d_stats = stats::PerCache(play_stats.l2d_stats.clone().convert());
     let play_l1i_stats = stats::PerCache::from_iter(play_stats.l1i_stats.to_vec());
     let play_l1d_stats = stats::PerCache::from_iter(play_stats.l1d_stats.to_vec());
     let play_l1t_stats = stats::PerCache::from_iter(play_stats.l1t_stats.to_vec());
@@ -1189,7 +1181,7 @@ pub fn run_lockstep(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Re
     diff::assert_eq!(play: &play_stats.instructions, box: &box_instructions);
 
     // compate simulation stats
-    let box_sim_stats = playground::stats::Sim::from(box_stats.sim.clone());
+    let box_sim_stats = playground::stats::Sim::from(box_stats.sim);
     dbg!(&play_stats.sim, &box_sim_stats);
     diff::assert_eq!(play: &play_stats.sim, box: &box_sim_stats);
 

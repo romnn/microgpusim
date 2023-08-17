@@ -36,6 +36,13 @@ impl std::fmt::Display for Dim {
     }
 }
 
+impl From<Point> for Dim {
+    #[inline]
+    fn from(point: Point) -> Self {
+        point.to_dim()
+    }
+}
+
 impl From<nvbit_model::Dim> for Dim {
     #[inline]
     fn from(dim: nvbit_model::Dim) -> Self {

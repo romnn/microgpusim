@@ -1,4 +1,4 @@
-use super::{instruction::WarpInstruction, register_set, scheduler, warp};
+use super::{instruction::WarpInstruction, register_set, warp};
 use crate::config;
 use bitvec::{array::BitArray, BitArr};
 use std::sync::Arc;
