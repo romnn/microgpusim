@@ -89,8 +89,6 @@ where
         total_sum / T::from(n).unwrap()
     );
 
-    // dbg!(&stats.sim);
-    // dbg!(box_stats.l1i_stats.reduce())
     eprintln!("STATS:\n");
     eprintln!("DRAM: total reads: {}", &stats.dram.total_reads());
     eprintln!("DRAM: total writes: {}", &stats.dram.total_writes());
@@ -126,9 +124,6 @@ mod tests {
         let rmp_trace_file_path = traces_dir.join("kernel-0.msgpack");
         dbg!(&rmp_trace_file_path);
 
-        // let sim = casimu::Simulation::new();
-        // sim.read_trace(rmp_trace_file_path)?;
-        // dbg!(&sim.stats.lock().unwrap());
         let mut reader = utils::fs::open_readable(rmp_trace_file_path)?;
         let full_trace: model::MemAccessTrace = rmp_serde::from_read(&mut reader)?;
         let warp_traces = full_trace.to_warp_traces();

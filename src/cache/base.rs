@@ -231,8 +231,7 @@ impl<I> Base<I> {
             self.miss_queue.push_back(fetch.clone());
             fetch.set_status(self.miss_queue_status, time);
             if !write_allocate {
-                let event = super::event::Event::new(super::event::Kind::READ_REQUEST_SENT);
-                events.push(event);
+                events.push(super::event::Event::ReadRequestSent);
             }
 
             should_miss = true;

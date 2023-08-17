@@ -183,7 +183,7 @@ impl Simulation {
     ) -> DevicePtr<'s, 'a, T> {
         let mut offset_lock = self.offset.lock().unwrap();
         let offset = *offset_lock;
-        *offset_lock += size as u64;
+        *offset_lock += size;
 
         self.inner.lock().unwrap().gpu_mem_alloc(offset, size, None);
         self.inner
@@ -198,48 +198,6 @@ impl Simulation {
             offset,
         }
     }
-
-    // /// Read a trace.
-    // ///
-    // /// # Errors
-    // /// When trace cannot be read.
-    // pub fn read_trace<P>(&self, path: P) -> Result<(), TraceError>
-    // where
-    //     P: AsRef<Path>,
-    // {
-    //     use serde::Deserializer;
-    //     let file = std::fs::OpenOptions::new().read(true).open(path.as_ref())?;
-    //     let reader = std::io::BufReader::new(file);
-    //     let mut reader = rmp_serde::Deserializer::new(reader);
-    //     let decoder = nvbit_io::Decoder::new(|access: model::MemAccessTraceEntry| {
-    //         // log::trace!("{:#?}", &access);
-    //
-    //         // create a new warp here
-    //         if access.instr_is_load {
-    //             // todo: we should somehow get the size of each load
-    //             let loads = access
-    //                 .addrs
-    //                 .into_iter()
-    //                 .filter(|addr| *addr > 0)
-    //                 .map(|addr| (addr, 4));
-    //             self.warp_load(loads);
-    //         } else {
-    //             // todo: we should somehow get the size of each store
-    //             let stores = access
-    //                 .addrs
-    //                 .into_iter()
-    //                 .filter(|addr| *addr > 0)
-    //                 .map(|addr| (addr, 4));
-    //             self.warp_store(stores);
-    //         }
-    //         // todo: flush a thread here? is this the wrong granularity?
-    //         // edit: i dont think so, this is one warp instruction so we can do that here
-    //         // do not forget to call ...
-    //         self.flush();
-    //     });
-    //     reader.deserialize_seq(decoder)?;
-    //     Ok(())
-    // }
 
     pub fn run_to_completion(&self) -> eyre::Result<stats::Stats> {
         let mut inner = self.inner.lock().unwrap();
@@ -261,38 +219,14 @@ impl Simulation {
         G: Into<model::Dim>,
         B: Into<model::Dim>,
         K: Kernel,
-        // K::Error: Send,
     {
         let grid: model::Dim = grid.into();
         let block_size: model::Dim = block_size.into();
-        dbg!(&grid);
-        dbg!(&block_size);
-
-        // use rayon::prelude::*;
-        // let test: Vec<_> = grid
-        //     .into_iter()
-        //     .flat_map(|block_id| {
-        //         block_size
-        //             .into_iter()
-        //             .map(move |thread_id| (block_id, thread_id))
-        //     })
-        //     .collect();
-        //
-        // test.iter().try_for_each(|(block_id, thread_id)| {
-        //     let mut thread_idx = ThreadIndex {
-        //         block_idx: model::Dim::from(*block_id),
-        //         block_dim: block_size,
-        //         thread_idx: block_size,
-        //     };
-        //
-        //     thread_idx.thread_idx = model::Dim::from(*thread_id);
-        //     kernel.run(&thread_idx)
-        // })?;
 
         let mut trace = Vec::new();
 
         // loop over the grid
-        for block_id in grid.clone().into_iter() {
+        for block_id in grid.clone() {
             log::debug!("block {}", &block_id);
 
             let mut thread_id = ThreadIndex {
@@ -333,7 +267,7 @@ impl Simulation {
                     warp_size: WARP_SIZE,
                     line_num: 0,
                     instr_data_width: 0,
-                    instr_opcode: "".to_string(),
+                    instr_opcode: String::new(),
                     instr_offset: 0,
                     instr_idx: 0,
                     instr_predicate: nvbit_model::Predicate::default(),
@@ -370,7 +304,7 @@ impl Simulation {
                     // );
 
                     assert_eq!(instructions.len(), WARP_SIZE as usize);
-                    let first_valid = instructions.iter().find_map(|x| x.as_ref());
+                    let first_valid = instructions.iter().find_map(std::option::Option::as_ref);
 
                     if let Some(WarpInstruction::Access(access)) = first_valid {
                         let accesses: Vec<_> = instructions
@@ -404,7 +338,7 @@ impl Simulation {
                             MemorySpace::Shared if is_store => "STS".to_string(),
                             // MemorySpace::Texture if is_store => "LDG".to_string(),
                             MemorySpace::Constant if is_store => panic!("constant store"),
-                            other => panic!("unknown memory space {:?}", other),
+                            other => panic!("unknown memory space {other:?}"),
                         };
 
                         trace.push(model::MemAccessTraceEntry {
@@ -428,19 +362,6 @@ impl Simulation {
                     ..warp_instruction.clone()
                 });
 
-                // add warp instructions
-                // for instruction in warp_instructions.into_iter().enumerate() {
-                //     trace.push(match instruction {
-                //         WarpInstruction::Access(access) => model::MemAccessTraceEntry {
-                //             instr_idx: ..warp_instruction,
-                //         },
-                //     });
-                // }
-
-                // for instructions in warp_instructions.iter_mut() {
-                //     instructions.clear();
-                // }
-
                 // log::info!("END WARP #{} ({:?})", &warp_id_in_block, &thread_id);
             }
         }
@@ -455,8 +376,8 @@ impl Simulation {
             .collect::<Vec<_>>());
 
         let launch_config = model::KernelLaunch {
-            name: "".to_string(),
-            trace_file: "".to_string(),
+            name: String::new(),
+            trace_file: String::new(),
             id: self.kernel_id.fetch_add(1, atomic::Ordering::SeqCst),
             grid,
             block: block_size,

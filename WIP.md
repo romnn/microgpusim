@@ -7,11 +7,11 @@
 
 - today:
 
-  - execution driven frontend
   - record mem fetch latency
   - add a few more stats
-  - refactor events
   - lint
+  - DONE: execution driven frontend
+  - DONE: refactor events
   - DONE: add rop delay queue
 
 - tomorrow:

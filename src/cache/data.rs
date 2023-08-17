@@ -244,9 +244,8 @@ where
                     // address from the original mf
                     writeback_fetch.tlx_addr.chip = fetch.tlx_addr.chip;
                     writeback_fetch.tlx_addr.sub_partition = fetch.tlx_addr.sub_partition;
-                    let event = event::Event {
-                        kind: event::Kind::WRITE_BACK_REQUEST_SENT,
-                        evicted_block: None, // drop evicted?
+                    let event = event::Event::WriteBackRequestSent {
+                        evicted_block: None,
                     };
 
                     log::trace!(
@@ -292,10 +291,7 @@ where
         }
 
         // on miss, generate write through
-        let event = event::Event {
-            kind: event::Kind::WRITE_REQUEST_SENT,
-            evicted_block: None,
-        };
+        let event = event::Event::WriteRequestSent;
         self.send_write_request(fetch, event, time, events);
         cache::RequestStatus::MISS
     }
@@ -347,11 +343,7 @@ where
             return cache::RequestStatus::RESERVATION_FAIL;
         }
 
-        let event = event::Event {
-            kind: event::Kind::WRITE_REQUEST_SENT,
-            evicted_block: None,
-        };
-
+        let event = event::Event::WriteRequestSent;
         self.send_write_request(fetch.clone(), event, time, events);
 
         let is_write = false;
@@ -390,10 +382,7 @@ where
             is_write_allocate,
         );
 
-        events.push(event::Event {
-            kind: event::Kind::WRITE_ALLOCATE_SENT,
-            evicted_block: None,
-        });
+        events.push(event::Event::WriteAllocateSent);
 
         if should_miss {
             // If evicted block is modified and not a write-through
@@ -438,8 +427,7 @@ where
                     // is used, so set the right chip address from the original mf
                     writeback_fetch.tlx_addr.chip = fetch.tlx_addr.chip;
                     writeback_fetch.tlx_addr.sub_partition = fetch.tlx_addr.sub_partition;
-                    let event = event::Event {
-                        kind: event::Kind::WRITE_BACK_REQUEST_SENT,
+                    let event = event::Event::WriteBackRequestSent {
                         evicted_block: Some(evicted),
                     };
 

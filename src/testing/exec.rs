@@ -1,6 +1,6 @@
 use crate::exec;
 use color_eyre::eyre;
-use num_traits::{Float, NumCast, Zero};
+use num_traits::{Float, Zero};
 
 #[test]
 fn vectoradd() -> eyre::Result<()> {

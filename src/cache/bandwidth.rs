@@ -52,9 +52,7 @@ impl BandwidthManager {
             super::RequestStatus::HIT_RESERVED | super::RequestStatus::MISS => {
                 // the data array is accessed to read out the entire line for write-back
                 // in case of sector cache we need to write bank only the modified sectors
-                if let Some(evicted) = super::event::was_writeback_sent(events)
-                    .and_then(|wb| wb.evicted_block.as_ref())
-                {
+                if let Some(evicted) = super::event::was_writeback_sent(events) {
                     let data_cycles = evicted.modified_size / port_width;
                     self.data_port_occupied_cycles += data_cycles as usize;
                     log::trace!(

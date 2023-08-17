@@ -6,7 +6,7 @@ use color_eyre::{
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::{Mutex, RwLock};
-use std::time::Instant;
+
 use trace_model as model;
 
 pub fn read_trace(path: impl AsRef<Path>) -> eyre::Result<model::MemAccessTrace> {
@@ -52,7 +52,7 @@ impl std::fmt::Display for Kernel {
 }
 
 impl Kernel {
-    pub fn new(config: model::KernelLaunch, trace: model::MemAccessTrace) -> Self {
+    #[must_use] pub fn new(config: model::KernelLaunch, trace: model::MemAccessTrace) -> Self {
         // sanity check
         assert!(trace.is_valid());
 
