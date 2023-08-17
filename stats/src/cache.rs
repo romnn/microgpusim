@@ -253,7 +253,7 @@ impl PerCache {
     #[must_use]
     pub fn reduce(&self) -> Cache {
         let mut out = Cache::default();
-        for stats in self.0.into_iter() {
+        for stats in self.0.iter() {
             out += stats.clone();
         }
         out

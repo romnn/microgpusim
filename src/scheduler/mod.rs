@@ -1,7 +1,12 @@
 pub mod gto;
 pub mod ordering;
 
-use crate::{config::GPUConfig, core::PipelineStage, opcodes, scoreboard, warp};
+use crate::{
+    config,
+    core::PipelineStage,
+    opcodes::{self, ArchOp},
+    scoreboard, warp,
+};
 use console::style;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, RwLock};
@@ -22,9 +27,7 @@ enum ExecUnitKind {
     SPECIALIZED = 7,
 }
 
-pub trait SchedulerUnit: Send + Sync + std::fmt::Debug + 'static {
-    // fn cycle(&mut self, _core: &mut dyn super::core::WarpIssuer);
-    // fn cycle(&mut self, _core: &mut dyn super::core::WarpIssuer);
+pub trait Scheduler: Send + Sync + std::fmt::Debug + 'static {
     fn cycle(&mut self, _core: &dyn super::core::WarpIssuer);
 
     fn add_supervised_warp(&mut self, warp: warp::Ref);
@@ -36,7 +39,7 @@ pub trait SchedulerUnit: Send + Sync + std::fmt::Debug + 'static {
 }
 
 #[derive(Debug)]
-pub struct BaseSchedulerUnit {
+pub struct Base {
     id: usize,
     cluster_id: usize,
     core_id: usize,
@@ -59,11 +62,11 @@ pub struct BaseSchedulerUnit {
 
     scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
 
-    config: Arc<GPUConfig>,
+    config: Arc<config::GPU>,
     stats: Arc<Mutex<stats::scheduler::Scheduler>>,
 }
 
-impl BaseSchedulerUnit {
+impl Base {
     pub fn new(
         id: usize,
         cluster_id: usize,
@@ -71,7 +74,7 @@ impl BaseSchedulerUnit {
         warps: Vec<warp::Ref>,
         scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
         stats: Arc<Mutex<stats::scheduler::Scheduler>>,
-        config: Arc<GPUConfig>,
+        config: Arc<config::GPU>,
     ) -> Self {
         Self {
             id,
@@ -92,7 +95,6 @@ impl BaseSchedulerUnit {
         &self.next_cycle_prioritized_warps
     }
 
-    // fn cycle(&mut self, issuer: &mut dyn super::core::WarpIssuer) {
     fn cycle(&mut self, issuer: &dyn super::core::WarpIssuer) {
         log::debug!("{}: cycle", style("base scheduler").yellow());
 
@@ -102,7 +104,6 @@ impl BaseSchedulerUnit {
 
         for (next_warp_supervised_idx, next_warp_rc) in &self.next_cycle_prioritized_warps {
             // don't consider warps that are not yet valid
-            // let next_warp = next_warp_rc.try_borrow().unwrap();
             let next_warp = next_warp_rc.lock().unwrap();
             let (warp_id, dyn_warp_id) = (next_warp.warp_id, next_warp.dynamic_warp_id);
 
@@ -127,7 +128,7 @@ impl BaseSchedulerUnit {
                 );
             }
             let mut checked = 0;
-            let mut issued = 0;
+            let mut num_issued = 0;
 
             let mut prev_issued_exec_unit = ExecUnitKind::NONE;
             let max_issue = self.config.max_instruction_issue_per_warp;
@@ -157,17 +158,14 @@ impl BaseSchedulerUnit {
 
             // todo: what is the difference? why dont we just use next_warp?
             debug_assert!(Arc::ptr_eq(warp, next_warp_rc));
-            // debug_assert!(Rc::ptr_eq(warp, next_warp_rc));
             drop(next_warp);
 
             let mut warp = warp.lock().unwrap();
-            // let mut warp = warp.try_borrow_mut().unwrap();
-            // let warp = warp.try_borrow_mut().unwrap();
             while !warp.waiting()
                 && !warp.ibuffer_empty()
                 && checked < max_issue
-                && checked <= issued
-                && issued < max_issue
+                && checked <= num_issued
+                && num_issued < max_issue
             {
                 let mut warp_inst_issued = false;
 
@@ -178,12 +176,19 @@ impl BaseSchedulerUnit {
                     );
 
                     valid_inst = true;
-                    if !self
+                    if self
                         .scoreboard
                         .read()
                         .unwrap()
                         .has_collision(warp_id, instr)
                     {
+                        log::debug!(
+                            "Warp (warp_id={}, dynamic_warp_id={}) {}",
+                            warp_id,
+                            dyn_warp_id,
+                            style("fails scoreboard").yellow(),
+                        );
+                    } else {
                         log::debug!(
                             "Warp (warp_id={}, dynamic_warp_id={}) {}",
                             warp_id,
@@ -194,7 +199,6 @@ impl BaseSchedulerUnit {
 
                         debug_assert!(warp.has_instr_in_pipeline());
 
-                        use opcodes::ArchOp;
                         match instr.opcode.category {
                             ArchOp::LOAD_OP
                             | ArchOp::STORE_OP
@@ -216,7 +220,7 @@ impl BaseSchedulerUnit {
                                         .issue_warp(mem_stage, &mut warp, instr, self.id)
                                         .is_ok()
                                     {
-                                        issued += 1;
+                                        num_issued += 1;
                                         issued_inst = true;
                                         warp_inst_issued = true;
                                         prev_issued_exec_unit = ExecUnitKind::MEM;
@@ -282,7 +286,7 @@ impl BaseSchedulerUnit {
                                             .issue_warp(stage, &mut warp, instr, self.id)
                                             .is_ok()
                                         {
-                                            issued += 1;
+                                            num_issued += 1;
                                             issued_inst = true;
                                             warp_inst_issued = true;
                                             prev_issued_exec_unit = unit;
@@ -291,13 +295,6 @@ impl BaseSchedulerUnit {
                                 }
                             } // op => unimplemented!("op {:?} not implemented", op),
                         }
-                    } else {
-                        log::debug!(
-                            "Warp (warp_id={}, dynamic_warp_id={}) {}",
-                            warp_id,
-                            dyn_warp_id,
-                            style("fails scoreboard").yellow(),
-                        );
                     }
                 }
                 if warp_inst_issued {
@@ -305,51 +302,17 @@ impl BaseSchedulerUnit {
                         "Warp (warp_id={}, dynamic_warp_id={}) issued {} instructions",
                         warp_id,
                         dyn_warp_id,
-                        issued
+                        num_issued
                     );
                     warp.ibuffer_step();
                 }
                 checked += 1;
             }
-            drop(warp);
-            if issued > 0 {
-                // This might be a bit inefficient, but we need to maintain
-                // two ordered list for proper scheduler execution.
-                // We could remove the need for this loop by associating a
-                // supervised_is index with each entry in the
-                // m_next_cycle_prioritized_warps vector.
-                // For now, just run through until you find the right warp_id
-                // for (sup_idx, supervised) in self.supervised_warps.iter().enumerate() {
-                //     // if *next_warp_rc.try_borrow().unwrap() == *supervised.try_borrow().unwrap() {
-                //     // todo!("check if this deadlocks.. (it will). if so just order next cycle prio using sort_by_key and using enumerate to maintain the indexes");
-                //     let next_warp_rc = next_warp_rc.try_lock().unwrap();
-                //     let nw = (
-                //         next_warp_rc.block_id,
-                //         next_warp_rc.warp_id,
-                //         next_warp_rc.dynamic_warp_id,
-                //     );
-                //     drop(next_warp_rc);
-                //
-                //     let supervised = supervised.try_lock().unwrap();
-                //     let sup = (
-                //         supervised.block_id,
-                //         supervised.warp_id,
-                //         supervised.dynamic_warp_id,
-                //     );
-                //
-                //     drop(supervised);
-                //
-                //     // if *next_warp_rc.try_lock().unwrap() == *supervised.try_lock().unwrap() {
-                //     if nw == sup {
-                //         self.last_supervised_issued_idx = sup_idx;
-                //     }
-                // }
-
+            if num_issued > 0 {
                 self.last_supervised_issued_idx = *next_warp_supervised_idx;
-
-                self.num_issued_last_cycle = issued;
+                self.num_issued_last_cycle = num_issued;
                 let mut stats = self.stats.lock().unwrap();
-                if issued == 1 {
+                if num_issued == 1 {
                     stats.num_single_issue += 1;
                 } else {
                     stats.num_dual_issue += 1;
@@ -389,7 +352,6 @@ mod tests {
         dbg!(&warp.get_n_completed());
         dbg!(&warp.hardware_done());
         dbg!(&warp.functional_done());
-        assert!(false);
     }
 
     #[test]
@@ -404,13 +366,13 @@ mod tests {
             }
         }
         assert_eq!(
-            supervised_warp_ids.iter().nth(last_supervised_idx),
+            supervised_warp_ids.get(last_supervised_idx),
             Some(&issued_warp_id)
         );
     }
 
-    impl From<&dyn super::SchedulerUnit> for testing::state::Scheduler {
-        fn from(scheduler: &dyn super::SchedulerUnit) -> Self {
+    impl From<&dyn super::Scheduler> for testing::state::Scheduler {
+        fn from(scheduler: &dyn super::Scheduler) -> Self {
             let prioritized_warp_ids: Vec<_> = scheduler
                 .prioritized_warps()
                 .iter()

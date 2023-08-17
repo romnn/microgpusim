@@ -1,4 +1,3 @@
-use super::bandwidth::BandwidthManager;
 use crate::mem_sub_partition::SECTOR_SIZE;
 use crate::{address, config, interconn as ic, mem_fetch, mshr, tag_array, Cycle};
 use console::style;
@@ -32,8 +31,8 @@ pub struct Base<I> {
     pub cycle: Cycle,
 
     pub stats: Arc<Mutex<stats::Cache>>,
-    pub config: Arc<config::GPUConfig>,
-    pub cache_config: Arc<config::CacheConfig>,
+    pub config: Arc<config::GPU>,
+    pub cache_config: Arc<config::Cache>,
 
     pub miss_queue: VecDeque<mem_fetch::MemFetch>,
     pub miss_queue_status: mem_fetch::Status,
@@ -43,7 +42,7 @@ pub struct Base<I> {
     pending: HashMap<mem_fetch::MemFetch, PendingRequest>,
     mem_port: Arc<I>,
 
-    pub bandwidth: BandwidthManager,
+    pub bandwidth: super::bandwidth::Manager,
 }
 
 impl<I> std::fmt::Debug for Base<I> {
@@ -65,8 +64,8 @@ impl<I> Base<I> {
         cycle: Cycle,
         mem_port: Arc<I>,
         stats: Arc<Mutex<stats::Cache>>,
-        config: Arc<config::GPUConfig>,
-        cache_config: Arc<config::CacheConfig>,
+        config: Arc<config::GPU>,
+        cache_config: Arc<config::Cache>,
     ) -> Self {
         let tag_array = tag_array::TagArray::new(cache_config.clone());
 
@@ -76,7 +75,7 @@ impl<I> Base<I> {
         ));
         let mshrs = mshr::Table::new(cache_config.mshr_entries, cache_config.mshr_max_merge);
 
-        let bandwidth = BandwidthManager::new(cache_config.clone());
+        let bandwidth = super::bandwidth::Manager::new(cache_config.clone());
         Self {
             name,
             core_id,
@@ -267,7 +266,7 @@ where
 {
     /// Sends next request to lower level of memory
     fn cycle(&mut self) {
-        use super::CacheBandwidth;
+        use super::Bandwidth;
         log::debug!(
             "{}::baseline cache::cycle (fetch interface {:?}) miss queue={:?}",
             self.name,
@@ -334,7 +333,9 @@ where
                 self.tag_array
                     .fill_on_fill(pending.block_addr, &fetch, time);
             }
-            other => unimplemented!("cache allocate policy {:?} is not implemented", other),
+            other @ config::CacheAllocatePolicy::STREAMING => {
+                unimplemented!("cache allocate policy {:?} is not implemented", other)
+            }
         }
 
         let access_sector_mask = *fetch.access_sector_mask();
@@ -361,7 +362,7 @@ where
     }
 }
 
-impl<I> super::CacheBandwidth for Base<I> {
+impl<I> super::Bandwidth for Base<I> {
     fn has_free_data_port(&self) -> bool {
         self.bandwidth.has_free_data_port()
     }

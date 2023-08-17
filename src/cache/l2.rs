@@ -3,12 +3,11 @@ use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
 /// Generic data cache.
-///
-/// todo: move this to cache as its generic
 #[derive(Debug)]
+#[allow(clippy::module_name_repetitions)]
 pub struct DataL2<I> {
     pub inner: super::data::Data<I>,
-    pub cache_config: Arc<config::L2DCacheConfig>,
+    pub cache_config: Arc<config::L2DCache>,
 }
 
 impl<I> DataL2<I>
@@ -22,8 +21,8 @@ where
         cycle: Cycle,
         fetch_interconn: Arc<I>,
         stats: Arc<Mutex<stats::Cache>>,
-        config: Arc<config::GPUConfig>,
-        cache_config: Arc<config::L2DCacheConfig>,
+        config: Arc<config::GPU>,
+        cache_config: Arc<config::L2DCache>,
     ) -> Self {
         let inner = super::data::Data::new(
             name,
@@ -49,7 +48,7 @@ where
     I: ic::MemFetchInterface,
 {
     fn cycle(&mut self) {
-        self.inner.cycle()
+        self.inner.cycle();
     }
 }
 
@@ -118,11 +117,11 @@ where
     }
 
     fn fill(&mut self, fetch: mem_fetch::MemFetch, time: u64) {
-        self.inner.fill(fetch, time)
+        self.inner.fill(fetch, time);
     }
 }
 
-impl<I> super::CacheBandwidth for DataL2<I>
+impl<I> super::Bandwidth for DataL2<I>
 where
     I: ic::MemFetchInterface,
 {

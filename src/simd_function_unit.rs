@@ -34,7 +34,7 @@ pub struct PipelinedSimdUnitImpl {
     pub active_insts_in_pipeline: usize,
     pub dispatch_reg: Option<WarpInstruction>,
     pub occupied: BitArr!(for MAX_ALU_LATENCY),
-    pub config: Arc<config::GPUConfig>,
+    pub config: Arc<config::GPU>,
 }
 
 impl std::fmt::Display for PipelinedSimdUnitImpl {
@@ -56,7 +56,7 @@ impl PipelinedSimdUnitImpl {
         // result_port: Option<Rc<RefCell<RegisterSet>>>,
         result_port: Option<register_set::Ref>,
         depth: usize,
-        config: Arc<config::GPUConfig>,
+        config: Arc<config::GPU>,
         cycle: super::Cycle,
         issue_reg_id: usize,
     ) -> Self {

@@ -1,12 +1,11 @@
-use super::{instruction::WarpInstruction, opcodes, register_set, simd_function_unit as fu};
-use crate::config::GPUConfig;
-// use std::cell::RefCell;
-// use std::rc::Rc;
+use super::{
+    config, instruction::WarpInstruction, opcodes, register_set, simd_function_unit as fu,
+};
 use std::sync::{Arc, Mutex};
 
 #[derive()]
 pub struct SPUnit {
-    config: Arc<GPUConfig>,
+    config: Arc<config::GPU>,
     pipelined_simd_unit: fu::PipelinedSimdUnitImpl,
 }
 
@@ -14,9 +13,8 @@ impl SPUnit {
     pub fn new(
         id: usize,
         result_port: register_set::Ref,
-        // result_port: Rc<RefCell<RegisterSet>>,
-        config: Arc<GPUConfig>,
-        _stats: Arc<Mutex<stats::Stats>>,
+        config: Arc<config::GPU>,
+        _stats: &Arc<Mutex<stats::Stats>>,
         cycle: super::Cycle,
         issue_reg_id: usize,
     ) -> Self {

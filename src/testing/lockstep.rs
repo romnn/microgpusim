@@ -140,7 +140,7 @@ fn gather_simulation_state(
         // let sub = sub.borrow();
         let sub = sub.try_lock().unwrap();
         let l2_cache = sub.l2_cache.as_ref().unwrap();
-        let l2_cache: &cache::DataL2<ic::L2Interface<fifo::FifoQueue<mem_fetch::MemFetch>>> =
+        let l2_cache: &cache::DataL2<ic::L2Interface<fifo::Fifo<mem_fetch::MemFetch>>> =
             l2_cache.as_any().downcast_ref().unwrap();
 
         box_sim_state.l2_cache_per_sub[sub_id] =
@@ -398,7 +398,7 @@ fn gather_simulation_state(
 //         let sub = sub.borrow();
 //         let l2_cache = sub.l2_cache.as_ref().unwrap();
 //         let l2_cache: &ported::l2::DataL2<
-//             ic::L2Interface<fifo::FifoQueue<ported::mem_fetch::MemFetch>>,
+//             ic::L2Interface<fifo::Fifo<ported::mem_fetch::MemFetch>>,
 //         > = l2_cache.as_any().downcast_ref().unwrap();
 //
 //         box_sim_state.l2_cache_per_sub[sub_id] =
@@ -557,9 +557,8 @@ fn gather_simulation_state(
 //     // play_sim_state
 // }
 
-pub fn run_lockstep(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> {
+pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> {
     use accelsim::tracegen::reader::Command as AccelsimCommand;
-    // let _ = color_eyre::install();
 
     let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
 
@@ -704,14 +703,14 @@ pub fn run_lockstep(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Re
     assert!(inter_config.is_file());
 
     // debugging config
-    let box_config = Arc::new(config::GPUConfig {
+    let box_config = Arc::new(config::GPU {
         num_simt_clusters: 20,                   // 20
         num_cores_per_simt_cluster: 4,           // 1
         num_schedulers_per_core: 2,              // 2
         num_memory_controllers: 8,               // 8
         num_sub_partition_per_memory_channel: 2, // 2
         fill_l2_on_memcopy: true,                // true
-        ..config::GPUConfig::default()
+        ..config::GPU::default()
     });
 
     let box_interconn = Arc::new(ic::ToyInterconnect::new(
@@ -807,7 +806,7 @@ pub fn run_lockstep(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Re
         play_time_other += start.elapsed();
 
         // check that memcopy commands were handled correctly
-        if false && should_compare_states {
+        if should_compare_states {
             start = Instant::now();
             let (box_sim_state, play_sim_state) =
                 gather_simulation_state(&mut box_sim, &mut play_sim, trace_provider);
@@ -1075,67 +1074,67 @@ pub fn run_lockstep(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Re
 
     // compare stats here
 
-    let play_l1i_stats = stats::PerCache::from_iter(play_stats.l1i_stats.to_vec());
-    let play_l1d_stats = stats::PerCache::from_iter(play_stats.l1d_stats.to_vec());
-    let play_l1t_stats = stats::PerCache::from_iter(play_stats.l1t_stats.to_vec());
-    let play_l1c_stats = stats::PerCache::from_iter(play_stats.l1c_stats.to_vec());
-    let play_l2d_stats = stats::PerCache::from_iter(play_stats.l2d_stats.to_vec());
+    let play_l1_inst_stats = stats::PerCache::from_iter(play_stats.l1i_stats.to_vec());
+    let play_l1_data_stats = stats::PerCache::from_iter(play_stats.l1d_stats.to_vec());
+    let play_l1_tex_stats = stats::PerCache::from_iter(play_stats.l1t_stats.to_vec());
+    let play_l1_const_stats = stats::PerCache::from_iter(play_stats.l1c_stats.to_vec());
+    let play_l2_data_stats = stats::PerCache::from_iter(play_stats.l2d_stats.to_vec());
 
     if box_sim.parallel_simulation {
         // compare reduced cache stats
         let max_rel_err = 0.05; // allow 5% difference
         {
-            let play_l1i_stats = play_l1i_stats.reduce();
-            let box_l1i_stats = box_stats.l1i_stats.reduce();
-            dbg!(&play_l1i_stats, &box_l1i_stats);
-            if play_l1i_stats != box_l1i_stats {
-                diff::diff!(play: &play_l1i_stats, box: &box_l1i_stats);
+            let play_l1_inst_stats = play_l1_inst_stats.reduce();
+            let box_l1_inst_stats = box_stats.l1i_stats.reduce();
+            dbg!(&play_l1_inst_stats, &box_l1_inst_stats);
+            if play_l1_inst_stats != box_l1_inst_stats {
+                diff::diff!(play: &play_l1_inst_stats, box: &box_l1_inst_stats);
             }
-            let rel_err = super::stats::cache_rel_err(&play_l1i_stats, &box_l1i_stats);
+            let rel_err = super::stats::cache_rel_err(&play_l1_inst_stats, &box_l1_inst_stats);
             dbg!(&rel_err);
             assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
         }
         {
-            let play_l1d_stats = play_l1d_stats.reduce();
-            let box_l1d_stats = box_stats.l1d_stats.reduce();
-            dbg!(&play_l1d_stats, &box_l1d_stats);
-            if play_l1d_stats != box_l1d_stats {
-                diff::diff!(play: &play_l1d_stats, box: &box_l1d_stats);
+            let play_l1_data_stats = play_l1_data_stats.reduce();
+            let box_l1_data_stats = box_stats.l1d_stats.reduce();
+            dbg!(&play_l1_data_stats, &box_l1_data_stats);
+            if play_l1_data_stats != box_l1_data_stats {
+                diff::diff!(play: &play_l1_data_stats, box: &box_l1_data_stats);
             }
-            let rel_err = super::stats::cache_rel_err(&play_l1d_stats, &box_l1d_stats);
+            let rel_err = super::stats::cache_rel_err(&play_l1_data_stats, &box_l1_data_stats);
             dbg!(&rel_err);
             assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
         }
         {
-            let play_l1t_stats = play_l1t_stats.reduce();
-            let box_l1t_stats = box_stats.l1t_stats.reduce();
-            dbg!(&play_l1t_stats, &box_l1t_stats);
-            if play_l1t_stats != box_l1t_stats {
-                diff::diff!(play: &play_l1t_stats, box: &box_l1t_stats);
+            let play_l1_tex_stats = play_l1_tex_stats.reduce();
+            let box_l1_tex_stats = box_stats.l1t_stats.reduce();
+            dbg!(&play_l1_tex_stats, &box_l1_tex_stats);
+            if play_l1_tex_stats != box_l1_tex_stats {
+                diff::diff!(play: &play_l1_tex_stats, box: &box_l1_tex_stats);
             }
-            let rel_err = super::stats::cache_rel_err(&play_l1t_stats, &box_l1t_stats);
+            let rel_err = super::stats::cache_rel_err(&play_l1_tex_stats, &box_l1_tex_stats);
             dbg!(&rel_err);
             assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
         }
         {
-            let play_l1c_stats = play_l1c_stats.reduce();
-            let box_l1c_stats = box_stats.l1c_stats.reduce();
-            dbg!(&play_l1c_stats, &box_l1c_stats);
-            if play_l1c_stats != box_l1c_stats {
-                diff::diff!(play: &play_l1c_stats, box: &box_l1c_stats);
+            let play_l1_const_stats = play_l1_const_stats.reduce();
+            let box_l1_const_stats = box_stats.l1c_stats.reduce();
+            dbg!(&play_l1_const_stats, &box_l1_const_stats);
+            if play_l1_const_stats != box_l1_const_stats {
+                diff::diff!(play: &play_l1_const_stats, box: &box_l1_const_stats);
             }
-            let rel_err = super::stats::cache_rel_err(&play_l1c_stats, &box_l1c_stats);
+            let rel_err = super::stats::cache_rel_err(&play_l1_const_stats, &box_l1_const_stats);
             dbg!(&rel_err);
             assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
         }
         {
-            let play_l2d_stats = play_l2d_stats.reduce();
-            let box_l2d_stats = box_stats.l2d_stats.reduce();
-            dbg!(&play_l2d_stats, &box_l2d_stats);
-            if play_l2d_stats != box_l2d_stats {
-                diff::diff!(play: &play_l2d_stats, box: &box_l2d_stats);
+            let play_l2_data_stats = play_l2_data_stats.reduce();
+            let box_l2_data_stats = box_stats.l2d_stats.reduce();
+            dbg!(&play_l2_data_stats, &box_l2_data_stats);
+            if play_l2_data_stats != box_l2_data_stats {
+                diff::diff!(play: &play_l2_data_stats, box: &box_l2_data_stats);
             }
-            let rel_err = super::stats::cache_rel_err(&play_l2d_stats, &box_l2d_stats);
+            let rel_err = super::stats::cache_rel_err(&play_l2_data_stats, &box_l2_data_stats);
             dbg!(&rel_err);
             assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
         }
@@ -1152,16 +1151,16 @@ pub fn run_lockstep(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Re
             assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
         }
     } else {
-        dbg!(&play_l1i_stats, &box_stats.l1i_stats);
-        diff::assert_eq!(play: &play_l1i_stats, box: &box_stats.l1i_stats);
-        dbg!(&play_l1d_stats, &box_stats.l1d_stats);
-        diff::assert_eq!( play: &play_l1d_stats, box: &box_stats.l1d_stats);
-        dbg!(&play_l1t_stats, &box_stats.l1t_stats);
-        diff::assert_eq!( play: &play_l1t_stats, box: &box_stats.l1t_stats);
-        dbg!(&play_l1c_stats, &box_stats.l1c_stats);
-        diff::assert_eq!( play: &play_l1c_stats, box: &box_stats.l1c_stats);
-        dbg!(&play_l2d_stats, &box_stats.l2d_stats);
-        diff::assert_eq!( play: &play_l2d_stats, box: &box_stats.l2d_stats);
+        dbg!(&play_l1_inst_stats, &box_stats.l1i_stats);
+        diff::assert_eq!(play: &play_l1_inst_stats, box: &box_stats.l1i_stats);
+        dbg!(&play_l1_data_stats, &box_stats.l1d_stats);
+        diff::assert_eq!( play: &play_l1_data_stats, box: &box_stats.l1d_stats);
+        dbg!(&play_l1_tex_stats, &box_stats.l1t_stats);
+        diff::assert_eq!( play: &play_l1_tex_stats, box: &box_stats.l1t_stats);
+        dbg!(&play_l1_const_stats, &box_stats.l1c_stats);
+        diff::assert_eq!( play: &play_l1_const_stats, box: &box_stats.l1c_stats);
+        dbg!(&play_l2_data_stats, &box_stats.l2d_stats);
+        diff::assert_eq!( play: &play_l2_data_stats, box: &box_stats.l2d_stats);
 
         // compare DRAM stats
         let box_dram_stats = playground::stats::DRAM::from(box_stats.dram.clone());
@@ -1200,21 +1199,21 @@ macro_rules! lockstep_checks {
                     fn [<lockstep_native_ $name _test>]() -> color_eyre::eyre::Result<()> {
                         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
                         let trace_dir = manifest_dir.join($path);
-                        run_lockstep(&trace_dir, TraceProvider::Native)
+                        run(&trace_dir, TraceProvider::Native)
                     }
 
                     #[test]
                     fn [<lockstep_accelsim_ $name _test>]() -> color_eyre::eyre::Result<()> {
                         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
                         let trace_dir = manifest_dir.join($path);
-                        run_lockstep(&trace_dir, TraceProvider::Accelsim)
+                        run(&trace_dir, TraceProvider::Accelsim)
                     }
 
                     #[test]
                     fn [<lockstep_box_ $name _test>]() -> color_eyre::eyre::Result<()> {
                         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
                         let trace_dir = manifest_dir.join($path);
-                        run_lockstep(&trace_dir, TraceProvider::Box)
+                        run(&trace_dir, TraceProvider::Box)
                     }
                 }
             )*

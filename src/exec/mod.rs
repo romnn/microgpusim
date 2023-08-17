@@ -128,7 +128,7 @@ pub struct Simulation {
 
 impl Default for Simulation {
     fn default() -> Self {
-        let config = Arc::new(crate::config::GPUConfig::default());
+        let config = Arc::new(crate::config::GPU::default());
         let interconn = Arc::new(crate::interconn::ToyInterconnect::new(
             config.num_simt_clusters,
             config.num_memory_controllers * config.num_sub_partition_per_memory_channel,

@@ -128,6 +128,7 @@ pub fn get_opcode_map(config: &KernelLaunch) -> eyre::Result<&'static OpcodeMap>
         "unknown binary version {}",
         config.binary_version
     ))?;
+    #[allow(clippy::match_same_arms)]
     match version {
         BV::AMPERE_RTX | BV::AMPERE_A100 => Ok(&ampere::OPCODES),
         BV::PASCAL_P100 | BV::PASCAL_TITANX => Ok(&ampere::OPCODES),

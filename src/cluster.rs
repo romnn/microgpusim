@@ -1,4 +1,4 @@
-use super::{config, interconn as ic, kernel::Kernel, mem_fetch, MockSimulator, Packet, SIMTCore};
+use super::{config, interconn as ic, kernel::Kernel, mem_fetch, Core, MockSimulator, Packet};
 use console::style;
 
 use std::collections::VecDeque;
@@ -6,13 +6,12 @@ use std::collections::VecDeque;
 use std::sync::{atomic, Arc, Mutex};
 
 #[derive(Debug)]
-pub struct SIMTCoreCluster<I> {
+pub struct Cluster<I> {
     pub cluster_id: usize,
     pub cycle: super::Cycle,
     pub warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
-    // pub cores: Mutex<Vec<SIMTCore<I>>>,
-    pub cores: Vec<Mutex<SIMTCore<I>>>,
-    pub config: Arc<config::GPUConfig>,
+    pub cores: Vec<Mutex<Core<I>>>,
+    pub config: Arc<config::GPU>,
     pub stats: Arc<Mutex<stats::Stats>>,
 
     pub interconn: Arc<I>,
@@ -22,29 +21,28 @@ pub struct SIMTCoreCluster<I> {
     pub response_fifo: VecDeque<mem_fetch::MemFetch>,
 }
 
-impl<I> SIMTCoreCluster<I>
+impl<I> Cluster<I>
 where
     I: ic::Interconnect<Packet> + 'static,
 {
     pub fn new(
         cluster_id: usize,
-        cycle: super::Cycle,
-        warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
-        allocations: super::allocation::Ref,
-        interconn: Arc<I>,
-        stats: Arc<Mutex<stats::Stats>>,
-        config: Arc<config::GPUConfig>,
+        cycle: &super::Cycle,
+        warp_instruction_unique_uid: &Arc<atomic::AtomicU64>,
+        allocations: &super::allocation::Ref,
+        interconn: &Arc<I>,
+        stats: &Arc<Mutex<stats::Stats>>,
+        config: &Arc<config::GPU>,
     ) -> Self {
         let num_cores = config.num_cores_per_simt_cluster;
         let block_issue_next_core = Mutex::new(num_cores - 1);
         let mut cluster = Self {
             cluster_id,
             cycle: cycle.clone(),
-            warp_instruction_unique_uid: Arc::clone(&warp_instruction_unique_uid),
+            warp_instruction_unique_uid: Arc::clone(warp_instruction_unique_uid),
             config: config.clone(),
             stats: stats.clone(),
             interconn: interconn.clone(),
-            // cores: Mutex::new(Vec::new()),
             cores: Vec::new(),
             core_sim_order: VecDeque::new(),
             block_issue_next_core,
@@ -54,26 +52,24 @@ where
             .map(|core_id| {
                 cluster.core_sim_order.push_back(core_id);
                 let id = config.global_core_id(cluster_id, core_id);
-                Mutex::new(SIMTCore::new(
+                Mutex::new(Core::new(
                     id,
                     cluster_id,
-                    Arc::clone(&allocations),
+                    Arc::clone(allocations),
                     cycle.clone(),
-                    Arc::clone(&warp_instruction_unique_uid),
-                    Arc::clone(&interconn),
-                    Arc::clone(&stats),
-                    Arc::clone(&config),
+                    Arc::clone(warp_instruction_unique_uid),
+                    Arc::clone(interconn),
+                    Arc::clone(stats),
+                    Arc::clone(config),
                 ))
             })
             .collect();
-        // cluster.cores = Mutex::new(cores);
         cluster.cores = cores;
         cluster.reinit();
         cluster
     }
 
     fn reinit(&mut self) {
-        // for core in self.cores.lock().unwrap().iter_mut() {
         for core in &self.cores {
             core.lock()
                 .unwrap()
@@ -86,13 +82,6 @@ where
             .iter()
             .filter(|core| core.lock().unwrap().active())
             .count()
-
-        // self.cores
-        //     .lock()
-        //     .unwrap()
-        //     .iter()
-        //     .filter(|c| c.active())
-        //     .count()
     }
 
     pub fn not_completed(&self) -> usize {
@@ -100,13 +89,6 @@ where
             .iter()
             .map(|core| core.lock().unwrap().not_completed())
             .sum()
-
-        // self.cores
-        //     .lock()
-        //     .unwrap()
-        //     .iter()
-        //     .map(core::SIMTCore::not_completed)
-        //     .sum()
     }
 
     // pub fn warp_waiting_at_barrier(&self, _warp_id: usize) -> bool {
@@ -158,12 +140,12 @@ where
             match *fetch.access_kind() {
                 AccessKind::INST_ACC_R => {
                     // this could be the reason
-                    if !core.fetch_unit_response_buffer_full() {
+                    if core.fetch_unit_response_buffer_full() {
+                        log::debug!("instr access fetch {} NOT YET ACCEPTED", fetch);
+                    } else {
                         let fetch = self.response_fifo.pop_front().unwrap();
                         log::debug!("accepted instr access fetch {}", fetch);
                         core.accept_fetch_response(fetch);
-                    } else {
-                        log::debug!("instr access fetch {} NOT YET ACCEPTED", fetch);
                     }
                 }
                 _ if !core.ldst_unit_response_buffer_full() => {
@@ -225,23 +207,14 @@ where
     }
 
     pub fn cache_flush(&mut self) {
-        // let mut cores = self.cores.lock().unwrap();
-        // for core in cores.iter_mut() {
-        //     core.cache_flush();
-        // }
-
         for core in &self.cores {
             core.lock().unwrap().cache_flush();
         }
     }
 
     pub fn cache_invalidate(&mut self) {
-        // let mut cores = self.cores.lock().unwrap();
-        // for core in cores.iter_mut() {
-        //     core.cache_invalidate();
-        // }
         for core in &self.cores {
-            core.lock().unwrap().cache_invalidate()
+            core.lock().unwrap().cache_invalidate();
         }
     }
 
@@ -257,8 +230,6 @@ where
     // }
 
     pub fn issue_block_to_core(&self, sim: &MockSimulator<I>) -> usize {
-        // let mut cores = self.cores.lock().unwrap();
-        // let num_cores = cores.len();
         let num_cores = self.cores.len();
 
         log::debug!(
@@ -320,7 +291,7 @@ where
                 );
 
                 if !kernel.no_more_blocks_to_run() && core.can_issue_block(&kernel) {
-                    core.issue_block(kernel);
+                    core.issue_block(&kernel);
                     num_blocks_issued += 1;
                     *block_issue_next_core = core_id;
                     break;

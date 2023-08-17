@@ -31,11 +31,11 @@ pub enum CacheReplacementPolicy {
 }
 
 #[derive(Debug)]
-pub struct L2DCacheConfig {
-    pub inner: Arc<CacheConfig>,
+pub struct L2DCache {
+    pub inner: Arc<Cache>,
 }
 
-impl L2DCacheConfig {
+impl L2DCache {
     #[inline]
     #[must_use]
     pub fn set_index(&self, addr: address) -> u64 {
@@ -51,21 +51,21 @@ impl L2DCacheConfig {
 }
 
 #[derive(Debug)]
-pub struct L1DCacheConfig {
+pub struct L1DCache {
     /// L1 Hit Latency
     pub l1_latency: usize, // 1
     /// l1 banks hashing function
-    pub l1_banks_hashing_function: Box<dyn set_index::SetIndexFunction>, // 0
+    pub l1_banks_hashing_function: Box<dyn set_index::SetIndexer>, // 0
     // pub l1_banks_hashing_function: CacheSetIndexFunc, // 0
     /// l1 banks byte interleaving granularity
     pub l1_banks_byte_interleaving: usize, // 32
     /// The number of L1 cache banks
     pub l1_banks: usize, // 1
 
-    pub inner: Arc<CacheConfig>,
+    pub inner: Arc<Cache>,
 }
 
-impl L1DCacheConfig {
+impl L1DCache {
     #[inline]
     #[must_use]
     pub fn l1_banks_log2(&self) -> u32 {
@@ -111,7 +111,7 @@ impl L1DCacheConfig {
 
 /// `CacheConfig`
 #[derive(Debug)]
-pub struct CacheConfig {
+pub struct Cache {
     pub kind: CacheKind,
     pub num_sets: usize,
     pub line_size: u32,
@@ -122,7 +122,7 @@ pub struct CacheConfig {
     pub allocate_policy: CacheAllocatePolicy,
     pub write_allocate_policy: CacheWriteAllocatePolicy,
     // pub set_index_function: CacheSetIndexFunc,
-    pub set_index_function: Box<dyn set_index::SetIndexFunction>,
+    pub set_index_function: Box<dyn set_index::SetIndexer>,
 
     pub mshr_kind: mshr::Kind,
     pub mshr_entries: usize,
@@ -139,7 +139,7 @@ pub struct CacheConfig {
     // pub disabled: bool,
 }
 
-impl std::fmt::Display for CacheConfig {
+impl std::fmt::Display for Cache {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let size = human_bytes::human_bytes(self.total_bytes() as f64);
         write!(
@@ -154,7 +154,7 @@ pub static MAX_DEFAULT_CACHE_SIZE_MULTIPLIER: u8 = 4;
 
 /// TODO: use a builder here so we can fill in the remaining values
 /// and do the validation as found below:
-impl CacheConfig {
+impl Cache {
     /// The width if the port to the data array.
     ///
     /// todo: this can be replaced with the builder?
@@ -312,9 +312,9 @@ impl CacheConfig {
     // assert(m_line_sz % m_data_port_width == 0);
 }
 
-/// todo: remove the copy stuff, very expensive otherwise
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug)]
-pub struct GPUConfig {
+pub struct GPU {
     /// Log after cycle
     pub log_after_cycle: Option<u64>,
     /// Parallel simulation
@@ -332,15 +332,15 @@ pub struct GPUConfig {
     /// shader core pipeline warp size
     pub warp_size: usize,
     /// per-shader read-only L1 texture cache config
-    pub tex_cache_l1: Option<Arc<CacheConfig>>,
+    pub tex_cache_l1: Option<Arc<Cache>>,
     /// per-shader read-only L1 constant memory cache config
-    pub const_cache_l1: Option<Arc<CacheConfig>>,
+    pub const_cache_l1: Option<Arc<Cache>>,
     /// shader L1 instruction cache config
-    pub inst_cache_l1: Option<Arc<CacheConfig>>,
+    pub inst_cache_l1: Option<Arc<Cache>>,
     /// per-shader L1 data cache config
-    pub data_cache_l1: Option<Arc<L1DCacheConfig>>,
+    pub data_cache_l1: Option<Arc<L1DCache>>,
     /// unified banked L2 data cache config
-    pub data_cache_l2: Option<Arc<L2DCacheConfig>>,
+    pub data_cache_l2: Option<Arc<L2DCache>>,
 
     /// Shared memory latency
     pub shared_memory_latency: usize,
@@ -585,13 +585,13 @@ pub static WORD_SIZE: address = 4;
 #[must_use]
 pub fn pad_to_multiple(n: usize, k: usize) -> usize {
     let rem = n % k;
-    if rem != 0 {
-        ((n / k) + 1) * k
-    } else {
+    if rem == 0 {
         n
+    } else {
+        ((n / k) + 1) * k
     }
 }
-impl GPUConfig {
+impl GPU {
     pub fn shared_mem_bank(&self, addr: address) -> address {
         let num_banks = self.shared_memory_num_banks as u64;
         (addr / WORD_SIZE) % num_banks
@@ -660,7 +660,7 @@ impl GPUConfig {
         };
 
         // limit by CTA
-        let _by_block_limit = self.max_concurrent_blocks_per_core;
+        // let _by_block_limit = self.max_concurrent_blocks_per_core;
 
         // find the minimum
         let mut limit = [
@@ -910,7 +910,7 @@ pub enum SchedulingOrder {
     RoundRobin = 1,
 }
 
-impl GPUConfig {
+impl GPU {
     pub fn parse() -> eyre::Result<Self> {
         let adaptive_cache_config = false;
         let shared_memory_sizes_string = "0";
@@ -938,7 +938,7 @@ impl GPUConfig {
     }
 }
 
-impl Default for GPUConfig {
+impl Default for GPU {
     fn default() -> Self {
         Self {
             log_after_cycle: None,
@@ -950,7 +950,7 @@ impl Default for GPUConfig {
             warp_size: 32,
             // N:16:128:24,L:R:m:N:L,F:128:4,128:2
             // {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>:<rf>}
-            tex_cache_l1: Some(Arc::new(CacheConfig {
+            tex_cache_l1: Some(Arc::new(Cache {
                 kind: CacheKind::Normal,
                 num_sets: 16,
                 line_size: 128,
@@ -971,7 +971,7 @@ impl Default for GPUConfig {
             })),
             // N:128:64:2,L:R:f:N:L,A:2:64,4
             // {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>}
-            const_cache_l1: Some(Arc::new(CacheConfig {
+            const_cache_l1: Some(Arc::new(Cache {
                 kind: CacheKind::Normal,
                 num_sets: 128,
                 line_size: 64,
@@ -992,7 +992,7 @@ impl Default for GPUConfig {
             })),
             // N:8:128:4,L:R:f:N:L,A:2:48,4
             // {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>}
-            inst_cache_l1: Some(Arc::new(CacheConfig {
+            inst_cache_l1: Some(Arc::new(Cache {
                 kind: CacheKind::Normal,
                 num_sets: 8,
                 line_size: 128,
@@ -1013,13 +1013,13 @@ impl Default for GPUConfig {
             })),
             // N:64:128:6,L:L:m:N:H,A:128:8,8
             // {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq> | none}
-            data_cache_l1: Some(Arc::new(L1DCacheConfig {
+            data_cache_l1: Some(Arc::new(L1DCache {
                 l1_latency: 1,
                 // l1_banks_hashing_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
                 l1_banks_hashing_function: Box::<set_index::linear::SetIndex>::default(),
                 l1_banks_byte_interleaving: 32,
                 l1_banks: 1,
-                inner: Arc::new(CacheConfig {
+                inner: Arc::new(Cache {
                     kind: CacheKind::Normal,
                     num_sets: 64,
                     line_size: 128,
@@ -1041,8 +1041,8 @@ impl Default for GPUConfig {
             })),
             // N:64:128:16,L:B:m:W:L,A:1024:1024,4:0,32
             // {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>}
-            data_cache_l2: Some(Arc::new(L2DCacheConfig {
-                inner: Arc::new(CacheConfig {
+            data_cache_l2: Some(Arc::new(L2DCache {
+                inner: Arc::new(Cache {
                     kind: CacheKind::Normal,
                     num_sets: 64,
                     line_size: 128,
@@ -1335,14 +1335,14 @@ mod tests {
 
     #[test]
     fn test_l1i_block_addr() {
-        let config = super::GPUConfig::default();
+        let config = super::GPU::default();
         let l1i_cache_config = config.inst_cache_l1.unwrap();
         assert_eq!(l1i_cache_config.block_addr(4_026_531_848), 4_026_531_840);
     }
 
     #[test]
     fn test_l2d_block_addr() {
-        let config = super::GPUConfig::default();
+        let config = super::GPU::default();
         let l2d_cache_config = config.data_cache_l2.unwrap();
         assert_eq!(
             l2d_cache_config.inner.block_addr(34_887_082_112),
@@ -1352,7 +1352,7 @@ mod tests {
 
     #[test]
     fn test_l1i_mshr_addr() {
-        let config = super::GPUConfig::default();
+        let config = super::GPU::default();
         let l1i_cache_config = config.inst_cache_l1.unwrap();
         assert_eq!(l1i_cache_config.mshr_addr(4_026_531_848), 4_026_531_840);
         assert_eq!(l1i_cache_config.mshr_addr(4_026_531_992), 4_026_531_968);
@@ -1360,7 +1360,7 @@ mod tests {
 
     #[test]
     fn test_l2d_set_index() {
-        let config = super::GPUConfig::default();
+        let config = super::GPU::default();
         let l2d_config = config.data_cache_l2.unwrap();
         let block_addr = 34_887_082_112;
         assert_eq!(l2d_config.inner.set_index(block_addr), 1);

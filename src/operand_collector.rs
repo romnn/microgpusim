@@ -70,7 +70,7 @@ impl Operand {
 #[derive(Debug)]
 pub struct CollectorUnit {
     free: bool,
-    kind: OperandCollectorUnitKind,
+    kind: Kind,
     /// collector unit hw id
     id: usize,
     warp_id: Option<usize>,
@@ -88,7 +88,7 @@ pub struct CollectorUnit {
 }
 
 impl CollectorUnit {
-    fn new(kind: OperandCollectorUnitKind) -> Self {
+    fn new(kind: Kind) -> Self {
         let src_operands = [(); MAX_REG_OPERANDS * 2].map(|_| None);
         Self {
             id: 0,
@@ -400,16 +400,16 @@ impl Arbiter {
 
         log::trace!("queue: {:?}", &self.queue);
 
-        let _inputs = self.num_banks;
-        let _outputs = self.num_collectors;
-        let _square = if _inputs > _outputs {
-            _inputs
+        let num_inputs = self.num_banks;
+        let num_outputs = self.num_collectors;
+        let square = if num_inputs > num_outputs {
+            num_inputs
         } else {
-            _outputs
+            num_outputs
         };
         // debug_assert!(_square > 0);
         let last_cu_before = self.last_cu;
-        let mut _pri = self.last_cu;
+        let mut pri = self.last_cu;
         log::debug!("last cu: {}", self.last_cu);
 
         // clear matching
@@ -422,7 +422,6 @@ impl Arbiter {
         inmatch.fill(None);
         outmatch.fill(None);
 
-        
         // (0..self.num_banks)
         // (0..self.num_banks).into_par_iter().for_each(|bank| {
         //     debug_assert!(bank < _inputs);
@@ -442,14 +441,14 @@ impl Arbiter {
         // });
 
         for bank in 0..self.num_banks {
-            debug_assert!(bank < _inputs);
+            debug_assert!(bank < num_inputs);
             for collector in 0..self.num_collectors {
-                debug_assert!(collector < _outputs);
+                debug_assert!(collector < num_outputs);
                 request[bank][collector] = Some(0);
             }
             if let Some(op) = self.queue[bank].front() {
                 let collector_id = op.collector_unit_id;
-                debug_assert!(collector_id < _outputs);
+                debug_assert!(collector_id < num_outputs);
                 request[bank][collector_id] = Some(1);
             }
             if self.allocated_banks[bank].is_write() {
@@ -463,15 +462,15 @@ impl Arbiter {
         // wavefront allocator from booksim
         // loop through diagonals of request matrix
 
-        for p in 0.._square {
-            let mut output = (_pri + p) % _outputs;
+        for p in 0..square {
+            let mut output = (pri + p) % num_outputs;
 
             // step through the current diagonal
-            for input in 0.._inputs {
-                debug_assert!(output < _outputs);
+            for input in 0..num_inputs {
+                debug_assert!(output < num_outputs);
 
                 // banks at the same cycle
-                if output < _outputs
+                if output < num_outputs
                     && inmatch[input].is_none()
                     && request[input][output] != Some(0)
                 {
@@ -484,7 +483,7 @@ impl Arbiter {
                     // (m_queue[input].front()).get_reg());
                 }
 
-                output = (output + 1) % _outputs;
+                output = (output + 1) % num_outputs;
             }
         }
 
@@ -492,17 +491,17 @@ impl Arbiter {
         log::trace!("outmatch: {:?}", &Self::compat(outmatch));
 
         // Round-robin the priority diagonal
-        _pri = (_pri + 1) % _outputs;
-        log::trace!("pri: {:?}", _pri);
+        pri = (pri + 1) % num_outputs;
+        log::trace!("pri: {:?}", pri);
 
         // <--- end code from booksim
 
-        self.last_cu = _pri;
+        self.last_cu = pri;
         log::debug!(
             "last cu: {} -> {} ({} outputs)",
             last_cu_before,
             self.last_cu,
-            _outputs
+            num_outputs
         );
 
         for bank in 0..self.num_banks {
@@ -558,12 +557,12 @@ pub struct DispatchUnit {
     next_cu: usize,
     sub_core_model: bool,
     num_warp_schedulers: usize,
-    kind: OperandCollectorUnitKind,
+    kind: Kind,
 }
 
 impl DispatchUnit {
     #[must_use]
-    pub fn new(kind: OperandCollectorUnitKind) -> Self {
+    pub fn new(kind: Kind) -> Self {
         Self {
             kind,
             last_cu: 0,
@@ -580,10 +579,8 @@ impl DispatchUnit {
 
     pub fn find_ready<'a>(
         &mut self,
-        // collector_units: &'a Vec<Rc<RefCell<CollectorUnit>>>,
         collector_units: &'a Vec<Arc<Mutex<CollectorUnit>>>,
     ) -> Option<&'a Arc<Mutex<CollectorUnit>>> {
-        // ) -> Option<&'a Rc<RefCell<CollectorUnit>>> {
         // With sub-core enabled round robin starts with the next cu assigned to a
         // different sub-core than the one that dispatched last
         let num_collector_units = collector_units.len();
@@ -625,16 +622,12 @@ impl DispatchUnit {
 pub struct InputPort {
     in_ports: PortVec,
     out_ports: PortVec,
-    collector_unit_ids: Vec<OperandCollectorUnitKind>,
+    collector_unit_ids: Vec<Kind>,
 }
 
 impl InputPort {
     #[must_use]
-    pub fn new(
-        in_ports: PortVec,
-        out_ports: PortVec,
-        collector_unit_ids: Vec<OperandCollectorUnitKind>,
-    ) -> Self {
+    pub fn new(in_ports: PortVec, out_ports: PortVec, collector_unit_ids: Vec<Kind>) -> Self {
         debug_assert!(in_ports.len() == out_ports.len());
         debug_assert!(!collector_unit_ids.is_empty());
         Self {
@@ -647,7 +640,7 @@ impl InputPort {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u32)]
-pub enum OperandCollectorUnitKind {
+pub enum Kind {
     SP_CUS,
     DP_CUS,
     SFU_CUS,
@@ -657,13 +650,12 @@ pub enum OperandCollectorUnitKind {
     GEN_CUS,
 }
 
-// pub type CuSets = HashMap<OperandCollectorUnitKind, Vec<Rc<RefCell<CollectorUnit>>>>;
-pub type CuSets = HashMap<OperandCollectorUnitKind, Vec<Arc<Mutex<CollectorUnit>>>>;
+pub type CuSets = HashMap<Kind, Vec<Arc<Mutex<CollectorUnit>>>>;
 
 // operand collector based register file unit
 #[derive(Debug, Clone)]
-pub struct OperandCollectorRegisterFileUnit {
-    pub config: Arc<config::GPUConfig>,
+pub struct RegisterFileUnit {
+    pub config: Arc<config::GPU>,
 
     pub initialized: bool,
     pub num_banks: usize,
@@ -683,8 +675,8 @@ pub struct OperandCollectorRegisterFileUnit {
 
 pub type PortVec = Vec<register_set::Ref>;
 
-impl OperandCollectorRegisterFileUnit {
-    pub fn new(config: Arc<config::GPUConfig>) -> Self {
+impl RegisterFileUnit {
+    pub fn new(config: Arc<config::GPU>) -> Self {
         let arbiter = Arbiter::default();
         Self {
             initialized: true,
@@ -938,7 +930,7 @@ impl OperandCollectorRegisterFileUnit {
 
     pub fn add_cu_set(
         &mut self,
-        kind: OperandCollectorUnitKind,
+        kind: Kind,
         num_collector_units: usize,
         num_dispatch_units: usize,
     ) {
@@ -957,12 +949,7 @@ impl OperandCollectorRegisterFileUnit {
         }
     }
 
-    pub fn add_port(
-        &mut self,
-        input: PortVec,
-        output: PortVec,
-        cu_sets: Vec<OperandCollectorUnitKind>,
-    ) {
+    pub fn add_port(&mut self, input: PortVec, output: PortVec, cu_sets: Vec<Kind>) {
         self.in_ports
             .push_back(InputPort::new(input, output, cu_sets));
     }
@@ -973,30 +960,18 @@ mod test {
     use crate::{mem_fetch::BitString, testing};
     use std::ops::Deref;
 
-    impl From<super::OperandCollectorUnitKind> for testing::state::OperandCollectorUnitKind {
-        fn from(id: super::OperandCollectorUnitKind) -> Self {
+    impl From<super::Kind> for testing::state::OperandCollectorUnitKind {
+        fn from(id: super::Kind) -> Self {
             match id {
-                super::OperandCollectorUnitKind::SP_CUS => {
-                    testing::state::OperandCollectorUnitKind::SP_CUS
-                }
-                super::OperandCollectorUnitKind::DP_CUS => {
-                    testing::state::OperandCollectorUnitKind::DP_CUS
-                }
-                super::OperandCollectorUnitKind::SFU_CUS => {
-                    testing::state::OperandCollectorUnitKind::SFU_CUS
-                }
-                super::OperandCollectorUnitKind::TENSOR_CORE_CUS => {
+                super::Kind::SP_CUS => testing::state::OperandCollectorUnitKind::SP_CUS,
+                super::Kind::DP_CUS => testing::state::OperandCollectorUnitKind::DP_CUS,
+                super::Kind::SFU_CUS => testing::state::OperandCollectorUnitKind::SFU_CUS,
+                super::Kind::TENSOR_CORE_CUS => {
                     testing::state::OperandCollectorUnitKind::TENSOR_CORE_CUS
                 }
-                super::OperandCollectorUnitKind::INT_CUS => {
-                    testing::state::OperandCollectorUnitKind::INT_CUS
-                }
-                super::OperandCollectorUnitKind::MEM_CUS => {
-                    testing::state::OperandCollectorUnitKind::MEM_CUS
-                }
-                super::OperandCollectorUnitKind::GEN_CUS => {
-                    testing::state::OperandCollectorUnitKind::GEN_CUS
-                }
+                super::Kind::INT_CUS => testing::state::OperandCollectorUnitKind::INT_CUS,
+                super::Kind::MEM_CUS => testing::state::OperandCollectorUnitKind::MEM_CUS,
+                super::Kind::GEN_CUS => testing::state::OperandCollectorUnitKind::GEN_CUS,
             }
         }
     }
@@ -1064,8 +1039,8 @@ mod test {
         }
     }
 
-    impl From<&super::OperandCollectorRegisterFileUnit> for testing::state::OperandCollector {
-        fn from(opcoll: &super::OperandCollectorRegisterFileUnit) -> Self {
+    impl From<&super::RegisterFileUnit> for testing::state::OperandCollector {
+        fn from(opcoll: &super::RegisterFileUnit) -> Self {
             let dispatch_units = opcoll.dispatch_units.iter().map(Into::into).collect();
             let collector_units = opcoll
                 .collector_units

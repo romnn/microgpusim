@@ -1,6 +1,6 @@
 use crate::{
     address, cache, config,
-    fifo::{FifoQueue, Queue},
+    fifo::{Fifo, Queue},
     interconn as ic, mem_fetch, Cycle,
 };
 use console::style;
@@ -18,10 +18,10 @@ pub const SECTOR_CHUNCK_SIZE: u32 = 4;
 pub const SECTOR_SIZE: u32 = 32;
 
 #[derive()]
-pub struct MemorySubPartition<Q = FifoQueue<mem_fetch::MemFetch>> {
+pub struct MemorySubPartition<Q = Fifo<mem_fetch::MemFetch>> {
     pub id: usize,
     pub partition_id: usize,
-    pub config: Arc<config::GPUConfig>,
+    pub config: Arc<config::GPU>,
     pub stats: Arc<Mutex<stats::Stats>>,
 
     /// queues
@@ -46,6 +46,8 @@ pub struct MemorySubPartition<Q = FifoQueue<mem_fetch::MemFetch>> {
     memcpy_cycle_offset: u64,
 }
 
+const NO_FETCHES: VecDeque<mem_fetch::MemFetch> = VecDeque::new();
+
 impl<Q> MemorySubPartition<Q>
 where
     Q: Queue<mem_fetch::MemFetch> + 'static,
@@ -54,7 +56,7 @@ where
         id: usize,
         partition_id: usize,
         cycle: Cycle,
-        config: Arc<config::GPUConfig>,
+        config: Arc<config::GPU>,
         stats: Arc<Mutex<stats::Stats>>,
     ) -> Self {
         let interconn_to_l2_queue = Q::new(
@@ -126,7 +128,7 @@ where
 
     fn breakdown_request_to_sector_requests(
         &self,
-        _fetch: mem_fetch::MemFetch,
+        _fetch: &mem_fetch::MemFetch,
     ) -> Vec<mem_fetch::MemFetch> {
         todo!("breakdown request to sector");
 
@@ -245,7 +247,7 @@ where
         let mut requests = Vec::new();
         let l2_config = self.config.data_cache_l2.as_ref().unwrap();
         if l2_config.inner.kind == config::CacheKind::Sector {
-            requests.extend(self.breakdown_request_to_sector_requests(fetch));
+            requests.extend(self.breakdown_request_to_sector_requests(&fetch));
         } else {
             requests.push(fetch);
         }
@@ -360,13 +362,12 @@ where
         if let Some(ref mut l2_cache) = self.l2_cache {
             let queue_full = self.l2_to_interconn_queue.full();
 
-            const EMPTY: VecDeque<mem_fetch::MemFetch> = VecDeque::new();
             log::debug!(
                 "{}: l2 cache ready accesses={:?} l2 to icnt queue full={}",
                 log_line,
                 l2_cache
                     .ready_accesses()
-                    .unwrap_or(&EMPTY)
+                    .unwrap_or(&NO_FETCHES)
                     .iter()
                     .map(std::string::ToString::to_string)
                     .collect::<Vec<_>>(),
@@ -461,7 +462,9 @@ where
 
                             if status == cache::RequestStatus::HIT {
                                 let mut fetch = self.interconn_to_l2_queue.dequeue().unwrap();
-                                if !write_sent {
+                                if write_sent {
+                                    assert!(write_sent);
+                                } else {
                                     // L2 cache replies
                                     assert!(!read_sent);
                                     if fetch.access_kind() == &mem_fetch::AccessKind::L1_WRBK_ACC {
@@ -475,8 +478,6 @@ where
                                         );
                                         self.l2_to_interconn_queue.enqueue(fetch);
                                     }
-                                } else {
-                                    assert!(write_sent);
                                 }
                             } else if status != cache::RequestStatus::RESERVATION_FAIL {
                                 // L2 cache accepted request

@@ -10,7 +10,7 @@ pub enum Status {
     MODIFIED,
 }
 
-pub trait CacheBlock {
+pub trait Block {
     fn allocate(
         &mut self,
         tag: address,
@@ -51,6 +51,7 @@ pub trait CacheBlock {
     fn set_readable(&mut self, readable: bool, mask: &mem_fetch::SectorMask);
 }
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Line {
     pub tag: u64,
@@ -144,7 +145,7 @@ impl Line {
             self.is_readable = true;
         }
         if self.set_byte_mask_on_fill {
-            self.set_byte_mask(byte_mask)
+            self.set_byte_mask(byte_mask);
         }
 
         self.fill_time = time;
@@ -208,7 +209,7 @@ impl Line {
 
     #[inline]
     pub fn set_readable(&mut self, readable: bool, _mask: &mem_fetch::SectorMask) {
-        self.is_readable = readable
+        self.is_readable = readable;
     }
 
     #[inline]

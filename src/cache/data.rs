@@ -28,8 +28,8 @@ where
         cycle: Cycle,
         mem_port: Arc<I>,
         stats: Arc<Mutex<stats::Cache>>,
-        config: Arc<config::GPUConfig>,
-        cache_config: Arc<config::CacheConfig>,
+        config: Arc<config::GPU>,
+        cache_config: Arc<config::Cache>,
         write_alloc_type: mem_fetch::AccessKind,
         write_back_type: mem_fetch::AccessKind,
     ) -> Self {
@@ -51,16 +51,16 @@ where
     }
 
     #[must_use]
-    pub fn cache_config(&self) -> &Arc<config::CacheConfig> {
+    pub fn cache_config(&self) -> &Arc<config::Cache> {
         &self.inner.cache_config
     }
 
-    /// Write-back hit: Mark block as modified
+    /// Write-back hit: mark block as modified.
     fn write_hit_write_back(
         &mut self,
         addr: address,
         cache_index: Option<usize>,
-        fetch: mem_fetch::MemFetch,
+        fetch: &mem_fetch::MemFetch,
         time: u64,
         _events: &mut [event::Event],
         _probe_status: cache::RequestStatus,
@@ -77,7 +77,7 @@ where
 
         // update LRU state
         let tag_array::AccessStatus { index, .. } =
-            self.inner.tag_array.access(block_addr, &fetch, time);
+            self.inner.tag_array.access(block_addr, fetch, time);
         let cache_index = index.unwrap();
         let block = self.inner.tag_array.get_block_mut(cache_index);
         let was_modified_before = block.is_modified();
@@ -86,7 +86,7 @@ where
         if !was_modified_before {
             self.inner.tag_array.num_dirty += 1;
         }
-        self.update_readable(&fetch, cache_index);
+        self.update_readable(fetch, cache_index);
 
         cache::RequestStatus::HIT
     }
@@ -118,7 +118,7 @@ where
         addr: address,
         _cache_index: Option<usize>,
         // cache_index: usize,
-        fetch: mem_fetch::MemFetch,
+        fetch: &mem_fetch::MemFetch,
         time: u64,
         _events: &mut [event::Event],
         _probe_status: cache::RequestStatus,
@@ -129,7 +129,7 @@ where
             ..
         } = self.inner;
         let block_addr = cache_config.block_addr(addr);
-        let access_status = tag_array.access(block_addr, &fetch, time);
+        let access_status = tag_array.access(block_addr, fetch, time);
         let block_index = access_status.index.expect("read hit has index");
 
         // Atomics treated as global read/write requests:
@@ -169,7 +169,7 @@ where
         &mut self,
         addr: address,
         cache_index: Option<usize>,
-        fetch: mem_fetch::MemFetch,
+        fetch: &mem_fetch::MemFetch,
         time: u64,
         events: &mut Vec<event::Event>,
         _probe_status: cache::RequestStatus,
@@ -296,6 +296,7 @@ where
         cache::RequestStatus::MISS
     }
 
+    #[allow(clippy::needless_pass_by_value)]
     fn write_miss_write_allocate_naive(
         &mut self,
         addr: address,
@@ -472,7 +473,7 @@ where
         &mut self,
         addr: address,
         cache_index: Option<usize>,
-        fetch: mem_fetch::MemFetch,
+        fetch: &mem_fetch::MemFetch,
         time: u64,
         events: &mut [event::Event],
         probe_status: cache::RequestStatus,
@@ -518,7 +519,7 @@ where
             if probe_status == cache::RequestStatus::HIT {
                 // let cache_index = cache_index.expect("hit has cache idx");
                 access_status =
-                    self.write_hit(addr, cache_index, fetch, time, events, probe_status);
+                    self.write_hit(addr, cache_index, &fetch, time, events, probe_status);
             } else if probe_status != cache::RequestStatus::RESERVATION_FAIL
                 || (probe_status == cache::RequestStatus::RESERVATION_FAIL
                     && self.inner.cache_config.write_allocate_policy
@@ -539,9 +540,9 @@ where
                 );
             }
         } else if probe_status == cache::RequestStatus::HIT {
-            access_status = self.read_hit(addr, cache_index, fetch, time, events, probe_status);
+            access_status = self.read_hit(addr, cache_index, &fetch, time, events, probe_status);
         } else if probe_status != cache::RequestStatus::RESERVATION_FAIL {
-            access_status = self.read_miss(addr, cache_index, fetch, time, events, probe_status);
+            access_status = self.read_miss(addr, cache_index, &fetch, time, events, probe_status);
         } else {
             // the only reason for reservation fail here is LINE_ALLOC_FAIL
             // (i.e all lines are reserved)
@@ -566,16 +567,13 @@ where
     I: ic::MemFetchInterface,
 {
     fn cycle(&mut self) {
-        // panic!("l2 data cache cycle");
-        self.inner.cycle()
+        self.inner.cycle();
     }
 }
 
 impl<I> cache::Cache for Data<I>
 where
-    // I: ic::MemPort,
     I: ic::MemFetchInterface + 'static,
-    // I: ic::Interconnect<crate::ported::core::Packet>,
 {
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -679,379 +677,21 @@ where
         self.inner.has_ready_accesses()
     }
 
-    // fn fill(&mut self, fetch: &mut mem_fetch::MemFetch) {
     fn fill(&mut self, fetch: mem_fetch::MemFetch, time: u64) {
-        self.inner.fill(fetch, time)
+        self.inner.fill(fetch, time);
     }
 
     fn waiting_for_fill(&self, fetch: &mem_fetch::MemFetch) -> bool {
         self.inner.waiting_for_fill(fetch)
     }
-
-    // fn data_port_free(&self) -> bool {
-    //
-    //     self.inner.data_port_free()
-    // }
-
-    // fn flush(&mut self) {
-    //     self.inner.flush()
-    //     // self.tag_array.flush();
-    // }
-
-    // /// Invalidate all entries in cache
-    // fn invalidate(&mut self) {
-    //     self.inner.invalidate();
-    // }
 }
 
-impl<I> cache::CacheBandwidth for Data<I> {
+impl<I> cache::Bandwidth for Data<I> {
     fn has_free_data_port(&self) -> bool {
         self.inner.has_free_data_port()
     }
 
     fn has_free_fill_port(&self) -> bool {
         self.inner.has_free_fill_port()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::Data;
-    use crate::{
-        cache::Cache, config, instruction, interconn as ic, kernel::Kernel, mem_fetch,
-        parse_commands, Cycle,
-    };
-    use std::collections::VecDeque;
-    use std::path::PathBuf;
-
-    use std::sync::{Arc, Mutex};
-    use trace_model::Command;
-
-    #[derive(Debug)]
-    struct MockFetchInterconn {}
-
-    impl ic::MemFetchInterface for MockFetchInterconn {
-        fn full(&self, _size: u32, _write: bool) -> bool {
-            false
-        }
-        fn push(&self, _fetch: mem_fetch::MemFetch, _time: u64) {}
-    }
-
-    fn concat<T>(
-        a: impl IntoIterator<Item = T>,
-        b: impl IntoIterator<Item = T>,
-    ) -> impl Iterator<Item = T> {
-        a.into_iter().chain(b.into_iter())
-    }
-
-    #[ignore = "todo"]
-    #[test]
-    fn test_ref_data_l1() {
-        let _control_size = 0;
-        let _warp_id = 0;
-        let _core_id = 0;
-        let _cluster_id = 0;
-        // let type_id = bindings::cache_access_logger_types::NORMALS as i32;
-
-        // let l1 = bindings::l1_cache::new(0, interconn, cache_config);
-        // let cache_config = bindings::cache_config::new();
-
-        // let mut cache_config = bridge::cache_config::new_cache_config();
-        // dbg!(&cache_config.pin_mut().is_streaming());
-
-        // let params = bindings::cache_config_params { disabled: false };
-        // let mut cache_config = bridge::cache_config::new_cache_config(params);
-        // dbg!(&cache_config.pin_mut().is_streaming());
-
-        // let tag_array = bindings::tag_array::new(cache_config, core_id, type_id);
-        // let fetch = bindings::mem_fetch_t::new(
-        //     instr,
-        //     access,
-        //     &config,
-        //     control_size,
-        //     warp_id,
-        //     core_id,
-        //     cluster_id,
-        // );
-        // let status = l1.access(0x00000000, &fetch, vec![]);
-        // dbg!(&status);
-        // let status = l1.access(0x00000000, &fetch, vec![]);
-        // dbg!(&status);
-
-        assert!(false);
-    }
-
-    #[ignore = "todo"]
-    #[test]
-    fn test_data_l1_full_trace() {
-        let _control_size = 0;
-        let core_id = 0;
-        let cluster_id = 0;
-
-        let stats = Arc::new(Mutex::new(stats::Cache::default()));
-        let config = Arc::new(config::GPUConfig::default());
-        let cache_config = config.data_cache_l1.clone().unwrap();
-        let interconn = Arc::new(MockFetchInterconn {});
-        let cycle = Cycle::new(0);
-        let _l1 = Data::new(
-            "l1-data".to_string(),
-            core_id,
-            cluster_id,
-            cycle,
-            interconn,
-            stats.clone(),
-            config,
-            Arc::clone(&cache_config.inner),
-            mem_fetch::AccessKind::L1_WR_ALLOC_R,
-            mem_fetch::AccessKind::L1_WRBK_ACC,
-        );
-
-        let trace_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("test-apps/vectoradd/traces/vectoradd-100-32-trace/");
-        dbg!(&trace_dir);
-        let commands: Vec<Command> =
-            parse_commands(&trace_dir.join("commands.json")).expect("parse trace commands");
-
-        dbg!(&commands);
-        let mut kernels: VecDeque<_> = VecDeque::new();
-        for cmd in commands {
-            match cmd {
-                Command::MemcpyHtoD { .. } => {}
-                Command::MemAlloc { .. } => {}
-                Command::KernelLaunch(launch) => {
-                    let kernel = Kernel::from_trace(launch.clone(), &trace_dir);
-                    kernels.push_back(kernel);
-                }
-            }
-        }
-
-        // for kernel in &mut kernels {
-        //     let mut block_iter = kernel.next_block_iter.lock().unwrap();
-        //     while let Some(block) = block_iter.next() {
-        //         dbg!(&block);
-        //         let mut trace_pos = kernel.trace_pos.write().unwrap();
-        //         // let mut lock = kernel.trace_iter.write().unwrap();
-        //         // let trace_iter = lock.take_while_ref(|entry| entry.block_id == block);
-        //         while *trace_pos < kernel.trace.len() {
-        //             // for trace in trace_iter {
-        //             let trace = &kernel.trace[*trace_pos];
-        //             if trace.block_id > block.into() {
-        //                 break;
-        //             }
-        //
-        //             *trace_pos += 1;
-        //
-        //             // dbg!(&trace);
-        //             let warp_id = trace.warp_id_in_block as usize;
-        //             if warp_id != 0 {
-        //                 continue;
-        //             }
-        //             let mut instr =
-        //                 instruction::WarpInstruction::from_trace(&kernel, trace.clone());
-        //
-        //             let mut accesses = instr
-        //                 .generate_mem_accesses(&*config)
-        //                 .expect("generated acceseses");
-        //             // dbg!(&accesses);
-        //             for access in &accesses {
-        //                 log::debug!(
-        //                     "block {} warp {}: {} access {}",
-        //                     &block,
-        //                     &warp_id,
-        //                     if access.is_write { "store" } else { "load" },
-        //                     &access.addr
-        //                 );
-        //             }
-        //             assert_eq!(accesses.len(), 1);
-        //
-        //             let access = accesses.remove(0);
-        //             // let access = mem_fetch::MemAccess::from_instr(&instr).unwrap();
-        //             let fetch = mem_fetch::MemFetch::new(
-        //                 Some(instr),
-        //                 access,
-        //                 &config,
-        //                 control_size,
-        //                 warp_id,
-        //                 core_id,
-        //                 cluster_id,
-        //             );
-        //             let mut events = Vec::new();
-        //             let status = l1.access(fetch.access.addr, fetch, &mut events);
-        //             // let status = l1.access(0x00000000, fetch.clone(), None);
-        //             dbg!(&status);
-        //         }
-        //     }
-        //     // while let Some(trace_instr) = kernel.trace_iter.write().unwrap().next() {
-        //     //     // dbg!(&instr);
-        //     //     let mut instr = instruction::WarpInstruction::from_trace(&kernel, trace_instr);
-        //     //     let mut accesses = instr
-        //     //         .generate_mem_accesses(&*config)
-        //     //         .expect("generated acceseses");
-        //     //     // dbg!(&accesses);
-        //     //     assert_eq!(accesses.len(), 1);
-        //     //     for access in &accesses {
-        //     //         // log::debug!(
-        //     //         //     "block {} warp {}: access {}",
-        //     //         //     &access.block, &access.warp_id, &access.addr
-        //     //         // );
-        //     //         // log::debug!("{}", &access);
-        //     //     }
-        //     //     // continue;
-        //     //
-        //     //     let access = accesses.remove(0);
-        //     //     // let access = mem_fetch::MemAccess::from_instr(&instr).unwrap();
-        //     //     let fetch = mem_fetch::MemFetch::new(
-        //     //         instr,
-        //     //         access,
-        //     //         &config,
-        //     //         control_size,
-        //     //         warp_id,
-        //     //         core_id,
-        //     //         cluster_id,
-        //     //     );
-        //     //     let status = l1.access(fetch.access.addr, fetch, None);
-        //     //     // let status = l1.access(0x00000000, fetch.clone(), None);
-        //     //     dbg!(&status);
-        //     // }
-        // }
-
-        // let mut stats = STATS.lock().unwrap();
-        dbg!(&stats.lock().unwrap());
-
-        // let mut warps: Vec<sched::SchedulerWarp> = Vec::new();
-        // for kernel in kernels {
-        //     loop {
-        //         assert!(!warps.is_empty());
-        //         kernel.next_threadblock_traces(&mut warps);
-        //         dbg!(&warps);
-        //         break;
-        //     }
-        // }
-
-        assert!(false);
-    }
-
-    #[ignore = "todo"]
-    #[test]
-    fn test_data_l1_single_access() {
-        let control_size = 0;
-        let warp_id = 0;
-        let core_id = 0;
-        let cluster_id = 0;
-
-        let stats = Arc::new(Mutex::new(stats::Cache::default()));
-        let config = Arc::new(config::GPUConfig::default());
-        let cache_config = config.data_cache_l1.clone().unwrap();
-        let interconn = Arc::new(MockFetchInterconn {});
-        let cycle = Cycle::new(0);
-
-        let mut l1 = Data::new(
-            "l1-data".to_string(),
-            core_id,
-            cluster_id,
-            cycle,
-            interconn,
-            stats.clone(),
-            config.clone(),
-            Arc::clone(&cache_config.inner),
-            mem_fetch::AccessKind::L1_WR_ALLOC_R,
-            mem_fetch::AccessKind::L1_WRBK_ACC,
-        );
-
-        let trace_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("test-apps/vectoradd/traces/vectoradd-100-32-trace/");
-
-        let launch = trace_model::KernelLaunch {
-            name: "void vecAdd<float>(float*, float*, float*, int)".into(),
-            trace_file: "kernel-0-trace".into(),
-            id: 0,
-            grid: trace_model::Dim { x: 1, y: 1, z: 1 },
-            block: trace_model::Dim {
-                x: 1024,
-                y: 1,
-                z: 1,
-            },
-            shared_mem_bytes: 0,
-            num_registers: 8,
-            binary_version: 61,
-            stream_id: 0,
-            shared_mem_base_addr: 140_663_786_045_440,
-            local_mem_base_addr: 140_663_752_491_008,
-            nvbit_version: "1.5.5".to_string(),
-        };
-        let kernel = Kernel::from_trace(launch, trace_dir);
-
-        let trace_instr = trace_model::MemAccessTraceEntry {
-            cuda_ctx: 0,
-            sm_id: 0,
-            kernel_id: 0,
-            block_id: trace_model::Dim::ZERO,
-            warp_size: 32,
-            warp_id_in_sm: 3,
-            warp_id_in_block: 3,
-            line_num: 0,
-            instr_data_width: 4,
-            instr_opcode: "LDG.E.CG".to_string(),
-            instr_offset: 176,
-            instr_idx: 16,
-            instr_predicate: nvbit_model::Predicate {
-                num: 0,
-                is_neg: false,
-                is_uniform: false,
-            },
-            instr_mem_space: nvbit_model::MemorySpace::Global,
-            instr_is_mem: true,
-            instr_is_load: true,
-            instr_is_store: false,
-            instr_is_extended: true,
-            active_mask: 15,
-            // todo: use real values here
-            dest_regs: [0; 1],
-            num_dest_regs: 0,
-            src_regs: [0; 5],
-            num_src_regs: 0,
-            addrs: concat(
-                [
-                    140_663_086_646_144,
-                    140_663_086_646_148,
-                    140_663_086_646_152,
-                    140_663_086_646_156,
-                ],
-                [0; 32 - 4],
-            )
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap(),
-        };
-        let mut instr = instruction::WarpInstruction::from_trace(&kernel, trace_instr);
-        dbg!(&instr);
-        let mut accesses = instr
-            .generate_mem_accesses(&config)
-            .expect("generated acceseses");
-        assert_eq!(accesses.len(), 1);
-
-        let access = accesses.remove(0);
-        // let access = mem_fetch::MemAccess::from_instr(&instr).unwrap();
-        let fetch = mem_fetch::MemFetch::new(
-            Some(instr),
-            access,
-            &config,
-            control_size,
-            warp_id,
-            core_id,
-            cluster_id,
-        );
-        // let status = l1.access(0x00000000, fetch.clone(), None);
-        let time = 0;
-        let mut events = Vec::new();
-        let status = l1.access(fetch.addr(), fetch.clone(), &mut events, time);
-        dbg!(&status);
-        let mut events = Vec::new();
-        let status = l1.access(fetch.addr(), fetch, &mut events, time);
-        dbg!(&status);
-
-        // let mut stats = STATS.lock().unwrap();
-        dbg!(&stats.lock().unwrap());
-        assert!(false);
     }
 }

@@ -33,7 +33,7 @@ where
 }
 
 impl MemoryAccesses<model::MemAccessTraceEntry, model::MemAllocation> {
-    pub fn register_allocation(&mut self, alloc: model::MemAllocation) {
+    pub fn register_allocation(&mut self, alloc: &model::MemAllocation) {
         let start = alloc.device_ptr;
         let end = alloc.device_ptr + alloc.num_bytes;
         // self.allocations.insert(start..end, alloc);

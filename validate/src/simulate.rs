@@ -8,6 +8,7 @@ use color_eyre::{eyre, Help};
 use std::time::Instant;
 use utils::fs::create_dirs;
 
+#[allow(clippy::module_name_repetitions)]
 pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<stats::Stats, RunError> {
     // get traces dir from trace config
     let traces_dir = bench.trace.traces_dir.clone();
@@ -26,7 +27,7 @@ pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<stats::Stats, Ru
         ));
     }
 
-    let config = casimu::config::GPUConfig {
+    let config = casimu::config::GPU {
         num_simt_clusters: 20,                   // 20
         num_cores_per_simt_cluster: 4,           // 1
         num_schedulers_per_core: 2,              // 1
@@ -35,7 +36,7 @@ pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<stats::Stats, Ru
         fill_l2_on_memcopy: true,                // true
         parallel: bench.simulate.parallel,       // true
         log_after_cycle: None,
-        ..casimu::config::GPUConfig::default()
+        ..casimu::config::GPU::default()
     };
 
     let stats = casimu::accelmain(traces_dir, config)?;

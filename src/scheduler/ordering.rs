@@ -1,10 +1,9 @@
-use super::BaseSchedulerUnit;
 use crate::warp;
 
 use std::sync::{Arc, Mutex};
 
 #[must_use]
-pub fn all_different<T>(values: &Vec<Arc<Mutex<T>>>) -> bool {
+pub fn all_different<T>(values: &[Arc<Mutex<T>>]) -> bool {
     for (vi, v) in values.iter().enumerate() {
         for (vii, vv) in values.iter().enumerate() {
             let should_be_equal = vi == vii;
@@ -44,7 +43,7 @@ pub enum Ordering {
     // NUM_ORDERING,
 }
 
-impl BaseSchedulerUnit {
+impl super::Base {
     pub fn order_by_priority<F>(&mut self, ordering: Ordering, mut priority_func: F)
     where
         F: FnMut(&warp::Ref, &warp::Ref) -> std::cmp::Ordering,
@@ -55,7 +54,7 @@ impl BaseSchedulerUnit {
         debug_assert!(num_warps_to_add <= self.warps.len());
         out.clear();
 
-        debug_assert!(all_different(&self.supervised_warps.clone().into()));
+        debug_assert!(all_different(self.supervised_warps.make_contiguous()));
 
         let mut last_issued_iter = self
             .supervised_warps
@@ -78,7 +77,7 @@ impl BaseSchedulerUnit {
                 .clone()
                 .into_iter()
                 .map(|(_, w)| w)
-                .collect()
+                .collect::<Vec<_>>()
         ));
 
         match ordering {
@@ -86,7 +85,6 @@ impl BaseSchedulerUnit {
                 let greedy_warp = last_issued_iter.next();
                 if let Some((idx, warp)) = greedy_warp {
                     out.push_back((idx, Arc::clone(warp)));
-                    // out.push_back(Arc::clone(greedy));
                 }
 
                 log::debug!(

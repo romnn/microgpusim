@@ -1,7 +1,6 @@
 use crate::{
     cache, config, interconn as ic, mem_fetch, mem_sub_partition, mshr,
     operand_collector as opcoll,
-    operand_collector::OperandCollectorRegisterFileUnit,
     register_set::{self},
     scoreboard::Scoreboard,
     simd_function_unit as fu, warp,
@@ -20,7 +19,7 @@ use std::collections::{HashMap, VecDeque};
 fn new_mem_fetch(
     access: mem_fetch::MemAccess,
     instr: WarpInstruction,
-    config: &config::GPUConfig,
+    config: &config::GPU,
     core_id: usize,
     cluster_id: usize,
 ) -> mem_fetch::MemFetch {
@@ -45,18 +44,19 @@ pub struct LoadStoreUnit<I> {
     response_fifo: VecDeque<MemFetch>,
     warps: Vec<warp::Ref>,
     pub data_l1: Option<Box<dyn cache::Cache>>,
-    config: Arc<config::GPUConfig>,
+    config: Arc<config::GPU>,
     pub stats: Arc<Mutex<stats::Stats>>,
     scoreboard: Arc<RwLock<Scoreboard>>,
     next_global: Option<MemFetch>,
     pub pending_writes: HashMap<usize, HashMap<u32, usize>>,
     l1_latency_queue: Vec<Vec<Option<mem_fetch::MemFetch>>>,
+    #[allow(dead_code)]
     interconn: Arc<dyn ic::Interconnect<super::Packet> + Send + 'static>,
     fetch_interconn: Arc<I>,
     // pub interconn_port: super::InterconnPort,
     pipelined_simd_unit: fu::PipelinedSimdUnitImpl,
 
-    operand_collector: Arc<Mutex<opcoll::OperandCollectorRegisterFileUnit>>,
+    operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
 
     /// round-robin arbiter for writeback contention between L1T, L1C, shared
     writeback_arb: usize,
@@ -131,9 +131,9 @@ where
         interconn: Arc<dyn ic::Interconnect<super::Packet> + Send + 'static>,
         fetch_interconn: Arc<I>,
         // interconn_port: InterconnPort,
-        operand_collector: Arc<Mutex<OperandCollectorRegisterFileUnit>>,
+        operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
         scoreboard: Arc<RwLock<Scoreboard>>,
-        config: Arc<config::GPUConfig>,
+        config: Arc<config::GPU>,
         stats: Arc<Mutex<stats::Stats>>,
         cycle: super::Cycle,
     ) -> Self {
@@ -304,6 +304,8 @@ where
             let next_client_id = (client + self.writeback_arb) % self.num_writeback_clients;
             let next_client = WritebackClient::from_repr(next_client_id).unwrap();
             log::trace!("checking writeback client {:?}", next_client);
+
+            #[allow(clippy::match_same_arms)]
             match next_client {
                 WritebackClient::SharedMemory => {
                     if let Some(pipe_reg) = self.pipelined_simd_unit.pipeline_reg[0].take() {
@@ -428,6 +430,7 @@ where
         !has_stall
     }
 
+    #[allow(clippy::unused_self)]
     fn constant_cycle(
         &mut self,
         _rc_fail: &mut MemStageStallKind,
@@ -436,6 +439,7 @@ where
         true
     }
 
+    #[allow(clippy::unused_self)]
     fn texture_cycle(
         &mut self,
         _rc_fail: &mut MemStageStallKind,
@@ -627,7 +631,7 @@ where
                         .num_outstanding_stores += 1;
                 }
 
-                let instr = &mut self.pipelined_simd_unit.dispatch_reg.as_mut().unwrap();
+                let instr = self.pipelined_simd_unit.dispatch_reg.as_mut().unwrap();
                 let access = instr.mem_access_queue.pop_back().unwrap();
 
                 let fetch = new_mem_fetch(
@@ -796,7 +800,7 @@ where
         _addr: address,
         instr: &mut WarpInstruction,
         events: &mut [cache::Event],
-        fetch: mem_fetch::MemFetch,
+        fetch: &mem_fetch::MemFetch,
         status: cache::RequestStatus,
     ) -> MemStageStallKind {
         let mut stall_cond = MemStageStallKind::NO_RC_FAIL;

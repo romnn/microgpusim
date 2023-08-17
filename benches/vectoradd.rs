@@ -28,7 +28,6 @@ pub fn run_box(mut bench_config: BenchmarkConfig) -> eyre::Result<stats::Stats> 
         std::env::var("PARALLEL").unwrap_or_default().to_lowercase() == "yes";
     println!("parallel: {}", bench_config.simulate.parallel);
     let stats = validate::simulate::simulate_bench_config(&bench_config)?;
-    let _cycles = stats.sim.cycles;
     // fast parallel:   cycle loop time: 558485 ns
     // serial:          cycle loop time: 2814591 ns (speedup 5x)
     // have 80 cores and 16 threads
@@ -127,7 +126,10 @@ fn main() -> eyre::Result<()> {
     println!("box took:\t\t{box_dur:?}");
 
     let timings = casimu::TIMINGS.lock().unwrap();
-    let mut timings: Vec<_> = timings.iter().map(|(name, dur)| (name, dur.mean())).collect();
+    let mut timings: Vec<_> = timings
+        .iter()
+        .map(|(name, dur)| (name, dur.mean()))
+        .collect();
     timings.sort_by_key(|(_name, dur)| *dur);
     for (name, dur) in timings {
         println!("{name:>30}: {:>6.5} ms", dur.as_secs_f64() * 1000.0);

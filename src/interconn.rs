@@ -1,7 +1,6 @@
 use super::{config, mem_fetch, Packet};
 use console::style;
 use std::collections::VecDeque;
-
 use std::sync::{Arc, Mutex};
 
 /// Interconnect is a general interconnect
@@ -195,7 +194,7 @@ where
     }
 }
 
-pub type InterconnPort = Arc<Mutex<VecDeque<(usize, mem_fetch::MemFetch, u32)>>>;
+pub type Port = Arc<Mutex<VecDeque<(usize, mem_fetch::MemFetch, u32)>>>;
 
 /// Memory interconnect interface between components.
 ///
@@ -209,11 +208,11 @@ pub trait MemFetchInterface: Send + Sync + std::fmt::Debug + 'static {
 
 #[derive()]
 pub struct CoreMemoryInterface<P> {
-    pub config: Arc<config::GPUConfig>,
+    pub config: Arc<config::GPU>,
     pub stats: Arc<Mutex<stats::Stats>>,
     pub cluster_id: usize,
     pub interconn: Arc<dyn Interconnect<P>>,
-    pub interconn_port: InterconnPort,
+    pub interconn_port: Port,
 }
 
 impl<P> std::fmt::Debug for CoreMemoryInterface<P> {
@@ -277,7 +276,7 @@ impl MemFetchInterface for CoreMemoryInterface<Packet> {
         self.interconn_port
             .lock()
             .unwrap()
-            .push_back((mem_dest, fetch, packet_size))
+            .push_back((mem_dest, fetch, packet_size));
     }
 }
 
@@ -303,13 +302,13 @@ where
     fn push(&self, mut fetch: mem_fetch::MemFetch, _time: u64) {
         fetch.set_status(mem_fetch::Status::IN_PARTITION_L2_TO_DRAM_QUEUE, 0);
         log::debug!("l2 interface push l2_to_dram_queue");
-        self.l2_to_dram_queue.lock().unwrap().enqueue(fetch)
+        self.l2_to_dram_queue.lock().unwrap().enqueue(fetch);
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::config::GPUConfig;
+    use crate::config;
     use color_eyre::eyre;
 
     use std::path::PathBuf;
@@ -335,7 +334,7 @@ mod tests {
     fn test_box_interconnect() -> eyre::Result<()> {
         use playground::interconnect::{BoxInterconnect, Interconnect};
 
-        let config = GPUConfig::default();
+        let config = config::GPU::default();
         let num_clusters = config.num_simt_clusters;
         let num_mem_sub_partitions = config.total_sub_partitions();
         dbg!(&num_clusters);
@@ -361,11 +360,11 @@ mod tests {
         interconn.push(core_node, mem_node, Box::new(42));
         interconn.push(core_node, mem_node, Box::new(43));
         interconn.push(core_node, mem_node, Box::new(44));
-        let (_, recv_data) = interconn.must_pop(mem_node, Some(1)).unwrap();
+        let (_, recv_data) = interconn.must_pop(mem_node, Some(1))?;
         assert_eq!(42, *recv_data);
-        let (_, recv_data) = interconn.must_pop(mem_node, Some(1)).unwrap();
+        let (_, recv_data) = interconn.must_pop(mem_node, Some(1))?;
         assert_eq!(43, *recv_data);
-        let (_, recv_data) = interconn.must_pop(mem_node, Some(1)).unwrap();
+        let (_, recv_data) = interconn.must_pop(mem_node, Some(1))?;
         assert_eq!(44, *recv_data);
 
         // send memory to core back
@@ -373,11 +372,11 @@ mod tests {
         interconn.push(mem_node, core_node, Box::new(32));
         interconn.push(mem_node, core_node, Box::new(33));
         interconn.push(mem_node, core_node, Box::new(34));
-        let (_, recv_data) = interconn.must_pop(core_node, Some(1)).unwrap();
+        let (_, recv_data) = interconn.must_pop(core_node, Some(1))?;
         assert_eq!(32, *recv_data);
-        let (_, recv_data) = interconn.must_pop(core_node, Some(1)).unwrap();
+        let (_, recv_data) = interconn.must_pop(core_node, Some(1))?;
         assert_eq!(33, *recv_data);
-        let (_, recv_data) = interconn.must_pop(core_node, Some(1)).unwrap();
+        let (_, recv_data) = interconn.must_pop(core_node, Some(1))?;
         assert_eq!(34, *recv_data);
 
         Ok(())
@@ -388,7 +387,7 @@ mod tests {
     fn test_interconnect_interface() -> eyre::Result<()> {
         use playground::interconnect::{Interconnect, InterconnectInterface};
 
-        let config = GPUConfig::default();
+        let config = config::GPU::default();
         let num_clusters = config.num_simt_clusters;
         let num_mem_sub_partitions = config.total_sub_partitions();
         dbg!(&num_clusters);
@@ -417,7 +416,7 @@ mod tests {
         // send from core to memory
         let send_data = 42;
         interconn.push(core_node, mem_node, Box::new(send_data));
-        let (elapsed, recv_data) = interconn.must_pop(mem_node, None).unwrap();
+        let (elapsed, recv_data) = interconn.must_pop(mem_node, None)?;
         dbg!(elapsed);
         assert!(elapsed > 1);
         assert_eq!(send_data, *recv_data);
@@ -425,11 +424,9 @@ mod tests {
         // send memory to core back
         let send_data = 24;
         interconn.push(mem_node, core_node, Box::new(send_data));
-        let (elapsed, recv_data) = interconn.must_pop(core_node, None).unwrap();
+        let (elapsed, recv_data) = interconn.must_pop(core_node, None)?;
         assert!(elapsed > 0);
         assert_eq!(send_data, *recv_data);
-
-        // assert!(false);
         Ok(())
     }
 

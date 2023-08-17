@@ -13,7 +13,7 @@ use std::sync::{Arc, Mutex};
 
 #[derive()]
 pub struct DRAM {
-    config: Arc<config::GPUConfig>,
+    config: Arc<config::GPU>,
     // mrqq: FifoQueue<Request>,
     // scheduler: FrfcfsScheduler,
     stats: Arc<Mutex<stats::Stats>>,
@@ -41,7 +41,7 @@ pub struct TimingOptions {
 }
 
 impl DRAM {
-    pub fn new(config: Arc<config::GPUConfig>, stats: Arc<Mutex<stats::Stats>>) -> Self {
+    pub fn new(config: Arc<config::GPU>, stats: Arc<Mutex<stats::Stats>>) -> Self {
         // let mrqq = FifoQueue::new("mrqq", Some(0), Some(2));
         // let scheduler = FrfcfsScheduler::new(&*config, stats.clone());
         Self {

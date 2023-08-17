@@ -13,7 +13,7 @@ pub fn logb2(n: u32) -> u32 {
 
 /// Compute power of two greater than or equal to n
 ///
-/// see: https://www.techiedelight.com/round-next-highest-power-2/
+/// see [here](https://www.techiedelight.com/round-next-highest-power-2/).
 #[must_use]
 pub fn next_power2(mut n: u32) -> u32 {
     // avoid subtract with overflow
@@ -215,11 +215,7 @@ impl AddressDecodingConfig {
 impl LinearToRawAddressTranslation {
     #[must_use]
     pub fn partition_address(&self, addr: address) -> address {
-        if !self.has_gap {
-            let mut mask = self.decode_config.chip.mask;
-            mask |= self.sub_partition_id_mask;
-            packbits(!mask, addr, 0, 64)
-        } else {
+        if self.has_gap {
             // see addrdec_tlx for explanation
             let addr_chip_start = self.decode_config.addr_chip_start.unwrap();
             let mut partition_addr = (addr >> addr_chip_start) / self.num_channels as u64;
@@ -228,6 +224,10 @@ impl LinearToRawAddressTranslation {
 
             // remove part of address that constributes to the sub partition id
             packbits(!self.sub_partition_id_mask, partition_addr, 0, 64)
+        } else {
+            let mut mask = self.decode_config.chip.mask;
+            mask |= self.sub_partition_id_mask;
+            packbits(!mask, addr, 0, 64)
         }
     }
 
@@ -254,7 +254,7 @@ impl LinearToRawAddressTranslation {
             tlx.col = packbits(dec.col.mask, rest_of_addr, dec.col.low, dec.col.high);
             tlx.burst = packbits(dec.burst.mask, rest_of_addr, dec.burst.low, dec.burst.high);
 
-            let _rest_of_addr_high_bits = (addr >> addr_chip_start) / num_channels;
+            // let _rest_of_addr_high_bits = (addr >> addr_chip_start) / num_channels;
         } else {
             tlx.chip = packbits(dec.chip.mask, addr, dec.chip.low, dec.chip.high);
             tlx.bk = packbits(dec.bank.mask, addr, dec.bank.low, dec.bank.high);
@@ -262,9 +262,9 @@ impl LinearToRawAddressTranslation {
             tlx.col = packbits(dec.col.mask, addr, dec.col.low, dec.col.high);
             tlx.burst = packbits(dec.burst.mask, addr, dec.burst.low, dec.burst.high);
 
-            let _rest_of_addr_high_bits = addr
-                >> (addr_chip_start
-                    + (self.num_channels_log2 + self.num_sub_partitions_per_channel_log2) as usize);
+            // let _rest_of_addr_high_bits = addr
+            //     >> (addr_chip_start
+            //         + (self.num_channels_log2 + self.num_sub_partitions_per_channel_log2) as usize);
         }
 
         match self.memory_partition_indexing {
@@ -280,7 +280,7 @@ impl LinearToRawAddressTranslation {
         tlx
     }
 
-    pub fn new(config: &config::GPUConfig) -> eyre::Result<Self> {
+    pub fn new(config: &config::GPU) -> eyre::Result<Self> {
         let num_channels = config.num_memory_controllers;
         let num_sub_partitions_per_channel = config.num_sub_partition_per_memory_channel;
 
@@ -417,7 +417,7 @@ impl std::hash::Hash for DecodedAddress {
 
 #[cfg(test)]
 mod tests {
-    use crate::config::GPUConfig;
+    use crate::config;
     use color_eyre::eyre;
     use similar_asserts as diff;
 
@@ -440,7 +440,7 @@ mod tests {
     }
 
     fn compute_tlx(
-        config: &GPUConfig,
+        config: &config::GPU,
         addr: u64,
     ) -> (super::DecodedAddress, super::DecodedAddress) {
         let mapping = config.address_mapping();
@@ -482,10 +482,12 @@ mod tests {
             bit_str(0b0000_0000_0000_0000_0000_0000_0001_1111)
         );
 
-        let mut config = GPUConfig::default();
-        config.memory_addr_mapping = Some(config_str.to_string());
-        config.num_memory_controllers = 8;
-        config.num_sub_partition_per_memory_channel = 2;
+        let config = config::GPU {
+            memory_addr_mapping: Some(config_str.to_string()),
+            num_memory_controllers: 8,
+            num_sub_partition_per_memory_channel: 2,
+            ..config::GPU::default()
+        };
 
         let mapping = super::LinearToRawAddressTranslation::new(&config)?;
         let dec_config = mapping.decode_config;
@@ -537,9 +539,11 @@ mod tests {
 
     #[test]
     fn test_tlx_sub_partition_gtx1080() {
-        let mut config = GPUConfig::default();
-        config.num_memory_controllers = 8;
-        config.num_sub_partition_per_memory_channel = 2;
+        let config = config::GPU {
+            num_memory_controllers: 8,
+            num_sub_partition_per_memory_channel: 2,
+            ..config::GPU::default()
+        };
 
         let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 140_159_034_064_896);
         dbg!(&tlx_addr, &ref_tlx_addr);
@@ -584,7 +588,7 @@ mod tests {
 
     #[test]
     fn test_tlx() {
-        let config = GPUConfig::default();
+        let config = config::GPU::default();
         let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 139_823_420_539_008);
         let expected = super::DecodedAddress {
             chip: 0,

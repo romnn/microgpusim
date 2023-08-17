@@ -52,7 +52,8 @@ impl std::fmt::Display for Kernel {
 }
 
 impl Kernel {
-    #[must_use] pub fn new(config: model::KernelLaunch, trace: model::MemAccessTrace) -> Self {
+    #[must_use]
+    pub fn new(config: model::KernelLaunch, trace: model::MemAccessTrace) -> Self {
         // sanity check
         assert!(trace.is_valid());
 
@@ -129,7 +130,7 @@ impl Kernel {
             }
 
             let warp_id = entry.warp_id_in_block as usize;
-            let instr = instruction::WarpInstruction::from_trace(self, entry.clone());
+            let instr = instruction::WarpInstruction::from_trace(self, entry);
             let warp = warps.get_mut(warp_id).unwrap();
             // let mut warp = warp.try_borrow_mut().unwrap();
             let mut warp = warp.try_lock().unwrap();

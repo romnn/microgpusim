@@ -1,3 +1,5 @@
+#![allow(clippy::module_name_repetitions)]
+
 pub mod core;
 pub mod dram;
 pub mod functional;

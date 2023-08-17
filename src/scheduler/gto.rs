@@ -1,11 +1,10 @@
-use super::{warp, BaseSchedulerUnit, SchedulerUnit};
-use crate::{config::GPUConfig, core::WarpIssuer, scoreboard::Scoreboard};
+use crate::{config, core::WarpIssuer, scoreboard::Scoreboard, warp};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, RwLock};
 
 #[derive(Debug)]
 pub struct Scheduler {
-    inner: BaseSchedulerUnit,
+    inner: super::Base,
 }
 
 impl Scheduler {
@@ -16,10 +15,9 @@ impl Scheduler {
         warps: Vec<warp::Ref>,
         scoreboard: Arc<RwLock<Scoreboard>>,
         stats: Arc<Mutex<stats::scheduler::Scheduler>>,
-        config: Arc<GPUConfig>,
+        config: Arc<config::GPU>,
     ) -> Self {
-        let inner =
-            BaseSchedulerUnit::new(id, cluster_id, core_id, warps, scoreboard, stats, config);
+        let inner = super::Base::new(id, cluster_id, core_id, warps, scoreboard, stats, config);
         Self { inner }
     }
 }
@@ -42,7 +40,7 @@ impl Scheduler {
     }
 }
 
-impl SchedulerUnit for Scheduler {
+impl super::Scheduler for Scheduler {
     fn order_warps(&mut self) {
         self.inner.order_by_priority(
             super::ordering::Ordering::GREEDY_THEN_PRIORITY_FUNC,
@@ -58,7 +56,6 @@ impl SchedulerUnit for Scheduler {
         self.inner.prioritized_warps()
     }
 
-    // fn cycle(&mut self, issuer: &mut dyn WarpIssuer) {
     fn cycle(&mut self, issuer: &dyn WarpIssuer) {
         log::debug!(
             "gto scheduler[{}]: BEFORE: prioritized warp ids: {:?}",

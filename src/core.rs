@@ -81,7 +81,7 @@ impl std::fmt::Display for Packet {
     }
 }
 
-impl<I> SIMTCore<I>
+impl<I> Core<I>
 where
     I: ic::Interconnect<Packet> + Send + 'static,
 {
@@ -184,7 +184,7 @@ pub trait WarpIssuer {
     fn has_free_register(&self, stage: PipelineStage, register_id: usize) -> bool;
 }
 
-impl<I> WarpIssuer for SIMTCore<I>
+impl<I> WarpIssuer for Core<I>
 where
     I: ic::Interconnect<Packet> + Send + 'static,
 {
@@ -383,18 +383,19 @@ pub enum PipelineStage {
     OC_EX_TENSOR_CORE = 12,
 }
 
+/// SIMT Core.
 #[derive()]
-pub struct SIMTCore<I> {
+pub struct Core<I> {
     pub core_id: usize,
     pub cluster_id: usize,
     pub cycle: super::Cycle,
     pub warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
     pub stats: Arc<Mutex<stats::Stats>>,
-    pub config: Arc<config::GPUConfig>,
+    pub config: Arc<config::GPU>,
     pub current_kernel: Option<Arc<Kernel>>,
     pub last_warp_fetched: Option<usize>,
     pub interconn: Arc<I>,
-    pub interconn_port: ic::InterconnPort,
+    pub interconn_port: ic::Port,
     pub load_store_unit: Arc<Mutex<LoadStoreUnit<ic::CoreMemoryInterface<Packet>>>>,
     pub active_thread_mask: BitArr!(for MAX_THREAD_PER_SM),
     pub occupied_hw_thread_ids: BitArr!(for MAX_THREAD_PER_SM),
@@ -415,27 +416,27 @@ pub struct SIMTCore<I> {
     pub warps: Vec<warp::Ref>,
     pub thread_state: Vec<Option<ThreadState>>,
     pub scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
-    pub operand_collector: Arc<Mutex<opcoll::OperandCollectorRegisterFileUnit>>,
+    pub operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
     pub pipeline_reg: Vec<register_set::Ref>,
     pub result_busses: Vec<ResultBus>,
     pub interconn_queue: VecDeque<(usize, mem_fetch::MemFetch, u32)>,
     pub issue_ports: Vec<PipelineStage>,
     pub dispatch_ports: Vec<PipelineStage>,
     pub functional_units: Vec<Arc<Mutex<dyn SimdFunctionUnit>>>,
-    pub schedulers: Vec<Arc<Mutex<dyn scheduler::SchedulerUnit>>>,
+    pub schedulers: Vec<Arc<Mutex<dyn scheduler::Scheduler>>>,
     pub scheduler_issue_priority: usize,
 }
 
-impl<I> std::fmt::Debug for SIMTCore<I> {
+impl<I> std::fmt::Debug for Core<I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SIMTCore")
+        f.debug_struct("Core")
             .field("core_id", &self.core_id)
             .field("cluster_id", &self.cluster_id)
             .finish()
     }
 }
 
-impl<I> SIMTCore<I>
+impl<I> Core<I>
 where
     I: ic::Interconnect<Packet> + Send + 'static,
 {
@@ -447,7 +448,7 @@ where
         warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
         interconn: Arc<I>,
         stats: Arc<Mutex<stats::Stats>>,
-        config: Arc<config::GPUConfig>,
+        config: Arc<config::GPU>,
     ) -> Self {
         let thread_state: Vec<_> = (0..config.max_threads_per_core).map(|_| None).collect();
 
@@ -455,7 +456,7 @@ where
             .map(|_| warp::Ref::default())
             .collect();
 
-        let interconn_port = ic::InterconnPort::default();
+        let interconn_port = ic::Port::default();
 
         let port = Arc::new(ic::CoreMemoryInterface {
             cluster_id,
@@ -524,9 +525,7 @@ where
             config: config.clone(),
         });
 
-        let operand_collector = Arc::new(Mutex::new(
-            opcoll::OperandCollectorRegisterFileUnit::new(config.clone()),
-        ));
+        let operand_collector = Arc::new(Mutex::new(opcoll::RegisterFileUnit::new(config.clone())));
 
         let load_store_unit = Arc::new(Mutex::new(LoadStoreUnit::new(
             0, // no id for now
@@ -555,11 +554,11 @@ where
 
         let scheduler_kind = config::SchedulerKind::GTO;
 
-        let mut schedulers: Vec<Arc<Mutex<dyn scheduler::SchedulerUnit>>> = (0..config
+        let mut schedulers: Vec<Arc<Mutex<dyn scheduler::Scheduler>>> = (0..config
             .num_schedulers_per_core)
             .map(|sched_id| {
                 let scheduler_stats = Arc::new(Mutex::new(stats::scheduler::Scheduler::default()));
-                let scheduler: Arc<Mutex<dyn scheduler::SchedulerUnit>> = match scheduler_kind {
+                let scheduler: Arc<Mutex<dyn scheduler::Scheduler>> = match scheduler_kind {
                     config::SchedulerKind::GTO => {
                         Arc::new(Mutex::new(scheduler::gto::Scheduler::new(
                             sched_id,
@@ -597,7 +596,7 @@ where
                 u, // id
                 Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
-                Arc::clone(&stats),
+                &stats,
                 cycle.clone(),
                 u, // issue reg id
             ))));
@@ -617,7 +616,7 @@ where
         {
             let mut operand_collector = operand_collector.lock().unwrap();
             operand_collector.add_cu_set(
-                opcoll::OperandCollectorUnitKind::GEN_CUS,
+                opcoll::Kind::GEN_CUS,
                 config.operand_collector_num_units_gen,
                 config.operand_collector_num_out_ports_gen,
             );
@@ -625,7 +624,7 @@ where
             for _i in 0..config.operand_collector_num_in_ports_gen {
                 let mut in_ports = opcoll::PortVec::new();
                 let mut out_ports = opcoll::PortVec::new();
-                let mut cu_sets: Vec<opcoll::OperandCollectorUnitKind> = Vec::new();
+                let mut cu_sets: Vec<opcoll::Kind> = Vec::new();
 
                 in_ports.push(pipeline_reg[PipelineStage::ID_OC_SP as usize].clone());
                 // in_ports.push_back(&m_pipeline_reg[ID_OC_SFU]);
@@ -656,7 +655,7 @@ where
                 // cu_sets.push_back((unsigned)GEN_CUS);
                 // m_operand_collector.add_port(in_ports, out_ports, cu_sets);
                 // in_ports.clear(), out_ports.clear(), cu_sets.clear();
-                cu_sets.push(opcoll::OperandCollectorUnitKind::GEN_CUS);
+                cu_sets.push(opcoll::Kind::GEN_CUS);
                 operand_collector.add_port(in_ports, out_ports, cu_sets);
                 // in_ports.clear();
                 // out_ports.clear();
@@ -667,12 +666,12 @@ where
             if config.enable_specialized_operand_collector {
                 // only added two
                 operand_collector.add_cu_set(
-                    opcoll::OperandCollectorUnitKind::SP_CUS,
+                    opcoll::Kind::SP_CUS,
                     config.operand_collector_num_units_sp,
                     config.operand_collector_num_out_ports_sp,
                 );
                 operand_collector.add_cu_set(
-                    opcoll::OperandCollectorUnitKind::MEM_CUS,
+                    opcoll::Kind::MEM_CUS,
                     config.operand_collector_num_units_mem,
                     config.operand_collector_num_out_ports_mem,
                 );
@@ -680,24 +679,24 @@ where
                 for _i in 0..config.operand_collector_num_in_ports_sp {
                     let mut in_ports = opcoll::PortVec::new();
                     let mut out_ports = opcoll::PortVec::new();
-                    let mut cu_sets: Vec<opcoll::OperandCollectorUnitKind> = Vec::new();
+                    let mut cu_sets: Vec<opcoll::Kind> = Vec::new();
 
                     in_ports.push(pipeline_reg[PipelineStage::ID_OC_SP as usize].clone());
                     out_ports.push(pipeline_reg[PipelineStage::OC_EX_SP as usize].clone());
-                    cu_sets.push(opcoll::OperandCollectorUnitKind::SP_CUS);
-                    cu_sets.push(opcoll::OperandCollectorUnitKind::GEN_CUS);
+                    cu_sets.push(opcoll::Kind::SP_CUS);
+                    cu_sets.push(opcoll::Kind::GEN_CUS);
                     operand_collector.add_port(in_ports, out_ports, cu_sets);
                 }
 
                 for _i in 0..config.operand_collector_num_in_ports_mem {
                     let mut in_ports = opcoll::PortVec::new();
                     let mut out_ports = opcoll::PortVec::new();
-                    let mut cu_sets: Vec<opcoll::OperandCollectorUnitKind> = Vec::new();
+                    let mut cu_sets: Vec<opcoll::Kind> = Vec::new();
 
                     in_ports.push(pipeline_reg[PipelineStage::ID_OC_MEM as usize].clone());
                     out_ports.push(pipeline_reg[PipelineStage::OC_EX_MEM as usize].clone());
-                    cu_sets.push(opcoll::OperandCollectorUnitKind::MEM_CUS);
-                    cu_sets.push(opcoll::OperandCollectorUnitKind::GEN_CUS);
+                    cu_sets.push(opcoll::Kind::MEM_CUS);
+                    cu_sets.push(opcoll::Kind::GEN_CUS);
                     operand_collector.add_port(in_ports, out_ports, cu_sets);
                 }
             }
@@ -1659,12 +1658,10 @@ where
         start_thread: usize,
         end_thread: usize,
         block_id: u64,
-        thread_block_size: usize,
-        kernel: Arc<Kernel>,
+        kernel: &Arc<Kernel>,
     ) {
-        // let start_pc = self.next_pc(start_thread);
+        // let threads_per_block = kernel.threads_per_block();
         let start_warp = start_thread / self.config.warp_size;
-        let _warp_per_cta = thread_block_size / self.config.warp_size;
         let end_warp = end_thread / self.config.warp_size
             + usize::from(end_thread % self.config.warp_size != 0);
         for warp_id in start_warp..end_warp {
@@ -1680,14 +1677,12 @@ where
                     local_active_thread_mask.set(warp_thread_id, true);
                 }
             }
-            // self.warps[warp_id].try_borrow_mut().unwrap().init(
             self.warps[warp_id].try_lock().unwrap().init(
-                // start_pc,
                 block_hw_id as u64,
                 warp_id,
                 self.dynamic_warp_id,
                 local_active_thread_mask,
-                kernel.clone(),
+                Arc::clone(kernel),
             );
 
             self.dynamic_warp_id += 1;
@@ -1704,7 +1699,7 @@ where
             block_id,
             block_hw_id,
         );
-        self.init_warps_from_traces(&kernel, start_warp, end_warp);
+        self.init_warps_from_traces(kernel, start_warp, end_warp);
     }
 
     pub fn reinit(&mut self, start_thread: usize, end_thread: usize, reset_not_completed: bool) {
@@ -1736,14 +1731,14 @@ where
         }
     }
 
-    pub fn issue_block(&mut self, kernel: Arc<Kernel>) {
+    pub fn issue_block(&mut self, kernel: &Arc<Kernel>) {
         log::debug!("core {:?}: issue block", self.id());
         if self.config.concurrent_kernel_sm {
             // let occupied = self.occupy_resource_for_block(&*kernel, true);
             // assert!(occupied);
             unimplemented!("concurrent kernel sm");
         } else {
-            self.set_max_blocks(&kernel).unwrap();
+            self.set_max_blocks(kernel).unwrap();
         }
 
         // kernel.inc_running();
@@ -1766,7 +1761,7 @@ where
 
         // determine hardware threads and warps that will be used for this block
         let thread_block_size = kernel.threads_per_block();
-        let padded_thread_block_size = self.config.threads_per_block_padded(&kernel);
+        let padded_thread_block_size = self.config.threads_per_block_padded(kernel);
 
         // hw warp id = hw thread id mod warp size, so we need to find a range
         // of hardware thread ids corresponding to an integral number of hardware
@@ -1841,14 +1836,7 @@ where
             num_threads_in_block
         );
 
-        self.init_warps(
-            free_block_hw_id,
-            start_thread,
-            end_thread,
-            block_id,
-            kernel.threads_per_block(),
-            kernel,
-        );
+        self.init_warps(free_block_hw_id, start_thread, end_thread, block_id, kernel);
         self.num_active_blocks += 1;
     }
 }

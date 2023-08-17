@@ -270,46 +270,6 @@ mod tests {
         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
         let trace_dir = manifest_dir.join("../results/vectorAdd/vectorAdd-100-32/trace");
         let commands_path = trace_dir.join("commands.json");
-        let _commands = indoc::indoc! { r#"[
-            {
-                "MemAlloc": {
-                    "allocation_name": null,
-                    "device_ptr": 140030084382720,
-                    "num_bytes": 400
-                }
-            },
-            {
-                "MemcpyHtoD": {
-                    "allocation_name": null,
-                    "dest_device_addr": 140030084382720,
-                    "num_bytes": 400
-                }
-            },
-            {
-                "KernelLaunch": {
-                    "name": "void vecAdd<float>(float*, float*, float*, int)",
-                    "trace_file": "kernel-0.msgpack",
-                    "id": 0,
-                    "grid": {
-                        "x": 1,
-                        "y": 1,
-                        "z": 1
-                    },
-                    "block": {
-                        "x": 1024,
-                        "y": 1,
-                        "z": 1
-                    },
-                    "shared_mem_bytes": 0,
-                    "num_registers": 8,
-                    "binary_version": 61,
-                    "stream_id": 0,
-                    "shared_mem_base_addr": 140030781685760,
-                    "local_mem_base_addr": 140030748131328,
-                    "nvbit_version": "1.5.5"
-                }
-            }
-        ]"#};
         let mut commands_writer = std::io::Cursor::new(Vec::new());
         super::generate_commands(&commands_path, &mut commands_writer)?;
         let commands = String::from_utf8_lossy(&commands_writer.into_inner()).to_string();

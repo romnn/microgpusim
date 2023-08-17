@@ -136,7 +136,6 @@ pub async fn simulate(
     options: &Options,
     _sim_options: &options::AccelsimSim,
 ) -> Result<(), RunError> {
-    let _traces_dir = &bench.accelsim_trace.traces_dir;
     let stats_dir = &bench.accelsim_simulate.stats_dir;
 
     if !options.force && crate::stats::already_exist(stats_dir) {

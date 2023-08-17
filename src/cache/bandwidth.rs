@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 /// Metadata for port bandwidth management
 #[derive(Clone)]
-pub struct BandwidthManager {
-    config: Arc<config::CacheConfig>,
+pub struct Manager {
+    config: Arc<config::Cache>,
 
     /// number of cycle that the data port remains used
     data_port_occupied_cycles: usize,
@@ -12,7 +12,7 @@ pub struct BandwidthManager {
     fill_port_occupied_cycles: usize,
 }
 
-impl std::fmt::Debug for BandwidthManager {
+impl std::fmt::Debug for Manager {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("BandwidthManager")
             .field("data_port_occupied_cycles", &self.data_port_occupied_cycles)
@@ -23,10 +23,10 @@ impl std::fmt::Debug for BandwidthManager {
     }
 }
 
-impl BandwidthManager {
+impl Manager {
     /// Create a new bandwidth manager from config
     #[must_use]
-    pub fn new(config: Arc<config::CacheConfig>) -> Self {
+    pub fn new(config: Arc<config::Cache>) -> Self {
         Self {
             config,
             data_port_occupied_cycles: 0,
@@ -64,7 +64,7 @@ impl BandwidthManager {
             super::RequestStatus::SECTOR_MISS | super::RequestStatus::RESERVATION_FAIL => {
                 // Does not consume any port bandwidth
             }
-            other => panic!("bandwidth manager got unexpected access status {other:?}"),
+            other @ super::RequestStatus::MSHR_HIT => panic!("unexpected access status {other:?}"),
         }
     }
 

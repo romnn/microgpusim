@@ -164,7 +164,7 @@ mod tests {
 
     #[test]
     fn test_mshr_table() {
-        let config = config::GPUConfig::default();
+        let config = config::GPU::default();
         let cache_config = config.inst_cache_l1.as_ref().unwrap();
         let mut mshrs = super::Table::new(cache_config.mshr_entries, cache_config.mshr_max_merge);
 

@@ -1,6 +1,6 @@
 use super::{
     address, config, dram,
-    fifo::{FifoQueue, Queue},
+    fifo::{Fifo, Queue},
     mem_fetch,
     mem_fetch::BitString,
     mem_sub_partition::MemorySubPartition,
@@ -15,10 +15,10 @@ pub struct MemoryPartitionUnit {
     id: usize,
     dram: dram::DRAM,
     pub dram_latency_queue: VecDeque<mem_fetch::MemFetch>,
-    pub sub_partitions: Vec<Arc<Mutex<MemorySubPartition<FifoQueue<mem_fetch::MemFetch>>>>>,
-    pub arbitration_metadata: super::arbitration::ArbitrationMetadata,
+    pub sub_partitions: Vec<Arc<Mutex<MemorySubPartition<Fifo<mem_fetch::MemFetch>>>>>,
+    pub arbitration_metadata: super::arbitration::Arbiter,
 
-    config: Arc<config::GPUConfig>,
+    config: Arc<config::GPU>,
     #[allow(dead_code)]
     stats: Arc<Mutex<stats::Stats>>,
 }
@@ -26,8 +26,8 @@ pub struct MemoryPartitionUnit {
 impl MemoryPartitionUnit {
     pub fn new(
         id: usize,
-        cycle: Cycle,
-        config: Arc<config::GPUConfig>,
+        cycle: &Cycle,
+        config: Arc<config::GPU>,
         stats: Arc<Mutex<stats::Stats>>,
     ) -> Self {
         let num_sub_partitions = config.num_sub_partition_per_memory_channel;
@@ -46,7 +46,7 @@ impl MemoryPartitionUnit {
             .collect();
 
         let dram = dram::DRAM::new(config.clone(), stats.clone());
-        let arbitration_metadata = super::arbitration::ArbitrationMetadata::new(&config);
+        let arbitration_metadata = super::arbitration::Arbiter::new(&config);
         Self {
             id,
             config,
@@ -96,7 +96,7 @@ impl MemoryPartitionUnit {
         }
     }
 
-    pub fn set_done(&mut self, fetch: mem_fetch::MemFetch) {
+    pub fn set_done(&mut self, fetch: &mem_fetch::MemFetch) {
         let global_spid = fetch.sub_partition_id();
         let spid = self.global_sub_partition_id_to_local_id(global_spid);
         let mut sub = self.sub_partitions[spid].try_lock().unwrap();
@@ -112,7 +112,7 @@ impl MemoryPartitionUnit {
                 spid
             );
         }
-        sub.set_done(&fetch);
+        sub.set_done(fetch);
     }
 
     pub fn simple_dram_cycle(&mut self) {
@@ -123,10 +123,19 @@ impl MemoryPartitionUnit {
         //     ((m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle) >=
         //      m_dram_latency_queue.front().ready_cycle)) {
         if let Some(returned_fetch) = self.dram_latency_queue.front_mut() {
-            if !matches!(
+            if matches!(
                 returned_fetch.access_kind(),
                 mem_fetch::AccessKind::L1_WRBK_ACC | mem_fetch::AccessKind::L2_WRBK_ACC
             ) {
+                log::debug!(
+                    "DROPPING {} fetch return from dram latency queue (write={})",
+                    returned_fetch,
+                    returned_fetch.is_write()
+                );
+
+                let returned_fetch = self.dram_latency_queue.pop_front().unwrap();
+                self.set_done(&returned_fetch);
+            } else {
                 self.dram.access(returned_fetch);
 
                 returned_fetch.set_reply(); // todo: is it okay to do that here?
@@ -142,7 +151,9 @@ impl MemoryPartitionUnit {
                 let mut sub = self.sub_partitions[dest_spid].try_lock().unwrap();
                 debug_assert_eq!(sub.id, dest_global_spid);
 
-                if !sub.dram_to_l2_queue.full() {
+                if sub.dram_to_l2_queue.full() {
+                    // panic!("fyi: simple dram model stall");
+                } else {
                     // here we could set reply
                     let mut returned_fetch = self.dram_latency_queue.pop_front().unwrap();
                     // dbg!(&returned_fetch);
@@ -163,18 +174,7 @@ impl MemoryPartitionUnit {
                         debug_assert!(returned_fetch.is_reply());
                         sub.dram_to_l2_queue.enqueue(returned_fetch);
                     }
-                } else {
-                    // panic!("fyi: simple dram model stall");
                 }
-            } else {
-                log::debug!(
-                    "DROPPING {} fetch return from dram latency queue (write={})",
-                    returned_fetch,
-                    returned_fetch.is_write()
-                );
-
-                let returned_fetch = self.dram_latency_queue.pop_front().unwrap();
-                self.set_done(returned_fetch);
             }
         }
 

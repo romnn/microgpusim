@@ -4,7 +4,11 @@
     clippy::too_many_arguments,
     clippy::missing_panics_doc,
     clippy::missing_errors_doc,
-    clippy::too_many_lines
+    clippy::too_many_lines,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap
 )]
 // #![allow(warnings)]
 
@@ -41,13 +45,13 @@ pub mod warp;
 #[cfg(test)]
 pub mod testing;
 
-use self::cluster::SIMTCoreCluster;
 use self::core::{
-    warp_inst_complete, Packet, PipelineStage, SIMTCore, MAX_THREAD_PER_SM, PROGRAM_MEM_START,
+    warp_inst_complete, Core, Packet, PipelineStage, MAX_THREAD_PER_SM, PROGRAM_MEM_START,
 };
 use addrdec::DecodedAddress;
 use allocation::Allocations;
-use fifo::Queue;
+use cluster::Cluster;
+use fifo::{Fifo, Queue};
 use interconn as ic;
 use kernel::Kernel;
 use ldst_unit::LoadStoreUnit;
@@ -73,7 +77,7 @@ pub fn parse_commands(path: impl AsRef<Path>) -> eyre::Result<Vec<Command>> {
     Ok(commands)
 }
 
-pub type SubPartition = mem_sub_partition::MemorySubPartition<fifo::FifoQueue<mem_fetch::MemFetch>>;
+pub type SubPartition = mem_sub_partition::MemorySubPartition<Fifo<mem_fetch::MemFetch>>;
 
 #[derive(Default, Debug)]
 pub struct TotalDuration {
@@ -115,12 +119,12 @@ macro_rules! timeit {
 #[derive()]
 pub struct MockSimulator<I> {
     stats: Arc<Mutex<Stats>>,
-    config: Arc<config::GPUConfig>,
+    config: Arc<config::GPU>,
     mem_partition_units: Vec<mem_partition_unit::MemoryPartitionUnit>,
     mem_sub_partitions: Vec<Arc<Mutex<SubPartition>>>,
     pub running_kernels: Vec<Option<Arc<kernel::Kernel>>>,
     executed_kernels: Mutex<HashMap<u64, String>>,
-    clusters: Vec<SIMTCoreCluster<I>>,
+    clusters: Vec<Cluster<I>>,
     #[allow(dead_code)]
     warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
     interconn: Arc<I>,
@@ -167,11 +171,11 @@ impl Cycle {
 }
 
 pub trait FromConfig {
-    fn from_config(config: &config::GPUConfig) -> Self;
+    fn from_config(config: &config::GPU) -> Self;
 }
 
 impl FromConfig for stats::Stats {
-    fn from_config(config: &config::GPUConfig) -> Self {
+    fn from_config(config: &config::GPU) -> Self {
         let num_total_cores = config.total_cores();
         let num_mem_units = config.num_memory_controllers;
         let num_sub_partitions = num_mem_units * config.num_sub_partition_per_memory_channel;
@@ -190,7 +194,7 @@ impl<I> MockSimulator<I>
 where
     I: ic::Interconnect<core::Packet> + 'static,
 {
-    pub fn new(interconn: Arc<I>, config: Arc<config::GPUConfig>) -> Self {
+    pub fn new(interconn: Arc<I>, config: Arc<config::GPU>) -> Self {
         let stats = Arc::new(Mutex::new(Stats::from_config(&config)));
 
         let num_mem_units = config.num_memory_controllers;
@@ -201,7 +205,7 @@ where
             .map(|i| {
                 mem_partition_unit::MemoryPartitionUnit::new(
                     i,
-                    cycle.clone(),
+                    &cycle,
                     Arc::clone(&config),
                     Arc::clone(&stats),
                 )
@@ -223,14 +227,14 @@ where
         let warp_instruction_unique_uid = Arc::new(atomic::AtomicU64::new(0));
         let clusters: Vec<_> = (0..config.num_simt_clusters)
             .map(|i| {
-                SIMTCoreCluster::new(
+                Cluster::new(
                     i,
-                    cycle.clone(),
-                    Arc::clone(&warp_instruction_unique_uid),
-                    Arc::clone(&allocations),
-                    Arc::clone(&interconn),
-                    Arc::clone(&stats),
-                    Arc::clone(&config),
+                    &cycle,
+                    &warp_instruction_unique_uid,
+                    &allocations,
+                    &interconn,
+                    &stats,
+                    &config,
                 )
             })
             .collect();
@@ -238,7 +242,7 @@ where
         let executed_kernels = Mutex::new(HashMap::new());
 
         assert!(config.max_threads_per_core.rem_euclid(config.warp_size) == 0);
-        let _max_warps_per_shader = config.max_threads_per_core / config.warp_size;
+        // let _max_warps_per_shader = config.max_threads_per_core / config.warp_size;
 
         let window_size = if config.concurrent_kernel_sm {
             config.max_concurrent_kernels
@@ -412,6 +416,7 @@ where
         self.cycle.set(cycle);
     }
 
+    #[allow(clippy::overly_complex_bool_expr)]
     pub fn cycle(&mut self) {
         let start_total = Instant::now();
         // int clock_mask = next_clock_domain();
@@ -425,7 +430,7 @@ where
         if false && self.parallel_simulation {
             self.clusters
                 .par_iter_mut()
-                .for_each(cluster::SIMTCoreCluster::interconn_cycle);
+                .for_each(Cluster::interconn_cycle);
         } else {
             for cluster in &mut self.clusters {
                 cluster.interconn_cycle();
@@ -541,25 +546,25 @@ where
 
         // DRAM
         let start = Instant::now();
-        if false && self.parallel_simulation {
-            self.mem_partition_units
-                .par_iter_mut()
-                .for_each(mem_partition_unit::MemoryPartitionUnit::simple_dram_cycle);
-            // this pushes into sub.dram_to_l2_queue and messes up the order
-        } else {
-            log::debug!("cycle for {} drams", self.mem_partition_units.len());
-            for (_i, unit) in self.mem_partition_units.iter_mut().enumerate() {
-                unit.simple_dram_cycle();
+        // if false && self.parallel_simulation {
+        //     self.mem_partition_units
+        //         .par_iter_mut()
+        //         .for_each(mem_partition_unit::MemoryPartitionUnit::simple_dram_cycle);
+        //     // this pushes into sub.dram_to_l2_queue and messes up the order
+        // } else {
+        log::debug!("cycle for {} drams", self.mem_partition_units.len());
+        for (_i, unit) in self.mem_partition_units.iter_mut().enumerate() {
+            unit.simple_dram_cycle();
 
-                // if self.config.simple_dram_model {
-                //     unit.simple_dram_cycle();
-                // } else {
-                //     // Issue the dram command (scheduler + delay model)
-                //     // unit.simple_dram_cycle();
-                //     unimplemented!()
-                // }
-            }
+            // if self.config.simple_dram_model {
+            //     unit.simple_dram_cycle();
+            // } else {
+            //     // Issue the dram command (scheduler + delay model)
+            //     // unit.simple_dram_cycle();
+            //     unimplemented!()
+            // }
         }
+        // }
         TIMINGS
             .lock()
             .unwrap()
@@ -1251,7 +1256,7 @@ pub fn save_stats_to_file(stats: &Stats, path: &Path) -> eyre::Result<()> {
 
 pub fn accelmain(
     traces_dir: impl AsRef<Path>,
-    config: impl Into<Arc<config::GPUConfig>>,
+    config: impl Into<Arc<config::GPU>>,
 ) -> eyre::Result<Stats> {
     let config = config.into();
     let traces_dir = traces_dir.as_ref();

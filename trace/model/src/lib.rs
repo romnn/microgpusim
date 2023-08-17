@@ -58,7 +58,7 @@ impl MemAccessTrace {
         let mut warp_traces: HashMap<(Dim, u32), Vec<MemAccessTraceEntry>> = HashMap::new();
         for entry in self.0 {
             warp_traces
-                .entry((entry.block_id.clone().into(), entry.warp_id_in_block))
+                .entry((entry.block_id.clone(), entry.warp_id_in_block))
                 .or_default()
                 .push(entry);
         }

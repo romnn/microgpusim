@@ -1,7 +1,7 @@
 use super::config;
 
 #[derive(Debug)]
-pub struct ArbitrationMetadata {
+pub struct Arbiter {
     /// id of the last subpartition that borrowed credit
     pub last_borrower: usize,
     pub shared_credit_limit: usize,
@@ -12,8 +12,8 @@ pub struct ArbitrationMetadata {
     pub shared_credit: usize,
 }
 
-impl ArbitrationMetadata {
-    pub fn new(config: &config::GPUConfig) -> Self {
+impl Arbiter {
+    pub fn new(config: &config::GPU) -> Self {
         let num_borrowers = config.num_sub_partition_per_memory_channel;
         let private_credit = vec![0; num_borrowers];
         assert!(num_borrowers > 0);

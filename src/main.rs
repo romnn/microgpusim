@@ -1,6 +1,5 @@
 // #![allow(warnings)]
 
-use casimu::config::GPUConfig;
 use clap::{Parser, Subcommand};
 use color_eyre::eyre;
 use std::path::PathBuf;
@@ -77,7 +76,7 @@ fn main() -> eyre::Result<()> {
         .to_lowercase()
         == "yes";
 
-    let config = GPUConfig {
+    let config = casimu::config::GPU {
         num_simt_clusters: 20,                   // 20
         num_cores_per_simt_cluster: 4,           // 1
         num_schedulers_per_core: 2,              // 1
@@ -87,7 +86,7 @@ fn main() -> eyre::Result<()> {
         parallel: options.parallel,
         deadlock_check,
         log_after_cycle,
-        ..GPUConfig::default()
+        ..casimu::config::GPU::default()
     };
 
     let stats = casimu::accelmain(&options.trace_dir, config)?;

@@ -14,13 +14,13 @@ pub trait Queue<T>:
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct FifoQueue<T> {
+pub struct Fifo<T> {
     inner: VecDeque<T>,
     min_size: Option<usize>,
     max_size: Option<usize>,
 }
 
-impl<T> std::iter::IntoIterator for FifoQueue<T> {
+impl<T> std::iter::IntoIterator for Fifo<T> {
     type Item = T;
     type IntoIter = std::collections::vec_deque::IntoIter<Self::Item>;
 
@@ -29,12 +29,11 @@ impl<T> std::iter::IntoIterator for FifoQueue<T> {
     }
 }
 
-impl<T> std::fmt::Display for FifoQueue<T>
+impl<T> std::fmt::Display for Fifo<T>
 where
     T: std::fmt::Display,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // self.inner.len() >= max
         write!(
             f,
             "Fifo({:>2}/{:<2}){:#?}",
@@ -46,22 +45,19 @@ where
             self.inner
                 .iter()
                 .map(std::string::ToString::to_string)
-                .collect::<Vec<_>>() // .join(", ")
+                .collect::<Vec<_>>()
         )
-        // f.debug_list()
-        //     .entries(self.inner.iter().map(|i| i)) // i.to_string()))
-        //     .finish()
     }
 }
 
-impl<T> FifoQueue<T> {
+impl<T> Fifo<T> {
     #[must_use]
     pub fn iter(&self) -> std::collections::vec_deque::Iter<T> {
         self.inner.iter()
     }
 }
 
-impl<T> Queue<T> for FifoQueue<T>
+impl<T> Queue<T> for Fifo<T>
 where
     T: Send + Sync + std::fmt::Display + 'static,
 {

@@ -1,3 +1,5 @@
+#![allow(warnings, clippy::unnecessary_wraps)]
+
 use crate::exec;
 use color_eyre::eyre;
 use num_traits::{Float, Zero};
@@ -12,6 +14,7 @@ fn vectoradd() -> eyre::Result<()> {
 
 #[test]
 fn matrixmul() -> eyre::Result<()> {
+    #[allow(clippy::many_single_char_names)]
     fn mult_cpu<T>(a: &[T], b: &[T], c: &mut [T], m: usize, n: usize, p: usize)
     where
         T: Float + Zero + std::ops::AddAssign,

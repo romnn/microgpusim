@@ -109,6 +109,7 @@ pub const TOTAL_LOCAL_MEM: u64 =
 pub const SHARED_GENERIC_START: u64 = GLOBAL_HEAP_START - TOTAL_SHARED_MEM;
 pub const LOCAL_GENERIC_START: u64 = SHARED_GENERIC_START - TOTAL_LOCAL_MEM;
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct WarpInstruction {
     /// Globally unique id for this warp instruction.
@@ -191,8 +192,72 @@ fn get_data_width_from_opcode(opcode: &str) -> Result<u32, std::num::ParseIntErr
     Ok(4)
 }
 
+fn memory_coalescing_arch_reduce(
+    is_write: bool,
+    access_kind: mem_fetch::AccessKind,
+    tx: &TransactionInfo,
+    mut addr: address,
+    segment_size: u64,
+) -> mem_fetch::MemAccess {
+    debug_assert_eq!(addr & (segment_size - 1), 0);
+    debug_assert!(tx.chunk_mask.count_ones() >= 1);
+    // halves (used to check if 64 byte segment can be
+    // compressed into a single 32 byte segment)
+    let mut halves: BitArr!(for 2, in u8) = BitArray::ZERO;
+
+    let mut req_size_bytes = segment_size as u32;
+    if segment_size == 128 {
+        let lower_half_used = tx.chunk_mask[0] || tx.chunk_mask[1];
+        let upper_half_used = tx.chunk_mask[2] || tx.chunk_mask[3];
+        if lower_half_used && !upper_half_used {
+            // only lower 64 bytes used
+            req_size_bytes = 64;
+            halves |= &tx.chunk_mask[0..2];
+        } else if !lower_half_used && upper_half_used {
+            // only upper 64 bytes used
+            addr += 64;
+            req_size_bytes = 64;
+            halves |= &tx.chunk_mask[2..4];
+        } else {
+            assert!(lower_half_used && upper_half_used);
+        }
+    } else if segment_size == 64 {
+        // need to set halves
+        if addr % 128 == 0 {
+            halves |= &tx.chunk_mask[0..2];
+        } else {
+            debug_assert_eq!(addr % 128, 64);
+            halves |= &tx.chunk_mask[2..4];
+        }
+    }
+
+    if req_size_bytes == 64 {
+        let lower_half_used = halves[0];
+        let upper_half_used = halves[1];
+        if lower_half_used && !upper_half_used {
+            req_size_bytes = 32;
+        } else if !lower_half_used && upper_half_used {
+            addr += 32;
+            req_size_bytes = 32;
+        } else {
+            assert!(lower_half_used && upper_half_used);
+        }
+    }
+
+    mem_fetch::MemAccess::new(
+        access_kind,
+        addr,
+        None, // we cannot know the allocation start address in this context
+        req_size_bytes,
+        is_write,
+        tx.active_mask,
+        tx.byte_mask,
+        tx.chunk_mask,
+    )
+}
+
 impl WarpInstruction {
-    pub fn new_empty(config: &config::GPUConfig) -> Self {
+    pub fn new_empty(config: &config::GPU) -> Self {
         let threads = vec![PerThreadInfo::default(); config.warp_size];
         Self {
             uid: 0,
@@ -223,7 +288,7 @@ impl WarpInstruction {
         }
     }
 
-    pub fn from_trace(kernel: &Kernel, trace: trace::MemAccessTraceEntry) -> Self {
+    pub fn from_trace(kernel: &Kernel, trace: &trace::MemAccessTraceEntry) -> Self {
         // fill active mask
         let mut active_mask = BitArray::ZERO;
         active_mask.store(trace.active_mask);
@@ -249,9 +314,6 @@ impl WarpInstruction {
         let num_src_regs = trace.num_src_regs as usize;
         let num_dest_regs = trace.num_dest_regs as usize;
 
-        let num_regs = num_src_regs + num_dest_regs;
-        let _num_operands = num_regs;
-
         let mut outputs: [Option<u32>; 8] = [None; 8];
         for m in 0..num_dest_regs {
             // increment by one because GPGPU-sim starts from R1, while SASS starts from R0
@@ -267,7 +329,7 @@ impl WarpInstruction {
         }
 
         // fill latency and init latency
-        let config = config::GPUConfig::default();
+        let config = config::GPU::default();
         let (latency, initiation_interval) = config.get_latencies(opcode.category);
 
         // fill addresses
@@ -289,6 +351,7 @@ impl WarpInstruction {
         let mut cache_operator = CacheOperator::UNDEFINED; // TODO: convert to none?
         let mut memory_space = None;
 
+        #[allow(clippy::match_same_arms)]
         match opcode.op {
             Op::LDC => {
                 // memory_op = Some(MemOp::Load);
@@ -483,7 +546,7 @@ impl WarpInstruction {
 
     pub fn generate_mem_accesses(
         &mut self,
-        config: &config::GPUConfig,
+        config: &config::GPU,
     ) -> Option<Vec<mem_fetch::MemAccess>> {
         let op = self.opcode.category;
         if !matches!(
@@ -512,6 +575,7 @@ impl WarpInstruction {
         let warp_parts = config.shared_memory_warp_parts;
 
         // TODO: we could just unwrap the mem space, because we need it?
+        #[allow(clippy::match_same_arms)]
         match self.memory_space {
             Some(MemorySpace::Shared) => {
                 let subwarp_size = config.warp_size / warp_parts;
@@ -653,7 +717,7 @@ impl WarpInstruction {
         &self,
         is_write: bool,
         access_kind: mem_fetch::AccessKind,
-        config: &config::GPUConfig,
+        config: &config::GPU,
     ) -> Vec<mem_fetch::MemAccess> {
         // see the CUDA manual where it discusses coalescing rules
         // before reading this
@@ -776,10 +840,10 @@ impl WarpInstruction {
                 subwarp_accesses
                     .into_iter()
                     .map(|(block_addr, transaction)| {
-                        self.memory_coalescing_arch_reduce(
+                        memory_coalescing_arch_reduce(
                             is_write,
                             access_kind,
-                            transaction,
+                            &transaction,
                             block_addr,
                             segment_size,
                         )
@@ -787,71 +851,6 @@ impl WarpInstruction {
             );
         }
         accesses
-    }
-
-    fn memory_coalescing_arch_reduce(
-        &self,
-        is_write: bool,
-        access_kind: mem_fetch::AccessKind,
-        tx: TransactionInfo,
-        mut addr: address,
-        segment_size: u64,
-    ) -> mem_fetch::MemAccess {
-        debug_assert_eq!(addr & (segment_size - 1), 0);
-        debug_assert!(tx.chunk_mask.count_ones() >= 1);
-        // halves (used to check if 64 byte segment can be
-        // compressed into a single 32 byte segment)
-        let mut halves: BitArr!(for 2, in u8) = BitArray::ZERO;
-
-        let mut req_size_bytes = segment_size as u32;
-        if segment_size == 128 {
-            let lower_half_used = tx.chunk_mask[0] || tx.chunk_mask[1];
-            let upper_half_used = tx.chunk_mask[2] || tx.chunk_mask[3];
-            if lower_half_used && !upper_half_used {
-                // only lower 64 bytes used
-                req_size_bytes = 64;
-                halves |= &tx.chunk_mask[0..2];
-            } else if !lower_half_used && upper_half_used {
-                // only upper 64 bytes used
-                addr += 64;
-                req_size_bytes = 64;
-                halves |= &tx.chunk_mask[2..4];
-            } else {
-                assert!(lower_half_used && upper_half_used);
-            }
-        } else if segment_size == 64 {
-            // need to set halves
-            if addr % 128 == 0 {
-                halves |= &tx.chunk_mask[0..2];
-            } else {
-                debug_assert_eq!(addr % 128, 64);
-                halves |= &tx.chunk_mask[2..4];
-            }
-        }
-
-        if req_size_bytes == 64 {
-            let lower_half_used = halves[0];
-            let upper_half_used = halves[1];
-            if lower_half_used && !upper_half_used {
-                req_size_bytes = 32;
-            } else if !lower_half_used && upper_half_used {
-                addr += 32;
-                req_size_bytes = 32;
-            } else {
-                assert!(lower_half_used && upper_half_used);
-            }
-        }
-
-        mem_fetch::MemAccess::new(
-            access_kind,
-            addr,
-            None, // we cannot know the allocation start address in this context
-            req_size_bytes,
-            is_write,
-            tx.active_mask,
-            tx.byte_mask,
-            tx.chunk_mask,
-        )
     }
 
     pub fn set_addr(&mut self, thread_id: usize, addr: address) {

@@ -16,8 +16,8 @@ impl<I> ReadOnly<I> {
         cycle: Cycle,
         mem_port: Arc<I>,
         stats: Arc<Mutex<stats::Cache>>,
-        config: Arc<config::GPUConfig>,
-        cache_config: Arc<config::CacheConfig>,
+        config: Arc<config::GPU>,
+        cache_config: Arc<config::Cache>,
     ) -> Self {
         let inner = base::Base::new(
             name,
@@ -38,11 +38,11 @@ where
     I: ic::MemFetchInterface,
 {
     fn cycle(&mut self) {
-        self.inner.cycle()
+        self.inner.cycle();
     }
 }
 
-impl<I> cache::CacheBandwidth for ReadOnly<I>
+impl<I> cache::Bandwidth for ReadOnly<I>
 where
     I: ic::MemFetchInterface,
 {
@@ -124,7 +124,16 @@ where
             // update LRU state
             tag_array::AccessStatus { status, .. } = tag_array.access(block_addr, &fetch, time);
         } else if probe_status != Status::RESERVATION_FAIL {
-            if !self.inner.miss_queue_full() {
+            if self.inner.miss_queue_full() {
+                status = Status::RESERVATION_FAIL;
+                self.inner.stats.lock().unwrap().inc(
+                    *fetch.access_kind(),
+                    cache::AccessStat::ReservationFailure(
+                        cache::ReservationFailure::MISS_QUEUE_FULL,
+                    ),
+                    1,
+                );
+            } else {
                 let (should_miss, _writeback, _evicted) = self.inner.send_read_request(
                     addr,
                     block_addr,
@@ -140,27 +149,15 @@ where
                 } else {
                     status = Status::RESERVATION_FAIL;
                 }
-            } else {
-                status = Status::RESERVATION_FAIL;
-                let mut stats = self.inner.stats.lock().unwrap();
-                stats.inc(
-                    *fetch.access_kind(),
-                    cache::AccessStat::ReservationFailure(
-                        cache::ReservationFailure::MISS_QUEUE_FULL,
-                    ),
-                    1,
-                );
             }
         } else {
-            let mut stats = self.inner.stats.lock().unwrap();
-            stats.inc(
+            self.inner.stats.lock().unwrap().inc(
                 *fetch.access_kind(),
                 cache::AccessStat::ReservationFailure(cache::ReservationFailure::LINE_ALLOC_FAIL),
                 1,
             );
         }
-        let mut stats = self.inner.stats.lock().unwrap();
-        stats.inc(
+        self.inner.stats.lock().unwrap().inc(
             *fetch.access_kind(),
             cache::AccessStat::Status(select_status(probe_status, status)),
             1,
@@ -191,13 +188,12 @@ fn select_status(
 
 #[cfg(test)]
 mod tests {
-    use crate::config::GPUConfig;
+    use crate::config;
 
     #[ignore = "todo"]
     #[test]
     fn test_read_only_cache() {
         // todo: compare accelsim::read_only_cache and readonly
-        let _config = GPUConfig::default().data_cache_l1.unwrap();
-        assert!(false);
+        let _config = config::GPU::default().data_cache_l1.unwrap();
     }
 }

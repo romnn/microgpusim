@@ -13,7 +13,7 @@ struct Options {
 }
 
 fn parse_allocations(path: impl AsRef<Path>) -> eyre::Result<Vec<trace_model::MemAllocation>> {
-    let file = OpenOptions::new().read(true).open(&path.as_ref())?;
+    let file = OpenOptions::new().read(true).open(path.as_ref())?;
     let reader = BufReader::new(file);
     let allocations = serde_json::from_reader(reader)?;
     Ok(allocations)
@@ -38,8 +38,7 @@ fn main() -> eyre::Result<()> {
 
     let mut access_plot = plot::MemoryAccesses::default();
 
-    for allocation in allocations.iter().cloned() {
-        // dbg!(&allocation);
+    for allocation in &allocations {
         access_plot.register_allocation(allocation);
     }
 

@@ -4,9 +4,9 @@ use super::{
     mem_sub_partition, warp, DecodedAddress,
 };
 use bitvec::{array::BitArray, BitArr};
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-
-use std::sync::{Mutex, OnceLock};
+use std::sync::atomic;
 
 pub const READ_PACKET_SIZE: u8 = 8;
 
@@ -329,11 +329,13 @@ impl std::hash::Hash for MemFetch {
     }
 }
 
+static MEM_FETCH_UID: Lazy<atomic::AtomicU64> = Lazy::new(|| atomic::AtomicU64::new(0));
+
 impl MemFetch {
     pub fn new(
         instr: Option<WarpInstruction>,
         access: MemAccess,
-        config: &config::GPUConfig,
+        config: &config::GPU,
         _control_size: u32,
         warp_id: usize,
         core_id: usize,
@@ -349,10 +351,8 @@ impl MemFetch {
         let tlx_addr = config.address_mapping().tlx(access.addr);
         let partition_addr = config.address_mapping().partition_address(access.addr);
 
-        static MEM_FETCH_UID: OnceLock<Mutex<u64>> = OnceLock::new();
-        let mut uid_lock = MEM_FETCH_UID.get_or_init(|| Mutex::new(0)).lock().unwrap();
-        let uid = *uid_lock;
-        *uid_lock += 1;
+        let uid = MEM_FETCH_UID.fetch_add(1, atomic::Ordering::SeqCst);
+
         Self {
             uid,
             access,
@@ -460,11 +460,11 @@ impl MemFetch {
         match self.kind {
             Kind::READ_REQUEST => {
                 debug_assert!(!self.is_write());
-                self.kind = Kind::READ_REPLY
+                self.kind = Kind::READ_REPLY;
             }
             Kind::WRITE_REQUEST => {
                 debug_assert!(self.is_write());
-                self.kind = Kind::WRITE_ACK
+                self.kind = Kind::WRITE_ACK;
             }
             Kind::READ_REPLY | Kind::WRITE_ACK => {
                 // panic!("cannot set reply for fetch of kind {:?}", self.kind);

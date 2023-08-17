@@ -35,13 +35,13 @@ pub struct TagArray<B> {
     num_reservation_fail: usize,
     num_sector_miss: usize,
     pub num_dirty: usize,
-    config: Arc<config::CacheConfig>,
+    config: Arc<config::Cache>,
     pending_lines: LineTable,
 }
 
 impl<B> TagArray<B> {
     #[must_use]
-    pub fn new(config: Arc<config::CacheConfig>) -> Self {
+    pub fn new(config: Arc<config::Cache>) -> Self {
         let num_cache_lines = config.max_num_lines();
         let lines = (0..num_cache_lines)
             .map(|_| cache::block::Line::new())
@@ -466,14 +466,13 @@ impl<B> TagArray<B> {
 #[cfg(test)]
 mod tests {
     use super::TagArray;
-    use crate::config::GPUConfig;
+    use crate::config;
     use std::sync::Arc;
 
     #[ignore = "todo"]
     #[test]
     fn test_tag_array() {
-        let config = GPUConfig::default().data_cache_l1.unwrap();
+        let config = config::GPU::default().data_cache_l1.unwrap();
         let _tag_array: TagArray<usize> = TagArray::new(Arc::clone(&config.inner));
-        assert!(false);
     }
 }
