@@ -2,9 +2,6 @@ use crate::{core, instruction};
 use bitvec::array::BitArray;
 use std::collections::HashMap;
 
-// const unsigned WARP_PER_CTA_MAX = 64;
-// typedef std::bitset<WARP_PER_CTA_MAX> warp_set_t;
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub enum Kind {
     Sync,
@@ -12,6 +9,7 @@ pub enum Kind {
     Reduction,
 }
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Debug)]
 pub struct BarrierSet {
     max_blocks_per_core: usize,
@@ -20,10 +18,8 @@ pub struct BarrierSet {
     warp_size: usize,
     warps_per_block: HashMap<u64, core::WarpMask>,
     bar_id_to_warps: Box<[core::WarpMask]>,
-    // bar_id_to_warps: HashMap<usize, core::WarpMask>,
     active_warps: core::WarpMask,
     warps_at_barrier: core::WarpMask,
-    // shader_core_ctx *m_shader;
 }
 
 impl BarrierSet {
@@ -103,7 +99,7 @@ impl BarrierSet {
         }
     }
 
-    /// Warp exited and can unblock barrier
+    /// Warp exited and can unblock barrier.
     pub fn warp_exited(&mut self, warp_id: usize) {
         // caller needs to verify all threads in warp are done, e.g., by checking PDOM
         // stack to see it has only one entry during exit_impl()
@@ -125,7 +121,7 @@ impl BarrierSet {
         }
     }
 
-    /// individual warp hits barrier
+    /// Warp hit barrier.
     pub fn warp_reached_barrier(&mut self, block_id: u64, instr: &instruction::WarpInstruction) {
         let warps_in_block = self
             .warps_per_block
@@ -133,16 +129,7 @@ impl BarrierSet {
             .copied()
             .expect("block not found in barrier set");
 
-        // if (w == m_cta_to_warps.end()) {  // cta is active
-        //   printf(
-        //       "ERROR ** cta_id %u not found in barrier set on cycle %llu+%llu...\n",
-        //       cta_id, m_shader->get_gpu()->gpu_tot_sim_cycle,
-        //       m_shader->get_gpu()->gpu_sim_cycle);
-        //   dump();
-        //   abort();
-        // }
-        // assert(w->second.test(warp_id) == true);  // warp is in cta
-        assert_eq!(warps_in_block[instr.warp_id], true, "warp is in the block");
+        assert!(warps_in_block[instr.warp_id], "warp is in the block");
 
         let Some(ref bar) = instr.barrier else {
             panic!("bar instruction has no barrier info");
@@ -154,16 +141,9 @@ impl BarrierSet {
             Kind::Sync | Kind::Reduction => {
                 self.warps_at_barrier.set(instr.warp_id, true);
             }
-            _ => {}
+            Kind::Arrive => {}
         }
 
-        // match instr.barrier {
-        //     Some(bar) if matches!(bar.kind, Kind::Sync | Kind::Reduction) => {
-        //         self.warps_at_barrier.set(instr.warp_id, true);
-        //     }
-        //     _ => {}
-        // }
-        // warp_set_t warps_in_cta = w->second;
         let at_barrier = warps_in_block & self.bar_id_to_warps[bar.id];
         let active = warps_in_block & self.active_warps;
         match bar.count {

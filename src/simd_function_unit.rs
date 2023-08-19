@@ -1,6 +1,6 @@
-use super::{instruction::WarpInstruction, register_set, warp};
-use crate::config;
+use crate::{config, instruction::WarpInstruction, register_set, warp};
 use bitvec::{array::BitArray, BitArr};
+use register_set::Access;
 use std::sync::Arc;
 
 pub const MAX_ALU_LATENCY: usize = 512;
@@ -224,6 +224,7 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
 mod tests {
     use crate::testing::diff;
 
+    #[allow(clippy::similar_names)]
     #[test]
     fn test_bitset_shift_right() {
         use crate::mem_fetch::BitString;

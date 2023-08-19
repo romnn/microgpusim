@@ -5,27 +5,36 @@
   - l2 cache is shared in sub partitions, we get different l2 metrics
   - l1i are the same always, as they are local to the core
 
+- easy chores:
+
+  - rename crates and github repo
+  - publish to crates.io
+  - publish python package to pip
+
 - today:
 
+  - use traits for common components
+  - try using native threads and barriers for core simulation
   - record mem fetch latency
   - add a few more stats
   - plot statistics
-  - DONE: lint
-  - DONE: execution driven frontend
-  - DONE: refactor events
-  - DONE: add rop delay queue
 
 - tomorrow:
 
-  - add compute instructions
   - look into the akita model
 
   - look into the DRAM issue
-  - execution driven frontend
   - finally render plots and compare with accelsim and with gpu
   - output all memory accesses for post simulation tools to visualize
 
     - asynchronously push into file (unordered)
+
+  - DONE: lint
+  - DONE: execution driven frontend
+  - DONE: refactor events
+  - DONE: add rop delay queue
+  - DONE: execution driven rust frontend
+  - DONE: add compute instructions
 
   - todos
 

@@ -994,7 +994,7 @@ where
     }
 
     fn occupied(&self) -> &fu::OccupiedSlots {
-        &self.pipelined_simd_unit.occupied()
+        self.pipelined_simd_unit.occupied()
     }
 
     fn issue(&mut self, instr: WarpInstruction) {

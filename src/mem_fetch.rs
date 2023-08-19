@@ -3,7 +3,7 @@ use super::{
     instruction::{MemorySpace, WarpInstruction},
     mem_sub_partition, warp, DecodedAddress,
 };
-use bitvec::{array::BitArray, BitArr};
+use bitvec::{BitArr};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic;

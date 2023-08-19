@@ -10,6 +10,7 @@ use console::style;
 use fu::SimdFunctionUnit;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
+use register_set::Access;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{atomic, Arc, Mutex, RwLock};
 use strum::IntoEnumIterator;
@@ -177,9 +178,7 @@ pub trait WarpIssuer {
     fn issue_warp(
         &self,
         stage: PipelineStage,
-        // warp_id: usize,
         warp: &mut warp::Warp,
-        // next_inst: WarpInstruction,
         sch_id: usize,
     ) -> eyre::Result<()>;
 
@@ -190,7 +189,6 @@ pub trait WarpIssuer {
 
     #[must_use]
     fn warp_waiting_at_mem_barrier(&self, warp_id: &mut warp::Warp) -> bool;
-    // fn warp_waiting_at_mem_barrier(&self, warp_id: usize) -> bool;
 }
 
 impl<I> WarpIssuer for Core<I>
@@ -202,7 +200,8 @@ where
         let pipeline_stage = self.pipeline_reg[stage as usize].try_lock().unwrap();
 
         if self.config.sub_core_model {
-            pipeline_stage.has_free_sub_core(register_id)
+            // pipeline_stage.has_free_sub_core(register_id)
+            unimplemented!("sub core model")
         } else {
             pipeline_stage.has_free()
         }
@@ -211,23 +210,18 @@ where
     fn issue_warp(
         &self,
         stage: PipelineStage,
-        // warp_id: usize,
         warp: &mut warp::Warp,
-        // mut next_instr: WarpInstruction,
         scheduler_id: usize,
     ) -> eyre::Result<()> {
-        // let mut warp = self.warps[warp_id].lock().unwrap();
-
         let mut pipeline_stage = self.pipeline_reg[stage as usize].try_lock().unwrap();
         // let (reg_idx, pipe_reg) = if self.config.sub_core_model {
         let free = if self.config.sub_core_model {
-            pipeline_stage.get_free_sub_core_mut(scheduler_id);
+            // pipeline_stage.get_free_sub_core_mut(scheduler_id);
             todo!("sub core model");
         } else {
             pipeline_stage.get_free_mut()
         };
         let (reg_idx, pipe_reg) = free.ok_or(eyre::eyre!("no free register"))?;
-        // drop(&pipeline_stage);
 
         let mut next_instr = warp.ibuffer_take().unwrap();
         warp.ibuffer_step();
@@ -398,9 +392,7 @@ where
     }
 
     #[must_use]
-    // fn warp_waiting_at_mem_barrier(&self, warp_id: usize) -> bool {
     fn warp_waiting_at_mem_barrier(&self, warp: &mut warp::Warp) -> bool {
-        // let mut warp = self.warps[warp_id].lock().unwrap();
         if !warp.waiting_for_memory_barrier {
             return false;
         }
@@ -411,9 +403,10 @@ where
             .pending_writes(warp.warp_id)
             .is_empty();
 
-        if !has_pending_writes {
+        if has_pending_writes {
+            true
+        } else {
             warp.waiting_for_memory_barrier = false;
-            drop(warp);
             if self.config.flush_l1_cache {
                 // Mahmoud fixed this on Nov 2019
                 // Invalidate L1 cache
@@ -425,8 +418,6 @@ where
                 // TO DO: you need to stall the SM for 5k cycles.
             }
             false
-        } else {
-            true
         }
     }
 }
@@ -780,9 +771,8 @@ where
     fn init_operand_collector(
         operand_collector: &mut opcoll::RegisterFileUnit,
         config: &config::GPU,
-        pipeline_reg: &Vec<register_set::Ref>,
+        pipeline_reg: &[register_set::Ref],
     ) {
-        // let mut operand_collector = operand_collector.try_lock().unwrap();
         operand_collector.add_cu_set(
             opcoll::Kind::GEN_CUS,
             config.operand_collector_num_units_gen,
@@ -1612,12 +1602,11 @@ where
                 issue_inst
             );
 
-            let mut debug_reg_id = None;
             let partition_issue = self.config.sub_core_model && fu.is_issue_partitioned();
             let ready_reg: Option<&mut Option<WarpInstruction>> = if partition_issue {
-                let reg_id = fu.issue_reg_id();
-                debug_reg_id = Some(reg_id);
-                issue_inst.get_ready_sub_core_mut(reg_id)
+                // let reg_id = fu.issue_reg_id();
+                // issue_inst.get_ready_sub_core_mut(reg_id)
+                unimplemented!("sub core model")
             } else {
                 issue_inst.get_ready_mut().map(|(_, r)| r)
             };
@@ -1650,7 +1639,7 @@ where
                         .find(|bus| !bus[instr.latency]);
 
                     log::debug!(
-                        "{} {} (partition issue={}, schedule wb now={}, resbus={}, latency={:?}, reg id={:?}) ready for issue to fu[{:03}]={}",
+                        "{} {} (partition issue={}, schedule wb now={}, resbus={}, latency={:?}) ready for issue to fu[{:03}]={}",
                         style(format!(
                             "cycle {:03} core {:?}: execute:",
                             self.cycle.get(),
@@ -1662,7 +1651,6 @@ where
                         schedule_wb_now,
                         result_bus.is_some(),
                         ready_reg.as_ref().map(|reg| reg.latency),
-                        debug_reg_id,
                         fu_id,
                         fu,
                     );

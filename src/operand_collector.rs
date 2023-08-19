@@ -1,6 +1,7 @@
 use super::{config, instruction::WarpInstruction, mem_fetch::BitString, register_set};
 use bitvec::{array::BitArray, BitArr};
 use console::style;
+use register_set::Access;
 
 use std::collections::{HashMap, VecDeque};
 
@@ -137,7 +138,8 @@ impl CollectorUnit {
         };
         let output_register = output_register.try_lock().unwrap();
         let has_free_register = if self.sub_core_model {
-            output_register.has_free_sub_core(self.reg_id)
+            // output_register.has_free_sub_core(self.reg_id)
+            unimplemented!("sub core model")
         } else {
             output_register.has_free()
         };
@@ -172,8 +174,8 @@ impl CollectorUnit {
             //     warp_instr.as_ref().map(ToString::to_string),
             //     self.reg_id,
             // );
-
-            output_register.move_in_from_sub_core(self.reg_id, warp_instr);
+            // output_register.move_in_from_sub_core(self.reg_id, warp_instr);
+            unimplemented!("sub core model")
         } else {
             // let msg = format!(
             //     "operand collector: move warp instr {:?} to output register",
@@ -832,22 +834,23 @@ impl RegisterFileUnit {
                 for cu_set_id in &port.collector_unit_ids {
                     let cu_set: &Vec<_> = &self.collector_unit_sets[cu_set_id];
                     let mut allocated = false;
-                    let mut cu_lower_bound = 0;
-                    let mut cu_upper_bound = cu_set.len();
+                    let cu_lower_bound = 0;
+                    let cu_upper_bound = cu_set.len();
 
                     if self.sub_core_model {
                         // sub core model only allocates on the subset of CUs assigned
                         // to the scheduler that issued
-                        let (reg_id, _) = input_port.try_lock().unwrap().get_ready().unwrap();
-                        debug_assert!(
-                            cu_set.len() % self.num_warp_schedulers == 0
-                                && cu_set.len() >= self.num_warp_schedulers
-                        );
-                        let cus_per_sched = cu_set.len() / self.num_warp_schedulers;
-                        let schd_id = input_port.try_lock().unwrap().scheduler_id(reg_id).unwrap();
-                        cu_lower_bound = schd_id * cus_per_sched;
-                        cu_upper_bound = cu_lower_bound + cus_per_sched;
-                        debug_assert!(cu_upper_bound <= cu_set.len());
+                        // let (reg_id, _) = input_port.try_lock().unwrap().get_ready().unwrap();
+                        // debug_assert!(
+                        //     cu_set.len() % self.num_warp_schedulers == 0
+                        //         && cu_set.len() >= self.num_warp_schedulers
+                        // );
+                        // let cus_per_sched = cu_set.len() / self.num_warp_schedulers;
+                        // let schd_id = input_port.try_lock().unwrap().scheduler_id(reg_id).unwrap();
+                        // cu_lower_bound = schd_id * cus_per_sched;
+                        // cu_upper_bound = cu_lower_bound + cus_per_sched;
+                        // debug_assert!(cu_upper_bound <= cu_set.len());
+                        unimplemented!("sub core model")
                     }
 
                     for collector_unit in &cu_set[cu_lower_bound..cu_upper_bound] {

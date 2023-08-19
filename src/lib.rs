@@ -101,7 +101,7 @@ impl TotalDuration {
 
     #[must_use]
     pub fn mean(&self) -> std::time::Duration {
-        let nanos = u64::try_from(self.dur.as_nanos() / self.count as u128).unwrap();
+        let nanos = u64::try_from(self.dur.as_nanos() / self.count).unwrap();
         std::time::Duration::from_nanos(nanos)
     }
 }

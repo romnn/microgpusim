@@ -151,12 +151,12 @@ impl OpcodeLatencies {
 fn parse_latencies(config: &str) -> Result<OpcodeLatencies, std::num::ParseIntError> {
     use itertools::Itertools;
     let latencies: Vec<u64> = config
-        .split(",")
+        .split(',')
         .map(str::trim)
         .map(str::parse)
         .try_collect()?;
     Ok(OpcodeLatencies {
-        add_sub: latencies.get(0).copied(),
+        add_sub: latencies.first().copied(),
         max_min: latencies.get(1).copied(),
         mul: latencies.get(2).copied(),
         mad: latencies.get(3).copied(),

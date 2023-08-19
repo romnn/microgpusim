@@ -62,7 +62,7 @@ impl fu::SimdFunctionUnit for DPUnit {
     }
 
     fn occupied(&self) -> &fu::OccupiedSlots {
-        &self.pipelined_simd_unit.occupied()
+        self.pipelined_simd_unit.occupied()
     }
 
     fn id(&self) -> &str {

@@ -39,21 +39,30 @@ pub struct MemAccessTrace(pub Vec<MemAccessTraceEntry>);
 
 impl MemAccessTrace {
     #[must_use]
+    #[inline]
     pub fn is_valid(&self) -> bool {
         is_valid_trace(&self.0)
     }
 
     #[must_use]
+    #[inline]
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
     #[must_use]
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    #[inline]
     pub fn iter(&self) -> std::slice::Iter<MemAccessTraceEntry> {
         self.0.iter()
     }
 
     #[must_use]
+    #[inline]
     pub fn to_warp_traces(self) -> HashMap<(Dim, u32), Vec<MemAccessTraceEntry>> {
         let mut warp_traces: HashMap<(Dim, u32), Vec<MemAccessTraceEntry>> = HashMap::new();
         for entry in self.0 {

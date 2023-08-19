@@ -190,8 +190,8 @@ impl Base {
 
             while !(warp.waiting()
                 || core.warp_waiting_at_barrier(warp_id)
-                || core.warp_waiting_at_mem_barrier(&mut warp))
-                && !warp.ibuffer_empty()
+                || core.warp_waiting_at_mem_barrier(&mut warp)
+                || warp.ibuffer_empty())
                 && checked < max_issue
                 && checked <= num_issued
                 && num_issued < max_issue

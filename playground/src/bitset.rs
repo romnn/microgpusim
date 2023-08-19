@@ -11,18 +11,18 @@ impl Default for Bitset {
 
 impl std::fmt::Debug for Bitset {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.to_string())
+        write!(f, "{self}")
     }
 }
 
 impl std::fmt::Display for Bitset {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0.to_string().to_string())
+        write!(f, "{}", self.0.to_string())
     }
 }
 
 impl Bitset {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self::default()
     }
 

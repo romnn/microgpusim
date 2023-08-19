@@ -1,4 +1,4 @@
-use super::{ArchOp, Op, Opcode, OpcodeMap};
+use super::{Op};
 
 pub mod op {
     /// Unique trace instruction opcodes for turing.

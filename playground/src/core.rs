@@ -35,7 +35,7 @@ impl<'a> Core<'a> {
         self.0
             .get_functional_unit_occupied_slots()
             .iter()
-            .map(|occupied| occupied.to_string())
+            .map(std::string::ToString::to_string)
             .collect()
     }
 
