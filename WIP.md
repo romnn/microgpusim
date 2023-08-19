@@ -9,14 +9,16 @@
 
   - record mem fetch latency
   - add a few more stats
-  - lint
+  - plot statistics
+  - DONE: lint
   - DONE: execution driven frontend
   - DONE: refactor events
   - DONE: add rop delay queue
 
 - tomorrow:
 
-  -
+  - add compute instructions
+  - look into the akita model
 
   - look into the DRAM issue
   - execution driven frontend

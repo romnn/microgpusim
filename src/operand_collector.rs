@@ -202,7 +202,6 @@ impl CollectorUnit {
 
         self.free = false;
         self.output_register = Some(Arc::clone(output_reg_set));
-        // self.output_register = Some(Rc::clone(output_reg_set));
         let mut input_reg_set = input_reg_set.try_lock().unwrap();
 
         if let Some((_, Some(ready_reg))) = input_reg_set.get_ready() {
@@ -393,12 +392,15 @@ impl Arbiter {
             .collect()
     }
 
+    /// Allocate reads
+    ///
+    /// a list of registers that
+    ///  (a) are in different register banks,
+    ///  (b) do not go to the same operand collector
+    ///
+    /// The outcomes of this depend on the queue
     pub fn allocate_reads(&mut self) -> &Vec<Operand> {
-        // a list of registers that
-        //  (a) are in different register banks,
-        //  (b) do not go to the same operand collector
-
-        log::trace!("queue: {:?}", &self.queue);
+        // log::trace!("queue: {:?}", &self.queue);
 
         let num_inputs = self.num_banks;
         let num_outputs = self.num_collectors;
@@ -407,10 +409,11 @@ impl Arbiter {
         } else {
             num_outputs
         };
-        // debug_assert!(_square > 0);
+        debug_assert!(square > 0);
+
         let last_cu_before = self.last_cu;
         let mut pri = self.last_cu;
-        log::debug!("last cu: {}", self.last_cu);
+        // log::debug!("last cu: {}", self.last_cu);
 
         // clear matching
         let result = &mut self.result;
@@ -454,10 +457,10 @@ impl Arbiter {
             if self.allocated_banks[bank].is_write() {
                 inmatch[bank] = Some(0); // write gets priority
             }
-            log::trace!("request: {:?}", &Self::compat(&request[bank]));
+            // log::trace!("request: {:?}", &Self::compat(&request[bank]));
         }
 
-        log::trace!("inmatch: {:?}", &Self::compat(inmatch));
+        // log::trace!("inmatch: {:?}", &Self::compat(inmatch));
 
         // wavefront allocator from booksim
         // loop through diagonals of request matrix
@@ -744,7 +747,7 @@ impl RegisterFileUnit {
 
         debug_assert!(!self.in_ports.is_empty());
         for port_num in 0..self.in_ports.len() {
-            self.allocate_cu(port_num);
+            crate::timeit!(self.allocate_cu(port_num));
         }
         crate::timeit!(self.process_banks());
     }

@@ -346,6 +346,12 @@ pub struct GPU {
     pub shared_memory_latency: usize,
     /// SP unit max latency
     pub max_sp_latency: usize,
+    /// Int unit max latency
+    pub max_int_latency: usize,
+    /// SFU unit max latency
+    pub max_sfu_latency: usize,
+    /// DP unit max latency
+    pub max_dp_latency: usize,
     /// implements -Xptxas -dlcm=cg, default=no skip
     pub global_mem_skip_l1_data_cache: bool,
     /// enable perfect memory mode (no cache miss)
@@ -361,7 +367,7 @@ pub struct GPU {
     /// Maximum number of concurrent CTAs in shader (default 32)
     pub max_concurrent_blocks_per_core: usize, // 32
     /// Maximum number of named barriers per CTA (default 16)
-    pub num_cta_barriers: usize, // 16
+    pub max_barriers_per_block: usize, // 16
     /// number of processing clusters
     pub num_simt_clusters: usize, //  20
     /// number of simd cores per cluster
@@ -459,7 +465,7 @@ pub struct GPU {
     /// Max number of instructions that can be issued per warp in one cycle by scheduler (either 1 or 2)
     pub max_instruction_issue_per_warp: usize, // 2
     /// should dual issue use two different execution unit resources
-    pub dual_issue_diff_exec_units: bool, // 1
+    pub dual_issue_only_to_different_exec_units: bool, // 1
     /// Select the simulation order of cores in a cluster
     pub simt_core_sim_order: SchedulingOrder, // 1
     // Pipeline widths
@@ -469,7 +475,7 @@ pub struct GPU {
     //
     pub pipeline_widths: HashMap<PipelineStage, usize>, // 4,0,0,1,1,4,0,0,1,1,6
     /// Number of SP units
-    pub num_sp_units: usize, // 4
+    pub num_sp_units: usize, //
     /// Number of DP units
     pub num_dp_units: usize, // 0
     /// Number of INT units
@@ -755,7 +761,7 @@ impl GPU {
 
         match arch_op_category {
             ArchOp::ALU_OP
-            | ArchOp::INTP_OP
+            | ArchOp::INT_OP
             | ArchOp::BRANCH_OP
             | ArchOp::CALL_OPS
             | ArchOp::RET_OPS => {
@@ -1068,14 +1074,18 @@ impl Default for GPU {
             // l1_banks_hashing_function: 0,
             // l1_latency: 1,
             shared_memory_latency: 3,
-            max_sp_latency: 13, // make this better, or just parse accelsim configs...
+            // TODO: make this better, or just parse accelsim configs
+            max_sp_latency: 13,
+            max_int_latency: 4,
+            max_dp_latency: 19,
+            max_sfu_latency: 8.max(330),
             global_mem_skip_l1_data_cache: true,
             perfect_mem: false,
             shader_registers: 65536,
             registers_per_block: 8192,
             ignore_resources_limitation: false,
             max_concurrent_blocks_per_core: 32,
-            num_cta_barriers: 16,
+            max_barriers_per_block: 16,
             num_simt_clusters: 20,
             num_cores_per_simt_cluster: 1,
             num_cluster_ejection_buffer_size: 8,
@@ -1123,7 +1133,7 @@ impl Default for GPU {
             coalescing_arch: Architecture::GT200,
             num_schedulers_per_core: 2,
             max_instruction_issue_per_warp: 2,
-            dual_issue_diff_exec_units: true,
+            dual_issue_only_to_different_exec_units: true,
             simt_core_sim_order: SchedulingOrder::RoundRobin,
             pipeline_widths: HashMap::from_iter([
                 (PipelineStage::ID_OC_SP, 4),

@@ -3,14 +3,14 @@ use console::style;
 
 use std::collections::VecDeque;
 
-use std::sync::{atomic, Arc, Mutex};
+use std::sync::{atomic, Arc, Mutex, RwLock};
 
 #[derive(Debug)]
 pub struct Cluster<I> {
     pub cluster_id: usize,
     pub cycle: super::Cycle,
     pub warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
-    pub cores: Vec<Mutex<Core<I>>>,
+    pub cores: Vec<RwLock<Core<I>>>,
     pub config: Arc<config::GPU>,
     pub stats: Arc<Mutex<stats::Stats>>,
 
@@ -52,7 +52,7 @@ where
             .map(|core_id| {
                 cluster.core_sim_order.push_back(core_id);
                 let id = config.global_core_id(cluster_id, core_id);
-                Mutex::new(Core::new(
+                RwLock::new(Core::new(
                     id,
                     cluster_id,
                     Arc::clone(allocations),
@@ -71,7 +71,7 @@ where
 
     fn reinit(&mut self) {
         for core in &self.cores {
-            core.lock()
+            core.write()
                 .unwrap()
                 .reinit(0, self.config.max_threads_per_core, true);
         }
@@ -80,40 +80,16 @@ where
     pub fn num_active_sms(&self) -> usize {
         self.cores
             .iter()
-            .filter(|core| core.lock().unwrap().active())
+            .filter(|core| core.read().unwrap().active())
             .count()
     }
 
     pub fn not_completed(&self) -> usize {
         self.cores
             .iter()
-            .map(|core| core.lock().unwrap().not_completed())
+            .map(|core| core.read().unwrap().not_completed())
             .sum()
     }
-
-    // pub fn warp_waiting_at_barrier(&self, _warp_id: usize) -> bool {
-    //     todo!("cluster: warp_waiting_at_barrier");
-    //     // self.barriers.warp_waiting_at_barrier(warp_id)
-    // }
-    //
-    // pub fn warp_waiting_at_mem_barrier(&self, _warp_id: usize) -> bool {
-    //     todo!("cluster: warp_waiting_at_mem_barrier");
-    //     // if (!m_warp[warp_id]->get_membar()) return false;
-    //     // if (!m_scoreboard->pendingWrites(warp_id)) {
-    //     //   m_warp[warp_id]->clear_membar();
-    //     //   if (m_gpu->get_config().flush_l1()) {
-    //     //     // Mahmoud fixed this on Nov 2019
-    //     //     // Invalidate L1 cache
-    //     //     // Based on Nvidia Doc, at MEM barrier, we have to
-    //     //     //(1) wait for all pending writes till they are acked
-    //     //     //(2) invalidate L1 cache to ensure coherence and avoid reading stall data
-    //     //     cache_invalidate();
-    //     //     // TO DO: you need to stall the SM for 5k cycles.
-    //     //   }
-    //     //   return false;
-    //     // }
-    //     // return true;
-    // }
 
     pub fn interconn_cycle(&mut self) {
         use mem_fetch::AccessKind;
@@ -135,7 +111,7 @@ where
         if let Some(fetch) = self.response_fifo.front() {
             let core_id = self.config.global_core_id_to_core_id(fetch.core_id);
 
-            let mut core = self.cores[core_id].lock().unwrap();
+            let mut core = self.cores[core_id].write().unwrap();
 
             match *fetch.access_kind() {
                 AccessKind::INST_ACC_R => {
@@ -208,13 +184,13 @@ where
 
     pub fn cache_flush(&mut self) {
         for core in &self.cores {
-            core.lock().unwrap().cache_flush();
+            core.write().unwrap().cache_flush();
         }
     }
 
     pub fn cache_invalidate(&mut self) {
         for core in &self.cores {
-            core.lock().unwrap().cache_invalidate();
+            core.write().unwrap().cache_invalidate();
         }
     }
 
@@ -244,7 +220,7 @@ where
         for core_id in 0..num_cores {
             let core_id = (core_id + *block_issue_next_core + 1) % num_cores;
             // let core = &mut cores[core_id];
-            let mut core = self.cores[core_id].lock().unwrap();
+            let mut core = self.cores[core_id].write().unwrap();
             let kernel: Option<Arc<Kernel>> = if self.config.concurrent_kernel_sm {
                 // always select latest issued kernel
                 // kernel = sim.select_kernel()

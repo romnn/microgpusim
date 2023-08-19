@@ -1,7 +1,8 @@
 use super::{
-    address, allocation::Allocation, cache, config, instruction::WarpInstruction, interconn as ic,
-    kernel::Kernel, mem_fetch, mem_fetch::BitString, opcodes, operand_collector as opcoll,
-    register_set, scheduler, scoreboard, simd_function_unit as fu, warp, LoadStoreUnit,
+    address, allocation::Allocation, barrier, cache, config, instruction::WarpInstruction,
+    interconn as ic, kernel::Kernel, mem_fetch, mem_fetch::BitString, opcodes,
+    operand_collector as opcoll, register_set, scheduler, scoreboard, simd_function_unit as fu,
+    warp, LoadStoreUnit,
 };
 use bitvec::{array::BitArray, BitArr};
 use color_eyre::eyre;
@@ -176,12 +177,20 @@ pub trait WarpIssuer {
     fn issue_warp(
         &self,
         stage: PipelineStage,
+        // warp_id: usize,
         warp: &mut warp::Warp,
-        next_inst: WarpInstruction,
+        // next_inst: WarpInstruction,
         sch_id: usize,
     ) -> eyre::Result<()>;
 
     fn has_free_register(&self, stage: PipelineStage, register_id: usize) -> bool;
+
+    #[must_use]
+    fn warp_waiting_at_barrier(&self, warp_id: usize) -> bool;
+
+    #[must_use]
+    fn warp_waiting_at_mem_barrier(&self, warp_id: &mut warp::Warp) -> bool;
+    // fn warp_waiting_at_mem_barrier(&self, warp_id: usize) -> bool;
 }
 
 impl<I> WarpIssuer for Core<I>
@@ -190,7 +199,7 @@ where
 {
     fn has_free_register(&self, stage: PipelineStage, register_id: usize) -> bool {
         // locking here blocks when we run schedulers in parallel
-        let pipeline_stage = self.pipeline_reg[stage as usize].lock().unwrap();
+        let pipeline_stage = self.pipeline_reg[stage as usize].try_lock().unwrap();
 
         if self.config.sub_core_model {
             pipeline_stage.has_free_sub_core(register_id)
@@ -202,12 +211,14 @@ where
     fn issue_warp(
         &self,
         stage: PipelineStage,
+        // warp_id: usize,
         warp: &mut warp::Warp,
-        mut next_instr: WarpInstruction,
+        // mut next_instr: WarpInstruction,
         scheduler_id: usize,
     ) -> eyre::Result<()> {
-        // let mut pipeline_stage = self.pipeline_reg[stage as usize].try_lock().unwrap();
-        let mut pipeline_stage = self.pipeline_reg[stage as usize].lock().unwrap();
+        // let mut warp = self.warps[warp_id].lock().unwrap();
+
+        let mut pipeline_stage = self.pipeline_reg[stage as usize].try_lock().unwrap();
         // let (reg_idx, pipe_reg) = if self.config.sub_core_model {
         let free = if self.config.sub_core_model {
             pipeline_stage.get_free_sub_core_mut(scheduler_id);
@@ -217,6 +228,9 @@ where
         };
         let (reg_idx, pipe_reg) = free.ok_or(eyre::eyre!("no free register"))?;
         // drop(&pipeline_stage);
+
+        let mut next_instr = warp.ibuffer_take().unwrap();
+        warp.ibuffer_step();
 
         log::debug!(
             "{} by scheduler {} to pipeline[{:?}][{}] {:?}",
@@ -336,6 +350,20 @@ where
 
         if warp.done() && warp.functional_done() {
             warp.ibuffer_flush();
+            self.barriers
+                .write()
+                .unwrap()
+                .warp_exited(pipe_reg_ref.warp_id);
+        }
+
+        if pipe_reg_ref.opcode.category == opcodes::ArchOp::BARRIER_OP {
+            //   m_warp[warp_id]->store_info_of_last_inst_at_barrier(*pipe_reg);
+            self.barriers
+                .write()
+                .unwrap()
+                .warp_reached_barrier(warp.block_id, &pipe_reg_ref);
+        } else if pipe_reg_ref.opcode.category == opcodes::ArchOp::MEMORY_BARRIER_OP {
+            warp.waiting_for_memory_barrier = true;
         }
 
         log::debug!(
@@ -362,6 +390,44 @@ where
             pipeline_stage
         );
         Ok(())
+    }
+
+    #[must_use]
+    fn warp_waiting_at_barrier(&self, warp_id: usize) -> bool {
+        self.barriers.read().unwrap().is_waiting_at_barrier(warp_id)
+    }
+
+    #[must_use]
+    // fn warp_waiting_at_mem_barrier(&self, warp_id: usize) -> bool {
+    fn warp_waiting_at_mem_barrier(&self, warp: &mut warp::Warp) -> bool {
+        // let mut warp = self.warps[warp_id].lock().unwrap();
+        if !warp.waiting_for_memory_barrier {
+            return false;
+        }
+        let has_pending_writes = !self
+            .scoreboard
+            .read()
+            .unwrap()
+            .pending_writes(warp.warp_id)
+            .is_empty();
+
+        if !has_pending_writes {
+            warp.waiting_for_memory_barrier = false;
+            drop(warp);
+            if self.config.flush_l1_cache {
+                // Mahmoud fixed this on Nov 2019
+                // Invalidate L1 cache
+                // Based on Nvidia Doc, at MEM barrier, we have to
+                //(1) wait for all pending writes till they are acked
+                //(2) invalidate L1 cache to ensure coherence and avoid reading stall data
+                todo!("cache invalidate");
+                // self.cache_invalidate();
+                // TO DO: you need to stall the SM for 5k cycles.
+            }
+            false
+        } else {
+            true
+        }
     }
 }
 
@@ -416,12 +482,13 @@ pub struct Core<I> {
     pub warps: Vec<warp::Ref>,
     pub thread_state: Vec<Option<ThreadState>>,
     pub scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
+    pub barriers: RwLock<barrier::BarrierSet>,
     pub operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
     pub pipeline_reg: Vec<register_set::Ref>,
     pub result_busses: Vec<ResultBus>,
     pub interconn_queue: VecDeque<(usize, mem_fetch::MemFetch, u32)>,
     pub issue_ports: Vec<PipelineStage>,
-    pub dispatch_ports: Vec<PipelineStage>,
+    // pub dispatch_ports: Vec<PipelineStage>,
     pub functional_units: Vec<Arc<Mutex<dyn SimdFunctionUnit>>>,
     pub schedulers: Vec<Arc<Mutex<dyn scheduler::Scheduler>>>,
     pub scheduler_issue_priority: usize,
@@ -592,7 +659,7 @@ where
 
         // single precision units
         for u in 0..config.num_sp_units {
-            functional_units.push(Arc::new(Mutex::new(super::SPUnit::new(
+            functional_units.push(Arc::new(Mutex::new(super::sp_unit::SPUnit::new(
                 u, // id
                 Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
@@ -604,8 +671,50 @@ where
             issue_ports.push(PipelineStage::OC_EX_SP);
         }
 
+        // double precision units
+        for u in 0..config.num_dp_units {
+            functional_units.push(Arc::new(Mutex::new(super::dp_unit::DPUnit::new(
+                u, // id
+                Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
+                Arc::clone(&config),
+                &stats,
+                cycle.clone(),
+                u, // issue reg id
+            ))));
+            dispatch_ports.push(PipelineStage::ID_OC_DP);
+            issue_ports.push(PipelineStage::OC_EX_DP);
+        }
+
+        // integer units
+        for u in 0..config.num_int_units {
+            functional_units.push(Arc::new(Mutex::new(super::int_unit::IntUnit::new(
+                u, // id
+                Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
+                Arc::clone(&config),
+                &stats,
+                cycle.clone(),
+                u, // issue reg id
+            ))));
+            dispatch_ports.push(PipelineStage::ID_OC_INT);
+            issue_ports.push(PipelineStage::OC_EX_INT);
+        }
+
+        // special function units
+        for u in 0..config.num_sfu_units {
+            functional_units.push(Arc::new(Mutex::new(super::sfu::SFU::new(
+                u, // id
+                Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
+                Arc::clone(&config),
+                &stats,
+                cycle.clone(),
+                u, // issue reg id
+            ))));
+            dispatch_ports.push(PipelineStage::ID_OC_SFU);
+            issue_ports.push(PipelineStage::OC_EX_SFU);
+        }
+
         // load store unit
-        functional_units.push(load_store_unit.clone()); // Arc::clone needs type hints
+        functional_units.push(load_store_unit.clone());
         dispatch_ports.push(PipelineStage::OC_EX_MEM);
         issue_ports.push(PipelineStage::OC_EX_MEM);
 
@@ -613,97 +722,18 @@ where
         debug_assert_eq!(functional_units.len(), dispatch_ports.len());
 
         // configure generic collectors
-        {
-            let mut operand_collector = operand_collector.lock().unwrap();
-            operand_collector.add_cu_set(
-                opcoll::Kind::GEN_CUS,
-                config.operand_collector_num_units_gen,
-                config.operand_collector_num_out_ports_gen,
-            );
+        Self::init_operand_collector(
+            &mut operand_collector.lock().unwrap(),
+            &config,
+            &pipeline_reg,
+        );
 
-            for _i in 0..config.operand_collector_num_in_ports_gen {
-                let mut in_ports = opcoll::PortVec::new();
-                let mut out_ports = opcoll::PortVec::new();
-                let mut cu_sets: Vec<opcoll::Kind> = Vec::new();
-
-                in_ports.push(pipeline_reg[PipelineStage::ID_OC_SP as usize].clone());
-                // in_ports.push_back(&m_pipeline_reg[ID_OC_SFU]);
-                // in_ports.push(&self.pipeline_reg[ID_OC_MEM]);
-                out_ports.push(pipeline_reg[PipelineStage::OC_EX_SP as usize].clone());
-                // out_ports.push_back(&m_pipeline_reg[OC_EX_SFU]);
-                // out_ports.push(&self.pipeline_reg[OC_EX_MEM]);
-                // if (m_config->gpgpu_tensor_core_avail) {
-                //   in_ports.push_back(&m_pipeline_reg[ID_OC_TENSOR_CORE]);
-                //   out_ports.push_back(&m_pipeline_reg[OC_EX_TENSOR_CORE]);
-                // }
-                // if (m_config->gpgpu_num_dp_units > 0) {
-                //   in_ports.push_back(&m_pipeline_reg[ID_OC_DP]);
-                //   out_ports.push_back(&m_pipeline_reg[OC_EX_DP]);
-                // }
-                // if (m_config->gpgpu_num_int_units > 0) {
-                //   in_ports.push_back(&m_pipeline_reg[ID_OC_INT]);
-                //   out_ports.push_back(&m_pipeline_reg[OC_EX_INT]);
-                // }
-                // if (m_config->m_specialized_unit.size() > 0) {
-                //   for (unsigned j = 0; j < m_config->m_specialized_unit.size(); ++j) {
-                //     in_ports.push_back(
-                //         &m_pipeline_reg[m_config->m_specialized_unit[j].ID_OC_SPEC_ID]);
-                //     out_ports.push_back(
-                //         &m_pipeline_reg[m_config->m_specialized_unit[j].OC_EX_SPEC_ID]);
-                //   }
-                // }
-                // cu_sets.push_back((unsigned)GEN_CUS);
-                // m_operand_collector.add_port(in_ports, out_ports, cu_sets);
-                // in_ports.clear(), out_ports.clear(), cu_sets.clear();
-                cu_sets.push(opcoll::Kind::GEN_CUS);
-                operand_collector.add_port(in_ports, out_ports, cu_sets);
-                // in_ports.clear();
-                // out_ports.clear();
-                // cu_sets.clear();
-            }
-
-            // let enable_specialized_operand_collector = true;
-            if config.enable_specialized_operand_collector {
-                // only added two
-                operand_collector.add_cu_set(
-                    opcoll::Kind::SP_CUS,
-                    config.operand_collector_num_units_sp,
-                    config.operand_collector_num_out_ports_sp,
-                );
-                operand_collector.add_cu_set(
-                    opcoll::Kind::MEM_CUS,
-                    config.operand_collector_num_units_mem,
-                    config.operand_collector_num_out_ports_mem,
-                );
-
-                for _i in 0..config.operand_collector_num_in_ports_sp {
-                    let mut in_ports = opcoll::PortVec::new();
-                    let mut out_ports = opcoll::PortVec::new();
-                    let mut cu_sets: Vec<opcoll::Kind> = Vec::new();
-
-                    in_ports.push(pipeline_reg[PipelineStage::ID_OC_SP as usize].clone());
-                    out_ports.push(pipeline_reg[PipelineStage::OC_EX_SP as usize].clone());
-                    cu_sets.push(opcoll::Kind::SP_CUS);
-                    cu_sets.push(opcoll::Kind::GEN_CUS);
-                    operand_collector.add_port(in_ports, out_ports, cu_sets);
-                }
-
-                for _i in 0..config.operand_collector_num_in_ports_mem {
-                    let mut in_ports = opcoll::PortVec::new();
-                    let mut out_ports = opcoll::PortVec::new();
-                    let mut cu_sets: Vec<opcoll::Kind> = Vec::new();
-
-                    in_ports.push(pipeline_reg[PipelineStage::ID_OC_MEM as usize].clone());
-                    out_ports.push(pipeline_reg[PipelineStage::OC_EX_MEM as usize].clone());
-                    cu_sets.push(opcoll::Kind::MEM_CUS);
-                    cu_sets.push(opcoll::Kind::GEN_CUS);
-                    operand_collector.add_port(in_ports, out_ports, cu_sets);
-                }
-            }
-
-            // this must be called after we add the collector unit sets!
-            operand_collector.init(config.num_reg_banks);
-        }
+        let barriers = RwLock::new(barrier::BarrierSet::new(
+            config.max_warps_per_core(),
+            config.max_concurrent_blocks_per_core,
+            config.max_barriers_per_block,
+            config.warp_size,
+        ));
 
         Self {
             core_id,
@@ -736,14 +766,169 @@ where
             result_busses,
             interconn_queue: VecDeque::new(),
             scoreboard,
+            barriers,
             operand_collector,
             thread_state,
             schedulers,
             scheduler_issue_priority: 0,
             functional_units,
             issue_ports,
-            dispatch_ports,
+            // dispatch_ports,
         }
+    }
+
+    fn init_operand_collector(
+        operand_collector: &mut opcoll::RegisterFileUnit,
+        config: &config::GPU,
+        pipeline_reg: &Vec<register_set::Ref>,
+    ) {
+        // let mut operand_collector = operand_collector.try_lock().unwrap();
+        operand_collector.add_cu_set(
+            opcoll::Kind::GEN_CUS,
+            config.operand_collector_num_units_gen,
+            config.operand_collector_num_out_ports_gen,
+        );
+
+        for _i in 0..config.operand_collector_num_in_ports_gen {
+            let mut in_ports = opcoll::PortVec::new();
+            let mut out_ports = opcoll::PortVec::new();
+            let mut cu_sets: Vec<opcoll::Kind> = Vec::new();
+
+            in_ports.push(pipeline_reg[PipelineStage::ID_OC_SP as usize].clone());
+            in_ports.push(pipeline_reg[PipelineStage::ID_OC_SFU as usize].clone());
+            in_ports.push(pipeline_reg[PipelineStage::ID_OC_MEM as usize].clone());
+            // in_ports.push_back(&m_pipeline_reg[ID_OC_SFU]);
+            // in_ports.push(&self.pipeline_reg[ID_OC_MEM]);
+            out_ports.push(pipeline_reg[PipelineStage::OC_EX_SP as usize].clone());
+            out_ports.push(pipeline_reg[PipelineStage::OC_EX_SFU as usize].clone());
+            out_ports.push(pipeline_reg[PipelineStage::OC_EX_MEM as usize].clone());
+            // out_ports.push_back(&m_pipeline_reg[OC_EX_SFU]);
+            // out_ports.push(&self.pipeline_reg[OC_EX_MEM]);
+            // if (m_config->gpgpu_tensor_core_avail) {
+            //   in_ports.push_back(&m_pipeline_reg[ID_OC_TENSOR_CORE]);
+            //   out_ports.push_back(&m_pipeline_reg[OC_EX_TENSOR_CORE]);
+            // }
+            if config.num_dp_units > 0 {
+                in_ports.push(pipeline_reg[PipelineStage::ID_OC_DP as usize].clone());
+                out_ports.push(pipeline_reg[PipelineStage::OC_EX_DP as usize].clone());
+            }
+            if config.num_int_units > 0 {
+                in_ports.push(pipeline_reg[PipelineStage::ID_OC_INT as usize].clone());
+                out_ports.push(pipeline_reg[PipelineStage::OC_EX_INT as usize].clone());
+            }
+            // if config.num_int_units > 0 {
+            //     in_ports.push(pipeline_reg[PipelineStage::ID_OC_INT as usize].clone());
+            //     out_ports.push(pipeline_reg[PipelineStage::OC_EX_INT as usize].clone());
+            // }
+
+            // if (m_config->m_specialized_unit.size() > 0) {
+            //   for (unsigned j = 0; j < m_config->m_specialized_unit.size(); ++j) {
+            //     in_ports.push_back(
+            //         &m_pipeline_reg[m_config->m_specialized_unit[j].ID_OC_SPEC_ID]);
+            //     out_ports.push_back(
+            //         &m_pipeline_reg[m_config->m_specialized_unit[j].OC_EX_SPEC_ID]);
+            //   }
+            // }
+            // cu_sets.push_back((unsigned)GEN_CUS);
+            // m_operand_collector.add_port(in_ports, out_ports, cu_sets);
+            // in_ports.clear(), out_ports.clear(), cu_sets.clear();
+            cu_sets.push(opcoll::Kind::GEN_CUS);
+            operand_collector.add_port(in_ports, out_ports, cu_sets);
+            // in_ports.clear();
+            // out_ports.clear();
+            // cu_sets.clear();
+        }
+
+        if config.enable_specialized_operand_collector {
+            operand_collector.add_cu_set(
+                opcoll::Kind::SP_CUS,
+                config.operand_collector_num_units_sp,
+                config.operand_collector_num_out_ports_sp,
+            );
+            operand_collector.add_cu_set(
+                opcoll::Kind::DP_CUS,
+                config.operand_collector_num_units_dp,
+                config.operand_collector_num_out_ports_dp,
+            );
+            operand_collector.add_cu_set(
+                opcoll::Kind::SFU_CUS,
+                config.operand_collector_num_units_sfu,
+                config.operand_collector_num_out_ports_sfu,
+            );
+            operand_collector.add_cu_set(
+                opcoll::Kind::MEM_CUS,
+                config.operand_collector_num_units_mem,
+                config.operand_collector_num_out_ports_mem,
+            );
+            operand_collector.add_cu_set(
+                opcoll::Kind::INT_CUS,
+                config.operand_collector_num_units_int,
+                config.operand_collector_num_out_ports_int,
+            );
+
+            for _ in 0..config.operand_collector_num_in_ports_sp {
+                let mut in_ports = opcoll::PortVec::new();
+                let mut out_ports = opcoll::PortVec::new();
+                let mut cu_sets: Vec<opcoll::Kind> = Vec::new();
+
+                in_ports.push(pipeline_reg[PipelineStage::ID_OC_SP as usize].clone());
+                out_ports.push(pipeline_reg[PipelineStage::OC_EX_SP as usize].clone());
+                cu_sets.push(opcoll::Kind::SP_CUS);
+                cu_sets.push(opcoll::Kind::GEN_CUS);
+                operand_collector.add_port(in_ports, out_ports, cu_sets);
+            }
+
+            for _ in 0..config.operand_collector_num_in_ports_dp {
+                let mut in_ports = opcoll::PortVec::new();
+                let mut out_ports = opcoll::PortVec::new();
+                let mut cu_sets: Vec<opcoll::Kind> = Vec::new();
+
+                in_ports.push(pipeline_reg[PipelineStage::ID_OC_DP as usize].clone());
+                out_ports.push(pipeline_reg[PipelineStage::OC_EX_DP as usize].clone());
+                cu_sets.push(opcoll::Kind::DP_CUS);
+                cu_sets.push(opcoll::Kind::GEN_CUS);
+                operand_collector.add_port(in_ports, out_ports, cu_sets);
+            }
+
+            for _ in 0..config.operand_collector_num_in_ports_sfu {
+                let mut in_ports = opcoll::PortVec::new();
+                let mut out_ports = opcoll::PortVec::new();
+                let mut cu_sets: Vec<opcoll::Kind> = Vec::new();
+
+                in_ports.push(pipeline_reg[PipelineStage::ID_OC_SFU as usize].clone());
+                out_ports.push(pipeline_reg[PipelineStage::OC_EX_SFU as usize].clone());
+                cu_sets.push(opcoll::Kind::SFU_CUS);
+                cu_sets.push(opcoll::Kind::GEN_CUS);
+                operand_collector.add_port(in_ports, out_ports, cu_sets);
+            }
+
+            for _ in 0..config.operand_collector_num_in_ports_mem {
+                let mut in_ports = opcoll::PortVec::new();
+                let mut out_ports = opcoll::PortVec::new();
+                let mut cu_sets: Vec<opcoll::Kind> = Vec::new();
+
+                in_ports.push(pipeline_reg[PipelineStage::ID_OC_MEM as usize].clone());
+                out_ports.push(pipeline_reg[PipelineStage::OC_EX_MEM as usize].clone());
+                cu_sets.push(opcoll::Kind::MEM_CUS);
+                cu_sets.push(opcoll::Kind::GEN_CUS);
+                operand_collector.add_port(in_ports, out_ports, cu_sets);
+            }
+
+            for _ in 0..config.operand_collector_num_in_ports_int {
+                let mut in_ports = opcoll::PortVec::new();
+                let mut out_ports = opcoll::PortVec::new();
+                let mut cu_sets: Vec<opcoll::Kind> = Vec::new();
+
+                in_ports.push(pipeline_reg[PipelineStage::ID_OC_INT as usize].clone());
+                out_ports.push(pipeline_reg[PipelineStage::OC_EX_INT as usize].clone());
+                cu_sets.push(opcoll::Kind::DP_CUS);
+                cu_sets.push(opcoll::Kind::GEN_CUS);
+                operand_collector.add_port(in_ports, out_ports, cu_sets);
+            }
+        }
+
+        // this must be called after we add the collector unit sets!
+        operand_collector.init(config.num_reg_banks);
     }
 
     // fn init_operand_collectors(&mut self) {
@@ -925,11 +1110,15 @@ where
         debug_assert!(self.block_status[block_hw_id] > 0);
         self.block_status[block_hw_id] -= 1;
 
-        // this is the last block that exited
+        // this is the last thread that exited
         if self.block_status[block_hw_id] == 0 {
-            // Increment the completed CTAs
-            //   m_stats->ctas_completed++;
-            //   m_gpu->inc_completed_cta();
+            // deallocate barriers for this block
+            self.barriers
+                .write()
+                .unwrap()
+                .deallocate_barrier(block_hw_id as u64);
+
+            // increment the number of completed blocks
             self.num_active_blocks -= 1;
             if self.num_active_blocks == 0 {
                 // Shader can only be empty when no more cta are dispatched
@@ -977,7 +1166,7 @@ where
                 // let fetch = self.instr_l1_cache.next_access().unwrap();
                 let warp = self.warps.get_mut(fetch.warp_id).unwrap();
                 // let mut warp = warp.try_borrow_mut().unwrap();
-                let mut warp = warp.lock().unwrap();
+                let mut warp = warp.try_lock().unwrap();
                 warp.has_imiss_pending = false;
 
                 self.instr_fetch_buffer = InstrFetchBuffer {
@@ -1004,7 +1193,7 @@ where
                 if false {
                     for warp_id in 0..max_warps {
                         // let warp = self.warps[warp_id].try_borrow().unwrap();
-                        let warp = self.warps[warp_id].lock().unwrap();
+                        let warp = self.warps[warp_id].try_lock().unwrap();
                         if warp.instruction_count() == 0 {
                             // consider empty
                             continue;
@@ -1038,7 +1227,7 @@ where
                     let warp_id = (last + 1 + i) % max_warps;
 
                     // let warp = self.warps[warp_id].try_borrow().unwrap();
-                    let warp = self.warps[warp_id].lock().unwrap();
+                    let warp = self.warps[warp_id].try_lock().unwrap();
                     debug_assert!(warp.warp_id == warp_id || warp.warp_id == u32::MAX as usize);
 
                     let block_hw_id = warp.block_id as usize;
@@ -1105,7 +1294,7 @@ where
                     }
 
                     // let mut warp = self.warps[warp_id].try_borrow_mut().unwrap();
-                    let mut warp = self.warps[warp_id].lock().unwrap();
+                    let mut warp = self.warps[warp_id].try_lock().unwrap();
                     if did_exit {
                         warp.done_exit = true;
                     }
@@ -1269,10 +1458,8 @@ where
     }
 
     fn decode_instruction(&mut self, warp_id: usize, instr: WarpInstruction, slot: usize) {
-        let _core_id = self.id();
         let warp = self.warps.get_mut(warp_id).unwrap();
-        // let mut warp = warp.try_borrow_mut().unwrap();
-        let mut warp = warp.lock().unwrap();
+        let mut warp = warp.try_lock().unwrap();
 
         log::debug!(
             "====> warp[warp_id={:03}] ibuffer fill at slot {:01} with instruction {}",
@@ -1290,14 +1477,17 @@ where
             use rayon::prelude::*;
             self.schedulers
                 .par_iter()
-                .for_each(|scheduler| scheduler.lock().unwrap().cycle(self));
+                .for_each(|scheduler| scheduler.try_lock().unwrap().cycle(self));
         } else {
             // fair round robin issue between schedulers
             let num_schedulers = self.schedulers.len();
             for scheduler_idx in 0..num_schedulers {
                 let scheduler_idx =
                     (self.scheduler_issue_priority + scheduler_idx) % num_schedulers;
-                self.schedulers[scheduler_idx].lock().unwrap().cycle(self);
+                self.schedulers[scheduler_idx]
+                    .try_lock()
+                    .unwrap()
+                    .cycle(self);
             }
             self.scheduler_issue_priority = (self.scheduler_issue_priority + 1) % num_schedulers;
         }
@@ -1384,8 +1574,9 @@ where
             .red()
         );
 
-        for (_i, res_bus) in self.result_busses.iter_mut().enumerate() {
-            res_bus.shift_right(1);
+        for (_, res_bus) in self.result_busses.iter_mut().enumerate() {
+            // note: in rust, shift left is semantically equal to "towards the zero index"
+            res_bus.shift_left(1);
             // log::debug!(
             //     "res bus {:03}[:128]: {}",
             //     i,
@@ -1396,6 +1587,7 @@ where
         for (fu_id, fu) in self.functional_units.iter_mut().enumerate() {
             let mut fu = fu.try_lock().unwrap();
 
+            // TODO: just give the functional unit a reference to the issue port?
             let issue_port = self.issue_ports[fu_id];
             {
                 let issue_inst = self.pipeline_reg[issue_port as usize].try_lock().unwrap();
@@ -1431,9 +1623,23 @@ where
             };
 
             let Some(ready_reg) = ready_reg else {
-                // continue
                 continue;
             };
+
+            log::trace!("occupied: {}", fu.occupied().to_bit_string());
+            log::trace!(
+                "{} checking {:?}: fu[{:03}] can issue={:?} latency={:?}",
+                style(format!(
+                    "cycle {:03} core {:?}: execute:",
+                    self.cycle.get(),
+                    core_id,
+                ))
+                .red(),
+                ready_reg.as_ref().map(ToString::to_string),
+                fu_id,
+                ready_reg.as_ref().map(|instr| fu.can_issue(instr)),
+                ready_reg.as_ref().map(|instr| instr.latency),
+            );
 
             if let Some(ref instr) = ready_reg {
                 if fu.can_issue(instr) {
@@ -1444,7 +1650,7 @@ where
                         .find(|bus| !bus[instr.latency]);
 
                     log::debug!(
-                        "{} {} (partition issue={}, reg id={:?}) ready for issue to fu[{:03}]={}",
+                        "{} {} (partition issue={}, schedule wb now={}, resbus={}, latency={:?}, reg id={:?}) ready for issue to fu[{:03}]={}",
                         style(format!(
                             "cycle {:03} core {:?}: execute:",
                             self.cycle.get(),
@@ -1453,6 +1659,9 @@ where
                         .red(),
                         instr,
                         partition_issue,
+                        schedule_wb_now,
+                        result_bus.is_some(),
+                        ready_reg.as_ref().map(|reg| reg.latency),
                         debug_reg_id,
                         fu_id,
                         fu,
@@ -1534,7 +1743,10 @@ where
 
     #[must_use]
     pub fn ldst_unit_response_buffer_full(&self) -> bool {
-        self.load_store_unit.lock().unwrap().response_buffer_full()
+        self.load_store_unit
+            .try_lock()
+            .unwrap()
+            .response_buffer_full()
     }
 
     #[must_use]
@@ -1549,7 +1761,7 @@ where
     }
 
     pub fn accept_ldst_unit_response(&self, fetch: mem_fetch::MemFetch) {
-        self.load_store_unit.lock().unwrap().fill(fetch);
+        self.load_store_unit.try_lock().unwrap().fill(fetch);
     }
 
     #[must_use]
@@ -1836,12 +2048,18 @@ where
             num_threads_in_block
         );
 
+        self.barriers
+            .write()
+            .unwrap()
+            .allocate_barrier(free_block_hw_id as u64, warps);
+
         self.init_warps(free_block_hw_id, start_thread, end_thread, block_id, kernel);
         self.num_active_blocks += 1;
     }
 }
 
 pub fn warp_inst_complete(instr: &mut WarpInstruction, stats: &Mutex<stats::Stats>) {
+    // TODO: use per core stats
     let mut stats = stats.lock().unwrap();
     stats.sim.instructions += instr.active_thread_count() as u64;
 }

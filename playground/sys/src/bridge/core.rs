@@ -27,6 +27,11 @@ mod ffi {
         ) -> UniquePtr<CxxVector<register_set_ptr>>;
 
         #[must_use]
+        fn get_functional_unit_occupied_slots(
+            self: &core_bridge,
+        ) -> UniquePtr<CxxVector<CxxString>>;
+
+        #[must_use]
         fn get_scheduler_units(self: &core_bridge) -> UniquePtr<CxxVector<scheduler_unit_ptr>>;
         #[must_use]
         fn get_operand_collector(self: &core_bridge) -> SharedPtr<operand_collector_bridge>;

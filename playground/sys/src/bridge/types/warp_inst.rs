@@ -11,6 +11,12 @@ mod ffi {
         #[must_use]
         fn get_pc(self: &warp_inst_t) -> u32;
         #[must_use]
+        fn get_latency(self: &warp_inst_t) -> u32;
+        #[must_use]
+        fn get_initiation_interval(self: &warp_inst_t) -> u32;
+        #[must_use]
+        fn get_dispatch_delay_cycles(self: &warp_inst_t) -> u32;
+        #[must_use]
         fn warp_id(self: &warp_inst_t) -> u32;
     }
 

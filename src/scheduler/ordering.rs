@@ -19,12 +19,24 @@ pub fn all_different<T>(values: &[Arc<Mutex<T>>]) -> bool {
     true
 }
 
-pub fn sort_warps_by_oldest_dynamic_id(lhs: &warp::Ref, rhs: &warp::Ref) -> std::cmp::Ordering {
-    let lhs = lhs.try_lock().unwrap();
-    let rhs = rhs.try_lock().unwrap();
-    if lhs.done_exit() || lhs.waiting() {
+pub fn sort_warps_by_oldest_dynamic_id(
+    lhs: &warp::Ref,
+    rhs: &warp::Ref,
+    issuer: &dyn crate::core::WarpIssuer,
+) -> std::cmp::Ordering {
+    let mut lhs = lhs.try_lock().unwrap();
+    let mut rhs = rhs.try_lock().unwrap();
+    if lhs.done_exit()
+        || lhs.waiting()
+        || issuer.warp_waiting_at_barrier(lhs.warp_id)
+        || issuer.warp_waiting_at_mem_barrier(&mut lhs)
+    {
         std::cmp::Ordering::Greater
-    } else if rhs.done_exit() || rhs.waiting() {
+    } else if rhs.done_exit()
+        || rhs.waiting()
+        || issuer.warp_waiting_at_barrier(rhs.warp_id)
+        || issuer.warp_waiting_at_mem_barrier(&mut rhs)
+    {
         std::cmp::Ordering::Less
     } else {
         lhs.dynamic_warp_id().cmp(&rhs.dynamic_warp_id())

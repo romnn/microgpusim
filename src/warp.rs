@@ -21,7 +21,7 @@ pub struct Warp {
     pub dynamic_warp_id: usize,
     pub warp_id: usize,
     pub kernel: Option<Arc<Kernel>>,
-
+    // pub core: RwLock<Core>>,
     pub trace_pc: usize,
     pub active_mask: ActiveMask,
     pub trace_instructions: VecDeque<WarpInstruction>,
@@ -31,6 +31,7 @@ pub struct Warp {
     pub num_instr_in_pipeline: usize,
     pub num_outstanding_stores: usize,
     pub num_outstanding_atomics: usize,
+    pub waiting_for_memory_barrier: bool,
     pub has_imiss_pending: bool,
     pub instr_buffer: Vec<Option<WarpInstruction>>,
     pub next: usize,
@@ -63,6 +64,7 @@ impl Default for Warp {
             num_outstanding_stores: 0,
             num_outstanding_atomics: 0,
             has_imiss_pending: false,
+            waiting_for_memory_barrier: false,
             instr_buffer,
             next: 0,
         }
@@ -213,10 +215,10 @@ impl Warp {
         if self.functional_done() {
             // waiting to be initialized with a kernel
             true
-        // } else if core.warp_waiting_at_barrier(self.warp_id) {
+        // } else if self.core.warp_waiting_at_barrier(self.warp_id) {
         //     // waiting for other warps in block to reach barrier
         //     true
-        // } else if core.warp_waiting_at_mem_barrier(self.warp_id) {
+        // } else if self.core.warp_waiting_at_mem_barrier(self.warp_id) {
         //     // waiting for memory barrier
         //     true
         } else {

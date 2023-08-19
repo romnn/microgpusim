@@ -44,7 +44,8 @@ const trace_warp_inst_t *trace_shd_warp_t::get_current_trace_inst() {
 
     temp_trace_pc++;
 
-    if (is_memory_instruction(parsed_inst) || parsed_inst->op == EXIT_OPS) {
+    if (!m_shader->get_gpu()->gpgpu_ctx->sim_mem_only ||
+        is_memory_instruction(parsed_inst) || parsed_inst->op == EXIT_OPS) {
       return parsed_inst;
     }
   }
@@ -87,9 +88,9 @@ const trace_warp_inst_t *trace_shd_warp_t::get_cached_trace_instruction(
     const inst_trace_t &trace = warp_traces[temp_trace_pc];
     const trace_warp_inst_t *parsed_inst = parse_trace_instruction(trace);
 
-    if (is_memory_instruction(parsed_inst) || parsed_inst->op == EXIT_OPS) {
-      // count++;
-    }
+    // if (is_memory_instruction(parsed_inst) || parsed_inst->op == EXIT_OPS) {
+    // count++;
+    // }
 
     parsed_warp_traces_cache.push_back(parsed_inst);
     assert(temp_trace_pc == parsed_warp_traces_cache.size() - 1);
@@ -125,8 +126,8 @@ void trace_shd_warp_t::print_trace_instructions(
     const trace_warp_inst_t *parsed_inst =
         get_cached_trace_instruction(temp_trace_pc);
 
-    if (all || is_memory_instruction(parsed_inst) ||
-        parsed_inst->op == EXIT_OPS) {
+    if (all || !m_shader->get_gpu()->gpgpu_ctx->sim_mem_only ||
+        is_memory_instruction(parsed_inst) || parsed_inst->op == EXIT_OPS) {
       assert(warp_traces[temp_trace_pc].m_pc == parsed_inst->pc);
 
       std::vector<new_addr_type> addresses;
@@ -153,7 +154,8 @@ void trace_shd_warp_t::print_trace_instructions(
 }
 
 const warp_inst_t *trace_shd_warp_t::get_next_trace_inst() {
-  if (m_shader->get_gpu()->gpgpu_ctx->accelsim_compat_mode) {
+  if (!m_shader->get_gpu()->gpgpu_ctx->sim_mem_only ||
+      m_shader->get_gpu()->gpgpu_ctx->accelsim_compat_mode) {
     if (trace_pc < warp_traces.size()) {
       trace_warp_inst_t *new_inst =
           new trace_warp_inst_t(get_shader()->get_config());
@@ -176,7 +178,8 @@ const warp_inst_t *trace_shd_warp_t::get_next_trace_inst() {
       // must be here otherwise we do not increment when finding an instruction
       trace_pc++;
 
-      if (is_memory_instruction(parsed_inst) || parsed_inst->op == EXIT_OPS) {
+      if (!m_shader->get_gpu()->gpgpu_ctx->sim_mem_only ||
+          is_memory_instruction(parsed_inst) || parsed_inst->op == EXIT_OPS) {
         return parsed_inst;
       }
     }
@@ -185,7 +188,8 @@ const warp_inst_t *trace_shd_warp_t::get_next_trace_inst() {
 }
 
 unsigned long trace_shd_warp_t::instruction_count() {
-  if (m_shader->get_gpu()->gpgpu_ctx->accelsim_compat_mode) {
+  if (!m_shader->get_gpu()->gpgpu_ctx->sim_mem_only ||
+      m_shader->get_gpu()->gpgpu_ctx->accelsim_compat_mode) {
     return warp_traces.size();
   } else {
     // NOTE: we cannot assume cached instructions < trace_pc to still be valid,
@@ -205,7 +209,8 @@ unsigned long trace_shd_warp_t::instruction_count() {
         // get_cached_trace_instruction(temp_pc);
         const trace_warp_inst_t *parsed_inst = parse_trace_instruction(trace);
 
-        if (is_memory_instruction(parsed_inst) || parsed_inst->op == EXIT_OPS) {
+        if (!m_shader->get_gpu()->gpgpu_ctx->sim_mem_only ||
+            is_memory_instruction(parsed_inst) || parsed_inst->op == EXIT_OPS) {
           m_instruction_count++;
         }
         delete parsed_inst;
@@ -236,7 +241,8 @@ address_type trace_shd_warp_t::get_pc() {
   assert(warp_traces.size() > 0);  // must at least contain an exit code
   assert(trace_pc < warp_traces.size());
 
-  if (m_shader->get_gpu()->gpgpu_ctx->accelsim_compat_mode) {
+  if (!m_shader->get_gpu()->gpgpu_ctx->sim_mem_only ||
+      m_shader->get_gpu()->gpgpu_ctx->accelsim_compat_mode) {
     return warp_traces[trace_pc].m_pc;
   } else {
     return get_current_trace_inst()->pc;

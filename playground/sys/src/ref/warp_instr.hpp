@@ -137,6 +137,10 @@ class warp_inst_t : public inst_t {
   }  // for instruction counting
   bool empty() const { return m_empty; }
   unsigned get_pc() const { return pc; }
+  unsigned get_latency() const { return latency; }
+  unsigned get_initiation_interval() const { return initiation_interval; }
+  unsigned get_dispatch_delay_cycles() const { return cycles; }
+
   unsigned warp_id() const {
     assert(!m_empty);
     return m_warp_id;

@@ -31,6 +31,15 @@ impl<'a> Core<'a> {
     }
 
     #[must_use]
+    pub fn functional_unit_occupied_slots(&self) -> Vec<String> {
+        self.0
+            .get_functional_unit_occupied_slots()
+            .iter()
+            .map(|occupied| occupied.to_string())
+            .collect()
+    }
+
+    #[must_use]
     pub fn operand_collector(&self) -> super::operand_collector::OperandCollector<'a> {
         let operand_collector = self.0.get_operand_collector();
         super::operand_collector::OperandCollector::new(operand_collector)

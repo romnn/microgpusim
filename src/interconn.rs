@@ -12,7 +12,7 @@ pub trait Interconnect<P>: Send + Sync + 'static {
 
     fn push(&self, _src: usize, _dest: usize, _packet: P, _size: u32);
 
-    // fn push_all(&self, _src: usize, _dest: usize, _packet: P, _size: u32);
+    // fn push_all(&self, _src: usize, packets: Vec<(usize, P, u32)>);
 
     fn pop(&self, _dest: usize) -> Option<P>;
 
@@ -154,6 +154,20 @@ where
         let mut queue = self.output_queue[subnet][dest_device][0].lock().unwrap();
         queue.push_back(packet);
     }
+
+    // fn push_all(&self, _src: usize, packets: Vec<(usize, P, u32)>) {
+    //     assert!(self.has_buffer(src_device, size));
+    //
+    //     let is_memory_node = self.num_subnets > 1 && dest_device >= self.num_cores;
+    //     let subnet = usize::from(is_memory_node);
+    //     // log::debug!(
+    //     //     "{}: {size} bytes from device {src_device} to {dest_device} (subnet {subnet})",
+    //     //     style(format!("INTERCONN PUSH {packet}")).bold(),
+    //     // );
+    //
+    //     let mut queue = self.output_queue[subnet][dest_device][0].lock().unwrap();
+    //     queue.extend(packets);
+    // }
 
     fn pop(&self, device: usize) -> Option<P> {
         let icnt_id = device;

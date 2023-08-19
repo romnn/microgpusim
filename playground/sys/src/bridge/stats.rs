@@ -78,7 +78,8 @@ pub struct StatsBridge {
 }
 
 impl StatsBridge {
-    #[must_use] pub fn new(num_cores: usize, num_sub_partitions: usize) -> Self {
+    #[must_use]
+    pub fn new(num_cores: usize, num_sub_partitions: usize) -> Self {
         Self {
             accesses: Accesses::default(),
             instructions: InstructionCounts::default(),

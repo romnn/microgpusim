@@ -30,10 +30,11 @@ class simd_function_unit {
   // }
   const char *get_name() const { return m_name.c_str(); }
 
+  static const unsigned MAX_ALU_LATENCY = 512;
+  std::bitset<MAX_ALU_LATENCY> occupied;
+
  protected:
   std::string m_name;
   const shader_core_config *m_config;
   warp_inst_t *m_dispatch_reg;
-  static const unsigned MAX_ALU_LATENCY = 512;
-  std::bitset<MAX_ALU_LATENCY> occupied;
 };

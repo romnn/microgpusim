@@ -360,8 +360,8 @@ void trace_shader_core_ctx::create_front_pipeline() {
       N_PIPELINE_STAGES + m_config->m_specialized_unit.size() * 2;
   m_pipeline_reg.reserve(total_pipeline_stages);
   for (int j = 0; j < N_PIPELINE_STAGES; j++) {
-    // logger->trace("pipeline stage {} has width {}",
-    //               pipeline_stage_name_t_str[j], m_config->pipe_widths[j]);
+    logger->trace("pipeline stage {} has width {}",
+                  pipeline_stage_name_t_str[j], m_config->pipe_widths[j]);
     m_pipeline_reg.push_back(register_set(
         m_config->pipe_widths[j], pipeline_stage_name_t_str[j], j, logger));
   }
@@ -547,6 +547,8 @@ void trace_shader_core_ctx::create_exec_pipeline() {
   port_vector_t out_ports;
   uint_vector_t cu_sets;
 
+  bool accelsim_compat_mode = get_gpu()->gpgpu_ctx->accelsim_compat_mode;
+
   // configure generic collectors
   m_operand_collector.add_cu_set(
       GEN_CUS, m_config->gpgpu_operand_collector_num_units_gen,
@@ -586,34 +588,30 @@ void trace_shader_core_ctx::create_exec_pipeline() {
   }
 
   if (m_config->enable_specialized_operand_collector) {
-    bool accelsim_compat_mode = get_gpu()->gpgpu_ctx->accelsim_compat_mode;
-
     m_operand_collector.add_cu_set(
         SP_CUS, m_config->gpgpu_operand_collector_num_units_sp,
         m_config->gpgpu_operand_collector_num_out_ports_sp);
 
+    m_operand_collector.add_cu_set(
+        DP_CUS, m_config->gpgpu_operand_collector_num_units_dp,
+        m_config->gpgpu_operand_collector_num_out_ports_dp);
     if (accelsim_compat_mode) {
-      m_operand_collector.add_cu_set(
-          DP_CUS, m_config->gpgpu_operand_collector_num_units_dp,
-          m_config->gpgpu_operand_collector_num_out_ports_dp);
       m_operand_collector.add_cu_set(
           TENSOR_CORE_CUS,
           m_config->gpgpu_operand_collector_num_units_tensor_core,
           m_config->gpgpu_operand_collector_num_out_ports_tensor_core);
-      m_operand_collector.add_cu_set(
-          SFU_CUS, m_config->gpgpu_operand_collector_num_units_sfu,
-          m_config->gpgpu_operand_collector_num_out_ports_sfu);
     }
+    m_operand_collector.add_cu_set(
+        SFU_CUS, m_config->gpgpu_operand_collector_num_units_sfu,
+        m_config->gpgpu_operand_collector_num_out_ports_sfu);
 
     m_operand_collector.add_cu_set(
         MEM_CUS, m_config->gpgpu_operand_collector_num_units_mem,
         m_config->gpgpu_operand_collector_num_out_ports_mem);
 
-    if (accelsim_compat_mode) {
-      m_operand_collector.add_cu_set(
-          INT_CUS, m_config->gpgpu_operand_collector_num_units_int,
-          m_config->gpgpu_operand_collector_num_out_ports_int);
-    }
+    m_operand_collector.add_cu_set(
+        INT_CUS, m_config->gpgpu_operand_collector_num_units_int,
+        m_config->gpgpu_operand_collector_num_out_ports_int);
 
     for (unsigned i = 0; i < m_config->gpgpu_operand_collector_num_in_ports_sp;
          i++) {
@@ -645,14 +643,17 @@ void trace_shader_core_ctx::create_exec_pipeline() {
       in_ports.clear(), out_ports.clear(), cu_sets.clear();
     }
 
-    for (unsigned i = 0;
-         i < m_config->gpgpu_operand_collector_num_in_ports_tensor_core; i++) {
-      in_ports.push_back(&m_pipeline_reg[ID_OC_TENSOR_CORE]);
-      out_ports.push_back(&m_pipeline_reg[OC_EX_TENSOR_CORE]);
-      cu_sets.push_back((unsigned)TENSOR_CORE_CUS);
-      cu_sets.push_back((unsigned)GEN_CUS);
-      m_operand_collector.add_port(in_ports, out_ports, cu_sets);
-      in_ports.clear(), out_ports.clear(), cu_sets.clear();
+    if (accelsim_compat_mode) {
+      for (unsigned i = 0;
+           i < m_config->gpgpu_operand_collector_num_in_ports_tensor_core;
+           i++) {
+        in_ports.push_back(&m_pipeline_reg[ID_OC_TENSOR_CORE]);
+        out_ports.push_back(&m_pipeline_reg[OC_EX_TENSOR_CORE]);
+        cu_sets.push_back((unsigned)TENSOR_CORE_CUS);
+        cu_sets.push_back((unsigned)GEN_CUS);
+        m_operand_collector.add_port(in_ports, out_ports, cu_sets);
+        in_ports.clear(), out_ports.clear(), cu_sets.clear();
+      }
     }
 
     for (unsigned i = 0; i < m_config->gpgpu_operand_collector_num_in_ports_mem;
@@ -707,12 +708,15 @@ void trace_shader_core_ctx::create_exec_pipeline() {
     m_issue_port.push_back(OC_EX_SFU);
   }
 
+  // if (accelsim_compat_mode) {
   for (int k = 0; k < m_config->gpgpu_num_tensor_core_units; k++) {
     m_fu.push_back(new tensor_core(&m_pipeline_reg[EX_WB], m_config, this, k));
     m_dispatch_port.push_back(ID_OC_TENSOR_CORE);
     m_issue_port.push_back(OC_EX_TENSOR_CORE);
   }
+  // }
 
+  // if (accelsim_compat_mode) {
   for (unsigned j = 0; j < m_config->m_specialized_unit.size(); j++) {
     for (unsigned k = 0; k < m_config->m_specialized_unit[j].num_units; k++) {
       m_fu.push_back(new specialized_unit(
@@ -723,6 +727,7 @@ void trace_shader_core_ctx::create_exec_pipeline() {
       m_issue_port.push_back(m_config->m_specialized_unit[j].OC_EX_SPEC_ID);
     }
   }
+  // }
 
   m_ldst_unit = new ldst_unit(m_icnt, m_mem_fetch_allocator, this,
                               &m_operand_collector, m_scoreboard, m_config,
@@ -883,20 +888,33 @@ void trace_shader_core_ctx::execute() {
     }
 
     warp_inst_t **ready_reg = issue_inst.get_ready(partition_issue, reg_id);
+
+    logger->trace("occupied: {}", mask_to_string(m_fu[n]->occupied));
+    if (ready_reg != NULL) {
+      logger->trace(
+          "cycle {} core ({}, {}): execute: checking {} fu[{:<03}] can "
+          "issue={} latency = {}",
+          m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle, get_tpc(), get_sid(),
+          warp_instr_ptr(*ready_reg), n, m_fu[n]->can_issue(**ready_reg),
+          (*ready_reg)->latency);
+    }
+
     if (issue_inst.has_ready(partition_issue, reg_id) &&
         m_fu[n]->can_issue(**ready_reg)) {
-      logger->debug(
-          "cycle {} core ({}, {}): execute: {} (partition issue={}, reg_id={}) "
-          "ready for issue to fu[{:<03}]={}",
-          m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle, get_tpc(), get_sid(),
-          warp_instr_ptr(*ready_reg), partition_issue, reg_id, n,
-          m_fu[n]->get_name());
-
       bool schedule_wb_now = !m_fu[n]->stallable();
       int resbus = -1;
+      resbus = test_res_bus((*ready_reg)->latency);
+
+      logger->debug(
+          "cycle {} core ({}, {}): execute: {} (partition issue={}, "
+          "schedule wb now={}, resbus={} latency={} reg_id={}) ready for issue "
+          "to fu[{:<03}]={}",
+          m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle, get_tpc(), get_sid(),
+          warp_instr_ptr(*ready_reg), partition_issue, schedule_wb_now, resbus,
+          (*ready_reg)->latency, reg_id, n, m_fu[n]->get_name());
+
       bool issued = true;
-      if (schedule_wb_now &&
-          (resbus = test_res_bus((*ready_reg)->latency)) != -1) {
+      if (schedule_wb_now && resbus != -1) {
         assert((*ready_reg)->latency < MAX_ALU_LATENCY);
         m_result_bus[resbus]->set((*ready_reg)->latency);
         m_fu[n]->issue(issue_inst);

@@ -1,9 +1,14 @@
 use super::diff;
-use crate::{cache, config, fifo, interconn as ic, mem_fetch, register_set, testing};
+use crate::{
+    cache, config, fifo, interconn as ic,
+    mem_fetch::{self, BitString},
+    register_set, testing,
+};
 use color_eyre::eyre;
 use itertools::Itertools;
 use pretty_assertions_sorted as full_diff;
 use serde::Serialize;
+use validate::TraceProvider;
 
 use std::collections::HashSet;
 use std::io::Write;
@@ -12,13 +17,6 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use trace_model::Command;
-
-#[derive(Debug, Clone, Copy)]
-pub enum TraceProvider {
-    Native,
-    Accelsim,
-    Box,
-}
 
 #[inline]
 fn gather_simulation_state(
@@ -48,9 +46,8 @@ fn gather_simulation_state(
     box_sim_state.last_cluster_issue = box_sim.last_cluster_issue;
 
     for (cluster_id, cluster) in box_sim.clusters.iter().enumerate() {
-        // for (core_id, core) in cluster.cores.lock().unwrap().iter().enumerate() {
         for (core_id, core) in cluster.cores.iter().enumerate() {
-            let core = core.lock().unwrap();
+            let core = core.read().unwrap();
             let global_core_id = cluster_id * box_sim.config.num_cores_per_simt_cluster + core_id;
             assert_eq!(core.core_id, global_core_id);
 
@@ -58,11 +55,9 @@ fn gather_simulation_state(
             let core_id = core.core_id;
 
             // core: functional units
-            for (fu_id, fu) in core.functional_units.iter().enumerate() {
-                let _fu = fu.lock().unwrap();
+            for (fu_id, _fu) in core.functional_units.iter().enumerate() {
                 let issue_port = core.issue_ports[fu_id];
                 let issue_reg: register_set::RegisterSet = core.pipeline_reg[issue_port as usize]
-                    // .borrow()
                     .try_lock()
                     .unwrap()
                     .clone();
@@ -82,18 +77,18 @@ fn gather_simulation_state(
                             .collect(),
                     },
                 );
+                box_sim_state.functional_unit_occupied_slots_per_core[core_id] =
+                    fu.occupied().to_bit_string();
             }
             // core: operand collector
             box_sim_state.operand_collector_per_core[core_id] =
                 Some(core.operand_collector.try_lock().unwrap().deref().into());
-            // Some(core.inner.operand_collector.borrow().deref().into());
             // core: schedulers
             box_sim_state.scheduler_per_core[core_id] = core
                 .schedulers
                 .iter()
                 .map(|scheduler| scheduler.lock().unwrap().deref().into())
                 .collect();
-            // .extend(core.schedulers.iter().map(Into::into));
             // core: l2 cache
             let ldst_unit = core.load_store_unit.lock().unwrap();
 
@@ -137,7 +132,6 @@ fn gather_simulation_state(
         };
     }
     for (sub_id, sub) in box_sim.mem_sub_partitions.iter().enumerate() {
-        // let sub = sub.borrow();
         let sub = sub.try_lock().unwrap();
         let l2_cache = sub.l2_cache.as_ref().unwrap();
         let l2_cache: &cache::DataL2<ic::L2Interface<fifo::Fifo<mem_fetch::MemFetch>>> =
@@ -194,6 +188,13 @@ fn gather_simulation_state(
             .filter(|fu| valid_units.contains(&fu.name()))
         {
             play_sim_state.functional_unit_pipelines_per_core[core_id].push(regs.into());
+        }
+
+        for occupied in core.functional_unit_occupied_slots()
+        // .into_iter()
+        // .filter(|fu| valid_units.contains(&fu.name()))
+        {
+            play_sim_state.functional_unit_occupied_slots_per_core[core_id] = occupied;
         }
 
         // core: pending register writes
@@ -600,10 +601,12 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
                         // transform kernel instruction trace
                         let kernel_trace_path = accelsim_trace_dir.join(&kernel.trace_file);
                         let reader = utils::fs::open_readable(kernel_trace_path)?;
+                        let mem_only = false;
                         let parsed_trace = accelsim::tracegen::reader::read_trace_instructions(
                             reader,
                             metadata.trace_version,
                             metadata.line_info,
+                            mem_only,
                             &kernel,
                         )?;
 
@@ -701,6 +704,8 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
     assert!(gpgpusim_config.is_file());
     assert!(trace_config.is_file());
     assert!(inter_config.is_file());
+
+    // assert!(false);
 
     // debugging config
     let box_config = Arc::new(config::GPU {

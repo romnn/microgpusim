@@ -31,6 +31,7 @@ class gpgpu_context {
     // stats = new ptx_stats(this);
     stats = new ptx_stats();
     accelsim_compat_mode = false;
+    sim_mem_only = false;
   }
   // global list
   // symbol_table *g_global_allfiles_symbol_table;
@@ -57,6 +58,7 @@ class gpgpu_context {
   ptx_stats *stats;
 
   bool accelsim_compat_mode;
+  bool sim_mem_only;
 
   // member function list
   void synchronize();

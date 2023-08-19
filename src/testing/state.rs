@@ -134,6 +134,9 @@ impl std::fmt::Debug for CacheBlock {
 pub struct WarpInstruction {
     pub opcode: String,
     pub pc: usize,
+    pub latency: usize,
+    pub initiation_interval: usize,
+    pub dispatch_delay_cycles: usize,
     pub warp_id: usize,
 }
 
@@ -148,6 +151,9 @@ impl From<crate::instruction::WarpInstruction> for WarpInstruction {
         WarpInstruction {
             opcode: instr.opcode.to_string(),
             pc: instr.pc,
+            latency: instr.latency,
+            initiation_interval: instr.initiation_interval,
+            dispatch_delay_cycles: instr.dispatch_delay_cycles,
             warp_id: instr.warp_id,
         }
     }
@@ -200,6 +206,9 @@ impl<'a> From<playground::warp_inst::WarpInstr<'a>> for WarpInstruction {
         Self {
             opcode,
             pc: instr.get_pc() as usize,
+            latency: instr.get_latency() as usize,
+            initiation_interval: instr.get_initiation_interval() as usize,
+            dispatch_delay_cycles: instr.get_dispatch_delay_cycles() as usize,
             warp_id: instr.warp_id() as usize,
         }
     }
@@ -313,8 +322,7 @@ impl<'a> From<playground::collector_unit::CollectorUnit<'a>> for CollectorUnit {
             warp_id: cu.warp_id(),
             warp_instr: cu.warp_instruction().map(Into::into),
             output_register: cu.output_register().map(Into::into),
-            // fix: default endianness is different for rust bitvec and c++ std::bitset
-            not_ready: cu.not_ready_mask().chars().rev().collect::<String>(),
+            not_ready: cu.not_ready_mask(),
             reg_id: cu.reg_id(),
         }
     }
@@ -333,7 +341,7 @@ impl<'a> From<playground::operand_collector::OperandCollector<'a>> for OperandCo
         use std::collections::HashSet;
         let skip: HashSet<_> = [
             OperandCollectorUnitKind::TENSOR_CORE_CUS,
-            OperandCollectorUnitKind::SFU_CUS,
+            // OperandCollectorUnitKind::SFU_CUS,
         ]
         .into_iter()
         .collect();
@@ -486,6 +494,7 @@ pub struct Simulation {
     // per cluster
     pub core_sim_order_per_cluster: Box<[Box<[usize]>]>,
     // per core
+    pub functional_unit_occupied_slots_per_core: Box<[String]>,
     pub functional_unit_pipelines_per_core: Box<[Vec<RegisterSet>]>,
     pub operand_collector_per_core: Box<[Option<OperandCollector>]>,
     pub scheduler_per_core: Box<[Box<[Scheduler]>]>,
@@ -532,6 +541,8 @@ impl Simulation {
             .into_boxed_slice(),
 
             // per core
+            functional_unit_occupied_slots_per_core: vec![String::new(); total_cores]
+                .into_boxed_slice(),
             functional_unit_pipelines_per_core: vec![vec![]; total_cores].into_boxed_slice(),
             scheduler_per_core: vec![
                 vec![Scheduler::default(); num_schedulers].into_boxed_slice();

@@ -33,6 +33,14 @@ pub enum RunError {
     Failed(#[from] eyre::Report),
 }
 
+/// Trace provider to use.
+#[derive(Debug, Clone, Copy)]
+pub enum TraceProvider {
+    Native,
+    Accelsim,
+    Box,
+}
+
 #[inline]
 pub fn open_writable(path: impl AsRef<Path>) -> eyre::Result<std::io::BufWriter<std::fs::File>> {
     let path = path.as_ref();

@@ -2,7 +2,10 @@
 
 use color_eyre::eyre;
 use criterion::{black_box, Criterion};
-use validate::materialize::{BenchmarkConfig, Benchmarks};
+use validate::{
+    materialize::{BenchmarkConfig, Benchmarks},
+    TraceProvider,
+};
 
 fn get_bench_config(benchmark_name: &str, input_idx: usize) -> eyre::Result<BenchmarkConfig> {
     use std::path::PathBuf;
@@ -33,32 +36,32 @@ pub fn run_box(mut bench_config: BenchmarkConfig) -> eyre::Result<stats::Stats> 
     // have 80 cores and 16 threads
     //
     // parallel: dram cycle time: 229004 ns
-    println!();
-    let timings = casimu::TIMINGS.lock().unwrap();
-    let total = timings["total_cycle"].mean();
-    for (name, dur) in [
-        ("core cycle", &timings["core_cycle"]),
-        ("icnt cycle", &timings["icnt_cycle"]),
-        ("dram cycle", &timings["dram_cycle"]),
-        ("l2 cycle", &timings["l2_cycle"]),
-    ] {
-        let dur = dur.mean();
-        let percent = (dur.as_secs_f64() / total.as_secs_f64()) * 100.0;
-        let ms = dur.as_secs_f64() * 1000.0;
-        println!("{name} time: {ms:.5} ms ({percent:>2.2}%)");
-    }
-    println!();
+    // println!();
+    // let timings = casimu::TIMINGS.lock().unwrap();
+    // let total = timings["total_cycle"].mean();
+    // for (name, dur) in [
+    //     ("core cycle", &timings["core_cycle"]),
+    //     ("icnt cycle", &timings["icnt_cycle"]),
+    //     ("dram cycle", &timings["dram_cycle"]),
+    //     ("l2 cycle", &timings["l2_cycle"]),
+    // ] {
+    //     let dur = dur.mean();
+    //     let percent = (dur.as_secs_f64() / total.as_secs_f64()) * 100.0;
+    //     let ms = dur.as_secs_f64() * 1000.0;
+    //     println!("{name} time: {ms:.5} ms ({percent:>2.2}%)");
+    // }
+    // println!();
     Ok(stats)
 }
 
 pub async fn run_accelsim(bench_config: BenchmarkConfig) -> eyre::Result<()> {
-    let (_stats, _dur) = validate::accelsim::simulate_bench_config(&bench_config).await?;
+    let (_output, _dur) = validate::accelsim::simulate_bench_config(&bench_config).await?;
     Ok(())
 }
 
-pub fn run_playground(bench_config: &BenchmarkConfig) -> eyre::Result<()> {
-    let _stats = validate::playground::simulate_bench_config(bench_config);
-    Ok(())
+pub fn run_playground(bench_config: &BenchmarkConfig) -> eyre::Result<playground::stats::Stats> {
+    let stats = validate::playground::simulate_bench_config(bench_config, TraceProvider::Box)?;
+    Ok(stats)
 }
 
 pub fn accelsim_benchmark(c: &mut Criterion) {
@@ -126,13 +129,14 @@ fn main() -> eyre::Result<()> {
     println!("box took:\t\t{box_dur:?}");
 
     let timings = casimu::TIMINGS.lock().unwrap();
-    let mut timings: Vec<_> = timings
-        .iter()
-        .map(|(name, dur)| (name, dur.mean()))
-        .collect();
-    timings.sort_by_key(|(_name, dur)| *dur);
+    let mut timings: Vec<_> = timings.iter().collect();
+    timings.sort_by_key(|(_name, dur)| dur.total());
     for (name, dur) in timings {
-        println!("{name:>30}: {:>6.5} ms", dur.as_secs_f64() * 1000.0);
+        println!(
+            "{name:>30}: {:>6.5} ms avg ({:>2.6} sec total)",
+            dur.mean().as_secs_f64() * 1000.0,
+            dur.total().as_secs_f64(),
+        );
     }
     println!();
 

@@ -6,7 +6,7 @@ int_unit::int_unit(register_set *result_port, const shader_core_config *config,
                    trace_shader_core_ctx *core, unsigned issue_reg_id)
     : pipelined_simd_unit(result_port, config, config->max_int_latency, core,
                           issue_reg_id) {
-  m_name = "INT ";
+  m_name = "IntUnit";
 }
 
 void int_unit::active_lanes_in_pipeline() {

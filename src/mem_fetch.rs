@@ -124,7 +124,6 @@ pub struct MemAccess {
     pub req_size_bytes: u32,
     /// access type
     pub kind: AccessKind,
-    // active_mask_t m_warp_mask;
     pub warp_mask: warp::ActiveMask,
     pub byte_mask: ByteMask,
     pub sector_mask: SectorMask,
@@ -134,13 +133,14 @@ pub trait BitString {
     fn to_bit_string(&self) -> String;
 }
 
-impl<A, O> BitString for BitArray<A, O>
+impl<A, O> BitString for bitvec::slice::BitSlice<A, O>
 where
-    A: bitvec::view::BitViewSized,
+    A: bitvec::store::BitStore,
     O: bitvec::order::BitOrder,
 {
     fn to_bit_string(&self) -> String {
         self.iter()
+            .rev()
             .map(|b| if *b { "1" } else { "0" })
             .collect::<Vec<_>>()
             .join("")

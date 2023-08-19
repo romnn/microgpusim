@@ -12,7 +12,11 @@ use std::path::Path;
 use std::time::Duration;
 use utils::fs::create_dirs;
 
-fn convert_traces_to_json(trace_dir: &Path, kernelslist: &Path) -> eyre::Result<()> {
+fn convert_traces_to_json(
+    trace_dir: &Path,
+    kernelslist: &Path,
+    mem_only: bool,
+) -> eyre::Result<()> {
     let reader = utils::fs::open_readable(kernelslist)?;
     let accelsim_commands = tracegen::reader::read_commands(trace_dir, reader)?;
 
@@ -30,6 +34,7 @@ fn convert_traces_to_json(trace_dir: &Path, kernelslist: &Path) -> eyre::Result<
                     reader,
                     metadata.trace_version,
                     metadata.line_info,
+                    mem_only,
                     &kernel,
                 )?;
 
@@ -77,7 +82,8 @@ pub async fn trace(
         .map_err(eyre::Report::from)?;
 
     // convert accelsim traces to JSON for us to easily inspect
-    convert_traces_to_json(traces_dir, &kernelslist)?;
+    let mem_only = false;
+    convert_traces_to_json(traces_dir, &kernelslist, mem_only)?;
     // if let Err(err) = convert_traces_to_json(&traces_dir, &kernelslist) {
     //     log::error!(
     //         "failed to convert {} to JSON: {}",

@@ -1,4 +1,5 @@
 pub mod addrdec;
+pub mod bitset;
 pub mod cache_config;
 pub mod interconnect;
 pub mod mem_fetch;

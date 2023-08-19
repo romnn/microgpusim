@@ -3,6 +3,9 @@ use crate::config;
 use bitvec::{array::BitArray, BitArr};
 use std::sync::Arc;
 
+pub const MAX_ALU_LATENCY: usize = 512;
+pub type OccupiedSlots = BitArr!(for MAX_ALU_LATENCY);
+
 pub trait SimdFunctionUnit: Send + Sync + std::fmt::Display + 'static {
     fn id(&self) -> &str;
     fn cycle(&mut self);
@@ -14,13 +17,12 @@ pub trait SimdFunctionUnit: Send + Sync + std::fmt::Display + 'static {
     }
     fn can_issue(&self, instr: &WarpInstruction) -> bool;
     fn pipeline(&self) -> &Vec<Option<WarpInstruction>>;
+    fn occupied(&self) -> &OccupiedSlots;
     fn active_lanes_in_pipeline(&self) -> usize;
     fn is_issue_partitioned(&self) -> bool;
     fn issue_reg_id(&self) -> usize;
     fn stallable(&self) -> bool;
 }
-
-pub const MAX_ALU_LATENCY: usize = 512;
 
 #[derive()]
 pub struct PipelinedSimdUnitImpl {
@@ -33,7 +35,7 @@ pub struct PipelinedSimdUnitImpl {
     pub issue_reg_id: usize,
     pub active_insts_in_pipeline: usize,
     pub dispatch_reg: Option<WarpInstruction>,
-    pub occupied: BitArr!(for MAX_ALU_LATENCY),
+    pub occupied: OccupiedSlots,
     pub config: Arc<config::GPU>,
 }
 
@@ -86,6 +88,7 @@ impl PipelinedSimdUnitImpl {
 }
 
 impl SimdFunctionUnit for PipelinedSimdUnitImpl {
+    #[inline]
     fn active_lanes_in_pipeline(&self) -> usize {
         let mut active_lanes: warp::ActiveMask = BitArray::ZERO;
         for stage in self.pipeline_reg.iter().flatten() {
@@ -94,14 +97,22 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
         active_lanes.count_ones()
     }
 
+    #[inline]
     fn id(&self) -> &str {
         &self.name
     }
 
+    #[inline]
     fn pipeline(&self) -> &Vec<Option<WarpInstruction>> {
         &self.pipeline_reg
     }
 
+    #[inline]
+    fn occupied(&self) -> &OccupiedSlots {
+        &self.occupied
+    }
+
+    #[inline]
     fn cycle(&mut self) {
         log::debug!(
             "fu[{:03}] {:<10} cycle={:03}: \tpipeline={:?} ({}/{} active)",
@@ -143,26 +154,32 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
                 register_set::move_warp(current, next);
             }
         }
-        if let Some(dispatch) = self.dispatch_reg.take() {
-            // if !dispatch.empty() && !dispatch.dispatch_delay() {
-            let start_stage_idx = dispatch.latency - dispatch.initiation_interval;
-            if self.pipeline_reg[start_stage_idx].is_none() {
-                register_set::move_warp(
-                    Some(dispatch),
-                    &mut self.pipeline_reg[start_stage_idx],
-                    // format!(
-                    //     "{} moving dispatch register to free pipeline_register[start_stage={}]",
-                    //     self.name, start_stage_idx
-                    // ),
-                );
-                self.active_insts_in_pipeline += 1;
+        if let Some(ref mut dispatch) = self.dispatch_reg {
+            dispatch.dispatch_delay_cycles = dispatch.dispatch_delay_cycles.saturating_sub(1);
+            if dispatch.dispatch_delay_cycles == 0 {
+                // ready for dispatch
+                let start_stage_idx = dispatch.latency - dispatch.initiation_interval;
+                let dispatch = self.dispatch_reg.take().unwrap();
+                if self.pipeline_reg[start_stage_idx].is_none() {
+                    register_set::move_warp(
+                        Some(dispatch),
+                        &mut self.pipeline_reg[start_stage_idx],
+                        // format!(
+                        //     "{} moving dispatch register to free pipeline_register[start_stage={}]",
+                        //     self.name, start_stage_idx
+                        // ),
+                    );
+                    self.active_insts_in_pipeline += 1;
+                }
             }
         }
 
         // occupied latencies are shifted each cycle
-        self.occupied.shift_right(1);
+        // note: in rust, shift left is semantically equal to "towards the zero index"
+        self.occupied.shift_left(1);
     }
 
+    #[inline]
     fn issue(&mut self, src_reg: WarpInstruction) {
         register_set::move_warp(
             Some(src_reg),
@@ -172,25 +189,82 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
             //     self.name,
             // ),
         );
+        if let Some(ref dispatch_reg) = self.dispatch_reg {
+            self.occupied.set(dispatch_reg.latency, true);
+        }
     }
 
+    #[inline]
     fn clock_multiplier(&self) -> usize {
         1
     }
 
+    #[inline]
     fn can_issue(&self, instr: &WarpInstruction) -> bool {
         self.dispatch_reg.is_none() && !self.occupied[instr.latency]
     }
 
+    #[inline]
     fn is_issue_partitioned(&self) -> bool {
         todo!("pipelined simd unit: is issue partitioned");
     }
 
+    #[inline]
     fn issue_reg_id(&self) -> usize {
         todo!("pipelined simd unit: issue reg id");
     }
 
+    #[inline]
     fn stallable(&self) -> bool {
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::testing::diff;
+
+    #[test]
+    fn test_bitset_shift_right() {
+        use crate::mem_fetch::BitString;
+        use bitvec::{
+            array::BitArray,
+            order::{Lsb0, Msb0},
+            BitArr,
+        };
+        use playground::bitset::Bitset;
+
+        let mut cpp = Bitset::default();
+        let mut rust_lsb: BitArr!(for 32, in u32, Lsb0) = BitArray::ZERO;
+        let mut rust_msb: BitArr!(for 32, in u32, Msb0) = BitArray::ZERO;
+        assert_eq!(cpp.size(), rust_lsb.len());
+        assert_eq!(cpp.size(), rust_msb.len());
+        diff::assert_eq!(cpp: cpp.to_string(), rust_lsb: rust_lsb.to_bit_string());
+        diff::assert_eq!(cpp: cpp.to_string(), rust_msb: rust_msb.to_bit_string());
+
+        // set the value 5 (101)
+        cpp.set(0, true);
+        cpp.set(2, true);
+
+        rust_lsb.set(0, true);
+        rust_msb.set(0, true);
+
+        rust_lsb.set(2, true);
+        rust_msb.set(2, true);
+
+        diff::assert_eq!(cpp: cpp.to_string(), rust_lsb: rust_lsb.to_bit_string());
+        diff::assert_eq!(cpp: cpp.to_string(), rust_msb: rust_msb.to_bit_string());
+
+        cpp.shift_right(1);
+        rust_lsb.shift_left(1);
+        rust_msb.shift_left(1);
+        diff::assert_eq!(cpp: cpp.to_string(), rust_lsb: rust_lsb.to_bit_string());
+        diff::assert_eq!(cpp: cpp.to_string(), rust_msb: rust_msb.to_bit_string());
+
+        cpp.shift_right(3);
+        rust_lsb.shift_left(3);
+        rust_msb.shift_left(3);
+        diff::assert_eq!(cpp: cpp.to_string(), rust_lsb: rust_lsb.to_bit_string());
+        diff::assert_eq!(cpp: cpp.to_string(), rust_msb: rust_msb.to_bit_string());
     }
 }

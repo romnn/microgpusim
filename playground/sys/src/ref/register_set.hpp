@@ -97,6 +97,7 @@ class register_set {
 
   void move_out_to(warp_inst_t *&dest) {  // , std::string msg) {
     warp_inst_t **ready = get_ready();
+    assert(ready != NULL);
     move_warp(dest, *ready);  // , msg, logger);
   }
 

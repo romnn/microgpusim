@@ -1,5 +1,5 @@
 use crate::{
-    address, config,
+    address, barrier, config,
     kernel::Kernel,
     mem_fetch::{self, BitString},
     mem_sub_partition::MAX_MEMORY_ACCESS_SIZE,
@@ -109,6 +109,13 @@ pub const TOTAL_LOCAL_MEM: u64 =
 pub const SHARED_GENERIC_START: u64 = GLOBAL_HEAP_START - TOTAL_SHARED_MEM;
 pub const LOCAL_GENERIC_START: u64 = SHARED_GENERIC_START - TOTAL_LOCAL_MEM;
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct BarrierInfo {
+    pub id: usize,
+    pub count: Option<usize>,
+    pub kind: barrier::Kind,
+}
+
 #[allow(clippy::module_name_repetitions)]
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct WarpInstruction {
@@ -125,6 +132,7 @@ pub struct WarpInstruction {
     pub active_mask: warp::ActiveMask,
     pub cache_operator: CacheOperator,
     pub memory_space: Option<MemorySpace>,
+    pub barrier: Option<BarrierInfo>,
     pub threads: Vec<PerThreadInfo>,
     pub mem_access_queue: VecDeque<mem_fetch::MemAccess>,
     /// operation latency
@@ -257,36 +265,36 @@ fn memory_coalescing_arch_reduce(
 }
 
 impl WarpInstruction {
-    pub fn new_empty(config: &config::GPU) -> Self {
-        let threads = vec![PerThreadInfo::default(); config.warp_size];
-        Self {
-            uid: 0,
-            warp_id: 0,
-            scheduler_id: None,
-            opcode: Opcode {
-                op: Op::NOP,
-                category: ArchOp::NO_OP,
-            },
-            pc: 0,
-            trace_idx: 0,
-            threads,
-            memory_space: None,
-            is_atomic: false,
-            active_mask: BitArray::ZERO,
-            cache_operator: CacheOperator::UNDEFINED,
-            latency: 1,
-            initiation_interval: 1,
-            issue_cycle: None,
-            dispatch_delay_cycles: 0,
-            data_size: 0,
-            instr_width: 16,
-            mem_access_queue: VecDeque::new(),
-            outputs: [None; 8],
-            inputs: [None; 24],
-            src_arch_reg: [None; opcoll::MAX_REG_OPERANDS],
-            dest_arch_reg: [None; opcoll::MAX_REG_OPERANDS],
-        }
-    }
+    // pub fn new_empty(config: &config::GPU) -> Self {
+    //     let threads = vec![PerThreadInfo::default(); config.warp_size];
+    //     Self {
+    //         uid: 0,
+    //         warp_id: 0,
+    //         scheduler_id: None,
+    //         opcode: Opcode {
+    //             op: Op::NOP,
+    //             category: ArchOp::NO_OP,
+    //         },
+    //         pc: 0,
+    //         trace_idx: 0,
+    //         threads,
+    //         memory_space: None,
+    //         is_atomic: false,
+    //         active_mask: BitArray::ZERO,
+    //         cache_operator: CacheOperator::UNDEFINED,
+    //         latency: 1,
+    //         initiation_interval: 1,
+    //         issue_cycle: None,
+    //         dispatch_delay_cycles: 0,
+    //         data_size: 0,
+    //         instr_width: 16,
+    //         mem_access_queue: VecDeque::new(),
+    //         outputs: [None; 8],
+    //         inputs: [None; 24],
+    //         src_arch_reg: [None; opcoll::MAX_REG_OPERANDS],
+    //         dest_arch_reg: [None; opcoll::MAX_REG_OPERANDS],
+    //     }
+    // }
 
     pub fn from_trace(kernel: &Kernel, trace: &trace::MemAccessTraceEntry) -> Self {
         // fill active mask
@@ -350,6 +358,7 @@ impl WarpInstruction {
         // let mut const_cache_operand = false;
         let mut cache_operator = CacheOperator::UNDEFINED; // TODO: convert to none?
         let mut memory_space = None;
+        let mut barrier = None;
 
         #[allow(clippy::match_same_arms)]
         match opcode.op {
@@ -449,6 +458,13 @@ impl WarpInstruction {
                     }
                 }
             }
+            Op::BAR => {
+                barrier = Some(BarrierInfo {
+                    id: 0,
+                    count: None,
+                    kind: barrier::Kind::Sync,
+                });
+            }
             _ => {}
         }
 
@@ -461,6 +477,7 @@ impl WarpInstruction {
             trace_idx: trace.instr_idx as usize,
             threads,
             memory_space,
+            barrier,
             is_atomic,
             active_mask,
             cache_operator,
@@ -479,16 +496,17 @@ impl WarpInstruction {
         }
     }
 
-    pub fn dec_dispatch_delay(&mut self) {
-        if self.dispatch_delay_cycles > 0 {
-            self.dispatch_delay_cycles -= 1;
-        }
-    }
+    // pub fn dec_dispatch_delay(&mut self) {
+    //     self.dispatch_delay_cycles = self.dispatch_delay_cycles.saturating_sub(1);
+    //     // if self.dispatch_delay_cycles > 0 {
+    //     //     self.dispatch_delay_cycles -= 1;
+    //     // }
+    // }
 
-    #[must_use]
-    pub fn has_dispatch_delay(&self) -> bool {
-        self.dispatch_delay_cycles > 0
-    }
+    // #[must_use]
+    // pub fn has_dispatch_delay(&self) -> bool {
+    //     self.dispatch_delay_cycles > 0
+    // }
 
     pub fn inputs(&self) -> impl Iterator<Item = &u32> {
         self.inputs.iter().filter_map(Option::as_ref)

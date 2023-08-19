@@ -15,15 +15,18 @@
 pub mod addrdec;
 pub mod allocation;
 pub mod arbitration;
+pub mod barrier;
 pub mod cache;
 pub mod cluster;
 pub mod config;
 pub mod core;
 pub mod deadlock;
+pub mod dp_unit;
 pub mod dram;
 pub mod exec;
 pub mod fifo;
 pub mod instruction;
+pub mod int_unit;
 pub mod interconn;
 pub mod kernel;
 pub mod ldst_unit;
@@ -37,6 +40,7 @@ pub mod register_set;
 pub mod scheduler;
 pub mod scoreboard;
 pub mod set_index;
+pub mod sfu;
 pub mod simd_function_unit;
 pub mod sp_unit;
 pub mod tag_array;
@@ -56,7 +60,6 @@ use interconn as ic;
 use kernel::Kernel;
 use ldst_unit::LoadStoreUnit;
 use mem_fetch::{AccessKind, BitString};
-use sp_unit::SPUnit;
 use stats::Stats;
 use trace_model::Command;
 
@@ -81,7 +84,7 @@ pub type SubPartition = mem_sub_partition::MemorySubPartition<Fifo<mem_fetch::Me
 
 #[derive(Default, Debug)]
 pub struct TotalDuration {
-    count: u32,
+    count: u128,
     dur: std::time::Duration,
 }
 
@@ -92,8 +95,14 @@ impl TotalDuration {
     }
 
     #[must_use]
+    pub fn total(&self) -> &std::time::Duration {
+        &self.dur
+    }
+
+    #[must_use]
     pub fn mean(&self) -> std::time::Duration {
-        self.dur / self.count
+        let nanos = u64::try_from(self.dur.as_nanos() / self.count as u128).unwrap();
+        std::time::Duration::from_nanos(nanos)
     }
 }
 
@@ -671,7 +680,7 @@ where
         // self.interconn_transfer();
 
         // dbg!(self.parallel_simulation);
-        let start = Instant::now();
+        // let start = Instant::now();
 
         let kernels_completed = self
             .running_kernels
@@ -704,8 +713,22 @@ where
                 .flat_map(|cluster| cluster.cores.iter())
                 .collect();
             cores.par_iter().for_each(|core| {
-                core.lock().unwrap().cycle();
+                // cores.par_chunks(4).for_each(|cores| {
+                // for core in cores {
+                //     core.lock().unwrap().cycle();
+                // }
+                crate::timeit!(core.write().unwrap().cycle());
+                // TIMINGS
+                //     .lock()
+                //     .unwrap()
+                //     .entry("core_cycle")
+                //     .or_default()
+                //     .add(start.elapsed());
             });
+
+            // cores.par_iter().for_each(|core| {
+            //     core.lock().unwrap().cycle();
+            // });
             // dbg!(cores.len());
             // let after = self.gather_state();
             // if before != after {
@@ -730,41 +753,41 @@ where
 
             // self.interconn.commit();
 
-            if false {
-                for sub in &self.mem_sub_partitions {
-                    let sub = sub.lock().unwrap();
-                    let mem_dest = self.config.mem_id_to_device_id(sub.id);
-                    // sub id: 0..15 (have 8 mem controllers, 2 sub partitions per channel)
-                    // dbg!(sub.id);
-                    // dbg!(mem_dest);
-                    let mut dest_queue = self.interconn.dest_queue(mem_dest).lock().unwrap();
-                    // todo sort the dest queue here
-                    dest_queue.make_contiguous().sort_by_key(|packet| {
-                        let Packet::Fetch(fetch) = packet;
-                        let ordering = &self.clusters[fetch.cluster_id].core_sim_order;
-                        // dbg!(&ordering);
-                        let core_id = fetch.core_id
-                            - (fetch.cluster_id * self.config.num_cores_per_simt_cluster);
-                        // dbg!(fetch.core_id, core_id);
-                        let ordering_idx = ordering.iter().position(|id| *id == core_id).unwrap();
-                        // dbg!(fetch.cluster_id);
-                        // dbg!(fetch.core_id);
-                        let pushed_cycle = fetch.pushed_cycle.unwrap();
-                        // dbg!((pushed_cycle, core_idx));
-                        (pushed_cycle, fetch.cluster_id, ordering_idx)
-                    });
-                    let _q = dest_queue
-                        .iter()
-                        .map(|p| {
-                            let Packet::Fetch(fetch) = p;
-                            (fetch.pushed_cycle.unwrap(), fetch.cluster_id, fetch.core_id)
-                        })
-                        .collect::<Vec<_>>();
-                    // if !q.is_empty() {
-                    //     dbg!(sub.id, q);
-                    // }
-                }
-            }
+            // if false {
+            //     for sub in &self.mem_sub_partitions {
+            //         let sub = sub.lock().unwrap();
+            //         let mem_dest = self.config.mem_id_to_device_id(sub.id);
+            //         // sub id: 0..15 (have 8 mem controllers, 2 sub partitions per channel)
+            //         // dbg!(sub.id);
+            //         // dbg!(mem_dest);
+            //         let mut dest_queue = self.interconn.dest_queue(mem_dest).lock().unwrap();
+            //         // todo sort the dest queue here
+            //         dest_queue.make_contiguous().sort_by_key(|packet| {
+            //             let Packet::Fetch(fetch) = packet;
+            //             let ordering = &self.clusters[fetch.cluster_id].core_sim_order;
+            //             // dbg!(&ordering);
+            //             let core_id = fetch.core_id
+            //                 - (fetch.cluster_id * self.config.num_cores_per_simt_cluster);
+            //             // dbg!(fetch.core_id, core_id);
+            //             let ordering_idx = ordering.iter().position(|id| *id == core_id).unwrap();
+            //             // dbg!(fetch.cluster_id);
+            //             // dbg!(fetch.core_id);
+            //             let pushed_cycle = fetch.pushed_cycle.unwrap();
+            //             // dbg!((pushed_cycle, core_idx));
+            //             (pushed_cycle, fetch.cluster_id, ordering_idx)
+            //         });
+            //         let _q = dest_queue
+            //             .iter()
+            //             .map(|p| {
+            //                 let Packet::Fetch(fetch) = p;
+            //                 (fetch.pushed_cycle.unwrap(), fetch.cluster_id, fetch.core_id)
+            //             })
+            //             .collect::<Vec<_>>();
+            //         // if !q.is_empty() {
+            //         //     dbg!(sub.id, q);
+            //         // }
+            //     }
+            // }
 
             for cluster in &mut self.clusters {
                 // let cores_completed = cluster.not_completed() == 0;
@@ -782,7 +805,7 @@ where
                 // }
 
                 for core_id in &cluster.core_sim_order {
-                    let core = cluster.cores[*core_id].lock().unwrap();
+                    let core = cluster.cores[*core_id].read().unwrap();
                     let mut port = core.interconn_port.lock().unwrap();
                     for (dest, fetch, size) in port.drain(..) {
                         self.interconn
@@ -811,7 +834,7 @@ where
 
                 // cluster.cycle();
                 for core_id in &cluster.core_sim_order {
-                    let mut core = cluster.cores[*core_id].lock().unwrap();
+                    let mut core = cluster.cores[*core_id].write().unwrap();
                     core.cycle();
 
                     let mut port = core.interconn_port.lock().unwrap();
@@ -829,12 +852,13 @@ where
             }
         }
 
-        TIMINGS
-            .lock()
-            .unwrap()
-            .entry("core_cycle")
-            .or_default()
-            .add(start.elapsed());
+        // TIMINGS
+        //     .lock()
+        //     .unwrap()
+        //     .entry("single_core_cycle")
+        //     .or_default()
+        //     .add(start.elapsed() / self.config.total_cores() as u32);
+        //
 
         // if false && self.parallel_simulation {
         // log::debug!("===> issue block to core");
@@ -970,21 +994,16 @@ where
         let mut stats: Stats = self.stats.lock().unwrap().clone();
 
         for cluster in &self.clusters {
-            // for core in cluster.cores.lock().unwrap().iter() {
             for core in &cluster.cores {
-                let core = core.lock().unwrap();
+                let core = core.read().unwrap();
                 let core_id = core.core_id;
                 stats.l1i_stats[core_id] = core.instr_l1_cache.stats().lock().unwrap().clone();
-                // .insert(core_id, core.instr_l1_cache.stats().lock().unwrap().clone());
                 let ldst_unit = &core.load_store_unit.lock().unwrap();
 
                 let data_l1 = ldst_unit.data_l1.as_ref().unwrap();
                 stats.l1d_stats[core_id] = data_l1.stats().lock().unwrap().clone();
-                // .insert(core_id, data_l1.stats().lock().unwrap().clone());
                 stats.l1c_stats[core_id] = stats::Cache::default();
-                // stats.l1c_stats.insert(core_id, stats::Cache::default());
                 stats.l1t_stats[core_id] = stats::Cache::default();
-                // stats.l1t_stats.insert(core_id, stats::Cache::default());
             }
         }
 
@@ -992,7 +1011,6 @@ where
             let sub = sub.try_lock().unwrap();
             let l2_cache = sub.l2_cache.as_ref().unwrap();
             stats.l2d_stats[sub.id] = l2_cache.stats().lock().unwrap().clone();
-            // .insert(sub.id, l2_cache.stats().lock().unwrap().clone());
         }
         stats
     }

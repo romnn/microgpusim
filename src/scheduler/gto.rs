@@ -41,10 +41,12 @@ impl Scheduler {
 }
 
 impl super::Scheduler for Scheduler {
-    fn order_warps(&mut self) {
+    fn order_warps(&mut self, core: &dyn WarpIssuer) {
         self.inner.order_by_priority(
             super::ordering::Ordering::GREEDY_THEN_PRIORITY_FUNC,
-            super::ordering::sort_warps_by_oldest_dynamic_id,
+            |lhs: &warp::Ref, rhs: &warp::Ref| {
+                super::ordering::sort_warps_by_oldest_dynamic_id(lhs, rhs, core)
+            },
         );
     }
 
@@ -56,7 +58,7 @@ impl super::Scheduler for Scheduler {
         self.inner.prioritized_warps()
     }
 
-    fn cycle(&mut self, issuer: &dyn WarpIssuer) {
+    fn cycle(&mut self, core: &dyn WarpIssuer) {
         log::debug!(
             "gto scheduler[{}]: BEFORE: prioritized warp ids: {:?}",
             self.inner.id,
@@ -68,7 +70,7 @@ impl super::Scheduler for Scheduler {
             self.debug_dynamic_warp_ids()
         );
 
-        self.order_warps();
+        self.order_warps(core);
 
         log::debug!(
             "gto scheduler[{}]: AFTER: prioritized warp ids: {:?}",
@@ -81,6 +83,6 @@ impl super::Scheduler for Scheduler {
             self.debug_dynamic_warp_ids()
         );
 
-        self.inner.cycle(issuer);
+        self.inner.cycle(core);
     }
 }

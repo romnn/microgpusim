@@ -6,6 +6,7 @@
 // #![allow(warnings)]
 
 pub mod addrdec;
+pub mod bitset;
 pub mod cache;
 pub mod cluster;
 pub mod collector_unit;

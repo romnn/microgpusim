@@ -3,8 +3,8 @@ pub mod ordering;
 
 use crate::{
     config,
-    core::PipelineStage,
-    opcodes::{self, ArchOp},
+    core::{PipelineStage, WarpIssuer},
+    opcodes::ArchOp,
     scoreboard, warp,
 };
 use console::style;
@@ -28,14 +28,14 @@ enum ExecUnitKind {
 }
 
 pub trait Scheduler: Send + Sync + std::fmt::Debug + 'static {
-    fn cycle(&mut self, _core: &dyn super::core::WarpIssuer);
+    fn cycle(&mut self, _core: &dyn WarpIssuer);
 
     fn add_supervised_warp(&mut self, warp: warp::Ref);
 
     fn prioritized_warps(&self) -> &VecDeque<(usize, warp::Ref)>;
 
     /// Order warps based on scheduling policy.
-    fn order_warps(&mut self);
+    fn order_warps(&mut self, core: &dyn WarpIssuer);
 }
 
 #[derive(Debug)]
@@ -95,7 +95,29 @@ impl Base {
         &self.next_cycle_prioritized_warps
     }
 
-    fn cycle(&mut self, issuer: &dyn super::core::WarpIssuer) {
+    #[must_use]
+    #[inline]
+    fn issue(
+        &self,
+        warp: &mut warp::Warp,
+        stage: PipelineStage,
+        unit: ExecUnitKind,
+        prev_issued_exec_unit: ExecUnitKind,
+        core: &dyn WarpIssuer,
+    ) -> bool {
+        let free_register = core.has_free_register(stage, self.id);
+        let can_dual_issue =
+            !self.config.dual_issue_only_to_different_exec_units || prev_issued_exec_unit != unit;
+
+        if free_register && can_dual_issue {
+            core.issue_warp(stage, warp, self.id).is_ok()
+        } else {
+            log::debug!("issue failed: no free mem port register");
+            false
+        }
+    }
+
+    fn cycle(&mut self, core: &dyn WarpIssuer) {
         log::debug!("{}: cycle", style("base scheduler").yellow());
 
         let mut valid_inst = false;
@@ -104,7 +126,7 @@ impl Base {
 
         for (next_warp_supervised_idx, next_warp_rc) in &self.next_cycle_prioritized_warps {
             // don't consider warps that are not yet valid
-            let next_warp = next_warp_rc.lock().unwrap();
+            let mut next_warp = next_warp_rc.lock().unwrap();
             let (warp_id, dyn_warp_id) = (next_warp.warp_id, next_warp.dynamic_warp_id);
 
             if next_warp.done_exit() {
@@ -132,9 +154,10 @@ impl Base {
 
             let mut prev_issued_exec_unit = ExecUnitKind::NONE;
             let max_issue = self.config.max_instruction_issue_per_warp;
-            // In tis mode, we only allow dual issue to diff execution
+            // In this mode, we only allow dual issue to diff execution
             // units (as in Maxwell and Pascal)
-            let diff_exec_units = self.config.dual_issue_diff_exec_units;
+            let dual_issue_only_to_different_exec_units =
+                self.config.dual_issue_only_to_different_exec_units;
 
             if inst_count > 1 {
                 if next_warp.ibuffer_empty() {
@@ -145,9 +168,12 @@ impl Base {
                     );
                 }
 
-                if next_warp.waiting() {
+                if next_warp.waiting()
+                    || core.warp_waiting_at_barrier(warp_id)
+                    || core.warp_waiting_at_mem_barrier(&mut next_warp)
+                {
                     log::debug!(
-                        "warp (warp_id={}, dynamic_warp_id={}) is waiting for completion",
+                        "warp (warp_id={}, dynamic_warp_id={}) is waiting",
                         warp_id,
                         dyn_warp_id
                     );
@@ -161,140 +187,218 @@ impl Base {
             drop(next_warp);
 
             let mut warp = warp.lock().unwrap();
-            while !warp.waiting()
+
+            while !(warp.waiting()
+                || core.warp_waiting_at_barrier(warp_id)
+                || core.warp_waiting_at_mem_barrier(&mut warp))
                 && !warp.ibuffer_empty()
                 && checked < max_issue
                 && checked <= num_issued
                 && num_issued < max_issue
             {
                 let mut warp_inst_issued = false;
+                checked += 1;
 
-                if let Some(instr) = warp.ibuffer_peek() {
+                let Some(instr) = warp.ibuffer_peek() else {
+                    continue;
+                };
+                log::debug!(
+                    "Warp (warp_id={}, dynamic_warp_id={}) instruction buffer[{}] has valid instruction ({}, op={:?})",
+                    warp_id, dyn_warp_id, warp.next, instr, instr.opcode.category
+                );
+
+                valid_inst = true;
+                if self
+                    .scoreboard
+                    .read()
+                    .unwrap()
+                    .has_collision(warp_id, instr)
+                {
                     log::debug!(
-                        "Warp (warp_id={}, dynamic_warp_id={}) instruction buffer[{}] has valid instruction {}",
-                        warp_id, dyn_warp_id, warp.next, instr,
+                        "Warp (warp_id={}, dynamic_warp_id={}) {}",
+                        warp_id,
+                        dyn_warp_id,
+                        style("fails scoreboard").yellow(),
                     );
+                    continue;
+                }
 
-                    valid_inst = true;
-                    if self
-                        .scoreboard
-                        .read()
-                        .unwrap()
-                        .has_collision(warp_id, instr)
-                    {
-                        log::debug!(
-                            "Warp (warp_id={}, dynamic_warp_id={}) {}",
-                            warp_id,
-                            dyn_warp_id,
-                            style("fails scoreboard").yellow(),
-                        );
-                    } else {
-                        log::debug!(
-                            "Warp (warp_id={}, dynamic_warp_id={}) {}",
-                            warp_id,
-                            dyn_warp_id,
-                            style("passes scoreboard").yellow(),
-                        );
-                        ready_inst = true;
+                log::debug!(
+                    "Warp (warp_id={}, dynamic_warp_id={}) {}",
+                    warp_id,
+                    dyn_warp_id,
+                    style("passes scoreboard").yellow(),
+                );
+                ready_inst = true;
 
-                        debug_assert!(warp.has_instr_in_pipeline());
+                debug_assert!(warp.has_instr_in_pipeline());
 
-                        match instr.opcode.category {
-                            ArchOp::LOAD_OP
-                            | ArchOp::STORE_OP
-                            | ArchOp::MEMORY_BARRIER_OP
-                            | ArchOp::TENSOR_CORE_LOAD_OP
-                            | ArchOp::TENSOR_CORE_STORE_OP => {
-                                let mem_stage = PipelineStage::ID_OC_MEM;
-
-                                let free_register = issuer.has_free_register(mem_stage, self.id);
-
-                                if free_register
-                                    && (!diff_exec_units
-                                        || prev_issued_exec_unit != ExecUnitKind::MEM)
-                                {
-                                    // if !diff_exec_units || prev_issued_exec_unit != ExecUnitKind::MEM {
-                                    let instr = warp.ibuffer_take().unwrap();
-                                    debug_assert_eq!(warp_id, warp.warp_id);
-                                    if issuer
-                                        .issue_warp(mem_stage, &mut warp, instr, self.id)
-                                        .is_ok()
-                                    {
-                                        num_issued += 1;
-                                        issued_inst = true;
-                                        warp_inst_issued = true;
-                                        prev_issued_exec_unit = ExecUnitKind::MEM;
-                                    }
-                                } else {
-                                    log::debug!("issue failed: no free mem port register");
-                                }
-                            }
-                            op => {
-                                if op != ArchOp::TENSOR_CORE_OP
-                                    && op != ArchOp::SFU_OP
-                                    && op != ArchOp::DP_OP
-                                    && (op as usize) < opcodes::SPEC_UNIT_START_ID
-                                {
-                                    let mut execute_on_sp = false;
-                                    let mut execute_on_int = false;
-
-                                    let sp_pipe_avail = self.config.num_sp_units > 0
-                                        && issuer
-                                            .has_free_register(PipelineStage::ID_OC_SP, self.id);
-                                    let int_pipe_avail = self.config.num_int_units > 0
-                                        && issuer
-                                            .has_free_register(PipelineStage::ID_OC_INT, self.id);
-
-                                    // if INT unit pipline exist, then execute ALU and INT
-                                    // operations on INT unit and SP-FPU on SP unit (like in Volta)
-                                    // if INT unit pipline does not exist, then execute all ALU, INT
-                                    // and SP operations on SP unit (as in Fermi, Pascal GPUs)
-                                    if int_pipe_avail
-                                        && op != ArchOp::SP_OP
-                                        && !(diff_exec_units
-                                            && prev_issued_exec_unit == ExecUnitKind::INT)
-                                    {
-                                        execute_on_int = true;
-                                    } else if sp_pipe_avail
-                                        && (self.config.num_int_units == 0
-                                            || (self.config.num_int_units > 0
-                                                && op == ArchOp::SP_OP))
-                                        && !(diff_exec_units
-                                            && prev_issued_exec_unit == ExecUnitKind::SP)
-                                    {
-                                        execute_on_sp = true;
-                                    }
-
-                                    log::debug!(
-                                        "execute on INT={} execute on SP={}",
-                                        execute_on_int,
-                                        execute_on_sp
-                                    );
-
-                                    let issue_target = if execute_on_sp {
-                                        Some((PipelineStage::ID_OC_SP, ExecUnitKind::SP))
-                                    } else if execute_on_int {
-                                        Some((PipelineStage::ID_OC_INT, ExecUnitKind::INT))
-                                    } else {
-                                        None
-                                    };
-
-                                    if let Some((stage, unit)) = issue_target {
-                                        let instr = warp.ibuffer_take().unwrap();
-                                        debug_assert_eq!(warp.warp_id, warp_id);
-                                        if issuer
-                                            .issue_warp(stage, &mut warp, instr, self.id)
-                                            .is_ok()
-                                        {
-                                            num_issued += 1;
-                                            issued_inst = true;
-                                            warp_inst_issued = true;
-                                            prev_issued_exec_unit = unit;
-                                        }
-                                    }
-                                }
-                            } // op => unimplemented!("op {:?} not implemented", op),
+                match instr.opcode.category {
+                    ArchOp::LOAD_OP
+                    | ArchOp::STORE_OP
+                    | ArchOp::MEMORY_BARRIER_OP
+                    | ArchOp::TENSOR_CORE_LOAD_OP
+                    | ArchOp::TENSOR_CORE_STORE_OP => {
+                        if self.issue(
+                            &mut warp,
+                            PipelineStage::ID_OC_MEM,
+                            ExecUnitKind::MEM,
+                            prev_issued_exec_unit,
+                            core,
+                        ) {
+                            num_issued += 1;
+                            issued_inst = true;
+                            warp_inst_issued = true;
+                            prev_issued_exec_unit = ExecUnitKind::MEM;
                         }
+                        // let mem_stage = PipelineStage::ID_OC_MEM;
+                        //
+                        // let free_register = core.has_free_register(mem_stage, self.id);
+                        // let can_dual_issue = !dual_issue_only_to_different_exec_units
+                        //     || prev_issued_exec_unit != ExecUnitKind::MEM;
+                        //
+                        // if free_register && can_dual_issue {
+                        //     // warp.ibuffer_step();
+                        //     // let instr = warp.ibuffer_take().unwrap();
+                        //     // debug_assert_eq!(warp_id, warp.warp_id);
+                        //     if core
+                        //         .issue_warp(mem_stage, &mut warp, self.id)
+                        //         // .issue_warp(mem_stage, warp_id, self.id)
+                        //         // .issue_warp(mem_stage, &mut warp, instr, self.id)
+                        //         .is_ok()
+                        //     {
+                        //         num_issued += 1;
+                        //         issued_inst = true;
+                        //         warp_inst_issued = true;
+                        //         prev_issued_exec_unit = ExecUnitKind::MEM;
+                        //     }
+                        // } else {
+                        //     log::debug!("issue failed: no free mem port register");
+                        // }
+                    }
+                    op @ (ArchOp::NO_OP
+                    | ArchOp::ALU_OP
+                    | ArchOp::SP_OP
+                    | ArchOp::INT_OP
+                    | ArchOp::BARRIER_OP
+                    | ArchOp::ALU_SFU_OP
+                    | ArchOp::BRANCH_OP
+                    | ArchOp::CALL_OPS
+                    | ArchOp::RET_OPS
+                    | ArchOp::EXIT_OPS) => {
+                        // op => {
+                        //     if op != ArchOp::TENSOR_CORE_OP
+                        //         && op != ArchOp::SFU_OP
+                        //         && op != ArchOp::DP_OP
+                        //         && (op as usize) < opcodes::SPEC_UNIT_START_ID
+                        //     {
+                        let mut execute_on_sp = false;
+                        let mut execute_on_int = false;
+
+                        let sp_pipe_avail = self.config.num_sp_units > 0
+                            && core.has_free_register(PipelineStage::ID_OC_SP, self.id);
+                        let int_pipe_avail = self.config.num_int_units > 0
+                            && core.has_free_register(PipelineStage::ID_OC_INT, self.id);
+
+                        // if INT unit pipline exist, then execute ALU and INT
+                        // operations on INT unit and SP-FPU on SP unit (like in Volta)
+                        // if INT unit pipline does not exist, then execute all ALU, INT
+                        // and SP operations on SP unit (as in Fermi, Pascal GPUs)
+                        let int_can_dual_issue = !dual_issue_only_to_different_exec_units
+                            || prev_issued_exec_unit != ExecUnitKind::INT;
+
+                        let sp_can_dual_issue = !dual_issue_only_to_different_exec_units
+                            || prev_issued_exec_unit != ExecUnitKind::SP;
+
+                        if int_pipe_avail && op != ArchOp::SP_OP && int_can_dual_issue {
+                            execute_on_int = true;
+                        } else if sp_pipe_avail
+                            && (self.config.num_int_units == 0
+                                || (self.config.num_int_units > 0 && op == ArchOp::SP_OP))
+                            && sp_can_dual_issue
+                        {
+                            execute_on_sp = true;
+                        }
+
+                        log::debug!(
+                            "execute on INT={} execute on SP={}",
+                            execute_on_int,
+                            execute_on_sp
+                        );
+
+                        let issue_target = if execute_on_sp {
+                            Some((PipelineStage::ID_OC_SP, ExecUnitKind::SP))
+                        } else if execute_on_int {
+                            Some((PipelineStage::ID_OC_INT, ExecUnitKind::INT))
+                        } else {
+                            None
+                        };
+
+                        if let Some((stage, unit)) = issue_target {
+                            if self.issue(&mut warp, stage, unit, prev_issued_exec_unit, core) {
+                                num_issued += 1;
+                                issued_inst = true;
+                                warp_inst_issued = true;
+                                prev_issued_exec_unit = unit;
+                            }
+                        }
+
+                        // if let Some((stage, unit)) = issue_target {
+                        //     // let instr = warp.ibuffer_take().unwrap();
+                        //     // warp.ibuffer_step();
+                        //     debug_assert_eq!(warp.warp_id, warp_id);
+                        //     if core.issue_warp(stage, &mut warp, self.id).is_ok() {
+                        //         // .issue_warp(stage, &mut warp, instr, self.id).is_ok() {
+                        //         num_issued += 1;
+                        //         issued_inst = true;
+                        //         warp_inst_issued = true;
+                        //         prev_issued_exec_unit = unit;
+                        //     }
+                        // }
+                    }
+                    op @ (ArchOp::DP_OP | ArchOp::SFU_OP) => {
+                        // let stage = PipelineStage::ID_OC_DP;
+                        // let unit = ExecUnitKind::DP;
+
+                        let dp_can_dual_issue = !dual_issue_only_to_different_exec_units
+                            || prev_issued_exec_unit != ExecUnitKind::DP;
+                        let sfu_can_dual_issue = !dual_issue_only_to_different_exec_units
+                            || prev_issued_exec_unit != ExecUnitKind::SP;
+
+                        let issue_target = match op {
+                            ArchOp::DP_OP if self.config.num_dp_units > 0 && dp_can_dual_issue => {
+                                Some((PipelineStage::ID_OC_DP, ExecUnitKind::DP))
+                            }
+                            ArchOp::DP_OP
+                                if self.config.num_dp_units == 0 && sfu_can_dual_issue =>
+                            {
+                                Some((PipelineStage::ID_OC_DP, ExecUnitKind::DP))
+                            }
+                            ArchOp::SFU_OP => Some((PipelineStage::ID_OC_DP, ExecUnitKind::DP)),
+                            _ => None,
+                        };
+
+                        if let Some((stage, unit)) = issue_target {
+                            if self.issue(&mut warp, stage, unit, prev_issued_exec_unit, core) {
+                                num_issued += 1;
+                                issued_inst = true;
+                                warp_inst_issued = true;
+                                prev_issued_exec_unit = unit;
+                            }
+                        }
+                    }
+                    op @ ArchOp::TENSOR_CORE_OP => {
+                        unimplemented!("op {:?} not implemented", op);
+                    }
+                    op @ (ArchOp::SPECIALIZED_UNIT_1_OP
+                    | ArchOp::SPECIALIZED_UNIT_2_OP
+                    | ArchOp::SPECIALIZED_UNIT_3_OP
+                    | ArchOp::SPECIALIZED_UNIT_4_OP
+                    | ArchOp::SPECIALIZED_UNIT_5_OP
+                    | ArchOp::SPECIALIZED_UNIT_6_OP
+                    | ArchOp::SPECIALIZED_UNIT_7_OP
+                    | ArchOp::SPECIALIZED_UNIT_8_OP) => {
+                        unimplemented!("op {:?} not implemented", op);
                     }
                 }
                 if warp_inst_issued {
@@ -304,9 +408,9 @@ impl Base {
                         dyn_warp_id,
                         num_issued
                     );
-                    warp.ibuffer_step();
+                    // ibuffer step is always called after ibuffer take
+                    // warp.ibuffer_step();
                 }
-                checked += 1;
             }
             if num_issued > 0 {
                 self.last_supervised_issued_idx = *next_warp_supervised_idx;

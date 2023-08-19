@@ -1,17 +1,21 @@
-use super::materialize::{self, BenchmarkConfig};
 use crate::{
+    materialize::{self, BenchmarkConfig},
     open_writable,
     options::{self, Options},
-    RunError,
+    RunError, TraceProvider,
 };
 use color_eyre::{eyre, Help};
 use utils::fs::create_dirs;
 
 pub fn simulate_bench_config(
     bench: &BenchmarkConfig,
+    trace_provider: TraceProvider,
 ) -> Result<playground::stats::StatsBridge, RunError> {
     let traces_dir = &bench.accelsim_trace.traces_dir;
-    let kernelslist = traces_dir.join("kernelslist.g");
+    let kernelslist = traces_dir.join(match trace_provider {
+        TraceProvider::Native | TraceProvider::Accelsim => "kernelslist.g",
+        TraceProvider::Box => "box-kernelslist.g",
+    });
     if !kernelslist.is_file() {
         return Err(RunError::Failed(
             eyre::eyre!("missing {}", kernelslist.display()).with_suggestion(|| {
@@ -67,7 +71,7 @@ pub async fn simulate(
 
     let (_stats, dur) = tokio::task::spawn_blocking(move || {
         let start = std::time::Instant::now();
-        let stats = simulate_bench_config(&bench)?;
+        let stats = simulate_bench_config(&bench, TraceProvider::Native)?;
         Ok::<_, eyre::Report>((stats, start.elapsed()))
     })
     .await

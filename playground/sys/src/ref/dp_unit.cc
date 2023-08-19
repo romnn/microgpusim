@@ -6,7 +6,7 @@ dp_unit::dp_unit(register_set *result_port, const shader_core_config *config,
                  trace_shader_core_ctx *core, unsigned issue_reg_id)
     : pipelined_simd_unit(result_port, config, config->max_dp_latency, core,
                           issue_reg_id) {
-  m_name = "DP ";
+  m_name = "DPUnit";
 }
 
 void dp_unit::active_lanes_in_pipeline() {
@@ -17,7 +17,7 @@ void dp_unit::active_lanes_in_pipeline() {
   m_core->incfumemactivelanes_stat(active_count);
 }
 
-void dp_unit ::issue(register_set &source_reg) {
+void dp_unit::issue(register_set &source_reg) {
   // trace_warp_inst_t **ready_reg =
   warp_inst_t **ready_reg =
       source_reg.get_ready(m_config->sub_core_model, m_issue_reg_id);

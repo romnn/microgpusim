@@ -36,7 +36,11 @@ pipelined_simd_unit::pipelined_simd_unit(register_set *result_port,
 void pipelined_simd_unit::cycle() {
   unsigned long cycle =
       m_core->get_gpu()->gpu_tot_sim_cycle + m_core->get_gpu()->gpu_sim_cycle;
-  if (m_name.compare("SPUnit") == 0) {
+  bool is_sp = m_name.compare("SPUnit") == 0;
+  bool is_dp = m_name.compare("DPUnit") == 0;
+  bool is_sfu = m_name.compare("SFUUnit") == 0;
+  bool is_int = m_name.compare("IntUnit") == 0;
+  if (is_sp || is_dp || is_sfu || is_int) {
     logger->debug(
         "{}::pipelined_simd_unit: cycle={}: \tpipeline=[{}] ({}/{} active)",
         m_name, cycle,

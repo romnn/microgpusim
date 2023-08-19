@@ -1,4 +1,7 @@
 mod ampere;
+mod kepler;
+mod pascal;
+mod turing;
 
 use color_eyre::eyre;
 
@@ -16,7 +19,8 @@ enum BinaryVersion {
     TURING = 75,
 }
 
-#[derive(strum::FromRepr, Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+/// Trace instruction opcodes for all hardware generations.
+#[derive(strum::AsRefStr, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Op {
     NOP,
     // memory ops
@@ -36,8 +40,137 @@ pub enum Op {
     RED,
     MEMBAR,
     LDGSTS,
-    // control ops
+
+    // alu ops
+    FADD,
+    FADD32I,
+    FCHK,
+    FFMA32I,
+    FFMA,
+    FMNMX,
+    FMUL,
+    FMUL32I,
+    FSEL,
+    FSET,
+    FSETP,
+    FSWZADD,
+    MUFU,
+    HADD2,
+    HADD2_32I,
+    HFMA2,
+    HFMA2_32I,
+    HMUL2,
+    HMUL2_32I,
+    HSET2,
+    HSETP2,
+    HMMA,
+    DADD,
+    DFMA,
+    DMUL,
+    DSETP,
+    BMSK,
+    BREV,
+    FLO,
+    IABS,
+    IADD,
+    IADD3,
+    IADD32I,
+    IDP,
+    IDP4A,
+    IMAD,
+    IMMA,
+    IMNMX,
+    IMUL,
+    IMUL32I,
+    ISCADD,
+    ISCADD32I,
+    ISETP,
+    LEA,
+    LOP,
+    LOP3,
+    LOP32I,
+    POPC,
+    SHF,
+    SHR,
+    VABSDIFF,
+    VABSDIFF4,
+    VADD,
+    F2F,
+    F2I,
+    I2F,
+    I2I,
+    I2IP,
+    FRND,
+    MOV,
+    MOV32I,
+    PRMT,
+    SEL,
+    SGXT,
+    SHFL,
+    PLOP3,
+    PSETP,
+    P2R,
+    R2P,
+    MATCH,
+    QSPC,
+    CCTL,
+    CCTLL,
+    ERRBAR,
+    CCTLT,
+    TEX,
+    TLD,
+    TLD4,
+    TMML,
+    TXD,
+    TXQ,
+    BMOV,
+    BPT,
+    BRA,
+    BREAK,
+    BRX,
+    BSSY,
+    BSYNC,
+    CALL,
     EXIT,
+    JMP,
+    JMX,
+    KILL,
+    NANOSLEEP,
+    RET,
+    RPCMOV,
+    RTT,
+    WARPSYNC,
+    YIELD,
+    B2R,
+    BAR,
+    CS2R,
+    CSMTEST,
+    DEPBAR,
+    GETLMEMBASE,
+    LEPC,
+    PMTRIG,
+    R2B,
+    S2R,
+    SETCTAID,
+    SETLMEMBASE,
+    VOTE,
+    VOTE_VTG,
+    Pascal(pascal::op::Op),
+    Turing(turing::op::Op),
+    Kepler(kepler::op::Op),
+    Ampere(ampere::op::Op),
+}
+
+impl std::fmt::Debug for Op {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Op::Pascal(op) => op.fmt(f),
+            Op::Turing(op) => op.fmt(f),
+            Op::Kepler(op) => op.fmt(f),
+            Op::Ampere(op) => op.fmt(f),
+            op => write!(f, "{}", op.as_ref()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
@@ -82,7 +215,7 @@ pub enum ArchOp {
     DP_OP,
     /// Single precision
     SP_OP,
-    INTP_OP,
+    INT_OP,
     ALU_SFU_OP,
     /// Load operation
     LOAD_OP,
@@ -122,16 +255,15 @@ impl std::fmt::Display for Opcode {
 pub type OpcodeMap = phf::Map<&'static str, Opcode>;
 
 pub fn get_opcode_map(config: &KernelLaunch) -> eyre::Result<&'static OpcodeMap> {
-    type BV = BinaryVersion;
-    let version = BV::from_repr(config.binary_version);
+    let version = BinaryVersion::from_repr(config.binary_version);
     let version = version.ok_or(eyre::eyre!(
         "unknown binary version {}",
         config.binary_version
     ))?;
     #[allow(clippy::match_same_arms)]
     match version {
-        BV::AMPERE_RTX | BV::AMPERE_A100 => Ok(&ampere::OPCODES),
-        BV::PASCAL_P100 | BV::PASCAL_TITANX => Ok(&ampere::OPCODES),
-        _ => unimplemented!(),
+        BinaryVersion::AMPERE_RTX | BinaryVersion::AMPERE_A100 => Ok(&ampere::OPCODES),
+        BinaryVersion::PASCAL_P100 | BinaryVersion::PASCAL_TITANX => Ok(&pascal::OPCODES),
+        other => unimplemented!("binary version {other:?} not supported"),
     }
 }

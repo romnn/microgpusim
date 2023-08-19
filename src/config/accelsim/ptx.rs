@@ -120,3 +120,121 @@ impl Default for PTXConfig {
         }
     }
 }
+
+#[derive(Default, Debug, Clone, Hash, PartialEq, Eq)]
+pub struct OpcodeLatencies {
+    pub add_sub: Option<u64>,
+    pub max_min: Option<u64>,
+    pub mul: Option<u64>,
+    pub mad: Option<u64>,
+    pub div: Option<u64>,
+    pub shuffle: Option<u64>,
+}
+
+impl OpcodeLatencies {
+    pub fn max(&self) -> Option<u64> {
+        [
+            self.add_sub,
+            self.max_min,
+            self.mul,
+            self.mad,
+            self.div,
+            self.shuffle,
+        ]
+        .iter()
+        .filter_map(Option::as_ref)
+        .max()
+        .copied()
+    }
+}
+
+fn parse_latencies(config: &str) -> Result<OpcodeLatencies, std::num::ParseIntError> {
+    use itertools::Itertools;
+    let latencies: Vec<u64> = config
+        .split(",")
+        .map(str::trim)
+        .map(str::parse)
+        .try_collect()?;
+    Ok(OpcodeLatencies {
+        add_sub: latencies.get(0).copied(),
+        max_min: latencies.get(1).copied(),
+        mul: latencies.get(2).copied(),
+        mad: latencies.get(3).copied(),
+        div: latencies.get(4).copied(),
+        shuffle: latencies.get(5).copied(),
+    })
+}
+
+impl PTXConfig {
+    pub fn int_latencies(&self) -> Result<OpcodeLatencies, std::num::ParseIntError> {
+        parse_latencies(&self.opcode_latency_int)
+    }
+
+    pub fn sp_latencies(&self) -> Result<OpcodeLatencies, std::num::ParseIntError> {
+        parse_latencies(&self.opcode_latency_fp)
+    }
+
+    pub fn dp_latencies(&self) -> Result<OpcodeLatencies, std::num::ParseIntError> {
+        parse_latencies(&self.opcode_latency_dp)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::testing::diff;
+    use color_eyre::eyre;
+
+    #[test]
+    fn test_opcode_latencies_int() -> eyre::Result<()> {
+        let int_latencies = super::parse_latencies("1,1,19,25,145,32")?;
+        assert_eq!(int_latencies.max(), Some(145));
+        diff::assert_eq!(
+            have: int_latencies,
+            want: super::OpcodeLatencies {
+                add_sub: Some(1),
+                max_min: Some(1),
+                mul: Some(19),
+                mad: Some(25),
+                div: Some(145),
+                shuffle: Some(32),
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_opcode_latencies_dp() -> eyre::Result<()> {
+        let dp_latencies = super::parse_latencies("8,8,8,8,335")?;
+        assert_eq!(dp_latencies.max(), Some(335));
+        diff::assert_eq!(
+            have: dp_latencies,
+            want: super::OpcodeLatencies {
+                add_sub: Some(8),
+                max_min: Some(8),
+                mul: Some(8),
+                mad: Some(8),
+                div: Some(335),
+                shuffle: None,
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_opcode_latencies_sp() -> eyre::Result<()> {
+        let sp_latencies = super::parse_latencies("1,1,1,1,30")?;
+        assert_eq!(sp_latencies.max(), Some(30));
+        diff::assert_eq!(
+            have: sp_latencies,
+            want: super::OpcodeLatencies {
+                add_sub: Some(1),
+                max_min: Some(1),
+                mul: Some(1),
+                mad: Some(1),
+                div: Some(30),
+                shuffle: None,
+            }
+        );
+        Ok(())
+    }
+}

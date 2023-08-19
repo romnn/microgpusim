@@ -397,6 +397,7 @@ pub fn parse_instruction(
     block_id: Dim,
     warp_id: u32,
     kernel: &trace_model::KernelLaunch,
+    mem_only: bool,
 ) -> eyre::Result<Option<trace_model::MemAccessTraceEntry>> {
     let opcode_tokens: Vec<_> = trace_instruction.opcode.split('.').collect();
     assert!(!opcode_tokens.is_empty());
@@ -413,10 +414,12 @@ pub fn parse_instruction(
         "LDC" => nvbit_model::MemorySpace::Constant, // cannot store constants
         "LDG" | "STG" => nvbit_model::MemorySpace::Global,
         "LDL" | "STL" => nvbit_model::MemorySpace::Local,
-        "LDS" | "STS" => nvbit_model::MemorySpace::Shared,
-        opcode @ "LDSM" => panic!("do not know how to handle opcode {opcode}"),
+        "LDS" | "STS" | "LDSM" => nvbit_model::MemorySpace::Shared,
+        // "LDSM" => panic!("do not know how to handle opcode {opcode}"),
+        // opcode @ "LDSM" => panic!("do not know how to handle opcode {opcode}"),
         opcode if instr_is_mem => panic!("unknown opcode {opcode}"),
-        _ => return Ok(None), // skip non memory instruction
+        _ if mem_only => return Ok(None), // skip non memory instruction
+        _ => nvbit_model::MemorySpace::None,
     };
 
     let too_many_registers = |num| eyre::eyre!("too many src registers ({})", num);
@@ -471,6 +474,7 @@ pub fn read_trace_instructions(
     reader: impl std::io::BufRead,
     trace_version: usize,
     line_info: bool,
+    mem_only: bool,
     kernel: &trace_model::KernelLaunch,
 ) -> eyre::Result<Vec<trace_model::MemAccessTraceEntry>> {
     let mut instructions = Vec::new();
@@ -529,9 +533,14 @@ pub fn read_trace_instructions(
                 let trace_instruction =
                     parse_trace_instruction(instruction, trace_version, line_info)
                         .wrap_err_with(|| format!("bad instruction: {instruction:?}"))?;
-                if let Some(parsed_instruction) =
-                    parse_instruction(trace_instruction.clone(), block.clone(), warp_id, kernel)
-                        .wrap_err_with(|| format!("bad instruction: {trace_instruction:?}"))?
+                if let Some(parsed_instruction) = parse_instruction(
+                    trace_instruction.clone(),
+                    block.clone(),
+                    warp_id,
+                    kernel,
+                    mem_only,
+                )
+                .wrap_err_with(|| format!("bad instruction: {trace_instruction:?}"))?
                 {
                     instructions.push(parsed_instruction);
                 }
@@ -643,10 +652,12 @@ mod tests {
 
         let kernel_trace_path = trace_dir.join(&kernel.trace_file);
         let reader = open_file(&kernel_trace_path)?;
+        let mem_only = false;
         let trace = super::read_trace_instructions(
             reader,
             metadata.trace_version,
             metadata.line_info,
+            mem_only,
             kernel,
         )?;
         dbg!(&trace[..5]);

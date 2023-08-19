@@ -26,9 +26,13 @@ class core_bridge {
       const register_set &issue_reg = ptr->m_pipeline_reg[issue_port];
       bool is_sp = issue_port == ID_OC_SP || issue_port == OC_EX_SP;
       bool is_mem = issue_port == ID_OC_MEM || issue_port == OC_EX_MEM;
-      if (is_sp || is_mem) {
-        out.push_back(register_set_ptr{std::addressof(issue_reg)});
+      bool is_sfu = issue_port == ID_OC_SFU || issue_port == OC_EX_SFU;
+      bool is_int = issue_port == ID_OC_INT || issue_port == OC_EX_INT;
+      bool is_dp = issue_port == ID_OC_DP || issue_port == OC_EX_DP;
+      if (!is_sp && !is_mem && !is_sfu && !is_dp && !is_int) {
+        continue;
       }
+      out.push_back(register_set_ptr{std::addressof(issue_reg)});
     }
 
     return std::make_unique<std::vector<register_set_ptr>>(out);
@@ -56,6 +60,22 @@ class core_bridge {
     }
 
     return std::make_unique<std::vector<register_set_ptr>>(out);
+  }
+
+  std::unique_ptr<std::vector<std::string>> get_functional_unit_occupied_slots()
+      const {
+    std::vector<std::string> out;
+    std::vector<simd_function_unit *>::const_iterator iter;
+    for (iter = (ptr->m_fu).begin(); iter != (ptr->m_fu).end(); iter++) {
+      const simd_function_unit *fu = *iter;
+      if (fu->is_pipelined()) {
+        const pipelined_simd_unit *pipe_fu =
+            static_cast<const pipelined_simd_unit *>(fu);
+        out.push_back(mask_to_string(pipe_fu->occupied));
+      }
+    }
+
+    return std::make_unique<std::vector<std::string>>(out);
   }
 
   std::unique_ptr<std::vector<scheduler_unit_ptr>> get_scheduler_units() const {

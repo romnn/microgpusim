@@ -4,12 +4,12 @@ use super::{
 use std::sync::{Arc, Mutex};
 
 #[derive()]
-pub struct SPUnit {
+pub struct SFU {
     config: Arc<config::GPU>,
     pipelined_simd_unit: fu::PipelinedSimdUnitImpl,
 }
 
-impl SPUnit {
+impl SFU {
     pub fn new(
         id: usize,
         result_port: register_set::Ref,
@@ -18,10 +18,10 @@ impl SPUnit {
         cycle: super::Cycle,
         issue_reg_id: usize,
     ) -> Self {
-        let pipeline_depth = config.max_sp_latency;
+        let pipeline_depth = config.max_sfu_latency;
         let pipelined_simd_unit = fu::PipelinedSimdUnitImpl::new(
             id,
-            "SPUnit".to_string(),
+            "SFU".to_string(),
             Some(result_port),
             pipeline_depth,
             config.clone(),
@@ -36,30 +36,26 @@ impl SPUnit {
     }
 }
 
-impl std::fmt::Display for SPUnit {
+impl std::fmt::Display for SFU {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "SPUnit")
+        write!(f, "SFU")
     }
 }
 
-impl std::fmt::Debug for SPUnit {
+impl std::fmt::Debug for SFU {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SPUnit").finish()
+        f.debug_struct("SFU").finish()
     }
 }
 
-impl fu::SimdFunctionUnit for SPUnit {
+impl fu::SimdFunctionUnit for SFU {
     fn can_issue(&self, instr: &WarpInstruction) -> bool {
         use opcodes::ArchOp;
         match instr.opcode.category {
-            ArchOp::SFU_OP
-            | ArchOp::LOAD_OP
-            | ArchOp::TENSOR_CORE_LOAD_OP
-            | ArchOp::STORE_OP
-            | ArchOp::TENSOR_CORE_STORE_OP
-            | ArchOp::MEMORY_BARRIER_OP
-            | ArchOp::DP_OP => false,
-            _ => self.pipelined_simd_unit.can_issue(instr),
+            ArchOp::SFU_OP | ArchOp::ALU_SFU_OP | ArchOp::DP_OP => {
+                self.pipelined_simd_unit.can_issue(instr)
+            }
+            _ => false,
         }
     }
 
@@ -68,7 +64,7 @@ impl fu::SimdFunctionUnit for SPUnit {
     }
 
     fn occupied(&self) -> &fu::OccupiedSlots {
-        self.pipelined_simd_unit.occupied()
+        &self.pipelined_simd_unit.occupied()
     }
 
     fn id(&self) -> &str {
@@ -88,7 +84,6 @@ impl fu::SimdFunctionUnit for SPUnit {
         active
     }
 
-    // fn issue(&mut self, source_reg: &mut RegisterSet) {
     fn issue(&mut self, source_reg: WarpInstruction) {
         // let ready_reg = source_reg.get_ready(self.config.sub_core_model, self.issue_reg_id);
         // m_core->incexecstat((*ready_reg));

@@ -414,13 +414,15 @@ where
             return true;
         }
 
-        if dispatch_instr.has_dispatch_delay() {
+        if dispatch_instr.dispatch_delay_cycles > 0 {
             let _stats = self.stats.lock().unwrap();
             // stats.num_shared_mem_bank_access[self.core_id] += 1;
         }
 
-        dispatch_instr.dec_dispatch_delay();
-        let has_stall = dispatch_instr.has_dispatch_delay();
+        // dispatch_instr.dec_dispatch_delay();
+        dispatch_instr.dispatch_delay_cycles =
+            dispatch_instr.dispatch_delay_cycles.saturating_sub(1);
+        let has_stall = dispatch_instr.dispatch_delay_cycles > 0;
         if has_stall {
             *kind = MemStageAccessKind::S_MEM;
             *stall_kind = MemStageStallKind::BK_CONF;
@@ -989,6 +991,10 @@ where
 
     fn pipeline(&self) -> &Vec<Option<WarpInstruction>> {
         &self.pipelined_simd_unit.pipeline_reg
+    }
+
+    fn occupied(&self) -> &fu::OccupiedSlots {
+        &self.pipelined_simd_unit.occupied()
     }
 
     fn issue(&mut self, instr: WarpInstruction) {
