@@ -1,5 +1,9 @@
-use crate::mem_sub_partition::SECTOR_SIZE;
-use crate::{address, config, interconn as ic, mem_fetch, mshr, tag_array, Cycle};
+use crate::{
+    address, config, interconn as ic, mem_fetch,
+    mem_sub_partition::SECTOR_SIZE,
+    mshr::{self, MSHR},
+    tag_array, Cycle,
+};
 use console::style;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
@@ -36,7 +40,7 @@ pub struct Base<I> {
 
     pub miss_queue: VecDeque<mem_fetch::MemFetch>,
     pub miss_queue_status: mem_fetch::Status,
-    pub mshrs: mshr::Table,
+    pub mshrs: mshr::Table<mem_fetch::MemFetch>,
     pub tag_array: tag_array::TagArray<()>,
 
     pending: HashMap<mem_fetch::MemFetch, PendingRequest>,
@@ -165,7 +169,7 @@ impl<I> Base<I> {
         let mut evicted = None;
 
         let mshr_addr = self.cache_config.mshr_addr(fetch.addr());
-        let mshr_hit = self.mshrs.probe(mshr_addr);
+        let mshr_hit = self.mshrs.get(mshr_addr).is_some();
         let mshr_full = self.mshrs.full(mshr_addr);
 
         log::debug!(

@@ -1,7 +1,7 @@
 use super::{address, mem_fetch};
 use std::collections::{HashMap, VecDeque};
 
-/// Miss status handlign register kind.
+/// Miss status handling register kind.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Kind {
     TEX_FIFO,        // F
@@ -10,67 +10,118 @@ pub enum Kind {
     SECTOR_ASSOC,    // S
 }
 
-#[derive(Debug, Default)]
-pub struct Entry {
-    list: VecDeque<mem_fetch::MemFetch>,
+/// Miss status handling entry.
+#[derive(Debug)]
+pub struct Entry<F> {
+    requests: VecDeque<F>,
     has_atomic: bool,
 }
 
+impl<F> Default for Entry<F> {
+    fn default() -> Self {
+        Self {
+            requests: VecDeque::new(),
+            has_atomic: false,
+        }
+    }
+}
+
+/// Miss status handling entry.
 #[derive(Debug)]
-pub struct Table {
+pub struct Table<F> {
     num_entries: usize,
     max_merged: usize,
-    data: HashMap<address, Entry>,
+    entries: HashMap<address, Entry<F>>,
     /// If the current response is ready
     ///
     /// it may take several cycles to process the merged requests
-    // current_response_ready: bool,
     current_response: VecDeque<address>,
 }
 
-impl Table {
+pub trait MSHR<F> {
+    // AllEntries() []*MSHREntry
+
+    /// Checks if there is no more space for tracking a new memory access.
+    #[must_use]
+    fn full(&self, block_addr: address) -> bool;
+
+    /// Get pending requests for a given block address.
+    #[must_use]
+    fn get(&self, block_addr: address) -> Option<&Entry<F>>;
+
+    /// Get pending requests for a given block address.
+    #[must_use]
+    fn get_mut(&mut self, block_addr: address) -> Option<&mut Entry<F>>;
+
+    /// Add or merge access.
+    fn add(&mut self, block_addr: address, fetch: F);
+
+    /// Remove access.
+    fn remove(&mut self, block_addr: address);
+
+    /// Clear the miss status handling register.
+    fn clear(&mut self);
+}
+
+impl MSHR<mem_fetch::MemFetch> for Table<mem_fetch::MemFetch> {
+    #[inline]
+    fn full(&self, block_addr: address) -> bool {
+        match self.entries.get(&block_addr) {
+            Some(entry) => entry.requests.len() >= self.max_merged,
+            None => self.entries.len() >= self.num_entries,
+        }
+    }
+
+    #[inline]
+    fn clear(&mut self) {
+        self.entries.clear();
+    }
+
+    #[inline]
+    fn get(&self, block_addr: address) -> Option<&Entry<mem_fetch::MemFetch>> {
+        self.entries.get(&block_addr)
+    }
+
+    #[inline]
+    fn get_mut(&mut self, block_addr: address) -> Option<&mut Entry<mem_fetch::MemFetch>> {
+        self.entries.get_mut(&block_addr)
+    }
+
+    #[inline]
+    fn add(&mut self, block_addr: address, fetch: mem_fetch::MemFetch) {
+        let entry = self.entries.entry(block_addr).or_default();
+
+        debug_assert!(entry.requests.len() <= self.max_merged);
+
+        // indicate that this MSHR entry contains an atomic operation
+        entry.has_atomic |= fetch.is_atomic();
+        entry.requests.push_back(fetch);
+        debug_assert!(self.entries.len() <= self.num_entries);
+    }
+
+    #[inline]
+    fn remove(&mut self, block_addr: address) {
+        self.entries.remove(&block_addr);
+    }
+}
+
+impl Table<mem_fetch::MemFetch> {
     #[must_use]
     pub fn new(num_entries: usize, max_merged: usize) -> Self {
-        let data = HashMap::with_capacity(2 * num_entries);
+        let entries = HashMap::with_capacity(2 * num_entries);
         Self {
             num_entries,
             max_merged,
-            data,
+            entries,
             current_response: VecDeque::new(),
         }
     }
 
-    /// Checks if there is a pending request to the lower memory level already
-    #[must_use]
-    pub fn probe(&self, block_addr: address) -> bool {
-        self.data.contains_key(&block_addr)
-    }
-
-    /// Checks if there is space for tracking a new memory access
-    #[must_use]
-    pub fn full(&self, block_addr: address) -> bool {
-        match self.data.get(&block_addr) {
-            Some(entry) => entry.list.len() >= self.max_merged,
-            None => self.data.len() >= self.num_entries,
-        }
-    }
-
-    /// Add or merge this access
-    pub fn add(&mut self, block_addr: address, fetch: mem_fetch::MemFetch) {
-        let entry = self.data.entry(block_addr).or_default();
-
-        debug_assert!(entry.list.len() <= self.max_merged);
-
-        // indicate that this MSHR entry contains an atomic operation
-        entry.has_atomic |= fetch.is_atomic();
-        entry.list.push_back(fetch);
-        debug_assert!(self.data.len() <= self.num_entries);
-    }
-
-    // /// check is_read_after_write_pending
+    /// check is_read_after_write_pending
+    // #[allow(dead_code)]
     // pub fn is_read_after_write_pending(&self, block_addr: address) -> bool {
     //     let mut write_found = false;
-    //     for fetch in &self.data[&block_addr].list {
+    //     for fetch in &self.entries[&block_addr].list {
     //         if fetch.is_write() {
     //             // pending write
     //             write_found = true;
@@ -87,9 +138,9 @@ impl Table {
     /// # Returns
     /// If the ready mshr entry is an atomic
     pub fn mark_ready(&mut self, block_addr: address, fetch: mem_fetch::MemFetch) -> Option<bool> {
-        let has_atomic = if let Some(entry) = self.data.get_mut(&block_addr) {
+        let has_atomic = if let Some(entry) = self.entries.get_mut(&block_addr) {
             self.current_response.push_back(block_addr);
-            if let Some(old_fetch) = entry.list.iter_mut().find(|f| *f == &fetch) {
+            if let Some(old_fetch) = entry.requests.iter_mut().find(|f| *f == &fetch) {
                 *old_fetch = fetch;
             }
             Some(entry.has_atomic)
@@ -101,7 +152,7 @@ impl Table {
             block_addr,
             has_atomic
         );
-        debug_assert!(self.current_response.len() <= self.data.len());
+        debug_assert!(self.current_response.len() <= self.entries.len());
         has_atomic
     }
 
@@ -117,10 +168,10 @@ impl Table {
         let Some(block_addr) = self.current_response.front() else {
             return None;
         };
-        let Some(entry) = self.data.get(block_addr) else {
+        let Some(entry) = self.entries.get(block_addr) else {
             return None;
         };
-        Some(&entry.list)
+        Some(&entry.requests)
     }
 
     /// Returns mutable reference to the next ready accesses
@@ -128,30 +179,28 @@ impl Table {
         let Some(block_addr) = self.current_response.front() else {
             return None;
         };
-        let Some(entry) = self.data.get_mut(block_addr) else {
+        let Some(entry) = self.entries.get_mut(block_addr) else {
             return None;
         };
-        Some(&mut entry.list)
+        Some(&mut entry.requests)
     }
 
     /// Returns next ready access
     pub fn next_access(&mut self) -> Option<mem_fetch::MemFetch> {
-        // let ready_accesses = self.ready_accesses_mut();
-        // debug_assert!(self.has_ready_accesses());
         let Some(block_addr) = self.current_response.front() else {
             return None;
         };
 
-        let Some(entry) = self.data.get_mut(block_addr) else {
+        let Some(entry) = self.entries.get_mut(block_addr) else {
             return None;
         };
 
-        debug_assert!(!entry.list.is_empty());
-        let fetch = entry.list.pop_front();
+        debug_assert!(!entry.requests.is_empty());
+        let fetch = entry.requests.pop_front();
 
-        let should_remove = entry.list.is_empty();
+        let should_remove = entry.requests.is_empty();
         if should_remove {
-            self.data.remove(block_addr);
+            self.entries.remove(block_addr);
             self.current_response.pop_front();
         }
         fetch
@@ -160,6 +209,7 @@ impl Table {
 
 #[cfg(test)]
 mod tests {
+    use super::MSHR;
     use crate::{config, mem_fetch, warp};
 
     #[test]
@@ -181,11 +231,11 @@ mod tests {
         );
         let fetch = mem_fetch::MemFetch::new(None, access, &config, 0, 0, 0, 0);
         let mshr_addr = cache_config.mshr_addr(fetch_addr);
-        assert!(!mshrs.probe(mshr_addr));
-        assert!(!mshrs.probe(mshr_addr));
+        assert!(mshrs.get(mshr_addr).is_none());
+        assert!(mshrs.get(mshr_addr).is_none());
 
         mshrs.add(mshr_addr, fetch);
-        assert!(mshrs.probe(mshr_addr));
+        assert!(mshrs.get(mshr_addr).is_some());
 
         // TODO: test against bridge here
     }

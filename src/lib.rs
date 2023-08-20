@@ -430,10 +430,6 @@ where
         let start_total = Instant::now();
         // int clock_mask = next_clock_domain();
 
-        // fn is_send<T: Send>(_: T) {}
-        // fn is_sync<T: Sync>(_: T) {}
-        // fn is_par_iter<T: rayon::iter::ParallelIterator>(_: T) {}
-
         // shader core loading (pop from ICNT into core)
         let start = Instant::now();
         if false && self.parallel_simulation {

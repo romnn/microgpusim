@@ -1,5 +1,4 @@
-use super::{base, event};
-use crate::{address, cache, config, interconn as ic, mem_fetch, tag_array, Cycle};
+use crate::{address, cache, config, interconn as ic, mem_fetch, mshr::MSHR, tag_array, Cycle};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
@@ -10,7 +9,7 @@ use std::sync::{Arc, Mutex};
 /// (the policy used in fermi according to the CUDA manual)
 #[derive(Debug)]
 pub struct Data<I> {
-    pub inner: base::Base<I>,
+    pub inner: cache::base::Base<I>,
     /// Specifies type of write allocate request (e.g., L1 or L2)
     write_alloc_type: mem_fetch::AccessKind,
     /// Specifies type of writeback request (e.g., L1 or L2)
@@ -62,7 +61,7 @@ where
         cache_index: Option<usize>,
         fetch: &mem_fetch::MemFetch,
         time: u64,
-        _events: &mut [event::Event],
+        _events: &mut [cache::Event],
         _probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         debug_assert_eq!(addr, fetch.addr());
@@ -120,7 +119,7 @@ where
         // cache_index: usize,
         fetch: &mem_fetch::MemFetch,
         time: u64,
-        _events: &mut [event::Event],
+        _events: &mut [cache::event::Event],
         _probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         let super::base::Base {
@@ -151,9 +150,9 @@ where
     pub fn send_write_request(
         &mut self,
         mut fetch: mem_fetch::MemFetch,
-        request: event::Event,
+        request: cache::Event,
         time: u64,
-        events: &mut Vec<event::Event>,
+        events: &mut Vec<cache::Event>,
     ) {
         log::debug!("data_cache::send_write_request({})", fetch);
         events.push(request);
@@ -171,7 +170,7 @@ where
         cache_index: Option<usize>,
         fetch: &mem_fetch::MemFetch,
         time: u64,
-        events: &mut Vec<event::Event>,
+        events: &mut Vec<cache::Event>,
         _probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         if !self.inner.miss_queue_can_fit(1) {
@@ -244,7 +243,7 @@ where
                     // address from the original mf
                     writeback_fetch.tlx_addr.chip = fetch.tlx_addr.chip;
                     writeback_fetch.tlx_addr.sub_partition = fetch.tlx_addr.sub_partition;
-                    let event = event::Event::WriteBackRequestSent {
+                    let event = cache::Event::WriteBackRequestSent {
                         evicted_block: None,
                     };
 
@@ -269,7 +268,7 @@ where
         _cache_index: Option<usize>,
         fetch: mem_fetch::MemFetch,
         time: u64,
-        events: &mut Vec<event::Event>,
+        events: &mut Vec<cache::Event>,
         _probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         debug_assert_eq!(addr, fetch.addr());
@@ -291,7 +290,7 @@ where
         }
 
         // on miss, generate write through
-        let event = event::Event::WriteRequestSent;
+        let event = cache::Event::WriteRequestSent;
         self.send_write_request(fetch, event, time, events);
         cache::RequestStatus::MISS
     }
@@ -303,7 +302,7 @@ where
         cache_index: Option<usize>,
         fetch: mem_fetch::MemFetch,
         time: u64,
-        events: &mut Vec<event::Event>,
+        events: &mut Vec<cache::Event>,
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         // what exactly is the difference between the addr and the fetch addr?
@@ -316,7 +315,7 @@ where
         //  (write miss, read request, write back request)
         //
         //  Conservatively ensure the worst-case request can be handled this cycle
-        let mshr_hit = self.inner.mshrs.probe(mshr_addr);
+        let mshr_hit = self.inner.mshrs.get(mshr_addr).is_some();
         let mshr_free = !self.inner.mshrs.full(mshr_addr);
         let mshr_miss_but_free = !mshr_hit && mshr_free && !self.inner.miss_queue_full();
 
@@ -344,7 +343,7 @@ where
             return cache::RequestStatus::RESERVATION_FAIL;
         }
 
-        let event = event::Event::WriteRequestSent;
+        let event = cache::Event::WriteRequestSent;
         self.send_write_request(fetch.clone(), event, time, events);
 
         let is_write = false;
@@ -383,7 +382,7 @@ where
             is_write_allocate,
         );
 
-        events.push(event::Event::WriteAllocateSent);
+        events.push(cache::Event::WriteAllocateSent);
 
         if should_miss {
             // If evicted block is modified and not a write-through
@@ -428,7 +427,7 @@ where
                     // is used, so set the right chip address from the original mf
                     writeback_fetch.tlx_addr.chip = fetch.tlx_addr.chip;
                     writeback_fetch.tlx_addr.sub_partition = fetch.tlx_addr.sub_partition;
-                    let event = event::Event::WriteBackRequestSent {
+                    let event = cache::Event::WriteBackRequestSent {
                         evicted_block: Some(evicted),
                     };
 
@@ -447,7 +446,7 @@ where
         cache_index: Option<usize>,
         fetch: mem_fetch::MemFetch,
         time: u64,
-        events: &mut Vec<event::Event>,
+        events: &mut Vec<cache::Event>,
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         let func = match self.inner.cache_config.write_allocate_policy {
@@ -475,7 +474,7 @@ where
         cache_index: Option<usize>,
         fetch: &mem_fetch::MemFetch,
         time: u64,
-        events: &mut [event::Event],
+        events: &mut [cache::Event],
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         let func = match self.inner.cache_config.write_policy {
@@ -501,7 +500,7 @@ where
         addr: address,
         cache_index: Option<usize>,
         fetch: mem_fetch::MemFetch,
-        events: &mut Vec<event::Event>,
+        events: &mut Vec<cache::Event>,
         time: u64,
     ) -> cache::RequestStatus {
         // dbg!(cache_index, probe_status);
@@ -587,7 +586,7 @@ where
         &mut self,
         addr: address,
         fetch: mem_fetch::MemFetch,
-        events: &mut Vec<event::Event>,
+        events: &mut Vec<cache::Event>,
         time: u64,
     ) -> cache::RequestStatus {
         let super::base::Base {
