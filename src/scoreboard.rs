@@ -1,6 +1,34 @@
 use super::instruction::WarpInstruction;
 use std::collections::HashSet;
 
+/// Scoreboard access.
+///
+/// The scoreboard keeps track of registers used by warps inside an SM.
+pub trait Access<I> {
+    /// Checks to see if registers used by an instruction are reserved in the scoreboard
+    ///
+    /// # Returns
+    /// `true` if WAW or RAW hazard (no WAR since in-order issue)
+    #[must_use]
+    fn has_collision(&self, warp_id: usize, instr: &I) -> bool;
+
+    /// Get all pending writes for a warp.
+    #[must_use]
+    fn pending_writes(&self, warp_id: usize) -> &HashSet<u32>;
+
+    /// Release register for a warp.
+    fn release(&mut self, warp_id: usize, reg_num: u32);
+
+    /// Release all output registers for an instruction.
+    fn release_all(&mut self, instr: &I);
+
+    /// Reserve a register for a warp.
+    fn reserve(&mut self, warp_id: usize, reg_num: u32);
+
+    /// Reserve all output registers for an instruction.
+    fn reserve_all(&mut self, instr: &I);
+}
+
 /// Scoreboard implementation
 ///
 /// This should however not be needed in trace driven mode..
@@ -9,27 +37,24 @@ pub struct Scoreboard {
     pub core_id: usize,
     pub cluster_id: usize,
 
-    pub register_table: Vec<HashSet<u32>>,
+    pub warp_registers: Box<[HashSet<u32>]>,
 }
 
 impl Scoreboard {
     #[must_use]
     pub fn new(core_id: usize, cluster_id: usize, max_warps: usize) -> Self {
-        let register_table: Vec<_> = (0..max_warps).map(|_| HashSet::new()).collect();
+        let warp_registers = vec![HashSet::new(); max_warps].into_boxed_slice();
         Self {
             core_id,
             cluster_id,
-            register_table,
+            warp_registers,
         }
     }
+}
 
-    /// Checks to see if registers used by an instruction are reserved in the scoreboard
-    ///
-    /// # Returns
-    /// true if WAW or RAW hazard (no WAR since in-order issue)
-    ///
-    #[must_use]
-    pub fn has_collision(&self, warp_id: usize, instr: &WarpInstruction) -> bool {
+impl Access<WarpInstruction> for Scoreboard {
+    #[inline]
+    fn has_collision(&self, warp_id: usize, instr: &WarpInstruction) -> bool {
         use itertools::Itertools;
 
         // Get list of all input and output registers
@@ -46,7 +71,7 @@ impl Scoreboard {
         );
 
         // get the intersection of reserved registers and instruction registers
-        let Some(reserved) = self.register_table.get(warp_id) else {
+        let Some(reserved) = self.warp_registers.get(warp_id) else {
             return false;
         };
         log::trace!(
@@ -58,13 +83,14 @@ impl Scoreboard {
         intersection.next().is_some()
     }
 
-    #[must_use]
-    pub fn pending_writes(&self, warp_id: usize) -> &HashSet<u32> {
-        &self.register_table[warp_id]
+    #[inline]
+    fn pending_writes(&self, warp_id: usize) -> &HashSet<u32> {
+        &self.warp_registers[warp_id]
     }
 
-    pub fn release_register(&mut self, warp_id: usize, reg_num: u32) {
-        let removed = self.register_table[warp_id].remove(&reg_num);
+    #[inline]
+    fn release(&mut self, warp_id: usize, reg_num: u32) {
+        let removed = self.warp_registers[warp_id].remove(&reg_num);
         if removed {
             log::trace!(
                 "scoreboard: warp {} releases register: {}",
@@ -74,14 +100,16 @@ impl Scoreboard {
         }
     }
 
-    pub fn release_registers(&mut self, instr: &WarpInstruction) {
+    #[inline]
+    fn release_all(&mut self, instr: &WarpInstruction) {
         for &out_reg in instr.outputs() {
-            self.release_register(instr.warp_id, out_reg);
+            self.release(instr.warp_id, out_reg);
         }
     }
 
-    pub fn reserve_register(&mut self, warp_id: usize, reg_num: u32) {
-        let warp_registers = &mut self.register_table[warp_id];
+    #[inline]
+    fn reserve(&mut self, warp_id: usize, reg_num: u32) {
+        let warp_registers = &mut self.warp_registers[warp_id];
         assert!(
             !warp_registers.contains(&reg_num),
             "trying to reserve an already reserved register (core_id={}, warp_id={}, reg_num={})",
@@ -94,12 +122,13 @@ impl Scoreboard {
             warp_id,
             reg_num
         );
-        self.register_table[warp_id].insert(reg_num);
+        self.warp_registers[warp_id].insert(reg_num);
     }
 
-    pub fn reserve_registers(&mut self, instr: &WarpInstruction) {
+    #[inline]
+    fn reserve_all(&mut self, instr: &WarpInstruction) {
         for &out_reg in instr.outputs() {
-            self.reserve_register(instr.warp_id, out_reg);
+            self.reserve(instr.warp_id, out_reg);
         }
     }
 }
