@@ -35,11 +35,10 @@ fn register_bank(
 pub struct Operand {
     warp_id: Option<usize>,
     operand: Option<usize>,
-
     register: u32,
     bank: usize,
     scheduler_id: usize,
-    collector_unit_id: usize,
+    collector_unit_id: Option<usize>,
 }
 
 impl Operand {
@@ -58,7 +57,7 @@ impl Operand {
             operand: Some(op),
             register: reg,
             scheduler_id,
-            collector_unit_id: cu_id,
+            collector_unit_id: Some(cu_id),
         }
     }
 
@@ -82,8 +81,8 @@ pub struct CollectorUnit {
     not_ready: BitArr!(for MAX_REG_OPERANDS * 2),
     num_banks: usize,
     bank_warp_shift: usize,
-    num_banks_per_scheduler: usize,
     sub_core_model: bool,
+    num_banks_per_scheduler: usize,
     /// if sub_core_model enabled, limit regs this cu can r/w
     reg_id: usize,
 }
@@ -348,11 +347,14 @@ pub struct Arbiter {
     num_banks: usize,
     num_collectors: usize,
 
+    bank_warp_shift: usize,
+    sub_core_model: bool,
+    num_banks_per_scheduler: usize,
+
     /// bank # -> register that wins
     allocated_banks: Box<[Allocation]>,
     queue: Box<[VecDeque<Operand>]>,
-    result: Vec<Operand>,
-
+    // allocated: Vec<Operand>,
     /// cu # -> next bank to check for request (rr-arb)
     // allocator_round_robin_head: usize,
     /// first cu to check while arb-ing banks (rr)
@@ -363,13 +365,24 @@ pub struct Arbiter {
 }
 
 impl Arbiter {
-    pub fn init(&mut self, num_collectors: usize, num_banks: usize) {
+    pub fn init(
+        &mut self,
+        num_collectors: usize,
+        num_banks: usize,
+        bank_warp_shift: usize,
+        sub_core_model: bool,
+        num_banks_per_scheduler: usize,
+    ) {
         debug_assert!(num_collectors > 0);
         debug_assert!(num_banks > 0);
         self.num_collectors = num_collectors;
         self.num_banks = num_banks;
 
-        self.result = Vec::new();
+        self.bank_warp_shift = bank_warp_shift;
+        self.sub_core_model = sub_core_model;
+        self.num_banks_per_scheduler = num_banks_per_scheduler;
+
+        // self.allocated = Vec::new();
         self.inmatch = vec![None; self.num_banks].into_boxed_slice();
         self.outmatch = vec![None; self.num_collectors].into_boxed_slice();
         self.request = vec![vec![None; self.num_collectors].into_boxed_slice(); self.num_banks]
@@ -401,8 +414,11 @@ impl Arbiter {
     ///  (b) do not go to the same operand collector
     ///
     /// The outcomes of this depend on the queue
-    pub fn allocate_reads(&mut self) -> &Vec<Operand> {
+    // pub fn allocate_reads(&mut self) -> &Vec<Operand> {
+    pub fn allocate_reads(&mut self) -> HashMap<usize, Operand> {
         // log::trace!("queue: {:?}", &self.queue);
+
+        let start = std::time::Instant::now();
 
         let num_inputs = self.num_banks;
         let num_outputs = self.num_collectors;
@@ -417,33 +433,28 @@ impl Arbiter {
         let mut pri = self.last_cu;
         // log::debug!("last cu: {}", self.last_cu);
 
+        let no_allocation = self
+            .allocated_banks
+            .iter()
+            .all(|alloc| alloc.kind == AllocationKind::NO_ALLOC);
+        let empty_queue = self.queue.iter().all(|q| q.is_empty());
+
+        // fast path
+        if no_allocation && empty_queue {
+            self.last_cu = (self.last_cu + 1) % num_outputs;
+            return HashMap::new();
+        }
+
         // clear matching
-        let result = &mut self.result;
+        let mut allocated = Vec::new();
+        // let result = &mut self.result;
         let inmatch = &mut self.inmatch;
-        let outmatch = &mut self.outmatch;
+        // let outmatch = &mut self.outmatch;
         let request = &mut self.request;
 
-        result.clear();
+        // allocated.clear();
         inmatch.fill(None);
-        outmatch.fill(None);
-
-        // (0..self.num_banks)
-        // (0..self.num_banks).into_par_iter().for_each(|bank| {
-        //     debug_assert!(bank < _inputs);
-        //     for collector in 0..self.num_collectors {
-        //         debug_assert!(collector < _outputs);
-        //         request[bank][collector] = Some(0);
-        //     }
-        //     if let Some(op) = self.queue[bank].front() {
-        //         let collector_id = op.collector_unit_id;
-        //         debug_assert!(collector_id < _outputs);
-        //         request[bank][collector_id] = Some(1);
-        //     }
-        //     if self.allocated_banks[bank].is_write() {
-        //         inmatch[bank] = Some(0); // write gets priority
-        //     }
-        //     log::trace!("request: {:?}", &Self::compat(&request[bank]));
-        // });
+        // outmatch.fill(None);
 
         for bank in 0..self.num_banks {
             debug_assert!(bank < num_inputs);
@@ -452,8 +463,9 @@ impl Arbiter {
                 request[bank][collector] = Some(0);
             }
             if let Some(op) = self.queue[bank].front() {
-                let collector_id = op.collector_unit_id;
+                let collector_id = op.collector_unit_id.unwrap();
                 debug_assert!(collector_id < num_outputs);
+                // this causes change in search
                 request[bank][collector_id] = Some(1);
             }
             if self.allocated_banks[bank].is_write() {
@@ -462,10 +474,19 @@ impl Arbiter {
             // log::trace!("request: {:?}", &Self::compat(&request[bank]));
         }
 
+        crate::TIMINGS
+            .lock()
+            .unwrap()
+            .entry("allocate_reads_prepare")
+            .or_default()
+            .add(start.elapsed());
+
         // log::trace!("inmatch: {:?}", &Self::compat(inmatch));
 
         // wavefront allocator from booksim
         // loop through diagonals of request matrix
+
+        let start = std::time::Instant::now();
 
         for p in 0..square {
             let mut output = (pri + p) % num_outputs;
@@ -475,13 +496,11 @@ impl Arbiter {
                 debug_assert!(output < num_outputs);
 
                 // banks at the same cycle
-                if output < num_outputs
-                    && inmatch[input].is_none()
-                    && request[input][output] != Some(0)
-                {
+                assert!(output < num_outputs);
+                if inmatch[input].is_none() && request[input][output] != Some(0) {
                     // Grant!
                     inmatch[input] = Some(output);
-                    outmatch[output] = Some(input);
+                    // outmatch[output] = Some(input);
                     // printf("Register File: granting bank %d to OC %d, schedid %d, warpid
                     // %d, Regid %d\n", input, output, (m_queue[input].front()).get_sid(),
                     // (m_queue[input].front()).get_wid(),
@@ -493,7 +512,7 @@ impl Arbiter {
         }
 
         log::trace!("inmatch: {:?}", &Self::compat(inmatch));
-        log::trace!("outmatch: {:?}", &Self::compat(outmatch));
+        // log::trace!("outmatch: {:?}", &Self::compat(outmatch));
 
         // Round-robin the priority diagonal
         pri = (pri + 1) % num_outputs;
@@ -518,13 +537,51 @@ impl Arbiter {
                 );
                 if !self.allocated_banks[bank].is_write() {
                     if let Some(op) = self.queue[bank].pop_front() {
-                        result.push(op);
+                        allocated.push(op);
                     }
                 }
             }
         }
 
-        result
+        crate::TIMINGS
+            .lock()
+            .unwrap()
+            .entry("allocate_reads_search_diagonal")
+            .or_default()
+            .add(start.elapsed());
+
+        // allocated
+        let start = std::time::Instant::now();
+
+        log::debug!(
+            "arbiter allocated {} reads ({:?})",
+            allocated.len(),
+            &allocated
+        );
+        let mut read_ops = HashMap::new();
+        for read in allocated {
+            let reg = read.register;
+            let warp_id = read.warp_id().unwrap();
+            let bank = register_bank(
+                reg,
+                warp_id,
+                self.num_banks,
+                self.bank_warp_shift,
+                self.sub_core_model,
+                self.num_banks_per_scheduler,
+                read.scheduler_id,
+            );
+            self.allocate_bank_for_read(bank, read.clone());
+            read_ops.insert(bank, read);
+        }
+        crate::TIMINGS
+            .lock()
+            .unwrap()
+            .entry("allocate_reads_register_banks")
+            .or_default()
+            .add(start.elapsed());
+
+        read_ops
     }
 
     pub fn add_read_requests(&mut self, cu: &CollectorUnit) {
@@ -539,14 +596,14 @@ impl Arbiter {
         self.allocated_banks[bank].is_free()
     }
 
-    pub fn allocate_bank_for_write(&mut self, bank: usize, op: &Operand) {
+    pub fn allocate_bank_for_write(&mut self, bank: usize, op: Operand) {
         debug_assert!(bank < self.num_banks);
-        self.allocated_banks[bank].allocate_for_write(Some(op.clone()));
+        self.allocated_banks[bank].allocate_for_write(Some(op));
     }
 
-    pub fn allocate_bank_for_read(&mut self, bank: usize, op: &Operand) {
+    pub fn allocate_bank_for_read(&mut self, bank: usize, op: Operand) {
         debug_assert!(bank < self.num_banks);
-        self.allocated_banks[bank].allocate_for_read(Some(op.clone()));
+        self.allocated_banks[bank].allocate_for_read(Some(op));
     }
 
     pub fn reset_alloction(&mut self) {
@@ -702,7 +759,7 @@ impl RegisterFileUnit {
 
     pub fn init(&mut self, num_banks: usize) {
         let num_collector_units = self.collector_units.len();
-        self.arbiter.init(num_collector_units, num_banks);
+
         self.num_banks = num_banks;
         self.bank_warp_shift = (self.config.warp_size as f32 + 0.5).log2() as usize;
         debug_assert!(self.bank_warp_shift == 5 || self.config.warp_size != 32);
@@ -718,6 +775,13 @@ impl RegisterFileUnit {
         }
         self.num_banks_per_scheduler = self.num_banks / self.config.num_schedulers_per_core;
 
+        self.arbiter.init(
+            num_collector_units,
+            num_banks,
+            self.bank_warp_shift,
+            self.sub_core_model,
+            self.num_banks_per_scheduler,
+        );
         let mut reg_id = 0;
         for (cu_id, cu) in self.collector_units.iter().enumerate() {
             if self.sub_core_model {
@@ -761,38 +825,38 @@ impl RegisterFileUnit {
     /// Process read requests that do not have conflicts
     pub fn allocate_reads(&mut self) {
         // process read requests that do not have conflicts
-        let allocated: Vec<Operand> = self.arbiter.allocate_reads().clone();
-        // TODO: move this into the arbiter??
-        log::debug!(
-            "arbiter allocated {} reads ({:?})",
-            allocated.len(),
-            &allocated
-        );
-        let mut read_ops = HashMap::new();
-        for read in &allocated {
-            let reg = read.register;
-            let warp_id = read.warp_id().unwrap();
-            let bank = register_bank(
-                reg,
-                warp_id,
-                self.num_banks,
-                self.bank_warp_shift,
-                self.sub_core_model,
-                self.num_banks_per_scheduler,
-                read.scheduler_id,
-            );
-            self.arbiter.allocate_bank_for_read(bank, read);
-            read_ops.insert(bank, read);
-        }
+        let read_ops = crate::timeit!(self.arbiter.allocate_reads());
+        // let allocated: &Vec<Operand> = crate::timeit!(self.arbiter.allocate_reads());
+        // // TODO: move this into the arbiter??
+        // log::debug!(
+        //     "arbiter allocated {} reads ({:?})",
+        //     allocated.len(),
+        //     &allocated
+        // );
+        // let mut read_ops = HashMap::new();
+        // for read in allocated {
+        //     let reg = read.register;
+        //     let warp_id = read.warp_id().unwrap();
+        //     let bank = register_bank(
+        //         reg,
+        //         warp_id,
+        //         self.num_banks,
+        //         self.bank_warp_shift,
+        //         self.sub_core_model,
+        //         self.num_banks_per_scheduler,
+        //         read.scheduler_id,
+        //     );
+        //     self.arbiter.allocate_bank_for_read(bank, read);
+        //     read_ops.insert(bank, read);
+        // }
 
         log::debug!("allocating {} reads ({:?})", read_ops.len(), &read_ops);
         for read in read_ops.values() {
-            assert!(read.collector_unit_id < self.collector_units.len());
-            let mut cu = self.collector_units[read.collector_unit_id]
-                .try_lock()
-                .unwrap();
+            let cu_id = read.collector_unit_id.unwrap();
+            assert!(cu_id < self.collector_units.len());
+            let mut cu = self.collector_units[cu_id].try_lock().unwrap();
             if let Some(operand) = read.operand {
-                cu.collect_operand(operand);
+                crate::timeit!(cu.collect_operand(operand));
             }
 
             // if self.config.clock_gated_reg_file {
@@ -915,14 +979,13 @@ impl RegisterFileUnit {
                 if bank_idle {
                     self.arbiter.allocate_bank_for_write(
                         bank,
-                        &Operand {
+                        Operand {
                             warp_id: Some(instr.warp_id),
                             register: reg_num,
                             scheduler_id,
                             operand: None,
                             bank,
-                            collector_unit_id: 0, // TODO: that fine?
-                                                  // collector_unit: None,
+                            collector_unit_id: None,
                         },
                     );
                     instr.dest_arch_reg[op] = None;
