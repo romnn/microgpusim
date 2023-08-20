@@ -158,11 +158,14 @@ void scheduler_unit::cycle() {
       if (pI) m_shader->get_pdom_stack_top_info(warp_id, pI, &pc, &rpc);
 
       if (pI) {
-        logger->debug(
-            "Warp (warp_id {}, dynamic_warp_id {}) instruction buffer[{}] has "
-            "valid instruction ({}, op={})",
-            next_warp->get_warp_id(), next_warp->get_dynamic_warp_id(),
-            warp(warp_id).m_next, pI->display(), uarch_op_t_str[pI->op]);
+        if (logger->should_log(spdlog::level::debug)) {
+          logger->debug(
+              "Warp (warp_id {}, dynamic_warp_id {}) instruction buffer[{}] "
+              "has "
+              "valid instruction ({}, op={})",
+              next_warp->get_warp_id(), next_warp->get_dynamic_warp_id(),
+              warp(warp_id).m_next, pI->display(), uarch_op_t_str[pI->op]);
+        }
         assert(valid);
         assert(pI->pc == pc &&
                pc == rpc);  // trace driven mode has no control hazards

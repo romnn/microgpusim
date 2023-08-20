@@ -396,6 +396,7 @@ fn main() -> eyre::Result<()> {
     println!("cargo:rerun-if-changed=./src/tests/");
     println!("cargo:rerun-if-changed=./src/include/");
 
+    println!("cargo:rerun-if-env-changed=PROFILE");
     println!("cargo:rerun-if-env-changed=SKIP_BUILD");
     println!("cargo:rerun-if-env-changed=FORCE");
 

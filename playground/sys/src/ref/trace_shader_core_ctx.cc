@@ -889,14 +889,16 @@ void trace_shader_core_ctx::execute() {
 
     warp_inst_t **ready_reg = issue_inst.get_ready(partition_issue, reg_id);
 
-    logger->trace("occupied: {}", mask_to_string(m_fu[n]->occupied));
-    if (ready_reg != NULL) {
-      logger->trace(
-          "cycle {} core ({}, {}): execute: checking {} fu[{:<03}] can "
-          "issue={} latency = {}",
-          m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle, get_tpc(), get_sid(),
-          warp_instr_ptr(*ready_reg), n, m_fu[n]->can_issue(**ready_reg),
-          (*ready_reg)->latency);
+    if (logger->should_log(spdlog::level::trace)) {
+      logger->trace("occupied: {}", mask_to_string(m_fu[n]->occupied));
+      if (ready_reg != NULL) {
+        logger->trace(
+            "cycle {} core ({}, {}): execute: checking {} fu[{:<03}] can "
+            "issue={} latency = {}",
+            m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle, get_tpc(),
+            get_sid(), warp_instr_ptr(*ready_reg), n,
+            m_fu[n]->can_issue(**ready_reg), (*ready_reg)->latency);
+      }
     }
 
     if (issue_inst.has_ready(partition_issue, reg_id) &&
