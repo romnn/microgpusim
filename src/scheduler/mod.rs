@@ -5,7 +5,8 @@ use crate::{
     config,
     core::{PipelineStage, WarpIssuer},
     opcodes::ArchOp,
-    scoreboard, warp,
+    scoreboard::{self, Access},
+    warp,
 };
 use console::style;
 use std::collections::VecDeque;
@@ -126,7 +127,7 @@ impl Base {
 
         for (next_warp_supervised_idx, next_warp_rc) in &self.next_cycle_prioritized_warps {
             // don't consider warps that are not yet valid
-            let mut next_warp = next_warp_rc.lock().unwrap();
+            let mut next_warp = next_warp_rc.try_lock().unwrap();
             let (warp_id, dyn_warp_id) = (next_warp.warp_id, next_warp.dynamic_warp_id);
 
             if next_warp.done_exit() {
@@ -186,7 +187,7 @@ impl Base {
             debug_assert!(Arc::ptr_eq(warp, next_warp_rc));
             drop(next_warp);
 
-            let mut warp = warp.lock().unwrap();
+            let mut warp = warp.try_lock().unwrap();
 
             while !(warp.waiting()
                 || core.warp_waiting_at_barrier(warp_id)

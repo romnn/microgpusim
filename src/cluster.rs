@@ -10,7 +10,7 @@ pub struct Cluster<I> {
     pub cluster_id: usize,
     pub cycle: super::Cycle,
     pub warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
-    pub cores: Vec<RwLock<Core<I>>>,
+    pub cores: Vec<Arc<RwLock<Core<I>>>>,
     pub config: Arc<config::GPU>,
     pub stats: Arc<Mutex<stats::Stats>>,
 
@@ -52,7 +52,7 @@ where
             .map(|core_id| {
                 cluster.core_sim_order.push_back(core_id);
                 let id = config.global_core_id(cluster_id, core_id);
-                RwLock::new(Core::new(
+                Arc::new(RwLock::new(Core::new(
                     id,
                     cluster_id,
                     Arc::clone(allocations),
@@ -61,7 +61,7 @@ where
                     Arc::clone(interconn),
                     Arc::clone(stats),
                     Arc::clone(config),
-                ))
+                )))
             })
             .collect();
         cluster.cores = cores;
@@ -227,8 +227,8 @@ where
                 // sim.select_kernel().map(Arc::clone);
                 unimplemented!("concurrent kernel sm");
             } else {
-                let mut current_kernel = core.current_kernel.as_ref();
-                let should_select_new_kernel = if let Some(current) = current_kernel {
+                let mut current_kernel = core.current_kernel.clone();
+                let should_select_new_kernel = if let Some(ref current) = current_kernel {
                     // if no more blocks left, get new kernel once current block completes
                     current.no_more_blocks_to_run() && core.not_completed() == 0
                 } else {
@@ -236,7 +236,7 @@ where
                     true
                 };
 
-                if let Some(current) = current_kernel {
+                if let Some(ref current) = current_kernel {
                     log::debug!(
                         "core {}-{}: current kernel {}, more blocks={}, completed={}",
                         self.cluster_id,
@@ -249,12 +249,12 @@ where
 
                 if should_select_new_kernel {
                     current_kernel = sim.select_kernel();
-                    if let Some(k) = current_kernel {
+                    if let Some(ref k) = current_kernel {
                         core.set_kernel(Arc::clone(k));
                     }
                 }
 
-                current_kernel.map(Arc::clone)
+                current_kernel
             };
             if let Some(kernel) = kernel {
                 log::debug!(

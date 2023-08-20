@@ -2,7 +2,7 @@ use crate::{
     cache, config, interconn as ic, mem_fetch, mem_sub_partition, mshr,
     operand_collector as opcoll,
     register_set::{self},
-    scoreboard::Scoreboard,
+    scoreboard::{Access, Scoreboard},
     simd_function_unit as fu, warp,
 };
 use console::style;
@@ -260,7 +260,7 @@ where
                         self.scoreboard
                             .write()
                             .unwrap()
-                            .release_register(next_writeback.warp_id, *out_reg);
+                            .release(next_writeback.warp_id, *out_reg);
                         instr_completed = true;
                     } else {
                         let pending = self
@@ -283,7 +283,7 @@ where
                             self.scoreboard
                                 .write()
                                 .unwrap()
-                                .release_register(next_writeback.warp_id, *out_reg);
+                                .release(next_writeback.warp_id, *out_reg);
                             instr_completed = true;
                         }
                     }
@@ -907,7 +907,7 @@ where
                                 self.scoreboard
                                     .write()
                                     .unwrap()
-                                    .release_register(instr.warp_id, *out_reg);
+                                    .release(instr.warp_id, *out_reg);
                                 completed = true;
                             }
                         }
@@ -1234,10 +1234,7 @@ where
                     if !has_pending_requests {
                         super::warp_inst_complete(&mut dispatch_reg, &self.stats);
 
-                        self.scoreboard
-                            .write()
-                            .unwrap()
-                            .release_registers(&dispatch_reg);
+                        self.scoreboard.write().unwrap().release_all(&dispatch_reg);
                     }
                     self.warps[warp_id]
                         .try_lock()

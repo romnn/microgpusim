@@ -29,7 +29,7 @@ opt-level = 3
 opt-level = 3
 debug = true
 # warning: debug assertions negatively impact the performance of accelsim and play
-# debug-assertions = true
+debug-assertions = false
 
 [profile.bench]
 # lto = true
@@ -78,6 +78,8 @@ bitvec = "1"
 strum = { version = "0", features = ["derive"] }
 phf = { version = "0.11.1", features = ["macros"] }
 rangemap = "1"
+flume = "0"
+crossbeam = "0"
 
 similar-asserts = "1"
 

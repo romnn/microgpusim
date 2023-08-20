@@ -13,6 +13,8 @@
 
 - today:
 
+  - refactor interconn to couple has buffer and push using a single explicit lock
+  - refactor to get rid of global config but use per component configs
   - use traits for common components
   - try using native threads and barriers for core simulation
   - record mem fetch latency

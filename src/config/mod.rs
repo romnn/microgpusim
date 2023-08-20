@@ -312,13 +312,21 @@ impl Cache {
     // assert(m_line_sz % m_data_port_width == 0);
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
+pub enum Parallelization {
+    Serial,
+    RayonDeterministic,
+    Deterministic,
+    Nondeterministic(u64),
+}
+
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug)]
 pub struct GPU {
     /// Log after cycle
     pub log_after_cycle: Option<u64>,
-    /// Parallel simulation
-    pub parallel: bool,
+    /// Simulation method
+    pub parallelization: Parallelization,
     /// Deadlock check
     pub deadlock_check: bool,
 
@@ -948,7 +956,7 @@ impl Default for GPU {
     fn default() -> Self {
         Self {
             log_after_cycle: None,
-            parallel: false,
+            parallelization: Parallelization::Serial,
             deadlock_check: false,
             linear_to_raw_adress_translation: std::sync::OnceLock::new(),
             occupancy_sm_number: 60,

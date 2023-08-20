@@ -27,6 +27,19 @@ pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<stats::Stats, Ru
         ));
     }
 
+    let non_deterministic: Option<u64> = std::env::var("NONDET")
+        .ok()
+        .as_deref()
+        .map(str::parse)
+        .transpose()
+        .unwrap();
+    let parallelization = match (bench.simulate.parallel, non_deterministic) {
+        (false, _) => casimu::config::Parallelization::Serial,
+        // (true, None) => casimu::config::Parallelization::RayonDeterministic,
+        (true, None) => casimu::config::Parallelization::Deterministic,
+        (true, Some(n)) => casimu::config::Parallelization::Nondeterministic(n),
+    };
+
     let config = casimu::config::GPU {
         num_simt_clusters: 20,                   // 20
         num_cores_per_simt_cluster: 4,           // 1
@@ -34,7 +47,7 @@ pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<stats::Stats, Ru
         num_memory_controllers: 8,               // 8
         num_sub_partition_per_memory_channel: 2, // 2
         fill_l2_on_memcopy: true,                // true
-        parallel: bench.simulate.parallel,       // true
+        parallelization,
         log_after_cycle: None,
         ..casimu::config::GPU::default()
     };

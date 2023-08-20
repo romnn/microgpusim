@@ -151,6 +151,8 @@ impl MemoryPartitionUnit {
                 let mut sub = self.sub_partitions[dest_spid].try_lock().unwrap();
                 debug_assert_eq!(sub.id, dest_global_spid);
 
+                // depending on which sub the fetch is for, we race for the sub
+
                 if sub.dram_to_l2_queue.full() {
                     // panic!("fyi: simple dram model stall");
                 } else {

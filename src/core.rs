@@ -1,8 +1,15 @@
 use super::{
-    address, allocation::Allocation, barrier, cache, config, instruction::WarpInstruction,
-    interconn as ic, kernel::Kernel, mem_fetch, mem_fetch::BitString, opcodes,
-    operand_collector as opcoll, register_set, scheduler, scoreboard, simd_function_unit as fu,
-    warp, LoadStoreUnit,
+    address,
+    allocation::Allocation,
+    barrier, cache, config,
+    instruction::WarpInstruction,
+    interconn as ic,
+    kernel::Kernel,
+    mem_fetch,
+    mem_fetch::BitString,
+    opcodes, operand_collector as opcoll, register_set, scheduler,
+    scoreboard::{self, Access as ScoreboardAccess},
+    simd_function_unit as fu, warp, LoadStoreUnit,
 };
 use bitvec::{array::BitArray, BitArr};
 use color_eyre::eyre;
@@ -10,7 +17,7 @@ use console::style;
 use fu::SimdFunctionUnit;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
-use register_set::Access;
+use register_set::Access as RegisterSetAccess;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{atomic, Arc, Mutex, RwLock};
 use strum::IntoEnumIterator;
@@ -371,10 +378,7 @@ where
             pipe_reg_ref
         );
 
-        self.scoreboard
-            .write()
-            .unwrap()
-            .reserve_registers(&pipe_reg_ref);
+        self.scoreboard.write().unwrap().reserve_all(&pipe_reg_ref);
 
         *pipe_reg = Some(pipe_reg_ref);
 
@@ -1463,24 +1467,24 @@ where
     }
 
     fn issue(&mut self) {
-        if false {
-            use rayon::prelude::*;
-            self.schedulers
-                .par_iter()
-                .for_each(|scheduler| scheduler.try_lock().unwrap().cycle(self));
-        } else {
-            // fair round robin issue between schedulers
-            let num_schedulers = self.schedulers.len();
-            for scheduler_idx in 0..num_schedulers {
-                let scheduler_idx =
-                    (self.scheduler_issue_priority + scheduler_idx) % num_schedulers;
-                self.schedulers[scheduler_idx]
-                    .try_lock()
-                    .unwrap()
-                    .cycle(self);
-            }
-            self.scheduler_issue_priority = (self.scheduler_issue_priority + 1) % num_schedulers;
+        // parallelizing the schedulers is possible but really not worth it
+        // if false {
+        //     use rayon::prelude::*;
+        //     self.schedulers
+        //         .par_iter()
+        //         .for_each(|scheduler| scheduler.try_lock().unwrap().cycle(self));
+        // } else {
+        // fair round robin issue between schedulers
+        let num_schedulers = self.schedulers.len();
+        for scheduler_idx in 0..num_schedulers {
+            let scheduler_idx = (self.scheduler_issue_priority + scheduler_idx) % num_schedulers;
+            self.schedulers[scheduler_idx]
+                .try_lock()
+                .unwrap()
+                .cycle(self);
         }
+        self.scheduler_issue_priority = (self.scheduler_issue_priority + 1) % num_schedulers;
+        // }
     }
 
     fn writeback(&mut self) {
@@ -1536,7 +1540,7 @@ where
                 .try_lock()
                 .unwrap()
                 .writeback(&mut ready);
-            self.scoreboard.write().unwrap().release_registers(&ready);
+            self.scoreboard.write().unwrap().release_all(&ready);
             self.warps[ready.warp_id]
                 .try_lock()
                 .unwrap()

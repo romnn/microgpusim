@@ -24,16 +24,23 @@ enum Command {
 struct Options {
     /// Input to operate on
     #[arg(value_name = "TRACE_DIR")]
-    trace_dir: PathBuf,
+    pub trace_dir: PathBuf,
+
     /// Stats output file
     #[arg(short = 'o', long = "stats", value_name = "STATS_OUT")]
-    stats_out_file: Option<PathBuf>,
+    pub stats_out_file: Option<PathBuf>,
+
     /// Turn debugging information on
     #[arg(short, long, action = clap::ArgAction::Count)]
-    debug: u8,
+    pub debug: u8,
+
     /// Use multi-threading
     #[arg(long = "parallel")]
-    parallel: bool,
+    pub parallel: bool,
+
+    /// Use non-deterministic simulation
+    #[arg(long = "non-deterministic")]
+    pub non_deterministic: Option<u64>,
 
     #[clap(flatten)]
     pub accelsim: casimu::config::accelsim::Config,
@@ -76,6 +83,12 @@ fn main() -> eyre::Result<()> {
         .to_lowercase()
         == "yes";
 
+    let parallelization = match (options.parallel, options.non_deterministic) {
+        (false, _) => casimu::config::Parallelization::Serial,
+        (true, None) => casimu::config::Parallelization::Deterministic,
+        (true, Some(n)) => casimu::config::Parallelization::Nondeterministic(n),
+    };
+
     let config = casimu::config::GPU {
         num_simt_clusters: 20,                   // 20
         num_cores_per_simt_cluster: 4,           // 1
@@ -83,7 +96,7 @@ fn main() -> eyre::Result<()> {
         num_memory_controllers: 8,               // 8
         num_sub_partition_per_memory_channel: 2, // 2
         fill_l2_on_memcopy: true,                // true
-        parallel: options.parallel,
+        parallelization,
         deadlock_check,
         log_after_cycle,
         ..casimu::config::GPU::default()
