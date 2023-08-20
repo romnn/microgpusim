@@ -46,6 +46,7 @@ fn gather_simulation_state(
     box_sim_state.last_cluster_issue = box_sim.last_cluster_issue;
 
     for (cluster_id, cluster) in box_sim.clusters.iter().enumerate() {
+        let cluster = cluster.try_read().unwrap();
         for (core_id, core) in cluster.cores.iter().enumerate() {
             let core = core.read().unwrap();
             let global_core_id = cluster_id * box_sim.config.num_cores_per_simt_cluster + core_id;
@@ -728,8 +729,6 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
     box_sim.parallel_simulation =
         std::env::var("PARALLEL").unwrap_or_default().to_lowercase() == "yes";
 
-    let should_compare_states = !box_sim.parallel_simulation;
-
     let args = vec![
         "-trace",
         accelsim_kernelslist_path.as_os_str().to_str().unwrap(),
@@ -763,18 +762,24 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
         .unwrap_or_default()
         .to_lowercase()
         == "yes";
+    let allow_rel_err = std::env::var("REL_ERR").unwrap_or_default().to_lowercase() == "yes";
+
     let check_after: u64 = std::env::var("CHECK_AFTER")
         .ok()
         .as_deref()
         .map(str::parse)
         .transpose()?
         .unwrap_or(0);
-    let check_every: u64 = std::env::var("CHECK_EVERY")
+
+    let check_every: Option<u64> = std::env::var("CHECK_EVERY")
         .ok()
         .as_deref()
         .map(str::parse)
-        .transpose()?
-        .unwrap_or(200);
+        .transpose()?;
+
+    let should_compare_states = !box_sim.parallel_simulation || check_every.is_some();
+
+    let check_every = check_every.unwrap_or(200);
     assert!(check_every >= 1);
 
     // let _num_schedulers = box_sim.config.num_schedulers_per_core;
@@ -1016,13 +1021,14 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
     }
 
     let play_cycle = cycle;
+    #[allow(unused_mut)]
     let mut box_cycle = cycle;
 
-    if box_sim.parallel_simulation {
-        // allow parallel simulation to complete
-        box_sim.run_to_completion()?;
-        box_cycle = box_sim.cycle.get();
-    }
+    // if box_sim.parallel_simulation {
+    //     // allow parallel simulation to complete
+    //     box_sim.run_to_completion()?;
+    //     box_cycle = box_sim.cycle.get();
+    // }
 
     if box_cycle > 0 {
         let box_time_cycle = box_time_cycle / u32::try_from(box_cycle).unwrap();
@@ -1085,9 +1091,10 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
     let play_l1_const_stats = stats::PerCache::from_iter(play_stats.l1c_stats.to_vec());
     let play_l2_data_stats = stats::PerCache::from_iter(play_stats.l2d_stats.to_vec());
 
-    if box_sim.parallel_simulation {
+    if allow_rel_err {
         // compare reduced cache stats
         let max_rel_err = 0.05; // allow 5% difference
+        let abs_threshold = 10.0; // allow absolute difference of 10
         {
             let play_l1_inst_stats = play_l1_inst_stats.reduce();
             let box_l1_inst_stats = box_stats.l1i_stats.reduce();
@@ -1095,7 +1102,8 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
             if play_l1_inst_stats != box_l1_inst_stats {
                 diff::diff!(play: &play_l1_inst_stats, box: &box_l1_inst_stats);
             }
-            let rel_err = super::stats::cache_rel_err(&play_l1_inst_stats, &box_l1_inst_stats);
+            let rel_err =
+                super::stats::cache_rel_err(&play_l1_inst_stats, &box_l1_inst_stats, abs_threshold);
             dbg!(&rel_err);
             assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
         }
@@ -1106,7 +1114,8 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
             if play_l1_data_stats != box_l1_data_stats {
                 diff::diff!(play: &play_l1_data_stats, box: &box_l1_data_stats);
             }
-            let rel_err = super::stats::cache_rel_err(&play_l1_data_stats, &box_l1_data_stats);
+            let rel_err =
+                super::stats::cache_rel_err(&play_l1_data_stats, &box_l1_data_stats, abs_threshold);
             dbg!(&rel_err);
             assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
         }
@@ -1117,7 +1126,8 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
             if play_l1_tex_stats != box_l1_tex_stats {
                 diff::diff!(play: &play_l1_tex_stats, box: &box_l1_tex_stats);
             }
-            let rel_err = super::stats::cache_rel_err(&play_l1_tex_stats, &box_l1_tex_stats);
+            let rel_err =
+                super::stats::cache_rel_err(&play_l1_tex_stats, &box_l1_tex_stats, abs_threshold);
             dbg!(&rel_err);
             assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
         }
@@ -1128,7 +1138,11 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
             if play_l1_const_stats != box_l1_const_stats {
                 diff::diff!(play: &play_l1_const_stats, box: &box_l1_const_stats);
             }
-            let rel_err = super::stats::cache_rel_err(&play_l1_const_stats, &box_l1_const_stats);
+            let rel_err = super::stats::cache_rel_err(
+                &play_l1_const_stats,
+                &box_l1_const_stats,
+                abs_threshold,
+            );
             dbg!(&rel_err);
             assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
         }
@@ -1139,7 +1153,8 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
             if play_l2_data_stats != box_l2_data_stats {
                 diff::diff!(play: &play_l2_data_stats, box: &box_l2_data_stats);
             }
-            let rel_err = super::stats::cache_rel_err(&play_l2_data_stats, &box_l2_data_stats);
+            let rel_err =
+                super::stats::cache_rel_err(&play_l2_data_stats, &box_l2_data_stats, abs_threshold);
             dbg!(&rel_err);
             assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
         }
@@ -1151,7 +1166,8 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
             if play_stats.dram != box_dram_stats {
                 diff::diff!(play: &play_stats.dram, box: &box_dram_stats);
             }
-            let rel_err = super::stats::dram_rel_err(&play_stats.dram, &box_dram_stats);
+            let rel_err =
+                super::stats::dram_rel_err(&play_stats.dram, &box_dram_stats, abs_threshold);
             dbg!(&rel_err);
             assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
         }

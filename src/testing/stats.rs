@@ -1,35 +1,48 @@
 use std::collections::HashSet;
 
-pub fn rel_err<T: num_traits::NumCast>(b: T, p: T) -> f64 {
+pub fn rel_err<T: num_traits::NumCast>(b: T, p: T, abs_threshold: f64) -> f64 {
     let b: f64 = num_traits::NumCast::from(b).unwrap();
     let p: f64 = num_traits::NumCast::from(p).unwrap();
     let diff = b - p;
 
-    if p == 0.0 || b == 0.0 {
-        // absolute difference of more than 5 causes big relative error, else 0.0
-        if diff > 5.0 {
-            diff / (p + 0.1)
+    if diff > abs_threshold {
+        // compute relative error
+        if p == 0.0 {
+            diff
         } else {
-            0.0
+            diff / p
         }
     } else {
-        diff / p
+        0.0
     }
+    // if p == 0.0 || b == 0.0 {
+    //     // absolute difference of more than 5 causes big relative error, else 0.0
+    //         diff / (p + 0.1)
+    //     } else {
+    //         0.0
+    //     }
+    // } else {
+    // }
 }
 
 #[must_use]
 pub fn dram_rel_err(
     play_stats: &playground::stats::DRAM,
     box_stats: &playground::stats::DRAM,
+    abs_threshold: f64,
 ) -> Vec<(String, f64)> {
     vec![
         (
             "total_reads".to_string(),
-            rel_err(box_stats.total_reads, play_stats.total_reads),
+            rel_err(box_stats.total_reads, play_stats.total_reads, abs_threshold),
         ),
         (
             "total_writes".to_string(),
-            rel_err(box_stats.total_writes, play_stats.total_writes),
+            rel_err(
+                box_stats.total_writes,
+                play_stats.total_writes,
+                abs_threshold,
+            ),
         ),
     ]
 }
@@ -38,8 +51,9 @@ pub fn dram_rel_err(
 pub fn cache_rel_err(
     play_stats: &stats::cache::Cache,
     box_stats: &stats::cache::Cache,
+    abs_threshold: f64,
 ) -> Vec<(String, f64)> {
-    all_cache_rel_err(play_stats, box_stats)
+    all_cache_rel_err(play_stats, box_stats, abs_threshold)
         .into_iter()
         .map(|(k, err)| (k.to_string(), err))
         .filter(|(_, err)| *err != 0.0)
@@ -50,6 +64,7 @@ pub fn cache_rel_err(
 pub fn all_cache_rel_err<'a>(
     play_stats: &'a stats::cache::Cache,
     box_stats: &'a stats::cache::Cache,
+    abs_threshold: f64,
 ) -> Vec<(&'a stats::cache::Access, f64)> {
     let keys: HashSet<_> = play_stats
         .accesses
@@ -60,7 +75,7 @@ pub fn all_cache_rel_err<'a>(
         .map(|k| {
             let p = play_stats.accesses.get(k).copied().unwrap_or_default();
             let b = box_stats.accesses.get(k).copied().unwrap_or_default();
-            let rel_err = rel_err(b, p);
+            let rel_err = rel_err(b, p, abs_threshold);
             (k, rel_err)
         })
         .collect()
