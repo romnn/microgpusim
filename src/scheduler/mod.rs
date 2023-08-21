@@ -29,7 +29,7 @@ enum ExecUnitKind {
 }
 
 pub trait Scheduler: Send + Sync + std::fmt::Debug + 'static {
-    fn cycle(&mut self, _core: &dyn WarpIssuer);
+    fn issue_to(&mut self, core: &dyn WarpIssuer, cycle: u64);
 
     fn add_supervised_warp(&mut self, warp: warp::Ref);
 
@@ -105,20 +105,21 @@ impl Base {
         unit: ExecUnitKind,
         prev_issued_exec_unit: ExecUnitKind,
         core: &dyn WarpIssuer,
+        cycle: u64,
     ) -> bool {
         let free_register = core.has_free_register(stage, self.id);
         let can_dual_issue =
             !self.config.dual_issue_only_to_different_exec_units || prev_issued_exec_unit != unit;
 
         if free_register && can_dual_issue {
-            core.issue_warp(stage, warp, self.id).is_ok()
+            core.issue_warp(stage, warp, self.id, cycle).is_ok()
         } else {
             log::debug!("issue failed: no free mem port register");
             false
         }
     }
 
-    fn cycle(&mut self, core: &dyn WarpIssuer) {
+    fn issue_to(&mut self, core: &dyn WarpIssuer, cycle: u64) {
         log::debug!("{}: cycle", style("base scheduler").yellow());
 
         let mut valid_inst = false;
@@ -246,6 +247,7 @@ impl Base {
                             ExecUnitKind::MEM,
                             prev_issued_exec_unit,
                             core,
+                            cycle,
                         ) {
                             num_issued += 1;
                             issued_inst = true;
@@ -336,7 +338,14 @@ impl Base {
                         };
 
                         if let Some((stage, unit)) = issue_target {
-                            if self.issue(&mut warp, stage, unit, prev_issued_exec_unit, core) {
+                            if self.issue(
+                                &mut warp,
+                                stage,
+                                unit,
+                                prev_issued_exec_unit,
+                                core,
+                                cycle,
+                            ) {
                                 num_issued += 1;
                                 issued_inst = true;
                                 warp_inst_issued = true;
@@ -380,7 +389,14 @@ impl Base {
                         };
 
                         if let Some((stage, unit)) = issue_target {
-                            if self.issue(&mut warp, stage, unit, prev_issued_exec_unit, core) {
+                            if self.issue(
+                                &mut warp,
+                                stage,
+                                unit,
+                                prev_issued_exec_unit,
+                                core,
+                                cycle,
+                            ) {
                                 num_issued += 1;
                                 issued_inst = true;
                                 warp_inst_issued = true;

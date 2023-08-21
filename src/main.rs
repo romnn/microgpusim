@@ -40,7 +40,7 @@ struct Options {
 
     /// Use non-deterministic simulation
     #[arg(long = "non-deterministic")]
-    pub non_deterministic: Option<u64>,
+    pub non_deterministic: Option<usize>,
 
     #[clap(flatten)]
     pub accelsim: casimu::config::accelsim::Config,

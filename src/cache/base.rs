@@ -2,7 +2,7 @@ use crate::{
     address, config, interconn as ic, mem_fetch,
     mem_sub_partition::SECTOR_SIZE,
     mshr::{self, MSHR},
-    tag_array, Cycle,
+    tag_array,
 };
 use console::style;
 use std::collections::{HashMap, VecDeque};
@@ -32,7 +32,6 @@ pub struct Base<I> {
     pub name: String,
     pub core_id: usize,
     pub cluster_id: usize,
-    pub cycle: Cycle,
 
     pub stats: Arc<Mutex<stats::Cache>>,
     pub config: Arc<config::GPU>,
@@ -65,7 +64,6 @@ impl<I> Base<I> {
         name: String,
         core_id: usize,
         cluster_id: usize,
-        cycle: Cycle,
         mem_port: Arc<I>,
         stats: Arc<Mutex<stats::Cache>>,
         config: Arc<config::GPU>,
@@ -84,7 +82,6 @@ impl<I> Base<I> {
             name,
             core_id,
             cluster_id,
-            cycle,
             tag_array,
             mshrs,
             mem_port,
@@ -264,12 +261,12 @@ impl<I> Base<I> {
     }
 }
 
-impl<I> super::Component for Base<I>
+impl<I> crate::engine::cycle::Component for Base<I>
 where
     I: ic::MemFetchInterface,
 {
     /// Sends next request to lower level of memory
-    fn cycle(&mut self) {
+    fn cycle(&mut self, cycle: u64) {
         use super::Bandwidth;
         log::debug!(
             "{}::baseline cache::cycle (fetch interface {:?}) miss queue={:?}",
@@ -293,8 +290,7 @@ where
                         fetch.data_size(),
                         fetch.control_size(),
                     );
-                    let time = self.cycle.get();
-                    self.mem_port.push(fetch, time);
+                    self.mem_port.push(fetch, cycle);
                 }
             }
         }

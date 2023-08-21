@@ -23,6 +23,7 @@ pub mod core;
 pub mod deadlock;
 pub mod dp_unit;
 pub mod dram;
+pub mod engine;
 pub mod exec;
 pub mod fifo;
 pub mod instruction;
@@ -56,6 +57,7 @@ use self::core::{
 use addrdec::DecodedAddress;
 use allocation::Allocations;
 use cluster::Cluster;
+use engine::cycle::Component;
 use fifo::{Fifo, Queue};
 use interconn as ic;
 use kernel::Kernel;
@@ -131,7 +133,7 @@ macro_rules! timeit {
 pub struct MockSimulator<I> {
     stats: Arc<Mutex<Stats>>,
     config: Arc<config::GPU>,
-    mem_partition_units: Vec<mem_partition_unit::MemoryPartitionUnit>,
+    mem_partition_units: Vec<Arc<RwLock<mem_partition_unit::MemoryPartitionUnit>>>,
     mem_sub_partitions: Vec<Arc<Mutex<SubPartition>>>,
     pub running_kernels: Arc<RwLock<Vec<Option<Arc<kernel::Kernel>>>>>,
     executed_kernels: Mutex<HashMap<u64, String>>,
@@ -141,12 +143,11 @@ pub struct MockSimulator<I> {
     interconn: Arc<I>,
 
     parallel_simulation: bool,
-    last_cluster_issue: usize,
+    last_cluster_issue: Mutex<usize>,
     last_issued_kernel: usize,
     allocations: allocation::Ref,
 
     // for main run loop
-    cycle: Cycle,
     traces_dir: Option<PathBuf>,
     commands: Vec<Command>,
     command_idx: usize,
@@ -157,28 +158,6 @@ pub struct MockSimulator<I> {
     log_after_cycle: Option<u64>,
     // gpu_stall_icnt2sh: usize,
     partition_replies_in_parallel: usize,
-}
-
-#[derive(Clone, Debug, Default)]
-#[repr(transparent)]
-pub struct Cycle(Arc<CachePadded<atomic::AtomicU64>>);
-
-impl Cycle {
-    #[must_use]
-    pub fn new(cycle: u64) -> Self {
-        Self(Arc::new(CachePadded::new(atomic::AtomicU64::new(cycle))))
-    }
-
-    pub fn set(&self, cycle: u64) {
-        use std::sync::atomic::Ordering;
-        self.0.store(cycle, Ordering::SeqCst);
-    }
-
-    #[must_use]
-    pub fn get(&self) -> u64 {
-        use std::sync::atomic::Ordering;
-        self.0.load(Ordering::SeqCst)
-    }
 }
 
 pub trait FromConfig {
@@ -211,23 +190,19 @@ where
         let num_mem_units = config.num_memory_controllers;
         let num_sub_partitions = config.num_sub_partition_per_memory_channel;
 
-        let cycle = Cycle::new(0);
         let mem_partition_units: Vec<_> = (0..num_mem_units)
             .map(|i| {
-                mem_partition_unit::MemoryPartitionUnit::new(
+                Arc::new(RwLock::new(mem_partition_unit::MemoryPartitionUnit::new(
                     i,
-                    &cycle,
                     Arc::clone(&config),
                     Arc::clone(&stats),
-                )
+                )))
             })
             .collect();
 
         let mut mem_sub_partitions = Vec::new();
         for partition in &mem_partition_units {
-            for sub in 0..num_sub_partitions {
-                mem_sub_partitions.push(partition.sub_partitions[sub].clone());
-            }
+            mem_sub_partitions.extend(partition.try_read().unwrap().sub_partitions.iter().cloned());
         }
 
         let max_concurrent_kernels = config.max_concurrent_kernels;
@@ -239,7 +214,7 @@ where
             .map(|i| {
                 Arc::new(RwLock::new(Cluster::new(
                     i,
-                    &cycle,
+                    // &cycle,
                     &warp_instruction_unique_uid,
                     &allocations,
                     &interconn,
@@ -273,7 +248,8 @@ where
             .and_then(Result::ok);
 
         // this causes first launch to use simt cluster
-        let last_cluster_issue = config.num_simt_clusters - 1;
+        let last_cluster_issue = Mutex::new(config.num_simt_clusters - 1);
+
         Self {
             config,
             stats,
@@ -288,7 +264,6 @@ where
             last_cluster_issue,
             last_issued_kernel: 0,
             allocations,
-            cycle,
             traces_dir: None,
             commands: Vec::new(),
             command_idx: 0,
@@ -362,7 +337,7 @@ where
             }
         }
         for unit in &self.mem_partition_units {
-            if unit.busy() {
+            if unit.try_read().unwrap().busy() {
                 return true;
             }
         }
@@ -404,9 +379,10 @@ where
         Ok(())
     }
 
-    fn issue_block_to_core(&mut self) {
+    fn issue_block_to_core(&self) {
         log::debug!("===> issue block to core");
-        let last_issued = self.last_cluster_issue;
+        let mut last_cluster_issue = self.last_cluster_issue.lock().unwrap();
+        let last_issued = *last_cluster_issue;
         let num_clusters = self.config.num_simt_clusters;
         for cluster_idx in 0..num_clusters {
             debug_assert_eq!(
@@ -421,7 +397,7 @@ where
             log::trace!("cluster[{}] issued {} blocks", idx, num_blocks_issued);
 
             if num_blocks_issued > 0 {
-                self.last_cluster_issue = idx;
+                *last_cluster_issue = idx;
                 // self.total_blocks_launched += num_blocks_issued;
             }
         }
@@ -430,11 +406,10 @@ where
     pub fn set_cycle(&self, cycle: u64) {
         let mut stats = self.stats.lock().unwrap();
         stats.sim.cycles = cycle;
-        self.cycle.set(cycle);
     }
 
     #[allow(clippy::overly_complex_bool_expr)]
-    pub fn cycle(&mut self) {
+    pub fn cycle(&mut self, cycle: u64) {
         let start_total = Instant::now();
         // int clock_mask = next_clock_domain();
 
@@ -443,10 +418,10 @@ where
         if self.parallel_simulation {
             self.clusters
                 .par_iter()
-                .for_each(|cluster| cluster.try_write().unwrap().interconn_cycle());
+                .for_each(|cluster| cluster.try_write().unwrap().interconn_cycle(cycle));
         } else {
             for cluster in &self.clusters {
-                cluster.try_write().unwrap().interconn_cycle();
+                cluster.try_write().unwrap().interconn_cycle(cycle);
             }
         }
         TIMINGS
@@ -468,7 +443,7 @@ where
             // let mut temp_requests = Vec::new();
 
             self.mem_sub_partitions
-                .par_iter_mut()
+                .par_iter()
                 .enumerate()
                 .for_each(|(i, mem_sub)| {
                     let mut mem_sub = mem_sub.try_lock().unwrap();
@@ -532,6 +507,8 @@ where
                     );
                     let partition = &self.mem_partition_units[mem_sub.partition_id];
                     let dram_latency_queue: Vec<_> = partition
+                        .try_read()
+                        .unwrap()
                         .dram_latency_queue
                         .iter()
                         .map(std::string::ToString::to_string)
@@ -575,12 +552,12 @@ where
             // also, we race for checking if dram to l2 queue is full, for which ordering does not
             // help
             self.mem_partition_units
-                .par_iter_mut()
-                .for_each(mem_partition_unit::MemoryPartitionUnit::simple_dram_cycle);
+                .par_iter()
+                .for_each(|partition| partition.try_write().unwrap().simple_dram_cycle());
         } else {
             log::debug!("cycle for {} drams", self.mem_partition_units.len());
             for (_i, unit) in self.mem_partition_units.iter_mut().enumerate() {
-                unit.simple_dram_cycle();
+                unit.try_write().unwrap().simple_dram_cycle();
 
                 // if self.config.simple_dram_model {
                 //     unit.simple_dram_cycle();
@@ -597,8 +574,6 @@ where
             .entry("cycle::dram")
             .or_default()
             .add(start.elapsed());
-
-        let current_cycle = self.cycle.get();
 
         // L2 operations
         log::debug!(
@@ -627,7 +602,7 @@ where
                                 device
                             );
 
-                            mem_sub.push(fetch, current_cycle);
+                            mem_sub.push(fetch, cycle);
                             // self.parallel_mem_partition_reqs += 1;
                         }
                     } else {
@@ -636,13 +611,13 @@ where
                     }
                     // we borrow all of sub here, which is a problem for the cyclic reference in l2
                     // interface
-                    mem_sub.cache_cycle(current_cycle);
+                    mem_sub.cache_cycle(cycle);
                 });
 
             // dbg!(self.mem_sub_partitions.len());
             // self.mem_sub_partitions
             //     .par_iter_mut()
-            //     .for_each(|mem_sub| mem_sub.try_lock().unwrap().cache_cycle(current_cycle));
+            //     .for_each(|mem_sub| mem_sub.try_lock().unwrap().cache_cycle(cycle));
         } else {
             // let mut parallel_mem_partition_reqs_per_cycle = 0;
             // let mut stall_dram_full = 0;
@@ -668,7 +643,7 @@ where
                             device
                         );
 
-                        mem_sub.push(fetch, current_cycle);
+                        mem_sub.push(fetch, cycle);
                         // self.parallel_mem_partition_reqs += 1;
                     }
                 } else {
@@ -677,7 +652,7 @@ where
                 }
                 // we borrow all of sub here, which is a problem for the cyclic reference in l2
                 // interface
-                mem_sub.cache_cycle(current_cycle);
+                mem_sub.cache_cycle(cycle);
             }
         }
         TIMINGS
@@ -750,7 +725,7 @@ where
                 // for core in cores {
                 //     core.lock().unwrap().cycle();
                 // }
-                crate::timeit!(core.write().unwrap().cycle());
+                crate::timeit!(core.write().unwrap().cycle(cycle));
                 // TIMINGS
                 //     .lock()
                 //     .unwrap()
@@ -855,7 +830,7 @@ where
             // let mut active_sms = 0;
             for cluster in &mut self.clusters {
                 let mut cluster = cluster.try_write().unwrap();
-                log::debug!("cluster {} cycle {}", cluster.cluster_id, self.cycle.get());
+                log::debug!("cluster {} cycle {}", cluster.cluster_id, cycle);
                 let cores_completed = cluster.not_completed() == 0;
                 let kernels_completed = self
                     .running_kernels
@@ -872,7 +847,7 @@ where
                 // cluster.cycle();
                 for core_id in &cluster.core_sim_order {
                     let mut core = cluster.cores[*core_id].write().unwrap();
-                    core.cycle();
+                    core.cycle(cycle);
 
                     let mut port = core.interconn_port.lock().unwrap();
                     for (dest, fetch, size) in port.drain(..) {
@@ -967,7 +942,7 @@ where
             .add(start_total.elapsed());
     }
 
-    pub fn gpu_mem_alloc(&mut self, addr: address, num_bytes: u64, name: Option<&str>) {
+    pub fn gpu_mem_alloc(&mut self, addr: address, num_bytes: u64, name: Option<&str>, cycle: u64) {
         log::info!(
             "memalloc: {:<20} {:>15} ({:>5} f32) at address {addr:>20}",
             name.unwrap_or("<unnamed>"),
@@ -1003,10 +978,21 @@ where
             mask.to_bit_string()
         );
 
-        partition.handle_memcpy_to_gpu(write_addr, tlx_addr.sub_partition as usize, mask, time);
+        partition.try_read().unwrap().handle_memcpy_to_gpu(
+            write_addr,
+            tlx_addr.sub_partition as usize,
+            mask,
+            time,
+        );
     }
 
-    pub fn memcopy_to_gpu(&mut self, addr: address, num_bytes: u64, name: Option<String>) {
+    pub fn memcopy_to_gpu(
+        &mut self,
+        addr: address,
+        num_bytes: u64,
+        name: Option<String>,
+        cycle: u64,
+    ) {
         log::info!(
             "memcopy: {:<20} {:>15} ({:>5} f32) to address {addr:>20}",
             name.as_deref().unwrap_or("<unnamed>"),
@@ -1019,10 +1005,9 @@ where
         if self.config.fill_l2_on_memcopy {
             let chunk_size: u64 = 32;
             let chunks = (num_bytes as f64 / chunk_size as f64).ceil() as usize;
-            let time = self.cycle.get();
             for chunk in 0..chunks {
                 let write_addr = addr + (chunk as u64 * chunk_size);
-                self.copy_chunk_to_gpu(write_addr, time);
+                self.copy_chunk_to_gpu(write_addr, cycle);
             }
         }
     }
@@ -1057,7 +1042,7 @@ where
     ///
     /// Take as many commands as possible until we have collected as many kernels to fill
     /// the `window_size` or processed every command.
-    pub fn process_commands(&mut self) {
+    pub fn process_commands(&mut self, cycle: u64) {
         while self.kernels.len() < self.kernel_window_size && self.command_idx < self.commands.len()
         {
             let cmd = &self.commands[self.command_idx];
@@ -1066,13 +1051,23 @@ where
                     allocation_name,
                     dest_device_addr,
                     num_bytes,
-                }) => self.memcopy_to_gpu(*dest_device_addr, *num_bytes, allocation_name.clone()),
+                }) => self.memcopy_to_gpu(
+                    *dest_device_addr,
+                    *num_bytes,
+                    allocation_name.clone(),
+                    cycle,
+                ),
                 Command::MemAlloc(trace_model::MemAlloc {
                     allocation_name,
                     device_ptr,
                     num_bytes,
                 }) => {
-                    self.gpu_mem_alloc(*device_ptr, *num_bytes, allocation_name.clone().as_deref());
+                    self.gpu_mem_alloc(
+                        *device_ptr,
+                        *num_bytes,
+                        allocation_name.clone().as_deref(),
+                        cycle,
+                    );
                 }
                 Command::KernelLaunch(launch) => {
                     let kernel =
@@ -1095,7 +1090,7 @@ where
     /// Lauch more kernels if possible.
     ///
     /// Launch all kernels within window that are on a stream that isn't already running
-    pub fn launch_kernels(&mut self) {
+    pub fn launch_kernels(&mut self, cycle: u64) {
         log::trace!("launching kernels");
         let mut launch_queue: Vec<Arc<Kernel>> = Vec::new();
         for kernel in &self.kernels {
@@ -1145,8 +1140,8 @@ where
         println!("deterministic parallel = {}", self.parallel_simulation);
 
         while (self.commands_left() || self.kernels_left()) && !self.reached_limit(cycle) {
-            self.process_commands();
-            self.launch_kernels();
+            self.process_commands(cycle);
+            self.launch_kernels(cycle);
 
             let mut finished_kernel = None;
             loop {
@@ -1157,7 +1152,7 @@ where
                     break;
                 }
 
-                self.cycle();
+                self.cycle(cycle);
                 cycle += 1;
                 self.set_cycle(cycle);
 

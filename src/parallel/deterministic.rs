@@ -1,4 +1,6 @@
-use crate::{config, core, ic, mem_fetch, mem_sub_partition, MockSimulator};
+use crate::{
+    config, core, engine::cycle::Component, ic, mem_fetch, mem_sub_partition, MockSimulator,
+};
 use color_eyre::eyre;
 
 impl<I> MockSimulator<I>
@@ -19,7 +21,6 @@ where
         let cores: Vec<_> = self.clusters.iter().cloned().collect();
         let num_cores = cores.len();
 
-        // let start_cores = cores.iter().map(|_| crossbeam::channel::bounded(1));
         let (mut start_core_tx, mut start_core_rx) = (Vec::new(), Vec::new());
         let (mut core_done_tx, mut core_done_rx) = (Vec::new(), Vec::new());
         for _ in &cores {
@@ -31,17 +32,6 @@ where
             core_done_tx.push(tx);
             core_done_rx.push(rx);
         }
-        // start_cores.into_iter().partition_map(|r| match r {
-        //     Ok(v) => Either::Left(v),
-        //     Err(v) => Either::Right(v),
-        // });
-
-        // let cores_done = cores.iter().map(|_| crossbeam::channel::bounded(1));
-        // let (start_core_tx, start_core_rx) = crossbeam::channel::bounded(num_cores);
-        // let (done_core_tx, done_core_rx) = crossbeam::channel::bounded(num_cores);
-
-        // let (start_core_tx, start_core_rx) = crossbeam::channel::bounded(num_cores);
-        // let (done_core_tx, done_core_rx) = crossbeam::channel::bounded(num_cores);
 
         // spawn worker threads for core cycles
         let core_worker_handles: Vec<_> = cores
@@ -71,7 +61,7 @@ where
                             for core in &cluster.cores {
                                 let mut core = core.write().unwrap();
                                 // println!("start core {:?} ({} clusters)", core.id(), num_cores);
-                                core.cycle();
+                                core.cycle(cycle);
                                 // println!("done core {:?} ({} clusters)", core.id(), num_cores);
                             }
                         }
@@ -92,8 +82,8 @@ where
         assert_eq!(core_worker_handles.len(), num_cores);
 
         while (self.commands_left() || self.kernels_left()) && !self.reached_limit(cycle) {
-            self.process_commands();
-            self.launch_kernels();
+            self.process_commands(cycle);
+            self.launch_kernels(cycle);
 
             let mut finished_kernel = None;
             loop {
@@ -106,7 +96,7 @@ where
 
                 // START LIB CYCLE
                 for cluster in &mut self.clusters {
-                    cluster.try_write().unwrap().interconn_cycle();
+                    cluster.try_write().unwrap().interconn_cycle(cycle);
                 }
 
                 for (i, mem_sub) in self.mem_sub_partitions.iter().enumerate() {
@@ -135,8 +125,8 @@ where
                     }
                 }
 
-                for (_i, unit) in self.mem_partition_units.iter_mut().enumerate() {
-                    unit.simple_dram_cycle();
+                for (_i, unit) in self.mem_partition_units.iter().enumerate() {
+                    unit.try_write().unwrap().simple_dram_cycle();
                 }
 
                 for (i, mem_sub) in self.mem_sub_partitions.iter_mut().enumerate() {

@@ -6,9 +6,10 @@ use std::sync::Arc;
 pub const MAX_ALU_LATENCY: usize = 512;
 pub type OccupiedSlots = BitArr!(for MAX_ALU_LATENCY);
 
-pub trait SimdFunctionUnit: Send + Sync + std::fmt::Display + 'static {
+pub trait SimdFunctionUnit:
+    crate::engine::cycle::Component + Send + Sync + std::fmt::Display + 'static
+{
     fn id(&self) -> &str;
-    fn cycle(&mut self);
     fn issue(&mut self, source_reg: WarpInstruction);
 
     // accessors
@@ -25,8 +26,7 @@ pub trait SimdFunctionUnit: Send + Sync + std::fmt::Display + 'static {
 }
 
 #[derive()]
-pub struct PipelinedSimdUnitImpl {
-    pub cycle: super::Cycle,
+pub struct PipelinedSimdUnit {
     pub result_port: Option<register_set::Ref>,
     pub id: usize,
     pub name: String,
@@ -39,32 +39,29 @@ pub struct PipelinedSimdUnitImpl {
     pub config: Arc<config::GPU>,
 }
 
-impl std::fmt::Display for PipelinedSimdUnitImpl {
+impl std::fmt::Display for PipelinedSimdUnit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "PipelinedSimdUnitImpl")
+        write!(f, "PipelinedSimdUnit")
     }
 }
 
-impl std::fmt::Debug for PipelinedSimdUnitImpl {
+impl std::fmt::Debug for PipelinedSimdUnit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PipelinedSimdUnitImpl").finish()
+        f.debug_struct("PipelinedSimdUnit").finish()
     }
 }
 
-impl PipelinedSimdUnitImpl {
+impl PipelinedSimdUnit {
     pub fn new(
         id: usize,
         name: String,
-        // result_port: Option<Rc<RefCell<RegisterSet>>>,
         result_port: Option<register_set::Ref>,
         depth: usize,
         config: Arc<config::GPU>,
-        cycle: super::Cycle,
         issue_reg_id: usize,
     ) -> Self {
         let pipeline_reg = (0..depth).map(|_| None).collect();
         Self {
-            cycle,
             id,
             name,
             result_port,
@@ -78,6 +75,7 @@ impl PipelinedSimdUnitImpl {
         }
     }
 
+    #[inline]
     pub fn num_active_instr_in_pipeline(&self) -> usize {
         self.pipeline_reg
             .iter()
@@ -85,11 +83,9 @@ impl PipelinedSimdUnitImpl {
             .filter(Option::is_some)
             .count()
     }
-}
 
-impl SimdFunctionUnit for PipelinedSimdUnitImpl {
     #[inline]
-    fn active_lanes_in_pipeline(&self) -> usize {
+    pub fn active_lanes_in_pipeline(&self) -> usize {
         let mut active_lanes: warp::ActiveMask = BitArray::ZERO;
         for stage in self.pipeline_reg.iter().flatten() {
             active_lanes |= stage.active_mask;
@@ -97,28 +93,70 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
         active_lanes.count_ones()
     }
 
-    #[inline]
-    fn id(&self) -> &str {
-        &self.name
-    }
+    // #[inline]
+    // fn id(&self) -> &str {
+    //     &self.name
+    // }
+    //
+    // #[inline]
+    // fn pipeline(&self) -> &Vec<Option<WarpInstruction>> {
+    //     &self.pipeline_reg
+    // }
+    //
+    // #[inline]
+    // fn occupied(&self) -> &OccupiedSlots {
+    //     &self.occupied
+    // }
 
     #[inline]
-    fn pipeline(&self) -> &Vec<Option<WarpInstruction>> {
-        &self.pipeline_reg
+    pub fn issue(&mut self, src_reg: WarpInstruction) {
+        register_set::move_warp(
+            Some(src_reg),
+            &mut self.dispatch_reg,
+            // format!(
+            //     "{} moving register to dispatch register for issue",
+            //     self.name,
+            // ),
+        );
+        if let Some(ref dispatch_reg) = self.dispatch_reg {
+            self.occupied.set(dispatch_reg.latency, true);
+        }
     }
 
-    #[inline]
-    fn occupied(&self) -> &OccupiedSlots {
-        &self.occupied
-    }
+    // #[inline]
+    // fn clock_multiplier(&self) -> usize {
+    //     1
+    // }
 
     #[inline]
-    fn cycle(&mut self) {
+    pub fn can_issue(&self, instr: &WarpInstruction) -> bool {
+        self.dispatch_reg.is_none() && !self.occupied[instr.latency]
+    }
+
+    // #[inline]
+    // fn is_issue_partitioned(&self) -> bool {
+    //     todo!("pipelined simd unit: is issue partitioned");
+    // }
+    //
+    // #[inline]
+    // fn issue_reg_id(&self) -> usize {
+    //     todo!("pipelined simd unit: issue reg id");
+    // }
+    //
+    // #[inline]
+    // fn stallable(&self) -> bool {
+    //     false
+    // }
+}
+
+impl crate::engine::cycle::Component for PipelinedSimdUnit {
+    #[inline]
+    fn cycle(&mut self, cycle: u64) {
         log::debug!(
             "fu[{:03}] {:<10} cycle={:03}: \tpipeline={:?} ({}/{} active)",
             self.id,
             self.name,
-            self.cycle.get(),
+            cycle,
             self.pipeline_reg
                 .iter()
                 .map(|reg| reg.as_ref().map(std::string::ToString::to_string))
@@ -177,46 +215,6 @@ impl SimdFunctionUnit for PipelinedSimdUnitImpl {
         // occupied latencies are shifted each cycle
         // note: in rust, shift left is semantically equal to "towards the zero index"
         self.occupied.shift_left(1);
-    }
-
-    #[inline]
-    fn issue(&mut self, src_reg: WarpInstruction) {
-        register_set::move_warp(
-            Some(src_reg),
-            &mut self.dispatch_reg,
-            // format!(
-            //     "{} moving register to dispatch register for issue",
-            //     self.name,
-            // ),
-        );
-        if let Some(ref dispatch_reg) = self.dispatch_reg {
-            self.occupied.set(dispatch_reg.latency, true);
-        }
-    }
-
-    #[inline]
-    fn clock_multiplier(&self) -> usize {
-        1
-    }
-
-    #[inline]
-    fn can_issue(&self, instr: &WarpInstruction) -> bool {
-        self.dispatch_reg.is_none() && !self.occupied[instr.latency]
-    }
-
-    #[inline]
-    fn is_issue_partitioned(&self) -> bool {
-        todo!("pipelined simd unit: is issue partitioned");
-    }
-
-    #[inline]
-    fn issue_reg_id(&self) -> usize {
-        todo!("pipelined simd unit: issue reg id");
-    }
-
-    #[inline]
-    fn stallable(&self) -> bool {
-        false
     }
 }
 

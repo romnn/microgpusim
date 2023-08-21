@@ -58,7 +58,7 @@ impl super::Scheduler for Scheduler {
         self.inner.prioritized_warps()
     }
 
-    fn cycle(&mut self, core: &dyn WarpIssuer) {
+    fn issue_to(&mut self, core: &dyn WarpIssuer, cycle: u64) {
         log::debug!(
             "gto scheduler[{}]: BEFORE: prioritized warp ids: {:?}",
             self.inner.id,
@@ -83,6 +83,6 @@ impl super::Scheduler for Scheduler {
             self.debug_dynamic_warp_ids()
         );
 
-        self.inner.cycle(core);
+        self.inner.issue_to(core, cycle);
     }
 }

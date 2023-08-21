@@ -1,4 +1,4 @@
-use crate::{address, config, interconn as ic, mem_fetch, Cycle};
+use crate::{address, config, interconn as ic, mem_fetch};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
@@ -18,7 +18,6 @@ where
         name: String,
         core_id: usize,
         cluster_id: usize,
-        cycle: Cycle,
         fetch_interconn: Arc<I>,
         stats: Arc<Mutex<stats::Cache>>,
         config: Arc<config::GPU>,
@@ -28,7 +27,6 @@ where
             name,
             core_id,
             cluster_id,
-            cycle,
             fetch_interconn,
             stats,
             config,
@@ -43,12 +41,12 @@ where
     }
 }
 
-impl<I> super::Component for DataL2<I>
+impl<I> crate::engine::cycle::Component for DataL2<I>
 where
     I: ic::MemFetchInterface,
 {
-    fn cycle(&mut self) {
-        self.inner.cycle();
+    fn cycle(&mut self, cycle: u64) {
+        self.inner.cycle(cycle);
     }
 }
 

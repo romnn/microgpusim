@@ -1,4 +1,4 @@
-use crate::{address, cache, config, interconn as ic, mem_fetch, mshr::MSHR, tag_array, Cycle};
+use crate::{address, cache, config, interconn as ic, mem_fetch, mshr::MSHR, tag_array};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
@@ -24,7 +24,6 @@ where
         name: String,
         core_id: usize,
         cluster_id: usize,
-        cycle: Cycle,
         mem_port: Arc<I>,
         stats: Arc<Mutex<stats::Cache>>,
         config: Arc<config::GPU>,
@@ -36,7 +35,6 @@ where
             name,
             core_id,
             cluster_id,
-            cycle,
             mem_port,
             stats,
             config,
@@ -510,7 +508,6 @@ where
         //
         // Function pointers were used to avoid many long conditional
         // branches resulting from many cache configuration options.
-        // let time = self.inner.cycle.get();
         let mut access_status = probe_status;
         let data_size = fetch.data_size();
 
@@ -561,12 +558,12 @@ where
     }
 }
 
-impl<I> cache::Component for Data<I>
+impl<I> crate::engine::cycle::Component for Data<I>
 where
     I: ic::MemFetchInterface,
 {
-    fn cycle(&mut self) {
-        self.inner.cycle();
+    fn cycle(&mut self, cycle: u64) {
+        self.inner.cycle(cycle);
     }
 }
 

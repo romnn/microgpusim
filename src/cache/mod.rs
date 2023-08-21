@@ -77,11 +77,7 @@ impl From<AccessStat> for stats::cache::AccessStat {
     }
 }
 
-pub trait Component {
-    fn cycle(&mut self);
-}
-
-pub trait Cache: Send + Sync + Component + Bandwidth + 'static {
+pub trait Cache: crate::engine::cycle::Component + Send + Sync + Bandwidth + 'static {
     fn as_any(&self) -> &dyn std::any::Any;
 
     fn stats(&self) -> &Arc<Mutex<stats::Cache>>;

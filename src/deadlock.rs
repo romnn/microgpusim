@@ -75,8 +75,14 @@ where
             }
         }
         for (partition_id, partition) in self.mem_partition_units.iter().enumerate() {
-            state.dram_latency_queue[partition_id]
-                .extend(partition.dram_latency_queue.clone().into_iter());
+            state.dram_latency_queue[partition_id].extend(
+                partition
+                    .try_read()
+                    .unwrap()
+                    .dram_latency_queue
+                    .clone()
+                    .into_iter(),
+            );
         }
         for (sub_id, sub) in self.mem_sub_partitions.iter().enumerate() {
             let sub = sub.try_lock().unwrap();

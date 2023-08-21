@@ -317,7 +317,7 @@ pub enum Parallelization {
     Serial,
     RayonDeterministic,
     Deterministic,
-    Nondeterministic(u64),
+    Nondeterministic(usize),
 }
 
 #[allow(clippy::struct_excessive_bools)]

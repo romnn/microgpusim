@@ -43,7 +43,7 @@ fn gather_simulation_state(
         num_schedulers,
     );
 
-    box_sim_state.last_cluster_issue = box_sim.last_cluster_issue;
+    box_sim_state.last_cluster_issue = *box_sim.last_cluster_issue.lock().unwrap();
 
     for (cluster_id, cluster) in box_sim.clusters.iter().enumerate() {
         let cluster = cluster.try_read().unwrap();
@@ -119,6 +119,7 @@ fn gather_simulation_state(
     }
 
     for (partition_id, partition) in box_sim.mem_partition_units.iter().enumerate() {
+        let partition = partition.try_read().unwrap();
         box_sim_state.dram_latency_queue_per_partition[partition_id].extend(
             partition
                 .dram_latency_queue
@@ -806,8 +807,8 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
     //     num_sub_partitions,
     // );
 
-    box_sim.process_commands();
-    box_sim.launch_kernels();
+    box_sim.process_commands(cycle);
+    box_sim.launch_kernels(cycle);
 
     while play_sim.commands_left() || play_sim.kernels_left() {
         let mut start = Instant::now();
@@ -868,12 +869,10 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
 
             start = Instant::now();
             play_sim.cycle();
-            cycle = play_sim.get_cycle();
             play_time_cycle += start.elapsed();
 
             start = Instant::now();
-            box_sim.cycle();
-            box_sim.set_cycle(cycle);
+            box_sim.cycle(cycle);
             box_time_cycle += start.elapsed();
 
             let should_check = cycle >= check_after && cycle % check_every == 0;
@@ -994,9 +993,12 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
             // box out of loop
             start = Instant::now();
             if !box_sim.active() {
-                box_sim.process_commands();
-                box_sim.launch_kernels();
+                box_sim.process_commands(cycle);
+                box_sim.launch_kernels(cycle);
             }
+
+            cycle = play_sim.get_cycle();
+            box_sim.set_cycle(cycle);
 
             if let Some(kernel) = box_sim.finished_kernel() {
                 box_sim.cleanup_finished_kernel(&kernel);

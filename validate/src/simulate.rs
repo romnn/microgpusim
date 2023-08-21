@@ -27,7 +27,7 @@ pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<stats::Stats, Ru
         ));
     }
 
-    let non_deterministic: Option<u64> = std::env::var("NONDET")
+    let non_deterministic: Option<usize> = std::env::var("NONDET")
         .ok()
         .as_deref()
         .map(str::parse)

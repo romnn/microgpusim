@@ -54,7 +54,7 @@ pub struct LoadStoreUnit<I> {
     interconn: Arc<dyn ic::Interconnect<super::Packet> + Send + 'static>,
     fetch_interconn: Arc<I>,
     // pub interconn_port: super::InterconnPort,
-    pipelined_simd_unit: fu::PipelinedSimdUnitImpl,
+    inner: fu::PipelinedSimdUnit,
 
     operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
 
@@ -65,13 +65,13 @@ pub struct LoadStoreUnit<I> {
 
 impl<I> std::fmt::Display for LoadStoreUnit<I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.pipelined_simd_unit.name)
+        write!(f, "{}", self.inner.name)
     }
 }
 
 impl<I> std::fmt::Debug for LoadStoreUnit<I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct(&self.pipelined_simd_unit.name)
+        f.debug_struct(&self.inner.name)
             .field("core_id", &self.core_id)
             .field("cluster_id", &self.cluster_id)
             .field("response_fifo_size", &self.response_fifo.len())
@@ -135,16 +135,14 @@ where
         scoreboard: Arc<RwLock<Scoreboard>>,
         config: Arc<config::GPU>,
         stats: Arc<Mutex<stats::Stats>>,
-        cycle: super::Cycle,
     ) -> Self {
         let pipeline_depth = config.shared_memory_latency;
-        let pipelined_simd_unit = fu::PipelinedSimdUnitImpl::new(
+        let inner = fu::PipelinedSimdUnit::new(
             id,
             "LdstUnit".to_string(),
             None,
             pipeline_depth,
             config.clone(),
-            cycle.clone(),
             0,
         );
         debug_assert!(config.shared_memory_latency > 1);
@@ -164,7 +162,6 @@ where
                     format!("ldst-unit-{cluster_id}-{core_id}-L1-DATA-CACHE"),
                     core_id,
                     cluster_id,
-                    cycle,
                     Arc::clone(&fetch_interconn),
                     cache_stats,
                     Arc::clone(&config),
@@ -188,7 +185,7 @@ where
             interconn,
             fetch_interconn,
             // interconn_port,
-            pipelined_simd_unit,
+            inner,
             config,
             stats,
             scoreboard,
@@ -222,14 +219,10 @@ where
         self.response_fifo.push_back(fetch);
     }
 
-    pub fn writeback(&mut self) {
+    pub fn writeback(&mut self, cycle: u64) {
         log::debug!(
             "{} (arb={}, writeback clients={})",
-            style(format!(
-                "load store unit: cycle {} writeback",
-                self.pipelined_simd_unit.cycle.get()
-            ))
-            .magenta(),
+            style(format!("load store unit: cycle {} writeback", cycle)).magenta(),
             self.writeback_arb,
             self.num_writeback_clients,
         );
@@ -308,7 +301,7 @@ where
             #[allow(clippy::match_same_arms)]
             match next_client {
                 WritebackClient::SharedMemory => {
-                    if let Some(pipe_reg) = self.pipelined_simd_unit.pipeline_reg[0].take() {
+                    if let Some(pipe_reg) = self.inner.pipeline_reg[0].take() {
                         if pipe_reg.is_atomic() {
                             // pipe_reg.do_atomic();
                             // m_core->decrement_atomic_count(m_next_wb.warp_id(),
@@ -394,12 +387,15 @@ where
         }
     }
 
+    #[must_use]
+    #[inline]
     fn shared_cycle(
         &mut self,
         stall_kind: &mut MemStageStallKind,
         kind: &mut MemStageAccessKind,
+        cycle: u64,
     ) -> bool {
-        let Some(dispatch_instr) = &mut self.pipelined_simd_unit.dispatch_reg else {
+        let Some(dispatch_instr) = &mut self.inner.dispatch_reg else {
             return true;
         };
         log::debug!("shared cycle for instruction: {}", &dispatch_instr);
@@ -433,19 +429,25 @@ where
     }
 
     #[allow(clippy::unused_self)]
+    #[must_use]
+    #[inline]
     fn constant_cycle(
         &mut self,
         _rc_fail: &mut MemStageStallKind,
         _kind: &mut MemStageAccessKind,
+        _cycle: u64,
     ) -> bool {
         true
     }
 
     #[allow(clippy::unused_self)]
+    #[must_use]
+    #[inline]
     fn texture_cycle(
         &mut self,
         _rc_fail: &mut MemStageStallKind,
         _kind: &mut MemStageAccessKind,
+        _cycle: u64,
     ) -> bool {
         true
     }
@@ -551,12 +553,14 @@ where
     //     //     .push_back((mem_dest, fetch, packet_size));
     // }
 
+    #[inline]
     fn memory_cycle(
         &mut self,
         rc_fail: &mut MemStageStallKind,
         kind: &mut MemStageAccessKind,
+        cycle: u64,
     ) -> bool {
-        let Some(dispatch_instr) = &self.pipelined_simd_unit.dispatch_reg else {
+        let Some(dispatch_instr) = &self.inner.dispatch_reg else {
             return true;
         };
         log::debug!("memory cycle for instruction: {}", &dispatch_instr);
@@ -633,7 +637,7 @@ where
                         .num_outstanding_stores += 1;
                 }
 
-                let instr = self.pipelined_simd_unit.dispatch_reg.as_mut().unwrap();
+                let instr = self.inner.dispatch_reg.as_mut().unwrap();
                 let access = instr.mem_access_queue.pop_back().unwrap();
 
                 let fetch = new_mem_fetch(
@@ -644,16 +648,15 @@ where
                     self.cluster_id,
                 );
 
-                let time = self.pipelined_simd_unit.cycle.get();
                 // self.interconn_push(fetch, time);
-                self.fetch_interconn.push(fetch, time);
+                self.fetch_interconn.push(fetch, cycle);
             }
         } else {
             debug_assert_ne!(dispatch_instr.cache_operator, CacheOperator::UNDEFINED);
-            stall_cond = self.process_memory_access_queue_l1cache();
+            stall_cond = self.process_memory_access_queue_l1cache(cycle);
         }
 
-        let dispatch_instr = self.pipelined_simd_unit.dispatch_reg.as_ref().unwrap();
+        let dispatch_instr = self.inner.dispatch_reg.as_ref().unwrap();
 
         if !dispatch_instr.mem_access_queue.is_empty()
             && stall_cond == MemStageStallKind::NO_RC_FAIL
@@ -691,9 +694,9 @@ where
         warp.num_outstanding_stores -= 1;
     }
 
-    fn process_memory_access_queue_l1cache(&mut self) -> MemStageStallKind {
+    fn process_memory_access_queue_l1cache(&mut self, cycle: u64) -> MemStageStallKind {
         let mut stall_cond = MemStageStallKind::NO_RC_FAIL;
-        let Some(instr) = &mut self.pipelined_simd_unit.dispatch_reg else {
+        let Some(instr) = &mut self.inner.dispatch_reg else {
             return stall_cond;
         };
 
@@ -783,12 +786,11 @@ where
                 self.cluster_id,
             );
             let mut events = Vec::new();
-            let _status = self.data_l1.as_mut().unwrap().access(
-                fetch.addr(),
-                fetch,
-                &mut events,
-                self.pipelined_simd_unit.cycle.get(),
-            );
+            let _status =
+                self.data_l1
+                    .as_mut()
+                    .unwrap()
+                    .access(fetch.addr(), fetch, &mut events, cycle);
             todo!("process cache access");
             // self.process_cache_access(cache, fetch.addr(), instr, fetch, status)
             // stall_cond
@@ -859,16 +861,15 @@ where
         stall_cond
     }
 
-    fn l1_latency_queue_cycle(&mut self) {
+    fn l1_latency_queue_cycle(&mut self, cycle: u64) {
         let l1_config = self.config.data_cache_l1.as_ref().unwrap();
         for bank in 0..l1_config.l1_banks {
             if let Some(next_fetch) = &self.l1_latency_queue[bank][0] {
                 let mut events = Vec::new();
 
-                let time = self.pipelined_simd_unit.cycle.get();
                 let l1_cache = self.data_l1.as_mut().unwrap();
                 let access_status =
-                    l1_cache.access(next_fetch.addr(), next_fetch.clone(), &mut events, time);
+                    l1_cache.access(next_fetch.addr(), next_fetch.clone(), &mut events, cycle);
 
                 let write_sent = cache::event::was_write_sent(&events);
                 let read_sent = cache::event::was_read_sent(&events);
@@ -980,21 +981,21 @@ where
     I: ic::MemFetchInterface,
 {
     fn active_lanes_in_pipeline(&self) -> usize {
-        let active = self.pipelined_simd_unit.active_lanes_in_pipeline();
+        let active = self.inner.active_lanes_in_pipeline();
         debug_assert!(active <= self.config.warp_size);
         active
     }
 
     fn id(&self) -> &str {
-        &self.pipelined_simd_unit.name
+        &self.inner.name
     }
 
     fn pipeline(&self) -> &Vec<Option<WarpInstruction>> {
-        &self.pipelined_simd_unit.pipeline_reg
+        &self.inner.pipeline_reg
     }
 
     fn occupied(&self) -> &fu::OccupiedSlots {
-        self.pipelined_simd_unit.occupied()
+        &self.inner.occupied
     }
 
     fn issue(&mut self, instr: WarpInstruction) {
@@ -1027,7 +1028,7 @@ where
 
         // m_core->incmem_stat(m_core->get_config()->warp_size, 1);
 
-        self.pipelined_simd_unit.issue(instr);
+        self.inner.issue(instr);
     }
 
     fn clock_multiplier(&self) -> usize {
@@ -1041,7 +1042,7 @@ where
             | ArchOp::TENSOR_CORE_LOAD_OP
             | ArchOp::STORE_OP
             | ArchOp::TENSOR_CORE_STORE_OP
-            | ArchOp::MEMORY_BARRIER_OP => self.pipelined_simd_unit.dispatch_reg.is_none(),
+            | ArchOp::MEMORY_BARRIER_OP => self.inner.dispatch_reg.is_none(),
             _ => false,
         }
     }
@@ -1056,31 +1057,37 @@ where
     }
 
     fn stallable(&self) -> bool {
+        // load store unit is stallable
         true
     }
+}
 
-    fn cycle(&mut self) {
+impl<I> crate::engine::cycle::Component for LoadStoreUnit<I>
+where
+    I: ic::MemFetchInterface + 'static,
+{
+    fn cycle(&mut self, cycle: u64) {
         log::debug!(
             "fu[{:03}] {:<10} cycle={:03}: \tpipeline={:?} ({}/{} active) \tresponse fifo={:?}",
-            self.pipelined_simd_unit.id,
-            self.pipelined_simd_unit.name,
-            self.pipelined_simd_unit.cycle.get(),
-            self.pipelined_simd_unit
+            self.inner.id,
+            self.inner.name,
+            cycle,
+            self.inner
                 .pipeline_reg
                 .iter()
                 .map(|reg| reg.as_ref().map(std::string::ToString::to_string))
                 .collect::<Vec<_>>(),
-            self.pipelined_simd_unit.num_active_instr_in_pipeline(),
-            self.pipelined_simd_unit.pipeline_reg.len(),
+            self.inner.num_active_instr_in_pipeline(),
+            self.inner.pipeline_reg.len(),
             self.response_fifo
                 .iter()
                 .map(std::string::ToString::to_string)
                 .collect::<Vec<_>>(),
         );
 
-        self.writeback();
+        self.writeback(cycle);
 
-        let simd_unit = &mut self.pipelined_simd_unit;
+        let simd_unit = &mut self.inner;
         debug_assert!(simd_unit.pipeline_depth > 0);
         for stage in 0..(simd_unit.pipeline_depth - 1) {
             let current = stage + 1;
@@ -1158,8 +1165,7 @@ where
                             let l1d = self.data_l1.as_mut().unwrap();
                             if l1d.has_free_fill_port() {
                                 let fetch = self.response_fifo.pop_front().unwrap();
-                                let time = self.pipelined_simd_unit.cycle.get();
-                                l1d.fill(fetch, time);
+                                l1d.fill(fetch, cycle);
                             }
                         }
                     }
@@ -1170,21 +1176,21 @@ where
         // self.texture_l1.cycle();
         // self.const_l1.cycle();
         if let Some(data_l1) = &mut self.data_l1 {
-            data_l1.cycle();
+            data_l1.cycle(cycle);
             let cache_config = self.config.data_cache_l1.as_ref().unwrap();
             debug_assert_eq!(cache_config.l1_latency, 1);
             if cache_config.l1_latency > 0 {
-                self.l1_latency_queue_cycle();
+                self.l1_latency_queue_cycle(cycle);
             }
         }
 
         let mut stall_kind = MemStageStallKind::NO_RC_FAIL;
         let mut access_kind = MemStageAccessKind::C_MEM;
         let mut done = true;
-        done &= self.shared_cycle(&mut stall_kind, &mut access_kind);
-        done &= self.constant_cycle(&mut stall_kind, &mut access_kind);
-        done &= self.texture_cycle(&mut stall_kind, &mut access_kind);
-        done &= self.memory_cycle(&mut stall_kind, &mut access_kind);
+        done &= self.shared_cycle(&mut stall_kind, &mut access_kind, cycle);
+        done &= self.constant_cycle(&mut stall_kind, &mut access_kind, cycle);
+        done &= self.texture_cycle(&mut stall_kind, &mut access_kind, cycle);
+        done &= self.memory_cycle(&mut stall_kind, &mut access_kind, cycle);
 
         if !done {
             // log stall types and return
@@ -1194,7 +1200,7 @@ where
             return;
         }
 
-        let simd_unit = &mut self.pipelined_simd_unit;
+        let simd_unit = &mut self.inner;
         if let Some(ref pipe_reg) = simd_unit.dispatch_reg {
             // ldst unit got instr from dispatch reg
             let warp_id = pipe_reg.warp_id;

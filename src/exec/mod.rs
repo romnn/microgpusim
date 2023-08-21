@@ -185,11 +185,14 @@ impl Simulation {
         let offset = *offset_lock;
         *offset_lock += size;
 
-        self.inner.lock().unwrap().gpu_mem_alloc(offset, size, None);
         self.inner
             .lock()
             .unwrap()
-            .memcopy_to_gpu(offset, size, None);
+            .gpu_mem_alloc(offset, size, None, 0);
+        self.inner
+            .lock()
+            .unwrap()
+            .memcopy_to_gpu(offset, size, None, 0);
 
         DevicePtr {
             inner: var,

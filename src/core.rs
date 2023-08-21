@@ -2,6 +2,7 @@ use super::{
     address,
     allocation::Allocation,
     barrier, cache, config,
+    engine::cycle::Component,
     instruction::WarpInstruction,
     interconn as ic,
     kernel::Kernel,
@@ -186,7 +187,8 @@ pub trait WarpIssuer {
         &self,
         stage: PipelineStage,
         warp: &mut warp::Warp,
-        sch_id: usize,
+        scheduler_id: usize,
+        cycle: u64,
     ) -> eyre::Result<()>;
 
     fn has_free_register(&self, stage: PipelineStage, register_id: usize) -> bool;
@@ -219,6 +221,7 @@ where
         stage: PipelineStage,
         warp: &mut warp::Warp,
         scheduler_id: usize,
+        cycle: u64,
     ) -> eyre::Result<()> {
         let mut pipeline_stage = self.pipeline_reg[stage as usize].try_lock().unwrap();
         // let (reg_idx, pipe_reg) = if self.config.sub_core_model {
@@ -237,9 +240,7 @@ where
             "{} by scheduler {} to pipeline[{:?}][{}] {:?}",
             style(format!(
                 "cycle {:02} issue {} for warp {}",
-                self.cycle.get(),
-                next_instr,
-                warp.warp_id
+                cycle, next_instr, warp.warp_id
             ))
             .yellow(),
             scheduler_id,
@@ -254,7 +255,7 @@ where
             .fetch_add(1, atomic::Ordering::SeqCst);
 
         next_instr.warp_id = warp.warp_id;
-        next_instr.issue_cycle = Some(self.cycle.get());
+        next_instr.issue_cycle = Some(cycle);
         next_instr.dispatch_delay_cycles = next_instr.initiation_interval;
         next_instr.scheduler_id = Some(scheduler_id);
 
@@ -449,7 +450,7 @@ pub enum PipelineStage {
 pub struct Core<I> {
     pub core_id: usize,
     pub cluster_id: usize,
-    pub cycle: super::Cycle,
+    // pub cycle: super::Cycle,
     pub warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
     pub stats: Arc<Mutex<stats::Stats>>,
     pub config: Arc<config::GPU>,
@@ -506,7 +507,6 @@ where
         core_id: usize,
         cluster_id: usize,
         allocations: super::allocation::Ref,
-        cycle: super::Cycle,
         warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
         interconn: Arc<I>,
         stats: Arc<Mutex<stats::Stats>>,
@@ -537,7 +537,6 @@ where
             ),
             core_id,
             cluster_id,
-            cycle.clone(),
             Arc::clone(&port),
             cache_stats,
             Arc::clone(&config),
@@ -601,7 +600,6 @@ where
             scoreboard.clone(),
             config.clone(),
             stats.clone(),
-            cycle.clone(),
         )));
 
         // there are as many result buses as the width of the EX_WB stage
@@ -659,7 +657,6 @@ where
                 Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
                 &stats,
-                cycle.clone(),
                 u, // issue reg id
             ))));
             dispatch_ports.push(PipelineStage::ID_OC_SP);
@@ -673,7 +670,6 @@ where
                 Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
                 &stats,
-                cycle.clone(),
                 u, // issue reg id
             ))));
             dispatch_ports.push(PipelineStage::ID_OC_DP);
@@ -687,7 +683,6 @@ where
                 Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
                 &stats,
-                cycle.clone(),
                 u, // issue reg id
             ))));
             dispatch_ports.push(PipelineStage::ID_OC_INT);
@@ -701,7 +696,6 @@ where
                 Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
                 &stats,
-                cycle.clone(),
                 u, // issue reg id
             ))));
             dispatch_ports.push(PipelineStage::ID_OC_SFU);
@@ -733,7 +727,6 @@ where
         Self {
             core_id,
             cluster_id,
-            cycle,
             warp_instruction_unique_uid,
             stats,
             allocations,
@@ -768,7 +761,6 @@ where
             scheduler_issue_priority: 0,
             functional_units,
             issue_ports,
-            // dispatch_ports,
         }
     }
 
@@ -1135,12 +1127,12 @@ where
         }
     }
 
-    fn fetch(&mut self) {
+    fn fetch(&mut self, cycle: u64) {
         log::debug!(
             "{}",
             style(format!(
                 "cycle {:03} core {:?}: fetch (fetch buffer valid={}, l1i ready={:?})",
-                self.cycle.get(),
+                cycle,
                 self.id(),
                 self.instr_fetch_buffer.valid,
                 self.instr_l1_cache
@@ -1352,9 +1344,8 @@ where
                             cache::RequestStatus::HIT
                         } else {
                             let mut events = Vec::new();
-                            let time = self.cycle.get();
                             self.instr_l1_cache
-                                .access(ppc as address, fetch, &mut events, time)
+                                .access(ppc as address, fetch, &mut events, cycle)
                         };
 
                         log::debug!("L1I->access(addr={}) -> status = {:?}", ppc, status);
@@ -1380,19 +1371,18 @@ where
                 }
             }
         }
-        self.instr_l1_cache.cycle();
+        self.instr_l1_cache.cycle(cycle);
     }
 
     /// Shader core decode
-    fn decode(&mut self) {
+    fn decode(&mut self, cycle: u64) {
         let InstrFetchBuffer { valid, warp_id, .. } = self.instr_fetch_buffer;
 
-        let _core_id = self.id();
         log::debug!(
             "{}",
             style(format!(
                 "cycle {:03} core {:?}: decode (fetch buffer valid={})",
-                self.cycle.get(),
+                cycle,
                 self.id(),
                 valid
             ))
@@ -1466,14 +1456,7 @@ where
         warp.num_instr_in_pipeline += 1;
     }
 
-    fn issue(&mut self) {
-        // parallelizing the schedulers is possible but really not worth it
-        // if false {
-        //     use rayon::prelude::*;
-        //     self.schedulers
-        //         .par_iter()
-        //         .for_each(|scheduler| scheduler.try_lock().unwrap().cycle(self));
-        // } else {
+    fn issue(&mut self, cycle: u64) {
         // fair round robin issue between schedulers
         let num_schedulers = self.schedulers.len();
         for scheduler_idx in 0..num_schedulers {
@@ -1481,13 +1464,12 @@ where
             self.schedulers[scheduler_idx]
                 .try_lock()
                 .unwrap()
-                .cycle(self);
+                .issue_to(self, cycle);
         }
         self.scheduler_issue_priority = (self.scheduler_issue_priority + 1) % num_schedulers;
-        // }
     }
 
-    fn writeback(&mut self) {
+    fn writeback(&mut self, cycle: u64) {
         // from the functional units
         let mut exec_writeback_pipeline = self.pipeline_reg[PipelineStage::EX_WB as usize]
             .try_lock()
@@ -1496,7 +1478,7 @@ where
             "{}",
             style(format!(
                 "cycle {:03} core {:?}: writeback: ex wb pipeline={}",
-                self.cycle.get(),
+                cycle,
                 self.id(),
                 exec_writeback_pipeline
             ))
@@ -1556,16 +1538,11 @@ where
         }
     }
 
-    fn execute(&mut self) {
+    fn execute(&mut self, cycle: u64) {
         let core_id = self.id();
         log::debug!(
             "{}",
-            style(format!(
-                "cycle {:03} core {:?} execute: ",
-                self.cycle.get(),
-                core_id
-            ))
-            .red()
+            style(format!("cycle {:03} core {:?} execute: ", cycle, core_id)).red()
         );
 
         for (_, res_bus) in self.result_busses.iter_mut().enumerate() {
@@ -1594,7 +1571,7 @@ where
                 );
             }
 
-            fu.cycle();
+            fu.cycle(cycle);
             fu.active_lanes_in_pipeline();
 
             let mut issue_inst = self.pipeline_reg[issue_port as usize].try_lock().unwrap();
@@ -1622,12 +1599,7 @@ where
             log::trace!("occupied: {}", fu.occupied().to_bit_string());
             log::trace!(
                 "{} checking {:?}: fu[{:03}] can issue={:?} latency={:?}",
-                style(format!(
-                    "cycle {:03} core {:?}: execute:",
-                    self.cycle.get(),
-                    core_id,
-                ))
-                .red(),
+                style(format!("cycle {:03} core {:?}: execute:", cycle, core_id,)).red(),
                 ready_reg.as_ref().map(ToString::to_string),
                 fu_id,
                 ready_reg.as_ref().map(|instr| fu.can_issue(instr)),
@@ -1646,7 +1618,7 @@ where
                         "{} {} (partition issue={}, schedule wb now={}, resbus={}, latency={:?}) ready for issue to fu[{:03}]={}",
                         style(format!(
                             "cycle {:03} core {:?}: execute:",
-                            self.cycle.get(),
+                            cycle,
                             core_id,
                         ))
                         .red(),
@@ -1680,49 +1652,6 @@ where
         }
     }
 
-    pub fn cycle(&mut self) {
-        log::debug!(
-            "{} \tactive={}, not completed={}",
-            style(format!(
-                "cycle {:03} core {:?}: core cycle",
-                self.cycle.get(),
-                self.id()
-            ))
-            .blue(),
-            self.is_active(),
-            self.not_completed(),
-        );
-
-        if !self.is_active() && self.not_completed() == 0 {
-            log::debug!(
-                "{}",
-                style(format!(
-                    "cycle {:03} core {:?}: core done",
-                    self.cycle.get(),
-                    self.id()
-                ))
-                .blue(),
-            );
-            return;
-        }
-
-        // m_stats->shader_cycles[m_sid]++;
-        crate::timeit!("writeback", self.writeback());
-        crate::timeit!("execute", self.execute());
-        for _ in 0..self.config.reg_file_port_throughput {
-            crate::timeit!(
-                "operand collector",
-                self.operand_collector.try_lock().unwrap().step()
-            );
-        }
-
-        crate::timeit!(self.issue());
-        for _i in 0..self.config.inst_fetch_throughput {
-            crate::timeit!(self.decode());
-            crate::timeit!(self.fetch());
-        }
-    }
-
     pub fn cache_flush(&mut self) {
         let mut unit = self.load_store_unit.try_lock().unwrap();
         unit.flush();
@@ -1746,13 +1675,12 @@ where
         false
     }
 
-    pub fn accept_fetch_response(&mut self, mut fetch: mem_fetch::MemFetch) {
-        let time = self.cycle.get();
+    pub fn accept_fetch_response(&mut self, mut fetch: mem_fetch::MemFetch, time: u64) {
         fetch.status = mem_fetch::Status::IN_SHADER_FETCHED;
         self.instr_l1_cache.fill(fetch, time);
     }
 
-    pub fn accept_ldst_unit_response(&self, fetch: mem_fetch::MemFetch) {
+    pub fn accept_ldst_unit_response(&self, fetch: mem_fetch::MemFetch, time: u64) {
         self.load_store_unit.try_lock().unwrap().fill(fetch);
     }
 
@@ -2047,6 +1975,54 @@ where
 
         self.init_warps(free_block_hw_id, start_thread, end_thread, block_id, kernel);
         self.num_active_blocks += 1;
+    }
+}
+
+impl<I> crate::engine::cycle::Component for Core<I>
+where
+    I: ic::Interconnect<Packet> + Send + 'static,
+{
+    fn cycle(&mut self, cycle: u64) {
+        log::debug!(
+            "{} \tactive={}, not completed={}",
+            style(format!(
+                "cycle {:03} core {:?}: core cycle",
+                cycle,
+                self.id()
+            ))
+            .blue(),
+            self.is_active(),
+            self.not_completed(),
+        );
+
+        if !self.is_active() && self.not_completed() == 0 {
+            log::debug!(
+                "{}",
+                style(format!(
+                    "cycle {:03} core {:?}: core done",
+                    cycle,
+                    self.id()
+                ))
+                .blue(),
+            );
+            return;
+        }
+
+        // m_stats->shader_cycles[m_sid]++;
+        crate::timeit!("writeback", self.writeback(cycle));
+        crate::timeit!("execute", self.execute(cycle));
+        for _ in 0..self.config.reg_file_port_throughput {
+            crate::timeit!(
+                "operand collector",
+                self.operand_collector.try_lock().unwrap().step()
+            );
+        }
+
+        crate::timeit!(self.issue(cycle));
+        for _i in 0..self.config.inst_fetch_throughput {
+            crate::timeit!(self.decode(cycle));
+            crate::timeit!(self.fetch(cycle));
+        }
     }
 }
 

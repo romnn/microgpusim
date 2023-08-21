@@ -7,6 +7,7 @@
 
 - easy chores:
 
+  - move functional units into package
   - rename crates and github repo
   - publish to crates.io
   - publish python package to pip
@@ -31,6 +32,8 @@
 
     - asynchronously push into file (unordered)
 
+  - DONE: pipelined simd function unit should not implement simd function unit
+  - DONE: get rid of global cycle mutex
   - DONE: lint
   - DONE: execution driven frontend
   - DONE: refactor events

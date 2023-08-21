@@ -4,7 +4,6 @@ use super::{
     mem_fetch,
     mem_fetch::BitString,
     mem_sub_partition::MemorySubPartition,
-    Cycle,
 };
 use console::style;
 use std::collections::VecDeque;
@@ -24,12 +23,7 @@ pub struct MemoryPartitionUnit {
 }
 
 impl MemoryPartitionUnit {
-    pub fn new(
-        id: usize,
-        cycle: &Cycle,
-        config: Arc<config::GPU>,
-        stats: Arc<Mutex<stats::Stats>>,
-    ) -> Self {
+    pub fn new(id: usize, config: Arc<config::GPU>, stats: Arc<Mutex<stats::Stats>>) -> Self {
         let num_sub_partitions = config.num_sub_partition_per_memory_channel;
         let sub_partitions: Vec<_> = (0..num_sub_partitions)
             .map(|i| {
@@ -38,7 +32,6 @@ impl MemoryPartitionUnit {
                 Arc::new(Mutex::new(MemorySubPartition::new(
                     sub_id,
                     id,
-                    cycle.clone(),
                     Arc::clone(&config),
                     Arc::clone(&stats),
                 )))

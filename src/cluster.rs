@@ -8,7 +8,6 @@ use std::sync::{atomic, Arc, Mutex, RwLock};
 #[derive(Debug)]
 pub struct Cluster<I> {
     pub cluster_id: usize,
-    pub cycle: super::Cycle,
     pub warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
     pub cores: Vec<Arc<RwLock<Core<I>>>>,
     pub config: Arc<config::GPU>,
@@ -27,7 +26,6 @@ where
 {
     pub fn new(
         cluster_id: usize,
-        cycle: &super::Cycle,
         warp_instruction_unique_uid: &Arc<atomic::AtomicU64>,
         allocations: &super::allocation::Ref,
         interconn: &Arc<I>,
@@ -38,7 +36,6 @@ where
         let block_issue_next_core = Mutex::new(num_cores - 1);
         let mut cluster = Self {
             cluster_id,
-            cycle: cycle.clone(),
             warp_instruction_unique_uid: Arc::clone(warp_instruction_unique_uid),
             config: config.clone(),
             stats: stats.clone(),
@@ -56,7 +53,6 @@ where
                     id,
                     cluster_id,
                     Arc::clone(allocations),
-                    cycle.clone(),
                     Arc::clone(warp_instruction_unique_uid),
                     Arc::clone(interconn),
                     Arc::clone(stats),
@@ -91,14 +87,14 @@ where
             .sum()
     }
 
-    pub fn interconn_cycle(&mut self) {
+    pub fn interconn_cycle(&mut self, cycle: u64) {
         use mem_fetch::AccessKind;
 
         log::debug!(
             "{}",
             style(format!(
                 "cycle {:02} cluster {}: interconn cycle (response fifo={:?})",
-                self.cycle.get(),
+                cycle,
                 self.cluster_id,
                 self.response_fifo
                     .iter()
@@ -121,14 +117,14 @@ where
                     } else {
                         let fetch = self.response_fifo.pop_front().unwrap();
                         log::debug!("accepted instr access fetch {}", fetch);
-                        core.accept_fetch_response(fetch);
+                        core.accept_fetch_response(fetch, cycle);
                     }
                 }
                 _ if !core.ldst_unit_response_buffer_full() => {
                     let fetch = self.response_fifo.pop_front().unwrap();
                     log::debug!("accepted ldst unit fetch {}", fetch);
                     // m_memory_stats->memlatstat_read_done(mf);
-                    core.accept_ldst_unit_response(fetch);
+                    core.accept_ldst_unit_response(fetch, cycle);
                 }
                 _ => {
                     log::debug!("ldst unit fetch {} NOT YET ACCEPTED", fetch);
@@ -154,9 +150,7 @@ where
             "{}",
             style(format!(
                 "cycle {:02} cluster {}: got fetch from interconn: {}",
-                self.cycle.get(),
-                self.cluster_id,
-                fetch,
+                cycle, self.cluster_id, fetch,
             ))
             .cyan()
         );

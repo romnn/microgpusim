@@ -1,11 +1,10 @@
-use super::base;
-use crate::{address, cache, config, interconn as ic, mem_fetch, tag_array, Cycle};
+use crate::{address, cache, config, interconn as ic, mem_fetch, tag_array};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
 pub struct ReadOnly<I> {
-    inner: base::Base<I>,
+    inner: cache::base::Base<I>,
 }
 
 impl<I> ReadOnly<I> {
@@ -13,17 +12,15 @@ impl<I> ReadOnly<I> {
         name: String,
         core_id: usize,
         cluster_id: usize,
-        cycle: Cycle,
         mem_port: Arc<I>,
         stats: Arc<Mutex<stats::Cache>>,
         config: Arc<config::GPU>,
         cache_config: Arc<config::Cache>,
     ) -> Self {
-        let inner = base::Base::new(
+        let inner = cache::base::Base::new(
             name,
             core_id,
             cluster_id,
-            cycle,
             mem_port,
             stats,
             config,
@@ -33,12 +30,12 @@ impl<I> ReadOnly<I> {
     }
 }
 
-impl<I> cache::Component for ReadOnly<I>
+impl<I> crate::engine::cycle::Component for ReadOnly<I>
 where
     I: ic::MemFetchInterface,
 {
-    fn cycle(&mut self) {
-        self.inner.cycle();
+    fn cycle(&mut self, cycle: u64) {
+        self.inner.cycle(cycle);
     }
 }
 
@@ -92,9 +89,8 @@ where
     ) -> cache::RequestStatus {
         use cache::RequestStatus as Status;
 
-        let base::Base {
+        let cache::base::Base {
             ref cache_config,
-
             ref mut tag_array,
             ..
         } = self.inner;

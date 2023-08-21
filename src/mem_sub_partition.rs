@@ -1,7 +1,7 @@
 use crate::{
     address, cache, config,
     fifo::{Fifo, Queue},
-    interconn as ic, mem_fetch, Cycle,
+    interconn as ic, mem_fetch,
 };
 use console::style;
 
@@ -55,7 +55,6 @@ where
     pub fn new(
         id: usize,
         partition_id: usize,
-        cycle: Cycle,
         config: Arc<config::GPU>,
         stats: Arc<Mutex<stats::Stats>>,
     ) -> Self {
@@ -91,7 +90,6 @@ where
                     format!("mem-sub-{}-{}", id, style("L2-CACHE").green()),
                     0, // core_id,
                     0, // cluster_id,
-                    cycle,
                     l2_mem_port,
                     cache_stats,
                     config.clone(),
@@ -399,7 +397,7 @@ where
             }
         }
 
-        let time = cycle + self.memcpy_cycle_offset;
+        let mem_copy_time = cycle + self.memcpy_cycle_offset;
 
         // DRAM to L2 (texture) and icnt (not texture)
         if let Some(reply) = self.dram_to_l2_queue.first() {
@@ -409,7 +407,7 @@ where
                         let mut reply = self.dram_to_l2_queue.dequeue().unwrap();
                         log::debug!("filling L2 with {}", &reply);
                         reply.set_status(mem_fetch::Status::IN_PARTITION_L2_FILL_QUEUE, 0);
-                        l2_cache.fill(reply, time);
+                        l2_cache.fill(reply, mem_copy_time);
                         // reply will be gone forever at this point
                         // m_dram_L2_queue->pop();
                     } else {
@@ -436,7 +434,7 @@ where
 
         // prior L2 misses inserted into m_L2_dram_queue here
         if let Some(ref mut l2_cache) = self.l2_cache {
-            l2_cache.cycle();
+            l2_cache.cycle(cycle);
         }
 
         // new L2 texture accesses and/or non-texture accesses
@@ -450,8 +448,12 @@ where
 
                         if !output_full && port_free {
                             let mut events = Vec::new();
-                            let status =
-                                l2_cache.access(fetch.addr(), fetch.clone(), &mut events, time);
+                            let status = l2_cache.access(
+                                fetch.addr(),
+                                fetch.clone(),
+                                &mut events,
+                                mem_copy_time,
+                            );
                             let write_sent = cache::event::was_write_sent(&events);
                             let read_sent = cache::event::was_read_sent(&events);
                             log::debug!(

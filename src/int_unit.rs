@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 #[derive()]
 pub struct IntUnit {
     config: Arc<config::GPU>,
-    pipelined_simd_unit: fu::PipelinedSimdUnitImpl,
+    inner: fu::PipelinedSimdUnit,
 }
 
 impl IntUnit {
@@ -15,24 +15,19 @@ impl IntUnit {
         result_port: register_set::Ref,
         config: Arc<config::GPU>,
         _stats: &Arc<Mutex<stats::Stats>>,
-        cycle: super::Cycle,
         issue_reg_id: usize,
     ) -> Self {
         let pipeline_depth = config.max_int_latency;
-        let pipelined_simd_unit = fu::PipelinedSimdUnitImpl::new(
+        let inner = fu::PipelinedSimdUnit::new(
             id,
             "IntUnit".to_string(),
             Some(result_port),
             pipeline_depth,
             config.clone(),
-            cycle,
             issue_reg_id,
         );
 
-        Self {
-            config,
-            pipelined_simd_unit,
-        }
+        Self { config, inner }
     }
 }
 
@@ -59,20 +54,20 @@ impl fu::SimdFunctionUnit for IntUnit {
             | ArchOp::TENSOR_CORE_STORE_OP
             | ArchOp::MEMORY_BARRIER_OP
             | ArchOp::DP_OP => false,
-            _ => self.pipelined_simd_unit.can_issue(instr),
+            _ => self.inner.can_issue(instr),
         }
     }
 
     fn pipeline(&self) -> &Vec<Option<WarpInstruction>> {
-        &self.pipelined_simd_unit.pipeline_reg
+        &self.inner.pipeline_reg
     }
 
     fn occupied(&self) -> &fu::OccupiedSlots {
-        self.pipelined_simd_unit.occupied()
+        &self.inner.occupied
     }
 
     fn id(&self) -> &str {
-        &self.pipelined_simd_unit.name
+        &self.inner.name
     }
 
     fn is_issue_partitioned(&self) -> bool {
@@ -80,7 +75,7 @@ impl fu::SimdFunctionUnit for IntUnit {
     }
 
     fn active_lanes_in_pipeline(&self) -> usize {
-        let active = self.pipelined_simd_unit.active_lanes_in_pipeline();
+        let active = self.inner.active_lanes_in_pipeline();
         debug_assert!(active <= self.config.warp_size);
         // m_core->incspactivelanes_stat(active_count);
         // m_core->incfuactivelanes_stat(active_count);
@@ -95,22 +90,24 @@ impl fu::SimdFunctionUnit for IntUnit {
         // ready_reg.op_pipe = SP__OP;
         // m_core->incsp_stat(m_core->get_config()->warp_size, (*ready_reg)->latency);
 
-        self.pipelined_simd_unit.issue(source_reg);
-    }
-
-    fn cycle(&mut self) {
-        self.pipelined_simd_unit.cycle();
+        self.inner.issue(source_reg);
     }
 
     fn issue_reg_id(&self) -> usize {
-        self.pipelined_simd_unit.issue_reg_id()
+        panic!("issue reg id");
     }
 
     fn stallable(&self) -> bool {
-        self.pipelined_simd_unit.stallable()
+        false
     }
 
     fn clock_multiplier(&self) -> usize {
-        self.pipelined_simd_unit.clock_multiplier()
+        1
+    }
+}
+
+impl crate::engine::cycle::Component for IntUnit {
+    fn cycle(&mut self, cycle: u64) {
+        self.inner.cycle(cycle);
     }
 }
