@@ -80,6 +80,7 @@ phf = { version = "0.11.1", features = ["macros"] }
 rangemap = "1"
 flume = "0"
 crossbeam = "0"
+num_cpus = "1"
 
 similar-asserts = "1"
 

@@ -114,9 +114,14 @@ criterion::criterion_group!(benches, box_benchmark, play_benchmark, accelsim_ben
 
 #[allow(dead_code)]
 fn main() -> eyre::Result<()> {
+    use itertools::Itertools;
+    #[allow(unused_imports)]
+    use std::io::Write;
     use std::time::Instant;
 
     env_logger::init();
+    // let mut log_builder = env_logger::Builder::new();
+    // log_builder.format(|buf, record| writeln!(buf, "{}", record.args()));
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -124,18 +129,33 @@ fn main() -> eyre::Result<()> {
 
     let mut start = Instant::now();
     let stats = run_box(black_box(get_bench_config("transpose", 0)?))?;
-    dbg!(stats.sim);
+    dbg!(&stats.sim);
     let box_dur = start.elapsed();
     println!("box took:\t\t{box_dur:?}");
 
     let timings = casimu::TIMINGS.lock().unwrap();
-    let mut timings: Vec<_> = timings.iter().collect();
-    timings.sort_by_key(|(_name, dur)| dur.total());
-    for (name, dur) in timings {
+    println!("sorted by NAME");
+    for (name, dur) in timings.iter().sorted_by_key(|(name, _dur)| name.clone()) {
         println!(
-            "{name:>30}: {:>6.5} ms avg ({:>2.6} sec total)",
+            "\t{name:<30}: {:>6.5} ms avg ({:>2.6} sec total)",
             dur.mean().as_secs_f64() * 1000.0,
             dur.total().as_secs_f64(),
+        );
+    }
+    println!();
+    println!("sorted by TOTAL DURATION");
+    for (name, dur) in timings.iter().sorted_by_key(|(_name, dur)| dur.total()) {
+        println!(
+            "\t{name:<30}: {:>6.5} ms avg ({:>2.6} sec total)",
+            dur.mean().as_secs_f64() * 1000.0,
+            dur.total().as_secs_f64(),
+        );
+    }
+
+    if let Some(serial_cycle) = timings.get("SERIAL CYCLE") {
+        println!(
+            "=> serial only execution time: {:?}",
+            serial_cycle.mean() * u32::try_from(stats.sim.cycles).unwrap()
         );
     }
     println!();

@@ -69,7 +69,6 @@ use trace_model::Command;
 use bitvec::array::BitArray;
 use color_eyre::eyre::{self};
 use console::style;
-use crossbeam::utils::CachePadded;
 use rayon::prelude::*;
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
@@ -381,7 +380,7 @@ where
 
     fn issue_block_to_core(&self) {
         log::debug!("===> issue block to core");
-        let mut last_cluster_issue = self.last_cluster_issue.lock().unwrap();
+        let mut last_cluster_issue = self.last_cluster_issue.try_lock().unwrap();
         let last_issued = *last_cluster_issue;
         let num_clusters = self.config.num_simt_clusters;
         for cluster_idx in 0..num_clusters {
@@ -439,9 +438,10 @@ where
         // pop from memory controller to interconnect
         // this can be parallelized, but its not worth it
         // THIS MESSES UP EVERYTHING
+
+        let start = Instant::now();
         if false && self.parallel_simulation {
             // let mut temp_requests = Vec::new();
-
             self.mem_sub_partitions
                 .par_iter()
                 .enumerate()
@@ -494,7 +494,7 @@ where
                         mem_sub.l2_to_interconn_queue.len(),
                         mem_sub.l2_to_interconn_queue
                     );
-                    let l2_to_dram_queue = mem_sub.l2_to_dram_queue.lock().unwrap();
+                    let l2_to_dram_queue = mem_sub.l2_to_dram_queue.try_lock().unwrap();
                     log::debug!(
                         "\t l2 to dram queue ({:<3}) = {}",
                         l2_to_dram_queue.len(),
@@ -544,6 +544,12 @@ where
                 }
             }
         }
+        TIMINGS
+            .lock()
+            .unwrap()
+            .entry("cycle::subs")
+            .or_default()
+            .add(start.elapsed());
 
         // DRAM
         let start = Instant::now();
@@ -812,10 +818,11 @@ where
                 //     continue;
                 // }
 
-                let mut cluster = cluster.try_write().unwrap();
-                for core_id in &cluster.core_sim_order {
+                let cluster = cluster.try_read().unwrap();
+                let mut core_sim_order = cluster.core_sim_order.try_lock().unwrap();
+                for core_id in core_sim_order.iter() {
                     let core = cluster.cores[*core_id].read().unwrap();
-                    let mut port = core.interconn_port.lock().unwrap();
+                    let mut port = core.interconn_port.try_lock().unwrap();
                     for (dest, fetch, size) in port.drain(..) {
                         self.interconn
                             .push(core.cluster_id, dest, Packet::Fetch(fetch), size);
@@ -823,13 +830,13 @@ where
                 }
 
                 if let config::SchedulingOrder::RoundRobin = self.config.simt_core_sim_order {
-                    cluster.core_sim_order.rotate_left(1);
+                    core_sim_order.rotate_left(1);
                 }
             }
         } else {
             // let mut active_sms = 0;
             for cluster in &mut self.clusters {
-                let mut cluster = cluster.try_write().unwrap();
+                let cluster = cluster.try_read().unwrap();
                 log::debug!("cluster {} cycle {}", cluster.cluster_id, cycle);
                 let cores_completed = cluster.not_completed() == 0;
                 let kernels_completed = self
@@ -845,11 +852,12 @@ where
                 executed_cluster_ids.insert(cluster.cluster_id);
 
                 // cluster.cycle();
-                for core_id in &cluster.core_sim_order {
+                let mut core_sim_order = cluster.core_sim_order.try_lock().unwrap();
+                for core_id in core_sim_order.iter() {
                     let mut core = cluster.cores[*core_id].write().unwrap();
                     core.cycle(cycle);
 
-                    let mut port = core.interconn_port.lock().unwrap();
+                    let mut port = core.interconn_port.try_lock().unwrap();
                     for (dest, fetch, size) in port.drain(..) {
                         self.interconn
                             .push(core.cluster_id, dest, Packet::Fetch(fetch), size);
@@ -857,7 +865,7 @@ where
                 }
 
                 if let config::SchedulingOrder::RoundRobin = self.config.simt_core_sim_order {
-                    cluster.core_sim_order.rotate_left(1);
+                    core_sim_order.rotate_left(1);
                 }
 
                 // active_sms += cluster.num_active_sms();
@@ -1020,11 +1028,11 @@ where
             for core in &cluster.cores {
                 let core = core.read().unwrap();
                 let core_id = core.core_id;
-                stats.l1i_stats[core_id] = core.instr_l1_cache.stats().lock().unwrap().clone();
-                let ldst_unit = &core.load_store_unit.lock().unwrap();
+                stats.l1i_stats[core_id] = core.instr_l1_cache.stats().try_lock().unwrap().clone();
+                let ldst_unit = &core.load_store_unit.try_lock().unwrap();
 
                 let data_l1 = ldst_unit.data_l1.as_ref().unwrap();
-                stats.l1d_stats[core_id] = data_l1.stats().lock().unwrap().clone();
+                stats.l1d_stats[core_id] = data_l1.stats().try_lock().unwrap().clone();
                 stats.l1c_stats[core_id] = stats::Cache::default();
                 stats.l1t_stats[core_id] = stats::Cache::default();
             }
@@ -1033,7 +1041,7 @@ where
         for sub in &self.mem_sub_partitions {
             let sub = sub.try_lock().unwrap();
             let l2_cache = sub.l2_cache.as_ref().unwrap();
-            stats.l2d_stats[sub.id] = l2_cache.stats().lock().unwrap().clone();
+            stats.l2d_stats[sub.id] = l2_cache.stats().try_lock().unwrap().clone();
         }
         stats
     }
@@ -1348,6 +1356,7 @@ pub fn accelmain(
 
     sim.log_after_cycle = config.log_after_cycle;
     sim.parallel_simulation = config.parallelization != config::Parallelization::Serial;
+    // let sim = Arc::new(sim);
 
     match config.parallelization {
         config::Parallelization::Serial | config::Parallelization::RayonDeterministic => {
@@ -1356,7 +1365,7 @@ pub fn accelmain(
         config::Parallelization::Deterministic => sim.run_to_completion_parallel_deterministic()?,
         config::Parallelization::Nondeterministic(n) => {
             sim.run_to_completion_parallel_nondeterministic(n)?
-        }
+        } // other => todo!("{other:?}"),
     }
 
     let stats = sim.stats();

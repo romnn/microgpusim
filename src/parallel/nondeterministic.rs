@@ -1,7 +1,11 @@
+#![allow(warnings)]
+
 use crate::{
     config, core, engine::cycle::Component, ic, mem_fetch, mem_sub_partition, MockSimulator,
 };
 use color_eyre::eyre;
+use rayon::prelude::*;
+use std::sync::Arc;
 
 impl<I> MockSimulator<I>
 where
@@ -9,160 +13,235 @@ where
 {
     pub fn run_to_completion_parallel_nondeterministic(
         &mut self,
-        run_ahead: usize,
+        mut run_ahead: usize,
     ) -> eyre::Result<()> {
-        let mut cycle: u64 = 0;
-
         println!("non deterministic");
 
-        // let cores: Vec<_> = self
-        //     .clusters
-        //     .iter()
-        //     .flat_map(|cluster| cluster.cores.iter().map(|core| (cluster, core))
-        //     .cloned()
-        //     .collect();
-        // let num_cores = cores.len();
+        run_ahead = run_ahead.max(1);
 
-        // let (rest_start_tx, rest_done_rx) = crossbeam::channel::bounded(1);
-        //
+        let num_threads: usize = std::env::var("NUM_THREADS")
+            .ok()
+            .as_deref()
+            .map(str::parse)
+            .transpose()?
+            .unwrap_or_else(num_cpus::get_physical);
+
+        let cores_per_thread = self.clusters.len() as f64 / num_threads as f64;
+        // prefer less cores
+        let cores_per_thread = cores_per_thread.ceil() as usize;
+        // todo: tune this
         // let cores: Vec<_> = self.clusters.iter().cloned().collect();
-        // let num_cores = cores.len();
+        let core_chunks: Vec<Vec<Arc<_>>> = self
+            .clusters
+            .chunks(cores_per_thread)
+            .map(Vec::from)
+            .collect();
+        let num_chunks = core_chunks.len();
+
+        println!("non deterministic: launching {num_chunks} threads with {cores_per_thread} cores per thread");
+
+        let core_reached: Vec<_> = vec![crossbeam::channel::bounded(1); run_ahead];
+
+        let start_core: Vec<_> = vec![crossbeam::channel::bounded(1); num_chunks];
+
+        let core_done: Vec<_> = vec![crossbeam::channel::bounded(1); num_chunks];
+
+        let lockstep = false;
+
+        // let (start_serial_tx, start_serial_rx) = crossbeam::channel::bounded(1);
+        // let (serial_done_tx, serial_done_rx) = crossbeam::channel::bounded(1);
         //
-        // let (mut start_core_tx, mut start_core_rx) = (Vec::new(), Vec::new());
-        // let (mut core_done_tx, mut core_done_rx) = (Vec::new(), Vec::new());
-        // for _ in &cores {
-        //     let (tx, rx) = crossbeam::channel::bounded(1);
-        //     start_core_tx.push(tx);
-        //     start_core_rx.push(rx);
+        let use_round_robin =
+            self.config.simt_core_sim_order == config::SchedulingOrder::RoundRobin;
+
+        // spawn worker threads for core cycles
+        let core_worker_handles: Vec<_> = core_chunks
+            .into_iter()
+            .enumerate()
+            .map(|(cluster_idx, clusters)| {
+                let (_, start_core_rx) = start_core[cluster_idx].clone();
+                let (core_done_tx, _) = core_done[cluster_idx].clone();
+                let core_reached_tx: Vec<_> =
+                    core_reached.iter().map(|(tx, _)| tx).cloned().collect();
+                let running_kernels = self.running_kernels.clone();
+                let interconn = Arc::clone(&self.interconn);
+
+                std::thread::spawn(move || loop {
+                    let Ok(cycle) = start_core_rx.recv() else {
+                        // println!("cluster {} exited", cluster.try_read().unwrap().cluster_id);
+                        break;
+                    };
+
+                    for i in 0..run_ahead {
+                        let kernels_completed = running_kernels
+                            .try_read()
+                            .unwrap()
+                            .iter()
+                            .filter_map(std::option::Option::as_ref)
+                            .all(|k| k.no_more_blocks_to_run());
+
+                        for cluster in &clusters {
+                            let mut cluster = cluster.read().unwrap();
+                            let cores_completed = cluster.not_completed() == 0;
+                            if !(cores_completed && kernels_completed) {
+                                for core in &cluster.cores {
+                                    let mut core = core.write().unwrap();
+                                    // println!("start core {:?} ({} clusters)", core.id(), num_cores);
+                                    core.cycle(cycle);
+                                    // println!("done core {:?} ({} clusters)", core.id(), num_cores);
+                                }
+                            }
+
+                            let mut core_sim_order = cluster.core_sim_order.try_lock().unwrap();
+                            for core_id in core_sim_order.iter() {
+                                let core = cluster.cores[*core_id].read().unwrap();
+                                let mut port = core.interconn_port.try_lock().unwrap();
+                                for (dest, fetch, size) in port.drain(..) {
+                                    interconn.push(
+                                        core.cluster_id,
+                                        dest,
+                                        core::Packet::Fetch(fetch),
+                                        size,
+                                    );
+                                }
+                            }
+
+                            if use_round_robin {
+                                core_sim_order.rotate_left(1);
+                            }
+                        }
+
+                        // collect the core packets pushed to the interconn
+                        // for cluster in &clusters {
+                        //     let mut cluster = cluster.write().unwrap();
+                        // }
+
+                        if lockstep {
+                            core_reached_tx[i].send(()).unwrap();
+                        }
+                        std::thread::yield_now();
+                    }
+
+                    core_done_tx.send(()).unwrap();
+                })
+            })
+            .collect();
+
+        assert_eq!(core_worker_handles.len(), num_chunks);
+
+        // // crossbeam::thread::scope(|s| { s.spawn(move |s| loop {
+        // std::thread::spawn(move || loop {
+        //     let Ok(cycle) = start_serial_rx.recv() else {
+        //         // println!("cluster {} exited", cluster.try_read().unwrap().cluster_id);
+        //         break;
+        //     };
         //
-        //     let (tx, rx) = crossbeam::channel::bounded(1);
-        //     core_done_tx.push(tx);
-        //     core_done_rx.push(rx);
-        // }
+        //     for i in 0..run_ahead {
+        //         // wait until all cores are ready for this
+        //         println!("waiting for cores to reach barrier {i}");
+        //         for _ in 0..num_cores {
+        //             // let _ = core_reached_rx[i].recv().unwrap();
+        //             let _ = core_reached[i].1.recv().unwrap();
+        //         }
+        //         println!("all cores reached reached barrier {i}");
+        //         log::info!("======== cycle {cycle} ========");
+        //         log::info!("");
         //
-        // // spawn worker threads for core cycles
-        // let core_worker_handles: Vec<_> = cores
-        //     .into_iter()
-        //     .enumerate()
-        //     .map(|(cluster_idx, cluster)| {
-        //         let start_core_rx = start_core_rx[cluster_idx].clone();
-        //         let core_done_tx = core_done_tx[cluster_idx].clone();
-        //         let running_kernels = self.running_kernels.clone();
-        //         std::thread::spawn(move || loop {
-        //             if start_core_rx.recv().is_err() {
-        //                 // println!("cluster {} exited", cluster.try_read().unwrap().cluster_id);
-        //                 break;
-        //             }
-        //
-        //             for _ in 0..run_ahead {
-        //                 let kernels_completed = running_kernels
-        //                     .try_read()
-        //                     .unwrap()
-        //                     .iter()
-        //                     .filter_map(std::option::Option::as_ref)
-        //                     .all(|k| k.no_more_blocks_to_run());
-        //
-        //                 {
-        //                     let cluster = cluster.try_read().unwrap();
-        //                     let cores_completed = cluster.not_completed() == 0;
-        //                     if !(cores_completed && kernels_completed) {
-        //                         for core in &cluster.cores {
-        //                             let mut core = core.write().unwrap();
-        //                             // println!("start core {:?} ({} clusters)", core.id(), num_cores);
-        //                             core.cycle();
-        //                             // println!("done core {:?} ({} clusters)", core.id(), num_cores);
-        //                         }
-        //                     }
+        //         // collect the core packets pushed to the interconn
+        //         for cluster in &self.clusters {
+        //             let mut cluster = cluster.write().unwrap();
+        //             for core_id in &cluster.core_sim_order {
+        //                 let core = cluster.cores[*core_id].read().unwrap();
+        //                 let mut port = core.interconn_port.lock().unwrap();
+        //                 for (dest, fetch, size) in port.drain(..) {
+        //                     self.interconn.push(
+        //                         core.cluster_id,
+        //                         dest,
+        //                         core::Packet::Fetch(fetch),
+        //                         size,
+        //                     );
         //                 }
-        //                 // signal
         //             }
-        //             // {
-        //             //     let mut core = core.write().unwrap();
-        //             //     let core_completed = core.not_completed() == 0;
-        //             //     if !(core_completed && kernels_completed) {
-        //             //         core.cycle();
-        //             //     }
-        //             // }
-        //             core_done_tx.send(()).unwrap();
-        //         })
-        //     })
-        //     .collect();
+        //
+        //             if let config::SchedulingOrder::RoundRobin = self.config.simt_core_sim_order {
+        //                 cluster.core_sim_order.rotate_left(1);
+        //             }
+        //         }
+        //
+        //         if self.reached_limit(cycle) || !self.active() {
+        //             break;
+        //         }
+        //
+        //         self.serial_cycle(cycle + i as u64);
+        //         serial_done_tx.send(()).unwrap();
+        //     }
+        // });
+        // // });
 
-        // assert_eq!(core_worker_handles.len(), num_cores);
+        let mut cycle: u64 = 0;
+        // loop {
+        //     // start serial thread
+        //     start_serial_tx.send(cycle).unwrap();
+        //
+        //     // start all cores
+        //     for core_idx in 0..num_cores {
+        //         start_core[core_idx].0.send(cycle).unwrap();
+        //     }
+        //
+        //     // wait for all cores to finish
+        //     for core_idx in 0..num_cores {
+        //         core_done[core_idx].1.recv().unwrap();
+        //     }
+        //
+        //     // wait for serial thread
+        //     serial_done_rx.recv().unwrap();
+        //
+        //     cycle += run_ahead as u64;
+        // }
 
-        // let (mut start_core_tx, mut start_core_rx) = (Vec::new(), Vec::new());
-        let (mut core_reached_tx, mut core_reached_rx) = (Vec::new(), Vec::new());
-        for _ in 0..run_ahead {
-            let (tx, rx) = crossbeam::channel::bounded(1);
-            core_reached_tx.push(tx);
-            core_reached_rx.push(rx);
-        }
-
-        let num_clusters = self.clusters.len();
-        // let (rest_start_tx, rest_done_rx) = crossbeam::channel::bounded(1);
-
+        //std::thread::yield_now();
         while (self.commands_left() || self.kernels_left()) && !self.reached_limit(cycle) {
             self.process_commands(cycle);
             self.launch_kernels(cycle);
 
             let mut finished_kernel = None;
             loop {
-                log::info!("======== cycle {cycle} ========");
-                log::info!("");
-
                 if self.reached_limit(cycle) || !self.active() {
                     break;
                 }
 
-                use rayon::prelude::*;
-                // let num_threads = rayon::current_num_threads();
-                // one thread for controlling
-                (0..num_clusters + 1).into_par_iter().for_each(|core_idx| {
-                    if core_idx == 0 {
-                        for i in 0..run_ahead {
-                            // wait until all cores are ready for this
-                            for _ in 0..num_clusters {
-                                let _ = core_reached_rx[i].recv().unwrap();
-                            }
-                            // collect the core packets pushed to the interconn
-                            for cluster in &self.clusters {
-                                let mut cluster = cluster.write().unwrap();
-                                for core_id in &cluster.core_sim_order {
-                                    let core = cluster.cores[*core_id].read().unwrap();
-                                    let mut port = core.interconn_port.lock().unwrap();
-                                    for (dest, fetch, size) in port.drain(..) {
-                                        self.interconn.push(
-                                            core.cluster_id,
-                                            dest,
-                                            core::Packet::Fetch(fetch),
-                                            size,
-                                        );
-                                    }
-                                }
+                // start all cores
+                for core_idx in 0..num_chunks {
+                    start_core[core_idx].0.send(cycle).unwrap();
+                }
 
-                                if let config::SchedulingOrder::RoundRobin =
-                                    self.config.simt_core_sim_order
-                                {
-                                    cluster.core_sim_order.rotate_left(1);
-                                }
-                            }
-
-                            self.serial_cycle(cycle + i as u64);
+                for i in 0..run_ahead {
+                    if lockstep {
+                        // wait until all cores are ready for this
+                        // println!("waiting for cores to reach barrier {i}");
+                        for _ in 0..num_chunks {
+                            let _ = core_reached[i].1.recv().unwrap();
                         }
-                    } else {
-                        for i in 0..run_ahead {
-                            let cluster = self.clusters[core_idx - 1].read().unwrap();
-                            for core in &cluster.cores {
-                                core.write().unwrap().cycle(cycle + i as u64);
-                            }
-
-                            core_reached_tx[i].send(()).unwrap();
-                        }
+                        // println!("all cores reached reached barrier {i}");
                     }
-                });
+
+                    log::info!("======== cycle {cycle} ========");
+                    // log::info!("");
+
+                    // could enforce round robin here
+
+                    crate::timeit!("SERIAL CYCLE", self.serial_cycle(cycle + i as u64));
+                }
+
+                // wait for all cores to finish
+                for core_idx in 0..num_chunks {
+                    core_done[core_idx].1.recv().unwrap();
+                }
 
                 cycle += run_ahead as u64;
                 self.set_cycle(cycle);
+
+                // dbg!(self.active());
 
                 if !self.active() {
                     finished_kernel = self.finished_kernel();
@@ -187,14 +266,31 @@ where
         Ok(())
     }
 
-    fn serial_cycle(&self, cycle: u64) {
+    fn serial_cycle(&mut self, cycle: u64) {
+        use crate::TIMINGS;
+        use std::time::Instant;
+
+        let start = Instant::now();
         self.issue_block_to_core();
+        TIMINGS
+            .lock()
+            .unwrap()
+            .entry("serial::issue_block_to_core")
+            .or_default()
+            .add(start.elapsed());
 
-        // START LIB CYCLE
+        let start = Instant::now();
         for cluster in &self.clusters {
-            cluster.try_write().unwrap().interconn_cycle(cycle);
+            cluster.write().unwrap().interconn_cycle(cycle);
         }
+        TIMINGS
+            .lock()
+            .unwrap()
+            .entry("serial::interconn_cycle")
+            .or_default()
+            .add(start.elapsed());
 
+        let start = Instant::now();
         for (i, mem_sub) in self.mem_sub_partitions.iter().enumerate() {
             let mut mem_sub = mem_sub.try_lock().unwrap();
             if let Some(fetch) = mem_sub.top() {
@@ -220,11 +316,25 @@ where
                 }
             }
         }
+        TIMINGS
+            .lock()
+            .unwrap()
+            .entry("serial::subs")
+            .or_default()
+            .add(start.elapsed());
 
+        let start = Instant::now();
         for (_i, unit) in self.mem_partition_units.iter().enumerate() {
             unit.try_write().unwrap().simple_dram_cycle();
         }
+        TIMINGS
+            .lock()
+            .unwrap()
+            .entry("serial::dram")
+            .or_default()
+            .add(start.elapsed());
 
+        let start = Instant::now();
         for (i, mem_sub) in self.mem_sub_partitions.iter().enumerate() {
             // let mut mem_sub = mem_sub.try_borrow_mut().unwrap();
             let mut mem_sub = mem_sub.try_lock().unwrap();
@@ -258,51 +368,53 @@ where
             // interface
             mem_sub.cache_cycle(cycle);
         }
+        TIMINGS
+            .lock()
+            .unwrap()
+            .entry("serial::l2")
+            .or_default()
+            .add(start.elapsed());
 
-        // RUN_CORES
-
-        // self.issue_block_to_core();
-
-        let mut all_threads_complete = true;
-        if self.config.flush_l1_cache {
-            for cluster in &self.clusters {
-                let mut cluster = cluster.try_write().unwrap();
-                if cluster.not_completed() == 0 {
-                    cluster.cache_invalidate();
-                } else {
-                    all_threads_complete = false;
-                }
-            }
-        }
-
-        if self.config.flush_l2_cache {
-            if !self.config.flush_l1_cache {
-                for cluster in &self.clusters {
-                    let cluster = cluster.try_read().unwrap();
-                    if cluster.not_completed() > 0 {
-                        all_threads_complete = false;
-                        break;
-                    }
-                }
-            }
-
-            if let Some(l2_config) = &self.config.data_cache_l2 {
-                if all_threads_complete {
-                    log::debug!("flushed L2 caches...");
-                    if l2_config.inner.total_lines() > 0 {
-                        for (i, mem_sub) in self.mem_sub_partitions.iter().enumerate() {
-                            // let mut mem_sub = mem_sub.try_borrow_mut().unwrap();
-                            let mut mem_sub = mem_sub.try_lock().unwrap();
-                            let num_dirty_lines_flushed = mem_sub.flush_l2();
-                            log::debug!(
-                                "dirty lines flushed from L2 {} is {:?}",
-                                i,
-                                num_dirty_lines_flushed
-                            );
-                        }
-                    }
-                }
-            }
-        }
+        // let mut all_threads_complete = true;
+        // if self.config.flush_l1_cache {
+        //     for cluster in &self.clusters {
+        //         let mut cluster = cluster.try_write().unwrap();
+        //         if cluster.not_completed() == 0 {
+        //             cluster.cache_invalidate();
+        //         } else {
+        //             all_threads_complete = false;
+        //         }
+        //     }
+        // }
+        //
+        // if self.config.flush_l2_cache {
+        //     if !self.config.flush_l1_cache {
+        //         for cluster in &self.clusters {
+        //             let cluster = cluster.try_read().unwrap();
+        //             if cluster.not_completed() > 0 {
+        //                 all_threads_complete = false;
+        //                 break;
+        //             }
+        //         }
+        //     }
+        //
+        //     if let Some(l2_config) = &self.config.data_cache_l2 {
+        //         if all_threads_complete {
+        //             log::debug!("flushed L2 caches...");
+        //             if l2_config.inner.total_lines() > 0 {
+        //                 for (i, mem_sub) in self.mem_sub_partitions.iter().enumerate() {
+        //                     // let mut mem_sub = mem_sub.try_borrow_mut().unwrap();
+        //                     let mut mem_sub = mem_sub.try_lock().unwrap();
+        //                     let num_dirty_lines_flushed = mem_sub.flush_l2();
+        //                     log::debug!(
+        //                         "dirty lines flushed from L2 {} is {:?}",
+        //                         i,
+        //                         num_dirty_lines_flushed
+        //                     );
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
     }
 }

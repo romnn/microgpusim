@@ -524,6 +524,7 @@ dependencies = [
  "itertools 0.11.0",
  "log",
  "num-traits",
+ "num_cpus",
  "nvbit-io",
  "nvbit-model",
  "once_cell",

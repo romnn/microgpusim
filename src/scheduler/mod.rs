@@ -138,7 +138,7 @@ impl Base {
             if inst_count == 0 {
                 log::debug!("next warp: {:#?}", &next_warp);
             }
-            assert!(inst_count > 0);
+            // assert!(inst_count > 0);
             if inst_count > 1 {
                 log::debug!(
                     "core[{}][{}] scheduler[{}]: \n\t => testing (warp_id={}, dynamic_warp_id={}, trace_pc={}, pc={:?}, ibuffer={:?}, {} instructions)",

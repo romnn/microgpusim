@@ -586,7 +586,22 @@ where
             config: config.clone(),
         });
 
-        let operand_collector = Arc::new(Mutex::new(opcoll::RegisterFileUnit::new(config.clone())));
+        // there are as many result buses as the width of the EX_WB stage
+        let result_busses: Vec<_> = (0..pipeline_reg[PipelineStage::EX_WB as usize].size())
+            .map(|_| BitArray::ZERO)
+            .collect();
+
+        let pipeline_reg: Vec<_> = pipeline_reg
+            .into_iter()
+            .map(|reg| Arc::new(Mutex::new(reg)))
+            .collect();
+
+        let mut operand_collector = opcoll::RegisterFileUnit::new(config.clone());
+
+        // configure generic collectors
+        Self::init_operand_collector(&mut operand_collector, &config, &pipeline_reg);
+
+        let operand_collector = Arc::new(Mutex::new(operand_collector));
 
         let load_store_unit = Arc::new(Mutex::new(LoadStoreUnit::new(
             0, // no id for now
@@ -601,16 +616,6 @@ where
             config.clone(),
             stats.clone(),
         )));
-
-        // there are as many result buses as the width of the EX_WB stage
-        let result_busses: Vec<_> = (0..pipeline_reg[PipelineStage::EX_WB as usize].size())
-            .map(|_| BitArray::ZERO)
-            .collect();
-
-        let pipeline_reg: Vec<_> = pipeline_reg
-            .into_iter()
-            .map(|reg| Arc::new(Mutex::new(reg)))
-            .collect();
 
         let scheduler_kind = config::SchedulerKind::GTO;
 
@@ -709,13 +714,6 @@ where
 
         debug_assert_eq!(functional_units.len(), issue_ports.len());
         debug_assert_eq!(functional_units.len(), dispatch_ports.len());
-
-        // configure generic collectors
-        Self::init_operand_collector(
-            &mut operand_collector.lock().unwrap(),
-            &config,
-            &pipeline_reg,
-        );
 
         let barriers = RwLock::new(barrier::BarrierSet::new(
             config.max_warps_per_core(),
@@ -1858,7 +1856,6 @@ where
         );
 
         for w in start_warp..end_warp {
-            // self.warps[w].try_borrow_mut().unwrap().reset();
             self.warps[w].try_lock().unwrap().reset();
         }
     }

@@ -15,7 +15,7 @@ pub struct Cluster<I> {
 
     pub interconn: Arc<I>,
 
-    pub core_sim_order: VecDeque<usize>,
+    pub core_sim_order: Mutex<VecDeque<usize>>,
     pub block_issue_next_core: Mutex<usize>,
     pub response_fifo: VecDeque<mem_fetch::MemFetch>,
 }
@@ -33,23 +33,12 @@ where
         config: &Arc<config::GPU>,
     ) -> Self {
         let num_cores = config.num_cores_per_simt_cluster;
-        let block_issue_next_core = Mutex::new(num_cores - 1);
-        let mut cluster = Self {
-            cluster_id,
-            warp_instruction_unique_uid: Arc::clone(warp_instruction_unique_uid),
-            config: config.clone(),
-            stats: stats.clone(),
-            interconn: interconn.clone(),
-            cores: Vec::new(),
-            core_sim_order: VecDeque::new(),
-            block_issue_next_core,
-            response_fifo: VecDeque::new(),
-        };
+        let block_issue_next_core = num_cores - 1;
+        let core_sim_order = (0..num_cores).into_iter().collect();
         let cores = (0..num_cores)
             .map(|core_id| {
-                cluster.core_sim_order.push_back(core_id);
                 let id = config.global_core_id(cluster_id, core_id);
-                Arc::new(RwLock::new(Core::new(
+                let core = Core::new(
                     id,
                     cluster_id,
                     Arc::clone(allocations),
@@ -57,10 +46,21 @@ where
                     Arc::clone(interconn),
                     Arc::clone(stats),
                     Arc::clone(config),
-                )))
+                );
+                Arc::new(RwLock::new(core))
             })
             .collect();
-        cluster.cores = cores;
+        let mut cluster = Self {
+            cluster_id,
+            warp_instruction_unique_uid: Arc::clone(warp_instruction_unique_uid),
+            config: config.clone(),
+            stats: stats.clone(),
+            interconn: interconn.clone(),
+            cores,
+            core_sim_order: Mutex::new(core_sim_order),
+            block_issue_next_core: Mutex::new(block_issue_next_core),
+            response_fifo: VecDeque::new(),
+        };
         cluster.reinit();
         cluster
     }

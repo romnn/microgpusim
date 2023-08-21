@@ -10,6 +10,8 @@ where
     pub fn run_to_completion_parallel_deterministic(&mut self) -> eyre::Result<()> {
         let mut cycle: u64 = 0;
 
+        println!("deterministic");
+
         // let cores: Vec<_> = self
         //     .clusters
         //     .iter()
@@ -177,8 +179,9 @@ where
 
                 // collect the core packets pushed to the interconn
                 for cluster in &self.clusters {
-                    let mut cluster = cluster.try_write().unwrap();
-                    for core_id in &cluster.core_sim_order {
+                    let cluster = cluster.try_read().unwrap();
+                    let mut core_sim_order = cluster.core_sim_order.try_lock().unwrap();
+                    for core_id in core_sim_order.iter() {
                         let core = cluster.cores[*core_id].try_read().unwrap();
                         let mut port = core.interconn_port.lock().unwrap();
                         for (dest, fetch, size) in port.drain(..) {
@@ -192,7 +195,7 @@ where
                     }
 
                     if let config::SchedulingOrder::RoundRobin = self.config.simt_core_sim_order {
-                        cluster.core_sim_order.rotate_left(1);
+                        core_sim_order.rotate_left(1);
                     }
                 }
 

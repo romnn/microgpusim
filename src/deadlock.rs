@@ -97,7 +97,7 @@ where
                 ),
                 (
                     &mut state.l2_to_dram_queue[sub_id],
-                    &sub.l2_to_dram_queue.lock().unwrap(),
+                    &sub.l2_to_dram_queue.try_lock().unwrap(),
                 ),
                 (&mut state.dram_to_l2_queue[sub_id], &sub.dram_to_l2_queue),
             ] {
