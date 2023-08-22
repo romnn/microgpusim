@@ -1,4 +1,4 @@
-#![allow(warnings)]
+#![allow(warnings, clippy::all)]
 
 use crate::ic::ToyInterconnect;
 use crate::sync::{Arc, Mutex, RwLock};
@@ -133,7 +133,7 @@ where
                     .cores
                     .iter()
                     .enumerate()
-                    .map(|(core_id, core)| (Arc::clone(&cluster), Arc::clone(&core), core_id))
+                    .map(|(core_id, core)| (Arc::clone(cluster), Arc::clone(core), core_id))
                     .collect::<Vec<_>>()
             })
             .collect();
@@ -569,7 +569,7 @@ where
                         // wait until all cores are ready for this
                         // println!("waiting for cores to reach barrier {i}");
                         for _ in 0..num_chunks {
-                            let _ = core_reached[i].1.recv().unwrap();
+                            core_reached[i].1.recv().unwrap();
                         }
                         // println!("all cores reached reached barrier {i}");
                     }

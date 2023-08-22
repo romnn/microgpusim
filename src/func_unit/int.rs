@@ -1,15 +1,13 @@
-use super::{
-    config, instruction::WarpInstruction, opcodes, register_set, simd_function_unit as fu,
-};
 use crate::sync::{Arc, Mutex};
+use crate::{config, func_unit as fu, instruction::WarpInstruction, opcodes, register_set};
 
-#[derive()]
-pub struct SPUnit {
+#[allow(clippy::module_name_repetitions)]
+pub struct IntUnit {
     config: Arc<config::GPU>,
     inner: fu::PipelinedSimdUnit,
 }
 
-impl SPUnit {
+impl IntUnit {
     pub fn new(
         id: usize,
         result_port: register_set::Ref,
@@ -17,10 +15,10 @@ impl SPUnit {
         _stats: &Arc<Mutex<stats::Stats>>,
         issue_reg_id: usize,
     ) -> Self {
-        let pipeline_depth = config.max_sp_latency;
+        let pipeline_depth = config.max_int_latency;
         let inner = fu::PipelinedSimdUnit::new(
             id,
-            "SPUnit".to_string(),
+            "IntUnit".to_string(),
             Some(result_port),
             pipeline_depth,
             config.clone(),
@@ -31,19 +29,19 @@ impl SPUnit {
     }
 }
 
-impl std::fmt::Display for SPUnit {
+impl std::fmt::Display for IntUnit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "SPUnit")
+        write!(f, "IntUnit")
     }
 }
 
-impl std::fmt::Debug for SPUnit {
+impl std::fmt::Debug for IntUnit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SPUnit").finish()
+        f.debug_struct("IntUnit").finish()
     }
 }
 
-impl fu::SimdFunctionUnit for SPUnit {
+impl fu::SimdFunctionUnit for IntUnit {
     fn can_issue(&self, instr: &WarpInstruction) -> bool {
         use opcodes::ArchOp;
         match instr.opcode.category {
@@ -106,7 +104,7 @@ impl fu::SimdFunctionUnit for SPUnit {
     }
 }
 
-impl crate::engine::cycle::Component for SPUnit {
+impl crate::engine::cycle::Component for IntUnit {
     fn cycle(&mut self, cycle: u64) {
         self.inner.cycle(cycle);
     }

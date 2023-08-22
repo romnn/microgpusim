@@ -1,4 +1,4 @@
-use super::{config, interconn as ic, kernel::Kernel, mem_fetch, Core, MockSimulator, Packet};
+use super::{config, interconn as ic, mem_fetch, Core, MockSimulator, Packet};
 use console::style;
 use crossbeam::utils::CachePadded;
 
@@ -35,7 +35,7 @@ where
     ) -> Self {
         let num_cores = config.num_cores_per_simt_cluster;
         let block_issue_next_core = num_cores - 1;
-        let core_sim_order = (0..num_cores).into_iter().collect();
+        let core_sim_order = (0..num_cores).collect();
         let cores = (0..num_cores)
             .map(|core_id| {
                 let id = config.global_core_id(cluster_id, core_id);

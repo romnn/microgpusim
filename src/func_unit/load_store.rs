@@ -1,20 +1,17 @@
 use crate::sync::{Arc, Mutex, RwLock};
 use crate::{
-    cache, config, interconn as ic, mem_fetch, mem_sub_partition, mshr,
-    operand_collector as opcoll,
+    address, cache, config, func_unit as fu,
+    instruction::{CacheOperator, MemorySpace, WarpInstruction},
+    interconn as ic, mem_fetch,
+    mem_fetch::MemFetch,
+    mem_sub_partition, mshr, operand_collector as opcoll,
     register_set::{self},
     scoreboard::{Access, Scoreboard},
-    simd_function_unit as fu, warp,
+    warp,
 };
 use console::style;
-use strum::EnumCount;
-
-use super::{
-    address,
-    instruction::{CacheOperator, MemorySpace, WarpInstruction},
-    mem_fetch::MemFetch,
-};
 use std::collections::{HashMap, VecDeque};
+use strum::EnumCount;
 
 fn new_mem_fetch(
     access: mem_fetch::MemAccess,
@@ -36,7 +33,7 @@ fn new_mem_fetch(
     )
 }
 
-#[derive()]
+#[allow(clippy::module_name_repetitions)]
 pub struct LoadStoreUnit<I> {
     core_id: usize,
     cluster_id: usize,
@@ -51,7 +48,7 @@ pub struct LoadStoreUnit<I> {
     pub pending_writes: HashMap<usize, HashMap<u32, usize>>,
     l1_latency_queue: Vec<Vec<Option<mem_fetch::MemFetch>>>,
     #[allow(dead_code)]
-    interconn: Arc<dyn ic::Interconnect<super::Packet> + Send + 'static>,
+    interconn: Arc<dyn ic::Interconnect<crate::Packet> + Send + 'static>,
     fetch_interconn: Arc<I>,
     // pub interconn_port: super::InterconnPort,
     inner: fu::PipelinedSimdUnit,
@@ -128,7 +125,7 @@ where
         core_id: usize,
         cluster_id: usize,
         warps: Vec<warp::Ref>,
-        interconn: Arc<dyn ic::Interconnect<super::Packet> + Send + 'static>,
+        interconn: Arc<dyn ic::Interconnect<crate::Packet> + Send + 'static>,
         fetch_interconn: Arc<I>,
         // interconn_port: InterconnPort,
         operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
@@ -222,7 +219,7 @@ where
     pub fn writeback(&mut self, cycle: u64) {
         log::debug!(
             "{} (arb={}, writeback clients={})",
-            style(format!("load store unit: cycle {} writeback", cycle)).magenta(),
+            style(format!("load store unit: cycle {cycle} writeback")).magenta(),
             self.writeback_arb,
             self.num_writeback_clients,
         );
@@ -275,7 +272,7 @@ where
                     }
                 }
                 if instr_completed {
-                    super::warp_inst_complete(&mut next_writeback, &self.stats);
+                    crate::warp_inst_complete(&mut next_writeback, &self.stats);
                 }
             }
         }
@@ -385,7 +382,7 @@ where
         &mut self,
         stall_kind: &mut MemStageStallKind,
         kind: &mut MemStageAccessKind,
-        cycle: u64,
+        _cycle: u64,
     ) -> bool {
         let Some(dispatch_instr) = &mut self.inner.dispatch_reg else {
             return true;
@@ -741,7 +738,7 @@ where
 
                     if is_store {
                         let inc_ack = if l1d_config.inner.mshr_kind == mshr::Kind::SECTOR_ASSOC {
-                            data_size / super::mem_sub_partition::SECTOR_SIZE
+                            data_size / mem_sub_partition::SECTOR_SIZE
                         } else {
                             1
                         };
@@ -807,7 +804,7 @@ where
         if write_sent {
             let l1d_config = self.config.data_cache_l1.as_ref().unwrap();
             let inc_ack = if l1d_config.inner.mshr_kind == mshr::Kind::SECTOR_ASSOC {
-                fetch.data_size() / super::mem_sub_partition::SECTOR_SIZE
+                fetch.data_size() / mem_sub_partition::SECTOR_SIZE
             } else {
                 1
             };
@@ -904,7 +901,7 @@ where
                             }
                         }
                         if completed {
-                            super::warp_inst_complete(instr, &self.stats);
+                            crate::warp_inst_complete(instr, &self.stats);
                         }
                     }
 
@@ -1030,7 +1027,7 @@ where
     }
 
     fn can_issue(&self, instr: &WarpInstruction) -> bool {
-        use super::opcodes::ArchOp;
+        use crate::opcodes::ArchOp;
         match instr.opcode.category {
             ArchOp::LOAD_OP
             | ArchOp::TENSOR_CORE_LOAD_OP
@@ -1232,7 +1229,7 @@ where
                     let mut dispatch_reg = simd_unit.dispatch_reg.take().unwrap();
 
                     if !has_pending_requests {
-                        super::warp_inst_complete(&mut dispatch_reg, &self.stats);
+                        crate::warp_inst_complete(&mut dispatch_reg, &self.stats);
 
                         self.scoreboard.write().release_all(&dispatch_reg);
                     }
@@ -1243,7 +1240,7 @@ where
                 // stores exit pipeline here
                 self.warps[warp_id].try_lock().num_instr_in_pipeline -= 1;
                 let mut dispatch_reg = simd_unit.dispatch_reg.take().unwrap();
-                super::warp_inst_complete(&mut dispatch_reg, &self.stats);
+                crate::warp_inst_complete(&mut dispatch_reg, &self.stats);
             }
         }
     }

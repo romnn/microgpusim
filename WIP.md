@@ -7,13 +7,13 @@
 
 - easy chores:
 
-  - move functional units into package
   - rename crates and github repo
   - publish to crates.io
   - publish python package to pip
 
 - today:
 
+  - check statistical error for non deterministic version
   - refactor interconn to couple has buffer and push using a single explicit lock
   - refactor to get rid of global config but use per component configs
   - use traits for common components
@@ -31,6 +31,7 @@
 
     - asynchronously push into file (unordered)
 
+  - DONE: move functional units into package
   - DONE: try using native threads and barriers for core simulation
   - DONE: pipelined simd function unit should not implement simd function unit
   - DONE: get rid of global cycle mutex

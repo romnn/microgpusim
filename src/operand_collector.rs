@@ -438,7 +438,7 @@ impl Arbiter {
             .allocated_banks
             .iter()
             .all(|alloc| alloc.kind == AllocationKind::NO_ALLOC);
-        let empty_queue = self.queue.iter().all(|q| q.is_empty());
+        let empty_queue = self.queue.iter().all(std::collections::VecDeque::is_empty);
 
         // fast path
         if no_allocation && empty_queue {

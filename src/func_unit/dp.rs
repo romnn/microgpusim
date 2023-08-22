@@ -1,9 +1,7 @@
-use super::{
-    config, instruction::WarpInstruction, opcodes, register_set, simd_function_unit as fu,
-};
 use crate::sync::{Arc, Mutex};
+use crate::{config, func_unit as fu, instruction::WarpInstruction, opcodes, register_set};
 
-#[derive()]
+#[allow(clippy::module_name_repetitions)]
 pub struct DPUnit {
     config: Arc<config::GPU>,
     inner: fu::PipelinedSimdUnit,

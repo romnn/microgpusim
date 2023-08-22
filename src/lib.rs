@@ -21,16 +21,14 @@ pub mod cluster;
 pub mod config;
 pub mod core;
 pub mod deadlock;
-pub mod dp_unit;
 pub mod dram;
 pub mod engine;
 pub mod exec;
 pub mod fifo;
+pub mod func_unit;
 pub mod instruction;
-pub mod int_unit;
 pub mod interconn;
 pub mod kernel;
-pub mod ldst_unit;
 pub mod mem_fetch;
 pub mod mem_partition_unit;
 pub mod mem_sub_partition;
@@ -42,9 +40,6 @@ pub mod register_set;
 pub mod scheduler;
 pub mod scoreboard;
 pub mod set_index;
-pub mod sfu;
-pub mod simd_function_unit;
-pub mod sp_unit;
 pub mod sync;
 pub mod tag_array;
 pub mod warp;
@@ -62,7 +57,6 @@ use engine::cycle::Component;
 use fifo::{Fifo, Queue};
 use interconn as ic;
 use kernel::Kernel;
-use ldst_unit::LoadStoreUnit;
 use mem_fetch::{AccessKind, BitString};
 use stats::Stats;
 use trace_model::Command;
@@ -201,7 +195,7 @@ where
         let stats = Arc::new(Mutex::new(Stats::from_config(&config)));
 
         let num_mem_units = config.num_memory_controllers;
-        let num_sub_partitions = config.num_sub_partition_per_memory_channel;
+        let _num_sub_partitions = config.num_sub_partition_per_memory_channel;
 
         let mem_partition_units: Vec<_> = (0..num_mem_units)
             .map(|i| {
@@ -733,7 +727,7 @@ where
                 })
                 .flat_map(|cluster| {
                     let cluster = cluster.try_read();
-                    cluster.cores.iter().cloned().collect::<Vec<_>>()
+                    cluster.cores.clone()
                 })
                 .collect();
 
@@ -969,7 +963,13 @@ where
             .add(start_total.elapsed());
     }
 
-    pub fn gpu_mem_alloc(&mut self, addr: address, num_bytes: u64, name: Option<&str>, cycle: u64) {
+    pub fn gpu_mem_alloc(
+        &mut self,
+        addr: address,
+        num_bytes: u64,
+        name: Option<&str>,
+        _cycle: u64,
+    ) {
         log::info!(
             "memalloc: {:<20} {:>15} ({:>5} f32) at address {addr:>20}",
             name.unwrap_or("<unnamed>"),
@@ -1116,7 +1116,7 @@ where
     /// Lauch more kernels if possible.
     ///
     /// Launch all kernels within window that are on a stream that isn't already running
-    pub fn launch_kernels(&mut self, cycle: u64) {
+    pub fn launch_kernels(&mut self, _cycle: u64) {
         log::trace!("launching kernels");
         let mut launch_queue: Vec<Arc<Kernel>> = Vec::new();
         for kernel in &self.kernels {
@@ -1378,12 +1378,12 @@ pub fn accelmain(
 
     match config.parallelization {
         config::Parallelization::Serial | config::Parallelization::RayonDeterministic => {
-            sim.run_to_completion()?
+            sim.run_to_completion()?;
         }
         config::Parallelization::Deterministic => sim.run_to_completion_parallel_deterministic()?,
         // config::Parallelization::Deterministic => todo!("deterministic"),
         config::Parallelization::Nondeterministic(n) => {
-            sim.run_to_completion_parallel_nondeterministic(n)?
+            sim.run_to_completion_parallel_nondeterministic(n)?;
         } // other => todo!("{other:?}"),
     }
 

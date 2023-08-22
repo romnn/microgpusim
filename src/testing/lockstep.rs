@@ -1073,18 +1073,25 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
         dbg!(&box_cycle);
     }
 
-    let play_stats = play_sim.stats().clone();
+    let play_stats = play_sim.stats();
     let box_stats = box_sim.stats();
-    // let playground_dur = start.elapsed();
 
     // dbg!(&play_stats);
     // dbg!(&box_stats);
 
     // dbg!(&playground_dur);
     // dbg!(&box_dur);
+    assert_stats_match(play_stats, &box_stats, allow_rel_err);
 
+    Ok(())
+}
+
+pub fn assert_stats_match(
+    play_stats: &playground::stats::StatsBridge,
+    box_stats: &stats::Stats,
+    allow_rel_err: bool,
+) {
     // compare stats here
-
     let play_l1_inst_stats = stats::PerCache::from_iter(play_stats.l1i_stats.to_vec());
     let play_l1_data_stats = stats::PerCache::from_iter(play_stats.l1d_stats.to_vec());
     let play_l1_tex_stats = stats::PerCache::from_iter(play_stats.l1t_stats.to_vec());
@@ -1201,45 +1208,44 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
     diff::assert_eq!(play: &play_stats.instructions, box: &box_instructions);
 
     // compate simulation stats
-    let box_sim_stats = playground::stats::Sim::from(box_stats.sim);
+    let box_sim_stats = playground::stats::Sim::from(box_stats.sim.clone());
     dbg!(&play_stats.sim, &box_sim_stats);
     diff::assert_eq!(play: &play_stats.sim, box: &box_sim_stats);
 
     // this uses our custom PartialEq::eq implementation
     // assert_eq!(&play_stats, &box_stats);
     // assert!(false);
-    Ok(())
 }
 
 macro_rules! lockstep_checks {
-        ($($name:ident: $path:expr,)*) => {
-            $(
-                paste::paste! {
-                    #[ignore = "native traces cannot be compared"]
-                    #[test]
-                    fn [<lockstep_native_ $name _test>]() -> color_eyre::eyre::Result<()> {
-                        let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
-                        let trace_dir = manifest_dir.join($path);
-                        run(&trace_dir, TraceProvider::Native)
-                    }
-
-                    #[test]
-                    fn [<lockstep_accelsim_ $name _test>]() -> color_eyre::eyre::Result<()> {
-                        let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
-                        let trace_dir = manifest_dir.join($path);
-                        run(&trace_dir, TraceProvider::Accelsim)
-                    }
-
-                    #[test]
-                    fn [<lockstep_box_ $name _test>]() -> color_eyre::eyre::Result<()> {
-                        let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
-                        let trace_dir = manifest_dir.join($path);
-                        run(&trace_dir, TraceProvider::Box)
-                    }
+    ($($name:ident: $path:expr,)*) => {
+        $(
+            paste::paste! {
+                #[ignore = "native traces cannot be compared"]
+                #[test]
+                fn [<lockstep_native_ $name _test>]() -> color_eyre::eyre::Result<()> {
+                    let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
+                    let trace_dir = manifest_dir.join($path);
+                    run(&trace_dir, TraceProvider::Native)
                 }
-            )*
-        }
+
+                #[test]
+                fn [<lockstep_accelsim_ $name _test>]() -> color_eyre::eyre::Result<()> {
+                    let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
+                    let trace_dir = manifest_dir.join($path);
+                    run(&trace_dir, TraceProvider::Accelsim)
+                }
+
+                #[test]
+                fn [<lockstep_box_ $name _test>]() -> color_eyre::eyre::Result<()> {
+                    let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
+                    let trace_dir = manifest_dir.join($path);
+                    run(&trace_dir, TraceProvider::Box)
+                }
+            }
+        )*
     }
+}
 
 lockstep_checks! {
     // vectoradd

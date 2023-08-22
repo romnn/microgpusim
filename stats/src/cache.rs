@@ -225,8 +225,8 @@ impl PerCache {
     pub fn flatten(self) -> Vec<PerCacheCsvRow> {
         let mut flattened: Vec<_> = self
             .into_inner()
-            .to_vec()
-            .into_iter()
+            .iter()
+            .cloned()
             .enumerate()
             .flat_map(|(id, cache)| {
                 cache
@@ -262,9 +262,6 @@ impl PerCache {
 
 impl std::ops::Deref for PerCache {
     type Target = Box<[Cache]>;
-    // type Target = indexmap::IndexMap<usize, Cache>;
-    // type Target = HashMap<usize, Cache>;
-
     fn deref(&self) -> &Self::Target {
         &self.0
     }

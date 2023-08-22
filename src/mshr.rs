@@ -117,7 +117,7 @@ impl Table<mem_fetch::MemFetch> {
         }
     }
 
-    /// check is_read_after_write_pending
+    /// check `is_read_after_write_pending`
     // #[allow(dead_code)]
     // pub fn is_read_after_write_pending(&self, block_addr: address) -> bool {
     //     let mut write_found = false;

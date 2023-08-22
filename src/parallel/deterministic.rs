@@ -20,7 +20,7 @@ where
         //     .collect();
         // let num_cores = cores.len();
 
-        let cores: Vec<_> = self.clusters.iter().cloned().collect();
+        let cores: Vec<_> = self.clusters.clone();
         let num_cores = cores.len();
 
         let (mut start_core_tx, mut start_core_rx) = (Vec::new(), Vec::new());
@@ -167,13 +167,13 @@ where
                 }
 
                 // start all cores
-                for core_idx in 0..num_cores {
-                    start_core_tx[core_idx].send(()).unwrap();
+                for start_tx in &start_core_tx {
+                    start_tx.send(()).unwrap();
                 }
 
                 // wait for all cores to finish
-                for core_idx in 0..num_cores {
-                    core_done_rx[core_idx].recv().unwrap();
+                for done_rx in &core_done_rx {
+                    done_rx.recv().unwrap();
                 }
 
                 // collect the core packets pushed to the interconn

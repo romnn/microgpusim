@@ -18,13 +18,11 @@ pub mod parking_lot {
     }
 
     impl<T: ?Sized> Mutex<T> {
-        #[must_use]
         #[inline]
         pub fn lock(&self) -> parking_lot::MutexGuard<T> {
             self.0.lock()
         }
 
-        #[must_use]
         #[inline]
         pub fn try_lock(&self) -> parking_lot::MutexGuard<T> {
             self.0.try_lock().unwrap()
@@ -45,13 +43,11 @@ pub mod parking_lot {
     }
 
     impl<T: ?Sized> FairMutex<T> {
-        #[must_use]
         #[inline]
         pub fn lock(&self) -> parking_lot::FairMutexGuard<T> {
             self.0.lock()
         }
 
-        #[must_use]
         #[inline]
         pub fn try_lock(&self) -> parking_lot::FairMutexGuard<T> {
             self.0.try_lock().unwrap()
@@ -70,25 +66,21 @@ pub mod parking_lot {
             Self(parking_lot::RwLock::new(value))
         }
 
-        #[must_use]
         #[inline]
         pub fn read(&self) -> parking_lot::RwLockReadGuard<T> {
             self.0.read()
         }
 
-        #[must_use]
         #[inline]
         pub fn try_read(&self) -> parking_lot::RwLockReadGuard<T> {
             self.0.try_read().unwrap()
         }
 
-        #[must_use]
         #[inline]
         pub fn write(&self) -> parking_lot::RwLockWriteGuard<T> {
             self.0.write()
         }
 
-        #[must_use]
         #[inline]
         pub fn try_write(&self) -> parking_lot::RwLockWriteGuard<T> {
             self.0.try_write().unwrap()
@@ -112,13 +104,11 @@ pub mod std {
     }
 
     impl<T: ?Sized> Mutex<T> {
-        #[must_use]
         #[inline]
         pub fn lock(&self) -> std::sync::MutexGuard<T> {
             self.0.lock().unwrap()
         }
 
-        #[must_use]
         #[inline]
         pub fn try_lock(&self) -> std::sync::MutexGuard<T> {
             self.0.try_lock().unwrap()
@@ -137,25 +127,21 @@ pub mod std {
             Self(std::sync::RwLock::new(value))
         }
 
-        #[must_use]
         #[inline]
         pub fn read(&self) -> std::sync::RwLockReadGuard<T> {
             self.0.read().unwrap()
         }
 
-        #[must_use]
         #[inline]
         pub fn try_read(&self) -> std::sync::RwLockReadGuard<T> {
             self.0.try_read().unwrap()
         }
 
-        #[must_use]
         #[inline]
         pub fn write(&self) -> std::sync::RwLockWriteGuard<T> {
             self.0.write().unwrap()
         }
 
-        #[must_use]
         #[inline]
         pub fn try_write(&self) -> std::sync::RwLockWriteGuard<T> {
             self.0.try_write().unwrap()

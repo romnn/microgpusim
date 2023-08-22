@@ -13,7 +13,7 @@ pub enum Kind {
 #[derive(Debug)]
 pub struct BarrierSet {
     max_blocks_per_core: usize,
-    max_warps_per_core: usize,
+    // max_warps_per_core: usize,
     max_barriers_per_block: usize,
     warp_size: usize,
     warps_per_block: HashMap<u64, core::WarpMask>,
@@ -25,13 +25,13 @@ pub struct BarrierSet {
 impl BarrierSet {
     #[must_use]
     pub fn new(
-        max_warps_per_core: usize,
+        _max_warps_per_core: usize,
         max_blocks_per_core: usize,
         max_barriers_per_block: usize,
         warp_size: usize,
     ) -> Self {
         Self {
-            max_warps_per_core,
+            // max_warps_per_core,
             max_blocks_per_core,
             max_barriers_per_block,
             warp_size,
@@ -47,12 +47,6 @@ impl BarrierSet {
     pub fn is_waiting_at_barrier(&self, warp_id: usize) -> bool {
         self.warps_at_barrier[warp_id]
     }
-
-    // /// Check whether warp is waiting for memory barrier
-    // #[must_use]
-    // pub fn is_waiting_at_memory_barrier(&self, warp_id: usize) -> bool {
-    //     todo!("barrier set: waiting at barrier");
-    // }
 
     /// Allocate a new barrier for a block.
     pub fn allocate_barrier(&mut self, block_id: u64, warps: core::WarpMask) {

@@ -119,7 +119,7 @@ fn main() -> eyre::Result<()> {
     use std::io::Write;
     use std::time::Instant;
     use tracing_chrome::ChromeLayerBuilder;
-    use tracing_subscriber::{prelude::*, registry::Registry};
+    use tracing_subscriber::prelude::*;
 
     let profile = std::env::var("TRACE").unwrap_or_default().to_lowercase() == "yes";
 
@@ -161,7 +161,7 @@ fn main() -> eyre::Result<()> {
 
     let timings = casimu::TIMINGS.lock();
     println!("sorted by NAME");
-    for (name, dur) in timings.iter().sorted_by_key(|(name, _dur)| name.clone()) {
+    for (name, dur) in timings.iter().sorted_by_key(|(&name, _dur)| name) {
         println!(
             "\t{name:<30}: {:>6.5} ms avg ({:>2.6} sec total)",
             dur.mean().as_secs_f64() * 1000.0,

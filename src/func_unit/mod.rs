@@ -1,3 +1,15 @@
+pub mod dp;
+pub mod int;
+pub mod load_store;
+pub mod sfu;
+pub mod sp;
+
+pub use dp::DPUnit;
+pub use int::IntUnit;
+pub use load_store::LoadStoreUnit;
+pub use sfu::SFU;
+pub use sp::SPUnit;
+
 use crate::{config, instruction::WarpInstruction, register_set, warp};
 use bitvec::{array::BitArray, BitArr};
 use register_set::Access;
@@ -85,28 +97,13 @@ impl PipelinedSimdUnit {
     }
 
     #[inline]
-    pub fn active_lanes_in_pipeline(&self) -> usize {
+    #[must_use] pub fn active_lanes_in_pipeline(&self) -> usize {
         let mut active_lanes: warp::ActiveMask = BitArray::ZERO;
         for stage in self.pipeline_reg.iter().flatten() {
             active_lanes |= stage.active_mask;
         }
         active_lanes.count_ones()
     }
-
-    // #[inline]
-    // fn id(&self) -> &str {
-    //     &self.name
-    // }
-    //
-    // #[inline]
-    // fn pipeline(&self) -> &Vec<Option<WarpInstruction>> {
-    //     &self.pipeline_reg
-    // }
-    //
-    // #[inline]
-    // fn occupied(&self) -> &OccupiedSlots {
-    //     &self.occupied
-    // }
 
     #[inline]
     pub fn issue(&mut self, src_reg: WarpInstruction) {
@@ -123,30 +120,10 @@ impl PipelinedSimdUnit {
         }
     }
 
-    // #[inline]
-    // fn clock_multiplier(&self) -> usize {
-    //     1
-    // }
-
     #[inline]
-    pub fn can_issue(&self, instr: &WarpInstruction) -> bool {
+    #[must_use] pub fn can_issue(&self, instr: &WarpInstruction) -> bool {
         self.dispatch_reg.is_none() && !self.occupied[instr.latency]
     }
-
-    // #[inline]
-    // fn is_issue_partitioned(&self) -> bool {
-    //     todo!("pipelined simd unit: is issue partitioned");
-    // }
-    //
-    // #[inline]
-    // fn issue_reg_id(&self) -> usize {
-    //     todo!("pipelined simd unit: issue reg id");
-    // }
-    //
-    // #[inline]
-    // fn stallable(&self) -> bool {
-    //     false
-    // }
 }
 
 impl crate::engine::cycle::Component for PipelinedSimdUnit {

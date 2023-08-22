@@ -1,15 +1,13 @@
-use super::{
-    config, instruction::WarpInstruction, opcodes, register_set, simd_function_unit as fu,
-};
 use crate::sync::{Arc, Mutex};
+use crate::{config, func_unit as fu, instruction::WarpInstruction, opcodes, register_set};
 
-#[derive()]
-pub struct IntUnit {
+#[allow(clippy::module_name_repetitions)]
+pub struct SFU {
     config: Arc<config::GPU>,
     inner: fu::PipelinedSimdUnit,
 }
 
-impl IntUnit {
+impl SFU {
     pub fn new(
         id: usize,
         result_port: register_set::Ref,
@@ -17,10 +15,10 @@ impl IntUnit {
         _stats: &Arc<Mutex<stats::Stats>>,
         issue_reg_id: usize,
     ) -> Self {
-        let pipeline_depth = config.max_int_latency;
+        let pipeline_depth = config.max_sfu_latency;
         let inner = fu::PipelinedSimdUnit::new(
             id,
-            "IntUnit".to_string(),
+            "SFU".to_string(),
             Some(result_port),
             pipeline_depth,
             config.clone(),
@@ -31,30 +29,24 @@ impl IntUnit {
     }
 }
 
-impl std::fmt::Display for IntUnit {
+impl std::fmt::Display for SFU {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "IntUnit")
+        write!(f, "SFU")
     }
 }
 
-impl std::fmt::Debug for IntUnit {
+impl std::fmt::Debug for SFU {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("IntUnit").finish()
+        f.debug_struct("SFU").finish()
     }
 }
 
-impl fu::SimdFunctionUnit for IntUnit {
+impl fu::SimdFunctionUnit for SFU {
     fn can_issue(&self, instr: &WarpInstruction) -> bool {
         use opcodes::ArchOp;
         match instr.opcode.category {
-            ArchOp::SFU_OP
-            | ArchOp::LOAD_OP
-            | ArchOp::TENSOR_CORE_LOAD_OP
-            | ArchOp::STORE_OP
-            | ArchOp::TENSOR_CORE_STORE_OP
-            | ArchOp::MEMORY_BARRIER_OP
-            | ArchOp::DP_OP => false,
-            _ => self.inner.can_issue(instr),
+            ArchOp::SFU_OP | ArchOp::ALU_SFU_OP | ArchOp::DP_OP => self.inner.can_issue(instr),
+            _ => false,
         }
     }
 
@@ -83,7 +75,6 @@ impl fu::SimdFunctionUnit for IntUnit {
         active
     }
 
-    // fn issue(&mut self, source_reg: &mut RegisterSet) {
     fn issue(&mut self, source_reg: WarpInstruction) {
         // let ready_reg = source_reg.get_ready(self.config.sub_core_model, self.issue_reg_id);
         // m_core->incexecstat((*ready_reg));
@@ -106,7 +97,7 @@ impl fu::SimdFunctionUnit for IntUnit {
     }
 }
 
-impl crate::engine::cycle::Component for IntUnit {
+impl crate::engine::cycle::Component for SFU {
     fn cycle(&mut self, cycle: u64) {
         self.inner.cycle(cycle);
     }

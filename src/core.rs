@@ -1,8 +1,7 @@
 use super::{
     address,
     allocation::Allocation,
-    barrier, cache, config,
-    engine::cycle::Component,
+    barrier, cache, config, func_unit as fu,
     instruction::WarpInstruction,
     interconn as ic,
     kernel::Kernel,
@@ -10,15 +9,13 @@ use super::{
     mem_fetch::BitString,
     opcodes, operand_collector as opcoll, register_set, scheduler,
     scoreboard::{self, Access as ScoreboardAccess},
-    simd_function_unit as fu, warp, LoadStoreUnit,
+    warp,
 };
 use crate::sync::{Mutex, RwLock};
 use bitvec::{array::BitArray, BitArr};
 use color_eyre::eyre;
 use console::style;
 use crossbeam::utils::CachePadded;
-use fu::SimdFunctionUnit;
-use itertools::Itertools;
 use once_cell::sync::Lazy;
 use register_set::Access as RegisterSetAccess;
 use std::collections::{HashMap, VecDeque};
@@ -370,7 +367,7 @@ pub struct Core<I> {
     pub last_warp_fetched: Option<usize>,
     pub interconn: Arc<I>,
     pub interconn_port: ic::Port,
-    pub load_store_unit: Arc<Mutex<LoadStoreUnit<ic::CoreMemoryInterface<Packet>>>>,
+    pub load_store_unit: Arc<Mutex<fu::LoadStoreUnit<ic::CoreMemoryInterface<Packet>>>>,
     pub active_thread_mask: BitArr!(for MAX_THREAD_PER_SM),
     pub occupied_hw_thread_ids: BitArr!(for MAX_THREAD_PER_SM),
     pub dynamic_warp_id: usize,
@@ -398,7 +395,7 @@ pub struct Core<I> {
     pub interconn_queue: VecDeque<(usize, mem_fetch::MemFetch, u32)>,
     pub issue_ports: Vec<PipelineStage>,
     // pub dispatch_ports: Vec<PipelineStage>,
-    pub functional_units: Vec<Arc<Mutex<dyn SimdFunctionUnit>>>,
+    pub functional_units: Vec<Arc<Mutex<dyn fu::SimdFunctionUnit>>>,
     pub schedulers: Vec<Arc<Mutex<dyn scheduler::Scheduler>>>,
     pub scheduler_issue_priority: usize,
 }
@@ -517,7 +514,7 @@ where
 
         let operand_collector = Arc::new(Mutex::new(operand_collector));
 
-        let load_store_unit = Arc::new(Mutex::new(LoadStoreUnit::new(
+        let load_store_unit = Arc::new(Mutex::new(fu::LoadStoreUnit::new(
             0, // no id for now
             core_id,
             cluster_id,
@@ -563,13 +560,13 @@ where
             scheduler.try_lock().add_supervised_warp(Arc::clone(warp));
         }
 
-        let mut functional_units: Vec<Arc<Mutex<dyn SimdFunctionUnit>>> = Vec::new();
+        let mut functional_units: Vec<Arc<Mutex<dyn fu::SimdFunctionUnit>>> = Vec::new();
         let mut issue_ports = Vec::new();
         let mut dispatch_ports = Vec::new();
 
         // single precision units
         for u in 0..config.num_sp_units {
-            functional_units.push(Arc::new(Mutex::new(super::sp_unit::SPUnit::new(
+            functional_units.push(Arc::new(Mutex::new(fu::sp::SPUnit::new(
                 u, // id
                 Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
@@ -582,7 +579,7 @@ where
 
         // double precision units
         for u in 0..config.num_dp_units {
-            functional_units.push(Arc::new(Mutex::new(super::dp_unit::DPUnit::new(
+            functional_units.push(Arc::new(Mutex::new(fu::DPUnit::new(
                 u, // id
                 Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
@@ -595,7 +592,7 @@ where
 
         // integer units
         for u in 0..config.num_int_units {
-            functional_units.push(Arc::new(Mutex::new(super::int_unit::IntUnit::new(
+            functional_units.push(Arc::new(Mutex::new(fu::IntUnit::new(
                 u, // id
                 Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
@@ -608,7 +605,7 @@ where
 
         // special function units
         for u in 0..config.num_sfu_units {
-            functional_units.push(Arc::new(Mutex::new(super::sfu::SFU::new(
+            functional_units.push(Arc::new(Mutex::new(fu::SFU::new(
                 u, // id
                 Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
@@ -1615,7 +1612,7 @@ where
         let core_id = self.id();
         log::debug!(
             "{}",
-            style(format!("cycle {:03} core {:?} execute: ", cycle, core_id)).red()
+            style(format!("cycle {cycle:03} core {core_id:?} execute: ")).red()
         );
 
         for (_, res_bus) in self.result_busses.iter_mut().enumerate() {
@@ -1672,7 +1669,7 @@ where
             log::trace!("occupied: {}", fu.occupied().to_bit_string());
             log::trace!(
                 "{} checking {:?}: fu[{:03}] can issue={:?} latency={:?}",
-                style(format!("cycle {:03} core {:?}: execute:", cycle, core_id,)).red(),
+                style(format!("cycle {cycle:03} core {core_id:?}: execute:",)).red(),
                 ready_reg.as_ref().map(ToString::to_string),
                 fu_id,
                 ready_reg.as_ref().map(|instr| fu.can_issue(instr)),
@@ -1690,9 +1687,7 @@ where
                     log::debug!(
                         "{} {} (partition issue={}, schedule wb now={}, resbus={}, latency={:?}) ready for issue to fu[{:03}]={}",
                         style(format!(
-                            "cycle {:03} core {:?}: execute:",
-                            cycle,
-                            core_id,
+                            "cycle {cycle:03} core {core_id:?}: execute:",
                         ))
                         .red(),
                         instr,
