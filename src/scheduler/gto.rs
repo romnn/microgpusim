@@ -1,6 +1,6 @@
 use crate::{config, core::WarpIssuer, scoreboard::Scoreboard, warp};
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex, RwLock};
+use crate::sync::{Arc, Mutex, RwLock};
 
 #[derive(Debug)]
 pub struct Scheduler {
@@ -27,7 +27,7 @@ impl Scheduler {
         self.inner
             .next_cycle_prioritized_warps
             .iter()
-            .map(|(_idx, w)| w.try_lock().unwrap().warp_id)
+            .map(|(_idx, w)| w.try_lock().warp_id)
             .collect()
     }
 
@@ -35,7 +35,7 @@ impl Scheduler {
         self.inner
             .next_cycle_prioritized_warps
             .iter()
-            .map(|(_idx, w)| w.try_lock().unwrap().dynamic_warp_id())
+            .map(|(_idx, w)| w.try_lock().dynamic_warp_id())
             .collect()
     }
 }

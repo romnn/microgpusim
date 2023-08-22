@@ -128,7 +128,7 @@ fn matrixmul() -> eyre::Result<()> {
     //     total_sum / T::from(n).unwrap()
     // );
     //
-    // dbg!(&sim.stats.lock().unwrap());
+    // dbg!(&sim.statslock());
     Ok(())
     // }
     // Ok(())

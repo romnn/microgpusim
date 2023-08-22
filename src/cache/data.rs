@@ -1,6 +1,6 @@
+use crate::sync::{Arc, Mutex};
 use crate::{address, cache, config, interconn as ic, mem_fetch, mshr::MSHR, tag_array};
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
 
 /// First level data cache in Fermi.
 ///
@@ -174,12 +174,17 @@ where
         if !self.inner.miss_queue_can_fit(1) {
             // cannot handle request this cycle
             // (might need to generate two requests)
-            let mut stats = self.inner.stats.lock().unwrap();
-            stats.inc(
-                *fetch.access_kind(),
-                cache::AccessStat::ReservationFailure(cache::ReservationFailure::MISS_QUEUE_FULL),
-                1,
-            );
+            #[cfg(feature = "stats")]
+            {
+                let mut stats = self.inner.stats.lock();
+                stats.inc(
+                    *fetch.access_kind(),
+                    cache::AccessStat::ReservationFailure(
+                        cache::ReservationFailure::MISS_QUEUE_FULL,
+                    ),
+                    1,
+                );
+            }
             return cache::RequestStatus::RESERVATION_FAIL;
         }
 
@@ -277,12 +282,17 @@ where
         );
 
         if self.inner.miss_queue_full() {
-            let mut stats = self.inner.stats.lock().unwrap();
-            stats.inc(
-                *fetch.access_kind(),
-                cache::AccessStat::ReservationFailure(cache::ReservationFailure::MISS_QUEUE_FULL),
-                1,
-            );
+            #[cfg(feature = "stats")]
+            {
+                let mut stats = self.inner.stats.lock();
+                stats.inc(
+                    *fetch.access_kind(),
+                    cache::AccessStat::ReservationFailure(
+                        cache::ReservationFailure::MISS_QUEUE_FULL,
+                    ),
+                    1,
+                );
+            }
             // cannot handle request this cycle
             return cache::RequestStatus::RESERVATION_FAIL;
         }
@@ -331,12 +341,15 @@ where
                 panic!("write_miss_write_allocate_naive bad reason");
             };
 
-            let mut stats = self.inner.stats.lock().unwrap();
-            stats.inc(
-                *fetch.access_kind(),
-                cache::AccessStat::ReservationFailure(failure),
-                1,
-            );
+            #[cfg(feature = "stats")]
+            {
+                let mut stats = self.inner.stats.lock();
+                stats.inc(
+                    *fetch.access_kind(),
+                    cache::AccessStat::ReservationFailure(failure),
+                    1,
+                );
+            }
             log::debug!("handling write miss for {}: RESERVATION FAIL", &fetch);
             return cache::RequestStatus::RESERVATION_FAIL;
         }
@@ -526,14 +539,17 @@ where
             } else {
                 // the only reason for reservation fail here is LINE_ALLOC_FAIL
                 // (i.e all lines are reserved)
-                let mut stats = self.inner.stats.lock().unwrap();
-                stats.inc(
-                    *fetch.access_kind(),
-                    cache::AccessStat::ReservationFailure(
-                        cache::ReservationFailure::LINE_ALLOC_FAIL,
-                    ),
-                    1,
-                );
+                #[cfg(feature = "stats")]
+                {
+                    let mut stats = self.inner.stats.lock();
+                    stats.inc(
+                        *fetch.access_kind(),
+                        cache::AccessStat::ReservationFailure(
+                            cache::ReservationFailure::LINE_ALLOC_FAIL,
+                        ),
+                        1,
+                    );
+                }
             }
         } else if probe_status == cache::RequestStatus::HIT {
             access_status = self.read_hit(addr, cache_index, &fetch, time, events, probe_status);
@@ -542,12 +558,17 @@ where
         } else {
             // the only reason for reservation fail here is LINE_ALLOC_FAIL
             // (i.e all lines are reserved)
-            let mut stats = self.inner.stats.lock().unwrap();
-            stats.inc(
-                *fetch.access_kind(),
-                cache::AccessStat::ReservationFailure(cache::ReservationFailure::LINE_ALLOC_FAIL),
-                1,
-            );
+            #[cfg(feature = "stats")]
+            {
+                let mut stats = self.inner.stats.lock();
+                stats.inc(
+                    *fetch.access_kind(),
+                    cache::AccessStat::ReservationFailure(
+                        cache::ReservationFailure::LINE_ALLOC_FAIL,
+                    ),
+                    1,
+                );
+            }
         }
 
         self.inner
@@ -630,8 +651,9 @@ where
             access_status
         );
 
+        #[cfg(feature = "stats")]
         {
-            let mut stats = self.inner.stats.lock().unwrap();
+            let mut stats = self.inner.stats.lock();
             let stat_cache_request_status = match probe_status {
                 cache::RequestStatus::HIT_RESERVED
                     if access_status != cache::RequestStatus::RESERVATION_FAIL =>

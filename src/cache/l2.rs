@@ -1,6 +1,6 @@
 use crate::{address, config, interconn as ic, mem_fetch};
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
+use crate::sync::{Arc, Mutex};
 
 /// Generic data cache.
 #[derive(Debug)]

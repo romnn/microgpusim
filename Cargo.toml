@@ -46,7 +46,10 @@ edition = "2021"
 publish = false
 
 [features]
-default = []
+# default = ["parking_lot"]
+default = ["stats", "parking_lot"]
+stats = []
+parking_lot = []
 # default = ["python"]
 python = ["dep:pyo3"]
 
@@ -78,9 +81,11 @@ bitvec = "1"
 strum = { version = "0", features = ["derive"] }
 phf = { version = "0.11.1", features = ["macros"] }
 rangemap = "1"
+
 flume = "0"
 crossbeam = "0"
 num_cpus = "1"
+parking_lot = "0"
 
 similar-asserts = "1"
 

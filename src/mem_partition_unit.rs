@@ -5,9 +5,9 @@ use super::{
     mem_fetch::BitString,
     mem_sub_partition::MemorySubPartition,
 };
+use crate::sync::{Arc, Mutex};
 use console::style;
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
 
 #[derive()]
 pub struct MemoryPartitionUnit {
@@ -53,9 +53,7 @@ impl MemoryPartitionUnit {
 
     #[must_use]
     pub fn busy(&self) -> bool {
-        self.sub_partitions
-            .iter()
-            .any(|sub| sub.try_lock().unwrap().busy())
+        self.sub_partitions.iter().any(|sub| sub.try_lock().busy())
     }
 
     fn global_sub_partition_id_to_local_id(&self, global_sub_partition_id: usize) -> usize {
@@ -79,20 +77,19 @@ impl MemoryPartitionUnit {
 
         self.sub_partitions[local_subpart_id]
             .lock()
-            .unwrap()
             .force_l2_tag_update(addr, mask, time);
     }
 
     pub fn cache_cycle(&mut self, cycle: u64) {
         for mem_sub in &mut self.sub_partitions {
-            mem_sub.try_lock().unwrap().cache_cycle(cycle);
+            mem_sub.try_lock().cache_cycle(cycle);
         }
     }
 
     pub fn set_done(&mut self, fetch: &mem_fetch::MemFetch) {
         let global_spid = fetch.sub_partition_id();
         let spid = self.global_sub_partition_id_to_local_id(global_spid);
-        let mut sub = self.sub_partitions[spid].try_lock().unwrap();
+        let mut sub = self.sub_partitions[spid].try_lock();
         debug_assert_eq!(sub.id, global_spid);
         if matches!(
             fetch.access_kind(),
@@ -141,7 +138,7 @@ impl MemoryPartitionUnit {
                 let dest_global_spid = returned_fetch.sub_partition_id();
                 let dest_spid = self.global_sub_partition_id_to_local_id(dest_global_spid);
                 // let mut sub = self.sub_partitions[dest_spid].borrow_mut();
-                let mut sub = self.sub_partitions[dest_spid].try_lock().unwrap();
+                let mut sub = self.sub_partitions[dest_spid].try_lock();
                 debug_assert_eq!(sub.id, dest_global_spid);
 
                 // depending on which sub the fetch is for, we race for the sub
@@ -179,7 +176,7 @@ impl MemoryPartitionUnit {
         for sub_id in 0..self.sub_partitions.len() {
             let spid = (sub_id + last_issued_partition + 1) % self.sub_partitions.len();
             // let sub = self.sub_partitions[spid].borrow_mut();
-            let sub = self.sub_partitions[spid].try_lock().unwrap();
+            let sub = self.sub_partitions[spid].try_lock();
 
             let sub_partition_contention = sub.dram_to_l2_queue.full();
             let has_dram_resource = self.arbitration_metadata.has_credits(spid);
@@ -197,7 +194,7 @@ impl MemoryPartitionUnit {
                     sub.l2_to_interconn_queue.len(),
                     style(&sub.l2_to_interconn_queue).red()
                 );
-                let l2_to_dram_queue = sub.l2_to_dram_queue.lock().unwrap();
+                let l2_to_dram_queue = sub.l2_to_dram_queue.try_lock();
                 log::debug!(
                     "\t l2 to dram queue ({:3}) = {}",
                     l2_to_dram_queue.len(),
@@ -226,7 +223,7 @@ impl MemoryPartitionUnit {
             }
 
             if can_issue_to_dram {
-                let mut l2_to_dram_queue = sub.l2_to_dram_queue.lock().unwrap();
+                let mut l2_to_dram_queue = sub.l2_to_dram_queue.lock();
                 if let Some(fetch) = l2_to_dram_queue.first() {
                     if self.dram.full(fetch.is_write()) {
                         break;

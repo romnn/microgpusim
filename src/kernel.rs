@@ -1,11 +1,11 @@
 use super::{instruction, opcodes, warp};
+use crate::sync::{Mutex, RwLock};
 use color_eyre::{
     eyre::{self},
     Help,
 };
 use std::collections::HashSet;
 use std::path::Path;
-use std::sync::{Mutex, RwLock};
 
 use trace_model as model;
 
@@ -98,11 +98,11 @@ impl Kernel {
     }
 
     pub fn set_launched(&self) {
-        *self.launched.lock().unwrap() = true;
+        *self.launched.try_lock() = true;
     }
 
     pub fn launched(&self) -> bool {
-        *self.launched.lock().unwrap()
+        *self.launched.try_lock()
     }
 
     pub fn id(&self) -> u64 {
@@ -110,7 +110,7 @@ impl Kernel {
     }
 
     pub fn next_threadblock_traces(&self, warps: &mut [warp::Ref]) {
-        let mut trace_pos = self.trace_pos.write().unwrap();
+        let mut trace_pos = self.trace_pos.write();
 
         let mut instructions = 0;
         let trace_size = self.trace.len();
@@ -133,7 +133,7 @@ impl Kernel {
             let instr = instruction::WarpInstruction::from_trace(self, entry);
             let warp = warps.get_mut(warp_id).unwrap();
             // let mut warp = warp.try_borrow_mut().unwrap();
-            let mut warp = warp.try_lock().unwrap();
+            let mut warp = warp.try_lock();
             warp.push_trace_instruction(instr);
 
             instructions += 1;
@@ -167,7 +167,7 @@ impl Kernel {
         debug_assert!(
             warps
                 .iter()
-                .all(|w| !w.try_lock().unwrap().trace_instructions.is_empty()),
+                .all(|w| !w.try_lock().trace_instructions.is_empty()),
             // .all(|w| !w.try_borrow().unwrap().trace_instructions.is_empty()),
             "all warps have at least one instruction (need at least an EXIT)"
         );
@@ -182,7 +182,7 @@ impl Kernel {
     }
 
     pub fn was_launched(&self) -> bool {
-        *self.launched.lock().unwrap()
+        *self.launched.try_lock()
     }
 
     pub fn running(&self) -> bool {
@@ -190,7 +190,7 @@ impl Kernel {
     }
 
     pub fn current_block(&self) -> Option<model::Point> {
-        let traces_pos = self.trace_pos.read().unwrap();
+        let traces_pos = self.trace_pos.try_read();
         let trace = self.trace.get(*traces_pos)?;
         Some(model::Point::new(
             trace.block_id.clone(),

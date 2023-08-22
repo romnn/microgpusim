@@ -1,4 +1,4 @@
-use super::{Op};
+use super::Op;
 
 pub mod op {
     /// Unique trace instruction opcodes for turing.

@@ -1,5 +1,5 @@
 use super::address;
-use std::sync::{Arc, RwLock};
+use crate::sync::{Arc, RwLock};
 
 pub type Ref = Arc<RwLock<Allocations>>;
 

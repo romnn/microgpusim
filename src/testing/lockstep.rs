@@ -43,12 +43,12 @@ fn gather_simulation_state(
         num_schedulers,
     );
 
-    box_sim_state.last_cluster_issue = *box_sim.last_cluster_issue.lock().unwrap();
+    box_sim_state.last_cluster_issue = *box_sim.last_cluster_issue.lock();
 
     for (cluster_id, cluster) in box_sim.clusters.iter().enumerate() {
-        let cluster = cluster.try_read().unwrap();
+        let cluster = cluster.try_read();
         for (core_id, core) in cluster.cores.iter().enumerate() {
-            let core = core.read().unwrap();
+            let core = core.try_read();
             let global_core_id = cluster_id * box_sim.config.num_cores_per_simt_cluster + core_id;
             assert_eq!(core.core_id, global_core_id);
 
@@ -58,16 +58,14 @@ fn gather_simulation_state(
             // core: functional units
             for (fu_id, _fu) in core.functional_units.iter().enumerate() {
                 let issue_port = core.issue_ports[fu_id];
-                let issue_reg: register_set::RegisterSet = core.pipeline_reg[issue_port as usize]
-                    .try_lock()
-                    .unwrap()
-                    .clone();
+                let issue_reg: register_set::RegisterSet =
+                    core.pipeline_reg[issue_port as usize].try_lock().clone();
                 assert_eq!(issue_port, issue_reg.stage);
 
                 box_sim_state.functional_unit_pipelines_per_core[core_id].push(issue_reg.into());
             }
             for (_fu_id, fu) in core.functional_units.iter().enumerate() {
-                let fu = fu.lock().unwrap();
+                let fu = fu.lock();
                 box_sim_state.functional_unit_pipelines_per_core[core_id].push(
                     testing::state::RegisterSet {
                         name: fu.id().to_string(),
@@ -83,15 +81,15 @@ fn gather_simulation_state(
             }
             // core: operand collector
             box_sim_state.operand_collector_per_core[core_id] =
-                Some(core.operand_collector.try_lock().unwrap().deref().into());
+                Some(core.operand_collector.try_lock().deref().into());
             // core: schedulers
             box_sim_state.scheduler_per_core[core_id] = core
                 .schedulers
                 .iter()
-                .map(|scheduler| scheduler.lock().unwrap().deref().into())
+                .map(|scheduler| scheduler.lock().deref().into())
                 .collect();
             // core: l2 cache
-            let ldst_unit = core.load_store_unit.lock().unwrap();
+            let ldst_unit = core.load_store_unit.lock();
 
             // core: pending register writes
             box_sim_state.pending_register_writes_per_core[core_id] = ldst_unit
@@ -119,7 +117,7 @@ fn gather_simulation_state(
     }
 
     for (partition_id, partition) in box_sim.mem_partition_units.iter().enumerate() {
-        let partition = partition.try_read().unwrap();
+        let partition = partition.try_read();
         box_sim_state.dram_latency_queue_per_partition[partition_id].extend(
             partition
                 .dram_latency_queue
@@ -134,7 +132,7 @@ fn gather_simulation_state(
         };
     }
     for (sub_id, sub) in box_sim.mem_sub_partitions.iter().enumerate() {
-        let sub = sub.try_lock().unwrap();
+        let sub = sub.try_lock();
         let l2_cache = sub.l2_cache.as_ref().unwrap();
         let l2_cache: &cache::DataL2<ic::L2Interface<fifo::Fifo<mem_fetch::MemFetch>>> =
             l2_cache.as_any().downcast_ref().unwrap();
@@ -153,7 +151,7 @@ fn gather_simulation_state(
             ),
             (
                 &mut box_sim_state.l2_to_dram_queue_per_sub[sub_id],
-                &sub.l2_to_dram_queue.lock().unwrap(),
+                &sub.l2_to_dram_queue.lock(),
             ),
             (
                 &mut box_sim_state.dram_to_l2_queue_per_sub[sub_id],
@@ -313,7 +311,7 @@ fn gather_simulation_state(
 //         box_sim_state.core_sim_order_per_cluster[cluster_id] =
 //             cluster.core_sim_order.iter().copied().collect();
 //
-//         for (core_id, core) in cluster.cores.lock().unwrap().iter().enumerate() {
+//         for (core_id, core) in cluster.coreslock().iter().enumerate() {
 //             let global_core_id =
 //                 cluster_id * box_sim.config.num_cores_per_simt_cluster + core_id;
 //             assert_eq!(core.inner.core_id, global_core_id);
@@ -327,7 +325,7 @@ fn gather_simulation_state(
 //                 .resize(2 * num_fus, testing::state::RegisterSet::default());
 //
 //             for (fu_id, fu) in core.functional_units.iter().enumerate() {
-//                 let _fu = fu.lock().unwrap();
+//                 let _fu = fulock();
 //                 let issue_port = core.issue_ports[fu_id];
 //                 let issue_reg: super::register_set::RegisterSet = core.inner.pipeline_reg
 //                     [issue_port as usize]
@@ -342,7 +340,7 @@ fn gather_simulation_state(
 //             // box_sim_state.functional_unit_pipelines_per_core[core_id]
 //             //     .resize(num_fus, testing::state::RegisterSet::default());
 //             for (fu_id, fu) in core.functional_units.iter().enumerate() {
-//                 let fu = fu.lock().unwrap();
+//                 let fu = fulock();
 //                 box_sim_state.functional_unit_pipelines_per_core[core_id][num_fus + fu_id] =
 //                     testing::state::RegisterSet {
 //                         name: fu.id().to_string(),
@@ -362,7 +360,7 @@ fn gather_simulation_state(
 //                 core.schedulers.iter().map(Into::into).collect();
 //             // .extend(core.schedulers.iter().map(Into::into));
 //             // core: l2 cache
-//             let ldst_unit = core.inner.load_store_unit.lock().unwrap();
+//             let ldst_unit = core.inner.load_store_unitlock();
 //
 //             // core: pending register writes
 //             box_sim_state.pending_register_writes_per_core[core_id] = ldst_unit
@@ -418,7 +416,7 @@ fn gather_simulation_state(
 //             ),
 //             (
 //                 &mut box_sim_state.l2_to_dram_queue_per_sub[sub_id],
-//                 &sub.l2_to_dram_queue.lock().unwrap(),
+//                 &sub.l2_to_dram_queuelock(),
 //             ),
 //             (
 //                 &mut box_sim_state.dram_to_l2_queue_per_sub[sub_id],

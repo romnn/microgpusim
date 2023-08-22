@@ -5,7 +5,7 @@ use register_set::Access;
 
 use std::collections::{HashMap, VecDeque};
 
-use std::sync::{Arc, Mutex};
+use crate::sync::{Arc, Mutex};
 
 pub const MAX_REG_OPERANDS: usize = 32;
 
@@ -135,7 +135,7 @@ impl CollectorUnit {
         let Some(output_register) = self.output_register.as_ref() else {
             return false;
         };
-        let output_register = output_register.try_lock().unwrap();
+        let output_register = output_register.try_lock();
         let has_free_register = if self.sub_core_model {
             // output_register.has_free_sub_core(self.reg_id)
             unimplemented!("sub core model")
@@ -157,7 +157,7 @@ impl CollectorUnit {
     pub fn dispatch(&mut self) {
         debug_assert!(self.not_ready.not_any());
         let output_register = self.output_register.take().unwrap();
-        let mut output_register = output_register.try_lock().unwrap();
+        let mut output_register = output_register.try_lock();
 
         let warp_instr = self.warp_instr.take();
 
@@ -203,7 +203,7 @@ impl CollectorUnit {
 
         self.free = false;
         self.output_register = Some(Arc::clone(output_reg_set));
-        let mut input_reg_set = input_reg_set.try_lock().unwrap();
+        let mut input_reg_set = input_reg_set.try_lock();
 
         if let Some((_, Some(ready_reg))) = input_reg_set.get_ready() {
             self.warp_id = Some(ready_reg.warp_id); // todo: do we need warp id??
@@ -418,6 +418,7 @@ impl Arbiter {
     pub fn allocate_reads(&mut self) -> HashMap<usize, Operand> {
         // log::trace!("queue: {:?}", &self.queue);
 
+        #[cfg(feature = "stats")]
         let start = std::time::Instant::now();
 
         let num_inputs = self.num_banks;
@@ -474,18 +475,21 @@ impl Arbiter {
             // log::trace!("request: {:?}", &Self::compat(&request[bank]));
         }
 
-        crate::TIMINGS
-            .lock()
-            .unwrap()
-            .entry("allocate_reads_prepare")
-            .or_default()
-            .add(start.elapsed());
+        #[cfg(feature = "stats")]
+        {
+            crate::TIMINGS
+                .lock()
+                .entry("allocate_reads_prepare")
+                .or_default()
+                .add(start.elapsed());
+        }
 
         // log::trace!("inmatch: {:?}", &Self::compat(inmatch));
 
         // wavefront allocator from booksim
         // loop through diagonals of request matrix
 
+        #[cfg(feature = "stats")]
         let start = std::time::Instant::now();
 
         for p in 0..square {
@@ -543,14 +547,17 @@ impl Arbiter {
             }
         }
 
-        crate::TIMINGS
-            .lock()
-            .unwrap()
-            .entry("allocate_reads_search_diagonal")
-            .or_default()
-            .add(start.elapsed());
+        #[cfg(feature = "stats")]
+        {
+            crate::TIMINGS
+                .lock()
+                .entry("allocate_reads_search_diagonal")
+                .or_default()
+                .add(start.elapsed());
+        }
 
         // allocated
+        #[cfg(feature = "stats")]
         let start = std::time::Instant::now();
 
         log::debug!(
@@ -574,12 +581,14 @@ impl Arbiter {
             self.allocate_bank_for_read(bank, read.clone());
             read_ops.insert(bank, read);
         }
-        crate::TIMINGS
-            .lock()
-            .unwrap()
-            .entry("allocate_reads_register_banks")
-            .or_default()
-            .add(start.elapsed());
+        #[cfg(feature = "stats")]
+        {
+            crate::TIMINGS
+                .lock()
+                .entry("allocate_reads_register_banks")
+                .or_default()
+                .add(start.elapsed());
+        }
 
         read_ops
     }
@@ -664,13 +673,13 @@ impl DispatchUnit {
             //     i,
             // );
 
-            if collector_units[i].try_lock().unwrap().ready() {
+            if collector_units[i].try_lock().ready() {
                 self.last_cu = i;
                 log::debug!(
                     "dispatch unit {:?}: FOUND ready: chose collector unit {} ({:?})",
                     self.kind,
                     i,
-                    collector_units[i].try_lock().unwrap().kind
+                    collector_units[i].try_lock().kind
                 );
                 return collector_units.get(i);
             }
@@ -788,7 +797,7 @@ impl RegisterFileUnit {
                 let coll_units_per_scheduler = num_collector_units / self.num_warp_schedulers;
                 reg_id = cu_id / coll_units_per_scheduler;
             }
-            let mut cu = cu.try_lock().unwrap();
+            let mut cu = cu.try_lock();
             cu.init(
                 cu_id,
                 self.num_banks,
@@ -854,7 +863,7 @@ impl RegisterFileUnit {
         for read in read_ops.values() {
             let cu_id = read.collector_unit_id.unwrap();
             assert!(cu_id < self.collector_units.len());
-            let mut cu = self.collector_units[cu_id].try_lock().unwrap();
+            let mut cu = self.collector_units[cu_id].try_lock();
             if let Some(operand) = read.operand {
                 crate::timeit!(cu.collect_operand(operand));
             }
@@ -893,7 +902,7 @@ impl RegisterFileUnit {
         debug_assert_eq!(port.in_ports.len(), port.out_ports.len());
 
         for (input_port, output_port) in port.in_ports.iter().zip(port.out_ports.iter()) {
-            if input_port.try_lock().unwrap().has_ready() {
+            if input_port.try_lock().has_ready() {
                 // find a free collector unit
                 for cu_set_id in &port.collector_unit_ids {
                     let cu_set: &Vec<_> = &self.collector_unit_sets[cu_set_id];
@@ -904,13 +913,13 @@ impl RegisterFileUnit {
                     if self.sub_core_model {
                         // sub core model only allocates on the subset of CUs assigned
                         // to the scheduler that issued
-                        // let (reg_id, _) = input_port.try_lock().unwrap().get_ready().unwrap();
+                        // let (reg_id, _) = input_port.try_lock().get_ready().unwrap();
                         // debug_assert!(
                         //     cu_set.len() % self.num_warp_schedulers == 0
                         //         && cu_set.len() >= self.num_warp_schedulers
                         // );
                         // let cus_per_sched = cu_set.len() / self.num_warp_schedulers;
-                        // let schd_id = input_port.try_lock().unwrap().scheduler_id(reg_id).unwrap();
+                        // let schd_id = input_port.try_lock().scheduler_id(reg_id).unwrap();
                         // cu_lower_bound = schd_id * cus_per_sched;
                         // cu_upper_bound = cu_lower_bound + cus_per_sched;
                         // debug_assert!(cu_upper_bound <= cu_set.len());
@@ -918,7 +927,7 @@ impl RegisterFileUnit {
                     }
 
                     for collector_unit in &cu_set[cu_lower_bound..cu_upper_bound] {
-                        let mut collector_unit = collector_unit.try_lock().unwrap();
+                        let mut collector_unit = collector_unit.try_lock();
 
                         if collector_unit.free {
                             log::debug!(
@@ -945,7 +954,7 @@ impl RegisterFileUnit {
         for dispatch_unit in &mut self.dispatch_units {
             let set = &self.collector_unit_sets[&dispatch_unit.kind];
             if let Some(collector_unit) = dispatch_unit.find_ready(set) {
-                collector_unit.try_lock().unwrap().dispatch();
+                collector_unit.try_lock().dispatch();
             }
         }
     }
@@ -1057,12 +1066,12 @@ mod test {
                 in_ports: port
                     .in_ports
                     .iter()
-                    .map(|p| p.try_lock().unwrap().clone().into())
+                    .map(|p| p.try_lock().clone().into())
                     .collect(),
                 out_ports: port
                     .out_ports
                     .iter()
-                    .map(|p| p.try_lock().unwrap().clone().into())
+                    .map(|p| p.try_lock().clone().into())
                     .collect(),
             }
         }
@@ -1077,7 +1086,7 @@ mod test {
                 output_register: cu
                     .output_register
                     .as_ref()
-                    .map(|r| r.try_lock().unwrap().deref().clone().into()),
+                    .map(|r| r.try_lock().deref().clone().into()),
                 // src_operands: [Option<Operand>; MAX_REG_OPERANDS * 2],
                 not_ready: cu.not_ready.to_bit_string(),
                 reg_id: if cu.warp_id.is_some() {
@@ -1114,7 +1123,7 @@ mod test {
             let collector_units = opcoll
                 .collector_units
                 .iter()
-                .map(|cu| cu.try_lock().unwrap().deref().into())
+                .map(|cu| cu.try_lock().deref().into())
                 .collect();
             let ports = opcoll.in_ports.iter().map(Into::into).collect();
             let arbiter = (&opcoll.arbiter).into();

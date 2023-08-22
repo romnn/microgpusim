@@ -46,9 +46,9 @@ where
         let mut state = State::new(total_cores, num_partitions, num_sub_partitions);
 
         for (cluster_id, cluster) in self.clusters.iter().enumerate() {
-            let cluster = cluster.try_read().unwrap();
+            let cluster = cluster.try_read();
             for (core_id, core) in cluster.cores.iter().enumerate() {
-                let core = core.read().unwrap();
+                let core = core.try_read();
                 let global_core_id = cluster_id * self.config.num_cores_per_simt_cluster + core_id;
                 assert_eq!(core.core_id, global_core_id);
 
@@ -58,11 +58,8 @@ where
                 // core: functional units
                 for (fu_id, _fu) in core.functional_units.iter().enumerate() {
                     let issue_port = core.issue_ports[fu_id];
-                    let issue_reg: register_set::RegisterSet = core.pipeline_reg
-                        [issue_port as usize]
-                        .try_lock()
-                        .unwrap()
-                        .clone();
+                    let issue_reg: register_set::RegisterSet =
+                        core.pipeline_reg[issue_port as usize].try_lock().clone();
                     assert_eq!(issue_port, issue_reg.stage);
 
                     state.functional_unit_pipelines[core_id].push(issue_reg);
@@ -75,17 +72,11 @@ where
             }
         }
         for (partition_id, partition) in self.mem_partition_units.iter().enumerate() {
-            state.dram_latency_queue[partition_id].extend(
-                partition
-                    .try_read()
-                    .unwrap()
-                    .dram_latency_queue
-                    .clone()
-                    .into_iter(),
-            );
+            state.dram_latency_queue[partition_id]
+                .extend(partition.try_read().dram_latency_queue.clone().into_iter());
         }
         for (sub_id, sub) in self.mem_sub_partitions.iter().enumerate() {
-            let sub = sub.try_lock().unwrap();
+            let sub = sub.try_lock();
             for (dest_queue, src_queue) in [
                 (
                     &mut state.interconn_to_l2_queue[sub_id],
@@ -97,7 +88,7 @@ where
                 ),
                 (
                     &mut state.l2_to_dram_queue[sub_id],
-                    &sub.l2_to_dram_queue.try_lock().unwrap(),
+                    &sub.l2_to_dram_queue.try_lock(),
                 ),
                 (&mut state.dram_to_l2_queue[sub_id], &sub.dram_to_l2_queue),
             ] {

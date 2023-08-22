@@ -1,7 +1,7 @@
 use super::{config, mem_fetch, Packet};
+use crate::sync::{Arc, Mutex, RwLock};
 use console::style;
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
 
 /// Interconnect is a general interconnect
 ///
@@ -39,6 +39,7 @@ pub struct ToyInterconnect<P> {
     round_robin_turn: Vec<Vec<Mutex<usize>>>,
     // input_queue: Vec<Vec<Vec<Mutex<VecDeque<P>>>>>,
     pub output_queue: Vec<Vec<Vec<Mutex<VecDeque<P>>>>>,
+    pub in_flight: RwLock<u64>,
     // deviceID to icntID map
     // deviceID : Starts from 0 for shaders and then continues until mem nodes
     // which starts at location n_shader and then continues to n_shader+n_mem (last device)
@@ -82,6 +83,7 @@ impl<P> ToyInterconnect<P> {
             round_robin_turn,
             // input_queue,
             output_queue,
+            in_flight: RwLock::new(0),
         }
     }
 }
@@ -90,22 +92,24 @@ impl<P> Interconnect<P> for ToyInterconnect<P>
 where
     P: Send + Sync + std::fmt::Display + std::fmt::Debug + 'static,
 {
+    #[inline]
     fn busy(&self) -> bool {
         // todo: this is not efficient, could keep track of this with a variable
-        self.output_queue
-            .iter()
-            .flatten()
-            .flatten()
-            .any(|reqs: &Mutex<VecDeque<_>>| !reqs.lock().unwrap().is_empty())
+        *self.in_flight.read() != 0
+        // self.output_queue
+        //     .iter()
+        //     .flatten()
+        //     .flatten()
+        //     .any(|reqs: &Mutex<VecDeque<_>>| !reqslock().is_empty())
     }
 
     // fn iter(&self) -> Box<dyn Iterator<Item = (uVecDeque<P>>>{
-    //     // let mut queue = self.output_queue[subnet][dest_device][0].lock().unwrap();
+    //     // let mut queue = self.output_queue[subnet][dest_device][0]lock();
     //     // for (subnet_idx, subnet) in &self.output_queue.enumerate() {
     //     // for (subnet_idx, subnet) in &self.output_queue.enumerate() {
     //     //     for (nodex_idx, node) in subnet.iter().enumerate() {
     //     //         for (class_idx, class) in node.iter().enumerate() {
-    //     //             // let _test = class.lock().unwrap();
+    //     //             // let _test = classlock();
     //     //             // self.output_queue[subnet][node][class];
     //     //         }
     //     //     }
@@ -113,11 +117,11 @@ where
     // }
 
     // fn sort(&self, order: Option<Vec>) {
-    //     // let mut queue = self.output_queue[subnet][dest_device][0].lock().unwrap();
+    //     // let mut queue = self.output_queue[subnet][dest_device][0]lock();
     //     for subnet in &self.output_queue {
     //         for node in subnet {
     //             for class in node {
-    //                 let _test = class.lock().unwrap();
+    //                 let _test = classlock();
     //                 // self.output_queue[subnet][node][class];
     //             }
     //         }
@@ -128,6 +132,7 @@ where
     //     self.commit_queue
     // }
 
+    #[inline]
     fn dest_queue(&self, dest_device: usize) -> &Mutex<VecDeque<P>> {
         // assert!(self.has_buffer(src_device, size));
 
@@ -141,6 +146,7 @@ where
         &self.output_queue[subnet][dest_device][0]
     }
 
+    #[inline]
     fn push(&self, src_device: usize, dest_device: usize, packet: P, size: u32) {
         assert!(self.has_buffer(src_device, size));
 
@@ -151,7 +157,8 @@ where
             style(format!("INTERCONN PUSH {packet}")).bold(),
         );
 
-        let mut queue = self.output_queue[subnet][dest_device][0].lock().unwrap();
+        *self.in_flight.write() += 1;
+        let mut queue = self.output_queue[subnet][dest_device][0].lock();
         queue.push_back(packet);
     }
 
@@ -165,15 +172,16 @@ where
     //     //     style(format!("INTERCONN PUSH {packet}")).bold(),
     //     // );
     //
-    //     let mut queue = self.output_queue[subnet][dest_device][0].lock().unwrap();
+    //     let mut queue = self.output_queue[subnet][dest_device][0]lock();
     //     queue.extend(packets);
     // }
 
+    #[inline]
     fn pop(&self, device: usize) -> Option<P> {
         let icnt_id = device;
         let subnet = usize::from(device >= self.num_cores);
 
-        let mut lock = self.round_robin_turn[subnet][icnt_id].lock().unwrap();
+        let mut lock = self.round_robin_turn[subnet][icnt_id].lock();
         let mut turn = *lock;
         log::debug!(
             "{}: from device {device} (device={device}, id={icnt_id}, subnet={subnet}, turn={turn})",
@@ -181,20 +189,23 @@ where
         );
 
         for _ in 0..self.num_classes {
-            let mut queue = self.output_queue[subnet][icnt_id][turn].lock().unwrap();
+            let mut queue = self.output_queue[subnet][icnt_id][turn].lock();
             turn = (turn + 1) % self.num_classes;
             if let Some(packet) = queue.pop_front() {
                 *lock = turn;
+                *self.in_flight.write() -= 1;
                 return Some(packet);
             }
         }
         None
     }
 
+    #[inline]
     fn transfer(&self) {
         // do nothing
     }
 
+    #[inline]
     fn has_buffer(&self, _device: usize, _size: u32) -> bool {
         true
         // let Some(capacity) = self.capacity else {
@@ -203,7 +214,7 @@ where
         //
         // // TODO: using input queue makes no sense as we push into output directly
         // let subnet = usize::from(device >= self.num_cores);
-        // let queue = self.input_queue[subnet][device][0].lock().unwrap();
+        // let queue = self.input_queue[subnet][device][0]lock();
         // queue.len() <= capacity
     }
 }
@@ -249,8 +260,9 @@ impl MemFetchInterface for CoreMemoryInterface<Packet> {
         // self.core.interconn_simt_to_mem(fetch.get_num_flits(true));
         // self.cluster.interconn_inject_request_packet(fetch);
 
+        #[cfg(feature = "stats")]
         {
-            let mut stats = self.stats.lock().unwrap();
+            let mut stats = self.stats.lock();
             let access_kind = *fetch.access_kind();
             debug_assert_eq!(fetch.is_write(), access_kind.is_write());
             stats.accesses.inc(access_kind, 1);
@@ -289,7 +301,6 @@ impl MemFetchInterface for CoreMemoryInterface<Packet> {
         //     .push(self.cluster_id, mem_dest, Packet::Fetch(fetch), packet_size);
         self.interconn_port
             .lock()
-            .unwrap()
             .push_back((mem_dest, fetch, packet_size));
     }
 }
@@ -310,13 +321,13 @@ where
     Q: super::fifo::Queue<mem_fetch::MemFetch>,
 {
     fn full(&self, _size: u32, _write: bool) -> bool {
-        self.l2_to_dram_queue.lock().unwrap().full()
+        self.l2_to_dram_queue.lock().full()
     }
 
     fn push(&self, mut fetch: mem_fetch::MemFetch, _time: u64) {
         fetch.set_status(mem_fetch::Status::IN_PARTITION_L2_TO_DRAM_QUEUE, 0);
         log::debug!("l2 interface push l2_to_dram_queue");
-        self.l2_to_dram_queue.lock().unwrap().enqueue(fetch);
+        self.l2_to_dram_queue.lock().enqueue(fetch);
     }
 }
 

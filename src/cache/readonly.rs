@@ -1,6 +1,6 @@
+use crate::sync::{Arc, Mutex};
 use crate::{address, cache, config, interconn as ic, mem_fetch, tag_array};
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
 pub struct ReadOnly<I> {
@@ -122,13 +122,17 @@ where
         } else if probe_status != Status::RESERVATION_FAIL {
             if self.inner.miss_queue_full() {
                 status = Status::RESERVATION_FAIL;
-                self.inner.stats.lock().unwrap().inc(
-                    *fetch.access_kind(),
-                    cache::AccessStat::ReservationFailure(
-                        cache::ReservationFailure::MISS_QUEUE_FULL,
-                    ),
-                    1,
-                );
+
+                #[cfg(feature = "stats")]
+                {
+                    self.inner.stats.lock().inc(
+                        *fetch.access_kind(),
+                        cache::AccessStat::ReservationFailure(
+                            cache::ReservationFailure::MISS_QUEUE_FULL,
+                        ),
+                        1,
+                    );
+                }
             } else {
                 let (should_miss, _writeback, _evicted) = self.inner.send_read_request(
                     addr,
@@ -147,17 +151,25 @@ where
                 }
             }
         } else {
-            self.inner.stats.lock().unwrap().inc(
+            #[cfg(feature = "stats")]
+            {
+                self.inner.stats.lock().inc(
+                    *fetch.access_kind(),
+                    cache::AccessStat::ReservationFailure(
+                        cache::ReservationFailure::LINE_ALLOC_FAIL,
+                    ),
+                    1,
+                );
+            }
+        }
+        #[cfg(feature = "stats")]
+        {
+            self.inner.stats.lock().inc(
                 *fetch.access_kind(),
-                cache::AccessStat::ReservationFailure(cache::ReservationFailure::LINE_ALLOC_FAIL),
+                cache::AccessStat::Status(select_status(probe_status, status)),
                 1,
             );
         }
-        self.inner.stats.lock().unwrap().inc(
-            *fetch.access_kind(),
-            cache::AccessStat::Status(select_status(probe_status, status)),
-            1,
-        );
         status
     }
 

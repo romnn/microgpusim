@@ -1,3 +1,4 @@
+use crate::sync::{Arc, Mutex, RwLock};
 use crate::{
     cache, config, interconn as ic, mem_fetch, mem_sub_partition, mshr,
     operand_collector as opcoll,
@@ -6,7 +7,6 @@ use crate::{
     simd_function_unit as fu, warp,
 };
 use console::style;
-use std::sync::{Arc, Mutex, RwLock};
 use strum::EnumCount;
 
 use super::{
@@ -236,12 +236,7 @@ where
                 next_writeback.memory_space,
             );
 
-            if self
-                .operand_collector
-                .try_lock()
-                .unwrap()
-                .writeback(next_writeback)
-            {
+            if self.operand_collector.try_lock().writeback(next_writeback) {
                 let mut next_writeback = self.next_writeback.take().unwrap();
 
                 let mut instr_completed = false;
@@ -252,7 +247,6 @@ where
                         // shared
                         self.scoreboard
                             .write()
-                            .unwrap()
                             .release(next_writeback.warp_id, *out_reg);
                         instr_completed = true;
                     } else {
@@ -275,7 +269,6 @@ where
                             pending.remove(out_reg);
                             self.scoreboard
                                 .write()
-                                .unwrap()
                                 .release(next_writeback.warp_id, *out_reg);
                             instr_completed = true;
                         }
@@ -310,7 +303,6 @@ where
 
                         self.warps[pipe_reg.warp_id]
                             .try_lock()
-                            .unwrap()
                             .num_instr_in_pipeline -= 1;
                         self.next_writeback = Some(pipe_reg);
                         serviced_client = Some(next_client_id);
@@ -411,8 +403,11 @@ where
         }
 
         if dispatch_instr.dispatch_delay_cycles > 0 {
-            let _stats = self.stats.lock().unwrap();
-            // stats.num_shared_mem_bank_access[self.core_id] += 1;
+            #[cfg(feature = "stats")]
+            {
+                let _stats = self.stats.lock();
+                // stats.num_shared_mem_bank_access[self.core_id] += 1;
+            }
         }
 
         // dispatch_instr.dec_dispatch_delay();
@@ -489,7 +484,7 @@ where
     //
     // fn interconn_push(&mut self, mut fetch: mem_fetch::MemFetch, time: u64) {
     //     {
-    //         let mut stats = self.stats.lock().unwrap();
+    //         let mut stats = self.statslock();
     //         let access_kind = *fetch.access_kind();
     //         debug_assert_eq!(fetch.is_write(), access_kind.is_write());
     //         stats.accesses.inc(access_kind, 1);
@@ -633,7 +628,6 @@ where
                 } else if dispatch_instr.is_store() {
                     self.warps[dispatch_instr.warp_id]
                         .try_lock()
-                        .unwrap()
                         .num_outstanding_stores += 1;
                 }
 
@@ -690,7 +684,7 @@ where
                 || (self.config.perfect_mem && fetch.is_write())
         );
         // let mut warp = self.warps[fetch.warp_id].try_borrow_mut().unwrap();
-        let mut warp = self.warps[fetch.warp_id].try_lock().unwrap();
+        let mut warp = self.warps[fetch.warp_id].try_lock();
         warp.num_outstanding_stores -= 1;
     }
 
@@ -753,7 +747,7 @@ where
                         };
 
                         // let mut warp = self.warps[instr.warp_id].try_borrow_mut().unwrap();
-                        let mut warp = self.warps[instr.warp_id].try_lock().unwrap();
+                        let mut warp = self.warps[instr.warp_id].try_lock();
                         for _ in 0..inc_ack {
                             warp.num_outstanding_stores += 1;
                         }
@@ -819,7 +813,7 @@ where
             };
 
             // let mut warp = self.warps[instr.warp_id].try_borrow_mut().unwrap();
-            let mut warp = self.warps[instr.warp_id].try_lock().unwrap();
+            let mut warp = self.warps[instr.warp_id].try_lock();
             for _ in 0..inc_ack {
                 warp.num_outstanding_stores += 1;
             }
@@ -905,10 +899,7 @@ where
                             if *still_pending > 0 {
                                 pending.remove(out_reg);
                                 log::trace!("l1 latency queue release registers");
-                                self.scoreboard
-                                    .write()
-                                    .unwrap()
-                                    .release(instr.warp_id, *out_reg);
+                                self.scoreboard.write().release(instr.warp_id, *out_reg);
                                 completed = true;
                             }
                         }
@@ -1019,11 +1010,14 @@ where
 
         // m_core->mem_instruction_stats(*inst);
         if let Some(mem_space) = instr.memory_space {
-            let mut stats = self.stats.lock().unwrap();
-            let active_count = instr.active_thread_count() as u64;
-            stats
-                .instructions
-                .inc(mem_space, instr.is_store(), active_count);
+            #[cfg(feature = "stats")]
+            {
+                let mut stats = self.stats.lock();
+                let active_count = instr.active_thread_count() as u64;
+                stats
+                    .instructions
+                    .inc(mem_space, instr.is_store(), active_count);
+            }
         }
 
         // m_core->incmem_stat(m_core->get_config()->warp_size, 1);
@@ -1240,20 +1234,14 @@ where
                     if !has_pending_requests {
                         super::warp_inst_complete(&mut dispatch_reg, &self.stats);
 
-                        self.scoreboard.write().unwrap().release_all(&dispatch_reg);
+                        self.scoreboard.write().release_all(&dispatch_reg);
                     }
-                    self.warps[warp_id]
-                        .try_lock()
-                        .unwrap()
-                        .num_instr_in_pipeline -= 1;
+                    self.warps[warp_id].try_lock().num_instr_in_pipeline -= 1;
                     simd_unit.dispatch_reg = None;
                 }
             } else {
                 // stores exit pipeline here
-                self.warps[warp_id]
-                    .try_lock()
-                    .unwrap()
-                    .num_instr_in_pipeline -= 1;
+                self.warps[warp_id].try_lock().num_instr_in_pipeline -= 1;
                 let mut dispatch_reg = simd_unit.dispatch_reg.take().unwrap();
                 super::warp_inst_complete(&mut dispatch_reg, &self.stats);
             }

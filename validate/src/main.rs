@@ -154,9 +154,9 @@ pub fn filter_benchmarks(benches: &mut Vec<BenchmarkConfig>, options: &Options) 
                 // try "benchmark_name"
                 &name,
                 // try "benchmark_name[input_idx]"
-                &format!("{}[{}]", name, bench_config.input_idx + 1),
+                &format!("{}[{}]", name, bench_config.input_idx),
                 // try "benchmark_name@input_idx"
-                &format!("{}@{}", name, bench_config.input_idx + 1),
+                &format!("{}@{}", name, bench_config.input_idx),
             ];
             if valid_patterns.into_iter().any(|p| b.to_lowercase() == *p) {
                 // keep benchmark config
@@ -227,7 +227,7 @@ fn print_benchmark_result(
         }
         _ => {
             let benchmark_config_id =
-                format!("{}@{:<3}", &bench_config.name, bench_config.input_idx + 1);
+                format!("{}@{:<3}", &bench_config.name, bench_config.input_idx);
             bar.println(format!(
                 "{:>15} {:>20} [ {} ][ {} {} ] {}",
                 op,

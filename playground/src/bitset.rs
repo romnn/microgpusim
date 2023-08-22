@@ -22,7 +22,8 @@ impl std::fmt::Display for Bitset {
 }
 
 impl Bitset {
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self::default()
     }
 

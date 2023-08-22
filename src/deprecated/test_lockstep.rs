@@ -120,7 +120,7 @@ fn test_lockstep() -> eyre::Result<()> {
                 testing::state::Simulation::new(total_cores, num_partitions, num_sub_partitions);
 
             for (cluster_id, cluster) in box_sim.clusters.iter().enumerate() {
-                for (core_id, core) in cluster.cores.lock().unwrap().iter().enumerate() {
+                for (core_id, core) in cluster.coreslock().iter().enumerate() {
                     let global_core_id =
                         cluster_id * box_sim.config.num_cores_per_simt_cluster + core_id;
                     assert_eq!(core.inner.core_id, global_core_id);
@@ -130,7 +130,7 @@ fn test_lockstep() -> eyre::Result<()> {
 
                     // core: functional units
                     for (fu_id, fu) in core.functional_units.iter().enumerate() {
-                        let fu = fu.lock().unwrap();
+                        let fu = fulock();
                         let issue_port = core.issue_ports[fu_id];
                         let issue_reg: super::register_set::RegisterSet = core.inner.pipeline_reg
                             [issue_port as usize]
@@ -170,7 +170,7 @@ fn test_lockstep() -> eyre::Result<()> {
                     ),
                     (
                         &mut box_sim_state.l2_to_dram_queue[sub_id],
-                        &sub.borrow().l2_to_dram_queue.lock().unwrap(),
+                        &sub.borrow().l2_to_dram_queuelock(),
                     ),
                     (
                         &mut box_sim_state.dram_to_l2_queue[sub_id],

@@ -1,3 +1,4 @@
+use crate::sync::{Arc, Mutex};
 use crate::{
     address, config, interconn as ic, mem_fetch,
     mem_sub_partition::SECTOR_SIZE,
@@ -6,7 +7,6 @@ use crate::{
 };
 use console::style;
 use std::collections::{HashMap, VecDeque};
-use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
 struct PendingRequest {
@@ -186,12 +186,15 @@ impl<I> Base<I> {
             }
 
             self.mshrs.add(mshr_addr, fetch.clone());
-            let mut stats = self.stats.lock().unwrap();
-            stats.inc(
-                *fetch.access_kind(),
-                super::AccessStat::Status(super::RequestStatus::MSHR_HIT),
-                1,
-            );
+            #[cfg(feature = "stats")]
+            {
+                let mut stats = self.stats.lock();
+                stats.inc(
+                    *fetch.access_kind(),
+                    super::AccessStat::Status(super::RequestStatus::MSHR_HIT),
+                    1,
+                );
+            }
 
             should_miss = true;
         } else if !mshr_hit && !mshr_full && !self.miss_queue_full() {
@@ -236,19 +239,27 @@ impl<I> Base<I> {
 
             should_miss = true;
         } else if mshr_hit && mshr_full {
-            self.stats.lock().unwrap().inc(
-                *fetch.access_kind(),
-                super::AccessStat::ReservationFailure(
-                    super::ReservationFailure::MSHR_MERGE_ENTRY_FAIL,
-                ),
-                1,
-            );
+            #[cfg(feature = "stats")]
+            {
+                self.stats.lock().inc(
+                    *fetch.access_kind(),
+                    super::AccessStat::ReservationFailure(
+                        super::ReservationFailure::MSHR_MERGE_ENTRY_FAIL,
+                    ),
+                    1,
+                );
+            }
         } else if !mshr_hit && mshr_full {
-            self.stats.lock().unwrap().inc(
-                *fetch.access_kind(),
-                super::AccessStat::ReservationFailure(super::ReservationFailure::MSHR_ENTRY_FAIL),
-                1,
-            );
+            #[cfg(feature = "stats")]
+            {
+                self.stats.lock().inc(
+                    *fetch.access_kind(),
+                    super::AccessStat::ReservationFailure(
+                        super::ReservationFailure::MSHR_ENTRY_FAIL,
+                    ),
+                    1,
+                );
+            }
         } else {
             panic!(
                 "mshr_hit={} mshr_full={} miss_queue_full={}",
@@ -377,7 +388,7 @@ mod tests {
     // use super::Base;
     // use crate::{config, interconn as ic, Cycle, FromConfig, Packet};
     //
-    // use std::sync::{Arc, Mutex};
+    // use crate::sync::{Arc, Mutex};
 
     // #[ignore = "todo"]
     // #[test]

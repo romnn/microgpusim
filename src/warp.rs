@@ -1,7 +1,7 @@
 use crate::{instruction::WarpInstruction, kernel::Kernel};
 use bitvec::{array::BitArray, BitArr};
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
+use crate::sync::{Arc, Mutex};
 
 /// Warp size.
 ///

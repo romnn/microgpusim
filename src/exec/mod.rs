@@ -1,11 +1,11 @@
 #![allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
 
 pub use crate::instruction::MemorySpace;
+use crate::sync::{atomic, Arc, Mutex};
 use bitvec::field::BitField;
 use color_eyre::eyre;
 use itertools::Itertools;
 use nvbit_model;
-use std::sync::{atomic, Arc, Mutex};
 use trace_model as model;
 
 const DEV_GLOBAL_HEAP_START: u64 = 0xC000_0000;
@@ -153,7 +153,6 @@ impl Simulation {
     pub fn load(&self, addr: u64, size: u32, mem_space: MemorySpace) {
         self.thread_instructions
             .lock()
-            .unwrap()
             .push(WarpInstruction::Access(MemInstruction {
                 kind: MemAccessKind::Load,
                 addr,
@@ -165,7 +164,6 @@ impl Simulation {
     pub fn store(&self, addr: u64, size: u32, mem_space: MemorySpace) {
         self.thread_instructions
             .lock()
-            .unwrap()
             .push(WarpInstruction::Access(MemInstruction {
                 kind: MemAccessKind::Store,
                 addr,
@@ -181,18 +179,12 @@ impl Simulation {
         size: u64,
         mem_space: MemorySpace,
     ) -> DevicePtr<'s, 'a, T> {
-        let mut offset_lock = self.offset.lock().unwrap();
+        let mut offset_lock = self.offset.lock();
         let offset = *offset_lock;
         *offset_lock += size;
 
-        self.inner
-            .lock()
-            .unwrap()
-            .gpu_mem_alloc(offset, size, None, 0);
-        self.inner
-            .lock()
-            .unwrap()
-            .memcopy_to_gpu(offset, size, None, 0);
+        self.inner.lock().gpu_mem_alloc(offset, size, None, 0);
+        self.inner.lock().memcopy_to_gpu(offset, size, None, 0);
 
         DevicePtr {
             inner: var,
@@ -203,7 +195,7 @@ impl Simulation {
     }
 
     pub fn run_to_completion(&self) -> eyre::Result<stats::Stats> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock();
         inner.run_to_completion()?;
         Ok(inner.stats())
     }
@@ -256,8 +248,7 @@ impl Simulation {
                     // );
                     thread_id.thread_idx = warp_thread_idx.into();
                     kernel.run(&thread_id)?;
-                    warp_instructions[thread_idx]
-                        .extend(self.thread_instructions.lock().unwrap().drain(..));
+                    warp_instructions[thread_idx].extend(self.thread_instructions.lock().drain(..));
                 }
 
                 let warp_instruction = model::MemAccessTraceEntry {
@@ -393,7 +384,7 @@ impl Simulation {
             nvbit_version: "none".to_string(),
         };
         let kernel = Arc::new(crate::kernel::Kernel::new(launch_config, trace));
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock();
         inner.kernels.push_back(Arc::clone(&kernel));
         inner.launch(kernel).unwrap();
 

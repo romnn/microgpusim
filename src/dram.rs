@@ -1,6 +1,6 @@
 use super::mem_fetch;
 use crate::config;
-use std::sync::{Arc, Mutex};
+use crate::sync::{Arc, Mutex};
 
 // #[derive()]
 // struct Request {}
@@ -60,20 +60,23 @@ impl DRAM {
         let dram_id = fetch.tlx_addr.chip as usize;
         let bank = fetch.tlx_addr.bk as usize;
 
-        let mut stats = self.stats.lock().unwrap();
-        let dram_atom_size = self.config.dram_atom_size();
+        #[cfg(feature = "stats")]
+        {
+            let mut stats = self.stats.lock();
+            let dram_atom_size = self.config.dram_atom_size();
 
-        if fetch.is_write() {
-            // do not count L2_writebacks here
-            if fetch.core_id < self.config.num_cores_per_simt_cluster {
-                stats.dram.bank_writes[fetch.core_id][dram_id][bank] += 1;
+            if fetch.is_write() {
+                // do not count L2_writebacks here
+                if fetch.core_id < self.config.num_cores_per_simt_cluster {
+                    stats.dram.bank_writes[fetch.core_id][dram_id][bank] += 1;
+                }
+                stats.dram.total_bank_writes[dram_id][bank] +=
+                    (fetch.data_size() as f32 / dram_atom_size as f32).ceil() as u64;
+            } else {
+                stats.dram.bank_reads[fetch.core_id][dram_id][bank] += 1;
+                stats.dram.total_bank_reads[dram_id][bank] +=
+                    (fetch.data_size() as f32 / dram_atom_size as f32).ceil() as u64;
             }
-            stats.dram.total_bank_writes[dram_id][bank] +=
-                (fetch.data_size() as f32 / dram_atom_size as f32).ceil() as u64;
-        } else {
-            stats.dram.bank_reads[fetch.core_id][dram_id][bank] += 1;
-            stats.dram.total_bank_reads[dram_id][bank] +=
-                (fetch.data_size() as f32 / dram_atom_size as f32).ceil() as u64;
         }
         // these stats are not used
         // mem_access_type_stats[fetch.access_kind()][dram_id][bank] +=

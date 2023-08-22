@@ -1,5 +1,5 @@
 use super::instruction::WarpInstruction;
-use std::sync::{Arc, Mutex};
+use crate::sync::{Arc, Mutex};
 
 pub type Ref = Arc<Mutex<RegisterSet>>;
 

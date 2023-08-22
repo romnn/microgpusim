@@ -21,7 +21,7 @@ fn write_miss_write_allocate_fetch_on_write(
         //
         // no need to send read request to memory or reserve mshr
         if self.inner.miss_queue_full() {
-            let stats = self.inner.stats.lock().unwrap();
+            let stats = self.inner.statslock();
             stats.inc(
                 *fetch.access_kind(),
                 cache::AccessStat::ReservationFailure(cache::ReservationFailure::MISS_QUEUE_FULL),
@@ -210,11 +210,11 @@ mod tests {
         // }
 
         // for kernel in &mut kernels {
-        //     let mut block_iter = kernel.next_block_iter.lock().unwrap();
+        //     let mut block_iter = kernel.next_block_iterlock();
         //     while let Some(block) = block_iter.next() {
         //         dbg!(&block);
-        //         let mut trace_pos = kernel.trace_pos.write().unwrap();
-        //         // let mut lock = kernel.trace_iter.write().unwrap();
+        //         let mut trace_pos = kernel.trace_poswrite();
+        //         // let mut lock = kernel.trace_iterwrite();
         //         // let trace_iter = lock.take_while_ref(|entry| entry.block_id == block);
         //         while *trace_pos < kernel.trace.len() {
         //             // for trace in trace_iter {
@@ -265,7 +265,7 @@ mod tests {
         //             dbg!(&status);
         //         }
         //     }
-        //     // while let Some(trace_instr) = kernel.trace_iter.write().unwrap().next() {
+        //     // while let Some(trace_instr) = kernel.trace_iterwrite().next() {
         //     //     // dbg!(&instr);
         //     //     let mut instr = instruction::WarpInstruction::from_trace(&kernel, trace_instr);
         //     //     let mut accesses = instr
@@ -299,8 +299,8 @@ mod tests {
         //     // }
         // }
 
-        // let mut stats = STATS.lock().unwrap();
-        // dbg!(&stats.lock().unwrap());
+        // let mut stats = STATSlock();
+        // dbg!(&statslock());
 
         // let mut warps: Vec<sched::SchedulerWarp> = Vec::new();
         // for kernel in kernels {
@@ -431,7 +431,7 @@ mod tests {
         // let status = l1.access(fetch.addr(), fetch, &mut events, time);
         // dbg!(&status);
         //
-        // // let mut stats = STATS.lock().unwrap();
-        // dbg!(&stats.lock().unwrap());
+        // // let mut stats = STATSlock();
+        // dbg!(&statslock());
     }
 }

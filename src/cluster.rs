@@ -3,7 +3,7 @@ use console::style;
 
 use std::collections::VecDeque;
 
-use std::sync::{atomic, Arc, Mutex, RwLock};
+use crate::sync::{atomic, Arc, Mutex, RwLock};
 
 #[derive(Debug)]
 pub struct Cluster<I> {
@@ -15,7 +15,7 @@ pub struct Cluster<I> {
 
     pub interconn: Arc<I>,
 
-    pub core_sim_order: Mutex<VecDeque<usize>>,
+    pub core_sim_order: Arc<Mutex<VecDeque<usize>>>,
     pub block_issue_next_core: Mutex<usize>,
     pub response_fifo: VecDeque<mem_fetch::MemFetch>,
 }
@@ -57,7 +57,7 @@ where
             stats: stats.clone(),
             interconn: interconn.clone(),
             cores,
-            core_sim_order: Mutex::new(core_sim_order),
+            core_sim_order: Arc::new(Mutex::new(core_sim_order)),
             block_issue_next_core: Mutex::new(block_issue_next_core),
             response_fifo: VecDeque::new(),
         };
@@ -68,7 +68,6 @@ where
     fn reinit(&mut self) {
         for core in &self.cores {
             core.write()
-                .unwrap()
                 .reinit(0, self.config.max_threads_per_core, true);
         }
     }
@@ -76,14 +75,14 @@ where
     pub fn num_active_sms(&self) -> usize {
         self.cores
             .iter()
-            .filter(|core| core.read().unwrap().active())
+            .filter(|core| core.try_read().active())
             .count()
     }
 
     pub fn not_completed(&self) -> usize {
         self.cores
             .iter()
-            .map(|core| core.read().unwrap().not_completed())
+            .map(|core| core.try_read().not_completed())
             .sum()
     }
 
@@ -107,7 +106,7 @@ where
         if let Some(fetch) = self.response_fifo.front() {
             let core_id = self.config.global_core_id_to_core_id(fetch.core_id);
 
-            let mut core = self.cores[core_id].write().unwrap();
+            let core = self.cores[core_id].read();
 
             match *fetch.access_kind() {
                 AccessKind::INST_ACC_R => {
@@ -176,22 +175,22 @@ where
         // m_stats->n_mem_to_simt[m_cluster_id] += mf->get_num_flits(false);
     }
 
-    pub fn cache_flush(&mut self) {
-        for core in &self.cores {
-            core.write().unwrap().cache_flush();
-        }
-    }
-
-    pub fn cache_invalidate(&mut self) {
-        for core in &self.cores {
-            core.write().unwrap().cache_invalidate();
-        }
-    }
+    // pub fn cache_flush(&mut self) {
+    //     for core in &self.cores {
+    //         corewrite().cache_flush();
+    //     }
+    // }
+    //
+    // pub fn cache_invalidate(&mut self) {
+    //     for core in &self.cores {
+    //         corewrite().cache_invalidate();
+    //     }
+    // }
 
     // pub fn cycle(&mut self) {
     //     log::debug!("cluster {} cycle {}", self.cluster_id, self.cycle.get());
     //     for core_id in &self.core_sim_order {
-    //         self.cores[*core_id].lock().unwrap().cycle();
+    //         self.cores[*core_id]lock().cycle();
     //     }
     //
     //     if let config::SchedulingOrder::RoundRobin = self.config.simt_core_sim_order {
@@ -209,48 +208,56 @@ where
         );
         let mut num_blocks_issued = 0;
 
-        let mut block_issue_next_core = self.block_issue_next_core.lock().unwrap();
+        let mut block_issue_next_core = self.block_issue_next_core.try_lock();
 
         for core_id in 0..num_cores {
             let core_id = (core_id + *block_issue_next_core + 1) % num_cores;
             // let core = &mut cores[core_id];
-            let mut core = self.cores[core_id].write().unwrap();
-            let kernel: Option<Arc<Kernel>> = if self.config.concurrent_kernel_sm {
-                // always select latest issued kernel
-                // kernel = sim.select_kernel()
-                // sim.select_kernel().map(Arc::clone);
-                unimplemented!("concurrent kernel sm");
+            // THIS KILLS THE PERFORMANCE
+            let core = self.cores[core_id].try_read();
+            // let core = self.cores[core_id].read();
+
+            // let kernel: Option<Arc<Kernel>> = if self.config.concurrent_kernel_sm {
+            //     // always select latest issued kernel
+            //     // kernel = sim.select_kernel()
+            //     // sim.select_kernel().map(Arc::clone);
+            //     unimplemented!("concurrent kernel sm");
+            // } else {
+            let mut current_kernel = core.current_kernel.try_lock().clone();
+            let should_select_new_kernel = if let Some(ref current) = current_kernel {
+                // if no more blocks left, get new kernel once current block completes
+                current.no_more_blocks_to_run() && core.not_completed() == 0
             } else {
-                let mut current_kernel = core.current_kernel.clone();
-                let should_select_new_kernel = if let Some(ref current) = current_kernel {
-                    // if no more blocks left, get new kernel once current block completes
-                    current.no_more_blocks_to_run() && core.not_completed() == 0
-                } else {
-                    // core was not assigned a kernel yet
-                    true
-                };
-
-                if let Some(ref current) = current_kernel {
-                    log::debug!(
-                        "core {}-{}: current kernel {}, more blocks={}, completed={}",
-                        self.cluster_id,
-                        core_id,
-                        current,
-                        !current.no_more_blocks_to_run(),
-                        core.not_completed() == 0,
-                    );
-                }
-
-                if should_select_new_kernel {
-                    current_kernel = sim.select_kernel();
-                    if let Some(ref k) = current_kernel {
-                        core.set_kernel(Arc::clone(k));
-                    }
-                }
-
-                current_kernel
+                // core was not assigned a kernel yet
+                true
             };
-            if let Some(kernel) = kernel {
+
+            // if let Some(ref current) = current_kernel {
+            //     log::debug!(
+            //         "core {}-{}: current kernel {}, more blocks={}, completed={}",
+            //         self.cluster_id,
+            //         core_id,
+            //         current,
+            //         !current.no_more_blocks_to_run(),
+            //         core.not_completed() == 0,
+            //     );
+            // }
+
+            // dbg!(&should_select_new_kernel);
+            if should_select_new_kernel {
+                current_kernel = crate::timeit!(sim.select_kernel());
+                // current_kernel = sim.select_kernel();
+                // if let Some(ref k) = current_kernel {
+                //     log::debug!("kernel {} bind to core {:?}", kernel, self.id());
+                //     // core.set_kernel(Arc::clone(k));
+                // }
+            }
+
+            //     current_kernel
+            // };
+
+            // if let Some(kernel) = kernel {
+            if let Some(kernel) = current_kernel {
                 log::debug!(
                     "core {}-{}: selected kernel {} more blocks={} can issue={}",
                     self.cluster_id,
@@ -260,7 +267,11 @@ where
                     core.can_issue_block(&kernel),
                 );
 
-                if !kernel.no_more_blocks_to_run() && core.can_issue_block(&kernel) {
+                let can_issue = !kernel.no_more_blocks_to_run() && core.can_issue_block(&kernel);
+                drop(core);
+                if can_issue {
+                    // dbg!("core issue");
+                    let mut core = self.cores[core_id].write();
                     core.issue_block(&kernel);
                     num_blocks_issued += 1;
                     *block_issue_next_core = core_id;

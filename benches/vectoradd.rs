@@ -123,17 +123,24 @@ fn main() -> eyre::Result<()> {
     // let mut log_builder = env_logger::Builder::new();
     // log_builder.format(|buf, record| writeln!(buf, "{}", record.args()));
 
+    let (bench_name, input_num) = ("transpose", 0); // takes 34 sec (accel same)
+
+    // let (bench_name, input_num) = ("simple_matrixmul", 26); // takes 22 sec
+
+    let (bench_name, input_num) = ("matrixmul", 3); // takes 54 sec (accel 76)
+    println!("running {bench_name}@{input_num}");
+
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
 
     let mut start = Instant::now();
-    let stats = run_box(black_box(get_bench_config("transpose", 0)?))?;
+    let stats = run_box(black_box(get_bench_config(bench_name, input_num)?))?;
     dbg!(&stats.sim);
     let box_dur = start.elapsed();
     println!("box took:\t\t{box_dur:?}");
 
-    let timings = casimu::TIMINGS.lock().unwrap();
+    let timings = casimu::TIMINGS.lock();
     println!("sorted by NAME");
     for (name, dur) in timings.iter().sorted_by_key(|(name, _dur)| name.clone()) {
         println!(
@@ -161,13 +168,13 @@ fn main() -> eyre::Result<()> {
     println!();
 
     start = Instant::now();
-    run_playground(&black_box(get_bench_config("transpose", 0)?))?;
+    run_playground(&black_box(get_bench_config(bench_name, input_num)?))?;
     let play_dur = start.elapsed();
     println!("play took:\t\t{play_dur:?}");
 
     start = Instant::now();
     runtime.block_on(async {
-        run_accelsim(black_box(get_bench_config("transpose", 0)?)).await?;
+        run_accelsim(black_box(get_bench_config(bench_name, input_num)?)).await?;
         Ok::<(), eyre::Report>(())
     })?;
     let accel_dur = start.elapsed();

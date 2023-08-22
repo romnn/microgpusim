@@ -7,7 +7,7 @@ use console::style;
 
 use std::collections::{HashSet, VecDeque};
 
-use std::sync::{Arc, Mutex};
+use crate::sync::{Arc, Mutex};
 
 pub const MAX_MEMORY_ACCESS_SIZE: u32 = 128;
 
@@ -353,7 +353,7 @@ where
                 .collect::<Vec<_>>(),
             self.interconn_to_l2_queue,
             self.l2_to_interconn_queue,
-            self.l2_to_dram_queue.lock().unwrap(),
+            self.l2_to_dram_queue.try_lock(),
         );
 
         // L2 fill responses
@@ -438,7 +438,7 @@ where
         }
 
         // new L2 texture accesses and/or non-texture accesses
-        if !self.l2_to_dram_queue.lock().unwrap().full() {
+        if !self.l2_to_dram_queue.try_lock().full() {
             if let Some(fetch) = self.interconn_to_l2_queue.first() {
                 if let Some(ref mut l2_cache) = self.l2_cache {
                     if !self.config.data_cache_l2_texture_only || fetch.is_texture() {
@@ -521,7 +521,7 @@ where
                     let mut fetch = self.interconn_to_l2_queue.dequeue().unwrap();
                     fetch.set_status(mem_fetch::Status::IN_PARTITION_L2_TO_DRAM_QUEUE, 0);
 
-                    self.l2_to_dram_queue.lock().unwrap().enqueue(fetch);
+                    self.l2_to_dram_queue.try_lock().enqueue(fetch);
                 }
             }
         }

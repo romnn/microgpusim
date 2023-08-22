@@ -1,6 +1,6 @@
 use crate::warp;
 
-use std::sync::{Arc, Mutex};
+use crate::sync::{Arc, Mutex};
 
 #[must_use]
 pub fn all_different<T>(values: &[Arc<Mutex<T>>]) -> bool {
@@ -24,8 +24,8 @@ pub fn sort_warps_by_oldest_dynamic_id(
     rhs: &warp::Ref,
     issuer: &dyn crate::core::WarpIssuer,
 ) -> std::cmp::Ordering {
-    let mut lhs = lhs.try_lock().unwrap();
-    let mut rhs = rhs.try_lock().unwrap();
+    let mut lhs = lhs.try_lock();
+    let mut rhs = rhs.try_lock();
     if lhs.done_exit()
         || lhs.waiting()
         || issuer.warp_waiting_at_barrier(lhs.warp_id)
@@ -102,7 +102,7 @@ impl super::Base {
                 log::debug!(
                     "added greedy warp (last supervised issued idx={}): {:?}",
                     self.last_supervised_issued_idx,
-                    &greedy_warp.map(|(idx, w)| (idx, w.try_lock().unwrap().dynamic_warp_id))
+                    &greedy_warp.map(|(idx, w)| (idx, w.try_lock().dynamic_warp_id))
                 );
 
                 out.extend(

@@ -169,7 +169,7 @@ impl crate::engine::cycle::Component for PipelinedSimdUnit {
             if let Some(pipe_reg) = self.pipeline_reg[0].take() {
                 // move to EX_WB result port
                 // let mut result_port = result_port.borrow_mut();
-                let mut result_port = result_port.try_lock().unwrap();
+                let mut result_port = result_port.try_lock();
                 // let msg = format!(
                 //     "{}: move pipeline[0] to result port {:?}",
                 //     self.name, result_port.stage

@@ -82,6 +82,10 @@ cargo install cargo-criterion
 cargo criterion -- vectoradd
 ```
 
+```bash
+valgrind --tool=drd --exclusive-threshold=10 ./target/release/casimu --parallel --non-deterministic 2 ./results/vectorAdd/vectorAdd-dtype-32-length-100/trace/commands.json
+```
+
 Coverage
 
 ```bash

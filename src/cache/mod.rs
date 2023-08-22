@@ -14,7 +14,7 @@ pub use readonly::ReadOnly;
 use super::{address, mem_fetch};
 use crate::config;
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
+use crate::sync::{Arc, Mutex};
 
 #[derive(Debug, strum::EnumIter, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum RequestStatus {

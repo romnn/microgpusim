@@ -1,7 +1,7 @@
 use super::{
     config, instruction::WarpInstruction, opcodes, register_set, simd_function_unit as fu,
 };
-use std::sync::{Arc, Mutex};
+use crate::sync::{Arc, Mutex};
 
 #[derive()]
 pub struct SFU {

@@ -1,6 +1,7 @@
 pub mod gto;
 pub mod ordering;
 
+use crate::sync::{Arc, Mutex, RwLock};
 use crate::{
     config,
     core::{PipelineStage, WarpIssuer},
@@ -10,7 +11,6 @@ use crate::{
 };
 use console::style;
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex, RwLock};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum ExecUnitKind {
@@ -128,7 +128,7 @@ impl Base {
 
         for (next_warp_supervised_idx, next_warp_rc) in &self.next_cycle_prioritized_warps {
             // don't consider warps that are not yet valid
-            let mut next_warp = next_warp_rc.try_lock().unwrap();
+            let mut next_warp = next_warp_rc.try_lock();
             let (warp_id, dyn_warp_id) = (next_warp.warp_id, next_warp.dynamic_warp_id);
 
             if next_warp.done_exit() {
@@ -188,7 +188,7 @@ impl Base {
             debug_assert!(Arc::ptr_eq(warp, next_warp_rc));
             drop(next_warp);
 
-            let mut warp = warp.try_lock().unwrap();
+            let mut warp = warp.try_lock();
 
             while !(warp.waiting()
                 || core.warp_waiting_at_barrier(warp_id)
@@ -210,12 +210,7 @@ impl Base {
                 );
 
                 valid_inst = true;
-                if self
-                    .scoreboard
-                    .read()
-                    .unwrap()
-                    .has_collision(warp_id, instr)
-                {
+                if self.scoreboard.read().has_collision(warp_id, instr) {
                     log::debug!(
                         "Warp (warp_id={}, dynamic_warp_id={}) {}",
                         warp_id,
@@ -432,27 +427,33 @@ impl Base {
             if num_issued > 0 {
                 self.last_supervised_issued_idx = *next_warp_supervised_idx;
                 self.num_issued_last_cycle = num_issued;
-                let mut stats = self.stats.lock().unwrap();
-                if num_issued == 1 {
-                    stats.num_single_issue += 1;
-                } else {
-                    stats.num_dual_issue += 1;
+                #[cfg(feature = "stats")]
+                {
+                    let mut stats = self.stats.lock();
+                    if num_issued == 1 {
+                        stats.num_single_issue += 1;
+                    } else {
+                        stats.num_dual_issue += 1;
+                    }
                 }
                 break;
             }
         }
 
         // issue stall statistics
-        let mut stats = self.stats.lock().unwrap();
-        if !valid_inst {
-            // idle or control hazard
-            stats.issue_raw_hazard_stall += 1;
-        } else if !ready_inst {
-            // waiting for RAW hazards (possibly due to memory)
-            stats.issue_control_hazard_stall += 1;
-        } else if !issued_inst {
-            // pipeline stalled
-            stats.issue_pipeline_stall += 1;
+        #[cfg(feature = "stats")]
+        {
+            let mut stats = self.stats.lock();
+            if !valid_inst {
+                // idle or control hazard
+                stats.issue_raw_hazard_stall += 1;
+            } else if !ready_inst {
+                // waiting for RAW hazards (possibly due to memory)
+                stats.issue_control_hazard_stall += 1;
+            } else if !issued_inst {
+                // pipeline stalled
+                stats.issue_pipeline_stall += 1;
+            }
         }
     }
 }
@@ -498,7 +499,7 @@ mod tests {
                 .prioritized_warps()
                 .iter()
                 .map(|(_idx, warp)| {
-                    let warp = warp.try_lock().unwrap();
+                    let warp = warp.try_lock();
                     (warp.warp_id, warp.dynamic_warp_id)
                 })
                 .collect();
