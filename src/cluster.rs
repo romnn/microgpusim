@@ -1,5 +1,6 @@
 use super::{config, interconn as ic, kernel::Kernel, mem_fetch, Core, MockSimulator, Packet};
 use console::style;
+use crossbeam::utils::CachePadded;
 
 use std::collections::VecDeque;
 
@@ -8,7 +9,7 @@ use crate::sync::{atomic, Arc, Mutex, RwLock};
 #[derive(Debug)]
 pub struct Cluster<I> {
     pub cluster_id: usize,
-    pub warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
+    pub warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
     pub cores: Vec<Arc<RwLock<Core<I>>>>,
     pub config: Arc<config::GPU>,
     pub stats: Arc<Mutex<stats::Stats>>,
@@ -26,7 +27,7 @@ where
 {
     pub fn new(
         cluster_id: usize,
-        warp_instruction_unique_uid: &Arc<atomic::AtomicU64>,
+        warp_instruction_unique_uid: &Arc<CachePadded<atomic::AtomicU64>>,
         allocations: &super::allocation::Ref,
         interconn: &Arc<I>,
         stats: &Arc<Mutex<stats::Stats>>,
@@ -75,7 +76,7 @@ where
     pub fn num_active_sms(&self) -> usize {
         self.cores
             .iter()
-            .filter(|core| core.try_read().active())
+            .filter(|core| core.try_read().is_active())
             .count()
     }
 
@@ -86,6 +87,7 @@ where
             .sum()
     }
 
+    #[tracing::instrument]
     pub fn interconn_cycle(&mut self, cycle: u64) {
         use mem_fetch::AccessKind;
 
@@ -106,6 +108,7 @@ where
         if let Some(fetch) = self.response_fifo.front() {
             let core_id = self.config.global_core_id_to_core_id(fetch.core_id);
 
+            // we should not fully lock a core as we completely block a full core cycle
             let core = self.cores[core_id].read();
 
             match *fetch.access_kind() {
@@ -198,7 +201,8 @@ where
     //     }
     // }
 
-    pub fn issue_block_to_core(&self, sim: &MockSimulator<I>) -> usize {
+    #[tracing::instrument(name = "cluster_issue_block_to_core")]
+    pub fn issue_block_to_core(&self, sim: &MockSimulator<I>, cycle: u64) -> usize {
         let num_cores = self.cores.len();
 
         log::debug!(
@@ -212,10 +216,7 @@ where
 
         for core_id in 0..num_cores {
             let core_id = (core_id + *block_issue_next_core + 1) % num_cores;
-            // let core = &mut cores[core_id];
-            // THIS KILLS THE PERFORMANCE
-            let core = self.cores[core_id].try_read();
-            // let core = self.cores[core_id].read();
+            let core = self.cores[core_id].read();
 
             // let kernel: Option<Arc<Kernel>> = if self.config.concurrent_kernel_sm {
             //     // always select latest issued kernel
@@ -270,9 +271,8 @@ where
                 let can_issue = !kernel.no_more_blocks_to_run() && core.can_issue_block(&kernel);
                 drop(core);
                 if can_issue {
-                    // dbg!("core issue");
                     let mut core = self.cores[core_id].write();
-                    core.issue_block(&kernel);
+                    core.issue_block(&kernel, cycle);
                     num_blocks_issued += 1;
                     *block_issue_next_core = core_id;
                     break;

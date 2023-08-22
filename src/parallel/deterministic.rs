@@ -198,7 +198,7 @@ where
                     }
                 }
 
-                self.issue_block_to_core();
+                self.issue_block_to_core(cycle);
 
                 // let mut all_threads_complete = true;
                 // if self.config.flush_l1_cache {

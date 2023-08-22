@@ -13,8 +13,8 @@ pub use readonly::ReadOnly;
 
 use super::{address, mem_fetch};
 use crate::config;
-use std::collections::VecDeque;
 use crate::sync::{Arc, Mutex};
+use std::collections::VecDeque;
 
 #[derive(Debug, strum::EnumIter, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum RequestStatus {

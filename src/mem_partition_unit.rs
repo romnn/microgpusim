@@ -9,7 +9,6 @@ use crate::sync::{Arc, Mutex};
 use console::style;
 use std::collections::VecDeque;
 
-#[derive()]
 pub struct MemoryPartitionUnit {
     id: usize,
     dram: dram::DRAM,
@@ -20,6 +19,12 @@ pub struct MemoryPartitionUnit {
     config: Arc<config::GPU>,
     #[allow(dead_code)]
     stats: Arc<Mutex<stats::Stats>>,
+}
+
+impl std::fmt::Debug for MemoryPartitionUnit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MemoryPartitionUnit").finish()
+    }
 }
 
 impl MemoryPartitionUnit {
@@ -105,6 +110,7 @@ impl MemoryPartitionUnit {
         sub.set_done(fetch);
     }
 
+    #[tracing::instrument]
     pub fn simple_dram_cycle(&mut self) {
         log::debug!("{} ...", style("simple dram cycle").red());
         // pop completed memory request from dram and push it to dram-to-L2 queue
@@ -137,7 +143,6 @@ impl MemoryPartitionUnit {
 
                 let dest_global_spid = returned_fetch.sub_partition_id();
                 let dest_spid = self.global_sub_partition_id_to_local_id(dest_global_spid);
-                // let mut sub = self.sub_partitions[dest_spid].borrow_mut();
                 let mut sub = self.sub_partitions[dest_spid].try_lock();
                 debug_assert_eq!(sub.id, dest_global_spid);
 
@@ -175,7 +180,6 @@ impl MemoryPartitionUnit {
         let last_issued_partition = self.arbitration_metadata.last_borrower();
         for sub_id in 0..self.sub_partitions.len() {
             let spid = (sub_id + last_issued_partition + 1) % self.sub_partitions.len();
-            // let sub = self.sub_partitions[spid].borrow_mut();
             let sub = self.sub_partitions[spid].try_lock();
 
             let sub_partition_contention = sub.dram_to_l2_queue.full();

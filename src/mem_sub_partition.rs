@@ -17,7 +17,6 @@ pub const SECTOR_CHUNCK_SIZE: u32 = 4;
 /// Sector size is 32 bytes width
 pub const SECTOR_SIZE: u32 = 32;
 
-#[derive()]
 pub struct MemorySubPartition<Q = Fifo<mem_fetch::MemFetch>> {
     pub id: usize,
     pub partition_id: usize,
@@ -44,6 +43,12 @@ pub struct MemorySubPartition<Q = Fifo<mem_fetch::MemFetch>> {
     // is accessed (in both cudamemcpyies and otherwise) this value is added to
     // the gpgpu-sim cycle counters.
     memcpy_cycle_offset: u64,
+}
+
+impl<Q> std::fmt::Debug for MemorySubPartition<Q> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MemorySubPartition").finish()
+    }
 }
 
 const NO_FETCHES: VecDeque<mem_fetch::MemFetch> = VecDeque::new();
@@ -334,6 +339,7 @@ where
         todo!("mem sub partition: dram l2 queue full");
     }
 
+    #[tracing::instrument]
     pub fn cache_cycle(&mut self, cycle: u64) {
         use config::CacheWriteAllocatePolicy;
         use mem_fetch::{AccessKind, Status};

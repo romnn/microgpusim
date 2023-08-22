@@ -15,7 +15,10 @@ Pipfile.lock
 cuda_*.run
 
 # code coverage files
-**/*.profraw
-**/perf.data*
-**/flamegraph.svg
 /coverage
+**/*.profraw
+
+# perf traces
+**/perf.data*
+**/bench.trace.json
+**/flamegraph.svg

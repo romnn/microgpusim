@@ -7,7 +7,7 @@ use std::collections::VecDeque;
 ///
 /// Functions are not mutable because the interface should
 /// implement locking internally
-pub trait Interconnect<P>: Send + Sync + 'static {
+pub trait Interconnect<P>: std::fmt::Debug + Send + Sync + 'static {
     fn busy(&self) -> bool;
 
     fn push(&self, _src: usize, _dest: usize, _packet: P, _size: u32);

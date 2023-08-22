@@ -17,7 +17,6 @@
   - refactor interconn to couple has buffer and push using a single explicit lock
   - refactor to get rid of global config but use per component configs
   - use traits for common components
-  - try using native threads and barriers for core simulation
   - record mem fetch latency
   - add a few more stats
   - plot statistics
@@ -32,6 +31,7 @@
 
     - asynchronously push into file (unordered)
 
+  - DONE: try using native threads and barriers for core simulation
   - DONE: pipelined simd function unit should not implement simd function unit
   - DONE: get rid of global cycle mutex
   - DONE: lint

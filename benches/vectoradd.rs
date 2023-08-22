@@ -118,27 +118,46 @@ fn main() -> eyre::Result<()> {
     #[allow(unused_imports)]
     use std::io::Write;
     use std::time::Instant;
+    use tracing_chrome::ChromeLayerBuilder;
+    use tracing_subscriber::{prelude::*, registry::Registry};
 
-    env_logger::init();
-    // let mut log_builder = env_logger::Builder::new();
-    // log_builder.format(|buf, record| writeln!(buf, "{}", record.args()));
+    let profile = std::env::var("TRACE").unwrap_or_default().to_lowercase() == "yes";
 
-    let (bench_name, input_num) = ("transpose", 0); // takes 34 sec (accel same)
+    let mut generate_trace = if profile {
+        // tracing_subscriber::fmt::init();
+        let (chrome_layer, guard) = ChromeLayerBuilder::new().file("bench.trace.json").build();
+        tracing_subscriber::registry().with(chrome_layer).init();
+        Some(guard)
+    } else {
+        // env_logger::init();
+        // let mut log_builder = env_logger::Builder::new();
+        // log_builder.format(|buf, record| writeln!(buf, "{}", record.args()));
+        None
+    };
+
+    // let (bench_name, input_num) = ("transpose", 0); // takes 34 sec (accel same)
 
     // let (bench_name, input_num) = ("simple_matrixmul", 26); // takes 22 sec
 
     let (bench_name, input_num) = ("matrixmul", 3); // takes 54 sec (accel 76)
+
+    // let (bench_name, input_num) = ("vectorAdd", 0);
     println!("running {bench_name}@{input_num}");
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
 
-    let mut start = Instant::now();
+    let start = Instant::now();
     let stats = run_box(black_box(get_bench_config(bench_name, input_num)?))?;
     dbg!(&stats.sim);
     let box_dur = start.elapsed();
     println!("box took:\t\t{box_dur:?}");
+
+    drop(generate_trace.take());
+    if profile {
+        return Ok(());
+    }
 
     let timings = casimu::TIMINGS.lock();
     println!("sorted by NAME");
@@ -158,21 +177,18 @@ fn main() -> eyre::Result<()> {
             dur.total().as_secs_f64(),
         );
     }
-
-    if let Some(serial_cycle) = timings.get("SERIAL CYCLE") {
-        println!(
-            "=> serial only execution time: {:?}",
-            serial_cycle.mean() * u32::try_from(stats.sim.cycles).unwrap()
-        );
-    }
     println!();
 
-    start = Instant::now();
+    let start = Instant::now();
     run_playground(&black_box(get_bench_config(bench_name, input_num)?))?;
     let play_dur = start.elapsed();
     println!("play took:\t\t{play_dur:?}");
+    println!(
+        "speedup is :\t\t{:.2}",
+        play_dur.as_secs_f64() / box_dur.as_secs_f64()
+    );
 
-    start = Instant::now();
+    let start = Instant::now();
     runtime.block_on(async {
         run_accelsim(black_box(get_bench_config(bench_name, input_num)?)).await?;
         Ok::<(), eyre::Report>(())
@@ -180,9 +196,5 @@ fn main() -> eyre::Result<()> {
     let accel_dur = start.elapsed();
     println!("accel took:\t\t{accel_dur:?}");
 
-    println!(
-        "speedup is :\t\t{:.2}",
-        play_dur.as_secs_f64() / box_dur.as_secs_f64()
-    );
     Ok(())
 }

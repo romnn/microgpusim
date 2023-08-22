@@ -3,6 +3,7 @@ pub use std::sync::Arc;
 
 #[cfg(feature = "parking_lot")]
 pub mod parking_lot {
+
     /// A mutex
     #[repr(transparent)]
     #[derive(Debug, Default)]
@@ -26,6 +27,33 @@ pub mod parking_lot {
         #[must_use]
         #[inline]
         pub fn try_lock(&self) -> parking_lot::MutexGuard<T> {
+            self.0.try_lock().unwrap()
+        }
+    }
+
+    /// A fair mutex
+    #[repr(transparent)]
+    #[derive(Debug, Default)]
+    pub struct FairMutex<T: ?Sized>(parking_lot::FairMutex<T>);
+
+    impl<T> FairMutex<T> {
+        #[must_use]
+        #[inline]
+        pub fn new(value: T) -> Self {
+            Self(parking_lot::FairMutex::new(value))
+        }
+    }
+
+    impl<T: ?Sized> FairMutex<T> {
+        #[must_use]
+        #[inline]
+        pub fn lock(&self) -> parking_lot::FairMutexGuard<T> {
+            self.0.lock()
+        }
+
+        #[must_use]
+        #[inline]
+        pub fn try_lock(&self) -> parking_lot::FairMutexGuard<T> {
             self.0.try_lock().unwrap()
         }
     }
@@ -136,7 +164,7 @@ pub mod std {
 }
 
 #[cfg(feature = "parking_lot")]
-pub use self::parking_lot::{Mutex, RwLock};
+pub use self::parking_lot::{FairMutex as Mutex, RwLock};
 
 #[cfg(not(feature = "parking_lot"))]
 pub use std::{Mutex, RwLock};

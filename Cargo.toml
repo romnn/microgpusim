@@ -35,9 +35,9 @@ debug-assertions = false
 # lto = true
 # warning: debug assertions negatively impact the performance of accelsim and play
 debug-assertions = false
-codegen-units = 10
+# codegen-units = 10
 opt-level = 3
-debug = false
+debug = true
 
 [package]
 name = "casimu"
@@ -82,10 +82,16 @@ strum = { version = "0", features = ["derive"] }
 phf = { version = "0.11.1", features = ["macros"] }
 rangemap = "1"
 
+# synchronization
 flume = "0"
 crossbeam = "0"
 num_cpus = "1"
 parking_lot = "0"
+
+# tracing
+tracing = "0"
+tracing-subscriber = "0"
+tracing-chrome = "0"
 
 similar-asserts = "1"
 

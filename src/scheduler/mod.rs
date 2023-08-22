@@ -39,6 +39,12 @@ pub trait Scheduler: Send + Sync + std::fmt::Debug + 'static {
     fn order_warps(&mut self, core: &dyn WarpIssuer);
 }
 
+impl std::fmt::Debug for &dyn WarpIssuer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WarpIssuer").finish()
+    }
+}
+
 #[derive(Debug)]
 pub struct Base {
     id: usize,
@@ -96,6 +102,7 @@ impl Base {
         &self.next_cycle_prioritized_warps
     }
 
+    #[tracing::instrument(name = "scheduler_issue")]
     #[must_use]
     #[inline]
     fn issue(
@@ -210,7 +217,7 @@ impl Base {
                 );
 
                 valid_inst = true;
-                if self.scoreboard.read().has_collision(warp_id, instr) {
+                if self.scoreboard.try_read().has_collision(warp_id, instr) {
                     log::debug!(
                         "Warp (warp_id={}, dynamic_warp_id={}) {}",
                         warp_id,

@@ -71,6 +71,7 @@ use crate::sync::{atomic, Arc, Mutex, RwLock};
 use bitvec::array::BitArray;
 use color_eyre::eyre::{self};
 use console::style;
+use crossbeam::utils::CachePadded;
 use rayon::prelude::*;
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
@@ -117,13 +118,17 @@ pub static TIMINGS: Lazy<Mutex<HashMap<&'static str, TotalDuration>>> =
 #[macro_export]
 macro_rules! timeit {
     ($name:expr, $call:expr) => {{
-        // let start = std::time::Instant::now();
-        let res = $call;
-        // let dur = start.elapsed();
-        // let mut timings = $crate::TIMINGSlock();
-        // timings.entry($name).or_default().add(dur);
-        // drop(timings);
-        res
+        if true {
+            $call
+        } else {
+            let start = std::time::Instant::now();
+            let res = $call;
+            let dur = start.elapsed();
+            let mut timings = $crate::TIMINGS.lock();
+            timings.entry($name).or_default().add(dur);
+            drop(timings);
+            res
+        }
     }};
     ($call:expr) => {{
         $crate::timeit!(stringify!($call), $call)
@@ -141,7 +146,7 @@ pub struct MockSimulator<I> {
     // clusters: Vec<Cluster<I>>,
     clusters: Vec<Arc<RwLock<Cluster<I>>>>,
     #[allow(dead_code)]
-    warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
+    warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
     interconn: Arc<I>,
 
     parallel_simulation: bool,
@@ -160,6 +165,12 @@ pub struct MockSimulator<I> {
     log_after_cycle: Option<u64>,
     // gpu_stall_icnt2sh: usize,
     partition_replies_in_parallel: usize,
+}
+
+impl<I> std::fmt::Debug for MockSimulator<I> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MockSimulator").finish()
+    }
 }
 
 pub trait FromConfig {
@@ -204,21 +215,14 @@ where
 
         let mut mem_sub_partitions = Vec::new();
         for partition in &mem_partition_units {
-            mem_sub_partitions.extend(
-                partition
-                    .try_read()
-                    // .unwrap()
-                    .sub_partitions
-                    .iter()
-                    .cloned(),
-            );
+            mem_sub_partitions.extend(partition.try_read().sub_partitions.iter().cloned());
         }
 
         let max_concurrent_kernels = config.max_concurrent_kernels;
         let running_kernels = Arc::new(RwLock::new(vec![None; max_concurrent_kernels]));
         let allocations = Arc::new(RwLock::new(Allocations::default()));
 
-        let warp_instruction_unique_uid = Arc::new(atomic::AtomicU64::new(0));
+        let warp_instruction_unique_uid = Arc::new(CachePadded::new(atomic::AtomicU64::new(0)));
         let clusters: Vec<_> = (0..config.num_simt_clusters)
             .map(|i| {
                 let cluster = Cluster::new(
@@ -381,21 +385,22 @@ where
             log::error!(
                 "CTA size (x*y*z) = {threads_per_block}, max supported = {max_threads_per_block}"
             );
-            return Err(eyre::eyre!("kernel block size is too large"));
+            eyre::bail!("kernel block size is too large");
         }
         let mut running_kernels = self.running_kernels.try_write();
-        for running in running_kernels.iter_mut() {
-            if running.is_none() || running.as_ref().map_or(false, |k| k.done()) {
-                *running = Some(kernel);
-                break;
-            }
-        }
+        let free_slot = running_kernels
+            .iter_mut()
+            .find(|slot| slot.is_none() || slot.as_ref().map_or(false, |k| k.done()))
+            .ok_or(eyre::eyre!("no free slot for kernel"))?;
+        *free_slot = Some(kernel);
         Ok(())
     }
 
-    fn issue_block_to_core(&self) {
+    #[tracing::instrument]
+    #[inline]
+    fn issue_block_to_core(&self, cycle: u64) {
         log::debug!("===> issue block to core");
-        let mut last_cluster_issue = self.last_cluster_issue.try_lock(); // .unwrap();
+        let mut last_cluster_issue = self.last_cluster_issue.try_lock();
         let last_issued = *last_cluster_issue;
         let num_clusters = self.config.num_simt_clusters;
         for cluster_idx in 0..num_clusters {
@@ -404,7 +409,9 @@ where
             //     self.clusters[cluster_idx].try_read().cluster_id
             // );
             let idx = (cluster_idx + last_issued + 1) % num_clusters;
-            let num_blocks_issued = self.clusters[idx].try_read().issue_block_to_core(self);
+            let cluster = self.clusters[idx].read();
+            // dbg!((idx, cluster.num_active_sms()));
+            let num_blocks_issued = cluster.issue_block_to_core(self, cycle);
             log::trace!("cluster[{}] issued {} blocks", idx, num_blocks_issued);
 
             if num_blocks_issued > 0 {
@@ -423,6 +430,7 @@ where
     }
 
     #[allow(clippy::overly_complex_bool_expr)]
+    #[tracing::instrument(name = "cycle")]
     pub fn cycle(&mut self, cycle: u64) {
         let start_total = Instant::now();
         // int clock_mask = next_clock_domain();
@@ -430,23 +438,16 @@ where
         // shader core loading (pop from ICNT into core)
         let start = Instant::now();
         if self.parallel_simulation {
-            self.clusters.par_iter().for_each(|cluster| {
-                cluster
-                    .try_write()
-                    // .unwrap()
-                    .interconn_cycle(cycle)
-            });
+            self.clusters
+                .par_iter()
+                .for_each(|cluster| cluster.try_write().interconn_cycle(cycle));
         } else {
             for cluster in &self.clusters {
-                cluster
-                    .try_write()
-                    // .unwrap()
-                    .interconn_cycle(cycle);
+                cluster.try_write().interconn_cycle(cycle);
             }
         }
         TIMINGS
             .lock()
-            // .unwrap()
             .entry("cycle::interconn")
             .or_default()
             .add(start.elapsed());
@@ -467,7 +468,7 @@ where
                 .par_iter()
                 .enumerate()
                 .for_each(|(i, mem_sub)| {
-                    let mut mem_sub = mem_sub.try_lock(); // .unwrap();
+                    let mut mem_sub = mem_sub.try_lock();
                     if let Some(fetch) = mem_sub.top() {
                         let response_packet_size = if fetch.is_write() {
                             fetch.control_size()
@@ -502,7 +503,7 @@ where
             // }
         } else {
             for (i, mem_sub) in self.mem_sub_partitions.iter().enumerate() {
-                let mut mem_sub = mem_sub.try_lock(); // .unwrap();
+                let mut mem_sub = mem_sub.try_lock();
                 {
                     log::debug!("checking sub partition[{i}]:");
                     log::debug!(
@@ -515,7 +516,7 @@ where
                         mem_sub.l2_to_interconn_queue.len(),
                         mem_sub.l2_to_interconn_queue
                     );
-                    let l2_to_dram_queue = mem_sub.l2_to_dram_queue.try_lock(); // .unwrap();
+                    let l2_to_dram_queue = mem_sub.l2_to_dram_queue.try_lock();
                     log::debug!(
                         "\t l2 to dram queue ({:<3}) = {}",
                         l2_to_dram_queue.len(),
@@ -566,7 +567,6 @@ where
         }
         TIMINGS
             .lock()
-            // .unwrap()
             .entry("cycle::subs")
             .or_default()
             .add(start.elapsed());
@@ -596,7 +596,6 @@ where
         }
         TIMINGS
             .lock()
-            // .unwrap()
             .entry("cycle::dram")
             .or_default()
             .add(start.elapsed());
@@ -613,7 +612,7 @@ where
                 .par_iter()
                 .enumerate()
                 .for_each(|(i, mem_sub)| {
-                    let mut mem_sub = mem_sub.try_lock(); // .unwrap();
+                    let mut mem_sub = mem_sub.try_lock();
                     let device = self.config.mem_id_to_device_id(i);
 
                     // same as full with parameter overload
@@ -651,15 +650,14 @@ where
             // let mut parallel_mem_partition_reqs_per_cycle = 0;
             // let mut stall_dram_full = 0;
             for (i, mem_sub) in self.mem_sub_partitions.iter_mut().enumerate() {
-                // let mut mem_sub = mem_sub.try_borrow_mut().unwrap();
-                let mut mem_sub = mem_sub.try_lock(); // .unwrap();
-                                                      // move memory request from interconnect into memory partition
-                                                      // (if not backed up)
-                                                      //
-                                                      // Note:This needs to be called in DRAM clock domain if there
-                                                      // is no L2 cache in the system In the worst case, we may need
-                                                      // to push SECTOR_CHUNCK_SIZE requests, so ensure you have enough
-                                                      // buffer for them
+                let mut mem_sub = mem_sub.try_lock();
+                // move memory request from interconnect into memory partition
+                // (if not backed up)
+                //
+                // Note:This needs to be called in DRAM clock domain if there
+                // is no L2 cache in the system In the worst case, we may need
+                // to push SECTOR_CHUNCK_SIZE requests, so ensure you have enough
+                // buffer for them
                 let device = self.config.mem_id_to_device_id(i);
 
                 // same as full with parameter overload
@@ -758,7 +756,6 @@ where
                 crate::timeit!(core.write().cycle(cycle));
                 // TIMINGS
                 //     .lock()
-                //     .unwrap()
                 //     .entry("core_cycle")
                 //     .or_default()
                 //     .add(start.elapsed());
@@ -842,11 +839,11 @@ where
                 //     continue;
                 // }
 
-                let cluster = cluster.try_read(); // .unwrap();
-                let mut core_sim_order = cluster.core_sim_order.try_lock(); // .unwrap();
+                let cluster = cluster.try_read();
+                let mut core_sim_order = cluster.core_sim_order.try_lock();
                 for core_id in core_sim_order.iter() {
-                    let core = cluster.cores[*core_id].try_read(); // .unwrap();
-                    let mut port = core.interconn_port.try_lock(); // .unwrap();
+                    let core = cluster.cores[*core_id].try_read();
+                    let mut port = core.interconn_port.try_lock();
                     for (dest, fetch, size) in port.drain(..) {
                         self.interconn
                             .push(core.cluster_id, dest, Packet::Fetch(fetch), size);
@@ -897,7 +894,6 @@ where
 
         TIMINGS
             .lock()
-            // .unwrap()
             .entry("cycle::core")
             .or_default()
             .add(start.elapsed());
@@ -918,7 +914,8 @@ where
         //     }
         // }
         // } else {
-        crate::timeit!(self.issue_block_to_core());
+
+        crate::timeit!(self.issue_block_to_core(cycle));
 
         // self.decrement_kernel_latency();
         // }
@@ -952,7 +949,6 @@ where
         //             log::debug!("flushed L2 caches...");
         //             if l2_config.inner.total_lines() > 0 {
         //                 for (i, mem_sub) in self.mem_sub_partitions.iter_mut().enumerate() {
-        //                     // let mut mem_sub = mem_sub.try_borrow_mut().unwrap();
         //                     let mut mem_sub = mem_sub.try_lock();
         //                     let num_dirty_lines_flushed = mem_sub.flush_l2();
         //                     log::debug!(
@@ -968,7 +964,6 @@ where
 
         TIMINGS
             .lock()
-            // .unwrap()
             .entry("cycle::total")
             .or_default()
             .add(start_total.elapsed());
@@ -984,7 +979,6 @@ where
         // let alloc_range = addr..(addr + num_bytes);
         // self.allocations
         //     .try_borrow_mut()
-        //     .unwrap()
         //     .insert(alloc_range.clone(), name);
     }
 
@@ -1045,27 +1039,27 @@ where
     }
 
     pub fn stats(&self) -> Stats {
-        let mut stats: Stats = self.stats.lock().clone(); // .unwrap().clone();
+        let mut stats: Stats = self.stats.lock().clone();
 
         for cluster in &self.clusters {
-            let cluster = cluster.try_read(); // .unwrap();
+            let cluster = cluster.try_read();
             for core in &cluster.cores {
-                let core = core.try_read(); // .unwrap();
+                let core = core.try_read();
                 let core_id = core.core_id;
-                stats.l1i_stats[core_id] = core.instr_l1_cache.stats().try_lock().clone(); // .unwrap().clone();
-                let ldst_unit = &core.load_store_unit.try_lock(); // .unwrap();
+                stats.l1i_stats[core_id] = core.instr_l1_cache.stats().try_lock().clone();
+                let ldst_unit = &core.load_store_unit.try_lock();
 
                 let data_l1 = ldst_unit.data_l1.as_ref().unwrap();
-                stats.l1d_stats[core_id] = data_l1.stats().try_lock().clone(); // .unwrap().clone();
+                stats.l1d_stats[core_id] = data_l1.stats().try_lock().clone();
                 stats.l1c_stats[core_id] = stats::Cache::default();
                 stats.l1t_stats[core_id] = stats::Cache::default();
             }
         }
 
         for sub in &self.mem_sub_partitions {
-            let sub = sub.try_lock(); // .unwrap();
+            let sub = sub.try_lock();
             let l2_cache = sub.l2_cache.as_ref().unwrap();
-            stats.l2d_stats[sub.id] = l2_cache.stats().try_lock().clone(); // .unwrap().clone();
+            stats.l2d_stats[sub.id] = l2_cache.stats().try_lock().clone();
         }
         stats
     }
@@ -1165,6 +1159,7 @@ where
         !self.kernels.is_empty()
     }
 
+    #[tracing::instrument]
     pub fn run_to_completion(&mut self) -> eyre::Result<()> {
         let mut cycle: u64 = 0;
         let mut last_state_change: Option<(deadlock::State, u64)> = None;
@@ -1286,7 +1281,7 @@ where
     fn finished_kernel(&mut self) -> Option<Arc<Kernel>> {
         // check running kernels
         // let _active = self.active();
-        let mut running_kernels = self.running_kernels.try_write().clone(); // .unwrap();
+        let mut running_kernels = self.running_kernels.try_write().clone();
         let finished_kernel: Option<&mut Option<Arc<Kernel>>> =
             running_kernels.iter_mut().find(|k| {
                 if let Some(k) = k {

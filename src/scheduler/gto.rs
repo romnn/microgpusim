@@ -1,6 +1,6 @@
+use crate::sync::{Arc, Mutex, RwLock};
 use crate::{config, core::WarpIssuer, scoreboard::Scoreboard, warp};
 use std::collections::VecDeque;
-use crate::sync::{Arc, Mutex, RwLock};
 
 #[derive(Debug)]
 pub struct Scheduler {
