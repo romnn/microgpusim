@@ -34,7 +34,8 @@ fn new_mem_fetch(
 }
 
 #[allow(clippy::module_name_repetitions)]
-pub struct LoadStoreUnit<I> {
+// pub struct LoadStoreUnit<I> {
+pub struct LoadStoreUnit {
     core_id: usize,
     cluster_id: usize,
     next_writeback: Option<WarpInstruction>,
@@ -47,10 +48,10 @@ pub struct LoadStoreUnit<I> {
     next_global: Option<MemFetch>,
     pub pending_writes: HashMap<usize, HashMap<u32, usize>>,
     l1_latency_queue: Vec<Vec<Option<mem_fetch::MemFetch>>>,
-    #[allow(dead_code)]
-    interconn: Arc<dyn ic::Interconnect<crate::Packet> + Send + 'static>,
-    fetch_interconn: Arc<I>,
-    // pub interconn_port: super::InterconnPort,
+    // #[allow(dead_code)]
+    // interconn: Arc<dyn ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>>,
+    // fetch_interconn: Arc<I>,
+    pub mem_port: ic::Port<mem_fetch::MemFetch>,
     inner: fu::PipelinedSimdUnit,
 
     operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
@@ -60,13 +61,15 @@ pub struct LoadStoreUnit<I> {
     num_writeback_clients: usize,
 }
 
-impl<I> std::fmt::Display for LoadStoreUnit<I> {
+// impl<I> std::fmt::Display for LoadStoreUnit<I> {
+impl std::fmt::Display for LoadStoreUnit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.inner.name)
     }
 }
 
-impl<I> std::fmt::Debug for LoadStoreUnit<I> {
+// impl<I> std::fmt::Debug for LoadStoreUnit<I> {
+impl std::fmt::Debug for LoadStoreUnit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct(&self.inner.name)
             .field("core_id", &self.core_id)
@@ -116,18 +119,19 @@ enum MemStageStallKind {
     WB_CACHE_RSRV_FAIL,
 }
 
-impl<I> LoadStoreUnit<I>
-where
-    I: ic::MemFetchInterface + 'static,
+impl LoadStoreUnit
+// impl<I> LoadStoreUnit<I>
+// where
+//     I: ic::MemFetchInterface + 'static,
 {
     pub fn new(
         id: usize,
         core_id: usize,
         cluster_id: usize,
         warps: Vec<warp::Ref>,
-        interconn: Arc<dyn ic::Interconnect<crate::Packet> + Send + 'static>,
-        fetch_interconn: Arc<I>,
-        // interconn_port: InterconnPort,
+        // interconn: Arc<dyn ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>>,
+        // fetch_interconn: Arc<I>,
+        mem_port: ic::Port<mem_fetch::MemFetch>,
         operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
         scoreboard: Arc<RwLock<Scoreboard>>,
         config: Arc<config::GPU>,
@@ -155,17 +159,19 @@ where
 
                 // initialize l1 data cache
                 let cache_stats = Arc::new(Mutex::new(stats::Cache::default()));
-                Some(Box::new(cache::Data::new(
+                let mut data_cache = cache::Data::new(
                     format!("ldst-unit-{cluster_id}-{core_id}-L1-DATA-CACHE"),
                     core_id,
                     cluster_id,
-                    Arc::clone(&fetch_interconn),
+                    // Arc::clone(&fetch_interconn),
                     cache_stats,
                     Arc::clone(&config),
                     Arc::clone(&l1_config.inner),
                     mem_fetch::AccessKind::L1_WR_ALLOC_R,
                     mem_fetch::AccessKind::L1_WRBK_ACC,
-                )))
+                );
+                data_cache.set_top_port(mem_port.clone());
+                Some(Box::new(data_cache))
             } else {
                 None
             };
@@ -179,9 +185,9 @@ where
             next_global: None,
             pending_writes: HashMap::new(),
             response_fifo: VecDeque::new(),
-            interconn,
-            fetch_interconn,
-            // interconn_port,
+            // interconn,
+            // fetch_interconn,
+            mem_port,
             inner,
             config,
             stats,
@@ -600,23 +606,32 @@ where
             // bypass L1 cache
             debug_assert_eq!(dispatch_instr.is_store(), access.is_write);
             // debug_assert_eq!(access.req_size_bytes, dispatch_instr.data_size);
-            let control_size = if dispatch_instr.is_store() {
-                mem_fetch::WRITE_PACKET_SIZE
-            } else {
-                mem_fetch::READ_PACKET_SIZE
-            };
-            let size = access.req_size_bytes + u32::from(control_size);
-            debug_assert_eq!(access.size(), size);
+            // let control_size = if dispatch_instr.is_store() {
+            //     mem_fetch::WRITE_PACKET_SIZE
+            // } else {
+            //     mem_fetch::READ_PACKET_SIZE
+            // };
+            // let size = access.req_size_bytes + u32::from(control_size);
+            // debug_assert_eq!(access.size(), size);
 
-            // if self.fetch_interconn.full(
-            if false
-            // if self.interconn_full(
-            // size,
-            // dispatch_instr.is_store() || dispatch_instr.is_atomic(),
-            {
-                // stall_cond = MemStageStallKind::ICNT_RC_FAIL;
-                panic!("interconn full");
+            // // if self.fetch_interconn.full(
+            // if false
+            // // if self.interconn_full(
+            // // size,
+            // // dispatch_instr.is_store() || dispatch_instr.is_atomic(),
+            // {
+            //     // stall_cond = MemStageStallKind::ICNT_RC_FAIL;
+            //     panic!("interconn full");
+            // } else {
+            let mut mem_port = self.mem_port.lock();
+
+            let packet_size = if dispatch_instr.is_store() || dispatch_instr.is_atomic() {
+                access.size()
             } else {
+                access.control_size()
+            };
+
+            if mem_port.can_send(&[packet_size]) {
                 if dispatch_instr.is_load() {
                     for out_reg in dispatch_instr.outputs() {
                         let pending = &self.pending_writes[&dispatch_instr.warp_id];
@@ -640,7 +655,10 @@ where
                 );
 
                 // self.interconn_push(fetch, time);
-                self.fetch_interconn.push(fetch, cycle);
+                mem_port.send(ic::Packet {
+                    data: fetch,
+                    time: cycle,
+                });
             }
         } else {
             debug_assert_ne!(dispatch_instr.cache_operator, CacheOperator::UNDEFINED);
@@ -964,9 +982,10 @@ where
     }
 }
 
-impl<I> fu::SimdFunctionUnit for LoadStoreUnit<I>
-where
-    I: ic::MemFetchInterface,
+impl fu::SimdFunctionUnit for LoadStoreUnit
+// impl<I> fu::SimdFunctionUnit for LoadStoreUnit<I>
+// where
+//     I: ic::MemFetchInterface,
 {
     fn active_lanes_in_pipeline(&self) -> usize {
         let active = self.inner.active_lanes_in_pipeline();
@@ -1053,9 +1072,10 @@ where
     }
 }
 
-impl<I> crate::engine::cycle::Component for LoadStoreUnit<I>
-where
-    I: ic::MemFetchInterface + 'static,
+impl crate::engine::cycle::Component for LoadStoreUnit
+// impl<I> crate::engine::cycle::Component for LoadStoreUnit<I>
+// where
+//     I: ic::MemFetchInterface + 'static,
 {
     fn cycle(&mut self, cycle: u64) {
         log::debug!(

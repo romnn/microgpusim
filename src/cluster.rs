@@ -1,4 +1,4 @@
-use super::{config, interconn as ic, mem_fetch, Core, MockSimulator, Packet};
+use super::{config, interconn as ic, mem_fetch, Core, MockSimulator};
 use console::style;
 use crossbeam::utils::CachePadded;
 
@@ -23,7 +23,7 @@ pub struct Cluster<I> {
 
 impl<I> Cluster<I>
 where
-    I: ic::Interconnect<Packet> + 'static,
+    I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
 {
     pub fn new(
         cluster_id: usize,
@@ -145,9 +145,10 @@ where
             return;
         }
 
-        let Some(Packet::Fetch(mut fetch)) = self.interconn.pop(self.cluster_id) else {
+        let Some(packet) = self.interconn.pop(self.cluster_id) else {
             return;
         };
+        let mut fetch = packet.data;
         log::debug!(
             "{}",
             style(format!(

@@ -15,8 +15,8 @@ use std::time::Instant;
 fn new_serial_cycle<I, T, Q>(
     cycle: u64,
     stats: Arc<Mutex<stats::Stats>>,
-    mem_sub_partitions: Vec<Mutex<crate::mem_sub_partition::MemorySubPartition<Q>>>,
-    mem_partition_units: Vec<RwLock<crate::mem_partition_unit::MemoryPartitionUnit>>,
+    mem_sub_partitions: Vec<Arc<Mutex<crate::mem_sub_partition::MemorySubPartition<Q>>>>,
+    mem_partition_units: Vec<Arc<RwLock<crate::mem_partition_unit::MemoryPartitionUnit>>>,
     interconn: Arc<I>,
     clusters: Vec<Arc<RwLock<crate::Cluster<I>>>>,
     config: &config::GPU,
@@ -25,6 +25,7 @@ fn new_serial_cycle<I, T, Q>(
     I: ic::Interconnect<crate::Packet>,
     T: std::fmt::Debug,
 {
+    // it could happen that two serial cycles overlap when using spawn fifo, so we need
     for cluster in &clusters {
         cluster.write().interconn_cycle(cycle);
     }
@@ -112,10 +113,16 @@ where
             .map(str::parse)
             .transpose()?
             .unwrap_or_else(num_cpus::get_physical);
-        rayon::ThreadPoolBuilder::new()
+        let _ = rayon::ThreadPoolBuilder::new()
             .num_threads(num_threads)
-            .build_global()
-            .unwrap();
+            .build_global();
+        // {
+        //     Ok(_)
+        //     | Err(rayon::ThreadPoolBuildError {
+        //         kind: rayon::ErrorKind::GlobalPoolAlreadyInitialized,
+        //     }) => {}
+        //     Err(err) => return Err(err.into()),
+        // }
         println!("nondeterministic [{run_ahead} run ahead] using RAYON");
         println!("\t => launching {num_threads} worker threads");
 
@@ -164,6 +171,7 @@ where
             self.config.simt_core_sim_order == config::SchedulingOrder::RoundRobin;
 
         let mut cycle: u64 = 0;
+        let interleave_serial = false;
 
         rayon::scope_fifo(|s| {
             while (self.commands_left() || self.kernels_left()) && !self.reached_limit(cycle) {
@@ -179,62 +187,104 @@ where
                     let span = tracing::span!(tracing::Level::INFO, "wave", cycle, run_ahead);
                     let enter = span.enter();
 
-                    rayon::scope(|wave| {
+                    rayon::scope_fifo(|wave| {
                         for i in 0..run_ahead {
-                            // run cores in any order
-                            // rayon::scope(|core_scope| {
-                            for (cluster, core, core_id) in cores.iter() {
-                                // core_scope.spawn(move |_| {
-                                wave.spawn(move |_| {
-                                    if *core_id == 0 {
-                                        cluster.write().interconn_cycle(cycle);
-                                    }
+                            if interleave_serial {
+                                for (cluster, core, core_id) in cores.iter() {
+                                    wave.spawn_fifo(move |_| {
+                                        // if *core_id == 0 {
+                                        //     cluster.write().interconn_cycle(cycle);
+                                        // }
 
-                                    core.write().cycle(cycle);
+                                        core.write().cycle(cycle);
+                                    });
+                                }
+                            } else {
+                                // run cores in any order
+                                rayon::scope(|core_scope| {
+                                    for (cluster, core, core_id) in cores.iter() {
+                                        core_scope.spawn(move |_| {
+                                            // if *core_id == 0 {
+                                            //     cluster.write().interconn_cycle(cycle);
+                                            // }
+
+                                            core.write().cycle(cycle);
+                                        });
+                                    }
                                 });
                             }
-                            // });
 
-                            // let sim_orders = sim_orders.clone();
-                            // let interconn_ports = interconn_ports.clone();
-                            // let interconn = self.interconn.clone();
-                            // s.spawn_fifo(move |_| {
-                            for cluster_id in 0..num_clusters {
-                                let mut core_sim_order = sim_orders[cluster_id].try_lock();
-                                for core_id in core_sim_order.iter() {
-                                    let mut port = interconn_ports[cluster_id][*core_id].lock();
-                                    for (dest, fetch, size) in port.drain(..) {
-                                        self.interconn.push(
-                                            cluster_id,
-                                            dest,
-                                            core::Packet::Fetch(fetch),
-                                            size,
-                                        );
+                            if interleave_serial {
+                                let sim_orders = sim_orders.clone();
+                                let interconn_ports = interconn_ports.clone();
+                                let interconn = self.interconn.clone();
+                                let stats = self.stats.clone();
+                                let mem_sub_partitions = self.mem_sub_partitions.clone();
+                                let mem_partition_units = self.mem_partition_units.clone();
+                                let clusters = self.clusters.clone();
+                                let config = self.config.clone();
+
+                                wave.spawn_fifo(move |_| {
+                                    for cluster_id in 0..num_clusters {
+                                        let mut core_sim_order = sim_orders[cluster_id].try_lock();
+                                        for core_id in core_sim_order.iter() {
+                                            let mut port =
+                                                interconn_ports[cluster_id][*core_id].lock();
+                                            for (dest, fetch, size) in port.drain(..) {
+                                                interconn.push(
+                                                    cluster_id,
+                                                    dest,
+                                                    core::Packet::Fetch(fetch),
+                                                    size,
+                                                );
+                                            }
+                                        }
+
+                                        if use_round_robin {
+                                            core_sim_order.rotate_left(1);
+                                        }
+                                    }
+
+                                    // after cores complete, run serial cycle
+                                    // self.serial_cycle(cycle + i as u64);
+                                    new_serial_cycle::<_, mem_fetch::MemFetch, _>(
+                                        cycle + i as u64,
+                                        stats,
+                                        mem_sub_partitions,
+                                        mem_partition_units,
+                                        interconn,
+                                        clusters,
+                                        &config,
+                                    );
+                                    //
+                                    // // locks are uncontended now
+                                    // self.issue_block_to_core(cycle);
+                                });
+                            } else {
+                                for cluster_id in 0..num_clusters {
+                                    let mut core_sim_order = sim_orders[cluster_id].try_lock();
+                                    for core_id in core_sim_order.iter() {
+                                        let mut port = interconn_ports[cluster_id][*core_id].lock();
+                                        for (dest, fetch, size) in port.drain(..) {
+                                            self.interconn.push(
+                                                cluster_id,
+                                                dest,
+                                                core::Packet::Fetch(fetch),
+                                                size,
+                                            );
+                                        }
+                                    }
+
+                                    if use_round_robin {
+                                        core_sim_order.rotate_left(1);
                                     }
                                 }
 
-                                if use_round_robin {
-                                    core_sim_order.rotate_left(1);
-                                }
+                                // after cores complete, run serial cycle
+                                self.serial_cycle(cycle + i as u64);
+                                // // locks are uncontended now
+                                // self.issue_block_to_core(cycle);
                             }
-
-                            // after cores complete, run serial cycle
-                            self.serial_cycle(cycle + i as u64);
-                            // new_serial_cycle(
-                            //     cycle + i as u64,
-                            //     stats: Arc<Mutex<stats::Stats>>,
-                            //     mem_sub_partitions:
-                            //         Vec<Mutex<crate::mem_sub_partition::MemorySubPartition<Q>>>,
-                            //     mem_partition_units:
-                            //         Vec<RwLock<crate::mem_partition_unit::MemoryPartitionUnit>>,
-                            //     interconn: Arc<I>,
-                            //     clusters: Vec<Arc<RwLock<crate::Cluster<I>>>>,
-                            //     config: &config::GPU,
-                            // );
-                            //
-                            // // locks are uncontended now
-                            // self.issue_block_to_core(cycle);
-                            // });
                         }
                     });
 
@@ -243,7 +293,6 @@ where
                     drop(enter);
 
                     cycle += run_ahead as u64;
-                    // cycle += 1;
                     self.set_cycle(cycle);
 
                     if !self.active() {
@@ -265,132 +314,6 @@ where
                 );
             }
         });
-
-        // let mut cycle: u64 = 0;
-        // while (self.commands_left() || self.kernels_left()) && !self.reached_limit(cycle) {
-        //     self.process_commands(cycle);
-        //     self.launch_kernels(cycle);
-        //
-        //     let mut finished_kernel = None;
-        //     loop {
-        //         if self.reached_limit(cycle) || !self.active() {
-        //             break;
-        //         }
-        //
-        //         let span = tracing::span!(tracing::Level::INFO, "wave", cycle, run_ahead);
-        //         let enter = span.enter();
-        //
-        //         // for i in 0..run_ahead {
-        //         let i = 0;
-        //         // TODO: make this in place
-        //         // rayon::in_place_scope_fifo(|s| {
-        //         rayon::scope_fifo(|s| {
-        //             // run cores in any order
-        //             rayon::scope(|core_scope| {
-        //                 for core in cores.iter() {
-        //                     core_scope.spawn(move |_| {
-        //                         core.write().cycle(cycle);
-        //                     });
-        //                 }
-        //             });
-        //
-        //             // let sim_orders = sim_orders.clone();
-        //             // let interconn_ports = interconn_ports.clone();
-        //             // s.spawn_fifo(move |_| {
-        //             for cluster_id in 0..num_clusters {
-        //                 let mut core_sim_order = sim_orders[cluster_id].try_lock();
-        //                 for core_id in core_sim_order.iter() {
-        //                     let mut port = interconn_ports[cluster_id][*core_id].try_lock();
-        //                     for (dest, fetch, size) in port.drain(..) {
-        //                         // self.interconn.push(
-        //                         //     cluster_id,
-        //                         //     dest,
-        //                         //     core::Packet::Fetch(fetch),
-        //                         //     size,
-        //                         // );
-        //                     }
-        //                 }
-        //
-        //                 if use_round_robin {
-        //                     core_sim_order.rotate_left(1);
-        //                 }
-        //             }
-        //             // after cores complete, run serial cycle
-        //             self.serial_cycle(cycle + i as u64);
-        //             // })
-        //
-        //             // s.spawn_fifo(|s| {
-        //             //     // task s.1
-        //             //     s.spawn_fifo(|s| {
-        //             //         // task s.1.1
-        //             //         rayon::scope_fifo(|t| {
-        //             //             t.spawn_fifo(|_| ()); // task t.1
-        //             //             t.spawn_fifo(|_| ()); // task t.2
-        //             //         });
-        //             //     });
-        //             // });
-        //             // s.spawn_fifo(|s| { // task s.2
-        //             // });
-        //             // point mid
-        //         });
-        //
-        //         // locks are uncontended now
-        //         self.issue_block_to_core(cycle);
-        //         drop(enter);
-        //
-        //         cycle += run_ahead as u64;
-        //         self.set_cycle(cycle);
-        //
-        //         if !self.active() {
-        //             finished_kernel = self.finished_kernel();
-        //             if finished_kernel.is_some() {
-        //                 break;
-        //             }
-        //         }
-        //     }
-        //
-        //     if let Some(kernel) = finished_kernel {
-        //         self.cleanup_finished_kernel(&kernel);
-        //     }
-        //
-        //     log::trace!(
-        //         "commands left={} kernels left={}",
-        //         self.commands_left(),
-        //         self.kernels_left()
-        //     );
-        // }
-
-        // let clustersx: Vec<_> = self.clusters;
-
-        // let run_core = |(core, core_sim_order): (
-        //     Arc<RwLock<crate::Cluster<_>>>,
-        //     Arc<Mutex<VecDeque<usize>>>,
-        // )| {
-        // let run_core = |core: Arc<RwLock<crate::Core<_>>>| {
-        //     // c.write().cycle(cycle);
-        //     // for c in core {
-        //     //     c.write().cycle(cycle);
-        //     // }
-        //     //
-        //     // let mut core_sim_order = core_sim_order.try_lock();
-        //     // for core_id in core_sim_order.iter() {
-        //     //     // let (_core, interconn_port) = &cores[*core_id];
-        //     //     // let mut port = interconn_port.try_lock();
-        //     //     // for (dest, fetch, size) in port.drain(..) {
-        //     //     // interconn.push(
-        //     //     //     *cluster_id,
-        //     //     //     dest,
-        //     //     //     core::Packet::Fetch(fetch),
-        //     //     //     size,
-        //     //     // );
-        //     //     // }
-        //     // }
-        //     //
-        //     // if use_round_robin {
-        //     //     core_sim_order.rotate_left(1);
-        //     // }
-        // };
-
         log::info!("exit after {cycle} cycles");
         dbg!(&cycle);
 
@@ -735,9 +658,9 @@ where
         // }
 
         // let start = Instant::now();
-        // for cluster in &self.clusters {
-        //     cluster.write().interconn_cycle(cycle);
-        // }
+        for cluster in &self.clusters {
+            cluster.write().interconn_cycle(cycle);
+        }
         // #[cfg(feature = "stats")]
         // {
         //     TIMINGS

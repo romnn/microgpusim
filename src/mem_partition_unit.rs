@@ -1,11 +1,8 @@
-use super::{
-    address, config, dram,
-    fifo::{Fifo, Queue},
-    mem_fetch,
-    mem_fetch::BitString,
+use crate::sync::{Arc, Mutex};
+use crate::{
+    address, config, dram, ic::Packet, mem_fetch, mem_fetch::BitString,
     mem_sub_partition::MemorySubPartition,
 };
-use crate::sync::{Arc, Mutex};
 use console::style;
 use std::collections::VecDeque;
 
@@ -13,7 +10,7 @@ pub struct MemoryPartitionUnit {
     id: usize,
     dram: dram::DRAM,
     pub dram_latency_queue: VecDeque<mem_fetch::MemFetch>,
-    pub sub_partitions: Vec<Arc<Mutex<MemorySubPartition<Fifo<mem_fetch::MemFetch>>>>>,
+    pub sub_partitions: Vec<Arc<Mutex<MemorySubPartition>>>,
     pub arbitration_metadata: super::arbitration::Arbiter,
 
     config: Arc<config::GPU>,
@@ -111,7 +108,7 @@ impl MemoryPartitionUnit {
     }
 
     #[tracing::instrument]
-    pub fn simple_dram_cycle(&mut self) {
+    pub fn simple_dram_cycle(&mut self, cycle: u64) {
         log::debug!("{} ...", style("simple dram cycle").red());
         // pop completed memory request from dram and push it to dram-to-L2 queue
         // of the original sub partition
@@ -148,6 +145,7 @@ impl MemoryPartitionUnit {
 
                 // depending on which sub the fetch is for, we race for the sub
 
+                // this is fine
                 if sub.dram_to_l2_queue.full() {
                     // panic!("fyi: simple dram model stall");
                 } else {
@@ -169,7 +167,10 @@ impl MemoryPartitionUnit {
                         // );
 
                         debug_assert!(returned_fetch.is_reply());
-                        sub.dram_to_l2_queue.enqueue(returned_fetch);
+                        sub.dram_to_l2_queue.enqueue(Packet {
+                            data: returned_fetch,
+                            time: cycle,
+                        });
                     }
                 }
             }
@@ -233,7 +234,7 @@ impl MemoryPartitionUnit {
                         break;
                     }
 
-                    let mut fetch = l2_to_dram_queue.dequeue().unwrap();
+                    let mut fetch = l2_to_dram_queue.dequeue().unwrap().into_inner();
                     log::debug!(
                         "simple dram: issue {} from sub partition {} to DRAM",
                         &fetch,

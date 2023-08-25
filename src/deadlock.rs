@@ -1,4 +1,4 @@
-use super::{core, interconn as ic, mem_fetch, register_set};
+use crate::{core, interconn as ic, mem_fetch, register_set};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct State {
@@ -36,7 +36,7 @@ impl State {
 
 impl<I> super::MockSimulator<I>
 where
-    I: ic::Interconnect<core::Packet> + 'static,
+    I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>> + 'static,
 {
     pub fn gather_state(&self) -> State {
         let total_cores = self.config.total_cores();
@@ -92,7 +92,7 @@ where
                 ),
                 (&mut state.dram_to_l2_queue[sub_id], &sub.dram_to_l2_queue),
             ] {
-                dest_queue.extend(src_queue.clone().into_iter());
+                dest_queue.extend(src_queue.clone().into_iter().map(ic::Packet::into_inner));
             }
         }
         state

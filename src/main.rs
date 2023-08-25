@@ -85,8 +85,15 @@ fn main() -> eyre::Result<()> {
 
     let parallelization = match (options.parallel, options.non_deterministic) {
         (false, _) => casimu::config::Parallelization::Serial,
+        #[cfg(feature = "parallel")]
         (true, None) => casimu::config::Parallelization::Deterministic,
+        #[cfg(feature = "parallel")]
         (true, Some(n)) => casimu::config::Parallelization::Nondeterministic(n),
+        #[cfg(not(feature = "parallel"))]
+        _ => eyre::bail!(
+            "{} was compiled with parallel simulation disabled",
+            env!("CARGO_BIN_NAME")
+        ),
     };
 
     let config = casimu::config::GPU {

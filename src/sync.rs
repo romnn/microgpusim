@@ -50,7 +50,8 @@ pub mod parking_lot {
 
         #[inline]
         pub fn try_lock(&self) -> parking_lot::FairMutexGuard<T> {
-            self.0.try_lock().unwrap()
+            self.0.lock()
+            // self.0.try_lock().unwrap()
         }
     }
 
@@ -73,7 +74,8 @@ pub mod parking_lot {
 
         #[inline]
         pub fn try_read(&self) -> parking_lot::RwLockReadGuard<T> {
-            self.0.try_read().unwrap()
+            self.0.read()
+            // self.0.try_read().unwrap()
         }
 
         #[inline]
@@ -83,7 +85,8 @@ pub mod parking_lot {
 
         #[inline]
         pub fn try_write(&self) -> parking_lot::RwLockWriteGuard<T> {
-            self.0.try_write().unwrap()
+            self.0.write()
+            // self.0.try_write().unwrap()
         }
     }
 }

@@ -1,4 +1,4 @@
-use super::{config, mem_fetch, Packet};
+use super::{config, mem_fetch};
 use crate::sync::{Arc, Mutex, RwLock};
 use console::style;
 use std::collections::VecDeque;
@@ -219,8 +219,6 @@ where
     }
 }
 
-pub type Port = Arc<Mutex<VecDeque<(usize, mem_fetch::MemFetch, u32)>>>;
-
 /// Memory interconnect interface between components.
 ///
 /// Functions are not mutable because the interface should
@@ -231,79 +229,188 @@ pub trait MemFetchInterface: Send + Sync + std::fmt::Debug + 'static {
     fn push(&self, _fetch: mem_fetch::MemFetch, time: u64);
 }
 
-#[derive()]
-pub struct CoreMemoryInterface<P> {
-    pub config: Arc<config::GPU>,
-    pub stats: Arc<Mutex<stats::Stats>>,
-    pub cluster_id: usize,
-    pub interconn: Arc<dyn Interconnect<P>>,
-    pub interconn_port: Port,
+// #[derive()]
+// pub struct CoreMemoryInterface<P> {
+//     pub config: Arc<config::GPU>,
+//     pub stats: Arc<Mutex<stats::Stats>>,
+//     pub cluster_id: usize,
+//     pub interconn: Arc<dyn Interconnect<P>>,
+//     pub interconn_port: Port,
+// }
+
+// impl<P> std::fmt::Debug for CoreMemoryInterface<P> {
+//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+//         f.debug_struct("CoreMemoryInterface").finish()
+//     }
+// }
+//
+// impl MemFetchInterface for CoreMemoryInterface<Packet> {
+//     fn full(&self, size: u32, write: bool) -> bool {
+//         let request_size = if write {
+//             size
+//         } else {
+//             u32::from(mem_fetch::READ_PACKET_SIZE)
+//         };
+//         !self.interconn.has_buffer(self.cluster_id, request_size)
+//     }
+//
+//     fn push(&self, mut fetch: mem_fetch::MemFetch, time: u64) {
+//         // self.core.interconn_simt_to_mem(fetch.get_num_flits(true));
+//         // self.cluster.interconn_inject_request_packet(fetch);
+//
+//         #[cfg(feature = "stats")]
+//         {
+//             let mut stats = self.stats.lock();
+//             let access_kind = *fetch.access_kind();
+//             debug_assert_eq!(fetch.is_write(), access_kind.is_write());
+//             stats.accesses.inc(access_kind, 1);
+//         }
+//
+//         let dest_sub_partition_id = fetch.sub_partition_id();
+//         let mem_dest = self.config.mem_id_to_device_id(dest_sub_partition_id);
+//
+//         log::debug!(
+//             "cluster {} icnt_inject_request_packet({}) dest sub partition id={} dest mem node={}",
+//             self.cluster_id,
+//             fetch,
+//             dest_sub_partition_id,
+//             mem_dest
+//         );
+//
+//         // The packet size varies depending on the type of request:
+//         // - For write request and atomic request, packet contains the data
+//         // - For read request (i.e. not write nor atomic), packet only has control metadata
+//         let packet_size = if !fetch.is_write() && !fetch.is_atomic() {
+//             fetch.control_size()
+//         } else {
+//             // todo: is that correct now?
+//             fetch.size()
+//             // fetch.data_size
+//         };
+//         // m_stats->m_outgoing_traffic_stats->record_traffic(mf, packet_size);
+//         fetch.status = mem_fetch::Status::IN_ICNT_TO_MEM;
+//
+//         // if let Packet::Fetch(fetch) = packet {
+//         fetch.pushed_cycle = Some(time);
+//
+//         // self.interconn_queue
+//         //     .push_back((mem_dest, fetch, packet_size));
+//         // self.interconn
+//         //     .push(self.cluster_id, mem_dest, Packet::Fetch(fetch), packet_size);
+//         self.interconn_port
+//             .lock()
+//             .push_back((mem_dest, fetch, packet_size));
+//     }
+// }
+
+#[derive(Clone, PartialEq, Eq, Ord, PartialOrd)]
+pub struct Packet<T> {
+    pub data: T,
+    // size: u32,
+    // src: usize,
+    // destination: usize,
+    pub time: u64,
 }
 
-impl<P> std::fmt::Debug for CoreMemoryInterface<P> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct("CoreMemoryInterface").finish()
+impl<T> std::ops::Deref for Packet<T> {
+    type Target = T;
+    fn deref(&self) -> &T {
+        &self.data
     }
 }
 
-impl MemFetchInterface for CoreMemoryInterface<Packet> {
-    fn full(&self, size: u32, write: bool) -> bool {
-        let request_size = if write {
-            size
-        } else {
-            u32::from(mem_fetch::READ_PACKET_SIZE)
-        };
-        !self.interconn.has_buffer(self.cluster_id, request_size)
-    }
-
-    fn push(&self, mut fetch: mem_fetch::MemFetch, time: u64) {
-        // self.core.interconn_simt_to_mem(fetch.get_num_flits(true));
-        // self.cluster.interconn_inject_request_packet(fetch);
-
-        #[cfg(feature = "stats")]
-        {
-            let mut stats = self.stats.lock();
-            let access_kind = *fetch.access_kind();
-            debug_assert_eq!(fetch.is_write(), access_kind.is_write());
-            stats.accesses.inc(access_kind, 1);
-        }
-
-        let dest_sub_partition_id = fetch.sub_partition_id();
-        let mem_dest = self.config.mem_id_to_device_id(dest_sub_partition_id);
-
-        log::debug!(
-            "cluster {} icnt_inject_request_packet({}) dest sub partition id={} dest mem node={}",
-            self.cluster_id,
-            fetch,
-            dest_sub_partition_id,
-            mem_dest
-        );
-
-        // The packet size varies depending on the type of request:
-        // - For write request and atomic request, packet contains the data
-        // - For read request (i.e. not write nor atomic), packet only has control metadata
-        let packet_size = if !fetch.is_write() && !fetch.is_atomic() {
-            fetch.control_size()
-        } else {
-            // todo: is that correct now?
-            fetch.size()
-            // fetch.data_size
-        };
-        // m_stats->m_outgoing_traffic_stats->record_traffic(mf, packet_size);
-        fetch.status = mem_fetch::Status::IN_ICNT_TO_MEM;
-
-        // if let Packet::Fetch(fetch) = packet {
-        fetch.pushed_cycle = Some(time);
-
-        // self.interconn_queue
-        //     .push_back((mem_dest, fetch, packet_size));
-        // self.interconn
-        //     .push(self.cluster_id, mem_dest, Packet::Fetch(fetch), packet_size);
-        self.interconn_port
-            .lock()
-            .push_back((mem_dest, fetch, packet_size));
+impl<T> std::ops::DerefMut for Packet<T> {
+    fn deref_mut(&mut self) -> &mut T {
+        &mut self.data
     }
 }
+
+impl<T> AsRef<T> for Packet<T> {
+    fn as_ref(&self) -> &T {
+        &self.data
+    }
+}
+
+impl<T> Packet<T> {
+    pub fn into_inner(self) -> T {
+        self.data
+    }
+}
+// impl<T> Into<T> for Packet<T> {
+//     fn into(self) -> T {
+//         self.data
+//     }
+// }
+
+// impl<T> From<Packet<T>> for T {
+//     // fn from(self) -> T {
+//     //     self.data
+//     // }
+// }
+
+impl<T> std::fmt::Debug for Packet<T>
+where
+    T: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(&self.data, f)
+    }
+}
+
+impl<T> std::fmt::Display for Packet<T>
+where
+    T: std::fmt::Display,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.data, f)
+    }
+}
+
+// impl Packet {
+//     pub fn new(
+//         #[cfg(feature = "stats")]
+//         {
+//             let mut stats = self.stats.lock();
+//             let access_kind = *fetch.access_kind();
+//             debug_assert_eq!(fetch.is_write(), access_kind.is_write());
+//             stats.accesses.inc(access_kind, 1);
+//         }
+//
+//         let dest_sub_partition_id = fetch.sub_partition_id();
+//         let mem_dest = self.config.mem_id_to_device_id(dest_sub_partition_id);
+//
+//         log::debug!(
+//             "cluster {} icnt_inject_request_packet({}) dest sub partition id={} dest mem node={}",
+//             self.cluster_id,
+//             fetch,
+//             dest_sub_partition_id,
+//             mem_dest
+//         );
+//
+//         // The packet size varies depending on the type of request:
+//         // - For write request and atomic request, packet contains the data
+//         // - For read request (i.e. not write nor atomic), packet only has control metadata
+//         let packet_size = if !fetch.is_write() && !fetch.is_atomic() {
+//             fetch.control_size()
+//         } else {
+//             // todo: is that correct now?
+//             fetch.size()
+//             // fetch.data_size
+//         };
+//         // m_stats->m_outgoing_traffic_stats->record_traffic(mf, packet_size);
+//         fetch.status = mem_fetch::Status::IN_ICNT_TO_MEM;
+//
+//         // if let Packet::Fetch(fetch) = packet {
+//         fetch.pushed_cycle = Some(time);
+//
+//         // self.interconn_queue
+//         //     .push_back((mem_dest, fetch, packet_size));
+//         // self.interconn
+//         //     .push(self.cluster_id, mem_dest, Packet::Fetch(fetch), packet_size);
+//         self.interconn_port
+//             .lock()
+//             .push_back((mem_dest, fetch, packet_size));
+// }
 
 #[derive()]
 pub struct L2Interface<Q> {
@@ -316,20 +423,88 @@ impl<Q> std::fmt::Debug for L2Interface<Q> {
     }
 }
 
-impl<Q> MemFetchInterface for L2Interface<Q>
-where
-    Q: super::fifo::Queue<mem_fetch::MemFetch>,
-{
-    fn full(&self, _size: u32, _write: bool) -> bool {
-        self.l2_to_dram_queue.lock().full()
+pub trait Network<P> {
+    // todo
+}
+
+// pub type Port = Arc<Mutex<VecDeque<(usize, mem_fetch::MemFetch, u32)>>>;
+pub type Port<P> = Arc<Mutex<dyn Connection<Packet<P>>>>;
+
+/// A connection between two components
+pub trait Connection<P>: Sync + Send + 'static {
+    /// If the connection can send a new message
+    #[must_use]
+    fn can_send(&self, packet_sizes: &[u32]) -> bool;
+
+    /// Sends a packet to the connection
+    fn send(&mut self, packet: P);
+    // fn send(&mut self, packet: Packet<P>);
+}
+
+/// A buffered connection between two components
+pub trait BufferedConnection<P>: Connection<P> {
+    /// Iterator over buffered in-flight messages
+    fn buffered(&self) -> Box<dyn Iterator<Item = &P> + '_>;
+
+    #[must_use]
+    fn num_buffered(&self) -> usize {
+        self.buffered().count()
     }
 
-    fn push(&self, mut fetch: mem_fetch::MemFetch, _time: u64) {
-        fetch.set_status(mem_fetch::Status::IN_PARTITION_L2_TO_DRAM_QUEUE, 0);
-        log::debug!("l2 interface push l2_to_dram_queue");
-        self.l2_to_dram_queue.lock().enqueue(fetch);
+    fn drain(&mut self) -> Box<dyn Iterator<Item = P> + '_>;
+}
+
+impl<P> Connection<P> for VecDeque<P>
+where
+    P: Send + Sync + 'static,
+{
+    #[inline]
+    fn can_send(&self, packet_sizes: &[u32]) -> bool {
+        true
+    }
+
+    #[inline]
+    fn send(&mut self, packet: P) {
+        self.push_back(packet);
     }
 }
+
+impl<P> BufferedConnection<P> for VecDeque<P>
+where
+    P: Send + Sync + 'static,
+{
+    #[inline]
+    fn buffered(&self) -> Box<dyn Iterator<Item = &P> + '_> {
+        Box::new(self.iter())
+    }
+
+    #[inline]
+    fn num_buffered(&self) -> usize {
+        self.len()
+    }
+
+    #[inline]
+    fn drain(&mut self) -> Box<dyn Iterator<Item = P> + '_> {
+        Box::new(self.drain(..))
+    }
+}
+
+// TODO: use a direct connection interface here
+// THIS is just plain wrong and not thread safe
+// impl<Q> MemFetchInterface for L2Interface<Q>
+// where
+//     Q: super::fifo::Queue<mem_fetch::MemFetch>,
+// {
+//     fn full(&self, _size: u32, _write: bool) -> bool {
+//         self.l2_to_dram_queue.lock().full()
+//     }
+//
+//     fn push(&self, mut fetch: mem_fetch::MemFetch, _time: u64) {
+//         fetch.set_status(mem_fetch::Status::IN_PARTITION_L2_TO_DRAM_QUEUE, 0);
+//         log::debug!("l2 interface push l2_to_dram_queue");
+//         self.l2_to_dram_queue.lock().enqueue(fetch);
+//     }
+// }
 
 #[cfg(test)]
 mod tests {

@@ -77,18 +77,18 @@ impl InstrFetchBuffer {
 
 type ResultBus = BitArr!(for fu::MAX_ALU_LATENCY);
 
-#[derive(Debug)]
-pub enum Packet {
-    Fetch(mem_fetch::MemFetch),
-}
+// #[derive(Debug)]
+// pub enum Packet {
+//     Fetch(mem_fetch::MemFetch),
+// }
 
-impl std::fmt::Display for Packet {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Packet::Fetch(fetch) => write!(f, "{fetch}"),
-        }
-    }
-}
+// impl std::fmt::Display for Packet {
+//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+//         match self {
+//             Packet::Fetch(fetch) => write!(f, "{fetch}"),
+//         }
+//     }
+// }
 
 pub trait WarpIssuer {
     fn issue_warp(
@@ -110,7 +110,7 @@ pub trait WarpIssuer {
 
 impl<I> WarpIssuer for Core<I>
 where
-    I: ic::Interconnect<Packet> + Send + 'static,
+    I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
 {
     fn has_free_register(&self, stage: PipelineStage, _register_id: usize) -> bool {
         // locking here blocks when we run schedulers in parallel
@@ -355,6 +355,111 @@ pub enum FetchResponseTarget {
     ICache,
 }
 
+// type InterconnBuffer<T> = Arc<Mutex<VecDeque<(usize, T, u32)>>>;
+type InterconnBuffer<T> = VecDeque<ic::Packet<(usize, T, u32)>>;
+
+// pub struct CoreMemoryConnection<P> {
+pub struct CoreMemoryConnection<C> {
+    pub config: Arc<config::GPU>,
+    pub stats: Arc<Mutex<stats::Stats>>,
+    pub cluster_id: usize,
+    // pub interconn: Arc<dyn ic::Interconnect<P>>,
+    pub buffer: C,
+}
+
+impl<C> ic::Connection<ic::Packet<mem_fetch::MemFetch>> for CoreMemoryConnection<C>
+where
+    C: ic::BufferedConnection<ic::Packet<(usize, mem_fetch::MemFetch, u32)>>,
+{
+    #[inline]
+    fn can_send(&self, packets: &[u32]) -> bool {
+        // let request_size: u32 = packets
+        //     .iter()
+        //     .map(|fetch| {
+        //         if fetch.is_write() {
+        //             fetch.size()
+        //         } else {
+        //             u32::from(mem_fetch::READ_PACKET_SIZE)
+        //         }
+        //     })
+        //     .sum();
+        // true
+        self.buffer.can_send(packets)
+        // self.interconn.has_buffer(self.cluster_id, request_size)
+    }
+
+    #[inline]
+    fn send(&mut self, packet: ic::Packet<mem_fetch::MemFetch>) {
+        // self.core.interconn_simt_to_mem(fetch.get_num_flits(true));
+        // self.cluster.interconn_inject_request_packet(fetch);
+
+        let ic::Packet { data, time } = packet;
+        let mut fetch = data;
+
+        #[cfg(feature = "stats")]
+        {
+            let mut stats = self.stats.lock();
+            let access_kind = *fetch.access_kind();
+            debug_assert_eq!(fetch.is_write(), access_kind.is_write());
+            stats.accesses.inc(access_kind, 1);
+        }
+
+        let dest_sub_partition_id = fetch.sub_partition_id();
+        let mem_dest = self.config.mem_id_to_device_id(dest_sub_partition_id);
+
+        log::debug!(
+            "cluster {} icnt_inject_request_packet({}) dest sub partition id={} dest mem node={}",
+            self.cluster_id,
+            fetch,
+            dest_sub_partition_id,
+            mem_dest
+        );
+
+        // The packet size varies depending on the type of request:
+        // - For write request and atomic request, packet contains the data
+        // - For read request (i.e. not write nor atomic), packet only has control metadata
+        let packet_size = if fetch.is_write() || fetch.is_atomic() {
+            fetch.size()
+        } else {
+            fetch.control_size()
+        };
+        // m_stats->m_outgoing_traffic_stats->record_traffic(mf, packet_size);
+        fetch.status = mem_fetch::Status::IN_ICNT_TO_MEM;
+
+        // if let Packet::Fetch(fetch) = packet {
+        fetch.pushed_cycle = Some(time);
+
+        // self.interconn_queue
+        //     .push_back((mem_dest, fetch, packet_size));
+        // self.interconn
+        //     .push(self.cluster_id, mem_dest, Packet::Fetch(fetch), packet_size);
+        // self.interconn_port
+        //     .lock()
+        //     .push_back((mem_dest, fetch, packet_size));
+        self.buffer.send(ic::Packet {
+            data: (mem_dest, fetch, packet_size),
+            time,
+        });
+    }
+}
+
+// impl<C> ic::BufferedConnection<ic::Packet<mem_fetch::MemFetch>> for CoreMemoryConnection<C>
+// where
+//     C: ic::Connection<ic::Packet<(usize, mem_fetch::MemFetch, u32)>>,
+// {
+//     #[inline]
+//     fn buffered(&self) -> Box<dyn Iterator<Item = &ic::Packet<mem_fetch::MemFetch>>> {
+//         self.buffer.buffered()
+//     }
+// }
+
+// impl<P> std::fmt::Debug for CoreMemoryInterface<P> {
+//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+//         f.debug_struct("CoreMemoryInterface").finish()
+//     }
+// }
+//
+
 /// SIMT Core.
 #[derive()]
 pub struct Core<I> {
@@ -366,8 +471,12 @@ pub struct Core<I> {
     pub current_kernel: Mutex<Option<Arc<Kernel>>>,
     pub last_warp_fetched: Option<usize>,
     pub interconn: Arc<I>,
-    pub interconn_port: ic::Port,
-    pub load_store_unit: Arc<Mutex<fu::LoadStoreUnit<ic::CoreMemoryInterface<Packet>>>>,
+    // pub interconn_port: Arc<Mutex<ic::Port<mem_fetch::MemFetch>>>,
+    // pub interconn_buffer: InterconnBuffer<mem_fetch::MemFetch>,
+    // pub mem_port: ic::Port<mem_fetch::MemFetch>,
+    pub mem_port: Arc<Mutex<CoreMemoryConnection<InterconnBuffer<mem_fetch::MemFetch>>>>,
+    // pub load_store_unit: Arc<Mutex<fu::LoadStoreUnit<ic::CoreMemoryInterface<Packet>>>>,
+    pub load_store_unit: Arc<Mutex<fu::LoadStoreUnit>>,
     pub active_thread_mask: BitArr!(for MAX_THREAD_PER_SM),
     pub occupied_hw_thread_ids: BitArr!(for MAX_THREAD_PER_SM),
     pub dynamic_warp_id: usize,
@@ -392,7 +501,7 @@ pub struct Core<I> {
     pub operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
     pub pipeline_reg: Vec<register_set::Ref>,
     pub result_busses: Vec<ResultBus>,
-    pub interconn_queue: VecDeque<(usize, mem_fetch::MemFetch, u32)>,
+    // pub interconn_queue: VecDeque<(usize, mem_fetch::MemFetch, u32)>,
     pub issue_ports: Vec<PipelineStage>,
     // pub dispatch_ports: Vec<PipelineStage>,
     pub functional_units: Vec<Arc<Mutex<dyn fu::SimdFunctionUnit>>>,
@@ -412,7 +521,7 @@ impl<I> std::fmt::Debug for Core<I> {
 // PUBLIC
 impl<I> Core<I>
 where
-    I: ic::Interconnect<Packet> + Send + 'static,
+    I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
 {
     pub fn new(
         core_id: usize,
@@ -429,17 +538,24 @@ where
             .map(|_| warp::Ref::default())
             .collect();
 
-        let interconn_port = ic::Port::default();
+        // let interconn_buffer: InterconnBuffer<mem_fetch::MemFetch> = InterconnBuffer::default();
+        // VecDeque<(usize, T, u32)>
 
-        let port = Arc::new(ic::CoreMemoryInterface {
+        // let interconn_port = ic::Port::default();
+
+        // let mem_port: ic::Port<mem_fetch::MemFetch> = Arc::new(Mutex::new(CoreMemoryConnection {
+        let mem_port = Arc::new(Mutex::new(CoreMemoryConnection {
             cluster_id,
             stats: Arc::clone(&stats),
             config: Arc::clone(&config),
-            interconn: interconn.clone(),
-            interconn_port: interconn_port.clone(),
-        });
+            // interconn: interconn.clone(),
+            buffer: InterconnBuffer::<mem_fetch::MemFetch>::new(),
+        }));
+        // as dyn ic::Connection<mem_fetch::MemFetch>))
+        // as ic::Port<mem_fetch::MemFetch>;
+
         let cache_stats = Arc::new(Mutex::new(stats::Cache::default()));
-        let instr_l1_cache = cache::ReadOnly::new(
+        let mut instr_l1_cache = cache::ReadOnly::new(
             format!(
                 "core-{}-{}-{}",
                 cluster_id,
@@ -448,11 +564,13 @@ where
             ),
             core_id,
             cluster_id,
-            Arc::clone(&port),
+            // Arc::clone(&port),
             cache_stats,
             Arc::clone(&config),
             config.inst_cache_l1.as_ref().unwrap().clone(),
         );
+        instr_l1_cache.set_top_port(mem_port.clone());
+        // instr_l1_cache.set_top_port(Arc::clone(&mem_port) as ic::Port<mem_fetch::MemFetch>);
 
         let scoreboard = Arc::new(RwLock::new(scoreboard::Scoreboard::new(
             core_id,
@@ -489,13 +607,13 @@ where
             );
         }
 
-        let fetch_interconn = Arc::new(ic::CoreMemoryInterface {
-            cluster_id,
-            interconn: interconn.clone(),
-            interconn_port: interconn_port.clone(),
-            stats: stats.clone(),
-            config: config.clone(),
-        });
+        // let fetch_interconn = Arc::new(ic::CoreMemoryInterface {
+        //     cluster_id,
+        //     interconn: interconn.clone(),
+        //     interconn_port: interconn_port.clone(),
+        //     stats: stats.clone(),
+        //     config: config.clone(),
+        // });
 
         // there are as many result buses as the width of the EX_WB stage
         let result_busses: Vec<_> = (0..pipeline_reg[PipelineStage::EX_WB as usize].size())
@@ -514,19 +632,22 @@ where
 
         let operand_collector = Arc::new(Mutex::new(operand_collector));
 
-        let load_store_unit = Arc::new(Mutex::new(fu::LoadStoreUnit::new(
+        let load_store_unit = fu::LoadStoreUnit::new(
             0, // no id for now
             core_id,
             cluster_id,
             warps.clone(),
-            interconn.clone(),
-            fetch_interconn,
-            // interconn_queue,
+            // interconn.clone(),
+            // fetch_interconn,
+            // interconn_buffer,
+            // Arc::clone(&mem_port) as ic::Port<mem_fetch::MemFetch>,
+            mem_port.clone(),
             operand_collector.clone(),
             scoreboard.clone(),
             config.clone(),
             stats.clone(),
-        )));
+        );
+        let load_store_unit = Arc::new(Mutex::new(load_store_unit));
 
         let scheduler_kind = config::SchedulerKind::GTO;
 
@@ -655,12 +776,13 @@ where
             please_fill: Mutex::new(Vec::new()),
             instr_fetch_buffer: InstrFetchBuffer::default(),
             interconn,
-            interconn_port,
+            mem_port,
+            // interconn_buffer,
             load_store_unit,
             warps,
             pipeline_reg,
             result_busses,
-            interconn_queue: VecDeque::new(),
+            // interconn_queue: VecDeque::new(),
             scoreboard,
             barriers,
             operand_collector,
@@ -1001,7 +1123,7 @@ where
 // PRIVATE
 impl<I> Core<I>
 where
-    I: ic::Interconnect<Packet> + Send + 'static,
+    I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
 {
     #[inline]
     fn init_operand_collector(
@@ -1838,7 +1960,7 @@ where
 
 impl<I> crate::engine::cycle::Component for Core<I>
 where
-    I: ic::Interconnect<Packet> + Send + 'static,
+    I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
 {
     #[tracing::instrument(name = "core_cycle")]
     fn cycle(&mut self, cycle: u64) {

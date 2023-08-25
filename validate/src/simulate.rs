@@ -36,8 +36,20 @@ pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<stats::Stats, Ru
     let parallelization = match (bench.simulate.parallel, non_deterministic) {
         (false, _) => casimu::config::Parallelization::Serial,
         // (true, None) => casimu::config::Parallelization::RayonDeterministic,
+        #[cfg(feature = "parallel")]
         (true, None) => casimu::config::Parallelization::Deterministic,
+        #[cfg(feature = "parallel")]
         (true, Some(n)) => casimu::config::Parallelization::Nondeterministic(n),
+        #[cfg(not(feature = "parallel"))]
+        _ => {
+            return Err(RunError::Failed(
+                eyre::eyre!(
+                    "{} was compiled with parallel simulation disabled",
+                    env!("CARGO_PKG_NAME")
+                )
+                .with_suggestion(|| format!(r#"enable the "parallel" feature"#)),
+            ))
+        }
     };
 
     let config = casimu::config::GPU {

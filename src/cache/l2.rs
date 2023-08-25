@@ -5,20 +5,24 @@ use std::collections::VecDeque;
 /// Generic data cache.
 #[derive(Debug)]
 #[allow(clippy::module_name_repetitions)]
-pub struct DataL2<I> {
-    pub inner: super::data::Data<I>,
+// pub struct DataL2<I> {
+pub struct DataL2 {
+    pub inner: super::data::Data,
+    // pub inner: super::data::Data<I>,
     pub cache_config: Arc<config::L2DCache>,
 }
 
-impl<I> DataL2<I>
-where
-    I: ic::MemFetchInterface,
+impl DataL2
+// impl<I> DataL2<I>
+// where
+//     // I: ic::MemFetchInterface,
+//     I: crate::fifo::Queue<mem_fetch::MemFetch>,
 {
     pub fn new(
         name: String,
         core_id: usize,
         cluster_id: usize,
-        fetch_interconn: Arc<I>,
+        // fetch_interconn: Arc<I>,
         stats: Arc<Mutex<stats::Cache>>,
         config: Arc<config::GPU>,
         cache_config: Arc<config::L2DCache>,
@@ -27,7 +31,7 @@ where
             name,
             core_id,
             cluster_id,
-            fetch_interconn,
+            // fetch_interconn,
             stats,
             config,
             cache_config.inner.clone(),
@@ -39,20 +43,27 @@ where
             cache_config,
         }
     }
+
+    #[inline]
+    pub fn set_top_port(&mut self, port: ic::Port<mem_fetch::MemFetch>) {
+        self.inner.set_top_port(port);
+    }
 }
 
-impl<I> crate::engine::cycle::Component for DataL2<I>
-where
-    I: ic::MemFetchInterface,
+impl crate::engine::cycle::Component for DataL2
+// impl<I> crate::engine::cycle::Component for DataL2<I>
+// where
+//     I: ic::MemFetchInterface,
 {
     fn cycle(&mut self, cycle: u64) {
         self.inner.cycle(cycle);
     }
 }
 
-impl<I> super::Cache for DataL2<I>
-where
-    I: ic::MemFetchInterface + 'static,
+impl super::Cache for DataL2
+// impl<I> super::Cache for DataL2<I>
+// where
+//     I: ic::MemFetchInterface + 'static,
 {
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -119,9 +130,10 @@ where
     }
 }
 
-impl<I> super::Bandwidth for DataL2<I>
-where
-    I: ic::MemFetchInterface,
+impl super::Bandwidth for DataL2
+// impl<I> super::Bandwidth for DataL2<I>
+// where
+//     I: ic::MemFetchInterface,
 {
     fn has_free_data_port(&self) -> bool {
         self.inner.has_free_data_port()

@@ -135,11 +135,11 @@ fn main() -> eyre::Result<()> {
         None
     };
 
-    // let (bench_name, input_num) = ("transpose", 0); // takes 34 sec (accel same)
+    let (bench_name, input_num) = ("transpose", 0); // takes 34 sec (accel same)
 
     // let (bench_name, input_num) = ("simple_matrixmul", 26); // takes 22 sec
 
-    let (bench_name, input_num) = ("matrixmul", 3); // takes 54 sec (accel 76)
+    // let (bench_name, input_num) = ("matrixmul", 3); // takes 54 sec (accel 76)
 
     // let (bench_name, input_num) = ("vectorAdd", 0);
     println!("running {bench_name}@{input_num}");

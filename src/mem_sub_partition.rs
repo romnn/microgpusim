@@ -1,8 +1,4 @@
-use crate::{
-    address, cache, config,
-    fifo::{Fifo, Queue},
-    interconn as ic, mem_fetch,
-};
+use crate::{address, cache, config, fifo::Fifo, interconn::Packet, mem_fetch};
 use console::style;
 
 use std::collections::{HashSet, VecDeque};
@@ -17,19 +13,19 @@ pub const SECTOR_CHUNCK_SIZE: u32 = 4;
 /// Sector size is 32 bytes width
 pub const SECTOR_SIZE: u32 = 32;
 
-pub struct MemorySubPartition<Q = Fifo<mem_fetch::MemFetch>> {
+// pub struct MemorySubPartition<Q = Fifo<mem_fetch::MemFetch>> {
+pub struct MemorySubPartition {
     pub id: usize,
     pub partition_id: usize,
     pub config: Arc<config::GPU>,
     pub stats: Arc<Mutex<stats::Stats>>,
 
     /// queues
-    pub interconn_to_l2_queue: Q,
-    // pub l2_to_dram_queue: Q,
-    pub l2_to_dram_queue: Arc<Mutex<Q>>,
-    pub dram_to_l2_queue: Q,
+    pub interconn_to_l2_queue: Fifo<Packet<mem_fetch::MemFetch>>,
+    pub l2_to_dram_queue: Arc<Mutex<Fifo<Packet<mem_fetch::MemFetch>>>>,
+    pub dram_to_l2_queue: Fifo<Packet<mem_fetch::MemFetch>>,
     /// L2 cache hit response queue
-    pub l2_to_interconn_queue: Q,
+    pub l2_to_interconn_queue: Fifo<Packet<mem_fetch::MemFetch>>,
     rop_queue: VecDeque<(u64, mem_fetch::MemFetch)>,
 
     pub l2_cache: Option<Box<dyn cache::Cache>>,
@@ -45,7 +41,8 @@ pub struct MemorySubPartition<Q = Fifo<mem_fetch::MemFetch>> {
     memcpy_cycle_offset: u64,
 }
 
-impl<Q> std::fmt::Debug for MemorySubPartition<Q> {
+// impl<Q> std::fmt::Debug for MemorySubPartition<Q> {
+impl std::fmt::Debug for MemorySubPartition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MemorySubPartition").finish()
     }
@@ -53,9 +50,10 @@ impl<Q> std::fmt::Debug for MemorySubPartition<Q> {
 
 const NO_FETCHES: VecDeque<mem_fetch::MemFetch> = VecDeque::new();
 
-impl<Q> MemorySubPartition<Q>
-where
-    Q: Queue<mem_fetch::MemFetch> + 'static,
+impl MemorySubPartition
+// impl<Q> MemorySubPartition<Q>
+// where
+//     Q: Queue<mem_fetch::MemFetch> + 'static,
 {
     pub fn new(
         id: usize,
@@ -63,43 +61,45 @@ where
         config: Arc<config::GPU>,
         stats: Arc<Mutex<stats::Stats>>,
     ) -> Self {
-        let interconn_to_l2_queue = Q::new(
-            "icnt-to-L2",
+        let interconn_to_l2_queue = Fifo::new(
+            // "icnt-to-L2",
             Some(0),
             Some(config.dram_partition_queue_interconn_to_l2),
         );
-        let l2_to_dram_queue = Arc::new(Mutex::new(Q::new(
-            "L2-to-dram",
+        let l2_to_dram_queue = Arc::new(Mutex::new(Fifo::new(
+            // "L2-to-dram",
             Some(0),
             Some(config.dram_partition_queue_l2_to_dram),
         )));
-        let dram_to_l2_queue = Q::new(
-            "dram-to-L2",
+        let dram_to_l2_queue = Fifo::new(
+            // "dram-to-L2",
             Some(0),
             Some(config.dram_partition_queue_dram_to_l2),
         );
-        let l2_to_interconn_queue = Q::new(
-            "L2-to-icnt",
+        let l2_to_interconn_queue = Fifo::new(
+            // "L2-to-icnt",
             Some(0),
             Some(config.dram_partition_queue_l2_to_interconn),
         );
 
         let l2_cache: Option<Box<dyn cache::Cache>> = match &config.data_cache_l2 {
             Some(l2_config) => {
-                let l2_mem_port = Arc::new(ic::L2Interface {
-                    l2_to_dram_queue: Arc::clone(&l2_to_dram_queue),
-                });
+                // let l2_mem_port = Arc::new(ic::L2Interface {
+                //     l2_to_dram_queue: Arc::clone(&l2_to_dram_queue),
+                // });
 
                 let cache_stats = Arc::new(Mutex::new(stats::Cache::default()));
-                Some(Box::new(cache::DataL2::new(
+                let mut data_l2 = cache::DataL2::new(
                     format!("mem-sub-{}-{}", id, style("L2-CACHE").green()),
                     0, // core_id,
                     0, // cluster_id,
-                    l2_mem_port,
+                    // Arc::clone(&l2_to_dram_queue),
                     cache_stats,
                     config.clone(),
                     l2_config.clone(),
-                )))
+                );
+                data_l2.set_top_port(l2_to_dram_queue.clone());
+                Some(Box::new(data_l2))
             }
             None => None,
         };
@@ -265,7 +265,8 @@ where
 
             if fetch.is_texture() {
                 fetch.status = mem_fetch::Status::IN_PARTITION_ICNT_TO_L2_QUEUE;
-                self.interconn_to_l2_queue.enqueue(fetch);
+                self.interconn_to_l2_queue
+                    .enqueue(Packet { data: fetch, time });
             } else {
                 let ready_cycle = time + self.config.l2_rop_latency;
                 fetch.status = mem_fetch::Status::IN_PARTITION_ROP_DELAY;
@@ -300,7 +301,7 @@ where
     pub fn pop(&mut self) -> Option<mem_fetch::MemFetch> {
         use mem_fetch::AccessKind;
 
-        let fetch = self.l2_to_interconn_queue.dequeue()?;
+        let fetch = self.l2_to_interconn_queue.dequeue()?.into_inner();
         // self.request_tracker.remove(fetch);
         if fetch.is_atomic() {
             unimplemented!("atomic memory operation");
@@ -317,14 +318,14 @@ where
         if let Some(AccessKind::L2_WRBK_ACC | AccessKind::L1_WRBK_ACC) = self
             .l2_to_interconn_queue
             .first()
-            .map(mem_fetch::MemFetch::access_kind)
+            .map(|packet| packet.data.access_kind())
         {
             self.l2_to_interconn_queue.dequeue();
             // self.request_tracker.remove(fetch);
             return None;
         }
 
-        self.l2_to_interconn_queue.first()
+        self.l2_to_interconn_queue.first().map(AsRef::as_ref)
     }
 
     pub fn set_done(&mut self, fetch: &mem_fetch::MemFetch) {
@@ -350,17 +351,17 @@ where
         ))
         .blue();
 
-        log::debug!(
-            "{}: rop queue={:?}, icnt to l2 queue={}, l2 to icnt queue={}, l2 to dram queue={}",
-            log_line,
-            self.rop_queue
-                .iter()
-                .map(|(ready_cycle, fetch)| (ready_cycle, fetch.to_string()))
-                .collect::<Vec<_>>(),
-            self.interconn_to_l2_queue,
-            self.l2_to_interconn_queue,
-            self.l2_to_dram_queue.try_lock(),
-        );
+        // log::debug!(
+        //     "{}: rop queue={:?}, icnt to l2 queue={}, l2 to icnt queue={}, l2 to dram queue={}",
+        //     log_line,
+        //     self.rop_queue
+        //         .iter()
+        //         .map(|(ready_cycle, fetch)| (ready_cycle, fetch.to_string()))
+        //         .collect::<Vec<_>>(),
+        //     self.interconn_to_l2_queue,
+        //     self.l2_to_interconn_queue,
+        //     self.l2_to_dram_queue.try_lock(),
+        // );
 
         // L2 fill responses
         if let Some(ref mut l2_cache) = self.l2_cache {
@@ -388,7 +389,10 @@ where
                     fetch.set_reply();
                     fetch.set_status(Status::IN_PARTITION_L2_TO_ICNT_QUEUE, 0);
                     // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-                    self.l2_to_interconn_queue.enqueue(fetch);
+                    self.l2_to_interconn_queue.enqueue(Packet {
+                        data: fetch,
+                        time: cycle,
+                    });
                 } else if l2_config.inner.write_allocate_policy
                     == CacheWriteAllocatePolicy::FETCH_ON_WRITE
                 {
@@ -397,7 +401,10 @@ where
                     original_write_fetch
                         .set_status(mem_fetch::Status::IN_PARTITION_L2_TO_ICNT_QUEUE, 0);
                     // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-                    self.l2_to_interconn_queue.enqueue(original_write_fetch);
+                    self.l2_to_interconn_queue.enqueue(Packet {
+                        data: original_write_fetch,
+                        time: cycle,
+                    });
                     todo!("fetch on write: l2 to icnt queue");
                 }
             }
@@ -406,11 +413,11 @@ where
         let mem_copy_time = cycle + self.memcpy_cycle_offset;
 
         // DRAM to L2 (texture) and icnt (not texture)
-        if let Some(reply) = self.dram_to_l2_queue.first() {
+        if let Some(reply) = self.dram_to_l2_queue.first().as_deref() {
             match self.l2_cache {
                 Some(ref mut l2_cache) if l2_cache.waiting_for_fill(reply) => {
                     if l2_cache.has_free_fill_port() {
-                        let mut reply = self.dram_to_l2_queue.dequeue().unwrap();
+                        let mut reply = self.dram_to_l2_queue.dequeue().unwrap().into_inner();
                         log::debug!("filling L2 with {}", &reply);
                         reply.set_status(mem_fetch::Status::IN_PARTITION_L2_FILL_QUEUE, 0);
                         l2_cache.fill(reply, mem_copy_time);
@@ -444,8 +451,9 @@ where
         }
 
         // new L2 texture accesses and/or non-texture accesses
-        if !self.l2_to_dram_queue.try_lock().full() {
-            if let Some(fetch) = self.interconn_to_l2_queue.first() {
+        let mut l2_to_dram_queue = self.l2_to_dram_queue.try_lock();
+        if !l2_to_dram_queue.full() {
+            if let Some(fetch) = self.interconn_to_l2_queue.first().map(Packet::as_ref) {
                 if let Some(ref mut l2_cache) = self.l2_cache {
                     if !self.config.data_cache_l2_texture_only || fetch.is_texture() {
                         // L2 is enabled and access is for L2
@@ -527,7 +535,7 @@ where
                     let mut fetch = self.interconn_to_l2_queue.dequeue().unwrap();
                     fetch.set_status(mem_fetch::Status::IN_PARTITION_L2_TO_DRAM_QUEUE, 0);
 
-                    self.l2_to_dram_queue.try_lock().enqueue(fetch);
+                    l2_to_dram_queue.enqueue(fetch);
                 }
             }
         }
@@ -542,7 +550,10 @@ where
                     log::debug!("{}: {fetch}", style("POP FROM ROP").red());
                     fetch.set_status(mem_fetch::Status::IN_PARTITION_ICNT_TO_L2_QUEUE, 0);
                     // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-                    self.interconn_to_l2_queue.enqueue(fetch);
+                    self.interconn_to_l2_queue.enqueue(Packet {
+                        data: fetch,
+                        time: cycle,
+                    });
                 }
                 _ => {}
             }

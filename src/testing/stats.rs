@@ -15,14 +15,6 @@ pub fn rel_err<T: num_traits::NumCast>(b: T, p: T, abs_threshold: f64) -> f64 {
     } else {
         0.0
     }
-    // if p == 0.0 || b == 0.0 {
-    //     // absolute difference of more than 5 causes big relative error, else 0.0
-    //         diff / (p + 0.1)
-    //     } else {
-    //         0.0
-    //     }
-    // } else {
-    // }
 }
 
 #[must_use]

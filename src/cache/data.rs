@@ -8,23 +8,27 @@ use std::collections::VecDeque;
 /// at the granularity of individual blocks.
 /// (the policy used in fermi according to the CUDA manual)
 #[derive(Debug)]
-pub struct Data<I> {
-    pub inner: cache::base::Base<I>,
+// pub struct Data<I> {
+pub struct Data {
+    // pub inner: cache::base::Base<I>,
+    pub inner: cache::base::Base,
     /// Specifies type of write allocate request (e.g., L1 or L2)
     write_alloc_type: mem_fetch::AccessKind,
     /// Specifies type of writeback request (e.g., L1 or L2)
     write_back_type: mem_fetch::AccessKind,
 }
 
-impl<I> Data<I>
-where
-    I: ic::MemFetchInterface,
+impl Data
+// impl<I> Data<I>
+// where
+// I: ic::MemFetchInterface,
+// I: Arc<Mutex<crate::fifo::Fifo<mem_fetch::MemFetch>>>,
 {
     pub fn new(
         name: String,
         core_id: usize,
         cluster_id: usize,
-        mem_port: Arc<I>,
+        // mem_port: Arc<Mutex<crate::fifo::Fifo<mem_fetch::MemFetch>>>,
         stats: Arc<Mutex<stats::Cache>>,
         config: Arc<config::GPU>,
         cache_config: Arc<config::Cache>,
@@ -35,7 +39,7 @@ where
             name,
             core_id,
             cluster_id,
-            mem_port,
+            // mem_port: None,
             stats,
             config,
             cache_config,
@@ -45,6 +49,11 @@ where
             write_alloc_type,
             write_back_type,
         }
+    }
+
+    #[inline]
+    pub fn set_top_port(&mut self, port: ic::Port<mem_fetch::MemFetch>) {
+        self.inner.set_top_port(port);
     }
 
     #[must_use]
@@ -325,13 +334,14 @@ where
         //  Conservatively ensure the worst-case request can be handled this cycle
         let mshr_hit = self.inner.mshrs.get(mshr_addr).is_some();
         let mshr_free = !self.inner.mshrs.full(mshr_addr);
+        let mshr_full = !self.inner.miss_queue_can_fit(2);
         let mshr_miss_but_free = !mshr_hit && mshr_free && !self.inner.miss_queue_full();
 
         log::debug!("handling write miss for {} (block addr={}, mshr addr={}, mshr hit={} mshr avail={}, miss queue full={})", &fetch, block_addr, mshr_addr, mshr_hit, mshr_free, self.inner.miss_queue_can_fit(2));
 
-        if !self.inner.miss_queue_can_fit(2) || !(mshr_miss_but_free || mshr_hit && mshr_free) {
+        if mshr_full || !(mshr_miss_but_free || mshr_hit && mshr_free) {
             // check what is the exact failure reason
-            let failure = if !self.inner.miss_queue_can_fit(2) {
+            let failure = if mshr_full {
                 cache::ReservationFailure::MISS_QUEUE_FULL
             } else if mshr_hit && !mshr_free {
                 cache::ReservationFailure::MSHR_MERGE_ENTRY_FAIL
@@ -579,18 +589,20 @@ where
     }
 }
 
-impl<I> crate::engine::cycle::Component for Data<I>
-where
-    I: ic::MemFetchInterface,
+impl crate::engine::cycle::Component for Data
+// impl<I> crate::engine::cycle::Component for Data<I>
+// where
+//     I: ic::MemFetchInterface,
 {
     fn cycle(&mut self, cycle: u64) {
         self.inner.cycle(cycle);
     }
 }
 
-impl<I> cache::Cache for Data<I>
-where
-    I: ic::MemFetchInterface + 'static,
+impl cache::Cache for Data
+// impl<I> cache::Cache for Data<I>
+// where
+//     I: ic::MemFetchInterface + 'static,
 {
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -704,7 +716,8 @@ where
     }
 }
 
-impl<I> cache::Bandwidth for Data<I> {
+// impl<I> cache::Bandwidth for Data<I> {
+impl cache::Bandwidth for Data {
     fn has_free_data_port(&self) -> bool {
         self.inner.has_free_data_port()
     }

@@ -7,12 +7,14 @@
 
 - easy chores:
 
+  - write trait for tag array
   - rename crates and github repo
   - publish to crates.io
   - publish python package to pip
 
 - today:
 
+  - write a direct connection interconn trait that replaces the fifos etc.
   - check statistical error for non deterministic version
   - refactor interconn to couple has buffer and push using a single explicit lock
   - refactor to get rid of global config but use per component configs

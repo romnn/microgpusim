@@ -2,6 +2,7 @@
 
 pub use crate::instruction::MemorySpace;
 use crate::sync::{atomic, Arc, Mutex};
+use crate::{interconn as ic, mem_fetch};
 use bitvec::field::BitField;
 use color_eyre::eyre;
 use itertools::Itertools;
@@ -121,7 +122,9 @@ pub enum WarpInstruction {
 #[derive()]
 pub struct Simulation {
     offset: Mutex<u64>,
-    pub inner: Mutex<crate::MockSimulator<crate::interconn::ToyInterconnect<crate::Packet>>>,
+    pub inner: Mutex<
+        crate::MockSimulator<crate::interconn::ToyInterconnect<ic::Packet<mem_fetch::MemFetch>>>,
+    >,
     thread_instructions: Mutex<Vec<WarpInstruction>>,
     kernel_id: atomic::AtomicU64,
 }

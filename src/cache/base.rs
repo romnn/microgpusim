@@ -28,7 +28,8 @@ impl PendingRequest {}
 /// Implements common functions for `read_only_cache` and `data_cache`
 /// Each subclass implements its own 'access' function
 #[derive()]
-pub struct Base<I> {
+// pub struct Base<I> {
+pub struct Base {
     pub name: String,
     pub core_id: usize,
     pub cluster_id: usize,
@@ -43,12 +44,14 @@ pub struct Base<I> {
     pub tag_array: tag_array::TagArray<()>,
 
     pending: HashMap<mem_fetch::MemFetch, PendingRequest>,
-    mem_port: Arc<I>,
-
+    top_port: Option<ic::Port<mem_fetch::MemFetch>>,
+    // mem_port: Arc<I>,
+    // Arc<Mutex<crate::fifo::Fifo<mem_fetch::MemFetch>>>,
     pub bandwidth: super::bandwidth::Manager,
 }
 
-impl<I> std::fmt::Debug for Base<I> {
+// impl<I> std::fmt::Debug for Base<I> {
+impl std::fmt::Debug for Base {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("Base")
             .field("name", &self.name)
@@ -59,12 +62,13 @@ impl<I> std::fmt::Debug for Base<I> {
     }
 }
 
-impl<I> Base<I> {
+// impl<I> Base<I> {
+impl Base {
     pub fn new(
         name: String,
         core_id: usize,
         cluster_id: usize,
-        mem_port: Arc<I>,
+        // mem_port: Arc<I>,
         stats: Arc<Mutex<stats::Cache>>,
         config: Arc<config::GPU>,
         cache_config: Arc<config::Cache>,
@@ -84,7 +88,7 @@ impl<I> Base<I> {
             cluster_id,
             tag_array,
             mshrs,
-            mem_port,
+            top_port: None,
             stats,
             config,
             cache_config,
@@ -272,17 +276,23 @@ impl<I> Base<I> {
     }
 }
 
-impl<I> crate::engine::cycle::Component for Base<I>
-where
-    I: ic::MemFetchInterface,
+// impl<I> crate::engine::cycle::Component for Base<I>
+impl crate::engine::cycle::Component for Base
+// where
+//     I: ic::MemFetchInterface,
 {
-    /// Sends next request to lower level of memory
+    /// Sends next request to top memory in the memory hierarchy.
     fn cycle(&mut self, cycle: u64) {
         use super::Bandwidth;
+
+        let Some(ref top_level_memory_port) = self.top_port else {
+            panic!("missing top port");
+            return;
+        };
+
         log::debug!(
-            "{}::baseline cache::cycle (fetch interface {:?}) miss queue={:?}",
+            "{}::baseline cache::cycle miss queue={:?}",
             self.name,
-            self.mem_port,
             style(
                 self.miss_queue
                     .iter()
@@ -292,30 +302,46 @@ where
             .blue(),
         );
         if let Some(fetch) = self.miss_queue.front() {
-            if !self.mem_port.full(fetch.size(), fetch.is_write()) {
-                if let Some(fetch) = self.miss_queue.pop_front() {
-                    log::debug!(
-                        "{}::baseline cache::memport::push({}, data size={}, control size={})",
-                        &self.name,
-                        fetch.addr(),
-                        fetch.data_size(),
-                        fetch.control_size(),
-                    );
-                    self.mem_port.push(fetch, cycle);
-                }
+            let mut top_level_memory_port = top_level_memory_port.lock();
+            let packet_size = if fetch.is_write() {
+                fetch.size()
+            } else {
+                fetch.control_size()
+            };
+            // if top_level_memory_port.full(fetch.size(), fetch.is_write()) {
+            if top_level_memory_port.can_send(&[packet_size]) {
+                let fetch = self.miss_queue.pop_front().unwrap();
+                log::debug!(
+                    "{}::baseline cache::memport::push({}, data size={}, control size={})",
+                    &self.name,
+                    fetch.addr(),
+                    fetch.data_size(),
+                    fetch.control_size(),
+                );
+                top_level_memory_port.send(ic::Packet {
+                    data: fetch,
+                    time: cycle,
+                });
+                // top_level_memory_port.send(fetch, cycle);
             }
         }
-        let _data_port_busy = !self.has_free_data_port();
-        let _fill_port_busy = !self.has_free_fill_port();
+        // let _data_port_busy = !self.has_free_data_port();
+        // let _fill_port_busy = !self.has_free_fill_port();
         // m_stats.sample_cache_port_utility(data_port_busy, fill_port_busy);
         self.bandwidth.replenish_port_bandwidth();
     }
 }
 
-impl<I> Base<I>
-where
-    I: ic::MemFetchInterface,
+impl Base
+// impl<I> Base<I>
+// where
+// I: ic::MemFetchInterface,
 {
+    #[inline]
+    pub fn set_top_port(&mut self, port: ic::Port<mem_fetch::MemFetch>) {
+        self.top_port = Some(port);
+    }
+
     /// Interface for response from lower memory level.
     ///
     /// bandwidth restictions should be modeled in the caller.
@@ -373,7 +399,8 @@ where
     }
 }
 
-impl<I> super::Bandwidth for Base<I> {
+// impl<I> super::Bandwidth for Base<I> {
+impl super::Bandwidth for Base {
     fn has_free_data_port(&self) -> bool {
         self.bandwidth.has_free_data_port()
     }

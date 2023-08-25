@@ -3,16 +3,18 @@ use crate::{address, cache, config, interconn as ic, mem_fetch, tag_array};
 use std::collections::VecDeque;
 
 #[derive(Debug)]
-pub struct ReadOnly<I> {
-    inner: cache::base::Base<I>,
+// pub struct ReadOnly<I> {
+pub struct ReadOnly {
+    inner: cache::base::Base,
 }
 
-impl<I> ReadOnly<I> {
+// impl<I> ReadOnly<I> {
+impl ReadOnly {
     pub fn new(
         name: String,
         core_id: usize,
         cluster_id: usize,
-        mem_port: Arc<I>,
+        // mem_port: Arc<I>,
         stats: Arc<Mutex<stats::Cache>>,
         config: Arc<config::GPU>,
         cache_config: Arc<config::Cache>,
@@ -21,57 +23,72 @@ impl<I> ReadOnly<I> {
             name,
             core_id,
             cluster_id,
-            mem_port,
+            // mem_port,
             stats,
             config,
             cache_config,
         );
         Self { inner }
     }
+
+    #[inline]
+    pub fn set_top_port(&mut self, port: ic::Port<mem_fetch::MemFetch>) {
+        self.inner.set_top_port(port);
+    }
 }
 
-impl<I> crate::engine::cycle::Component for ReadOnly<I>
-where
-    I: ic::MemFetchInterface,
+impl crate::engine::cycle::Component for ReadOnly
+// impl<I> crate::engine::cycle::Component for ReadOnly<I>
+// where
+//     I: ic::MemFetchInterface,
 {
     fn cycle(&mut self, cycle: u64) {
         self.inner.cycle(cycle);
     }
 }
 
-impl<I> cache::Bandwidth for ReadOnly<I>
-where
-    I: ic::MemFetchInterface,
+impl cache::Bandwidth for ReadOnly
+// impl<I> cache::Bandwidth for ReadOnly<I>
+// where
+// I: ic::MemFetchInterface,
 {
+    #[inline]
     fn has_free_data_port(&self) -> bool {
         self.inner.has_free_data_port()
     }
 
+    #[inline]
     fn has_free_fill_port(&self) -> bool {
         self.inner.has_free_data_port()
     }
 }
 
-impl<I> cache::Cache for ReadOnly<I>
-where
-    I: ic::MemFetchInterface + 'static,
+impl cache::Cache for ReadOnly
+// impl<I> cache::Cache for ReadOnly<I>
+// where
+//     I: ic::MemFetchInterface + 'static,
 {
+    #[inline]
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
 
+    #[inline]
     fn stats(&self) -> &Arc<Mutex<stats::Cache>> {
         &self.inner.stats
     }
 
+    #[inline]
     fn has_ready_accesses(&self) -> bool {
         self.inner.has_ready_accesses()
     }
 
+    #[inline]
     fn next_access(&mut self) -> Option<mem_fetch::MemFetch> {
         self.inner.next_access()
     }
 
+    #[inline]
     fn ready_accesses(&self) -> Option<&VecDeque<mem_fetch::MemFetch>> {
         self.inner.ready_accesses()
     }
@@ -80,6 +97,7 @@ where
     ///
     /// returns `RequestStatus::RESERVATION_FAIL` if
     /// request could not be accepted (for any reason)
+    #[inline]
     fn access(
         &mut self,
         addr: address,
@@ -173,6 +191,7 @@ where
         status
     }
 
+    #[inline]
     fn fill(&mut self, fetch: mem_fetch::MemFetch, time: u64) {
         self.inner.fill(fetch, time);
     }
@@ -182,6 +201,7 @@ where
 ///
 /// `HIT_RESERVED` is considered as a MISS in the cores, however, it should be
 /// counted as a `HIT_RESERVED` in the caches.
+#[inline]
 fn select_status(
     probe: cache::RequestStatus,
     access: cache::RequestStatus,

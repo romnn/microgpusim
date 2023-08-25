@@ -35,6 +35,7 @@ pub mod mem_sub_partition;
 pub mod mshr;
 pub mod opcodes;
 pub mod operand_collector;
+#[cfg(feature = "parallel")]
 pub mod parallel;
 pub mod register_set;
 pub mod scheduler;
@@ -47,14 +48,11 @@ pub mod warp;
 #[cfg(test)]
 pub mod testing;
 
-use self::core::{
-    warp_inst_complete, Core, Packet, PipelineStage, MAX_THREAD_PER_SM, PROGRAM_MEM_START,
-};
+use self::core::{warp_inst_complete, Core, PipelineStage, MAX_THREAD_PER_SM, PROGRAM_MEM_START};
 use addrdec::DecodedAddress;
 use allocation::Allocations;
 use cluster::Cluster;
 use engine::cycle::Component;
-use fifo::{Fifo, Queue};
 use interconn as ic;
 use kernel::Kernel;
 use mem_fetch::{AccessKind, BitString};
@@ -78,8 +76,6 @@ pub fn parse_commands(path: impl AsRef<Path>) -> eyre::Result<Vec<Command>> {
     let commands = serde_json::from_reader(reader)?;
     Ok(commands)
 }
-
-pub type SubPartition = mem_sub_partition::MemorySubPartition<Fifo<mem_fetch::MemFetch>>;
 
 #[derive(Default, Debug)]
 pub struct TotalDuration {
@@ -134,7 +130,7 @@ pub struct MockSimulator<I> {
     stats: Arc<Mutex<Stats>>,
     config: Arc<config::GPU>,
     mem_partition_units: Vec<Arc<RwLock<mem_partition_unit::MemoryPartitionUnit>>>,
-    mem_sub_partitions: Vec<Arc<Mutex<SubPartition>>>,
+    mem_sub_partitions: Vec<Arc<Mutex<mem_sub_partition::MemorySubPartition>>>,
     pub running_kernels: Arc<RwLock<Vec<Option<Arc<kernel::Kernel>>>>>,
     executed_kernels: Mutex<HashMap<u64, String>>,
     // clusters: Vec<Cluster<I>>,
@@ -189,7 +185,7 @@ impl FromConfig for stats::Stats {
 
 impl<I> MockSimulator<I>
 where
-    I: ic::Interconnect<core::Packet> + 'static,
+    I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
 {
     pub fn new(interconn: Arc<I>, config: Arc<config::GPU>) -> Self {
         let stats = Arc::new(Mutex::new(Stats::from_config(&config)));
@@ -474,12 +470,18 @@ where
                             let mut fetch = mem_sub.pop().unwrap();
                             let cluster_id = fetch.cluster_id;
                             fetch.set_status(mem_fetch::Status::IN_ICNT_TO_SHADER, 0);
-                            let packet = Packet::Fetch(fetch);
                             // fetch.set_return_timestamp(gpu_sim_cycle + gpu_tot_sim_cycle);
                             // , gpu_sim_cycle + gpu_tot_sim_cycle);
                             // drop(fetch);
-                            self.interconn
-                                .push(device, cluster_id, packet, response_packet_size);
+                            self.interconn.push(
+                                device,
+                                cluster_id,
+                                ic::Packet {
+                                    data: fetch,
+                                    time: cycle,
+                                },
+                                response_packet_size,
+                            );
                             // temp_requests
                             // .push((device, cluster_id, packet, response_packet_size));
                             // self.partition_replies_in_parallel += 1;
@@ -546,12 +548,18 @@ where
                         let mut fetch = mem_sub.pop().unwrap();
                         let cluster_id = fetch.cluster_id;
                         fetch.set_status(mem_fetch::Status::IN_ICNT_TO_SHADER, 0);
-                        let packet = Packet::Fetch(fetch);
                         // fetch.set_return_timestamp(gpu_sim_cycle + gpu_tot_sim_cycle);
                         // , gpu_sim_cycle + gpu_tot_sim_cycle);
                         // drop(fetch);
-                        self.interconn
-                            .push(device, cluster_id, packet, response_packet_size);
+                        self.interconn.push(
+                            device,
+                            cluster_id,
+                            ic::Packet {
+                                data: fetch,
+                                time: cycle,
+                            },
+                            response_packet_size,
+                        );
                         self.partition_replies_in_parallel += 1;
                     } else {
                         // self.gpu_stall_icnt2sh += 1;
@@ -573,11 +581,11 @@ where
             // help
             self.mem_partition_units
                 .par_iter()
-                .for_each(|partition| partition.try_write().simple_dram_cycle());
+                .for_each(|partition| partition.try_write().simple_dram_cycle(cycle));
         } else {
             log::debug!("cycle for {} drams", self.mem_partition_units.len());
             for (_i, unit) in self.mem_partition_units.iter_mut().enumerate() {
-                unit.try_write().simple_dram_cycle();
+                unit.try_write().simple_dram_cycle(cycle);
 
                 // if self.config.simple_dram_model {
                 //     unit.simple_dram_cycle();
@@ -613,15 +621,15 @@ where
                     if mem_sub
                         .interconn_to_l2_can_fit(mem_sub_partition::SECTOR_CHUNCK_SIZE as usize)
                     {
-                        if let Some(Packet::Fetch(fetch)) = self.interconn.pop(device) {
+                        if let Some(packet) = self.interconn.pop(device) {
                             log::debug!(
                                 "got new fetch {} for mem sub partition {} ({})",
-                                fetch,
+                                packet.data,
                                 i,
                                 device
                             );
 
-                            mem_sub.push(fetch, cycle);
+                            mem_sub.push(packet.data, cycle);
                             // self.parallel_mem_partition_reqs += 1;
                         }
                     } else {
@@ -656,15 +664,15 @@ where
 
                 // same as full with parameter overload
                 if mem_sub.interconn_to_l2_can_fit(mem_sub_partition::SECTOR_CHUNCK_SIZE as usize) {
-                    if let Some(Packet::Fetch(fetch)) = self.interconn.pop(device) {
+                    if let Some(packet) = self.interconn.pop(device) {
                         log::debug!(
                             "got new fetch {} for mem sub partition {} ({})",
-                            fetch,
+                            packet.data,
                             i,
                             device
                         );
 
-                        mem_sub.push(fetch, cycle);
+                        mem_sub.push(packet.data, cycle);
                         // self.parallel_mem_partition_reqs += 1;
                     }
                 } else {
@@ -837,10 +845,22 @@ where
                 let mut core_sim_order = cluster.core_sim_order.try_lock();
                 for core_id in core_sim_order.iter() {
                     let core = cluster.cores[*core_id].try_read();
-                    let mut port = core.interconn_port.try_lock();
-                    for (dest, fetch, size) in port.drain(..) {
-                        self.interconn
-                            .push(core.cluster_id, dest, Packet::Fetch(fetch), size);
+                    let mut port = core.mem_port.try_lock();
+                    // let mut port = &mut core.mem_port;
+                    for ic::Packet {
+                        data: (dest, fetch, size),
+                        time,
+                    } in port.buffer.drain(..)
+                    {
+                        self.interconn.push(
+                            core.cluster_id,
+                            dest,
+                            ic::Packet {
+                                data: fetch,
+                                time: cycle,
+                            },
+                            size,
+                        );
                     }
                 }
 
@@ -871,10 +891,21 @@ where
                     let mut core = cluster.cores[*core_id].write();
                     crate::timeit!(core.cycle(cycle));
 
-                    let mut port = core.interconn_port.try_lock();
-                    for (dest, fetch, size) in port.drain(..) {
-                        self.interconn
-                            .push(core.cluster_id, dest, Packet::Fetch(fetch), size);
+                    let mut port = core.mem_port.try_lock();
+                    for ic::Packet {
+                        data: (dest, fetch, size),
+                        time,
+                    } in port.buffer.drain(..)
+                    {
+                        self.interconn.push(
+                            core.cluster_id,
+                            dest,
+                            ic::Packet {
+                                data: fetch,
+                                time: cycle,
+                            },
+                            size,
+                        );
                     }
                 }
 
@@ -1380,11 +1411,13 @@ pub fn accelmain(
         config::Parallelization::Serial | config::Parallelization::RayonDeterministic => {
             sim.run_to_completion()?;
         }
+        #[cfg(feature = "parallel")]
         config::Parallelization::Deterministic => sim.run_to_completion_parallel_deterministic()?,
         // config::Parallelization::Deterministic => todo!("deterministic"),
+        #[cfg(feature = "parallel")]
         config::Parallelization::Nondeterministic(n) => {
             sim.run_to_completion_parallel_nondeterministic(n)?;
-        } // other => todo!("{other:?}"),
+        }
     }
 
     let stats = sim.stats();

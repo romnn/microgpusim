@@ -103,7 +103,6 @@ impl AccessKind {
             | AccessKind::INST_ACC_R
             | AccessKind::L1_WR_ALLOC_R
             | AccessKind::L2_WR_ALLOC_R => false,
-            // | AccessKind::NUM_MEM_ACCESS_TYPE => false,
             AccessKind::GLOBAL_ACC_W
             | AccessKind::LOCAL_ACC_W
             | AccessKind::L1_WRBK_ACC
@@ -175,7 +174,6 @@ impl std::fmt::Display for MemAccess {
 }
 
 impl MemAccess {
-    /// todo: where is this initialized
     #[must_use]
     pub fn new(
         kind: AccessKind,
@@ -212,6 +210,7 @@ impl MemAccess {
     }
 
     #[must_use]
+    #[inline]
     pub fn control_size(&self) -> u32 {
         if self.is_write {
             u32::from(WRITE_PACKET_SIZE)
@@ -221,38 +220,25 @@ impl MemAccess {
     }
 
     #[must_use]
+    #[inline]
     pub fn data_size(&self) -> u32 {
         self.req_size_bytes
     }
 
-    // #[must_use]
-    // pub fn control_size(&self) -> u32 {
-    //     self.access.control_size()
-    // }
-
     #[must_use]
+    #[inline]
     pub fn size(&self) -> u32 {
         self.data_size() + self.control_size()
     }
 
-    // /// use gen memory accesses
-    // #[deprecated]
-    // pub fn from_instr(instr: &WarpInstruction) -> Option<Self> {
-    //     let Some(kind) = instr.access_kind() else {
-    //         return None;
-    //     };
-    //     let Some(addr) = instr.addr() else {
-    //         return None;
-    //     };
-    //     Some(Self {
-    //         warp_mask: instr.active_mask,
-    //         byte_mask: BitArray::ZERO,
-    //         sector_mask: BitArray::ZERO,
-    //         req_size_bytes: instr.data_size,
-    //         is_write: instr.is_store(),
-    //         kind,
-    //         addr,
-    //     })
+    // #[must_use]
+    // #[inline]
+    // pub fn packet_size(&self, is_write: bool) -> u32 {
+    //     if is_write {
+    //         self.size()
+    //     } else {
+    //         u32::from(READ_PACKET_SIZE)
+    //     }
     // }
 }
 
@@ -385,6 +371,15 @@ impl MemFetch {
         self.instr
             .as_ref()
             .map_or(false, |i| i.memory_space == Some(MemorySpace::Texture))
+    }
+
+    #[must_use]
+    pub fn packet_size(&self) -> u32 {
+        if self.is_write() || self.is_atomic() {
+            self.size()
+        } else {
+            u32::from(READ_PACKET_SIZE)
+        }
     }
 
     #[must_use]

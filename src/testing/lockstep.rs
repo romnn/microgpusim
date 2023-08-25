@@ -1,4 +1,4 @@
-use super::diff;
+use super::{asserts, diff};
 use crate::{
     cache, config, fifo, interconn as ic,
     mem_fetch::{self, BitString},
@@ -20,11 +20,10 @@ use trace_model::Command;
 
 #[inline]
 fn gather_simulation_state(
-    box_sim: &mut crate::MockSimulator<ic::ToyInterconnect<crate::Packet>>,
+    box_sim: &mut crate::MockSimulator<ic::ToyInterconnect<ic::Packet<mem_fetch::MemFetch>>>,
     play_sim: &mut playground::Accelsim,
     _trace_provider: TraceProvider,
 ) -> (testing::state::Simulation, testing::state::Simulation) {
-    // iterate over sub partitions
     let num_schedulers = box_sim.config.num_schedulers_per_core;
     let num_clusters = box_sim.config.num_simt_clusters;
     let cores_per_cluster = box_sim.config.num_cores_per_simt_cluster;
@@ -134,8 +133,8 @@ fn gather_simulation_state(
     for (sub_id, sub) in box_sim.mem_sub_partitions.iter().enumerate() {
         let sub = sub.try_lock();
         let l2_cache = sub.l2_cache.as_ref().unwrap();
-        let l2_cache: &cache::DataL2<ic::L2Interface<fifo::Fifo<mem_fetch::MemFetch>>> =
-            l2_cache.as_any().downcast_ref().unwrap();
+        // let l2_cache: &cache::DataL2<ic::L2Interface<fifo::Fifo<mem_fetch::MemFetch>>> =
+        let l2_cache: &cache::DataL2 = l2_cache.as_any().downcast_ref().unwrap();
 
         box_sim_state.l2_cache_per_sub[sub_id] =
             Some(l2_cache.inner.inner.tag_array.clone().into());
@@ -158,8 +157,12 @@ fn gather_simulation_state(
                 &sub.dram_to_l2_queue,
             ),
         ] {
-            // dest_queue.extend(src_queue.clone().into_iter().map(Into::into));
-            *dest_queue = src_queue.clone().into_iter().map(Into::into).collect();
+            *dest_queue = src_queue
+                .clone()
+                .into_iter()
+                .map(ic::Packet::into_inner)
+                .map(Into::into)
+                .collect();
         }
     }
 
@@ -244,7 +247,6 @@ fn gather_simulation_state(
             .into_iter()
             .map(Into::into)
             .collect();
-        // .extend(partition.dram_latency_queue().into_iter().map(Into::into));
         partitions_added += 1;
 
         play_sim_state.dram_arbitration_per_partition[partition_id] = testing::state::Arbitration {
@@ -262,19 +264,15 @@ fn gather_simulation_state(
             .into_iter()
             .map(Into::into)
             .collect();
-        // .extend(sub.interconn_to_l2_queue().into_iter().map(Into::into));
         play_sim_state.l2_to_interconn_queue_per_sub[sub_id] = sub
             .l2_to_interconn_queue()
             .into_iter()
             .map(Into::into)
             .collect();
-        // .extend(sub.l2_to_interconn_queue().into_iter().map(Into::into));
         play_sim_state.dram_to_l2_queue_per_sub[sub_id] =
             sub.dram_to_l2_queue().into_iter().map(Into::into).collect();
-        // .extend(sub.dram_to_l2_queue().into_iter().map(Into::into));
         play_sim_state.l2_to_dram_queue_per_sub[sub_id] =
             sub.l2_to_dram_queue().into_iter().map(Into::into).collect();
-        // .extend(sub.l2_to_dram_queue().into_iter().map(Into::into));
 
         play_sim_state.l2_cache_per_sub[sub_id] = Some(testing::state::Cache {
             lines: sub.l2_cache().lines().into_iter().map(Into::into).collect(),
@@ -284,279 +282,6 @@ fn gather_simulation_state(
     assert_eq!(sub_partitions_added, num_sub_partitions);
     (box_sim_state, play_sim_state)
 }
-
-// #[deprecated]
-// #[inline]
-// fn gather_box_simulation_state(
-//     // num_clusters: usize,
-//     // cores_per_cluster: usize,
-//     // num_partitions: usize,
-//     // num_sub_partitions: usize,
-//     box_sim: &mut crate::MockSimulator<ic::ToyInterconnect<super::Packet>>,
-//     box_sim_state: &mut testing::state::Simulation,
-//     _trace_provider: TraceProvider,
-// ) {
-//     // ) -> testing::state::Simulation {
-//     // let mut box_sim_state = testing::state::Simulation::new(
-//     //     num_clusters,
-//     //     cores_per_cluster,
-//     //     num_partitions,
-//     //     num_sub_partitions,
-//     // );
-//
-//     box_sim_state.last_cluster_issue = box_sim.last_cluster_issue;
-//
-//     for (cluster_id, cluster) in box_sim.clusters.iter().enumerate() {
-//         // cluster: core sim order
-//         box_sim_state.core_sim_order_per_cluster[cluster_id] =
-//             cluster.core_sim_order.iter().copied().collect();
-//
-//         for (core_id, core) in cluster.coreslock().iter().enumerate() {
-//             let global_core_id =
-//                 cluster_id * box_sim.config.num_cores_per_simt_cluster + core_id;
-//             assert_eq!(core.inner.core_id, global_core_id);
-//
-//             // this is the one we will use (unless the assertion is ever false)
-//             let core_id = core.inner.core_id;
-//
-//             // core: functional units
-//             let num_fus = core.functional_units.len();
-//             box_sim_state.functional_unit_pipelines_per_core[core_id]
-//                 .resize(2 * num_fus, testing::state::RegisterSet::default());
-//
-//             for (fu_id, fu) in core.functional_units.iter().enumerate() {
-//                 let _fu = fulock();
-//                 let issue_port = core.issue_ports[fu_id];
-//                 let issue_reg: super::register_set::RegisterSet = core.inner.pipeline_reg
-//                     [issue_port as usize]
-//                     .borrow()
-//                     .clone();
-//                 assert_eq!(issue_port, issue_reg.stage);
-//
-//                 box_sim_state.functional_unit_pipelines_per_core[core_id][fu_id] =
-//                     issue_reg.into();
-//             }
-//
-//             // box_sim_state.functional_unit_pipelines_per_core[core_id]
-//             //     .resize(num_fus, testing::state::RegisterSet::default());
-//             for (fu_id, fu) in core.functional_units.iter().enumerate() {
-//                 let fu = fulock();
-//                 box_sim_state.functional_unit_pipelines_per_core[core_id][num_fus + fu_id] =
-//                     testing::state::RegisterSet {
-//                         name: fu.id().to_string(),
-//                         pipeline: fu
-//                             .pipeline()
-//                             .iter()
-//                             .map(|reg| reg.clone().map(Into::into))
-//                             .collect(),
-//                     };
-//                 // .push();
-//             }
-//             // core: operand collector
-//             box_sim_state.operand_collector_per_core[core_id] =
-//                 Some(core.inner.operand_collector.borrow().deref().into());
-//             // core: schedulers
-//             box_sim_state.scheduler_per_core[core_id] =
-//                 core.schedulers.iter().map(Into::into).collect();
-//             // .extend(core.schedulers.iter().map(Into::into));
-//             // core: l2 cache
-//             let ldst_unit = core.inner.load_store_unitlock();
-//
-//             // core: pending register writes
-//             box_sim_state.pending_register_writes_per_core[core_id] = ldst_unit
-//                 .pending_writes
-//                 .clone()
-//                 .into_iter()
-//                 .flat_map(|(warp_id, pending_registers)| {
-//                     pending_registers
-//                         .into_iter()
-//                         .map(
-//                             move |(reg_num, pending)| testing::state::PendingRegisterWrites {
-//                                 warp_id,
-//                                 reg_num,
-//                                 pending,
-//                             },
-//                         )
-//                 })
-//                 .collect();
-//
-//             box_sim_state.pending_register_writes_per_core[core_id].sort();
-//             // let l1d_tag_array = ldst_unit.data_l1.unwrap().tag_array;
-//             // dbg!(&l1d_tag_array);
-//             // let l1d_tag_array = ldst_unit.data_l1.unwrap().tag_array;
-//         }
-//     }
-//
-//     for (partition_id, partition) in box_sim.mem_partition_units.iter().enumerate() {
-//         box_sim_state.dram_latency_queue_per_partition[partition_id] = partition
-//             .dram_latency_queue
-//             .clone()
-//             .into_iter()
-//             .map(Into::into)
-//             .collect();
-//     }
-//     for (sub_id, sub) in box_sim.mem_sub_partitions.iter().enumerate() {
-//         let sub = sub.borrow();
-//         let l2_cache = sub.l2_cache.as_ref().unwrap();
-//         let l2_cache: &ported::l2::DataL2<
-//             ic::L2Interface<fifo::Fifo<ported::mem_fetch::MemFetch>>,
-//         > = l2_cache.as_any().downcast_ref().unwrap();
-//
-//         box_sim_state.l2_cache_per_sub[sub_id] =
-//             Some(l2_cache.inner.inner.tag_array.clone().into());
-//
-//         for (dest_queue, src_queue) in [
-//             (
-//                 &mut box_sim_state.interconn_to_l2_queue_per_sub[sub_id],
-//                 &sub.interconn_to_l2_queue,
-//             ),
-//             (
-//                 &mut box_sim_state.l2_to_interconn_queue_per_sub[sub_id],
-//                 &sub.l2_to_interconn_queue,
-//             ),
-//             (
-//                 &mut box_sim_state.l2_to_dram_queue_per_sub[sub_id],
-//                 &sub.l2_to_dram_queuelock(),
-//             ),
-//             (
-//                 &mut box_sim_state.dram_to_l2_queue_per_sub[sub_id],
-//                 &sub.dram_to_l2_queue,
-//             ),
-//         ] {
-//             *dest_queue = src_queue.clone().into_iter().map(Into::into).collect();
-//             // dest_queue.extend(src_queue.clone().into_iter().map(Into::into));
-//         }
-//     }
-//     // box_sim_state
-// }
-//
-// #[deprecated]
-// #[inline]
-// fn gather_play_simulation_state(
-//     // num_clusters: usize,
-//     // cores_per_cluster: usize,
-//     // num_partitions: usize,
-//     // num_sub_partitions: usize,
-//     // num_schedulers: usize,
-//     play_sim: &mut playground::Accelsim,
-//     play_sim_state: &mut testing::state::Simulation,
-//     _trace_provider: TraceProvider,
-// ) {
-//     // ) -> testing::state::Simulation {
-//     // let mut play_sim_state = testing::state::Simulation::new(
-//     //     num_clusters,
-//     //     cores_per_cluster,
-//     //     num_partitions,
-//     //     num_sub_partitions,
-//     //     num_schedulers,
-//     // );
-//
-//     play_sim_state.last_cluster_issue = play_sim.last_cluster_issue() as usize;
-//
-//     for (cluster_id, cluster) in play_sim.clusters().enumerate() {
-//         // cluster: core sim order
-//         play_sim_state.core_sim_order_per_cluster[cluster_id] = cluster.core_sim_order().into();
-//     }
-//     for (core_id, core) in play_sim.cores().enumerate() {
-//         let fu_issue_regs: Vec<_> = core
-//             .functional_unit_issue_register_sets()
-//             .into_iter()
-//             .map(testing::state::RegisterSet::from)
-//             .collect();
-//         let num_fu_issue_regs = fu_issue_regs.len();
-//         // let fu_names: HashSet<_> = fu_issue_regs.iter().map(|fu| fu.get_name()).collect();
-//         // let valid_units: HashSet<_> = fu_issue_regs.iter().map(|fu| fu.name.clone()).collect();
-//
-//         play_sim_state.functional_unit_pipelines_per_core[core_id]
-//             .resize(num_fu_issue_regs, testing::state::RegisterSet::default());
-//
-//         for (reg_id, regs) in fu_issue_regs.into_iter().enumerate() {
-//             play_sim_state.functional_unit_pipelines_per_core[core_id][reg_id] = regs.into();
-//         }
-//         // let valid_units: HashSet<_> = box_sim_state.functional_unit_pipelines_per_core[core_id]
-//         // let valid_units: HashSet<_> = [
-//
-//         let fu_simd_pipelines: Vec<testing::state::RegisterSet> = core
-//             .functional_unit_simd_pipeline_register_sets()
-//             .into_iter()
-//             .map(testing::state::RegisterSet::from)
-//             // .filter(|fu| valid_units.contains(&fu.name))
-//             .filter(|fu| match fu.name.as_str() {
-//                 "SPUnit" | "LdstUnit" => true,
-//                 _ => false,
-//             })
-//             .collect();
-//         let num_fu_simd_pipelines = fu_simd_pipelines.len();
-//
-//         play_sim_state.functional_unit_pipelines_per_core[core_id].resize(
-//             num_fu_issue_regs + num_fu_simd_pipelines,
-//             testing::state::RegisterSet::default(),
-//         );
-//         // assert_eq!(num_fu_issue_regs, num_fu_simd_pipelines);
-//         for (reg_id, regs) in fu_simd_pipelines
-//             .into_iter()
-//             // .filter(|fu| valid_units.contains(&fu.name()))
-//             .enumerate()
-//         {
-//             play_sim_state.functional_unit_pipelines_per_core[core_id]
-//                 [num_fu_issue_regs + reg_id] = regs.into();
-//         }
-//
-//         // core: pending register writes
-//         play_sim_state.pending_register_writes_per_core[core_id] = core
-//             .pending_register_writes()
-//             .into_iter()
-//             .map(Into::into)
-//             .collect();
-//         play_sim_state.pending_register_writes_per_core[core_id].sort();
-//
-//         // core: operand collector
-//         let coll = core.operand_collector();
-//         play_sim_state.operand_collector_per_core[core_id] = Some(coll.into());
-//         // core: scheduler units
-//         // let schedulers = core.schedulers();
-//         // play_sim_state.scheduler_per_core[core_id]
-//         // .resize(schedulers.len(), testing::state::Scheduler::default());
-//
-//         for (sched_idx, play_scheduler) in core.schedulers().into_iter().enumerate() {
-//             play_sim_state.scheduler_per_core[core_id][sched_idx] = play_scheduler.into();
-//         }
-//     }
-//
-//     for (partition_id, partition) in play_sim.partition_units().enumerate() {
-//         play_sim_state.dram_latency_queue_per_partition[partition_id] = partition
-//             .dram_latency_queue()
-//             .into_iter()
-//             .map(Into::into)
-//             .collect();
-//     }
-//     for (sub_id, sub) in play_sim.sub_partitions().enumerate() {
-//         play_sim_state.interconn_to_l2_queue_per_sub[sub_id] = sub
-//             .interconn_to_l2_queue()
-//             .into_iter()
-//             .map(Into::into)
-//             .collect();
-//         // .extend(sub.interconn_to_l2_queue().into_iter().map(Into::into));
-//         play_sim_state.l2_to_interconn_queue_per_sub[sub_id] = sub
-//             .l2_to_interconn_queue()
-//             .into_iter()
-//             .map(Into::into)
-//             .collect();
-//         // .extend(sub.l2_to_interconn_queue().into_iter().map(Into::into));
-//         play_sim_state.dram_to_l2_queue_per_sub[sub_id] =
-//             sub.dram_to_l2_queue().into_iter().map(Into::into).collect();
-//         // .extend(sub.dram_to_l2_queue().into_iter().map(Into::into));
-//         play_sim_state.l2_to_dram_queue_per_sub[sub_id] =
-//             sub.l2_to_dram_queue().into_iter().map(Into::into).collect();
-//         // .extend(sub.l2_to_dram_queue().into_iter().map(Into::into));
-//
-//         play_sim_state.l2_cache_per_sub[sub_id] = Some(testing::state::Cache {
-//             lines: sub.l2_cache().lines().into_iter().map(Into::into).collect(),
-//         });
-//     }
-//
-//     // play_sim_state
-// }
 
 pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> {
     use accelsim::tracegen::reader::Command as AccelsimCommand;
@@ -1081,140 +806,14 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
 
     // dbg!(&playground_dur);
     // dbg!(&box_dur);
-    assert_stats_match(play_stats, &box_stats, allow_rel_err);
+
+    // allow 5% difference
+    let max_rel_err = if allow_rel_err { Some(0.05) } else { None };
+    // allow absolute difference of 10
+    let abs_threshold = if allow_rel_err { Some(10.0) } else { None };
+    asserts::stats_match(play_stats, &box_stats, max_rel_err, abs_threshold, true);
 
     Ok(())
-}
-
-pub fn assert_stats_match(
-    play_stats: &playground::stats::StatsBridge,
-    box_stats: &stats::Stats,
-    allow_rel_err: bool,
-) {
-    // compare stats here
-    let play_l1_inst_stats = stats::PerCache::from_iter(play_stats.l1i_stats.to_vec());
-    let play_l1_data_stats = stats::PerCache::from_iter(play_stats.l1d_stats.to_vec());
-    let play_l1_tex_stats = stats::PerCache::from_iter(play_stats.l1t_stats.to_vec());
-    let play_l1_const_stats = stats::PerCache::from_iter(play_stats.l1c_stats.to_vec());
-    let play_l2_data_stats = stats::PerCache::from_iter(play_stats.l2d_stats.to_vec());
-
-    if allow_rel_err {
-        // compare reduced cache stats
-        let max_rel_err = 0.05; // allow 5% difference
-        let abs_threshold = 10.0; // allow absolute difference of 10
-        {
-            let play_l1_inst_stats = play_l1_inst_stats.reduce();
-            let box_l1_inst_stats = box_stats.l1i_stats.reduce();
-            dbg!(&play_l1_inst_stats, &box_l1_inst_stats);
-            if play_l1_inst_stats != box_l1_inst_stats {
-                diff::diff!(play: &play_l1_inst_stats, box: &box_l1_inst_stats);
-            }
-            let rel_err =
-                super::stats::cache_rel_err(&play_l1_inst_stats, &box_l1_inst_stats, abs_threshold);
-            dbg!(&rel_err);
-            assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
-        }
-        {
-            let play_l1_data_stats = play_l1_data_stats.reduce();
-            let box_l1_data_stats = box_stats.l1d_stats.reduce();
-            dbg!(&play_l1_data_stats, &box_l1_data_stats);
-            if play_l1_data_stats != box_l1_data_stats {
-                diff::diff!(play: &play_l1_data_stats, box: &box_l1_data_stats);
-            }
-            let rel_err =
-                super::stats::cache_rel_err(&play_l1_data_stats, &box_l1_data_stats, abs_threshold);
-            dbg!(&rel_err);
-            assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
-        }
-        {
-            let play_l1_tex_stats = play_l1_tex_stats.reduce();
-            let box_l1_tex_stats = box_stats.l1t_stats.reduce();
-            dbg!(&play_l1_tex_stats, &box_l1_tex_stats);
-            if play_l1_tex_stats != box_l1_tex_stats {
-                diff::diff!(play: &play_l1_tex_stats, box: &box_l1_tex_stats);
-            }
-            let rel_err =
-                super::stats::cache_rel_err(&play_l1_tex_stats, &box_l1_tex_stats, abs_threshold);
-            dbg!(&rel_err);
-            assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
-        }
-        {
-            let play_l1_const_stats = play_l1_const_stats.reduce();
-            let box_l1_const_stats = box_stats.l1c_stats.reduce();
-            dbg!(&play_l1_const_stats, &box_l1_const_stats);
-            if play_l1_const_stats != box_l1_const_stats {
-                diff::diff!(play: &play_l1_const_stats, box: &box_l1_const_stats);
-            }
-            let rel_err = super::stats::cache_rel_err(
-                &play_l1_const_stats,
-                &box_l1_const_stats,
-                abs_threshold,
-            );
-            dbg!(&rel_err);
-            assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
-        }
-        {
-            let play_l2_data_stats = play_l2_data_stats.reduce();
-            let box_l2_data_stats = box_stats.l2d_stats.reduce();
-            dbg!(&play_l2_data_stats, &box_l2_data_stats);
-            if play_l2_data_stats != box_l2_data_stats {
-                diff::diff!(play: &play_l2_data_stats, box: &box_l2_data_stats);
-            }
-            let rel_err =
-                super::stats::cache_rel_err(&play_l2_data_stats, &box_l2_data_stats, abs_threshold);
-            dbg!(&rel_err);
-            assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
-        }
-
-        {
-            // compare DRAM stats
-            let box_dram_stats = playground::stats::DRAM::from(box_stats.dram.clone());
-            dbg!(&play_stats.dram, &box_dram_stats);
-            if play_stats.dram != box_dram_stats {
-                diff::diff!(play: &play_stats.dram, box: &box_dram_stats);
-            }
-            let rel_err =
-                super::stats::dram_rel_err(&play_stats.dram, &box_dram_stats, abs_threshold);
-            dbg!(&rel_err);
-            assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
-        }
-    } else {
-        dbg!(&play_l1_inst_stats, &box_stats.l1i_stats);
-        diff::assert_eq!(play: &play_l1_inst_stats, box: &box_stats.l1i_stats);
-        dbg!(&play_l1_data_stats, &box_stats.l1d_stats);
-        diff::assert_eq!( play: &play_l1_data_stats, box: &box_stats.l1d_stats);
-        dbg!(&play_l1_tex_stats, &box_stats.l1t_stats);
-        diff::assert_eq!( play: &play_l1_tex_stats, box: &box_stats.l1t_stats);
-        dbg!(&play_l1_const_stats, &box_stats.l1c_stats);
-        diff::assert_eq!( play: &play_l1_const_stats, box: &box_stats.l1c_stats);
-        dbg!(&play_l2_data_stats, &box_stats.l2d_stats);
-        diff::assert_eq!( play: &play_l2_data_stats, box: &box_stats.l2d_stats);
-
-        // compare DRAM stats
-        let box_dram_stats = playground::stats::DRAM::from(box_stats.dram.clone());
-        dbg!(&play_stats.dram, &box_dram_stats);
-        diff::assert_eq!(play: &play_stats.dram, box: &box_dram_stats);
-    }
-
-    // compare accesses
-    let box_accesses = playground::stats::Accesses::from(box_stats.accesses.clone());
-    dbg!(&play_stats.accesses, &box_stats.accesses);
-    diff::assert_eq!(play: play_stats.accesses, box: box_accesses);
-
-    // compare instruction stats
-    let box_instructions =
-        playground::stats::InstructionCounts::from(box_stats.instructions.clone());
-    dbg!(&play_stats.instructions, &box_instructions);
-    diff::assert_eq!(play: &play_stats.instructions, box: &box_instructions);
-
-    // compate simulation stats
-    let box_sim_stats = playground::stats::Sim::from(box_stats.sim.clone());
-    dbg!(&play_stats.sim, &box_sim_stats);
-    diff::assert_eq!(play: &play_stats.sim, box: &box_sim_stats);
-
-    // this uses our custom PartialEq::eq implementation
-    // assert_eq!(&play_stats, &box_stats);
-    // assert!(false);
 }
 
 macro_rules! lockstep_checks {

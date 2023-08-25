@@ -54,6 +54,18 @@ pub enum AccessStat {
     Status(RequestStatus),
 }
 
+impl From<RequestStatus> for AccessStat {
+    fn from(status: RequestStatus) -> Self {
+        AccessStat::Status(status)
+    }
+}
+
+impl From<ReservationFailure> for AccessStat {
+    fn from(failure: ReservationFailure) -> Self {
+        AccessStat::ReservationFailure(failure)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[repr(transparent)]
 #[serde(transparent)]
