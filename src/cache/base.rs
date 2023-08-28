@@ -283,7 +283,7 @@ impl crate::engine::cycle::Component for Base
 {
     /// Sends next request to top memory in the memory hierarchy.
     fn cycle(&mut self, cycle: u64) {
-        use super::Bandwidth;
+        
 
         let Some(ref top_level_memory_port) = self.top_port else {
             panic!("missing top port");

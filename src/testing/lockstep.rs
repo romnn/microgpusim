@@ -1,6 +1,6 @@
 use super::{asserts, diff};
 use crate::{
-    cache, config, fifo, interconn as ic,
+    cache, config, interconn as ic,
     mem_fetch::{self, BitString},
     register_set, testing,
 };

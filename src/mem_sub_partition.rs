@@ -22,6 +22,7 @@ pub struct MemorySubPartition {
 
     /// queues
     pub interconn_to_l2_queue: Fifo<Packet<mem_fetch::MemFetch>>,
+    // pub interconn_to_l2_queue: Box<dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>>,
     pub l2_to_dram_queue: Arc<Mutex<Fifo<Packet<mem_fetch::MemFetch>>>>,
     pub dram_to_l2_queue: Fifo<Packet<mem_fetch::MemFetch>>,
     /// L2 cache hit response queue
@@ -276,14 +277,17 @@ impl MemorySubPartition
         }
     }
 
-    pub fn full(&self, _size: u32) -> bool {
-        self.interconn_to_l2_queue.full()
-    }
+    // #[must_use]
+    // pub fn full(&self, _size: u32) -> bool {
+    //     self.interconn_to_l2_queue.full()
+    // }
+    //
+    // #[must_use]
+    // pub fn interconn_to_l2_can_fit(&self, size: usize) -> bool {
+    //     self.interconn_to_l2_queue.can_fit(size)
+    // }
 
-    pub fn interconn_to_l2_can_fit(&self, size: usize) -> bool {
-        self.interconn_to_l2_queue.can_fit(size)
-    }
-
+    #[must_use]
     pub fn busy(&self) -> bool {
         !self.request_tracker.is_empty()
     }
@@ -336,6 +340,7 @@ impl MemorySubPartition
         todo!("mem sub partition: dram l2 queue push");
     }
 
+    #[must_use]
     pub fn dram_l2_queue_full(&self) -> bool {
         todo!("mem sub partition: dram l2 queue full");
     }
@@ -413,7 +418,7 @@ impl MemorySubPartition
         let mem_copy_time = cycle + self.memcpy_cycle_offset;
 
         // DRAM to L2 (texture) and icnt (not texture)
-        if let Some(reply) = self.dram_to_l2_queue.first().as_deref() {
+        if let Some(reply) = self.dram_to_l2_queue.first() {
             match self.l2_cache {
                 Some(ref mut l2_cache) if l2_cache.waiting_for_fill(reply) => {
                     if l2_cache.has_free_fill_port() {

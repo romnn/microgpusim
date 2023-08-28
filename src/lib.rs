@@ -425,6 +425,10 @@ where
         let start_total = Instant::now();
         // int clock_mask = next_clock_domain();
 
+        // if self.parallel_simulation {
+        //     println!("parallel simulation: yes");
+        // }
+
         // shader core loading (pop from ICNT into core)
         let start = Instant::now();
         if self.parallel_simulation {
@@ -619,7 +623,8 @@ where
 
                     // same as full with parameter overload
                     if mem_sub
-                        .interconn_to_l2_can_fit(mem_sub_partition::SECTOR_CHUNCK_SIZE as usize)
+                        .interconn_to_l2_queue
+                        .can_fit(mem_sub_partition::SECTOR_CHUNCK_SIZE as usize)
                     {
                         if let Some(packet) = self.interconn.pop(device) {
                             log::debug!(
@@ -663,7 +668,10 @@ where
                 let device = self.config.mem_id_to_device_id(i);
 
                 // same as full with parameter overload
-                if mem_sub.interconn_to_l2_can_fit(mem_sub_partition::SECTOR_CHUNCK_SIZE as usize) {
+                if mem_sub
+                    .interconn_to_l2_queue
+                    .can_fit(mem_sub_partition::SECTOR_CHUNCK_SIZE as usize)
+                {
                     if let Some(packet) = self.interconn.pop(device) {
                         log::debug!(
                             "got new fetch {} for mem sub partition {} ({})",
@@ -721,112 +729,38 @@ where
         let mut executed_cluster_ids = std::collections::HashSet::new();
 
         if self.parallel_simulation {
-            // let ic_before = self.interconn
-            // let before = self.gather_state();
-            // panic!("doing parallel for real");
-            // dbg!(rayon::current_num_threads());
-            // let cores: Vec<&Arc<RwLock<core::Core<_>>>> = self
-            let cores: Vec<_> = self
-                .clusters
-                .iter()
-                .filter(|cluster| {
-                    let cores_completed = cluster.try_read().not_completed() == 0;
-                    !cores_completed || !kernels_completed
-                })
-                .flat_map(|cluster| {
-                    let cluster = cluster.try_read();
-                    cluster.cores.clone()
-                })
-                .collect();
-
-            // THIS is a terrible idea, launching threads each cycle is sooooo slow
-            // let handles = cores.into_iter().cloned().map(|core| {
-            //     std::thread::spawn(move || {
-            //         crate::timeit!(corewrite().cycle());
+            // let cores: Vec<_> = self
+            //     .clusters
+            //     .iter()
+            //     .filter(|cluster| {
+            //         let cores_completed = cluster.try_read().not_completed() == 0;
+            //         !cores_completed || !kernels_completed
             //     })
-            // });
-            //
-            // for h in handles {
-            //     h.join().unwrap()
-            // }
-
-            cores.par_iter().for_each(|core| {
-                // cores.par_chunks(4).for_each(|cores| {
-                // for core in cores {
-                //     corelock().cycle();
-                // }
-                crate::timeit!(core.write().cycle(cycle));
-                // TIMINGS
-                //     .lock()
-                //     .entry("core_cycle")
-                //     .or_default()
-                //     .add(start.elapsed());
-            });
+            //     .flat_map(|cluster| {
+            //         let cluster = cluster.try_read();
+            //         cluster.cores.clone()
+            //     })
+            //     .collect();
 
             // cores.par_iter().for_each(|core| {
-            //     corelock().cycle();
+            //     crate::timeit!(core.write().cycle(cycle));
             // });
-            // dbg!(cores.len());
-            // let after = self.gather_state();
-            // if before != after {
-            // similar_asserts::assert_eq!(before: before, after: after);
-            // }
+            let mut active_clusters = Vec::new();
+            rayon::scope(|core_scope| {
+                for cluster_arc in self.clusters.iter() {
+                    let cluster = cluster_arc.try_read();
+                    if cluster.not_completed() == 0 && kernels_completed {
+                        continue;
+                    }
+                    active_clusters.push(cluster_arc);
+                    for core in cluster.cores.iter().cloned() {
+                        core_scope.spawn(move |_| core.write().cycle(cycle));
+                    }
+                }
+            });
 
-            // for cluster in self.clusters.iter_mut() {
-            //     // let ordering = cluster.core_sim_order
-            //     for core_id in &cluster.core_sim_order {
-            //         let core = cluster.cores[*core_id]lock();
-            //         let mut load_store_unit = core.inner.load_store_unitlock();
-            //         for (dest, fetch, size) in load_store_unit.interconn_port.drain(..) {
-            //             self.interconn
-            //                 .push(cluster.cluster_id, dest, Packet::Fetch(fetch), size);
-            //         }
-            //     }
-            //
-            //     if let config::SchedulingOrder::RoundRobin = self.config.simt_core_sim_order {
-            //         cluster.core_sim_order.rotate_left(1);
-            //     }
-            // }
-
-            // self.interconn.commit();
-
-            // if false {
-            //     for sub in &self.mem_sub_partitions {
-            //         let sub = sublock();
-            //         let mem_dest = self.config.mem_id_to_device_id(sub.id);
-            //         // sub id: 0..15 (have 8 mem controllers, 2 sub partitions per channel)
-            //         // dbg!(sub.id);
-            //         // dbg!(mem_dest);
-            //         let mut dest_queue = self.interconn.dest_queue(mem_dest)lock();
-            //         // todo sort the dest queue here
-            //         dest_queue.make_contiguous().sort_by_key(|packet| {
-            //             let Packet::Fetch(fetch) = packet;
-            //             let ordering = &self.clusters[fetch.cluster_id].core_sim_order;
-            //             // dbg!(&ordering);
-            //             let core_id = fetch.core_id
-            //                 - (fetch.cluster_id * self.config.num_cores_per_simt_cluster);
-            //             // dbg!(fetch.core_id, core_id);
-            //             let ordering_idx = ordering.iter().position(|id| *id == core_id).unwrap();
-            //             // dbg!(fetch.cluster_id);
-            //             // dbg!(fetch.core_id);
-            //             let pushed_cycle = fetch.pushed_cycle.unwrap();
-            //             // dbg!((pushed_cycle, core_idx));
-            //             (pushed_cycle, fetch.cluster_id, ordering_idx)
-            //         });
-            //         let _q = dest_queue
-            //             .iter()
-            //             .map(|p| {
-            //                 let Packet::Fetch(fetch) = p;
-            //                 (fetch.pushed_cycle.unwrap(), fetch.cluster_id, fetch.core_id)
-            //             })
-            //             .collect::<Vec<_>>();
-            //         // if !q.is_empty() {
-            //         //     dbg!(sub.id, q);
-            //         // }
-            //     }
-            // }
-
-            for cluster in &mut self.clusters {
+            // for cluster in &mut self.clusters {
+            for cluster in active_clusters.iter() {
                 // let cores_completed = cluster.not_completed() == 0;
                 // let kernels_completed = self
                 //     .running_kernels
@@ -842,6 +776,8 @@ where
                 // }
 
                 let cluster = cluster.try_read();
+                // check if cluster was updated
+
                 let mut core_sim_order = cluster.core_sim_order.try_lock();
                 for core_id in core_sim_order.iter() {
                     let core = cluster.cores[*core_id].try_read();
@@ -849,7 +785,7 @@ where
                     // let mut port = &mut core.mem_port;
                     for ic::Packet {
                         data: (dest, fetch, size),
-                        time,
+                        time: _,
                     } in port.buffer.drain(..)
                     {
                         self.interconn.push(
@@ -870,8 +806,9 @@ where
             }
         } else {
             // let mut active_sms = 0;
-            for cluster in &mut self.clusters {
-                let cluster = cluster.try_read();
+            let mut active_clusters: Vec<_> = Vec::new();
+            for arc_cluster in &mut self.clusters {
+                let cluster = arc_cluster.try_read();
                 log::debug!("cluster {} cycle {}", cluster.cluster_id, cycle);
                 let cores_completed = cluster.not_completed() == 0;
                 let kernels_completed = self
@@ -884,14 +821,63 @@ where
                     continue;
                 }
                 executed_cluster_ids.insert(cluster.cluster_id);
+                active_clusters.push(arc_cluster.clone());
 
-                // cluster.cycle();
+                #[allow(unused_mut)]
                 let mut core_sim_order = cluster.core_sim_order.try_lock();
                 for core_id in core_sim_order.iter() {
                     let mut core = cluster.cores[*core_id].write();
                     crate::timeit!(core.cycle(cycle));
 
-                    let mut port = core.mem_port.try_lock();
+                    // let mut port = core.mem_port.try_lock();
+                    // for ic::Packet {
+                    //     data: (dest, fetch, size),
+                    //     time: _,
+                    // } in port.buffer.drain(..)
+                    // {
+                    //     self.interconn.push(
+                    //         core.cluster_id,
+                    //         dest,
+                    //         ic::Packet {
+                    //             data: fetch,
+                    //             time: cycle,
+                    //         },
+                    //         size,
+                    //     );
+                    // }
+                }
+
+                // if let config::SchedulingOrder::RoundRobin = self.config.simt_core_sim_order {
+                //     core_sim_order.rotate_left(1);
+                // }
+
+                // active_sms += cluster.num_active_sms();
+            }
+
+            // sanity check that inactive clusters do no produce any messages
+            for cluster in &mut self.clusters {
+                let active = active_clusters
+                    .iter()
+                    .map(|c| c.try_read().cluster_id)
+                    .any(|cluster_id| cluster.try_read().cluster_id == cluster_id);
+                if !active {
+                    let cluster = cluster.try_read();
+                    let core_sim_order = cluster.core_sim_order.try_lock();
+                    for core_id in core_sim_order.iter() {
+                        let core = cluster.cores[*core_id].try_read();
+                        let port = core.mem_port.lock();
+                        assert_eq!(port.buffer.len(), 0);
+                    }
+                }
+            }
+
+            for cluster in &mut active_clusters {
+                // for cluster in self.clusters.iter() {
+                let cluster = cluster.try_read();
+                let mut core_sim_order = cluster.core_sim_order.try_lock();
+                for core_id in core_sim_order.iter() {
+                    let core = cluster.cores[*core_id].try_read();
+                    let mut port = core.mem_port.lock();
                     for ic::Packet {
                         data: (dest, fetch, size),
                         time,
@@ -900,21 +886,48 @@ where
                         self.interconn.push(
                             core.cluster_id,
                             dest,
-                            ic::Packet {
-                                data: fetch,
-                                time: cycle,
-                            },
+                            ic::Packet { data: fetch, time },
                             size,
                         );
                     }
                 }
-
                 if let config::SchedulingOrder::RoundRobin = self.config.simt_core_sim_order {
                     core_sim_order.rotate_left(1);
                 }
-
-                // active_sms += cluster.num_active_sms();
             }
+            // for cluster in &mut self.clusters {
+            //     let cluster = cluster.try_read();
+            //     let cores_completed = cluster.not_completed() == 0;
+            //     let kernels_completed = self
+            //         .running_kernels
+            //         .try_read()
+            //         .iter()
+            //         .filter_map(std::option::Option::as_ref)
+            //         .all(|k| k.no_more_blocks_to_run());
+            //
+            //     if !(cores_completed && kernels_completed) {
+            //         let mut core_sim_order = cluster.core_sim_order.try_lock();
+            //         for core_id in core_sim_order.iter() {
+            //             let core = cluster.cores[*core_id].try_read();
+            //             let mut port = core.mem_port.lock();
+            //             for ic::Packet {
+            //                 data: (dest, fetch, size),
+            //                 time,
+            //             } in port.buffer.drain(..)
+            //             {
+            //                 self.interconn.push(
+            //                     core.cluster_id,
+            //                     dest,
+            //                     ic::Packet { data: fetch, time },
+            //                     size,
+            //                 );
+            //             }
+            //         }
+            //         if let config::SchedulingOrder::RoundRobin = self.config.simt_core_sim_order {
+            //             core_sim_order.rotate_left(1);
+            //         }
+            //     }
+            // }
         }
 
         TIMINGS

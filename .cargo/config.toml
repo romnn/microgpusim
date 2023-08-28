@@ -1,6 +1,6 @@
-[target.x86_64-unknown-linux-gnu]
-linker = "/usr/bin/clang"
-rustflags = ["-Clink-arg=-fuse-ld=lld", "-Clink-arg=-Wl,--no-rosegment"]
+# [target.x86_64-unknown-linux-gnu]
+# linker = "/usr/bin/clang"
+# rustflags = ["-Clink-arg=-fuse-ld=lld", "-Clink-arg=-Wl,--no-rosegment"]
 
 [alias]
 xtask = "run --package xtask --"
@@ -13,3 +13,6 @@ playground-sim = "run --release --package playground-sim --"
 
 t = "test -- --test-threads=1"
 tt = "test --release -- --test-threads=1"
+
+tv = "test -- --nocapture --test-threads=1"
+ttv = "test --release -- --nocapture --test-threads=1"

@@ -121,6 +121,8 @@ fn main() -> eyre::Result<()> {
     use tracing_chrome::ChromeLayerBuilder;
     use tracing_subscriber::prelude::*;
 
+    color_eyre::install()?;
+
     let profile = std::env::var("TRACE").unwrap_or_default().to_lowercase() == "yes";
 
     let mut generate_trace = if profile {
@@ -129,7 +131,7 @@ fn main() -> eyre::Result<()> {
         tracing_subscriber::registry().with(chrome_layer).init();
         Some(guard)
     } else {
-        // env_logger::init();
+        env_logger::init();
         // let mut log_builder = env_logger::Builder::new();
         // log_builder.format(|buf, record| writeln!(buf, "{}", record.args()));
         None

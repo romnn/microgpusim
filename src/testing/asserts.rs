@@ -83,8 +83,25 @@ pub fn stats_match(
             assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
         }
         {
+            let box_l2_data_stats = &box_stats.l2d_stats;
+
+            dbg!(&play_l2_data_stats, &box_l2_data_stats);
+            if play_l2_data_stats != *box_l2_data_stats {
+                // diff::diff!(play: &play_l2_data_stats, box: &box_l2_data_stats);
+                // pretty_assertions_sorted::assert_eq!(
+                //     play_l2_data_stats
+                //         .into_iter()
+                //         .enumerate()
+                //         .collect::<Vec<_>>(),
+                //     box_l2_data_stats
+                //         .into_iter()
+                //         .enumerate()
+                //         .collect::<Vec<_>>(),
+                // );
+            }
+
             let mut play_l2_data_stats = play_l2_data_stats.reduce();
-            let mut box_l2_data_stats = box_stats.l2d_stats.reduce();
+            let mut box_l2_data_stats = box_l2_data_stats.reduce();
 
             dbg!(&play_l2_data_stats, &box_l2_data_stats);
             if play_l2_data_stats != box_l2_data_stats {
@@ -95,13 +112,19 @@ pub fn stats_match(
             for l2_stats in [&mut play_l2_data_stats, &mut box_l2_data_stats] {
                 for kind in AccessKind::iter() {
                     let mut hits = l2_stats.accesses[&Access((kind, RequestStatus::HIT.into()))];
+                    // add hit reserved
                     hits += l2_stats.accesses[&Access((kind, RequestStatus::HIT_RESERVED.into()))];
+                    // add mshr hits
+                    hits += l2_stats.accesses[&Access((kind, RequestStatus::MSHR_HIT.into()))];
                     l2_stats
                         .accesses
                         .insert(Access((kind, RequestStatus::HIT.into())), hits);
                     l2_stats
                         .accesses
                         .insert(Access((kind, RequestStatus::HIT_RESERVED.into())), hits);
+                    l2_stats
+                        .accesses
+                        .insert(Access((kind, RequestStatus::MSHR_HIT.into())), hits);
                 }
             }
 

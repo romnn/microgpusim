@@ -367,6 +367,12 @@ pub struct CoreMemoryConnection<C> {
     pub buffer: C,
 }
 
+impl<C> std::fmt::Debug for CoreMemoryConnection<C> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CoreMmeoryConnection").finish()
+    }
+}
+
 impl<C> ic::Connection<ic::Packet<mem_fetch::MemFetch>> for CoreMemoryConnection<C>
 where
     C: ic::BufferedConnection<ic::Packet<(usize, mem_fetch::MemFetch, u32)>>,
@@ -463,6 +469,8 @@ where
 /// SIMT Core.
 #[derive()]
 pub struct Core<I> {
+    pub last_cycle: u64,
+    pub last_active_cycle: u64,
     pub core_id: usize,
     pub cluster_id: usize,
     pub warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
@@ -753,6 +761,8 @@ where
         ));
 
         Self {
+            last_cycle: 0,
+            last_active_cycle: 0,
             core_id,
             cluster_id,
             warp_instruction_unique_uid,
@@ -1975,6 +1985,7 @@ where
         //     self.is_active(),
         //     self.not_completed(),
         // );
+        // self.last_active_cycle = self.last_active_cycle.max(cycle);
 
         for (target, fetch, time) in self.please_fill.lock().drain(..) {
             match target {

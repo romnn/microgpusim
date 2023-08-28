@@ -3,6 +3,7 @@ use crate::sync::Arc;
 use crate::{config, interconn as ic};
 use color_eyre::eyre;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 pub fn run(
     box_trace_dir: &Path,
@@ -40,11 +41,26 @@ pub fn run(
         box_config.num_memory_controllers * box_config.num_sub_partition_per_memory_channel,
     ));
 
+    let start = Instant::now();
     let mut box_sim = crate::MockSimulator::new(box_interconn, box_config);
-    box_sim.add_commands(&box_commands_path, &box_trace_dir)?;
+    box_sim.add_commands(box_commands_path, box_trace_dir)?;
+
+    // {
+    //     box_sim.parallel_simulation = false;
+    //     box_sim.run_to_completion()?;
+    // }
     // box_sim.run_to_completion_parallel_deterministic()?;
+    let run_ahead: usize = std::env::var("NONDET")
+        .ok()
+        .as_deref()
+        .map(str::parse)
+        .transpose()
+        .unwrap()
+        .unwrap_or(1);
+
     // box_sim.run_to_completion_parallel_nondeterministic(1)?;
-    box_sim.run_to_completion_parallel_nondeterministic(5)?;
+    box_sim.run_to_completion_parallel_nondeterministic(run_ahead)?;
+    let box_dur = start.elapsed();
 
     let args = vec![
         "-trace",
@@ -59,9 +75,17 @@ pub fn run(
     dbg!(&args);
 
     let play_config = playground::Config::default();
+    let start = Instant::now();
     let mut play_sim = playground::Accelsim::new(&play_config, &args)?;
     play_sim.run_to_completion();
+    let play_dur = start.elapsed();
 
+    println!(
+        "play dur: {:?}, box dur: {:?} \t=> speedup {:>2.2}",
+        play_dur,
+        box_dur,
+        play_dur.as_secs_f64() / box_dur.as_secs_f64()
+    );
     let play_stats = play_sim.stats();
     let box_stats = box_sim.stats();
 
@@ -103,10 +127,12 @@ parallel_checks! {
     test_vectoradd_0: ("vectorAdd", 0),
     test_vectoradd_1: ("vectorAdd", 1),
     test_vectoradd_2: ("vectorAdd", 2),
+
     // simple matrixmul
     test_simple_matrixmul_0: ("simple_matrixmul", 0),
     test_simple_matrixmul_1: ("simple_matrixmul", 1),
     test_simple_matrixmul_17: ("simple_matrixmul", 17),
+
     // matrixmul (shared memory)
     test_matrixmul_0: ("matrixmul", 0),
     test_matrixmul_1: ("matrixmul", 1),

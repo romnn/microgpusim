@@ -97,7 +97,8 @@ impl PipelinedSimdUnit {
     }
 
     #[inline]
-    #[must_use] pub fn active_lanes_in_pipeline(&self) -> usize {
+    #[must_use]
+    pub fn active_lanes_in_pipeline(&self) -> usize {
         let mut active_lanes: warp::ActiveMask = BitArray::ZERO;
         for stage in self.pipeline_reg.iter().flatten() {
             active_lanes |= stage.active_mask;
@@ -121,7 +122,8 @@ impl PipelinedSimdUnit {
     }
 
     #[inline]
-    #[must_use] pub fn can_issue(&self, instr: &WarpInstruction) -> bool {
+    #[must_use]
+    pub fn can_issue(&self, instr: &WarpInstruction) -> bool {
         self.dispatch_reg.is_none() && !self.occupied[instr.latency]
     }
 }

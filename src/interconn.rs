@@ -1,4 +1,4 @@
-use super::{config, mem_fetch};
+use super::mem_fetch;
 use crate::sync::{Arc, Mutex, RwLock};
 use console::style;
 use std::collections::VecDeque;
@@ -451,6 +451,11 @@ pub trait BufferedConnection<P>: Connection<P> {
         self.buffered().count()
     }
 
+    #[must_use]
+    fn is_empty(&self) -> bool {
+        self.buffered().count() == 0
+    }
+
     fn drain(&mut self) -> Box<dyn Iterator<Item = P> + '_>;
 }
 
@@ -459,7 +464,7 @@ where
     P: Send + Sync + 'static,
 {
     #[inline]
-    fn can_send(&self, packet_sizes: &[u32]) -> bool {
+    fn can_send(&self, _packet_sizes: &[u32]) -> bool {
         true
     }
 

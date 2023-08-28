@@ -64,7 +64,7 @@ impl<T> Fifo<T> {
 // {
 
 impl<T> Fifo<T> {
-    pub fn new(min_size: Option<usize>, max_size: Option<usize>) -> Self {
+    #[must_use] pub fn new(min_size: Option<usize>, max_size: Option<usize>) -> Self {
         Self {
             inner: VecDeque::new(),
             min_size,
@@ -82,11 +82,11 @@ impl<T> Fifo<T> {
         self.inner.pop_front()
     }
 
-    pub fn first(&self) -> Option<&T> {
+    #[must_use] pub fn first(&self) -> Option<&T> {
         self.inner.get(0)
     }
 
-    pub fn full(&self) -> bool {
+    #[must_use] pub fn full(&self) -> bool {
         // log::trace!(
         //     "FIFO full? max len={:?} length={}",
         //     self.max_size,
@@ -98,15 +98,15 @@ impl<T> Fifo<T> {
         }
     }
 
-    pub fn len(&self) -> usize {
+    #[must_use] pub fn len(&self) -> usize {
         self.inner.len()
     }
 
-    pub fn is_empty(&self) -> bool {
+    #[must_use] pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
 
-    pub fn can_fit(&self, n: usize) -> bool {
+    #[must_use] pub fn can_fit(&self, n: usize) -> bool {
         // m_max_len && m_length + size - 1 >= m_max_len
         match self.max_size {
             // Some(max) => self.inner.len() + n - 1 < max,

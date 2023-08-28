@@ -58,7 +58,7 @@ pub mod parking_lot {
     /// A read-write lock
     #[repr(transparent)]
     #[derive(Debug, Default)]
-    pub struct RwLock<T: ?Sized>(parking_lot::RwLock<T>);
+    pub struct RwLock<T: ?Sized>(pub parking_lot::RwLock<T>);
 
     impl<T> RwLock<T> {
         #[must_use]
@@ -92,7 +92,7 @@ pub mod parking_lot {
 }
 
 #[cfg(not(feature = "parking_lot"))]
-pub mod std {
+pub mod default {
     /// A mutex
     #[repr(transparent)]
     #[derive(Debug, Default)]
@@ -114,7 +114,8 @@ pub mod std {
 
         #[inline]
         pub fn try_lock(&self) -> std::sync::MutexGuard<T> {
-            self.0.try_lock().unwrap()
+            // self.0.try_lock().unwrap()
+            self.0.lock().unwrap()
         }
     }
 
@@ -137,7 +138,8 @@ pub mod std {
 
         #[inline]
         pub fn try_read(&self) -> std::sync::RwLockReadGuard<T> {
-            self.0.try_read().unwrap()
+            // self.0.try_read().unwrap()
+            self.0.read().unwrap()
         }
 
         #[inline]
@@ -147,7 +149,8 @@ pub mod std {
 
         #[inline]
         pub fn try_write(&self) -> std::sync::RwLockWriteGuard<T> {
-            self.0.try_write().unwrap()
+            // self.0.try_write().unwrap()
+            self.0.write().unwrap()
         }
     }
 }
@@ -156,4 +159,4 @@ pub mod std {
 pub use self::parking_lot::{FairMutex as Mutex, RwLock};
 
 #[cfg(not(feature = "parking_lot"))]
-pub use std::{Mutex, RwLock};
+pub use default::{Mutex, RwLock};

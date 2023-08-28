@@ -48,7 +48,8 @@ publish = false
 [features]
 # default = ["parking_lot"]
 # default = ["stats", "parking_lot", "parallel"]
-default = ["stats", "parking_lot"]
+default = ["stats", "parallel"]
+# default = ["stats", "parking_lot"]
 stats = []
 parallel = []
 # parallel = ["dep:rayon"]
@@ -62,6 +63,7 @@ denylist = ["default"]
 [[bench]]
 name = "vectoradd"
 harness = false
+required-features =  ["parallel"] 
 
 [dependencies]
 color-eyre = "0"
@@ -83,6 +85,7 @@ bitvec = "1"
 strum = { version = "0", features = ["derive"] }
 phf = { version = "0.11.1", features = ["macros"] }
 rangemap = "1"
+ndarray = "0"
 
 # synchronization
 flume = "0"
