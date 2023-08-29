@@ -306,7 +306,7 @@ impl MemorySubPartition
         use mem_fetch::AccessKind;
 
         let fetch = self.l2_to_interconn_queue.dequeue()?.into_inner();
-        // self.request_tracker.remove(fetch);
+        self.request_tracker.remove(&fetch);
         if fetch.is_atomic() {
             unimplemented!("atomic memory operation");
         }
@@ -324,8 +324,8 @@ impl MemorySubPartition
             .first()
             .map(|packet| packet.data.access_kind())
         {
-            self.l2_to_interconn_queue.dequeue();
-            // self.request_tracker.remove(fetch);
+            let fetch = self.l2_to_interconn_queue.dequeue().unwrap();
+            self.request_tracker.remove(&fetch);
             return None;
         }
 
@@ -336,14 +336,14 @@ impl MemorySubPartition
         self.request_tracker.remove(fetch);
     }
 
-    pub fn dram_l2_queue_push(&mut self, _fetch: &mem_fetch::MemFetch) {
-        todo!("mem sub partition: dram l2 queue push");
-    }
-
-    #[must_use]
-    pub fn dram_l2_queue_full(&self) -> bool {
-        todo!("mem sub partition: dram l2 queue full");
-    }
+    // pub fn dram_l2_queue_push(&mut self, _fetch: &mem_fetch::MemFetch) {
+    //     todo!("mem sub partition: dram l2 queue push");
+    // }
+    //
+    // #[must_use]
+    // pub fn dram_l2_queue_full(&self) -> bool {
+    //     todo!("mem sub partition: dram l2 queue full");
+    // }
 
     #[tracing::instrument]
     pub fn cache_cycle(&mut self, cycle: u64) {
@@ -389,7 +389,7 @@ impl MemorySubPartition
             if l2_cache.has_ready_accesses() && !queue_full {
                 let mut fetch = l2_cache.next_access().unwrap();
 
-                // Don't pass write allocate read request back to upper level cache
+                // Don't pass write allocate read request back to top level cache
                 if fetch.access_kind() != &AccessKind::L2_WR_ALLOC_R {
                     fetch.set_reply();
                     fetch.set_status(Status::IN_PARTITION_L2_TO_ICNT_QUEUE, 0);

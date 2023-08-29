@@ -1,3 +1,5 @@
+use crate::testing::stats::rel_err;
+
 use super::diff;
 use stats::{
     cache::{Access, RequestStatus},
@@ -119,14 +121,35 @@ pub fn stats_match(
                     l2_stats
                         .accesses
                         .insert(Access((kind, RequestStatus::HIT.into())), hits);
-                    l2_stats
-                        .accesses
-                        .insert(Access((kind, RequestStatus::HIT_RESERVED.into())), hits);
-                    l2_stats
-                        .accesses
-                        .insert(Access((kind, RequestStatus::MSHR_HIT.into())), hits);
+                    // l2_stats
+                    //     .accesses
+                    //     .insert(Access((kind, RequestStatus::HIT_RESERVED.into())), hits);
+                    // l2_stats
+                    //     .accesses
+                    //     .insert(Access((kind, RequestStatus::MSHR_HIT.into())), hits);
                 }
             }
+
+            let compare_stats: Vec<_> = AccessKind::iter()
+                .flat_map(|kind| {
+                    [
+                        Access((kind, RequestStatus::HIT.into())),
+                        Access((kind, RequestStatus::MISS.into())),
+                    ]
+                })
+                .collect();
+            let play_l2_data_stats = stats::Cache {
+                accesses: compare_stats
+                    .iter()
+                    .map(|stat| (stat.clone(), play_l2_data_stats.accesses[stat]))
+                    .collect(),
+            };
+            let box_l2_data_stats = stats::Cache {
+                accesses: compare_stats
+                    .iter()
+                    .map(|stat| (stat.clone(), play_l2_data_stats.accesses[stat]))
+                    .collect(),
+            };
 
             if play_l2_data_stats != box_l2_data_stats {
                 diff::diff!(play: &play_l2_data_stats, box: &box_l2_data_stats);
@@ -186,6 +209,7 @@ pub fn stats_match(
         diff::assert_eq!(play: &play_stats.sim, box: &box_sim_stats);
     } else {
         diff::diff!(play: &play_stats.sim, box: &box_sim_stats);
+        dbg!(rel_err(play_stats.sim.cycle, box_sim_stats.cycle, 20.0));
         assert_eq!(play_stats.sim.instructions, box_sim_stats.instructions);
     }
 

@@ -16,6 +16,7 @@ use std::time::Instant;
 fn interleaved_serial_cycle<I, C>(
     cycle: u64,
     i: usize,
+    // core_sim_order: VecDeque<usize>,
     progress: &Arc<Mutex<Array3<Option<bool>>>>,
     // cluster_active: bool,
     cores: &Arc<Vec<Vec<Arc<RwLock<crate::core::Core<I>>>>>>,
@@ -42,7 +43,7 @@ fn interleaved_serial_cycle<I, C>(
             progress
                 .slice(s![i, cluster_id, ..])
                 .iter()
-                .all(|c| c.unwrap())
+                .any(|c| c.unwrap())
         };
         // while !cluster_completed_cycle
         //     .lock()
@@ -71,6 +72,7 @@ fn interleaved_serial_cycle<I, C>(
         //     .contains(&cluster.cluster_id);
 
         // let mut was_updated = false;
+
         let mut core_sim_order = sim_orders[cluster_id].try_lock();
         // let mut core_sim_order = cluster.core_sim_order.try_lock();
 
@@ -236,17 +238,17 @@ fn interleaved_serial_cycle<I, C>(
 #[tracing::instrument]
 fn new_serial_cycle<I>(
     cycle: u64,
-    stats: Arc<Mutex<stats::Stats>>,
-    mem_sub_partitions: Vec<Arc<Mutex<crate::mem_sub_partition::MemorySubPartition>>>,
-    mem_partition_units: Vec<Arc<RwLock<crate::mem_partition_unit::MemoryPartitionUnit>>>,
-    interconn: Arc<I>,
-    clusters: Vec<Arc<RwLock<crate::Cluster<I>>>>,
+    stats: &Arc<Mutex<stats::Stats>>,
+    mem_sub_partitions: &Arc<Vec<Arc<Mutex<crate::mem_sub_partition::MemorySubPartition>>>>,
+    mem_partition_units: &Arc<Vec<Arc<RwLock<crate::mem_partition_unit::MemoryPartitionUnit>>>>,
+    interconn: &Arc<I>,
+    clusters: &Arc<Vec<Arc<RwLock<crate::Cluster<I>>>>>,
     config: &config::GPU,
 ) where
     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
 {
     // it could happen that two serial cycles overlap when using spawn fifo, so we need
-    for cluster in &clusters {
+    for cluster in clusters.iter() {
         cluster.write().interconn_cycle(cycle);
     }
 
@@ -311,6 +313,7 @@ fn new_serial_cycle<I>(
                 );
 
                 // changed from packet.time to cycle here
+                // mem_sub.push(packet.data, packet.time);
                 mem_sub.push(packet.data, cycle);
                 // self.parallel_mem_partition_reqs += 1;
             }
@@ -430,9 +433,12 @@ where
         let progress = Array3::<Option<bool>>::from_elem(shape, None);
 
         let progress = Arc::new(Mutex::new(progress));
+        let clusters = Arc::new(self.clusters.clone());
         let cores = Arc::new(cores);
         let sim_orders = Arc::new(sim_orders);
         let mem_ports = Arc::new(mem_ports);
+        let mem_sub_partitions = Arc::new(self.mem_sub_partitions.clone());
+        let mem_partition_units = Arc::new(self.mem_partition_units.clone());
 
         let use_round_robin =
             self.config.simt_core_sim_order == config::SchedulingOrder::RoundRobin;
@@ -464,14 +470,326 @@ where
                 let span = tracing::span!(tracing::Level::INFO, "wave", cycle, run_ahead);
                 let enter = span.enter();
                 if interleave_serial {
-                    rayon::scope_fifo(|wave| {
-                        for i in 0..run_ahead {
-                            // for (cluster_arc, core, core_id) in cores.iter() {
-                            for (cluster_id, cluster_arc) in
-                                self.clusters.iter().cloned().enumerate()
-                            {
-                                let running_kernels = self.running_kernels.clone();
+                    // println!("START OF WAVE");
+                    if false {
+                        (0..run_ahead)
+                            .into_par_iter()
+                            .map(|i| {
+                                // produce new tasks here
+                                // println!("wave cycle {:>2} ({:>4})", i, cycle + i as u64);
+                                clusters
+                                    .iter()
+                                    .cloned()
+                                    .enumerate()
+                                    .flat_map(|(cluster_id, cluster_arc)| {
+                                        // wave.spawn_fifo(move |wave_cycle| {
+                                        // if *core_id == 0 {
+                                        //     cluster.write().interconn_cycle(cycle + i as u64);
+                                        // }
+                                        let cluster = cluster_arc.try_read();
+                                        assert_eq!(cluster.cluster_id, cluster_id);
 
+                                        let kernels_completed = self
+                                            .running_kernels
+                                            .try_read()
+                                            .iter()
+                                            .filter_map(std::option::Option::as_ref)
+                                            .all(|k| k.no_more_blocks_to_run());
+                                        let cores_completed = cluster.not_completed() == 0;
+
+                                        // if !(cores_completed && kernels_completed) {
+                                        //     // active_clusters_per_cycle
+                                        //     //     .lock()
+                                        //     //     .entry(cycle + i as u64)
+                                        //     //     .or_default()
+                                        //     //     .insert(cluster.cluster_id);
+                                        //     // active_cycles_per_cluster
+                                        //     //     .lock()
+                                        //     //     .entry(cluster.cluster_id)
+                                        //     //     .or_default()
+                                        //     //     .insert(cycle + i as u64);
+                                        //
+                                        //     for core in cluster.cores.iter().cloned() {
+                                        //         intra_wave.spawn_fifo(move |_| {
+                                        //             core.write().cycle(cycle + i as u64);
+                                        //         });
+                                        //     }
+                                        // }
+                                        let cluster_active =
+                                            !(cores_completed && kernels_completed);
+
+                                        // let mut core_sim_order = cluster.core_sim_order.try_lock();
+
+                                        // for core_id in core_sim_order.iter().copied() {
+                                        cluster
+                                            .cores
+                                            .iter()
+                                            .cloned()
+                                            .enumerate()
+                                            .map(|(core_id, core)| {
+                                                // let last_cycle = last_cycle.clone();
+                                                // let progress = progress.clone();
+                                                //
+                                                // // small optimizations
+                                                // let sim_orders = sim_orders.clone();
+                                                // let mem_ports = mem_ports.clone();
+                                                // let cores = cores.clone();
+                                                //
+                                                // let interconn = self.interconn.clone();
+                                                // let clusters = clusters.clone();
+                                                //
+                                                // let stats = self.stats.clone();
+                                                // let mem_sub_partitions = mem_sub_partitions.clone();
+                                                // let mem_partition_units = mem_partition_units.clone();
+                                                // let config = self.config.clone();
+
+                                                // let core = cluster.cores[core_id].clone();
+                                                // let core_sim_order_before = core_sim_order.clone();
+
+                                                (i, cluster_id, cluster_active, core_id, core)
+                                                // wave_cycle.spawn_fifo(move |_| {
+                                                //     // wave.spawn_fifo(move |_| {
+                                                //     println!(
+                                                //         "core ({:>2}-{:>2}) cycle {:>2} ({:>4})",
+                                                //         cluster_id,
+                                                //         core_id,
+                                                //         i,
+                                                //         cycle + i as u64
+                                                //     );
+                                                //     let mut core = core.write();
+                                                //     // let mut core = core.write();
+                                                //     if cluster_active {
+                                                //         core.cycle(cycle + i as u64);
+                                                //         core.last_cycle =
+                                                //             core.last_cycle.max(cycle + i as u64);
+                                                //         core.last_active_cycle =
+                                                //             core.last_active_cycle.max(cycle + i as u64);
+                                                //     } else {
+                                                //         core.last_cycle =
+                                                //             core.last_cycle.max(cycle + i as u64);
+                                                //     }
+                                                //     // drop(core);
+                                                //
+                                                //     // check if core is last to finish cycle + i
+                                                //     // let last_to_finish = {
+                                                //     //     let mut current_cycle = last_cycle.lock();
+                                                //     //     current_cycle[cluster_id][core_id] =
+                                                //     //         cycle + i as u64;
+                                                //     //
+                                                //     //     current_cycle
+                                                //     //         .iter()
+                                                //     //         .flat_map(|cores| cores)
+                                                //     //         .all(|&c| c >= cycle + i as u64)
+                                                //     // };
+                                                //     // let mut port = mem_ports[cluster_id][core_id].lock();
+                                                //     // let mut port = core.mem_port.lock();
+                                                //     //
+                                                //     // for ic::Packet {
+                                                //     //     data: (dest, fetch, size),
+                                                //     //     time,
+                                                //     // } in port.buffer.drain(..)
+                                                //     // {
+                                                //     //     interconn.push(
+                                                //     //         cluster_id,
+                                                //     //         dest,
+                                                //     //         ic::Packet { data: fetch, time },
+                                                //     //         size,
+                                                //     //     );
+                                                //     // }
+                                                //     //
+                                                //     // drop(port);
+                                                //     drop(core);
+                                                //
+                                                //     let last_to_finish = {
+                                                //         let mut progress = progress.lock();
+                                                //         progress[[i, cluster_id, core_id]] =
+                                                //             Some(cluster_active);
+                                                //
+                                                //         progress
+                                                //             .slice(s![i, .., ..])
+                                                //             .iter()
+                                                //             .all(|&c| c.is_some())
+                                                //     };
+                                                //
+                                                //     if last_to_finish {
+                                                //         // println!(
+                                                //         //     "core {:?} is last to finish cycle {}",
+                                                //         //     (cluster_id, core_id),
+                                                //         //     cycle + i as u64
+                                                //         // );
+                                                //         println!(
+                                                //             "serial cycle {:>2} ({:>4})",
+                                                //             i,
+                                                //             cycle + i as u64
+                                                //         );
+                                                //         interleaved_serial_cycle(
+                                                //             cycle + i as u64,
+                                                //             i,
+                                                //             // core_sim_order_before,
+                                                //             &progress,
+                                                //             &cores,
+                                                //             &sim_orders,
+                                                //             &mem_ports,
+                                                //             &interconn,
+                                                //             &clusters,
+                                                //             &config,
+                                                //         );
+                                                //         // for (cluster_id, cluster) in
+                                                //         //     clusters.iter().enumerate()
+                                                //         // {
+                                                //         //     // let cluster_active = {
+                                                //         //     //     let progress = progress.lock();
+                                                //         //     //     progress
+                                                //         //     //         .slice(s![i, cluster_id, ..])
+                                                //         //     //         .iter()
+                                                //         //     //         .all(|c| c.unwrap())
+                                                //         //     // };
+                                                //         //
+                                                //         //     for core_id in core_sim_order_before.iter() {
+                                                //         //         let mut port =
+                                                //         //             mem_ports[cluster_id][*core_id].lock();
+                                                //         //         // if cluster_active {
+                                                //         //         //     if !port.buffer.is_empty() {}
+                                                //         //         //     // assert!(port.buffer.is_empty());
+                                                //         //         // }
+                                                //         //
+                                                //         //         for ic::Packet {
+                                                //         //             data: (dest, fetch, size),
+                                                //         //             time,
+                                                //         //         } in port.buffer.drain(..)
+                                                //         //         {
+                                                //         //             interconn.push(
+                                                //         //                 cluster_id,
+                                                //         //                 dest,
+                                                //         //                 ic::Packet { data: fetch, time },
+                                                //         //                 size,
+                                                //         //             );
+                                                //         //         }
+                                                //         //     }
+                                                //         // }
+                                                //
+                                                //         new_serial_cycle(
+                                                //             cycle + i as u64,
+                                                //             stats,
+                                                //             mem_sub_partitions,
+                                                //             mem_partition_units,
+                                                //             interconn,
+                                                //             clusters,
+                                                //             &config,
+                                                //         );
+                                                //     }
+                                                // });
+                                            })
+                                            .collect::<Vec<_>>()
+
+                                        // if cluster_active {
+                                        //     if use_round_robin {
+                                        //         core_sim_order.rotate_left(1);
+                                        //     }
+                                        // } else {
+                                        //     // println!(
+                                        //     //     "SERIAL: cluster {} not updated in cycle {}",
+                                        //     //     cluster.cluster_id,
+                                        //     //     cycle + i as u64
+                                        //     // );
+                                        // }
+
+                                        // cluster_completed_cycle
+                                        //     .lock()
+                                        //     .entry(cluster.cluster_id)
+                                        //     .and_modify(|c| *c = (*c).max(cycle + i as u64))
+                                        //     .or_insert(cycle + i as u64);
+                                        // });
+                                    })
+                                    .collect::<Vec<_>>()
+                            })
+                            // })
+                            .flatten()
+                            // .map(|| {
+                            //     // let last_cycle = last_cycle.clone();
+                            //     // let progress = progress.clone();
+                            //     //
+                            //     // // small optimizations
+                            //     // let sim_orders = sim_orders.clone();
+                            //     // let mem_ports = mem_ports.clone();
+                            //     // let cores = cores.clone();
+                            //     //
+                            //     // let interconn = self.interconn.clone();
+                            //     // let clusters = clusters.clone();
+                            //     //
+                            //     // let stats = self.stats.clone();
+                            //     // let mem_sub_partitions = mem_sub_partitions.clone();
+                            //     // let mem_partition_units = mem_partition_units.clone();
+                            //     // let config = self.config.clone();
+                            //
+                            //     // let core = cluster.cores[core_id].clone();
+                            //     // let core_sim_order_before = core_sim_order.clone();
+                            // })
+                            .for_each(|(i, cluster_id, cluster_active, core_id, core)| {
+                                // println!(
+                                //     "core ({:>2}-{:>2}) cycle {:>2} ({:>4})",
+                                //     cluster_id,
+                                //     core_id,
+                                //     i,
+                                //     cycle + i as u64
+                                // );
+                                let mut core = core.write();
+                                if cluster_active {
+                                    core.cycle(cycle + i as u64);
+                                    core.last_cycle = core.last_cycle.max(cycle + i as u64);
+                                    core.last_active_cycle =
+                                        core.last_active_cycle.max(cycle + i as u64);
+                                } else {
+                                    core.last_cycle = core.last_cycle.max(cycle + i as u64);
+                                }
+                                drop(core);
+
+                                let last_to_finish = {
+                                    let mut progress = progress.lock();
+                                    progress[[i, cluster_id, core_id]] = Some(cluster_active);
+
+                                    progress.slice(s![i, .., ..]).iter().all(|&c| c.is_some())
+                                };
+
+                                if last_to_finish {
+                                    // println!(
+                                    //     "core {:?} is last to finish cycle {}",
+                                    //     (cluster_id, core_id),
+                                    //     cycle + i as u64
+                                    // );
+                                    // println!("serial cycle {:>2} ({:>4})", i, cycle + i as u64);
+                                    interleaved_serial_cycle(
+                                        cycle + i as u64,
+                                        i,
+                                        // core_sim_order_before,
+                                        &progress,
+                                        &cores,
+                                        &sim_orders,
+                                        &mem_ports,
+                                        &self.interconn,
+                                        &clusters,
+                                        &self.config,
+                                    );
+                                    new_serial_cycle(
+                                        cycle + i as u64,
+                                        &self.stats,
+                                        &mem_sub_partitions,
+                                        &mem_partition_units,
+                                        &self.interconn,
+                                        &clusters,
+                                        &self.config,
+                                    );
+                                }
+                            });
+                    }
+
+                    if true {
+                        rayon::scope_fifo(|wave| {
+                            for i in 0..run_ahead {
+                                // for (cluster_arc, core, core_id) in cores.iter() {
+                                // let running_kernels = self.running_kernels.clone();
+
+                                let last_cycle = last_cycle.clone();
                                 let last_cycle = last_cycle.clone();
                                 let progress = progress.clone();
                                 // let cluster_completed_cycle = cluster_completed_cycle.clone();
@@ -484,26 +802,38 @@ where
                                 let cores = cores.clone();
 
                                 let interconn = self.interconn.clone();
-                                let clusters = self.clusters.clone();
+                                let clusters = Arc::clone(&clusters);
 
-                                let stats = self.stats.clone();
-                                let mem_sub_partitions = self.mem_sub_partitions.clone();
-                                let mem_partition_units = self.mem_partition_units.clone();
+                                let stats = Arc::clone(&self.stats);
+                                let mem_sub_partitions = Arc::clone(&mem_sub_partitions);
+                                let mem_partition_units = Arc::clone(&mem_partition_units);
                                 let config = self.config.clone();
 
-                                wave.spawn_fifo(move |intra_wave| {
+                                // cluster 0 0
+                                // cluster 1 0
+                                // cluster 2 0
+                                // cluster 3 0
+
+                                // wave.spawn_fifo(move |wave_cycle| {
+                                //     println!("wave cycle {:>2} ({:>4})", i, cycle + i as u64);
+                                for (cluster_id, cluster_arc) in
+                                    clusters.iter().cloned().enumerate()
+                                {
+                                    // wave.spawn_fifo(move |wave_cycle| {
                                     // if *core_id == 0 {
                                     //     cluster.write().interconn_cycle(cycle + i as u64);
                                     // }
                                     let cluster = cluster_arc.try_read();
                                     assert_eq!(cluster.cluster_id, cluster_id);
 
-                                    let kernels_completed = running_kernels
-                                        .try_read()
-                                        .iter()
-                                        .filter_map(std::option::Option::as_ref)
-                                        .all(|k| k.no_more_blocks_to_run());
-                                    let cores_completed = cluster.not_completed() == 0;
+                                    // let kernels_completed = self
+                                    //     .running_kernels
+                                    //     .try_read()
+                                    //     .iter()
+                                    //     .filter_map(std::option::Option::as_ref)
+                                    //     .all(|k| k.no_more_blocks_to_run());
+                                    // let cores_completed = cluster.not_completed() == 0;
+                                    // let core_active = !(cores_completed && kernels_completed);
 
                                     // if !(cores_completed && kernels_completed) {
                                     //     // active_clusters_per_cycle
@@ -523,7 +853,11 @@ where
                                     //         });
                                     //     }
                                     // }
+                                    // let cluster_active = !(cores_completed && kernels_completed);
 
+                                    // let mut core_sim_order = cluster.core_sim_order.try_lock();
+
+                                    // for core_id in core_sim_order.iter().copied() {
                                     for (core_id, core) in cluster.cores.iter().cloned().enumerate()
                                     {
                                         let last_cycle = last_cycle.clone();
@@ -542,12 +876,41 @@ where
                                         let mem_partition_units = mem_partition_units.clone();
                                         let config = config.clone();
 
-                                        let cluster_active =
-                                            !(cores_completed && kernels_completed);
+                                        let core = cluster.cores[core_id].clone();
+                                        let running_kernels = self.running_kernels.clone();
+                                        // let core_sim_order_before = core_sim_order.clone();
 
-                                        intra_wave.spawn_fifo(move |_| {
+                                        // let kernels_completed = running_kernels
+                                        //     .try_read()
+                                        //     .iter()
+                                        //     .filter_map(std::option::Option::as_ref)
+                                        //     .all(|k| k.no_more_blocks_to_run());
+                                        //
+                                        // let cores_complete = cluster.not_completed() == 0;
+                                        // let core_active = !(kernels_completed && cores_complete);
+
+                                        // wave_cycle.spawn_fifo(move |_| {
+                                        wave.spawn_fifo(move |_| {
+                                            // println!(
+                                            //     "core ({:>2}-{:>2}) cycle {:>2} ({:>4})",
+                                            //     cluster_id,
+                                            //     core_id,
+                                            //     i,
+                                            //     cycle + i as u64
+                                            // );
                                             let mut core = core.write();
-                                            if cluster_active {
+
+                                            let kernels_completed = running_kernels
+                                                .try_read()
+                                                .iter()
+                                                .filter_map(std::option::Option::as_ref)
+                                                .all(|k| k.no_more_blocks_to_run());
+
+                                            let core_active =
+                                                !(kernels_completed && core.not_completed() == 0);
+
+                                            // let mut core = core.write();
+                                            if core_active {
                                                 core.cycle(cycle + i as u64);
                                                 core.last_cycle =
                                                     core.last_cycle.max(cycle + i as u64);
@@ -557,7 +920,7 @@ where
                                                 core.last_cycle =
                                                     core.last_cycle.max(cycle + i as u64);
                                             }
-                                            drop(core);
+                                            // drop(core);
 
                                             // check if core is last to finish cycle + i
                                             // let last_to_finish = {
@@ -570,19 +933,34 @@ where
                                             //         .flat_map(|cores| cores)
                                             //         .all(|&c| c >= cycle + i as u64)
                                             // };
+                                            // let mut port = mem_ports[cluster_id][core_id].lock();
+                                            // let mut port = core.mem_port.lock();
+                                            //
+                                            // for ic::Packet {
+                                            //     data: (dest, fetch, size),
+                                            //     time,
+                                            // } in port.buffer.drain(..)
+                                            // {
+                                            //     interconn.push(
+                                            //         cluster_id,
+                                            //         dest,
+                                            //         ic::Packet { data: fetch, time },
+                                            //         size,
+                                            //     );
+                                            // }
+                                            //
+                                            // drop(port);
+                                            drop(core);
+
                                             let last_to_finish = {
                                                 let mut progress = progress.lock();
                                                 progress[[i, cluster_id, core_id]] =
-                                                    Some(cluster_active);
+                                                    Some(core_active);
 
                                                 progress
                                                     .slice(s![i, .., ..])
                                                     .iter()
                                                     .all(|&c| c.is_some())
-                                                // current_cycle
-                                                //     .iter()
-                                                //     .flat_map(|cores| cores)
-                                                //     .all(|&c| c >= cycle + i as u64)
                                             };
 
                                             if last_to_finish {
@@ -591,11 +969,16 @@ where
                                                 //     (cluster_id, core_id),
                                                 //     cycle + i as u64
                                                 // );
+                                                // println!(
+                                                //     "serial cycle {:>2} ({:>4})",
+                                                //     i,
+                                                //     cycle + i as u64
+                                                // );
                                                 interleaved_serial_cycle(
                                                     cycle + i as u64,
                                                     i,
+                                                    // core_sim_order_before,
                                                     &progress,
-                                                    // cluster_active,
                                                     &cores,
                                                     &sim_orders,
                                                     &mem_ports,
@@ -603,71 +986,115 @@ where
                                                     &clusters,
                                                     &config,
                                                 );
+                                                // for (cluster_id, cluster) in
+                                                //     clusters.iter().enumerate()
+                                                // {
+                                                //     // let cluster_active = {
+                                                //     //     let progress = progress.lock();
+                                                //     //     progress
+                                                //     //         .slice(s![i, cluster_id, ..])
+                                                //     //         .iter()
+                                                //     //         .all(|c| c.unwrap())
+                                                //     // };
+                                                //
+                                                //     for core_id in core_sim_order_before.iter() {
+                                                //         let mut port =
+                                                //             mem_ports[cluster_id][*core_id].lock();
+                                                //         // if cluster_active {
+                                                //         //     if !port.buffer.is_empty() {}
+                                                //         //     // assert!(port.buffer.is_empty());
+                                                //         // }
+                                                //
+                                                //         for ic::Packet {
+                                                //             data: (dest, fetch, size),
+                                                //             time,
+                                                //         } in port.buffer.drain(..)
+                                                //         {
+                                                //             interconn.push(
+                                                //                 cluster_id,
+                                                //                 dest,
+                                                //                 ic::Packet { data: fetch, time },
+                                                //                 size,
+                                                //             );
+                                                //         }
+                                                //     }
+                                                // }
+
                                                 new_serial_cycle(
                                                     cycle + i as u64,
-                                                    stats,
-                                                    mem_sub_partitions,
-                                                    mem_partition_units,
-                                                    interconn,
-                                                    clusters,
+                                                    &stats,
+                                                    &mem_sub_partitions,
+                                                    &mem_partition_units,
+                                                    &interconn,
+                                                    &clusters,
                                                     &config,
                                                 );
                                             }
                                         });
-                                        // } else {
-                                        // let mut core = core.write();
-                                        // let (last_core_cycle, last_active_core_cycle) =
-                                        //     last_cycle[cluster.cluster_id].lock()[core_id];
-                                        // }
                                     }
+
+                                    // if cluster_active {
+                                    //     if use_round_robin {
+                                    //         core_sim_order.rotate_left(1);
+                                    //     }
+                                    // } else {
+                                    //     // println!(
+                                    //     //     "SERIAL: cluster {} not updated in cycle {}",
+                                    //     //     cluster.cluster_id,
+                                    //     //     cycle + i as u64
+                                    //     // );
+                                    // }
 
                                     // cluster_completed_cycle
                                     //     .lock()
                                     //     .entry(cluster.cluster_id)
                                     //     .and_modify(|c| *c = (*c).max(cycle + i as u64))
                                     //     .or_insert(cycle + i as u64);
-                                });
+                                    // });
+                                }
+                                // });
+
+                                // // small optimizations
+                                // let sim_orders = sim_orders.clone();
+                                // let mem_ports = mem_ports.clone();
+                                // let cores = cores.clone();
+                                //
+                                // let interconn = self.interconn.clone();
+                                // let clusters = self.clusters.clone();
+                                //
+                                // let stats = self.stats.clone();
+                                // let mem_sub_partitions = self.mem_sub_partitions.clone();
+                                // let mem_partition_units = self.mem_partition_units.clone();
+                                // let config = self.config.clone();
+
+                                // let cluster_completed_cycle = cluster_completed_cycle.clone();
+                                // let active_clusters_per_cycle = active_clusters_per_cycle.clone();
+                                // let active_cycles_per_cluster = active_cycles_per_cluster.clone();
+
+                                // wave.spawn_fifo(move |_| {
+                                //     interleaved_serial_cycle(
+                                //         cycle + i as u64,
+                                //         &cores,
+                                //         &sim_orders,
+                                //         &mem_ports,
+                                //         &interconn,
+                                //         &clusters,
+                                //         &config,
+                                //     );
+                                //     new_serial_cycle(
+                                //         cycle + i as u64,
+                                //         stats,
+                                //         mem_sub_partitions,
+                                //         mem_partition_units,
+                                //         interconn,
+                                //         clusters,
+                                //         &config,
+                                //     );
+                                // });
                             }
-
-                            // // small optimizations
-                            // let sim_orders = sim_orders.clone();
-                            // let mem_ports = mem_ports.clone();
-                            // let cores = cores.clone();
-                            //
-                            // let interconn = self.interconn.clone();
-                            // let clusters = self.clusters.clone();
-                            //
-                            // let stats = self.stats.clone();
-                            // let mem_sub_partitions = self.mem_sub_partitions.clone();
-                            // let mem_partition_units = self.mem_partition_units.clone();
-                            // let config = self.config.clone();
-
-                            // let cluster_completed_cycle = cluster_completed_cycle.clone();
-                            // let active_clusters_per_cycle = active_clusters_per_cycle.clone();
-                            // let active_cycles_per_cluster = active_cycles_per_cluster.clone();
-
-                            // wave.spawn_fifo(move |_| {
-                            //     interleaved_serial_cycle(
-                            //         cycle + i as u64,
-                            //         &cores,
-                            //         &sim_orders,
-                            //         &mem_ports,
-                            //         &interconn,
-                            //         &clusters,
-                            //         &config,
-                            //     );
-                            //     new_serial_cycle(
-                            //         cycle + i as u64,
-                            //         stats,
-                            //         mem_sub_partitions,
-                            //         mem_partition_units,
-                            //         interconn,
-                            //         clusters,
-                            //         &config,
-                            //     );
-                            // });
-                        }
-                    });
+                        });
+                    }
+                    // println!("END OF WAVE");
                     // all run_ahead cycles completed
                     progress.lock().fill(None);
                 }
