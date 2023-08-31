@@ -1,6 +1,6 @@
 #pragma once
 
-#include <zlib.h>
+// #include <zlib.h>
 
 #include "memory_config.hpp"
 #include "shader_core_config.hpp"
@@ -19,7 +19,7 @@ class memory_stats_t {
   void memlatstat_lat_pw();
   void memlatstat_print(unsigned n_mem, unsigned gpu_mem_n_bk);
 
-  void visualizer_print(gzFile visualizer_file);
+  // void visualizer_print(gzFile visualizer_file);
 
   // Reset local L2 stats that are aggregated each sampling window
   void clear_L2_stats_pw();

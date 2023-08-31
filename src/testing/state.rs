@@ -52,8 +52,8 @@ impl std::fmt::Debug for Cache {
     }
 }
 
-impl<T> From<crate::tag_array::TagArray<T>> for Cache {
-    fn from(tag_array: crate::tag_array::TagArray<T>) -> Self {
+impl From<crate::tag_array::TagArray<crate::cache::block::Line>> for Cache {
+    fn from(tag_array: crate::tag_array::TagArray<crate::cache::block::Line>) -> Self {
         Self {
             lines: tag_array.lines.into_iter().map(Into::into).collect(),
         }

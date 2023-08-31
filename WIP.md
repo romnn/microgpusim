@@ -5,10 +5,6 @@
   - l2 cache is shared in sub partitions, we get different l2 metrics
   - l1i are the same always, as they are local to the core
 
-- easy chores:
-
-  - publish python package to pip
-
 - today:
 
   - record mem fetch latency in playground and box
@@ -26,6 +22,7 @@
   - record mem fetch latency
   - add a few more stats
   - plot statistics
+  - publish python package to pip
 
 - tomorrow:
 

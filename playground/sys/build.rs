@@ -334,6 +334,7 @@ fn generate_bridge(
     build
         .try_compile("playgroundbridge")
         .wrap_err_with(|| "failed to build cxx bridge")?;
+    println!("cargo:rustc-link-lib=z");
     Ok(())
 }
 

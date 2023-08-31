@@ -1,5 +1,9 @@
 use crate::sync::{Arc, Mutex};
 use crate::{address, cache, config, interconn as ic, mem_fetch, mshr::MSHR, tag_array};
+
+use cache::block::Block;
+use tag_array::Access;
+
 use std::collections::VecDeque;
 
 /// First level data cache in Fermi.

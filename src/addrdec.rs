@@ -213,73 +213,6 @@ impl AddressDecodingConfig {
 }
 
 impl LinearToRawAddressTranslation {
-    #[must_use]
-    pub fn partition_address(&self, addr: address) -> address {
-        if self.has_gap {
-            // see addrdec_tlx for explanation
-            let addr_chip_start = self.decode_config.addr_chip_start.unwrap();
-            let mut partition_addr = (addr >> addr_chip_start) / self.num_channels as u64;
-            partition_addr <<= addr_chip_start;
-            partition_addr |= addr & ((1 << addr_chip_start) - 1);
-
-            // remove part of address that constributes to the sub partition id
-            packbits(!self.sub_partition_id_mask, partition_addr, 0, 64)
-        } else {
-            let mut mask = self.decode_config.chip.mask;
-            mask |= self.sub_partition_id_mask;
-            packbits(!mask, addr, 0, 64)
-        }
-    }
-
-    #[must_use]
-    pub fn tlx(&self, addr: address) -> DecodedAddress {
-        let mut tlx = DecodedAddress::default();
-        let num_channels = self.num_channels as u64;
-
-        let dec = &self.decode_config;
-        let addr_chip_start = dec.addr_chip_start.unwrap();
-
-        if self.has_gap {
-            // Split the given address at ADDR_CHIP_S into (MSBs,LSBs)
-            // - extract chip address using modulus of MSBs
-            // - recreate rest of the address by stitching the quotient of MSBs and the LSBs
-            let addr_for_chip = (addr >> addr_chip_start) % num_channels;
-            let mut rest_of_addr = (addr >> addr_chip_start) / num_channels;
-            rest_of_addr <<= addr_chip_start;
-            rest_of_addr |= addr & ((1 << addr_chip_start) - 1);
-
-            tlx.chip = addr_for_chip;
-            tlx.bk = packbits(dec.bank.mask, rest_of_addr, dec.bank.low, dec.bank.high);
-            tlx.row = packbits(dec.row.mask, rest_of_addr, dec.row.low, dec.row.high);
-            tlx.col = packbits(dec.col.mask, rest_of_addr, dec.col.low, dec.col.high);
-            tlx.burst = packbits(dec.burst.mask, rest_of_addr, dec.burst.low, dec.burst.high);
-
-            // let _rest_of_addr_high_bits = (addr >> addr_chip_start) / num_channels;
-        } else {
-            tlx.chip = packbits(dec.chip.mask, addr, dec.chip.low, dec.chip.high);
-            tlx.bk = packbits(dec.bank.mask, addr, dec.bank.low, dec.bank.high);
-            tlx.row = packbits(dec.row.mask, addr, dec.row.low, dec.row.high);
-            tlx.col = packbits(dec.col.mask, addr, dec.col.low, dec.col.high);
-            tlx.burst = packbits(dec.burst.mask, addr, dec.burst.low, dec.burst.high);
-
-            // let _rest_of_addr_high_bits = addr
-            //     >> (addr_chip_start
-            //         + (self.num_channels_log2 + self.num_sub_partitions_per_channel_log2) as usize);
-        }
-
-        match self.memory_partition_indexing {
-            config::MemoryPartitionIndexingScheme::Consecutive => {}
-            other => unimplemented!("{:?} partition index not implemented", other),
-        }
-
-        // combine the chip address and the lower bits of DRAM bank address to form
-        // the subpartition ID
-        let sub_partition_addr_mask = self.num_sub_partitions_per_channel - 1;
-        tlx.sub_partition = tlx.chip * (self.num_sub_partitions_per_channel as u64);
-        tlx.sub_partition += tlx.bk & (sub_partition_addr_mask as u64);
-        tlx
-    }
-
     pub fn new(config: &config::GPU) -> eyre::Result<Self> {
         let num_channels = config.num_memory_controllers;
         let num_sub_partitions_per_channel = config.num_sub_partition_per_memory_channel;
@@ -370,13 +303,93 @@ impl LinearToRawAddressTranslation {
             sub_partition_id_mask,
         })
     }
+}
 
+pub trait AddressTranslation {
     #[must_use]
-    pub fn num_sub_partition_total(&self) -> usize {
+    fn partition_address(&self, addr: address) -> address;
+    #[must_use]
+    fn translate(&self, addr: address) -> TranslatedAddress;
+    #[must_use]
+    fn num_sub_partitions(&self) -> usize;
+}
+
+impl AddressTranslation for LinearToRawAddressTranslation {
+    #[inline]
+    fn partition_address(&self, addr: address) -> address {
+        if self.has_gap {
+            // see addrdec_tlx for explanation
+            let addr_chip_start = self.decode_config.addr_chip_start.unwrap();
+            let mut partition_addr = (addr >> addr_chip_start) / self.num_channels as u64;
+            partition_addr <<= addr_chip_start;
+            partition_addr |= addr & ((1 << addr_chip_start) - 1);
+
+            // remove part of address that constributes to the sub partition id
+            packbits(!self.sub_partition_id_mask, partition_addr, 0, 64)
+        } else {
+            let mut mask = self.decode_config.chip.mask;
+            mask |= self.sub_partition_id_mask;
+            packbits(!mask, addr, 0, 64)
+        }
+    }
+
+    #[inline]
+    fn translate(&self, addr: address) -> TranslatedAddress {
+        let mut tlx = TranslatedAddress::default();
+        let num_channels = self.num_channels as u64;
+
+        let dec = &self.decode_config;
+        let addr_chip_start = dec.addr_chip_start.unwrap();
+
+        if self.has_gap {
+            // Split the given address at ADDR_CHIP_S into (MSBs,LSBs)
+            // - extract chip address using modulus of MSBs
+            // - recreate rest of the address by stitching the quotient of MSBs and the LSBs
+            let addr_for_chip = (addr >> addr_chip_start) % num_channels;
+            let mut rest_of_addr = (addr >> addr_chip_start) / num_channels;
+            rest_of_addr <<= addr_chip_start;
+            rest_of_addr |= addr & ((1 << addr_chip_start) - 1);
+
+            tlx.chip = addr_for_chip;
+            tlx.bk = packbits(dec.bank.mask, rest_of_addr, dec.bank.low, dec.bank.high);
+            tlx.row = packbits(dec.row.mask, rest_of_addr, dec.row.low, dec.row.high);
+            tlx.col = packbits(dec.col.mask, rest_of_addr, dec.col.low, dec.col.high);
+            tlx.burst = packbits(dec.burst.mask, rest_of_addr, dec.burst.low, dec.burst.high);
+
+            // let _rest_of_addr_high_bits = (addr >> addr_chip_start) / num_channels;
+        } else {
+            tlx.chip = packbits(dec.chip.mask, addr, dec.chip.low, dec.chip.high);
+            tlx.bk = packbits(dec.bank.mask, addr, dec.bank.low, dec.bank.high);
+            tlx.row = packbits(dec.row.mask, addr, dec.row.low, dec.row.high);
+            tlx.col = packbits(dec.col.mask, addr, dec.col.low, dec.col.high);
+            tlx.burst = packbits(dec.burst.mask, addr, dec.burst.low, dec.burst.high);
+
+            // let _rest_of_addr_high_bits = addr
+            //     >> (addr_chip_start
+            //         + (self.num_channels_log2 + self.num_sub_partitions_per_channel_log2) as usize);
+        }
+
+        match self.memory_partition_indexing {
+            config::MemoryPartitionIndexingScheme::Consecutive => {}
+            other => unimplemented!("{:?} partition index not implemented", other),
+        }
+
+        // combine the chip address and the lower bits of DRAM bank address to form
+        // the subpartition ID
+        let sub_partition_addr_mask = self.num_sub_partitions_per_channel - 1;
+        tlx.sub_partition = tlx.chip * (self.num_sub_partitions_per_channel as u64);
+        tlx.sub_partition += tlx.bk & (sub_partition_addr_mask as u64);
+        tlx
+    }
+
+    #[inline]
+    fn num_sub_partitions(&self) -> usize {
         self.num_channels * self.num_sub_partitions_per_channel
     }
 }
 
+#[must_use]
+#[inline]
 fn packbits(mask: super::address, val: super::address, low: u8, high: u8) -> super::address {
     let mut pos = 0;
     let mut res: super::address = 0;
@@ -395,8 +408,8 @@ fn packbits(mask: super::address, val: super::address, low: u8, high: u8) -> sup
     res
 }
 
-#[derive(Default, Debug, Clone, Copy, Eq, PartialEq)]
-pub struct DecodedAddress {
+#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+pub struct TranslatedAddress {
     pub bk: u64,
     pub chip: u64,
     pub row: u64,
@@ -405,7 +418,7 @@ pub struct DecodedAddress {
     pub sub_partition: u64,
 }
 
-impl std::hash::Hash for DecodedAddress {
+impl std::hash::Hash for TranslatedAddress {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.bk.hash(state);
         self.chip.hash(state);
@@ -417,6 +430,7 @@ impl std::hash::Hash for DecodedAddress {
 
 #[cfg(test)]
 mod tests {
+    use super::AddressTranslation;
     use crate::config;
     use color_eyre::eyre;
     use similar_asserts as diff;
@@ -426,7 +440,7 @@ mod tests {
         format!("{n:064b}")
     }
 
-    impl From<playground::addrdec::AddrDec> for super::DecodedAddress {
+    impl From<playground::addrdec::AddrDec> for super::TranslatedAddress {
         fn from(addr: playground::addrdec::AddrDec) -> Self {
             Self {
                 chip: u64::from(addr.chip),
@@ -442,15 +456,15 @@ mod tests {
     fn compute_tlx(
         config: &config::GPU,
         addr: u64,
-    ) -> (super::DecodedAddress, super::DecodedAddress) {
+    ) -> (super::TranslatedAddress, super::TranslatedAddress) {
         let mapping = config.address_mapping();
         let ref_mapping = playground::addrdec::AddressTranslation::new(
             config.num_memory_controllers as u32,
             config.num_sub_partition_per_memory_channel as u32,
         );
         (
-            mapping.tlx(addr),
-            super::DecodedAddress::from(ref_mapping.tlx(addr)),
+            mapping.translate(addr),
+            super::TranslatedAddress::from(ref_mapping.tlx(addr)),
         )
     }
 
@@ -590,7 +604,7 @@ mod tests {
     fn test_tlx() {
         let config = config::GPU::default();
         let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 139_823_420_539_008);
-        let expected = super::DecodedAddress {
+        let expected = super::TranslatedAddress {
             chip: 0,
             bk: 1,
             row: 2900,

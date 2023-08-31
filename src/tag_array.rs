@@ -26,8 +26,9 @@ pub struct AccessStatus {
 #[derive(Debug, Clone)]
 pub struct TagArray<B> {
     /// nbanks x nset x assoc lines in total
-    pub lines: Vec<cache::block::Line>,
-    phantom: std::marker::PhantomData<B>,
+    pub lines: Vec<B>,
+    // pub lines: Vec<cache::block::Line>,
+    // phantom: std::marker::PhantomData<B>,
     is_used: bool,
     num_access: usize,
     num_miss: usize,
@@ -39,17 +40,21 @@ pub struct TagArray<B> {
     pending_lines: LineTable,
 }
 
-impl<B> TagArray<B> {
+impl<B> TagArray<B>
+where
+    B: Default,
+{
     #[must_use]
     pub fn new(config: Arc<config::Cache>) -> Self {
         let num_cache_lines = config.max_num_lines();
         let lines = (0..num_cache_lines)
-            .map(|_| cache::block::Line::new())
+            .map(|_| B::default())
+            // .map(|_| cache::block::Line::default())
             .collect();
 
         Self {
             lines,
-            phantom: std::marker::PhantomData,
+            // phantom: std::marker::PhantomData,
             is_used: false,
             num_access: 0,
             num_miss: 0,
@@ -61,14 +66,37 @@ impl<B> TagArray<B> {
             pending_lines: LineTable::new(),
         }
     }
+}
 
+pub trait Access<B> {
     /// Accesses the tag array
-    pub fn access(
-        &mut self,
-        addr: address,
-        fetch: &mem_fetch::MemFetch,
-        time: u64,
-    ) -> AccessStatus {
+    #[must_use]
+    fn access(&mut self, addr: address, fetch: &mem_fetch::MemFetch, time: u64) -> AccessStatus;
+
+    fn flush(&mut self);
+
+    fn invalidate(&mut self);
+
+    #[must_use]
+    fn size(&self) -> usize;
+
+    #[must_use]
+    fn get_block_mut(&mut self, idx: usize) -> &mut B;
+
+    #[must_use]
+    fn get_block(&self, idx: usize) -> &B;
+
+    fn add_pending_line(&mut self, fetch: &mem_fetch::MemFetch);
+
+    fn remove_pending_line(&mut self, fetch: &mem_fetch::MemFetch);
+}
+
+impl<B> Access<B> for TagArray<B>
+where
+    B: cache::block::Block,
+{
+    #[inline]
+    fn access(&mut self, addr: address, fetch: &mem_fetch::MemFetch, time: u64) -> AccessStatus {
         log::trace!("tag_array::access({}, time={})", fetch, time);
         self.num_access += 1;
         self.is_used = true;
@@ -108,7 +136,7 @@ impl<B> TagArray<B> {
                         writeback = true;
                         evicted = Some(EvictedBlockInfo {
                             allocation: fetch.access.allocation.clone(),
-                            block_addr: line.block_addr, // addr
+                            block_addr: line.block_addr(),
                             modified_size: line.modified_size(),
                             byte_mask: line.dirty_byte_mask(),
                             sector_mask: line.dirty_sector_mask(),
@@ -125,8 +153,8 @@ impl<B> TagArray<B> {
                     line.allocate(
                         self.config.tag(addr),
                         self.config.block_addr(addr),
-                        time,
                         fetch.access_sector_mask(),
+                        time,
                     );
                 }
             }
@@ -159,6 +187,46 @@ impl<B> TagArray<B> {
         }
     }
 
+    fn flush(&mut self) {
+        todo!("flush tag array");
+    }
+
+    fn invalidate(&mut self) {
+        todo!("invalidate tag array");
+    }
+
+    #[must_use]
+    fn size(&self) -> usize {
+        self.config.max_num_lines()
+    }
+
+    fn get_block_mut(&mut self, idx: usize) -> &mut B {
+        &mut self.lines[idx]
+    }
+
+    #[must_use]
+    fn get_block(&self, idx: usize) -> &B {
+        &self.lines[idx]
+    }
+
+    fn add_pending_line(&mut self, fetch: &mem_fetch::MemFetch) {
+        let addr = self.config.block_addr(fetch.addr());
+        let instr = fetch.instr.as_ref().unwrap();
+        if self.pending_lines.contains_key(&addr) {
+            self.pending_lines.insert(addr, instr.uid);
+        }
+    }
+
+    fn remove_pending_line(&mut self, fetch: &mem_fetch::MemFetch) {
+        let addr = self.config.block_addr(fetch.addr());
+        self.pending_lines.remove(&addr);
+    }
+}
+
+impl<B> TagArray<B>
+where
+    B: cache::block::Block,
+{
     /// Probes the tag array
     ///
     /// # Returns
@@ -219,11 +287,11 @@ impl<B> TagArray<B> {
                 "tag_array::probe({:?}) => checking cache index {} (tag={}, status={:?}, last_access={})",
                 fetch.map(ToString::to_string),
                 idx,
-                line.tag,
+                line.tag(),
                 line.status(mask),
                 line.last_access_time()
             );
-            if line.tag == tag {
+            if line.tag() == tag {
                 match line.status(mask) {
                     cache::block::Status::RESERVED => {
                         return (Some(idx), cache::RequestStatus::HIT_RESERVED);
@@ -314,7 +382,7 @@ impl<B> TagArray<B> {
         );
 
         let was_modified_before = self.lines[cache_index].is_modified();
-        self.lines[cache_index].fill(time, fetch.access_sector_mask(), fetch.access_byte_mask());
+        self.lines[cache_index].fill(fetch.access_sector_mask(), fetch.access_byte_mask(), time);
         if self.lines[cache_index].is_modified() && !was_modified_before {
             self.num_dirty += 1;
         }
@@ -359,8 +427,8 @@ impl<B> TagArray<B> {
             line.allocate(
                 self.config.tag(addr),
                 self.config.block_addr(addr),
-                time,
                 &sector_mask,
+                time,
             );
         } else if probe_status == cache::RequestStatus::SECTOR_MISS {
             debug_assert_eq!(self.config.kind, config::CacheKind::Sector);
@@ -370,7 +438,7 @@ impl<B> TagArray<B> {
             self.num_dirty -= 1;
         }
         was_modified_before = line.is_modified();
-        line.fill(time, &sector_mask, &byte_mask);
+        line.fill(&sector_mask, &byte_mask, time);
         if line.is_modified() && !was_modified_before {
             self.num_dirty += 1;
         }
@@ -410,8 +478,8 @@ impl<B> TagArray<B> {
             line.allocate(
                 self.config.tag(addr),
                 self.config.block_addr(addr),
-                time,
                 fetch.access_sector_mask(),
+                time,
             );
         } else if probe_status == cache::RequestStatus::SECTOR_MISS {
             debug_assert_eq!(self.config.kind, config::CacheKind::Sector);
@@ -421,45 +489,10 @@ impl<B> TagArray<B> {
             self.num_dirty -= 1;
         }
         was_modified_before = line.is_modified();
-        line.fill(time, fetch.access_sector_mask(), fetch.access_byte_mask());
+        line.fill(fetch.access_sector_mask(), fetch.access_byte_mask(), time);
         if line.is_modified() && !was_modified_before {
             self.num_dirty += 1;
         }
-    }
-
-    pub fn flush(&mut self) {
-        todo!("flush tag array");
-    }
-
-    pub fn invalidate(&mut self) {
-        todo!("invalidate tag array");
-    }
-
-    #[must_use]
-    pub fn size(&self) -> usize {
-        self.config.max_num_lines()
-    }
-
-    pub fn get_block_mut(&mut self, idx: usize) -> &mut cache::block::Line {
-        &mut self.lines[idx]
-    }
-
-    #[must_use]
-    pub fn get_block(&self, idx: usize) -> &cache::block::Line {
-        &self.lines[idx]
-    }
-
-    pub fn add_pending_line(&mut self, fetch: &mem_fetch::MemFetch) {
-        let addr = self.config.block_addr(fetch.addr());
-        let instr = fetch.instr.as_ref().unwrap();
-        if self.pending_lines.contains_key(&addr) {
-            self.pending_lines.insert(addr, instr.uid);
-        }
-    }
-
-    pub fn remove_pending_line(&mut self, fetch: &mem_fetch::MemFetch) {
-        let addr = self.config.block_addr(fetch.addr());
-        self.pending_lines.remove(&addr);
     }
 }
 

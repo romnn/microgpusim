@@ -5,17 +5,17 @@
 #include "stats/tool.hpp"
 #include "trace_gpgpu_sim.hpp"
 
-void memory_stats_t::visualizer_print(gzFile visualizer_file) {
-  gzprintf(visualizer_file, "Ltwowritemiss: %d\n", L2_write_miss);
-  gzprintf(visualizer_file, "Ltwowritehit: %d\n", L2_write_hit);
-  gzprintf(visualizer_file, "Ltworeadmiss: %d\n", L2_read_miss);
-  gzprintf(visualizer_file, "Ltworeadhit: %d\n", L2_read_hit);
-  clear_L2_stats_pw();
-
-  if (num_mfs)
-    gzprintf(visualizer_file, "averagemflatency: %lld\n",
-             mf_total_lat / num_mfs);
-}
+// void memory_stats_t::visualizer_print(gzFile visualizer_file) {
+//   gzprintf(visualizer_file, "Ltwowritemiss: %d\n", L2_write_miss);
+//   gzprintf(visualizer_file, "Ltwowritehit: %d\n", L2_write_hit);
+//   gzprintf(visualizer_file, "Ltworeadmiss: %d\n", L2_read_miss);
+//   gzprintf(visualizer_file, "Ltworeadhit: %d\n", L2_read_hit);
+//   clear_L2_stats_pw();
+//
+//   if (num_mfs)
+//     gzprintf(visualizer_file, "averagemflatency: %lld\n",
+//              mf_total_lat / num_mfs);
+// }
 
 void memory_stats_t::clear_L2_stats_pw() {
   L2_write_miss = 0;

@@ -1,5 +1,8 @@
 use crate::sync::{Arc, Mutex};
-use crate::{address, cache, config, interconn as ic, mem_fetch, tag_array};
+use crate::{
+    address, cache, config, interconn as ic, mem_fetch,
+    tag_array::{self, Access},
+};
 use std::collections::VecDeque;
 
 #[derive(Debug)]

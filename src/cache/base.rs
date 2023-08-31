@@ -1,12 +1,14 @@
 use crate::sync::{Arc, Mutex};
 use crate::{
-    address, config, interconn as ic, mem_fetch,
+    address, cache, config, interconn as ic, mem_fetch,
     mem_sub_partition::SECTOR_SIZE,
     mshr::{self, MSHR},
     tag_array,
 };
+use cache::block::Block;
 use console::style;
 use std::collections::{HashMap, VecDeque};
+use tag_array::Access;
 
 #[derive(Debug)]
 struct PendingRequest {
@@ -41,7 +43,7 @@ pub struct Base {
     pub miss_queue: VecDeque<mem_fetch::MemFetch>,
     pub miss_queue_status: mem_fetch::Status,
     pub mshrs: mshr::Table<mem_fetch::MemFetch>,
-    pub tag_array: tag_array::TagArray<()>,
+    pub tag_array: tag_array::TagArray<cache::block::Line>,
 
     pending: HashMap<mem_fetch::MemFetch, PendingRequest>,
     top_port: Option<ic::Port<mem_fetch::MemFetch>>,
@@ -180,7 +182,7 @@ impl Base {
 
         if mshr_hit && !mshr_full {
             if read_only {
-                self.tag_array.access(block_addr, &fetch, time);
+                let _ = self.tag_array.access(block_addr, &fetch, time);
             } else {
                 tag_array::AccessStatus {
                     writeback,

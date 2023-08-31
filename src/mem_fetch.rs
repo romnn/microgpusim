@@ -1,7 +1,8 @@
 use super::{
+    addrdec::{AddressTranslation, TranslatedAddress},
     address, config,
     instruction::{MemorySpace, WarpInstruction},
-    mem_sub_partition, warp, DecodedAddress,
+    mem_sub_partition, warp,
 };
 use bitvec::BitArr;
 use once_cell::sync::Lazy;
@@ -230,16 +231,6 @@ impl MemAccess {
     pub fn size(&self) -> u32 {
         self.data_size() + self.control_size()
     }
-
-    // #[must_use]
-    // #[inline]
-    // pub fn packet_size(&self, is_write: bool) -> u32 {
-    //     if is_write {
-    //         self.size()
-    //     } else {
-    //         u32::from(READ_PACKET_SIZE)
-    //     }
-    // }
 }
 
 #[derive(Clone, Debug)]
@@ -247,7 +238,7 @@ pub struct MemFetch {
     pub uid: u64,
     pub access: MemAccess,
     pub instr: Option<WarpInstruction>,
-    pub tlx_addr: DecodedAddress,
+    pub tlx_addr: TranslatedAddress,
     pub partition_addr: address,
     pub chip: u64,
     // pub control_size: u32,
@@ -269,6 +260,8 @@ pub struct MemFetch {
     // this fetch refers to the original write req,
     // when fetch-on-write policy is used
     pub original_write_fetch: Option<Box<MemFetch>>,
+
+    pub latency: u64,
 }
 
 impl std::fmt::Display for MemFetch {
@@ -327,14 +320,13 @@ impl MemFetch {
         core_id: usize,
         cluster_id: usize,
     ) -> Self {
-        // let data_size = access.req_size_bytes;
         let kind = if access.is_write {
             Kind::WRITE_REQUEST
         } else {
             Kind::READ_REQUEST
         };
 
-        let tlx_addr = config.address_mapping().tlx(access.addr);
+        let tlx_addr = config.address_mapping().translate(access.addr);
         let partition_addr = config.address_mapping().partition_address(access.addr);
 
         let uid = MEM_FETCH_UID.fetch_add(1, atomic::Ordering::SeqCst);
@@ -357,9 +349,13 @@ impl MemFetch {
             last_status_change: None,
             original_fetch: None,
             original_write_fetch: None,
+            latency: 0,
         }
     }
 
+    // pub fn latency(&self) -> u64 {}
+
+    #[inline]
     pub fn is_atomic(&self) -> bool {
         self.instr
             .as_ref()
@@ -367,6 +363,7 @@ impl MemFetch {
     }
 
     #[must_use]
+    #[inline]
     pub fn is_texture(&self) -> bool {
         self.instr
             .as_ref()
@@ -374,6 +371,7 @@ impl MemFetch {
     }
 
     #[must_use]
+    #[inline]
     pub fn packet_size(&self) -> u32 {
         if self.is_write() || self.is_atomic() {
             self.size()
@@ -383,70 +381,84 @@ impl MemFetch {
     }
 
     #[must_use]
+    #[inline]
     pub fn is_write(&self) -> bool {
         self.access.is_write
     }
 
     #[must_use]
+    #[inline]
     pub fn addr(&self) -> address {
         self.access.addr
     }
 
     #[must_use]
+    #[inline]
     pub fn relative_addr(&self) -> Option<address> {
         self.access.relative_addr()
     }
 
     #[must_use]
+    #[inline]
     pub fn data_size(&self) -> u32 {
         self.access.req_size_bytes
     }
 
     #[must_use]
+    #[inline]
     pub fn control_size(&self) -> u32 {
         self.access.control_size()
     }
 
     #[must_use]
+    #[inline]
     pub fn size(&self) -> u32 {
         self.data_size() + self.control_size()
     }
 
     #[must_use]
+    #[inline]
     pub fn access_byte_mask(&self) -> &ByteMask {
         &self.access.byte_mask
     }
 
     #[must_use]
+    #[inline]
     pub fn access_warp_mask(&self) -> &warp::ActiveMask {
         &self.access.warp_mask
     }
 
     #[must_use]
+    #[inline]
     pub fn access_sector_mask(&self) -> &SectorMask {
         &self.access.sector_mask
     }
 
     #[must_use]
+    #[inline]
     pub fn sub_partition_id(&self) -> usize {
         self.tlx_addr.sub_partition as usize
     }
 
     #[must_use]
+    #[inline]
     pub fn access_kind(&self) -> &AccessKind {
         &self.access.kind
     }
 
+    #[inline]
     pub fn set_status(&mut self, status: Status, time: u64) {
         self.status = status;
         self.last_status_change = Some(time);
     }
 
     #[must_use]
+    #[inline]
     pub fn is_reply(&self) -> bool {
         matches!(self.kind, Kind::READ_REPLY | Kind::WRITE_ACK)
     }
 
+    #[inline]
     pub fn set_reply(&mut self) {
         assert!(!matches!(
             self.access.kind,
