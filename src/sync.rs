@@ -85,7 +85,9 @@ pub mod parking_lot {
         pub fn into_inner(self) -> T {
             self.0.into_inner()
         }
+    }
 
+    impl<T: ?Sized> RwLock<T> {
         #[inline]
         pub fn read(&self) -> parking_lot::RwLockReadGuard<T> {
             self.0.read()
@@ -161,7 +163,9 @@ pub mod default {
         pub fn into_inner(self) -> T {
             self.0.into_inner().unwrap()
         }
+    }
 
+    impl<T: ?Sized> RwLock<T> {
         #[inline]
         pub fn read(&self) -> std::sync::RwLockReadGuard<T> {
             self.0.read().unwrap()

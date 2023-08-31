@@ -205,7 +205,7 @@ impl Base {
             should_miss = true;
         } else if !mshr_hit && !mshr_full && !self.miss_queue_full() {
             if read_only {
-                self.tag_array.access(block_addr, &fetch, time);
+                let _ = self.tag_array.access(block_addr, &fetch, time);
             } else {
                 tag_array::AccessStatus {
                     writeback,

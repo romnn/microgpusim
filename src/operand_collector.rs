@@ -2,6 +2,7 @@ use super::{config, instruction::WarpInstruction, mem_fetch::BitString, register
 use bitvec::{array::BitArray, BitArr};
 use console::style;
 use register_set::Access;
+use utils::box_slice;
 
 use std::collections::{HashMap, VecDeque};
 
@@ -382,14 +383,12 @@ impl Arbiter {
         self.sub_core_model = sub_core_model;
         self.num_banks_per_scheduler = num_banks_per_scheduler;
 
-        // self.allocated = Vec::new();
-        self.inmatch = vec![None; self.num_banks].into_boxed_slice();
-        self.outmatch = vec![None; self.num_collectors].into_boxed_slice();
-        self.request = vec![vec![None; self.num_collectors].into_boxed_slice(); self.num_banks]
-            .into_boxed_slice();
+        self.inmatch = box_slice![None; self.num_banks];
+        self.outmatch = box_slice![None; self.num_collectors];
+        self.request = box_slice![box_slice![None; self.num_collectors]; self.num_banks];
 
-        self.queue = vec![VecDeque::new(); self.num_banks].into_boxed_slice();
-        self.allocated_banks = vec![Allocation::default(); self.num_banks].into_boxed_slice();
+        self.queue = box_slice![VecDeque::new(); self.num_banks];
+        self.allocated_banks = box_slice![Allocation::default(); self.num_banks];
 
         self.reset_alloction();
     }

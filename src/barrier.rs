@@ -38,7 +38,7 @@ impl BarrierSet {
             active_warps: BitArray::ZERO,
             warps_at_barrier: BitArray::ZERO,
             warps_per_block: HashMap::new(),
-            bar_id_to_warps: vec![BitArray::ZERO; max_barriers_per_block].into_boxed_slice(),
+            bar_id_to_warps: utils::box_slice![BitArray::ZERO; max_barriers_per_block],
         }
     }
 

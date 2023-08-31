@@ -436,6 +436,7 @@ where
     #[allow(clippy::overly_complex_bool_expr)]
     #[tracing::instrument(name = "cycle")]
     pub fn cycle(&mut self, cycle: u64) {
+        #[cfg(feature = "timings")]
         let start_total = Instant::now();
         // int clock_mask = next_clock_domain();
 
@@ -730,8 +731,8 @@ where
 
         // self.interconn_transfer();
 
+        #[cfg(feature = "timings")]
         let start = Instant::now();
-
         let kernels_completed = self
             .running_kernels
             .read()
@@ -954,7 +955,6 @@ where
             //     }
             // }
         }
-
         #[cfg(feature = "timings")]
         TIMINGS
             .lock()

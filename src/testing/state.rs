@@ -1,5 +1,6 @@
 use playground::types;
 use serde::Serialize;
+use utils::box_slice;
 
 impl From<types::mem_fetch::mf_type> for crate::mem_fetch::Kind {
     fn from(kind: types::mem_fetch::mf_type) -> Self {
@@ -515,42 +516,38 @@ impl Simulation {
             last_cluster_issue: 0,
 
             // per sub partition
-            interconn_to_l2_queue_per_sub: vec![vec![]; num_sub_partitions].into_boxed_slice(),
-            l2_to_interconn_queue_per_sub: vec![vec![]; num_sub_partitions].into_boxed_slice(),
-            l2_to_dram_queue_per_sub: vec![vec![]; num_sub_partitions].into_boxed_slice(),
-            dram_to_l2_queue_per_sub: vec![vec![]; num_sub_partitions].into_boxed_slice(),
-            l2_cache_per_sub: vec![None; num_sub_partitions].into_boxed_slice(),
+            interconn_to_l2_queue_per_sub: box_slice![vec![]; num_sub_partitions],
+            l2_to_interconn_queue_per_sub: box_slice![vec![]; num_sub_partitions],
+            l2_to_dram_queue_per_sub: box_slice![vec![]; num_sub_partitions],
+            dram_to_l2_queue_per_sub: box_slice![vec![]; num_sub_partitions],
+            l2_cache_per_sub: box_slice![None; num_sub_partitions],
 
             // per partition
-            dram_latency_queue_per_partition: vec![vec![]; num_mem_partitions].into_boxed_slice(),
-            dram_arbitration_per_partition: vec![
+            dram_latency_queue_per_partition: box_slice![vec![]; num_mem_partitions],
+            dram_arbitration_per_partition: box_slice![
                 Arbitration {
                     last_borrower: 0,
                     shared_credit: 0,
-                    private_credit: vec![0; num_sub_partitions].into_boxed_slice(),
+                    private_credit: box_slice![0; num_sub_partitions],
                 };
                 num_mem_partitions
-            ]
-            .into_boxed_slice(),
+            ],
 
             // per cluster
-            core_sim_order_per_cluster: vec![
-                vec![0; cores_per_cluster].into_boxed_slice();
+            core_sim_order_per_cluster: box_slice![
+                box_slice![0; cores_per_cluster];
                 num_clusters
-            ]
-            .into_boxed_slice(),
+            ],
 
             // per core
-            functional_unit_occupied_slots_per_core: vec![String::new(); total_cores]
-                .into_boxed_slice(),
-            functional_unit_pipelines_per_core: vec![vec![]; total_cores].into_boxed_slice(),
-            scheduler_per_core: vec![
-                vec![Scheduler::default(); num_schedulers].into_boxed_slice();
+            functional_unit_occupied_slots_per_core: box_slice![String::new(); total_cores],
+            functional_unit_pipelines_per_core: box_slice![vec![]; total_cores],
+            scheduler_per_core: box_slice![
+                box_slice![Scheduler::default(); num_schedulers];
                 total_cores
-            ]
-            .into_boxed_slice(),
-            operand_collector_per_core: vec![None; total_cores].into_boxed_slice(),
-            pending_register_writes_per_core: vec![vec![]; total_cores].into_boxed_slice(),
+            ],
+            operand_collector_per_core: box_slice![None; total_cores],
+            pending_register_writes_per_core: box_slice![vec![]; total_cores],
         }
     }
 }

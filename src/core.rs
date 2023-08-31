@@ -484,6 +484,7 @@ pub struct Core<I> {
     pub mem_port: Arc<Mutex<CoreMemoryConnection<InterconnBuffer<mem_fetch::MemFetch>>>>,
     // pub load_store_unit: Arc<Mutex<fu::LoadStoreUnit<ic::CoreMemoryInterface<Packet>>>>,
     pub load_store_unit: Arc<Mutex<fu::LoadStoreUnit>>,
+    // pub load_store_unit: Arc<Mutex<dyn fu::LoadStoreUnit>>,
     pub active_thread_mask: BitArr!(for MAX_THREAD_PER_SM),
     pub occupied_hw_thread_ids: BitArr!(for MAX_THREAD_PER_SM),
     pub dynamic_warp_id: usize,
@@ -503,7 +504,8 @@ pub struct Core<I> {
     pub instr_fetch_buffer: InstrFetchBuffer,
     pub warps: Vec<warp::Ref>,
     pub thread_state: Vec<Option<ThreadState>>,
-    pub scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
+    pub scoreboard: Arc<RwLock<dyn scoreboard::Access<WarpInstruction>>>,
+    // pub scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
     pub barriers: RwLock<barrier::BarrierSet>,
     pub operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
     pub pipeline_reg: Vec<register_set::Ref>,
@@ -545,21 +547,12 @@ where
             .map(|_| warp::Ref::default())
             .collect();
 
-        // let interconn_buffer: InterconnBuffer<mem_fetch::MemFetch> = InterconnBuffer::default();
-        // VecDeque<(usize, T, u32)>
-
-        // let interconn_port = ic::Port::default();
-
-        // let mem_port: ic::Port<mem_fetch::MemFetch> = Arc::new(Mutex::new(CoreMemoryConnection {
         let mem_port = Arc::new(Mutex::new(CoreMemoryConnection {
             cluster_id,
             stats: Arc::clone(&stats),
             config: Arc::clone(&config),
-            // interconn: interconn.clone(),
             buffer: InterconnBuffer::<mem_fetch::MemFetch>::new(),
         }));
-        // as dyn ic::Connection<mem_fetch::MemFetch>))
-        // as ic::Port<mem_fetch::MemFetch>;
 
         let cache_stats = Arc::new(Mutex::new(stats::Cache::default()));
         let mut instr_l1_cache = cache::ReadOnly::new(
@@ -571,13 +564,11 @@ where
             ),
             core_id,
             cluster_id,
-            // Arc::clone(&port),
             cache_stats,
             Arc::clone(&config),
             config.inst_cache_l1.as_ref().unwrap().clone(),
         );
         instr_l1_cache.set_top_port(mem_port.clone());
-        // instr_l1_cache.set_top_port(Arc::clone(&mem_port) as ic::Port<mem_fetch::MemFetch>);
 
         let scoreboard = Arc::new(RwLock::new(scoreboard::Scoreboard::new(
             core_id,
@@ -644,10 +635,6 @@ where
             core_id,
             cluster_id,
             warps.clone(),
-            // interconn.clone(),
-            // fetch_interconn,
-            // interconn_buffer,
-            // Arc::clone(&mem_port) as ic::Port<mem_fetch::MemFetch>,
             mem_port.clone(),
             operand_collector.clone(),
             scoreboard.clone(),
@@ -786,12 +773,10 @@ where
             instr_fetch_buffer: InstrFetchBuffer::default(),
             interconn,
             mem_port,
-            // interconn_buffer,
             load_store_unit,
             warps,
             pipeline_reg,
             result_busses,
-            // interconn_queue: VecDeque::new(),
             scoreboard,
             barriers,
             operand_collector,
@@ -1121,13 +1106,6 @@ where
         self.init_warps(free_block_hw_id, start_thread, end_thread, block_id, kernel);
         self.num_active_blocks += 1;
     }
-
-    // Return the next pc of a thread
-    // #[must_use]
-    // #[inline]
-    // pub fn next_pc(&mut self, thread_id: usize) -> Option<usize> {
-    //     self.thread_state[thread_id].as_ref().map(|t| t.pc)
-    // }
 }
 
 // PRIVATE
@@ -1155,8 +1133,6 @@ where
             in_ports.push(pipeline_reg[PipelineStage::ID_OC_SP as usize].clone());
             in_ports.push(pipeline_reg[PipelineStage::ID_OC_SFU as usize].clone());
             in_ports.push(pipeline_reg[PipelineStage::ID_OC_MEM as usize].clone());
-            // in_ports.push_back(&m_pipeline_reg[ID_OC_SFU]);
-            // in_ports.push(&self.pipeline_reg[ID_OC_MEM]);
             out_ports.push(pipeline_reg[PipelineStage::OC_EX_SP as usize].clone());
             out_ports.push(pipeline_reg[PipelineStage::OC_EX_SFU as usize].clone());
             out_ports.push(pipeline_reg[PipelineStage::OC_EX_MEM as usize].clone());
@@ -1189,12 +1165,8 @@ where
             // }
             // cu_sets.push_back((unsigned)GEN_CUS);
             // m_operand_collector.add_port(in_ports, out_ports, cu_sets);
-            // in_ports.clear(), out_ports.clear(), cu_sets.clear();
             cu_sets.push(opcoll::Kind::GEN_CUS);
             operand_collector.add_port(in_ports, out_ports, cu_sets);
-            // in_ports.clear();
-            // out_ports.clear();
-            // cu_sets.clear();
         }
 
         if config.enable_specialized_operand_collector {
@@ -1354,7 +1326,6 @@ where
         );
 
         if !self.instr_fetch_buffer.valid {
-            // if self.instr_l1_cache.has_ready_accesses() {
             if let Some(fetch) = self.instr_l1_cache.next_access() {
                 let warp = self.warps.get_mut(fetch.warp_id).unwrap();
                 let mut warp = warp.try_lock();
@@ -1373,7 +1344,6 @@ where
 
                 self.instr_fetch_buffer.valid = true;
                 // warp.set_last_fetch(m_gpu->gpu_sim_cycle);
-                // drop(fetch);
             } else {
                 // find an active warp with space in
                 // instruction buffer that is not
@@ -1482,7 +1452,6 @@ where
                         self.num_active_warps -= 1;
                     }
 
-                    // let mut warp = self.warps[warp_id].try_borrow_mut().unwrap();
                     let mut warp = self.warps[warp_id].try_lock();
                     if did_exit {
                         warp.done_exit = true;
@@ -1530,7 +1499,6 @@ where
                             Some(inst_alloc.clone()),
                             num_bytes as u32,
                             false,
-                            // todo: is this correct?
                             BitArray::ZERO,
                             BitArray::ZERO,
                             BitArray::ZERO,
@@ -1563,8 +1531,6 @@ where
                         } else if status == cache::RequestStatus::HIT {
                             self.instr_fetch_buffer = InstrFetchBuffer {
                                 valid: true,
-                                // pc: pc as u64,
-                                // num_bytes,
                                 warp_id,
                             };
                             // m_warp[warp_id]->set_last_fetch(m_gpu->gpu_sim_cycle);
@@ -1581,7 +1547,7 @@ where
 
     /// Shader core decode
     #[tracing::instrument]
-    // #[inline]
+    #[inline]
     fn decode(&mut self, cycle: u64) {
         let InstrFetchBuffer { valid, warp_id, .. } = self.instr_fetch_buffer;
 
@@ -1665,7 +1631,7 @@ where
     }
 
     #[tracing::instrument]
-    // #[inline]
+    #[inline]
     fn issue(&mut self, cycle: u64) {
         // fair round robin issue between schedulers
         let num_schedulers = self.schedulers.len();
@@ -1679,7 +1645,7 @@ where
     }
 
     #[tracing::instrument]
-    // #[inline]
+    #[inline]
     fn writeback(&mut self, cycle: u64) {
         // from the functional units
         let mut exec_writeback_pipeline =
@@ -1704,10 +1670,6 @@ where
         //
         // m_stats->m_last_num_sim_insn[m_sid] = m_stats->m_num_sim_insn[m_sid];
         // m_stats->m_last_num_sim_winsn[m_sid] = m_stats->m_num_sim_winsn[m_sid];
-        //
-        // let preg = ex_wb_stage.get_ready_mut();
-        // let pipe_reg = (preg == NULL) ? NULL : *preg;
-        // while preg.is_some() { // && !pipe_reg.empty() {
         while let Some(mut ready) = exec_writeback_pipeline
             .get_ready_mut()
             .and_then(|(_, r)| r.take())
@@ -1743,7 +1705,7 @@ where
     }
 
     #[tracing::instrument]
-    // #[inline]
+    #[inline]
     fn execute(&mut self, cycle: u64) {
         let core_id = self.id();
         log::debug!(
@@ -1856,11 +1818,6 @@ where
         }
     }
 
-    // pub fn set_kernel(&self, kernel: Arc<Kernel>) {
-    //     log::debug!("kernel {} bind to core {:?}", kernel, self.id());
-    //     *self.current_kernel.lock() = Some(kernel);
-    // }
-
     #[must_use]
     #[inline]
     fn find_available_hw_thread_id(
@@ -1928,7 +1885,6 @@ where
         end_thread: usize,
         block_id: u64,
         kernel: &Arc<Kernel>,
-        // kernel: &Kernel,
     ) {
         // let threads_per_block = kernel.threads_per_block();
         let start_warp = start_thread / self.config.warp_size;
@@ -1979,17 +1935,17 @@ where
 {
     #[tracing::instrument(name = "core_cycle")]
     fn cycle(&mut self, cycle: u64) {
-        // log::debug!(
-        //     "{} \tactive={}, not completed={}",
-        //     style(format!(
-        //         "cycle {:03} core {:?}: core cycle",
-        //         cycle,
-        //         self.id()
-        //     ))
-        //     .blue(),
-        //     self.is_active(),
-        //     self.not_completed(),
-        // );
+        log::debug!(
+            "{} \tactive={}, not completed={}",
+            style(format!(
+                "cycle {:03} core {:?}: core cycle",
+                cycle,
+                self.id()
+            ))
+            .blue(),
+            self.is_active(),
+            self.not_completed(),
+        );
         // self.last_active_cycle = self.last_active_cycle.max(cycle);
 
         for (target, fetch, time) in self.please_fill.lock().drain(..) {

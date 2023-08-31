@@ -4,7 +4,7 @@ use std::collections::HashSet;
 /// Scoreboard access.
 ///
 /// The scoreboard keeps track of registers used by warps inside an SM.
-pub trait Access<I> {
+pub trait Access<I>: Sync + Send + 'static {
     /// Checks to see if registers used by an instruction are reserved in the scoreboard
     ///
     /// # Returns
@@ -43,7 +43,7 @@ pub struct Scoreboard {
 impl Scoreboard {
     #[must_use]
     pub fn new(core_id: usize, cluster_id: usize, max_warps: usize) -> Self {
-        let warp_registers = vec![HashSet::new(); max_warps].into_boxed_slice();
+        let warp_registers = utils::box_slice![HashSet::new(); max_warps];
         Self {
             core_id,
             cluster_id,
