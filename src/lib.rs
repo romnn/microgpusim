@@ -125,14 +125,25 @@ macro_rules! timeit {
     }};
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, Hash)]
+pub struct DebugState {
+    pub core_orders_per_cluster: Vec<VecDeque<usize>>,
+    pub last_cluster_issue: usize,
+    pub last_issued_kernel: usize,
+    pub block_issue_next_core_per_cluster: Vec<usize>,
+}
+
 #[derive()]
 pub struct MockSimulator<I> {
+    /// Temporary for debugging
+    pub states: Vec<(u64, DebugState)>,
     stats: Arc<Mutex<Stats>>,
     config: Arc<config::GPU>,
     mem_partition_units: Vec<Arc<RwLock<mem_partition_unit::MemoryPartitionUnit>>>,
     mem_sub_partitions: Vec<Arc<Mutex<mem_sub_partition::MemorySubPartition>>>,
+    // we could remove the arcs on running and executed if we change to self: Arc<Self>
     pub running_kernels: Arc<RwLock<Vec<Option<Arc<kernel::Kernel>>>>>,
-    executed_kernels: Mutex<HashMap<u64, String>>,
+    executed_kernels: Arc<Mutex<HashMap<u64, String>>>,
     // clusters: Vec<Cluster<I>>,
     clusters: Vec<Arc<RwLock<Cluster<I>>>>,
     #[allow(dead_code)]
@@ -140,8 +151,8 @@ pub struct MockSimulator<I> {
     interconn: Arc<I>,
 
     parallel_simulation: bool,
-    last_cluster_issue: Mutex<usize>,
-    last_issued_kernel: usize,
+    last_cluster_issue: Arc<Mutex<usize>>,
+    last_issued_kernel: Mutex<usize>,
     allocations: allocation::Ref,
 
     // for main run loop
@@ -227,7 +238,7 @@ where
             })
             .collect();
 
-        let executed_kernels = Mutex::new(HashMap::new());
+        let executed_kernels = Arc::new(Mutex::new(HashMap::new()));
 
         assert!(config.max_threads_per_core.rem_euclid(config.warp_size) == 0);
         // let _max_warps_per_shader = config.max_threads_per_core / config.warp_size;
@@ -251,9 +262,10 @@ where
             .and_then(Result::ok);
 
         // this causes first launch to use simt cluster
-        let last_cluster_issue = Mutex::new(config.num_simt_clusters - 1);
+        let last_cluster_issue = Arc::new(Mutex::new(config.num_simt_clusters - 1));
 
         Self {
+            states: Vec::new(),
             config,
             stats,
             mem_partition_units,
@@ -265,7 +277,7 @@ where
             clusters,
             warp_instruction_unique_uid,
             last_cluster_issue,
-            last_issued_kernel: 0,
+            last_issued_kernel: Mutex::new(0),
             allocations,
             traces_dir: None,
             commands: Vec::new(),
@@ -295,11 +307,12 @@ where
     /// Todo: used hack to allow selecting the kernel from the shader core,
     /// but we could maybe refactor
     pub fn select_kernel(&self) -> Option<Arc<Kernel>> {
+        let mut last_issued_kernel = self.last_issued_kernel.lock();
         let mut executed_kernels = self.executed_kernels.try_lock();
         let running_kernels = self.running_kernels.try_read();
 
         // issue same kernel again
-        match running_kernels[self.last_issued_kernel] {
+        match running_kernels[*last_issued_kernel] {
             // && !kernel.kernel_TB_latency)
             Some(ref last_kernel) if !last_kernel.no_more_blocks_to_run() => {
                 let launch_id = last_kernel.id();
@@ -315,10 +328,11 @@ where
         let num_kernels = running_kernels.len();
         let max_concurrent = self.config.max_concurrent_kernels;
         for n in 0..num_kernels {
-            let idx = (n + self.last_issued_kernel + 1) % max_concurrent;
+            let idx = (n + *last_issued_kernel + 1) % max_concurrent;
             match running_kernels[idx] {
                 // &&!kernel.kernel_TB_latency)
                 Some(ref kernel) if !kernel.no_more_blocks_to_run() => {
+                    *last_issued_kernel = idx;
                     let launch_id = kernel.id();
                     assert!(!executed_kernels.contains_key(&launch_id));
                     executed_kernels.insert(launch_id, kernel.name().to_string());
@@ -430,6 +444,7 @@ where
         // }
 
         // shader core loading (pop from ICNT into core)
+        #[cfg(feature = "timings")]
         let start = Instant::now();
         if self.parallel_simulation {
             self.clusters
@@ -440,6 +455,7 @@ where
                 cluster.try_write().interconn_cycle(cycle);
             }
         }
+        #[cfg(feature = "timings")]
         TIMINGS
             .lock()
             .entry("cycle::interconn")
@@ -455,9 +471,9 @@ where
         // this can be parallelized, but its not worth it
         // THIS MESSES UP EVERYTHING
 
+        #[cfg(feature = "timings")]
         let start = Instant::now();
         if false && self.parallel_simulation {
-            // let mut temp_requests = Vec::new();
             self.mem_sub_partitions
                 .par_iter()
                 .enumerate()
@@ -571,6 +587,7 @@ where
                 }
             }
         }
+        #[cfg(feature = "timings")]
         TIMINGS
             .lock()
             .entry("cycle::subs")
@@ -578,6 +595,7 @@ where
             .add(start.elapsed());
 
         // DRAM
+        #[cfg(feature = "timings")]
         let start = Instant::now();
         if self.parallel_simulation {
             // this pushes into sub.dram_to_l2_queue and messes up the order
@@ -600,6 +618,7 @@ where
                 // }
             }
         }
+        #[cfg(feature = "timings")]
         TIMINGS
             .lock()
             .entry("cycle::dram")
@@ -612,6 +631,7 @@ where
             self.mem_sub_partitions.len()
         );
 
+        #[cfg(feature = "timings")]
         let start = Instant::now();
         if self.parallel_simulation {
             self.mem_sub_partitions
@@ -695,6 +715,7 @@ where
                 mem_sub.cache_cycle(cycle);
             }
         }
+        #[cfg(feature = "timings")]
         TIMINGS
             .lock()
             .entry("cycle::l2")
@@ -827,7 +848,7 @@ where
                 let mut core_sim_order = cluster.core_sim_order.try_lock();
                 for core_id in core_sim_order.iter() {
                     let mut core = cluster.cores[*core_id].write();
-                    crate::timeit!(core.cycle(cycle));
+                    crate::timeit!("serial core cycle", core.cycle(cycle));
 
                     // let mut port = core.mem_port.try_lock();
                     // for ic::Packet {
@@ -892,6 +913,10 @@ where
                     }
                 }
                 if let config::SchedulingOrder::RoundRobin = self.config.simt_core_sim_order {
+                    // println!(
+                    //     "SERIAL: cluster {} is active in cycle {}",
+                    //     cluster.cluster_id, cycle
+                    // );
                     core_sim_order.rotate_left(1);
                 }
             }
@@ -930,6 +955,7 @@ where
             // }
         }
 
+        #[cfg(feature = "timings")]
         TIMINGS
             .lock()
             .entry("cycle::core")
@@ -953,7 +979,26 @@ where
         // }
         // } else {
 
-        crate::timeit!(self.issue_block_to_core(cycle));
+        self.issue_block_to_core(cycle);
+        // crate::timeit!(self.issue_block_to_core(cycle));
+
+        if false {
+            let state = crate::DebugState {
+                core_orders_per_cluster: self
+                    .clusters
+                    .iter()
+                    .map(|cluster| cluster.read().core_sim_order.lock().clone())
+                    .collect(),
+                last_cluster_issue: *self.last_cluster_issue.lock(),
+                last_issued_kernel: *self.last_issued_kernel.lock(),
+                block_issue_next_core_per_cluster: self
+                    .clusters
+                    .iter()
+                    .map(|cluster| cluster.read().block_issue_next_core.lock().clone())
+                    .collect(),
+            };
+            self.states.push((cycle, state));
+        }
 
         // self.decrement_kernel_latency();
         // }
@@ -1000,6 +1045,7 @@ where
         //     }
         // }
 
+        #[cfg(feature = "timings")]
         TIMINGS
             .lock()
             .entry("cycle::total")
@@ -1208,7 +1254,7 @@ where
         let mut cycle: u64 = 0;
         let mut last_state_change: Option<(deadlock::State, u64)> = None;
 
-        println!("deterministic parallel = {}", self.parallel_simulation);
+        println!("deterministic (parallel = {})", self.parallel_simulation);
 
         while (self.commands_left() || self.kernels_left()) && !self.reached_limit(cycle) {
             self.process_commands(cycle);
@@ -1381,7 +1427,26 @@ pub fn save_stats_to_file(stats: &Stats, path: &Path) -> eyre::Result<()> {
 pub fn accelmain(
     traces_dir: impl AsRef<Path>,
     config: impl Into<Arc<config::GPU>>,
-) -> eyre::Result<Stats> {
+) -> eyre::Result<MockSimulator<ic::ToyInterconnect<ic::Packet<mem_fetch::MemFetch>>>> {
+    #[cfg(feature = "deadlock_detection")]
+    std::thread::spawn(move || loop {
+        // Create a background thread which checks for deadlocks every 10s
+        std::thread::sleep(std::time::Duration::from_secs(10));
+        let deadlocks = parking_lot::deadlock::check_deadlock();
+        if deadlocks.is_empty() {
+            continue;
+        }
+
+        println!("{} deadlocks detected", deadlocks.len());
+        for (i, threads) in deadlocks.iter().enumerate() {
+            println!("Deadlock #{}", i);
+            for t in threads {
+                println!("Thread Id {:#?}", t.thread_id());
+                println!("{:#?}", t.backtrace());
+            }
+        }
+    });
+
     let config = config.into();
     let traces_dir = traces_dir.as_ref();
     let (traces_dir, commands_path) = if traces_dir.is_dir() {
@@ -1429,14 +1494,85 @@ pub fn accelmain(
         // config::Parallelization::Deterministic => todo!("deterministic"),
         #[cfg(feature = "parallel")]
         config::Parallelization::Nondeterministic(n) => {
+            // let mut arc_sim = Arc::new(sim);
             sim.run_to_completion_parallel_nondeterministic(n)?;
+            // sim = Arc::into_inner(arc_sim).unwrap();
         }
     }
 
-    let stats = sim.stats();
-
-    Ok(stats)
+    Ok(sim)
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use crate::config;
+    use crate::testing::{diff, init_logging};
+    use color_eyre::eyre;
+    use std::time::Instant;
+    use validate::materialize::{BenchmarkConfig, Benchmarks};
+
+    fn get_bench_config(benchmark_name: &str, input_idx: usize) -> eyre::Result<BenchmarkConfig> {
+        use std::path::PathBuf;
+
+        let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
+        let benchmarks_path = manifest_dir.join("test-apps/test-apps-materialized.yml");
+        let reader = utils::fs::open_readable(benchmarks_path)?;
+        let benchmarks = Benchmarks::from_reader(reader)?;
+        let bench_config = benchmarks
+            .get_single_config(benchmark_name, input_idx)
+            .ok_or_else(|| {
+                eyre::eyre!(
+                    "no benchmark {:?} or input index {}",
+                    benchmark_name,
+                    input_idx
+                )
+            })?;
+        Ok(bench_config.clone())
+    }
+
+    #[test]
+    fn test_nondet() -> eyre::Result<()> {
+        init_logging();
+        let (bench_name, input_num) = ("transpose", 0); // takes 34 sec (accel same)
+        println!("running {bench_name}@{input_num}");
+
+        let mut bench_config = get_bench_config(bench_name, input_num)?;
+
+        let start = Instant::now();
+        bench_config.simulate.parallel = true;
+        // bench_config.parallelization = config::Parallelization::Nondeterministic(2);
+        let mut sim_parallel = validate::simulate::simulate_bench_config(&bench_config)?;
+        println!("parallel took {:?}", start.elapsed());
+
+        let start = Instant::now();
+        bench_config.simulate.parallel = false;
+        // bench_config.parallelization = config::Parallelization::Nondeterministic(2);
+        let mut sim_serial = validate::simulate::simulate_bench_config(&bench_config)?;
+        println!("serial took {:?}", start.elapsed());
+
+        let parallel_stats = sim_parallel.stats();
+        let serial_stats = sim_serial.stats();
+
+        sim_serial.states.sort_by_key(|(cycle, _)| *cycle);
+        sim_parallel.states.sort_by_key(|(cycle, _)| *cycle);
+        assert_eq!(sim_serial.states.len(), sim_parallel.states.len());
+
+        diff::diff!(serial: serial_stats.sim, parallel: parallel_stats.sim);
+        diff::diff!(
+            serial: &serial_stats.l2d_stats.reduce(),
+            parallel: &parallel_stats.l2d_stats.reduce(),
+        );
+
+        // for ((ser_cycle, ser_state), (par_cycle, par_state)) in
+        //     sim_serial.states.iter().zip(sim_parallel.states.iter())
+        // {
+        //     assert_eq!(ser_cycle, par_cycle);
+        //     dbg!(ser_cycle);
+        //     diff::assert_eq!(serial: ser_state, parallel: par_state);
+        // }
+
+        // diff::assert_eq!(serial: sim_serial.states, parallel: sim_parallel.states);
+
+        Ok(())
+    }
+}

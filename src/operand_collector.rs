@@ -817,14 +817,14 @@ impl RegisterFileUnit {
 
     pub fn step(&mut self) {
         log::debug!("{}", style("operand collector::step()").green());
-        crate::timeit!(self.dispatch_ready_cu());
-        crate::timeit!(self.allocate_reads());
+        self.dispatch_ready_cu();
+        self.allocate_reads();
 
         debug_assert!(!self.in_ports.is_empty());
         for port_num in 0..self.in_ports.len() {
-            crate::timeit!(self.allocate_cu(port_num));
+            self.allocate_cu(port_num);
         }
-        crate::timeit!(self.process_banks());
+        self.process_banks();
     }
 
     fn process_banks(&mut self) {
@@ -834,7 +834,7 @@ impl RegisterFileUnit {
     /// Process read requests that do not have conflicts
     pub fn allocate_reads(&mut self) {
         // process read requests that do not have conflicts
-        let read_ops = crate::timeit!(self.arbiter.allocate_reads());
+        let read_ops = self.arbiter.allocate_reads();
         // let allocated: &Vec<Operand> = crate::timeit!(self.arbiter.allocate_reads());
         // // TODO: move this into the arbiter??
         // log::debug!(
@@ -865,7 +865,7 @@ impl RegisterFileUnit {
             assert!(cu_id < self.collector_units.len());
             let mut cu = self.collector_units[cu_id].try_lock();
             if let Some(operand) = read.operand {
-                crate::timeit!(cu.collect_operand(operand));
+                cu.collect_operand(operand);
             }
 
             // if self.config.clock_gated_reg_file {

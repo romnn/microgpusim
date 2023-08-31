@@ -249,7 +249,7 @@ impl LoadStoreUnit
                     if next_writeback.memory_space == Some(MemorySpace::Shared) {
                         // shared
                         self.scoreboard
-                            .write()
+                            .try_write()
                             .release(next_writeback.warp_id, *out_reg);
                         instr_completed = true;
                     } else {
@@ -914,7 +914,7 @@ impl LoadStoreUnit
                             if *still_pending > 0 {
                                 pending.remove(out_reg);
                                 log::trace!("l1 latency queue release registers");
-                                self.scoreboard.write().release(instr.warp_id, *out_reg);
+                                self.scoreboard.try_write().release(instr.warp_id, *out_reg);
                                 completed = true;
                             }
                         }
@@ -1251,7 +1251,7 @@ impl crate::engine::cycle::Component for LoadStoreUnit
                     if !has_pending_requests {
                         crate::warp_inst_complete(&mut dispatch_reg, &self.stats);
 
-                        self.scoreboard.write().release_all(&dispatch_reg);
+                        self.scoreboard.try_write().release_all(&dispatch_reg);
                     }
                     self.warps[warp_id].try_lock().num_instr_in_pipeline -= 1;
                     simd_unit.dispatch_reg = None;

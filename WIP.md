@@ -7,12 +7,16 @@
 
 - easy chores:
 
-  - write trait for tag array
-  - rename crates and github repo
-  - publish to crates.io
   - publish python package to pip
 
 - today:
+
+  - record mem fetch latency in playground and box
+  - write trait for tag array
+  - rename crates and github repo
+  - publish to crates.io
+
+- TODO:
 
   - write a direct connection interconn trait that replaces the fifos etc.
   - check statistical error for non deterministic version

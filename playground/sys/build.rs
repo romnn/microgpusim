@@ -177,6 +177,7 @@ fn build_config_parser_in_source() -> eyre::Result<()> {
     let mut build = cc::Build::new();
     build
         .cpp(true)
+        .pic(true)
         .static_flag(true)
         .warnings(false)
         .files(parser_sources);
@@ -254,6 +255,7 @@ fn build_config_parser() -> eyre::Result<PathBuf> {
     let mut build = cc::Build::new();
     build
         .cpp(true)
+        .pic(true)
         .static_flag(true)
         .include("./src/ref/intersim2/")
         .warnings(false)
@@ -282,6 +284,7 @@ fn build_spdlog(
     let mut build = cc::Build::new();
     build
         .cpp(true)
+        .pic(true)
         .static_flag(true)
         .warnings(false)
         .include(include_dir)

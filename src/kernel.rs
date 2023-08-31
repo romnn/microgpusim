@@ -89,7 +89,7 @@ impl Kernel {
             .join(&config.trace_file)
             .with_extension("msgpack");
 
-        let trace = read_trace(trace_path).unwrap();
+        let trace = crate::timeit!("read trace", read_trace(trace_path).unwrap());
         Self::new(config, trace)
     }
 

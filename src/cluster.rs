@@ -225,7 +225,8 @@ where
             //     // sim.select_kernel().map(Arc::clone);
             //     unimplemented!("concurrent kernel sm");
             // } else {
-            let mut current_kernel = core.current_kernel.try_lock().clone();
+            let mut current_kernel: Option<Arc<_>> =
+                core.current_kernel.try_lock().as_ref().map(Arc::clone);
             let should_select_new_kernel = if let Some(ref current) = current_kernel {
                 // if no more blocks left, get new kernel once current block completes
                 current.no_more_blocks_to_run() && core.not_completed() == 0
@@ -247,7 +248,7 @@ where
 
             // dbg!(&should_select_new_kernel);
             if should_select_new_kernel {
-                current_kernel = crate::timeit!(sim.select_kernel());
+                current_kernel = sim.select_kernel();
                 // current_kernel = sim.select_kernel();
                 // if let Some(ref k) = current_kernel {
                 //     log::debug!("kernel {} bind to core {:?}", kernel, self.id());
@@ -273,6 +274,7 @@ where
                 drop(core);
                 if can_issue {
                     let mut core = self.cores[core_id].write();
+                    // println!("SERIAL issue to {:?}", core.id());
                     core.issue_block(&kernel, cycle);
                     num_blocks_issued += 1;
                     *block_issue_next_core = core_id;

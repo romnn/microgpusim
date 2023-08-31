@@ -26,11 +26,11 @@ fn get_bench_config(benchmark_name: &str, input_idx: usize) -> eyre::Result<Benc
     Ok(bench_config.clone())
 }
 
-pub fn run_box(mut bench_config: BenchmarkConfig) -> eyre::Result<stats::Stats> {
-    bench_config.simulate.parallel =
-        std::env::var("PARALLEL").unwrap_or_default().to_lowercase() == "yes";
-    println!("parallel: {}", bench_config.simulate.parallel);
-    let stats = validate::simulate::simulate_bench_config(&bench_config)?;
+pub fn run_box(mut bench_config: BenchmarkConfig, serial: bool) -> eyre::Result<stats::Stats> {
+    bench_config.simulate.parallel = !serial;
+    // if std::env::var("PARALLEL").unwrap_or_default().to_lowercase() == "yes";
+    // println!("parallel: {}", bench_config.simulate.parallel);
+    let sim = validate::simulate::simulate_bench_config(&bench_config)?;
     // fast parallel:   cycle loop time: 558485 ns
     // serial:          cycle loop time: 2814591 ns (speedup 5x)
     // have 80 cores and 16 threads
@@ -51,6 +51,7 @@ pub fn run_box(mut bench_config: BenchmarkConfig) -> eyre::Result<stats::Stats> 
     //     println!("{name} time: {ms:.5} ms ({percent:>2.2}%)");
     // }
     // println!();
+    let stats = sim.stats();
     Ok(stats)
 }
 
@@ -102,7 +103,7 @@ pub fn box_benchmark(c: &mut Criterion) {
     group.sampling_mode(criterion::SamplingMode::Flat);
 
     group.bench_function("vectoradd/10000", |b| {
-        b.iter(|| run_box(black_box(get_bench_config("vectorAdd", 2).unwrap())));
+        b.iter(|| run_box(black_box(get_bench_config("vectorAdd", 2).unwrap()), true));
     });
     // group.bench_function("transpose/256/naive", |b| {
     //     b.iter(|| run_box(black_box(get_bench_config("transpose", 0).unwrap())))
@@ -151,7 +152,7 @@ fn main() -> eyre::Result<()> {
         .build()?;
 
     let start = Instant::now();
-    let stats = run_box(black_box(get_bench_config(bench_name, input_num)?))?;
+    let stats = run_box(black_box(get_bench_config(bench_name, input_num)?), false)?;
     dbg!(&stats.sim);
     let box_dur = start.elapsed();
     println!("box took:\t\t{box_dur:?}");
@@ -161,34 +162,66 @@ fn main() -> eyre::Result<()> {
         return Ok(());
     }
 
-    let timings = casimu::TIMINGS.lock();
-    println!("sorted by NAME");
-    for (name, dur) in timings.iter().sorted_by_key(|(&name, _dur)| name) {
-        println!(
-            "\t{name:<30}: {:>6.5} ms avg ({:>2.6} sec total)",
-            dur.mean().as_secs_f64() * 1000.0,
-            dur.total().as_secs_f64(),
-        );
+    {
+        let timings = casimu::TIMINGS.lock();
+        println!("sorted by NAME");
+        for (name, dur) in timings.iter().sorted_by_key(|(&name, _dur)| name) {
+            println!(
+                "\t{name:<30}: {:>6.5} ms avg ({:>2.6} sec total)",
+                dur.mean().as_secs_f64() * 1000.0,
+                dur.total().as_secs_f64(),
+            );
+        }
+        println!();
+        println!("sorted by TOTAL DURATION");
+        for (name, dur) in timings.iter().sorted_by_key(|(_name, dur)| dur.total()) {
+            println!(
+                "\t{name:<30}: {:>6.5} ms avg ({:>2.6} sec total)",
+                dur.mean().as_secs_f64() * 1000.0,
+                dur.total().as_secs_f64(),
+            );
+        }
+        println!();
     }
-    println!();
-    println!("sorted by TOTAL DURATION");
-    for (name, dur) in timings.iter().sorted_by_key(|(_name, dur)| dur.total()) {
-        println!(
-            "\t{name:<30}: {:>6.5} ms avg ({:>2.6} sec total)",
-            dur.mean().as_secs_f64() * 1000.0,
-            dur.total().as_secs_f64(),
-        );
+
+    // clear timing measurements
+    casimu::TIMINGS.lock().clear();
+
+    let start = Instant::now();
+    let stats = run_box(black_box(get_bench_config(bench_name, input_num)?), true)?;
+    dbg!(&stats.sim);
+    let serial_box_dur = start.elapsed();
+    println!("serial box took:\t\t{serial_box_dur:?}");
+    println!(
+        "speedup is :\t\t{:.2}",
+        serial_box_dur.as_secs_f64() / box_dur.as_secs_f64()
+    );
+    {
+        let timings = casimu::TIMINGS.lock();
+        println!("sorted by NAME");
+        for (name, dur) in timings.iter().sorted_by_key(|(&name, _dur)| name) {
+            println!(
+                "\t{name:<30}: {:>6.5} ms avg ({:>2.6} sec total)",
+                dur.mean().as_secs_f64() * 1000.0,
+                dur.total().as_secs_f64(),
+            );
+        }
+        println!();
+        println!("sorted by TOTAL DURATION");
+        for (name, dur) in timings.iter().sorted_by_key(|(_name, dur)| dur.total()) {
+            println!(
+                "\t{name:<30}: {:>6.5} ms avg ({:>2.6} sec total)",
+                dur.mean().as_secs_f64() * 1000.0,
+                dur.total().as_secs_f64(),
+            );
+        }
+        println!();
     }
-    println!();
 
     let start = Instant::now();
     run_playground(&black_box(get_bench_config(bench_name, input_num)?))?;
     let play_dur = start.elapsed();
     println!("play took:\t\t{play_dur:?}");
-    println!(
-        "speedup is :\t\t{:.2}",
-        play_dur.as_secs_f64() / box_dur.as_secs_f64()
-    );
 
     let start = Instant::now();
     runtime.block_on(async {

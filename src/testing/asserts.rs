@@ -84,7 +84,7 @@ pub fn stats_match(
             dbg!(&rel_err);
             assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
         }
-        {
+        let l2_rel_err = {
             let box_l2_data_stats = &box_stats.l2d_stats;
 
             dbg!(&play_l2_data_stats, &box_l2_data_stats);
@@ -147,9 +147,19 @@ pub fn stats_match(
             let box_l2_data_stats = stats::Cache {
                 accesses: compare_stats
                     .iter()
-                    .map(|stat| (stat.clone(), play_l2_data_stats.accesses[stat]))
+                    .map(|stat| (stat.clone(), box_l2_data_stats.accesses[stat]))
                     .collect(),
             };
+            dbg!(&play_l2_data_stats, &box_l2_data_stats);
+            for kind in AccessKind::iter() {
+                dbg!(&kind);
+                diff::diff!(
+                    play: play_l2_data_stats.accesses[&Access((kind, RequestStatus::HIT.into()))] +
+                        play_l2_data_stats.accesses[&Access((kind, RequestStatus::MISS.into()))],
+                    box: box_l2_data_stats.accesses[&Access((kind, RequestStatus::HIT.into()))] +
+                        box_l2_data_stats.accesses[&Access((kind, RequestStatus::MISS.into()))],
+                );
+            }
 
             if play_l2_data_stats != box_l2_data_stats {
                 diff::diff!(play: &play_l2_data_stats, box: &box_l2_data_stats);
@@ -157,10 +167,15 @@ pub fn stats_match(
             let rel_err =
                 super::stats::cache_rel_err(&play_l2_data_stats, &box_l2_data_stats, abs_threshold);
             dbg!(&rel_err);
-            assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
-        }
 
-        {
+            let play_l2_sum: usize = play_l2_data_stats.accesses.values().sum();
+            let box_l2_sum: usize = box_l2_data_stats.accesses.values().sum();
+            diff::diff!(play_sum: play_l2_sum, box_sum: box_l2_sum);
+
+            rel_err
+        };
+
+        let dram_rel_err = {
             // compare DRAM stats
             let box_dram_stats = playground::stats::DRAM::from(box_stats.dram.clone());
             dbg!(&play_stats.dram, &box_dram_stats);
@@ -170,8 +185,11 @@ pub fn stats_match(
             let rel_err =
                 super::stats::dram_rel_err(&play_stats.dram, &box_dram_stats, abs_threshold);
             dbg!(&rel_err);
-            assert!(rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
-        }
+            rel_err
+        };
+
+        assert!(l2_rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
+        assert!(dram_rel_err.into_iter().all(|(_, err)| err <= max_rel_err));
     } else {
         dbg!(&play_l1_inst_stats, &box_stats.l1i_stats);
         diff::assert_eq!(play: &play_l1_inst_stats, box: &box_stats.l1i_stats);

@@ -109,7 +109,8 @@ fn main() -> eyre::Result<()> {
         ..casimu::config::GPU::default()
     };
 
-    let stats = casimu::accelmain(&options.trace_dir, config)?;
+    let sim = casimu::accelmain(&options.trace_dir, config)?;
+    let stats = sim.stats();
 
     // save stats to file
     if let Some(stats_out_file) = options.stats_out_file.as_ref() {

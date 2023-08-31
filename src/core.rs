@@ -133,7 +133,6 @@ where
         cycle: u64,
     ) -> eyre::Result<()> {
         let mut pipeline_stage = self.pipeline_reg[stage as usize].try_lock();
-        // let (reg_idx, pipe_reg) = if self.config.sub_core_model {
         let free = if self.config.sub_core_model {
             // pipeline_stage.get_free_sub_core_mut(scheduler_id);
             todo!("sub core model");
@@ -261,13 +260,13 @@ where
 
         if warp.done() && warp.functional_done() {
             warp.ibuffer_flush();
-            self.barriers.write().warp_exited(pipe_reg_ref.warp_id);
+            self.barriers.try_write().warp_exited(pipe_reg_ref.warp_id);
         }
 
         if pipe_reg_ref.opcode.category == opcodes::ArchOp::BARRIER_OP {
             //   m_warp[warp_id]->store_info_of_last_inst_at_barrier(*pipe_reg);
             self.barriers
-                .write()
+                .try_write()
                 .warp_reached_barrier(warp.block_id, &pipe_reg_ref);
         } else if pipe_reg_ref.opcode.category == opcodes::ArchOp::MEMORY_BARRIER_OP {
             warp.waiting_for_memory_barrier = true;
@@ -284,7 +283,7 @@ where
             pipe_reg_ref
         );
 
-        self.scoreboard.write().reserve_all(&pipe_reg_ref);
+        self.scoreboard.try_write().reserve_all(&pipe_reg_ref);
 
         *pipe_reg = Some(pipe_reg_ref);
 
@@ -308,7 +307,7 @@ where
         }
         let has_pending_writes = !self
             .scoreboard
-            .read()
+            .try_read()
             .pending_writes(warp.warp_id)
             .is_empty();
 
@@ -999,6 +998,7 @@ where
 
     #[tracing::instrument(name = "core_issue_block")]
     pub fn issue_block(&mut self, kernel: &Arc<Kernel>, cycle: u64) {
+        // pub fn issue_block(&mut self, kernel: &Kernel, cycle: u64) {
         log::debug!("core {:?}: issue block", self.id());
         if self.config.concurrent_kernel_sm {
             // let occupied = self.occupy_resource_for_block(&*kernel, true);
@@ -1115,7 +1115,7 @@ where
         );
 
         self.barriers
-            .write()
+            .try_write()
             .allocate_barrier(free_block_hw_id as u64, warps);
 
         self.init_warps(free_block_hw_id, start_thread, end_thread, block_id, kernel);
@@ -1303,7 +1303,9 @@ where
         // this is the last thread that exited
         if self.block_status[block_hw_id] == 0 {
             // deallocate barriers for this block
-            self.barriers.write().deallocate_barrier(block_hw_id as u64);
+            self.barriers
+                .try_write()
+                .deallocate_barrier(block_hw_id as u64);
 
             // increment the number of completed blocks
             self.num_active_blocks -= 1;
@@ -1354,9 +1356,7 @@ where
         if !self.instr_fetch_buffer.valid {
             // if self.instr_l1_cache.has_ready_accesses() {
             if let Some(fetch) = self.instr_l1_cache.next_access() {
-                // let fetch = self.instr_l1_cache.next_access().unwrap();
                 let warp = self.warps.get_mut(fetch.warp_id).unwrap();
-                // let mut warp = warp.try_borrow_mut().unwrap();
                 let mut warp = warp.try_lock();
                 warp.has_imiss_pending = false;
 
@@ -1417,7 +1417,6 @@ where
                     let last = self.last_warp_fetched.unwrap_or(0);
                     let warp_id = (last + 1 + i) % max_warps;
 
-                    // let warp = self.warps[warp_id].try_borrow().unwrap();
                     let warp = self.warps[warp_id].try_lock();
                     debug_assert!(warp.warp_id == warp_id || warp.warp_id == u32::MAX as usize);
 
@@ -1429,8 +1428,11 @@ where
 
                     let kernel = warp.kernel.as_ref().map(Arc::clone);
 
-                    let has_pending_writes =
-                        !self.scoreboard.read().pending_writes(warp_id).is_empty();
+                    let has_pending_writes = !self
+                        .scoreboard
+                        .try_read()
+                        .pending_writes(warp_id)
+                        .is_empty();
 
                     let did_maybe_exit =
                         warp.hardware_done() && !has_pending_writes && !warp.done_exit();
@@ -1496,10 +1498,12 @@ where
                     if should_fetch_instruction {
                         if warp.current_instr().is_none() {
                             // warp.hardware_done() && pending_writes.is_empty() && !warp.done_exit()
-                            dbg!(&warp);
-                            dbg!(&warp.active_mask.to_bit_string());
-                            dbg!(&warp.num_completed());
-                            panic!("?");
+                            // dbg!(&warp);
+                            // dbg!(&warp.active_mask.to_bit_string());
+                            // dbg!(&warp.num_completed());
+                            // panic!("?");
+                            // skip and do nothing (can happen during nondeterministic parallel)
+                            continue;
                         }
                         let instr = warp.current_instr().unwrap();
                         let pc = warp.pc().unwrap();
@@ -1725,7 +1729,7 @@ where
             // no stalling).
             //
             self.operand_collector.try_lock().writeback(&mut ready);
-            self.scoreboard.write().release_all(&ready);
+            self.scoreboard.try_write().release_all(&ready);
             self.warps[ready.warp_id].try_lock().num_instr_in_pipeline -= 1;
             warp_inst_complete(&mut ready, &self.stats);
 
@@ -1924,6 +1928,7 @@ where
         end_thread: usize,
         block_id: u64,
         kernel: &Arc<Kernel>,
+        // kernel: &Kernel,
     ) {
         // let threads_per_block = kernel.threads_per_block();
         let start_warp = start_thread / self.config.warp_size;
@@ -2008,7 +2013,10 @@ where
         }
 
         // m_stats->shader_cycles[m_sid]++;
+        // "writeback"
+        // self.writeback(cycle);
         crate::timeit!("writeback", self.writeback(cycle));
+        // this made it already double the time per core cycle
         crate::timeit!("execute", self.execute(cycle));
         for _ in 0..self.config.reg_file_port_throughput {
             crate::timeit!(
@@ -2017,10 +2025,10 @@ where
             );
         }
 
-        crate::timeit!(self.issue(cycle));
+        crate::timeit!("issue", self.issue(cycle));
         for _i in 0..self.config.inst_fetch_throughput {
-            crate::timeit!(self.decode(cycle));
-            crate::timeit!(self.fetch(cycle));
+            crate::timeit!("decode", self.decode(cycle));
+            crate::timeit!("fetch", self.fetch(cycle));
         }
     }
 }

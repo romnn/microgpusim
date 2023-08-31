@@ -47,9 +47,12 @@ publish = false
 
 [features]
 # default = ["parking_lot"]
-# default = ["stats", "parking_lot", "parallel"]
-default = ["stats", "parallel"]
+default = ["stats", "parking_lot", "parallel"]
+# default = ["stats", "parking_lot", "parallel", "deadlock_detection"]
+# default = ["stats", "parallel"]
 # default = ["stats", "parking_lot"]
+deadlock_detection = ["parking_lot/deadlock_detection"]
+timings = []
 stats = []
 parallel = []
 # parallel = ["dep:rayon"]
@@ -91,7 +94,7 @@ ndarray = "0"
 flume = "0"
 crossbeam = "0"
 num_cpus = "1"
-parking_lot = "0"
+parking_lot = { version = "0", features = ["deadlock_detection"] }
 
 # tracing
 tracing = "0"

@@ -21,7 +21,6 @@ pub struct Warp {
     pub dynamic_warp_id: usize,
     pub warp_id: usize,
     pub kernel: Option<Arc<Kernel>>,
-    // pub core: RwLock<Core>>,
     pub trace_pc: usize,
     pub active_mask: ActiveMask,
     pub trace_instructions: VecDeque<WarpInstruction>,
@@ -37,14 +36,14 @@ pub struct Warp {
     pub next: usize,
 }
 
-impl PartialEq for Warp {
-    fn eq(&self, other: &Self) -> bool {
-        self.kernel == other.kernel
-            && self.block_id == other.block_id
-            && self.warp_id == other.warp_id
-            && self.dynamic_warp_id == other.dynamic_warp_id
-    }
-}
+// impl PartialEq for Warp {
+//     fn eq(&self, other: &Self) -> bool {
+//         self.kernel == other.kernel
+//             && self.block_id == other.block_id
+//             && self.warp_id == other.warp_id
+//             && self.dynamic_warp_id == other.dynamic_warp_id
+//     }
+// }
 
 const IBUFFER_SIZE: usize = 2;
 
@@ -74,7 +73,6 @@ impl Default for Warp {
 impl Warp {
     pub fn init(
         &mut self,
-        // _start_pc: Option<usize>,
         block_id: u64,
         warp_id: usize,
         dynamic_warp_id: usize,

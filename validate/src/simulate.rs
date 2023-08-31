@@ -4,12 +4,15 @@ use super::{
     options::{self, Options},
     RunError,
 };
+use casimu::{interconn as ic, mem_fetch, MockSimulator};
 use color_eyre::{eyre, Help};
 use std::time::Instant;
 use utils::fs::create_dirs;
 
 #[allow(clippy::module_name_repetitions)]
-pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<stats::Stats, RunError> {
+pub fn simulate_bench_config(
+    bench: &BenchmarkConfig,
+) -> Result<MockSimulator<ic::ToyInterconnect<ic::Packet<mem_fetch::MemFetch>>>, RunError> {
     // get traces dir from trace config
     let traces_dir = bench.trace.traces_dir.clone();
 
@@ -62,8 +65,8 @@ pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<stats::Stats, Ru
         ..casimu::config::GPU::default()
     };
 
-    let stats = casimu::accelmain(traces_dir, config)?;
-    Ok(stats)
+    let sim = casimu::accelmain(traces_dir, config)?;
+    Ok(sim)
 }
 
 pub async fn simulate(
@@ -77,13 +80,15 @@ pub async fn simulate(
         return Err(RunError::Skipped);
     }
 
-    let (stats, dur) = tokio::task::spawn_blocking(move || {
+    let (sim, dur) = tokio::task::spawn_blocking(move || {
         let start = Instant::now();
         let stats = simulate_bench_config(&bench)?;
         Ok::<_, eyre::Report>((stats, start.elapsed()))
     })
     .await
     .map_err(eyre::Report::from)??;
+
+    let stats = sim.stats();
 
     create_dirs(&stats_dir).map_err(eyre::Report::from)?;
 

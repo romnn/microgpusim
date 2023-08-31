@@ -283,8 +283,6 @@ impl crate::engine::cycle::Component for Base
 {
     /// Sends next request to top memory in the memory hierarchy.
     fn cycle(&mut self, cycle: u64) {
-        
-
         let Some(ref top_level_memory_port) = self.top_port else {
             panic!("missing top port");
             return;
@@ -322,7 +320,6 @@ impl crate::engine::cycle::Component for Base
                     data: fetch,
                     time: cycle,
                 });
-                // top_level_memory_port.send(fetch, cycle);
             }
         }
         // let _data_port_busy = !self.has_free_data_port();
