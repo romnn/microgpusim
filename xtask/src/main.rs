@@ -1,3 +1,4 @@
+mod accelsim;
 mod coverage;
 mod docs;
 mod format;
@@ -10,6 +11,7 @@ use color_eyre::eyre;
 pub enum Command {
     Coverage(coverage::Options),
     Format(format::Options),
+    Accelsim(self::accelsim::Options),
     Docs,
 }
 
@@ -26,6 +28,7 @@ fn main() -> eyre::Result<()> {
     match options.command {
         Command::Coverage(ref opts) => coverage::coverage(opts),
         Command::Format(opts) => format::format(opts),
+        Command::Accelsim(opts) => accelsim::run(opts),
         Command::Docs => docs::docs(),
     }
 }
