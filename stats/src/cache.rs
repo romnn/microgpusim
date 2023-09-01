@@ -218,17 +218,14 @@ pub type PerCacheCsvRow = (usize, CsvRow);
 #[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PerCache(pub Box<[Cache]>);
-// pub struct PerCache(pub indexmap::IndexMap<usize, Cache>);
-// pub struct PerCache(pub HashMap<usize, Cache>);
 
 impl PerCache {
     #[must_use]
     pub fn new(size: usize) -> Self {
-        Self(vec![Cache::default(); size].into_boxed_slice())
+        Self(utils::box_slice![Cache::default(); size])
     }
 
     #[must_use]
-    // pub fn into_inner(self) -> indexmap::IndexMap<usize, Cache> {
     pub fn into_inner(self) -> Box<[Cache]> {
         self.0
     }

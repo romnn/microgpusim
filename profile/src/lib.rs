@@ -1,9 +1,9 @@
 #![allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
-// #![allow(warnings)]
+pub mod nsight;
 pub mod nvprof;
 
 use serde::Deserialize;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(thiserror::Error, Debug)]
 pub enum ParseError {
@@ -94,8 +94,19 @@ where
     }
 }
 
-#[derive(PartialEq, Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
-pub struct ProfilingResult<M> {
-    pub raw: String,
-    pub metrics: M,
+#[derive(PartialEq, Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub enum Metrics {
+    /// Nvprof profiler metrics
+    Nvprof(nvprof::Output),
+    /// Nsight profiler metrics
+    Nsight(nsight::Output),
+}
+
+/// Profile test application using either the nvprof or nsight compute profiler.
+pub async fn nvprof<A>(executable: impl AsRef<Path>, args: A) -> Result<Metrics, Error>
+where
+    A: Clone + IntoIterator,
+    <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
+{
+    unimplemented!()
 }

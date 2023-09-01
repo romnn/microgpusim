@@ -1,0 +1,10 @@
+==2424234== NVPROF is profiling process 2424234, command: /home/roman/dev/box/test-apps/vectoradd/vectoradd 100 32
+==2424234== Profiling application: /home/roman/dev/box/test-apps/vectoradd/vectoradd 100 32
+==2424234== Profiling result:
+"Start","Duration","Grid X","Grid Y","Grid Z","Block X","Block Y","Block Z","Registers Per Thread","Static SMem","Dynamic SMem","Size","Throughput","SrcMemType","DstMemType","Device","Context","Stream","Name","Correlation_ID"
+us,us,,,,,,,,B,B,B,MB/s,,,,,,,
+245729.104000,1.088000,,,,,,,,,,400,350.615557,"Pageable","Device","NVIDIA GeForce GTX 1080 (0)","1","7","[CUDA memcpy HtoD]",117
+245736.176000,0.672000,,,,,,,,,,400,567.663283,"Pageable","Device","NVIDIA GeForce GTX 1080 (0)","1","7","[CUDA memcpy HtoD]",119
+245742.384000,0.672000,,,,,,,,,,400,567.663283,"Pageable","Device","NVIDIA GeForce GTX 1080 (0)","1","7","[CUDA memcpy HtoD]",121
+245767.824000,3.264000,1,1,1,1024,1,1,8,0,0,,,,,"NVIDIA GeForce GTX 1080 (0)","1","7","_Z6vecAddIfEvPT_S1_S1_i",123
+245780.080000,1.152000,,,,,,,,,,400,331.136915,"Device","Pageable","NVIDIA GeForce GTX 1080 (0)","1","7","[CUDA memcpy DtoH]",125

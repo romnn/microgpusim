@@ -11,10 +11,12 @@ matplotlib = "*"
 numpy = "*"
 scipy = "*"
 pandas = "*"
-jupyterlab = "*"
 wasabi = "*"
+click = "*"
 
 [dev-packages]
 invoke = "*"
 flake8 = "*"
 black = "*"
+jupyterlab = "*"
+mypy = "*"

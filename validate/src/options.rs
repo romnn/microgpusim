@@ -52,7 +52,12 @@ pub struct Options {
     #[clap(short = 'b', long = "bench", help = "name of benchmark to run")]
     pub selected_benchmarks: Vec<String>,
 
-    #[clap(long = "force", help = "force re-run", default_value = "false")]
+    #[clap(
+        short = 'f',
+        long = "force",
+        help = "force re-run",
+        default_value = "false"
+    )]
     pub force: bool,
 
     #[clap(long = "fail-fast", help = "fail fast", default_value = "false")]

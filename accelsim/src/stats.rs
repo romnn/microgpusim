@@ -1,5 +1,6 @@
 use color_eyre::eyre;
 use std::collections::HashMap;
+use utils::box_slice;
 
 pub type Stat = (String, u16, String);
 pub type Map = indexmap::IndexMap<Stat, f64>;
@@ -102,7 +103,7 @@ impl TryFrom<Stats> for stats::Stats {
         .into_iter()
         .collect();
 
-        let mut l2d_stats = stats::PerCache(vec![stats::Cache::default(); 1].into_boxed_slice());
+        let mut l2d_stats = stats::PerCache(box_slice![stats::Cache::default(); 1]);
         let l2d_total = &mut l2d_stats[0];
         for kind in AccessKind::iter() {
             for reservation_failure in ReservationFailure::iter() {
@@ -160,10 +161,11 @@ impl TryFrom<Stats> for stats::Stats {
             },
             accesses: stats::Accesses(accesses),
             dram: stats::DRAM {
-                bank_writes: vec![vec![vec![total_dram_writes]]],
-                bank_reads: vec![vec![vec![total_dram_reads]]],
-                total_bank_writes: vec![vec![total_dram_writes]],
-                total_bank_reads: vec![vec![total_dram_reads]],
+                bank_writes: box_slice![box_slice![box_slice![total_dram_writes]]],
+                bank_reads: box_slice![box_slice![box_slice![total_dram_reads]]],
+                total_bank_writes: box_slice![box_slice![total_dram_writes]],
+                total_bank_reads: box_slice![box_slice![total_dram_reads]],
+                ..stats::DRAM::default()
             },
             instructions: stats::InstructionCounts::default(),
             l1i_stats: stats::PerCache::new(0),

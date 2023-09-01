@@ -6,6 +6,7 @@ use crate::{
 };
 use color_eyre::eyre;
 use std::io::Write;
+use std::path::Path;
 use utils::fs::create_dirs;
 
 pub async fn profile(
@@ -14,28 +15,45 @@ pub async fn profile(
     _trace_opts: &options::Profile,
 ) -> Result<(), RunError> {
     let profile_dir = &bench.profile.profile_dir;
-    // dbg!(&profile_dir);
     create_dirs(profile_dir).map_err(eyre::Report::from)?;
 
-    let log_file = profile_dir.join("profile.log");
-    let metrics_file = profile_dir.join("profile.metrics.csv");
+    let metrics_log_file = profile_dir.join("profile.nvprof.metrics.log");
+    let commands_log_file = profile_dir.join("profile.nvprof.commands.log");
+    let metrics_file_json = profile_dir.join("profile.metrics.json");
+    let commands_file_json = profile_dir.join("profile.commands.json");
 
-    if !options.force && log_file.is_file() && metrics_file.is_file() {
+    if !options.force
+        && [
+            metrics_log_file.as_path(),
+            commands_log_file.as_path(),
+            metrics_file_json.as_path(),
+            commands_file_json.as_path(),
+        ]
+        .into_iter()
+        .all(Path::is_file)
+    {
         return Err(RunError::Skipped);
     }
 
     let options = profile::nvprof::Options {};
-    let results = profile::nvprof::nvprof(&bench.executable, &bench.args, &options)
+    let output = profile::nvprof::nvprof(&bench.executable, &bench.args, &options)
         .await
         .map_err(|err| match err {
             profile::Error::Command(err) => err.into_eyre(),
             err => err.into(),
         })?;
 
-    serde_json::to_writer_pretty(open_writable(&metrics_file)?, &results.metrics)
+    open_writable(&metrics_log_file)?
+        .write_all(output.raw_metrics_log.as_bytes())
         .map_err(eyre::Report::from)?;
-    open_writable(&log_file)?
-        .write_all(results.raw.as_bytes())
+    open_writable(&commands_log_file)?
+        .write_all(output.raw_commands_log.as_bytes())
         .map_err(eyre::Report::from)?;
+
+    serde_json::to_writer_pretty(open_writable(&metrics_file_json)?, &output.metrics)
+        .map_err(eyre::Report::from)?;
+    serde_json::to_writer_pretty(open_writable(&commands_file_json)?, &output.commands)
+        .map_err(eyre::Report::from)?;
+
     Ok(())
 }

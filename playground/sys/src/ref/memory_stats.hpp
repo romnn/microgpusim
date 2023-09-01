@@ -1,7 +1,5 @@
 #pragma once
 
-// #include <zlib.h>
-
 #include "memory_config.hpp"
 #include "shader_core_config.hpp"
 

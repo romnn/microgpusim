@@ -94,11 +94,13 @@ pub async fn simulate(
 
     crate::stats::write_stats_as_csv(&stats_dir, stats)?;
 
-    serde_json::to_writer_pretty(
-        open_writable(stats_dir.join("exec_time.json"))?,
-        &dur.as_millis(),
-    )
-    .map_err(eyre::Report::from)?;
+    #[cfg(debug_assertions)]
+    let exec_time_file_path = stats_dir.join("exec_time.debug.json");
+    #[cfg(not(debug_assertions))]
+    let exec_time_file_path = stats_dir.join("exec_time.release.json");
+
+    serde_json::to_writer_pretty(open_writable(exec_time_file_path)?, &dur.as_millis())
+        .map_err(eyre::Report::from)?;
 
     // let json_stats: stats::FlatStats = stats.clone().into();
     // let json_stats_out_file = stats_dir.join("stats.json");

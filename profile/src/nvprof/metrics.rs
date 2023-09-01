@@ -188,3 +188,47 @@ pub struct Metrics {
     pub dram_read_bytes: Metric<usize>,
     // TEMP
 }
+
+#[derive(PartialEq, Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+pub struct Command {
+    #[serde(rename = "Start")]
+    pub start: Metric<f32>,
+    #[serde(rename = "Duration")]
+    pub duration: Metric<f32>,
+    #[serde(rename = "Grid X", default)]
+    pub grid_x: Metric<usize>,
+    #[serde(rename = "Grid Y", default)]
+    pub grid_y: Metric<usize>,
+    #[serde(rename = "Grid Z", default)]
+    pub grid_z: Metric<usize>,
+    #[serde(rename = "Block X", default)]
+    pub block_x: Metric<usize>,
+    #[serde(rename = "Block Y", default)]
+    pub block_y: Metric<usize>,
+    #[serde(rename = "Block Z", default)]
+    pub block_z: Metric<usize>,
+    #[serde(rename = "Registers Per Thread")]
+    pub registers_per_thread: Metric<usize>,
+    #[serde(rename = "Static SMem")]
+    pub static_shared_memory: Metric<usize>,
+    #[serde(rename = "Dynamic SMem")]
+    pub dynamic_shared_memory: Metric<usize>,
+    #[serde(rename = "Size")]
+    pub size: Metric<usize>,
+    #[serde(rename = "Throughput")]
+    pub throughput: Metric<f32>,
+    #[serde(rename = "SrcMemType")]
+    pub src_mem_type: Metric<String>,
+    #[serde(rename = "DstMemType")]
+    pub dest_mem_type: Metric<String>,
+    #[serde(rename = "Device")]
+    pub device: Metric<String>,
+    #[serde(rename = "Context")]
+    pub context: Metric<usize>,
+    #[serde(rename = "Stream")]
+    pub stream: Metric<usize>,
+    #[serde(rename = "Name")]
+    pub name: Metric<String>,
+    #[serde(rename = "Correlation_ID")]
+    pub correlation_id: Metric<usize>,
+}

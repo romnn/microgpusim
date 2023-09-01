@@ -91,6 +91,19 @@ macro_rules! decode_utf8 {
     };
 }
 
+#[macro_export]
+macro_rules! box_slice {
+    () => (
+        std::vec::Vec::new().into_boxed_slice()
+    );
+    ($elem:expr; $n:expr) => (
+        std::vec::from_elem($elem, $n).into_boxed_slice()
+    );
+    ($($x:expr),+ $(,)?) => (
+        std::vec![$($x),+].into_boxed_slice()
+    );
+}
+
 impl CommandError {
     pub fn into_eyre(self) -> eyre::Report {
         let command_section = self.command.clone().header("command:");

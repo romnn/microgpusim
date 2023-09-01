@@ -181,9 +181,6 @@ pub fn expand(inputs: &Inputs, includes: &Includes, excludes: &Excludes) -> Vec<
             let intersecting_entries: Vec<_> =
                 current_entries.intersection(&include_entries).collect();
 
-            dbg!(&intersecting_keys);
-            dbg!(&intersecting_entries);
-
             assert!(!current.is_empty());
             if intersecting_keys.is_empty() {
                 // does not overwrite anything: extend combination

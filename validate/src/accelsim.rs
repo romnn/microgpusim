@@ -177,10 +177,12 @@ pub async fn simulate(
     // let flat_stats: Vec<_> = stats.into_inner().into_iter().collect();
     // serde_json::to_writer_pretty(open_writable(&stats_out_file)?, &flat_stats)?;
 
-    serde_json::to_writer_pretty(
-        open_writable(stats_dir.join("exec_time.json"))?,
-        &dur.as_millis(),
-    )
-    .map_err(eyre::Report::from)?;
+    #[cfg(debug_assertions)]
+    let exec_time_file_path = stats_dir.join("exec_time.debug.json");
+    #[cfg(not(debug_assertions))]
+    let exec_time_file_path = stats_dir.join("exec_time.release.json");
+
+    serde_json::to_writer_pretty(open_writable(exec_time_file_path)?, &dur.as_millis())
+        .map_err(eyre::Report::from)?;
     Ok(())
 }

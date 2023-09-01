@@ -92,11 +92,16 @@ pub async fn simulate(
 
     create_dirs(&stats_dir).map_err(eyre::Report::from)?;
     let _stats_out_file = stats_dir.join("stats.json");
-    let exec_dur_file = stats_dir.join("exec_time.json");
 
     // let flat_stats: Vec<_> = stats.into_iter().collect();
     // serde_json::to_writer_pretty(open_writable(&stats_out_file)?, &flat_stats)?;
-    serde_json::to_writer_pretty(open_writable(exec_dur_file)?, &dur.as_millis())
+
+    #[cfg(debug_assertions)]
+    let exec_time_file_path = stats_dir.join("exec_time.debug.json");
+    #[cfg(not(debug_assertions))]
+    let exec_time_file_path = stats_dir.join("exec_time.release.json");
+
+    serde_json::to_writer_pretty(open_writable(exec_time_file_path)?, &dur.as_millis())
         .map_err(eyre::Report::from)?;
     Ok(())
 }

@@ -62,23 +62,32 @@ pub fn write_csv_rows(
 
 pub fn write_stats_as_csv(stats_dir: impl AsRef<Path>, stats: stats::Stats) -> eyre::Result<()> {
     let stats_dir = stats_dir.as_ref();
+    // sim stats
     write_csv_rows(open_writable(sim_stats_path(stats_dir))?, &[stats.sim])?;
-    // validate::write_csv_rows(
-    //     open_writable(stats_dir.join("stats.dram.csv"))?,
-    //     &[stats::dram::PerCoreDRAM {
-    //         bank_writes: stats.dram.bank_writes,
-    //         bank_reads: stats.dram.bank_reads,
-    //     }],
-    // )?;
+
+    // dram stats
+    write_csv_rows(
+        open_writable(stats_dir.join("stats.dram.csv"))?,
+        &stats.dram.accesses_csv(),
+    )?;
+    write_csv_rows(
+        open_writable(stats_dir.join("stats.dram.banks.csv"))?,
+        &stats.dram.bank_accesses_csv(),
+    )?;
+
+    // access stats
     write_csv_rows(
         open_writable(access_stats_path(stats_dir))?,
         &stats.accesses.flatten(),
     )?;
+
+    // instruction stats
     write_csv_rows(
         open_writable(instruction_stats_path(stats_dir))?,
         &stats.instructions.flatten(),
     )?;
 
+    // cache stats
     for (cache, rows) in [
         (Cache::L1I, stats.l1i_stats.flatten()),
         (Cache::L1D, stats.l1d_stats.flatten()),

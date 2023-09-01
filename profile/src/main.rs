@@ -1,6 +1,6 @@
 use color_eyre::eyre;
 
-use clap::{CommandFactory, Parser};
+use clap::{CommandFactory, Parser, Subcommand};
 use std::path::PathBuf;
 
 const HELP_TEMPLATE: &str = "{bin} {version} {author}
@@ -12,7 +12,36 @@ USAGE: {usage}
 {all-args}
 ";
 
-const USAGE: &str = "./profile [OPTIONS] -- <executable> [args]";
+const USAGE: &str = "./profile [nvprof|nsight|auto] [OPTIONS] -- <executable> [args]";
+
+/// Options for the nvprof profiler.
+#[derive(Parser, Debug, Clone)]
+pub struct NvprofOptions {
+    #[clap(long = "log-file", help = "output log file")]
+    pub log_file: Option<PathBuf>,
+}
+
+impl From<NvprofOptions> for profile::nvprof::Options {
+    fn from(_options: NvprofOptions) -> Self {
+        Self {}
+    }
+}
+
+/// Options for the nsight profiler.
+#[derive(Parser, Debug, Clone)]
+pub struct NsightOptions {
+    #[clap(long = "log-file", help = "output log file")]
+    pub log_file: Option<PathBuf>,
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum Command {
+    Auto,
+    /// Profile using `nvprof`
+    Nvprof(NvprofOptions),
+    /// Profile using `nsight-compute`
+    Nsight(NsightOptions),
+}
 
 #[derive(Parser, Debug, Clone)]
 #[clap(
@@ -23,10 +52,11 @@ const USAGE: &str = "./profile [OPTIONS] -- <executable> [args]";
     author = "romnn <contact@romnn.com>",
 )]
 pub struct Options {
-    #[clap(long = "log-file", help = "output log file")]
-    pub log_file: Option<PathBuf>,
     #[clap(long = "metrics-file", help = "output metrics file")]
     pub metrics_file: Option<PathBuf>,
+
+    #[clap(subcommand)]
+    pub command: Option<Command>,
 }
 
 fn parse_args() -> Result<(PathBuf, Vec<String>, Options), clap::Error> {
@@ -58,23 +88,29 @@ async fn main() -> eyre::Result<()> {
 
     let start = std::time::Instant::now();
 
-    let (exec, exec_args, _options) = match parse_args() {
+    let (exec, exec_args, options) = match parse_args() {
         Ok(parsed) => parsed,
         Err(err) => err.exit(),
     };
 
-    let options = profile::nvprof::Options {};
-    let profile::ProfilingResult { .. } = profile::nvprof::nvprof(exec, exec_args, &options)
-        .await
-        .map_err(|err| match err {
-            profile::Error::Command(err) => err.into_eyre(),
-            other => other.into(),
-        })?;
+    let _output = match options.command {
+        None | Some(Command::Auto) => todo!(),
+        Some(Command::Nvprof(nvprof_options)) => {
+            let output = profile::nvprof::nvprof(exec, exec_args, &nvprof_options.into())
+                .await
+                .map_err(|err| match err {
+                    profile::Error::Command(err) => err.into_eyre(),
+                    other => other.into(),
+                })?;
+            profile::Metrics::Nvprof(output)
+        }
+        Some(Command::Nsight(_nsight_options)) => todo!(),
+    };
 
-    // todo: nice table view of the most important things
-    // todo: dump the raw output
-    // todo: dump the parsed output as json
-    // println!("{:#?}", &metrics);
+    // TODO: nice table view of the most important things
+    // TODO: dump the raw output
+    // TODO: dump the parsed output as json
+    // println!("{:#?}", &output.metrics);
     println!("profiling done in {:?}", start.elapsed());
     Ok(())
 }

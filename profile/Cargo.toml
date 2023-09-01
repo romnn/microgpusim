@@ -21,6 +21,7 @@ which = "4"
 csv = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+indexmap = { version = "2", features = ["serde"] }
 regex = "1"
 log = "0"
 tokio = { version = "1", features = ["full"] }
@@ -32,3 +33,4 @@ utils = { path = "../utils" }
 
 [dev-dependencies]
 pretty_assertions_sorted = "1"
+similar-asserts = "1"

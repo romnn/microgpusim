@@ -1,16 +1,21 @@
 mod metrics;
 
-use async_process::Command;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashMap;
-use std::io::{BufRead, Read, Seek};
+use std::io::{BufRead, Read};
 use std::path::Path;
 
 use crate::{Error, Metric, ParseError};
-pub use metrics::Metrics;
+pub use metrics::{Command, Metrics};
 
-pub type ProfilingResult = super::ProfilingResult<Metrics>;
+#[derive(PartialEq, Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+pub struct Output {
+    pub raw_metrics_log: String,
+    pub raw_commands_log: String,
+    pub metrics: Metrics,
+    pub commands: Vec<Command>,
+}
 
 macro_rules! optional {
     ($x:expr) => {
@@ -28,7 +33,10 @@ static NO_PERMISSION_REGEX: Lazy<Regex> =
 static PROFILE_RESULT_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^==\d*==\s*Profiling result:\s*$").unwrap());
 
-pub fn parse_nvprof_csv(reader: &mut impl std::io::BufRead) -> Result<Metrics, ParseError> {
+pub fn seek_to_csv<R>(reader: &mut R) -> Result<csv::Reader<&mut R>, ParseError>
+where
+    R: std::io::BufRead,
+{
     // seek to valid start of csv data
     let mut lines = reader.by_ref().lines();
     for line in &mut lines {
@@ -45,50 +53,173 @@ pub fn parse_nvprof_csv(reader: &mut impl std::io::BufRead) -> Result<Metrics, P
         }
     }
 
-    // upgrade reader to a csv reader, keeping the current position
-    let mut csv_reader = csv::ReaderBuilder::new()
+    // upgrade reader to a csv reader and start reading from current position
+    let csv_reader = csv::ReaderBuilder::new()
         .flexible(false)
         .from_reader(reader);
+    Ok(csv_reader)
+}
 
+pub fn parse_nvprof_csv<M>(reader: &mut impl std::io::BufRead) -> Result<Vec<M>, ParseError>
+where
+    M: serde::de::DeserializeOwned,
+{
+    let mut csv_reader = seek_to_csv(reader)?;
     let mut records = csv_reader.deserialize();
 
-    let mut metrics: HashMap<String, Metric<String>> = HashMap::new();
-    let units: HashMap<String, String> = records.next().ok_or(ParseError::MissingUnits)??;
-    let values: HashMap<String, String> = records.next().ok_or(ParseError::MissingMetrics)??;
-    assert_eq!(units.len(), values.len());
+    use indexmap::IndexMap;
+    let mut entries = Vec::new();
+    let units: IndexMap<String, String> = records.next().ok_or(ParseError::MissingUnits)??;
 
-    for (metric, unit) in units {
-        metrics.entry(metric).or_default().unit = optional!(unit);
-    }
-    for (metric, value) in values {
-        metrics.entry(metric).or_default().value = optional!(value);
-    }
+    while let Some(values) = records.next().transpose()? {
+        assert_eq!(units.len(), values.len());
+        let metrics: HashMap<String, Metric<String>> = units
+            .iter()
+            .zip(values.iter())
+            .map(|((unit_metric, unit), (value_metric, value))| {
+                assert_eq!(unit_metric, value_metric);
+                (
+                    unit_metric.clone(),
+                    Metric {
+                        value: optional!(value).cloned(),
+                        unit: optional!(unit).cloned(),
+                    },
+                )
+            })
+            .collect();
 
-    // this is kind of hacky..
-    let metrics = serde_json::to_string(&metrics)?;
-    let metrics: Metrics = serde_json::from_str(&metrics)?;
-    Ok(metrics)
+        // this is kind of hacky..
+        let metrics = serde_json::to_string(&metrics)?;
+        let metrics: M = serde_json::from_str(&metrics)?;
+        entries.push(metrics);
+    }
+    Ok(entries)
 }
 
 #[derive(Debug, Clone)]
 pub struct Options {}
 
-/// Profile test application using nvbprof profiler.
+pub async fn profile_all_metrics<A>(
+    nvprof: impl AsRef<Path>,
+    executable: impl AsRef<Path>,
+    args: A,
+    log_file_path: impl AsRef<Path>,
+) -> Result<(String, Metrics), Error>
+where
+    A: IntoIterator,
+    <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
+{
+    let mut cmd = async_process::Command::new(nvprof.as_ref());
+    cmd.args([
+        "--unified-memory-profiling",
+        "off",
+        "--concurrent-kernels",
+        "off",
+        "--print-gpu-trace",
+        "--events",
+        "elapsed_cycles_sm",
+        "-u",
+        "us",
+        "--metrics",
+        "all",
+        "--demangling",
+        "off",
+        "--csv",
+        "--log-file",
+    ])
+    .arg(log_file_path.as_ref())
+    .arg(executable.as_ref())
+    .args(args.into_iter());
+
+    let result = cmd.output().await?;
+    if !result.status.success() {
+        return Err(Error::Command(utils::CommandError::new(&cmd, result)));
+    }
+
+    let log_file = std::fs::OpenOptions::new()
+        .read(true)
+        .open(&log_file_path)?;
+
+    let mut log_reader = std::io::BufReader::new(log_file);
+
+    let mut raw_log = String::new();
+    log_reader.read_to_string(&mut raw_log)?;
+
+    let mut log_reader = std::io::Cursor::new(&raw_log);
+    match parse_nvprof_csv(&mut log_reader) {
+        Err(source) => Err(Error::Parse { raw_log, source }),
+        Ok(metrics) if metrics.len() != 1 => Err(Error::Parse {
+            raw_log,
+            source: ParseError::MissingMetrics,
+        }),
+        Ok(mut metrics) => Ok((raw_log, metrics.remove(0))),
+    }
+}
+
+pub async fn profile_commands<A>(
+    nvprof: impl AsRef<Path>,
+    executable: impl AsRef<Path>,
+    args: A,
+    log_file_path: impl AsRef<Path>,
+) -> Result<(String, Vec<Command>), Error>
+where
+    A: IntoIterator,
+    <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
+{
+    let mut cmd = async_process::Command::new(nvprof.as_ref());
+    cmd.args([
+        "--unified-memory-profiling",
+        "off",
+        "--concurrent-kernels",
+        "off",
+        "--print-gpu-trace",
+        "-u",
+        "us",
+        "--demangling",
+        "off",
+        "--csv",
+        "--log-file",
+    ])
+    .arg(log_file_path.as_ref())
+    .arg(executable.as_ref())
+    .args(args.into_iter());
+
+    let result = cmd.output().await?;
+    if !result.status.success() {
+        return Err(Error::Command(utils::CommandError::new(&cmd, result)));
+    }
+
+    let log_file = std::fs::OpenOptions::new()
+        .read(true)
+        .open(&log_file_path)?;
+
+    let mut log_reader = std::io::BufReader::new(log_file);
+
+    let mut raw_log = String::new();
+    log_reader.read_to_string(&mut raw_log)?;
+
+    let mut log_reader = std::io::Cursor::new(&raw_log);
+    match parse_nvprof_csv(&mut log_reader) {
+        Err(source) => Err(Error::Parse { raw_log, source }),
+        Ok(commands) => Ok((raw_log, commands)),
+    }
+}
+
+/// Profile test application using nvprof profiler.
 ///
-/// Note: The nvbprof compiler is not recommended for newer devices.
+/// Note: `nvprof` is not compatible with newer devices.
 ///
 /// # Errors
 /// - When creating temp dir fails.
 /// - When profiling fails.
 /// - When application fails.
-#[allow(clippy::too_many_lines)]
 pub async fn nvprof<A>(
     executable: impl AsRef<Path>,
     args: A,
     _options: &Options,
-) -> Result<ProfilingResult, Error>
+) -> Result<Output, Error>
 where
-    A: IntoIterator,
+    A: Clone + IntoIterator,
     <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
 {
     let tmp_dir = tempfile::tempdir()?;
@@ -108,50 +239,17 @@ where
         .canonicalize()
         .map_err(|_| Error::MissingExecutable(executable.as_ref().into()))?;
 
-    let mut cmd = Command::new(nvprof);
-    cmd.args([
-        "--unified-memory-profiling",
-        "off",
-        "--concurrent-kernels",
-        "off",
-        "--print-gpu-trace",
-        "--events",
-        "elapsed_cycles_sm",
-        "-u",
-        "us",
-        "--metrics",
-        "all",
-        "--demangling",
-        "off",
-        "--csv",
-        "--log-file",
-    ])
-    .arg(&log_file_path)
-    .arg(&executable)
-    .args(args.into_iter());
+    let (raw_metrics_log, metrics) =
+        profile_all_metrics(&nvprof, &executable, args.clone(), &log_file_path).await?;
 
-    let result = cmd.output().await?;
-    if !result.status.success() {
-        return Err(Error::Command(utils::CommandError::new(&cmd, result)));
-    }
+    let (raw_commands_log, commands) =
+        profile_commands(&nvprof, &executable, args, &log_file_path).await?;
 
-    let log_file = std::fs::OpenOptions::new()
-        .read(true)
-        .open(&log_file_path)?;
-
-    let mut log_reader = std::io::BufReader::new(log_file);
-
-    let mut original_log = String::new();
-    log_reader.read_to_string(&mut original_log)?;
-    log_reader.rewind()?;
-
-    let metrics = parse_nvprof_csv(&mut log_reader).map_err(|source| Error::Parse {
-        raw_log: original_log.clone(),
-        source,
-    })?;
-    Ok(ProfilingResult {
-        raw: original_log,
+    Ok(Output {
+        raw_metrics_log,
+        raw_commands_log,
         metrics,
+        commands,
     })
 }
 
@@ -159,6 +257,7 @@ where
 mod tests {
     use super::{parse_nvprof_csv, Metric};
     use color_eyre::eyre;
+    use similar_asserts as diff;
     use std::io::Cursor;
 
     #[test]
@@ -167,24 +266,90 @@ mod tests {
         let log = String::from_utf8_lossy(bytes).to_string();
         dbg!(&log);
         let mut log_reader = Cursor::new(bytes);
-        let metrics = parse_nvprof_csv(&mut log_reader)?;
+        let mut metrics: Vec<super::Metrics> = parse_nvprof_csv(&mut log_reader)?;
+        diff::assert_eq!(metrics.len(), 1);
+        let metrics = metrics.remove(0);
         dbg!(&metrics);
-        assert_eq!(
+        diff::assert_eq!(
             metrics.device,
             Metric::new("NVIDIA GeForce GTX 1080 (0)".to_string(), None)
         );
-        assert_eq!(
+        diff::assert_eq!(
             metrics.kernel,
             Metric::new("_Z6vecAddIfEvPT_S1_S1_i".to_string(), None)
         );
-        assert_eq!(metrics.context, Metric::new(1, None));
-        assert_eq!(metrics.stream, Metric::new(7, None));
-        assert_eq!(metrics.dram_write_bytes, Metric::new(0, None));
-        assert_eq!(metrics.dram_read_bytes, Metric::new(7136, None));
-        assert_eq!(metrics.dram_read_transactions, Metric::new(223, None));
-        assert_eq!(metrics.dram_write_transactions, Metric::new(0, None));
-        assert_eq!(metrics.l2_read_transactions, Metric::new(66, None));
-        assert_eq!(metrics.l2_write_transactions, Metric::new(26, None));
+        diff::assert_eq!(metrics.context, Metric::new(1, None));
+        diff::assert_eq!(metrics.stream, Metric::new(7, None));
+        diff::assert_eq!(metrics.dram_write_bytes, Metric::new(0, None));
+        diff::assert_eq!(metrics.dram_read_bytes, Metric::new(7136, None));
+        diff::assert_eq!(metrics.dram_read_transactions, Metric::new(223, None));
+        diff::assert_eq!(metrics.dram_write_transactions, Metric::new(0, None));
+        diff::assert_eq!(metrics.l2_read_transactions, Metric::new(66, None));
+        diff::assert_eq!(metrics.l2_write_transactions, Metric::new(26, None));
+        Ok(())
+    }
+
+    #[test]
+    fn parse_commands() -> eyre::Result<()> {
+        use super::metrics::Command;
+        let bytes = include_bytes!("../../tests/nvprof_vectoradd_100_32_commands.txt");
+        let log = String::from_utf8_lossy(bytes).to_string();
+        dbg!(&log);
+        let mut log_reader = Cursor::new(bytes);
+        let metrics: Vec<Command> = parse_nvprof_csv(&mut log_reader)?;
+        dbg!(&metrics);
+        diff::assert_eq!(metrics.len(), 5);
+
+        diff::assert_eq!(
+            have: metrics[0],
+            want: Command {
+                start: Metric::new(245729.104000, "us".to_string()),
+                duration: Metric::new(1.088000, "us".to_string()),
+                grid_x: Metric::new(None, None),
+                grid_y: Metric::new(None, None),
+                grid_z: Metric::new(None, None),
+                block_x: Metric::new(None, None),
+                block_y: Metric::new(None, None),
+                block_z: Metric::new(None, None),
+                registers_per_thread: Metric::new(None, None),
+                static_shared_memory: Metric::new(None, "B".to_string()),
+                dynamic_shared_memory: Metric::new(None, "B".to_string()),
+                size: Metric::new(400, "B".to_string()),
+                throughput: Metric::new(350.615557, "MB/s".to_string()),
+                src_mem_type: Metric::new("Pageable".to_string(), None),
+                dest_mem_type: Metric::new("Device".to_string(), None),
+                device: Metric::new("NVIDIA GeForce GTX 1080 (0)".to_string(), None),
+                context: Metric::new(1, None),
+                stream: Metric::new(7, None),
+                name: Metric::new("[CUDA memcpy HtoD]".to_string(), None),
+                correlation_id: Metric::new(117, None),
+            },
+        );
+        diff::assert_eq!(
+            have: metrics[3],
+            want: Command {
+                start: Metric::new(245767.824000, "us".to_string()),
+                duration: Metric::new(3.264000, "us".to_string()),
+                grid_x: Metric::new(1, None),
+                grid_y: Metric::new(1, None),
+                grid_z: Metric::new(1, None),
+                block_x: Metric::new(1024, None),
+                block_y: Metric::new(1, None),
+                block_z: Metric::new(1, None),
+                registers_per_thread: Metric::new(8, None),
+                static_shared_memory: Metric::new(0, "B".to_string()),
+                dynamic_shared_memory: Metric::new(0, "B".to_string()),
+                size: Metric::new(None, "B".to_string()),
+                throughput: Metric::new(None, "MB/s".to_string()),
+                src_mem_type: Metric::new(None, None),
+                dest_mem_type: Metric::new(None, None),
+                device: Metric::new("NVIDIA GeForce GTX 1080 (0)".to_string(), None),
+                context: Metric::new(1, None),
+                stream: Metric::new(7, None),
+                name: Metric::new("_Z6vecAddIfEvPT_S1_S1_i".to_string(), None),
+                correlation_id: Metric::new(123, None),
+            },
+        );
         Ok(())
     }
 }

@@ -2828,12 +2828,14 @@ dependencies = [
  "clap",
  "color-eyre",
  "csv",
+ "indexmap 2.0.0",
  "log",
  "once_cell",
  "pretty_assertions_sorted",
  "regex",
  "serde",
  "serde_json",
+ "similar-asserts",
  "tempfile",
  "thiserror",
  "tokio",
@@ -3588,6 +3590,7 @@ dependencies = [
  "indexmap 2.0.0",
  "serde",
  "strum",
+ "utils",
 ]
 
 [[package]]
