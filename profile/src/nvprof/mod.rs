@@ -76,21 +76,37 @@ where
         let metrics: HashMap<String, Metric<String>> = units
             .iter()
             .zip(values.iter())
-            .map(|((unit_metric, unit), (value_metric, value))| {
+            .flat_map(|((unit_metric, unit), (value_metric, value))| {
                 assert_eq!(unit_metric, value_metric);
-                (
+                Some((
                     unit_metric.clone(),
                     Metric {
                         value: optional!(value).cloned(),
                         unit: optional!(unit).cloned(),
                     },
-                )
+                ))
             })
             .collect();
 
+        {
+            let mut metrics: Vec<_> = metrics.clone().into_iter().collect();
+            metrics.sort_by_key(|(name, _value)| name.clone());
+
+            for (m, value) in metrics.iter() {
+                log::trace!("{m}: {:?}", &value.value);
+            }
+        }
+
         // this is kind of hacky..
         let metrics = serde_json::to_string(&metrics)?;
-        let metrics: M = serde_json::from_str(&metrics)?;
+        let deser = &mut serde_json::Deserializer::from_str(&metrics);
+        let metrics: M = serde_path_to_error::deserialize(deser).map_err(|source| {
+            let path = source.path().to_string();
+            ParseError::JSON {
+                source: source.into_inner(),
+                path: Some(path),
+            }
+        })?;
         entries.push(metrics);
     }
     Ok(entries)

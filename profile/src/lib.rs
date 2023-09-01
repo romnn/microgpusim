@@ -19,8 +19,21 @@ pub enum ParseError {
     #[error(transparent)]
     Csv(#[from] csv::Error),
 
-    #[error(transparent)]
-    JSON(#[from] serde_json::Error),
+    #[error("failed to parse `{path:?}`")]
+    JSON {
+        #[source]
+        source: serde_json::Error,
+        path: Option<String>,
+    },
+}
+
+impl From<serde_json::Error> for ParseError {
+    fn from(err: serde_json::Error) -> Self {
+        Self::JSON {
+            source: err,
+            path: None,
+        }
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -38,10 +51,22 @@ pub enum Error {
     MissingCUDA,
 
     #[error("parse error: {source}")]
-    Parse { raw_log: String, source: ParseError },
+    Parse {
+        raw_log: String,
+        #[source]
+        source: ParseError,
+    },
 
     #[error(transparent)]
     Command(#[from] utils::CommandError),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, serde::Deserialize)]
+#[serde(untagged)]
+enum NumericOrNull<'a, T> {
+    Str(&'a str),
+    FromStr(T),
+    Null,
 }
 
 pub fn deserialize_option_number_from_string<'de, T, D>(
@@ -52,14 +77,6 @@ where
     T: std::str::FromStr + serde::Deserialize<'de>,
     <T as std::str::FromStr>::Err: std::fmt::Display,
 {
-    #[derive(serde::Deserialize)]
-    #[serde(untagged)]
-    enum NumericOrNull<'a, T> {
-        Str(&'a str),
-        FromStr(T),
-        Null,
-    }
-
     match NumericOrNull::<T>::deserialize(deserializer)? {
         NumericOrNull::Str(s) => match s {
             "" => Ok(None),
@@ -109,4 +126,40 @@ where
     <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
 {
     unimplemented!()
+}
+
+#[cfg(test)]
+mod test {
+    use super::NumericOrNull;
+    use color_eyre::eyre;
+    use similar_asserts as diff;
+
+    #[test]
+    fn test_numeric_or_null() -> eyre::Result<()> {
+        diff::assert_eq!(
+            serde_json::from_str::<NumericOrNull::<String>>(r#""hi""#)?,
+            NumericOrNull::Str("hi")
+        );
+        diff::assert_eq!(
+            serde_json::from_str::<NumericOrNull::<usize>>(r#"12"#)?,
+            NumericOrNull::FromStr(12)
+        );
+        diff::assert_eq!(
+            serde_json::from_str::<NumericOrNull::<usize>>(r#""12""#)?,
+            NumericOrNull::Str("12")
+        );
+        diff::assert_eq!(
+            serde_json::from_str::<NumericOrNull::<bool>>(r#"false"#)?,
+            NumericOrNull::FromStr(false)
+        );
+        diff::assert_eq!(
+            serde_json::from_str::<NumericOrNull::<usize>>(r#""  ""#)?,
+            NumericOrNull::Str("  ")
+        );
+        diff::assert_eq!(
+            serde_json::from_str::<NumericOrNull::<usize>>(r#""""#)?,
+            NumericOrNull::Str("")
+        );
+        Ok(())
+    }
 }
