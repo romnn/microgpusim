@@ -1,7 +1,8 @@
 use super::Boolean;
 use clap::Parser;
+use serde::{Deserialize, Serialize};
 
-#[derive(Parser, Debug, Clone, PartialEq, Eq)]
+#[derive(Parser, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[clap(
     // trailing_var_arg = true,
     // allow_hyphen_values = true,

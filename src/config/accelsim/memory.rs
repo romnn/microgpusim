@@ -1,7 +1,8 @@
 use super::Boolean;
 use clap::Parser;
+use serde::{Deserialize, Serialize};
 
-#[derive(Parser, Debug, Clone, PartialEq, Eq)]
+#[derive(Parser, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[clap()]
 pub struct AddressMapping {
     #[clap(
@@ -40,20 +41,18 @@ impl Default for AddressMapping {
     }
 }
 
-#[derive(Parser, Debug, Clone, PartialEq, Eq)]
+#[derive(Parser, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[clap()]
 pub struct MemoryConfig {
     #[clap(
         long = "gpgpu_perf_sim_memcpy",
         help = "Fill the L2 cache on memcpy",
-        // value_parser = super::BoolParser{},
         default_value = "1"
     )]
     pub perf_sim_memcpy: Boolean,
     #[clap(
         long = "gpgpu_simple_dram_model",
         help = "simple_dram_model with fixed latency and BW",
-        // value_parser = super::BoolParser{},
         default_value = "0"
     )]
     pub simple_dram_model: Boolean,
@@ -72,7 +71,6 @@ pub struct MemoryConfig {
     #[clap(
         long = "l2_ideal",
         help = "Use a ideal L2 cache that always hit",
-        // value_parser = super::BoolParser{},
         default_value = "0"
     )]
     pub l2_ideal: Boolean,
@@ -85,7 +83,6 @@ pub struct MemoryConfig {
     #[clap(
         long = "gpgpu_cache:dl2_texture_only",
         help = "L2 cache used for texture only",
-        // value_parser = super::BoolParser{},
         default_value = "1"
     )]
     pub l2_texure_only: Boolean,
@@ -182,7 +179,6 @@ pub struct MemoryConfig {
     #[clap(
         long = "dram_seperate_write_queue_enable",
         help = "Seperate_Write_Queue_Enable",
-        // value_parser = super::BoolParser{},
         default_value = "0"
     )]
     pub seperate_write_queue_enabled: Boolean,
@@ -195,7 +191,6 @@ pub struct MemoryConfig {
     #[clap(
         long = "dram_elimnate_rw_turnaround",
         help = "elimnate_rw_turnaround i.e set tWTR and tRTW = 0",
-        // value_parser = super::BoolParser{},
         default_value = "0"
     )]
     pub elimnate_rw_turnaround: Boolean,

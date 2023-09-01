@@ -1,7 +1,8 @@
 use super::Boolean;
 use clap::Parser;
+use serde::{Deserialize, Serialize};
 
-#[derive(Parser, Debug, Clone, PartialEq, Eq)]
+#[derive(Parser, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[clap()]
 pub struct SimConfig {
     #[clap(
@@ -55,21 +56,18 @@ pub struct SimConfig {
     #[clap(
         long = "gpgpu_flush_l1_cache",
         help = "Flush L1 cache at the end of each kernel call",
-        // value_parser = super::BoolParser{},
         default_value = "0"
     )]
     pub gpgpu_flush_l1_cache: Boolean,
     #[clap(
         long = "gpgpu_flush_l2_cache",
         help = "Flush L2 cache at the end of each kernel call",
-        // value_parser = super::BoolParser{},
         default_value = "0"
     )]
     pub gpgpu_flush_l2_cache: Boolean,
     #[clap(
         long = "gpgpu_deadlock_detect",
         help = "Stop the simulation at deadlock (1=on (default), 0=off)",
-        // value_parser = super::BoolParser{},
         default_value = "1"
     )]
     pub gpu_deadlock_detect: Boolean,
@@ -106,7 +104,6 @@ pub struct SimConfig {
     #[clap(
         long = "visualizer_enabled",
         help = "Turn on visualizer output (1=On, 0=Off)",
-        // value_parser = super::BoolParser{},
         default_value = "1"
     )]
     pub g_visualizer_enabled: Boolean,
@@ -145,12 +142,7 @@ pub struct SimConfig {
         default_value = "2048"
     )]
     pub runtime_pending_launch_count_limit: u32,
-    #[clap(
-        long = "trace_enabled",
-        help = "Turn on traces", 
-        // value_parser = super::BoolParser{},
-        default_value = "0",
-    )]
+    #[clap(long = "trace_enabled", help = "Turn on traces", default_value = "0")]
     pub trace_enabled: Boolean,
     #[clap(
         long = "trace_components",
@@ -178,12 +170,7 @@ pub struct SimConfig {
         default_value = "0"
     )]
     pub g_kernel_launch_latency: u32,
-    #[clap(
-        long = "gpgpu_cdp_enabled",
-        help = "Turn on CDP", 
-        // value_parser = super::BoolParser{},
-        default_value = "0",
-    )]
+    #[clap(long = "gpgpu_cdp_enabled", help = "Turn on CDP", default_value = "0")]
     pub g_cdp_enabled: Boolean,
     #[clap(
         long = "gpgpu_TB_launch_latency",

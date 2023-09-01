@@ -1,27 +1,25 @@
 use super::Boolean;
 use clap::Parser;
+use serde::{Deserialize, Serialize};
 
-#[derive(Parser, Debug, Clone, PartialEq, Eq)]
+#[derive(Parser, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[clap()]
 pub struct PTXConfig {
     #[clap(
         long = "save_embedded_ptx",
         help = "saves ptx files embedded in binary as <n>.ptx",
-        // value_parser = super::BoolParser{},
-        default_value = "0",
+        default_value = "0"
     )]
     pub g_save_embedded_ptx: Boolean,
     #[clap(
         long = "keep",
         help = "keep intermediate files created by GPGPU-Sim when interfacing with external programs",
-        // value_parser = super::BoolParser{},
-        default_value = "0",
+        default_value = "0"
     )]
     pub keep: Boolean,
     #[clap(
         long = "gpgpu_ptx_save_converted_ptxplus",
         help = "Saved converted ptxplus to a file",
-        // value_parser = super::BoolParser{},
         default_value = "0"
     )]
     pub g_ptx_save_converted_ptxplus: Boolean,

@@ -1,24 +1,18 @@
 use super::Boolean;
 use clap::Parser;
+use serde::{Deserialize, Serialize};
 
-#[derive(Parser, Debug, Clone, PartialEq, Eq)]
-#[clap(
-    // trailing_var_arg = true,
-    // allow_hyphen_values = true,
-    // arg_required_else_help = false
-)]
+#[derive(Parser, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FunctionalConfig {
     #[clap(
         long = "gpgpu_ptx_use_cuobjdump",
         help = "Use cuobjdump to extract ptx and sass from binaries",
-        // value_parser = super::BoolParser{},
         default_value = "1"
     )]
     pub m_ptx_use_cuobjdump: Boolean,
     #[clap(
         long = "gpgpu_experimental_lib_support",
         help = "Try to extract code from cuda libraries [Broken because of unknown cudaGetExportTable]",
-        // value_parser = super::BoolParser{},
         default_value = "0"
     )]
     pub m_experimental_lib_support: Boolean,
@@ -85,7 +79,6 @@ pub struct FunctionalConfig {
     #[clap(
         long = "gpgpu_ptx_inst_debug_to_file",
         help = "Dump executed instructions' debug information to file",
-        // value_parser = super::BoolParser{},
         default_value = "0"
     )]
     pub g_ptx_inst_debug_to_file: Boolean,

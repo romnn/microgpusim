@@ -1,7 +1,7 @@
 use clap::Parser;
+use serde::{Deserialize, Serialize};
 
-#[derive(Parser, Debug, Clone, PartialEq, Eq)]
-#[clap()]
+#[derive(Parser, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InterconnectConfig {
     #[clap(
         long = "network_mode",

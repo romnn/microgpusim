@@ -1,6 +1,7 @@
 use clap::Parser;
+use serde::{Deserialize, Serialize};
 
-#[derive(Parser, Debug, Clone, PartialEq, Eq)]
+#[derive(Parser, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[clap()]
 pub struct TimingConfig {
     #[clap(long = "nbk", help = "number of banks")]

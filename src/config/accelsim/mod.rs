@@ -11,22 +11,11 @@ pub mod trace;
 
 use clap::Parser;
 use color_eyre::eyre;
+use serde::{Deserialize, Serialize};
 
-// fn parse_bool(arg: &str) -> Result<bool, std::num::ParseIntError> {
-//     match arg.to_lowercase().trim() {
-//         "t" | "true" | "yes" => Ok(true),
-//         "f" | "false" | "no" => Ok(false),
-//         _ => {
-//             dbg!(arg.trim());
-//             dbg!(arg.trim().parse::<i32>().unwrap());
-//             let arg: i32 = arg.trim().parse()?;
-//             Ok(arg != 0)
-//         }
-//     }
-// }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 #[repr(transparent)]
+#[serde(transparent)]
 pub struct Boolean(bool);
 
 impl From<Boolean> for bool {
@@ -49,8 +38,6 @@ impl std::str::FromStr for Boolean {
             "t" | "true" | "yes" => Ok(Boolean(true)),
             "f" | "false" | "no" => Ok(Boolean(false)),
             _ => {
-                // dbg!(arg.trim());
-                // dbg!(arg.trim().parse::<i32>().unwrap());
                 let arg: i32 = arg.trim().parse()?;
                 Ok(Boolean(arg != 0))
             }
@@ -58,69 +45,7 @@ impl std::str::FromStr for Boolean {
     }
 }
 
-// fn parse_key_val<T, U>(s: &str) -> Result<(T, U), Box<dyn Error + Send + Sync + 'static>>
-// where
-//     T: std::str::FromStr,
-//     T::Err: Error + Send + Sync + 'static,
-//     U: std::str::FromStr,
-//     U::Err: Error + Send + Sync + 'static,
-// {
-//     let pos = s
-//         .find('=')
-//         .ok_or_else(|| format!(""))?;
-//     Ok((s[..pos].parse()?, s[pos + 1..].parse()?))
-// }
-
-/// Parse a single key-value pair
-// fn parse_key_val<T, U>(s: &str) -> Result<(T, U), Box<dyn Error + Send + Sync + 'static>>
-// where
-//     T: std::str::FromStr,
-//     T::Err: Error + Send + Sync + 'static,
-//     U: std::str::FromStr,
-//     U::Err: Error + Send + Sync + 'static,
-// {
-//     let pos = s
-//         .find('=')
-//         .ok_or_else(|| format!(""))?;
-//     Ok((s[..pos].parse()?, s[pos + 1..].parse()?))
-// }
-
-// #[derive(Clone, Debug)]
-// pub struct BoolParser {}
-//
-// impl clap::builder::TypedValueParser for BoolParser {
-//     type Value = bool;
-//
-//     fn parse_ref(
-//         &self,
-//         cmd: &clap::Command,
-//         arg: Option<&clap::Arg>,
-//         value: &std::ffi::OsStr,
-//     ) -> Result<Self::Value, clap::Error> {
-//         // return Ok(false);
-//         dbg!(cmd, arg, value.to_str());
-//         let bool_value = value.to_str().map(parse_bool).transpose().map_err(|_| {
-//             cmd.clone().error(
-//                 clap::error::ErrorKind::InvalidValue,
-//                 format!("{arg:?}: {value:?} is not a valid boolean"),
-//             )
-//         })?;
-//         Ok(bool_value.unwrap_or(false))
-//     }
-//
-//     fn possible_values(
-//         &self,
-//     ) -> Option<Box<dyn Iterator<Item = clap::builder::PossibleValue> + '_>> {
-//         None
-//         // Some(Box::new(
-//         //     ["t", "true", "yes", "f", "false", "no", "<int>"]
-//         //         .into_iter()
-//         //         .map(Into::into),
-//         // ))
-//     }
-// }
-
-#[derive(Parser, Default, Debug, Clone, PartialEq, Eq)]
+#[derive(Parser, Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[clap(
     trailing_var_arg = true,
     // allow_hyphen_values = true,
