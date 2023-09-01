@@ -94,7 +94,9 @@ rustup component add llvm-tools-preview
 cargo install grcov
 
 # collect code coverage in tests (todo)
-cargo xtasks coverage
+cargo xtask coverage
+
+cargo xtask accelsim convert-config -c ./accelsim/gtx1080/gpgpusim.config -c ./accelsim/gtx1080/gpgpusim.trace.config
 ```
 
 Publishing traces (used by CI)

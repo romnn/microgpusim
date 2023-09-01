@@ -2,12 +2,41 @@ import click
 import yaml
 from pathlib import Path
 from os import PathLike
-from typing import Optional
+import typing
 
 from gpucachesim import ROOT_DIR
 
 REPO_ROOT_DIR = ROOT_DIR.parent
 DEFAULT_BENCH_FILE = REPO_ROOT_DIR / "test-apps/test-apps-materialized.yml"
+
+
+class SimConfig(typing.TypedDict):
+    gpgpu_clock_domains: str
+
+    # @property
+    # def core_clock_speed(self) -> int:
+    #     self.gpgpu_clock_domains()
+    #
+    # @property
+    # def num_cores(self) -> int:
+    #     kk
+
+
+class GPUConfig(typing.TypedDict):
+    sim: SimConfig
+
+
+class ProfileConfig(typing.TypedDict):
+    profile_dir: PathLike
+
+
+class SimulateConfig(typing.TypedDict):
+    profile_dir: PathLike
+
+
+class BenchConfig(typing.TypedDict):
+    profile: ProfileConfig
+    simulate: SimulateConfig
 
 
 class Benchmarks:
