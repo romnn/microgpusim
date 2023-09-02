@@ -181,19 +181,19 @@ void trace_shader_core_ctx::init_traces(unsigned start_warp, unsigned end_warp,
   trace_kernel.get_next_threadblock_traces(threadblock_traces);
 
   if (m_gpu->gpgpu_ctx->accelsim_compat_mode) {
-    printf("====== INIT TRACES %d-%d \n", start_warp, end_warp);
+    // printf("====== INIT TRACES %d-%d \n", start_warp, end_warp);
     for (unsigned i = start_warp; i < end_warp; ++i) {
       trace_shd_warp_t *m_trace_warp =
           static_cast<trace_shd_warp_t *>(m_warp[i]);
       const std::vector<inst_trace_t> &instructions = m_trace_warp->warp_traces;
       std::vector<inst_trace_t>::const_iterator iter;
-      printf("====== WARP %d \n", i);
+      // printf("====== WARP %d \n", i);
       for (iter = instructions.begin(); iter != instructions.end(); iter++) {
         printf("\t => instruction %s pc = %d \n", iter->opcode.c_str(),
                iter->m_pc);
       }
     }
-    printf("====== INIT TRACES %d-%d DONE \n", start_warp, end_warp);
+    // printf("====== INIT TRACES %d-%d DONE \n", start_warp, end_warp);
   }
 
   // set the pc from the traces and ignore the functional model

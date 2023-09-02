@@ -2,7 +2,7 @@
 ##
 ## AUTO GENERATED! DO NOT EDIT
 ##
-## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 01/09/2023 14:02:54
+## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 02/09/2023 13:33:34
 ##
 
 config:
@@ -2946,3 +2946,199 @@ benchmarks:
       config_dir: /home/roman/dev/box/accelsim/gtx1080
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-variant-optimized-repeat-1/playground-sim
+  babelstream:
+  - name: babelstream
+    benchmark_idx: 4
+    path: /home/roman/dev/box/test-apps/BabelStream
+    executable: /home/roman/dev/box/test-apps/BabelStream/CUDAStream
+    values:
+      size: 1024
+    args:
+    - --arraysize
+    - '1024'
+    - --numtimes
+    - '1'
+    input_idx: 0
+    profile:
+      repetitions: 5
+      timeout: null
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      profile_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/profile
+    trace:
+      repetitions: 1
+      timeout: null
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/trace
+      save_json: true
+      full_trace: false
+    accelsim_trace:
+      repetitions: 1
+      timeout: null
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/accelsim-trace
+    simulate:
+      repetitions: 2
+      timeout: null
+      concurrency: null
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/sim
+      parallel: false
+    accelsim_simulate:
+      repetitions: 2
+      timeout: null
+      concurrency: null
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
+      inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
+      config_dir: /home/roman/dev/box/accelsim/gtx1080
+      config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/accelsim-sim
+    playground_simulate:
+      repetitions: 2
+      timeout: null
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
+      inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
+      config_dir: /home/roman/dev/box/accelsim/gtx1080
+      config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/playground-sim
+  - name: babelstream
+    benchmark_idx: 4
+    path: /home/roman/dev/box/test-apps/BabelStream
+    executable: /home/roman/dev/box/test-apps/BabelStream/CUDAStream
+    values:
+      size: 10240
+    args:
+    - --arraysize
+    - '10240'
+    - --numtimes
+    - '1'
+    input_idx: 1
+    profile:
+      repetitions: 5
+      timeout: null
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      profile_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/profile
+    trace:
+      repetitions: 1
+      timeout: null
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/trace
+      save_json: true
+      full_trace: false
+    accelsim_trace:
+      repetitions: 1
+      timeout: null
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/accelsim-trace
+    simulate:
+      repetitions: 2
+      timeout: null
+      concurrency: null
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/sim
+      parallel: false
+    accelsim_simulate:
+      repetitions: 2
+      timeout: null
+      concurrency: null
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
+      inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
+      config_dir: /home/roman/dev/box/accelsim/gtx1080
+      config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/accelsim-sim
+    playground_simulate:
+      repetitions: 2
+      timeout: null
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
+      inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
+      config_dir: /home/roman/dev/box/accelsim/gtx1080
+      config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/playground-sim
+  - name: babelstream
+    benchmark_idx: 4
+    path: /home/roman/dev/box/test-apps/BabelStream
+    executable: /home/roman/dev/box/test-apps/BabelStream/CUDAStream
+    values:
+      size: 102400
+    args:
+    - --arraysize
+    - '102400'
+    - --numtimes
+    - '1'
+    input_idx: 2
+    profile:
+      repetitions: 5
+      timeout: null
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      profile_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/profile
+    trace:
+      repetitions: 1
+      timeout: null
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/trace
+      save_json: true
+      full_trace: false
+    accelsim_trace:
+      repetitions: 1
+      timeout: null
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/accelsim-trace
+    simulate:
+      repetitions: 2
+      timeout: null
+      concurrency: null
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/sim
+      parallel: false
+    accelsim_simulate:
+      repetitions: 2
+      timeout: null
+      concurrency: null
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
+      inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
+      config_dir: /home/roman/dev/box/accelsim/gtx1080
+      config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/accelsim-sim
+    playground_simulate:
+      repetitions: 2
+      timeout: null
+      concurrency: 1
+      enabled: true
+      results_dir: /home/roman/dev/box/results
+      trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
+      inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
+      config_dir: /home/roman/dev/box/accelsim/gtx1080
+      config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+      stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/playground-sim

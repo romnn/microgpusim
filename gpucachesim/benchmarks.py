@@ -3,6 +3,7 @@ import yaml
 from pathlib import Path
 from os import PathLike
 import typing
+from typing import Dict
 
 from gpucachesim import ROOT_DIR
 
@@ -10,20 +11,40 @@ REPO_ROOT_DIR = ROOT_DIR.parent
 DEFAULT_BENCH_FILE = REPO_ROOT_DIR / "test-apps/test-apps-materialized.yml"
 
 
-class SimConfig(typing.TypedDict):
-    gpgpu_clock_domains: str
-
-    # @property
-    # def core_clock_speed(self) -> int:
-    #     self.gpgpu_clock_domains()
-    #
-    # @property
-    # def num_cores(self) -> int:
-    #     kk
+# class SimConfig(typing.TypedDict):
+#     gpgpu_clock_domains: str
 
 
-class GPUConfig(typing.TypedDict):
-    sim: SimConfig
+class GPUConfig:
+    def __init__(self, config) -> None:
+        self.config = config
+
+    @property
+    def _clock_domains(self) -> Dict[str, float]:
+        """<Core Clock>:<Interconnect Clock>:<L2 Clock>:<DRAM Clock>"""
+        clock_domains = list(self.config["sim"]["gpgpu_clock_domains"].split(":"))
+        return dict(
+            core=clock_domains[0],
+            interconnect=clock_domains[1],
+            l2=clock_domains[2],
+            dram=clock_domains[3],
+        )
+
+    @property
+    def core_clock_speed(self) -> float:
+        return self._clock_domains["core"]
+
+    @property
+    def num_clusters(self) -> int:
+        return self.config["shader_core"]["gpgpu_n_clusters"]
+
+    @property
+    def cores_per_cluster(self) -> int:
+        return self.config["shader_core"]["gpgpu_n_clusters"]
+
+    @property
+    def num_total_cores(self) -> int:
+        return self.num_clusters * self.cores_per_cluster
 
 
 class ProfileConfig(typing.TypedDict):

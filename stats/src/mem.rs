@@ -48,6 +48,9 @@ impl AccessKind {
     }
 }
 
+/// Memory access statistics.
+///
+/// Records the number of memory fetches sent from SMs to the interconnect.
 #[derive(Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Accesses(pub HashMap<AccessKind, u64>);
 

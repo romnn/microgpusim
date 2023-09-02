@@ -162,7 +162,15 @@ impl Cache {
 
     #[must_use]
     pub fn total_accesses(&self) -> usize {
-        self.accesses.values().sum()
+        self.accesses
+            .iter()
+            .filter_map(|(k, v)| match k {
+                Access((_kind, AccessStat::Status(RequestStatus::HIT | RequestStatus::MISS))) => {
+                    Some(v)
+                }
+                _ => None,
+            })
+            .sum()
     }
 
     #[deprecated]

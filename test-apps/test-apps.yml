@@ -95,3 +95,14 @@ benchmarks:
       include:
         - repeat: 1
     args: "-variant={{ input.variant }} -dimX={{ input.dim }} -dimY={{ input.dim }} -repeat={{ input.repeat }}"
+  babelstream:
+    path: ./BabelStream
+    executable: CUDAStream
+    # - args: --arraysize 1024 --numtimes 1
+    # - args: --arraysize 1024 --numtimes 2
+    # - args: --arraysize 10240 --numtimes 1
+    # - args: --arraysize 102400 --numtimes 1
+
+    inputs:
+      size: [1024, 10240, 102400]
+    args: "--arraysize {{ input.size }} --numtimes 1"
