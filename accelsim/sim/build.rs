@@ -1,14 +1,13 @@
 use color_eyre::eyre::{self, WrapErr};
+use std::io::Write;
 use std::path::Path;
 
-fn build_accelsim(accel_path: &Path, cuda_path: &Path, _force: bool) -> eyre::Result<()> {
-    use std::io::Write;
-
+fn build_accelsim(accel_path: &Path, cuda_path: &Path, force: bool) -> eyre::Result<()> {
     let artifact = accelsim::executable(accel_path);
-    // if !force && artifact.is_file() {
-    //     println!("cargo:warning=using existing {}", &artifact.display());
-    //     return Ok(());
-    // }
+    if !force && artifact.is_file() {
+        println!("cargo:warning=using existing {}", &artifact.display());
+        return Ok(());
+    }
 
     let tmp_build_sh_path = accelsim::build::output_path()?.join("build.tmp.sh");
 

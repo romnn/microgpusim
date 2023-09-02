@@ -994,13 +994,14 @@ void shader_core_ctx::fetch() {
             status = HIT;
             shader_cache_access_log(m_sid, INSTRUCTION, 0);
           } else {
+            /*
             printf(
                 "core %d-%d fetch inst cache access(%lu) time=%llu warp id=%d "
                 "pc=%lu\n",
                 m_tpc, m_sid, (new_addr_type)ppc,
                 m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle, warp_id,
                 m_warp[warp_id]->get_pc());
-
+            */
             status = m_L1I->access(
                 (new_addr_type)ppc, mf,
                 m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle, events);

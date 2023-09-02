@@ -1,5 +1,10 @@
 use color_eyre::eyre;
+use stats::{
+    cache::{Access, AccessStat, RequestStatus, ReservationFailure},
+    mem::AccessKind,
+};
 use std::collections::HashMap;
+use strum::IntoEnumIterator;
 use utils::box_slice;
 
 pub type Stat = (String, u16, String);
@@ -70,83 +75,122 @@ impl std::fmt::Display for Stats {
     }
 }
 
+macro_rules! key {
+    ($stat:expr) => {
+        ("final_kernel".to_string(), 0, $stat.to_string())
+    };
+}
+
+fn convert_cache_stats(cache_name: &str, stats: &Stats) -> stats::PerCache {
+    let mut cache_stats = stats::Cache::default();
+    for kind in AccessKind::iter() {
+        for reservation_failure in ReservationFailure::iter() {
+            let per_cache_stat = stats.get(&key!(format!(
+                "{cache_name}_{kind:?}_{reservation_failure:?}"
+            )));
+            // let per_core_stat = stats.get(&key!(format!(
+            //     "total_core_cache_{kind:?}_{reservation_failure:?}"
+            // )));
+            cache_stats.accesses.insert(
+                Access((kind, AccessStat::ReservationFailure(reservation_failure))),
+                per_cache_stat
+                    // .or(per_core_stat)
+                    .copied()
+                    .unwrap_or(0.0) as usize,
+            );
+        }
+        for status in RequestStatus::iter() {
+            let per_cache_stat = stats.get(&key!(format!("{cache_name}_{kind:?}_{status:?}")));
+            // dbg!(format!("total_core_cache_{kind:?}_{status:?}"));
+            // dbg!(stats.get(&key!(format!("total_core_cache_{kind:?}_{status:?}"))));
+            // let per_core_stat = stats.get(&key!(format!("total_core_cache_{kind:?}_{status:?}")));
+
+            cache_stats.accesses.insert(
+                Access((kind, AccessStat::Status(status))),
+                per_cache_stat
+                    // .or(per_core_stat)
+                    .copied()
+                    .unwrap_or(0.0) as usize,
+            );
+        }
+    }
+
+    // dbg!(&cache_stats);
+    // dbg!(format!("{cache_name}_total_accesses"));
+    // dbg!(stats.get(&key!(format!("{cache_name}_total_accesses"))));
+    //
+    // if let Some(total_accesses) = stats.get(&key!(format!("{cache_name}_total_accesses"))) {
+    //     assert_eq!(*total_accesses, cache_stats.total_accesses() as f64);
+    // }
+
+    // accelsim only reports the sum of all cache statistics
+    stats::PerCache(box_slice![cache_stats])
+}
+
 impl TryFrom<Stats> for stats::Stats {
     type Error = eyre::Report;
 
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     fn try_from(stats: Stats) -> Result<Self, Self::Error> {
-        use stats::{
-            cache::{Access, AccessStat, RequestStatus, ReservationFailure},
-            mem::AccessKind,
-        };
-        use strum::IntoEnumIterator;
-
-        macro_rules! key {
-            ($stat:expr) => {
-                ("final_kernel".to_string(), 0, $stat.to_string())
-            };
-        }
+        // this is wrong
+        // let accesses: HashMap<AccessKind, u64> = AccessKind::iter()
+        //     .map(|kind| {
+        //         let hits = stats
+        //             .get(&key!(format!("total_core_cache_{kind:?}_HIT")))
+        //             .copied()
+        //             .unwrap_or(0.0);
+        //         let misses = stats
+        //             .get(&key!(format!("total_core_cache_{kind:?}_HIT")))
+        //             .copied()
+        //             .unwrap_or(0.0);
+        //         (kind, hits as u64 + misses as u64)
+        //     })
+        //     .collect();
 
         let accesses: HashMap<AccessKind, u64> = [
-            (AccessKind::GLOBAL_ACC_R, 0),
-            (AccessKind::LOCAL_ACC_R, 0),
-            (AccessKind::CONST_ACC_R, 0),
-            (AccessKind::TEXTURE_ACC_R, 0),
-            (AccessKind::GLOBAL_ACC_W, 0),
-            (AccessKind::LOCAL_ACC_W, 0),
-            (AccessKind::L1_WRBK_ACC, 0),
-            (AccessKind::L2_WRBK_ACC, 0),
-            (AccessKind::INST_ACC_R, 0),
-            (AccessKind::L1_WR_ALLOC_R, 0),
-            (AccessKind::L2_WR_ALLOC_R, 0),
+            (AccessKind::GLOBAL_ACC_R, "num_global_mem_read"),
+            (AccessKind::LOCAL_ACC_R, "num_local_mem_read"),
+            (AccessKind::CONST_ACC_R, "num_const_mem_total_accesses"),
+            (AccessKind::TEXTURE_ACC_R, "num_tex_mem_total_accesses"),
+            (AccessKind::GLOBAL_ACC_W, "num_global_mem_write"),
+            (AccessKind::LOCAL_ACC_W, "num_local_mem_write"),
+            // the following metrics are not printed out by accelsim (internal?)
+            // (AccessKind::L1_WRBK_ACC, 0),
+            // (AccessKind::L2_WRBK_ACC, 0),
+            // (AccessKind::INST_ACC_R, 0),
+            // (AccessKind::L1_WR_ALLOC_R, 0),
+            // (AccessKind::L2_WR_ALLOC_R, 0),
         ]
         .into_iter()
+        .map(|(kind, stat)| (kind, stats.get(&key!(stat)).copied().unwrap_or(0.0) as u64))
         .collect();
 
-        let mut l2d_stats = stats::PerCache(box_slice![stats::Cache::default(); 1]);
-        let l2d_total = &mut l2d_stats[0];
-        for kind in AccessKind::iter() {
-            for reservation_failure in ReservationFailure::iter() {
-                l2d_total.accesses.insert(
-                    Access((kind, AccessStat::ReservationFailure(reservation_failure))),
-                    stats
-                        .get(&key!(format!("l2_cache_{kind:?}_{reservation_failure:?}")))
-                        .copied()
-                        .unwrap_or(0.0) as usize,
-                );
-            }
-            for status in RequestStatus::iter() {
-                l2d_total.accesses.insert(
-                    Access((kind, AccessStat::Status(status))),
-                    stats
-                        .get(&key!(format!("l2_cache_{kind:?}_{status:?}")))
-                        .copied()
-                        .unwrap_or(0.0) as usize,
-                );
-            }
-        }
+        dbg!(&stats);
 
-        // let l2d: HashMap<AccessKind, u64> = [
-        //     (AccessKind::GLOBAL_ACC_R, 0),
-        //     (AccessKind::LOCAL_ACC_R, 0),
-        //     (AccessKind::CONST_ACC_R, 0),
-        //     (AccessKind::TEXTURE_ACC_R, 0),
-        //     (AccessKind::GLOBAL_ACC_W, 0),
-        //     (AccessKind::LOCAL_ACC_W, 0),
-        //     (AccessKind::L1_WRBK_ACC, 0),
-        //     (AccessKind::L2_WRBK_ACC, 0),
-        //     (AccessKind::INST_ACC_R, 0),
-        //     (AccessKind::L1_WR_ALLOC_R, 0),
-        //     (AccessKind::L2_WR_ALLOC_R, 0),
-        // ]
-        // .into_iter()
-        // .collect();
-        //num_cores: usize, num_sub_partitions: usize
+        // todo
+        let instructions = stats::InstructionCounts::default();
+
+        let l2d_stats = convert_cache_stats("l2_cache", &stats);
+        let l1i_stats = convert_cache_stats("l1_inst_cache", &stats);
+        let l1d_stats = convert_cache_stats("l1_data_cache", &stats);
+        let l1c_stats = convert_cache_stats("l1_const_cache", &stats);
+        let l1t_stats = convert_cache_stats("l1_tex_cache", &stats);
+
         let total_dram_reads = stats.get(&key!("total_dram_reads")).copied().unwrap_or(0.0) as u64;
         let total_dram_writes = stats
             .get(&key!("total_dram_writes"))
             .copied()
             .unwrap_or(0.0) as u64;
+        let dram = stats::DRAM {
+            bank_writes: box_slice![box_slice![box_slice![total_dram_writes]]],
+            bank_reads: box_slice![box_slice![box_slice![total_dram_reads]]],
+            total_bank_writes: box_slice![box_slice![total_dram_writes]],
+            total_bank_reads: box_slice![box_slice![total_dram_reads]],
+            // we only have total numbers
+            num_banks: 1,
+            num_cores: 1,
+            num_chips: 1,
+        };
 
         Ok(Self {
             sim: stats::Sim {
@@ -160,18 +204,12 @@ impl TryFrom<Stats> for stats::Stats {
                     .unwrap_or(0.0) as u64,
             },
             accesses: stats::Accesses(accesses),
-            dram: stats::DRAM {
-                bank_writes: box_slice![box_slice![box_slice![total_dram_writes]]],
-                bank_reads: box_slice![box_slice![box_slice![total_dram_reads]]],
-                total_bank_writes: box_slice![box_slice![total_dram_writes]],
-                total_bank_reads: box_slice![box_slice![total_dram_reads]],
-                ..stats::DRAM::default()
-            },
-            instructions: stats::InstructionCounts::default(),
-            l1i_stats: stats::PerCache::new(0),
-            l1t_stats: stats::PerCache::new(0),
-            l1c_stats: stats::PerCache::new(0),
-            l1d_stats: stats::PerCache::new(0),
+            dram,
+            instructions,
+            l1i_stats,
+            l1t_stats,
+            l1c_stats,
+            l1d_stats,
             l2d_stats,
             stall_dram_full: 0, // todo
         })

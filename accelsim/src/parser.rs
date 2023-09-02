@@ -100,27 +100,19 @@ static KERNEL_NAME_REGEX: Lazy<Regex> =
 
 /// Parses accelsim log and extracts statistics.
 #[allow(clippy::too_many_lines)]
-// pub fn parse_stats(path: &Path, options: &Options) -> eyre::Result<Stats> {
 pub fn parse_stats(
     reader: impl std::io::Read + std::io::Seek,
     options: &Options,
 ) -> eyre::Result<Stats> {
-    // let file = fs::OpenOptions::new().read(true).open(&path)?;
-
-    // let finished = {
-    // let file = fs::OpenOptions::new().read(true).open(&path)?;
     let mut reverse_reader = rev_buf_reader::RevBufReader::new(reader);
     let finished = check_finished(&mut reverse_reader);
     let mut reader = reverse_reader.into_inner();
     reader.rewind()?;
-    // };
-    // let version = {
-    // let file = fs::OpenOptions::new().read(true).open(&path)?;
-    let mut reader = std::io::BufReader::new(reader);
-    let version = get_version(&mut reader);
-    // };
 
-    println!("GPGPU-sim version: {:?}", &version);
+    let mut reader = std::io::BufReader::new(reader);
+    let _version = get_version(&mut reader);
+
+    // println!("GPGPU-sim version: {:?}", &version);
 
     let general_stats = vec![
         stat!(
@@ -241,6 +233,13 @@ pub fn parse_stats(
             r"\s+L2_total_cache_reservation_fails\s*=\s*(.*)"
         ),
     ]);
+
+    // Total_core_cache_stats_breakdown[INST_ACC_R][HIT] = 152
+    // Total_core_cache_stats_breakdown[INST_ACC_R][HIT_RESERVED] = 0
+    // Total_core_cache_stats_breakdown[INST_ACC_R][MISS] = 36
+    // Total_core_cache_stats_breakdown[INST_ACC_R][RESERVATION_FAIL] = 0
+    // Total_core_cache_stats_breakdown[INST_ACC_R][SECTOR_MISS] = 0
+    // Total_core_cache_stats_breakdown[INST_ACC_R][MSHR_HIT] = 34
 
     let mut total_core_cache_stats: Vec<_> = mem_space
         .iter()
@@ -400,6 +399,11 @@ pub fn parse_stats(
             "num_global_mem_read",
             StatKind::Aggregate,
             r"gpgpu_n_mem_read_global\s*=\s*(.*)"
+        ),
+        stat!(
+            "num_global_mem_write",
+            StatKind::Aggregate,
+            r"gpgpu_n_mem_write_global\s*=\s*(.*)"
         ),
         stat!(
             "num_global_mem_write",
@@ -590,8 +594,6 @@ pub fn parse_stats(
 
     let mut stat_found: HashSet<String> = HashSet::new();
 
-    // let file = fs::OpenOptions::new().read(true).open(&path)?;
-
     let mut stat_map = Stats::default();
 
     if options.per_kernel {
@@ -721,20 +723,3 @@ pub fn parse_stats(
     stat_map.sort_keys();
     Ok(stat_map)
 }
-
-// fn save_stats_to_file(writer: impl std::io::Write, stats: &Stats) -> eyre::Result<()> {
-//     let mut csv_writer = csv::WriterBuilder::new()
-//         .flexible(false)
-//         .from_writer(writer);
-//
-//     csv_writer.write_record(["kernel", "kernel_id", "stat", "value"])?;
-//
-//     // sort stats before writing to csv
-//     let mut sorted_stats: Vec<_> = stats.iter().collect();
-//     sorted_stats.sort_by(|a, b| a.0.cmp(b.0));
-//
-//     for ((kernel, kcount, stat), value) in &sorted_stats {
-//         csv_writer.write_record([kernel, &kcount.to_string(), stat, &value.to_string()])?;
-//     }
-//     Ok(())
-// }
