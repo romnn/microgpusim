@@ -38,10 +38,7 @@ pub async fn profile(
     let options = profile::nvprof::Options {};
     let output = profile::nvprof::nvprof(&bench.executable, &bench.args, &options)
         .await
-        .map_err(|err| match err {
-            profile::Error::Command(err) => err.into_eyre(),
-            err => err.into(),
-        })?;
+        .map_err(|err| err.into_eyre())?;
 
     open_writable(&metrics_log_file)?
         .write_all(output.raw_metrics_log.as_bytes())

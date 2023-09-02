@@ -28,7 +28,7 @@ pub fn instruction_stats_path(stats_dir: impl AsRef<Path>) -> PathBuf {
 }
 
 pub fn sim_stats_path(stats_dir: impl AsRef<Path>) -> PathBuf {
-    stats_dir.as_ref().join("stats.instructions.csv")
+    stats_dir.as_ref().join("stats.sim.csv")
 }
 
 pub fn already_exist(stats_dir: impl AsRef<Path>) -> bool {

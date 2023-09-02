@@ -161,21 +161,14 @@ pub async fn simulate(
         .write_all(&log.stdout)
         .map_err(eyre::Report::from)?;
 
-    let converted_stats: stats::Stats = stats.clone().try_into()?;
-    dbg!(&converted_stats);
-    crate::stats::write_stats_as_csv(stats_dir, converted_stats)?;
-    // validate::write_csv_rows(
-    //     open_writable(stats_dir.join("stats.csv"))?,
-    //     &stats.into_inner().into_iter().collect::<Vec<_>>(),
-    // )?;
-
     super::stats::write_csv_rows(
         open_writable(stats_dir.join("raw.stats.csv"))?,
-        &stats.into_iter().collect::<Vec<_>>(),
+        &stats.iter().collect::<Vec<_>>(),
     )?;
 
-    // let flat_stats: Vec<_> = stats.into_inner().into_iter().collect();
-    // serde_json::to_writer_pretty(open_writable(&stats_out_file)?, &flat_stats)?;
+    let converted_stats: stats::Stats = stats.try_into()?;
+    dbg!(&converted_stats);
+    crate::stats::write_stats_as_csv(stats_dir, converted_stats)?;
 
     #[cfg(debug_assertions)]
     let exec_time_file_path = stats_dir.join("exec_time.debug.json");

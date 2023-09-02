@@ -60,6 +60,14 @@ pub struct Options {
     )]
     pub force: bool,
 
+    #[clap(
+        long = "dry",
+        aliases = ["dry-run"],
+        help = "dry-run without materializing the config",
+        default_value = "false"
+    )]
+    pub dry_run: bool,
+
     #[clap(long = "fail-fast", help = "fail fast", default_value = "false")]
     pub fail_fast: bool,
 

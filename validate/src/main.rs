@@ -10,6 +10,7 @@ use clap::Parser;
 use color_eyre::eyre::{self, WrapErr};
 use console::{style, Style};
 use futures::stream::{self, StreamExt};
+use std::io::Write;
 use validate::options::{Command, Options};
 
 use indicatif::ProgressBar;
@@ -113,12 +114,12 @@ fn parse_benchmarks(options: &Options) -> eyre::Result<Benchmarks> {
     // materialize config: source of truth for downstream consumers
     let materialized = benchmarks.materialize(&base_dir)?;
 
-    if let Some(materialize_path) = materialize_path {
-        use std::io::Write;
-        let mut materialize_file = validate::open_writable(&materialize_path)?;
-        write!(
-            &mut materialize_file,
-            r"
+    match materialize_path {
+        Some(materialize_path) if !options.dry_run => {
+            let mut materialize_file = validate::open_writable(&materialize_path)?;
+            write!(
+                &mut materialize_file,
+                r"
 ##
 ## AUTO GENERATED! DO NOT EDIT
 ##
@@ -126,15 +127,19 @@ fn parse_benchmarks(options: &Options) -> eyre::Result<Benchmarks> {
 ##
 
 ",
-            benches_file_path.display(),
-            Local::now().format("%d/%m/%Y %T"),
-        )?;
+                benches_file_path.display(),
+                Local::now().format("%d/%m/%Y %T"),
+            )?;
 
-        serde_yaml::to_writer(&mut materialize_file, &materialized)?;
-        println!(
-            "materialized to {}",
-            materialize_path.relative_to(cwd).display()
-        );
+            serde_yaml::to_writer(&mut materialize_file, &materialized)?;
+            println!(
+                "materialized to {}",
+                materialize_path.relative_to(cwd).display()
+            );
+        }
+        _ => {
+            println!("dry-run: skipped materialization");
+        }
     }
 
     Ok(materialized)
