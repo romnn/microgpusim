@@ -98,14 +98,16 @@ async fn main() -> eyre::Result<()> {
         Some(Command::Nvprof(nvprof_options)) => {
             let output = profile::nvprof::nvprof(exec, exec_args, &nvprof_options.into())
                 .await
-                .map_err(|err| match err {
-                    profile::Error::Command(err) => err.into_eyre(),
-                    other => other.into(),
-                })?;
+                .map_err(|err| err.into_eyre())?;
             profile::Metrics::Nvprof(output)
         }
         Some(Command::Nsight(_nsight_options)) => todo!(),
     };
+    
+    // Err(source) => Err(Error::Parse { raw_log, source }),
+    //     Ok(commands) => Ok((raw_log, commands)),
+    // }
+
 
     // TODO: nice table view of the most important things
     // TODO: dump the raw output

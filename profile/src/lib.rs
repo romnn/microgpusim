@@ -2,6 +2,7 @@
 pub mod nsight;
 pub mod nvprof;
 
+use color_eyre::{eyre, Section, SectionExt};
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 
@@ -23,6 +24,7 @@ pub enum ParseError {
     JSON {
         #[source]
         source: serde_json::Error,
+        values: Option<std::collections::HashMap<String, Metric<String>>>,
         path: Option<String>,
     },
 }
@@ -31,6 +33,7 @@ impl From<serde_json::Error> for ParseError {
     fn from(err: serde_json::Error) -> Self {
         Self::JSON {
             source: err,
+            values: None,
             path: None,
         }
     }
@@ -53,12 +56,32 @@ pub enum Error {
     #[error("parse error: {source}")]
     Parse {
         raw_log: String,
+        // raw_values: std::collections::HashMap<String, String>,
         #[source]
         source: ParseError,
     },
 
     #[error(transparent)]
     Command(#[from] utils::CommandError),
+}
+
+impl Error {
+    pub fn into_eyre(self) -> eyre::Report {
+        match self {
+            Self::Parse { raw_log, source } => {
+                let values = if let ParseError::JSON { values, .. } = &source {
+                    Some(values.clone())
+                } else {
+                    None
+                };
+                eyre::Report::new(source)
+                    .with_section(|| raw_log)
+                    .with_section(|| format!("{:#?}", values))
+            }
+            Self::Command(err) => err.into_eyre(),
+            err => err.into(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, serde::Deserialize)]

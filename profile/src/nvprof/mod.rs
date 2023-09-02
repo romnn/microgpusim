@@ -13,7 +13,7 @@ pub use metrics::{Command, Metrics};
 pub struct Output {
     pub raw_metrics_log: String,
     pub raw_commands_log: String,
-    pub metrics: Metrics,
+    pub metrics: Vec<Metrics>,
     pub commands: Vec<Command>,
 }
 
@@ -98,17 +98,19 @@ where
         }
 
         // this is kind of hacky..
-        let metrics = serde_json::to_string(&metrics)?;
-        let deser = &mut serde_json::Deserializer::from_str(&metrics);
+        let serialized = serde_json::to_string(&metrics)?;
+        let deser = &mut serde_json::Deserializer::from_str(&serialized);
         let metrics: M = serde_path_to_error::deserialize(deser).map_err(|source| {
             let path = source.path().to_string();
             ParseError::JSON {
                 source: source.into_inner(),
+                values: Some(metrics),
                 path: Some(path),
             }
         })?;
         entries.push(metrics);
     }
+
     Ok(entries)
 }
 
@@ -120,7 +122,7 @@ pub async fn profile_all_metrics<A>(
     executable: impl AsRef<Path>,
     args: A,
     log_file_path: impl AsRef<Path>,
-) -> Result<(String, Metrics), Error>
+) -> Result<(String, Vec<Metrics>), Error>
 where
     A: IntoIterator,
     <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
@@ -164,11 +166,11 @@ where
     let mut log_reader = std::io::Cursor::new(&raw_log);
     match parse_nvprof_csv(&mut log_reader) {
         Err(source) => Err(Error::Parse { raw_log, source }),
-        Ok(metrics) if metrics.len() != 1 => Err(Error::Parse {
-            raw_log,
-            source: ParseError::MissingMetrics,
-        }),
-        Ok(mut metrics) => Ok((raw_log, metrics.remove(0))),
+        // Ok(metrics) if metrics.len() != 1 => Err(Error::Parse {
+        //     raw_log,
+        //     source: ParseError::MissingMetrics,
+        // }),
+        Ok(metrics) => Ok((raw_log, metrics)),
     }
 }
 
@@ -330,7 +332,7 @@ mod tests {
                 registers_per_thread: Metric::new(None, None),
                 static_shared_memory: Metric::new(None, "B".to_string()),
                 dynamic_shared_memory: Metric::new(None, "B".to_string()),
-                size: Metric::new(400, "B".to_string()),
+                size: Metric::new(400.0, "B".to_string()),
                 throughput: Metric::new(350.615557, "MB/s".to_string()),
                 src_mem_type: Metric::new("Pageable".to_string(), None),
                 dest_mem_type: Metric::new("Device".to_string(), None),
@@ -353,8 +355,8 @@ mod tests {
                 block_y: Metric::new(1, None),
                 block_z: Metric::new(1, None),
                 registers_per_thread: Metric::new(8, None),
-                static_shared_memory: Metric::new(0, "B".to_string()),
-                dynamic_shared_memory: Metric::new(0, "B".to_string()),
+                static_shared_memory: Metric::new(0.0, "B".to_string()),
+                dynamic_shared_memory: Metric::new(0.0, "B".to_string()),
                 size: Metric::new(None, "B".to_string()),
                 throughput: Metric::new(None, "MB/s".to_string()),
                 src_mem_type: Metric::new(None, None),

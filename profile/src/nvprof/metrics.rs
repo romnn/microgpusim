@@ -227,11 +227,11 @@ pub struct Command {
     #[serde(rename = "Registers Per Thread")]
     pub registers_per_thread: Metric<usize>,
     #[serde(rename = "Static SMem")]
-    pub static_shared_memory: Metric<usize>,
+    pub static_shared_memory: Metric<f32>,
     #[serde(rename = "Dynamic SMem")]
-    pub dynamic_shared_memory: Metric<usize>,
+    pub dynamic_shared_memory: Metric<f32>,
     #[serde(rename = "Size")]
-    pub size: Metric<usize>,
+    pub size: Metric<f32>,
     #[serde(rename = "Throughput")]
     pub throughput: Metric<f32>,
     #[serde(rename = "SrcMemType")]
