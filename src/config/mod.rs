@@ -5,6 +5,7 @@ use super::{
     set_index,
 };
 use color_eyre::eyre;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -17,14 +18,14 @@ pub enum MemoryAddressingMask {
 }
 
 /// Cache kind
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum CacheKind {
     Normal, // N
     Sector, // S
 }
 
 /// A cache replacement policy
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum CacheReplacementPolicy {
     LRU,  // L
     FIFO, // F
@@ -41,6 +42,7 @@ impl L2DCache {
     pub fn set_index(&self, addr: address) -> u64 {
         let partition_addr = addr;
 
+        // TODO
         // if (m_address_mapping) {
         //   // Calculate set index without memory partition bits to reduce set camping
         //   part_addr = m_address_mapping->partition_address(addr);
@@ -98,18 +100,10 @@ impl L1DCache {
             self.l1_banks_byte_interleaving_log2(),
             self.l1_banks_log2(),
         )
-
-        // hash_function(
-        //     addr,
-        //     self.l1_banks,
-        //     self.l1_banks_byte_interleaving_log2(),
-        //     self.l1_banks_log2(),
-        //     self.l1_banks_hashing_function,
-        // )
     }
 }
 
-/// `CacheConfig`
+/// CacheConfig configures a generic cache
 #[derive(Debug)]
 pub struct Cache {
     pub kind: CacheKind,
@@ -136,7 +130,6 @@ pub struct Cache {
 
     // private (should be used with accessor methods)
     data_port_width: Option<usize>,
-    // pub disabled: bool,
 }
 
 impl std::fmt::Display for Cache {
@@ -312,7 +305,7 @@ impl Cache {
     // assert(m_line_sz % m_data_port_width == 0);
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum Parallelization {
     Serial,
     // #[cfg(feature = "parallel")]
@@ -486,9 +479,9 @@ pub struct GPU {
     //
     pub pipeline_widths: HashMap<PipelineStage, usize>, // 4,0,0,1,1,4,0,0,1,1,6
     /// Number of SP units
-    pub num_sp_units: usize,  //
+    pub num_sp_units: usize, //
     /// Number of DP units
-    pub num_dp_units: usize,  // 0
+    pub num_dp_units: usize, // 0
     /// Number of INT units
     pub num_int_units: usize, // 0
 
@@ -826,7 +819,7 @@ pub enum CacheSetIndexFunc {
 /// VALIDAE policies Read: Jouppi, Norman P. "Cache write policies and
 /// performance". ISCA 93. `WRITE_ALLOCATE` is the old write policy in
 /// GPGPU-sim 3.x, that send WRITE and READ for every write request
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum CacheWriteAllocatePolicy {
     NO_WRITE_ALLOCATE,  // N
     WRITE_ALLOCATE,     // W
@@ -835,7 +828,7 @@ pub enum CacheWriteAllocatePolicy {
 }
 
 /// A cache write policy.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum CacheWritePolicy {
     READ_ONLY,          // R
     WRITE_BACK,         // B
@@ -845,7 +838,7 @@ pub enum CacheWritePolicy {
 }
 
 /// A cache allocate policy.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum CacheAllocatePolicy {
     ON_MISS,   // M
     ON_FILL,   // F
@@ -906,7 +899,7 @@ pub enum DRAMSchedulerKind {
 /// <`num_active_warps>:<inner_prioritization>:<outer_prioritization`>
 ///
 /// For complete list of prioritization values see shader.h.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum CoreSchedulerKind {
     LRR,
     GTO,
@@ -914,36 +907,36 @@ pub enum CoreSchedulerKind {
 }
 
 /// GPU microarchitecture generation.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Architecture {
     GT200 = 13,
     Fermi = 20,
 }
 
 /// Scheduling order.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum SchedulingOrder {
     Fix = 0,
     RoundRobin = 1,
 }
 
 impl GPU {
-    pub fn parse() -> eyre::Result<Self> {
-        let adaptive_cache_config = false;
-        let shared_memory_sizes_string = "0";
-        let _shared_memory_sizes: Vec<u32> = if adaptive_cache_config {
-            let sizes: Result<Vec<u32>, _> = shared_memory_sizes_string
-                .split(',')
-                .map(str::parse)
-                .collect();
-            let mut sizes: Vec<_> = sizes?.into_iter().map(|size| size * 1024).collect();
-            sizes.sort_unstable();
-            sizes
-        } else {
-            vec![]
-        };
-        Ok(Self::default())
-    }
+    // pub fn parse() -> eyre::Result<Self> {
+    //     let adaptive_cache_config = false;
+    //     let shared_memory_sizes_string = "0";
+    //     let _shared_memory_sizes: Vec<u32> = if adaptive_cache_config {
+    //         let sizes: Result<Vec<u32>, _> = shared_memory_sizes_string
+    //             .split(',')
+    //             .map(str::parse)
+    //             .collect();
+    //         let mut sizes: Vec<_> = sizes?.into_iter().map(|size| size * 1024).collect();
+    //         sizes.sort_unstable();
+    //         sizes
+    //     } else {
+    //         vec![]
+    //     };
+    //     Ok(Self::default())
+    // }
 
     pub fn total_sub_partitions(&self) -> usize {
         self.num_memory_controllers * self.num_sub_partition_per_memory_channel

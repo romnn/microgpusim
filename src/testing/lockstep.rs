@@ -867,4 +867,6 @@ lockstep_checks! {
     transpose_256_naive: "results/transpose/transpose-dim-256-variant-naive-repeat-1",
     transpose_256_coalesced: "results/transpose/transpose-dim-256-variant-coalesced-repeat-1",
     transpose_256_optimized: "results/transpose/transpose-dim-256-variant-optimized-repeat-1",
+    // babelstream
+    babelstream_1024: "results/babelstream/babelstream-size-1024",
 }

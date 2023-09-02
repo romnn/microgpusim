@@ -36,6 +36,11 @@ pub struct Warp {
     pub next: usize,
 }
 
+impl std::fmt::Display for Warp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Warp[warp_id={}]", self.warp_id)
+    }
+}
 // impl PartialEq for Warp {
 //     fn eq(&self, other: &Self) -> bool {
 //         self.kernel == other.kernel

@@ -369,26 +369,50 @@ impl Base {
                         // }
                     }
                     op @ (ArchOp::DP_OP | ArchOp::SFU_OP) => {
-                        // let stage = PipelineStage::ID_OC_DP;
-                        // let unit = ExecUnitKind::DP;
-
                         let dp_can_dual_issue = !dual_issue_only_to_different_exec_units
                             || prev_issued_exec_unit != ExecUnitKind::DP;
                         let sfu_can_dual_issue = !dual_issue_only_to_different_exec_units
-                            || prev_issued_exec_unit != ExecUnitKind::SP;
+                            || prev_issued_exec_unit != ExecUnitKind::SFU;
+
+                        let dp_pipe_avail = self.config.num_dp_units > 0
+                            && core.has_free_register(PipelineStage::ID_OC_DP, self.id);
+
+                        let sfu_pipe_avail = self.config.num_sfu_units > 0
+                            && core.has_free_register(PipelineStage::ID_OC_SFU, self.id);
 
                         let issue_target = match op {
-                            ArchOp::DP_OP if self.config.num_dp_units > 0 && dp_can_dual_issue => {
-                                Some((PipelineStage::ID_OC_DP, ExecUnitKind::DP))
-                            }
+                            // case 2
                             ArchOp::DP_OP
-                                if self.config.num_dp_units == 0 && sfu_can_dual_issue =>
+                                if self.config.num_dp_units > 0
+                                    && dp_can_dual_issue
+                                    && dp_pipe_avail =>
                             {
                                 Some((PipelineStage::ID_OC_DP, ExecUnitKind::DP))
                             }
-                            ArchOp::SFU_OP => Some((PipelineStage::ID_OC_DP, ExecUnitKind::DP)),
+                            // case 3
+                            ArchOp::DP_OP
+                                if self.config.num_dp_units == 0
+                                    && sfu_can_dual_issue
+                                    && sfu_pipe_avail =>
+                            {
+                                Some((PipelineStage::ID_OC_SFU, ExecUnitKind::SFU))
+                            }
+                            ArchOp::SFU_OP if sfu_can_dual_issue && sfu_pipe_avail => {
+                                Some((PipelineStage::ID_OC_SFU, ExecUnitKind::SFU))
+                            }
                             _ => None,
                         };
+                        log::trace!(
+                            "dp/sfu issue for {}: {:?} [DP: units={}, dual_issue={}, avail={}] [SFU: units={}, dual_issue={}, avail={}]",
+                            instr,
+                            issue_target,
+                            self.config.num_dp_units,
+                            dp_can_dual_issue,
+                            dp_pipe_avail,
+                            self.config.num_sfu_units,
+                            sfu_can_dual_issue,
+                            sfu_pipe_avail,
+                        );
 
                         if let Some((stage, unit)) = issue_target {
                             if self.issue(

@@ -77,19 +77,6 @@ impl InstrFetchBuffer {
 
 type ResultBus = BitArr!(for fu::MAX_ALU_LATENCY);
 
-// #[derive(Debug)]
-// pub enum Packet {
-//     Fetch(mem_fetch::MemFetch),
-// }
-
-// impl std::fmt::Display for Packet {
-//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-//         match self {
-//             Packet::Fetch(fetch) => write!(f, "{fetch}"),
-//         }
-//     }
-// }
-
 pub trait WarpIssuer {
     fn issue_warp(
         &self,
