@@ -530,14 +530,17 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
     //     num_sub_partitions,
     // );
 
-    box_sim.process_commands(cycle);
-    box_sim.launch_kernels(cycle);
+    // box_sim.process_commands(cycle);
+    // box_sim.launch_kernels(cycle);
 
     while play_sim.commands_left() || play_sim.kernels_left() {
         let mut start = Instant::now();
         play_sim.process_commands();
         play_sim.launch_kernels();
         play_time_other += start.elapsed();
+
+        box_sim.process_commands(cycle);
+        box_sim.launch_kernels(cycle);
 
         // check that memcopy commands were handled correctly
         if should_compare_states {
@@ -575,6 +578,7 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
             if use_full_diff {
                 full_diff::assert_eq!(&box_sim_state, &play_sim_state);
             } else {
+                // we do fail here
                 diff::assert_eq!(box: &box_sim_state, play: &play_sim_state);
             }
         }
@@ -715,10 +719,10 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
 
             // box out of loop
             start = Instant::now();
-            if !box_sim.active() {
-                box_sim.process_commands(cycle);
-                box_sim.launch_kernels(cycle);
-            }
+            // if !box_sim.active() {
+            //     box_sim.process_commands(cycle);
+            //     box_sim.launch_kernels(cycle);
+            // }
 
             cycle = play_sim.get_cycle();
             box_sim.set_cycle(cycle);
