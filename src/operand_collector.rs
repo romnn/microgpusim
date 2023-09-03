@@ -615,7 +615,7 @@ impl Arbiter {
     }
 
     pub fn reset_alloction(&mut self) {
-        for bank in self.allocated_banks.iter_mut() {
+        for bank in &mut *self.allocated_banks {
             bank.reset();
         }
     }

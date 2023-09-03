@@ -1,21 +1,18 @@
 use clap::Parser;
 use color_eyre::eyre;
 use itertools::Itertools;
-use std::{
-    ffi::OsStr,
-    path::{Path, PathBuf},
-};
+use std::{ffi::OsStr, path::PathBuf};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub enum Format<'a> {
-    JSON(&'a str),
-    YAML(&'a str),
+    Json(&'a str),
+    Yaml(&'a str),
 }
 
 impl<'a> AsRef<str> for Format<'a> {
     fn as_ref(&self) -> &'a str {
         match self {
-            Self::JSON(inner) | Self::YAML(inner) => *inner,
+            Self::Json(inner) | Self::Yaml(inner) => inner,
         }
     }
 }
@@ -38,17 +35,11 @@ pub struct Options {
 
 pub fn run(options: Options) -> eyre::Result<()> {
     match options.command {
-        Command::ConvertConfig {
-            configs,
-            mut output,
-        } => {
+        Command::ConvertConfig { configs, output } => {
             if configs.is_empty() {
                 return Ok(());
             }
-            let config: Vec<String> = configs
-                .iter()
-                .map(|config_path| std::fs::read_to_string(config_path))
-                .try_collect()?;
+            let config: Vec<String> = configs.iter().map(std::fs::read_to_string).try_collect()?;
 
             let config = casimu::config::accelsim::Config::parse(config.join("\n"))?;
             let extension = output
@@ -57,9 +48,9 @@ pub fn run(options: Options) -> eyre::Result<()> {
                 .map(str::to_ascii_lowercase);
 
             let format = match extension.as_deref() {
-                None => Format::YAML("yaml"),
-                Some(ext @ "json") => Format::JSON(ext),
-                Some(ext @ ("yaml" | "yml")) => Format::YAML(ext),
+                None => Format::Yaml("yaml"),
+                Some(ext @ "json") => Format::Json(ext),
+                Some(ext @ ("yaml" | "yml")) => Format::Yaml(ext),
                 Some(other) => eyre::bail!(
                     "output path {} has invalid extension {:?}. valid: [.yaml|.json|.yml]",
                     output.display(),
@@ -72,8 +63,8 @@ pub fn run(options: Options) -> eyre::Result<()> {
             let mut writer = utils::fs::open_writable(&output)?;
 
             match format {
-                Format::YAML(_) => serde_yaml::to_writer(&mut writer, &config)?,
-                Format::JSON(_) => serde_json::to_writer_pretty(&mut writer, &config)?,
+                Format::Yaml(_) => serde_yaml::to_writer(&mut writer, &config)?,
+                Format::Json(_) => serde_json::to_writer_pretty(&mut writer, &config)?,
             }
             println!("wrote config to {}", output.display());
         }

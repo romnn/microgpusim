@@ -119,7 +119,7 @@ pub fn expand(inputs: &Inputs, includes: &Includes, excludes: &Excludes) -> Vec<
         Box::new(vec![ExpandedInput::Cartesian(Input::default())].into_iter());
 
     let mut prod_keys: HashSet<&String> = HashSet::new();
-    for (&input, values) in inputs.iter() {
+    for (&input, values) in &inputs {
         if values.is_empty() {
             // skip
             continue;

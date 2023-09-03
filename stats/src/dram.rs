@@ -27,16 +27,19 @@ pub struct AccessesCsvRow {
     writes: u64,
 }
 
+pub type PerChipBankStats = Box<[Box<[Box<[u64]>]>]>;
+pub type BankStats = Box<[Box<[u64]>]>;
+
 #[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DRAM {
     /// Number of bank writes [shader id][dram chip id][bank id]
-    pub bank_writes: Box<[Box<[Box<[u64]>]>]>,
+    pub bank_writes: PerChipBankStats,
     /// Number of bank reads [shader id][dram chip id][bank id]
-    pub bank_reads: Box<[Box<[Box<[u64]>]>]>,
+    pub bank_reads: PerChipBankStats,
     /// Number of bank writes [dram chip id][bank id]
-    pub total_bank_writes: Box<[Box<[u64]>]>,
+    pub total_bank_writes: BankStats,
     /// Number of bank reads [dram chip id][bank id]
-    pub total_bank_reads: Box<[Box<[u64]>]>,
+    pub total_bank_reads: BankStats,
 
     /// Number of cores
     pub num_cores: usize,
@@ -105,20 +108,12 @@ impl DRAM {
 
     #[must_use]
     pub fn total_reads(&self) -> u64 {
-        self.total_bank_reads
-            .iter()
-            .map(AsRef::as_ref)
-            .flatten()
-            .sum()
+        self.total_bank_reads.iter().flat_map(AsRef::as_ref).sum()
     }
 
     #[must_use]
     pub fn total_writes(&self) -> u64 {
-        self.total_bank_writes
-            .iter()
-            .map(AsRef::as_ref)
-            .flatten()
-            .sum()
+        self.total_bank_writes.iter().flat_map(AsRef::as_ref).sum()
     }
 
     // #[must_use]

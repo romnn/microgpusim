@@ -402,10 +402,11 @@ where
             self.probe_masked(addr, &sector_mask, is_write, is_probe, None);
 
         log::trace!(
-            "tag_array::fill(cache={}, tag={}, addr={}) (on fill) status={:?}",
+            "tag_array::fill(cache={}, tag={}, addr={}, time={}) (on fill) status={:?}",
             cache_index.map_or(-1, |i| i as i64),
             self.config.tag(addr),
             addr,
+            time,
             probe_status,
         );
 
@@ -414,7 +415,7 @@ where
         }
         let cache_index = cache_index.unwrap();
 
-        let line = self.lines.get_mut(cache_index).unwrap();
+        let line = &mut self.lines[cache_index];
         let mut was_modified_before = line.is_modified();
 
         if probe_status == cache::RequestStatus::MISS {

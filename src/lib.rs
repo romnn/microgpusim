@@ -49,7 +49,7 @@ pub mod warp;
 pub mod testing;
 
 use self::core::{warp_inst_complete, Core, PipelineStage, MAX_THREAD_PER_SM, PROGRAM_MEM_START};
-use addrdec::{AddressTranslation, TranslatedAddress};
+use addrdec::AddressTranslation;
 use allocation::Allocations;
 use cluster::Cluster;
 use engine::cycle::Component;
@@ -67,7 +67,6 @@ use crossbeam::utils::CachePadded;
 use rayon::prelude::*;
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
-use std::time::Instant;
 
 pub type address = u64;
 
@@ -437,7 +436,7 @@ where
     #[tracing::instrument(name = "cycle")]
     pub fn cycle(&mut self, cycle: u64) {
         #[cfg(feature = "timings")]
-        let start_total = Instant::now();
+        let start_total = std::time::Instant::now();
         // int clock_mask = next_clock_domain();
 
         // if self.parallel_simulation {
@@ -446,7 +445,7 @@ where
 
         // shader core loading (pop from ICNT into core)
         #[cfg(feature = "timings")]
-        let start = Instant::now();
+        let start = std::time::Instant::now();
         if self.parallel_simulation {
             self.clusters
                 .par_iter()
@@ -473,7 +472,7 @@ where
         // THIS MESSES UP EVERYTHING
 
         #[cfg(feature = "timings")]
-        let start = Instant::now();
+        let start = std::time::Instant::now();
         if false && self.parallel_simulation {
             self.mem_sub_partitions
                 .par_iter()
@@ -597,7 +596,7 @@ where
 
         // DRAM
         #[cfg(feature = "timings")]
-        let start = Instant::now();
+        let start = std::time::Instant::now();
         if self.parallel_simulation {
             // this pushes into sub.dram_to_l2_queue and messes up the order
             // also, we race for checking if dram to l2 queue is full, for which ordering does not
@@ -633,7 +632,7 @@ where
         );
 
         #[cfg(feature = "timings")]
-        let start = Instant::now();
+        let start = std::time::Instant::now();
         if self.parallel_simulation {
             self.mem_sub_partitions
                 .par_iter()
@@ -732,7 +731,7 @@ where
         // self.interconn_transfer();
 
         #[cfg(feature = "timings")]
-        let start = Instant::now();
+        let start = std::time::Instant::now();
         let kernels_completed = self
             .running_kernels
             .read()
@@ -769,20 +768,21 @@ where
             // });
             let mut active_clusters = Vec::new();
             rayon::scope(|core_scope| {
-                for cluster_arc in self.clusters.iter() {
+                for cluster_arc in &self.clusters {
                     let cluster = cluster_arc.try_read();
                     if cluster.not_completed() == 0 && kernels_completed {
                         continue;
                     }
                     active_clusters.push(cluster_arc);
                     for core in cluster.cores.iter().cloned() {
+                        let core: Arc<RwLock<Core<_>>> = core;
                         core_scope.spawn(move |_| core.write().cycle(cycle));
                     }
                 }
             });
 
             // for cluster in &mut self.clusters {
-            for cluster in active_clusters.iter() {
+            for cluster in &active_clusters {
                 // let cores_completed = cluster.not_completed() == 0;
                 // let kernels_completed = self
                 //     .running_kernels
@@ -801,7 +801,7 @@ where
                 // check if cluster was updated
 
                 let mut core_sim_order = cluster.core_sim_order.try_lock();
-                for core_id in core_sim_order.iter() {
+                for core_id in &*core_sim_order {
                     let core = cluster.cores[*core_id].try_read();
                     let mut port = core.mem_port.try_lock();
                     // let mut port = &mut core.mem_port;
@@ -847,7 +847,7 @@ where
 
                 #[allow(unused_mut)]
                 let mut core_sim_order = cluster.core_sim_order.try_lock();
-                for core_id in core_sim_order.iter() {
+                for core_id in &*core_sim_order {
                     let mut core = cluster.cores[*core_id].write();
                     crate::timeit!("serial core cycle", core.cycle(cycle));
 
@@ -885,7 +885,7 @@ where
                 if !active {
                     let cluster = cluster.try_read();
                     let core_sim_order = cluster.core_sim_order.try_lock();
-                    for core_id in core_sim_order.iter() {
+                    for core_id in &*core_sim_order {
                         let core = cluster.cores[*core_id].try_read();
                         let port = core.mem_port.lock();
                         assert_eq!(port.buffer.len(), 0);
@@ -897,7 +897,7 @@ where
                 // for cluster in self.clusters.iter() {
                 let cluster = cluster.try_read();
                 let mut core_sim_order = cluster.core_sim_order.try_lock();
-                for core_id in core_sim_order.iter() {
+                for core_id in &*core_sim_order {
                     let core = cluster.cores[*core_id].try_read();
                     let mut port = core.mem_port.lock();
                     for ic::Packet {
@@ -994,7 +994,7 @@ where
                 block_issue_next_core_per_cluster: self
                     .clusters
                     .iter()
-                    .map(|cluster| cluster.read().block_issue_next_core.lock().clone())
+                    .map(|cluster| *cluster.read().block_issue_next_core.lock())
                     .collect(),
             };
             self.states.push((cycle, state));
@@ -1439,7 +1439,7 @@ pub fn accelmain(
 
         println!("{} deadlocks detected", deadlocks.len());
         for (i, threads) in deadlocks.iter().enumerate() {
-            println!("Deadlock #{}", i);
+            println!("Deadlock #{i}");
             for t in threads {
                 println!("Thread Id {:#?}", t.thread_id());
                 println!("{:#?}", t.backtrace());
@@ -1505,7 +1505,6 @@ pub fn accelmain(
 
 #[cfg(test)]
 mod tests {
-    use crate::config;
     use crate::testing::{diff, init_logging};
     use color_eyre::eyre;
     use std::time::Instant;

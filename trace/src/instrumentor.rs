@@ -577,7 +577,7 @@ impl<'c> Instrumentor<'c> {
 
     pub fn free_device_allocations(&self) {
         let device_allocations = self.device_allocations.lock().unwrap();
-        for dev_ptr in device_allocations.iter() {
+        for dev_ptr in &*device_allocations {
             unsafe {
                 common::cuda_free(*dev_ptr as *mut std::ffi::c_void);
             };

@@ -101,8 +101,9 @@ macro_rules! parallel_checks {
             paste::paste! {
                 #[test]
                 fn [<nondeterministic_ $name>]() -> color_eyre::eyre::Result<()> {
-                    $crate::testing::init_logging();
                     use validate::materialize::Benchmarks;
+
+                    $crate::testing::init_logging();
 
                     // load benchmark config
                     let (benchmark_name, input_idx) = $input;

@@ -401,7 +401,7 @@ impl<'a> From<playground::scheduler_unit::SchedulerUnit<'a>> for Scheduler {
         Self {
             prioritized_warp_ids: prioritized_warp_ids
                 .into_iter()
-                .zip(prioritized_dynamic_warp_ids.into_iter())
+                .zip(prioritized_dynamic_warp_ids)
                 .collect(),
         }
     }

@@ -98,7 +98,7 @@ async fn main() -> eyre::Result<()> {
         Some(Command::Nvprof(nvprof_options)) => {
             let output = profile::nvprof::nvprof(exec, exec_args, &nvprof_options.into())
                 .await
-                .map_err(|err| err.into_eyre())?;
+                .map_err(profile::Error::into_eyre)?;
             profile::Metrics::Nvprof(output)
         }
         Some(Command::Nsight(_nsight_options)) => todo!(),

@@ -510,7 +510,7 @@ mod tests {
     #[test]
     fn test_skip_iterator_indexing() {
         let issued_warp_id = 3;
-        let supervised_warp_ids = vec![1, 2, 3, 4, 5];
+        let supervised_warp_ids = [1, 2, 3, 4, 5];
         let mut last_supervised_idx = 0;
 
         for (idx, id) in supervised_warp_ids.iter().enumerate() {

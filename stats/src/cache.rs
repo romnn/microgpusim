@@ -257,7 +257,7 @@ impl PerCache {
     }
 
     pub fn shave(&mut self) {
-        for stats in self.0.iter_mut() {
+        for stats in &mut *self.0 {
             stats.shave();
         }
     }
@@ -270,7 +270,7 @@ impl PerCache {
     #[must_use]
     pub fn reduce(&self) -> Cache {
         let mut out = Cache::default();
-        for stats in self.0.iter() {
+        for stats in &*self.0 {
             out += stats.clone();
         }
         out

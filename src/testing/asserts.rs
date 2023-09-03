@@ -141,13 +141,13 @@ pub fn stats_match(
             let play_l2_data_stats = stats::Cache {
                 accesses: compare_stats
                     .iter()
-                    .map(|stat| (stat.clone(), play_l2_data_stats.accesses[stat]))
+                    .map(|stat| (*stat, play_l2_data_stats.accesses[stat]))
                     .collect(),
             };
             let box_l2_data_stats = stats::Cache {
                 accesses: compare_stats
                     .iter()
-                    .map(|stat| (stat.clone(), box_l2_data_stats.accesses[stat]))
+                    .map(|stat| (*stat, box_l2_data_stats.accesses[stat]))
                     .collect(),
             };
             dbg!(&play_l2_data_stats, &box_l2_data_stats);

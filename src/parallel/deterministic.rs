@@ -1,4 +1,4 @@
-use crate::{config, engine::cycle::Component, ic, mem_fetch, mem_sub_partition, MockSimulator};
+use crate::{config, engine::cycle::Component, ic, mem_fetch, MockSimulator};
 use color_eyre::eyre;
 
 impl<I> MockSimulator<I>
@@ -216,7 +216,7 @@ where
                             let cluster = cluster_arc.try_read();
                             let core_sim_order = cluster.core_sim_order.try_lock();
                             // let mut core_sim_order = core_sim_order.try_lock();
-                            for core_id in core_sim_order.iter() {
+                            for core_id in &*core_sim_order {
                                 let mut core = cluster.cores[*core_id].write();
                                 core.cycle(cycle);
 
@@ -266,7 +266,7 @@ where
 
                     // if !(cores_completed && kernels_completed) {
                     let mut core_sim_order = cluster.core_sim_order.try_lock();
-                    for core_id in core_sim_order.iter() {
+                    for core_id in &*core_sim_order {
                         let core = cluster.cores[*core_id].try_read();
                         let mut port = core.mem_port.lock();
                         for ic::Packet {

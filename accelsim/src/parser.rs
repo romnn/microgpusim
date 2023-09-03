@@ -175,14 +175,12 @@ pub fn parse_stats(
         ("L1_WR_ALLOC_R", "l1_write_alloc_read"),
         ("L2_WR_ALLOC_R", "l2_write_alloc_read"),
     ];
-    let outcome = vec![
-        ("HIT", "hit"),
+    let outcome = [("HIT", "hit"),
         ("HIT_RESERVED", "hit_reserved"),
         ("MISS", "miss"),
         ("RESERVATION_FAIL", "reservation_fail"),
         ("SECTOR_MISS", "sector_miss"),
-        ("MSHR_HIT", "mshr_hit"),
-    ];
+        ("MSHR_HIT", "mshr_hit")];
     let mut l2_cache_stats: Vec<_> = mem_space
         .iter()
         .cartesian_product(outcome.iter())

@@ -1,5 +1,6 @@
 mod metrics;
 
+use indexmap::IndexMap;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashMap;
@@ -67,7 +68,6 @@ where
     let mut csv_reader = seek_to_csv(reader)?;
     let mut records = csv_reader.deserialize();
 
-    use indexmap::IndexMap;
     let mut entries = Vec::new();
     let units: IndexMap<String, String> = records.next().ok_or(ParseError::MissingUnits)??;
 
@@ -76,15 +76,15 @@ where
         let metrics: HashMap<String, Metric<String>> = units
             .iter()
             .zip(values.iter())
-            .flat_map(|((unit_metric, unit), (value_metric, value))| {
+            .map(|((unit_metric, unit), (value_metric, value))| {
                 assert_eq!(unit_metric, value_metric);
-                Some((
+                (
                     unit_metric.clone(),
                     Metric {
                         value: optional!(value).cloned(),
                         unit: optional!(unit).cloned(),
                     },
-                ))
+                )
             })
             .collect();
 
@@ -92,7 +92,7 @@ where
             let mut metrics: Vec<_> = metrics.clone().into_iter().collect();
             metrics.sort_by_key(|(name, _value)| name.clone());
 
-            for (m, value) in metrics.iter() {
+            for (m, value) in &metrics {
                 log::trace!("{m}: {:?}", &value.value);
             }
         }
@@ -321,8 +321,8 @@ mod tests {
         diff::assert_eq!(
             have: metrics[0],
             want: Command {
-                start: Metric::new(245729.104000, "us".to_string()),
-                duration: Metric::new(1.088000, "us".to_string()),
+                start: Metric::new(245_729.11, "us".to_string()),
+                duration: Metric::new(1.088, "us".to_string()),
                 grid_x: Metric::new(None, None),
                 grid_y: Metric::new(None, None),
                 grid_z: Metric::new(None, None),
@@ -333,7 +333,7 @@ mod tests {
                 static_shared_memory: Metric::new(None, "B".to_string()),
                 dynamic_shared_memory: Metric::new(None, "B".to_string()),
                 size: Metric::new(400.0, "B".to_string()),
-                throughput: Metric::new(350.615557, "MB/s".to_string()),
+                throughput: Metric::new(350.615_57, "MB/s".to_string()),
                 src_mem_type: Metric::new("Pageable".to_string(), None),
                 dest_mem_type: Metric::new("Device".to_string(), None),
                 device: Metric::new("NVIDIA GeForce GTX 1080 (0)".to_string(), None),
@@ -346,8 +346,8 @@ mod tests {
         diff::assert_eq!(
             have: metrics[3],
             want: Command {
-                start: Metric::new(245767.824000, "us".to_string()),
-                duration: Metric::new(3.264000, "us".to_string()),
+                start: Metric::new(245_767.83, "us".to_string()),
+                duration: Metric::new(3.264, "us".to_string()),
                 grid_x: Metric::new(1, None),
                 grid_y: Metric::new(1, None),
                 grid_z: Metric::new(1, None),

@@ -344,7 +344,7 @@ pub enum FetchResponseTarget {
 // type InterconnBuffer<T> = Arc<Mutex<VecDeque<(usize, T, u32)>>>;
 type InterconnBuffer<T> = VecDeque<ic::Packet<(usize, T, u32)>>;
 
-// pub struct CoreMemoryConnection<P> {
+#[allow(clippy::module_name_repetitions)]
 pub struct CoreMemoryConnection<C> {
     pub config: Arc<config::GPU>,
     pub stats: Arc<Mutex<stats::Stats>>,
@@ -1848,7 +1848,7 @@ where
     fn init_warps_from_traces(&mut self, kernel: &Arc<Kernel>, start_warp: usize, end_warp: usize) {
         debug_assert!(!self.warps.is_empty());
         let selected_warps = &mut self.warps[start_warp..end_warp];
-        for warp in selected_warps.iter_mut() {
+        for warp in &mut *selected_warps {
             let mut warp = warp.try_lock();
             warp.trace_instructions.clear();
             warp.kernel = Some(Arc::clone(kernel));

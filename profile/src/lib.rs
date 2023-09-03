@@ -2,7 +2,7 @@
 pub mod nsight;
 pub mod nvprof;
 
-use color_eyre::{eyre, Section, SectionExt};
+use color_eyre::{eyre, Section};
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 
@@ -76,7 +76,7 @@ impl Error {
                 };
                 eyre::Report::new(source)
                     .with_section(|| raw_log)
-                    .with_section(|| format!("{:#?}", values))
+                    .with_section(|| format!("{values:#?}"))
             }
             Self::Command(err) => err.into_eyre(),
             err => err.into(),
@@ -143,12 +143,14 @@ pub enum Metrics {
 }
 
 /// Profile test application using either the nvprof or nsight compute profiler.
-pub async fn nvprof<A>(executable: impl AsRef<Path>, args: A) -> Result<Metrics, Error>
+#[allow(dead_code)]
+#[allow(clippy::unused_async)]
+pub async fn nvprof<A>(_executable: impl AsRef<Path>, _args: A) -> Result<Metrics, Error>
 where
     A: Clone + IntoIterator,
     <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
 {
-    unimplemented!()
+    todo!()
 }
 
 #[cfg(test)]

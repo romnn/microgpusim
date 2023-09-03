@@ -48,7 +48,7 @@ fn interleaved_serial_cycle<I, C>(
         // );
         // }
         let mut core_sim_order = sim_orders[cluster_id].try_lock();
-        for core_id in core_sim_order.iter() {
+        for core_id in &*core_sim_order {
             let mut port = mem_ports[cluster_id][*core_id].lock();
             if cluster_active {
                 if !port.buffer.is_empty() {}
@@ -1048,7 +1048,7 @@ where
                                                     })
                                                     .collect();
 
-                                                for (ri, _) in ready.iter() {
+                                                for (ri, _) in &ready {
                                                     progress.slice_mut(s![*ri, .., ..]).fill(None);
                                                 }
                                                 // drop(progress);
@@ -1197,7 +1197,7 @@ where
                         // });
 
                         rayon::scope(|core_scope| {
-                            for cluster_arc in self.clusters.iter() {
+                            for cluster_arc in &self.clusters {
                                 let cluster = cluster_arc.try_read();
                                 let kernels_completed = self
                                     .running_kernels
@@ -1230,7 +1230,7 @@ where
                             assert_eq!(cluster.cluster_id, cluster_id);
 
                             let mut core_sim_order = cluster.core_sim_order.try_lock();
-                            for core_id in core_sim_order.iter() {
+                            for core_id in &*core_sim_order {
                                 let core = cluster.cores[*core_id].try_read();
                                 // was_updated |= core.last_active_cycle >= (cycle + i as u64);
 

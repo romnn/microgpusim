@@ -65,7 +65,7 @@ impl std::fmt::Display for Stats {
         stats.sort_keys();
 
         let mut s = f.debug_struct("Stats");
-        for ((current_kernel, running_kcount, stat_name), value) in stats.iter() {
+        for ((current_kernel, running_kcount, stat_name), value) in &stats {
             s.field(
                 &format!("{current_kernel} / {running_kcount} / {stat_name}"),
                 value,
@@ -81,6 +81,7 @@ macro_rules! key {
     };
 }
 
+#[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
 fn convert_cache_stats(cache_name: &str, stats: &Stats) -> stats::PerCache {
     let mut cache_stats = stats::Cache::default();
     for kind in AccessKind::iter() {
@@ -88,29 +89,16 @@ fn convert_cache_stats(cache_name: &str, stats: &Stats) -> stats::PerCache {
             let per_cache_stat = stats.get(&key!(format!(
                 "{cache_name}_{kind:?}_{reservation_failure:?}"
             )));
-            // let per_core_stat = stats.get(&key!(format!(
-            //     "total_core_cache_{kind:?}_{reservation_failure:?}"
-            // )));
             cache_stats.accesses.insert(
                 Access((kind, AccessStat::ReservationFailure(reservation_failure))),
-                per_cache_stat
-                    // .or(per_core_stat)
-                    .copied()
-                    .unwrap_or(0.0) as usize,
+                per_cache_stat.copied().unwrap_or(0.0) as usize,
             );
         }
         for status in RequestStatus::iter() {
             let per_cache_stat = stats.get(&key!(format!("{cache_name}_{kind:?}_{status:?}")));
-            // dbg!(format!("total_core_cache_{kind:?}_{status:?}"));
-            // dbg!(stats.get(&key!(format!("total_core_cache_{kind:?}_{status:?}"))));
-            // let per_core_stat = stats.get(&key!(format!("total_core_cache_{kind:?}_{status:?}")));
-
             cache_stats.accesses.insert(
                 Access((kind, AccessStat::Status(status))),
-                per_cache_stat
-                    // .or(per_core_stat)
-                    .copied()
-                    .unwrap_or(0.0) as usize,
+                per_cache_stat.copied().unwrap_or(0.0) as usize,
             );
         }
     }
@@ -170,11 +158,11 @@ impl TryFrom<Stats> for stats::Stats {
         // todo
         let instructions = stats::InstructionCounts::default();
 
-        let l2d_stats = convert_cache_stats("l2_cache", &stats);
-        let l1i_stats = convert_cache_stats("l1_inst_cache", &stats);
-        let l1d_stats = convert_cache_stats("l1_data_cache", &stats);
-        let l1c_stats = convert_cache_stats("l1_const_cache", &stats);
-        let l1t_stats = convert_cache_stats("l1_tex_cache", &stats);
+        let l2_data_stats = convert_cache_stats("l2_cache", &stats);
+        let l1_inst_stats = convert_cache_stats("l1_inst_cache", &stats);
+        let l1_data_stats = convert_cache_stats("l1_data_cache", &stats);
+        let l1_const_stats = convert_cache_stats("l1_const_cache", &stats);
+        let l1_tex_stats = convert_cache_stats("l1_tex_cache", &stats);
 
         let total_dram_reads = stats.get(&key!("total_dram_reads")).copied().unwrap_or(0.0) as u64;
         let total_dram_writes = stats
@@ -206,11 +194,11 @@ impl TryFrom<Stats> for stats::Stats {
             accesses: stats::Accesses(accesses),
             dram,
             instructions,
-            l1i_stats,
-            l1t_stats,
-            l1c_stats,
-            l1d_stats,
-            l2d_stats,
+            l1i_stats: l1_inst_stats,
+            l1t_stats: l1_tex_stats,
+            l1c_stats: l1_const_stats,
+            l1d_stats: l1_data_stats,
+            l2d_stats: l2_data_stats,
             stall_dram_full: 0, // todo
         })
     }

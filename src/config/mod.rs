@@ -103,7 +103,7 @@ impl L1DCache {
     }
 }
 
-/// CacheConfig configures a generic cache
+/// `CacheConfig` configures a generic cache
 #[derive(Debug)]
 pub struct Cache {
     pub kind: CacheKind,
