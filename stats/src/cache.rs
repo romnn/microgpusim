@@ -227,7 +227,31 @@ pub type PerCacheCsvRow = (usize, CsvRow);
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PerCache(pub Box<[Cache]>);
 
+impl std::ops::Deref for PerCache {
+    type Target = Box<[Cache]>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for PerCache {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<T: Into<Cache>> FromIterator<T> for PerCache {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        Self(iter.into_iter().map(Into::into).collect())
+    }
+}
+
 impl PerCache {
+    #[must_use]
+    pub fn from(size: usize) -> Self {
+        Self(utils::box_slice![Cache::default(); size])
+    }
+
     #[must_use]
     pub fn new(size: usize) -> Self {
         Self(utils::box_slice![Cache::default(); size])
@@ -274,24 +298,5 @@ impl PerCache {
             out += stats.clone();
         }
         out
-    }
-}
-
-impl std::ops::Deref for PerCache {
-    type Target = Box<[Cache]>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl std::ops::DerefMut for PerCache {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl<T: Into<Cache>> FromIterator<T> for PerCache {
-    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        Self(iter.into_iter().map(Into::into).collect())
     }
 }

@@ -6,6 +6,7 @@ use super::{
 };
 use casimu::{interconn as ic, mem_fetch, MockSimulator};
 use color_eyre::{eyre, Help};
+use std::path::Path;
 use std::time::Instant;
 use utils::fs::create_dirs;
 
@@ -89,9 +90,18 @@ pub async fn simulate(
     .map_err(eyre::Report::from)??;
 
     let stats = sim.stats();
+    process_stats(stats, &dur, &stats_dir)?;
 
+    Ok(())
+}
+
+#[inline]
+pub fn process_stats(
+    stats: stats::Stats,
+    dur: &std::time::Duration,
+    stats_dir: &Path,
+) -> Result<(), RunError> {
     create_dirs(&stats_dir).map_err(eyre::Report::from)?;
-
     crate::stats::write_stats_as_csv(&stats_dir, stats)?;
 
     #[cfg(debug_assertions)]
@@ -101,27 +111,5 @@ pub async fn simulate(
 
     serde_json::to_writer_pretty(open_writable(exec_time_file_path)?, &dur.as_millis())
         .map_err(eyre::Report::from)?;
-
-    // let json_stats: stats::FlatStats = stats.clone().into();
-    // let json_stats_out_file = stats_dir.join("stats.json");
-    // serde_json::to_writer_pretty(open_writable(&csv_stats_out_file)?, &stats)?;
-
-    // let csv_stats_out_file = stats_dir.join("stats.csv");
-    // let mut csv_writer = csv::WriterBuilder::new()
-    //     .flexible(false)
-    //     .from_writer(open_writable(&csv_stats_out_file)?);
-    // csv_writer.serialize(stats)?;
-    // let data: Vec<(&str, &[&dyn serde::Serialize])> = vec![
-    //     ("sim", &[stats.sim]),
-    //     // ("dram", &[stats.dram]),
-    //     ("accesses", &stats.accesses.flatten()),
-    // ];
-    // for (stat_name, rows) in data {
-    //     validate::write_csv_rows(
-    //         open_writable(stats_dir.join(format!("stats.{}.csv", stat_name)))?,
-    //         rows,
-    //     )?;
-
-    // serde_json::to_writer_pretty(open_writable(&json_stats_out_file)?, &json_stats)?;
     Ok(())
 }

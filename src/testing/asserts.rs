@@ -227,7 +227,7 @@ pub fn stats_match(
         diff::assert_eq!(play: &play_stats.sim, box: &box_sim_stats);
     } else {
         diff::diff!(play: &play_stats.sim, box: &box_sim_stats);
-        dbg!(rel_err(play_stats.sim.cycle, box_sim_stats.cycle, 20.0));
+        dbg!(rel_err(play_stats.sim.cycles, box_sim_stats.cycles, 20.0));
         assert_eq!(play_stats.sim.instructions, box_sim_stats.instructions);
     }
 

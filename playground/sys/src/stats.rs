@@ -1,5 +1,6 @@
 pub use crate::bridge::stats::StatsBridge as Stats;
 pub use crate::bridge::stats::*;
+use stats::box_slice;
 
 impl From<Cache> for stats::Cache {
     fn from(stats: crate::bridge::stats::Cache) -> Self {
@@ -136,11 +137,33 @@ impl From<stats::mem::Accesses> for Accesses {
     }
 }
 
+impl From<Accesses> for stats::mem::Accesses {
+    fn from(_acc: Accesses) -> Self {
+        let out = Self::default();
+        out
+    }
+}
+
 impl From<stats::dram::DRAM> for DRAM {
     fn from(other: stats::dram::DRAM) -> Self {
         Self {
             total_reads: other.total_reads(),
             total_writes: other.total_writes(),
+        }
+    }
+}
+
+impl From<DRAM> for stats::dram::DRAM {
+    fn from(dram: DRAM) -> Self {
+        Self {
+            bank_writes: box_slice![box_slice![box_slice![dram.total_writes]]],
+            bank_reads: box_slice![box_slice![box_slice![dram.total_reads]]],
+            total_bank_writes: box_slice![box_slice![dram.total_writes]],
+            total_bank_reads: box_slice![box_slice![dram.total_reads]],
+            // we only have total numbers
+            num_banks: 1,
+            num_cores: 1,
+            num_chips: 1,
         }
     }
 }
@@ -179,11 +202,52 @@ impl From<stats::instructions::InstructionCounts> for InstructionCounts {
     }
 }
 
+impl From<InstructionCounts> for stats::instructions::InstructionCounts {
+    fn from(_inst: InstructionCounts) -> Self {
+        // TODO
+        let out = Self::default();
+        out
+        // num_load_instructions: inst.num_load_instructions,
+        // num_store_instructions: inst.num_store_instructions,
+        // num_shared_mem_instructions: inst.num_shared_mem_instructions,
+        // num_sstarr_instruction: inst.num_sstarr_instructions,
+        // num_texture_instructions: inst.num_texture_instructions,
+        // num_const_instructions: inst.num_const_instructions,
+        // num_param_instructions: inst.num_param_instructions,
+    }
+}
+
 impl From<stats::sim::Sim> for Sim {
-    fn from(other: stats::sim::Sim) -> Self {
+    fn from(sim: stats::sim::Sim) -> Self {
         Self {
-            cycle: other.cycles,
-            instructions: other.instructions,
+            cycles: sim.cycles,
+            instructions: sim.instructions,
+        }
+    }
+}
+
+impl From<Sim> for stats::sim::Sim {
+    fn from(sim: Sim) -> Self {
+        Self {
+            cycles: sim.cycles,
+            instructions: sim.instructions,
+        }
+    }
+}
+
+impl From<StatsBridge> for stats::Stats {
+    fn from(stats: StatsBridge) -> Self {
+        Self {
+            accesses: stats.accesses.into(),
+            instructions: stats.instructions.into(),
+            sim: stats.sim.into(),
+            dram: stats.dram.into(),
+            l1i_stats: stats.l1i_stats.to_vec().into_iter().collect(),
+            l1c_stats: stats.l1c_stats.to_vec().into_iter().collect(),
+            l1t_stats: stats.l1t_stats.to_vec().into_iter().collect(),
+            l1d_stats: stats.l1d_stats.to_vec().into_iter().collect(),
+            l2d_stats: stats.l2d_stats.to_vec().into_iter().collect(),
+            stall_dram_full: 0,
         }
     }
 }

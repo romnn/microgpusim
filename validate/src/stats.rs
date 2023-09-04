@@ -47,6 +47,7 @@ pub fn already_exist(stats_dir: impl AsRef<Path>) -> bool {
     .all(Path::is_file)
 }
 
+#[inline]
 pub fn write_csv_rows(
     writer: impl std::io::Write,
     rows: &[impl Serialize],
@@ -60,6 +61,7 @@ pub fn write_csv_rows(
     Ok(())
 }
 
+#[inline]
 pub fn write_stats_as_csv(stats_dir: impl AsRef<Path>, stats: stats::Stats) -> eyre::Result<()> {
     let stats_dir = stats_dir.as_ref();
     // sim stats

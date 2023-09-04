@@ -57,7 +57,7 @@ pub struct InstructionCounts {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Sim {
-    pub cycle: u64,
+    pub cycles: u64,
     pub instructions: u64,
 }
 
@@ -143,7 +143,7 @@ impl StatsBridge {
 // sim stats
 impl StatsBridge {
     pub fn set_sim_cycle(&mut self, v: u64) {
-        self.sim.cycle = v;
+        self.sim.cycles = v;
     }
     pub fn set_sim_instructions(&mut self, v: u64) {
         self.sim.instructions = v;

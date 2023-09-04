@@ -16,6 +16,7 @@ pub use dram::DRAM;
 pub use instructions::InstructionCounts;
 pub use mem::Accesses;
 pub use sim::Sim;
+pub use utils::box_slice;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

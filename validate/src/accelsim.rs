@@ -160,13 +160,13 @@ pub async fn simulate(
     }
 
     let (output, dur) = simulate_bench_config(bench).await?;
-    process_stats(output.stdout, dur, stats_dir)?;
+    process_stats(output.stdout, &dur, stats_dir)?;
     Ok(())
 }
 
 pub fn process_stats(
     log: impl AsRef<Vec<u8>>,
-    dur: Duration,
+    dur: &Duration,
     stats_dir: &Path,
 ) -> Result<(), RunError> {
     // parse stats
