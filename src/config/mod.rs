@@ -308,8 +308,6 @@ impl Cache {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum Parallelization {
     Serial,
-    // #[cfg(feature = "parallel")]
-    RayonDeterministic,
     #[cfg(feature = "parallel")]
     Deterministic,
     #[cfg(feature = "parallel")]

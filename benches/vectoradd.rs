@@ -118,10 +118,10 @@ pub fn box_benchmark(c: &mut Criterion) {
 }
 
 criterion::criterion_group!(benches, box_benchmark, play_benchmark, accelsim_benchmark);
-criterion::criterion_main!(benches);
+// criterion::criterion_main!(benches);
 
 #[allow(dead_code)]
-fn main_other() -> eyre::Result<()> {
+fn main() -> eyre::Result<()> {
     use itertools::Itertools;
     #[allow(unused_imports)]
     use std::io::Write;

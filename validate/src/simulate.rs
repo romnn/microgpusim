@@ -40,18 +40,17 @@ pub fn simulate_bench_config(
 
     let parallelization = match (bench.simulate.parallel, non_deterministic) {
         (false, _) => casimu::config::Parallelization::Serial,
-        (true, None) => casimu::config::Parallelization::RayonDeterministic,
-        // #[cfg(feature = "parallel")]
-        // (true, None) => casimu::config::Parallelization::Deterministic,
-        // #[cfg(feature = "parallel")]
+        #[cfg(feature = "parallel")]
+        (true, None) => casimu::config::Parallelization::Deterministic,
+        #[cfg(feature = "parallel")]
         (true, Some(n)) => casimu::config::Parallelization::Nondeterministic(n),
-        // #[cfg(not(feature = "parallel"))]
-        // _ => {
-        //     return Err(RunError::Failed(
-        //         eyre::eyre!("parallel feature is disabled")
-        //             .with_suggestion(|| format!(r#"enable the "parallel" feature"#)),
-        //     ))
-        // }
+        #[cfg(not(feature = "parallel"))]
+        _ => {
+            return Err(RunError::Failed(
+                eyre::eyre!("parallel feature is disabled")
+                    .with_suggestion(|| format!(r#"enable the "parallel" feature"#)),
+            ))
+        }
     };
 
     let config = casimu::config::GPU {

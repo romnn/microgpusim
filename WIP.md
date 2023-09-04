@@ -2,6 +2,16 @@
 
 - today:
 
+  - stat: warp instructions
+  - detailed stat feature:
+
+    - per allocation stats
+
+  - consolidate deterministic parallelism, make rayon optional finally
+  - fix that cache index unwrapping design
+  - add config parsing for box
+  - generate data for the different parallel implementations speedups
+    - how well does it scale for 20 instead of 80 cores
   - playground stats (should match accelsim)
   - convert, match and plot statistics
   - record mem fetch latency in playground and box
@@ -18,7 +28,7 @@
   - use traits for common components
   - record mem fetch latency
   - add a few more stats
-  - publish python package to pip
+  - SKIP: publish python package to pip
 
 - tomorrow:
 

@@ -179,17 +179,17 @@ where
         // m_stats->n_mem_to_simt[m_cluster_id] += mf->get_num_flits(false);
     }
 
-    // pub fn cache_flush(&mut self) {
-    //     for core in &self.cores {
-    //         corewrite().cache_flush();
-    //     }
-    // }
-    //
-    // pub fn cache_invalidate(&mut self) {
-    //     for core in &self.cores {
-    //         corewrite().cache_invalidate();
-    //     }
-    // }
+    pub fn cache_flush(&self) {
+        for core in &self.cores {
+            core.write().cache_flush();
+        }
+    }
+
+    pub fn cache_invalidate(&self) {
+        for core in &self.cores {
+            core.write().cache_invalidate();
+        }
+    }
 
     // pub fn cycle(&mut self) {
     //     log::debug!("cluster {} cycle {}", self.cluster_id, self.cycle.get());
