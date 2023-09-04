@@ -60,7 +60,7 @@ class Stats(common.Stats):
         return self.commands[~self.commands["Kernel"].str.contains(r"\[CUDA memcpy .*\]")]
 
     def duration_us(self) -> float:
-        pprint(self.kernel_launches)
+        # pprint(self.kernel_launches)
         if "Duration" in self.commands:
             # convert us to us (1e-6)
             # duration already us
@@ -92,7 +92,7 @@ class Stats(common.Stats):
             if "elapsed_cycles_sm" in self.df:
                 sm_count = self.config.num_total_cores
                 # sm_count = self.config.num_clusters
-                print(sm_count)
+                # print(sm_count)
                 cycles = self.df["elapsed_cycles_sm"].sum()
                 # this only holds until we have repetitions
                 # print(self.df["elapsed_cycles_sm"])
@@ -116,45 +116,97 @@ class Stats(common.Stats):
         else:
             raise ValueError("missing instructions")
 
+    def exec_time_sec(self) -> float:
+        return self.duration_us() * float(1e-6)
+
+    def warp_instructions(self) -> float:
+        nvprof_key = "inst_per_warp"
+        if nvprof_key in self.df:
+            return self.df[nvprof_key].mean()
+        else:
+            raise ValueError("nsight warp instructions")
+
     def dram_reads(self) -> int:
-        if "dram_read_transactions" in self.df:
-            return int(self.df["dram_read_transactions"].sum())
+        nvprof_key = "dram_read_transactions"
+        if nvprof_key in self.df:
+            return int(self.df[nvprof_key].sum())
         else:
             return int(self.df["dram__sectors_read.sum_sector"].sum())
 
     def dram_writes(self) -> int:
-        if "dram_write_transactions" in self.df:
-            return int(self.df["dram_write_transactions"].sum())
+        nvprof_key = "dram_write_transactions"
+        if nvprof_key in self.df:
+            return int(self.df[nvprof_key].sum())
         else:
             return int(self.df["dram__sectors_write.sum_sector"].sum())
 
     def dram_accesses(self) -> int:
-        if "dram_read_transactions" in self.df:
-            total = int(self.df["dram_read_transactions"].sum())
-            total += int(self.df["dram_write_transactions"].sum())
+        nvprof_key = "dram_read_transactions"
+        if nvprof_key in self.df:
+            return int(self.df[[nvprof_key, "dram_write_transactions"]].sum().sum())
         else:
-            total = int(self.df["dram__sectors_read.sum_sector"].sum())
-            total += int(self.df["dram__sectors_write.sum_sector"].sum())
-
-        return total
+            return int(self.df[["dram__sectors_read.sum_sector", "dram__sectors_write.sum_sector"]].sum().sum())
 
     def l2_reads(self) -> int:
-        if "l2_tex_read_transactions" in self.df:
-            return self.df["l2_tex_read_transactions"].sum()
+        nvprof_key = "l2_tex_read_transactions"
+        nvprof_key = "l2_read_transactions"
+        if nvprof_key in self.df:
+            return self.df[nvprof_key].sum()
         else:
             return self.df["lts__t_sectors_srcunit_tex_op_read.sum_sector"].sum()
 
     def l2_writes(self) -> int:
-        if "l2_tex_write_transactions" in self.df:
-            return self.df["l2_tex_write_transactions"].sum()
+        nvprof_key = "l2_tex_write_transactions"
+        nvprof_key = "l2_write_transactions"
+        if nvprof_key in self.df:
+            return self.df[nvprof_key].sum()
         else:
             return self.df["lts__t_sectors_srcunit_tex_op_write.sum_sector"].sum()
 
     def l2_accesses(self) -> int:
-        if "l2_tex_read_transactions" in self.df:
-            return self.df["l2_tex_write_transactions"].sum() + self.df["l2_tex_read_transactions"].sum()
+        # nvprof_read_key = "l2_tex_read_transactions"
+        # nvprof_write_key = "l2_tex_write_transactions"
+
+        nvprof_read_key = "l2_read_transactions"
+        nvprof_write_key = "l2_write_transactions"
+        if nvprof_read_key in self.df:
+            return self.df[nvprof_read_key].sum() + self.df[nvprof_write_key].sum()
         else:
             return (
                 self.df["lts__t_sectors_srcunit_tex_op_write.sum_sector"].sum()
                 + self.df["lts__t_sectors_srcunit_tex_op_read.sum_sector"].sum()
             )
+
+    def l2_read_hit_rate(self) -> float:
+        nvprof_key = "l2_tex_read_hit_rate"
+        # nvprof_key = "l2_read_hit_rate"
+        return float(self.df[nvprof_key].mean()) / 100.0
+
+    def l2_write_hit_rate(self) -> float:
+        nvprof_key = "l2_tex_write_hit_rate"
+        # nvprof_key = "l2_write_hit_rate"
+        return float(self.df[nvprof_key].mean()) / 100.0
+
+    def l2_read_miss_rate(self) -> float:
+        return 1 - self.l2_read_hit_rate()
+
+    def l2_write_miss_rate(self) -> float:
+        return 1 - self.l2_write_hit_rate()
+
+    def l2_read_hits(self) -> int:
+        return int(float(self.l2_reads()) * self.l2_read_hit_rate())
+
+    def l2_write_hits(self) -> int:
+        return int(float(self.l2_writes()) * self.l2_write_hit_rate())
+
+    def l2_read_misses(self) -> int:
+        return int(float(self.l2_reads()) * self.l2_read_miss_rate())
+
+    def l2_write_misses(self) -> int:
+        return int(float(self.l2_writes()) * self.l2_write_miss_rate())
+
+    def l2_hits(self) -> int:
+        return self.l2_read_hits() + self.l2_write_hits()
+
+    def l2_misses(self) -> int:
+        return self.l2_read_misses() + self.l2_write_misses()

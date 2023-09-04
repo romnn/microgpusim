@@ -12,4 +12,4 @@ class Stats(accelsim.Stats):
         self.path = Path(bench_config["playground_simulate"]["stats_dir"])
         self.use_duration = False
         self.config = config
-        self.load_bench_config(bench_config)
+        self._load_bench_config(bench_config)

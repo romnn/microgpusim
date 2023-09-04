@@ -71,10 +71,22 @@ def main(path, config, bench_name, input_idx):
                 playground_stats.instructions(),
             ),
             (
+                "warp instructions",
+                native_stats.warp_instructions(),
+                accelsim_stats.warp_instructions(),
+                playground_stats.warp_instructions(),
+            ),
+            (
                 "cycles",
                 native_stats.cycles(),
                 accelsim_stats.cycles(),
                 playground_stats.cycles(),
+            ),
+            (
+                "exec time sec",
+                native_stats.exec_time_sec(),
+                accelsim_stats.exec_time_sec(),
+                playground_stats.exec_time_sec(),
             ),
             (
                 "dram reads",
@@ -112,12 +124,36 @@ def main(path, config, bench_name, input_idx):
                 accelsim_stats.l2_accesses(),
                 playground_stats.l2_accesses(),
             ),
+            (
+                "L2 read hits",
+                native_stats.l2_read_hits(),
+                accelsim_stats.l2_read_hits(),
+                playground_stats.l2_read_hits(),
+            ),
+            (
+                "L2 write hits",
+                native_stats.l2_write_hits(),
+                accelsim_stats.l2_write_hits(),
+                playground_stats.l2_write_hits(),
+            ),
+            (
+                "L2 read misses",
+                native_stats.l2_read_misses(),
+                accelsim_stats.l2_read_misses(),
+                playground_stats.l2_read_misses(),
+            ),
+            (
+                "L2 write misses",
+                native_stats.l2_write_misses(),
+                accelsim_stats.l2_write_misses(),
+                playground_stats.l2_write_misses(),
+            ),
         ]
         data = [
             (k, human_readable(native), human_readable(accel), human_readable(play))
             for (k, native, accel, play) in data
         ]
-        print(native_stats.df)
+        # print(native_stats.df)
         print(
             wasabi.table(
                 data,
