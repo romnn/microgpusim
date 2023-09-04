@@ -189,8 +189,8 @@ void trace_shader_core_ctx::init_traces(unsigned start_warp, unsigned end_warp,
       std::vector<inst_trace_t>::const_iterator iter;
       // printf("====== WARP %d \n", i);
       for (iter = instructions.begin(); iter != instructions.end(); iter++) {
-        printf("\t => instruction %s pc = %d \n", iter->opcode.c_str(),
-               iter->m_pc);
+        // printf("\t => instruction %s pc = %d \n", iter->opcode.c_str(),
+        //        iter->m_pc);
       }
     }
     // printf("====== INIT TRACES %d-%d DONE \n", start_warp, end_warp);
@@ -1163,13 +1163,13 @@ void trace_shader_core_ctx::fetch() {
             shader_cache_access_log(m_sid, INSTRUCTION, 0);
           } else {
             if (get_gpu()->gpgpu_ctx->accelsim_compat_mode) {
-              printf(
-                  "core %d-%d fetch inst cache access(%lu) time=%llu warp "
-                  "id=%d "
-                  "pc=%lu\n",
-                  m_tpc, m_sid, (new_addr_type)ppc,
-                  m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle, warp_id,
-                  m_warp[warp_id]->get_pc());
+              // printf(
+              //     "core %d-%d fetch inst cache access(%lu) time=%llu warp "
+              //     "id=%d "
+              //     "pc=%lu\n",
+              //     m_tpc, m_sid, (new_addr_type)ppc,
+              //     m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle, warp_id,
+              //     m_warp[warp_id]->get_pc());
             }
 
             status = m_L1I->access(

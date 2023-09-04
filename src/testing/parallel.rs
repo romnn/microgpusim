@@ -74,9 +74,12 @@ pub fn run(
     ];
     dbg!(&args);
 
-    let play_config = playground::Config::default();
+    let play_config = playground::Config {
+        accelsim_compat_mode: false,
+        ..playground::Config::default()
+    };
     let start = Instant::now();
-    let mut play_sim = playground::Accelsim::new(&play_config, &args)?;
+    let mut play_sim = playground::Accelsim::new(play_config, &args)?;
     play_sim.run_to_completion();
     let play_dur = start.elapsed();
 

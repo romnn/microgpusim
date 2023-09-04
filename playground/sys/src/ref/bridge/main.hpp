@@ -72,6 +72,7 @@ class accelsim_bridge {
 
   unsigned command_idx;
   unsigned window_size;
+  FILE *stats_out;
   bool print_stats;
   bool accelsim_compat_mode;
   unsigned log_after_cycle;

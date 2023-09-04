@@ -32,6 +32,16 @@ pub struct Options {
         value_parser = parse_duration_string,
     )]
     pub timeout: Option<Duration>,
+
+    #[clap(long = "progress", aliases = ["follow"], help = "stream simulation output")]
+    pub stream_output: Option<bool>,
+
+    #[clap(
+        long = "upstream",
+        action = clap::ArgAction::SetTrue,
+        help = "use upstream accelsim implementation (unmodified)"
+    )]
+    pub use_upstream: Option<bool>,
 }
 
 #[derive(Parser, Debug, Default)]

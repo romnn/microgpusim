@@ -80,7 +80,7 @@ kernel_trace_t *trace_parser::parse_kernel_info(
   }
 
   if (!m_quiet) {
-    std::cout << "Processing kernel " << kerneltraces_filepath << std::endl;
+    fprintf(stats_out, "Processing kernel %s\n", kerneltraces_filepath.c_str());
   }
 
   std::string line;
@@ -144,7 +144,7 @@ kernel_trace_t *trace_parser::parse_kernel_info(
         ss >> std::hex >> kernel_info->local_base_addr;
       }
       if (!m_quiet) {
-        std::cout << line << std::endl;
+        fprintf(stats_out, "%s\n", line.c_str());
       }
       continue;
     }
@@ -205,7 +205,7 @@ void trace_parser::get_next_threadblock_traces(
                &block_id_y, &block_id_z);
 
         if (!m_quiet) {
-          std::cout << line << std::endl;
+          fprintf(stats_out, "%s\n", line.c_str());
         }
       } else if (string1 == "warp") {
         // the start of new warp stream

@@ -14,8 +14,8 @@ typedef void *(*icnt_pop_p)(unsigned output);
 typedef void (*icnt_transfer_p)();
 typedef bool (*icnt_busy_p)();
 typedef void (*icnt_drain_p)();
-typedef void (*icnt_display_stats_p)();
-typedef void (*icnt_display_overall_stats_p)();
+typedef void (*icnt_display_stats_p)(FILE *fp);
+typedef void (*icnt_display_overall_stats_p)(FILE *fp);
 typedef void (*icnt_display_state_p)(FILE *fp);
 typedef unsigned (*icnt_get_flit_size_p)();
 
@@ -36,5 +36,5 @@ extern unsigned g_network_mode;
 enum network_mode { INTERSIM = 1, LOCAL_XBAR = 2, BOX_NET = 3, N_NETWORK_MODE };
 
 void icnt_wrapper_init(std::shared_ptr<spdlog::logger> logger,
-                       bool accelsim_compat_mode);
+                       bool accelsim_compat_mode, FILE *stats_out);
 void icnt_reg_options(class OptionParser *opp);

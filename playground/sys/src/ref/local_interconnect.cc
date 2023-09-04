@@ -344,55 +344,55 @@ bool LocalInterconnect::HasBuffer(unsigned deviceID, unsigned int size) const {
   return has_buffer;
 }
 
-void LocalInterconnect::DisplayStats() const {
-  printf("Req_Network_injected_packets_num = %lld\n",
-         net[REQ_NET]->packets_num);
-  printf("Req_Network_cycles = %lld\n", net[REQ_NET]->cycles);
-  printf("Req_Network_injected_packets_per_cycle = %12.4f \n",
-         (float)(net[REQ_NET]->packets_num) / (net[REQ_NET]->cycles));
-  printf("Req_Network_conflicts_per_cycle = %12.4f\n",
-         (float)(net[REQ_NET]->conflicts) / (net[REQ_NET]->cycles));
-  printf("Req_Network_conflicts_per_cycle_util = %12.4f\n",
-         (float)(net[REQ_NET]->conflicts_util) / (net[REQ_NET]->cycles_util));
-  printf("Req_Bank_Level_Parallism = %12.4f\n",
-         (float)(net[REQ_NET]->reqs_util) / (net[REQ_NET]->cycles_util));
-  printf("Req_Network_in_buffer_full_per_cycle = %12.4f\n",
-         (float)(net[REQ_NET]->in_buffer_full) / (net[REQ_NET]->cycles));
-  printf("Req_Network_in_buffer_avg_util = %12.4f\n",
-         ((float)(net[REQ_NET]->in_buffer_util) / (net[REQ_NET]->cycles) /
-          net[REQ_NET]->active_in_buffers));
-  printf("Req_Network_out_buffer_full_per_cycle = %12.4f\n",
-         (float)(net[REQ_NET]->out_buffer_full) / (net[REQ_NET]->cycles));
-  printf("Req_Network_out_buffer_avg_util = %12.4f\n",
-         ((float)(net[REQ_NET]->out_buffer_util) / (net[REQ_NET]->cycles) /
-          net[REQ_NET]->active_out_buffers));
+void LocalInterconnect::DisplayStats(FILE *fp) const {
+  fprintf(fp, "Req_Network_injected_packets_num = %lld\n",
+          net[REQ_NET]->packets_num);
+  fprintf(fp, "Req_Network_cycles = %lld\n", net[REQ_NET]->cycles);
+  fprintf(fp, "Req_Network_injected_packets_per_cycle = %12.4f \n",
+          (float)(net[REQ_NET]->packets_num) / (net[REQ_NET]->cycles));
+  fprintf(fp, "Req_Network_conflicts_per_cycle = %12.4f\n",
+          (float)(net[REQ_NET]->conflicts) / (net[REQ_NET]->cycles));
+  fprintf(fp, "Req_Network_conflicts_per_cycle_util = %12.4f\n",
+          (float)(net[REQ_NET]->conflicts_util) / (net[REQ_NET]->cycles_util));
+  fprintf(fp, "Req_Bank_Level_Parallism = %12.4f\n",
+          (float)(net[REQ_NET]->reqs_util) / (net[REQ_NET]->cycles_util));
+  fprintf(fp, "Req_Network_in_buffer_full_per_cycle = %12.4f\n",
+          (float)(net[REQ_NET]->in_buffer_full) / (net[REQ_NET]->cycles));
+  fprintf(fp, "Req_Network_in_buffer_avg_util = %12.4f\n",
+          ((float)(net[REQ_NET]->in_buffer_util) / (net[REQ_NET]->cycles) /
+           net[REQ_NET]->active_in_buffers));
+  fprintf(fp, "Req_Network_out_buffer_full_per_cycle = %12.4f\n",
+          (float)(net[REQ_NET]->out_buffer_full) / (net[REQ_NET]->cycles));
+  fprintf(fp, "Req_Network_out_buffer_avg_util = %12.4f\n",
+          ((float)(net[REQ_NET]->out_buffer_util) / (net[REQ_NET]->cycles) /
+           net[REQ_NET]->active_out_buffers));
 
-  printf("\n");
-  printf("Reply_Network_injected_packets_num = %lld\n",
-         net[REPLY_NET]->packets_num);
-  printf("Reply_Network_cycles = %lld\n", net[REPLY_NET]->cycles);
-  printf("Reply_Network_injected_packets_per_cycle =  %12.4f\n",
-         (float)(net[REPLY_NET]->packets_num) / (net[REPLY_NET]->cycles));
-  printf("Reply_Network_conflicts_per_cycle =  %12.4f\n",
-         (float)(net[REPLY_NET]->conflicts) / (net[REPLY_NET]->cycles));
-  printf(
-      "Reply_Network_conflicts_per_cycle_util = %12.4f\n",
+  fprintf(fp, "\n");
+  fprintf(fp, "Reply_Network_injected_packets_num = %lld\n",
+          net[REPLY_NET]->packets_num);
+  fprintf(fp, "Reply_Network_cycles = %lld\n", net[REPLY_NET]->cycles);
+  fprintf(fp, "Reply_Network_injected_packets_per_cycle =  %12.4f\n",
+          (float)(net[REPLY_NET]->packets_num) / (net[REPLY_NET]->cycles));
+  fprintf(fp, "Reply_Network_conflicts_per_cycle =  %12.4f\n",
+          (float)(net[REPLY_NET]->conflicts) / (net[REPLY_NET]->cycles));
+  fprintf(
+      fp, "Reply_Network_conflicts_per_cycle_util = %12.4f\n",
       (float)(net[REPLY_NET]->conflicts_util) / (net[REPLY_NET]->cycles_util));
-  printf("Reply_Bank_Level_Parallism = %12.4f\n",
-         (float)(net[REPLY_NET]->reqs_util) / (net[REPLY_NET]->cycles_util));
-  printf("Reply_Network_in_buffer_full_per_cycle = %12.4f\n",
-         (float)(net[REPLY_NET]->in_buffer_full) / (net[REPLY_NET]->cycles));
-  printf("Reply_Network_in_buffer_avg_util = %12.4f\n",
-         ((float)(net[REPLY_NET]->in_buffer_util) / (net[REPLY_NET]->cycles) /
-          net[REPLY_NET]->active_in_buffers));
-  printf("Reply_Network_out_buffer_full_per_cycle = %12.4f\n",
-         (float)(net[REPLY_NET]->out_buffer_full) / (net[REPLY_NET]->cycles));
-  printf("Reply_Network_out_buffer_avg_util = %12.4f\n",
-         ((float)(net[REPLY_NET]->out_buffer_util) / (net[REPLY_NET]->cycles) /
-          net[REPLY_NET]->active_out_buffers));
+  fprintf(fp, "Reply_Bank_Level_Parallism = %12.4f\n",
+          (float)(net[REPLY_NET]->reqs_util) / (net[REPLY_NET]->cycles_util));
+  fprintf(fp, "Reply_Network_in_buffer_full_per_cycle = %12.4f\n",
+          (float)(net[REPLY_NET]->in_buffer_full) / (net[REPLY_NET]->cycles));
+  fprintf(fp, "Reply_Network_in_buffer_avg_util = %12.4f\n",
+          ((float)(net[REPLY_NET]->in_buffer_util) / (net[REPLY_NET]->cycles) /
+           net[REPLY_NET]->active_in_buffers));
+  fprintf(fp, "Reply_Network_out_buffer_full_per_cycle = %12.4f\n",
+          (float)(net[REPLY_NET]->out_buffer_full) / (net[REPLY_NET]->cycles));
+  fprintf(fp, "Reply_Network_out_buffer_avg_util = %12.4f\n",
+          ((float)(net[REPLY_NET]->out_buffer_util) / (net[REPLY_NET]->cycles) /
+           net[REPLY_NET]->active_out_buffers));
 }
 
-void LocalInterconnect::DisplayOverallStats() const {}
+void LocalInterconnect::DisplayOverallStats(FILE *fp) const {}
 
 unsigned LocalInterconnect::GetFlitSize() const { return LOCAL_INCT_FLIT_SIZE; }
 

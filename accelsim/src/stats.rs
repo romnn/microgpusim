@@ -153,7 +153,7 @@ impl TryFrom<Stats> for stats::Stats {
         .map(|(kind, stat)| (kind, stats.get(&key!(stat)).copied().unwrap_or(0.0) as u64))
         .collect();
 
-        dbg!(&stats);
+        // dbg!(&stats);
 
         // todo
         let instructions = stats::InstructionCounts::default();

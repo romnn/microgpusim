@@ -200,22 +200,36 @@ void BatchTrafficManager::WriteStats(std::ostream &os) const {
   os << "batch_time = " << _batch_time->Average() << ";" << std::endl;
 }
 
-void BatchTrafficManager::DisplayStats(std::ostream &os) const {
-  TrafficManager::DisplayStats();
-  os << "Minimum batch duration = " << _batch_time->Min() << std::endl;
-  os << "Average batch duration = " << _batch_time->Average() << std::endl;
-  os << "Maximum batch duration = " << _batch_time->Max() << std::endl;
+// void BatchTrafficManager::DisplayStats(std::ostream &os) const {
+void BatchTrafficManager::DisplayStats(FILE *fp) const {
+  TrafficManager::DisplayStats(fp);
+  // os << "Minimum batch duration = " << _batch_time->Min() << std::endl;
+  fprintf(fp, "Minimum batch duration = %f\n", _batch_time->Min());
+  // os << "Average batch duration = " << _batch_time->Average() << std::endl;
+  fprintf(fp, "Average batch duration = %f\n", _batch_time->Average());
+  // os << "Maximum batch duration = " << _batch_time->Max() << std::endl;
+  fprintf(fp, "Maximum batch duration = %f\n", _batch_time->Max());
 }
 
-void BatchTrafficManager::DisplayOverallStats(std::ostream &os) const {
-  TrafficManager::DisplayOverallStats(os);
-  os << "Overall min batch duration = "
-     << _overall_min_batch_time / (double)_total_sims << " (" << _total_sims
-     << " samples)" << std::endl
-     << "Overall min batch duration = "
-     << _overall_avg_batch_time / (double)_total_sims << " (" << _total_sims
-     << " samples)" << std::endl
-     << "Overall min batch duration = "
-     << _overall_max_batch_time / (double)_total_sims << " (" << _total_sims
-     << " samples)" << std::endl;
+// void BatchTrafficManager::DisplayOverallStats(std::ostream &os) const {
+void BatchTrafficManager::DisplayOverallStats(FILE *fp) const {
+  // TrafficManager::DisplayOverallStats(os);
+  TrafficManager::DisplayOverallStats(fp);
+
+  // os << "Overall min batch duration = "
+  //    << _overall_min_batch_time / (double)_total_sims << " (" << _total_sims
+  //    << " samples)" << std::endl;
+  fprintf(fp, "Overall min batch duration = %f (%d samples)\n",
+          _overall_min_batch_time / (double)_total_sims, _total_sims);
+  // std::cout << "Overall min batch duration = "
+  //           << _overall_avg_batch_time / (double)_total_sims << " ("
+  //           << _total_sims << " samples)" << std::endl;
+  fprintf(fp, "Overall min batch duration = %f (%d samples)\n",
+          _overall_avg_batch_time / (double)_total_sims, _total_sims);
+
+  // std::cout << "Overall min batch duration = "
+  //           << _overall_max_batch_time / (double)_total_sims << " ("
+  //           << _total_sims << " samples)" << std::endl;
+  fprintf(fp, "Overall min batch duration = %f (%d samples)\n",
+          _overall_max_batch_time / (double)_total_sims, _total_sims);
 }

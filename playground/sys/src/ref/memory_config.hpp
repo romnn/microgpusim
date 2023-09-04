@@ -102,8 +102,8 @@ class memory_config {
       option_parser_delimited_string(dram_opp, gpgpu_dram_timing_opt, "=:;");
 
       if (gpgpu_ctx->accelsim_compat_mode) {
-        fprintf(stdout, "DRAM Timing Options:\n");
-        option_parser_print(dram_opp, stdout);
+        fprintf(gpgpu_ctx->stats_out, "DRAM Timing Options:\n");
+        option_parser_print(dram_opp, gpgpu_ctx->stats_out);
       }
       option_parser_destroy(dram_opp);
     }
@@ -135,13 +135,14 @@ class memory_config {
     m_n_mem_sub_partition = m_n_mem * m_n_sub_partition_per_memory_channel;
 
     if (gpgpu_ctx->accelsim_compat_mode) {
-      fprintf(stdout, "Total number of memory sub partition = %u\n",
+      fprintf(gpgpu_ctx->stats_out,
+              "Total number of memory sub partition = %u\n",
               m_n_mem_sub_partition);
     }
 
     m_address_mapping.init(m_n_mem, m_n_sub_partition_per_memory_channel);
     if (gpgpu_ctx->accelsim_compat_mode) {
-      m_address_mapping.print();
+      m_address_mapping.print(gpgpu_ctx->stats_out);
     }
 
     m_L2_config.init(&m_address_mapping);

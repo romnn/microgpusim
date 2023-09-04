@@ -11,8 +11,8 @@ extern InterconnectInterface *g_icnt_interface;
 
 class BoxInterconnect : public InterconnectInterface {
  public:
-  BoxInterconnect(std::shared_ptr<spdlog::logger> logger)
-      : InterconnectInterface(false), logger(logger) {}
+  BoxInterconnect(std::shared_ptr<spdlog::logger> logger, FILE *stats_out)
+      : InterconnectInterface(false, stats_out), logger(logger) {}
 
   // we override these functions
   void Init();
@@ -54,12 +54,12 @@ static void BoxInterconnect_transfer() { g_icnt_interface->Advance(); }
 
 static bool BoxInterconnect_busy() { return g_icnt_interface->Busy(); }
 
-static void BoxInterconnect_display_stats() {
-  g_icnt_interface->DisplayStats();
+static void BoxInterconnect_display_stats(FILE *fp) {
+  g_icnt_interface->DisplayStats(fp);
 }
 
-static void BoxInterconnect_display_overall_stats() {
-  g_icnt_interface->DisplayOverallStats();
+static void BoxInterconnect_display_overall_stats(FILE *fp) {
+  g_icnt_interface->DisplayOverallStats(fp);
 }
 
 static void BoxInterconnect_display_state(FILE *fp) {

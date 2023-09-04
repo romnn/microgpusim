@@ -36,16 +36,42 @@ pub enum Error {
     #[error(transparent)]
     Io(#[from] std::io::Error),
 
+    #[error(transparent)]
+    FFI(#[from] std::ffi::NulError),
+
     #[error("accelsim playground exited with code {0}")]
     ExitCode(i32),
 }
 
 #[derive(Clone)]
-pub struct Config(playground_sys::main::accelsim_config);
+pub struct Config {
+    pub print_stats: bool,
+    pub accelsim_compat_mode: bool,
+    pub stats_file: Option<std::ffi::CString>,
+}
 
 impl Default for Config {
     fn default() -> Self {
-        Self(playground_sys::main::accelsim_config { test: 0 })
+        Self {
+            print_stats: false,
+            accelsim_compat_mode: true,
+            stats_file: None,
+        }
+    }
+}
+
+impl Config {
+    fn to_accelsim_config(&self) -> playground_sys::main::accelsim_config {
+        use std::ffi::c_char;
+        let stats_file: *const c_char = match self.stats_file {
+            Some(ref stats_file) => stats_file.as_c_str().as_ptr(),
+            None => std::ptr::null(),
+        };
+        playground_sys::main::accelsim_config {
+            print_stats: self.print_stats,
+            accelsim_compat_mode: self.accelsim_compat_mode,
+            stats_file,
+        }
     }
 }
 
@@ -53,23 +79,29 @@ impl Default for Config {
 pub struct Accelsim<'a> {
     inner: cxx::UniquePtr<playground_sys::main::accelsim_bridge>,
     stats: playground_sys::stats::Stats,
+    #[allow(dead_code)]
+    config: Config,
     phantom: PhantomData<&'a playground_sys::main::accelsim_bridge>,
 }
 
 impl<'a> Accelsim<'a> {
-    pub fn new(config: &Config, args: &[&str]) -> Result<Self, Error> {
+    pub fn new(config: Config, args: &[&str]) -> Result<Self, Error> {
         let exe = std::env::current_exe()?;
         let mut ffi_argv: Vec<&str> = vec![exe.as_os_str().to_str().unwrap()];
         ffi_argv.extend(args);
 
-        let accelsim_bridge =
-            playground_sys::main::new_accelsim_bridge(config.0, ffi_argv.as_slice());
+        let accelsim_bridge = playground_sys::main::new_accelsim_bridge(
+            config.to_accelsim_config(),
+            ffi_argv.as_slice(),
+        );
 
         let num_cores = accelsim_bridge.get_cores().len();
         let num_sub_partitions = accelsim_bridge.get_sub_partitions().len();
         Ok(Self {
             inner: accelsim_bridge,
             stats: crate::stats::Stats::new(num_cores, num_sub_partitions),
+            // we must keep config alive for the entire duration of this accelsim instance
+            config,
             phantom: PhantomData,
         })
     }
@@ -194,7 +226,7 @@ impl<'a> Accelsim<'a> {
     }
 }
 
-pub fn run(config: &Config, args: &[&str]) -> Result<crate::stats::Stats, Error> {
+pub fn run(config: Config, args: &[&str]) -> Result<crate::stats::Stats, Error> {
     let mut accelsim = Accelsim::new(config, args)?;
     accelsim.run_to_completion();
     Ok(accelsim.stats().clone())

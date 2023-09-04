@@ -3,6 +3,7 @@
 #include "../cache_config.hpp"
 
 struct accelsim_config {
-  int test;
-  // cache_config_params l1_config;
+  bool print_stats;
+  bool accelsim_compat_mode;
+  const char* stats_file;
 };

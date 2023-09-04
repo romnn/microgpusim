@@ -206,20 +206,21 @@ class my_time_vector {
     calculate_ld_dist();
     calculate_st_dist();
   }
-  void print_dist(void) {
+  void print_dist(FILE *fp) {
     unsigned i;
     calculate_dist();
-    std::cout << "LD_mem_lat_dist ";
+    fprintf(fp, "LD_mem_lat_dist ");
     for (i = 0; i < ld_vector_size; i++) {
-      std::cout << " " << (int)overal_ld_time_dist[i];
+      fprintf(fp, " %d", (int)overal_ld_time_dist[i]);
     }
-    std::cout << std::endl;
-    std::cout << "ST_mem_lat_dist ";
+    fprintf(fp, "\n");
+    fprintf(fp, "ST_mem_lat_dist ");
     for (i = 0; i < st_vector_size; i++) {
-      std::cout << " " << (int)overal_st_time_dist[i];
+      fprintf(fp, " %d", (int)overal_st_time_dist[i]);
     }
-    std::cout << std::endl;
+    fprintf(fp, "\n");
   }
+
   void print_to_file(FILE *outfile) {
     unsigned i;
     calculate_dist();
@@ -256,7 +257,7 @@ void time_vector_create(int size) {
   g_my_time_vector = new my_time_vector(size, size);
 }
 
-void time_vector_print(void) { g_my_time_vector->print_dist(); }
+void time_vector_print(FILE *fp) { g_my_time_vector->print_dist(fp); }
 
 void time_vector_print_interval2gzfile(gzFile outfile) {
   g_my_time_vector->print_to_gzfile(outfile);

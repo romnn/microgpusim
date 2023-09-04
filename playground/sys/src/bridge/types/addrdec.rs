@@ -35,7 +35,6 @@ mod ffi {
         );
         #[must_use]
         fn partition_address(self: &linear_to_raw_address_translation, addr: u64) -> u64;
-        fn print(self: &linear_to_raw_address_translation);
 
         #[must_use]
         fn powli(x: i64, y: i64) -> i64;

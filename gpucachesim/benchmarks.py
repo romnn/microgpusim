@@ -40,7 +40,7 @@ class GPUConfig:
 
     @property
     def cores_per_cluster(self) -> int:
-        return self.config["shader_core"]["gpgpu_n_clusters"]
+        return self.config["shader_core"]["gpgpu_n_cores_per_cluster"]
 
     @property
     def num_total_cores(self) -> int:

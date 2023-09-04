@@ -92,8 +92,8 @@ class LocalInterconnect {
   void Advance();
   bool Busy() const;
   bool HasBuffer(unsigned deviceID, unsigned int size) const;
-  void DisplayStats() const;
-  void DisplayOverallStats() const;
+  void DisplayStats(FILE *fp) const;
+  void DisplayOverallStats(FILE *fp) const;
   unsigned GetFlitSize() const;
 
   void DisplayState(FILE *fp) const;
@@ -132,12 +132,12 @@ static void LocalInterconnect_transfer() { g_localicnt_interface->Advance(); }
 
 static bool LocalInterconnect_busy() { return g_localicnt_interface->Busy(); }
 
-static void LocalInterconnect_display_stats() {
-  g_localicnt_interface->DisplayStats();
+static void LocalInterconnect_display_stats(FILE *fp) {
+  g_localicnt_interface->DisplayStats(fp);
 }
 
-static void LocalInterconnect_display_overall_stats() {
-  g_localicnt_interface->DisplayOverallStats();
+static void LocalInterconnect_display_overall_stats(FILE *fp) {
+  g_localicnt_interface->DisplayOverallStats(fp);
 }
 
 static void LocalInterconnect_display_state(FILE *fp) {

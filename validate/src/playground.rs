@@ -1,16 +1,16 @@
 use crate::{
     materialize::{self, BenchmarkConfig},
-    open_writable,
     options::{self, Options},
     RunError, TraceProvider,
 };
 use color_eyre::{eyre, Help};
-use utils::fs::create_dirs;
+use std::io::Read;
 
 pub fn simulate_bench_config(
     bench: &BenchmarkConfig,
     trace_provider: TraceProvider,
-) -> Result<playground::stats::StatsBridge, RunError> {
+    accelsim_compat_mode: bool,
+) -> Result<(String, playground::stats::StatsBridge), RunError> {
     let traces_dir = &bench.accelsim_trace.traces_dir;
     let kernelslist = traces_dir.join(match trace_provider {
         TraceProvider::Native | TraceProvider::Accelsim => "kernelslist.g",
@@ -52,9 +52,28 @@ pub fn simulate_bench_config(
         &inter_config,
     ];
 
-    let config = playground::Config::default();
-    let stats = playground::run(&config, args.as_slice()).map_err(eyre::Report::from)?;
-    Ok(stats)
+    let tmp_dir = tempfile::tempdir().map_err(eyre::Report::from)?;
+    let log_file_path = tmp_dir.path().join("log.txt");
+    log::debug!("playground log file: {}", log_file_path.display());
+
+    let config = playground::Config {
+        accelsim_compat_mode,
+        print_stats: true,
+        stats_file: Some(
+            std::ffi::CString::new(log_file_path.to_string_lossy().to_string().to_string())
+                .unwrap(),
+        ),
+    };
+    let stats = playground::run(config, args.as_slice()).map_err(eyre::Report::from)?;
+
+    let mut raw_log = String::new();
+
+    let mut log_reader = utils::fs::open_readable(log_file_path).map_err(eyre::Report::from)?;
+    log_reader
+        .read_to_string(&mut raw_log)
+        .map_err(eyre::Report::from)?;
+
+    Ok((raw_log, stats))
 }
 
 pub async fn simulate(
@@ -69,13 +88,19 @@ pub async fn simulate(
         return Err(RunError::Skipped);
     }
 
-    let (_stats, dur) = tokio::task::spawn_blocking(move || {
+    let accelsim_compat_mode = true;
+    let (log, _stats, dur) = tokio::task::spawn_blocking(move || {
         let start = std::time::Instant::now();
-        let stats = simulate_bench_config(&bench, TraceProvider::Native)?;
-        Ok::<_, eyre::Report>((stats, start.elapsed()))
+        let (log, stats) =
+            simulate_bench_config(&bench, TraceProvider::Native, accelsim_compat_mode)?;
+        Ok::<_, eyre::Report>((log, stats, start.elapsed()))
     })
     .await
     .unwrap()?;
+
+    // dbg!(&log);
+
+    super::accelsim::process_stats(log.into_bytes(), dur, &stats_dir)?;
 
     // let stats = stats::Stats {
     //     accesses: stats.accesses.into(),
@@ -90,18 +115,18 @@ pub async fn simulate(
     //     ..stats::Stats::default()
     // };
 
-    create_dirs(&stats_dir).map_err(eyre::Report::from)?;
-    let _stats_out_file = stats_dir.join("stats.json");
-
-    // let flat_stats: Vec<_> = stats.into_iter().collect();
-    // serde_json::to_writer_pretty(open_writable(&stats_out_file)?, &flat_stats)?;
-
-    #[cfg(debug_assertions)]
-    let exec_time_file_path = stats_dir.join("exec_time.debug.json");
-    #[cfg(not(debug_assertions))]
-    let exec_time_file_path = stats_dir.join("exec_time.release.json");
-
-    serde_json::to_writer_pretty(open_writable(exec_time_file_path)?, &dur.as_millis())
-        .map_err(eyre::Report::from)?;
+    // create_dirs(&stats_dir).map_err(eyre::Report::from)?;
+    // let _stats_out_file = stats_dir.join("stats.json");
+    //
+    // // let flat_stats: Vec<_> = stats.into_iter().collect();
+    // // serde_json::to_writer_pretty(open_writable(&stats_out_file)?, &flat_stats)?;
+    //
+    // #[cfg(debug_assertions)]
+    // let exec_time_file_path = stats_dir.join("exec_time.debug.json");
+    // #[cfg(not(debug_assertions))]
+    // let exec_time_file_path = stats_dir.join("exec_time.release.json");
+    //
+    // serde_json::to_writer_pretty(open_writable(exec_time_file_path)?, &dur.as_millis())
+    //     .map_err(eyre::Report::from)?;
     Ok(())
 }

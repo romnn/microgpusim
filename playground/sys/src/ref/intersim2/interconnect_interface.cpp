@@ -269,14 +269,14 @@ bool InterconnectInterface::HasBuffer(unsigned deviceID,
   return has_buffer;
 }
 
-void InterconnectInterface::DisplayStats() const {
+void InterconnectInterface::DisplayStats(FILE *fp) const {
   _traffic_manager->UpdateStats();
-  _traffic_manager->DisplayStats();
+  _traffic_manager->DisplayStats(fp);
 }
 
 unsigned InterconnectInterface::GetFlitSize() const { return _flit_size; }
 
-void InterconnectInterface::DisplayOverallStats() const {
+void InterconnectInterface::DisplayOverallStats(FILE *fp) const {
   // hack: booksim2 use _drain_time and calculate delta time based on it, but we
   // don't, change this if you have a better idea
   _traffic_manager->_drain_time = _traffic_manager->_time;
@@ -284,7 +284,7 @@ void InterconnectInterface::DisplayOverallStats() const {
   _traffic_manager->_total_sims += 1;
 
   _traffic_manager->_UpdateOverallStats();
-  _traffic_manager->DisplayOverallStats();
+  _traffic_manager->DisplayOverallStats(fp);
   if (_traffic_manager->_print_csv_results) {
     _traffic_manager->DisplayOverallStatsCSV();
   }
@@ -387,8 +387,8 @@ void InterconnectInterface::_CreateBuffer() {
 void InterconnectInterface::_CreateNodeMap(unsigned n_shader, unsigned n_mem,
                                            unsigned n_node, int use_map) {
   if (accelsim_compat_mode) {
-    printf("create node map (shaders=%u, memories=%u, nodes=%u)\n", n_shader,
-           n_mem, n_node);
+    fprintf(stats_out, "create node map (shaders=%u, memories=%u, nodes=%u)\n",
+            n_shader, n_mem, n_node);
   }
   if (use_map) {
     // The (<SM, Memory>, Memory Location Vector) map
@@ -487,36 +487,61 @@ void InterconnectInterface::_CreateNodeMap(unsigned n_shader, unsigned n_mem,
 
   if (accelsim_compat_mode) {
     // FIXME: should compatible with non-square number
-    DisplayMap((int)sqrt(n_node), n_node);
+    DisplayMap((int)sqrt(n_node), n_node, stats_out);
   }
 }
 
-void InterconnectInterface::DisplayMap(unsigned dim, unsigned count) const {
-  std::cout
-      << "GPGPU-Sim uArch: interconnect node map (shaderID+MemID to icntID)"
-      << std::endl;
-  std::cout << "GPGPU-Sim uArch: Memory nodes ID start from index: "
-            << _n_shader << std::endl;
-  std::cout << "GPGPU-Sim uArch: ";
-  for (unsigned i = 0; i < count; i++) {
-    std::cout << std::setw(4) << _node_map.at(i);
-    if ((i + 1) % dim == 0 && i != count - 1)
-      std::cout << std::endl << "GPGPU-Sim uArch: ";
-  }
-  std::cout << std::endl;
+void InterconnectInterface::DisplayMap(unsigned dim, unsigned count,
+                                       FILE *fp) const {
+  // std::cout
+  //     << "GPGPU-Sim uArch: interconnect node map (shaderID+MemID to icntID)"
+  //     << std::endl;
+  fprintf(
+      fp,
+      "GPGPU-Sim uArch: interconnect node map (shaderID+MemID to icntID)\n");
 
-  std::cout << "GPGPU-Sim uArch: interconnect node reverse map (icntID to "
-               "shaderID+MemID)"
-            << std::endl;
-  std::cout << "GPGPU-Sim uArch: Memory nodes start from ID: " << _n_shader
-            << std::endl;
-  std::cout << "GPGPU-Sim uArch: ";
+  // std::cout << "GPGPU-Sim uArch: Memory nodes ID start from index: "
+  //           << _n_shader << std::endl;
+  fprintf(fp, "GPGPU-Sim uArch: Memory nodes ID start from index: %d\n",
+          _n_shader);
+
+  // std::cout << "GPGPU-Sim uArch: ";
+  fprintf(fp, "GPGPU-Sim uArch: ");
+
   for (unsigned i = 0; i < count; i++) {
-    std::cout << std::setw(4) << _reverse_node_map.at(i);
-    if ((i + 1) % dim == 0 && i != count - 1)
-      std::cout << std::endl << "GPGPU-Sim uArch: ";
+    // std::cout << std::setw(4) << _node_map.at(i);
+    fprintf(fp, "%4d", _node_map.at(i));
+    if ((i + 1) % dim == 0 && i != count - 1) {
+      // std::cout << std::endl << "GPGPU-Sim uArch: ";
+      fprintf(fp, "\nGPGPU-Sim uArch: ");
+    }
   }
-  std::cout << std::endl;
+  // std::cout << std::endl;
+  fprintf(fp, "\n");
+
+  // std::cout << "GPGPU-Sim uArch: interconnect node reverse map (icntID to "
+  //              "shaderID+MemID)"
+  //           << std::endl;
+  fprintf(fp,
+          "GPGPU-Sim uArch: interconnect node reverse map (icntID to "
+          "shaderID+MemID)\n");
+
+  // std::cout << "GPGPU-Sim uArch: Memory nodes start from ID: " << _n_shader
+  //           << std::endl;
+  fprintf(fp, "GPGPU-Sim uArch: Memory nodes start from ID: %d\n", _n_shader);
+
+  // std::cout << "GPGPU-Sim uArch: ";
+  fprintf(fp, "GPGPU-Sim uArch: ");
+  for (unsigned i = 0; i < count; i++) {
+    // std::cout << std::setw(4) << _reverse_node_map.at(i);
+    fprintf(fp, "%4d", _reverse_node_map.at(i));
+    if ((i + 1) % dim == 0 && i != count - 1) {
+      // std::cout << std::endl << "GPGPU-Sim uArch: ";
+      fprintf(fp, "\nGPGPU-Sim uArch: ");
+    }
+  }
+  // std::cout << std::endl;
+  fprintf(fp, "\n");
 }
 
 void *InterconnectInterface::_BoundaryBufferItem::PopPacket() {
@@ -562,7 +587,7 @@ void InterconnectInterface::_BoundaryBufferItem::PushFlitData(void *data,
 std::unique_ptr<InterconnectInterface> new_interconnect_interface(
     const char *config_filename) {
   std::unique_ptr<InterconnectInterface> interconn =
-      std::make_unique<InterconnectInterface>(false);
+      std::make_unique<InterconnectInterface>(false, stdout);
   interconn->ParseConfigFile(config_filename);
   return interconn;
 }

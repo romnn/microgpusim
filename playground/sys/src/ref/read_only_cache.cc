@@ -48,11 +48,12 @@ enum cache_request_status read_only_cache::access(
   }
 
   if (accelsim_compat_mode) {
-    printf(
-        "inst cache access(%lu) time=%d cache index=%d block addr=%lu probe "
-        "status=%s access status = %s\n",
-        addr, time, cache_index, block_addr, cache_request_status_str[status],
-        cache_request_status_str[cache_status]);
+    // printf(
+    //     "inst cache access(%lu) time=%d cache index=%d block addr=%lu probe "
+    //     "status=%s access status = %s\n",
+    //     addr, time, cache_index, block_addr,
+    //     cache_request_status_str[status],
+    //     cache_request_status_str[cache_status]);
   }
 
   m_stats.inc_stats(mf->get_access_type(),

@@ -37,7 +37,8 @@ mod ffi {
         );
         fn Init(self: Pin<&mut BoxInterconnect>);
         fn CreateInterconnect(self: Pin<&mut BoxInterconnect>, n_shader: u32, n_mem: u32);
-        fn DisplayMap(self: &BoxInterconnect, dim: u32, count: u32);
+        fn DisplayMapStdout(self: &BoxInterconnect, dim: u32, count: u32);
+
         #[must_use]
         fn GetNumNodes(self: &BoxInterconnect) -> u32;
         #[must_use]
@@ -69,7 +70,8 @@ mod ffi {
         );
         fn Init(self: Pin<&mut InterconnectInterface>);
         fn CreateInterconnect(self: Pin<&mut InterconnectInterface>, n_shader: u32, n_mem: u32);
-        fn DisplayMap(self: &InterconnectInterface, dim: u32, count: u32);
+        fn DisplayMapStdout(self: &InterconnectInterface, dim: u32, count: u32);
+
         #[must_use]
         fn GetNumNodes(self: &InterconnectInterface) -> u32;
         #[must_use]

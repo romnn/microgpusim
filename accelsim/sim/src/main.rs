@@ -7,8 +7,6 @@ use color_eyre::eyre::{self, WrapErr};
 use std::io::Write;
 use std::time::Instant;
 
-// todo add an output dir
-
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     env_logger::init();
@@ -35,11 +33,21 @@ async fn main() -> eyre::Result<()> {
         .canonicalize()
         .wrap_err_with(|| format!("kernelslist at {} does not exist", kernelslist.display()))?;
 
+    println!(
+        "simulating {} [upstream={:?}]",
+        kernelslist.display(),
+        options.use_upstream
+    );
+
+    let extra_args: &[String] = &[];
     let (output, _dur) = sim::simulate_trace(
         &traces_dir,
         &kernelslist,
         &options.sim_config,
         options.timeout,
+        extra_args,
+        options.stream_output.unwrap_or(true),
+        options.use_upstream,
     )
     .await?;
 
@@ -62,23 +70,25 @@ async fn main() -> eyre::Result<()> {
     let mut log_file = utils::fs::open_writable(&log_file_path)?;
     log_file.write_all(stdout.as_bytes())?;
 
-    let stats_file_path = options
-        .stats_file
-        .unwrap_or(log_file_path.with_extension("json"));
+    println!("wrote log to {}", log_file_path.display());
 
-    let log_reader = std::io::Cursor::new(stdout);
-    let parse_options = accelsim::parser::Options::default();
-    let stats = accelsim::parser::parse_stats(log_reader, &parse_options)?;
+    // let log_reader = std::io::Cursor::new(stdout);
+    // let parse_options = accelsim::parser::Options::default();
+    // let stats = accelsim::parser::parse_stats(log_reader, &parse_options)?;
 
-    println!("{:#?}", &stats);
+    // println!("{:#?}", &stats);
 
-    let converted: Result<stats::Stats, _> = stats.clone().try_into();
-    println!("{:#?}", &converted);
+    // let converted: Result<stats::Stats, _> = stats.clone().try_into();
+    // println!("{:#?}", &converted);
     // for stat in stats.iter() {
     //     println!("{}", &stat);
     // }
 
-    let flat_stats: Vec<_> = stats.into_iter().collect();
-    serde_json::to_writer_pretty(utils::fs::open_writable(stats_file_path)?, &flat_stats)?;
+    // let stats_file_path = options
+    //     .stats_file
+    //     .unwrap_or(log_file_path.with_extension("json"));
+
+    // let flat_stats: Vec<_> = stats.into_iter().collect();
+    // serde_json::to_writer_pretty(utils::fs::open_writable(stats_file_path)?, &flat_stats)?;
     Ok(())
 }

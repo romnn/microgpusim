@@ -1778,8 +1778,8 @@ public:
 
 protected:
   void exit_parse_error() {
-    printf("GPGPU-Sim uArch: cache configuration parsing error (%s)\n",
-           m_config_string);
+    fprintf(stderr, "GPGPU-Sim uArch: cache configuration parsing error (%s)\n",
+            m_config_string);
     abort();
   }
 

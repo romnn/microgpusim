@@ -121,7 +121,7 @@ std::unique_ptr<BoxInterconnect> new_box_interconnect(
     const char *config_filename) {
   auto logger = spdlog::stdout_color_mt("box_interconnnect");
   std::unique_ptr<BoxInterconnect> box_interconnect =
-      std::make_unique<BoxInterconnect>(logger);
+      std::make_unique<BoxInterconnect>(logger, stdout);
   box_interconnect->ParseConfigFile(config_filename);
   return box_interconnect;
 }

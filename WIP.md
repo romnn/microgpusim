@@ -2,11 +2,12 @@
 
 - today:
 
+  - playground stats (should match accelsim)
   - convert, match and plot statistics
-  - rename crates and github repo
-  - publish to crates.io
   - record mem fetch latency in playground and box
+  - DONE: rename crates and github repo
   - DONE: write trait for tag array
+  - SKIP: publish to crates.io
 
 - TODO:
 

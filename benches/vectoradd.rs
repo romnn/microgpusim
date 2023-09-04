@@ -61,7 +61,12 @@ pub async fn run_accelsim(bench_config: BenchmarkConfig) -> eyre::Result<()> {
 }
 
 pub fn run_playground(bench_config: &BenchmarkConfig) -> eyre::Result<playground::stats::Stats> {
-    let stats = validate::playground::simulate_bench_config(bench_config, TraceProvider::Box)?;
+    let accelsim_compat_mode = false;
+    let (_log, stats) = validate::playground::simulate_bench_config(
+        bench_config,
+        TraceProvider::Box,
+        accelsim_compat_mode,
+    )?;
     Ok(stats)
 }
 

@@ -465,8 +465,11 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
     ];
     dbg!(&args);
 
-    let play_config = playground::Config::default();
-    let mut play_sim = playground::Accelsim::new(&play_config, &args)?;
+    let play_config = playground::Config {
+        accelsim_compat_mode: false,
+        ..playground::Config::default()
+    };
+    let mut play_sim = playground::Accelsim::new(play_config, &args)?;
 
     let mut play_time_cycle = Duration::ZERO;
     let mut play_time_other = Duration::ZERO;

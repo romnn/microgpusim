@@ -78,6 +78,16 @@ pub enum Error {
     },
 }
 
+impl From<Error> for std::io::Error {
+    fn from(err: Error) -> Self {
+        match err {
+            Error::OpenFile { source, .. } => source,
+            Error::SetPermissions { source, .. } => source,
+            Error::CreateDirectories { source, .. } => source,
+        }
+    }
+}
+
 #[inline]
 pub fn open_readable(path: impl AsRef<Path>) -> Result<std::io::BufReader<std::fs::File>, Error> {
     let path = path.as_ref();

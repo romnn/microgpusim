@@ -324,7 +324,7 @@ void memory_partition_unit::dram_cycle() {
   }
 
   m_dram->cycle();
-  m_dram->dram_log(SAMPLELOG);
+  m_dram->dram_log(stdout, SAMPLELOG);
 
   // mem_fetch *mf = m_sub_partition[spid]->L2_dram_queue_top();
   // if( !m_dram->full(mf->is_write()) ) {

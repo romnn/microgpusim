@@ -96,7 +96,7 @@ class linear_to_raw_address_translation {
   void addrdec_tlx(new_addr_type addr, addrdec_t *tlx) const;
   new_addr_type partition_address(new_addr_type addr) const;
 
-  void print() const;
+  void print(FILE *fp) const;
 
  private:
   void addrdec_parseoption(const char *option);

@@ -49,15 +49,15 @@ class BatchTrafficManager : public TrafficManager {
 
   std::ostream *_sent_packets_out;
 
-  virtual void _RetireFlit(Flit *f, int dest);
+  virtual void _RetireFlit(Flit *f, int dest) override;
 
-  virtual int _IssuePacket(int source, int cl);
-  virtual void _ClearStats();
-  virtual bool _SingleSim();
+  virtual int _IssuePacket(int source, int cl) override;
+  virtual void _ClearStats() override;
+  virtual bool _SingleSim() override;
 
-  virtual void _UpdateOverallStats();
+  virtual void _UpdateOverallStats() override;
 
-  virtual std::string _OverallStatsCSV(int c = 0) const;
+  virtual std::string _OverallStatsCSV(int c = 0) const override;
 
  public:
   BatchTrafficManager(const Configuration &config,
@@ -65,9 +65,12 @@ class BatchTrafficManager : public TrafficManager {
                       InterconnectInterface *icnt);
   virtual ~BatchTrafficManager();
 
-  virtual void WriteStats(std::ostream &os = std::cout) const;
-  virtual void DisplayStats(std::ostream &os = std::cout) const;
-  virtual void DisplayOverallStats(std::ostream &os = std::cout) const;
+  virtual void WriteStats(std::ostream &os = std::cout) const override;
+  // virtual void DisplayStats(std::ostream &os = std::cout) const override;
+  virtual void DisplayStats(FILE *fp = stdout) const override;
+  // virtual void DisplayOverallStats(std::ostream &os = std::cout) const
+  // override;
+  virtual void DisplayOverallStats(FILE *fp = stdout) const override;
 };
 
 #endif

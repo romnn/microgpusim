@@ -25,7 +25,7 @@ class stream_manager {
   void push(stream_operation op);
   void pushCudaStreamWaitEventToAllStreams(CUevent_st *e, unsigned int flags);
   bool operation(bool *sim);
-  void stop_all_running_kernels();
+  void stop_all_running_kernels(FILE *fp);
   unsigned size() { return m_streams.size(); };
   bool is_blocking() { return m_cuda_launch_blocking; };
 

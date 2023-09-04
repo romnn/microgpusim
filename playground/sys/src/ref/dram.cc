@@ -896,11 +896,11 @@ void dram_t::scheduler_frfcfs() {
   }
 }
 
-void dram_t::dram_log(int task) {
+void dram_t::dram_log(FILE *fp, int task) {
   if (task == SAMPLELOG) {
     StatAddSample(mrqq_Dist, que_length());
   } else if (task == DUMPLOG) {
-    printf("Queue Length DRAM[%d] ", id);
-    StatDisp(mrqq_Dist);
+    fprintf(fp, "Queue Length DRAM[%d] ", id);
+    StatDisp(fp, mrqq_Dist);
   }
 }

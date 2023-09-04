@@ -17,14 +17,14 @@ double StatMax(void *st) { return ((Stats *)st)->Max(); }
 
 double StatMin(void *st) { return ((Stats *)st)->Min(); }
 
-void StatDisp(void *st) {
-  printf("Stats for ");
+void StatDisp(FILE *fp, void *st) {
+  fprintf(fp, "Stats for ");
   ((Stats *)st)->DisplayHierarchy();
   //   if (((Stats *)st)->NeverUsed()) {
   //      printf (" was never updated!\n");
   //   } else {
-  printf("Min %f Max %f Average %f \n", ((Stats *)st)->Min(),
-         ((Stats *)st)->Max(), StatAverage(st));
+  fprintf(fp, "Min %f Max %f Average %f \n", ((Stats *)st)->Min(),
+          ((Stats *)st)->Max(), StatAverage(st));
   ((Stats *)st)->Display();
   //   }
 }

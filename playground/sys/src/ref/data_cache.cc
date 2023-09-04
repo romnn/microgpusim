@@ -599,12 +599,12 @@ enum cache_request_status data_cache::access(new_addr_type addr, mem_fetch *mf,
                 cache_request_status_str[access_status]);
 
   if (m_gpu->gpgpu_ctx->accelsim_compat_mode) {
-    printf(
-        "data cache access(%lu) time=%d cache index=%d block addr=%lu probe "
-        "status=%s access status=%s\n",
-        addr, time, cache_index, block_addr,
-        cache_request_status_str[probe_status],
-        cache_request_status_str[access_status]);
+    // printf(
+    //     "data cache access(%lu) time=%d cache index=%d block addr=%lu probe "
+    //     "status=%s access status=%s\n",
+    //     addr, time, cache_index, block_addr,
+    //     cache_request_status_str[probe_status],
+    //     cache_request_status_str[access_status]);
   }
 
   m_stats.inc_stats(mf->get_access_type(),

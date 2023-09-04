@@ -310,8 +310,10 @@ class TrafficManager : public Module {
 
   virtual void WriteStats(std::ostream &os = std::cout) const;
   virtual void UpdateStats();
-  virtual void DisplayStats(std::ostream &os = std::cout) const;
-  virtual void DisplayOverallStats(std::ostream &os = std::cout) const;
+  // virtual void DisplayStats(std::ostream &os = std::cout) const;
+  virtual void DisplayStats(FILE *fp = stdout) const;
+  // virtual void DisplayOverallStats(std::ostream &os = std::cout) const;
+  virtual void DisplayOverallStats(FILE *fp = stdout) const;
   virtual void DisplayOverallStatsCSV(std::ostream &os = std::cout) const;
 
   inline int getTime() { return _time; }

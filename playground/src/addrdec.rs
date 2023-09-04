@@ -24,13 +24,6 @@ pub fn packbits(mask: u64, val: u64, low: u8, high: u8) -> u64 {
 
 pub struct AddressTranslation(cxx::UniquePtr<types::addrdec::linear_to_raw_address_translation>);
 
-impl std::fmt::Debug for AddressTranslation {
-    fn fmt(&self, _f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        self.0.print();
-        Ok(())
-    }
-}
-
 impl AddressTranslation {
     #[must_use]
     pub fn new(num_channels: u32, num_sub_partitions_per_channel: u32) -> Self {
@@ -44,8 +37,6 @@ impl AddressTranslation {
             memory_partition_indexing: bindings::partition_index_function::CONSECUTIVE,
         };
         let mut inner = types::addrdec::new_address_translation(params);
-        // do not initialize cli options to be empty
-        // inner.pin_mut().configure();
         inner
             .pin_mut()
             .init(num_channels, num_sub_partitions_per_channel);

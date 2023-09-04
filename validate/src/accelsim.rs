@@ -132,8 +132,19 @@ pub async fn simulate_bench_config(
         inter_config: Some(inter_config),
     };
 
-    let (log, dur) =
-        accelsim_sim::simulate_trace(&traces_dir, &kernelslist, &config, timeout).await?;
+    let extra_sim_args: &[String] = &[];
+    let stream_output = false;
+    let use_upstream = Some(true);
+    let (log, dur) = accelsim_sim::simulate_trace(
+        &traces_dir,
+        &kernelslist,
+        &config,
+        timeout,
+        extra_sim_args,
+        stream_output,
+        use_upstream,
+    )
+    .await?;
     Ok((log, dur))
 }
 
@@ -148,17 +159,25 @@ pub async fn simulate(
         return Err(RunError::Skipped);
     }
 
-    let (log, dur) = simulate_bench_config(bench).await?;
+    let (output, dur) = simulate_bench_config(bench).await?;
+    process_stats(output.stdout, dur, stats_dir)?;
+    Ok(())
+}
 
+pub fn process_stats(
+    log: impl AsRef<Vec<u8>>,
+    dur: Duration,
+    stats_dir: &Path,
+) -> Result<(), RunError> {
     // parse stats
     let parse_options = accelsim::parser::Options::default();
-    let log_reader = std::io::Cursor::new(&log.stdout);
+    let log_reader = std::io::Cursor::new(log.as_ref());
     let stats = accelsim::parser::parse_stats(log_reader, &parse_options)?;
 
     create_dirs(stats_dir).map_err(eyre::Report::from)?;
 
     open_writable(stats_dir.join("log.txt"))?
-        .write_all(&log.stdout)
+        .write_all(log.as_ref())
         .map_err(eyre::Report::from)?;
 
     super::stats::write_csv_rows(
@@ -167,7 +186,7 @@ pub async fn simulate(
     )?;
 
     let converted_stats: stats::Stats = stats.try_into()?;
-    dbg!(&converted_stats);
+    // dbg!(&converted_stats);
     crate::stats::write_stats_as_csv(stats_dir, converted_stats)?;
 
     #[cfg(debug_assertions)]

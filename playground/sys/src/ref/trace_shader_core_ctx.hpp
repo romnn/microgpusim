@@ -36,7 +36,7 @@ class trace_shader_core_ctx {
                         unsigned shader_id, unsigned tpc_id,
                         const shader_core_config *config,
                         const memory_config *mem_config,
-                        shader_core_stats *stats)
+                        shader_core_stats *stats, FILE *stats_out)
 
       : logger(gpu->logger),
         m_gpu(gpu),
@@ -48,7 +48,8 @@ class trace_shader_core_ctx {
                    config->max_barriers_per_cta, config->warp_size),
         m_operand_collector(gpu->logger),
         m_active_warps(0),
-        m_dynamic_warp_id(0) {
+        m_dynamic_warp_id(0),
+        stats_out(stats_out) {
     // core
     m_warp_count = config->n_thread_per_shader / m_warp_size;
     // Handle the case where the number of threads is not a
@@ -359,6 +360,8 @@ class trace_shader_core_ctx {
   // unsigned m_dynamic_warp_id;
   //
   // const shader_core_config *m_config;
+
+  FILE *stats_out;
 
  protected:
   void create_front_pipeline();

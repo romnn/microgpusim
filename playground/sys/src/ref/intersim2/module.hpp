@@ -39,7 +39,6 @@ class InterconnectInterface;
 
 class Module {
  public:
-  // todo maybe the order here
   Module(Module *parent, const std::string &name, InterconnectInterface *icnt)
       : Module(parent, name) {
     m_icnt = icnt;

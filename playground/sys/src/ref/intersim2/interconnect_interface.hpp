@@ -47,8 +47,8 @@ class Stats;
 
 class InterconnectInterface {
  public:
-  InterconnectInterface(bool accelsim_compat_mode)
-      : accelsim_compat_mode(accelsim_compat_mode){};
+  InterconnectInterface(bool accelsim_compat_mode, FILE *stats_out)
+      : accelsim_compat_mode(accelsim_compat_mode), stats_out(stats_out){};
   virtual ~InterconnectInterface();
   virtual void CreateInterconnect(unsigned n_shader, unsigned n_mem);
   virtual void ParseConfigFile(const char *const config_file);
@@ -61,10 +61,13 @@ class InterconnectInterface {
   virtual void Advance();
   virtual bool Busy() const;
   virtual bool HasBuffer(unsigned deviceID, unsigned int size) const;
-  virtual void DisplayStats() const;
-  virtual void DisplayOverallStats() const;
+  virtual void DisplayStats(FILE *fp) const;
+  virtual void DisplayOverallStats(FILE *fp) const;
 
-  void DisplayMap(unsigned dim, unsigned count) const;
+  void DisplayMap(unsigned dim, unsigned count, FILE *fp) const;
+  void DisplayMapStdout(unsigned dim, unsigned count) const {
+    DisplayMap(dim, count, stdout);
+  };
   unsigned GetFlitSize() const;
   unsigned GetNumNodes() const { return _traffic_manager->_nodes; }
   unsigned GetNumShaders() const { return _n_shader; }
@@ -94,6 +97,7 @@ class InterconnectInterface {
   int Nodes;
 
   bool accelsim_compat_mode;
+  FILE *stats_out;
 
  protected:
   class _BoundaryBufferItem {

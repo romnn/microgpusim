@@ -52,10 +52,12 @@ static void intersim2_transfer() { g_icnt_interface->Advance(); }
 
 static bool intersim2_busy() { return g_icnt_interface->Busy(); }
 
-static void intersim2_display_stats() { g_icnt_interface->DisplayStats(); }
+static void intersim2_display_stats(FILE *fp) {
+  g_icnt_interface->DisplayStats(fp);
+}
 
-static void intersim2_display_overall_stats() {
-  g_icnt_interface->DisplayOverallStats();
+static void intersim2_display_overall_stats(FILE *fp) {
+  g_icnt_interface->DisplayOverallStats(fp);
 }
 
 static void intersim2_display_state(FILE *fp) {
@@ -93,11 +95,12 @@ void icnt_reg_options(class OptionParser *opp) {
 }
 
 void icnt_wrapper_init(std::shared_ptr<spdlog::logger> logger,
-                       bool accelsim_compat_mode) {
+                       bool accelsim_compat_mode, FILE *stats_out) {
   switch (g_network_mode) {
     case INTERSIM:
       // FIXME: delete the object: may add icnt_done wrapper
-      g_icnt_interface = new InterconnectInterface(accelsim_compat_mode);
+      g_icnt_interface =
+          new InterconnectInterface(accelsim_compat_mode, stats_out);
       g_icnt_interface->ParseConfigFile(g_network_config_filename);
       icnt_create = intersim2_create;
       icnt_init = intersim2_init;
@@ -126,7 +129,7 @@ void icnt_wrapper_init(std::shared_ptr<spdlog::logger> logger,
       icnt_get_flit_size = LocalInterconnect_get_flit_size;
       break;
     case BOX_NET:
-      g_icnt_interface = new BoxInterconnect(logger);
+      g_icnt_interface = new BoxInterconnect(logger, stats_out);
       g_icnt_interface->ParseConfigFile(g_network_config_filename);
       icnt_create = BoxInterconnect_create;
       icnt_init = BoxInterconnect_init;

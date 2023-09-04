@@ -83,33 +83,32 @@ fn main() -> eyre::Result<()> {
     println!("cargo:rerun-if-env-changed=BUILD");
     println!("cargo:rerun-if-env-changed=build.rs");
 
+    let mut implementations = vec![accelsim::locate(false)?];
     #[cfg(feature = "upstream")]
-    let use_upstream = true;
-    #[cfg(not(feature = "upstream"))]
-    let use_upstream = false;
+    implementations.push(accelsim::locate(true)?);
 
-    let accel_path = accelsim::locate(use_upstream)?;
+    for accel_path in implementations {
+        let force = accelsim::build::is_force();
+        println!("cargo:warning=force={}", &force);
 
-    let force = accelsim::build::is_force();
-    println!("cargo:warning=force={}", &force);
+        // this does not work well, because accelsim builds in-tree, hence every
+        // build modifies ../accel-sim-framework-dev/ ... /build which triggers a rebuild
+        // Workaround: for now, just use the FORCE / BUILD flag with "yes"
+        // println!("cargo:rerun-if-changed=../accel-sim-framework-dev/");
 
-    // this does not work well, because accelsim builds in-tree, hence every
-    // build modifies ../accel-sim-framework-dev/ ... /build which triggers a rebuild
-    // Workaround: for now, just use the FORCE / BUILD flag with "yes"
-    // println!("cargo:rerun-if-changed=../accel-sim-framework-dev/");
+        if force {
+            println!("cargo:rerun-if-changed={}", accel_path.display());
+        }
 
-    if force {
-        println!("cargo:rerun-if-changed={}", accel_path.display());
+        println!(
+            "cargo:warning=using accelsim source at {}",
+            &accel_path.display()
+        );
+
+        let cuda_path = utils::find_cuda().ok_or(eyre::eyre!("CUDA not found"))?;
+        println!("cargo:warning=using cuda at {}", &cuda_path.display());
+
+        build_accelsim(&accel_path, &cuda_path, force)?;
     }
-
-    println!(
-        "cargo:warning=using accelsim source at {}",
-        &accel_path.display()
-    );
-
-    let cuda_path = utils::find_cuda().ok_or(eyre::eyre!("CUDA not found"))?;
-    println!("cargo:warning=using cuda at {}", &cuda_path.display());
-
-    build_accelsim(&accel_path, &cuda_path, force)?;
     Ok(())
 }

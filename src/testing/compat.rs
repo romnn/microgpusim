@@ -99,8 +99,19 @@ async fn validate_playground_accelsim_compat(
 
     // run accelsim
     let (accelsim_stdout, accelsim_stderr, accelsim_stats) = {
-        let (output, accelsim_dur) =
-            accelsim_sim::simulate_trace(&traces_dir, &kernelslist, sim_config, timeout).await?;
+        let extra_sim_args: &[String] = &[];
+        let stream_output = false;
+        let use_upstream = Some(false);
+        let (output, accelsim_dur) = accelsim_sim::simulate_trace(
+            &traces_dir,
+            &kernelslist,
+            sim_config,
+            timeout,
+            extra_sim_args,
+            stream_output,
+            use_upstream,
+        )
+        .await?;
         dbg!(&accelsim_dur);
 
         let stdout = utils::decode_utf8!(output.stdout);

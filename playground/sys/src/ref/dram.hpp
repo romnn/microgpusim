@@ -89,7 +89,7 @@ class dram_t {
 
   void push(class mem_fetch *data);
   void cycle();
-  void dram_log(int task);
+  void dram_log(FILE *fp, int task);
 
   class memory_partition_unit *m_memory_partition_unit;
   class trace_gpgpu_sim *m_gpu;

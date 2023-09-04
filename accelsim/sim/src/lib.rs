@@ -28,6 +28,7 @@ pub fn render_sim_script(
     profile: &str,
     config: &SimConfig,
     setup_env_path: &Path,
+    extra_sim_args: Vec<String>,
 ) -> eyre::Result<String> {
     let mut sim_sh = vec![];
     sim_sh.push("#!/usr/bin/env bash".to_string());
@@ -53,7 +54,7 @@ pub fn render_sim_script(
         )
     })?;
 
-    let mut trace_cmd: Vec<String> = vec![
+    let mut sim_cmd: Vec<String> = vec![
         accelsim_bin.to_string_lossy().to_string(),
         "-trace".to_string(),
         kernelslist.to_string_lossy().to_string(),
@@ -64,24 +65,42 @@ pub fn render_sim_script(
     let trace_config = config.trace_config().as_deref().map(Path::canonicalize);
     match trace_config {
         Some(Ok(config)) if config.is_file() => {
-            trace_cmd.extend(["-config".to_string(), config.to_string_lossy().to_string()]);
+            sim_cmd.extend(["-config".to_string(), config.to_string_lossy().to_string()]);
         }
         _ => {}
     }
-    sim_sh.push(trace_cmd.join(" "));
+
+    // extra simulatin arguments have highest precedence
+    sim_cmd.extend(extra_sim_args);
+
+    sim_sh.push(sim_cmd.join(" "));
     Ok(sim_sh.join("\n"))
 }
 
-pub async fn simulate_trace(
+pub async fn simulate_trace<A>(
     traces_dir: impl AsRef<Path>,
     kernelslist: impl AsRef<Path>,
     config: &SimConfig,
     timeout: Option<Duration>,
-) -> eyre::Result<(std::process::Output, Duration)> {
+    extra_sim_args: A,
+    stream_output: bool,
+    use_upstream: Option<bool>,
+) -> eyre::Result<(std::process::Output, Duration)>
+where
+    A: IntoIterator,
+    <A as IntoIterator>::Item: Into<String>,
+{
     #[cfg(feature = "upstream")]
-    let use_upstream = true;
+    let use_upstream_default = true;
     #[cfg(not(feature = "upstream"))]
-    let use_upstream = false;
+    let use_upstream_default = false;
+
+    let use_upstream = use_upstream.unwrap_or(use_upstream_default);
+    #[cfg(not(feature = "upstream"))]
+    if use_upstream {
+        eyre::bail!("accelsim-sim was not compiled with upstream accelsim");
+    }
+    log::debug!("upstream = {}", use_upstream);
 
     let accelsim_path = accelsim::locate(use_upstream)?;
     let profile = accelsim::profile();
@@ -90,6 +109,8 @@ pub async fn simulate_trace(
     let accelsim_bin = accelsim_bin
         .canonicalize()
         .wrap_err_with(|| format!("{} does not exist", accelsim_bin.display()))?;
+
+    log::debug!("using accelsim binary at {}", accelsim_bin.display());
 
     let sim_root = accelsim_path.join("gpu-simulator/");
     let setup_env_path = sim_root.join("setup_environment.sh");
@@ -114,6 +135,7 @@ pub async fn simulate_trace(
         eyre::bail!("config dir {} is not a directory", config_dir.display());
     }
 
+    let extra_sim_args: Vec<String> = extra_sim_args.into_iter().map(Into::into).collect();
     let tmp_sim_sh = render_sim_script(
         &accelsim_bin,
         &kernelslist,
@@ -121,6 +143,7 @@ pub async fn simulate_trace(
         profile,
         config,
         &setup_env_path,
+        extra_sim_args,
     )?;
     log::debug!("{}", &tmp_sim_sh);
 
@@ -143,10 +166,33 @@ pub async fn simulate_trace(
     cmd.env("CUDA_INSTALL_PATH", &*cuda_path.to_string_lossy());
     log::debug!("command: {:?}", &cmd);
 
+    let get_cmd_output = async {
+        if stream_output {
+            use futures::{AsyncBufReadExt, StreamExt};
+            let mut stdout: Vec<u8> = Vec::new();
+            let mut child = cmd.stdout(async_process::Stdio::piped()).spawn()?;
+
+            let mut line_reader = futures::io::BufReader::new(child.stdout.take().unwrap()).lines();
+            while let Some(line) = line_reader.next().await {
+                let line = line?;
+                println!("{}", line);
+                stdout.extend(line.into_bytes());
+                stdout.write(b"\n")?;
+            }
+            Ok(std::process::Output {
+                status: child.status().await?,
+                stdout,
+                stderr: Vec::new(),
+            })
+        } else {
+            cmd.output().await
+        }
+    };
+
     let start = Instant::now();
     let result = match timeout {
-        Some(timeout) => tokio::time::timeout(timeout, cmd.output()).await,
-        None => Ok(cmd.output().await),
+        Some(timeout) => tokio::time::timeout(timeout, get_cmd_output).await,
+        None => Ok(get_cmd_output.await),
     };
     let result = result??;
     let dur = start.elapsed();

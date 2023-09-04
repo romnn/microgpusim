@@ -12,8 +12,8 @@ enum cache_request_status l2_cache::access(new_addr_type addr, mem_fetch *mf,
   cache_request_status status = data_cache::access(addr, mf, time, events);
 
   if (m_gpu->gpgpu_ctx->accelsim_compat_mode) {
-    printf("L2 cache access(%lu) time=%d status=%s\n", addr, time,
-           cache_request_status_str[status]);
+    // printf("L2 cache access(%lu) time=%d status=%s\n", addr, time,
+    //        cache_request_status_str[status]);
   }
   return status;
 }

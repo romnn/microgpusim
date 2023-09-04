@@ -32,6 +32,7 @@ class gpgpu_context {
     stats = new ptx_stats();
     accelsim_compat_mode = false;
     sim_mem_only = false;
+    stats_out = stdout;
   }
   // global list
   // symbol_table *g_global_allfiles_symbol_table;
@@ -57,13 +58,15 @@ class gpgpu_context {
   cuda_device_runtime *device_runtime;
   ptx_stats *stats;
 
+  FILE *stats_out;
+
   bool accelsim_compat_mode;
   bool sim_mem_only;
 
   // member function list
   void synchronize();
   void exit_simulation();
-  void print_simulation_time();
+  void print_simulation_time(FILE *fp);
   // int gpgpu_opencl_ptx_sim_main_perf(trace_kernel_info_t *grid);
   // void cuobjdumpParseBinary(unsigned int handle);
   // class symbol_table *gpgpu_ptx_sim_load_ptx_from_string(const char *p,

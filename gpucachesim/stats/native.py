@@ -2,11 +2,18 @@ from os import PathLike
 from pathlib import Path
 import typing
 import json
+import re
 import pandas as pd
 from pprint import pprint
 
 from gpucachesim.benchmarks import GPUConfig, BenchConfig
 import gpucachesim.stats.common as common
+
+
+def normalize_device_name(name):
+    # Strip off device numbers, e.g. (0), (1)
+    # that some profiler versions add to the end of device name
+    return re.sub(r" \(\d+\)$", "", name)
 
 
 class Stats(common.Stats):
@@ -16,17 +23,48 @@ class Stats(common.Stats):
     def __init__(self, config: GPUConfig, bench_config: BenchConfig) -> None:
         self.path = Path(bench_config["profile"]["profile_dir"])
         with open(self.path / "profile.commands.json", "rb") as f:
-            self.commands = json.load(f)
-        self.df = pd.read_json(self.path / "profile.metrics.json")
+            commands = json.load(f)
+            self.commands = pd.DataFrame.from_dict([{k: v["value"] for k, v in c.items()} for c in commands])
+            self.commands_units = pd.DataFrame.from_dict([{k: v["unit"] for k, v in c.items()} for c in commands])
+
+            # name refers to kernels now
+            self.commands = self.commands.rename(columns={"Name": "Kernel"})
+            # remove columns that are only relevant for memcopies
+            # df = df.loc[:,df.notna().any(axis=0)]
+            # self.commands = self.commands.drop(columns=["Size", "Throughput", "SrcMemType", "DstMemType"])
+            # set the correct dtypes
+            # self.commands = self.commands.astype(
+            #     {
+            #         "Start": "float64",
+            #         "Duration": "float64",
+            #         "Static SMem": "float64",
+            #         "Dynamic SMem": "float64",
+            #         "Device": "string",
+            #         "Kernel": "string",
+            #     }
+            # )
+
+            self.commands["Device"] = self.commands["Device"].apply(normalize_device_name)
+
+        with open(self.path / "profile.metrics.json", "rb") as f:
+            metrics = json.load(f)
+            self.df = pd.DataFrame.from_dict([{k: v["value"] for k, v in m.items()} for m in metrics])
+            self.units = pd.DataFrame.from_dict([{k: v["unit"] for k, v in m.items()} for m in metrics])
+
         self.use_duration = False
         self.bench_config = bench_config
         self.config = config
 
-    def duration_us(self):
-        if "Duration" in self.df:
+    @property
+    def kernel_launches(self):
+        return self.commands[~self.commands["Kernel"].str.contains(r"\[CUDA memcpy .*\]")]
+
+    def duration_us(self) -> float:
+        pprint(self.kernel_launches)
+        if "Duration" in self.commands:
             # convert us to us (1e-6)
             # duration already us
-            return self.df["Duration"].sum()
+            return self.kernel_launches["Duration"].sum()
         elif "gpu__time_duration.sum_nsecond" in self.df:
             # convert ns to us
             return self.df["gpu__time_duration.sum_nsecond"].sum() * 1e-3
@@ -38,8 +76,8 @@ class Stats(common.Stats):
             # clock speed is mhz, so *1e6
             # duration is us, so *1e-6
             # unit conversions cancel each other out
-            duration = self.hw_duration_us()
-            return duration * self.config.core_clock_speed
+            duration = self.duration_us()
+            return int(duration * float(self.config.core_clock_speed))
         else:
             # sm_efficiency: The percentage of time at least one warp
             # is active on a specific multiprocessor
@@ -54,10 +92,12 @@ class Stats(common.Stats):
             if "elapsed_cycles_sm" in self.df:
                 sm_count = self.config.num_total_cores
                 # sm_count = self.config.num_clusters
-                # print(self.df["elapsed_cycles_sm"]["value"])
+                print(sm_count)
                 cycles = self.df["elapsed_cycles_sm"].sum()
                 # this only holds until we have repetitions
-                assert (cycles == self.df["elapsed_cycles_sm"]["value"]).all()
+                # print(self.df["elapsed_cycles_sm"])
+                # assert (cycles == self.df["elapsed_cycles_sm"]).all()
+                # return int(cycles / sm_count)
                 return int(cycles / sm_count)
             elif nsight_col in self.df:
                 return self.df[nsight_col].sum()
@@ -68,10 +108,53 @@ class Stats(common.Stats):
     def instructions(self):
         if "inst_issued" in self.df:
             # there is also inst_executed
-            return self.df["inst_issued"].sum() * 20  # * self.config.num_total_cores
+            return self.df["inst_issued"].sum() * self.config.num_total_cores
         elif "smsp__inst_executed.sum_inst" in self.df:
             # there is also sm__inst_executed.sum_inst
             # sm__sass_thread_inst_executed.sum_inst
             return self.df["smsp__inst_executed.sum_inst"].sum()
         else:
             raise ValueError("missing instructions")
+
+    def dram_reads(self) -> int:
+        if "dram_read_transactions" in self.df:
+            return int(self.df["dram_read_transactions"].sum())
+        else:
+            return int(self.df["dram__sectors_read.sum_sector"].sum())
+
+    def dram_writes(self) -> int:
+        if "dram_write_transactions" in self.df:
+            return int(self.df["dram_write_transactions"].sum())
+        else:
+            return int(self.df["dram__sectors_write.sum_sector"].sum())
+
+    def dram_accesses(self) -> int:
+        if "dram_read_transactions" in self.df:
+            total = int(self.df["dram_read_transactions"].sum())
+            total += int(self.df["dram_write_transactions"].sum())
+        else:
+            total = int(self.df["dram__sectors_read.sum_sector"].sum())
+            total += int(self.df["dram__sectors_write.sum_sector"].sum())
+
+        return total
+
+    def l2_reads(self) -> int:
+        if "l2_tex_read_transactions" in self.df:
+            return self.df["l2_tex_read_transactions"].sum()
+        else:
+            return self.df["lts__t_sectors_srcunit_tex_op_read.sum_sector"].sum()
+
+    def l2_writes(self) -> int:
+        if "l2_tex_write_transactions" in self.df:
+            return self.df["l2_tex_write_transactions"].sum()
+        else:
+            return self.df["lts__t_sectors_srcunit_tex_op_write.sum_sector"].sum()
+
+    def l2_accesses(self) -> int:
+        if "l2_tex_read_transactions" in self.df:
+            return self.df["l2_tex_write_transactions"].sum() + self.df["l2_tex_read_transactions"].sum()
+        else:
+            return (
+                self.df["lts__t_sectors_srcunit_tex_op_write.sum_sector"].sum()
+                + self.df["lts__t_sectors_srcunit_tex_op_read.sum_sector"].sum()
+            )

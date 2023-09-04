@@ -25,7 +25,8 @@ trace_kernel_info_t *create_kernel_info(kernel_trace_t *kernel_trace_info,
                                         trace_parser *parser);
 
 void cli_configure(gpgpu_context *m_gpgpu_context, trace_config &m_config,
-                   const std::vector<const char *> &argv, bool print_stats) {
+                   const std::vector<const char *> &argv, bool print_stats,
+                   FILE *stats_out) {
   // register cli options
   option_parser_t opp = option_parser_create();
   m_gpgpu_context->ptx_reg_options(opp);
@@ -40,16 +41,16 @@ void cli_configure(gpgpu_context *m_gpgpu_context, trace_config &m_config,
   m_config.reg_options(opp);
 
   // if (print_stats || m_gpgpu_context->accelsim_compat_mode) {
-  //   fprintf(stdout, "GPGPU-Sim: Registered options:\n\n");
-  //   option_parser_print_registered(opp, stdout);
+  //   fprintf(stats_out, "GPGPU-Sim: Registered options:\n\n");
+  //   option_parser_print_registered(opp, stats_out);
   // }
 
   // parse configuration options
   option_parser_cmdline(opp, argv);
 
   if (print_stats || m_gpgpu_context->accelsim_compat_mode) {
-    fprintf(stdout, "GPGPU-Sim: Configuration options:\n\n");
-    option_parser_print(opp, stdout);
+    fprintf(stats_out, "GPGPU-Sim: Configuration options:\n\n");
+    option_parser_print(opp, stats_out);
   }
 
   // initialize config (parse gpu config from cli values)
@@ -61,11 +62,10 @@ void cli_configure(gpgpu_context *m_gpgpu_context, trace_config &m_config,
   }
 }
 
-// trace_gpgpu_sim_bridge *gpgpu_trace_sim_init_perf_model(
 trace_gpgpu_sim *gpgpu_trace_sim_init_perf_model(
     gpgpu_context *m_gpgpu_context, trace_config &m_config,
     const accelsim_config &config, const std::vector<const char *> &argv,
-    std::shared_ptr<spdlog::logger> logger, bool print_stats) {
+    std::shared_ptr<spdlog::logger> logger, bool print_stats, FILE *stats_out) {
   // seed random
   srand(1);
 
@@ -75,14 +75,14 @@ trace_gpgpu_sim *gpgpu_trace_sim_init_perf_model(
   assert(setlocale(LC_NUMERIC, "C"));
 
   // configure using cli
-  cli_configure(m_gpgpu_context, m_config, argv, print_stats);
+  cli_configure(m_gpgpu_context, m_config, argv, print_stats, stats_out);
 
   // TODO: configure using config
   // m_gpgpu_context->the_gpgpusim->g_the_gpu_config->configure(config);
 
   m_gpgpu_context->the_gpgpusim->g_the_gpu =
       new trace_gpgpu_sim(*(m_gpgpu_context->the_gpgpusim->g_the_gpu_config),
-                          m_gpgpu_context, logger);
+                          m_gpgpu_context, logger, stats_out);
 
   m_gpgpu_context->the_gpgpusim->g_stream_manager =
       new stream_manager((m_gpgpu_context->the_gpgpusim->g_the_gpu),
@@ -154,8 +154,22 @@ void configure_log_level(std::shared_ptr<spdlog::logger> &logger) {
 
 accelsim_bridge::accelsim_bridge(accelsim_config config,
                                  rust::Slice<const rust::Str> argv) {
-  print_stats = is_env_set_to("PRINT_STATS", "yes");
-  accelsim_compat_mode = is_env_set_to("ACCELSIM_COMPAT_MODE", "yes");
+  print_stats = config.print_stats;
+  print_stats |= is_env_set_to("PRINT_STATS", "yes");
+  accelsim_compat_mode = config.accelsim_compat_mode;
+  accelsim_compat_mode |= is_env_set_to("ACCELSIM_COMPAT_MODE", "yes");
+
+  stats_out = stdout;
+  const char *stats_file = config.stats_file;
+  if (std::getenv("PLAYGROUND_STATS_FILE")) {
+    stats_file = std::getenv("PLAYGROUND_STATS_FILE");
+  }
+
+  if (stats_file != NULL) {
+    stats_out = std::fopen(stats_file, "w");
+    // fmt::println("redirecting stdout to {} ... ", std::string(log_to));
+    // freopen(log_to, "w", stdout);
+  }
 
   std::vector<std::string> valid_argv;
   for (auto arg : argv) valid_argv.push_back(std::string(arg));
@@ -195,21 +209,22 @@ accelsim_bridge::accelsim_bridge(accelsim_config config,
 
   // setup the gpu
   m_gpgpu_context = new gpgpu_context();
+  m_gpgpu_context->stats_out = stats_out;
   m_gpgpu_context->accelsim_compat_mode = accelsim_compat_mode;
 
   if (m_gpgpu_context->accelsim_compat_mode) {
-    printf("Accel-Sim [build <box>]");
+    fprintf(stats_out, "Accel-Sim [build <box>]");
   }
 
   // init trace based performance model
   m_gpgpu_sim = gpgpu_trace_sim_init_perf_model(
-      m_gpgpu_context, tconfig, config, c_argv, logger, print_stats);
+      m_gpgpu_context, tconfig, config, c_argv, logger, print_stats, stats_out);
 
   m_gpgpu_sim->init();
 
   // init trace parser
-  tracer =
-      new trace_parser(tconfig.get_traces_filename(), !accelsim_compat_mode);
+  tracer = new trace_parser(tconfig.get_traces_filename(),
+                            !accelsim_compat_mode, stats_out);
 
   // parse trace config
   tconfig.parse_config();
@@ -276,8 +291,8 @@ void accelsim_bridge::process_commands() {
       tracer->parse_memcpy_info(commandlist[command_idx].command_string, addre,
                                 Bcount);
       if (m_gpgpu_context->accelsim_compat_mode) {
-        printf("launching memcpy command : %s\n",
-               commandlist[command_idx].command_string.c_str());
+        fprintf(stats_out, "launching memcpy command : %s\n",
+                commandlist[command_idx].command_string.c_str());
       }
       m_gpgpu_sim->perf_memcpy_to_gpu(addre, Bcount);
       command_idx++;
@@ -290,8 +305,8 @@ void accelsim_bridge::process_commands() {
       kernels_info.push_back(kernel_info);
 
       if (m_gpgpu_context->accelsim_compat_mode) {
-        printf("Header info loaded for kernel command : %s\n",
-               commandlist[command_idx].command_string.c_str());
+        fprintf(stats_out, "Header info loaded for kernel command : %s\n",
+                commandlist[command_idx].command_string.c_str());
       }
       command_idx++;
     } else {
@@ -342,8 +357,8 @@ void accelsim_bridge::cycle() {
   } else {
     // stop all kernels if we reached max instructions limit
     if (m_gpgpu_sim->cycle_insn_cta_max_hit()) {
-      m_gpgpu_context->the_gpgpusim->g_stream_manager
-          ->stop_all_running_kernels();
+      m_gpgpu_context->the_gpgpusim->g_stream_manager->stop_all_running_kernels(
+          stats_out);
       return;
     }
   }
@@ -371,13 +386,14 @@ void accelsim_bridge::cleanup_finished_kernel(unsigned finished_kernel_uid) {
     }
     // make sure kernel was found and removed
     assert(k);
-    if (print_stats || accelsim_compat_mode) m_gpgpu_sim->print_stats();
+    if (print_stats || accelsim_compat_mode)
+      m_gpgpu_sim->print_stats(stats_out);
   }
 
   if ((print_stats || accelsim_compat_mode) && m_gpgpu_sim->gpu_sim_cycle > 0) {
     // update_stats() resets some statistics between kernel launches
     m_gpgpu_sim->update_stats();
-    m_gpgpu_context->print_simulation_time();
+    m_gpgpu_context->print_simulation_time(stats_out);
   }
 }
 
@@ -412,10 +428,10 @@ void accelsim_bridge::run_to_completion() {
 
     if (m_gpgpu_sim->cycle_insn_cta_max_hit()) {
       if (m_gpgpu_context->accelsim_compat_mode) {
-        printf(
-            "GPGPU-Sim: ** break due to reaching the maximum cycles (or "
-            "instructions) **\n");
-        fflush(stdout);
+        fprintf(stats_out,
+                "GPGPU-Sim: ** break due to reaching the maximum cycles (or "
+                "instructions) **\n");
+        fflush(stats_out);
       }
       break;
     }
@@ -424,8 +440,8 @@ void accelsim_bridge::run_to_completion() {
   // we print this message to inform the gpgpu-simulation stats_collect script
   // that we are done
   if (m_gpgpu_context->accelsim_compat_mode) {
-    printf("GPGPU-Sim: *** simulation thread exiting ***\n");
-    printf("GPGPU-Sim: *** exit detected ***\n");
-    fflush(stdout);
+    fprintf(stats_out, "GPGPU-Sim: *** simulation thread exiting ***\n");
+    fprintf(stats_out, "GPGPU-Sim: *** exit detected ***\n");
+    fflush(stats_out);
   }
 }

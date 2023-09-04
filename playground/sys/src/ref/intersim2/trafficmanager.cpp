@@ -1964,32 +1964,61 @@ void TrafficManager::UpdateStats() {
 #endif
 }
 
-void TrafficManager::DisplayStats(std::ostream &os) const {
+// void TrafficManager::DisplayStats(std::ostream &os) const {
+void TrafficManager::DisplayStats(FILE *fp) const {
   for (int c = 0; c < _classes; ++c) {
     if (_measure_stats[c] == 0) {
       continue;
     }
 
-    std::cout << "Class " << c << ":" << std::endl;
+    // std::cout << "Class " << c << ":" << std::endl;
+    fprintf(fp, "Class %d:\n", c);
 
-    std::cout << "Packet latency average = " << _plat_stats[c]->Average()
-              << std::endl
-              << "\tminimum = " << _plat_stats[c]->Min() << std::endl
-              << "\tmaximum = " << _plat_stats[c]->Max() << std::endl
-              << "Network latency average = " << _nlat_stats[c]->Average()
-              << std::endl
-              << "\tminimum = " << _nlat_stats[c]->Min() << std::endl
-              << "\tmaximum = " << _nlat_stats[c]->Max() << std::endl
-              << "Slowest packet = " << _slowest_packet[c] << std::endl
-              << "Flit latency average = " << _flat_stats[c]->Average()
-              << std::endl
-              << "\tminimum = " << _flat_stats[c]->Min() << std::endl
-              << "\tmaximum = " << _flat_stats[c]->Max() << std::endl
-              << "Slowest flit = " << _slowest_flit[c] << std::endl
-              << "Fragmentation average = " << _frag_stats[c]->Average()
-              << std::endl
-              << "\tminimum = " << _frag_stats[c]->Min() << std::endl
-              << "\tmaximum = " << _frag_stats[c]->Max() << std::endl;
+    // std::cout << "Packet latency average = " << _plat_stats[c]->Average()
+    //           << std::endl;
+    fprintf(fp, "Packet latency average = %f:\n", _plat_stats[c]->Average());
+
+    // std::cout << "\tminimum = " << _plat_stats[c]->Min() << std::endl;
+    fprintf(fp, "\tminimum = %f\n", _plat_stats[c]->Min());
+
+    // std::cout << "\tmaximum = " << _plat_stats[c]->Max() << std::endl;
+    fprintf(fp, "\tmaximum = %f\n", _plat_stats[c]->Max());
+
+    // std::cout << "Network latency average = " << _nlat_stats[c]->Average()
+    //           << std::endl;
+    fprintf(fp, "Network latency average = %f\n", _plat_stats[c]->Average());
+
+    // std::cout << "\tminimum = " << _nlat_stats[c]->Min() << std::endl;
+    fprintf(fp, "\tminimum = %f\n", _nlat_stats[c]->Min());
+
+    // std::cout << "\tmaximum = " << _nlat_stats[c]->Max() << std::endl;
+    fprintf(fp, "\tmaximum = %f\n", _nlat_stats[c]->Max());
+
+    // std::cout << "Slowest packet = " << _slowest_packet[c] << std::endl;
+    fprintf(fp, "Slowest packet = %d\n", _slowest_packet[c]);
+
+    // std::cout << "Flit latency average = " << _flat_stats[c]->Average()
+    //           << std::endl;
+    fprintf(fp, "Flit latency average = %f\n", _flat_stats[c]->Average());
+
+    // std::cout << "\tminimum = " << _flat_stats[c]->Min() << std::endl;
+    fprintf(fp, "\tminimum = %f\n", _flat_stats[c]->Min());
+
+    // std::cout << "\tmaximum = " << _flat_stats[c]->Max() << std::endl;
+    fprintf(fp, "\tmaximum = %f\n", _flat_stats[c]->Max());
+
+    // std::cout << "Slowest flit = " << _slowest_flit[c] << std::endl;
+    fprintf(fp, "Slowest flit = %d\n", _slowest_flit[c]);
+
+    // std::cout << "Fragmentation average = " << _frag_stats[c]->Average()
+    //           << std::endl;
+    fprintf(fp, "Fragmentation average = %f\n", _frag_stats[c]->Average());
+
+    // std::cout << "\tminimum = " << _frag_stats[c]->Min() << std::endl;
+    fprintf(fp, "\tminimum = %f\n", _frag_stats[c]->Min());
+
+    // std::cout << "\tmaximum = " << _frag_stats[c]->Max() << std::endl;
+    fprintf(fp, "\tmaximum = %f\n", _frag_stats[c]->Max());
 
     int count_sum, count_min, count_max;
     double rate_sum, rate_min, rate_max;
@@ -2004,11 +2033,17 @@ void TrafficManager::DisplayStats(std::ostream &os) const {
     rate_max = (double)count_max / time_delta;
     rate_avg = rate_sum / (double)_nodes;
     sent_packets = count_sum;
-    std::cout << "Injected packet rate average = " << rate_avg << std::endl
-              << "\tminimum = " << rate_min << " (at node " << min_pos << ")"
-              << std::endl
-              << "\tmaximum = " << rate_max << " (at node " << max_pos << ")"
-              << std::endl;
+    // std::cout << "Injected packet rate average = " << rate_avg << std::endl;
+    fprintf(fp, "Injected packet rate average = %f\n", rate_avg);
+
+    // std::cout << "\tminimum = " << rate_min << " (at node " << min_pos << ")"
+    //           << std::endl;
+    fprintf(fp, "\tminimum = %f (at node %d)\n", rate_min, min_pos);
+
+    // std::cout << "\tmaximum = " << rate_max << " (at node " << max_pos << ")"
+    //           << std::endl;
+    fprintf(fp, "\tmaximum = %f (at node %d)\n", rate_max, min_pos);
+
     _ComputeStats(_accepted_packets[c], &count_sum, &count_min, &count_max,
                   &min_pos, &max_pos);
     rate_sum = (double)count_sum / time_delta;
@@ -2016,11 +2051,17 @@ void TrafficManager::DisplayStats(std::ostream &os) const {
     rate_max = (double)count_max / time_delta;
     rate_avg = rate_sum / (double)_nodes;
     accepted_packets = count_sum;
-    std::cout << "Accepted packet rate average = " << rate_avg << std::endl
-              << "\tminimum = " << rate_min << " (at node " << min_pos << ")"
-              << std::endl
-              << "\tmaximum = " << rate_max << " (at node " << max_pos << ")"
-              << std::endl;
+    // std::cout << "Accepted packet rate average = " << rate_avg << std::endl;
+    fprintf(fp, "Accepted packet rate average = %f\n", rate_avg);
+
+    // std::cout << "\tminimum = " << rate_min << " (at node " << min_pos << ")"
+    //           << std::endl;
+    fprintf(fp, "\tminimum = %f (at node %d)\n", rate_min, min_pos);
+
+    // std::cout << "\tmaximum = " << rate_max << " (at node " << max_pos << ")"
+    //           << std::endl;
+    fprintf(fp, "\tmaximum = %f (at node %d)\n", rate_max, max_pos);
+
     _ComputeStats(_sent_flits[c], &count_sum, &count_min, &count_max, &min_pos,
                   &max_pos);
     rate_sum = (double)count_sum / time_delta;
@@ -2028,11 +2069,17 @@ void TrafficManager::DisplayStats(std::ostream &os) const {
     rate_max = (double)count_max / time_delta;
     rate_avg = rate_sum / (double)_nodes;
     sent_flits = count_sum;
-    std::cout << "Injected flit rate average = " << rate_avg << std::endl
-              << "\tminimum = " << rate_min << " (at node " << min_pos << ")"
-              << std::endl
-              << "\tmaximum = " << rate_max << " (at node " << max_pos << ")"
-              << std::endl;
+    // std::cout << "Injected flit rate average = " << rate_avg << std::endl;
+    fprintf(fp, "Injected flit rate average = %f\n", rate_avg);
+
+    // std::cout << "\tminimum = " << rate_min << " (at node " << min_pos << ")"
+    //           << std::endl;
+    fprintf(fp, "\tminimum = %f (at node %d)\n", rate_min, min_pos);
+
+    // std::cout << "\tmaximum = " << rate_max << " (at node " << max_pos << ")"
+    //           << std::endl;
+    fprintf(fp, "\tmaximum = %f (at node %d)\n", rate_max, max_pos);
+
     _ComputeStats(_accepted_flits[c], &count_sum, &count_min, &count_max,
                   &min_pos, &max_pos);
     rate_sum = (double)count_sum / time_delta;
@@ -2040,20 +2087,35 @@ void TrafficManager::DisplayStats(std::ostream &os) const {
     rate_max = (double)count_max / time_delta;
     rate_avg = rate_sum / (double)_nodes;
     accepted_flits = count_sum;
-    std::cout << "Accepted flit rate average= " << rate_avg << std::endl
-              << "\tminimum = " << rate_min << " (at node " << min_pos << ")"
-              << std::endl
-              << "\tmaximum = " << rate_max << " (at node " << max_pos << ")"
-              << std::endl;
+    // std::cout << "Accepted flit rate average= " << rate_avg << std::endl;
+    fprintf(fp, "Accepted flit rate average= %f\n", rate_avg);
 
-    std::cout << "Injected packet length average = "
-              << (double)sent_flits / (double)sent_packets << std::endl
-              << "Accepted packet length average = "
-              << (double)accepted_flits / (double)accepted_packets << std::endl;
+    // std::cout << "\tminimum = " << rate_min << " (at node " << min_pos << ")"
+    //           << std::endl;
+    fprintf(fp, "\tminimum = %f (at node %d)\n", rate_min, min_pos);
 
-    std::cout << "Total in-flight flits = " << _total_in_flight_flits[c].size()
-              << " (" << _measured_in_flight_flits[c].size() << " measured)"
-              << std::endl;
+    // std::cout << "\tmaximum = " << rate_max << " (at node " << max_pos << ")"
+    //           << std::endl;
+    fprintf(fp, "\tmaximum = %f (at node %d)\n", rate_max, max_pos);
+
+    // std::cout << "Injected packet length average = "
+    //           << (double)sent_flits / (double)sent_packets << std::endl;
+    fprintf(fp, "Injected packet length average = %f\n",
+            (double)sent_flits / (double)sent_packets);
+
+    // std::cout << "Accepted packet length average = "
+    //           << (double)accepted_flits / (double)accepted_packets <<
+    //           std::endl;
+    fprintf(fp, "Accepted packet length average = %f\n",
+            (double)accepted_flits / (double)accepted_packets);
+
+    // std::cout << "Total in-flight flits = " <<
+    // _total_in_flight_flits[c].size()
+    //           << " (" << _measured_in_flight_flits[c].size() << " measured)"
+    //           << std::endl;
+    fprintf(fp, "Total in-flight flits = %lu (%lu measured)\n",
+            _total_in_flight_flits[c].size(),
+            _measured_in_flight_flits[c].size());
 
 #ifdef TRACK_STALLS
     _ComputeStats(_buffer_busy_stalls[c], &count_sum);
@@ -2080,91 +2142,146 @@ void TrafficManager::DisplayStats(std::ostream &os) const {
   }
 }
 
-void TrafficManager::DisplayOverallStats(std::ostream &os) const {
-  os << "====== Overall Traffic Statistics ======" << std::endl;
+void TrafficManager::DisplayOverallStats(FILE *fp) const {
+  // os << "====== Overall Traffic Statistics ======" << std::endl;
+  fprintf(fp, "====== Overall Traffic Statistics ======\n");
   for (int c = 0; c < _classes; ++c) {
     if (_measure_stats[c] == 0) {
       continue;
     }
 
-    os << "====== Traffic class " << c << " ======" << std::endl;
+    // os << "====== Traffic class " << c << " ======" << std::endl;
+    fprintf(fp, "====== Traffic class %d ======\n", c);
 
-    os << "Packet latency average = "
-       << _overall_avg_plat[c] / (double)_total_sims << " (" << _total_sims
-       << " samples)" << std::endl;
-    os << "\tminimum = " << _overall_min_plat[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << std::endl;
-    os << "\tmaximum = " << _overall_max_plat[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << std::endl;
+    // os << "Packet latency average = "
+    //    << _overall_avg_plat[c] / (double)_total_sims << " (" << _total_sims
+    //    << " samples)" << std::endl;
+    fprintf(fp, "Packet latency average = %f (%d samples)\n",
+            _overall_avg_plat[c] / (double)_total_sims, _total_sims);
 
-    os << "Network latency average = "
-       << _overall_avg_nlat[c] / (double)_total_sims << " (" << _total_sims
-       << " samples)" << std::endl;
-    os << "\tminimum = " << _overall_min_nlat[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << std::endl;
-    os << "\tmaximum = " << _overall_max_nlat[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << std::endl;
+    // os << "\tminimum = " << _overall_min_plat[c] / (double)_total_sims << "
+    // ("
+    //    << _total_sims << " samples)" << std::endl;
+    fprintf(fp, "\tminimum = %f (%d samples)\n",
+            _overall_min_plat[c] / (double)_total_sims, _total_sims);
 
-    os << "Flit latency average = "
-       << _overall_avg_flat[c] / (double)_total_sims << " (" << _total_sims
-       << " samples)" << std::endl;
-    os << "\tminimum = " << _overall_min_flat[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << std::endl;
-    os << "\tmaximum = " << _overall_max_flat[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << std::endl;
+    // os << "\tmaximum = " << _overall_max_plat[c] / (double)_total_sims << "
+    // ("
+    //    << _total_sims << " samples)" << std::endl;
+    fprintf(fp, "\tmaximum = %f (%d samples)\n",
+            _overall_max_plat[c] / (double)_total_sims, _total_sims);
 
-    os << "Fragmentation average = "
-       << _overall_avg_frag[c] / (double)_total_sims << " (" << _total_sims
-       << " samples)" << std::endl;
-    os << "\tminimum = " << _overall_min_frag[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << std::endl;
-    os << "\tmaximum = " << _overall_max_frag[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << std::endl;
+    // os << "Network latency average = "
+    //    << _overall_avg_nlat[c] / (double)_total_sims << " (" << _total_sims
+    //    << " samples)" << std::endl;
+    fprintf(fp, "Network latency average = %f (%d samples)\n",
+            _overall_avg_nlat[c] / (double)_total_sims, _total_sims);
 
-    os << "Injected packet rate average = "
-       << _overall_avg_sent_packets[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << std::endl;
-    os << "\tminimum = " << _overall_min_sent_packets[c] / (double)_total_sims
-       << " (" << _total_sims << " samples)" << std::endl;
-    os << "\tmaximum = " << _overall_max_sent_packets[c] / (double)_total_sims
-       << " (" << _total_sims << " samples)" << std::endl;
+    // os << "\tminimum = " << _overall_min_nlat[c] / (double)_total_sims << "
+    // ("
+    //    << _total_sims << " samples)" << std::endl;
+    fprintf(fp, "\tminimum = %f (%d samples)\n",
+            _overall_min_nlat[c] / (double)_total_sims, _total_sims);
 
-    os << "Accepted packet rate average = "
-       << _overall_avg_accepted_packets[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << std::endl;
-    os << "\tminimum = "
-       << _overall_min_accepted_packets[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << std::endl;
-    os << "\tmaximum = "
-       << _overall_max_accepted_packets[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << std::endl;
+    // os << "\tmaximum = " << _overall_max_nlat[c] / (double)_total_sims << "
+    // ("
+    //    << _total_sims << " samples)" << std::endl;
+    fprintf(fp, "\tmaximum = %f (%d samples)\n",
+            _overall_max_nlat[c] / (double)_total_sims, _total_sims);
 
-    os << "Injected flit rate average = "
-       << _overall_avg_sent[c] / (double)_total_sims << " (" << _total_sims
-       << " samples)" << std::endl;
-    os << "\tminimum = " << _overall_min_sent[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << std::endl;
-    os << "\tmaximum = " << _overall_max_sent[c] / (double)_total_sims << " ("
-       << _total_sims << " samples)" << std::endl;
+    // os << "Flit latency average = "
+    //    << _overall_avg_flat[c] / (double)_total_sims << " (" << _total_sims
+    //    << " samples)" << std::endl;
+    fprintf(fp, "Flit latency average = %f (%d samples)\n",
+            _overall_avg_flat[c] / (double)_total_sims, _total_sims);
 
-    os << "Accepted flit rate average = "
-       << _overall_avg_accepted[c] / (double)_total_sims << " (" << _total_sims
-       << " samples)" << std::endl;
-    os << "\tminimum = " << _overall_min_accepted[c] / (double)_total_sims
-       << " (" << _total_sims << " samples)" << std::endl;
-    os << "\tmaximum = " << _overall_max_accepted[c] / (double)_total_sims
-       << " (" << _total_sims << " samples)" << std::endl;
+    // os << "\tminimum = " << _overall_min_flat[c] / (double)_total_sims << "
+    // ("
+    //    << _total_sims << " samples)" << std::endl;
+    fprintf(fp, "\tminimum = %f (%d samples)\n",
+            _overall_min_flat[c] / (double)_total_sims, _total_sims);
 
-    os << "Injected packet size average = "
-       << _overall_avg_sent[c] / _overall_avg_sent_packets[c] << " ("
-       << _total_sims << " samples)" << std::endl;
+    // os << "\tmaximum = " << _overall_max_flat[c] / (double)_total_sims << "
+    // ("
+    //    << _total_sims << " samples)" << std::endl;
+    fprintf(fp, "\tmaximum = %f (%d samples)\n",
+            _overall_max_flat[c] / (double)_total_sims, _total_sims);
 
-    os << "Accepted packet size average = "
-       << _overall_avg_accepted[c] / _overall_avg_accepted_packets[c] << " ("
-       << _total_sims << " samples)" << std::endl;
+    // os << "Fragmentation average = "
+    //    << _overall_avg_frag[c] / (double)_total_sims << " (" << _total_sims
+    //    << " samples)" << std::endl;
+    fprintf(fp, "Fragmentation average = %f (%d samples)\n",
+            _overall_avg_frag[c] / (double)_total_sims, _total_sims);
 
-    os << "Hops average = " << _overall_hop_stats[c] / (double)_total_sims
-       << " (" << _total_sims << " samples)" << std::endl;
+    // os << "\tminimum = " << _overall_min_frag[c] / (double)_total_sims << "
+    // ("
+    //    << _total_sims << " samples)" << std::endl;
+    fprintf(fp, "\tminimum = %f (%d samples)\n",
+            _overall_min_frag[c] / (double)_total_sims, _total_sims);
+
+    // os << "\tmaximum = " << _overall_max_frag[c] / (double)_total_sims << "
+    // ("
+    //    << _total_sims << " samples)" << std::endl;
+    fprintf(fp, "\tmaximum = %f (%d samples)\n",
+            _overall_max_frag[c] / (double)_total_sims, _total_sims);
+
+    // os << "Injected packet rate average = "
+    //    << _overall_avg_sent_packets[c] / (double)_total_sims << " ("
+    //    << _total_sims << " samples)" << std::endl;
+    fprintf(fp, "Injected packet rate average = %f (%d samples)\n",
+            _overall_avg_sent_packets[c] / (double)_total_sims, _total_sims);
+
+    // os << "\tminimum = " << _overall_min_sent_packets[c] /
+    // (double)_total_sims
+    //    << " (" << _total_sims << " samples)" << std::endl;
+    fprintf(fp, "\tminimum = %f (%d samples)\n",
+            _overall_min_sent_packets[c] / (double)_total_sims, _total_sims);
+
+    // os << "\tmaximum = " << _overall_max_sent_packets[c] /
+    // (double)_total_sims
+    //    << " (" << _total_sims << " samples)" << std::endl;
+    fprintf(fp, "\tmaximum = %f (%d samples)\n",
+            _overall_max_sent_packets[c] / (double)_total_sims, _total_sims);
+
+    // os << "Accepted packet rate average = "
+    //    << _overall_avg_accepted_packets[c] / (double)_total_sims << " ("
+    //    << _total_sims << " samples)" << std::endl;
+    // os << "\tminimum = "
+    //    << _overall_min_accepted_packets[c] / (double)_total_sims << " ("
+    //    << _total_sims << " samples)" << std::endl;
+    // os << "\tmaximum = "
+    //    << _overall_max_accepted_packets[c] / (double)_total_sims << " ("
+    //    << _total_sims << " samples)" << std::endl;
+    //
+    // os << "Injected flit rate average = "
+    //    << _overall_avg_sent[c] / (double)_total_sims << " (" << _total_sims
+    //    << " samples)" << std::endl;
+    // os << "\tminimum = " << _overall_min_sent[c] / (double)_total_sims << "
+    // ("
+    //    << _total_sims << " samples)" << std::endl;
+    // os << "\tmaximum = " << _overall_max_sent[c] / (double)_total_sims << "
+    // ("
+    //    << _total_sims << " samples)" << std::endl;
+    //
+    // os << "Accepted flit rate average = "
+    //    << _overall_avg_accepted[c] / (double)_total_sims << " (" <<
+    //    _total_sims
+    //    << " samples)" << std::endl;
+    // os << "\tminimum = " << _overall_min_accepted[c] / (double)_total_sims
+    //    << " (" << _total_sims << " samples)" << std::endl;
+    // os << "\tmaximum = " << _overall_max_accepted[c] / (double)_total_sims
+    //    << " (" << _total_sims << " samples)" << std::endl;
+    //
+    // os << "Injected packet size average = "
+    //    << _overall_avg_sent[c] / _overall_avg_sent_packets[c] << " ("
+    //    << _total_sims << " samples)" << std::endl;
+    //
+    // os << "Accepted packet size average = "
+    //    << _overall_avg_accepted[c] / _overall_avg_accepted_packets[c] << " ("
+    //    << _total_sims << " samples)" << std::endl;
+    //
+    // os << "Hops average = " << _overall_hop_stats[c] / (double)_total_sims
+    //    << " (" << _total_sims << " samples)" << std::endl;
 
 #ifdef TRACK_STALLS
     os << "Buffer busy stall rate = "

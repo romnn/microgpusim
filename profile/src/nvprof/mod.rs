@@ -127,8 +127,7 @@ where
     A: IntoIterator,
     <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
 {
-    let mut cmd = async_process::Command::new(nvprof.as_ref());
-    cmd.args([
+    let mut cmd_args = vec![
         "--unified-memory-profiling",
         "off",
         "--concurrent-kernels",
@@ -144,24 +143,42 @@ where
         "off",
         "--csv",
         "--log-file",
-    ])
-    .arg(log_file_path.as_ref())
-    .arg(executable.as_ref())
-    .args(args.into_iter());
+        log_file_path.as_ref().to_str().unwrap(),
+        executable.as_ref().to_str().unwrap(),
+    ];
+    let args: Vec<String> = args
+        .into_iter()
+        .map(|arg| arg.as_ref().to_string_lossy().to_string())
+        .collect();
+    cmd_args.extend(args.iter().map(String::as_str));
+    let mut cmd = async_process::Command::new(nvprof.as_ref());
+    cmd.args(&cmd_args);
+
+    log::debug!(
+        "profile command: {} {}",
+        nvprof.as_ref().display(),
+        cmd_args.join(" ")
+    );
 
     let result = cmd.output().await?;
     if !result.status.success() {
         return Err(Error::Command(utils::CommandError::new(&cmd, result)));
     }
 
-    let log_file = std::fs::OpenOptions::new()
-        .read(true)
-        .open(&log_file_path)?;
+    log::debug!("profile stdout: {}", utils::decode_utf8!(result.stdout));
+    log::debug!("profile stderr: {}", utils::decode_utf8!(result.stderr));
 
-    let mut log_reader = std::io::BufReader::new(log_file);
+    // let log_file = std::fs::OpenOptions::new()
+    //     .read(true)
+    //     .open(&log_file_path)?;
+
+    // let mut log_reader = std::io::BufReader::new(log_file);
 
     let mut raw_log = String::new();
+    let mut log_reader = utils::fs::open_readable(log_file_path).map_err(std::io::Error::from)?;
     log_reader.read_to_string(&mut raw_log)?;
+
+    log::debug!("profile log: {}", raw_log);
 
     let mut log_reader = std::io::Cursor::new(&raw_log);
     match parse_nvprof_csv(&mut log_reader) {
@@ -184,8 +201,7 @@ where
     A: IntoIterator,
     <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
 {
-    let mut cmd = async_process::Command::new(nvprof.as_ref());
-    cmd.args([
+    let mut cmd_args = vec![
         "--unified-memory-profiling",
         "off",
         "--concurrent-kernels",
@@ -197,15 +213,31 @@ where
         "off",
         "--csv",
         "--log-file",
-    ])
-    .arg(log_file_path.as_ref())
-    .arg(executable.as_ref())
-    .args(args.into_iter());
+        log_file_path.as_ref().to_str().unwrap(),
+        executable.as_ref().to_str().unwrap(),
+    ];
+    let args: Vec<_> = args
+        .into_iter()
+        .map(|arg| arg.as_ref().to_string_lossy().to_string())
+        .collect();
+    cmd_args.extend(args.iter().map(String::as_str));
+
+    let mut cmd = async_process::Command::new(nvprof.as_ref());
+    cmd.args(&cmd_args);
+
+    log::debug!(
+        "profile command: {} {}",
+        nvprof.as_ref().display(),
+        cmd_args.join(" ")
+    );
 
     let result = cmd.output().await?;
     if !result.status.success() {
         return Err(Error::Command(utils::CommandError::new(&cmd, result)));
     }
+
+    log::debug!("profile stdout: {}", utils::decode_utf8!(result.stdout));
+    log::debug!("profile stderr: {}", utils::decode_utf8!(result.stderr));
 
     let log_file = std::fs::OpenOptions::new()
         .read(true)
@@ -215,6 +247,8 @@ where
 
     let mut raw_log = String::new();
     log_reader.read_to_string(&mut raw_log)?;
+
+    log::debug!("profile log: {}", raw_log);
 
     let mut log_reader = std::io::Cursor::new(&raw_log);
     match parse_nvprof_csv(&mut log_reader) {

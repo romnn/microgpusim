@@ -19,8 +19,8 @@ class trace_simt_core_cluster {
                           const shader_core_config *config,
                           const memory_config *mem_config,
                           class shader_core_stats *stats,
-                          class memory_stats_t *mstats)
-      : logger(gpu->logger) {
+                          class memory_stats_t *mstats, FILE *stats_out)
+      : logger(gpu->logger), stats_out(stats_out) {
     m_config = config;
     m_cta_issue_next_core = m_config->n_simt_cores_per_cluster -
                             1;  // this causes first launch to use hw cta 0
@@ -75,6 +75,7 @@ class trace_simt_core_cluster {
   void get_icnt_stats(long &n_simt_to_mem, long &n_mem_to_simt) const;
 
   std::shared_ptr<spdlog::logger> logger;
+  FILE *stats_out;
 
   friend class cluster_bridge;
   friend class accelsim_bridge;

@@ -3,7 +3,7 @@
 #include "stream_manager.hpp"
 #include "trace_gpgpu_sim.hpp"
 
-void *gpgpu_sim_thread_sequential(void *ctx_ptr) {
+void *gpgpu_sim_thread_sequential(void *ctx_ptr, FILE *fp) {
   gpgpu_context *ctx = (gpgpu_context *)ctx_ptr;
   // at most one kernel running at a time
   bool done;
@@ -17,9 +17,9 @@ void *gpgpu_sim_thread_sequential(void *ctx_ptr) {
         ctx->the_gpgpusim->g_the_gpu->cycle();
         ctx->the_gpgpusim->g_the_gpu->deadlock_check();
       }
-      ctx->the_gpgpusim->g_the_gpu->print_stats();
+      ctx->the_gpgpusim->g_the_gpu->print_stats(fp);
       ctx->the_gpgpusim->g_the_gpu->update_stats();
-      ctx->print_simulation_time();
+      ctx->print_simulation_time(fp);
     }
     sem_post(&(ctx->the_gpgpusim->g_sim_signal_finish));
   } while (!done);
@@ -27,9 +27,9 @@ void *gpgpu_sim_thread_sequential(void *ctx_ptr) {
   return NULL;
 }
 
-static void termination_callback() {
-  printf("GPGPU-Sim: *** exit detected ***\n");
-  fflush(stdout);
+static void termination_callback(FILE *fp) {
+  fprintf(fp, "GPGPU-Sim: *** exit detected ***\n");
+  fflush(fp);
 }
 
 // void *gpgpu_sim_thread_concurrent(void *ctx_ptr) {
@@ -231,7 +231,7 @@ void gpgpu_context::ptx_reg_options(option_parser_t opp) {
 
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 
-void gpgpu_context::print_simulation_time() {
+void gpgpu_context::print_simulation_time(FILE *fp) {
   time_t current_time, difference, d, h, m, s;
   current_time = time((time_t *)NULL);
   difference = MAX(current_time - the_gpgpusim->g_simulation_starttime, 1);
@@ -242,17 +242,20 @@ void gpgpu_context::print_simulation_time() {
   s = difference - 60 * (m + 60 * (h + 24 * d));
 
   fflush(stderr);
-  printf(
+  fflush(fp);
+  fprintf(
+      fp,
       "\n\ngpgpu_simulation_time = %u days, %u hrs, %u min, %u sec (%u sec)\n",
       (unsigned)d, (unsigned)h, (unsigned)m, (unsigned)s, (unsigned)difference);
-  printf("gpgpu_simulation_rate = %u (inst/sec)\n",
-         (unsigned)(the_gpgpusim->g_the_gpu->gpu_tot_sim_insn / difference));
+  fprintf(fp, "gpgpu_simulation_rate = %u (inst/sec)\n",
+          (unsigned)(the_gpgpusim->g_the_gpu->gpu_tot_sim_insn / difference));
   const unsigned cycles_per_sec =
       (unsigned)(the_gpgpusim->g_the_gpu->gpu_tot_sim_cycle / difference);
-  printf("gpgpu_simulation_rate = %u (cycle/sec)\n", cycles_per_sec);
-  printf("gpgpu_silicon_slowdown = %ux\n",
-         the_gpgpusim->g_the_gpu->shader_clock() * 1000 / cycles_per_sec);
+  fprintf(fp, "gpgpu_simulation_rate = %u (cycle/sec)\n", cycles_per_sec);
+  fprintf(fp, "gpgpu_silicon_slowdown = %ux\n",
+          the_gpgpusim->g_the_gpu->shader_clock() * 1000 / cycles_per_sec);
   fflush(stdout);
+  fflush(fp);
 }
 
 // int gpgpu_context::gpgpu_opencl_ptx_sim_main_perf(trace_kernel_info_t *grid)

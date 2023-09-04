@@ -536,26 +536,26 @@ void linear_to_raw_address_translation::init(
   if (memory_partition_indexing == RANDOM) srand(1);
 }
 
-void linear_to_raw_address_translation::print() const {
-  printf("addr_dec_mask[CHIP]  = %016lx \thigh:%d low:%d\n", addrdec_mask[CHIP],
-         addrdec_mkhigh[CHIP], addrdec_mklow[CHIP]);
-  printf("addr_dec_mask[BK]    = %016lx \thigh:%d low:%d\n", addrdec_mask[BK],
-         addrdec_mkhigh[BK], addrdec_mklow[BK]);
-  printf("addr_dec_mask[ROW]   = %016lx \thigh:%d low:%d\n", addrdec_mask[ROW],
-         addrdec_mkhigh[ROW], addrdec_mklow[ROW]);
-  printf("addr_dec_mask[COL]   = %016lx \thigh:%d low:%d\n", addrdec_mask[COL],
-         addrdec_mkhigh[COL], addrdec_mklow[COL]);
-  printf("addr_dec_mask[BURST] = %016lx \thigh:%d low:%d\n",
-         addrdec_mask[BURST], addrdec_mkhigh[BURST], addrdec_mklow[BURST]);
-  // printf("m_n_channel = %d\n", m_n_channel);
-  // printf("m_n_sub_partition_in_channel = %d\n",
+void linear_to_raw_address_translation::print(FILE *fp) const {
+  fprintf(fp, "addr_dec_mask[CHIP]  = %016lx \thigh:%d low:%d\n",
+          addrdec_mask[CHIP], addrdec_mkhigh[CHIP], addrdec_mklow[CHIP]);
+  fprintf(fp, "addr_dec_mask[BK]    = %016lx \thigh:%d low:%d\n",
+          addrdec_mask[BK], addrdec_mkhigh[BK], addrdec_mklow[BK]);
+  fprintf(fp, "addr_dec_mask[ROW]   = %016lx \thigh:%d low:%d\n",
+          addrdec_mask[ROW], addrdec_mkhigh[ROW], addrdec_mklow[ROW]);
+  fprintf(fp, "addr_dec_mask[COL]   = %016lx \thigh:%d low:%d\n",
+          addrdec_mask[COL], addrdec_mkhigh[COL], addrdec_mklow[COL]);
+  fprintf(fp, "addr_dec_mask[BURST] = %016lx \thigh:%d low:%d\n",
+          addrdec_mask[BURST], addrdec_mkhigh[BURST], addrdec_mklow[BURST]);
+  // fprintf("m_n_channel = %d\n", m_n_channel);
+  // fprintf("m_n_sub_partition_in_channel = %d\n",
   // m_n_sub_partition_in_channel);
-  // printf("LOGB2_32(m_n_sub_partition_in_channel) = %d\n",
+  // fprintf("LOGB2_32(m_n_sub_partition_in_channel) = %d\n",
   //        LOGB2_32(m_n_sub_partition_in_channel));
   //
-  // printf("ADDR_CHIP_S = %d\n", ADDR_CHIP_S);
-  // printf("sub_partition_id_mask = %016lx\n", sub_partition_id_mask);
-  // printf("gap = %d\n", gap);
+  // fprintf("ADDR_CHIP_S = %d\n", ADDR_CHIP_S);
+  // fprintf("sub_partition_id_mask = %016lx\n", sub_partition_id_mask);
+  // fprintf("gap = %d\n", gap);
 }
 
 bool operator==(const addrdec_t &x, const addrdec_t &y) {

@@ -94,8 +94,8 @@ enum cache_request_status tag_array::probe(new_addr_type addr, unsigned &idx,
                 mem_fetch_ptr(mf), set_index, tag, m_config.m_assoc);
 
   if (accelsim_compat_mode) {
-    printf("tag_array::probe(%lu) set_idx = %d tag = %lu assoc = %d\n", addr,
-           set_index, tag, m_config.m_assoc);
+    // printf("tag_array::probe(%lu) set_idx = %d tag = %lu assoc = %d\n", addr,
+    //        set_index, tag, m_config.m_assoc);
   }
 
   unsigned invalid_line = (unsigned)-1;

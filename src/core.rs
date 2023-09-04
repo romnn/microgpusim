@@ -1,15 +1,7 @@
 use super::{
-    address,
-    allocation::Allocation,
-    barrier, cache, config, func_unit as fu,
-    instruction::WarpInstruction,
-    interconn as ic,
-    kernel::Kernel,
-    mem_fetch,
-    mem_fetch::BitString,
-    opcodes, operand_collector as opcoll, register_set, scheduler,
-    scoreboard::{self, Access as ScoreboardAccess},
-    warp,
+    address, allocation::Allocation, barrier, cache, config, func_unit as fu,
+    instruction::WarpInstruction, interconn as ic, kernel::Kernel, mem_fetch, mem_fetch::BitString,
+    opcodes, operand_collector as opcoll, register_set, scheduler, scoreboard, warp,
 };
 use crate::sync::{Mutex, RwLock};
 use bitvec::{array::BitArray, BitArr};

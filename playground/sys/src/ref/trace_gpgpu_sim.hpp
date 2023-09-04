@@ -84,8 +84,8 @@ struct fmt::formatter<Allocation> {
 class trace_gpgpu_sim {
  public:
   trace_gpgpu_sim(const gpgpu_sim_config &config, gpgpu_context *ctx,
-                  std::shared_ptr<spdlog::logger> logger)
-      : logger(logger), m_config(config) {
+                  std::shared_ptr<spdlog::logger> logger, FILE *stats_out)
+      : logger(logger), stats_out(stats_out), m_config(config) {
     gpgpu_ctx = ctx;
     // m_global_mem = new memory_space_impl<8192>("global", 64 * 1024);
     // m_tex_mem = new memory_space_impl<8192>("tex", 64 * 1024);
@@ -188,14 +188,15 @@ class trace_gpgpu_sim {
         m_shader_config->n_simt_clusters,
         m_memory_config->m_n_mem_sub_partition);
 
-    icnt_wrapper_init(logger, gpgpu_ctx->accelsim_compat_mode);
+    icnt_wrapper_init(logger, gpgpu_ctx->accelsim_compat_mode, stats_out);
     icnt_create(m_shader_config->n_simt_clusters,
                 m_memory_config->m_n_mem_sub_partition);
 
     time_vector_create(NUM_MEM_REQ_STAT);
 
     if (gpgpu_ctx->accelsim_compat_mode) {
-      printf("GPGPU-Sim uArch: performance model initialization complete.\n");
+      fprintf(gpgpu_ctx->stats_out,
+              "GPGPU-Sim uArch: performance model initialization complete.\n");
     }
 
     m_running_kernels.resize(config.max_concurrent_kernel, NULL);
@@ -234,8 +235,8 @@ class trace_gpgpu_sim {
             (gpu_completed_cta >= m_config.gpu_max_completed_cta_opt));
   }
 
-  void gpu_print_stat();
-  void print_stats();
+  void gpu_print_stat(FILE *fp);
+  void print_stats(FILE *fp);
   void update_stats();
   void deadlock_check();
 
@@ -320,6 +321,8 @@ class trace_gpgpu_sim {
   class gpgpu_context *gpgpu_ctx;
 
   std::shared_ptr<spdlog::logger> logger;
+
+  FILE *stats_out;
 
   friend class accelsim_bridge;
 

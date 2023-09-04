@@ -38,12 +38,13 @@ unsigned int shader_core_config::max_cta(const trace_kernel_info_t &k) const {
       kernel_info) {  // Only print out stats if kernel_info struct changes
     last_kinfo = kernel_info;
     if (gpgpu_ctx->accelsim_compat_mode) {
-      printf("GPGPU-Sim uArch: CTA/core = %u, limited by:", result);
-      if (result == result_thread) printf(" threads");
-      if (result == result_shmem) printf(" shmem");
-      if (result == result_regs) printf(" regs");
-      if (result == result_cta) printf(" cta_limit");
-      printf("\n");
+      FILE *fp = gpgpu_ctx->stats_out;
+      fprintf(fp, "GPGPU-Sim uArch: CTA/core = %u, limited by:", result);
+      if (result == result_thread) fprintf(fp, " threads");
+      if (result == result_shmem) fprintf(fp, " shmem");
+      if (result == result_regs) fprintf(fp, " regs");
+      if (result == result_cta) fprintf(fp, " cta_limit");
+      fprintf(fp, "\n");
     }
   }
 
@@ -56,11 +57,13 @@ unsigned int shader_core_config::max_cta(const trace_kernel_info_t &k) const {
 
   assert(result <= MAX_CTA_PER_SHADER);
   if (result < 1) {
-    printf(
+    fprintf(
+        stderr,
         "GPGPU-Sim uArch: ERROR ** Kernel requires more resources than shader "
         "has.\n");
     if (gpgpu_ignore_resources_limitation) {
-      printf(
+      fprintf(
+          stderr,
           "GPGPU-Sim uArch: gpgpu_ignore_resources_limitation is set, ignore "
           "the ERROR!\n");
       return 1;
@@ -105,18 +108,20 @@ unsigned int shader_core_config::max_cta(const trace_kernel_info_t &k) const {
         m_L1D_config.set_allocation_policy(ON_MISS);
 
         if (gpgpu_ctx->accelsim_compat_mode) {
-          printf("GPGPU-Sim: Reconfigure L1 allocation to ON_MISS\n");
+          fprintf(gpgpu_ctx->stats_out,
+                  "GPGPU-Sim: Reconfigure L1 allocation to ON_MISS\n");
         }
       } else {
         m_L1D_config.set_allocation_policy(ON_FILL);
         if (gpgpu_ctx->accelsim_compat_mode) {
-          printf("GPGPU-Sim: Reconfigure L1 allocation to ON_FILL\n");
+          fprintf(gpgpu_ctx->stats_out,
+                  "GPGPU-Sim: Reconfigure L1 allocation to ON_FILL\n");
         }
       }
     }
     if (gpgpu_ctx->accelsim_compat_mode) {
-      printf("GPGPU-Sim: Reconfigure L1 cache to %uKB\n",
-             m_L1D_config.get_total_size_inKB());
+      fprintf(gpgpu_ctx->stats_out, "GPGPU-Sim: Reconfigure L1 cache to %uKB\n",
+              m_L1D_config.get_total_size_inKB());
     }
 
     k.cache_config_set = true;

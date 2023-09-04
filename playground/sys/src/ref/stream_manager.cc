@@ -90,7 +90,7 @@ bool stream_manager::register_finished_kernel(unsigned grid_uid) {
   return false;
 }
 
-void stream_manager::stop_all_running_kernels() {
+void stream_manager::stop_all_running_kernels(FILE *fp) {
   pthread_mutex_lock(&m_lock);
 
   // Signal m_gpu to stop all running kernels
@@ -103,7 +103,7 @@ void stream_manager::stop_all_running_kernels() {
   }
 
   // If any kernels completed, print out the current stats
-  if (count > 0) m_gpu->print_stats();
+  if (count > 0) m_gpu->print_stats(fp);
 
   pthread_mutex_unlock(&m_lock);
 }
