@@ -72,7 +72,7 @@ impl Data
     fn write_hit_write_back(
         &mut self,
         addr: address,
-        cache_index: Option<usize>,
+        cache_index: usize,
         fetch: &mem_fetch::MemFetch,
         time: u64,
         _events: &mut [cache::Event],
@@ -181,7 +181,7 @@ impl Data
     fn read_miss(
         &mut self,
         addr: address,
-        cache_index: Option<usize>,
+        cache_index: usize,
         fetch: &mem_fetch::MemFetch,
         time: u64,
         events: &mut Vec<cache::Event>,
@@ -202,7 +202,7 @@ impl Data
         let (should_miss, writeback, evicted) = self.inner.send_read_request(
             addr,
             block_addr,
-            cache_index.unwrap(),
+            cache_index,
             fetch.clone(),
             time,
             events,
@@ -399,8 +399,6 @@ impl Data
         let new_fetch = mem_fetch::Builder {
             instr: None,
             access: new_access,
-            // &self.inner.config,
-            // fetch.control_size(),
             warp_id: fetch.warp_id,
             core_id: fetch.core_id,
             cluster_id: fetch.cluster_id,
@@ -409,13 +407,17 @@ impl Data
         }
         .build();
 
+        let Some(cache_index) = cache_index else {
+            return cache::RequestStatus::RESERVATION_FAIL;
+        };
+
         // Send read request resulting from write miss
         let is_read_only = false;
         let is_write_allocate = true;
         let (should_miss, writeback, evicted) = self.inner.send_read_request(
             addr,
             block_addr,
-            cache_index.unwrap(),
+            cache_index,
             new_fetch,
             time,
             events,
@@ -527,7 +529,7 @@ impl Data
     fn write_hit(
         &mut self,
         addr: address,
-        cache_index: Option<usize>,
+        cache_index: usize,
         fetch: &mem_fetch::MemFetch,
         time: u64,
         events: &mut [cache::Event],
@@ -571,50 +573,120 @@ impl Data
         let probe_status = probe
             .map(|(_, s)| s)
             .unwrap_or(cache::RequestStatus::RESERVATION_FAIL);
-        let cache_index = probe.map(|(i, _)| i);
+        // let cache_index = probe.map(|(i, _)| i);
 
         let mut access_status = probe_status;
         let data_size = fetch.data_size();
 
+        assert!(
+            !matches!(probe, Some((_, cache::RequestStatus::RESERVATION_FAIL))),
+            "reservation fail should not be returned as a status"
+        );
+
         if is_write {
-            if probe_status == cache::RequestStatus::HIT {
-                // let cache_index = cache_index.expect("hit has cache idx");
-                access_status =
-                    self.write_hit(addr, cache_index, &fetch, time, events, probe_status);
-            } else if probe_status != cache::RequestStatus::RESERVATION_FAIL
-                || (probe_status == cache::RequestStatus::RESERVATION_FAIL
-                    && self.inner.cache_config.write_allocate_policy
-                        == cache::config::WriteAllocatePolicy::NO_WRITE_ALLOCATE)
-            {
-                access_status =
-                    self.write_miss(addr, cache_index, fetch, time, events, probe_status);
-            } else {
-                // the only reason for reservation fail here is LINE_ALLOC_FAIL
-                // (i.e all lines are reserved)
-                let mut stats = self.inner.stats.lock();
-                stats.inc(
-                    *fetch.access_kind(),
-                    cache::AccessStat::ReservationFailure(
-                        cache::ReservationFailure::LINE_ALLOC_FAIL,
-                    ),
-                    1,
-                );
+            let no_allocate_on_write = self.inner.cache_config.write_allocate_policy
+                == cache::config::WriteAllocatePolicy::NO_WRITE_ALLOCATE;
+            match probe {
+                Some((cache_index, cache::RequestStatus::HIT)) => {
+                    access_status = self.write_hit(
+                        addr,
+                        cache_index,
+                        &fetch,
+                        time,
+                        events,
+                        cache::RequestStatus::RESERVATION_FAIL,
+                    );
+                }
+                None if no_allocate_on_write => {
+                    access_status = self.write_miss(
+                        addr,
+                        None,
+                        fetch,
+                        time,
+                        events,
+                        cache::RequestStatus::RESERVATION_FAIL,
+                    );
+                }
+                None => {
+                    // the only reason for reservation fail here is LINE_ALLOC_FAIL
+                    // (i.e all lines are reserved)
+                    let mut stats = self.inner.stats.lock();
+                    stats.inc(
+                        *fetch.access_kind(),
+                        cache::AccessStat::ReservationFailure(
+                            cache::ReservationFailure::LINE_ALLOC_FAIL,
+                        ),
+                        1,
+                    );
+                }
+                Some((cache_index, probe_status)) => {
+                    access_status =
+                        self.write_miss(addr, Some(cache_index), fetch, time, events, probe_status);
+                }
             }
-        } else if probe_status == cache::RequestStatus::HIT {
-            // access_status = self.read_hit(addr, cache_index, &fetch, time, events, probe_status);
-            access_status = self.read_hit(addr, &fetch, time, events);
-        } else if probe_status != cache::RequestStatus::RESERVATION_FAIL {
-            access_status = self.read_miss(addr, cache_index, &fetch, time, events, probe_status);
         } else {
-            // the only reason for reservation fail here is LINE_ALLOC_FAIL
-            // (i.e all lines are reserved)
-            let mut stats = self.inner.stats.lock();
-            stats.inc(
-                *fetch.access_kind(),
-                cache::AccessStat::ReservationFailure(cache::ReservationFailure::LINE_ALLOC_FAIL),
-                1,
-            );
+            match probe {
+                None => {
+                    // the only reason for reservation fail here is LINE_ALLOC_FAIL
+                    // (i.e all lines are reserved)
+                    let mut stats = self.inner.stats.lock();
+                    stats.inc(
+                        *fetch.access_kind(),
+                        cache::AccessStat::ReservationFailure(
+                            cache::ReservationFailure::LINE_ALLOC_FAIL,
+                        ),
+                        1,
+                    );
+                }
+                Some((_cache_index, cache::RequestStatus::HIT)) => {
+                    access_status = self.read_hit(addr, &fetch, time, events);
+                }
+                Some((cache_index, probe_status)) => {
+                    access_status =
+                        self.read_miss(addr, cache_index, &fetch, time, events, probe_status);
+                }
+            }
         }
+
+        // if is_write {
+        //     if probe_status == cache::RequestStatus::HIT {
+        //         // let cache_index = cache_index.expect("hit has cache idx");
+        //         access_status =
+        //             self.write_hit(addr, cache_index, &fetch, time, events, probe_status);
+        //     } else if probe_status != cache::RequestStatus::RESERVATION_FAIL
+        //         || (probe_status == cache::RequestStatus::RESERVATION_FAIL
+        //             && self.inner.cache_config.write_allocate_policy
+        //                 == cache::config::WriteAllocatePolicy::NO_WRITE_ALLOCATE)
+        //     {
+        //         access_status =
+        //             self.write_miss(addr, cache_index, fetch, time, events, probe_status);
+        //     } else {
+        //         // the only reason for reservation fail here is LINE_ALLOC_FAIL
+        //         // (i.e all lines are reserved)
+        //         let mut stats = self.inner.stats.lock();
+        //         stats.inc(
+        //             *fetch.access_kind(),
+        //             cache::AccessStat::ReservationFailure(
+        //                 cache::ReservationFailure::LINE_ALLOC_FAIL,
+        //             ),
+        //             1,
+        //         );
+        //     }
+        // } else if probe_status == cache::RequestStatus::HIT {
+        //     // access_status = self.read_hit(addr, cache_index, &fetch, time, events, probe_status);
+        //     access_status = self.read_hit(addr, &fetch, time, events);
+        // } else if probe_status != cache::RequestStatus::RESERVATION_FAIL {
+        //     access_status = self.read_miss(addr, cache_index, &fetch, time, events, probe_status);
+        // } else {
+        //     // the only reason for reservation fail here is LINE_ALLOC_FAIL
+        //     // (i.e all lines are reserved)
+        //     let mut stats = self.inner.stats.lock();
+        //     stats.inc(
+        //         *fetch.access_kind(),
+        //         cache::AccessStat::ReservationFailure(cache::ReservationFailure::LINE_ALLOC_FAIL),
+        //         1,
+        //     );
+        // }
 
         self.inner
             .bandwidth
