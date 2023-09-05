@@ -2,6 +2,7 @@
 
 use color_eyre::eyre;
 use criterion::{black_box, Criterion};
+use std::time::Duration;
 use validate::{
     materialize::{BenchmarkConfig, Benchmarks},
     TraceProvider,
@@ -60,16 +61,18 @@ pub async fn run_accelsim(bench_config: BenchmarkConfig) -> eyre::Result<()> {
     Ok(())
 }
 
-pub fn run_playground(bench_config: &BenchmarkConfig) -> eyre::Result<playground::stats::Stats> {
+pub fn run_playground(
+    bench_config: &BenchmarkConfig,
+) -> eyre::Result<(String, playground::stats::Stats, Duration)> {
     let accelsim_compat_mode = false;
     let extra_args: &[String] = &[];
-    let (_log, stats) = validate::playground::simulate_bench_config(
+    let (log, stats, dur) = validate::playground::simulate_bench_config(
         bench_config,
         TraceProvider::Box,
         extra_args,
         accelsim_compat_mode,
     )?;
-    Ok(stats)
+    Ok((log, stats, dur))
 }
 
 pub fn accelsim_benchmark(c: &mut Criterion) {
@@ -225,9 +228,7 @@ fn main() -> eyre::Result<()> {
         println!();
     }
 
-    let start = Instant::now();
-    run_playground(&black_box(get_bench_config(bench_name, input_num)?))?;
-    let play_dur = start.elapsed();
+    let (_, _, play_dur) = run_playground(&black_box(get_bench_config(bench_name, input_num)?))?;
     println!("play took:\t\t{play_dur:?}");
 
     let start = Instant::now();

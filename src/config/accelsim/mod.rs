@@ -132,18 +132,18 @@ impl Config {
 mod tests {
     use clap::Parser;
     use color_eyre::eyre;
-    use similar_asserts as diff;
     use std::path::PathBuf;
+    use utils::diff;
 
     #[test]
     fn test_read_trace_config_file_gtx1080() -> eyre::Result<()> {
         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
         let config_path = manifest_dir.join("accelsim/gtx1080/gpgpusim.trace.config");
         let config = std::fs::read_to_string(config_path)?;
-        diff::assert_eq!(super::Config::parse("")?, super::Config::default());
+        diff::assert_eq!(have: super::Config::parse("")?, want: super::Config::default());
         diff::assert_eq!(
-            super::Config::parse(config)?,
-            super::Config {
+            have: super::Config::parse(config)?,
+            want: super::Config {
                 shader_core: super::core::CoreConfig {
                     specialized_unit_1: "1,4,4,4,4,BRA".to_string(),
                     specialized_unit_2: "1,4,200,4,4,TEX".to_string(),
@@ -174,11 +174,11 @@ mod tests {
         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
         let config_path = manifest_dir.join("accelsim/gtx1080/gpgpusim.config");
         let config = std::fs::read_to_string(config_path)?;
-        diff::assert_eq!(super::Config::parse("")?, super::Config::default());
+        diff::assert_eq!(have: super::Config::parse("")?, want: super::Config::default());
 
         diff::assert_eq!(
-            super::Config::try_parse_from(vec![] as Vec<String>)?,
-            super::Config::default()
+            have: super::Config::try_parse_from(vec![] as Vec<String>)?,
+            want: super::Config::default()
         );
 
         let mut have = super::Config::parse(config)?;

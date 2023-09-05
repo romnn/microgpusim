@@ -44,7 +44,7 @@ impl super::Scheduler for Scheduler {
     fn order_warps(&mut self, core: &dyn WarpIssuer) {
         self.inner.order_by_priority(
             super::ordering::Ordering::GREEDY_THEN_PRIORITY_FUNC,
-            |lhs: &warp::Ref, rhs: &warp::Ref| {
+            |lhs: &(usize, warp::Ref), rhs: &(usize, warp::Ref)| {
                 super::ordering::sort_warps_by_oldest_dynamic_id(lhs, rhs, core)
             },
         );

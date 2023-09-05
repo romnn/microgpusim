@@ -5,13 +5,14 @@ use crate::{
 };
 use color_eyre::{eyre, Help};
 use std::io::Read;
+use std::time::Duration;
 
 pub fn simulate_bench_config<A>(
     bench: &BenchmarkConfig,
     trace_provider: TraceProvider,
     extra_args: A,
     accelsim_compat_mode: bool,
-) -> Result<(String, playground::stats::StatsBridge), RunError>
+) -> Result<(String, playground::stats::StatsBridge, Duration), RunError>
 where
     A: IntoIterator,
     <A as IntoIterator>::Item: Into<String>,
@@ -71,7 +72,10 @@ where
                 .unwrap(),
         ),
     };
+
+    let start = std::time::Instant::now();
     let stats = playground::run(config, args.as_slice()).map_err(eyre::Report::from)?;
+    let dur = start.elapsed();
 
     let mut raw_log = String::new();
 
@@ -80,7 +84,7 @@ where
         .read_to_string(&mut raw_log)
         .map_err(eyre::Report::from)?;
 
-    Ok((raw_log, stats))
+    Ok((raw_log, stats, dur))
 }
 
 pub async fn simulate(
@@ -103,14 +107,13 @@ pub async fn simulate(
     let accelsim_compat_mode = true;
     let extra_args = vec!["-gpgpu_perf_sim_memcpy", "0"];
     let (log, stats, dur) = tokio::task::spawn_blocking(move || {
-        let start = std::time::Instant::now();
-        let (log, stats) = simulate_bench_config(
+        let (log, stats, dur) = simulate_bench_config(
             &bench,
             TraceProvider::Native,
             extra_args,
             accelsim_compat_mode,
         )?;
-        Ok::<_, eyre::Report>((log, stats, start.elapsed()))
+        Ok::<_, eyre::Report>((log, stats, dur))
     })
     .await
     .unwrap()?;

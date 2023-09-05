@@ -185,19 +185,13 @@ impl Data
         _probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         if !self.inner.miss_queue_can_fit(1) {
-            // cannot handle request this cycle
-            // (might need to generate two requests)
-            #[cfg(feature = "stats")]
-            {
-                let mut stats = self.inner.stats.lock();
-                stats.inc(
-                    *fetch.access_kind(),
-                    cache::AccessStat::ReservationFailure(
-                        cache::ReservationFailure::MISS_QUEUE_FULL,
-                    ),
-                    1,
-                );
-            }
+            // cannot handle request this cycle, might need to generate two requests
+            let mut stats = self.inner.stats.lock();
+            stats.inc(
+                *fetch.access_kind(),
+                cache::AccessStat::ReservationFailure(cache::ReservationFailure::MISS_QUEUE_FULL),
+                1,
+            );
             return cache::RequestStatus::RESERVATION_FAIL;
         }
 
@@ -295,17 +289,12 @@ impl Data
         );
 
         if self.inner.miss_queue_full() {
-            #[cfg(feature = "stats")]
-            {
-                let mut stats = self.inner.stats.lock();
-                stats.inc(
-                    *fetch.access_kind(),
-                    cache::AccessStat::ReservationFailure(
-                        cache::ReservationFailure::MISS_QUEUE_FULL,
-                    ),
-                    1,
-                );
-            }
+            let mut stats = self.inner.stats.lock();
+            stats.inc(
+                *fetch.access_kind(),
+                cache::AccessStat::ReservationFailure(cache::ReservationFailure::MISS_QUEUE_FULL),
+                1,
+            );
             // cannot handle request this cycle
             return cache::RequestStatus::RESERVATION_FAIL;
         }
@@ -343,30 +332,23 @@ impl Data
 
         log::debug!("handling write miss for {} (block addr={}, mshr addr={}, mshr hit={} mshr avail={}, miss queue full={})", &fetch, block_addr, mshr_addr, mshr_hit, mshr_free, self.inner.miss_queue_can_fit(2));
 
-        // (!(mshr_hit && mshr_free) && !(!mshr_hit && mshr_free && !self.inner.miss_queue_full()))
-
-        // if mshr_full || !(mshr_miss_but_free || mshr_hit && mshr_free) {
-        // if mshr_full || !(mshr_miss_but_free || mshr_hit || mshr_free) {
         if mshr_full || (!(mshr_hit && mshr_free) && !mshr_miss_but_free) {
-            #[cfg(feature = "stats")]
-            {
-                // check what is the exact failure reason
-                let failure = if mshr_full {
-                    cache::ReservationFailure::MISS_QUEUE_FULL
-                } else if mshr_hit && !mshr_free {
-                    cache::ReservationFailure::MSHR_MERGE_ENTRY_FAIL
-                } else if !mshr_hit && !mshr_free {
-                    cache::ReservationFailure::MSHR_ENTRY_FAIL
-                } else {
-                    panic!("write_miss_write_allocate_naive bad reason");
-                };
-                let mut stats = self.inner.stats.lock();
-                stats.inc(
-                    *fetch.access_kind(),
-                    cache::AccessStat::ReservationFailure(failure),
-                    1,
-                );
-            }
+            // check what is the exact failure reason
+            let failure = if mshr_full {
+                cache::ReservationFailure::MISS_QUEUE_FULL
+            } else if mshr_hit && !mshr_free {
+                cache::ReservationFailure::MSHR_MERGE_ENTRY_FAIL
+            } else if !mshr_hit && !mshr_free {
+                cache::ReservationFailure::MSHR_ENTRY_FAIL
+            } else {
+                panic!("write_miss_write_allocate_naive bad reason");
+            };
+            let mut stats = self.inner.stats.lock();
+            stats.inc(
+                *fetch.access_kind(),
+                cache::AccessStat::ReservationFailure(failure),
+                1,
+            );
             log::debug!("handling write miss for {}: RESERVATION FAIL", &fetch);
             return cache::RequestStatus::RESERVATION_FAIL;
         }
@@ -557,27 +539,6 @@ impl Data
             } else {
                 // the only reason for reservation fail here is LINE_ALLOC_FAIL
                 // (i.e all lines are reserved)
-                #[cfg(feature = "stats")]
-                {
-                    let mut stats = self.inner.stats.lock();
-                    stats.inc(
-                        *fetch.access_kind(),
-                        cache::AccessStat::ReservationFailure(
-                            cache::ReservationFailure::LINE_ALLOC_FAIL,
-                        ),
-                        1,
-                    );
-                }
-            }
-        } else if probe_status == cache::RequestStatus::HIT {
-            access_status = self.read_hit(addr, cache_index, &fetch, time, events, probe_status);
-        } else if probe_status != cache::RequestStatus::RESERVATION_FAIL {
-            access_status = self.read_miss(addr, cache_index, &fetch, time, events, probe_status);
-        } else {
-            // the only reason for reservation fail here is LINE_ALLOC_FAIL
-            // (i.e all lines are reserved)
-            #[cfg(feature = "stats")]
-            {
                 let mut stats = self.inner.stats.lock();
                 stats.inc(
                     *fetch.access_kind(),
@@ -587,6 +548,19 @@ impl Data
                     1,
                 );
             }
+        } else if probe_status == cache::RequestStatus::HIT {
+            access_status = self.read_hit(addr, cache_index, &fetch, time, events, probe_status);
+        } else if probe_status != cache::RequestStatus::RESERVATION_FAIL {
+            access_status = self.read_miss(addr, cache_index, &fetch, time, events, probe_status);
+        } else {
+            // the only reason for reservation fail here is LINE_ALLOC_FAIL
+            // (i.e all lines are reserved)
+            let mut stats = self.inner.stats.lock();
+            stats.inc(
+                *fetch.access_kind(),
+                cache::AccessStat::ReservationFailure(cache::ReservationFailure::LINE_ALLOC_FAIL),
+                1,
+            );
         }
 
         self.inner
@@ -635,7 +609,6 @@ impl cache::Cache for Data
         debug_assert!(fetch.data_size() <= cache_config.atom_size());
 
         let is_write = fetch.is_write();
-        #[cfg(feature = "stats")]
         let access_kind = *fetch.access_kind();
         let block_addr = cache_config.block_addr(addr);
 
@@ -672,28 +645,23 @@ impl cache::Cache for Data
             access_status
         );
 
-        #[cfg(feature = "stats")]
-        {
-            let mut stats = self.inner.stats.lock();
-            let stat_cache_request_status = match probe_status {
-                cache::RequestStatus::HIT_RESERVED
-                    if access_status != cache::RequestStatus::RESERVATION_FAIL =>
-                {
-                    probe_status
-                }
-                cache::RequestStatus::SECTOR_MISS
-                    if access_status != cache::RequestStatus::MISS =>
-                {
-                    probe_status
-                }
-                _status => access_status,
-            };
-            stats.inc(
-                access_kind,
-                cache::AccessStat::Status(stat_cache_request_status),
-                1,
-            );
-        }
+        let stat_cache_request_status = match probe_status {
+            cache::RequestStatus::HIT_RESERVED
+                if access_status != cache::RequestStatus::RESERVATION_FAIL =>
+            {
+                probe_status
+            }
+            cache::RequestStatus::SECTOR_MISS if access_status != cache::RequestStatus::MISS => {
+                probe_status
+            }
+            _status => access_status,
+        };
+        let mut stats = self.inner.stats.lock();
+        stats.inc(
+            access_kind,
+            cache::AccessStat::Status(stat_cache_request_status),
+            1,
+        );
         // m_stats.inc_stats_pw(
         // mf->get_access_type(),
         // m_stats.select_stats_status(probe_status, access_status));

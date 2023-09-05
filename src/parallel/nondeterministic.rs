@@ -171,10 +171,7 @@ fn new_serial_cycle<I>(
             }
         } else {
             log::debug!("SKIP sub partition {} ({}): DRAM full stall", i, device);
-            #[cfg(feature = "stats")]
-            {
-                stats.lock().stall_dram_full += 1;
-            }
+            stats.lock().stall_dram_full += 1;
         }
         // we borrow all of sub here, which is a problem for the cyclic reference in l2
         // interface
@@ -1422,7 +1419,7 @@ where
     //                             core_sim_order.rotate_left(1);
     //                         }
     //
-    //                         // #[cfg(feature = "stats")]
+    //                         // #[cfg(feature = "timings")]
     //                         // {
     //                         //     TIMINGS
     //                         //         .lock()
@@ -1495,7 +1492,7 @@ where
     //                 // issue new blocks
     //                 // let start = Instant::now();
     //                 // self.issue_block_to_core();
-    //                 // #[cfg(feature = "stats")]
+    //                 // #[cfg(feature = "timings")]
     //                 // {
     //                 //     TIMINGS
     //                 //         .lock()
@@ -1618,10 +1615,7 @@ where
                 }
             } else {
                 log::debug!("SKIP sub partition {} ({}): DRAM full stall", i, device);
-                #[cfg(feature = "stats")]
-                {
-                    self.stats.lock().stall_dram_full += 1;
-                }
+                self.stats.lock().stall_dram_full += 1;
             }
             // we borrow all of sub here, which is a problem for the cyclic reference in l2
             // interface

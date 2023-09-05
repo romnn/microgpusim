@@ -1,7 +1,7 @@
-use super::diff;
 use color_eyre::eyre;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use utils::diff;
 
 pub mod playground_sim {
     use async_process::Command;

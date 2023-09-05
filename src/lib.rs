@@ -405,25 +405,26 @@ where
         let last_issued = *last_cluster_issue;
         let num_clusters = self.config.num_simt_clusters;
         for cluster_id in 0..num_clusters {
-            let idx = (cluster_id + last_issued + 1) % num_clusters;
-            let cluster = self.clusters[idx].read();
+            let cluster_id = (cluster_id + last_issued + 1) % num_clusters;
+            let cluster = self.clusters[cluster_id].read();
             debug_assert_eq!(cluster_id, cluster.cluster_id);
             let num_blocks_issued = cluster.issue_block_to_core(self, cycle);
-            log::trace!("cluster[{}] issued {} blocks", idx, num_blocks_issued);
+            log::trace!(
+                "cluster[{}] issued {} blocks",
+                cluster_id,
+                num_blocks_issued
+            );
 
             if num_blocks_issued > 0 {
-                *last_cluster_issue = idx;
+                *last_cluster_issue = cluster_id;
                 // self.total_blocks_launched += num_blocks_issued;
             }
         }
     }
 
     pub fn set_cycle(&self, cycle: u64) {
-        #[cfg(feature = "stats")]
-        {
-            let mut stats = self.stats.lock();
-            stats.sim.cycles = cycle;
-        }
+        let mut stats = self.stats.lock();
+        stats.sim.cycles = cycle;
     }
 
     #[allow(clippy::overly_complex_bool_expr)]
@@ -591,10 +592,7 @@ where
                 }
             } else {
                 log::debug!("SKIP sub partition {} ({}): DRAM full stall", i, device);
-                #[cfg(feature = "stats")]
-                {
-                    self.stats.lock().stall_dram_full += 1;
-                }
+                self.stats.lock().stall_dram_full += 1;
             }
             // we borrow all of sub here, which is a problem for the cyclic reference in l2
             // interface
@@ -1228,9 +1226,10 @@ pub fn accelmain(
 
 #[cfg(test)]
 mod tests {
-    use crate::testing::{diff, init_logging};
+    use crate::testing::init_logging;
     use color_eyre::eyre;
     use std::time::Instant;
+    use utils::diff;
     use validate::materialize::{BenchmarkConfig, Benchmarks};
 
     fn get_bench_config(benchmark_name: &str, input_idx: usize) -> eyre::Result<BenchmarkConfig> {

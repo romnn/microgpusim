@@ -488,7 +488,7 @@ impl WarpInstruction {
             data_size,
             // starting from MAXWELL isize=16 bytes (including the control bytes)
             instr_width: 16,
-            mem_access_queue: VecDeque::new(),
+            mem_access_queue: VecDeque::with_capacity(0),
             outputs,
             inputs,
             src_arch_reg,

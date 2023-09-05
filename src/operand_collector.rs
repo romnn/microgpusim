@@ -417,9 +417,6 @@ impl Arbiter {
     pub fn allocate_reads(&mut self) -> HashMap<usize, Operand> {
         // log::trace!("queue: {:?}", &self.queue);
 
-        // #[cfg(feature = "stats")]
-        // let start = std::time::Instant::now();
-
         let num_inputs = self.num_banks;
         let num_outputs = self.num_collectors;
         let square = if num_inputs > num_outputs {
@@ -474,7 +471,7 @@ impl Arbiter {
             // log::trace!("request: {:?}", &Self::compat(&request[bank]));
         }
 
-        // #[cfg(feature = "stats")]
+        // #[cfg(feature = "timings")]
         // {
         //     crate::TIMINGS
         //         .lock()
@@ -487,9 +484,6 @@ impl Arbiter {
 
         // wavefront allocator from booksim
         // loop through diagonals of request matrix
-
-        // #[cfg(feature = "stats")]
-        // let start = std::time::Instant::now();
 
         for p in 0..square {
             let mut output = (pri + p) % num_outputs;
@@ -546,7 +540,7 @@ impl Arbiter {
             }
         }
 
-        // #[cfg(feature = "stats")]
+        // #[cfg(feature = "timings")]
         // {
         //     crate::TIMINGS
         //         .lock()
@@ -556,8 +550,6 @@ impl Arbiter {
         // }
 
         // allocated
-        // #[cfg(feature = "stats")]
-        // let start = std::time::Instant::now();
 
         log::debug!(
             "arbiter allocated {} reads ({:?})",
@@ -580,7 +572,7 @@ impl Arbiter {
             self.allocate_bank_for_read(bank, read.clone());
             read_ops.insert(bank, read);
         }
-        // #[cfg(feature = "stats")]
+        // #[cfg(feature = "timings")]
         // {
         //     crate::TIMINGS
         //         .lock()

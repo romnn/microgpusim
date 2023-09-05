@@ -8,6 +8,6 @@ publish = false
 color-eyre = "0"
 glob = "0"
 libc = "0"
-
+similar-asserts = "1"
 thiserror = "1"
 async-process = "1"

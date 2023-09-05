@@ -144,16 +144,13 @@ impl cache::Cache for ReadOnly
             if self.inner.miss_queue_full() {
                 status = Status::RESERVATION_FAIL;
 
-                #[cfg(feature = "stats")]
-                {
-                    self.inner.stats.lock().inc(
-                        *fetch.access_kind(),
-                        cache::AccessStat::ReservationFailure(
-                            cache::ReservationFailure::MISS_QUEUE_FULL,
-                        ),
-                        1,
-                    );
-                }
+                self.inner.stats.lock().inc(
+                    *fetch.access_kind(),
+                    cache::AccessStat::ReservationFailure(
+                        cache::ReservationFailure::MISS_QUEUE_FULL,
+                    ),
+                    1,
+                );
             } else {
                 let (should_miss, _writeback, _evicted) = self.inner.send_read_request(
                     addr,
@@ -172,25 +169,17 @@ impl cache::Cache for ReadOnly
                 }
             }
         } else {
-            #[cfg(feature = "stats")]
-            {
-                self.inner.stats.lock().inc(
-                    *fetch.access_kind(),
-                    cache::AccessStat::ReservationFailure(
-                        cache::ReservationFailure::LINE_ALLOC_FAIL,
-                    ),
-                    1,
-                );
-            }
-        }
-        #[cfg(feature = "stats")]
-        {
             self.inner.stats.lock().inc(
                 *fetch.access_kind(),
-                cache::AccessStat::Status(select_status(probe_status, status)),
+                cache::AccessStat::ReservationFailure(cache::ReservationFailure::LINE_ALLOC_FAIL),
                 1,
             );
         }
+        self.inner.stats.lock().inc(
+            *fetch.access_kind(),
+            cache::AccessStat::Status(select_status(probe_status, status)),
+            1,
+        );
         status
     }
 

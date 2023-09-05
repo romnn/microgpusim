@@ -30,7 +30,6 @@ impl PendingRequest {}
 /// Implements common functions for `read_only_cache` and `data_cache`
 /// Each subclass implements its own 'access' function
 #[derive()]
-// pub struct Base<I> {
 pub struct Base {
     pub name: String,
     pub core_id: usize,
@@ -52,7 +51,6 @@ pub struct Base {
     pub bandwidth: super::bandwidth::Manager,
 }
 
-// impl<I> std::fmt::Debug for Base<I> {
 impl std::fmt::Debug for Base {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("Base")
@@ -64,13 +62,11 @@ impl std::fmt::Debug for Base {
     }
 }
 
-// impl<I> Base<I> {
 impl Base {
     pub fn new(
         name: String,
         core_id: usize,
         cluster_id: usize,
-        // mem_port: Arc<I>,
         stats: Arc<Mutex<stats::Cache>>,
         config: Arc<config::GPU>,
         cache_config: Arc<config::Cache>,
@@ -192,15 +188,12 @@ impl Base {
             }
 
             self.mshrs.add(mshr_addr, fetch.clone());
-            #[cfg(feature = "stats")]
-            {
-                let mut stats = self.stats.lock();
-                stats.inc(
-                    *fetch.access_kind(),
-                    super::AccessStat::Status(super::RequestStatus::MSHR_HIT),
-                    1,
-                );
-            }
+            let mut stats = self.stats.lock();
+            stats.inc(
+                *fetch.access_kind(),
+                super::AccessStat::Status(super::RequestStatus::MSHR_HIT),
+                1,
+            );
 
             should_miss = true;
         } else if !mshr_hit && !mshr_full && !self.miss_queue_full() {
@@ -245,27 +238,19 @@ impl Base {
 
             should_miss = true;
         } else if mshr_hit && mshr_full {
-            #[cfg(feature = "stats")]
-            {
-                self.stats.lock().inc(
-                    *fetch.access_kind(),
-                    super::AccessStat::ReservationFailure(
-                        super::ReservationFailure::MSHR_MERGE_ENTRY_FAIL,
-                    ),
-                    1,
-                );
-            }
+            self.stats.lock().inc(
+                *fetch.access_kind(),
+                super::AccessStat::ReservationFailure(
+                    super::ReservationFailure::MSHR_MERGE_ENTRY_FAIL,
+                ),
+                1,
+            );
         } else if !mshr_hit && mshr_full {
-            #[cfg(feature = "stats")]
-            {
-                self.stats.lock().inc(
-                    *fetch.access_kind(),
-                    super::AccessStat::ReservationFailure(
-                        super::ReservationFailure::MSHR_ENTRY_FAIL,
-                    ),
-                    1,
-                );
-            }
+            self.stats.lock().inc(
+                *fetch.access_kind(),
+                super::AccessStat::ReservationFailure(super::ReservationFailure::MSHR_ENTRY_FAIL),
+                1,
+            );
         } else {
             panic!(
                 "mshr_hit={} mshr_full={} miss_queue_full={}",

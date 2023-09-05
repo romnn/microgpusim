@@ -406,11 +406,8 @@ impl LoadStoreUnit
         }
 
         if dispatch_instr.dispatch_delay_cycles > 0 {
-            #[cfg(feature = "stats")]
-            {
-                let _stats = self.stats.lock();
-                // stats.num_shared_mem_bank_access[self.core_id] += 1;
-            }
+            let _stats = self.stats.lock();
+            // stats.num_shared_mem_bank_access[self.core_id] += 1;
         }
 
         // dispatch_instr.dec_dispatch_delay();
@@ -1026,14 +1023,11 @@ impl fu::SimdFunctionUnit for LoadStoreUnit
 
         // m_core->mem_instruction_stats(*inst);
         if let Some(mem_space) = instr.memory_space {
-            #[cfg(feature = "stats")]
-            {
-                let mut stats = self.stats.lock();
-                let active_count = instr.active_thread_count() as u64;
-                stats
-                    .instructions
-                    .inc(mem_space, instr.is_store(), active_count);
-            }
+            let mut stats = self.stats.lock();
+            let active_count = instr.active_thread_count() as u64;
+            stats
+                .instructions
+                .inc(mem_space, instr.is_store(), active_count);
         }
 
         // m_core->incmem_stat(m_core->get_config()->warp_size, 1);

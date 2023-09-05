@@ -433,7 +433,7 @@ mod tests {
     use super::AddressTranslation;
     use crate::config;
     use color_eyre::eyre;
-    use similar_asserts as diff;
+    use utils::diff;
 
     #[inline]
     fn bit_str(n: u64) -> String {
@@ -604,7 +604,7 @@ mod tests {
     fn test_tlx() {
         let config = config::GPU::default();
         let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 139_823_420_539_008);
-        let expected = super::TranslatedAddress {
+        let want = super::TranslatedAddress {
             chip: 0,
             bk: 1,
             row: 2900,
@@ -612,8 +612,8 @@ mod tests {
             burst: 0,
             sub_partition: 1,
         };
-        diff::assert_eq!(expected, ref_tlx_addr);
-        diff::assert_eq!(tlx_addr, expected);
+        diff::assert_eq!(have: ref_tlx_addr, want: want);
+        diff::assert_eq!(have: tlx_addr, want: want);
     }
 
     #[test]
@@ -622,28 +622,28 @@ mod tests {
 
         let mask =
             0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000;
-        diff::assert_eq!(super::mask_limit(mask), (0, 64));
-        diff::assert_eq!(ref_mask_limit(mask), (0, 64));
+        diff::assert_eq!(have: super::mask_limit(mask), want: (0, 64));
+        diff::assert_eq!(have: ref_mask_limit(mask), want: (0, 64));
 
         let mask =
             0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0111_0000_1000_0000;
-        diff::assert_eq!(super::mask_limit(mask), (7, 15));
-        diff::assert_eq!(ref_mask_limit(mask), (7, 15));
+        diff::assert_eq!(have: super::mask_limit(mask), want: (7, 15));
+        diff::assert_eq!(have: ref_mask_limit(mask), want: (7, 15));
 
         let mask =
             0b0000_0000_0000_0000_0000_0000_0000_0000_0000_1111_1111_1111_1000_0000_0000_0000;
-        diff::assert_eq!(super::mask_limit(mask), (15, 28));
-        diff::assert_eq!(ref_mask_limit(mask), (15, 28));
+        diff::assert_eq!(have: super::mask_limit(mask), want: (15, 28));
+        diff::assert_eq!(have: ref_mask_limit(mask), want: (15, 28));
 
         let mask =
             0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_1111_0111_1111;
-        diff::assert_eq!(super::mask_limit(mask), (0, 12));
-        diff::assert_eq!(ref_mask_limit(mask), (0, 12));
+        diff::assert_eq!(have: super::mask_limit(mask), want: (0, 12));
+        diff::assert_eq!(have: ref_mask_limit(mask), want: (0, 12));
 
         let mask =
             0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0001_1111;
-        diff::assert_eq!(super::mask_limit(mask), (0, 5));
-        diff::assert_eq!(ref_mask_limit(mask), (0, 5));
+        diff::assert_eq!(have: super::mask_limit(mask), want: (0, 5));
+        diff::assert_eq!(have: ref_mask_limit(mask), want: (0, 5));
     }
 
     #[test]

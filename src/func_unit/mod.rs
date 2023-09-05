@@ -199,7 +199,7 @@ impl crate::engine::cycle::Component for PipelinedSimdUnit {
 
 #[cfg(test)]
 mod tests {
-    use crate::testing::diff;
+    use utils::diff;
 
     #[allow(clippy::similar_names)]
     #[test]

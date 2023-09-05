@@ -20,27 +20,42 @@ pub fn all_different<T>(values: &[Arc<Mutex<T>>]) -> bool {
 }
 
 pub fn sort_warps_by_oldest_dynamic_id(
-    lhs: &warp::Ref,
-    rhs: &warp::Ref,
+    lhs: &(usize, warp::Ref),
+    rhs: &(usize, warp::Ref),
     issuer: &dyn crate::core::WarpIssuer,
 ) -> std::cmp::Ordering {
-    let mut lhs = lhs.try_lock();
-    let mut rhs = rhs.try_lock();
-    if lhs.done_exit()
-        || lhs.waiting()
-        || issuer.warp_waiting_at_barrier(lhs.warp_id)
-        || issuer.warp_waiting_at_mem_barrier(&mut lhs)
-    {
-        std::cmp::Ordering::Greater
-    } else if rhs.done_exit()
-        || rhs.waiting()
-        || issuer.warp_waiting_at_barrier(rhs.warp_id)
-        || issuer.warp_waiting_at_mem_barrier(&mut rhs)
-    {
-        std::cmp::Ordering::Less
-    } else {
-        lhs.dynamic_warp_id().cmp(&rhs.dynamic_warp_id())
+    let mut lhs_warp = lhs.1.try_lock();
+    let mut rhs_warp = rhs.1.try_lock();
+    let lhs_blocked = lhs_warp.done_exit()
+        || lhs_warp.waiting()
+        || issuer.warp_waiting_at_barrier(lhs_warp.warp_id)
+        || issuer.warp_waiting_at_mem_barrier(&mut lhs_warp);
+    let rhs_blocked = rhs_warp.done_exit()
+        || rhs_warp.waiting()
+        || issuer.warp_waiting_at_barrier(rhs_warp.warp_id)
+        || issuer.warp_waiting_at_mem_barrier(&mut rhs_warp);
+
+    match (lhs_blocked, rhs_blocked) {
+        (true, false) => std::cmp::Ordering::Greater,
+        (false, true) => std::cmp::Ordering::Less,
+        (true, true) => {
+            // both blocked
+            (lhs.0).cmp(&(rhs.0))
+        }
+        (false, false) => {
+            // both unblocked
+            (lhs_warp.dynamic_warp_id(), lhs.0).cmp(&(rhs_warp.dynamic_warp_id(), rhs.0))
+        }
     }
+
+    // the following is sufficient when STABLE sorting is used (requires allocation).
+    // if lhs_blocked {
+    //     std::cmp::Ordering::Greater
+    // } else if rhs_blocked {
+    //     std::cmp::Ordering::Less
+    // } else {
+    //     (lhs_warp.dynamic_warp_id(), lhs.0).cmp(&(rhs_warp.dynamic_warp_id(), rhs.0))
+    // }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -56,9 +71,9 @@ pub enum Ordering {
 }
 
 impl super::Base {
-    pub fn order_by_priority<F>(&mut self, ordering: Ordering, mut priority_func: F)
+    pub fn order_by_priority<F>(&mut self, ordering: Ordering, priority_func: F)
     where
-        F: FnMut(&warp::Ref, &warp::Ref) -> std::cmp::Ordering,
+        F: FnMut(&(usize, warp::Ref), &(usize, warp::Ref)) -> std::cmp::Ordering,
     {
         let num_warps_to_add = self.supervised_warps.len();
         let out = &mut self.next_cycle_prioritized_warps;
@@ -75,17 +90,46 @@ impl super::Base {
             .skip(self.last_supervised_issued_idx);
         debug_assert!(all_different(&self.warps));
 
+        // let num_supervised_warps = self.supervised_warps.len();
+
         // sort a copy of the supervised warps reorder those for stability
-        let mut supervised_warps_sorted: Vec<_> = self
-            .supervised_warps
-            .clone()
-            .into_iter()
-            .enumerate()
-            .collect();
-        supervised_warps_sorted.sort_by(|(_, a), (_, b)| priority_func(a, b));
+        self.supervised_warps_sorted.clear();
+        self.supervised_warps_sorted
+            .extend(self.supervised_warps.iter().cloned().enumerate());
+
+        // self.supervised_warps_sorted[0..num_supervised_warps]
+        //     .clone_from_slice(self.supervised_warps.make_contiguous());
+        // let mut supervised_warps_sorted: Vec<_> = self
+        //     .supervised_warps
+        //     .clone()
+        //     .into_iter()
+        //     .enumerate()
+        //     .collect();
+        // let before = self
+        //     .supervised_warps_sorted
+        //     .iter()
+        //     .map(|(i, w)| (*i, w.lock().dynamic_warp_id()))
+        //     .collect::<Vec<_>>();
+
+        self.supervised_warps_sorted.sort_unstable_by(priority_func);
+        // self.supervised_warps_sorted.sort_by(priority_func);
+
+        // let after = self
+        //     .supervised_warps_sorted
+        //     .iter()
+        //     .map(|(i, w)| (*i, w.lock().dynamic_warp_id()))
+        //     .collect::<Vec<_>>();
+
+        // utils::diff::diff!(before: before, after: after);
+        // utils::diff::assert_eq!(before: before, after: after);
+        // utils::assert_eq!(before: before, after: after);
+
+        // .sort_by(|(_, a), (_, b)| priority_func(a, b));
+        // .sort_unstable_by(|(_, a), (_, b)| priority_func(a, b));
 
         debug_assert!(all_different(
-            &supervised_warps_sorted
+            &self
+                .supervised_warps_sorted
                 .clone()
                 .into_iter()
                 .map(|(_, w)| w)
@@ -106,8 +150,8 @@ impl super::Base {
                 );
 
                 out.extend(
-                    supervised_warps_sorted
-                        .into_iter()
+                    self.supervised_warps_sorted
+                        .drain(..)
                         .take(num_warps_to_add)
                         .filter(|(idx, warp)| {
                             if let Some((greedy_idx, greedy_warp)) = greedy_warp {
@@ -121,9 +165,19 @@ impl super::Base {
                 );
             }
             Ordering::PRIORITY_FUNC_ONLY => {
-                out.extend(supervised_warps_sorted.into_iter().take(num_warps_to_add));
+                out.extend(
+                    self.supervised_warps_sorted
+                        .drain(..)
+                        .take(num_warps_to_add),
+                );
             }
         }
+        // println!(
+        //     "out: {:?}",
+        //     out.iter()
+        //         .map(|(i, w)| w.lock().dynamic_warp_id())
+        //         .collect::<Vec<_>>()
+        // );
         assert_eq!(
             num_warps_to_add,
             out.len(),

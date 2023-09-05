@@ -125,12 +125,13 @@ impl Access<WarpInstruction> for RegisterSet {
     fn occupied_mut(
         &mut self,
     ) -> Box<dyn Iterator<Item = (usize, &mut Option<WarpInstruction>)> + '_> {
-        Box::new(
-            self.regs
-                .iter_mut()
-                .enumerate()
-                .filter(|(_, r)| r.is_some()),
-        )
+        Box::new(self.iter_occupied_mut())
+        // Box::new(
+        //     self.regs
+        //         .iter_mut()
+        //         .enumerate()
+        //         .filter(|(_, r)| r.is_some()),
+        // )
     }
 
     #[inline]
@@ -155,7 +156,9 @@ impl Access<WarpInstruction> for RegisterSet {
 
     #[inline]
     fn get_ready_mut(&mut self) -> Option<(usize, &mut Option<WarpInstruction>)> {
-        self.occupied_mut().reduce(oldest_instruction_reducer_mut)
+        self.iter_occupied_mut()
+            .reduce(oldest_instruction_reducer_mut)
+        // self.occupied_mut().reduce(oldest_instruction_reducer_mut)
     }
 }
 
@@ -164,6 +167,16 @@ impl RegisterSet {
     pub fn new(stage: super::PipelineStage, size: usize, id: usize) -> Self {
         let regs = (0..size).map(|_| None).collect();
         Self { stage, regs, id }
+    }
+
+    #[inline]
+    pub fn iter_occupied_mut(
+        &mut self,
+    ) -> impl Iterator<Item = (usize, &mut Option<WarpInstruction>)> + '_ {
+        self.regs
+            .iter_mut()
+            .enumerate()
+            .filter(|(_, r)| r.is_some())
     }
 }
 

@@ -380,12 +380,10 @@ where
         let ic::Packet { data, time } = packet;
         let mut fetch = data;
 
-        #[cfg(feature = "stats")]
         {
-            let mut stats = self.stats.lock();
             let access_kind = *fetch.access_kind();
             debug_assert_eq!(fetch.is_write(), access_kind.is_write());
-            stats.accesses.inc(access_kind, 1);
+            self.stats.lock().accesses.inc(access_kind, 1);
         }
 
         let dest_sub_partition_id = fetch.sub_partition_id();
@@ -1973,8 +1971,5 @@ where
 #[allow(unused_variables)]
 pub fn warp_inst_complete(instr: &mut WarpInstruction, stats: &Mutex<stats::Stats>) {
     // TODO: use per core stats
-    #[cfg(feature = "stats")]
-    {
-        stats.lock().sim.instructions += instr.active_thread_count() as u64;
-    }
+    stats.lock().sim.instructions += instr.active_thread_count() as u64;
 }

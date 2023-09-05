@@ -1,11 +1,11 @@
 use crate::testing::stats::rel_err;
 
-use super::diff;
 use stats::{
     cache::{Access, RequestStatus},
     mem::AccessKind,
 };
 use strum::IntoEnumIterator;
+use utils::diff;
 
 #[macro_export]
 macro_rules! status {

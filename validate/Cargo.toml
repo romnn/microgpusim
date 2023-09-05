@@ -5,7 +5,8 @@ edition = "2021"
 publish = false
 
 [features]
-default = ["remote"]
+default = ["remote", "parallel"]
+parallel = ["casimu/parallel"]
 remote = ["dep:ssh_jumper"]
 
 [package.metadata.cargo-feature-combinations]
