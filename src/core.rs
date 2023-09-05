@@ -1,13 +1,15 @@
 use super::{
     address, allocation::Allocation, barrier, cache, config, func_unit as fu,
-    instruction::WarpInstruction, interconn as ic, kernel::Kernel, mem_fetch, mem_fetch::BitString,
-    opcodes, operand_collector as opcoll, register_set, scheduler, scoreboard, warp,
+    instruction::WarpInstruction, interconn as ic, kernel::Kernel, mem_fetch, opcodes,
+    operand_collector as opcoll, register_set, scheduler, scoreboard, warp,
 };
 use crate::sync::{Mutex, RwLock};
+
 use bitvec::{array::BitArray, BitArr};
 use color_eyre::eyre;
 use console::style;
 use crossbeam::utils::CachePadded;
+use mem_fetch::{access::Kind as AccessKind, ToBitString};
 use once_cell::sync::Lazy;
 use register_set::Access as RegisterSetAccess;
 use std::collections::{HashMap, VecDeque};
@@ -190,21 +192,21 @@ where
                 for mut access in accesses {
                     // set mem accesses allocation start addr, because only core knows
                     match access.kind {
-                        mem_fetch::AccessKind::GLOBAL_ACC_R
-                        | mem_fetch::AccessKind::LOCAL_ACC_R
-                        | mem_fetch::AccessKind::CONST_ACC_R
-                        | mem_fetch::AccessKind::TEXTURE_ACC_R
-                        | mem_fetch::AccessKind::GLOBAL_ACC_W
-                        | mem_fetch::AccessKind::LOCAL_ACC_W => {
+                        AccessKind::GLOBAL_ACC_R
+                        | AccessKind::LOCAL_ACC_R
+                        | AccessKind::CONST_ACC_R
+                        | AccessKind::TEXTURE_ACC_R
+                        | AccessKind::GLOBAL_ACC_W
+                        | AccessKind::LOCAL_ACC_W => {
                             access.allocation =
                                 self.allocations.try_read().get(&access.addr).cloned();
                         }
 
-                        other @ (mem_fetch::AccessKind::L1_WRBK_ACC
-                        | mem_fetch::AccessKind::L2_WRBK_ACC
-                        | mem_fetch::AccessKind::INST_ACC_R
-                        | mem_fetch::AccessKind::L1_WR_ALLOC_R
-                        | mem_fetch::AccessKind::L2_WR_ALLOC_R) => {
+                        other @ (AccessKind::L1_WRBK_ACC
+                        | AccessKind::L2_WRBK_ACC
+                        | AccessKind::INST_ACC_R
+                        | AccessKind::L1_WR_ALLOC_R
+                        | AccessKind::L2_WR_ALLOC_R) => {
                             panic!(
                                 "generated {:?} access from instruction {}",
                                 &other, &pipe_reg_mut
@@ -1472,16 +1474,17 @@ where
                             num_bytes = line_size - offset_in_block;
                         }
                         let inst_alloc = &*PROGRAM_MEM_ALLOC;
-                        let access = mem_fetch::MemAccess::new(
-                            mem_fetch::AccessKind::INST_ACC_R,
-                            ppc as u64,
-                            Some(inst_alloc.clone()),
-                            num_bytes as u32,
-                            false,
-                            BitArray::ZERO,
-                            BitArray::ZERO,
-                            BitArray::ZERO,
-                        );
+                        let access = mem_fetch::access::Builder {
+                            kind: AccessKind::INST_ACC_R,
+                            addr: ppc as u64,
+                            allocation: Some(inst_alloc.clone()),
+                            req_size_bytes: num_bytes as u32,
+                            is_write: false,
+                            warp_active_mask: warp::ActiveMask::ZERO,
+                            byte_mask: mem_fetch::ByteMask::ZERO,
+                            sector_mask: mem_fetch::SectorMask::ZERO,
+                        }
+                        .build();
 
                         let tlx_addr = self
                             .config

@@ -204,7 +204,7 @@ mod tests {
     #[allow(clippy::similar_names)]
     #[test]
     fn test_bitset_shift_right() {
-        use crate::mem_fetch::BitString;
+        use crate::mem_fetch::ToBitString;
         use bitvec::{
             array::BitArray,
             order::{Lsb0, Msb0},

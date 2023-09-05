@@ -1,13 +1,17 @@
 use crate::{
     address, barrier, config,
     kernel::Kernel,
-    mem_fetch::{self, BitString},
+    mem_fetch,
     mem_sub_partition::MAX_MEMORY_ACCESS_SIZE,
     opcodes::{ArchOp, Op, Opcode},
     operand_collector as opcoll, warp,
 };
 
 use bitvec::{array::BitArray, field::BitField, BitArr};
+use mem_fetch::{
+    access::{Builder as MemAccessBuilder, Kind as AccessKind, MemAccess},
+    ToBitString,
+};
 use std::collections::{HashMap, VecDeque};
 use trace_model as trace;
 
@@ -134,7 +138,7 @@ pub struct WarpInstruction {
     pub memory_space: Option<MemorySpace>,
     pub barrier: Option<BarrierInfo>,
     pub threads: Vec<PerThreadInfo>,
-    pub mem_access_queue: VecDeque<mem_fetch::MemAccess>,
+    pub mem_access_queue: VecDeque<MemAccess>,
     /// operation latency
     pub latency: usize,
     /// The cycle in which the instruction was issued by a core.
@@ -214,11 +218,11 @@ fn get_data_width_from_opcode(opcode: &str) -> Result<u32, std::num::ParseIntErr
 
 fn memory_coalescing_arch_reduce(
     is_write: bool,
-    access_kind: mem_fetch::AccessKind,
+    access_kind: mem_fetch::access::Kind,
     tx: &TransactionInfo,
     mut addr: address,
     segment_size: u64,
-) -> mem_fetch::MemAccess {
+) -> MemAccess {
     debug_assert_eq!(addr & (segment_size - 1), 0);
     debug_assert!(tx.chunk_mask.count_ones() >= 1);
     // halves (used to check if 64 byte segment can be
@@ -264,16 +268,17 @@ fn memory_coalescing_arch_reduce(
         }
     }
 
-    mem_fetch::MemAccess::new(
-        access_kind,
+    MemAccessBuilder {
+        kind: access_kind,
         addr,
-        None, // we cannot know the allocation start address in this context
+        allocation: None, // we cannot know the allocation start address in this context
         req_size_bytes,
         is_write,
-        tx.active_mask,
-        tx.byte_mask,
-        tx.chunk_mask,
-    )
+        warp_active_mask: tx.active_mask,
+        byte_mask: tx.byte_mask,
+        sector_mask: tx.chunk_mask,
+    }
+    .build()
 }
 
 impl WarpInstruction {
@@ -560,24 +565,21 @@ impl WarpInstruction {
     }
 
     #[must_use]
-    pub fn access_kind(&self) -> Option<mem_fetch::AccessKind> {
+    pub fn access_kind(&self) -> Option<AccessKind> {
         let is_write = self.is_store();
         match self.memory_space {
-            Some(MemorySpace::Constant) => Some(mem_fetch::AccessKind::CONST_ACC_R),
-            Some(MemorySpace::Texture) => Some(mem_fetch::AccessKind::TEXTURE_ACC_R),
-            Some(MemorySpace::Global) if is_write => Some(mem_fetch::AccessKind::GLOBAL_ACC_W),
-            Some(MemorySpace::Global) if !is_write => Some(mem_fetch::AccessKind::GLOBAL_ACC_R),
-            Some(MemorySpace::Local) if is_write => Some(mem_fetch::AccessKind::LOCAL_ACC_W),
-            Some(MemorySpace::Local) if !is_write => Some(mem_fetch::AccessKind::LOCAL_ACC_R),
+            Some(MemorySpace::Constant) => Some(AccessKind::CONST_ACC_R),
+            Some(MemorySpace::Texture) => Some(AccessKind::TEXTURE_ACC_R),
+            Some(MemorySpace::Global) if is_write => Some(AccessKind::GLOBAL_ACC_W),
+            Some(MemorySpace::Global) if !is_write => Some(AccessKind::GLOBAL_ACC_R),
+            Some(MemorySpace::Local) if is_write => Some(AccessKind::LOCAL_ACC_W),
+            Some(MemorySpace::Local) if !is_write => Some(AccessKind::LOCAL_ACC_R),
             // space => panic!("no access kind for memory space {:?}", space),
             _ => None,
         }
     }
 
-    pub fn generate_mem_accesses(
-        &mut self,
-        config: &config::GPU,
-    ) -> Option<Vec<mem_fetch::MemAccess>> {
+    pub fn generate_mem_accesses(&mut self, config: &config::GPU) -> Option<Vec<MemAccess>> {
         let op = self.opcode.category;
         if !matches!(
             op,
@@ -743,14 +745,15 @@ impl WarpInstruction {
         }
     }
 
+    // Perfom memory access coalescing.
+    //
+    // Note: see the CUDA manual about coalescing rules.
     fn memory_coalescing_arch(
         &self,
         is_write: bool,
-        access_kind: mem_fetch::AccessKind,
+        access_kind: AccessKind,
         config: &config::GPU,
-    ) -> Vec<mem_fetch::MemAccess> {
-        // see the CUDA manual where it discusses coalescing rules
-        // before reading this
+    ) -> Vec<MemAccess> {
         let warp_parts = config.shared_memory_warp_parts;
         let coalescing_arch = config.coalescing_arch as usize;
 
@@ -777,7 +780,7 @@ impl WarpInstruction {
             subwarp_size,
         );
 
-        let mut accesses: Vec<mem_fetch::MemAccess> = Vec::new();
+        let mut accesses: Vec<MemAccess> = Vec::new();
         for subwarp in 0..warp_parts {
             let mut subwarp_transactions: HashMap<address, TransactionInfo> = HashMap::new();
 

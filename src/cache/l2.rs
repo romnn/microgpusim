@@ -1,5 +1,6 @@
 use crate::sync::{Arc, Mutex};
 use crate::{address, cache, config, interconn as ic, mem_fetch};
+use mem_fetch::access::Kind as AccessKind;
 use std::collections::VecDeque;
 
 /// Generic data cache.
@@ -35,8 +36,8 @@ impl DataL2
             stats,
             config,
             cache_config.inner.clone(),
-            mem_fetch::AccessKind::L2_WR_ALLOC_R,
-            mem_fetch::AccessKind::L2_WRBK_ACC,
+            AccessKind::L2_WR_ALLOC_R,
+            AccessKind::L2_WRBK_ACC,
         );
         Self {
             inner,

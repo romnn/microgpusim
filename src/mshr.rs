@@ -222,16 +222,17 @@ mod tests {
         let mut mshrs = super::Table::new(cache_config.mshr_entries, cache_config.mshr_max_merge);
 
         let fetch_addr = 4_026_531_848;
-        let access = mem_fetch::MemAccess::new(
-            mem_fetch::AccessKind::INST_ACC_R,
-            fetch_addr,
-            None,
-            128,
-            false,
-            warp::ActiveMask::ZERO,
-            mem_fetch::ByteMask::ZERO,
-            mem_fetch::SectorMask::ZERO,
-        );
+        let access = mem_fetch::access::Builder {
+            kind: mem_fetch::access::Kind::INST_ACC_R,
+            addr: fetch_addr,
+            allocation: None,
+            req_size_bytes: 128,
+            is_write: false,
+            warp_active_mask: crate::warp::ActiveMask::ZERO,
+            byte_mask: mem_fetch::ByteMask::ZERO,
+            sector_mask: mem_fetch::SectorMask::ZERO,
+        }
+        .build();
 
         // if we ever need to use real addresses
         let _mem_controller = mcu::MemoryControllerUnit::new(&config)?;

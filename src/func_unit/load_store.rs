@@ -2,36 +2,16 @@ use crate::sync::{Arc, Mutex, RwLock};
 use crate::{
     address, cache, config, func_unit as fu,
     instruction::{CacheOperator, MemorySpace, WarpInstruction},
-    interconn as ic, mem_fetch,
-    mem_fetch::MemFetch,
-    mem_sub_partition, mshr, operand_collector as opcoll,
+    interconn as ic, mem_fetch, mem_sub_partition, mshr, operand_collector as opcoll,
     register_set::{self},
     scoreboard::{Access, Scoreboard},
     warp,
 };
+
 use console::style;
+use mem_fetch::{access::Kind as AccessKind, MemFetch};
 use std::collections::{HashMap, VecDeque};
 use strum::EnumCount;
-
-// fn new_mem_fetch(
-//     access: mem_fetch::MemAccess,
-//     instr: WarpInstruction,
-//     config: &config::GPU,
-//     core_id: usize,
-//     cluster_id: usize,
-// ) -> mem_fetch::MemFetch {
-//     let warp_id = instr.warp_id;
-//     let control_size = access.control_size();
-//     mem_fetch::MemFetch::new(
-//         Some(instr),
-//         access,
-//         config,
-//         control_size,
-//         warp_id,
-//         core_id,
-//         cluster_id,
-//     )
-// }
 
 #[allow(clippy::module_name_repetitions)]
 // pub struct LoadStoreUnit<I> {
@@ -167,8 +147,8 @@ impl LoadStoreUnit
                     cache_stats,
                     Arc::clone(&config),
                     Arc::clone(&l1_config.inner),
-                    mem_fetch::AccessKind::L1_WR_ALLOC_R,
-                    mem_fetch::AccessKind::L1_WRBK_ACC,
+                    AccessKind::L1_WR_ALLOC_R,
+                    AccessKind::L1_WRBK_ACC,
                 );
                 data_cache.set_top_port(mem_port.clone());
                 Some(Box::new(data_cache))
@@ -1156,7 +1136,7 @@ impl crate::engine::cycle::Component for LoadStoreUnit
 
         if let Some(fetch) = self.response_fifo.front() {
             match fetch.access_kind() {
-                mem_fetch::AccessKind::TEXTURE_ACC_R => {
+                AccessKind::TEXTURE_ACC_R => {
                     todo!("ldst unit: tex access");
                     // if self.texture_l1.has_free_fill_port() {
                     //     self.texture_l1.fill(&fetch);
@@ -1164,7 +1144,7 @@ impl crate::engine::cycle::Component for LoadStoreUnit
                     //     self.response_fifo.pop_front();
                     // }
                 }
-                mem_fetch::AccessKind::CONST_ACC_R => {
+                AccessKind::CONST_ACC_R => {
                     todo!("ldst unit: const access");
                     // if self.const_l1.has_free_fill_port() {
                     //     // fetch.set_status(IN_SHADER_FETCHED)
@@ -1190,8 +1170,7 @@ impl crate::engine::cycle::Component for LoadStoreUnit
                             bypass_l1 = true;
                         } else if matches!(
                             fetch.access_kind(),
-                            mem_fetch::AccessKind::GLOBAL_ACC_R
-                                | mem_fetch::AccessKind::GLOBAL_ACC_W
+                            AccessKind::GLOBAL_ACC_R | AccessKind::GLOBAL_ACC_W
                         ) {
                             // global memory access
                             if self.config.global_mem_skip_l1_data_cache {

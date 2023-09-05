@@ -54,7 +54,7 @@ use cluster::Cluster;
 use engine::cycle::Component;
 use interconn as ic;
 use kernel::Kernel;
-use mem_fetch::{AccessKind, BitString};
+use mem_fetch::ToBitString;
 use stats::Stats;
 use trace_model::Command;
 

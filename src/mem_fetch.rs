@@ -58,93 +58,188 @@ pub enum Status {
     NUM_MEM_REQ_STAT,
 }
 
-#[derive(
-    Debug,
-    strum::EnumIter,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    Hash,
-    PartialOrd,
-    Ord,
-    Serialize,
-    Deserialize,
-)]
-pub enum AccessKind {
-    GLOBAL_ACC_R,
-    LOCAL_ACC_R,
-    CONST_ACC_R,
-    TEXTURE_ACC_R,
-    GLOBAL_ACC_W,
-    LOCAL_ACC_W,
-    L1_WRBK_ACC,
-    L2_WRBK_ACC,
-    INST_ACC_R,
-    L1_WR_ALLOC_R,
-    L2_WR_ALLOC_R,
-    // NUM_MEM_ACCESS_TYPE,
-}
+pub mod access {
+    use super::ToBitString;
+    use serde::{Deserialize, Serialize};
 
-impl From<AccessKind> for stats::mem::AccessKind {
-    fn from(kind: AccessKind) -> Self {
-        match kind {
-            AccessKind::GLOBAL_ACC_R => Self::GLOBAL_ACC_R,
-            AccessKind::LOCAL_ACC_R => Self::LOCAL_ACC_R,
-            AccessKind::CONST_ACC_R => Self::CONST_ACC_R,
-            AccessKind::TEXTURE_ACC_R => Self::TEXTURE_ACC_R,
-            AccessKind::GLOBAL_ACC_W => Self::GLOBAL_ACC_W,
-            AccessKind::LOCAL_ACC_W => Self::LOCAL_ACC_W,
-            AccessKind::L1_WRBK_ACC => Self::L1_WRBK_ACC,
-            AccessKind::L2_WRBK_ACC => Self::L2_WRBK_ACC,
-            AccessKind::INST_ACC_R => Self::INST_ACC_R,
-            AccessKind::L1_WR_ALLOC_R => Self::L1_WR_ALLOC_R,
-            AccessKind::L2_WR_ALLOC_R => Self::L2_WR_ALLOC_R,
+    #[derive(
+        Debug,
+        strum::EnumIter,
+        Clone,
+        Copy,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        Serialize,
+        Deserialize,
+    )]
+    pub enum Kind {
+        GLOBAL_ACC_R,
+        LOCAL_ACC_R,
+        CONST_ACC_R,
+        TEXTURE_ACC_R,
+        GLOBAL_ACC_W,
+        LOCAL_ACC_W,
+        L1_WRBK_ACC,
+        L2_WRBK_ACC,
+        INST_ACC_R,
+        L1_WR_ALLOC_R,
+        L2_WR_ALLOC_R,
+        // NUM_MEM_ACCESS_TYPE,
+    }
+
+    impl From<Kind> for stats::mem::AccessKind {
+        fn from(kind: Kind) -> Self {
+            match kind {
+                Kind::GLOBAL_ACC_R => Self::GLOBAL_ACC_R,
+                Kind::LOCAL_ACC_R => Self::LOCAL_ACC_R,
+                Kind::CONST_ACC_R => Self::CONST_ACC_R,
+                Kind::TEXTURE_ACC_R => Self::TEXTURE_ACC_R,
+                Kind::GLOBAL_ACC_W => Self::GLOBAL_ACC_W,
+                Kind::LOCAL_ACC_W => Self::LOCAL_ACC_W,
+                Kind::L1_WRBK_ACC => Self::L1_WRBK_ACC,
+                Kind::L2_WRBK_ACC => Self::L2_WRBK_ACC,
+                Kind::INST_ACC_R => Self::INST_ACC_R,
+                Kind::L1_WR_ALLOC_R => Self::L1_WR_ALLOC_R,
+                Kind::L2_WR_ALLOC_R => Self::L2_WR_ALLOC_R,
+            }
+        }
+    }
+
+    impl Kind {
+        #[must_use]
+        pub fn is_write(&self) -> bool {
+            match self {
+                Kind::GLOBAL_ACC_R
+                | Kind::LOCAL_ACC_R
+                | Kind::CONST_ACC_R
+                | Kind::TEXTURE_ACC_R
+                | Kind::INST_ACC_R
+                | Kind::L1_WR_ALLOC_R
+                | Kind::L2_WR_ALLOC_R => false,
+                Kind::GLOBAL_ACC_W | Kind::LOCAL_ACC_W | Kind::L1_WRBK_ACC | Kind::L2_WRBK_ACC => {
+                    true
+                }
+            }
+        }
+    }
+
+    #[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    pub struct MemAccess {
+        // uid: usize,
+        /// request address
+        pub addr: super::address,
+        pub allocation: Option<crate::allocation::Allocation>,
+        /// if access is write
+        pub is_write: bool,
+        /// request size in bytes
+        pub req_size_bytes: u32,
+        /// access type
+        pub kind: Kind,
+        pub warp_active_mask: crate::warp::ActiveMask,
+        pub byte_mask: super::ByteMask,
+        pub sector_mask: super::SectorMask,
+    }
+
+    impl std::fmt::Debug for MemAccess {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            f.debug_struct("MemAccess")
+                .field("addr", &self.addr)
+                .field("relative_addr", &self.relative_addr())
+                .field("allocation", &self.allocation)
+                .field("kind", &self.kind)
+                .field("req_size_bytes", &self.req_size_bytes)
+                .field("is_write", &self.is_write)
+                .field("active_mask", &self.warp_active_mask.to_bit_string())
+                .field("byte_mask", &self.byte_mask.to_bit_string())
+                .field("sector_mask", &self.sector_mask.to_bit_string())
+                .finish()
+        }
+    }
+
+    impl std::fmt::Display for MemAccess {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(f, "Access({:?}@", self.kind)?;
+            if let Some(ref alloc) = self.allocation {
+                write!(f, "{}+{})", &alloc.id, self.addr - alloc.start_addr)
+            } else {
+                write!(f, "{})", &self.addr)
+            }
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    pub struct Builder {
+        pub kind: Kind,
+        pub addr: crate::address,
+        pub allocation: Option<crate::allocation::Allocation>,
+        pub req_size_bytes: u32,
+        pub is_write: bool,
+        pub warp_active_mask: crate::warp::ActiveMask,
+        pub byte_mask: super::ByteMask,
+        pub sector_mask: super::SectorMask,
+    }
+
+    impl Builder {
+        #[must_use]
+        pub fn build(self) -> MemAccess {
+            if let Some(ref alloc) = self.allocation {
+                debug_assert!(alloc.start_addr <= self.addr);
+            }
+            MemAccess {
+                addr: self.addr,
+                allocation: self.allocation,
+                is_write: self.is_write,
+                req_size_bytes: self.req_size_bytes,
+                kind: self.kind,
+                warp_active_mask: self.warp_active_mask,
+                byte_mask: self.byte_mask,
+                sector_mask: self.sector_mask,
+            }
+        }
+    }
+
+    impl MemAccess {
+        #[inline]
+        #[must_use]
+        pub fn relative_addr(&self) -> Option<super::address> {
+            self.allocation
+                .as_ref()
+                .map(|alloc| alloc.start_addr)
+                .and_then(|start| self.addr.checked_sub(start))
+        }
+
+        #[must_use]
+        #[inline]
+        pub fn control_size(&self) -> u32 {
+            if self.is_write {
+                u32::from(super::WRITE_PACKET_SIZE)
+            } else {
+                u32::from(super::READ_PACKET_SIZE)
+            }
+        }
+
+        #[must_use]
+        #[inline]
+        pub fn data_size(&self) -> u32 {
+            self.req_size_bytes
+        }
+
+        #[must_use]
+        #[inline]
+        pub fn size(&self) -> u32 {
+            self.data_size() + self.control_size()
         }
     }
 }
 
-impl AccessKind {
-    #[must_use]
-    pub fn is_write(&self) -> bool {
-        match self {
-            AccessKind::GLOBAL_ACC_R
-            | AccessKind::LOCAL_ACC_R
-            | AccessKind::CONST_ACC_R
-            | AccessKind::TEXTURE_ACC_R
-            | AccessKind::INST_ACC_R
-            | AccessKind::L1_WR_ALLOC_R
-            | AccessKind::L2_WR_ALLOC_R => false,
-            AccessKind::GLOBAL_ACC_W
-            | AccessKind::LOCAL_ACC_W
-            | AccessKind::L1_WRBK_ACC
-            | AccessKind::L2_WRBK_ACC => true,
-        }
-    }
-}
-
-#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct MemAccess {
-    // uid: usize,
-    /// request address
-    pub addr: super::address,
-    pub allocation: Option<crate::allocation::Allocation>,
-    /// if access is write
-    pub is_write: bool,
-    /// request size in bytes
-    pub req_size_bytes: u32,
-    /// access type
-    pub kind: AccessKind,
-    pub warp_mask: warp::ActiveMask,
-    pub byte_mask: ByteMask,
-    pub sector_mask: SectorMask,
-}
-
-pub trait BitString {
+pub trait ToBitString {
     fn to_bit_string(&self) -> String;
 }
 
-impl<A, O> BitString for bitvec::slice::BitSlice<A, O>
+impl<A, O> ToBitString for bitvec::slice::BitSlice<A, O>
 where
     A: bitvec::store::BitStore,
     O: bitvec::order::BitOrder,
@@ -158,96 +253,10 @@ where
     }
 }
 
-impl std::fmt::Debug for MemAccess {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct("MemAccess")
-            .field("addr", &self.addr)
-            .field("relative_addr", &self.relative_addr())
-            .field("allocation", &self.allocation)
-            .field("kind", &self.kind)
-            .field("req_size_bytes", &self.req_size_bytes)
-            .field("is_write", &self.is_write)
-            .field("active_mask", &self.warp_mask.to_bit_string())
-            .field("byte_mask", &self.byte_mask.to_bit_string())
-            .field("sector_mask", &self.sector_mask.to_bit_string())
-            .finish()
-    }
-}
-
-impl std::fmt::Display for MemAccess {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "Access({:?}@", self.kind)?;
-        if let Some(ref alloc) = self.allocation {
-            write!(f, "{}+{})", &alloc.id, self.addr - alloc.start_addr)
-        } else {
-            write!(f, "{})", &self.addr)
-        }
-    }
-}
-
-impl MemAccess {
-    #[must_use]
-    pub fn new(
-        kind: AccessKind,
-        addr: address,
-        allocation: Option<crate::allocation::Allocation>,
-        req_size_bytes: u32,
-        is_write: bool,
-        warp_mask: warp::ActiveMask,
-        byte_mask: ByteMask,
-        sector_mask: SectorMask,
-    ) -> Self {
-        if let Some(ref alloc) = allocation {
-            debug_assert!(alloc.start_addr <= addr);
-        }
-        Self {
-            addr,
-            allocation,
-            is_write,
-            req_size_bytes,
-            kind,
-            warp_mask,
-            byte_mask,
-            sector_mask,
-        }
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn relative_addr(&self) -> Option<super::address> {
-        self.allocation
-            .as_ref()
-            .map(|alloc| alloc.start_addr)
-            .and_then(|start| self.addr.checked_sub(start))
-    }
-
-    #[must_use]
-    #[inline]
-    pub fn control_size(&self) -> u32 {
-        if self.is_write {
-            u32::from(WRITE_PACKET_SIZE)
-        } else {
-            u32::from(READ_PACKET_SIZE)
-        }
-    }
-
-    #[must_use]
-    #[inline]
-    pub fn data_size(&self) -> u32 {
-        self.req_size_bytes
-    }
-
-    #[must_use]
-    #[inline]
-    pub fn size(&self) -> u32 {
-        self.data_size() + self.control_size()
-    }
-}
-
 #[derive(Clone, Debug, PartialOrd, Ord)]
 pub struct MemFetch {
     pub uid: u64,
-    pub access: MemAccess,
+    pub access: access::MemAccess,
     pub instr: Option<WarpInstruction>,
     pub tlx_addr: mcu::TranslatedAddress,
     pub partition_addr: address,
@@ -319,7 +328,7 @@ static MEM_FETCH_UID: Lazy<atomic::AtomicU64> = Lazy::new(|| atomic::AtomicU64::
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Builder {
     pub instr: Option<WarpInstruction>,
-    pub access: MemAccess,
+    pub access: access::MemAccess,
     pub warp_id: usize,
     pub core_id: usize,
     pub cluster_id: usize,
@@ -328,10 +337,8 @@ pub struct Builder {
 }
 
 impl Builder {
+    #[must_use]
     pub fn build(self) -> MemFetch {
-        // let tlx_addr = config.address_mapping().translate(access.addr);
-        // let partition_addr = config.address_mapping().partition_address(access.addr);
-
         let kind = if self.access.is_write {
             Kind::WRITE_REQUEST
         } else {
@@ -469,31 +476,13 @@ impl MemFetch {
 
     #[must_use]
     #[inline]
-    pub fn access_byte_mask(&self) -> &ByteMask {
-        &self.access.byte_mask
-    }
-
-    #[must_use]
-    #[inline]
-    pub fn access_warp_mask(&self) -> &warp::ActiveMask {
-        &self.access.warp_mask
-    }
-
-    #[must_use]
-    #[inline]
-    pub fn access_sector_mask(&self) -> &SectorMask {
-        &self.access.sector_mask
-    }
-
-    #[must_use]
-    #[inline]
     pub fn sub_partition_id(&self) -> usize {
         self.tlx_addr.sub_partition as usize
     }
 
     #[must_use]
     #[inline]
-    pub fn access_kind(&self) -> &AccessKind {
+    pub fn access_kind(&self) -> &access::Kind {
         &self.access.kind
     }
 
@@ -513,7 +502,7 @@ impl MemFetch {
     pub fn set_reply(&mut self) {
         assert!(!matches!(
             self.access.kind,
-            AccessKind::L1_WRBK_ACC | AccessKind::L2_WRBK_ACC
+            access::Kind::L1_WRBK_ACC | access::Kind::L2_WRBK_ACC
         ));
         match self.kind {
             Kind::READ_REQUEST => {

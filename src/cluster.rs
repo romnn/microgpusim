@@ -89,7 +89,7 @@ where
 
     #[tracing::instrument]
     pub fn interconn_cycle(&mut self, cycle: u64) {
-        use mem_fetch::AccessKind;
+        use mem_fetch::access::Kind as AccessKind;
 
         log::debug!(
             "{}",

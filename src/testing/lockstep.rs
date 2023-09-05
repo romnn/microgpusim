@@ -1,11 +1,8 @@
 use super::asserts;
-use crate::{
-    cache, config, interconn as ic,
-    mem_fetch::{self, BitString},
-    register_set, testing,
-};
+use crate::{cache, config, interconn as ic, mem_fetch, register_set, testing};
 use color_eyre::eyre;
 use itertools::Itertools;
+use mem_fetch::ToBitString;
 use pretty_assertions_sorted as full_diff;
 use serde::Serialize;
 use utils::diff;

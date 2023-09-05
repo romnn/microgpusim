@@ -3,6 +3,7 @@ use crate::{address, cache, config, interconn as ic, mcu, mem_fetch, mshr::MSHR,
 
 use cache::block::Block;
 use mcu::MemoryController;
+use mem_fetch::access::Kind as AccessKind;
 use tag_array::{Access, CacheAddressTranslation};
 
 use std::collections::VecDeque;
@@ -19,9 +20,9 @@ pub struct Data {
     // pub inner: cache::base::Base<MC>,
     pub inner: cache::base::Base<mcu::MemoryControllerUnit>,
     /// Specifies type of write allocate request (e.g., L1 or L2)
-    write_alloc_type: mem_fetch::AccessKind,
+    write_alloc_type: AccessKind,
     /// Specifies type of writeback request (e.g., L1 or L2)
-    write_back_type: mem_fetch::AccessKind,
+    write_back_type: AccessKind,
 }
 
 impl Data
@@ -38,8 +39,8 @@ impl Data
         stats: Arc<Mutex<stats::Cache>>,
         config: Arc<config::GPU>,
         cache_config: Arc<config::Cache>,
-        write_alloc_type: mem_fetch::AccessKind,
-        write_back_type: mem_fetch::AccessKind,
+        write_alloc_type: AccessKind,
+        write_back_type: AccessKind,
     ) -> Self {
         let inner = super::base::Builder {
             name,
@@ -93,8 +94,8 @@ impl Data
         let cache_index = index.unwrap();
         let block = self.inner.tag_array.get_block_mut(cache_index);
         let was_modified_before = block.is_modified();
-        block.set_status(cache::block::Status::MODIFIED, fetch.access_sector_mask());
-        block.set_byte_mask(fetch.access_byte_mask());
+        block.set_status(cache::block::Status::MODIFIED, &fetch.access.sector_mask);
+        block.set_byte_mask(&fetch.access.byte_mask);
         if !was_modified_before {
             self.inner.tag_array.num_dirty += 1;
         }
@@ -107,7 +108,7 @@ impl Data
         use crate::mem_sub_partition::{SECTOR_CHUNCK_SIZE, SECTOR_SIZE};
         let block = self.inner.tag_array.get_block_mut(cache_index);
         for i in 0..SECTOR_CHUNCK_SIZE as usize {
-            let sector_mask = fetch.access_sector_mask();
+            let sector_mask = fetch.access.sector_mask;
             if sector_mask[i] {
                 let mut all_set = true;
                 for k in (i * SECTOR_SIZE as usize)..((i + 1) * SECTOR_SIZE as usize) {
@@ -119,7 +120,7 @@ impl Data
                     }
                 }
                 if all_set {
-                    block.set_readable(true, fetch.access_sector_mask());
+                    block.set_readable(true, &fetch.access.sector_mask);
                 }
             }
         }
@@ -148,11 +149,11 @@ impl Data
         // Atomics treated as global read/write requests:
         // Perform read, mark line as MODIFIED
         if fetch.is_atomic() {
-            debug_assert_eq!(*fetch.access_kind(), mem_fetch::AccessKind::GLOBAL_ACC_R);
+            debug_assert_eq!(*fetch.access_kind(), AccessKind::GLOBAL_ACC_R);
             let block = tag_array.get_block_mut(block_index);
             let was_modified_before = block.is_modified();
-            block.set_status(cache::block::Status::MODIFIED, fetch.access_sector_mask());
-            block.set_byte_mask(fetch.access_byte_mask());
+            block.set_status(cache::block::Status::MODIFIED, &fetch.access.sector_mask);
+            block.set_byte_mask(&fetch.access.byte_mask);
             if !was_modified_before {
                 tag_array.num_dirty += 1;
             }
@@ -225,16 +226,17 @@ impl Data
             if writeback && writeback_policy != cache::config::WritePolicy::WRITE_THROUGH {
                 if let Some(evicted) = evicted {
                     let is_write = true;
-                    let writeback_access = mem_fetch::MemAccess::new(
-                        self.write_back_type,
-                        evicted.block_addr,
-                        evicted.allocation.clone(),
-                        evicted.modified_size,
+                    let writeback_access = mem_fetch::access::Builder {
+                        kind: self.write_back_type,
+                        addr: evicted.block_addr,
+                        allocation: evicted.allocation.clone(),
+                        req_size_bytes: evicted.modified_size,
                         is_write,
-                        *fetch.access_warp_mask(),
-                        evicted.byte_mask,
-                        evicted.sector_mask,
-                    );
+                        warp_active_mask: fetch.access.warp_active_mask,
+                        byte_mask: evicted.byte_mask,
+                        sector_mask: evicted.sector_mask,
+                    }
+                    .build();
 
                     let mut tlx_addr = self
                         .inner
@@ -374,16 +376,17 @@ impl Data
         self.send_write_request(fetch.clone(), event, time, events);
 
         let is_write = false;
-        let new_access = mem_fetch::MemAccess::new(
-            self.write_alloc_type,
-            fetch.addr(),
-            fetch.access.allocation.clone(),
-            self.inner.cache_config.atom_size,
+        let new_access = mem_fetch::access::Builder {
+            kind: self.write_alloc_type,
+            addr: fetch.addr(),
+            allocation: fetch.access.allocation.clone(),
+            req_size_bytes: self.inner.cache_config.atom_size,
             is_write, // Now performing a read
-            *fetch.access_warp_mask(),
-            *fetch.access_byte_mask(),
-            *fetch.access_sector_mask(),
-        );
+            warp_active_mask: fetch.access.warp_active_mask,
+            byte_mask: fetch.access.byte_mask,
+            sector_mask: fetch.access.sector_mask,
+        }
+        .build();
 
         let tlx_addr = self
             .inner
@@ -441,16 +444,17 @@ impl Data
                     debug_assert_eq!(probe_status, cache::RequestStatus::MISS);
 
                     let is_write = true;
-                    let writeback_access = mem_fetch::MemAccess::new(
-                        self.write_back_type,
-                        evicted.block_addr,
-                        evicted.allocation.clone(),
-                        evicted.modified_size,
+                    let writeback_access = mem_fetch::access::Builder {
+                        kind: self.write_back_type,
+                        addr: evicted.block_addr,
+                        allocation: evicted.allocation.clone(),
+                        req_size_bytes: evicted.modified_size,
                         is_write,
-                        *fetch.access_warp_mask(),
-                        evicted.byte_mask,
-                        evicted.sector_mask,
-                    );
+                        warp_active_mask: fetch.access.warp_active_mask,
+                        byte_mask: evicted.byte_mask,
+                        sector_mask: evicted.sector_mask,
+                    }
+                    .build();
                     // let control_size = writeback_access.control_size();
 
                     // the evicted block may have wrong chip id when advanced L2 hashing

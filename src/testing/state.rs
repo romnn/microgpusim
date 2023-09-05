@@ -14,9 +14,9 @@ impl From<types::mem_fetch::mf_type> for crate::mem_fetch::Kind {
     }
 }
 
-impl From<types::mem_fetch::mem_access_type> for crate::mem_fetch::AccessKind {
+impl From<types::mem_fetch::mem_access_type> for crate::mem_fetch::access::Kind {
     fn from(kind: types::mem_fetch::mem_access_type) -> Self {
-        use crate::mem_fetch::AccessKind;
+        use crate::mem_fetch::access::Kind as AccessKind;
         use types::mem_fetch::mem_access_type;
         match kind {
             mem_access_type::GLOBAL_ACC_R => AccessKind::GLOBAL_ACC_R,
@@ -410,7 +410,7 @@ impl<'a> From<playground::scheduler_unit::SchedulerUnit<'a>> for Scheduler {
 #[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct MemFetch {
     pub kind: crate::mem_fetch::Kind,
-    pub access_kind: crate::mem_fetch::AccessKind,
+    pub access_kind: crate::mem_fetch::access::Kind,
     // cannot compare addr because its different between runs
     // addr: crate::address,
     pub relative_addr: Option<(usize, crate::address)>,

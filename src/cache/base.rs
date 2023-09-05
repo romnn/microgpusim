@@ -102,15 +102,7 @@ pub struct Builder<MC> {
 }
 
 impl<MC> Builder<MC> {
-    // pub fn new(
-    //     name: String,
-    //     core_id: usize,
-    //     cluster_id: usize,
-    //     stats: Arc<Mutex<stats::Cache>>,
-    //     // _config: Arc<config::GPU>,
-    //     mem_controller: MC,
-    //     cache_config: Arc<config::Cache>,
-    // ) -> Self {
+    #[must_use]
     pub fn build(self) -> Base<MC> {
         let cache_config = self.cache_config;
         let tag_array = tag_array::TagArray::new(cache_config.clone());
@@ -414,8 +406,8 @@ impl<MC> Base<MC>
             }
         }
 
-        let access_sector_mask = *fetch.access_sector_mask();
-        let access_byte_mask = *fetch.access_byte_mask();
+        let access_sector_mask = fetch.access.sector_mask;
+        let access_byte_mask = fetch.access.byte_mask;
 
         let has_atomic = self
             .mshrs

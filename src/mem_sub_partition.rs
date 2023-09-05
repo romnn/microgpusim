@@ -178,7 +178,7 @@ impl MemorySubPartition
     }
 
     pub fn pop(&mut self) -> Option<mem_fetch::MemFetch> {
-        use mem_fetch::AccessKind;
+        use mem_fetch::access::Kind as AccessKind;
 
         let fetch = self.l2_to_interconn_queue.dequeue()?.into_inner();
         self.request_tracker.remove(&fetch);
@@ -193,7 +193,7 @@ impl MemorySubPartition
     }
 
     pub fn top(&mut self) -> Option<&mem_fetch::MemFetch> {
-        use super::AccessKind;
+        use mem_fetch::access::Kind as AccessKind;
         if let Some(AccessKind::L2_WRBK_ACC | AccessKind::L1_WRBK_ACC) = self
             .l2_to_interconn_queue
             .first()
@@ -213,7 +213,7 @@ impl MemorySubPartition
 
     #[tracing::instrument]
     pub fn cache_cycle(&mut self, cycle: u64) {
-        use mem_fetch::{AccessKind, Status};
+        use mem_fetch::{access::Kind as AccessKind, Status};
 
         let log_line = style(format!(
             " => memory sub partition[{}] cache cycle {}",
@@ -353,7 +353,8 @@ impl MemorySubPartition
                                 } else {
                                     // L2 cache replies
                                     assert!(!read_sent);
-                                    if fetch.access_kind() == &mem_fetch::AccessKind::L1_WRBK_ACC {
+                                    if fetch.access_kind() == &mem_fetch::access::Kind::L1_WRBK_ACC
+                                    {
                                         // m_request_tracker.erase(mf);
                                         // delete mf;
                                     } else {
@@ -378,7 +379,8 @@ impl MemorySubPartition
                                     && should_fetch
                                     && !cache::event::was_writeallocate_sent(&events)
                                 {
-                                    if fetch.access_kind() == &mem_fetch::AccessKind::L1_WRBK_ACC {
+                                    if fetch.access_kind() == &mem_fetch::access::Kind::L1_WRBK_ACC
+                                    {
                                         //     m_request_tracker.erase(mf);
                                         //     delete mf;
                                     } else {

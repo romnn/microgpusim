@@ -238,7 +238,7 @@ where
                 // TODO: use an enum like either here
                 let index = index.expect("hit has idx");
                 let line = &mut self.lines[index];
-                line.set_last_access_time(time, fetch.access_sector_mask());
+                line.set_last_access_time(time, &fetch.access.sector_mask);
             }
             cache::RequestStatus::MISS => {
                 self.num_miss += 1;
@@ -277,7 +277,7 @@ where
                     line.allocate(
                         self.addr_translation.tag(addr),
                         self.addr_translation.block_addr(addr),
-                        fetch.access_sector_mask(),
+                        &fetch.access.sector_mask,
                         time,
                     );
                 }
@@ -372,7 +372,7 @@ where
     ) -> (Option<usize>, cache::RequestStatus) {
         self.probe_masked(
             block_addr,
-            fetch.access_sector_mask(),
+            &fetch.access.sector_mask,
             is_write,
             is_probe,
             Some(fetch),
@@ -514,7 +514,7 @@ where
         );
 
         let was_modified_before = self.lines[cache_index].is_modified();
-        self.lines[cache_index].fill(fetch.access_sector_mask(), fetch.access_byte_mask(), time);
+        self.lines[cache_index].fill(&fetch.access.sector_mask, &fetch.access.byte_mask, time);
         if self.lines[cache_index].is_modified() && !was_modified_before {
             self.num_dirty += 1;
         }
@@ -612,7 +612,7 @@ where
             line.allocate(
                 self.addr_translation.tag(addr),
                 self.addr_translation.block_addr(addr),
-                fetch.access_sector_mask(),
+                &fetch.access.sector_mask,
                 time,
             );
         } else if probe_status == cache::RequestStatus::SECTOR_MISS {
@@ -624,7 +624,7 @@ where
             self.num_dirty -= 1;
         }
         was_modified_before = line.is_modified();
-        line.fill(fetch.access_sector_mask(), fetch.access_byte_mask(), time);
+        line.fill(&fetch.access.sector_mask, &fetch.access.byte_mask, time);
         if line.is_modified() && !was_modified_before {
             self.num_dirty += 1;
         }

@@ -1,9 +1,7 @@
 use crate::sync::{Arc, Mutex};
-use crate::{
-    address, config, dram, ic::Packet, mem_fetch, mem_fetch::BitString,
-    mem_sub_partition::MemorySubPartition,
-};
+use crate::{address, config, dram, ic::Packet, mem_fetch, mem_sub_partition::MemorySubPartition};
 use console::style;
+use mem_fetch::ToBitString;
 use std::collections::VecDeque;
 
 pub struct MemoryPartitionUnit {
@@ -95,13 +93,14 @@ impl MemoryPartitionUnit {
 
     #[inline]
     pub fn set_done(&mut self, fetch: &mem_fetch::MemFetch) {
+        use mem_fetch::access::Kind as AccessKind;
         let global_spid = fetch.sub_partition_id();
         let spid = self.global_sub_partition_id_to_local_id(global_spid);
         let mut sub = self.sub_partitions[spid].try_lock();
         debug_assert_eq!(sub.id, global_spid);
         if matches!(
             fetch.access_kind(),
-            mem_fetch::AccessKind::L1_WRBK_ACC | mem_fetch::AccessKind::L2_WRBK_ACC
+            AccessKind::L1_WRBK_ACC | AccessKind::L2_WRBK_ACC
         ) {
             self.arbitration_metadata.return_credit(spid);
             log::trace!(
@@ -115,6 +114,7 @@ impl MemoryPartitionUnit {
 
     #[tracing::instrument]
     pub fn simple_dram_cycle(&mut self, cycle: u64) {
+        use mem_fetch::access::Kind as AccessKind;
         log::debug!("{} ...", style("simple dram cycle").red());
         // pop completed memory request from dram and push it to dram-to-L2 queue
         // of the original sub partition
@@ -124,7 +124,7 @@ impl MemoryPartitionUnit {
         if let Some(returned_fetch) = self.dram_latency_queue.front_mut() {
             if matches!(
                 returned_fetch.access_kind(),
-                mem_fetch::AccessKind::L1_WRBK_ACC | mem_fetch::AccessKind::L2_WRBK_ACC
+                AccessKind::L1_WRBK_ACC | AccessKind::L2_WRBK_ACC
             ) {
                 log::debug!(
                     "DROPPING {} fetch return from dram latency queue (write={})",
@@ -160,7 +160,7 @@ impl MemoryPartitionUnit {
                     // dbg!(&returned_fetch);
                     // returned_fetch.set_reply();
 
-                    if returned_fetch.access_kind() == &mem_fetch::AccessKind::L1_WRBK_ACC {
+                    if returned_fetch.access_kind() == &AccessKind::L1_WRBK_ACC {
                         sub.set_done(&returned_fetch);
                     } else {
                         returned_fetch
