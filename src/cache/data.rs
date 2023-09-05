@@ -89,9 +89,10 @@ impl Data
         );
 
         // update LRU state
-        let tag_array::AccessStatus { index, .. } =
+        let tag_array::AccessStatus { cache_index, .. } =
             self.inner.tag_array.access(block_addr, fetch, time);
-        let cache_index = index.unwrap();
+        let cache_index = cache_index.expect("write hit write back");
+
         let block = self.inner.tag_array.get_block_mut(cache_index);
         let was_modified_before = block.is_modified();
         block.set_status(cache::block::Status::MODIFIED, &fetch.access.sector_mask);
@@ -129,28 +130,26 @@ impl Data
     fn read_hit(
         &mut self,
         addr: address,
-        _cache_index: Option<usize>,
-        // cache_index: usize,
+        // _cache_index: Option<usize>,
         fetch: &mem_fetch::MemFetch,
         time: u64,
         _events: &mut [cache::event::Event],
-        _probe_status: cache::RequestStatus,
+        // _probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         let super::base::Base {
             ref mut tag_array,
-            // ref cache_config,
             ref addr_translation,
             ..
         } = self.inner;
         let block_addr = addr_translation.block_addr(addr);
         let access_status = tag_array.access(block_addr, fetch, time);
-        let block_index = access_status.index.expect("read hit has index");
+        let cache_index = access_status.cache_index.expect("read hit has cache index");
 
         // Atomics treated as global read/write requests:
         // Perform read, mark line as MODIFIED
         if fetch.is_atomic() {
             debug_assert_eq!(*fetch.access_kind(), AccessKind::GLOBAL_ACC_R);
-            let block = tag_array.get_block_mut(block_index);
+            let block = tag_array.get_block_mut(cache_index);
             let was_modified_before = block.is_modified();
             block.set_status(cache::block::Status::MODIFIED, &fetch.access.sector_mask);
             block.set_byte_mask(&fetch.access.byte_mask);
@@ -554,9 +553,10 @@ impl Data
     fn process_tag_probe(
         &mut self,
         is_write: bool,
-        probe_status: cache::RequestStatus,
+        probe: Option<(usize, cache::RequestStatus)>,
+        // probe_status: cache::RequestStatus,
+        // cache_index: Option<usize>,
         addr: address,
-        cache_index: Option<usize>,
         fetch: mem_fetch::MemFetch,
         events: &mut Vec<cache::Event>,
         time: u64,
@@ -568,6 +568,11 @@ impl Data
         //
         // Function pointers were used to avoid many long conditional
         // branches resulting from many cache configuration options.
+        let probe_status = probe
+            .map(|(_, s)| s)
+            .unwrap_or(cache::RequestStatus::RESERVATION_FAIL);
+        let cache_index = probe.map(|(i, _)| i);
+
         let mut access_status = probe_status;
         let data_size = fetch.data_size();
 
@@ -596,7 +601,8 @@ impl Data
                 );
             }
         } else if probe_status == cache::RequestStatus::HIT {
-            access_status = self.read_hit(addr, cache_index, &fetch, time, events, probe_status);
+            // access_status = self.read_hit(addr, cache_index, &fetch, time, events, probe_status);
+            access_status = self.read_hit(addr, &fetch, time, events);
         } else if probe_status != cache::RequestStatus::RESERVATION_FAIL {
             access_status = self.read_miss(addr, cache_index, &fetch, time, events, probe_status);
         } else {
@@ -669,20 +675,20 @@ impl cache::Cache for Data
 
         let dbg_fetch = fetch.clone();
 
-        let (cache_index, probe_status) = self
+        // let (cache_index, probe_status) = self
+        let probe = self
             .inner
             .tag_array
             .probe(block_addr, &fetch, is_write, true);
+        let probe_status = probe
+            .map(|(_, s)| s)
+            .unwrap_or(cache::RequestStatus::RESERVATION_FAIL);
         // dbg!((cache_index, probe_status));
 
         let access_status = self.process_tag_probe(
-            is_write,
-            probe_status,
-            addr,
-            cache_index,
-            fetch,
-            events,
-            time,
+            is_write, probe, // probe_status,
+            // cache_index,
+            addr, fetch, events, time,
         );
         // dbg!(&access_status);
 

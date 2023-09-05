@@ -106,8 +106,6 @@ impl cache::Cache for ReadOnly
         events: &mut Vec<cache::Event>,
         time: u64,
     ) -> cache::RequestStatus {
-        use cache::RequestStatus as Status;
-
         let cache::base::Base {
             ref cache_config,
             ref addr_translation,
@@ -132,48 +130,99 @@ impl cache::Cache for ReadOnly
         );
 
         let is_probe = false;
-        let (cache_index, probe_status) =
-            tag_array.probe(block_addr, &fetch, fetch.is_write(), is_probe);
-        let mut status = Status::RESERVATION_FAIL;
+        // let (cache_index, probe_status) =
+        //     tag_array.probe(block_addr, &fetch, fetch.is_write(), is_probe);
 
-        if probe_status == Status::HIT {
-            // update LRU state
-            tag_array::AccessStatus { status, .. } = tag_array.access(block_addr, &fetch, time);
-        } else if probe_status != Status::RESERVATION_FAIL {
-            if self.inner.miss_queue_full() {
-                status = Status::RESERVATION_FAIL;
+        let probe = tag_array.probe(block_addr, &fetch, fetch.is_write(), is_probe);
+        let probe_status = probe
+            .map(|(_, status)| status)
+            .unwrap_or(cache::RequestStatus::RESERVATION_FAIL);
 
+        let mut status = cache::RequestStatus::RESERVATION_FAIL;
+
+        match probe {
+            None => {
                 self.inner.stats.lock().inc(
                     *fetch.access_kind(),
                     cache::AccessStat::ReservationFailure(
-                        cache::ReservationFailure::MISS_QUEUE_FULL,
+                        cache::ReservationFailure::LINE_ALLOC_FAIL,
                     ),
                     1,
                 );
-            } else {
-                let (should_miss, _writeback, _evicted) = self.inner.send_read_request(
-                    addr,
-                    block_addr,
-                    cache_index.unwrap(),
-                    fetch.clone(),
-                    time,
-                    events,
-                    true,
-                    false,
-                );
-                if should_miss {
-                    status = Status::MISS;
+            }
+            Some((_, cache::RequestStatus::HIT)) => {
+                // update LRU state
+                tag_array::AccessStatus { status, .. } = tag_array.access(block_addr, &fetch, time);
+            }
+            Some((cache_index, probe_status)) => {
+                if self.inner.miss_queue_full() {
+                    status = cache::RequestStatus::RESERVATION_FAIL;
+
+                    self.inner.stats.lock().inc(
+                        *fetch.access_kind(),
+                        cache::AccessStat::ReservationFailure(
+                            cache::ReservationFailure::MISS_QUEUE_FULL,
+                        ),
+                        1,
+                    );
                 } else {
-                    status = Status::RESERVATION_FAIL;
+                    let (should_miss, _writeback, _evicted) = self.inner.send_read_request(
+                        addr,
+                        block_addr,
+                        cache_index,
+                        fetch.clone(),
+                        time,
+                        events,
+                        true,
+                        false,
+                    );
+                    if should_miss {
+                        status = cache::RequestStatus::MISS;
+                    } else {
+                        status = cache::RequestStatus::RESERVATION_FAIL;
+                    }
                 }
             }
-        } else {
-            self.inner.stats.lock().inc(
-                *fetch.access_kind(),
-                cache::AccessStat::ReservationFailure(cache::ReservationFailure::LINE_ALLOC_FAIL),
-                1,
-            );
         }
+
+        // if probe_status == Status::HIT {
+        //     // update LRU state
+        //     tag_array::AccessStatus { status, .. } = tag_array.access(block_addr, &fetch, time);
+        // } else if probe_status != Status::RESERVATION_FAIL {
+        //     if self.inner.miss_queue_full() {
+        //         status = Status::RESERVATION_FAIL;
+        //
+        //         self.inner.stats.lock().inc(
+        //             *fetch.access_kind(),
+        //             cache::AccessStat::ReservationFailure(
+        //                 cache::ReservationFailure::MISS_QUEUE_FULL,
+        //             ),
+        //             1,
+        //         );
+        //     } else {
+        //         let (should_miss, _writeback, _evicted) = self.inner.send_read_request(
+        //             addr,
+        //             block_addr,
+        //             cache_index.unwrap(),
+        //             fetch.clone(),
+        //             time,
+        //             events,
+        //             true,
+        //             false,
+        //         );
+        //         if should_miss {
+        //             status = Status::MISS;
+        //         } else {
+        //             status = Status::RESERVATION_FAIL;
+        //         }
+        //     }
+        // } else {
+        //     self.inner.stats.lock().inc(
+        //         *fetch.access_kind(),
+        //         cache::AccessStat::ReservationFailure(cache::ReservationFailure::LINE_ALLOC_FAIL),
+        //         1,
+        //     );
+        // }
         self.inner.stats.lock().inc(
             *fetch.access_kind(),
             cache::AccessStat::Status(select_status(probe_status, status)),

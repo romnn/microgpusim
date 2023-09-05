@@ -17,7 +17,7 @@ pub struct EvictedBlockInfo {
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct AccessStatus {
-    pub index: Option<usize>,
+    pub cache_index: Option<usize>,
     pub writeback: bool,
     pub evicted: Option<EvictedBlockInfo>,
     pub status: cache::RequestStatus,
@@ -233,29 +233,42 @@ where
         let mut writeback = false;
         let mut evicted = None;
 
-        let (index, status) = self.probe(addr, fetch, fetch.is_write(), false);
+        // let (index, status) = self.probe(addr, fetch, fetch.is_write(), false);
+        // let Some((cache_index, status)) = self.probe(addr, fetch, fetch.is_write(), false) else {
+        // let probe = self.probe(addr, fetch, fetch.is_write(), false);
+        // let probe = self.probe(addr, fetch, fetch.is_write(), false);
+        let Some((cache_index, status)) = self.probe(addr, fetch, fetch.is_write(), false) else {
+            self.num_reservation_fail += 1;
+            return AccessStatus {
+                cache_index: None,
+                writeback,
+                evicted,
+                status: cache::RequestStatus::RESERVATION_FAIL,
+            };
+        };
+
         match status {
+            cache::RequestStatus::RESERVATION_FAIL => {
+                self.num_reservation_fail += 1;
+            }
             cache::RequestStatus::HIT | cache::RequestStatus::HIT_RESERVED => {
                 if status == cache::RequestStatus::HIT_RESERVED {
                     self.num_pending_hit += 1;
                 }
 
-                // TODO: use an enum like either here
-                let index = index.expect("hit has idx");
-                let line = &mut self.lines[index];
+                let line = &mut self.lines[cache_index];
                 line.set_last_access_time(time, &fetch.access.sector_mask);
             }
             cache::RequestStatus::MISS => {
                 self.num_miss += 1;
-                let index = index.expect("hit has idx");
-                let line = &mut self.lines[index];
+                let line = &mut self.lines[cache_index];
 
                 log::trace!(
                     "tag_array::access({}, time={}) => {:?} line[{}]={} allocate policy={:?}",
                     fetch,
                     time,
                     status,
-                    index,
+                    cache_index,
                     line,
                     self.cache_config.allocate_policy
                 );
@@ -274,7 +287,7 @@ where
                     }
                     log::trace!(
                         "tag_array::allocate(cache={}, tag={}, modified={}, time={})",
-                        index,
+                        cache_index,
                         self.addr_translation.tag(addr),
                         line.is_modified(),
                         time,
@@ -301,15 +314,12 @@ where
                 // }
                 unimplemented!("sector miss");
             }
-            cache::RequestStatus::RESERVATION_FAIL => {
-                self.num_reservation_fail += 1;
-            }
-            status @ cache::RequestStatus::MSHR_HIT => {
+            cache::RequestStatus::MSHR_HIT => {
                 panic!("tag_array access: status {status:?} should never be returned");
             }
         }
         AccessStatus {
-            index,
+            cache_index: Some(cache_index),
             writeback,
             evicted,
             status,
@@ -395,7 +405,7 @@ where
         fetch: &mem_fetch::MemFetch,
         is_write: bool,
         is_probe: bool,
-    ) -> (Option<usize>, cache::RequestStatus) {
+    ) -> Option<(usize, cache::RequestStatus)> {
         self.probe_masked(
             block_addr,
             &fetch.access.sector_mask,
@@ -412,7 +422,7 @@ where
         is_write: bool,
         _is_probe: bool,
         fetch: Option<&mem_fetch::MemFetch>,
-    ) -> (Option<usize>, cache::RequestStatus) {
+    ) -> Option<(usize, cache::RequestStatus)> {
         let set_index = self.addr_translation.set_index(block_addr) as usize;
         let tag = self.addr_translation.tag(block_addr);
 
@@ -451,10 +461,10 @@ where
             if line.tag() == tag {
                 match line.status(mask) {
                     cache::block::Status::RESERVED => {
-                        return (Some(idx), cache::RequestStatus::HIT_RESERVED);
+                        return Some((idx, cache::RequestStatus::HIT_RESERVED));
                     }
                     cache::block::Status::VALID => {
-                        return (Some(idx), cache::RequestStatus::HIT);
+                        return Some((idx, cache::RequestStatus::HIT));
                     }
                     cache::block::Status::MODIFIED => {
                         let status = if is_write || line.is_readable(mask) {
@@ -467,10 +477,10 @@ where
                         //     false if line.is_readable(mask) => cache::RequestStatus::HIT,
                         //     _ => cache::RequestStatus::SECTOR_MISS,
                         // };
-                        return (Some(idx), status);
+                        return Some((idx, status));
                     }
                     cache::block::Status::INVALID if line.is_valid() => {
-                        return (Some(idx), cache::RequestStatus::SECTOR_MISS);
+                        return Some((idx, cache::RequestStatus::SECTOR_MISS));
                     }
                     cache::block::Status::INVALID => {}
                 }
@@ -506,7 +516,13 @@ where
             }
         }
 
-        log::trace!("tag_array::probe({:?}) => all reserved={} invalid_line={:?} valid_line={:?} ({:?} policy)", fetch.map(ToString::to_string), all_reserved, invalid_line, valid_line, self.cache_config.replacement_policy);
+        log::trace!(
+            "tag_array::probe({:?}) => all reserved={} invalid_line={:?} valid_line={:?} ({:?} policy)", fetch.map(ToString::to_string),
+            all_reserved,
+            invalid_line,
+            valid_line,
+            self.cache_config.replacement_policy,
+        );
 
         if all_reserved {
             debug_assert_eq!(
@@ -514,7 +530,8 @@ where
                 cache::config::AllocatePolicy::ON_MISS
             );
             // miss and not enough space in cache to allocate on miss
-            return (None, cache::RequestStatus::RESERVATION_FAIL);
+            return None;
+            // return cache::RequestStatus::RESERVATION_FAIL;
         }
 
         let cache_idx = match (valid_line, invalid_line) {
@@ -526,7 +543,7 @@ where
                 panic!("found neither a valid nor invalid cache line");
             }
         };
-        (Some(cache_idx), cache::RequestStatus::MISS)
+        Some((cache_idx, cache::RequestStatus::MISS))
     }
 
     pub fn fill_on_miss(
@@ -562,22 +579,24 @@ where
         time: u64,
     ) {
         let is_probe = false;
-        let (cache_index, probe_status) =
-            self.probe_masked(addr, sector_mask, is_write, is_probe, None);
+        // let (cache_index, probe_status) =
+        // self.probe_masked(addr, sector_mask, is_write, is_probe, None);
+        let Some((cache_index, probe_status)) = self.probe_masked(addr, sector_mask, is_write, is_probe, None) else {
+            return;
+        };
+
+        if probe_status == cache::RequestStatus::RESERVATION_FAIL {
+            return;
+        }
 
         log::trace!(
             "tag_array::fill(cache={}, tag={}, addr={}, time={}) (on fill) status={:?}",
-            cache_index.map_or(-1, |i| i as i64),
+            cache_index,
             self.addr_translation.tag(addr),
             addr,
             time,
             probe_status,
         );
-
-        if probe_status == cache::RequestStatus::RESERVATION_FAIL {
-            return;
-        }
-        let cache_index = cache_index.unwrap();
 
         let line = &mut self.lines[cache_index];
         let mut was_modified_before = line.is_modified();
