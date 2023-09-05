@@ -35,39 +35,39 @@ fn register_bank(
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Operand {
-    warp_id: Option<usize>,
-    operand: Option<usize>,
-    register: u32,
-    bank: usize,
-    scheduler_id: usize,
-    collector_unit_id: Option<usize>,
+    pub warp_id: Option<usize>,
+    pub operand: Option<usize>,
+    pub register: u32,
+    pub bank: usize,
+    pub scheduler_id: usize,
+    pub collector_unit_id: Option<usize>,
 }
 
-impl Operand {
-    #[must_use]
-    pub fn new(
-        warp_id: Option<usize>,
-        cu_id: usize,
-        op: usize,
-        reg: u32,
-        bank: usize,
-        scheduler_id: usize,
-    ) -> Self {
-        Self {
-            bank,
-            warp_id,
-            operand: Some(op),
-            register: reg,
-            scheduler_id,
-            collector_unit_id: Some(cu_id),
-        }
-    }
-
-    #[must_use]
-    pub fn warp_id(&self) -> Option<usize> {
-        self.warp_id
-    }
-}
+// impl Operand {
+//     #[must_use]
+//     pub fn new(
+//         warp_id: Option<usize>,
+//         cu_id: usize,
+//         op: usize,
+//         reg: u32,
+//         bank: usize,
+//         scheduler_id: usize,
+//     ) -> Self {
+//         Self {
+//             bank,
+//             warp_id,
+//             operand: Some(op),
+//             register: reg,
+//             scheduler_id,
+//             collector_unit_id: Some(cu_id),
+//         }
+//     }
+//
+//     #[must_use]
+//     pub fn warp_id(&self) -> Option<usize> {
+//         self.warp_id
+//     }
+// }
 
 #[derive(Debug)]
 pub struct CollectorUnit {
@@ -240,14 +240,14 @@ impl CollectorUnit {
                             scheduler_id,
                         );
 
-                        self.src_operands[op] = Some(Operand::new(
-                            self.warp_id,
-                            self.id, // cu id
-                            op,
-                            reg_num,
+                        self.src_operands[op] = Some(Operand {
+                            warp_id: self.warp_id,
+                            collector_unit_id: Some(self.id),
+                            operand: Some(op),
+                            register: reg_num,
                             bank,
                             scheduler_id,
-                        ));
+                        });
                         self.not_ready.set(op, true);
                     } else {
                         self.src_operands[op] = None;
@@ -560,7 +560,7 @@ impl Arbiter {
         let mut read_ops = HashMap::new();
         for read in allocated {
             let reg = read.register;
-            let warp_id = read.warp_id().unwrap();
+            let warp_id = read.warp_id.unwrap();
             let bank = register_bank(
                 reg,
                 warp_id,
@@ -719,7 +719,6 @@ pub type CuSets = HashMap<Kind, Vec<Arc<Mutex<CollectorUnit>>>>;
 #[derive(Debug, Clone)]
 pub struct RegisterFileUnit {
     pub config: Arc<config::GPU>,
-
     pub initialized: bool,
     pub num_banks: usize,
     pub num_collectors: usize,
@@ -827,29 +826,6 @@ impl RegisterFileUnit {
     pub fn allocate_reads(&mut self) {
         // process read requests that do not have conflicts
         let read_ops = self.arbiter.allocate_reads();
-        // let allocated: &Vec<Operand> = crate::timeit!(self.arbiter.allocate_reads());
-        // // TODO: move this into the arbiter??
-        // log::debug!(
-        //     "arbiter allocated {} reads ({:?})",
-        //     allocated.len(),
-        //     &allocated
-        // );
-        // let mut read_ops = HashMap::new();
-        // for read in allocated {
-        //     let reg = read.register;
-        //     let warp_id = read.warp_id().unwrap();
-        //     let bank = register_bank(
-        //         reg,
-        //         warp_id,
-        //         self.num_banks,
-        //         self.bank_warp_shift,
-        //         self.sub_core_model,
-        //         self.num_banks_per_scheduler,
-        //         read.scheduler_id,
-        //     );
-        //     self.arbiter.allocate_bank_for_read(bank, read);
-        //     read_ops.insert(bank, read);
-        // }
 
         log::debug!("allocating {} reads ({:?})", read_ops.len(), &read_ops);
         for read in read_ops.values() {
@@ -1007,12 +983,11 @@ impl RegisterFileUnit {
         let set = self.collector_unit_sets.entry(kind).or_default();
 
         for _ in 0..num_collector_units {
-            // let unit = Rc::new(RefCell::new(CollectorUnit::new(kind)));
             let unit = Arc::new(Mutex::new(CollectorUnit::new(kind)));
             set.push(Arc::clone(&unit));
             self.collector_units.push(unit);
         }
-        // for now each collector set gets dedicated dispatch units.
+        // each collector set gets dedicated dispatch units.
         for _ in 0..num_dispatch_units {
             let dispatch_unit = DispatchUnit::new(kind);
             self.dispatch_units.push(dispatch_unit);

@@ -2,8 +2,9 @@
 
 - today:
 
-  - builder for mem access as well
-  - decide on better names for linear, raw, translated addr to refelct virtual and physical for cache and global
+  - validate the number of warp instructions for the execution driven frontend and test that.
+  - write more execution driven examples (especially the different transpose variants)
+  - decide on better names for linear, raw, translated addr to reflect virtual and physical for cache and global
 
   - remove the global config from components and use smaller configs
   - stat: warp instructions
@@ -11,14 +12,16 @@
 
     - per allocation stats
 
-  - consolidate deterministic parallelism, make rayon optional finally
   - fix that cache index unwrapping design
   - add config parsing for box
   - generate data for the different parallel implementations speedups
     - how well does it scale for 20 instead of 80 cores
-  - playground stats (should match accelsim)
   - convert, match and plot statistics
   - record mem fetch latency in playground and box
+
+  - DONE: playground stats (should match accelsim)
+  - DONE: builder for mem access as well
+  - DONE: consolidate deterministic parallelism, make rayon optional finally
   - DONE: rename crates and github repo
   - DONE: write trait for tag array
   - SKIP: publish to crates.io

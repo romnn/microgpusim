@@ -1111,129 +1111,93 @@ where
             let mut out_ports = opcoll::PortVec::new();
             let mut cu_sets: Vec<opcoll::Kind> = Vec::new();
 
-            in_ports.push(pipeline_reg[PipelineStage::ID_OC_SP as usize].clone());
-            in_ports.push(pipeline_reg[PipelineStage::ID_OC_SFU as usize].clone());
-            in_ports.push(pipeline_reg[PipelineStage::ID_OC_MEM as usize].clone());
-            out_ports.push(pipeline_reg[PipelineStage::OC_EX_SP as usize].clone());
-            out_ports.push(pipeline_reg[PipelineStage::OC_EX_SFU as usize].clone());
-            out_ports.push(pipeline_reg[PipelineStage::OC_EX_MEM as usize].clone());
-            // out_ports.push_back(&m_pipeline_reg[OC_EX_SFU]);
-            // out_ports.push(&self.pipeline_reg[OC_EX_MEM]);
-            // if (m_config->gpgpu_tensor_core_avail) {
-            //   in_ports.push_back(&m_pipeline_reg[ID_OC_TENSOR_CORE]);
-            //   out_ports.push_back(&m_pipeline_reg[OC_EX_TENSOR_CORE]);
-            // }
+            in_ports.push(Arc::clone(&pipeline_reg[PipelineStage::ID_OC_SP as usize]));
+            in_ports.push(Arc::clone(&pipeline_reg[PipelineStage::ID_OC_SFU as usize]));
+            in_ports.push(Arc::clone(&pipeline_reg[PipelineStage::ID_OC_MEM as usize]));
+            out_ports.push(Arc::clone(&pipeline_reg[PipelineStage::OC_EX_SP as usize]));
+            out_ports.push(Arc::clone(&pipeline_reg[PipelineStage::OC_EX_SFU as usize]));
+            out_ports.push(Arc::clone(&pipeline_reg[PipelineStage::OC_EX_MEM as usize]));
+
             if config.num_dp_units > 0 {
-                in_ports.push(pipeline_reg[PipelineStage::ID_OC_DP as usize].clone());
-                out_ports.push(pipeline_reg[PipelineStage::OC_EX_DP as usize].clone());
+                in_ports.push(Arc::clone(&pipeline_reg[PipelineStage::ID_OC_DP as usize]));
+                out_ports.push(Arc::clone(&pipeline_reg[PipelineStage::OC_EX_DP as usize]));
             }
             if config.num_int_units > 0 {
-                in_ports.push(pipeline_reg[PipelineStage::ID_OC_INT as usize].clone());
-                out_ports.push(pipeline_reg[PipelineStage::OC_EX_INT as usize].clone());
+                in_ports.push(Arc::clone(&pipeline_reg[PipelineStage::ID_OC_INT as usize]));
+                out_ports.push(Arc::clone(&pipeline_reg[PipelineStage::OC_EX_INT as usize]));
             }
-            // if config.num_int_units > 0 {
-            //     in_ports.push(pipeline_reg[PipelineStage::ID_OC_INT as usize].clone());
-            //     out_ports.push(pipeline_reg[PipelineStage::OC_EX_INT as usize].clone());
-            // }
-
-            // if (m_config->m_specialized_unit.size() > 0) {
-            //   for (unsigned j = 0; j < m_config->m_specialized_unit.size(); ++j) {
-            //     in_ports.push_back(
-            //         &m_pipeline_reg[m_config->m_specialized_unit[j].ID_OC_SPEC_ID]);
-            //     out_ports.push_back(
-            //         &m_pipeline_reg[m_config->m_specialized_unit[j].OC_EX_SPEC_ID]);
-            //   }
-            // }
-            // cu_sets.push_back((unsigned)GEN_CUS);
-            // m_operand_collector.add_port(in_ports, out_ports, cu_sets);
             cu_sets.push(opcoll::Kind::GEN_CUS);
             operand_collector.add_port(in_ports, out_ports, cu_sets);
         }
 
         if config.enable_specialized_operand_collector {
-            operand_collector.add_cu_set(
-                opcoll::Kind::SP_CUS,
-                config.operand_collector_num_units_sp,
-                config.operand_collector_num_out_ports_sp,
-            );
-            operand_collector.add_cu_set(
-                opcoll::Kind::DP_CUS,
-                config.operand_collector_num_units_dp,
-                config.operand_collector_num_out_ports_dp,
-            );
-            operand_collector.add_cu_set(
-                opcoll::Kind::SFU_CUS,
-                config.operand_collector_num_units_sfu,
-                config.operand_collector_num_out_ports_sfu,
-            );
-            operand_collector.add_cu_set(
-                opcoll::Kind::MEM_CUS,
-                config.operand_collector_num_units_mem,
-                config.operand_collector_num_out_ports_mem,
-            );
-            operand_collector.add_cu_set(
-                opcoll::Kind::INT_CUS,
-                config.operand_collector_num_units_int,
-                config.operand_collector_num_out_ports_int,
-            );
+            for (kind, num_collector_units, num_dispatch_units) in [
+                (
+                    opcoll::Kind::SP_CUS,
+                    config.operand_collector_num_units_sp,
+                    config.operand_collector_num_out_ports_sp,
+                ),
+                (
+                    opcoll::Kind::DP_CUS,
+                    config.operand_collector_num_units_dp,
+                    config.operand_collector_num_out_ports_dp,
+                ),
+                (
+                    opcoll::Kind::SFU_CUS,
+                    config.operand_collector_num_units_sfu,
+                    config.operand_collector_num_out_ports_sfu,
+                ),
+                (
+                    opcoll::Kind::MEM_CUS,
+                    config.operand_collector_num_units_mem,
+                    config.operand_collector_num_out_ports_mem,
+                ),
+                (
+                    opcoll::Kind::INT_CUS,
+                    config.operand_collector_num_units_int,
+                    config.operand_collector_num_out_ports_int,
+                ),
+            ] {
+                operand_collector.add_cu_set(kind, num_collector_units, num_dispatch_units);
+            }
 
             for _ in 0..config.operand_collector_num_in_ports_sp {
-                let mut in_ports = opcoll::PortVec::new();
-                let mut out_ports = opcoll::PortVec::new();
-                let mut cu_sets: Vec<opcoll::Kind> = Vec::new();
+                let in_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::ID_OC_SP as usize])];
+                let out_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::OC_EX_SP as usize])];
+                let cu_sets = vec![opcoll::Kind::SP_CUS, opcoll::Kind::GEN_CUS];
 
-                in_ports.push(pipeline_reg[PipelineStage::ID_OC_SP as usize].clone());
-                out_ports.push(pipeline_reg[PipelineStage::OC_EX_SP as usize].clone());
-                cu_sets.push(opcoll::Kind::SP_CUS);
-                cu_sets.push(opcoll::Kind::GEN_CUS);
                 operand_collector.add_port(in_ports, out_ports, cu_sets);
             }
 
             for _ in 0..config.operand_collector_num_in_ports_dp {
-                let mut in_ports = opcoll::PortVec::new();
-                let mut out_ports = opcoll::PortVec::new();
-                let mut cu_sets: Vec<opcoll::Kind> = Vec::new();
+                let in_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::ID_OC_DP as usize])];
+                let out_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::OC_EX_DP as usize])];
+                let cu_sets = vec![opcoll::Kind::DP_CUS, opcoll::Kind::GEN_CUS];
 
-                in_ports.push(pipeline_reg[PipelineStage::ID_OC_DP as usize].clone());
-                out_ports.push(pipeline_reg[PipelineStage::OC_EX_DP as usize].clone());
-                cu_sets.push(opcoll::Kind::DP_CUS);
-                cu_sets.push(opcoll::Kind::GEN_CUS);
                 operand_collector.add_port(in_ports, out_ports, cu_sets);
             }
 
             for _ in 0..config.operand_collector_num_in_ports_sfu {
-                let mut in_ports = opcoll::PortVec::new();
-                let mut out_ports = opcoll::PortVec::new();
-                let mut cu_sets: Vec<opcoll::Kind> = Vec::new();
+                let in_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::ID_OC_SFU as usize])];
+                let out_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::OC_EX_SFU as usize])];
+                let cu_sets = vec![opcoll::Kind::SFU_CUS, opcoll::Kind::GEN_CUS];
 
-                in_ports.push(pipeline_reg[PipelineStage::ID_OC_SFU as usize].clone());
-                out_ports.push(pipeline_reg[PipelineStage::OC_EX_SFU as usize].clone());
-                cu_sets.push(opcoll::Kind::SFU_CUS);
-                cu_sets.push(opcoll::Kind::GEN_CUS);
                 operand_collector.add_port(in_ports, out_ports, cu_sets);
             }
 
             for _ in 0..config.operand_collector_num_in_ports_mem {
-                let mut in_ports = opcoll::PortVec::new();
-                let mut out_ports = opcoll::PortVec::new();
-                let mut cu_sets: Vec<opcoll::Kind> = Vec::new();
+                let in_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::ID_OC_MEM as usize])];
+                let out_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::OC_EX_MEM as usize])];
+                let cu_sets = vec![opcoll::Kind::MEM_CUS, opcoll::Kind::GEN_CUS];
 
-                in_ports.push(pipeline_reg[PipelineStage::ID_OC_MEM as usize].clone());
-                out_ports.push(pipeline_reg[PipelineStage::OC_EX_MEM as usize].clone());
-                cu_sets.push(opcoll::Kind::MEM_CUS);
-                cu_sets.push(opcoll::Kind::GEN_CUS);
                 operand_collector.add_port(in_ports, out_ports, cu_sets);
             }
 
             for _ in 0..config.operand_collector_num_in_ports_int {
-                let mut in_ports = opcoll::PortVec::new();
-                let mut out_ports = opcoll::PortVec::new();
-                let mut cu_sets: Vec<opcoll::Kind> = Vec::new();
+                let in_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::ID_OC_INT as usize])];
+                let out_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::OC_EX_INT as usize])];
+                let cu_sets = vec![opcoll::Kind::INT_CUS, opcoll::Kind::GEN_CUS];
 
-                in_ports.push(pipeline_reg[PipelineStage::ID_OC_INT as usize].clone());
-                out_ports.push(pipeline_reg[PipelineStage::OC_EX_INT as usize].clone());
-                cu_sets.push(opcoll::Kind::DP_CUS);
-                cu_sets.push(opcoll::Kind::GEN_CUS);
                 operand_collector.add_port(in_ports, out_ports, cu_sets);
             }
         }
