@@ -70,18 +70,18 @@ impl MemoryPartitionUnit {
         &self,
         addr: address,
         global_subpart_id: usize,
-        mask: mem_fetch::SectorMask,
+        sector_mask: &mem_fetch::SectorMask,
         time: u64,
     ) {
         let local_subpart_id = self.global_sub_partition_id_to_local_id(global_subpart_id);
 
         log::trace!(
             "copy engine request received for address={}, local_subpart={}, global_subpart={}, sector_mask={}",
-            addr, local_subpart_id, global_subpart_id, mask.to_bit_string());
+            addr, local_subpart_id, global_subpart_id, sector_mask.to_bit_string());
 
         self.sub_partitions[local_subpart_id]
             .lock()
-            .force_l2_tag_update(addr, mask, time);
+            .force_l2_tag_update(addr, sector_mask, time);
     }
 
     #[inline]

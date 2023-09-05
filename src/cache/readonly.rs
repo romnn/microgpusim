@@ -186,6 +186,22 @@ impl cache::Cache for ReadOnly
     fn fill(&mut self, fetch: mem_fetch::MemFetch, time: u64) {
         self.inner.fill(fetch, time);
     }
+
+    fn waiting_for_fill(&self, _fetch: &mem_fetch::MemFetch) -> bool {
+        false
+    }
+
+    fn write_allocate_policy(&self) -> cache::config::WriteAllocatePolicy {
+        cache::config::WriteAllocatePolicy::NO_WRITE_ALLOCATE
+    }
+
+    fn invalidate(&mut self) {
+        self.inner.invalidate()
+    }
+
+    fn flush(&mut self) -> usize {
+        self.inner.flush()
+    }
 }
 
 /// This function selects how the cache access outcome should be counted.

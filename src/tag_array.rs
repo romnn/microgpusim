@@ -188,10 +188,15 @@ pub trait Access<B> {
     #[must_use]
     fn access(&mut self, addr: address, fetch: &mem_fetch::MemFetch, time: u64) -> AccessStatus;
 
-    /// TODO?
-    fn flush(&mut self);
+    /// Flushes all dirty (modified) lines to the upper level cache.
+    ///
+    /// # Returns
+    /// The number of dirty lines flushed.
+    fn flush(&mut self) -> usize;
 
-    /// Invalidate all tags stored in this array.
+    /// Invalidates all tags stored in this array.
+    ///
+    /// This effectively resets the tag array.
     fn invalidate(&mut self);
 
     /// The maximum number of tags this array can hold.
@@ -312,13 +317,34 @@ where
     }
 
     #[inline]
-    fn flush(&mut self) {
-        todo!("flush tag array");
+    fn flush(&mut self) -> usize {
+        use crate::mem_sub_partition::SECTOR_CHUNCK_SIZE;
+        let mut flushed = 0;
+        for line in self.lines.iter_mut() {
+            if line.is_modified() {
+                for i in 0..SECTOR_CHUNCK_SIZE {
+                    let mut sector_mask = mem_fetch::SectorMask::ZERO;
+                    sector_mask.set(i as usize, true);
+                    line.set_status(cache::block::Status::INVALID, &sector_mask);
+                }
+                flushed += 1;
+            }
+        }
+        self.num_dirty = 0;
+        flushed
     }
 
     #[inline]
     fn invalidate(&mut self) {
-        todo!("invalidate tag array");
+        use crate::mem_sub_partition::SECTOR_CHUNCK_SIZE;
+        for line in self.lines.iter_mut() {
+            for i in 0..SECTOR_CHUNCK_SIZE {
+                let mut sector_mask = mem_fetch::SectorMask::ZERO;
+                sector_mask.set(i as usize, true);
+                line.set_status(cache::block::Status::INVALID, &sector_mask);
+            }
+        }
+        self.num_dirty = 0;
     }
 
     #[inline]
@@ -503,36 +529,41 @@ where
         (Some(cache_idx), cache::RequestStatus::MISS)
     }
 
-    pub fn fill_on_miss(&mut self, cache_index: usize, fetch: &mem_fetch::MemFetch, time: u64) {
+    pub fn fill_on_miss(
+        &mut self,
+        cache_index: usize,
+        addr: address,
+        sector_mask: &mem_fetch::SectorMask,
+        byte_mask: &mem_fetch::ByteMask,
+        time: u64,
+    ) {
         debug_assert!(self.cache_config.allocate_policy == cache::config::AllocatePolicy::ON_MISS);
 
         log::trace!(
             "tag_array::fill(cache={}, tag={}, addr={}) (on miss)",
             cache_index,
-            self.addr_translation.tag(fetch.addr()),
-            fetch.addr(),
+            self.addr_translation.tag(addr),
+            addr,
         );
 
         let was_modified_before = self.lines[cache_index].is_modified();
-        self.lines[cache_index].fill(&fetch.access.sector_mask, &fetch.access.byte_mask, time);
+        self.lines[cache_index].fill(sector_mask, byte_mask, time);
         if self.lines[cache_index].is_modified() && !was_modified_before {
             self.num_dirty += 1;
         }
     }
 
-    /// TODO: consolidate with fill on fill
-    // pub fn populate_memcopy(
     pub fn fill_on_fill(
         &mut self,
         addr: address,
-        sector_mask: mem_fetch::SectorMask,
-        byte_mask: mem_fetch::ByteMask,
+        sector_mask: &mem_fetch::SectorMask,
+        byte_mask: &mem_fetch::ByteMask,
         is_write: bool,
         time: u64,
     ) {
         let is_probe = false;
         let (cache_index, probe_status) =
-            self.probe_masked(addr, &sector_mask, is_write, is_probe, None);
+            self.probe_masked(addr, sector_mask, is_write, is_probe, None);
 
         log::trace!(
             "tag_array::fill(cache={}, tag={}, addr={}, time={}) (on fill) status={:?}",
@@ -561,7 +592,7 @@ where
             line.allocate(
                 self.addr_translation.tag(addr),
                 self.addr_translation.block_addr(addr),
-                &sector_mask,
+                sector_mask,
                 time,
             );
         } else if probe_status == cache::RequestStatus::SECTOR_MISS {
@@ -573,63 +604,11 @@ where
             self.num_dirty -= 1;
         }
         was_modified_before = line.is_modified();
-        line.fill(&sector_mask, &byte_mask, time);
+        line.fill(sector_mask, byte_mask, time);
         if line.is_modified() && !was_modified_before {
             self.num_dirty += 1;
         }
     }
-
-    // TODO: consolidate with populate memcopy
-    // pub fn fill_on_fill(&mut self, addr: address, fetch: &mem_fetch::MemFetch, time: u64) {
-    //     debug_assert!(self.cache_config.allocate_policy == cache::config::AllocatePolicy::ON_FILL);
-
-    // // probe tag array
-    // let is_probe = false;
-    // let (cache_index, probe_status) = self.probe(addr, fetch, fetch.is_write(), is_probe);
-    //
-    // log::trace!(
-    //     "tag_array::fill(cache={}, tag={}, addr={}) (on fill) status={:?}",
-    //     cache_index.map_or(-1, |i| i as i64),
-    //     self.addr_translation.tag(fetch.addr()),
-    //     fetch.addr(),
-    //     probe_status,
-    // );
-    //
-    // if probe_status == cache::RequestStatus::RESERVATION_FAIL {
-    //     return;
-    // }
-    // let cache_index = cache_index.unwrap();
-    //
-    // let line = self.lines.get_mut(cache_index).unwrap();
-    // let mut was_modified_before = line.is_modified();
-    //
-    // if probe_status == cache::RequestStatus::MISS {
-    //     log::trace!(
-    //         "tag_array::allocate(cache={}, tag={}, time={})",
-    //         cache_index,
-    //         self.addr_translation.tag(addr),
-    //         time,
-    //     );
-    //     line.allocate(
-    //         self.addr_translation.tag(addr),
-    //         self.addr_translation.block_addr(addr),
-    //         &fetch.access.sector_mask,
-    //         time,
-    //     );
-    // } else if probe_status == cache::RequestStatus::SECTOR_MISS {
-    //     // debug_assert_eq!(self.config.kind, config::CacheKind::Sector);
-    //     // line.allocate_sector(fetch.access_sector_mask(), time);
-    //     unimplemented!("sectored cache");
-    // }
-    // if was_modified_before && !line.is_modified() {
-    //     self.num_dirty -= 1;
-    // }
-    // was_modified_before = line.is_modified();
-    // line.fill(&fetch.access.sector_mask, &fetch.access.byte_mask, time);
-    // if line.is_modified() && !was_modified_before {
-    //     self.num_dirty += 1;
-    // }
-    // }
 }
 
 #[cfg(test)]

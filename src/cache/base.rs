@@ -185,8 +185,8 @@ impl<MC> Base<MC> {
     }
 
     /// Flush all entries in cache
-    pub fn flush(&mut self) {
-        self.tag_array.flush();
+    pub fn flush(&mut self) -> usize {
+        self.tag_array.flush()
     }
 
     /// Invalidate all entries in cache
@@ -394,19 +394,22 @@ impl<MC> Base<MC>
 
         match self.cache_config.allocate_policy {
             cache::config::AllocatePolicy::ON_MISS => {
-                self.tag_array
-                    .fill_on_miss(pending.cache_index, &fetch, time);
+                self.tag_array.fill_on_miss(
+                    pending.cache_index,
+                    fetch.addr(),
+                    &fetch.access.sector_mask,
+                    &fetch.access.byte_mask,
+                    time,
+                );
             }
             cache::config::AllocatePolicy::ON_FILL => {
-                self.tag_array
-                    // .fill_on_fill(pending.block_addr, &fetch, time);
-                    .fill_on_fill(
-                        pending.block_addr,
-                        fetch.access.sector_mask,
-                        fetch.access.byte_mask,
-                        fetch.is_write(),
-                        time,
-                    );
+                self.tag_array.fill_on_fill(
+                    pending.block_addr,
+                    &fetch.access.sector_mask,
+                    &fetch.access.byte_mask,
+                    fetch.is_write(),
+                    time,
+                );
             }
             other @ cache::config::AllocatePolicy::STREAMING => {
                 unimplemented!("cache allocate policy {:?} is not implemented", other)

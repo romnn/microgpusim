@@ -123,9 +123,14 @@ impl MemorySubPartition
         }
     }
 
-    pub fn force_l2_tag_update(&mut self, addr: address, mask: mem_fetch::SectorMask, time: u64) {
+    pub fn force_l2_tag_update(
+        &mut self,
+        addr: address,
+        sector_mask: &mem_fetch::SectorMask,
+        time: u64,
+    ) {
         if let Some(ref mut l2_cache) = self.l2_cache {
-            l2_cache.force_tag_access(addr, time + self.memcpy_cycle_offset, mask);
+            l2_cache.force_tag_access(addr, time + self.memcpy_cycle_offset, sector_mask);
             self.memcpy_cycle_offset += 1;
         }
     }

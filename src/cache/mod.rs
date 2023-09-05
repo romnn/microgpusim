@@ -81,53 +81,62 @@ impl From<AccessStat> for stats::cache::AccessStat {
 }
 
 pub trait Cache: crate::engine::cycle::Component + Send + Sync + Bandwidth + 'static {
+    /// TODO: shoud this be removed?
     fn as_any(&self) -> &dyn std::any::Any;
 
+    /// Get cache statistics.
     fn stats(&self) -> &Arc<Mutex<stats::Cache>>;
 
-    fn has_ready_accesses(&self) -> bool;
-
+    /// Access the cache.
     fn access(
         &mut self,
         _addr: address,
         _fetch: mem_fetch::MemFetch,
         _events: &mut Vec<event::Event>,
         _time: u64,
-    ) -> RequestStatus {
-        todo!("cache: access");
+    ) -> RequestStatus;
+
+    /// Get a list of all ready accesses.
+    ///
+    /// TODO: should this be an iterator?
+    fn ready_accesses(&self) -> Option<&VecDeque<mem_fetch::MemFetch>>;
+
+    /// Check if the cache has any ready accesses.
+    ///
+    /// Types implementing this trait may provice their own implementation for efficiency.
+    fn has_ready_accesses(&self) -> bool {
+        let Some(ready) = self.ready_accesses() else {
+            return false;
+        };
+        !ready.is_empty()
     }
 
-    fn ready_accesses(&self) -> Option<&VecDeque<mem_fetch::MemFetch>> {
-        todo!("cache: ready_accesses");
+    /// Take the next ready access.
+    fn next_access(&mut self) -> Option<mem_fetch::MemFetch>;
+
+    /// Fill the cache.
+    fn fill(&mut self, _fetch: mem_fetch::MemFetch, _time: u64);
+
+    /// Flush the cache.
+    fn flush(&mut self) -> usize;
+
+    /// Invalidate the cache.
+    fn invalidate(&mut self);
+
+    /// Force access to the tag array only
+    fn force_tag_access(
+        &mut self,
+        _addr: address,
+        _time: u64,
+        _sector_mask: &mem_fetch::SectorMask,
+    ) {
     }
 
-    fn next_access(&mut self) -> Option<mem_fetch::MemFetch> {
-        todo!("cache: next access");
-    }
+    /// Check if fetch is waiting for fill.
+    fn waiting_for_fill(&self, _fetch: &mem_fetch::MemFetch) -> bool;
 
-    fn fill(&mut self, _fetch: mem_fetch::MemFetch, _time: u64) {
-        todo!("cache: fill");
-    }
-
-    fn flush(&mut self) -> usize {
-        todo!("cache: flush");
-    }
-
-    fn invalidate(&mut self) {
-        todo!("cache: invalidate");
-    }
-
-    fn force_tag_access(&mut self, _addr: address, _time: u64, _mask: mem_fetch::SectorMask) {
-        todo!("cache: invalidate");
-    }
-
-    fn waiting_for_fill(&self, _fetch: &mem_fetch::MemFetch) -> bool {
-        todo!("cache: waiting for fill");
-    }
-
-    fn write_allocate_policy(&self) -> config::WriteAllocatePolicy {
-        todo!("cache: write_allocate_policy");
-    }
+    /// The write allocate policy used by this cache.
+    fn write_allocate_policy(&self) -> config::WriteAllocatePolicy;
 }
 
 pub trait Bandwidth {

@@ -740,6 +740,14 @@ impl cache::Cache for Data
     fn waiting_for_fill(&self, fetch: &mem_fetch::MemFetch) -> bool {
         self.inner.waiting_for_fill(fetch)
     }
+
+    fn invalidate(&mut self) {
+        self.inner.invalidate()
+    }
+
+    fn flush(&mut self) -> usize {
+        self.inner.flush()
+    }
 }
 
 // impl<I> cache::Bandwidth for Data<I> {

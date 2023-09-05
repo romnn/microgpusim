@@ -807,10 +807,10 @@ where
 
         let partition = &self.mem_partition_units[partition_id as usize];
 
-        let mut mask: mem_fetch::SectorMask = BitArray::ZERO;
+        let mut sector_mask: mem_fetch::SectorMask = BitArray::ZERO;
         // Sector chunk size is 4, so we get the highest 4 bits of the address
         // to set the sector mask
-        mask.set(((write_addr % 128) as u8 / 32) as usize, true);
+        sector_mask.set(((write_addr % 128) as u8 / 32) as usize, true);
 
         log::trace!(
             "memcopy to gpu: copy 32 byte chunk starting at {} to sub partition unit {} of partition unit {} ({}) (mask {})",
@@ -818,13 +818,13 @@ where
             sub_partition_id,
             partition_id,
             tlx_addr.sub_partition,
-            mask.to_bit_string()
+            sector_mask.to_bit_string()
         );
 
         partition.try_read().handle_memcpy_to_gpu(
             write_addr,
             tlx_addr.sub_partition as usize,
-            mask,
+            &sector_mask,
             time,
         );
     }

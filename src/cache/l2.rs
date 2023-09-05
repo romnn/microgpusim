@@ -66,26 +66,32 @@ impl super::Cache for DataL2
 // where
 //     I: ic::MemFetchInterface + 'static,
 {
+    #[inline]
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
 
+    #[inline]
     fn stats(&self) -> &Arc<Mutex<stats::Cache>> {
         &self.inner.inner.stats
     }
 
+    #[inline]
     fn write_allocate_policy(&self) -> cache::config::WriteAllocatePolicy {
         self.inner.write_allocate_policy()
     }
 
+    #[inline]
     fn has_ready_accesses(&self) -> bool {
         self.inner.has_ready_accesses()
     }
 
+    #[inline]
     fn ready_accesses(&self) -> Option<&VecDeque<mem_fetch::MemFetch>> {
         self.inner.ready_accesses()
     }
 
+    #[inline]
     fn next_access(&mut self) -> Option<mem_fetch::MemFetch> {
         self.inner.next_access()
     }
@@ -94,19 +100,21 @@ impl super::Cache for DataL2
     // filling the cache on cudamemcopies. We don't care about anything other than
     // L2 state after the memcopy - so just force the tag array to act as though
     // something is read or written without doing anything else.
-    fn force_tag_access(&mut self, addr: address, time: u64, sector_mask: mem_fetch::SectorMask) {
-        let byte_mask: mem_fetch::ByteMask = bitvec::array::BitArray::ZERO;
+    #[inline]
+    fn force_tag_access(&mut self, addr: address, time: u64, sector_mask: &mem_fetch::SectorMask) {
+        let byte_mask = mem_fetch::ByteMask::ZERO;
         let is_write = true;
         self.inner
             .inner
             .tag_array
-            .fill_on_fill(addr, sector_mask, byte_mask, is_write, time);
+            .fill_on_fill(addr, sector_mask, &byte_mask, is_write, time);
     }
 
     /// Access read only cache.
     ///
     /// returns `RequestStatus::RESERVATION_FAIL` if
     /// request could not be accepted (for any reason)
+    #[inline]
     fn access(
         &mut self,
         addr: address,
@@ -117,12 +125,24 @@ impl super::Cache for DataL2
         self.inner.access(addr, fetch, events, time)
     }
 
+    #[inline]
     fn waiting_for_fill(&self, fetch: &mem_fetch::MemFetch) -> bool {
         self.inner.waiting_for_fill(fetch)
     }
 
+    #[inline]
     fn fill(&mut self, fetch: mem_fetch::MemFetch, time: u64) {
         self.inner.fill(fetch, time);
+    }
+
+    #[inline]
+    fn flush(&mut self) -> usize {
+        self.inner.flush()
+    }
+
+    #[inline]
+    fn invalidate(&mut self) {
+        self.inner.invalidate()
     }
 }
 
