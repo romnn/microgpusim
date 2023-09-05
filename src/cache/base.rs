@@ -399,7 +399,14 @@ impl<MC> Base<MC>
             }
             cache::config::AllocatePolicy::ON_FILL => {
                 self.tag_array
-                    .fill_on_fill(pending.block_addr, &fetch, time);
+                    // .fill_on_fill(pending.block_addr, &fetch, time);
+                    .fill_on_fill(
+                        pending.block_addr,
+                        fetch.access.sector_mask,
+                        fetch.access.byte_mask,
+                        fetch.is_write(),
+                        time,
+                    );
             }
             other @ cache::config::AllocatePolicy::STREAMING => {
                 unimplemented!("cache allocate policy {:?} is not implemented", other)

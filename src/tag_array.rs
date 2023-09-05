@@ -521,7 +521,8 @@ where
     }
 
     /// TODO: consolidate with fill on fill
-    pub fn populate_memcopy(
+    // pub fn populate_memcopy(
+    pub fn fill_on_fill(
         &mut self,
         addr: address,
         sector_mask: mem_fetch::SectorMask,
@@ -578,57 +579,57 @@ where
         }
     }
 
-    /// TODO: consolidate with populate memcopy
-    pub fn fill_on_fill(&mut self, addr: address, fetch: &mem_fetch::MemFetch, time: u64) {
-        debug_assert!(self.cache_config.allocate_policy == cache::config::AllocatePolicy::ON_FILL);
+    // TODO: consolidate with populate memcopy
+    // pub fn fill_on_fill(&mut self, addr: address, fetch: &mem_fetch::MemFetch, time: u64) {
+    //     debug_assert!(self.cache_config.allocate_policy == cache::config::AllocatePolicy::ON_FILL);
 
-        // probe tag array
-        let is_probe = false;
-        let (cache_index, probe_status) = self.probe(addr, fetch, fetch.is_write(), is_probe);
-
-        log::trace!(
-            "tag_array::fill(cache={}, tag={}, addr={}) (on fill) status={:?}",
-            cache_index.map_or(-1, |i| i as i64),
-            self.addr_translation.tag(fetch.addr()),
-            fetch.addr(),
-            probe_status,
-        );
-
-        if probe_status == cache::RequestStatus::RESERVATION_FAIL {
-            return;
-        }
-        let cache_index = cache_index.unwrap();
-
-        let line = self.lines.get_mut(cache_index).unwrap();
-        let mut was_modified_before = line.is_modified();
-
-        if probe_status == cache::RequestStatus::MISS {
-            log::trace!(
-                "tag_array::allocate(cache={}, tag={}, time={})",
-                cache_index,
-                self.addr_translation.tag(addr),
-                time,
-            );
-            line.allocate(
-                self.addr_translation.tag(addr),
-                self.addr_translation.block_addr(addr),
-                &fetch.access.sector_mask,
-                time,
-            );
-        } else if probe_status == cache::RequestStatus::SECTOR_MISS {
-            // debug_assert_eq!(self.config.kind, config::CacheKind::Sector);
-            // line.allocate_sector(fetch.access_sector_mask(), time);
-            unimplemented!("sectored cache");
-        }
-        if was_modified_before && !line.is_modified() {
-            self.num_dirty -= 1;
-        }
-        was_modified_before = line.is_modified();
-        line.fill(&fetch.access.sector_mask, &fetch.access.byte_mask, time);
-        if line.is_modified() && !was_modified_before {
-            self.num_dirty += 1;
-        }
-    }
+    // // probe tag array
+    // let is_probe = false;
+    // let (cache_index, probe_status) = self.probe(addr, fetch, fetch.is_write(), is_probe);
+    //
+    // log::trace!(
+    //     "tag_array::fill(cache={}, tag={}, addr={}) (on fill) status={:?}",
+    //     cache_index.map_or(-1, |i| i as i64),
+    //     self.addr_translation.tag(fetch.addr()),
+    //     fetch.addr(),
+    //     probe_status,
+    // );
+    //
+    // if probe_status == cache::RequestStatus::RESERVATION_FAIL {
+    //     return;
+    // }
+    // let cache_index = cache_index.unwrap();
+    //
+    // let line = self.lines.get_mut(cache_index).unwrap();
+    // let mut was_modified_before = line.is_modified();
+    //
+    // if probe_status == cache::RequestStatus::MISS {
+    //     log::trace!(
+    //         "tag_array::allocate(cache={}, tag={}, time={})",
+    //         cache_index,
+    //         self.addr_translation.tag(addr),
+    //         time,
+    //     );
+    //     line.allocate(
+    //         self.addr_translation.tag(addr),
+    //         self.addr_translation.block_addr(addr),
+    //         &fetch.access.sector_mask,
+    //         time,
+    //     );
+    // } else if probe_status == cache::RequestStatus::SECTOR_MISS {
+    //     // debug_assert_eq!(self.config.kind, config::CacheKind::Sector);
+    //     // line.allocate_sector(fetch.access_sector_mask(), time);
+    //     unimplemented!("sectored cache");
+    // }
+    // if was_modified_before && !line.is_modified() {
+    //     self.num_dirty -= 1;
+    // }
+    // was_modified_before = line.is_modified();
+    // line.fill(&fetch.access.sector_mask, &fetch.access.byte_mask, time);
+    // if line.is_modified() && !was_modified_before {
+    //     self.num_dirty += 1;
+    // }
+    // }
 }
 
 #[cfg(test)]
