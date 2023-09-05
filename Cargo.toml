@@ -106,11 +106,6 @@ rayon = { version = "1", optional = true }
 
 similar-asserts = "1"
 
-# log4rs = "0"
-# csv = "1"
-# dialoguer = "0"
-# derive_builder = "0"
-
 # for vectoradd rust example
 num-traits = "0"
 

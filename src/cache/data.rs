@@ -348,19 +348,18 @@ impl Data
         // if mshr_full || !(mshr_miss_but_free || mshr_hit && mshr_free) {
         // if mshr_full || !(mshr_miss_but_free || mshr_hit || mshr_free) {
         if mshr_full || (!(mshr_hit && mshr_free) && !mshr_miss_but_free) {
-            // check what is the exact failure reason
-            let failure = if mshr_full {
-                cache::ReservationFailure::MISS_QUEUE_FULL
-            } else if mshr_hit && !mshr_free {
-                cache::ReservationFailure::MSHR_MERGE_ENTRY_FAIL
-            } else if !mshr_hit && !mshr_free {
-                cache::ReservationFailure::MSHR_ENTRY_FAIL
-            } else {
-                panic!("write_miss_write_allocate_naive bad reason");
-            };
-
             #[cfg(feature = "stats")]
             {
+                // check what is the exact failure reason
+                let failure = if mshr_full {
+                    cache::ReservationFailure::MISS_QUEUE_FULL
+                } else if mshr_hit && !mshr_free {
+                    cache::ReservationFailure::MSHR_MERGE_ENTRY_FAIL
+                } else if !mshr_hit && !mshr_free {
+                    cache::ReservationFailure::MSHR_ENTRY_FAIL
+                } else {
+                    panic!("write_miss_write_allocate_naive bad reason");
+                };
                 let mut stats = self.inner.stats.lock();
                 stats.inc(
                     *fetch.access_kind(),
@@ -636,6 +635,7 @@ impl cache::Cache for Data
         debug_assert!(fetch.data_size() <= cache_config.atom_size());
 
         let is_write = fetch.is_write();
+        #[cfg(feature = "stats")]
         let access_kind = *fetch.access_kind();
         let block_addr = cache_config.block_addr(addr);
 

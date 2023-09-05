@@ -2,6 +2,7 @@
 
 - today:
 
+  - remove the global config from components and use smaller configs
   - stat: warp instructions
   - detailed stat feature:
 

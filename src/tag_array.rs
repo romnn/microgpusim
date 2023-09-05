@@ -23,20 +23,153 @@ pub struct AccessStatus {
     pub status: cache::RequestStatus,
 }
 
-#[derive(Debug, Clone)]
+/// Tag array configuration.
+// #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
+// pub struct Config {
+//     allocate_policy: config::CacheAllocatePolicy,
+//     replacement_policy: config::CacheReplacementPolicy,
+//     max_num_lines: usize,
+//     addr_translation: Box<dyn CacheAddressTranslation>,
+// }
+
+pub mod sector {
+    pub struct Config {}
+
+    // impl Config {
+    //     #[inline]
+    //     #[must_use]
+    //     pub fn sector_size(&self) -> u32 {
+    //         mem_sub_partition::SECTOR_SIZE
+    //     }
+    //
+    //     #[inline]
+    //     #[must_use]
+    //     pub fn sector_size_log2(&self) -> u32 {
+    //         addrdec::logb2(self.sector_size())
+    //     }
+    // }
+}
+
+// #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
+#[derive(Clone, Debug)]
+pub struct CacheConfig {
+    pub set_index_function: Arc<dyn crate::set_index::SetIndexer>,
+    pub allocate_policy: config::CacheAllocatePolicy,
+    pub replacement_policy: config::CacheReplacementPolicy,
+    /// Cache line size.
+    pub line_size: u32,
+    /// Cache associativity.
+    pub associativity: usize,
+    /// Number of sets.
+    pub num_sets: usize,
+    /// Number of lines.
+    ///
+    /// NOTE: CAN BE COMPUTED from sets and associativity.
+    pub total_lines: usize,
+    pub line_size_log2: u32,
+    pub num_sets_log2: u32,
+}
+
+// impl CacheConfig {
+//     #[inline]
+//     #[must_use]
+//     fn total_lines(&self) -> usize {
+//         self.num_sets * self.associativity
+//     }
+// }
+
+// pub trait CacheConfig: std::fmt::Debug + Sync + Send + 'static {
+//     #[must_use]
+//     fn associativity(&self) -> usize;
+//
+//     #[must_use]
+//     fn num_sets(&self) -> usize;
+//
+//     #[must_use]
+//     fn total_lines(&self) -> usize {
+//         self.num_sets() * self.associativity()
+//     }
+// }
+
+pub trait CacheAddressTranslation: std::fmt::Debug + Sync + Send + 'static {
+    /// Compute cache line tag for an address.
+    #[must_use]
+    fn tag(&self, addr: address) -> address;
+
+    /// Compute block address for an address.
+    #[must_use]
+    fn block_addr(&self, addr: address) -> address;
+
+    /// Compute set index for an address.
+    #[must_use]
+    fn set_index(&self, addr: address) -> u64;
+
+    /// Compute miss status handling register address.
+    ///
+    /// The default implementation uses the block address.
+    #[must_use]
+    fn mshr_addr(&self, addr: address) -> address {
+        self.block_addr(addr)
+    }
+}
+
+impl CacheAddressTranslation for CacheConfig {
+    // impl<I> CacheAddressTranslation for CacheConfig<I>
+    // where
+    //     I: crate::set_index::SetIndexer,
+    // {
+    #[inline]
+    fn tag(&self, addr: address) -> address {
+        // For generality, the tag includes both index and tag.
+        // This allows for more complex set index calculations that
+        // can result in different indexes mapping to the same set,
+        // thus the full tag + index is required to check for hit/miss.
+        // Tag is now identical to the block address.
+
+        // return addr >> (m_line_sz_log2+m_nset_log2);
+        // return addr & ~(new_addr_type)(m_line_sz - 1);
+        addr & !u64::from(self.line_size - 1)
+    }
+
+    #[inline]
+    fn block_addr(&self, addr: address) -> address {
+        addr & !u64::from(self.line_size - 1)
+    }
+
+    #[inline]
+    fn set_index(&self, addr: address) -> u64 {
+        self.set_index_function.compute_set_index(
+            addr,
+            self.num_sets,
+            self.line_size_log2,
+            self.num_sets_log2,
+        )
+    }
+
+    #[inline]
+    fn mshr_addr(&self, addr: address) -> address {
+        addr & !u64::from(self.line_size - 1)
+    }
+}
+
+/// Tag array.
+#[derive(Debug)]
 pub struct TagArray<B> {
     /// nbanks x nset x assoc lines in total
     pub lines: Vec<B>,
-    // pub lines: Vec<cache::block::Line>,
-    // phantom: std::marker::PhantomData<B>,
     is_used: bool,
     num_access: usize,
     num_miss: usize,
     num_pending_hit: usize,
     num_reservation_fail: usize,
-    num_sector_miss: usize,
+    // num_sector_miss: usize,
     pub num_dirty: usize,
-    config: Arc<config::Cache>,
+    // config: Arc<config::Cache>,
+    // config: CacheConfig,
+    // l1_cache_write_ratio_percent: usize,
+    max_dirty_cache_lines_percent: usize,
+    addr_translation: Box<dyn CacheAddressTranslation>,
+    cache_config: CacheConfig,
     pending_lines: LineTable,
 }
 
@@ -47,47 +180,72 @@ where
     #[must_use]
     pub fn new(config: Arc<config::Cache>) -> Self {
         let num_cache_lines = config.max_num_lines();
-        let lines = (0..num_cache_lines)
-            .map(|_| B::default())
-            // .map(|_| cache::block::Line::default())
-            .collect();
+        let lines = (0..num_cache_lines).map(|_| B::default()).collect();
+
+        let cache_config = CacheConfig {
+            set_index_function: Arc::<crate::set_index::linear::SetIndex>::default(),
+            allocate_policy: config.allocate_policy,
+            replacement_policy: config.replacement_policy,
+            associativity: config.associativity,
+            num_sets: config.num_sets,
+            total_lines: config.num_sets * config.associativity,
+            line_size: config.line_size,
+            line_size_log2: config.line_size_log2(),
+            num_sets_log2: config.num_sets_log2(),
+        };
 
         Self {
             lines,
-            // phantom: std::marker::PhantomData,
             is_used: false,
             num_access: 0,
             num_miss: 0,
             num_pending_hit: 0,
             num_reservation_fail: 0,
-            num_sector_miss: 0,
+            // num_sector_miss: 0,
             num_dirty: 0,
-            config,
+            // config: Config {
+            //     allocate_policy: config.allocate_policy,
+            //     replacement_policy: config.replacement_policy,
+            //     max_num_lines: config.max_num_lines(),
+            //     addr_translation: todo!(),
+            // },
+            // l1_cache_write_ratio_percent: config.l1_cache_write_ratio_percent,
+            // max_dirty_cache_lines_threshold: config.l1_cache_write_ratio_percent,
+            max_dirty_cache_lines_percent: config.l1_cache_write_ratio_percent,
+            cache_config: cache_config.clone(),
+            addr_translation: Box::new(cache_config),
             pending_lines: LineTable::new(),
         }
     }
 }
 
 pub trait Access<B> {
-    /// Accesses the tag array
+    /// Accesses the tag array.
     #[must_use]
     fn access(&mut self, addr: address, fetch: &mem_fetch::MemFetch, time: u64) -> AccessStatus;
 
+    /// TODO?
     fn flush(&mut self);
 
+    /// Invalidate all tags stored in this array.
     fn invalidate(&mut self);
 
+    /// The maximum number of tags this array can hold.
     #[must_use]
     fn size(&self) -> usize;
 
+    /// Get a mutable reference to a block.
     #[must_use]
     fn get_block_mut(&mut self, idx: usize) -> &mut B;
 
+    /// Get a reference to a block
     #[must_use]
     fn get_block(&self, idx: usize) -> &B;
 
+    /// Add a new pending line for a fetch request.
     fn add_pending_line(&mut self, fetch: &mem_fetch::MemFetch);
 
+    /// Remove pending line for a fetch request.
     fn remove_pending_line(&mut self, fetch: &mem_fetch::MemFetch);
 }
 
@@ -128,10 +286,10 @@ where
                     status,
                     index,
                     line,
-                    self.config.allocate_policy
+                    self.cache_config.allocate_policy
                 );
 
-                if self.config.allocate_policy == config::CacheAllocatePolicy::ON_MISS {
+                if self.cache_config.allocate_policy == config::CacheAllocatePolicy::ON_MISS {
                     if line.is_modified() {
                         writeback = true;
                         evicted = Some(EvictedBlockInfo {
@@ -146,30 +304,30 @@ where
                     log::trace!(
                         "tag_array::allocate(cache={}, tag={}, modified={}, time={})",
                         index,
-                        self.config.tag(addr),
+                        self.addr_translation.tag(addr),
                         line.is_modified(),
                         time,
                     );
                     line.allocate(
-                        self.config.tag(addr),
-                        self.config.block_addr(addr),
+                        self.addr_translation.tag(addr),
+                        self.addr_translation.block_addr(addr),
                         fetch.access_sector_mask(),
                         time,
                     );
                 }
             }
             cache::RequestStatus::SECTOR_MISS => {
-                debug_assert!(self.config.kind == config::CacheKind::Sector);
-                self.num_sector_miss += 1;
-                if self.config.allocate_policy == config::CacheAllocatePolicy::ON_MISS {
-                    let index = index.expect("hit has idx");
-                    let line = &mut self.lines[index];
-                    let was_modified_before = line.is_modified();
-                    line.allocate_sector(fetch.access_sector_mask(), time);
-                    if was_modified_before && !line.is_modified() {
-                        self.num_dirty -= 1;
-                    }
-                }
+                // debug_assert!(self.config.kind == config::CacheKind::Sector);
+                // self.num_sector_miss += 1;
+                // if self.config.allocate_policy == config::CacheAllocatePolicy::ON_MISS {
+                //     let index = index.expect("hit has idx");
+                //     let line = &mut self.lines[index];
+                //     let was_modified_before = line.is_modified();
+                //     line.allocate_sector(fetch.access_sector_mask(), time);
+                //     if was_modified_before && !line.is_modified() {
+                //         self.num_dirty -= 1;
+                //     }
+                // }
                 unimplemented!("sector miss");
             }
             cache::RequestStatus::RESERVATION_FAIL => {
@@ -187,38 +345,43 @@ where
         }
     }
 
+    #[inline]
     fn flush(&mut self) {
         todo!("flush tag array");
     }
 
+    #[inline]
     fn invalidate(&mut self) {
         todo!("invalidate tag array");
     }
 
-    #[must_use]
+    #[inline]
     fn size(&self) -> usize {
-        self.config.max_num_lines()
+        self.lines.len()
     }
 
+    #[inline]
     fn get_block_mut(&mut self, idx: usize) -> &mut B {
         &mut self.lines[idx]
     }
 
-    #[must_use]
+    #[inline]
     fn get_block(&self, idx: usize) -> &B {
         &self.lines[idx]
     }
 
+    #[inline]
     fn add_pending_line(&mut self, fetch: &mem_fetch::MemFetch) {
-        let addr = self.config.block_addr(fetch.addr());
+        let addr = self.addr_translation.block_addr(fetch.addr());
         let instr = fetch.instr.as_ref().unwrap();
         if self.pending_lines.contains_key(&addr) {
             self.pending_lines.insert(addr, instr.uid);
         }
     }
 
+    #[inline]
     fn remove_pending_line(&mut self, fetch: &mem_fetch::MemFetch) {
-        let addr = self.config.block_addr(fetch.addr());
+        let addr = self.addr_translation.block_addr(fetch.addr());
         self.pending_lines.remove(&addr);
     }
 }
@@ -256,8 +419,8 @@ where
         _is_probe: bool,
         fetch: Option<&mem_fetch::MemFetch>,
     ) -> (Option<usize>, cache::RequestStatus) {
-        let set_index = self.config.set_index(block_addr) as usize;
-        let tag = self.config.tag(block_addr);
+        let set_index = self.addr_translation.set_index(block_addr) as usize;
+        let tag = self.addr_translation.tag(block_addr);
 
         let mut invalid_line = None;
         let mut valid_line = None;
@@ -267,7 +430,7 @@ where
 
         // percentage of dirty lines in the cache
         // number of dirty lines / total lines in the cache
-        let dirty_line_percent = self.num_dirty as f64 / self.config.total_lines() as f64;
+        let dirty_line_percent = self.num_dirty as f64 / self.cache_config.total_lines as f64;
         let dirty_line_percent = (dirty_line_percent * 100f64) as usize;
 
         log::trace!(
@@ -275,13 +438,13 @@ where
             fetch.map(ToString::to_string),
             set_index,
             tag,
-            self.config.associativity,
+            self.cache_config.associativity,
             dirty_line_percent,
         );
 
         // check for hit or pending hit
-        for way in 0..self.config.associativity {
-            let idx = set_index * self.config.associativity + way;
+        for way in 0..self.cache_config.associativity {
+            let idx = set_index * self.cache_config.associativity + way;
             let line = &self.lines[idx];
             log::trace!(
                 "tag_array::probe({:?}) => checking cache index {} (tag={}, status={:?}, last_access={})",
@@ -319,24 +482,25 @@ where
                 }
             }
             if !line.is_reserved() {
-                // If the cacheline is from a load op (not modified),
-                // or the total dirty cacheline is above a specific value,
-                // Then this cacheline is eligible to be considered for replacement candidate
-                // i.e. Only evict clean cachelines until total dirty cachelines reach the limit.
-                if !line.is_modified()
-                    || dirty_line_percent >= self.config.l1_cache_write_ratio_percent
-                {
+                // If the cache line is from a load op (not modified),
+                // or the number of total dirty cache lines is above a specific value,
+                // the cache line is eligible to be considered for replacement candidate
+                //
+                // i.e. only evict clean cache lines until total dirty cache lines reach the limit.
+                if !line.is_modified() || dirty_line_percent >= self.max_dirty_cache_lines_percent {
                     all_reserved = false;
                     if line.is_invalid() {
                         invalid_line = Some(idx);
                     } else {
                         // valid line: keep track of most appropriate replacement candidate
-                        if self.config.replacement_policy == config::CacheReplacementPolicy::LRU {
+                        if self.cache_config.replacement_policy
+                            == config::CacheReplacementPolicy::LRU
+                        {
                             if line.last_access_time() < valid_time {
                                 valid_time = line.last_access_time();
                                 valid_line = Some(idx);
                             }
-                        } else if self.config.replacement_policy
+                        } else if self.cache_config.replacement_policy
                             == config::CacheReplacementPolicy::FIFO
                             && line.alloc_time() < valid_time
                         {
@@ -348,11 +512,11 @@ where
             }
         }
 
-        log::trace!("tag_array::probe({:?}) => all reserved={} invalid_line={:?} valid_line={:?} ({:?} policy)", fetch.map(ToString::to_string), all_reserved, invalid_line, valid_line, self.config.replacement_policy);
+        log::trace!("tag_array::probe({:?}) => all reserved={} invalid_line={:?} valid_line={:?} ({:?} policy)", fetch.map(ToString::to_string), all_reserved, invalid_line, valid_line, self.cache_config.replacement_policy);
 
         if all_reserved {
             debug_assert_eq!(
-                self.config.allocate_policy,
+                self.cache_config.allocate_policy,
                 config::CacheAllocatePolicy::ON_MISS
             );
             // miss and not enough space in cache to allocate on miss
@@ -372,12 +536,12 @@ where
     }
 
     pub fn fill_on_miss(&mut self, cache_index: usize, fetch: &mem_fetch::MemFetch, time: u64) {
-        debug_assert!(self.config.allocate_policy == config::CacheAllocatePolicy::ON_MISS);
+        debug_assert!(self.cache_config.allocate_policy == config::CacheAllocatePolicy::ON_MISS);
 
         log::trace!(
             "tag_array::fill(cache={}, tag={}, addr={}) (on miss)",
             cache_index,
-            self.config.tag(fetch.addr()),
+            self.addr_translation.tag(fetch.addr()),
             fetch.addr(),
         );
 
@@ -404,7 +568,7 @@ where
         log::trace!(
             "tag_array::fill(cache={}, tag={}, addr={}, time={}) (on fill) status={:?}",
             cache_index.map_or(-1, |i| i as i64),
-            self.config.tag(addr),
+            self.addr_translation.tag(addr),
             addr,
             time,
             probe_status,
@@ -422,18 +586,19 @@ where
             log::trace!(
                 "tag_array::allocate(cache={}, tag={}, time={})",
                 cache_index,
-                self.config.tag(addr),
+                self.addr_translation.tag(addr),
                 time,
             );
             line.allocate(
-                self.config.tag(addr),
-                self.config.block_addr(addr),
+                self.addr_translation.tag(addr),
+                self.addr_translation.block_addr(addr),
                 &sector_mask,
                 time,
             );
         } else if probe_status == cache::RequestStatus::SECTOR_MISS {
-            debug_assert_eq!(self.config.kind, config::CacheKind::Sector);
-            line.allocate_sector(&sector_mask, time);
+            // debug_assert_eq!(self.cache_config.kind, config::CacheKind::Sector);
+            // line.allocate_sector(&sector_mask, time);
+            unimplemented!("sectored cache");
         }
         if was_modified_before && !line.is_modified() {
             self.num_dirty -= 1;
@@ -447,7 +612,7 @@ where
 
     /// TODO: consolidate with populate memcopy
     pub fn fill_on_fill(&mut self, addr: address, fetch: &mem_fetch::MemFetch, time: u64) {
-        debug_assert!(self.config.allocate_policy == config::CacheAllocatePolicy::ON_FILL);
+        debug_assert!(self.cache_config.allocate_policy == config::CacheAllocatePolicy::ON_FILL);
 
         // probe tag array
         let is_probe = false;
@@ -456,7 +621,7 @@ where
         log::trace!(
             "tag_array::fill(cache={}, tag={}, addr={}) (on fill) status={:?}",
             cache_index.map_or(-1, |i| i as i64),
-            self.config.tag(fetch.addr()),
+            self.addr_translation.tag(fetch.addr()),
             fetch.addr(),
             probe_status,
         );
@@ -473,18 +638,19 @@ where
             log::trace!(
                 "tag_array::allocate(cache={}, tag={}, time={})",
                 cache_index,
-                self.config.tag(addr),
+                self.addr_translation.tag(addr),
                 time,
             );
             line.allocate(
-                self.config.tag(addr),
-                self.config.block_addr(addr),
+                self.addr_translation.tag(addr),
+                self.addr_translation.block_addr(addr),
                 fetch.access_sector_mask(),
                 time,
             );
         } else if probe_status == cache::RequestStatus::SECTOR_MISS {
-            debug_assert_eq!(self.config.kind, config::CacheKind::Sector);
-            line.allocate_sector(fetch.access_sector_mask(), time);
+            // debug_assert_eq!(self.config.kind, config::CacheKind::Sector);
+            // line.allocate_sector(fetch.access_sector_mask(), time);
+            unimplemented!("sectored cache");
         }
         if was_modified_before && !line.is_modified() {
             self.num_dirty -= 1;

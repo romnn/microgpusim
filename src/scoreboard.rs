@@ -29,6 +29,14 @@ pub trait Access<I>: Sync + Send + 'static {
     fn reserve_all(&mut self, instr: &I);
 }
 
+/// Scoreboard configuration.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
+pub struct Config {
+    pub core_id: usize,
+    pub cluster_id: usize,
+    pub max_warps: usize,
+}
+
 /// Scoreboard implementation
 ///
 /// This should however not be needed in trace driven mode..
@@ -42,7 +50,12 @@ pub struct Scoreboard {
 
 impl Scoreboard {
     #[must_use]
-    pub fn new(core_id: usize, cluster_id: usize, max_warps: usize) -> Self {
+    pub fn new(config: Config) -> Self {
+        let Config {
+            max_warps,
+            core_id,
+            cluster_id,
+        } = config;
         let warp_registers = utils::box_slice![HashSet::new(); max_warps];
         Self {
             core_id,

@@ -136,8 +136,7 @@ fn gather_simulation_state(
         // let l2_cache: &cache::DataL2<ic::L2Interface<fifo::Fifo<mem_fetch::MemFetch>>> =
         let l2_cache: &cache::DataL2 = l2_cache.as_any().downcast_ref().unwrap();
 
-        box_sim_state.l2_cache_per_sub[sub_id] =
-            Some(l2_cache.inner.inner.tag_array.clone().into());
+        box_sim_state.l2_cache_per_sub[sub_id] = Some((&l2_cache.inner.inner.tag_array).into());
 
         for (dest_queue, src_queue) in [
             (

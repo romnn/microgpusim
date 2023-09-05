@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 /// Memory addressing mask
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum MemoryAddressingMask {
     Old,
     New,
@@ -18,14 +18,14 @@ pub enum MemoryAddressingMask {
 }
 
 /// Cache kind
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum CacheKind {
     Normal, // N
     Sector, // S
 }
 
 /// A cache replacement policy
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum CacheReplacementPolicy {
     LRU,  // L
     FIFO, // F
@@ -200,17 +200,17 @@ impl Cache {
         addrdec::logb2(self.num_sets as u32)
     }
 
-    #[inline]
-    #[must_use]
-    pub fn sector_size(&self) -> u32 {
-        mem_sub_partition::SECTOR_SIZE
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn sector_size_log2(&self) -> u32 {
-        addrdec::logb2(self.sector_size())
-    }
+    // #[inline]
+    // #[must_use]
+    // pub fn sector_size(&self) -> u32 {
+    //     mem_sub_partition::SECTOR_SIZE
+    // }
+    //
+    // #[inline]
+    // #[must_use]
+    // pub fn sector_size_log2(&self) -> u32 {
+    //     addrdec::logb2(self.sector_size())
+    // }
 
     #[inline]
     #[must_use]
@@ -817,7 +817,7 @@ pub enum CacheSetIndexFunc {
 /// VALIDAE policies Read: Jouppi, Norman P. "Cache write policies and
 /// performance". ISCA 93. `WRITE_ALLOCATE` is the old write policy in
 /// GPGPU-sim 3.x, that send WRITE and READ for every write request
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum CacheWriteAllocatePolicy {
     NO_WRITE_ALLOCATE,  // N
     WRITE_ALLOCATE,     // W
@@ -826,7 +826,7 @@ pub enum CacheWriteAllocatePolicy {
 }
 
 /// A cache write policy.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum CacheWritePolicy {
     READ_ONLY,          // R
     WRITE_BACK,         // B
@@ -836,7 +836,7 @@ pub enum CacheWritePolicy {
 }
 
 /// A cache allocate policy.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum CacheAllocatePolicy {
     ON_MISS,   // M
     ON_FILL,   // F
@@ -844,7 +844,7 @@ pub enum CacheAllocatePolicy {
 }
 
 /// Memory partition indexing scheme.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum MemoryPartitionIndexingScheme {
     Consecutive = 0, // no indexing
     BitwiseXor = 1,
@@ -857,7 +857,7 @@ pub enum MemoryPartitionIndexingScheme {
 /// DRAM bank group indexing policy.
 ///
 /// 0 = take higher bits, 1 = take lower bits
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum DRAMBankGroupIndexPolicy {
     HigherBits = 0,
     LowerBits = 1,
@@ -866,14 +866,14 @@ pub enum DRAMBankGroupIndexPolicy {
 /// DRAM bank indexing policy.
 ///
 /// 0 = normal indexing, 1 = Xoring with the higher bits
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum DRAMBankIndexPolicy {
     Normal = 0,
     Xor = 1,
 }
 
 /// Scheduler kind.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum SchedulerKind {
     LRR = 0,
     TwoLevelActive = 1,
@@ -885,7 +885,7 @@ pub enum SchedulerKind {
 }
 
 /// DRAM Scheduler policy.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum DRAMSchedulerKind {
     FIFO = 0,
     FrFcfs = 1,
@@ -897,7 +897,7 @@ pub enum DRAMSchedulerKind {
 /// <`num_active_warps>:<inner_prioritization>:<outer_prioritization`>
 ///
 /// For complete list of prioritization values see shader.h.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum CoreSchedulerKind {
     LRR,
     GTO,
@@ -905,14 +905,14 @@ pub enum CoreSchedulerKind {
 }
 
 /// GPU microarchitecture generation.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Architecture {
     GT200 = 13,
     Fermi = 20,
 }
 
 /// Scheduling order.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum SchedulingOrder {
     Fix = 0,
     RoundRobin = 1,

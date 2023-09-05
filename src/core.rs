@@ -550,9 +550,11 @@ where
         instr_l1_cache.set_top_port(mem_port.clone());
 
         let scoreboard = Arc::new(RwLock::new(scoreboard::Scoreboard::new(
-            core_id,
-            cluster_id,
-            config.max_warps_per_core(),
+            scoreboard::Config {
+                core_id,
+                cluster_id,
+                max_warps: config.max_warps_per_core(),
+            },
         )));
 
         // pipeline_stages is the sum of normal pipeline stages
@@ -1968,6 +1970,7 @@ where
     }
 }
 
+#[allow(unused_variables)]
 pub fn warp_inst_complete(instr: &mut WarpInstruction, stats: &Mutex<stats::Stats>) {
     // TODO: use per core stats
     #[cfg(feature = "stats")]

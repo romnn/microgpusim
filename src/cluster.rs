@@ -235,31 +235,10 @@ where
                 true
             };
 
-            // if let Some(ref current) = current_kernel {
-            //     log::debug!(
-            //         "core {}-{}: current kernel {}, more blocks={}, completed={}",
-            //         self.cluster_id,
-            //         core_id,
-            //         current,
-            //         !current.no_more_blocks_to_run(),
-            //         core.not_completed() == 0,
-            //     );
-            // }
-
-            // dbg!(&should_select_new_kernel);
             if should_select_new_kernel {
                 current_kernel = sim.select_kernel();
-                // current_kernel = sim.select_kernel();
-                // if let Some(ref k) = current_kernel {
-                //     log::debug!("kernel {} bind to core {:?}", kernel, self.id());
-                //     // core.set_kernel(Arc::clone(k));
-                // }
             }
 
-            //     current_kernel
-            // };
-
-            // if let Some(kernel) = kernel {
             if let Some(kernel) = current_kernel {
                 log::debug!(
                     "core {}-{}: selected kernel {} more blocks={} can issue={}",
@@ -274,7 +253,6 @@ where
                 drop(core);
                 if can_issue {
                     let mut core = self.cores[core_id].write();
-                    // println!("SERIAL issue to {:?}", core.id());
                     core.issue_block(&kernel, cycle);
                     num_blocks_issued += 1;
                     *block_issue_next_core = core_id;
