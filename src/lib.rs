@@ -12,7 +12,6 @@
 )]
 // #![allow(warnings)]
 
-pub mod addrdec;
 pub mod allocation;
 pub mod arbitration;
 pub mod barrier;
@@ -29,6 +28,7 @@ pub mod func_unit;
 pub mod instruction;
 pub mod interconn;
 pub mod kernel;
+pub mod mcu;
 pub mod mem_fetch;
 pub mod mem_partition_unit;
 pub mod mem_sub_partition;
@@ -49,7 +49,6 @@ pub mod warp;
 pub mod testing;
 
 use self::core::{warp_inst_complete, Core, PipelineStage, MAX_THREAD_PER_SM, PROGRAM_MEM_START};
-use addrdec::AddressTranslation;
 use allocation::Allocations;
 use cluster::Cluster;
 use engine::cycle::Component;
@@ -799,7 +798,10 @@ where
 
     fn copy_chunk_to_gpu(&self, write_addr: address, time: u64) {
         let num_sub_partitions = self.config.num_sub_partition_per_memory_channel;
-        let tlx_addr = self.config.address_mapping().translate(write_addr);
+        let tlx_addr = self
+            .config
+            .address_mapping()
+            .to_physical_address(write_addr);
         let partition_id = tlx_addr.sub_partition / num_sub_partitions as u64;
         let sub_partition_id = tlx_addr.sub_partition % num_sub_partitions as u64;
 

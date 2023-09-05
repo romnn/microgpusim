@@ -90,42 +90,12 @@ impl super::Base {
             .skip(self.last_supervised_issued_idx);
         debug_assert!(all_different(&self.warps));
 
-        // let num_supervised_warps = self.supervised_warps.len();
-
-        // sort a copy of the supervised warps reorder those for stability
+        // sort a copy of the supervised warps for stability
         self.supervised_warps_sorted.clear();
         self.supervised_warps_sorted
             .extend(self.supervised_warps.iter().cloned().enumerate());
 
-        // self.supervised_warps_sorted[0..num_supervised_warps]
-        //     .clone_from_slice(self.supervised_warps.make_contiguous());
-        // let mut supervised_warps_sorted: Vec<_> = self
-        //     .supervised_warps
-        //     .clone()
-        //     .into_iter()
-        //     .enumerate()
-        //     .collect();
-        // let before = self
-        //     .supervised_warps_sorted
-        //     .iter()
-        //     .map(|(i, w)| (*i, w.lock().dynamic_warp_id()))
-        //     .collect::<Vec<_>>();
-
         self.supervised_warps_sorted.sort_unstable_by(priority_func);
-        // self.supervised_warps_sorted.sort_by(priority_func);
-
-        // let after = self
-        //     .supervised_warps_sorted
-        //     .iter()
-        //     .map(|(i, w)| (*i, w.lock().dynamic_warp_id()))
-        //     .collect::<Vec<_>>();
-
-        // utils::diff::diff!(before: before, after: after);
-        // utils::diff::assert_eq!(before: before, after: after);
-        // utils::assert_eq!(before: before, after: after);
-
-        // .sort_by(|(_, a), (_, b)| priority_func(a, b));
-        // .sort_unstable_by(|(_, a), (_, b)| priority_func(a, b));
 
         debug_assert!(all_different(
             &self
@@ -172,12 +142,6 @@ impl super::Base {
                 );
             }
         }
-        // println!(
-        //     "out: {:?}",
-        //     out.iter()
-        //         .map(|(i, w)| w.lock().dynamic_warp_id())
-        //         .collect::<Vec<_>>()
-        // );
         assert_eq!(
             num_warps_to_add,
             out.len(),

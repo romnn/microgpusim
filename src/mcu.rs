@@ -52,77 +52,8 @@ pub fn mask_limit(mask: address) -> (u8, u8) {
     (low, high)
 }
 
-#[derive(PartialEq, Eq, Hash)]
-pub struct LinearToRawAddressTranslation {
-    pub num_channels: usize,
-    pub num_sub_partitions_per_channel: usize,
-    mem_address_mask: config::MemoryAddressingMask,
-    memory_partition_indexing: config::MemoryPartitionIndexingScheme,
-    sub_partition_id_mask: address,
-    decode_config: AddressDecodingConfig,
-    has_gap: bool,
-    num_channels_log2: u32,
-    num_channels_next_power2: u32,
-    num_sub_partitions_per_channel_log2: u32,
-}
-
-impl std::fmt::Display for LinearToRawAddressTranslation {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct("LinearToRawAddressTranslation")
-            .field("num_channels", &self.num_channels)
-            .field(
-                "num_sub_partitions_per_channel",
-                &self.num_sub_partitions_per_channel,
-            )
-            .finish()
-    }
-}
-
-impl std::fmt::Debug for LinearToRawAddressTranslation {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let mut out = f.debug_struct("LinearToRawAddressTranslation");
-        out.field("num_channels", &self.num_channels);
-        out.field(
-            "num_sub_partitions_per_channel",
-            &self.num_sub_partitions_per_channel,
-        );
-        out.field(
-            "num_sub_partitions_per_channel_log2",
-            &self.num_sub_partitions_per_channel_log2,
-        );
-
-        out.field("has_gap", &self.has_gap);
-        out.field("sub_partition_id_mask", &self.sub_partition_id_mask);
-        out.finish()
-    }
-}
-
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub struct Mask {
-    pub mask: address,
-    pub low: u8,
-    pub high: u8,
-}
-
-impl From<address> for Mask {
-    fn from(mask: address) -> Self {
-        let (low, high) = mask_limit(mask);
-        Self { mask, low, high }
-    }
-}
-
-impl std::fmt::Debug for Mask {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let mut out = f.debug_struct("Mask");
-        out.field("mask", &format!("{:016x}", self.mask));
-        out.field("low", &self.low);
-        out.field("high", &self.high);
-        out.finish()
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct AddressDecodingConfig {
+pub struct Config {
     pub addr_chip_start: Option<usize>,
 
     pub chip: Mask,
@@ -135,7 +66,7 @@ pub struct AddressDecodingConfig {
 static ACCELSIM_ADDRESS_DECODE_CONFIG_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(dramid@(?P<dramid>\d+))?;?(?P<rest>.*)").unwrap());
 
-impl AddressDecodingConfig {
+impl Config {
     pub fn parse_accelsim_config(config: impl AsRef<str>) -> eyre::Result<Self> {
         let config = config.as_ref().to_lowercase();
         let mut chip_mask = 0x0;
@@ -212,7 +143,77 @@ impl AddressDecodingConfig {
     }
 }
 
-impl LinearToRawAddressTranslation {
+/// Memory controller unit (MCU).
+#[derive(PartialEq, Eq, Hash)]
+pub struct MemoryControllerUnit {
+    pub num_channels: usize,
+    pub num_sub_partitions_per_channel: usize,
+    mem_address_mask: config::MemoryAddressingMask,
+    memory_partition_indexing: config::MemoryPartitionIndexingScheme,
+    sub_partition_id_mask: address,
+    decode_config: Config,
+    has_gap: bool,
+    num_channels_log2: u32,
+    num_channels_next_power2: u32,
+    num_sub_partitions_per_channel_log2: u32,
+}
+
+impl std::fmt::Display for MemoryControllerUnit {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("MemoryControllerUnit")
+            .field("num_channels", &self.num_channels)
+            .field(
+                "num_sub_partitions_per_channel",
+                &self.num_sub_partitions_per_channel,
+            )
+            .finish()
+    }
+}
+
+impl std::fmt::Debug for MemoryControllerUnit {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mut out = f.debug_struct("MemoryControllerUnit");
+        out.field("num_channels", &self.num_channels);
+        out.field(
+            "num_sub_partitions_per_channel",
+            &self.num_sub_partitions_per_channel,
+        );
+        out.field(
+            "num_sub_partitions_per_channel_log2",
+            &self.num_sub_partitions_per_channel_log2,
+        );
+
+        out.field("has_gap", &self.has_gap);
+        out.field("sub_partition_id_mask", &self.sub_partition_id_mask);
+        out.finish()
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct Mask {
+    pub mask: address,
+    pub low: u8,
+    pub high: u8,
+}
+
+impl From<address> for Mask {
+    fn from(mask: address) -> Self {
+        let (low, high) = mask_limit(mask);
+        Self { mask, low, high }
+    }
+}
+
+impl std::fmt::Debug for Mask {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mut out = f.debug_struct("Mask");
+        out.field("mask", &format!("{:016x}", self.mask));
+        out.field("low", &self.low);
+        out.field("high", &self.high);
+        out.finish()
+    }
+}
+
+impl MemoryControllerUnit {
     pub fn new(config: &config::GPU) -> eyre::Result<Self> {
         let num_channels = config.num_memory_controllers;
         let num_sub_partitions_per_channel = config.num_sub_partition_per_memory_channel;
@@ -227,9 +228,9 @@ impl LinearToRawAddressTranslation {
             num_chip_bits += 1;
         }
         let mut decode_config = if let Some(ref mapping_config) = config.memory_addr_mapping {
-            AddressDecodingConfig::parse_accelsim_config(mapping_config)?
+            Config::parse_accelsim_config(mapping_config)?
         } else {
-            AddressDecodingConfig {
+            Config {
                 addr_chip_start: Some(10),
                 chip: 0x0000_0000_0000_1C00.into(),
                 bank: 0x0000_0000_0000_0300.into(),
@@ -305,18 +306,31 @@ impl LinearToRawAddressTranslation {
     }
 }
 
-pub trait AddressTranslation {
+/// Memory controller.
+///
+/// The memory controller is responsible for translating the linear, virtual addresses
+/// used by the program into physical addresses in main memory (DRAM).
+pub trait MemoryController: std::fmt::Debug + Send + Sync + 'static {
+    /// Compute the partition-relative? physical address for a virtual address.
     #[must_use]
-    fn partition_address(&self, addr: address) -> address;
+    fn memory_partition_address(&self, addr: address) -> address;
+
+    /// Compute the physical address for a virtual address.
     #[must_use]
-    fn translate(&self, addr: address) -> TranslatedAddress;
+    fn to_physical_address(&self, addr: address) -> TranslatedAddress;
+
+    /// The number of memory partitions connected to the memory controller
     #[must_use]
-    fn num_sub_partitions(&self) -> usize;
+    fn num_memory_partitions(&self) -> usize;
+
+    /// The number of sub partitions per memory partition.
+    #[must_use]
+    fn num_memory_sub_partitions(&self) -> usize;
 }
 
-impl AddressTranslation for LinearToRawAddressTranslation {
+impl MemoryController for MemoryControllerUnit {
     #[inline]
-    fn partition_address(&self, addr: address) -> address {
+    fn memory_partition_address(&self, addr: address) -> address {
         if self.has_gap {
             // see addrdec_tlx for explanation
             let addr_chip_start = self.decode_config.addr_chip_start.unwrap();
@@ -334,7 +348,7 @@ impl AddressTranslation for LinearToRawAddressTranslation {
     }
 
     #[inline]
-    fn translate(&self, addr: address) -> TranslatedAddress {
+    fn to_physical_address(&self, addr: address) -> TranslatedAddress {
         let mut tlx = TranslatedAddress::default();
         let num_channels = self.num_channels as u64;
 
@@ -383,8 +397,13 @@ impl AddressTranslation for LinearToRawAddressTranslation {
     }
 
     #[inline]
-    fn num_sub_partitions(&self) -> usize {
+    fn num_memory_sub_partitions(&self) -> usize {
         self.num_channels * self.num_sub_partitions_per_channel
+    }
+
+    #[inline]
+    fn num_memory_partitions(&self) -> usize {
+        self.num_channels
     }
 }
 
@@ -430,7 +449,6 @@ impl std::hash::Hash for TranslatedAddress {
 
 #[cfg(test)]
 mod tests {
-    use super::AddressTranslation;
     use crate::config;
     use color_eyre::eyre;
     use utils::diff;
@@ -463,7 +481,7 @@ mod tests {
             config.num_sub_partition_per_memory_channel as u32,
         );
         (
-            mapping.translate(addr),
+            mapping.to_physical_address(addr),
             super::TranslatedAddress::from(ref_mapping.tlx(addr)),
         )
     }
@@ -473,7 +491,7 @@ mod tests {
         let config_str =
             "dramid@8;00000000.00000000.00000000.00000000.0000RRRR.RRRRRRRR.RBBBCCCC.BCCSSSSS";
 
-        let dec_config = super::AddressDecodingConfig::parse_accelsim_config(config_str)?;
+        let dec_config = super::Config::parse_accelsim_config(config_str)?;
         dbg!(&dec_config);
         assert_eq!(
             bit_str(dec_config.chip.mask),
@@ -503,7 +521,7 @@ mod tests {
             ..config::GPU::default()
         };
 
-        let mapping = super::LinearToRawAddressTranslation::new(&config)?;
+        let mapping = super::MemoryControllerUnit::new(&config)?;
         let dec_config = mapping.decode_config;
         assert_eq!(
             bit_str(dec_config.chip.mask),

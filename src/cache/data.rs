@@ -1,8 +1,9 @@
 use crate::sync::{Arc, Mutex};
-use crate::{address, cache, config, interconn as ic, mem_fetch, mshr::MSHR, tag_array};
+use crate::{address, cache, config, interconn as ic, mcu, mem_fetch, mshr::MSHR, tag_array};
 
 use cache::block::Block;
-use tag_array::Access;
+use mcu::MemoryController;
+use tag_array::{Access, CacheAddressTranslation};
 
 use std::collections::VecDeque;
 
@@ -15,7 +16,8 @@ use std::collections::VecDeque;
 // pub struct Data<I> {
 pub struct Data {
     // pub inner: cache::base::Base<I>,
-    pub inner: cache::base::Base,
+    // pub inner: cache::base::Base<MC>,
+    pub inner: cache::base::Base<mcu::MemoryControllerUnit>,
     /// Specifies type of write allocate request (e.g., L1 or L2)
     write_alloc_type: mem_fetch::AccessKind,
     /// Specifies type of writeback request (e.g., L1 or L2)
@@ -39,15 +41,15 @@ impl Data
         write_alloc_type: mem_fetch::AccessKind,
         write_back_type: mem_fetch::AccessKind,
     ) -> Self {
-        let inner = super::base::Base::new(
+        let inner = super::base::Builder {
             name,
             core_id,
             cluster_id,
-            // mem_port: None,
             stats,
-            config,
+            mem_controller: mcu::MemoryControllerUnit::new(&*config).unwrap(),
             cache_config,
-        );
+        }
+        .build();
         Self {
             inner,
             write_alloc_type,
@@ -60,10 +62,10 @@ impl Data
         self.inner.set_top_port(port);
     }
 
-    #[must_use]
-    pub fn cache_config(&self) -> &Arc<config::Cache> {
-        &self.inner.cache_config
-    }
+    // #[must_use]
+    // pub fn cache_config(&self) -> &Arc<config::Cache> {
+    //     &self.inner.cache_config
+    // }
 
     /// Write-back hit: mark block as modified.
     fn write_hit_write_back(
@@ -77,7 +79,7 @@ impl Data
     ) -> cache::RequestStatus {
         debug_assert_eq!(addr, fetch.addr());
 
-        let block_addr = self.inner.cache_config.block_addr(addr);
+        let block_addr = self.inner.addr_translation.block_addr(addr);
         log::debug!(
             "handling WRITE HIT WRITE BACK for {} (block_addr={}, cache_idx={:?})",
             fetch,
@@ -135,10 +137,11 @@ impl Data
     ) -> cache::RequestStatus {
         let super::base::Base {
             ref mut tag_array,
-            ref cache_config,
+            // ref cache_config,
+            ref addr_translation,
             ..
         } = self.inner;
-        let block_addr = cache_config.block_addr(addr);
+        let block_addr = addr_translation.block_addr(addr);
         let access_status = tag_array.access(block_addr, fetch, time);
         let block_index = access_status.index.expect("read hit has index");
 
@@ -195,7 +198,7 @@ impl Data
             return cache::RequestStatus::RESERVATION_FAIL;
         }
 
-        let block_addr = self.inner.cache_config.block_addr(addr);
+        let block_addr = self.inner.addr_translation.block_addr(addr);
         let (should_miss, writeback, evicted) = self.inner.send_read_request(
             addr,
             block_addr,
@@ -219,7 +222,7 @@ impl Data
         if should_miss {
             // If evicted block is modified and not a write-through
             // (already modified lower level)
-            if writeback && writeback_policy != config::CacheWritePolicy::WRITE_THROUGH {
+            if writeback && writeback_policy != cache::config::WritePolicy::WRITE_THROUGH {
                 if let Some(evicted) = evicted {
                     let is_write = true;
                     let writeback_access = mem_fetch::MemAccess::new(
@@ -233,26 +236,40 @@ impl Data
                         evicted.sector_mask,
                     );
 
-                    let mut writeback_fetch = mem_fetch::MemFetch::new(
-                        fetch.instr.clone(),
-                        writeback_access,
-                        &self.inner.config,
-                        if is_write {
-                            mem_fetch::WRITE_PACKET_SIZE
-                        } else {
-                            mem_fetch::READ_PACKET_SIZE
-                        }
-                        .into(),
-                        0,
-                        0,
-                        0,
-                    );
+                    let mut tlx_addr = self
+                        .inner
+                        .mem_controller
+                        .to_physical_address(writeback_access.addr);
 
                     // the evicted block may have wrong chip id when
                     // advanced L2 hashing is used, so set the right chip
                     // address from the original mf
-                    writeback_fetch.tlx_addr.chip = fetch.tlx_addr.chip;
-                    writeback_fetch.tlx_addr.sub_partition = fetch.tlx_addr.sub_partition;
+                    tlx_addr.chip = fetch.tlx_addr.chip;
+                    tlx_addr.sub_partition = fetch.tlx_addr.sub_partition;
+
+                    let partition_addr = self
+                        .inner
+                        .mem_controller
+                        .memory_partition_address(writeback_access.addr);
+
+                    let writeback_fetch = mem_fetch::Builder {
+                        instr: fetch.instr.clone(),
+                        access: writeback_access,
+                        // &self.inner.config,
+                        // control_size: if is_write {
+                        //     mem_fetch::WRITE_PACKET_SIZE
+                        // } else {
+                        //     mem_fetch::READ_PACKET_SIZE
+                        // }
+                        // .into(),
+                        warp_id: 0,
+                        core_id: 0,
+                        cluster_id: 0,
+                        tlx_addr,
+                        partition_addr,
+                    }
+                    .build();
+
                     let event = cache::Event::WriteBackRequestSent {
                         evicted_block: None,
                     };
@@ -318,8 +335,8 @@ impl Data
         // what exactly is the difference between the addr and the fetch addr?
         debug_assert_eq!(addr, fetch.addr());
 
-        let block_addr = self.inner.cache_config.block_addr(addr);
-        let mshr_addr = self.inner.cache_config.mshr_addr(fetch.addr());
+        let block_addr = self.inner.addr_translation.block_addr(addr);
+        let mshr_addr = self.inner.addr_translation.mshr_addr(fetch.addr());
 
         // Write allocate, maximum 3 requests:
         //  (write miss, read request, write back request)
@@ -361,22 +378,34 @@ impl Data
             self.write_alloc_type,
             fetch.addr(),
             fetch.access.allocation.clone(),
-            self.cache_config().atom_size(),
+            self.inner.cache_config.atom_size,
             is_write, // Now performing a read
             *fetch.access_warp_mask(),
             *fetch.access_byte_mask(),
             *fetch.access_sector_mask(),
         );
 
-        let new_fetch = mem_fetch::MemFetch::new(
-            None,
-            new_access,
-            &self.inner.config,
-            fetch.control_size(),
-            fetch.warp_id,
-            fetch.core_id,
-            fetch.cluster_id,
-        );
+        let tlx_addr = self
+            .inner
+            .mem_controller
+            .to_physical_address(new_access.addr);
+        let partition_addr = self
+            .inner
+            .mem_controller
+            .memory_partition_address(new_access.addr);
+
+        let new_fetch = mem_fetch::Builder {
+            instr: None,
+            access: new_access,
+            // &self.inner.config,
+            // fetch.control_size(),
+            warp_id: fetch.warp_id,
+            core_id: fetch.core_id,
+            cluster_id: fetch.cluster_id,
+            tlx_addr,
+            partition_addr,
+        }
+        .build();
 
         // Send read request resulting from write miss
         let is_read_only = false;
@@ -402,7 +431,7 @@ impl Data
             //     evicted.as_ref().map(|e| e.block_addr)
             // );
             let not_write_through =
-                self.cache_config().write_policy != config::CacheWritePolicy::WRITE_THROUGH;
+                self.inner.cache_config.write_policy != cache::config::WritePolicy::WRITE_THROUGH;
 
             if writeback && not_write_through {
                 if let Some(evicted) = evicted {
@@ -422,21 +451,35 @@ impl Data
                         evicted.byte_mask,
                         evicted.sector_mask,
                     );
-                    let control_size = writeback_access.control_size();
-                    let mut writeback_fetch = mem_fetch::MemFetch::new(
-                        None,
-                        writeback_access,
-                        &self.inner.config,
-                        control_size,
-                        0, // warp id
-                        0, // self.core_id,
-                        0, // self.cluster_id,
-                    );
+                    // let control_size = writeback_access.control_size();
 
                     // the evicted block may have wrong chip id when advanced L2 hashing
                     // is used, so set the right chip address from the original mf
-                    writeback_fetch.tlx_addr.chip = fetch.tlx_addr.chip;
-                    writeback_fetch.tlx_addr.sub_partition = fetch.tlx_addr.sub_partition;
+                    let mut tlx_addr = self
+                        .inner
+                        .mem_controller
+                        .to_physical_address(writeback_access.addr);
+                    tlx_addr.chip = fetch.tlx_addr.chip;
+                    tlx_addr.sub_partition = fetch.tlx_addr.sub_partition;
+
+                    let partition_addr = self
+                        .inner
+                        .mem_controller
+                        .memory_partition_address(writeback_access.addr);
+
+                    let writeback_fetch = mem_fetch::Builder {
+                        instr: None,
+                        access: writeback_access,
+                        // &self.inner.config,
+                        // control_size,
+                        warp_id: 0,
+                        core_id: 0,
+                        cluster_id: 0,
+                        tlx_addr,
+                        partition_addr,
+                    }
+                    .build();
+
                     let event = cache::Event::WriteBackRequestSent {
                         evicted_block: Some(evicted),
                     };
@@ -459,19 +502,18 @@ impl Data
         events: &mut Vec<cache::Event>,
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
+        use cache::config::WriteAllocatePolicy;
         let func = match self.inner.cache_config.write_allocate_policy {
-            config::CacheWriteAllocatePolicy::NO_WRITE_ALLOCATE => {
+            WriteAllocatePolicy::NO_WRITE_ALLOCATE => {
                 // unimplemented!("no write allocate");
                 Self::write_miss_no_write_allocate
             }
-            config::CacheWriteAllocatePolicy::WRITE_ALLOCATE => {
-                Self::write_miss_write_allocate_naive
-            }
-            config::CacheWriteAllocatePolicy::FETCH_ON_WRITE => {
+            WriteAllocatePolicy::WRITE_ALLOCATE => Self::write_miss_write_allocate_naive,
+            WriteAllocatePolicy::FETCH_ON_WRITE => {
                 // Self::write_miss_write_allocate_fetch_on_write
                 unimplemented!("fetch on write")
             }
-            config::CacheWriteAllocatePolicy::LAZY_FETCH_ON_READ => {
+            WriteAllocatePolicy::LAZY_FETCH_ON_READ => {
                 // Self::write_miss_write_allocate_lazy_fetch_on_read
                 unimplemented!("fetch on read")
             }
@@ -488,14 +530,15 @@ impl Data
         events: &mut [cache::Event],
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
+        use cache::config::WritePolicy;
         let func = match self.inner.cache_config.write_policy {
             // TODO: make read only policy deprecated
             // READ_ONLY is now a separate cache class, config is deprecated
-            config::CacheWritePolicy::READ_ONLY => unimplemented!("todo: remove the read only cache write policy / writable data cache set as READ_ONLY"),
-            config::CacheWritePolicy::WRITE_BACK => Self::write_hit_write_back,
-            config::CacheWritePolicy::WRITE_THROUGH => unimplemented!("Self::wr_hit_wt"),
-            config::CacheWritePolicy::WRITE_EVICT => unimplemented!("Self::wr_hit_we"),
-            config::CacheWritePolicy::LOCAL_WB_GLOBAL_WT => unimplemented!("Self::wr_hit_global_we_local_wb"),
+            WritePolicy::READ_ONLY => unimplemented!("todo: remove the read only cache write policy / writable data cache set as READ_ONLY"),
+            WritePolicy::WRITE_BACK => Self::write_hit_write_back,
+            WritePolicy::WRITE_THROUGH => unimplemented!("Self::wr_hit_wt"),
+            WritePolicy::WRITE_EVICT => unimplemented!("Self::wr_hit_we"),
+            WritePolicy::LOCAL_WB_GLOBAL_WT => unimplemented!("Self::wr_hit_global_we_local_wb"),
         };
         (func)(self, addr, cache_index, fetch, time, events, probe_status)
     }
@@ -532,7 +575,7 @@ impl Data
             } else if probe_status != cache::RequestStatus::RESERVATION_FAIL
                 || (probe_status == cache::RequestStatus::RESERVATION_FAIL
                     && self.inner.cache_config.write_allocate_policy
-                        == config::CacheWriteAllocatePolicy::NO_WRITE_ALLOCATE)
+                        == cache::config::WriteAllocatePolicy::NO_WRITE_ALLOCATE)
             {
                 access_status =
                     self.write_miss(addr, cache_index, fetch, time, events, probe_status);
@@ -602,15 +645,17 @@ impl cache::Cache for Data
         time: u64,
     ) -> cache::RequestStatus {
         let super::base::Base {
-            ref cache_config, ..
+            ref addr_translation,
+            ref cache_config,
+            ..
         } = self.inner;
 
         debug_assert_eq!(&fetch.access.addr, &addr);
-        debug_assert!(fetch.data_size() <= cache_config.atom_size());
+        debug_assert!(fetch.data_size() <= cache_config.atom_size);
 
         let is_write = fetch.is_write();
         let access_kind = *fetch.access_kind();
-        let block_addr = cache_config.block_addr(addr);
+        let block_addr = addr_translation.block_addr(addr);
 
         log::debug!(
             "{}::data_cache::access({fetch}, write = {is_write}, size = {}, block = {block_addr}, time = {})",
@@ -668,8 +713,8 @@ impl cache::Cache for Data
         access_status
     }
 
-    fn write_allocate_policy(&self) -> config::CacheWriteAllocatePolicy {
-        self.cache_config().write_allocate_policy
+    fn write_allocate_policy(&self) -> cache::config::WriteAllocatePolicy {
+        self.inner.cache_config.write_allocate_policy
     }
 
     fn next_access(&mut self) -> Option<mem_fetch::MemFetch> {

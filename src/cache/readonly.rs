@@ -1,14 +1,13 @@
 use crate::sync::{Arc, Mutex};
 use crate::{
-    address, cache, config, interconn as ic, mem_fetch,
-    tag_array::{self, Access},
+    address, cache, config, interconn as ic, mcu, mem_fetch,
+    tag_array::{self, Access, CacheAddressTranslation},
 };
 use std::collections::VecDeque;
 
 #[derive(Debug)]
-// pub struct ReadOnly<I> {
 pub struct ReadOnly {
-    inner: cache::base::Base,
+    inner: cache::base::Base<mcu::MemoryControllerUnit>,
 }
 
 // impl<I> ReadOnly<I> {
@@ -17,20 +16,19 @@ impl ReadOnly {
         name: String,
         core_id: usize,
         cluster_id: usize,
-        // mem_port: Arc<I>,
         stats: Arc<Mutex<stats::Cache>>,
         config: Arc<config::GPU>,
         cache_config: Arc<config::Cache>,
     ) -> Self {
-        let inner = cache::base::Base::new(
+        let inner = cache::base::Builder {
             name,
             core_id,
             cluster_id,
-            // mem_port,
             stats,
-            config,
+            mem_controller: mcu::MemoryControllerUnit::new(&*config).unwrap(),
             cache_config,
-        );
+        }
+        .build();
         Self { inner }
     }
 
@@ -112,16 +110,17 @@ impl cache::Cache for ReadOnly
 
         let cache::base::Base {
             ref cache_config,
+            ref addr_translation,
             ref mut tag_array,
             ..
         } = self.inner;
-        debug_assert!(fetch.data_size() <= cache_config.atom_size());
+        debug_assert!(fetch.data_size() <= cache_config.atom_size);
         debug_assert_eq!(
             cache_config.write_policy,
-            config::CacheWritePolicy::READ_ONLY
+            cache::config::WritePolicy::READ_ONLY
         );
         debug_assert!(!fetch.is_write());
-        let block_addr = cache_config.block_addr(addr);
+        let block_addr = addr_translation.block_addr(addr);
 
         log::debug!(
             "{}::readonly_cache::access({addr}, write = {}, data size = {}, control size = {}, block = {block_addr}, time={})",

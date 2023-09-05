@@ -32,65 +32,6 @@ pub struct AccessStatus {
 //     addr_translation: Box<dyn CacheAddressTranslation>,
 // }
 
-pub mod sector {
-    pub struct Config {}
-
-    // impl Config {
-    //     #[inline]
-    //     #[must_use]
-    //     pub fn sector_size(&self) -> u32 {
-    //         mem_sub_partition::SECTOR_SIZE
-    //     }
-    //
-    //     #[inline]
-    //     #[must_use]
-    //     pub fn sector_size_log2(&self) -> u32 {
-    //         addrdec::logb2(self.sector_size())
-    //     }
-    // }
-}
-
-// #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
-#[derive(Clone, Debug)]
-pub struct CacheConfig {
-    pub set_index_function: Arc<dyn crate::set_index::SetIndexer>,
-    pub allocate_policy: config::CacheAllocatePolicy,
-    pub replacement_policy: config::CacheReplacementPolicy,
-    /// Cache line size.
-    pub line_size: u32,
-    /// Cache associativity.
-    pub associativity: usize,
-    /// Number of sets.
-    pub num_sets: usize,
-    /// Number of lines.
-    ///
-    /// NOTE: CAN BE COMPUTED from sets and associativity.
-    pub total_lines: usize,
-    pub line_size_log2: u32,
-    pub num_sets_log2: u32,
-}
-
-// impl CacheConfig {
-//     #[inline]
-//     #[must_use]
-//     fn total_lines(&self) -> usize {
-//         self.num_sets * self.associativity
-//     }
-// }
-
-// pub trait CacheConfig: std::fmt::Debug + Sync + Send + 'static {
-//     #[must_use]
-//     fn associativity(&self) -> usize;
-//
-//     #[must_use]
-//     fn num_sets(&self) -> usize;
-//
-//     #[must_use]
-//     fn total_lines(&self) -> usize {
-//         self.num_sets() * self.associativity()
-//     }
-// }
-
 pub trait CacheAddressTranslation: std::fmt::Debug + Sync + Send + 'static {
     /// Compute cache line tag for an address.
     #[must_use]
@@ -113,7 +54,24 @@ pub trait CacheAddressTranslation: std::fmt::Debug + Sync + Send + 'static {
     }
 }
 
-impl CacheAddressTranslation for CacheConfig {
+#[derive(Debug, Clone)]
+pub struct Pascal {
+    set_index_function: crate::set_index::linear::SetIndex,
+    config: cache::Config,
+}
+
+impl Pascal {
+    pub fn new(config: cache::Config) -> Self {
+        Self {
+            config,
+            set_index_function: crate::set_index::linear::SetIndex::default(),
+        }
+    }
+}
+
+// TODO: make a new address translation unit to get the set indexing function out of the config
+// impl CacheAddressTranslation for cache::Config {
+impl CacheAddressTranslation for Pascal {
     // impl<I> CacheAddressTranslation for CacheConfig<I>
     // where
     //     I: crate::set_index::SetIndexer,
@@ -128,33 +86,34 @@ impl CacheAddressTranslation for CacheConfig {
 
         // return addr >> (m_line_sz_log2+m_nset_log2);
         // return addr & ~(new_addr_type)(m_line_sz - 1);
-        addr & !u64::from(self.line_size - 1)
+        addr & !u64::from(self.config.line_size - 1)
     }
 
     #[inline]
     fn block_addr(&self, addr: address) -> address {
-        addr & !u64::from(self.line_size - 1)
+        addr & !u64::from(self.config.line_size - 1)
     }
 
     #[inline]
     fn set_index(&self, addr: address) -> u64 {
+        use crate::set_index::SetIndexer;
         self.set_index_function.compute_set_index(
             addr,
-            self.num_sets,
-            self.line_size_log2,
-            self.num_sets_log2,
+            self.config.num_sets,
+            self.config.line_size_log2,
+            self.config.num_sets_log2,
         )
     }
 
     #[inline]
     fn mshr_addr(&self, addr: address) -> address {
-        addr & !u64::from(self.line_size - 1)
+        addr & !u64::from(self.config.line_size - 1)
     }
 }
 
 /// Tag array.
 #[derive(Debug)]
-pub struct TagArray<B> {
+pub struct TagArray<B, T> {
     /// nbanks x nset x assoc lines in total
     pub lines: Vec<B>,
     is_used: bool,
@@ -168,12 +127,16 @@ pub struct TagArray<B> {
     // config: CacheConfig,
     // l1_cache_write_ratio_percent: usize,
     max_dirty_cache_lines_percent: usize,
-    addr_translation: Box<dyn CacheAddressTranslation>,
-    cache_config: CacheConfig,
+    // addr_translation: Box<dyn CacheAddressTranslation>,
+    addr_translation: T,
+    cache_config: cache::Config,
     pending_lines: LineTable,
 }
 
-impl<B> TagArray<B>
+// CacheAddressTranslation
+
+// impl<B> TagArray<B>
+impl<B> TagArray<B, Pascal>
 where
     B: Default,
 {
@@ -182,17 +145,18 @@ where
         let num_cache_lines = config.max_num_lines();
         let lines = (0..num_cache_lines).map(|_| B::default()).collect();
 
-        let cache_config = CacheConfig {
-            set_index_function: Arc::<crate::set_index::linear::SetIndex>::default(),
-            allocate_policy: config.allocate_policy,
-            replacement_policy: config.replacement_policy,
-            associativity: config.associativity,
-            num_sets: config.num_sets,
-            total_lines: config.num_sets * config.associativity,
-            line_size: config.line_size,
-            line_size_log2: config.line_size_log2(),
-            num_sets_log2: config.num_sets_log2(),
-        };
+        let cache_config = cache::Config::from(&*config);
+        // let cache_config = cache::Config {
+        //     set_index_function: Arc::<crate::set_index::linear::SetIndex>::default(),
+        //     allocate_policy: config.allocate_policy,
+        //     replacement_policy: config.replacement_policy,
+        //     associativity: config.associativity,
+        //     num_sets: config.num_sets,
+        //     total_lines: config.num_sets * config.associativity,
+        //     line_size: config.line_size,
+        //     line_size_log2: config.line_size_log2(),
+        //     num_sets_log2: config.num_sets_log2(),
+        // };
 
         Self {
             lines,
@@ -213,7 +177,7 @@ where
             // max_dirty_cache_lines_threshold: config.l1_cache_write_ratio_percent,
             max_dirty_cache_lines_percent: config.l1_cache_write_ratio_percent,
             cache_config: cache_config.clone(),
-            addr_translation: Box::new(cache_config),
+            addr_translation: Pascal::new(cache_config),
             pending_lines: LineTable::new(),
         }
     }
@@ -249,9 +213,11 @@ pub trait Access<B> {
     fn remove_pending_line(&mut self, fetch: &mem_fetch::MemFetch);
 }
 
-impl<B> Access<B> for TagArray<B>
+impl<B, T> Access<B> for TagArray<B, T>
+// impl<B> Access<B> for TagArray<B>
 where
     B: cache::block::Block,
+    T: CacheAddressTranslation,
 {
     #[inline]
     fn access(&mut self, addr: address, fetch: &mem_fetch::MemFetch, time: u64) -> AccessStatus {
@@ -289,7 +255,7 @@ where
                     self.cache_config.allocate_policy
                 );
 
-                if self.cache_config.allocate_policy == config::CacheAllocatePolicy::ON_MISS {
+                if self.cache_config.allocate_policy == cache::config::AllocatePolicy::ON_MISS {
                     if line.is_modified() {
                         writeback = true;
                         evicted = Some(EvictedBlockInfo {
@@ -386,9 +352,11 @@ where
     }
 }
 
-impl<B> TagArray<B>
+// impl<B> TagArray<B>
+impl<B, T> TagArray<B, T>
 where
     B: cache::block::Block,
+    T: CacheAddressTranslation,
 {
     /// Probes the tag array
     ///
@@ -494,14 +462,14 @@ where
                     } else {
                         // valid line: keep track of most appropriate replacement candidate
                         if self.cache_config.replacement_policy
-                            == config::CacheReplacementPolicy::LRU
+                            == cache::config::ReplacementPolicy::LRU
                         {
                             if line.last_access_time() < valid_time {
                                 valid_time = line.last_access_time();
                                 valid_line = Some(idx);
                             }
                         } else if self.cache_config.replacement_policy
-                            == config::CacheReplacementPolicy::FIFO
+                            == cache::config::ReplacementPolicy::FIFO
                             && line.alloc_time() < valid_time
                         {
                             valid_time = line.alloc_time();
@@ -517,7 +485,7 @@ where
         if all_reserved {
             debug_assert_eq!(
                 self.cache_config.allocate_policy,
-                config::CacheAllocatePolicy::ON_MISS
+                cache::config::AllocatePolicy::ON_MISS
             );
             // miss and not enough space in cache to allocate on miss
             return (None, cache::RequestStatus::RESERVATION_FAIL);
@@ -536,7 +504,7 @@ where
     }
 
     pub fn fill_on_miss(&mut self, cache_index: usize, fetch: &mem_fetch::MemFetch, time: u64) {
-        debug_assert!(self.cache_config.allocate_policy == config::CacheAllocatePolicy::ON_MISS);
+        debug_assert!(self.cache_config.allocate_policy == cache::config::AllocatePolicy::ON_MISS);
 
         log::trace!(
             "tag_array::fill(cache={}, tag={}, addr={}) (on miss)",
@@ -612,7 +580,7 @@ where
 
     /// TODO: consolidate with populate memcopy
     pub fn fill_on_fill(&mut self, addr: address, fetch: &mem_fetch::MemFetch, time: u64) {
-        debug_assert!(self.cache_config.allocate_policy == config::CacheAllocatePolicy::ON_FILL);
+        debug_assert!(self.cache_config.allocate_policy == cache::config::AllocatePolicy::ON_FILL);
 
         // probe tag array
         let is_probe = false;
@@ -665,14 +633,14 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::TagArray;
-    use crate::config;
-    use std::sync::Arc;
+    // use super::TagArray;
+    // use crate::config;
+    // use std::sync::Arc;
 
     #[ignore = "todo"]
     #[test]
     fn test_tag_array() {
-        let config = config::GPU::default().data_cache_l1.unwrap();
-        let _tag_array: TagArray<usize> = TagArray::new(Arc::clone(&config.inner));
+        // let config = config::GPU::default().data_cache_l1.unwrap();
+        // let _tag_array: TagArray<usize, T> = TagArray::new(Arc::clone(&config.inner));
     }
 }

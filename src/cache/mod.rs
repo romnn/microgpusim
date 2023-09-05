@@ -1,18 +1,21 @@
 pub mod bandwidth;
 pub mod base;
 pub mod block;
+pub mod config;
+pub mod controller;
 pub mod data;
 pub mod event;
 pub mod l2;
 pub mod readonly;
 
+pub use config::Config;
+pub use controller::CacheController;
 pub use data::Data;
 pub use event::Event;
 pub use l2::DataL2;
 pub use readonly::ReadOnly;
 
 use super::{address, mem_fetch};
-use crate::config;
 use crate::sync::{Arc, Mutex};
 use std::collections::VecDeque;
 
@@ -122,7 +125,7 @@ pub trait Cache: crate::engine::cycle::Component + Send + Sync + Bandwidth + 'st
         todo!("cache: waiting for fill");
     }
 
-    fn write_allocate_policy(&self) -> config::CacheWriteAllocatePolicy {
+    fn write_allocate_policy(&self) -> config::WriteAllocatePolicy {
         todo!("cache: write_allocate_policy");
     }
 }

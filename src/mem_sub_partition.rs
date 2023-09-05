@@ -213,7 +213,6 @@ impl MemorySubPartition
 
     #[tracing::instrument]
     pub fn cache_cycle(&mut self, cycle: u64) {
-        use config::CacheWriteAllocatePolicy;
         use mem_fetch::{AccessKind, Status};
 
         let log_line = style(format!(
@@ -265,7 +264,7 @@ impl MemorySubPartition
                         time: cycle,
                     });
                 } else if l2_config.inner.write_allocate_policy
-                    == CacheWriteAllocatePolicy::FETCH_ON_WRITE
+                    == cache::config::WriteAllocatePolicy::FETCH_ON_WRITE
                 {
                     let mut original_write_fetch = *fetch.original_fetch.unwrap();
                     original_write_fetch.set_reply();
@@ -372,8 +371,8 @@ impl MemorySubPartition
                                 let wa_policy = l2_cache.write_allocate_policy();
                                 let should_fetch = matches!(
                                     wa_policy,
-                                    config::CacheWriteAllocatePolicy::FETCH_ON_WRITE
-                                        | config::CacheWriteAllocatePolicy::LAZY_FETCH_ON_READ
+                                    cache::config::WriteAllocatePolicy::FETCH_ON_WRITE
+                                        | cache::config::WriteAllocatePolicy::LAZY_FETCH_ON_READ
                                 );
                                 if fetch.is_write()
                                     && should_fetch

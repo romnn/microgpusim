@@ -1,5 +1,5 @@
 use crate::sync::{Arc, Mutex};
-use crate::{address, config, interconn as ic, mem_fetch};
+use crate::{address, cache, config, interconn as ic, mem_fetch};
 use std::collections::VecDeque;
 
 /// Generic data cache.
@@ -73,7 +73,7 @@ impl super::Cache for DataL2
         &self.inner.inner.stats
     }
 
-    fn write_allocate_policy(&self) -> config::CacheWriteAllocatePolicy {
+    fn write_allocate_policy(&self) -> cache::config::WriteAllocatePolicy {
         self.inner.write_allocate_policy()
     }
 

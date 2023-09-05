@@ -203,7 +203,7 @@ pub enum ArchOpKind {
 //   }
 // }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(usize)]
 pub enum ArchOp {
     /// No-op
@@ -240,7 +240,7 @@ pub enum ArchOp {
 
 pub const SPEC_UNIT_START_ID: usize = ArchOp::SPECIALIZED_UNIT_1_OP as usize;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Opcode {
     pub op: Op,
     pub category: ArchOp,

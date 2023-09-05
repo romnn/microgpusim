@@ -1482,15 +1482,28 @@ where
                             BitArray::ZERO,
                             BitArray::ZERO,
                         );
-                        let fetch = mem_fetch::MemFetch::new(
-                            None,
+
+                        let tlx_addr = self
+                            .config
+                            .address_mapping()
+                            .to_physical_address(access.addr);
+                        let partition_addr = self
+                            .config
+                            .address_mapping()
+                            .memory_partition_address(access.addr);
+
+                        let fetch = mem_fetch::Builder {
+                            instr: None,
                             access,
-                            &self.config,
-                            mem_fetch::READ_PACKET_SIZE.into(),
+                            // &self.config,
+                            // mem_fetch::READ_PACKET_SIZE.into(),
                             warp_id,
-                            self.core_id,
-                            self.cluster_id,
-                        );
+                            core_id: self.core_id,
+                            cluster_id: self.cluster_id,
+                            tlx_addr,
+                            partition_addr,
+                        }
+                        .build();
 
                         let status = if self.config.perfect_inst_const_cache {
                             cache::RequestStatus::HIT

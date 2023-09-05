@@ -16,7 +16,7 @@ pub mod fermi {
     // Set Indexing function from
     // "A Detailed GPU Cache Model Based on Reuse
     // Distance Theory" Cedric Nugteren et al. HPCA 2014
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
     pub struct SetIndex {}
     impl super::SetIndexer for SetIndex {
         #[inline]
@@ -63,7 +63,7 @@ pub mod bitwise_xor {
         index as u64 ^ (higher_bits & (bank_set_num as u64 - 1))
     }
 
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
     pub struct SetIndex {}
     impl super::SetIndexer for SetIndex {
         #[inline]
@@ -117,7 +117,7 @@ pub mod ipoly {
         todo!("ipoly_hash_function");
     }
 
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
     pub struct SetIndex {}
     impl super::SetIndexer for SetIndex {
         #[inline]
@@ -140,7 +140,7 @@ pub mod ipoly {
 }
 
 pub mod linear {
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
     pub struct SetIndex {}
     impl super::SetIndexer for SetIndex {
         #[inline]

@@ -211,12 +211,14 @@ impl Table<mem_fetch::MemFetch> {
 #[cfg(test)]
 mod tests {
     use super::MSHR;
-    use crate::{config, mem_fetch, warp};
+    use crate::{config, mcu, mem_fetch, warp};
+    use color_eyre::eyre;
 
     #[test]
-    fn test_mshr_table() {
+    fn test_mshr_table() -> eyre::Result<()> {
         let config = config::GPU::default();
         let cache_config = config.inst_cache_l1.as_ref().unwrap();
+
         let mut mshrs = super::Table::new(cache_config.mshr_entries, cache_config.mshr_max_merge);
 
         let fetch_addr = 4_026_531_848;
@@ -230,7 +232,22 @@ mod tests {
             mem_fetch::ByteMask::ZERO,
             mem_fetch::SectorMask::ZERO,
         );
-        let fetch = mem_fetch::MemFetch::new(None, access, &config, 0, 0, 0, 0);
+
+        // if we ever need to use real addresses
+        let _mem_controller = mcu::MemoryControllerUnit::new(&config)?;
+        let tlx_addr = crate::mcu::TranslatedAddress::default();
+        let partition_addr = 0;
+
+        let fetch = mem_fetch::Builder {
+            instr: None,
+            access,
+            warp_id: 0,
+            core_id: 0,
+            cluster_id: 0,
+            tlx_addr,
+            partition_addr,
+        }
+        .build();
         let mshr_addr = cache_config.mshr_addr(fetch_addr);
         assert!(mshrs.get(mshr_addr).is_none());
         assert!(mshrs.get(mshr_addr).is_none());
@@ -239,5 +256,6 @@ mod tests {
         assert!(mshrs.get(mshr_addr).is_some());
 
         // TODO: test against bridge here
+        Ok(())
     }
 }

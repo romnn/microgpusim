@@ -2,6 +2,9 @@
 
 - today:
 
+  - builder for mem access as well
+  - decide on better names for linear, raw, translated addr to refelct virtual and physical for cache and global
+
   - remove the global config from components and use smaller configs
   - stat: warp instructions
   - detailed stat feature:

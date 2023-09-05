@@ -1,8 +1,7 @@
 use super::{
-    addrdec::{AddressTranslation, TranslatedAddress},
     address, config,
     instruction::{MemorySpace, WarpInstruction},
-    mem_sub_partition, warp,
+    mcu, mem_sub_partition, warp,
 };
 use bitvec::BitArr;
 use once_cell::sync::Lazy;
@@ -19,7 +18,7 @@ pub const WRITE_MASK_SIZE: u8 = 8;
 pub type ByteMask = BitArr!(for mem_sub_partition::MAX_MEMORY_ACCESS_SIZE as usize);
 pub type SectorMask = BitArr!(for mem_sub_partition::SECTOR_CHUNCK_SIZE as usize, in u8);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Kind {
     READ_REQUEST = 0,
     WRITE_REQUEST,
@@ -27,7 +26,7 @@ pub enum Kind {
     WRITE_ACK,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Status {
     INITIALIZED,
     IN_L1I_MISS_QUEUE,
@@ -59,7 +58,19 @@ pub enum Status {
     NUM_MEM_REQ_STAT,
 }
 
-#[derive(Debug, strum::EnumIter, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    strum::EnumIter,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+)]
 pub enum AccessKind {
     GLOBAL_ACC_R,
     LOCAL_ACC_R,
@@ -112,7 +123,7 @@ impl AccessKind {
     }
 }
 
-#[derive(Clone, Hash, Eq, PartialEq)]
+#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct MemAccess {
     // uid: usize,
     /// request address
@@ -233,17 +244,14 @@ impl MemAccess {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialOrd, Ord)]
 pub struct MemFetch {
     pub uid: u64,
     pub access: MemAccess,
     pub instr: Option<WarpInstruction>,
-    pub tlx_addr: TranslatedAddress,
+    pub tlx_addr: mcu::TranslatedAddress,
     pub partition_addr: address,
-    pub chip: u64,
-    // pub control_size: u32,
     pub kind: Kind,
-    // pub data_size: u32,
     pub warp_id: usize,
     pub core_id: usize,
     pub cluster_id: usize,
@@ -284,7 +292,6 @@ impl PartialEq for MemFetch {
         // self.access == other.access
         //     && self.tlx_addr == other.tlx_addr
         //     && self.partition_addr == other.partition_addr
-        //     && self.chip == other.chip
         //     && self.control_size == other.control_size
         //     && self.data_size == other.data_size
         //     && self.warp_id == other.warp_id
@@ -299,7 +306,6 @@ impl std::hash::Hash for MemFetch {
         // self.access.hash(state);
         // self.tlx_addr.hash(state);
         // self.partition_addr.hash(state);
-        // self.chip.hash(state);
         // self.control_size.hash(state);
         // self.data_size.hash(state);
         // self.warp_id.hash(state);
@@ -310,39 +316,36 @@ impl std::hash::Hash for MemFetch {
 
 static MEM_FETCH_UID: Lazy<atomic::AtomicU64> = Lazy::new(|| atomic::AtomicU64::new(0));
 
-impl MemFetch {
-    pub fn new(
-        instr: Option<WarpInstruction>,
-        access: MemAccess,
-        config: &config::GPU,
-        _control_size: u32,
-        warp_id: usize,
-        core_id: usize,
-        cluster_id: usize,
-    ) -> Self {
-        let kind = if access.is_write {
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Builder {
+    pub instr: Option<WarpInstruction>,
+    pub access: MemAccess,
+    pub warp_id: usize,
+    pub core_id: usize,
+    pub cluster_id: usize,
+    pub tlx_addr: mcu::TranslatedAddress,
+    pub partition_addr: address,
+}
+
+impl Builder {
+    pub fn build(self) -> MemFetch {
+        // let tlx_addr = config.address_mapping().translate(access.addr);
+        // let partition_addr = config.address_mapping().partition_address(access.addr);
+
+        let kind = if self.access.is_write {
             Kind::WRITE_REQUEST
         } else {
             Kind::READ_REQUEST
         };
-
-        let tlx_addr = config.address_mapping().translate(access.addr);
-        let partition_addr = config.address_mapping().partition_address(access.addr);
-
-        let uid = MEM_FETCH_UID.fetch_add(1, atomic::Ordering::SeqCst);
-
-        Self {
-            uid,
-            access,
-            instr,
-            warp_id,
-            core_id,
-            cluster_id,
-            // data_size,
-            // control_size,
-            tlx_addr,
-            partition_addr,
-            chip: 0,
+        MemFetch {
+            uid: MEM_FETCH_UID.fetch_add(1, atomic::Ordering::SeqCst),
+            access: self.access,
+            instr: self.instr,
+            warp_id: self.warp_id,
+            core_id: self.core_id,
+            cluster_id: self.cluster_id,
+            tlx_addr: self.tlx_addr,
+            partition_addr: self.partition_addr,
             kind,
             status: Status::INITIALIZED,
             pushed_cycle: None,
@@ -352,6 +355,54 @@ impl MemFetch {
             latency: 0,
         }
     }
+}
+
+impl From<Builder> for MemFetch {
+    fn from(builder: Builder) -> Self {
+        builder.build()
+    }
+}
+
+impl MemFetch {
+    // pub fn new(
+    //     config: Config,
+    //     // instr: Option<WarpInstruction>,
+    //     // access: MemAccess,
+    //     // // config: &config::GPU,
+    //     // // _control_size: u32,
+    //     // warp_id: usize,
+    //     // core_id: usize,
+    //     // cluster_id: usize,
+    // ) -> Self {
+    //     let kind = if access.is_write {
+    //         Kind::WRITE_REQUEST
+    //     } else {
+    //         Kind::READ_REQUEST
+    //     };
+    //
+    //     // let tlx_addr = config.address_mapping().translate(access.addr);
+    //     // let partition_addr = config.address_mapping().partition_address(access.addr);
+    //
+    //     let uid = MEM_FETCH_UID.fetch_add(1, atomic::Ordering::SeqCst);
+    //
+    //     Self {
+    //         uid,
+    //         access,
+    //         instr,
+    //         warp_id,
+    //         core_id,
+    //         cluster_id,
+    //         tlx_addr,
+    //         partition_addr,
+    //         kind,
+    //         status: Status::INITIALIZED,
+    //         pushed_cycle: None,
+    //         last_status_change: None,
+    //         original_fetch: None,
+    //         original_write_fetch: None,
+    //         latency: 0,
+    //     }
+    // }
 
     // pub fn latency(&self) -> u64 {}
 

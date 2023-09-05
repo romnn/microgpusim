@@ -13,25 +13,25 @@ use console::style;
 use std::collections::{HashMap, VecDeque};
 use strum::EnumCount;
 
-fn new_mem_fetch(
-    access: mem_fetch::MemAccess,
-    instr: WarpInstruction,
-    config: &config::GPU,
-    core_id: usize,
-    cluster_id: usize,
-) -> mem_fetch::MemFetch {
-    let warp_id = instr.warp_id;
-    let control_size = access.control_size();
-    mem_fetch::MemFetch::new(
-        Some(instr),
-        access,
-        config,
-        control_size,
-        warp_id,
-        core_id,
-        cluster_id,
-    )
-}
+// fn new_mem_fetch(
+//     access: mem_fetch::MemAccess,
+//     instr: WarpInstruction,
+//     config: &config::GPU,
+//     core_id: usize,
+//     cluster_id: usize,
+// ) -> mem_fetch::MemFetch {
+//     let warp_id = instr.warp_id;
+//     let control_size = access.control_size();
+//     mem_fetch::MemFetch::new(
+//         Some(instr),
+//         access,
+//         config,
+//         control_size,
+//         warp_id,
+//         core_id,
+//         cluster_id,
+//     )
+// }
 
 #[allow(clippy::module_name_repetitions)]
 // pub struct LoadStoreUnit<I> {
@@ -643,15 +643,26 @@ impl LoadStoreUnit
                 let instr = self.inner.dispatch_reg.as_mut().unwrap();
                 let access = instr.mem_access_queue.pop_back().unwrap();
 
-                let fetch = new_mem_fetch(
-                    access,
-                    instr.clone(),
-                    &self.config,
-                    self.core_id,
-                    self.cluster_id,
-                );
+                let tlx_addr = self
+                    .config
+                    .address_mapping()
+                    .to_physical_address(access.addr);
+                let partition_addr = self
+                    .config
+                    .address_mapping()
+                    .memory_partition_address(access.addr);
 
-                // self.interconn_push(fetch, time);
+                let fetch = mem_fetch::Builder {
+                    instr: Some(instr.clone()),
+                    access,
+                    warp_id: instr.warp_id,
+                    core_id: self.core_id,
+                    cluster_id: self.cluster_id,
+                    tlx_addr,
+                    partition_addr,
+                }
+                .build();
+
                 mem_port.send(ic::Packet {
                     data: fetch,
                     time: cycle,
@@ -740,14 +751,30 @@ impl LoadStoreUnit
                 if slot.is_none() {
                     let is_store = instr.is_store();
                     let access = instr.mem_access_queue.pop_back().unwrap();
-                    let new_instr = instr.clone();
-                    let fetch = new_mem_fetch(
+
+                    // let tlx_addr = crate::mcu::TranslatedAddress::default();
+                    // let partition_addr = 0;
+
+                    let tlx_addr = self
+                        .config
+                        .address_mapping()
+                        .to_physical_address(access.addr);
+                    let partition_addr = self
+                        .config
+                        .address_mapping()
+                        .memory_partition_address(access.addr);
+
+                    let fetch = mem_fetch::Builder {
+                        instr: Some(instr.clone()),
                         access,
-                        new_instr,
-                        &self.config,
-                        self.core_id,
-                        self.cluster_id,
-                    );
+                        warp_id: instr.warp_id,
+                        core_id: self.core_id,
+                        cluster_id: self.cluster_id,
+                        tlx_addr,
+                        partition_addr,
+                    }
+                    .build();
+
                     let data_size = fetch.data_size();
                     *slot = Some(fetch);
 
@@ -758,7 +785,6 @@ impl LoadStoreUnit
                             1
                         };
 
-                        // let mut warp = self.warps[instr.warp_id].try_borrow_mut().unwrap();
                         let mut warp = self.warps[instr.warp_id].try_lock();
                         for _ in 0..inc_ack {
                             warp.num_outstanding_stores += 1;
@@ -783,14 +809,29 @@ impl LoadStoreUnit
             );
             stall_cond
         } else {
-            let new_instr = instr.clone();
-            let fetch = new_mem_fetch(
-                access.clone(),
-                new_instr,
-                &self.config,
-                self.core_id,
-                self.cluster_id,
-            );
+            // let tlx_addr = crate::mcu::TranslatedAddress::default();
+            // let partition_addr = 0;
+
+            let tlx_addr = self
+                .config
+                .address_mapping()
+                .to_physical_address(access.addr);
+            let partition_addr = self
+                .config
+                .address_mapping()
+                .memory_partition_address(access.addr);
+
+            let fetch = mem_fetch::Builder {
+                instr: Some(instr.clone()),
+                access: access.clone(),
+                // &self.config,
+                warp_id: instr.warp_id,
+                core_id: self.core_id,
+                cluster_id: self.cluster_id,
+                tlx_addr,
+                partition_addr,
+            }
+            .build();
             let mut events = Vec::new();
             let _status =
                 self.data_l1
@@ -941,10 +982,10 @@ impl LoadStoreUnit
 
                     let should_fetch = matches!(
                         l1_config.inner.write_allocate_policy,
-                        config::CacheWriteAllocatePolicy::FETCH_ON_WRITE
-                            | config::CacheWriteAllocatePolicy::LAZY_FETCH_ON_READ
+                        cache::config::WriteAllocatePolicy::FETCH_ON_WRITE
+                            | cache::config::WriteAllocatePolicy::LAZY_FETCH_ON_READ
                     );
-                    if l1_config.inner.write_policy != config::CacheWritePolicy::WRITE_THROUGH
+                    if l1_config.inner.write_policy != cache::config::WritePolicy::WRITE_THROUGH
                         && instr.is_store()
                         && should_fetch
                         && !write_allocate_sent

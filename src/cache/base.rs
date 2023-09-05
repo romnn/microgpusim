@@ -1,6 +1,6 @@
 use crate::sync::{Arc, Mutex};
 use crate::{
-    address, cache, config, interconn as ic, mem_fetch,
+    address, cache, config, interconn as ic, mcu, mem_fetch,
     mem_sub_partition::SECTOR_SIZE,
     mshr::{self, MSHR},
     tag_array,
@@ -8,7 +8,7 @@ use crate::{
 use cache::block::Block;
 use console::style;
 use std::collections::{HashMap, VecDeque};
-use tag_array::Access;
+use tag_array::{Access, CacheAddressTranslation};
 
 #[derive(Debug)]
 struct PendingRequest {
@@ -30,19 +30,24 @@ impl PendingRequest {}
 /// Implements common functions for `read_only_cache` and `data_cache`
 /// Each subclass implements its own 'access' function
 #[derive()]
-pub struct Base {
+// pub struct Base {
+pub struct Base<MC> {
     pub name: String,
     pub core_id: usize,
     pub cluster_id: usize,
 
     pub stats: Arc<Mutex<stats::Cache>>,
-    pub config: Arc<config::GPU>,
-    pub cache_config: Arc<config::Cache>,
+    // pub config: Arc<config::GPU>,
+    // pub cache_config: Arc<config::Cache>,
+    pub addr_translation: tag_array::Pascal,
+    // pub mem_controller: Box<dyn mcu::MemoryController>,
+    pub mem_controller: MC,
+    pub cache_config: cache::Config,
 
     pub miss_queue: VecDeque<mem_fetch::MemFetch>,
     pub miss_queue_status: mem_fetch::Status,
     pub mshrs: mshr::Table<mem_fetch::MemFetch>,
-    pub tag_array: tag_array::TagArray<cache::block::Line>,
+    pub tag_array: tag_array::TagArray<cache::block::Line, tag_array::Pascal>,
 
     pending: HashMap<mem_fetch::MemFetch, PendingRequest>,
     top_port: Option<ic::Port<mem_fetch::MemFetch>>,
@@ -51,7 +56,8 @@ pub struct Base {
     pub bandwidth: super::bandwidth::Manager,
 }
 
-impl std::fmt::Debug for Base {
+// impl std::fmt::Debug for Base {
+impl<MC> std::fmt::Debug for Base<MC> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("Base")
             .field("name", &self.name)
@@ -62,15 +68,51 @@ impl std::fmt::Debug for Base {
     }
 }
 
-impl Base {
-    pub fn new(
-        name: String,
-        core_id: usize,
-        cluster_id: usize,
-        stats: Arc<Mutex<stats::Cache>>,
-        config: Arc<config::GPU>,
-        cache_config: Arc<config::Cache>,
-    ) -> Self {
+// pub struct CacheConfig {
+//     // todo: maybe make that a fifo queue
+//     pub miss_queue_size: usize,
+// }
+
+// #[derive(Debug)]
+// pub struct RemoveMe {}
+//
+// impl mcu::MemoryController for RemoveMe {
+//     fn memory_partition_address(&self, addr: address) -> address {
+//         0
+//     }
+//     fn to_physical_address(&self, addr: address) -> mcu::TranslatedAddress {
+//         mcu::TranslatedAddress::default()
+//     }
+//     fn num_memory_partitions(&self) -> usize {
+//         0
+//     }
+//     fn num_memory_sub_partitions(&self) -> usize {
+//         0
+//     }
+// }
+
+#[derive(Debug, Clone)]
+pub struct Builder<MC> {
+    pub name: String,
+    pub core_id: usize,
+    pub cluster_id: usize,
+    pub stats: Arc<Mutex<stats::Cache>>,
+    pub mem_controller: MC,
+    pub cache_config: Arc<config::Cache>,
+}
+
+impl<MC> Builder<MC> {
+    // pub fn new(
+    //     name: String,
+    //     core_id: usize,
+    //     cluster_id: usize,
+    //     stats: Arc<Mutex<stats::Cache>>,
+    //     // _config: Arc<config::GPU>,
+    //     mem_controller: MC,
+    //     cache_config: Arc<config::Cache>,
+    // ) -> Self {
+    pub fn build(self) -> Base<MC> {
+        let cache_config = self.cache_config;
         let tag_array = tag_array::TagArray::new(cache_config.clone());
 
         debug_assert!(matches!(
@@ -80,23 +122,34 @@ impl Base {
         let mshrs = mshr::Table::new(cache_config.mshr_entries, cache_config.mshr_max_merge);
 
         let bandwidth = super::bandwidth::Manager::new(cache_config.clone());
-        Self {
-            name,
-            core_id,
-            cluster_id,
+
+        let cache_config = cache::Config::from(&*cache_config);
+        let addr_translation = tag_array::Pascal::new(cache_config.clone());
+
+        let miss_queue = VecDeque::with_capacity(cache_config.miss_queue_size);
+
+        Base {
+            name: self.name,
+            core_id: self.core_id,
+            cluster_id: self.cluster_id,
             tag_array,
             mshrs,
             top_port: None,
-            stats,
-            config,
+            stats: self.stats,
+            // config,
+            // mem_controller: Box::new(ReplaceMe {}),
+            mem_controller: self.mem_controller,
             cache_config,
+            addr_translation,
             bandwidth,
             pending: HashMap::new(),
-            miss_queue: VecDeque::new(),
+            miss_queue,
             miss_queue_status: mem_fetch::Status::INITIALIZED,
         }
     }
+}
 
+impl<MC> Base<MC> {
     /// Checks whether this request can be handled in this cycle.
     ///
     /// `n` equals the number of misses to be handled in this cycle.
@@ -167,7 +220,7 @@ impl Base {
         let mut writeback = false;
         let mut evicted = None;
 
-        let mshr_addr = self.cache_config.mshr_addr(fetch.addr());
+        let mshr_addr = self.addr_translation.mshr_addr(fetch.addr());
         let mshr_hit = self.mshrs.get(mshr_addr).is_some();
         let mshr_full = self.mshrs.full(mshr_addr);
 
@@ -225,7 +278,7 @@ impl Base {
             );
 
             // change address to mshr block address
-            fetch.access.req_size_bytes = self.cache_config.atom_size();
+            fetch.access.req_size_bytes = self.cache_config.atom_size;
             // fetch.data_size = self.cache_config.atom_size();
             fetch.access.addr = mshr_addr;
 
@@ -264,7 +317,8 @@ impl Base {
 }
 
 // impl<I> crate::engine::cycle::Component for Base<I>
-impl crate::engine::cycle::Component for Base
+// impl crate::engine::cycle::Component for Base
+impl<MC> crate::engine::cycle::Component for Base<MC>
 // where
 //     I: ic::MemFetchInterface,
 {
@@ -316,7 +370,8 @@ impl crate::engine::cycle::Component for Base
     }
 }
 
-impl Base
+// impl Base
+impl<MC> Base<MC>
 // impl<I> Base<I>
 // where
 // I: ic::MemFetchInterface,
@@ -346,15 +401,15 @@ impl Base
         fetch.access.addr = pending.addr;
 
         match self.cache_config.allocate_policy {
-            config::CacheAllocatePolicy::ON_MISS => {
+            cache::config::AllocatePolicy::ON_MISS => {
                 self.tag_array
                     .fill_on_miss(pending.cache_index, &fetch, time);
             }
-            config::CacheAllocatePolicy::ON_FILL => {
+            cache::config::AllocatePolicy::ON_FILL => {
                 self.tag_array
                     .fill_on_fill(pending.block_addr, &fetch, time);
             }
-            other @ config::CacheAllocatePolicy::STREAMING => {
+            other @ cache::config::AllocatePolicy::STREAMING => {
                 unimplemented!("cache allocate policy {:?} is not implemented", other)
             }
         }
@@ -369,7 +424,7 @@ impl Base
 
         if has_atomic {
             debug_assert!(
-                self.cache_config.allocate_policy == config::CacheAllocatePolicy::ON_MISS
+                self.cache_config.allocate_policy == cache::config::AllocatePolicy::ON_MISS
             );
             let block = self.tag_array.get_block_mut(pending.cache_index);
             // mark line as dirty for atomic operation
@@ -384,7 +439,8 @@ impl Base
 }
 
 // impl<I> super::Bandwidth for Base<I> {
-impl super::Bandwidth for Base {
+// impl super::Bandwidth for Base {
+impl<MC> super::Bandwidth for Base<MC> {
     fn has_free_data_port(&self) -> bool {
         self.bandwidth.has_free_data_port()
     }

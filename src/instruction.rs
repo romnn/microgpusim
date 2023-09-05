@@ -66,7 +66,7 @@ pub struct PerThreadInfo {
     pub mem_req_addr: [address; MAX_ACCESSES_PER_INSN_PER_THREAD],
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum CacheOperator {
     UNDEFINED,
     // loads
@@ -82,7 +82,7 @@ pub enum CacheOperator {
     WRITE_THROUGH, // .wt
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MemOp {
     Load,
     Store,
@@ -117,7 +117,7 @@ pub struct BarrierInfo {
 }
 
 #[allow(clippy::module_name_repetitions)]
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct WarpInstruction {
     /// Globally unique id for this warp instruction.
     ///
@@ -152,6 +152,18 @@ pub struct WarpInstruction {
     /// register number for bank conflict evaluation
     pub src_arch_reg: [Option<u32>; opcoll::MAX_REG_OPERANDS],
     pub dest_arch_reg: [Option<u32>; opcoll::MAX_REG_OPERANDS],
+}
+
+impl std::cmp::Ord for WarpInstruction {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.uid.cmp(&other.uid)
+    }
+}
+
+impl std::cmp::PartialOrd for WarpInstruction {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 impl std::fmt::Debug for WarpInstruction {

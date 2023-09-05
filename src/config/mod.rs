@@ -1,7 +1,7 @@
 pub mod accelsim;
 
-use super::{
-    addrdec, address, core::PipelineStage, kernel::Kernel, mem_sub_partition, mshr, opcodes,
+use crate::{
+    address, cache, core::PipelineStage, kernel::Kernel, mcu, mem_sub_partition, mshr, opcodes,
     set_index,
 };
 use color_eyre::eyre;
@@ -22,13 +22,6 @@ pub enum MemoryAddressingMask {
 pub enum CacheKind {
     Normal, // N
     Sector, // S
-}
-
-/// A cache replacement policy
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum CacheReplacementPolicy {
-    LRU,  // L
-    FIFO, // F
 }
 
 #[derive(Debug)]
@@ -71,13 +64,13 @@ impl L1DCache {
     #[inline]
     #[must_use]
     pub fn l1_banks_log2(&self) -> u32 {
-        addrdec::logb2(self.l1_banks as u32)
+        mcu::logb2(self.l1_banks as u32)
     }
 
     #[inline]
     #[must_use]
     pub fn l1_banks_byte_interleaving_log2(&self) -> u32 {
-        addrdec::logb2(self.l1_banks_byte_interleaving as u32)
+        mcu::logb2(self.l1_banks_byte_interleaving as u32)
     }
 
     #[inline]
@@ -111,10 +104,10 @@ pub struct Cache {
     pub line_size: u32,
     pub associativity: usize,
 
-    pub replacement_policy: CacheReplacementPolicy,
-    pub write_policy: CacheWritePolicy,
-    pub allocate_policy: CacheAllocatePolicy,
-    pub write_allocate_policy: CacheWriteAllocatePolicy,
+    pub replacement_policy: cache::config::ReplacementPolicy,
+    pub write_policy: cache::config::WritePolicy,
+    pub allocate_policy: cache::config::AllocatePolicy,
+    pub write_allocate_policy: cache::config::WriteAllocatePolicy,
     // pub set_index_function: CacheSetIndexFunc,
     pub set_index_function: Box<dyn set_index::SetIndexer>,
 
@@ -191,13 +184,13 @@ impl Cache {
     #[inline]
     #[must_use]
     pub fn line_size_log2(&self) -> u32 {
-        addrdec::logb2(self.line_size)
+        mcu::logb2(self.line_size)
     }
 
     #[inline]
     #[must_use]
     pub fn num_sets_log2(&self) -> u32 {
-        addrdec::logb2(self.num_sets as u32)
+        mcu::logb2(self.num_sets as u32)
     }
 
     // #[inline]
@@ -209,7 +202,7 @@ impl Cache {
     // #[inline]
     // #[must_use]
     // pub fn sector_size_log2(&self) -> u32 {
-    //     addrdec::logb2(self.sector_size())
+    //     mcu::logb2(self.sector_size())
     // }
 
     #[inline]
@@ -345,8 +338,7 @@ pub struct GPU {
     /// Deadlock check
     pub deadlock_check: bool,
 
-    pub linear_to_raw_adress_translation:
-        std::sync::OnceLock<addrdec::LinearToRawAddressTranslation>,
+    pub memory_controller_unit: std::sync::OnceLock<mcu::MemoryControllerUnit>,
     /// The SM number to pass to ptxas when getting register usage for
     /// computing GPU occupancy.
     pub occupancy_sm_number: usize,
@@ -831,39 +823,6 @@ pub enum CacheSetIndexFunc {
     BITWISE_XORING_FUNCTION, // X
 }
 
-///
-/// Cache write-allocate policy.
-///
-/// For more details about difference between `FETCH_ON_WRITE` and WRITE
-/// VALIDAE policies Read: Jouppi, Norman P. "Cache write policies and
-/// performance". ISCA 93. `WRITE_ALLOCATE` is the old write policy in
-/// GPGPU-sim 3.x, that send WRITE and READ for every write request
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
-pub enum CacheWriteAllocatePolicy {
-    NO_WRITE_ALLOCATE,  // N
-    WRITE_ALLOCATE,     // W
-    FETCH_ON_WRITE,     // F
-    LAZY_FETCH_ON_READ, // L
-}
-
-/// A cache write policy.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
-pub enum CacheWritePolicy {
-    READ_ONLY,          // R
-    WRITE_BACK,         // B
-    WRITE_THROUGH,      // T
-    WRITE_EVICT,        // E
-    LOCAL_WB_GLOBAL_WT, // L
-}
-
-/// A cache allocate policy.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum CacheAllocatePolicy {
-    ON_MISS,   // M
-    ON_FILL,   // F
-    STREAMING, // S
-}
-
 /// Memory partition indexing scheme.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum MemoryPartitionIndexingScheme {
@@ -961,9 +920,9 @@ impl GPU {
         self.num_memory_controllers * self.num_sub_partition_per_memory_channel
     }
 
-    pub fn address_mapping(&self) -> &addrdec::LinearToRawAddressTranslation {
-        self.linear_to_raw_adress_translation
-            .get_or_init(|| addrdec::LinearToRawAddressTranslation::new(self).unwrap())
+    pub fn address_mapping(&self) -> &dyn mcu::MemoryController {
+        self.memory_controller_unit
+            .get_or_init(|| mcu::MemoryControllerUnit::new(self).unwrap())
     }
 }
 
@@ -973,7 +932,7 @@ impl Default for GPU {
             log_after_cycle: None,
             parallelization: Parallelization::Serial,
             deadlock_check: false,
-            linear_to_raw_adress_translation: std::sync::OnceLock::new(),
+            memory_controller_unit: std::sync::OnceLock::new(),
             occupancy_sm_number: 60,
             max_threads_per_core: 2048,
             warp_size: 32,
@@ -984,10 +943,10 @@ impl Default for GPU {
                 num_sets: 16,
                 line_size: 128,
                 associativity: 24,
-                replacement_policy: CacheReplacementPolicy::LRU,
-                write_policy: CacheWritePolicy::READ_ONLY,
-                allocate_policy: CacheAllocatePolicy::ON_MISS,
-                write_allocate_policy: CacheWriteAllocatePolicy::NO_WRITE_ALLOCATE,
+                replacement_policy: cache::config::ReplacementPolicy::LRU,
+                write_policy: cache::config::WritePolicy::READ_ONLY,
+                allocate_policy: cache::config::AllocatePolicy::ON_MISS,
+                write_allocate_policy: cache::config::WriteAllocatePolicy::NO_WRITE_ALLOCATE,
                 // set_index_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
                 set_index_function: Box::<set_index::linear::SetIndex>::default(),
                 mshr_kind: mshr::Kind::TEX_FIFO,
@@ -1005,10 +964,10 @@ impl Default for GPU {
                 num_sets: 128,
                 line_size: 64,
                 associativity: 2,
-                replacement_policy: CacheReplacementPolicy::LRU,
-                write_policy: CacheWritePolicy::READ_ONLY,
-                allocate_policy: CacheAllocatePolicy::ON_FILL,
-                write_allocate_policy: CacheWriteAllocatePolicy::NO_WRITE_ALLOCATE,
+                replacement_policy: cache::config::ReplacementPolicy::LRU,
+                write_policy: cache::config::WritePolicy::READ_ONLY,
+                allocate_policy: cache::config::AllocatePolicy::ON_FILL,
+                write_allocate_policy: cache::config::WriteAllocatePolicy::NO_WRITE_ALLOCATE,
                 // set_index_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
                 set_index_function: Box::<set_index::linear::SetIndex>::default(),
                 mshr_kind: mshr::Kind::ASSOC,
@@ -1026,10 +985,10 @@ impl Default for GPU {
                 num_sets: 8,
                 line_size: 128,
                 associativity: 4,
-                replacement_policy: CacheReplacementPolicy::LRU,
-                write_policy: CacheWritePolicy::READ_ONLY,
-                allocate_policy: CacheAllocatePolicy::ON_FILL,
-                write_allocate_policy: CacheWriteAllocatePolicy::NO_WRITE_ALLOCATE,
+                replacement_policy: cache::config::ReplacementPolicy::LRU,
+                write_policy: cache::config::WritePolicy::READ_ONLY,
+                allocate_policy: cache::config::AllocatePolicy::ON_FILL,
+                write_allocate_policy: cache::config::WriteAllocatePolicy::NO_WRITE_ALLOCATE,
                 // set_index_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
                 set_index_function: Box::<set_index::linear::SetIndex>::default(),
                 mshr_kind: mshr::Kind::ASSOC,
@@ -1053,10 +1012,10 @@ impl Default for GPU {
                     num_sets: 64,
                     line_size: 128,
                     associativity: 6,
-                    replacement_policy: CacheReplacementPolicy::LRU,
-                    write_policy: CacheWritePolicy::LOCAL_WB_GLOBAL_WT,
-                    allocate_policy: CacheAllocatePolicy::ON_MISS,
-                    write_allocate_policy: CacheWriteAllocatePolicy::NO_WRITE_ALLOCATE,
+                    replacement_policy: cache::config::ReplacementPolicy::LRU,
+                    write_policy: cache::config::WritePolicy::LOCAL_WB_GLOBAL_WT,
+                    allocate_policy: cache::config::AllocatePolicy::ON_MISS,
+                    write_allocate_policy: cache::config::WriteAllocatePolicy::NO_WRITE_ALLOCATE,
                     // set_index_function: CacheSetIndexFunc::FERMI_HASH_SET_FUNCTION,
                     set_index_function: Box::<set_index::fermi::SetIndex>::default(),
                     mshr_kind: mshr::Kind::ASSOC,
@@ -1076,10 +1035,10 @@ impl Default for GPU {
                     num_sets: 64,
                     line_size: 128,
                     associativity: 16,
-                    replacement_policy: CacheReplacementPolicy::LRU,
-                    write_policy: CacheWritePolicy::WRITE_BACK,
-                    allocate_policy: CacheAllocatePolicy::ON_MISS,
-                    write_allocate_policy: CacheWriteAllocatePolicy::WRITE_ALLOCATE,
+                    replacement_policy: cache::config::ReplacementPolicy::LRU,
+                    write_policy: cache::config::WritePolicy::WRITE_BACK,
+                    allocate_policy: cache::config::AllocatePolicy::ON_MISS,
+                    write_allocate_policy: cache::config::WriteAllocatePolicy::WRITE_ALLOCATE,
                     // set_index_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
                     set_index_function: Box::<set_index::linear::SetIndex>::default(),
                     mshr_kind: mshr::Kind::ASSOC,

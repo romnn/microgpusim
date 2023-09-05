@@ -11,6 +11,18 @@ pub struct Allocation {
     pub end_addr: Option<address>,
 }
 
+impl std::cmp::Ord for Allocation {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.id.cmp(&other.id)
+    }
+}
+
+impl std::cmp::PartialOrd for Allocation {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 impl std::fmt::Display for Allocation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let num_bytes = self.end_addr.map(|end| end - self.start_addr);
