@@ -45,7 +45,7 @@ def main(path, config, bench_name, input_idx):
         input_idx = bench_config["input_idx"]
         print(f"\n\n=== {name}@{input_idx} ===")
 
-        # our_stats = stats.Stats(bench_config)
+        our_stats = stats.Stats(config, bench_config)
         playground_stats = playground.Stats(config, bench_config)
         accelsim_stats = accelsim.Stats(config, bench_config)
         native_stats = native.Stats(config, bench_config)
@@ -67,99 +67,119 @@ def main(path, config, bench_name, input_idx):
             (
                 "instructions",
                 native_stats.instructions(),
+                our_stats.instructions(),
                 accelsim_stats.instructions(),
                 playground_stats.instructions(),
             ),
             (
                 "warp instructions",
                 native_stats.warp_instructions(),
+                our_stats.warp_instructions(),
                 accelsim_stats.warp_instructions(),
                 playground_stats.warp_instructions(),
             ),
             (
                 "cycles",
                 native_stats.cycles(),
+                our_stats.cycles(),
                 accelsim_stats.cycles(),
                 playground_stats.cycles(),
             ),
             (
                 "exec time sec",
                 native_stats.exec_time_sec(),
+                our_stats.exec_time_sec(),
                 accelsim_stats.exec_time_sec(),
                 playground_stats.exec_time_sec(),
             ),
             (
                 "dram reads",
                 native_stats.dram_reads(),
+                our_stats.dram_reads(),
                 accelsim_stats.dram_reads(),
                 playground_stats.dram_reads(),
             ),
             (
                 "dram writes",
                 native_stats.dram_writes(),
+                our_stats.dram_writes(),
                 accelsim_stats.dram_writes(),
                 playground_stats.dram_writes(),
             ),
             (
                 "dram accesses",
                 native_stats.dram_accesses(),
+                our_stats.dram_accesses(),
                 accelsim_stats.dram_accesses(),
                 playground_stats.dram_accesses(),
             ),
             (
                 "L2 reads",
                 native_stats.l2_reads(),
+                our_stats.l2_reads(),
                 accelsim_stats.l2_reads(),
                 playground_stats.l2_reads(),
             ),
             (
                 "L2 writes",
                 native_stats.l2_writes(),
+                our_stats.l2_writes(),
                 accelsim_stats.l2_writes(),
                 playground_stats.l2_writes(),
             ),
             (
                 "L2 accesses",
                 native_stats.l2_accesses(),
+                our_stats.l2_accesses(),
                 accelsim_stats.l2_accesses(),
                 playground_stats.l2_accesses(),
             ),
             (
                 "L2 read hits",
                 native_stats.l2_read_hits(),
+                our_stats.l2_read_hits(),
                 accelsim_stats.l2_read_hits(),
                 playground_stats.l2_read_hits(),
             ),
             (
                 "L2 write hits",
                 native_stats.l2_write_hits(),
+                our_stats.l2_write_hits(),
                 accelsim_stats.l2_write_hits(),
                 playground_stats.l2_write_hits(),
             ),
             (
                 "L2 read misses",
                 native_stats.l2_read_misses(),
+                our_stats.l2_read_misses(),
                 accelsim_stats.l2_read_misses(),
                 playground_stats.l2_read_misses(),
             ),
             (
                 "L2 write misses",
                 native_stats.l2_write_misses(),
+                our_stats.l2_write_misses(),
                 accelsim_stats.l2_write_misses(),
                 playground_stats.l2_write_misses(),
             ),
         ]
         data = [
-            (k, human_readable(native), human_readable(accel), human_readable(play))
-            for (k, native, accel, play) in data
+            (
+                k,
+                human_readable(native),
+                human_readable(ours),
+                human_readable(accel),
+                human_readable(play),
+            )
+            for (k, native, ours, accel, play) in data
         ]
         # print(native_stats.df)
         print(
             wasabi.table(
                 data,
-                header=("", "native", "accelsim", "playground"),
+                header=("", "native", "ours", "accelsim", "playground"),
                 divider=True,
-                aligns=("r", "r", "r", "r"),
+                aligns=("r", "r", "r", "r", "r"),
             )
         )
         # , widths=widths, ))

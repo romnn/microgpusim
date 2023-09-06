@@ -122,10 +122,13 @@ fn gather_simulation_state(
                 .into_iter()
                 .map(Into::into),
         );
+
+        let arbiter: &crate::arbitration::ArbitrationUnit =
+            partition.arbiter.as_any().downcast_ref().unwrap();
         box_sim_state.dram_arbitration_per_partition[partition_id] = testing::state::Arbitration {
-            last_borrower: partition.arbitration_metadata.last_borrower,
-            shared_credit: partition.arbitration_metadata.shared_credit,
-            private_credit: partition.arbitration_metadata.private_credit.clone().into(),
+            last_borrower: partition.arbiter.last_borrower(),
+            shared_credit: arbiter.shared_credit,
+            private_credit: arbiter.private_credit.clone().into(),
         };
     }
     for (sub_id, sub) in box_sim.mem_sub_partitions.iter().enumerate() {
@@ -432,7 +435,7 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
     // debugging config
     let box_config = Arc::new(config::GPU {
         num_simt_clusters: 20,                   // 20
-        num_cores_per_simt_cluster: 4,           // 1
+        num_cores_per_simt_cluster: 1,           // 1
         num_schedulers_per_core: 2,              // 2
         num_memory_controllers: 8,               // 8
         num_sub_partition_per_memory_channel: 2, // 2

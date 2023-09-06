@@ -282,38 +282,11 @@ fn memory_coalescing_arch_reduce(
 }
 
 impl WarpInstruction {
-    // pub fn new_empty(config: &config::GPU) -> Self {
-    //     let threads = vec![PerThreadInfo::default(); config.warp_size];
-    //     Self {
-    //         uid: 0,
-    //         warp_id: 0,
-    //         scheduler_id: None,
-    //         opcode: Opcode {
-    //             op: Op::NOP,
-    //             category: ArchOp::NO_OP,
-    //         },
-    //         pc: 0,
-    //         trace_idx: 0,
-    //         threads,
-    //         memory_space: None,
-    //         is_atomic: false,
-    //         active_mask: BitArray::ZERO,
-    //         cache_operator: CacheOperator::UNDEFINED,
-    //         latency: 1,
-    //         initiation_interval: 1,
-    //         issue_cycle: None,
-    //         dispatch_delay_cycles: 0,
-    //         data_size: 0,
-    //         instr_width: 16,
-    //         mem_access_queue: VecDeque::new(),
-    //         outputs: [None; 8],
-    //         inputs: [None; 24],
-    //         src_arch_reg: [None; opcoll::MAX_REG_OPERANDS],
-    //         dest_arch_reg: [None; opcoll::MAX_REG_OPERANDS],
-    //     }
-    // }
-
-    pub fn from_trace(kernel: &Kernel, trace: &trace::MemAccessTraceEntry) -> Self {
+    pub fn from_trace(
+        kernel: &Kernel,
+        trace: &trace::MemAccessTraceEntry,
+        config: &config::GPU,
+    ) -> Self {
         // fill active mask
         let mut active_mask = BitArray::ZERO;
         active_mask.store(trace.active_mask);
@@ -354,7 +327,6 @@ impl WarpInstruction {
         }
 
         // fill latency and init latency
-        let config = config::GPU::default();
         let (latency, initiation_interval) = config.get_latencies(opcode.category);
 
         // fill addresses

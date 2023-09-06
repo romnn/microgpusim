@@ -130,11 +130,9 @@ impl Data
     fn read_hit(
         &mut self,
         addr: address,
-        // _cache_index: Option<usize>,
         fetch: &mem_fetch::MemFetch,
         time: u64,
         _events: &mut [cache::event::Event],
-        // _probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         let super::base::Base {
             ref mut tag_array,
@@ -556,8 +554,6 @@ impl Data
         &mut self,
         is_write: bool,
         probe: Option<(usize, cache::RequestStatus)>,
-        // probe_status: cache::RequestStatus,
-        // cache_index: Option<usize>,
         addr: address,
         fetch: mem_fetch::MemFetch,
         events: &mut Vec<cache::Event>,
@@ -573,7 +569,6 @@ impl Data
         let probe_status = probe
             .map(|(_, s)| s)
             .unwrap_or(cache::RequestStatus::RESERVATION_FAIL);
-        // let cache_index = probe.map(|(i, _)| i);
 
         let mut access_status = probe_status;
         let data_size = fetch.data_size();

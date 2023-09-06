@@ -1,5 +1,8 @@
 use crate::sync::{Arc, Mutex};
-use crate::{address, config, dram, ic::Packet, mem_fetch, mem_sub_partition::MemorySubPartition};
+use crate::{
+    address, arbitration, config, dram, ic::Packet, mem_fetch,
+    mem_sub_partition::MemorySubPartition,
+};
 use console::style;
 use mem_fetch::ToBitString;
 use std::collections::VecDeque;
@@ -9,7 +12,7 @@ pub struct MemoryPartitionUnit {
     dram: dram::DRAM,
     pub dram_latency_queue: VecDeque<mem_fetch::MemFetch>,
     pub sub_partitions: Vec<Arc<Mutex<MemorySubPartition>>>,
-    pub arbitration_metadata: super::arbitration::Arbiter,
+    pub arbiter: Box<dyn arbitration::Arbiter>,
 
     config: Arc<config::GPU>,
     #[allow(dead_code)]
@@ -39,14 +42,15 @@ impl MemoryPartitionUnit {
             .collect();
 
         let dram = dram::DRAM::new(config.clone(), stats.clone());
-        let arbitration_metadata = super::arbitration::Arbiter::new(&config);
+        let arb_config: arbitration::Config = (&(*config)).into();
+        let arbiter = Box::new(arbitration::ArbitrationUnit::new(&arb_config));
         Self {
             id,
             config,
             stats,
             dram,
             dram_latency_queue: VecDeque::new(),
-            arbitration_metadata,
+            arbiter,
             sub_partitions,
         }
     }
@@ -102,7 +106,7 @@ impl MemoryPartitionUnit {
             fetch.access_kind(),
             AccessKind::L1_WRBK_ACC | AccessKind::L2_WRBK_ACC
         ) {
-            self.arbitration_metadata.return_credit(spid);
+            self.arbiter.return_credit(spid);
             log::trace!(
                 "mem_fetch request {} return from dram to sub partition {}",
                 fetch,
@@ -166,7 +170,7 @@ impl MemoryPartitionUnit {
                         returned_fetch
                             .set_status(mem_fetch::Status::IN_PARTITION_DRAM_TO_L2_QUEUE, 0);
                         // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-                        self.arbitration_metadata.return_credit(dest_spid);
+                        self.arbiter.return_credit(dest_spid);
                         // log::debug!(
                         //     "mem_fetch request {:?} return from dram to sub partition {}",
                         //     returned_fetch, dest_spid
@@ -184,13 +188,13 @@ impl MemoryPartitionUnit {
 
         // L2->DRAM queue to DRAM latency queue
         // Arbitrate among multiple L2 subpartitions
-        let last_issued_partition = self.arbitration_metadata.last_borrower();
+        let last_issued_partition = self.arbiter.last_borrower();
         for sub_id in 0..self.sub_partitions.len() {
             let spid = (sub_id + last_issued_partition + 1) % self.sub_partitions.len();
             let sub = self.sub_partitions[spid].try_lock();
 
             let sub_partition_contention = sub.dram_to_l2_queue.full();
-            let has_dram_resource = self.arbitration_metadata.has_credits(spid);
+            let has_dram_resource = self.arbiter.has_credits(spid);
             let can_issue_to_dram = has_dram_resource && !sub_partition_contention;
 
             {
@@ -257,7 +261,7 @@ impl MemoryPartitionUnit {
                     fetch.set_status(mem_fetch::Status::IN_PARTITION_DRAM_LATENCY_QUEUE, 0);
                     // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
                     self.dram_latency_queue.push_back(fetch);
-                    self.arbitration_metadata.borrow_credit(spid);
+                    self.arbiter.borrow_credit(spid);
                     break; // the DRAM should only accept one request per cycle
                 }
             }

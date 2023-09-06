@@ -1,7 +1,26 @@
-use super::config;
+#[derive(Debug, Clone)]
+pub struct Config {
+    pub num_sub_partitions_per_memory_partition: usize,
+    pub dram_frfcfs_sched_queue_size: usize,
+    pub dram_return_queue_size: usize,
+    pub dram_seperate_write_queue: bool,
+    pub dram_frfcfs_write_queue_size: usize,
+}
+
+impl From<&crate::config::GPU> for Config {
+    fn from(config: &crate::config::GPU) -> Self {
+        Config {
+            num_sub_partitions_per_memory_partition: config.num_sub_partition_per_memory_channel,
+            dram_frfcfs_sched_queue_size: config.dram_frfcfs_sched_queue_size,
+            dram_return_queue_size: config.dram_return_queue_size,
+            dram_seperate_write_queue: config.dram_seperate_write_queue_enable,
+            dram_frfcfs_write_queue_size: config.dram_frfcfs_write_queue_size,
+        }
+    }
+}
 
 #[derive(Debug)]
-pub struct Arbiter {
+pub struct ArbitrationUnit {
     /// id of the last subpartition that borrowed credit
     pub last_borrower: usize,
     pub shared_credit_limit: usize,
@@ -12,9 +31,9 @@ pub struct Arbiter {
     pub shared_credit: usize,
 }
 
-impl Arbiter {
-    pub fn new(config: &config::GPU) -> Self {
-        let num_borrowers = config.num_sub_partition_per_memory_channel;
+impl ArbitrationUnit {
+    pub fn new(config: &Config) -> Self {
+        let num_borrowers = config.num_sub_partitions_per_memory_partition;
         let private_credit = vec![0; num_borrowers];
         assert!(num_borrowers > 0);
         let shared_credit_limit =
@@ -27,7 +46,7 @@ impl Arbiter {
                 let mut shared_credit_limit = shared_credit_limit
                     .checked_sub(num_borrowers - 1)
                     .expect("arbitration: too many borrowers");
-                if config.dram_seperate_write_queue_enable {
+                if config.dram_seperate_write_queue {
                     shared_credit_limit += config.dram_frfcfs_write_queue_size;
                 }
                 shared_credit_limit
@@ -40,18 +59,42 @@ impl Arbiter {
             shared_credit: 0,
         }
     }
+}
 
-    /// check if a subpartition still has credit
+pub trait Arbiter: std::fmt::Debug + Send + Sync + 'static {
+    fn as_any(&self) -> &dyn std::any::Any;
+
+    /// Check if a subpartition still has credit
     #[must_use]
-    pub fn has_credits(&self, inner_sub_partition_id: usize) -> bool {
+    fn has_credits(&self, inner_sub_partition_id: usize) -> bool;
+
+    /// Borrow a credit for a subpartition
+    fn borrow_credit(&mut self, inner_sub_partition_id: usize);
+
+    /// Return a credit from a subpartition
+    fn return_credit(&mut self, inner_sub_partition_id: usize);
+
+    /// Return the last subpartition that borrowed credit
+    #[must_use]
+    fn last_borrower(&self) -> usize;
+}
+
+impl Arbiter for ArbitrationUnit {
+    #[inline]
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    #[inline]
+    fn has_credits(&self, inner_sub_partition_id: usize) -> bool {
         if self.private_credit[inner_sub_partition_id] < self.private_credit_limit {
             return true;
         }
         self.shared_credit_limit == 0 || self.shared_credit < self.shared_credit_limit
     }
 
-    /// borrow a credit for a subpartition
-    pub fn borrow_credit(&mut self, inner_sub_partition_id: usize) {
+    #[inline]
+    fn borrow_credit(&mut self, inner_sub_partition_id: usize) {
         // let private_before = self.private_credit[inner_sub_partition_id];
         // let shared_before = self.shared_credit;
 
@@ -69,8 +112,8 @@ impl Arbiter {
         self.last_borrower = inner_sub_partition_id;
     }
 
-    /// return a credit from a subpartition
-    pub fn return_credit(&mut self, inner_sub_partition_id: usize) {
+    #[inline]
+    fn return_credit(&mut self, inner_sub_partition_id: usize) {
         // let private_before = self.private_credit[inner_sub_partition_id];
         // let shared_before = self.shared_credit;
         let private_credit = &mut self.private_credit[inner_sub_partition_id];
@@ -89,9 +132,8 @@ impl Arbiter {
         // self.shared_credit, self.shared_credit_limit, shared_before, inner_sub_partition_id);
     }
 
-    /// return the last subpartition that borrowed credit
-    #[must_use]
-    pub fn last_borrower(&self) -> usize {
+    #[inline]
+    fn last_borrower(&self) -> usize {
         self.last_borrower
     }
 }

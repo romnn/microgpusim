@@ -7,57 +7,7 @@ import itertools
 
 from gpucachesim.benchmarks import GPUConfig, BenchConfig
 import gpucachesim.stats.common as common
-
-# ("GLOBAL_ACC_R", "global_read"),
-#         ("LOCAL_ACC_R", "local_read"),
-#         ("CONST_ACC_R", "constant_read"),
-#         ("TEXTURE_ACC_R", "texture_read"),
-#         ("GLOBAL_ACC_W", "global_write"),
-#         ("LOCAL_ACC_W", "local_write"),
-#         ("L1_WRBK_ACC", "l1_writeback"),
-#         ("L2_WRBK_ACC", "l2_writeback"),
-#         ("INST_ACC_R", "inst_read"),
-#         ("L1_WR_ALLOC_R", "l1_write_alloc_read"),
-#         ("L2_WR_ALLOC_R", "l2_write_alloc_read"),
-
-WARP_SIZE = 32
-
-READ_ACCESS_KINDS = [
-    "GLOBAL_ACC_R",
-    "LOCAL_ACC_R",
-    "CONST_ACC_R",
-    "TEXTURE_ACC_R",
-    "INST_ACC_R",
-    "L1_WR_ALLOC_R",
-    "L2_WR_ALLOC_R",
-]
-WRITE_ACCESS_KINDS = ["GLOBAL_ACC_W", "LOCAL_ACC_W", "L1_WRBK_ACC", "L2_WRBK_ACC"]
-
-
-def access_is_write(access_type: str) -> bool:
-    if access_type.upper() in READ_ACCESS_KINDS:
-        return False
-    if access_type.upper() in WRITE_ACCESS_KINDS:
-        return True
-    raise ValueError(f"bad access type: {access_type}")
-
-    # match access_type.upper():
-    #     case "GLOBAL_ACC_R" | "LOCAL_ACC_R" | "CONST_ACC_R" | "TEXTURE_ACC_R" | "INST_ACC_R" | "L1_WR_ALLOC_R" | "L2_WR_ALLOC_R":
-    #         return False
-    #     case "GLOBAL_ACC_W" | "LOCAL_ACC_W" | "L1_WRBK_ACC" | "L2_WRBK_ACC":
-    #         return True
-    #     case other:
-    #         raise ValueError(f"bad access type: {other}")
-
-
-def parse_cache_stats(path: PathLike):
-    stats = pd.read_csv(
-        path,
-        header=None,
-        names=["cache_id", "access_type", "status", "count"],
-    )
-    stats["is_write"] = stats["access_type"].apply(access_is_write)
-    return stats
+import gpucachesim.stats.stats as stats
 
 
 class Stats(common.Stats):
@@ -73,7 +23,6 @@ class Stats(common.Stats):
     def _load_bench_config(self, bench_config: BenchConfig) -> None:
         self.bench_config = bench_config
 
-        print(self.path / "exec_time.release.json", "rb")
         with open(self.path / "exec_time.release.json", "rb") as f:
             # convert millis to seconds
             self.exec_time_sec_release = float(json.load(f)) * 1e-3
@@ -96,12 +45,12 @@ class Stats(common.Stats):
             header=None,
             names=["memory_space", "write", "count"],
         )
-        self.l1_inst_stats = parse_cache_stats(self.path / "stats.cache.l1i.csv")
-        self.l1_tex_stats = parse_cache_stats(self.path / "stats.cache.l1t.csv")
-        self.l1_data_stats = parse_cache_stats(self.path / "stats.cache.l1d.csv")
-        self.l1_const_stats = parse_cache_stats(self.path / "stats.cache.l1c.csv")
+        self.l1_inst_stats = stats.parse_cache_stats(self.path / "stats.cache.l1i.csv")
+        self.l1_tex_stats = stats.parse_cache_stats(self.path / "stats.cache.l1t.csv")
+        self.l1_data_stats = stats.parse_cache_stats(self.path / "stats.cache.l1d.csv")
+        self.l1_const_stats = stats.parse_cache_stats(self.path / "stats.cache.l1c.csv")
 
-        self.l2_data_stats = parse_cache_stats(self.path / "stats.cache.l2d.csv")
+        self.l2_data_stats = stats.parse_cache_stats(self.path / "stats.cache.l2d.csv")
 
         self.raw_stats_df = pd.read_csv(
             self.path / "raw.stats.csv",
@@ -136,7 +85,7 @@ class Stats(common.Stats):
         return self.sim_df["cycles"].sum()
 
     def warp_instructions(self) -> float:
-        return self.raw_stats_df["warp_instruction_count"].mean() / float(WARP_SIZE)
+        return self.raw_stats_df["warp_instruction_count"].mean() / float(stats.WARP_SIZE)
 
     def instructions(self) -> int:
         assert self.raw_stats_df["gpu_total_instructions"].sum() == self.sim_df["instructions"].sum()
@@ -179,10 +128,10 @@ class Stats(common.Stats):
         return int(accesses["count"].sum())
 
     def get_raw_l2_read_stats(self, status: Sequence[str]):
-        return self.get_raw_l2_stats(READ_ACCESS_KINDS, status)
+        return self.get_raw_l2_stats(stats.READ_ACCESS_KINDS, status)
 
     def get_raw_l2_write_stats(self, status: Sequence[str]):
-        return self.get_raw_l2_stats(WRITE_ACCESS_KINDS, status)
+        return self.get_raw_l2_stats(stats.WRITE_ACCESS_KINDS, status)
 
     def get_raw_l2_stats(self, kind: Sequence[str], status: Sequence[str]):
         cols = [f"l2_cache_{k.upper()}_{s.upper()}" for (k, s) in itertools.product(kind, status)]

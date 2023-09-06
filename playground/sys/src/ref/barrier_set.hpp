@@ -38,7 +38,7 @@ class barrier_set_t {
 
  private:
   unsigned m_max_cta_per_core;
-  unsigned m_max_warps_per_core;
+  // unsigned m_max_warps_per_core;
   unsigned m_max_barriers_per_cta;
   unsigned m_warp_size;
   cta_to_warp_t m_cta_to_warps;

@@ -434,18 +434,16 @@ where
             .to_lowercase()
             == "yes";
 
-        let num_threads: usize = std::env::var("NUM_THREADS")
-            .ok()
-            .as_deref()
-            .map(str::parse)
-            .transpose()?
-            .unwrap_or_else(num_cpus::get_physical);
+        let num_threads = super::get_num_threads()?;
         let _ = rayon::ThreadPoolBuilder::new()
             .num_threads(num_threads)
             .build_global();
 
         println!("nondeterministic [{run_ahead} run ahead] using RAYON");
-        println!("\t => launching {num_threads} worker threads");
+        println!(
+            "\t => launching {num_threads} worker threads for {} cores",
+            self.config.total_cores()
+        );
         println!("\t => interleave serial={interleave_serial}");
         println!("");
 
@@ -504,7 +502,7 @@ where
         let mem_ports = Arc::new(mem_ports);
         let mem_sub_partitions = Arc::new(self.mem_sub_partitions.clone());
         let mem_partition_units = Arc::new(self.mem_partition_units.clone());
-        let states: Arc<Mutex<Vec<(u64, crate::DebugState)>>> = Arc::new(Mutex::new(Vec::new()));
+        // let states: Arc<Mutex<Vec<(u64, crate::DebugState)>>> = Arc::new(Mutex::new(Vec::new()));
 
         let use_round_robin =
             self.config.simt_core_sim_order == config::SchedulingOrder::RoundRobin;
@@ -618,7 +616,7 @@ where
                             let sim_orders = Arc::clone(&sim_orders);
                             let mem_ports = Arc::clone(&mem_ports);
                             let cores = Arc::clone(&cores);
-                            let states = Arc::clone(&states);
+                            // let states = Arc::clone(&states);
 
                             let interconn = Arc::clone(&self.interconn);
                             let clusters = Arc::clone(&clusters);
@@ -786,7 +784,7 @@ where
                                     let sim_orders = Arc::clone(&sim_orders);
                                     let mem_ports = Arc::clone(&mem_ports);
                                     let cores = Arc::clone(&cores);
-                                    let states = Arc::clone(&states);
+                                    // let states = Arc::clone(&states);
 
                                     let interconn = Arc::clone(&self.interconn);
                                     let clusters = Arc::clone(&clusters);
@@ -1112,24 +1110,24 @@ where
 
                                             drop(guard);
                                             if false {
-                                                let state = crate::DebugState {
-                                                    core_orders_per_cluster: sim_orders
-                                                        .iter()
-                                                        .map(|order| order.lock().clone())
-                                                        .collect(),
-                                                    last_cluster_issue: *last_cluster_issue.lock(),
-                                                    last_issued_kernel: *last_issued_kernel.lock(),
-                                                    block_issue_next_core_per_cluster: clusters
-                                                        .iter()
-                                                        .map(|cluster| {
-                                                            *cluster
-                                                                .read()
-                                                                .block_issue_next_core
-                                                                .lock()
-                                                        })
-                                                        .collect(),
-                                                };
-                                                states.lock().push((cycle + i as u64, state));
+                                                // let state = crate::DebugState {
+                                                //     core_orders_per_cluster: sim_orders
+                                                //         .iter()
+                                                //         .map(|order| order.lock().clone())
+                                                //         .collect(),
+                                                //     last_cluster_issue: *last_cluster_issue.lock(),
+                                                //     last_issued_kernel: *last_issued_kernel.lock(),
+                                                //     block_issue_next_core_per_cluster: clusters
+                                                //         .iter()
+                                                //         .map(|cluster| {
+                                                //             *cluster
+                                                //                 .read()
+                                                //                 .block_issue_next_core
+                                                //                 .lock()
+                                                //         })
+                                                //         .collect(),
+                                                // };
+                                                // states.lock().push((cycle + i as u64, state));
                                             }
                                         }
                                     });
@@ -1292,7 +1290,7 @@ where
             );
         }
 
-        self.states = Arc::into_inner(states).unwrap().into_inner();
+        // self.states = Arc::into_inner(states).unwrap().into_inner();
         log::info!("exit after {cycle} cycles");
         dbg!(&cycle);
 

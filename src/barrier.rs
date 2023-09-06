@@ -10,10 +10,9 @@ pub enum Kind {
 }
 
 #[allow(clippy::module_name_repetitions)]
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BarrierSet {
     max_blocks_per_core: usize,
-    // max_warps_per_core: usize,
     max_barriers_per_block: usize,
     warp_size: usize,
     warps_per_block: HashMap<u64, core::WarpMask>,
@@ -22,34 +21,56 @@ pub struct BarrierSet {
     warps_at_barrier: core::WarpMask,
 }
 
-impl BarrierSet {
+#[derive(Debug, Clone)]
+pub struct Builder {
+    pub max_blocks_per_core: usize,
+    pub max_barriers_per_block: usize,
+    pub warp_size: usize,
+}
+
+impl Builder {
     #[must_use]
-    pub fn new(
-        _max_warps_per_core: usize,
-        max_blocks_per_core: usize,
-        max_barriers_per_block: usize,
-        warp_size: usize,
-    ) -> Self {
-        Self {
-            // max_warps_per_core,
-            max_blocks_per_core,
-            max_barriers_per_block,
-            warp_size,
+    pub fn build(self) -> BarrierSet {
+        BarrierSet {
+            max_blocks_per_core: self.max_blocks_per_core,
+            max_barriers_per_block: self.max_barriers_per_block,
+            warp_size: self.warp_size,
             active_warps: BitArray::ZERO,
             warps_at_barrier: BitArray::ZERO,
             warps_per_block: HashMap::new(),
-            bar_id_to_warps: utils::box_slice![BitArray::ZERO; max_barriers_per_block],
+            bar_id_to_warps: utils::box_slice![BitArray::ZERO; self.max_barriers_per_block],
         }
     }
+}
 
+pub trait Barrier: std::fmt::Debug + Sync + Send + 'static {
     /// Check whether warp is waiting for barrier
     #[must_use]
-    pub fn is_waiting_at_barrier(&self, warp_id: usize) -> bool {
+    fn is_waiting_at_barrier(&self, warp_id: usize) -> bool;
+
+    /// Allocate a new barrier for a thread block.
+    fn allocate(&mut self, block_id: u64, warps: core::WarpMask);
+
+    /// Deallocate barrier for a thread block.
+    ///
+    /// This should be called once the block completes.
+    fn deallocate(&mut self, block_id: u64);
+
+    /// Warp exited and can unblock barrier.
+    fn warp_exited(&mut self, warp_id: usize);
+
+    /// Warp reached barrier.
+    fn warp_reached_barrier(&mut self, block_id: u64, instr: &instruction::WarpInstruction);
+}
+
+impl Barrier for BarrierSet {
+    #[inline]
+    fn is_waiting_at_barrier(&self, warp_id: usize) -> bool {
         self.warps_at_barrier[warp_id]
     }
 
-    /// Allocate a new barrier for a block.
-    pub fn allocate_barrier(&mut self, block_id: u64, warps: core::WarpMask) {
+    #[inline]
+    fn allocate(&mut self, block_id: u64, warps: core::WarpMask) {
         assert!(block_id < self.max_blocks_per_core as u64);
         assert!(
             !self.warps_per_block.contains_key(&block_id),
@@ -69,10 +90,8 @@ impl BarrierSet {
         }
     }
 
-    /// Deallocate the barrier for a block.
-    ///
-    /// This should be called once the block completes.
-    pub fn deallocate_barrier(&mut self, block_id: u64) {
+    #[inline]
+    fn deallocate(&mut self, block_id: u64) {
         let Some(warps_in_block) = self.warps_per_block.remove(&block_id) else {
             return;
         };
@@ -93,8 +112,8 @@ impl BarrierSet {
         }
     }
 
-    /// Warp exited and can unblock barrier.
-    pub fn warp_exited(&mut self, warp_id: usize) {
+    #[inline]
+    fn warp_exited(&mut self, warp_id: usize) {
         // caller needs to verify all threads in warp are done, e.g., by checking PDOM
         // stack to see it has only one entry during exit_impl()
         self.active_warps.set(warp_id, false);
@@ -115,8 +134,7 @@ impl BarrierSet {
         }
     }
 
-    /// Warp hit barrier.
-    pub fn warp_reached_barrier(&mut self, block_id: u64, instr: &instruction::WarpInstruction) {
+    fn warp_reached_barrier(&mut self, block_id: u64, instr: &instruction::WarpInstruction) {
         let warps_in_block = self
             .warps_per_block
             .get(&block_id)

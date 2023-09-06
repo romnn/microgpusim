@@ -2,8 +2,13 @@
 
 - today:
 
+  - config is passed to instruction for different things
+
+    - could make that a smaller config struct
+
   - validate the number of warp instructions for the execution driven frontend and test that.
   - write more execution driven examples (especially the different transpose variants)
+
   - decide on better names for linear, raw, translated addr to reflect virtual and physical for cache and global
 
   - remove the global config from components and use smaller configs

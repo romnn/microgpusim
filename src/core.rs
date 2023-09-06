@@ -5,6 +5,7 @@ use super::{
 };
 use crate::sync::{Mutex, RwLock};
 
+use barrier::Barrier;
 use bitvec::{array::BitArray, BitArr};
 use color_eyre::eyre;
 use console::style;
@@ -720,12 +721,15 @@ where
         debug_assert_eq!(functional_units.len(), issue_ports.len());
         debug_assert_eq!(functional_units.len(), dispatch_ports.len());
 
-        let barriers = RwLock::new(barrier::BarrierSet::new(
-            config.max_warps_per_core(),
-            config.max_concurrent_blocks_per_core,
-            config.max_barriers_per_block,
-            config.warp_size,
-        ));
+        let barriers = RwLock::new(
+            barrier::Builder {
+                // config.max_warps_per_core(),
+                max_blocks_per_core: config.max_concurrent_blocks_per_core,
+                max_barriers_per_block: config.max_barriers_per_block,
+                warp_size: config.warp_size,
+            }
+            .build(),
+        );
 
         Self {
             last_cycle: 0,
@@ -1082,7 +1086,7 @@ where
 
         self.barriers
             .try_write()
-            .allocate_barrier(free_block_hw_id as u64, warps);
+            .allocate(free_block_hw_id as u64, warps);
 
         self.init_warps(free_block_hw_id, start_thread, end_thread, block_id, kernel);
         self.num_active_blocks += 1;
@@ -1220,9 +1224,7 @@ where
         // this is the last thread that exited
         if self.block_status[block_hw_id] == 0 {
             // deallocate barriers for this block
-            self.barriers
-                .try_write()
-                .deallocate_barrier(block_hw_id as u64);
+            self.barriers.try_write().deallocate(block_hw_id as u64);
 
             // increment the number of completed blocks
             self.num_active_blocks -= 1;
@@ -1826,7 +1828,7 @@ where
             warp.kernel = Some(Arc::clone(kernel));
             warp.trace_pc = 0;
         }
-        kernel.next_threadblock_traces(selected_warps);
+        kernel.next_threadblock_traces(selected_warps, &*self.config);
         log::debug!(
             "initialized traces {}..{} of {} warps",
             start_warp,

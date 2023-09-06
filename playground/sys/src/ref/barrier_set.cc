@@ -10,7 +10,7 @@ barrier_set_t::barrier_set_t(trace_shader_core_ctx *shader,
                              unsigned max_cta_per_core,
                              unsigned max_barriers_per_cta,
                              unsigned warp_size) {
-  m_max_warps_per_core = max_warps_per_core;
+  // m_max_warps_per_core = max_warps_per_core;
   m_max_cta_per_core = max_cta_per_core;
   m_max_barriers_per_cta = max_barriers_per_cta;
   m_warp_size = warp_size;
@@ -154,7 +154,7 @@ bool barrier_set_t::warp_waiting_at_barrier(unsigned warp_id) const {
 void barrier_set_t::dump() {
   printf("barrier set information\n");
   printf("  m_max_cta_per_core = %u\n", m_max_cta_per_core);
-  printf("  m_max_warps_per_core = %u\n", m_max_warps_per_core);
+  // printf("  m_max_warps_per_core = %u\n", m_max_warps_per_core);
   printf(" m_max_barriers_per_cta =%u\n", m_max_barriers_per_cta);
   printf("  cta_to_warps:\n");
 

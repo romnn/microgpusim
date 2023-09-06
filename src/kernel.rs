@@ -1,5 +1,5 @@
-use super::{instruction, opcodes, warp};
 use crate::sync::{Mutex, RwLock};
+use crate::{config, instruction, opcodes, warp};
 use color_eyre::{
     eyre::{self},
     Help,
@@ -109,7 +109,7 @@ impl Kernel {
         self.config.id
     }
 
-    pub fn next_threadblock_traces(&self, warps: &mut [warp::Ref]) {
+    pub fn next_threadblock_traces(&self, warps: &mut [warp::Ref], config: &config::GPU) {
         let mut trace_pos = self.trace_pos.write();
 
         let mut instructions = 0;
@@ -130,7 +130,7 @@ impl Kernel {
             }
 
             let warp_id = entry.warp_id_in_block as usize;
-            let instr = instruction::WarpInstruction::from_trace(self, entry);
+            let instr = instruction::WarpInstruction::from_trace(self, entry, config);
             let warp = warps.get_mut(warp_id).unwrap();
             // let mut warp = warp.try_borrow_mut().unwrap();
             let mut warp = warp.try_lock();

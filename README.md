@@ -96,7 +96,7 @@ cargo install grcov
 # collect code coverage in tests (todo)
 cargo xtask coverage
 
-cargo xtask accelsim convert-config -c ./accelsim/gtx1080/gpgpusim.config -c ./accelsim/gtx1080/gpgpusim.trace.config
+cargo xtask accelsim convert-config -c ./accelsim/gtx1080/gpgpusim.config -c ./accelsim/gtx1080/gpgpusim.trace.config -o output.config
 ```
 
 Publishing traces (used by CI)

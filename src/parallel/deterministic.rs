@@ -9,7 +9,17 @@ where
     pub fn run_to_completion_parallel_deterministic(&mut self) -> eyre::Result<()> {
         let mut cycle: u64 = 0;
 
-        println!("deterministic");
+        let num_threads = super::get_num_threads()?;
+        let _ = rayon::ThreadPoolBuilder::new()
+            .num_threads(num_threads)
+            .build_global();
+
+        println!("parallel (deterministic)");
+        println!(
+            "\t => launching {num_threads} worker threads for {} cores",
+            self.config.total_cores()
+        );
+        println!("");
 
         let cores: Vec<Vec<Arc<_>>> = self
             .clusters

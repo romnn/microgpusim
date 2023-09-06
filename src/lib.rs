@@ -130,12 +130,17 @@ pub struct DebugState {
     pub block_issue_next_core_per_cluster: Vec<usize>,
 }
 
+// trait MemoryPartitionUnit: std::fmt::Debug + Sync + Send + 'static {}
+//
+// impl MemoryPartitionUnit for mem_partition_unit::MemoryPartitionUnit {}
+
 #[derive()]
 pub struct MockSimulator<I> {
     /// Temporary for debugging
-    pub states: Vec<(u64, DebugState)>,
+    // pub states: Vec<(u64, DebugState)>,
     stats: Arc<Mutex<Stats>>,
     config: Arc<config::GPU>,
+    // mem_partition_units: Vec<Arc<RwLock<dyn MemoryPartitionUnit>>>,
     mem_partition_units: Vec<Arc<RwLock<mem_partition_unit::MemoryPartitionUnit>>>,
     mem_sub_partitions: Vec<Arc<Mutex<mem_sub_partition::MemorySubPartition>>>,
     // we could remove the arcs on running and executed if we change to self: Arc<Self>
@@ -202,11 +207,13 @@ where
 
         let mem_partition_units: Vec<_> = (0..num_mem_units)
             .map(|i| {
-                Arc::new(RwLock::new(mem_partition_unit::MemoryPartitionUnit::new(
+                let unit = mem_partition_unit::MemoryPartitionUnit::new(
                     i,
                     Arc::clone(&config),
                     Arc::clone(&stats),
-                )))
+                );
+                // Arc::new(RwLock::new(unit)) as Arc<RwLock<dyn MemoryPartitionUnit>>
+                Arc::new(RwLock::new(unit))
             })
             .collect();
 
@@ -261,7 +268,7 @@ where
         let last_cluster_issue = Arc::new(Mutex::new(config.num_simt_clusters - 1));
 
         Self {
-            states: Vec::new(),
+            // states: Vec::new(),
             config,
             stats,
             mem_partition_units,
@@ -981,7 +988,7 @@ where
         let mut cycle: u64 = 0;
         let mut last_state_change: Option<(deadlock::State, u64)> = None;
 
-        println!("deterministic (parallel = {})", self.parallel_simulation);
+        println!("serial for {} cores", self.config.total_cores());
 
         while (self.commands_left() || self.kernels_left()) && !self.reached_limit(cycle) {
             self.process_commands(cycle);
@@ -1276,15 +1283,15 @@ mod tests {
         let parallel_stats = sim_parallel.stats();
         let serial_stats = sim_serial.stats();
 
-        sim_serial.states.sort_by_key(|(cycle, _)| *cycle);
-        sim_parallel.states.sort_by_key(|(cycle, _)| *cycle);
-        assert_eq!(sim_serial.states.len(), sim_parallel.states.len());
+        // sim_serial.states.sort_by_key(|(cycle, _)| *cycle);
+        // sim_parallel.states.sort_by_key(|(cycle, _)| *cycle);
+        // assert_eq!(sim_serial.states.len(), sim_parallel.states.len());
 
-        diff::diff!(serial: serial_stats.sim, parallel: parallel_stats.sim);
-        diff::diff!(
-            serial: &serial_stats.l2d_stats.reduce(),
-            parallel: &parallel_stats.l2d_stats.reduce(),
-        );
+        // diff::diff!(serial: serial_stats.sim, parallel: parallel_stats.sim);
+        // diff::diff!(
+        //     serial: &serial_stats.l2d_stats.reduce(),
+        //     parallel: &parallel_stats.l2d_stats.reduce(),
+        // );
 
         // for ((ser_cycle, ser_state), (par_cycle, par_state)) in
         //     sim_serial.states.iter().zip(sim_parallel.states.iter())

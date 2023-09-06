@@ -103,6 +103,7 @@ class gpgpu_sim_config : public power_config,
 
       m_shader_config.n_simt_clusters = 20;          // 20
       m_shader_config.n_simt_cores_per_cluster = 4;  // 1
+      m_shader_config.n_simt_cores_per_cluster = 1;  // 1
       m_shader_config.gpgpu_num_sched_per_core = 2;  // 2
 
       // m_shader_config.gpgpu_num_sfu_units = 0;

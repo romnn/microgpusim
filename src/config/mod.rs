@@ -1184,11 +1184,17 @@ impl Default for GPU {
             flush_l2_cache: false,
             max_concurrent_kernels: 32,
             // from gpgpusim.trace.config
-            trace_opcode_latency_initiation_int: (2, 2), // default 4, 1
-            trace_opcode_latency_initiation_sp: (2, 1),  // default 4, 1
-            trace_opcode_latency_initiation_dp: (64, 64), // default 4, 1
-            trace_opcode_latency_initiation_sfu: (21, 8), // default 4, 1
-            trace_opcode_latency_initiation_tensor: (32, 32), // default 4, 1
+            // trace_opcode_latency_initiation_int: (2, 2), // default 4, 1
+            // trace_opcode_latency_initiation_sp: (2, 1),  // default 4, 1
+            // trace_opcode_latency_initiation_dp: (64, 64), // default 4, 1
+            // trace_opcode_latency_initiation_sfu: (21, 8), // default 4, 1
+            // trace_opcode_latency_initiation_tensor: (32, 32), // default 4, 1
+            //
+            trace_opcode_latency_initiation_int: (4, 1),
+            trace_opcode_latency_initiation_sp: (4, 1),
+            trace_opcode_latency_initiation_dp: (4, 1),
+            trace_opcode_latency_initiation_sfu: (4, 1),
+            trace_opcode_latency_initiation_tensor: (4, 1),
         }
     }
 }
