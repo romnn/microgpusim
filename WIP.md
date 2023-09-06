@@ -2,12 +2,14 @@
 
 - today:
 
-  - config is passed to instruction for different things
-
-    - could make that a smaller config struct
+  - xtask task for converting traces? or do that in the validation component
 
   - validate the number of warp instructions for the execution driven frontend and test that.
   - write more execution driven examples (especially the different transpose variants)
+
+  - config is passed to instruction for different things
+
+    - could make that a smaller config struct
 
   - decide on better names for linear, raw, translated addr to reflect virtual and physical for cache and global
 

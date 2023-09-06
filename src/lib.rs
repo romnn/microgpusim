@@ -68,6 +68,15 @@ use std::path::{Path, PathBuf};
 
 pub type address = u64;
 
+#[must_use]
+pub fn is_debug() -> bool {
+    #[cfg(feature = "debug_build")]
+    let is_debug = true;
+    #[cfg(not(feature = "debug_build"))]
+    let is_debug = false;
+    is_debug
+}
+
 pub fn parse_commands(path: impl AsRef<Path>) -> eyre::Result<Vec<Command>> {
     let reader = utils::fs::open_readable(path.as_ref())?;
     let commands = serde_json::from_reader(reader)?;

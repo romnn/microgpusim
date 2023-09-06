@@ -10,12 +10,20 @@ fn output_path() -> PathBuf {
         .unwrap()
 }
 
+// #[must_use]
+// pub fn is_debug() -> bool {
+//     #[cfg(debug_assertions)]
+//     return true;
+//     #[cfg(not(debug_assertions))]
+//     return false;
+// }
 #[must_use]
-pub fn is_debug() -> bool {
-    #[cfg(debug_assertions)]
-    return true;
-    #[cfg(not(debug_assertions))]
-    return false;
+fn is_debug() -> bool {
+    match std::env::var("PROFILE").unwrap().as_str() {
+        "release" | "bench" => false,
+        "debug" => true,
+        other => panic!("unknown profile {:?}", other),
+    }
 }
 
 fn enable_diagnostics_color(build: &mut cc::Build) {
@@ -403,6 +411,13 @@ fn main() -> eyre::Result<()> {
     println!("cargo:rerun-if-env-changed=PROFILE");
     println!("cargo:rerun-if-env-changed=SKIP_BUILD");
     println!("cargo:rerun-if-env-changed=FORCE");
+
+    let build_profile = if is_debug() {
+        "DEBUG_BUILD"
+    } else {
+        "RELEASE_BUILD"
+    };
+    println!("cargo:rustc-cfg=feature={:?}", build_profile);
 
     let flags: HashMap<&str, &str> = [
         ("BOX", "YES"),

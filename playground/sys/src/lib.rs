@@ -15,3 +15,12 @@ pub mod bindings {
 }
 
 pub use bridge::*;
+
+#[must_use]
+pub fn is_debug() -> bool {
+    #[cfg(feature = "debug_build")]
+    let is_debug = true;
+    #[cfg(not(feature = "debug_build"))]
+    let is_debug = false;
+    is_debug
+}

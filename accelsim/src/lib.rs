@@ -50,18 +50,9 @@ pub fn locate_nvbit_tracer(use_upstream: bool) -> eyre::Result<PathBuf> {
 }
 
 #[must_use]
-pub fn profile() -> &'static str {
-    if build::is_debug() {
-        "debug"
-    } else {
-        "release"
-    }
-}
-
-#[must_use]
-pub fn executable(accel_path: &Path) -> PathBuf {
+pub fn executable(accel_path: &Path, profile: &str) -> PathBuf {
     accel_path
         .join("gpu-simulator/bin")
-        .join(profile())
+        .join(profile)
         .join("accel-sim.out")
 }

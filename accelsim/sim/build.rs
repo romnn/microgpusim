@@ -2,8 +2,13 @@ use color_eyre::eyre::{self, WrapErr};
 use std::io::Write;
 use std::path::Path;
 
-fn build_accelsim(accel_path: &Path, cuda_path: &Path, force: bool) -> eyre::Result<()> {
-    let artifact = accelsim::executable(accel_path);
+fn build_accelsim(
+    accel_path: &Path,
+    cuda_path: &Path,
+    profile: &str,
+    force: bool,
+) -> eyre::Result<()> {
+    let artifact = accelsim::executable(accel_path, profile);
     if !force && artifact.is_file() {
         println!("cargo:warning=using existing {}", &artifact.display());
         return Ok(());
@@ -27,7 +32,7 @@ source {setup_script} {profile}
 make -C {src} clean
 make -j -C {src}",
         setup_script = &setup_script.to_string_lossy(),
-        profile = &accelsim::profile(),
+        profile = profile,
         src = &accel_build_src.to_string_lossy()
     );
     dbg!(&tmp_build_sh);
@@ -108,7 +113,7 @@ fn main() -> eyre::Result<()> {
         let cuda_path = utils::find_cuda().ok_or(eyre::eyre!("CUDA not found"))?;
         println!("cargo:warning=using cuda at {}", &cuda_path.display());
 
-        build_accelsim(&accel_path, &cuda_path, force)?;
+        build_accelsim(&accel_path, &cuda_path, "release", force)?;
     }
     Ok(())
 }

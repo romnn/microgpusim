@@ -168,6 +168,7 @@ const warp_inst_t *trace_shd_warp_t::get_next_trace_inst() {
       return new_inst;
     }
   } else {
+    assert(!m_shader->get_gpu()->gpgpu_ctx->accelsim_compat_mode);
     while (trace_pc < warp_traces.size()) {
       const trace_warp_inst_t *parsed_inst =
           get_cached_trace_instruction(trace_pc);

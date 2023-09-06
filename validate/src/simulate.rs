@@ -59,7 +59,7 @@ pub fn simulate_bench_config(
         num_schedulers_per_core: 2,              // 1
         num_memory_controllers: 8,               // 8
         num_sub_partition_per_memory_channel: 2, // 2
-        fill_l2_on_memcopy: true,                // true
+        fill_l2_on_memcopy: false,               // true
         parallelization,
         log_after_cycle: None,
         ..casimu::config::GPU::default()
@@ -90,7 +90,12 @@ pub async fn simulate(
     .map_err(eyre::Report::from)??;
 
     let stats = sim.stats();
-    process_stats(stats, &dur, &stats_dir)?;
+    let profile = if casimu::is_debug() {
+        "debug"
+    } else {
+        "release"
+    };
+    process_stats(stats, &dur, &stats_dir, profile)?;
 
     Ok(())
 }
@@ -100,15 +105,12 @@ pub fn process_stats(
     stats: stats::Stats,
     dur: &std::time::Duration,
     stats_dir: &Path,
+    profile: &str,
 ) -> Result<(), RunError> {
     create_dirs(&stats_dir).map_err(eyre::Report::from)?;
     crate::stats::write_stats_as_csv(&stats_dir, stats)?;
 
-    #[cfg(debug_assertions)]
-    let exec_time_file_path = stats_dir.join("exec_time.debug.json");
-    #[cfg(not(debug_assertions))]
-    let exec_time_file_path = stats_dir.join("exec_time.release.json");
-
+    let exec_time_file_path = stats_dir.join(format!("exec_time.{}.json", profile));
     serde_json::to_writer_pretty(open_writable(exec_time_file_path)?, &dur.as_millis())
         .map_err(eyre::Report::from)?;
     Ok(())

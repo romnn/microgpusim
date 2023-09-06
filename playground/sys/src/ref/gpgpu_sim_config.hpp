@@ -93,7 +93,11 @@ class gpgpu_sim_config : public power_config,
     sscanf(gpgpu_runtime_stat, "%d:%x", &gpu_stat_sample_freq,
            &gpu_runtime_stat_flag);
 
+    fmt::println("fill l2: {}", m_memory_config.m_perf_sim_memcpy);
+
     if (!gpgpu_ctx->accelsim_compat_mode) {
+      // throw std::runtime_error("override config");
+
       // ROMAN TODO: we override config here
       if (gpu_max_cycle_opt == 0) {
         gpu_max_cycle_opt = 1000000;
@@ -114,7 +118,7 @@ class gpgpu_sim_config : public power_config,
       m_memory_config.m_n_mem_sub_partition = 1;
       m_memory_config.m_n_sub_partition_per_memory_channel = 2;
       m_memory_config.simple_dram_model = true;
-      m_memory_config.m_perf_sim_memcpy = true;  // true
+      m_memory_config.m_perf_sim_memcpy = false;
 
       // gpgpu_l2_rop_latency was 120
       // m_memory_config.rop_latency = 0;

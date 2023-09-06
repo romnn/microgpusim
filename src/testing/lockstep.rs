@@ -284,8 +284,7 @@ fn gather_simulation_state(
 }
 
 pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> {
-    use accelsim::tracegen::reader::Command as AccelsimCommand;
-
+    use accelsim::tracegen;
     let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
 
     let box_trace_dir = trace_dir.join("trace");
@@ -302,115 +301,24 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
             (native_box_commands_path, native_accelsim_kernelslist_path)
         }
         TraceProvider::Accelsim => {
-            assert!(native_accelsim_kernelslist_path.is_file());
-            let generated_box_commands_path = box_trace_dir.join("accelsim.commands.json");
-            println!(
-                "generating commands {}",
-                generated_box_commands_path
-                    .file_name()
-                    .unwrap_or_default()
-                    .to_string_lossy()
-            );
-
-            let reader = utils::fs::open_readable(&native_accelsim_kernelslist_path)?;
-            let accelsim_commands =
-                accelsim::tracegen::reader::read_commands(&accelsim_trace_dir, reader)?;
-
-            let commands: Vec<_> = accelsim_commands
-                .into_iter()
-                .map(|cmd| match cmd {
-                    AccelsimCommand::MemcpyHtoD(memcopy) => {
-                        Ok::<_, eyre::Report>(trace_model::Command::MemcpyHtoD(memcopy))
-                    }
-                    AccelsimCommand::KernelLaunch((mut kernel, metadata)) => {
-                        // transform kernel instruction trace
-                        let kernel_trace_path = accelsim_trace_dir.join(&kernel.trace_file);
-                        let reader = utils::fs::open_readable(kernel_trace_path)?;
-                        let mem_only = false;
-                        let parsed_trace = accelsim::tracegen::reader::read_trace_instructions(
-                            reader,
-                            metadata.trace_version,
-                            metadata.line_info,
-                            mem_only,
-                            &kernel,
-                        )?;
-
-                        let generated_kernel_trace_name =
-                            format!("accelsim-kernel-{}.msgpack", kernel.id);
-                        let generated_kernel_trace_path =
-                            box_trace_dir.join(&generated_kernel_trace_name);
-
-                        let mut writer = utils::fs::open_writable(&generated_kernel_trace_path)?;
-                        rmp_serde::encode::write(&mut writer, &parsed_trace)?;
-
-                        // also save as json for inspection
-                        let mut writer = utils::fs::open_writable(
-                            generated_kernel_trace_path.with_extension("json"),
-                        )?;
-                        serde_json::to_writer_pretty(&mut writer, &parsed_trace)?;
-
-                        // update the kernel trace path
-                        kernel.trace_file = generated_kernel_trace_name;
-
-                        Ok::<_, eyre::Report>(trace_model::Command::KernelLaunch(kernel))
-                    }
-                })
-                .try_collect()?;
-
-            let mut json_serializer = serde_json::Serializer::with_formatter(
-                utils::fs::open_writable(&generated_box_commands_path)?,
-                serde_json::ser::PrettyFormatter::with_indent(b"    "),
-            );
-            commands.serialize(&mut json_serializer)?;
-
+            let generated_box_commands_path =
+                tracegen::convert_accelsim_to_box_traces(tracegen::Conversion {
+                    native_commands_path: &native_accelsim_kernelslist_path,
+                    box_trace_dir: &box_trace_dir,
+                    accelsim_trace_dir: &accelsim_trace_dir,
+                })?;
             (
                 generated_box_commands_path,
                 native_accelsim_kernelslist_path,
             )
         }
         TraceProvider::Box => {
-            assert!(native_box_commands_path.is_file());
-            let generated_kernelslist_path = accelsim_trace_dir.join("box-kernelslist.g");
-            println!(
-                "generating commands {}",
-                generated_kernelslist_path
-                    .file_name()
-                    .unwrap_or_default()
-                    .to_string_lossy()
-            );
-            let mut commands_writer = utils::fs::open_writable(&generated_kernelslist_path)?;
-            accelsim::tracegen::writer::generate_commands(
-                &native_box_commands_path,
-                &mut commands_writer,
-            )?;
-            drop(commands_writer);
-
-            let reader = utils::fs::open_readable(&native_box_commands_path)?;
-            let commands: Vec<Command> = serde_json::from_reader(reader)?;
-
-            for cmd in commands {
-                if let Command::KernelLaunch(kernel) = cmd {
-                    // generate trace for kernel
-                    let generated_kernel_trace_path = trace_dir.join(format!(
-                        "accelsim-trace/kernel-{}.box.traceg",
-                        kernel.id + 1
-                    ));
-                    println!(
-                        "generating trace {} for kernel {}",
-                        generated_kernel_trace_path
-                            .file_name()
-                            .unwrap_or_default()
-                            .to_string_lossy(),
-                        kernel.id
-                    );
-                    let mut trace_writer = utils::fs::open_writable(generated_kernel_trace_path)?;
-                    accelsim::tracegen::writer::generate_trace(
-                        &box_trace_dir,
-                        &kernel,
-                        &mut trace_writer,
-                    )?;
-                }
-            }
+            let generated_kernelslist_path =
+                tracegen::convert_box_to_accelsim_traces(tracegen::Conversion {
+                    native_commands_path: &native_box_commands_path,
+                    box_trace_dir: &box_trace_dir,
+                    accelsim_trace_dir: &accelsim_trace_dir,
+                })?;
             (native_box_commands_path, generated_kernelslist_path)
         }
     };
@@ -439,7 +347,8 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
         num_schedulers_per_core: 2,              // 2
         num_memory_controllers: 8,               // 8
         num_sub_partition_per_memory_channel: 2, // 2
-        fill_l2_on_memcopy: true,                // true
+        // fill_l2_on_memcopy: true,                // true
+        fill_l2_on_memcopy: false, // true
         ..config::GPU::default()
     });
 

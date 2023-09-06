@@ -120,7 +120,12 @@ pub async fn simulate(
 
     let detailed_stats: stats::Stats = stats.into();
 
+    let profile = if playground::is_debug() {
+        "debug"
+    } else {
+        "release"
+    };
     super::accelsim::process_stats(log.into_bytes(), &dur, &stats_dir)?;
-    super::simulate::process_stats(detailed_stats, &dur, &detailed_stats_dir)?;
+    super::simulate::process_stats(detailed_stats, &dur, &detailed_stats_dir, profile)?;
     Ok(())
 }

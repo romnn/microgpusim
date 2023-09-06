@@ -16,7 +16,7 @@ pub fn locate_accelsim_bin(accel_path: &Path, profile: &str) -> eyre::Result<Pat
             .join(profile)
             .join("playground")
     } else {
-        accelsim::executable(accel_path)
+        accelsim::executable(accel_path, profile)
     };
     Ok(accelsim_bin)
 }
@@ -103,8 +103,8 @@ where
     log::debug!("upstream = {}", use_upstream);
 
     let accelsim_path = accelsim::locate(use_upstream)?;
-    let profile = accelsim::profile();
 
+    let profile = "release";
     let accelsim_bin = locate_accelsim_bin(&accelsim_path, profile)?;
     let accelsim_bin = accelsim_bin
         .canonicalize()

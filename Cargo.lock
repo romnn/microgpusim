@@ -20,6 +20,7 @@ dependencies = [
  "regex",
  "rev_buf_reader",
  "rmp-serde",
+ "serde",
  "serde_json",
  "similar-asserts",
  "stats",

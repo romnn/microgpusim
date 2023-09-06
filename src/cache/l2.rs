@@ -13,6 +13,49 @@ pub struct DataL2 {
     pub cache_config: Arc<config::L2DCache>,
 }
 
+#[derive(Debug, Clone)]
+pub struct L2CacheController {
+    // set_index_function: crate::set_index::linear::SetIndex,
+    // config: cache::Config,
+    // inner: crate::tag_array::Pascal,
+}
+
+// impl Pascal {
+//     pub fn new(config: cache::Config) -> Self {
+//         Self {
+//             config,
+//             set_index_function: crate::set_index::linear::SetIndex::default(),
+//         }
+//     }
+// }
+
+impl crate::tag_array::CacheAddressTranslation for L2CacheController {
+    #[inline]
+    fn tag(&self, addr: address) -> address {
+        todo!();
+        // self.inner.tag(addr)
+    }
+
+    #[inline]
+    fn block_addr(&self, addr: address) -> address {
+        todo!();
+        // self.inner.block_addr(addr)
+    }
+
+    #[inline]
+    fn set_index(&self, addr: address) -> u64 {
+        todo!();
+        // let partition_addr = self.addr_translation.partition_address(addr);
+        // self.inner.set_index(partition_addr)
+    }
+
+    #[inline]
+    fn mshr_addr(&self, addr: address) -> address {
+        todo!();
+        // self.inner.mshr_addr(addr)
+    }
+}
+
 impl DataL2
 // impl<I> DataL2<I>
 // where
@@ -28,7 +71,8 @@ impl DataL2
         config: Arc<config::GPU>,
         cache_config: Arc<config::L2DCache>,
     ) -> Self {
-        let inner = super::data::Data::new(
+        let memory_controller = config.address_mapping().clone();
+        let mut inner = super::data::Data::new(
             name,
             core_id,
             cluster_id,
@@ -39,6 +83,10 @@ impl DataL2
             AccessKind::L2_WR_ALLOC_R,
             AccessKind::L2_WRBK_ACC,
         );
+        // TODO: crate a builder for data cache and base cache
+        // inner.inner.addr_translation = L2CacheController {
+        //     // inner: mmeory_controller,
+        // };
         Self {
             inner,
             cache_config,
