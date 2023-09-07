@@ -60,10 +60,16 @@ pub fn bool_true() -> bool {
 }
 
 #[derive(thiserror::Error, Debug)]
-#[error("failed to parse `{path:?}`")]
 pub struct DeserializeError {
+    #[source]
     pub source: serde_yaml::Error,
     pub path: Option<String>,
+}
+
+impl std::fmt::Display for DeserializeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.source.fmt(f)
+    }
 }
 
 #[derive(thiserror::Error, Debug)]

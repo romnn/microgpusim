@@ -121,22 +121,23 @@ async fn validate_playground_accelsim_compat(
 }
 
 macro_rules! accelsim_compat_tests {
-    ($($name:ident: $input:expr,)*) => {
+    ($($name:ident: ($bench_name:expr, $($input:tt)+),)*) => {
         $(
             #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
             async fn $name() -> color_eyre::eyre::Result<()> {
                 use validate::materialize::{self, Benchmarks};
+                use itertools::Itertools;
 
-                // load benchmark config
-                let (benchmark_name, input_idx) = $input;
                 let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
 
                 let benchmarks_path = manifest_dir.join("test-apps/test-apps-materialized.yml");
                 let reader = utils::fs::open_readable(benchmarks_path)?;
                 let benchmarks = Benchmarks::from_reader(reader)?;
-                let bench_config = benchmarks.get_single_config(benchmark_name, input_idx).unwrap();
+                let query = validate::input!($($input)+);
+                let bench_configs: Vec<_> = benchmarks.query($bench_name, query, false).try_collect()?;
 
-                return Ok(());
+                assert_eq!(bench_configs.len(), 1, "query must match exactly one benchmark");
+                let bench_config = bench_configs.into_iter().next().unwrap();
 
                 let materialize::AccelsimSimConfigFiles {
                     config,
@@ -160,23 +161,29 @@ macro_rules! accelsim_compat_tests {
 
 accelsim_compat_tests! {
     // vectoradd
-    test_accelsim_compat_vectoradd_0: ("vectorAdd", 0), // length-100
-    test_accelsim_compat_vectoradd_1: ("vectorAdd", 1), // length-1000
-    test_accelsim_compat_vectoradd_2: ("vectorAdd", 2), // length-10000
-    // simple matrixmul
-    // test_accelsim_compat_simple_matrixmul_0: ("simple_matrixmul", 0),
-    // test_accelsim_compat_simple_matrixmul_1: ("simple_matrixmul", 1),
-    // test_accelsim_compat_simple_matrixmul_17: ("simple_matrixmul", 17),
-    // // matrixmul (shared memory)
-    // test_accelsim_compat_matrixmul_0: ("matrixmul", 0),
-    // test_accelsim_compat_matrixmul_1: ("matrixmul", 1),
-    // test_accelsim_compat_matrixmul_2: ("matrixmul", 2),
-    // test_accelsim_compat_matrixmul_3: ("matrixmul", 3),
-    // // transpose
-    // test_accelsim_compat_transpose_0: ("transpose", 0),
-    // test_accelsim_compat_transpose_1: ("transpose", 1),
-    // test_accelsim_compat_transpose_2: ("transpose", 2),
-    // // babelstream
-    // test_accelsim_compat_babelstream_0: ("babelstream", 0),
+    accelsim_compat_vectoradd_100_test: ("vectorAdd", { "length": 100 }),
+    accelsim_compat_vectoradd_1000_test: ("vectorAdd", { "length": 1000 }),
+    accelsim_compat_vectoradd_10000_test: ("vectorAdd", { "length": 10000 }),
 
+    // simple matrixmul
+    accelsim_compat_simple_matrixmul_32_32_32_test:
+        ("simple_matrixmul", { "m": 32, "n": 32, "p": 32 }),
+    accelsim_compat_simple_matrixmul_32_32_64_test:
+        ("simple_matrixmul", { "m": 32, "n": 32, "p": 64 }),
+    accelsim_compat_simple_matrixmul_64_128_128_test:
+        ("simple_matrixmul", { "m": 64, "n": 128, "p": 128 }),
+
+    // matrixmul (shared memory)
+    accelsim_compat_matrixmul_32_test: ("matrixmul", { "rows": 32 }),
+    accelsim_compat_matrixmul_64_test: ("matrixmul", { "rows": 64 }),
+    accelsim_compat_matrixmul_128_test: ("matrixmul", { "rows": 128 }),
+    accelsim_compat_matrixmul_256_test: ("matrixmul", { "rows": 256 }),
+
+    // transpose
+    accelsim_compat_transpose_256_naive_test: ("transpose", { "dim": 256, "variant": "naive"}),
+    accelsim_compat_transpose_256_coalesed_test: ("transpose", { "dim": 256, "variant": "coalesced" }),
+    accelsim_compat_transpose_256_optimized_test: ("transpose", { "dim": 256, "variant": "optimized" }),
+
+    // babelstream
+    accelsim_compat_babelstream_1024_test: ("babelstream", { "size": 1024 }),
 }

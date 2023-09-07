@@ -2,7 +2,7 @@
 ##
 ## AUTO GENERATED! DO NOT EDIT
 ##
-## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 07/09/2023 12:42:48
+## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 07/09/2023 14:59:11
 ##
 
 config:
@@ -58,6 +58,7 @@ benchmarks:
   vectorAdd:
   - name: vectorAdd
     benchmark_idx: 0
+    uid: vectorAdd-dtype-32-length-100
     path: /home/roman/dev/box/test-apps/vectoradd
     executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd
     values:
@@ -122,6 +123,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-100/playground-sim
   - name: vectorAdd
     benchmark_idx: 0
+    uid: vectorAdd-dtype-32-length-1000
     path: /home/roman/dev/box/test-apps/vectoradd
     executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd
     values:
@@ -186,6 +188,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-1000/playground-sim
   - name: vectorAdd
     benchmark_idx: 0
+    uid: vectorAdd-dtype-32-length-10000
     path: /home/roman/dev/box/test-apps/vectoradd
     executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd
     values:
@@ -251,6 +254,7 @@ benchmarks:
   simple_matrixmul:
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-32-n-32-p-32
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -319,6 +323,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-32-n-32-p-64
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -387,6 +392,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-32-n-32-p-128
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -455,6 +461,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-128/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-32-n-64-p-32
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -523,6 +530,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-32-n-64-p-64
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -591,6 +599,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-64/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-32-n-64-p-128
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -659,6 +668,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-128/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-32-n-128-p-32
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -727,6 +737,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-32-n-128-p-64
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -795,6 +806,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-64/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-32-n-128-p-128
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -863,6 +875,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-128/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-64-n-32-p-32
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -931,6 +944,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-64-n-32-p-64
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -999,6 +1013,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-64/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-64-n-32-p-128
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -1067,6 +1082,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-128/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-64-n-64-p-32
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -1135,6 +1151,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-64-n-64-p-64
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -1203,6 +1220,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-64/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-64-n-64-p-128
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -1271,6 +1289,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-128/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-64-n-128-p-32
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -1339,6 +1358,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-64-n-128-p-64
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -1407,6 +1427,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-64/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-64-n-128-p-128
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -1475,6 +1496,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-128-n-32-p-32
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -1543,6 +1565,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-128-n-32-p-64
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -1611,6 +1634,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-64/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-128-n-32-p-128
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -1679,6 +1703,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-128/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-128-n-64-p-32
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -1747,6 +1772,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-128-n-64-p-64
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -1815,6 +1841,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-64/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-128-n-64-p-128
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -1883,6 +1910,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-128/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-128-n-128-p-32
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -1951,6 +1979,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-32/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-128-n-128-p-64
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -2019,6 +2048,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-64/playground-sim
   - name: simple_matrixmul
     benchmark_idx: 1
+    uid: simple_matrixmul-dtype-32-m-128-n-128-p-128
     path: /home/roman/dev/box/test-apps/simple_matrixmul
     executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
     values:
@@ -2088,6 +2118,7 @@ benchmarks:
   matrixmul:
   - name: matrixmul
     benchmark_idx: 2
+    uid: matrixmul-dtype-32-rows-32
     path: /home/roman/dev/box/test-apps/matrixmul
     executable: /home/roman/dev/box/test-apps/matrixmul/matrixmul
     values:
@@ -2152,6 +2183,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-32/playground-sim
   - name: matrixmul
     benchmark_idx: 2
+    uid: matrixmul-dtype-32-rows-64
     path: /home/roman/dev/box/test-apps/matrixmul
     executable: /home/roman/dev/box/test-apps/matrixmul/matrixmul
     values:
@@ -2216,6 +2248,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-64/playground-sim
   - name: matrixmul
     benchmark_idx: 2
+    uid: matrixmul-dtype-32-rows-128
     path: /home/roman/dev/box/test-apps/matrixmul
     executable: /home/roman/dev/box/test-apps/matrixmul/matrixmul
     values:
@@ -2280,6 +2313,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-128/playground-sim
   - name: matrixmul
     benchmark_idx: 2
+    uid: matrixmul-dtype-32-rows-256
     path: /home/roman/dev/box/test-apps/matrixmul
     executable: /home/roman/dev/box/test-apps/matrixmul/matrixmul
     values:
@@ -2345,6 +2379,7 @@ benchmarks:
   transpose:
   - name: transpose
     benchmark_idx: 3
+    uid: transpose-dim-256-variant-naive-repeat-1
     path: /home/roman/dev/box/test-apps/transpose
     executable: /home/roman/dev/box/test-apps/transpose/transpose
     values:
@@ -2412,6 +2447,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-variant-naive-repeat-1/playground-sim
   - name: transpose
     benchmark_idx: 3
+    uid: transpose-dim-256-variant-coalesced-repeat-1
     path: /home/roman/dev/box/test-apps/transpose
     executable: /home/roman/dev/box/test-apps/transpose/transpose
     values:
@@ -2479,6 +2515,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-variant-coalesced-repeat-1/playground-sim
   - name: transpose
     benchmark_idx: 3
+    uid: transpose-dim-256-variant-optimized-repeat-1
     path: /home/roman/dev/box/test-apps/transpose
     executable: /home/roman/dev/box/test-apps/transpose/transpose
     values:
@@ -2546,6 +2583,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-variant-optimized-repeat-1/playground-sim
   - name: transpose
     benchmark_idx: 3
+    uid: transpose-dim-512-variant-naive-repeat-1
     path: /home/roman/dev/box/test-apps/transpose
     executable: /home/roman/dev/box/test-apps/transpose/transpose
     values:
@@ -2613,6 +2651,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-variant-naive-repeat-1/playground-sim
   - name: transpose
     benchmark_idx: 3
+    uid: transpose-dim-512-variant-coalesced-repeat-1
     path: /home/roman/dev/box/test-apps/transpose
     executable: /home/roman/dev/box/test-apps/transpose/transpose
     values:
@@ -2680,6 +2719,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-variant-coalesced-repeat-1/playground-sim
   - name: transpose
     benchmark_idx: 3
+    uid: transpose-dim-512-variant-optimized-repeat-1
     path: /home/roman/dev/box/test-apps/transpose
     executable: /home/roman/dev/box/test-apps/transpose/transpose
     values:
@@ -2747,6 +2787,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-variant-optimized-repeat-1/playground-sim
   - name: transpose
     benchmark_idx: 3
+    uid: transpose-dim-1024-variant-naive-repeat-1
     path: /home/roman/dev/box/test-apps/transpose
     executable: /home/roman/dev/box/test-apps/transpose/transpose
     values:
@@ -2814,6 +2855,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-variant-naive-repeat-1/playground-sim
   - name: transpose
     benchmark_idx: 3
+    uid: transpose-dim-1024-variant-coalesced-repeat-1
     path: /home/roman/dev/box/test-apps/transpose
     executable: /home/roman/dev/box/test-apps/transpose/transpose
     values:
@@ -2881,6 +2923,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-variant-coalesced-repeat-1/playground-sim
   - name: transpose
     benchmark_idx: 3
+    uid: transpose-dim-1024-variant-optimized-repeat-1
     path: /home/roman/dev/box/test-apps/transpose
     executable: /home/roman/dev/box/test-apps/transpose/transpose
     values:
@@ -2949,6 +2992,7 @@ benchmarks:
   babelstream:
   - name: babelstream
     benchmark_idx: 4
+    uid: babelstream-size-1024
     path: /home/roman/dev/box/test-apps/BabelStream
     executable: /home/roman/dev/box/test-apps/BabelStream/CUDAStream
     values:
@@ -3014,6 +3058,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/playground-sim
   - name: babelstream
     benchmark_idx: 4
+    uid: babelstream-size-10240
     path: /home/roman/dev/box/test-apps/BabelStream
     executable: /home/roman/dev/box/test-apps/BabelStream/CUDAStream
     values:
@@ -3079,6 +3124,7 @@ benchmarks:
       stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/playground-sim
   - name: babelstream
     benchmark_idx: 4
+    uid: babelstream-size-102400
     path: /home/roman/dev/box/test-apps/BabelStream
     executable: /home/roman/dev/box/test-apps/BabelStream/CUDAStream
     values:
