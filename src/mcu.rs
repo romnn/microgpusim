@@ -649,7 +649,7 @@ mod tests {
             config.num_sub_partition_per_memory_channel as u32,
         );
 
-        let addr = 140159034065024;
+        let addr = 140_159_034_065_024;
         diff::assert_eq!(
             have: mapping.memory_partition_address(addr),
             want: ref_mapping.partition_address(addr));

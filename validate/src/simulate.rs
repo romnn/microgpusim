@@ -107,10 +107,10 @@ pub fn process_stats(
     stats_dir: &Path,
     profile: &str,
 ) -> Result<(), RunError> {
-    create_dirs(&stats_dir).map_err(eyre::Report::from)?;
-    crate::stats::write_stats_as_csv(&stats_dir, stats)?;
+    create_dirs(stats_dir).map_err(eyre::Report::from)?;
+    crate::stats::write_stats_as_csv(stats_dir, stats)?;
 
-    let exec_time_file_path = stats_dir.join(format!("exec_time.{}.json", profile));
+    let exec_time_file_path = stats_dir.join(format!("exec_time.{profile}.json"));
     serde_json::to_writer_pretty(open_writable(exec_time_file_path)?, &dur.as_millis())
         .map_err(eyre::Report::from)?;
     Ok(())

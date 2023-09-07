@@ -1826,7 +1826,7 @@ where
             warp.kernel = Some(Arc::clone(kernel));
             warp.trace_pc = 0;
         }
-        kernel.next_threadblock_traces(selected_warps, &*self.config);
+        kernel.next_threadblock_traces(selected_warps, &self.config);
         log::debug!(
             "initialized traces {}..{} of {} warps",
             start_warp,

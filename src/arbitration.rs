@@ -19,6 +19,7 @@ impl From<&crate::config::GPU> for Config {
     }
 }
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Debug)]
 pub struct ArbitrationUnit {
     /// id of the last subpartition that borrowed credit
@@ -32,6 +33,7 @@ pub struct ArbitrationUnit {
 }
 
 impl ArbitrationUnit {
+    #[must_use]
     pub fn new(config: &Config) -> Self {
         let num_borrowers = config.num_sub_partitions_per_memory_partition;
         let private_credit = vec![0; num_borrowers];

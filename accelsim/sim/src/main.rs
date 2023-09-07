@@ -47,7 +47,7 @@ async fn main() -> eyre::Result<()> {
         options.timeout,
         extra_args,
         options.stream_output.unwrap_or(true),
-        options.use_upstream,
+        options.use_upstream.unwrap_or(sim::has_upstream()),
     )
     .await?;
 

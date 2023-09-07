@@ -61,7 +61,7 @@ pub struct Pascal {
 }
 
 impl Pascal {
-    pub fn new(config: cache::Config) -> Self {
+    #[must_use] pub fn new(config: cache::Config) -> Self {
         Self {
             config,
             set_index_function: crate::set_index::linear::SetIndex::default(),
@@ -330,7 +330,7 @@ where
     fn flush(&mut self) -> usize {
         use crate::mem_sub_partition::SECTOR_CHUNCK_SIZE;
         let mut flushed = 0;
-        for line in self.lines.iter_mut() {
+        for line in &mut self.lines {
             if line.is_modified() {
                 for i in 0..SECTOR_CHUNCK_SIZE {
                     let mut sector_mask = mem_fetch::SectorMask::ZERO;
@@ -347,7 +347,7 @@ where
     #[inline]
     fn invalidate(&mut self) {
         use crate::mem_sub_partition::SECTOR_CHUNCK_SIZE;
-        for line in self.lines.iter_mut() {
+        for line in &mut self.lines {
             for i in 0..SECTOR_CHUNCK_SIZE {
                 let mut sector_mask = mem_fetch::SectorMask::ZERO;
                 sector_mask.set(i as usize, true);

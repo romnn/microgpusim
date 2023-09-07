@@ -9,45 +9,6 @@ where
     globs.flatten().flatten()
 }
 
-// pub const GID_NOBODY: libc::gid_t = 65534;
-// pub const UID_NOBODY: libc::uid_t = 65534;
-
-// pub fn chown(
-//     path: impl AsRef<Path>,
-//     user_id: libc::uid_t,
-//     group_id: libc::gid_t,
-//     follow_symlinks: bool,
-// ) -> std::io::Result<()> {
-//     let s = path.as_ref().as_os_str().to_str().unwrap();
-//     let s = std::ffi::CString::new(s.as_bytes()).unwrap();
-//     let ret = unsafe {
-//         if follow_symlinks {
-//             libc::chown(s.as_ptr(), user_id, group_id)
-//         } else {
-//             libc::lchown(s.as_ptr(), user_id, group_id)
-//         }
-//     };
-//     if ret == 0 {
-//         Ok(())
-//     } else {
-//         Err(std::io::Error::last_os_error())
-//     }
-// }
-//
-// pub fn rchown(
-//     root: impl AsRef<Path>,
-//     user_id: libc::uid_t,
-//     group_id: libc::gid_t,
-//     follow_symlinks: bool,
-// ) -> std::io::Result<()> {
-//     for entry in std::fs::read_dir(root.as_ref())? {
-//         let entry = entry?;
-//         let path = entry.path();
-//         chown(path, user_id, group_id, follow_symlinks)?;
-//     }
-//     Ok(())
-// }
-
 #[allow(clippy::permissions_set_readonly_false)]
 pub fn rchmod_writable(root: impl AsRef<Path>) -> std::io::Result<()> {
     for entry in std::fs::read_dir(root.as_ref())? {
@@ -81,9 +42,9 @@ pub enum Error {
 impl From<Error> for std::io::Error {
     fn from(err: Error) -> Self {
         match err {
-            Error::OpenFile { source, .. } => source,
-            Error::SetPermissions { source, .. } => source,
-            Error::CreateDirectories { source, .. } => source,
+            Error::OpenFile { source, .. }
+            | Error::SetPermissions { source, .. }
+            | Error::CreateDirectories { source, .. } => source,
         }
     }
 }
@@ -117,14 +78,6 @@ pub fn open_writable(path: impl AsRef<Path>) -> Result<std::io::BufWriter<std::f
             source,
             path: path.to_path_buf(),
         })?;
-    // make file world readable, useful as this script is often invoked by sudo
-    // file.metadata()
-    //     .map_err(|source| Error::OpenFile {
-    //         source,
-    //         path: path.to_path_buf(),
-    //     })?
-    //     .permissions()
-    //     .set_readonly(false);
 
     let mut permissions = file
         .metadata()
@@ -161,10 +114,6 @@ pub fn create_dirs(path: impl AsRef<Path>) -> Result<(), Error> {
             source,
         }),
     }
-
-    // this only works when running as sudo
-    // let _ = chown(path.as_ref(), UID_NOBODY, GID_NOBODY, false);
-    // Ok(())
 }
 
 /// Normalize paths

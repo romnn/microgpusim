@@ -134,7 +134,7 @@ pub async fn simulate_bench_config(
 
     let extra_sim_args: &[String] = &[];
     let stream_output = false;
-    let use_upstream = Some(true);
+    let use_upstream = true;
     let (log, dur) = accelsim_sim::simulate_trace(
         &traces_dir,
         &kernelslist,

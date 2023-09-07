@@ -19,7 +19,7 @@ where
             "\t => launching {num_threads} worker threads for {} cores",
             self.config.total_cores()
         );
-        println!("");
+        println!();
 
         let cores: Vec<Vec<Arc<_>>> = self
             .clusters

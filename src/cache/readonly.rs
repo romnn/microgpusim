@@ -1,6 +1,6 @@
 use crate::sync::{Arc, Mutex};
 use crate::{
-    address, cache, config, interconn as ic, mcu, mem_fetch,
+    address, cache, config, interconn as ic, mem_fetch,
     tag_array::{self, Access, CacheAddressTranslation},
 };
 use std::collections::VecDeque;
@@ -18,7 +18,7 @@ impl ReadOnly {
         core_id: usize,
         cluster_id: usize,
         stats: Arc<Mutex<stats::Cache>>,
-        config: Arc<config::GPU>,
+        _config: Arc<config::GPU>,
         cache_config: Arc<config::Cache>,
     ) -> Self {
         let cache_controller = tag_array::Pascal::new(cache::config::Config::from(&*cache_config));
@@ -138,9 +138,8 @@ impl cache::Cache for ReadOnly
         //     tag_array.probe(block_addr, &fetch, fetch.is_write(), is_probe);
 
         let probe = tag_array.probe(block_addr, &fetch, fetch.is_write(), is_probe);
-        let probe_status = probe
-            .map(|(_, status)| status)
-            .unwrap_or(cache::RequestStatus::RESERVATION_FAIL);
+        let probe_status =
+            probe.map_or(cache::RequestStatus::RESERVATION_FAIL, |(_, status)| status);
 
         let mut status = cache::RequestStatus::RESERVATION_FAIL;
 
@@ -158,7 +157,7 @@ impl cache::Cache for ReadOnly
                 // update LRU state
                 tag_array::AccessStatus { status, .. } = tag_array.access(block_addr, &fetch, time);
             }
-            Some((cache_index, probe_status)) => {
+            Some((cache_index, _probe_status)) => {
                 if self.inner.miss_queue_full() {
                     status = cache::RequestStatus::RESERVATION_FAIL;
 
@@ -249,7 +248,7 @@ impl cache::Cache for ReadOnly
     }
 
     fn invalidate(&mut self) {
-        self.inner.invalidate()
+        self.inner.invalidate();
     }
 
     fn flush(&mut self) -> usize {

@@ -3,6 +3,7 @@ use crate::{address, cache, config, interconn as ic, mcu, mem_fetch, tag_array};
 use mem_fetch::access::Kind as AccessKind;
 use std::collections::VecDeque;
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone)]
 pub struct L2CacheController<MC, CC>
 where
@@ -61,12 +62,12 @@ impl DataL2 {
         config: Arc<config::GPU>,
         cache_config: Arc<config::L2DCache>,
     ) -> Self {
-        let mem_controller = mcu::MemoryControllerUnit::new(&*config).unwrap();
+        let mem_controller = mcu::MemoryControllerUnit::new(&config).unwrap();
         let cache_controller = L2CacheController {
             memory_controller: mem_controller.clone(),
-            cache_controller: tag_array::Pascal::new(
-                cache::Config::from(cache_config.inner.as_ref()).into(),
-            ),
+            cache_controller: tag_array::Pascal::new(cache::Config::from(
+                cache_config.inner.as_ref(),
+            )),
         };
         let inner = super::data::Builder {
             name,
@@ -176,7 +177,7 @@ impl super::Cache for DataL2 {
 
     #[inline]
     fn invalidate(&mut self) {
-        self.inner.invalidate()
+        self.inner.invalidate();
     }
 }
 

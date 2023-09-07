@@ -126,7 +126,7 @@ impl LoadStoreUnit {
 
                 // initialize l1 data cache
                 let cache_stats = Arc::new(Mutex::new(stats::Cache::default()));
-                let mem_controller = crate::mcu::MemoryControllerUnit::new(&*config).unwrap();
+                let mem_controller = crate::mcu::MemoryControllerUnit::new(&config).unwrap();
                 let cache_controller =
                     crate::tag_array::Pascal::new(cache::Config::from(l1_config.inner.as_ref()));
                 let mut data_cache = cache::data::Builder {

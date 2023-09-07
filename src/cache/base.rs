@@ -1,6 +1,6 @@
 use crate::sync::{Arc, Mutex};
 use crate::{
-    address, cache, config, interconn as ic, mcu, mem_fetch,
+    address, cache, config, interconn as ic, mem_fetch,
     mem_sub_partition::SECTOR_SIZE,
     mshr::{self, MSHR},
     tag_array,

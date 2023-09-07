@@ -759,7 +759,7 @@ mod tests {
     use indexmap::IndexMap;
     use itertools::Itertools;
     use pretty_assertions_sorted as diff;
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
 
     static INIT: std::sync::Once = std::sync::Once::new();
 
@@ -829,25 +829,25 @@ accelsim_simulate:
         Ok(())
     }
 
-    fn default_materialized_config(base: &Path) -> eyre::Result<crate::materialize::Config> {
-        let config = r#"
-results_dir: ../results
-materialize_to: ./test-apps-materialized.yml
-trace: {}
-accelsim_trace: {}
-profile: {}
-simulate: {}
-accelsim_simulate:
-  config_dir: ./config_dir
-  config: ./gpgpusim.config
-  trace_config: ./trace.config
-  inter_config: ./inter.config
-"#;
-
-        let config: crate::Config = serde_yaml::from_str(config)?;
-        let materialized = config.materialize(&base)?;
-        Ok(materialized)
-    }
+    //     fn default_materialized_config(base: &Path) -> eyre::Result<crate::materialize::Config> {
+    //         let config = r#"
+    // results_dir: ../results
+    // materialize_to: ./test-apps-materialized.yml
+    // trace: {}
+    // accelsim_trace: {}
+    // profile: {}
+    // simulate: {}
+    // accelsim_simulate:
+    //   config_dir: ./config_dir
+    //   config: ./gpgpusim.config
+    //   trace_config: ./trace.config
+    //   inter_config: ./inter.config
+    // "#;
+    //
+    //         let config: crate::Config = serde_yaml::from_str(config)?;
+    //         let materialized = config.materialize(&base)?;
+    //         Ok(materialized)
+    //     }
 
     #[test]
     fn test_materialize_config_minimal() -> eyre::Result<()> {

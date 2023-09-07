@@ -9,6 +9,7 @@ pub mod l2;
 pub mod readonly;
 
 pub use config::Config;
+#[allow(clippy::module_name_repetitions)]
 pub use controller::CacheController;
 pub use data::Data;
 pub use event::Event;

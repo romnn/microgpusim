@@ -54,21 +54,14 @@ pub enum Error {
 }
 
 #[derive(Clone)]
+#[derive(Default)]
 pub struct Config {
     pub print_stats: bool,
     pub accelsim_compat_mode: bool,
     pub stats_file: Option<std::ffi::CString>,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            print_stats: false,
-            accelsim_compat_mode: false,
-            stats_file: None,
-        }
-    }
-}
+
 
 impl Config {
     fn to_accelsim_config(&self) -> playground_sys::main::accelsim_config {

@@ -211,7 +211,7 @@ impl Table<mem_fetch::MemFetch> {
 #[cfg(test)]
 mod tests {
     use super::MSHR;
-    use crate::{config, mcu, mem_fetch, warp};
+    use crate::{config, mcu, mem_fetch};
     use color_eyre::eyre;
 
     #[test]

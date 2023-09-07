@@ -139,8 +139,7 @@ impl From<stats::mem::Accesses> for Accesses {
 
 impl From<Accesses> for stats::mem::Accesses {
     fn from(_acc: Accesses) -> Self {
-        let out = Self::default();
-        out
+        Self::default()
     }
 }
 
@@ -205,8 +204,8 @@ impl From<stats::instructions::InstructionCounts> for InstructionCounts {
 impl From<InstructionCounts> for stats::instructions::InstructionCounts {
     fn from(_inst: InstructionCounts) -> Self {
         // TODO
-        let out = Self::default();
-        out
+
+        Self::default()
         // num_load_instructions: inst.num_load_instructions,
         // num_store_instructions: inst.num_store_instructions,
         // num_shared_mem_instructions: inst.num_shared_mem_instructions,
@@ -242,11 +241,11 @@ impl From<StatsBridge> for stats::Stats {
             instructions: stats.instructions.into(),
             sim: stats.sim.into(),
             dram: stats.dram.into(),
-            l1i_stats: stats.l1i_stats.to_vec().into_iter().collect(),
-            l1c_stats: stats.l1c_stats.to_vec().into_iter().collect(),
-            l1t_stats: stats.l1t_stats.to_vec().into_iter().collect(),
-            l1d_stats: stats.l1d_stats.to_vec().into_iter().collect(),
-            l2d_stats: stats.l2d_stats.to_vec().into_iter().collect(),
+            l1i_stats: stats.l1i_stats.iter().cloned().collect(),
+            l1c_stats: stats.l1c_stats.iter().cloned().collect(),
+            l1t_stats: stats.l1t_stats.iter().cloned().collect(),
+            l1d_stats: stats.l1d_stats.iter().cloned().collect(),
+            l2d_stats: stats.l2d_stats.iter().cloned().collect(),
             stall_dram_full: 0,
         }
     }

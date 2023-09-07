@@ -59,7 +59,7 @@ pub struct Conversion<'a> {
     pub accelsim_trace_dir: &'a Path,
 }
 
-pub fn convert_accelsim_to_box_traces<'a>(options: Conversion<'a>) -> eyre::Result<PathBuf> {
+pub fn convert_accelsim_to_box_traces(options: &Conversion<'_>) -> eyre::Result<PathBuf> {
     use itertools::Itertools;
     use reader::Command as AccelsimCommand;
     use serde::Serialize;
@@ -79,8 +79,8 @@ pub fn convert_accelsim_to_box_traces<'a>(options: Conversion<'a>) -> eyre::Resu
             .to_string_lossy()
     );
 
-    let reader = utils::fs::open_readable(&native_commands_path)?;
-    let accelsim_commands = reader::read_commands(&accelsim_trace_dir, reader)?;
+    let reader = utils::fs::open_readable(native_commands_path)?;
+    let accelsim_commands = reader::read_commands(accelsim_trace_dir, reader)?;
 
     let commands: Vec<_> = accelsim_commands
         .into_iter()
@@ -128,7 +128,7 @@ pub fn convert_accelsim_to_box_traces<'a>(options: Conversion<'a>) -> eyre::Resu
     Ok(generated_box_commands_path)
 }
 
-pub fn convert_box_to_accelsim_traces<'a>(options: Conversion<'a>) -> eyre::Result<PathBuf> {
+pub fn convert_box_to_accelsim_traces(options: &Conversion<'_>) -> eyre::Result<PathBuf> {
     use trace_model::Command;
     let Conversion {
         native_commands_path,
@@ -145,10 +145,10 @@ pub fn convert_box_to_accelsim_traces<'a>(options: Conversion<'a>) -> eyre::Resu
             .to_string_lossy()
     );
     let mut commands_writer = utils::fs::open_writable(&generated_kernelslist_path)?;
-    writer::generate_commands(&native_commands_path, &mut commands_writer)?;
+    writer::generate_commands(native_commands_path, &mut commands_writer)?;
     drop(commands_writer);
 
-    let reader = utils::fs::open_readable(&native_commands_path)?;
+    let reader = utils::fs::open_readable(native_commands_path)?;
     let commands: Vec<Command> = serde_json::from_reader(reader)?;
 
     for cmd in commands {
@@ -165,7 +165,7 @@ pub fn convert_box_to_accelsim_traces<'a>(options: Conversion<'a>) -> eyre::Resu
                 kernel.id
             );
             let mut trace_writer = utils::fs::open_writable(generated_kernel_trace_path)?;
-            writer::generate_trace(&box_trace_dir, &kernel, &mut trace_writer)?;
+            writer::generate_trace(box_trace_dir, &kernel, &mut trace_writer)?;
         }
     }
     Ok(generated_kernelslist_path)

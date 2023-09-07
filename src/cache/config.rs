@@ -1,5 +1,5 @@
 use crate::config;
-use crate::sync::Arc;
+
 use serde::{Deserialize, Serialize};
 
 /// Cache write-allocate policy.

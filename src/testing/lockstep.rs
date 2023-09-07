@@ -1,10 +1,8 @@
 use super::asserts;
 use crate::{cache, config, interconn as ic, mem_fetch, register_set, testing};
 use color_eyre::eyre;
-use itertools::Itertools;
 use mem_fetch::ToBitString;
 use pretty_assertions_sorted as full_diff;
-use serde::Serialize;
 use utils::diff;
 use validate::TraceProvider;
 
@@ -14,7 +12,6 @@ use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use trace_model::Command;
 
 #[inline]
 fn gather_simulation_state(
@@ -302,7 +299,7 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
         }
         TraceProvider::Accelsim => {
             let generated_box_commands_path =
-                tracegen::convert_accelsim_to_box_traces(tracegen::Conversion {
+                tracegen::convert_accelsim_to_box_traces(&tracegen::Conversion {
                     native_commands_path: &native_accelsim_kernelslist_path,
                     box_trace_dir: &box_trace_dir,
                     accelsim_trace_dir: &accelsim_trace_dir,
@@ -314,7 +311,7 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
         }
         TraceProvider::Box => {
             let generated_kernelslist_path =
-                tracegen::convert_box_to_accelsim_traces(tracegen::Conversion {
+                tracegen::convert_box_to_accelsim_traces(&tracegen::Conversion {
                     native_commands_path: &native_box_commands_path,
                     box_trace_dir: &box_trace_dir,
                     accelsim_trace_dir: &accelsim_trace_dir,

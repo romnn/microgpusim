@@ -657,7 +657,7 @@ where
             }
 
             let core_sim_order = cluster.core_sim_order.try_lock();
-            for core_id in core_sim_order.iter() {
+            for core_id in &*core_sim_order {
                 let mut core = cluster.cores[*core_id].write();
                 crate::timeit!("serial core cycle", core.cycle(cycle));
             }
@@ -1247,7 +1247,6 @@ mod tests {
     use crate::testing::init_logging;
     use color_eyre::eyre;
     use std::time::Instant;
-    use utils::diff;
     use validate::materialize::{BenchmarkConfig, Benchmarks};
 
     fn get_bench_config(benchmark_name: &str, input_idx: usize) -> eyre::Result<BenchmarkConfig> {
@@ -1280,17 +1279,17 @@ mod tests {
         let start = Instant::now();
         bench_config.simulate.parallel = true;
         // bench_config.parallelization = config::Parallelization::Nondeterministic(2);
-        let mut sim_parallel = validate::simulate::simulate_bench_config(&bench_config)?;
+        let sim_parallel = validate::simulate::simulate_bench_config(&bench_config)?;
         println!("parallel took {:?}", start.elapsed());
 
         let start = Instant::now();
         bench_config.simulate.parallel = false;
         // bench_config.parallelization = config::Parallelization::Nondeterministic(2);
-        let mut sim_serial = validate::simulate::simulate_bench_config(&bench_config)?;
+        let sim_serial = validate::simulate::simulate_bench_config(&bench_config)?;
         println!("serial took {:?}", start.elapsed());
 
-        let parallel_stats = sim_parallel.stats();
-        let serial_stats = sim_serial.stats();
+        let _parallel_stats = sim_parallel.stats();
+        let _serial_stats = sim_serial.stats();
 
         // sim_serial.states.sort_by_key(|(cycle, _)| *cycle);
         // sim_parallel.states.sort_by_key(|(cycle, _)| *cycle);

@@ -346,7 +346,8 @@ where
 
         log::debug!("handling write miss for {} (block addr={}, mshr addr={}, mshr hit={} mshr avail={}, miss queue full={})", &fetch, block_addr, mshr_addr, mshr_hit, mshr_free, self.inner.miss_queue_can_fit(2));
 
-        if mshr_full || (!(mshr_hit && mshr_free) && !mshr_miss_but_free) {
+        // if mshr_full || (!(mshr_hit && mshr_free) && !mshr_miss_but_free) {
+        if mshr_full || !(mshr_miss_but_free || mshr_hit && mshr_free) {
             // check what is the exact failure reason
             let failure = if mshr_full {
                 cache::ReservationFailure::MISS_QUEUE_FULL
@@ -553,9 +554,7 @@ where
         //
         // Function pointers were used to avoid many long conditional
         // branches resulting from many cache configuration options.
-        let probe_status = probe
-            .map(|(_, s)| s)
-            .unwrap_or(cache::RequestStatus::RESERVATION_FAIL);
+        let probe_status = probe.map_or(cache::RequestStatus::RESERVATION_FAIL, |(_, s)| s);
 
         let mut access_status = probe_status;
         let data_size = fetch.data_size();
@@ -729,9 +728,7 @@ where
             .inner
             .tag_array
             .probe(block_addr, &fetch, is_write, true);
-        let probe_status = probe
-            .map(|(_, s)| s)
-            .unwrap_or(cache::RequestStatus::RESERVATION_FAIL);
+        let probe_status = probe.map_or(cache::RequestStatus::RESERVATION_FAIL, |(_, s)| s);
         // dbg!((cache_index, probe_status));
 
         let access_status = self.process_tag_probe(is_write, probe, addr, fetch, events, time);
@@ -793,7 +790,7 @@ where
     }
 
     fn invalidate(&mut self) {
-        self.inner.invalidate()
+        self.inner.invalidate();
     }
 
     fn flush(&mut self) -> usize {

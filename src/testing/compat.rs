@@ -1,7 +1,6 @@
-use crate::sync::Arc;
 use color_eyre::eyre;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use utils::diff;
 
 async fn validate_playground_accelsim_compat(
@@ -22,7 +21,7 @@ async fn validate_playground_accelsim_compat(
     let (accelsim_stdout, accelsim_stderr, accelsim_stats) = {
         let extra_sim_args: &[String] = &[];
         let stream_output = false;
-        let use_upstream = Some(false);
+        let use_upstream = false;
         let (output, accelsim_dur) = accelsim_sim::simulate_trace(
             &traces_dir,
             &kernelslist,
@@ -48,7 +47,7 @@ async fn validate_playground_accelsim_compat(
         let extra_args: &[String] = &[];
         let accelsim_compat_mode = true;
         let (log, _stats, playground_dur) = validate::playground::simulate_bench_config(
-            &bench_config,
+            bench_config,
             validate::TraceProvider::Native,
             extra_args,
             accelsim_compat_mode,

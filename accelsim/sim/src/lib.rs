@@ -1,4 +1,4 @@
-#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 // #![allow(warnings)]
 
 use accelsim::SimConfig;
@@ -7,6 +7,15 @@ use color_eyre::eyre::{self, WrapErr};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
+
+#[must_use]
+pub fn has_upstream() -> bool {
+    #[cfg(feature = "upstream")]
+    let upstream = true;
+    #[cfg(not(feature = "upstream"))]
+    let upstream = false;
+    upstream
+}
 
 pub fn locate_accelsim_bin(accel_path: &Path, profile: &str) -> eyre::Result<PathBuf> {
     let use_box = std::env::var("USE_BOX").unwrap_or_default().to_lowercase() == "yes";
@@ -21,60 +30,124 @@ pub fn locate_accelsim_bin(accel_path: &Path, profile: &str) -> eyre::Result<Pat
     Ok(accelsim_bin)
 }
 
-pub fn render_sim_script(
-    accelsim_bin: &Path,
-    kernelslist: &Path,
-    config_dir: &Path,
-    profile: &str,
-    config: &SimConfig,
-    setup_env_path: &Path,
+pub struct SimulationScript<'a> {
+    accelsim_bin: PathBuf,
+    kernelslist: PathBuf,
+    cwd: &'a Path,
+    profile: &'a str,
+    config: &'a SimConfig,
+    setup_env_path: PathBuf,
     extra_sim_args: Vec<String>,
-) -> eyre::Result<String> {
-    let mut sim_sh = vec![];
-    sim_sh.push("#!/usr/bin/env bash".to_string());
-    sim_sh.push("set -e".to_string());
-    // sim_sh.push(r#"echo "simulating...""#.to_string());
-    sim_sh.push(format!("cd {}", config_dir.display()));
+}
 
-    // source simulator setup
-    sim_sh.push(format!(
-        "source {} {}",
-        &*setup_env_path.to_string_lossy(),
-        &profile,
-    ));
+impl<'a> SimulationScript<'a> {
+    pub fn render(self) -> eyre::Result<String> {
+        let Self {
+            accelsim_bin,
+            kernelslist,
+            cwd,
+            profile,
+            config,
+            setup_env_path,
+            extra_sim_args,
+        } = self;
 
-    // run accelsim binary
-    let gpgpusim_config = config
-        .config()
-        .ok_or(eyre::eyre!("missing gpgpusim config"))?;
-    let gpgpusim_config = gpgpusim_config.canonicalize().wrap_err_with(|| {
-        format!(
-            "gpgpusim config at {} does not exist",
-            gpgpusim_config.display()
-        )
-    })?;
+        let mut sim_sh = vec![];
+        sim_sh.push("#!/usr/bin/env bash".to_string());
+        sim_sh.push("set -e".to_string());
+        // sim_sh.push(r#"echo "simulating...""#.to_string());
+        sim_sh.push(format!("cd {}", cwd.display()));
 
-    let mut sim_cmd: Vec<String> = vec![
-        accelsim_bin.to_string_lossy().to_string(),
-        "-trace".to_string(),
-        kernelslist.to_string_lossy().to_string(),
-        "-config".to_string(),
-        gpgpusim_config.to_string_lossy().to_string(),
-    ];
+        // source simulator setup
+        sim_sh.push(format!(
+            "source {} {}",
+            &*setup_env_path.to_string_lossy(),
+            &profile,
+        ));
 
-    let trace_config = config.trace_config().as_deref().map(Path::canonicalize);
-    match trace_config {
-        Some(Ok(config)) if config.is_file() => {
-            sim_cmd.extend(["-config".to_string(), config.to_string_lossy().to_string()]);
+        // run accelsim binary
+        let gpgpusim_config = config
+            .config()
+            .ok_or(eyre::eyre!("missing gpgpusim config"))?;
+        let gpgpusim_config = gpgpusim_config.canonicalize().wrap_err_with(|| {
+            format!(
+                "gpgpusim config at {} does not exist",
+                gpgpusim_config.display()
+            )
+        })?;
+
+        let mut sim_cmd: Vec<String> = vec![
+            accelsim_bin.to_string_lossy().to_string(),
+            "-trace".to_string(),
+            kernelslist.to_string_lossy().to_string(),
+            "-config".to_string(),
+            gpgpusim_config.to_string_lossy().to_string(),
+        ];
+
+        let trace_config = config.trace_config().as_deref().map(Path::canonicalize);
+        match trace_config {
+            Some(Ok(config)) if config.is_file() => {
+                sim_cmd.extend(["-config".to_string(), config.to_string_lossy().to_string()]);
+            }
+            _ => {}
         }
-        _ => {}
+
+        // extra simulatin arguments have highest precedence
+        sim_cmd.extend(extra_sim_args);
+
+        sim_sh.push(sim_cmd.join(" "));
+        Ok(sim_sh.join("\n"))
     }
 
-    // extra simulatin arguments have highest precedence
-    sim_cmd.extend(extra_sim_args);
+    pub fn new<A>(
+        kernelslist: impl AsRef<Path>,
+        cwd: &'a Path,
+        config: &'a SimConfig,
+        extra_sim_args: A,
+        use_upstream: bool,
+    ) -> eyre::Result<Self>
+    where
+        A: IntoIterator,
+        <A as IntoIterator>::Item: Into<String>,
+    {
+        #[cfg(not(feature = "upstream"))]
+        if use_upstream {
+            eyre::bail!("accelsim-sim was not compiled with upstream accelsim");
+        }
+        log::debug!("upstream = {}", use_upstream);
 
-    sim_sh.push(sim_cmd.join(" "));
-    Ok(sim_sh.join("\n"))
+        let accelsim_path = accelsim::locate(use_upstream)?;
+
+        let profile = "release";
+        let accelsim_bin = locate_accelsim_bin(&accelsim_path, profile)?;
+        let accelsim_bin = accelsim_bin
+            .canonicalize()
+            .wrap_err_with(|| format!("{} does not exist", accelsim_bin.display()))?;
+
+        log::debug!("using accelsim binary at {}", accelsim_bin.display());
+
+        let sim_root = accelsim_path.join("gpu-simulator/");
+        let setup_env_path = sim_root.join("setup_environment.sh");
+        let setup_env_path = setup_env_path
+            .canonicalize()
+            .wrap_err_with(|| format!("{} does not exist", setup_env_path.display()))?;
+
+        let kernelslist = kernelslist.as_ref();
+        let kernelslist = kernelslist
+            .canonicalize()
+            .wrap_err_with(|| format!("{} does not exist", kernelslist.display()))?;
+
+        let extra_sim_args: Vec<String> = extra_sim_args.into_iter().map(Into::into).collect();
+        Ok(Self {
+            accelsim_bin,
+            kernelslist,
+            cwd: cwd.as_ref(),
+            profile,
+            config,
+            setup_env_path,
+            extra_sim_args,
+        })
+    }
 }
 
 pub async fn simulate_trace<A>(
@@ -84,45 +157,12 @@ pub async fn simulate_trace<A>(
     timeout: Option<Duration>,
     extra_sim_args: A,
     stream_output: bool,
-    use_upstream: Option<bool>,
+    use_upstream: bool,
 ) -> eyre::Result<(std::process::Output, Duration)>
 where
     A: IntoIterator,
     <A as IntoIterator>::Item: Into<String>,
 {
-    #[cfg(feature = "upstream")]
-    let use_upstream_default = true;
-    #[cfg(not(feature = "upstream"))]
-    let use_upstream_default = false;
-
-    let use_upstream = use_upstream.unwrap_or(use_upstream_default);
-    #[cfg(not(feature = "upstream"))]
-    if use_upstream {
-        eyre::bail!("accelsim-sim was not compiled with upstream accelsim");
-    }
-    log::debug!("upstream = {}", use_upstream);
-
-    let accelsim_path = accelsim::locate(use_upstream)?;
-
-    let profile = "release";
-    let accelsim_bin = locate_accelsim_bin(&accelsim_path, profile)?;
-    let accelsim_bin = accelsim_bin
-        .canonicalize()
-        .wrap_err_with(|| format!("{} does not exist", accelsim_bin.display()))?;
-
-    log::debug!("using accelsim binary at {}", accelsim_bin.display());
-
-    let sim_root = accelsim_path.join("gpu-simulator/");
-    let setup_env_path = sim_root.join("setup_environment.sh");
-    let setup_env_path = setup_env_path
-        .canonicalize()
-        .wrap_err_with(|| format!("{} does not exist", setup_env_path.display()))?;
-
-    let kernelslist = kernelslist.as_ref();
-    let kernelslist = kernelslist
-        .canonicalize()
-        .wrap_err_with(|| format!("{} does not exist", kernelslist.display()))?;
-
     let config_dir = config
         .config_dir
         .as_ref()
@@ -135,16 +175,14 @@ where
         eyre::bail!("config dir {} is not a directory", config_dir.display());
     }
 
-    let extra_sim_args: Vec<String> = extra_sim_args.into_iter().map(Into::into).collect();
-    let tmp_sim_sh = render_sim_script(
-        &accelsim_bin,
+    let tmp_sim_sh = SimulationScript::new(
         &kernelslist,
         &config_dir,
-        profile,
         config,
-        &setup_env_path,
         extra_sim_args,
+        use_upstream,
     )?;
+    let tmp_sim_sh = tmp_sim_sh.render()?;
     log::debug!("{}", &tmp_sim_sh);
 
     let tmp_sim_sh_path = traces_dir.as_ref().join("sim.tmp.sh");
@@ -175,9 +213,9 @@ where
             let mut line_reader = futures::io::BufReader::new(child.stdout.take().unwrap()).lines();
             while let Some(line) = line_reader.next().await {
                 let line = line?;
-                println!("{}", line);
+                println!("{line}");
                 stdout.extend(line.into_bytes());
-                stdout.write(b"\n")?;
+                stdout.write_all(b"\n")?;
             }
             Ok(std::process::Output {
                 status: child.status().await?,

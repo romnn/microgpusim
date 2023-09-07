@@ -1,7 +1,7 @@
 use super::{
-    address, config,
+    address,
     instruction::{MemorySpace, WarpInstruction},
-    mcu, mem_sub_partition, warp,
+    mcu, mem_sub_partition,
 };
 use bitvec::BitArr;
 use once_cell::sync::Lazy;
