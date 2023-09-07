@@ -23,17 +23,21 @@ impl super::TargetConfig {
     pub fn materialize(
         self,
         base: &Path,
+        name: &str,
         parent_config: Option<&TargetConfig>,
-    ) -> Result<TargetConfig, Error> {
+    ) -> Result<TargetConfig, super::Error> {
         if !base.is_absolute() {
-            return Err(Error::RelativeBase(base.to_path_buf()));
+            return Err(super::Error::RelativeBase(base.to_path_buf()));
         }
 
         let results_dir = self
             .results_dir
             .as_ref()
             .or(parent_config.map(|c| &c.results_dir))
-            .ok_or(Error::Missing("result_dir".to_string()))?
+            .ok_or(super::Error::Missing {
+                target: name.to_string(),
+                key: "result_dir".to_string(),
+            })?
             .resolve(base);
 
         let repetitions = self
@@ -172,7 +176,7 @@ impl crate::AccelsimSimOptionsFiles {
         values: &TemplateValues<crate::Benchmark>,
     ) -> Result<AccelsimSimConfigFiles, Error> {
         if !base.is_absolute() {
-            return Err(Error::RelativeBase(base.to_path_buf()));
+            return Err(super::Error::RelativeBase(base.to_path_buf()));
         }
         let trace_config = template_or_default(&self.trace_config, defaults.trace_config, values)?;
         let gpgpusim_config = template_or_default(&self.config, defaults.config, values)?;
@@ -199,6 +203,7 @@ pub struct TemplateValues<B> {
 pub struct BenchmarkConfig {
     pub name: String,
     pub benchmark_idx: usize,
+    pub uid: String,
 
     pub path: PathBuf,
     pub executable: PathBuf,
@@ -295,9 +300,9 @@ impl crate::Benchmark {
         input: super::matrix::Input,
         top_level_config: &Config,
         base: &Path,
-    ) -> Result<BenchmarkConfig, Error> {
+    ) -> Result<BenchmarkConfig, super::Error> {
         if !base.is_absolute() {
-            return Err(Error::RelativeBase(base.to_path_buf()));
+            return Err(super::Error::RelativeBase(base.to_path_buf()));
         }
 
         let (benchmark_idx, input_idx) = indices;
@@ -311,14 +316,15 @@ impl crate::Benchmark {
         let cmd_args = self.args_template.render(&values)?;
         let cmd_args = super::benchmark::split_shell_command(cmd_args)?;
 
-        let default_bench_dir = PathBuf::from(&name).join(bench_config_name(&name, &input));
+        let bench_uid = bench_config_name(&name, &input);
+        let default_bench_dir = PathBuf::from(&name).join(&bench_uid);
 
         let profile = {
             let defaults = &top_level_config.profile;
-            let base_config = self
-                .config
-                .clone()
-                .materialize(base, Some(&defaults.common))?;
+            let base_config =
+                self.config
+                    .clone()
+                    .materialize(base, "profile", Some(&defaults.common))?;
 
             let profile_dir = base_config
                 .results_dir
@@ -333,10 +339,10 @@ impl crate::Benchmark {
 
         let trace = {
             let defaults = &top_level_config.trace;
-            let base_config = self
-                .config
-                .clone()
-                .materialize(base, Some(&defaults.common))?;
+            let base_config =
+                self.config
+                    .clone()
+                    .materialize(base, "trace", Some(&defaults.common))?;
 
             let traces_dir = base_config
                 .results_dir
@@ -353,10 +359,10 @@ impl crate::Benchmark {
 
         let accelsim_trace = {
             let defaults = &top_level_config.accelsim_trace;
-            let base_config = self
-                .config
-                .clone()
-                .materialize(base, Some(&defaults.common))?;
+            let base_config =
+                self.config
+                    .clone()
+                    .materialize(base, "accelsim_trace", Some(&defaults.common))?;
 
             let traces_dir = base_config
                 .results_dir
@@ -371,10 +377,10 @@ impl crate::Benchmark {
 
         let simulate = {
             let defaults = &top_level_config.simulate;
-            let base_config = self
-                .config
-                .clone()
-                .materialize(base, Some(&defaults.common))?;
+            let base_config =
+                self.config
+                    .clone()
+                    .materialize(base, "simulate", Some(&defaults.common))?;
 
             let stats_dir = base_config.results_dir.join(&default_bench_dir).join("sim");
             let parallel = self
@@ -392,10 +398,11 @@ impl crate::Benchmark {
 
         let accelsim_simulate = {
             let defaults = &top_level_config.accelsim_simulate;
-            let base_config = self
-                .config
-                .clone()
-                .materialize(base, Some(&defaults.common))?;
+            let base_config = self.config.clone().materialize(
+                base,
+                "accelsim_simulate",
+                Some(&defaults.common),
+            )?;
 
             let stats_dir = base_config
                 .results_dir
@@ -415,10 +422,11 @@ impl crate::Benchmark {
 
         let playground_simulate = {
             let defaults = &top_level_config.playground_simulate;
-            let base_config = self
-                .config
-                .clone()
-                .materialize(base, Some(&defaults.common))?;
+            let base_config = self.config.clone().materialize(
+                base,
+                "playground_simulate",
+                Some(&defaults.common),
+            )?;
 
             let stats_dir = base_config
                 .results_dir
@@ -439,6 +447,7 @@ impl crate::Benchmark {
         Ok(BenchmarkConfig {
             name,
             benchmark_idx,
+            uid: bench_uid,
             path: self.path.resolve(base),
             executable: self.executable().resolve(base),
             // input
@@ -461,9 +470,9 @@ impl crate::Benchmark {
         benchmark_idx: usize,
         base: &Path,
         config: &Config,
-    ) -> Result<Vec<BenchmarkConfig>, Error> {
+    ) -> Result<Vec<BenchmarkConfig>, super::Error> {
         if !base.is_absolute() {
-            return Err(Error::RelativeBase(base.to_path_buf()));
+            return Err(super::Error::RelativeBase(base.to_path_buf()));
         }
 
         let inputs: Result<Vec<_>, _> = self
@@ -516,22 +525,28 @@ pub struct Config {
 }
 
 impl crate::Config {
-    pub fn materialize(self, base: &Path) -> Result<Config, Error> {
+    pub fn materialize(self, base: &Path) -> Result<Config, super::Error> {
         if !base.is_absolute() {
-            return Err(Error::RelativeBase(base.to_path_buf()));
+            return Err(super::Error::RelativeBase(base.to_path_buf()));
         }
-        let common = self.common.materialize(base, None)?;
+        let common = self.common.materialize(base, "common", None)?;
         let results_dir = common.results_dir.resolve(base);
 
         let profile = {
             ProfileConfig {
-                common: self.profile.common.materialize(base, Some(&common))?,
+                common: self
+                    .profile
+                    .common
+                    .materialize(base, "profile", Some(&common))?,
             }
         };
 
         let trace = {
             TraceConfig {
-                common: self.trace.common.materialize(base, Some(&common))?,
+                common: self
+                    .trace
+                    .common
+                    .materialize(base, "trace", Some(&common))?,
                 full_trace: self.trace.full_trace,
                 save_json: self.trace.save_json,
             }
@@ -539,16 +554,20 @@ impl crate::Config {
 
         let accelsim_trace = {
             AccelsimTraceConfig {
-                common: self
-                    .accelsim_trace
-                    .common
-                    .materialize(base, Some(&common))?,
+                common: self.accelsim_trace.common.materialize(
+                    base,
+                    "accelsim_trace",
+                    Some(&common),
+                )?,
             }
         };
 
         let simulate = {
             SimConfig {
-                common: self.simulate.common.materialize(base, Some(&common))?,
+                common: self
+                    .simulate
+                    .common
+                    .materialize(base, "simulate", Some(&common))?,
                 parallel: self.simulate.parallel,
             }
         };
@@ -561,10 +580,11 @@ impl crate::Config {
                 trace_config,
             } = self.accelsim_simulate.configs;
 
-            let common = self
-                .accelsim_simulate
-                .common
-                .materialize(base, Some(&common))?;
+            let common = self.accelsim_simulate.common.materialize(
+                base,
+                "accelsim_simulate",
+                Some(&common),
+            )?;
 
             AccelsimSimConfig {
                 common,
@@ -585,10 +605,11 @@ impl crate::Config {
                 trace_config,
             } = self.playground_simulate.configs;
 
-            let common = self
-                .playground_simulate
-                .common
-                .materialize(base, Some(&common))?;
+            let common = self.playground_simulate.common.materialize(
+                base,
+                "playground_simulate",
+                Some(&common),
+            )?;
 
             PlaygroundSimConfig {
                 common,
@@ -621,9 +642,25 @@ pub struct Benchmarks {
     pub benchmarks: IndexMap<String, Vec<BenchmarkConfig>>,
 }
 
+#[derive(thiserror::Error, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum QueryError {
+    #[error("keys {unknown:?} not found in {valid:?}")]
+    UnknownKeys {
+        unknown: Vec<String>,
+        valid: Vec<String>,
+    },
+}
+
 impl Benchmarks {
-    pub fn from_reader(reader: impl std::io::Read) -> Result<Self, serde_yaml::Error> {
-        serde_yaml::from_reader(reader)
+    pub fn from_reader(reader: impl std::io::Read) -> Result<Self, super::DeserializeError> {
+        let deser = serde_yaml::Deserializer::from_reader(reader);
+        serde_path_to_error::deserialize(deser).map_err(|source| {
+            let path = source.path().to_string();
+            super::DeserializeError {
+                source: source.into_inner(),
+                path: Some(path),
+            }
+        })
     }
 
     pub fn enabled(&self) -> impl Iterator<Item = &BenchmarkConfig> + '_ {
@@ -650,12 +687,54 @@ impl Benchmarks {
         self.get_input_configs(benchmark_name.into())
             .find(|config| config.input_idx == input_idx)
     }
+
+    pub fn query(
+        &self,
+        benchmark_name: impl Into<String>,
+        query: super::matrix::Input,
+        strict: bool,
+    ) -> impl Iterator<Item = Result<&BenchmarkConfig, QueryError>> + '_ {
+        use itertools::Itertools;
+        use serde_yaml::Value;
+        use std::collections::HashSet;
+        self.get_input_configs(benchmark_name.into())
+            .filter_map(move |bench_config| {
+                let bench_entries: HashSet<(&String, &Value)> =
+                    bench_config.values.iter().collect();
+                let bench_keys: HashSet<&String> = bench_config.values.keys().collect();
+
+                let query_entries: HashSet<(&String, &Value)> = query.iter().collect();
+                let query_keys: HashSet<&String> = query.keys().collect();
+
+                let unknown_keys: Vec<_> = query_keys.difference(&bench_keys).collect();
+                let intersecting_keys: Vec<_> = bench_keys.intersection(&query_keys).collect();
+                let intersecting_entries: Vec<_> =
+                    bench_entries.intersection(&query_entries).collect();
+
+                let all_match = intersecting_entries.len() == intersecting_keys.len();
+                if strict && !unknown_keys.is_empty() {
+                    Some(Err(QueryError::UnknownKeys {
+                        unknown: unknown_keys
+                            .into_iter()
+                            .copied()
+                            .cloned()
+                            .sorted()
+                            .collect(),
+                        valid: bench_keys.into_iter().cloned().sorted().collect(),
+                    }))
+                } else if all_match {
+                    Some(Ok(bench_config))
+                } else {
+                    None
+                }
+            })
+    }
 }
 
 impl crate::Benchmarks {
-    pub fn materialize(self, base: &Path) -> Result<Benchmarks, Error> {
+    pub fn materialize(self, base: &Path) -> Result<Benchmarks, super::Error> {
         if !base.is_absolute() {
-            return Err(Error::RelativeBase(base.to_path_buf()));
+            return Err(super::Error::RelativeBase(base.to_path_buf()));
         }
 
         let config = self.config.materialize(base)?;
@@ -665,7 +744,7 @@ impl crate::Benchmarks {
             .enumerate()
             .map(|(benchmark_idx, (name, bench))| {
                 let bench = bench.materialize(&name, benchmark_idx, base, &config)?;
-                Ok::<(String, Vec<BenchmarkConfig>), Error>((name, bench))
+                Ok::<(String, Vec<BenchmarkConfig>), super::Error>((name, bench))
             })
             .collect();
         let benchmarks = benchmarks?;
@@ -678,11 +757,22 @@ impl crate::Benchmarks {
 mod tests {
     use color_eyre::eyre;
     use indexmap::IndexMap;
+    use itertools::Itertools;
     use pretty_assertions_sorted as diff;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
+
+    static INIT: std::sync::Once = std::sync::Once::new();
+
+    pub fn init_test() {
+        INIT.call_once(|| {
+            env_logger::builder().is_test(true).init();
+            color_eyre::install().unwrap();
+        });
+    }
 
     #[test]
     fn test_materialize_target_config() -> eyre::Result<()> {
+        init_test();
         let base = PathBuf::from("/base");
         let parent_config = super::TargetConfig {
             repetitions: 5,
@@ -699,7 +789,7 @@ mod tests {
                 enabled: None,
                 results_dir: None,
             }
-            .materialize(&base, Some(&parent_config))?,
+            .materialize(&base, "", Some(&parent_config))?,
             super::TargetConfig {
                 concurrency: Some(2),
                 repetitions: 5,
@@ -713,6 +803,7 @@ mod tests {
 
     #[test]
     fn test_materialize_config_invalid() -> eyre::Result<()> {
+        init_test();
         let _base = PathBuf::from("/base");
         let config = r#"
 results_dir: ../results
@@ -738,8 +829,29 @@ accelsim_simulate:
         Ok(())
     }
 
+    fn default_materialized_config(base: &Path) -> eyre::Result<crate::materialize::Config> {
+        let config = r#"
+results_dir: ../results
+materialize_to: ./test-apps-materialized.yml
+trace: {}
+accelsim_trace: {}
+profile: {}
+simulate: {}
+accelsim_simulate:
+  config_dir: ./config_dir
+  config: ./gpgpusim.config
+  trace_config: ./trace.config
+  inter_config: ./inter.config
+"#;
+
+        let config: crate::Config = serde_yaml::from_str(config)?;
+        let materialized = config.materialize(&base)?;
+        Ok(materialized)
+    }
+
     #[test]
     fn test_materialize_config_minimal() -> eyre::Result<()> {
+        init_test();
         let base = PathBuf::from("/base");
         let config = r#"
 results_dir: ../results
@@ -819,7 +931,7 @@ accelsim_simulate:
 
     #[test]
     fn test_materialize_benchmark() -> eyre::Result<()> {
-        color_eyre::install().unwrap();
+        init_test();
         let base = PathBuf::from("/base");
         let config = r#"
 results_dir: ./results
@@ -912,6 +1024,108 @@ other: "hello"
         );
 
         // TODO: make use of the additional values and see if / how they can be used
+        Ok(())
+    }
+
+    #[test]
+    fn test_query_benchmarks() -> eyre::Result<()> {
+        init_test();
+        let base = PathBuf::from("/base");
+        let benchmarks = r#"
+config:
+  results_dir: ../results
+
+benchmarks:
+  vectorAdd:
+    path: ./vectoradd
+    executable: vectoradd
+    inputs:
+      dtype: [32]
+      length: [100, 1000, 10000]
+    args: "{{ input.length }} {{ input.dtype }}"
+"#;
+
+        let benchmark: crate::Benchmarks = serde_yaml::from_str(benchmarks)?;
+        // dbg!(&benchmark);
+        let materialized = benchmark.materialize(&base)?;
+
+        // let query = |name: &str,
+        //              input: crate::matrix::Input,
+        //              strict: bool|
+        //  -> Vec<Result<String, super::QueryError>> {
+        // let process = |name: &str,
+        //     materialized
+        //         .query(name, input, strict)
+        //         .map_ok(|bench_config| bench_config.uid.clone())
+        //         .sorted()
+        //         .collect::<Vec<_>>()
+        // };
+        macro_rules! query {
+            ($query:expr) => {{
+                $query
+                    .map_ok(|bench_config| bench_config.uid.clone())
+                    .sorted()
+                    .collect::<Vec<Result<String, super::QueryError>>>()
+            }};
+        }
+
+        diff::assert_eq!(
+            query!(materialized.query("invalid bench name", crate::input!({}), false)),
+            vec![] as Vec::<Result<String, super::QueryError>>
+        );
+
+        let all_vectoradd_configs: Vec<Result<String, super::QueryError>> = vec![
+            Ok("vectorAdd-dtype-32-length-100".to_string()),
+            Ok("vectorAdd-dtype-32-length-1000".to_string()),
+            Ok("vectorAdd-dtype-32-length-10000".to_string()),
+        ];
+
+        diff::assert_eq!(
+            query!(materialized.query("vectorAdd", crate::input!({}), false)),
+            all_vectoradd_configs,
+        );
+        diff::assert_eq!(
+            query!(materialized.query("vectorAdd", crate::input!({ "dtype": 32 }), false)),
+            all_vectoradd_configs
+        );
+        diff::assert_eq!(
+            query!(materialized.query("vectorAdd", crate::input!({ "invalid key": 32 }), false)),
+            all_vectoradd_configs
+        );
+        diff::assert_eq!(
+            query!(materialized.query("vectorAdd", crate::input!({ "invalid key": 32 }), true)),
+            vec![
+                Err(super::QueryError::UnknownKeys {
+                    unknown: vec!["invalid key".to_string()],
+                    valid: vec!["dtype".to_string(), "length".to_string()],
+                });
+                3
+            ] as Vec::<Result<String, super::QueryError>>
+        );
+
+        diff::assert_eq!(
+            query!(materialized.query("vectorAdd", crate::input!({ "length": 100 }), false)),
+            vec![Ok("vectorAdd-dtype-32-length-100".to_string())]
+                as Vec::<Result<String, super::QueryError>>
+        );
+        diff::assert_eq!(
+            query!(materialized.query(
+                "vectorAdd",
+                crate::input!({ "dtype": 32, "length": 1000 }),
+                true
+            )),
+            vec![Ok("vectorAdd-dtype-32-length-1000".to_string())]
+                as Vec::<Result<String, super::QueryError>>
+        );
+        diff::assert_eq!(
+            query!(materialized.query(
+                "vectorAdd",
+                crate::input!({ "unknown": 32, "length": 1000 }),
+                false
+            )),
+            vec![Ok("vectorAdd-dtype-32-length-1000".to_string())]
+                as Vec::<Result<String, super::QueryError>>
+        );
         Ok(())
     }
 }

@@ -210,19 +210,20 @@ impl Matrix {
     }
 }
 
+#[macro_export]
+macro_rules! yaml {
+    ($($yaml:tt)+) => {{
+        let json = serde_json::json!($($yaml)+);
+        serde_json::from_value(json)?
+    }};
+}
+
 #[allow(clippy::unnecessary_wraps)]
 #[cfg(test)]
 mod tests {
     use super::{Input, Matrix};
     use color_eyre::eyre;
     use pretty_assertions_sorted as diff;
-
-    macro_rules! yaml {
-        ($($yaml:tt)+) => {{
-            let json = serde_json::json!($($yaml)+);
-            serde_json::from_value(json)?
-        }};
-    }
 
     #[test]
     fn parse_empty_matrix() -> eyre::Result<()> {

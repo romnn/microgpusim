@@ -25,6 +25,8 @@ use serde::{Deserialize, Serialize};
 use smart_default::SmartDefault;
 use std::path::{Path, PathBuf};
 
+pub use crate::yaml as input;
+
 #[derive(thiserror::Error, Debug)]
 pub enum RunError {
     #[error("benchmark skipped")]
@@ -58,6 +60,13 @@ pub fn bool_true() -> bool {
 }
 
 #[derive(thiserror::Error, Debug)]
+#[error("failed to parse `{path:?}`")]
+pub struct DeserializeError {
+    pub source: serde_yaml::Error,
+    pub path: Option<String>,
+}
+
+#[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
     Io(#[from] std::io::Error),
@@ -65,8 +74,10 @@ pub enum Error {
     #[error(transparent)]
     Fs(#[from] utils::fs::Error),
 
+    // #[error(transparent)]
+    // YAML(#[from] serde_yaml::Error),
     #[error(transparent)]
-    YAML(#[from] serde_yaml::Error),
+    Deserialize(#[from] DeserializeError),
 
     #[error(transparent)]
     Template(#[from] template::Error),
@@ -74,8 +85,8 @@ pub enum Error {
     #[error(transparent)]
     Shell(#[from] benchmark::ShellParseError),
 
-    #[error("missing value: {0}")]
-    Missing(String),
+    #[error("could not resolve key: {key:?} for target {target:?}")]
+    Missing { target: String, key: String },
 
     #[error("cannot use a relative base: {0:?}")]
     RelativeBase(PathBuf),
@@ -278,9 +289,15 @@ impl Benchmarks {
         Ok(benchmarks)
     }
 
-    pub fn from_reader(reader: impl std::io::BufRead) -> Result<Self, Error> {
-        let benches = serde_yaml::from_reader(reader)?;
-        Ok(benches)
+    pub fn from_reader(reader: impl std::io::BufRead) -> Result<Self, DeserializeError> {
+        let deser = serde_yaml::Deserializer::from_reader(reader);
+        serde_path_to_error::deserialize(deser).map_err(|source| {
+            let path = source.path().to_string();
+            DeserializeError {
+                source: source.into_inner(),
+                path: Some(path),
+            }
+        })
     }
 }
 

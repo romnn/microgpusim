@@ -2,6 +2,10 @@
 
 - today:
 
+  - change bench configs to allow queries for benchmarks instead of input indices
+  - change lockstep tests to use bench configs
+  - check accelsim compat again
+
   - use gpu_mem_alloc for the allocations but still allow smart comparision with play whose traces does not include allocations
   - xtask task for converting traces? or do that in the validation component
 
@@ -26,6 +30,7 @@
   - convert, match and plot statistics
   - record mem fetch latency in playground and box
 
+  - DONE: rename translated address to either DRAMAddress or PhysicalAddress
   - DONE: fix that cache index unwrapping design
   - DONE: playground stats (should match accelsim)
   - DONE: builder for mem access as well
