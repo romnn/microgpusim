@@ -1,6 +1,5 @@
 use color_eyre::eyre;
 use std::io::Write;
-use std::path::PathBuf;
 use utils::diff;
 
 async fn validate_playground_accelsim_compat(
@@ -124,21 +123,9 @@ macro_rules! accelsim_compat_tests {
         $(
             #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
             async fn $name() -> color_eyre::eyre::Result<()> {
-                use validate::materialize::{self, Benchmarks};
-                use itertools::Itertools;
-
-                let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
-
-                let benchmarks_path = manifest_dir.join("test-apps/test-apps-materialized.yml");
-                let reader = utils::fs::open_readable(benchmarks_path)?;
-                let benchmarks = Benchmarks::from_reader(reader)?;
-                let query = validate::input!($($input)+);
-                let bench_configs: Vec<_> = benchmarks.query($bench_name, query, false).try_collect()?;
-
-                assert_eq!(bench_configs.len(), 1, "query must match exactly one benchmark");
-                let bench_config = bench_configs.into_iter().next().unwrap();
-
-                let materialize::AccelsimSimConfigFiles {
+                $crate::testing::init_test();
+                let bench_config = super::find_bench_config($bench_name, validate::input!($($input)+))?;
+                let validate::materialize::AccelsimSimConfigFiles {
                     config,
                     config_dir,
                     trace_config,

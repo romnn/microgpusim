@@ -141,7 +141,7 @@ impl<'a> SimulationScript<'a> {
         Ok(Self {
             accelsim_bin,
             kernelslist,
-            cwd: cwd.as_ref(),
+            cwd,
             profile,
             config,
             setup_env_path,

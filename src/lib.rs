@@ -1244,7 +1244,6 @@ pub fn accelmain(
 
 #[cfg(test)]
 mod tests {
-    use crate::testing::init_logging;
     use color_eyre::eyre;
     use std::time::Instant;
     use validate::materialize::{BenchmarkConfig, Benchmarks};
@@ -1270,7 +1269,7 @@ mod tests {
 
     #[test]
     fn test_nondet() -> eyre::Result<()> {
-        init_logging();
+        crate::testing::init_test();
         let (bench_name, input_num) = ("transpose", 0); // takes 34 sec (accel same)
         println!("running {bench_name}@{input_num}");
 

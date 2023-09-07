@@ -2,6 +2,8 @@ pub mod matrix;
 pub mod paths;
 pub mod template;
 
+pub use matrix::Input;
+
 #[derive(thiserror::Error, Debug)]
 #[error("\"{command}\" cannot be split into shell arguments")]
 pub struct ShellParseError {

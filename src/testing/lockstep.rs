@@ -4,12 +4,12 @@ use color_eyre::eyre;
 use mem_fetch::ToBitString;
 use pretty_assertions_sorted as full_diff;
 use utils::diff;
-use validate::TraceProvider;
+use validate::{materialize::BenchmarkConfig, TraceProvider};
 
 use std::collections::HashSet;
 use std::io::Write;
 use std::ops::Deref;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -280,14 +280,14 @@ fn gather_simulation_state(
     (box_sim_state, play_sim_state)
 }
 
-pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> {
+pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyre::Result<()> {
     use accelsim::tracegen;
     let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
 
-    let box_trace_dir = trace_dir.join("trace");
-    let accelsim_trace_dir = trace_dir.join("accelsim-trace");
-    utils::fs::create_dirs(&box_trace_dir)?;
-    utils::fs::create_dirs(&accelsim_trace_dir)?;
+    let box_trace_dir = &bench_config.trace.traces_dir;
+    let accelsim_trace_dir = &bench_config.accelsim_trace.traces_dir;
+    utils::fs::create_dirs(box_trace_dir)?;
+    utils::fs::create_dirs(accelsim_trace_dir)?;
 
     let native_box_commands_path = box_trace_dir.join("commands.json");
     let native_accelsim_kernelslist_path = accelsim_trace_dir.join("kernelslist.g");
@@ -301,8 +301,8 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
             let generated_box_commands_path =
                 tracegen::convert_accelsim_to_box_traces(&tracegen::Conversion {
                     native_commands_path: &native_accelsim_kernelslist_path,
-                    box_trace_dir: &box_trace_dir,
-                    accelsim_trace_dir: &accelsim_trace_dir,
+                    box_trace_dir,
+                    accelsim_trace_dir,
                 })?;
             (
                 generated_box_commands_path,
@@ -313,8 +313,8 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
             let generated_kernelslist_path =
                 tracegen::convert_box_to_accelsim_traces(&tracegen::Conversion {
                     native_commands_path: &native_box_commands_path,
-                    box_trace_dir: &box_trace_dir,
-                    accelsim_trace_dir: &accelsim_trace_dir,
+                    box_trace_dir,
+                    accelsim_trace_dir,
                 })?;
             (native_box_commands_path, generated_kernelslist_path)
         }
@@ -327,7 +327,7 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
     let trace_config = manifest_dir.join("accelsim/gtx1080/gpgpusim.trace.config");
     let inter_config = manifest_dir.join("accelsim/gtx1080/config_fermi_islip.icnt");
 
-    assert!(trace_dir.is_dir());
+    // assert!(trace_dir.is_dir());
     assert!(box_trace_dir.is_dir());
     assert!(box_commands_path.is_file());
     assert!(accelsim_kernelslist_path.is_file());
@@ -354,7 +354,7 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
     ));
 
     let mut box_sim = crate::MockSimulator::new(box_interconn, box_config);
-    box_sim.add_commands(&box_commands_path, &box_trace_dir)?;
+    box_sim.add_commands(&box_commands_path, box_trace_dir)?;
     box_sim.parallel_simulation =
         std::env::var("PARALLEL").unwrap_or_default().to_lowercase() == "yes";
 
@@ -729,29 +729,32 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
 }
 
 macro_rules! lockstep_checks {
-    ($($name:ident: $path:expr,)*) => {
+    ($($name:ident: ($bench_name:expr, $($input:tt)+),)*) => {
         $(
             paste::paste! {
                 #[ignore = "native traces cannot be compared"]
                 #[test]
                 fn [<lockstep_native_ $name _test>]() -> color_eyre::eyre::Result<()> {
-                    let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
-                    let trace_dir = manifest_dir.join($path);
-                    run(&trace_dir, TraceProvider::Native)
+                    $crate::testing::init_test();
+
+                    let bench_config = super::find_bench_config($bench_name, validate::input!($($input)+))?;
+                    run(&bench_config, TraceProvider::Native)
                 }
 
                 #[test]
                 fn [<lockstep_accelsim_ $name _test>]() -> color_eyre::eyre::Result<()> {
-                    let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
-                    let trace_dir = manifest_dir.join($path);
-                    run(&trace_dir, TraceProvider::Accelsim)
+                    $crate::testing::init_test();
+
+                    let bench_config = super::find_bench_config($bench_name, validate::input!($($input)+))?;
+                    run(&bench_config, TraceProvider::Accelsim)
                 }
 
                 #[test]
                 fn [<lockstep_box_ $name _test>]() -> color_eyre::eyre::Result<()> {
-                    let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
-                    let trace_dir = manifest_dir.join($path);
-                    run(&trace_dir, TraceProvider::Box)
+                    $crate::testing::init_test();
+
+                    let bench_config = super::find_bench_config($bench_name, validate::input!($($input)+))?;
+                    run(&bench_config, TraceProvider::Box)
                 }
             }
         )*
@@ -760,25 +763,26 @@ macro_rules! lockstep_checks {
 
 lockstep_checks! {
     // vectoradd
-    vectoradd_32_100: "results/vectorAdd/vectorAdd-dtype-32-length-100",
-    vectoradd_32_1000: "results/vectorAdd/vectorAdd-dtype-32-length-1000",
-    vectoradd_32_10000: "results/vectorAdd/vectorAdd-dtype-32-length-10000",
+    vectoradd_100_test: ("vectorAdd", { "length": 100 }),
+    vectoradd_1000_test: ("vectorAdd", { "length": 1000 }),
+    vectoradd_10000_test: ("vectorAdd", { "length": 10000 }),
+
     // simple matrixmul
-    simple_matrixmul_32_32_32_32:
-        "results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32",
-    simple_matrixmul_32_32_32_64:
-        "results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64",
-    simple_matrixmul_32_64_128_128:
-        "results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128",
+    simple_matrixmul_32_32_32_test: ("simple_matrixmul", { "m": 32, "n": 32, "p": 32 }),
+    simple_matrixmul_32_32_64_test: ("simple_matrixmul", { "m": 32, "n": 32, "p": 64 }),
+    simple_matrixmul_64_128_128_test: ("simple_matrixmul", { "m": 64, "n": 128, "p": 128 }),
+
     // matrixmul (shared memory)
-    matrixmul_32_32: "results/matrixmul/matrixmul-dtype-32-rows-32",
-    matrixmul_32_64: "results/matrixmul/matrixmul-dtype-32-rows-64",
-    matrixmul_32_128: "results/matrixmul/matrixmul-dtype-32-rows-128",
-    matrixmul_32_256: "results/matrixmul/matrixmul-dtype-32-rows-256",
+    matrixmul_32_test: ("matrixmul", { "rows": 32 }),
+    matrixmul_64_test: ("matrixmul", { "rows": 64 }),
+    matrixmul_128_test: ("matrixmul", { "rows": 128 }),
+    matrixmul_256_test: ("matrixmul", { "rows": 256 }),
+
     // transpose
-    transpose_256_naive: "results/transpose/transpose-dim-256-variant-naive-repeat-1",
-    transpose_256_coalesced: "results/transpose/transpose-dim-256-variant-coalesced-repeat-1",
-    transpose_256_optimized: "results/transpose/transpose-dim-256-variant-optimized-repeat-1",
+    transpose_256_naive_test: ("transpose", { "dim": 256, "variant": "naive"}),
+    transpose_256_coalesed_test: ("transpose", { "dim": 256, "variant": "coalesced" }),
+    transpose_256_optimized_test: ("transpose", { "dim": 256, "variant": "optimized" }),
+
     // babelstream
-    babelstream_1024: "results/babelstream/babelstream-size-1024",
+    babelstream_1024_test: ("babelstream", { "size": 1024 }),
 }

@@ -2,9 +2,11 @@
 
 - today:
 
-  - change bench configs to allow queries for benchmarks instead of input indices
-  - change lockstep tests to use bench configs
-  - check accelsim compat again
+  - rename casimu to gpucachesim
+  - use bench configs with query for nondet tests
+  - DONE: change bench configs to allow queries for benchmarks instead of input indices
+  - DONE: change lockstep tests to use bench configs
+  - DONE: check accelsim compat again
 
   - use gpu_mem_alloc for the allocations but still allow smart comparision with play whose traces does not include allocations
   - xtask task for converting traces? or do that in the validation component

@@ -126,6 +126,7 @@ pub mod access {
         }
     }
 
+    #[allow(clippy::module_name_repetitions)]
     #[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub struct MemAccess {
         // uid: usize,

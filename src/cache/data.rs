@@ -346,7 +346,6 @@ where
 
         log::debug!("handling write miss for {} (block addr={}, mshr addr={}, mshr hit={} mshr avail={}, miss queue full={})", &fetch, block_addr, mshr_addr, mshr_hit, mshr_free, self.inner.miss_queue_can_fit(2));
 
-        // if mshr_full || (!(mshr_hit && mshr_free) && !mshr_miss_but_free) {
         if mshr_full || !(mshr_miss_but_free || mshr_hit && mshr_free) {
             // check what is the exact failure reason
             let failure = if mshr_full {

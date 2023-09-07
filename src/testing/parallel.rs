@@ -99,23 +99,14 @@ pub fn run(
 }
 
 macro_rules! parallel_checks {
-    ($($name:ident: $input:expr,)*) => {
+    ($($name:ident: ($bench_name:expr, $($input:tt)+),)*) => {
         $(
             paste::paste! {
                 #[test]
                 fn [<nondeterministic_ $name>]() -> color_eyre::eyre::Result<()> {
-                    use validate::materialize::Benchmarks;
+                    $crate::testing::init_test();
 
-                    $crate::testing::init_logging();
-
-                    // load benchmark config
-                    let (benchmark_name, input_idx) = $input;
-                    let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
-
-                    let benchmarks_path = manifest_dir.join("test-apps/test-apps-materialized.yml");
-                    let reader = utils::fs::open_readable(benchmarks_path)?;
-                    let benchmarks = Benchmarks::from_reader(reader)?;
-                    let bench_config = benchmarks.get_single_config(benchmark_name, input_idx).unwrap();
+                    let bench_config = super::find_bench_config($bench_name, validate::input!($($input)+))?;
 
                     let box_trace_dir = &bench_config.trace.traces_dir;
                     let commands = box_trace_dir.join("commands.json");
@@ -129,23 +120,26 @@ macro_rules! parallel_checks {
 
 parallel_checks! {
     // vectoradd
-    test_vectoradd_0: ("vectorAdd", 0),
-    test_vectoradd_1: ("vectorAdd", 1),
-    test_vectoradd_2: ("vectorAdd", 2),
+    vectoradd_100_test: ("vectorAdd", { "length": 100 }),
+    vectoradd_1000_test: ("vectorAdd", { "length": 1000 }),
+    vectoradd_10000_test: ("vectorAdd", { "length": 10000 }),
 
     // simple matrixmul
-    test_simple_matrixmul_0: ("simple_matrixmul", 0),
-    test_simple_matrixmul_1: ("simple_matrixmul", 1),
-    test_simple_matrixmul_17: ("simple_matrixmul", 17),
+    simple_matrixmul_32_32_32_test: ("simple_matrixmul", { "m": 32, "n": 32, "p": 32 }),
+    simple_matrixmul_32_32_64_test: ("simple_matrixmul", { "m": 32, "n": 32, "p": 64 }),
+    simple_matrixmul_64_128_128_test: ("simple_matrixmul", { "m": 64, "n": 128, "p": 128 }),
 
     // matrixmul (shared memory)
-    test_matrixmul_0: ("matrixmul", 0),
-    test_matrixmul_1: ("matrixmul", 1),
-    test_matrixmul_2: ("matrixmul", 2),
-    test_matrixmul_3: ("matrixmul", 3),
+    matrixmul_32_test: ("matrixmul", { "rows": 32 }),
+    matrixmul_64_test: ("matrixmul", { "rows": 64 }),
+    matrixmul_128_test: ("matrixmul", { "rows": 128 }),
+    matrixmul_256_test: ("matrixmul", { "rows": 256 }),
 
     // transpose
-    test_transpose_0: ("transpose", 0),
-    test_transpose_1: ("transpose", 1),
-    test_transpose_2: ("transpose", 2),
+    transpose_256_naive_test: ("transpose", { "dim": 256, "variant": "naive"}),
+    transpose_256_coalesed_test: ("transpose", { "dim": 256, "variant": "coalesced" }),
+    transpose_256_optimized_test: ("transpose", { "dim": 256, "variant": "optimized" }),
+
+    // babelstream
+    babelstream_1024_test: ("babelstream", { "size": 1024 }),
 }
