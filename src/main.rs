@@ -43,7 +43,7 @@ struct Options {
     pub non_deterministic: Option<usize>,
 
     #[clap(flatten)]
-    pub accelsim: casimu::config::accelsim::Config,
+    pub accelsim: gpucachesim::config::accelsim::Config,
 }
 
 fn main() -> eyre::Result<()> {
@@ -84,11 +84,11 @@ fn main() -> eyre::Result<()> {
         == "yes";
 
     let parallelization = match (options.parallel, options.non_deterministic) {
-        (false, _) => casimu::config::Parallelization::Serial,
+        (false, _) => gpucachesim::config::Parallelization::Serial,
         #[cfg(feature = "parallel")]
-        (true, None) => casimu::config::Parallelization::Deterministic,
+        (true, None) => gpucachesim::config::Parallelization::Deterministic,
         #[cfg(feature = "parallel")]
-        (true, Some(n)) => casimu::config::Parallelization::Nondeterministic(n),
+        (true, Some(n)) => gpucachesim::config::Parallelization::Nondeterministic(n),
         #[cfg(not(feature = "parallel"))]
         _ => eyre::bail!(
             "{} was compiled with parallel simulation disabled",
@@ -96,7 +96,7 @@ fn main() -> eyre::Result<()> {
         ),
     };
 
-    let config = casimu::config::GPU {
+    let config = gpucachesim::config::GPU {
         num_simt_clusters: 20,                   // 20
         num_cores_per_simt_cluster: 1,           // 1
         num_schedulers_per_core: 2,              // 1
@@ -106,15 +106,15 @@ fn main() -> eyre::Result<()> {
         parallelization,
         deadlock_check,
         log_after_cycle,
-        ..casimu::config::GPU::default()
+        ..gpucachesim::config::GPU::default()
     };
 
-    let sim = casimu::accelmain(&options.trace_dir, config)?;
+    let sim = gpucachesim::accelmain(&options.trace_dir, config)?;
     let stats = sim.stats();
 
     // save stats to file
     if let Some(stats_out_file) = options.stats_out_file.as_ref() {
-        casimu::save_stats_to_file(&stats, stats_out_file)?;
+        gpucachesim::save_stats_to_file(&stats, stats_out_file)?;
     }
 
     eprintln!("STATS:\n");

@@ -2,23 +2,16 @@
 
 - today:
 
-  - rename casimu to gpucachesim
-  - use bench configs with query for nondet tests
-  - DONE: change bench configs to allow queries for benchmarks instead of input indices
-  - DONE: change lockstep tests to use bench configs
-  - DONE: check accelsim compat again
-
-  - use gpu_mem_alloc for the allocations but still allow smart comparision with play whose traces does not include allocations
-  - xtask task for converting traces? or do that in the validation component
-
   - validate the number of warp instructions for the execution driven frontend and test that.
+
+  - replace addresstranslation trait with cache controller trait
+  - use gpu_mem_alloc for the allocations but still allow smart comparision with play whose traces does not include allocations
+
   - write more execution driven examples (especially the different transpose variants)
 
   - config is passed to instruction for different things
 
     - could make that a smaller config struct
-
-  - decide on better names for linear, raw, translated addr to reflect virtual and physical for cache and global
 
   - remove the global config from components and use smaller configs
   - stat: warp instructions
@@ -32,6 +25,12 @@
   - convert, match and plot statistics
   - record mem fetch latency in playground and box
 
+  - DONE: decide on better names for linear, raw, translated addr to reflect virtual and physical for cache and global
+  - DONE: rename casimu to gpucachesim
+  - DONE: use bench configs with query for nondet tests
+  - DONE: change bench configs to allow queries for benchmarks instead of input indices
+  - DONE: change lockstep tests to use bench configs
+  - DONE: check accelsim compat again
   - DONE: rename translated address to either DRAMAddress or PhysicalAddress
   - DONE: fix that cache index unwrapping design
   - DONE: playground stats (should match accelsim)
@@ -40,6 +39,7 @@
   - DONE: rename crates and github repo
   - DONE: write trait for tag array
   - SKIP: publish to crates.io
+  - SKIP: xtask task for converting traces? or do that in the validation component
 
 - TODO:
 
@@ -693,7 +693,7 @@ INTERCONN POP FROM 0 (device=0, id=0, subnet=1, turn=0) device is wrong?
 - write a simpler matrixmul implementation
 - implement the index protocol and a malloc api for variables with the pycache api
 
-#### Casimu interface TODO
+#### Interface TODO
 
 - we want the plotting graph of memory accesses
 - we want the trace

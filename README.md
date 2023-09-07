@@ -74,7 +74,7 @@ sudo apt install linux-tools-common linux-tools-generic linux-tools-$(uname -r)
 echo -1 | sudo tee /proc/sys/kernel/perf_event_paranoid
 echo 0 | sudo tee /proc/sys/kernel/kptr_restrict
 cargo install flamegraph
-cargo flamegraph --bin=casimu -- --path ./results/vectorAdd/vectorAdd-10000-32/trace
+cargo flamegraph --bin=gpucachesim -- --path ./results/vectorAdd/vectorAdd-10000-32/trace
 ```
 
 ```bash
@@ -83,7 +83,7 @@ cargo criterion -- vectoradd
 ```
 
 ```bash
-valgrind --tool=drd --exclusive-threshold=10 ./target/release/casimu --parallel --non-deterministic 2 ./results/vectorAdd/vectorAdd-dtype-32-length-100/trace/commands.json
+valgrind --tool=drd --exclusive-threshold=10 ./target/release/gpucachesim --parallel --non-deterministic 2 ./results/vectorAdd/vectorAdd-dtype-32-length-100/trace/commands.json
 ```
 
 Coverage

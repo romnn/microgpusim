@@ -41,7 +41,7 @@ pub fn run(options: Options) -> eyre::Result<()> {
             }
             let config: Vec<String> = configs.iter().map(std::fs::read_to_string).try_collect()?;
 
-            let config = casimu::config::accelsim::Config::parse(config.join("\n"))?;
+            let config = gpucachesim::config::accelsim::Config::parse(config.join("\n"))?;
             let extension = output
                 .extension()
                 .and_then(OsStr::to_str)

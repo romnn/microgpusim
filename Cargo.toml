@@ -40,7 +40,7 @@ opt-level = 3
 debug = true
 
 [package]
-name = "casimu"
+name = "gpucachesim"
 version = "0.1.0"
 edition = "2021"
 publish = false

@@ -23,4 +23,4 @@ serde_yaml = "0"
 clap = { version = "4", features = ["derive"] }
 
 utils = { path = "../utils" }
-casimu = { path = "../" }
+gpucachesim = { path = "../" }

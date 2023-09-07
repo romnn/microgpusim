@@ -4,8 +4,8 @@ use super::{
     options::{self, Options},
     RunError,
 };
-use casimu::{interconn as ic, mem_fetch, MockSimulator};
 use color_eyre::{eyre, Help};
+use gpucachesim::{interconn as ic, mem_fetch, MockSimulator};
 use std::path::Path;
 use std::time::Instant;
 use utils::fs::create_dirs;
@@ -39,11 +39,11 @@ pub fn simulate_bench_config(
         .unwrap();
 
     let parallelization = match (bench.simulate.parallel, non_deterministic) {
-        (false, _) => casimu::config::Parallelization::Serial,
+        (false, _) => gpucachesim::config::Parallelization::Serial,
         #[cfg(feature = "parallel")]
-        (true, None) => casimu::config::Parallelization::Deterministic,
+        (true, None) => gpucachesim::config::Parallelization::Deterministic,
         #[cfg(feature = "parallel")]
-        (true, Some(n)) => casimu::config::Parallelization::Nondeterministic(n),
+        (true, Some(n)) => gpucachesim::config::Parallelization::Nondeterministic(n),
         #[cfg(not(feature = "parallel"))]
         _ => {
             return Err(RunError::Failed(
@@ -53,7 +53,7 @@ pub fn simulate_bench_config(
         }
     };
 
-    let config = casimu::config::GPU {
+    let config = gpucachesim::config::GPU {
         num_simt_clusters: 20,                   // 20
         num_cores_per_simt_cluster: 1,           // 1
         num_schedulers_per_core: 2,              // 1
@@ -62,11 +62,11 @@ pub fn simulate_bench_config(
         fill_l2_on_memcopy: false,               // true
         parallelization,
         log_after_cycle: None,
-        ..casimu::config::GPU::default()
+        ..gpucachesim::config::GPU::default()
     };
     // dbg!(&config);
 
-    let sim = casimu::accelmain(traces_dir, config)?;
+    let sim = gpucachesim::accelmain(traces_dir, config)?;
     Ok(sim)
 }
 
@@ -90,7 +90,7 @@ pub async fn simulate(
     .map_err(eyre::Report::from)??;
 
     let stats = sim.stats();
-    let profile = if casimu::is_debug() {
+    let profile = if gpucachesim::is_debug() {
         "debug"
     } else {
         "release"

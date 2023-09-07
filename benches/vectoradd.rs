@@ -38,7 +38,7 @@ pub fn run_box(mut bench_config: BenchmarkConfig, serial: bool) -> eyre::Result<
     //
     // parallel: dram cycle time: 229004 ns
     // println!();
-    // let timings = casimu::TIMINGS.lock().unwrap();
+    // let timings = gpucachesim::TIMINGS.lock().unwrap();
     // let total = timings["total_cycle"].mean();
     // for (name, dur) in [
     //     ("core cycle", &timings["core_cycle"]),
@@ -173,7 +173,7 @@ fn main() -> eyre::Result<()> {
     }
 
     {
-        let timings = casimu::TIMINGS.lock();
+        let timings = gpucachesim::TIMINGS.lock();
         println!("sorted by NAME");
         for (name, dur) in timings.iter().sorted_by_key(|(&name, _dur)| name) {
             println!(
@@ -195,7 +195,7 @@ fn main() -> eyre::Result<()> {
     }
 
     // clear timing measurements
-    casimu::TIMINGS.lock().clear();
+    gpucachesim::TIMINGS.lock().clear();
 
     let start = Instant::now();
     let stats = run_box(black_box(get_bench_config(bench_name, input_num)?), true)?;
@@ -207,7 +207,7 @@ fn main() -> eyre::Result<()> {
         serial_box_dur.as_secs_f64() / box_dur.as_secs_f64()
     );
     {
-        let timings = casimu::TIMINGS.lock();
+        let timings = gpucachesim::TIMINGS.lock();
         println!("sorted by NAME");
         for (name, dur) in timings.iter().sorted_by_key(|(&name, _dur)| name) {
             println!(

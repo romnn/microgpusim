@@ -4,8 +4,8 @@
     clippy::cast_sign_loss
 )]
 
-use casimu::exec;
 use color_eyre::eyre;
+use gpucachesim::exec;
 use num_traits::{Float, NumCast, Zero};
 
 #[derive(Debug)]

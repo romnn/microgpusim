@@ -1,6 +1,6 @@
 // #![allow(warnings)]
 //
-// use casimu::{cache::LRU, Cache, CacheConfig, MainMemory, Simulation};
+// use gpucachesim::{cache::LRU, Cache, CacheConfig, MainMemory, Simulation};
 // use std::sync::Arc;
 //
 // const CACHELINE_SIZE: usize = 64;
