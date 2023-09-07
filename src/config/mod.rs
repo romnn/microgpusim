@@ -2,7 +2,6 @@ pub mod accelsim;
 
 use crate::{
     address, cache, core::PipelineStage, kernel::Kernel, mcu, mem_sub_partition, mshr, opcodes,
-    set_index,
 };
 use color_eyre::eyre;
 use serde::{Deserialize, Serialize};
@@ -50,7 +49,7 @@ pub struct L1DCache {
     /// L1 Hit Latency
     pub l1_latency: usize, // 1
     /// l1 banks hashing function
-    pub l1_banks_hashing_function: Box<dyn set_index::SetIndexer>, // 0
+    pub l1_banks_hashing_function: Box<dyn cache::set_index::SetIndexer>, // 0
     // pub l1_banks_hashing_function: CacheSetIndexFunc, // 0
     /// l1 banks byte interleaving granularity
     pub l1_banks_byte_interleaving: usize, // 32
@@ -109,7 +108,7 @@ pub struct Cache {
     pub allocate_policy: cache::config::AllocatePolicy,
     pub write_allocate_policy: cache::config::WriteAllocatePolicy,
     // pub set_index_function: CacheSetIndexFunc,
-    pub set_index_function: Box<dyn set_index::SetIndexer>,
+    pub set_index_function: Box<dyn cache::set_index::SetIndexer>,
 
     pub mshr_kind: mshr::Kind,
     pub mshr_entries: usize,
@@ -948,7 +947,7 @@ impl Default for GPU {
                 allocate_policy: cache::config::AllocatePolicy::ON_MISS,
                 write_allocate_policy: cache::config::WriteAllocatePolicy::NO_WRITE_ALLOCATE,
                 // set_index_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
-                set_index_function: Box::<set_index::linear::SetIndex>::default(),
+                set_index_function: Box::<cache::set_index::linear::SetIndex>::default(),
                 mshr_kind: mshr::Kind::TEX_FIFO,
                 mshr_entries: 128,
                 mshr_max_merge: 4,
@@ -969,7 +968,7 @@ impl Default for GPU {
                 allocate_policy: cache::config::AllocatePolicy::ON_FILL,
                 write_allocate_policy: cache::config::WriteAllocatePolicy::NO_WRITE_ALLOCATE,
                 // set_index_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
-                set_index_function: Box::<set_index::linear::SetIndex>::default(),
+                set_index_function: Box::<cache::set_index::linear::SetIndex>::default(),
                 mshr_kind: mshr::Kind::ASSOC,
                 mshr_entries: 2,
                 mshr_max_merge: 64,
@@ -990,7 +989,7 @@ impl Default for GPU {
                 allocate_policy: cache::config::AllocatePolicy::ON_FILL,
                 write_allocate_policy: cache::config::WriteAllocatePolicy::NO_WRITE_ALLOCATE,
                 // set_index_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
-                set_index_function: Box::<set_index::linear::SetIndex>::default(),
+                set_index_function: Box::<cache::set_index::linear::SetIndex>::default(),
                 mshr_kind: mshr::Kind::ASSOC,
                 mshr_entries: 2,
                 mshr_max_merge: 48,
@@ -1004,7 +1003,7 @@ impl Default for GPU {
             data_cache_l1: Some(Arc::new(L1DCache {
                 l1_latency: 1,
                 // l1_banks_hashing_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
-                l1_banks_hashing_function: Box::<set_index::linear::SetIndex>::default(),
+                l1_banks_hashing_function: Box::<cache::set_index::linear::SetIndex>::default(),
                 l1_banks_byte_interleaving: 32,
                 l1_banks: 1,
                 inner: Arc::new(Cache {
@@ -1017,7 +1016,7 @@ impl Default for GPU {
                     allocate_policy: cache::config::AllocatePolicy::ON_MISS,
                     write_allocate_policy: cache::config::WriteAllocatePolicy::NO_WRITE_ALLOCATE,
                     // set_index_function: CacheSetIndexFunc::FERMI_HASH_SET_FUNCTION,
-                    set_index_function: Box::<set_index::fermi::SetIndex>::default(),
+                    set_index_function: Box::<cache::set_index::fermi::SetIndex>::default(),
                     mshr_kind: mshr::Kind::ASSOC,
                     mshr_entries: 128,
                     mshr_max_merge: 8,
@@ -1040,7 +1039,7 @@ impl Default for GPU {
                     allocate_policy: cache::config::AllocatePolicy::ON_MISS,
                     write_allocate_policy: cache::config::WriteAllocatePolicy::WRITE_ALLOCATE,
                     // set_index_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
-                    set_index_function: Box::<set_index::linear::SetIndex>::default(),
+                    set_index_function: Box::<cache::set_index::linear::SetIndex>::default(),
                     mshr_kind: mshr::Kind::ASSOC,
                     mshr_entries: 1024,
                     mshr_max_merge: 1024,

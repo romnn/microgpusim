@@ -7,6 +7,7 @@ pub mod data;
 pub mod event;
 pub mod l2;
 pub mod readonly;
+pub mod set_index;
 
 pub use config::Config;
 #[allow(clippy::module_name_repetitions)]

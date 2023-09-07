@@ -1,5 +1,5 @@
 use crate::sync::{Arc, Mutex};
-use crate::{address, cache, config, interconn as ic, mcu, mem_fetch, tag_array};
+use crate::{address, cache, config, interconn as ic, mcu, mem_fetch};
 use mem_fetch::access::Kind as AccessKind;
 use std::collections::VecDeque;
 
@@ -14,10 +14,10 @@ where
     cache_controller: CC,
 }
 
-impl<MC, CC> crate::tag_array::CacheAddressTranslation for L2CacheController<MC, CC>
+impl<MC, CC> cache::CacheController for L2CacheController<MC, CC>
 where
     MC: mcu::MemoryController,
-    CC: tag_array::CacheAddressTranslation,
+    CC: cache::CacheController,
 {
     #[inline]
     fn tag(&self, addr: address) -> address {
@@ -48,7 +48,10 @@ where
 pub struct DataL2 {
     pub inner: super::data::Data<
         mcu::MemoryControllerUnit,
-        L2CacheController<mcu::MemoryControllerUnit, tag_array::Pascal>,
+        L2CacheController<
+            mcu::MemoryControllerUnit,
+            cache::controller::pascal::CacheControllerUnit,
+        >,
     >,
     pub cache_config: Arc<config::L2DCache>,
 }
@@ -65,9 +68,9 @@ impl DataL2 {
         let mem_controller = mcu::MemoryControllerUnit::new(&config).unwrap();
         let cache_controller = L2CacheController {
             memory_controller: mem_controller.clone(),
-            cache_controller: tag_array::Pascal::new(cache::Config::from(
-                cache_config.inner.as_ref(),
-            )),
+            cache_controller: cache::controller::pascal::CacheControllerUnit::new(
+                cache::Config::from(cache_config.inner.as_ref()),
+            ),
         };
         let inner = super::data::Builder {
             name,

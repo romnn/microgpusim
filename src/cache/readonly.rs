@@ -1,17 +1,16 @@
 use crate::sync::{Arc, Mutex};
 use crate::{
     address, cache, config, interconn as ic, mem_fetch,
-    tag_array::{self, Access, CacheAddressTranslation},
+    tag_array::{self, Access},
 };
+use cache::CacheController;
 use std::collections::VecDeque;
 
 #[derive(Debug)]
 pub struct ReadOnly {
-    inner: cache::base::Base<tag_array::Pascal>,
-    // inner: cache::base::Base<mcu::MemoryControllerUnit, tag_array::Pascal>,
+    inner: cache::base::Base<cache::controller::pascal::CacheControllerUnit>,
 }
 
-// impl<I> ReadOnly<I> {
 impl ReadOnly {
     pub fn new(
         name: String,
@@ -21,14 +20,14 @@ impl ReadOnly {
         _config: Arc<config::GPU>,
         cache_config: Arc<config::Cache>,
     ) -> Self {
-        let cache_controller = tag_array::Pascal::new(cache::config::Config::from(&*cache_config));
-        // let mem_controller = mcu::MemoryControllerUnit::new(&*config).unwrap();
+        let cache_controller = cache::controller::pascal::CacheControllerUnit::new(
+            cache::config::Config::from(&*cache_config),
+        );
         let inner = cache::base::Builder {
             name,
             core_id,
             cluster_id,
             stats,
-            // mem_controller,
             cache_controller,
             cache_config,
         }
@@ -42,21 +41,13 @@ impl ReadOnly {
     }
 }
 
-impl crate::engine::cycle::Component for ReadOnly
-// impl<I> crate::engine::cycle::Component for ReadOnly<I>
-// where
-//     I: ic::MemFetchInterface,
-{
+impl crate::engine::cycle::Component for ReadOnly {
     fn cycle(&mut self, cycle: u64) {
         self.inner.cycle(cycle);
     }
 }
 
-impl cache::Bandwidth for ReadOnly
-// impl<I> cache::Bandwidth for ReadOnly<I>
-// where
-// I: ic::MemFetchInterface,
-{
+impl cache::Bandwidth for ReadOnly {
     #[inline]
     fn has_free_data_port(&self) -> bool {
         self.inner.has_free_data_port()
@@ -68,11 +59,7 @@ impl cache::Bandwidth for ReadOnly
     }
 }
 
-impl cache::Cache for ReadOnly
-// impl<I> cache::Cache for ReadOnly<I>
-// where
-//     I: ic::MemFetchInterface + 'static,
-{
+impl cache::Cache for ReadOnly {
     #[inline]
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -134,8 +121,6 @@ impl cache::Cache for ReadOnly
         );
 
         let is_probe = false;
-        // let (cache_index, probe_status) =
-        //     tag_array.probe(block_addr, &fetch, fetch.is_write(), is_probe);
 
         let probe = tag_array.probe(block_addr, &fetch, fetch.is_write(), is_probe);
         let probe_status =
@@ -188,44 +173,6 @@ impl cache::Cache for ReadOnly
             }
         }
 
-        // if probe_status == Status::HIT {
-        //     // update LRU state
-        //     tag_array::AccessStatus { status, .. } = tag_array.access(block_addr, &fetch, time);
-        // } else if probe_status != Status::RESERVATION_FAIL {
-        //     if self.inner.miss_queue_full() {
-        //         status = Status::RESERVATION_FAIL;
-        //
-        //         self.inner.stats.lock().inc(
-        //             *fetch.access_kind(),
-        //             cache::AccessStat::ReservationFailure(
-        //                 cache::ReservationFailure::MISS_QUEUE_FULL,
-        //             ),
-        //             1,
-        //         );
-        //     } else {
-        //         let (should_miss, _writeback, _evicted) = self.inner.send_read_request(
-        //             addr,
-        //             block_addr,
-        //             cache_index.unwrap(),
-        //             fetch.clone(),
-        //             time,
-        //             events,
-        //             true,
-        //             false,
-        //         );
-        //         if should_miss {
-        //             status = Status::MISS;
-        //         } else {
-        //             status = Status::RESERVATION_FAIL;
-        //         }
-        //     }
-        // } else {
-        //     self.inner.stats.lock().inc(
-        //         *fetch.access_kind(),
-        //         cache::AccessStat::ReservationFailure(cache::ReservationFailure::LINE_ALLOC_FAIL),
-        //         1,
-        //     );
-        // }
         self.inner.stats.lock().inc(
             *fetch.access_kind(),
             cache::AccessStat::Status(select_status(probe_status, status)),

@@ -32,110 +32,25 @@ pub struct AccessStatus {
 //     addr_translation: Box<dyn CacheAddressTranslation>,
 // }
 
-pub trait CacheAddressTranslation: std::fmt::Debug + Sync + Send + 'static {
-    /// Compute cache line tag for an address.
-    #[must_use]
-    fn tag(&self, addr: address) -> address;
-
-    /// Compute block address for an address.
-    #[must_use]
-    fn block_addr(&self, addr: address) -> address;
-
-    /// Compute set index for an address.
-    #[must_use]
-    fn set_index(&self, addr: address) -> u64;
-
-    /// Compute miss status handling register address.
-    ///
-    /// The default implementation uses the block address.
-    #[must_use]
-    fn mshr_addr(&self, addr: address) -> address {
-        self.block_addr(addr)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Pascal {
-    set_index_function: crate::set_index::linear::SetIndex,
-    config: cache::Config,
-}
-
-impl Pascal {
-    #[must_use] pub fn new(config: cache::Config) -> Self {
-        Self {
-            config,
-            set_index_function: crate::set_index::linear::SetIndex::default(),
-        }
-    }
-}
-
-// TODO: make a new address translation unit to get the set indexing function out of the config
-// impl CacheAddressTranslation for cache::Config {
-impl CacheAddressTranslation for Pascal {
-    // impl<I> CacheAddressTranslation for CacheConfig<I>
-    // where
-    //     I: crate::set_index::SetIndexer,
-    // {
-    #[inline]
-    fn tag(&self, addr: address) -> address {
-        // For generality, the tag includes both index and tag.
-        // This allows for more complex set index calculations that
-        // can result in different indexes mapping to the same set,
-        // thus the full tag + index is required to check for hit/miss.
-        // Tag is now identical to the block address.
-
-        // return addr >> (m_line_sz_log2+m_nset_log2);
-        // return addr & ~(new_addr_type)(m_line_sz - 1);
-        addr & !u64::from(self.config.line_size - 1)
-    }
-
-    #[inline]
-    fn block_addr(&self, addr: address) -> address {
-        addr & !u64::from(self.config.line_size - 1)
-    }
-
-    #[inline]
-    fn set_index(&self, addr: address) -> u64 {
-        use crate::set_index::SetIndexer;
-        self.set_index_function.compute_set_index(
-            addr,
-            self.config.num_sets,
-            self.config.line_size_log2,
-            self.config.num_sets_log2,
-        )
-    }
-
-    #[inline]
-    fn mshr_addr(&self, addr: address) -> address {
-        addr & !u64::from(self.config.line_size - 1)
-    }
-}
-
 /// Tag array.
 #[derive(Debug)]
 pub struct TagArray<B, CC> {
-    /// nbanks x nset x assoc lines in total
+    /// Cache lines
+    ///
+    /// The number of lines is nbanks x nset x assoc lines
     pub lines: Vec<B>,
     is_used: bool,
     num_access: usize,
     num_miss: usize,
     num_pending_hit: usize,
     num_reservation_fail: usize,
-    // num_sector_miss: usize,
     pub num_dirty: usize,
-    // config: Arc<config::Cache>,
-    // config: CacheConfig,
-    // l1_cache_write_ratio_percent: usize,
     max_dirty_cache_lines_percent: usize,
-    // addr_translation: Box<dyn CacheAddressTranslation>,
     cache_controller: CC,
     cache_config: cache::Config,
     pending_lines: LineTable,
 }
 
-// CacheAddressTranslation
-
-// impl<B> TagArray<B>
 impl<B, CC> TagArray<B, CC>
 where
     B: Default,
@@ -146,17 +61,6 @@ where
         let lines = (0..num_cache_lines).map(|_| B::default()).collect();
 
         let cache_config = cache::Config::from(&*config);
-        // let cache_config = cache::Config {
-        //     set_index_function: Arc::<crate::set_index::linear::SetIndex>::default(),
-        //     allocate_policy: config.allocate_policy,
-        //     replacement_policy: config.replacement_policy,
-        //     associativity: config.associativity,
-        //     num_sets: config.num_sets,
-        //     total_lines: config.num_sets * config.associativity,
-        //     line_size: config.line_size,
-        //     line_size_log2: config.line_size_log2(),
-        //     num_sets_log2: config.num_sets_log2(),
-        // };
 
         Self {
             lines,
@@ -165,16 +69,7 @@ where
             num_miss: 0,
             num_pending_hit: 0,
             num_reservation_fail: 0,
-            // num_sector_miss: 0,
             num_dirty: 0,
-            // config: Config {
-            //     allocate_policy: config.allocate_policy,
-            //     replacement_policy: config.replacement_policy,
-            //     max_num_lines: config.max_num_lines(),
-            //     addr_translation: todo!(),
-            // },
-            // l1_cache_write_ratio_percent: config.l1_cache_write_ratio_percent,
-            // max_dirty_cache_lines_threshold: config.l1_cache_write_ratio_percent,
             max_dirty_cache_lines_percent: config.l1_cache_write_ratio_percent,
             cache_config: cache_config.clone(),
             cache_controller,
@@ -219,10 +114,9 @@ pub trait Access<B> {
 }
 
 impl<B, T> Access<B> for TagArray<B, T>
-// impl<B> Access<B> for TagArray<B>
 where
     B: cache::block::Block,
-    T: CacheAddressTranslation,
+    T: cache::CacheController,
 {
     #[inline]
     fn access(&mut self, addr: address, fetch: &mem_fetch::MemFetch, time: u64) -> AccessStatus {
@@ -233,10 +127,6 @@ where
         let mut writeback = false;
         let mut evicted = None;
 
-        // let (index, status) = self.probe(addr, fetch, fetch.is_write(), false);
-        // let Some((cache_index, status)) = self.probe(addr, fetch, fetch.is_write(), false) else {
-        // let probe = self.probe(addr, fetch, fetch.is_write(), false);
-        // let probe = self.probe(addr, fetch, fetch.is_write(), false);
         let Some((cache_index, status)) = self.probe(addr, fetch, fetch.is_write(), false) else {
             self.num_reservation_fail += 1;
             return AccessStatus {
@@ -388,11 +278,10 @@ where
     }
 }
 
-// impl<B> TagArray<B>
 impl<B, T> TagArray<B, T>
 where
     B: cache::block::Block,
-    T: CacheAddressTranslation,
+    T: cache::CacheController,
 {
     /// Probes the tag array
     ///
@@ -579,9 +468,8 @@ where
         time: u64,
     ) {
         let is_probe = false;
-        // let (cache_index, probe_status) =
-        // self.probe_masked(addr, sector_mask, is_write, is_probe, None);
-        let Some((cache_index, probe_status)) = self.probe_masked(addr, sector_mask, is_write, is_probe, None) else {
+        let probe = self.probe_masked(addr, sector_mask, is_write, is_probe, None);
+        let Some((cache_index, probe_status)) = probe else {
             return;
         };
 

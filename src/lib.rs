@@ -40,7 +40,6 @@ pub mod parallel;
 pub mod register_set;
 pub mod scheduler;
 pub mod scoreboard;
-pub mod set_index;
 pub mod sync;
 pub mod tag_array;
 pub mod warp;

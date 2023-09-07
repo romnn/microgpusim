@@ -8,7 +8,7 @@ use crate::{
 use cache::block::Block;
 use console::style;
 use std::collections::{HashMap, VecDeque};
-use tag_array::{Access, CacheAddressTranslation};
+use tag_array::Access;
 
 #[derive(Debug)]
 struct PendingRequest {
@@ -111,7 +111,7 @@ where
 
 impl<CC> Base<CC>
 where
-    CC: CacheAddressTranslation,
+    CC: cache::CacheController,
 {
     /// Read miss handler.
     ///
@@ -325,7 +325,7 @@ impl<CC> Base<CC> {
 
 impl<CC> Base<CC>
 where
-    CC: tag_array::CacheAddressTranslation,
+    CC: cache::CacheController,
 {
     /// Flush all entries in cache
     pub fn flush(&mut self) -> usize {

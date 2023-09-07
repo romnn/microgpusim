@@ -4,7 +4,7 @@ use crate::{address, cache, config, interconn as ic, mcu, mem_fetch, mshr::MSHR,
 use cache::block::Block;
 use mcu::MemoryController;
 use mem_fetch::access::Kind as AccessKind;
-use tag_array::{Access, CacheAddressTranslation};
+use tag_array::Access;
 
 use std::collections::VecDeque;
 
@@ -73,7 +73,7 @@ impl<MC, CC> Data<MC, CC> {
 impl<MC, CC> Data<MC, CC>
 where
     MC: MemoryController,
-    CC: CacheAddressTranslation,
+    CC: cache::CacheController,
 {
     /// Write-back hit: mark block as modified.
     fn write_hit_write_back(
@@ -628,46 +628,6 @@ where
             }
         }
 
-        // if is_write {
-        //     if probe_status == cache::RequestStatus::HIT {
-        //         // let cache_index = cache_index.expect("hit has cache idx");
-        //         access_status =
-        //             self.write_hit(addr, cache_index, &fetch, time, events, probe_status);
-        //     } else if probe_status != cache::RequestStatus::RESERVATION_FAIL
-        //         || (probe_status == cache::RequestStatus::RESERVATION_FAIL
-        //             && self.inner.cache_config.write_allocate_policy
-        //                 == cache::config::WriteAllocatePolicy::NO_WRITE_ALLOCATE)
-        //     {
-        //         access_status =
-        //             self.write_miss(addr, cache_index, fetch, time, events, probe_status);
-        //     } else {
-        //         // the only reason for reservation fail here is LINE_ALLOC_FAIL
-        //         // (i.e all lines are reserved)
-        //         let mut stats = self.inner.stats.lock();
-        //         stats.inc(
-        //             *fetch.access_kind(),
-        //             cache::AccessStat::ReservationFailure(
-        //                 cache::ReservationFailure::LINE_ALLOC_FAIL,
-        //             ),
-        //             1,
-        //         );
-        //     }
-        // } else if probe_status == cache::RequestStatus::HIT {
-        //     // access_status = self.read_hit(addr, cache_index, &fetch, time, events, probe_status);
-        //     access_status = self.read_hit(addr, &fetch, time, events);
-        // } else if probe_status != cache::RequestStatus::RESERVATION_FAIL {
-        //     access_status = self.read_miss(addr, cache_index, &fetch, time, events, probe_status);
-        // } else {
-        //     // the only reason for reservation fail here is LINE_ALLOC_FAIL
-        //     // (i.e all lines are reserved)
-        //     let mut stats = self.inner.stats.lock();
-        //     stats.inc(
-        //         *fetch.access_kind(),
-        //         cache::AccessStat::ReservationFailure(cache::ReservationFailure::LINE_ALLOC_FAIL),
-        //         1,
-        //     );
-        // }
-
         self.inner
             .bandwidth
             .use_data_port(data_size, access_status, events);
@@ -684,8 +644,8 @@ impl<MC, CC> crate::engine::cycle::Component for Data<MC, CC> {
 
 impl<MC, CC> cache::Cache for Data<MC, CC>
 where
-    CC: CacheAddressTranslation,
     MC: MemoryController,
+    CC: cache::CacheController,
 {
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -728,10 +688,8 @@ where
             .tag_array
             .probe(block_addr, &fetch, is_write, true);
         let probe_status = probe.map_or(cache::RequestStatus::RESERVATION_FAIL, |(_, s)| s);
-        // dbg!((cache_index, probe_status));
 
         let access_status = self.process_tag_probe(is_write, probe, addr, fetch, events, time);
-        // dbg!(&access_status);
 
         log::debug!(
             "{}::access({}) => probe status={:?} access status={:?}",
@@ -758,9 +716,6 @@ where
             cache::AccessStat::Status(stat_cache_request_status),
             1,
         );
-        // m_stats.inc_stats_pw(
-        // mf->get_access_type(),
-        // m_stats.select_stats_status(probe_status, access_status));
         access_status
     }
 

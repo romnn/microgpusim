@@ -2,15 +2,11 @@
 
 - today:
 
-  - use gpu_mem_alloc for the allocations but still allow smart comparison with play whose traces does not include allocations
-
-    - required for per allocation stats
-
   - validate the number of warp instructions for the execution driven frontend and test that.
 
-  - replace addresstranslation trait with cache controller trait
-
   - write more execution driven examples (especially the different transpose variants)
+
+    - add them to the stats
 
   - config is passed to instruction for different things
 
@@ -22,12 +18,13 @@
 
     - per allocation stats
 
-  - add config parsing for box
   - generate data for the different parallel implementations speedups
     - how well does it scale for 20 instead of 80 cores
   - convert, match and plot statistics
   - record mem fetch latency in playground and box
 
+  - DONE: replace addresstranslation trait with cache controller trait
+  - DONE: use gpu_mem_alloc for the allocations but still allow smart comparison with play whose traces does not include allocations (required for per allocation stats)
   - DONE: decide on better names for linear, raw, translated addr to reflect virtual and physical for cache and global
   - DONE: rename casimu to gpucachesim
   - DONE: use bench configs with query for nondet tests
@@ -41,6 +38,8 @@
   - DONE: consolidate deterministic parallelism, make rayon optional finally
   - DONE: rename crates and github repo
   - DONE: write trait for tag array
+
+  - SKIP: add config parsing for box
   - SKIP: publish to crates.io
   - SKIP: xtask task for converting traces? or do that in the validation component
 
