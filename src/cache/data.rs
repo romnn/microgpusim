@@ -8,6 +8,20 @@ use tag_array::{Access, CacheAddressTranslation};
 
 use std::collections::VecDeque;
 
+#[derive(Debug, Clone)]
+pub struct Builder<MC, CC> {
+    pub name: String,
+    pub core_id: usize,
+    pub cluster_id: usize,
+    pub stats: Arc<Mutex<stats::Cache>>,
+    pub mem_controller: MC,
+    pub cache_controller: CC,
+    pub config: Arc<config::GPU>,
+    pub cache_config: Arc<config::Cache>,
+    pub write_alloc_type: AccessKind,
+    pub write_back_type: AccessKind,
+}
+
 /// First level data cache in Fermi.
 ///
 /// The cache uses a write-evict (global) or write-back (local) policy
@@ -15,53 +29,84 @@ use std::collections::VecDeque;
 /// (the policy used in fermi according to the CUDA manual)
 #[derive(Debug)]
 // pub struct Data<I> {
-pub struct Data {
+pub struct Data<MC, CC> {
     // pub inner: cache::base::Base<I>,
     // pub inner: cache::base::Base<MC>,
-    pub inner: cache::base::Base<mcu::MemoryControllerUnit>,
+    // pub inner: cache::base::Base<mcu::MemoryControllerUnit>,
+    // pub inner: cache::base::Base<MC, tag_array::Pascal>,
+    pub inner: cache::base::Base<CC>,
+
+    /// Memory controller
+    pub mem_controller: MC,
+
+    /// Cache controller
+    // pub cache_controller: CC,
+
     /// Specifies type of write allocate request (e.g., L1 or L2)
     write_alloc_type: AccessKind,
     /// Specifies type of writeback request (e.g., L1 or L2)
     write_back_type: AccessKind,
 }
 
-impl Data
-// impl<I> Data<I>
-// where
-// I: ic::MemFetchInterface,
-// I: Arc<Mutex<crate::fifo::Fifo<mem_fetch::MemFetch>>>,
+impl<MC, CC> Builder<MC, CC>
+where
+    CC: Clone, // where
+               // MC: Clone,
+               // impl Data
+               // impl<I> Data<I>
+               // where
+               // I: ic::MemFetchInterface,
+               // I: Arc<Mutex<crate::fifo::Fifo<mem_fetch::MemFetch>>>,
 {
-    pub fn new(
-        name: String,
-        core_id: usize,
-        cluster_id: usize,
-        // mem_port: Arc<Mutex<crate::fifo::Fifo<mem_fetch::MemFetch>>>,
-        stats: Arc<Mutex<stats::Cache>>,
-        config: Arc<config::GPU>,
-        cache_config: Arc<config::Cache>,
-        write_alloc_type: AccessKind,
-        write_back_type: AccessKind,
-    ) -> Self {
+    pub fn build(
+        self, // name: String,
+              // core_id: usize,
+              // cluster_id: usize,
+              // // mem_port: Arc<Mutex<crate::fifo::Fifo<mem_fetch::MemFetch>>>,
+              // stats: Arc<Mutex<stats::Cache>>,
+              // config: Arc<config::GPU>,
+              // cache_config: Arc<config::Cache>,
+              // write_alloc_type: AccessKind,
+              // write_back_type: AccessKind,
+    ) -> Data<MC, CC> {
+        // mem_controller: mcu::MemoryControllerUnit::new(&*config).unwrap(),
+        // let cache_controller = tag_array::Pascal::new((&*self.cache_config).into());
         let inner = super::base::Builder {
-            name,
-            core_id,
-            cluster_id,
-            stats,
-            mem_controller: mcu::MemoryControllerUnit::new(&*config).unwrap(),
-            cache_config,
+            name: self.name,
+            core_id: self.core_id,
+            cluster_id: self.cluster_id,
+            stats: self.stats,
+            // mem_controller: self.mem_controller.clone(),
+            cache_controller: self.cache_controller,
+            cache_config: self.cache_config,
         }
         .build();
-        Self {
+        Data {
             inner,
-            write_alloc_type,
-            write_back_type,
+            mem_controller: self.mem_controller,
+            write_alloc_type: self.write_alloc_type,
+            write_back_type: self.write_back_type,
         }
     }
+}
 
+impl<MC, CC> Data<MC, CC> {
     #[inline]
     pub fn set_top_port(&mut self, port: ic::Port<mem_fetch::MemFetch>) {
         self.inner.set_top_port(port);
     }
+}
+
+// impl Data {
+impl<MC, CC> Data<MC, CC>
+where
+    MC: MemoryController,
+    CC: CacheAddressTranslation,
+{
+    // #[inline]
+    // pub fn set_top_port(&mut self, port: ic::Port<mem_fetch::MemFetch>) {
+    //     self.inner.set_top_port(port);
+    // }
 
     // #[must_use]
     // pub fn cache_config(&self) -> &Arc<config::Cache> {
@@ -80,7 +125,7 @@ impl Data
     ) -> cache::RequestStatus {
         debug_assert_eq!(addr, fetch.addr());
 
-        let block_addr = self.inner.addr_translation.block_addr(addr);
+        let block_addr = self.inner.cache_controller.block_addr(addr);
         log::debug!(
             "handling WRITE HIT WRITE BACK for {} (block_addr={}, cache_idx={:?})",
             fetch,
@@ -136,10 +181,10 @@ impl Data
     ) -> cache::RequestStatus {
         let super::base::Base {
             ref mut tag_array,
-            ref addr_translation,
+            ref cache_controller,
             ..
         } = self.inner;
-        let block_addr = addr_translation.block_addr(addr);
+        let block_addr = cache_controller.block_addr(addr);
         let access_status = tag_array.access(block_addr, fetch, time);
         let cache_index = access_status.cache_index.expect("read hit has cache index");
 
@@ -196,7 +241,7 @@ impl Data
             return cache::RequestStatus::RESERVATION_FAIL;
         }
 
-        let block_addr = self.inner.addr_translation.block_addr(addr);
+        let block_addr = self.inner.cache_controller.block_addr(addr);
         let (should_miss, writeback, evicted) = self.inner.send_read_request(
             addr,
             block_addr,
@@ -236,7 +281,7 @@ impl Data
                     .build();
 
                     let mut tlx_addr = self
-                        .inner
+                        // .inner
                         .mem_controller
                         .to_physical_address(writeback_access.addr);
 
@@ -247,7 +292,7 @@ impl Data
                     tlx_addr.sub_partition = fetch.tlx_addr.sub_partition;
 
                     let partition_addr = self
-                        .inner
+                        // .inner
                         .mem_controller
                         .memory_partition_address(writeback_access.addr);
 
@@ -334,8 +379,8 @@ impl Data
         // what exactly is the difference between the addr and the fetch addr?
         debug_assert_eq!(addr, fetch.addr());
 
-        let block_addr = self.inner.addr_translation.block_addr(addr);
-        let mshr_addr = self.inner.addr_translation.mshr_addr(fetch.addr());
+        let block_addr = self.inner.cache_controller.block_addr(addr);
+        let mshr_addr = self.inner.cache_controller.mshr_addr(fetch.addr());
 
         // Write allocate, maximum 3 requests:
         //  (write miss, read request, write back request)
@@ -386,11 +431,11 @@ impl Data
         .build();
 
         let tlx_addr = self
-            .inner
+            // .inner
             .mem_controller
             .to_physical_address(new_access.addr);
         let partition_addr = self
-            .inner
+            // .inner
             .mem_controller
             .memory_partition_address(new_access.addr);
 
@@ -459,14 +504,14 @@ impl Data
                     // the evicted block may have wrong chip id when advanced L2 hashing
                     // is used, so set the right chip address from the original mf
                     let mut tlx_addr = self
-                        .inner
+                        // .inner
                         .mem_controller
                         .to_physical_address(writeback_access.addr);
                     tlx_addr.chip = fetch.tlx_addr.chip;
                     tlx_addr.sub_partition = fetch.tlx_addr.sub_partition;
 
                     let partition_addr = self
-                        .inner
+                        // .inner
                         .mem_controller
                         .memory_partition_address(writeback_access.addr);
 
@@ -691,7 +736,7 @@ impl Data
     }
 }
 
-impl crate::engine::cycle::Component for Data
+impl<MC, CC> crate::engine::cycle::Component for Data<MC, CC>
 // impl<I> crate::engine::cycle::Component for Data<I>
 // where
 //     I: ic::MemFetchInterface,
@@ -701,10 +746,13 @@ impl crate::engine::cycle::Component for Data
     }
 }
 
-impl cache::Cache for Data
-// impl<I> cache::Cache for Data<I>
-// where
-//     I: ic::MemFetchInterface + 'static,
+impl<MC, CC> cache::Cache for Data<MC, CC>
+where
+    CC: CacheAddressTranslation, // impl cache::Cache for Data
+    MC: MemoryController,        // impl cache::Cache for Data
+                                 // impl<I> cache::Cache for Data<I>
+                                 // where
+                                 //     I: ic::MemFetchInterface + 'static,
 {
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -722,7 +770,7 @@ impl cache::Cache for Data
         time: u64,
     ) -> cache::RequestStatus {
         let super::base::Base {
-            ref addr_translation,
+            ref cache_controller,
             ref cache_config,
             ..
         } = self.inner;
@@ -732,7 +780,7 @@ impl cache::Cache for Data
 
         let is_write = fetch.is_write();
         let access_kind = *fetch.access_kind();
-        let block_addr = addr_translation.block_addr(addr);
+        let block_addr = cache_controller.block_addr(addr);
 
         log::debug!(
             "{}::data_cache::access({fetch}, write = {is_write}, size = {}, block = {block_addr}, time = {})",
@@ -824,7 +872,8 @@ impl cache::Cache for Data
 }
 
 // impl<I> cache::Bandwidth for Data<I> {
-impl cache::Bandwidth for Data {
+// impl cache::Bandwidth for Data {
+impl<MC, CC> cache::Bandwidth for Data<MC, CC> {
     fn has_free_data_port(&self) -> bool {
         self.inner.has_free_data_port()
     }

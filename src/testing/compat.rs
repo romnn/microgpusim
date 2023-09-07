@@ -4,82 +4,8 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use utils::diff;
 
-// pub mod playground_sim {
-//     use async_process::Command;
-//     use color_eyre::{
-//         eyre::{self, WrapErr},
-//         Help,
-//     };
-//     use std::path::{Path, PathBuf};
-//     use std::time::{Duration, Instant};
-//
-//     pub async fn simulate_trace(
-//         _traces_dir: impl AsRef<Path>,
-//         kernelslist: impl AsRef<Path>,
-//         sim_config: &accelsim::SimConfig,
-//         timeout: Option<Duration>,
-//         accelsim_compat_mode: bool,
-//     ) -> eyre::Result<(std::process::Output, Duration)> {
-//         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
-//         let profile = "release";
-//
-//         let playground_bin = manifest_dir.join("target").join(profile).join("playground");
-//         let playground_bin = playground_bin
-//                 .canonicalize()
-//                 .wrap_err_with(|| {
-//                     eyre::eyre!(
-//                         "playground executable {} does not exist",
-//                         playground_bin.display()
-//                     )
-//                 })
-//                 .with_suggestion(|| format!("make sure to build playground with `cargo build -p playground` for the {profile:?} target"))?;
-//
-//         let gpgpu_sim_config = sim_config.config().unwrap();
-//         let trace_config = sim_config.trace_config().unwrap();
-//         let inter_config = sim_config.inter_config.as_ref().unwrap();
-//
-//         dbg!(&playground_bin);
-//
-//         let mut cmd = Command::new(playground_bin);
-//         if accelsim_compat_mode {
-//             cmd.env("ACCELSIM_COMPAT_MODE", "yes");
-//         }
-//         let args = vec![
-//             "--kernels",
-//             kernelslist.as_ref().as_os_str().to_str().unwrap(),
-//             "--config",
-//             gpgpu_sim_config.as_os_str().to_str().unwrap(),
-//             "--trace-config",
-//             trace_config.as_os_str().to_str().unwrap(),
-//             "--inter-config",
-//             inter_config.as_os_str().to_str().unwrap(),
-//         ];
-//         println!("{}", args.join(" "));
-//         cmd.args(args);
-//
-//         dbg!(&cmd);
-//
-//         let start = Instant::now();
-//         let result = match timeout {
-//             Some(timeout) => tokio::time::timeout(timeout, cmd.output()).await,
-//             None => Ok(cmd.output().await),
-//         };
-//         let result = result??;
-//         let dur = start.elapsed();
-//
-//         if !result.status.success() {
-//             return Err(utils::CommandError::new(&cmd, result).into_eyre());
-//         }
-//
-//         Ok((result, dur))
-//     }
-// }
-
 async fn validate_playground_accelsim_compat(
     bench_config: &validate::materialize::BenchmarkConfig,
-    // bench_config: Arc<validate::materialize::BenchmarkConfig>,
-    // traces_dir: &Path,
-    // kernelslist: &Path,
     sim_config: &accelsim::SimConfig,
 ) -> eyre::Result<()> {
     let traces_dir = &bench_config.accelsim_trace.traces_dir;
@@ -111,7 +37,6 @@ async fn validate_playground_accelsim_compat(
 
         let stdout = utils::decode_utf8!(output.stdout);
         let stderr = utils::decode_utf8!(output.stderr);
-        // println!("\nn{}\n", log);
         let log_reader = std::io::Cursor::new(&output.stdout);
         let stats = accelsim::parser::parse_stats(log_reader, &parse_options)?;
         (stdout, stderr, stats)
@@ -119,48 +44,23 @@ async fn validate_playground_accelsim_compat(
     // dbg!(&accelsim_stats);
 
     // run playground in accelsim compat mode
-    // let accelsim_compat_mode = true;
-    // let (playground_stdout, playground_stderr, playground_stats) = {
-    //     let (output, playground_dur) = playground_sim::simulate_trace(
-    //         &traces_dir,
-    //         &kernelslist,
-    //         sim_config,
-    //         timeout,
-    //         accelsim_compat_mode,
-    //     )
-    //     .await?;
-    //     dbg!(&playground_dur);
-    //
-    //     let stdout = utils::decode_utf8!(output.stdout);
-    //     let stderr = utils::decode_utf8!(output.stderr);
-    //     // println!("\nn{}\n", log);
-    //     let log_reader = std::io::Cursor::new(&output.stdout);
-    //     let stats = accelsim::parser::parse_stats(log_reader, &parse_options)?;
-    //     (stdout, stderr, stats)
-    // };
-    // dbg!(&playground_stats);
-
-    // let (playground_log, playground_stats, dur) = tokio::task::spawn_blocking(move || {
-    let (playground_log, playground_stats, _dur) = {
+    let (playground_log, playground_stats) = {
         let extra_args: &[String] = &[];
         let accelsim_compat_mode = true;
-        let (log, _stats, dur) = validate::playground::simulate_bench_config(
+        let (log, _stats, playground_dur) = validate::playground::simulate_bench_config(
             &bench_config,
             validate::TraceProvider::Native,
             extra_args,
             accelsim_compat_mode,
         )?;
+        dbg!(&playground_dur);
 
         let log_reader = std::io::Cursor::new(&log);
         let parse_options = accelsim::parser::Options::default();
         let stats = accelsim::parser::parse_stats(log_reader, &parse_options)?;
-        (log, stats, dur)
+        (log, stats)
     };
-
-    //     Ok::<_, eyre::Report>((log, stats, dur))
-    // })
-    // .await
-    // .unwrap()?;
+    // dbg!(&playground_stats);
 
     let filter_func =
         |((_name, _kernel, stat_name), _value): &((String, u16, String), f64)| -> bool {
@@ -236,9 +136,6 @@ macro_rules! accelsim_compat_tests {
                 let benchmarks = Benchmarks::from_reader(reader)?;
                 let bench_config = benchmarks.get_single_config(benchmark_name, input_idx).unwrap();
 
-                // let traces_dir = &bench_config.accelsim_trace.traces_dir;
-                // let kernelslist = traces_dir.join("kernelslist.g");
-
                 let materialize::AccelsimSimConfigFiles {
                     config,
                     config_dir,
@@ -254,8 +151,6 @@ macro_rules! accelsim_compat_tests {
                 };
 
                 validate_playground_accelsim_compat(&bench_config, &sim_config).await
-                // validate_playground_accelsim_compat(Arc::new(bench_config.clone()), &sim_config).await
-                // validate_playground_accelsim_compat(&traces_dir, &kernelslist, &sim_config).await
             }
         )*
     }

@@ -347,8 +347,7 @@ pub fn run(trace_dir: &Path, trace_provider: TraceProvider) -> eyre::Result<()> 
         num_schedulers_per_core: 2,              // 2
         num_memory_controllers: 8,               // 8
         num_sub_partition_per_memory_channel: 2, // 2
-        // fill_l2_on_memcopy: true,                // true
-        fill_l2_on_memcopy: false, // true
+        fill_l2_on_memcopy: false,               // true
         ..config::GPU::default()
     });
 

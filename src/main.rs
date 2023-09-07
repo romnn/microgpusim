@@ -98,11 +98,11 @@ fn main() -> eyre::Result<()> {
 
     let config = casimu::config::GPU {
         num_simt_clusters: 20,                   // 20
-        num_cores_per_simt_cluster: 4,           // 1
+        num_cores_per_simt_cluster: 1,           // 1
         num_schedulers_per_core: 2,              // 1
         num_memory_controllers: 8,               // 8
         num_sub_partition_per_memory_channel: 2, // 2
-        fill_l2_on_memcopy: true,                // true
+        fill_l2_on_memcopy: false,               // true
         parallelization,
         deadlock_check,
         log_after_cycle,

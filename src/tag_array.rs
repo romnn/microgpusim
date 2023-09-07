@@ -113,7 +113,7 @@ impl CacheAddressTranslation for Pascal {
 
 /// Tag array.
 #[derive(Debug)]
-pub struct TagArray<B, T> {
+pub struct TagArray<B, CC> {
     /// nbanks x nset x assoc lines in total
     pub lines: Vec<B>,
     is_used: bool,
@@ -128,7 +128,7 @@ pub struct TagArray<B, T> {
     // l1_cache_write_ratio_percent: usize,
     max_dirty_cache_lines_percent: usize,
     // addr_translation: Box<dyn CacheAddressTranslation>,
-    addr_translation: T,
+    cache_controller: CC,
     cache_config: cache::Config,
     pending_lines: LineTable,
 }
@@ -136,12 +136,12 @@ pub struct TagArray<B, T> {
 // CacheAddressTranslation
 
 // impl<B> TagArray<B>
-impl<B> TagArray<B, Pascal>
+impl<B, CC> TagArray<B, CC>
 where
     B: Default,
 {
     #[must_use]
-    pub fn new(config: Arc<config::Cache>) -> Self {
+    pub fn new(config: Arc<config::Cache>, cache_controller: CC) -> Self {
         let num_cache_lines = config.max_num_lines();
         let lines = (0..num_cache_lines).map(|_| B::default()).collect();
 
@@ -177,7 +177,7 @@ where
             // max_dirty_cache_lines_threshold: config.l1_cache_write_ratio_percent,
             max_dirty_cache_lines_percent: config.l1_cache_write_ratio_percent,
             cache_config: cache_config.clone(),
-            addr_translation: Pascal::new(cache_config),
+            cache_controller,
             pending_lines: LineTable::new(),
         }
     }
@@ -288,13 +288,13 @@ where
                     log::trace!(
                         "tag_array::allocate(cache={}, tag={}, modified={}, time={})",
                         cache_index,
-                        self.addr_translation.tag(addr),
+                        self.cache_controller.tag(addr),
                         line.is_modified(),
                         time,
                     );
                     line.allocate(
-                        self.addr_translation.tag(addr),
-                        self.addr_translation.block_addr(addr),
+                        self.cache_controller.tag(addr),
+                        self.cache_controller.block_addr(addr),
                         &fetch.access.sector_mask,
                         time,
                     );
@@ -374,7 +374,7 @@ where
 
     #[inline]
     fn add_pending_line(&mut self, fetch: &mem_fetch::MemFetch) {
-        let addr = self.addr_translation.block_addr(fetch.addr());
+        let addr = self.cache_controller.block_addr(fetch.addr());
         let instr = fetch.instr.as_ref().unwrap();
         if self.pending_lines.contains_key(&addr) {
             self.pending_lines.insert(addr, instr.uid);
@@ -383,7 +383,7 @@ where
 
     #[inline]
     fn remove_pending_line(&mut self, fetch: &mem_fetch::MemFetch) {
-        let addr = self.addr_translation.block_addr(fetch.addr());
+        let addr = self.cache_controller.block_addr(fetch.addr());
         self.pending_lines.remove(&addr);
     }
 }
@@ -423,8 +423,8 @@ where
         _is_probe: bool,
         fetch: Option<&mem_fetch::MemFetch>,
     ) -> Option<(usize, cache::RequestStatus)> {
-        let set_index = self.addr_translation.set_index(block_addr) as usize;
-        let tag = self.addr_translation.tag(block_addr);
+        let set_index = self.cache_controller.set_index(block_addr) as usize;
+        let tag = self.cache_controller.tag(block_addr);
 
         let mut invalid_line = None;
         let mut valid_line = None;
@@ -559,7 +559,7 @@ where
         log::trace!(
             "tag_array::fill(cache={}, tag={}, addr={}) (on miss)",
             cache_index,
-            self.addr_translation.tag(addr),
+            self.cache_controller.tag(addr),
             addr,
         );
 
@@ -592,7 +592,7 @@ where
         log::trace!(
             "tag_array::fill(cache={}, tag={}, addr={}, time={}) (on fill) status={:?}",
             cache_index,
-            self.addr_translation.tag(addr),
+            self.cache_controller.tag(addr),
             addr,
             time,
             probe_status,
@@ -605,12 +605,12 @@ where
             log::trace!(
                 "tag_array::allocate(cache={}, tag={}, time={})",
                 cache_index,
-                self.addr_translation.tag(addr),
+                self.cache_controller.tag(addr),
                 time,
             );
             line.allocate(
-                self.addr_translation.tag(addr),
-                self.addr_translation.block_addr(addr),
+                self.cache_controller.tag(addr),
+                self.cache_controller.block_addr(addr),
                 sector_mask,
                 time,
             );

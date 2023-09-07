@@ -1,22 +1,19 @@
 use crate::sync::{Arc, Mutex};
-use crate::{address, cache, config, interconn as ic, mem_fetch};
+use crate::{address, cache, config, interconn as ic, mcu, mem_fetch, tag_array};
 use mem_fetch::access::Kind as AccessKind;
 use std::collections::VecDeque;
 
-/// Generic data cache.
-#[derive(Debug)]
-#[allow(clippy::module_name_repetitions)]
-// pub struct DataL2<I> {
-pub struct DataL2 {
-    pub inner: super::data::Data,
-    // pub inner: super::data::Data<I>,
-    pub cache_config: Arc<config::L2DCache>,
-}
-
 #[derive(Debug, Clone)]
-pub struct L2CacheController {
+pub struct L2CacheController<MC, CC>
+where
+    MC: std::fmt::Debug,
+    CC: std::fmt::Debug,
+{
     // set_index_function: crate::set_index::linear::SetIndex,
     // config: cache::Config,
+    memory_controller: MC,
+    cache_controller: CC,
+    // inner: crate::tag_array::Pascal,
     // inner: crate::tag_array::Pascal,
 }
 
@@ -29,31 +26,50 @@ pub struct L2CacheController {
 //     }
 // }
 
-impl crate::tag_array::CacheAddressTranslation for L2CacheController {
+impl<MC, CC> crate::tag_array::CacheAddressTranslation for L2CacheController<MC, CC>
+where
+    MC: mcu::MemoryController,
+    CC: tag_array::CacheAddressTranslation,
+{
     #[inline]
     fn tag(&self, addr: address) -> address {
-        todo!();
-        // self.inner.tag(addr)
+        // todo!();
+        self.cache_controller.tag(addr)
     }
 
     #[inline]
     fn block_addr(&self, addr: address) -> address {
-        todo!();
-        // self.inner.block_addr(addr)
+        // todo!();
+        self.cache_controller.block_addr(addr)
     }
 
     #[inline]
     fn set_index(&self, addr: address) -> u64 {
-        todo!();
-        // let partition_addr = self.addr_translation.partition_address(addr);
-        // self.inner.set_index(partition_addr)
+        // todo!();
+        // let partition_addr = addr;
+        let partition_addr = self.memory_controller.memory_partition_address(addr);
+        println!("partition address for addr {} is {}", addr, partition_addr);
+        self.cache_controller.set_index(partition_addr)
     }
 
     #[inline]
     fn mshr_addr(&self, addr: address) -> address {
-        todo!();
-        // self.inner.mshr_addr(addr)
+        // todo!();
+        self.cache_controller.mshr_addr(addr)
     }
+}
+
+/// Generic data cache.
+#[derive(Debug)]
+#[allow(clippy::module_name_repetitions)]
+// pub struct DataL2<I> {
+pub struct DataL2 {
+    pub inner: super::data::Data<
+        mcu::MemoryControllerUnit,
+        L2CacheController<mcu::MemoryControllerUnit, tag_array::Pascal>,
+    >,
+    // pub inner: super::data::Data<I>,
+    pub cache_config: Arc<config::L2DCache>,
 }
 
 impl DataL2
@@ -71,18 +87,27 @@ impl DataL2
         config: Arc<config::GPU>,
         cache_config: Arc<config::L2DCache>,
     ) -> Self {
-        let memory_controller = config.address_mapping().clone();
-        let mut inner = super::data::Data::new(
+        // let memory_controller = config.address_mapping().clone();
+        let mem_controller = mcu::MemoryControllerUnit::new(&*config).unwrap();
+        let cache_controller = L2CacheController {
+            memory_controller: mem_controller.clone(),
+            cache_controller: tag_array::Pascal::new(
+                cache::Config::from(cache_config.inner.as_ref()).into(),
+            ),
+        };
+        let inner = super::data::Builder {
             name,
             core_id,
             cluster_id,
-            // fetch_interconn,
             stats,
             config,
-            cache_config.inner.clone(),
-            AccessKind::L2_WR_ALLOC_R,
-            AccessKind::L2_WRBK_ACC,
-        );
+            cache_controller,
+            mem_controller,
+            cache_config: cache_config.inner.clone(),
+            write_alloc_type: AccessKind::L2_WR_ALLOC_R,
+            write_back_type: AccessKind::L2_WRBK_ACC,
+        }
+        .build();
         // TODO: crate a builder for data cache and base cache
         // inner.inner.addr_translation = L2CacheController {
         //     // inner: mmeory_controller,

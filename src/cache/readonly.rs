@@ -7,7 +7,8 @@ use std::collections::VecDeque;
 
 #[derive(Debug)]
 pub struct ReadOnly {
-    inner: cache::base::Base<mcu::MemoryControllerUnit>,
+    inner: cache::base::Base<tag_array::Pascal>,
+    // inner: cache::base::Base<mcu::MemoryControllerUnit, tag_array::Pascal>,
 }
 
 // impl<I> ReadOnly<I> {
@@ -20,12 +21,15 @@ impl ReadOnly {
         config: Arc<config::GPU>,
         cache_config: Arc<config::Cache>,
     ) -> Self {
+        let cache_controller = tag_array::Pascal::new(cache::config::Config::from(&*cache_config));
+        // let mem_controller = mcu::MemoryControllerUnit::new(&*config).unwrap();
         let inner = cache::base::Builder {
             name,
             core_id,
             cluster_id,
             stats,
-            mem_controller: mcu::MemoryControllerUnit::new(&*config).unwrap(),
+            // mem_controller,
+            cache_controller,
             cache_config,
         }
         .build();
@@ -108,7 +112,7 @@ impl cache::Cache for ReadOnly
     ) -> cache::RequestStatus {
         let cache::base::Base {
             ref cache_config,
-            ref addr_translation,
+            ref cache_controller,
             ref mut tag_array,
             ..
         } = self.inner;
@@ -118,7 +122,7 @@ impl cache::Cache for ReadOnly
             cache::config::WritePolicy::READ_ONLY
         );
         debug_assert!(!fetch.is_write());
-        let block_addr = addr_translation.block_addr(addr);
+        let block_addr = cache_controller.block_addr(addr);
 
         log::debug!(
             "{}::readonly_cache::access({addr}, write = {}, data size = {}, control size = {}, block = {block_addr}, time={})",

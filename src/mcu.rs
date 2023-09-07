@@ -7,6 +7,7 @@ use regex::Regex;
 ///
 /// Effectively the minium number of bits required to store n.
 #[must_use]
+#[inline]
 pub fn logb2(n: u32) -> u32 {
     n.max(1).ilog2()
 }
@@ -15,6 +16,7 @@ pub fn logb2(n: u32) -> u32 {
 ///
 /// see [here](https://www.techiedelight.com/round-next-highest-power-2/).
 #[must_use]
+#[inline]
 pub fn next_power2(mut n: u32) -> u32 {
     // avoid subtract with overflow
     if n == 0 {
@@ -35,6 +37,7 @@ pub fn next_power2(mut n: u32) -> u32 {
 }
 
 #[must_use]
+#[inline]
 pub fn mask_limit(mask: address) -> (u8, u8) {
     let mut high = 64;
     let mut low = 0;
@@ -144,7 +147,7 @@ impl Config {
 }
 
 /// Memory controller unit (MCU).
-#[derive(PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct MemoryControllerUnit {
     pub num_channels: usize,
     pub num_sub_partitions_per_channel: usize,
@@ -453,7 +456,6 @@ mod tests {
     use color_eyre::eyre;
     use utils::diff;
 
-    #[inline]
     fn bit_str(n: u64) -> String {
         format!("{n:064b}")
     }
@@ -632,6 +634,28 @@ mod tests {
         };
         diff::assert_eq!(have: ref_tlx_addr, want: want);
         diff::assert_eq!(have: tlx_addr, want: want);
+    }
+
+    #[test]
+    fn test_partition_addr_gtx1080() {
+        let config = config::GPU {
+            num_memory_controllers: 8,
+            num_sub_partition_per_memory_channel: 2,
+            ..config::GPU::default()
+        };
+        let mapping = config.address_mapping();
+        let ref_mapping = playground::addrdec::AddressTranslation::new(
+            config.num_memory_controllers as u32,
+            config.num_sub_partition_per_memory_channel as u32,
+        );
+
+        let addr = 140159034065024;
+        diff::assert_eq!(
+            have: mapping.memory_partition_address(addr),
+            want: ref_mapping.partition_address(addr));
+
+        // dbg!(mapping.memory_partition_address(addr));
+        // assert!(false);
     }
 
     #[test]

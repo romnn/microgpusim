@@ -139,17 +139,22 @@ impl LoadStoreUnit
 
                 // initialize l1 data cache
                 let cache_stats = Arc::new(Mutex::new(stats::Cache::default()));
-                let mut data_cache = cache::Data::new(
-                    format!("ldst-unit-{cluster_id}-{core_id}-L1-DATA-CACHE"),
+                let mem_controller = crate::mcu::MemoryControllerUnit::new(&*config).unwrap();
+                let cache_controller =
+                    crate::tag_array::Pascal::new(cache::Config::from(l1_config.inner.as_ref()));
+                let mut data_cache = cache::data::Builder {
+                    name: format!("ldst-unit-{cluster_id}-{core_id}-L1-DATA-CACHE"),
                     core_id,
                     cluster_id,
-                    // Arc::clone(&fetch_interconn),
-                    cache_stats,
-                    Arc::clone(&config),
-                    Arc::clone(&l1_config.inner),
-                    AccessKind::L1_WR_ALLOC_R,
-                    AccessKind::L1_WRBK_ACC,
-                );
+                    stats: cache_stats,
+                    config: Arc::clone(&config),
+                    mem_controller,
+                    cache_controller,
+                    cache_config: Arc::clone(&l1_config.inner),
+                    write_alloc_type: AccessKind::L1_WR_ALLOC_R,
+                    write_back_type: AccessKind::L1_WRBK_ACC,
+                }
+                .build();
                 data_cache.set_top_port(mem_port.clone());
                 Some(Box::new(data_cache))
             } else {

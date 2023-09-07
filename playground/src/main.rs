@@ -60,15 +60,18 @@ fn main() -> eyre::Result<()> {
     }
     // dbg!(&args);
 
-    let config = playground::Config::default();
-    let mut accelsim = playground::Accelsim::new(config, &args)?;
-    accelsim.run_to_completion();
-    let stats = accelsim.stats().clone();
-
     let accelsim_compat_mode = std::env::var("ACCELSIM_COMPAT_MODE")
         .unwrap_or_default()
         .to_lowercase()
         == "yes";
+
+    let config = playground::Config {
+        accelsim_compat_mode,
+        ..playground::Config::default()
+    };
+    let mut accelsim = playground::Accelsim::new(config, &args)?;
+    accelsim.run_to_completion();
+    let stats = accelsim.stats().clone();
 
     if !accelsim_compat_mode {
         eprintln!("STATS:\n");

@@ -64,7 +64,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             print_stats: false,
-            accelsim_compat_mode: true,
+            accelsim_compat_mode: false,
             stats_file: None,
         }
     }

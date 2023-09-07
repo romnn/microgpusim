@@ -31,7 +31,8 @@ impl PendingRequest {}
 /// Each subclass implements its own 'access' function
 #[derive()]
 // pub struct Base {
-pub struct Base<MC> {
+// pub struct Base<MC, CC> {
+pub struct Base<CC> {
     pub name: String,
     pub core_id: usize,
     pub cluster_id: usize,
@@ -39,16 +40,18 @@ pub struct Base<MC> {
     pub stats: Arc<Mutex<stats::Cache>>,
     // pub config: Arc<config::GPU>,
     // pub cache_config: Arc<config::Cache>,
-    pub addr_translation: tag_array::Pascal,
+    pub cache_controller: CC,
+    // pub cache_controller: tag_array::Pascal,
     // pub mem_controller: Box<dyn mcu::MemoryController>,
-    pub mem_controller: MC,
+    // pub phantom: std::marker::PhantomData<MC>,
+    // pub mem_controller: MC,
     pub cache_config: cache::Config,
 
     pub miss_queue: VecDeque<mem_fetch::MemFetch>,
     pub miss_queue_status: mem_fetch::Status,
     pub mshrs: mshr::Table<mem_fetch::MemFetch>,
-    pub tag_array: tag_array::TagArray<cache::block::Line, tag_array::Pascal>,
-
+    pub tag_array: tag_array::TagArray<cache::block::Line, CC>,
+    // pub tag_array: tag_array::TagArray<cache::block::Line, tag_array::Pascal>,
     pending: HashMap<mem_fetch::MemFetch, PendingRequest>,
     top_port: Option<ic::Port<mem_fetch::MemFetch>>,
     // mem_port: Arc<I>,
@@ -57,7 +60,8 @@ pub struct Base<MC> {
 }
 
 // impl std::fmt::Debug for Base {
-impl<MC> std::fmt::Debug for Base<MC> {
+// impl<MC, CC> std::fmt::Debug for Base<MC, CC> {
+impl<CC> std::fmt::Debug for Base<CC> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("Base")
             .field("name", &self.name)
@@ -92,20 +96,28 @@ impl<MC> std::fmt::Debug for Base<MC> {
 // }
 
 #[derive(Debug, Clone)]
-pub struct Builder<MC> {
+// pub struct Builder<MC, CC> {
+pub struct Builder<CC> {
     pub name: String,
     pub core_id: usize,
     pub cluster_id: usize,
     pub stats: Arc<Mutex<stats::Cache>>,
-    pub mem_controller: MC,
+    pub cache_controller: CC,
+    // pub mem_controller: MC,
     pub cache_config: Arc<config::Cache>,
 }
 
-impl<MC> Builder<MC> {
+// impl<MC, CC> Builder<MC, CC> {
+impl<CC> Builder<CC>
+where
+    CC: Clone,
+{
     #[must_use]
-    pub fn build(self) -> Base<MC> {
+    // pub fn build(self) -> Base<MC, CC> {
+    pub fn build(self) -> Base<CC> {
         let cache_config = self.cache_config;
-        let tag_array = tag_array::TagArray::new(cache_config.clone());
+        let tag_array =
+            tag_array::TagArray::new(cache_config.clone(), self.cache_controller.clone());
 
         debug_assert!(matches!(
             cache_config.mshr_kind,
@@ -116,7 +128,7 @@ impl<MC> Builder<MC> {
         let bandwidth = super::bandwidth::Manager::new(cache_config.clone());
 
         let cache_config = cache::Config::from(&*cache_config);
-        let addr_translation = tag_array::Pascal::new(cache_config.clone());
+        // let cache_controller = tag_array::Pascal::new(cache_config.clone());
 
         let miss_queue = VecDeque::with_capacity(cache_config.miss_queue_size);
 
@@ -130,9 +142,11 @@ impl<MC> Builder<MC> {
             stats: self.stats,
             // config,
             // mem_controller: Box::new(ReplaceMe {}),
-            mem_controller: self.mem_controller,
             cache_config,
-            addr_translation,
+            // addr_translation,
+            // phantom: std::marker::PhantomData,
+            // mem_controller: self.mem_controller,
+            cache_controller: self.cache_controller,
             bandwidth,
             pending: HashMap::new(),
             miss_queue,
@@ -141,59 +155,11 @@ impl<MC> Builder<MC> {
     }
 }
 
-impl<MC> Base<MC> {
-    /// Checks whether this request can be handled in this cycle.
-    ///
-    /// `n` equals the number of misses to be handled in this cycle.
-    #[must_use]
-    pub fn miss_queue_can_fit(&self, n: usize) -> bool {
-        self.miss_queue.len() + n < self.cache_config.miss_queue_size
-    }
-
-    /// Checks whether the miss queue is full.
-    ///
-    /// This leads to misses not being handled in this cycle.
-    #[must_use]
-    pub fn miss_queue_full(&self) -> bool {
-        self.miss_queue.len() >= self.cache_config.miss_queue_size
-    }
-
-    /// Checks if fetch is waiting to be filled by lower memory level
-    #[must_use]
-    pub fn waiting_for_fill(&self, fetch: &mem_fetch::MemFetch) -> bool {
-        self.pending.contains_key(fetch)
-    }
-
-    /// Are any (accepted) accesses that had to wait for memory now ready?
-    ///
-    /// Note: does not include accesses that "HIT"
-    #[must_use]
-    pub fn has_ready_accesses(&self) -> bool {
-        self.mshrs.has_ready_accesses()
-    }
-
-    #[must_use]
-    pub fn ready_accesses(&self) -> Option<&VecDeque<mem_fetch::MemFetch>> {
-        self.mshrs.ready_accesses()
-    }
-
-    /// Pop next ready access
-    ///
-    /// Note: does not include accesses that "HIT"
-    pub fn next_access(&mut self) -> Option<mem_fetch::MemFetch> {
-        self.mshrs.next_access()
-    }
-
-    /// Flush all entries in cache
-    pub fn flush(&mut self) -> usize {
-        self.tag_array.flush()
-    }
-
-    /// Invalidate all entries in cache
-    pub fn invalidate(&mut self) {
-        self.tag_array.invalidate();
-    }
-
+// impl<MC, CC> Base<MC, CC>
+impl<CC> Base<CC>
+where
+    CC: CacheAddressTranslation,
+{
     /// Read miss handler.
     ///
     /// Check MSHR hit or MSHR available
@@ -212,7 +178,7 @@ impl<MC> Base<MC> {
         let mut writeback = false;
         let mut evicted = None;
 
-        let mshr_addr = self.addr_translation.mshr_addr(fetch.addr());
+        let mshr_addr = self.cache_controller.mshr_addr(fetch.addr());
         let mshr_hit = self.mshrs.get(mshr_addr).is_some();
         let mshr_full = self.mshrs.full(mshr_addr);
 
@@ -310,7 +276,8 @@ impl<MC> Base<MC> {
 
 // impl<I> crate::engine::cycle::Component for Base<I>
 // impl crate::engine::cycle::Component for Base
-impl<MC> crate::engine::cycle::Component for Base<MC>
+// impl<MC, CC> crate::engine::cycle::Component for Base<MC, CC>
+impl<CC> crate::engine::cycle::Component for Base<CC>
 // where
 //     I: ic::MemFetchInterface,
 {
@@ -363,14 +330,72 @@ impl<MC> crate::engine::cycle::Component for Base<MC>
 }
 
 // impl Base
-impl<MC> Base<MC>
+// impl<MC, CC> Base<MC, CC>
+impl<CC> Base<CC>
 // impl<I> Base<I>
 // where
 // I: ic::MemFetchInterface,
 {
+    /// Checks whether this request can be handled in this cycle.
+    ///
+    /// `n` equals the number of misses to be handled in this cycle.
+    #[must_use]
+    pub fn miss_queue_can_fit(&self, n: usize) -> bool {
+        self.miss_queue.len() + n < self.cache_config.miss_queue_size
+    }
+
+    /// Checks whether the miss queue is full.
+    ///
+    /// This leads to misses not being handled in this cycle.
+    #[must_use]
+    pub fn miss_queue_full(&self) -> bool {
+        self.miss_queue.len() >= self.cache_config.miss_queue_size
+    }
+
+    /// Checks if fetch is waiting to be filled by lower memory level
+    #[must_use]
+    pub fn waiting_for_fill(&self, fetch: &mem_fetch::MemFetch) -> bool {
+        self.pending.contains_key(fetch)
+    }
+
+    /// Are any (accepted) accesses that had to wait for memory now ready?
+    ///
+    /// Note: does not include accesses that "HIT"
+    #[must_use]
+    pub fn has_ready_accesses(&self) -> bool {
+        self.mshrs.has_ready_accesses()
+    }
+
+    #[must_use]
+    pub fn ready_accesses(&self) -> Option<&VecDeque<mem_fetch::MemFetch>> {
+        self.mshrs.ready_accesses()
+    }
+
+    /// Pop next ready access
+    ///
+    /// Note: does not include accesses that "HIT"
+    pub fn next_access(&mut self) -> Option<mem_fetch::MemFetch> {
+        self.mshrs.next_access()
+    }
+
     #[inline]
     pub fn set_top_port(&mut self, port: ic::Port<mem_fetch::MemFetch>) {
         self.top_port = Some(port);
+    }
+}
+
+impl<CC> Base<CC>
+where
+    CC: tag_array::CacheAddressTranslation,
+{
+    /// Flush all entries in cache
+    pub fn flush(&mut self) -> usize {
+        self.tag_array.flush()
+    }
+
+    /// Invalidate all entries in cache
+    pub fn invalidate(&mut self) {
+        self.tag_array.invalidate();
     }
 
     /// Interface for response from lower memory level.
@@ -442,7 +467,8 @@ impl<MC> Base<MC>
 
 // impl<I> super::Bandwidth for Base<I> {
 // impl super::Bandwidth for Base {
-impl<MC> super::Bandwidth for Base<MC> {
+// impl<MC, CC> super::Bandwidth for Base<MC, CC> {
+impl<CC> super::Bandwidth for Base<CC> {
     fn has_free_data_port(&self) -> bool {
         self.bandwidth.has_free_data_port()
     }
