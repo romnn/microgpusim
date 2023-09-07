@@ -17,7 +17,6 @@ use std::time::{Duration, Instant};
 fn gather_simulation_state(
     box_sim: &mut crate::MockSimulator<ic::ToyInterconnect<ic::Packet<mem_fetch::MemFetch>>>,
     play_sim: &mut playground::Accelsim,
-    _trace_provider: TraceProvider,
 ) -> (testing::state::Simulation, testing::state::Simulation) {
     let num_schedulers = box_sim.config.num_schedulers_per_core;
     let num_clusters = box_sim.config.num_simt_clusters;
@@ -327,7 +326,6 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
     let trace_config = manifest_dir.join("accelsim/gtx1080/gpgpusim.trace.config");
     let inter_config = manifest_dir.join("accelsim/gtx1080/config_fermi_islip.icnt");
 
-    // assert!(trace_dir.is_dir());
     assert!(box_trace_dir.is_dir());
     assert!(box_commands_path.is_file());
     assert!(accelsim_kernelslist_path.is_file());
@@ -454,7 +452,7 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
         if should_compare_states {
             start = Instant::now();
             let (box_sim_state, play_sim_state) =
-                gather_simulation_state(&mut box_sim, &mut play_sim, trace_provider);
+                gather_simulation_state(&mut box_sim, &mut play_sim);
             gather_state_time += start.elapsed();
 
             // start = Instant::now();
@@ -514,7 +512,7 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
             if should_compare_states && should_check {
                 start = Instant::now();
                 let (box_sim_state, play_sim_state) =
-                    gather_simulation_state(&mut box_sim, &mut play_sim, trace_provider);
+                    gather_simulation_state(&mut box_sim, &mut play_sim);
                 gather_state_time += start.elapsed();
 
                 start = Instant::now();

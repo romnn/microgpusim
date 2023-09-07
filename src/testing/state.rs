@@ -407,13 +407,36 @@ impl<'a> From<playground::scheduler_unit::SchedulerUnit<'a>> for Scheduler {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Serialize)]
+#[derive(Clone, Serialize)]
 pub struct MemFetch {
     pub kind: crate::mem_fetch::Kind,
     pub access_kind: crate::mem_fetch::access::Kind,
     // cannot compare addr because its different between runs
     // addr: crate::address,
     pub relative_addr: Option<(usize, crate::address)>,
+}
+
+impl Eq for MemFetch {}
+
+impl PartialEq for MemFetch {
+    fn eq(&self, other: &Self) -> bool {
+        let mut equal = self.kind == other.kind;
+        equal &= self.access_kind == other.access_kind;
+
+        if let (Some(alloc), Some(other_alloc)) = (self.relative_addr, other.relative_addr) {
+            // playground does not track allocations which have not been copied to.
+            // Hence, we only compare alloations where possible.
+            equal &= alloc == other_alloc;
+        }
+        equal
+    }
+}
+
+impl std::hash::Hash for MemFetch {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.kind.hash(state);
+        self.access_kind.hash(state);
+    }
 }
 
 impl std::fmt::Debug for MemFetch {

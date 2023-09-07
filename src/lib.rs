@@ -793,25 +793,6 @@ where
             .add(start_total.elapsed());
     }
 
-    pub fn gpu_mem_alloc(
-        &mut self,
-        addr: address,
-        num_bytes: u64,
-        name: Option<&str>,
-        _cycle: u64,
-    ) {
-        log::info!(
-            "memalloc: {:<20} {:>15} ({:>5} f32) at address {addr:>20}",
-            name.unwrap_or("<unnamed>"),
-            human_bytes::human_bytes(num_bytes as f64),
-            num_bytes / 4,
-        );
-        // let alloc_range = addr..(addr + num_bytes);
-        // self.allocations
-        //     .try_borrow_mut()
-        //     .insert(alloc_range.clone(), name);
-    }
-
     fn copy_chunk_to_gpu(&self, write_addr: address, time: u64) {
         let num_sub_partitions = self.config.num_sub_partition_per_memory_channel;
         let tlx_addr = self
@@ -853,14 +834,14 @@ where
         cycle: u64,
     ) {
         log::info!(
-            "memcopy: {:<20} {:>15} ({:>5} f32) to address {addr:>20}",
+            "CUDA mem copy: {:<20} {:>15} ({:>5} f32) to address {addr:>20}",
             name.as_deref().unwrap_or("<unnamed>"),
             human_bytes::human_bytes(num_bytes as f64),
             num_bytes / 4,
         );
-        let alloc_range = addr..(addr + num_bytes);
-        self.allocations.write().insert(alloc_range, name);
-
+        // let alloc_range = addr..(addr + num_bytes);
+        // self.allocations.write().insert(alloc_range, name);
+        //
         if self.config.fill_l2_on_memcopy {
             let chunk_size: u64 = 32;
             let chunks = (num_bytes as f64 / chunk_size as f64).ceil() as usize;
@@ -869,6 +850,25 @@ where
                 self.copy_chunk_to_gpu(write_addr, cycle);
             }
         }
+    }
+
+    pub fn gpu_mem_alloc(
+        &mut self,
+        addr: address,
+        num_bytes: u64,
+        name: Option<String>,
+        _cycle: u64,
+    ) {
+        log::info!(
+            "CUDA mem alloc: {:<20} {:>15} ({:>5} f32) at address {addr:>20}",
+            name.as_deref().unwrap_or("<unnamed>"),
+            human_bytes::human_bytes(num_bytes as f64),
+            num_bytes / 4,
+        );
+
+        // keep track of allocations
+        let alloc_range = addr..(addr + num_bytes);
+        self.allocations.write().insert(alloc_range, name);
     }
 
     pub fn stats(&self) -> Stats {
@@ -921,12 +921,7 @@ where
                     device_ptr,
                     num_bytes,
                 }) => {
-                    self.gpu_mem_alloc(
-                        *device_ptr,
-                        *num_bytes,
-                        allocation_name.clone().as_deref(),
-                        cycle,
-                    );
+                    self.gpu_mem_alloc(*device_ptr, *num_bytes, allocation_name.clone(), cycle);
                 }
                 Command::KernelLaunch(launch) => {
                     let kernel =

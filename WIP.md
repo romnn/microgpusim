@@ -2,10 +2,13 @@
 
 - today:
 
+  - use gpu_mem_alloc for the allocations but still allow smart comparison with play whose traces does not include allocations
+
+    - required for per allocation stats
+
   - validate the number of warp instructions for the execution driven frontend and test that.
 
   - replace addresstranslation trait with cache controller trait
-  - use gpu_mem_alloc for the allocations but still allow smart comparision with play whose traces does not include allocations
 
   - write more execution driven examples (especially the different transpose variants)
 
