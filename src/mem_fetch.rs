@@ -258,7 +258,7 @@ pub struct MemFetch {
     pub uid: u64,
     pub access: access::MemAccess,
     pub instr: Option<WarpInstruction>,
-    pub tlx_addr: mcu::TranslatedAddress,
+    pub physical_addr: mcu::PhysicalAddress,
     pub partition_addr: address,
     pub kind: Kind,
     pub warp_id: usize,
@@ -332,7 +332,7 @@ pub struct Builder {
     pub warp_id: usize,
     pub core_id: usize,
     pub cluster_id: usize,
-    pub tlx_addr: mcu::TranslatedAddress,
+    pub physical_addr: mcu::PhysicalAddress,
     pub partition_addr: address,
 }
 
@@ -351,7 +351,7 @@ impl Builder {
             warp_id: self.warp_id,
             core_id: self.core_id,
             cluster_id: self.cluster_id,
-            tlx_addr: self.tlx_addr,
+            physical_addr: self.physical_addr,
             partition_addr: self.partition_addr,
             kind,
             status: Status::INITIALIZED,
@@ -477,7 +477,7 @@ impl MemFetch {
     #[must_use]
     #[inline]
     pub fn sub_partition_id(&self) -> usize {
-        self.tlx_addr.sub_partition as usize
+        self.physical_addr.sub_partition as usize
     }
 
     #[must_use]

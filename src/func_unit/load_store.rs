@@ -14,7 +14,6 @@ use std::collections::{HashMap, VecDeque};
 use strum::EnumCount;
 
 #[allow(clippy::module_name_repetitions)]
-// pub struct LoadStoreUnit<I> {
 pub struct LoadStoreUnit {
     core_id: usize,
     cluster_id: usize,
@@ -28,9 +27,6 @@ pub struct LoadStoreUnit {
     next_global: Option<MemFetch>,
     pub pending_writes: HashMap<usize, HashMap<u32, usize>>,
     l1_latency_queue: Vec<Vec<Option<mem_fetch::MemFetch>>>,
-    // #[allow(dead_code)]
-    // interconn: Arc<dyn ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>>,
-    // fetch_interconn: Arc<I>,
     pub mem_port: ic::Port<mem_fetch::MemFetch>,
     inner: fu::PipelinedSimdUnit,
 
@@ -41,14 +37,12 @@ pub struct LoadStoreUnit {
     num_writeback_clients: usize,
 }
 
-// impl<I> std::fmt::Display for LoadStoreUnit<I> {
 impl std::fmt::Display for LoadStoreUnit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.inner.name)
     }
 }
 
-// impl<I> std::fmt::Debug for LoadStoreUnit<I> {
 impl std::fmt::Debug for LoadStoreUnit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct(&self.inner.name)
@@ -81,7 +75,6 @@ enum MemStageAccessKind {
     L_MEM_LD,
     G_MEM_ST,
     L_MEM_ST,
-    // N_MEM_STAGE_ACCESS_TYPE
 }
 
 #[derive(strum::EnumCount, strum::FromRepr, Hash, PartialEq, Eq, Clone, Copy, Debug)]
@@ -99,18 +92,12 @@ enum MemStageStallKind {
     WB_CACHE_RSRV_FAIL,
 }
 
-impl LoadStoreUnit
-// impl<I> LoadStoreUnit<I>
-// where
-//     I: ic::MemFetchInterface + 'static,
-{
+impl LoadStoreUnit {
     pub fn new(
         id: usize,
         core_id: usize,
         cluster_id: usize,
         warps: Vec<warp::Ref>,
-        // interconn: Arc<dyn ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>>,
-        // fetch_interconn: Arc<I>,
         mem_port: ic::Port<mem_fetch::MemFetch>,
         operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
         scoreboard: Arc<RwLock<Scoreboard>>,
@@ -628,7 +615,7 @@ impl LoadStoreUnit
                 let instr = self.inner.dispatch_reg.as_mut().unwrap();
                 let access = instr.mem_access_queue.pop_back().unwrap();
 
-                let tlx_addr = self
+                let physical_addr = self
                     .config
                     .address_mapping()
                     .to_physical_address(access.addr);
@@ -643,7 +630,7 @@ impl LoadStoreUnit
                     warp_id: instr.warp_id,
                     core_id: self.core_id,
                     cluster_id: self.cluster_id,
-                    tlx_addr,
+                    physical_addr,
                     partition_addr,
                 }
                 .build();
@@ -737,10 +724,7 @@ impl LoadStoreUnit
                     let is_store = instr.is_store();
                     let access = instr.mem_access_queue.pop_back().unwrap();
 
-                    // let tlx_addr = crate::mcu::TranslatedAddress::default();
-                    // let partition_addr = 0;
-
-                    let tlx_addr = self
+                    let physical_addr = self
                         .config
                         .address_mapping()
                         .to_physical_address(access.addr);
@@ -755,7 +739,7 @@ impl LoadStoreUnit
                         warp_id: instr.warp_id,
                         core_id: self.core_id,
                         cluster_id: self.cluster_id,
-                        tlx_addr,
+                        physical_addr,
                         partition_addr,
                     }
                     .build();
@@ -794,10 +778,7 @@ impl LoadStoreUnit
             );
             stall_cond
         } else {
-            // let tlx_addr = crate::mcu::TranslatedAddress::default();
-            // let partition_addr = 0;
-
-            let tlx_addr = self
+            let physical_addr = self
                 .config
                 .address_mapping()
                 .to_physical_address(access.addr);
@@ -813,7 +794,7 @@ impl LoadStoreUnit
                 warp_id: instr.warp_id,
                 core_id: self.core_id,
                 cluster_id: self.cluster_id,
-                tlx_addr,
+                physical_addr,
                 partition_addr,
             }
             .build();

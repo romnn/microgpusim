@@ -1452,7 +1452,7 @@ where
                         }
                         .build();
 
-                        let tlx_addr = self
+                        let physical_addr = self
                             .config
                             .address_mapping()
                             .to_physical_address(access.addr);
@@ -1464,12 +1464,10 @@ where
                         let fetch = mem_fetch::Builder {
                             instr: None,
                             access,
-                            // &self.config,
-                            // mem_fetch::READ_PACKET_SIZE.into(),
                             warp_id,
                             core_id: self.core_id,
                             cluster_id: self.cluster_id,
-                            tlx_addr,
+                            physical_addr,
                             partition_addr,
                         }
                         .build();

@@ -53,8 +53,8 @@ impl DRAM {
     /// Here, we do nothing except logging statistics
     /// see: `memory_stats_t::memlatstat_dram_access`()
     pub fn access(&mut self, fetch: &mem_fetch::MemFetch) {
-        let dram_id = fetch.tlx_addr.chip as usize;
-        let bank = fetch.tlx_addr.bk as usize;
+        let dram_id = fetch.physical_addr.chip as usize;
+        let bank = fetch.physical_addr.bk as usize;
 
         let mut stats = self.stats.lock();
         let atom_size = self.config.atom_size;

@@ -242,36 +242,27 @@ where
                     }
                     .build();
 
-                    let mut tlx_addr = self
-                        // .inner
+                    let mut physical_addr = self
                         .mem_controller
                         .to_physical_address(writeback_access.addr);
 
                     // the evicted block may have wrong chip id when
                     // advanced L2 hashing is used, so set the right chip
                     // address from the original mf
-                    tlx_addr.chip = fetch.tlx_addr.chip;
-                    tlx_addr.sub_partition = fetch.tlx_addr.sub_partition;
+                    physical_addr.chip = fetch.physical_addr.chip;
+                    physical_addr.sub_partition = fetch.physical_addr.sub_partition;
 
                     let partition_addr = self
-                        // .inner
                         .mem_controller
                         .memory_partition_address(writeback_access.addr);
 
                     let writeback_fetch = mem_fetch::Builder {
                         instr: fetch.instr.clone(),
                         access: writeback_access,
-                        // &self.inner.config,
-                        // control_size: if is_write {
-                        //     mem_fetch::WRITE_PACKET_SIZE
-                        // } else {
-                        //     mem_fetch::READ_PACKET_SIZE
-                        // }
-                        // .into(),
                         warp_id: 0,
                         core_id: 0,
                         cluster_id: 0,
-                        tlx_addr,
+                        physical_addr,
                         partition_addr,
                     }
                     .build();
@@ -392,12 +383,8 @@ where
         }
         .build();
 
-        let tlx_addr = self
-            // .inner
-            .mem_controller
-            .to_physical_address(new_access.addr);
+        let physical_addr = self.mem_controller.to_physical_address(new_access.addr);
         let partition_addr = self
-            // .inner
             .mem_controller
             .memory_partition_address(new_access.addr);
 
@@ -407,7 +394,7 @@ where
             warp_id: fetch.warp_id,
             core_id: fetch.core_id,
             cluster_id: fetch.cluster_id,
-            tlx_addr,
+            physical_addr,
             partition_addr,
         }
         .build();
@@ -468,8 +455,8 @@ where
                         // .inner
                         .mem_controller
                         .to_physical_address(writeback_access.addr);
-                    tlx_addr.chip = fetch.tlx_addr.chip;
-                    tlx_addr.sub_partition = fetch.tlx_addr.sub_partition;
+                    tlx_addr.chip = fetch.physical_addr.chip;
+                    tlx_addr.sub_partition = fetch.physical_addr.sub_partition;
 
                     let partition_addr = self
                         .mem_controller
@@ -481,7 +468,7 @@ where
                         warp_id: 0,
                         core_id: 0,
                         cluster_id: 0,
-                        tlx_addr,
+                        physical_addr,
                         partition_addr,
                     }
                     .build();

@@ -236,7 +236,7 @@ mod tests {
 
         // if we ever need to use real addresses
         let _mem_controller = mcu::MemoryControllerUnit::new(&config)?;
-        let tlx_addr = crate::mcu::TranslatedAddress::default();
+        let physical_addr = crate::mcu::PhysicalAddress::default();
         let partition_addr = 0;
 
         let fetch = mem_fetch::Builder {
@@ -245,7 +245,7 @@ mod tests {
             warp_id: 0,
             core_id: 0,
             cluster_id: 0,
-            tlx_addr,
+            physical_addr,
             partition_addr,
         }
         .build();

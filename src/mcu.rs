@@ -320,7 +320,7 @@ pub trait MemoryController: std::fmt::Debug + Send + Sync + 'static {
 
     /// Compute the physical address for a virtual address.
     #[must_use]
-    fn to_physical_address(&self, addr: address) -> TranslatedAddress;
+    fn to_physical_address(&self, addr: address) -> PhysicalAddress;
 
     /// The number of memory partitions connected to the memory controller
     #[must_use]
@@ -351,8 +351,8 @@ impl MemoryController for MemoryControllerUnit {
     }
 
     #[inline]
-    fn to_physical_address(&self, addr: address) -> TranslatedAddress {
-        let mut tlx = TranslatedAddress::default();
+    fn to_physical_address(&self, addr: address) -> PhysicalAddress {
+        let mut tlx = PhysicalAddress::default();
         let num_channels = self.num_channels as u64;
 
         let dec = &self.decode_config;
@@ -431,7 +431,7 @@ fn packbits(mask: super::address, val: super::address, low: u8, high: u8) -> sup
 }
 
 #[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
-pub struct TranslatedAddress {
+pub struct PhysicalAddress {
     pub bk: u64,
     pub chip: u64,
     pub row: u64,
@@ -440,7 +440,7 @@ pub struct TranslatedAddress {
     pub sub_partition: u64,
 }
 
-impl std::hash::Hash for TranslatedAddress {
+impl std::hash::Hash for PhysicalAddress {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.bk.hash(state);
         self.chip.hash(state);
@@ -460,7 +460,7 @@ mod tests {
         format!("{n:064b}")
     }
 
-    impl From<playground::addrdec::AddrDec> for super::TranslatedAddress {
+    impl From<playground::addrdec::AddrDec> for super::PhysicalAddress {
         fn from(addr: playground::addrdec::AddrDec) -> Self {
             Self {
                 chip: u64::from(addr.chip),
@@ -473,10 +473,10 @@ mod tests {
         }
     }
 
-    fn compute_tlx(
+    fn compute_physical_addr(
         config: &config::GPU,
         addr: u64,
-    ) -> (super::TranslatedAddress, super::TranslatedAddress) {
+    ) -> (super::PhysicalAddress, super::PhysicalAddress) {
         let mapping = config.address_mapping();
         let ref_mapping = playground::addrdec::AddressTranslation::new(
             config.num_memory_controllers as u32,
@@ -484,7 +484,7 @@ mod tests {
         );
         (
             mapping.to_physical_address(addr),
-            super::TranslatedAddress::from(ref_mapping.tlx(addr)),
+            super::PhysicalAddress::from(ref_mapping.tlx(addr)),
         )
     }
 
@@ -572,59 +572,59 @@ mod tests {
     }
 
     #[test]
-    fn test_tlx_sub_partition_gtx1080() {
+    fn test_physical_addr_sub_partition_gtx1080() {
         let config = config::GPU {
             num_memory_controllers: 8,
             num_sub_partition_per_memory_channel: 2,
             ..config::GPU::default()
         };
 
-        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 140_159_034_064_896);
+        let (tlx_addr, ref_tlx_addr) = compute_physical_addr(&config, 140_159_034_064_896);
         dbg!(&tlx_addr, &ref_tlx_addr);
         assert_eq!(ref_tlx_addr.sub_partition, 0);
         assert_eq!(tlx_addr.sub_partition, 0);
 
-        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 140_159_034_065_024);
+        let (tlx_addr, ref_tlx_addr) = compute_physical_addr(&config, 140_159_034_065_024);
         dbg!(&tlx_addr, &ref_tlx_addr);
         assert_eq!(ref_tlx_addr.sub_partition, 1);
         assert_eq!(tlx_addr.sub_partition, 1);
 
-        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 140_159_034_065_120);
+        let (tlx_addr, ref_tlx_addr) = compute_physical_addr(&config, 140_159_034_065_120);
         dbg!(&tlx_addr, &ref_tlx_addr);
         assert_eq!(ref_tlx_addr.sub_partition, 1);
         assert_eq!(tlx_addr.sub_partition, 1);
 
-        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 140_159_034_065_152);
+        let (tlx_addr, ref_tlx_addr) = compute_physical_addr(&config, 140_159_034_065_152);
         dbg!(&tlx_addr, &ref_tlx_addr);
         assert_eq!(ref_tlx_addr.sub_partition, 2);
         assert_eq!(tlx_addr.sub_partition, 2);
 
-        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 140_159_034_065_472);
+        let (tlx_addr, ref_tlx_addr) = compute_physical_addr(&config, 140_159_034_065_472);
         dbg!(&tlx_addr, &ref_tlx_addr);
         assert_eq!(ref_tlx_addr.sub_partition, 4);
         assert_eq!(tlx_addr.sub_partition, 4);
 
-        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 140_159_034_066_048);
+        let (tlx_addr, ref_tlx_addr) = compute_physical_addr(&config, 140_159_034_066_048);
         dbg!(&tlx_addr, &ref_tlx_addr);
         assert_eq!(ref_tlx_addr.sub_partition, 9);
         assert_eq!(tlx_addr.sub_partition, 9);
 
-        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 140_159_034_066_432);
+        let (tlx_addr, ref_tlx_addr) = compute_physical_addr(&config, 140_159_034_066_432);
         dbg!(&tlx_addr, &ref_tlx_addr);
         assert_eq!(ref_tlx_addr.sub_partition, 12);
         assert_eq!(tlx_addr.sub_partition, 12);
 
-        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 140_159_034_066_944);
+        let (tlx_addr, ref_tlx_addr) = compute_physical_addr(&config, 140_159_034_066_944);
         dbg!(&tlx_addr, &ref_tlx_addr);
         assert_eq!(ref_tlx_addr.sub_partition, 0);
         assert_eq!(tlx_addr.sub_partition, 0);
     }
 
     #[test]
-    fn test_tlx() {
+    fn test_physical_addr() {
         let config = config::GPU::default();
-        let (tlx_addr, ref_tlx_addr) = compute_tlx(&config, 139_823_420_539_008);
-        let want = super::TranslatedAddress {
+        let (tlx_addr, ref_tlx_addr) = compute_physical_addr(&config, 139_823_420_539_008);
+        let want = super::PhysicalAddress {
             chip: 0,
             bk: 1,
             row: 2900,
