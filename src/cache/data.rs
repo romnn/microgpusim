@@ -28,19 +28,11 @@ pub struct Builder<MC, CC> {
 /// at the granularity of individual blocks.
 /// (the policy used in fermi according to the CUDA manual)
 #[derive(Debug)]
-// pub struct Data<I> {
 pub struct Data<MC, CC> {
-    // pub inner: cache::base::Base<I>,
-    // pub inner: cache::base::Base<MC>,
-    // pub inner: cache::base::Base<mcu::MemoryControllerUnit>,
-    // pub inner: cache::base::Base<MC, tag_array::Pascal>,
     pub inner: cache::base::Base<CC>,
 
     /// Memory controller
     pub mem_controller: MC,
-
-    /// Cache controller
-    // pub cache_controller: CC,
 
     /// Specifies type of write allocate request (e.g., L1 or L2)
     write_alloc_type: AccessKind,
@@ -50,33 +42,14 @@ pub struct Data<MC, CC> {
 
 impl<MC, CC> Builder<MC, CC>
 where
-    CC: Clone, // where
-               // MC: Clone,
-               // impl Data
-               // impl<I> Data<I>
-               // where
-               // I: ic::MemFetchInterface,
-               // I: Arc<Mutex<crate::fifo::Fifo<mem_fetch::MemFetch>>>,
+    CC: Clone,
 {
-    pub fn build(
-        self, // name: String,
-              // core_id: usize,
-              // cluster_id: usize,
-              // // mem_port: Arc<Mutex<crate::fifo::Fifo<mem_fetch::MemFetch>>>,
-              // stats: Arc<Mutex<stats::Cache>>,
-              // config: Arc<config::GPU>,
-              // cache_config: Arc<config::Cache>,
-              // write_alloc_type: AccessKind,
-              // write_back_type: AccessKind,
-    ) -> Data<MC, CC> {
-        // mem_controller: mcu::MemoryControllerUnit::new(&*config).unwrap(),
-        // let cache_controller = tag_array::Pascal::new((&*self.cache_config).into());
+    pub fn build(self) -> Data<MC, CC> {
         let inner = super::base::Builder {
             name: self.name,
             core_id: self.core_id,
             cluster_id: self.cluster_id,
             stats: self.stats,
-            // mem_controller: self.mem_controller.clone(),
             cache_controller: self.cache_controller,
             cache_config: self.cache_config,
         }
@@ -97,22 +70,11 @@ impl<MC, CC> Data<MC, CC> {
     }
 }
 
-// impl Data {
 impl<MC, CC> Data<MC, CC>
 where
     MC: MemoryController,
     CC: CacheAddressTranslation,
 {
-    // #[inline]
-    // pub fn set_top_port(&mut self, port: ic::Port<mem_fetch::MemFetch>) {
-    //     self.inner.set_top_port(port);
-    // }
-
-    // #[must_use]
-    // pub fn cache_config(&self) -> &Arc<config::Cache> {
-    //     &self.inner.cache_config
-    // }
-
     /// Write-back hit: mark block as modified.
     fn write_hit_write_back(
         &mut self,
@@ -499,7 +461,6 @@ where
                         sector_mask: evicted.sector_mask,
                     }
                     .build();
-                    // let control_size = writeback_access.control_size();
 
                     // the evicted block may have wrong chip id when advanced L2 hashing
                     // is used, so set the right chip address from the original mf
@@ -511,15 +472,12 @@ where
                     tlx_addr.sub_partition = fetch.tlx_addr.sub_partition;
 
                     let partition_addr = self
-                        // .inner
                         .mem_controller
                         .memory_partition_address(writeback_access.addr);
 
                     let writeback_fetch = mem_fetch::Builder {
                         instr: None,
                         access: writeback_access,
-                        // &self.inner.config,
-                        // control_size,
                         warp_id: 0,
                         core_id: 0,
                         cluster_id: 0,
@@ -552,10 +510,7 @@ where
     ) -> cache::RequestStatus {
         use cache::config::WriteAllocatePolicy;
         let func = match self.inner.cache_config.write_allocate_policy {
-            WriteAllocatePolicy::NO_WRITE_ALLOCATE => {
-                // unimplemented!("no write allocate");
-                Self::write_miss_no_write_allocate
-            }
+            WriteAllocatePolicy::NO_WRITE_ALLOCATE => Self::write_miss_no_write_allocate,
             WriteAllocatePolicy::WRITE_ALLOCATE => Self::write_miss_write_allocate_naive,
             WriteAllocatePolicy::FETCH_ON_WRITE => {
                 // Self::write_miss_write_allocate_fetch_on_write
@@ -736,11 +691,7 @@ where
     }
 }
 
-impl<MC, CC> crate::engine::cycle::Component for Data<MC, CC>
-// impl<I> crate::engine::cycle::Component for Data<I>
-// where
-//     I: ic::MemFetchInterface,
-{
+impl<MC, CC> crate::engine::cycle::Component for Data<MC, CC> {
     fn cycle(&mut self, cycle: u64) {
         self.inner.cycle(cycle);
     }
@@ -748,11 +699,8 @@ impl<MC, CC> crate::engine::cycle::Component for Data<MC, CC>
 
 impl<MC, CC> cache::Cache for Data<MC, CC>
 where
-    CC: CacheAddressTranslation, // impl cache::Cache for Data
-    MC: MemoryController,        // impl cache::Cache for Data
-                                 // impl<I> cache::Cache for Data<I>
-                                 // where
-                                 //     I: ic::MemFetchInterface + 'static,
+    CC: CacheAddressTranslation,
+    MC: MemoryController,
 {
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -790,7 +738,6 @@ where
 
         let dbg_fetch = fetch.clone();
 
-        // let (cache_index, probe_status) = self
         let probe = self
             .inner
             .tag_array
@@ -800,11 +747,7 @@ where
             .unwrap_or(cache::RequestStatus::RESERVATION_FAIL);
         // dbg!((cache_index, probe_status));
 
-        let access_status = self.process_tag_probe(
-            is_write, probe, // probe_status,
-            // cache_index,
-            addr, fetch, events, time,
-        );
+        let access_status = self.process_tag_probe(is_write, probe, addr, fetch, events, time);
         // dbg!(&access_status);
 
         log::debug!(
@@ -824,7 +767,7 @@ where
             cache::RequestStatus::SECTOR_MISS if access_status != cache::RequestStatus::MISS => {
                 probe_status
             }
-            _status => access_status,
+            _ => access_status,
         };
         let mut stats = self.inner.stats.lock();
         stats.inc(
@@ -871,8 +814,6 @@ where
     }
 }
 
-// impl<I> cache::Bandwidth for Data<I> {
-// impl cache::Bandwidth for Data {
 impl<MC, CC> cache::Bandwidth for Data<MC, CC> {
     fn has_free_data_port(&self) -> bool {
         self.inner.has_free_data_port()

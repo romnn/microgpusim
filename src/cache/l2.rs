@@ -9,22 +9,9 @@ where
     MC: std::fmt::Debug,
     CC: std::fmt::Debug,
 {
-    // set_index_function: crate::set_index::linear::SetIndex,
-    // config: cache::Config,
     memory_controller: MC,
     cache_controller: CC,
-    // inner: crate::tag_array::Pascal,
-    // inner: crate::tag_array::Pascal,
 }
-
-// impl Pascal {
-//     pub fn new(config: cache::Config) -> Self {
-//         Self {
-//             config,
-//             set_index_function: crate::set_index::linear::SetIndex::default(),
-//         }
-//     }
-// }
 
 impl<MC, CC> crate::tag_array::CacheAddressTranslation for L2CacheController<MC, CC>
 where
@@ -33,28 +20,23 @@ where
 {
     #[inline]
     fn tag(&self, addr: address) -> address {
-        // todo!();
         self.cache_controller.tag(addr)
     }
 
     #[inline]
     fn block_addr(&self, addr: address) -> address {
-        // todo!();
         self.cache_controller.block_addr(addr)
     }
 
     #[inline]
     fn set_index(&self, addr: address) -> u64 {
-        // todo!();
-        // let partition_addr = addr;
         let partition_addr = self.memory_controller.memory_partition_address(addr);
-        println!("partition address for addr {} is {}", addr, partition_addr);
+        // println!("partition address for addr {} is {}", addr, partition_addr);
         self.cache_controller.set_index(partition_addr)
     }
 
     #[inline]
     fn mshr_addr(&self, addr: address) -> address {
-        // todo!();
         self.cache_controller.mshr_addr(addr)
     }
 }
@@ -62,32 +44,23 @@ where
 /// Generic data cache.
 #[derive(Debug)]
 #[allow(clippy::module_name_repetitions)]
-// pub struct DataL2<I> {
 pub struct DataL2 {
     pub inner: super::data::Data<
         mcu::MemoryControllerUnit,
         L2CacheController<mcu::MemoryControllerUnit, tag_array::Pascal>,
     >,
-    // pub inner: super::data::Data<I>,
     pub cache_config: Arc<config::L2DCache>,
 }
 
-impl DataL2
-// impl<I> DataL2<I>
-// where
-//     // I: ic::MemFetchInterface,
-//     I: crate::fifo::Queue<mem_fetch::MemFetch>,
-{
+impl DataL2 {
     pub fn new(
         name: String,
         core_id: usize,
         cluster_id: usize,
-        // fetch_interconn: Arc<I>,
         stats: Arc<Mutex<stats::Cache>>,
         config: Arc<config::GPU>,
         cache_config: Arc<config::L2DCache>,
     ) -> Self {
-        // let memory_controller = config.address_mapping().clone();
         let mem_controller = mcu::MemoryControllerUnit::new(&*config).unwrap();
         let cache_controller = L2CacheController {
             memory_controller: mem_controller.clone(),
@@ -108,10 +81,6 @@ impl DataL2
             write_back_type: AccessKind::L2_WRBK_ACC,
         }
         .build();
-        // TODO: crate a builder for data cache and base cache
-        // inner.inner.addr_translation = L2CacheController {
-        //     // inner: mmeory_controller,
-        // };
         Self {
             inner,
             cache_config,
@@ -124,21 +93,13 @@ impl DataL2
     }
 }
 
-impl crate::engine::cycle::Component for DataL2
-// impl<I> crate::engine::cycle::Component for DataL2<I>
-// where
-//     I: ic::MemFetchInterface,
-{
+impl crate::engine::cycle::Component for DataL2 {
     fn cycle(&mut self, cycle: u64) {
         self.inner.cycle(cycle);
     }
 }
 
-impl super::Cache for DataL2
-// impl<I> super::Cache for DataL2<I>
-// where
-//     I: ic::MemFetchInterface + 'static,
-{
+impl super::Cache for DataL2 {
     #[inline]
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -219,11 +180,7 @@ impl super::Cache for DataL2
     }
 }
 
-impl super::Bandwidth for DataL2
-// impl<I> super::Bandwidth for DataL2<I>
-// where
-//     I: ic::MemFetchInterface,
-{
+impl super::Bandwidth for DataL2 {
     fn has_free_data_port(&self) -> bool {
         self.inner.has_free_data_port()
     }

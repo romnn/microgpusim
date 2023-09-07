@@ -11,7 +11,7 @@ unsigned l2_cache_config::set_index(new_addr_type addr) const {
   if (m_address_mapping) {
     // Calculate set index without memory partition bits to reduce set camping
     part_addr = m_address_mapping->partition_address(addr);
-    fmt::println("partition address for addr {} is {}", addr, part_addr);
+    // fmt::println("partition address for addr {} is {}", addr, part_addr);
   }
 
   return cache_config::set_index(part_addr);

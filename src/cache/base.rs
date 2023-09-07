@@ -30,37 +30,24 @@ impl PendingRequest {}
 /// Implements common functions for `read_only_cache` and `data_cache`
 /// Each subclass implements its own 'access' function
 #[derive()]
-// pub struct Base {
-// pub struct Base<MC, CC> {
 pub struct Base<CC> {
     pub name: String,
     pub core_id: usize,
     pub cluster_id: usize,
 
     pub stats: Arc<Mutex<stats::Cache>>,
-    // pub config: Arc<config::GPU>,
-    // pub cache_config: Arc<config::Cache>,
     pub cache_controller: CC,
-    // pub cache_controller: tag_array::Pascal,
-    // pub mem_controller: Box<dyn mcu::MemoryController>,
-    // pub phantom: std::marker::PhantomData<MC>,
-    // pub mem_controller: MC,
     pub cache_config: cache::Config,
 
     pub miss_queue: VecDeque<mem_fetch::MemFetch>,
     pub miss_queue_status: mem_fetch::Status,
     pub mshrs: mshr::Table<mem_fetch::MemFetch>,
     pub tag_array: tag_array::TagArray<cache::block::Line, CC>,
-    // pub tag_array: tag_array::TagArray<cache::block::Line, tag_array::Pascal>,
     pending: HashMap<mem_fetch::MemFetch, PendingRequest>,
     top_port: Option<ic::Port<mem_fetch::MemFetch>>,
-    // mem_port: Arc<I>,
-    // Arc<Mutex<crate::fifo::Fifo<mem_fetch::MemFetch>>>,
     pub bandwidth: super::bandwidth::Manager,
 }
 
-// impl std::fmt::Debug for Base {
-// impl<MC, CC> std::fmt::Debug for Base<MC, CC> {
 impl<CC> std::fmt::Debug for Base<CC> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("Base")
@@ -72,48 +59,21 @@ impl<CC> std::fmt::Debug for Base<CC> {
     }
 }
 
-// pub struct CacheConfig {
-//     // todo: maybe make that a fifo queue
-//     pub miss_queue_size: usize,
-// }
-
-// #[derive(Debug)]
-// pub struct RemoveMe {}
-//
-// impl mcu::MemoryController for RemoveMe {
-//     fn memory_partition_address(&self, addr: address) -> address {
-//         0
-//     }
-//     fn to_physical_address(&self, addr: address) -> mcu::TranslatedAddress {
-//         mcu::TranslatedAddress::default()
-//     }
-//     fn num_memory_partitions(&self) -> usize {
-//         0
-//     }
-//     fn num_memory_sub_partitions(&self) -> usize {
-//         0
-//     }
-// }
-
 #[derive(Debug, Clone)]
-// pub struct Builder<MC, CC> {
 pub struct Builder<CC> {
     pub name: String,
     pub core_id: usize,
     pub cluster_id: usize,
     pub stats: Arc<Mutex<stats::Cache>>,
     pub cache_controller: CC,
-    // pub mem_controller: MC,
     pub cache_config: Arc<config::Cache>,
 }
 
-// impl<MC, CC> Builder<MC, CC> {
 impl<CC> Builder<CC>
 where
     CC: Clone,
 {
     #[must_use]
-    // pub fn build(self) -> Base<MC, CC> {
     pub fn build(self) -> Base<CC> {
         let cache_config = self.cache_config;
         let tag_array =
@@ -128,7 +88,6 @@ where
         let bandwidth = super::bandwidth::Manager::new(cache_config.clone());
 
         let cache_config = cache::Config::from(&*cache_config);
-        // let cache_controller = tag_array::Pascal::new(cache_config.clone());
 
         let miss_queue = VecDeque::with_capacity(cache_config.miss_queue_size);
 
@@ -140,12 +99,7 @@ where
             mshrs,
             top_port: None,
             stats: self.stats,
-            // config,
-            // mem_controller: Box::new(ReplaceMe {}),
             cache_config,
-            // addr_translation,
-            // phantom: std::marker::PhantomData,
-            // mem_controller: self.mem_controller,
             cache_controller: self.cache_controller,
             bandwidth,
             pending: HashMap::new(),
@@ -155,7 +109,6 @@ where
     }
 }
 
-// impl<MC, CC> Base<MC, CC>
 impl<CC> Base<CC>
 where
     CC: CacheAddressTranslation,
@@ -237,7 +190,6 @@ where
 
             // change address to mshr block address
             fetch.access.req_size_bytes = self.cache_config.atom_size;
-            // fetch.data_size = self.cache_config.atom_size();
             fetch.access.addr = mshr_addr;
 
             self.mshrs.add(mshr_addr, fetch.clone());
@@ -274,13 +226,7 @@ where
     }
 }
 
-// impl<I> crate::engine::cycle::Component for Base<I>
-// impl crate::engine::cycle::Component for Base
-// impl<MC, CC> crate::engine::cycle::Component for Base<MC, CC>
-impl<CC> crate::engine::cycle::Component for Base<CC>
-// where
-//     I: ic::MemFetchInterface,
-{
+impl<CC> crate::engine::cycle::Component for Base<CC> {
     /// Sends next request to top memory in the memory hierarchy.
     fn cycle(&mut self, cycle: u64) {
         let Some(ref top_level_memory_port) = self.top_port else {
@@ -306,7 +252,6 @@ impl<CC> crate::engine::cycle::Component for Base<CC>
             } else {
                 fetch.control_size()
             };
-            // if top_level_memory_port.full(fetch.size(), fetch.is_write()) {
             if top_level_memory_port.can_send(&[packet_size]) {
                 let fetch = self.miss_queue.pop_front().unwrap();
                 log::debug!(
@@ -329,13 +274,7 @@ impl<CC> crate::engine::cycle::Component for Base<CC>
     }
 }
 
-// impl Base
-// impl<MC, CC> Base<MC, CC>
-impl<CC> Base<CC>
-// impl<I> Base<I>
-// where
-// I: ic::MemFetchInterface,
-{
+impl<CC> Base<CC> {
     /// Checks whether this request can be handled in this cycle.
     ///
     /// `n` equals the number of misses to be handled in this cycle.
@@ -465,9 +404,6 @@ where
     }
 }
 
-// impl<I> super::Bandwidth for Base<I> {
-// impl super::Bandwidth for Base {
-// impl<MC, CC> super::Bandwidth for Base<MC, CC> {
 impl<CC> super::Bandwidth for Base<CC> {
     fn has_free_data_port(&self) -> bool {
         self.bandwidth.has_free_data_port()

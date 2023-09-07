@@ -2,6 +2,7 @@
 
 - today:
 
+  - use gpu_mem_alloc for the allocations but still allow smart comparision with play whose traces does not include allocations
   - xtask task for converting traces? or do that in the validation component
 
   - validate the number of warp instructions for the execution driven frontend and test that.
@@ -19,13 +20,13 @@
 
     - per allocation stats
 
-  - fix that cache index unwrapping design
   - add config parsing for box
   - generate data for the different parallel implementations speedups
     - how well does it scale for 20 instead of 80 cores
   - convert, match and plot statistics
   - record mem fetch latency in playground and box
 
+  - DONE: fix that cache index unwrapping design
   - DONE: playground stats (should match accelsim)
   - DONE: builder for mem access as well
   - DONE: consolidate deterministic parallelism, make rayon optional finally
@@ -66,8 +67,6 @@
   - DONE: add compute instructions
 
   - todos
-
-    - use gpu_mem_alloc for the allocations but still allow smart comparision with play whose traces does not include allocations
 
   - refactor
 
