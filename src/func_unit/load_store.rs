@@ -310,11 +310,8 @@ impl LoadStoreUnit {
                         log::debug!(
                             "{}",
                             style(format!(
-                                "ldst unit writeback: has global {:?} ({})",
-                                &next_global
-                                    .instr
-                                    .as_ref()
-                                    .map(std::string::ToString::to_string),
+                                "ldst unit writeback: has global {} ({})",
+                                crate::Optional(next_global.instr.as_ref()),
                                 &next_global.addr()
                             ))
                             .magenta(),
@@ -346,11 +343,11 @@ impl LoadStoreUnit {
         if let Some(serviced) = serviced_client {
             self.writeback_arb = (serviced + 1) % self.num_writeback_clients;
             log::debug!(
-                "{} {:?} ({}) => next writeback={:?}",
+                "{} {:?} ({}) => next writeback={}",
                 style("load store unit writeback serviced client").magenta(),
                 WritebackClient::from_repr(serviced),
                 serviced,
-                self.next_writeback.as_ref().map(ToString::to_string),
+                crate::Optional(self.next_writeback.as_ref()),
             );
         }
     }
@@ -1074,11 +1071,7 @@ impl fu::SimdFunctionUnit for LoadStoreUnit
     }
 }
 
-impl crate::engine::cycle::Component for LoadStoreUnit
-// impl<I> crate::engine::cycle::Component for LoadStoreUnit<I>
-// where
-//     I: ic::MemFetchInterface + 'static,
-{
+impl crate::engine::cycle::Component for LoadStoreUnit {
     fn cycle(&mut self, cycle: u64) {
         log::debug!(
             "fu[{:03}] {:<10} cycle={:03}: \tpipeline={:?} ({}/{} active) \tresponse fifo={:?}",

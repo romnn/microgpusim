@@ -31,7 +31,7 @@ where
 
     #[inline]
     fn set_index(&self, addr: address) -> u64 {
-        let mut partition_addr = addr;
+        let partition_addr = addr;
         // partition_addr = self.memory_controller.memory_partition_address(addr);
         // println!("partition address for addr {} is {}", addr, partition_addr);
         self.cache_controller.set_index(partition_addr)

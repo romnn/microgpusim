@@ -274,14 +274,6 @@ fn flatten(value: serde_yaml::Value) -> Vec<PrimitiveValue> {
 
 #[must_use]
 pub fn bench_config_name(name: &str, input: &super::matrix::Input) -> String {
-    // let bench_config_dir_name: Vec<_> = input
-    //     .values()
-    //     .cloned()
-    //     .flat_map(flatten)
-    //     .map(|value| value.to_string())
-    //     .collect();
-    // dbg!(&bench_config_dir_name);
-
     let mut bench_config_dir_name = Vec::new();
     for (k, v) in input.clone() {
         bench_config_dir_name.push(k);
@@ -1049,17 +1041,6 @@ benchmarks:
         // dbg!(&benchmark);
         let materialized = benchmark.materialize(&base)?;
 
-        // let query = |name: &str,
-        //              input: crate::matrix::Input,
-        //              strict: bool|
-        //  -> Vec<Result<String, super::QueryError>> {
-        // let process = |name: &str,
-        //     materialized
-        //         .query(name, input, strict)
-        //         .map_ok(|bench_config| bench_config.uid.clone())
-        //         .sorted()
-        //         .collect::<Vec<_>>()
-        // };
         macro_rules! query {
             ($query:expr) => {{
                 $query

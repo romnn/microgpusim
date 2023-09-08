@@ -4,7 +4,6 @@ use crate::ic::ToyInterconnect;
 use crate::sync::{Arc, Mutex, RwLock};
 use crate::{
     config, core, engine::cycle::Component, ic, mem_fetch, mem_sub_partition, MockSimulator,
-    TIMINGS,
 };
 use color_eyre::eyre;
 use ndarray::prelude::*;
@@ -1419,7 +1418,7 @@ where
     //
     //                         // #[cfg(feature = "timings")]
     //                         // {
-    //                         //     TIMINGS
+    //                         //     crate::TIMINGS
     //                         //         .lock()
     //                         //         .entry("parallel::cluster")
     //                         //         .or_default()
@@ -1492,7 +1491,7 @@ where
     //                 // self.issue_block_to_core();
     //                 // #[cfg(feature = "timings")]
     //                 // {
-    //                 //     TIMINGS
+    //                 //     crate::TIMINGS
     //                 //         .lock()
     //                 //         .entry("serial::issue_block_to_core")
     //                 //         .or_default()

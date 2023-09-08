@@ -127,7 +127,7 @@ where
         warp.ibuffer_step();
 
         log::debug!(
-            "{} by scheduler {} to pipeline[{:?}][{}] {:?}",
+            "{} by scheduler {} to pipeline[{:?}][{}] {}",
             style(format!(
                 "cycle {:02} issue {} for warp {}",
                 cycle, next_instr, warp.warp_id
@@ -136,7 +136,7 @@ where
             scheduler_id,
             stage,
             reg_idx,
-            pipe_reg.as_ref().map(ToString::to_string),
+            crate::Optional(pipe_reg.as_ref()),
         );
 
         // this sets all the info for the warp instruction in pipe reg
@@ -1725,9 +1725,9 @@ where
 
             log::trace!("occupied: {}", fu.occupied().to_bit_string());
             log::trace!(
-                "{} checking {:?}: fu[{:03}] can issue={:?} latency={:?}",
+                "{} checking {}: fu[{:03}] can issue={:?} latency={:?}",
                 style(format!("cycle {cycle:03} core {core_id:?}: execute:",)).red(),
-                ready_reg.as_ref().map(ToString::to_string),
+                crate::Optional(ready_reg.as_ref()),
                 fu_id,
                 ready_reg.as_ref().map(|instr| fu.can_issue(instr)),
                 ready_reg.as_ref().map(|instr| instr.latency),

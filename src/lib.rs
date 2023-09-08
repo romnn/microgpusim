@@ -82,6 +82,32 @@ pub fn parse_commands(path: impl AsRef<Path>) -> eyre::Result<Vec<Command>> {
     Ok(commands)
 }
 
+pub struct Optional<T>(Option<T>);
+
+impl<T> std::fmt::Display for Optional<T>
+where
+    T: std::fmt::Display,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.0 {
+            Some(ref value) => write!(f, "Some({value})"),
+            None => write!(f, "None"),
+        }
+    }
+}
+
+impl<T> std::fmt::Debug for Optional<T>
+where
+    T: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.0 {
+            Some(ref value) => write!(f, "Some({value:?})"),
+            None => write!(f, "None"),
+        }
+    }
+}
+
 #[derive(Default, Debug)]
 pub struct TotalDuration {
     count: u128,
@@ -136,9 +162,8 @@ pub static WIP_STATS: once_cell::sync::Lazy<Mutex<WIPStats>> =
 #[macro_export]
 macro_rules! timeit {
     ($name:expr, $call:expr) => {{
-        if true {
-            $call
-        } else {
+        #[cfg(feature = "timings")]
+        {
             let start = std::time::Instant::now();
             let res = $call;
             let dur = start.elapsed();
@@ -147,6 +172,8 @@ macro_rules! timeit {
             drop(timings);
             res
         }
+        #[cfg(not(feature = "timings"))]
+        $call
     }};
     ($call:expr) => {{
         $crate::timeit!(stringify!($call), $call)

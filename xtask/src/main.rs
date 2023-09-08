@@ -31,7 +31,7 @@ fn main() -> eyre::Result<()> {
         Command::Coverage(ref opts) => coverage::coverage(opts),
         Command::Format(opts) => format::format(opts),
         Command::Accelsim(opts) => accelsim::run(opts),
-        Command::Trace(opts) => trace::run(opts),
+        Command::Trace(opts) => trace::run(&opts),
         Command::Docs => docs::docs(),
     }
 }

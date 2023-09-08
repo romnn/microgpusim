@@ -17,7 +17,7 @@ pub async fn profile(
 ) -> Result<(), RunError> {
     let profile_dir = &bench.profile.profile_dir;
     if options.clean {
-        utils::fs::remove_dir(&profile_dir).map_err(eyre::Report::from)?;
+        utils::fs::remove_dir(profile_dir).map_err(eyre::Report::from)?;
     }
 
     create_dirs(profile_dir).map_err(eyre::Report::from)?;

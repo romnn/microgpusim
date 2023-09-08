@@ -2,6 +2,8 @@
 
 - today:
 
+  - Optional new type to simplify display printing for optionals
+
   - check for statistical variability with profiling
 
   - add option for l2 set index unless when in compat mode

@@ -31,7 +31,7 @@ fn parse_accelsim_traces(
         tracegen::reader::read_traces_for_commands(trace_dir, commands, mem_only)?;
 
     // note: accelsim kernel launch ids start at index 1
-    for (cmd, _) in command_traces.iter_mut() {
+    for (cmd, _) in &mut command_traces {
         if let trace_model::Command::KernelLaunch(kernel) = cmd {
             kernel.id -= 1;
         }
@@ -48,8 +48,8 @@ fn parse_box_traces(
 
     let commands: Vec<trace_model::Command> = {
         let reader = utils::fs::open_readable(commands)?;
-        let commands = serde_json::from_reader(reader)?;
-        commands
+
+        serde_json::from_reader(reader)?
     };
 
     let command_traces = commands
@@ -92,6 +92,7 @@ fn parse_trace(
     Ok(commands_traces)
 }
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TraceCommandKey {
     MemcpyHtoD {},
@@ -99,6 +100,7 @@ pub enum TraceCommandKey {
     KernelLaunch { id: u64 },
 }
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Debug)]
 pub struct TraceCommand(trace_model::Command);
 
@@ -121,10 +123,11 @@ impl std::cmp::PartialEq for TraceCommand {
 
 impl std::hash::Hash for TraceCommand {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.key().hash(state)
+        self.key().hash(state);
     }
 }
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Clone)]
 pub struct TraceInstruction(trace_model::MemAccessTraceEntry);
 
@@ -171,7 +174,7 @@ impl std::fmt::Display for TraceInstruction {
         write!(
             f,
             "     [ block {} warp{:>3} ]\t inst_idx={:<4}  offset={:<4}\t {:<20}\t\t active={}",
-            self.0.block_id.to_string(),
+            self.0.block_id,
             self.0.warp_id_in_block,
             self.0.instr_idx,
             self.0.instr_offset,
@@ -204,15 +207,15 @@ impl From<trace_model::WarpTraces> for WarpTraces {
     }
 }
 
-fn print_trace(warp_traces: WarpTraces) {
-    for ((block_id, warp_id), trace) in warp_traces.0.iter() {
+fn print_trace(warp_traces: &WarpTraces) {
+    for ((block_id, warp_id), trace) in &warp_traces.0 {
         println!(
             "#### block={:<10} warp={:<2}",
             block_id.to_string(),
             warp_id
         );
         for (_trace_idx, entry) in trace.iter().enumerate() {
-            println!("{}", entry);
+            println!("{entry}");
         }
     }
 }
@@ -222,13 +225,13 @@ fn trace_info(commands: &Path) -> eyre::Result<()> {
     let mem_only = false;
     let command_traces = parse_trace(trace_dir, commands, mem_only)?;
 
-    for (i, (cmd, warp_traces)) in command_traces.into_iter().enumerate() {
-        println!("command {i}: {:?}", cmd);
+    for (i, (cmd, warp_traces)) in command_traces.iter().enumerate() {
+        println!("command {i}: {cmd:?}");
         let Some(warp_traces ) = warp_traces else {
             continue;
         };
 
-        print_trace(warp_traces);
+        print_trace(&warp_traces);
     }
     Ok(())
 }
@@ -260,14 +263,14 @@ fn compare_traces(
         .sorted_by_key(|cmd| cmd.key())
         .collect();
 
-    for (_cmd_idx, cmd) in all_commands.into_iter().enumerate() {
+    for (_cmd_idx, cmd) in all_commands.iter().enumerate() {
         if matches!(
             cmd.0,
             trace_model::Command::MemcpyHtoD(_) | trace_model::Command::MemAlloc(_)
         ) {
             continue;
         }
-        println!("===> command {:?}", cmd);
+        println!("===> command {cmd:?}");
         println!("left: {}", left_commands_path.display());
         println!("right: {}", right_commands_path.display());
         match (
@@ -281,14 +284,12 @@ fn compare_traces(
         }
         let left_trace = left_command_traces
             .get(cmd)
-            .map(Option::as_ref)
-            .flatten()
+            .and_then(Option::as_ref)
             .cloned()
             .unwrap_or_default();
         let right_trace = right_command_traces
             .get(cmd)
-            .map(Option::as_ref)
-            .flatten()
+            .and_then(Option::as_ref)
             .cloned()
             .unwrap_or_default();
 
@@ -296,19 +297,19 @@ fn compare_traces(
             utils::diff::diff!(left: &left_trace, right: &right_trace);
         } else if print_traces {
             // print matching trace
-            print_trace(left_trace);
+            print_trace(&left_trace);
         }
-        println!("");
+        println!();
     }
 
     Ok(())
 }
 
-pub fn run(options: Options) -> eyre::Result<()> {
+pub fn run(options: &Options) -> eyre::Result<()> {
     match options.command {
         Command::Info => {
-            for trace in options.traces.iter() {
-                trace_info(&trace)?;
+            for trace in &options.traces {
+                trace_info(trace)?;
             }
         }
         Command::Compare { print } => {

@@ -327,8 +327,8 @@ where
         let dirty_line_percent = (dirty_line_percent * 100f64) as usize;
 
         log::trace!(
-            "tag_array::probe({:?}) set_idx = {}, tag = {}, assoc = {} dirty lines = {}%",
-            fetch.map(ToString::to_string),
+            "tag_array::probe({}) set_idx = {}, tag = {}, assoc = {} dirty lines = {}%",
+            crate::Optional(fetch),
             set_index,
             tag,
             self.cache_config.associativity,
@@ -340,8 +340,8 @@ where
             let idx = set_index * self.cache_config.associativity + way;
             let line = &self.lines[idx];
             log::trace!(
-                "tag_array::probe({:?}) => checking cache index {} (tag={}, status={:?}, last_access={})",
-                fetch.map(ToString::to_string),
+                "tag_array::probe({}) => checking cache index {} (tag={}, status={:?}, last_access={})",
+                crate::Optional(fetch),
                 idx,
                 line.tag(),
                 line.status(mask),
@@ -406,7 +406,8 @@ where
         }
 
         log::trace!(
-            "tag_array::probe({:?}) => all reserved={} invalid_line={:?} valid_line={:?} ({:?} policy)", fetch.map(ToString::to_string),
+            "tag_array::probe({}) => all reserved={} invalid_line={:?} valid_line={:?} ({:?} policy)",
+            crate::Optional(fetch),
             all_reserved,
             invalid_line,
             valid_line,

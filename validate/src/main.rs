@@ -43,7 +43,7 @@ impl From<Error> for Result<(), validate::RunError> {
     }
 }
 
-pub async fn run_make(
+async fn run_make(
     bench: &BenchmarkConfig,
     options: &Options,
     _bar: &indicatif::ProgressBar,
@@ -85,11 +85,11 @@ async fn run_command(
 ) -> Result<(), validate::RunError> {
     let start = Instant::now();
     let res = match command {
-        Command::Profile(ref opts) => validate::profile::profile(&bench, options, opts, bar).await,
+        Command::Profile(ref opts) => validate::profile::profile(bench, options, opts, bar).await,
         Command::AccelsimTrace(ref opts) => {
-            validate::accelsim::trace(&bench, options, opts, bar).await
+            validate::accelsim::trace(bench, options, opts, bar).await
         }
-        Command::Trace(ref opts) => validate::trace::trace(&bench, options, opts, bar).await,
+        Command::Trace(ref opts) => validate::trace::trace(bench, options, opts, bar).await,
         Command::Simulate(ref opts) => {
             validate::simulate::simulate(bench.clone(), options, opts, bar).await
         }
@@ -99,18 +99,18 @@ async fn run_command(
         Command::PlaygroundSimulate(ref opts) => {
             validate::playground::simulate(bench.clone(), options, opts, bar).await
         }
-        Command::Build(_) => run_make(&bench, options, bar).await,
+        Command::Build(_) => run_make(bench, options, bar).await,
         _ => Ok(()),
     };
 
     let res = res.map_err(|err| Error::new(err, bench.clone()));
     print_benchmark_result(
         &command,
-        &bench,
+        bench,
         res.as_ref().err(),
         start.elapsed(),
-        &bar,
-        &options,
+        bar,
+        options,
     );
     // }
     match res {
@@ -410,8 +410,7 @@ fn available_concurrency(options: &Options, config: &materialize::Config) -> usi
         Command::AccelsimSimulate(_) => config.accelsim_simulate.common.concurrency,
         Command::PlaygroundSimulate(_) => config.playground_simulate.common.concurrency,
         Command::Build(_) | Command::Clean(_) => None, // no limit on concurrency
-        Command::Expand(_) => Some(1),                 // to keep deterministic ordering
-        Command::Full(_) => Some(1),
+        Command::Full(_) | Command::Expand(_) => Some(1),
     };
 
     let max_concurrency = num_cpus::get_physical();
@@ -423,6 +422,7 @@ fn available_concurrency(options: &Options, config: &materialize::Config) -> usi
 }
 
 impl Error {
+    #[must_use]
     pub fn new(err: validate::RunError, bench_config: BenchmarkConfig) -> Self {
         match err {
             validate::RunError::Skipped => Error::Skipped(bench_config),

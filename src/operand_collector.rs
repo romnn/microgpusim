@@ -274,9 +274,9 @@ impl CollectorUnit {
 
     pub fn collect_operand(&mut self, op: usize) {
         log::debug!(
-            "collector unit [{}] {:?} collecting operand for {}",
+            "collector unit [{}] {} collecting operand for {}",
             self.id,
-            self.warp_instr.as_ref().map(ToString::to_string),
+            crate::Optional(self.warp_instr.as_ref()),
             op,
         );
         self.not_ready.set(op, false);
