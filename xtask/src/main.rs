@@ -2,6 +2,7 @@ mod accelsim;
 mod coverage;
 mod docs;
 mod format;
+mod trace;
 mod util;
 
 use clap::Parser;
@@ -12,6 +13,7 @@ pub enum Command {
     Coverage(coverage::Options),
     Format(format::Options),
     Accelsim(self::accelsim::Options),
+    Trace(trace::Options),
     Docs,
 }
 
@@ -29,6 +31,7 @@ fn main() -> eyre::Result<()> {
         Command::Coverage(ref opts) => coverage::coverage(opts),
         Command::Format(opts) => format::format(opts),
         Command::Accelsim(opts) => accelsim::run(opts),
+        Command::Trace(opts) => trace::run(opts),
         Command::Docs => docs::docs(),
     }
 }

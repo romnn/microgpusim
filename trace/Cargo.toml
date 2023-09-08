@@ -9,7 +9,6 @@ crate-type = ["cdylib"]
 
 [features]
 default  = ["parallel"]
-
 parallel = ["dep:rayon"]
 
 [package.metadata.cargo-feature-combinations]

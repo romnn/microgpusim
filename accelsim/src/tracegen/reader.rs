@@ -275,7 +275,7 @@ pub struct TraceInstruction {
 }
 
 #[inline]
-pub fn parse_trace_instruction(
+pub fn parse_single_trace_instruction(
     line: &[&str],
     trace_version: usize,
     line_info: bool,
@@ -531,7 +531,7 @@ pub fn read_trace_instructions(
             }
             instruction => {
                 let trace_instruction =
-                    parse_trace_instruction(instruction, trace_version, line_info)
+                    parse_single_trace_instruction(instruction, trace_version, line_info)
                         .wrap_err_with(|| format!("bad instruction: {instruction:?}"))?;
                 if let Some(parsed_instruction) = parse_instruction(
                     trace_instruction.clone(),
@@ -555,6 +555,44 @@ pub fn read_trace_instructions(
     Ok(instructions)
 }
 
+pub type CommandTraces = Vec<(trace_model::Command, Option<trace_model::MemAccessTrace>)>;
+
+pub fn read_traces_for_commands(
+    trace_dir: impl AsRef<Path>,
+    kernelslist: impl AsRef<Path>,
+    mem_only: bool,
+) -> eyre::Result<CommandTraces> {
+    let reader = utils::fs::open_readable(kernelslist)?;
+    let accelsim_commands = read_commands(trace_dir.as_ref(), reader)?;
+
+    let commands: Vec<_> = accelsim_commands
+        .into_iter()
+        .map(|cmd| match cmd {
+            Command::MemcpyHtoD(memcopy) => {
+                Ok::<_, eyre::Report>((trace_model::Command::MemcpyHtoD(memcopy), None))
+            }
+            Command::KernelLaunch((kernel, metadata)) => {
+                // transform kernel instruction trace
+                let kernel_trace_path = trace_dir.as_ref().join(&kernel.trace_file);
+                let reader = utils::fs::open_readable(kernel_trace_path)?;
+                let parsed_trace = read_trace_instructions(
+                    reader,
+                    metadata.trace_version,
+                    metadata.line_info,
+                    mem_only,
+                    &kernel,
+                )?;
+
+                Ok::<_, eyre::Report>((
+                    trace_model::Command::KernelLaunch(kernel),
+                    Some(trace_model::MemAccessTrace(parsed_trace)),
+                ))
+            }
+        })
+        .try_collect()?;
+    Ok(commands)
+}
+
 #[cfg(test)]
 mod tests {
     use color_eyre::eyre;
@@ -573,7 +611,7 @@ mod tests {
             .split(' ')
             .map(str::trim)
             .collect();
-        let have = super::parse_trace_instruction(&line, 4, false)?;
+        let have = super::parse_single_trace_instruction(&line, 4, false)?;
         let mut mem_addresses = [0x7f0e_5f71_7000; super::WARP_SIZE as usize];
         for (i, base) in mem_addresses.iter_mut().enumerate() {
             *base += (i as u64) * 4;
@@ -599,7 +637,7 @@ mod tests {
             .split(' ')
             .map(str::trim)
             .collect();
-        let have = super::parse_trace_instruction(&line, 4, false)?;
+        let have = super::parse_single_trace_instruction(&line, 4, false)?;
         let want = super::TraceInstruction {
             line_num: None,
             pc: 0xa8,

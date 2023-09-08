@@ -4,9 +4,8 @@ use crate::{
     options::{self, Options},
     RunError,
 };
-use accelsim::tracegen::{self, reader::Command as AccelsimCommand};
+use accelsim::tracegen;
 use color_eyre::{eyre, Help};
-use itertools::Itertools;
 use std::io::Write;
 use std::path::Path;
 use std::time::Duration;
@@ -17,43 +16,29 @@ fn convert_traces_to_json(
     kernelslist: &Path,
     mem_only: bool,
 ) -> eyre::Result<()> {
-    let reader = utils::fs::open_readable(kernelslist)?;
-    let accelsim_commands = tracegen::reader::read_commands(trace_dir, reader)?;
-
-    let commands: Vec<_> = accelsim_commands
-        .into_iter()
-        .map(|cmd| match cmd {
-            AccelsimCommand::MemcpyHtoD(memcopy) => {
-                Ok::<_, eyre::Report>(trace_model::Command::MemcpyHtoD(memcopy))
-            }
-            AccelsimCommand::KernelLaunch((mut kernel, metadata)) => {
-                // transform kernel instruction trace
-                let kernel_trace_path = trace_dir.join(&kernel.trace_file);
-                let reader = utils::fs::open_readable(kernel_trace_path)?;
-                let parsed_trace = tracegen::reader::read_trace_instructions(
-                    reader,
-                    metadata.trace_version,
-                    metadata.line_info,
-                    mem_only,
-                    &kernel,
-                )?;
-
+    let mut command_traces =
+        tracegen::reader::read_traces_for_commands(trace_dir, kernelslist, mem_only)?;
+    for (cmd, traces) in command_traces.iter_mut() {
+        match cmd {
+            trace_model::Command::KernelLaunch(kernel) => {
                 let json_kernel_trace_name = format!("kernel-{}.json", kernel.id);
                 let json_kernel_trace_path = trace_dir.join(&json_kernel_trace_name);
                 let mut writer = utils::fs::open_writable(json_kernel_trace_path)?;
 
-                serde_json::to_writer_pretty(&mut writer, &parsed_trace)?;
+                serde_json::to_writer_pretty(&mut writer, &traces)?;
 
                 // update the kernel trace path
                 kernel.trace_file = json_kernel_trace_name;
-
-                Ok::<_, eyre::Report>(trace_model::Command::KernelLaunch(kernel))
             }
-        })
-        .try_collect()?;
+            _ => {}
+        }
+    }
+
+    let commands: Vec<_> = command_traces.iter().map(|(cmd, _)| cmd).collect();
 
     let json_kernelslist = kernelslist.with_extension("json");
     serde_json::to_writer_pretty(utils::fs::open_writable(json_kernelslist)?, &commands)?;
+
     Ok(())
 }
 

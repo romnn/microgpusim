@@ -14,13 +14,16 @@ num_cpus = "1"
 chrono = "0"
 rayon = "1"
 itertools = "0"
+bitvec = "1"
 
 serde = { version = "1", features = ["derive"] }
-# csv = "1"
 serde_json = { version = "1", features = ["preserve_order"] }
 serde_yaml = "0"
+rmp-serde = "1"
 
 clap = { version = "4", features = ["derive"] }
 
 utils = { path = "../utils" }
 gpucachesim = { path = "../" }
+accelsim = { path = "../accelsim" }
+trace-model = { path = "../trace/model" }

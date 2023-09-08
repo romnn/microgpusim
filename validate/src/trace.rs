@@ -32,6 +32,16 @@ pub async fn trace(
     let dur = invoke_trace::trace(&bench.executable, &bench.args, &options)
         .await
         .map_err(|err| match err {
+            invoke_trace::Error::Command(utils::CommandError { ref output, .. }) => {
+                let stdout = utils::decode_utf8!(&output.stdout);
+                if stdout.contains("not found on PATH") {
+                    eyre::Report::from(err).with_suggestion(|| {
+                        "Are you running as sudo? Tracing does not require running as sudo and can lead to problems."
+                    })
+                } else {
+                    eyre::Report::from(err)
+                }
+            }
             err @ invoke_trace::Error::MissingExecutable(_) => eyre::Report::from(err)
                 .suggestion("did you build the benchmarks first using `cargo validate build`?"),
             err => err.into_eyre(),

@@ -5,6 +5,7 @@ config:
   results_dir: ../results
   materialize_to: ./test-apps-materialized.yml
   trace:
+    full_trace: true
     save_json: true
     # one benchmark at once to not stress the GPU
     concurrency: 1

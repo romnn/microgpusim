@@ -2,6 +2,9 @@
 
 - today:
 
+  - xtask: allow comparing traces
+  - tracer: allow tracing all instructions
+  - allow using full accelsim traces for simulate (do we miss out on the allocations though?).
   - validate the number of warp instructions for the execution driven frontend and test that.
 
   - write more execution driven examples (especially the different transpose variants)

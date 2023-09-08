@@ -2,7 +2,7 @@
 ##
 ## AUTO GENERATED! DO NOT EDIT
 ##
-## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 07/09/2023 17:19:20
+## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 08/09/2023 01:13:53
 ##
 
 config:
@@ -19,7 +19,7 @@ config:
     concurrency: 1
     enabled: true
     results_dir: /home/roman/dev/box/results
-    full_trace: false
+    full_trace: true
     save_json: true
   accelsim_trace:
     repetitions: 1
@@ -83,7 +83,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-100/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -148,7 +148,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-1000/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -213,7 +213,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-10000/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -283,7 +283,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -352,7 +352,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -421,7 +421,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-128/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -490,7 +490,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-32/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -559,7 +559,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-64/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -628,7 +628,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-128/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -697,7 +697,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-32/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -766,7 +766,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-64/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -835,7 +835,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-128/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -904,7 +904,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-32/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -973,7 +973,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-64/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -1042,7 +1042,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-128/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -1111,7 +1111,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-32/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -1180,7 +1180,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-64/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -1249,7 +1249,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-128/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -1318,7 +1318,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-32/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -1387,7 +1387,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-64/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -1456,7 +1456,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -1525,7 +1525,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-32/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -1594,7 +1594,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-64/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -1663,7 +1663,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-128/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -1732,7 +1732,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-32/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -1801,7 +1801,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-64/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -1870,7 +1870,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-128/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -1939,7 +1939,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-32/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -2008,7 +2008,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-64/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -2077,7 +2077,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-128/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -2143,7 +2143,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-32/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -2208,7 +2208,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-64/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -2273,7 +2273,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-128/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -2338,7 +2338,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-256/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -2407,7 +2407,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-variant-naive-repeat-1/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -2475,7 +2475,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-variant-coalesced-repeat-1/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -2543,7 +2543,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-variant-optimized-repeat-1/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -2611,7 +2611,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-variant-naive-repeat-1/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -2679,7 +2679,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-variant-coalesced-repeat-1/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -2747,7 +2747,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-variant-optimized-repeat-1/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -2815,7 +2815,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-variant-naive-repeat-1/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -2883,7 +2883,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-variant-coalesced-repeat-1/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -2951,7 +2951,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-variant-optimized-repeat-1/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -3018,7 +3018,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -3084,7 +3084,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null
@@ -3150,7 +3150,7 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/trace
       save_json: true
-      full_trace: false
+      full_trace: true
     accelsim_trace:
       repetitions: 1
       timeout: null

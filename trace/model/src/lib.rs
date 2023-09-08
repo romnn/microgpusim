@@ -3,7 +3,7 @@ pub use dim::{Dim, Point};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct MemAccessTraceEntry {
     pub cuda_ctx: u64,
@@ -33,7 +33,31 @@ pub struct MemAccessTraceEntry {
     pub addrs: [u64; 32],
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+impl std::cmp::Ord for MemAccessTraceEntry {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let key = (
+            &self.cuda_ctx,
+            &self.kernel_id,
+            &self.block_id,
+            &self.warp_id_in_block,
+        );
+        let other_key = (
+            &other.cuda_ctx,
+            &other.kernel_id,
+            &other.block_id,
+            &other.warp_id_in_block,
+        );
+        key.cmp(&other_key)
+    }
+}
+
+impl std::cmp::PartialOrd for MemAccessTraceEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+#[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[repr(transparent)]
 pub struct MemAccessTrace(pub Vec<MemAccessTraceEntry>);
 
@@ -63,8 +87,9 @@ impl MemAccessTrace {
 
     #[must_use]
     #[inline]
-    pub fn to_warp_traces(self) -> HashMap<(Dim, u32), Vec<MemAccessTraceEntry>> {
-        let mut warp_traces: HashMap<(Dim, u32), Vec<MemAccessTraceEntry>> = HashMap::new();
+    pub fn to_warp_traces(self) -> indexmap::IndexMap<(Dim, u32), Vec<MemAccessTraceEntry>> {
+        let mut warp_traces: indexmap::IndexMap<(Dim, u32), Vec<MemAccessTraceEntry>> =
+            indexmap::IndexMap::new();
         for entry in self.0 {
             warp_traces
                 .entry((entry.block_id.clone(), entry.warp_id_in_block))
@@ -110,14 +135,14 @@ pub fn is_valid_trace(trace: &[MemAccessTraceEntry]) -> bool {
 }
 
 /// A memory allocation.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct MemAllocation {
     pub device_ptr: u64,
     pub num_bytes: u64,
 }
 
 /// Information about a kernel launch.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KernelLaunch {
     pub name: String,
     pub trace_file: String,
@@ -133,21 +158,33 @@ pub struct KernelLaunch {
     pub nvbit_version: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+impl std::cmp::Ord for KernelLaunch {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.id.cmp(&other.id)
+    }
+}
+
+impl std::cmp::PartialOrd for KernelLaunch {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct MemcpyHtoD {
     pub allocation_name: Option<String>,
     pub dest_device_addr: u64,
     pub num_bytes: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct MemAlloc {
     pub allocation_name: Option<String>,
     pub device_ptr: u64,
     pub num_bytes: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Command {
     MemcpyHtoD(MemcpyHtoD),
     MemAlloc(MemAlloc),
