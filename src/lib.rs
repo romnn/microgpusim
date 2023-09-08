@@ -106,9 +106,17 @@ impl TotalDuration {
     }
 }
 
-use once_cell::sync::Lazy;
-pub static TIMINGS: Lazy<Mutex<HashMap<&'static str, TotalDuration>>> =
-    Lazy::new(|| Mutex::new(HashMap::default()));
+pub static TIMINGS: once_cell::sync::Lazy<Mutex<HashMap<&'static str, TotalDuration>>> =
+    once_cell::sync::Lazy::new(|| Mutex::new(HashMap::default()));
+
+#[derive(Debug, Default)]
+pub struct WIPStats {
+    pub issued_instructions: u64,
+    pub executed_instructions: u64,
+}
+
+pub static WIP_STATS: once_cell::sync::Lazy<Mutex<WIPStats>> =
+    once_cell::sync::Lazy::new(|| Mutex::new(WIPStats::default()));
 
 #[macro_export]
 macro_rules! timeit {

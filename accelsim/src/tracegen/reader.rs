@@ -392,8 +392,8 @@ pub fn parse_single_trace_instruction(
 }
 
 #[inline]
-pub fn parse_instruction(
-    trace_instruction: TraceInstruction,
+pub fn convert_instruction(
+    trace_instruction: &TraceInstruction,
     block_id: Dim,
     warp_id: u32,
     kernel: &trace_model::KernelLaunch,
@@ -427,13 +427,13 @@ pub fn parse_instruction(
     let mut dest_regs = [0; 1];
     let num_dest_regs = u32::try_from(trace_instruction.dest_regs.len())
         .wrap_err_with(|| too_many_registers(trace_instruction.dest_regs.len()))?;
-    for (i, reg) in trace_instruction.dest_regs.into_iter().enumerate() {
+    for (i, reg) in trace_instruction.dest_regs.iter().copied().enumerate() {
         dest_regs[i] = reg;
     }
     let mut src_regs = [0; 5];
     let num_src_regs = u32::try_from(trace_instruction.src_regs.len())
         .wrap_err_with(|| too_many_registers(trace_instruction.src_regs.len()))?;
-    for (i, reg) in trace_instruction.src_regs.into_iter().enumerate() {
+    for (i, reg) in trace_instruction.src_regs.iter().copied().enumerate() {
         src_regs[i] = reg;
     }
 
@@ -447,9 +447,9 @@ pub fn parse_instruction(
         warp_size: WARP_SIZE,
         line_num: trace_instruction.line_num.unwrap_or(0),
         instr_data_width: 0, // cannot infer that (not required)
-        instr_opcode: trace_instruction.opcode,
+        instr_opcode: trace_instruction.opcode.clone(),
         instr_offset: trace_instruction.pc,
-        instr_idx: 0, // we cannot recover that (not required)
+        instr_idx: 0, // added later
         // cannot infer predicate (not required)
         instr_predicate: nvbit_model::Predicate {
             num: 0,
@@ -490,6 +490,7 @@ pub fn read_trace_instructions(
     let mut start_of_tb_stream_found = false;
 
     let mut warp_id = 0;
+    let mut instruction_idx = 0;
 
     for line in lines {
         let line = line?.trim().to_string();
@@ -501,16 +502,19 @@ pub fn read_trace_instructions(
             ["#BEGIN_TB"] => {
                 assert!(!start_of_tb_stream_found);
                 start_of_tb_stream_found = true;
+                instruction_idx = 0;
             }
             ["#END_TB"] => {
                 assert!(start_of_tb_stream_found);
                 start_of_tb_stream_found = false;
+                instruction_idx = 0;
             }
             ["thread", "block", ..] => {
                 assert!(start_of_tb_stream_found);
                 let err = || eyre::eyre!("bad key value pair {:?}", line);
                 let (_, value) = line.split_once('=').ok_or_else(err)?;
 
+                instruction_idx = 0;
                 block = parse_dim(value)
                     .ok_or(eyre::eyre!("invalid dim: {:?}", value))
                     .wrap_err_with(err)?;
@@ -521,6 +525,7 @@ pub fn read_trace_instructions(
                 let (_, value) = line.split_once('=').ok_or_else(err)?;
 
                 warp_id = value.trim().parse().wrap_err_with(err)?;
+                instruction_idx = 0;
             }
             ["insts", ..] => {
                 assert!(start_of_tb_stream_found);
@@ -533,16 +538,18 @@ pub fn read_trace_instructions(
                 let trace_instruction =
                     parse_single_trace_instruction(instruction, trace_version, line_info)
                         .wrap_err_with(|| format!("bad instruction: {instruction:?}"))?;
-                if let Some(parsed_instruction) = parse_instruction(
-                    trace_instruction.clone(),
+                let parsed_instruction = convert_instruction(
+                    &trace_instruction,
                     block.clone(),
                     warp_id,
                     kernel,
                     mem_only,
                 )
-                .wrap_err_with(|| format!("bad instruction: {trace_instruction:?}"))?
-                {
+                .wrap_err_with(|| format!("bad instruction: {trace_instruction:?}"))?;
+                if let Some(mut parsed_instruction) = parsed_instruction {
+                    parsed_instruction.instr_idx = instruction_idx;
                     instructions.push(parsed_instruction);
+                    instruction_idx += 1;
                 }
             }
         }
@@ -552,6 +559,7 @@ pub fn read_trace_instructions(
         let block_sort_key = trace_model::dim::accelsim_block_id(&inst.block_id, &kernel.grid);
         (block_sort_key, inst.warp_id_in_block)
     });
+
     Ok(instructions)
 }
 

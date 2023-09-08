@@ -4549,6 +4549,7 @@ dependencies = [
  "duct",
  "glob",
  "gpucachesim",
+ "indexmap 2.0.0",
  "indicatif",
  "itertools 0.11.0",
  "num_cpus",

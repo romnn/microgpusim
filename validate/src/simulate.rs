@@ -67,6 +67,8 @@ pub fn simulate_bench_config(
     // dbg!(&config);
 
     let sim = gpucachesim::accelmain(traces_dir, config)?;
+    dbg!(&gpucachesim::WIP_STATS.lock());
+
     Ok(sim)
 }
 

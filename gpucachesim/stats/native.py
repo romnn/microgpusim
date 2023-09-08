@@ -106,9 +106,10 @@ class Stats(common.Stats):
                 # hw_value *= mean_sm_efficiency
 
     def instructions(self):
-        if "inst_issued" in self.df:
-            # there is also inst_executed
-            return self.df["inst_issued"].sum() * self.config.num_total_cores
+        nvprof_key = "inst_issued"
+        nvprof_key = "inst_executed"
+        if nvprof_key in self.df:
+            return self.df[nvprof_key].sum() * self.config.num_total_cores
         elif "smsp__inst_executed.sum_inst" in self.df:
             # there is also sm__inst_executed.sum_inst
             # sm__sass_thread_inst_executed.sum_inst

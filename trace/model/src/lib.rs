@@ -1,7 +1,6 @@
 pub mod dim;
 pub use dim::{Dim, Point};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(clippy::struct_excessive_bools)]
@@ -57,6 +56,8 @@ impl std::cmp::PartialOrd for MemAccessTraceEntry {
     }
 }
 
+pub type WarpTraces = indexmap::IndexMap<(Dim, u32), Vec<MemAccessTraceEntry>>;
+
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[repr(transparent)]
 pub struct MemAccessTrace(pub Vec<MemAccessTraceEntry>);
@@ -87,9 +88,8 @@ impl MemAccessTrace {
 
     #[must_use]
     #[inline]
-    pub fn to_warp_traces(self) -> indexmap::IndexMap<(Dim, u32), Vec<MemAccessTraceEntry>> {
-        let mut warp_traces: indexmap::IndexMap<(Dim, u32), Vec<MemAccessTraceEntry>> =
-            indexmap::IndexMap::new();
+    pub fn to_warp_traces(self) -> WarpTraces {
+        let mut warp_traces = WarpTraces::new();
         for entry in self.0 {
             warp_traces
                 .entry((entry.block_id.clone(), entry.warp_id_in_block))

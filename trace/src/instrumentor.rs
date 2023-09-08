@@ -405,12 +405,13 @@ impl<'c> Instrumentor<'c> {
         };
 
         if self.full_trace
-            || opcode.to_lowercase() == "exit"
+            || opcode.to_uppercase() == "EXIT"
             || instr.memory_space() != model::MemorySpace::None
         {
-            if instr.memory_space() == model::MemorySpace::Constant {
-                return;
-            }
+            // skip constant memory instructions?
+            // if instr.memory_space() == model::MemorySpace::Constant {
+            //     return;
+            // }
 
             // instr.print_decoded();
 
@@ -534,6 +535,7 @@ impl<'c> Instrumentor<'c> {
 
             // iterate on all the static instructions in the function
             for (cnt, instr) in instrs.iter_mut().enumerate() {
+                // dbg!(&cnt, &instr);
                 if cnt < self.instr_begin_interval || cnt >= self.instr_end_interval {
                     continue;
                 }
