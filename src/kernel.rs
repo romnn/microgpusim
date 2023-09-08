@@ -129,12 +129,16 @@ impl Kernel {
                 break;
             }
 
+            let mem_only = true;
+
             let warp_id = entry.warp_id_in_block as usize;
             let instr = instruction::WarpInstruction::from_trace(self, entry, config);
-            let warp = warps.get_mut(warp_id).unwrap();
-            // let mut warp = warp.try_borrow_mut().unwrap();
-            let mut warp = warp.try_lock();
-            warp.push_trace_instruction(instr);
+
+            if !mem_only || instr.is_memory_instruction() {
+                let warp = warps.get_mut(warp_id).unwrap();
+                let mut warp = warp.try_lock();
+                warp.push_trace_instruction(instr);
+            }
 
             instructions += 1;
             *trace_pos += 1;
@@ -145,30 +149,11 @@ impl Kernel {
             instructions / warps.len()
         );
         debug_assert!(instructions > 0);
-        // debug_assert!(instructions % 32 == 0);
-        // dbg!(warps
-        //     .iter()
-        //     .map(|w| w.try_borrow().unwrap().trace_instructions.len())
-        //     .collect::<Vec<_>>());
-        // debug_assert!(
-        //     warps
-        //         .iter()
-        //         .map(|w| w.try_borrow().unwrap().trace_instructions.len())
-        //         .collect::<HashSet<_>>()
-        //         .len()
-        //         == 1,
-        //     "all warps have the same number of instructions"
-        // );
-        // dbg!(warps
-        //     .iter()
-        //     .map(|w| w.try_borrow().unwrap().trace_instructions.len())
-        //     .collect::<Vec<_>>());
 
         debug_assert!(
             warps
                 .iter()
                 .all(|w| !w.try_lock().trace_instructions.is_empty()),
-            // .all(|w| !w.try_borrow().unwrap().trace_instructions.is_empty()),
             "all warps have at least one instruction (need at least an EXIT)"
         );
         true

@@ -2,8 +2,6 @@
 
 - today:
 
-  - Optional new type to simplify display printing for optionals
-
   - check for statistical variability with profiling
 
   - add option for l2 set index unless when in compat mode
@@ -33,6 +31,7 @@
   - convert, match and plot statistics
   - record mem fetch latency in playground and box
 
+  - DONE: Optional new type to simplify display printing for optionals
   - DONE: implement repetitions for profile validate
   - DONE: implement option to run all steps for a benchmark ("validate")
     - DONE: build, profile, (trace, accelsim-trace), (simulate, accelsim-simulate, playground-simulate)

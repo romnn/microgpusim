@@ -485,44 +485,53 @@ impl WarpInstruction {
         }
     }
 
-    // pub fn dec_dispatch_delay(&mut self) {
-    //     self.dispatch_delay_cycles = self.dispatch_delay_cycles.saturating_sub(1);
-    //     // if self.dispatch_delay_cycles > 0 {
-    //     //     self.dispatch_delay_cycles -= 1;
-    //     // }
-    // }
+    pub fn is_memory_instruction(&self) -> bool {
+        match self.opcode {
+            Opcode {
+                category: ArchOp::LOAD_OP | ArchOp::STORE_OP,
+                ..
+            } => true,
+            Opcode {
+                // also consider constant loads, which are categorized as ALU_OP
+                op: Op::EXIT | Op::LDC,
+                ..
+            } => true,
+            _ => false,
+        }
+    }
 
-    // #[must_use]
-    // pub fn has_dispatch_delay(&self) -> bool {
-    //     self.dispatch_delay_cycles > 0
-    // }
-
+    #[inline]
     pub fn inputs(&self) -> impl Iterator<Item = &u32> {
         self.inputs.iter().filter_map(Option::as_ref)
     }
 
+    #[inline]
     pub fn outputs(&self) -> impl Iterator<Item = &u32> {
         self.outputs.iter().filter_map(Option::as_ref)
     }
 
     #[must_use]
+    #[inline]
     pub fn active_thread_count(&self) -> usize {
         self.active_mask.count_ones()
     }
 
     #[must_use]
+    #[inline]
     pub fn is_load(&self) -> bool {
         let op = self.opcode.category;
         matches!(op, ArchOp::LOAD_OP | ArchOp::TENSOR_CORE_LOAD_OP)
     }
 
     #[must_use]
+    #[inline]
     pub fn is_store(&self) -> bool {
         let op = self.opcode.category;
         matches!(op, ArchOp::STORE_OP | ArchOp::TENSOR_CORE_STORE_OP)
     }
 
     #[must_use]
+    #[inline]
     pub fn is_atomic(&self) -> bool {
         let op = self.opcode.op;
         matches!(
@@ -532,11 +541,27 @@ impl WarpInstruction {
     }
 
     #[must_use]
+    #[inline]
     pub fn addr(&self) -> Option<address> {
         self.mem_access_queue.front().map(|access| access.addr)
     }
 
+    #[inline]
+    pub fn set_addr(&mut self, thread_id: usize, addr: address) {
+        let thread = &mut self.threads[thread_id];
+        thread.mem_req_addr[0] = addr;
+    }
+
+    #[inline]
+    pub fn set_addresses(&mut self, thread_id: usize, addresses: Vec<address>) {
+        let thread = &mut self.threads[thread_id];
+        for (i, addr) in addresses.into_iter().enumerate() {
+            thread.mem_req_addr[i] = addr;
+        }
+    }
+
     #[must_use]
+    #[inline]
     pub fn access_kind(&self) -> Option<AccessKind> {
         let is_write = self.is_store();
         match self.memory_space {
@@ -720,6 +745,7 @@ impl WarpInstruction {
     // Perfom memory access coalescing.
     //
     // Note: see the CUDA manual about coalescing rules.
+    #[inline]
     fn memory_coalescing_arch(
         &self,
         is_write: bool,
@@ -856,17 +882,5 @@ impl WarpInstruction {
             );
         }
         accesses
-    }
-
-    pub fn set_addr(&mut self, thread_id: usize, addr: address) {
-        let thread = &mut self.threads[thread_id];
-        thread.mem_req_addr[0] = addr;
-    }
-
-    pub fn set_addresses(&mut self, thread_id: usize, addresses: Vec<address>) {
-        let thread = &mut self.threads[thread_id];
-        for (i, addr) in addresses.into_iter().enumerate() {
-            thread.mem_req_addr[i] = addr;
-        }
     }
 }
