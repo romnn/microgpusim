@@ -46,6 +46,7 @@ pub async fn trace(
     bench: &BenchmarkConfig,
     options: &Options,
     _trace_opts: &options::AccelsimTrace,
+    _bar: &indicatif::ProgressBar,
 ) -> Result<(), RunError> {
     let traces_dir = &bench.accelsim_trace.traces_dir;
     create_dirs(traces_dir).map_err(eyre::Report::from)?;
@@ -137,6 +138,7 @@ pub async fn simulate(
     bench: &BenchmarkConfig,
     options: &Options,
     _sim_options: &options::AccelsimSim,
+    _bar: &indicatif::ProgressBar,
 ) -> Result<(), RunError> {
     let stats_dir = &bench.accelsim_simulate.stats_dir;
 

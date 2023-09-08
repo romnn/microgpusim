@@ -10,7 +10,8 @@ use utils::fs::create_dirs;
 pub async fn trace(
     bench: &BenchmarkConfig,
     options: &Options,
-    _trace_opts: &options::Trace,
+    _trace_options: &options::Trace,
+    _bar: &indicatif::ProgressBar,
 ) -> Result<(), RunError> {
     let traces_dir = &bench.trace.traces_dir;
     create_dirs(traces_dir).map_err(eyre::Report::from)?;

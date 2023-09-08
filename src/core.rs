@@ -1867,22 +1867,6 @@ where
             }
 
             crate::WIP_STATS.lock().num_warps += 1;
-            // let core_id = (self.cluster_id * self.config.num_cores_per_simt_cluster) + self.core_id;
-            // if core_id >= self.config.total_cores() {
-            //     dbg!(
-            //         self.config.num_simt_clusters,
-            //         self.config.num_cores_per_simt_cluster,
-            //         self.config.total_cores(),
-            //         self.cluster_id,
-            //         self.core_id,
-            //         core_id
-            //     );
-            // }
-            // assert!(core_id < self.config.total_cores());
-            // assert_eq!(
-            //     crate::WIP_STATS.lock().warps_per_core.len(),
-            //     self.config.total_cores()
-            // );
             crate::WIP_STATS.lock().warps_per_core[self.core_id] += 1;
 
             self.warps[warp_id].try_lock().init(

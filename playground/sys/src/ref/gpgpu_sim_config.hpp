@@ -96,8 +96,6 @@ class gpgpu_sim_config : public power_config,
     fmt::println("fill l2: {}", m_memory_config.m_perf_sim_memcpy);
 
     if (!gpgpu_ctx->accelsim_compat_mode) {
-      // throw std::runtime_error("override config");
-
       // ROMAN TODO: we override config here
       // if (gpu_max_cycle_opt == 0) {
       //   gpu_max_cycle_opt = 1000000;
@@ -126,7 +124,7 @@ class gpgpu_sim_config : public power_config,
       // m_memory_config.rop_latency = 0;
       // dram_latency latency was 100
       // m_memory_config.dram_latency = 0;
-      m_shader_config.m_L1D_config.l1_latency = 1;
+      // m_shader_config.m_L1D_config.l1_latency = 1;
       // latency must be >1 (assert in ldst unit) for the pipeline to work
       // m_shader_config.smem_latency = 2;
       // #endif

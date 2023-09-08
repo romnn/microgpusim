@@ -108,7 +108,26 @@ class Stats(common.Stats):
     def num_blocks(self):
         return 0
 
-    def instructions(self):
+    def instructions(self) -> int:
+        total_instructions = (
+            self.df[
+                [
+                    "inst_fp_16",
+                    "inst_fp_32",
+                    "inst_fp_64",
+                    "inst_integer",
+                    "inst_control",
+                    "inst_compute_ld_st",
+                    "inst_misc",
+                ]
+            ]
+            .astype(int)
+            .sum()
+            .sum()
+        )
+        return total_instructions
+
+    def executed_instructions(self):
         nvprof_key = "inst_issued"
         nvprof_key = "inst_executed"
 

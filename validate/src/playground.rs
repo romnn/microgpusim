@@ -90,7 +90,8 @@ where
 pub async fn simulate(
     bench: BenchmarkConfig,
     options: &Options,
-    _sim_opts: &options::PlaygroundSim,
+    _sim_options: &options::PlaygroundSim,
+    _bar: &indicatif::ProgressBar,
 ) -> Result<(), RunError> {
     // get traces dir from accelsim trace config
     let stats_dir = bench.playground_simulate.stats_dir.clone();

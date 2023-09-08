@@ -20,19 +20,19 @@ config:
     # one benchmark at once to not stress the GPU
     concurrency: 1
     # profile 5 repetitions to warm up the GPU
-    repetitions: 5
+    repetitions: 3
     keep_log_file: true
   # for simulation, we do not set a limit on concurrency
   simulate:
     # No concurrency limit for now (until we implement multi-threading)
-    concurrency: null
-    repetitions: 2
+    concurrency: 1 # null
+    repetitions: 1
   # for accelsim simulation, we do not set a limit on concurrency
   accelsim_simulate:
     # No concurrency limit as accelsim is single threaded.
     # Also, it is spawned as a sub process to avoid global state related issues.
-    concurrency: null
-    repetitions: 2
+    concurrency: 1 # null
+    repetitions: 1
     # simulation configurations
     config_dir: ../accelsim/gtx1080/
     config: ../accelsim/gtx1080/gpgpusim.config
@@ -41,7 +41,7 @@ config:
   playground_simulate:
     # BUG: due to static global state in intersim2, can only run one benchmark at a time for now
     concurrency: 1
-    repetitions: 2
+    repetitions: 1
     # simulation configurations
     config_dir: ../accelsim/gtx1080/
     config: ../accelsim/gtx1080/gpgpusim.config

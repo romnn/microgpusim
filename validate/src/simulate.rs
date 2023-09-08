@@ -84,7 +84,8 @@ pub fn simulate_bench_config(
 pub async fn simulate(
     bench: BenchmarkConfig,
     options: &Options,
-    _trace_opts: &options::Sim,
+    _sim_options: &options::Sim,
+    _bar: &indicatif::ProgressBar,
 ) -> Result<(), RunError> {
     let stats_dir = bench.simulate.stats_dir.clone();
 

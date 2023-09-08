@@ -37,6 +37,11 @@ pub enum Error {
         path: PathBuf,
         source: std::io::Error,
     },
+    #[error("could not remove directory {path:?}")]
+    RemoveDirectory {
+        path: PathBuf,
+        source: std::io::Error,
+    },
 }
 
 impl From<Error> for std::io::Error {
@@ -44,7 +49,8 @@ impl From<Error> for std::io::Error {
         match err {
             Error::OpenFile { source, .. }
             | Error::SetPermissions { source, .. }
-            | Error::CreateDirectories { source, .. } => source,
+            | Error::CreateDirectories { source, .. }
+            | Error::RemoveDirectory { source, .. } => source,
         }
     }
 }
@@ -95,6 +101,15 @@ pub fn open_writable(path: impl AsRef<Path>) -> Result<std::io::BufWriter<std::f
         })?;
 
     Ok(std::io::BufWriter::new(file))
+}
+
+#[inline]
+pub fn remove_dir(path: impl AsRef<Path>) -> Result<(), Error> {
+    let path = path.as_ref();
+    std::fs::remove_dir_all(&path).map_err(|source| Error::RemoveDirectory {
+        path: path.to_path_buf(),
+        source,
+    })
 }
 
 #[inline]

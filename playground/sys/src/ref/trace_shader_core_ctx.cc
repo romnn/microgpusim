@@ -118,7 +118,6 @@ void trace_shader_core_ctx::init_warps(unsigned cta_id, unsigned start_thread,
           active_threads.set(t);
         }
       }
-      // TODO ROMAN check
       // m_simt_stack[i]->launch(start_pc, active_threads);
 
       // REMOVE: resume

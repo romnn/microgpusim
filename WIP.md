@@ -2,9 +2,13 @@
 
 - today:
 
-  - xtask: allow comparing traces
-  - tracer: allow tracing all instructions
-  - allow using full accelsim traces for simulate (do we miss out on the allocations though?).
+  - check for statistical variability with profiling
+
+  - add option for l2 set index unless when in compat mode
+  - add option for full trace and do the filtering post-tracing
+
+    - (so we dont need to maintain separate traces)
+
   - validate the number of warp instructions for the execution driven frontend and test that.
 
   - write more execution driven examples (especially the different transpose variants)
@@ -20,12 +24,19 @@
   - detailed stat feature:
 
     - per allocation stats
+    - per kernel stats
 
   - generate data for the different parallel implementations speedups
     - how well does it scale for 20 instead of 80 cores
   - convert, match and plot statistics
   - record mem fetch latency in playground and box
 
+  - DONE: implement repetitions for profile validate
+  - DONE: implement option to run all steps for a benchmark ("validate")
+    - DONE: build, profile, (trace, accelsim-trace), (simulate, accelsim-simulate, playground-simulate)
+  - DONE: xtask: allow comparing traces
+  - DONE: tracer: allow tracing all instructions
+  - DONE: allow using full accelsim traces for simulate (do we miss out on the allocations though?).
   - DONE: replace addresstranslation trait with cache controller trait
   - DONE: use gpu_mem_alloc for the allocations but still allow smart comparison with play whose traces does not include allocations (required for per allocation stats)
   - DONE: decide on better names for linear, raw, translated addr to reflect virtual and physical for cache and global

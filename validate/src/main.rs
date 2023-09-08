@@ -11,11 +11,12 @@ use color_eyre::eyre::{self, WrapErr};
 use console::{style, Style};
 use futures::stream::{self, StreamExt};
 use std::io::Write;
-use validate::options::{Command, Options};
+use validate::options::{self, Command, Options};
 
 use indicatif::ProgressBar;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Instant;
 use validate::benchmark::paths::PathExt;
 use validate::materialize::{self, BenchmarkConfig, Benchmarks};
 
@@ -33,56 +34,208 @@ pub enum Error {
     },
 }
 
+impl From<Error> for Result<(), validate::RunError> {
+    fn from(err: Error) -> Self {
+        match err {
+            Error::Failed { source, .. } => Err(validate::RunError::Failed(source)),
+            _ => Ok(()),
+        }
+    }
+}
+
+pub async fn run_make(
+    bench: &BenchmarkConfig,
+    options: &Options,
+    _bar: &indicatif::ProgressBar,
+) -> Result<(), validate::RunError> {
+    if let Command::Build(_) = options.command {
+        if !options.force && bench.executable.is_file() {
+            return Err(validate::RunError::Skipped);
+        }
+    }
+
+    let makefile = bench.path.join("Makefile");
+    if !makefile.is_file() {
+        return Err(validate::RunError::from(eyre::eyre!(
+            "Makefile at {} not found",
+            makefile.display()
+        )));
+    }
+    let mut cmd = async_process::Command::new("make");
+    cmd.args(["-B", "-C", &*bench.path.to_string_lossy()]);
+    if let Command::Clean(_) = options.command {
+        cmd.arg("clean");
+    }
+    log::debug!("{:?}", &cmd);
+    let result = cmd.output().await.map_err(eyre::Report::from)?;
+    if !result.status.success() {
+        return Err(validate::RunError::Failed(
+            utils::CommandError::new(&cmd, result).into_eyre(),
+        ));
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_lines)]
+async fn run_command(
+    command: Command,
+    bench: &BenchmarkConfig,
+    options: &Options,
+    bar: &ProgressBar,
+) -> Result<(), validate::RunError> {
+    let start = Instant::now();
+    let res = match command {
+        Command::Profile(ref opts) => validate::profile::profile(&bench, options, opts, bar).await,
+        Command::AccelsimTrace(ref opts) => {
+            validate::accelsim::trace(&bench, options, opts, bar).await
+        }
+        Command::Trace(ref opts) => validate::trace::trace(&bench, options, opts, bar).await,
+        Command::Simulate(ref opts) => {
+            validate::simulate::simulate(bench.clone(), options, opts, bar).await
+        }
+        Command::AccelsimSimulate(ref opts) => {
+            validate::accelsim::simulate(bench, options, opts, bar).await
+        }
+        Command::PlaygroundSimulate(ref opts) => {
+            validate::playground::simulate(bench.clone(), options, opts, bar).await
+        }
+        Command::Build(_) => run_make(&bench, options, bar).await,
+        _ => Ok(()),
+    };
+
+    let res = res.map_err(|err| Error::new(err, bench.clone()));
+    print_benchmark_result(
+        &command,
+        &bench,
+        res.as_ref().err(),
+        start.elapsed(),
+        &bar,
+        &options,
+    );
+    // }
+    match res {
+        Ok(()) => Ok(()),
+        Err(err) => err.into(),
+    }
+}
+
 #[allow(clippy::too_many_lines)]
 async fn run_benchmark(
+    command: &Command,
     bench: BenchmarkConfig,
     options: &Options,
     bar: &ProgressBar,
 ) -> Result<(), validate::RunError> {
     bar.set_message(bench.name.clone());
-    match options.command {
+    match command {
+        Command::Full(ref _opts) => {
+            for command in [
+                Command::Build(options::Build::default()),
+                Command::Profile(options::Profile::default()),
+                Command::Trace(options::Trace::default()),
+                Command::AccelsimTrace(options::AccelsimTrace::default()),
+                Command::Simulate(options::Sim::default()),
+                Command::AccelsimSimulate(options::AccelsimSim::default()),
+                Command::PlaygroundSimulate(options::PlaygroundSim::default()),
+            ] {
+                run_command(command, &bench, options, bar).await?;
+            }
+            // run_command(
+            //     &bench,
+            //     options,
+            //     bar,
+            // )
+            // .await?;
+            // run_command(
+            //     &bench,
+            //     options,
+            //     bar,
+            // )
+            // .await?;
+            // run_command(
+            //     &bench,
+            //     options,
+            //     bar,
+            // )
+            // .await?;
+
+            // let start = Instant::now();
+            // let build_options = options::Build::default();
+            // let res = run_make(&bench, options, bar)
+            //     .await
+            //     .map_err(|err| Error::new(err, bench.clone()));
+            // print_benchmark_result(
+            //     &Command::Build(build_options),
+            //     &bench,
+            //     &res,
+            //     start.elapsed(),
+            //     &bar,
+            //     &options,
+            // );
+            //
+            // let start = Instant::now();
+            // let profile_options = options::Profile::default();
+            // let res = validate::profile::profile(&bench, options, &profile_options, bar)
+            //     .await
+            //     .map_err(|err| Error::new(err, bench.clone()));
+            // print_benchmark_result(
+            //     &Command::Profile(profile_options),
+            //     &bench,
+            //     &res,
+            //     start.elapsed(),
+            //     &bar,
+            //     &options,
+            // );
+            //
+            // let start = Instant::now();
+            // let trace_options = options::Trace::default();
+            // let res = validate::trace::trace(&bench, options, &trace_options, bar)
+            //     .await
+            //     .map_err(|err| Error::new(err, bench.clone()));
+            // print_benchmark_result(
+            //     &Command::Trace(trace_options),
+            //     &bench,
+            //     &res,
+            //     start.elapsed(),
+            //     &bar,
+            //     &options,
+            // );
+            //
+            // let start = Instant::now();
+            // let trace_options = options::Trace::default();
+            // let res = validate::accelsim::acce(&bench, options, &trace_options, bar)
+            //     .await
+            //     .map_err(|err| Error::new(err, bench.clone()));
+            // print_benchmark_result(
+            //     &Command::Trace(trace_options),
+            //     &bench,
+            //     &res,
+            //     start.elapsed(),
+            //     &bar,
+            //     &options,
+            // );
+
+            Ok(())
+        }
         Command::Expand(ref _opts) => {
             // do nothing
             Ok(())
         }
-        Command::Profile(ref opts) => validate::profile::profile(&bench, options, opts).await,
-        Command::AccelsimTrace(ref opts) => validate::accelsim::trace(&bench, options, opts).await,
-        Command::Trace(ref opts) => validate::trace::trace(&bench, options, opts).await,
-        Command::Simulate(ref opts) => validate::simulate::simulate(bench, options, opts).await,
+        Command::Profile(ref opts) => validate::profile::profile(&bench, options, opts, bar).await,
+        Command::AccelsimTrace(ref opts) => {
+            validate::accelsim::trace(&bench, options, opts, bar).await
+        }
+        Command::Trace(ref opts) => validate::trace::trace(&bench, options, opts, bar).await,
+        Command::Simulate(ref opts) => {
+            validate::simulate::simulate(bench, options, opts, bar).await
+        }
         Command::AccelsimSimulate(ref opts) => {
-            validate::accelsim::simulate(&bench, options, opts).await
+            validate::accelsim::simulate(&bench, options, opts, bar).await
         }
         Command::PlaygroundSimulate(ref opts) => {
-            validate::playground::simulate(bench, options, opts).await
+            validate::playground::simulate(bench, options, opts, bar).await
         }
-        Command::Build(_) | Command::Clean(_) => {
-            if let Command::Build(_) = options.command {
-                if !options.force && bench.executable.is_file() {
-                    return Err(validate::RunError::Skipped);
-                }
-            }
-
-            let makefile = bench.path.join("Makefile");
-            if !makefile.is_file() {
-                return Err(validate::RunError::from(eyre::eyre!(
-                    "Makefile at {} not found",
-                    makefile.display()
-                )));
-            }
-            let mut cmd = async_process::Command::new("make");
-            cmd.args(["-B", "-C", &*bench.path.to_string_lossy()]);
-            if let Command::Clean(_) = options.command {
-                cmd.arg("clean");
-            }
-            log::debug!("{:?}", &cmd);
-            let result = cmd.output().await.map_err(eyre::Report::from)?;
-            if !result.status.success() {
-                return Err(validate::RunError::Failed(
-                    utils::CommandError::new(&cmd, result).into_eyre(),
-                ));
-            }
-            Ok(())
-        }
+        Command::Build(_) | Command::Clean(_) => run_make(&bench, options, bar).await,
     }
 }
 
@@ -179,13 +332,14 @@ pub fn filter_benchmarks(benches: &mut Vec<BenchmarkConfig>, options: &Options) 
 }
 
 fn print_benchmark_result(
+    command: &Command,
     bench_config: &BenchmarkConfig,
-    result: &Result<(), Error>,
+    result: Option<&Error>,
     elapsed: std::time::Duration,
     bar: &ProgressBar,
-    options: &Options,
+    _options: &Options,
 ) {
-    let op = match options.command {
+    let op = match command {
         Command::Profile(_) => "profiling",
         Command::Trace(_) => "tracing [box]",
         Command::AccelsimTrace(_) => "tracing [accelsim]",
@@ -195,6 +349,7 @@ fn print_benchmark_result(
         Command::Build(_) => "building",
         Command::Clean(_) => "cleaning",
         Command::Expand(_) => "expanding",
+        Command::Full(_) => "validating",
     };
     let op = style(op).cyan();
     let executable = std::env::current_dir().ok().map_or_else(
@@ -202,13 +357,13 @@ fn print_benchmark_result(
         |cwd| bench_config.executable.relative_to(cwd),
     );
     let (color, status) = match result {
-        Ok(_) => (Style::new().green(), format!("succeeded in {elapsed:?}")),
-        Err(Error::Canceled(_)) => (Style::new().color256(0), "canceled".to_string()),
-        Err(Error::Skipped(_)) => (
+        None => (Style::new().green(), format!("succeeded in {elapsed:?}")),
+        Some(Error::Canceled(_)) => (Style::new().color256(0), "canceled".to_string()),
+        Some(Error::Skipped(_)) => (
             Style::new().yellow(),
             "skipped (already exists)".to_string(),
         ),
-        Err(Error::Failed { source, .. }) => {
+        Some(Error::Failed { source, .. }) => {
             static PREVIEW_LEN: usize = 75;
             let mut err_preview = source.to_string();
             if err_preview.len() > PREVIEW_LEN {
@@ -220,7 +375,7 @@ fn print_benchmark_result(
             )
         }
     };
-    match options.command {
+    match command {
         Command::Build(_) | Command::Clean(_) => {
             bar.println(format!(
                 "{:>15} {:>20} [ {} ] {}",
@@ -256,6 +411,7 @@ fn available_concurrency(options: &Options, config: &materialize::Config) -> usi
         Command::PlaygroundSimulate(_) => config.playground_simulate.common.concurrency,
         Command::Build(_) | Command::Clean(_) => None, // no limit on concurrency
         Command::Expand(_) => Some(1),                 // to keep deterministic ordering
+        Command::Full(_) => Some(1),
     };
 
     let max_concurrency = num_cpus::get_physical();
@@ -266,13 +422,25 @@ fn available_concurrency(options: &Options, config: &materialize::Config) -> usi
     concurrency.min(max_concurrency)
 }
 
+impl Error {
+    pub fn new(err: validate::RunError, bench_config: BenchmarkConfig) -> Self {
+        match err {
+            validate::RunError::Skipped => Error::Skipped(bench_config),
+            validate::RunError::Failed(source) => Error::Failed {
+                source,
+                bench: bench_config,
+            },
+        }
+    }
+}
+
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> eyre::Result<()> {
     env_logger::init();
     color_eyre::install()?;
     dotenv::dotenv().ok();
 
-    let start = std::time::Instant::now();
+    let start = Instant::now();
     let options = Arc::new(Options::parse());
 
     // parse benchmarks
@@ -307,23 +475,23 @@ async fn main() -> eyre::Result<()> {
             async move {
                 use std::sync::atomic::Ordering::Relaxed;
 
-                let start = std::time::Instant::now();
+                let start = Instant::now();
                 let res: Result<_, Error> = if should_exit.load(Relaxed) {
                     Err(Error::Canceled(bench_config.clone()))
                 } else {
-                    match run_benchmark(bench_config.clone(), &options, &bar).await {
-                        Ok(()) => Ok(()),
-                        Err(validate::RunError::Skipped) => {
-                            Err(Error::Skipped(bench_config.clone()))
-                        }
-                        Err(validate::RunError::Failed(source)) => Err(Error::Failed {
-                            source,
-                            bench: bench_config.clone(),
-                        }),
-                    }
+                    run_benchmark(&options.command, bench_config.clone(), &options, &bar)
+                        .await
+                        .map_err(|err| Error::new(err, bench_config.clone()))
                 };
                 bar.inc(1);
-                print_benchmark_result(&bench_config, &res, start.elapsed(), &bar, &options);
+                print_benchmark_result(
+                    &options.command,
+                    &bench_config,
+                    res.as_ref().err(),
+                    start.elapsed(),
+                    &bar,
+                    &options,
+                );
 
                 match res {
                     Err(Error::Failed { .. }) if options.fail_fast => {

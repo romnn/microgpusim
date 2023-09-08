@@ -2,13 +2,13 @@
 ##
 ## AUTO GENERATED! DO NOT EDIT
 ##
-## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 08/09/2023 16:57:49
+## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 08/09/2023 23:19:04
 ##
 
 config:
   results_dir: /home/roman/dev/box/results
   profile:
-    repetitions: 5
+    repetitions: 3
     timeout: null
     concurrency: 1
     enabled: true
@@ -28,16 +28,16 @@ config:
     enabled: true
     results_dir: /home/roman/dev/box/results
   simulate:
-    repetitions: 2
+    repetitions: 1
     timeout: null
-    concurrency: null
+    concurrency: 1
     enabled: true
     results_dir: /home/roman/dev/box/results
     parallel: null
   accelsim_simulate:
-    repetitions: 2
+    repetitions: 1
     timeout: null
-    concurrency: null
+    concurrency: 1
     enabled: true
     results_dir: /home/roman/dev/box/results
     trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -45,7 +45,7 @@ config:
     config_dir: /home/roman/dev/box/accelsim/gtx1080
     config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
   playground_simulate:
-    repetitions: 2
+    repetitions: 1
     timeout: null
     concurrency: 1
     enabled: true
@@ -69,7 +69,7 @@ benchmarks:
     - '32'
     input_idx: 0
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -92,17 +92,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-100/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-100/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -111,7 +111,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-100/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -134,7 +134,7 @@ benchmarks:
     - '32'
     input_idx: 1
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -157,17 +157,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-1000/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-1000/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -176,7 +176,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-1000/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -199,7 +199,7 @@ benchmarks:
     - '32'
     input_idx: 2
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -222,17 +222,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-10000/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-10000/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -241,7 +241,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-10000/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -269,7 +269,7 @@ benchmarks:
     - '32'
     input_idx: 0
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -292,17 +292,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -311,7 +311,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -338,7 +338,7 @@ benchmarks:
     - '32'
     input_idx: 1
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -361,17 +361,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -380,7 +380,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -407,7 +407,7 @@ benchmarks:
     - '32'
     input_idx: 2
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -430,17 +430,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-128/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-128/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -449,7 +449,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-128/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -476,7 +476,7 @@ benchmarks:
     - '32'
     input_idx: 3
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -499,17 +499,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-32/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-32/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -518,7 +518,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-32/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -545,7 +545,7 @@ benchmarks:
     - '32'
     input_idx: 4
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -568,17 +568,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-64/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-64/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -587,7 +587,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-64/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -614,7 +614,7 @@ benchmarks:
     - '32'
     input_idx: 5
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -637,17 +637,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-128/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-128/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -656,7 +656,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-128/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -683,7 +683,7 @@ benchmarks:
     - '32'
     input_idx: 6
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -706,17 +706,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-32/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-32/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -725,7 +725,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-32/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -752,7 +752,7 @@ benchmarks:
     - '32'
     input_idx: 7
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -775,17 +775,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-64/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-64/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -794,7 +794,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-64/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -821,7 +821,7 @@ benchmarks:
     - '32'
     input_idx: 8
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -844,17 +844,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-128/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-128/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -863,7 +863,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-128/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -890,7 +890,7 @@ benchmarks:
     - '32'
     input_idx: 9
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -913,17 +913,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-32/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-32/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -932,7 +932,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-32/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -959,7 +959,7 @@ benchmarks:
     - '32'
     input_idx: 10
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -982,17 +982,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-64/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-64/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -1001,7 +1001,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-64/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -1028,7 +1028,7 @@ benchmarks:
     - '32'
     input_idx: 11
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -1051,17 +1051,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-128/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-128/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -1070,7 +1070,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-128/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -1097,7 +1097,7 @@ benchmarks:
     - '32'
     input_idx: 12
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -1120,17 +1120,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-32/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-32/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -1139,7 +1139,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-32/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -1166,7 +1166,7 @@ benchmarks:
     - '32'
     input_idx: 13
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -1189,17 +1189,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-64/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-64/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -1208,7 +1208,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-64/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -1235,7 +1235,7 @@ benchmarks:
     - '32'
     input_idx: 14
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -1258,17 +1258,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-128/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-128/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -1277,7 +1277,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-128/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -1304,7 +1304,7 @@ benchmarks:
     - '32'
     input_idx: 15
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -1327,17 +1327,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-32/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-32/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -1346,7 +1346,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-32/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -1373,7 +1373,7 @@ benchmarks:
     - '32'
     input_idx: 16
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -1396,17 +1396,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-64/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-64/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -1415,7 +1415,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-64/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -1442,7 +1442,7 @@ benchmarks:
     - '32'
     input_idx: 17
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -1465,17 +1465,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -1484,7 +1484,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -1511,7 +1511,7 @@ benchmarks:
     - '32'
     input_idx: 18
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -1534,17 +1534,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-32/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-32/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -1553,7 +1553,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-32/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -1580,7 +1580,7 @@ benchmarks:
     - '32'
     input_idx: 19
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -1603,17 +1603,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-64/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-64/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -1622,7 +1622,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-64/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -1649,7 +1649,7 @@ benchmarks:
     - '32'
     input_idx: 20
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -1672,17 +1672,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-128/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-128/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -1691,7 +1691,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-128/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -1718,7 +1718,7 @@ benchmarks:
     - '32'
     input_idx: 21
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -1741,17 +1741,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-32/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-32/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -1760,7 +1760,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-32/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -1787,7 +1787,7 @@ benchmarks:
     - '32'
     input_idx: 22
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -1810,17 +1810,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-64/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-64/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -1829,7 +1829,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-64/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -1856,7 +1856,7 @@ benchmarks:
     - '32'
     input_idx: 23
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -1879,17 +1879,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-128/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-128/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -1898,7 +1898,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-128/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -1925,7 +1925,7 @@ benchmarks:
     - '32'
     input_idx: 24
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -1948,17 +1948,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-32/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-32/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -1967,7 +1967,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-32/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -1994,7 +1994,7 @@ benchmarks:
     - '32'
     input_idx: 25
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -2017,17 +2017,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-64/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-64/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -2036,7 +2036,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-64/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -2063,7 +2063,7 @@ benchmarks:
     - '32'
     input_idx: 26
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -2086,17 +2086,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-128/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-128/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -2105,7 +2105,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-128/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -2129,7 +2129,7 @@ benchmarks:
     - '32'
     input_idx: 0
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -2152,17 +2152,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-32/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-32/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -2171,7 +2171,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-32/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -2194,7 +2194,7 @@ benchmarks:
     - '32'
     input_idx: 1
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -2217,17 +2217,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-64/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-64/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -2236,7 +2236,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-64/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -2259,7 +2259,7 @@ benchmarks:
     - '32'
     input_idx: 2
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -2282,17 +2282,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-128/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-128/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -2301,7 +2301,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-128/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -2324,7 +2324,7 @@ benchmarks:
     - '32'
     input_idx: 3
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -2347,17 +2347,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-256/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-256/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -2366,7 +2366,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-256/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -2393,7 +2393,7 @@ benchmarks:
     - -repeat=1
     input_idx: 0
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -2416,17 +2416,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-variant-naive-repeat-1/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-variant-naive-repeat-1/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -2435,7 +2435,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-variant-naive-repeat-1/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -2461,7 +2461,7 @@ benchmarks:
     - -repeat=1
     input_idx: 1
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -2484,17 +2484,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-variant-coalesced-repeat-1/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-variant-coalesced-repeat-1/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -2503,7 +2503,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-variant-coalesced-repeat-1/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -2529,7 +2529,7 @@ benchmarks:
     - -repeat=1
     input_idx: 2
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -2552,17 +2552,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-variant-optimized-repeat-1/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-variant-optimized-repeat-1/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -2571,7 +2571,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-variant-optimized-repeat-1/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -2597,7 +2597,7 @@ benchmarks:
     - -repeat=1
     input_idx: 3
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -2620,17 +2620,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-variant-naive-repeat-1/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-variant-naive-repeat-1/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -2639,7 +2639,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-variant-naive-repeat-1/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -2665,7 +2665,7 @@ benchmarks:
     - -repeat=1
     input_idx: 4
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -2688,17 +2688,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-variant-coalesced-repeat-1/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-variant-coalesced-repeat-1/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -2707,7 +2707,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-variant-coalesced-repeat-1/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -2733,7 +2733,7 @@ benchmarks:
     - -repeat=1
     input_idx: 5
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -2756,17 +2756,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-variant-optimized-repeat-1/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-variant-optimized-repeat-1/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -2775,7 +2775,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-variant-optimized-repeat-1/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -2801,7 +2801,7 @@ benchmarks:
     - -repeat=1
     input_idx: 6
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -2824,17 +2824,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-variant-naive-repeat-1/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-variant-naive-repeat-1/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -2843,7 +2843,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-variant-naive-repeat-1/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -2869,7 +2869,7 @@ benchmarks:
     - -repeat=1
     input_idx: 7
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -2892,17 +2892,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-variant-coalesced-repeat-1/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-variant-coalesced-repeat-1/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -2911,7 +2911,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-variant-coalesced-repeat-1/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -2937,7 +2937,7 @@ benchmarks:
     - -repeat=1
     input_idx: 8
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -2960,17 +2960,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-variant-optimized-repeat-1/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-variant-optimized-repeat-1/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -2979,7 +2979,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-variant-optimized-repeat-1/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -3004,7 +3004,7 @@ benchmarks:
     - '1'
     input_idx: 0
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -3027,17 +3027,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -3046,7 +3046,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -3070,7 +3070,7 @@ benchmarks:
     - '1'
     input_idx: 1
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -3093,17 +3093,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -3112,7 +3112,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true
@@ -3136,7 +3136,7 @@ benchmarks:
     - '1'
     input_idx: 2
     profile:
-      repetitions: 5
+      repetitions: 3
       timeout: null
       concurrency: 1
       enabled: true
@@ -3159,17 +3159,17 @@ benchmarks:
       results_dir: /home/roman/dev/box/results
       traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/accelsim-trace
     simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/sim
       parallel: false
     accelsim_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
-      concurrency: null
+      concurrency: 1
       enabled: true
       results_dir: /home/roman/dev/box/results
       trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
@@ -3178,7 +3178,7 @@ benchmarks:
       config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
       stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/accelsim-sim
     playground_simulate:
-      repetitions: 2
+      repetitions: 1
       timeout: null
       concurrency: 1
       enabled: true

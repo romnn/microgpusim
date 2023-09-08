@@ -1,35 +1,38 @@
 use clap::Parser;
 use std::path::PathBuf;
 
-#[derive(Parser, Debug, Clone)]
+#[derive(Parser, Debug, Default, Clone)]
 pub struct Build {}
 
-#[derive(Parser, Debug, Clone)]
+#[derive(Parser, Debug, Default, Clone)]
 pub struct Clean {}
 
-#[derive(Parser, Debug, Clone)]
+#[derive(Parser, Debug, Default, Clone)]
 pub struct Profile {}
 
-#[derive(Parser, Debug, Clone)]
+#[derive(Parser, Debug, Default, Clone)]
 pub struct Trace {}
 
-#[derive(Parser, Debug, Clone)]
+#[derive(Parser, Debug, Default, Clone)]
 pub struct AccelsimTrace {}
 
-#[derive(Parser, Debug, Clone)]
+#[derive(Parser, Debug, Default, Clone)]
 pub struct Sim {}
 
-#[derive(Parser, Debug, Clone)]
+#[derive(Parser, Debug, Default, Clone)]
 pub struct AccelsimSim {}
 
-#[derive(Parser, Debug, Clone)]
+#[derive(Parser, Debug, Default, Clone)]
 pub struct PlaygroundSim {}
 
-#[derive(Parser, Debug, Clone)]
+#[derive(Parser, Debug, Default, Clone)]
 pub struct Expand {
     #[clap(long = "full", help = "expand full benchmark config")]
     pub full: bool,
 }
+
+#[derive(Parser, Debug, Default, Clone)]
+pub struct Full {}
 
 #[derive(Parser, Debug, Clone)]
 pub enum Command {
@@ -42,6 +45,7 @@ pub enum Command {
     Build(Build),
     Clean(Clean),
     Expand(Expand),
+    Full(Full),
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -59,6 +63,9 @@ pub struct Options {
         default_value = "false"
     )]
     pub force: bool,
+
+    #[clap(long = "clean", help = "clean results", default_value = "false")]
+    pub clean: bool,
 
     #[clap(
         long = "dry",
