@@ -48,6 +48,7 @@ where
 pub struct DataL2 {
     pub inner: super::data::Data<
         mcu::MemoryControllerUnit,
+        // cache::controller::pascal::CacheControllerUnit,
         L2CacheController<
             mcu::MemoryControllerUnit,
             cache::controller::pascal::CacheControllerUnit,
@@ -66,11 +67,13 @@ impl DataL2 {
         cache_config: Arc<config::L2DCache>,
     ) -> Self {
         let mem_controller = mcu::MemoryControllerUnit::new(&config).unwrap();
+        let default_cache_controller = cache::controller::pascal::CacheControllerUnit::new(
+            cache::Config::from(cache_config.inner.as_ref()),
+        );
+        // let cache_controller = default_cache_controller;
         let cache_controller = L2CacheController {
             memory_controller: mem_controller.clone(),
-            cache_controller: cache::controller::pascal::CacheControllerUnit::new(
-                cache::Config::from(cache_config.inner.as_ref()),
-            ),
+            cache_controller: default_cache_controller,
         };
         let inner = super::data::Builder {
             name,

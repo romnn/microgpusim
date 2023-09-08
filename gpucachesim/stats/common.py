@@ -12,6 +12,10 @@ class Stats(abc.ABC):
         pass
 
     @abstractmethod
+    def num_blocks(self) -> int:
+        pass
+
+    @abstractmethod
     def exec_time_sec(self) -> float:
         pass
 

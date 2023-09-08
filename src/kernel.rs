@@ -109,7 +109,7 @@ impl Kernel {
         self.config.id
     }
 
-    pub fn next_threadblock_traces(&self, warps: &mut [warp::Ref], config: &config::GPU) {
+    pub fn next_threadblock_traces(&self, warps: &mut [warp::Ref], config: &config::GPU) -> bool {
         let mut trace_pos = self.trace_pos.write();
 
         let mut instructions = 0;
@@ -118,7 +118,7 @@ impl Kernel {
         if *trace_pos + 1 >= trace_size || trace_size == 0 {
             // no more threadblocks
             log::info!("blocks done: no more threadblock traces");
-            return;
+            return false;
         }
         let next_block = &self.trace[*trace_pos + 1].block_id;
 
@@ -171,6 +171,7 @@ impl Kernel {
             // .all(|w| !w.try_borrow().unwrap().trace_instructions.is_empty()),
             "all warps have at least one instruction (need at least an EXIT)"
         );
+        true
     }
 
     pub fn inc_running(&mut self) {

@@ -89,6 +89,9 @@ class Stats(common.Stats):
     def instructions(self) -> int:
         return self.sim_df["instructions"].sum()
 
+    def num_blocks(self):
+        return self.sim_df["num_blocks"].sum()
+
     def dram_reads(self) -> int:
         return int(self.dram_df["reads"].sum())
 

@@ -1826,7 +1826,10 @@ where
             warp.kernel = Some(Arc::clone(kernel));
             warp.trace_pc = 0;
         }
-        kernel.next_threadblock_traces(selected_warps, &self.config);
+        let have_block = kernel.next_threadblock_traces(selected_warps, &self.config);
+        if have_block {
+            self.stats.lock().sim.num_blocks += 1;
+        }
         log::debug!(
             "initialized traces {}..{} of {} warps",
             start_warp,
@@ -1862,6 +1865,26 @@ where
                     local_active_thread_mask.set(warp_thread_id, true);
                 }
             }
+
+            crate::WIP_STATS.lock().num_warps += 1;
+            // let core_id = (self.cluster_id * self.config.num_cores_per_simt_cluster) + self.core_id;
+            // if core_id >= self.config.total_cores() {
+            //     dbg!(
+            //         self.config.num_simt_clusters,
+            //         self.config.num_cores_per_simt_cluster,
+            //         self.config.total_cores(),
+            //         self.cluster_id,
+            //         self.core_id,
+            //         core_id
+            //     );
+            // }
+            // assert!(core_id < self.config.total_cores());
+            // assert_eq!(
+            //     crate::WIP_STATS.lock().warps_per_core.len(),
+            //     self.config.total_cores()
+            // );
+            crate::WIP_STATS.lock().warps_per_core[self.core_id] += 1;
+
             self.warps[warp_id].try_lock().init(
                 block_hw_id as u64,
                 warp_id,
@@ -1952,4 +1975,5 @@ where
 pub fn warp_inst_complete(instr: &mut WarpInstruction, stats: &Mutex<stats::Stats>) {
     // TODO: use per core stats
     stats.lock().sim.instructions += instr.active_thread_count() as u64;
+    crate::WIP_STATS.lock().warp_instructions += 1;
 }

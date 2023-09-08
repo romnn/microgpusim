@@ -219,7 +219,7 @@ impl std::fmt::Debug for Mask {
 impl MemoryControllerUnit {
     pub fn new(config: &config::GPU) -> eyre::Result<Self> {
         let num_channels = config.num_memory_controllers;
-        let num_sub_partitions_per_channel = config.num_sub_partition_per_memory_channel;
+        let num_sub_partitions_per_channel = config.num_sub_partitions_per_memory_controller;
 
         let num_channels_log2 = logb2(num_channels as u32);
         let num_channels_next_power2 = next_power2(num_channels as u32);
@@ -480,7 +480,7 @@ mod tests {
         let mapping = config.address_mapping();
         let ref_mapping = playground::addrdec::AddressTranslation::new(
             config.num_memory_controllers as u32,
-            config.num_sub_partition_per_memory_channel as u32,
+            config.num_sub_partitions_per_memory_controller as u32,
         );
         (
             mapping.to_physical_address(addr),
@@ -519,7 +519,7 @@ mod tests {
         let config = config::GPU {
             memory_addr_mapping: Some(config_str.to_string()),
             num_memory_controllers: 8,
-            num_sub_partition_per_memory_channel: 2,
+            num_sub_partitions_per_memory_controller: 2,
             ..config::GPU::default()
         };
 
@@ -575,7 +575,7 @@ mod tests {
     fn test_physical_addr_sub_partition_gtx1080() {
         let config = config::GPU {
             num_memory_controllers: 8,
-            num_sub_partition_per_memory_channel: 2,
+            num_sub_partitions_per_memory_controller: 2,
             ..config::GPU::default()
         };
 
@@ -640,13 +640,13 @@ mod tests {
     fn test_partition_addr_gtx1080() {
         let config = config::GPU {
             num_memory_controllers: 8,
-            num_sub_partition_per_memory_channel: 2,
+            num_sub_partitions_per_memory_controller: 2,
             ..config::GPU::default()
         };
         let mapping = config.address_mapping();
         let ref_mapping = playground::addrdec::AddressTranslation::new(
             config.num_memory_controllers as u32,
-            config.num_sub_partition_per_memory_channel as u32,
+            config.num_sub_partitions_per_memory_controller as u32,
         );
 
         let addr = 140_159_034_065_024;

@@ -134,7 +134,7 @@ impl Default for Simulation {
         let config = Arc::new(crate::config::GPU::default());
         let interconn = Arc::new(crate::interconn::ToyInterconnect::new(
             config.num_simt_clusters,
-            config.num_memory_controllers * config.num_sub_partition_per_memory_channel,
+            config.num_memory_controllers * config.num_sub_partitions_per_memory_controller,
         ));
         let inner = Mutex::new(crate::MockSimulator::new(interconn, Arc::clone(&config)));
 

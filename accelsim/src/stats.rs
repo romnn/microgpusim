@@ -190,6 +190,10 @@ impl TryFrom<Stats> for stats::Stats {
                     .get(&key!("gpu_total_instructions"))
                     .copied()
                     .unwrap_or(0.0) as u64,
+                num_blocks: stats
+                    .get(&key!("num_issued_blocks"))
+                    .copied()
+                    .unwrap_or(0.0) as u64,
             },
             accesses: stats::Accesses(accesses),
             dram,

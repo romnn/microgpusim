@@ -72,6 +72,13 @@ def main(path, config, bench_name, input_idx):
                 playground_stats.instructions(),
             ),
             (
+                "num blocks",
+                native_stats.num_blocks(),
+                our_stats.num_blocks(),
+                accelsim_stats.num_blocks(),
+                playground_stats.num_blocks(),
+            ),
+            (
                 "warp instructions",
                 native_stats.warp_instructions(),
                 our_stats.warp_instructions(),

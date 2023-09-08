@@ -54,20 +54,29 @@ pub fn simulate_bench_config(
     };
 
     let config = gpucachesim::config::GPU {
-        num_simt_clusters: 20,                   // 20
-        num_cores_per_simt_cluster: 1,           // 1
-        num_schedulers_per_core: 2,              // 1
-        num_memory_controllers: 8,               // 8
-        num_sub_partition_per_memory_channel: 2, // 2
-        fill_l2_on_memcopy: false,               // true
+        num_simt_clusters: 20,                       // 20
+        num_cores_per_simt_cluster: 1,               // 1
+        num_schedulers_per_core: 2,                  // 1
+        num_memory_controllers: 8,                   // 8
+        num_dram_chips_per_memory_controller: 1,     // 1
+        num_sub_partitions_per_memory_controller: 2, // 2
+        fill_l2_on_memcopy: false,                   // true
         parallelization,
         log_after_cycle: None,
         ..gpucachesim::config::GPU::default()
     };
     // dbg!(&config);
 
+    // total of 16 memories 8 * 2
+
     let sim = gpucachesim::accelmain(traces_dir, config)?;
-    dbg!(&gpucachesim::WIP_STATS.lock());
+    let stats = sim.stats();
+    let mut wip_stats = gpucachesim::WIP_STATS.lock();
+    dbg!(&wip_stats);
+    dbg!(wip_stats.warp_instructions as f32 / wip_stats.num_warps as f32);
+    dbg!(&stats.sim);
+
+    *wip_stats = gpucachesim::WIPStats::default();
 
     Ok(sim)
 }

@@ -110,8 +110,8 @@ impl PipelinedSimdUnit {
     pub fn issue(&mut self, src_reg: WarpInstruction) {
         let mut active = 0;
         match src_reg.opcode.op {
-            // crate::opcodes::Op::EXIT | crate::opcodes::Op::NOP => {}
-            crate::opcodes::Op::NOP => {}
+            crate::opcodes::Op::EXIT | crate::opcodes::Op::NOP => {}
+            // crate::opcodes::Op::NOP => {}
             _ => {
                 active += src_reg.active_mask.count_ones();
             }

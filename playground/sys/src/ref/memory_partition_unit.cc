@@ -229,7 +229,7 @@ void memory_partition_unit::simple_dram_model_cycle() {
         }
         m_dram_latency_queue.pop_front();
       } else {
-        throw std::runtime_error("fyi: simple dram model stall");
+        // throw std::runtime_error("fyi: simple dram model stall");
       }
 
     } else {

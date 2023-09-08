@@ -114,8 +114,9 @@ fn gather_simulation_state(
         box_sim_state.dram_latency_queue_per_partition[partition_id].extend(
             partition
                 .dram_latency_queue
-                .clone()
-                .into_iter()
+                .iter()
+                .map(|(_, fetch)| fetch)
+                .cloned()
                 .map(Into::into),
         );
 
@@ -337,18 +338,18 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
 
     // debugging config
     let box_config = Arc::new(config::GPU {
-        num_simt_clusters: 20,                   // 20
-        num_cores_per_simt_cluster: 1,           // 1
-        num_schedulers_per_core: 2,              // 2
-        num_memory_controllers: 8,               // 8
-        num_sub_partition_per_memory_channel: 2, // 2
-        fill_l2_on_memcopy: false,               // true
+        num_simt_clusters: 20,                       // 20
+        num_cores_per_simt_cluster: 1,               // 1
+        num_schedulers_per_core: 2,                  // 2
+        num_memory_controllers: 8,                   // 8
+        num_sub_partitions_per_memory_controller: 2, // 2
+        fill_l2_on_memcopy: false,                   // true
         ..config::GPU::default()
     });
 
     let box_interconn = Arc::new(ic::ToyInterconnect::new(
         box_config.num_simt_clusters,
-        box_config.num_memory_controllers * box_config.num_sub_partition_per_memory_channel,
+        box_config.total_sub_partitions(),
     ));
 
     let mut box_sim = crate::MockSimulator::new(box_interconn, box_config);

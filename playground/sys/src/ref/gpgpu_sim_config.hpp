@@ -99,32 +99,33 @@ class gpgpu_sim_config : public power_config,
       // throw std::runtime_error("override config");
 
       // ROMAN TODO: we override config here
-      if (gpu_max_cycle_opt == 0) {
-        gpu_max_cycle_opt = 1000000;
-      }
-      gpu_max_cycle_opt =
-          std::min(gpu_max_cycle_opt, (long long unsigned int)1000000);
+      // if (gpu_max_cycle_opt == 0) {
+      //   gpu_max_cycle_opt = 1000000;
+      // }
+      // gpu_max_cycle_opt =
+      //     std::min(gpu_max_cycle_opt, (long long unsigned int)1000000);
 
-      m_shader_config.n_simt_clusters = 20;          // 20
-      m_shader_config.n_simt_cores_per_cluster = 4;  // 1
-      m_shader_config.n_simt_cores_per_cluster = 1;  // 1
-      m_shader_config.gpgpu_num_sched_per_core = 2;  // 2
+      // m_shader_config.n_simt_clusters = 20;          // 20
+      // m_shader_config.n_simt_cores_per_cluster = 4;  // 1
+      // m_shader_config.n_simt_cores_per_cluster = 1;  // 1
+      // m_shader_config.gpgpu_num_sched_per_core = 2;  // 2
 
       // m_shader_config.gpgpu_num_sfu_units = 0;
       // m_shader_config.gpgpu_num_tensor_core_units = 0;
 
       // must be called before m_memory_config.init()
-      m_memory_config.m_n_mem = 8;  // 8
-      m_memory_config.m_n_mem_sub_partition = 1;
-      m_memory_config.m_n_sub_partition_per_memory_channel = 2;
+      // m_memory_config.m_n_mem = 8;  // 8
+      // // this is a computed property
+      // m_memory_config.m_n_mem_sub_partition = 1;
+      // m_memory_config.m_n_sub_partition_per_memory_channel = 2;
+
       m_memory_config.simple_dram_model = true;
       m_memory_config.m_perf_sim_memcpy = false;
 
       // gpgpu_l2_rop_latency was 120
       // m_memory_config.rop_latency = 0;
       // dram_latency latency was 100
-      m_memory_config.dram_latency = 0;
-      // cannot create the l1 latency queue otherwise (to be removed i guess)
+      // m_memory_config.dram_latency = 0;
       m_shader_config.m_L1D_config.l1_latency = 1;
       // latency must be >1 (assert in ldst unit) for the pipeline to work
       // m_shader_config.smem_latency = 2;

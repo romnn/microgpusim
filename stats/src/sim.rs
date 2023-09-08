@@ -4,4 +4,5 @@ use serde::{Deserialize, Serialize};
 pub struct Sim {
     pub cycles: u64,
     pub instructions: u64,
+    pub num_blocks: u64,
 }

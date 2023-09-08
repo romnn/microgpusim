@@ -10,7 +10,8 @@ pub struct Config {
 impl From<&crate::config::GPU> for Config {
     fn from(config: &crate::config::GPU) -> Self {
         Config {
-            num_sub_partitions_per_memory_partition: config.num_sub_partition_per_memory_channel,
+            num_sub_partitions_per_memory_partition: config
+                .num_sub_partitions_per_memory_controller,
             dram_frfcfs_sched_queue_size: config.dram_frfcfs_sched_queue_size,
             dram_return_queue_size: config.dram_return_queue_size,
             dram_seperate_write_queue: config.dram_seperate_write_queue_enable,

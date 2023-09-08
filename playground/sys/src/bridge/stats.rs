@@ -59,6 +59,7 @@ pub struct InstructionCounts {
 pub struct Sim {
     pub cycles: u64,
     pub instructions: u64,
+    pub num_blocks: u64,
 }
 
 #[allow(clippy::module_name_repetitions)]
@@ -147,6 +148,9 @@ impl StatsBridge {
     }
     pub fn set_sim_instructions(&mut self, v: u64) {
         self.sim.instructions = v;
+    }
+    pub fn set_sim_num_blocks(&mut self, v: u64) {
+        self.sim.num_blocks = v;
     }
 }
 
@@ -247,6 +251,7 @@ mod ffi {
         // sim stats
         fn set_sim_cycle(self: &mut StatsBridge, v: u64);
         fn set_sim_instructions(self: &mut StatsBridge, v: u64);
+        fn set_sim_num_blocks(self: &mut StatsBridge, v: u64);
 
         // memory accesses
         fn set_num_mem_write(self: &mut StatsBridge, v: u64);

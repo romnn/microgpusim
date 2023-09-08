@@ -109,10 +109,25 @@ impl TotalDuration {
 pub static TIMINGS: once_cell::sync::Lazy<Mutex<HashMap<&'static str, TotalDuration>>> =
     once_cell::sync::Lazy::new(|| Mutex::new(HashMap::default()));
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct WIPStats {
     pub issued_instructions: u64,
     pub executed_instructions: u64,
+    pub warp_instructions: u64,
+    pub num_warps: u64,
+    pub warps_per_core: Vec<u64>,
+}
+
+impl Default for WIPStats {
+    fn default() -> Self {
+        Self {
+            issued_instructions: 0,
+            executed_instructions: 0,
+            warp_instructions: 0,
+            num_warps: 0,
+            warps_per_core: vec![0; 20],
+        }
+    }
 }
 
 pub static WIP_STATS: once_cell::sync::Lazy<Mutex<WIPStats>> =
@@ -199,7 +214,7 @@ impl FromConfig for stats::Stats {
     fn from_config(config: &config::GPU) -> Self {
         let num_total_cores = config.total_cores();
         let num_mem_units = config.num_memory_controllers;
-        let num_sub_partitions = num_mem_units * config.num_sub_partition_per_memory_channel;
+        let num_sub_partitions = config.total_sub_partitions();
         let num_dram_banks = config.dram_timing_options.num_banks;
 
         Self::new(
@@ -219,7 +234,6 @@ where
         let stats = Arc::new(Mutex::new(Stats::from_config(&config)));
 
         let num_mem_units = config.num_memory_controllers;
-        let _num_sub_partitions = config.num_sub_partition_per_memory_channel;
 
         let mem_partition_units: Vec<_> = (0..num_mem_units)
             .map(|i| {
@@ -508,7 +522,7 @@ where
                     .try_read()
                     .dram_latency_queue
                     .iter()
-                    .map(std::string::ToString::to_string)
+                    .map(|(_, fetch)| fetch.to_string())
                     .collect();
                 log::debug!(
                     "\t dram latency queue ({:3}) = {:?}",
@@ -801,7 +815,7 @@ where
     }
 
     fn copy_chunk_to_gpu(&self, write_addr: address, time: u64) {
-        let num_sub_partitions = self.config.num_sub_partition_per_memory_channel;
+        let num_sub_partitions = self.config.num_sub_partitions_per_memory_controller;
         let tlx_addr = self
             .config
             .address_mapping()
@@ -1221,7 +1235,8 @@ pub fn accelmain(
 
     let interconn = Arc::new(ic::ToyInterconnect::new(
         config.num_simt_clusters,
-        config.num_memory_controllers * config.num_sub_partition_per_memory_channel,
+        config.total_sub_partitions(),
+        // config.num_memory_controllers * config.num_sub_partitions_per_memory_controller,
     ));
     let mut sim = MockSimulator::new(interconn, Arc::clone(&config));
     sim.add_commands(commands_path, traces_dir)?;

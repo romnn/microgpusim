@@ -10,7 +10,7 @@ use std::collections::VecDeque;
 pub struct MemoryPartitionUnit {
     id: usize,
     dram: dram::DRAM,
-    pub dram_latency_queue: VecDeque<mem_fetch::MemFetch>,
+    pub dram_latency_queue: VecDeque<(u64, mem_fetch::MemFetch)>,
     pub sub_partitions: Vec<Arc<Mutex<MemorySubPartition>>>,
     pub arbiter: Box<dyn arbitration::Arbiter>,
 
@@ -27,7 +27,7 @@ impl std::fmt::Debug for MemoryPartitionUnit {
 
 impl MemoryPartitionUnit {
     pub fn new(id: usize, config: Arc<config::GPU>, stats: Arc<Mutex<stats::Stats>>) -> Self {
-        let num_sub_partitions = config.num_sub_partition_per_memory_channel;
+        let num_sub_partitions = config.num_sub_partitions_per_memory_controller;
         let sub_partitions: Vec<_> = (0..num_sub_partitions)
             .map(|i| {
                 let sub_id = id * num_sub_partitions + i;
@@ -65,7 +65,7 @@ impl MemoryPartitionUnit {
     #[inline]
     fn global_sub_partition_id_to_local_id(&self, global_sub_partition_id: usize) -> usize {
         let mut local_id = global_sub_partition_id;
-        local_id -= self.id * self.config.num_sub_partition_per_memory_channel;
+        local_id -= self.id * self.config.num_sub_partitions_per_memory_controller;
         local_id
     }
 
@@ -99,18 +99,18 @@ impl MemoryPartitionUnit {
     pub fn set_done(&mut self, fetch: &mem_fetch::MemFetch) {
         use mem_fetch::access::Kind as AccessKind;
         let global_spid = fetch.sub_partition_id();
-        let spid = self.global_sub_partition_id_to_local_id(global_spid);
-        let mut sub = self.sub_partitions[spid].try_lock();
+        let sub_partition_id = self.global_sub_partition_id_to_local_id(global_spid);
+        let mut sub = self.sub_partitions[sub_partition_id].try_lock();
         debug_assert_eq!(sub.id, global_spid);
         if matches!(
             fetch.access_kind(),
             AccessKind::L1_WRBK_ACC | AccessKind::L2_WRBK_ACC
         ) {
-            self.arbiter.return_credit(spid);
+            self.arbiter.return_credit(sub_partition_id);
             log::trace!(
                 "mem_fetch request {} return from dram to sub partition {}",
                 fetch,
-                spid
+                sub_partition_id
             );
         }
         sub.set_done(fetch);
@@ -125,20 +125,24 @@ impl MemoryPartitionUnit {
         // if !self.dram_latency_queue.is_empty() &&
         //     ((m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle) >=
         //      m_dram_latency_queue.front().ready_cycle)) {
-        if let Some(returned_fetch) = self.dram_latency_queue.front_mut() {
-            if matches!(
-                returned_fetch.access_kind(),
-                AccessKind::L1_WRBK_ACC | AccessKind::L2_WRBK_ACC
-            ) {
+        match self.dram_latency_queue.front_mut() {
+            Some((ready_cycle, returned_fetch))
+                if cycle >= *ready_cycle
+                    && matches!(
+                        returned_fetch.access_kind(),
+                        AccessKind::L1_WRBK_ACC | AccessKind::L2_WRBK_ACC
+                    ) =>
+            {
                 log::debug!(
                     "DROPPING {} fetch return from dram latency queue (write={})",
                     returned_fetch,
                     returned_fetch.is_write()
                 );
 
-                let returned_fetch = self.dram_latency_queue.pop_front().unwrap();
+                let (_, returned_fetch) = self.dram_latency_queue.pop_front().unwrap();
                 self.set_done(&returned_fetch);
-            } else {
+            }
+            Some((ready_cycle, returned_fetch)) if cycle >= *ready_cycle => {
                 self.dram.access(returned_fetch);
 
                 returned_fetch.set_reply(); // todo: is it okay to do that here?
@@ -159,8 +163,7 @@ impl MemoryPartitionUnit {
                 if sub.dram_to_l2_queue.full() {
                     // panic!("fyi: simple dram model stall");
                 } else {
-                    // here we could set reply
-                    let mut returned_fetch = self.dram_latency_queue.pop_front().unwrap();
+                    let (_, mut returned_fetch) = self.dram_latency_queue.pop_front().unwrap();
                     // dbg!(&returned_fetch);
                     // returned_fetch.set_reply();
 
@@ -169,7 +172,6 @@ impl MemoryPartitionUnit {
                     } else {
                         returned_fetch
                             .set_status(mem_fetch::Status::IN_PARTITION_DRAM_TO_L2_QUEUE, 0);
-                        // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
                         self.arbiter.return_credit(dest_spid);
                         // log::debug!(
                         //     "mem_fetch request {:?} return from dram to sub partition {}",
@@ -184,6 +186,8 @@ impl MemoryPartitionUnit {
                     }
                 }
             }
+            // not ready
+            None | Some(_) => {}
         }
 
         // L2->DRAM queue to DRAM latency queue
@@ -223,7 +227,7 @@ impl MemoryPartitionUnit {
                 let dram_latency_queue: Vec<_> = self
                     .dram_latency_queue
                     .iter()
-                    .map(std::string::ToString::to_string)
+                    .map(|(_, fetch)| fetch.to_string())
                     .collect();
                 log::debug!(
                     "\t dram latency queue ({:3}) = {:?}",
@@ -254,15 +258,13 @@ impl MemoryPartitionUnit {
                     //     "issue mem_fetch request {:?} from sub partition {} to dram",
                     //     fetch, spid
                     // );
-                    // dram_delay_t d;
-                    // d.req = mf;
-                    // d.ready_cycle = m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle +
-                    //                 m_config->dram_latency;
+                    let ready_cycle = cycle + self.config.dram_latency as u64;
                     fetch.set_status(mem_fetch::Status::IN_PARTITION_DRAM_LATENCY_QUEUE, 0);
-                    // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-                    self.dram_latency_queue.push_back(fetch);
+                    self.dram_latency_queue.push_back((ready_cycle, fetch));
                     self.arbiter.borrow_credit(spid);
-                    break; // the DRAM should only accept one request per cycle
+
+                    // DRAM should only accept one request per cycle
+                    break;
                 }
             }
         }

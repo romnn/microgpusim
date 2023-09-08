@@ -36,11 +36,11 @@ impl DRAM {
                 num_banks: config.dram_timing_options.num_banks,
                 burst_length: config.dram_burst_length,
                 bus_width: config.dram_buswidth,
-                num_chips: config.num_memory_chips_per_controller,
+                num_chips: config.num_dram_chips_per_memory_controller,
                 // burst length x bus width x # chips per partition (controller)
-                atom_size: config.dram_burst_length
-                    * config.dram_buswidth
-                    * config.num_memory_chips_per_controller,
+                atom_size: config.dram_atom_size(), // atom_size: config.dram_burst_length
+                                                    //     * config.dram_buswidth
+                                                    //     * config.num_dram_chips_per_memory_controller,
             },
             // mrqq,
             // scheduler,

@@ -84,12 +84,18 @@ class Stats(common.Stats):
         assert self.raw_stats_df["gpu_tot_sim_cycle"].sum() == self.sim_df["cycles"].sum()
         return self.sim_df["cycles"].sum()
 
+    def num_warps(self) -> int:
+        return self.num_blocks() * stats.WARP_SIZE
+
     def warp_instructions(self) -> float:
-        return self.raw_stats_df["warp_instruction_count"].mean() / float(stats.WARP_SIZE)
+        return self.raw_stats_df["warp_instruction_count"].mean() / float(self.num_warps())
 
     def instructions(self) -> int:
         assert self.raw_stats_df["gpu_total_instructions"].sum() == self.sim_df["instructions"].sum()
         return self.sim_df["instructions"].sum()
+
+    def num_blocks(self) -> int:
+        return self.raw_stats_df["num_issued_blocks"].sum()
 
     def dram_reads(self) -> int:
         assert self.raw_stats_df["total_dram_reads"].sum() == self.dram_df["reads"].sum()

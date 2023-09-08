@@ -105,9 +105,80 @@ class Stats(common.Stats):
                 raise ValueError("hw dataframe missing cycles")
                 # hw_value *= mean_sm_efficiency
 
+    def num_blocks(self):
+        return 0
+
     def instructions(self):
         nvprof_key = "inst_issued"
         nvprof_key = "inst_executed"
+
+        print("inst_issued", self.df["inst_issued"].sum() * self.config.num_total_cores)
+        print(
+            "inst_executed",
+            self.df["inst_executed"].sum() * self.config.num_total_cores,
+        )
+
+        total_instructions = (
+            self.df[
+                [
+                    "inst_fp_16",
+                    "inst_fp_32",
+                    "inst_fp_64",
+                    "inst_integer",
+                    "inst_control",
+                    "inst_compute_ld_st",
+                    "inst_misc",
+                ]
+            ]
+            .astype(int)
+            .sum()
+            .sum()
+        )
+        print("total", total_instructions)
+
+        sub_instructions = (
+            self.df[
+                [
+                    "inst_fp_16",
+                    "inst_fp_32",
+                    "inst_fp_64",
+                    "inst_integer",
+                    # "inst_control",
+                    "inst_compute_ld_st",
+                    "inst_misc",
+                ]
+            ]
+            .astype(int)
+            .sum()
+            .sum()
+        )
+
+        print(
+            self.df[
+                [
+                    "inst_fp_16",
+                    "inst_fp_32",
+                    "inst_fp_64",
+                    "inst_integer",
+                    # "inst_control",
+                    "inst_compute_ld_st",
+                    "inst_misc",
+                ]
+            ]
+            .astype(int)
+            .sum()
+        )
+        print("sub", sub_instructions)
+
+        # inst_fp_16	{'value': 0, 'unit': None}
+        # inst_fp_32	{'value': 100, 'unit': None}
+        # inst_fp_64	{'value': 0, 'unit': None}
+        # inst_integer	{'value': 4896, 'unit': None}
+        # inst_bit_convert	{'value': '0', 'unit': None}
+        # inst_control	{'value': '1024', 'unit': None}
+        # inst_compute_ld_st	{'value': '300', 'unit': None}
+        # inst_misc	{'value': '4196', 'unit': None}
+
         if nvprof_key in self.df:
             return self.df[nvprof_key].sum() * self.config.num_total_cores
         elif "smsp__inst_executed.sum_inst" in self.df:

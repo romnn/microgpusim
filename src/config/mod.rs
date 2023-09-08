@@ -529,9 +529,9 @@ pub struct GPU {
     /// number of memory modules (e.g. memory controllers) in gpu
     pub num_memory_controllers: usize, // 8
     /// number of memory subpartition in each memory module
-    pub num_sub_partition_per_memory_channel: usize, // 2
+    pub num_sub_partitions_per_memory_controller: usize, // 2
     /// number of memory chips per memory controller
-    pub num_memory_chips_per_controller: usize, // 1
+    pub num_dram_chips_per_memory_controller: usize, // 1
     /// track and display latency statistics 0x2 enables MC, 0x4 enables queue logs
     // memory_latency_stat: usize, // 14
     /// DRAM scheduler queue size 0 = unlimited (default); # entries per chip
@@ -649,7 +649,7 @@ impl GPU {
     /// Number of bytes transferred per read or write command.
     pub fn dram_atom_size(&self) -> usize {
         // burst length x bus width x # chips per partition
-        self.dram_burst_length * self.dram_buswidth * self.num_memory_chips_per_controller
+        self.dram_burst_length * self.dram_buswidth * self.num_dram_chips_per_memory_controller
     }
 
     /// Compute maximum number of blocks that a kernel can run
@@ -916,7 +916,7 @@ impl GPU {
     // }
 
     pub fn total_sub_partitions(&self) -> usize {
-        self.num_memory_controllers * self.num_sub_partition_per_memory_channel
+        self.num_memory_controllers * self.num_sub_partitions_per_memory_controller
     }
 
     pub fn address_mapping(&self) -> &dyn mcu::MemoryController {
@@ -1153,8 +1153,8 @@ impl Default for GPU {
             ideal_l2: false,
             data_cache_l2_texture_only: false,
             num_memory_controllers: 8,
-            num_sub_partition_per_memory_channel: 2,
-            num_memory_chips_per_controller: 1,
+            num_sub_partitions_per_memory_controller: 2,
+            num_dram_chips_per_memory_controller: 1,
             dram_frfcfs_sched_queue_size: 64,
             dram_return_queue_size: 116,
             dram_buswidth: 4,

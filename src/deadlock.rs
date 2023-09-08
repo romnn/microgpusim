@@ -6,7 +6,7 @@ pub struct State {
     pub l2_to_interconn_queue: Vec<Vec<mem_fetch::MemFetch>>,
     pub l2_to_dram_queue: Vec<Vec<mem_fetch::MemFetch>>,
     pub dram_to_l2_queue: Vec<Vec<mem_fetch::MemFetch>>,
-    pub dram_latency_queue: Vec<Vec<mem_fetch::MemFetch>>,
+    pub dram_latency_queue: Vec<Vec<(u64, mem_fetch::MemFetch)>>,
     pub functional_unit_pipelines: Vec<Vec<register_set::RegisterSet>>,
     // pub operand_collectors: Vec<Option<operand_collector::OperandCollectorRegisterFileUnit>>,
     // pub schedulers: Vec<Vec<sched::Scheduler>>,

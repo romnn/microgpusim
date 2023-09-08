@@ -221,6 +221,7 @@ impl From<stats::sim::Sim> for Sim {
         Self {
             cycles: sim.cycles,
             instructions: sim.instructions,
+            num_blocks: sim.num_blocks,
         }
     }
 }
@@ -230,6 +231,7 @@ impl From<Sim> for stats::sim::Sim {
         Self {
             cycles: sim.cycles,
             instructions: sim.instructions,
+            num_blocks: sim.num_blocks,
         }
     }
 }
