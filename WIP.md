@@ -2,7 +2,7 @@
 
 - today:
 
-  - make the accelsim class ceate a df with mean, variance, min, max per repetition
+  - DONE: make the accelsim class ceate a df with mean, variance, min, max per repetition
   - build a well defined dataframe in all of the classes
 
   - check for statistical variability with profiling

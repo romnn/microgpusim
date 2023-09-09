@@ -17,6 +17,9 @@ def human_readable(n) -> str:
 
     import math
 
+    if abs(float(int(n)) - float(n)) == 0:
+        n = int(n)
+
     precision = 5
     if isinstance(n, float):
         res = "{:.5f}".format(n)

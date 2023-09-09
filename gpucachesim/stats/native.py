@@ -162,32 +162,6 @@ def normalize_device_name(name):
     return re.sub(r" \(\d+\)$", "", name)
 
 
-def compute_df_statistics(df: pd.DataFrame, group_by: typing.List[str], agg=None):
-    all_columns = set(df.columns.tolist())
-    all_columns = all_columns.difference(group_by)
-    all_columns = sorted(list(all_columns))
-    # print(all_columns)
-
-    if agg is None:
-        agg = dict()
-
-    grouped = df.groupby(group_by)
-
-    df_mean = grouped.agg({**{c: "mean" for c in all_columns}, **agg})
-    df_mean = df_mean.rename(columns={c: c + "_mean" for c in df_mean.columns})
-
-    df_max = grouped.agg({**{c: "max" for c in all_columns}, **agg})
-    df_max = df_max.rename(columns={c: c + "_max" for c in df_max.columns})
-
-    df_min = grouped.agg({**{c: "min" for c in all_columns}, **agg})
-    df_min = df_min.rename(columns={c: c + "_min" for c in df_min.columns})
-
-    df_std = grouped.agg({**{c: "std" for c in all_columns}, **agg})
-    df_std = df_std.rename(columns={c: c + "_std" for c in df_std.columns})
-
-    return pd.concat([df_mean, df_max, df_min, df_std], axis=1)
-
-
 class Stats(common.Stats):
     bench_config: BenchConfig
     config: GPUConfig
@@ -226,14 +200,14 @@ class Stats(common.Stats):
         # print(df.columns.tolist())
         df = df[NUMERIC_METRIC_COLUMNS + INDEX_COLS]
         df[NUMERIC_METRIC_COLUMNS] = df[NUMERIC_METRIC_COLUMNS].astype(float)
-        self.df = compute_df_statistics(df, group_by=INDEX_COLS)
+        self.df = common.compute_df_statistics(df, group_by=INDEX_COLS)
 
         # print(self.df.loc[:, self.df.columns.str.contains("elapsed_cycles_sm")].T)
 
         commands_df = pd.concat(command_dfs)
         # print(commands_df.select_dtypes(include=["object"]).columns)
         # print(commands_df)
-        self.commands_df = compute_df_statistics(
+        self.commands_df = common.compute_df_statistics(
             commands_df,
             group_by=INDEX_COLS,
             agg={"SrcMemType": "first", "DstMemType": "first"},
