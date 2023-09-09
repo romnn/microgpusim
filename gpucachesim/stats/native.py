@@ -6,7 +6,7 @@ import re
 import pandas as pd
 from pprint import pprint
 
-from gpucachesim.benchmarks import GPUConfig, BenchConfig
+from gpucachesim.benchmarks import GPUConfig, BenchConfig, ProfileConfig
 import gpucachesim.stats.common as common
 
 INDEX_COLS = ["Stream", "Context", "Device", "Kernel", "Correlation_ID"]
@@ -163,15 +163,14 @@ def normalize_device_name(name):
 
 
 class Stats(common.Stats):
-    bench_config: BenchConfig
-    config: GPUConfig
-    df: pd.DataFrame
-    commands_df: pd.DataFrame
+    bench_config: ProfileConfig
 
-    def __init__(self, config: GPUConfig, bench_config: BenchConfig) -> None:
-        self.path = Path(bench_config["profile"]["profile_dir"])
-        self.repetitions = bench_config["profile"]["repetitions"]
-        print(self.repetitions)
+    def __init__(self, config: GPUConfig, global_bench_config: BenchConfig) -> None:
+        self.bench_config = global_bench_config["profile"]
+        self.path = Path(self.bench_config["profile_dir"])
+        self.repetitions = self.bench_config["repetitions"]
+        self.use_duration = False
+        self.config = config
 
         dfs = []
         command_dfs = []
@@ -216,10 +215,6 @@ class Stats(common.Stats):
 
         # self.df = self.df.groupby("run")
         # print(self.df)
-
-        self.use_duration = False
-        self.bench_config = bench_config
-        self.config = config
 
     @property
     def kernel_launches(self):

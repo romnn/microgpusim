@@ -106,10 +106,14 @@ pub fn open_writable(path: impl AsRef<Path>) -> Result<std::io::BufWriter<std::f
 #[inline]
 pub fn remove_dir(path: impl AsRef<Path>) -> Result<(), Error> {
     let path = path.as_ref();
-    std::fs::remove_dir_all(path).map_err(|source| Error::RemoveDirectory {
-        path: path.to_path_buf(),
-        source,
-    })
+    match std::fs::remove_dir_all(path) {
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(source) => Err(Error::RemoveDirectory {
+            path: path.to_path_buf(),
+            source,
+        }),
+        Ok(()) => Ok(()),
+    }
 }
 
 #[inline]

@@ -53,7 +53,7 @@ class ProfileConfig(typing.TypedDict):
 
 
 class SimulateConfig(typing.TypedDict):
-    profile_dir: PathLike
+    stats_dir: PathLike
     repetitions: int
 
 

@@ -3,7 +3,7 @@ import json
 from os import PathLike
 from pathlib import Path
 
-from gpucachesim.benchmarks import GPUConfig, BenchConfig
+from gpucachesim.benchmarks import GPUConfig, BenchConfig, SimulateConfig
 import gpucachesim.stats.common as common
 
 WARP_SIZE = 32
@@ -39,16 +39,17 @@ def parse_cache_stats(path: PathLike):
 
 
 class Stats(common.Stats):
+    bench_config: SimulateConfig
+
     def __init__(self, config: GPUConfig, bench_config: BenchConfig) -> None:
-        self.path = Path(bench_config["simulate"]["stats_dir"])
+        self.bench_config = bench_config["simulate"]
+        self.path = Path(self.bench_config["stats_dir"])
         self.use_duration = False
         self.config = config
-        self.repetitions = int(bench_config["simulate"]["repetitions"])
-        self._load_bench_config(bench_config)
+        self.repetitions = int(self.bench_config["repetitions"])
+        self.load_converted_stats()
 
-    def _load_bench_config(self, bench_config: BenchConfig) -> None:
-        self.bench_config = bench_config
-
+    def load_converted_stats(self) -> None:
         exec_time_sec_release_dfs = []
         sim_dfs = []
         accesses_dfs = []

@@ -8,8 +8,11 @@ import gpucachesim.stats.accelsim as accelsim
 
 
 class Stats(accelsim.Stats):
-    def __init__(self, config: GPUConfig, bench_config: BenchConfig) -> None:
-        self.path = Path(bench_config["playground_simulate"]["stats_dir"])
+    def __init__(self, config: GPUConfig, global_bench_config: BenchConfig) -> None:
+        self.bench_config = global_bench_config["playground_simulate"]
+        self.path = Path(self.bench_config["stats_dir"])
         self.use_duration = False
         self.config = config
-        self._load_bench_config(bench_config)
+        self.repetitions = int(self.bench_config["repetitions"])
+        self.load_converted_stats()
+        self.load_raw_stats()
