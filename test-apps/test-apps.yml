@@ -19,14 +19,15 @@ config:
   profile:
     # one benchmark at once to not stress the GPU
     concurrency: 1
-    # profile 5 repetitions to warm up the GPU
-    repetitions: 3
+    # profiling has very high statistical error
+    # also, we use repetitions to warm up the GPU
+    repetitions: 10
     keep_log_file: true
   # for simulation, we do not set a limit on concurrency
   simulate:
     # No concurrency limit for now (until we implement multi-threading)
     concurrency: 1 # null
-    repetitions: 1
+    repetitions: 2 # for testing
   # for accelsim simulation, we do not set a limit on concurrency
   accelsim_simulate:
     # No concurrency limit as accelsim is single threaded.

@@ -2,6 +2,9 @@
 
 - today:
 
+  - make the accelsim class ceate a df with mean, variance, min, max per repetition
+  - build a well defined dataframe in all of the classes
+
   - check for statistical variability with profiling
 
   - add option for l2 set index unless when in compat mode
@@ -31,6 +34,8 @@
   - convert, match and plot statistics
   - record mem fetch latency in playground and box
 
+  - DONE: make the native class ceate a df with mean, variance, min, max per repetition
+  - DONE: repeat simulate for validation
   - DONE: Optional new type to simplify display printing for optionals
   - DONE: implement repetitions for profile validate
   - DONE: implement option to run all steps for a benchmark ("validate")

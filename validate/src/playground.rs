@@ -93,40 +93,55 @@ pub async fn simulate(
     _sim_options: &options::PlaygroundSim,
     _bar: &indicatif::ProgressBar,
 ) -> Result<(), RunError> {
-    // get traces dir from accelsim trace config
-    let stats_dir = bench.playground_simulate.stats_dir.clone();
-    let detailed_stats_dir = stats_dir.join("detailed");
+    let common = &bench.playground_simulate.common;
+    let stats_dir = &bench.playground_simulate.stats_dir;
+    let detailed_stats_dir = &stats_dir.join("detailed");
+    if options.clean {
+        utils::fs::remove_dir(stats_dir).map_err(eyre::Report::from)?;
+        utils::fs::remove_dir(detailed_stats_dir).map_err(eyre::Report::from)?;
+    }
+
+    utils::fs::create_dirs(stats_dir).map_err(eyre::Report::from)?;
 
     if !options.force
         && [stats_dir.as_path(), detailed_stats_dir.as_path()]
             .iter()
-            .all(crate::stats::already_exist)
+            .all(|stat_dir| crate::stats::already_exist(&common, stat_dir))
     {
         return Err(RunError::Skipped);
     }
 
-    let accelsim_compat_mode = true;
-    let extra_args = vec!["-gpgpu_perf_sim_memcpy", "0"];
-    let (log, stats, dur) = tokio::task::spawn_blocking(move || {
-        let (log, stats, dur) = simulate_bench_config(
-            &bench,
-            TraceProvider::Native,
-            extra_args,
-            accelsim_compat_mode,
+    for repetition in 0..common.repetitions {
+        let accelsim_compat_mode = true;
+        let extra_args = vec!["-gpgpu_perf_sim_memcpy", "0"];
+        let bench = bench.clone();
+        let (log, stats, dur) = tokio::task::spawn_blocking(move || {
+            let (log, stats, dur) = simulate_bench_config(
+                &bench,
+                TraceProvider::Native,
+                extra_args,
+                accelsim_compat_mode,
+            )?;
+            Ok::<_, eyre::Report>((log, stats, dur))
+        })
+        .await
+        .unwrap()?;
+
+        let detailed_stats: stats::Stats = stats.into();
+
+        let profile = if playground::is_debug() {
+            "debug"
+        } else {
+            "release"
+        };
+        super::accelsim::process_stats(log.into_bytes(), &dur, &stats_dir, profile, repetition)?;
+        super::simulate::process_stats(
+            detailed_stats,
+            &dur,
+            &detailed_stats_dir,
+            profile,
+            repetition,
         )?;
-        Ok::<_, eyre::Report>((log, stats, dur))
-    })
-    .await
-    .unwrap()?;
-
-    let detailed_stats: stats::Stats = stats.into();
-
-    let profile = if playground::is_debug() {
-        "debug"
-    } else {
-        "release"
-    };
-    super::accelsim::process_stats(log.into_bytes(), &dur, &stats_dir)?;
-    super::simulate::process_stats(detailed_stats, &dur, &detailed_stats_dir, profile)?;
+    }
     Ok(())
 }

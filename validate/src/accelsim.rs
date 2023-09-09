@@ -9,7 +9,6 @@ use color_eyre::{eyre, Help};
 use std::io::Write;
 use std::path::Path;
 use std::time::Duration;
-use utils::fs::create_dirs;
 
 fn convert_traces_to_json(
     trace_dir: &Path,
@@ -46,7 +45,7 @@ pub async fn trace(
     _bar: &indicatif::ProgressBar,
 ) -> Result<(), RunError> {
     let traces_dir = &bench.accelsim_trace.traces_dir;
-    create_dirs(traces_dir).map_err(eyre::Report::from)?;
+    utils::fs::create_dirs(traces_dir).map_err(eyre::Report::from)?;
 
     let kernelslist = traces_dir.join("kernelslist.g");
     if !options.force && kernelslist.is_file() {
@@ -137,14 +136,28 @@ pub async fn simulate(
     _sim_options: &options::AccelsimSim,
     _bar: &indicatif::ProgressBar,
 ) -> Result<(), RunError> {
+    let common = &bench.accelsim_simulate.common;
     let stats_dir = &bench.accelsim_simulate.stats_dir;
+    if options.clean {
+        utils::fs::remove_dir(stats_dir).map_err(eyre::Report::from)?;
+    }
 
-    if !options.force && crate::stats::already_exist(stats_dir) {
+    utils::fs::create_dirs(stats_dir).map_err(eyre::Report::from)?;
+
+    if !options.force && crate::stats::already_exist(&common, stats_dir) {
         return Err(RunError::Skipped);
     }
 
-    let (output, dur) = simulate_bench_config(bench).await?;
-    process_stats(output.stdout, &dur, stats_dir)?;
+    for repetition in 0..common.repetitions {
+        let (output, dur) = simulate_bench_config(bench).await?;
+        let profile = if accelsim_sim::is_debug() {
+            "debug"
+        } else {
+            "release"
+        };
+
+        process_stats(output.stdout, &dur, stats_dir, profile, repetition)?;
+    }
     Ok(())
 }
 
@@ -152,32 +165,36 @@ pub fn process_stats(
     log: impl AsRef<Vec<u8>>,
     dur: &Duration,
     stats_dir: &Path,
+    profile: &str,
+    repetition: usize,
 ) -> Result<(), RunError> {
     // parse stats
     let parse_options = accelsim::parser::Options::default();
     let log_reader = std::io::Cursor::new(log.as_ref());
     let stats = accelsim::parser::parse_stats(log_reader, &parse_options)?;
 
-    create_dirs(stats_dir).map_err(eyre::Report::from)?;
+    utils::fs::create_dirs(stats_dir).map_err(eyre::Report::from)?;
 
-    open_writable(stats_dir.join("log.txt"))?
+    open_writable(stats_dir.join(format!("log.{repetition}.txt")))?
         .write_all(log.as_ref())
         .map_err(eyre::Report::from)?;
 
     super::stats::write_csv_rows(
-        open_writable(stats_dir.join("raw.stats.csv"))?,
+        open_writable(stats_dir.join(format!("raw.stats.{repetition}.csv")))?,
         &stats.iter().collect::<Vec<_>>(),
     )?;
 
     let converted_stats: stats::Stats = stats.try_into()?;
     // dbg!(&converted_stats);
-    crate::stats::write_stats_as_csv(stats_dir, converted_stats)?;
+    crate::stats::write_stats_as_csv(stats_dir, converted_stats, repetition)?;
 
-    #[cfg(debug_assertions)]
-    let exec_time_file_path = stats_dir.join("exec_time.debug.json");
-    #[cfg(not(debug_assertions))]
-    let exec_time_file_path = stats_dir.join("exec_time.release.json");
+    // accelsim_sim::is_debug()
+    // #[cfg(debug_assertions)]
+    // let exec_time_file_path = stats_dir.join(format!("exec_time.debug.{repetition}.json"));
+    // #[cfg(not(debug_assertions))]
+    // let exec_time_file_path = stats_dir.join(format!("exec_time.release.{repetition}.json"));
 
+    let exec_time_file_path = stats_dir.join(format!("exec_time.{profile}.{repetition}.json"));
     serde_json::to_writer_pretty(open_writable(exec_time_file_path)?, &dur.as_millis())
         .map_err(eyre::Report::from)?;
     Ok(())

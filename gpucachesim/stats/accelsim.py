@@ -95,7 +95,7 @@ class Stats(common.Stats):
         return self.sim_df["instructions"].sum()
 
     def num_blocks(self) -> int:
-        return self.raw_stats_df["num_issued_blocks"].sum()
+        return int(self.raw_stats_df["num_issued_blocks"].sum())
 
     def dram_reads(self) -> int:
         assert self.raw_stats_df["total_dram_reads"].sum() == self.dram_df["reads"].sum()

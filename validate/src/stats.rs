@@ -13,38 +13,66 @@ pub enum Cache {
     L2D,
 }
 
-pub fn cache_stats_path(stats_dir: impl AsRef<Path>, cache_name: &str) -> PathBuf {
+pub fn cache_stats_path(
+    stats_dir: impl AsRef<Path>,
+    cache_name: &str,
+    repetition: usize,
+) -> PathBuf {
     stats_dir
         .as_ref()
-        .join(format!("stats.cache.{cache_name}.csv"))
+        .join(format!("stats.cache.{cache_name}.{repetition}.csv"))
 }
 
-pub fn access_stats_path(stats_dir: impl AsRef<Path>) -> PathBuf {
-    stats_dir.as_ref().join("stats.accesses.csv")
+pub fn access_stats_path(stats_dir: impl AsRef<Path>, repetition: usize) -> PathBuf {
+    stats_dir
+        .as_ref()
+        .join(format!("stats.accesses.{repetition}.csv"))
 }
 
-pub fn instruction_stats_path(stats_dir: impl AsRef<Path>) -> PathBuf {
-    stats_dir.as_ref().join("stats.instructions.csv")
+pub fn instruction_stats_path(stats_dir: impl AsRef<Path>, repetition: usize) -> PathBuf {
+    stats_dir
+        .as_ref()
+        .join(format!("stats.instructions.{repetition}.csv"))
 }
 
-pub fn sim_stats_path(stats_dir: impl AsRef<Path>) -> PathBuf {
-    stats_dir.as_ref().join("stats.sim.csv")
+pub fn sim_stats_path(stats_dir: impl AsRef<Path>, repetition: usize) -> PathBuf {
+    stats_dir
+        .as_ref()
+        .join(format!("stats.sim.{repetition}.csv"))
 }
 
-pub fn already_exist(stats_dir: impl AsRef<Path>) -> bool {
-    [
-        access_stats_path(&stats_dir),
-        instruction_stats_path(&stats_dir),
-        sim_stats_path(&stats_dir),
-        cache_stats_path(&stats_dir, Cache::L1I.into()),
-        cache_stats_path(&stats_dir, Cache::L1D.into()),
-        cache_stats_path(&stats_dir, Cache::L1T.into()),
-        cache_stats_path(&stats_dir, Cache::L1C.into()),
-        cache_stats_path(&stats_dir, Cache::L2D.into()),
-    ]
-    .iter()
-    .map(PathBuf::as_path)
-    .all(Path::is_file)
+pub fn dram_stats_path(stats_dir: impl AsRef<Path>, repetition: usize) -> PathBuf {
+    stats_dir
+        .as_ref()
+        .join(format!("stats.dram.{repetition}.csv"))
+}
+
+pub fn dram_bank_stats_path(stats_dir: impl AsRef<Path>, repetition: usize) -> PathBuf {
+    stats_dir
+        .as_ref()
+        .join(format!("stats.dram.banks.{repetition}.csv"))
+}
+
+pub fn already_exist(
+    bench: &crate::materialize::TargetConfig,
+    stats_dir: impl AsRef<Path>,
+) -> bool {
+    (0..bench.repetitions)
+        .into_iter()
+        .flat_map(|repetition| {
+            [
+                access_stats_path(&stats_dir, repetition),
+                instruction_stats_path(&stats_dir, repetition),
+                sim_stats_path(&stats_dir, repetition),
+                cache_stats_path(&stats_dir, Cache::L1I.into(), repetition),
+                cache_stats_path(&stats_dir, Cache::L1D.into(), repetition),
+                cache_stats_path(&stats_dir, Cache::L1T.into(), repetition),
+                cache_stats_path(&stats_dir, Cache::L1C.into(), repetition),
+                cache_stats_path(&stats_dir, Cache::L2D.into(), repetition),
+            ]
+            .into_iter()
+        })
+        .all(|path| path.is_file())
 }
 
 #[inline]
@@ -62,30 +90,37 @@ pub fn write_csv_rows(
 }
 
 #[inline]
-pub fn write_stats_as_csv(stats_dir: impl AsRef<Path>, stats: stats::Stats) -> eyre::Result<()> {
+pub fn write_stats_as_csv(
+    stats_dir: impl AsRef<Path>,
+    stats: stats::Stats,
+    repetition: usize,
+) -> eyre::Result<()> {
     let stats_dir = stats_dir.as_ref();
     // sim stats
-    write_csv_rows(open_writable(sim_stats_path(stats_dir))?, &[stats.sim])?;
+    write_csv_rows(
+        open_writable(sim_stats_path(stats_dir, repetition))?,
+        &[stats.sim],
+    )?;
 
     // dram stats
     write_csv_rows(
-        open_writable(stats_dir.join("stats.dram.csv"))?,
+        open_writable(dram_stats_path(stats_dir, repetition))?,
         &stats.dram.accesses_csv(),
     )?;
     write_csv_rows(
-        open_writable(stats_dir.join("stats.dram.banks.csv"))?,
+        open_writable(dram_bank_stats_path(stats_dir, repetition))?,
         &stats.dram.bank_accesses_csv(),
     )?;
 
     // access stats
     write_csv_rows(
-        open_writable(access_stats_path(stats_dir))?,
+        open_writable(access_stats_path(stats_dir, repetition))?,
         &stats.accesses.flatten(),
     )?;
 
     // instruction stats
     write_csv_rows(
-        open_writable(instruction_stats_path(stats_dir))?,
+        open_writable(instruction_stats_path(stats_dir, repetition))?,
         &stats.instructions.flatten(),
     )?;
 
@@ -98,7 +133,7 @@ pub fn write_stats_as_csv(stats_dir: impl AsRef<Path>, stats: stats::Stats) -> e
         (Cache::L2D, stats.l2d_stats.flatten()),
     ] {
         write_csv_rows(
-            open_writable(cache_stats_path(stats_dir, cache.into()))?,
+            open_writable(cache_stats_path(stats_dir, cache.into(), repetition))?,
             &rows,
         )?;
     }

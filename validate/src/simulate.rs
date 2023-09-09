@@ -87,28 +87,36 @@ pub async fn simulate(
     _sim_options: &options::Sim,
     _bar: &indicatif::ProgressBar,
 ) -> Result<(), RunError> {
-    let stats_dir = bench.simulate.stats_dir.clone();
+    let common = &bench.simulate.common;
+    let stats_dir = &bench.simulate.stats_dir;
+    if options.clean {
+        utils::fs::remove_dir(stats_dir).map_err(eyre::Report::from)?;
+    }
 
-    if !options.force && crate::stats::already_exist(&stats_dir) {
+    create_dirs(stats_dir).map_err(eyre::Report::from)?;
+
+    if !options.force && crate::stats::already_exist(common, stats_dir) {
         return Err(RunError::Skipped);
     }
 
-    let (sim, dur) = tokio::task::spawn_blocking(move || {
-        let start = Instant::now();
-        let stats = simulate_bench_config(&bench)?;
-        Ok::<_, eyre::Report>((stats, start.elapsed()))
-    })
-    .await
-    .map_err(eyre::Report::from)??;
+    for repetition in 0..common.repetitions {
+        let bench = bench.clone();
+        let (sim, dur) = tokio::task::spawn_blocking(move || {
+            let start = Instant::now();
+            let stats = simulate_bench_config(&bench)?;
+            Ok::<_, eyre::Report>((stats, start.elapsed()))
+        })
+        .await
+        .map_err(eyre::Report::from)??;
 
-    let stats = sim.stats();
-    let profile = if gpucachesim::is_debug() {
-        "debug"
-    } else {
-        "release"
-    };
-    process_stats(stats, &dur, &stats_dir, profile)?;
-
+        let stats = sim.stats();
+        let profile = if gpucachesim::is_debug() {
+            "debug"
+        } else {
+            "release"
+        };
+        process_stats(stats, &dur, stats_dir, profile, repetition)?;
+    }
     Ok(())
 }
 
@@ -118,11 +126,12 @@ pub fn process_stats(
     dur: &std::time::Duration,
     stats_dir: &Path,
     profile: &str,
+    repetition: usize,
 ) -> Result<(), RunError> {
     create_dirs(stats_dir).map_err(eyre::Report::from)?;
-    crate::stats::write_stats_as_csv(stats_dir, stats)?;
+    crate::stats::write_stats_as_csv(stats_dir, stats, repetition)?;
 
-    let exec_time_file_path = stats_dir.join(format!("exec_time.{profile}.json"));
+    let exec_time_file_path = stats_dir.join(format!("exec_time.{profile}.{repetition}.json"));
     serde_json::to_writer_pretty(open_writable(exec_time_file_path)?, &dur.as_millis())
         .map_err(eyre::Report::from)?;
     Ok(())

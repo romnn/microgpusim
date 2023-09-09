@@ -49,15 +49,19 @@ class GPUConfig:
 
 class ProfileConfig(typing.TypedDict):
     profile_dir: PathLike
+    repetitions: int
 
 
 class SimulateConfig(typing.TypedDict):
     profile_dir: PathLike
+    repetitions: int
 
 
 class BenchConfig(typing.TypedDict):
     profile: ProfileConfig
     simulate: SimulateConfig
+    accelsim_simulate: SimulateConfig
+    playground_simulate: SimulateConfig
 
 
 class Benchmarks:

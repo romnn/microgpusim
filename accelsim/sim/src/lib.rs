@@ -17,6 +17,15 @@ pub fn has_upstream() -> bool {
     upstream
 }
 
+#[must_use]
+pub fn is_debug() -> bool {
+    #[cfg(feature = "debug_build")]
+    let is_debug = true;
+    #[cfg(not(feature = "debug_build"))]
+    let is_debug = false;
+    is_debug
+}
+
 pub fn locate_accelsim_bin(accel_path: &Path, profile: &str) -> eyre::Result<PathBuf> {
     let use_box = std::env::var("USE_BOX").unwrap_or_default().to_lowercase() == "yes";
     let accelsim_bin = if use_box {
