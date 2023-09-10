@@ -144,7 +144,8 @@ pub struct MemAllocation {
 /// Information about a kernel launch.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KernelLaunch {
-    pub name: String,
+    pub mangled_name: String,
+    pub unmangled_name: String,
     pub trace_file: String,
     pub id: u64,
     pub grid: Dim,

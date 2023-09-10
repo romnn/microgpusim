@@ -52,9 +52,12 @@ fn matrixmul() -> eyre::Result<()> {
 
     #[derive(Debug)]
     struct MatrixMul<'s, 'a, T> {
-        d_a: &'a mut exec::DevicePtr<'s, 'a, Vec<T>>,
-        d_b: &'a mut exec::DevicePtr<'s, 'a, Vec<T>>,
-        d_c: &'a mut exec::DevicePtr<'s, 'a, Vec<T>>,
+        d_a: &'a mut exec::DevicePtr<'s, Vec<T>>,
+        d_b: &'a mut exec::DevicePtr<'s, Vec<T>>,
+        d_c: &'a mut exec::DevicePtr<'s, Vec<T>>,
+        // d_a: &'a mut exec::DevicePtr<'s, 'a, Vec<T>>,
+        // d_b: &'a mut exec::DevicePtr<'s, 'a, Vec<T>>,
+        // d_c: &'a mut exec::DevicePtr<'s, 'a, Vec<T>>,
         n: usize,
     }
 
@@ -76,6 +79,10 @@ fn matrixmul() -> eyre::Result<()> {
                 self.d_c[id] = self.d_a[id] + self.d_b[id];
             }
             Ok(())
+        }
+
+        fn name(&self) -> &str {
+            "MatrixMul"
         }
     }
 

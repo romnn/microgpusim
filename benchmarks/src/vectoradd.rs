@@ -44,6 +44,10 @@ where
         // }
         Ok(())
     }
+
+    fn name(&self) -> &str {
+        "VecAdd"
+    }
 }
 
 // Number of threads in each thread block

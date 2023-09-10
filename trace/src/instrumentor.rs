@@ -278,7 +278,8 @@ impl<'c> Instrumentor<'c> {
 
             let shmem_static_nbytes =
                 u32::try_from(func.shared_memory_bytes().unwrap_or_default()).unwrap();
-            let func_name = func.name(ctx);
+            let func_name_mangled = func.mangled_name(ctx);
+            let func_name_unmangled = func.unmangled_name(ctx);
             let _pc = func.addr();
 
             let trace_file = kernel_trace_file_name(*kernel_id);
@@ -286,7 +287,8 @@ impl<'c> Instrumentor<'c> {
             let num_registers = func.num_registers().unwrap();
 
             let kernel_info = trace_model::KernelLaunch {
-                name: func_name.to_string(),
+                mangled_name: func_name_mangled.to_string(),
+                unmangled_name: func_name_unmangled.to_string(),
                 id: *kernel_id,
                 trace_file,
                 grid: grid.into(),
@@ -640,7 +642,7 @@ impl<'c> Instrumentor<'c> {
                         log::debug!(
                             "kernel {:>3} {:<40}: block {:>15} has {:>5} instructions",
                             style(kernel_info.id).blue(),
-                            style(&kernel_info.name).cyan(),
+                            style(&kernel_info.unmangled_name).cyan(),
                             style(unique_block.to_string()).magenta(),
                             style(instruction_count).yellow(),
                         );
@@ -649,7 +651,7 @@ impl<'c> Instrumentor<'c> {
 
                 log::info!(
                     "validation: kernel {}: traced {}/{} unique blocks in grid {}",
-                    kernel_info.name,
+                    kernel_info.unmangled_name,
                     unique_blocks.len(),
                     kernel_info.grid.size(),
                     kernel_info.grid

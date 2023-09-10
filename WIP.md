@@ -2,6 +2,9 @@
 
 - today:
 
+  - add mangled and non mangled kernel names
+  - even when using non-detailed stats, index by kernel launch id
+  - do not compute mean and min max etc. until the last step (plotting)
   - build a well defined dataframe in all of the classes including the inputs and concat them
 
   - write more execution driven examples (especially the different transpose variants)

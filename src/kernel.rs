@@ -61,7 +61,7 @@ impl Kernel {
         let all_blocks: HashSet<_> = trace.iter().map(|t| &t.block_id).collect();
         log::info!(
             "parsed kernel trace for {:?}: {}/{} blocks",
-            config.name,
+            config.unmangled_name,
             all_blocks.len(),
             config.grid.size(),
         );
@@ -164,7 +164,7 @@ impl Kernel {
     }
 
     pub fn name(&self) -> &str {
-        &self.config.name
+        &self.config.unmangled_name
     }
 
     pub fn was_launched(&self) -> bool {

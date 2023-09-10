@@ -11,7 +11,7 @@ fn write_kernel_info(
     // dbg!(&kernel);
     //
     // -kernel name = _Z8mult_gpuIfEvPKT_S2_PS0_mmm
-    writeln!(out, "-kernel name = {}", kernel.name)?;
+    writeln!(out, "-kernel name = {}", kernel.mangled_name)?;
     // -kernel id = 1
     writeln!(out, "-kernel id = {}", kernel.id + 1)?;
     // -grid dim = (4,2,1)
@@ -228,7 +228,8 @@ mod tests {
     #[test]
     fn test_write_kernel_info() -> eyre::Result<()> {
         let kernel = trace_model::KernelLaunch {
-            name: "_Z8mult_gpuIfEvPKT_S2_PS0_mmm".to_string(),
+            mangled_name: "_Z8mult_gpuIfEvPKT_S2_PS0_mmm".to_string(),
+            unmangled_name: "mult_gpu".to_string(),
             id: 0,
             grid: trace_model::Dim { x: 4, y: 2, z: 1 },
             block: trace_model::Dim { x: 32, y: 32, z: 1 },

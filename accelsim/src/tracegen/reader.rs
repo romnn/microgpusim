@@ -89,7 +89,8 @@ pub fn parse_kernel_launch(
         line_info: false,
     };
     let mut kernel_launch = trace_model::KernelLaunch {
-        name: String::new(),
+        mangled_name: String::new(),
+        unmangled_name: String::new(),
         trace_file: kernel_trace_file_name.clone(),
         id: 0,
         grid: Dim { x: 0, y: 0, z: 0 },
@@ -127,7 +128,8 @@ pub fn parse_kernel_launch(
             let value = value.trim();
             match key.as_slice() {
                 ["kernel", "name"] => {
-                    kernel_launch.name = value.to_string();
+                    kernel_launch.mangled_name = value.to_string();
+                    kernel_launch.unmangled_name = value.to_string();
                 }
                 ["kernel", "id"] => {
                     kernel_launch.id = value.trim().parse()?;

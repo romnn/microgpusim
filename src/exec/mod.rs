@@ -156,6 +156,8 @@ pub trait Kernel {
 
     /// Run an instance of the kernel on a thread identified by its index
     fn run(&mut self, idx: &ThreadIndex) -> Result<(), Self::Error>;
+
+    fn name(&self) -> &str;
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
@@ -870,7 +872,8 @@ impl TraceGenerator for Tracer {
             .collect::<Vec<_>>());
 
         let launch_config = model::KernelLaunch {
-            name: String::new(),
+            mangled_name: kernel.name().to_string(),
+            unmangled_name: kernel.name().to_string(),
             trace_file: String::new(),
             id: self.kernel_launch_id.fetch_add(1, atomic::Ordering::SeqCst),
             grid,
