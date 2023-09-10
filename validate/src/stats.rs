@@ -76,10 +76,15 @@ pub fn already_exist(
 }
 
 #[inline]
-pub fn write_csv_rows(
+pub fn write_csv_rows<R, T>(
     writer: impl std::io::Write,
-    rows: &[impl Serialize],
-) -> color_eyre::eyre::Result<()> {
+    // rows: &[impl Serialize],
+    rows: R,
+) -> color_eyre::eyre::Result<()>
+where
+    R: IntoIterator<Item = T>,
+    T: Serialize,
+{
     let mut csv_writer = csv::WriterBuilder::new()
         .flexible(false)
         .from_writer(writer);
@@ -92,50 +97,51 @@ pub fn write_csv_rows(
 #[inline]
 pub fn write_stats_as_csv(
     stats_dir: impl AsRef<Path>,
-    stats: stats::Stats,
+    // stats: stats::PerKernel,
+    stats: &[stats::Stats],
     repetition: usize,
 ) -> eyre::Result<()> {
     let stats_dir = stats_dir.as_ref();
     // sim stats
     write_csv_rows(
         open_writable(sim_stats_path(stats_dir, repetition))?,
-        &[stats.sim],
+        stats.iter().map(|kernel_stats| &kernel_stats.sim),
     )?;
 
-    // dram stats
-    write_csv_rows(
-        open_writable(dram_stats_path(stats_dir, repetition))?,
-        &stats.dram.accesses_csv(),
-    )?;
-    write_csv_rows(
-        open_writable(dram_bank_stats_path(stats_dir, repetition))?,
-        &stats.dram.bank_accesses_csv(),
-    )?;
-
-    // access stats
-    write_csv_rows(
-        open_writable(access_stats_path(stats_dir, repetition))?,
-        &stats.accesses.flatten(),
-    )?;
-
-    // instruction stats
-    write_csv_rows(
-        open_writable(instruction_stats_path(stats_dir, repetition))?,
-        &stats.instructions.flatten(),
-    )?;
-
-    // cache stats
-    for (cache, rows) in [
-        (Cache::L1I, stats.l1i_stats.flatten()),
-        (Cache::L1D, stats.l1d_stats.flatten()),
-        (Cache::L1T, stats.l1t_stats.flatten()),
-        (Cache::L1C, stats.l1c_stats.flatten()),
-        (Cache::L2D, stats.l2d_stats.flatten()),
-    ] {
-        write_csv_rows(
-            open_writable(cache_stats_path(stats_dir, cache.into(), repetition))?,
-            &rows,
-        )?;
-    }
+    // // dram stats
+    // write_csv_rows(
+    //     open_writable(dram_stats_path(stats_dir, repetition))?,
+    //     &stats.dram.accesses_csv(),
+    // )?;
+    // write_csv_rows(
+    //     open_writable(dram_bank_stats_path(stats_dir, repetition))?,
+    //     &stats.dram.bank_accesses_csv(),
+    // )?;
+    //
+    // // access stats
+    // write_csv_rows(
+    //     open_writable(access_stats_path(stats_dir, repetition))?,
+    //     &stats.accesses.flatten(),
+    // )?;
+    //
+    // // instruction stats
+    // write_csv_rows(
+    //     open_writable(instruction_stats_path(stats_dir, repetition))?,
+    //     &stats.instructions.flatten(),
+    // )?;
+    //
+    // // cache stats
+    // for (cache, rows) in [
+    //     (Cache::L1I, stats.l1i_stats.flatten()),
+    //     (Cache::L1D, stats.l1d_stats.flatten()),
+    //     (Cache::L1T, stats.l1t_stats.flatten()),
+    //     (Cache::L1C, stats.l1c_stats.flatten()),
+    //     (Cache::L2D, stats.l2d_stats.flatten()),
+    // ] {
+    //     write_csv_rows(
+    //         open_writable(cache_stats_path(stats_dir, cache.into(), repetition))?,
+    //         &rows,
+    //     )?;
+    // }
     Ok(())
 }

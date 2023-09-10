@@ -54,7 +54,6 @@ use engine::cycle::Component;
 use interconn as ic;
 use kernel::Kernel;
 use mem_fetch::ToBitString;
-use stats::Stats;
 use trace_model::Command;
 
 use crate::sync::{atomic, Arc, Mutex, RwLock};
@@ -196,7 +195,7 @@ pub struct DebugState {
 pub struct MockSimulator<I> {
     /// Temporary for debugging
     // pub states: Vec<(u64, DebugState)>,
-    stats: Arc<Mutex<Stats>>,
+    stats: Arc<Mutex<stats::PerKernel>>,
     config: Arc<config::GPU>,
     // mem_partition_units: Vec<Arc<RwLock<dyn MemoryPartitionUnit>>>,
     mem_partition_units: Vec<Arc<RwLock<mem_partition_unit::MemoryPartitionUnit>>>,
@@ -237,19 +236,19 @@ pub trait FromConfig {
     fn from_config(config: &config::GPU) -> Self;
 }
 
-impl FromConfig for stats::Stats {
+impl FromConfig for stats::Config {
     fn from_config(config: &config::GPU) -> Self {
         let num_total_cores = config.total_cores();
         let num_mem_units = config.num_memory_controllers;
         let num_sub_partitions = config.total_sub_partitions();
         let num_dram_banks = config.dram_timing_options.num_banks;
 
-        Self::new(
+        Self {
             num_total_cores,
             num_mem_units,
             num_sub_partitions,
             num_dram_banks,
-        )
+        }
     }
 }
 
@@ -258,7 +257,10 @@ where
     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
 {
     pub fn new(interconn: Arc<I>, config: Arc<config::GPU>) -> Self {
-        let stats = Arc::new(Mutex::new(Stats::from_config(&config)));
+        // let stats = Arc::new(Mutex::new(stats::Stats::from_config(&config)));
+        let stats = Arc::new(Mutex::new(stats::PerKernel::new(
+            stats::Config::from_config(&config),
+        )));
 
         let num_mem_units = config.num_memory_controllers;
 
@@ -487,7 +489,8 @@ where
 
     pub fn set_cycle(&self, cycle: u64) {
         let mut stats = self.stats.lock();
-        stats.sim.cycles = cycle;
+        let kernel_stats = stats.get_mut(0);
+        kernel_stats.sim.cycles = cycle;
     }
 
     #[allow(clippy::overly_complex_bool_expr)]
@@ -655,7 +658,9 @@ where
                 }
             } else {
                 log::debug!("SKIP sub partition {} ({}): DRAM full stall", i, device);
-                self.stats.lock().stall_dram_full += 1;
+                let mut stats = self.stats.lock();
+                let kernel_stats = stats.get_mut(0);
+                kernel_stats.stall_dram_full += 1;
             }
             // we borrow all of sub here, which is a problem for the cyclic reference in l2
             // interface
@@ -919,28 +924,65 @@ where
         self.allocations.write().insert(alloc_range, name);
     }
 
-    pub fn stats(&self) -> Stats {
-        let mut stats: Stats = self.stats.lock().clone();
+    pub fn stats(&self) -> stats::PerKernel {
+        let mut stats: stats::PerKernel = self.stats.lock().clone();
 
-        for cluster in &self.clusters {
-            let cluster = cluster.try_read();
-            for core in &cluster.cores {
-                let core = core.try_read();
-                let core_id = core.core_id;
-                stats.l1i_stats[core_id] = core.instr_l1_cache.stats().try_lock().clone();
-                let ldst_unit = &core.load_store_unit.try_lock();
-
-                let data_l1 = ldst_unit.data_l1.as_ref().unwrap();
-                stats.l1d_stats[core_id] = data_l1.stats().try_lock().clone();
-                stats.l1c_stats[core_id] = stats::Cache::default();
-                stats.l1t_stats[core_id] = stats::Cache::default();
+        let cores = self
+            .clusters
+            .iter()
+            .flat_map(|cluster| cluster.read().cores.clone());
+        for core in cores {
+            // for cluster in &self.clusters {
+            //     let cluster = cluster.try_read();
+            //     for core in &cluster.cores {
+            let core = core.try_read();
+            // let core_id = core.core_id;
+            // todo:
+            #[macro_export]
+            macro_rules! per_kernel_cache_stats {
+                ($cache:expr) => {{
+                    $cache
+                        .per_kernel_stats()
+                        .try_lock()
+                        .as_ref()
+                        .iter()
+                        .enumerate()
+                }};
             }
+
+            for (kernel_launch_id, cache_stats) in per_kernel_cache_stats!(core.instr_l1_cache) {
+                //     .per_kernel_stats()
+                //     .try_lock()
+                //     .as_ref()
+                //     .iter()
+                //     .enumerate()
+                // {
+                let kernel_stats = stats.get_mut(kernel_launch_id);
+                kernel_stats.l1i_stats[core.core_id] = cache_stats.clone();
+            }
+            // stats.l1i_stats[core.core_id] = core.instr_l1_cache.stats().try_lock().clone();
+
+            let ldst_unit = &core.load_store_unit.try_lock();
+            let data_l1 = ldst_unit.data_l1.as_ref().unwrap();
+            for (kernel_launch_id, cache_stats) in per_kernel_cache_stats!(data_l1) {
+                let kernel_stats = stats.get_mut(kernel_launch_id);
+                kernel_stats.l1d_stats[core.core_id] = cache_stats.clone();
+            }
+            // stats.l1d_stats[core.core_id] = data_l1.stats().try_lock().clone();
+            // stats.l1c_stats[core.core_id] = stats::Cache::default();
+            // stats.l1t_stats[core.core_id] = stats::Cache::default();
+            //     }
+            // }
         }
 
         for sub in &self.mem_sub_partitions {
             let sub = sub.try_lock();
             let l2_cache = sub.l2_cache.as_ref().unwrap();
-            stats.l2d_stats[sub.id] = l2_cache.stats().try_lock().clone();
+            for (kernel_launch_id, cache_stats) in per_kernel_cache_stats!(l2_cache) {
+                let kernel_stats = stats.get_mut(kernel_launch_id);
+                kernel_stats.l2d_stats[sub.id] = cache_stats.clone();
+            }
+            // stats.l2d_stats[sub.id] = l2_cache.stats().try_lock().clone();
         }
         stats
     }
@@ -1193,7 +1235,7 @@ where
     }
 }
 
-pub fn save_stats_to_file(stats: &Stats, path: &Path) -> eyre::Result<()> {
+pub fn save_stats_to_file(stats: &stats::PerKernel, path: &Path) -> eyre::Result<()> {
     use serde::Serialize;
 
     let path = path.with_extension("json");

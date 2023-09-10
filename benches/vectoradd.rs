@@ -31,7 +31,7 @@ fn get_bench_config(
     Ok(bench_config.clone())
 }
 
-pub fn run_box(mut bench_config: BenchmarkConfig, serial: bool) -> eyre::Result<stats::Stats> {
+pub fn run_box(mut bench_config: BenchmarkConfig, serial: bool) -> eyre::Result<stats::PerKernel> {
     if let TargetBenchmarkConfig::Simulate {
         ref mut parallel, ..
     } = bench_config.target_config
@@ -187,7 +187,10 @@ fn main() -> eyre::Result<()> {
         black_box(get_bench_config(Target::Simulate, bench_name, input_num)?),
         false,
     )?;
-    dbg!(&stats.sim);
+    for (kernel_launch_id, kernel_stats) in stats.as_ref().iter().enumerate() {
+        dbg!(kernel_launch_id);
+        dbg!(&kernel_stats.sim);
+    }
     let box_dur = start.elapsed();
     println!("box took:\t\t{box_dur:?}");
 
@@ -230,7 +233,10 @@ fn main() -> eyre::Result<()> {
         )?),
         true,
     )?;
-    dbg!(&stats.sim);
+    for (kernel_launch_id, kernel_stats) in stats.as_ref().iter().enumerate() {
+        dbg!(kernel_launch_id);
+        dbg!(&kernel_stats.sim);
+    }
     let serial_box_dur = start.elapsed();
     println!("serial box took:\t\t{serial_box_dur:?}");
     println!(

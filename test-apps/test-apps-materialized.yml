@@ -2,7 +2,7 @@
 ##
 ## AUTO GENERATED! DO NOT EDIT
 ##
-## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 10/09/2023 16:17:42
+## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 11/09/2023 00:12:01
 ##
 
 config:
@@ -2675,7 +2675,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32/accelsim_trace
     - name: simple_matrixmul
       benchmark_idx: 1
       uid: simple_matrixmul-dtype-32-m-32-n-32-p-64
@@ -2700,7 +2700,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64/accelsim_trace
     - name: simple_matrixmul
       benchmark_idx: 1
       uid: simple_matrixmul-dtype-32-m-32-n-32-p-128
@@ -2725,7 +2725,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-128/accelsim_trace
     - name: simple_matrixmul
       benchmark_idx: 1
       uid: simple_matrixmul-dtype-32-m-32-n-64-p-32
@@ -2750,7 +2750,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-32/accelsim_trace
     - name: simple_matrixmul
       benchmark_idx: 1
       uid: simple_matrixmul-dtype-32-m-32-n-64-p-64
@@ -2775,7 +2775,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-64/accelsim_trace
     - name: simple_matrixmul
       benchmark_idx: 1
       uid: simple_matrixmul-dtype-32-m-32-n-64-p-128
@@ -2800,7 +2800,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-128/accelsim_trace
     - name: simple_matrixmul
       benchmark_idx: 1
       uid: simple_matrixmul-dtype-32-m-32-n-128-p-32
@@ -2825,7 +2825,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-32/accelsim_trace
     - name: simple_matrixmul
       benchmark_idx: 1
       uid: simple_matrixmul-dtype-32-m-32-n-128-p-64
@@ -2850,7 +2850,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-64/accelsim_trace
     - name: simple_matrixmul
       benchmark_idx: 1
       uid: simple_matrixmul-dtype-32-m-32-n-128-p-128
@@ -2875,7 +2875,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-128/accelsim_trace
     - name: simple_matrixmul
       benchmark_idx: 1
       uid: simple_matrixmul-dtype-32-m-64-n-32-p-32
@@ -2900,7 +2900,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-32/accelsim_trace
     - name: simple_matrixmul
       benchmark_idx: 1
       uid: simple_matrixmul-dtype-32-m-64-n-32-p-64
@@ -2925,7 +2925,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-64/accelsim_trace
     - name: simple_matrixmul
       benchmark_idx: 1
       uid: simple_matrixmul-dtype-32-m-64-n-32-p-128
@@ -2950,7 +2950,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-128/accelsim_trace
     - name: simple_matrixmul
       benchmark_idx: 1
       uid: simple_matrixmul-dtype-32-m-64-n-64-p-32
@@ -2975,7 +2975,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-32/accelsim_trace
     - name: simple_matrixmul
       benchmark_idx: 1
       uid: simple_matrixmul-dtype-32-m-64-n-64-p-64
@@ -3000,7 +3000,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-64/accelsim_trace
     - name: simple_matrixmul
       benchmark_idx: 1
       uid: simple_matrixmul-dtype-32-m-64-n-64-p-128
@@ -3025,7 +3025,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-128/accelsim_trace
     - name: simple_matrixmul
       benchmark_idx: 1
       uid: simple_matrixmul-dtype-32-m-64-n-128-p-32
@@ -3050,7 +3050,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-32/accelsim_trace
     - name: simple_matrixmul
       benchmark_idx: 1
       uid: simple_matrixmul-dtype-32-m-64-n-128-p-64
@@ -3075,7 +3075,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-64/accelsim_trace
     - name: simple_matrixmul
       benchmark_idx: 1
       uid: simple_matrixmul-dtype-32-m-64-n-128-p-128
@@ -3100,7 +3100,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128/accelsim_trace
     - name: simple_matrixmul
       benchmark_idx: 1
       uid: simple_matrixmul-dtype-32-m-128-n-32-p-32
@@ -3125,7 +3125,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-32/accelsim_trace
     - name: simple_matrixmul
       benchmark_idx: 1
       uid: simple_matrixmul-dtype-32-m-128-n-32-p-64
@@ -3150,7 +3150,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-64/accelsim_trace
     - name: simple_matrixmul
       benchmark_idx: 1
       uid: simple_matrixmul-dtype-32-m-128-n-32-p-128
@@ -3175,7 +3175,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-128/accelsim_trace
     - name: simple_matrixmul
       benchmark_idx: 1
       uid: simple_matrixmul-dtype-32-m-128-n-64-p-32
@@ -3200,7 +3200,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-32/accelsim_trace
     - name: simple_matrixmul
       benchmark_idx: 1
       uid: simple_matrixmul-dtype-32-m-128-n-64-p-64
@@ -3225,7 +3225,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-64/accelsim_trace
     - name: simple_matrixmul
       benchmark_idx: 1
       uid: simple_matrixmul-dtype-32-m-128-n-64-p-128
@@ -3250,7 +3250,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-128/accelsim_trace
     - name: simple_matrixmul
       benchmark_idx: 1
       uid: simple_matrixmul-dtype-32-m-128-n-128-p-32
@@ -3275,7 +3275,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-32/accelsim_trace
     - name: simple_matrixmul
       benchmark_idx: 1
       uid: simple_matrixmul-dtype-32-m-128-n-128-p-64
@@ -3300,7 +3300,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-64/accelsim_trace
     - name: simple_matrixmul
       benchmark_idx: 1
       uid: simple_matrixmul-dtype-32-m-128-n-128-p-128
@@ -3325,7 +3325,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-128/accelsim_trace
     matrixmul:
     - name: matrixmul
       benchmark_idx: 2
@@ -3347,7 +3347,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-32/accelsim_trace
     - name: matrixmul
       benchmark_idx: 2
       uid: matrixmul-dtype-32-rows-64
@@ -3368,7 +3368,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-64/accelsim_trace
     - name: matrixmul
       benchmark_idx: 2
       uid: matrixmul-dtype-32-rows-128
@@ -3389,7 +3389,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-128/accelsim_trace
     - name: matrixmul
       benchmark_idx: 2
       uid: matrixmul-dtype-32-rows-256
@@ -3410,7 +3410,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-256/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-256/accelsim_trace
     transpose:
     - name: transpose
       benchmark_idx: 3
@@ -3435,7 +3435,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-naive/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-naive/accelsim_trace
     - name: transpose
       benchmark_idx: 3
       uid: transpose-dim-256-repeat-1-variant-coalesced
@@ -3459,7 +3459,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-coalesced/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-coalesced/accelsim_trace
     - name: transpose
       benchmark_idx: 3
       uid: transpose-dim-256-repeat-1-variant-optimized
@@ -3483,7 +3483,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-optimized/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-optimized/accelsim_trace
     - name: transpose
       benchmark_idx: 3
       uid: transpose-dim-512-repeat-1-variant-naive
@@ -3507,7 +3507,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-naive/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-naive/accelsim_trace
     - name: transpose
       benchmark_idx: 3
       uid: transpose-dim-512-repeat-1-variant-coalesced
@@ -3531,7 +3531,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-coalesced/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-coalesced/accelsim_trace
     - name: transpose
       benchmark_idx: 3
       uid: transpose-dim-512-repeat-1-variant-optimized
@@ -3555,7 +3555,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-optimized/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-optimized/accelsim_trace
     - name: transpose
       benchmark_idx: 3
       uid: transpose-dim-1024-repeat-1-variant-naive
@@ -3579,7 +3579,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-naive/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-naive/accelsim_trace
     - name: transpose
       benchmark_idx: 3
       uid: transpose-dim-1024-repeat-1-variant-coalesced
@@ -3603,7 +3603,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-coalesced/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-coalesced/accelsim_trace
     - name: transpose
       benchmark_idx: 3
       uid: transpose-dim-1024-repeat-1-variant-optimized
@@ -3627,7 +3627,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-optimized/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-optimized/accelsim_trace
     babelstream:
     - name: babelstream
       benchmark_idx: 4
@@ -3650,7 +3650,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/accelsim_trace
     - name: babelstream
       benchmark_idx: 4
       uid: babelstream-size-10240
@@ -3672,7 +3672,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/accelsim_trace
     - name: babelstream
       benchmark_idx: 4
       uid: babelstream-size-102400
@@ -3694,7 +3694,7 @@ benchmarks:
         results_dir: /home/roman/dev/box/results
       target: AccelsimTrace
       target_config: !AccelsimTrace
-        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/accelsim_trace
   Simulate:
     vectorAdd:
     - name: vectorAdd
@@ -4198,8 +4198,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-32-p-32/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-32-p-32/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-32-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -4229,8 +4229,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-32-p-32-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-32-p-32-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-32-p-32-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -4260,8 +4260,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-32-p-32-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-32-p-32-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-32-p-32-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -4289,8 +4289,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-32-p-64/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-32-p-64/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-32-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -4320,8 +4320,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-32-p-64-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-32-p-64-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-32-p-64-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -4351,8 +4351,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-32-p-64-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-32-p-64-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-32-p-64-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -4380,8 +4380,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-32-p-128/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-32-p-128/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-32-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-128/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -4411,8 +4411,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-32-p-128-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-32-p-128-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-32-p-128-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-128/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -4442,8 +4442,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-32-p-128-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-32-p-128-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-32-p-128-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-128/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -4471,8 +4471,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-64-p-32/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-64-p-32/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-64-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -4502,8 +4502,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-64-p-32-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-64-p-32-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-64-p-32-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -4533,8 +4533,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-64-p-32-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-64-p-32-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-64-p-32-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -4562,8 +4562,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-64-p-64/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-64-p-64/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-64-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -4593,8 +4593,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-64-p-64-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-64-p-64-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-64-p-64-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -4624,8 +4624,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-64-p-64-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-64-p-64-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-64-p-64-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -4653,8 +4653,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-64-p-128/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-64-p-128/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-64-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-128/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -4684,8 +4684,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-64-p-128-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-64-p-128-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-64-p-128-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-128/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -4715,8 +4715,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-64-p-128-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-64-p-128-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-64-p-128-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-128/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -4744,8 +4744,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-128-p-32/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-128-p-32/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-128-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -4775,8 +4775,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-128-p-32-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-128-p-32-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-128-p-32-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -4806,8 +4806,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-128-p-32-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-128-p-32-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-128-p-32-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -4835,8 +4835,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-128-p-64/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-128-p-64/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-128-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -4866,8 +4866,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-128-p-64-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-128-p-64-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-128-p-64-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -4897,8 +4897,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-128-p-64-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-128-p-64-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-128-p-64-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -4926,8 +4926,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-128-p-128/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-128-p-128/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-serial-n-128-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-128/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -4957,8 +4957,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-128-p-128-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-128-p-128-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-128-p-128-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-128/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -4988,8 +4988,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-128-p-128-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-128-p-128-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-mode-nondeterministic-n-128-p-128-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-128/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5017,8 +5017,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-32-p-32/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-32-p-32/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-32-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5048,8 +5048,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-32-p-32-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-32-p-32-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-32-p-32-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5079,8 +5079,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-32-p-32-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-32-p-32-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-32-p-32-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5108,8 +5108,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-32-p-64/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-32-p-64/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-32-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5139,8 +5139,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-32-p-64-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-32-p-64-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-32-p-64-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5170,8 +5170,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-32-p-64-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-32-p-64-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-32-p-64-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5199,8 +5199,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-32-p-128/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-32-p-128/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-32-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-128/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5230,8 +5230,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-32-p-128-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-32-p-128-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-32-p-128-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-128/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5261,8 +5261,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-32-p-128-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-32-p-128-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-32-p-128-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-128/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5290,8 +5290,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-64-p-32/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-64-p-32/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-64-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5321,8 +5321,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-64-p-32-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-64-p-32-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-64-p-32-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5352,8 +5352,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-64-p-32-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-64-p-32-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-64-p-32-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5381,8 +5381,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-64-p-64/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-64-p-64/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-64-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5412,8 +5412,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-64-p-64-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-64-p-64-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-64-p-64-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5443,8 +5443,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-64-p-64-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-64-p-64-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-64-p-64-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5472,8 +5472,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-64-p-128/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-64-p-128/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-64-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-128/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5503,8 +5503,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-64-p-128-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-64-p-128-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-64-p-128-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-128/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5534,8 +5534,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-64-p-128-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-64-p-128-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-64-p-128-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-128/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5563,8 +5563,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-128-p-32/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-128-p-32/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-128-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5594,8 +5594,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-128-p-32-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-128-p-32-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-128-p-32-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5625,8 +5625,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-128-p-32-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-128-p-32-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-128-p-32-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5654,8 +5654,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-128-p-64/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-128-p-64/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-128-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5685,8 +5685,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-128-p-64-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-128-p-64-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-128-p-64-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5716,8 +5716,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-128-p-64-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-128-p-64-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-128-p-64-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5745,8 +5745,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-128-p-128/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-128-p-128/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-serial-n-128-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5776,8 +5776,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-128-p-128-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-128-p-128-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-128-p-128-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5807,8 +5807,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-128-p-128-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-128-p-128-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-mode-nondeterministic-n-128-p-128-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5836,8 +5836,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-32-p-32/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-32-p-32/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-32-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5867,8 +5867,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-32-p-32-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-32-p-32-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-32-p-32-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5898,8 +5898,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-32-p-32-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-32-p-32-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-32-p-32-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5927,8 +5927,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-32-p-64/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-32-p-64/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-32-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5958,8 +5958,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-32-p-64-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-32-p-64-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-32-p-64-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -5989,8 +5989,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-32-p-64-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-32-p-64-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-32-p-64-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -6018,8 +6018,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-32-p-128/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-32-p-128/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-32-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-128/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -6049,8 +6049,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-32-p-128-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-32-p-128-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-32-p-128-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-128/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -6080,8 +6080,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-32-p-128-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-32-p-128-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-32-p-128-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-128/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -6109,8 +6109,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-64-p-32/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-64-p-32/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-64-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -6140,8 +6140,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-64-p-32-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-64-p-32-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-64-p-32-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -6171,8 +6171,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-64-p-32-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-64-p-32-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-64-p-32-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -6200,8 +6200,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-64-p-64/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-64-p-64/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-64-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -6231,8 +6231,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-64-p-64-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-64-p-64-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-64-p-64-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -6262,8 +6262,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-64-p-64-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-64-p-64-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-64-p-64-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -6291,8 +6291,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-64-p-128/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-64-p-128/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-64-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-128/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -6322,8 +6322,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-64-p-128-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-64-p-128-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-64-p-128-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-128/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -6353,8 +6353,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-64-p-128-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-64-p-128-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-64-p-128-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-128/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -6382,8 +6382,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-128-p-32/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-128-p-32/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-128-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -6413,8 +6413,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-128-p-32-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-128-p-32-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-128-p-32-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -6444,8 +6444,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-128-p-32-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-128-p-32-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-128-p-32-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-32/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -6473,8 +6473,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-128-p-64/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-128-p-64/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-128-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -6504,8 +6504,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-128-p-64-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-128-p-64-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-128-p-64-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -6535,8 +6535,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-128-p-64-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-128-p-64-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-128-p-64-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-64/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -6564,8 +6564,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-128-p-128/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-128-p-128/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-serial-n-128-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-128/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -6595,8 +6595,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-128-p-128-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-128-p-128-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-128-p-128-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-128/accelsim_trace
         parallel: null
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -6626,8 +6626,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-128-p-128-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-128-p-128-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-mode-nondeterministic-n-128-p-128-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-128/accelsim_trace
         parallel: null
     matrixmul:
     - name: matrixmul
@@ -6652,8 +6652,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-serial-rows-32/sim
-        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-serial-rows-32/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-serial-rows-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-32/accelsim_trace
         parallel: null
     - name: matrixmul
       benchmark_idx: 2
@@ -6679,8 +6679,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-nondeterministic-rows-32-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-nondeterministic-rows-32-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-nondeterministic-rows-32-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-32/accelsim_trace
         parallel: null
     - name: matrixmul
       benchmark_idx: 2
@@ -6706,8 +6706,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-nondeterministic-rows-32-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-nondeterministic-rows-32-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-nondeterministic-rows-32-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-32/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-32/accelsim_trace
         parallel: null
     - name: matrixmul
       benchmark_idx: 2
@@ -6731,8 +6731,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-serial-rows-64/sim
-        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-serial-rows-64/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-serial-rows-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-64/accelsim_trace
         parallel: null
     - name: matrixmul
       benchmark_idx: 2
@@ -6758,8 +6758,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-nondeterministic-rows-64-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-nondeterministic-rows-64-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-nondeterministic-rows-64-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-64/accelsim_trace
         parallel: null
     - name: matrixmul
       benchmark_idx: 2
@@ -6785,8 +6785,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-nondeterministic-rows-64-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-nondeterministic-rows-64-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-nondeterministic-rows-64-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-64/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-64/accelsim_trace
         parallel: null
     - name: matrixmul
       benchmark_idx: 2
@@ -6810,8 +6810,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-serial-rows-128/sim
-        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-serial-rows-128/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-serial-rows-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-128/accelsim_trace
         parallel: null
     - name: matrixmul
       benchmark_idx: 2
@@ -6837,8 +6837,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-nondeterministic-rows-128-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-nondeterministic-rows-128-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-nondeterministic-rows-128-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-128/accelsim_trace
         parallel: null
     - name: matrixmul
       benchmark_idx: 2
@@ -6864,8 +6864,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-nondeterministic-rows-128-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-nondeterministic-rows-128-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-nondeterministic-rows-128-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-128/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-128/accelsim_trace
         parallel: null
     - name: matrixmul
       benchmark_idx: 2
@@ -6889,8 +6889,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-serial-rows-256/sim
-        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-serial-rows-256/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-serial-rows-256/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-256/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-256/accelsim_trace
         parallel: null
     - name: matrixmul
       benchmark_idx: 2
@@ -6916,8 +6916,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-nondeterministic-rows-256-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-nondeterministic-rows-256-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-nondeterministic-rows-256-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-256/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-256/accelsim_trace
         parallel: null
     - name: matrixmul
       benchmark_idx: 2
@@ -6943,8 +6943,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-nondeterministic-rows-256-run_ahead-10-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-nondeterministic-rows-256-run_ahead-10-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-mode-nondeterministic-rows-256-run_ahead-10-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-256/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-256/accelsim_trace
         parallel: null
     transpose:
     - name: transpose
@@ -6972,8 +6972,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-serial-repeat-1-variant-naive/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-serial-repeat-1-variant-naive/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-serial-repeat-1-variant-naive/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-naive/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-naive/accelsim_trace
         parallel: null
     - name: transpose
       benchmark_idx: 3
@@ -7002,8 +7002,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-naive/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-naive/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-naive/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-naive/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-naive/accelsim_trace
         parallel: null
     - name: transpose
       benchmark_idx: 3
@@ -7032,8 +7032,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-naive/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-naive/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-naive/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-naive/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-naive/accelsim_trace
         parallel: null
     - name: transpose
       benchmark_idx: 3
@@ -7060,8 +7060,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-serial-repeat-1-variant-coalesced/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-serial-repeat-1-variant-coalesced/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-serial-repeat-1-variant-coalesced/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-coalesced/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-coalesced/accelsim_trace
         parallel: null
     - name: transpose
       benchmark_idx: 3
@@ -7090,8 +7090,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-coalesced/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-coalesced/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-coalesced/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-coalesced/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-coalesced/accelsim_trace
         parallel: null
     - name: transpose
       benchmark_idx: 3
@@ -7120,8 +7120,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-coalesced/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-coalesced/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-coalesced/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-coalesced/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-coalesced/accelsim_trace
         parallel: null
     - name: transpose
       benchmark_idx: 3
@@ -7148,8 +7148,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-serial-repeat-1-variant-optimized/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-serial-repeat-1-variant-optimized/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-serial-repeat-1-variant-optimized/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-optimized/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-optimized/accelsim_trace
         parallel: null
     - name: transpose
       benchmark_idx: 3
@@ -7178,8 +7178,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-optimized/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-optimized/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-optimized/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-optimized/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-optimized/accelsim_trace
         parallel: null
     - name: transpose
       benchmark_idx: 3
@@ -7208,8 +7208,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-optimized/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-optimized/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-optimized/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-optimized/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-optimized/accelsim_trace
         parallel: null
     - name: transpose
       benchmark_idx: 3
@@ -7236,8 +7236,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-serial-repeat-1-variant-naive/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-serial-repeat-1-variant-naive/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-serial-repeat-1-variant-naive/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-naive/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-naive/accelsim_trace
         parallel: null
     - name: transpose
       benchmark_idx: 3
@@ -7266,8 +7266,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-naive/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-naive/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-naive/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-naive/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-naive/accelsim_trace
         parallel: null
     - name: transpose
       benchmark_idx: 3
@@ -7296,8 +7296,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-naive/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-naive/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-naive/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-naive/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-naive/accelsim_trace
         parallel: null
     - name: transpose
       benchmark_idx: 3
@@ -7324,8 +7324,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-serial-repeat-1-variant-coalesced/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-serial-repeat-1-variant-coalesced/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-serial-repeat-1-variant-coalesced/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-coalesced/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-coalesced/accelsim_trace
         parallel: null
     - name: transpose
       benchmark_idx: 3
@@ -7354,8 +7354,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-coalesced/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-coalesced/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-coalesced/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-coalesced/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-coalesced/accelsim_trace
         parallel: null
     - name: transpose
       benchmark_idx: 3
@@ -7384,8 +7384,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-coalesced/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-coalesced/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-coalesced/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-coalesced/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-coalesced/accelsim_trace
         parallel: null
     - name: transpose
       benchmark_idx: 3
@@ -7412,8 +7412,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-serial-repeat-1-variant-optimized/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-serial-repeat-1-variant-optimized/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-serial-repeat-1-variant-optimized/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-optimized/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-optimized/accelsim_trace
         parallel: null
     - name: transpose
       benchmark_idx: 3
@@ -7442,8 +7442,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-optimized/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-optimized/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-optimized/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-optimized/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-optimized/accelsim_trace
         parallel: null
     - name: transpose
       benchmark_idx: 3
@@ -7472,8 +7472,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-optimized/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-optimized/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-optimized/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-optimized/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-optimized/accelsim_trace
         parallel: null
     - name: transpose
       benchmark_idx: 3
@@ -7500,8 +7500,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-serial-repeat-1-variant-naive/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-serial-repeat-1-variant-naive/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-serial-repeat-1-variant-naive/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-naive/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-naive/accelsim_trace
         parallel: null
     - name: transpose
       benchmark_idx: 3
@@ -7530,8 +7530,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-naive/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-naive/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-naive/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-naive/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-naive/accelsim_trace
         parallel: null
     - name: transpose
       benchmark_idx: 3
@@ -7560,8 +7560,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-naive/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-naive/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-naive/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-naive/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-naive/accelsim_trace
         parallel: null
     - name: transpose
       benchmark_idx: 3
@@ -7588,8 +7588,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-serial-repeat-1-variant-coalesced/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-serial-repeat-1-variant-coalesced/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-serial-repeat-1-variant-coalesced/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-coalesced/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-coalesced/accelsim_trace
         parallel: null
     - name: transpose
       benchmark_idx: 3
@@ -7618,8 +7618,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-coalesced/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-coalesced/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-coalesced/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-coalesced/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-coalesced/accelsim_trace
         parallel: null
     - name: transpose
       benchmark_idx: 3
@@ -7648,8 +7648,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-coalesced/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-coalesced/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-coalesced/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-coalesced/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-coalesced/accelsim_trace
         parallel: null
     - name: transpose
       benchmark_idx: 3
@@ -7676,8 +7676,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-serial-repeat-1-variant-optimized/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-serial-repeat-1-variant-optimized/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-serial-repeat-1-variant-optimized/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-optimized/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-optimized/accelsim_trace
         parallel: null
     - name: transpose
       benchmark_idx: 3
@@ -7706,8 +7706,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-optimized/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-optimized/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-optimized/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-optimized/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-optimized/accelsim_trace
         parallel: null
     - name: transpose
       benchmark_idx: 3
@@ -7736,8 +7736,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-optimized/sim
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-optimized/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-mode-nondeterministic-repeat-1-run_ahead-10-threads-8-variant-optimized/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-optimized/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-optimized/accelsim_trace
         parallel: null
     babelstream:
     - name: babelstream
@@ -7763,8 +7763,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-serial-size-1024/sim
-        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-serial-size-1024/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-serial-size-1024/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/accelsim_trace
         parallel: null
     - name: babelstream
       benchmark_idx: 4
@@ -7791,8 +7791,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-nondeterministic-run_ahead-10-size-1024-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-nondeterministic-run_ahead-10-size-1024-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-nondeterministic-run_ahead-10-size-1024-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/accelsim_trace
         parallel: null
     - name: babelstream
       benchmark_idx: 4
@@ -7819,8 +7819,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-nondeterministic-run_ahead-10-size-1024-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-nondeterministic-run_ahead-10-size-1024-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-nondeterministic-run_ahead-10-size-1024-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/accelsim_trace
         parallel: null
     - name: babelstream
       benchmark_idx: 4
@@ -7845,8 +7845,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-serial-size-10240/sim
-        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-serial-size-10240/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-serial-size-10240/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/accelsim_trace
         parallel: null
     - name: babelstream
       benchmark_idx: 4
@@ -7873,8 +7873,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-nondeterministic-run_ahead-10-size-10240-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-nondeterministic-run_ahead-10-size-10240-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-nondeterministic-run_ahead-10-size-10240-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/accelsim_trace
         parallel: null
     - name: babelstream
       benchmark_idx: 4
@@ -7901,8 +7901,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-nondeterministic-run_ahead-10-size-10240-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-nondeterministic-run_ahead-10-size-10240-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-nondeterministic-run_ahead-10-size-10240-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/accelsim_trace
         parallel: null
     - name: babelstream
       benchmark_idx: 4
@@ -7927,8 +7927,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-serial-size-102400/sim
-        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-serial-size-102400/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-serial-size-102400/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/accelsim_trace
         parallel: null
     - name: babelstream
       benchmark_idx: 4
@@ -7955,8 +7955,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-nondeterministic-run_ahead-10-size-102400-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-nondeterministic-run_ahead-10-size-102400-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-nondeterministic-run_ahead-10-size-102400-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/accelsim_trace
         parallel: null
     - name: babelstream
       benchmark_idx: 4
@@ -7983,8 +7983,8 @@ benchmarks:
       target: Simulate
       target_config: !Simulate
         stats_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-nondeterministic-run_ahead-10-size-102400-threads-8/sim
-        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-nondeterministic-run_ahead-10-size-102400-threads-8/trace
-        accelsim_traces_dir: /home/roman/dev/box/results/babelstream/babelstream-mode-nondeterministic-run_ahead-10-size-102400-threads-8/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/accelsim_trace
         parallel: null
   AccelsimSimulate:
     vectorAdd:
@@ -8173,7 +8173,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32/accelsim-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8203,7 +8203,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64/accelsim-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8233,7 +8233,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-128/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-128/accelsim-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8263,7 +8263,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-32/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-32/accelsim-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8293,7 +8293,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-64/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-64/accelsim-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8323,7 +8323,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-128/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-128/accelsim-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8353,7 +8353,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-32/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-32/accelsim-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8383,7 +8383,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-64/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-64/accelsim-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8413,7 +8413,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-128/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-128/accelsim-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8443,7 +8443,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-32/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-32/accelsim-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8473,7 +8473,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-64/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-64/accelsim-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8503,7 +8503,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-128/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-128/accelsim-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8533,7 +8533,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-32/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-32/accelsim-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8563,7 +8563,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-64/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-64/accelsim-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8593,7 +8593,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-128/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-128/accelsim-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8623,7 +8623,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-32/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-32/accelsim-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8653,7 +8653,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-64/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-64/accelsim-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8683,7 +8683,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128/accelsim-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8713,7 +8713,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-32/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-32/accelsim-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8743,7 +8743,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-64/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-64/accelsim-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8773,7 +8773,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-128/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-128/accelsim-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8803,7 +8803,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-32/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-32/accelsim-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8833,7 +8833,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-64/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-64/accelsim-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8863,7 +8863,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-128/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-128/accelsim-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8893,7 +8893,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-32/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-32/accelsim-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8923,7 +8923,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-64/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-64/accelsim-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8953,7 +8953,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-128/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-128/accelsim-sim
     matrixmul:
     - name: matrixmul
@@ -8980,7 +8980,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-32/accelsim_trace
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-32/accelsim-sim
     - name: matrixmul
       benchmark_idx: 2
@@ -9006,7 +9006,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-64/accelsim_trace
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-64/accelsim-sim
     - name: matrixmul
       benchmark_idx: 2
@@ -9032,7 +9032,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-128/accelsim_trace
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-128/accelsim-sim
     - name: matrixmul
       benchmark_idx: 2
@@ -9058,7 +9058,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-256/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-256/accelsim_trace
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-256/accelsim-sim
     transpose:
     - name: transpose
@@ -9088,7 +9088,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-naive/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-naive/accelsim_trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-naive/accelsim-sim
     - name: transpose
       benchmark_idx: 3
@@ -9117,7 +9117,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-coalesced/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-coalesced/accelsim_trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-coalesced/accelsim-sim
     - name: transpose
       benchmark_idx: 3
@@ -9146,7 +9146,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-optimized/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-optimized/accelsim_trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-optimized/accelsim-sim
     - name: transpose
       benchmark_idx: 3
@@ -9175,7 +9175,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-naive/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-naive/accelsim_trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-naive/accelsim-sim
     - name: transpose
       benchmark_idx: 3
@@ -9204,7 +9204,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-coalesced/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-coalesced/accelsim_trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-coalesced/accelsim-sim
     - name: transpose
       benchmark_idx: 3
@@ -9233,7 +9233,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-optimized/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-optimized/accelsim_trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-optimized/accelsim-sim
     - name: transpose
       benchmark_idx: 3
@@ -9262,7 +9262,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-naive/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-naive/accelsim_trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-naive/accelsim-sim
     - name: transpose
       benchmark_idx: 3
@@ -9291,7 +9291,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-coalesced/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-coalesced/accelsim_trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-coalesced/accelsim-sim
     - name: transpose
       benchmark_idx: 3
@@ -9320,7 +9320,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-optimized/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-optimized/accelsim_trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-optimized/accelsim-sim
     babelstream:
     - name: babelstream
@@ -9348,7 +9348,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/accelsim_trace
         stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/accelsim-sim
     - name: babelstream
       benchmark_idx: 4
@@ -9375,7 +9375,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/accelsim_trace
         stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/accelsim-sim
     - name: babelstream
       benchmark_idx: 4
@@ -9402,7 +9402,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/accelsim_trace
         stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/accelsim-sim
   PlaygroundSimulate:
     vectorAdd:
@@ -9591,7 +9591,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32/playground-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -9621,7 +9621,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64/playground-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -9651,7 +9651,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-128/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-128/playground-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -9681,7 +9681,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-32/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-32/playground-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -9711,7 +9711,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-64/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-64/playground-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -9741,7 +9741,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-128/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-128/playground-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -9771,7 +9771,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-32/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-32/playground-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -9801,7 +9801,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-64/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-64/playground-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -9831,7 +9831,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-128/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-128/playground-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -9861,7 +9861,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-32/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-32/playground-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -9891,7 +9891,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-64/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-64/playground-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -9921,7 +9921,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-128/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-128/playground-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -9951,7 +9951,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-32/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-32/playground-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -9981,7 +9981,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-64/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-64/playground-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -10011,7 +10011,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-128/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-128/playground-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -10041,7 +10041,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-32/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-32/playground-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -10071,7 +10071,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-64/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-64/playground-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -10101,7 +10101,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128/playground-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -10131,7 +10131,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-32/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-32/playground-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -10161,7 +10161,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-64/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-64/playground-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -10191,7 +10191,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-128/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-128/playground-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -10221,7 +10221,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-32/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-32/playground-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -10251,7 +10251,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-64/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-64/playground-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -10281,7 +10281,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-128/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-128/playground-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -10311,7 +10311,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-32/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-32/playground-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -10341,7 +10341,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-64/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-64/playground-sim
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -10371,7 +10371,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-128/accelsim_trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-128/playground-sim
     matrixmul:
     - name: matrixmul
@@ -10398,7 +10398,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-32/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-32/accelsim_trace
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-32/playground-sim
     - name: matrixmul
       benchmark_idx: 2
@@ -10424,7 +10424,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-64/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-64/accelsim_trace
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-64/playground-sim
     - name: matrixmul
       benchmark_idx: 2
@@ -10450,7 +10450,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-128/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-128/accelsim_trace
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-128/playground-sim
     - name: matrixmul
       benchmark_idx: 2
@@ -10476,7 +10476,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-256/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-256/accelsim_trace
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-256/playground-sim
     transpose:
     - name: transpose
@@ -10506,7 +10506,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-naive/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-naive/accelsim_trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-naive/playground-sim
     - name: transpose
       benchmark_idx: 3
@@ -10535,7 +10535,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-coalesced/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-coalesced/accelsim_trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-coalesced/playground-sim
     - name: transpose
       benchmark_idx: 3
@@ -10564,7 +10564,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-optimized/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-optimized/accelsim_trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-optimized/playground-sim
     - name: transpose
       benchmark_idx: 3
@@ -10593,7 +10593,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-naive/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-naive/accelsim_trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-naive/playground-sim
     - name: transpose
       benchmark_idx: 3
@@ -10622,7 +10622,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-coalesced/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-coalesced/accelsim_trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-coalesced/playground-sim
     - name: transpose
       benchmark_idx: 3
@@ -10651,7 +10651,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-optimized/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-optimized/accelsim_trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-optimized/playground-sim
     - name: transpose
       benchmark_idx: 3
@@ -10680,7 +10680,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-naive/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-naive/accelsim_trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-naive/playground-sim
     - name: transpose
       benchmark_idx: 3
@@ -10709,7 +10709,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-coalesced/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-coalesced/accelsim_trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-coalesced/playground-sim
     - name: transpose
       benchmark_idx: 3
@@ -10738,7 +10738,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-optimized/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-optimized/accelsim_trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-optimized/playground-sim
     babelstream:
     - name: babelstream
@@ -10766,7 +10766,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/accelsim_trace
         stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/playground-sim
     - name: babelstream
       benchmark_idx: 4
@@ -10793,7 +10793,7 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/accelsim_trace
         stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/playground-sim
     - name: babelstream
       benchmark_idx: 4
@@ -10820,5 +10820,5 @@ benchmarks:
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
-        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/accelsim-trace
+        traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/accelsim_trace
         stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/playground-sim

@@ -16,7 +16,7 @@ impl ReadOnly {
         name: String,
         core_id: usize,
         cluster_id: usize,
-        stats: Arc<Mutex<stats::Cache>>,
+        stats: Arc<Mutex<stats::cache::PerKernel>>,
         _config: Arc<config::GPU>,
         cache_config: Arc<config::Cache>,
     ) -> Self {
@@ -65,8 +65,13 @@ impl cache::Cache for ReadOnly {
         self
     }
 
+    // #[inline]
+    // fn stats(&self) -> &Arc<Mutex<stats::Cache>> {
+    //     &self.inner.stats
+    // }
+
     #[inline]
-    fn stats(&self) -> &Arc<Mutex<stats::Cache>> {
+    fn per_kernel_stats(&self) -> &Arc<Mutex<stats::cache::PerKernel>> {
         &self.inner.stats
     }
 
@@ -130,7 +135,9 @@ impl cache::Cache for ReadOnly {
 
         match probe {
             None => {
-                self.inner.stats.lock().inc(
+                let mut stats = self.inner.stats.lock();
+                let kernel_stats = stats.get_mut(0);
+                kernel_stats.inc(
                     *fetch.access_kind(),
                     cache::AccessStat::ReservationFailure(
                         cache::ReservationFailure::LINE_ALLOC_FAIL,
@@ -146,7 +153,9 @@ impl cache::Cache for ReadOnly {
                 if self.inner.miss_queue_full() {
                     status = cache::RequestStatus::RESERVATION_FAIL;
 
-                    self.inner.stats.lock().inc(
+                    let mut stats = self.inner.stats.lock();
+                    let kernel_stats = stats.get_mut(0);
+                    kernel_stats.inc(
                         *fetch.access_kind(),
                         cache::AccessStat::ReservationFailure(
                             cache::ReservationFailure::MISS_QUEUE_FULL,
@@ -173,7 +182,9 @@ impl cache::Cache for ReadOnly {
             }
         }
 
-        self.inner.stats.lock().inc(
+        let mut stats = self.inner.stats.lock();
+        let kernel_stats = stats.get_mut(0);
+        kernel_stats.inc(
             *fetch.access_kind(),
             cache::AccessStat::Status(select_status(probe_status, status)),
             1,

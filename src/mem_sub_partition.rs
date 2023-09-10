@@ -18,7 +18,7 @@ pub struct MemorySubPartition {
     pub id: usize,
     pub partition_id: usize,
     pub config: Arc<config::GPU>,
-    pub stats: Arc<Mutex<stats::Stats>>,
+    pub stats: Arc<Mutex<stats::PerKernel>>,
 
     /// queues
     pub interconn_to_l2_queue: Fifo<Packet<mem_fetch::MemFetch>>,
@@ -51,16 +51,12 @@ impl std::fmt::Debug for MemorySubPartition {
 
 const NO_FETCHES: VecDeque<mem_fetch::MemFetch> = VecDeque::new();
 
-impl MemorySubPartition
-// impl<Q> MemorySubPartition<Q>
-// where
-//     Q: Queue<mem_fetch::MemFetch> + 'static,
-{
+impl MemorySubPartition {
     pub fn new(
         id: usize,
         partition_id: usize,
         config: Arc<config::GPU>,
-        stats: Arc<Mutex<stats::Stats>>,
+        stats: Arc<Mutex<stats::PerKernel>>,
     ) -> Self {
         let interconn_to_l2_queue = Fifo::new(
             // "icnt-to-L2",
@@ -89,7 +85,7 @@ impl MemorySubPartition
                 //     l2_to_dram_queue: Arc::clone(&l2_to_dram_queue),
                 // });
 
-                let cache_stats = Arc::new(Mutex::new(stats::Cache::default()));
+                let cache_stats = Arc::new(Mutex::new(stats::cache::PerKernel::default()));
                 let mut data_l2 = cache::DataL2::new(
                     format!("mem-sub-{}-{}", id, style("L2-CACHE").green()),
                     0, // core_id,

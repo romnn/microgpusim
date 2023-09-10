@@ -35,7 +35,7 @@ pub struct Base<CC> {
     pub core_id: usize,
     pub cluster_id: usize,
 
-    pub stats: Arc<Mutex<stats::Cache>>,
+    pub stats: Arc<Mutex<stats::cache::PerKernel>>,
     pub cache_controller: CC,
     pub cache_config: cache::Config,
 
@@ -64,7 +64,7 @@ pub struct Builder<CC> {
     pub name: String,
     pub core_id: usize,
     pub cluster_id: usize,
-    pub stats: Arc<Mutex<stats::Cache>>,
+    pub stats: Arc<Mutex<stats::cache::PerKernel>>,
     pub cache_controller: CC,
     pub cache_config: Arc<config::Cache>,
 }
@@ -153,7 +153,8 @@ where
 
             self.mshrs.add(mshr_addr, fetch.clone());
             let mut stats = self.stats.lock();
-            stats.inc(
+            let kernel_stats = stats.get_mut(0);
+            kernel_stats.inc(
                 *fetch.access_kind(),
                 super::AccessStat::Status(super::RequestStatus::MSHR_HIT),
                 1,
@@ -201,7 +202,9 @@ where
 
             should_miss = true;
         } else if mshr_hit && mshr_full {
-            self.stats.lock().inc(
+            let mut stats = self.stats.lock();
+            let kernel_stats = stats.get_mut(0);
+            kernel_stats.inc(
                 *fetch.access_kind(),
                 super::AccessStat::ReservationFailure(
                     super::ReservationFailure::MSHR_MERGE_ENTRY_FAIL,
@@ -209,7 +212,9 @@ where
                 1,
             );
         } else if !mshr_hit && mshr_full {
-            self.stats.lock().inc(
+            let mut stats = self.stats.lock();
+            let kernel_stats = stats.get_mut(0);
+            kernel_stats.inc(
                 *fetch.access_kind(),
                 super::AccessStat::ReservationFailure(super::ReservationFailure::MSHR_ENTRY_FAIL),
                 1,

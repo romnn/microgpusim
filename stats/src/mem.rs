@@ -54,6 +54,14 @@ impl AccessKind {
 #[derive(Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Accesses(pub HashMap<AccessKind, u64>);
 
+impl std::ops::AddAssign for Accesses {
+    fn add_assign(&mut self, other: Self) {
+        for (k, v) in other.0 {
+            *self.0.entry(k).or_insert(0) += v;
+        }
+    }
+}
+
 impl Accesses {
     #[must_use]
     pub fn into_inner(self) -> HashMap<AccessKind, u64> {

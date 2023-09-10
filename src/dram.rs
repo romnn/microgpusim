@@ -22,13 +22,13 @@ pub struct DRAM {
     // config: Arc<config::GPU>,
     // mrqq: FifoQueue<Request>,
     // scheduler: FrfcfsScheduler,
-    stats: Arc<Mutex<stats::Stats>>,
+    stats: Arc<Mutex<stats::PerKernel>>,
 }
 
 //
 
 impl DRAM {
-    pub fn new(config: Arc<config::GPU>, stats: Arc<Mutex<stats::Stats>>) -> Self {
+    pub fn new(config: Arc<config::GPU>, stats: Arc<Mutex<stats::PerKernel>>) -> Self {
         // let mrqq = FifoQueue::new("mrqq", Some(0), Some(2));
         // let scheduler = FrfcfsScheduler::new(&*config, stats.clone());
         Self {
@@ -57,19 +57,21 @@ impl DRAM {
         let bank = fetch.physical_addr.bk as usize;
 
         let mut stats = self.stats.lock();
+        let kernel_stats = stats.get_mut(0);
         let atom_size = self.config.atom_size;
 
         if fetch.is_write() {
             // do not count L2_writebacks here
             // if fetch.core_id < self.config.num_cores_per_simt_cluster {
-            if let Some(dram_writes_per_core) = stats.dram.bank_writes.get_mut(fetch.core_id) {
+            if let Some(dram_writes_per_core) = kernel_stats.dram.bank_writes.get_mut(fetch.core_id)
+            {
                 dram_writes_per_core[dram_id][bank] += 1;
             }
-            stats.dram.total_bank_writes[dram_id][bank] +=
+            kernel_stats.dram.total_bank_writes[dram_id][bank] +=
                 (fetch.data_size() as f32 / atom_size as f32).ceil() as u64;
         } else {
-            stats.dram.bank_reads[fetch.core_id][dram_id][bank] += 1;
-            stats.dram.total_bank_reads[dram_id][bank] +=
+            kernel_stats.dram.bank_reads[fetch.core_id][dram_id][bank] += 1;
+            kernel_stats.dram.total_bank_reads[dram_id][bank] +=
                 (fetch.data_size() as f32 / atom_size as f32).ceil() as u64;
         }
         // these stats are not used

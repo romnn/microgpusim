@@ -2,7 +2,9 @@
 
 - today:
 
-  - add mangled and non mangled kernel names
+  - wrap the stats in a per kernel vector (faster than hashmap?)
+  - add allocation id to per kernel stats where it makes sense (e.g. NOT cycles or instructions)
+
   - even when using non-detailed stats, index by kernel launch id
   - do not compute mean and min max etc. until the last step (plotting)
   - build a well defined dataframe in all of the classes including the inputs and concat them
@@ -46,6 +48,7 @@
   - convert, match and plot statistics
   - record mem fetch latency in playground and box
 
+  - DONE: add mangled and non mangled kernel names
   - DONE: extend validate to support parallel execution
   - DONE: validate the number of warp instructions for the execution driven frontend and test that.
   - DONE: move simulate added matrix optinos to top level

@@ -49,6 +49,28 @@ pub struct DRAM {
     pub num_banks: usize,
 }
 
+impl std::ops::AddAssign for DRAM {
+    fn add_assign(&mut self, other: Self) {
+        for core_id in 0..self.num_cores {
+            for chip_id in 0..self.num_chips {
+                for bank_id in 0..self.num_banks {
+                    self.bank_reads[core_id][chip_id][bank_id] +=
+                        other.bank_reads[core_id][chip_id][bank_id];
+                    self.bank_writes[core_id][chip_id][bank_id] +=
+                        other.bank_writes[core_id][chip_id][bank_id];
+                }
+            }
+        }
+        for chip_id in 0..self.num_chips {
+            for bank_id in 0..self.num_banks {
+                self.total_bank_writes[chip_id][bank_id] +=
+                    other.total_bank_writes[chip_id][bank_id];
+                self.total_bank_reads[chip_id][bank_id] += other.total_bank_reads[chip_id][bank_id];
+            }
+        }
+    }
+}
+
 impl DRAM {
     #[must_use]
     pub fn new(num_total_cores: usize, num_mem_units: usize, num_banks: usize) -> Self {

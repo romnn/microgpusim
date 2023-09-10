@@ -12,7 +12,7 @@ pub struct Cluster<I> {
     pub warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
     pub cores: Vec<Arc<RwLock<Core<I>>>>,
     pub config: Arc<config::GPU>,
-    pub stats: Arc<Mutex<stats::Stats>>,
+    pub stats: Arc<Mutex<stats::PerKernel>>,
 
     pub interconn: Arc<I>,
 
@@ -30,7 +30,7 @@ where
         warp_instruction_unique_uid: &Arc<CachePadded<atomic::AtomicU64>>,
         allocations: &super::allocation::Ref,
         interconn: &Arc<I>,
-        stats: &Arc<Mutex<stats::Stats>>,
+        stats: &Arc<Mutex<stats::PerKernel>>,
         config: &Arc<config::GPU>,
     ) -> Self {
         let num_cores = config.num_cores_per_simt_cluster;

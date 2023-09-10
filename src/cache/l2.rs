@@ -64,7 +64,7 @@ impl DataL2 {
         name: String,
         core_id: usize,
         cluster_id: usize,
-        stats: Arc<Mutex<stats::Cache>>,
+        stats: Arc<Mutex<stats::cache::PerKernel>>,
         config: Arc<config::GPU>,
         cache_config: Arc<config::L2DCache>,
     ) -> Self {
@@ -114,8 +114,13 @@ impl super::Cache for DataL2 {
         self
     }
 
+    // #[inline]
+    // fn stats(&self) -> &Arc<Mutex<stats::Cache>> {
+    //     &self.inner.inner.stats
+    // }
+
     #[inline]
-    fn stats(&self) -> &Arc<Mutex<stats::Cache>> {
+    fn per_kernel_stats(&self) -> &Arc<Mutex<stats::cache::PerKernel>> {
         &self.inner.inner.stats
     }
 

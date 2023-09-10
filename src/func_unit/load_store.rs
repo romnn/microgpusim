@@ -22,7 +22,7 @@ pub struct LoadStoreUnit {
     warps: Vec<warp::Ref>,
     pub data_l1: Option<Box<dyn cache::Cache>>,
     config: Arc<config::GPU>,
-    pub stats: Arc<Mutex<stats::Stats>>,
+    pub stats: Arc<Mutex<stats::PerKernel>>,
     scoreboard: Arc<RwLock<Scoreboard>>,
     next_global: Option<MemFetch>,
     pub pending_writes: HashMap<usize, HashMap<u32, usize>>,
@@ -102,7 +102,7 @@ impl LoadStoreUnit {
         operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
         scoreboard: Arc<RwLock<Scoreboard>>,
         config: Arc<config::GPU>,
-        stats: Arc<Mutex<stats::Stats>>,
+        stats: Arc<Mutex<stats::PerKernel>>,
     ) -> Self {
         let pipeline_depth = config.shared_memory_latency;
         let inner = fu::PipelinedSimdUnit::new(
@@ -125,7 +125,7 @@ impl LoadStoreUnit {
                     .collect();
 
                 // initialize l1 data cache
-                let cache_stats = Arc::new(Mutex::new(stats::Cache::default()));
+                let cache_stats = Arc::new(Mutex::new(stats::cache::PerKernel::default()));
                 let mem_controller = crate::mcu::MemoryControllerUnit::new(&config).unwrap();
                 let cache_controller = cache::controller::pascal::CacheControllerUnit::new(
                     cache::Config::from(l1_config.inner.as_ref()),
@@ -1029,8 +1029,9 @@ impl fu::SimdFunctionUnit for LoadStoreUnit
         // m_core->mem_instruction_stats(*inst);
         if let Some(mem_space) = instr.memory_space {
             let mut stats = self.stats.lock();
+            let kernel_stats = stats.get_mut(0);
             let active_count = instr.active_thread_count() as u64;
-            stats
+            kernel_stats
                 .instructions
                 .inc(mem_space, instr.is_store(), active_count);
         }

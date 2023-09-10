@@ -118,14 +118,20 @@ fn main() -> eyre::Result<()> {
     }
 
     eprintln!("STATS:\n");
-    eprintln!("DRAM: total reads: {}", &stats.dram.total_reads());
-    eprintln!("DRAM: total writes: {}", &stats.dram.total_writes());
-    eprintln!("SIM: {:#?}", &stats.sim);
-    eprintln!("INSTRUCTIONS: {:#?}", &stats.instructions);
-    eprintln!("ACCESSES: {:#?}", &stats.accesses);
-    eprintln!("L1I: {:#?}", &stats.l1i_stats.reduce());
-    eprintln!("L1D: {:#?}", &stats.l1d_stats.reduce());
-    eprintln!("L2D: {:#?}", &stats.l2d_stats.reduce());
+    for (kernel_launch_id, kernel_stats) in stats.as_ref().iter().enumerate() {
+        eprintln!("=> kernel launch {}", kernel_launch_id);
+        eprintln!("\tDRAM: total reads: {}", &kernel_stats.dram.total_reads());
+        eprintln!(
+            "\tDRAM: total writes: {}",
+            &kernel_stats.dram.total_writes()
+        );
+        eprintln!("\tSIM: {:#?}", &kernel_stats.sim);
+        eprintln!("\tINSTRUCTIONS: {:#?}", &kernel_stats.instructions);
+        eprintln!("\tACCESSES: {:#?}", &kernel_stats.accesses);
+        eprintln!("\tL1I: {:#?}", &kernel_stats.l1i_stats.reduce());
+        eprintln!("\tL1D: {:#?}", &kernel_stats.l1d_stats.reduce());
+        eprintln!("\tL2D: {:#?}", &kernel_stats.l2d_stats.reduce());
+    }
     eprintln!("completed in {:?}", start.elapsed());
     Ok(())
 }

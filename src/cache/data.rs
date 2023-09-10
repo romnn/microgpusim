@@ -13,7 +13,7 @@ pub struct Builder<MC, CC> {
     pub name: String,
     pub core_id: usize,
     pub cluster_id: usize,
-    pub stats: Arc<Mutex<stats::Cache>>,
+    pub stats: Arc<Mutex<stats::cache::PerKernel>>,
     pub mem_controller: MC,
     pub cache_controller: CC,
     pub config: Arc<config::GPU>,
@@ -195,7 +195,8 @@ where
         if !self.inner.miss_queue_can_fit(1) {
             // cannot handle request this cycle, might need to generate two requests
             let mut stats = self.inner.stats.lock();
-            stats.inc(
+            let kernel_stats = stats.get_mut(0);
+            kernel_stats.inc(
                 *fetch.access_kind(),
                 cache::AccessStat::ReservationFailure(cache::ReservationFailure::MISS_QUEUE_FULL),
                 1,
@@ -304,7 +305,8 @@ where
 
         if self.inner.miss_queue_full() {
             let mut stats = self.inner.stats.lock();
-            stats.inc(
+            let kernel_stats = stats.get_mut(0);
+            kernel_stats.inc(
                 *fetch.access_kind(),
                 cache::AccessStat::ReservationFailure(cache::ReservationFailure::MISS_QUEUE_FULL),
                 1,
@@ -358,7 +360,8 @@ where
                 panic!("write_miss_write_allocate_naive bad reason");
             };
             let mut stats = self.inner.stats.lock();
-            stats.inc(
+            let kernel_stats = stats.get_mut(0);
+            kernel_stats.inc(
                 *fetch.access_kind(),
                 cache::AccessStat::ReservationFailure(failure),
                 1,
@@ -591,7 +594,8 @@ where
                     // the only reason for reservation fail here is LINE_ALLOC_FAIL
                     // (i.e all lines are reserved)
                     let mut stats = self.inner.stats.lock();
-                    stats.inc(
+                    let kernel_stats = stats.get_mut(0);
+                    kernel_stats.inc(
                         *fetch.access_kind(),
                         cache::AccessStat::ReservationFailure(
                             cache::ReservationFailure::LINE_ALLOC_FAIL,
@@ -610,7 +614,8 @@ where
                     // the only reason for reservation fail here is LINE_ALLOC_FAIL
                     // (i.e all lines are reserved)
                     let mut stats = self.inner.stats.lock();
-                    stats.inc(
+                    let kernel_stats = stats.get_mut(0);
+                    kernel_stats.inc(
                         *fetch.access_kind(),
                         cache::AccessStat::ReservationFailure(
                             cache::ReservationFailure::LINE_ALLOC_FAIL,
@@ -651,7 +656,7 @@ where
         self
     }
 
-    fn stats(&self) -> &Arc<Mutex<stats::Cache>> {
+    fn per_kernel_stats(&self) -> &Arc<Mutex<stats::cache::PerKernel>> {
         &self.inner.stats
     }
 
@@ -711,7 +716,8 @@ where
             _ => access_status,
         };
         let mut stats = self.inner.stats.lock();
-        stats.inc(
+        let kernel_stats = stats.get_mut(0);
+        kernel_stats.inc(
             access_kind,
             cache::AccessStat::Status(stat_cache_request_status),
             1,

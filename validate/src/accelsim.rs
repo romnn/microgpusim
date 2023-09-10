@@ -187,8 +187,10 @@ pub fn process_stats(
     )?;
 
     let converted_stats: stats::Stats = stats.try_into()?;
+    // cannot report per kernel for now..
+    let per_kernel_stats = vec![converted_stats];
     // dbg!(&converted_stats);
-    crate::stats::write_stats_as_csv(stats_dir, converted_stats, repetition)?;
+    crate::stats::write_stats_as_csv(stats_dir, &per_kernel_stats, repetition)?;
 
     // accelsim_sim::is_debug()
     // #[cfg(debug_assertions)]

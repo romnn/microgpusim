@@ -84,6 +84,33 @@ impl std::fmt::Display for Access {
     }
 }
 
+/// Per kernel cache statistics.
+///
+/// Stats at index `i` correspond to the kernel with launch id `i`.
+#[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PerKernel {
+    pub inner: Vec<Cache>,
+}
+
+impl AsRef<Vec<Cache>> for PerKernel {
+    fn as_ref(&self) -> &Vec<Cache> {
+        &self.inner
+    }
+}
+
+impl PerKernel {
+    #[inline]
+    pub fn get_mut(&mut self, idx: usize) -> &mut Cache {
+        self.inner.resize_with(idx + 1, || Cache::default());
+        &mut self.inner[idx]
+    }
+
+    #[inline]
+    pub fn reduce(self) -> Cache {
+        todo!()
+    }
+}
+
 pub type CsvRow = (Access, usize);
 
 #[derive(Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -237,6 +264,14 @@ impl std::ops::Deref for PerCache {
 impl std::ops::DerefMut for PerCache {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl std::ops::AddAssign for PerCache {
+    fn add_assign(&mut self, other: Self) {
+        for (cache, other_cache) in self.0.iter_mut().zip(other.iter()) {
+            *cache += other_cache.clone()
+        }
     }
 }
 

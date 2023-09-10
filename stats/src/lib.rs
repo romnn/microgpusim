@@ -21,6 +21,84 @@ pub use utils::box_slice;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Statistics configuration.
+#[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Config {
+    pub num_total_cores: usize,
+    pub num_mem_units: usize,
+    pub num_sub_partitions: usize,
+    pub num_dram_banks: usize,
+}
+
+/// Per kernel statistics.
+///
+/// Stats at index `i` correspond to the kernel with launch id `i`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PerKernel {
+    pub inner: Vec<Stats>,
+    config: Config,
+}
+
+impl AsRef<Vec<Stats>> for PerKernel {
+    fn as_ref(&self) -> &Vec<Stats> {
+        &self.inner
+    }
+}
+
+impl PerKernel {
+    #[must_use]
+    pub fn new(config: Config) -> Self {
+        Self {
+            config,
+            inner: vec![],
+        }
+    }
+
+    #[inline]
+    pub fn get_mut(&mut self, idx: usize) -> &mut Stats {
+        self.inner.resize_with(idx + 1, || Stats::new(&self.config));
+        &mut self.inner[idx]
+    }
+
+    #[inline]
+    pub fn reduce(self) -> Stats {
+        let mut reduced = Stats::new(&self.config);
+        for per_kernel_stats in self.inner.into_iter() {
+            reduced += per_kernel_stats;
+        }
+        reduced
+    }
+}
+
+impl std::ops::AddAssign for Stats {
+    fn add_assign(&mut self, other: Self) {
+        self.accesses += other.accesses;
+        self.instructions += other.instructions;
+        self.sim += other.sim;
+        self.dram += other.dram;
+        self.l1i_stats += other.l1i_stats;
+        self.l1c_stats += other.l1c_stats;
+        self.l1t_stats += other.l1t_stats;
+        self.l1d_stats += other.l1d_stats;
+        self.l2d_stats += other.l2d_stats;
+        self.stall_dram_full += other.stall_dram_full;
+    }
+}
+
+// todo: implement index for kernel references too
+impl std::ops::Index<usize> for PerKernel {
+    type Output = Stats;
+    fn index(&self, idx: usize) -> &Self::Output {
+        &self.inner[idx]
+    }
+}
+
+impl std::ops::IndexMut<usize> for PerKernel {
+    fn index_mut(&mut self, idx: usize) -> &mut Self::Output {
+        &mut self.inner[idx]
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Stats {
     /// Number of memory fetches sent from SMs to the interconnect.
@@ -47,22 +125,21 @@ pub struct Stats {
 
 impl Stats {
     #[must_use]
-    pub fn new(
-        num_total_cores: usize,
-        num_mem_units: usize,
-        num_sub_partitions: usize,
-        num_dram_banks: usize,
-    ) -> Self {
+    pub fn new(config: &Config) -> Self {
         Self {
             accesses: Accesses::default(),
             instructions: InstructionCounts::default(),
             sim: Sim::default(),
-            dram: DRAM::new(num_total_cores, num_mem_units, num_dram_banks),
-            l1i_stats: PerCache::new(num_total_cores),
-            l1c_stats: PerCache::new(num_total_cores),
-            l1t_stats: PerCache::new(num_total_cores),
-            l1d_stats: PerCache::new(num_total_cores),
-            l2d_stats: PerCache::new(num_sub_partitions),
+            dram: DRAM::new(
+                config.num_total_cores,
+                config.num_mem_units,
+                config.num_dram_banks,
+            ),
+            l1i_stats: PerCache::new(config.num_total_cores),
+            l1c_stats: PerCache::new(config.num_total_cores),
+            l1t_stats: PerCache::new(config.num_total_cores),
+            l1d_stats: PerCache::new(config.num_total_cores),
+            l2d_stats: PerCache::new(config.num_sub_partitions),
             stall_dram_full: 0,
         }
     }

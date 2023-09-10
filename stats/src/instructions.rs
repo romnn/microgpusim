@@ -31,6 +31,14 @@ pub type InstructionCountCsvRow = ((MemorySpace, bool), u64);
 #[derive(Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstructionCounts(pub HashMap<(MemorySpace, bool), u64>);
 
+impl std::ops::AddAssign for InstructionCounts {
+    fn add_assign(&mut self, other: Self) {
+        for (k, v) in other.0 {
+            *self.0.entry(k).or_insert(0) += v;
+        }
+    }
+}
+
 impl InstructionCounts {
     #[must_use]
     pub fn flatten(self) -> Vec<InstructionCountCsvRow> {

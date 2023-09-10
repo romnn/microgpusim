@@ -96,7 +96,9 @@ pub fn simulate_bench_config(
     let mut wip_stats = gpucachesim::WIP_STATS.lock();
     dbg!(&wip_stats);
     dbg!(wip_stats.warp_instructions as f32 / wip_stats.num_warps as f32);
-    dbg!(&stats.sim);
+    for kernel_stats in stats.inner.iter() {
+        dbg!(&kernel_stats.sim);
+    }
 
     *wip_stats = gpucachesim::WIPStats::default();
 
@@ -139,14 +141,14 @@ pub async fn simulate(
         } else {
             "release"
         };
-        process_stats(stats, &dur, stats_dir, profile, repetition)?;
+        process_stats(stats.as_ref(), &dur, stats_dir, profile, repetition)?;
     }
     Ok(())
 }
 
 #[inline]
 pub fn process_stats(
-    stats: stats::Stats,
+    stats: &[stats::Stats],
     dur: &std::time::Duration,
     stats_dir: &Path,
     profile: &str,

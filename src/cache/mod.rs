@@ -87,7 +87,9 @@ pub trait Cache: crate::engine::cycle::Component + Send + Sync + Bandwidth + 'st
     fn as_any(&self) -> &dyn std::any::Any;
 
     /// Get cache statistics.
-    fn stats(&self) -> &Arc<Mutex<stats::Cache>>;
+    // fn stats(&self) -> &Arc<Mutex<stats::Cache>>;
+
+    fn per_kernel_stats(&self) -> &Arc<Mutex<stats::cache::PerKernel>>;
 
     /// Access the cache.
     fn access(

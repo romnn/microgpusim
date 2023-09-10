@@ -90,7 +90,7 @@ pub fn run(
         play_dur.as_secs_f64() / box_dur.as_secs_f64()
     );
     let play_stats = play_sim.stats();
-    let box_stats = box_sim.stats();
+    let box_stats = box_sim.stats().reduce();
 
     let max_rel_err = Some(0.05); // allow 5% difference
     let abs_threshold = Some(10.0); // allow absolute difference of 10

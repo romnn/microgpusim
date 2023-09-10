@@ -304,6 +304,7 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
 
     let native_box_commands_path = box_traces_dir.join("commands.json");
     let native_accelsim_kernelslist_path = accelsim_traces_dir.join("kernelslist.g");
+    dbg!(&native_box_commands_path);
 
     let (box_commands_path, accelsim_kernelslist_path) = match trace_provider {
         TraceProvider::Native => {
@@ -723,7 +724,7 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
     }
 
     let play_stats = play_sim.stats();
-    let box_stats = box_sim.stats();
+    let box_stats = box_sim.stats().reduce();
 
     // dbg!(&play_stats);
     // dbg!(&box_stats);
@@ -746,12 +747,13 @@ macro_rules! lockstep_checks {
             paste::paste! {
                 #[ignore = "native traces cannot be compared"]
                 #[test]
-                fn [<lockstep_native_ $name _test>]() -> color_eyre::eyre::Result<()> {
+                fn [<lockstep_native_ $name>]() -> color_eyre::eyre::Result<()> {
                     use validate::benchmark::Input;
                     $crate::testing::init_test();
 
                     let mut input: Input = validate::input!($($input)+);
-                    input.insert("parallelism".to_string(), validate::input!({ "mode": "serial" }));
+                    input.insert("mode".to_string(), validate::input!("serial"));
+                    // input.insert("parallelism".to_string(), validate::input!({ "mode": "serial" }));
 
                     let bench_config = super::find_bench_config(
                         validate::Target::Simulate, $bench_name, input)?;
@@ -759,12 +761,13 @@ macro_rules! lockstep_checks {
                 }
 
                 #[test]
-                fn [<lockstep_accelsim_ $name _test>]() -> color_eyre::eyre::Result<()> {
+                fn [<lockstep_accelsim_ $name>]() -> color_eyre::eyre::Result<()> {
                     use validate::benchmark::Input;
                     $crate::testing::init_test();
 
                     let mut input: Input = validate::input!($($input)+);
-                    input.insert("parallelism".to_string(), validate::input!({ "mode": "serial" }));
+                    // input.insert("parallelism".to_string(), validate::input!({ "mode": "serial" }));
+                    input.insert("mode".to_string(), validate::input!("serial"));
 
                     let bench_config = super::find_bench_config(
                         validate::Target::Simulate, $bench_name, input)?;
@@ -772,12 +775,13 @@ macro_rules! lockstep_checks {
                 }
 
                 #[test]
-                fn [<lockstep_box_ $name _test>]() -> color_eyre::eyre::Result<()> {
+                fn [<lockstep_box_ $name>]() -> color_eyre::eyre::Result<()> {
                     use validate::benchmark::Input;
                     $crate::testing::init_test();
 
                     let mut input: Input = validate::input!($($input)+);
-                    input.insert("parallelism".to_string(), validate::input!({ "mode": "serial" }));
+                    // input.insert("mode".to_string(), validate::input!({ "mode": "serial" }));
+                    input.insert("mode".to_string(), validate::input!("serial"));
 
                     let bench_config = super::find_bench_config(
                         validate::Target::Simulate, $bench_name, input)?;

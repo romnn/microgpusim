@@ -12,7 +12,7 @@ impl DPUnit {
         id: usize,
         result_port: register_set::Ref,
         config: Arc<config::GPU>,
-        _stats: &Arc<Mutex<stats::Stats>>,
+        _stats: &Arc<Mutex<stats::PerKernel>>,
         issue_reg_id: usize,
     ) -> Self {
         let pipeline_depth = config.max_dp_latency;

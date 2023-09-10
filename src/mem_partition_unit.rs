@@ -16,7 +16,7 @@ pub struct MemoryPartitionUnit {
 
     config: Arc<config::GPU>,
     #[allow(dead_code)]
-    stats: Arc<Mutex<stats::Stats>>,
+    stats: Arc<Mutex<stats::PerKernel>>,
 }
 
 impl std::fmt::Debug for MemoryPartitionUnit {
@@ -26,7 +26,7 @@ impl std::fmt::Debug for MemoryPartitionUnit {
 }
 
 impl MemoryPartitionUnit {
-    pub fn new(id: usize, config: Arc<config::GPU>, stats: Arc<Mutex<stats::Stats>>) -> Self {
+    pub fn new(id: usize, config: Arc<config::GPU>, stats: Arc<Mutex<stats::PerKernel>>) -> Self {
         let num_sub_partitions = config.num_sub_partitions_per_memory_controller;
         let sub_partitions: Vec<_> = (0..num_sub_partitions)
             .map(|i| {

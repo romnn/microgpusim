@@ -81,7 +81,7 @@ fn interleaved_serial_cycle<I, C>(
 #[inline]
 fn new_serial_cycle<I>(
     cycle: u64,
-    stats: &Arc<Mutex<stats::Stats>>,
+    stats: &Arc<Mutex<stats::PerKernel>>,
     // need_issue: &Arc<Mutex<Vec<Vec<(bool, bool)>>>>,
     need_issue_lock: &Arc<RwLock<Vec<Vec<(bool, bool)>>>>,
     last_issued_kernel: &Arc<Mutex<usize>>,
@@ -170,7 +170,9 @@ fn new_serial_cycle<I>(
             }
         } else {
             log::debug!("SKIP sub partition {} ({}): DRAM full stall", i, device);
-            stats.lock().stall_dram_full += 1;
+            let mut stats = stats.lock();
+            let kernel_stats = stats.get_mut(0);
+            kernel_stats.stall_dram_full += 1;
         }
         // we borrow all of sub here, which is a problem for the cyclic reference in l2
         // interface
@@ -1617,7 +1619,9 @@ where
                 }
             } else {
                 log::debug!("SKIP sub partition {} ({}): DRAM full stall", i, device);
-                self.stats.lock().stall_dram_full += 1;
+                let mut stats = self.stats.lock();
+                let kernel_stats = stats.get_mut(0);
+                kernel_stats.stall_dram_full += 1;
             }
             // we borrow all of sub here, which is a problem for the cyclic reference in l2
             // interface

@@ -143,7 +143,9 @@ pub async fn simulate(
         .await
         .unwrap()?;
 
-        let detailed_stats: stats::Stats = stats.into();
+        let converted_stats: stats::Stats = stats.into();
+        // cannot report per kernel for now...
+        let per_kernel_stats = vec![converted_stats];
 
         let profile = if playground::is_debug() {
             "debug"
@@ -152,7 +154,7 @@ pub async fn simulate(
         };
         super::accelsim::process_stats(log.into_bytes(), &dur, &stats_dir, profile, repetition)?;
         super::simulate::process_stats(
-            detailed_stats,
+            &per_kernel_stats,
             &dur,
             &detailed_stats_dir,
             profile,

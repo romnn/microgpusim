@@ -342,7 +342,7 @@ type InterconnBuffer<T> = VecDeque<ic::Packet<(usize, T, u32)>>;
 #[allow(clippy::module_name_repetitions)]
 pub struct CoreMemoryConnection<C> {
     pub config: Arc<config::GPU>,
-    pub stats: Arc<Mutex<stats::Stats>>,
+    pub stats: Arc<Mutex<stats::PerKernel>>,
     pub cluster_id: usize,
     // pub interconn: Arc<dyn ic::Interconnect<P>>,
     pub buffer: C,
@@ -386,7 +386,9 @@ where
         {
             let access_kind = *fetch.access_kind();
             debug_assert_eq!(fetch.is_write(), access_kind.is_write());
-            self.stats.lock().accesses.inc(access_kind, 1);
+            let mut stats = self.stats.lock();
+            let kernel_stats = stats.get_mut(0);
+            kernel_stats.accesses.inc(access_kind, 1);
         }
 
         let dest_sub_partition_id = fetch.sub_partition_id();
@@ -453,7 +455,7 @@ pub struct Core<I> {
     pub core_id: usize,
     pub cluster_id: usize,
     pub warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
-    pub stats: Arc<Mutex<stats::Stats>>,
+    pub stats: Arc<Mutex<stats::PerKernel>>,
     pub config: Arc<config::GPU>,
     pub current_kernel: Mutex<Option<Arc<Kernel>>>,
     pub last_warp_fetched: Option<usize>,
@@ -518,7 +520,7 @@ where
         allocations: super::allocation::Ref,
         warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
         interconn: Arc<I>,
-        stats: Arc<Mutex<stats::Stats>>,
+        stats: Arc<Mutex<stats::PerKernel>>,
         config: Arc<config::GPU>,
     ) -> Self {
         let thread_state: Vec<_> = (0..config.max_threads_per_core).map(|_| None).collect();
@@ -534,7 +536,7 @@ where
             buffer: InterconnBuffer::<mem_fetch::MemFetch>::new(),
         }));
 
-        let cache_stats = Arc::new(Mutex::new(stats::Cache::default()));
+        let cache_stats = Arc::new(Mutex::new(stats::cache::PerKernel::default()));
         let mut instr_l1_cache = cache::ReadOnly::new(
             format!(
                 "core-{}-{}-{}",
@@ -1830,7 +1832,9 @@ where
         }
         let have_block = kernel.next_threadblock_traces(selected_warps, &self.config);
         if have_block {
-            self.stats.lock().sim.num_blocks += 1;
+            let mut stats = self.stats.lock();
+            let kernel_stats = stats.get_mut(0);
+            kernel_stats.sim.num_blocks += 1;
         }
         log::debug!(
             "initialized traces {}..{} of {} warps",
@@ -1958,8 +1962,10 @@ where
 }
 
 #[allow(unused_variables)]
-pub fn warp_inst_complete(instr: &mut WarpInstruction, stats: &Mutex<stats::Stats>) {
+pub fn warp_inst_complete(instr: &mut WarpInstruction, stats: &Mutex<stats::PerKernel>) {
     // TODO: use per core stats
-    stats.lock().sim.instructions += instr.active_thread_count() as u64;
+    let mut stats = stats.lock();
+    let kernel_stats = stats.get_mut(0);
+    kernel_stats.sim.instructions += instr.active_thread_count() as u64;
     crate::WIP_STATS.lock().warp_instructions += 1;
 }
