@@ -15,7 +15,7 @@ pub mod simulate;
 pub mod stats;
 pub mod trace;
 
-pub use serde_json_merge::{Dfs, Union};
+pub use serde_json_merge::{Dfs, Index, Union};
 
 use benchmark::{
     matrix,

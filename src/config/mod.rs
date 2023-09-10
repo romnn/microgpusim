@@ -334,6 +334,10 @@ pub struct GPU {
     pub log_after_cycle: Option<u64>,
     /// Simulation method
     pub parallelization: Parallelization,
+    /// Simulation threads
+    ///
+    /// If no value is provided, the number of physical cores is used.
+    pub simulation_threads: Option<usize>,
     /// Deadlock check
     pub deadlock_check: bool,
 
@@ -489,9 +493,9 @@ pub struct GPU {
     //
     pub pipeline_widths: HashMap<PipelineStage, usize>, // 4,0,0,1,1,4,0,0,1,1,6
     /// Number of SP units
-    pub num_sp_units: usize,  //
+    pub num_sp_units: usize, //
     /// Number of DP units
-    pub num_dp_units: usize,  // 0
+    pub num_dp_units: usize, // 0
     /// Number of INT units
     pub num_int_units: usize, // 0
 
@@ -930,6 +934,7 @@ impl Default for GPU {
         Self {
             log_after_cycle: None,
             parallelization: Parallelization::Serial,
+            simulation_threads: None,
             deadlock_check: false,
             memory_controller_unit: std::sync::OnceLock::new(),
             occupancy_sm_number: 60,

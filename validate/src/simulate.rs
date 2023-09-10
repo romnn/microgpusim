@@ -6,6 +6,7 @@ use super::{
 };
 use color_eyre::{eyre, Help};
 use gpucachesim::{config::Parallelization, interconn as ic, mem_fetch, MockSimulator};
+use serde_json_merge::Index;
 use std::path::Path;
 use std::time::Instant;
 use utils::fs::create_dirs;
@@ -32,6 +33,8 @@ pub fn simulate_bench_config(
         ));
     }
 
+    let values: serde_json::Value = serde_json::to_value(&bench.values).unwrap();
+
     // TODO: decide on a parallel implementation using the inputs
     // let non_deterministic: Option<usize> = std::env::var("NONDET")
     //     .ok()
@@ -39,21 +42,40 @@ pub fn simulate_bench_config(
     //     .map(str::parse)
     //     .transpose()
     //     .unwrap();
-    //
-    // let parallelization = match (bench.simulate.parallel, non_deterministic) {
-    //     (false, _) => gpucachesim::config::Parallelization::Serial,
-    //     #[cfg(feature = "parallel")]
-    //     (true, None) => gpucachesim::config::Parallelization::Deterministic,
-    //     #[cfg(feature = "parallel")]
-    //     (true, Some(n)) => gpucachesim::config::Parallelization::Nondeterministic(n),
-    //     #[cfg(not(feature = "parallel"))]
-    //     _ => {
-    //         return Err(RunError::Failed(
-    //             eyre::eyre!("parallel feature is disabled")
-    //                 .with_suggestion(|| format!(r#"enable the "parallel" feature"#)),
-    //         ))
-    //     }
-    // };
+
+    let parallelism_mode = values
+        .get_index(serde_json_merge::index!("mode"))
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_lowercase);
+
+    let parallelism_threads = values
+        .get_index(serde_json_merge::index!("threads"))
+        .and_then(serde_json::Value::as_u64)
+        .map(|threads| threads as usize);
+
+    let parallelism_run_ahead = values
+        .get_index(serde_json_merge::index!("run_ahead"))
+        .and_then(serde_json::Value::as_u64);
+
+    let parallelization = match (parallelism_mode.as_deref(), parallelism_run_ahead) {
+        (Some("serial") | None, _) => Parallelization::Serial,
+        #[cfg(feature = "parallel")]
+        (Some("deterministic"), _) => Parallelization::Deterministic,
+        #[cfg(feature = "parallel")]
+        (Some("nondeterministic"), run_ahead) => {
+            Parallelization::Nondeterministic(run_ahead.unwrap_or(10) as usize)
+        }
+        (Some(other), _) => panic!("unknown parallelization mode: {}", other),
+        #[cfg(not(feature = "parallel"))]
+        _ => {
+            return Err(RunError::Failed(
+                eyre::eyre!("parallel feature is disabled")
+                    .with_suggestion(|| format!(r#"enable the "parallel" feature"#)),
+            ))
+        }
+    };
+
+    dbg!(&parallelization);
 
     let config = gpucachesim::config::GPU {
         num_simt_clusters: 20,                       // 20
@@ -63,13 +85,11 @@ pub fn simulate_bench_config(
         num_dram_chips_per_memory_controller: 1,     // 1
         num_sub_partitions_per_memory_controller: 2, // 2
         fill_l2_on_memcopy: false,                   // true
-        parallelization: Parallelization::Serial,
+        parallelization,
         log_after_cycle: None,
+        simulation_threads: parallelism_threads,
         ..gpucachesim::config::GPU::default()
     };
-    // dbg!(&config);
-
-    // total of 16 memories 8 * 2
 
     let sim = gpucachesim::accelmain(traces_dir, config)?;
     let stats = sim.stats();

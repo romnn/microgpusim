@@ -433,7 +433,12 @@ where
             .to_lowercase()
             == "yes";
 
-        let num_threads = super::get_num_threads()?;
+        let num_threads = self
+            .config
+            .simulation_threads
+            .map(Result::Ok)
+            .unwrap_or_else(super::get_num_threads)?;
+
         let _ = rayon::ThreadPoolBuilder::new()
             .num_threads(num_threads)
             .build_global();

@@ -9,7 +9,12 @@ where
     pub fn run_to_completion_parallel_deterministic(&mut self) -> eyre::Result<()> {
         let mut cycle: u64 = 0;
 
-        let num_threads = super::get_num_threads()?;
+        let num_threads = self
+            .config
+            .simulation_threads
+            .map(Result::Ok)
+            .unwrap_or_else(super::get_num_threads)?;
+
         let _ = rayon::ThreadPoolBuilder::new()
             .num_threads(num_threads)
             .build_global();

@@ -30,18 +30,23 @@ config:
     repetitions: 2 # for testing
     # this is added to all inputs
     inputs:
-      parallelism:
-        - mode: serial
-        - mode: deterministic
+      mode: ["serial", "deterministic", "nondeterministic"]
+      include:
+        # add threads to deterministic
+        - mode: "deterministic"
           threads: 4
-        - mode: deterministic
+        - mode: "deterministic"
           threads: 8
-        - mode: nondeterministic
-          run_ahead: 10
+        # add threads to nondeterministic
+        - mode: "nondeterministic"
           threads: 4
-        - mode: nondeterministic
-          run_ahead: 10
+        - mode: "nondeterministic"
           threads: 8
+        # add run ahead to nondeterministic
+        - mode: "nondeterministic"
+          run_ahead: 5
+        - mode: "nondeterministic"
+          run_ahead: 10
   # for accelsim simulation, we do not set a limit on concurrency
   accelsim_simulate:
     # No concurrency limit as accelsim is single threaded.

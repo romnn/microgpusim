@@ -85,6 +85,7 @@ def main(path, config_path, bench_name, input_idx):
         pprint(bench_config)
         native_stats = native.Stats(config, bench_config)
         # print(native_stats.instructions())
+        print(native_stats.print_all_stats())
         print(native_stats.result_df.T)
 
     return

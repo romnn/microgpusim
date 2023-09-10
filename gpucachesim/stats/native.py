@@ -314,7 +314,7 @@ class Stats(common.Stats):
         #         # hw_value *= mean_sm_efficiency
 
     def _compute_num_blocks(self):
-        self.result_df["num_blocks"] = 0
+        self.result_df[stat_cols("num_blocks")] = 0
 
     def num_blocks(self) -> float:
         return self.result_df["num_blocks_mean"].sum()
@@ -359,12 +359,13 @@ class Stats(common.Stats):
     def _compute_warp_instructions(self):
         nvprof_key = "inst_per_warp"
         if nvprof_key + "_mean" in self.df:
+            # print(self.df[stat_cols(nvprof_key)])
             self.result_df[stat_cols("warp_inst")] = self.df[stat_cols(nvprof_key)]
         else:
             raise ValueError("nsight warp instructions")
 
     def warp_instructions(self) -> float:
-        return self.result_df["inst_per_warp_mean"].sum()
+        return self.result_df["warp_inst_mean"].sum()
         # nvprof_key = "inst_per_warp_mean"
         # if nvprof_key in self.df:
         #     return float(self.df[nvprof_key].mean())
