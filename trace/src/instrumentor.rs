@@ -239,13 +239,14 @@ impl<'c> Instrumentor<'c> {
 
     fn process_kernel_launch(&self, kernel_launch: nvbit_rs::EventParams<'c>, is_exit: bool) {
         let nvbit_rs::EventParams::KernelLaunch {
-                mut func,
-                grid,
-                block,
-                shared_mem_bytes,
-                h_stream,
-                ..
-            } = kernel_launch else {
+            mut func,
+            grid,
+            block,
+            shared_mem_bytes,
+            h_stream,
+            ..
+        } = kernel_launch
+        else {
             return;
         };
         if is_exit {

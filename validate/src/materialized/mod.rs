@@ -271,15 +271,21 @@ impl crate::Benchmark {
 
         let mut target_matrix: serde_json::Value = serde_json::to_value(&self.matrix)?;
         let matrix_overrides = match target {
-            Target::Simulate => serde_json::to_value(&self.simulate.inputs)?,
-            Target::Profile => serde_json::to_value(&self.profile.inputs)?,
-            Target::Trace => serde_json::to_value(&self.trace.inputs)?,
-            Target::AccelsimTrace => serde_json::to_value(&self.accelsim_trace.inputs)?,
-            Target::AccelsimSimulate => serde_json::to_value(&self.accelsim_simulate.inputs)?,
-            Target::PlaygroundSimulate => serde_json::to_value(&self.playground_simulate.inputs)?,
+            Target::Simulate => vec![&config.simulate.inputs, &self.simulate.inputs],
+            Target::Profile => vec![&config.simulate.inputs, &self.profile.inputs],
+            Target::Trace => vec![&config.simulate.inputs, &self.trace.inputs],
+            Target::AccelsimTrace => vec![&config.simulate.inputs, &self.accelsim_trace.inputs],
+            Target::AccelsimSimulate => {
+                vec![&config.simulate.inputs, &self.accelsim_simulate.inputs]
+            }
+            Target::PlaygroundSimulate => {
+                vec![&config.simulate.inputs, &self.playground_simulate.inputs]
+            }
         };
 
-        target_matrix.union_recursive::<Dfs>(&matrix_overrides);
+        for matrix_override in matrix_overrides {
+            target_matrix.union_recursive::<Dfs>(&serde_json::to_value(matrix_override)?);
+        }
 
         let target_matrix: crate::matrix::Matrix = serde_json::from_value(target_matrix)?;
 
@@ -392,20 +398,6 @@ impl Benchmarks {
 }
 
 impl crate::Benchmarks {
-    // pub fn materialize_all_targets(
-    //     self,
-    //     name: &str,
-    //     base: &Path,
-    //     config: &config::Config,
-    // ) -> Result<Vec<BenchmarkConfig>, super::Error> {
-    //     use strum::IntoEnumIterator;
-    //     let test = Target::iter()
-    //         .flat_map(|target| self.materialize_for_target(base, target)?)
-    //         .try_collect()?;
-    //     Ok(test)
-    //     // Ok(vec![])
-    // }
-
     /// Materialize the full benchmark config file.
     ///
     /// This is the entry point for materialization.
@@ -419,36 +411,24 @@ impl crate::Benchmarks {
         let config = self.config.materialize(base)?;
         let benchmarks: IndexMap<Target, IndexMap<String, Vec<BenchmarkConfig>>> = Target::iter()
             .map(|target| {
-                // let config = config.clone();
-                // dbg!(&target);
                 let bench_configs: IndexMap<String, Vec<BenchmarkConfig>> = self
                     .benchmarks
                     .clone()
                     .into_iter()
                     .enumerate()
                     .map(|(benchmark_idx, (name, bench))| {
-                        // dbg!(&target);
                         let mut bench_configs =
                             bench.materialize_for_target(&name, base, &config, target)?;
                         for bench_config in bench_configs.iter_mut() {
                             bench_config.benchmark_idx = benchmark_idx;
                         }
-                        // dbg!(&name, bench_configs.len());
                         Ok::<_, super::Error>((name.clone(), bench_configs))
                     })
                     .try_collect()?;
 
                 Ok::<_, super::Error>((target, bench_configs))
-                // Ok((target, bench_configs))
             })
             .try_collect()?;
-        // dbg!(benchmarks.keys().collect::<Vec<_>>());
-        // dbg!(benchmarks.values().flatten().count());
-        // dbg!(benchmarks
-        //     .values()
-        //     .flatten()
-        //     .map(|bench| bench.target_config.clone())
-        //     .collect::<Vec<_>>());
         Ok(Benchmarks { config, benchmarks })
     }
 }

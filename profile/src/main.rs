@@ -103,11 +103,10 @@ async fn main() -> eyre::Result<()> {
         }
         Some(Command::Nsight(_nsight_options)) => todo!(),
     };
-    
+
     // Err(source) => Err(Error::Parse { raw_log, source }),
     //     Ok(commands) => Ok((raw_log, commands)),
     // }
-
 
     // TODO: nice table view of the most important things
     // TODO: dump the raw output

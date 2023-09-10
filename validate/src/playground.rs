@@ -17,10 +17,20 @@ where
     A: IntoIterator,
     <A as IntoIterator>::Item: Into<String>,
 {
-    let TargetBenchmarkConfig::PlaygroundSimulate { ref traces_dir, ref configs, .. } = bench.target_config else {
+    let (TargetBenchmarkConfig::PlaygroundSimulate {
+        ref traces_dir,
+        ref configs,
+        ..
+    }
+    | TargetBenchmarkConfig::AccelsimSimulate {
+        ref traces_dir,
+        ref configs,
+        ..
+    }) = bench.target_config
+    else {
         unreachable!();
     };
-    // let traces_dir = &bench.accelsim_trace.traces_dir;
+
     let kernelslist = traces_dir.join(match trace_provider {
         TraceProvider::Native | TraceProvider::Accelsim => "kernelslist.g",
         TraceProvider::Box => "box-kernelslist.g",
@@ -96,7 +106,8 @@ pub async fn simulate(
     _sim_options: &options::PlaygroundSim,
     _bar: &indicatif::ProgressBar,
 ) -> Result<(), RunError> {
-    let TargetBenchmarkConfig::PlaygroundSimulate { ref stats_dir, .. } = bench.target_config else {
+    let TargetBenchmarkConfig::PlaygroundSimulate { ref stats_dir, .. } = bench.target_config
+    else {
         unreachable!();
     };
 

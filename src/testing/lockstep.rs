@@ -287,7 +287,12 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
     use accelsim::tracegen;
     let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
 
-    let TargetBenchmarkConfig::Simulate { ref traces_dir , ref accelsim_traces_dir, .. } = bench_config.target_config else {
+    let TargetBenchmarkConfig::Simulate {
+        ref traces_dir,
+        ref accelsim_traces_dir,
+        ..
+    } = bench_config.target_config
+    else {
         unreachable!();
     };
 
@@ -785,13 +790,10 @@ macro_rules! lockstep_checks {
 
 lockstep_checks! {
     // vectoradd
-    vectoradd_32_100_test: (
-        "vectorAdd", { "dtype": 32, "length": 100, "parallelism": { "mode": "serial" }}),
-    vectoradd_32_1000_test: ("vectorAdd", { "dtype": 32, "length": 1000, "parallelism": { "mode": "serial" } }),
-    vectoradd_32_10000_test: ("vectorAdd",
-        { "dtype": 32, "length": 10000, "parallelism": { "mode": "serial" } }),
-    vectoradd_64_10000_test: (
-        "vectorAdd", { "dtype": 64, "length": 10000 }),
+    vectoradd_32_100_test: ("vectorAdd", { "dtype": 32, "length": 100 }),
+    vectoradd_32_1000_test: ("vectorAdd", { "dtype": 32, "length": 1000  }),
+    vectoradd_32_10000_test: ("vectorAdd", { "dtype": 32, "length": 10000 }),
+    vectoradd_64_10000_test: ("vectorAdd", { "dtype": 64, "length": 10000 }),
 
     // simple matrixmul
     simple_matrixmul_32_32_32_test: ("simple_matrixmul", { "m": 32, "n": 32, "p": 32 }),

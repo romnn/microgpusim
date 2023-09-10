@@ -85,7 +85,12 @@ impl Into<accelsim::SimConfig> for materialized::config::AccelsimSimConfigFiles 
 pub async fn simulate_bench_config(
     bench: &BenchmarkConfig,
 ) -> Result<(async_process::Output, Duration), RunError> {
-    let TargetBenchmarkConfig::AccelsimSimulate { ref traces_dir, ref configs, .. } = bench.target_config else {
+    let TargetBenchmarkConfig::AccelsimSimulate {
+        ref traces_dir,
+        ref configs,
+        ..
+    } = bench.target_config
+    else {
         unreachable!();
     };
 

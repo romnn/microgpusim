@@ -28,6 +28,20 @@ config:
     # No concurrency limit for now (until we implement multi-threading)
     concurrency: 1 # null
     repetitions: 2 # for testing
+    # this is added to all inputs
+    inputs:
+      parallelism:
+        - mode: serial
+        - mode: deterministic
+          threads: 4
+        - mode: deterministic
+          threads: 8
+        - mode: nondeterministic
+          run_ahead: 10
+          threads: 4
+        - mode: nondeterministic
+          run_ahead: 10
+          threads: 8
   # for accelsim simulation, we do not set a limit on concurrency
   accelsim_simulate:
     # No concurrency limit as accelsim is single threaded.
@@ -64,12 +78,20 @@ benchmarks:
     simulate:
       traces_dir: "vectorAdd/vectorAdd-dtype-{{ input.dtype }}-length-{{ input.length }}/trace"
       accelsim_traces_dir: "vectorAdd/vectorAdd-dtype-{{ input.dtype }}-length-{{ input.length }}/accelsim_trace"
-      inputs:
-        parallelism:
-          - mode: serial
-          - mode: deterministic
-          - mode: nondeterministic
-            run_ahead: 10
+      # inputs:
+      #   # todo: move this to the top level for all simulate configs
+      #   parallelism:
+      #     - mode: serial
+      #     - mode: deterministic
+      #       threads: 4
+      #     - mode: deterministic
+      #       threads: 8
+      #     - mode: nondeterministic
+      #       run_ahead: 10
+      #       threads: 4
+      #     - mode: nondeterministic
+      #       run_ahead: 10
+      #       threads: 8
   simple_matrixmul:
     path: ./simple_matrixmul
     executable: matrixmul

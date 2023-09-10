@@ -2,6 +2,21 @@
 
 - today:
 
+  - validate the number of warp instructions for the execution driven frontend and test that.
+
+  - write more execution driven examples (especially the different transpose variants)
+
+    - add them to the stats
+
+  - implement per kernel and allocation stats
+  - implement stall stats
+
+  - add to simulate:
+
+    - mem only option
+    - l2 partition addr option
+    - number of threads
+
   - extend validate to support parallel execution
 
   - build a well defined dataframe in all of the classes
@@ -15,12 +30,7 @@
 
     - (so we dont need to maintain separate traces)
 
-  - validate the number of warp instructions for the execution driven frontend and test that.
-
-  - write more execution driven examples (especially the different transpose variants)
-
-    - add them to the stats
-
+  -
   - config is passed to instruction for different things
 
     - could make that a smaller config struct
@@ -37,6 +47,7 @@
   - convert, match and plot statistics
   - record mem fetch latency in playground and box
 
+  - DONE: move simulate added matrix optinos to top level
   - DONE: make the accelsim class ceate a df with mean, variance, min, max per repetition
   - DONE: make the native class ceate a df with mean, variance, min, max per repetition
   - DONE: repeat simulate for validation

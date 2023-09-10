@@ -15,7 +15,10 @@ pub async fn profile(
     _profile_options: &options::Profile,
     _bar: &indicatif::ProgressBar,
 ) -> Result<(), RunError> {
-    let TargetBenchmarkConfig::Profile { ref profile_dir, .. } = bench.target_config else {
+    let TargetBenchmarkConfig::Profile {
+        ref profile_dir, ..
+    } = bench.target_config
+    else {
         unreachable!();
     };
 

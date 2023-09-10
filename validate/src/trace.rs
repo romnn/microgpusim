@@ -13,7 +13,13 @@ pub async fn trace(
     _trace_options: &options::Trace,
     _bar: &indicatif::ProgressBar,
 ) -> Result<(), RunError> {
-    let TargetBenchmarkConfig::Trace { ref traces_dir, save_json, full_trace, .. } = bench.target_config else {
+    let TargetBenchmarkConfig::Trace {
+        ref traces_dir,
+        save_json,
+        full_trace,
+        ..
+    } = bench.target_config
+    else {
         unreachable!();
     };
 

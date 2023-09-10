@@ -1003,7 +1003,9 @@ where
                 .count()
         );
         let Some(free_block_hw_id) = self.block_status[0..max_blocks_per_core]
-            .iter().position(|num_threads_in_block| *num_threads_in_block == 0) else {
+            .iter()
+            .position(|num_threads_in_block| *num_threads_in_block == 0)
+        else {
             return;
         };
 

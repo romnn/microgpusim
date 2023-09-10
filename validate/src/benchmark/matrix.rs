@@ -166,8 +166,6 @@ pub fn expand(inputs: &Inputs, includes: &Includes, excludes: &Excludes) -> Vec<
         let include_keys: HashSet<&String> = include.keys().collect();
         let include_entries: HashSet<(&String, &Value)> = include.iter().collect();
 
-        dbg!(&include);
-
         let mut matched = false;
         for current in &mut prods {
             // skip new input productions

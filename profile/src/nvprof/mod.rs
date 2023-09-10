@@ -41,9 +41,7 @@ where
     // seek to valid start of csv data
     let mut lines = reader.by_ref().lines();
     for line in &mut lines {
-        let Ok(line) = line else {
-            continue
-        };
+        let Ok(line) = line else { continue };
 
         if NO_PERMISSION_REGEX.is_match(&line) {
             return Err(ParseError::NoPermission);

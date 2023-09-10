@@ -489,9 +489,9 @@ pub struct GPU {
     //
     pub pipeline_widths: HashMap<PipelineStage, usize>, // 4,0,0,1,1,4,0,0,1,1,6
     /// Number of SP units
-    pub num_sp_units: usize, //
+    pub num_sp_units: usize,  //
     /// Number of DP units
-    pub num_dp_units: usize, // 0
+    pub num_dp_units: usize,  // 0
     /// Number of INT units
     pub num_int_units: usize, // 0
 

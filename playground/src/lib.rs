@@ -53,15 +53,12 @@ pub enum Error {
     ExitCode(i32),
 }
 
-#[derive(Clone)]
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Config {
     pub print_stats: bool,
     pub accelsim_compat_mode: bool,
     pub stats_file: Option<std::ffi::CString>,
 }
-
-
 
 impl Config {
     fn to_accelsim_config(&self) -> playground_sys::main::accelsim_config {

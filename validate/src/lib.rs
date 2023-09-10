@@ -109,8 +109,6 @@ pub enum Error {
     #[error(transparent)]
     Merging(#[from] serde_json::Error),
 
-    // #[error(transparent)]
-    // YAML(#[from] serde_yaml::Error),
     #[error(transparent)]
     Deserialize(#[from] DeserializeError),
 
@@ -253,18 +251,24 @@ pub struct TraceConfig {
     pub full_trace: bool,
     #[serde(default = "bool_true")]
     pub save_json: bool,
+    #[serde(default)]
+    pub inputs: matrix::Inputs,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, SmartDefault)]
 pub struct AccelsimTraceConfig {
     #[serde(flatten)]
     pub common: GenericBenchmarkConfig,
+    #[serde(default)]
+    pub inputs: matrix::Inputs,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, SmartDefault)]
 pub struct ProfileConfig {
     #[serde(flatten)]
     pub common: GenericBenchmarkConfig,
+    #[serde(default)]
+    pub inputs: matrix::Inputs,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, SmartDefault)]
@@ -272,6 +276,8 @@ pub struct SimConfig {
     #[serde(flatten)]
     pub common: GenericBenchmarkConfig,
     pub parallel: Option<bool>,
+    #[serde(default)]
+    pub inputs: matrix::Inputs,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, SmartDefault)]
@@ -288,6 +294,8 @@ pub struct AccelsimSimConfig {
     pub common: GenericBenchmarkConfig,
     #[serde(flatten)]
     pub configs: AccelsimSimConfigFiles,
+    #[serde(default)]
+    pub inputs: matrix::Inputs,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, SmartDefault)]
@@ -296,6 +304,8 @@ pub struct PlaygroundSimConfig {
     pub common: GenericBenchmarkConfig,
     #[serde(flatten)]
     pub configs: AccelsimSimConfigFiles,
+    #[serde(default)]
+    pub inputs: matrix::Inputs,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, SmartDefault)]

@@ -5,6 +5,7 @@ members = [
   "playground",
   "playground/sys",
   "stats",
+  "benchmarks",
   "accelsim",
   "accelsim/trace",
   "accelsim/sim",
@@ -102,7 +103,6 @@ tracing-chrome = "0"
 
 # parallel simulation
 rayon = { version = "1", optional = true }
-
 
 # for vectoradd rust example
 num-traits = "0"

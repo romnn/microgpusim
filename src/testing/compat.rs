@@ -7,7 +7,8 @@ async fn validate_playground_accelsim_compat(
     bench_config: &materialized::BenchmarkConfig,
     sim_config: &accelsim::SimConfig,
 ) -> eyre::Result<()> {
-    let TargetBenchmarkConfig::AccelsimSimulate { ref traces_dir, .. } = bench_config.target_config else {
+    let TargetBenchmarkConfig::AccelsimSimulate { ref traces_dir, .. } = bench_config.target_config
+    else {
         unreachable!();
     };
 
@@ -129,27 +130,15 @@ macro_rules! accelsim_compat_tests {
             async fn $name() -> color_eyre::eyre::Result<()> {
                 use validate::{Target, materialized::TargetBenchmarkConfig};
                 $crate::testing::init_test();
+                let input = validate::input!($($input)+);
                 let bench_config = super::find_bench_config(
-                    Target::AccelsimSimulate, $bench_name, validate::input!($($input)+))?;
+                    Target::AccelsimSimulate, $bench_name, input)?;
                 let TargetBenchmarkConfig::AccelsimSimulate {
                     ref configs, ..
                 } = bench_config.target_config else {
                     unreachable!();
                 };
                 let sim_config: accelsim::SimConfig = configs.clone().into();
-                // let materialized::AccelsimSimConfigFiles {
-                //     config,
-                //     config_dir,
-                //     trace_config,
-                //     inter_config,
-                // } = bench_config.accelsim_simulate.configs.clone();
-                //
-                // let sim_config = accelsim::SimConfig {
-                //     config: Some(config),
-                //     config_dir: Some(config_dir),
-                //     trace_config: Some(trace_config),
-                //     inter_config: Some(inter_config),
-                // };
 
                 validate_playground_accelsim_compat(&bench_config, &sim_config).await
             }
@@ -159,9 +148,10 @@ macro_rules! accelsim_compat_tests {
 
 accelsim_compat_tests! {
     // vectoradd
-    accelsim_compat_vectoradd_100_test: ("vectorAdd", { "length": 100 }),
-    accelsim_compat_vectoradd_1000_test: ("vectorAdd", { "length": 1000 }),
-    accelsim_compat_vectoradd_10000_test: ("vectorAdd", { "length": 10000 }),
+    accelsim_compat_vectoradd_32_100_test: ("vectorAdd", { "dtype": 32, "length": 100 }),
+    accelsim_compat_vectoradd_32_1000_test: ("vectorAdd", { "dtype": 32, "length": 1000 }),
+    accelsim_compat_vectoradd_32_10000_test: ("vectorAdd", { "dtype": 32, "length": 10000 }),
+    accelsim_compat_vectoradd_64_10000_test: ("vectorAdd", { "dtype": 64, "length": 10000 }),
 
     // simple matrixmul
     accelsim_compat_simple_matrixmul_32_32_32_test:

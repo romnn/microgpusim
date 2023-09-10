@@ -227,7 +227,7 @@ fn trace_info(commands: &Path) -> eyre::Result<()> {
 
     for (i, (cmd, warp_traces)) in command_traces.iter().enumerate() {
         println!("command {i}: {cmd:?}");
-        let Some(warp_traces ) = warp_traces else {
+        let Some(warp_traces) = warp_traces else {
             continue;
         };
 

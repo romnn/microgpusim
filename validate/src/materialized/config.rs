@@ -71,16 +71,8 @@ impl crate::GenericBenchmarkConfig {
 pub struct ProfileConfig {
     #[serde(flatten)]
     pub common: GenericBenchmark,
+    pub inputs: crate::matrix::Inputs,
 }
-
-// #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-// pub struct ProfileOptions {
-//     // #[serde(flatten)]
-//     // pub common: TargetConfig,
-//     pub profile_dir: PathBuf,
-//     // pub log_file: PathBuf,
-//     // pub metrics_file: PathBuf,
-// }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct TraceConfig {
@@ -88,45 +80,23 @@ pub struct TraceConfig {
     pub common: GenericBenchmark,
     pub full_trace: bool,
     pub save_json: bool,
+    pub inputs: crate::matrix::Inputs,
 }
-
-// #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-// pub struct TraceOptions {
-//     // #[serde(flatten)]
-//     // pub common: TargetConfig,
-//     pub traces_dir: PathBuf,
-//     pub save_json: bool,
-//     pub full_trace: bool,
-// }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct AccelsimTraceConfig {
     #[serde(flatten)]
     pub common: GenericBenchmark,
+    pub inputs: crate::matrix::Inputs,
 }
-
-// #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-// pub struct AccelsimTraceOptions {
-//     // #[serde(flatten)]
-//     // pub common: TargetConfig,
-//     pub traces_dir: PathBuf,
-// }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct SimConfig {
     #[serde(flatten)]
     pub common: GenericBenchmark,
-    // pub traces_dir: Option<PathBuf>,
     pub parallel: Option<bool>,
+    pub inputs: crate::matrix::Inputs,
 }
-
-// #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-// pub struct SimOptions {
-//     // #[serde(flatten)]
-//     // pub common: TargetConfig,
-//     pub stats_dir: PathBuf,
-//     pub parallel: bool,
-// }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct AccelsimSimConfig {
@@ -134,16 +104,8 @@ pub struct AccelsimSimConfig {
     pub common: GenericBenchmark,
     #[serde(flatten)]
     pub configs: AccelsimSimConfigFiles,
+    pub inputs: crate::matrix::Inputs,
 }
-
-// #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-// pub struct AccelsimSimOptions {
-//     // #[serde(flatten)]
-//     // pub common: TargetConfig,
-//     #[serde(flatten)]
-//     pub configs: AccelsimSimConfigFiles,
-//     pub stats_dir: PathBuf,
-// }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct PlaygroundSimConfig {
@@ -151,16 +113,8 @@ pub struct PlaygroundSimConfig {
     pub common: GenericBenchmark,
     #[serde(flatten)]
     pub configs: AccelsimSimConfigFiles,
+    pub inputs: crate::matrix::Inputs,
 }
-
-// #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-// pub struct PlaygroundSimOptions {
-//     // #[serde(flatten)]
-//     // pub common: TargetConfig,
-//     #[serde(flatten)]
-//     pub configs: AccelsimSimConfigFiles,
-//     pub stats_dir: PathBuf,
-// }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct AccelsimSimConfigFiles {
@@ -210,10 +164,7 @@ impl crate::AccelsimSimOptionsFiles {
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Config {
     pub results_dir: PathBuf,
-    // pub materialize_to: Option<PathBuf>,
 
-    // #[serde(flatten)]
-    // pub common: TargetConfig,
     /// Base profiling config
     pub profile: ProfileConfig,
 
@@ -245,6 +196,7 @@ impl crate::Config {
                     Some(Target::Profile),
                     Some(&common),
                 )?,
+                inputs: self.profile.inputs,
             }
         };
 
@@ -256,6 +208,7 @@ impl crate::Config {
                     .materialize(base, Some(Target::Trace), Some(&common))?,
                 full_trace: self.trace.full_trace,
                 save_json: self.trace.save_json,
+                inputs: self.trace.inputs,
             }
         };
 
@@ -266,6 +219,7 @@ impl crate::Config {
                     Some(Target::AccelsimTrace),
                     Some(&common),
                 )?,
+                inputs: self.accelsim_trace.inputs,
             }
         };
 
@@ -277,6 +231,7 @@ impl crate::Config {
                     Some(&common),
                 )?,
                 parallel: self.simulate.parallel,
+                inputs: self.simulate.inputs,
             }
         };
 
@@ -296,6 +251,7 @@ impl crate::Config {
 
             AccelsimSimConfig {
                 common,
+                inputs: self.accelsim_simulate.inputs,
                 configs: AccelsimSimConfigFiles {
                     trace_config: trace_config.resolve(base),
                     inter_config: inter_config.resolve(base),
@@ -321,6 +277,7 @@ impl crate::Config {
 
             PlaygroundSimConfig {
                 common,
+                inputs: self.playground_simulate.inputs,
                 configs: AccelsimSimConfigFiles {
                     trace_config: trace_config.resolve(base),
                     inter_config: inter_config.resolve(base),

@@ -71,6 +71,9 @@ playground = { path = "../playground" }
 gpucachesim = { path = "../" }
 stats = { path = "../stats" }
 
+# benchmarks
+benchmarks = { path = "../benchmarks" }
+
 # optional dependencies
 ssh_jumper = { version = "0", optional = true }
 
