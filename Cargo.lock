@@ -362,6 +362,7 @@ dependencies = [
  "color-eyre",
  "gpucachesim",
  "num-traits",
+ "utils",
 ]
 
 [[package]]

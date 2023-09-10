@@ -7,3 +7,4 @@ edition = "2021"
 num-traits = "0"
 color-eyre = "0"
 gpucachesim = { path = "../" }
+utils = { path = "../utils" }
