@@ -18,12 +18,6 @@ pub trait Container {
     type Elem;
 }
 
-// impl<O> Container<O> for Vec<O> {}
-// impl<E> Container for Vec<E> {
-//     type Elem = E;
-// }
-
-// impl<T, E> Container for T where std::ops::Index<usize, Output = E> {
 impl<T, E> Container for T
 where
     T: std::ops::Index<usize, Output = E>,
@@ -32,7 +26,6 @@ where
 }
 
 #[derive()]
-// pub struct DevicePtr<'s, 'a, T> {
 pub struct DevicePtr<'s, T>
 where
     T: Container,
@@ -41,14 +34,11 @@ where
     // inner: &'a mut T,
     inner: T,
     spare: <T as Container>::Elem,
-    // spare: O,
     memory: &'s dyn MemoryAccess,
     mem_space: MemorySpace,
     offset: u64,
 }
 
-// impl<'s, 'a, T> std::fmt::Debug for DevicePtr<'s, 'a, T>
-// impl<'s, T, O> std::fmt::Debug for DevicePtr<'s, T, O>
 impl<'s, T> std::fmt::Debug for DevicePtr<'s, T>
 where
     T: Container + std::fmt::Debug,
@@ -58,8 +48,6 @@ where
     }
 }
 
-// impl<'s, 'a, T> std::fmt::Display for DevicePtr<'s, 'a, T>
-// impl<'s, T, O> std::fmt::Display for DevicePtr<'s, T, O>
 impl<'s, T> std::fmt::Display for DevicePtr<'s, T>
 where
     T: Container + std::fmt::Display,
@@ -71,29 +59,17 @@ where
 
 /// Convert multi-dimensional index into flat linear index.
 pub trait ToFlatIndex {
-    // fn flatten(&self) -> (usize, bool);
     fn flatten(&self) -> usize;
 }
 
 impl ToFlatIndex for usize {
-    // fn flatten(&self) -> (Self, bool) {
     fn flatten(&self) -> usize {
         *self
     }
 }
 
-// impl ToFlatIndex for (usize, bool) {
-//     fn flatten(&self) -> Self {
-//         *self
-//     }
-// }
-
-// impl<T, O, I> std::ops::Index<I> for DevicePtr<'_, '_, T>
-// impl<T, O, I> std::ops::Index<I> for DevicePtr<'_, T, O>
-// impl<T, O, I> std::ops::Index<I> for DevicePtr<'_, T>
 impl<T, I> std::ops::Index<I> for DevicePtr<'_, T>
 where
-    // T: Container + std::fmt::Debug,
     T: Container + std::ops::Index<I, Output = T::Elem> + std::fmt::Debug,
     I: ToFlatIndex + std::fmt::Debug,
 {
@@ -112,7 +88,6 @@ where
 
 impl<T, I> std::ops::Index<(I, bool)> for DevicePtr<'_, T>
 where
-    // T: Container + std::fmt::Debug,
     T: Container + std::ops::Index<I, Output = T::Elem> + std::fmt::Debug,
     I: ToFlatIndex + std::fmt::Debug,
 {
@@ -130,8 +105,6 @@ where
     }
 }
 
-// impl<T, O, I> std::ops::IndexMut<I> for DevicePtr<'_, T, O>
-// impl<T, O, I> std::ops::IndexMut<I> for DevicePtr<'_, '_, T>
 impl<T, I> std::ops::IndexMut<I> for DevicePtr<'_, T>
 where
     T: Container + std::ops::IndexMut<I, Output = T::Elem> + std::fmt::Debug,
@@ -145,9 +118,6 @@ where
             .store(addr, elem_size as u32, self.mem_space, true);
         log::trace!("{:?}[{:?}] => {}", &self.inner, &idx, &addr);
         &mut self.inner[idx]
-        // } else {
-        //     &mut self.spare
-        // }
     }
 }
 

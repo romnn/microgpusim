@@ -6,7 +6,12 @@ import re
 import pandas as pd
 from pprint import pprint
 
-from gpucachesim.benchmarks import GPUConfig, BenchConfig, ProfileConfig
+from gpucachesim.benchmarks import (
+    GPUConfig,
+    BenchConfig,
+    ProfileConfig,
+    ProfileTargetConfig,
+)
 import gpucachesim.stats.common as common
 
 INDEX_COLS = ["Stream", "Context", "Device", "Kernel", "Correlation_ID"]
@@ -163,12 +168,14 @@ def normalize_device_name(name):
 
 
 class Stats(common.Stats):
-    bench_config: ProfileConfig
+    bench_config: BenchConfig[ProfileTargetConfig]
+    target_config: ProfileConfig
 
-    def __init__(self, config: GPUConfig, global_bench_config: BenchConfig) -> None:
-        self.bench_config = global_bench_config["profile"]
-        self.path = Path(self.bench_config["profile_dir"])
-        self.repetitions = self.bench_config["repetitions"]
+    def __init__(self, config: GPUConfig, bench_config: BenchConfig[ProfileTargetConfig]) -> None:
+        self.bench_config = bench_config
+        self.target_config = self.bench_config["target_config"].value
+        self.path = Path(self.target_config["profile_dir"])
+        self.repetitions = self.bench_config["common"]["repetitions"]
         self.use_duration = False
         self.config = config
 
@@ -184,13 +191,13 @@ class Stats(common.Stats):
                 commands_df = commands_df.rename(columns={"Name": "Kernel"})
 
                 commands_df["Device"] = commands_df["Device"].apply(normalize_device_name)
-                commands_df["run"] = r
+                # commands_df["run"] = r
                 command_dfs.append(commands_df)
 
             with open(self.path / f"profile.metrics.{r}.json", "rb") as f:
                 metrics = json.load(f)
                 df = pd.DataFrame.from_records([{k: v["value"] for k, v in m.items()} for m in metrics])
-                df["run"] = r
+                # df["run"] = r
 
                 _units = pd.DataFrame.from_records([{k: v["unit"] for k, v in m.items()} for m in metrics])
                 dfs.append(df)
@@ -259,8 +266,6 @@ class Stats(common.Stats):
                 # sm_count = self.config.num_clusters
                 # print(sm_count)
 
-                # print(self.df[["elapsed_cycles_sm", "run"]])
-                # cycles_per_run = self.df.groupby("run")["elapsed_cycles_sm"].sum()
                 cycles = self.df[nvprof_key].sum()
                 # cycles = cycles_per_run.mean()
                 # this only holds until we have repetitions

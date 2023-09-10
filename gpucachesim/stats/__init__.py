@@ -6,7 +6,7 @@ import gpucachesim.stats.stats as stats
 import gpucachesim.stats.native as native
 import gpucachesim.stats.accelsim as accelsim
 import gpucachesim.stats.playground as playground
-from gpucachesim.benchmarks import Benchmarks, GPUConfig, REPO_ROOT_DIR
+from gpucachesim.benchmarks import Target, Benchmarks, GPUConfig, REPO_ROOT_DIR
 
 
 DEFAULT_CONFIG_FILE = REPO_ROOT_DIR / "./accelsim/gtx1080/gpgpusim.config.yml"
@@ -60,10 +60,30 @@ def main(path, config, bench_name, input_idx):
     if bench_name is None:
         raise NotImplemented
 
-    if input_idx is None:
-        benches.extend(b[bench_name])
-    else:
-        benches.append(b.get_bench_config(bench_name, input_idx))
+    for target in [
+        # Target.Simulate,
+        Target.Profile,
+        # Target.AccelsimSimulate,
+        # Target.PlaygroundSimulate,
+    ]:
+        benches.extend(b.benchmarks[target.value][bench_name])
+        # for target_benches in b.benchmarks[target.value][bench_name]:
+        #     pprint(target_benches)
+        #     benches.extend(target_benches[bench_name])
+
+    # if input_idx is None:
+    #     benches.extend(b.get_bench_configs(bench_name))
+    # else:
+    #     benches.append(b.get_bench_config(bench_name, input_idx))
+
+    print(len(benches))
+
+    for bench_config in benches[:2]:
+        pprint(bench_config)
+        native_stats = native.Stats(config, bench_config)
+        print(native_stats.instructions())
+
+    return
 
     with open(config, "rb") as f:
         config = GPUConfig(yaml.safe_load(f))

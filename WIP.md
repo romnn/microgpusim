@@ -2,7 +2,8 @@
 
 - today:
 
-  - validate the number of warp instructions for the execution driven frontend and test that.
+  - build a well defined dataframe in all of the classes including the inputs and concat them
+  - extend validate to support parallel execution
 
   - write more execution driven examples (especially the different transpose variants)
 
@@ -16,10 +17,6 @@
     - mem only option
     - l2 partition addr option
     - number of threads
-
-  - extend validate to support parallel execution
-
-  - build a well defined dataframe in all of the classes
 
   - consume our metric dfs:
 
@@ -47,6 +44,7 @@
   - convert, match and plot statistics
   - record mem fetch latency in playground and box
 
+  - DONE: validate the number of warp instructions for the execution driven frontend and test that.
   - DONE: move simulate added matrix optinos to top level
   - DONE: make the accelsim class ceate a df with mean, variance, min, max per repetition
   - DONE: make the native class ceate a df with mean, variance, min, max per repetition

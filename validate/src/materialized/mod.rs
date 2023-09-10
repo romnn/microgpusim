@@ -272,14 +272,22 @@ impl crate::Benchmark {
         let mut target_matrix: serde_json::Value = serde_json::to_value(&self.matrix)?;
         let matrix_overrides = match target {
             Target::Simulate => vec![&config.simulate.inputs, &self.simulate.inputs],
-            Target::Profile => vec![&config.simulate.inputs, &self.profile.inputs],
-            Target::Trace => vec![&config.simulate.inputs, &self.trace.inputs],
-            Target::AccelsimTrace => vec![&config.simulate.inputs, &self.accelsim_trace.inputs],
+            Target::Profile => vec![&config.profile.inputs, &self.profile.inputs],
+            Target::Trace => vec![&config.trace.inputs, &self.trace.inputs],
+            Target::AccelsimTrace => {
+                vec![&config.accelsim_trace.inputs, &self.accelsim_trace.inputs]
+            }
             Target::AccelsimSimulate => {
-                vec![&config.simulate.inputs, &self.accelsim_simulate.inputs]
+                vec![
+                    &config.accelsim_simulate.inputs,
+                    &self.accelsim_simulate.inputs,
+                ]
             }
             Target::PlaygroundSimulate => {
-                vec![&config.simulate.inputs, &self.playground_simulate.inputs]
+                vec![
+                    &config.playground_simulate.inputs,
+                    &self.playground_simulate.inputs,
+                ]
             }
         };
 
