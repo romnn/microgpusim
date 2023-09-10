@@ -2,10 +2,13 @@
 
 - today:
 
-  - DONE: make the accelsim class ceate a df with mean, variance, min, max per repetition
+  - extend validate to support parallel execution
+
   - build a well defined dataframe in all of the classes
 
-  - check for statistical variability with profiling
+  - consume our metric dfs:
+
+    - check for statistical variability with profiling
 
   - add option for l2 set index unless when in compat mode
   - add option for full trace and do the filtering post-tracing
@@ -34,6 +37,7 @@
   - convert, match and plot statistics
   - record mem fetch latency in playground and box
 
+  - DONE: make the accelsim class ceate a df with mean, variance, min, max per repetition
   - DONE: make the native class ceate a df with mean, variance, min, max per repetition
   - DONE: repeat simulate for validation
   - DONE: Optional new type to simplify display printing for optionals

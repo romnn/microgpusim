@@ -11,14 +11,17 @@ use color_eyre::eyre::{self, WrapErr};
 use console::{style, Style};
 use futures::stream::{self, StreamExt};
 use std::io::Write;
-use validate::options::{self, Command, Options};
 
 use indicatif::ProgressBar;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
-use validate::benchmark::paths::PathExt;
-use validate::materialize::{self, BenchmarkConfig, Benchmarks};
+use validate::{
+    benchmark::paths::PathExt,
+    materialized::{self, BenchmarkConfig, Benchmarks},
+    options::{self, Command, Options},
+    Target,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -218,7 +221,7 @@ async fn run_benchmark(
             Ok(())
         }
         Command::Expand(ref _opts) => {
-            // do nothing
+            println!("{:#?}", &bench);
             Ok(())
         }
         Command::Profile(ref opts) => validate::profile::profile(&bench, options, opts, bar).await,
@@ -264,7 +267,7 @@ fn parse_benchmarks(options: &Options) -> eyre::Result<Benchmarks> {
         .as_ref()
         .map(|p| p.resolve(&base_dir));
 
-    // materialize config: source of truth for downstream consumers
+    // the materialized config is the source of truth for downstream consumers
     let materialized = benchmarks.materialize(&base_dir)?;
 
     match materialize_path {
@@ -392,7 +395,7 @@ fn print_benchmark_result(
                 "{:>15} {:>20} [ {} ][ {} {} ] {}",
                 op,
                 color.apply_to(benchmark_config_id),
-                materialize::bench_config_name(&bench_config.name, &bench_config.values),
+                materialized::bench_config_name(&bench_config.name, &bench_config.values, true),
                 executable.display(),
                 bench_config.args.join(" "),
                 color.apply_to(status),
@@ -401,7 +404,7 @@ fn print_benchmark_result(
     };
 }
 
-fn available_concurrency(options: &Options, config: &materialize::Config) -> usize {
+fn available_concurrency(options: &Options, config: &materialized::Config) -> usize {
     let benchmark_concurrency = match options.command {
         Command::Profile(_) => config.profile.common.concurrency,
         Command::Trace(_) => config.trace.common.concurrency,
@@ -456,18 +459,37 @@ async fn main() -> eyre::Result<()> {
     let concurrency = available_concurrency(&options, &materialized.config);
     println!("concurrency: {concurrency}");
 
-    let mut enabled_benches: Vec<_> = materialized.enabled().cloned().collect();
-    filter_benchmarks(&mut enabled_benches, &options);
-    let num_bench_configs = enabled_benches.len();
+    let target_benches = match options.command {
+        Command::Full(_) => todo!(),
+        Command::Simulate(_) => &materialized.benchmarks[&Target::Simulate],
+        Command::Trace(_) => &materialized.benchmarks[&Target::Trace],
+        Command::AccelsimTrace(_) => &materialized.benchmarks[&Target::AccelsimTrace],
+        Command::AccelsimSimulate(_) => &materialized.benchmarks[&Target::AccelsimSimulate],
+        Command::PlaygroundSimulate(_) => &materialized.benchmarks[&Target::PlaygroundSimulate],
+        Command::Profile(_) => &materialized.benchmarks[&Target::Profile],
+        Command::Build(_) | Command::Clean(_) => &materialized.benchmarks[&Target::Profile],
+        Command::Expand(options::Expand { target, .. }) => {
+            &materialized.benchmarks[&target.unwrap_or(Target::Simulate)]
+        }
+    };
+    let mut target_benches: Vec<BenchmarkConfig> = target_benches
+        .iter()
+        .flat_map(|(_name, bench_configs)| bench_configs.iter())
+        .cloned()
+        .collect();
+
+    // let mut enabled_benches: Vec<_> = materialized.enabled().cloned().collect();
+    filter_benchmarks(&mut target_benches, &options);
+    let num_bench_configs = target_benches.len();
 
     // create progress bar
-    let bar = Arc::new(ProgressBar::new(enabled_benches.len() as u64));
+    let bar = Arc::new(ProgressBar::new(target_benches.len() as u64));
     bar.enable_steady_tick(std::time::Duration::from_secs_f64(1.0 / 10.0));
     bar.set_style(progress::Style::default().into());
 
     let should_exit = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
-    let results: Vec<Result<_, Error>> = stream::iter(enabled_benches)
+    let results: Vec<Result<_, Error>> = stream::iter(target_benches)
         .map(|bench_config| {
             let options = options.clone();
             let bar = bar.clone();

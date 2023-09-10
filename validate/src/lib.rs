@@ -7,13 +7,15 @@
 
 pub mod accelsim;
 pub mod benchmark;
-pub mod materialize;
+pub mod materialized;
 pub mod options;
 pub mod playground;
 pub mod profile;
 pub mod simulate;
 pub mod stats;
 pub mod trace;
+
+pub use serde_json_merge::{Dfs, Union};
 
 use benchmark::{
     matrix,
@@ -26,6 +28,30 @@ use smart_default::SmartDefault;
 use std::path::{Path, PathBuf};
 
 pub use crate::yaml as input;
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    strum::EnumIter,
+    strum::EnumString,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Deserialize,
+    Serialize,
+)]
+#[strum(ascii_case_insensitive)]
+pub enum Target {
+    Profile,
+    Trace,
+    AccelsimTrace,
+    Simulate,
+    AccelsimSimulate,
+    PlaygroundSimulate,
+}
 
 #[derive(thiserror::Error, Debug)]
 pub enum RunError {
@@ -80,6 +106,9 @@ pub enum Error {
     #[error(transparent)]
     Fs(#[from] utils::fs::Error),
 
+    #[error(transparent)]
+    Merging(#[from] serde_json::Error),
+
     // #[error(transparent)]
     // YAML(#[from] serde_yaml::Error),
     #[error(transparent)]
@@ -92,7 +121,7 @@ pub enum Error {
     Shell(#[from] benchmark::ShellParseError),
 
     #[error("could not resolve key: {key:?} for target {target:?}")]
-    Missing { target: String, key: String },
+    Missing { target: Option<Target>, key: String },
 
     #[error("cannot use a relative base: {0:?}")]
     RelativeBase(PathBuf),
@@ -103,6 +132,8 @@ pub struct ProfileOptions {
     #[default = true]
     #[serde(default = "bool_true")]
     pub enabled: bool,
+    #[serde(default)]
+    pub inputs: matrix::Inputs,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
@@ -110,6 +141,8 @@ pub struct TraceOptions {
     #[default = true]
     #[serde(default = "bool_true")]
     pub enabled: bool,
+    #[serde(default)]
+    pub inputs: matrix::Inputs,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
@@ -117,6 +150,8 @@ pub struct AccelsimTraceOptions {
     #[default = true]
     #[serde(default = "bool_true")]
     pub enabled: bool,
+    #[serde(default)]
+    pub inputs: matrix::Inputs,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
@@ -124,7 +159,12 @@ pub struct SimOptions {
     #[default = true]
     #[serde(default = "bool_true")]
     pub enabled: bool,
-    pub parallel: Option<bool>,
+    #[serde(default)]
+    pub inputs: matrix::Inputs,
+    #[serde(default)]
+    pub traces_dir: Option<Template<PathBuf>>,
+    #[serde(default)]
+    pub accelsim_traces_dir: Option<Template<PathBuf>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
@@ -142,6 +182,8 @@ pub struct AccelsimSimOptions {
     pub enabled: bool,
     #[serde(flatten)]
     pub configs: AccelsimSimOptionsFiles,
+    #[serde(default)]
+    pub inputs: matrix::Inputs,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
@@ -151,8 +193,11 @@ pub struct PlaygroundSimOptions {
     pub enabled: bool,
     #[serde(flatten)]
     pub configs: AccelsimSimOptionsFiles,
+    #[serde(default)]
+    pub inputs: matrix::Inputs,
 }
 
+/// needs to be serialize to render as template values
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
 pub struct Benchmark {
     pub path: PathBuf,
@@ -164,7 +209,7 @@ pub struct Benchmark {
     pub args_template: Template<String>,
 
     #[serde(flatten)]
-    pub config: TargetConfig,
+    pub config: GenericBenchmarkConfig,
 
     #[serde(default)]
     pub profile: ProfileOptions,
@@ -182,11 +227,6 @@ pub struct Benchmark {
 
 impl Benchmark {
     #[must_use]
-    pub fn inputs(&self) -> Vec<matrix::Input> {
-        self.matrix.expand()
-    }
-
-    #[must_use]
     pub fn executable(&self) -> PathBuf {
         if self.executable.is_absolute() {
             self.executable.clone()
@@ -197,7 +237,7 @@ impl Benchmark {
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
-pub struct TargetConfig {
+pub struct GenericBenchmarkConfig {
     pub repetitions: Option<usize>,
     pub concurrency: Option<usize>,
     pub timeout: Option<duration_string::DurationString>,
@@ -205,36 +245,36 @@ pub struct TargetConfig {
     pub results_dir: Option<PathBuf>,
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
+#[derive(Debug, Clone, PartialEq, Deserialize, SmartDefault)]
 pub struct TraceConfig {
     #[serde(flatten)]
-    pub common: TargetConfig,
+    pub common: GenericBenchmarkConfig,
     #[serde(default)]
     pub full_trace: bool,
     #[serde(default = "bool_true")]
     pub save_json: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
+#[derive(Debug, Clone, PartialEq, Deserialize, SmartDefault)]
 pub struct AccelsimTraceConfig {
     #[serde(flatten)]
-    pub common: TargetConfig,
+    pub common: GenericBenchmarkConfig,
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
+#[derive(Debug, Clone, PartialEq, Deserialize, SmartDefault)]
 pub struct ProfileConfig {
     #[serde(flatten)]
-    pub common: TargetConfig,
+    pub common: GenericBenchmarkConfig,
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
+#[derive(Debug, Clone, PartialEq, Deserialize, SmartDefault)]
 pub struct SimConfig {
     #[serde(flatten)]
-    pub common: TargetConfig,
+    pub common: GenericBenchmarkConfig,
     pub parallel: Option<bool>,
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
+#[derive(Debug, Clone, PartialEq, Deserialize, SmartDefault)]
 pub struct AccelsimSimConfigFiles {
     pub trace_config: PathBuf,
     pub inter_config: PathBuf,
@@ -242,28 +282,28 @@ pub struct AccelsimSimConfigFiles {
     pub config: PathBuf,
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
+#[derive(Debug, Clone, PartialEq, Deserialize, SmartDefault)]
 pub struct AccelsimSimConfig {
     #[serde(flatten)]
-    pub common: TargetConfig,
+    pub common: GenericBenchmarkConfig,
     #[serde(flatten)]
     pub configs: AccelsimSimConfigFiles,
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
+#[derive(Debug, Clone, PartialEq, Deserialize, SmartDefault)]
 pub struct PlaygroundSimConfig {
     #[serde(flatten)]
-    pub common: TargetConfig,
+    pub common: GenericBenchmarkConfig,
     #[serde(flatten)]
     pub configs: AccelsimSimConfigFiles,
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
+#[derive(Debug, Clone, PartialEq, Deserialize, SmartDefault)]
 pub struct Config {
     pub materialize_to: Option<PathBuf>,
 
     #[serde(flatten)]
-    pub common: TargetConfig,
+    pub common: GenericBenchmarkConfig,
 
     #[serde(default)]
     pub trace: TraceConfig,
@@ -279,7 +319,7 @@ pub struct Config {
     pub playground_simulate: PlaygroundSimConfig,
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
+#[derive(Debug, Clone, PartialEq, Deserialize, SmartDefault)]
 pub struct Benchmarks {
     #[serde(default)]
     pub config: Config,
@@ -420,7 +460,7 @@ benchmarks:
             vec_add_benchmark.executable(),
             PathBuf::from("./vectoradd/vectoradd")
         );
-        let vec_add_inputs = vec_add_benchmark.inputs();
+        let vec_add_inputs = vec_add_benchmark.matrix.expand();
         diff::assert_eq!(
             vec_add_inputs[0],
             serde_yaml::from_str::<IndexMap<String, serde_yaml::Value>>(

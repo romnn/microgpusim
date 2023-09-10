@@ -4,11 +4,15 @@ use color_eyre::eyre;
 use criterion::{black_box, Criterion};
 use std::time::Duration;
 use validate::{
-    materialize::{BenchmarkConfig, Benchmarks},
-    TraceProvider,
+    materialized::{BenchmarkConfig, Benchmarks, TargetBenchmarkConfig},
+    Target, TraceProvider,
 };
 
-fn get_bench_config(benchmark_name: &str, input_idx: usize) -> eyre::Result<BenchmarkConfig> {
+fn get_bench_config(
+    target: Target,
+    benchmark_name: &str,
+    input_idx: usize,
+) -> eyre::Result<BenchmarkConfig> {
     use std::path::PathBuf;
 
     let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
@@ -16,7 +20,7 @@ fn get_bench_config(benchmark_name: &str, input_idx: usize) -> eyre::Result<Benc
     let reader = utils::fs::open_readable(benchmarks_path)?;
     let benchmarks = Benchmarks::from_reader(reader)?;
     let bench_config = benchmarks
-        .get_single_config(benchmark_name, input_idx)
+        .get_single_config(target, benchmark_name, input_idx)
         .ok_or_else(|| {
             eyre::eyre!(
                 "no benchmark {:?} or input index {}",
@@ -28,7 +32,12 @@ fn get_bench_config(benchmark_name: &str, input_idx: usize) -> eyre::Result<Benc
 }
 
 pub fn run_box(mut bench_config: BenchmarkConfig, serial: bool) -> eyre::Result<stats::Stats> {
-    bench_config.simulate.parallel = !serial;
+    if let TargetBenchmarkConfig::Simulate {
+        ref mut parallel, ..
+    } = bench_config.target_config
+    {
+        *parallel = Some(!serial);
+    }
     // if std::env::var("PARALLEL").unwrap_or_default().to_lowercase() == "yes";
     // println!("parallel: {}", bench_config.simulate.parallel);
     let sim = validate::simulate::simulate_bench_config(&bench_config)?;
@@ -86,8 +95,11 @@ pub fn accelsim_benchmark(c: &mut Criterion) {
         .expect("build tokio runtime");
 
     group.bench_function("vectoradd/10000", |b| {
-        b.to_async(&runtime)
-            .iter(|| run_accelsim(black_box(get_bench_config("vectorAdd", 2).unwrap())));
+        b.to_async(&runtime).iter(|| {
+            run_accelsim(black_box(
+                get_bench_config(Target::AccelsimSimulate, "vectorAdd", 2).unwrap(),
+            ))
+        });
     });
     // group.bench_function("transpose/256/naive", |b| {
     //     b.iter(|| run_accelsim(black_box(get_bench_config("transpose", 0).unwrap())))
@@ -100,7 +112,11 @@ pub fn play_benchmark(c: &mut Criterion) {
     group.sampling_mode(criterion::SamplingMode::Flat);
 
     group.bench_function("vectoradd/10000", |b| {
-        b.iter(|| run_playground(&black_box(get_bench_config("vectorAdd", 2).unwrap())));
+        b.iter(|| {
+            run_playground(&black_box(
+                get_bench_config(Target::PlaygroundSimulate, "vectorAdd", 2).unwrap(),
+            ))
+        });
     });
     // group.bench_function("transpose/256/naive", |b| {
     //     b.iter(|| run_playground(black_box(get_bench_config("transpose", 0).unwrap())))
@@ -113,7 +129,12 @@ pub fn box_benchmark(c: &mut Criterion) {
     group.sampling_mode(criterion::SamplingMode::Flat);
 
     group.bench_function("vectoradd/10000", |b| {
-        b.iter(|| run_box(black_box(get_bench_config("vectorAdd", 2).unwrap()), true));
+        b.iter(|| {
+            run_box(
+                black_box(get_bench_config(Target::Simulate, "vectorAdd", 2).unwrap()),
+                true,
+            )
+        });
     });
     // group.bench_function("transpose/256/naive", |b| {
     //     b.iter(|| run_box(black_box(get_bench_config("transpose", 0).unwrap())))
@@ -162,7 +183,10 @@ fn main() -> eyre::Result<()> {
         .build()?;
 
     let start = Instant::now();
-    let stats = run_box(black_box(get_bench_config(bench_name, input_num)?), false)?;
+    let stats = run_box(
+        black_box(get_bench_config(Target::Simulate, bench_name, input_num)?),
+        false,
+    )?;
     dbg!(&stats.sim);
     let box_dur = start.elapsed();
     println!("box took:\t\t{box_dur:?}");
@@ -198,7 +222,14 @@ fn main() -> eyre::Result<()> {
     gpucachesim::TIMINGS.lock().clear();
 
     let start = Instant::now();
-    let stats = run_box(black_box(get_bench_config(bench_name, input_num)?), true)?;
+    let stats = run_box(
+        black_box(get_bench_config(
+            Target::PlaygroundSimulate,
+            bench_name,
+            input_num,
+        )?),
+        true,
+    )?;
     dbg!(&stats.sim);
     let serial_box_dur = start.elapsed();
     println!("serial box took:\t\t{serial_box_dur:?}");
@@ -228,12 +259,21 @@ fn main() -> eyre::Result<()> {
         println!();
     }
 
-    let (_, _, play_dur) = run_playground(&black_box(get_bench_config(bench_name, input_num)?))?;
+    let (_, _, play_dur) = run_playground(&black_box(get_bench_config(
+        Target::PlaygroundSimulate,
+        bench_name,
+        input_num,
+    )?))?;
     println!("play took:\t\t{play_dur:?}");
 
     let start = Instant::now();
     runtime.block_on(async {
-        run_accelsim(black_box(get_bench_config(bench_name, input_num)?)).await?;
+        run_accelsim(black_box(get_bench_config(
+            Target::AccelsimSimulate,
+            bench_name,
+            input_num,
+        )?))
+        .await?;
         Ok::<(), eyre::Report>(())
     })?;
     let accel_dur = start.elapsed();

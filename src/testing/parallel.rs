@@ -104,14 +104,25 @@ macro_rules! parallel_checks {
             paste::paste! {
                 #[test]
                 fn [<nondeterministic_ $name>]() -> color_eyre::eyre::Result<()> {
+                    use validate::{Target, materialized::TargetBenchmarkConfig};
                     $crate::testing::init_test();
 
-                    let bench_config = super::find_bench_config($bench_name, validate::input!($($input)+))?;
+                    let bench_config = super::find_bench_config(
+                        Target::Simulate, $bench_name, validate::input!($($input)+))?;
 
-                    let box_trace_dir = &bench_config.trace.traces_dir;
-                    let commands = box_trace_dir.join("commands.json");
-                    let kernelslist = bench_config.accelsim_trace.traces_dir.join("box-kernelslist.g");
-                    run(&box_trace_dir, &commands, &kernelslist)
+                    let TargetBenchmarkConfig::Simulate {
+                        ref traces_dir ,
+                        ref accelsim_traces_dir,
+                        ..
+                    } = bench_config.target_config else {
+                        unreachable!();
+                    };
+
+                    // let box_trace_dir = &bench_config.trace.traces_dir;
+                    let commands = traces_dir.join("commands.json");
+                    // let kernelslist = bench_config.accelsim_trace.traces_dir.join("box-kernelslist.g");
+                    let kernelslist = accelsim_traces_dir.join("box-kernelslist.g");
+                    run(traces_dir, &commands, &kernelslist)
                 }
             }
         )*

@@ -1,5 +1,5 @@
 use crate::{
-    materialize::{self, BenchmarkConfig},
+    materialized::{self, BenchmarkConfig, TargetBenchmarkConfig},
     options::{self, Options},
     RunError, TraceProvider,
 };
@@ -17,7 +17,10 @@ where
     A: IntoIterator,
     <A as IntoIterator>::Item: Into<String>,
 {
-    let traces_dir = &bench.accelsim_trace.traces_dir;
+    let TargetBenchmarkConfig::PlaygroundSimulate { ref traces_dir, ref configs, .. } = bench.target_config else {
+        unreachable!();
+    };
+    // let traces_dir = &bench.accelsim_trace.traces_dir;
     let kernelslist = traces_dir.join(match trace_provider {
         TraceProvider::Native | TraceProvider::Accelsim => "kernelslist.g",
         TraceProvider::Box => "box-kernelslist.g",
@@ -35,12 +38,12 @@ where
         ));
     }
 
-    let materialize::AccelsimSimConfigFiles {
+    let materialized::config::AccelsimSimConfigFiles {
         config,
         trace_config,
         inter_config,
         ..
-    } = bench.playground_simulate.configs.clone();
+    } = configs.clone();
 
     let kernelslist = kernelslist.to_string_lossy().to_string();
     let gpgpusim_config = config.to_string_lossy().to_string();
@@ -93,8 +96,10 @@ pub async fn simulate(
     _sim_options: &options::PlaygroundSim,
     _bar: &indicatif::ProgressBar,
 ) -> Result<(), RunError> {
-    let common = &bench.playground_simulate.common;
-    let stats_dir = &bench.playground_simulate.stats_dir;
+    let TargetBenchmarkConfig::PlaygroundSimulate { ref stats_dir, .. } = bench.target_config else {
+        unreachable!();
+    };
+
     let detailed_stats_dir = &stats_dir.join("detailed");
     if options.clean {
         utils::fs::remove_dir(stats_dir).map_err(eyre::Report::from)?;
@@ -106,12 +111,12 @@ pub async fn simulate(
     if !options.force
         && [stats_dir.as_path(), detailed_stats_dir.as_path()]
             .iter()
-            .all(|stat_dir| crate::stats::already_exist(&common, stat_dir))
+            .all(|stat_dir| crate::stats::already_exist(&bench.common, stat_dir))
     {
         return Err(RunError::Skipped);
     }
 
-    for repetition in 0..common.repetitions {
+    for repetition in 0..bench.common.repetitions {
         let accelsim_compat_mode = true;
         let extra_args = vec!["-gpgpu_perf_sim_memcpy", "0"];
         let bench = bench.clone();

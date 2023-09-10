@@ -129,7 +129,7 @@ impl Kernel {
                 break;
             }
 
-            let mem_only = true;
+            let mem_only = false;
 
             let warp_id = entry.warp_id_in_block as usize;
             let instr = instruction::WarpInstruction::from_trace(self, entry, config);

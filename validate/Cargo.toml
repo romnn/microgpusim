@@ -26,6 +26,8 @@ serde_path_to_error = "0"
 csv = "1"
 serde_json = { version = "1", features = ["preserve_order"] }
 serde_yaml = "0"
+serde_json_merge = "0"
+try-partialord = "0"
 duration-string = { version = "0", features = ["serde"] }
 log = "0"
 env_logger = "0"

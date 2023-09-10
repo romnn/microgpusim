@@ -1,12 +1,16 @@
 use color_eyre::eyre;
 use std::io::Write;
 use utils::diff;
+use validate::materialized::{self, TargetBenchmarkConfig};
 
 async fn validate_playground_accelsim_compat(
-    bench_config: &validate::materialize::BenchmarkConfig,
+    bench_config: &materialized::BenchmarkConfig,
     sim_config: &accelsim::SimConfig,
 ) -> eyre::Result<()> {
-    let traces_dir = &bench_config.accelsim_trace.traces_dir;
+    let TargetBenchmarkConfig::AccelsimSimulate { ref traces_dir, .. } = bench_config.target_config else {
+        unreachable!();
+    };
+
     let kernelslist = traces_dir.join("kernelslist.g");
 
     dbg!(&traces_dir);
@@ -123,21 +127,29 @@ macro_rules! accelsim_compat_tests {
         $(
             #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
             async fn $name() -> color_eyre::eyre::Result<()> {
+                use validate::{Target, materialized::TargetBenchmarkConfig};
                 $crate::testing::init_test();
-                let bench_config = super::find_bench_config($bench_name, validate::input!($($input)+))?;
-                let validate::materialize::AccelsimSimConfigFiles {
-                    config,
-                    config_dir,
-                    trace_config,
-                    inter_config,
-                } = bench_config.accelsim_simulate.configs.clone();
-
-                let sim_config = accelsim::SimConfig {
-                    config: Some(config),
-                    config_dir: Some(config_dir),
-                    trace_config: Some(trace_config),
-                    inter_config: Some(inter_config),
+                let bench_config = super::find_bench_config(
+                    Target::AccelsimSimulate, $bench_name, validate::input!($($input)+))?;
+                let TargetBenchmarkConfig::AccelsimSimulate {
+                    ref configs, ..
+                } = bench_config.target_config else {
+                    unreachable!();
                 };
+                let sim_config: accelsim::SimConfig = configs.clone().into();
+                // let materialized::AccelsimSimConfigFiles {
+                //     config,
+                //     config_dir,
+                //     trace_config,
+                //     inter_config,
+                // } = bench_config.accelsim_simulate.configs.clone();
+                //
+                // let sim_config = accelsim::SimConfig {
+                //     config: Some(config),
+                //     config_dir: Some(config_dir),
+                //     trace_config: Some(trace_config),
+                //     inter_config: Some(inter_config),
+                // };
 
                 validate_playground_accelsim_compat(&bench_config, &sim_config).await
             }

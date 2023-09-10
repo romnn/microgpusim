@@ -401,6 +401,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "bit-set"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0700ddab506f33b20a03b13996eccd309a48e5ff77d0d95926aa0210fb4e95f1"
+dependencies = [
+ "bit-vec",
+]
+
+[[package]]
+name = "bit-vec"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "349f9b6a179ed607305526ca489b34ad0a41aed5f7980fa90eb03160b69598fb"
+
+[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1191,6 +1206,16 @@ checksum = "4c2b6b5a29c02cdc822728b7d7b8ae1bab3e3b05d44522770ddd49722eeac7eb"
 dependencies = [
  "indenter",
  "once_cell",
+]
+
+[[package]]
+name = "fancy-regex"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b95f7c0680e4142284cf8b22c14a476e87d61b004a3a0861872b32ef7ead40a2"
+dependencies = [
+ "bit-set",
+ "regex",
 ]
 
 [[package]]
@@ -2282,36 +2307,36 @@ checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
 
 [[package]]
 name = "nvbit-build"
-version = "0.0.33"
+version = "0.0.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8c48727daef260728282d6a4c4a14451f57b01147bce8edc4e388e31fee4461"
+checksum = "27020771cb6bfb4ebf0e178a5e424ea8e235b04475126e98bf113503daeb14b5"
 dependencies = [
  "thiserror",
 ]
 
 [[package]]
 name = "nvbit-io"
-version = "0.0.33"
+version = "0.0.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffa83b5655371f47e1c9419b5aa3966ef6c2af83dffa2e8ed656065567577bc5"
+checksum = "618fc13447122eb6b07037bb39c7e010cc9d30fcafa9b939a4c5032849edc703"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "nvbit-model"
-version = "0.0.33"
+version = "0.0.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "098b84f489ef039adc535f4cd36d93cef4ff9e034e09435b071fe5a5e5586c81"
+checksum = "4650b4c7e2b30b28e7b17e9a64cd67bc9bd3338da29436a049361a423c63fa73"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "nvbit-rs"
-version = "0.0.33"
+version = "0.0.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eccfe9a720ebbe69b635862026f479805f908a14633401c25ad354165cd23ad9"
+checksum = "cdcc36c5be8aab977caa12d172ff2d3218b2bc6ae94c61f75569ea94b6674875"
 dependencies = [
  "cxx",
  "nvbit-sys",
@@ -2321,9 +2346,9 @@ dependencies = [
 
 [[package]]
 name = "nvbit-sys"
-version = "0.0.33"
+version = "0.0.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd8320c2601a2cf9112effd997672d1a50b60f963ab88a2e61c4770ce31cd850"
+checksum = "821b772babd39b29d6142e6009848cf9702f9a448cb2cfccb2def16ca245d0c9"
 dependencies = [
  "bindgen 0.61.0",
  "bzip2",
@@ -2334,6 +2359,7 @@ dependencies = [
  "nvbit-model",
  "pkg-config",
  "reqwest",
+ "retry",
  "tar",
 ]
 
@@ -2811,9 +2837,9 @@ dependencies = [
 
 [[package]]
 name = "prettyplease"
-version = "0.2.14"
+version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8832c0f9be7e3cae60727e6256cfd2cd3c3e2b6cd5dad4190ecb2fd658c9030b"
+checksum = "ae005bd773ab59b4725093fd7df83fd7892f7d8eafb48dbd7de6e024e4215f9d"
 dependencies = [
  "proc-macro2",
  "syn 2.0.31",
@@ -3114,6 +3140,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "retry"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9166d72162de3575f950507683fac47e30f6f2c3836b71b7fbc61aa517c9c5f4"
+dependencies = [
+ "rand",
+]
+
+[[package]]
 name = "rev_buf_reader"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3361,6 +3396,18 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "serde_json_merge"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "89bc8d5733ea86bf7595d510ee065e96980db34f91ef4d32bb575ee38c041889"
+dependencies = [
+ "fancy-regex",
+ "lazy_static",
+ "rayon",
+ "serde_json",
 ]
 
 [[package]]
@@ -4008,6 +4055,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3528ecfd12c466c6f163363caf2d02a71161dd5e1cc6ae7b34207ea2d42d81ed"
 
 [[package]]
+name = "try-partialord"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "494f2baf446447eb9b49ece9bbc391b8b251ceb4778f7362ef09dd9eadec390f"
+
+[[package]]
 name = "ttf-parser"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4143,6 +4196,7 @@ dependencies = [
  "profile",
  "serde",
  "serde_json",
+ "serde_json_merge",
  "serde_path_to_error",
  "serde_yaml",
  "shell-words",
@@ -4154,6 +4208,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "trace-model",
+ "try-partialord",
  "utils",
 ]
 

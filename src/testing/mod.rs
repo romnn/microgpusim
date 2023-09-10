@@ -17,9 +17,10 @@ pub fn init_test() {
 }
 
 pub fn find_bench_config(
+    target: validate::Target,
     name: &str,
     query: validate::benchmark::Input,
-) -> color_eyre::eyre::Result<validate::materialize::BenchmarkConfig> {
+) -> color_eyre::eyre::Result<validate::materialized::BenchmarkConfig> {
     use itertools::Itertools;
     use std::path::PathBuf;
 
@@ -27,8 +28,8 @@ pub fn find_bench_config(
 
     let benchmarks_path = manifest_dir.join("test-apps/test-apps-materialized.yml");
     let reader = utils::fs::open_readable(benchmarks_path)?;
-    let benchmarks = validate::materialize::Benchmarks::from_reader(reader)?;
-    let bench_configs: Vec<_> = benchmarks.query(name, query, false).try_collect()?;
+    let benchmarks = validate::materialized::Benchmarks::from_reader(reader)?;
+    let bench_configs: Vec<_> = benchmarks.query(target, name, query, false).try_collect()?;
 
     assert_eq!(
         bench_configs.len(),

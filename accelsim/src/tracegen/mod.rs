@@ -55,8 +55,8 @@ use std::path::{Path, PathBuf};
 #[derive(Debug)]
 pub struct Conversion<'a> {
     pub native_commands_path: &'a Path,
-    pub box_trace_dir: &'a Path,
-    pub accelsim_trace_dir: &'a Path,
+    pub box_traces_dir: &'a Path,
+    pub accelsim_traces_dir: &'a Path,
 }
 
 pub fn convert_accelsim_to_box_traces(options: &Conversion<'_>) -> eyre::Result<PathBuf> {
@@ -66,11 +66,11 @@ pub fn convert_accelsim_to_box_traces(options: &Conversion<'_>) -> eyre::Result<
 
     let Conversion {
         native_commands_path,
-        box_trace_dir,
-        accelsim_trace_dir,
+        box_traces_dir,
+        accelsim_traces_dir,
     } = options;
     assert!(native_commands_path.is_file());
-    let generated_box_commands_path = box_trace_dir.join("accelsim.commands.json");
+    let generated_box_commands_path = box_traces_dir.join("accelsim.commands.json");
     println!(
         "generating commands {}",
         generated_box_commands_path
@@ -80,7 +80,7 @@ pub fn convert_accelsim_to_box_traces(options: &Conversion<'_>) -> eyre::Result<
     );
 
     let reader = utils::fs::open_readable(native_commands_path)?;
-    let accelsim_commands = reader::read_commands(accelsim_trace_dir, reader)?;
+    let accelsim_commands = reader::read_commands(accelsim_traces_dir, reader)?;
 
     let commands: Vec<_> = accelsim_commands
         .into_iter()
@@ -90,7 +90,7 @@ pub fn convert_accelsim_to_box_traces(options: &Conversion<'_>) -> eyre::Result<
             }
             AccelsimCommand::KernelLaunch((mut kernel, metadata)) => {
                 // transform kernel instruction trace
-                let kernel_trace_path = accelsim_trace_dir.join(&kernel.trace_file);
+                let kernel_trace_path = accelsim_traces_dir.join(&kernel.trace_file);
                 let reader = utils::fs::open_readable(kernel_trace_path)?;
                 let mem_only = false;
                 let parsed_trace = reader::read_trace_instructions(
@@ -102,7 +102,7 @@ pub fn convert_accelsim_to_box_traces(options: &Conversion<'_>) -> eyre::Result<
                 )?;
 
                 let generated_kernel_trace_name = format!("accelsim-kernel-{}.msgpack", kernel.id);
-                let generated_kernel_trace_path = box_trace_dir.join(&generated_kernel_trace_name);
+                let generated_kernel_trace_path = box_traces_dir.join(&generated_kernel_trace_name);
 
                 let mut writer = utils::fs::open_writable(&generated_kernel_trace_path)?;
                 rmp_serde::encode::write(&mut writer, &parsed_trace)?;
@@ -132,11 +132,11 @@ pub fn convert_box_to_accelsim_traces(options: &Conversion<'_>) -> eyre::Result<
     use trace_model::Command;
     let Conversion {
         native_commands_path,
-        box_trace_dir,
-        accelsim_trace_dir,
+        box_traces_dir,
+        accelsim_traces_dir,
     } = options;
     assert!(native_commands_path.is_file());
-    let generated_kernelslist_path = accelsim_trace_dir.join("box-kernelslist.g");
+    let generated_kernelslist_path = accelsim_traces_dir.join("box-kernelslist.g");
     println!(
         "generating commands {}",
         generated_kernelslist_path
@@ -155,7 +155,7 @@ pub fn convert_box_to_accelsim_traces(options: &Conversion<'_>) -> eyre::Result<
         if let Command::KernelLaunch(kernel) = cmd {
             // generate trace for kernel
             let generated_kernel_trace_path =
-                accelsim_trace_dir.join(format!("kernel-{}.box.traceg", kernel.id + 1));
+                accelsim_traces_dir.join(format!("kernel-{}.box.traceg", kernel.id + 1));
             println!(
                 "generating trace {} for kernel {}",
                 generated_kernel_trace_path
@@ -165,7 +165,7 @@ pub fn convert_box_to_accelsim_traces(options: &Conversion<'_>) -> eyre::Result<
                 kernel.id
             );
             let mut trace_writer = utils::fs::open_writable(generated_kernel_trace_path)?;
-            writer::generate_trace(box_trace_dir, &kernel, &mut trace_writer)?;
+            writer::generate_trace(box_traces_dir, &kernel, &mut trace_writer)?;
         }
     }
     Ok(generated_kernelslist_path)

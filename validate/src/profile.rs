@@ -1,4 +1,4 @@
-use super::materialize::BenchmarkConfig;
+use super::materialized::{BenchmarkConfig, TargetBenchmarkConfig};
 use crate::{
     open_writable,
     options::{self, Options},
@@ -15,14 +15,17 @@ pub async fn profile(
     _profile_options: &options::Profile,
     _bar: &indicatif::ProgressBar,
 ) -> Result<(), RunError> {
-    let profile_dir = &bench.profile.profile_dir;
+    let TargetBenchmarkConfig::Profile { ref profile_dir, .. } = bench.target_config else {
+        unreachable!();
+    };
+
     if options.clean {
         utils::fs::remove_dir(profile_dir).map_err(eyre::Report::from)?;
     }
 
     create_dirs(profile_dir).map_err(eyre::Report::from)?;
 
-    for repetition in 0..bench.profile.common.repetitions {
+    for repetition in 0..bench.common.repetitions {
         let metrics_log_file = profile_dir.join(format!("profile.nvprof.metrics.{repetition}.log"));
         let commands_log_file =
             profile_dir.join(format!("profile.nvprof.commands.{repetition}.log"));

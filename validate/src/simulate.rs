@@ -1,11 +1,11 @@
-use super::materialize::BenchmarkConfig;
+use super::materialized::{BenchmarkConfig, TargetBenchmarkConfig};
 use super::{
     open_writable,
     options::{self, Options},
     RunError,
 };
 use color_eyre::{eyre, Help};
-use gpucachesim::{interconn as ic, mem_fetch, MockSimulator};
+use gpucachesim::{config::Parallelization, interconn as ic, mem_fetch, MockSimulator};
 use std::path::Path;
 use std::time::Instant;
 use utils::fs::create_dirs;
@@ -14,8 +14,9 @@ use utils::fs::create_dirs;
 pub fn simulate_bench_config(
     bench: &BenchmarkConfig,
 ) -> Result<MockSimulator<ic::ToyInterconnect<ic::Packet<mem_fetch::MemFetch>>>, RunError> {
-    // get traces dir from trace config
-    let traces_dir = bench.trace.traces_dir.clone();
+    let TargetBenchmarkConfig::Simulate { ref traces_dir, .. } = bench.target_config else {
+        unreachable!();
+    };
 
     let commandlist = traces_dir.join("commands.json");
     if !commandlist.is_file() {
@@ -31,27 +32,28 @@ pub fn simulate_bench_config(
         ));
     }
 
-    let non_deterministic: Option<usize> = std::env::var("NONDET")
-        .ok()
-        .as_deref()
-        .map(str::parse)
-        .transpose()
-        .unwrap();
-
-    let parallelization = match (bench.simulate.parallel, non_deterministic) {
-        (false, _) => gpucachesim::config::Parallelization::Serial,
-        #[cfg(feature = "parallel")]
-        (true, None) => gpucachesim::config::Parallelization::Deterministic,
-        #[cfg(feature = "parallel")]
-        (true, Some(n)) => gpucachesim::config::Parallelization::Nondeterministic(n),
-        #[cfg(not(feature = "parallel"))]
-        _ => {
-            return Err(RunError::Failed(
-                eyre::eyre!("parallel feature is disabled")
-                    .with_suggestion(|| format!(r#"enable the "parallel" feature"#)),
-            ))
-        }
-    };
+    // TODO: decide on a parallel implementation using the inputs
+    // let non_deterministic: Option<usize> = std::env::var("NONDET")
+    //     .ok()
+    //     .as_deref()
+    //     .map(str::parse)
+    //     .transpose()
+    //     .unwrap();
+    //
+    // let parallelization = match (bench.simulate.parallel, non_deterministic) {
+    //     (false, _) => gpucachesim::config::Parallelization::Serial,
+    //     #[cfg(feature = "parallel")]
+    //     (true, None) => gpucachesim::config::Parallelization::Deterministic,
+    //     #[cfg(feature = "parallel")]
+    //     (true, Some(n)) => gpucachesim::config::Parallelization::Nondeterministic(n),
+    //     #[cfg(not(feature = "parallel"))]
+    //     _ => {
+    //         return Err(RunError::Failed(
+    //             eyre::eyre!("parallel feature is disabled")
+    //                 .with_suggestion(|| format!(r#"enable the "parallel" feature"#)),
+    //         ))
+    //     }
+    // };
 
     let config = gpucachesim::config::GPU {
         num_simt_clusters: 20,                       // 20
@@ -61,7 +63,7 @@ pub fn simulate_bench_config(
         num_dram_chips_per_memory_controller: 1,     // 1
         num_sub_partitions_per_memory_controller: 2, // 2
         fill_l2_on_memcopy: false,                   // true
-        parallelization,
+        parallelization: Parallelization::Serial,
         log_after_cycle: None,
         ..gpucachesim::config::GPU::default()
     };
@@ -87,19 +89,21 @@ pub async fn simulate(
     _sim_options: &options::Sim,
     _bar: &indicatif::ProgressBar,
 ) -> Result<(), RunError> {
-    let common = &bench.simulate.common;
-    let stats_dir = &bench.simulate.stats_dir;
+    let TargetBenchmarkConfig::Simulate { ref stats_dir, .. } = bench.target_config else {
+        unreachable!();
+    };
+
     if options.clean {
         utils::fs::remove_dir(stats_dir).map_err(eyre::Report::from)?;
     }
 
     create_dirs(stats_dir).map_err(eyre::Report::from)?;
 
-    if !options.force && crate::stats::already_exist(common, stats_dir) {
+    if !options.force && crate::stats::already_exist(&bench.common, stats_dir) {
         return Err(RunError::Skipped);
     }
 
-    for repetition in 0..common.repetitions {
+    for repetition in 0..bench.common.repetitions {
         let bench = bench.clone();
         let (sim, dur) = tokio::task::spawn_blocking(move || {
             let start = Instant::now();

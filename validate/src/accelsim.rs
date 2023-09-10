@@ -1,4 +1,4 @@
-use super::materialize::{self, BenchmarkConfig};
+use super::materialized::{self, BenchmarkConfig, TargetBenchmarkConfig};
 use crate::{
     open_writable,
     options::{self, Options},
@@ -44,7 +44,9 @@ pub async fn trace(
     _trace_opts: &options::AccelsimTrace,
     _bar: &indicatif::ProgressBar,
 ) -> Result<(), RunError> {
-    let traces_dir = &bench.accelsim_trace.traces_dir;
+    let TargetBenchmarkConfig::AccelsimTrace { ref traces_dir, .. } = bench.target_config else {
+        unreachable!();
+    };
     utils::fs::create_dirs(traces_dir).map_err(eyre::Report::from)?;
 
     let kernelslist = traces_dir.join("kernelslist.g");
@@ -66,20 +68,26 @@ pub async fn trace(
     // convert accelsim traces to JSON for us to easily inspect
     let mem_only = false;
     convert_traces_to_json(traces_dir, &kernelslist, mem_only)?;
-    // if let Err(err) = convert_traces_to_json(&traces_dir, &kernelslist) {
-    //     log::error!(
-    //         "failed to convert {} to JSON: {}",
-    //         kernelslist.display(),
-    //         err
-    //     );
-    // }
     Ok(())
+}
+
+impl Into<accelsim::SimConfig> for materialized::config::AccelsimSimConfigFiles {
+    fn into(self) -> accelsim::SimConfig {
+        accelsim::SimConfig {
+            config: Some(self.config),
+            config_dir: Some(self.config_dir),
+            trace_config: Some(self.trace_config),
+            inter_config: Some(self.inter_config),
+        }
+    }
 }
 
 pub async fn simulate_bench_config(
     bench: &BenchmarkConfig,
 ) -> Result<(async_process::Output, Duration), RunError> {
-    let traces_dir = &bench.accelsim_trace.traces_dir;
+    let TargetBenchmarkConfig::AccelsimSimulate { ref traces_dir, ref configs, .. } = bench.target_config else {
+        unreachable!();
+    };
 
     // todo: allow setting this in test-apps.yml ?
     let kernelslist = traces_dir.join("kernelslist.g");
@@ -96,23 +104,11 @@ pub async fn simulate_bench_config(
         ));
     }
 
-    let common = &bench.accelsim_simulate.common;
+    let common = &bench.common;
 
     let timeout = common.timeout.map(Into::into);
 
-    let materialize::AccelsimSimConfigFiles {
-        config,
-        config_dir,
-        trace_config,
-        inter_config,
-    } = bench.accelsim_simulate.configs.clone();
-
-    let config = accelsim::SimConfig {
-        config: Some(config),
-        config_dir: Some(config_dir),
-        trace_config: Some(trace_config),
-        inter_config: Some(inter_config),
-    };
+    let config: accelsim::SimConfig = configs.clone().into();
 
     let extra_sim_args: &[String] = &[];
     let stream_output = false;
@@ -136,19 +132,20 @@ pub async fn simulate(
     _sim_options: &options::AccelsimSim,
     _bar: &indicatif::ProgressBar,
 ) -> Result<(), RunError> {
-    let common = &bench.accelsim_simulate.common;
-    let stats_dir = &bench.accelsim_simulate.stats_dir;
+    let TargetBenchmarkConfig::AccelsimSimulate { ref stats_dir, .. } = bench.target_config else {
+        unreachable!();
+    };
     if options.clean {
         utils::fs::remove_dir(stats_dir).map_err(eyre::Report::from)?;
     }
 
     utils::fs::create_dirs(stats_dir).map_err(eyre::Report::from)?;
 
-    if !options.force && crate::stats::already_exist(&common, stats_dir) {
+    if !options.force && crate::stats::already_exist(&bench.common, stats_dir) {
         return Err(RunError::Skipped);
     }
 
-    for repetition in 0..common.repetitions {
+    for repetition in 0..bench.common.repetitions {
         let (output, dur) = simulate_bench_config(bench).await?;
         let profile = if accelsim_sim::is_debug() {
             "debug"

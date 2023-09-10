@@ -29,6 +29,9 @@ pub struct PlaygroundSim {}
 pub struct Expand {
     #[clap(long = "full", help = "expand full benchmark config")]
     pub full: bool,
+
+    #[clap(long = "target", help = "expand benchmark configs for given target")]
+    pub target: Option<crate::Target>,
 }
 
 #[derive(Parser, Debug, Default, Clone)]

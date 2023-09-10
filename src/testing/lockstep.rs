@@ -4,7 +4,10 @@ use color_eyre::eyre;
 use mem_fetch::ToBitString;
 use pretty_assertions_sorted as full_diff;
 use utils::diff;
-use validate::{materialize::BenchmarkConfig, TraceProvider};
+use validate::{
+    materialized::{BenchmarkConfig, TargetBenchmarkConfig},
+    TraceProvider,
+};
 
 use std::collections::HashSet;
 use std::io::Write;
@@ -284,13 +287,18 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
     use accelsim::tracegen;
     let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
 
-    let box_trace_dir = &bench_config.trace.traces_dir;
-    let accelsim_trace_dir = &bench_config.accelsim_trace.traces_dir;
-    utils::fs::create_dirs(box_trace_dir)?;
-    utils::fs::create_dirs(accelsim_trace_dir)?;
+    let TargetBenchmarkConfig::Simulate { ref traces_dir , ref accelsim_traces_dir, .. } = bench_config.target_config else {
+        unreachable!();
+    };
 
-    let native_box_commands_path = box_trace_dir.join("commands.json");
-    let native_accelsim_kernelslist_path = accelsim_trace_dir.join("kernelslist.g");
+    let box_traces_dir = traces_dir;
+    // let box_trace_dir = &bench_config.trace.traces_dir;
+    // let accelsim_trace_dir = &bench_config.accelsim_trace.traces_dir;
+    utils::fs::create_dirs(box_traces_dir)?;
+    utils::fs::create_dirs(accelsim_traces_dir)?;
+
+    let native_box_commands_path = box_traces_dir.join("commands.json");
+    let native_accelsim_kernelslist_path = accelsim_traces_dir.join("kernelslist.g");
 
     let (box_commands_path, accelsim_kernelslist_path) = match trace_provider {
         TraceProvider::Native => {
@@ -301,8 +309,8 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
             let generated_box_commands_path =
                 tracegen::convert_accelsim_to_box_traces(&tracegen::Conversion {
                     native_commands_path: &native_accelsim_kernelslist_path,
-                    box_trace_dir,
-                    accelsim_trace_dir,
+                    box_traces_dir,
+                    accelsim_traces_dir,
                 })?;
             (
                 generated_box_commands_path,
@@ -313,8 +321,8 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
             let generated_kernelslist_path =
                 tracegen::convert_box_to_accelsim_traces(&tracegen::Conversion {
                     native_commands_path: &native_box_commands_path,
-                    box_trace_dir,
-                    accelsim_trace_dir,
+                    box_traces_dir,
+                    accelsim_traces_dir,
                 })?;
             (native_box_commands_path, generated_kernelslist_path)
         }
@@ -327,7 +335,7 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
     let trace_config = manifest_dir.join("accelsim/gtx1080/gpgpusim.trace.config");
     let inter_config = manifest_dir.join("accelsim/gtx1080/config_fermi_islip.icnt");
 
-    assert!(box_trace_dir.is_dir());
+    assert!(box_traces_dir.is_dir());
     assert!(box_commands_path.is_file());
     assert!(accelsim_kernelslist_path.is_file());
     assert!(gpgpusim_config.is_file());
@@ -353,7 +361,7 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
     ));
 
     let mut box_sim = crate::MockSimulator::new(box_interconn, box_config);
-    box_sim.add_commands(&box_commands_path, box_trace_dir)?;
+    box_sim.add_commands(&box_commands_path, box_traces_dir)?;
     box_sim.parallel_simulation =
         std::env::var("PARALLEL").unwrap_or_default().to_lowercase() == "yes";
 
@@ -734,25 +742,40 @@ macro_rules! lockstep_checks {
                 #[ignore = "native traces cannot be compared"]
                 #[test]
                 fn [<lockstep_native_ $name _test>]() -> color_eyre::eyre::Result<()> {
+                    use validate::benchmark::Input;
                     $crate::testing::init_test();
 
-                    let bench_config = super::find_bench_config($bench_name, validate::input!($($input)+))?;
+                    let mut input: Input = validate::input!($($input)+);
+                    input.insert("parallelism".to_string(), validate::input!({ "mode": "serial" }));
+
+                    let bench_config = super::find_bench_config(
+                        validate::Target::Simulate, $bench_name, input)?;
                     run(&bench_config, TraceProvider::Native)
                 }
 
                 #[test]
                 fn [<lockstep_accelsim_ $name _test>]() -> color_eyre::eyre::Result<()> {
+                    use validate::benchmark::Input;
                     $crate::testing::init_test();
 
-                    let bench_config = super::find_bench_config($bench_name, validate::input!($($input)+))?;
+                    let mut input: Input = validate::input!($($input)+);
+                    input.insert("parallelism".to_string(), validate::input!({ "mode": "serial" }));
+
+                    let bench_config = super::find_bench_config(
+                        validate::Target::Simulate, $bench_name, input)?;
                     run(&bench_config, TraceProvider::Accelsim)
                 }
 
                 #[test]
                 fn [<lockstep_box_ $name _test>]() -> color_eyre::eyre::Result<()> {
+                    use validate::benchmark::Input;
                     $crate::testing::init_test();
 
-                    let bench_config = super::find_bench_config($bench_name, validate::input!($($input)+))?;
+                    let mut input: Input = validate::input!($($input)+);
+                    input.insert("parallelism".to_string(), validate::input!({ "mode": "serial" }));
+
+                    let bench_config = super::find_bench_config(
+                        validate::Target::Simulate, $bench_name, input)?;
                     run(&bench_config, TraceProvider::Box)
                 }
             }
@@ -762,9 +785,13 @@ macro_rules! lockstep_checks {
 
 lockstep_checks! {
     // vectoradd
-    vectoradd_100_test: ("vectorAdd", { "length": 100 }),
-    vectoradd_1000_test: ("vectorAdd", { "length": 1000 }),
-    vectoradd_10000_test: ("vectorAdd", { "length": 10000 }),
+    vectoradd_32_100_test: (
+        "vectorAdd", { "dtype": 32, "length": 100, "parallelism": { "mode": "serial" }}),
+    vectoradd_32_1000_test: ("vectorAdd", { "dtype": 32, "length": 1000, "parallelism": { "mode": "serial" } }),
+    vectoradd_32_10000_test: ("vectorAdd",
+        { "dtype": 32, "length": 10000, "parallelism": { "mode": "serial" } }),
+    vectoradd_64_10000_test: (
+        "vectorAdd", { "dtype": 64, "length": 10000 }),
 
     // simple matrixmul
     simple_matrixmul_32_32_32_test: ("simple_matrixmul", { "m": 32, "n": 32, "p": 32 }),

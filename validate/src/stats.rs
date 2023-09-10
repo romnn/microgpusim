@@ -54,10 +54,10 @@ pub fn dram_bank_stats_path(stats_dir: impl AsRef<Path>, repetition: usize) -> P
 }
 
 pub fn already_exist(
-    bench: &crate::materialize::TargetConfig,
+    bench_config: &crate::materialized::GenericBenchmarkConfig,
     stats_dir: impl AsRef<Path>,
 ) -> bool {
-    (0..bench.repetitions)
+    (0..bench_config.repetitions)
         .into_iter()
         .flat_map(|repetition| {
             [

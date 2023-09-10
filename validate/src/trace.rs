@@ -1,4 +1,4 @@
-use super::materialize::BenchmarkConfig;
+use super::materialized::{BenchmarkConfig, TargetBenchmarkConfig};
 use crate::{
     open_writable,
     options::{self, Options},
@@ -13,22 +13,27 @@ pub async fn trace(
     _trace_options: &options::Trace,
     _bar: &indicatif::ProgressBar,
 ) -> Result<(), RunError> {
-    let traces_dir = &bench.trace.traces_dir;
+    let TargetBenchmarkConfig::Trace { ref traces_dir, save_json, full_trace, .. } = bench.target_config else {
+        unreachable!();
+    };
+
     create_dirs(traces_dir).map_err(eyre::Report::from)?;
 
     if !options.force && traces_dir.join("commands.json").is_file() {
         return Err(RunError::Skipped);
     }
 
+    #[cfg(debug_assertions)]
+    let validate = true;
+    #[cfg(not(debug_assertions))]
+    let validate = false;
+
     let options = invoke_trace::Options {
         traces_dir: traces_dir.clone(),
         tracer_so: None, // auto detect
-        save_json: bench.trace.save_json,
-        #[cfg(debug_assertions)]
-        validate: true,
-        #[cfg(not(debug_assertions))]
-        validate: false,
-        full_trace: bench.trace.full_trace,
+        save_json,
+        validate,
+        full_trace,
     };
     let dur = invoke_trace::trace(&bench.executable, &bench.args, &options)
         .await

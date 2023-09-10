@@ -56,13 +56,20 @@ benchmarks:
     path: ./vectoradd
     executable: vectoradd
     inputs:
-      dtype: [32]
+      dtype: [32, 64]
       length: [100, 1000, 10000]
+      # include:
+      #   - length: 10000
     args: "{{ input.length }} {{ input.dtype }}"
-    # profile:
-    # log_file: "./results/{{ bench.name }}/{{ bench.name }}-{{length}}-{{dtype}}/nvprof.log"
-    # log_file: "./results/vectorAdd/vectorAdd-32-100/nvprof.log"
-    # metrics_file: "./results/vectorAdd/vectorAdd-32-100/metrics.json"
+    simulate:
+      traces_dir: "vectorAdd/vectorAdd-dtype-{{ input.dtype }}-length-{{ input.length }}/trace"
+      accelsim_traces_dir: "vectorAdd/vectorAdd-dtype-{{ input.dtype }}-length-{{ input.length }}/accelsim_trace"
+      inputs:
+        parallelism:
+          - mode: serial
+          - mode: deterministic
+          - mode: nondeterministic
+            run_ahead: 10
   simple_matrixmul:
     path: ./simple_matrixmul
     executable: matrixmul
