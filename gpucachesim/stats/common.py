@@ -65,6 +65,31 @@ class Stats(abc.ABC):
     def l2_write_misses(self) -> int:
         pass
 
+    def print_all_stats(self):
+        print("instructions", self.instructions())
+        print("warp instructions", self.warp_instructions())
+        print("num blocks", self.num_blocks())
+        print("cycles", self.cycles())
+        print("exec time sec", self.exec_time_sec())
+        print("dram reads", self.dram_reads())
+        print("dram writes", self.dram_writes())
+        print("dram accesses", self.dram_accesses())
+        print("l2 reads", self.l2_reads())
+        print("l2 writes", self.l2_writes())
+        print("l2 accessses", self.l2_accesses())
+        print("l2 read hits", self.l2_read_hits())
+        print("l2 write hits", self.l2_write_hits())
+        print("l2 read misses", self.l2_read_misses())
+        print("l2 write misses", self.l2_write_misses())
+
+
+STAT_SUFFIXES = ["_mean", "_max", "_min", "_std"]
+
+
+def stat_cols(col):
+    return [col + suf for suf in STAT_SUFFIXES]
+    # return [col + "_mean", col + "_max", col + "_min", col + "_std"]
+
 
 def compute_df_statistics(df: pd.DataFrame, group_by: typing.List[str] | None, agg=None):
     all_columns = set(df.columns.tolist())

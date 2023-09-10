@@ -47,10 +47,10 @@ def human_readable(n) -> str:
 
 @click.command()
 @click.option("--path", help="Path to materialized benchmark config")
-@click.option("--config", default=DEFAULT_CONFIG_FILE, help="Path to GPU config")
+@click.option("--config", "config_path", default=DEFAULT_CONFIG_FILE, help="Path to GPU config")
 @click.option("--bench", "bench_name", help="Benchmark name")
 @click.option("--input", "input_idx", type=int, help="Input index")
-def main(path, config, bench_name, input_idx):
+def main(path, config_path, bench_name, input_idx):
     from pprint import pprint
     import wasabi
 
@@ -78,15 +78,16 @@ def main(path, config, bench_name, input_idx):
 
     print(len(benches))
 
+    with open(config_path, "rb") as f:
+        config = GPUConfig(yaml.safe_load(f))
+
     for bench_config in benches[:2]:
         pprint(bench_config)
         native_stats = native.Stats(config, bench_config)
-        print(native_stats.instructions())
+        # print(native_stats.instructions())
+        print(native_stats.result_df.T)
 
     return
-
-    with open(config, "rb") as f:
-        config = GPUConfig(yaml.safe_load(f))
 
     pprint(config)
 
