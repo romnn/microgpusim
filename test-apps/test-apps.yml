@@ -51,6 +51,7 @@ config:
   accelsim_simulate:
     # No concurrency limit as accelsim is single threaded.
     # Also, it is spawned as a sub process to avoid global state related issues.
+    # However, we do not run concurrently to increase accuracy of execution time measurements
     concurrency: 1 # null
     repetitions: 1
     # simulation configurations

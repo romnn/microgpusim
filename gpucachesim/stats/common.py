@@ -1,69 +1,140 @@
 import abc
 import typing
 import pandas as pd
-from abc import abstractmethod
+import numpy as np
+
+# from abc import abstractmethod
 
 
-class Stats(abc.ABC):
-    @abstractmethod
-    def cycles(self) -> int:
-        pass
+# class Stats(abc.ABC):
+class Stats:
+    result_df: pd.DataFrame
 
-    @abstractmethod
-    def instructions(self) -> int:
-        pass
+    def __init__(self, result_df: pd.DataFrame) -> None:
+        self.result_df = result_df
 
-    @abstractmethod
-    def num_blocks(self) -> int:
-        pass
-
-    @abstractmethod
     def exec_time_sec(self) -> float:
-        pass
+        return self.result_df["exec_time_sec_mean"].sum()
 
-    @abstractmethod
+    def cycles(self) -> float:
+        return self.result_df["cycles_mean"].sum()
+
+    def num_blocks(self) -> float:
+        return self.result_df["num_blocks_mean"].sum()
+
+    def instructions(self) -> float:
+        return self.result_df["instructions_mean"].sum()
+
     def warp_instructions(self) -> float:
-        pass
+        return self.result_df["warp_inst_mean"].sum()
 
-    @abstractmethod
-    def dram_reads(self) -> int:
-        pass
+    def dram_reads(self) -> float:
+        return self.result_df["dram_reads_mean"].sum()
 
-    @abstractmethod
-    def dram_writes(self) -> int:
-        pass
+    def dram_writes(self) -> float:
+        return self.result_df["dram_writes_mean"].sum()
 
-    @abstractmethod
-    def dram_accesses(self) -> int:
-        pass
+    def dram_accesses(self) -> float:
+        return self.result_df["dram_accesses_mean"].sum()
 
-    @abstractmethod
-    def l2_reads(self) -> int:
-        pass
+    def l2_reads(self) -> float:
+        return self.result_df["l2_reads_mean"].sum()
 
-    @abstractmethod
-    def l2_writes(self) -> int:
-        pass
+    def l2_writes(self) -> float:
+        return self.result_df["l2_writes_mean"].sum()
 
-    @abstractmethod
-    def l2_accesses(self) -> int:
-        pass
+    def l2_accesses(self) -> float:
+        return self.result_df["l2_accesses_mean"].sum()
 
-    @abstractmethod
-    def l2_read_hits(self) -> int:
-        pass
+    def l2_read_hit_rate(self) -> float:
+        return float(self.result_df["l2_read_hit_rate_mean"].mean())
 
-    @abstractmethod
-    def l2_write_hits(self) -> int:
-        pass
+    def l2_write_hit_rate(self) -> float:
+        return float(self.result_df["l2_write_hit_rate_mean"].mean())
 
-    @abstractmethod
-    def l2_read_misses(self) -> int:
-        pass
+    def l2_read_miss_rate(self) -> float:
+        return float(self.result_df["l2_read_miss_rate_mean"].mean())
 
-    @abstractmethod
-    def l2_write_misses(self) -> int:
-        pass
+    def l2_write_miss_rate(self) -> float:
+        return float(self.result_df["l2_write_miss_rate_mean"].mean())
+
+    def l2_read_hits(self) -> float:
+        return self.result_df["l2_read_hits_mean"].sum()
+
+    def l2_write_hits(self) -> float:
+        return self.result_df["l2_write_hits_mean"].sum()
+
+    def l2_read_misses(self) -> float:
+        return self.result_df["l2_read_misses_mean"].sum()
+
+    def l2_write_misses(self) -> float:
+        return self.result_df["l2_write_misses_mean"].sum()
+
+    def l2_hits(self) -> float:
+        return self.result_df["l2_hits"].sum()
+
+    def l2_misses(self) -> float:
+        return self.result_df["l2_misses"].sum()
+
+    # @abstractmethod
+    # def cycles(self) -> int:
+    #     pass
+    #
+    # @abstractmethod
+    # def instructions(self) -> int:
+    #     pass
+    #
+    # @abstractmethod
+    # def num_blocks(self) -> int:
+    #     pass
+    #
+    # @abstractmethod
+    # def exec_time_sec(self) -> float:
+    #     pass
+    #
+    # @abstractmethod
+    # def warp_instructions(self) -> float:
+    #     pass
+    #
+    # @abstractmethod
+    # def dram_reads(self) -> int:
+    #     pass
+    #
+    # @abstractmethod
+    # def dram_writes(self) -> int:
+    #     pass
+    #
+    # @abstractmethod
+    # def dram_accesses(self) -> int:
+    #     pass
+    #
+    # @abstractmethod
+    # def l2_reads(self) -> int:
+    #     pass
+    #
+    # @abstractmethod
+    # def l2_writes(self) -> int:
+    #     pass
+    #
+    # @abstractmethod
+    # def l2_accesses(self) -> int:
+    #     pass
+    #
+    # @abstractmethod
+    # def l2_read_hits(self) -> int:
+    #     pass
+    #
+    # @abstractmethod
+    # def l2_write_hits(self) -> int:
+    #     pass
+    #
+    # @abstractmethod
+    # def l2_read_misses(self) -> int:
+    #     pass
+    #
+    # @abstractmethod
+    # def l2_write_misses(self) -> int:
+    #     pass
 
     def print_all_stats(self):
         print("instructions", self.instructions())
@@ -88,7 +159,6 @@ STAT_SUFFIXES = ["_mean", "_max", "_min", "_std"]
 
 def stat_cols(col):
     return [col + suf for suf in STAT_SUFFIXES]
-    # return [col + "_mean", col + "_max", col + "_min", col + "_std"]
 
 
 def compute_df_statistics(df: pd.DataFrame, group_by: typing.List[str] | None, agg=None):
@@ -113,7 +183,10 @@ def compute_df_statistics(df: pd.DataFrame, group_by: typing.List[str] | None, a
     df_min = grouped.agg({**{c: "min" for c in all_columns}, **agg})
     df_min = df_min.rename(columns={c: c + "_min" for c in df_min.columns})
 
-    df_std = grouped.agg({**{c: "std" for c in all_columns}, **agg})
+    def std(x):
+        return np.std(x)
+
+    df_std = grouped.agg({**{c: std for c in all_columns}, **agg})
     df_std = df_std.rename(columns={c: c + "_std" for c in df_std.columns})
 
     return pd.concat([df_mean, df_max, df_min, df_std], axis=1)

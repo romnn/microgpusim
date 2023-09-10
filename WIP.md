@@ -3,20 +3,19 @@
 - today:
 
   - build a well defined dataframe in all of the classes including the inputs and concat them
-  - extend validate to support parallel execution
 
   - write more execution driven examples (especially the different transpose variants)
 
-    - add them to the stats
+    - add them to the stats (as a new target?)
 
   - implement per kernel and allocation stats
   - implement stall stats
 
-  - add to simulate:
+  - add to simulate benchmark configs:
 
     - mem only option
     - l2 partition addr option
-    - number of threads
+    - DONE: number of threads
 
   - consume our metric dfs:
 
@@ -44,6 +43,7 @@
   - convert, match and plot statistics
   - record mem fetch latency in playground and box
 
+  - DONE: extend validate to support parallel execution
   - DONE: validate the number of warp instructions for the execution driven frontend and test that.
   - DONE: move simulate added matrix optinos to top level
   - DONE: make the accelsim class ceate a df with mean, variance, min, max per repetition

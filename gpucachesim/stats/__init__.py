@@ -62,8 +62,8 @@ def main(path, config_path, bench_name, input_idx):
 
     for target in [
         # Target.Simulate,
-        Target.Profile,
-        # Target.AccelsimSimulate,
+        # Target.Profile,
+        Target.AccelsimSimulate,
         # Target.PlaygroundSimulate,
     ]:
         benches.extend(b.benchmarks[target.value][bench_name])
@@ -81,12 +81,14 @@ def main(path, config_path, bench_name, input_idx):
     with open(config_path, "rb") as f:
         config = GPUConfig(yaml.safe_load(f))
 
-    for bench_config in benches[:2]:
+    for bench_config in benches[:1]:
         pprint(bench_config)
-        native_stats = native.Stats(config, bench_config)
-        # print(native_stats.instructions())
-        print(native_stats.print_all_stats())
-        print(native_stats.result_df.T)
+        stats = accelsim.Stats(config, bench_config)
+        # stats = native.Stats(config, bench_config)
+        # print(stats.instructions())
+        # print(stats.result_df)
+        print(stats.result_df.T)
+        print(stats.print_all_stats())
 
     return
 
