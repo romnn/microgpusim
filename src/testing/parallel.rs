@@ -104,11 +104,16 @@ macro_rules! parallel_checks {
             paste::paste! {
                 #[test]
                 fn [<nondeterministic_ $name>]() -> color_eyre::eyre::Result<()> {
-                    use validate::{Target, materialized::TargetBenchmarkConfig};
+                    use validate::{
+                        Target,
+                        benchmark,
+                        materialized::TargetBenchmarkConfig,
+                    };
                     $crate::testing::init_test();
 
-                    let bench_config = super::find_bench_config(
-                        Target::Simulate, $bench_name, validate::input!($($input)+))?;
+                    let input: benchmark::Input = validate::input!($($input)+)?;
+                    let bench_config = benchmark::find_exact(
+                        Target::Simulate, $bench_name, input)?;
 
                     let TargetBenchmarkConfig::Simulate {
                         ref traces_dir ,

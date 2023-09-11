@@ -128,10 +128,11 @@ macro_rules! accelsim_compat_tests {
         $(
             #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
             async fn $name() -> color_eyre::eyre::Result<()> {
-                use validate::{Target, materialized::TargetBenchmarkConfig};
+                use validate::{
+                Target, benchmark, materialized::TargetBenchmarkConfig};
                 $crate::testing::init_test();
-                let input = validate::input!($($input)+);
-                let bench_config = super::find_bench_config(
+                let input: benchmark::Input = validate::input!($($input)+)?;
+                let bench_config = benchmark::find_exact(
                     Target::AccelsimSimulate, $bench_name, input)?;
                 let TargetBenchmarkConfig::AccelsimSimulate {
                     ref configs, ..

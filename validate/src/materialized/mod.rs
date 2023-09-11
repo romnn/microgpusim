@@ -11,6 +11,7 @@ use super::{
 use indexmap::IndexMap;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -296,12 +297,19 @@ impl crate::Benchmark {
         }
 
         let target_matrix: crate::matrix::Matrix = serde_json::from_value(target_matrix)?;
+        // if target == Target::Simulate && name == "vectorAdd" {
+        //     dbg!(&target_matrix);
+        //     dbg!(&target_matrix.expand().into_iter().collect::<Vec<_>>());
+        // }
 
         let inputs: Result<Vec<_>, _> = target_matrix
             .expand()
             .into_iter()
             .enumerate()
             .map(|(input_idx, target_input)| {
+                let target_input_keys: HashSet<_> = target_input.keys().collect();
+                assert!(!target_input_keys.contains(&"id".to_string()));
+
                 let mut bench_configs =
                     self.materialize_input(name.to_string(), target_input, config, base, target);
                 for bench_config in bench_configs.iter_mut() {
@@ -761,7 +769,7 @@ benchmarks:
             query!(materialized.query(
                 Target::Simulate,
                 "invalid bench name",
-                crate::input!({}),
+                crate::input!({})?,
                 false
             )),
             vec![] as Vec::<Result<String, super::QueryError>>
@@ -774,14 +782,14 @@ benchmarks:
         ];
 
         diff::assert_eq!(
-            query!(materialized.query(Target::Simulate, "vectorAdd", crate::input!({}), false)),
+            query!(materialized.query(Target::Simulate, "vectorAdd", crate::input!({})?, false)),
             all_vectoradd_configs,
         );
         diff::assert_eq!(
             query!(materialized.query(
                 Target::Simulate,
                 "vectorAdd",
-                crate::input!({ "dtype": 32 }),
+                crate::input!({ "dtype": 32 })?,
                 false
             )),
             all_vectoradd_configs
@@ -790,7 +798,7 @@ benchmarks:
             query!(materialized.query(
                 Target::Simulate,
                 "vectorAdd",
-                crate::input!({ "invalid key": 32 }),
+                crate::input!({ "invalid key": 32 })?,
                 false
             )),
             all_vectoradd_configs
@@ -799,7 +807,7 @@ benchmarks:
             query!(materialized.query(
                 Target::Simulate,
                 "vectorAdd",
-                crate::input!({ "invalid key": 32 }),
+                crate::input!({ "invalid key": 32 })?,
                 true
             )),
             vec![
@@ -815,7 +823,7 @@ benchmarks:
             query!(materialized.query(
                 Target::Simulate,
                 "vectorAdd",
-                crate::input!({ "length": 100 }),
+                crate::input!({ "length": 100 })?,
                 false
             )),
             vec![Ok("vectorAdd-dtype-32-length-100".to_string())]
@@ -825,7 +833,7 @@ benchmarks:
             query!(materialized.query(
                 Target::Simulate,
                 "vectorAdd",
-                crate::input!({ "dtype": 32, "length": 1000 }),
+                crate::input!({ "dtype": 32, "length": 1000 })?,
                 true
             )),
             vec![Ok("vectorAdd-dtype-32-length-1000".to_string())]
@@ -835,7 +843,7 @@ benchmarks:
             query!(materialized.query(
                 Target::Simulate,
                 "vectorAdd",
-                crate::input!({ "unknown": 32, "length": 1000 }),
+                crate::input!({ "unknown": 32, "length": 1000 })?,
                 false
             )),
             vec![Ok("vectorAdd-dtype-32-length-1000".to_string())]

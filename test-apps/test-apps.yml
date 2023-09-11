@@ -6,7 +6,7 @@ config:
   materialize_to: ./test-apps-materialized.yml
   trace:
     full_trace: true
-    save_json: true
+    save_json: false
     # one benchmark at once to not stress the GPU
     concurrency: 1
     # tracing does not require multiple repetitions
@@ -27,25 +27,18 @@ config:
   simulate:
     # No concurrency limit for now (until we implement multi-threading)
     concurrency: 1 # null
-    repetitions: 2 # for testing
+    repetitions: 4
     # this is added to all inputs
     inputs:
       mode: ["serial", "deterministic", "nondeterministic"]
-      include:
-        # add threads to deterministic
-        - mode: "deterministic"
-          threads: 4
-        - mode: "deterministic"
+      threads: [4, 8]
+      run_ahead: [5, 10]
+      exclude:
+        - mode: serial
           threads: 8
-        # add threads to nondeterministic
-        - mode: "nondeterministic"
-          threads: 4
-        - mode: "nondeterministic"
-          threads: 8
-        # add run ahead to nondeterministic
-        - mode: "nondeterministic"
-          run_ahead: 5
-        - mode: "nondeterministic"
+        - mode: serial
+          run_ahead: 10
+        - mode: deterministic
           run_ahead: 10
   # for accelsim simulation, we do not set a limit on concurrency
   accelsim_simulate:
@@ -81,7 +74,7 @@ benchmarks:
     args: "{{ input.length }} {{ input.dtype }}"
     simulate:
       traces_dir: "vectorAdd/vectorAdd-dtype-{{ input.dtype }}-length-{{ input.length }}/trace"
-      accelsim_traces_dir: "vectorAdd/vectorAdd-dtype-{{ input.dtype }}-length-{{ input.length }}/accelsim_trace"
+      accelsim_traces_dir: "vectorAdd/vectorAdd-dtype-{{ input.dtype }}-length-{{ input.length }}/accelsim-trace"
   simple_matrixmul:
     path: ./simple_matrixmul
     executable: matrixmul
@@ -94,7 +87,7 @@ benchmarks:
     args: "{{ input.m }} {{ input.n }} {{ input.p }} {{ input.dtype }}"
     simulate:
       traces_dir: "simple_matrixmul/simple_matrixmul-dtype-{{ input.dtype }}-m-{{ input.m }}-n-{{ input.n }}-p-{{ input.p }}/trace"
-      accelsim_traces_dir: "simple_matrixmul/simple_matrixmul-dtype-{{ input.dtype }}-m-{{ input.m }}-n-{{ input.n }}-p-{{ input.p }}/accelsim_trace"
+      accelsim_traces_dir: "simple_matrixmul/simple_matrixmul-dtype-{{ input.dtype }}-m-{{ input.m }}-n-{{ input.n }}-p-{{ input.p }}/accelsim-trace"
   matrixmul:
     path: ./matrixmul
     executable: matrixmul
@@ -107,7 +100,7 @@ benchmarks:
     args: "{{ input.rows }} {{ input.dtype }}"
     simulate:
       traces_dir: "matrixmul/matrixmul-dtype-{{ input.dtype }}-rows-{{ input.rows }}/trace"
-      accelsim_traces_dir: "matrixmul/matrixmul-dtype-{{ input.dtype }}-rows-{{ input.rows }}/accelsim_trace"
+      accelsim_traces_dir: "matrixmul/matrixmul-dtype-{{ input.dtype }}-rows-{{ input.rows }}/accelsim-trace"
   # CUDA 10 transpose (modified to allow running individual implementations)
   transpose:
     path: ./transpose
@@ -124,7 +117,7 @@ benchmarks:
     args: "-variant={{ input.variant }} -dimX={{ input.dim }} -dimY={{ input.dim }} -repeat={{ input.repeat }}"
     simulate:
       traces_dir: "transpose/transpose-dim-{{ input.dim }}-repeat-{{ input.repeat }}-variant-{{ input.variant }}/trace"
-      accelsim_traces_dir: "transpose/transpose-dim-{{ input.dim }}-repeat-{{ input.repeat }}-variant-{{ input.variant }}/accelsim_trace"
+      accelsim_traces_dir: "transpose/transpose-dim-{{ input.dim }}-repeat-{{ input.repeat }}-variant-{{ input.variant }}/accelsim-trace"
   babelstream:
     path: ./BabelStream
     executable: CUDAStream
@@ -138,4 +131,4 @@ benchmarks:
     args: "--arraysize {{ input.size }} --numtimes 1"
     simulate:
       traces_dir: "babelstream/babelstream-size-{{ input.size }}/trace"
-      accelsim_traces_dir: "babelstream/babelstream-size-{{ input.size }}/accelsim_trace"
+      accelsim_traces_dir: "babelstream/babelstream-size-{{ input.size }}/accelsim-trace"

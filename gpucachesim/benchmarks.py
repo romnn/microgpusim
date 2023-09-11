@@ -58,6 +58,10 @@ class Target(Enum):
     Trace = "Trace"
 
 
+class Config(typing.TypedDict):
+    results_dir: PathLike
+
+
 class GenericBenchmarkConfig(typing.TypedDict):
     repetitions: int
     timeout: Optional[str]
@@ -127,7 +131,6 @@ class PlaygroundSimulateTargetConfig(typing.NamedTuple):
 T = TypeVar("T")
 
 
-# class BenchConfig(typing.TypedDict):
 class BenchConfig(typing.TypedDict, Generic[T]):
     name: str
     benchmark_idx: int
@@ -144,14 +147,6 @@ class BenchConfig(typing.TypedDict, Generic[T]):
 
     target: str
     target_config: T
-    # target_config: (
-    #     ProfileConfig
-    #     | TraceConfig
-    #     | SimulateConfig
-    #     | AccelsimTraceConfig
-    #     | AccelsimSimulateConfig
-    #     | PlaygroundSimulateConfig
-    # )
 
 
 class BenchmarkLoader(SafeLoader):
@@ -191,12 +186,15 @@ BenchmarkLoader.add_constructor("!PlaygroundSimulate", construct_playground_simu
 
 
 class Benchmarks:
+    config: Config
+
     def __init__(self, path: PathLike) -> None:
         """load the materialized benchmark config"""
 
         with open(path or DEFAULT_BENCH_FILE, "rb") as f:
             benchmarks = yaml.load(f, Loader=BenchmarkLoader)
 
+        self.config = benchmarks["config"]
         self.benchmarks = benchmarks["benchmarks"]
 
     # def __getitem__(self, bench_name: str):

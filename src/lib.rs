@@ -966,6 +966,7 @@ where
             kernel_stats.sim.kernel_name = kernel_info.name.clone();
             kernel_stats.sim.kernel_name_mangled = kernel_info.mangled_name.clone();
             kernel_stats.sim.kernel_launch_id = kernel_info.launch_id;
+            kernel_stats.sim.is_release_build = !is_debug();
 
             kernel_stats.dram.kernel_info = kernel_info.clone();
             kernel_stats.accesses.kernel_info = kernel_info.clone();

@@ -788,11 +788,10 @@ macro_rules! lockstep_checks {
                     use validate::benchmark::Input;
                     $crate::testing::init_test();
 
-                    let mut input: Input = validate::input!($($input)+);
-                    input.insert("mode".to_string(), validate::input!("serial"));
-                    // input.insert("parallelism".to_string(), validate::input!({ "mode": "serial" }));
+                    let mut input: Input = validate::input!($($input)+)?;
+                    input.insert("mode".to_string(), validate::input!("serial")?);
 
-                    let bench_config = super::find_bench_config(
+                    let bench_config = validate::benchmark::find_exact(
                         validate::Target::Simulate, $bench_name, input)?;
                     run(&bench_config, TraceProvider::Native)
                 }
@@ -802,11 +801,10 @@ macro_rules! lockstep_checks {
                     use validate::benchmark::Input;
                     $crate::testing::init_test();
 
-                    let mut input: Input = validate::input!($($input)+);
-                    // input.insert("parallelism".to_string(), validate::input!({ "mode": "serial" }));
-                    input.insert("mode".to_string(), validate::input!("serial"));
+                    let mut input: Input = validate::input!($($input)+)?;
+                    input.insert("mode".to_string(), validate::input!("serial")?);
 
-                    let bench_config = super::find_bench_config(
+                    let bench_config = validate::benchmark::find_exact(
                         validate::Target::Simulate, $bench_name, input)?;
                     run(&bench_config, TraceProvider::Accelsim)
                 }
@@ -816,11 +814,10 @@ macro_rules! lockstep_checks {
                     use validate::benchmark::Input;
                     $crate::testing::init_test();
 
-                    let mut input: Input = validate::input!($($input)+);
-                    // input.insert("mode".to_string(), validate::input!({ "mode": "serial" }));
-                    input.insert("mode".to_string(), validate::input!("serial"));
+                    let mut input: Input = validate::input!($($input)+)?;
+                    input.insert("mode".to_string(), validate::input!("serial")?);
 
-                    let bench_config = super::find_bench_config(
+                    let bench_config = validate::benchmark::find_exact(
                         validate::Target::Simulate, $bench_name, input)?;
                     run(&bench_config, TraceProvider::Box)
                 }

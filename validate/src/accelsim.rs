@@ -10,6 +10,11 @@ use std::io::Write;
 use std::path::Path;
 use std::time::Duration;
 
+#[must_use]
+pub fn is_debug() -> bool {
+    accelsim_sim::is_debug()
+}
+
 fn convert_traces_to_json(
     trace_dir: &Path,
     kernelslist: &Path,

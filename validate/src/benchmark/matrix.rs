@@ -141,17 +141,25 @@ pub fn expand(inputs: &Inputs, includes: &Includes, excludes: &Excludes) -> Vec<
             continue;
         }
 
-        debug_assert!(!exclude.is_empty());
         let exclude_entries: HashSet<(&String, &Value)> = exclude.iter().collect();
+        let exclude_keys: HashSet<&String> = exclude.keys().collect();
 
         prods.retain(|current| {
             let current_entries: HashSet<(&String, &Value)> = current.as_ref().iter().collect();
+            // let current_keys: HashSet<&String> = current.as_ref().keys().collect();
 
             let intersecting_entries: Vec<_> =
                 current_entries.intersection(&exclude_entries).collect();
+            // let intersecting_keys: Vec<_> = current_keys.intersection(&exclude_keys).collect();
 
-            let full_match = intersecting_entries.len() == exclude.len();
-            !full_match
+            // dbg!(&current_entries);
+            // dbg!(&exclude_entries);
+            // dbg!(&intersecting_entries);
+
+            let _partial_match = !intersecting_entries.is_empty();
+            let _full_match = intersecting_entries.len() == exclude.len();
+            let full_partial_match = intersecting_entries.len() == exclude_keys.len();
+            !full_partial_match
         });
     }
 
@@ -212,7 +220,7 @@ impl Matrix {
 macro_rules! yaml {
     ($($yaml:tt)+) => {{
         let json = serde_json::json!($($yaml)+);
-        serde_json::from_value(json)?
+        serde_json::from_value(json)
     }};
 }
 
@@ -242,7 +250,7 @@ fruit: []
 animal: []"#,
             )?,
             Matrix {
-                inputs: yaml!({ "fruit": [], "animal": []}),
+                inputs: yaml!({ "fruit": [], "animal": []})?,
                 ..Matrix::default()
             }
         );
@@ -257,8 +265,8 @@ include:
             )?,
             Matrix {
                 include: vec![
-                    yaml!({ "color": "green"}),
-                    yaml!({ "color": "pink", "animal": "cat"}),
+                    yaml!({ "color": "green"})?,
+                    yaml!({ "color": "pink", "animal": "cat"})?,
                 ],
                 ..Matrix::default()
             }
@@ -286,11 +294,11 @@ include:
                 inputs: yaml!({
                     "fruit": ["apple", "pear"],
                     "animal": ["cat", "dog"],
-                }),
-                exclude: vec![yaml!({ "fruit": "apple", "animal": "cat"})],
+                })?,
+                exclude: vec![yaml!({ "fruit": "apple", "animal": "cat"})?],
                 include: vec![
-                    yaml!({ "color": "green"}),
-                    yaml!({ "color": "pink", "animal": "cat"}),
+                    yaml!({ "color": "green"})?,
+                    yaml!({ "color": "pink", "animal": "cat"})?,
                 ],
             }
         );
@@ -310,12 +318,12 @@ os: [ubuntu-latest, windows-latest]"#;
         diff::assert_eq!(
             expanded,
             [
-                yaml!({"version": 10, "os": "ubuntu-latest"}),
-                yaml!({"version": 10, "os": "windows-latest"}),
-                yaml!({"version": 12, "os": "ubuntu-latest"}),
-                yaml!({"version": 12, "os": "windows-latest"}),
-                yaml!({"version": 14, "os": "ubuntu-latest"}),
-                yaml!({"version": 14, "os": "windows-latest"}),
+                yaml!({"version": 10, "os": "ubuntu-latest"})?,
+                yaml!({"version": 10, "os": "windows-latest"})?,
+                yaml!({"version": 12, "os": "ubuntu-latest"})?,
+                yaml!({"version": 12, "os": "windows-latest"})?,
+                yaml!({"version": 14, "os": "ubuntu-latest"})?,
+                yaml!({"version": 14, "os": "windows-latest"})?,
             ]
             .into_iter()
             .collect::<Vec::<Input>>()
@@ -346,12 +354,12 @@ include:
         diff::assert_eq!(
             expanded,
             [
-                yaml!({"fruit": "apple", "animal": "cat", "color": "pink", "shape": "circle" }),
-                yaml!({"fruit": "apple", "animal": "dog", "color": "green", "shape": "circle" }),
-                yaml!({"fruit": "pear", "animal": "cat", "color": "pink"}),
-                yaml!({"fruit": "pear", "animal": "dog", "color": "green"}),
-                yaml!({"fruit": "banana"}),
-                yaml!({"fruit": "banana", "animal": "cat"}),
+                yaml!({"fruit": "apple", "animal": "cat", "color": "pink", "shape": "circle" })?,
+                yaml!({"fruit": "apple", "animal": "dog", "color": "green", "shape": "circle" })?,
+                yaml!({"fruit": "pear", "animal": "cat", "color": "pink"})?,
+                yaml!({"fruit": "pear", "animal": "dog", "color": "green"})?,
+                yaml!({"fruit": "banana"})?,
+                yaml!({"fruit": "banana", "animal": "cat"})?,
             ]
             .into_iter()
             .collect::<Vec::<Input>>()
@@ -376,12 +384,12 @@ include:
         diff::assert_eq!(
             expanded,
             [
-                yaml!({"os": "windows-latest", "node": 12}),
-                yaml!({"os": "windows-latest", "node": 14}),
-                yaml!({"os": "windows-latest", "node": 16, "npm": 6}),
-                yaml!({"os": "ubuntu-latest", "node": 12}),
-                yaml!({"os": "ubuntu-latest", "node": 14}),
-                yaml!({"os": "ubuntu-latest", "node": 16}),
+                yaml!({"os": "windows-latest", "node": 12})?,
+                yaml!({"os": "windows-latest", "node": 14})?,
+                yaml!({"os": "windows-latest", "node": 16, "npm": 6})?,
+                yaml!({"os": "ubuntu-latest", "node": 12})?,
+                yaml!({"os": "ubuntu-latest", "node": 14})?,
+                yaml!({"os": "ubuntu-latest", "node": 16})?,
             ]
             .into_iter()
             .collect::<Vec::<Input>>()
@@ -405,16 +413,16 @@ include:
         diff::assert_eq!(
             expanded,
             [
-                yaml!({"os": "macos-latest", "version": 12}),
-                yaml!({"os": "macos-latest", "version": 14}),
-                yaml!({"os": "macos-latest", "version": 16}),
-                yaml!({"os": "windows-latest", "version": 12}),
-                yaml!({"os": "windows-latest", "version": 14}),
-                yaml!({"os": "windows-latest", "version": 16}),
-                yaml!({"os": "ubuntu-latest", "version": 12}),
-                yaml!({"os": "ubuntu-latest", "version": 14}),
-                yaml!({"os": "ubuntu-latest", "version": 16}),
-                yaml!({"os": "windows-latest", "version": 17}),
+                yaml!({"os": "macos-latest", "version": 12})?,
+                yaml!({"os": "macos-latest", "version": 14})?,
+                yaml!({"os": "macos-latest", "version": 16})?,
+                yaml!({"os": "windows-latest", "version": 12})?,
+                yaml!({"os": "windows-latest", "version": 14})?,
+                yaml!({"os": "windows-latest", "version": 16})?,
+                yaml!({"os": "ubuntu-latest", "version": 12})?,
+                yaml!({"os": "ubuntu-latest", "version": 14})?,
+                yaml!({"os": "ubuntu-latest", "version": 16})?,
+                yaml!({"os": "windows-latest", "version": 17})?,
             ]
             .into_iter()
             .collect::<Vec::<Input>>()
@@ -439,8 +447,8 @@ include:
         diff::assert_eq!(
             expanded,
             [
-                yaml!({"site": "production", "datacenter": "site-a"}),
-                yaml!({"site": "staging", "datacenter": "site-b"}),
+                yaml!({"site": "production", "datacenter": "site-a"})?,
+                yaml!({"site": "staging", "datacenter": "site-b"})?,
             ]
             .into_iter()
             .collect::<Vec::<Input>>()
@@ -474,18 +482,53 @@ exclude:
         diff::assert_eq!(
             expanded,
             [
-                yaml!({"os": "macos-latest", "version": 12, "environment": "staging"}),
-                // excl: yaml!({"os": "macos-latest", "version": 12, "environment": "production"}),
-                yaml!({"os": "macos-latest", "version": 14, "environment": "staging"}),
-                yaml!({"os": "macos-latest", "version": 14, "environment": "production"}),
-                yaml!({"os": "macos-latest", "version": 16, "environment": "staging"}),
-                yaml!({"os": "macos-latest", "version": 16, "environment": "production"}),
-                yaml!({"os": "windows-latest", "version": 12, "environment": "staging"}),
-                yaml!({"os": "windows-latest", "version": 12, "environment": "production"}),
-                yaml!({"os": "windows-latest", "version": 14, "environment": "staging"}),
-                yaml!({"os": "windows-latest", "version": 14, "environment": "production"}),
-                // excl: yaml!({"os": "windows-latest", "version": 16, "environment": "staging"}),
-                // excl: yaml!({"os": "windows-latest", "version": 16, "environment": "production"}),
+                yaml!({"os": "macos-latest", "version": 12, "environment": "staging"})?,
+                // excl: yaml!({"os": "macos-latest", "version": 12, "environment": "production"})?,
+                yaml!({"os": "macos-latest", "version": 14, "environment": "staging"})?,
+                yaml!({"os": "macos-latest", "version": 14, "environment": "production"})?,
+                yaml!({"os": "macos-latest", "version": 16, "environment": "staging"})?,
+                yaml!({"os": "macos-latest", "version": 16, "environment": "production"})?,
+                yaml!({"os": "windows-latest", "version": 12, "environment": "staging"})?,
+                yaml!({"os": "windows-latest", "version": 12, "environment": "production"})?,
+                yaml!({"os": "windows-latest", "version": 14, "environment": "staging"})?,
+                yaml!({"os": "windows-latest", "version": 14, "environment": "production"})?,
+                // excl: yaml!({"os": "windows-latest", "version": 16, "environment": "staging"})?,
+                // excl: yaml!({"os": "windows-latest", "version": 16, "environment": "production"})?,
+            ]
+            .into_iter()
+            .collect::<Vec::<Input>>()
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn expand_matrix_exclude_2() -> eyre::Result<()> {
+        let matrix = r#"
+mode: ["serial", "deterministic", "nondeterministic"]
+threads: [4, 8]
+run_ahead: [5, 10]
+exclude:
+  - mode: serial
+    threads: 8
+  - mode: serial
+    run_ahead: 10
+  - mode: deterministic
+    run_ahead: 10
+        "#;
+        let matrix: Matrix = serde_yaml::from_str(matrix)?;
+
+        let expanded = matrix.expand();
+        dbg!(&expanded);
+        diff::assert_eq!(
+            expanded,
+            [
+                yaml!({"mode": "serial", "threads": 4, "run_ahead": 5})?,
+                yaml!({"mode": "deterministic", "threads": 4, "run_ahead": 5})?,
+                yaml!({"mode": "deterministic", "threads": 8, "run_ahead": 5})?,
+                yaml!({"mode": "nondeterministic", "threads": 4, "run_ahead": 5})?,
+                yaml!({"mode": "nondeterministic", "threads": 4, "run_ahead": 10})?,
+                yaml!({"mode": "nondeterministic", "threads": 8, "run_ahead": 5})?,
+                yaml!({"mode": "nondeterministic", "threads": 8, "run_ahead": 10})?,
             ]
             .into_iter()
             .collect::<Vec::<Input>>()

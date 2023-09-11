@@ -7,6 +7,11 @@ use color_eyre::{eyre, Help};
 use std::io::Read;
 use std::time::Duration;
 
+#[must_use]
+pub fn is_debug() -> bool {
+    playground::is_debug()
+}
+
 pub fn simulate_bench_config<A>(
     bench: &BenchmarkConfig,
     trace_provider: TraceProvider,
@@ -31,10 +36,20 @@ where
         unreachable!();
     };
 
-    let kernelslist = traces_dir.join(match trace_provider {
-        TraceProvider::Native | TraceProvider::Accelsim => "kernelslist.g",
-        TraceProvider::Box => "box-kernelslist.g",
-    });
+    let kernelslist = match trace_provider {
+        TraceProvider::Native | TraceProvider::Accelsim => traces_dir.join("kernelslist.g"),
+        TraceProvider::Box => {
+            // this is a hotfix
+            let generated_kernelslist_path = accelsim::tracegen::convert_box_to_accelsim_traces(
+                &accelsim::tracegen::Conversion {
+                    native_commands_path: &traces_dir.join("../trace/commands.json"),
+                    box_traces_dir: &traces_dir.join("../trace"),
+                    accelsim_traces_dir: traces_dir,
+                },
+            )?;
+            generated_kernelslist_path
+        }
+    };
     if !kernelslist.is_file() {
         return Err(RunError::Failed(
             eyre::eyre!("missing {}", kernelslist.display()).with_suggestion(|| {

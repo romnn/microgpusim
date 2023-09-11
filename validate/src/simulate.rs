@@ -35,14 +35,6 @@ pub fn simulate_bench_config(
 
     let values: serde_json::Value = serde_json::to_value(&bench.values).unwrap();
 
-    // TODO: decide on a parallel implementation using the inputs
-    // let non_deterministic: Option<usize> = std::env::var("NONDET")
-    //     .ok()
-    //     .as_deref()
-    //     .map(str::parse)
-    //     .transpose()
-    //     .unwrap();
-
     let parallelism_mode = values
         .get_index(serde_json_merge::index!("mode"))
         .and_then(serde_json::Value::as_str)
@@ -77,33 +69,36 @@ pub fn simulate_bench_config(
 
     dbg!(&parallelization);
 
-    let config = gpucachesim::config::GPU {
-        num_simt_clusters: 20,                       // 20
-        num_cores_per_simt_cluster: 1,               // 1
-        num_schedulers_per_core: 2,                  // 1
-        num_memory_controllers: 8,                   // 8
-        num_dram_chips_per_memory_controller: 1,     // 1
-        num_sub_partitions_per_memory_controller: 2, // 2
-        fill_l2_on_memcopy: false,                   // true
-        parallelization,
-        log_after_cycle: None,
-        simulation_threads: parallelism_threads,
-        ..gpucachesim::config::GPU::default()
-    };
+    if false {
+        let config = gpucachesim::config::GPU {
+            num_simt_clusters: 20,                       // 20
+            num_cores_per_simt_cluster: 1,               // 1
+            num_schedulers_per_core: 2,                  // 1
+            num_memory_controllers: 8,                   // 8
+            num_dram_chips_per_memory_controller: 1,     // 1
+            num_sub_partitions_per_memory_controller: 2, // 2
+            fill_l2_on_memcopy: false,                   // true
+            parallelization,
+            log_after_cycle: None,
+            simulation_threads: parallelism_threads,
+            ..gpucachesim::config::GPU::default()
+        };
 
-    let sim = gpucachesim::accelmain(traces_dir, config)?;
-    let stats = sim.stats();
-    let mut wip_stats = gpucachesim::WIP_STATS.lock();
-    dbg!(&wip_stats);
-    dbg!(wip_stats.warp_instructions as f32 / wip_stats.num_warps as f32);
-    for kernel_stats in stats.inner.iter() {
-        dbg!(&kernel_stats.sim);
+        let sim = gpucachesim::accelmain(traces_dir, config)?;
+        let stats = sim.stats();
+        let mut wip_stats = gpucachesim::WIP_STATS.lock();
+        dbg!(&wip_stats);
+        dbg!(wip_stats.warp_instructions as f32 / wip_stats.num_warps as f32);
+        for kernel_stats in stats.inner.iter() {
+            dbg!(&kernel_stats.sim);
+        }
+        dbg!(gpucachesim::is_debug());
+
+        *wip_stats = gpucachesim::WIPStats::default();
     }
-    dbg!(gpucachesim::is_debug());
 
-    *wip_stats = gpucachesim::WIPStats::default();
-
-    Ok(sim)
+    Err(RunError::Skipped)
+    // Ok(sim)
 }
 
 pub async fn simulate(
