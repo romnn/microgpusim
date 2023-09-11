@@ -10,7 +10,10 @@ impl From<Cache> for stats::Cache {
                 .into_iter()
                 .map(|((access_kind, access_stat), count)| {
                     (
-                        stats::cache::Access((access_kind.into(), access_stat.into())),
+                        (
+                            None,
+                            stats::cache::Access((access_kind.into(), access_stat.into())),
+                        ),
                         count.try_into().unwrap(),
                     )
                 })
@@ -94,45 +97,52 @@ impl From<RequestStatus> for stats::cache::RequestStatus {
 
 impl From<stats::mem::Accesses> for Accesses {
     fn from(other: stats::mem::Accesses) -> Self {
+        let num_mem_write = other.num_writes();
+        let num_mem_read = other.num_reads();
         Self {
-            num_mem_write: other.num_writes(),
-            num_mem_read: other.num_reads(),
-            num_mem_const: other
-                .get(&stats::mem::AccessKind::CONST_ACC_R)
-                .copied()
-                .unwrap_or(0),
-            num_mem_texture: other
-                .get(&stats::mem::AccessKind::TEXTURE_ACC_R)
-                .copied()
-                .unwrap_or(0),
-            num_mem_read_global: other
-                .get(&stats::mem::AccessKind::GLOBAL_ACC_R)
-                .copied()
-                .unwrap_or(0),
-            num_mem_write_global: other
-                .get(&stats::mem::AccessKind::GLOBAL_ACC_W)
-                .copied()
-                .unwrap_or(0),
-            num_mem_read_local: other
-                .get(&stats::mem::AccessKind::LOCAL_ACC_R)
-                .copied()
-                .unwrap_or(0),
-            num_mem_write_local: other
-                .get(&stats::mem::AccessKind::LOCAL_ACC_W)
-                .copied()
-                .unwrap_or(0),
-            num_mem_l2_writeback: other
-                .get(&stats::mem::AccessKind::L2_WRBK_ACC)
-                .copied()
-                .unwrap_or(0),
-            num_mem_l1_write_allocate: other
-                .get(&stats::mem::AccessKind::L1_WR_ALLOC_R)
-                .copied()
-                .unwrap_or(0),
-            num_mem_l2_write_allocate: other
-                .get(&stats::mem::AccessKind::L2_WR_ALLOC_R)
-                .copied()
-                .unwrap_or(0),
+            num_mem_write,
+            num_mem_read,
+            num_mem_const: other.num_accesses(stats::mem::AccessKind::CONST_ACC_R),
+            num_mem_texture: other.num_accesses(stats::mem::AccessKind::TEXTURE_ACC_R),
+            num_mem_read_global: other.num_accesses(stats::mem::AccessKind::GLOBAL_ACC_R),
+            num_mem_write_global: other.num_accesses(stats::mem::AccessKind::GLOBAL_ACC_W),
+            num_mem_read_local: other.num_accesses(stats::mem::AccessKind::LOCAL_ACC_R),
+            num_mem_write_local: other.num_accesses(stats::mem::AccessKind::LOCAL_ACC_W),
+            num_mem_l2_writeback: other.num_accesses(stats::mem::AccessKind::L2_WRBK_ACC),
+            num_mem_l1_write_allocate: other.num_accesses(stats::mem::AccessKind::L1_WR_ALLOC_R),
+            num_mem_l2_write_allocate: other.num_accesses(stats::mem::AccessKind::L2_WR_ALLOC_R),
+            // num_mem_texture: other
+            //     .get(&stats::mem::AccessKind::TEXTURE_ACC_R)
+            //     .copied()
+            //     .unwrap_or(0),
+            // num_mem_read_global: other
+            //     .get(&stats::mem::AccessKind::GLOBAL_ACC_R)
+            //     .copied()
+            //     .unwrap_or(0),
+            // num_mem_write_global: other
+            //     .get(&stats::mem::AccessKind::GLOBAL_ACC_W)
+            //     .copied()
+            //     .unwrap_or(0),
+            // num_mem_read_local: other
+            //     .get(&stats::mem::AccessKind::LOCAL_ACC_R)
+            //     .copied()
+            //     .unwrap_or(0),
+            // num_mem_write_local: other
+            //     .get(&stats::mem::AccessKind::LOCAL_ACC_W)
+            //     .copied()
+            //     .unwrap_or(0),
+            // num_mem_l2_writeback: other
+            //     .get(&stats::mem::AccessKind::L2_WRBK_ACC)
+            //     .copied()
+            //     .unwrap_or(0),
+            // num_mem_l1_write_allocate: other
+            //     .get(&stats::mem::AccessKind::L1_WR_ALLOC_R)
+            //     .copied()
+            //     .unwrap_or(0),
+            // num_mem_l2_write_allocate: other
+            //     .get(&stats::mem::AccessKind::L2_WR_ALLOC_R)
+            //     .copied()
+            //     .unwrap_or(0),
         }
     }
 }
@@ -169,25 +179,30 @@ impl From<DRAM> for stats::dram::DRAM {
 
 impl From<stats::instructions::InstructionCounts> for InstructionCounts {
     fn from(other: stats::instructions::InstructionCounts) -> Self {
-        let num_global_loads = other
-            .get(&(stats::instructions::MemorySpace::Global, false))
-            .copied()
-            .unwrap_or(0);
-        let num_local_loads = other
-            .get(&(stats::instructions::MemorySpace::Local, false))
-            .copied()
-            .unwrap_or(0);
-        let num_global_stores = other
-            .get(&(stats::instructions::MemorySpace::Global, true))
-            .copied()
-            .unwrap_or(0);
-        let num_local_stores = other
-            .get(&(stats::instructions::MemorySpace::Local, true))
-            .copied()
-            .unwrap_or(0);
-        let num_shmem = other.get_total(stats::instructions::MemorySpace::Shared);
-        let num_tex = other.get_total(stats::instructions::MemorySpace::Texture);
-        let num_const = other.get_total(stats::instructions::MemorySpace::Constant);
+        use stats::instructions::MemorySpace;
+        let num_global_loads = other.num_instructions(MemorySpace::Global, false);
+        let num_local_loads = other.num_instructions(MemorySpace::Local, false);
+        let num_global_stores = other.num_instructions(MemorySpace::Global, true);
+        let num_local_stores = other.num_instructions(MemorySpace::Local, true);
+        // let num_global_loads = other
+        //     .get(&(stats::instructions::MemorySpace::Global, false))
+        //     .copied()
+        //     .unwrap_or(0);
+        // let num_local_loads = other
+        //     .get(&(stats::instructions::MemorySpace::Local, false))
+        //     .copied()
+        //     .unwrap_or(0);
+        // let num_global_stores = other
+        //     .get(&(stats::instructions::MemorySpace::Global, true))
+        //     .copied()
+        //     .unwrap_or(0);
+        // let num_local_stores = other
+        //     .get(&(stats::instructions::MemorySpace::Local, true))
+        //     .copied()
+        //     .unwrap_or(0);
+        let num_shmem = other.get_total(MemorySpace::Shared);
+        let num_tex = other.get_total(MemorySpace::Texture);
+        let num_const = other.get_total(MemorySpace::Constant);
 
         Self {
             num_load_instructions: num_local_loads + num_global_loads,

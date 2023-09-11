@@ -90,14 +90,17 @@ fn convert_cache_stats(cache_name: &str, stats: &Stats) -> stats::PerCache {
                 "{cache_name}_{kind:?}_{reservation_failure:?}"
             )));
             cache_stats.accesses.insert(
-                Access((kind, AccessStat::ReservationFailure(reservation_failure))),
+                (
+                    None,
+                    Access((kind, AccessStat::ReservationFailure(reservation_failure))),
+                ),
                 per_cache_stat.copied().unwrap_or(0.0) as usize,
             );
         }
         for status in RequestStatus::iter() {
             let per_cache_stat = stats.get(&key!(format!("{cache_name}_{kind:?}_{status:?}")));
             cache_stats.accesses.insert(
-                Access((kind, AccessStat::Status(status))),
+                (None, Access((kind, AccessStat::Status(status)))),
                 per_cache_stat.copied().unwrap_or(0.0) as usize,
             );
         }
@@ -135,13 +138,21 @@ impl TryFrom<Stats> for stats::Stats {
         //     })
         //     .collect();
 
-        let accesses: HashMap<AccessKind, u64> = [
-            (AccessKind::GLOBAL_ACC_R, "num_global_mem_read"),
-            (AccessKind::LOCAL_ACC_R, "num_local_mem_read"),
-            (AccessKind::CONST_ACC_R, "num_const_mem_total_accesses"),
-            (AccessKind::TEXTURE_ACC_R, "num_tex_mem_total_accesses"),
-            (AccessKind::GLOBAL_ACC_W, "num_global_mem_write"),
-            (AccessKind::LOCAL_ACC_W, "num_local_mem_write"),
+        let accesses: HashMap<(Option<usize>, AccessKind), u64> = [
+            (None, AccessKind::GLOBAL_ACC_R, "num_global_mem_read"),
+            (None, AccessKind::LOCAL_ACC_R, "num_local_mem_read"),
+            (
+                None,
+                AccessKind::CONST_ACC_R,
+                "num_const_mem_total_accesses",
+            ),
+            (
+                None,
+                AccessKind::TEXTURE_ACC_R,
+                "num_tex_mem_total_accesses",
+            ),
+            (None, AccessKind::GLOBAL_ACC_W, "num_global_mem_write"),
+            (None, AccessKind::LOCAL_ACC_W, "num_local_mem_write"),
             // the following metrics are not printed out by accelsim (internal?)
             // (AccessKind::L1_WRBK_ACC, 0),
             // (AccessKind::L2_WRBK_ACC, 0),
@@ -150,7 +161,12 @@ impl TryFrom<Stats> for stats::Stats {
             // (AccessKind::L2_WR_ALLOC_R, 0),
         ]
         .into_iter()
-        .map(|(kind, stat)| (kind, stats.get(&key!(stat)).copied().unwrap_or(0.0) as u64))
+        .map(|(alloc_id, kind, stat)| {
+            (
+                (alloc_id, kind),
+                stats.get(&key!(stat)).copied().unwrap_or(0.0) as u64,
+            )
+        })
         .collect();
 
         // dbg!(&stats);

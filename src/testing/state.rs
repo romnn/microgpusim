@@ -470,7 +470,7 @@ impl From<crate::mem_fetch::MemFetch> for MemFetch {
         let addr = fetch.addr();
         Self {
             kind: fetch.kind,
-            access_kind: *fetch.access_kind(),
+            access_kind: fetch.access_kind(),
             relative_addr: match fetch.access.allocation {
                 Some(alloc) => Some((alloc.id, addr - alloc.start_addr)),
                 None => None,

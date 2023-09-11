@@ -111,18 +111,22 @@ impl PerKernel {
     }
 }
 
-pub type CsvRow = (Access, usize);
+pub type CsvRow = (Option<usize>, Access, usize);
 
 #[derive(Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Cache {
-    pub accesses: HashMap<Access, usize>,
+    pub accesses: HashMap<(Option<usize>, Access), usize>,
 }
 
 impl Cache {
     #[must_use]
     pub fn flatten(self) -> Vec<CsvRow> {
-        let mut flattened: Vec<_> = self.accesses.into_iter().collect();
-        flattened.sort_by_key(|(access, _)| *access);
+        let mut flattened: Vec<_> = self
+            .accesses
+            .into_iter()
+            .map(|((alloc_id, access), count)| (alloc_id, access, count))
+            .collect();
+        flattened.sort_by_key(|(alloc_id, access, _)| (*alloc_id, *access));
         flattened
     }
 }
@@ -137,18 +141,18 @@ impl std::ops::AddAssign for Cache {
 
 impl Default for Cache {
     fn default() -> Self {
-        let mut accesses = HashMap::new();
-        for access_kind in AccessKind::iter() {
-            for status in RequestStatus::iter() {
-                accesses.insert(Access((access_kind, AccessStat::Status(status))), 0);
-            }
-            for failure in ReservationFailure::iter() {
-                accesses.insert(
-                    Access((access_kind, AccessStat::ReservationFailure(failure))),
-                    0,
-                );
-            }
-        }
+        let accesses = HashMap::new();
+        // for access_kind in AccessKind::iter() {
+        //     for status in RequestStatus::iter() {
+        //         accesses.insert(Access((access_kind, AccessStat::Status(status))), 0);
+        //     }
+        //     for failure in ReservationFailure::iter() {
+        //         accesses.insert(
+        //             Access((access_kind, AccessStat::ReservationFailure(failure))),
+        //             0,
+        //         );
+        //     }
+        // }
         Self { accesses }
     }
 }
@@ -160,7 +164,7 @@ impl std::fmt::Debug for Cache {
             .iter()
             .filter(|(_, &count)| count > 0)
             // .map(|((access_kind, access_stat), count)| {
-            .map(|(access, count)| {
+            .map(|((alloc_id, access), count)| {
                 // let key = match access_stat {
                 //     AccessStat::Status(status) => {
                 //         format!("{access_kind:?}[{status:?}]")
@@ -169,7 +173,11 @@ impl std::fmt::Debug for Cache {
                 //         format!("{access_kind:?}[{failure:?}]")
                 //     }
                 // };
-                (access.to_string(), count)
+                let key = match alloc_id {
+                    None => access.to_string(),
+                    Some(id) => format!("{id}@{access}"),
+                };
+                (key, count)
             })
             .collect();
         accesses.sort_by_key(|(key, _)| key.clone());
@@ -187,13 +195,30 @@ impl Cache {
         self.accesses.retain(|_, v| *v > 0);
     }
 
+    pub fn merge_allocations(self) -> Cache {
+        let mut accesses = HashMap::new();
+        for ((_, access), count) in self.accesses.into_iter() {
+            *accesses.entry((None, access)).or_insert(0) += count;
+        }
+        Cache { accesses }
+    }
+
+    #[must_use]
+    pub fn num_accesses(&self, access: &Access) -> usize {
+        self.accesses
+            .iter()
+            .filter(|((_, acc), _)| acc == access)
+            .map(|(_, count)| count)
+            .sum()
+    }
+
     #[must_use]
     pub fn total_accesses(&self) -> usize {
         self.accesses
             .iter()
-            .filter_map(|(k, v)| match k {
+            .filter_map(|((_, access), count)| match access {
                 Access((_kind, AccessStat::Status(RequestStatus::HIT | RequestStatus::MISS))) => {
-                    Some(v)
+                    Some(count)
                 }
                 _ => None,
             })
@@ -206,7 +231,7 @@ impl Cache {
         let mut total_misses = 0;
         let mut total_pending_hits = 0;
         let mut total_reservation_fails = 0;
-        for (access, accesses) in &self.accesses {
+        for ((alloc_id, access), accesses) in &self.accesses {
             let Access((_access_kind, status)) = access;
 
             if let AccessStat::Status(
@@ -237,13 +262,14 @@ impl Cache {
     #[inline]
     pub fn inc(
         &mut self,
+        alloc_id: Option<usize>,
         kind: impl Into<AccessKind>,
         access: impl Into<AccessStat>,
         count: usize,
     ) {
         *self
             .accesses
-            .entry(Access((kind.into(), access.into())))
+            .entry((alloc_id, Access((kind.into(), access.into()))))
             .or_insert(0) += count;
     }
 }
@@ -333,5 +359,15 @@ impl PerCache {
             out += stats.clone();
         }
         out
+    }
+
+    pub fn merge_allocations(self) -> PerCache {
+        PerCache(
+            self.0
+                .to_vec()
+                .into_iter()
+                .map(Cache::merge_allocations)
+                .collect(),
+        )
     }
 }

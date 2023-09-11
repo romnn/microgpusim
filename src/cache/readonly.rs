@@ -138,7 +138,8 @@ impl cache::Cache for ReadOnly {
                 let mut stats = self.inner.stats.lock();
                 let kernel_stats = stats.get_mut(0);
                 kernel_stats.inc(
-                    *fetch.access_kind(),
+                    fetch.allocation_id(),
+                    fetch.access_kind(),
                     cache::AccessStat::ReservationFailure(
                         cache::ReservationFailure::LINE_ALLOC_FAIL,
                     ),
@@ -156,7 +157,8 @@ impl cache::Cache for ReadOnly {
                     let mut stats = self.inner.stats.lock();
                     let kernel_stats = stats.get_mut(0);
                     kernel_stats.inc(
-                        *fetch.access_kind(),
+                        fetch.allocation_id(),
+                        fetch.access_kind(),
                         cache::AccessStat::ReservationFailure(
                             cache::ReservationFailure::MISS_QUEUE_FULL,
                         ),
@@ -185,7 +187,8 @@ impl cache::Cache for ReadOnly {
         let mut stats = self.inner.stats.lock();
         let kernel_stats = stats.get_mut(0);
         kernel_stats.inc(
-            *fetch.access_kind(),
+            fetch.allocation_id(),
+            fetch.access_kind(),
             cache::AccessStat::Status(select_status(probe_status, status)),
             1,
         );

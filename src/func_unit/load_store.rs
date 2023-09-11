@@ -1033,7 +1033,7 @@ impl fu::SimdFunctionUnit for LoadStoreUnit
             let active_count = instr.active_thread_count() as u64;
             kernel_stats
                 .instructions
-                .inc(mem_space, instr.is_store(), active_count);
+                .inc(None, mem_space, instr.is_store(), active_count);
         }
 
         // m_core->incmem_stat(m_core->get_config()->warp_size, 1);

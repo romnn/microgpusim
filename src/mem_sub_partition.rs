@@ -256,7 +256,7 @@ impl MemorySubPartition {
                 let mut fetch = l2_cache.next_access().unwrap();
 
                 // Don't pass write allocate read request back to top level cache
-                if fetch.access_kind() != &AccessKind::L2_WR_ALLOC_R {
+                if fetch.access_kind() != AccessKind::L2_WR_ALLOC_R {
                     fetch.set_reply();
                     fetch.set_status(Status::IN_PARTITION_L2_TO_ICNT_QUEUE, 0);
                     // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
@@ -354,8 +354,7 @@ impl MemorySubPartition {
                                 } else {
                                     // L2 cache replies
                                     assert!(!read_sent);
-                                    if fetch.access_kind() == &mem_fetch::access::Kind::L1_WRBK_ACC
-                                    {
+                                    if fetch.access_kind() == mem_fetch::access::Kind::L1_WRBK_ACC {
                                         // m_request_tracker.erase(mf);
                                         // delete mf;
                                     } else {
@@ -380,8 +379,7 @@ impl MemorySubPartition {
                                     && should_fetch
                                     && !cache::event::was_writeallocate_sent(&events)
                                 {
-                                    if fetch.access_kind() == &mem_fetch::access::Kind::L1_WRBK_ACC
-                                    {
+                                    if fetch.access_kind() == mem_fetch::access::Kind::L1_WRBK_ACC {
                                         //     m_request_tracker.erase(mf);
                                         //     delete mf;
                                     } else {

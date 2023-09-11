@@ -47,7 +47,13 @@ pub fn cache_rel_err(
 ) -> Vec<(String, f64)> {
     all_cache_rel_err(play_stats, box_stats, abs_threshold)
         .into_iter()
-        .map(|(k, err)| (k.to_string(), err))
+        .map(|((alloc_id, access), err)| {
+            let access_name = match alloc_id {
+                None => access.to_string(),
+                Some(id) => format!("{id}@{access}"),
+            };
+            (access_name, err)
+        })
         .filter(|(_, err)| *err != 0.0)
         .collect()
 }
@@ -57,7 +63,7 @@ pub fn all_cache_rel_err<'a>(
     play_stats: &'a stats::cache::Cache,
     box_stats: &'a stats::cache::Cache,
     abs_threshold: f64,
-) -> Vec<(&'a stats::cache::Access, f64)> {
+) -> Vec<(&'a (Option<usize>, stats::cache::Access), f64)> {
     let keys: HashSet<_> = play_stats
         .accesses
         .keys()

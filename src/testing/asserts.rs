@@ -22,12 +22,16 @@ pub fn stats_match(
     abs_threshold: Option<f64>,
     check_cycles: bool,
 ) {
-    // compare stats here
-    let play_l1_inst_stats = stats::PerCache::from_iter(play_stats.l1i_stats.to_vec());
-    let play_l1_data_stats = stats::PerCache::from_iter(play_stats.l1d_stats.to_vec());
-    let play_l1_tex_stats = stats::PerCache::from_iter(play_stats.l1t_stats.to_vec());
-    let play_l1_const_stats = stats::PerCache::from_iter(play_stats.l1c_stats.to_vec());
-    let play_l2_data_stats = stats::PerCache::from_iter(play_stats.l2d_stats.to_vec());
+    let mut play_l1_inst_stats = stats::PerCache::from_iter(play_stats.l1i_stats.to_vec());
+    play_l1_inst_stats.shave();
+    let mut play_l1_data_stats = stats::PerCache::from_iter(play_stats.l1d_stats.to_vec());
+    play_l1_data_stats.shave();
+    let mut play_l1_tex_stats = stats::PerCache::from_iter(play_stats.l1t_stats.to_vec());
+    play_l1_tex_stats.shave();
+    let mut play_l1_const_stats = stats::PerCache::from_iter(play_stats.l1c_stats.to_vec());
+    play_l1_const_stats.shave();
+    let mut play_l2_data_stats = stats::PerCache::from_iter(play_stats.l2d_stats.to_vec());
+    play_l2_data_stats.shave();
 
     if max_rel_err.is_some() || abs_threshold.is_some() {
         // compare reduced cache stats
@@ -111,24 +115,24 @@ pub fn stats_match(
             }
 
             // fix some things up
-            for l2_stats in [&mut play_l2_data_stats, &mut box_l2_data_stats] {
-                for kind in AccessKind::iter() {
-                    let mut hits = l2_stats.accesses[&Access((kind, RequestStatus::HIT.into()))];
-                    // add hit reserved
-                    hits += l2_stats.accesses[&Access((kind, RequestStatus::HIT_RESERVED.into()))];
-                    // add mshr hits
-                    hits += l2_stats.accesses[&Access((kind, RequestStatus::MSHR_HIT.into()))];
-                    l2_stats
-                        .accesses
-                        .insert(Access((kind, RequestStatus::HIT.into())), hits);
-                    // l2_stats
-                    //     .accesses
-                    //     .insert(Access((kind, RequestStatus::HIT_RESERVED.into())), hits);
-                    // l2_stats
-                    //     .accesses
-                    //     .insert(Access((kind, RequestStatus::MSHR_HIT.into())), hits);
-                }
-            }
+            // for l2_stats in [&mut play_l2_data_stats, &mut box_l2_data_stats] {
+            //     for kind in AccessKind::iter() {
+            //         let mut hits = l2_stats.accesses[&Access((kind, RequestStatus::HIT.into()))];
+            //         // add hit reserved
+            //         hits += l2_stats.accesses[&Access((kind, RequestStatus::HIT_RESERVED.into()))];
+            //         // add mshr hits
+            //         hits += l2_stats.accesses[&Access((kind, RequestStatus::MSHR_HIT.into()))];
+            //         l2_stats
+            //             .accesses
+            //             .insert(Access((kind, RequestStatus::HIT.into())), hits);
+            //         // l2_stats
+            //         //     .accesses
+            //         //     .insert(Access((kind, RequestStatus::HIT_RESERVED.into())), hits);
+            //         // l2_stats
+            //         //     .accesses
+            //         //     .insert(Access((kind, RequestStatus::MSHR_HIT.into())), hits);
+            //     }
+            // }
 
             let compare_stats: Vec<_> = AccessKind::iter()
                 .flat_map(|kind| {
@@ -141,23 +145,31 @@ pub fn stats_match(
             let play_l2_data_stats = stats::Cache {
                 accesses: compare_stats
                     .iter()
-                    .map(|stat| (*stat, play_l2_data_stats.accesses[stat]))
+                    .map(|stat| ((None, *stat), play_l2_data_stats.num_accesses(stat)))
+                    // .map(|stat| (*stat, play_l2_data_stats.accesses[stat]))
                     .collect(),
             };
             let box_l2_data_stats = stats::Cache {
                 accesses: compare_stats
                     .iter()
-                    .map(|stat| (*stat, box_l2_data_stats.accesses[stat]))
+                    .map(|stat| ((None, *stat), box_l2_data_stats.num_accesses(stat)))
+                    // .map(|stat| (*stat, box_l2_data_stats.accesses[stat]))
                     .collect(),
             };
             dbg!(&play_l2_data_stats, &box_l2_data_stats);
             for kind in AccessKind::iter() {
                 dbg!(&kind);
+                // diff::diff!(
+                //     play: play_l2_data_stats.accesses[&Access((kind, RequestStatus::HIT.into()))] +
+                //         play_l2_data_stats.accesses[&Access((kind, RequestStatus::MISS.into()))],
+                //     box: box_l2_data_stats.accesses[&Access((kind, RequestStatus::HIT.into()))] +
+                //         box_l2_data_stats.accesses[&Access((kind, RequestStatus::MISS.into()))],
+                // );
                 diff::diff!(
-                    play: play_l2_data_stats.accesses[&Access((kind, RequestStatus::HIT.into()))] +
-                        play_l2_data_stats.accesses[&Access((kind, RequestStatus::MISS.into()))],
-                    box: box_l2_data_stats.accesses[&Access((kind, RequestStatus::HIT.into()))] +
-                        box_l2_data_stats.accesses[&Access((kind, RequestStatus::MISS.into()))],
+                    play: play_l2_data_stats.num_accesses(&Access((kind, RequestStatus::HIT.into()))) +
+                        play_l2_data_stats.num_accesses(&Access((kind, RequestStatus::MISS.into()))),
+                    box: box_l2_data_stats.num_accesses(&Access((kind, RequestStatus::HIT.into()))) +
+                        box_l2_data_stats.num_accesses(&Access((kind, RequestStatus::MISS.into()))),
                 );
             }
 

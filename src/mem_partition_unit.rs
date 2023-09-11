@@ -167,7 +167,7 @@ impl MemoryPartitionUnit {
                     // dbg!(&returned_fetch);
                     // returned_fetch.set_reply();
 
-                    if returned_fetch.access_kind() == &AccessKind::L1_WRBK_ACC {
+                    if returned_fetch.access_kind() == AccessKind::L1_WRBK_ACC {
                         sub.set_done(&returned_fetch);
                     } else {
                         returned_fetch

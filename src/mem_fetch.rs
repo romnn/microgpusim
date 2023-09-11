@@ -212,6 +212,12 @@ pub mod access {
                 .and_then(|start| self.addr.checked_sub(start))
         }
 
+        #[inline]
+        #[must_use]
+        pub fn allocation_id(&self) -> Option<usize> {
+            self.allocation.as_ref().map(|alloc| alloc.id)
+        }
+
         #[must_use]
         #[inline]
         pub fn control_size(&self) -> u32 {
@@ -372,47 +378,11 @@ impl From<Builder> for MemFetch {
 }
 
 impl MemFetch {
-    // pub fn new(
-    //     config: Config,
-    //     // instr: Option<WarpInstruction>,
-    //     // access: MemAccess,
-    //     // // config: &config::GPU,
-    //     // // _control_size: u32,
-    //     // warp_id: usize,
-    //     // core_id: usize,
-    //     // cluster_id: usize,
-    // ) -> Self {
-    //     let kind = if access.is_write {
-    //         Kind::WRITE_REQUEST
-    //     } else {
-    //         Kind::READ_REQUEST
-    //     };
-    //
-    //     // let tlx_addr = config.address_mapping().translate(access.addr);
-    //     // let partition_addr = config.address_mapping().partition_address(access.addr);
-    //
-    //     let uid = MEM_FETCH_UID.fetch_add(1, atomic::Ordering::SeqCst);
-    //
-    //     Self {
-    //         uid,
-    //         access,
-    //         instr,
-    //         warp_id,
-    //         core_id,
-    //         cluster_id,
-    //         tlx_addr,
-    //         partition_addr,
-    //         kind,
-    //         status: Status::INITIALIZED,
-    //         pushed_cycle: None,
-    //         last_status_change: None,
-    //         original_fetch: None,
-    //         original_write_fetch: None,
-    //         latency: 0,
-    //     }
-    // }
-
-    // pub fn latency(&self) -> u64 {}
+    #[inline]
+    #[must_use]
+    pub fn allocation_id(&self) -> Option<usize> {
+        self.access.allocation_id()
+    }
 
     #[inline]
     pub fn is_atomic(&self) -> bool {
@@ -483,8 +453,8 @@ impl MemFetch {
 
     #[must_use]
     #[inline]
-    pub fn access_kind(&self) -> &access::Kind {
-        &self.access.kind
+    pub fn access_kind(&self) -> access::Kind {
+        self.access.kind
     }
 
     #[inline]

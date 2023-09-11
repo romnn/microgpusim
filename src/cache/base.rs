@@ -155,7 +155,8 @@ where
             let mut stats = self.stats.lock();
             let kernel_stats = stats.get_mut(0);
             kernel_stats.inc(
-                *fetch.access_kind(),
+                fetch.allocation_id(),
+                fetch.access_kind(),
                 super::AccessStat::Status(super::RequestStatus::MSHR_HIT),
                 1,
             );
@@ -205,7 +206,8 @@ where
             let mut stats = self.stats.lock();
             let kernel_stats = stats.get_mut(0);
             kernel_stats.inc(
-                *fetch.access_kind(),
+                fetch.allocation_id(),
+                fetch.access_kind(),
                 super::AccessStat::ReservationFailure(
                     super::ReservationFailure::MSHR_MERGE_ENTRY_FAIL,
                 ),
@@ -215,7 +217,8 @@ where
             let mut stats = self.stats.lock();
             let kernel_stats = stats.get_mut(0);
             kernel_stats.inc(
-                *fetch.access_kind(),
+                fetch.allocation_id(),
+                fetch.access_kind(),
                 super::AccessStat::ReservationFailure(super::ReservationFailure::MSHR_ENTRY_FAIL),
                 1,
             );

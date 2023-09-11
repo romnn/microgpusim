@@ -384,11 +384,13 @@ where
         let mut fetch = data;
 
         {
-            let access_kind = *fetch.access_kind();
+            let access_kind = fetch.access_kind();
             debug_assert_eq!(fetch.is_write(), access_kind.is_write());
             let mut stats = self.stats.lock();
             let kernel_stats = stats.get_mut(0);
-            kernel_stats.accesses.inc(access_kind, 1);
+            kernel_stats
+                .accesses
+                .inc(fetch.allocation_id(), access_kind, 1);
         }
 
         let dest_sub_partition_id = fetch.sub_partition_id();

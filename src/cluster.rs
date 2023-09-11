@@ -111,7 +111,7 @@ where
             // we should not fully lock a core as we completely block a full core cycle
             let core = self.cores[core_id].read();
 
-            match *fetch.access_kind() {
+            match fetch.access_kind() {
                 AccessKind::INST_ACC_R => {
                     // this could be the reason
                     if core.fetch_unit_response_buffer_full() {

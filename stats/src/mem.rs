@@ -52,24 +52,35 @@ impl AccessKind {
 ///
 /// Records the number of memory fetches sent from SMs to the interconnect.
 #[derive(Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Accesses(pub HashMap<AccessKind, u64>);
+// pub struct Accesses(pub HashMap<Option<usize>, HashMap<AccessKind, u64>>);
+pub struct Accesses(pub HashMap<(Option<usize>, AccessKind), u64>);
 
 impl std::ops::AddAssign for Accesses {
     fn add_assign(&mut self, other: Self) {
-        for (k, v) in other.0 {
-            *self.0.entry(k).or_insert(0) += v;
+        for (alloc_id, count) in other.0 {
+            // for (kind, count) in per_alloc {
+            // *self.0.entry(alloc_id).or_default().entry(key).or_insert(0) += count;
+            *self.0.entry(alloc_id).or_insert(0) += count;
+            // }
         }
     }
 }
 
 impl Accesses {
     #[must_use]
-    pub fn into_inner(self) -> HashMap<AccessKind, u64> {
+    pub fn into_inner(self) -> HashMap<(Option<usize>, AccessKind), u64> {
         self.0
     }
 
+    pub fn num_accesses(&self, kind: AccessKind) -> u64 {
+        self.iter()
+            .filter(|((_, k), _)| *k == kind)
+            .map(|(_, count)| count)
+            .sum()
+    }
+
     #[must_use]
-    pub fn flatten(self) -> Vec<(AccessKind, u64)> {
+    pub fn flatten(self) -> Vec<((Option<usize>, AccessKind), u64)> {
         let mut flattened: Vec<_> = self.into_inner().into_iter().collect();
         flattened.sort_by_key(|(kind, _)| *kind);
         flattened
@@ -79,7 +90,7 @@ impl Accesses {
     pub fn num_writes(&self) -> u64 {
         self.0
             .iter()
-            .filter(|(kind, _)| kind.is_write())
+            .filter(|((_, kind), _)| kind.is_write())
             .map(|(_, count)| count)
             .sum()
     }
@@ -88,13 +99,13 @@ impl Accesses {
     pub fn num_reads(&self) -> u64 {
         self.0
             .iter()
-            .filter(|(kind, _)| !kind.is_write())
+            .filter(|((_, kind), _)| !kind.is_write())
             .map(|(_, count)| count)
             .sum()
     }
 
-    pub fn inc(&mut self, kind: impl Into<AccessKind>, count: u64) {
-        *self.0.entry(kind.into()).or_insert(0) += count;
+    pub fn inc(&mut self, allocation_id: Option<usize>, kind: impl Into<AccessKind>, count: u64) {
+        *self.0.entry((allocation_id, kind.into())).or_insert(0) += count;
     }
 }
 
@@ -117,7 +128,7 @@ impl std::fmt::Debug for Accesses {
 }
 
 impl std::ops::Deref for Accesses {
-    type Target = HashMap<AccessKind, u64>;
+    type Target = HashMap<(Option<usize>, AccessKind), u64>;
 
     fn deref(&self) -> &Self::Target {
         &self.0

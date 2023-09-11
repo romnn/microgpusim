@@ -297,14 +297,11 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
     };
 
     let box_traces_dir = traces_dir;
-    // let box_trace_dir = &bench_config.trace.traces_dir;
-    // let accelsim_trace_dir = &bench_config.accelsim_trace.traces_dir;
     utils::fs::create_dirs(box_traces_dir)?;
     utils::fs::create_dirs(accelsim_traces_dir)?;
 
     let native_box_commands_path = box_traces_dir.join("commands.json");
     let native_accelsim_kernelslist_path = accelsim_traces_dir.join("kernelslist.g");
-    dbg!(&native_box_commands_path);
 
     let (box_commands_path, accelsim_kernelslist_path) = match trace_provider {
         TraceProvider::Native => {
@@ -724,7 +721,12 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
     }
 
     let play_stats = play_sim.stats();
-    let box_stats = box_sim.stats().reduce();
+    let mut box_stats = box_sim.stats().reduce();
+    box_stats.l1i_stats = box_stats.l1i_stats.merge_allocations();
+    box_stats.l1c_stats = box_stats.l1c_stats.merge_allocations();
+    box_stats.l1d_stats = box_stats.l1d_stats.merge_allocations();
+    box_stats.l1t_stats = box_stats.l1t_stats.merge_allocations();
+    box_stats.l2d_stats = box_stats.l2d_stats.merge_allocations();
 
     // dbg!(&play_stats);
     // dbg!(&box_stats);

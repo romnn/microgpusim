@@ -153,7 +153,7 @@ where
         // Atomics treated as global read/write requests:
         // Perform read, mark line as MODIFIED
         if fetch.is_atomic() {
-            debug_assert_eq!(*fetch.access_kind(), AccessKind::GLOBAL_ACC_R);
+            debug_assert_eq!(fetch.access_kind(), AccessKind::GLOBAL_ACC_R);
             let block = tag_array.get_block_mut(cache_index);
             let was_modified_before = block.is_modified();
             block.set_status(cache::block::Status::MODIFIED, &fetch.access.sector_mask);
@@ -197,7 +197,8 @@ where
             let mut stats = self.inner.stats.lock();
             let kernel_stats = stats.get_mut(0);
             kernel_stats.inc(
-                *fetch.access_kind(),
+                fetch.allocation_id(),
+                fetch.access_kind(),
                 cache::AccessStat::ReservationFailure(cache::ReservationFailure::MISS_QUEUE_FULL),
                 1,
             );
@@ -307,7 +308,8 @@ where
             let mut stats = self.inner.stats.lock();
             let kernel_stats = stats.get_mut(0);
             kernel_stats.inc(
-                *fetch.access_kind(),
+                fetch.allocation_id(),
+                fetch.access_kind(),
                 cache::AccessStat::ReservationFailure(cache::ReservationFailure::MISS_QUEUE_FULL),
                 1,
             );
@@ -362,7 +364,8 @@ where
             let mut stats = self.inner.stats.lock();
             let kernel_stats = stats.get_mut(0);
             kernel_stats.inc(
-                *fetch.access_kind(),
+                fetch.allocation_id(),
+                fetch.access_kind(),
                 cache::AccessStat::ReservationFailure(failure),
                 1,
             );
@@ -596,7 +599,8 @@ where
                     let mut stats = self.inner.stats.lock();
                     let kernel_stats = stats.get_mut(0);
                     kernel_stats.inc(
-                        *fetch.access_kind(),
+                        fetch.allocation_id(),
+                        fetch.access_kind(),
                         cache::AccessStat::ReservationFailure(
                             cache::ReservationFailure::LINE_ALLOC_FAIL,
                         ),
@@ -616,7 +620,8 @@ where
                     let mut stats = self.inner.stats.lock();
                     let kernel_stats = stats.get_mut(0);
                     kernel_stats.inc(
-                        *fetch.access_kind(),
+                        fetch.allocation_id(),
+                        fetch.access_kind(),
                         cache::AccessStat::ReservationFailure(
                             cache::ReservationFailure::LINE_ALLOC_FAIL,
                         ),
@@ -677,7 +682,8 @@ where
         debug_assert!(fetch.data_size() <= cache_config.atom_size);
 
         let is_write = fetch.is_write();
-        let access_kind = *fetch.access_kind();
+        let access_kind = fetch.access_kind();
+        let allocation_id = fetch.allocation_id();
         let block_addr = cache_controller.block_addr(addr);
 
         log::debug!(
@@ -718,6 +724,7 @@ where
         let mut stats = self.inner.stats.lock();
         let kernel_stats = stats.get_mut(0);
         kernel_stats.inc(
+            allocation_id,
             access_kind,
             cache::AccessStat::Status(stat_cache_request_status),
             1,
