@@ -66,6 +66,15 @@ impl std::ops::AddAssign for Accesses {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CsvRow {
+    pub kernel_name: String,
+    pub kernel_launch_id: usize,
+    pub allocation_id: Option<usize>,
+    pub access_kind: AccessKind,
+    pub accesses: u64,
+}
+
 impl Accesses {
     #[must_use]
     pub fn into_inner(self) -> HashMap<(Option<usize>, AccessKind), u64> {
@@ -80,11 +89,30 @@ impl Accesses {
     }
 
     #[must_use]
-    pub fn flatten(self) -> Vec<((Option<usize>, AccessKind), u64)> {
-        let mut flattened: Vec<_> = self.into_inner().into_iter().collect();
-        flattened.sort_by_key(|(kind, _)| *kind);
-        flattened
+    pub fn into_csv_rows(self) -> Vec<CsvRow> {
+        // let mut flattened: Vec<_> = self.into_inner().into_iter()
+        // use itertools::Itertools;
+        self.0
+            .into_iter()
+            // .sort_by_key(|(key, _)| *key)
+            .map(|((allocation_id, access_kind), accesses)| CsvRow {
+                kernel_name: "".to_string(),
+                kernel_launch_id: 0,
+                allocation_id,
+                access_kind,
+                accesses,
+            })
+            .collect()
+        // flattened.sort_by_key(|(kind, _)| *kind);
+        // flattened
     }
+
+    // #[must_use]
+    // pub fn flatten(self) -> Vec<((Option<usize>, AccessKind), u64)> {
+    //     let mut flattened: Vec<_> = self.into_inner().into_iter().collect();
+    //     flattened.sort_by_key(|(kind, _)| *kind);
+    //     flattened
+    // }
 
     #[must_use]
     pub fn num_writes(&self) -> u64 {

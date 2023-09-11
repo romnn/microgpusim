@@ -244,6 +244,8 @@ impl From<stats::sim::Sim> for Sim {
 impl From<Sim> for stats::sim::Sim {
     fn from(sim: Sim) -> Self {
         Self {
+            kernel_name: "".to_string(),
+            kernel_launch_id: 0,
             cycles: sim.cycles,
             instructions: sim.instructions,
             num_blocks: sim.num_blocks,

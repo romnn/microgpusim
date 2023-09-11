@@ -3,28 +3,32 @@ use utils::box_slice;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BankAccessesCsvRow {
+    pub kernel_name: String,
+    pub kernel_launch_id: usize,
     /// Core ID
-    core_id: usize,
+    pub core_id: usize,
     /// DRAM chip ID
-    chip_id: usize,
+    pub chip_id: usize,
     /// Bank ID
-    bank_id: usize,
+    pub bank_id: usize,
     /// Number of reads
-    reads: u64,
+    pub reads: u64,
     /// Number of writes
-    writes: u64,
+    pub writes: u64,
 }
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AccessesCsvRow {
+    pub kernel_name: String,
+    pub kernel_launch_id: usize,
     /// DRAM chip ID
-    chip_id: usize,
+    pub chip_id: usize,
     /// Bank ID
-    bank_id: usize,
+    pub bank_id: usize,
     /// Number of reads
-    reads: u64,
+    pub reads: u64,
     /// Number of writes
-    writes: u64,
+    pub writes: u64,
 }
 
 pub type PerChipBankStats = Box<[Box<[Box<[u64]>]>]>;
@@ -98,6 +102,8 @@ impl DRAM {
                     let reads = self.bank_reads[core_id][chip_id][bank_id];
                     let writes = self.bank_writes[core_id][chip_id][bank_id];
                     out.push(BankAccessesCsvRow {
+                        kernel_name: "".to_string(),
+                        kernel_launch_id: 0,
                         core_id,
                         chip_id,
                         bank_id,
@@ -118,6 +124,8 @@ impl DRAM {
                 let reads = self.total_bank_reads[chip_id][bank_id];
                 let writes = self.total_bank_writes[chip_id][bank_id];
                 out.push(AccessesCsvRow {
+                    kernel_name: "".to_string(),
+                    kernel_launch_id: 0,
                     chip_id,
                     bank_id,
                     reads,

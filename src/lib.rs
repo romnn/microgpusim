@@ -927,6 +927,17 @@ where
     pub fn stats(&self) -> stats::PerKernel {
         let mut stats: stats::PerKernel = self.stats.lock().clone();
 
+        macro_rules! per_kernel_cache_stats {
+            ($cache:expr) => {{
+                $cache
+                    .per_kernel_stats()
+                    .try_lock()
+                    .as_ref()
+                    .iter()
+                    .enumerate()
+            }};
+        }
+
         let cores = self
             .clusters
             .iter()
@@ -938,17 +949,6 @@ where
             let core = core.try_read();
             // let core_id = core.core_id;
             // todo:
-            #[macro_export]
-            macro_rules! per_kernel_cache_stats {
-                ($cache:expr) => {{
-                    $cache
-                        .per_kernel_stats()
-                        .try_lock()
-                        .as_ref()
-                        .iter()
-                        .enumerate()
-                }};
-            }
 
             for (kernel_launch_id, cache_stats) in per_kernel_cache_stats!(core.instr_l1_cache) {
                 //     .per_kernel_stats()

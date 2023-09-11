@@ -111,7 +111,17 @@ impl PerKernel {
     }
 }
 
-pub type CsvRow = (Option<usize>, Access, usize);
+// pub type CsvRow = (Option<usize>, Access, usize);
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CsvRow {
+    pub kernel_name: String,
+    pub kernel_launch_id: usize,
+    pub allocation_id: Option<usize>,
+    pub cache_id: usize,
+    pub access_kind: AccessKind,
+    pub access_stat: AccessStat,
+    pub num_accesses: usize,
+}
 
 #[derive(Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Cache {
@@ -119,16 +129,39 @@ pub struct Cache {
 }
 
 impl Cache {
-    #[must_use]
-    pub fn flatten(self) -> Vec<CsvRow> {
-        let mut flattened: Vec<_> = self
-            .accesses
-            .into_iter()
-            .map(|((alloc_id, access), count)| (alloc_id, access, count))
-            .collect();
-        flattened.sort_by_key(|(alloc_id, access, _)| (*alloc_id, *access));
-        flattened
-    }
+    // #[must_use]
+    // pub fn flatten(self) -> Vec<CsvRow> {
+    //     let mut flattened: Vec<_> = self
+    //         .accesses
+    //         .into_iter()
+    //         .map(|((alloc_id, access), count)| (alloc_id, access, count))
+    //         .collect();
+    //     flattened.sort_by_key(|(alloc_id, access, _)| (*alloc_id, *access));
+    //     flattened
+    // }
+
+    // #[must_use]
+    // pub fn into_csv_rows(self) -> Vec<CsvRow> {
+    //     self.accesses
+    //         .into_iter()
+    //         // .sort_by_key(|(key, _)| *key)
+    //         .map(|((allocation_id, access), num_accesses)| CsvRow {
+    //             kernel_name: "".to_string(),
+    //             kernel_launch_id: 0,
+    //             allocation_id,
+    //             access,
+    //             num_accesses,
+    //         })
+    //         .collect()
+    //
+    //     // let mut flattened: Vec<_> = self
+    //     //     .accesses
+    //     //     .into_iter()
+    //     //     .map(|((alloc_id, access), count)| (alloc_id, access, count))
+    //     //     .collect();
+    //     // flattened.sort_by_key(|(alloc_id, access, _)| (*alloc_id, *access));
+    //     // flattened
+    // }
 }
 
 impl std::ops::AddAssign for Cache {
@@ -274,7 +307,7 @@ impl Cache {
     }
 }
 
-pub type PerCacheCsvRow = (usize, CsvRow);
+// pub type PerCacheCsvRow = (usize, CsvRow);
 
 #[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -324,22 +357,56 @@ impl PerCache {
     }
 
     #[must_use]
-    pub fn flatten(self) -> Vec<PerCacheCsvRow> {
-        let mut flattened: Vec<_> = self
-            .into_inner()
-            .iter()
-            .cloned()
-            .enumerate()
-            .flat_map(|(id, cache)| {
+    pub fn into_csv_rows(self) -> Vec<CsvRow> {
+        let mut rows: Vec<_> = Vec::new();
+        for (cache_id, cache) in self.0.into_iter().cloned().enumerate() {
+            rows.extend(
                 cache
-                    .flatten()
+                    .accesses
                     .into_iter()
-                    .map(move |cache_row| (id, cache_row))
-            })
-            .collect();
-        flattened.sort_by_key(|(id, _)| *id);
-        flattened
+                    // .sort_by_key(|(key, _)| *key)
+                    .map(|((allocation_id, access), num_accesses)| {
+                        let (access_kind, access_stat) = access.0;
+                        CsvRow {
+                            kernel_name: "".to_string(),
+                            kernel_launch_id: 0,
+                            cache_id,
+                            allocation_id,
+                            access_kind,
+                            access_stat,
+                            num_accesses,
+                        }
+                    }),
+            );
+        }
+        rows
+
+        // let mut flattened: Vec<_> = self
+        //     .accesses
+        //     .into_iter()
+        //     .map(|((alloc_id, access), count)| (alloc_id, access, count))
+        //     .collect();
+        // flattened.sort_by_key(|(alloc_id, access, _)| (*alloc_id, *access));
+        // flattened
     }
+
+    // #[must_use]
+    // pub fn flatten(self) -> Vec<CsvRow> {
+    //     let mut flattened: Vec<_> = self
+    //         .into_inner()
+    //         .iter()
+    //         .cloned()
+    //         .enumerate()
+    //         .flat_map(|(id, cache)| {
+    //             cache
+    //                 .flatten()
+    //                 .into_iter()
+    //                 .map(move |cache_row| (id, cache_row))
+    //         })
+    //         .collect();
+    //     flattened.sort_by_key(|(id, _)| *id);
+    //     flattened
+    // }
 
     pub fn shave(&mut self) {
         for stats in &mut *self.0 {

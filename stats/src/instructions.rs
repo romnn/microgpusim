@@ -26,7 +26,17 @@ pub enum MemorySpace {
     // instruction_space,
 }
 
-pub type InstructionCountCsvRow = ((Option<usize>, MemorySpace, bool), u64);
+// pub type CsvRow = ((Option<usize>, MemorySpace, bool), u64);
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CsvRow {
+    pub kernel_name: String,
+    pub kernel_launch_id: usize,
+    pub allocation_id: Option<usize>,
+    pub memory_space: MemorySpace,
+    pub is_write: bool,
+    pub num_instructions: u64,
+}
 
 #[derive(Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstructionCounts(pub HashMap<(Option<usize>, MemorySpace, bool), u64>);
@@ -40,11 +50,29 @@ impl std::ops::AddAssign for InstructionCounts {
 }
 
 impl InstructionCounts {
+    // #[must_use]
+    // pub fn flatten(self) -> Vec<InstructionCountCsvRow> {
+    //     let mut flattened: Vec<_> = self.into_inner().into_iter().collect();
+    //     flattened.sort_by_key(|(inst, _)| *inst);
+    //     flattened
+    // }
+
     #[must_use]
-    pub fn flatten(self) -> Vec<InstructionCountCsvRow> {
-        let mut flattened: Vec<_> = self.into_inner().into_iter().collect();
-        flattened.sort_by_key(|(inst, _)| *inst);
-        flattened
+    pub fn into_csv_rows(self) -> Vec<CsvRow> {
+        self.0
+            .into_iter()
+            // .sort_by_key(|(key, _)| *key)
+            .map(
+                |((allocation_id, memory_space, is_write), num_instructions)| CsvRow {
+                    kernel_name: "".to_string(),
+                    kernel_launch_id: 0,
+                    allocation_id,
+                    memory_space,
+                    is_write,
+                    num_instructions,
+                },
+            )
+            .collect()
     }
 
     #[must_use]

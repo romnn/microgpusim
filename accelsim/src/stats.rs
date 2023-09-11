@@ -198,6 +198,8 @@ impl TryFrom<Stats> for stats::Stats {
 
         Ok(Self {
             sim: stats::Sim {
+                kernel_name: "".to_string(),
+                kernel_launch_id: 0,
                 cycles: stats
                     .get(&key!("gpu_tot_sim_cycle"))
                     .copied()
