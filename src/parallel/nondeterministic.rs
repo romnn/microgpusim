@@ -87,7 +87,8 @@ fn new_serial_cycle<I>(
     last_issued_kernel: &Arc<Mutex<usize>>,
     block_issue_next_core: &Arc<Vec<Mutex<usize>>>,
     running_kernels: &Arc<RwLock<Vec<Option<Arc<crate::Kernel>>>>>,
-    executed_kernels: &Arc<Mutex<HashMap<u64, String>>>,
+    // executed_kernels: &Arc<Mutex<HashMap<u64, String>>>,
+    executed_kernels: &Arc<Mutex<HashMap<u64, Arc<crate::Kernel>>>>,
     mem_sub_partitions: &Arc<Vec<Arc<Mutex<crate::mem_sub_partition::MemorySubPartition>>>>,
     mem_partition_units: &Arc<Vec<Arc<RwLock<crate::mem_partition_unit::MemoryPartitionUnit>>>>,
     interconn: &Arc<I>,
@@ -225,7 +226,8 @@ fn new_serial_cycle<I>(
                                 let launch_id = last_kernel.id();
                                 executed_kernels
                                     .entry(launch_id)
-                                    .or_insert(last_kernel.name().to_string());
+                                    .or_insert(Arc::clone(last_kernel));
+                                // .or_insert(last_kernel.name().to_string());
                                 return Some(last_kernel.clone());
                             }
                             _ => {}
@@ -242,8 +244,9 @@ fn new_serial_cycle<I>(
                                     *last_issued_kernel = idx;
                                     let launch_id = kernel.id();
                                     assert!(!executed_kernels.contains_key(&launch_id));
-                                    executed_kernels.insert(launch_id, kernel.name().to_string());
-                                    return Some(kernel.clone());
+                                    // executed_kernels.insert(launch_id, kernel.name().to_string());
+                                    executed_kernels.insert(launch_id, Arc::clone(&kernel));
+                                    return Some(Arc::clone(&kernel));
                                 }
                                 _ => {}
                             }
@@ -352,8 +355,9 @@ fn new_serial_cycle<I>(
                                 let launch_id = last_kernel.id();
                                 executed_kernels
                                     .entry(launch_id)
-                                    .or_insert(last_kernel.name().to_string());
-                                return Some(last_kernel.clone());
+                                    // .or_insert(last_kernel.name().to_string());
+                                    .or_insert(Arc::clone(&last_kernel));
+                                return Some(Arc::clone(&last_kernel));
                             }
                             _ => {}
                         };
@@ -369,8 +373,9 @@ fn new_serial_cycle<I>(
                                     *last_issued_kernel = idx;
                                     let launch_id = kernel.id();
                                     assert!(!executed_kernels.contains_key(&launch_id));
-                                    executed_kernels.insert(launch_id, kernel.name().to_string());
-                                    return Some(kernel.clone());
+                                    executed_kernels.insert(launch_id, Arc::clone(&kernel));
+                                    // executed_kernels.insert(launch_id, kernel.name().to_string());
+                                    return Some(Arc::clone(&kernel));
                                 }
                                 _ => {}
                             }
@@ -1273,7 +1278,7 @@ where
                 }
 
                 cycle += run_ahead as u64;
-                self.set_cycle(cycle);
+                // self.set_cycle(cycle);
 
                 drop(enter);
 
@@ -1286,7 +1291,7 @@ where
             }
 
             if let Some(kernel) = finished_kernel {
-                self.cleanup_finished_kernel(&kernel);
+                self.cleanup_finished_kernel(&kernel, cycle);
             }
 
             log::trace!(

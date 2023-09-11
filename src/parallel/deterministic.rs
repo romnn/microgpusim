@@ -149,7 +149,7 @@ where
                 }
 
                 cycle += 1;
-                self.set_cycle(cycle);
+                // self.set_cycle(cycle);
 
                 if !self.active() {
                     finished_kernel = self.finished_kernel();
@@ -160,7 +160,7 @@ where
             }
 
             if let Some(kernel) = finished_kernel {
-                self.cleanup_finished_kernel(&kernel);
+                self.cleanup_finished_kernel(&kernel, cycle);
             }
 
             log::trace!(

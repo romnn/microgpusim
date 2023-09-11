@@ -186,6 +186,7 @@ impl TryFrom<Stats> for stats::Stats {
             .copied()
             .unwrap_or(0.0) as u64;
         let dram = stats::DRAM {
+            kernel_info: stats::KernelInfo::default(),
             bank_writes: box_slice![box_slice![box_slice![total_dram_writes]]],
             bank_reads: box_slice![box_slice![box_slice![total_dram_reads]]],
             total_bank_writes: box_slice![box_slice![total_dram_writes]],
@@ -212,6 +213,7 @@ impl TryFrom<Stats> for stats::Stats {
                     .get(&key!("num_issued_blocks"))
                     .copied()
                     .unwrap_or(0.0) as u64,
+                elapsed_millis: 0,
             },
             accesses: stats::Accesses(accesses),
             dram,

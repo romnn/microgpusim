@@ -165,6 +165,7 @@ impl From<stats::dram::DRAM> for DRAM {
 impl From<DRAM> for stats::dram::DRAM {
     fn from(dram: DRAM) -> Self {
         Self {
+            kernel_info: stats::KernelInfo::default(),
             bank_writes: box_slice![box_slice![box_slice![dram.total_writes]]],
             bank_reads: box_slice![box_slice![box_slice![dram.total_reads]]],
             total_bank_writes: box_slice![box_slice![dram.total_writes]],
@@ -249,6 +250,7 @@ impl From<Sim> for stats::sim::Sim {
             cycles: sim.cycles,
             instructions: sim.instructions,
             num_blocks: sim.num_blocks,
+            elapsed_millis: 0,
         }
     }
 }

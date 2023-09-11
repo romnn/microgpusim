@@ -202,7 +202,9 @@ pub struct MockSimulator<I> {
     mem_sub_partitions: Vec<Arc<Mutex<mem_sub_partition::MemorySubPartition>>>,
     // we could remove the arcs on running and executed if we change to self: Arc<Self>
     pub running_kernels: Arc<RwLock<Vec<Option<Arc<kernel::Kernel>>>>>,
-    executed_kernels: Arc<Mutex<HashMap<u64, String>>>,
+    // executed_kernels: Arc<Mutex<HashMap<u64, String>>>,
+    executed_kernels: Arc<Mutex<HashMap<u64, Arc<kernel::Kernel>>>>,
+    pub current_kernel: Mutex<Option<Arc<kernel::Kernel>>>,
     clusters: Vec<Arc<RwLock<Cluster<I>>>>,
     #[allow(dead_code)]
     warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
@@ -336,6 +338,7 @@ where
             parallel_simulation: false,
             running_kernels,
             executed_kernels,
+            current_kernel: Mutex::new(None),
             clusters,
             warp_instruction_unique_uid,
             last_cluster_issue,
@@ -380,7 +383,8 @@ where
                 let launch_id = last_kernel.id();
                 executed_kernels
                     .entry(launch_id)
-                    .or_insert(last_kernel.name().to_string());
+                    // .or_insert(last_kernel.name().to_string());
+                    .or_insert(Arc::clone(&last_kernel));
                 return Some(last_kernel.clone());
             }
             _ => {}
@@ -397,8 +401,9 @@ where
                     *last_issued_kernel = idx;
                     let launch_id = kernel.id();
                     assert!(!executed_kernels.contains_key(&launch_id));
-                    executed_kernels.insert(launch_id, kernel.name().to_string());
-                    return Some(kernel.clone());
+                    // executed_kernels.insert(launch_id, kernel.name().to_string());
+                    executed_kernels.insert(launch_id, Arc::clone(&kernel));
+                    return Some(Arc::clone(&kernel));
                 }
                 _ => {}
             }
@@ -442,8 +447,9 @@ where
         })
     }
 
-    pub fn launch(&self, kernel: Arc<Kernel>) -> eyre::Result<()> {
-        kernel.set_launched();
+    pub fn launch(&self, kernel: Arc<Kernel>, cycle: u64) -> eyre::Result<()> {
+        // kernel.set_launched();
+        // println!("launch kernel {} in cycle {}", kernel.id(), cycle);
         let threads_per_block = kernel.threads_per_block();
         let max_threads_per_block = self.config.max_threads_per_core;
         if threads_per_block > max_threads_per_block {
@@ -458,6 +464,11 @@ where
             .iter_mut()
             .find(|slot| slot.is_none() || slot.as_ref().map_or(false, |k| k.done()))
             .ok_or(eyre::eyre!("no free slot for kernel"))?;
+
+        *kernel.start_time.lock() = Some(std::time::Instant::now());
+        *kernel.start_cycle.lock() = Some(cycle);
+
+        *self.current_kernel.lock() = Some(Arc::clone(&kernel));
         *free_slot = Some(kernel);
         Ok(())
     }
@@ -487,11 +498,11 @@ where
         }
     }
 
-    pub fn set_cycle(&self, cycle: u64) {
-        let mut stats = self.stats.lock();
-        let kernel_stats = stats.get_mut(0);
-        kernel_stats.sim.cycles = cycle;
-    }
+    // pub fn set_cycle(&self, cycle: u64) {
+    //     let mut stats = self.stats.lock();
+    //     let kernel_stats = stats.get_mut(0);
+    //     kernel_stats.sim.cycles = cycle;
+    // }
 
     #[allow(clippy::overly_complex_bool_expr)]
     #[tracing::instrument(name = "cycle")]
@@ -927,6 +938,46 @@ where
     pub fn stats(&self) -> stats::PerKernel {
         let mut stats: stats::PerKernel = self.stats.lock().clone();
 
+        // compute on demand
+        for (kernel_launch_id, kernel_stats) in stats.as_mut().iter_mut().enumerate() {
+            let kernel = &self.executed_kernels.lock()[&(kernel_launch_id as u64)];
+            // let kernel = self
+            //     .kernels
+            //     .iter()
+            //     .find(|k| k.id() == kernel_launch_id as u64)
+            //     .unwrap();
+            kernel_stats.sim.kernel_name = kernel.config.unmangled_name.clone();
+            for _cache in [&mut kernel_stats.l1i_stats]
+                .into_iter()
+                .flat_map(|cache| cache.iter_mut())
+            {
+                // for cache.iter_mut()
+                // cache.kernel_name = kernel.config.unmangled_name.clone();
+            }
+
+            kernel_stats.dram.kernel_info = stats::KernelInfo {
+                name: kernel.config.unmangled_name.clone(),
+                launch_id: kernel_launch_id,
+            };
+            // kernel_stats.accesses.kernel_info = stats::KernelInfo {
+            //     name: kernel.config.unmangled_name.clone(),
+            //     launch_id: kernel_launch_id,
+            // }
+        }
+        //     // if kernel was launched, update stats
+        //
+        // let time = std::time::Instant::now();
+        // *kernel.completed_time.lock() = Some(completion_time);
+        // *kernel.completed_cycle.lock() = Some(cycle);
+
+        // kernel_stats.sim.cycles = cycle - kernel.start_cycle.lock().unwrap_or(0);
+        // kernel_stats.sim.elapsed_millis = kernel
+        //     .start_time
+        //     .lock()
+        //     .map(|start_time| completion_time.duration_since(start_time).as_millis())
+        //     .unwrap_or(0);
+        // }
+
         macro_rules! per_kernel_cache_stats {
             ($cache:expr) => {{
                 $cache
@@ -1034,7 +1085,7 @@ where
     /// Lauch more kernels if possible.
     ///
     /// Launch all kernels within window that are on a stream that isn't already running
-    pub fn launch_kernels(&mut self, _cycle: u64) {
+    pub fn launch_kernels(&mut self, cycle: u64) {
         log::trace!("launching kernels");
         let mut launch_queue: Vec<Arc<Kernel>> = Vec::new();
         for kernel in &self.kernels {
@@ -1042,7 +1093,7 @@ where
                 .busy_streams
                 .iter()
                 .any(|stream_id| *stream_id == kernel.config.stream_id);
-            if !stream_busy && self.can_start_kernel() && !kernel.was_launched() {
+            if !stream_busy && self.can_start_kernel() && !kernel.launched() {
                 self.busy_streams.push_back(kernel.config.stream_id);
                 launch_queue.push(kernel.clone());
             }
@@ -1061,7 +1112,7 @@ where
                     "launching kernel {kernel}"
                 );
             }
-            self.launch(kernel).unwrap();
+            self.launch(kernel, cycle).unwrap();
         }
     }
 
@@ -1099,7 +1150,10 @@ where
 
                 self.cycle(cycle);
                 cycle += 1;
-                self.set_cycle(cycle);
+                // self.set_cycle(cycle);
+                // let mut stats = self.stats.lock();
+                // let kernel_stats = stats.get_mut(0);
+                // kernel_stats.sim.cycles += 1;
 
                 if !self.active() {
                     finished_kernel = self.finished_kernel();
@@ -1183,7 +1237,7 @@ where
             }
 
             if let Some(kernel) = finished_kernel {
-                self.cleanup_finished_kernel(&kernel);
+                self.cleanup_finished_kernel(&kernel, cycle);
             }
 
             log::trace!(
@@ -1204,7 +1258,7 @@ where
             running_kernels.iter_mut().find(|k| {
                 if let Some(k) = k {
                     // TODO: could also check here if !self.active()
-                    k.no_more_blocks_to_run() && !k.running() && k.was_launched()
+                    k.no_more_blocks_to_run() && !k.running() && k.launched()
                 } else {
                     false
                 }
@@ -1217,15 +1271,43 @@ where
         }
     }
 
-    fn cleanup_finished_kernel(&mut self, kernel: &Kernel) {
+    fn cleanup_finished_kernel(&mut self, kernel: &Kernel, cycle: u64) {
         log::debug!(
             "cleanup finished kernel with id={}: {}",
             kernel.id(),
             kernel
         );
+        // println!("completed kernel {} in cycle {}", kernel.id(), cycle);
         self.kernels.retain(|k| k.config.id != kernel.config.id);
         self.busy_streams
             .retain(|stream| *stream != kernel.config.stream_id);
+
+        let completion_time = std::time::Instant::now();
+        *kernel.completed_time.lock() = Some(completion_time);
+        *kernel.completed_cycle.lock() = Some(cycle);
+
+        let mut stats = self.stats.lock();
+        let kernel_stats = stats.get_mut(kernel.id() as usize);
+
+        // *kernel.completed_time.lock() = Some(completion_time);
+        // *kernel.completed_cycle.lock() = Some(cycle);
+
+        kernel_stats.sim.cycles = cycle - kernel.start_cycle.lock().unwrap_or(0);
+        kernel_stats.sim.elapsed_millis = kernel
+            .start_time
+            .lock()
+            .map(|start_time| completion_time.duration_since(start_time).as_millis())
+            .unwrap_or(0);
+
+        // println!(
+        //     "stats len is now {} ({:#?})",
+        //     stats.as_ref().len(),
+        //     stats
+        //         .as_ref()
+        //         .iter()
+        //         .map(|kernel_stats| &kernel_stats.sim)
+        //         .collect::<Vec<_>>()
+        // );
 
         // resets some statistics between kernel launches
         //   if (!silent && m_gpgpu_sim->gpu_sim_cycle > 0) {

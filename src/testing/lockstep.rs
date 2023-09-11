@@ -643,10 +643,17 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
             // }
 
             cycle = play_sim.get_cycle();
-            box_sim.set_cycle(cycle);
+            // if let Some(box_sim.current_kernel.lock())
+            // box_sim
+            //     .stats
+            //     .lock()
+            //     .get_mut(box_sim.current_kernel.lock().as_ref().unwrap().id() as usize)
+            //     .sim
+            //     .cycles += 1;
+            // box_sim.set_cycle(cycle);
 
             if let Some(kernel) = box_sim.finished_kernel() {
-                box_sim.cleanup_finished_kernel(&kernel);
+                box_sim.cleanup_finished_kernel(&kernel, cycle);
             }
             box_time_other += start.elapsed();
 
@@ -656,9 +663,20 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
             }
         }
 
+        // dbg!(&box_sim
+        //     .stats()
+        //     .as_ref()
+        //     .iter()
+        //     .map(|kernel_stats| &kernel_stats.sim)
+        //     .collect::<Vec<_>>());
+
         if let Some(uid) = finished_kernel_uid {
             play_sim.cleanup_finished_kernel(uid);
         }
+
+        // if let Some(kernel) = box_sim.finished_kernel() {
+        //     box_sim.cleanup_finished_kernel(&kernel, cycle);
+        // }
 
         if play_sim.limit_reached() {
             println!("GPGPU-Sim: ** break due to reaching the maximum cycles (or instructions) **");
@@ -666,6 +684,13 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
             break;
         }
     }
+
+    // dbg!(&box_sim
+    //     .stats()
+    //     .as_ref()
+    //     .iter()
+    //     .map(|kernel_stats| &kernel_stats.sim)
+    //     .collect::<Vec<_>>());
 
     let play_cycle = cycle;
     #[allow(unused_mut)]
@@ -721,6 +746,16 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
     }
 
     let play_stats = play_sim.stats();
+
+    // dbg!(&play_stats.sim);
+    // dbg!(&box_sim
+    //     .stats()
+    //     .as_ref()
+    //     .iter()
+    //     .map(|kernel_stats| &kernel_stats.sim)
+    //     .collect::<Vec<_>>());
+    // assert!(false);
+
     let mut box_stats = box_sim.stats().reduce();
     box_stats.l1i_stats = box_stats.l1i_stats.merge_allocations();
     box_stats.l1c_stats = box_stats.l1c_stats.merge_allocations();

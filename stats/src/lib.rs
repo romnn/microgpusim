@@ -23,6 +23,13 @@ use std::collections::HashMap;
 
 /// Statistics configuration.
 #[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KernelInfo {
+    pub name: String,
+    pub launch_id: usize,
+}
+
+/// Statistics configuration.
+#[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Config {
     pub num_total_cores: usize,
     pub num_mem_units: usize,
@@ -45,6 +52,12 @@ impl AsRef<Vec<Stats>> for PerKernel {
     }
 }
 
+impl AsMut<Vec<Stats>> for PerKernel {
+    fn as_mut(&mut self) -> &mut Vec<Stats> {
+        &mut self.inner
+    }
+}
+
 impl PerKernel {
     #[must_use]
     pub fn new(config: Config) -> Self {
@@ -56,7 +69,9 @@ impl PerKernel {
 
     #[inline]
     pub fn get_mut(&mut self, idx: usize) -> &mut Stats {
-        self.inner.resize_with(idx + 1, || Stats::new(&self.config));
+        if idx >= self.inner.len() {
+            self.inner.resize_with(idx + 1, || Stats::new(&self.config));
+        }
         &mut self.inner[idx]
     }
 
@@ -141,6 +156,10 @@ impl Stats {
             l1d_stats: PerCache::new(config.num_total_cores),
             l2d_stats: PerCache::new(config.num_sub_partitions),
             stall_dram_full: 0,
+            // start_cycle: 0,
+            // completed_cycle: 0,
+            // start_time: Instant::now(),
+            // completed_time: Instant::now(),
         }
     }
 }

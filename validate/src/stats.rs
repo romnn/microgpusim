@@ -131,7 +131,7 @@ pub fn write_stats_as_csv(
             .iter()
             .enumerate()
             .map(|(kernel_launch_id, kernel_stats)| stats::Sim {
-                kernel_name: "".to_string(),
+                // kernel_name: "".to_string(),
                 kernel_launch_id,
                 ..kernel_stats.sim.clone()
             }),
@@ -149,7 +149,7 @@ pub fn write_stats_as_csv(
                     .accesses_csv()
                     .into_iter()
                     .map(move |accesses| stats::dram::AccessesCsvRow {
-                        kernel_name: "".to_string(),
+                        // kernel_name: "".to_string(),
                         kernel_launch_id,
                         ..accesses
                     })
@@ -166,7 +166,7 @@ pub fn write_stats_as_csv(
                     .bank_accesses_csv()
                     .into_iter()
                     .map(move |row| stats::dram::BankAccessesCsvRow {
-                        kernel_name: "".to_string(),
+                        // kernel_name: "".to_string(),
                         kernel_launch_id,
                         ..row
                     })
@@ -186,7 +186,7 @@ pub fn write_stats_as_csv(
                     .into_csv_rows()
                     .into_iter()
                     .map(move |row| stats::mem::CsvRow {
-                        kernel_name: "".to_string(),
+                        // kernel_name: "".to_string(),
                         kernel_launch_id,
                         ..row
                     })
@@ -211,7 +211,7 @@ pub fn write_stats_as_csv(
                 //     .clone()
                 cache_stats.into_csv_rows().into_iter().map(move |row| {
                     stats::instructions::CsvRow {
-                        kernel_name: "".to_string(),
+                        // kernel_name: "".to_string(),
                         kernel_launch_id,
                         ..row
                     }
@@ -280,7 +280,7 @@ pub fn write_stats_as_csv(
                         .into_csv_rows()
                         .into_iter()
                         .map(move |row| stats::cache::CsvRow {
-                            kernel_name: "".to_string(),
+                            // kernel_name: "".to_string(),
                             kernel_launch_id,
                             ..row
                         })
@@ -309,25 +309,25 @@ pub fn write_stats_as_csv(
     Ok(())
 }
 
-fn write_cache_csv<'a>(
-    caches: impl Iterator<Item = &'a stats::cache::PerCache>,
-    writer: impl std::io::Write,
-) -> eyre::Result<()> {
-    write_csv_rows(
-        writer,
-        caches
-            .cloned()
-            .enumerate()
-            .flat_map(|(kernel_launch_id, cache_stats)| {
-                cache_stats
-                    .into_csv_rows()
-                    .into_iter()
-                    .map(move |row| stats::cache::CsvRow {
-                        kernel_name: "".to_string(),
-                        kernel_launch_id,
-                        ..row
-                    })
-            }),
-    )?;
-    Ok(())
-}
+// fn write_cache_csv<'a>(
+//     caches: impl Iterator<Item = &'a stats::cache::PerCache>,
+//     writer: impl std::io::Write,
+// ) -> eyre::Result<()> {
+//     write_csv_rows(
+//         writer,
+//         caches
+//             .cloned()
+//             .enumerate()
+//             .flat_map(|(kernel_launch_id, cache_stats)| {
+//                 cache_stats
+//                     .into_csv_rows()
+//                     .into_iter()
+//                     .map(move |row| stats::cache::CsvRow {
+//                         kernel_name: "".to_string(),
+//                         kernel_launch_id,
+//                         ..row
+//                     })
+//             }),
+//     )?;
+//     Ok(())
+// }

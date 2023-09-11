@@ -36,6 +36,8 @@ pub type BankStats = Box<[Box<[u64]>]>;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DRAM {
+    /// Kernel info
+    pub kernel_info: super::KernelInfo,
     /// Number of bank writes [shader id][dram chip id][bank id]
     pub bank_writes: PerChipBankStats,
     /// Number of bank reads [shader id][dram chip id][bank id]
@@ -83,6 +85,7 @@ impl DRAM {
         let bank_reads = box_slice![total_bank_reads.clone(); num_total_cores];
         let bank_writes = bank_reads.clone();
         Self {
+            kernel_info: super::KernelInfo::default(),
             bank_writes,
             bank_reads,
             total_bank_writes,
@@ -102,8 +105,8 @@ impl DRAM {
                     let reads = self.bank_reads[core_id][chip_id][bank_id];
                     let writes = self.bank_writes[core_id][chip_id][bank_id];
                     out.push(BankAccessesCsvRow {
-                        kernel_name: "".to_string(),
-                        kernel_launch_id: 0,
+                        kernel_name: self.kernel_info.name.clone(),
+                        kernel_launch_id: self.kernel_info.launch_id,
                         core_id,
                         chip_id,
                         bank_id,
@@ -124,8 +127,8 @@ impl DRAM {
                 let reads = self.total_bank_reads[chip_id][bank_id];
                 let writes = self.total_bank_writes[chip_id][bank_id];
                 out.push(AccessesCsvRow {
-                    kernel_name: "".to_string(),
-                    kernel_launch_id: 0,
+                    kernel_name: self.kernel_info.name.clone(),
+                    kernel_launch_id: self.kernel_info.launch_id,
                     chip_id,
                     bank_id,
                     reads,

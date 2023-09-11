@@ -32,8 +32,12 @@ pub struct Kernel {
     pub config: model::KernelLaunch,
     trace: model::MemAccessTrace,
     trace_pos: RwLock<usize>,
-    launched: Mutex<bool>,
+    // launched: Mutex<bool>,
     num_cores_running: usize,
+    pub start_cycle: Mutex<Option<u64>>,
+    pub completed_cycle: Mutex<Option<u64>>,
+    pub start_time: Mutex<Option<std::time::Instant>>,
+    pub completed_time: Mutex<Option<std::time::Instant>>,
 }
 
 impl PartialEq for Kernel {
@@ -73,10 +77,31 @@ impl Kernel {
             trace,
             trace_pos: RwLock::new(0),
             opcodes,
-            launched: Mutex::new(false),
+            // launched: Mutex::new(false),
+            start_cycle: Mutex::new(None),
+            start_time: Mutex::new(None),
+            completed_cycle: Mutex::new(None),
+            completed_time: Mutex::new(None),
             num_cores_running: 0,
         }
     }
+
+    // pub fn launched(&self) -> bool {
+    //     *self.launched.try_lock()
+    // }
+
+    pub fn launched(&self) -> bool {
+        self.start_cycle.lock().is_some()
+    }
+
+    pub fn completed(&self) -> bool {
+        self.completed_cycle.lock().is_some()
+    }
+
+    // pub fn set_completed(&self, cycle: u64) -> bool {
+    //     *self.completed_time.lock() = Some(completion_time);
+    //     *self.completed_cycle.lock() = Some(cycle);
+    // }
 
     pub fn from_trace(config: model::KernelLaunch, traces_dir: impl AsRef<Path>) -> Self {
         log::info!(
@@ -97,13 +122,9 @@ impl Kernel {
         human_bytes::human_bytes(f64::from(self.config.shared_mem_bytes))
     }
 
-    pub fn set_launched(&self) {
-        *self.launched.try_lock() = true;
-    }
-
-    pub fn launched(&self) -> bool {
-        *self.launched.try_lock()
-    }
+    // pub fn set_launched(&self) {
+    //     *self.launched.try_lock() = true;
+    // }
 
     pub fn id(&self) -> u64 {
         self.config.id
@@ -167,9 +188,9 @@ impl Kernel {
         &self.config.unmangled_name
     }
 
-    pub fn was_launched(&self) -> bool {
-        *self.launched.try_lock()
-    }
+    // pub fn was_launched(&self) -> bool {
+    //     *self.launched.try_lock()
+    // }
 
     pub fn running(&self) -> bool {
         self.num_cores_running > 0

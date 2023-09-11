@@ -7,6 +7,7 @@ pub struct Sim {
     pub cycles: u64,
     pub instructions: u64,
     pub num_blocks: u64,
+    pub elapsed_millis: u128,
 }
 
 impl std::ops::AddAssign for Sim {
@@ -14,5 +15,6 @@ impl std::ops::AddAssign for Sim {
         self.cycles += other.cycles;
         self.instructions += other.instructions;
         self.num_blocks += other.num_blocks;
+        self.elapsed_millis += other.elapsed_millis;
     }
 }
