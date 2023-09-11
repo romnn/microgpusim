@@ -855,3 +855,4 @@ lockstep_checks! {
     // babelstream
     babelstream_1024_test: ("babelstream", { "size": 1024 }),
 }
+

@@ -34,11 +34,6 @@ use std::marker::PhantomData;
 #[must_use]
 pub fn is_debug() -> bool {
     playground_sys::is_debug()
-    // #[cfg(feature = "debug_build")]
-    // let is_debug = true;
-    // #[cfg(not(feature = "debug_build"))]
-    // let is_debug = false;
-    // is_debug
 }
 
 #[derive(thiserror::Error, Debug)]

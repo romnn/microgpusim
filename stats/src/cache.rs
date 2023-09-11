@@ -1,7 +1,6 @@
 use super::mem::AccessKind;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use strum::IntoEnumIterator;
 
 #[derive(
     Debug,
@@ -110,89 +109,83 @@ impl PerKernel {
     }
 }
 
-// pub type CsvRow = (Option<usize>, Access, usize);
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CsvRow {
     pub kernel_name: String,
+    pub kernel_name_mangled: String,
     pub kernel_launch_id: usize,
     pub allocation_id: Option<usize>,
     pub cache_id: usize,
     pub access_kind: AccessKind,
+    pub is_write: bool,
     pub access_stat: AccessStat,
     pub num_accesses: usize,
 }
 
 #[derive(Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Cache {
-    pub accesses: HashMap<(Option<usize>, Access), usize>,
-}
-
-impl Cache {
-    // #[must_use]
-    // pub fn flatten(self) -> Vec<CsvRow> {
-    //     let mut flattened: Vec<_> = self
-    //         .accesses
-    //         .into_iter()
-    //         .map(|((alloc_id, access), count)| (alloc_id, access, count))
-    //         .collect();
-    //     flattened.sort_by_key(|(alloc_id, access, _)| (*alloc_id, *access));
-    //     flattened
-    // }
-
-    // #[must_use]
-    // pub fn into_csv_rows(self) -> Vec<CsvRow> {
-    //     self.accesses
-    //         .into_iter()
-    //         // .sort_by_key(|(key, _)| *key)
-    //         .map(|((allocation_id, access), num_accesses)| CsvRow {
-    //             kernel_name: "".to_string(),
-    //             kernel_launch_id: 0,
-    //             allocation_id,
-    //             access,
-    //             num_accesses,
-    //         })
-    //         .collect()
-    //
-    //     // let mut flattened: Vec<_> = self
-    //     //     .accesses
-    //     //     .into_iter()
-    //     //     .map(|((alloc_id, access), count)| (alloc_id, access, count))
-    //     //     .collect();
-    //     // flattened.sort_by_key(|(alloc_id, access, _)| (*alloc_id, *access));
-    //     // flattened
-    // }
-}
-
-impl std::ops::AddAssign for Cache {
-    fn add_assign(&mut self, other: Self) {
-        for (k, v) in other.accesses {
-            *self.accesses.entry(k).or_insert(0) += v;
-        }
-    }
+    pub inner: HashMap<(Option<usize>, Access), usize>,
 }
 
 impl Default for Cache {
     fn default() -> Self {
-        let accesses = HashMap::new();
-        // for access_kind in AccessKind::iter() {
-        //     for status in RequestStatus::iter() {
-        //         accesses.insert(Access((access_kind, AccessStat::Status(status))), 0);
-        //     }
-        //     for failure in ReservationFailure::iter() {
-        //         accesses.insert(
-        //             Access((access_kind, AccessStat::ReservationFailure(failure))),
-        //             0,
-        //         );
-        //     }
-        // }
-        Self { accesses }
+        use strum::IntoEnumIterator;
+        let mut inner = HashMap::new();
+        for access_kind in AccessKind::iter() {
+            for status in RequestStatus::iter() {
+                inner.insert((None, Access((access_kind, AccessStat::Status(status)))), 0);
+            }
+            for failure in ReservationFailure::iter() {
+                inner.insert(
+                    (
+                        None,
+                        Access((access_kind, AccessStat::ReservationFailure(failure))),
+                    ),
+                    0,
+                );
+            }
+        }
+        Self { inner }
+    }
+}
+
+impl AsRef<HashMap<(Option<usize>, Access), usize>> for Cache {
+    fn as_ref(&self) -> &HashMap<(Option<usize>, Access), usize> {
+        &self.inner
+    }
+}
+
+// impl std::ops::DerefMut for Cache {
+//     fn deref_mut(&mut self) -> &mut Self::Target {
+//         &mut self.inner
+//     }
+// }
+
+// impl std::ops::Deref for Cache {
+//     type Target = HashMap<(Option<usize>, Access), usize>;
+//     fn deref(&self) -> &Self::Target {
+//         &self.inner
+//     }
+// }
+//
+// impl std::ops::DerefMut for Cache {
+//     fn deref_mut(&mut self) -> &mut Self::Target {
+//         &mut self.inner
+//     }
+// }
+
+impl std::ops::AddAssign for Cache {
+    fn add_assign(&mut self, other: Self) {
+        for (k, v) in other.inner {
+            *self.inner.entry(k).or_insert(0) += v;
+        }
     }
 }
 
 impl std::fmt::Debug for Cache {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let mut accesses: Vec<_> = self
-            .accesses
+            .inner
             .iter()
             .filter(|(_, &count)| count > 0)
             // .map(|((access_kind, access_stat), count)| {
@@ -223,21 +216,25 @@ impl std::fmt::Debug for Cache {
 }
 
 impl Cache {
+    pub fn new(inner: HashMap<(Option<usize>, Access), usize>) -> Self {
+        Self { inner }
+    }
+
     pub fn shave(&mut self) {
-        self.accesses.retain(|_, v| *v > 0);
+        self.inner.retain(|_, v| *v > 0);
     }
 
     pub fn merge_allocations(self) -> Cache {
-        let mut accesses = HashMap::new();
-        for ((_, access), count) in self.accesses.into_iter() {
-            *accesses.entry((None, access)).or_insert(0) += count;
+        let mut inner = HashMap::new();
+        for ((_, access), count) in self.inner.into_iter() {
+            *inner.entry((None, access)).or_insert(0) += count;
         }
-        Cache { accesses }
+        Cache { inner, ..self }
     }
 
     #[must_use]
     pub fn num_accesses(&self, access: &Access) -> usize {
-        self.accesses
+        self.inner
             .iter()
             .filter(|((_, acc), _)| acc == access)
             .map(|(_, count)| count)
@@ -246,7 +243,7 @@ impl Cache {
 
     #[must_use]
     pub fn total_accesses(&self) -> usize {
-        self.accesses
+        self.inner
             .iter()
             .filter_map(|((_, access), count)| match access {
                 Access((_kind, AccessStat::Status(RequestStatus::HIT | RequestStatus::MISS))) => {
@@ -263,7 +260,7 @@ impl Cache {
         let mut total_misses = 0;
         let mut total_pending_hits = 0;
         let mut total_reservation_fails = 0;
-        for ((alloc_id, access), accesses) in &self.accesses {
+        for ((_alloc_id, access), accesses) in &self.inner {
             let Access((_access_kind, status)) = access;
 
             if let AccessStat::Status(
@@ -300,34 +297,35 @@ impl Cache {
         count: usize,
     ) {
         *self
-            .accesses
+            .inner
             .entry((alloc_id, Access((kind.into(), access.into()))))
             .or_insert(0) += count;
     }
 }
 
-// pub type PerCacheCsvRow = (usize, CsvRow);
-
 #[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PerCache(pub Box<[Cache]>);
+pub struct PerCache {
+    pub kernel_info: super::KernelInfo,
+    pub inner: Box<[Cache]>,
+}
 
 impl std::ops::Deref for PerCache {
     type Target = Box<[Cache]>;
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.inner
     }
 }
 
 impl std::ops::DerefMut for PerCache {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        &mut self.inner
     }
 }
 
 impl std::ops::AddAssign for PerCache {
     fn add_assign(&mut self, other: Self) {
-        for (cache, other_cache) in self.0.iter_mut().zip(other.iter()) {
+        for (cache, other_cache) in self.inner.iter_mut().zip(other.iter()) {
             *cache += other_cache.clone()
         }
     }
@@ -335,43 +333,54 @@ impl std::ops::AddAssign for PerCache {
 
 impl<T: Into<Cache>> FromIterator<T> for PerCache {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        Self(iter.into_iter().map(Into::into).collect())
+        Self {
+            inner: iter.into_iter().map(Into::into).collect(),
+            kernel_info: super::KernelInfo::default(),
+        }
     }
 }
 
 impl PerCache {
     #[must_use]
     pub fn from(size: usize) -> Self {
-        Self(utils::box_slice![Cache::default(); size])
+        Self {
+            kernel_info: super::KernelInfo::default(),
+            inner: utils::box_slice![Cache::default(); size],
+        }
     }
 
     #[must_use]
     pub fn new(size: usize) -> Self {
-        Self(utils::box_slice![Cache::default(); size])
+        Self {
+            kernel_info: super::KernelInfo::default(),
+            inner: utils::box_slice![Cache::default(); size],
+        }
     }
 
     #[must_use]
     pub fn into_inner(self) -> Box<[Cache]> {
-        self.0
+        self.inner
     }
 
     #[must_use]
     pub fn into_csv_rows(self) -> Vec<CsvRow> {
         let mut rows: Vec<_> = Vec::new();
-        for (cache_id, cache) in self.0.into_iter().cloned().enumerate() {
+        for (cache_id, cache) in self.inner.into_iter().cloned().enumerate() {
             rows.extend(
                 cache
-                    .accesses
+                    .inner
                     .into_iter()
                     // .sort_by_key(|(key, _)| *key)
                     .map(|((allocation_id, access), num_accesses)| {
                         let (access_kind, access_stat) = access.0;
                         CsvRow {
-                            kernel_name: "".to_string(),
-                            kernel_launch_id: 0,
+                            kernel_name: self.kernel_info.name.clone(),
+                            kernel_name_mangled: self.kernel_info.mangled_name.clone(),
+                            kernel_launch_id: self.kernel_info.launch_id,
                             cache_id,
                             allocation_id,
                             access_kind,
+                            is_write: access_kind.is_write(),
                             access_stat,
                             num_accesses,
                         }
@@ -379,36 +388,10 @@ impl PerCache {
             );
         }
         rows
-
-        // let mut flattened: Vec<_> = self
-        //     .accesses
-        //     .into_iter()
-        //     .map(|((alloc_id, access), count)| (alloc_id, access, count))
-        //     .collect();
-        // flattened.sort_by_key(|(alloc_id, access, _)| (*alloc_id, *access));
-        // flattened
     }
 
-    // #[must_use]
-    // pub fn flatten(self) -> Vec<CsvRow> {
-    //     let mut flattened: Vec<_> = self
-    //         .into_inner()
-    //         .iter()
-    //         .cloned()
-    //         .enumerate()
-    //         .flat_map(|(id, cache)| {
-    //             cache
-    //                 .flatten()
-    //                 .into_iter()
-    //                 .map(move |cache_row| (id, cache_row))
-    //         })
-    //         .collect();
-    //     flattened.sort_by_key(|(id, _)| *id);
-    //     flattened
-    // }
-
     pub fn shave(&mut self) {
-        for stats in &mut *self.0 {
+        for stats in &mut *self.inner {
             stats.shave();
         }
     }
@@ -421,19 +404,21 @@ impl PerCache {
     #[must_use]
     pub fn reduce(&self) -> Cache {
         let mut out = Cache::default();
-        for stats in &*self.0 {
+        for stats in &*self.inner {
             out += stats.clone();
         }
         out
     }
 
     pub fn merge_allocations(self) -> PerCache {
-        PerCache(
-            self.0
+        PerCache {
+            inner: self
+                .inner
                 .to_vec()
                 .into_iter()
                 .map(Cache::merge_allocations)
                 .collect(),
-        )
+            ..self
+        }
     }
 }

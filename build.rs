@@ -9,9 +9,11 @@ fn is_debug() -> bool {
 
 fn main() {
     let build_profile = if is_debug() {
-        "DEBUG_BUILD"
+        "debug_build"
     } else {
-        "RELEASE_BUILD"
+        "release_build"
     };
+
+    println!("cargo:warning=profile is {build_profile:?}");
     println!("cargo:rustc-cfg=feature={build_profile:?}");
 }

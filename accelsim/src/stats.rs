@@ -11,16 +11,18 @@ pub type Stat = (String, u16, String);
 pub type Map = indexmap::IndexMap<Stat, f64>;
 
 /// Stats
-#[repr(transparent)]
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct Stats(Map);
+pub struct Stats {
+    pub is_release_build: bool,
+    pub inner: Map,
+}
 
 impl IntoIterator for Stats {
     type Item = (Stat, f64);
     type IntoIter = indexmap::map::IntoIter<Stat, f64>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
+        self.inner.into_iter()
     }
 }
 
@@ -29,13 +31,16 @@ impl FromIterator<(Stat, f64)> for Stats {
     where
         I: IntoIterator<Item = (Stat, f64)>,
     {
-        Self(iter.into_iter().collect())
+        Self {
+            is_release_build: false,
+            inner: iter.into_iter().collect(),
+        }
     }
 }
 
 impl Stats {
     pub fn find_stat(&self, name: impl AsRef<str>) -> Option<&f64> {
-        self.0.iter().find_map(|((_, _, stat_name), value)| {
+        self.inner.iter().find_map(|((_, _, stat_name), value)| {
             if stat_name == name.as_ref() {
                 Some(value)
             } else {
@@ -49,19 +54,19 @@ impl std::ops::Deref for Stats {
     type Target = Map;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.inner
     }
 }
 
 impl std::ops::DerefMut for Stats {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        &mut self.inner
     }
 }
 
 impl std::fmt::Display for Stats {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let mut stats = self.0.clone();
+        let mut stats = self.inner.clone();
         stats.sort_keys();
 
         let mut s = f.debug_struct("Stats");
@@ -89,18 +94,17 @@ fn convert_cache_stats(cache_name: &str, stats: &Stats) -> stats::PerCache {
             let per_cache_stat = stats.get(&key!(format!(
                 "{cache_name}_{kind:?}_{reservation_failure:?}"
             )));
-            cache_stats.accesses.insert(
-                (
-                    None,
-                    Access((kind, AccessStat::ReservationFailure(reservation_failure))),
-                ),
+            let access = Access((kind, AccessStat::ReservationFailure(reservation_failure)));
+            cache_stats.inner.insert(
+                (None, access),
                 per_cache_stat.copied().unwrap_or(0.0) as usize,
             );
         }
         for status in RequestStatus::iter() {
             let per_cache_stat = stats.get(&key!(format!("{cache_name}_{kind:?}_{status:?}")));
-            cache_stats.accesses.insert(
-                (None, Access((kind, AccessStat::Status(status)))),
+            let access = Access((kind, AccessStat::Status(status)));
+            cache_stats.inner.insert(
+                (None, access),
                 per_cache_stat.copied().unwrap_or(0.0) as usize,
             );
         }
@@ -115,7 +119,7 @@ fn convert_cache_stats(cache_name: &str, stats: &Stats) -> stats::PerCache {
     // }
 
     // accelsim only reports the sum of all cache statistics
-    stats::PerCache(box_slice![cache_stats])
+    stats::PerCache::from_iter([cache_stats])
 }
 
 impl TryFrom<Stats> for stats::Stats {
@@ -200,6 +204,7 @@ impl TryFrom<Stats> for stats::Stats {
         Ok(Self {
             sim: stats::Sim {
                 kernel_name: "".to_string(),
+                kernel_name_mangled: "".to_string(),
                 kernel_launch_id: 0,
                 cycles: stats
                     .get(&key!("gpu_tot_sim_cycle"))
@@ -214,8 +219,11 @@ impl TryFrom<Stats> for stats::Stats {
                     .copied()
                     .unwrap_or(0.0) as u64,
                 elapsed_millis: 0,
+                is_release_build: stats.is_release_build,
+                // elapsed_millis_debug: 0,
+                // elapsed_millis_release: 0,
             },
-            accesses: stats::Accesses(accesses),
+            accesses: stats::Accesses::from_iter(accesses),
             dram,
             instructions,
             l1i_stats: l1_inst_stats,

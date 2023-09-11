@@ -99,6 +99,7 @@ pub fn simulate_bench_config(
     for kernel_stats in stats.inner.iter() {
         dbg!(&kernel_stats.sim);
     }
+    dbg!(gpucachesim::is_debug());
 
     *wip_stats = gpucachesim::WIPStats::default();
 

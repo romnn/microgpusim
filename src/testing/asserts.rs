@@ -142,20 +142,20 @@ pub fn stats_match(
                     ]
                 })
                 .collect();
-            let play_l2_data_stats = stats::Cache {
-                accesses: compare_stats
+            let play_l2_data_stats = stats::Cache::new(
+                compare_stats
                     .iter()
                     .map(|stat| ((None, *stat), play_l2_data_stats.num_accesses(stat)))
                     // .map(|stat| (*stat, play_l2_data_stats.accesses[stat]))
                     .collect(),
-            };
-            let box_l2_data_stats = stats::Cache {
-                accesses: compare_stats
+            );
+            let box_l2_data_stats = stats::Cache::new(
+                compare_stats
                     .iter()
                     .map(|stat| ((None, *stat), box_l2_data_stats.num_accesses(stat)))
                     // .map(|stat| (*stat, box_l2_data_stats.accesses[stat]))
                     .collect(),
-            };
+            );
             dbg!(&play_l2_data_stats, &box_l2_data_stats);
             for kind in AccessKind::iter() {
                 dbg!(&kind);
@@ -180,8 +180,8 @@ pub fn stats_match(
                 super::stats::cache_rel_err(&play_l2_data_stats, &box_l2_data_stats, abs_threshold);
             dbg!(&rel_err);
 
-            let play_l2_sum: usize = play_l2_data_stats.accesses.values().sum();
-            let box_l2_sum: usize = box_l2_data_stats.accesses.values().sum();
+            let play_l2_sum: usize = play_l2_data_stats.as_ref().values().sum();
+            let box_l2_sum: usize = box_l2_data_stats.as_ref().values().sum();
             diff::diff!(play_sum: play_l2_sum, box_sum: box_l2_sum);
 
             rel_err

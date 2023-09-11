@@ -65,14 +65,14 @@ pub fn all_cache_rel_err<'a>(
     abs_threshold: f64,
 ) -> Vec<(&'a (Option<usize>, stats::cache::Access), f64)> {
     let keys: HashSet<_> = play_stats
-        .accesses
+        .as_ref()
         .keys()
-        .chain(box_stats.accesses.keys())
+        .chain(box_stats.as_ref().keys())
         .collect();
     keys.into_iter()
         .map(|k| {
-            let p = play_stats.accesses.get(k).copied().unwrap_or_default();
-            let b = box_stats.accesses.get(k).copied().unwrap_or_default();
+            let p = play_stats.as_ref().get(k).copied().unwrap_or_default();
+            let b = box_stats.as_ref().get(k).copied().unwrap_or_default();
             let rel_err = rel_err(b, p, abs_threshold);
             (k, rel_err)
         })

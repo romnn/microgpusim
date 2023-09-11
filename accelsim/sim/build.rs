@@ -98,9 +98,9 @@ fn main() -> eyre::Result<()> {
     println!("cargo:rerun-if-env-changed=build.rs");
 
     let build_profile = if is_debug() {
-        "DEBUG_BUILD"
+        "debug_build"
     } else {
-        "RELEASE_BUILD"
+        "release_build"
     };
     println!("cargo:rustc-cfg=feature={build_profile:?}");
 

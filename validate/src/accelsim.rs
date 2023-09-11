@@ -173,7 +173,10 @@ pub fn process_stats(
     // parse stats
     let parse_options = accelsim::parser::Options::default();
     let log_reader = std::io::Cursor::new(log.as_ref());
-    let stats = accelsim::parser::parse_stats(log_reader, &parse_options)?;
+    let stats = accelsim::Stats {
+        is_release_build: !accelsim_sim::is_debug(),
+        ..accelsim::parser::parse_stats(log_reader, &parse_options)?
+    };
 
     utils::fs::create_dirs(stats_dir).map_err(eyre::Report::from)?;
 

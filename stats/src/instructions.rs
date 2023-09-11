@@ -31,6 +31,7 @@ pub enum MemorySpace {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CsvRow {
     pub kernel_name: String,
+    pub kernel_name_mangled: String,
     pub kernel_launch_id: usize,
     pub allocation_id: Option<usize>,
     pub memory_space: MemorySpace,
@@ -39,33 +40,30 @@ pub struct CsvRow {
 }
 
 #[derive(Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct InstructionCounts(pub HashMap<(Option<usize>, MemorySpace, bool), u64>);
+pub struct InstructionCounts {
+    pub kernel_info: super::KernelInfo,
+    pub inner: HashMap<(Option<usize>, MemorySpace, bool), u64>,
+}
 
 impl std::ops::AddAssign for InstructionCounts {
     fn add_assign(&mut self, other: Self) {
-        for (k, v) in other.0 {
-            *self.0.entry(k).or_insert(0) += v;
+        for (k, v) in other.inner {
+            *self.inner.entry(k).or_insert(0) += v;
         }
     }
 }
 
 impl InstructionCounts {
-    // #[must_use]
-    // pub fn flatten(self) -> Vec<InstructionCountCsvRow> {
-    //     let mut flattened: Vec<_> = self.into_inner().into_iter().collect();
-    //     flattened.sort_by_key(|(inst, _)| *inst);
-    //     flattened
-    // }
-
     #[must_use]
     pub fn into_csv_rows(self) -> Vec<CsvRow> {
-        self.0
+        self.inner
             .into_iter()
             // .sort_by_key(|(key, _)| *key)
             .map(
                 |((allocation_id, memory_space, is_write), num_instructions)| CsvRow {
-                    kernel_name: "".to_string(),
-                    kernel_launch_id: 0,
+                    kernel_name: self.kernel_info.name.clone(),
+                    kernel_name_mangled: self.kernel_info.mangled_name.clone(),
+                    kernel_launch_id: self.kernel_info.launch_id,
                     allocation_id,
                     memory_space,
                     is_write,
@@ -77,14 +75,14 @@ impl InstructionCounts {
 
     #[must_use]
     pub fn into_inner(self) -> HashMap<(Option<usize>, MemorySpace, bool), u64> {
-        self.0
+        self.inner
     }
 }
 
 impl std::fmt::Debug for InstructionCounts {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let mut instructions: Vec<_> = self
-            .0
+            .inner
             .iter()
             .filter(|(_, &count)| count > 0)
             .map(|((alloc_id, space, is_store), count)| {
@@ -108,20 +106,20 @@ impl std::ops::Deref for InstructionCounts {
     type Target = HashMap<(Option<usize>, MemorySpace, bool), u64>;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.inner
     }
 }
 
 impl std::ops::DerefMut for InstructionCounts {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        &mut self.inner
     }
 }
 
 impl InstructionCounts {
     #[must_use]
     pub fn num_instructions(&self, space: MemorySpace, is_write: bool) -> u64 {
-        self.0
+        self.inner
             .iter()
             .filter(|((_, s, w), _)| *s == space && *w == is_write)
             .map(|(_, count)| count)
@@ -130,7 +128,7 @@ impl InstructionCounts {
 
     #[must_use]
     pub fn get_total(&self, space: MemorySpace) -> u64 {
-        self.0
+        self.inner
             .iter()
             .filter(|((_, s, _), _)| *s == space)
             .map(|(_, count)| count)
@@ -148,7 +146,7 @@ impl InstructionCounts {
         count: u64,
     ) {
         *self
-            .0
+            .inner
             .entry((alloc_id, space.into(), is_store))
             .or_insert(0) += count;
     }

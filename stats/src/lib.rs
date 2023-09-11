@@ -25,6 +25,7 @@ use std::collections::HashMap;
 #[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KernelInfo {
     pub name: String,
+    pub mangled_name: String,
     pub launch_id: usize,
 }
 
@@ -156,10 +157,6 @@ impl Stats {
             l1d_stats: PerCache::new(config.num_total_cores),
             l2d_stats: PerCache::new(config.num_sub_partitions),
             stall_dram_full: 0,
-            // start_cycle: 0,
-            // completed_cycle: 0,
-            // start_time: Instant::now(),
-            // completed_time: Instant::now(),
         }
     }
 }

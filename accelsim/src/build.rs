@@ -8,10 +8,6 @@ pub fn is_debug() -> bool {
         "debug" => true,
         other => panic!("unknown profile {other:?}"),
     }
-    // #[cfg(debug_assertions)]
-    // return true;
-    // #[cfg(not(debug_assertions))]
-    // return false;
 }
 
 #[must_use]

@@ -10,13 +10,6 @@ fn output_path() -> PathBuf {
         .unwrap()
 }
 
-// #[must_use]
-// pub fn is_debug() -> bool {
-//     #[cfg(debug_assertions)]
-//     return true;
-//     #[cfg(not(debug_assertions))]
-//     return false;
-// }
 #[must_use]
 fn is_debug() -> bool {
     match std::env::var("PROFILE").unwrap().as_str() {
@@ -413,9 +406,9 @@ fn main() -> eyre::Result<()> {
     println!("cargo:rerun-if-env-changed=FORCE");
 
     let build_profile = if is_debug() {
-        "DEBUG_BUILD"
+        "debug_build"
     } else {
-        "RELEASE_BUILD"
+        "release_build"
     };
     println!("cargo:rustc-cfg=feature={build_profile:?}");
 

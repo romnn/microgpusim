@@ -51,17 +51,45 @@ impl AccessKind {
 /// Memory access statistics.
 ///
 /// Records the number of memory fetches sent from SMs to the interconnect.
-#[derive(Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-// pub struct Accesses(pub HashMap<Option<usize>, HashMap<AccessKind, u64>>);
-pub struct Accesses(pub HashMap<(Option<usize>, AccessKind), u64>);
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Accesses {
+    pub kernel_info: super::KernelInfo,
+    pub inner: HashMap<(Option<usize>, AccessKind), u64>,
+}
+
+impl Default for Accesses {
+    fn default() -> Self {
+        use strum::IntoEnumIterator;
+        let mut inner = HashMap::new();
+        for access_kind in AccessKind::iter() {
+            inner.insert((None, access_kind), 0);
+        }
+        Self {
+            inner,
+            kernel_info: super::KernelInfo::default(),
+        }
+    }
+}
 
 impl std::ops::AddAssign for Accesses {
     fn add_assign(&mut self, other: Self) {
-        for (alloc_id, count) in other.0 {
+        for (alloc_id, count) in other.inner {
             // for (kind, count) in per_alloc {
             // *self.0.entry(alloc_id).or_default().entry(key).or_insert(0) += count;
-            *self.0.entry(alloc_id).or_insert(0) += count;
+            *self.inner.entry(alloc_id).or_insert(0) += count;
             // }
+        }
+    }
+}
+
+impl FromIterator<((Option<usize>, AccessKind), u64)> for Accesses {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = ((Option<usize>, AccessKind), u64)>,
+    {
+        Self {
+            inner: iter.into_iter().collect(),
+            kernel_info: super::KernelInfo::default(),
         }
     }
 }
@@ -69,6 +97,7 @@ impl std::ops::AddAssign for Accesses {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CsvRow {
     pub kernel_name: String,
+    pub kernel_name_mangled: String,
     pub kernel_launch_id: usize,
     pub allocation_id: Option<usize>,
     pub access_kind: AccessKind,
@@ -78,7 +107,7 @@ pub struct CsvRow {
 impl Accesses {
     #[must_use]
     pub fn into_inner(self) -> HashMap<(Option<usize>, AccessKind), u64> {
-        self.0
+        self.inner
     }
 
     pub fn num_accesses(&self, kind: AccessKind) -> u64 {
@@ -92,12 +121,13 @@ impl Accesses {
     pub fn into_csv_rows(self) -> Vec<CsvRow> {
         // let mut flattened: Vec<_> = self.into_inner().into_iter()
         // use itertools::Itertools;
-        self.0
+        self.inner
             .into_iter()
             // .sort_by_key(|(key, _)| *key)
             .map(|((allocation_id, access_kind), accesses)| CsvRow {
-                kernel_name: "".to_string(),
-                kernel_launch_id: 0,
+                kernel_name: self.kernel_info.name.clone(),
+                kernel_name_mangled: self.kernel_info.mangled_name.clone(),
+                kernel_launch_id: self.kernel_info.launch_id,
                 allocation_id,
                 access_kind,
                 accesses,
@@ -116,7 +146,7 @@ impl Accesses {
 
     #[must_use]
     pub fn num_writes(&self) -> u64 {
-        self.0
+        self.inner
             .iter()
             .filter(|((_, kind), _)| kind.is_write())
             .map(|(_, count)| count)
@@ -125,7 +155,7 @@ impl Accesses {
 
     #[must_use]
     pub fn num_reads(&self) -> u64 {
-        self.0
+        self.inner
             .iter()
             .filter(|((_, kind), _)| !kind.is_write())
             .map(|(_, count)| count)
@@ -133,14 +163,14 @@ impl Accesses {
     }
 
     pub fn inc(&mut self, allocation_id: Option<usize>, kind: impl Into<AccessKind>, count: u64) {
-        *self.0.entry((allocation_id, kind.into())).or_insert(0) += count;
+        *self.inner.entry((allocation_id, kind.into())).or_insert(0) += count;
     }
 }
 
 impl std::fmt::Debug for Accesses {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let mut accesses: Vec<_> = self
-            .0
+            .inner
             .iter()
             .filter(|(_, &count)| count > 0)
             .map(|(kind, count)| (format!("{kind:?}"), count))
@@ -159,12 +189,12 @@ impl std::ops::Deref for Accesses {
     type Target = HashMap<(Option<usize>, AccessKind), u64>;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.inner
     }
 }
 
 impl std::ops::DerefMut for Accesses {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        &mut self.inner
     }
 }

@@ -5,7 +5,7 @@ use stats::box_slice;
 impl From<Cache> for stats::Cache {
     fn from(stats: crate::bridge::stats::Cache) -> Self {
         Self {
-            accesses: stats
+            inner: stats
                 .accesses
                 .into_iter()
                 .map(|((access_kind, access_stat), count)| {
@@ -246,10 +246,12 @@ impl From<Sim> for stats::sim::Sim {
     fn from(sim: Sim) -> Self {
         Self {
             kernel_name: "".to_string(),
+            kernel_name_mangled: "".to_string(),
             kernel_launch_id: 0,
             cycles: sim.cycles,
             instructions: sim.instructions,
             num_blocks: sim.num_blocks,
+            is_release_build: !crate::is_debug(),
             elapsed_millis: 0,
         }
     }

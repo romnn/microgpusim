@@ -61,9 +61,9 @@ def main(path, config_path, bench_name, input_idx):
         raise NotImplemented
 
     for target in [
-        # Target.Simulate,
+        Target.Simulate,
         # Target.Profile,
-        Target.AccelsimSimulate,
+        # Target.AccelsimSimulate,
         # Target.PlaygroundSimulate,
     ]:
         benches.extend(b.benchmarks[target.value][bench_name])

@@ -127,14 +127,12 @@ pub fn write_stats_as_csv(
     // sim stats
     write_csv_rows(
         open_writable(sim_stats_path(stats_dir, repetition))?,
-        stats
-            .iter()
-            .enumerate()
-            .map(|(kernel_launch_id, kernel_stats)| stats::Sim {
-                // kernel_name: "".to_string(),
-                kernel_launch_id,
-                ..kernel_stats.sim.clone()
-            }),
+        stats.iter().map(|kernel_stats| &kernel_stats.sim),
+        // .enumerate(), // .map(|(kernel_launch_id, kernel_stats)| stats::Sim {
+        //     // kernel_name: "".to_string(),
+        //     kernel_launch_id,
+        //     ..kernel_stats.sim.clone()
+        // }),
     )?;
 
     // dram stats
@@ -144,15 +142,12 @@ pub fn write_stats_as_csv(
             .iter()
             .enumerate()
             .flat_map(|(kernel_launch_id, kernel_stats)| {
-                kernel_stats
-                    .dram
-                    .accesses_csv()
-                    .into_iter()
-                    .map(move |accesses| stats::dram::AccessesCsvRow {
-                        // kernel_name: "".to_string(),
-                        kernel_launch_id,
-                        ..accesses
-                    })
+                kernel_stats.dram.accesses_csv().into_iter()
+                // .map(move |accesses| stats::dram::AccessesCsvRow {
+                //     // kernel_name: "".to_string(),
+                //     kernel_launch_id,
+                //     ..accesses
+                // })
             }),
     )?;
     write_csv_rows(
@@ -161,15 +156,12 @@ pub fn write_stats_as_csv(
             .iter()
             .enumerate()
             .flat_map(|(kernel_launch_id, kernel_stats)| {
-                kernel_stats
-                    .dram
-                    .bank_accesses_csv()
-                    .into_iter()
-                    .map(move |row| stats::dram::BankAccessesCsvRow {
-                        // kernel_name: "".to_string(),
-                        kernel_launch_id,
-                        ..row
-                    })
+                kernel_stats.dram.bank_accesses_csv().into_iter()
+                // .map(move |row| stats::dram::BankAccessesCsvRow {
+                //     // kernel_name: "".to_string(),
+                //     kernel_launch_id,
+                //     ..row
+                // })
             }),
     )?;
 
@@ -180,16 +172,13 @@ pub fn write_stats_as_csv(
             .iter()
             .enumerate()
             .flat_map(|(kernel_launch_id, kernel_stats)| {
-                kernel_stats
-                    .accesses
-                    .clone()
-                    .into_csv_rows()
-                    .into_iter()
-                    .map(move |row| stats::mem::CsvRow {
-                        // kernel_name: "".to_string(),
-                        kernel_launch_id,
-                        ..row
-                    })
+                kernel_stats.accesses.clone().into_csv_rows()
+                // .into_iter()
+                // .map(move |row| stats::mem::CsvRow {
+                //     // kernel_name: "".to_string(),
+                //     kernel_launch_id,
+                //     ..row
+                // })
             }),
     )?;
 
@@ -209,13 +198,14 @@ pub fn write_stats_as_csv(
                 // kernel_stats
                 //     .instructions
                 //     .clone()
-                cache_stats.into_csv_rows().into_iter().map(move |row| {
-                    stats::instructions::CsvRow {
-                        // kernel_name: "".to_string(),
-                        kernel_launch_id,
-                        ..row
-                    }
-                })
+                cache_stats.into_csv_rows().into_iter()
+                //     .map(move |row| {
+                //     stats::instructions::CsvRow {
+                //         // kernel_name: "".to_string(),
+                //         kernel_launch_id,
+                //         ..row
+                //     }
+                // })
             }),
     )?;
 
@@ -276,14 +266,12 @@ pub fn write_stats_as_csv(
                 .cloned()
                 .enumerate()
                 .flat_map(|(kernel_launch_id, cache_stats)| {
-                    cache_stats
-                        .into_csv_rows()
-                        .into_iter()
-                        .map(move |row| stats::cache::CsvRow {
-                            // kernel_name: "".to_string(),
-                            kernel_launch_id,
-                            ..row
-                        })
+                    cache_stats.into_csv_rows().into_iter()
+                    // .map(move |row| stats::cache::CsvRow {
+                    //     // kernel_name: "".to_string(),
+                    //     kernel_launch_id,
+                    //     ..row
+                    // })
                 }),
         )?;
 

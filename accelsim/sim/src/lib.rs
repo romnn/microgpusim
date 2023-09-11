@@ -19,11 +19,15 @@ pub fn has_upstream() -> bool {
 
 #[must_use]
 pub fn is_debug() -> bool {
+    #[cfg(all(feature = "debug_build", feature = "release_build"))]
+    compile_error!(r#"both feature "debug_build" or "release_build" are set."#);
+
     #[cfg(feature = "debug_build")]
-    let is_debug = true;
-    #[cfg(not(feature = "debug_build"))]
-    let is_debug = false;
-    is_debug
+    return true;
+    #[cfg(feature = "release_build")]
+    return false;
+    #[cfg(not(any(feature = "debug_build", feature = "release_build")))]
+    compile_error!(r#"neither feature "debug_build" or "release_build" is set."#);
 }
 
 pub fn locate_accelsim_bin(accel_path: &Path, profile: &str) -> eyre::Result<PathBuf> {

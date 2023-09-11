@@ -68,11 +68,15 @@ pub type address = u64;
 
 #[must_use]
 pub fn is_debug() -> bool {
+    #[cfg(all(feature = "debug_build", feature = "release_build"))]
+    compile_error!(r#"both feature "debug_build" or "release_build" are set."#);
+
     #[cfg(feature = "debug_build")]
-    let is_debug = true;
-    #[cfg(not(feature = "debug_build"))]
-    let is_debug = false;
-    is_debug
+    return true;
+    #[cfg(feature = "release_build")]
+    return false;
+    #[cfg(not(any(feature = "debug_build", feature = "release_build")))]
+    compile_error!(r#"neither feature "debug_build" or "release_build" is set."#);
 }
 
 pub fn parse_commands(path: impl AsRef<Path>) -> eyre::Result<Vec<Command>> {
@@ -941,24 +945,39 @@ where
         // compute on demand
         for (kernel_launch_id, kernel_stats) in stats.as_mut().iter_mut().enumerate() {
             let kernel = &self.executed_kernels.lock()[&(kernel_launch_id as u64)];
+            let kernel_info = stats::KernelInfo {
+                name: kernel.config.unmangled_name.clone(),
+                mangled_name: kernel.config.mangled_name.clone(),
+                launch_id: kernel_launch_id,
+            };
             // let kernel = self
             //     .kernels
             //     .iter()
             //     .find(|k| k.id() == kernel_launch_id as u64)
             //     .unwrap();
-            kernel_stats.sim.kernel_name = kernel.config.unmangled_name.clone();
-            for _cache in [&mut kernel_stats.l1i_stats]
-                .into_iter()
-                .flat_map(|cache| cache.iter_mut())
-            {
-                // for cache.iter_mut()
-                // cache.kernel_name = kernel.config.unmangled_name.clone();
-            }
+            kernel_stats.sim.kernel_name = kernel_info.name.clone();
+            kernel_stats.sim.kernel_name_mangled = kernel_info.mangled_name.clone();
+            kernel_stats.sim.kernel_launch_id = kernel_info.launch_id;
 
-            kernel_stats.dram.kernel_info = stats::KernelInfo {
-                name: kernel.config.unmangled_name.clone(),
-                launch_id: kernel_launch_id,
-            };
+            for cache_stats in [
+                &mut kernel_stats.l1i_stats,
+                &mut kernel_stats.l1c_stats,
+                &mut kernel_stats.l1t_stats,
+                &mut kernel_stats.l1d_stats,
+                &mut kernel_stats.l2d_stats,
+            ] {
+                cache_stats.kernel_info = kernel_info.clone();
+            }
+            // for cache_stats in [&mut kernel_stats.l1i_stats]
+            //     .into_iter()
+            //     .flat_map(|cache| cache.iter_mut())
+            // {
+            //     // for cache.iter_mut()
+            //     cache_stats.kernel_info = kernel_info.clone();
+            //     // cache.kernel_name = kernel.config.unmangled_name.clone();
+            // }
+
+            kernel_stats.dram.kernel_info = kernel_info.clone();
             // kernel_stats.accesses.kernel_info = stats::KernelInfo {
             //     name: kernel.config.unmangled_name.clone(),
             //     launch_id: kernel_launch_id,
@@ -1292,12 +1311,20 @@ where
         // *kernel.completed_time.lock() = Some(completion_time);
         // *kernel.completed_cycle.lock() = Some(cycle);
 
+        kernel_stats.sim.is_release_build = !is_debug();
         kernel_stats.sim.cycles = cycle - kernel.start_cycle.lock().unwrap_or(0);
-        kernel_stats.sim.elapsed_millis = kernel
+        let elapsed_millis = kernel
             .start_time
             .lock()
             .map(|start_time| completion_time.duration_since(start_time).as_millis())
             .unwrap_or(0);
+
+        kernel_stats.sim.elapsed_millis = elapsed_millis;
+        // if is_debug() {
+        //     kernel_stats.sim.elapsed_millis_debug = elapsed_millis;
+        // } else {
+        //     kernel_stats.sim.elapsed_millis_release = elapsed_millis;
+        // }
 
         // println!(
         //     "stats len is now {} ({:#?})",

@@ -36,13 +36,15 @@ def access_is_write(access_type: str) -> bool:
 
 
 def parse_cache_stats(path: PathLike):
-    stats = pd.read_csv(
+    df = pd.read_csv(
         path,
-        header=None,
-        names=["cache_id", "access_type", "status", "count"],
+        header=0,
+        # header=None,
+        # names=["cache_id", "access_type", "status", "count"],
     )
-    stats["is_write"] = stats["access_type"].apply(access_is_write)
-    return stats
+    # print(df)
+    # df["is_write"] = df["access_kind"].apply(access_is_write)
+    return df
 
 
 class Stats(common.Stats):
@@ -88,8 +90,9 @@ class Stats(common.Stats):
 
             accesses_df = pd.read_csv(
                 self.path / f"stats.accesses.{r}.csv",
-                header=None,
-                names=["access", "count"],
+                header=0,
+                # header=None,
+                # names=["access", "count"],
             )
             # accesses_df["run"] = r
             accesses_dfs.append(accesses_df)
@@ -109,8 +112,9 @@ class Stats(common.Stats):
 
             instructions_df = pd.read_csv(
                 self.path / f"stats.instructions.{r}.csv",
-                header=None,
-                names=["memory_space", "write", "count"],
+                header=0,
+                # header=None,
+                # names=["memory_space", "write", "count"],
             )
             instructions_dfs.append(instructions_df)
 
@@ -125,41 +129,41 @@ class Stats(common.Stats):
             l2_data_stats_df = parse_cache_stats(self.path / f"stats.cache.l2d.{r}.csv")
             l2_data_stats_dfs.append(l2_data_stats_df)
 
-        exec_time_sec_release = pd.concat(exec_time_sec_release_dfs)
+        self.exec_time_sec_release = pd.concat(exec_time_sec_release_dfs)
         # print(exec_time_sec_release)
-        self.exec_time_sec_release = common.compute_df_statistics(exec_time_sec_release, group_by=None)
-        # print(self.exec_time_sec_release)
+        # self.exec_time_sec_release = common.compute_df_statistics(exec_time_sec_release, group_by=None)
+        print(self.exec_time_sec_release)
         # self.exec_time_sec_release = common.compute_df_statistics(exec_time_sec_release, group_by=INDEX_COLS)
 
-        sim_df = pd.concat(sim_dfs)
+        self.sim_df = pd.concat(sim_dfs)
         # print(sim_df)
-        self.sim_df = common.compute_df_statistics(sim_df, group_by=None)
-        # print(self.sim_df)
+        # self.sim_df = common.compute_df_statistics(sim_df, group_by=None)
+        print(self.sim_df)
 
         accesses_df = pd.concat(accesses_dfs)
         # print(accesses_df)
         self.accesses_df = common.compute_df_statistics(accesses_df, group_by=["access"])
         # print(self.accesses_df)
 
-        dram_df = pd.concat(dram_dfs)
+        self.dram_df = pd.concat(dram_dfs)
         # print(dram_df)
-        self.dram_df = common.compute_df_statistics(dram_df, group_by=["chip_id", "bank_id"])
-        # print(self.dram_df.index)
+        # self.dram_df = common.compute_df_statistics(dram_df, group_by=["chip_id", "bank_id"])
+        print(self.dram_df)
 
-        dram_banks_df = pd.concat(dram_banks_dfs)
+        self.dram_banks_df = pd.concat(dram_banks_dfs)
         # print(dram_banks_df)
-        self.dram_banks_df = common.compute_df_statistics(dram_banks_df, group_by=["core_id", "chip_id", "bank_id"])
-        # print(self.dram_banks_df)
+        # self.dram_banks_df = common.compute_df_statistics(dram_banks_df, group_by=["core_id", "chip_id", "bank_id"])
+        print(self.dram_banks_df)
 
-        instructions_df = pd.concat(instructions_dfs)
+        self.instructions_df = pd.concat(instructions_dfs)
         # print(instructions_df)
-        self.instructions_df = common.compute_df_statistics(instructions_df, group_by=["memory_space", "write"])
-        # print(self.instructions_df.index)
+        # self.instructions_df = common.compute_df_statistics(instructions_df, group_by=["memory_space", "write"])
+        print(self.instructions_df)
 
         def load_cache_stats(dfs):
             df = pd.concat(dfs)
             # print(df)
-            df = common.compute_df_statistics(df, group_by=["cache_id", "access_type", "status", "is_write"])
+            # df = common.compute_df_statistics(df, group_by=["cache_id", "access_type", "status", "is_write"])
             # print(df)
             return df
 
