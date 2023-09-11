@@ -4,6 +4,7 @@ use utils::box_slice;
 #[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BankAccessesCsvRow {
     pub kernel_name: String,
+    pub kernel_name_mangled: String,
     pub kernel_launch_id: usize,
     /// Core ID
     pub core_id: usize,
@@ -20,6 +21,7 @@ pub struct BankAccessesCsvRow {
 #[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AccessesCsvRow {
     pub kernel_name: String,
+    pub kernel_name_mangled: String,
     pub kernel_launch_id: usize,
     /// DRAM chip ID
     pub chip_id: usize,
@@ -106,6 +108,7 @@ impl DRAM {
                     let writes = self.bank_writes[core_id][chip_id][bank_id];
                     out.push(BankAccessesCsvRow {
                         kernel_name: self.kernel_info.name.clone(),
+                        kernel_name_mangled: self.kernel_info.mangled_name.clone(),
                         kernel_launch_id: self.kernel_info.launch_id,
                         core_id,
                         chip_id,
@@ -128,6 +131,7 @@ impl DRAM {
                 let writes = self.total_bank_writes[chip_id][bank_id];
                 out.push(AccessesCsvRow {
                     kernel_name: self.kernel_info.name.clone(),
+                    kernel_name_mangled: self.kernel_info.mangled_name.clone(),
                     kernel_launch_id: self.kernel_info.launch_id,
                     chip_id,
                     bank_id,

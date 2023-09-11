@@ -101,7 +101,7 @@ pub struct CsvRow {
     pub kernel_launch_id: usize,
     pub allocation_id: Option<usize>,
     pub access_kind: AccessKind,
-    pub accesses: u64,
+    pub num_accesses: u64,
 }
 
 impl Accesses {
@@ -124,13 +124,13 @@ impl Accesses {
         self.inner
             .into_iter()
             // .sort_by_key(|(key, _)| *key)
-            .map(|((allocation_id, access_kind), accesses)| CsvRow {
+            .map(|((allocation_id, access_kind), num_accesses)| CsvRow {
                 kernel_name: self.kernel_info.name.clone(),
                 kernel_name_mangled: self.kernel_info.mangled_name.clone(),
                 kernel_launch_id: self.kernel_info.launch_id,
                 allocation_id,
                 access_kind,
-                accesses,
+                num_accesses,
             })
             .collect()
         // flattened.sort_by_key(|(kind, _)| *kind);

@@ -6,6 +6,7 @@ import gpucachesim.stats.stats as stats
 import gpucachesim.stats.native as native
 import gpucachesim.stats.accelsim as accelsim
 import gpucachesim.stats.playground as playground
+import gpucachesim.benchmarks as benchmarks
 from gpucachesim.benchmarks import Target, Benchmarks, GPUConfig, REPO_ROOT_DIR
 
 
@@ -62,9 +63,9 @@ def main(path, config_path, bench_name, input_idx):
 
     for target in [
         Target.Simulate,
-        # Target.Profile,
-        # Target.AccelsimSimulate,
-        # Target.PlaygroundSimulate,
+        Target.Profile,
+        Target.AccelsimSimulate,
+        Target.PlaygroundSimulate,
     ]:
         benches.extend(b.benchmarks[target.value][bench_name])
         # for target_benches in b.benchmarks[target.value][bench_name]:
@@ -81,14 +82,27 @@ def main(path, config_path, bench_name, input_idx):
     with open(config_path, "rb") as f:
         config = GPUConfig(yaml.safe_load(f))
 
-    for bench_config in benches[:1]:
-        pprint(bench_config)
-        stats = accelsim.Stats(config, bench_config)
-        # stats = native.Stats(config, bench_config)
-        # print(stats.instructions())
-        # print(stats.result_df)
-        print(stats.result_df.T)
-        print(stats.print_all_stats())
+    for bench_config in benches[:100]:
+        # pprint(bench_config)
+        name = bench_config["name"]
+        match bench_config["target"].lower():
+            case "profile":
+                bench_stats = native.Stats(config, bench_config)
+            case "simulate":
+                bench_stats = stats.Stats(config, bench_config)
+            case "accelsimsimulate":
+                bench_stats = accelsim.Stats(config, bench_config)
+            case "playgroundsimulate":
+                bench_stats = playground.Stats(config, bench_config)
+            case other:
+                print(f"WARNING: {name} has unknown target {other}")
+                continue
+
+        if False:
+            print("======")
+            print(bench_stats.result_df.T)
+            print("======")
+            print(bench_stats.print_all_stats())
 
     return
 

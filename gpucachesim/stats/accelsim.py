@@ -31,14 +31,17 @@ class Stats(stats.Stats):
         self.compute_result_df()
 
         # sanity checks
-        assert self.raw_stats_df["num_issued_blocks_mean"].sum() == self.num_blocks()
-        assert self.raw_stats_df["gpu_tot_sim_cycle_mean"].sum() == self.cycles()
-        assert self.raw_stats_df["gpu_total_instructions_mean"].sum() == self.instructions()
-        assert self.raw_stats_df["total_dram_reads_mean"].sum() == self.dram_reads()
-        assert self.raw_stats_df["total_dram_writes_mean"].sum() == self.dram_writes()
-        assert (
-            self.raw_stats_df[["total_dram_writes_mean", "total_dram_reads_mean"]].sum().sum() == self.dram_accesses()
-        )
+        # print("===")
+        # print(self.result_df)
+        # # print(self.result_df["num_blocks"])
+        # print("===")
+        # print(self.raw_stats_df["num_issued_blocks"].sum(), self.num_blocks())
+        assert self.raw_stats_df["num_issued_blocks"].sum() == self.num_blocks()
+        assert self.raw_stats_df["gpu_tot_sim_cycle"].sum() == self.cycles()
+        assert self.raw_stats_df["gpu_total_instructions"].sum() == self.instructions()
+        assert self.raw_stats_df["total_dram_reads"].sum() == self.dram_reads()
+        assert self.raw_stats_df["total_dram_writes"].sum() == self.dram_writes()
+        assert self.raw_stats_df[["total_dram_writes", "total_dram_reads"]].sum().sum() == self.dram_accesses()
         assert self._get_raw_l2_read_stats(["HIT"]).sum().sum() == self.l2_read_hits()
         assert self._get_raw_l2_write_stats(["HIT"]).sum().sum() == self.l2_write_hits()
         assert self._get_raw_l2_read_stats(["MISS"]).sum().sum() == self.l2_read_misses()
@@ -63,8 +66,8 @@ class Stats(stats.Stats):
 
             raw_stats_dfs.append(raw_stats_df)
 
-        raw_stats_df = pd.concat(raw_stats_dfs)
-        self.raw_stats_df = common.compute_df_statistics(raw_stats_df, group_by=None)
+        self.raw_stats_df = pd.concat(raw_stats_dfs)
+        # self.raw_stats_df = common.compute_df_statistics(raw_stats_df, group_by=None)
 
     def _get_raw_l2_read_stats(self, status: Sequence[str]):
         return self._get_raw_l2_stats(stats.READ_ACCESS_KINDS, status)
@@ -73,13 +76,17 @@ class Stats(stats.Stats):
         return self._get_raw_l2_stats(stats.WRITE_ACCESS_KINDS, status)
 
     def _get_raw_l2_stats(self, kind: Sequence[str], status: Sequence[str]):
-        cols = [f"l2_cache_{k.upper()}_{s.upper()}_mean" for (k, s) in itertools.product(kind, status)]
+        cols = [f"l2_cache_{k.upper()}_{s.upper()}" for (k, s) in itertools.product(kind, status)]
         return self.raw_stats_df[cols]
 
     def _compute_warp_instructions(self):
-        for s in STAT_SUFFIXES:
-            self.result_df["warp_inst" + s] = self.raw_stats_df["warp_instruction_count" + s]
-            self.result_df["warp_inst" + s] /= self.result_df["num_blocks" + s] * stats.WARP_SIZE
+        num_warps = self.result_df["num_blocks"] * stats.WARP_SIZE
+        # print("this", self.raw_stats_df["warp_instruction_count"].values)
+        # print(num_warps)
+        self.result_df["warp_inst"] = self.raw_stats_df["warp_instruction_count"].values / num_warps
+        # for s in STAT_SUFFIXES:
+        #     self.result_df["warp_inst" + s] = self.raw_stats_df["warp_instruction_count" + s]
+        #     self.result_df["warp_inst" + s] /= self.result_df["num_blocks" + s] * stats.WARP_SIZE
 
     # def _compute_num_blocks(self):
     #     self.result_df[stat_cols("num_blocks")] = self.raw_stats_df[stat_cols("num_issued_blocks")]

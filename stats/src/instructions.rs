@@ -1,7 +1,19 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    strum::EnumIter,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+)]
 pub enum MemorySpace {
     // undefined_space = 0,
     // reg_space,
@@ -39,10 +51,25 @@ pub struct CsvRow {
     pub num_instructions: u64,
 }
 
-#[derive(Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstructionCounts {
     pub kernel_info: super::KernelInfo,
     pub inner: HashMap<(Option<usize>, MemorySpace, bool), u64>,
+}
+
+impl Default for InstructionCounts {
+    fn default() -> Self {
+        use strum::IntoEnumIterator;
+        let mut inner = HashMap::new();
+        for memory_space in MemorySpace::iter() {
+            inner.insert((None, memory_space, true), 0);
+            inner.insert((None, memory_space, false), 0);
+        }
+        Self {
+            inner,
+            kernel_info: super::KernelInfo::default(),
+        }
+    }
 }
 
 impl std::ops::AddAssign for InstructionCounts {

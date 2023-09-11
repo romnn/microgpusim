@@ -959,6 +959,10 @@ where
             kernel_stats.sim.kernel_name_mangled = kernel_info.mangled_name.clone();
             kernel_stats.sim.kernel_launch_id = kernel_info.launch_id;
 
+            kernel_stats.dram.kernel_info = kernel_info.clone();
+            kernel_stats.accesses.kernel_info = kernel_info.clone();
+            kernel_stats.instructions.kernel_info = kernel_info.clone();
+
             for cache_stats in [
                 &mut kernel_stats.l1i_stats,
                 &mut kernel_stats.l1c_stats,
@@ -977,7 +981,6 @@ where
             //     // cache.kernel_name = kernel.config.unmangled_name.clone();
             // }
 
-            kernel_stats.dram.kernel_info = kernel_info.clone();
             // kernel_stats.accesses.kernel_info = stats::KernelInfo {
             //     name: kernel.config.unmangled_name.clone(),
             //     launch_id: kernel_launch_id,

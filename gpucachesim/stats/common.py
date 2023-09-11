@@ -14,67 +14,67 @@ class Stats:
         self.result_df = result_df
 
     def exec_time_sec(self) -> float:
-        return self.result_df["exec_time_sec_mean"].sum()
+        return float(self.result_df["exec_time_sec"].mean())
 
     def cycles(self) -> float:
-        return self.result_df["cycles_mean"].sum()
+        return float(self.result_df["cycles"].mean())
 
     def num_blocks(self) -> float:
-        return self.result_df["num_blocks_mean"].sum()
+        return float(self.result_df["num_blocks"].mean())
 
     def instructions(self) -> float:
-        return self.result_df["instructions_mean"].sum()
+        return float(self.result_df["instructions"].mean())
 
     def warp_instructions(self) -> float:
-        return self.result_df["warp_inst_mean"].sum()
+        return float(self.result_df["warp_inst"].mean())
 
     def dram_reads(self) -> float:
-        return self.result_df["dram_reads_mean"].sum()
+        return float(self.result_df["dram_reads"].mean())
 
     def dram_writes(self) -> float:
-        return self.result_df["dram_writes_mean"].sum()
+        return float(self.result_df["dram_writes"].mean())
 
     def dram_accesses(self) -> float:
-        return self.result_df["dram_accesses_mean"].sum()
+        return float(self.result_df["dram_accesses"].mean())
 
     def l2_reads(self) -> float:
-        return self.result_df["l2_reads_mean"].sum()
+        return float(self.result_df["l2_reads"].mean())
 
     def l2_writes(self) -> float:
-        return self.result_df["l2_writes_mean"].sum()
+        return float(self.result_df["l2_writes"].mean())
 
     def l2_accesses(self) -> float:
-        return self.result_df["l2_accesses_mean"].sum()
+        return float(self.result_df["l2_accesses"].mean())
 
     def l2_read_hit_rate(self) -> float:
-        return float(self.result_df["l2_read_hit_rate_mean"].mean())
+        return float(self.result_df["l2_read_hit_rate"].mean())
 
     def l2_write_hit_rate(self) -> float:
-        return float(self.result_df["l2_write_hit_rate_mean"].mean())
+        return float(self.result_df["l2_write_hit_rate"].mean())
 
     def l2_read_miss_rate(self) -> float:
-        return float(self.result_df["l2_read_miss_rate_mean"].mean())
+        return float(self.result_df["l2_read_miss_rate"].mean())
 
     def l2_write_miss_rate(self) -> float:
-        return float(self.result_df["l2_write_miss_rate_mean"].mean())
+        return float(self.result_df["l2_write_miss_rate"].mean())
 
     def l2_read_hits(self) -> float:
-        return self.result_df["l2_read_hits_mean"].sum()
+        return float(self.result_df["l2_read_hits"].mean())
 
     def l2_write_hits(self) -> float:
-        return self.result_df["l2_write_hits_mean"].sum()
+        return float(self.result_df["l2_write_hits"].mean())
 
     def l2_read_misses(self) -> float:
-        return self.result_df["l2_read_misses_mean"].sum()
+        return float(self.result_df["l2_read_misses"].mean())
 
     def l2_write_misses(self) -> float:
-        return self.result_df["l2_write_misses_mean"].sum()
+        return float(self.result_df["l2_write_misses"].mean())
 
     def l2_hits(self) -> float:
-        return self.result_df["l2_hits"].sum()
+        return float(self.result_df["l2_hits"].mean())
 
     def l2_misses(self) -> float:
-        return self.result_df["l2_misses"].sum()
+        return float(self.result_df["l2_misses"].mean())
 
     # @abstractmethod
     # def cycles(self) -> int:

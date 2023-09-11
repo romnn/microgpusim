@@ -118,7 +118,7 @@ pub struct CsvRow {
     pub cache_id: usize,
     pub access_kind: AccessKind,
     pub is_write: bool,
-    pub access_stat: AccessStat,
+    pub access_status: AccessStat,
     pub num_accesses: usize,
 }
 
@@ -372,7 +372,7 @@ impl PerCache {
                     .into_iter()
                     // .sort_by_key(|(key, _)| *key)
                     .map(|((allocation_id, access), num_accesses)| {
-                        let (access_kind, access_stat) = access.0;
+                        let (access_kind, access_status) = access.0;
                         CsvRow {
                             kernel_name: self.kernel_info.name.clone(),
                             kernel_name_mangled: self.kernel_info.mangled_name.clone(),
@@ -381,7 +381,7 @@ impl PerCache {
                             allocation_id,
                             access_kind,
                             is_write: access_kind.is_write(),
-                            access_stat,
+                            access_status,
                             num_accesses,
                         }
                     }),
