@@ -14,6 +14,5 @@ fn main() {
         "release_build"
     };
 
-    println!("cargo:warning=profile is {build_profile:?}");
     println!("cargo:rustc-cfg=feature={build_profile:?}");
 }

@@ -17,21 +17,32 @@ macro_rules! status {
 #[inline]
 pub fn stats_match(
     play_stats: &playground::stats::StatsBridge,
-    box_stats: &stats::Stats,
+    mut box_stats: stats::Stats,
     max_rel_err: Option<f64>,
     abs_threshold: Option<f64>,
     check_cycles: bool,
 ) {
     let mut play_l1_inst_stats = stats::PerCache::from_iter(play_stats.l1i_stats.to_vec());
-    play_l1_inst_stats.shave();
     let mut play_l1_data_stats = stats::PerCache::from_iter(play_stats.l1d_stats.to_vec());
-    play_l1_data_stats.shave();
     let mut play_l1_tex_stats = stats::PerCache::from_iter(play_stats.l1t_stats.to_vec());
-    play_l1_tex_stats.shave();
     let mut play_l1_const_stats = stats::PerCache::from_iter(play_stats.l1c_stats.to_vec());
-    play_l1_const_stats.shave();
     let mut play_l2_data_stats = stats::PerCache::from_iter(play_stats.l2d_stats.to_vec());
+
+    // remove entries with zero number of accesses
+    play_l1_inst_stats.shave();
+    box_stats.l1i_stats.shave();
+
+    play_l1_data_stats.shave();
+    box_stats.l1d_stats.shave();
+
+    play_l1_tex_stats.shave();
+    box_stats.l1t_stats.shave();
+
+    play_l1_const_stats.shave();
+    box_stats.l1c_stats.shave();
+
     play_l2_data_stats.shave();
+    box_stats.l2d_stats.shave();
 
     if max_rel_err.is_some() || abs_threshold.is_some() {
         // compare reduced cache stats

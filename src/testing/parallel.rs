@@ -94,7 +94,7 @@ pub fn run(
 
     let max_rel_err = Some(0.05); // allow 5% difference
     let abs_threshold = Some(10.0); // allow absolute difference of 10
-    asserts::stats_match(play_stats, &box_stats, max_rel_err, abs_threshold, false);
+    asserts::stats_match(play_stats, box_stats, max_rel_err, abs_threshold, false);
     Ok(())
 }
 

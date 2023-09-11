@@ -33,7 +33,10 @@ fn parse_accelsim_traces(
     // note: accelsim kernel launch ids start at index 1
     for (cmd, _) in &mut command_traces {
         if let trace_model::Command::KernelLaunch(kernel) = cmd {
-            kernel.id -= 1;
+            kernel.id = kernel
+                .id
+                .checked_sub(1)
+                .expect("accelsim kernel launch ids start at index 1");
         }
     }
 

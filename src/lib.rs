@@ -944,6 +944,14 @@ where
 
         // compute on demand
         for (kernel_launch_id, kernel_stats) in stats.as_mut().iter_mut().enumerate() {
+            // dbg!(&kernel_launch_id);
+            // dbg!(&self
+            //     .executed_kernels
+            //     .lock()
+            //     .iter()
+            //     .map(|(i, k)| (i, k.to_string()))
+            //     .collect::<Vec<_>>());
+
             let kernel = &self.executed_kernels.lock()[&(kernel_launch_id as u64)];
             let kernel_info = stats::KernelInfo {
                 name: kernel.config.unmangled_name.clone(),

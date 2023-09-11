@@ -115,6 +115,16 @@ pub fn convert_accelsim_to_box_traces(options: &Conversion<'_>) -> eyre::Result<
                 // update the kernel trace path
                 kernel.trace_file = generated_kernel_trace_name;
 
+                // note: accelsim kernel launch ids start at index 1
+                // for (cmd, _) in &mut command_traces {
+                //     if let trace_model::Command::KernelLaunch(kernel) = cmd {
+                kernel.id = kernel
+                    .id
+                    .checked_sub(1)
+                    .expect("accelsim kernel launch ids start at index 1");
+                //     }
+                // }
+
                 Ok::<_, eyre::Report>(trace_model::Command::KernelLaunch(kernel))
             }
         })

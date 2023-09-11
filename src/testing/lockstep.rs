@@ -773,7 +773,7 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
     let max_rel_err = if allow_rel_err { Some(0.05) } else { None };
     // allow absolute difference of 10
     let abs_threshold = if allow_rel_err { Some(10.0) } else { None };
-    asserts::stats_match(play_stats, &box_stats, max_rel_err, abs_threshold, true);
+    asserts::stats_match(play_stats, box_stats, max_rel_err, abs_threshold, true);
 
     Ok(())
 }
@@ -855,4 +855,3 @@ lockstep_checks! {
     // babelstream
     babelstream_1024_test: ("babelstream", { "size": 1024 }),
 }
-
