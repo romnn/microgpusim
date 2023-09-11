@@ -67,6 +67,16 @@ class Stats(common.Stats):
         self.load_converted_stats()
         self.compute_result_df()
 
+        # # add the input configs
+        # # print(self.bench_config["values"])
+        # values = pd.DataFrame.from_records([self.bench_config["values"]])
+        # values.columns = [self.bench_config["name"] + "_" + c for c in values.columns]
+        # values["simulator"] = "gpucachesim"
+        # values = self.result_df.merge(values, how="cross")
+        # # values = pd.concat([values, self.result_df])  # , axis="columns")
+        # # self.result_df.join()
+        # print(values.T)
+
     def load_converted_stats(self) -> None:
         exec_time_sec_release_dfs = []
         sim_dfs = []
@@ -117,12 +127,16 @@ class Stats(common.Stats):
             dram_banks_df["run"] = r
             dram_banks_dfs.append(dram_banks_df)
 
-            instructions_df = pd.read_csv(
-                self.path / f"stats.instructions.{r}.csv",
-                header=0,
-                # header=None,
-                # names=["memory_space", "write", "count"],
-            )
+            try:
+                instructions_df = pd.read_csv(
+                    self.path / f"stats.instructions.{r}.csv",
+                    header=0,
+                    # header=None,
+                    # names=["memory_space", "write", "count"],
+                )
+            except pd.errors.EmptyDataError:
+                print(self.path / f"stats.instructions.{r}.csv")
+                raise
             instructions_df["run"] = r
             instructions_dfs.append(instructions_df)
 
@@ -149,46 +163,46 @@ class Stats(common.Stats):
         self.exec_time_sec_release = pd.concat(exec_time_sec_release_dfs)
         # print(exec_time_sec_release)
         # self.exec_time_sec_release = common.compute_df_statistics(exec_time_sec_release, group_by=None)
-        print(self.exec_time_sec_release)
         # self.exec_time_sec_release = common.compute_df_statistics(exec_time_sec_release, group_by=INDEX_COLS)
+        # print(self.exec_time_sec_release)
 
         self.sim_df = pd.concat(sim_dfs)
         # print(sim_df)
         # self.sim_df = common.compute_df_statistics(sim_df, group_by=None)
-        print(self.sim_df)
+        # print(self.sim_df)
 
         self.accesses_df = pd.concat(accesses_dfs)
         # print(accesses_df)
         # self.accesses_df = common.compute_df_statistics(accesses_df, group_by=["access"])
-        print(self.accesses_df)
+        # print(self.accesses_df)
 
         self.dram_df = pd.concat(dram_dfs)
         # print(dram_df)
         # self.dram_df = common.compute_df_statistics(dram_df, group_by=["chip_id", "bank_id"])
-        print(self.dram_df)
+        # print(self.dram_df)
 
         self.dram_banks_df = pd.concat(dram_banks_dfs)
         # print(dram_banks_df)
         # self.dram_banks_df = common.compute_df_statistics(dram_banks_df, group_by=["core_id", "chip_id", "bank_id"])
-        print(self.dram_banks_df)
+        # print(self.dram_banks_df)
 
         self.instructions_df = pd.concat(instructions_dfs)
         # print(instructions_df)
         # self.instructions_df = common.compute_df_statistics(instructions_df, group_by=["memory_space", "write"])
-        print(self.instructions_df)
+        # print(self.instructions_df)
 
-        def load_cache_stats(dfs):
-            df = pd.concat(dfs)
-            # print(df)
-            # df = common.compute_df_statistics(df, group_by=["cache_id", "access_type", "status", "is_write"])
-            # print(df)
-            return df
+        # def load_cache_stats(dfs):
+        #     df = pd.concat(dfs)
+        #     # print(df)
+        #     # df = common.compute_df_statistics(df, group_by=["cache_id", "access_type", "status", "is_write"])
+        #     # print(df)
+        #     return df
 
-        self.l1_inst_stats_df = load_cache_stats(l1_inst_stats_dfs)
-        self.l1_tex_stats_df = load_cache_stats(l1_tex_stats_dfs)
-        self.l1_data_stats_df = load_cache_stats(l1_data_stats_dfs)
-        self.l1_const_stats_df = load_cache_stats(l1_const_stats_dfs)
-        self.l2_data_stats_df = load_cache_stats(l2_data_stats_dfs)
+        self.l1_inst_stats_df = pd.concat(l1_inst_stats_dfs)
+        self.l1_tex_stats_df = pd.concat(l1_tex_stats_dfs)
+        self.l1_data_stats_df = pd.concat(l1_data_stats_dfs)
+        self.l1_const_stats_df = pd.concat(l1_const_stats_dfs)
+        self.l2_data_stats_df = pd.concat(l2_data_stats_dfs)
 
     def compute_result_df(self):
         self.result_df = pd.DataFrame()

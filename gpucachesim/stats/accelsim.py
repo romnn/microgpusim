@@ -30,12 +30,9 @@ class Stats(stats.Stats):
 
         self.compute_result_df()
 
+        # add the input configs
+
         # sanity checks
-        # print("===")
-        # print(self.result_df)
-        # # print(self.result_df["num_blocks"])
-        # print("===")
-        # print(self.raw_stats_df["num_issued_blocks"].sum(), self.num_blocks())
         assert self.raw_stats_df["num_issued_blocks"].sum() == self.num_blocks()
         assert self.raw_stats_df["gpu_tot_sim_cycle"].sum() == self.cycles()
         assert self.raw_stats_df["gpu_total_instructions"].sum() == self.instructions()

@@ -82,10 +82,11 @@ def main(path, config_path, bench_name, input_idx):
     with open(config_path, "rb") as f:
         config = GPUConfig(yaml.safe_load(f))
 
-    for bench_config in benches[:100]:
+    for bench_config in benches[:200]:
         # pprint(bench_config)
         name = bench_config["name"]
-        match bench_config["target"].lower():
+        target = bench_config["target"]
+        match target.lower():
             case "profile":
                 bench_stats = native.Stats(config, bench_config)
             case "simulate":
@@ -98,11 +99,21 @@ def main(path, config_path, bench_name, input_idx):
                 print(f"WARNING: {name} has unknown target {other}")
                 continue
 
-        if False:
+        print(bench_config["target"], bench_stats)
+        if True:
+            import pandas as pd
+
+            values = pd.DataFrame.from_records([bench_config["values"]])
+            values.columns = [bench_config["name"] + "_" + c for c in values.columns]
+            values["target"] = target
+            values = bench_stats.result_df.merge(values, how="cross")
+
             print("======")
-            print(bench_stats.result_df.T)
-            print("======")
-            print(bench_stats.print_all_stats())
+            print(values.T)
+            # print(bench_stats.result_df.T)
+
+            # print("======")
+            # print(bench_stats.print_all_stats())
 
     return
 
