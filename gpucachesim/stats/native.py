@@ -252,7 +252,7 @@ class Stats(common.Stats):
     def _compute_exec_time_sec(self):
         # print(self._kernel_durations_us())
         # print(self.result_df)
-        self.result_df["exec_time_sec"] = self._kernel_durations_us().values
+        self.result_df["exec_time_sec"] = self._kernel_durations_us().values * float(1e-6)
         # self.result_df["exec_time_sec"] = self._kernel_durations_us() * float(1e-6)
         # self.result_df[stat_cols("exec_time_sec")] = self._duration_us() * float(1e-6)
 
@@ -628,7 +628,7 @@ class Stats(common.Stats):
     #     # return int(float(self.l2_writes()) * self._l2_write_miss_rate())
 
     def _compute_l2_hits(self):
-        self.result_df["l2_hits"] = self.result_df["l2_read_hits"] * self.result_df["l2_write_hits"]
+        self.result_df["l2_hits"] = self.result_df["l2_read_hits"] + self.result_df["l2_write_hits"]
         # for s in STAT_SUFFIXES:
         #     self.result_df["l2_hits" + s] = self.result_df["l2_read_hits" + s] + self.result_df["l2_write_hits" + s]
         # return self.l2_read_hits() + self.l2_write_hits()
@@ -638,7 +638,7 @@ class Stats(common.Stats):
     #     # return self.l2_read_hits() + self.l2_write_hits()
 
     def _compute_l2_misses(self):
-        self.result_df["l2_misses"] = self.result_df["l2_read_misses"] * self.result_df["l2_write_misses"]
+        self.result_df["l2_misses"] = self.result_df["l2_read_misses"] + self.result_df["l2_write_misses"]
         # for s in STAT_SUFFIXES:
         #     self.result_df["l2_misses" + s] = (
         #         self.result_df["l2_read_misses" + s] + self.result_df["l2_write_misses" + s]
@@ -665,7 +665,6 @@ class Stats(common.Stats):
             # convert us to us (1e-6)
             # duration already us
             kernel_launches = self._kernel_launches_df()
-            # print(kernel_launches)
             grouped = kernel_launches.groupby(INDEX_COLS, dropna=False)
             return grouped[nvprof_key].sum()
 

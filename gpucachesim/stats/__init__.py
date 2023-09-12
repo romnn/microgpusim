@@ -13,6 +13,10 @@ from gpucachesim.stats.human import human_readable
 from gpucachesim.benchmarks import Target, Benchmarks, GPUConfig, REPO_ROOT_DIR
 
 
+# suppress scientific notation by setting float_format
+pd.options.display.float_format = "{:.3f}".format
+np.seterr(all="raise")
+
 DEFAULT_CONFIG_FILE = REPO_ROOT_DIR / "./accelsim/gtx1080/gpgpusim.config.yml"
 
 
@@ -57,10 +61,10 @@ INDEX_COLS = ["target", "benchmark", "input_id"]
 
 def benchmark_results(sim_df: pd.DataFrame, bench_name: str, targets=None) -> pd.DataFrame:
     """View results for a benchmark"""
-    np.seterr(all="raise")
 
     selected_df = sim_df.copy()
     selected_df = selected_df[selected_df["benchmark"] == bench_name]
+    print(selected_df)
     # only compare serial gpucachesim
     # selected_df = selected_df[selected_df["input_mode"] != "nondeterministic"]
     non_gpucachesim = selected_df["input_mode"].isnull()
@@ -90,7 +94,11 @@ def benchmark_results(sim_df: pd.DataFrame, bench_name: str, targets=None) -> pd
 # @click.option("--input", "input_idx", type=int, help="Input index")
 def view(path, bench_name):
     # load the materialized benchmark config
-    stats_file = REPO_ROOT_DIR / "results/combined.stats.csv"
+    if bench_name is None:
+        stats_file = REPO_ROOT_DIR / "results/combined.stats.csv"
+    else:
+        stats_file = REPO_ROOT_DIR / f"results/combined.stats.{bench_name}.csv"
+
     sim_df = pd.read_csv(stats_file, header=0)
     assert (sim_df["input_mode"] == "serial").sum() > 0
 
@@ -121,8 +129,10 @@ def view(path, bench_name):
 @click.option("--config", "config_path", default=DEFAULT_CONFIG_FILE, help="Path to GPU config")
 @click.option("--bench", "bench_name", help="Benchmark name")
 @click.option("--input", "input_idx", type=int, help="Input index")
+@click.option("--limit", "limit", type=int, help="Limit number of benchmark configs generated")
+@click.option("--verbose", "verbose", type=bool, help="verbose output")
 @click.option("--out", "output_path", help="Output path for combined stats")
-def generate(path, config_path, bench_name, input_idx, output_path):
+def generate(path, config_path, bench_name, input_idx, limit, verbose, output_path):
     from pprint import pprint
     import wasabi
 
@@ -132,8 +142,8 @@ def generate(path, config_path, bench_name, input_idx, output_path):
     results_dir = Path(b.config["results_dir"])
 
     for target in [
-        Target.Simulate,
         Target.Profile,
+        Target.Simulate,
         Target.AccelsimSimulate,
         Target.PlaygroundSimulate,
     ]:
@@ -143,7 +153,10 @@ def generate(path, config_path, bench_name, input_idx, output_path):
         else:
             benches.extend(b.benchmarks[target.value][bench_name])
 
-    print(len(benches))
+    if limit is not None:
+        benches = benches[:limit]
+
+    print(f"processing {len(benches)} benchmark configurations")
 
     with open(config_path, "rb") as f:
         config = GPUConfig(yaml.safe_load(f))
@@ -181,7 +194,8 @@ def generate(path, config_path, bench_name, input_idx, output_path):
 
         values = bench_stats.result_df.merge(values, how="cross")
 
-        print(values.T)
+        if verbose:
+            print(values.T)
         all_stats.append(values)
         # print(bench_stats.result_df.T)
 
@@ -189,13 +203,16 @@ def generate(path, config_path, bench_name, input_idx, output_path):
         # print(bench_stats.print_all_stats())
 
     all_stats = pd.concat(all_stats)
-    # print(all_stats)
+    if verbose:
+        print(all_stats)
 
-    all_stats_output_path = results_dir / "combined.stats.csv"
+    if bench_name is None:
+        all_stats_output_path = results_dir / "combined.stats.csv"
+    else:
+        all_stats_output_path = results_dir / f"combined.stats.{bench_name}.csv"
+
     if output_path is not None:
         all_stats_output_path = Path(output_path)
-
-    return
 
     print(f"saving to {all_stats_output_path}")
     all_stats_output_path.parent.mkdir(parents=True, exist_ok=True)

@@ -64,7 +64,7 @@ impl PerKernel {
     pub fn new(config: Config) -> Self {
         Self {
             config,
-            inner: vec![],
+            inner: Vec::new(),
         }
     }
 

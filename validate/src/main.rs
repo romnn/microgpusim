@@ -79,50 +79,6 @@ async fn run_make(
     Ok(())
 }
 
-#[allow(clippy::too_many_lines)]
-async fn run_command(
-    command: Command,
-    bench: &BenchmarkConfig,
-    options: &Options,
-    bar: &ProgressBar,
-) -> Result<(), validate::RunError> {
-    let start = Instant::now();
-    let res = match command {
-        Command::Profile(ref opts) => validate::profile::profile(bench, options, opts, bar).await,
-        Command::AccelsimTrace(ref opts) => {
-            validate::accelsim::trace(bench, options, opts, bar).await
-        }
-        Command::Trace(ref opts) => validate::trace::trace(bench, options, opts, bar).await,
-        Command::Simulate(ref opts) => {
-            validate::simulate::simulate(bench.clone(), options, opts, bar).await
-        }
-        Command::AccelsimSimulate(ref opts) => {
-            validate::accelsim::simulate(bench, options, opts, bar).await
-        }
-        Command::PlaygroundSimulate(ref opts) => {
-            validate::playground::simulate(bench.clone(), options, opts, bar).await
-        }
-        Command::Build(_) => run_make(bench, options, bar).await,
-        _ => Ok(()),
-    };
-
-    let res = res.map_err(|err| Error::new(err, bench.clone()));
-    print_benchmark_result(
-        &command,
-        bench,
-        res.as_ref().err(),
-        start.elapsed(),
-        bar,
-        options,
-    );
-    // }
-    match res {
-        Ok(()) => Ok(()),
-        Err(err) => err.into(),
-    }
-}
-
-#[allow(clippy::too_many_lines)]
 async fn run_benchmark(
     command: &Command,
     bench: BenchmarkConfig,
@@ -131,114 +87,39 @@ async fn run_benchmark(
 ) -> Result<(), validate::RunError> {
     bar.set_message(bench.name.clone());
     match command {
-        Command::Full(ref _opts) => {
-            for command in [
-                Command::Build(options::Build::default()),
-                Command::Profile(options::Profile::default()),
-                Command::Trace(options::Trace::default()),
-                Command::AccelsimTrace(options::AccelsimTrace::default()),
-                Command::Simulate(options::Sim::default()),
-                Command::AccelsimSimulate(options::AccelsimSim::default()),
-                Command::PlaygroundSimulate(options::PlaygroundSim::default()),
-            ] {
-                run_command(command, &bench, options, bar).await?;
-            }
-            // run_command(
-            //     &bench,
-            //     options,
-            //     bar,
-            // )
-            // .await?;
-            // run_command(
-            //     &bench,
-            //     options,
-            //     bar,
-            // )
-            // .await?;
-            // run_command(
-            //     &bench,
-            //     options,
-            //     bar,
-            // )
-            // .await?;
-
-            // let start = Instant::now();
-            // let build_options = options::Build::default();
-            // let res = run_make(&bench, options, bar)
-            //     .await
-            //     .map_err(|err| Error::new(err, bench.clone()));
-            // print_benchmark_result(
-            //     &Command::Build(build_options),
-            //     &bench,
-            //     &res,
-            //     start.elapsed(),
-            //     &bar,
-            //     &options,
-            // );
-            //
-            // let start = Instant::now();
-            // let profile_options = options::Profile::default();
-            // let res = validate::profile::profile(&bench, options, &profile_options, bar)
-            //     .await
-            //     .map_err(|err| Error::new(err, bench.clone()));
-            // print_benchmark_result(
-            //     &Command::Profile(profile_options),
-            //     &bench,
-            //     &res,
-            //     start.elapsed(),
-            //     &bar,
-            //     &options,
-            // );
-            //
-            // let start = Instant::now();
-            // let trace_options = options::Trace::default();
-            // let res = validate::trace::trace(&bench, options, &trace_options, bar)
-            //     .await
-            //     .map_err(|err| Error::new(err, bench.clone()));
-            // print_benchmark_result(
-            //     &Command::Trace(trace_options),
-            //     &bench,
-            //     &res,
-            //     start.elapsed(),
-            //     &bar,
-            //     &options,
-            // );
-            //
-            // let start = Instant::now();
-            // let trace_options = options::Trace::default();
-            // let res = validate::accelsim::acce(&bench, options, &trace_options, bar)
-            //     .await
-            //     .map_err(|err| Error::new(err, bench.clone()));
-            // print_benchmark_result(
-            //     &Command::Trace(trace_options),
-            //     &bench,
-            //     &res,
-            //     start.elapsed(),
-            //     &bar,
-            //     &options,
-            // );
-
-            Ok(())
-        }
+        Command::Full(ref _opts) => unreachable!(),
         Command::Expand(ref _opts) => {
             println!("{:#?}", &bench);
             Ok(())
         }
-        Command::Profile(ref opts) => validate::profile::profile(&bench, options, opts, bar).await,
+        Command::Profile(ref opts) => {
+            validate::profile::profile(&bench, options, opts, bar).await
+            // Ok(())
+        }
         Command::AccelsimTrace(ref opts) => {
             validate::accelsim::trace(&bench, options, opts, bar).await
+            // Ok(())
         }
-        Command::Trace(ref opts) => validate::trace::trace(&bench, options, opts, bar).await,
+        Command::Trace(ref opts) => {
+            validate::trace::trace(&bench, options, opts, bar).await
+            // Ok(())
+        }
         Command::Simulate(ref opts) => {
             validate::simulate::simulate(bench, options, opts, bar).await
+            // Ok(())
         }
         Command::AccelsimSimulate(ref opts) => {
             validate::accelsim::simulate(&bench, options, opts, bar).await
+            // Ok(())
         }
         Command::PlaygroundSimulate(ref opts) => {
             validate::playground::simulate(bench, options, opts, bar).await
+            // Ok(())
         }
-        Command::Build(_) | Command::Clean(_) => run_make(&bench, options, bar).await,
+        Command::Build(_) | Command::Clean(_) => {
+            run_make(&bench, options, bar).await
+            // Ok(())
+        }
     }
 }
 
@@ -301,39 +182,6 @@ fn parse_benchmarks(options: &Options) -> eyre::Result<Benchmarks> {
     Ok(materialized)
 }
 
-/// get benchmark configurations
-pub fn filter_benchmarks(benches: &mut Vec<BenchmarkConfig>, options: &Options) {
-    benches.retain(|bench_config| {
-        if options.selected_benchmarks.is_empty() {
-            // keep all benchmarks when no filters provided
-            return true;
-        }
-
-        let name = bench_config.name.to_lowercase();
-        for b in &options.selected_benchmarks {
-            let valid_patterns = [
-                // try "benchmark_name"
-                &name,
-                // try "benchmark_name[input_idx]"
-                &format!("{}[{}]", name, bench_config.input_idx),
-                // try "benchmark_name@input_idx"
-                &format!("{}@{}", name, bench_config.input_idx),
-            ];
-            if valid_patterns.into_iter().any(|p| b.to_lowercase() == *p) {
-                // keep benchmark config
-                return true;
-            }
-        }
-        // skip
-        false
-    });
-
-    if let Command::Build(_) | Command::Clean(_) = options.command {
-        // do not build the same executables multiple times
-        benches.dedup_by_key(|bench_config| bench_config.executable.clone());
-    }
-}
-
 fn print_benchmark_result(
     command: &Command,
     bench_config: &BenchmarkConfig,
@@ -352,7 +200,7 @@ fn print_benchmark_result(
         Command::Build(_) => "building",
         Command::Clean(_) => "cleaning",
         Command::Expand(_) => "expanding",
-        Command::Full(_) => "validating",
+        Command::Full(_) => unreachable!(),
     };
     let op = style(op).cyan();
     let executable = std::env::current_dir().ok().map_or_else(
@@ -381,7 +229,7 @@ fn print_benchmark_result(
     match command {
         Command::Build(_) | Command::Clean(_) => {
             bar.println(format!(
-                "{:>15} {:>20} [ {} ] {}",
+                "{:<25} {:<20} [ {} ] {}",
                 op,
                 color.apply_to(&bench_config.name),
                 executable.display(),
@@ -392,7 +240,7 @@ fn print_benchmark_result(
             let benchmark_config_id =
                 format!("{}@{:<3}", &bench_config.name, bench_config.input_idx);
             bar.println(format!(
-                "{:>15} {:>20} [ {} ][ {} {} ] {}",
+                "{:<25} {:<20} [ {} ][ {} {} ] {}",
                 op,
                 color.apply_to(benchmark_config_id),
                 materialized::bench_config_name(&bench_config.name, &bench_config.values, true),
@@ -459,80 +307,144 @@ async fn main() -> eyre::Result<()> {
     let concurrency = available_concurrency(&options, &materialized.config);
     println!("concurrency: {concurrency}");
 
-    let target_benches = match options.command {
-        Command::Full(_) => todo!(),
-        Command::Simulate(_) => &materialized.benchmarks[&Target::Simulate],
-        Command::Trace(_) => &materialized.benchmarks[&Target::Trace],
-        Command::AccelsimTrace(_) => &materialized.benchmarks[&Target::AccelsimTrace],
-        Command::AccelsimSimulate(_) => &materialized.benchmarks[&Target::AccelsimSimulate],
-        Command::PlaygroundSimulate(_) => &materialized.benchmarks[&Target::PlaygroundSimulate],
-        Command::Profile(_) => &materialized.benchmarks[&Target::Profile],
-        Command::Build(_) | Command::Clean(_) => &materialized.benchmarks[&Target::Profile],
-        Command::Expand(options::Expand { target, .. }) => {
-            &materialized.benchmarks[&target.unwrap_or(Target::Simulate)]
-        }
+    let commands = match &options.command {
+        Command::Full(_) => vec![
+            Command::Build(options::Build::default()),
+            Command::Profile(options::Profile::default()),
+            Command::Trace(options::Trace::default()),
+            Command::AccelsimTrace(options::AccelsimTrace::default()),
+            Command::Simulate(options::Sim::default()),
+            Command::AccelsimSimulate(options::AccelsimSim::default()),
+            Command::PlaygroundSimulate(options::PlaygroundSim::default()),
+        ],
+        other => vec![other.clone()],
     };
-    let mut target_benches: Vec<BenchmarkConfig> = target_benches
-        .iter()
-        .flat_map(|(_name, bench_configs)| bench_configs.iter())
-        .cloned()
+
+    let per_command_bench_configs: Vec<(_, _)> = commands
+        .into_iter()
+        .map(|command| {
+            use std::collections::HashSet;
+            let targets: HashSet<_> = command.targets().collect();
+            let mut bench_configs: Vec<_> = materialized
+                .benchmark_configs()
+                .filter(|bench_config| {
+                    if !targets.contains(&bench_config.target) {
+                        return false;
+                    }
+
+                    if options.selected_benchmarks.is_empty() {
+                        // keep all benchmarks when no filters provided
+                        return true;
+                    }
+
+                    let name = bench_config.name.to_lowercase();
+                    for b in &options.selected_benchmarks {
+                        let valid_patterns = [
+                            // try "benchmark_name"
+                            &name,
+                            // try "benchmark_name[input_idx]"
+                            &format!("{}[{}]", name, bench_config.input_idx),
+                            // try "benchmark_name@input_idx"
+                            &format!("{}@{}", name, bench_config.input_idx),
+                        ];
+                        if valid_patterns.into_iter().any(|p| b.to_lowercase() == *p) {
+                            // keep benchmark config
+                            return true;
+                        }
+                    }
+                    // skip
+                    false
+                })
+                .collect();
+
+            if let Command::Build(_) | Command::Clean(_) = command {
+                // do not build the same executables multiple times
+                bench_configs.dedup_by_key(|bench_config| bench_config.executable.clone());
+            }
+
+            // sort benchmarks
+            bench_configs.sort_by_key(|bench_config| {
+                (
+                    bench_config.target,
+                    bench_config.name.clone(),
+                    bench_config.input_idx,
+                )
+            });
+
+            (command, bench_configs)
+        })
         .collect();
 
-    // let mut enabled_benches: Vec<_> = materialized.enabled().cloned().collect();
-    filter_benchmarks(&mut target_benches, &options);
-    let num_bench_configs = target_benches.len();
+    let num_bench_configs = per_command_bench_configs
+        .iter()
+        .flat_map(|(_command, bench_configs)| bench_configs)
+        .count();
 
     // create progress bar
-    let bar = Arc::new(ProgressBar::new(target_benches.len() as u64));
+    let bar = Arc::new(ProgressBar::new(num_bench_configs as u64));
     bar.enable_steady_tick(std::time::Duration::from_secs_f64(1.0 / 10.0));
     bar.set_style(progress::Style::default().into());
 
     let should_exit = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
-    let results: Vec<Result<_, Error>> = stream::iter(target_benches)
-        .map(|bench_config| {
-            let options = options.clone();
-            let bar = bar.clone();
-            let should_exit = should_exit.clone();
-            async move {
-                use std::sync::atomic::Ordering::Relaxed;
+    let mut results: Vec<Result<_, Error>> = Vec::new();
 
-                let start = Instant::now();
-                let res: Result<_, Error> = if should_exit.load(Relaxed) {
-                    Err(Error::Canceled(bench_config.clone()))
-                } else {
-                    run_benchmark(&options.command, bench_config.clone(), &options, &bar)
-                        .await
-                        .map_err(|err| Error::new(err, bench_config.clone()))
-                };
-                bar.inc(1);
-                print_benchmark_result(
-                    &options.command,
-                    &bench_config,
-                    res.as_ref().err(),
-                    start.elapsed(),
-                    &bar,
-                    &options,
-                );
+    for (command, bench_configs) in per_command_bench_configs {
+        let step_results: Vec<Result<_, Error>> = stream::iter(bench_configs.into_iter())
+            .map(|bench_config| {
+                let options = options.clone();
+                let bar = bar.clone();
+                let should_exit = should_exit.clone();
+                let bench_config = bench_config.clone();
+                let command = command.clone();
+                async move {
+                    use std::sync::atomic::Ordering::Relaxed;
 
-                match res {
-                    Err(Error::Failed { .. }) if options.fail_fast => {
-                        should_exit.store(true, Relaxed);
+                    let start = Instant::now();
+                    let res: Result<_, Error> = if should_exit.load(Relaxed) {
+                        Err(Error::Canceled(bench_config.clone()))
+                    } else {
+                        run_benchmark(&command, bench_config.clone(), &options, &bar)
+                            .await
+                            .map_err(|err| Error::new(err, bench_config.clone()))
+                    };
+                    bar.inc(1);
+                    print_benchmark_result(
+                        &command,
+                        &bench_config,
+                        res.as_ref().err(),
+                        start.elapsed(),
+                        &bar,
+                        &options,
+                    );
+
+                    match res {
+                        Err(Error::Failed { .. }) if options.fail_fast => {
+                            should_exit.store(true, Relaxed);
+                        }
+                        _ => {}
                     }
-                    _ => {}
+                    res
                 }
-                res
-            }
-        })
-        .buffer_unordered(concurrency)
-        .collect()
-        .await;
-    bar.finish();
+            })
+            .buffer_unordered(concurrency)
+            .collect()
+            .await;
+        results.extend(step_results);
+        if results
+            .iter()
+            .any(|res| matches!(res, Err(Error::Failed { .. })))
+        {
+            break;
+        }
+    }
+    // do not finish the bar, since we may exit early if a stage failed.
+    // bar.finish();
 
     let _ = utils::fs::rchmod_writable(&materialized.config.results_dir);
 
     let (succeeded, failed): (Vec<_>, Vec<_>) = utils::partition_results(results);
-    assert_eq!(num_bench_configs, succeeded.len() + failed.len());
+    // assert_eq!(num_bench_configs, succeeded.len() + failed.len());
 
     let mut num_failed = 0;
     let mut num_skipped = 0;

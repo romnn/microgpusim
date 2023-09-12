@@ -370,6 +370,13 @@ impl Benchmarks {
             .find(|config| config.input_idx == input_idx)
     }
 
+    pub fn benchmark_configs(&self) -> impl Iterator<Item = &BenchmarkConfig> + '_ {
+        self.benchmarks
+            .values()
+            .flat_map(|benchmarks| benchmarks.values())
+            .flat_map(|benchmark| benchmark)
+    }
+
     pub fn query(
         &self,
         target: Target,
@@ -378,7 +385,6 @@ impl Benchmarks {
         strict: bool,
     ) -> impl Iterator<Item = Result<&BenchmarkConfig, QueryError>> + '_ {
         use serde_yaml::Value;
-        use std::collections::HashSet;
         self.get_input_configs(target, benchmark_name.into())
             .filter_map(move |bench_config| {
                 let bench_entries: HashSet<(&String, &Value)> =

@@ -1,3 +1,4 @@
+use crate::Target;
 use clap::Parser;
 use std::path::PathBuf;
 
@@ -49,6 +50,25 @@ pub enum Command {
     Clean(Clean),
     Expand(Expand),
     Full(Full),
+}
+
+impl Command {
+    pub fn targets(&self) -> Box<dyn Iterator<Item = Target>> {
+        use strum::IntoEnumIterator;
+        match self {
+            Command::Full(_) => Box::new(Target::iter()), // all
+            Command::Simulate(_) => Box::new([Target::Simulate].into_iter()),
+            Command::Trace(_) => Box::new([Target::Trace].into_iter()),
+            Command::AccelsimTrace(_) => Box::new([Target::AccelsimTrace].into_iter()),
+            Command::AccelsimSimulate(_) => Box::new([Target::AccelsimSimulate].into_iter()),
+            Command::PlaygroundSimulate(_) => Box::new([Target::PlaygroundSimulate].into_iter()),
+            Command::Profile(_) => Box::new([Target::Profile].into_iter()),
+            Command::Build(_) | Command::Clean(_) => Box::new([Target::Profile].into_iter()),
+            Command::Expand(Expand { target, .. }) => {
+                Box::new([target.unwrap_or(Target::Simulate)].into_iter())
+            }
+        }
+    }
 }
 
 #[derive(Parser, Debug, Clone)]

@@ -26,7 +26,7 @@ config:
   # for simulation, we do not set a limit on concurrency
   simulate:
     # No concurrency limit for now (until we implement multi-threading)
-    concurrency: 1 # null
+    concurrency: 4 # null
     repetitions: 1
     # this is added to all inputs
     inputs:

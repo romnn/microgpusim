@@ -4,10 +4,13 @@
 
   - NOTE: change playground back to correct accelsim compat
 
-  - speed up simulate run for validate
+  - implement full validate for benchmark
 
-    - set repetitions to 1 temp
-    - increase concurrency temp
+  - larger vectoradd example
+  - DONE: speed up simulate run for validate
+
+    - DONE: set repetitions to 1 temp
+    - DONE: increase concurrency temp
 
   - add options to simulate
 
@@ -15,15 +18,7 @@
     - memory only mode versus compute as well
 
   - investigate the effect that the dram model has
-
-  - wrap the stats in a per kernel vector (faster than hashmap?)
-
-  - wrap the stats in a per kernel vector (faster than hashmap?)
-  - add allocation id to per kernel stats where it makes sense (e.g. NOT cycles or instructions)
-
-  - even when using non-detailed stats, index by kernel launch id
-  - do not compute mean and min max etc. until the last step (plotting)
-  - build a well defined dataframe in all of the classes including the inputs and concat them
+  - investigate the l1 cache
 
   - write more execution driven examples (especially the different transpose variants)
 
@@ -43,9 +38,6 @@
     - check for statistical variability with profiling
 
   - add option for l2 set index unless when in compat mode
-  - add option for full trace and do the filtering post-tracing
-
-    - (so we dont need to maintain separate traces)
 
   -
   - config is passed to instruction for different things
@@ -64,6 +56,13 @@
   - convert, match and plot statistics
   - record mem fetch latency in playground and box
 
+  - DONE: add option for full trace and do the filtering post-tracing
+    - DONE: (so we dont need to maintain separate traces)
+  - DONE: wrap the stats in a per kernel vector (faster than hashmap?)
+  - DONE: add allocation id to per kernel stats where it makes sense (e.g. NOT cycles or instructions)
+  - DONE: even when using non-detailed stats, index by kernel launch id
+  - DONE: do not compute mean and min max etc. until the last step (plotting)
+  - DONE: build a well defined dataframe in all of the classes including the inputs and concat them
   - DONE: add mangled and non mangled kernel names
   - DONE: extend validate to support parallel execution
   - DONE: validate the number of warp instructions for the execution driven frontend and test that.
