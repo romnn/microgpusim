@@ -27,7 +27,7 @@ config:
   simulate:
     # No concurrency limit for now (until we implement multi-threading)
     concurrency: 1 # null
-    repetitions: 4
+    repetitions: 1
     # this is added to all inputs
     inputs:
       mode: ["serial", "deterministic", "nondeterministic"]

@@ -57,9 +57,10 @@ void cli_configure(gpgpu_context *m_gpgpu_context, trace_config &m_config,
   m_gpgpu_context->the_gpgpusim->g_the_gpu_config->init();
 
   // override some values
-  if (!m_gpgpu_context->accelsim_compat_mode) {
-    g_network_mode = BOX_NET;
-  }
+  g_network_mode = BOX_NET;
+  // if (!m_gpgpu_context->accelsim_compat_mode) {
+  //   g_network_mode = BOX_NET;
+  // }
 }
 
 trace_gpgpu_sim *gpgpu_trace_sim_init_perf_model(

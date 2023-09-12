@@ -69,36 +69,33 @@ pub fn simulate_bench_config(
 
     dbg!(&parallelization);
 
-    if false {
-        let config = gpucachesim::config::GPU {
-            num_simt_clusters: 20,                       // 20
-            num_cores_per_simt_cluster: 1,               // 1
-            num_schedulers_per_core: 2,                  // 1
-            num_memory_controllers: 8,                   // 8
-            num_dram_chips_per_memory_controller: 1,     // 1
-            num_sub_partitions_per_memory_controller: 2, // 2
-            fill_l2_on_memcopy: false,                   // true
-            parallelization,
-            log_after_cycle: None,
-            simulation_threads: parallelism_threads,
-            ..gpucachesim::config::GPU::default()
-        };
+    let config = gpucachesim::config::GPU {
+        num_simt_clusters: 20,                       // 20
+        num_cores_per_simt_cluster: 1,               // 1
+        num_schedulers_per_core: 2,                  // 1
+        num_memory_controllers: 8,                   // 8
+        num_dram_chips_per_memory_controller: 1,     // 1
+        num_sub_partitions_per_memory_controller: 2, // 2
+        fill_l2_on_memcopy: false,                   // true
+        parallelization,
+        log_after_cycle: None,
+        simulation_threads: parallelism_threads,
+        ..gpucachesim::config::GPU::default()
+    };
 
-        let sim = gpucachesim::accelmain(traces_dir, config)?;
-        let stats = sim.stats();
-        let mut wip_stats = gpucachesim::WIP_STATS.lock();
-        dbg!(&wip_stats);
-        dbg!(wip_stats.warp_instructions as f32 / wip_stats.num_warps as f32);
-        for kernel_stats in stats.inner.iter() {
-            dbg!(&kernel_stats.sim);
-        }
-        dbg!(gpucachesim::is_debug());
-
-        *wip_stats = gpucachesim::WIPStats::default();
+    let sim = gpucachesim::accelmain(traces_dir, config)?;
+    let stats = sim.stats();
+    let mut wip_stats = gpucachesim::WIP_STATS.lock();
+    dbg!(&wip_stats);
+    dbg!(wip_stats.warp_instructions as f32 / wip_stats.num_warps as f32);
+    for kernel_stats in stats.inner.iter() {
+        dbg!(&kernel_stats.sim);
     }
+    dbg!(gpucachesim::is_debug());
 
-    Err(RunError::Skipped)
-    // Ok(sim)
+    *wip_stats = gpucachesim::WIPStats::default();
+
+    Ok(sim)
 }
 
 pub async fn simulate(
@@ -132,12 +129,13 @@ pub async fn simulate(
         .map_err(eyre::Report::from)??;
 
         let stats = sim.stats();
-        let profile = if gpucachesim::is_debug() {
-            "debug"
-        } else {
-            "release"
-        };
-        process_stats(stats.as_ref(), &dur, stats_dir, profile, repetition)?;
+        // let profile = if gpucachesim::is_debug() {
+        //     "debug"
+        // } else {
+        //     "release"
+        // };
+        // process_stats(stats.as_ref(), &dur, stats_dir, profile, repetition)?;
+        process_stats(stats.as_ref(), &dur, stats_dir, repetition)?;
     }
     Ok(())
 }
@@ -147,14 +145,14 @@ pub fn process_stats(
     stats: &[stats::Stats],
     dur: &std::time::Duration,
     stats_dir: &Path,
-    profile: &str,
+    // profile: &str,
     repetition: usize,
 ) -> Result<(), RunError> {
     create_dirs(stats_dir).map_err(eyre::Report::from)?;
     crate::stats::write_stats_as_csv(stats_dir, stats, repetition)?;
 
-    let exec_time_file_path = stats_dir.join(format!("exec_time.{profile}.{repetition}.json"));
-    serde_json::to_writer_pretty(open_writable(exec_time_file_path)?, &dur.as_millis())
-        .map_err(eyre::Report::from)?;
+    // let exec_time_file_path = stats_dir.join(format!("exec_time.{profile}.{repetition}.json"));
+    // serde_json::to_writer_pretty(open_writable(exec_time_file_path)?, &dur.as_millis())
+    //     .map_err(eyre::Report::from)?;
     Ok(())
 }

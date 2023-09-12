@@ -157,13 +157,19 @@ pub async fn simulate(
 
     for repetition in 0..bench.common.repetitions {
         let (output, dur) = simulate_bench_config(bench).await?;
-        let profile = if accelsim_sim::is_debug() {
-            "debug"
-        } else {
-            "release"
-        };
+        // let profile = if accelsim_sim::is_debug() {
+        //     "debug"
+        // } else {
+        //     "release"
+        // };
 
-        process_stats(output.stdout, &dur, stats_dir, profile, repetition)?;
+        process_stats(
+            output.stdout,
+            &dur,
+            stats_dir,
+            // profile,
+            repetition,
+        )?;
     }
     Ok(())
 }
@@ -172,7 +178,7 @@ pub fn process_stats(
     log: impl AsRef<Vec<u8>>,
     dur: &Duration,
     stats_dir: &Path,
-    profile: &str,
+    // profile: &str,
     repetition: usize,
 ) -> Result<(), RunError> {
     // parse stats
@@ -194,7 +200,9 @@ pub fn process_stats(
         &stats.iter().collect::<Vec<_>>(),
     )?;
 
-    let converted_stats: stats::Stats = stats.try_into()?;
+    let mut converted_stats: stats::Stats = stats.try_into()?;
+    converted_stats.sim.elapsed_millis = dur.as_millis();
+
     // cannot report per kernel for now..
     let per_kernel_stats = vec![converted_stats];
     // dbg!(&converted_stats);
@@ -206,8 +214,8 @@ pub fn process_stats(
     // #[cfg(not(debug_assertions))]
     // let exec_time_file_path = stats_dir.join(format!("exec_time.release.{repetition}.json"));
 
-    let exec_time_file_path = stats_dir.join(format!("exec_time.{profile}.{repetition}.json"));
-    serde_json::to_writer_pretty(open_writable(exec_time_file_path)?, &dur.as_millis())
-        .map_err(eyre::Report::from)?;
+    // let exec_time_file_path = stats_dir.join(format!("exec_time.{profile}.{repetition}.json"));
+    // serde_json::to_writer_pretty(open_writable(exec_time_file_path)?, &dur.as_millis())
+    //     .map_err(eyre::Report::from)?;
     Ok(())
 }

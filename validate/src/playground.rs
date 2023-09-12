@@ -158,21 +158,30 @@ pub async fn simulate(
         .await
         .unwrap()?;
 
-        let converted_stats: stats::Stats = stats.into();
+        let mut converted_stats: stats::Stats = stats.into();
+        converted_stats.sim.elapsed_millis = dur.as_millis();
+        converted_stats.sim.is_release_build = playground::is_debug();
+
         // cannot report per kernel for now...
         let per_kernel_stats = vec![converted_stats];
 
-        let profile = if playground::is_debug() {
-            "debug"
-        } else {
-            "release"
-        };
-        super::accelsim::process_stats(log.into_bytes(), &dur, &stats_dir, profile, repetition)?;
+        // let profile = if playground::is_debug() {
+        //     "debug"
+        // } else {
+        //     "release"
+        // };
+        super::accelsim::process_stats(
+            log.into_bytes(),
+            &dur,
+            &stats_dir,
+            // profile,
+            repetition,
+        )?;
         super::simulate::process_stats(
             &per_kernel_stats,
             &dur,
             &detailed_stats_dir,
-            profile,
+            // profile,
             repetition,
         )?;
     }

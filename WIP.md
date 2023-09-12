@@ -2,6 +2,22 @@
 
 - today:
 
+  - NOTE: change playground back to correct accelsim compat
+
+  - speed up simulate run for validate
+
+    - set repetitions to 1 temp
+    - increase concurrency temp
+
+  - add options to simulate
+
+    - different number of cores per cluster [1, 4, 8]
+    - memory only mode versus compute as well
+
+  - investigate the effect that the dram model has
+
+  - wrap the stats in a per kernel vector (faster than hashmap?)
+
   - wrap the stats in a per kernel vector (faster than hashmap?)
   - add allocation id to per kernel stats where it makes sense (e.g. NOT cycles or instructions)
 

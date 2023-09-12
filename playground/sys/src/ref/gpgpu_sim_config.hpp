@@ -95,6 +95,8 @@ class gpgpu_sim_config : public power_config,
 
     fmt::println("fill l2: {}", m_memory_config.m_perf_sim_memcpy);
 
+    m_memory_config.simple_dram_model = true;
+
     if (!gpgpu_ctx->accelsim_compat_mode) {
       // ROMAN TODO: we override config here
       // if (gpu_max_cycle_opt == 0) {

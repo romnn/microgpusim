@@ -78,7 +78,7 @@ class Stats(common.Stats):
         # print(values.T)
 
     def load_converted_stats(self) -> None:
-        exec_time_sec_release_dfs = []
+        # exec_time_sec_release_dfs = []
         sim_dfs = []
         accesses_dfs = []
         dram_dfs = []
@@ -91,11 +91,11 @@ class Stats(common.Stats):
         l2_data_stats_dfs = []
 
         for r in range(self.repetitions):
-            with open(self.path / f"exec_time.release.{r}.json", "rb") as f:
-                # convert millis to seconds
-                exec_time = float(json.load(f)) * 1e-3
-                # exec_time_sec_release_dfs.append(pd.DataFrame.from_records([dict(run=r, exec_time=exec_time)]))
-                exec_time_sec_release_dfs.append(pd.DataFrame.from_records([dict(run=r, exec_time=exec_time)]))
+            # with open(self.path / f"exec_time.release.{r}.json", "rb") as f:
+            #     # convert millis to seconds
+            #     exec_time = float(json.load(f)) * 1e-3
+            #     # exec_time_sec_release_dfs.append(pd.DataFrame.from_records([dict(run=r, exec_time=exec_time)]))
+            #     exec_time_sec_release_dfs.append(pd.DataFrame.from_records([dict(run=r, exec_time=exec_time)]))
 
             sim_df = pd.read_csv(
                 self.path / f"stats.sim.{r}.csv",
@@ -160,7 +160,7 @@ class Stats(common.Stats):
             l2_data_stats_df["run"] = r
             l2_data_stats_dfs.append(l2_data_stats_df)
 
-        self.exec_time_sec_release = pd.concat(exec_time_sec_release_dfs)
+        # self.exec_time_sec_release = pd.concat(exec_time_sec_release_dfs)
         # print(exec_time_sec_release)
         # self.exec_time_sec_release = common.compute_df_statistics(exec_time_sec_release, group_by=None)
         # self.exec_time_sec_release = common.compute_df_statistics(exec_time_sec_release, group_by=INDEX_COLS)

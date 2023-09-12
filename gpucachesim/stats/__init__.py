@@ -9,52 +9,120 @@ import gpucachesim.stats.native as native
 import gpucachesim.stats.accelsim as accelsim
 import gpucachesim.stats.playground as playground
 import gpucachesim.benchmarks as benchmarks
+from gpucachesim.stats.human import human_readable
 from gpucachesim.benchmarks import Target, Benchmarks, GPUConfig, REPO_ROOT_DIR
 
 
 DEFAULT_CONFIG_FILE = REPO_ROOT_DIR / "./accelsim/gtx1080/gpgpusim.config.yml"
 
 
-def human_readable(n) -> str:
-    # return "{:}".format(n)
-
-    import math
-
-    if abs(float(int(n)) - float(n)) == 0:
-        n = int(n)
-
-    precision = 5
-    if isinstance(n, float):
-        res = "{:.5f}".format(n)
-    else:
-        res = "{}".format(n)
-    # before the point
-    parts = res.split(".")
-    before, after = parts[0], "".join(parts[1:])
-
-    num_segments = int(math.ceil(float(len(before)) / 3.0))
-    before = reversed([before[max(len(before) - (3 * i) - 3, 0) : len(before) - (3 * i)] for i in range(num_segments)])
-    before = " ".join(before)
-    if after == "":
-        # print(before.replace(" ", ""))
-        # print(f"{round(n, precision):f}")
-        assert float(before.replace(" ", "")) == round(n, precision)
-        return before
-
-    # print((before + "." + after).replace(" ", ""))
-    # print(f"{round(n, precision):f}")
-    assert float((before + "." + after).replace(" ", "")) == round(n, precision)
-    return before + "." + after
-    # return "{:,}".format(n).replace(",", " ")
+@click.group()
+# @click.pass_context
+def main():
+    # ctx.ensure_object(dict)
+    pass
 
 
-@click.command()
+BENCHMARK_INPUT_COLS = {
+    "vectorAdd": ["input_dtype", "input_length"],
+    "matrixmul": ["input_dtype", "input_rows"],
+    "simple_matrixmul": ["input_dtype", "input_m", "input_n", "input_p"],
+    "transpose": ["input_dim", "input_variant"],
+    "babelstream": ["input_size"],
+}
+
+STAT_COLS = [
+    "exec_time_sec",
+    "cycles",
+    "num_blocks",
+    "instructions",
+    "warp_inst",
+    "dram_reads",
+    "dram_writes",
+    "l2_accesses",
+    "l2_read_hit_rate",
+    "l2_write_hit_rate",
+    "l2_read_miss_rate",
+    "l2_write_miss_rate",
+    "l2_read_hits",
+    "l2_write_hits",
+    "l2_read_misses",
+    "l2_write_misses",
+    "l2_hits",
+    "l2_misses",
+]
+
+INDEX_COLS = ["target", "benchmark", "input_id"]
+
+
+def benchmark_results(sim_df: pd.DataFrame, bench_name: str, targets=None) -> pd.DataFrame:
+    """View results for a benchmark"""
+    np.seterr(all="raise")
+
+    selected_df = sim_df.copy()
+    selected_df = selected_df[selected_df["benchmark"] == bench_name]
+    # only compare serial gpucachesim
+    # selected_df = selected_df[selected_df["input_mode"] != "nondeterministic"]
+    non_gpucachesim = selected_df["input_mode"].isnull()
+    gold_gpucachesim = selected_df["input_mode"] == "serial"
+    selected_df = selected_df[gold_gpucachesim ^ non_gpucachesim]
+
+    if isinstance(targets, list):
+        selected_df = selected_df[selected_df["target"].isin(targets)]
+
+    # assert (selected_df["is_release_build"] == True).all()
+
+    input_cols = BENCHMARK_INPUT_COLS[bench_name]
+    grouped = selected_df.groupby(INDEX_COLS, dropna=False)
+    averaged = grouped[STAT_COLS + input_cols].mean().reset_index()
+    # test = test.drop(columns="input_id")
+    # print(test)
+
+    per_target = averaged.pivot(index=["benchmark"] + input_cols, columns="target", values=STAT_COLS)
+    return per_target
+
+
+@main.command()
+# @click.pass_context
+@click.option("--path", help="Path to materialized benchmark config")
+# @click.option("--config", "config_path", default=DEFAULT_CONFIG_FILE, help="Path to GPU config")
+@click.option("--bench", "bench_name", help="Benchmark name")
+# @click.option("--input", "input_idx", type=int, help="Input index")
+def view(path, bench_name):
+    # load the materialized benchmark config
+    stats_file = REPO_ROOT_DIR / "results/combined.stats.csv"
+    sim_df = pd.read_csv(stats_file, header=0)
+    assert (sim_df["input_mode"] == "serial").sum() > 0
+
+    # print(sim_df)
+
+    per_target = benchmark_results(sim_df, bench_name)
+    per_target = per_target[
+        [
+            "exec_time_sec",
+            "cycles",
+            "instructions",
+            "dram_reads",
+            "dram_writes",
+            "l2_accesses",
+            # "l2_read_hits",
+            # "l2_write_hits",
+            "l2_hits",
+            "l2_misses",
+        ]
+    ]
+    print(per_target.T.to_string())
+    # print(per_target.T.head(n=100))
+
+
+@main.command()
+# @click.pass_context
 @click.option("--path", help="Path to materialized benchmark config")
 @click.option("--config", "config_path", default=DEFAULT_CONFIG_FILE, help="Path to GPU config")
 @click.option("--bench", "bench_name", help="Benchmark name")
 @click.option("--input", "input_idx", type=int, help="Input index")
 @click.option("--out", "output_path", help="Output path for combined stats")
-def main(path, config_path, bench_name, input_idx, output_path):
+def generate(path, config_path, bench_name, input_idx, output_path):
     from pprint import pprint
     import wasabi
 
@@ -63,24 +131,17 @@ def main(path, config_path, bench_name, input_idx, output_path):
     b = Benchmarks(path)
     results_dir = Path(b.config["results_dir"])
 
-    if bench_name is None:
-        raise NotImplemented
-
     for target in [
         Target.Simulate,
         Target.Profile,
         Target.AccelsimSimulate,
         Target.PlaygroundSimulate,
     ]:
-        benches.extend(b.benchmarks[target.value][bench_name])
-        # for target_benches in b.benchmarks[target.value][bench_name]:
-        #     pprint(target_benches)
-        #     benches.extend(target_benches[bench_name])
-
-    # if input_idx is None:
-    #     benches.extend(b.get_bench_configs(bench_name))
-    # else:
-    #     benches.append(b.get_bench_config(bench_name, input_idx))
+        if bench_name is None:
+            for bench_configs in b.benchmarks[target.value].values():
+                benches.extend(bench_configs)
+        else:
+            benches.extend(b.benchmarks[target.value][bench_name])
 
     print(len(benches))
 
@@ -120,8 +181,7 @@ def main(path, config_path, bench_name, input_idx, output_path):
 
         values = bench_stats.result_df.merge(values, how="cross")
 
-        # print("======")
-        # print(values.T)
+        print(values.T)
         all_stats.append(values)
         # print(bench_stats.result_df.T)
 
@@ -129,11 +189,13 @@ def main(path, config_path, bench_name, input_idx, output_path):
         # print(bench_stats.print_all_stats())
 
     all_stats = pd.concat(all_stats)
-    print(all_stats)
+    # print(all_stats)
 
     all_stats_output_path = results_dir / "combined.stats.csv"
     if output_path is not None:
         all_stats_output_path = Path(output_path)
+
+    return
 
     print(f"saving to {all_stats_output_path}")
     all_stats_output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -297,3 +359,4 @@ def main(path, config_path, bench_name, input_idx, output_path):
 
 if __name__ == "__main__":
     main()
+    # main(ctx={})
