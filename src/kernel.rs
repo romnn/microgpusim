@@ -29,15 +29,17 @@ pub fn read_trace(path: impl AsRef<Path>) -> eyre::Result<model::MemAccessTrace>
 #[derive(Debug)]
 pub struct Kernel {
     pub opcodes: &'static opcodes::OpcodeMap,
-    pub config: model::KernelLaunch,
-    trace: model::MemAccessTrace,
-    trace_pos: RwLock<usize>,
-    // launched: Mutex<bool>,
-    num_cores_running: usize,
+    pub config: model::command::KernelLaunch,
+    pub memory_only: bool,
+    pub num_cores_running: usize,
+
     pub start_cycle: Mutex<Option<u64>>,
     pub completed_cycle: Mutex<Option<u64>>,
     pub start_time: Mutex<Option<std::time::Instant>>,
     pub completed_time: Mutex<Option<std::time::Instant>>,
+
+    trace_pos: RwLock<usize>,
+    trace: model::MemAccessTrace,
 }
 
 impl PartialEq for Kernel {
@@ -57,7 +59,11 @@ impl std::fmt::Display for Kernel {
 
 impl Kernel {
     #[must_use]
-    pub fn new(config: model::KernelLaunch, trace: model::MemAccessTrace) -> Self {
+    pub fn new(
+        config: model::command::KernelLaunch,
+        trace: model::MemAccessTrace,
+        // memory_only: bool,
+    ) -> Self {
         // sanity check
         assert!(trace.is_valid());
 
@@ -73,16 +79,16 @@ impl Kernel {
 
         let opcodes = opcodes::get_opcode_map(&config).unwrap();
         Self {
-            config,
-            trace,
-            trace_pos: RwLock::new(0),
             opcodes,
-            // launched: Mutex::new(false),
+            config,
+            num_cores_running: 0,
+            memory_only: false,
             start_cycle: Mutex::new(None),
             start_time: Mutex::new(None),
             completed_cycle: Mutex::new(None),
             completed_time: Mutex::new(None),
-            num_cores_running: 0,
+            trace,
+            trace_pos: RwLock::new(0),
         }
     }
 
@@ -103,7 +109,7 @@ impl Kernel {
     //     *self.completed_cycle.lock() = Some(cycle);
     // }
 
-    pub fn from_trace(config: model::KernelLaunch, traces_dir: impl AsRef<Path>) -> Self {
+    pub fn from_trace(config: model::command::KernelLaunch, traces_dir: impl AsRef<Path>) -> Self {
         log::info!(
             "parsing kernel for launch {:?} from {}",
             &config,
@@ -150,12 +156,10 @@ impl Kernel {
                 break;
             }
 
-            let mem_only = false;
-
             let warp_id = entry.warp_id_in_block as usize;
             let instr = instruction::WarpInstruction::from_trace(self, entry, config);
 
-            if !mem_only || instr.is_memory_instruction() {
+            if !self.memory_only || instr.is_memory_instruction() {
                 let warp = warps.get_mut(warp_id).unwrap();
                 let mut warp = warp.try_lock();
                 warp.push_trace_instruction(instr);
@@ -180,9 +184,9 @@ impl Kernel {
         true
     }
 
-    pub fn inc_running(&mut self) {
-        self.num_cores_running += 1;
-    }
+    // pub fn inc_running(&mut self) {
+    //     self.num_cores_running += 1;
+    // }
 
     pub fn name(&self) -> &str {
         &self.config.unmangled_name

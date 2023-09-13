@@ -1,0 +1,24 @@
+[package]
+name = "exec"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+num-traits = "0"
+async-trait = "0"
+bitvec = "1"
+itertools = "0"
+color-eyre = "0"
+serde = { version = "1", features = ["derive"] }
+thiserror = "1"
+
+trace-model = { path = "../trace/model" }
+
+# todo: remove in the future
+log = "0"
+env_logger = "0"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+# utils = { path = "../utils" }

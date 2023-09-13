@@ -5,23 +5,23 @@
 )]
 
 use color_eyre::eyre;
-use gpucachesim::exec;
+use gpucachesim::exec::{self, DevicePtr, Kernel};
 use num_traits::{Float, NumCast, Zero};
 
 #[derive(Debug)]
 // struct VecAdd<'s, 'a, T> {
 struct VecAdd<'s, T> {
-    // dev_a: &'a exec::DevicePtr<'s, 'a, Vec<T>>,
-    dev_a: exec::DevicePtr<'s, Vec<T>>,
-    // dev_b: &'a exec::DevicePtr<'s, 'a, Vec<T>>,
-    dev_b: exec::DevicePtr<'s, Vec<T>>,
-    // dev_result: &'a mut exec::DevicePtr<'s, 'a, Vec<T>>,
-    dev_result: exec::DevicePtr<'s, Vec<T>>,
+    // dev_a: &'a DevicePtr<'s, 'a, Vec<T>>,
+    dev_a: DevicePtr<'s, Vec<T>, T>,
+    // dev_b: &'a DevicePtr<'s, 'a, Vec<T>>,
+    dev_b: DevicePtr<'s, Vec<T>, T>,
+    // dev_result: &'a mut DevicePtr<'s, 'a, Vec<T>>,
+    dev_result: DevicePtr<'s, Vec<T>, T>,
     n: usize,
 }
 
 // impl<'s, 'a, T> exec::Kernel for VecAdd<'s, 'a, T>
-impl<'s, T> exec::Kernel for VecAdd<'s, T>
+impl<'s, T> Kernel for VecAdd<'s, T>
 where
     T: Float + std::fmt::Debug,
 {
@@ -34,14 +34,16 @@ where
 
         // Make sure we do not go out of bounds
         // if (id < n) c[id] = a[id] + b[id];
-        let active = id < self.n;
-        self.dev_result[(id, active)] = self.dev_a[(id, active)] + self.dev_b[(id, active)];
+        // let active = id < self.n;
+        // self.dev_result[(id, active)] = self.dev_a[(id, active)] + self.dev_b[(id, active)];
 
-        // if id < self.n {
-        //     self.dev_result[id] = self.dev_a[id] + self.dev_b[id];
-        // } else {
-        //     // self.dev_result[id] = self.dev_a[id] + self.dev_b[id];
-        // }
+        if id < self.n {
+            self.dev_result[()] = self.dev_a[()] + self.dev_b[()];
+            // self.dev_result[id] = self.dev_a[id] + self.dev_b[id];
+        } else {
+            self.dev_result[()] = self.dev_a[()] + self.dev_b[()];
+            // self.dev_result[id] = self.dev_a[id] + self.dev_b[id];
+        }
         Ok(())
     }
 
@@ -87,24 +89,43 @@ pub fn vectoradd<T>(a: &Vec<T>, b: &Vec<T>, result: &mut Vec<T>) -> eyre::Result
 where
     T: Float + Zero + NumCast + std::iter::Sum + std::fmt::Display + std::fmt::Debug,
 {
-    let start = std::time::Instant::now();
+    // let start = std::time::Instant::now();
+
+    use gpucachesim::exec::{MemorySpace, TraceGenerator, Tracer};
+    let mut tracer = Tracer::default();
 
     // let sim = exec::Simulation::new();
-    // assert_eq!(a.len(), b.len());
-    // assert_eq!(b.len(), c.len());
-    // let n = a.len();
+    assert_eq!(a.len(), b.len());
+    assert_eq!(b.len(), result.len());
+    let n = a.len();
     //
     // // allocate memory for each vector on simulated GPU device
     // let a_size = a.len() * std::mem::size_of::<T>();
     // let b_size = b.len() * std::mem::size_of::<T>();
     // let c_size = c.len() * std::mem::size_of::<T>();
-    // let mut d_a = sim.allocate(a, a_size as u64, exec::MemorySpace::Global);
-    // let mut d_b = sim.allocate(b, b_size as u64, exec::MemorySpace::Global);
-    // let mut d_c = sim.allocate(c, c_size as u64, exec::MemorySpace::Global);
+
+    let a_size = a.len() * std::mem::size_of::<f32>();
+    let b_size = b.len() * std::mem::size_of::<f32>();
+    let result_size = result.len() * std::mem::size_of::<f32>();
+
+    let mut dev_a = tracer.allocate(a.clone(), a_size as u64, MemorySpace::Global);
+    let mut dev_b = tracer.allocate(b.clone(), b_size as u64, MemorySpace::Global);
+    let mut dev_result = tracer.allocate(result.clone(), result_size as u64, MemorySpace::Global);
     //
     // // number of thread blocks in grid
-    // let grid_size = (n as f64 / <f64 as From<_>>::from(BLOCK_SIZE)).ceil() as u32;
-    //
+    let grid_size = (n as f64 / <f64 as From<_>>::from(BLOCK_SIZE)).ceil() as u32;
+    let kernel: VecAdd<T> = VecAdd {
+        dev_a,
+        dev_b,
+        dev_result,
+        // dev_a: &mut dev_a,
+        // dev_b: &mut dev_b,
+        // dev_result: &mut dev_result,
+        n,
+    };
+    tracer.trace_kernel(grid_size, BLOCK_SIZE, kernel)?;
+    // *result = tracer.kernel.dev_result.into_inner();
+
     // let kernel: VecAdd<T> = VecAdd {
     //     d_a: &mut d_a,
     //     d_b: &mut d_b,
@@ -141,7 +162,30 @@ mod tests {
     use utils::diff;
     // use std::path::PathBuf;
     // use trace_model as model;
-    use gpucachesim::exec::{MemorySpace, TraceGenerator, Tracer};
+    use gpucachesim::exec::{self, MemorySpace, TraceGenerator, Tracer};
+
+    // fn is_indexable<T, E>(value: T)
+    // where
+    //     T: std::ops::Index<usize, Output = E>,
+    // {
+    // }
+
+    // fn is_container<T>(value: T)
+    // where
+    //     T: exec::Container,
+    //     <T as exec::Container>::Elem: num_traits::Zero,
+    // {
+    // }
+
+    // #[test]
+    // pub fn test_containers() {
+    //     let owned_vec = vec![0.0; 20];
+    //     // is_indexable(owned_vec);
+    //     is_container(owned_vec);
+    //     let borrowed_vec = &owned_vec;
+    //     // is_indexable(borrowed_vec);
+    //     is_container(borrowed_vec);
+    // }
 
     #[test]
     pub fn test_correctness() -> eyre::Result<()> {
@@ -162,7 +206,7 @@ mod tests {
         super::vectoradd(&mut a, &mut b, &mut result)?;
         super::reference_vectoradd(&mut a, &mut b, &mut ref_result);
 
-        diff::diff!(have: result, want: ref_result);
+        diff::assert_eq!(have: result, want: ref_result);
         Ok(())
     }
 
@@ -218,7 +262,7 @@ mod tests {
         //     total_sum / n as f32
         // );
 
-        assert!(false);
+        // assert!(false);
         Ok(())
     }
 

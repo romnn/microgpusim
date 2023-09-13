@@ -362,6 +362,7 @@ dependencies = [
  "color-eyre",
  "gpucachesim",
  "num-traits",
+ "rand",
  "utils",
 ]
 
@@ -1209,6 +1210,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 
 [[package]]
+name = "exec"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bitvec",
+ "color-eyre",
+ "env_logger",
+ "futures",
+ "itertools 0.10.5",
+ "log",
+ "num-traits",
+ "serde",
+ "thiserror",
+ "tokio",
+ "trace-model",
+]
+
+[[package]]
 name = "eyre"
 version = "0.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1556,6 +1575,7 @@ dependencies = [
  "crossbeam",
  "cxx",
  "env_logger",
+ "exec",
  "flume",
  "futures",
  "human_bytes",
@@ -3929,6 +3949,7 @@ dependencies = [
 name = "trace-model"
 version = "0.1.0"
 dependencies = [
+ "bitvec",
  "indexmap 2.0.0",
  "itertools 0.11.0",
  "nvbit-model",

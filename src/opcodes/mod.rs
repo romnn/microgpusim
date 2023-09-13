@@ -5,8 +5,6 @@ mod turing;
 
 use color_eyre::eyre;
 
-use trace_model::KernelLaunch;
-
 #[derive(strum::FromRepr, Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(i32)]
 enum BinaryVersion {
@@ -254,7 +252,9 @@ impl std::fmt::Display for Opcode {
 
 pub type OpcodeMap = phf::Map<&'static str, Opcode>;
 
-pub fn get_opcode_map(config: &KernelLaunch) -> eyre::Result<&'static OpcodeMap> {
+pub fn get_opcode_map(
+    config: &trace_model::command::KernelLaunch,
+) -> eyre::Result<&'static OpcodeMap> {
     let version = BinaryVersion::from_repr(config.binary_version);
     let version = version.ok_or(eyre::eyre!(
         "unknown binary version {}",

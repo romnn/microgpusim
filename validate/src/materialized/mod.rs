@@ -99,6 +99,44 @@ impl std::fmt::Display for BenchmarkConfig {
     }
 }
 
+impl BenchmarkConfig {
+    pub fn input_matches_strict(
+        &self,
+        query: &super::benchmark::Input,
+    ) -> Result<bool, QueryError> {
+        let bench_keys: HashSet<&String> = self.values.keys().collect();
+        let query_keys: HashSet<&String> = query.keys().collect();
+        let unknown_keys: Vec<_> = query_keys.difference(&bench_keys).collect();
+        if !unknown_keys.is_empty() {
+            Err(QueryError::UnknownKeys {
+                unknown: unknown_keys
+                    .into_iter()
+                    .copied()
+                    .cloned()
+                    .sorted()
+                    .collect(),
+                valid: bench_keys.into_iter().cloned().sorted().collect(),
+            })
+        } else {
+            Ok(self.input_matches(query))
+        }
+    }
+
+    pub fn input_matches(&self, query: &super::benchmark::Input) -> bool {
+        use serde_yaml::Value;
+        let bench_entries: HashSet<(&String, &Value)> = self.values.iter().collect();
+        let bench_keys: HashSet<&String> = self.values.keys().collect();
+
+        let query_entries: HashSet<(&String, &Value)> = query.iter().collect();
+        let query_keys: HashSet<&String> = query.keys().collect();
+
+        let intersecting_keys: Vec<_> = bench_keys.intersection(&query_keys).collect();
+        let intersecting_entries: Vec<_> = bench_entries.intersection(&query_entries).collect();
+        let all_match = intersecting_entries.len() == intersecting_keys.len();
+        all_match
+    }
+}
+
 #[must_use]
 pub fn bench_config_name(name: &str, input: &super::matrix::Input, sort: bool) -> String {
     let mut bench_config_dir_name = Vec::new();
@@ -382,40 +420,11 @@ impl Benchmarks {
         target: Target,
         benchmark_name: impl Into<String>,
         query: super::matrix::Input,
-        strict: bool,
+        _strict: bool,
     ) -> impl Iterator<Item = Result<&BenchmarkConfig, QueryError>> + '_ {
-        use serde_yaml::Value;
         self.get_input_configs(target, benchmark_name.into())
-            .filter_map(move |bench_config| {
-                let bench_entries: HashSet<(&String, &Value)> =
-                    bench_config.values.iter().collect();
-                let bench_keys: HashSet<&String> = bench_config.values.keys().collect();
-
-                let query_entries: HashSet<(&String, &Value)> = query.iter().collect();
-                let query_keys: HashSet<&String> = query.keys().collect();
-
-                let unknown_keys: Vec<_> = query_keys.difference(&bench_keys).collect();
-                let intersecting_keys: Vec<_> = bench_keys.intersection(&query_keys).collect();
-                let intersecting_entries: Vec<_> =
-                    bench_entries.intersection(&query_entries).collect();
-
-                let all_match = intersecting_entries.len() == intersecting_keys.len();
-                if strict && !unknown_keys.is_empty() {
-                    Some(Err(QueryError::UnknownKeys {
-                        unknown: unknown_keys
-                            .into_iter()
-                            .copied()
-                            .cloned()
-                            .sorted()
-                            .collect(),
-                        valid: bench_keys.into_iter().cloned().sorted().collect(),
-                    }))
-                } else if all_match {
-                    Some(Ok(bench_config))
-                } else {
-                    None
-                }
-            })
+            .filter(move |bench_config| bench_config.input_matches(&query))
+            .map(Result::Ok)
     }
 }
 

@@ -9,6 +9,7 @@ serde = { version = "1", features = ["derive"] }
 indexmap = { version = "2", features = ["serde"] }
 nvbit-model = "0"
 itertools = "0"
+bitvec = "1"
 
 [dev-dependencies]
 similar-asserts = "1"

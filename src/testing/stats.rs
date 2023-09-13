@@ -1,8 +1,12 @@
+use num_traits::NumCast;
 use std::collections::HashSet;
 
-pub fn rel_err<T: num_traits::NumCast>(b: T, p: T, abs_threshold: f64) -> f64 {
-    let b: f64 = num_traits::NumCast::from(b).unwrap();
-    let p: f64 = num_traits::NumCast::from(p).unwrap();
+pub fn rel_err<T>(b: T, p: T, abs_threshold: f64) -> f64
+where
+    T: NumCast,
+{
+    let b: f64 = NumCast::from(b).unwrap();
+    let p: f64 = NumCast::from(p).unwrap();
     let diff = (b - p).abs();
 
     if diff > abs_threshold {

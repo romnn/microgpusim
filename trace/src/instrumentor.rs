@@ -65,8 +65,8 @@ pub struct Instrumentor<'c> {
     skip_flag: Mutex<bool>,
     device_allocations: Mutex<HashSet<u64>>,
     allocations: Mutex<Vec<trace_model::MemAllocation>>,
-    commands: Mutex<Vec<trace_model::Command>>,
-    kernels: Mutex<Vec<trace_model::KernelLaunch>>,
+    commands: Mutex<Vec<trace_model::command::Command>>,
+    kernels: Mutex<Vec<trace_model::command::KernelLaunch>>,
 
     pub start: Instant,
     pub instr_begin_interval: usize,
@@ -149,6 +149,20 @@ impl Instrumentor<'static> {
     }
 }
 
+fn convert_mem_space(space: model::MemorySpace) -> trace_model::MemorySpace {
+    match space {
+        model::MemorySpace::None => trace_model::MemorySpace::None,
+        model::MemorySpace::Local => trace_model::MemorySpace::Local,
+        model::MemorySpace::Generic => trace_model::MemorySpace::Generic,
+        model::MemorySpace::Global => trace_model::MemorySpace::Global,
+        model::MemorySpace::Shared => trace_model::MemorySpace::Shared,
+        model::MemorySpace::Constant => trace_model::MemorySpace::Constant,
+        model::MemorySpace::GlobalToShared => trace_model::MemorySpace::GlobalToShared,
+        model::MemorySpace::Surface => trace_model::MemorySpace::Surface,
+        model::MemorySpace::Texture => trace_model::MemorySpace::Texture,
+    }
+}
+
 impl<'c> Instrumentor<'c> {
     fn read_channel(self: Arc<Self>) {
         let rx = self.host_channel.lock().unwrap().read();
@@ -184,8 +198,8 @@ impl<'c> Instrumentor<'c> {
                 z: packet.block_id_z.unsigned_abs(),
             };
 
-            let instr_predicate = model::Predicate {
-                num: packet.instr_predicate_num,
+            let instr_predicate = trace_model::Predicate {
+                num: usize::try_from(packet.instr_predicate_num).unwrap(),
                 is_neg: packet.instr_predicate_is_neg,
                 is_uniform: packet.instr_predicate_is_uniform,
             };
@@ -193,6 +207,7 @@ impl<'c> Instrumentor<'c> {
                 let variant = u8::try_from(packet.instr_mem_space).unwrap();
                 std::mem::transmute(variant)
             };
+            let instr_mem_space: trace_model::MemorySpace = convert_mem_space(instr_mem_space);
 
             let entry = trace_model::MemAccessTraceEntry {
                 cuda_ctx,
@@ -286,7 +301,7 @@ impl<'c> Instrumentor<'c> {
 
             let num_registers = func.num_registers().unwrap();
 
-            let kernel_info = trace_model::KernelLaunch {
+            let kernel_info = trace_model::command::KernelLaunch {
                 mangled_name: func_name_mangled.to_string(),
                 unmangled_name: func_name_unmangled.to_string(),
                 id: *kernel_id,
@@ -345,11 +360,13 @@ impl<'c> Instrumentor<'c> {
                 self.commands
                     .lock()
                     .unwrap()
-                    .push(trace_model::Command::MemcpyHtoD(trace_model::MemcpyHtoD {
-                        allocation_name: None,
-                        dest_device_addr: dest_device.as_ptr(),
-                        num_bytes,
-                    }));
+                    .push(trace_model::Command::MemcpyHtoD(
+                        trace_model::command::MemcpyHtoD {
+                            allocation_name: None,
+                            dest_device_addr: dest_device.as_ptr(),
+                            num_bytes,
+                        },
+                    ));
             }
             // Some(EventParams::MemCopyDeviceToHost {
             //     // dest_device, bytes, ..
@@ -377,11 +394,13 @@ impl<'c> Instrumentor<'c> {
                 self.commands
                     .lock()
                     .unwrap()
-                    .push(trace_model::Command::MemAlloc(trace_model::MemAlloc {
-                        allocation_name: None,
-                        device_ptr,
-                        num_bytes,
-                    }));
+                    .push(trace_model::Command::MemAlloc(
+                        trace_model::command::MemAlloc {
+                            allocation_name: None,
+                            device_ptr,
+                            num_bytes,
+                        },
+                    ));
             }
             _ => {}
         }

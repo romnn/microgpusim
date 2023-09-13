@@ -2,6 +2,7 @@ from os import PathLike
 from pathlib import Path
 from sre_constants import IN
 import typing
+import numpy as np
 import json
 import re
 import pandas as pd
@@ -330,7 +331,7 @@ class Stats(common.Stats):
     #     #         # hw_value *= mean_sm_efficiency
 
     def _compute_num_blocks(self):
-        self.result_df["num_blocks"] = 0
+        self.result_df["num_blocks"] = np.nan
 
     # def num_blocks(self) -> float:
     #     return self.result_df["num_blocks_mean"].sum()

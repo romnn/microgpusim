@@ -68,7 +68,10 @@ def benchmark_results(sim_df: pd.DataFrame, bench_name: str, targets=None) -> pd
     # only compare serial gpucachesim
     # selected_df = selected_df[selected_df["input_mode"] != "nondeterministic"]
     non_gpucachesim = selected_df["input_mode"].isnull()
-    gold_gpucachesim = selected_df["input_mode"] == "serial"
+    serial_gpucachesim = selected_df["input_mode"] == "serial"
+    compute_gpucachesim = selected_df["input_memory_only"] == False
+    gtx1080_gpucachesim = selected_df["input_cores_per_cluster"] == 1
+    gold_gpucachesim = serial_gpucachesim & compute_gpucachesim & gtx1080_gpucachesim
     selected_df = selected_df[gold_gpucachesim ^ non_gpucachesim]
 
     if isinstance(targets, list):
@@ -107,6 +110,7 @@ def view(path, bench_name):
     per_target = benchmark_results(sim_df, bench_name)
     per_target = per_target[
         [
+            "num_blocks",
             "exec_time_sec",
             "cycles",
             "instructions",

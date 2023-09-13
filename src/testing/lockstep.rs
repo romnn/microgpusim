@@ -778,6 +778,19 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
     Ok(())
 }
 
+fn get_bench_config(
+    bench_name: &str,
+    mut input: validate::benchmark::Input,
+) -> eyre::Result<BenchmarkConfig> {
+    input.insert("mode".to_string(), validate::input!("serial")?);
+    input.insert("memory_only".to_string(), validate::input!(false)?);
+    input.insert("cores_per_cluster".to_string(), validate::input!(1)?);
+
+    let bench_config =
+        validate::benchmark::find_exact(validate::Target::Simulate, bench_name, input)?;
+    Ok(bench_config)
+}
+
 macro_rules! lockstep_checks {
     ($($name:ident: ($bench_name:expr, $($input:tt)+),)*) => {
         $(
@@ -785,40 +798,22 @@ macro_rules! lockstep_checks {
                 #[ignore = "native traces cannot be compared"]
                 #[test]
                 fn [<lockstep_native_ $name>]() -> color_eyre::eyre::Result<()> {
-                    use validate::benchmark::Input;
                     $crate::testing::init_test();
-
-                    let mut input: Input = validate::input!($($input)+)?;
-                    input.insert("mode".to_string(), validate::input!("serial")?);
-
-                    let bench_config = validate::benchmark::find_exact(
-                        validate::Target::Simulate, $bench_name, input)?;
+                    let bench_config = get_bench_config($bench_name, validate::input!($($input)+)?)?;
                     run(&bench_config, TraceProvider::Native)
                 }
 
                 #[test]
                 fn [<lockstep_accelsim_ $name>]() -> color_eyre::eyre::Result<()> {
-                    use validate::benchmark::Input;
                     $crate::testing::init_test();
-
-                    let mut input: Input = validate::input!($($input)+)?;
-                    input.insert("mode".to_string(), validate::input!("serial")?);
-
-                    let bench_config = validate::benchmark::find_exact(
-                        validate::Target::Simulate, $bench_name, input)?;
+                    let bench_config = get_bench_config($bench_name, validate::input!($($input)+)?)?;
                     run(&bench_config, TraceProvider::Accelsim)
                 }
 
                 #[test]
                 fn [<lockstep_box_ $name>]() -> color_eyre::eyre::Result<()> {
-                    use validate::benchmark::Input;
                     $crate::testing::init_test();
-
-                    let mut input: Input = validate::input!($($input)+)?;
-                    input.insert("mode".to_string(), validate::input!("serial")?);
-
-                    let bench_config = validate::benchmark::find_exact(
-                        validate::Target::Simulate, $bench_name, input)?;
+                    let bench_config = get_bench_config($bench_name, validate::input!($($input)+)?)?;
                     run(&bench_config, TraceProvider::Box)
                 }
             }

@@ -2,27 +2,14 @@
 
 - today:
 
-  - NOTE: change playground back to correct accelsim compat
-
-  - implement full validate for benchmark
-
-  - larger vectoradd example
-  - DONE: speed up simulate run for validate
-
-    - DONE: set repetitions to 1 temp
-    - DONE: increase concurrency temp
-
-  - add options to simulate
-
-    - different number of cores per cluster [1, 4, 8]
-    - memory only mode versus compute as well
-
-  - investigate the effect that the dram model has
-  - investigate the l1 cache
-
   - write more execution driven examples (especially the different transpose variants)
 
     - add them to the stats (as a new target?)
+
+  - NOTE: change playground back to correct accelsim compat
+
+  - investigate the effect that the dram model has
+  - investigate the l1 cache
 
   - implement per kernel and allocation stats
   - implement stall stats
@@ -56,6 +43,14 @@
   - convert, match and plot statistics
   - record mem fetch latency in playground and box
 
+  - DONE: add options to simulate
+    - DONE: larger vectoradd example
+    - DONE: different number of cores per cluster [1, 4, 8]
+    - DONE: memory only mode versus compute as well
+  - DONE: implement full validate for benchmark
+  - DONE: speed up simulate run for validate
+    - DONE: set repetitions to 1 temp
+    - DONE: increase concurrency temp
   - DONE: add option for full trace and do the filtering post-tracing
     - DONE: (so we dont need to maintain separate traces)
   - DONE: wrap the stats in a per kernel vector (faster than hashmap?)

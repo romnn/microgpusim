@@ -320,6 +320,13 @@ async fn main() -> eyre::Result<()> {
         other => vec![other.clone()],
     };
 
+    use itertools::Itertools;
+    let queries: Vec<validate::benchmark::Input> = options
+        .query
+        .iter()
+        .map(|q| serde_json::from_str(q).wrap_err_with(|| format!("failed to parse query {q:?}")))
+        .try_collect()?;
+
     let per_command_bench_configs: Vec<(_, _)> = commands
         .into_iter()
         .map(|command| {
@@ -332,28 +339,36 @@ async fn main() -> eyre::Result<()> {
                         return false;
                     }
 
-                    if options.selected_benchmarks.is_empty() {
-                        // keep all benchmarks when no filters provided
-                        return true;
-                    }
-
-                    let name = bench_config.name.to_lowercase();
-                    for b in &options.selected_benchmarks {
-                        let valid_patterns = [
-                            // try "benchmark_name"
-                            &name,
-                            // try "benchmark_name[input_idx]"
-                            &format!("{}[{}]", name, bench_config.input_idx),
-                            // try "benchmark_name@input_idx"
-                            &format!("{}@{}", name, bench_config.input_idx),
-                        ];
-                        if valid_patterns.into_iter().any(|p| b.to_lowercase() == *p) {
-                            // keep benchmark config
-                            return true;
+                    if !options.selected_benchmarks.is_empty() {
+                        let name = bench_config.name.to_lowercase();
+                        let is_match = options.selected_benchmarks.iter().any(|b| {
+                            let valid_patterns = [
+                                // try "benchmark_name"
+                                name.clone(),
+                                // try "benchmark_name[input_idx]"
+                                format!("{}[{}]", name, bench_config.input_idx),
+                                // try "benchmark_name@input_idx"
+                                format!("{}@{}", name, bench_config.input_idx),
+                            ];
+                            valid_patterns
+                                .into_iter()
+                                .any(move |p| b.to_lowercase() == *p)
+                        });
+                        if !is_match {
+                            return false;
                         }
                     }
-                    // skip
-                    false
+
+                    if !options.query.is_empty() {
+                        let is_match = queries
+                            .iter()
+                            .any(|query| bench_config.input_matches(query));
+                        if !is_match {
+                            return false;
+                        }
+                    }
+
+                    true
                 })
                 .collect();
 
@@ -438,8 +453,10 @@ async fn main() -> eyre::Result<()> {
             break;
         }
     }
-    // do not finish the bar, since we may exit early if a stage failed.
-    // bar.finish();
+    // do not finish the bar if a stage failed
+    if results.len() == num_bench_configs {
+        bar.finish();
+    }
 
     let _ = utils::fs::rchmod_writable(&materialized.config.results_dir);
 

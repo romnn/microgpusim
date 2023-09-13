@@ -420,7 +420,7 @@ impl WarpInstruction {
                 //     MemOp::Store
                 // });
                 // resolve generic loads
-                let trace::KernelLaunch {
+                let trace::command::KernelLaunch {
                     shared_mem_base_addr,
                     local_mem_base_addr,
                     ..
@@ -488,7 +488,8 @@ impl WarpInstruction {
     pub fn is_memory_instruction(&self) -> bool {
         match self.opcode {
             Opcode {
-                category: ArchOp::LOAD_OP | ArchOp::STORE_OP,
+                category:
+                    ArchOp::LOAD_OP | ArchOp::STORE_OP | ArchOp::BARRIER_OP | ArchOp::MEMORY_BARRIER_OP,
                 ..
             } => true,
             Opcode {

@@ -30,8 +30,8 @@ pub struct KernelLaunchMetadata {
 
 #[derive(Debug, Clone)]
 pub enum Command {
-    MemcpyHtoD(trace_model::MemcpyHtoD),
-    KernelLaunch((trace_model::KernelLaunch, KernelLaunchMetadata)),
+    MemcpyHtoD(trace_model::command::MemcpyHtoD),
+    KernelLaunch((trace_model::command::KernelLaunch, KernelLaunchMetadata)),
 }
 
 static DIM_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\(?(\d+),(\d+),(\d+)\)?").unwrap());
@@ -78,7 +78,7 @@ where
 pub fn parse_kernel_launch(
     traces_dir: impl AsRef<Path>,
     line: String,
-) -> eyre::Result<(trace_model::KernelLaunch, KernelLaunchMetadata)> {
+) -> eyre::Result<(trace_model::command::KernelLaunch, KernelLaunchMetadata)> {
     use std::io::BufRead;
 
     // kernel-1.traceg
@@ -88,7 +88,7 @@ pub fn parse_kernel_launch(
         trace_version: 0,
         line_info: false,
     };
-    let mut kernel_launch = trace_model::KernelLaunch {
+    let mut kernel_launch = trace_model::command::KernelLaunch {
         mangled_name: String::new(),
         unmangled_name: String::new(),
         trace_file: kernel_trace_file_name.clone(),
@@ -187,7 +187,7 @@ pub fn parse_memcopy_host_to_device(line: &str) -> eyre::Result<Command> {
         .ok_or(eyre::eyre!("invalid memcopy command {:?}", line))?;
     let dest_device_addr = parse_hex(Some(addr), "dest device address")?;
     let num_bytes = parse_decimal(Some(num_bytes), "num bytes")?;
-    Ok(Command::MemcpyHtoD(trace_model::MemcpyHtoD {
+    Ok(Command::MemcpyHtoD(trace_model::command::MemcpyHtoD {
         allocation_name: None,
         dest_device_addr,
         num_bytes,
@@ -398,7 +398,7 @@ pub fn convert_instruction(
     trace_instruction: &TraceInstruction,
     block_id: Dim,
     warp_id: u32,
-    kernel: &trace_model::KernelLaunch,
+    kernel: &trace_model::command::KernelLaunch,
     mem_only: bool,
 ) -> eyre::Result<Option<trace_model::MemAccessTraceEntry>> {
     let opcode_tokens: Vec<_> = trace_instruction.opcode.split('.').collect();
@@ -412,16 +412,16 @@ pub fn convert_instruction(
     let instr_is_store = instr_is_mem && STORE_OPCODES.contains(opcode1.as_str());
 
     let instr_mem_space = match opcode1.as_str() {
-        "EXIT" => nvbit_model::MemorySpace::None,
-        "LDC" => nvbit_model::MemorySpace::Constant, // cannot store constants
-        "LDG" | "STG" => nvbit_model::MemorySpace::Global,
-        "LDL" | "STL" => nvbit_model::MemorySpace::Local,
-        "LDS" | "STS" | "LDSM" => nvbit_model::MemorySpace::Shared,
+        "EXIT" => trace_model::MemorySpace::None,
+        "LDC" => trace_model::MemorySpace::Constant, // cannot store constants
+        "LDG" | "STG" => trace_model::MemorySpace::Global,
+        "LDL" | "STL" => trace_model::MemorySpace::Local,
+        "LDS" | "STS" | "LDSM" => trace_model::MemorySpace::Shared,
         // "LDSM" => panic!("do not know how to handle opcode {opcode}"),
         // opcode @ "LDSM" => panic!("do not know how to handle opcode {opcode}"),
         opcode if instr_is_mem => panic!("unknown opcode {opcode}"),
         _ if mem_only => return Ok(None), // skip non memory instruction
-        _ => nvbit_model::MemorySpace::None,
+        _ => trace_model::MemorySpace::None,
     };
 
     let too_many_registers = |num| eyre::eyre!("too many src registers ({})", num);
@@ -453,7 +453,7 @@ pub fn convert_instruction(
         instr_offset: trace_instruction.pc,
         instr_idx: 0, // added later
         // cannot infer predicate (not required)
-        instr_predicate: nvbit_model::Predicate {
+        instr_predicate: trace_model::Predicate {
             num: 0,
             is_neg: false,
             is_uniform: false,
@@ -477,7 +477,7 @@ pub fn read_trace_instructions(
     trace_version: usize,
     line_info: bool,
     mem_only: bool,
-    kernel: &trace_model::KernelLaunch,
+    kernel: &trace_model::command::KernelLaunch,
 ) -> eyre::Result<Vec<trace_model::MemAccessTraceEntry>> {
     let mut instructions = Vec::new();
     let mut lines = reader.lines();

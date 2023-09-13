@@ -79,6 +79,9 @@ pub struct Options {
     #[clap(short = 'b', long = "bench", help = "name of benchmark to run")]
     pub selected_benchmarks: Vec<String>,
 
+    #[clap(short = 'q', long = "query", help = "input query")]
+    pub query: Vec<String>,
+
     #[clap(
         short = 'f',
         long = "force",

@@ -6,5 +6,7 @@ edition = "2021"
 [dependencies]
 num-traits = "0"
 color-eyre = "0"
+rand = "0"
+
 gpucachesim = { path = "../" }
 utils = { path = "../utils" }

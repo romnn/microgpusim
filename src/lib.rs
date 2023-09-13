@@ -22,7 +22,6 @@ pub mod core;
 pub mod deadlock;
 pub mod dram;
 pub mod engine;
-pub mod exec;
 pub mod fifo;
 pub mod func_unit;
 pub mod instruction;
@@ -46,6 +45,8 @@ pub mod warp;
 
 #[cfg(test)]
 pub mod testing;
+
+pub use exec;
 
 use self::core::{warp_inst_complete, Core, PipelineStage, MAX_THREAD_PER_SM, PROGRAM_MEM_START};
 use allocation::Allocations;
@@ -154,7 +155,7 @@ impl Default for WIPStats {
             executed_instructions: 0,
             warp_instructions: 0,
             num_warps: 0,
-            warps_per_core: vec![0; 20],
+            warps_per_core: vec![0; 20 * 8],
         }
     }
 }
@@ -1078,7 +1079,7 @@ where
         {
             let cmd = &self.commands[self.command_idx];
             match cmd {
-                Command::MemcpyHtoD(trace_model::MemcpyHtoD {
+                Command::MemcpyHtoD(trace_model::command::MemcpyHtoD {
                     allocation_name,
                     dest_device_addr,
                     num_bytes,
@@ -1088,7 +1089,7 @@ where
                     allocation_name.clone(),
                     cycle,
                 ),
-                Command::MemAlloc(trace_model::MemAlloc {
+                Command::MemAlloc(trace_model::command::MemAlloc {
                     allocation_name,
                     device_ptr,
                     num_bytes,
@@ -1096,8 +1097,9 @@ where
                     self.gpu_mem_alloc(*device_ptr, *num_bytes, allocation_name.clone(), cycle);
                 }
                 Command::KernelLaunch(launch) => {
-                    let kernel =
+                    let mut kernel =
                         Kernel::from_trace(launch.clone(), self.traces_dir.as_ref().unwrap());
+                    kernel.memory_only = self.config.memory_only;
                     self.kernels.push_back(Arc::new(kernel));
                 }
             }

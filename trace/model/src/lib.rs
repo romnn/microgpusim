@@ -1,6 +1,50 @@
+pub mod allocation;
+pub mod command;
 pub mod dim;
+
+pub use allocation::MemAllocation;
+pub use command::Command;
 pub use dim::{Dim, Point};
+
+use bitvec::{array::BitArray, BitArr};
 use serde::{Deserialize, Serialize};
+
+/// Warp size.
+///
+/// Number of threads per warp.
+pub const WARP_SIZE: usize = 32;
+
+/// Thread active mask.
+///
+/// Bitmask where a 1 at position i means that thread i is active for the current instruction.
+pub type ActiveMask = BitArr!(for WARP_SIZE, in u32);
+
+/// An instruction operand predicate.
+#[derive(
+    Debug, Default, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,
+)]
+pub struct Predicate {
+    /// Predicate number
+    pub num: usize,
+    /// Whether predicate is negated (i.e. @!P0).
+    pub is_neg: bool,
+    /// Whether predicate is uniform predicate (e.g., @UP0).
+    pub is_uniform: bool,
+}
+
+/// Identifier of GPU memory space.
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum MemorySpace {
+    None = 0,
+    Local = 1,
+    Generic = 2,
+    Global = 3,
+    Shared = 4,
+    Constant = 5,
+    GlobalToShared = 6,
+    Surface = 7,
+    Texture = 8,
+}
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(clippy::struct_excessive_bools)]
@@ -17,8 +61,8 @@ pub struct MemAccessTraceEntry {
     pub instr_opcode: String,
     pub instr_offset: u32,
     pub instr_idx: u32,
-    pub instr_predicate: nvbit_model::Predicate,
-    pub instr_mem_space: nvbit_model::MemorySpace,
+    pub instr_predicate: Predicate,
+    pub instr_mem_space: MemorySpace,
     pub instr_is_mem: bool,
     pub instr_is_load: bool,
     pub instr_is_store: bool,
@@ -31,6 +75,10 @@ pub struct MemAccessTraceEntry {
     /// Accessed address per thread of a warp
     pub addrs: [u64; 32],
 }
+
+// impl MemAccessTraceEntry {
+//     pub fn set_active_mask(&mut self, mask: ActiveMask) {}
+// }
 
 impl std::cmp::Ord for MemAccessTraceEntry {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
@@ -132,62 +180,4 @@ pub fn is_valid_trace(trace: &[MemAccessTraceEntry]) -> bool {
     // assert_eq!(duplicate_blocks, 0);
     // assert_eq!(duplicate_warp_ids, 0);
     duplicate_blocks == 0 && duplicate_warp_ids == 0
-}
-
-/// A memory allocation.
-#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct MemAllocation {
-    pub device_ptr: u64,
-    pub num_bytes: u64,
-}
-
-/// Information about a kernel launch.
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub struct KernelLaunch {
-    pub mangled_name: String,
-    pub unmangled_name: String,
-    pub trace_file: String,
-    pub id: u64,
-    pub grid: Dim,
-    pub block: Dim,
-    pub shared_mem_bytes: u32,
-    pub num_registers: u32,
-    pub binary_version: i32,
-    pub stream_id: u64,
-    pub shared_mem_base_addr: u64,
-    pub local_mem_base_addr: u64,
-    pub nvbit_version: String,
-}
-
-impl std::cmp::Ord for KernelLaunch {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.id.cmp(&other.id)
-    }
-}
-
-impl std::cmp::PartialOrd for KernelLaunch {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct MemcpyHtoD {
-    pub allocation_name: Option<String>,
-    pub dest_device_addr: u64,
-    pub num_bytes: u64,
-}
-
-#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct MemAlloc {
-    pub allocation_name: Option<String>,
-    pub device_ptr: u64,
-    pub num_bytes: u64,
-}
-
-#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum Command {
-    MemcpyHtoD(MemcpyHtoD),
-    MemAlloc(MemAlloc),
-    KernelLaunch(KernelLaunch),
 }

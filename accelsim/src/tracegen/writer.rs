@@ -5,7 +5,7 @@ use std::path::Path;
 use trace_model::{Command, Dim, MemAccessTraceEntry};
 
 fn write_kernel_info(
-    kernel: &trace_model::KernelLaunch,
+    kernel: &trace_model::command::KernelLaunch,
     mut out: impl std::io::Write,
 ) -> eyre::Result<()> {
     // dbg!(&kernel);
@@ -186,7 +186,7 @@ pub fn generate_commands(
     for cmd in commands {
         match cmd {
             Command::MemAlloc(_) => {}
-            Command::MemcpyHtoD(trace_model::MemcpyHtoD {
+            Command::MemcpyHtoD(trace_model::command::MemcpyHtoD {
                 dest_device_addr,
                 num_bytes,
                 ..
@@ -205,7 +205,7 @@ pub fn generate_commands(
 
 pub fn generate_trace(
     trace_dir: impl AsRef<Path>,
-    kernel: &trace_model::KernelLaunch,
+    kernel: &trace_model::command::KernelLaunch,
     mut out: impl std::io::Write,
 ) -> eyre::Result<()> {
     write_kernel_info(kernel, &mut out)?;
@@ -227,7 +227,7 @@ mod tests {
 
     #[test]
     fn test_write_kernel_info() -> eyre::Result<()> {
-        let kernel = trace_model::KernelLaunch {
+        let kernel = trace_model::command::KernelLaunch {
             mangled_name: "_Z8mult_gpuIfEvPKT_S2_PS0_mmm".to_string(),
             unmangled_name: "mult_gpu".to_string(),
             id: 0,

@@ -1,6 +1,5 @@
 pub mod asserts;
 pub mod compat;
-pub mod exec;
 pub mod lockstep;
 #[cfg(feature = "parallel")]
 pub mod parallel;
