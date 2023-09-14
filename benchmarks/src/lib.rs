@@ -1,2 +1,2 @@
-// pub mod matrixmul;
+pub mod matrixmul;
 pub mod vectoradd;

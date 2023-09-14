@@ -10,7 +10,7 @@ use tokio::sync::{mpsc, Mutex};
 
 #[derive(Clone)]
 pub struct DevicePtr<T> {
-    inner: T,
+    pub inner: T,
     nop: ArithmeticNop,
     memory: Arc<dyn MemoryAccess + Send + Sync>,
     mem_space: model::MemorySpace,
@@ -46,6 +46,19 @@ pub trait IndexMut<Idx: ?Sized>: Index<Idx> {
 
 // TODO: consolidate
 impl<'a, T, Idx> Index<Idx> for &'a mut Vec<T>
+where
+    Idx: super::ToLinear,
+{
+    type Output = T;
+    fn index(&self, idx: Idx) -> (&Self::Output, u64, u64) {
+        let idx = idx.to_linear();
+        let rel_addr = idx as u64 * self.stride() as u64;
+        let size = self.stride() as u64;
+        (&self[idx], rel_addr, size)
+    }
+}
+
+impl<'a, T, Idx> Index<Idx> for &'a Vec<T>
 where
     Idx: super::ToLinear,
 {
@@ -114,6 +127,16 @@ impl<'a, T> Allocatable for &'a mut Vec<T> {
     }
 }
 
+impl<'a, T> Allocatable for &'a Vec<T> {
+    fn length(&self) -> usize {
+        self.len()
+    }
+
+    fn stride(&self) -> usize {
+        std::mem::size_of::<T>()
+    }
+}
+
 impl<T> Allocatable for Vec<T> {
     fn length(&self) -> usize {
         self.len()
@@ -139,7 +162,7 @@ impl<T> std::ops::Index<&ThreadIndex> for DevicePtr<T> {
 
 impl<T, Idx> std::ops::Index<(&ThreadIndex, Idx)> for DevicePtr<T>
 where
-    T: Index<Idx> + std::fmt::Debug,
+    T: Index<Idx>, //  + std::fmt::Debug,
 {
     type Output = <T as Index<Idx>>::Output;
 
@@ -154,7 +177,7 @@ where
 
 impl<T, Idx> std::ops::IndexMut<(&ThreadIndex, Idx)> for DevicePtr<T>
 where
-    T: IndexMut<Idx> + std::fmt::Debug,
+    T: IndexMut<Idx>, //  + std::fmt::Debug,
 {
     fn index_mut(&mut self, (thread_idx, idx): (&ThreadIndex, Idx)) -> &mut Self::Output {
         let (elem, rel_offset, size) = self.inner.index_mut(idx);
@@ -252,7 +275,7 @@ pub trait MemoryAccess {
 
 use std::collections::HashMap;
 
-#[derive(Debug)]
+// #[derive(Debug)]
 pub struct Tracer {
     offset: Mutex<u64>,
     thread_instructions: std::sync::Mutex<
@@ -262,13 +285,13 @@ pub struct Tracer {
 }
 
 impl Tracer {
-    pub fn new() -> Self {
+    pub fn new() -> Arc<Self> {
         // let (tx, rx) = mpsc::channel(100);
-        Self {
+        Arc::new(Self {
             offset: Mutex::new(0),
             thread_instructions: std::sync::Mutex::new(HashMap::new()),
             kernel_launch_id: atomic::AtomicU64::new(0),
-        }
+        })
     }
 
     fn push_thread_instruction(
@@ -382,9 +405,12 @@ impl TraceGenerator for Tracer {
 
         let kernel = Arc::new(kernel);
 
+        let block_ids: Vec<_> = grid.clone().into_iter().collect();
+        println!("launching {} blocks", block_ids.len());
+
         // loop over the grid
-        futures::stream::iter(grid.clone().into_iter())
-            .map(|block_id| {
+        futures::stream::iter(block_ids)
+            .then(|block_id| {
                 let block_size = block_size.clone();
                 let block_id = block_id.clone();
                 let kernel = kernel.clone();
@@ -437,7 +463,7 @@ impl TraceGenerator for Tracer {
                     futures::future::join_all(futures).await;
                 }
             })
-            .buffer_unordered(4)
+            // .buffer_unordered(4)
             .collect::<Vec<_>>()
             .await;
 
@@ -641,7 +667,7 @@ mod tests {
     async fn test_vectoradd() -> eyre::Result<()> {
         let block_size = 64;
         let n = 120;
-        let mut tracer = Arc::new(super::Tracer::new());
+        let mut tracer = super::Tracer::new();
 
         let mut a: Vec<f32> = vec![0.0; n];
         let mut b: Vec<f32> = vec![0.0; n];

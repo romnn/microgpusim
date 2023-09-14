@@ -5,8 +5,14 @@ edition = "2021"
 
 [dependencies]
 num-traits = "0"
+async-trait = "0"
+tokio = { version = "1", features = ["full"] }
 color-eyre = "0"
 rand = "0"
 
 gpucachesim = { path = "../" }
+
+[dev-dependencies]
+approx = "0.5"
+ndarray = { version = "0", features = ["approx-0_5"] }
 utils = { path = "../utils" }

@@ -5,50 +5,82 @@
 )]
 
 use color_eyre::eyre;
-use gpucachesim::exec::{self, DevicePtr, Kernel};
+use gpucachesim::exec::r#async::{DevicePtr, Kernel, ThreadBlock, TraceGenerator, Tracer};
+use gpucachesim::exec::{MemorySpace, ThreadIndex};
 use num_traits::{Float, NumCast, Zero};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
-#[derive(Debug)]
-// struct VecAdd<'s, 'a, T> {
-struct VecAdd<'s, T> {
-    // dev_a: &'a DevicePtr<'s, 'a, Vec<T>>,
-    dev_a: DevicePtr<'s, Vec<T>, T>,
-    // dev_b: &'a DevicePtr<'s, 'a, Vec<T>>,
-    dev_b: DevicePtr<'s, Vec<T>, T>,
-    // dev_result: &'a mut DevicePtr<'s, 'a, Vec<T>>,
-    dev_result: DevicePtr<'s, Vec<T>, T>,
+struct VecAdd<'a, T> {
+    dev_a: Mutex<DevicePtr<&'a Vec<T>>>,
+    dev_b: Mutex<DevicePtr<&'a Vec<T>>>,
+    dev_result: Mutex<DevicePtr<&'a mut Vec<T>>>,
     n: usize,
 }
 
-// impl<'s, 'a, T> exec::Kernel for VecAdd<'s, 'a, T>
-impl<'s, T> Kernel for VecAdd<'s, T>
+#[async_trait::async_trait]
+impl<'a, T> Kernel for VecAdd<'a, T>
 where
-    T: Float + std::fmt::Debug,
+    T: Float + Send + Sync,
 {
     type Error = std::convert::Infallible;
 
-    fn run(&mut self, idx: &exec::ThreadIndex) -> Result<(), Self::Error> {
-        // Get our global thread ID
-        // int id = blockIdx.x * blockDim.x + threadIdx.x;
-        let id: usize = (idx.block_idx.x * idx.block_dim.x + idx.thread_idx.x) as usize;
+    async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
+        let idx = (tid.block_idx.x * tid.block_dim.x + tid.thread_idx.x) as usize;
 
-        // Make sure we do not go out of bounds
-        // if (id < n) c[id] = a[id] + b[id];
-        // let active = id < self.n;
-        // self.dev_result[(id, active)] = self.dev_a[(id, active)] + self.dev_b[(id, active)];
+        let dev_a = self.dev_a.lock().await;
+        let dev_b = self.dev_b.lock().await;
+        let mut dev_result = self.dev_result.lock().await;
 
-        if id < self.n {
-            self.dev_result[()] = self.dev_a[()] + self.dev_b[()];
-            // self.dev_result[id] = self.dev_a[id] + self.dev_b[id];
+        if idx < self.n {
+            dev_result[(tid, idx)] = dev_a[(tid, idx)] + dev_b[(tid, idx)];
         } else {
-            self.dev_result[()] = self.dev_a[()] + self.dev_b[()];
-            // self.dev_result[id] = self.dev_a[id] + self.dev_b[id];
+            dev_result[tid] = dev_a[tid] + dev_b[tid];
         }
         Ok(())
     }
 
     fn name(&self) -> &str {
         "VecAdd"
+    }
+}
+
+#[deprecated]
+mod deprecated {
+    use gpucachesim::exec::{self, DevicePtr, Kernel};
+    use num_traits::{Float, NumCast, Zero};
+
+    #[derive(Debug)]
+    struct VecAdd<'s, T> {
+        dev_a: DevicePtr<'s, Vec<T>, T>,
+        dev_b: DevicePtr<'s, Vec<T>, T>,
+        dev_result: DevicePtr<'s, Vec<T>, T>,
+        n: usize,
+    }
+
+    impl<'s, T> Kernel for VecAdd<'s, T>
+    where
+        T: Float + std::fmt::Debug,
+    {
+        type Error = std::convert::Infallible;
+
+        fn run(&mut self, idx: &exec::ThreadIndex) -> Result<(), Self::Error> {
+            // compute global thread index
+            let id: usize = (idx.block_idx.x * idx.block_dim.x + idx.thread_idx.x) as usize;
+
+            if id < self.n {
+                self.dev_result[()] = self.dev_a[()] + self.dev_b[()];
+                // self.dev_result[id] = self.dev_a[id] + self.dev_b[id];
+            } else {
+                self.dev_result[()] = self.dev_a[()] + self.dev_b[()];
+                // self.dev_result[id] = self.dev_a[id] + self.dev_b[id];
+            }
+            Ok(())
+        }
+
+        fn name(&self) -> &str {
+            "VecAdd"
+        }
     }
 }
 
@@ -64,9 +96,10 @@ where
     }
 }
 
-pub fn default_vectoradd<T>(n: usize) -> eyre::Result<()>
+pub async fn default_vectoradd<T>(n: usize) -> eyre::Result<()>
 where
-    T: Float + Zero + NumCast + std::iter::Sum + std::fmt::Display + std::fmt::Debug,
+    // T: Float + Zero + NumCast + std::iter::Sum + std::fmt::Display + std::fmt::Debug,
+    T: Float + Zero + Send + Sync,
 {
     // create host vectors
     let mut a: Vec<T> = vec![T::zero(); n];
@@ -81,49 +114,35 @@ where
         result[i] = T::zero();
     }
 
-    vectoradd(&a, &b, &mut result)?;
+    vectoradd(&a, &b, &mut result).await?;
     Ok(())
 }
 
-pub fn vectoradd<T>(a: &Vec<T>, b: &Vec<T>, result: &mut Vec<T>) -> eyre::Result<()>
+pub async fn vectoradd<T>(a: &Vec<T>, b: &Vec<T>, result: &mut Vec<T>) -> eyre::Result<()>
 where
-    T: Float + Zero + NumCast + std::iter::Sum + std::fmt::Display + std::fmt::Debug,
+    T: Float + Zero + Send + Sync,
 {
-    // let start = std::time::Instant::now();
-
-    use gpucachesim::exec::{MemorySpace, TraceGenerator, Tracer};
-    let mut tracer = Tracer::default();
+    let tracer = Tracer::new();
 
     // let sim = exec::Simulation::new();
     assert_eq!(a.len(), b.len());
     assert_eq!(b.len(), result.len());
     let n = a.len();
-    //
-    // // allocate memory for each vector on simulated GPU device
-    // let a_size = a.len() * std::mem::size_of::<T>();
-    // let b_size = b.len() * std::mem::size_of::<T>();
-    // let c_size = c.len() * std::mem::size_of::<T>();
 
-    let a_size = a.len() * std::mem::size_of::<f32>();
-    let b_size = b.len() * std::mem::size_of::<f32>();
-    let result_size = result.len() * std::mem::size_of::<f32>();
+    // allocate memory for each vector on simulated GPU device
+    let dev_a = tracer.allocate(a, MemorySpace::Global).await;
+    let dev_b = tracer.allocate(b, MemorySpace::Global).await;
+    let dev_result = tracer.allocate(result, MemorySpace::Global).await;
 
-    let mut dev_a = tracer.allocate(a.clone(), a_size as u64, MemorySpace::Global);
-    let mut dev_b = tracer.allocate(b.clone(), b_size as u64, MemorySpace::Global);
-    let mut dev_result = tracer.allocate(result.clone(), result_size as u64, MemorySpace::Global);
-    //
-    // // number of thread blocks in grid
+    // number of thread blocks in grid
     let grid_size = (n as f64 / <f64 as From<_>>::from(BLOCK_SIZE)).ceil() as u32;
     let kernel: VecAdd<T> = VecAdd {
-        dev_a,
-        dev_b,
-        dev_result,
-        // dev_a: &mut dev_a,
-        // dev_b: &mut dev_b,
-        // dev_result: &mut dev_result,
+        dev_a: Mutex::new(dev_a),
+        dev_b: Mutex::new(dev_b),
+        dev_result: Mutex::new(dev_result),
         n,
     };
-    tracer.trace_kernel(grid_size, BLOCK_SIZE, kernel)?;
+    tracer.trace_kernel(grid_size, BLOCK_SIZE, kernel).await?;
     // *result = tracer.kernel.dev_result.into_inner();
 
     // let kernel: VecAdd<T> = VecAdd {
@@ -159,36 +178,13 @@ where
 #[cfg(test)]
 mod tests {
     use color_eyre::eyre;
+    use gpucachesim::exec::r#async::{TraceGenerator, Tracer};
+    use gpucachesim::exec::MemorySpace;
+    use tokio::sync::Mutex;
     use utils::diff;
-    // use std::path::PathBuf;
-    // use trace_model as model;
-    use gpucachesim::exec::{self, MemorySpace, TraceGenerator, Tracer};
 
-    // fn is_indexable<T, E>(value: T)
-    // where
-    //     T: std::ops::Index<usize, Output = E>,
-    // {
-    // }
-
-    // fn is_container<T>(value: T)
-    // where
-    //     T: exec::Container,
-    //     <T as exec::Container>::Elem: num_traits::Zero,
-    // {
-    // }
-
-    // #[test]
-    // pub fn test_containers() {
-    //     let owned_vec = vec![0.0; 20];
-    //     // is_indexable(owned_vec);
-    //     is_container(owned_vec);
-    //     let borrowed_vec = &owned_vec;
-    //     // is_indexable(borrowed_vec);
-    //     is_container(borrowed_vec);
-    // }
-
-    #[test]
-    pub fn test_correctness() -> eyre::Result<()> {
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn test_correctness() -> eyre::Result<()> {
         // create host vectors
         let n = 100;
         let mut a: Vec<f32> = vec![0.0; n];
@@ -203,17 +199,17 @@ mod tests {
             b[i] = angle.cos() * angle.cos();
         }
 
-        super::vectoradd(&mut a, &mut b, &mut result)?;
-        super::reference_vectoradd(&mut a, &mut b, &mut ref_result);
+        super::vectoradd(&a, &b, &mut result).await?;
+        super::reference_vectoradd(&a, &b, &mut ref_result);
 
         diff::assert_eq!(have: result, want: ref_result);
         Ok(())
     }
 
-    #[test]
-    pub fn generate_trace() -> eyre::Result<()> {
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn generate_trace() -> eyre::Result<()> {
         let n = 100;
-        let mut tracer = Tracer::default();
+        let tracer = Tracer::new();
 
         let mut a: Vec<f32> = vec![0.0; n];
         let mut b: Vec<f32> = vec![0.0; n];
@@ -227,31 +223,22 @@ mod tests {
         }
 
         // allocate memory for each vector on simulated GPU device
-        let a_size = a.len() * std::mem::size_of::<f32>();
-        let b_size = b.len() * std::mem::size_of::<f32>();
-        let result_size = result.len() * std::mem::size_of::<f32>();
-
-        // let mut dev_a = tracer.allocate(&mut a, a_size as u64, MemorySpace::Global);
-        // let mut dev_b = tracer.allocate(&mut b, b_size as u64, MemorySpace::Global);
-        // let mut dev_result = tracer.allocate(&mut result, result_size as u64, MemorySpace::Global);
-
-        let mut dev_a = tracer.allocate(a, a_size as u64, MemorySpace::Global);
-        let mut dev_b = tracer.allocate(b, b_size as u64, MemorySpace::Global);
-        let mut dev_result = tracer.allocate(result, result_size as u64, MemorySpace::Global);
+        let dev_a = tracer.allocate(&a, MemorySpace::Global).await;
+        let dev_b = tracer.allocate(&b, MemorySpace::Global).await;
+        let dev_result = tracer.allocate(&mut result, MemorySpace::Global).await;
 
         // number of thread blocks in grid
         let grid_size = (n as f64 / <f64 as From<_>>::from(super::BLOCK_SIZE)).ceil() as u32;
 
         let kernel: super::VecAdd<f32> = super::VecAdd {
-            dev_a,
-            dev_b,
-            dev_result,
-            // dev_a: &mut dev_a,
-            // dev_b: &mut dev_b,
-            // dev_result: &mut dev_result,
+            dev_a: Mutex::new(dev_a),
+            dev_b: Mutex::new(dev_b),
+            dev_result: Mutex::new(dev_result),
             n,
         };
-        tracer.trace_kernel(grid_size, super::BLOCK_SIZE, kernel)?;
+        tracer
+            .trace_kernel(grid_size, super::BLOCK_SIZE, kernel)
+            .await?;
         // let stats = sim.run_to_completion()?;
 
         // sum up vector c and print result divided by n.

@@ -1,4 +1,4 @@
-// pub use trace_model::*;
+pub use trace_model::Dim;
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MemorySpace {
