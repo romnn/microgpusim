@@ -94,7 +94,7 @@ pub fn accelsim_block_id(block_id: &Dim, grid: &Dim) -> u64 {
     block_z * grid_y * grid_x + block_y * grid_x + block_x
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Point {
     pub x: u32,
     pub y: u32,

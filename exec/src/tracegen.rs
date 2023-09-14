@@ -6,8 +6,8 @@ use bitvec::field::BitField;
 use itertools::Itertools;
 use std::sync::{atomic, Arc, Mutex};
 
-const DEV_GLOBAL_HEAP_START: u64 = 0xC000_0000;
-const WARP_SIZE: u32 = 32;
+pub const DEV_GLOBAL_HEAP_START: u64 = 0xC000_0000;
+pub const WARP_SIZE: u32 = 32;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error<K, T> {
@@ -155,6 +155,7 @@ impl TraceGenerator for Tracer {
         B: Into<trace_model::Dim>,
         K: Kernel,
     {
+        let kernel_launch_id = self.kernel_launch_id.fetch_add(1, atomic::Ordering::SeqCst);
         let grid: trace_model::Dim = grid.into();
         let block_size: trace_model::Dim = block_size.into();
 
@@ -163,12 +164,6 @@ impl TraceGenerator for Tracer {
         // loop over the grid
         for block_id in grid.clone() {
             log::debug!("block {}", &block_id);
-
-            let mut thread_id = ThreadIndex {
-                block_idx: block_id.to_dim(),
-                block_dim: block_size.clone(),
-                thread_idx: block_size.clone(),
-            };
 
             // loop over the block size and form warps
             let thread_ids = block_size.clone().into_iter();
@@ -186,7 +181,16 @@ impl TraceGenerator for Tracer {
                     //     &warp_num,
                     //     model::Dim::from(warp_thread_idx)
                     // );
-                    thread_id.thread_idx = warp_thread_idx.into();
+                    // thread_id.thread_idx = warp_thread_idx.into();
+                    let thread_id = ThreadIndex {
+                        kernel_launch_id,
+                        warp_id_in_block,
+                        thread_id_in_warp: thread_idx,
+                        block_id: block_id.clone(),
+                        block_idx: block_id.to_dim(),
+                        block_dim: block_size.clone(),
+                        thread_idx: warp_thread_idx.to_dim(),
+                    };
                     kernel.run(&thread_id).map_err(Error::Kernel)?;
                     thread_instructions[thread_idx]
                         .extend(self.thread_instructions.lock().unwrap().drain(..));
@@ -408,7 +412,7 @@ impl TraceGenerator for Tracer {
             mangled_name: kernel.name().to_string(),
             unmangled_name: kernel.name().to_string(),
             trace_file: String::new(),
-            id: self.kernel_launch_id.fetch_add(1, atomic::Ordering::SeqCst),
+            id: kernel_launch_id,
             grid,
             block: block_size,
             shared_mem_bytes: 0,

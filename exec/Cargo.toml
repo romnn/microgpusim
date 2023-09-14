@@ -12,6 +12,9 @@ color-eyre = "0"
 serde = { version = "1", features = ["derive"] }
 thiserror = "1"
 
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+
 trace-model = { path = "../trace/model" }
 
 # todo: remove in the future
@@ -19,6 +22,5 @@ log = "0"
 env_logger = "0"
 
 [dev-dependencies]
-tokio = { version = "1", features = ["full"] }
 futures = "0.3"
 # utils = { path = "../utils" }
