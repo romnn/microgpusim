@@ -8,37 +8,13 @@ use itertools::Itertools;
 use std::sync::{atomic, Arc};
 use tokio::sync::{mpsc, Mutex};
 
-#[derive()]
-// pub struct DevicePtr<'s, C, T> {
-// pub struct DevicePtr<'s, C, T> {
+#[derive(Clone)]
 pub struct DevicePtr<T> {
-    // pub struct DevicePtr<'s, T, O> {
-    // inner: &'a mut T,
     inner: T,
-    // marker: std::marker::PhantomData<T>,
-    // TODO: refactor this
-    // spare: <T as Container>::Elem,
     nop: ArithmeticNop,
-    // memory: &'s dyn tracegen::MemoryAccess,
     memory: Arc<dyn MemoryAccess + Send + Sync>,
     mem_space: model::MemorySpace,
-
-    // allocation
     offset: u64,
-    // stride: u64,
-    // length: u64,
-}
-
-impl<T> DevicePtr<T> {
-    fn get(&self, thread_idx: &ThreadIndex) -> &T {
-        // todo: access at offset and of length stride
-        &self.inner
-    }
-
-    fn get_mut(&mut self, thread_idx: &ThreadIndex) -> &mut T {
-        // todo: access at offset and of length stride
-        &mut self.inner
-    }
 }
 
 impl<T> std::fmt::Debug for DevicePtr<T>
@@ -120,15 +96,6 @@ where
     }
 }
 
-// impl<T, Idx> Index<Idx> for T where T: std::ops::Index<Idx> {
-//     Out
-// }
-
-// pub trait IndexMut<I> {
-//     type Output;
-//     fn index(&self, idx: I) -> (&mut Self::Output, u64);
-// }
-
 pub trait Allocatable {
     fn length(&self) -> usize;
     fn stride(&self) -> usize;
@@ -161,11 +128,10 @@ impl<T> std::ops::Index<&ThreadIndex> for DevicePtr<T> {
     type Output = ArithmeticNop;
 
     fn index(&self, thread_idx: &ThreadIndex) -> &Self::Output {
-        println!(
-            "inactive: block={} warp={} thread={}",
-            &thread_idx.block_id, &thread_idx.warp_id_in_block, &thread_idx.thread_id_in_warp
-        );
-
+        // println!(
+        //     "inactive: block={} warp={} thread={}",
+        //     &thread_idx.block_id, &thread_idx.warp_id_in_block, &thread_idx.thread_id_in_warp
+        // );
         self.memory.inactive(thread_idx);
         &self.nop
     }
@@ -178,18 +144,11 @@ where
     type Output = <T as Index<Idx>>::Output;
 
     fn index(&self, (thread_idx, idx): (&ThreadIndex, Idx)) -> &Self::Output {
-        // let elem_size = std::mem::size_of::<T::Elem>();
-        // let flat_idx = idx.to_linear();
-        // let addr = self.offset + elem_size as u64 * flat_idx as u64;
         let (elem, rel_offset, size) = self.inner.index(idx);
         let addr = self.offset + rel_offset as u64;
-        // println!("access addr {}", addr);
         self.memory
             .load(thread_idx, addr, size as u32, self.mem_space);
-        // log::trace!("{:?}[{:?}] => {}", &self.inner, &idx, &addr);
-        // self.inner.index(flat_idx)
         elem
-        // &self.inner[idx]
     }
 }
 
@@ -202,18 +161,16 @@ where
         let addr = self.offset + rel_offset as u64;
         self.memory
             .store(thread_idx, addr, size as u32, self.mem_space);
-        // .await;
         elem
     }
 }
 
 impl<T> std::ops::IndexMut<&ThreadIndex> for DevicePtr<T> {
     fn index_mut(&mut self, thread_idx: &ThreadIndex) -> &mut Self::Output {
-        println!(
-            "inactive: block={} warp={} thread={}",
-            &thread_idx.block_id, &thread_idx.warp_id_in_block, &thread_idx.thread_id_in_warp
-        );
-
+        // println!(
+        //     "inactive: block={} warp={} thread={}",
+        //     &thread_idx.block_id, &thread_idx.warp_id_in_block, &thread_idx.thread_id_in_warp
+        // );
         self.memory.inactive(thread_idx);
         &mut self.nop
     }
@@ -259,39 +216,28 @@ pub trait Kernel {
     fn name(&self) -> &str;
 }
 
-// #[async_trait::async_trait]
-// pub trait TraceGenerator {
-//     type Error;
-//
-//     /// Trace kernel.
-//     async fn trace_kernel<G, B, K>(
-//         // &mut self,
-//         &self,
-//         grid: G,
-//         block_size: B,
-//         kernel: K,
-//     ) -> Result<(), Error<K::Error, Self::Error>>
-//     where
-//         G: Into<trace_model::Dim>,
-//         B: Into<trace_model::Dim>,
-//         K: Kernel;
-//
-//     /// Allocate a variable.
-//     // fn allocate<'s, 'a, T>(
-//     // fn allocate<'s, T, O>(
-//     fn allocate<'s, C, T>(
-//         &'s self,
-//         var: C,
-//         // var: &'a mut T,
-//         size: u64,
-//         mem_space: model::MemorySpace,
-//         // ) -> DevicePtr<'s, 'a, T>;
-//         // ) -> DevicePtr<'s, T, O>
-//     ) -> DevicePtr<'s, C, T>;
-//     // where
-//     //     T: Container,
-//     //     <T as Container>::Elem: Zero;
-// }
+#[async_trait::async_trait]
+pub trait TraceGenerator {
+    type Error;
+
+    /// Trace kernel.
+    async fn trace_kernel<G, B, K>(
+        self: &Arc<Self>,
+        grid: G,
+        block_size: B,
+        mut kernel: K,
+    ) -> Result<(), Error<K::Error, Self::Error>>
+    where
+        G: Into<trace_model::Dim> + Send,
+        B: Into<trace_model::Dim> + Send,
+        K: Kernel + Send + Sync,
+        <K as Kernel>::Error: Send;
+
+    /// Allocate a variable.
+    async fn allocate<T>(self: &Arc<Self>, value: T, mem_space: model::MemorySpace) -> DevicePtr<T>
+    where
+        T: Allocatable + Send;
+}
 
 #[async_trait::async_trait]
 pub trait MemoryAccess {
@@ -309,19 +255,6 @@ use std::collections::HashMap;
 #[derive(Debug)]
 pub struct Tracer {
     offset: Mutex<u64>,
-    // thread_instructions: Mutex<Vec<model::ThreadInstruction>>,
-    kernels: std::sync::RwLock<
-        Vec<(
-            mpsc::Sender<(ThreadIndex, model::ThreadInstruction)>,
-            mpsc::Receiver<(ThreadIndex, model::ThreadInstruction)>,
-        )>,
-    >,
-    // rx: Mutex<mpsc::Receiver<(ThreadIndex, model::ThreadInstruction)>>,
-    // tx: mpsc::Sender<(ThreadIndex, model::ThreadInstruction)>,
-    // thread_instructions: std::sync::Mutex<HashMap<ThreadIndex, Vec<model::ThreadInstruction>>>,
-    // (block x warp id) => Vec<thread instructions>
-    // thread_instructions:
-    //     std::sync::Mutex<Vec<(trace_model::Point, usize, Vec<model::ThreadInstruction>)>>,
     thread_instructions: std::sync::Mutex<
         HashMap<(trace_model::Point, usize), [Vec<model::ThreadInstruction>; WARP_SIZE as usize]>,
     >,
@@ -333,12 +266,7 @@ impl Tracer {
         // let (tx, rx) = mpsc::channel(100);
         Self {
             offset: Mutex::new(0),
-            // kernels: Mutex::new(Vec::new()),
-            kernels: std::sync::RwLock::new(Vec::new()),
-            // rx: Mutex::new(rx),
-            // tx,
             thread_instructions: std::sync::Mutex::new(HashMap::new()),
-            // thread_instructions: std::sync::Mutex::new(Vec::new()),
             kernel_launch_id: atomic::AtomicU64::new(0),
         }
     }
@@ -365,7 +293,6 @@ impl MemoryAccess for Tracer {
         //     "inactive: block={} warp={} thread={}",
         //     &thread_idx.block_id, &thread_idx.warp_id_in_block, &thread_idx.thread_id_in_warp
         // );
-
         self.push_thread_instruction(
             thread_idx.block_id.clone(),
             thread_idx.warp_id_in_block,
@@ -387,16 +314,6 @@ impl MemoryAccess for Tracer {
             thread_idx.thread_id_in_warp,
             inst,
         );
-
-        // let (tx, rx) = &self.kernels.read().unwrap()[thread_idx.kernel_launch_id];
-        // tx.send((thread_idx.clone(), inst));
-        // self.thread_instructions
-        //     .lock()
-        //     .unwrap()
-        //     // .await
-        //     .entry(thread_idx.clone())
-        //     .or_default()
-        //     .push(inst);
     }
 
     fn store(&self, thread_idx: &ThreadIndex, addr: u64, size: u32, mem_space: model::MemorySpace) {
@@ -412,65 +329,16 @@ impl MemoryAccess for Tracer {
             thread_idx.thread_id_in_warp,
             inst,
         );
-
-        // let (tx, rx) = &self.kernels.read().unwrap()[thread_idx.kernel_launch_id];
-        // tx.send((thread_idx.clone(), inst));
-
-        // self.thread_instructions
-        //     .lock()
-        //     .unwrap()
-        //     // .await
-        //     .entry(thread_idx.clone())
-        //     .or_default()
-        //     .push(inst);
     }
 }
 
-// impl<T> StridedAllocation for Vec<T>
-// where
-//     T: AsRef<[Self::Item]>,
-// {
-//     type Item;
-//     fn offset_at_index() -> usize {}
-// }
+#[async_trait::async_trait]
+impl TraceGenerator for Tracer {
+    type Error = super::tracegen::TraceError;
 
-// pub trait StridedAllocation {
-//     type Item;
-//     fn offset_at_index() -> usize;
-//     // pub fn len() -> usize;
-//     // pub fn stride() -> usize;
-// }
-
-// #[async_trait::async_trait]
-// impl TraceGenerator for Tracer {
-impl Tracer {
-    // type Error = super::tracegen::TraceError;
-
-    // fn to_device<T, E>(
-    //     &self,
-    //     value: T,
-    //     // size: u64,
-    //     // mem_space: model::MemorySpace,
-    //     // ) -> DevicePtr<'s, C, T> {
-    // ) -> DevicePtr<T>
-    // where
-    //     T: StridedAllocation<Item = E>,
-    // {
-    //     std::mem::size_of::<T>();
-    //     todo!()
-    // }
-
-    // fn allocate<'s, C, T>(
-    async fn allocate<T>(
-        self: &Arc<Self>,
-        value: T,
-        // stride: u64,
-        // length: u64,
-        mem_space: model::MemorySpace,
-        // ) -> DevicePtr<'s, C, T> {
-    ) -> DevicePtr<T>
+    async fn allocate<T>(self: &Arc<Self>, value: T, mem_space: model::MemorySpace) -> DevicePtr<T>
     where
-        T: Allocatable,
+        T: Allocatable + Send,
     {
         let mut offset_lock = self.offset.lock().await;
         let offset = *offset_lock;
@@ -485,17 +353,17 @@ impl Tracer {
         }
     }
 
-    #[allow(irrefutable_let_patterns)]
     async fn trace_kernel<G, B, K>(
         self: &Arc<Self>,
         grid: G,
         block_size: B,
         mut kernel: K,
-    ) -> Result<(), Error<K::Error, super::tracegen::TraceError>>
+    ) -> Result<(), Error<K::Error, Self::Error>>
     where
         G: Into<trace_model::Dim> + Send,
         B: Into<trace_model::Dim> + Send,
-        K: Kernel + Send,
+        K: Kernel + Send + Sync,
+        <K as Kernel>::Error: Send,
     {
         let kernel_launch_id = self.kernel_launch_id.fetch_add(1, atomic::Ordering::SeqCst);
         self.thread_instructions.lock().unwrap().clear();
@@ -520,42 +388,36 @@ impl Tracer {
                 let block_size = block_size.clone();
                 let block_id = block_id.clone();
                 let kernel = kernel.clone();
-                // let block_id = block_id.clone();
                 async move {
-                    println!("block {block_id}");
+                    // println!("block {block_id}");
 
                     // loop over the block size and form warps
                     let thread_ids = block_size.clone().into_iter();
                     let warp_iter = thread_ids.chunks(WARP_SIZE as usize);
-                    let thread_iter = warp_iter.into_iter().enumerate().flat_map(
-                        |(warp_id_in_block, threads)| {
+                    let thread_iter: Vec<(_, _, _)> = warp_iter
+                        .into_iter()
+                        .enumerate()
+                        .flat_map(|(warp_id_in_block, threads)| {
                             threads
                                 .enumerate()
                                 .map(move |(thread_idx, warp_thread_idx)| {
                                     (warp_id_in_block, thread_idx, warp_thread_idx)
                                 })
-                        },
-                    );
+                        })
+                        .collect();
 
-                    // for (warp_id_in_block, thread_idx, warp_thread_idx) in thread_iter.iter() {
-                    //     println!(
-                    //         "block {block_id} warp #{warp_id_in_block} thread {:?}",
-                    //         trace_model::Dim::from(warp_thread_idx.clone())
-                    //     );
-                    // }
-                    //
                     let block = Arc::new(ThreadBlock::new(block_id.clone(), block_size.clone()));
 
-                    let futures =
-                        thread_iter.map(|(warp_id_in_block, thread_idx, warp_thread_idx)| {
+                    let futures = thread_iter.into_iter().map(
+                        |(warp_id_in_block, thread_idx, warp_thread_idx)| {
                             let kernel = kernel.clone();
                             let block = block.clone();
                             async move {
-                                println!(
-                                    "block {} warp #{warp_id_in_block} thread {:?}",
-                                    block.id(),
-                                    trace_model::Dim::from(warp_thread_idx.clone())
-                                );
+                                // println!(
+                                //     "block {} warp #{warp_id_in_block} thread {:?}",
+                                //     block.id(),
+                                //     trace_model::Dim::from(warp_thread_idx.clone())
+                                // );
                                 let thread_id = ThreadIndex {
                                     kernel_launch_id,
                                     warp_id_in_block,
@@ -569,7 +431,8 @@ impl Tracer {
                                 kernel.run(&block, &thread_id).await?;
                                 Result::<_, K::Error>::Ok(())
                             }
-                        });
+                        },
+                    );
 
                     futures::future::join_all(futures).await;
                 }
@@ -594,8 +457,8 @@ impl Tracer {
         // return Ok(());
 
         for ((block_id, warp_id_in_block), thread_instructions) in traced_instructions.drain() {
-            assert_eq!(thread_instructions.len(), WARP_SIZE as usize);
-            dbg!((&block_id, &warp_id_in_block, &thread_instructions[0].len()));
+            // assert_eq!(thread_instructions.len(), WARP_SIZE as usize);
+            // dbg!((&block_id, &warp_id_in_block, &thread_instructions[0].len()));
 
             if !thread_instructions.iter().all_equal() {
                 return Err(Error::Tracer(
@@ -643,7 +506,6 @@ impl Tracer {
                     }
                 }
 
-                // first_thread_instruction
                 if let model::ThreadInstruction::Access(ref access) =
                     thread_instructions[0][instr_idx]
                 {
@@ -688,10 +550,10 @@ impl Tracer {
         let trace = trace_model::MemAccessTrace(trace);
         let warp_traces = trace.clone().to_warp_traces();
 
-        dbg!(&warp_traces[&(trace_model::Dim::ZERO, 0)]
-            .iter()
-            .map(|entry| (&entry.instr_opcode, &entry.active_mask))
-            .collect::<Vec<_>>());
+        // dbg!(&warp_traces[&(trace_model::Dim::ZERO, 0)]
+        //     .iter()
+        //     .map(|entry| (&entry.instr_opcode, &entry.active_mask))
+        //     .collect::<Vec<_>>());
 
         let launch_config = trace_model::command::KernelLaunch {
             mangled_name: kernel.name().to_string(),
@@ -708,69 +570,65 @@ impl Tracer {
             local_mem_base_addr: 0,
             nvbit_version: "none".to_string(),
         };
-        dbg!(launch_config);
-
+        // dbg!(launch_config);
         Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::{DevicePtr, ThreadBlock, ThreadIndex, TraceGenerator};
+    use crate::model::MemorySpace;
     use color_eyre::eyre;
     use num_traits::Float;
     use std::sync::Arc;
     use tokio::sync::Mutex;
-    // use utils::diff;
-    // use std::path::PathBuf;
-    // use trace_model as model;
-    // use gpucachesim::exec::{self, MemorySpace, TraceGenerator, Tracer};
+    use utils::diff;
+
+    fn reference_vectoradd<T>(a: &Vec<T>, b: &Vec<T>, result: &mut Vec<T>)
+    where
+        T: Float,
+    {
+        for (i, sum) in result.iter_mut().enumerate() {
+            *sum = a[i] + b[i];
+        }
+    }
 
     #[derive(Debug)]
-    // struct VecAdd<'s, T> {
     struct VecAdd<'a, T> {
-        // dev_a: super::DevicePtr<'s, Vec<T>, T>,
-        // dev_a: tokio::sync::Mutex<&mut super::DevicePtr<Vec<T>>>,
-        dev_a: tokio::sync::Mutex<super::DevicePtr<&'a mut Vec<T>>>,
-        dev_b: tokio::sync::Mutex<super::DevicePtr<Vec<T>>>,
-        dev_result: tokio::sync::Mutex<super::DevicePtr<Vec<T>>>,
-        // marker: std::marker::PhantomData<&'s T>,
+        dev_a: tokio::sync::Mutex<DevicePtr<&'a mut Vec<T>>>,
+        dev_b: tokio::sync::Mutex<DevicePtr<&'a mut Vec<T>>>,
+        dev_result: tokio::sync::Mutex<DevicePtr<&'a mut Vec<T>>>,
         n: usize,
     }
 
     #[async_trait::async_trait]
-    // impl<'s, T> super::Kernel for VecAdd<'s, T>
-    // impl<T> super::Kernel for VecAdd<T>
     impl<'a, T> super::Kernel for VecAdd<'a, T>
     where
         T: Float + std::fmt::Debug + Send + Sync,
     {
         type Error = std::convert::Infallible;
 
-        async fn run(
-            &self,
-            block: &super::ThreadBlock,
-            tid: &super::ThreadIndex,
-        ) -> Result<(), Self::Error> {
+        async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
             let idx = (tid.block_idx.x * tid.block_dim.x + tid.thread_idx.x) as usize;
 
             // println!("thread {:?} before", idx);
-            // block.synchronize_threads().await;
+            block.synchronize_threads().await;
             // println!("thread {:?} after", idx);
-            // block.synchronize_threads().await;
-            // println!("thread {:?} after after", idx);
+            {
+                let dev_a = self.dev_a.lock().await;
+                let dev_b = self.dev_b.lock().await;
+                let mut dev_result = self.dev_result.lock().await;
 
-            let dev_a = self.dev_a.lock().await;
-            let dev_b = self.dev_b.lock().await;
-            let mut dev_result = self.dev_result.lock().await;
-
-            // block.access(self.dev_a, )
-            if idx < self.n {
-                // self.dev_result[()] = self.dev_a[()] + self.dev_b[()];
-                // self.dev_result[(tid, idx)] = self.dev_a[(tid, idx)] + self.dev_b[(tid, idx)];
-                dev_result[(tid, idx)] = dev_a[(tid, idx)] + dev_b[(tid, idx)];
-            } else {
-                dev_result[tid] = dev_a[tid] + dev_b[tid];
+                if idx < self.n {
+                    dev_result[(tid, idx)] = dev_a[(tid, idx)] + dev_b[(tid, idx)];
+                } else {
+                    dev_result[tid] = dev_a[tid] + dev_b[tid];
+                }
             }
+            // println!("thread {:?} before 2", idx);
+            block.synchronize_threads().await;
+            // println!("thread {:?} after 2", idx);
             Ok(())
         }
 
@@ -780,39 +638,45 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-    async fn test_it_works() -> eyre::Result<()> {
+    async fn test_vectoradd() -> eyre::Result<()> {
         let block_size = 64;
-        // let n = 128;
         let n = 120;
         let mut tracer = Arc::new(super::Tracer::new());
 
         let mut a: Vec<f32> = vec![0.0; n];
         let mut b: Vec<f32> = vec![0.0; n];
         let mut result: Vec<f32> = vec![0.0; n];
-        // let a_size = a.len() * std::mem::size_of::<f32>();
-        // let b_size = b.len() * std::mem::size_of::<T>();
-        // let c_size = c.len() * std::mem::size_of::<T>();
-        // let mut dev_a = tracer.allocate(&mut a, a_size as u64, crate::MemorySpace::Global);
-        // let mut dev_a = tracer.allocate(a, a_size as u64, crate::MemorySpace::Global);
-        let mut dev_a = tracer.allocate(&mut a, crate::MemorySpace::Global).await;
-        let mut dev_b = tracer.allocate(b, crate::MemorySpace::Global).await;
-        let mut dev_result = tracer.allocate(result, crate::MemorySpace::Global).await;
+        let mut ref_result: Vec<f32> = vec![0.0; n];
+
+        // initialize vectors
+        for i in 0..n {
+            let angle = i as f32;
+            a[i] = angle.sin() * angle.sin();
+            b[i] = angle.cos() * angle.cos();
+        }
+
+        let mut dev_a = tracer.allocate(&mut a, MemorySpace::Global).await;
+        let mut dev_b = tracer.allocate(&mut b, MemorySpace::Global).await;
+        let mut dev_result = tracer.allocate(&mut result, MemorySpace::Global).await;
 
         let kernel: VecAdd<f32> = VecAdd {
             dev_a: Mutex::new(dev_a),
             dev_b: Mutex::new(dev_b),
             dev_result: Mutex::new(dev_result),
-            // marker: std::marker::PhantomData,
             n,
         };
         let grid_size = (n as f64 / block_size as f64).ceil() as u32;
         tracer.trace_kernel(grid_size, block_size, kernel).await?;
-        assert!(false);
+
+        reference_vectoradd(&mut a, &mut b, &mut ref_result);
+
+        diff::assert_eq!(have: result, want: ref_result);
+        // assert!(false);
         Ok(())
     }
 
     #[test]
-    fn test_size_of() {
+    fn test_size_of_assumptions() {
         assert_eq!(std::mem::size_of::<f32>(), 4);
         assert_eq!(std::mem::size_of::<Vec<f32>>(), 24);
         let v = vec![0.0f32; 4];

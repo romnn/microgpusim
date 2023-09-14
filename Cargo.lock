@@ -1225,6 +1225,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "trace-model",
+ "utils",
 ]
 
 [[package]]
