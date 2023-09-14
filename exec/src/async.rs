@@ -3,6 +3,7 @@ use super::model;
 use super::nop::ArithmeticNop;
 use super::tracegen::{Error, WARP_SIZE};
 use bitvec::field::BitField;
+use futures::StreamExt;
 use itertools::Itertools;
 use std::sync::{atomic, Arc};
 use tokio::sync::{mpsc, Mutex};
@@ -478,7 +479,6 @@ impl Tracer {
         DevicePtr {
             inner: value,
             mem_space,
-            // marker: std::marker::PhantomData,
             nop: ArithmeticNop::default(),
             memory: self.clone(),
             offset,
@@ -488,7 +488,6 @@ impl Tracer {
     #[allow(irrefutable_let_patterns)]
     async fn trace_kernel<G, B, K>(
         self: &Arc<Self>,
-        // &self,
         grid: G,
         block_size: B,
         mut kernel: K,
@@ -513,100 +512,71 @@ impl Tracer {
         let grid: trace_model::Dim = grid.into();
         let block_size: trace_model::Dim = block_size.into();
 
-        // let mut trace = Vec::new();
         let kernel = Arc::new(kernel);
 
         // loop over the grid
-        for block_id in grid.clone() {
-            println!("block {block_id}");
-
-            // let mut thread_id = ThreadIndex {
-            //     kernel_launch_id,
-            //     block_idx: block_id.to_dim(),
-            //     block_dim: block_size.clone(),
-            //     thread_idx: block_size.clone(),
-            // };
-
-            // loop over the block size and form warps
-            let thread_ids = block_size.clone().into_iter();
-            let warp_iter = thread_ids.chunks(WARP_SIZE as usize);
-            let thread_iter =
-                warp_iter
-                    .into_iter()
-                    .enumerate()
-                    .flat_map(|(warp_id_in_block, threads)| {
-                        threads
-                            .enumerate()
-                            .map(move |(thread_idx, warp_thread_idx)| {
-                                (warp_id_in_block, thread_idx, warp_thread_idx)
-                            })
-                    });
-
-            // for (warp_id_in_block, thread_idx, warp_thread_idx) in thread_iter.iter() {
-            //     println!(
-            //         "block {block_id} warp #{warp_id_in_block} thread {:?}",
-            //         trace_model::Dim::from(warp_thread_idx.clone())
-            //     );
-            // }
-            //
-            let block = Arc::new(ThreadBlock::new(block_id.clone(), block_size.clone()));
-
-            let futures = thread_iter.map(|(warp_id_in_block, thread_idx, warp_thread_idx)| {
-                // let block_id = block_id.clone();
-                // let block_size = block_size.clone();
+        futures::stream::iter(grid.clone().into_iter())
+            .map(|block_id| {
+                let block_size = block_size.clone();
+                let block_id = block_id.clone();
                 let kernel = kernel.clone();
-                let block = block.clone();
+                // let block_id = block_id.clone();
                 async move {
-                    println!(
-                        "block {} warp #{warp_id_in_block} thread {:?}",
-                        block.id(),
-                        trace_model::Dim::from(warp_thread_idx.clone())
+                    println!("block {block_id}");
+
+                    // loop over the block size and form warps
+                    let thread_ids = block_size.clone().into_iter();
+                    let warp_iter = thread_ids.chunks(WARP_SIZE as usize);
+                    let thread_iter = warp_iter.into_iter().enumerate().flat_map(
+                        |(warp_id_in_block, threads)| {
+                            threads
+                                .enumerate()
+                                .map(move |(thread_idx, warp_thread_idx)| {
+                                    (warp_id_in_block, thread_idx, warp_thread_idx)
+                                })
+                        },
                     );
-                    let thread_id = ThreadIndex {
-                        kernel_launch_id,
-                        warp_id_in_block,
-                        thread_id_in_warp: thread_idx,
-                        block_id: block.id().clone(),
-                        // thread_id_in_warp: warp_thread_idx.id(),
-                        // unique_block_id: block.id().id(),
-                        // idx: block.id().id() + warp_thread_idx.id(),
-                        block_idx: block.id().to_dim(),
-                        block_dim: block.size().clone(),
-                        thread_idx: warp_thread_idx.to_dim(),
-                        // thread_idx: warp_thread_idx.into(),
-                    };
 
-                    kernel.run(&block, &thread_id).await?; // .map_err(Error::Kernel)?;
-                    Result::<_, K::Error>::Ok(())
+                    // for (warp_id_in_block, thread_idx, warp_thread_idx) in thread_iter.iter() {
+                    //     println!(
+                    //         "block {block_id} warp #{warp_id_in_block} thread {:?}",
+                    //         trace_model::Dim::from(warp_thread_idx.clone())
+                    //     );
+                    // }
+                    //
+                    let block = Arc::new(ThreadBlock::new(block_id.clone(), block_size.clone()));
+
+                    let futures =
+                        thread_iter.map(|(warp_id_in_block, thread_idx, warp_thread_idx)| {
+                            let kernel = kernel.clone();
+                            let block = block.clone();
+                            async move {
+                                println!(
+                                    "block {} warp #{warp_id_in_block} thread {:?}",
+                                    block.id(),
+                                    trace_model::Dim::from(warp_thread_idx.clone())
+                                );
+                                let thread_id = ThreadIndex {
+                                    kernel_launch_id,
+                                    warp_id_in_block,
+                                    thread_id_in_warp: thread_idx,
+                                    block_id: block.id().clone(),
+                                    block_idx: block.id().to_dim(),
+                                    block_dim: block.size().clone(),
+                                    thread_idx: warp_thread_idx.to_dim(),
+                                };
+
+                                kernel.run(&block, &thread_id).await?;
+                                Result::<_, K::Error>::Ok(())
+                            }
+                        });
+
+                    futures::future::join_all(futures).await;
                 }
-            });
-
-            // use futures::StreamExt;
-            futures::future::join_all(futures).await;
-            // let stream = futures::stream::iter(futures).buffered(block.size().size() as usize);
-            // let results = stream.collect::<Vec<_>>().await;
-
-            // for (warp_id_in_block, threads) in thread_ids
-            //     .chunks(WARP_SIZE as usize)
-            //     .into_iter()
-            //     .enumerate()
-            // {
-            //     println!("START WARP #{warp_id_in_block}");
-            //     let mut thread_instructions = [(); WARP_SIZE as usize].map(|_| Vec::new());
-            //
-            //     for (thread_idx, warp_thread_idx) in threads.enumerate() {
-            //         println!(
-            //             "warp #{} thread {:?}",
-            //             &warp_id_in_block,
-            //             trace_model::Dim::from(warp_thread_idx.clone())
-            //         );
-            //         thread_id.thread_idx = warp_thread_idx.into();
-            //         kernel.run(&thread_id).await.map_err(Error::Kernel)?;
-            //         thread_instructions[thread_idx]
-            //             .extend(self.thread_instructions.lock().unwrap().drain(..));
-            //     }
-            // }
-        }
+            })
+            .buffer_unordered(4)
+            .collect::<Vec<_>>()
+            .await;
 
         let mut trace = Vec::new();
         let mut traced_instructions = self.thread_instructions.lock().unwrap();
