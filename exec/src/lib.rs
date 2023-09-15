@@ -5,7 +5,7 @@ pub mod r#async;
 pub mod kernel;
 pub mod model;
 pub mod nop;
-pub mod tracegen;
+// pub mod tracegen;
 
 use std::sync::{atomic, Arc, Mutex};
 // use crate::{interconn as ic, mem_fetch};
@@ -20,7 +20,8 @@ pub use exec_impl::inject_reconvergence_points;
 pub use kernel::{Kernel, ThreadIndex};
 pub use model::MemorySpace;
 pub use nop::ArithmeticNop;
-pub use tracegen::{TraceGenerator, Tracer};
+pub use r#async::DevicePtr;
+// pub use tracegen::{TraceGenerator, Tracer};
 
 // pub trait Container<O> {}
 // pub trait Container {
@@ -36,51 +37,51 @@ pub use tracegen::{TraceGenerator, Tracer};
 //     type Elem = E;
 // }
 
-#[derive()]
-pub struct DevicePtr<'s, C, T>
+// #[derive()]
+// pub struct DevicePtr<'s, C, T>
+// // where
+// //     T: Container,
+// {
+//     // pub struct DevicePtr<'s, T, O> {
+//     // inner: &'a mut T,
+//     inner: C,
+//     marker: std::marker::PhantomData<T>,
+//     // TODO: refactor this
+//     // spare: <T as Container>::Elem,
+//     nop: ArithmeticNop,
+//     memory: &'s dyn tracegen::MemoryAccess,
+//     mem_space: model::MemorySpace,
+//     offset: u64,
+// }
+//
+// impl<'s, C, T> DevicePtr<'s, C, T>
+// // where
+// //     T: Container,
+// {
+//     pub fn into_inner(self) -> C {
+//         self.inner
+//     }
+// }
+
+// impl<'s, C, T> std::fmt::Debug for DevicePtr<'s, C, T>
 // where
-//     T: Container,
-{
-    // pub struct DevicePtr<'s, T, O> {
-    // inner: &'a mut T,
-    inner: C,
-    marker: std::marker::PhantomData<T>,
-    // TODO: refactor this
-    // spare: <T as Container>::Elem,
-    nop: ArithmeticNop,
-    memory: &'s dyn tracegen::MemoryAccess,
-    mem_space: model::MemorySpace,
-    offset: u64,
-}
-
-impl<'s, C, T> DevicePtr<'s, C, T>
+//     // T: Container + std::fmt::Debug,
+//     C: std::fmt::Debug,
+// {
+//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+//         std::fmt::Debug::fmt(&self.inner, f)
+//     }
+// }
+//
+// impl<'s, C, T> std::fmt::Display for DevicePtr<'s, C, T>
 // where
-//     T: Container,
-{
-    pub fn into_inner(self) -> C {
-        self.inner
-    }
-}
-
-impl<'s, C, T> std::fmt::Debug for DevicePtr<'s, C, T>
-where
-    // T: Container + std::fmt::Debug,
-    C: std::fmt::Debug,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Debug::fmt(&self.inner, f)
-    }
-}
-
-impl<'s, C, T> std::fmt::Display for DevicePtr<'s, C, T>
-where
-    C: std::fmt::Display,
-    // T: Container + std::fmt::Display,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Display::fmt(&self.inner, f)
-    }
-}
+//     C: std::fmt::Display,
+//     // T: Container + std::fmt::Display,
+// {
+//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+//         std::fmt::Display::fmt(&self.inner, f)
+//     }
+// }
 
 /// Convert multi-dimensional index into flat linear index.
 ///
@@ -128,25 +129,25 @@ impl ToLinear for usize {
 //     }
 // }
 
-impl<C, T> std::ops::Index<()> for DevicePtr<'_, C, T>
-// where
-//     T: Container,
-{
-    type Output = ArithmeticNop;
-
-    fn index(&self, _idx: ()) -> &Self::Output {
-        &self.nop
-    }
-}
-
-impl<C, T> std::ops::IndexMut<()> for DevicePtr<'_, C, T>
-// where
-//     T: Container,
-{
-    fn index_mut(&mut self, _idx: ()) -> &mut Self::Output {
-        &mut self.nop
-    }
-}
+// impl<C, T> std::ops::Index<()> for DevicePtr<'_, C, T>
+// // where
+// //     T: Container,
+// {
+//     type Output = ArithmeticNop;
+//
+//     fn index(&self, _idx: ()) -> &Self::Output {
+//         &self.nop
+//     }
+// }
+//
+// impl<C, T> std::ops::IndexMut<()> for DevicePtr<'_, C, T>
+// // where
+// //     T: Container,
+// {
+//     fn index_mut(&mut self, _idx: ()) -> &mut Self::Output {
+//         &mut self.nop
+//     }
+// }
 
 // // impl<T, I> std::ops::Index<(I, bool)> for DevicePtr<'_, T>
 // impl<T, I, E> std::ops::Index<(I, bool)> for DevicePtr<'_, T>

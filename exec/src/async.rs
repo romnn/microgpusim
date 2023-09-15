@@ -1,12 +1,37 @@
+use crate::model::MemInstruction;
+
 use super::kernel::ThreadIndex;
-use super::model;
+use super::model::{self, ThreadInstruction};
 use super::nop::ArithmeticNop;
-use super::tracegen::{Error, WARP_SIZE};
 use bitvec::field::BitField;
-use futures::StreamExt;
+use futures::{future::Future, StreamExt};
 use itertools::Itertools;
+use petgraph::visit::{VisitMap, Visitable};
+use std::collections::{HashMap, VecDeque};
+use std::pin::Pin;
 use std::sync::{atomic, Arc};
 use tokio::sync::{mpsc, Mutex};
+use trace_model::ToBitString;
+
+pub const DEV_GLOBAL_HEAP_START: u64 = 0xC000_0000;
+pub const WARP_SIZE: u32 = 32;
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error<K, T> {
+    #[error(transparent)]
+    Kernel(K),
+    #[error(transparent)]
+    Tracer(T),
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum TraceError {
+    #[error("inconsistent number of warp instructions")]
+    InconsistentNumberOfWarpInstructions,
+
+    #[error("missing reconvergence points")]
+    MissingReconvergencePoints,
+}
 
 #[derive(Clone)]
 pub struct DevicePtr<T> {
@@ -147,18 +172,18 @@ impl<T> Allocatable for Vec<T> {
     }
 }
 
-impl<T> std::ops::Index<&ThreadIndex> for DevicePtr<T> {
-    type Output = ArithmeticNop;
-
-    fn index(&self, thread_idx: &ThreadIndex) -> &Self::Output {
-        // println!(
-        //     "inactive: block={} warp={} thread={}",
-        //     &thread_idx.block_id, &thread_idx.warp_id_in_block, &thread_idx.thread_id_in_warp
-        // );
-        self.memory.inactive(thread_idx);
-        &self.nop
-    }
-}
+// impl<T> std::ops::Index<&ThreadIndex> for DevicePtr<T> {
+//     type Output = ArithmeticNop;
+//
+//     fn index(&self, thread_idx: &ThreadIndex) -> &Self::Output {
+//         // println!(
+//         //     "inactive: block={} warp={} thread={}",
+//         //     &thread_idx.block_id, &thread_idx.warp_id_in_block, &thread_idx.thread_id_in_warp
+//         // );
+//         self.memory.inactive(thread_idx);
+//         &self.nop
+//     }
+// }
 
 impl<T, Idx> std::ops::Index<(&ThreadIndex, Idx)> for DevicePtr<T>
 where
@@ -188,43 +213,65 @@ where
     }
 }
 
-impl<T> std::ops::IndexMut<&ThreadIndex> for DevicePtr<T> {
-    fn index_mut(&mut self, thread_idx: &ThreadIndex) -> &mut Self::Output {
-        // println!(
-        //     "inactive: block={} warp={} thread={}",
-        //     &thread_idx.block_id, &thread_idx.warp_id_in_block, &thread_idx.thread_id_in_warp
-        // );
-        self.memory.inactive(thread_idx);
-        &mut self.nop
-    }
-}
+// impl<T> std::ops::IndexMut<&ThreadIndex> for DevicePtr<T> {
+//     fn index_mut(&mut self, thread_idx: &ThreadIndex) -> &mut Self::Output {
+//         // println!(
+//         //     "inactive: block={} warp={} thread={}",
+//         //     &thread_idx.block_id, &thread_idx.warp_id_in_block, &thread_idx.thread_id_in_warp
+//         // );
+//         self.memory.inactive(thread_idx);
+//         &mut self.nop
+//     }
+// }
 
-#[derive(Debug)]
 pub struct ThreadBlock {
-    barrier: tokio::sync::Barrier,
-    id: trace_model::Point,
-    size: trace_model::Dim,
+    pub(crate) barrier: Arc<tokio::sync::Barrier>,
+    pub memory: Arc<dyn MemoryAccess + Send + Sync>,
+    // id: trace_model::Point,
+    // size: trace_model::Dim,
+    pub thread_id: ThreadIndex,
 }
 
 impl ThreadBlock {
-    pub fn new(id: trace_model::Point, size: trace_model::Dim) -> Self {
-        Self {
-            barrier: tokio::sync::Barrier::new(size.size() as usize),
-            id,
-            size,
-        }
-    }
+    // pub fn new(id: trace_model::Point, size: trace_model::Dim) -> Self {
+    // pub fn new(thread_id: ThreadIndex, memory: Arc<dyn MemoryAccess + Send + Sync>) -> Self {
+    //     let block_size =
+    //     Self {
+    //         barrier: Arc::new(tokio::sync::Barrier::new(size.size() as usize)),
+    //         thread_id,
+    //         memory,
+    //         // id,
+    //         // size,
+    //     }
+    // }
 
-    pub fn id(&self) -> &trace_model::Point {
-        &self.id
-    }
-
-    pub fn size(&self) -> &trace_model::Dim {
-        &self.size
-    }
+    // pub fn id(&self) -> &trace_model::Point {
+    //     &self.id
+    // }
+    //
+    // pub fn size(&self) -> &trace_model::Dim {
+    //     &self.size
+    // }
 
     pub async fn synchronize_threads(&self) {
         self.barrier.wait().await;
+    }
+
+    pub fn reconverge_branch(&self, branch_id: usize) {
+        let inst = model::ThreadInstruction::Reconverge(branch_id);
+        self.memory.push_thread_instruction(&self.thread_id, inst);
+    }
+
+    pub fn took_branch(&self, branch_id: usize) {
+        let inst = model::ThreadInstruction::TookBranch(branch_id);
+        self.memory.push_thread_instruction(&self.thread_id, inst);
+        // self.memory.reconverge(&self.thread_id, branch_id);
+    }
+
+    pub fn start_branch(&self, branch_id: usize) {
+        let inst = model::ThreadInstruction::Branch(branch_id);
+        self.memory.push_thread_instruction(&self.thread_id, inst);
+        // self.memory.start_branch(&self.thread_id, branch_id);
     }
 }
 
@@ -235,6 +282,7 @@ pub trait Kernel {
 
     /// Run an instance of the kernel on a thread identified by its index
     async fn run(&self, block: &ThreadBlock, idx: &ThreadIndex) -> Result<(), Self::Error>;
+    // fn run(&self, block: &ThreadBlock, idx: &ThreadIndex) -> Pin<Box<dyn Future<Output = Result<(), Self::Error>> + Send + '_>>;
 
     fn name(&self) -> &str;
 }
@@ -264,7 +312,15 @@ pub trait TraceGenerator {
 
 #[async_trait::async_trait]
 pub trait MemoryAccess {
-    fn inactive(&self, thread_idx: &ThreadIndex);
+    /// Push thread instruction
+    fn push_thread_instruction(
+        &self,
+        thread_idx: &ThreadIndex,
+        // block_id: trace_model::Point,
+        // warp_id_in_block: usize,
+        // thread_id: usize,
+        instruction: model::ThreadInstruction,
+    );
 
     /// Load address.
     fn load(&self, thread_idx: &ThreadIndex, addr: u64, size: u32, mem_space: model::MemorySpace);
@@ -272,8 +328,6 @@ pub trait MemoryAccess {
     /// Store address.
     fn store(&self, thread_idx: &ThreadIndex, addr: u64, size: u32, mem_space: model::MemorySpace);
 }
-
-use std::collections::HashMap;
 
 // #[derive(Debug)]
 pub struct Tracer {
@@ -293,35 +347,27 @@ impl Tracer {
             kernel_launch_id: atomic::AtomicU64::new(0),
         })
     }
+}
 
+#[async_trait::async_trait]
+impl MemoryAccess for Tracer {
     fn push_thread_instruction(
         &self,
-        block_id: trace_model::Point,
-        warp_id_in_block: usize,
-        thread_id: usize,
+        // block_id: trace_model::Point,
+        // warp_id_in_block: usize,
+        // thread_id: usize,
+        thread_idx: &ThreadIndex,
         instruction: model::ThreadInstruction,
     ) {
+        let block_id = thread_idx.block_id.clone();
+        let warp_id_in_block = thread_idx.warp_id_in_block;
+        let thread_id = thread_idx.thread_id_in_warp;
+
         let mut block_instructions = self.thread_instructions.lock().unwrap();
         let warp_instructions = block_instructions
             .entry((block_id, warp_id_in_block))
             .or_default();
         warp_instructions[thread_id].push(instruction);
-    }
-}
-
-#[async_trait::async_trait]
-impl MemoryAccess for Tracer {
-    fn inactive(&self, thread_idx: &ThreadIndex) {
-        // println!(
-        //     "inactive: block={} warp={} thread={}",
-        //     &thread_idx.block_id, &thread_idx.warp_id_in_block, &thread_idx.thread_id_in_warp
-        // );
-        self.push_thread_instruction(
-            thread_idx.block_id.clone(),
-            thread_idx.warp_id_in_block,
-            thread_idx.thread_id_in_warp,
-            model::ThreadInstruction::Inactive,
-        );
     }
 
     fn load(&self, thread_idx: &ThreadIndex, addr: u64, size: u32, mem_space: model::MemorySpace) {
@@ -332,9 +378,10 @@ impl MemoryAccess for Tracer {
             size,
         });
         self.push_thread_instruction(
-            thread_idx.block_id.clone(),
-            thread_idx.warp_id_in_block,
-            thread_idx.thread_id_in_warp,
+            &thread_idx,
+            // thread_idx.block_id.clone(),
+            // thread_idx.warp_id_in_block,
+            // thread_idx.thread_id_in_warp,
             inst,
         );
     }
@@ -347,9 +394,10 @@ impl MemoryAccess for Tracer {
             size,
         });
         self.push_thread_instruction(
-            thread_idx.block_id.clone(),
-            thread_idx.warp_id_in_block,
-            thread_idx.thread_id_in_warp,
+            &thread_idx,
+            // thread_idx.block_id.clone(),
+            // thread_idx.warp_id_in_block,
+            // thread_idx.thread_id_in_warp,
             inst,
         );
     }
@@ -357,7 +405,7 @@ impl MemoryAccess for Tracer {
 
 #[async_trait::async_trait]
 impl TraceGenerator for Tracer {
-    type Error = super::tracegen::TraceError;
+    type Error = TraceError;
 
     async fn allocate<T>(self: &Arc<Self>, value: T, mem_space: model::MemorySpace) -> DevicePtr<T>
     where
@@ -432,12 +480,23 @@ impl TraceGenerator for Tracer {
                         })
                         .collect();
 
-                    let block = Arc::new(ThreadBlock::new(block_id.clone(), block_size.clone()));
+                    let block_barrier =
+                        Arc::new(tokio::sync::Barrier::new(block_size.size() as usize));
+                    let memory = self.clone();
+                    // let block = ThreadBlock {
+                    //     barrier: ,
+                    //     memory: self.clone(),
+                    //     thread_id: ThreadIndex::default(),
+                    // };
+                    // let block = Arc::new(ThreadBlock::new(block_id.clone(), block_size.clone()));
 
                     let futures = thread_iter.into_iter().map(
                         |(warp_id_in_block, thread_idx, warp_thread_idx)| {
                             let kernel = kernel.clone();
-                            let block = block.clone();
+                            let barrier = block_barrier.clone();
+                            let memory = memory.clone();
+                            let block_size = block_size.clone();
+                            let block_id = block_id.clone();
                             async move {
                                 // println!(
                                 //     "block {} warp #{warp_id_in_block} thread {:?}",
@@ -448,10 +507,16 @@ impl TraceGenerator for Tracer {
                                     kernel_launch_id,
                                     warp_id_in_block,
                                     thread_id_in_warp: thread_idx,
-                                    block_id: block.id().clone(),
-                                    block_idx: block.id().to_dim(),
-                                    block_dim: block.size().clone(),
+                                    block_id: block_id.clone(),
+                                    block_idx: block_id.to_dim(),
+                                    block_dim: block_size.clone(),
                                     thread_idx: warp_thread_idx.to_dim(),
+                                };
+
+                                let block = ThreadBlock {
+                                    barrier,
+                                    memory,
+                                    thread_id: thread_id.clone(),
                                 };
 
                                 kernel.run(&block, &thread_id).await?;
@@ -482,15 +547,464 @@ impl TraceGenerator for Tracer {
         //
         // return Ok(());
 
-        for ((block_id, warp_id_in_block), thread_instructions) in traced_instructions.drain() {
+        // check for reconvergence point
+        if !traced_instructions.values().all(|warp_instructions| {
+            warp_instructions.iter().all(|thread_instructions| {
+                thread_instructions[0] == ThreadInstruction::TookBranch(0)
+            })
+        }) {
+            return Err(Error::Tracer(TraceError::MissingReconvergencePoints));
+        }
+
+        // todo this needs to be a while / loop
+
+        // for ((block_id, warp_id_in_block), warp_instructions) in traced_instructions.drain() {
+        let traced_instructions_vec: Vec<_> = traced_instructions.clone().into_iter().collect();
+        for ((block_id, warp_id_in_block), warp_instructions) in
+            traced_instructions_vec.into_iter().rev()
+        {
+            let warp_instruction = trace_model::MemAccessTraceEntry {
+                cuda_ctx: 0,
+                sm_id: 0,
+                kernel_id: 0,
+                block_id: block_id.clone().into(),
+                warp_id_in_sm: warp_id_in_block as u32,
+                warp_id_in_block: warp_id_in_block as u32,
+                warp_size: WARP_SIZE,
+                line_num: 0,
+                instr_data_width: 0,
+                instr_opcode: String::new(),
+                instr_offset: 0,
+                instr_idx: 0,
+                instr_predicate: trace_model::Predicate::default(),
+                instr_mem_space: trace_model::MemorySpace::None,
+                instr_is_mem: false,
+                instr_is_load: false,
+                instr_is_store: false,
+                instr_is_extended: false,
+                dest_regs: [0; 1],
+                num_dest_regs: 0,
+                src_regs: [0; 5],
+                num_src_regs: 0,
+                active_mask: 0,
+                addrs: [0; 32],
+            };
+
+            // let mut thread_pos = [0; WARP_SIZE as usize];
+            // for (ti, thread_instructions) in warp_instructions.iter().enumerate() {
+            //     println!(
+            //         "thread[{:2}] = {:?}",
+            //         ti,
+            //         &thread_instructions
+            //             .iter()
+            //             .map(ToString::to_string)
+            //             .collect::<Vec<_>>()
+            //     );
+            // }
+
+            use petgraph::{algo, prelude::*};
+            use std::collections::HashSet;
+
+            #[derive(Debug)]
+            enum TraceNode {
+                Branch {
+                    id: usize,
+                    instructions: Vec<MemInstruction>,
+                },
+                Reconverge {
+                    id: usize,
+                    instructions: Vec<MemInstruction>,
+                },
+            }
+
+            impl TraceNode {
+                pub fn id(&self) -> usize {
+                    match self {
+                        Self::Branch { id, .. } | Self::Reconverge { id, .. } => *id,
+                    }
+                }
+            }
+
+            #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+            enum CFGNode {
+                Branch(usize),
+                Reconverge(usize),
+            }
+
+            impl CFGNode {
+                pub fn id(&self) -> usize {
+                    match self {
+                        Self::Branch(id) | Self::Reconverge(id) => *id,
+                    }
+                }
+            }
+
+            pub trait UniqueGraph<N, E, Ix> {
+                fn add_unique_edge(
+                    &mut self,
+                    a: NodeIndex<Ix>,
+                    b: NodeIndex<Ix>,
+                    weight: E,
+                ) -> EdgeIndex<Ix>
+                where
+                    E: PartialEq;
+
+                fn find_node(&self, weight: &N) -> Option<NodeIndex<Ix>>
+                where
+                    N: PartialEq;
+
+                fn add_unique_node(&mut self, weight: N) -> NodeIndex<Ix>
+                where
+                    N: PartialEq;
+            }
+
+            impl<N, E, D, Ix> UniqueGraph<N, E, Ix> for Graph<N, E, D, Ix>
+            where
+                D: petgraph::EdgeType,
+                Ix: petgraph::graph::IndexType,
+            {
+                fn add_unique_edge(
+                    &mut self,
+                    a: NodeIndex<Ix>,
+                    b: NodeIndex<Ix>,
+                    weight: E,
+                ) -> EdgeIndex<Ix>
+                where
+                    E: PartialEq,
+                {
+                    match self.find_edge(a, b) {
+                        Some(edge) if self.edge_weight(edge) == Some(&weight) => edge,
+                        _ => Graph::<N, E, D, Ix>::add_edge(self, a, b, weight),
+                    }
+                }
+
+                fn find_node(&self, weight: &N) -> Option<NodeIndex<Ix>>
+                where
+                    N: PartialEq,
+                {
+                    self.node_indices()
+                        .find(|idx| self.node_weight(*idx) == Some(weight))
+                }
+
+                fn add_unique_node(&mut self, weight: N) -> NodeIndex<Ix>
+                where
+                    N: PartialEq,
+                {
+                    match self.find_node(&weight) {
+                        Some(idx) => idx,
+                        _ => Graph::<N, E, D, Ix>::add_node(self, weight),
+                    }
+                }
+            }
+
+            // let mut super_nodes = std::collections::HashSet::new();
+            // let mut super_cfg: &dyn UniqueGraph<_, _, _> = &DiGraph::<CFGNode, bool>::new();
+            let mut super_cfg = DiGraph::<CFGNode, bool>::new();
+            let mut super_cfg_root_idx = super_cfg.add_unique_node(CFGNode::Reconverge(0));
+
+            let mut thread_graphs = Vec::with_capacity(WARP_SIZE as usize);
+            for (ti, thread_instructions) in warp_instructions.iter().enumerate() {
+                let mut cfg = DiGraph::<TraceNode, bool>::new();
+                let mut took_branch = false;
+                let mut last_super_node_idx = super_cfg_root_idx;
+                let mut last_node_idx = cfg.add_node(TraceNode::Reconverge {
+                    id: 0,
+                    instructions: vec![],
+                });
+                let mut current_instructions = Vec::new();
+
+                for thread_instruction in thread_instructions {
+                    match thread_instruction {
+                        ThreadInstruction::Nop => unreachable!(),
+                        ThreadInstruction::TookBranch(branch_id) => {
+                            took_branch = true;
+                        }
+                        ThreadInstruction::Branch(branch_id) => {
+                            took_branch = false;
+                            {
+                                let super_node_idx =
+                                    super_cfg.add_unique_node(CFGNode::Branch(*branch_id));
+                                super_cfg.add_unique_edge(
+                                    last_super_node_idx,
+                                    super_node_idx,
+                                    true,
+                                );
+                                last_super_node_idx = super_node_idx;
+                            }
+                            {
+                                let node_idx = cfg.add_node(TraceNode::Branch {
+                                    id: *branch_id,
+                                    instructions: current_instructions.drain(..).collect(),
+                                });
+                                assert!(!matches!(cfg[last_node_idx], TraceNode::Branch { .. }));
+                                cfg.add_edge(last_node_idx, node_idx, true);
+                                last_node_idx = node_idx;
+                            }
+                            // current_instructions.clear();
+                        }
+                        ThreadInstruction::Reconverge(branch_id) => {
+                            {
+                                let super_node_idx =
+                                    super_cfg.add_unique_node(CFGNode::Reconverge(*branch_id));
+                                super_cfg.add_unique_edge(
+                                    last_super_node_idx,
+                                    super_node_idx,
+                                    took_branch,
+                                );
+                                last_super_node_idx = super_node_idx;
+                            }
+                            {
+                                let node_idx = cfg.add_node(TraceNode::Reconverge {
+                                    id: *branch_id,
+                                    instructions: current_instructions.drain(..).collect(),
+                                    // instructions: vec![],
+                                });
+                                cfg.add_edge(last_node_idx, node_idx, took_branch);
+                                assert_eq!(cfg[last_node_idx].id(), cfg[node_idx].id());
+                                last_node_idx = node_idx;
+                            }
+                        }
+                        ThreadInstruction::Access(access) => {
+                            current_instructions.push(access.clone());
+                        }
+                    }
+                }
+
+                // each edge connects two distinct nodes, as each thread takes
+                // a single control flow path
+                assert_eq!(cfg.node_count(), cfg.edge_count() + 1);
+                assert_eq!(cfg.edge_count(), cfg.edge_weights().count());
+                // dbg!(&cfg);
+                // println!("{:?}", Dot::with_config(&graph, &[Config::EdgeNoLabel]));
+                // let mut f = File::create("example1.dot").unwrap();
+                // let output = format!("{}", Dot::with_config(&graph, &[Config::EdgeNoLabel]));
+                // f.write_all(&output.as_bytes())
+
+                println!(
+                    "thread[{:2}] = {:?} edge weights: {:?}",
+                    ti,
+                    &thread_instructions
+                        .iter()
+                        .map(ToString::to_string)
+                        .collect::<Vec<_>>(),
+                    cfg.edge_weights().collect::<Vec<_>>(),
+                );
+
+                thread_graphs.push(cfg);
+            }
+
+            // fill remaining edges
+            for node_idx in super_cfg.node_indices() {
+                let CFGNode::Branch(branch_id) = super_cfg[node_idx] else {
+                    continue;
+                };
+                let edges: HashSet<bool> = super_cfg
+                    .edges(node_idx)
+                    .map(|edge| edge.weight())
+                    .copied()
+                    .collect();
+                assert!(!edges.is_empty());
+                assert!(edges.len() <= 2);
+                let reconvergence_node_idx = super_cfg
+                    .find_node(&CFGNode::Reconverge(branch_id))
+                    .unwrap();
+                if !edges.contains(&true) {
+                    super_cfg.add_unique_edge(node_idx, reconvergence_node_idx, true);
+                }
+                if !edges.contains(&false) {
+                    super_cfg.add_unique_edge(node_idx, reconvergence_node_idx, false);
+                }
+            }
+
+            println!(
+                "super cfg: {} nodes, {} edges, {} edge weights",
+                super_cfg.node_count(),
+                super_cfg.edge_count(),
+                super_cfg.edge_weights().count(),
+            );
+
+            let super_cfg_final_reconvergence_id = super_cfg
+                .node_indices()
+                .filter_map(|idx| match super_cfg[idx] {
+                    CFGNode::Reconverge(branch_id) => Some(branch_id),
+                    _ => None,
+                })
+                .max()
+                .unwrap_or(0);
+            let super_cfg_sink_idx = super_cfg
+                .find_node(&CFGNode::Reconverge(super_cfg_final_reconvergence_id))
+                .unwrap();
+
+            let ways = algo::all_simple_paths::<Vec<_>, _>(
+                &super_cfg,
+                super_cfg_root_idx,
+                super_cfg_sink_idx,
+                0,
+                None,
+            )
+            .collect::<Vec<_>>();
+            dbg!(ways.len());
+
+            // BFS start here
+            // let mut discovered = super_cfg.visit_map();
+            // discovered.visit(super_cfg_root_idx);
+            let mut dominators = VecDeque::new();
+            assert!(matches!(
+                super_cfg[super_cfg_root_idx],
+                CFGNode::Reconverge(..)
+            ));
+            // let mut edges = super_cfg
+            //     .neighbors_directed(super_cfg_root_idx, Outgoing)
+            // .detach();
+            // while let Some(child) = edges.next(&super_cfg) {
+            //     dominators.push_front(child);
+            // }
+            dominators.extend(super_cfg.neighbors_directed(super_cfg_root_idx, Outgoing));
+            dbg!(&dominators);
+
+            while let Some(dominator_node_idx) = dominators.pop_front() {
+                // println!("current dominator: {:?}", super_cfg[dominator_node_idx]);
+
+                assert!(matches!(super_cfg[dominator_node_idx], CFGNode::Branch(..)));
+
+                // let reconvergence_point = CFGNode::Reconverge(super_cfg[dominator_node_idx].id());
+                let reconvergence_node = CFGNode::Reconverge(super_cfg[dominator_node_idx].id());
+                let reconvergence_node_idx = super_cfg.find_node(&reconvergence_node).unwrap();
+
+                // nested bfs
+                let mut stack = VecDeque::new();
+                let mut edges = super_cfg
+                    .neighbors_directed(dominator_node_idx, Outgoing)
+                    .detach();
+                while let Some(child) = edges.next(&super_cfg) {
+                    stack.push_front(child);
+                }
+
+                println!(
+                    "current dominator: {:?} stack = {:?}",
+                    super_cfg[dominator_node_idx], &stack
+                );
+
+                while let Some((edge_idx, node_idx)) = stack.pop_front() {
+                    // use a detached neighbors walker
+
+                    if node_idx == reconvergence_node_idx {
+                        // stop here, never go beyond the domninators reconvergence point
+                        println!("stop: found reconvergence point {:?}", reconvergence_node);
+                        continue;
+                    }
+
+                    let mut edges = super_cfg.neighbors_directed(node_idx, Outgoing).detach();
+                    while let Some((outgoing_edge_idx, next_node_idx)) = edges.next(&super_cfg) {
+                        // stack.push_back((next_node, outgoing_edge));
+                        // stack.push_back((super_cfg[outgoing_edge], outgoing_edge));
+                        // stack.push_back((super_cfg[edge], edge.));
+
+                        println!(
+                            "for dominator={:?} \t {:?} --> taken={} --> {:?}",
+                            super_cfg[dominator_node_idx],
+                            super_cfg[node_idx],
+                            super_cfg[edge_idx],
+                            super_cfg[next_node_idx],
+                        );
+                        stack.push_back((outgoing_edge_idx, next_node_idx));
+                    }
+                }
+
+                println!("dominator {:?} completed", super_cfg[dominator_node_idx]);
+
+                // // use a detached neighbors walker
+                // let mut edges = super_cfg.neighbors_directed(node, Outgoing).detach();
+                // while let Some((outgoing_edge, next_node)) = edges.next(&super_cfg) {
+                //     stack.push_back((next_node, outgoing_edge));
+                //     // stack.push_back((super_cfg[outgoing_edge], outgoing_edge));
+                //     // stack.push_back((super_cfg[edge], edge.));
+                //     // gr[node] += gr[edge];
+                // }
+                // // for succ in super_cfg.neighbors(node) {
+                // //     // if discovered.visit(succ) {
+                // //     stack.push_back((succ, ));
+                // //     // }
+                // // }
+                // // return Some(node);
+            }
+
+            // if false {
+            //     let mut stack = VecDeque::new();
+            //     let mut edges = super_cfg
+            //         .neighbors_directed(super_cfg_root_idx, Outgoing)
+            //         .detach();
+            //     let edges =
+            //         stack.push_front((super_cfg_root_idx, edges.next_edge(&super_cfg).unwrap()));
+            //
+            //     while let Some((node, edge)) = stack.pop_front() {
+            //         println!("current node: {:?}", &node);
+            //         // use a detached neighbors walker
+            //         let mut edges = super_cfg.neighbors_directed(node, Outgoing).detach();
+            //         while let Some((outgoing_edge, next_node)) = edges.next(&super_cfg) {
+            //             stack.push_back((next_node, outgoing_edge));
+            //             // stack.push_back((super_cfg[outgoing_edge], outgoing_edge));
+            //             // stack.push_back((super_cfg[edge], edge.));
+            //             // gr[node] += gr[edge];
+            //         }
+            //         // for succ in super_cfg.neighbors(node) {
+            //         //     // if discovered.visit(succ) {
+            //         //     stack.push_back((succ, ));
+            //         //     // }
+            //         // }
+            //         // return Some(node);
+            //     }
+            // }
+
+            // let mut bfs = Bfs::new(&super_cfg, super_cfg_root_idx);
+            // while let Some(nx) = bfs.next(&super_cfg) {
+            //     dbg!(&super_cfg[nx]);
+            // }
+
+            break;
+        }
+
+        return Ok(());
+
+        // println!(
+        //     "edges: {:#?}",
+        //     super_cfg
+        //         .node_indices()
+        //         .map(|node| super_cfg.edges(node).collect::<Vec<_>>())
+        //         .collect::<Vec<_>>(),
+        // );
+        //
+        // let mut threads_in_branch = Vec::with_capacity(WARP_SIZE as usize);
+        //             threads_in_branch.extend(0..WARP_SIZE as usize);
+        //
+        //             for rec_point_id in 0..1 {
+        //                 // compute active mask for the current branch
+        //                 let mut active_mask = trace_model::ActiveMask::ZERO;
+        //                 for tid in threads_in_branch.iter() {
+        //                     if let Some(ThreadInstruction::TookBranch(branch_id)) =
+        //                         warp_instructions[*tid].get(0)
+        //                     {
+        //                         assert_eq!(*branch_id, rec_point_id);
+        //                         active_mask.set(*tid, true);
+        //                     }
+        //                 }
+        //                 println!(
+        //                     "rec point {:3} \t active={}",
+        //                     rec_point_id,
+        //                     active_mask.to_bit_string()
+        //                 );
+        //             }
+
+        for ((block_id, warp_id_in_block), warp_instructions) in traced_instructions.drain() {
             // assert_eq!(thread_instructions.len(), WARP_SIZE as usize);
             // dbg!((&block_id, &warp_id_in_block, &thread_instructions[0].len()));
 
-            if !thread_instructions.iter().all_equal() {
-                return Err(Error::Tracer(
-                    super::tracegen::TraceError::InconsistentNumberOfWarpInstructions,
-                ));
-            }
+            // todo
+            // if !thread_instructions.iter().all_equal() {
+            //     return Err(Error::Tracer(
+            //         super::tracegen::TraceError::InconsistentNumberOfWarpInstructions,
+            //     ));
+            // }
 
             let warp_instruction = trace_model::MemAccessTraceEntry {
                 cuda_ctx: 0,
@@ -519,13 +1033,13 @@ impl TraceGenerator for Tracer {
                 addrs: [0; 32],
             };
 
-            let num_instructions = thread_instructions[0].len();
+            let num_instructions = warp_instructions[0].len();
             for instr_idx in 0..num_instructions {
                 let mut active_mask = trace_model::ActiveMask::ZERO;
                 let mut addrs = [0; WARP_SIZE as usize];
 
                 for thread_idx in 0..(WARP_SIZE as usize) {
-                    let thread_instruction = &thread_instructions[thread_idx][instr_idx];
+                    let thread_instruction = &warp_instructions[thread_idx][instr_idx];
                     if let model::ThreadInstruction::Access(ref access) = thread_instruction {
                         active_mask.set(thread_idx, true);
                         addrs[thread_idx] = access.addr;
@@ -533,7 +1047,7 @@ impl TraceGenerator for Tracer {
                 }
 
                 if let model::ThreadInstruction::Access(ref access) =
-                    thread_instructions[0][instr_idx]
+                    warp_instructions[0][instr_idx]
                 {
                     let is_load = access.kind == model::MemAccessKind::Load;
                     let is_store = access.kind == model::MemAccessKind::Store;
@@ -606,7 +1120,9 @@ mod tests {
     use super::{DevicePtr, ThreadBlock, ThreadIndex, TraceGenerator};
     use crate::model::MemorySpace;
     use color_eyre::eyre;
+    use futures::future::Future;
     use num_traits::Float;
+    use std::pin::Pin;
     use std::sync::Arc;
     use tokio::sync::Mutex;
     use utils::diff;
@@ -635,7 +1151,10 @@ mod tests {
     {
         type Error = std::convert::Infallible;
 
+        #[crate::inject_reconvergence_points]
         async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
+            // fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Pin<Box<dyn Future<Output = Result<(), Self::Error>> + Send + '_>> {
+            // Box::pin(async move {
             let idx = (tid.block_idx.x * tid.block_dim.x + tid.thread_idx.x) as usize;
 
             // println!("thread {:?} before", idx);
@@ -648,14 +1167,16 @@ mod tests {
 
                 if idx < self.n {
                     dev_result[(tid, idx)] = dev_a[(tid, idx)] + dev_b[(tid, idx)];
-                } else {
-                    dev_result[tid] = dev_a[tid] + dev_b[tid];
                 }
+                // else {
+                //     // dev_result[tid] = dev_a[tid] + dev_b[tid];
+                // }
             }
             // println!("thread {:?} before 2", idx);
             block.synchronize_threads().await;
             // println!("thread {:?} after 2", idx);
             Ok(())
+            // })
         }
 
         fn name(&self) -> &str {
@@ -665,8 +1186,11 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn test_vectoradd() -> eyre::Result<()> {
-        let block_size = 64;
-        let n = 120;
+        // let block_size = 64;
+        // let n = 120;
+        let block_size = 32;
+        let n = 20;
+
         let mut tracer = super::Tracer::new();
 
         let mut a: Vec<f32> = vec![0.0; n];
