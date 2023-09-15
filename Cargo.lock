@@ -1235,6 +1235,7 @@ dependencies = [
  "itertools 0.11.0",
  "log",
  "num-traits",
+ "petgraph",
  "serde",
  "thiserror",
  "tokio",

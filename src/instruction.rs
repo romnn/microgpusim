@@ -8,12 +8,9 @@ use crate::{
 };
 
 use bitvec::{array::BitArray, field::BitField, BitArr};
-use mem_fetch::{
-    access::{Builder as MemAccessBuilder, Kind as AccessKind, MemAccess},
-    ToBitString,
-};
+use mem_fetch::access::{Builder as MemAccessBuilder, Kind as AccessKind, MemAccess};
 use std::collections::{HashMap, VecDeque};
-use trace_model as trace;
+use trace_model::{self, ToBitString};
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MemorySpace {
@@ -284,7 +281,7 @@ fn memory_coalescing_arch_reduce(
 impl WarpInstruction {
     pub fn from_trace(
         kernel: &Kernel,
-        trace: &trace::MemAccessTraceEntry,
+        trace: &trace_model::MemAccessTraceEntry,
         config: &config::GPU,
     ) -> Self {
         // fill active mask
@@ -420,7 +417,7 @@ impl WarpInstruction {
                 //     MemOp::Store
                 // });
                 // resolve generic loads
-                let trace::command::KernelLaunch {
+                let trace_model::command::KernelLaunch {
                     shared_mem_base_addr,
                     local_mem_base_addr,
                     ..

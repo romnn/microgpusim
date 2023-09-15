@@ -1,8 +1,8 @@
-use super::{config, instruction::WarpInstruction, mem_fetch, register_set};
+use super::{config, instruction::WarpInstruction, register_set};
 use bitvec::{array::BitArray, BitArr};
 use console::style;
-use mem_fetch::ToBitString;
 use register_set::Access;
+use trace_model::ToBitString;
 use utils::box_slice;
 
 use std::collections::{HashMap, VecDeque};
@@ -1003,8 +1003,8 @@ impl RegisterFileUnit {
 #[cfg(test)]
 mod test {
     use crate::{mem_fetch, testing};
-    use mem_fetch::ToBitString;
     use std::ops::Deref;
+    use trace_model::ToBitString;
 
     impl From<super::Kind> for testing::state::OperandCollectorUnitKind {
         fn from(id: super::Kind) -> Self {

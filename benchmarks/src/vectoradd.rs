@@ -35,7 +35,7 @@ where
         if idx < self.n {
             dev_result[(tid, idx)] = dev_a[(tid, idx)] + dev_b[(tid, idx)];
         } else {
-            dev_result[tid] = dev_a[tid] + dev_b[tid];
+            // dev_result[tid] = dev_a[tid] + dev_b[tid];
         }
         Ok(())
     }
@@ -50,38 +50,38 @@ mod deprecated {
     use gpucachesim::exec::{self, DevicePtr, Kernel};
     use num_traits::{Float, NumCast, Zero};
 
-    #[derive(Debug)]
-    struct VecAdd<'s, T> {
-        dev_a: DevicePtr<'s, Vec<T>, T>,
-        dev_b: DevicePtr<'s, Vec<T>, T>,
-        dev_result: DevicePtr<'s, Vec<T>, T>,
-        n: usize,
-    }
-
-    impl<'s, T> Kernel for VecAdd<'s, T>
-    where
-        T: Float + std::fmt::Debug,
-    {
-        type Error = std::convert::Infallible;
-
-        fn run(&mut self, idx: &exec::ThreadIndex) -> Result<(), Self::Error> {
-            // compute global thread index
-            let id: usize = (idx.block_idx.x * idx.block_dim.x + idx.thread_idx.x) as usize;
-
-            if id < self.n {
-                self.dev_result[()] = self.dev_a[()] + self.dev_b[()];
-                // self.dev_result[id] = self.dev_a[id] + self.dev_b[id];
-            } else {
-                self.dev_result[()] = self.dev_a[()] + self.dev_b[()];
-                // self.dev_result[id] = self.dev_a[id] + self.dev_b[id];
-            }
-            Ok(())
-        }
-
-        fn name(&self) -> &str {
-            "VecAdd"
-        }
-    }
+    // #[derive(Debug)]
+    // struct VecAdd<'s, T> {
+    //     dev_a: DevicePtr<'s, Vec<T>, T>,
+    //     dev_b: DevicePtr<'s, Vec<T>, T>,
+    //     dev_result: DevicePtr<'s, Vec<T>, T>,
+    //     n: usize,
+    // }
+    //
+    // impl<'s, T> Kernel for VecAdd<'s, T>
+    // where
+    //     T: Float + std::fmt::Debug,
+    // {
+    //     type Error = std::convert::Infallible;
+    //
+    //     fn run(&mut self, idx: &exec::ThreadIndex) -> Result<(), Self::Error> {
+    //         // compute global thread index
+    //         let id: usize = (idx.block_idx.x * idx.block_dim.x + idx.thread_idx.x) as usize;
+    //
+    //         if id < self.n {
+    //             self.dev_result[()] = self.dev_a[()] + self.dev_b[()];
+    //             // self.dev_result[id] = self.dev_a[id] + self.dev_b[id];
+    //         } else {
+    //             self.dev_result[()] = self.dev_a[()] + self.dev_b[()];
+    //             // self.dev_result[id] = self.dev_a[id] + self.dev_b[id];
+    //         }
+    //         Ok(())
+    //     }
+    //
+    //     fn name(&self) -> &str {
+    //         "VecAdd"
+    //     }
+    // }
 }
 
 // Number of threads in each thread block

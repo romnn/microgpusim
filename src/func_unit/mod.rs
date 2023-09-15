@@ -214,13 +214,13 @@ mod tests {
     #[allow(clippy::similar_names)]
     #[test]
     fn test_bitset_shift_right() {
-        use crate::mem_fetch::ToBitString;
         use bitvec::{
             array::BitArray,
             order::{Lsb0, Msb0},
             BitArr,
         };
         use playground::bitset::Bitset;
+        use trace_model::ToBitString;
 
         let mut cpp = Bitset::default();
         let mut rust_lsb: BitArr!(for 32, in u32, Lsb0) = BitArray::ZERO;

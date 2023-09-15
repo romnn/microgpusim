@@ -59,8 +59,8 @@ pub enum Status {
 }
 
 pub mod access {
-    use super::ToBitString;
     use serde::{Deserialize, Serialize};
+    use trace_model::ToBitString;
 
     #[derive(
         Debug,
@@ -239,24 +239,6 @@ pub mod access {
         pub fn size(&self) -> u32 {
             self.data_size() + self.control_size()
         }
-    }
-}
-
-pub trait ToBitString {
-    fn to_bit_string(&self) -> String;
-}
-
-impl<A, O> ToBitString for bitvec::slice::BitSlice<A, O>
-where
-    A: bitvec::store::BitStore,
-    O: bitvec::order::BitOrder,
-{
-    fn to_bit_string(&self) -> String {
-        self.iter()
-            .rev()
-            .map(|b| if *b { "1" } else { "0" })
-            .collect::<Vec<_>>()
-            .join("")
     }
 }
 

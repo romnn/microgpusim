@@ -4,8 +4,8 @@ use crate::{
     mem_sub_partition::MemorySubPartition,
 };
 use console::style;
-use mem_fetch::ToBitString;
 use std::collections::VecDeque;
+use trace_model::ToBitString;
 
 pub struct MemoryPartitionUnit {
     id: usize,

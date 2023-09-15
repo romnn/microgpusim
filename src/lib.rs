@@ -54,8 +54,7 @@ use cluster::Cluster;
 use engine::cycle::Component;
 use interconn as ic;
 use kernel::Kernel;
-use mem_fetch::ToBitString;
-use trace_model::Command;
+use trace_model::{Command, ToBitString};
 
 use crate::sync::{atomic, Arc, Mutex, RwLock};
 use bitvec::array::BitArray;

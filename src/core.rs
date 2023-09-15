@@ -10,12 +10,13 @@ use bitvec::{array::BitArray, BitArr};
 use color_eyre::eyre;
 use console::style;
 use crossbeam::utils::CachePadded;
-use mem_fetch::{access::Kind as AccessKind, ToBitString};
+use mem_fetch::access::Kind as AccessKind;
 use once_cell::sync::Lazy;
 use register_set::Access as RegisterSetAccess;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{atomic, Arc};
 use strum::IntoEnumIterator;
+use trace_model::ToBitString;
 
 // Volta max shmem size is 96kB
 pub const SHARED_MEM_SIZE_MAX: usize = 96 * (1 << 10);

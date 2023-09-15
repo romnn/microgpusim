@@ -2,6 +2,8 @@
 
 - today:
 
+  - cargo expand -p exec --lib --profile=test r#async::tests
+
   - write more execution driven examples (especially the different transpose variants)
 
     - add them to the stats (as a new target?)

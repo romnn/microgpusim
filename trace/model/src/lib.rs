@@ -19,6 +19,25 @@ pub const WARP_SIZE: usize = 32;
 /// Bitmask where a 1 at position i means that thread i is active for the current instruction.
 pub type ActiveMask = BitArr!(for WARP_SIZE, in u32);
 
+/// Format as a binary string.
+pub trait ToBitString {
+    fn to_bit_string(&self) -> String;
+}
+
+impl<A, O> ToBitString for bitvec::slice::BitSlice<A, O>
+where
+    A: bitvec::store::BitStore,
+    O: bitvec::order::BitOrder,
+{
+    fn to_bit_string(&self) -> String {
+        self.iter()
+            .rev()
+            .map(|b| if *b { "1" } else { "0" })
+            .collect::<Vec<_>>()
+            .join("")
+    }
+}
+
 /// An instruction operand predicate.
 #[derive(
     Debug, Default, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,

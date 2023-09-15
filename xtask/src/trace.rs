@@ -173,7 +173,7 @@ impl std::cmp::PartialEq for TraceInstruction {
 
 impl std::fmt::Display for TraceInstruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use gpucachesim::mem_fetch::ToBitString;
+        use trace_model::ToBitString;
         write!(
             f,
             "     [ block {} warp{:>3} ]\t inst_idx={:<4}  offset={:<4}\t {:<20}\t\t active={}",
