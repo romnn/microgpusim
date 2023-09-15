@@ -53,6 +53,7 @@ where
 {
     type Error = std::convert::Infallible;
 
+    #[gpucachesim::exec::inject_reconvergence_points]
     async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
         dbg!(&tid);
         let bx = tid.block_idx.x as usize;
@@ -96,7 +97,7 @@ where
             // shared memory array used to store the sub-matrix of B
             // __shared__ T Bs[BLOCK_SIZE][BLOCK_SIZE];
 
-            dbg!(&ty, &tx);
+            // dbg!(&ty, &tx);
             {
                 // load the matrices from device memory to shared memory
                 // each thread loads one element of each matrix
@@ -115,15 +116,15 @@ where
             block.synchronize_threads().await;
 
             // make sure shared mem has been loaded
-            {
-                let shared_a = self.shared_mem_a.lock().await;
-                dbg!(&shared_a);
-                assert!(shared_a.inner.iter().all(|x| *x != T::zero()));
-
-                let shared_b = self.shared_mem_b.lock().await;
-                dbg!(&shared_b);
-                assert!(shared_b.inner.iter().all(|x| *x != T::zero()));
-            }
+            // {
+            //     let shared_a = self.shared_mem_a.lock().await;
+            //     dbg!(&shared_a);
+            //     assert!(shared_a.inner.iter().all(|x| *x != T::zero()));
+            //
+            //     let shared_b = self.shared_mem_b.lock().await;
+            //     dbg!(&shared_b);
+            //     assert!(shared_b.inner.iter().all(|x| *x != T::zero()));
+            // }
 
             for k in 0..BLOCK_SIZE {
                 let shared_a = self.shared_mem_a.lock().await;
@@ -144,11 +145,6 @@ where
         let mut result = self.dev_result.lock().await;
         result[(tid, c + self.num_rows * ty + tx)] = c_sub;
 
-        // if idx < self.n {
-        //     dev_result[(tid, idx)] = dev_a[(tid, idx)] + dev_b[(tid, idx)];
-        // } else {
-        //     dev_result[tid] = dev_a[tid] + dev_b[tid];
-        // }
         Ok(())
     }
 

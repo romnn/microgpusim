@@ -4,6 +4,8 @@ members = [
   "profile",
   "playground",
   "playground/sys",
+  "exec",
+  "exec/impl",
   "stats",
   "benchmarks",
   "accelsim",

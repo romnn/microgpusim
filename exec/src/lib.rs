@@ -16,6 +16,7 @@ use num_traits::Zero;
 // use nvbit_model;
 // use trace_model as model;
 
+pub use exec_impl::inject_reconvergence_points;
 pub use kernel::{Kernel, ThreadIndex};
 pub use model::MemorySpace;
 pub use nop::ArithmeticNop;
