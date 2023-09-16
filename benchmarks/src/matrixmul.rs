@@ -148,8 +148,8 @@ where
         Ok(())
     }
 
-    fn name(&self) -> &str {
-        "matrixmul"
+    fn name(&self) -> Option<&str> {
+        Some("matrixmul")
     }
 }
 

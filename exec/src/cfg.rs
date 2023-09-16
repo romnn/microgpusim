@@ -63,8 +63,17 @@ pub fn all_simple_paths<TargetColl, G>(
 where
     G: petgraph::visit::NodeCount,
     G: petgraph::visit::IntoNeighborsDirected,
+    G: petgraph::visit::IntoEdgesDirected,
+    // <G as petgraph::visit::IntoNeighborsDirected>::NeighborsDirected: Neighbors<'a, E, Ix>,
+    // G: petgraph::visit::Walker,
+
+    // Neighbors<'a, E, Ix>
+    // Ix: IndexType,
+    // G: petgraph::graph::WalkNeighbors<G::NodeId>,
     G::NodeId: Eq + std::hash::Hash,
-    TargetColl: FromIterator<G::NodeId>,
+    G::EdgeId: Eq + std::hash::Hash,
+    // TargetColl: FromIterator<G::NodeId>,
+    TargetColl: FromIterator<(Option<G::EdgeId>, G::NodeId)>,
 {
     use indexmap::IndexSet;
     // how many nodes are allowed in simple path up to target node
@@ -79,40 +88,60 @@ where
     // let min_length = min_intermediate_nodes + 1;
 
     // list of visited nodes
-    let mut visited: IndexSet<G::NodeId> = IndexSet::from_iter(Some(from));
+    // let mut visited: IndexSet<G::NodeId> = IndexSet::from_iter(Some(from));
+    let mut visited: IndexSet<(Option<G::EdgeId>, G::NodeId)> = IndexSet::from_iter([(None, from)]);
+    // IndexSet::from_iter(Some(None, Some(from)));
     // list of childs of currently exploring path nodes,
     // last elem is list of childs of last visited node
-    let mut stack = vec![graph.neighbors_directed(from, Outgoing)];
+    // let mut edges: petgraph::graph::WalkNeighbors<G::NodeId> =
+    //     graph.neighbors_directed(from, Outgoing).detach();
+    // let mut children = vec![];
+    // for edge in graph.edges_directed(from, Outgoing) {
+    //     dbg!(&edge.source());
+    // }
+    // while let Some(child) = edges.next(&graph) {
+    //     children.push(child);
+    // }
+    // let mut stack = vec![children];
+    // let mut stack = vec![edges];
+    // let mut stack = vec![graph.neighbors_directed(from, Outgoing)];
+    // struct EdgeNodeIter {
+    //     inner: String
+    // }
+    //
+    // impl Iterator for EdgeNodeIter {
+    //     type Item = u32;
+    //     fn next(&mut self) -> Option<Self::Item> {
+    //         // Some(current)
+    //     }
+    // }
+    // let initial_children = graph
+    //     .edges_directed(from, Outgoing)
+    //     .map(|edge| (edge.id(), edge.target()));
+    let mut stack = vec![graph.edges_directed(from, Outgoing)];
+    // .collect::<Vec<_>>()];
 
     std::iter::from_fn(move || {
         while let Some(children) = stack.last_mut() {
-            if let Some(child) = children.next() {
-                // if visited.len() < max_length {
+            if let Some(edge) = children.next() {
+                // if let Some(child) = children.next() {
+                let child = edge.target();
                 if child == to {
-                    // if visited.len() >= min_length {
                     let path = visited
                         .iter()
                         .cloned()
-                        .chain(Some(to))
+                        .chain([(Some(edge.id()), to)])
+                        // ccchain(Some((Some(edge.id()), to)))
                         .collect::<TargetColl>();
                     return Some(path);
-                    // }
-                } else if !visited.contains(&child) {
-                    visited.insert(child);
-                    stack.push(graph.neighbors_directed(child, Outgoing));
+                } else if !visited.contains(&(Some(edge.id()), child)) {
+                    visited.insert((Some(edge.id()), child));
+                    // let new_children = graph
+                    //     .edges_directed(from, Outgoing)
+                    //     .map(|edge| (edge.id(), edge.target()));
+                    stack.push(graph.edges_directed(child, Outgoing));
+                    // stack.push(graph.neighbors_directed(child, Outgoing));
                 }
-                // } else {
-                //     if (child == to || children.any(|v| v == to)) && visited.len() >= min_length {
-                //         let path = visited
-                //             .iter()
-                //             .cloned()
-                //             .chain(Some(to))
-                //             .collect::<TargetColl>();
-                //         return Some(path);
-                //     }
-                //     stack.pop();
-                //     visited.pop();
-                // }
             } else {
                 stack.pop();
                 visited.pop();

@@ -40,8 +40,8 @@ where
         Ok(())
     }
 
-    fn name(&self) -> &str {
-        "VecAdd"
+    fn name(&self) -> Option<&str> {
+        Some("VecAdd")
     }
 }
 
