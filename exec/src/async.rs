@@ -1,12 +1,13 @@
 use crate::model::MemInstruction;
 
+use super::cfg::UniqueGraph;
 use super::kernel::ThreadIndex;
 use super::model::{self, ThreadInstruction};
 use super::nop::ArithmeticNop;
 use bitvec::field::BitField;
 use futures::{future::Future, StreamExt};
 use itertools::Itertools;
-use petgraph::visit::{VisitMap, Visitable};
+// use petgraph::visit::{VisitMap, Visitable};
 use std::collections::{HashMap, VecDeque};
 use std::pin::Pin;
 use std::sync::{atomic, Arc};
@@ -284,7 +285,9 @@ pub trait Kernel {
     async fn run(&self, block: &ThreadBlock, idx: &ThreadIndex) -> Result<(), Self::Error>;
     // fn run(&self, block: &ThreadBlock, idx: &ThreadIndex) -> Pin<Box<dyn Future<Output = Result<(), Self::Error>> + Send + '_>>;
 
-    fn name(&self) -> &str;
+    fn name(&self) -> Option<&str> {
+        None
+    }
 }
 
 #[async_trait::async_trait]
@@ -602,8 +605,8 @@ impl TraceGenerator for Tracer {
             //     );
             // }
 
-            use petgraph::{algo, prelude::*};
-            use std::collections::HashSet;
+            // use petgraph::{algo, prelude::*};
+            // use std::collections::HashSet;
 
             #[derive(Debug)]
             enum TraceNode {
@@ -615,6 +618,19 @@ impl TraceGenerator for Tracer {
                     id: usize,
                     instructions: Vec<MemInstruction>,
                 },
+            }
+
+            impl std::fmt::Display for TraceNode {
+                fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                    match self {
+                        Self::Branch { id, instructions } => {
+                            write!(f, "Branch(id={id}, inst={})", instructions.len())
+                        }
+                        Self::Reconverge { id, instructions } => {
+                            write!(f, "Reconverge(id={id}, inst={})", instructions.len())
+                        }
+                    }
+                }
             }
 
             impl TraceNode {
@@ -639,78 +655,33 @@ impl TraceGenerator for Tracer {
                 }
             }
 
-            pub trait UniqueGraph<N, E, Ix> {
-                fn add_unique_edge(
-                    &mut self,
-                    a: NodeIndex<Ix>,
-                    b: NodeIndex<Ix>,
-                    weight: E,
-                ) -> EdgeIndex<Ix>
-                where
-                    E: PartialEq;
-
-                fn find_node(&self, weight: &N) -> Option<NodeIndex<Ix>>
-                where
-                    N: PartialEq;
-
-                fn add_unique_node(&mut self, weight: N) -> NodeIndex<Ix>
-                where
-                    N: PartialEq;
-            }
-
-            impl<N, E, D, Ix> UniqueGraph<N, E, Ix> for Graph<N, E, D, Ix>
-            where
-                D: petgraph::EdgeType,
-                Ix: petgraph::graph::IndexType,
-            {
-                fn add_unique_edge(
-                    &mut self,
-                    a: NodeIndex<Ix>,
-                    b: NodeIndex<Ix>,
-                    weight: E,
-                ) -> EdgeIndex<Ix>
-                where
-                    E: PartialEq,
-                {
-                    match self.find_edge(a, b) {
-                        Some(edge) if self.edge_weight(edge) == Some(&weight) => edge,
-                        _ => Graph::<N, E, D, Ix>::add_edge(self, a, b, weight),
-                    }
-                }
-
-                fn find_node(&self, weight: &N) -> Option<NodeIndex<Ix>>
-                where
-                    N: PartialEq,
-                {
-                    self.node_indices()
-                        .find(|idx| self.node_weight(*idx) == Some(weight))
-                }
-
-                fn add_unique_node(&mut self, weight: N) -> NodeIndex<Ix>
-                where
-                    N: PartialEq,
-                {
-                    match self.find_node(&weight) {
-                        Some(idx) => idx,
-                        _ => Graph::<N, E, D, Ix>::add_node(self, weight),
+            impl PartialEq<TraceNode> for CFGNode {
+                fn eq(&self, other: &TraceNode) -> bool {
+                    match (self, other) {
+                        (Self::Branch(branch_id), TraceNode::Branch { id, .. }) => branch_id == id,
+                        (Self::Reconverge(branch_id), TraceNode::Reconverge { id, .. }) => {
+                            branch_id == id
+                        }
+                        _ => false,
                     }
                 }
             }
 
             // let mut super_nodes = std::collections::HashSet::new();
             // let mut super_cfg: &dyn UniqueGraph<_, _, _> = &DiGraph::<CFGNode, bool>::new();
-            let mut super_cfg = DiGraph::<CFGNode, bool>::new();
-            let mut super_cfg_root_idx = super_cfg.add_unique_node(CFGNode::Reconverge(0));
+            let mut super_cfg = petgraph::graph::DiGraph::<CFGNode, bool>::new();
+            let mut super_cfg_root_idx = super_cfg.add_unique_node(CFGNode::Branch(0));
 
             let mut thread_graphs = Vec::with_capacity(WARP_SIZE as usize);
             for (ti, thread_instructions) in warp_instructions.iter().enumerate() {
-                let mut cfg = DiGraph::<TraceNode, bool>::new();
+                let mut cfg = petgraph::graph::DiGraph::<TraceNode, bool>::new();
                 let mut took_branch = false;
                 let mut last_super_node_idx = super_cfg_root_idx;
-                let mut last_node_idx = cfg.add_node(TraceNode::Reconverge {
+                let cfg_root_node_idx = cfg.add_node(TraceNode::Branch {
                     id: 0,
                     instructions: vec![],
                 });
+                let mut last_node_idx = cfg_root_node_idx;
                 let mut current_instructions = Vec::new();
 
                 for thread_instruction in thread_instructions {
@@ -736,7 +707,7 @@ impl TraceGenerator for Tracer {
                                     id: *branch_id,
                                     instructions: current_instructions.drain(..).collect(),
                                 });
-                                assert!(!matches!(cfg[last_node_idx], TraceNode::Branch { .. }));
+                                // assert!(!matches!(cfg[last_node_idx], TraceNode::Branch { .. }));
                                 cfg.add_edge(last_node_idx, node_idx, true);
                                 last_node_idx = node_idx;
                             }
@@ -760,7 +731,7 @@ impl TraceGenerator for Tracer {
                                     // instructions: vec![],
                                 });
                                 cfg.add_edge(last_node_idx, node_idx, took_branch);
-                                assert_eq!(cfg[last_node_idx].id(), cfg[node_idx].id());
+                                // assert_eq!(cfg[last_node_idx].id(), cfg[node_idx].id());
                                 last_node_idx = node_idx;
                             }
                         }
@@ -769,16 +740,39 @@ impl TraceGenerator for Tracer {
                         }
                     }
                 }
+                // reconverge branch 0
+
+                let super_cfg_sink_node = super_cfg.add_unique_node(CFGNode::Reconverge(0));
+                super_cfg.add_unique_edge(last_super_node_idx, super_cfg_sink_node, true);
+
+                let cfg_sink_node = cfg.add_node(TraceNode::Reconverge {
+                    id: 0,
+                    instructions: current_instructions.drain(..).collect(),
+                });
+                cfg.add_edge(last_node_idx, cfg_sink_node, true);
 
                 // each edge connects two distinct nodes, as each thread takes
                 // a single control flow path
+                // this is the same as "we only have a single path" below
                 assert_eq!(cfg.node_count(), cfg.edge_count() + 1);
                 assert_eq!(cfg.edge_count(), cfg.edge_weights().count());
-                // dbg!(&cfg);
-                // println!("{:?}", Dot::with_config(&graph, &[Config::EdgeNoLabel]));
-                // let mut f = File::create("example1.dot").unwrap();
-                // let output = format!("{}", Dot::with_config(&graph, &[Config::EdgeNoLabel]));
-                // f.write_all(&output.as_bytes())
+
+                let paths = super::cfg::all_simple_paths::<Vec<_>, _>(
+                    &cfg,
+                    cfg_root_node_idx,
+                    cfg_sink_node,
+                    // 0,
+                    // None,
+                )
+                .map(|path| {
+                    path.into_iter()
+                        .map(|node_idx| cfg[node_idx].to_string())
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>();
+
+                assert_eq!(paths.len(), 1);
+                println!("thread[{:2}] = {:?}", ti, paths);
 
                 println!(
                     "thread[{:2}] = {:?} edge weights: {:?}",
@@ -790,6 +784,18 @@ impl TraceGenerator for Tracer {
                     cfg.edge_weights().collect::<Vec<_>>(),
                 );
 
+                // edges(&self, a: NodeIndex<Ix>)
+
+                // println!(
+                //     "thread[{:2}] = {:?} edge weights: {:?}",
+                //     ti,
+                //     &thread_instructions
+                //         .iter()
+                //         .map(ToString::to_string)
+                //         .collect::<Vec<_>>(),
+                //     cfg.edge_weights().collect::<Vec<_>>(),
+                // );
+
                 thread_graphs.push(cfg);
             }
 
@@ -798,7 +804,7 @@ impl TraceGenerator for Tracer {
                 let CFGNode::Branch(branch_id) = super_cfg[node_idx] else {
                     continue;
                 };
-                let edges: HashSet<bool> = super_cfg
+                let edges: std::collections::HashSet<bool> = super_cfg
                     .edges(node_idx)
                     .map(|edge| edge.weight())
                     .copied()
@@ -835,98 +841,261 @@ impl TraceGenerator for Tracer {
                 .find_node(&CFGNode::Reconverge(super_cfg_final_reconvergence_id))
                 .unwrap();
 
-            let ways = algo::all_simple_paths::<Vec<_>, _>(
+            let ways = super::cfg::all_simple_paths::<Vec<_>, _>(
                 &super_cfg,
                 super_cfg_root_idx,
                 super_cfg_sink_idx,
-                0,
-                None,
+                // 0,
+                // None,
             )
             .collect::<Vec<_>>();
             dbg!(ways.len());
 
-            // BFS start here
-            // let mut discovered = super_cfg.visit_map();
-            // discovered.visit(super_cfg_root_idx);
-            let mut dominators = VecDeque::new();
-            assert!(matches!(
-                super_cfg[super_cfg_root_idx],
-                CFGNode::Reconverge(..)
-            ));
+            // let reconvergence_node =
+            //     CFGNode::Reconverge(super_cfg[dominator_node_idx].id());
+            // let reconvergence_node_idx = super_cfg.find_node(&reconvergence_node).unwrap();
+            // dominators.push_front(reconvergence_node_idx);
+
+            let mut dominator_stack = VecDeque::new();
+            assert!(matches!(super_cfg[super_cfg_root_idx], CFGNode::Branch(0)));
+            dominator_stack.push_front(super_cfg_root_idx);
+
+            let mut stack = VecDeque::new();
             // let mut edges = super_cfg
-            //     .neighbors_directed(super_cfg_root_idx, Outgoing)
-            // .detach();
+            //     .neighbors_directed(super_cfg_root_idx, petgraph::Outgoing)
+            //     .detach();
             // while let Some(child) = edges.next(&super_cfg) {
-            //     dominators.push_front(child);
+            //     stack.push_front(child);
             // }
-            dominators.extend(super_cfg.neighbors_directed(super_cfg_root_idx, Outgoing));
-            dbg!(&dominators);
 
-            while let Some(dominator_node_idx) = dominators.pop_front() {
-                // println!("current dominator: {:?}", super_cfg[dominator_node_idx]);
-
-                assert!(matches!(super_cfg[dominator_node_idx], CFGNode::Branch(..)));
-
-                // let reconvergence_point = CFGNode::Reconverge(super_cfg[dominator_node_idx].id());
-                let reconvergence_node = CFGNode::Reconverge(super_cfg[dominator_node_idx].id());
-                let reconvergence_node_idx = super_cfg.find_node(&reconvergence_node).unwrap();
-
-                // nested bfs
-                let mut stack = VecDeque::new();
-                let mut edges = super_cfg
-                    .neighbors_directed(dominator_node_idx, Outgoing)
-                    .detach();
-                while let Some(child) = edges.next(&super_cfg) {
-                    stack.push_front(child);
-                }
-
-                println!(
-                    "current dominator: {:?} stack = {:?}",
-                    super_cfg[dominator_node_idx], &stack
-                );
-
+            let mut limit: Option<usize> = None;
+            loop {
                 while let Some((edge_idx, node_idx)) = stack.pop_front() {
-                    // use a detached neighbors walker
+                    // dbg!(&super_cfg[node_idx]);
+                    let reconvergence_node_idx: Option<petgraph::graph::NodeIndex> =
+                        dominator_stack.front().copied();
 
-                    if node_idx == reconvergence_node_idx {
-                        // stop here, never go beyond the domninators reconvergence point
-                        println!("stop: found reconvergence point {:?}", reconvergence_node);
-                        continue;
+                    let took_branch = super_cfg[edge_idx];
+                    // dbg!(took_branch);
+
+                    // add the instructions
+                    let active_threads: Vec<_> = thread_graphs
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(tid, g)| {
+                            let thread_node_idx = g.find_node(&super_cfg[node_idx])?;
+                            let mut edges: Vec<_> = g
+                                .edges_directed(thread_node_idx, petgraph::Incoming)
+                                .collect();
+                            assert!(
+                                edges.len() == 1
+                                    || thread_node_idx == petgraph::graph::NodeIndex::new(0),
+                                "each node has one incoming edge except the source node"
+                            );
+                            let active = match edges.pop() {
+                                Some(edge) => *edge.weight() == took_branch,
+                                None => true,
+                            };
+                            assert!(edges.is_empty());
+
+                            if active {
+                                Some(tid)
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+
+                    match &super_cfg[node_idx] {
+                        CFGNode::Reconverge(..) => {
+                            match reconvergence_node_idx {
+                                Some(reconvergence_node_idx)
+                                    if node_idx == reconvergence_node_idx =>
+                                {
+                                    // stop here, never go beyond the domninators reconvergence point
+                                    println!(
+                                "current: dominator={:?} \t taken={} --> {:?} \t active={:?} STOP: found reconvergence point",
+                                super_cfg[reconvergence_node_idx],
+                                super_cfg[edge_idx],
+                                super_cfg[node_idx],
+                                active_threads,
+                            );
+                                    continue;
+                                }
+                                _ => {}
+                            }
+                        }
+                        CFGNode::Branch(branch_id) => {
+                            // must handle new branch
+                            let reconvergence_point = CFGNode::Reconverge(*branch_id);
+                            let reconvergence_node_idx =
+                                super_cfg.find_node(&reconvergence_point).unwrap();
+                            dominator_stack.push_front(reconvergence_node_idx);
+                            // break;
+                        } // (_, CFGNode::Reconverge(..)) => unreachable!(),
                     }
 
-                    let mut edges = super_cfg.neighbors_directed(node_idx, Outgoing).detach();
-                    while let Some((outgoing_edge_idx, next_node_idx)) = edges.next(&super_cfg) {
-                        // stack.push_back((next_node, outgoing_edge));
-                        // stack.push_back((super_cfg[outgoing_edge], outgoing_edge));
-                        // stack.push_back((super_cfg[edge], edge.));
+                    let reconvergence_node_idx: Option<petgraph::graph::NodeIndex> =
+                        dominator_stack.front().copied();
 
+                    println!(
+                        "current: dominator={:?} \t taken={} --> {:?} \t active={:?}",
+                        reconvergence_node_idx.map(|idx| &super_cfg[idx]),
+                        super_cfg[edge_idx],
+                        super_cfg[node_idx],
+                        active_threads,
+                    );
+                    // println!(
+                    //     "current: dominator={:?} \t taken={} --> {:?} \t active={:?}",
+                    //     reconvergence_node_idx.map(|idx: NodeIndex| &super_cfg[idx]),
+                    //     super_cfg[edge_idx],
+                    //     super_cfg[node_idx],
+                    //     active_threads,
+                    // );
+
+                    let mut edges = super_cfg
+                        .neighbors_directed(node_idx, petgraph::Outgoing)
+                        .detach();
+                    while let Some((outgoing_edge_idx, next_node_idx)) = edges.next(&super_cfg) {
                         println!(
-                            "for dominator={:?} \t {:?} --> taken={} --> {:?}",
-                            super_cfg[dominator_node_idx],
+                            "pushing branch \t {:?} --> taken={} --> {:?}",
+                            // reconvergence_node_idx.map(|idx| &super_cfg[idx]),
                             super_cfg[node_idx],
-                            super_cfg[edge_idx],
+                            super_cfg[outgoing_edge_idx],
                             super_cfg[next_node_idx],
                         );
                         stack.push_back((outgoing_edge_idx, next_node_idx));
                     }
                 }
 
-                println!("dominator {:?} completed", super_cfg[dominator_node_idx]);
+                // maybe we do not have current denominator, but still other nodes
+                if let Some(reconvergence_node_idx) = dominator_stack.pop_front() {
+                    println!("all reconverged {:?}", super_cfg[reconvergence_node_idx]);
 
-                // // use a detached neighbors walker
-                // let mut edges = super_cfg.neighbors_directed(node, Outgoing).detach();
-                // while let Some((outgoing_edge, next_node)) = edges.next(&super_cfg) {
-                //     stack.push_back((next_node, outgoing_edge));
-                //     // stack.push_back((super_cfg[outgoing_edge], outgoing_edge));
-                //     // stack.push_back((super_cfg[edge], edge.));
-                //     // gr[node] += gr[edge];
+                    let mut edges = super_cfg
+                        .neighbors_directed(reconvergence_node_idx, petgraph::Outgoing)
+                        .detach();
+                    while let Some(child) = edges.next(&super_cfg) {
+                        stack.push_front(child);
+                    }
+                } else {
+                    // done
+                    println!("done");
+                    break;
+                }
+
+                if let Some(ref mut limit) = limit {
+                    *limit = limit.checked_sub(1).unwrap_or(0);
+                    if *limit == 0 {
+                        panic!("WARNING: limit reached");
+                    }
+                }
+            }
+
+            if false {
+                // BFS start here
+                // let mut discovered = super_cfg.visit_map();
+                // discovered.visit(super_cfg_root_idx);
+                let mut dominators = VecDeque::new();
+                assert!(matches!(
+                    super_cfg[super_cfg_root_idx],
+                    CFGNode::Reconverge(..)
+                ));
+                // let mut edges = super_cfg
+                //     .neighbors_directed(super_cfg_root_idx, Outgoing)
+                // .detach();
+                // while let Some(child) = edges.next(&super_cfg) {
+                //     dominators.push_front(child);
                 // }
-                // // for succ in super_cfg.neighbors(node) {
-                // //     // if discovered.visit(succ) {
-                // //     stack.push_back((succ, ));
-                // //     // }
-                // // }
-                // // return Some(node);
+
+                let initial_dominators: Vec<_> = super_cfg
+                    .neighbors_directed(super_cfg_root_idx, petgraph::Outgoing)
+                    .collect();
+                assert_eq!(initial_dominators.len(), 1);
+                dominators.extend(initial_dominators);
+
+                while let Some(dominator_node_idx) = dominators.pop_front() {
+                    // println!("current dominator: {:?}", super_cfg[dominator_node_idx]);
+
+                    assert!(matches!(super_cfg[dominator_node_idx], CFGNode::Branch(..)));
+
+                    // let reconvergence_point = CFGNode::Reconverge(super_cfg[dominator_node_idx].id());
+                    let reconvergence_node =
+                        CFGNode::Reconverge(super_cfg[dominator_node_idx].id());
+                    let reconvergence_node_idx = super_cfg.find_node(&reconvergence_node).unwrap();
+                    dominators.push_front(reconvergence_node_idx);
+
+                    // nested bfs
+                    // todo: this is probably not even necessary
+                    let mut stack = VecDeque::new();
+                    let mut edges = super_cfg
+                        .neighbors_directed(dominator_node_idx, petgraph::Outgoing)
+                        .detach();
+                    while let Some(child) = edges.next(&super_cfg) {
+                        stack.push_front(child);
+                    }
+
+                    println!(
+                        "current dominator: {:?} stack = {:?}",
+                        super_cfg[dominator_node_idx], &stack
+                    );
+
+                    while let Some((edge_idx, node_idx)) = stack.pop_front() {
+                        match super_cfg[node_idx] {
+                            CFGNode::Reconverge(..) if node_idx == reconvergence_node_idx => {
+                                // stop here, never go beyond the domninators reconvergence point
+                                println!(
+                                    "stop: found reconvergence point {:?}",
+                                    reconvergence_node
+                                );
+                                continue;
+                            }
+                            CFGNode::Branch(..) => {
+                                // must handle new branch
+                                dominators.push_front(node_idx);
+                                // completed = false;
+                                break;
+                            }
+                            CFGNode::Reconverge(..) => unreachable!(),
+                        }
+
+                        let mut edges = super_cfg
+                            .neighbors_directed(node_idx, petgraph::Outgoing)
+                            .detach();
+                        while let Some((outgoing_edge_idx, next_node_idx)) = edges.next(&super_cfg)
+                        {
+                            // stack.push_back((next_node, outgoing_edge));
+                            // stack.push_back((super_cfg[outgoing_edge], outgoing_edge));
+                            // stack.push_back((super_cfg[edge], edge.));
+
+                            println!(
+                                "for dominator={:?} \t {:?} --> taken={} --> {:?}",
+                                super_cfg[dominator_node_idx],
+                                super_cfg[node_idx],
+                                super_cfg[edge_idx],
+                                super_cfg[next_node_idx],
+                            );
+                            stack.push_back((outgoing_edge_idx, next_node_idx));
+                        }
+                    }
+
+                    // println!("dominator {:?} completed", super_cfg[dominator_node_idx]);
+
+                    // // use a detached neighbors walker
+                    // let mut edges = super_cfg.neighbors_directed(node, Outgoing).detach();
+                    // while let Some((outgoing_edge, next_node)) = edges.next(&super_cfg) {
+                    //     stack.push_back((next_node, outgoing_edge));
+                    //     // stack.push_back((super_cfg[outgoing_edge], outgoing_edge));
+                    //     // stack.push_back((super_cfg[edge], edge.));
+                    //     // gr[node] += gr[edge];
+                    // }
+                    // // for succ in super_cfg.neighbors(node) {
+                    // //     // if discovered.visit(succ) {
+                    // //     stack.push_back((succ, ));
+                    // //     // }
+                    // // }
+                    // // return Some(node);
+                }
             }
 
             // if false {
@@ -1096,8 +1265,8 @@ impl TraceGenerator for Tracer {
         //     .collect::<Vec<_>>());
 
         let launch_config = trace_model::command::KernelLaunch {
-            mangled_name: kernel.name().to_string(),
-            unmangled_name: kernel.name().to_string(),
+            mangled_name: kernel.name().unwrap_or("unnamed").to_string(),
+            unmangled_name: kernel.name().unwrap_or("unnamed").to_string(),
             trace_file: String::new(),
             id: kernel_launch_id,
             grid,
@@ -1118,7 +1287,7 @@ impl TraceGenerator for Tracer {
 #[cfg(test)]
 mod tests {
     use super::{DevicePtr, ThreadBlock, ThreadIndex, TraceGenerator};
-    use crate::model::MemorySpace;
+    use crate::model::{MemAccessKind, MemInstruction, MemorySpace};
     use color_eyre::eyre;
     use futures::future::Future;
     use num_traits::Float;
@@ -1142,6 +1311,120 @@ mod tests {
         dev_b: tokio::sync::Mutex<DevicePtr<&'a mut Vec<T>>>,
         dev_result: tokio::sync::Mutex<DevicePtr<&'a mut Vec<T>>>,
         n: usize,
+    }
+
+    struct FullImbalanceKernel {}
+    #[async_trait::async_trait]
+    impl super::Kernel for FullImbalanceKernel {
+        type Error = std::convert::Infallible;
+        #[crate::inject_reconvergence_points]
+        async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
+            // if tid.thread_idx.x ==
+            todo!();
+            Ok(())
+        }
+    }
+
+    #[macro_export]
+    macro_rules! mem_inst {
+        ($kind:ident[$space:ident]@$addr:expr, $size:expr) => {{
+            $crate::model::MemInstruction {
+                kind: $crate::model::MemAccessKind::$kind,
+                mem_space: $crate::model::MemorySpace::$space,
+                addr: $addr,
+                size: $size,
+            }
+        }};
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn test_nested_if_kernel() -> eyre::Result<()> {
+        struct NestedIfKernel {}
+        #[async_trait::async_trait]
+        impl super::Kernel for NestedIfKernel {
+            type Error = std::convert::Infallible;
+            #[crate::inject_reconvergence_points]
+            async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
+                if tid.thread_idx.x < 16 {
+                    let inst = mem_inst!(Load[Global]@0, 4);
+                    block.memory.push_thread_instruction(tid, inst.into())
+                }
+                Ok(())
+            }
+        }
+
+        let mut tracer = super::Tracer::new();
+        tracer.trace_kernel(1, 32, NestedIfKernel {}).await?;
+        assert!(false);
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn test_two_level_nested_if_kernel() -> eyre::Result<()> {
+        struct Imbalanced {}
+        #[async_trait::async_trait]
+        impl super::Kernel for Imbalanced {
+            type Error = std::convert::Infallible;
+            #[crate::inject_reconvergence_points]
+            async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
+                // fully parallel
+                let inst = mem_inst!(Load[Global]@100, 4);
+                block.memory.push_thread_instruction(tid, inst.into());
+
+                if tid.thread_idx.x < 16 {
+                    let inst = mem_inst!(Load[Global]@0, 4);
+                    block.memory.push_thread_instruction(tid, inst.into());
+                    if tid.thread_idx.x < 8 {
+                        let inst = mem_inst!(Load[Global]@1, 4);
+                        block.memory.push_thread_instruction(tid, inst.into());
+                    }
+                }
+
+                // have reconverged to fully parallel
+                let inst = mem_inst!(Load[Global]@100, 4);
+                block.memory.push_thread_instruction(tid, inst.into());
+
+                Ok(())
+            }
+        }
+
+        struct Balanced {}
+        #[async_trait::async_trait]
+        impl super::Kernel for Balanced {
+            type Error = std::convert::Infallible;
+            #[crate::inject_reconvergence_points]
+            async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
+                // fully parallel
+                let inst = mem_inst!(Load[Global]@100, 4);
+                block.memory.push_thread_instruction(tid, inst.into());
+
+                if tid.thread_idx.x < 16 {
+                    let inst = mem_inst!(Load[Global]@0, 4);
+                    block.memory.push_thread_instruction(tid, inst.into());
+                    if tid.thread_idx.x < 8 {
+                        let inst = mem_inst!(Load[Global]@10, 4);
+                        block.memory.push_thread_instruction(tid, inst.into());
+                    }
+                } else {
+                    let inst = mem_inst!(Load[Global]@1, 4);
+                    block.memory.push_thread_instruction(tid, inst.into());
+                    if tid.thread_idx.x < 8 {
+                        let inst = mem_inst!(Load[Global]@11, 4);
+                        block.memory.push_thread_instruction(tid, inst.into());
+                    }
+                }
+
+                // have reconverged to fully parallel
+                let inst = mem_inst!(Load[Global]@100, 4);
+                block.memory.push_thread_instruction(tid, inst.into());
+                Ok(())
+            }
+        }
+
+        let mut tracer = super::Tracer::new();
+        tracer.trace_kernel(1, 32, Imbalanced {}).await?;
+        assert!(false);
+        Ok(())
     }
 
     #[async_trait::async_trait]
@@ -1177,10 +1460,6 @@ mod tests {
             // println!("thread {:?} after 2", idx);
             Ok(())
             // })
-        }
-
-        fn name(&self) -> &str {
-            "VecAdd"
         }
     }
 

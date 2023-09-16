@@ -48,6 +48,12 @@ pub enum ThreadInstruction {
     Reconverge(usize),
 }
 
+impl From<MemInstruction> for ThreadInstruction {
+    fn from(inst: MemInstruction) -> Self {
+        Self::Access(inst)
+    }
+}
+
 impl std::fmt::Display for ThreadInstruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

@@ -23,5 +23,7 @@ pub trait Kernel {
     /// Run an instance of the kernel on a thread identified by its index
     fn run(&mut self, idx: &ThreadIndex) -> Result<(), Self::Error>;
 
-    fn name(&self) -> &str;
+    fn name(&self) -> Option<&str> {
+        None
+    }
 }

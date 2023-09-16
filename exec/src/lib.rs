@@ -2,6 +2,7 @@
 #![allow(warnings)]
 
 pub mod r#async;
+pub mod cfg;
 pub mod kernel;
 pub mod model;
 pub mod nop;
