@@ -1,15 +1,12 @@
-use crate::model::MemInstruction;
-
 use super::alloc::{Allocatable, DevicePtr};
 use super::cfg::{self, UniqueGraph};
 use super::kernel::{Kernel, ThreadBlock, ThreadIndex};
-use super::model::{self, ThreadInstruction};
-use futures::{future::Future, StreamExt};
+use super::model::{self, MemInstruction, ThreadInstruction};
+use futures::StreamExt;
 use itertools::Itertools;
 use std::collections::{HashMap, VecDeque};
-use std::pin::Pin;
 use std::sync::{atomic, Arc};
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::Mutex;
 
 pub const DEV_GLOBAL_HEAP_START: u64 = 0xC000_0000;
 pub const WARP_SIZE: u32 = 32;
@@ -70,19 +67,26 @@ pub trait MemoryAccess {
     fn store(&self, thread_idx: &ThreadIndex, addr: u64, size: u32, mem_space: model::MemorySpace);
 }
 
+#[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct WarpId {
+    pub block_id: trace_model::Point,
+    pub warp_id_in_block: usize,
+}
+
+pub type WarpInstructionTraces = [Vec<model::ThreadInstruction>; WARP_SIZE as usize];
+
 pub struct Tracer {
     offset: Mutex<u64>,
-    thread_instructions: std::sync::Mutex<
-        HashMap<(trace_model::Point, usize), [Vec<model::ThreadInstruction>; WARP_SIZE as usize]>,
-    >,
+    traced_instructions: std::sync::Mutex<HashMap<WarpId, WarpInstructionTraces>>,
     kernel_launch_id: atomic::AtomicU64,
 }
 
 impl Tracer {
+    #[must_use]
     pub fn new() -> Arc<Self> {
         Arc::new(Self {
             offset: Mutex::new(0),
-            thread_instructions: std::sync::Mutex::new(HashMap::new()),
+            traced_instructions: std::sync::Mutex::new(HashMap::new()),
             kernel_launch_id: atomic::AtomicU64::new(0),
         })
     }
@@ -99,9 +103,12 @@ impl MemoryAccess for Tracer {
         let warp_id_in_block = thread_idx.warp_id_in_block;
         let thread_id = thread_idx.thread_id_in_warp;
 
-        let mut block_instructions = self.thread_instructions.lock().unwrap();
+        let mut block_instructions = self.traced_instructions.lock().unwrap();
         let warp_instructions = block_instructions
-            .entry((block_id, warp_id_in_block))
+            .entry(WarpId {
+                block_id,
+                warp_id_in_block,
+            })
             .or_default();
         warp_instructions[thread_id].push(instruction);
     }
@@ -113,7 +120,7 @@ impl MemoryAccess for Tracer {
             mem_space,
             size,
         });
-        self.push_thread_instruction(&thread_idx, inst);
+        self.push_thread_instruction(thread_idx, inst);
     }
 
     fn store(&self, thread_idx: &ThreadIndex, addr: u64, size: u32, mem_space: model::MemorySpace) {
@@ -123,7 +130,7 @@ impl MemoryAccess for Tracer {
             mem_space,
             size,
         });
-        self.push_thread_instruction(&thread_idx, inst);
+        self.push_thread_instruction(thread_idx, inst);
     }
 }
 
@@ -164,7 +171,7 @@ impl Tracer {
         self: &Arc<Self>,
         grid: trace_model::Dim,
         block_size: trace_model::Dim,
-        mut kernel: K,
+        kernel: K,
         kernel_launch_id: u64,
     ) where
         K: Kernel + Send + Sync,
@@ -272,7 +279,7 @@ impl TraceGenerator for Tracer {
         self: &Arc<Self>,
         grid: G,
         block_size: B,
-        mut kernel: K,
+        kernel: K,
     ) -> Result<(), Error<K::Error, Self::Error>>
     where
         G: Into<trace_model::Dim> + Send,
@@ -283,7 +290,7 @@ impl TraceGenerator for Tracer {
         let kernel_launch_id = self.kernel_launch_id.fetch_add(1, atomic::Ordering::SeqCst);
         let kernel_name = kernel.name().unwrap_or("unnamed").to_string();
 
-        self.thread_instructions.lock().unwrap().clear();
+        self.traced_instructions.lock().unwrap().clear();
 
         let grid = grid.into();
         let block_size = block_size.into();
@@ -291,7 +298,7 @@ impl TraceGenerator for Tracer {
             .await;
 
         let mut trace = Vec::new();
-        let mut traced_instructions = self.thread_instructions.lock().unwrap();
+        let mut traced_instructions = self.traced_instructions.lock().unwrap();
 
         // check for reconvergence points
         if !traced_instructions.values().all(|warp_instructions| {
@@ -302,117 +309,28 @@ impl TraceGenerator for Tracer {
             return Err(Error::Tracer(TraceError::MissingReconvergencePoints));
         }
 
-        let traced_instructions_vec: Vec<_> = traced_instructions.clone().into_iter().collect();
-        for ((block_id, warp_id_in_block), warp_instructions) in
-            traced_instructions_vec.into_iter().rev()
+        for (
+            WarpId {
+                block_id,
+                warp_id_in_block,
+            },
+            warp_instructions,
+        ) in traced_instructions.drain()
         {
             let mut super_cfg = cfg::CFG::new();
-            let mut super_cfg_root_node_idx = super_cfg.add_unique_node(cfg::Node::Branch(0));
+            let super_cfg_root_node_idx = super_cfg.add_unique_node(cfg::Node::Branch(0));
 
             let mut thread_graphs = Vec::with_capacity(WARP_SIZE as usize);
             for (ti, thread_instructions) in warp_instructions.iter().enumerate() {
-                let mut thread_cfg = cfg::ThreadCFG::new();
-                let mut took_branch = false;
-                let mut last_super_cfg_node_idx = super_cfg_root_node_idx;
-                let thread_cfg_root_node_idx = thread_cfg.add_node(cfg::TraceNode::Branch {
-                    id: 0,
-                    instructions: vec![],
-                });
-                let mut last_thread_cfg_node_idx = thread_cfg_root_node_idx;
-                let mut current_instructions = Vec::new();
+                let (thread_cfg, (thread_cfg_root_node_idx, thread_cfg_sink_node_idx)) =
+                    cfg::build_control_flow_graph(thread_instructions, &mut super_cfg);
 
-                for thread_instruction in thread_instructions {
-                    match thread_instruction {
-                        ThreadInstruction::Nop => unreachable!(),
-                        ThreadInstruction::TookBranch(branch_id) => {
-                            took_branch = true;
-                        }
-                        ThreadInstruction::Branch(branch_id) => {
-                            took_branch = false;
-                            {
-                                let super_node_idx =
-                                    super_cfg.add_unique_node(cfg::Node::Branch(*branch_id));
-                                super_cfg.add_unique_edge(
-                                    last_super_cfg_node_idx,
-                                    super_node_idx,
-                                    true,
-                                );
-                                last_super_cfg_node_idx = super_node_idx;
-                            }
-                            {
-                                let node_idx = thread_cfg.add_node(cfg::TraceNode::Branch {
-                                    id: *branch_id,
-                                    instructions: current_instructions.drain(..).collect(),
-                                });
-                                // assert!(!matches!(
-                                //     thread_cfg[last_thread_cfg_node_idx],
-                                //     cfg::TraceNode::Branch { .. }
-                                // ));
-                                thread_cfg.add_edge(last_thread_cfg_node_idx, node_idx, true);
-                                last_thread_cfg_node_idx = node_idx;
-                            }
-                        }
-                        ThreadInstruction::Reconverge(branch_id) => {
-                            {
-                                let super_node_idx =
-                                    super_cfg.add_unique_node(cfg::Node::Reconverge(*branch_id));
-                                super_cfg.add_unique_edge(
-                                    last_super_cfg_node_idx,
-                                    super_node_idx,
-                                    took_branch,
-                                );
-                                last_super_cfg_node_idx = super_node_idx;
-                            }
-                            {
-                                let node_idx = thread_cfg.add_node(cfg::TraceNode::Reconverge {
-                                    id: *branch_id,
-                                    instructions: current_instructions.drain(..).collect(),
-                                });
-                                thread_cfg.add_edge(
-                                    last_thread_cfg_node_idx,
-                                    node_idx,
-                                    took_branch,
-                                );
-                                // assert_eq!(
-                                //     thread_cfg[last_thread_cfg_node_idx].id(),
-                                //     thread_cfg[node_idx].id()
-                                // );
-                                last_thread_cfg_node_idx = node_idx;
-                            }
-                        }
-                        ThreadInstruction::Access(access) => {
-                            current_instructions.push(access.clone());
-                        }
-                    }
-                }
-
-                // reconverge branch 0
-                let super_cfg_sink_node_idx = super_cfg.add_unique_node(cfg::Node::Reconverge(0));
-                super_cfg.add_unique_edge(last_super_cfg_node_idx, super_cfg_sink_node_idx, true);
-
-                let thread_cfg_sink_node_idx = thread_cfg.add_node(cfg::TraceNode::Reconverge {
-                    id: 0,
-                    instructions: current_instructions.drain(..).collect(),
-                });
-                thread_cfg.add_edge(last_thread_cfg_node_idx, thread_cfg_sink_node_idx, true);
-
-                let paths = cfg::all_simple_paths::<Vec<_>, _>(
+                let paths: Vec<Vec<_>> = cfg::all_simple_paths(
                     &thread_cfg,
                     thread_cfg_root_node_idx,
                     thread_cfg_sink_node_idx,
                 )
-                .map(|path| {
-                    path.into_iter()
-                        .flat_map(|(edge_idx, node_idx)| {
-                            let mut parts = vec![thread_cfg[node_idx].to_string()];
-                            if let Some(edge_idx) = edge_idx {
-                                parts.push(format!("--{}-->", thread_cfg[edge_idx]));
-                            }
-                            parts.into_iter().rev()
-                        })
-                        .collect::<Vec<_>>()
-                })
-                .collect::<Vec<_>>();
+                .collect();
 
                 // each edge connects two distinct nodes, as each thread takes
                 // a single control flow path
@@ -420,43 +338,17 @@ impl TraceGenerator for Tracer {
                 // assert_eq!(cfg.node_count(), cfg.edge_count() + 1);
                 // assert_eq!(cfg.edge_count(), cfg.edge_weights().count());
                 assert_eq!(paths.len(), 1);
-                println!("thread[{:2}] = {:?}", ti, paths[0].join(" "));
-
-                // println!(
-                //     "thread[{:2}] = {:?} edge weights: {:?}",
-                //     ti,
-                //     &thread_instructions
-                //         .iter()
-                //         .map(ToString::to_string)
-                //         .collect::<Vec<_>>(),
-                //     cfg.edge_weights().collect::<Vec<_>>(),
-                // );
+                println!(
+                    "thread[{:2}] = {:?}",
+                    ti,
+                    cfg::format_control_flow_path(&thread_cfg, &paths[0]).join(" ")
+                );
 
                 thread_graphs.push(thread_cfg);
             }
 
             // fill remaining edges (this should be optional step)
-            for node_idx in super_cfg.node_indices() {
-                let cfg::Node::Branch(branch_id) = super_cfg[node_idx] else {
-                    continue;
-                };
-                let edges: std::collections::HashSet<bool> = super_cfg
-                    .edges(node_idx)
-                    .map(|edge| edge.weight())
-                    .copied()
-                    .collect();
-                assert!(!edges.is_empty());
-                assert!(edges.len() <= 2);
-                let reconvergence_node_idx = super_cfg
-                    .find_node(&cfg::Node::Reconverge(branch_id))
-                    .unwrap();
-                if !edges.contains(&true) {
-                    super_cfg.add_unique_edge(node_idx, reconvergence_node_idx, true);
-                }
-                if !edges.contains(&false) {
-                    super_cfg.add_unique_edge(node_idx, reconvergence_node_idx, false);
-                }
-            }
+            cfg::add_missing_control_flow_edges(&mut super_cfg);
 
             println!(
                 "super cfg: {} nodes, {} edges, {} edge weights",
@@ -469,7 +361,7 @@ impl TraceGenerator for Tracer {
                 .node_indices()
                 .filter_map(|idx| match super_cfg[idx] {
                     cfg::Node::Reconverge(branch_id) => Some(branch_id),
-                    _ => None,
+                    cfg::Node::Branch(_) => None,
                 })
                 .max()
                 .unwrap_or(0);
@@ -537,11 +429,11 @@ impl TraceGenerator for Tracer {
                     let (_, longest_thread_trace) = active_threads
                         .iter()
                         .max_by_key(|(_, instructions)| instructions.len())
-                        .cloned()
+                        .copied()
                         .unwrap_or_default();
 
                     let mut branch_trace: Vec<_> = longest_thread_trace
-                        .into_iter()
+                        .iter()
                         .enumerate()
                         .map(|(instr_idx, access)| {
                             let is_load = access.kind == model::MemAccessKind::Load;
@@ -575,8 +467,8 @@ impl TraceGenerator for Tracer {
 
                     // push the instructions for this branch
                     for (instr_idx, instr) in branch_trace.iter_mut().enumerate() {
-                        for (tid, instructions) in active_threads.iter() {
-                            if let Some(ref access) = instructions.get(instr_idx) {
+                        for (tid, instructions) in &active_threads {
+                            if let Some(access) = instructions.get(instr_idx) {
                                 instr.active_mask.set(*tid, true);
                                 instr.addrs[*tid] = access.addr;
                             }
@@ -588,7 +480,7 @@ impl TraceGenerator for Tracer {
                     trace.extend(branch_trace.into_iter());
 
                     let mut active_mask = trace_model::ActiveMask::ZERO;
-                    for (tid, _) in active_threads.iter() {
+                    for (tid, _) in &active_threads {
                         active_mask.set(*tid, true);
                     }
 
@@ -663,9 +555,7 @@ impl TraceGenerator for Tracer {
 
                 if let Some(ref mut limit) = limit {
                     *limit = limit.checked_sub(1).unwrap_or(0);
-                    if *limit == 0 {
-                        panic!("WARNING: limit reached");
-                    }
+                    assert!(*limit != 0, "WARNING: limit reached");
                 }
             }
 
@@ -676,27 +566,28 @@ impl TraceGenerator for Tracer {
                 active_mask: trace_model::ActiveMask::all_ones(),
                 ..warp_instruction.clone()
             });
-
-            break;
         }
 
         let trace = trace_model::MemAccessTrace(trace);
-        dbg!(&trace.len());
-        let warp_traces = trace.clone().to_warp_traces();
 
-        for (warp_instr_idx, warp_instr) in
-            warp_traces[&(trace_model::Dim::ZERO, 0)].iter().enumerate()
+        // todo: remove
         {
-            println!(
-                "{:<10}\t active={} \tpc={} idx={}",
-                warp_instr.instr_opcode,
-                warp_instr.active_mask,
-                warp_instr.instr_offset,
-                warp_instr_idx
-            );
+            dbg!(&trace.len());
+            let warp_traces = trace.clone().to_warp_traces();
+            for (warp_instr_idx, warp_instr) in
+                warp_traces[&(trace_model::Dim::ZERO, 0)].iter().enumerate()
+            {
+                println!(
+                    "{:<10}\t active={} \tpc={} idx={}",
+                    warp_instr.instr_opcode,
+                    warp_instr.active_mask,
+                    warp_instr.instr_offset,
+                    warp_instr_idx
+                );
+            }
         }
 
-        let launch_config = trace_model::command::KernelLaunch {
+        let _launch_config = trace_model::command::KernelLaunch {
             mangled_name: kernel_name.clone(),
             unmangled_name: kernel_name.clone(),
             trace_file: String::new(),
@@ -712,125 +603,6 @@ impl TraceGenerator for Tracer {
             nvbit_version: "none".to_string(),
         };
         // dbg!(launch_config);
-
-        // for ((block_id, warp_id_in_block), warp_instructions) in traced_instructions.drain() {
-        //     // assert_eq!(thread_instructions.len(), WARP_SIZE as usize);
-        //     // dbg!((&block_id, &warp_id_in_block, &thread_instructions[0].len()));
-        //
-        //     // todo
-        //     // if !thread_instructions.iter().all_equal() {
-        //     //     return Err(Error::Tracer(
-        //     //         super::tracegen::TraceError::InconsistentNumberOfWarpInstructions,
-        //     //     ));
-        //     // }
-        //
-        //     let warp_instruction = trace_model::MemAccessTraceEntry {
-        //         cuda_ctx: 0,
-        //         sm_id: 0,
-        //         kernel_id: 0,
-        //         block_id: block_id.clone().into(),
-        //         warp_id_in_sm: warp_id_in_block as u32,
-        //         warp_id_in_block: warp_id_in_block as u32,
-        //         warp_size: WARP_SIZE,
-        //         line_num: 0,
-        //         instr_data_width: 0,
-        //         instr_opcode: String::new(),
-        //         instr_offset: 0,
-        //         instr_idx: 0,
-        //         instr_predicate: trace_model::Predicate::default(),
-        //         instr_mem_space: trace_model::MemorySpace::None,
-        //         instr_is_mem: false,
-        //         instr_is_load: false,
-        //         instr_is_store: false,
-        //         instr_is_extended: false,
-        //         dest_regs: [0; 1],
-        //         num_dest_regs: 0,
-        //         src_regs: [0; 5],
-        //         num_src_regs: 0,
-        //         active_mask: trace_model::ActiveMask::ZERO,
-        //         addrs: [0; 32],
-        //     };
-        //
-        //     let num_instructions = warp_instructions[0].len();
-        //     for instr_idx in 0..num_instructions {
-        //         let mut active_mask = trace_model::ActiveMask::ZERO;
-        //         let mut addrs = [0; WARP_SIZE as usize];
-        //
-        //         for thread_idx in 0..(WARP_SIZE as usize) {
-        //             let thread_instruction = &warp_instructions[thread_idx][instr_idx];
-        //             if let model::ThreadInstruction::Access(ref access) = thread_instruction {
-        //                 active_mask.set(thread_idx, true);
-        //                 addrs[thread_idx] = access.addr;
-        //             }
-        //         }
-        //
-        //         if let model::ThreadInstruction::Access(ref access) =
-        //             warp_instructions[0][instr_idx]
-        //         {
-        //             let is_load = access.kind == model::MemAccessKind::Load;
-        //             let is_store = access.kind == model::MemAccessKind::Store;
-        //             let instr_opcode = match access.mem_space {
-        //                 model::MemorySpace::Local if is_load => "LDL".to_string(),
-        //                 model::MemorySpace::Global if is_load => "LDG".to_string(),
-        //                 model::MemorySpace::Shared if is_load => "LDS".to_string(),
-        //                 // MemorySpace::Texture if is_load => "LDG".to_string(),
-        //                 model::MemorySpace::Constant if is_load => "LDC".to_string(),
-        //                 model::MemorySpace::Local if is_store => "STL".to_string(),
-        //                 model::MemorySpace::Global if is_store => "STG".to_string(),
-        //                 model::MemorySpace::Shared if is_store => "STS".to_string(),
-        //                 // MemorySpace::Texture if is_store => "LDG".to_string(),
-        //                 model::MemorySpace::Constant if is_store => panic!("constant store"),
-        //                 other => panic!("unknown memory space {other:?}"),
-        //             };
-        //
-        //             trace.push(trace_model::MemAccessTraceEntry {
-        //                 instr_opcode: instr_opcode.to_string(),
-        //                 instr_is_mem: true,
-        //                 instr_is_store: is_store,
-        //                 instr_is_load: is_load,
-        //                 instr_idx: instr_idx as u32,
-        //                 // active_mask: active_mask.load(),
-        //                 active_mask,
-        //                 addrs,
-        //                 ..warp_instruction.clone()
-        //             });
-        //         }
-        //     }
-        //
-        //     // EXIT instruction
-        //     trace.push(trace_model::MemAccessTraceEntry {
-        //         instr_opcode: "EXIT".to_string(),
-        //         instr_idx: num_instructions as u32,
-        //         active_mask: trace_model::ActiveMask::all_ones(),
-        //         // active_mask: (!trace_model::ActiveMask::ZERO).load(),
-        //         ..warp_instruction.clone()
-        //     });
-        // }
-        //
-        // let trace = trace_model::MemAccessTrace(trace);
-        // let warp_traces = trace.clone().to_warp_traces();
-        //
-        // // dbg!(&warp_traces[&(trace_model::Dim::ZERO, 0)]
-        // //     .iter()
-        // //     .map(|entry| (&entry.instr_opcode, &entry.active_mask))
-        // //     .collect::<Vec<_>>());
-        //
-        // let launch_config = trace_model::command::KernelLaunch {
-        //     mangled_name: kernel.name().unwrap_or("unnamed").to_string(),
-        //     unmangled_name: kernel.name().unwrap_or("unnamed").to_string(),
-        //     trace_file: String::new(),
-        //     id: kernel_launch_id,
-        //     grid: grid.into(),
-        //     block: block_size.into(),
-        //     shared_mem_bytes: 0,
-        //     num_registers: 0,
-        //     binary_version: 61,
-        //     stream_id: 0,
-        //     shared_mem_base_addr: 0,
-        //     local_mem_base_addr: 0,
-        //     nvbit_version: "none".to_string(),
-        // };
-        // dbg!(launch_config);
         Ok(())
     }
 }
@@ -838,12 +610,9 @@ impl TraceGenerator for Tracer {
 #[cfg(test)]
 mod tests {
     use super::{DevicePtr, ThreadBlock, ThreadIndex, TraceGenerator};
-    use crate::model::{MemAccessKind, MemInstruction, MemorySpace};
+    use crate::model::MemorySpace;
     use color_eyre::eyre;
-    use futures::future::Future;
     use num_traits::Float;
-    use std::pin::Pin;
-    use std::sync::Arc;
     use tokio::sync::Mutex;
     use utils::diff;
 
@@ -852,9 +621,7 @@ mod tests {
     impl super::Kernel for FullImbalanceKernel {
         type Error = std::convert::Infallible;
         #[crate::inject_reconvergence_points]
-        async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
-            // if tid.thread_idx.x ==
-            todo!();
+        async fn run(&self, block: &ThreadBlock, _tid: &ThreadIndex) -> Result<(), Self::Error> {
             Ok(())
         }
     }
@@ -891,7 +658,7 @@ mod tests {
             }
         }
 
-        let mut tracer = super::Tracer::new();
+        let tracer = super::Tracer::new();
         tracer.trace_kernel(1, 32, ForLoopKernel {}).await?;
         assert!(false);
         Ok(())
@@ -913,7 +680,7 @@ mod tests {
             }
         }
 
-        let mut tracer = super::Tracer::new();
+        let tracer = super::Tracer::new();
         tracer.trace_kernel(1, 32, NestedIfKernel {}).await?;
         assert!(false);
         Ok(())
@@ -981,7 +748,7 @@ mod tests {
             }
         }
 
-        let mut tracer = super::Tracer::new();
+        let tracer = super::Tracer::new();
         tracer.trace_kernel(1, 32, Imbalanced {}).await?;
         assert!(false);
         Ok(())
@@ -1047,7 +814,7 @@ mod tests {
         let block_size = 32;
         let n = 20;
 
-        let mut tracer = super::Tracer::new();
+        let tracer = super::Tracer::new();
 
         let mut a: Vec<f32> = vec![0.0; n];
         let mut b: Vec<f32> = vec![0.0; n];
@@ -1061,9 +828,9 @@ mod tests {
             b[i] = angle.cos() * angle.cos();
         }
 
-        let mut dev_a = tracer.allocate(&mut a, MemorySpace::Global).await;
-        let mut dev_b = tracer.allocate(&mut b, MemorySpace::Global).await;
-        let mut dev_result = tracer.allocate(&mut result, MemorySpace::Global).await;
+        let dev_a = tracer.allocate(&mut a, MemorySpace::Global).await;
+        let dev_b = tracer.allocate(&mut b, MemorySpace::Global).await;
+        let dev_result = tracer.allocate(&mut result, MemorySpace::Global).await;
 
         let kernel: VecAdd<f32> = VecAdd {
             dev_a: Mutex::new(dev_a),

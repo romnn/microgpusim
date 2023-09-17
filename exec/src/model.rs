@@ -16,7 +16,7 @@ pub enum MemAccessKind {
 }
 
 /// Warp instruction
-#[derive(Debug, Clone, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, Ord, PartialOrd)]
 pub struct MemInstruction {
     pub mem_space: MemorySpace,
     pub kind: MemAccessKind,
@@ -39,7 +39,7 @@ impl PartialEq for MemInstruction {
 }
 
 /// Warp instruction
-#[derive(Debug, Clone, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialOrd, Ord)]
 pub enum ThreadInstruction {
     Access(MemInstruction),
     Nop,
@@ -57,40 +57,24 @@ impl From<MemInstruction> for ThreadInstruction {
 impl std::fmt::Display for ThreadInstruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Access(inst) => write!(f, "Access({})", inst),
+            Self::Access(inst) => write!(f, "Access({inst})"),
             other => std::fmt::Debug::fmt(other, f),
-            // Self::Nop,
-            // Self::Branch(usize),
-            // Self::TookBranch(usize),
-            // Self::Reconvergence(usize),
         }
-        // let num_bytes = self.end_addr.map(|end| end - self.start_addr);
-        // let num_f32 = num_bytes.map(|num_bytes| num_bytes / 4);
-        // f.debug_struct("Allocation")
-        //     .field("id", &self.id)
-        //     .field("name", &self.name)
-        //     .field("start_addr", &self.start_addr)
-        //     .field("end_addr", &self.end_addr)
-        //     .field(
-        //         "size",
-        //         &num_bytes.map(|num_bytes| human_bytes::human_bytes(num_bytes as f64)),
-        //     )
-        //     .field("num_f32", &num_f32)
-        //     .finish()
     }
 }
 
 impl Eq for ThreadInstruction {}
 
+#[allow(clippy::match_same_arms)]
 impl PartialEq for ThreadInstruction {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (ThreadInstruction::Nop, _) => true,
             (_, ThreadInstruction::Nop) => true,
-            (ThreadInstruction::Access(a), ThreadInstruction::Access(b)) => a.eq(&b),
-            (ThreadInstruction::Branch(a), ThreadInstruction::Branch(b)) => a.eq(&b),
-            (ThreadInstruction::TookBranch(a), ThreadInstruction::TookBranch(b)) => a.eq(&b),
-            (ThreadInstruction::Reconverge(a), ThreadInstruction::Reconverge(b)) => a.eq(&b),
+            (ThreadInstruction::Access(a), ThreadInstruction::Access(b)) => a.eq(b),
+            (ThreadInstruction::Branch(a), ThreadInstruction::Branch(b)) => a.eq(b),
+            (ThreadInstruction::TookBranch(a), ThreadInstruction::TookBranch(b)) => a.eq(b),
+            (ThreadInstruction::Reconverge(a), ThreadInstruction::Reconverge(b)) => a.eq(b),
             (_, _) => false,
         }
     }

@@ -68,11 +68,11 @@ where
 
 pub trait Index<Idx: ?Sized> {
     type Output: ?Sized;
-    fn index(&self, idx: Idx) -> (&Self::Output, u64, u64);
+    fn index(&self, idx: Idx) -> (&Self::Output, u64, u32);
 }
 
 pub trait IndexMut<Idx: ?Sized>: Index<Idx> {
-    fn index_mut(&mut self, index: Idx) -> (&mut Self::Output, u64, u64);
+    fn index_mut(&mut self, index: Idx) -> (&mut Self::Output, u64, u32);
 }
 
 // TODO: consolidate
@@ -81,10 +81,10 @@ where
     Idx: super::ToLinear,
 {
     type Output = T;
-    fn index(&self, idx: Idx) -> (&Self::Output, u64, u64) {
+    fn index(&self, idx: Idx) -> (&Self::Output, u64, u32) {
         let idx = idx.to_linear();
         let rel_addr = idx as u64 * self.stride() as u64;
-        let size = self.stride() as u64;
+        let size = self.stride() as u32;
         (&self[idx], rel_addr, size)
     }
 }
@@ -94,10 +94,10 @@ where
     Idx: super::ToLinear,
 {
     type Output = T;
-    fn index(&self, idx: Idx) -> (&Self::Output, u64, u64) {
+    fn index(&self, idx: Idx) -> (&Self::Output, u64, u32) {
         let idx = idx.to_linear();
         let rel_addr = idx as u64 * self.stride() as u64;
-        let size = self.stride() as u64;
+        let size = self.stride() as u32;
         (&self[idx], rel_addr, size)
     }
 }
@@ -107,10 +107,10 @@ where
     Idx: super::ToLinear,
 {
     type Output = T;
-    fn index(&self, idx: Idx) -> (&Self::Output, u64, u64) {
+    fn index(&self, idx: Idx) -> (&Self::Output, u64, u32) {
         let idx = idx.to_linear();
         let rel_addr = idx as u64 * self.stride() as u64;
-        let size = self.stride() as u64;
+        let size = self.stride() as u32;
         (&self[idx], rel_addr, size)
     }
 }
@@ -120,10 +120,10 @@ impl<'a, T, Idx> IndexMut<Idx> for &'a mut Vec<T>
 where
     Idx: super::ToLinear,
 {
-    fn index_mut(&mut self, idx: Idx) -> (&mut Self::Output, u64, u64) {
+    fn index_mut(&mut self, idx: Idx) -> (&mut Self::Output, u64, u32) {
         let idx = idx.to_linear();
         let rel_addr = idx as u64 * self.stride() as u64;
-        let size = self.stride() as u64;
+        let size = self.stride() as u32;
         (&mut self[idx], rel_addr, size)
     }
 }
@@ -132,10 +132,10 @@ impl<T, Idx> IndexMut<Idx> for Vec<T>
 where
     Idx: super::ToLinear,
 {
-    fn index_mut(&mut self, idx: Idx) -> (&mut Self::Output, u64, u64) {
+    fn index_mut(&mut self, idx: Idx) -> (&mut Self::Output, u64, u32) {
         let idx = idx.to_linear();
         let rel_addr = idx as u64 * self.stride() as u64;
-        let size = self.stride() as u64;
+        let size = self.stride() as u32;
         (&mut self[idx], rel_addr, size)
     }
 }
@@ -148,9 +148,9 @@ where
 
     fn index(&self, (thread_idx, idx): (&ThreadIndex, Idx)) -> &Self::Output {
         let (elem, rel_offset, size) = self.inner.index(idx);
-        let addr = self.offset + rel_offset as u64;
+        let addr = self.offset + rel_offset;
         self.memory
-            .load(thread_idx, addr, size as u32, self.mem_space);
+            .load(thread_idx, addr, size, self.mem_space);
         elem
     }
 }
@@ -161,9 +161,9 @@ where
 {
     fn index_mut(&mut self, (thread_idx, idx): (&ThreadIndex, Idx)) -> &mut Self::Output {
         let (elem, rel_offset, size) = self.inner.index_mut(idx);
-        let addr = self.offset + rel_offset as u64;
+        let addr = self.offset + rel_offset;
         self.memory
-            .store(thread_idx, addr, size as u32, self.mem_space);
+            .store(thread_idx, addr, size, self.mem_space);
         elem
     }
 }

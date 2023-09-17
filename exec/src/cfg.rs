@@ -1,7 +1,5 @@
-use super::model::MemInstruction;
-use petgraph::visit::{VisitMap, Visitable};
-use petgraph::{algo, prelude::*};
-use std::collections::HashSet;
+use crate::model::{MemInstruction, ThreadInstruction};
+use petgraph::prelude::*;
 
 #[derive(Debug)]
 pub enum TraceNode {
@@ -30,6 +28,7 @@ impl std::fmt::Display for TraceNode {
 
 impl TraceNode {
     #[inline]
+    #[must_use]
     pub fn id(&self) -> usize {
         match self {
             Self::Branch { id, .. } | Self::Reconverge { id, .. } => *id,
@@ -37,6 +36,7 @@ impl TraceNode {
     }
 
     #[inline]
+    #[must_use]
     pub fn instructions(&self) -> &[MemInstruction] {
         match self {
             Self::Branch { instructions, .. } | Self::Reconverge { instructions, .. } => {
@@ -54,6 +54,7 @@ pub enum Node {
 
 impl Node {
     #[inline]
+    #[must_use]
     pub fn id(&self) -> usize {
         match self {
             Self::Branch(id) | Self::Reconverge(id) => *id,
@@ -61,6 +62,7 @@ impl Node {
     }
 }
 
+#[allow(clippy::match_same_arms)]
 impl PartialEq<TraceNode> for Node {
     fn eq(&self, other: &TraceNode) -> bool {
         match (self, other) {
@@ -148,7 +150,7 @@ where
                 if child == to {
                     let path = visited
                         .iter()
-                        .cloned()
+                        .copied()
                         .chain([(Some(edge.id()), to)])
                         .collect::<TargetColl>();
                     return Some(path);
@@ -163,4 +165,133 @@ where
         }
         None
     })
+}
+
+pub fn build_control_flow_graph(
+    thread_instructions: &[ThreadInstruction],
+    super_cfg: &mut CFG,
+) -> (ThreadCFG, (NodeIndex, NodeIndex)) {
+    let mut thread_cfg = ThreadCFG::new();
+    let mut took_branch = false;
+
+    let super_cfg_root_node_idx = super_cfg.add_unique_node(Node::Branch(0));
+    let mut last_super_cfg_node_idx = super_cfg_root_node_idx;
+
+    let thread_cfg_root_node_idx = thread_cfg.add_node(TraceNode::Branch {
+        id: 0,
+        instructions: vec![],
+    });
+    let mut last_thread_cfg_node_idx = thread_cfg_root_node_idx;
+    let mut current_instructions = Vec::new();
+
+    for thread_instruction in thread_instructions {
+        match thread_instruction {
+            ThreadInstruction::Nop => unreachable!(),
+            ThreadInstruction::TookBranch(_branch_id) => {
+                took_branch = true;
+            }
+            ThreadInstruction::Branch(branch_id) => {
+                took_branch = false;
+                {
+                    let super_node_idx = super_cfg.add_unique_node(Node::Branch(*branch_id));
+                    super_cfg.add_unique_edge(last_super_cfg_node_idx, super_node_idx, true);
+                    last_super_cfg_node_idx = super_node_idx;
+                }
+                {
+                    let node_idx = thread_cfg.add_node(TraceNode::Branch {
+                        id: *branch_id,
+                        instructions: std::mem::take(&mut current_instructions),
+                    });
+                    // assert!(!matches!(
+                    //     thread_cfg[last_thread_cfg_node_idx],
+                    //     cfg::TraceNode::Branch { .. }
+                    // ));
+                    thread_cfg.add_edge(last_thread_cfg_node_idx, node_idx, true);
+                    last_thread_cfg_node_idx = node_idx;
+                }
+            }
+            ThreadInstruction::Reconverge(branch_id) => {
+                {
+                    let super_node_idx = super_cfg.add_unique_node(Node::Reconverge(*branch_id));
+                    super_cfg.add_unique_edge(last_super_cfg_node_idx, super_node_idx, took_branch);
+                    last_super_cfg_node_idx = super_node_idx;
+                }
+                {
+                    let node_idx = thread_cfg.add_node(TraceNode::Reconverge {
+                        id: *branch_id,
+                        instructions: std::mem::take(&mut current_instructions),
+                    });
+                    thread_cfg.add_edge(last_thread_cfg_node_idx, node_idx, took_branch);
+                    // assert_eq!(
+                    //     thread_cfg[last_thread_cfg_node_idx].id(),
+                    //     thread_cfg[node_idx].id()
+                    // );
+                    last_thread_cfg_node_idx = node_idx;
+                }
+            }
+            ThreadInstruction::Access(access) => {
+                current_instructions.push(access.clone());
+            }
+        }
+    }
+
+    // reconverge branch 0
+    let super_cfg_sink_node_idx = super_cfg.add_unique_node(Node::Reconverge(0));
+    super_cfg.add_unique_edge(last_super_cfg_node_idx, super_cfg_sink_node_idx, true);
+
+    let thread_cfg_sink_node_idx = thread_cfg.add_node(TraceNode::Reconverge {
+        id: 0,
+        instructions: std::mem::take(&mut current_instructions),
+    });
+    thread_cfg.add_edge(last_thread_cfg_node_idx, thread_cfg_sink_node_idx, true);
+    (
+        thread_cfg,
+        (thread_cfg_root_node_idx, thread_cfg_sink_node_idx),
+    )
+}
+
+pub fn format_control_flow_path<'a, G>(
+    graph: &'a G,
+    path: &'a [(Option<G::EdgeId>, G::NodeId)],
+) -> impl Iterator<Item = String> + 'a
+where
+    G: petgraph::data::DataMap,
+    G: petgraph::visit::Data,
+    <G as petgraph::visit::Data>::NodeWeight: std::fmt::Display,
+    <G as petgraph::visit::Data>::EdgeWeight: std::fmt::Display,
+{
+    path.iter().flat_map(move |(edge_idx, node_idx)| {
+        let mut parts: Vec<String> = vec![format!("{}", graph.node_weight(*node_idx).unwrap())];
+        if let Some(edge_idx) = edge_idx {
+            parts.push(format!("--{}-->", graph.edge_weight(*edge_idx).unwrap()));
+        }
+        parts.into_iter().rev()
+    })
+}
+
+pub fn add_missing_control_flow_edges<D, Ix>(graph: &mut petgraph::Graph<Node, bool, D, Ix>)
+where
+    Ix: petgraph::graph::IndexType,
+    D: petgraph::EdgeType,
+{
+    use std::collections::HashSet;
+    for node_idx in graph.node_indices() {
+        let Node::Branch(branch_id) = graph[node_idx] else {
+            continue;
+        };
+        let edges: HashSet<bool> = graph
+            .edges(node_idx)
+            .map(|edge| edge.weight())
+            .copied()
+            .collect();
+        assert!(!edges.is_empty());
+        assert!(edges.len() <= 2);
+        let reconvergence_node_idx = graph.find_node(&Node::Reconverge(branch_id)).unwrap();
+        if !edges.contains(&true) {
+            graph.add_unique_edge(node_idx, reconvergence_node_idx, true);
+        }
+        if !edges.contains(&false) {
+            graph.add_unique_edge(node_idx, reconvergence_node_idx, false);
+        }
+    }
 }

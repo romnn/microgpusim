@@ -1,16 +1,14 @@
-#![allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
-// #![allow(warnings)]
+#![allow(
+    clippy::missing_panics_doc,
+    clippy::missing_errors_doc,
+    clippy::cast_possible_truncation
+)]
 
 pub mod alloc;
 pub mod cfg;
 pub mod kernel;
 pub mod model;
 pub mod tracegen;
-
-use color_eyre::eyre;
-use itertools::Itertools;
-use num_traits::Zero;
-use std::sync::{atomic, Arc, Mutex};
 
 pub use alloc::DevicePtr;
 pub use exec_impl::inject_reconvergence_points;
