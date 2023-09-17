@@ -1,6 +1,78 @@
+use super::model::MemInstruction;
 use petgraph::visit::{VisitMap, Visitable};
 use petgraph::{algo, prelude::*};
 use std::collections::HashSet;
+
+#[derive(Debug)]
+pub enum TraceNode {
+    Branch {
+        id: usize,
+        instructions: Vec<MemInstruction>,
+    },
+    Reconverge {
+        id: usize,
+        instructions: Vec<MemInstruction>,
+    },
+}
+
+impl std::fmt::Display for TraceNode {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Branch { id, instructions } => {
+                write!(f, "Branch(id={id}, inst={})", instructions.len())
+            }
+            Self::Reconverge { id, instructions } => {
+                write!(f, "Reconverge(id={id}, inst={})", instructions.len())
+            }
+        }
+    }
+}
+
+impl TraceNode {
+    #[inline]
+    pub fn id(&self) -> usize {
+        match self {
+            Self::Branch { id, .. } | Self::Reconverge { id, .. } => *id,
+        }
+    }
+
+    #[inline]
+    pub fn instructions(&self) -> &[MemInstruction] {
+        match self {
+            Self::Branch { instructions, .. } | Self::Reconverge { instructions, .. } => {
+                instructions
+            }
+        }
+    }
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Node {
+    Branch(usize),
+    Reconverge(usize),
+}
+
+impl Node {
+    #[inline]
+    pub fn id(&self) -> usize {
+        match self {
+            Self::Branch(id) | Self::Reconverge(id) => *id,
+        }
+    }
+}
+
+impl PartialEq<TraceNode> for Node {
+    fn eq(&self, other: &TraceNode) -> bool {
+        match (self, other) {
+            (Self::Branch(branch_id), TraceNode::Branch { id, .. }) => branch_id == id,
+            (Self::Reconverge(branch_id), TraceNode::Reconverge { id, .. }) => branch_id == id,
+            _ => false,
+        }
+    }
+}
+
+pub type CFG = petgraph::graph::DiGraph<Node, bool>;
+pub type ThreadCFG = petgraph::graph::DiGraph<TraceNode, bool>;
 
 pub trait UniqueGraph<N, E, Ix> {
     fn add_unique_edge(&mut self, a: NodeIndex<Ix>, b: NodeIndex<Ix>, weight: E) -> EdgeIndex<Ix>

@@ -632,7 +632,7 @@ mod tests {
         let want = super::TraceInstruction {
             line_num: None,
             pc: 0x02d8,
-            active_mask: ActiveMask::from(0xFFFF_FFFF),
+            active_mask: ActiveMask::from(0xFFFF_FFFFu32),
             opcode: "LDG.E".to_string(),
             mem_width: 4,
             mem_addresses,
@@ -653,7 +653,7 @@ mod tests {
         let want = super::TraceInstruction {
             line_num: None,
             pc: 0xa8,
-            active_mask: ActiveMask::from(0xFFFF_FFFF),
+            active_mask: ActiveMask::from(0xFFFF_FFFFu32),
             opcode: "STL.64".to_string(),
             mem_width: 8,
             mem_addresses: [0x00ff_fcd0; super::WARP_SIZE as usize],
