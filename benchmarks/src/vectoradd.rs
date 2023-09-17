@@ -5,8 +5,8 @@
 )]
 
 use color_eyre::eyre;
-use gpucachesim::exec::r#async::{DevicePtr, Kernel, ThreadBlock, TraceGenerator, Tracer};
-use gpucachesim::exec::{MemorySpace, ThreadIndex};
+use gpucachesim::exec::tracegen::{TraceGenerator, Tracer};
+use gpucachesim::exec::{DevicePtr, Kernel, MemorySpace, ThreadBlock, ThreadIndex};
 use num_traits::{Float, NumCast, Zero};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -178,7 +178,7 @@ where
 #[cfg(test)]
 mod tests {
     use color_eyre::eyre;
-    use gpucachesim::exec::r#async::{TraceGenerator, Tracer};
+    use gpucachesim::exec::tracegen::{TraceGenerator, Tracer};
     use gpucachesim::exec::MemorySpace;
     use tokio::sync::Mutex;
     use utils::diff;

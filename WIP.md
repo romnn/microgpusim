@@ -2,7 +2,7 @@
 
 - today:
 
-  - cargo expand -p exec --lib --profile=test r#async::tests
+  - cargo expand -p exec --lib --profile=test tracegen::tests
 
   - write more execution driven examples (especially the different transpose variants)
 

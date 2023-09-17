@@ -72,8 +72,6 @@ impl VisitMut for ControlFlowVisitorMut {
                             })
                             .unwrap(),
                         );
-
-                        // todo
                     }
                     placeholders.push((i, reconvergence_point_id));
                     self.current_reconvergence_point_id += 1;
@@ -84,7 +82,6 @@ impl VisitMut for ControlFlowVisitorMut {
         }
 
         placeholders.sort_by_key(|(i, _)| std::cmp::Reverse(*i));
-        // dbg!(&placeholders);
         for (i, reconvergence_point_id) in placeholders {
             let block = &self.block;
             node.stmts.insert(

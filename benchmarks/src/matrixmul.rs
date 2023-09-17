@@ -6,10 +6,10 @@
 // #![allow(warnings)]
 
 use color_eyre::eyre;
-use gpucachesim::exec::r#async::{DevicePtr, Kernel, ThreadBlock, TraceGenerator, Tracer};
+use gpucachesim::exec::tracegen::{TraceGenerator, Tracer};
 use gpucachesim::exec::{
     model::{Dim, MemorySpace},
-    ThreadIndex,
+    DevicePtr, Kernel, ThreadBlock, ThreadIndex,
 };
 use num_traits::{Float, NumCast, Zero};
 use rand::{
@@ -255,7 +255,7 @@ where
 mod tests {
     use approx::AbsDiffEq;
     use color_eyre::eyre;
-    use gpucachesim::exec::r#async::{TraceGenerator, Tracer};
+    use gpucachesim::exec::tracegen::{TraceGenerator, Tracer};
     use gpucachesim::exec::MemorySpace;
     use ndarray::prelude::*;
     use ndarray::{linalg::Dot, Array2};
