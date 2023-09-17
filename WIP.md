@@ -45,6 +45,8 @@
   - convert, match and plot statistics
   - record mem fetch latency in playground and box
 
+  - DONE: proc macro for addign reconvergence points (building a dominator tree)
+  - DONE: control flow graph serialization using dominated BFS
   - DONE: add options to simulate
     - DONE: larger vectoradd example
     - DONE: different number of cores per cluster [1, 4, 8]

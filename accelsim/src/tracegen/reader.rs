@@ -5,7 +5,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashSet;
 use std::path::Path;
-use trace_model::Dim;
+use trace_model::{ActiveMask, Dim};
 
 static LOAD_OPCODES: Lazy<HashSet<&'static str>> = Lazy::new(|| {
     [
@@ -218,7 +218,7 @@ fn base_stride_decompress(
     addrs: &mut [u64],
     base_address: u64,
     stride: i32,
-    active_mask: super::ActiveMask,
+    active_mask: ActiveMask,
 ) {
     let mut first_bit1_found = false;
     let mut last_bit1_found = false;
@@ -243,7 +243,7 @@ fn base_delta_decompress(
     addrs: &mut [u64],
     base_address: u64,
     deltas: &[i64],
-    active_mask: super::ActiveMask,
+    active_mask: ActiveMask,
 ) -> Result<(), std::num::TryFromIntError> {
     let mut first_bit1_found = false;
     let mut last_address = 0;
@@ -264,11 +264,12 @@ fn base_delta_decompress(
     Ok(())
 }
 
+/// Accelsim native trace instruction
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct TraceInstruction {
     pub line_num: Option<u32>,
     pub pc: u32,
-    pub active_mask: u32,
+    pub active_mask: ActiveMask,
     pub opcode: String,
     pub mem_width: u32,
     pub mem_addresses: [u64; WARP_SIZE as usize],
@@ -296,7 +297,7 @@ pub fn parse_single_trace_instruction(
 
     let pc: u32 = parse_hex(values.pop_front(), "pc")?;
     let raw_active_mask: u32 = parse_hex(values.pop_front(), "active mask")?;
-    let active_mask = super::parse_active_mask(raw_active_mask);
+    let active_mask = ActiveMask::from(raw_active_mask);
 
     let num_dest_regs: usize = parse_decimal(values.pop_front(), "num dest regs")?;
     assert!(
@@ -384,7 +385,7 @@ pub fn parse_single_trace_instruction(
     Ok(TraceInstruction {
         line_num,
         pc,
-        active_mask: raw_active_mask,
+        active_mask,
         opcode,
         mem_width,
         mem_addresses,
@@ -608,6 +609,7 @@ mod tests {
     use color_eyre::eyre;
     use similar_asserts as diff;
     use std::path::{Path, PathBuf};
+    use trace_model::ActiveMask;
 
     fn open_file(path: &Path) -> std::io::Result<std::io::BufReader<std::fs::File>> {
         let file = std::fs::OpenOptions::new().read(true).open(path)?;
@@ -630,7 +632,7 @@ mod tests {
         let want = super::TraceInstruction {
             line_num: None,
             pc: 0x02d8,
-            active_mask: 0xFFFF_FFFF,
+            active_mask: ActiveMask::from(0xFFFF_FFFF),
             opcode: "LDG.E".to_string(),
             mem_width: 4,
             mem_addresses,
@@ -651,7 +653,7 @@ mod tests {
         let want = super::TraceInstruction {
             line_num: None,
             pc: 0xa8,
-            active_mask: 0xFFFF_FFFF,
+            active_mask: ActiveMask::from(0xFFFF_FFFF),
             opcode: "STL.64".to_string(),
             mem_width: 8,
             mem_addresses: [0x00ff_fcd0; super::WARP_SIZE as usize],

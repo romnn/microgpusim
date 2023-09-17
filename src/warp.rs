@@ -1,18 +1,7 @@
 use crate::sync::{Arc, Mutex};
 use crate::{instruction::WarpInstruction, kernel::Kernel};
-use bitvec::{array::BitArray, BitArr};
 use std::collections::VecDeque;
-pub use trace_model::ActiveMask;
-
-/// Warp size.
-///
-/// Number of threads per warp.
-pub const WARP_SIZE: usize = 32;
-
-// /// Thread active mask.
-// ///
-// /// Bitmask where a 1 at position i means that thread i is active for the current instruction.
-// pub type ActiveMask = BitArr!(for WARP_SIZE, in u32);
+pub use trace_model::{active_mask::Inner as ActiveMaskInner, ActiveMask, WARP_SIZE};
 
 pub type Ref = Arc<Mutex<Warp>>;
 
@@ -63,7 +52,7 @@ impl Default for Warp {
             kernel: None,
             trace_pc: 0,
             trace_instructions: VecDeque::new(),
-            active_mask: BitArray::ZERO,
+            active_mask: ActiveMask::ZERO,
             done_exit: false,
             num_instr_in_pipeline: 0,
             num_outstanding_stores: 0,

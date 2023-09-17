@@ -229,7 +229,9 @@ impl<'c> Instrumentor<'c> {
                 instr_is_load: packet.instr_is_load,
                 instr_is_store: packet.instr_is_store,
                 instr_is_extended: packet.instr_is_extended,
-                active_mask: packet.active_mask & packet.predicate_mask,
+                active_mask: trace_model::ActiveMask::from(
+                    packet.active_mask & packet.predicate_mask,
+                ),
                 dest_regs: packet.dest_regs,
                 num_dest_regs: packet.num_dest_regs,
                 src_regs: packet.src_regs,

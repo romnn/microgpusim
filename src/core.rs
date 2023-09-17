@@ -1864,7 +1864,7 @@ where
         for warp_id in start_warp..end_warp {
             let mut num_active = 0;
 
-            let mut local_active_thread_mask: warp::ActiveMask = BitArray::ZERO;
+            let mut local_active_thread_mask = warp::ActiveMask::ZERO;
             for warp_thread_id in 0..self.config.warp_size {
                 let hwtid = warp_id * self.config.warp_size + warp_thread_id;
                 if hwtid < end_thread {

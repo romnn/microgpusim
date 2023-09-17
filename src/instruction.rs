@@ -7,7 +7,7 @@ use crate::{
     operand_collector as opcoll, warp,
 };
 
-use bitvec::{array::BitArray, field::BitField, BitArr};
+use bitvec::{array::BitArray, BitArr};
 use mem_fetch::access::{Builder as MemAccessBuilder, Kind as AccessKind, MemAccess};
 use std::collections::{HashMap, VecDeque};
 use trace_model::{self, ToBitString};
@@ -284,12 +284,7 @@ impl WarpInstruction {
         trace: &trace_model::MemAccessTraceEntry,
         config: &config::GPU,
     ) -> Self {
-        // fill active mask
-        let mut active_mask = BitArray::ZERO;
-        active_mask.store(trace.active_mask);
-        assert_eq!(active_mask.len(), trace.warp_size as usize);
-
-        let mut threads: Vec<_> = (0..active_mask.len())
+        let mut threads: Vec<_> = (0..trace.active_mask.len())
             .map(|_| PerThreadInfo::default())
             .collect();
 
@@ -428,7 +423,7 @@ impl WarpInstruction {
                     memory_space = Some(MemorySpace::Shared);
                 } else {
                     // check the first active address
-                    if let Some(tid) = active_mask.first_one() {
+                    if let Some(tid) = trace.active_mask.first_one() {
                         let addr = trace.addrs[tid];
                         if (shared_mem_base_addr..local_mem_base_addr).contains(&addr) {
                             memory_space = Some(MemorySpace::Shared);
@@ -465,7 +460,7 @@ impl WarpInstruction {
             memory_space,
             barrier,
             is_atomic,
-            active_mask,
+            active_mask: trace.active_mask,
             cache_operator,
             latency,
             issue_cycle: None,

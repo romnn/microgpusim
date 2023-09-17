@@ -135,13 +135,6 @@ impl std::hash::Hash for TraceCommand {
 pub struct TraceInstruction(trace_model::MemAccessTraceEntry);
 
 impl TraceInstruction {
-    pub fn active_mask(&self) -> gpucachesim::warp::ActiveMask {
-        use bitvec::field::BitField;
-        let mut active_mask = gpucachesim::warp::ActiveMask::ZERO;
-        active_mask.store(self.0.active_mask);
-        active_mask
-    }
-
     fn id(
         &self,
     ) -> (
@@ -150,7 +143,7 @@ impl TraceInstruction {
         u32,
         u32,
         &String,
-        gpucachesim::warp::ActiveMask,
+        &gpucachesim::warp::ActiveMask,
     ) {
         (
             &self.0.block_id,
@@ -158,7 +151,7 @@ impl TraceInstruction {
             self.0.instr_idx,
             self.0.instr_offset,
             &self.0.instr_opcode,
-            self.active_mask(),
+            &self.0.active_mask,
         )
     }
 }
@@ -173,7 +166,6 @@ impl std::cmp::PartialEq for TraceInstruction {
 
 impl std::fmt::Display for TraceInstruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use trace_model::ToBitString;
         write!(
             f,
             "     [ block {} warp{:>3} ]\t inst_idx={:<4}  offset={:<4}\t {:<20}\t\t active={}",
@@ -182,7 +174,7 @@ impl std::fmt::Display for TraceInstruction {
             self.0.instr_idx,
             self.0.instr_offset,
             self.0.instr_opcode,
-            self.active_mask().to_bit_string(),
+            self.0.active_mask,
         )
     }
 }

@@ -13,15 +13,6 @@ pub enum AddressFormat {
     BaseDelta = 2,
 }
 
-type ActiveMask = bitvec::BitArr!(for 32, in u32);
-
-fn parse_active_mask(raw_mask: u32) -> ActiveMask {
-    use bitvec::field::BitField;
-    let mut active_mask = bitvec::array::BitArray::ZERO;
-    active_mask.store(raw_mask);
-    active_mask
-}
-
 fn is_number(s: &str) -> bool {
     !s.is_empty() && s.chars().all(char::is_numeric)
 }

@@ -99,9 +99,9 @@ impl PipelinedSimdUnit {
     #[inline]
     #[must_use]
     pub fn active_lanes_in_pipeline(&self) -> usize {
-        let mut active_lanes: warp::ActiveMask = BitArray::ZERO;
+        let mut active_lanes = warp::ActiveMaskInner::ZERO;
         for stage in self.pipeline_reg.iter().flatten() {
-            active_lanes |= stage.active_mask;
+            active_lanes |= *stage.active_mask;
         }
         active_lanes.count_ones()
     }

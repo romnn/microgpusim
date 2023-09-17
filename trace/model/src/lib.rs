@@ -1,42 +1,19 @@
+pub mod active_mask;
 pub mod allocation;
 pub mod command;
 pub mod dim;
 
+pub use active_mask::{ActiveMask, ToBitString};
 pub use allocation::MemAllocation;
 pub use command::Command;
 pub use dim::{Dim, Point};
 
-use bitvec::{array::BitArray, BitArr};
 use serde::{Deserialize, Serialize};
 
 /// Warp size.
 ///
 /// Number of threads per warp.
 pub const WARP_SIZE: usize = 32;
-
-/// Thread active mask.
-///
-/// Bitmask where a 1 at position i means that thread i is active for the current instruction.
-pub type ActiveMask = BitArr!(for WARP_SIZE, in u32);
-
-/// Format as a binary string.
-pub trait ToBitString {
-    fn to_bit_string(&self) -> String;
-}
-
-impl<A, O> ToBitString for bitvec::slice::BitSlice<A, O>
-where
-    A: bitvec::store::BitStore,
-    O: bitvec::order::BitOrder,
-{
-    fn to_bit_string(&self) -> String {
-        self.iter()
-            .rev()
-            .map(|b| if *b { "1" } else { "0" })
-            .collect::<Vec<_>>()
-            .join("")
-    }
-}
 
 /// An instruction operand predicate.
 #[derive(
@@ -90,7 +67,8 @@ pub struct MemAccessTraceEntry {
     pub num_dest_regs: u32,
     pub src_regs: [u32; 5],
     pub num_src_regs: u32,
-    pub active_mask: u32,
+    // pub active_mask: u32,
+    pub active_mask: ActiveMask,
     /// Accessed address per thread of a warp
     pub addrs: [u64; 32],
 }
