@@ -10,7 +10,6 @@ pub mod nop;
 
 use std::sync::{atomic, Arc, Mutex};
 // use crate::{interconn as ic, mem_fetch};
-use bitvec::field::BitField;
 use color_eyre::eyre;
 use itertools::Itertools;
 use num_traits::Zero;

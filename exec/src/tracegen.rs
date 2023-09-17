@@ -2,7 +2,6 @@ use super::kernel::{Kernel, ThreadIndex};
 use super::model;
 use super::nop::ArithmeticNop;
 use super::DevicePtr;
-use bitvec::field::BitField;
 use itertools::Itertools;
 use std::sync::{atomic, Arc, Mutex};
 

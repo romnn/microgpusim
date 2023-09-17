@@ -3,16 +3,12 @@ use crate::model::MemInstruction;
 use super::cfg::UniqueGraph;
 use super::kernel::ThreadIndex;
 use super::model::{self, ThreadInstruction};
-use super::nop::ArithmeticNop;
-use bitvec::field::BitField;
 use futures::{future::Future, StreamExt};
 use itertools::Itertools;
-// use petgraph::visit::{VisitMap, Visitable};
 use std::collections::{HashMap, VecDeque};
 use std::pin::Pin;
 use std::sync::{atomic, Arc};
 use tokio::sync::{mpsc, Mutex};
-use trace_model::ToBitString;
 
 pub const DEV_GLOBAL_HEAP_START: u64 = 0xC000_0000;
 pub const WARP_SIZE: u32 = 32;
@@ -37,7 +33,6 @@ pub enum TraceError {
 #[derive(Clone)]
 pub struct DevicePtr<T> {
     pub inner: T,
-    nop: ArithmeticNop,
     memory: Arc<dyn MemoryAccess + Send + Sync>,
     mem_space: model::MemorySpace,
     offset: u64,
@@ -173,22 +168,9 @@ impl<T> Allocatable for Vec<T> {
     }
 }
 
-// impl<T> std::ops::Index<&ThreadIndex> for DevicePtr<T> {
-//     type Output = ArithmeticNop;
-//
-//     fn index(&self, thread_idx: &ThreadIndex) -> &Self::Output {
-//         // println!(
-//         //     "inactive: block={} warp={} thread={}",
-//         //     &thread_idx.block_id, &thread_idx.warp_id_in_block, &thread_idx.thread_id_in_warp
-//         // );
-//         self.memory.inactive(thread_idx);
-//         &self.nop
-//     }
-// }
-
 impl<T, Idx> std::ops::Index<(&ThreadIndex, Idx)> for DevicePtr<T>
 where
-    T: Index<Idx>, //  + std::fmt::Debug,
+    T: Index<Idx>,
 {
     type Output = <T as Index<Idx>>::Output;
 
@@ -203,7 +185,7 @@ where
 
 impl<T, Idx> std::ops::IndexMut<(&ThreadIndex, Idx)> for DevicePtr<T>
 where
-    T: IndexMut<Idx>, //  + std::fmt::Debug,
+    T: IndexMut<Idx>,
 {
     fn index_mut(&mut self, (thread_idx, idx): (&ThreadIndex, Idx)) -> &mut Self::Output {
         let (elem, rel_offset, size) = self.inner.index_mut(idx);
@@ -214,46 +196,13 @@ where
     }
 }
 
-// impl<T> std::ops::IndexMut<&ThreadIndex> for DevicePtr<T> {
-//     fn index_mut(&mut self, thread_idx: &ThreadIndex) -> &mut Self::Output {
-//         // println!(
-//         //     "inactive: block={} warp={} thread={}",
-//         //     &thread_idx.block_id, &thread_idx.warp_id_in_block, &thread_idx.thread_id_in_warp
-//         // );
-//         self.memory.inactive(thread_idx);
-//         &mut self.nop
-//     }
-// }
-
 pub struct ThreadBlock {
     pub(crate) barrier: Arc<tokio::sync::Barrier>,
     pub memory: Arc<dyn MemoryAccess + Send + Sync>,
-    // id: trace_model::Point,
-    // size: trace_model::Dim,
     pub thread_id: ThreadIndex,
 }
 
 impl ThreadBlock {
-    // pub fn new(id: trace_model::Point, size: trace_model::Dim) -> Self {
-    // pub fn new(thread_id: ThreadIndex, memory: Arc<dyn MemoryAccess + Send + Sync>) -> Self {
-    //     let block_size =
-    //     Self {
-    //         barrier: Arc::new(tokio::sync::Barrier::new(size.size() as usize)),
-    //         thread_id,
-    //         memory,
-    //         // id,
-    //         // size,
-    //     }
-    // }
-
-    // pub fn id(&self) -> &trace_model::Point {
-    //     &self.id
-    // }
-    //
-    // pub fn size(&self) -> &trace_model::Dim {
-    //     &self.size
-    // }
-
     pub async fn synchronize_threads(&self) {
         self.barrier.wait().await;
     }
@@ -266,13 +215,11 @@ impl ThreadBlock {
     pub fn took_branch(&self, branch_id: usize) {
         let inst = model::ThreadInstruction::TookBranch(branch_id);
         self.memory.push_thread_instruction(&self.thread_id, inst);
-        // self.memory.reconverge(&self.thread_id, branch_id);
     }
 
     pub fn start_branch(&self, branch_id: usize) {
         let inst = model::ThreadInstruction::Branch(branch_id);
         self.memory.push_thread_instruction(&self.thread_id, inst);
-        // self.memory.start_branch(&self.thread_id, branch_id);
     }
 }
 
@@ -319,9 +266,6 @@ pub trait MemoryAccess {
     fn push_thread_instruction(
         &self,
         thread_idx: &ThreadIndex,
-        // block_id: trace_model::Point,
-        // warp_id_in_block: usize,
-        // thread_id: usize,
         instruction: model::ThreadInstruction,
     );
 
@@ -332,7 +276,6 @@ pub trait MemoryAccess {
     fn store(&self, thread_idx: &ThreadIndex, addr: u64, size: u32, mem_space: model::MemorySpace);
 }
 
-// #[derive(Debug)]
 pub struct Tracer {
     offset: Mutex<u64>,
     thread_instructions: std::sync::Mutex<
@@ -356,9 +299,6 @@ impl Tracer {
 impl MemoryAccess for Tracer {
     fn push_thread_instruction(
         &self,
-        // block_id: trace_model::Point,
-        // warp_id_in_block: usize,
-        // thread_id: usize,
         thread_idx: &ThreadIndex,
         instruction: model::ThreadInstruction,
     ) {
@@ -380,13 +320,7 @@ impl MemoryAccess for Tracer {
             mem_space,
             size,
         });
-        self.push_thread_instruction(
-            &thread_idx,
-            // thread_idx.block_id.clone(),
-            // thread_idx.warp_id_in_block,
-            // thread_idx.thread_id_in_warp,
-            inst,
-        );
+        self.push_thread_instruction(&thread_idx, inst);
     }
 
     fn store(&self, thread_idx: &ThreadIndex, addr: u64, size: u32, mem_space: model::MemorySpace) {
@@ -396,13 +330,7 @@ impl MemoryAccess for Tracer {
             mem_space,
             size,
         });
-        self.push_thread_instruction(
-            &thread_idx,
-            // thread_idx.block_id.clone(),
-            // thread_idx.warp_id_in_block,
-            // thread_idx.thread_id_in_warp,
-            inst,
-        );
+        self.push_thread_instruction(&thread_idx, inst);
     }
 }
 
@@ -510,7 +438,6 @@ impl TraceGenerator for Tracer {
         DevicePtr {
             inner: value,
             mem_space,
-            nop: ArithmeticNop::default(),
             memory: self.clone(),
             offset,
         }
@@ -558,33 +485,6 @@ impl TraceGenerator for Tracer {
         for ((block_id, warp_id_in_block), warp_instructions) in
             traced_instructions_vec.into_iter().rev()
         {
-            let warp_instruction = trace_model::MemAccessTraceEntry {
-                cuda_ctx: 0,
-                sm_id: 0,
-                kernel_id: 0,
-                block_id: block_id.clone().into(),
-                warp_id_in_sm: warp_id_in_block as u32,
-                warp_id_in_block: warp_id_in_block as u32,
-                warp_size: WARP_SIZE,
-                line_num: 0,
-                instr_data_width: 0,
-                instr_opcode: String::new(),
-                instr_offset: 0,
-                instr_idx: 0,
-                instr_predicate: trace_model::Predicate::default(),
-                instr_mem_space: trace_model::MemorySpace::None,
-                instr_is_mem: false,
-                instr_is_load: false,
-                instr_is_store: false,
-                instr_is_extended: false,
-                dest_regs: [0; 1],
-                num_dest_regs: 0,
-                src_regs: [0; 5],
-                num_src_regs: 0,
-                active_mask: 0,
-                addrs: [0; 32],
-            };
-
             #[derive(Debug)]
             enum TraceNode {
                 Branch {
@@ -758,11 +658,7 @@ impl TraceGenerator for Tracer {
                 // assert_eq!(cfg.node_count(), cfg.edge_count() + 1);
                 // assert_eq!(cfg.edge_count(), cfg.edge_weights().count());
                 assert_eq!(paths.len(), 1);
-                println!(
-                    "thread[{:2}] = {:?}",
-                    ti,
-                    paths[0].join(" ") // paths[0].iter().map(ToString::to_string).join(" ")
-                );
+                println!("thread[{:2}] = {:?}", ti, paths[0].join(" "));
 
                 // println!(
                 //     "thread[{:2}] = {:?} edge weights: {:?}",
@@ -827,10 +723,38 @@ impl TraceGenerator for Tracer {
             .collect::<Vec<_>>();
             dbg!(ways.len());
 
+            let warp_instruction = trace_model::MemAccessTraceEntry {
+                cuda_ctx: 0,
+                sm_id: 0,
+                kernel_id: 0,
+                block_id: block_id.clone().into(),
+                warp_id_in_sm: warp_id_in_block as u32,
+                warp_id_in_block: warp_id_in_block as u32,
+                warp_size: WARP_SIZE,
+                line_num: 0,
+                instr_data_width: 0,
+                instr_opcode: String::new(),
+                instr_offset: 0,
+                instr_idx: 0,
+                instr_predicate: trace_model::Predicate::default(),
+                instr_mem_space: trace_model::MemorySpace::None,
+                instr_is_mem: false,
+                instr_is_load: false,
+                instr_is_store: false,
+                instr_is_extended: false,
+                dest_regs: [0; 1],
+                num_dest_regs: 0,
+                src_regs: [0; 5],
+                num_src_regs: 0,
+                active_mask: trace_model::ActiveMask::ZERO,
+                addrs: [0; 32],
+            };
+
             let mut dominator_stack = VecDeque::new();
             assert!(matches!(super_cfg[super_cfg_root_idx], CFGNode::Branch(0)));
             dominator_stack.push_front(super_cfg_root_idx);
 
+            let mut trace = Vec::new();
             let mut stack = VecDeque::new();
             let mut limit: Option<usize> = None;
             loop {
@@ -869,17 +793,69 @@ impl TraceGenerator for Tracer {
                         })
                         .collect();
 
-                    let mut active_mask = trace_model::ActiveMask::ZERO;
-                    assert!(active_threads
+                    // assert!(active_threads
+                    //     .iter()
+                    //     .map(|(_, insts)| insts.len())
+                    //     .all_equal());
+
+                    // find longest instruction
+                    let (_, longest_thread_trace) = active_threads
                         .iter()
-                        .map(|(_, insts)| insts.len())
-                        .all_equal());
-                    for (tid, instructions) in active_threads {
-                        active_mask.set(tid, true);
-                    }
+                        .max_by_key(|(_, instructions)| instructions.len())
+                        .cloned()
+                        .unwrap_or_default();
+                    let mut warp_trace: Vec<_> = longest_thread_trace
+                        .into_iter()
+                        .enumerate()
+                        .map(|(instr_idx, access)| {
+                            let is_load = access.kind == model::MemAccessKind::Load;
+                            let is_store = access.kind == model::MemAccessKind::Store;
+                            let instr_opcode = match access.mem_space {
+                                model::MemorySpace::Local if is_load => "LDL".to_string(),
+                                model::MemorySpace::Global if is_load => "LDG".to_string(),
+                                model::MemorySpace::Shared if is_load => "LDS".to_string(),
+                                // MemorySpace::Texture if is_load => "LDG".to_string(),
+                                model::MemorySpace::Constant if is_load => "LDC".to_string(),
+                                model::MemorySpace::Local if is_store => "STL".to_string(),
+                                model::MemorySpace::Global if is_store => "STG".to_string(),
+                                model::MemorySpace::Shared if is_store => "STS".to_string(),
+                                // MemorySpace::Texture if is_store => "LDG".to_string(),
+                                model::MemorySpace::Constant if is_store => {
+                                    panic!("constant store")
+                                }
+                                other => panic!("unknown memory space {other:?}"),
+                            };
+
+                            trace_model::MemAccessTraceEntry {
+                                instr_opcode: instr_opcode.to_string(),
+                                instr_is_mem: true,
+                                instr_is_store: is_store,
+                                instr_is_load: is_load,
+                                instr_idx: instr_idx as u32,
+                                // active_mask: active_mask.load(),
+                                // addrs,
+                                ..warp_instruction.clone()
+                            }
+                        })
+                        .collect();
 
                     // push the instructions for this branch
-                    // println!(
+                    for (instr_idx, instr) in warp_trace.iter_mut().enumerate() {
+                        // let mut instr_active_mask = trace_model::ActiveMask::ZERO;
+                        // let mut instr_addrs = [0; WARP_SIZE as usize];
+
+                        for (tid, instructions) in active_threads.iter() {
+                            if let Some(ref access) = instructions.get(instr_idx) {
+                                // instr.active_mask.set(*tid, true);
+                                instr.addrs[*tid] = access.addr;
+                            }
+                        }
+                    }
+
+                    let mut active_mask = trace_model::ActiveMask::ZERO;
+                    for (tid, _) in active_threads.iter() {
+                        active_mask.set(*tid, true);
+                    }
 
                     match &super_cfg[node_idx] {
                         CFGNode::Reconverge(..) => {
@@ -893,7 +869,7 @@ impl TraceGenerator for Tracer {
                                 super_cfg[reconvergence_node_idx],
                                 super_cfg[edge_idx],
                                 super_cfg[node_idx],
-                                active_mask.to_bit_string().chars().rev().collect::<String>(),
+                                active_mask.to_string().chars().rev().collect::<String>(),
                             );
                                     continue;
                                 }
@@ -917,11 +893,7 @@ impl TraceGenerator for Tracer {
                         reconvergence_node_idx.map(|idx| &super_cfg[idx]),
                         super_cfg[edge_idx],
                         super_cfg[node_idx],
-                        active_mask
-                            .to_bit_string()
-                            .chars()
-                            .rev()
-                            .collect::<String>(),
+                        active_mask.to_string().chars().rev().collect::<String>(),
                         // active_mask.to_bit_string(),
                     );
 
@@ -962,6 +934,15 @@ impl TraceGenerator for Tracer {
                     }
                 }
             }
+
+            // end of warp: add EXIT instruction
+            trace.push(trace_model::MemAccessTraceEntry {
+                instr_opcode: "EXIT".to_string(),
+                instr_idx: trace.len() as u32,
+                active_mask: trace_model::ActiveMask::all_ones(),
+                ..warp_instruction.clone()
+            });
+
             break;
         }
 
@@ -1001,7 +982,7 @@ impl TraceGenerator for Tracer {
                 num_dest_regs: 0,
                 src_regs: [0; 5],
                 num_src_regs: 0,
-                active_mask: 0,
+                active_mask: trace_model::ActiveMask::ZERO,
                 addrs: [0; 32],
             };
 
@@ -1043,7 +1024,8 @@ impl TraceGenerator for Tracer {
                         instr_is_store: is_store,
                         instr_is_load: is_load,
                         instr_idx: instr_idx as u32,
-                        active_mask: active_mask.load(),
+                        // active_mask: active_mask.load(),
+                        active_mask,
                         addrs,
                         ..warp_instruction.clone()
                     });
@@ -1054,7 +1036,8 @@ impl TraceGenerator for Tracer {
             trace.push(trace_model::MemAccessTraceEntry {
                 instr_opcode: "EXIT".to_string(),
                 instr_idx: num_instructions as u32,
-                active_mask: (!trace_model::ActiveMask::ZERO).load(),
+                active_mask: trace_model::ActiveMask::all_ones(),
+                // active_mask: (!trace_model::ActiveMask::ZERO).load(),
                 ..warp_instruction.clone()
             });
         }
@@ -1141,6 +1124,32 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn test_for_loop_kernel() -> eyre::Result<()> {
+        struct ForLoopKernel {}
+        #[async_trait::async_trait]
+        impl super::Kernel for ForLoopKernel {
+            type Error = std::convert::Infallible;
+            #[crate::inject_reconvergence_points]
+            async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
+                let is_even = tid.thread_idx.x % 2 == 0;
+                let num_iterations = if is_even { 3 } else { 1 };
+                for _ in 0..num_iterations {
+                    let inst = mem_inst!(Load[Global]@0, 4);
+                    block.memory.push_thread_instruction(tid, inst.into());
+                }
+                let inst = mem_inst!(Load[Global]@100, 4);
+                block.memory.push_thread_instruction(tid, inst.into());
+                Ok(())
+            }
+        }
+
+        let mut tracer = super::Tracer::new();
+        tracer.trace_kernel(1, 32, ForLoopKernel {}).await?;
+        assert!(false);
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn test_nested_if_kernel() -> eyre::Result<()> {
         struct NestedIfKernel {}
         #[async_trait::async_trait]
@@ -1150,7 +1159,7 @@ mod tests {
             async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
                 if tid.thread_idx.x < 16 {
                     let inst = mem_inst!(Load[Global]@0, 4);
-                    block.memory.push_thread_instruction(tid, inst.into())
+                    block.memory.push_thread_instruction(tid, inst.into());
                 }
                 Ok(())
             }
