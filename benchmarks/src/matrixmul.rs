@@ -4,12 +4,11 @@ use gpucachesim::exec::{
     model::{Dim, MemorySpace},
     DevicePtr, Kernel, ThreadBlock, ThreadIndex,
 };
-use num_traits::{Float, NumCast, Zero};
+use num_traits::{Float, Zero};
 use rand::{
     distributions::{self, Distribution},
     Rng,
 };
-use std::sync::Arc;
 use tokio::sync::Mutex;
 
 // Number of threads in each thread block
@@ -26,17 +25,6 @@ struct Matrixmul<'a, T> {
     shared_mem_a: Mutex<DevicePtr<Vec<T>>>,
     /// Shared memory array used to store the sub-matrix of B
     shared_mem_b: Mutex<DevicePtr<Vec<T>>>,
-    // __shared__ T As[BLOCK_SIZE][BLOCK_SIZE];
-
-    // shared memory array used to store the sub-matrix of B
-
-    // dev_a: &'a exec::DevicePtr<'s, 'a, Vec<T>>,
-    // dev_a: exec::DevicePtr<'s, Vec<T>>,
-    // dev_b: &'a exec::DevicePtr<'s, 'a, Vec<T>>,
-    // dev_b: exec::DevicePtr<'s, Vec<T>>,
-    // dev_result: &'a mut exec::DevicePtr<'s, 'a, Vec<T>>,
-    // dev_result: exec::DevicePtr<'s, Vec<T>>,
-    // n: usize,
 }
 
 #[async_trait::async_trait]
@@ -48,7 +36,6 @@ where
 
     #[gpucachesim::exec::inject_reconvergence_points]
     async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
-        // dbg!(&tid);
         let bx = tid.block_idx.x as usize;
         let by = tid.block_idx.y as usize;
 
@@ -67,15 +54,11 @@ where
         // index of the first sub-matrix of B processed by the block
         let b_begin = BLOCK_SIZE * bx;
 
-        // Step size used to iterate through the sub-matrices of B
+        // step size used to iterate through the sub-matrices of B
         let b_step = BLOCK_SIZE * self.num_rows;
 
-        // Csub is used to store the element of the block sub-matrix
+        // c_sub is used to store the element of the block sub-matrix
         // that is computed by the thread
-        // float Csub[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-        // float Csub[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-        // float Csub[4] = {0, 0, 0, 0};
-        // float Csub[2] = {0, 0};
         let mut c_sub = T::zero();
 
         // Loop over all the sub-matrices of A and B
@@ -84,13 +67,6 @@ where
         let mut ai = a_begin;
         let mut bi = b_begin;
         while ai <= a_end {
-            // shared memory array used to store the sub-matrix of A
-            // __shared__ T As[BLOCK_SIZE][BLOCK_SIZE];
-
-            // shared memory array used to store the sub-matrix of B
-            // __shared__ T Bs[BLOCK_SIZE][BLOCK_SIZE];
-
-            // dbg!(&ty, &tx);
             {
                 // load the matrices from device memory to shared memory
                 // each thread loads one element of each matrix
@@ -146,7 +122,7 @@ where
     }
 }
 
-pub fn reference_matrixmul<T>(a: &Vec<T>, b: &Vec<T>, result: &mut Vec<T>, size: usize)
+pub fn reference<T>(a: &Vec<T>, b: &Vec<T>, result: &mut Vec<T>, size: usize)
 where
     T: Float + std::ops::AddAssign,
 {
@@ -165,9 +141,9 @@ where
     }
 }
 
-pub async fn default_matrixmul<T>(num_rows: usize) -> eyre::Result<()>
+/// Matrixmul benchmark application.
+pub async fn benchmark<T>(num_rows: usize) -> eyre::Result<()>
 where
-    // T: Float + Zero + NumCast + std::iter::Sum + std::fmt::Display + std::fmt::Debug,
     T: Float + Zero + std::ops::AddAssign + Send + Sync + std::fmt::Debug,
     distributions::Open01: Distribution<T>,
 {
@@ -203,10 +179,9 @@ where
 {
     let tracer = Tracer::new();
 
-    // let sim = exec::Simulation::new();
     assert_eq!(a.len(), b.len());
     assert_eq!(b.len(), result.len());
-    let n = a.len();
+    let _n = a.len();
 
     // allocate memory for each vector on simulated GPU device
     let dev_a = tracer.allocate(a, MemorySpace::Global).await;
@@ -214,7 +189,6 @@ where
     let dev_result = tracer.allocate(result, MemorySpace::Global).await;
 
     // shared memory
-    // let mut shared_mem_a
     let shared_mem_a = vec![T::zero(); BLOCK_SIZE * BLOCK_SIZE];
     let shared_mem_a = tracer.allocate(shared_mem_a, MemorySpace::Shared).await;
 
@@ -222,20 +196,17 @@ where
     let shared_mem_b = tracer.allocate(shared_mem_b, MemorySpace::Shared).await;
 
     // number of thread blocks in grid
-    // let grid_size = (n as f64 / BLOCK_SIZE as f64).ceil() as u32;
-
-    let block_dim: Dim = (BLOCK_SIZE as u32, (BLOCK_SIZE / 1) as u32).into();
+    let block_dim: Dim = (BLOCK_SIZE as u32, BLOCK_SIZE as u32).into();
     let grid_size = (num_rows + (BLOCK_SIZE - 1)) / BLOCK_SIZE;
     let grid_dim: Dim = (grid_size as u32, grid_size as u32).into();
-    println!("grid dim:  {}", grid_dim);
-    println!("block dim: {}", block_dim);
+    println!("grid dim:  {grid_dim}");
+    println!("block dim: {block_dim}");
 
     assert!(grid_dim.x > 0);
     assert!(grid_dim.y > 0);
     assert!(grid_dim.z > 0);
 
     let kernel: Matrixmul<T> = Matrixmul {
-        // phantom: std::marker::PhantomData,
         dev_a: Mutex::new(dev_a),
         dev_b: Mutex::new(dev_b),
         dev_result: Mutex::new(dev_result),
@@ -249,15 +220,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use approx::AbsDiffEq;
     use color_eyre::eyre;
-    use gpucachesim::exec::tracegen::{
-        testing::{self, SimplifiedTraceInstruction},
-        TraceGenerator, Tracer,
-    };
-    use gpucachesim::exec::MemorySpace;
-    use ndarray::prelude::*;
-    use ndarray::{linalg::Dot, Array2};
+    use gpucachesim::exec::tracegen::testing::{self};
+    use ndarray::Array2;
     use rand::Rng;
     use utils::diff;
 
@@ -289,7 +254,7 @@ mod tests {
             ref_a.dot(&ref_b)
         };
         let (_launch_config, trace) = super::matrixmul(&a, &b, &mut result, size).await?;
-        super::reference_matrixmul(&a, &b, &mut ref_result, size);
+        super::reference(&a, &b, &mut ref_result, size);
 
         let ref_result = Array2::from_shape_vec(matrix_shape, ref_result)?;
         let result = Array2::from_shape_vec(matrix_shape, result)?;

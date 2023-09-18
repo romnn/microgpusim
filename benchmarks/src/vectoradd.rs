@@ -1,8 +1,8 @@
 use color_eyre::eyre;
 use gpucachesim::exec::tracegen::{TraceGenerator, Tracer};
 use gpucachesim::exec::{DevicePtr, Kernel, MemorySpace, ThreadBlock, ThreadIndex};
-use num_traits::{Float, NumCast, Zero};
-use std::sync::Arc;
+use num_traits::{Float, Zero};
+
 use tokio::sync::Mutex;
 
 struct VecAdd<'a, T> {
@@ -30,6 +30,7 @@ where
         if idx < self.n {
             dev_result[(tid, idx)] = dev_a[(tid, idx)] + dev_b[(tid, idx)];
         } else {
+            // this is no longer required because we inject reconvergence points.
             // dev_result[tid] = dev_a[tid] + dev_b[tid];
         }
         Ok(())
@@ -40,49 +41,10 @@ where
     }
 }
 
-#[deprecated]
-mod deprecated {
-    use gpucachesim::exec::{self, DevicePtr, Kernel};
-    use num_traits::{Float, NumCast, Zero};
-
-    // #[derive(Debug)]
-    // struct VecAdd<'s, T> {
-    //     dev_a: DevicePtr<'s, Vec<T>, T>,
-    //     dev_b: DevicePtr<'s, Vec<T>, T>,
-    //     dev_result: DevicePtr<'s, Vec<T>, T>,
-    //     n: usize,
-    // }
-    //
-    // impl<'s, T> Kernel for VecAdd<'s, T>
-    // where
-    //     T: Float + std::fmt::Debug,
-    // {
-    //     type Error = std::convert::Infallible;
-    //
-    //     fn run(&mut self, idx: &exec::ThreadIndex) -> Result<(), Self::Error> {
-    //         // compute global thread index
-    //         let id: usize = (idx.block_idx.x * idx.block_dim.x + idx.thread_idx.x) as usize;
-    //
-    //         if id < self.n {
-    //             self.dev_result[()] = self.dev_a[()] + self.dev_b[()];
-    //             // self.dev_result[id] = self.dev_a[id] + self.dev_b[id];
-    //         } else {
-    //             self.dev_result[()] = self.dev_a[()] + self.dev_b[()];
-    //             // self.dev_result[id] = self.dev_a[id] + self.dev_b[id];
-    //         }
-    //         Ok(())
-    //     }
-    //
-    //     fn name(&self) -> &str {
-    //         "VecAdd"
-    //     }
-    // }
-}
-
 // Number of threads in each thread block
 pub const BLOCK_SIZE: u32 = 1024;
 
-pub fn reference_vectoradd<T>(a: &Vec<T>, b: &Vec<T>, result: &mut Vec<T>)
+pub fn reference<T>(a: &[T], b: &[T], result: &mut [T])
 where
     T: Float,
 {
@@ -91,9 +53,9 @@ where
     }
 }
 
-pub async fn default_vectoradd<T>(n: usize) -> eyre::Result<()>
+/// Vectoradd benchmark application.
+pub async fn benchmark<T>(n: usize) -> eyre::Result<()>
 where
-    // T: Float + Zero + NumCast + std::iter::Sum + std::fmt::Display + std::fmt::Debug,
     T: Float + Zero + Send + Sync,
 {
     // create host vectors
@@ -181,12 +143,8 @@ where
 #[cfg(test)]
 mod tests {
     use color_eyre::eyre;
-    use gpucachesim::exec::tracegen::{
-        testing::{self, SimplifiedTraceInstruction},
-        TraceGenerator, Tracer,
-    };
-    use gpucachesim::exec::MemorySpace;
-    use tokio::sync::Mutex;
+    use gpucachesim::exec::tracegen::testing::{self, SimplifiedTraceInstruction};
+
     use utils::diff;
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -206,7 +164,7 @@ mod tests {
         }
 
         let (_launch_config, trace) = super::vectoradd(&a, &b, &mut result).await?;
-        super::reference_vectoradd(&a, &b, &mut ref_result);
+        super::reference(&a, &b, &mut ref_result);
         diff::assert_eq!(have: result, want: ref_result);
 
         let warp_traces = trace.clone().to_warp_traces();
