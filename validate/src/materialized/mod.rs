@@ -107,7 +107,9 @@ impl BenchmarkConfig {
         let bench_keys: HashSet<&String> = self.values.keys().collect();
         let query_keys: HashSet<&String> = query.keys().collect();
         let unknown_keys: Vec<_> = query_keys.difference(&bench_keys).collect();
-        if !unknown_keys.is_empty() {
+        if unknown_keys.is_empty() {
+            Ok(self.input_matches(query))
+        } else {
             Err(QueryError::UnknownKeys {
                 unknown: unknown_keys
                     .into_iter()
@@ -117,8 +119,6 @@ impl BenchmarkConfig {
                     .collect(),
                 valid: bench_keys.into_iter().cloned().sorted().collect(),
             })
-        } else {
-            Ok(self.input_matches(query))
         }
     }
 
@@ -210,13 +210,15 @@ impl crate::Benchmark {
             .as_ref()
             .map(|template| template.render(&values))
             .transpose()?
-            .map(|path| path.resolve(&trace_config.results_dir))
-            .unwrap_or_else(|| {
-                trace_config
-                    .results_dir
-                    .join(&default_bench_dir)
-                    .join("trace")
-            });
+            .map_or_else(
+                || {
+                    trace_config
+                        .results_dir
+                        .join(&default_bench_dir)
+                        .join("trace")
+                },
+                |path| path.resolve(&trace_config.results_dir),
+            );
 
         let accelsim_traces_dir = self
             .simulate
@@ -224,13 +226,15 @@ impl crate::Benchmark {
             .as_ref()
             .map(|template| template.render(&values))
             .transpose()?
-            .map(|path| path.resolve(&trace_config.results_dir))
-            .unwrap_or_else(|| {
-                accelsim_trace_config
-                    .results_dir
-                    .join(&default_bench_dir)
-                    .join("accelsim-trace")
-            });
+            .map_or_else(
+                || {
+                    accelsim_trace_config
+                        .results_dir
+                        .join(&default_bench_dir)
+                        .join("accelsim-trace")
+                },
+                |path| path.resolve(&trace_config.results_dir),
+            );
 
         let target_config = match target {
             Target::Profile => TargetBenchmarkConfig::Profile {
@@ -765,6 +769,7 @@ other: "hello"
         Ok(())
     }
 
+    #[allow(clippy::too_many_lines)]
     #[test]
     fn test_query_benchmarks() -> eyre::Result<()> {
         init_test();
@@ -784,7 +789,6 @@ benchmarks:
 "#;
 
         let benchmark: crate::Benchmarks = serde_yaml::from_str(benchmarks)?;
-        // dbg!(&benchmark);
         let materialized = benchmark.materialize(&base)?;
 
         macro_rules! query {

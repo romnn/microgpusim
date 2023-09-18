@@ -21,6 +21,14 @@ pub fn split_shell_command(command: impl AsRef<str>) -> Result<Vec<String>, Shel
     })
 }
 
+pub fn find_first(
+    target: crate::Target,
+    name: &str,
+    query: &Input,
+) -> eyre::Result<Option<materialized::BenchmarkConfig>> {
+    Ok(find_all(target, name, query)?.into_iter().next())
+}
+
 pub fn find_all(
     target: crate::Target,
     name: &str,

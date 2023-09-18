@@ -894,6 +894,7 @@ where
         );
     }
 
+    #[allow(clippy::needless_pass_by_value)]
     pub fn memcopy_to_gpu(
         &mut self,
         addr: address,
@@ -1452,9 +1453,6 @@ pub fn accelmain(
 
 #[cfg(test)]
 mod tests {
-    
-    
-    
 
     // fn get_bench_config(benchmark_name: &str, input_idx: usize) -> eyre::Result<BenchmarkConfig> {
     //     use std::path::PathBuf;

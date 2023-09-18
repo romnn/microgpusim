@@ -53,7 +53,8 @@ pub enum Command {
 }
 
 impl Command {
-    #[must_use] pub fn targets(&self) -> Box<dyn Iterator<Item = Target>> {
+    #[must_use]
+    pub fn targets(&self) -> Box<dyn Iterator<Item = Target>> {
         use strum::IntoEnumIterator;
         match self {
             Command::Full(_) => Box::new(Target::iter()), // all
@@ -62,8 +63,9 @@ impl Command {
             Command::AccelsimTrace(_) => Box::new([Target::AccelsimTrace].into_iter()),
             Command::AccelsimSimulate(_) => Box::new([Target::AccelsimSimulate].into_iter()),
             Command::PlaygroundSimulate(_) => Box::new([Target::PlaygroundSimulate].into_iter()),
-            Command::Profile(_) => Box::new([Target::Profile].into_iter()),
-            Command::Build(_) | Command::Clean(_) => Box::new([Target::Profile].into_iter()),
+            Command::Profile(_) | Command::Build(_) | Command::Clean(_) => {
+                Box::new([Target::Profile].into_iter())
+            }
             Command::Expand(Expand { target, .. }) => {
                 Box::new([target.unwrap_or(Target::Simulate)].into_iter())
             }
@@ -71,6 +73,7 @@ impl Command {
     }
 }
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Parser, Debug, Clone)]
 pub struct Options {
     #[clap(short = 'p', long = "path", help = "path to benchmarks yaml file")]

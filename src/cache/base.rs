@@ -48,17 +48,6 @@ pub struct Base<CC> {
     pub bandwidth: super::bandwidth::Manager,
 }
 
-// impl<CC> std::fmt::Debug for Base<CC> {
-//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-//         f.debug_struct("Base")
-//             .field("name", &self.name)
-//             .field("core_id", &self.core_id)
-//             .field("cluster_id", &self.cluster_id)
-//             .field("miss_queue", &self.miss_queue)
-//             .finish()
-//     }
-// }
-
 #[derive(Debug, Clone)]
 pub struct Builder<CC> {
     pub name: String,
@@ -76,8 +65,7 @@ where
     #[must_use]
     pub fn build(self) -> Base<CC> {
         let cache_config = self.cache_config;
-        let tag_array =
-            tag_array::TagArray::new(cache_config.clone(), self.cache_controller.clone());
+        let tag_array = tag_array::TagArray::new(&cache_config, self.cache_controller.clone());
 
         debug_assert!(matches!(
             cache_config.mshr_kind,

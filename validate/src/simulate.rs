@@ -5,10 +5,21 @@ use super::{
 };
 use color_eyre::{eyre, Help};
 use gpucachesim::{config::Parallelization, interconn as ic, mem_fetch, MockSimulator};
-use serde_json_merge::Index;
 use std::path::Path;
 use std::time::Instant;
 use utils::fs::create_dirs;
+
+#[derive(Debug, serde::Deserialize)]
+struct Input {
+    #[serde(rename = "mode")]
+    parallelism_mode: Option<String>,
+    #[serde(rename = "threads")]
+    parallelism_threads: Option<usize>,
+    #[serde(rename = "run_ahead")]
+    parallelism_run_ahead: Option<usize>,
+    cores_per_cluster: Option<usize>,
+    memory_only: Option<bool>,
+}
 
 #[allow(clippy::module_name_repetitions)]
 pub fn simulate_bench_config(
@@ -32,29 +43,36 @@ pub fn simulate_bench_config(
         ));
     }
 
-    let values: serde_json::Value = serde_json::to_value(&bench.values).unwrap();
+    let err = |err: serde_json::Error| {
+        RunError::Failed(
+            eyre::Report::from(err).wrap_err(
+                eyre::eyre!(
+                    "failed to parse input values for bench config {}@{}",
+                    bench.name,
+                    bench.input_idx
+                )
+                .with_section(|| format!("{:#?}", bench.values)),
+            ),
+        )
+    };
+    let values: serde_json::Value = serde_json::to_value(&bench.values).map_err(err)?;
+    let input: Input = serde_json::from_value(values).map_err(err)?;
+    dbg!(&input);
 
-    let parallelism_mode = values
-        .get_index(serde_json_merge::index!("mode"))
-        .and_then(serde_json::Value::as_str)
-        .map(str::to_lowercase);
-
-    let parallelism_threads = values
-        .get_index(serde_json_merge::index!("threads"))
-        .and_then(serde_json::Value::as_u64)
-        .map(|threads| threads as usize);
-
-    let parallelism_run_ahead = values
-        .get_index(serde_json_merge::index!("run_ahead"))
-        .and_then(serde_json::Value::as_u64);
-
-    let parallelization = match (parallelism_mode.as_deref(), parallelism_run_ahead) {
+    let parallelization = match (
+        input
+            .parallelism_mode
+            .as_deref()
+            .map(str::to_lowercase)
+            .as_deref(),
+        input.parallelism_run_ahead,
+    ) {
         (Some("serial") | None, _) => Parallelization::Serial,
         #[cfg(feature = "parallel")]
         (Some("deterministic"), _) => Parallelization::Deterministic,
         #[cfg(feature = "parallel")]
         (Some("nondeterministic"), run_ahead) => {
-            Parallelization::Nondeterministic(run_ahead.unwrap_or(10) as usize)
+            Parallelization::Nondeterministic(run_ahead.unwrap_or(10))
         }
         (Some(other), _) => panic!("unknown parallelization mode: {other}"),
         #[cfg(not(feature = "parallel"))]
@@ -66,29 +84,18 @@ pub fn simulate_bench_config(
         }
     };
 
-    dbg!(&parallelization);
-
-    let cores_per_cluster = values
-        .get_index(serde_json_merge::index!("cores_per_cluster"))
-        .and_then(serde_json::Value::as_u64)
-        .map(|cores| cores as usize);
-
-    let mem_only = values
-        .get_index(serde_json_merge::index!("memory_only"))
-        .and_then(serde_json::Value::as_bool);
-
     let config = gpucachesim::config::GPU {
-        num_simt_clusters: 20,                                      // 20
-        num_cores_per_simt_cluster: cores_per_cluster.unwrap_or(1), // 1
-        num_schedulers_per_core: 2,                                 // 1
-        num_memory_controllers: 8,                                  // 8
-        num_dram_chips_per_memory_controller: 1,                    // 1
-        num_sub_partitions_per_memory_controller: 2,                // 2
-        fill_l2_on_memcopy: false,                                  // true
-        memory_only: mem_only.unwrap_or(false),
+        num_simt_clusters: 20,                                            // 20
+        num_cores_per_simt_cluster: input.cores_per_cluster.unwrap_or(1), // 1
+        num_schedulers_per_core: 2,                                       // 1
+        num_memory_controllers: 8,                                        // 8
+        num_dram_chips_per_memory_controller: 1,                          // 1
+        num_sub_partitions_per_memory_controller: 2,                      // 2
+        fill_l2_on_memcopy: false,                                        // true
+        memory_only: input.memory_only.unwrap_or(false),
         parallelization,
         log_after_cycle: None,
-        simulation_threads: parallelism_threads,
+        simulation_threads: input.parallelism_threads,
         ..gpucachesim::config::GPU::default()
     };
 

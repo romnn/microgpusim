@@ -38,7 +38,7 @@ use validate::{
 // }
 
 pub fn run_box(
-    bench_config: Arc<BenchmarkConfig>,
+    bench_config: &BenchmarkConfig,
     parallelization: Parallelization,
 ) -> eyre::Result<stats::PerKernel> {
     let TargetBenchmarkConfig::Simulate { ref traces_dir, .. } = bench_config.target_config else {
@@ -108,13 +108,13 @@ pub async fn run_accelsim(bench_config: Arc<BenchmarkConfig>) -> eyre::Result<ac
 }
 
 pub fn run_playground(
-    bench_config: Arc<BenchmarkConfig>,
+    bench_config: &BenchmarkConfig,
 ) -> eyre::Result<(String, playground::stats::Stats, Duration)> {
     let accelsim_compat_mode = false;
     let extra_args: &[String] = &[];
     assert!(!validate::playground::is_debug());
     let (log, stats, dur) = validate::playground::simulate_bench_config(
-        &bench_config,
+        bench_config,
         TraceProvider::Box,
         extra_args,
         accelsim_compat_mode,
@@ -153,18 +153,15 @@ pub fn play_benchmark(c: &mut Criterion) {
     group.sample_size(10);
     group.sampling_mode(criterion::SamplingMode::Flat);
 
-    let bench_config = validate::benchmark::find_all(
+    let bench_config = validate::benchmark::find_first(
         Target::PlaygroundSimulate,
         "vectorAdd",
         &input!({ "dtype": 32, "length": 10000 }).unwrap(),
     )
     .unwrap()
-    .into_iter()
-    .next()
     .unwrap();
-    let bench_config = Arc::new(bench_config);
     group.bench_function("vectoradd/10000", |b| {
-        b.iter(|| run_playground(black_box(bench_config.clone())));
+        b.iter(|| run_playground(black_box(&bench_config)));
     });
     // group.bench_function("transpose/256/naive", |b| {
     //     b.iter(|| run_playground(black_box(get_bench_config("transpose", 0).unwrap())))
@@ -176,41 +173,50 @@ pub fn box_benchmark(c: &mut Criterion) {
     group.sample_size(10);
     group.sampling_mode(criterion::SamplingMode::Flat);
 
-    let bench_config = validate::benchmark::find_all(
+    let bench_config = validate::benchmark::find_first(
         Target::Simulate,
         "vectorAdd",
         &input!({ "dtype": 32, "length": 10000 }).unwrap(),
     )
     .unwrap()
-    .into_iter()
-    .next()
     .unwrap();
-    let bench_config = Arc::new(bench_config);
     group.bench_function("vectoradd/10000", |b| {
-        b.iter(|| run_box(black_box(bench_config.clone()), Parallelization::Serial));
+        b.iter(|| run_box(black_box(&bench_config), Parallelization::Serial));
     });
     // group.bench_function("transpose/256/naive", |b| {
     //     b.iter(|| run_box(black_box(get_bench_config("transpose", 0).unwrap())))
     // });
 }
 
-criterion::criterion_group!(benches, box_benchmark, play_benchmark, accelsim_benchmark);
-// criterion::criterion_main!(benches);
-
-#[allow(dead_code)]
-fn main() -> eyre::Result<()> {
+fn print_timings() {
     use itertools::Itertools;
-    #[allow(unused_imports)]
-    use std::io::Write;
-    use std::time::Instant;
+    let timings = gpucachesim::TIMINGS.lock();
+    println!("sorted by NAME");
+    for (name, dur) in timings.iter().sorted_by_key(|(&name, _dur)| name) {
+        println!(
+            "\t{name:<30}: {:>6.5} ms avg ({:>2.6} sec total)",
+            dur.mean().as_secs_f64() * 1000.0,
+            dur.total().as_secs_f64(),
+        );
+    }
+    println!();
+    println!("sorted by TOTAL DURATION");
+    for (name, dur) in timings.iter().sorted_by_key(|(_name, dur)| dur.total()) {
+        println!(
+            "\t{name:<30}: {:>6.5} ms avg ({:>2.6} sec total)",
+            dur.mean().as_secs_f64() * 1000.0,
+            dur.total().as_secs_f64(),
+        );
+    }
+    println!();
+}
+
+fn configure_tracing() -> Option<tracing_chrome::FlushGuard> {
     use tracing_chrome::ChromeLayerBuilder;
     use tracing_subscriber::prelude::*;
 
-    color_eyre::install()?;
-
-    let profile = std::env::var("TRACE").unwrap_or_default().to_lowercase() == "yes";
-
-    let mut generate_trace = if profile {
+    let enable_tracing = std::env::var("TRACE").unwrap_or_default().to_lowercase() == "yes";
+    if enable_tracing {
         // tracing_subscriber::fmt::init();
         let (chrome_layer, guard) = ChromeLayerBuilder::new().file("bench.trace.json").build();
         tracing_subscriber::registry().with(chrome_layer).init();
@@ -220,7 +226,20 @@ fn main() -> eyre::Result<()> {
         // let mut log_builder = env_logger::Builder::new();
         // log_builder.format(|buf, record| writeln!(buf, "{}", record.args()));
         None
-    };
+    }
+}
+
+criterion::criterion_group!(benches, box_benchmark, play_benchmark, accelsim_benchmark);
+// criterion::criterion_main!(benches);
+
+#[allow(dead_code, clippy::too_many_lines)]
+fn main() -> eyre::Result<()> {
+    #[allow(unused_imports)]
+    use std::io::Write;
+    use std::time::Instant;
+
+    color_eyre::install()?;
+    let mut tracing_guard = configure_tracing();
 
     // takes 34 sec (accel same)
     let (bench_name, input_query): (_, Input) =
@@ -247,117 +266,64 @@ fn main() -> eyre::Result<()> {
     };
 
     let start = Instant::now();
-    let bench_config = validate::benchmark::find_all(Target::Simulate, bench_name, &input_query)?
-        .into_iter()
-        .next()
-        .unwrap();
-    let bench_config = Arc::new(bench_config);
+    let bench_config =
+        validate::benchmark::find_first(Target::Simulate, bench_name, &input_query)?.unwrap();
     println!("running {}@{}", bench_config.name, bench_config.input_idx);
 
-    let stats = run_box(black_box(bench_config), parallelization)?;
+    let stats = run_box(black_box(&bench_config), parallelization)?;
+    let box_dur = start.elapsed();
     dbg!(&stats.reduce().sim);
     // for (kernel_launch_id, kernel_stats) in stats.as_ref().iter().enumerate() {
     //     dbg!(kernel_launch_id);
     //     dbg!(&kernel_stats.sim);
     // }
-    let box_dur = start.elapsed();
     println!("box took:\t\t{box_dur:?}");
 
-    drop(generate_trace.take());
-    if profile {
+    if tracing_guard.take().is_some() {
+        // when tracing is enabled, only trace our implementation
         return Ok(());
     }
 
-    {
-        let timings = gpucachesim::TIMINGS.lock();
-        println!("sorted by NAME");
-        for (name, dur) in timings.iter().sorted_by_key(|(&name, _dur)| name) {
-            println!(
-                "\t{name:<30}: {:>6.5} ms avg ({:>2.6} sec total)",
-                dur.mean().as_secs_f64() * 1000.0,
-                dur.total().as_secs_f64(),
-            );
-        }
-        println!();
-        println!("sorted by TOTAL DURATION");
-        for (name, dur) in timings.iter().sorted_by_key(|(_name, dur)| dur.total()) {
-            println!(
-                "\t{name:<30}: {:>6.5} ms avg ({:>2.6} sec total)",
-                dur.mean().as_secs_f64() * 1000.0,
-                dur.total().as_secs_f64(),
-            );
-        }
-        println!();
-    }
+    print_timings();
 
     // clear timing measurements
     gpucachesim::TIMINGS.lock().clear();
 
-    let bench_config = validate::benchmark::find_all(Target::Simulate, bench_name, &input_query)?
-        .into_iter()
-        .next()
-        .unwrap();
-    let bench_config = Arc::new(bench_config);
+    let bench_config =
+        validate::benchmark::find_first(Target::Simulate, bench_name, &input_query)?.unwrap();
     let start = Instant::now();
-    let stats = run_box(black_box(bench_config), Parallelization::Serial)?;
+    let stats = run_box(black_box(&bench_config), Parallelization::Serial)?;
+    let serial_box_dur = start.elapsed();
     dbg!(&stats.reduce().sim);
     // for (kernel_launch_id, kernel_stats) in stats.as_ref().iter().enumerate() {
     //     dbg!(kernel_launch_id);
     //     dbg!(&kernel_stats.sim);
     // }
-    let serial_box_dur = start.elapsed();
     println!("serial box took:\t\t{serial_box_dur:?}");
     println!(
         "speedup is :\t\t{:.2}",
         serial_box_dur.as_secs_f64() / box_dur.as_secs_f64()
     );
-    {
-        let timings = gpucachesim::TIMINGS.lock();
-        println!("sorted by NAME");
-        for (name, dur) in timings.iter().sorted_by_key(|(&name, _dur)| name) {
-            println!(
-                "\t{name:<30}: {:>6.5} ms avg ({:>2.6} sec total)",
-                dur.mean().as_secs_f64() * 1000.0,
-                dur.total().as_secs_f64(),
-            );
-        }
-        println!();
-        println!("sorted by TOTAL DURATION");
-        for (name, dur) in timings.iter().sorted_by_key(|(_name, dur)| dur.total()) {
-            println!(
-                "\t{name:<30}: {:>6.5} ms avg ({:>2.6} sec total)",
-                dur.mean().as_secs_f64() * 1000.0,
-                dur.total().as_secs_f64(),
-            );
-        }
-        println!();
-    }
 
     let bench_config =
-        validate::benchmark::find_all(Target::PlaygroundSimulate, bench_name, &input_query)?
-            .into_iter()
-            .next()
+        validate::benchmark::find_first(Target::PlaygroundSimulate, bench_name, &input_query)?
             .unwrap();
-    let bench_config = Arc::new(bench_config);
-    let (_, stats, play_dur) = run_playground(black_box(bench_config))?;
+    let (_, stats, play_dur) = run_playground(black_box(&bench_config))?;
     dbg!(&stats::Stats::from(stats).sim);
     println!("play took:\t\t{play_dur:?}");
 
-    let bench_config =
-        validate::benchmark::find_all(Target::AccelsimSimulate, bench_name, &input_query)?
-            .into_iter()
-            .next()
-            .unwrap();
-    let bench_config = Arc::new(bench_config);
+    let bench_config = Arc::new(
+        validate::benchmark::find_first(Target::AccelsimSimulate, bench_name, &input_query)?
+            .unwrap(),
+    );
     let start = Instant::now();
     let stats = runtime.block_on(async {
         let stats = run_accelsim(black_box(bench_config)).await?;
         let stats: stats::Stats = stats.try_into()?;
         Ok::<_, eyre::Report>(stats)
     })?;
-    dbg!(&stats.sim);
-
     let accel_dur = start.elapsed();
+    dbg!(&stats.sim);
     println!("accel took:\t\t{accel_dur:?}");
 
     Ok(())

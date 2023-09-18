@@ -194,6 +194,7 @@ pub struct Config {
 }
 
 impl crate::Config {
+    #[allow(clippy::too_many_lines)]
     pub fn materialize(self, base: &Path) -> Result<Config, super::Error> {
         if !base.is_absolute() {
             return Err(super::Error::RelativeBase(base.to_path_buf()));

@@ -147,7 +147,7 @@ impl Config {
 }
 
 /// Memory controller unit (MCU).
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MemoryControllerUnit {
     pub num_channels: usize,
     pub num_sub_partitions_per_channel: usize,
@@ -173,24 +173,24 @@ impl std::fmt::Display for MemoryControllerUnit {
     }
 }
 
-impl std::fmt::Debug for MemoryControllerUnit {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let mut out = f.debug_struct("MemoryControllerUnit");
-        out.field("num_channels", &self.num_channels);
-        out.field(
-            "num_sub_partitions_per_channel",
-            &self.num_sub_partitions_per_channel,
-        );
-        out.field(
-            "num_sub_partitions_per_channel_log2",
-            &self.num_sub_partitions_per_channel_log2,
-        );
-
-        out.field("has_gap", &self.has_gap);
-        out.field("sub_partition_id_mask", &self.sub_partition_id_mask);
-        out.finish()
-    }
-}
+// impl std::fmt::Debug for MemoryControllerUnit {
+//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+//         let mut out = f.debug_struct("MemoryControllerUnit");
+//         out.field("num_channels", &self.num_channels);
+//         out.field(
+//             "num_sub_partitions_per_channel",
+//             &self.num_sub_partitions_per_channel,
+//         );
+//         out.field(
+//             "num_sub_partitions_per_channel_log2",
+//             &self.num_sub_partitions_per_channel_log2,
+//         );
+//
+//         out.field("has_gap", &self.has_gap);
+//         out.field("sub_partition_id_mask", &self.sub_partition_id_mask);
+//         out.finish()
+//     }
+// }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Mask {
@@ -313,7 +313,7 @@ impl MemoryControllerUnit {
 ///
 /// The memory controller is responsible for translating the linear, virtual addresses
 /// used by the program into physical addresses in main memory (DRAM).
-pub trait MemoryController: std::fmt::Debug + Send + Sync + 'static {
+pub trait MemoryController: Send + Sync + 'static {
     /// Compute the partition-relative? physical address for a virtual address.
     #[must_use]
     fn memory_partition_address(&self, addr: address) -> address;

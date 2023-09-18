@@ -362,6 +362,7 @@ fn compute_per_command_bench_configs<'a>(
     Ok(per_command_bench_configs)
 }
 
+#[allow(clippy::too_many_lines)]
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> eyre::Result<()> {
     env_logger::init();
@@ -470,7 +471,6 @@ async fn main() -> eyre::Result<()> {
     let _ = utils::fs::rchmod_writable(&materialized.config.results_dir);
 
     let (_succeeded, failed): (Vec<_>, Vec<_>) = utils::partition_results(results);
-    // assert_eq!(num_bench_configs, succeeded.len() + failed.len());
 
     let mut num_failed = 0;
     let mut num_skipped = 0;

@@ -337,7 +337,6 @@ pub enum FetchResponseTarget {
     ICache,
 }
 
-// type InterconnBuffer<T> = Arc<Mutex<VecDeque<(usize, T, u32)>>>;
 type InterconnBuffer<T> = VecDeque<ic::Packet<(usize, T, u32)>>;
 
 #[allow(clippy::module_name_repetitions)]
@@ -349,9 +348,10 @@ pub struct CoreMemoryConnection<C> {
     pub buffer: C,
 }
 
+#[allow(clippy::missing_fields_in_debug)]
 impl<C> std::fmt::Debug for CoreMemoryConnection<C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CoreMmeoryConnection").finish()
+        f.debug_struct("CoreMemoryConnection").finish()
     }
 }
 
@@ -433,23 +433,6 @@ where
     }
 }
 
-// impl<C> ic::BufferedConnection<ic::Packet<mem_fetch::MemFetch>> for CoreMemoryConnection<C>
-// where
-//     C: ic::Connection<ic::Packet<(usize, mem_fetch::MemFetch, u32)>>,
-// {
-//     #[inline]
-//     fn buffered(&self) -> Box<dyn Iterator<Item = &ic::Packet<mem_fetch::MemFetch>>> {
-//         self.buffer.buffered()
-//     }
-// }
-
-// impl<P> std::fmt::Debug for CoreMemoryInterface<P> {
-//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-//         f.debug_struct("CoreMemoryInterface").finish()
-//     }
-// }
-//
-
 /// SIMT Core.
 #[derive()]
 pub struct Core<I> {
@@ -463,13 +446,8 @@ pub struct Core<I> {
     pub current_kernel: Mutex<Option<Arc<Kernel>>>,
     pub last_warp_fetched: Option<usize>,
     pub interconn: Arc<I>,
-    // pub interconn_port: Arc<Mutex<ic::Port<mem_fetch::MemFetch>>>,
-    // pub interconn_buffer: InterconnBuffer<mem_fetch::MemFetch>,
-    // pub mem_port: ic::Port<mem_fetch::MemFetch>,
     pub mem_port: Arc<Mutex<CoreMemoryConnection<InterconnBuffer<mem_fetch::MemFetch>>>>,
-    // pub load_store_unit: Arc<Mutex<fu::LoadStoreUnit<ic::CoreMemoryInterface<Packet>>>>,
     pub load_store_unit: Arc<Mutex<fu::LoadStoreUnit>>,
-    // pub load_store_unit: Arc<Mutex<dyn fu::LoadStoreUnit>>,
     pub active_thread_mask: BitArr!(for MAX_THREAD_PER_SM),
     pub occupied_hw_thread_ids: BitArr!(for MAX_THREAD_PER_SM),
     pub dynamic_warp_id: usize,
@@ -490,19 +468,17 @@ pub struct Core<I> {
     pub warps: Vec<warp::Ref>,
     pub thread_state: Vec<Option<ThreadState>>,
     pub scoreboard: Arc<RwLock<dyn scoreboard::Access<WarpInstruction>>>,
-    // pub scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
     pub barriers: RwLock<barrier::BarrierSet>,
     pub operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
     pub pipeline_reg: Vec<register_set::Ref>,
     pub result_busses: Vec<ResultBus>,
-    // pub interconn_queue: VecDeque<(usize, mem_fetch::MemFetch, u32)>,
     pub issue_ports: Vec<PipelineStage>,
-    // pub dispatch_ports: Vec<PipelineStage>,
     pub functional_units: Vec<Arc<Mutex<dyn fu::SimdFunctionUnit>>>,
     pub schedulers: Vec<Arc<Mutex<dyn scheduler::Scheduler>>>,
     pub scheduler_issue_priority: usize,
 }
 
+#[allow(clippy::missing_fields_in_debug)]
 impl<I> std::fmt::Debug for Core<I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Core")
@@ -555,7 +531,7 @@ where
         instr_l1_cache.set_top_port(mem_port.clone());
 
         let scoreboard = Arc::new(RwLock::new(scoreboard::Scoreboard::new(
-            scoreboard::Config {
+            &scoreboard::Config {
                 core_id,
                 cluster_id,
                 max_warps: config.max_warps_per_core(),

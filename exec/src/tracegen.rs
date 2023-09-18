@@ -281,6 +281,7 @@ impl TraceGenerator for Tracer {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     async fn trace_kernel<G, B, K>(
         self: &Arc<Self>,
         grid: G,
@@ -352,11 +353,8 @@ impl TraceGenerator for Tracer {
                 )
                 .collect();
 
-                // each edge connects two distinct nodes, as each thread takes
-                // a single control flow path
-                // this is the same as "we only have a single path" below
-                // assert_eq!(cfg.node_count(), cfg.edge_count() + 1);
-                // assert_eq!(cfg.edge_count(), cfg.edge_weights().count());
+                // each edge connects two distinct nodes, resulting in a
+                // single control flow path each thread takes
                 assert_eq!(paths.len(), 1);
                 println!(
                     "thread[{:2}] = {:?}",
@@ -424,242 +422,79 @@ impl TraceGenerator for Tracer {
                 addrs: [0; 32],
             };
 
-            if true {
-                let iter = cfg::visit::DominatedBfs::new(&super_cfg, super_cfg_root_node_idx);
+            let iter = cfg::visit::DominatedBfs::new(&super_cfg, super_cfg_root_node_idx);
 
-                for (edge_idx, node_idx) in iter {
-                    let took_branch = super_cfg[edge_idx];
+            for (edge_idx, node_idx) in iter {
+                let took_branch = super_cfg[edge_idx];
 
-                    // add the instructions
-                    let active_threads: Vec<_> =
-                        active_threads(&thread_graphs, &super_cfg[node_idx], took_branch).collect();
+                // add the instructions
+                let active_threads: Vec<_> =
+                    active_threads(&thread_graphs, &super_cfg[node_idx], took_branch).collect();
 
-                    // find longest branch
-                    // the length can differ if we have loops with different number of repetitions
-                    let (_, longest_thread_trace) = active_threads
-                        .iter()
-                        .max_by_key(|(_, instructions)| instructions.len())
-                        .copied()
-                        .unwrap_or_default();
+                // find longest branch
+                // the length can differ if we have loops with different number of repetitions
+                let (_, longest_thread_trace) = active_threads
+                    .iter()
+                    .max_by_key(|(_, instructions)| instructions.len())
+                    .copied()
+                    .unwrap_or_default();
 
-                    println!(
-                        "node {:?} has {} instructions",
-                        super_cfg[node_idx],
-                        longest_thread_trace.len()
-                    );
+                println!(
+                    "node {:?} has {} instructions",
+                    super_cfg[node_idx],
+                    longest_thread_trace.len()
+                );
 
-                    let mut branch_trace: Vec<_> = longest_thread_trace
-                        .iter()
-                        .enumerate()
-                        .map(|(instr_idx, access)| {
-                            let is_load = access.kind == model::MemAccessKind::Load;
-                            let is_store = access.kind == model::MemAccessKind::Store;
-                            let instr_opcode = match access.mem_space {
-                                model::MemorySpace::Local if is_load => "LDL".to_string(),
-                                model::MemorySpace::Global if is_load => "LDG".to_string(),
-                                model::MemorySpace::Shared if is_load => "LDS".to_string(),
-                                // MemorySpace::Texture if is_load => "LDG".to_string(),
-                                model::MemorySpace::Constant if is_load => "LDC".to_string(),
-                                model::MemorySpace::Local if is_store => "STL".to_string(),
-                                model::MemorySpace::Global if is_store => "STG".to_string(),
-                                model::MemorySpace::Shared if is_store => "STS".to_string(),
-                                // MemorySpace::Texture if is_store => "LDG".to_string(),
-                                model::MemorySpace::Constant if is_store => {
-                                    panic!("constant store")
-                                }
-                                other => panic!("unknown memory space {other:?}"),
-                            };
-
-                            trace_model::MemAccessTraceEntry {
-                                instr_opcode: instr_opcode.to_string(),
-                                instr_is_mem: true,
-                                instr_is_store: is_store,
-                                instr_is_load: is_load,
-                                instr_idx: instr_idx as u32,
-                                ..warp_instruction.clone()
+                let mut branch_trace: Vec<_> = longest_thread_trace
+                    .iter()
+                    .enumerate()
+                    .map(|(instr_idx, access)| {
+                        let is_load = access.kind == model::MemAccessKind::Load;
+                        let is_store = access.kind == model::MemAccessKind::Store;
+                        let instr_opcode = match access.mem_space {
+                            model::MemorySpace::Local if is_load => "LDL".to_string(),
+                            model::MemorySpace::Global if is_load => "LDG".to_string(),
+                            model::MemorySpace::Shared if is_load => "LDS".to_string(),
+                            // MemorySpace::Texture if is_load => "LDG".to_string(),
+                            model::MemorySpace::Constant if is_load => "LDC".to_string(),
+                            model::MemorySpace::Local if is_store => "STL".to_string(),
+                            model::MemorySpace::Global if is_store => "STG".to_string(),
+                            model::MemorySpace::Shared if is_store => "STS".to_string(),
+                            // MemorySpace::Texture if is_store => "LDG".to_string(),
+                            model::MemorySpace::Constant if is_store => {
+                                panic!("constant store")
                             }
-                        })
-                        .collect();
+                            other => panic!("unknown memory space {other:?}"),
+                        };
 
-                    // push the instructions for this branch
-                    for (instr_idx, instr) in branch_trace.iter_mut().enumerate() {
-                        for (tid, instructions) in &active_threads {
-                            if let Some(access) = instructions.get(instr_idx) {
-                                instr.active_mask.set(*tid, true);
-                                instr.addrs[*tid] = access.addr;
-                            }
+                        trace_model::MemAccessTraceEntry {
+                            instr_opcode: instr_opcode.to_string(),
+                            instr_is_mem: true,
+                            instr_is_store: is_store,
+                            instr_is_load: is_load,
+                            instr_idx: instr_idx as u32,
+                            ..warp_instruction.clone()
                         }
-                    }
+                    })
+                    .collect();
 
-                    // here we have the warp_trace ready to be added into the global trace
-                    // dbg!(branch_trace.len());
-                    trace.extend(branch_trace.into_iter());
-
-                    let mut active_mask = trace_model::ActiveMask::ZERO;
-                    for (tid, _) in &active_threads {
-                        active_mask.set(*tid, true);
+                // push the instructions for this branch
+                for (instr_idx, instr) in branch_trace.iter_mut().enumerate() {
+                    for (tid, instructions) in &active_threads {
+                        if let Some(access) = instructions.get(instr_idx) {
+                            instr.active_mask.set(*tid, true);
+                            instr.addrs[*tid] = access.addr;
+                        }
                     }
                 }
-            }
 
-            if false {
-                use std::collections::VecDeque;
+                // here we have the warp_trace ready to be added into the global trace
+                // dbg!(branch_trace.len());
+                trace.extend(branch_trace.into_iter());
 
-                let mut dominator_stack = std::collections::VecDeque::new();
-                assert!(matches!(
-                    super_cfg[super_cfg_root_node_idx],
-                    cfg::Node::Branch(0)
-                ));
-                dominator_stack.push_front(super_cfg_root_node_idx);
-
-                let mut stack = VecDeque::new();
-                let mut limit: Option<usize> = None;
-                loop {
-                    while let Some((edge_idx, node_idx)) = stack.pop_front() {
-                        let reconvergence_node_idx: Option<petgraph::graph::NodeIndex> =
-                            dominator_stack.front().copied();
-
-                        let took_branch = super_cfg[edge_idx];
-
-                        // add the instructions
-                        let active_threads: Vec<_> =
-                            active_threads(&thread_graphs, &super_cfg[node_idx], took_branch)
-                                .collect();
-
-                        // find longest branch
-                        // the length can differ if we have loops with different number of repetitions
-                        let (_, longest_thread_trace) = active_threads
-                            .iter()
-                            .max_by_key(|(_, instructions)| instructions.len())
-                            .copied()
-                            .unwrap_or_default();
-
-                        let mut branch_trace: Vec<_> = longest_thread_trace
-                            .iter()
-                            .enumerate()
-                            .map(|(instr_idx, access)| {
-                                let is_load = access.kind == model::MemAccessKind::Load;
-                                let is_store = access.kind == model::MemAccessKind::Store;
-                                let instr_opcode = match access.mem_space {
-                                    model::MemorySpace::Local if is_load => "LDL".to_string(),
-                                    model::MemorySpace::Global if is_load => "LDG".to_string(),
-                                    model::MemorySpace::Shared if is_load => "LDS".to_string(),
-                                    // MemorySpace::Texture if is_load => "LDG".to_string(),
-                                    model::MemorySpace::Constant if is_load => "LDC".to_string(),
-                                    model::MemorySpace::Local if is_store => "STL".to_string(),
-                                    model::MemorySpace::Global if is_store => "STG".to_string(),
-                                    model::MemorySpace::Shared if is_store => "STS".to_string(),
-                                    // MemorySpace::Texture if is_store => "LDG".to_string(),
-                                    model::MemorySpace::Constant if is_store => {
-                                        panic!("constant store")
-                                    }
-                                    other => panic!("unknown memory space {other:?}"),
-                                };
-
-                                trace_model::MemAccessTraceEntry {
-                                    instr_opcode: instr_opcode.to_string(),
-                                    instr_is_mem: true,
-                                    instr_is_store: is_store,
-                                    instr_is_load: is_load,
-                                    instr_idx: instr_idx as u32,
-                                    ..warp_instruction.clone()
-                                }
-                            })
-                            .collect();
-
-                        // push the instructions for this branch
-                        for (instr_idx, instr) in branch_trace.iter_mut().enumerate() {
-                            for (tid, instructions) in &active_threads {
-                                if let Some(access) = instructions.get(instr_idx) {
-                                    instr.active_mask.set(*tid, true);
-                                    instr.addrs[*tid] = access.addr;
-                                }
-                            }
-                        }
-
-                        // here we have the warp_trace ready to be added into the global trace
-                        dbg!(branch_trace.len());
-                        trace.extend(branch_trace.into_iter());
-
-                        let mut active_mask = trace_model::ActiveMask::ZERO;
-                        for (tid, _) in &active_threads {
-                            active_mask.set(*tid, true);
-                        }
-
-                        match &super_cfg[node_idx] {
-                            cfg::Node::Reconverge(..) => {
-                                match reconvergence_node_idx {
-                                    Some(reconvergence_node_idx)
-                                        if node_idx == reconvergence_node_idx =>
-                                    {
-                                        // stop here, never go beyond the domninators reconvergence point
-                                        println!(
-                                    "current: dominator={:?} \t taken={} --> {:?} \t active={} STOP: found reconvergence point",
-                                    super_cfg[reconvergence_node_idx],
-                                    super_cfg[edge_idx],
-                                    super_cfg[node_idx],
-                                    active_mask.to_string().chars().rev().collect::<String>(),
-                                );
-                                        continue;
-                                    }
-                                    _ => {}
-                                }
-                            }
-                            cfg::Node::Branch(branch_id) => {
-                                // must handle new branch
-                                let reconvergence_point = cfg::Node::Reconverge(*branch_id);
-                                let reconvergence_node_idx =
-                                    super_cfg.find_node(&reconvergence_point).unwrap();
-                                dominator_stack.push_front(reconvergence_node_idx);
-                            }
-                        }
-
-                        let reconvergence_node_idx: Option<petgraph::graph::NodeIndex> =
-                            dominator_stack.front().copied();
-
-                        println!(
-                            "current: dominator={:?} \t taken={} --> {:?} \t active={}",
-                            reconvergence_node_idx.map(|idx| &super_cfg[idx]),
-                            super_cfg[edge_idx],
-                            super_cfg[node_idx],
-                            active_mask.to_string().chars().rev().collect::<String>(),
-                        );
-
-                        let mut edges = super_cfg
-                            .neighbors_directed(node_idx, petgraph::Outgoing)
-                            .detach();
-                        while let Some((outgoing_edge_idx, next_node_idx)) = edges.next(&super_cfg)
-                        {
-                            println!(
-                                "pushing branch \t {:?} --> taken={} --> {:?}",
-                                super_cfg[node_idx],
-                                super_cfg[outgoing_edge_idx],
-                                super_cfg[next_node_idx],
-                            );
-                            stack.push_back((outgoing_edge_idx, next_node_idx));
-                        }
-                    }
-
-                    // maybe we do not have current denominator, but still other nodes
-                    if let Some(reconvergence_node_idx) = dominator_stack.pop_front() {
-                        println!("all reconverged {:?}", super_cfg[reconvergence_node_idx]);
-
-                        let mut edges = super_cfg
-                            .neighbors_directed(reconvergence_node_idx, petgraph::Outgoing)
-                            .detach();
-                        while let Some(child) = edges.next(&super_cfg) {
-                            stack.push_front(child);
-                        }
-                    } else {
-                        // done
-                        println!("done");
-                        break;
-                    }
-
-                    if let Some(ref mut limit) = limit {
-                        *limit = limit.checked_sub(1).unwrap_or(0);
-                        assert!(*limit != 0, "WARNING: limit reached");
-                    }
+                let mut active_mask = trace_model::ActiveMask::ZERO;
+                for (tid, _) in &active_threads {
+                    active_mask.set(*tid, true);
                 }
             }
 

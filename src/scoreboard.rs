@@ -50,16 +50,16 @@ pub struct Scoreboard {
 
 impl Scoreboard {
     #[must_use]
-    pub fn new(config: Config) -> Self {
+    pub fn new(config: &Config) -> Self {
         let Config {
             max_warps,
             core_id,
             cluster_id,
         } = config;
-        let warp_registers = utils::box_slice![HashSet::new(); max_warps];
+        let warp_registers = utils::box_slice![HashSet::new(); *max_warps];
         Self {
-            core_id,
-            cluster_id,
+            core_id: *core_id,
+            cluster_id: *cluster_id,
             warp_registers,
         }
     }
