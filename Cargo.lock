@@ -376,6 +376,7 @@ dependencies = [
  "num-traits",
  "rand",
  "tokio",
+ "trace-model",
  "utils",
 ]
 

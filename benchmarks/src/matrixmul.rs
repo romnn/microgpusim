@@ -1,10 +1,3 @@
-#![allow(
-    clippy::cast_precision_loss,
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss
-)]
-// #![allow(warnings)]
-
 use color_eyre::eyre;
 use gpucachesim::exec::tracegen::{TraceGenerator, Tracer};
 use gpucachesim::exec::{
@@ -55,7 +48,7 @@ where
 
     #[gpucachesim::exec::inject_reconvergence_points]
     async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
-        dbg!(&tid);
+        // dbg!(&tid);
         let bx = tid.block_idx.x as usize;
         let by = tid.block_idx.y as usize;
 
@@ -201,7 +194,10 @@ pub async fn matrixmul<T>(
     b: &Vec<T>,
     result: &mut Vec<T>,
     num_rows: usize,
-) -> eyre::Result<()>
+) -> eyre::Result<(
+    trace_model::command::KernelLaunch,
+    trace_model::MemAccessTrace,
+)>
 where
     T: Float + Zero + std::ops::AddAssign + Send + Sync + std::fmt::Debug,
 {
@@ -247,15 +243,18 @@ where
         shared_mem_b: Mutex::new(shared_mem_b),
         num_rows,
     };
-    tracer.trace_kernel(grid_dim, block_dim, kernel).await?;
-    Ok(())
+    let trace = tracer.trace_kernel(grid_dim, block_dim, kernel).await?;
+    Ok(trace)
 }
 
 #[cfg(test)]
 mod tests {
     use approx::AbsDiffEq;
     use color_eyre::eyre;
-    use gpucachesim::exec::tracegen::{TraceGenerator, Tracer};
+    use gpucachesim::exec::tracegen::{
+        testing::{self, SimplifiedTraceInstruction},
+        TraceGenerator, Tracer,
+    };
     use gpucachesim::exec::MemorySpace;
     use ndarray::prelude::*;
     use ndarray::{linalg::Dot, Array2};
@@ -289,7 +288,7 @@ mod tests {
             let ref_b: Array2<f32> = Array2::from_shape_vec(matrix_shape, b.clone())?;
             ref_a.dot(&ref_b)
         };
-        let _ = super::matrixmul(&a, &b, &mut result, size).await;
+        let (_launch_config, trace) = super::matrixmul(&a, &b, &mut result, size).await?;
         super::reference_matrixmul(&a, &b, &mut ref_result, size);
 
         let ref_result = Array2::from_shape_vec(matrix_shape, ref_result)?;
@@ -302,7 +301,17 @@ mod tests {
             diff::diff!(have: ref_result, want: ndarray_result);
         }
 
-        assert!(false);
+        let warp_traces = trace.clone().to_warp_traces();
+        let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
+
+        testing::print_warp_trace(first_warp);
+        // diff::assert_eq!(
+        //     have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+        //     want: [
+        //         ("LDG", 0, "11111111111111111111000000000000", 0),
+        //     ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
+        // );
+        // assert!(false);
         Ok(())
     }
 }

@@ -11,6 +11,7 @@ color-eyre = "0"
 rand = "0"
 
 gpucachesim = { path = "../" }
+trace-model = { path = "../trace/model" }
 
 [dev-dependencies]
 approx = "0.5"

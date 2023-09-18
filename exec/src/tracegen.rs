@@ -312,11 +312,19 @@ impl TraceGenerator for Tracer {
         let mut trace = Vec::new();
         let mut traced_instructions = self.traced_instructions.lock().unwrap();
 
+        dbg!(&traced_instructions.keys().collect::<Vec<_>>());
+        // dbg!(&traced_instructions);
+
         // check for reconvergence points
         if !traced_instructions.values().all(|warp_instructions| {
-            warp_instructions.iter().all(|thread_instructions| {
-                thread_instructions[0] == ThreadInstruction::TookBranch(0)
-            })
+            warp_instructions
+                .iter()
+                .all(|thread_instructions| match thread_instructions.get(0) {
+                    Some(first_instruction) => {
+                        *first_instruction == ThreadInstruction::TookBranch(0)
+                    }
+                    None => true,
+                })
         }) {
             return Err(Error::Tracer(TraceError::MissingReconvergencePoints));
         }
@@ -684,15 +692,7 @@ impl TraceGenerator for Tracer {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::{DevicePtr, ThreadBlock, ThreadIndex, TraceGenerator};
-    use crate::model::MemorySpace;
-    use color_eyre::eyre;
-    use num_traits::Float;
-    use tokio::sync::Mutex;
-    use utils::diff;
-
+pub mod testing {
     #[macro_export]
     macro_rules! mem_inst {
         ($kind:ident[$space:ident]@$addr:expr, $size:expr) => {{
@@ -704,9 +704,10 @@ mod tests {
             }
         }};
     }
+    pub use mem_inst;
 
     #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-    struct SimplifiedTraceInstruction {
+    pub struct SimplifiedTraceInstruction {
         opcode: String,
         first_addr: i64,
         active_mask: String,
@@ -717,6 +718,12 @@ mod tests {
     impl From<(usize, (&str, i64, &str, u32))> for SimplifiedTraceInstruction {
         fn from(value: (usize, (&str, i64, &str, u32))) -> Self {
             let (idx, (opcode, first_addr, active_mask, pc)) = value;
+            assert_eq!(
+                active_mask.len(),
+                32,
+                "invalid active mask {:?}",
+                active_mask
+            );
             Self {
                 opcode: opcode.to_string(),
                 first_addr,
@@ -727,7 +734,7 @@ mod tests {
         }
     }
 
-    fn simplify_warp_trace(
+    pub fn simplify_warp_trace(
         warp_trace: &[trace_model::MemAccessTraceEntry],
     ) -> impl Iterator<Item = SimplifiedTraceInstruction> + '_ {
         warp_trace
@@ -758,7 +765,7 @@ mod tests {
             })
     }
 
-    fn print_warp_trace(trace: &[trace_model::MemAccessTraceEntry]) {
+    pub fn print_warp_trace(trace: &[trace_model::MemAccessTraceEntry]) {
         for inst in simplify_warp_trace(trace) {
             println!(
                 "{:<10}{:?}\t active={} \tpc={} idx={}",
@@ -766,6 +773,17 @@ mod tests {
             );
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::testing::{self, mem_inst, SimplifiedTraceInstruction};
+    use super::{DevicePtr, ThreadBlock, ThreadIndex, TraceGenerator};
+    use crate::model::MemorySpace;
+    use color_eyre::eyre;
+    use num_traits::Float;
+    use tokio::sync::Mutex;
+    use utils::diff;
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn test_for_loop_kernel() -> eyre::Result<()> {
@@ -791,9 +809,9 @@ mod tests {
         let (_launch_config, trace) = tracer.trace_kernel(1, 32, ForLoopKernel {}).await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
-        print_warp_trace(&first_warp);
+        testing::print_warp_trace(&first_warp);
         diff::assert_eq!(
-            have: simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+            have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
             want: [
                 ("LDG", 1, "11111111111111111111111111111111", 0),
                 ("LDG", 1, "10101010101010101010101010101010", 0),
@@ -825,9 +843,9 @@ mod tests {
         let (_launch_config, trace) = tracer.trace_kernel(1, 32, IfKernel {}).await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
-        print_warp_trace(first_warp);
+        testing::print_warp_trace(first_warp);
         diff::assert_eq!(
-            have: simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+            have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
             want: [
                 ("LDG", 1, "11111111111111110000000000000000", 0),
                 ("EXIT", 0, "11111111111111111111111111111111", 0),
@@ -869,15 +887,15 @@ mod tests {
         let (_launch_config, trace) = tracer.trace_kernel(1, 32, FullImbalanceKernel {}).await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
-        print_warp_trace(first_warp);
+        testing::print_warp_trace(first_warp);
         diff::assert_eq!(
-            have: simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+            have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
             want: [
                 ("LDG", 1, "11111111000000000000000000000000", 0),
                 ("LDG", 10, "00000000000000001111111100000000", 0),
                 ("LDG", 11, "00000000000000001111111111111111", 0),
                 ("LDG", 2, "11111111111111110000000000000000", 0),
-                ("LDG", 100, "1111111111111111111111111111111", 0),
+                ("LDG", 100, "11111111111111111111111111111111", 0),
                 ("EXIT", 0, "11111111111111111111111111111111", 0),
             ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
         );
@@ -950,14 +968,14 @@ mod tests {
         let (_launch_config, trace) = tracer.trace_kernel(1, 32, Imbalanced {}).await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
-        print_warp_trace(first_warp);
+        testing::print_warp_trace(first_warp);
         diff::assert_eq!(
-            have: simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+            have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
             want: [
                 ("LDG", 100, "11111111111111111111111111111111", 0),
                 ("LDG", 1, "11111111111111110000000000000000", 0),
                 ("LDG", 2, "11111111000000000000000000000000", 0),
-                ("LDG", 100, "1111111111111111111111111111111", 0),
+                ("LDG", 100, "11111111111111111111111111111111", 0),
                 ("EXIT", 0, "11111111111111111111111111111111", 0),
             ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
         );
@@ -1049,9 +1067,9 @@ mod tests {
         reference_vectoradd(&mut a, &mut b, &mut ref_result);
         diff::assert_eq!(have: result, want: ref_result);
 
-        print_warp_trace(first_warp);
+        testing::print_warp_trace(first_warp);
         diff::assert_eq!(
-            have: simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+            have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
             want: [
                 ("LDG", 0, "11111111111111111111000000000000", 0),
                 ("LDG", 80, "11111111111111111111000000000000", 0),

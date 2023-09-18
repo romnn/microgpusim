@@ -1,9 +1,3 @@
-#![allow(
-    clippy::cast_precision_loss,
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss
-)]
-
 use color_eyre::eyre;
 use gpucachesim::exec::tracegen::{TraceGenerator, Tracer};
 use gpucachesim::exec::{DevicePtr, Kernel, MemorySpace, ThreadBlock, ThreadIndex};
@@ -25,6 +19,7 @@ where
 {
     type Error = std::convert::Infallible;
 
+    #[gpucachesim::exec::inject_reconvergence_points]
     async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
         let idx = (tid.block_idx.x * tid.block_dim.x + tid.thread_idx.x) as usize;
 
@@ -118,7 +113,14 @@ where
     Ok(())
 }
 
-pub async fn vectoradd<T>(a: &Vec<T>, b: &Vec<T>, result: &mut Vec<T>) -> eyre::Result<()>
+pub async fn vectoradd<T>(
+    a: &Vec<T>,
+    b: &Vec<T>,
+    result: &mut Vec<T>,
+) -> eyre::Result<(
+    trace_model::command::KernelLaunch,
+    trace_model::MemAccessTrace,
+)>
 where
     T: Float + Zero + Send + Sync,
 {
@@ -142,7 +144,8 @@ where
         dev_result: Mutex::new(dev_result),
         n,
     };
-    tracer.trace_kernel(grid_size, BLOCK_SIZE, kernel).await?;
+    let trace = tracer.trace_kernel(grid_size, BLOCK_SIZE, kernel).await?;
+    Ok(trace)
     // *result = tracer.kernel.dev_result.into_inner();
 
     // let kernel: VecAdd<T> = VecAdd {
@@ -172,13 +175,16 @@ where
     // eprintln!("L1D: {:#?}", &stats.l1d_stats.reduce());
     // eprintln!("L2D: {:#?}", &stats.l2d_stats.reduce());
     // eprintln!("completed in {:?}", start.elapsed());
-    Ok(())
+    // Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use color_eyre::eyre;
-    use gpucachesim::exec::tracegen::{TraceGenerator, Tracer};
+    use gpucachesim::exec::tracegen::{
+        testing::{self, SimplifiedTraceInstruction},
+        TraceGenerator, Tracer,
+    };
     use gpucachesim::exec::MemorySpace;
     use tokio::sync::Mutex;
     use utils::diff;
@@ -199,59 +205,73 @@ mod tests {
             b[i] = angle.cos() * angle.cos();
         }
 
-        super::vectoradd(&a, &b, &mut result).await?;
+        let (_launch_config, trace) = super::vectoradd(&a, &b, &mut result).await?;
         super::reference_vectoradd(&a, &b, &mut ref_result);
-
         diff::assert_eq!(have: result, want: ref_result);
+
+        let warp_traces = trace.clone().to_warp_traces();
+        let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
+
+        testing::print_warp_trace(first_warp);
+        diff::assert_eq!(
+            have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+            want: [
+                ("LDG", 0, "11111111111111111111111111111111", 0),
+                ("LDG", 400, "11111111111111111111111111111111", 0),
+                ("STG", 800, "11111111111111111111111111111111", 0),
+                ("EXIT", 0, "11111111111111111111111111111111", 0),
+            ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
+        );
+
         Ok(())
     }
 
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn generate_trace() -> eyre::Result<()> {
-        let n = 100;
-        let tracer = Tracer::new();
-
-        let mut a: Vec<f32> = vec![0.0; n];
-        let mut b: Vec<f32> = vec![0.0; n];
-        let mut result: Vec<f32> = vec![0.0; n];
-
-        // initialize vectors
-        for i in 0..n {
-            let angle = i as f32;
-            a[i] = angle.sin() * angle.sin();
-            b[i] = angle.cos() * angle.cos();
-        }
-
-        // allocate memory for each vector on simulated GPU device
-        let dev_a = tracer.allocate(&a, MemorySpace::Global).await;
-        let dev_b = tracer.allocate(&b, MemorySpace::Global).await;
-        let dev_result = tracer.allocate(&mut result, MemorySpace::Global).await;
-
-        // number of thread blocks in grid
-        let grid_size = (n as f64 / <f64 as From<_>>::from(super::BLOCK_SIZE)).ceil() as u32;
-
-        let kernel: super::VecAdd<f32> = super::VecAdd {
-            dev_a: Mutex::new(dev_a),
-            dev_b: Mutex::new(dev_b),
-            dev_result: Mutex::new(dev_result),
-            n,
-        };
-        tracer
-            .trace_kernel(grid_size, super::BLOCK_SIZE, kernel)
-            .await?;
-        // let stats = sim.run_to_completion()?;
-
-        // sum up vector c and print result divided by n.
-        // this should equal 1 within
-        // let total_sum: f32 = result.iter().copied().sum();
-        // println!(
-        //     "Final sum = {total_sum}; sum/n = {:.2} (should be ~1)\n",
-        //     total_sum / n as f32
-        // );
-
-        // assert!(false);
-        Ok(())
-    }
+    // #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    // async fn generate_trace() -> eyre::Result<()> {
+    //     let n = 100;
+    //     let tracer = Tracer::new();
+    //
+    //     let mut a: Vec<f32> = vec![0.0; n];
+    //     let mut b: Vec<f32> = vec![0.0; n];
+    //     let mut result: Vec<f32> = vec![0.0; n];
+    //
+    //     // initialize vectors
+    //     for i in 0..n {
+    //         let angle = i as f32;
+    //         a[i] = angle.sin() * angle.sin();
+    //         b[i] = angle.cos() * angle.cos();
+    //     }
+    //
+    //     // allocate memory for each vector on simulated GPU device
+    //     let dev_a = tracer.allocate(&a, MemorySpace::Global).await;
+    //     let dev_b = tracer.allocate(&b, MemorySpace::Global).await;
+    //     let dev_result = tracer.allocate(&mut result, MemorySpace::Global).await;
+    //
+    //     // number of thread blocks in grid
+    //     let grid_size = (n as f64 / <f64 as From<_>>::from(super::BLOCK_SIZE)).ceil() as u32;
+    //
+    //     let kernel: super::VecAdd<f32> = super::VecAdd {
+    //         dev_a: Mutex::new(dev_a),
+    //         dev_b: Mutex::new(dev_b),
+    //         dev_result: Mutex::new(dev_result),
+    //         n,
+    //     };
+    //     tracer
+    //         .trace_kernel(grid_size, super::BLOCK_SIZE, kernel)
+    //         .await?;
+    //     // let stats = sim.run_to_completion()?;
+    //
+    //     // sum up vector c and print result divided by n.
+    //     // this should equal 1 within
+    //     // let total_sum: f32 = result.iter().copied().sum();
+    //     // println!(
+    //     //     "Final sum = {total_sum}; sum/n = {:.2} (should be ~1)\n",
+    //     //     total_sum / n as f32
+    //     // );
+    //
+    //     // assert!(false);
+    //     Ok(())
+    // }
 
     // #[test]
     // pub fn trace_instructions() -> eyre::Result<()> {
