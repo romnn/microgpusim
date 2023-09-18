@@ -27,7 +27,6 @@ pub struct Builder<MC, CC> {
 /// The cache uses a write-evict (global) or write-back (local) policy
 /// at the granularity of individual blocks.
 /// (the policy used in fermi according to the CUDA manual)
-#[derive(Debug)]
 pub struct Data<MC, CC> {
     pub inner: cache::base::Base<CC>,
 

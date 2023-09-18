@@ -110,7 +110,7 @@ impl Accesses {
         self.inner
     }
 
-    pub fn num_accesses(&self, kind: AccessKind) -> u64 {
+    #[must_use] pub fn num_accesses(&self, kind: AccessKind) -> u64 {
         self.iter()
             .filter(|((_, k), _)| *k == kind)
             .map(|(_, count)| count)

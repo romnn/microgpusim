@@ -4,12 +4,8 @@ use mem_fetch::access::Kind as AccessKind;
 use std::collections::VecDeque;
 
 #[allow(clippy::module_name_repetitions)]
-#[derive(Debug, Clone)]
-pub struct L2CacheController<MC, CC>
-where
-    MC: std::fmt::Debug,
-    CC: std::fmt::Debug,
-{
+#[derive(Clone)]
+pub struct L2CacheController<MC, CC> {
     memory_controller: MC,
     cache_controller: CC,
 }
@@ -45,7 +41,6 @@ where
 }
 
 /// Generic data cache.
-#[derive(Debug)]
 #[allow(clippy::module_name_repetitions)]
 pub struct DataL2 {
     pub inner: super::data::Data<

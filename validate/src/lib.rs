@@ -49,6 +49,7 @@ pub enum Target {
     Trace,
     AccelsimTrace,
     Simulate,
+    ExecDrivenSimulate,
     AccelsimSimulate,
     PlaygroundSimulate,
 }
@@ -218,6 +219,8 @@ pub struct Benchmark {
     #[serde(default)]
     pub simulate: SimOptions,
     #[serde(default)]
+    pub exec_driven_simulate: SimOptions,
+    #[serde(default)]
     pub accelsim_simulate: AccelsimSimOptions,
     #[serde(default)]
     pub playground_simulate: PlaygroundSimOptions,
@@ -323,6 +326,8 @@ pub struct Config {
     pub profile: ProfileConfig,
     #[serde(default)]
     pub simulate: SimConfig,
+    #[serde(default)]
+    pub exec_driven_simulate: SimConfig,
     #[serde(default)]
     pub accelsim_simulate: AccelsimSimConfig,
     #[serde(default)]

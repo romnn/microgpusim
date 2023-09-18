@@ -41,7 +41,7 @@ impl MemoryPartitionUnit {
             })
             .collect();
 
-        let dram = dram::DRAM::new(config.clone(), stats.clone());
+        let dram = dram::DRAM::new(&config, stats.clone());
         let arb_config: arbitration::Config = (&(*config)).into();
         let arbiter = Box::new(arbitration::ArbitrationUnit::new(&arb_config));
         Self {

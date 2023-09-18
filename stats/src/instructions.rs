@@ -112,7 +112,7 @@ impl std::fmt::Debug for InstructionCounts {
             .inner
             .iter()
             .filter(|(_, &count)| count > 0)
-            .map(|((alloc_id, space, is_store), count)| {
+            .map(|((_alloc_id, space, is_store), count)| {
                 (
                     format!("{:?}[{}]", space, if *is_store { "STORE" } else { "LOAD" }),
                     count,

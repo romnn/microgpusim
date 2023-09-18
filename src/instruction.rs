@@ -10,7 +10,6 @@ use crate::{
 use bitvec::{array::BitArray, BitArr};
 use mem_fetch::access::{Builder as MemAccessBuilder, Kind as AccessKind, MemAccess};
 use std::collections::{HashMap, VecDeque};
-use trace_model::{self, ToBitString};
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MemorySpace {
@@ -118,7 +117,7 @@ pub struct BarrierInfo {
 }
 
 #[allow(clippy::module_name_repetitions)]
-#[derive(Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct WarpInstruction {
     /// Globally unique id for this warp instruction.
     ///
@@ -164,19 +163,6 @@ impl std::cmp::Ord for WarpInstruction {
 impl std::cmp::PartialOrd for WarpInstruction {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
-    }
-}
-
-impl std::fmt::Debug for WarpInstruction {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct("WarpInstruction")
-            .field("opcode", &self.opcode)
-            .field("warp_id", &self.warp_id)
-            .field("pc", &self.pc)
-            .field("active_mask", &self.active_mask.to_bit_string())
-            .field("memory_space", &self.memory_space)
-            .field("mem_access_queue", &self.mem_access_queue)
-            .finish()
     }
 }
 
@@ -477,6 +463,8 @@ impl WarpInstruction {
         }
     }
 
+    #[allow(clippy::match_same_arms)]
+    #[must_use]
     pub fn is_memory_instruction(&self) -> bool {
         match self.opcode {
             Opcode {

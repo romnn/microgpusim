@@ -77,9 +77,9 @@ impl PerKernel {
     }
 
     #[inline]
-    pub fn reduce(self) -> Stats {
+    #[must_use] pub fn reduce(self) -> Stats {
         let mut reduced = Stats::new(&self.config);
-        for per_kernel_stats in self.inner.into_iter() {
+        for per_kernel_stats in self.inner {
             reduced += per_kernel_stats;
         }
         reduced

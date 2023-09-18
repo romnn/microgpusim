@@ -1,6 +1,5 @@
 use super::materialized::{BenchmarkConfig, TargetBenchmarkConfig};
 use super::{
-    open_writable,
     options::{self, Options},
     RunError,
 };
@@ -57,7 +56,7 @@ pub fn simulate_bench_config(
         (Some("nondeterministic"), run_ahead) => {
             Parallelization::Nondeterministic(run_ahead.unwrap_or(10) as usize)
         }
-        (Some(other), _) => panic!("unknown parallelization mode: {}", other),
+        (Some(other), _) => panic!("unknown parallelization mode: {other}"),
         #[cfg(not(feature = "parallel"))]
         _ => {
             return Err(RunError::Failed(
@@ -98,7 +97,7 @@ pub fn simulate_bench_config(
     let mut wip_stats = gpucachesim::WIP_STATS.lock();
     dbg!(&wip_stats);
     dbg!(wip_stats.warp_instructions as f32 / wip_stats.num_warps as f32);
-    for kernel_stats in stats.inner.iter() {
+    for kernel_stats in &stats.inner {
         dbg!(&kernel_stats.sim);
     }
     dbg!(gpucachesim::is_debug());
@@ -147,7 +146,7 @@ pub async fn simulate(
 #[inline]
 pub fn process_stats(
     stats: &[stats::Stats],
-    dur: &std::time::Duration,
+    _dur: &std::time::Duration,
     stats_dir: &Path,
     repetition: usize,
 ) -> Result<(), RunError> {

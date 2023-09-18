@@ -113,7 +113,7 @@ macro_rules! parallel_checks {
 
                     let input: benchmark::Input = validate::input!($($input)+)?;
                     let bench_config = benchmark::find_exact(
-                        Target::Simulate, $bench_name, input)?;
+                        Target::Simulate, $bench_name, &input)?;
 
                     let TargetBenchmarkConfig::Simulate {
                         ref traces_dir ,

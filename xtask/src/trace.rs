@@ -226,7 +226,7 @@ fn trace_info(commands: &Path) -> eyre::Result<()> {
             continue;
         };
 
-        print_trace(&warp_traces);
+        print_trace(warp_traces);
     }
     Ok(())
 }

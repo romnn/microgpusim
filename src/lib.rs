@@ -388,7 +388,7 @@ where
                 executed_kernels
                     .entry(launch_id)
                     // .or_insert(last_kernel.name().to_string());
-                    .or_insert(Arc::clone(&last_kernel));
+                    .or_insert(Arc::clone(last_kernel));
                 return Some(last_kernel.clone());
             }
             _ => {}
@@ -406,8 +406,8 @@ where
                     let launch_id = kernel.id();
                     assert!(!executed_kernels.contains_key(&launch_id));
                     // executed_kernels.insert(launch_id, kernel.name().to_string());
-                    executed_kernels.insert(launch_id, Arc::clone(&kernel));
-                    return Some(Arc::clone(&kernel));
+                    executed_kernels.insert(launch_id, Arc::clone(kernel));
+                    return Some(Arc::clone(kernel));
                 }
                 _ => {}
             }
@@ -1452,9 +1452,9 @@ pub fn accelmain(
 
 #[cfg(test)]
 mod tests {
-    use color_eyre::eyre;
-    use std::time::Instant;
-    use validate::materialized::{BenchmarkConfig, Benchmarks};
+    
+    
+    
 
     // fn get_bench_config(benchmark_name: &str, input_idx: usize) -> eyre::Result<BenchmarkConfig> {
     //     use std::path::PathBuf;

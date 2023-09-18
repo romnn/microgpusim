@@ -6,7 +6,6 @@ use crate::{
 use cache::CacheController;
 use std::collections::VecDeque;
 
-#[derive(Debug)]
 pub struct ReadOnly {
     inner: cache::base::Base<cache::controller::pascal::CacheControllerUnit>,
 }
@@ -17,7 +16,6 @@ impl ReadOnly {
         core_id: usize,
         cluster_id: usize,
         stats: Arc<Mutex<stats::cache::PerKernel>>,
-        _config: Arc<config::GPU>,
         cache_config: Arc<config::Cache>,
     ) -> Self {
         let cache_controller = cache::controller::pascal::CacheControllerUnit::new(
@@ -131,7 +129,7 @@ impl cache::Cache for ReadOnly {
         let probe_status =
             probe.map_or(cache::RequestStatus::RESERVATION_FAIL, |(_, status)| status);
 
-        let mut status = cache::RequestStatus::RESERVATION_FAIL;
+        let mut access_status = cache::RequestStatus::RESERVATION_FAIL;
 
         match probe {
             None => {
@@ -148,11 +146,13 @@ impl cache::Cache for ReadOnly {
             }
             Some((_, cache::RequestStatus::HIT)) => {
                 // update LRU state
-                tag_array::AccessStatus { status, .. } = tag_array.access(block_addr, &fetch, time);
+                let tag_array::AccessStatus { status, .. } =
+                    tag_array.access(block_addr, &fetch, time);
+                access_status = status;
             }
             Some((cache_index, _probe_status)) => {
                 if self.inner.miss_queue_full() {
-                    status = cache::RequestStatus::RESERVATION_FAIL;
+                    access_status = cache::RequestStatus::RESERVATION_FAIL;
 
                     let mut stats = self.inner.stats.lock();
                     let kernel_stats = stats.get_mut(0);
@@ -176,9 +176,9 @@ impl cache::Cache for ReadOnly {
                         false,
                     );
                     if should_miss {
-                        status = cache::RequestStatus::MISS;
+                        access_status = cache::RequestStatus::MISS;
                     } else {
-                        status = cache::RequestStatus::RESERVATION_FAIL;
+                        access_status = cache::RequestStatus::RESERVATION_FAIL;
                     }
                 }
             }
@@ -189,10 +189,10 @@ impl cache::Cache for ReadOnly {
         kernel_stats.inc(
             fetch.allocation_id(),
             fetch.access_kind(),
-            cache::AccessStat::Status(select_status(probe_status, status)),
+            cache::AccessStat::Status(select_status(probe_status, access_status)),
             1,
         );
-        status
+        access_status
     }
 
     #[inline]

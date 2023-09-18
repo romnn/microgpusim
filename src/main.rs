@@ -119,7 +119,7 @@ fn main() -> eyre::Result<()> {
 
     eprintln!("STATS:\n");
     for (kernel_launch_id, kernel_stats) in stats.as_ref().iter().enumerate() {
-        eprintln!("=> kernel launch {}", kernel_launch_id);
+        eprintln!("=> kernel launch {kernel_launch_id}");
         eprintln!("\tDRAM: total reads: {}", &kernel_stats.dram.total_reads());
         eprintln!(
             "\tDRAM: total writes: {}",

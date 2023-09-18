@@ -425,9 +425,9 @@ impl TraceGenerator for Tracer {
             };
 
             if true {
-                let mut iter = cfg::visit::DominatedBfs::new(&super_cfg, super_cfg_root_node_idx);
+                let iter = cfg::visit::DominatedBfs::new(&super_cfg, super_cfg_root_node_idx);
 
-                while let Some((edge_idx, node_idx)) = iter.next() {
+                for (edge_idx, node_idx) in iter {
                     let took_branch = super_cfg[edge_idx];
 
                     // add the instructions
@@ -709,21 +709,16 @@ pub mod testing {
     #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub struct SimplifiedTraceInstruction {
         opcode: String,
-        first_addr: i64,
+        first_addr: u64,
         active_mask: String,
         pc: u32,
         idx: usize,
     }
 
-    impl From<(usize, (&str, i64, &str, u32))> for SimplifiedTraceInstruction {
-        fn from(value: (usize, (&str, i64, &str, u32))) -> Self {
+    impl From<(usize, (&str, u64, &str, u32))> for SimplifiedTraceInstruction {
+        fn from(value: (usize, (&str, u64, &str, u32))) -> Self {
             let (idx, (opcode, first_addr, active_mask, pc)) = value;
-            assert_eq!(
-                active_mask.len(),
-                32,
-                "invalid active mask {:?}",
-                active_mask
-            );
+            assert_eq!(active_mask.len(), 32, "invalid active mask {active_mask:?}");
             Self {
                 opcode: opcode.to_string(),
                 first_addr,
@@ -755,9 +750,10 @@ pub mod testing {
                         .iter()
                         .enumerate()
                         .filter(|(ti, _)| warp_instr.active_mask[*ti])
-                        .map(|(_, a)| *a as i64)
+                        .map(|(_, addr)| addr)
                         .next()
-                        .unwrap_or(-1),
+                        .copied()
+                        .unwrap_or(0),
                     active_mask: human_readable_active_mask,
                     pc: warp_instr.instr_offset,
                     idx: warp_instr_idx,
@@ -809,7 +805,7 @@ mod tests {
         let (_launch_config, trace) = tracer.trace_kernel(1, 32, ForLoopKernel {}).await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
-        testing::print_warp_trace(&first_warp);
+        testing::print_warp_trace(first_warp);
         diff::assert_eq!(
             have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
             want: [
@@ -982,9 +978,10 @@ mod tests {
         Ok(())
     }
 
+    #[allow(clippy::cast_precision_loss, clippy::cast_sign_loss)]
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn test_vectoradd() -> eyre::Result<()> {
-        fn reference_vectoradd<T>(a: &Vec<T>, b: &Vec<T>, result: &mut Vec<T>)
+        fn reference_vectoradd<T>(a: &[T], b: &[T], result: &mut [T])
         where
             T: Float,
         {
@@ -1059,12 +1056,12 @@ mod tests {
             dev_result: Mutex::new(dev_result),
             n,
         };
-        let grid_size = (n as f64 / block_size as f64).ceil() as u32;
+        let grid_size = (n as f64 / f64::from(block_size)).ceil() as u32;
         let (_launch_config, trace) = tracer.trace_kernel(grid_size, block_size, kernel).await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
 
-        reference_vectoradd(&mut a, &mut b, &mut ref_result);
+        reference_vectoradd(&a, &b, &mut ref_result);
         diff::assert_eq!(have: result, want: ref_result);
 
         testing::print_warp_trace(first_warp);

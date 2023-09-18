@@ -24,7 +24,7 @@ pub fn split_shell_command(command: impl AsRef<str>) -> Result<Vec<String>, Shel
 pub fn find_all(
     target: crate::Target,
     name: &str,
-    query: Input,
+    query: &Input,
 ) -> eyre::Result<Vec<materialized::BenchmarkConfig>> {
     use itertools::Itertools;
     use std::path::PathBuf;
@@ -41,9 +41,9 @@ pub fn find_all(
 pub fn find_exact(
     target: crate::Target,
     name: &str,
-    query: Input,
+    query: &Input,
 ) -> eyre::Result<materialized::BenchmarkConfig> {
-    let bench_configs = find_all(target, name, query.clone())?;
+    let bench_configs = find_all(target, name, query)?;
     assert_eq!(
         bench_configs.len(),
         1,

@@ -23,8 +23,8 @@ struct OrderedValue(Value);
 impl std::cmp::PartialOrd for OrderedValue {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         match (&self.0, &other.0) {
-            (Value::Bool(a), Value::Bool(b)) => Some(a.cmp(&b)),
-            (Value::String(a), Value::String(b)) => Some(a.cmp(&b)),
+            (Value::Bool(a), Value::Bool(b)) => Some(a.cmp(b)),
+            (Value::String(a), Value::String(b)) => Some(a.cmp(b)),
             (Value::Number(a), Value::Number(b)) => a.as_f64().partial_cmp(&b.as_f64()),
             (Value::Null, Value::Null) => Some(std::cmp::Ordering::Equal),
             _ => None,
@@ -42,14 +42,11 @@ pub(crate) fn flatten(value: serde_yaml::Value, sort: bool) -> Vec<PrimitiveValu
         Value::Mapping(v) => {
             let mut out = Vec::new();
             let mut items: Vec<_> = v.clone().into_iter().collect();
-            if sort {
-                if items
+            if sort && items
                     .try_sort_by_key(|(key, _value)| Some(OrderedValue(key.clone())))
-                    .is_err()
-                {
-                    // undo
-                    items = v.into_iter().collect();
-                }
+                    .is_err() {
+                // undo
+                items = v.into_iter().collect();
             }
             for (k, vv) in items {
                 out.extend(flatten(k, sort));

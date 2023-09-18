@@ -18,7 +18,7 @@ use crate::address;
 ///
 /// [ARM System Developer's Guide, 2004]
 #[allow(clippy::module_name_repetitions)]
-pub trait CacheController: std::fmt::Debug + Sync + Send + 'static {
+pub trait CacheController: Sync + Send + 'static {
     /// Compute cache line tag for an address.
     #[must_use]
     fn tag(&self, addr: address) -> address;

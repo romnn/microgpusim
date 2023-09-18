@@ -99,11 +99,12 @@ impl AsRef<Vec<Cache>> for PerKernel {
 impl PerKernel {
     #[inline]
     pub fn get_mut(&mut self, idx: usize) -> &mut Cache {
-        self.inner.resize_with(idx + 1, || Cache::default());
+        self.inner.resize_with(idx + 1, Cache::default);
         &mut self.inner[idx]
     }
 
     #[inline]
+    #[must_use]
     pub fn reduce(self) -> Cache {
         todo!()
     }
@@ -216,6 +217,7 @@ impl std::fmt::Debug for Cache {
 }
 
 impl Cache {
+    #[must_use]
     pub fn new(inner: HashMap<(Option<usize>, Access), usize>) -> Self {
         Self { inner }
     }
@@ -224,12 +226,13 @@ impl Cache {
         self.inner.retain(|_, v| *v > 0);
     }
 
+    #[must_use]
     pub fn merge_allocations(self) -> Cache {
         let mut inner = HashMap::new();
-        for ((_, access), count) in self.inner.into_iter() {
+        for ((_, access), count) in self.inner {
             *inner.entry((None, access)).or_insert(0) += count;
         }
-        Cache { inner, ..self }
+        Cache { inner }
     }
 
     #[must_use]
@@ -326,7 +329,7 @@ impl std::ops::DerefMut for PerCache {
 impl std::ops::AddAssign for PerCache {
     fn add_assign(&mut self, other: Self) {
         for (cache, other_cache) in self.inner.iter_mut().zip(other.iter()) {
-            *cache += other_cache.clone()
+            *cache += other_cache.clone();
         }
     }
 }
@@ -365,7 +368,7 @@ impl PerCache {
     #[must_use]
     pub fn into_csv_rows(self) -> Vec<CsvRow> {
         let mut rows: Vec<_> = Vec::new();
-        for (cache_id, cache) in self.inner.into_iter().cloned().enumerate() {
+        for (cache_id, cache) in self.inner.iter().cloned().enumerate() {
             rows.extend(
                 cache
                     .inner
@@ -410,12 +413,13 @@ impl PerCache {
         out
     }
 
+    #[must_use]
     pub fn merge_allocations(self) -> PerCache {
         PerCache {
             inner: self
                 .inner
-                .to_vec()
-                .into_iter()
+                .iter()
+                .cloned()
                 .map(Cache::merge_allocations)
                 .collect(),
             ..self

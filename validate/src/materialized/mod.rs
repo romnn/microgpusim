@@ -3,11 +3,7 @@ pub mod value;
 
 pub use config::{Config, GenericBenchmark as GenericBenchmarkConfig};
 
-use super::{
-    benchmark::paths::PathExt,
-    template::{self, Render},
-    Error, Target,
-};
+use super::{benchmark::paths::PathExt, template::Render, Error, Target};
 use indexmap::IndexMap;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -33,6 +29,10 @@ pub enum TargetBenchmarkConfig {
         /// Traces dir (default to the dir specified in accelsim trace)
         traces_dir: PathBuf,
         accelsim_traces_dir: PathBuf,
+        parallel: Option<bool>,
+    },
+    ExecDrivenSimulate {
+        stats_dir: PathBuf,
         parallel: Option<bool>,
     },
     AccelsimSimulate {
@@ -122,6 +122,7 @@ impl BenchmarkConfig {
         }
     }
 
+    #[must_use]
     pub fn input_matches(&self, query: &super::benchmark::Input) -> bool {
         use serde_yaml::Value;
         let bench_entries: HashSet<(&String, &Value)> = self.values.iter().collect();
@@ -132,8 +133,8 @@ impl BenchmarkConfig {
 
         let intersecting_keys: Vec<_> = bench_keys.intersection(&query_keys).collect();
         let intersecting_entries: Vec<_> = bench_entries.intersection(&query_entries).collect();
-        let all_match = intersecting_entries.len() == intersecting_keys.len();
-        all_match
+
+        intersecting_entries.len() == intersecting_keys.len()
     }
 }
 
@@ -183,13 +184,14 @@ impl crate::Benchmark {
             Target::Trace => &top_level_config.trace.common,
             Target::AccelsimTrace => &top_level_config.accelsim_trace.common,
             Target::Simulate => &top_level_config.simulate.common,
+            Target::ExecDrivenSimulate => &top_level_config.exec_driven_simulate.common,
             Target::AccelsimSimulate => &top_level_config.accelsim_simulate.common,
             Target::PlaygroundSimulate => &top_level_config.playground_simulate.common,
         };
         let common_config =
             self.config
                 .clone()
-                .materialize(base, Some(target), Some(&top_level_common_config))?;
+                .materialize(base, Some(target), Some(top_level_common_config))?;
 
         let trace_config = self.config.clone().materialize(
             base,
@@ -252,6 +254,13 @@ impl crate::Benchmark {
                     .join("sim"),
                 traces_dir,
                 accelsim_traces_dir,
+                parallel: None,
+            },
+            Target::ExecDrivenSimulate => TargetBenchmarkConfig::ExecDrivenSimulate {
+                stats_dir: common_config
+                    .results_dir
+                    .join(&default_bench_dir)
+                    .join("sim"),
                 parallel: None,
             },
             Target::AccelsimSimulate => TargetBenchmarkConfig::AccelsimSimulate {
@@ -322,6 +331,12 @@ impl crate::Benchmark {
                     &self.accelsim_simulate.inputs,
                 ]
             }
+            Target::ExecDrivenSimulate => {
+                vec![
+                    &config.exec_driven_simulate.inputs,
+                    &self.exec_driven_simulate.inputs,
+                ]
+            }
             Target::PlaygroundSimulate => {
                 vec![
                     &config.playground_simulate.inputs,
@@ -350,7 +365,7 @@ impl crate::Benchmark {
 
                 let mut bench_configs =
                     self.materialize_input(name.to_string(), target_input, config, base, target);
-                for bench_config in bench_configs.iter_mut() {
+                for bench_config in &mut bench_configs {
                     bench_config.input_idx = input_idx;
                 }
                 bench_configs
@@ -411,19 +426,20 @@ impl Benchmarks {
     pub fn benchmark_configs(&self) -> impl Iterator<Item = &BenchmarkConfig> + '_ {
         self.benchmarks
             .values()
-            .flat_map(|benchmarks| benchmarks.values())
-            .flat_map(|benchmark| benchmark)
+            .flat_map(indexmap::IndexMap::values)
+            .flatten()
     }
 
-    pub fn query(
-        &self,
+    pub fn query<'a>(
+        &'a self,
         target: Target,
         benchmark_name: impl Into<String>,
-        query: super::matrix::Input,
+        // query: impl AsRef<super::matrix::Input> + 'a,
+        query: &'a super::matrix::Input,
         _strict: bool,
-    ) -> impl Iterator<Item = Result<&BenchmarkConfig, QueryError>> + '_ {
+    ) -> impl Iterator<Item = Result<&'a BenchmarkConfig, QueryError>> + 'a {
         self.get_input_configs(target, benchmark_name.into())
-            .filter(move |bench_config| bench_config.input_matches(&query))
+            .filter(move |bench_config| bench_config.input_matches(query))
             .map(Result::Ok)
     }
 }
@@ -450,7 +466,7 @@ impl crate::Benchmarks {
                     .map(|(benchmark_idx, (name, bench))| {
                         let mut bench_configs =
                             bench.materialize_for_target(&name, base, &config, target)?;
-                        for bench_config in bench_configs.iter_mut() {
+                        for bench_config in &mut bench_configs {
                             bench_config.benchmark_idx = benchmark_idx;
                         }
                         Ok::<_, super::Error>((name.clone(), bench_configs))
@@ -784,7 +800,7 @@ benchmarks:
             query!(materialized.query(
                 Target::Simulate,
                 "invalid bench name",
-                crate::input!({})?,
+                &crate::input!({})?,
                 false
             )),
             vec![] as Vec::<Result<String, super::QueryError>>
@@ -797,14 +813,14 @@ benchmarks:
         ];
 
         diff::assert_eq!(
-            query!(materialized.query(Target::Simulate, "vectorAdd", crate::input!({})?, false)),
+            query!(materialized.query(Target::Simulate, "vectorAdd", &crate::input!({})?, false)),
             all_vectoradd_configs,
         );
         diff::assert_eq!(
             query!(materialized.query(
                 Target::Simulate,
                 "vectorAdd",
-                crate::input!({ "dtype": 32 })?,
+                &crate::input!({ "dtype": 32 })?,
                 false
             )),
             all_vectoradd_configs
@@ -813,7 +829,7 @@ benchmarks:
             query!(materialized.query(
                 Target::Simulate,
                 "vectorAdd",
-                crate::input!({ "invalid key": 32 })?,
+                &crate::input!({ "invalid key": 32 })?,
                 false
             )),
             all_vectoradd_configs
@@ -822,7 +838,7 @@ benchmarks:
             query!(materialized.query(
                 Target::Simulate,
                 "vectorAdd",
-                crate::input!({ "invalid key": 32 })?,
+                &crate::input!({ "invalid key": 32 })?,
                 true
             )),
             vec![
@@ -838,7 +854,7 @@ benchmarks:
             query!(materialized.query(
                 Target::Simulate,
                 "vectorAdd",
-                crate::input!({ "length": 100 })?,
+                &crate::input!({ "length": 100 })?,
                 false
             )),
             vec![Ok("vectorAdd-dtype-32-length-100".to_string())]
@@ -848,7 +864,7 @@ benchmarks:
             query!(materialized.query(
                 Target::Simulate,
                 "vectorAdd",
-                crate::input!({ "dtype": 32, "length": 1000 })?,
+                &crate::input!({ "dtype": 32, "length": 1000 })?,
                 true
             )),
             vec![Ok("vectorAdd-dtype-32-length-1000".to_string())]
@@ -858,7 +874,7 @@ benchmarks:
             query!(materialized.query(
                 Target::Simulate,
                 "vectorAdd",
-                crate::input!({ "unknown": 32, "length": 1000 })?,
+                &crate::input!({ "unknown": 32, "length": 1000 })?,
                 false
             )),
             vec![Ok("vectorAdd-dtype-32-length-1000".to_string())]

@@ -117,8 +117,8 @@ pub fn stats_match(
                 // );
             }
 
-            let mut play_l2_data_stats = play_l2_data_stats.reduce();
-            let mut box_l2_data_stats = box_l2_data_stats.reduce();
+            let play_l2_data_stats = play_l2_data_stats.reduce();
+            let box_l2_data_stats = box_l2_data_stats.reduce();
 
             dbg!(&play_l2_data_stats, &box_l2_data_stats);
             if play_l2_data_stats != box_l2_data_stats {

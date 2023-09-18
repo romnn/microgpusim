@@ -12,16 +12,16 @@ pub struct Manager {
     fill_port_occupied_cycles: usize,
 }
 
-impl std::fmt::Debug for Manager {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct("BandwidthManager")
-            .field("data_port_occupied_cycles", &self.data_port_occupied_cycles)
-            .field("fill_port_occupied_cycles", &self.fill_port_occupied_cycles)
-            .field("has_free_data_port", &self.has_free_data_port())
-            .field("has_free_fill_port", &self.has_free_fill_port())
-            .finish()
-    }
-}
+// impl std::fmt::Debug for Manager {
+//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+//         f.debug_struct("BandwidthManager")
+//             .field("data_port_occupied_cycles", &self.data_port_occupied_cycles)
+//             .field("fill_port_occupied_cycles", &self.fill_port_occupied_cycles)
+//             .field("has_free_data_port", &self.has_free_data_port())
+//             .field("has_free_fill_port", &self.has_free_fill_port())
+//             .finish()
+//     }
+// }
 
 impl Manager {
     /// Create a new bandwidth manager from config

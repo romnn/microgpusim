@@ -1002,7 +1002,7 @@ impl RegisterFileUnit {
 
 #[cfg(test)]
 mod test {
-    use crate::{mem_fetch, testing};
+    use crate::{testing};
     use std::ops::Deref;
     use trace_model::ToBitString;
 

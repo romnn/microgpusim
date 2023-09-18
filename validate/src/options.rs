@@ -53,7 +53,7 @@ pub enum Command {
 }
 
 impl Command {
-    pub fn targets(&self) -> Box<dyn Iterator<Item = Target>> {
+    #[must_use] pub fn targets(&self) -> Box<dyn Iterator<Item = Target>> {
         use strum::IntoEnumIterator;
         match self {
             Command::Full(_) => Box::new(Target::iter()), // all

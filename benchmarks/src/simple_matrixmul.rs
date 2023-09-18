@@ -68,7 +68,7 @@ where
     }
 }
 
-pub fn reference<T>(a: &Vec<T>, b: &Vec<T>, result: &mut Vec<T>, m: usize, n: usize, p: usize)
+pub fn reference<T>(matrix_a: &[T], matrix_b: &[T], result: &mut [T], m: usize, n: usize, p: usize)
 where
     T: Float + std::ops::AddAssign,
 {
@@ -76,7 +76,7 @@ where
         for pi in 0..p {
             let mut sum = T::zero();
             for ni in 0..n {
-                sum += a[mi * n + ni] * b[ni * p + pi];
+                sum += matrix_a[mi * n + ni] * matrix_b[ni * p + pi];
             }
 
             result[mi * p + pi] = sum;
@@ -93,25 +93,25 @@ where
     let mut rng = rand::thread_rng();
 
     // create host vectors
-    let mut a: Vec<T> = vec![T::zero(); m * n];
-    let mut b: Vec<T> = vec![T::zero(); n * p];
+    let mut matrix_a: Vec<T> = vec![T::zero(); m * n];
+    let mut matrix_b: Vec<T> = vec![T::zero(); n * p];
     let mut result: Vec<T> = vec![T::zero(); m * p];
 
     // initialize vectors
-    for av in a.iter_mut() {
+    for av in &mut matrix_a {
         *av = NumCast::from(rng.gen_range(-256.0..256.0)).unwrap();
     }
-    for bv in b.iter_mut() {
+    for bv in &mut matrix_b {
         *bv = NumCast::from(rng.gen_range(-256.0..256.0)).unwrap();
     }
 
-    simple_matrixmul(&a, &b, &mut result, m, n, p).await?;
+    simple_matrixmul(&matrix_a, &matrix_b, &mut result, m, n, p).await?;
     Ok(())
 }
 
 pub async fn simple_matrixmul<T>(
-    a: &Vec<T>,
-    b: &Vec<T>,
+    matrix_a: &Vec<T>,
+    matrix_b: &Vec<T>,
     result: &mut Vec<T>,
     m: usize,
     n: usize,
@@ -125,20 +125,19 @@ where
 {
     let tracer = Tracer::new();
 
-    assert_eq!(a.len(), b.len());
-    assert_eq!(b.len(), result.len());
-    let _n = a.len();
+    assert_eq!(matrix_a.len(), matrix_b.len());
+    assert_eq!(matrix_b.len(), result.len());
 
     // allocate memory for each vector on simulated GPU device
-    let dev_a = tracer.allocate(a, MemorySpace::Global).await;
-    let dev_b = tracer.allocate(b, MemorySpace::Global).await;
+    let dev_a = tracer.allocate(matrix_a, MemorySpace::Global).await;
+    let dev_b = tracer.allocate(matrix_b, MemorySpace::Global).await;
     let dev_result = tracer.allocate(result, MemorySpace::Global).await;
 
     // number of thread blocks in grid
     let block_dim: Dim = (BLOCK_DIM as u32, BLOCK_DIM as u32).into();
-    let grid_x = (p as f64 / block_dim.x as f64).ceil() as u32;
-    let grid_y = (m as f64 / block_dim.y as f64).ceil() as u32;
-    let grid_dim: Dim = (grid_x as u32, grid_y as u32).into();
+    let grid_x = p as f64 / block_dim.x as f64;
+    let grid_y = m as f64 / block_dim.y as f64;
+    let grid_dim: Dim = (grid_x.ceil() as u32, grid_y.ceil() as u32).into();
     println!("grid dim:  {grid_dim}");
     println!("block dim: {block_dim}");
 
@@ -175,26 +174,27 @@ mod tests {
         let (m, n, p) = (4, 4, 4);
 
         // create host vectors
-        let mut a: Vec<f32> = vec![0.0; m * n];
-        let mut b: Vec<f32> = vec![0.0; n * p];
+        let mut matrix_a: Vec<f32> = vec![0.0; m * n];
+        let mut matrix_b: Vec<f32> = vec![0.0; n * p];
         let mut result: Vec<f32> = vec![0.0; m * p];
         let mut ref_result: Vec<f32> = vec![0.0; m * p];
 
         // initialize random matrix
-        for av in a.iter_mut() {
+        for av in &mut matrix_a {
             *av = rng.gen_range(-256.0..256.0);
         }
-        for bv in b.iter_mut() {
+        for bv in &mut matrix_b {
             *bv = rng.gen_range(-256.0..256.0);
         }
 
         let ndarray_result = {
-            let ref_a = Array2::from_shape_vec((m, n), a.clone())?;
-            let ref_b = Array2::from_shape_vec((n, p), b.clone())?;
+            let ref_a = Array2::from_shape_vec((m, n), matrix_a.clone())?;
+            let ref_b = Array2::from_shape_vec((n, p), matrix_b.clone())?;
             ref_a.dot(&ref_b)
         };
-        let (_launch_config, trace) = super::simple_matrixmul(&a, &b, &mut result, m, n, p).await?;
-        super::reference(&a, &b, &mut ref_result, m, n, p);
+        let (_launch_config, trace) =
+            super::simple_matrixmul(&matrix_a, &matrix_b, &mut result, m, n, p).await?;
+        super::reference(&matrix_a, &matrix_b, &mut ref_result, m, n, p);
 
         let ref_result = Array2::from_shape_vec((m, p), ref_result)?;
         let result = Array2::from_shape_vec((m, p), result)?;

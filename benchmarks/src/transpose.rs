@@ -234,8 +234,20 @@ where
     }
 }
 
-/// transpose_naive benchmark application.
-pub async fn benchmark<T>(dim: usize) -> eyre::Result<()>
+#[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Variant {
+    Naive,
+    Coalesced,
+    Optimized,
+}
+
+pub async fn benchmark<T>(
+    dim: usize,
+    variant: Variant,
+) -> eyre::Result<(
+    trace_model::command::KernelLaunch,
+    trace_model::MemAccessTrace,
+)>
 where
     T: Float + Zero + std::ops::AddAssign + Send + Sync + std::fmt::Debug,
 {
@@ -248,8 +260,11 @@ where
         *v = NumCast::from(i).unwrap();
     }
 
-    transpose_naive(&mat, &mut result, dim, dim).await?;
-    Ok(())
+    match variant {
+        Variant::Naive => transpose_naive(&mat, &mut result, dim, dim).await,
+        Variant::Coalesced => transpose_coalesced(&mat, &mut result, dim, dim).await,
+        Variant::Optimized => transpose_optimized(&mat, &mut result, dim, dim).await,
+    }
 }
 
 pub fn validate_arguments<T>(
@@ -275,6 +290,7 @@ pub fn validate_arguments<T>(
     Ok(())
 }
 
+#[allow(clippy::module_name_repetitions)]
 pub async fn transpose_naive<T>(
     mat: &Vec<T>,
     result: &mut Vec<T>,
@@ -304,6 +320,7 @@ where
     transpose::<T, naive::Transpose<T>>(tracer, rows, cols, kernel).await
 }
 
+#[allow(clippy::module_name_repetitions)]
 pub async fn transpose_coalesced<T>(
     mat: &Vec<T>,
     result: &mut Vec<T>,
@@ -338,6 +355,7 @@ where
     transpose::<T, coalesced::Transpose<T>>(tracer, rows, cols, kernel).await
 }
 
+#[allow(clippy::module_name_repetitions)]
 pub async fn transpose_optimized<T>(
     mat: &Vec<T>,
     result: &mut Vec<T>,
@@ -386,7 +404,7 @@ where
     K: Kernel + Send + Sync,
     <K as Kernel>::Error: Send + Sync + 'static,
 {
-    let block_dim: Dim = (TILE_DIM as u32, BLOCK_ROWS as u32).into();
+    let block_dim: Dim = (TILE_DIM, BLOCK_ROWS).into();
     let grid_x = cols / TILE_DIM as usize;
     let grid_y = rows / TILE_DIM as usize;
     let grid_dim: Dim = (grid_x as u32, grid_y as u32).into();

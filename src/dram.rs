@@ -28,7 +28,7 @@ pub struct DRAM {
 //
 
 impl DRAM {
-    pub fn new(config: Arc<config::GPU>, stats: Arc<Mutex<stats::PerKernel>>) -> Self {
+    pub fn new(config: &config::GPU, stats: Arc<Mutex<stats::PerKernel>>) -> Self {
         // let mrqq = FifoQueue::new("mrqq", Some(0), Some(2));
         // let scheduler = FrfcfsScheduler::new(&*config, stats.clone());
         Self {

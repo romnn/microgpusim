@@ -76,13 +76,13 @@ pub async fn trace(
     Ok(())
 }
 
-impl Into<accelsim::SimConfig> for materialized::config::AccelsimSimConfigFiles {
-    fn into(self) -> accelsim::SimConfig {
+impl From<materialized::config::AccelsimSimConfigFiles> for accelsim::SimConfig {
+    fn from(val: materialized::config::AccelsimSimConfigFiles) -> Self {
         accelsim::SimConfig {
-            config: Some(self.config),
-            config_dir: Some(self.config_dir),
-            trace_config: Some(self.trace_config),
-            inter_config: Some(self.inter_config),
+            config: Some(val.config),
+            config_dir: Some(val.config_dir),
+            trace_config: Some(val.trace_config),
+            inter_config: Some(val.inter_config),
         }
     }
 }
@@ -197,7 +197,7 @@ pub fn process_stats(
 
     super::stats::write_csv_rows(
         open_writable(stats_dir.join(format!("raw.stats.{repetition}.csv")))?,
-        &stats.iter().collect::<Vec<_>>(),
+        stats.iter().collect::<Vec<_>>(),
     )?;
 
     let mut converted_stats: stats::Stats = stats.try_into()?;

@@ -8,7 +8,7 @@ use std::time::Duration;
 use validate::{
     benchmark::Input,
     input,
-    materialized::{BenchmarkConfig, Benchmarks, TargetBenchmarkConfig},
+    materialized::{BenchmarkConfig, TargetBenchmarkConfig},
     Target, TraceProvider,
 };
 
@@ -96,7 +96,7 @@ pub fn run_box(
 
 pub async fn run_accelsim(bench_config: Arc<BenchmarkConfig>) -> eyre::Result<accelsim::Stats> {
     assert!(!validate::accelsim::is_debug());
-    let (log, _dur) = validate::accelsim::simulate_bench_config(&*bench_config).await?;
+    let (log, _dur) = validate::accelsim::simulate_bench_config(&bench_config).await?;
     let parse_options = accelsim::parser::Options::default();
     let log_reader = std::io::Cursor::new(log.stdout);
     let stats = accelsim::Stats {
@@ -114,7 +114,7 @@ pub fn run_playground(
     let extra_args: &[String] = &[];
     assert!(!validate::playground::is_debug());
     let (log, stats, dur) = validate::playground::simulate_bench_config(
-        &*bench_config,
+        &bench_config,
         TraceProvider::Box,
         extra_args,
         accelsim_compat_mode,
@@ -132,15 +132,12 @@ pub fn accelsim_benchmark(c: &mut Criterion) {
         .build()
         .expect("build tokio runtime");
 
-    let bench_config = validate::benchmark::find_all(
-        Target::AccelsimSimulate,
-        "vectorAdd",
-        input!({ "dtype": 32, "length": 10000 }).unwrap(),
-    )
-    .unwrap()
-    .into_iter()
-    .next()
-    .unwrap();
+    let input: Input = input!({ "dtype": 32, "length": 10000 }).unwrap();
+    let bench_config = validate::benchmark::find_all(Target::AccelsimSimulate, "vectorAdd", &input)
+        .unwrap()
+        .into_iter()
+        .next()
+        .unwrap();
     let bench_config = Arc::new(bench_config);
     group.bench_function("vectoradd/10000", |b| {
         b.to_async(&runtime)
@@ -159,7 +156,7 @@ pub fn play_benchmark(c: &mut Criterion) {
     let bench_config = validate::benchmark::find_all(
         Target::PlaygroundSimulate,
         "vectorAdd",
-        input!({ "dtype": 32, "length": 10000 }).unwrap(),
+        &input!({ "dtype": 32, "length": 10000 }).unwrap(),
     )
     .unwrap()
     .into_iter()
@@ -182,7 +179,7 @@ pub fn box_benchmark(c: &mut Criterion) {
     let bench_config = validate::benchmark::find_all(
         Target::Simulate,
         "vectorAdd",
-        input!({ "dtype": 32, "length": 10000 }).unwrap(),
+        &input!({ "dtype": 32, "length": 10000 }).unwrap(),
     )
     .unwrap()
     .into_iter()
@@ -250,11 +247,10 @@ fn main() -> eyre::Result<()> {
     };
 
     let start = Instant::now();
-    let bench_config =
-        validate::benchmark::find_all(Target::Simulate, bench_name, input_query.clone())?
-            .into_iter()
-            .next()
-            .unwrap();
+    let bench_config = validate::benchmark::find_all(Target::Simulate, bench_name, &input_query)?
+        .into_iter()
+        .next()
+        .unwrap();
     let bench_config = Arc::new(bench_config);
     println!("running {}@{}", bench_config.name, bench_config.input_idx);
 
@@ -297,11 +293,10 @@ fn main() -> eyre::Result<()> {
     // clear timing measurements
     gpucachesim::TIMINGS.lock().clear();
 
-    let bench_config =
-        validate::benchmark::find_all(Target::Simulate, bench_name, input_query.clone())?
-            .into_iter()
-            .next()
-            .unwrap();
+    let bench_config = validate::benchmark::find_all(Target::Simulate, bench_name, &input_query)?
+        .into_iter()
+        .next()
+        .unwrap();
     let bench_config = Arc::new(bench_config);
     let start = Instant::now();
     let stats = run_box(black_box(bench_config), Parallelization::Serial)?;
@@ -339,7 +334,7 @@ fn main() -> eyre::Result<()> {
     }
 
     let bench_config =
-        validate::benchmark::find_all(Target::PlaygroundSimulate, bench_name, input_query.clone())?
+        validate::benchmark::find_all(Target::PlaygroundSimulate, bench_name, &input_query)?
             .into_iter()
             .next()
             .unwrap();
@@ -349,7 +344,7 @@ fn main() -> eyre::Result<()> {
     println!("play took:\t\t{play_dur:?}");
 
     let bench_config =
-        validate::benchmark::find_all(Target::AccelsimSimulate, bench_name, input_query.clone())?
+        validate::benchmark::find_all(Target::AccelsimSimulate, bench_name, &input_query)?
             .into_iter()
             .next()
             .unwrap();

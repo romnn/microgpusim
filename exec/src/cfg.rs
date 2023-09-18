@@ -21,9 +21,9 @@ impl std::fmt::Display for TraceNode {
             Self::Branch { .. } => write!(f, "BRA")?,
             Self::Reconverge { .. } => write!(f, "REC")?,
         }
-        write!(f, "@{}", id)?;
+        write!(f, "@{id}")?;
         if num_instructions > 0 {
-            write!(f, "[{}]", num_instructions)?;
+            write!(f, "[{num_instructions}]")?;
         }
         Ok(())
     }
@@ -149,7 +149,7 @@ where
         let mut neighbors = Vec::new();
         let mut edges = self.neighbors_directed(node, petgraph::Outgoing).detach();
 
-        while let Some((outgoing_edge_idx, next_node_idx)) = edges.next(&self) {
+        while let Some((outgoing_edge_idx, next_node_idx)) = edges.next(self) {
             neighbors.push((outgoing_edge_idx, next_node_idx));
         }
         neighbors
@@ -367,7 +367,7 @@ pub mod visit {
     }
 
     impl<'a> DominatedBfs<'a> {
-        pub fn new(graph: &'a CFG, root_node_idx: NodeIndex) -> Self {
+        #[must_use] pub fn new(graph: &'a CFG, root_node_idx: NodeIndex) -> Self {
             let mut dominator_stack = VecDeque::new();
             assert!(matches!(graph[root_node_idx], Node::Branch(0)));
             dominator_stack.push_front(root_node_idx);
@@ -393,8 +393,7 @@ pub mod visit {
                 println!(
                     "current path: {} stack: {:?}",
                     super::format_control_flow_path(self.graph, self.path.make_contiguous())
-                        .collect::<Vec<_>>()
-                        .join(""),
+                        .collect::<String>(),
                     self.stack
                         .iter()
                         .map(|(e, n)| (self.graph[*e], self.graph[*n].to_string()))
@@ -479,7 +478,7 @@ pub mod visit {
                 if !has_children {
                     self.path.pop_back();
                 }
-                return Some((edge_idx, node_idx));
+                Some((edge_idx, node_idx))
             } else {
                 // stack is empty, proceed with parent denominator
                 // if let Some(reconvergence_node_idx) = self.dominator_stack.pop_front() {
@@ -531,7 +530,7 @@ pub mod visit {
                     assert!(*limit != 0, "WARNING: limit reached");
                 }
 
-                return self.next();
+                self.next()
             }
         }
     }

@@ -133,7 +133,7 @@ macro_rules! accelsim_compat_tests {
 
                 let input: validate::benchmark::Input = validate::input!($($input)+)?;
                 let bench_config = validate::benchmark::find_exact(
-                    Target::AccelsimSimulate, $bench_name, input)?;
+                    Target::AccelsimSimulate, $bench_name, &input)?;
                 let TargetBenchmarkConfig::AccelsimSimulate {
                     ref configs, ..
                 } = bench_config.target_config else {

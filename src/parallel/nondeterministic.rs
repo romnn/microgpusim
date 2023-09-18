@@ -442,9 +442,7 @@ where
 
         let num_threads = self
             .config
-            .simulation_threads
-            .map(Result::Ok)
-            .unwrap_or_else(super::get_num_threads)?;
+            .simulation_threads.map_or_else(super::get_num_threads, Result::Ok)?;
 
         let _ = rayon::ThreadPoolBuilder::new()
             .num_threads(num_threads)

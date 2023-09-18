@@ -787,7 +787,7 @@ fn get_bench_config(
     input.insert("cores_per_cluster".to_string(), validate::input!(1)?);
 
     let bench_config =
-        validate::benchmark::find_exact(validate::Target::Simulate, bench_name, input)?;
+        validate::benchmark::find_exact(validate::Target::Simulate, bench_name, &input)?;
     Ok(bench_config)
 }
 

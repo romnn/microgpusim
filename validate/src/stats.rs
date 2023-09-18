@@ -1,6 +1,6 @@
 use super::open_writable;
 use color_eyre::eyre;
-use serde::{Deserialize, Serialize};
+use serde::{Serialize};
 use std::path::{Path, PathBuf};
 
 #[derive(strum::IntoStaticStr, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -58,7 +58,6 @@ pub fn already_exist(
     stats_dir: impl AsRef<Path>,
 ) -> bool {
     (0..bench_config.repetitions)
-        .into_iter()
         .flat_map(|repetition| {
             [
                 access_stats_path(&stats_dir, repetition),
@@ -141,7 +140,7 @@ pub fn write_stats_as_csv(
         stats
             .iter()
             .enumerate()
-            .flat_map(|(kernel_launch_id, kernel_stats)| {
+            .flat_map(|(_kernel_launch_id, kernel_stats)| {
                 kernel_stats.dram.accesses_csv().into_iter()
                 // .map(move |accesses| stats::dram::AccessesCsvRow {
                 //     // kernel_name: "".to_string(),
@@ -155,7 +154,7 @@ pub fn write_stats_as_csv(
         stats
             .iter()
             .enumerate()
-            .flat_map(|(kernel_launch_id, kernel_stats)| {
+            .flat_map(|(_kernel_launch_id, kernel_stats)| {
                 kernel_stats.dram.bank_accesses_csv().into_iter()
                 // .map(move |row| stats::dram::BankAccessesCsvRow {
                 //     // kernel_name: "".to_string(),
@@ -171,7 +170,7 @@ pub fn write_stats_as_csv(
         stats
             .iter()
             .enumerate()
-            .flat_map(|(kernel_launch_id, kernel_stats)| {
+            .flat_map(|(_kernel_launch_id, kernel_stats)| {
                 kernel_stats.accesses.clone().into_csv_rows()
                 // .into_iter()
                 // .map(move |row| stats::mem::CsvRow {
@@ -194,7 +193,7 @@ pub fn write_stats_as_csv(
             // stats
             //     .iter()
             //     .enumerate()
-            .flat_map(|(kernel_launch_id, cache_stats)| {
+            .flat_map(|(_kernel_launch_id, cache_stats)| {
                 // kernel_stats
                 //     .instructions
                 //     .clone()
@@ -265,7 +264,7 @@ pub fn write_stats_as_csv(
                 .into_iter()
                 .cloned()
                 .enumerate()
-                .flat_map(|(kernel_launch_id, cache_stats)| {
+                .flat_map(|(_kernel_launch_id, cache_stats)| {
                     cache_stats.into_csv_rows().into_iter()
                     // .map(move |row| stats::cache::CsvRow {
                     //     // kernel_name: "".to_string(),

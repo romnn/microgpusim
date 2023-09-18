@@ -550,7 +550,6 @@ where
             core_id,
             cluster_id,
             cache_stats,
-            Arc::clone(&config),
             config.inst_cache_l1.as_ref().unwrap().clone(),
         );
         instr_l1_cache.set_top_port(mem_port.clone());

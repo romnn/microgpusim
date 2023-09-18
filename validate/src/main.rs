@@ -20,7 +20,6 @@ use validate::{
     benchmark::paths::PathExt,
     materialized::{self, BenchmarkConfig, Benchmarks},
     options::{self, Command, Options},
-    Target,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -285,42 +284,13 @@ impl Error {
     }
 }
 
-#[tokio::main(flavor = "multi_thread")]
-async fn main() -> eyre::Result<()> {
-    env_logger::init();
-    color_eyre::install()?;
-    dotenv::dotenv().ok();
+use itertools::Itertools;
 
-    let start = Instant::now();
-    let options = Arc::new(Options::parse());
-
-    // parse benchmarks
-    let materialized = parse_benchmarks(&options)?;
-
-    if let Command::Expand(ref opts) = options.command {
-        if opts.full {
-            println!("{:#?}", &materialized);
-            return Ok(());
-        }
-    }
-
-    let concurrency = available_concurrency(&options, &materialized.config);
-    println!("concurrency: {concurrency}");
-
-    let commands = match &options.command {
-        Command::Full(_) => vec![
-            Command::Build(options::Build::default()),
-            Command::Profile(options::Profile::default()),
-            Command::Trace(options::Trace::default()),
-            Command::AccelsimTrace(options::AccelsimTrace::default()),
-            Command::Simulate(options::Sim::default()),
-            Command::AccelsimSimulate(options::AccelsimSim::default()),
-            Command::PlaygroundSimulate(options::PlaygroundSim::default()),
-        ],
-        other => vec![other.clone()],
-    };
-
-    use itertools::Itertools;
+fn compute_per_command_bench_configs<'a>(
+    materialized: &'a Benchmarks,
+    commands: Vec<Command>,
+    options: &'a Options,
+) -> eyre::Result<Vec<(Command, Vec<&'a BenchmarkConfig>)>> {
     let queries: Vec<validate::benchmark::Input> = options
         .query
         .iter()
@@ -389,7 +359,46 @@ async fn main() -> eyre::Result<()> {
             (command, bench_configs)
         })
         .collect();
+    Ok(per_command_bench_configs)
+}
 
+#[tokio::main(flavor = "multi_thread")]
+async fn main() -> eyre::Result<()> {
+    env_logger::init();
+    color_eyre::install()?;
+    dotenv::dotenv().ok();
+
+    let start = Instant::now();
+    let options = Arc::new(Options::parse());
+
+    // parse benchmarks
+    let materialized = parse_benchmarks(&options)?;
+
+    if let Command::Expand(ref opts) = options.command {
+        if opts.full {
+            println!("{:#?}", &materialized);
+            return Ok(());
+        }
+    }
+
+    let concurrency = available_concurrency(&options, &materialized.config);
+    println!("concurrency: {concurrency}");
+
+    let commands = match &options.command {
+        Command::Full(_) => vec![
+            Command::Build(options::Build::default()),
+            Command::Profile(options::Profile::default()),
+            Command::Trace(options::Trace::default()),
+            Command::AccelsimTrace(options::AccelsimTrace::default()),
+            Command::Simulate(options::Sim::default()),
+            Command::AccelsimSimulate(options::AccelsimSim::default()),
+            Command::PlaygroundSimulate(options::PlaygroundSim::default()),
+        ],
+        other => vec![other.clone()],
+    };
+
+    let per_command_bench_configs =
+        compute_per_command_bench_configs(&materialized, commands, &options)?;
     let num_bench_configs = per_command_bench_configs
         .iter()
         .flat_map(|(_command, bench_configs)| bench_configs)
@@ -460,7 +469,7 @@ async fn main() -> eyre::Result<()> {
 
     let _ = utils::fs::rchmod_writable(&materialized.config.results_dir);
 
-    let (succeeded, failed): (Vec<_>, Vec<_>) = utils::partition_results(results);
+    let (_succeeded, failed): (Vec<_>, Vec<_>) = utils::partition_results(results);
     // assert_eq!(num_bench_configs, succeeded.len() + failed.len());
 
     let mut num_failed = 0;

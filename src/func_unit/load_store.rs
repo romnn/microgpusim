@@ -43,16 +43,6 @@ impl std::fmt::Display for LoadStoreUnit {
     }
 }
 
-impl std::fmt::Debug for LoadStoreUnit {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct(&self.inner.name)
-            .field("core_id", &self.core_id)
-            .field("cluster_id", &self.cluster_id)
-            .field("response_fifo_size", &self.response_fifo.len())
-            .finish()
-    }
-}
-
 #[derive(strum::EnumCount, strum::FromRepr, Hash, PartialEq, Eq, Clone, Copy, Debug)]
 #[repr(usize)]
 enum WritebackClient {

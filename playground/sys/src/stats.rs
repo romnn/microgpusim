@@ -245,8 +245,8 @@ impl From<stats::sim::Sim> for Sim {
 impl From<Sim> for stats::sim::Sim {
     fn from(sim: Sim) -> Self {
         Self {
-            kernel_name: "".to_string(),
-            kernel_name_mangled: "".to_string(),
+            kernel_name: String::new(),
+            kernel_name_mangled: String::new(),
             kernel_launch_id: 0,
             cycles: sim.cycles,
             instructions: sim.instructions,

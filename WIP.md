@@ -2,9 +2,7 @@
 
 - today:
 
-  - cargo expand -p exec --lib --profile=test tracegen::tests
-
-  - write more execution driven examples (especially the different transpose variants)
+  - DONE: write more execution driven examples (especially the different transpose variants)
 
     - add them to the stats (as a new target?)
 
@@ -18,8 +16,8 @@
 
   - add to simulate benchmark configs:
 
-    - mem only option
     - l2 partition addr option
+    - DONE: mem only option
     - DONE: number of threads
 
   - consume our metric dfs:
@@ -46,6 +44,7 @@
   - record mem fetch latency in playground and box
 
   - DONE: proc macro for addign reconvergence points (building a dominator tree)
+    - DONE cargo expand -p exec --lib --profile=test tracegen::tests
   - DONE: control flow graph serialization using dominated BFS
   - DONE: add options to simulate
     - DONE: larger vectoradd example

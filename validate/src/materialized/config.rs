@@ -1,10 +1,4 @@
-use crate::{
-    benchmark::paths::PathExt,
-    template::{self, Render},
-    Error, Target,
-};
-use indexmap::IndexMap;
-use itertools::Itertools;
+use crate::{benchmark::paths::PathExt, template, Error, Target};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -67,6 +61,7 @@ impl crate::GenericBenchmarkConfig {
     }
 }
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct ProfileConfig {
     #[serde(flatten)]
@@ -74,6 +69,7 @@ pub struct ProfileConfig {
     pub inputs: crate::matrix::Inputs,
 }
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct TraceConfig {
     #[serde(flatten)]
@@ -83,6 +79,7 @@ pub struct TraceConfig {
     pub inputs: crate::matrix::Inputs,
 }
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct AccelsimTraceConfig {
     #[serde(flatten)]
@@ -90,6 +87,7 @@ pub struct AccelsimTraceConfig {
     pub inputs: crate::matrix::Inputs,
 }
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct SimConfig {
     #[serde(flatten)]
@@ -98,6 +96,16 @@ pub struct SimConfig {
     pub inputs: crate::matrix::Inputs,
 }
 
+#[allow(clippy::module_name_repetitions)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct ExecDrivenSimConfig {
+    #[serde(flatten)]
+    pub common: GenericBenchmark,
+    pub parallel: Option<bool>,
+    pub inputs: crate::matrix::Inputs,
+}
+
+#[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct AccelsimSimConfig {
     #[serde(flatten)]
@@ -107,6 +115,7 @@ pub struct AccelsimSimConfig {
     pub inputs: crate::matrix::Inputs,
 }
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct PlaygroundSimConfig {
     #[serde(flatten)]
@@ -175,6 +184,9 @@ pub struct Config {
 
     /// Base simulation config
     pub simulate: SimConfig,
+    /// Base simulation config
+    pub exec_driven_simulate: ExecDrivenSimConfig,
+
     /// Base accelsim simulation config
     pub accelsim_simulate: AccelsimSimConfig,
     /// Base playground simulation config
@@ -232,6 +244,18 @@ impl crate::Config {
                 )?,
                 parallel: self.simulate.parallel,
                 inputs: self.simulate.inputs,
+            }
+        };
+
+        let exec_driven_simulate = {
+            ExecDrivenSimConfig {
+                common: self.exec_driven_simulate.common.materialize(
+                    base,
+                    Some(Target::Simulate),
+                    Some(&common),
+                )?,
+                parallel: self.exec_driven_simulate.parallel,
+                inputs: self.exec_driven_simulate.inputs,
             }
         };
 
@@ -293,6 +317,7 @@ impl crate::Config {
             trace,
             accelsim_trace,
             simulate,
+            exec_driven_simulate,
             accelsim_simulate,
             playground_simulate,
         })

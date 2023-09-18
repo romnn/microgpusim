@@ -2,7 +2,7 @@ use super::AddressFormat;
 use color_eyre::eyre::{self, WrapErr};
 use std::collections::HashMap;
 use std::path::Path;
-use trace_model::{ActiveMask, Command, Dim, MemAccessTraceEntry};
+use trace_model::{Command, Dim, MemAccessTraceEntry};
 
 fn write_kernel_info(
     kernel: &trace_model::command::KernelLaunch,
@@ -86,7 +86,7 @@ fn write_single_trace_instruction(
 
         // list all the addresses
         line.push((AddressFormat::ListAll as usize).to_string());
-        let active_mask = ActiveMask::from(inst.active_mask);
+        let active_mask = inst.active_mask;
         for w in 0..32 {
             if active_mask[w] {
                 line.push(format!("{:#016x}", inst.addrs[w]));

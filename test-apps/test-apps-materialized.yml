@@ -2,7 +2,7 @@
 ##
 ## AUTO GENERATED! DO NOT EDIT
 ##
-## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 16/09/2023 17:11:51
+## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 18/09/2023 21:28:39
 ##
 
 config:
@@ -62,6 +62,14 @@ config:
         run_ahead: 10
       - mode: deterministic
         run_ahead: 10
+  exec_driven_simulate:
+    repetitions: 1
+    timeout: null
+    concurrency: null
+    enabled: true
+    results_dir: /home/roman/dev/box/results
+    parallel: null
+    inputs: {}
   accelsim_simulate:
     repetitions: 1
     timeout: null
@@ -71751,6 +71759,1272 @@ benchmarks:
         stats_dir: /home/roman/dev/box/results/babelstream/babelstream-cores_per_cluster-8-memory_only-true-mode-nondeterministic-run_ahead-10-size-102400-threads-8/sim
         traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/trace
         accelsim_traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/accelsim-trace
+        parallel: null
+  ExecDrivenSimulate:
+    vectorAdd:
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-dtype-32-length-100
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd
+      values:
+        dtype: 32
+        length: 100
+      args:
+      - '100'
+      - '32'
+      input_idx: 0
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-100/sim
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-dtype-32-length-1000
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd
+      values:
+        dtype: 32
+        length: 1000
+      args:
+      - '1000'
+      - '32'
+      input_idx: 1
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-1000/sim
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-dtype-32-length-10000
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd
+      values:
+        dtype: 32
+        length: 10000
+      args:
+      - '10000'
+      - '32'
+      input_idx: 2
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-10000/sim
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-dtype-32-length-20000
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd
+      values:
+        dtype: 32
+        length: 20000
+      args:
+      - '20000'
+      - '32'
+      input_idx: 3
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-20000/sim
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-dtype-64-length-100
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd
+      values:
+        dtype: 64
+        length: 100
+      args:
+      - '100'
+      - '64'
+      input_idx: 4
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-100/sim
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-dtype-64-length-1000
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd
+      values:
+        dtype: 64
+        length: 1000
+      args:
+      - '1000'
+      - '64'
+      input_idx: 5
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-1000/sim
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-dtype-64-length-10000
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd
+      values:
+        dtype: 64
+        length: 10000
+      args:
+      - '10000'
+      - '64'
+      input_idx: 6
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-10000/sim
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-dtype-64-length-20000
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd
+      values:
+        dtype: 64
+        length: 20000
+      args:
+      - '20000'
+      - '64'
+      input_idx: 7
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-20000/sim
+        parallel: null
+    simple_matrixmul:
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-32-n-32-p-32
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 32
+        n: 32
+        p: 32
+      args:
+      - '32'
+      - '32'
+      - '32'
+      - '32'
+      input_idx: 0
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32/sim
+        parallel: null
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-32-n-32-p-64
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 32
+        n: 32
+        p: 64
+      args:
+      - '32'
+      - '32'
+      - '64'
+      - '32'
+      input_idx: 1
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64/sim
+        parallel: null
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-32-n-32-p-128
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 32
+        n: 32
+        p: 128
+      args:
+      - '32'
+      - '32'
+      - '128'
+      - '32'
+      input_idx: 2
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-128/sim
+        parallel: null
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-32-n-64-p-32
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 32
+        n: 64
+        p: 32
+      args:
+      - '32'
+      - '64'
+      - '32'
+      - '32'
+      input_idx: 3
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-32/sim
+        parallel: null
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-32-n-64-p-64
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 32
+        n: 64
+        p: 64
+      args:
+      - '32'
+      - '64'
+      - '64'
+      - '32'
+      input_idx: 4
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-64/sim
+        parallel: null
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-32-n-64-p-128
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 32
+        n: 64
+        p: 128
+      args:
+      - '32'
+      - '64'
+      - '128'
+      - '32'
+      input_idx: 5
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-128/sim
+        parallel: null
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-32-n-128-p-32
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 32
+        n: 128
+        p: 32
+      args:
+      - '32'
+      - '128'
+      - '32'
+      - '32'
+      input_idx: 6
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-32/sim
+        parallel: null
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-32-n-128-p-64
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 32
+        n: 128
+        p: 64
+      args:
+      - '32'
+      - '128'
+      - '64'
+      - '32'
+      input_idx: 7
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-64/sim
+        parallel: null
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-32-n-128-p-128
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 32
+        n: 128
+        p: 128
+      args:
+      - '32'
+      - '128'
+      - '128'
+      - '32'
+      input_idx: 8
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-128/sim
+        parallel: null
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-64-n-32-p-32
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 64
+        n: 32
+        p: 32
+      args:
+      - '64'
+      - '32'
+      - '32'
+      - '32'
+      input_idx: 9
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-32/sim
+        parallel: null
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-64-n-32-p-64
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 64
+        n: 32
+        p: 64
+      args:
+      - '64'
+      - '32'
+      - '64'
+      - '32'
+      input_idx: 10
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-64/sim
+        parallel: null
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-64-n-32-p-128
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 64
+        n: 32
+        p: 128
+      args:
+      - '64'
+      - '32'
+      - '128'
+      - '32'
+      input_idx: 11
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-128/sim
+        parallel: null
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-64-n-64-p-32
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 64
+        n: 64
+        p: 32
+      args:
+      - '64'
+      - '64'
+      - '32'
+      - '32'
+      input_idx: 12
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-32/sim
+        parallel: null
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-64-n-64-p-64
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 64
+        n: 64
+        p: 64
+      args:
+      - '64'
+      - '64'
+      - '64'
+      - '32'
+      input_idx: 13
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-64/sim
+        parallel: null
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-64-n-64-p-128
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 64
+        n: 64
+        p: 128
+      args:
+      - '64'
+      - '64'
+      - '128'
+      - '32'
+      input_idx: 14
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-128/sim
+        parallel: null
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-64-n-128-p-32
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 64
+        n: 128
+        p: 32
+      args:
+      - '64'
+      - '128'
+      - '32'
+      - '32'
+      input_idx: 15
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-32/sim
+        parallel: null
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-64-n-128-p-64
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 64
+        n: 128
+        p: 64
+      args:
+      - '64'
+      - '128'
+      - '64'
+      - '32'
+      input_idx: 16
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-64/sim
+        parallel: null
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-64-n-128-p-128
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 64
+        n: 128
+        p: 128
+      args:
+      - '64'
+      - '128'
+      - '128'
+      - '32'
+      input_idx: 17
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128/sim
+        parallel: null
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-128-n-32-p-32
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 128
+        n: 32
+        p: 32
+      args:
+      - '128'
+      - '32'
+      - '32'
+      - '32'
+      input_idx: 18
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-32/sim
+        parallel: null
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-128-n-32-p-64
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 128
+        n: 32
+        p: 64
+      args:
+      - '128'
+      - '32'
+      - '64'
+      - '32'
+      input_idx: 19
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-64/sim
+        parallel: null
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-128-n-32-p-128
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 128
+        n: 32
+        p: 128
+      args:
+      - '128'
+      - '32'
+      - '128'
+      - '32'
+      input_idx: 20
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-128/sim
+        parallel: null
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-128-n-64-p-32
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 128
+        n: 64
+        p: 32
+      args:
+      - '128'
+      - '64'
+      - '32'
+      - '32'
+      input_idx: 21
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-32/sim
+        parallel: null
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-128-n-64-p-64
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 128
+        n: 64
+        p: 64
+      args:
+      - '128'
+      - '64'
+      - '64'
+      - '32'
+      input_idx: 22
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-64/sim
+        parallel: null
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-128-n-64-p-128
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 128
+        n: 64
+        p: 128
+      args:
+      - '128'
+      - '64'
+      - '128'
+      - '32'
+      input_idx: 23
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-128/sim
+        parallel: null
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-128-n-128-p-32
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 128
+        n: 128
+        p: 32
+      args:
+      - '128'
+      - '128'
+      - '32'
+      - '32'
+      input_idx: 24
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-32/sim
+        parallel: null
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-128-n-128-p-64
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 128
+        n: 128
+        p: 64
+      args:
+      - '128'
+      - '128'
+      - '64'
+      - '32'
+      input_idx: 25
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-64/sim
+        parallel: null
+    - name: simple_matrixmul
+      benchmark_idx: 1
+      uid: simple_matrixmul-dtype-32-m-128-n-128-p-128
+      path: /home/roman/dev/box/test-apps/simple_matrixmul
+      executable: /home/roman/dev/box/test-apps/simple_matrixmul/matrixmul
+      values:
+        dtype: 32
+        m: 128
+        n: 128
+        p: 128
+      args:
+      - '128'
+      - '128'
+      - '128'
+      - '32'
+      input_idx: 26
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-128/sim
+        parallel: null
+    matrixmul:
+    - name: matrixmul
+      benchmark_idx: 2
+      uid: matrixmul-dtype-32-rows-32
+      path: /home/roman/dev/box/test-apps/matrixmul
+      executable: /home/roman/dev/box/test-apps/matrixmul/matrixmul
+      values:
+        dtype: 32
+        rows: 32
+      args:
+      - '32'
+      - '32'
+      input_idx: 0
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-32/sim
+        parallel: null
+    - name: matrixmul
+      benchmark_idx: 2
+      uid: matrixmul-dtype-32-rows-64
+      path: /home/roman/dev/box/test-apps/matrixmul
+      executable: /home/roman/dev/box/test-apps/matrixmul/matrixmul
+      values:
+        dtype: 32
+        rows: 64
+      args:
+      - '64'
+      - '32'
+      input_idx: 1
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-64/sim
+        parallel: null
+    - name: matrixmul
+      benchmark_idx: 2
+      uid: matrixmul-dtype-32-rows-128
+      path: /home/roman/dev/box/test-apps/matrixmul
+      executable: /home/roman/dev/box/test-apps/matrixmul/matrixmul
+      values:
+        dtype: 32
+        rows: 128
+      args:
+      - '128'
+      - '32'
+      input_idx: 2
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-128/sim
+        parallel: null
+    - name: matrixmul
+      benchmark_idx: 2
+      uid: matrixmul-dtype-32-rows-256
+      path: /home/roman/dev/box/test-apps/matrixmul
+      executable: /home/roman/dev/box/test-apps/matrixmul/matrixmul
+      values:
+        dtype: 32
+        rows: 256
+      args:
+      - '256'
+      - '32'
+      input_idx: 3
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-256/sim
+        parallel: null
+    transpose:
+    - name: transpose
+      benchmark_idx: 3
+      uid: transpose-dim-256-repeat-1-variant-naive
+      path: /home/roman/dev/box/test-apps/transpose
+      executable: /home/roman/dev/box/test-apps/transpose/transpose
+      values:
+        dim: 256
+        variant: naive
+        repeat: 1
+      args:
+      - -variant=naive
+      - -dimX=256
+      - -dimY=256
+      - -repeat=1
+      input_idx: 0
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-naive/sim
+        parallel: null
+    - name: transpose
+      benchmark_idx: 3
+      uid: transpose-dim-256-repeat-1-variant-coalesced
+      path: /home/roman/dev/box/test-apps/transpose
+      executable: /home/roman/dev/box/test-apps/transpose/transpose
+      values:
+        dim: 256
+        variant: coalesced
+        repeat: 1
+      args:
+      - -variant=coalesced
+      - -dimX=256
+      - -dimY=256
+      - -repeat=1
+      input_idx: 1
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-coalesced/sim
+        parallel: null
+    - name: transpose
+      benchmark_idx: 3
+      uid: transpose-dim-256-repeat-1-variant-optimized
+      path: /home/roman/dev/box/test-apps/transpose
+      executable: /home/roman/dev/box/test-apps/transpose/transpose
+      values:
+        dim: 256
+        variant: optimized
+        repeat: 1
+      args:
+      - -variant=optimized
+      - -dimX=256
+      - -dimY=256
+      - -repeat=1
+      input_idx: 2
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-optimized/sim
+        parallel: null
+    - name: transpose
+      benchmark_idx: 3
+      uid: transpose-dim-512-repeat-1-variant-naive
+      path: /home/roman/dev/box/test-apps/transpose
+      executable: /home/roman/dev/box/test-apps/transpose/transpose
+      values:
+        dim: 512
+        variant: naive
+        repeat: 1
+      args:
+      - -variant=naive
+      - -dimX=512
+      - -dimY=512
+      - -repeat=1
+      input_idx: 3
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-naive/sim
+        parallel: null
+    - name: transpose
+      benchmark_idx: 3
+      uid: transpose-dim-512-repeat-1-variant-coalesced
+      path: /home/roman/dev/box/test-apps/transpose
+      executable: /home/roman/dev/box/test-apps/transpose/transpose
+      values:
+        dim: 512
+        variant: coalesced
+        repeat: 1
+      args:
+      - -variant=coalesced
+      - -dimX=512
+      - -dimY=512
+      - -repeat=1
+      input_idx: 4
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-coalesced/sim
+        parallel: null
+    - name: transpose
+      benchmark_idx: 3
+      uid: transpose-dim-512-repeat-1-variant-optimized
+      path: /home/roman/dev/box/test-apps/transpose
+      executable: /home/roman/dev/box/test-apps/transpose/transpose
+      values:
+        dim: 512
+        variant: optimized
+        repeat: 1
+      args:
+      - -variant=optimized
+      - -dimX=512
+      - -dimY=512
+      - -repeat=1
+      input_idx: 5
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-optimized/sim
+        parallel: null
+    - name: transpose
+      benchmark_idx: 3
+      uid: transpose-dim-1024-repeat-1-variant-naive
+      path: /home/roman/dev/box/test-apps/transpose
+      executable: /home/roman/dev/box/test-apps/transpose/transpose
+      values:
+        dim: 1024
+        variant: naive
+        repeat: 1
+      args:
+      - -variant=naive
+      - -dimX=1024
+      - -dimY=1024
+      - -repeat=1
+      input_idx: 6
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-naive/sim
+        parallel: null
+    - name: transpose
+      benchmark_idx: 3
+      uid: transpose-dim-1024-repeat-1-variant-coalesced
+      path: /home/roman/dev/box/test-apps/transpose
+      executable: /home/roman/dev/box/test-apps/transpose/transpose
+      values:
+        dim: 1024
+        variant: coalesced
+        repeat: 1
+      args:
+      - -variant=coalesced
+      - -dimX=1024
+      - -dimY=1024
+      - -repeat=1
+      input_idx: 7
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-coalesced/sim
+        parallel: null
+    - name: transpose
+      benchmark_idx: 3
+      uid: transpose-dim-1024-repeat-1-variant-optimized
+      path: /home/roman/dev/box/test-apps/transpose
+      executable: /home/roman/dev/box/test-apps/transpose/transpose
+      values:
+        dim: 1024
+        variant: optimized
+        repeat: 1
+      args:
+      - -variant=optimized
+      - -dimX=1024
+      - -dimY=1024
+      - -repeat=1
+      input_idx: 8
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-1024-repeat-1-variant-optimized/sim
+        parallel: null
+    babelstream:
+    - name: babelstream
+      benchmark_idx: 4
+      uid: babelstream-size-1024
+      path: /home/roman/dev/box/test-apps/BabelStream
+      executable: /home/roman/dev/box/test-apps/BabelStream/CUDAStream
+      values:
+        size: 1024
+      args:
+      - --arraysize
+      - '1024'
+      - --numtimes
+      - '1'
+      input_idx: 0
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/sim
+        parallel: null
+    - name: babelstream
+      benchmark_idx: 4
+      uid: babelstream-size-10240
+      path: /home/roman/dev/box/test-apps/BabelStream
+      executable: /home/roman/dev/box/test-apps/BabelStream/CUDAStream
+      values:
+        size: 10240
+      args:
+      - --arraysize
+      - '10240'
+      - --numtimes
+      - '1'
+      input_idx: 1
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/sim
+        parallel: null
+    - name: babelstream
+      benchmark_idx: 4
+      uid: babelstream-size-102400
+      path: /home/roman/dev/box/test-apps/BabelStream
+      executable: /home/roman/dev/box/test-apps/BabelStream/CUDAStream
+      values:
+        size: 102400
+      args:
+      - --arraysize
+      - '102400'
+      - --numtimes
+      - '1'
+      input_idx: 2
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: true
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/sim
         parallel: null
   AccelsimSimulate:
     vectorAdd:

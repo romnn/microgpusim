@@ -1,3 +1,5 @@
+#![allow(clippy::missing_panics_doc)]
+
 use quote::quote;
 use syn::visit_mut::{self, VisitMut};
 
@@ -21,16 +23,14 @@ struct ControlFlowVisitorMut {
     block: syn::Ident,
 }
 
-impl ControlFlowVisitorMut {
-    fn expr_diverges(&self, expr: &syn::Expr) -> bool {
-        match expr {
-            syn::Expr::If(syn::ExprIf { .. })
+fn expr_diverges(expr: &syn::Expr) -> bool {
+    matches!(
+        expr,
+        syn::Expr::If(syn::ExprIf { .. })
             | syn::Expr::ForLoop(syn::ExprForLoop { .. })
             | syn::Expr::While(syn::ExprWhile { .. })
-            | syn::Expr::Loop(syn::ExprLoop { .. }) => true,
-            _ => false,
-        }
-    }
+            | syn::Expr::Loop(syn::ExprLoop { .. })
+    )
 }
 
 impl VisitMut for ControlFlowVisitorMut {
@@ -57,11 +57,11 @@ impl VisitMut for ControlFlowVisitorMut {
                 syn::Stmt::Local(syn::Local {
                     init: Some(syn::LocalInit { expr, diverge, .. }),
                     ..
-                }) if self.expr_diverges(expr) || diverge.is_some() => {
+                }) if expr_diverges(expr) || diverge.is_some() => {
                     placeholders.push((i, self.current_reconvergence_point_id));
                     self.current_reconvergence_point_id += 1;
                 }
-                syn::Stmt::Expr(expr, _) if self.expr_diverges(expr) => {
+                syn::Stmt::Expr(expr, _) if expr_diverges(expr) => {
                     let block = &self.block;
                     let reconvergence_point_id = self.current_reconvergence_point_id;
                     if let syn::Expr::If(syn::ExprIf { then_branch, .. }) = expr {
@@ -115,7 +115,7 @@ pub fn inject_reconvergence_points(
             syn::Pat::Ident(syn::PatIdent { ident, .. }) => Some(ident),
             _ => None,
         },
-        _ => None,
+        syn::FnArg::Receiver(_) => None,
     });
     let block = block.unwrap();
 
